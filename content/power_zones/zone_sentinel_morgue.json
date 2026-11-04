@@ -1,0 +1,9 @@
+{
+  "capacity_kw": 100,
+  "flags": {},
+  "generator_id": "gen_zone_util_zone_sentinel_bullpen",
+  "id": "zone_sentinel_morgue",
+  "max_capacity_kw": 100,
+  "name": "Coldwater Sentinel Morgue",
+  "source_type": "city_grid"
+}

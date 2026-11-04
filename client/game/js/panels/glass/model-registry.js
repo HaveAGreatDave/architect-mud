@@ -47,9 +47,12 @@ export const NAMED_MODELS = {
   // agree on a height each one rolls for itself, and every one left a pipe in the air or through
   // the sign. The kit's riser section is declined (KIT_DECLINE): the arm draws the plant.
   coldwaterclonefacility:         { type: 'clone',     pal: 'ty_clone' },
-  ksabtvstudiostage:              { type: 'ksabstudio', pal: 'ty_ksab', neon: '#39d6ff' },
+  // The Media Lot's three buildings, in one hand and in constants (glass/models/lot-buildings.js).
+  // Their words are here, so the arms carry none of Coldwater's. `dead` is the letter that's out.
+  ksabtvstudiostage:              { type: 'lot_stage', pal: 'ty_dw_paint', neon: '#39d6ff', noKit: true, letters: 'KSAB', dead: 2, number: '7', lamp: 'ON AIR', card: 'TICKETS HERE' },
+  ksab5:                          { type: 'lot_wing',  pal: 'ty_dw_paint', neon: '#39d6ff', noKit: true, nameplate: 'KSAB5', marquee: 'ALL GAMES LIVE' },
   solenneresidences:              { type: 'solenne',   pal: 'ty_solenne',   neon: '#ffce78' },
-  coldwatersentinel:              { type: 'sentinel',  pal: 'ty_sentinel',  neon: '#5fd0ff' },   // was a recoloured corporate tower; it's a two-storey storefront newsroom
+  coldwatersentinel:              { type: 'lot_paper', pal: 'ty_dw_paint', neon: '#dcb25e', noKit: true, masthead: 'COLDWATER SENTINEL', stencil: 'NO PARKING' },
   // These two were keyed to names the buildings no longer have — a rename silently
   // dropped them back to the generic shop/office mesh, because namedModel() misses and
   // TYPE_MODEL catches. Re-keyed to the live building_name and given real silhouettes.

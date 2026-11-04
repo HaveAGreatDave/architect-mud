@@ -139,6 +139,7 @@ export function cloudVolToggle(...a) { return (_m || _cold('cloudVolToggle')).cl
 export function craftResidue(...a) { return (_m || _cold('craftResidue')).craftResidue(...a); }
 export function curtainEndResidue(...a) { return (_m || _cold('curtainEndResidue')).curtainEndResidue(...a); }
 export function curtainRoofFtAt(...a) { return (_m || _cold('curtainRoofFtAt')).curtainRoofFtAt(...a); }
+export function lotRoofFtAt(...a) { return (_m || _cold('lotRoofFtAt')).lotRoofFtAt(...a); }
 export function curtainSegs(...a) { return (_m || _cold('curtainSegs')).curtainSegs(...a); }
 export function curtainTopZAt(...a) { return (_m || _cold('curtainTopZAt')).curtainTopZAt(...a); }
 export function deadStandSnags(...a) { return (_m || _cold('deadStandSnags')).deadStandSnags(...a); }

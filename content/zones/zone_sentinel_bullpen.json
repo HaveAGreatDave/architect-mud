@@ -6,7 +6,8 @@
   "exits": {
     "east": "zone_sentinel_editor",
     "north": "zone_sentinel_press",
-    "south": "zone_district_914_910"
+    "south": "zone_district_914_910",
+    "west": "zone_sentinel_morgue"
   },
   "flags": {
     "building_name": "Coldwater Sentinel",

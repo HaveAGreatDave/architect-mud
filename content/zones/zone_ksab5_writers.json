@@ -1,0 +1,30 @@
+{
+  "ambient_events": [],
+  "ambient_theme": "indoors",
+  "bg_color": "#221e2c",
+  "description": "The writers' room at the top of the stair: a long table, a corkboard of fixtures, and a sofa with a blanket folded on the arm. Last night's lines are on the whiteboard with the jokes crossed out. A lamp on the end desk is switched on, with tape over the switch. The stairs are down.",
+  "exits": {
+    "down": "zone_ksab_lobby"
+  },
+  "flags": {
+    "building_name": "KSAB5",
+    "building_type": "studio",
+    "floor": "carpet",
+    "is_building": true,
+    "is_interior": true,
+    "window": {
+      "description": "A ribbon window onto the lot: the court, the gatehouse at the gate and the mast on the stage's roof, with the blinds at three different heights.",
+      "light": 0.85,
+      "name": "the ribbon window",
+      "visibility": 0.9
+    },
+    "world_exit_zone": "zone_district_913_910"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": 1,
+  "id": "zone_ksab5_writers",
+  "map_id": "map_int_ksab",
+  "name": "KSAB5 Writers' Room",
+  "parent_zone": "zone_district_913_910"
+}

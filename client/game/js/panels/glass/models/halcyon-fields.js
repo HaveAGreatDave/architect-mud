@@ -2055,13 +2055,4 @@ export const HALCYON_ARMS = {
       glowPool(ctx, cam, hx1, hy1, clad, '255,226,176', 6, alpha * 0.18);
     }
   },
-  sentinel(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E, name, board, pal, sign, F, W3, frontVis) {   // Coldwater Sentinel — a narrow storefront newsroom under a guyed press mast, its window a wall of feed-screens
-    const body = h * 1.02;
-    draw3DBoxAt(ctx, cam, dx, dy, fh * 0.96, 0, body, pal, seed, night, alpha, true);
-    draw3DBoxAt(ctx, cam, dx, dy, fh * 1.02, body * 0.74, body * 0.84, 'ty_door', seed + 1, night, alpha, false);   // the stencilled masthead band
-    mast(ctx, cam, dx, dy, body, body + h * 0.62, alpha, now, seed);                                                // how the news actually gets out
-    roofClutter(ctx, cam, dx, dy, fh * 0.96, body, 'citycore', seed + 2, night, alpha, now);
-    if (frontVis) { const [nx, ny] = F(fh * 0.52, fh * 1.00); neonBlade(ctx, cam, nx, ny, body * 0.80, body + h * 0.30, m.neon || '#5fd0ff', night, alpha); }
-    if (night) { const [wx, wy] = F(0, fh * 1.00); glowPool(ctx, cam, wx, wy, h * 0.24, '120,200,255', 13, alpha * 0.34); }   // feed-screens through the glass
-  },
 };

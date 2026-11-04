@@ -3,7 +3,7 @@
   "ambient_theme": "urban",
   "bg_color": "#241f2e",
   "color": "#8ba36a",
-  "description": "KSAB5, the station's sports channel, in the old writers' building. The marquee reads ALL GAMES LIVE, and through the glass a wall of monitors shows two grounds at once. Its door faces into the lot.",
+  "description": "KSAB5, the station's sports channel, in the old writers' building: three floors of ribbon windows with the blinds down to every height, and a glass-block stair on the corner. The marquee reads ALL GAMES LIVE, and through the glass a wall of monitors shows two grounds at once. One lamp on the top floor is on whatever the hour. The door faces into the lot.",
   "exits": {
     "north": "zone_ksab_lobby",
     "south": "zone_medialot_913_911",
@@ -15,8 +15,9 @@
     "district": "nightlife",
     "entrance": "south",
     "facade": true,
-    "floors": 2,
+    "floors": 3,
     "is_building": true,
+    "map_icon": "bldg_ksab5",
     "media_lot": {
       "part": "building",
       "wall": "n"
@@ -29,7 +30,7 @@
   "grid_z": 0,
   "id": "zone_district_913_910",
   "map_id": "map_world",
-  "marker": "KW",
+  "marker": "K5",
   "name": "KSAB5",
   "parent_zone": null
 }

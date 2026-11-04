@@ -1,0 +1,21 @@
+{
+  "description": "A long table with cup rings worn into it. The scissors are chained to the leg, and a card on the chain says they're the tenth pair.",
+  "flags": {
+    "aliases": [
+      "table",
+      "scissors",
+      "card"
+    ],
+    "notable": true
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_sentinel_reading_table",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "the reading table",
+  "object_type": "decoration",
+  "power_draw_kw": 0,
+  "price": 0,
+  "zone_id": "zone_sentinel_morgue"
+}

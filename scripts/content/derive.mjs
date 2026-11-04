@@ -576,6 +576,26 @@ export function deriveCurtain(zone, ctx = {}) {
   return ['n', 'e', 's', 'w'].filter(d => faces.has(d)).join('');
 }
 
+/**
+ * The Media Lot's wall and gate, as the movement graph allows them: `flags.media_lot` names the
+ * sides, and a wall is kept only where the tile has no exit onto the map and a gate only where it
+ * has one, so nothing can draw a wall across a door or a gate onto a blocked side. ONE RULE, because
+ * GLASS draws from it (plugins/flight/state.js) and the three map painters draw from it here, and a
+ * map that disagreed with the windscreen about where the gate is would be the worse of the two bugs.
+ *
+ * A building's link into its own rooms is an exit too, and the stage's into its floor is west, the
+ * side its wall stands on, so `mapOf` asks where the exit goes.
+ */
+const LOT_SIDE = { n: 'north', e: 'east', s: 'south', w: 'west' };
+export function lotSides(flag, exits, mapOf) {
+  if (!flag || typeof flag !== 'object' || !exits) return null;
+  const open = (dir) => { const to = exits[dir]; return !!to && mapOf(to) === 'map_world'; };
+  let wall = '';
+  for (const s of String(flag.wall || '')) if (LOT_SIDE[s] && !open(LOT_SIDE[s]) && !wall.includes(s)) wall += s;
+  const gate = LOT_SIDE[flag.gate] && open(LOT_SIDE[flag.gate]) ? flag.gate : undefined;
+  return { wall, gate };
+}
+
 // ── The tile stack — ground, feature, label (§7.7) ───────────────────────────
 //
 // A tile is at most three layers, and which layers it HAS is the whole answer to
@@ -779,6 +799,9 @@ function deriveSpans(sorted, render) {
 
 export function buildingIconSvg(zone) {
   if (!zone || !hasFacadeTag(zone)) return null;
+  // A building whose footprint is its own, where two share a type (the Media Lot's stage and KSAB5
+  // are both `studio`). It's still a rooftop, so the overlay toggle treats it as one.
+  if (zone?.flags?.map_icon) return String(zone.flags.map_icon);
   const bt = String(zone?.flags?.building_type || '').toLowerCase();
   return BUILDING_TYPE_ICON[bt] || (bt ? 'bldg_office' : null);
 }
@@ -1200,6 +1223,11 @@ export function buildRenderSpec(zone, palette, resolved, ctx = {}) {
   // the two silently delete the other, and which one won depended on the tile.
   const curtain = deriveCurtain(zone, ctx);
   if (curtain) spec.curtain = curtain;
+  // The Media Lot's wall, on the same tile edges the Curtain's is: its own keys, because it's a
+  // different wall in a different ink, and a gate here isn't `perimeter_gate`.
+  const lot = zone?.flags?.media_lot && ctx.mapOf ? lotSides(zone.flags.media_lot, zone.exits, ctx.mapOf) : null;
+  if (lot?.wall) spec.lot_wall = lot.wall;
+  if (lot?.gate) spec.lot_gate = lot.gate;
   // Facade-only and building-only extras, present just when they mean something
   // — a spec key that is null on 5,700 tiles teaches a renderer to test for it.
   const entrance = zone?.flags?.entrance;
@@ -1233,7 +1261,8 @@ export function deriveWorld({ zones = [], regions = [], connections = [], palett
   // index no longer picks a winner per cell (buildCellIndex keeps every occupant),
   // the marker pass and the order of `render` still ride on this.
   const sorted = [...zones].sort((a, b) => String(a.id) < String(b.id) ? -1 : String(a.id) > String(b.id) ? 1 : 0);
-  const ctx = { buildingMarkers, byCell: buildCellIndex(sorted), curtain: buildCurtainIndex(sorted) };
+  const mapById = new Map(sorted.map((z) => [z.id, z.map_id]));
+  const ctx = { buildingMarkers, byCell: buildCellIndex(sorted), curtain: buildCurtainIndex(sorted), mapOf: (id) => mapById.get(id) };
   const featureOverrides = [];
 
   for (const zone of sorted) {

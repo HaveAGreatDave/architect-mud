@@ -1,12 +1,13 @@
 // ── THE MEDIA LOT'S GROUND: THE GATE COURT AND THE CAR PARK ──────────────────────────────────────
 //
 // KSAB's block between Marrow Street, Meltwater Row and Foundry Way is walled like a studio lot
-// (docs/proposals/media-lot.md). Its four buildings are drawn by their own models; this draws the
-// two tiles of open ground inside the wall, which are the `lot` mark (plugins/flight/state.js):
+// (docs/proposals/media-lot.md). Its three buildings are glass/models/lot-buildings.js; this draws
+// the open ground inside the wall, which is the `lot` mark (plugins/flight/state.js), and the wall
+// along the buildings' street faces:
 //
 //   court    913,911  the gate on Foundry Way (two rendered piers, a slab carrying the station's
-//                    name, a raised barrier arm, a round gatehouse), lamp standards, painted walks
-//                    to the stage door and the Writers' Wing, a directory board and a lot cart
+//                    name, a barrier arm, a round gatehouse), lamp standards, painted walks
+//                    to the stage door and KSAB5, a directory board and a lot cart
 //   parking  914,911  the wall along Foundry Way and against the music shop, painted bays, two KSAB
 //                    news vans, a satellite van, the Sentinel's van at the paper's dock, and the
 //                    water tower with the station's disc on its tank
@@ -51,6 +52,12 @@ export const LOT = Object.freeze({
   BOOTH_U: 0.165, BOOTH_V: 0.335, BOOTH_R: M(1.3), BOOTH_H: M(2.9),
   TOWER_X: 0.315, TOWER_Y: 0.29, TOWER_LEG: M(1.9), TOWER_TANK_Z: M(8.2), TOWER_TOP_Z: M(11.6), TOWER_R: M(2.5),
   VAN_L: M(5.6), VAN_W: M(2.15), VAN_H: M(2.6),
+  // The buildings' one line (glass/models/lot-buildings.js): their walls stand this far out, behind
+  // the wall's inner face, and their parapet is here, with only the stage above it.
+  BLD_FACE: 0.44, ROOF_Z: 0.60, COPE_Z: 0.016,
+  DOCK_X0: -0.08, DOCK_X1: 0.18, DOCK_Z: M(1.2),
+  ARM_U: 0.061, ARM_V: 0.433, ARM_Z: M(1.0), ARM_L: 0.30, ARM_UP: 1.36,   // the barrier: its pivot, its length, how far it lifts
+  CORNER_R: M(1.7), CORNER_H: M(5.4),   // the drum the backlot's two walls turn on, the old bar's corner
 });
 const PIER_U = LOT.GATE_HALF + LOT.PIER_R;            // a pier's centre, along the wall from the gate's middle
 const PIER_OUT = PIER_U + LOT.PIER_R;                  // where the wall either side of the gate starts
@@ -58,6 +65,8 @@ const OUT = { n: [0, -1], e: [1, 0], s: [0, 1], w: [-1, 0] };
 
 // What stands on the car park: each van is [x, y, along-y?, facing sign, kind]. `along` vans lie
 // north-south; the sign says which end the cab is at. Shared with lotSolidAt.
+// The first two are the news vans, which drive out with the news (lotVans, below).
+const NEWS_VANS = 2;
 const VANS = [
   [-0.37, 0.30, true, -1, 'ksab'],      // south rank, backed in, nose to the aisle
   [-0.03, 0.30, true, -1, 'ksab'],
@@ -67,7 +76,123 @@ const VANS = [
 // The backlot's flats along each wall, [u0, u1, paint], and its crates, [x, y, height].
 const FLATS = [[-0.42, -0.25, 0], [-0.23, -0.04, 1], [-0.02, 0.16, 2], [0.18, 0.34, 3]];
 const CRATES = [[0.18, 0.40, M(1.5)], [0.27, 0.40, M(0.75)], [0.18, 0.31, M(0.75)], [0.40, 0.12, M(1.5)]];
-const DOCK = { x0: -0.08, x1: 0.18, y0: -0.5, y1: -0.405, z: M(1.2) };
+// ⚠ IT REACHES ACROSS THE TILE'S EDGE to the paper's back wall, which stands at LOT.BLD_FACE.
+const DOCK = { x0: LOT.DOCK_X0, x1: LOT.DOCK_X1, y0: -0.56, y1: -0.405, z: LOT.DOCK_Z };
+
+// ── THE NEWS VANS ──
+// KSAB's two vans leave the car park when the news goes out and come back when it's over: out along
+// the aisle, through the court and the gate, and away west down Foundry Way. Back, they come in the
+// same way, run on past their bay and reverse in, nose to the aisle, where they started.
+// ⚠ A MOVING PART IS NEVER MASS (Moving parts in glass-notes.md). A van on the road has no collision,
+// and lotSolidAt only counts one that's parked.
+// Points are in the car park's own frame, so the court is x - 1 and Foundry Way is y + 1.
+const AISLE_Y = 0.085, LANE_X = -1.07, ROAD_Y = 1.10, ROAD_END_X = -3.4;
+const VAN_RUN_MS = 26000, VAN_GAP_MS = 7000, VAN_FADE = 0.16;
+// A polyline with its corners rounded, then measured, so a van holds one speed along it.
+function vanLine(pts, r = 0.14) {
+  const out = [pts[0]];
+  for (let i = 1; i < pts.length - 1; i++) {
+    const a = pts[i - 1], b = pts[i], c = pts[i + 1];
+    const la = Math.hypot(a[0] - b[0], a[1] - b[1]), lc = Math.hypot(c[0] - b[0], c[1] - b[1]);
+    const ra = Math.min(r, la / 2) / la, rc = Math.min(r, lc / 2) / lc;
+    const p = [b[0] + (a[0] - b[0]) * ra, b[1] + (a[1] - b[1]) * ra], q = [b[0] + (c[0] - b[0]) * rc, b[1] + (c[1] - b[1]) * rc];
+    for (let k = 0; k <= 8; k++) {
+      const t = k / 8, s = 1 - t;
+      out.push([s * s * p[0] + 2 * s * t * b[0] + t * t * q[0], s * s * p[1] + 2 * s * t * b[1] + t * t * q[1]]);
+    }
+  }
+  out.push(pts[pts.length - 1]);
+  let len = 0; const at = [0];
+  for (let i = 1; i < out.length; i++) { len += Math.hypot(out[i][0] - out[i - 1][0], out[i][1] - out[i - 1][1]); at.push(len); }
+  return { pts: out, at, len };
+}
+// Where a line has got to at `t`, and which way it's going there.
+function vanAlong(L, t) {
+  const s = clamp(t, 0, 1) * L.len;
+  let i = 1; while (i < L.pts.length - 1 && L.at[i] < s) i++;
+  const a = L.pts[i - 1], b = L.pts[i], d = (L.at[i] - L.at[i - 1]) || 1, k = clamp((s - L.at[i - 1]) / d, 0, 1);
+  const dx = b[0] - a[0], dy = b[1] - a[1], l = Math.hypot(dx, dy) || 1;
+  return { x: a[0] + dx * k, y: a[1] + dy * k, tx: dx / l, ty: dy / l };
+}
+const VAN_ROUTES = VANS.slice(0, NEWS_VANS).map(([x, y]) => {
+  const out = vanLine([[x, y], [x, AISLE_Y], [LANE_X, AISLE_Y], [LANE_X, ROAD_Y], [ROAD_END_X, ROAD_Y]]);
+  const home = vanLine([[ROAD_END_X, ROAD_Y], [LANE_X, ROAD_Y], [LANE_X, AISLE_Y], [x + 0.26, AISLE_Y]]);
+  const back = vanLine([[x + 0.26, AISLE_Y], [x, AISLE_Y], [x, y]], 0.2);
+  return { out, home, back, share: home.len / (home.len + back.len) };
+});
+// One clock for both vans. `on` is whether the news is out; `at` is when that last changed, null
+// until it has, so a client that logs in during the news finds the bays empty, not a van pulling out.
+const VAN_CLOCK = { on: false, at: null };
+export function lotVans(on, now) {
+  if (on !== VAN_CLOCK.on) { VAN_CLOCK.on = on; VAN_CLOCK.at = VAN_CLOCK.seen ? now : null; }
+  VAN_CLOCK.seen = true;
+  VAN_CLOCK.now = now;
+}
+// Van `i`: 'home' in its bay, 'gone', or a pose { x, y, nx, ny, a }, nose along (nx, ny), faded by `a`.
+function vanPose(i) {
+  const C = VAN_CLOCK, R = VAN_ROUTES[i];
+  const t = C.at == null ? 1 : ((C.now ?? 0) - C.at - i * VAN_GAP_MS) / VAN_RUN_MS;
+  if (C.on) {
+    if (t <= 0) return 'home';
+    if (t >= 1) return 'gone';
+    const p = vanAlong(R.out, t);
+    return { x: p.x, y: p.y, nx: p.tx, ny: p.ty, a: clamp((1 - t) / VAN_FADE, 0, 1) };
+  }
+  if (t >= 1) return 'home';
+  if (t <= 0) return 'gone';
+  if (t < R.share) {
+    const k = t / R.share, p = vanAlong(R.home, k);
+    return { x: p.x, y: p.y, nx: p.tx, ny: p.ty, a: clamp(k / VAN_FADE, 0, 1) };
+  }
+  // Reversing in: the nose trails the way it's going.
+  const p = vanAlong(R.back, (t - R.share) / (1 - R.share));
+  return { x: p.x, y: p.y, nx: -p.tx, ny: -p.ty, a: 1 };
+}
+
+// What the kept part of the lot depends on: whether the arm is on its rest, and which bays have a van.
+export function lotVanKey() {
+  let k = ARM.v > 0 ? 'a' : '';
+  for (let i = 0; i < NEWS_VANS; i++) k += vanPose(i) === 'home' ? 'h' : 'o';
+  return k;
+}
+
+// ── THE BARRIER ──
+// Down across the lane, and up for a rig coming at it from either side, sensed the way a depot's bay
+// door is (bayDoorSense in windshield.js). Nobody is checked. `lx, ly` is the rig from the court's
+// tile centre, measured to the lane rather than the tile.
+const ARM_SENSE = 0.95, ARM_OPEN = 0.5;
+export function lotArmSense(lx, ly, gate) {
+  const out = OUT[gate] || OUT.s;
+  const u = lx * out[1] - ly * out[0], v = lx * out[0] + ly * out[1];
+  const lane = (LOT.ARM_U - LOT.GATE_HALF) / 2, half = (LOT.ARM_U + LOT.GATE_HALF) / 2;
+  const d = Math.hypot(Math.max(0, Math.abs(u - lane) - half), v - LOT.WALL_C);
+  return clamp((ARM_SENSE - d) / (ARM_SENSE - ARM_OPEN), 0, 1);
+}
+// It has a motor, as a hangar door has (AIR_DOOR_RATE in windshield.js), so a rig going by on Foundry
+// Way at speed barely stirs it and one turning in finds it up.
+const ARM_RATE = 0.0009;   // of full travel per millisecond: about a second
+const ARM = { v: 0, t: null };
+export function lotArmTravel(want, now) {
+  const dt = ARM.t == null ? 0 : clamp(now - ARM.t, 0, 1000);
+  ARM.t = now;
+  ARM.v = clamp(ARM.v + clamp(want - ARM.v, -ARM_RATE * dt, ARM_RATE * dt), 0, 1);
+  return ARM.v;
+}
+// This frame's moving part, before anything is drawn: runs the arm, and says whether the tile has
+// anything on the move. ⚠ RESTING, THE ARM AND THE VANS ARE PART OF THE KEPT LOT, and the dynamic pass
+// costs nothing, which is the usual frame (`perf/alloc`). `lotVanKey` is what tells the kept part.
+export function lotLive(part, gate, lift, now) {
+  if (gate) {
+    let want = lift;
+    for (let i = 0; i < NEWS_VANS; i++) {
+      const p = vanPose(i);
+      if (typeof p === 'object') want = Math.max(want, lotArmSense(p.x + 1, p.y, gate));   // the court is a tile west of the car park's frame
+    }
+    if (lotArmTravel(want, now) > 0) return true;
+  }
+  if (part === 'p') for (let i = 0; i < NEWS_VANS; i++) if (typeof vanPose(i) === 'object') return true;
+  return false;
+}
 
 // ── SHADING ──
 // The AA batteries' shading, so the two kinds of mark sit in one light: diffuse off the sun, a
@@ -126,11 +251,14 @@ const PAL = {
 //   face(pts, rgb, a)             one convex polygon, points in the same frame, already shaded
 //   light(x, y, z, rgb, s, a)     a glow
 //   text(quad, label, css, lit)   lettering on a quad wound TL, TR, BR, BL as it is read
+//   layer         'static', 'dynamic' or nothing for both: the barrier and a van on the move are the
+//                 dynamic part, and the rest of the lot is kept like a building (markKept)
 export function drawMediaLot(o) {
   const night = clamp(o.night || 0, 0, 1);
   const shade = makeShade(o);
-  const alpha = o.alpha == null ? 1 : o.alpha;
+  let alpha = o.alpha == null ? 1 : o.alpha;
   const E = o.eye || [0, 0, 0.2];
+  const still = o.layer !== 'dynamic', moving = o.layer !== 'static';
   const dx = o.dx, dy = o.dy;
   const lit = night > 0.3;
 
@@ -254,10 +382,10 @@ export function drawMediaLot(o) {
       }
     }
   };
-  for (const s of String(o.wall || '')) if (OUT[s]) wallRun(frame(s), -0.5, 0.5);
+  if (still) for (const s of String(o.wall || '')) if (OUT[s]) wallRun(frame(s), -0.5, 0.5);
 
   // ── THE GATE ──
-  if (o.gate && OUT[o.gate]) {
+  if (still && o.gate && OUT[o.gate]) {
     const G = frame(o.gate), v = LOT.WALL_C;
     wallRun(G, -0.5, -PIER_OUT);
     wallRun(G, PIER_OUT, 0.5);
@@ -296,23 +424,26 @@ export function drawMediaLot(o) {
       drum(bx, by, LOT.BOOTH_R + M(0.35), LOT.BOOTH_H, LOT.BOOTH_H + M(0.25), 12, PAL.coping, 'paint');
       drum(bx, by, LOT.BOOTH_R + M(0.36), LOT.BOOTH_H + M(0.02), LOT.BOOTH_H + M(0.12), 12, lit ? PAL.cyanLit : PAL.cyan, lit ? 'lit' : 'paint');
       if (lit) { o.light(p[0], p[1], M(1.7), '255,214,150', 8, 0.6); o.light(p[0], p[1], 0.004, '255,214,150', 16, 0.3); }
-      // The barrier: a post beside the booth and the arm raised, red and white.
-      const post = G(LOT.BOOTH_U - LOT.BOOTH_R - M(0.55), v - M(0.8), 0);
+      // The barrier's post beside the booth, and on the far side of the lane the fork the arm rests in.
+      const post = G(LOT.ARM_U, LOT.ARM_V, 0);
       box((u, vv, z) => [post[0] + u, post[1] + vv, z], 0, 0, M(0.22), M(0.22), 0, M(1.1), PAL.steel, 'metal');
-      const pivot = [post[0], post[1], M(1.0)];
-      const tipU = G(LOT.BOOTH_U - LOT.BOOTH_R - M(0.55) - M(1.0), v - M(0.8), 0);
-      const tip = [tipU[0], tipU[1], M(1.0) + M(5.2)];
-      for (let k = 0; k < 4; k++) {
-        const t0 = k / 4, t1 = (k + 1) / 4;
-        const a = [pivot[0] + (tip[0] - pivot[0]) * t0, pivot[1] + (tip[1] - pivot[1]) * t0, pivot[2] + (tip[2] - pivot[2]) * t0];
-        const b = [pivot[0] + (tip[0] - pivot[0]) * t1, pivot[1] + (tip[1] - pivot[1]) * t1, pivot[2] + (tip[2] - pivot[2]) * t1];
-        strut(a, b, M(0.07), k % 2 ? PAL.white : PAL.red, 'paint');
-      }
+      const rest = G(LOT.ARM_U - LOT.ARM_L + M(0.1), LOT.ARM_V, 0);
+      box((u, vv, z) => [rest[0] + u, rest[1] + vv, z], 0, 0, M(0.09), M(0.09), 0, LOT.ARM_Z - M(0.08), PAL.steelDk, 'metal');
     }
   }
 
+  // ── THE BARRIER ARM ──
+  // Red and white, on its pivot, up for a rig or a van coming through: kept while it rests, and in
+  // the dynamic part while it's off its rest, or a kept pose would hold it up after the rig had gone.
+  if (o.gate && OUT[o.gate] && (ARM.v > 0 ? moving : still)) {
+    const G = frame(o.gate);
+    const ang = ARM.v * LOT.ARM_UP, cu = Math.cos(ang), cz = Math.sin(ang);
+    const at = (t) => G(LOT.ARM_U - LOT.ARM_L * t * cu, LOT.ARM_V, LOT.ARM_Z + LOT.ARM_L * t * cz);
+    for (let k = 0; k < 6; k++) strut(at(k / 6), at((k + 1) / 6), M(0.07), k % 2 ? PAL.white : PAL.red, 'paint');
+  }
+
   // ── THE COURT ──
-  if (o.part === 'c') {
+  if (still && o.part === 'c') {
     // Walks painted on the concrete: in from the gate, west to the stage door, north to the writers.
     const z = 0.0016, w = M(0.8);
     flat([T(-w, 0.47, z), T(w, 0.47, z), T(w, -0.47, z), T(-w, -0.47, z)], PAL.walk, 0.30);
@@ -346,7 +477,7 @@ export function drawMediaLot(o) {
   }
 
   // ── THE CAR PARK ──
-  if (o.part === 'p') {
+  if (still && o.part === 'p') {
     const z = 0.0016, lw = M(0.11);
     // Two ranks of bays either side of an aisle that runs in from the court.
     const rank = (xs, y0, y1) => {
@@ -359,16 +490,27 @@ export function drawMediaLot(o) {
     // The paper's dock: a concrete platform against the Sentinel's back wall, rubber bumpers on its face.
     box(T, (DOCK.x0 + DOCK.x1) / 2, (DOCK.y0 + DOCK.y1) / 2, (DOCK.x1 - DOCK.x0) / 2, (DOCK.y1 - DOCK.y0) / 2, 0, DOCK.z, PAL.concrete, 'paint');
     for (const bx of [DOCK.x0 + 0.05, DOCK.x1 - 0.05]) box(T, bx, DOCK.y1 + M(0.12), M(0.3), M(0.12), M(0.3), DOCK.z - M(0.1), PAL.tyre, 'paint');
-    for (const v of VANS) van(v);
+    for (let i = 0; i < VANS.length; i++) if (i >= NEWS_VANS || vanPose(i) === 'home') van(VANS[i]);
     tower();
     lamp(-0.45, 0.02);
+  }
+  // The news vans on their way. In its bay a van is part of the kept lot, and lotVanKey tells it when.
+  if (moving && o.part === 'p') {
+    const whole = alpha;
+    for (let i = 0; i < NEWS_VANS; i++) {
+      const p = vanPose(i);
+      if (typeof p !== 'object') continue;
+      alpha = whole * p.a;
+      van(VANS[i], p);
+      alpha = whole;
+    }
   }
 
   // ── THE BACKLOT ──
   // Where the Deadline stood: a scene dock in the lot's north-west corner. Painted flats lean on the
   // inside of both walls, a street of shopfronts with nothing behind it, and crates stand by the
   // stage. Flats are two faces back to back, timber-coloured behind.
-  if (o.part === 'b') {
+  if (still && o.part === 'b') {
     const top = LOT.WALL_H - M(0.4), inner = LOT.WALL_C - LOT.WALL_T / 2 - 0.002, lean = M(0.9);
     for (const s of String(o.wall || '')) {
       if (!OUT[s]) continue;
@@ -391,12 +533,24 @@ export function drawMediaLot(o) {
     }
     for (const [x, y, h] of CRATES) box(T, x, y, M(0.75), M(0.75), 0, h, PAL.timber, 'paint', PAL.timberTop);
     lamp(0.30, 0.30);
+    // The drum the two walls turn on, the old bar's corner, with the wall's band and the gate's
+    // three speed lines round it.
+    if (String(o.wall).includes('n') && String(o.wall).includes('w')) {
+      const c = -LOT.WALL_C, R = LOT.CORNER_R, H = LOT.CORNER_H;
+      drum(c, c, R + M(0.08), 0, LOT.PLINTH_H, 14, PAL.plinth, 'paint');
+      drum(c, c, R, LOT.PLINTH_H, H, 14, PAL.render, 'paint', PAL.coping);
+      drum(c, c, R + M(0.12), H, H + LOT.COPE_H, 14, PAL.coping, 'paint');
+      const ink = lit ? PAL.cyanLit : PAL.cyan, m = lit ? 'lit' : 'paint';
+      drum(c, c, R + 0.0015, LOT.BAND_Z0, LOT.BAND_Z1, 14, ink, m);
+      for (let k = 0; k < 3; k++) { const zz = M(3.0) + k * M(0.42); drum(c, c, R + 0.0015, zz, zz + M(0.12), 14, ink, m); }
+    }
   }
 
   // A van: a box body on four wheels with a lower cab at one end. `kind` decides the paint and
   // what's on the roof: KSAB's folded mast, the satellite van's dish, the paper's band.
-  function van([x, y, along, face1, kind]) {
-    const F = along ? (u, v, zz) => T(x + v, y + u * face1, zz) : (u, v, zz) => T(x + u * face1, y + v, zz);
+  function van([x, y, along, face1, kind], pose = null) {
+    const F = pose ? (u, v, zz) => T(pose.x + pose.nx * u - pose.ny * v, pose.y + pose.ny * u + pose.nx * v, zz)
+      : along ? (u, v, zz) => T(x + v, y + u * face1, zz) : (u, v, zz) => T(x + u * face1, y + v, zz);
     const L = LOT.VAN_L / 2, W = LOT.VAN_W / 2, H = LOT.VAN_H, cab = LOT.VAN_L * 0.24;
     const body = kind === 'paper' ? PAL.paper : PAL.van, glassC = PAL.vanGlass;
     for (const su of [-1, 1]) for (const sv of [-1, 1]) box(F, su * (L - M(0.9)), sv * (W - M(0.1)), M(0.34), M(0.12), 0, M(0.68), PAL.tyre, 'paint');
@@ -567,11 +721,15 @@ export function lotSolidAt(lx, ly, ml) {
     if (Math.hypot(u - LOT.BOOTH_U, v - LOT.BOOTH_V) <= LOT.BOOTH_R + ROUND_PAD) return LOT.BOOTH_H;
   }
   if (ml.p === 'b') {
+    if (String(ml.w || '').includes('n') && String(ml.w || '').includes('w')
+      && Math.hypot(lx + LOT.WALL_C, ly + LOT.WALL_C) <= LOT.CORNER_R + ROUND_PAD) return LOT.CORNER_H;
     for (const [x, y, h] of CRATES) if (Math.abs(lx - x) <= M(0.75) + ROUND_PAD && Math.abs(ly - y) <= M(0.75) + ROUND_PAD) return h;
   }
   if (ml.p === 'p') {
     const pad = ROUND_PAD;
-    for (const [x, y, alongY] of VANS) {
+    for (let i = 0; i < VANS.length; i++) {
+      if (i < NEWS_VANS && vanPose(i) !== 'home') continue;   // a van on the move is no mass, and an empty bay is open
+      const [x, y, alongY] = VANS[i];
       const hx = (alongY ? LOT.VAN_W : LOT.VAN_L) / 2 + pad, hy = (alongY ? LOT.VAN_L : LOT.VAN_W) / 2 + pad;
       if (Math.abs(lx - x) <= hx && Math.abs(ly - y) <= hy) return LOT.VAN_H;
     }
@@ -582,4 +740,15 @@ export function lotSolidAt(lx, ly, ml) {
     }
   }
   return 0;
+}
+
+// ── WHAT AN AIRCRAFT STOPS AT ────────────────────────────────────────────────
+//
+// The water tower, as a post from the ground to the tip of its cone: a mark has no mass in the CFIT
+// sweep, and the tank stands over everything round it. A post, not four legs and a tank, because an
+// aircraft flying under a water tank is an aircraft that's about to hit it. It's the catwalk's radius,
+// the widest thing up there, and the top of the cone, read off the constants the drawing uses.
+export function lotAirTopAt(lx, ly, ml) {
+  if (!ml || ml.p !== 'p') return 0;
+  return Math.hypot(lx - LOT.TOWER_X, ly - LOT.TOWER_Y) <= LOT.TOWER_R + M(0.9) ? LOT.TOWER_TOP_Z + M(1.7) : 0;
 }

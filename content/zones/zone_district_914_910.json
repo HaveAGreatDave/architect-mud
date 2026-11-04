@@ -3,7 +3,7 @@
   "ambient_theme": "urban",
   "bg_color": "#25211b",
   "color": "#8ba36a",
-  "description": "The Coldwater Sentinel's back door, beside the loading dock where its van backs in: a steel door under a lamp, stencilled NO PARKING. Through a wired window, a wall of feed-screens flickers through headlines, and a printer inside never stops chattering.",
+  "description": "The Coldwater Sentinel's back door, beside the loading dock where its van backs in: a steel door under a lamp, stencilled NO PARKING, and a roller shutter over the dock. Through a wired window, a wall of feed-screens flickers through headlines, and a printer inside never stops chattering. The paper's front is on Marrow Street, on the far side of the building and the wall.",
   "exits": {
     "north": "zone_sentinel_bullpen",
     "south": "zone_medialot_914_911"
@@ -14,7 +14,9 @@
     "district": "nightlife",
     "entrance": "south",
     "facade": true,
+    "floors": 3,
     "is_building": true,
+    "map_icon": "bldg_sentinel",
     "media_lot": {
       "part": "building",
       "wall": "ne"

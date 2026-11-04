@@ -42,7 +42,8 @@ import { seatAudioFrame, seatSpot } from './seat-audio.js';   // contacts' engin
 import { FLOOR_Z, BUILDING_FOOT, floorsFor, BUILDING_TUNE, buildingScale, CURTAIN_H } from '../../../shared/skyline-scale.js';
 import { fireworksAround, aaLive, AA_FIRE_MS, noteServiceAt, serviceNear } from './world-feed.js';   // world events kept by tile, whatever seat is open
 import { drawAAEmplacement } from './glass/aa-emplacement.js';   // the four AA batteries (drawAAMark)
-import { drawMediaLot, lotSolidAt } from './glass/media-lot.js';   // the Media Lot's court and car park (drawLotMark)
+import { drawMediaLot, lotSolidAt, lotAirTopAt, lotArmSense, lotLive, lotVanKey, lotVans } from './glass/media-lot.js';   // the Media Lot's court and car park (drawLotMark)
+import { state } from '../state.js';
 import { drawStreetKit, kitCell, kitPlace } from './glass/street-kit.js';   // Coldwater's lane, walkways and street furniture (drawStreetKitPass)
 import { kitWalk, KIT_WALK } from './glass/street-kit-walk.js';   // the people on it go round by the bridge or the crossing (drawStreetActors)
 import { skylineFar, SKYLINE_BASE_FAR } from '../../../shared/skyline-tall.js';
@@ -39057,11 +39058,17 @@ const AA_FACES = 1400;   // the 2-D path's cap, as the statue has one: a sort th
 // ⚠ THE GATE'S NAME GOES ON AT EMIT TIME ON GL, AND INSIDE THE CLOSURE ON THE 2-D PATH. On GL the
 // decal layer draws after the solids, so the board is under its letters either way. On the canvas
 // the lettering is a blit, and blitted during the sweep it lands under the board painted at flush.
-// `part` ('static' or 'dynamic') is markKept's (RENDER_TUNE.marksGPU): the lot has nothing that moves,
-// so it is all static, and its faces go over unshaded (`n`, `mat`; see markFaceGL).
+// `part` ('static' or 'dynamic') is markKept's (RENDER_TUNE.marksGPU): the barrier arm and a news van on
+// the move are dynamic and the rest is kept, and its faces go over unshaded (`n`, `mat`; see markFaceGL).
 function drawLotMark(ctx, cam, it, night, alpha, now, sun, od, part) {
   const ml = it.c.ml;
-  if (!ml || part === 'dynamic') return;
+  if (!ml) return;
+  // The clock the news vans run on, and the barrier's nearest rig. With motion off the vans stay in
+  // their bays and the arm stays down, which is what a capture and a gate see.
+  lotVans(!!TUNE.motion && !!state.newsOut, now);
+  let armLift = 0;
+  if (ml.g && TUNE.motion) for (const [vx, vy] of _bayVehicles) armLift = Math.max(armLift, lotArmSense(vx - it.dx, vy - it.dy, ml.g));
+  if (part !== 'static' && !lotLive(ml.p, ml.g, armLift, now) && part === 'dynamic') return;
   const toGL = !!BAY_SINK && TUNE.glBay !== 0;
   const EX = (cam.ex || 0) - cam.ox, EY = (cam.ey || 0) - cam.oy, EZ = cam.EH == null ? 0.2 : cam.EH;
   const soft = [], words = [];
@@ -39086,7 +39093,7 @@ function drawLotMark(ctx, cam, it, night, alpha, now, sun, od, part) {
     if (toGL) put(); else words.push(put);
   };
   drawMediaLot({
-    dx: it.dx, dy: it.dy, part: ml.p, wall: ml.w || '', gate: ml.g || '', gpu: !!part && toGL,
+    dx: it.dx, dy: it.dy, part: ml.p, wall: ml.w || '', gate: ml.g || '', gpu: !!part && toGL, layer: part,
     eye: [EX, EY, EZ], near: eyeRange(cam, it.dx, it.dy) < 6,
     seed: it.seed, now, night, alpha, wet: clamp(wetGround(), 0, 1), sun,
     face, text,
@@ -39118,6 +39125,13 @@ function lotWallZAt(px, py, cellAt) {
     if (z > 0) return z;
   }
   return 0;
+}
+
+// The water tower in the altitude frame, for the aircraft's CFIT sweep. Beside curtainRoofFtAt and not
+// in modelTopAt for that one's reason: a tank isn't a deck, and nothing should try to land on it.
+export function lotRoofFtAt(wx, wy, cell, px, py) {
+  const z = lotAirTopAt(px - wx, py - wy, cell?.ml);
+  return z > 0 ? altForRoofZ(z) : 0;
 }
 
 // Incoming ground-AA volley as REAL 3D world tracers: rounds leave the emplacement's tile
@@ -51187,7 +51201,7 @@ const SIGN_TRADE = {
   sentimental: ['slab', 'balls'],                                  // a pawnbroker's board, and "a half-dead sign"
   papertomb: ['deco', ''],                                         // "chiselled above the lintel" — an inscriptional face, which is what deco is
   ff_kiln: ['script', ''],                                         // "somebody has whitewashed FIRED & FORGOTTEN" across a bottle kiln — a brush, not a signwriter
-  studio: ['block', ''], ksabstudio: ['block', ''], studiogate: ['block', ''],   // a broadcast plant brands itself, and KSAB's own blade already reads that way
+  studio: ['block', ''],   // a broadcast plant brands itself, and KSAB's own blade already reads that way
   // ── AND THE TRADES THE FOUR NEW HANDS WERE ADDED FOR ──────────────────────
   // See SIGN_FONT. Each of these was previously getting its hand off the palette — which dates a
   // building and says nothing about what it sells — and landing on mono, block or slab with three
@@ -51294,7 +51308,7 @@ const SIGN_HANZI = {
   hardware: '五金', gun_shop: '槍械', blade_shop: '刀具', comic_shop: '書店', archive: '檔案',
   chrome: '義體', asc_vats: '義體', asc_weave: '義體',   // 義體 — a prosthetic body, which is what an Ascendant clinic sells
   church: '廟', undertaker: '殯儀',   // ⚠ NO police AND NO civic: a station and a city hall do not hang a lit trade blade on the corner
-  studio: '電視', ksabstudio: '電視', greenhouse: '花圃', junkyard: '廢料',
+  studio: '電視', greenhouse: '花圃', junkyard: '廢料',
   kitchenware: '廚具',   // 廚具: kitchen implements
   coffee_shop: '咖啡',
   chip_shop: '炸魚',     // 炸魚: fried fish
@@ -54402,7 +54416,7 @@ function drawWorldObjects(ctx, cam, v, sky, now, sun) {
     // reason. `continue` because the tile is still concrete underneath and the ground pass painted it.
     // With marksGPU it's shaded on the GPU and kept (markKept); its near detail is in the key.
     const lotGL = (it.c.mark === 'lot' || it.c.ml?.p === 'x') && RENDER_TUNE.marksGPU > 0 && BAY_SINK && TUNE.glBay !== 0;
-    if (lotGL) { markEnvFrame(night, sun, sky); markKept(ctx, cam, it, night, now, (t, a, part) => drawLotMark(ctx, cam, it, night, a, t, sun, od, part), eyeRange(cam, it.dx, it.dy) < 6 ? '|n' : '|f'); }
+    if (lotGL) { markEnvFrame(night, sun, sky); lotVans(!!TUNE.motion && !!state.newsOut, now); markKept(ctx, cam, it, night, now, (t, a, part) => drawLotMark(ctx, cam, it, night, a, t, sun, od, part), (eyeRange(cam, it.dx, it.dy) < 6 ? '|n' : '|f') + (it.c.ml?.p === 'p' || it.c.ml?.g ? lotVanKey() : '')); }
     if (it.c.mark === 'lot') { if (!lotGL) drawLotMark(ctx, cam, it, night, alpha, now, sun, od); continue; }
     // One of the lot's buildings: the wall along its street faces, then on to the building itself.
     if (it.c.ml?.p === 'x' && !lotGL) drawLotMark(ctx, cam, it, night, alpha, now, sun, od);

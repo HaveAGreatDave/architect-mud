@@ -2,7 +2,7 @@
   "ambient_events": [],
   "ambient_theme": "city",
   "color": "#8ba36a",
-  "description": "Painted bays on concrete behind the lot's wall. Two KSAB news vans stand nose-out with their masts folded, and the Sentinel's van is backed up to the paper's loading dock, beside the paper's only door. A water tower stands in the corner on four legs, the station's disc on its tank.",
+  "description": "Painted bays on concrete behind the lot's wall. KSAB's two news bays are by the aisle, the Sentinel's van is backed up to the paper's loading dock beside the paper's only door, and a satellite van stands along the east wall. A water tower stands in the corner on four legs, the station's disc on its tank.",
   "exits": {
     "north": "zone_district_914_910",
     "west": "zone_medialot_913_911"

@@ -104,6 +104,7 @@
     "furniture.describe",
     "tick.minute",
     "venue.lit",
-    "venue.roof"
+    "venue.roof",
+    "zone.describeRoom"
   ]
 }

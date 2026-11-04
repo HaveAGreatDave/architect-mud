@@ -18,3 +18,4 @@ export { COLISEUM_ARMS } from './coliseum.js';
 export { PARKSIDE_ARMS } from './parkside.js';
 export { PALAIS_BOWL_ARMS } from './palais-bowl.js';
 export { GREENSIDE_ARMS } from './greenside.js';
+export { LOT_BUILDING_ARMS } from './lot-buildings.js';

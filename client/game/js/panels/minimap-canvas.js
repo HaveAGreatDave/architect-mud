@@ -284,6 +284,9 @@ function drawTile(ctx, node, px, py, t, remembered) {
 	else if (node.perimeter_gate) inset(ctx, px, py, t, '#7fe0ff', 1);
 	else if (node.curtain) inset(ctx, px, py, t, 'rgba(122,196,255,0.42)', 1);
 	else if (node.glacis) inset(ctx, px, py, t, 'rgba(224,120,90,0.45)', 1);
+	// The Media Lot's wall: the same edges and the same gap, in the lot's own ink (styles.css .mm-lw).
+	if (node.spec?.lot_wall) curtainFaces(ctx, px, py, t, node.spec.lot_wall, false, 'rgba(224,214,188,0.9)');
+	if (node.spec?.lot_gate) curtainFaces(ctx, px, py, t, node.spec.lot_gate, true, '#39d6ff');
 
 	// 4. Enterable buildings are doors, not rooms — outlined, and clickable (hitTest).
 	if (node.enterable) {
@@ -309,9 +312,9 @@ function inset(ctx, px, py, t, color, w) {
 // A gate is the same wall with a hole in it — two stubs at the SAME fractions the DOM
 // gradient uses (styles.css .mm-cw-gate), because the one thing worse than a gap in
 // the wrong place is two screens disagreeing about where the door is.
-function curtainFaces(ctx, px, py, t, faces, gate) {
+function curtainFaces(ctx, px, py, t, faces, gate, ink = null) {
 	const w = Math.max(1, Math.round(t / 12));
-	ctx.fillStyle = gate ? '#aef0ff' : 'rgba(122,196,255,0.85)';
+	ctx.fillStyle = ink || (gate ? '#aef0ff' : 'rgba(122,196,255,0.85)');
 	const spans = gate ? [[0, 0.32], [0.68, 1]] : [[0, 1]];
 	for (const d of faces) {
 		for (const [a, b] of spans) {

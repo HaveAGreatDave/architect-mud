@@ -1,0 +1,24 @@
+{
+  "description": "Every story the Sentinel ever ran, cut out and filed by name, then by what the name did. The drawer marked CORRECTIONS is the fullest in the room.",
+  "flags": {
+    "aliases": [
+      "cabinets",
+      "clippings",
+      "drawers",
+      "files",
+      "archive",
+      "corrections"
+    ],
+    "notable": true
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_sentinel_cabinets",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "the clippings cabinets",
+  "object_type": "decoration",
+  "power_draw_kw": 0,
+  "price": 0,
+  "zone_id": "zone_sentinel_morgue"
+}

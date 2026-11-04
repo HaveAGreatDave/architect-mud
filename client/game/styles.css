@@ -3444,6 +3444,10 @@ html[data-dictation="off"] #dictate-btn { display: none; }
 .mm-room.mm-cw-gate.mm-cw-s { --cw-hp: bottom; }
 .mm-room.mm-cw-gate.mm-cw-w { --cw-vp: left; }
 .mm-room.mm-cw-gate.mm-cw-e { --cw-vp: right; }
+/* The Media Lot's wall on the same edges: cream render, and its gate in the station's cyan. After the
+   gate's rule on purpose, because the two tiles of one wall share every class but this. */
+.mm-room.mm-lw { --cw-ink: rgba(224, 214, 188, 0.9); }
+.mm-room.mm-lw.mm-cw-gate { --cw-ink: transparent; --cw-gate: #39d6ff; }
 /* Avenue View / Auto-walk toggles sit in the minimap section's top-right corner
    (kept out of the .sidebar-label so it doesn't leak into the section's reorder
    title), side by side in a small flex row. */

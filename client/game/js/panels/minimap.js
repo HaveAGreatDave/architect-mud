@@ -987,6 +987,12 @@ function renderMinimapDom(nodes, direction) {
       } else if (node.perimeter_gate) perimCls = ' mm-gate mm-curtain';
       else if (node.curtain) perimCls = ' mm-curtain';
       else if (node.glacis) perimCls = ' mm-glacis';
+      // The Media Lot's wall: the same edges and the same gap for its gate, in the lot's own ink.
+      const lotFaces = (node.spec?.lot_wall || '') + (node.spec?.lot_gate || '');
+      if (lotFaces) {
+        perimCls += ' mm-cw mm-lw' + (node.spec?.lot_gate ? ' mm-cw-gate' : '');
+        for (const d of lotFaces) perimCls += ` mm-cw-${d}`;
+      }
       const styleAttr = styles.length ? ` style="${styles.join(';')}"` : '';
       const unreach = node.reachable === false ? ' mm-unreachable' : '';
       // Enterable buildings are doors, not rooms — clickable (action-link + data-dest

@@ -1,0 +1,14 @@
+{
+  "description": "Two strip lights over the aisle, one of them slower to come on than the other.",
+  "flags": {},
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_light_zone_sentinel_morgue",
+  "light_type": "overhead",
+  "lumen_output": 1400,
+  "name": "morgue strip lights",
+  "object_type": "light",
+  "power_draw_kw": 0.02,
+  "price": 0,
+  "zone_id": "zone_sentinel_morgue"
+}

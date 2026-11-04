@@ -22,7 +22,7 @@ const FSIM_CSS = await loadCss(new URL('./cockpit-fsim.css', import.meta.url));
 const HUD_CSS = await loadCss(new URL('./cockpit-hud.css', import.meta.url));
 // Mirrors MIN_WATER in plugins/submersible/sub.js; only lights the SUB gate.
 const SUB_MIN_WATER_M = 3;
-import { subCrossing, interiorHotspots, glWorldInstalled, glDecision, glLastError, lastViewState, lastFloorState, lastOwnShipMask, yachtPadZ, ensureWindshieldStyles, windshieldHTML, paintWindshield, disposeWindshield, panelControlRects, RENDER_TUNE, navMarks, buildingRoofFtAt, curtainRoofFtAt, modelTopZAt, altForRoofZ, altRestingOnZ, seaAmpsNow, hullSeaGains, ROOF_CATCH_R, ROOF_CATCH_CEIL_Z, MODEL_MAX_EXTENT, BUILDING_FOOT, VISIBLE_NEAR_F, VISIBLE_FAR_F, pushLightningStrike, surfaceBreakup, perfBegin, perfEnd, perfTick } from './windshield.js';
+import { subCrossing, interiorHotspots, glWorldInstalled, glDecision, glLastError, lastViewState, lastFloorState, lastOwnShipMask, yachtPadZ, ensureWindshieldStyles, windshieldHTML, paintWindshield, disposeWindshield, panelControlRects, RENDER_TUNE, navMarks, buildingRoofFtAt, curtainRoofFtAt, lotRoofFtAt, modelTopZAt, altForRoofZ, altRestingOnZ, seaAmpsNow, hullSeaGains, ROOF_CATCH_R, ROOF_CATCH_CEIL_Z, MODEL_MAX_EXTENT, BUILDING_FOOT, VISIBLE_NEAR_F, VISIBLE_FAR_F, pushLightningStrike, surfaceBreakup, perfBegin, perfEnd, perfTick } from './windshield.js';
 import { padCatchStep } from './pad-catch.js';
 // ── GLASS 2 ────────────────────────────────────────────────────────────────
 // Installed here, not in windshield.js, because the cold open and the smoke suite load that file without a GPU.
@@ -1017,10 +1017,11 @@ function buildingCollisionAt(F, s) {
     if (Math.abs(px - wx) > foot || Math.abs(py - wy) > foot) continue;
     const rx = Math.round(wx - mc.x + R), ry = Math.round(wy - mc.y + R);
     if (ry < 0 || ry >= map.length || rx < 0 || rx >= map[ry].length) continue;
-    // Roof under this point, maxed with the Curtain so every rule below reaches the wall too.
+    // Roof under this point, maxed with the Curtain and the lot's water tower, so every rule below reaches both.
     // ⚠ The Curtain is only ~27 ft in the altitude frame. That's correct: it stops flying through it, not over it.
     const roofFt = Math.max(buildingRoofFtAt(wx, wy, map[ry][rx], px, py),
-                            curtainRoofFtAt(wx, wy, map[ry][rx], px, py));
+                            curtainRoofFtAt(wx, wy, map[ry][rx], px, py),
+                            lotRoofFtAt(wx, wy, map[ry][rx], px, py));
     if (roofFt <= 0) continue;
     const dx = wx - px, dy = wy - py, f = dx * sinh - dy * cosh;
     // Only buildings inside the renderer's near/far window can hit you. ⚠ The tile you're over skips

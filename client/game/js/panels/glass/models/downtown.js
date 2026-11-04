@@ -325,7 +325,7 @@ export function slugLine(ctx, cam, W3, path, d0, d1, night, alpha) {
 }
 // A lit band round the near half of a drum. ⚠ Not `drawRing`: its DECO_PULL drags the back half out
 // round the silhouette (`glself`).
-function frontRing(ctx, cam, cx, cy, z, r, N, css, lw, alpha) {
+export function frontRing(ctx, cam, cx, cy, z, r, N, css, lw, alpha) {
   for (let i = 0; i < N; i++) {
     const a0 = i / N * 6.2832, a1 = (i + 1) / N * 6.2832;
     // faceAway, so a kept building knows when the facing arc changes (ARM_FACE in windshield.js).
@@ -1818,123 +1818,6 @@ export const DOWNTOWN_ARMS = {
       glowPool(ctx, cam, gx, gy, gf * 0.6, '210,240,235', 15, alpha * (night ? 0.6 : 0.22)); }
     glowPool(ctx, cam, dx, dy, h * 0.4, '120,220,150', 16, alpha * (night ? 0.28 : 0.14));
   },
-  ksabstudio(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E, name, board, pal, sign, F, W3, frontVis) {   // KSAB-7, the basin's TV station: a blind sound stage, fly tower, plant deck, a windowed
-    // production wing and the transmitter mast. ⚠ No rooflights on a sound stage.
-    // ⚠ Read the note on `marqueeStand` before moving a band onto a sub-box.
-    const KSABc = m.neon || '#39d6ff';                       // the station's own cyan
-    const ONAIR = '#ff4a34';                                 // the one red on the plot, never decoration
-    const L = (lx, ly, z) => { const w = facePt(dx, dy, lx, ly, E); return [w[0], w[1], z]; };
-    const P = (lx, ly, z) => { const w = facePt(dx, dy, lx, ly, E); return cam.proj(w[0], w[1], z); };
-    const apron = h * 0.035;
-    // The apron.
-    draw3DBoxAt(ctx, cam, dx, dy, fh * 1.0, 0, apron, 'ty_ksab_dk', seed + 9, night, alpha, false);
-    // The sound stage, set back and pushed left to give the wing a frontage.
-    const sgx = -fh * 0.16, sgy = -fh * 0.20, mhx = fh * 0.72;
-    const [cx, cy] = F(sgx, sgy);
-    // ⚠ Wide and low: at full height a clear-span stage reads as a tower.
-    const mh = apron + h * 0.58, deck = mh + h * 0.03;
-    draw3DBoxAt(ctx, cam, cx, cy, mhx, apron, mh, pal, seed, night, alpha, true);
-    draw3DBoxAt(ctx, cam, cx, cy, mhx * 1.03, apron, apron + h * 0.13, 'ty_ksab_dk', seed + 1, night, alpha, false);   // the base course it gets reversed into
-    draw3DBoxAt(ctx, cam, cx, cy, mhx * 1.04, mh, deck, 'ty_ksab_dk', seed + 2, night, alpha, true);                   // capping course
-    const face = sgy + mhx + FACE_EPS;                       // the stage's own front plane, which is what its signage goes on
-    // The fly tower over the rear corner.
-    { const [tx, ty] = F(-fh * 0.36, -fh * 0.44);
-      draw3DBoxAt(ctx, cam, tx, ty, fh * 0.26, deck, deck + h * 0.30, 'ty_ksab_dk', seed + 3, night, alpha, true); }
-    // The plant deck.
-    { const [ax, ay] = F(fh * 0.06, fh * 0.06);
-      draw3DBoxAt(ctx, cam, ax, ay, fh * 0.24, deck, deck + h * 0.11, 'ty_ksab_dk', seed + 4, night, alpha, true);
-      drawRing(ctx, cam, ax, ay, deck + h * 0.11, fh * 0.11, 12, 'rgba(126,138,150,0.55)', 1.4, alpha); }              // the extract cowl
-    { const [ex, ey] = F(-fh * 0.50, fh * 0.02);
-      draw3DBoxAt(ctx, cam, ex, ey, fh * 0.13, deck, deck + h * 0.07, 'ty_ksab_dk', seed + 6, night, alpha, true); }   // the chiller beside it
-    // The transmitter.
-    const mx0 = fh * 0.24, my0 = -fh * 0.42;
-    const [lx, ly] = F(mx0, my0), mastTop = deck + h * 2.1;
-    latticeTower(ctx, cam, lx, ly, deck, mastTop, fh * 0.14, fh * 0.04, alpha, now, seed + 5);
-    dish(ctx, cam, lx, ly, deck + h * 0.60, 9, alpha);
-    dish(ctx, cam, lx, ly, deck + h * 1.18, 7, alpha);
-    blinkLight(ctx, cam, lx, ly, mastTop, '255,80,80', now, seed + 5, alpha, 2.0);
-    blinkLight(ctx, cam, lx, ly, deck + h * 1.05, '255,80,80', now, seed + 7, alpha, 1.3);
-    // Three guy stays. ⚠ Anchored in the local frame, or they walk off the deck on three facings.
-    for (let i = 0; i < 3; i++) {
-      const a = i * 2.0944 + 0.6, r = fh * 0.21;
-      const [gx, gy] = F(mx0 + Math.cos(a) * r, my0 + Math.sin(a) * r);
-      // ⚠ DECO_PULL: a stay hangs in open air, and the default pull drags it in front of the building (`glself`).
-      emitWire(ctx, cam, [lx, ly, deck + (mastTop - deck) * 0.58], [gx, gy, deck], 0.9, 'rgba(170,180,194,0.5)', alpha, { pull: DECO_PULL });
-    }
-    // The production wing.
-    { const [px, py] = F(fh * 0.74, -fh * 0.06);
-      draw3DBoxAt(ctx, cam, px, py, fh * 0.26, apron, apron + h * 0.42, 'ty_ksab_pc', seed + 8, night, alpha, true);
-      draw3DBoxAt(ctx, cam, px, py, fh * 0.28, apron + h * 0.42, apron + h * 0.46, 'ty_ksab_dk', seed + 10, night, alpha, true); }
-    // The public front.
-    const lobHalf = fh * 0.30, lobTop = apron + h * 0.22, lobY = fh * 0.50;
-    const [ox, oy] = F(-fh * 0.10, lobY);
-    draw3DBoxAt(ctx, cam, ox, oy, lobHalf, apron, lobTop, 'ty_ksab_glass', seed + 11, night, alpha, true);
-    draw3DBoxAt(ctx, cam, ox, oy, lobHalf * 1.06, lobTop, lobTop + h * 0.04, 'ty_ksab_dk', seed + 12, night, alpha, true);   // the fascia the name goes on
-    // The entrance canopy.
-    { const zc = lobTop - h * 0.06, cw = fh * 0.22, cxo = -fh * 0.10, y0 = lobY + lobHalf * 0.6, y1 = lobY + fh * 0.34;
-      emitFlat(ctx, cam, [L(cxo - cw, y0, zc), L(cxo + cw, y0, zc), L(cxo + cw, y1, zc), L(cxo - cw, y1, zc)],
-        night ? 'rgba(46,52,58,0.96)' : 'rgba(74,82,88,0.96)', alpha, { stroke: 'rgba(18,22,26,0.6)', lw: 1 });
-      emitWire(ctx, cam, L(cxo - cw * 0.9, y1, zc), L(cxo + cw * 0.9, y1, zc), 1.2,
-        night ? 'rgba(120,226,255,0.85)' : 'rgba(150,186,204,0.7)', alpha, { pull: DECO_PULL, glow: night ? 6 : 0, glowCss: KSABc });
-      for (const s of [-1, 1]) emitWire(ctx, cam, L(cxo + s * cw * 0.86, y1, zc), L(cxo + s * cw * 0.86, y1, apron), 1.3, 'rgba(150,160,170,0.7)', alpha, { pull: DECO_PULL }); }
-    // The lobby fascia stays bare (the name goes on the stage wall); reserved so no generic sign takes it.
-    reserveSignBand(lobHalf, lobTop + h * 0.022);
-    // The station logo on the stage wall. ⚠ The call sign, never the tile's long name (unreadable).
-    // ⚠ It ends at x = 0; the ON AIR box starts at fh * 0.02 at the same height.
-    { const bz0 = apron + h * 0.33, bz1 = apron + h * 0.52, bxL = sgx - fh * 0.56, bxR = -fh * 0.01;
-      const fz = face + FACE_EPS;
-      emitDecoFill(ctx, cam, [L(bxL, face, bz1), L(bxR, face, bz1), L(bxR, face, bz0), L(bxL, face, bz0)],
-        night ? 'rgba(12,22,30,0.96)' : 'rgba(22,34,44,0.96)', alpha, DECO_LIFT, 'ksablogo');
-      const rz0 = bz0 + (bz1 - bz0) * 0.08, rz1 = bz0 + (bz1 - bz0) * 0.14;
-      emitDecoFill(ctx, cam, [L(bxL + fh * 0.03, fz, rz1), L(bxR - fh * 0.03, fz, rz1), L(bxR - fh * 0.03, fz, rz0), L(bxL + fh * 0.03, fz, rz0)],
-        night ? 'rgba(90,220,255,0.95)' : 'rgba(57,190,230,0.95)', alpha, DECO_LIFT, 'ksabrule');
-      const dz = bz0 + (bz1 - bz0) * 0.58, r = Math.min(fh * 0.085, (bz1 - bz0) * 0.38), dcx = bxR - fh * 0.03 - r;
-      const ring = [];
-      for (let i = 0; i < 16; i++) { const a = (i / 16) * Math.PI * 2; ring.push(L(dcx + Math.cos(a) * r, fz, dz + Math.sin(a) * r)); }
-      emitDecoFill(ctx, cam, ring, night ? 'rgba(90,220,255,0.97)' : 'rgba(57,190,230,0.97)', alpha, DECO_LIFT, 'ksabbug');
-      const seven = bakeSignText('7', '#0c161e', 0, false, true);
-      const s = r * 0.78, f2 = fz + FACE_EPS;
-      const sq = [P(dcx - s, f2, dz + s), P(dcx + s, f2, dz + s), P(dcx + s, f2, dz - s), P(dcx - s, f2, dz - s)];
-      if (seven && sq.every((p) => p.f > 0.12)) emitSurfaceText(ctx, cam, sq, seven, false, alpha);
-      const tex = bakeSignText('KSAB', KSABc, night ? 1 : 0, false);
-      const tx0 = bxL + fh * 0.04, tx1 = dcx - r - fh * 0.04, tz0 = rz1 + (bz1 - bz0) * 0.06, tz1 = bz1 - (bz1 - bz0) * 0.06;
-      const TL = P(tx0, f2, tz1), TR = P(tx1, f2, tz1), BR = P(tx1, f2, tz0), BL = P(tx0, f2, tz0);
-      if (tex && [TL, TR, BR, BL].every((p) => p.f > 0.12)) emitSurfaceText(ctx, cam, [TL, TR, BR, BL], tex, false, alpha); }
-    // ON AIR: live from `studio_live` (broadcast plugin), else a duty cycle. ⚠ With motion off it's
-    // on, which is what captures and gates see.
-    const live = !motionOn() ? true
-      : typeof state.studioLive === 'boolean' ? state.studioLive
-      : dutyPhase(now, seed + 21, 210000, 0.66) >= 0;
-    // ⚠ The red panel is the lamp and the letters are `solid` dark paint: neon ink's white core
-    // swallows a glyph this size. ⚠ Keep it about 2.5:1, or `fitSignPts` shrinks the text to a thread.
-    { const az0 = apron + h * 0.345, az1 = apron + h * 0.425, ax0 = fh * 0.26, aw = fh * 0.24;
-      const pane = live ? (night ? 'rgba(232,58,38,0.95)' : 'rgba(208,50,32,0.95)') : 'rgba(58,26,22,0.95)';
-      emitDecoFill(ctx, cam, [L(ax0 - aw, face, az1), L(ax0 + aw, face, az1), L(ax0 + aw, face, az0), L(ax0 - aw, face, az0)],
-        pane, alpha, DECO_LIFT, 'onair');
-      const tex = bakeSignText('ON AIR', '#180a08', 0, false, true);
-      const iz0 = az0 + (az1 - az0) * 0.2, iz1 = az1 - (az1 - az0) * 0.2, iw = aw * 0.86;
-      const TL = P(ax0 - iw, face + FACE_EPS, iz1), TR = P(ax0 + iw, face + FACE_EPS, iz1);
-      const BR = P(ax0 + iw, face + FACE_EPS, iz0), BL = P(ax0 - iw, face + FACE_EPS, iz0);
-      if (tex && [TL, TR, BR, BL].every((p) => p.f > 0.12))
-        emitSurfaceText(ctx, cam, [TL, TR, BR, BL], tex, false, alpha * (live ? 1 : 0.55));
-      if (live) { const [gx, gy] = F(ax0, face); glowPool(ctx, cam, gx, gy, (az0 + az1) * 0.5, '255,74,52', 11, alpha * (night ? 0.55 : 0.22)); } }
-    // The uplink pad.
-    { const [ux, uy] = F(-fh * 0.74, fh * 0.56);
-      draw3DBoxAt(ctx, cam, ux, uy, fh * 0.22, apron, apron + h * 0.025, 'ty_ksab_pc', seed + 13, night, alpha, true);
-      for (const [sx, sy, r] of [[-0.86, 0.54, 9], [-0.62, 0.60, 8]]) {
-        const [px2, py2] = F(fh * sx, fh * sy);
-        drawFacetDrum(ctx, cam, px2, py2, apron + h * 0.025, apron + h * 0.075, fh * 0.035, fh * 0.028, 8, alpha,
-          (f) => { const k = 0.5 + f.nl * 0.5; return `rgb(${(126 * k) | 0},${(134 * k) | 0},${(142 * k) | 0})`; }, null);
-        dish(ctx, cam, px2, py2, apron + h * 0.105, r, alpha);
-      } }
-    // Night: the stage stays dark.
-    if (night) {
-      glowPool(ctx, cam, ox, oy, lobTop * 0.6, '150,200,230', 12, alpha * 0.30);
-      const [wx2, wy2] = F(fh * 0.74, -fh * 0.06);
-      glowPool(ctx, cam, wx2, wy2, apron + h * 0.26, '226,214,170', 10, alpha * 0.20);
-      glowPool(ctx, cam, cx, cy, deck, '96,206,240', 14, alpha * 0.12);
-    }
-  },
   studio(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E, name, board, pal, sign, F, W3, frontVis) {   // KSAB studio lot: a barrel-vaulted stage, a scene dock, an office wing, mast, dishes and a water tower
     const KSAB = m.neon || '#39d6ff';
     const sfw = fh * 0.6, wallTop = h * 0.82, archH = sfw * 0.6;                                          // hero-stage half-width, eaves height, barrel-vault rise (fh-scaled, like the diner/warehouse sheds)
@@ -1960,16 +1843,6 @@ export const DOWNTOWN_ARMS = {
     { const [bx, by] = F(fh * 0.32, -sfw * 0.2); neonBlade(ctx, cam, bx, by, wallTop + archH, wallTop + archH + h * 0.6, KSAB, night, alpha, 'KSAB'); }
     if (night) { glowPool(ctx, cam, dx, dy, h * 0.6, '96,206,240', 16, alpha * 0.22);
       const [kx, ky] = F(-fh * 0.05, sfw * 0.6); glowPool(ctx, cam, kx, ky, h * 0.3, '190,200,255', 12, alpha * 0.16); }
-  },
-  studiogate(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E, name, board, pal, sign, F, W3, frontVis) {   // KSAB5 (the old Writers' Wing): a glazed annex. ⚠ Keep everything inside its own tile (anything past it reaches the road).
-    draw3DBoxAt(ctx, cam, dx, dy, fh * 1.0, 0, h * 0.06, pal, seed + 5, night, alpha, false);
-    // ⚠ No roof cap on the lobby: it would z-fight the parapet's roof.
-    draw3DBoxAt(ctx, cam, dx, dy, fh * 0.96, h * 0.06, h * 0.9, 'ty_ksab_glass', seed, night, alpha, false);
-    draw3DBoxAt(ctx, cam, dx, dy, fh * 0.98, h * 0.9, h * 1.02, 'ty_ksab_dk', seed + 1, night, alpha, true);
-    // ⚠ The marquee is always drawn (depth hides it), or it flickers at the facing threshold.
-    marqueeBand(ctx, cam, dx, dy, E, fh * 0.82, h * 0.6, m.neon || '#39d6ff', night, alpha, 'KSAB');
-    { const [bx, by] = F(-fh * 0.5, -fh * 0.42); neonBlade(ctx, cam, bx, by, h * 1.02, h * 1.34, m.neon || '#39d6ff', night, alpha); }
-    if (night) glowPool(ctx, cam, dx, dy, h * 0.4, '96,206,240', 12, alpha * 0.24);   // the marquee wash, in the station's cyan
   },
   hangar(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E, name, board, pal, sign, F, W3, frontVis) {   // A small airfield: passenger lounge, hangar shed and control tower
     const top = h * (m.big ? 0.66 : 0.56), NF = 12;

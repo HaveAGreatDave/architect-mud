@@ -1,0 +1,9 @@
+{
+  "capacity_kw": 100,
+  "flags": {},
+  "generator_id": "gen_zone_util_zone_ksab_gallery",
+  "id": "zone_ksab5_writers",
+  "max_capacity_kw": 100,
+  "name": "KSAB5 Writers' Room",
+  "source_type": "junction_box"
+}

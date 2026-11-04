@@ -364,7 +364,7 @@ const BAY_TRADE = new Set([
   'foundry', 'fabrication', 'ff_kiln', 'dw_forge', 'sw_foundry', 'sw_kiln', 'refinery',
   'dw_winding', 'dw_stores', 'slagwares',
   // A sound stage is a shed with a truck door, whatever it makes.
-  'studio', 'ksabstudio',
+  'studio',
   // ⚠ Never `vacantunit`: the numbered units are shops in parades, and nothing drives into them.
 ]);
 // Trades that won't carry somebody else's hoarding either: plant hung with catenary and pipework

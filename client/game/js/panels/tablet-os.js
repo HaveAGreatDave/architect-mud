@@ -4097,6 +4097,13 @@ function renderMap(d) {
     } else if (t.perimeter_gate) cls.push('tos-gate', 'tos-curtain');
     else if (t.curtain) cls.push('tos-curtain');
     else if (t.glacis) cls.push('tos-glacis');
+    // The Media Lot's wall: the same edges and the same gap for its gate, in the lot's own ink.
+    const lotFaces = (t.spec?.lot_wall || '') + (t.spec?.lot_gate || '');
+    if (lotFaces) {
+      cls.push('tos-cw', 'tos-lw');
+      if (t.spec?.lot_gate) cls.push('tos-cw-gate');
+      for (const d of lotFaces) cls.push('tos-cw-' + d);
+    }
     // A derived code replaces the footprint, in Labels mode only; an authored marker
     // shows on top in every mode.
     const _lb = _mapLabel(t);

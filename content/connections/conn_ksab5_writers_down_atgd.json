@@ -1,0 +1,9 @@
+{
+  "a": "zone_ksab5_writers",
+  "b": "zone_ksab_lobby",
+  "blocked": false,
+  "dir": "down",
+  "id": "conn_ksab5_writers_down_atgd",
+  "lockable": false,
+  "one_way": false
+}

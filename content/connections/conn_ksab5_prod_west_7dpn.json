@@ -1,0 +1,9 @@
+{
+  "a": "zone_ksab5_prod",
+  "b": "zone_ksab5_writers",
+  "blocked": true,
+  "dir": "west",
+  "id": "conn_ksab5_prod_west_7dpn",
+  "lockable": false,
+  "one_way": false
+}

@@ -2385,6 +2385,9 @@ html[data-density="compact"] #tablet-os-overlay .tos-doll { height:min(44vh, 22r
 #tablet-os-overlay .tos-map-tile.tos-cw-gate.tos-cw-s { --cw-hp:bottom; }
 #tablet-os-overlay .tos-map-tile.tos-cw-gate.tos-cw-w { --cw-vp:left; }
 #tablet-os-overlay .tos-map-tile.tos-cw-gate.tos-cw-e { --cw-vp:right; }
+/* The Media Lot's wall, as styles.css .mm-lw. */
+#tablet-os-overlay .tos-map-tile.tos-lw { --cw-ink:rgba(224,214,188,.9); }
+#tablet-os-overlay .tos-map-tile.tos-lw.tos-cw-gate { --cw-ink:transparent; --cw-gate:#39d6ff; }
 #tablet-os-overlay .tos-gps-svg { position:absolute; grid-column:1/-1; grid-row:1/-1; width:100%; height:100%; pointer-events:none; z-index:2; }
 #tablet-os-overlay .tos-gps-line { fill:none; stroke:var(--mg-accent); stroke-width:0.18; stroke-linecap:round; stroke-linejoin:round; }
 #tablet-os-overlay .tos-map-tile.dest { outline:2px solid #fff; }

@@ -1,0 +1,24 @@
+{
+  "ambient_events": [],
+  "ambient_theme": "indoors",
+  "bg_color": "#221e19",
+  "description": "The paper's morgue: steel cabinets from the floor to the ceiling down both long walls, every drawer labelled in a different decade's typing. A reading table stands between them with a pair of scissors chained to it. The oldest clippings have gone brown and the newest are on top of the cabinets, waiting to be filed. The bullpen is back through the east door.",
+  "exits": {
+    "east": "zone_sentinel_bullpen"
+  },
+  "flags": {
+    "building_name": "Coldwater Sentinel",
+    "building_type": "office",
+    "floor": "linoleum",
+    "is_building": true,
+    "is_interior": true,
+    "world_exit_zone": "zone_district_914_910"
+  },
+  "grid_x": -1,
+  "grid_y": 0,
+  "grid_z": 0,
+  "id": "zone_sentinel_morgue",
+  "map_id": "map_int_sentinel",
+  "name": "The Morgue",
+  "parent_zone": "zone_district_914_910"
+}

@@ -6278,13 +6278,26 @@ function _studioLiveNow() {
   }
   return false;
 }
-function _pushStudioLive() {
-  const live = _studioLiveNow();
-  if (live === _studioLiveSent) return;
-  _studioLiveSent = live;
-  for (const id of world.players.keys()) sendToPlayer(id, { type: 'studio_live', live });
+// Is the news on? A station with a stage airing a `news` slot, off the timetable alone, whoever is on
+// the floor: the lot's vans go out with it, and the car park says so (docs/proposals/media-lot.md).
+let _newsOutSent = false;
+function _newsOutNow() {
+  const { minutes, dayOfWeek } = getEnvironmentState() || {};
+  const gameSecs = (minutes ?? 0) * 60;
+  for (const state of channelRuntime.values()) {
+    if (!state.studioZoneId || state.scheduleMode !== 'daily') continue;
+    if (_pickDailySlot(state.playlist, gameSecs, dayOfWeek)?.playback_mode === 'news') return true;
+  }
+  return false;
 }
-on('player.login', ({ id }) => { if (id) sendToPlayer(id, { type: 'studio_live', live: _studioLiveNow() }); });
+function _pushStudioLive() {
+  const live = _studioLiveNow(), news = _newsOutNow();
+  if (live === _studioLiveSent && news === _newsOutSent) return;
+  _studioLiveSent = live;
+  _newsOutSent = news;
+  for (const id of world.players.keys()) sendToPlayer(id, { type: 'studio_live', live, news });
+}
+on('player.login', ({ id }) => { if (id) sendToPlayer(id, { type: 'studio_live', live: _studioLiveNow(), news: _newsOutNow() }); });
 function _stampOnAirCast(state, graph, nowMs) {
   const ids = _graphCastIds(graph);
   if (!ids?.size) return;
@@ -12782,6 +12795,13 @@ const CHANNEL_REVERT_LINES = [
 ];
 
 export const hooks = {
+  // The car park's news bays: the room's own prose can't say whether the vans are in.
+  'zone.describeRoom': (zone) => {
+    if (zone?.flags?.media_lot?.part !== 'parking') return undefined;
+    return _newsOutNow()
+      ? "KSAB's two bays are empty, with oil on the concrete where the vans stand. The news is on."
+      : 'Two KSAB news vans stand nose-out in their bays with their masts folded.';
+  },
   // KSAB5's feed monitors say which grounds are live (see _feedMonitorLines).
   'furniture.describe': (f) => _describeFeedMonitors(f),
   'venue.lit': venueLit,

@@ -6511,6 +6511,14 @@ check('move succeeds when gates pass', r?.type === 'move' && getPlayer().current
   let lane = 0;
   for (let y = 0.5; y >= -0.5; y -= 0.02) lane = Math.max(lane, lotSolidAt(-0.1, y, mc?.ml));
   check('Media Lot: a truck drives in through the gate and stops at the car park wall', lane === 0 && lotSolidAt(0, 0.478, mp?.ml) > 0, `gate lane ${lane}`);
+  check('Media Lot: the morgue is off the bullpen and the writers\' room is up from the lounge, both powered and lit',
+    ex('zone_sentinel_bullpen').west === 'zone_sentinel_morgue' && ex('zone_ksab_lobby').up === 'zone_ksab5_writers'
+      && ['zone_sentinel_morgue', 'zone_ksab5_writers'].every((id) => getZoneFurniture(id).some((f) => f.object_type === 'light' && f.lumen_output > 0)),
+    JSON.stringify([ex('zone_sentinel_bullpen'), ex('zone_ksab_lobby')]));
+  const lotSpec = (id) => specOf(id) || {};
+  check('Media Lot: the map draws the wall the windscreen draws',
+    lotSpec('zone_medialot_913_911').lot_gate === 's' && lotSpec('zone_medialot_914_911').lot_wall === 'es' && lotSpec('zone_medialot_912_910').lot_wall === 'nw' && lotSpec('zone_district_912_911').lot_wall === 'ws',
+    JSON.stringify(lotSpec('zone_medialot_913_911')));
 }
 
 // ── Layer 2f: statmods ledger — caps and their current values stay consistent ─

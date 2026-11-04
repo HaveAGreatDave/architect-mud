@@ -15,6 +15,7 @@ import { biomeOf, districtBiome } from './biomes.js';
 import { DISTRICTS } from '../../server/engine/districts.js';
 import { thermalLiftMax, heatOfCell } from '../../client/shared/thermals.js';
 import { skylineFar } from '../../client/shared/skyline-tall.js';
+import { lotSides } from '../../scripts/content/derive.mjs';
 import { normalizeLivery } from './livery.js';
 import { aircraftLiveryModel } from '../../client/shared/livery-sets.js';
 import { sendToPlayer, sendToZone, sendToZoneExcept } from '../../server/engine/messaging.js';
@@ -1526,13 +1527,7 @@ export function deriveSurfaceCell(cell, x, y, at = surfaceAt, live = true) {
   const mlf = cell.flags?.media_lot;
   if (mlf && typeof mlf === 'object') {
     const ex = cell.exits || (cell.id && getZone(cell.id)?.exits) || null;
-    const SIDE = { n: 'north', e: 'east', s: 'south', w: 'west' };
-    // Only a way onto the map counts: a building's link into its own rooms is an exit too, and the
-    // stage's into its floor is west, the side its wall stands on.
-    const open = (dir) => { const to = ex?.[dir]; return !!to && getZone(to)?.map_id === 'map_world'; };
-    let w = '';
-    for (const s of String(mlf.wall || '')) if (SIDE[s] && ex && !open(SIDE[s]) && !w.includes(s)) w += s;
-    const g = SIDE[mlf.gate] && open(SIDE[mlf.gate]) ? mlf.gate : undefined;
+    const { wall: w = '', gate: g } = lotSides(mlf, ex, (id) => getZone(id)?.map_id) || {};
     // `x`: one of the lot's buildings, which carries the wall along its street faces and nothing
     // else; it stays a building and takes no mark (drawLotMark in windshield.js draws it alongside).
     const P = { parking: 'p', backlot: 'b', building: 'x' };

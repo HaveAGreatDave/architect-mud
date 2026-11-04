@@ -1,0 +1,23 @@
+{
+  "description": "Every game on the slate on an index card, with the angle for each one written underneath. Most of the angles are the same angle.",
+  "flags": {
+    "aliases": [
+      "board",
+      "corkboard",
+      "cards",
+      "index cards",
+      "fixtures"
+    ],
+    "notable": true
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_ksab5_corkboard",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "the fixture board",
+  "object_type": "decoration",
+  "power_draw_kw": 0,
+  "price": 0,
+  "zone_id": "zone_ksab5_writers"
+}

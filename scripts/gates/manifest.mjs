@@ -263,6 +263,7 @@ export const GROUPS = [
       'scripts/shapes/moving.mjs',
       'scripts/shapes/cfitheight.mjs',
       'scripts/shapes/padcatch.mjs',
+      'scripts/shapes/medialot.mjs',
       'scripts/shapes/curtain.mjs',
       'scripts/shapes/curtainend.mjs',
       'scripts/shapes/curtainlockdown.mjs',

@@ -2058,8 +2058,9 @@ const handlers = {
   blackout_start: () => { startBlackoutFx(); },
   blackout_end:   () => { endBlackoutFx(); },
 
-  // A live show is going out (broadcast plugin). Lights the ON AIR box on the KSAB plot.
-  studio_live:    (msg) => { state.studioLive = !!msg.live; },
+  // A live show is going out (broadcast plugin). Lights the ON AIR box on the KSAB plot; `news` sends
+  // the lot's two vans out.
+  studio_live:    (msg) => { state.studioLive = !!msg.live; state.newsOut = !!msg.news; },
 };
 
 // ── Blackout FX ──────────────────────────────────────────────────────────────

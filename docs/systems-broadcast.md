@@ -2867,6 +2867,9 @@ Media Lot ([proposals/media-lot.md](proposals/media-lot.md)) the stage door open
 court, so the audience comes in through the gate on Foundry Way; the facade kept its id, so the
 door works as it did.
 
+`studio_live` also carries `news`: true while a station with a stage airs a `news` slot, off the
+timetable alone. The lot's two vans go out with it, and `zone.describeRoom` says so in the car park.
+
 ---
 
 ## AI Integration

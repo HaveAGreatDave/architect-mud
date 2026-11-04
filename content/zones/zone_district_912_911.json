@@ -3,7 +3,7 @@
   "ambient_theme": "indoors",
   "bg_color": "#3a3550",
   "color": "#e8e0ff",
-  "description": "KSAB's sound stage: a blind shell with the call letters across it, one of them dark, and the transmitter mast over the roof. Its doors face into the lot: a scene dock door, the stage door under a red ON AIR lamp, and a box office window with a card taped inside: TICKETS HERE.",
+  "description": "KSAB's sound stage: a blind render shell under a barrel roof, the call letters across the Meltwater Row side with one of them dark, a 7 the height of the wall on the Foundry Way end, and the transmitter mast over the plant deck. Its doors face into the lot: the elephant door at the scene dock, the stage door under a red ON AIR lamp, and a box office window with a card taped inside: TICKETS HERE.",
   "exits": {
     "east": "zone_medialot_913_911",
     "north": "zone_medialot_912_910",
@@ -16,6 +16,7 @@
     "entrance": "east",
     "facade": true,
     "is_building": true,
+    "map_icon": "bldg_soundstage",
     "media_lot": {
       "part": "building",
       "wall": "ws"

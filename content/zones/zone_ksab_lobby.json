@@ -6,7 +6,8 @@
   "exits": {
     "east": "zone_ksab5_stage",
     "north": "zone_ksab_gallery",
-    "south": "zone_district_913_910"
+    "south": "zone_district_913_910",
+    "up": "zone_ksab5_writers"
   },
   "flags": {
     "building_name": "KSAB5",
