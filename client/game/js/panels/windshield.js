@@ -18,7 +18,7 @@ import { isWeatherFxEnabled } from './weather-fx.js';
 import { layTrailPoint, uploadTrail } from '../../../shared/trail-store.js';
 import { parkTiles } from '../../../shared/coliseum-plan.js';
 import { MPH_KMH, STOREY_M, FT_M, tripM, fmtDistance, heightToZ } from '../../../shared/world-scale.js';
-import { seaShelter, SURF_DEPTH_Q, surfHullGain, surfGain, seaHeadingFor, setSeaHeading, seaRotPair } from '../../../shared/sea-swell.js';
+import { seaShelter, SURF_DEPTH_Q, surfHullGain, surfGain, seaHeadingFor, setSeaHeading, seaRotPair, SEA_K } from '../../../shared/sea-swell.js';
 import { windGust, windVeer, stormOf } from '../../../shared/wind-gust.js';
 import { skyAt } from '../../../shared/sky-keys.js';
 import { contactCue, sunCue } from '../../../shared/shadow-cue.js';
@@ -35660,7 +35660,7 @@ export function setYachtWay(tilesPerSec) { YACHT_WAY = Number.isFinite(tilesPerS
 export function encounterW(T, hr, way = YACHT_WAY) {
   if (!(way > 0)) return T.w;
   const [c, s] = seaRotPair();
-  const kx = T.ku * c - T.kv * s, ky = T.ku * s + T.kv * c;
+  const kx = (T.ku * c - T.kv * s) * SEA_K, ky = (T.ku * s + T.kv * c) * SEA_K;
   const fx = Math.sin(hr), fy = -Math.cos(hr);   // her bow, as yachtRideAt places it
   return Math.max(0.04, Math.abs(T.w + way * (kx * fx + ky * fy)));
 }

@@ -25,6 +25,7 @@ import { emitWire } from '../windshield.js';
 import { boatGeom } from '../../../../shared/boat-house.js';
 import { BOAT_ROWS } from '../../../../shared/vehicle-models.js';
 import { FT_M } from '../../../../shared/world-scale.js';
+import { SEA_TILE_M } from '../../../../shared/sea-swell.js';
 import { CEL, CEL_TUNE, celLightJS, celToneJS, celRimJS } from '../gl/cel-figure.js';
 import { inkOf, figureLightOf } from '../gl/house-style.js';
 
@@ -80,7 +81,7 @@ export function drawRodRig(ctx, cam, v, now, env = {}) {
   } else {
     // From the seat: eye-relative metres (x right, y forward, z up), the cabin's own frame, with your
     // eye where the seated rig's eye is.
-    const S = v.metreTiles > 0 ? v.metreTiles : 1 / 7;
+    const S = v.metreTiles > 0 ? v.metreTiles : 1 / SEA_TILE_M;
     const hd = ((v.ownHdg != null ? v.ownHdg : v.heading) || 0) * Math.PI / 180, sh = Math.sin(hd), ch = Math.cos(hd), ez = cam.EH;
     const FT = AN ? AN.FT_M : FT_M, E = AN ? AN.EYE_FT : [0, 3.62, -0.15];
     toLocal = (p, out) => {

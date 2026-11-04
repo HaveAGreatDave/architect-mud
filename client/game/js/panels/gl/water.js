@@ -191,7 +191,7 @@ void main() {
   vec2 gH = vec2(depthAt(w + vec2(1.0, 0.0)) - depthAt(w - vec2(1.0, 0.0)),
                  depthAt(w + vec2(0.0, 1.0)) - depthAt(w - vec2(0.0, 1.0)));
   // The swell's unit wavevector in WORLD axes: the authored one, carried out of the sea's frame.
-  vec2 kdir = seaUnframe(vec2(0.8529, 0.5224), uSeaRot);
+  vec2 kdir = seaUnturn(vec2(0.8529, 0.5224), uSeaRot);
   vec2 sw = seaRefract(seaShoal(w, water, gW, uShoal), depthAt(w), gH, kdir, uRefract);
   vShoal = sw - w;
 

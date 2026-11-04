@@ -13,6 +13,25 @@
 // COEFFICIENT TABLE, which is what the gate checks. At the shipping amplitude a 1e-3 relative
 // disagreement is 2e-5 tiles, far below a pixel at any range.
 
+import { TILE_M as RULER_M } from './world-scale.js';
+
+// ── THE RULER SWITCH ─────────────────────────────────────────────────────────
+//
+// The sea was authored at 7 m a tile; everything else is drawn at the ruler's 17.857 (phase 6 of
+// docs/proposals/world-scale.md). With this on, SEA_TILE_M is the ruler, and every wave keeps its
+// length and height in METRES, so in tiles it comes out SEA_K times shorter and lower, its steepness
+// the same. It takes one scale: the sea's frame (ROT_C, seaFrame) carries SEA_K, so every train
+// samples further along itself and the chain rule brings every slope back right. Only the frame,
+// SEA_AMP, the Stokes steepness and TILE_M know about it. Off, SEA_K is exactly 1.
+//
+// ⚠ IT'S A PREVIEW, AND OFF UNTIL SOMEBODY HAS LOOKED AT IT. `?seaRuler=1` in a browser, SEA_RULER=1
+// for a gate or a server. The sea isn't drawn from the wire but a fish and a cast are worked out on
+// both sides, so a client and a server on different settings disagree about them.
+const SEA_RULER = (typeof process !== 'undefined' && process.env?.SEA_RULER === '1')
+  || (typeof location !== 'undefined' && /[?&]seaRuler=1\b/.test(location.search || ''));
+export const SEA_TILE_M = SEA_RULER ? RULER_M : 7;
+export const SEA_K = SEA_TILE_M / 7;
+
 // ── THE CHOP ──────────────────────────────────────────────────────────────────────────────────
 //
 // Three crossing sine trains, phase-modulated by one shared low-frequency sine so the crests
@@ -174,7 +193,7 @@ export const SEA_WIND_PEAK = quad(SEA_WIND_SIDE);
 // Physical amplitude of the chop, in tiles, once a surface is lit rather than merely tinted. Small
 // on purpose: at 1-tile wavelengths the SLOPE is what reads, and the slope is amplitude times a
 // wavenumber of ~6, so 0.02 tiles already gives a 6.7° facet.
-export const SEA_AMP = 0.02;
+export const SEA_AMP = 0.02 / SEA_K;
 
 // ── AND THE CHOP FOLLOWS THE WIND, WHICH IT DID NOT ─────────────────────────────────────────────
 //
@@ -216,7 +235,7 @@ export function seaChopGain(kt) {
 // under you without sliding it past you; the renderer also slews the heading slowly.
 // ⚠ AND HEADING 0 BYPASSES THE FRAME ENTIRELY (ROT_ON), so every caller that never sets one — the
 // gates, the audio — gets bit-identical numbers to the sea that shipped.
-let ROT_ON = false, ROT_C = 1, ROT_S = 0, ROT_D = 0;
+let ROT_ON = SEA_K !== 1, ROT_C = SEA_K, ROT_S = 0, ROT_D = 0;
 function frameUV(u, v) { return [ROT_C * u + ROT_S * v, -ROT_S * u + ROT_C * v]; }
 // The rotation, in radians, that turns the authored roll so it travels along (dx, dy). A wave
 // sin(k.x + wt) travels toward -k, so the authored travel bearing is -k.
@@ -229,11 +248,11 @@ export function seaHeadingFor(dx, dy) {
 }
 export function setSeaHeading(rad) {
   ROT_D = Number.isFinite(rad) ? rad : 0;
-  ROT_ON = ROT_D !== 0;
-  ROT_C = Math.cos(ROT_D); ROT_S = Math.sin(ROT_D);
+  ROT_ON = ROT_D !== 0 || SEA_K !== 1;
+  ROT_C = SEA_K * Math.cos(ROT_D); ROT_S = SEA_K * Math.sin(ROT_D);
 }
-// The (cos, sin) pair the shaders take as uSeaRot.
-export function seaRotPair() { return [ROT_C, ROT_S]; }
+// The (cos, sin) pair the shaders take as uSeaRot. A pure turn: seaFrame adds SEA_K on its side.
+export function seaRotPair() { return [ROT_C / SEA_K, ROT_S / SEA_K]; }
 
 // ── EVALUATION ────────────────────────────────────────────────────────────────────────────────
 
@@ -327,10 +346,12 @@ export const SEA_KA_LIMIT = 0.443;
 // field would inherit the swell's 8.6-tile period, which is a band of whitecaps marching across the
 // bay rather than a scatter of them.
 export const SEA_FOAM_LEAD = 0.16;
+// `k` is the authored wavenumber; SEA_K puts it on the tile the amplitude is measured in, or the
+// ruler switch would flatten every crest.
 const stokesD = (th, k, A, sk = SEA_SKEW, as = SEA_ASYM) =>
-  A * (Math.cos(th) + sk * k * A * Math.sin(2 * th) + as * k * A * Math.cos(2 * th));
+  A * (Math.cos(th) + sk * k * SEA_K * A * Math.sin(2 * th) + as * k * SEA_K * A * Math.cos(2 * th));
 const stokes = (th, k, A, sk = SEA_SKEW, as = SEA_ASYM) => {
-  const e = 0.5 * (k * A);
+  const e = 0.5 * (k * SEA_K * A);
   return A * (Math.sin(th) - sk * e * Math.cos(2 * th) + as * e * Math.sin(2 * th));
 };
 
@@ -566,7 +587,7 @@ export function seaClock(nowMs) {
 export const SEA_FETCH_M = 440000;  // the Basin's effective fetch: how far the wind gets to work
 export const SEA_FULL_KT = 45;      // the wind that means "sea state 1" — Force 9, a strong gale
 const KT_TO_MS = 0.5144;
-const TILE_M = 7;                   // a lane is LANE_W across, so a tile is about seven metres
+const TILE_M = SEA_TILE_M;          // a lane is LANE_W across, so a tile was about seven metres
 
 // ── SHELTER: LAND UPWIND IS THE WHOLE OF WHY A HARBOUR IS FLAT ────────────────────────────────
 //
@@ -588,7 +609,6 @@ const TILE_M = 7;                   // a lane is LANE_W across, so a tile is abo
 // ⚠ AND IT IS THE UPWIND DIRECTION, NEVER THE NEAREST LAND. A distance transform is cheaper,
 // cacheable with the tile grid and wind-independent — and it makes a bay calm whichever way the
 // wind blows, which is the one thing this exists to get right.
-export const SEA_TILE_M = TILE_M;
 
 // ── THE SURF ZONE ─────────────────────────────────────────────────────────────────────────────
 // Read against the SEABED's own depth (client/shared/seabed.js, the model the submersible dives on),

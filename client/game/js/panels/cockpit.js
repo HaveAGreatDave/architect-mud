@@ -5,8 +5,9 @@ import { setAreaPane } from '../render.js';
 import { state } from '../state.js';
 import { sfx, clampInt, clampNum, esc, mountOverlay, ensureChassisStyles, deviceHeader, bezelScrews, crtOverlays, deckStrip, setDeckLevel } from './minigame-common.js';
 import { updateBoatContacts, stopBoatContacts, KT_TO_MPH } from './boat-audio.js';
-import { KT_MS, NM_M, FT_M, tripM, fmtDistance, heightToZ } from '../../../shared/world-scale.js';
-import { flightHeight } from '../../../shared/flight-height.js';   // contact ias is m/s on the wire; field distances in nm
+import { KT_MS, NM_M, FT_M, tripM, fmtDistance, heightToZ } from '../../../shared/world-scale.js';   // contact ias is m/s on the wire; field distances in nm
+import { flightHeight } from '../../../shared/flight-height.js';
+import { SEA_TILE_M } from '../../../shared/sea-swell.js';
 import { tweenOrbit, BAY_PITCH } from './camera-tween.js';
 import { internMap } from './map-intern.js';
 import { seatSpot } from './seat-audio.js';
@@ -4121,8 +4122,8 @@ function fsimFrameBody(now) {
     // The master arm (`armed` is the airframe).
     gunsLive: !!F.armed,
     drakeVent: F.dk ? { flood: F.dk.ventFlood || 0, blow: F.dk.ventBlow || 0 } : null, subHull: F.dk?.subVis || 0, drakeWater: !!(F.dk && (F.dk.onWater || F.dk.submerged > 0 || F.dk.subVis > 0)),
-    // Her model sinks with her (SEA_TILE_M is 7 m).
-    ...(F.dk?.subVis > 0 ? { rideZ: -F.dk.subVis / 7 } : {}),
+    // Her model sinks with her.
+    ...(F.dk?.subVis > 0 ? { rideZ: -F.dk.subVis / SEA_TILE_M } : {}),
     drakeFloat: F.dk?.floatVis || 0,
     // ⚠ Raw s.altitude, never the rounded readout: the sqrt is steepest off the deck and rounding steps the eye.
     height: flightHeight(s.altitude), speed: clampNum(r.airspeed / (P.vne || 120), 0, 1),

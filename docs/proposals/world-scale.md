@@ -1,6 +1,7 @@
 # One world scale
 
-> **Status: phases 1 to 5 and 7 built (2026-11-03); phase 6 is design.** The ruler, the
+> **Status: phases 1 to 5 and 7 built (2026-11-03); phase 6 built behind a switch, off, and waiting on
+> Dave's eyes (see [Phase 6 as built](#phase-6-as-built)).** The ruler, the
 > conversions, the paces, the labels and `scale:lint` are in, and the truck reads km/h (see
 > [Phase 2 as built](#phase-2-as-built)). Where this disagrees with a `systems-*.md` doc about what
 > ships today, that doc wins until the phase that changes it lands.
@@ -17,7 +18,7 @@ Ask the code how big one map tile is and you get eleven answers:
 | The truck's server clamp | 36 m (50 m since phase 5) | `TILE_MPH = 80` in `plugins/trucking/state.js` |
 | Boats and the podracer | 42.5 m | `tileMph: 95` in `flight-model.js`, `podracer-model.js` |
 | The truck's client physics | 50 m | `tileMph: 112` in `flight-model.js` |
-| The Coliseum broadcast | 63.5 m (208.5 ft) | `KH` in `gl/ballpark-mesh.js` |
+| The Coliseum broadcast | 63.5 m (208.5 ft); on the ruler since it was built at true size | `KH` in `gl/ballpark-mesh.js` |
 | Aircraft over the ground | 257 to 514 m | `worldPace` and `AIR_PACE` in `windshield.js`, `cockpit.js` |
 | Road signs and the world map | 536 m | `TILES_PER_MILE = 3` in `client/shared/road-units.js` |
 | Aviation distances | 1,609 m | the tile count printed as "mi" (`plugins/flight/state.js`) |
@@ -74,7 +75,7 @@ Some things are modelled in their own unit, and that's fine as long as each says
 
 | Frame | Unit | Declared as |
 |---|---|---|
-| The ballpark and rink | feet | `FT_M = 0.3048`, and the Coliseum's stretch (`KH`) as a named venue scale |
+| The ballpark and rink | feet | `FT_M = 0.3048` |
 | The Kitchen Stage | cm | `CM_M = 0.01` |
 | Cockpit and cabin interiors | per-craft units | each interior's `M_PER_UNIT` |
 | Building models | tiles (`fh`, `h`) | the ruler |
@@ -272,6 +273,42 @@ price moved. What changed is what the numbers mean.
   hangar's gauge bars, and the racer, which has no `tankL`. A percentage is the honest word for how
   full a thing is, and those lines are about the state of the vehicle.
 
+### Phase 6 as built
+
+**Behind a switch, off: the sea players see is the 7 m sea.** `?seaRuler=1` in a browser, or
+`SEA_RULER=1` for a gate or a server, sets `SEA_TILE_M` to the ruler. It's a preview: a client and a
+server on different settings disagree about a cast or a fish.
+
+Everything in metres lands on the ruler by itself, because it all went through `SEA_TILE_M`:
+swell and wind-sea height, the surf, casts, fish, the nav readout and the boat seats'
+`metreTiles`. The last two `/ 7` literals (the sub's `rideZ`, the rod rig's fallback) now read it.
+Wave LENGTH needed one scale, `SEA_K` (2.55), carried by the sea's frame: `seaFrame` already
+wrapped every sample and `seaUnframe` every slope, so a train samples further along itself and the
+chain rule brings each slope back. The GLSL's literal coefficients didn't move, so the gate that
+compares them needs no change. `SEA_AMP`, the Stokes steepness and `encounterW` carry `SEA_K` too.
+With the switch off `SEA_K` is exactly 1, and `sea.mjs` and `boatride.mjs` pass as before.
+
+With it on, the wave is right: at 30 kt a sampled height reads -0.31 m on both settings, the
+analytic slope still equals a finite difference, and the roll is 10 tiles where it was 25.6.
+
+**What it still needs before it can be on.**
+
+- **Foam.** At the same wind the near water is far whiter on the ruler, even at state 0.2. Whitecap
+  coverage should be the same fraction. This is the first thing to look at: `sea-detail.js`'s
+  layers repeat in tiles, and the foam trail ages in tiles.
+- **The boat ride.** `SEA_RULER=1 node scripts/shapes/boatride.mjs` passes 91 of 129. `hullLen`,
+  `hullBeam`, the crest launch and the chase's `CONTACT_VS` of 1.6 were all tuned in tiles against
+  the old swell.
+- **`sea.mjs` on the ruler** fails two of its checks: the steepest face is 43 degrees against a
+  ceiling of 42, on a sampling grid that's in tiles, and the head-sea test.
+- **The water mesh.** `PATCH_R` and `PATCH_PER_TILE` were sized to a 25.6-tile roll and to chop at
+  0.6 tiles. Chop is 0.24 tiles now, finer than the mesh, so it's carried by the floor's shading
+  alone. Not measured for cost.
+- **The seabed** is in metres out and tiles in, so `SHELF_K` and the rest keep their tile distances
+  and the shelf falls 2.55 times faster in metres.
+
+When it's right, the switch comes out: `SEA_TILE_M` is `TILE_M`, and `METRE_TILES` goes with it.
+
 ## Small fixes found on the way
 
 - `server/engine/clock.js` falls back to a `timeScale` of 3 when the environment can't be read;
@@ -284,11 +321,6 @@ price moved. What changed is what the numbers mean.
   in content and prose become kilometre boards in the same phase as the labels (phase 2).
 - **The sea moves onto the ruler** (Dave, 2026-11-01). Phase 6 stands: 17.857 m a tile, the swell,
   wakes, casts and the sea floor re-tuned to it, and the boat seats' `metreTiles` correction removed.
-- **The Coliseum gets more tiles** (Dave, 2026-11-01), so its stretch stops being a venue scale.
-  How many, and what it displaces, is still open below.
-
-## Open questions
-
-- **How big the Coliseum grows.** The bowl is about 613 ft (187 m) a side, so true size at the ruler
-  is 11 by 11 tiles. Halcyon Fields is 163 tiles, 20 wide and 11 tall, so true size takes most of
-  the district.
+- **The Coliseum gets more tiles** (Dave, 2026-11-01), so its stretch stops being a venue scale. It
+  stands on 11 by 11 tiles at true size, built on 2026-11-02, with the city grown south to make room
+  ([coliseum-true-size.md](coliseum-true-size.md)).

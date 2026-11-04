@@ -22,7 +22,7 @@
 // sixty metres, and that is the term the mesh displaces and the term a boat rides.
 import {
   SEA_SWELL_SIDE, SEA_WIND_SIDE, SEA_SWELL_PEAK, SEA_WIND_PEAK, SEA_SKEW, SEA_ASYM,
-  SEA_FOAM_ALONG, SEA_FOAM_FREQ, SEA_TILE_M, SURF_GAMMA, SURF_REF_M, SURF_KS_MAX } from '../../../../shared/sea-swell.js';
+  SEA_FOAM_ALONG, SEA_FOAM_FREQ, SEA_TILE_M, SEA_K, SURF_GAMMA, SURF_REF_M, SURF_KS_MAX } from '../../../../shared/sea-swell.js';
 
 // ⚠ THE SIDEBANDS ARE GENERATED FROM THE JS TABLE RATHER THAN RETYPED, and that is a change of kind
 // rather than of style: the peak trains above are a hand-written twin held to the original by a
@@ -100,14 +100,16 @@ float seaFoamTorn(vec2 p, float t, vec2 wd, float amt) {
 // ⚠ THE GAINS ARE INTERPOLATED FROM THE JS TABLE, never retyped — the sidebands already are, for the
 // reason that every "two copies of a number" claim in sea.mjs exists. Skewness rides cos(2th) and
 // asymmetry rides sin(2th): the same harmonic in quadrature, so the forward pitch costs one sine.
-float seaStokes(float th, float k, float A) {
+float seaStokes(float th, float k0, float A) {
+  float k = k0 * ${f(SEA_K)};
   float e = 0.5 * (k * A);
   return A * (sin(th) - ${f(SEA_SKEW)} * e * cos(2.0 * th) + ${f(SEA_ASYM)} * e * sin(2.0 * th));
 }
 // d/dth of the above. ⚠ ONE DERIVATIVE FOR ONE HEIGHT FUNCTION — it was written out at three call
 // sites here and four in the JS, which is seven chances for the lighting to describe a surface the
 // geometry is not drawing.
-float seaStokesD(float th, float k, float A) {
+float seaStokesD(float th, float k0, float A) {
+  float k = k0 * ${f(SEA_K)};
   return A * (cos(th) + ${f(SEA_SKEW)} * k * A * sin(2.0 * th) + ${f(SEA_ASYM)} * k * A * cos(2.0 * th));
 }
 // ── SHOALING: CRESTS TURN TO FACE THE BEACH ───────────────────────────────────────────────────
@@ -155,8 +157,11 @@ vec2 seaShoal(vec2 p, float waterW, vec2 gradW, float amt) {
 // The GLSL half of setSeaHeading in client/shared/sea-swell.js. 'r' is (cos, sin) of the heading,
 // handed over as uSeaRot; the sample goes INTO the frame and the slope comes back OUT of it, so the
 // lighting and the mesh describe one rotated sea. (1, 0) is the identity, bit for bit.
-vec2 seaFrame(vec2 p, vec2 r) { return vec2(r.x * p.x + r.y * p.y, -r.y * p.x + r.x * p.y); }
-vec2 seaUnframe(vec2 g, vec2 r) { return vec2(r.x * g.x - r.y * g.y, r.y * g.x + r.x * g.y); }
+// SEA_K is the ruler switch (sea-swell.js): out of the frame a slope is SEA_K steeper per tile. A
+// direction wants the turn alone, which is seaUnturn.
+vec2 seaFrame(vec2 p, vec2 r) { return ${f(SEA_K)} * vec2(r.x * p.x + r.y * p.y, -r.y * p.x + r.x * p.y); }
+vec2 seaUnturn(vec2 g, vec2 r) { return vec2(r.x * g.x - r.y * g.y, r.y * g.x + r.x * g.y); }
+vec2 seaUnframe(vec2 g, vec2 r) { return ${f(SEA_K)} * seaUnturn(g, r); }
 
 // ── REFRACTION OVER THE SHELF: CRESTS SWING ROUND TO THE BEACH ────────────────────────────────
 //
