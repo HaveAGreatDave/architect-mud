@@ -1,0 +1,102 @@
+{
+  "adorn": [],
+  "armTrim": true,
+  "basis": {
+    "fh": 0.4,
+    "h": 1
+  },
+  "bind": [
+    {
+      "by": "name",
+      "key": "thelongdormitory"
+    }
+  ],
+  "id": "thelongdormitory",
+  "note": "Ported from the hand-written trm_dorm arm by scripts/shapes/autoport.mjs. The mass and the detail list are this file; everything else (lights, signs, moving parts) is still drawn by the arm.",
+  "pal": "ty_trm_dorm",
+  "pixdiff": 0,
+  "portedFrom": "trm_dorm",
+  "segs": [
+    {
+      "cx": 0,
+      "cy": 0,
+      "fd": 0.344,
+      "hw": 0.344,
+      "kind": "box",
+      "mapAligned": true,
+      "pal": "ty_trm_dorm",
+      "roof": false,
+      "seed": 0,
+      "yaw": 0,
+      "z0": 0,
+      "z1": 0.68
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "fd": 0.4,
+      "hw": 0.4,
+      "kind": "box",
+      "mapAligned": true,
+      "pal": "ty_trm_dorm_roof",
+      "roof": true,
+      "seed": 1,
+      "yaw": 0,
+      "z0": 0.68,
+      "z1": 0.84
+    },
+    {
+      "cx": -0.264,
+      "cy": 0.352,
+      "fd": 0.008,
+      "hw": 0.056,
+      "kind": "box",
+      "pal": "ty_door",
+      "roof": false,
+      "seed": 9,
+      "yaw": 0,
+      "z0": 0,
+      "z1": 0.3944
+    },
+    {
+      "cx": 0.264,
+      "cy": 0.352,
+      "fd": 0.008,
+      "hw": 0.056,
+      "kind": "box",
+      "pal": "ty_door",
+      "roof": false,
+      "seed": 11,
+      "yaw": 0,
+      "z0": 0,
+      "z1": 0.3944
+    },
+    {
+      "cx": 0,
+      "cy": 0.4,
+      "fd": 0.024,
+      "hw": 0.312,
+      "kind": "box",
+      "pal": "ty_trm_dorm_roof",
+      "roof": true,
+      "seed": 14,
+      "yaw": 0,
+      "z0": 0,
+      "z1": 0.12
+    },
+    {
+      "cx": 0,
+      "cy": -0.12,
+      "fd": 0.032,
+      "hw": 0.032,
+      "kind": "box",
+      "mapAligned": true,
+      "pal": "ty_trm_frame",
+      "roof": true,
+      "seed": 18,
+      "yaw": 0,
+      "z0": 0.84,
+      "z1": 1.08
+    }
+  ]
+}

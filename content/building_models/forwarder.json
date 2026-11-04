@@ -1,0 +1,134 @@
+{
+  "adorn": [],
+  "armTrim": true,
+  "basis": {
+    "fh": 0.4,
+    "h": 1
+  },
+  "bind": [
+    {
+      "by": "type",
+      "key": "forwarder"
+    }
+  ],
+  "detail": [
+    {
+      "half": 0.4,
+      "hh": 0.026,
+      "kind": "parapet",
+      "z": 0.6
+    },
+    {
+      "cy": 0.4,
+      "half": 0.36,
+      "kind": "conduit",
+      "r": 0.0048,
+      "z": 0.555
+    },
+    {
+      "cx": -0.2,
+      "cy": -0.12,
+      "d": 0.032,
+      "hh": 0.042,
+      "kind": "acUnit",
+      "w": 0.04,
+      "z": 0.6
+    },
+    {
+      "cx": 0.176,
+      "cy": 0.08,
+      "d": 0.026,
+      "hh": 0.034,
+      "kind": "acUnit",
+      "w": 0.032,
+      "z": 0.6
+    },
+    {
+      "cx": -0.384,
+      "cy": 0.4,
+      "kind": "pipe",
+      "r": 0.0064,
+      "z0": 0.03,
+      "z1": 0.58
+    }
+  ],
+  "id": "forwarder",
+  "note": "Ported from the hand-written freight_forwarder arm by scripts/shapes/autoport.mjs. The mass and the detail list are this file; everything else (lights, signs, moving parts) is still drawn by the arm.",
+  "pal": "ty_fwd_metal",
+  "pixdiff": 0,
+  "portedFrom": "freight_forwarder",
+  "segs": [
+    {
+      "cx": 0,
+      "cy": 0,
+      "fd": 0.432,
+      "hw": 0.432,
+      "kind": "box",
+      "mapAligned": true,
+      "pal": "ty_fwd_metal",
+      "roof": true,
+      "seed": 0,
+      "yaw": 0,
+      "z0": 0,
+      "z1": 0.6
+    },
+    {
+      "cx": 0,
+      "cy": 0.408,
+      "fd": 0.08,
+      "hw": 0.408,
+      "kind": "box",
+      "pal": "ty_door",
+      "roof": true,
+      "seed": 1,
+      "yaw": 0,
+      "z0": 0.42,
+      "z1": 0.5
+    },
+    {
+      "cx": -0.24,
+      "cy": 0.408,
+      "fd": 0.02,
+      "front": true,
+      "hw": 0.112,
+      "kind": "box",
+      "mapAligned": true,
+      "pal": "ty_door",
+      "roof": true,
+      "seed": 2.2,
+      "yaw": 0,
+      "z0": 0,
+      "z1": 0.34
+    },
+    {
+      "cx": 0,
+      "cy": 0.408,
+      "fd": 0.02,
+      "front": true,
+      "hw": 0.112,
+      "kind": "box",
+      "mapAligned": true,
+      "pal": "ty_door",
+      "roof": true,
+      "seed": 4,
+      "yaw": 0,
+      "z0": 0,
+      "z1": 0.34
+    },
+    {
+      "cx": 0.24,
+      "cy": 0.408,
+      "fd": 0.02,
+      "front": true,
+      "hw": 0.112,
+      "kind": "box",
+      "mapAligned": true,
+      "pal": "ty_door",
+      "roof": true,
+      "seed": 5.8,
+      "yaw": 0,
+      "z0": 0,
+      "z1": 0.34
+    }
+  ]
+}

@@ -71,6 +71,42 @@ export function compareModels(ws, mA, mB, opts = {}) {
   return { cameras, worst, failures, same: worst === 0 };
 }
 
+// ── AND THE MESH, WHICH THE MATRIX NEVER DRAWS ──────────────────────────────
+// The matrix traces the 2-D painter at the default tier, which stops short of the near tier, so
+// the derived kit and every NEAR part of an arm are out of its sight. GLASS 2 draws them at every
+// distance, from `captureModelMesh`. A port that matched every camera above and meshed differently
+// (it lost the arm's `noKit`, its storefront, its trade) shipped a different building on the GPU.
+// So the two meshes are compared too, face by face, at all four facings. Null when they agree.
+// ⚠ BY TOLERANCE, NOT BY ROUNDED KEY. A port's numbers are written to six places, so a corner can sit
+// 1e-7 from the arm's; rounding both to a grid flips the odd one across a boundary and reports a face
+// that is the same face. Faces are sorted on a coarse key and then matched point by point within 1e-3.
+const ALL_FACINGS = [[0, 1], [1, 0], [0, -1], [-1, 0]];
+const MESH_TOL = 1e-3;
+const faceSort = (q) => {
+  const pts = q.p || [], c = [0, 1, 2].map((k) => pts.reduce((s, p) => s + p[k], 0) / (pts.length || 1));
+  return [q.kind, typeof q.pal === 'string' ? q.pal : '', q.flat ? 1 : 0, pts.length, ...c.map((v) => Math.round(v * 20))].join(',');
+};
+const sameFace = (a, b) => faceSort(a) === faceSort(b) && (a.p || []).every((p, i) => p.every((v, k) => Math.abs(v - b.p[i][k]) <= MESH_TOL));
+// ⚠ BOTH ARE BUILT ONCE BEFORE THEY'RE COMPARED. An arm drum that passes no palette takes the ambient
+// SHAPE_PAL, which is whatever the last capture left there, so an arm's FIRST mesh can differ from its
+// second (The Stores' iron drum meshes palette-less cold). The port recorded the palette and doesn't.
+// That is the arm's bug, and a gate comparing cold would fail the port for it, by test order.
+export function meshDiff(ws, mA, mB) {
+  ws.captureModelMesh(mA, {}); ws.captureModelMesh(mB, {});
+  for (const E of ALL_FACINGS) {
+    const a = ws.captureModelMesh(mA, { E }), b = ws.captureModelMesh(mB, { E });
+    if (a.length !== b.length) return `E=[${E}]: ${a.length} mesh faces against ${b.length}`;
+    const pool = new Map();
+    for (const q of b) { const k = faceSort(q); (pool.get(k) || pool.set(k, []).get(k)).push(q); }
+    for (const q of a) {
+      const list = pool.get(faceSort(q)) || [], j = list.findIndex((r) => sameFace(q, r));
+      if (j < 0) return `E=[${E}]: the arm has a ${q.kind} face (${faceSort(q)}) the port does not`;
+      list.splice(j, 1);
+    }
+  }
+  return null;
+}
+
 // ── The determinism gate ────────────────────────────────────────────────────
 // Rendering the same model twice at the same camera must produce the same trace. It is the
 // precondition for every comparison above — a model that is not deterministic cannot be diffed at
@@ -124,6 +160,11 @@ export function portedSweep(ws, opts = {}) {
       out.push(`${key}: differs from the '${m.portedFrom}' arm on ${r.failures.length}+ of ${r.cameras} cameras `
         + `(worst ${(r.worst * 100).toFixed(1)}% of ops, allowed ${(allow * 100).toFixed(1)}%). `
         + `First at ${f.cam}, op ${f.first}: arm drew ${f.aOp}, authored drew ${f.bOp}`);
+    }
+    // A port that keeps its arm's trim claims the GPU building too, so it answers for the mesh.
+    if (m.armTrim) {
+      const md = meshDiff(ws, old, m);
+      if (md) out.push(`${key}: meshes differently from the '${m.portedFrom}' arm in GLASS 2 (${md})`);
     }
   }
   return out;

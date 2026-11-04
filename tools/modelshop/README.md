@@ -1326,16 +1326,43 @@ this codebase has a harness for turning those into numbers. Two of them were bui
 
 ## Forking an arm into something editable
 
-The answer to "can I edit this building?" for the 172 models that are code. The arm itself cannot
-be edited — but its captured **mass** can be turned back into an authored document, and then you
-can add shapes to it, move them, retexture them and save. **Fork to editable**, on any code arm.
+The answer to "can I edit this building?" for the 407 models that are code. The arm itself can't
+be edited, but its captured **mass** can be turned back into an authored document, and then you
+can add shapes to it, move them, retexture them and save. **Make editable**, on any code arm.
 
-⚠ **A fork is a starting point, not a copy.** Capture is lossy in three ways that all matter:
+**A fork keeps the arm's trim (`armTrim`).** Capture only sees mass: the neon, the shutters, the
+lamps, the cranes and the lettering are 14,800 lines of code with loops and branches on the camera
+and the clock, and there's no data form to read them back into. So the fork doesn't try. It draws
+its own mass and then runs the arm with `MASS_OFF`, which is the split every GLASS 2 frame already
+makes. It looks like the arm until you change it. What you move is the mass; the arm's trim stays
+where the arm put it, so turn **armTrim** off (the checkbox under the palette) once you've authored
+the trim worth keeping, and the model owes the arm nothing.
 
-- **no adornments but masts** — every adornment no-ops under `SHAPE_SINK` by design;
-- **no per-box texture seed** — the walls will be jittered differently;
-- **one entrance facing**, frozen at capture. This is the finding that ended the port of the city:
-  79 arms that were byte-identical at the capture conditions all broke when the facing changed.
+What the mass carries, so a fork matches the arm box for box:
+
+- **`seed`** on a box: its texture seed as an offset from the tile's, as the arm passed it.
+- **`mapAligned`** on a box: the arm draws it at yaw 0 whichever way the building faces, rather
+  than turning it with the entrance. This was the "one entrance facing" finding that ended the
+  first port: the arms weren't drawing a different building per facing, they were leaving most
+  boxes square to the map while the port turned them all. `shapeTurns` draws the arm facing east
+  and says which box did which.
+- **`front`** on any segment: mass the arm draws only while the entrance faces the camera.
+- **`skin`** on a drum (`chrome`, `glass`, `flat`, `facets`), and `capSkin` on its lid: the shading
+  the arm gave it. The house factories label themselves (`litStyle`'s `recipe`), and a closure that
+  answers from the light dot alone is recorded facet by facet.
+- the arm's hand-placed **`ARM_DETAIL`** list, as the model's own `detail`, and its record's `noKit`,
+  `trade` and `signWorks`.
+
+⚠ **Still lost:** per-face palettes (capture records one per box), barrel roofs (below), and any
+scalar that depends on both footprint and height. The editor has no card for `detail` yet, so a
+fork's detail list is edited in its file.
+
+⚠ **Authored barrel roofs draw at zero width.** `compilePart` renames every `hw` to `hwRaw`, a
+barrel's too, and every renderer reads a barrel's `V(s.hw)`. Four models are affected (Compost
+Mentis, Paws for Thought, Shelf Life, The Penny Drops; the last has `roof: false` under its barrel,
+so it has no lid at all). Fixing the rename turns those roofs on and buries three kit parts on the
+two warehouses inside the new arches (`anchored` goes 14 to 17), so it waits for a decision. It also
+blocks every barrel-roofed arm from porting.
 
 **It keeps the arm's key and stands in for it.** The first cut gave the fork its own id and bound
 it to a name nothing carried, which was safe and useless — you edited a model no tile resolved to,
@@ -1350,8 +1377,8 @@ claiming it would be claiming something false and the port gate would rightly fa
 `replaces` says *this is deliberately a different building, drawn instead of the arm*; it is not
 diffed, and `shapes:smoke` names every stand-in on every push so an override is never a surprise.
 
-Of the 172 arms, 138 can be expressed at all; the other 34 hold entrance-face-only mass and the
-fork refuses them by name rather than producing a wrong building. The inversion is
+Of the 407 arms, 385 can be expressed; the other 22 have a scalar on a mixed basis and the fork
+refuses them by name rather than producing a wrong building. The inversion is
 [client/shared/model-port.js](../../client/shared/model-port.js), shared with
 `scripts/shapes/autoport.mjs` so the tool and the build cannot disagree about what a port is.
 
@@ -1934,7 +1961,7 @@ unreachable by construction rather than by a filter somebody has to remember to 
 2. **Authored models, read path** — built. See below.
 3. **The differ** — built. See below.
 4. **The editor** — built. See below.
-5. **The port** — attempted, measured, and **not done**. See below.
+5. **The port** — 144 of 407 arms ported with `--trim` (2026-11-03). See below.
 
 ## The port: why it does not happen (phase 5)
 
@@ -1994,6 +2021,56 @@ Two things this exercise did establish, both worth keeping:
 
 The arms stay as code. That is the outcome, not a shortfall — and it is now a measurement anybody
 can re-run in a second rather than an opinion.
+
+### Porting the mass and keeping the trim (`--trim`, 2026-11-03)
+
+```bash
+node scripts/shapes/autoport.mjs --survey --trim        # the measurement below
+node scripts/shapes/autoport.mjs --survey --trim -w     # write the faithful ones
+```
+
+**144 are written** (2026-11-03), each with `portedFrom`, `armTrim` and its measured `pixdiff`. Three
+more passed and were held back: `blade_shop`, `gun_shop` and `casino` carry `ARM_DETAIL` parts that
+float 0.06 off their wall. That's true in the game today, but `anchored` only checks an authored
+model's detail, so porting them fails it; fix the parts and the port will differ from the arm, so
+it's a decision. The GLASS 2 mesh over all 488 models was 130,689 faces before and after.
+
+Two things a port moved, both noise: the shape snapshot (`building-shapes.js`) picks a different one
+of two equal slabs on 17 models, because the arm's tie was broken by float noise and the port's by
+order; and The Stores' iron drum, which the arm meshes without a palette on its first build (it reads
+the leftover `SHAPE_PAL`), meshes with its own every time.
+
+All three blockers above turned out smaller than they read. Adornments don't have to survive
+capture: a `--trim` port keeps the arm drawing everything but mass (see *Forking an arm*). The
+facing failure was boxes the arm leaves at yaw 0 while the port turned them (`mapAligned`). Seeds
+and drum skins are now recorded. With the cameras unchanged and a second test added (the GLASS 2
+mesh at all four facings, `meshDiff` in modeldiff.mjs, because the 48 cameras never draw the near
+tier where the kit lives):
+
+```
+407 hand-written arms
+  385 can be EXPRESSED (22 have a mixed-basis scalar)
+
+  of the 385, at the CAPTURE conditions the port is:
+    234  byte-identical to the arm
+    151  already different: 110 are Coliseum tiles, the rest barrel roofs,
+         per-face palettes and drum skins the arm builds itself
+
+  and of those 234 exact ones, how many stop matching when you change:
+      4  the footprint or storey height
+     20  the tile seed
+     13  the entrance facing
+      0  adornments back on
+
+  59 more pass every camera and mesh differently in GLASS 2
+
+  147 arms within 1% at all 48 cameras, meshing the same: would be ported
+```
+
+What's next, in order of what it unlocks: the barrel `hw` bug (every barrel-roofed arm, and four
+authored models drawn without their roofs today), per-face palettes on a captured box, then the
+Coliseum, whose 110 tiles are a case of their own. A port written with `-w` carries `portedFrom`
+and `armTrim`, so modeldiff's `--ported` gate holds it to the arm on every push, mesh included.
 
 ## Editing (phase 4)
 

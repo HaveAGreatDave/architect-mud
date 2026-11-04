@@ -1,0 +1,63 @@
+{
+  "adorn": [],
+  "armTrim": true,
+  "basis": {
+    "fh": 0.4,
+    "h": 1
+  },
+  "bind": [
+    {
+      "by": "type",
+      "key": "locksmith"
+    }
+  ],
+  "id": "locksmith",
+  "neon": "#d8c88a",
+  "note": "Ported from the hand-written locksmith arm by scripts/shapes/autoport.mjs. The mass and the detail list are this file; everything else (lights, signs, moving parts) is still drawn by the arm.",
+  "pal": "ty_skel",
+  "pixdiff": 0,
+  "portedFrom": "locksmith",
+  "segs": [
+    {
+      "cx": 0,
+      "cy": 0,
+      "fd": 0.128,
+      "hw": 0.128,
+      "kind": "box",
+      "mapAligned": true,
+      "pal": "ty_skel",
+      "roof": false,
+      "seed": 0,
+      "yaw": 0,
+      "z0": 0,
+      "z1": 0.78
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "fd": 0.152,
+      "hw": 0.152,
+      "kind": "box",
+      "mapAligned": true,
+      "pal": "ty_skel_dk",
+      "roof": true,
+      "seed": 1,
+      "yaw": 0,
+      "z0": 0.78,
+      "z1": 0.88
+    },
+    {
+      "cx": 0.032,
+      "cy": 0.136,
+      "fd": 0.016,
+      "hw": 0.064,
+      "kind": "box",
+      "pal": "ty_skel_glass",
+      "roof": false,
+      "seed": 2,
+      "yaw": 0,
+      "z0": 0.18,
+      "z1": 0.46
+    }
+  ]
+}

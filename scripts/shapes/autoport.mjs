@@ -23,12 +23,14 @@
 //
 // A port is therefore never assumed to be faithful. It is generated here and MEASURED there.
 import { loadWindshield } from './dom-stub.mjs';
-import { compareModels, MATRIX } from './modeldiff.mjs';
+import { compareModels, meshDiff, MATRIX } from './modeldiff.mjs';
 import { DEFAULT_BASIS } from '../../client/shared/building-model-schema.js';
 // The inversion itself moved to client/shared so the Modelshop can run it in a browser — see
 // the header there. This script keeps the survey, the batch and the measuring.
 import { portModel, untriple } from '../../client/shared/model-port.js';
 import { writeFileSync, mkdirSync } from 'node:fs';
+// The serialiser every content file is written with (sorted keys), as the Modelshop's save uses.
+import { canonicalJson } from '../content/lib.mjs';
 import { join } from 'node:path';
 
 const ROOT = new URL('../../', import.meta.url).pathname.replace(/^\/([A-Za-z]:)/, '$1');
@@ -38,11 +40,11 @@ const OUT_DIR = join(ROOT, 'content', 'building_models');
 // The only honest way to decide what to port. For every arm: can it be expressed at all, and if it
 // can, HOW FAR from the original does the result actually draw? The second question is the one that
 // matters and the one nobody can answer by looking.
-async function survey(ws, { write = false, limit = 1 } = {}) {
+async function survey(ws, { write = false, limit = 1, trim = false } = {}) {
   const rows = [];
   for (const { key, m } of ws.shapeModelRegistry()) {
     if (m.type === 'authored') continue;
-    const { doc, errors } = portModel(ws, key, m);
+    const { doc, errors } = portModel(ws, key, m, 3, { armTrim: trim });
     if (errors) { rows.push({ key, ok: false, why: errors[0] }); continue; }
     // Compile it the way the bake would, then diff the result against the arm it came from.
     const { compileModel } = await import('../../client/shared/building-model-schema.js');
@@ -53,8 +55,15 @@ async function survey(ws, { write = false, limit = 1 } = {}) {
   rows.sort((a, b) => (a.ok === b.ok ? (a.worst ?? 1) - (b.worst ?? 1) : a.ok ? -1 : 1));
 
   const portable = rows.filter((r) => r.ok);
-  const faithful = portable.filter((r) => r.worst <= limit / 100);
-  console.log(`autoport survey — ${rows.length} hand-written arms`);
+  // A trim port also has to MESH as its arm does: the matrix never draws the near tier (see meshDiff).
+  if (trim) {
+    const { compileModel } = await import('../../client/shared/building-model-schema.js');
+    for (const r of portable) if (r.worst <= limit / 100) {
+      r.mesh = meshDiff(ws, ws.shapeModelRegistry().find((x) => x.key === r.key).m, compileModel(r.doc, r.key).rec);
+    }
+  }
+  const faithful = portable.filter((r) => r.worst <= limit / 100 && !r.mesh);
+  console.log(`autoport survey${trim ? ' (--trim: mass ported, the arm draws the rest)' : ''} — ${rows.length} hand-written arms`);
   console.log(`  ${portable.length} can be EXPRESSED in the authored format`);
   console.log(`  ${rows.length - portable.length} cannot, and stay as code:`);
   const why = {};
@@ -88,7 +97,7 @@ async function survey(ws, { write = false, limit = 1 } = {}) {
   }
   console.log(`\n  of the ${portable.length} expressible, at the CAPTURE conditions the port is:`);
   console.log(`      ${String(axis.exact).padStart(3)}  byte-identical to the arm`);
-  console.log(`      ${String(axis.capture).padStart(3)}  already different (drum shading and per-box texture seeds are not captured)`);
+  console.log(`      ${String(axis.capture).padStart(3)}  already different (${trim ? 'barrel roofs, per-face palettes, drum skins the arm builds itself' : 'drum shading, per-box texture seeds, the arm\'s trim'})`);
   console.log(`\n  and of those ${axis.exact} exact ones, how many stop matching when you change:`);
   console.log(`      ${String(axis.scale).padStart(3)}  the footprint or storey height   <- the affine basis holds`);
   console.log(`      ${String(axis.seed).padStart(3)}  the tile seed                    <- capture freezes ONE seed`);
@@ -101,8 +110,12 @@ async function survey(ws, { write = false, limit = 1 } = {}) {
   // exactly the way an authored model does, so if the ARM diverges from it too, the facing
   // dependence belongs to the arm and no rotation-based port can be faithful.
   //
-  // This is the evidence the whole "we are not porting" conclusion rests on, so it is printed
-  // rather than left in somebody's terminal history.
+  // This was the evidence the "we are not porting" conclusion rested on. The cause turned out to be
+  // narrower than "the arm draws something different per facing": most arm boxes are drawn at yaw 0
+  // whichever way the building faces, and a few take a yaw that follows the entrance, and the LOD
+  // (like the first ports) turns them all. `shapeTurns` tells the two apart, and a port marks the
+  // first kind `mapAligned`, which is why --trim ports survive the facing axis above. The LOD still
+  // turns everything, so this control still fails; it's a fact about the LOD now, not the porter.
   let armVsLod = 0, cases = 0;
   for (const r of portable) {
     const m = ws.shapeModelRegistry().find((x) => x.key === r.key).m;
@@ -115,16 +128,17 @@ async function survey(ws, { write = false, limit = 1 } = {}) {
   }
   console.log(`\n  control — is an arm a pure rotation of its own capture?`);
   console.log(`      ${armVsLod}/${cases}  arms differ from the shipping drawModelLOD at a non-canonical facing`);
-  console.log(`      ${armVsLod === cases ? 'No. So no rotation-based port can be faithful, and this is not a bug in the porter.'
+  console.log(`      ${armVsLod === cases ? 'No: the LOD turns every box with the entrance, and an arm leaves most at yaw 0. A port asks shapeTurns which.'
     : 'Some are — the facing failures above are worth re-examining.'}`);
 
-  console.log(`\n  ${faithful.length} arm(s) are within the ${limit}% bar across all ${MATRIX.length} cameras and would be ported.`);
+  if (trim) console.log(`\n  ${portable.filter((r) => r.mesh).length} more pass every camera and mesh differently in GLASS 2, so stay as code.`);
+  console.log(`\n  ${faithful.length} arm(s) are within the ${limit}% bar across all ${MATRIX.length} cameras${trim ? ', mesh the same,' : ''} and would be ported.`);
 
   if (write) {
     mkdirSync(OUT_DIR, { recursive: true });
     for (const r of faithful) {
       r.doc.pixdiff = Math.max(0, Number(r.worst.toFixed(4)));
-      writeFileSync(join(OUT_DIR, r.doc.id + '.json'), JSON.stringify(r.doc, null, 2) + '\n', 'utf8');
+      writeFileSync(join(OUT_DIR, r.doc.id + '.json'), canonicalJson(r.doc), 'utf8');
     }
     console.log(`\n  wrote ${faithful.length} model(s) to content/building_models/ — now run: npm run models:bake`);
   }
@@ -138,7 +152,8 @@ async function main() {
   const limIdx = argv.indexOf('--limit');
   const limit = limIdx >= 0 ? Number(argv[limIdx + 1]) : 1;
 
-  if (argv.includes('--survey')) { await survey(ws, { write, limit }); return; }
+  const trim = argv.includes('--trim');
+  if (argv.includes('--survey')) { await survey(ws, { write, limit, trim }); return; }
 
   const key = argv.find((a) => a.startsWith('type:') || a.startsWith('named:'));
   if (!key) {
@@ -147,7 +162,7 @@ async function main() {
   }
   const m = ws.shapeModelRegistry().find((r) => r.key === key)?.m;
   if (!m) { console.error('no such model: ' + key); process.exit(2); }
-  const { doc, errors } = portModel(ws, key, m);
+  const { doc, errors } = portModel(ws, key, m, 3, { armTrim: trim });
   if (errors) { for (const e of errors) console.error('  ✗ ' + e); process.exit(1); }
   const { compileModel } = await import('../../client/shared/building-model-schema.js');
   const r = compareModels(ws, m, compileModel(doc, key).rec, { name: key });
@@ -155,7 +170,7 @@ async function main() {
   console.error(`  measured divergence from the arm: ${(r.worst * 100).toFixed(2)}% of drawing operations`);
   if (write) {
     mkdirSync(OUT_DIR, { recursive: true });
-    writeFileSync(join(OUT_DIR, doc.id + '.json'), JSON.stringify(doc, null, 2) + '\n', 'utf8');
+    writeFileSync(join(OUT_DIR, doc.id + '.json'), canonicalJson(doc), 'utf8');
     console.error('  wrote content/building_models/' + doc.id + '.json — now run: npm run models:bake');
   } else {
     console.log(JSON.stringify(doc, null, 2));

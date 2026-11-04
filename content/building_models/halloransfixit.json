@@ -1,0 +1,109 @@
+{
+  "adorn": [],
+  "armTrim": true,
+  "basis": {
+    "fh": 0.4,
+    "h": 1
+  },
+  "bind": [
+    {
+      "by": "name",
+      "key": "halloransfixit"
+    }
+  ],
+  "id": "halloransfixit",
+  "neon": "#ffb14a",
+  "note": "Ported from the hand-written garage arm by scripts/shapes/autoport.mjs. The mass and the detail list are this file; everything else (lights, signs, moving parts) is still drawn by the arm.",
+  "pal": "ty_garage",
+  "pixdiff": 0,
+  "portedFrom": "garage",
+  "segs": [
+    {
+      "cx": 0,
+      "cy": 0,
+      "fd": 0.424,
+      "hw": 0.424,
+      "kind": "box",
+      "mapAligned": true,
+      "pal": "ty_garage",
+      "roof": true,
+      "seed": 0,
+      "yaw": 0,
+      "z0": 0,
+      "z1": 0.5
+    },
+    {
+      "cx": -0.248,
+      "cy": 0.412,
+      "fd": 0.02,
+      "front": true,
+      "hw": 0.104,
+      "kind": "box",
+      "mapAligned": true,
+      "pal": "ty_garage_bay",
+      "roof": true,
+      "seed": 0.8999999999999999,
+      "yaw": 0,
+      "z0": 0,
+      "z1": 0.36
+    },
+    {
+      "cx": 0,
+      "cy": 0.412,
+      "fd": 0.02,
+      "front": true,
+      "hw": 0.104,
+      "kind": "box",
+      "mapAligned": true,
+      "pal": "ty_garage_bay",
+      "roof": true,
+      "seed": 4,
+      "yaw": 0,
+      "z0": 0,
+      "z1": 0.36
+    },
+    {
+      "cx": 0.248,
+      "cy": 0.412,
+      "fd": 0.02,
+      "front": true,
+      "hw": 0.104,
+      "kind": "box",
+      "mapAligned": true,
+      "pal": "ty_garage_bay",
+      "roof": true,
+      "seed": 7.1,
+      "yaw": 0,
+      "z0": 0,
+      "z1": 0.36
+    },
+    {
+      "cx": 0.22,
+      "cy": 0.14,
+      "fd": 0.02,
+      "hw": 0.02,
+      "kind": "box",
+      "mapAligned": true,
+      "pal": "ty_fab_steel",
+      "roof": false,
+      "seed": 2,
+      "yaw": 0,
+      "z0": 0,
+      "z1": 0.75
+    },
+    {
+      "cx": -0.16,
+      "cy": -0.12,
+      "fd": 0.056,
+      "hw": 0.056,
+      "kind": "box",
+      "mapAligned": true,
+      "pal": "ty_fab_steel",
+      "roof": true,
+      "seed": 6,
+      "yaw": 0,
+      "z0": 0.5,
+      "z1": 0.64
+    }
+  ]
+}

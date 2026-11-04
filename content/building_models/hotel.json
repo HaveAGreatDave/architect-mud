@@ -1,0 +1,150 @@
+{
+  "adorn": [],
+  "armTrim": true,
+  "basis": {
+    "fh": 0.4,
+    "h": 1
+  },
+  "bind": [
+    {
+      "by": "type",
+      "key": "hotel"
+    }
+  ],
+  "detail": [
+    {
+      "half": 0.424,
+      "hh": 0.018,
+      "kind": "parapet",
+      "z": 0.24
+    },
+    {
+      "half": 0.4,
+      "hh": 0.04,
+      "kind": "parapet",
+      "z": 1.4
+    },
+    {
+      "cx": 0.16,
+      "cy": 0.4,
+      "half": 0.104,
+      "kind": "balcony",
+      "out": 0.052,
+      "rail": 0.05,
+      "z": 0.62
+    },
+    {
+      "cx": 0.16,
+      "cy": 0.4,
+      "half": 0.104,
+      "kind": "balcony",
+      "out": 0.052,
+      "rail": 0.05,
+      "z": 0.94
+    },
+    {
+      "cx": 0.16,
+      "cy": 0.4,
+      "half": 0.104,
+      "kind": "balcony",
+      "out": 0.052,
+      "rail": 0.05,
+      "z": 1.26
+    },
+    {
+      "cx": -0.168,
+      "cy": -0.16,
+      "hh": 0.08,
+      "kind": "roofTank",
+      "r": 0.064,
+      "z": 1.4
+    },
+    {
+      "cx": 0.136,
+      "cy": -0.128,
+      "d": 0.028,
+      "hh": 0.04,
+      "kind": "acUnit",
+      "w": 0.036,
+      "z": 1.4
+    }
+  ],
+  "id": "hotel",
+  "neon": "#ff4a9a",
+  "note": "Ported from the hand-written hotel arm by scripts/shapes/autoport.mjs. The mass and the detail list are this file; everything else (lights, signs, moving parts) is still drawn by the arm.",
+  "pal": "ty_hotel",
+  "pixdiff": 0,
+  "portedFrom": "hotel",
+  "segs": [
+    {
+      "cx": 0,
+      "cy": 0,
+      "fd": 0.48,
+      "hw": 0.48,
+      "kind": "box",
+      "mapAligned": true,
+      "pal": "ty_precast",
+      "roof": false,
+      "seed": 4,
+      "yaw": 0,
+      "z0": 0,
+      "z1": 0.24
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "fd": 0.4,
+      "hw": 0.4,
+      "kind": "box",
+      "mapAligned": true,
+      "pal": "ty_hotel",
+      "roof": false,
+      "seed": 0,
+      "yaw": 0,
+      "z0": 0.24,
+      "z1": 1.28
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "fd": 0.424,
+      "hw": 0.424,
+      "kind": "box",
+      "mapAligned": true,
+      "pal": "ty_precast",
+      "roof": false,
+      "seed": 5,
+      "yaw": 0,
+      "z0": 1.28,
+      "z1": 1.34
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "fd": 0.32,
+      "hw": 0.32,
+      "kind": "box",
+      "mapAligned": true,
+      "pal": "ty_precast",
+      "roof": true,
+      "seed": 6,
+      "yaw": 0,
+      "z0": 1.34,
+      "z1": 1.5
+    },
+    {
+      "cx": 0,
+      "cy": 0.504,
+      "fd": 0.12,
+      "hw": 0.2,
+      "kind": "box",
+      "mapAligned": true,
+      "pal": "ty_precast_dk",
+      "roof": true,
+      "seed": 7,
+      "yaw": 0,
+      "z0": 0.2,
+      "z1": 0.26
+    }
+  ]
+}

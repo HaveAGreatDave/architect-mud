@@ -1,0 +1,130 @@
+{
+  "adorn": [],
+  "armTrim": true,
+  "basis": {
+    "fh": 0.4,
+    "h": 1
+  },
+  "bind": [
+    {
+      "by": "name",
+      "key": "twocellsupply"
+    }
+  ],
+  "id": "twocellsupply",
+  "neon": "#9fe8ff",
+  "note": "Ported from the hand-written twocell arm by scripts/shapes/autoport.mjs. The mass and the detail list are this file; everything else (lights, signs, moving parts) is still drawn by the arm.",
+  "pal": "ty_2cell",
+  "pixdiff": 0,
+  "portedFrom": "twocell",
+  "segs": [
+    {
+      "cx": 0,
+      "cy": -0.12,
+      "fd": 0.24,
+      "hw": 0.368,
+      "kind": "box",
+      "pal": "ty_2cell",
+      "roof": true,
+      "seed": 0,
+      "yaw": 0,
+      "z0": 0,
+      "z1": 0.46
+    },
+    {
+      "cx": 0,
+      "cy": 0.128,
+      "fd": 0.016,
+      "hw": 0.384,
+      "kind": "box",
+      "pal": "ty_2cell",
+      "roof": true,
+      "seed": 1,
+      "yaw": 0,
+      "z0": 0,
+      "z1": 0.78
+    },
+    {
+      "cx": -0.368,
+      "cy": 0.42,
+      "fd": 0.0112,
+      "hw": 0.0112,
+      "kind": "box",
+      "mapAligned": true,
+      "pal": "ty_2cell_crate",
+      "roof": true,
+      "seed": 3,
+      "yaw": 0,
+      "z0": 0,
+      "z1": 0.35
+    },
+    {
+      "cx": 0.136,
+      "cy": 0.42,
+      "fd": 0.0112,
+      "hw": 0.0112,
+      "kind": "box",
+      "mapAligned": true,
+      "pal": "ty_2cell_crate",
+      "roof": true,
+      "seed": 3,
+      "yaw": 0,
+      "z0": 0,
+      "z1": 0.35
+    },
+    {
+      "cx": 0.368,
+      "cy": 0.42,
+      "fd": 0.0112,
+      "hw": 0.0112,
+      "kind": "box",
+      "mapAligned": true,
+      "pal": "ty_2cell_crate",
+      "roof": true,
+      "seed": 3,
+      "yaw": 0,
+      "z0": 0,
+      "z1": 0.35
+    },
+    {
+      "cx": -0.248,
+      "cy": 0.224,
+      "fd": 0.06,
+      "hw": 0.06,
+      "kind": "box",
+      "mapAligned": true,
+      "pal": "ty_2cell_crate",
+      "roof": true,
+      "seed": 4,
+      "yaw": 0,
+      "z0": 0,
+      "z1": 0.11
+    },
+    {
+      "cx": -0.248,
+      "cy": 0.224,
+      "fd": 0.044,
+      "hw": 0.044,
+      "kind": "box",
+      "pal": "ty_2cell_crate",
+      "roof": true,
+      "seed": 5,
+      "yaw": 0.3,
+      "z0": 0.11,
+      "z1": 0.2
+    },
+    {
+      "cx": 0.24,
+      "cy": 0.216,
+      "fd": 0.052,
+      "hw": 0.052,
+      "kind": "box",
+      "pal": "ty_2cell_crate",
+      "roof": true,
+      "seed": 6,
+      "yaw": -0.15,
+      "z0": 0,
+      "z1": 0.09
+    }
+  ]
+}

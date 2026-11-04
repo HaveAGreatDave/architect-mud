@@ -1,0 +1,130 @@
+{
+  "adorn": [],
+  "armTrim": true,
+  "basis": {
+    "fh": 0.4,
+    "h": 1
+  },
+  "bind": [
+    {
+      "by": "type",
+      "key": "fabrication"
+    }
+  ],
+  "detail": [
+    {
+      "half": 0.4,
+      "hh": 0.024,
+      "kind": "parapet",
+      "z": 0.55
+    },
+    {
+      "cx": 0.2,
+      "cy": 0.4,
+      "hh": 0.06,
+      "kind": "vent",
+      "w": 0.052,
+      "z": 0.4
+    },
+    {
+      "cx": -0.2,
+      "cy": 0.4,
+      "hh": 0.06,
+      "kind": "vent",
+      "w": 0.052,
+      "z": 0.4
+    },
+    {
+      "cy": 0.4,
+      "half": 0.36,
+      "kind": "conduit",
+      "r": 0.0052,
+      "z": 0.52
+    },
+    {
+      "cy": -0.136,
+      "d": 0.036,
+      "hh": 0.045,
+      "kind": "acUnit",
+      "w": 0.044,
+      "z": 0.55
+    }
+  ],
+  "id": "fabrication",
+  "note": "Ported from the hand-written fabrication arm by scripts/shapes/autoport.mjs. The mass and the detail list are this file; everything else (lights, signs, moving parts) is still drawn by the arm.",
+  "pal": "ty_fab_metal",
+  "pixdiff": 0,
+  "portedFrom": "fabrication",
+  "segs": [
+    {
+      "cx": 0,
+      "cy": 0,
+      "fd": 0.448,
+      "hw": 0.448,
+      "kind": "box",
+      "mapAligned": true,
+      "pal": "ty_fab_metal",
+      "roof": false,
+      "seed": 6,
+      "yaw": 0,
+      "z0": 0,
+      "z1": 0.06
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "fd": 0.432,
+      "hw": 0.432,
+      "kind": "box",
+      "mapAligned": true,
+      "pal": "ty_fab_metal",
+      "roof": false,
+      "seed": 0,
+      "yaw": 0,
+      "z0": 0.06,
+      "z1": 0.46
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "fd": 0.408,
+      "hw": 0.408,
+      "kind": "box",
+      "mapAligned": true,
+      "pal": "ty_fab_steel",
+      "roof": true,
+      "seed": 7,
+      "yaw": 0,
+      "z0": 0.46,
+      "z1": 0.55
+    },
+    {
+      "cx": -0.32,
+      "cy": 0,
+      "fd": 0.024,
+      "hw": 0.024,
+      "kind": "box",
+      "mapAligned": true,
+      "pal": "ty_fab_steel",
+      "roof": false,
+      "seed": 1,
+      "yaw": 0,
+      "z0": 0,
+      "z1": 0.85
+    },
+    {
+      "cx": 0.32,
+      "cy": 0,
+      "fd": 0.024,
+      "hw": 0.024,
+      "kind": "box",
+      "mapAligned": true,
+      "pal": "ty_fab_steel",
+      "roof": false,
+      "seed": 3,
+      "yaw": 0,
+      "z0": 0,
+      "z1": 0.85
+    }
+  ]
+}

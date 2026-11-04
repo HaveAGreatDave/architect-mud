@@ -1,0 +1,285 @@
+{
+  "adorn": [],
+  "armTrim": true,
+  "basis": {
+    "fh": 0.4,
+    "h": 1
+  },
+  "bind": [
+    {
+      "by": "type",
+      "key": "atrium_court"
+    }
+  ],
+  "id": "atrium_court",
+  "neon": "#a8e2ff",
+  "note": "Ported from the hand-written atrium_court arm by scripts/shapes/autoport.mjs. The mass and the detail list are this file; everything else (lights, signs, moving parts) is still drawn by the arm.",
+  "pal": "ty_hft_glass",
+  "pixdiff": 0,
+  "portedFrom": "atrium_court",
+  "segs": [
+    {
+      "cap": false,
+      "cx": 0,
+      "cy": 0,
+      "kind": "drum",
+      "n": 18,
+      "pal": "ty_hft_glass",
+      "rb": 0.184,
+      "rt": 0.168,
+      "skin": "glass",
+      "tint": [
+        70,
+        102,
+        128
+      ],
+      "z0": 0,
+      "z1": 0.88
+    },
+    {
+      "cap": true,
+      "capHi": [
+        206,
+        220,
+        230
+      ],
+      "capLo": [
+        112,
+        128,
+        144
+      ],
+      "capSkin": "chrome",
+      "capSpec": 1.3,
+      "cx": 0,
+      "cy": 0,
+      "hi": [
+        242,
+        248,
+        252
+      ],
+      "kind": "drum",
+      "lo": [
+        104,
+        120,
+        136
+      ],
+      "n": 18,
+      "pal": "ty_hf_ice",
+      "rb": 0.12,
+      "rt": 0.064,
+      "skin": "chrome",
+      "spec": 1.8,
+      "z0": 0.88,
+      "z1": 0.97
+    },
+    {
+      "cx": -0.248,
+      "cy": 0.064,
+      "fd": 0.112,
+      "hw": 0.136,
+      "kind": "box",
+      "pal": "ty_hft_glass",
+      "roof": false,
+      "seed": 0,
+      "yaw": 0.3,
+      "z0": 0,
+      "z1": 0.62
+    },
+    {
+      "cx": -0.248,
+      "cy": 0.064,
+      "fd": 0.128,
+      "hw": 0.152,
+      "kind": "box",
+      "pal": "ty_hf_chrome",
+      "roof": true,
+      "seed": 4,
+      "yaw": 0.3,
+      "z0": 0.62,
+      "z1": 0.68
+    },
+    {
+      "cap": true,
+      "capHi": [
+        204,
+        218,
+        228
+      ],
+      "capLo": [
+        102,
+        118,
+        134
+      ],
+      "capSkin": "chrome",
+      "capSpec": 1.4,
+      "cx": -0.376,
+      "cy": -0.024,
+      "hi": [
+        234,
+        244,
+        250
+      ],
+      "kind": "drum",
+      "lo": [
+        92,
+        108,
+        124
+      ],
+      "n": 14,
+      "pal": "ty_hf_chrome",
+      "rb": 0.104,
+      "rt": 0.096,
+      "skin": "chrome",
+      "spec": 2.1,
+      "z0": 0,
+      "z1": 0.68
+    },
+    {
+      "cx": 0.248,
+      "cy": 0.064,
+      "fd": 0.112,
+      "hw": 0.136,
+      "kind": "box",
+      "pal": "ty_hft_glass",
+      "roof": false,
+      "seed": 1,
+      "yaw": -0.3,
+      "z0": 0,
+      "z1": 0.62
+    },
+    {
+      "cx": 0.248,
+      "cy": 0.064,
+      "fd": 0.128,
+      "hw": 0.152,
+      "kind": "box",
+      "pal": "ty_hf_chrome",
+      "roof": true,
+      "seed": 5,
+      "yaw": -0.3,
+      "z0": 0.62,
+      "z1": 0.68
+    },
+    {
+      "cap": true,
+      "capHi": [
+        204,
+        218,
+        228
+      ],
+      "capLo": [
+        102,
+        118,
+        134
+      ],
+      "capSkin": "chrome",
+      "capSpec": 1.4,
+      "cx": 0.376,
+      "cy": -0.024,
+      "hi": [
+        234,
+        244,
+        250
+      ],
+      "kind": "drum",
+      "lo": [
+        92,
+        108,
+        124
+      ],
+      "n": 14,
+      "pal": "ty_hf_chrome",
+      "rb": 0.104,
+      "rt": 0.096,
+      "skin": "chrome",
+      "spec": 2.1,
+      "z0": 0,
+      "z1": 0.68
+    },
+    {
+      "cap": true,
+      "capHi": [
+        200,
+        214,
+        224
+      ],
+      "capLo": [
+        122,
+        138,
+        152
+      ],
+      "capSkin": "chrome",
+      "capSpec": 1.4,
+      "cx": 0,
+      "cy": 0,
+      "hi": [
+        226,
+        238,
+        246
+      ],
+      "kind": "drum",
+      "lo": [
+        112,
+        128,
+        144
+      ],
+      "n": 20,
+      "pal": "ty_hf_deck",
+      "rb": 0.416,
+      "rt": 0.4,
+      "skin": "chrome",
+      "spec": 1.8,
+      "z0": 0,
+      "z1": 0.04
+    },
+    {
+      "cap": true,
+      "capHi": [
+        214,
+        228,
+        236
+      ],
+      "capLo": [
+        132,
+        148,
+        162
+      ],
+      "capSkin": "chrome",
+      "capSpec": 1.3,
+      "cx": 0,
+      "cy": 0.336,
+      "hi": [
+        242,
+        248,
+        252
+      ],
+      "kind": "drum",
+      "lo": [
+        122,
+        138,
+        152
+      ],
+      "n": 14,
+      "pal": "ty_hf_ice",
+      "rb": 0.168,
+      "rt": 0.168,
+      "skin": "chrome",
+      "spec": 1.7,
+      "z0": 0.046,
+      "z1": 0.064
+    },
+    {
+      "cx": 0,
+      "cy": 0.208,
+      "fd": 0.048,
+      "hw": 0.08,
+      "kind": "box",
+      "pal": "ty_hf_chrome",
+      "roof": true,
+      "seed": 71,
+      "yaw": 0,
+      "z0": 0.064,
+      "z1": 0.37
+    }
+  ]
+}

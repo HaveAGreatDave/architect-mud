@@ -22,7 +22,7 @@ import {
 } from '/client/shared/building-model-schema.js';
 import { wallPaletteKeys, wallPaletteInfo } from '/client/game/js/panels/windshield.js';
 import { toolboxSection, setToolboxOpen } from './toolbox.js';
-import { shapeForModel } from '/client/game/js/panels/windshield.js';
+import { shapeForModel, shapeTurns, ARM_DETAIL } from '/client/game/js/panels/windshield.js';
 import { portModel } from '/client/shared/model-port.js';
 
 const $ = (id) => document.getElementById(id);
@@ -446,8 +446,25 @@ function plainField(part, name, type, onEdit) {
   }
   if (type === 'boolean') {
     const inp = el('input'); inp.type = 'checkbox';
-    inp.checked = part[name] !== false;
+    // Absent is false for every boolean but `roof`, whose default is a lid (see compile's note).
+    inp.checked = name === 'roof' ? part[name] !== false : !!part[name];
     inp.onchange = () => { part[name] = inp.checked; onEdit(); };
+    wrap.append(inp);
+  } else if (type === 'rgb' || type === 'strings') {
+    // Three channels as 'r, g, b', or a drum's facet colours one to a line. A value that doesn't
+    // parse is left as it was rather than written half-read.
+    const rgb = type === 'rgb';
+    const inp = el(rgb ? 'input' : 'textarea');
+    if (rgb) inp.type = 'text'; else inp.rows = 3;
+    inp.value = Array.isArray(part[name]) ? part[name].join(rgb ? ', ' : '\n') : '';
+    inp.oninput = () => {
+      const raw = inp.value.trim();
+      if (!raw) { delete part[name]; onEdit(); return; }
+      const v = rgb ? raw.split(',').map((c) => Number(c.trim())) : raw.split('\n').map((c) => c.trim()).filter(Boolean);
+      if (rgb && !(v.length === 3 && v.every((c) => Number.isInteger(c) && c >= 0 && c <= 255))) return;
+      part[name] = v;
+      onEdit();
+    };
     wrap.append(inp);
   } else {
     const inp = el('input');
@@ -582,6 +599,13 @@ export function renderEditor(host, key, redraw) {
     document.body.append(dl);
   }
   host.append(paletteField(() => doc.pal, (v) => { if (v) doc.pal = v; else delete doc.pal; }, onEdit));
+  // The replaced arm's lights, signs and moving parts, drawn over this model's mass. Off once the
+  // trim worth keeping has been authored here; then the model owes the arm nothing.
+  if (doc.replaces || doc.portedFrom) {
+    const row = plainField(doc, 'armTrim', 'boolean', () => onEdit('armTrim'));
+    row.title = 'Draw the ' + (doc.replaces || doc.portedFrom) + ' arm\'s lights, signs and moving parts over this mass';
+    host.append(row);
+  }
 
   host.append(bindEditor(doc, onEdit));
 
@@ -610,23 +634,22 @@ export function renderEditor(host, key, redraw) {
 // but its captured MASS can be turned back into an authored document, and then you can add
 // shapes to it, move them, retexture them and save.
 //
-// ⚠ A FORK IS A STARTING POINT, NOT A COPY. Capture is lossy in three ways that all matter here
-// (see client/shared/model-port.js): no adornments but masts, no per-box texture seed, and one
-// frozen entrance facing — which is the thing that ended the port of the city. So the fork gets
-// its OWN id and binds to nothing that exists, and it deliberately does not claim `portedFrom`,
-// which is the field that would make it override the arm. The original building is untouched
-// until you bind the fork to it yourself.
+// A fork takes the arm's MASS as data (boxes with their texture seeds and which way they turn, drums
+// with their skins, the entrance-only mass) and its hand-placed detail list, and keeps the arm drawing
+// everything else (`armTrim`): the lights, the signs, the moving parts. So it looks like the arm until
+// you change it. What you move is the mass; the arm's own trim stays where the arm put it, so turn
+// `armTrim` off once you've authored the trim you want to keep.
 function forkRow(key, m, redraw) {
   const row = el('div', 'addrow');
   const b = el('button', '', 'Make editable');
-  b.title = 'Copy this arm\'s mass into an authored model, bound to the same buildings, and edit it here.'
-    + ' What the game draws changes with it. Adornments other than masts, per-box texture seeds and the'
-    + ' other three entrance facings are not captured, so it is a starting point rather than a copy.';
+  b.title = 'Copy this arm\'s mass and detail into an authored model, bound to the same buildings, and edit it here.'
+    + ' The arm keeps drawing its lights, signs and moving parts over it, so it looks the same until you change it.'
+    + ' Those stay where the arm put them when you move the mass.';
   b.onclick = async () => {
     const bar = $('esave');
     // portModel takes the renderer as an argument; in node that is the stubbed windshield, here
     // it is the real one this page already imported.
-    const { doc, errors } = portModel({ shapeForModel }, key, m, Number(window.__msSeed?.() ?? 3));
+    const { doc, errors } = portModel({ shapeForModel, shapeTurns, ARM_DETAIL }, key, m, Number(window.__msSeed?.() ?? 3), { armTrim: true });
     if (errors) {
       bar.className = 'err';
       bar.textContent = 'cannot be expressed in the authored format — ' + errors[0];
@@ -645,8 +668,7 @@ function forkRow(key, m, redraw) {
     delete doc.portedFrom;
     doc.replaces = m.type;
     doc.note = 'Forked from the hand-written ' + m.type + ' arm in the Modelshop, and drawn instead of it. '
-      + 'Mass only: adornments other than masts, per-box texture seeds and the other entrance facings '
-      + 'were not captured.';
+      + 'The mass and detail are this file; the arm still draws its lights, signs and moving parts (armTrim).';
     const file = doc.id + '.json';
     docs.set(file, doc);
     keyToFile.set(key, file);

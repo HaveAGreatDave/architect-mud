@@ -1,0 +1,77 @@
+{
+  "adorn": [],
+  "armTrim": true,
+  "basis": {
+    "fh": 0.4,
+    "h": 1
+  },
+  "bind": [
+    {
+      "by": "type",
+      "key": "tattooist"
+    }
+  ],
+  "id": "tattooist",
+  "neon": "#ff5ac8",
+  "note": "Ported from the hand-written tattooist arm by scripts/shapes/autoport.mjs. The mass and the detail list are this file; everything else (lights, signs, moving parts) is still drawn by the arm.",
+  "pal": "ty_regerts",
+  "pixdiff": 0,
+  "portedFrom": "tattooist",
+  "segs": [
+    {
+      "cx": 0,
+      "cy": 0,
+      "fd": 0.352,
+      "hw": 0.352,
+      "kind": "box",
+      "mapAligned": true,
+      "pal": "ty_pocket_shut",
+      "roof": false,
+      "seed": 0,
+      "yaw": 0,
+      "z0": 0,
+      "z1": 0.44
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "fd": 0.36,
+      "hw": 0.36,
+      "kind": "box",
+      "mapAligned": true,
+      "pal": "ty_regerts",
+      "roof": false,
+      "seed": 1,
+      "yaw": 0,
+      "z0": 0.44,
+      "z1": 0.92
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "fd": 0.384,
+      "hw": 0.384,
+      "kind": "box",
+      "mapAligned": true,
+      "pal": "ty_regerts",
+      "roof": true,
+      "seed": 2,
+      "yaw": 0,
+      "z0": 0.92,
+      "z1": 1
+    },
+    {
+      "cx": 0.248,
+      "cy": 0.368,
+      "fd": 0.012,
+      "hw": 0.052,
+      "kind": "box",
+      "pal": "ty_regerts_glass",
+      "roof": false,
+      "seed": 3,
+      "yaw": 0,
+      "z0": 0.06,
+      "z1": 0.86
+    }
+  ]
+}

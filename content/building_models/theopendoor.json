@@ -1,0 +1,147 @@
+{
+  "adorn": [],
+  "armTrim": true,
+  "basis": {
+    "fh": 0.4,
+    "h": 1
+  },
+  "bind": [
+    {
+      "by": "name",
+      "key": "theopendoor"
+    }
+  ],
+  "id": "theopendoor",
+  "note": "Ported from the hand-written trm_inn arm by scripts/shapes/autoport.mjs. The mass and the detail list are this file; everything else (lights, signs, moving parts) is still drawn by the arm.",
+  "pal": "ty_trm_inn",
+  "pixdiff": 0,
+  "portedFrom": "trm_inn",
+  "segs": [
+    {
+      "cx": 0,
+      "cy": 0,
+      "fd": 0.36,
+      "hw": 0.36,
+      "kind": "box",
+      "mapAligned": true,
+      "pal": "ty_trm_inn",
+      "roof": false,
+      "seed": 0,
+      "yaw": 0,
+      "z0": 0,
+      "z1": 0.88
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "fd": 0.424,
+      "hw": 0.424,
+      "kind": "box",
+      "mapAligned": true,
+      "pal": "ty_trm_dorm_roof",
+      "roof": true,
+      "seed": 1,
+      "yaw": 0,
+      "z0": 0.88,
+      "z1": 1.02
+    },
+    {
+      "cx": 0,
+      "cy": 0.488,
+      "fd": 0.288,
+      "hw": 0.288,
+      "kind": "box",
+      "mapAligned": true,
+      "pal": "ty_trm_dorm_roof",
+      "roof": true,
+      "seed": 2,
+      "yaw": 0,
+      "z0": 0.62,
+      "z1": 0.7
+    },
+    {
+      "cx": 0,
+      "cy": 0.488,
+      "fd": 0.176,
+      "hw": 0.176,
+      "kind": "box",
+      "mapAligned": true,
+      "pal": "ty_trm_frame",
+      "roof": true,
+      "seed": 3,
+      "yaw": 0,
+      "z0": 0.16,
+      "z1": 0.22
+    },
+    {
+      "cx": -0.248,
+      "cy": 0.56,
+      "fd": 0.02,
+      "hw": 0.02,
+      "kind": "box",
+      "mapAligned": true,
+      "pal": "ty_trm_frame",
+      "roof": false,
+      "seed": 3,
+      "yaw": 0,
+      "z0": 0,
+      "z1": 0.62
+    },
+    {
+      "cx": 0.248,
+      "cy": 0.56,
+      "fd": 0.02,
+      "hw": 0.02,
+      "kind": "box",
+      "mapAligned": true,
+      "pal": "ty_trm_frame",
+      "roof": false,
+      "seed": 5,
+      "yaw": 0,
+      "z0": 0,
+      "z1": 0.62
+    },
+    {
+      "cx": -0.076,
+      "cy": 0.376,
+      "fd": 0.02,
+      "hw": 0.02,
+      "kind": "box",
+      "mapAligned": true,
+      "pal": "ty_trm_frame",
+      "roof": false,
+      "seed": 7,
+      "yaw": 0,
+      "z0": 0,
+      "z1": 0.5456
+    },
+    {
+      "cx": 0.076,
+      "cy": 0.376,
+      "fd": 0.02,
+      "hw": 0.02,
+      "kind": "box",
+      "mapAligned": true,
+      "pal": "ty_trm_frame",
+      "roof": false,
+      "seed": 9,
+      "yaw": 0,
+      "z0": 0,
+      "z1": 0.5456
+    },
+    {
+      "cx": 0,
+      "cy": 0.376,
+      "fd": 0.04,
+      "hw": 0.168,
+      "kind": "box",
+      "mapAligned": true,
+      "pal": "ty_trm_frame",
+      "roof": true,
+      "seed": 12,
+      "yaw": 0,
+      "z0": 0.5456,
+      "z1": 0.5984
+    }
+  ]
+}

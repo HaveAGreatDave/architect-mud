@@ -1,0 +1,230 @@
+{
+  "adorn": [],
+  "armTrim": true,
+  "basis": {
+    "fh": 0.4,
+    "h": 1
+  },
+  "bind": [
+    {
+      "by": "name",
+      "key": "halcyoneasthalt"
+    }
+  ],
+  "id": "halcyoneasthalt",
+  "neon": "#5ac8ff",
+  "note": "Ported from the hand-written hf_stophalt arm by scripts/shapes/autoport.mjs. The mass and the detail list are this file; everything else (lights, signs, moving parts) is still drawn by the arm.",
+  "pal": "ty_hf_chrome",
+  "pixdiff": 0,
+  "portedFrom": "hf_stophalt",
+  "segs": [
+    {
+      "cap": true,
+      "capHi": [
+        200,
+        214,
+        224
+      ],
+      "capLo": [
+        122,
+        138,
+        152
+      ],
+      "capSkin": "chrome",
+      "capSpec": 1.4,
+      "cx": 0,
+      "cy": 0,
+      "hi": [
+        226,
+        238,
+        246
+      ],
+      "kind": "drum",
+      "lo": [
+        112,
+        128,
+        144
+      ],
+      "n": 18,
+      "pal": "ty_hf_deck",
+      "rb": 0.4,
+      "rt": 0.384,
+      "skin": "chrome",
+      "spec": 1.8,
+      "z0": 0,
+      "z1": 0.05
+    },
+    {
+      "cap": false,
+      "cx": -0.28,
+      "cy": 0,
+      "hi": [
+        230,
+        240,
+        248
+      ],
+      "kind": "drum",
+      "lo": [
+        96,
+        112,
+        128
+      ],
+      "n": 10,
+      "pal": "ty_hf_chrome_dk",
+      "rb": 0.052,
+      "rt": 0.044,
+      "skin": "chrome",
+      "spec": 2.1,
+      "z0": 0,
+      "z1": 0.3
+    },
+    {
+      "cap": false,
+      "cx": -0.096,
+      "cy": 0,
+      "hi": [
+        230,
+        240,
+        248
+      ],
+      "kind": "drum",
+      "lo": [
+        96,
+        112,
+        128
+      ],
+      "n": 10,
+      "pal": "ty_hf_chrome_dk",
+      "rb": 0.052,
+      "rt": 0.044,
+      "skin": "chrome",
+      "spec": 2.1,
+      "z0": 0,
+      "z1": 0.3
+    },
+    {
+      "cap": false,
+      "cx": 0.096,
+      "cy": 0,
+      "hi": [
+        230,
+        240,
+        248
+      ],
+      "kind": "drum",
+      "lo": [
+        96,
+        112,
+        128
+      ],
+      "n": 10,
+      "pal": "ty_hf_chrome_dk",
+      "rb": 0.052,
+      "rt": 0.044,
+      "skin": "chrome",
+      "spec": 2.1,
+      "z0": 0,
+      "z1": 0.3
+    },
+    {
+      "cap": false,
+      "cx": 0.28,
+      "cy": 0,
+      "hi": [
+        230,
+        240,
+        248
+      ],
+      "kind": "drum",
+      "lo": [
+        96,
+        112,
+        128
+      ],
+      "n": 10,
+      "pal": "ty_hf_chrome_dk",
+      "rb": 0.052,
+      "rt": 0.044,
+      "skin": "chrome",
+      "spec": 2.1,
+      "z0": 0,
+      "z1": 0.3
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "fd": 0.104,
+      "hw": 0.376,
+      "kind": "box",
+      "pal": "ty_hf_chrome",
+      "roof": true,
+      "seed": 0,
+      "yaw": 0,
+      "z0": 0.3,
+      "z1": 0.38
+    },
+    {
+      "cx": 0.344,
+      "cy": 0,
+      "fd": 0.096,
+      "hw": 0.04,
+      "kind": "box",
+      "pal": "ty_hf_slab",
+      "roof": true,
+      "seed": 1,
+      "yaw": 0,
+      "z0": 0.38,
+      "z1": 0.47
+    },
+    {
+      "cap": false,
+      "cx": -0.24,
+      "cy": -0.08,
+      "hi": [
+        228,
+        238,
+        246
+      ],
+      "kind": "drum",
+      "lo": [
+        90,
+        106,
+        122
+      ],
+      "n": 8,
+      "pal": "ty_hf_chrome_dk",
+      "rb": 0.018,
+      "rt": 0.014,
+      "skin": "chrome",
+      "spec": 2.2,
+      "z0": 0.38,
+      "z1": 0.72
+    },
+    {
+      "cx": -0.16,
+      "cy": 0.176,
+      "fd": 0.08,
+      "hw": 0.064,
+      "kind": "box",
+      "pal": "ty_hf_chrome_dk",
+      "roof": true,
+      "seed": 2,
+      "yaw": 0,
+      "z0": 0,
+      "z1": 0.38
+    },
+    {
+      "cx": 0.096,
+      "cy": 0,
+      "fd": 0.056,
+      "hw": 0.08,
+      "kind": "box",
+      "pal": "ty_hft_glass",
+      "roof": true,
+      "seed": 3,
+      "yaw": 0,
+      "z0": 0.38,
+      "z1": 0.54
+    }
+  ]
+}

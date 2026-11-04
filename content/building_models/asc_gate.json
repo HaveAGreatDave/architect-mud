@@ -1,0 +1,105 @@
+{
+  "adorn": [],
+  "armTrim": true,
+  "basis": {
+    "fh": 0.4,
+    "h": 1
+  },
+  "bind": [
+    {
+      "by": "type",
+      "key": "asc_gate"
+    }
+  ],
+  "id": "asc_gate",
+  "note": "Ported from the hand-written asc_gate arm by scripts/shapes/autoport.mjs. The mass and the detail list are this file; everything else (lights, signs, moving parts) is still drawn by the arm.",
+  "pal": "ty_asc_gate",
+  "pixdiff": 0,
+  "portedFrom": "asc_gate",
+  "segs": [
+    {
+      "cx": 0,
+      "cy": 0,
+      "fd": 0.46,
+      "hw": 0.46,
+      "kind": "box",
+      "mapAligned": true,
+      "pal": "ty_asc_gate",
+      "roof": true,
+      "seed": 0,
+      "yaw": 0,
+      "z0": 0,
+      "z1": 0.9
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "fd": 0.48,
+      "hw": 0.48,
+      "kind": "box",
+      "mapAligned": true,
+      "pal": "ty_asc_gate",
+      "roof": true,
+      "seed": 1,
+      "yaw": 0,
+      "z0": 0.9,
+      "z1": 1.02
+    },
+    {
+      "cx": -0.4,
+      "cy": 0.4,
+      "fd": 0.064,
+      "hw": 0.064,
+      "kind": "box",
+      "mapAligned": true,
+      "pal": "ty_asc_gate",
+      "roof": true,
+      "seed": 2,
+      "yaw": 0,
+      "z0": 0,
+      "z1": 1.125
+    },
+    {
+      "cx": 0.4,
+      "cy": 0.4,
+      "fd": 0.064,
+      "hw": 0.064,
+      "kind": "box",
+      "mapAligned": true,
+      "pal": "ty_asc_gate",
+      "roof": true,
+      "seed": 3,
+      "yaw": 0,
+      "z0": 0,
+      "z1": 1.125
+    },
+    {
+      "cx": -0.22,
+      "cy": 0.08,
+      "fd": 0.056,
+      "hw": 0.056,
+      "kind": "box",
+      "mapAligned": true,
+      "pal": "ty_door",
+      "roof": true,
+      "seed": 4,
+      "yaw": 0,
+      "z0": 1.02,
+      "z1": 1.16
+    },
+    {
+      "cx": 0.22,
+      "cy": 0.08,
+      "fd": 0.056,
+      "hw": 0.056,
+      "kind": "box",
+      "mapAligned": true,
+      "pal": "ty_door",
+      "roof": true,
+      "seed": 5,
+      "yaw": 0,
+      "z0": 1.02,
+      "z1": 1.16
+    }
+  ]
+}

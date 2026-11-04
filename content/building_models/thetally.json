@@ -1,0 +1,115 @@
+{
+  "adorn": [],
+  "armTrim": true,
+  "basis": {
+    "fh": 0.4,
+    "h": 1
+  },
+  "bind": [
+    {
+      "by": "name",
+      "key": "thetally"
+    }
+  ],
+  "id": "thetally",
+  "note": "Ported from the hand-written dw_tally arm by scripts/shapes/autoport.mjs. The mass and the detail list are this file; everything else (lights, signs, moving parts) is still drawn by the arm.",
+  "pal": "ty_dw_slate",
+  "pixdiff": 0,
+  "portedFrom": "dw_tally",
+  "segs": [
+    {
+      "cx": 0,
+      "cy": 0,
+      "fd": 0.496,
+      "hw": 0.496,
+      "kind": "box",
+      "mapAligned": true,
+      "pal": "ty_dw_stone",
+      "roof": true,
+      "seed": 0,
+      "yaw": 0,
+      "z0": 0,
+      "z1": 0.03
+    },
+    {
+      "cx": -0.216,
+      "cy": -0.344,
+      "fd": 0.024,
+      "hw": 0.024,
+      "kind": "box",
+      "mapAligned": true,
+      "pal": "ty_dw_timber",
+      "roof": false,
+      "seed": 1,
+      "yaw": 0,
+      "z0": 0,
+      "z1": 1.02
+    },
+    {
+      "cx": 0.216,
+      "cy": -0.344,
+      "fd": 0.024,
+      "hw": 0.024,
+      "kind": "box",
+      "mapAligned": true,
+      "pal": "ty_dw_timber",
+      "roof": false,
+      "seed": 3,
+      "yaw": 0,
+      "z0": 0,
+      "z1": 1.02
+    },
+    {
+      "cx": 0,
+      "cy": -0.344,
+      "fd": 0.012,
+      "hw": 0.224,
+      "kind": "box",
+      "pal": "ty_dw_slate",
+      "roof": false,
+      "seed": 6,
+      "yaw": 0,
+      "z0": 0.34,
+      "z1": 0.92
+    },
+    {
+      "cx": 0,
+      "cy": -0.32,
+      "fd": 0.048,
+      "hw": 0.264,
+      "kind": "box",
+      "pal": "ty_dw_timber",
+      "roof": true,
+      "seed": 7,
+      "yaw": 0,
+      "z0": 0.92,
+      "z1": 1.02
+    },
+    {
+      "cx": -0.344,
+      "cy": 0.064,
+      "fd": 0.16,
+      "hw": 0.032,
+      "kind": "box",
+      "pal": "ty_dw_timber",
+      "roof": true,
+      "seed": 11,
+      "yaw": 0,
+      "z0": 0.08,
+      "z1": 0.16
+    },
+    {
+      "cx": 0.344,
+      "cy": 0.064,
+      "fd": 0.16,
+      "hw": 0.032,
+      "kind": "box",
+      "pal": "ty_dw_timber",
+      "roof": true,
+      "seed": 13,
+      "yaw": 0,
+      "z0": 0.08,
+      "z1": 0.16
+    }
+  ]
+}

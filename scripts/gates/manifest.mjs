@@ -112,6 +112,7 @@ export const GROUPS = [
       'scripts/shapes/actors.mjs',
       'scripts/shapes/room-stage.mjs',   // the suite's layout as frozen, every room form builds, placeSpot never stacks pieces
       'scripts/shapes/actor-head.mjs',
+      'scripts/shapes/figure.mjs',   // the close-up figure: every cut and hair style sound, the crowd's coat its coat
       'scripts/shapes/actor-faces.mjs',   // without --write it only reads files
       'scripts/shapes/cloth.mjs',
       'scripts/shapes/slumpaint.mjs',

@@ -1,0 +1,133 @@
+{
+  "adorn": [],
+  "armTrim": true,
+  "basis": {
+    "fh": 0.4,
+    "h": 1
+  },
+  "bind": [
+    {
+      "by": "name",
+      "key": "theseedvault"
+    }
+  ],
+  "id": "theseedvault",
+  "note": "Ported from the hand-written trm_vault arm by scripts/shapes/autoport.mjs. The mass and the detail list are this file; everything else (lights, signs, moving parts) is still drawn by the arm.",
+  "pal": "ty_trm_vault",
+  "pixdiff": 0,
+  "portedFrom": "trm_vault",
+  "segs": [
+    {
+      "cx": 0,
+      "cy": 0,
+      "fd": 0.496,
+      "hw": 0.496,
+      "kind": "box",
+      "mapAligned": true,
+      "pal": "ty_trm_mound",
+      "roof": true,
+      "seed": 0,
+      "yaw": 0,
+      "z0": 0,
+      "z1": 0.252
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "fd": 0.392,
+      "hw": 0.392,
+      "kind": "box",
+      "mapAligned": true,
+      "pal": "ty_trm_mound",
+      "roof": true,
+      "seed": 1,
+      "yaw": 0,
+      "z0": 0.252,
+      "z1": 0.42
+    },
+    {
+      "cx": 0,
+      "cy": 0.344,
+      "fd": 0.184,
+      "hw": 0.184,
+      "kind": "box",
+      "mapAligned": true,
+      "pal": "ty_trm_vault",
+      "roof": true,
+      "seed": 2,
+      "yaw": 0,
+      "z0": 0,
+      "z1": 0.62
+    },
+    {
+      "cx": 0,
+      "cy": 0.44,
+      "fd": 0.136,
+      "hw": 0.136,
+      "kind": "box",
+      "mapAligned": true,
+      "pal": "ty_trm_blast",
+      "roof": false,
+      "seed": 4,
+      "yaw": 0,
+      "z0": 0,
+      "z1": 0.5332
+    },
+    {
+      "cx": -0.136,
+      "cy": 0.44,
+      "fd": 0.024,
+      "hw": 0.024,
+      "kind": "box",
+      "mapAligned": true,
+      "pal": "ty_trm_frame",
+      "roof": false,
+      "seed": 5,
+      "yaw": 0,
+      "z0": 0,
+      "z1": 0.5332
+    },
+    {
+      "cx": 0.136,
+      "cy": 0.44,
+      "fd": 0.024,
+      "hw": 0.024,
+      "kind": "box",
+      "mapAligned": true,
+      "pal": "ty_trm_frame",
+      "roof": false,
+      "seed": 7,
+      "yaw": 0,
+      "z0": 0,
+      "z1": 0.5332
+    },
+    {
+      "cx": -0.208,
+      "cy": -0.184,
+      "fd": 0.028,
+      "hw": 0.028,
+      "kind": "box",
+      "mapAligned": true,
+      "pal": "ty_trm_frame",
+      "roof": true,
+      "seed": 12,
+      "yaw": 0,
+      "z0": 0.42,
+      "z1": 0.68
+    },
+    {
+      "cx": 0.192,
+      "cy": -0.184,
+      "fd": 0.028,
+      "hw": 0.028,
+      "kind": "box",
+      "mapAligned": true,
+      "pal": "ty_trm_frame",
+      "roof": true,
+      "seed": 13,
+      "yaw": 0,
+      "z0": 0.42,
+      "z1": 0.76
+    }
+  ]
+}

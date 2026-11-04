@@ -1,0 +1,427 @@
+{
+  "adorn": [],
+  "armTrim": true,
+  "basis": {
+    "fh": 0.4,
+    "h": 1
+  },
+  "bind": [
+    {
+      "by": "type",
+      "key": "hydro"
+    }
+  ],
+  "id": "hydro",
+  "neon": "#9fe4ff",
+  "note": "Ported from the hand-written hydro arm by scripts/shapes/autoport.mjs. The mass and the detail list are this file; everything else (lights, signs, moving parts) is still drawn by the arm.",
+  "pal": "ty_wind",
+  "pixdiff": 0,
+  "portedFrom": "hydro",
+  "segs": [
+    {
+      "cx": 0,
+      "cy": 0,
+      "fd": 0.312,
+      "hw": 0.36,
+      "kind": "box",
+      "pal": "ty_wind",
+      "roof": true,
+      "seed": 0,
+      "yaw": 0,
+      "z0": 0,
+      "z1": 0.26
+    },
+    {
+      "cx": 0,
+      "cy": -0.052,
+      "fd": 0.26,
+      "hw": 0.36,
+      "kind": "box",
+      "pal": "ty_wind",
+      "roof": true,
+      "seed": 1,
+      "yaw": 0,
+      "z0": 0.26,
+      "z1": 0.5
+    },
+    {
+      "cx": 0,
+      "cy": -0.104,
+      "fd": 0.208,
+      "hw": 0.36,
+      "kind": "box",
+      "pal": "ty_wind",
+      "roof": true,
+      "seed": 2,
+      "yaw": 0,
+      "z0": 0.5,
+      "z1": 0.72
+    },
+    {
+      "cx": 0,
+      "cy": -0.156,
+      "fd": 0.156,
+      "hw": 0.36,
+      "kind": "box",
+      "pal": "ty_wind",
+      "roof": true,
+      "seed": 3,
+      "yaw": 0,
+      "z0": 0.72,
+      "z1": 0.92
+    },
+    {
+      "cx": 0,
+      "cy": 0.312,
+      "fd": 0.012,
+      "hw": 0.36,
+      "kind": "box",
+      "pal": "ty_wind_rail",
+      "roof": true,
+      "seed": 20,
+      "yaw": 0,
+      "z0": 0.26,
+      "z1": 0.295
+    },
+    {
+      "cx": 0,
+      "cy": 0.208,
+      "fd": 0.012,
+      "hw": 0.36,
+      "kind": "box",
+      "pal": "ty_wind_rail",
+      "roof": true,
+      "seed": 21,
+      "yaw": 0,
+      "z0": 0.5,
+      "z1": 0.535
+    },
+    {
+      "cx": 0,
+      "cy": 0.104,
+      "fd": 0.012,
+      "hw": 0.36,
+      "kind": "box",
+      "pal": "ty_wind_rail",
+      "roof": true,
+      "seed": 22,
+      "yaw": 0,
+      "z0": 0.72,
+      "z1": 0.755
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "fd": 0.012,
+      "hw": 0.36,
+      "kind": "box",
+      "pal": "ty_wind_rail",
+      "roof": true,
+      "seed": 23,
+      "yaw": 0,
+      "z0": 0.92,
+      "z1": 0.955
+    },
+    {
+      "cap": true,
+      "capHi": [
+        206,
+        220,
+        230
+      ],
+      "capLo": [
+        126,
+        142,
+        158
+      ],
+      "capSkin": "chrome",
+      "capSpec": 1.4,
+      "cx": -0.36,
+      "cy": 0,
+      "hi": [
+        236,
+        244,
+        250
+      ],
+      "kind": "drum",
+      "lo": [
+        118,
+        134,
+        150
+      ],
+      "n": 12,
+      "pal": "ty_wind",
+      "rb": 0.328,
+      "rt": 0.328,
+      "skin": "chrome",
+      "spec": 1.9,
+      "z0": 0,
+      "z1": 0.295
+    },
+    {
+      "cap": true,
+      "capHi": [
+        206,
+        220,
+        230
+      ],
+      "capLo": [
+        126,
+        142,
+        158
+      ],
+      "capSkin": "chrome",
+      "capSpec": 1.4,
+      "cx": 0.36,
+      "cy": 0,
+      "hi": [
+        236,
+        244,
+        250
+      ],
+      "kind": "drum",
+      "lo": [
+        118,
+        134,
+        150
+      ],
+      "n": 12,
+      "pal": "ty_wind",
+      "rb": 0.328,
+      "rt": 0.328,
+      "skin": "chrome",
+      "spec": 1.9,
+      "z0": 0,
+      "z1": 0.295
+    },
+    {
+      "cap": true,
+      "capHi": [
+        206,
+        220,
+        230
+      ],
+      "capLo": [
+        126,
+        142,
+        158
+      ],
+      "capSkin": "chrome",
+      "capSpec": 1.4,
+      "cx": -0.36,
+      "cy": -0.052,
+      "hi": [
+        236,
+        244,
+        250
+      ],
+      "kind": "drum",
+      "lo": [
+        118,
+        134,
+        150
+      ],
+      "n": 12,
+      "pal": "ty_wind",
+      "rb": 0.276,
+      "rt": 0.276,
+      "skin": "chrome",
+      "spec": 1.9,
+      "z0": 0.26,
+      "z1": 0.535
+    },
+    {
+      "cap": true,
+      "capHi": [
+        206,
+        220,
+        230
+      ],
+      "capLo": [
+        126,
+        142,
+        158
+      ],
+      "capSkin": "chrome",
+      "capSpec": 1.4,
+      "cx": 0.36,
+      "cy": -0.052,
+      "hi": [
+        236,
+        244,
+        250
+      ],
+      "kind": "drum",
+      "lo": [
+        118,
+        134,
+        150
+      ],
+      "n": 12,
+      "pal": "ty_wind",
+      "rb": 0.276,
+      "rt": 0.276,
+      "skin": "chrome",
+      "spec": 1.9,
+      "z0": 0.26,
+      "z1": 0.535
+    },
+    {
+      "cap": true,
+      "capHi": [
+        206,
+        220,
+        230
+      ],
+      "capLo": [
+        126,
+        142,
+        158
+      ],
+      "capSkin": "chrome",
+      "capSpec": 1.4,
+      "cx": -0.36,
+      "cy": -0.104,
+      "hi": [
+        236,
+        244,
+        250
+      ],
+      "kind": "drum",
+      "lo": [
+        118,
+        134,
+        150
+      ],
+      "n": 12,
+      "pal": "ty_wind",
+      "rb": 0.224,
+      "rt": 0.224,
+      "skin": "chrome",
+      "spec": 1.9,
+      "z0": 0.5,
+      "z1": 0.755
+    },
+    {
+      "cap": true,
+      "capHi": [
+        206,
+        220,
+        230
+      ],
+      "capLo": [
+        126,
+        142,
+        158
+      ],
+      "capSkin": "chrome",
+      "capSpec": 1.4,
+      "cx": 0.36,
+      "cy": -0.104,
+      "hi": [
+        236,
+        244,
+        250
+      ],
+      "kind": "drum",
+      "lo": [
+        118,
+        134,
+        150
+      ],
+      "n": 12,
+      "pal": "ty_wind",
+      "rb": 0.224,
+      "rt": 0.224,
+      "skin": "chrome",
+      "spec": 1.9,
+      "z0": 0.5,
+      "z1": 0.755
+    },
+    {
+      "cap": true,
+      "capHi": [
+        206,
+        220,
+        230
+      ],
+      "capLo": [
+        126,
+        142,
+        158
+      ],
+      "capSkin": "chrome",
+      "capSpec": 1.4,
+      "cx": -0.36,
+      "cy": -0.156,
+      "hi": [
+        236,
+        244,
+        250
+      ],
+      "kind": "drum",
+      "lo": [
+        118,
+        134,
+        150
+      ],
+      "n": 12,
+      "pal": "ty_wind",
+      "rb": 0.172,
+      "rt": 0.172,
+      "skin": "chrome",
+      "spec": 1.9,
+      "z0": 0.72,
+      "z1": 0.955
+    },
+    {
+      "cap": true,
+      "capHi": [
+        206,
+        220,
+        230
+      ],
+      "capLo": [
+        126,
+        142,
+        158
+      ],
+      "capSkin": "chrome",
+      "capSpec": 1.4,
+      "cx": 0.36,
+      "cy": -0.156,
+      "hi": [
+        236,
+        244,
+        250
+      ],
+      "kind": "drum",
+      "lo": [
+        118,
+        134,
+        150
+      ],
+      "n": 12,
+      "pal": "ty_wind",
+      "rb": 0.172,
+      "rt": 0.172,
+      "skin": "chrome",
+      "spec": 1.9,
+      "z0": 0.72,
+      "z1": 0.955
+    },
+    {
+      "cx": 0,
+      "cy": 0.14,
+      "fd": 0.036,
+      "hw": 0.136,
+      "kind": "box",
+      "pal": "ty_soffit",
+      "roof": true,
+      "seed": 30,
+      "yaw": 0,
+      "z0": 0.16,
+      "z1": 0.2
+    }
+  ]
+}

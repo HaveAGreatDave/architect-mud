@@ -1,0 +1,100 @@
+{
+  "adorn": [],
+  "armTrim": true,
+  "basis": {
+    "fh": 0.4,
+    "h": 1
+  },
+  "bind": [
+    {
+      "by": "type",
+      "key": "amusements"
+    }
+  ],
+  "id": "amusements",
+  "neon": "#ffb03a",
+  "note": "Ported from the hand-written amusements arm by scripts/shapes/autoport.mjs. The mass and the detail list are this file; everything else (lights, signs, moving parts) is still drawn by the arm.",
+  "pal": "ty_penny",
+  "pixdiff": 0,
+  "portedFrom": "amusements",
+  "segs": [
+    {
+      "cx": 0,
+      "cy": -0.088,
+      "fd": 0.288,
+      "hw": 0.368,
+      "kind": "box",
+      "pal": "ty_penny",
+      "roof": true,
+      "seed": 0,
+      "yaw": 0,
+      "z0": 0,
+      "z1": 0.98
+    },
+    {
+      "cx": 0,
+      "cy": 0.208,
+      "fd": 0.008,
+      "hw": 0.28,
+      "kind": "box",
+      "pal": "ty_penny_lit",
+      "roof": false,
+      "seed": 1,
+      "yaw": 0,
+      "z0": 0,
+      "z1": 0.78
+    },
+    {
+      "cx": -0.328,
+      "cy": 0.176,
+      "fd": 0.088,
+      "hw": 0.064,
+      "kind": "box",
+      "pal": "ty_penny",
+      "roof": true,
+      "seed": 1,
+      "yaw": 0,
+      "z0": 0,
+      "z1": 1.16
+    },
+    {
+      "cx": 0.328,
+      "cy": 0.176,
+      "fd": 0.088,
+      "hw": 0.064,
+      "kind": "box",
+      "pal": "ty_penny",
+      "roof": true,
+      "seed": 3,
+      "yaw": 0,
+      "z0": 0,
+      "z1": 1.16
+    },
+    {
+      "cx": 0,
+      "cy": 0.176,
+      "fd": 0.088,
+      "hw": 0.392,
+      "kind": "box",
+      "pal": "ty_penny",
+      "roof": true,
+      "seed": 5,
+      "yaw": 0,
+      "z0": 0.78,
+      "z1": 1.16
+    },
+    {
+      "cx": 0,
+      "cy": 0.2,
+      "fd": 0.028,
+      "hw": 0.312,
+      "kind": "box",
+      "pal": "ty_pocket_shut",
+      "roof": false,
+      "seed": 6,
+      "yaw": 0,
+      "z0": 0.71,
+      "z1": 0.78
+    }
+  ]
+}

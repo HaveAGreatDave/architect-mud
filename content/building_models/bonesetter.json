@@ -1,0 +1,142 @@
+{
+  "adorn": [],
+  "armTrim": true,
+  "basis": {
+    "fh": 0.4,
+    "h": 1
+  },
+  "bind": [
+    {
+      "by": "type",
+      "key": "bonesetter"
+    }
+  ],
+  "id": "bonesetter",
+  "note": "Ported from the hand-written bonesetter arm by scripts/shapes/autoport.mjs. The mass and the detail list are this file; everything else (lights, signs, moving parts) is still drawn by the arm.",
+  "pal": "ty_oc_brick",
+  "pixdiff": 0,
+  "portedFrom": "bonesetter",
+  "segs": [
+    {
+      "cx": 0,
+      "cy": 0,
+      "fd": 0.272,
+      "hw": 0.272,
+      "kind": "box",
+      "mapAligned": true,
+      "pal": "ty_oc_brick",
+      "roof": false,
+      "seed": 0,
+      "yaw": 0,
+      "z0": 0,
+      "z1": 0.34
+    },
+    {
+      "cx": 0,
+      "cy": 0.128,
+      "fd": 0.168,
+      "hw": 0.296,
+      "kind": "box",
+      "pal": "ty_oc_tin",
+      "roof": true,
+      "seed": 1,
+      "yaw": 0,
+      "z0": 0.34,
+      "z1": 0.44
+    },
+    {
+      "cx": 0.128,
+      "cy": -0.168,
+      "fd": 0.128,
+      "hw": 0.168,
+      "kind": "box",
+      "pal": "ty_oc_tin",
+      "roof": true,
+      "seed": 7,
+      "yaw": 0,
+      "z0": 0.34,
+      "z1": 0.44
+    },
+    {
+      "cx": 0,
+      "cy": 0.232,
+      "fd": 0.056,
+      "hw": 0.16,
+      "kind": "box",
+      "pal": "ty_oc_glass",
+      "roof": false,
+      "seed": 2,
+      "yaw": 0,
+      "z0": 0.12,
+      "z1": 0.28
+    },
+    {
+      "cx": 0.08,
+      "cy": 0.4,
+      "fd": 0.012,
+      "hw": 0.012,
+      "kind": "box",
+      "mapAligned": true,
+      "pal": "ty_oc_board_dk",
+      "roof": false,
+      "seed": 4,
+      "yaw": 0,
+      "z0": 0,
+      "z1": 0.22
+    },
+    {
+      "cx": 0.32,
+      "cy": 0.4,
+      "fd": 0.012,
+      "hw": 0.012,
+      "kind": "box",
+      "mapAligned": true,
+      "pal": "ty_oc_board_dk",
+      "roof": false,
+      "seed": 4,
+      "yaw": 0,
+      "z0": 0,
+      "z1": 0.22
+    },
+    {
+      "cx": 0.2,
+      "cy": 0.352,
+      "fd": 0.028,
+      "hw": 0.12,
+      "kind": "box",
+      "pal": "ty_oc_board_dk",
+      "roof": true,
+      "seed": 5,
+      "yaw": 0,
+      "z0": 0.07,
+      "z1": 0.1
+    },
+    {
+      "cx": -0.16,
+      "cy": -0.168,
+      "fd": 0.024,
+      "hw": 0.024,
+      "kind": "box",
+      "mapAligned": true,
+      "pal": "ty_oc_brick_dk",
+      "roof": true,
+      "seed": 6,
+      "yaw": 0,
+      "z0": 0.34,
+      "z1": 0.66
+    },
+    {
+      "cx": 0.2768,
+      "cy": -0.12,
+      "fd": 0.064,
+      "hw": 0.0048,
+      "kind": "box",
+      "pal": "ty_oc_tin",
+      "roof": true,
+      "seed": 8,
+      "yaw": 0,
+      "z0": 0.04,
+      "z1": 0.24
+    }
+  ]
+}

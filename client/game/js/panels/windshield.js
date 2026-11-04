@@ -26195,7 +26195,8 @@ function draw3DBoxAt(ctx, cam, dx, dy, fh, wz0, wz1, biome, seed, night, alpha, 
   // equal and every consumer behaves exactly as it did, while a SHALLOW one (an awning) records a
   // real half-depth instead of a lie that would put the slab back over the road at LOD range and in
   // collision. Both are pre-clamp; consumers re-apply min(…, 0.44).
-  if (SHAPE_SINK) { SHAPE_SINK.push({ kind: 'box', dx, dy, hwRaw: fh, fdRaw: fd === undefined ? fh : fd, wz0, wz1, pal: authoredPal, roof: !!roof, yaw: yaw || 0 }); return; }
+  // `seed` rides along so a port can give each box the texture jitter the arm gave it (see captureAt).
+  if (SHAPE_SINK) { SHAPE_SINK.push({ kind: 'box', dx, dy, hwRaw: fh, fdRaw: fd === undefined ? fh : fd, wz0, wz1, pal: authoredPal, roof: !!roof, yaw: yaw || 0, seed }); return; }
   if (MASS_OFF) return;   // adornments-only pass — the distance LOD draws this mass from captured segments
   fh = Math.min(fh, 0.44);   // hard cap so even a WIDE model (warehouse/depot fh*1.1+) keeps a setback inside its tile and never bleeds onto the neighbour/road (was 0.48 → capped boxes reached the tile edge)
   // `fd` (optional half-DEPTH) makes the footprint rectangular instead of square. Almost every model
@@ -27693,7 +27694,13 @@ function drawFacetDrum(ctx, cam, dx, dy, z0, z1, rb, rt, N, alpha, style, cap, p
   const P = hfSkin(AUTHORED);
   // Recorded ahead of the per-facet backface cull below — capture wants the whole solid, not the
   // half of it a stub camera happens to face.
-  if (SHAPE_SINK) { SHAPE_SINK.push({ kind: 'drum', dx, dy, wz0: z0, wz1: z1, rb, rt, n: N, cap: !!cap, pal: AUTHORED }); return; }
+  // `recipe` and `capc` ride along for a port (see litStyle): the skin's factory, and a cap that is
+  // a colour of its own rather than the palette's.
+  if (SHAPE_SINK) { SHAPE_SINK.push({ kind: 'drum', dx, dy, wz0: z0, wz1: z1, rb, rt, n: N, cap: !!cap, pal: AUTHORED,
+    recipe: typeof style === 'string' ? { skin: 'flat', fill: style } : (style && style.recipe) || drumFacetFills(style, N),
+    // A lid with a factory behind it keeps the factory, or it would be baked at the capture tile's cast.
+    capRecipe: (typeof cap === 'function' && cap.recipe) || null,
+    capc: typeof cap === 'string' ? cap : typeof cap === 'function' && !cap.recipe ? strOrNull(() => cap({ nl: 0.8 }, 0, 0)) : null }); return; }
   if (MASS_OFF) return;   // adornments-only pass — the distance LOD draws this mass from captured segments
   // ⚠ ONE KEY DIRECTION, READ BY BOTH BRANCHES. It sat below the mesh branch as a paint-only local,
   // which is how the two renderers get to disagree about which side of a silo is lit — the exact
@@ -27852,7 +27859,7 @@ function hfChrome(lo, hi, spec) {
   // street that reflection is the dark street, and the spiral decks came out black with bright rims:
   // worse than the baked ramp. 'tile' is dielectric with a 0.5 fresnel, so it keeps the sun-lit
   // colour and adds a sheen. Judged in the Modelshop at 899,919, free seat, 15:00.
-  }, [0, 1, 2].map((i) => L[i] + (H[i] - L[i]) * 0.62), 'tile');
+  }, [0, 1, 2].map((i) => L[i] + (H[i] - L[i]) * 0.62), 'tile', { skin: 'chrome', lo, hi, spec });
 }
 // Tinted curtain glass on a curve: nearly black off-axis, a cold sky where the facet turns into
 // the light. ⚠ THE NIGHT TERM RAISES THE FLOOR AND NEVER THE PEAK. A glazed drum after dark is
@@ -27876,14 +27883,61 @@ function hfGlass(night, rgb) {
     const t = Math.pow(Math.max(0, Math.min(1, f.nl)), 1.7), g = night ? 0.32 : 0;
     const r = A[0] + (Hc[0] - A[0]) * t, q = A[1] + (Hc[1] - A[1]) * t, b = A[2] + (Hc[2] - A[2]) * t;
     return 'rgb(' + ((r + (118 - r) * g) | 0) + ',' + ((q + (174 - q) * g) | 0) + ',' + ((b + (200 - b) * g) | 0) + ')';
-  }, glassAlb, 'glass');
+  }, glassAlb, 'glass', { skin: 'glass', tint: rgb });
 }
 // Tags a drum style with what it IS, so the mesh can shade it rather than bake it. The closure is
 // untouched and the 2-D painter goes on calling it exactly as before.
-function litStyle(fn, albedo, family) {
+// `recipe` is the factory and its arguments, ahead of the house cast: the shape capture records it,
+// so a port can rebuild the same skin as data (see `drumStyleOf`). The night and the cast are the
+// tile's and are applied when the skin is rebuilt, exactly as they are when the arm calls it.
+function litStyle(fn, albedo, family, recipe) {
   fn.litAlbedo = albedo.map((v) => Math.max(0, Math.min(255, v)) | 0);
   fn.litFamily = family;
+  if (recipe) fn.recipe = recipe;
   return fn;
+}
+// A captured `recipe`, or an authored drum's own fields, back into the skin the arm passed.
+// Null when it names no factory, and the caller keeps its own default.
+function drumStyleOf(s, night) {
+  if (s.skin === 'chrome') return hfChrome(s.lo, s.hi, s.spec);
+  if (s.skin === 'glass') return hfGlass(night, s.tint);
+  if (s.skin === 'flat') return s.fill;
+  if (s.skin === 'facets' && Array.isArray(s.fills) && s.fills.length) {
+    const nls = drumFacetNl(s.fills.length);
+    return (f) => {
+      let best = 0, d = Infinity;
+      for (let i = 0; i < nls.length; i++) { const e = Math.abs(nls[i] - f.nl); if (e < d) { d = e; best = i; } }
+      return s.fills[best];
+    };
+  }
+  return null;
+}
+// The light dot of each facet of an N-sided drum, exactly as drawFacetDrum's painter works it out:
+// the facets sit at fixed world angles and the key light is fixed, so it depends on N alone.
+function drumFacetNl(N) {
+  const out = [];
+  for (let i = 0; i < N; i++) {
+    const am = ((i / N) + ((i + 1) / N)) / 2 * 6.2832;
+    out.push(Math.max(0, Math.cos(am) * -0.7 + Math.sin(am) * -0.7));
+  }
+  return out;
+}
+const strOrNull = (fn) => { try { const v = fn(); return typeof v === 'string' ? v : null; } catch { return null; } };
+// A skin with no factory behind it (an arm's own closure), recorded as the colour of each facet. Only
+// when the closure answers from the light dot alone: one that reads the facet's screen extent paints a
+// gradient, and one that throws or answers an object is the arm's to keep. Asked twice with different
+// extents to find out. A closure that reads the clock or the night is recorded at the capture's (day,
+// t = 0), and the port differ's night cameras catch it.
+function drumFacetFills(style, N) {
+  if (typeof style !== 'function' || !(N > 0)) return null;
+  const fills = [];
+  for (const nl of drumFacetNl(N)) {
+    const a = strOrNull(() => style({ nl, af: 1, pts: null }, 0, 0));
+    const b = strOrNull(() => style({ nl, af: 0.5, pts: null }, 100, 220));
+    if (a == null || a !== b) return null;
+    fills.push(a);
+  }
+  return { skin: 'facets', fills };
 }
 function drawRing(ctx, cam, dx, dy, z, r, N, strokeStyle, lw, alpha) {
   if (SHAPE_SINK || ADORN_TIER < ADORN_CHEAP) return;   // adornment — a catwalk rail is not mass
@@ -49345,6 +49399,31 @@ export {
   westPorch, windFlag, windWheel, windsockLimp,
 };   // glass-internal
 
+// The storefront every type with no arm of its own falls back to. It was the `default` case inside
+// drawTypeModelArm's switch; it's a function with an arm's arguments so `drawArmTrim` can run it for
+// a port of `shop`, `store` or `grocery` the way it runs any other arm.
+function shopArm(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E, name, board, pal, sign, F, W3, frontVis) {   // small mixed-use storefront: a glazed lit ground floor + residential floors above + awning + sign
+  // ⚠ THE HIGHEST-LEVERAGE ARM IN THE RENDERER, because it is also `default`. Four named types
+  // bind to it (shop, store, grocery, kitchenware) and every building_type with no arm of its
+  // own falls through here — so a box drawn in this case is a box drawn all over Coldwater.
+  //
+  // It was two extrusions: a glazed ground floor and the flats above, meeting at a bare seam.
+  // What a shop street actually has at that seam is a FASCIA — the band the name goes on, which
+  // oversails the shopfront and throws a shadow on it — and a PARAPET at the top, which is what
+  // stops a building looking like it was cut off. Both are one box each and both read at street
+  // distance, where the glazing detail below has already stopped resolving.
+  draw3DBoxAt(ctx, cam, dx, dy, fh * 1.0, 0, h * 0.42, 'ty_office', seed, night, alpha, false);        // glazed ground-floor retail (glass tone)
+  draw3DBoxAt(ctx, cam, dx, dy, fh * 1.05, h * 0.42, h * 0.48, pal, seed + 5, night, alpha, false);    // the fascia — oversails the shopfront, carries the name
+  draw3DBoxAt(ctx, cam, dx, dy, fh * 0.94, h * 0.48, h * 0.96, pal, seed + 2, night, alpha, false);    // residential floors above, set back
+  draw3DBoxAt(ctx, cam, dx, dy, fh * 0.99, h * 0.96, h * 1.04, pal, seed + 6, night, alpha, true);     // parapet cap — and the deck the kit puts its plant on
+  awning(ctx, cam, dx, dy, E, fh * 0.98, fh * 1.06, h * 0.30, h * 0.42, 'ty_door', seed + 1, night, alpha, fh * 0.30);   // awning, tucked up under the fascia
+  doorReveal(ctx, cam, dx, dy, E, fh, fh * 0.30, 0, h * 0.30, seed, night, alpha);   // NEAR TIER: recessed shopfront door + threshold step (no-op past RENDER_TUNE.detailNear)
+  glazeParallax(ctx, cam, dx, dy, E, fh, fh * 0.30, h * 0.08, h * 0.30, seed, night, alpha);   // NEAR TIER: recessed shopfront glass — order matters, the glass sits behind the frame below
+  mullions(ctx, cam, dx, dy, E, fh, fh * 0.30, h * 0.08, h * 0.30, seed, night, alpha);        // NEAR TIER: sills, head and mullion bars standing proud of it
+  { const [nx, ny] = F(fh * 0.55, fh * 1.0); neonBlade(ctx, cam, nx, ny, h * 0.48, h * 1.12, m.neon || '#5fd0ff', night, alpha); }   // projecting corner sign, anchored proud of the fascia rather than inside the mass
+  if (night) { const [wx, wy] = F(0, fh * 0.9); glowPool(ctx, cam, wx, wy, h * 0.2, '150,220,255', 10, alpha * 0.24); }   // lit storefront glow
+}
+
 function drawTypeModelArm(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E = [0, 1], name = '', board = null) {
   const pal = m.pal;
   // The building's display name, upper-cased for signage. Published as the ambient blade sign so
@@ -49380,30 +49459,9 @@ function drawTypeModelArm(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E
     // client/shared/building-models.js. Everything above this line still applies to it: it is
     // inside the same face sink, it gets the same `_bladeSign`, and its mass goes through the
     // same primitives, so SHAPE_SINK captures it exactly as it captures a hand-written arm.
-    case 'authored': drawAuthoredModel(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E); break;
+    case 'authored': drawAuthoredModel(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E, frontVis, [name, board, sign, F, W3]); break;
     case 'shop':
-    default: {   // small mixed-use storefront: a glazed lit ground floor + residential floors above + awning + sign
-      // ⚠ THE HIGHEST-LEVERAGE ARM IN THE RENDERER, because it is also `default`. Four named types
-      // bind to it (shop, store, grocery, kitchenware) and every building_type with no arm of its
-      // own falls through here — so a box drawn in this case is a box drawn all over Coldwater.
-      //
-      // It was two extrusions: a glazed ground floor and the flats above, meeting at a bare seam.
-      // What a shop street actually has at that seam is a FASCIA — the band the name goes on, which
-      // oversails the shopfront and throws a shadow on it — and a PARAPET at the top, which is what
-      // stops a building looking like it was cut off. Both are one box each and both read at street
-      // distance, where the glazing detail below has already stopped resolving.
-      draw3DBoxAt(ctx, cam, dx, dy, fh * 1.0, 0, h * 0.42, 'ty_office', seed, night, alpha, false);        // glazed ground-floor retail (glass tone)
-      draw3DBoxAt(ctx, cam, dx, dy, fh * 1.05, h * 0.42, h * 0.48, pal, seed + 5, night, alpha, false);    // the fascia — oversails the shopfront, carries the name
-      draw3DBoxAt(ctx, cam, dx, dy, fh * 0.94, h * 0.48, h * 0.96, pal, seed + 2, night, alpha, false);    // residential floors above, set back
-      draw3DBoxAt(ctx, cam, dx, dy, fh * 0.99, h * 0.96, h * 1.04, pal, seed + 6, night, alpha, true);     // parapet cap — and the deck the kit puts its plant on
-      awning(ctx, cam, dx, dy, E, fh * 0.98, fh * 1.06, h * 0.30, h * 0.42, 'ty_door', seed + 1, night, alpha, fh * 0.30);   // awning, tucked up under the fascia
-      doorReveal(ctx, cam, dx, dy, E, fh, fh * 0.30, 0, h * 0.30, seed, night, alpha);   // NEAR TIER: recessed shopfront door + threshold step (no-op past RENDER_TUNE.detailNear)
-      glazeParallax(ctx, cam, dx, dy, E, fh, fh * 0.30, h * 0.08, h * 0.30, seed, night, alpha);   // NEAR TIER: recessed shopfront glass — order matters, the glass sits behind the frame below
-      mullions(ctx, cam, dx, dy, E, fh, fh * 0.30, h * 0.08, h * 0.30, seed, night, alpha);        // NEAR TIER: sills, head and mullion bars standing proud of it
-      { const [nx, ny] = F(fh * 0.55, fh * 1.0); neonBlade(ctx, cam, nx, ny, h * 0.48, h * 1.12, m.neon || '#5fd0ff', night, alpha); }   // projecting corner sign, anchored proud of the fascia rather than inside the mass
-      if (night) { const [wx, wy] = F(0, fh * 0.9); glowPool(ctx, cam, wx, wy, h * 0.2, '150,220,255', 10, alpha * 0.24); }   // lit storefront glow
-      break;
-    }
+    default: shopArm(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E, name, board, pal, sign, F, W3, frontVis); break;
   }
   // The model's own trim, whichever arm drew its mass. `authored` is excluded because it draws its
   // own before its adornments, which is where a pipe belongs relative to a beacon.
@@ -49477,7 +49535,8 @@ const SHAPE_STUB_CAM = { sinh: 0, cosh: 1, back: 0, ex: -0, ey: 0, fwdOff: 0, EH
 
 // One raw pass. `dyOff` positions the model so that frontVis (which is just `dy + fh < 0` under this
 // stub cam) comes out the way we want: negative → the entrance face is toward the camera.
-function captureRawPass(m, fh, h, seed, dyOff) {
+// `E` and `dxOff` are for `shapeTurns` alone: every other caller captures at the canonical facing.
+function captureRawPass(m, fh, h, seed, dyOff, E = [0, 1], dxOff = 0) {
   const savedFace = FACE_SINK, savedFog = FOG_STATE, savedLight = LIGHT_STATE, savedSign = _bladeSign, savedBasis = _bladeBasis;
   const savedSigns = SIGN_SEEN;
   // ⚠ AND EVERY OTHER SINK COMES OFF TOO, FOR THE REASON THE FACE_SINK NOTE BELOW GIVES — it was
@@ -49523,8 +49582,8 @@ function captureRawPass(m, fh, h, seed, dyOff) {
     // `shapeForModel`, which had nothing to hand back. So an archetype occluded nothing: `luxtower`
     // is a thirty-storey tower, and contacts, lights and the own ship went straight through it.
     // Same primitives, same sink, same affine solve; only the arm differs.
-    if (m && m.arch) drawBuilding(SHAPE_STUB_CTX, SHAPE_STUB_CAM, 0, dyOff, fh, h, m.arch, seed, 0, 1, 0);
-    else drawTypeModel(SHAPE_STUB_CTX, SHAPE_STUB_CAM, 0, dyOff, fh, h, m, seed, 0, 1, 0, [0, 1], '');
+    if (m && m.arch) drawBuilding(SHAPE_STUB_CTX, SHAPE_STUB_CAM, dxOff, dyOff, fh, h, m.arch, seed, 0, 1, 0);
+    else drawTypeModel(SHAPE_STUB_CTX, SHAPE_STUB_CAM, dxOff, dyOff, fh, h, m, seed, 0, 1, 0, E, '');
   } finally {
     // Restore in a finally so a throwing arm can't leave the sink installed and blank the skyline.
     SHAPE_SINK = null; FACE_SINK = savedFace; FOG_STATE = savedFog; LIGHT_STATE = savedLight; _bladeSign = savedSign; _bladeBasis = savedBasis;
@@ -49591,8 +49650,13 @@ function solveSegs(raws, dyOff) {
     }
     // Scale-invariant passengers.
     seg.pal = s11.pal;
-    if (s11.kind === 'box') { seg.yaw = s11.yaw; seg.roof = s11.roof; if (s21.yaw !== s11.yaw) return { err: `segment ${i} yaw varies with scale` }; }
-    if (s11.kind === 'drum') { seg.n = s11.n; seg.cap = s11.cap; }
+    if (s11.kind === 'box') { seg.yaw = s11.yaw; seg.roof = s11.roof; seg.seed = s11.seed; if (s21.yaw !== s11.yaw) return { err: `segment ${i} yaw varies with scale` }; }
+    if (s11.kind === 'drum') {
+      seg.n = s11.n; seg.cap = s11.cap;
+      if (s11.recipe) seg.recipe = s11.recipe;
+      if (s11.capRecipe) seg.capRecipe = s11.capRecipe;
+      if (s11.capc) seg.capc = s11.capc;
+    }
     if (s11.kind === 'barrel') { seg.nf = s11.nf; seg.base = s11.base; }
     if (s11.kind === 'sawtooth') { seg.teeth = s11.teeth; seg.roofc = s11.roofc; seg.glassc = s11.glassc; seg.edge = s11.edge; }
     // Convenience: the segment's vertical span, so no consumer has to know that a barrel's top is
@@ -49631,6 +49695,11 @@ function captureAt(m, seed) {
   for (const s of near.segs) {
     const k = segKey(s), n = farCount.get(k) || 0;
     if (n > 0) farCount.set(k, n - 1); else s.frontOnly = true;
+    // A box's texture seed, as an OFFSET from the tile's: an arm passes `seed + 5` and the port must
+    // pass the same, or its walls are jittered differently where the geometry is identical. An arm
+    // that derives a seed some other way (`seed % 3`) gets the offset that held at this seed; the
+    // port differ sweeps two other seeds and catches it.
+    if (s.kind === 'box' && Number.isFinite(s.seed)) s.seed -= seed;
   }
   return near.segs;
 }
@@ -49663,6 +49732,42 @@ export function shapeConstantWarnings(m, seed = 0) {
   });
   return out;
 }
+// ── WHICH BOXES TURN WITH THE ENTRANCE ───────────────────────────────────────────────────────
+//
+// Capture runs at one facing, so it can't see what an arm does when the building turns. Most boxes
+// are drawn at yaw 0 whatever the facing (draw3DBoxAt's default), some are handed a yaw that follows
+// the entrance (`YAW`, `faceYaw`), and a few are PLACED off the tile centre in world terms rather
+// than through `F`. At the canonical facing all three look the same. A port that turns every box with
+// the building draws a different corner order, a different texture orientation and, for a rectangle,
+// a different footprint, so the port differ fails it at three facings in four.
+//
+// So this draws the arm once more facing east and compares, box by box, with the canonical near pass.
+// Per box: `turns` (its yaw followed the entrance) and `moves` (its centre did). Null for a non-box,
+// and null outright when the two passes don't line up, which means the arm draws a different LIST
+// per facing and no per-box answer is honest. It is for the port; the runtime capture never asks.
+export function shapeTurns(m, seed = 0) {
+  const E1 = [1, 0], th1 = Math.atan2(-E1[0], E1[1]);
+  const r0 = captureRawPass(m, 1, 1, seed, -8);
+  const r1 = captureRawPass(m, 1, 1, seed, 0, E1, -8);
+  if (r0.length !== r1.length) return null;
+  const wrap = (a) => Math.atan2(Math.sin(a), Math.cos(a));
+  const out = [];
+  for (let i = 0; i < r0.length; i++) {
+    const a = r0[i], b = r1[i];
+    if (a.kind !== b.kind) return null;
+    if (a.kind === 'spar') continue;   // aligned with shapeForModel's list, which carries masts apart
+    if (a.kind !== 'box') { out.push(null); continue; }
+    const dyaw = wrap((b.yaw || 0) - (a.yaw || 0));
+    const turns = Math.abs(wrap(dyaw - th1)) < 1e-6 ? true : Math.abs(dyaw) < 1e-6 ? false : null;
+    // Where the box would be if the arm had placed it through `F`, given where it was facing north.
+    const [ex, ey] = facePt(-8, 0, a.dx, a.dy + 8, E1);
+    const moves = Math.hypot(b.dx - ex, b.dy - ey) < 1e-6 ? true
+      : Math.hypot(b.dx - (a.dx - 8), b.dy - (a.dy + 8)) < 1e-6 ? false : null;
+    out.push({ turns, moves });
+  }
+  return out;
+}
+
 // SEED VARIANCE. Shape is a pure function of the model for most arms, but roofClutter's penthouse
 // height is frac(seed) and its water tank only exists on seed%4===0, and junkshop's roof junk varies
 // outright. Those models must be keyed by seed at runtime instead of cached once.
@@ -52155,7 +52260,55 @@ function detailLayer(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E) {
   } finally { SIGNS_ONLY = false; }
 }
 
-function drawAuthoredModel(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E) {
+// ── `armTrim`: THE ARM STILL DRAWS EVERYTHING THAT ISN'T MASS ─────────────────────────────────
+//
+// A port or fork takes an arm's MASS as data, and capture can't give back the rest: the neon, the
+// shutters, the lamps, the moving cranes, the lettering, everything that isn't a box, drum, barrel or
+// sawtooth. That is 14,800 lines of code across the region files, with loops, branches on the camera
+// and the clock, and 112 helpers, so there is no data form to read it back into. What there is, is the
+// split every GLASS 2 frame already makes: the mass comes from somewhere else and the arm runs with
+// MASS_OFF for the rest. So a model with `armTrim` draws its own segments and then the arm it replaced,
+// mass off, and looks like the arm with the mass you edited.
+//
+// ⚠ THE TRIM STAYS WHERE THE ARM PUT IT. Move a wall and the shutter that hung on it doesn't follow,
+// because the shutter is the arm's code, not part of this record. Authored adornments and detail
+// follow the record; the arm's trim never will. Turn `armTrim` off once the trim worth keeping has
+// been authored, and the model owes the arm nothing.
+//
+// The record the arm runs with is the one it ran with before the model replaced it (LEGACY_MODELS,
+// or the registry itself for a fork that hasn't been baked yet), because an arm reads its own flags
+// off it (`m.big`, `m.penthouse`, `m.neon`). Resolved once and kept on the model.
+const _trimSrc = new WeakMap();
+function armTrimSource(m) {
+  let src = _trimSrc.get(m);
+  if (src === undefined) {
+    const key = m.armTrim, bare = key.replace(/^(named|type):/, '');
+    const live = key.startsWith('named:') ? NAMED_MODELS[bare] : TYPE_MODEL[bare];
+    src = LEGACY_MODELS[key] || (live && live.type !== 'authored' ? live : null)
+      || { type: m.replaces || m.portedFrom, pal: m.pal, neon: m.neon };
+    _trimSrc.set(m, src);
+  }
+  return src;
+}
+function drawArmTrim(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E, frontVis, rest) {
+  const src = armTrimSource(m), arm = typeArm(src.type) || (src.type !== 'authored' ? shopArm : null);
+  if (!arm) return;
+  const [name = '', board = null, sign, F = (lx, ly) => facePt(dx, dy, lx, ly, E),
+    W3 = (lx, ly, z) => [...F(lx, ly), z]] = rest || [];
+  // ⚠ UNDER A SHAPE CAPTURE THE ARM'S MASS GOES TO A SCRATCH LIST. draw3DBoxAt records ahead of its
+  // MASS_OFF test, so with the real sink open the arm would add its own walls to this model's shape
+  // and every edit would collide, shadow and occlude as the arm. A mast is the one thing kept: it is
+  // trim, and capture carries it on `.spars` for the silhouette.
+  const savedMass = MASS_OFF, savedShape = SHAPE_SINK, savedPal = SHAPE_PAL;
+  const scratch = SHAPE_SINK ? [] : null;
+  MASS_OFF = true;
+  if (scratch) { SHAPE_SINK = scratch; SHAPE_PAL = src.pal; }
+  try { arm(ctx, cam, dx, dy, fh, h, src, seed, night, alpha, now, E, name, board, src.pal, sign, F, W3, frontVis); }
+  finally { MASS_OFF = savedMass; SHAPE_SINK = savedShape; SHAPE_PAL = savedPal; }
+  if (scratch) for (const s of scratch) if (s.kind === 'spar') SHAPE_SINK.push(s);
+}
+
+function drawAuthoredModel(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E, frontVis = true, rest = null) {
   const th = Math.atan2(-E[0], E[1]), ct = Math.cos(th), st = Math.sin(th);
   const V = (p) => (p ? p[0] * fh + p[1] * h + p[2] : 0);
   // Model-local → world, the same composition drawModelLOD does. The yaw trap applies here too:
@@ -52169,11 +52322,19 @@ function drawAuthoredModel(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, 
   // Every segment is MASS, and every mass helper returns at once under MASS_OFF, so on the GL path
   // (mass on the GPU) the loop placed, measured and styled each one for nothing.
   if (!MASS_OFF) m.segs.forEach((s, i) => {
+    // `front`: mass on the entrance face that the arm drew only while that face was turned to the
+    // camera (a roller door, a truck bay). Capture tags it `frontOnly` by drawing both ways round.
+    if (s.front && !frontVis) return;
     const [wx, wy] = place(s);
     const z0 = V(s.z0), z1 = V(s.z1);
     if (s.kind === 'box') {
-      draw3DBoxAt(ctx, cam, wx, wy, V(s.hwRaw), z0, z1, s.pal || m.pal, seed + i, night, alpha,
-        s.roof !== false, (s.yaw || 0) + th, s.fdRaw ? V(s.fdRaw) : undefined);
+      // `seed` is the box's own offset from the tile's, as the arm passed it; a model written by
+      // hand has none and takes its index, as it always did.
+      // `mapAligned` keeps the box square to the map as the entrance turns, the way an arm draws a
+      // box it hands no yaw (see shapeTurns). Same footprint for a square, a different one for a
+      // rectangle, and a different corner order and wall-texture direction for both.
+      draw3DBoxAt(ctx, cam, wx, wy, V(s.hwRaw), z0, z1, s.pal || m.pal, seed + (s.seed ?? i), night, alpha,
+        s.roof !== false, (s.yaw || 0) + (s.mapAligned ? 0 : th), s.fdRaw ? V(s.fdRaw) : undefined);
     } else if (s.kind === 'drum') {
       const base = WALL_COL[s.pal || m.pal] || [96, 104, 116];
       const skin = (fc) => { const k = 0.5 + fc.nl * 0.55; return `rgba(${base[0] * k | 0},${base[1] * k | 0},${base[2] * k | 0},0.97)`; };
@@ -52185,7 +52346,11 @@ function drawAuthoredModel(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, 
       // which is built from WALL_COL here), which is exactly why nothing caught it: the picture was
       // right on the canvas and the GL pass was shading a chrome drum as whatever family that
       // default belongs to.
-      drawFacetDrum(ctx, cam, wx, wy, z0, z1, V(s.rb), V(s.rt), Math.max(5, s.n || 12), alpha, skin, capCol, s.pal || m.pal);
+      // A drum ported from an arm carries the skin the arm gave it (`skin`, see drumStyleOf) and a cap
+      // colour of its own (`capc`); one written by hand shades off its palette.
+      const lid = s.capSkin ? drumStyleOf({ skin: s.capSkin, lo: s.capLo, hi: s.capHi, spec: s.capSpec, tint: s.capTint }, night) : null;
+      drawFacetDrum(ctx, cam, wx, wy, z0, z1, V(s.rb), V(s.rt), Math.max(5, s.n || 12), alpha, drumStyleOf(s, night) || skin,
+        lid || s.capc || capCol, s.pal || m.pal);
     } else if (s.kind === 'barrel') {
       // ⚠ This primitive takes its LOCAL FRAME as a closure rather than world coordinates,
       // which is why the placed centre is bound into F here and the barrel's own `cxL`
@@ -52198,6 +52363,8 @@ function drawAuthoredModel(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, 
         Math.max(1, s.teeth || 4), s.roofc || '#4b5158', s.glassc || '#7d9ab0', s.edge || '#2b2f34', alpha);
     }
   });
+
+  if (m.armTrim) drawArmTrim(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E, frontVis, rest);
 
   // The detail layer, before the adornments: a pipe is part of the wall and a beacon is not.
   detailLayer(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E);
@@ -52239,7 +52406,7 @@ export { setVehicleParams, clearVehicleParams, vehicleParamBase, vehicleParamIds
 // file lands rather than the day somebody remembers this list.
 export const VEHICLE_PARAM_TABLE = { prop: 'fw', heavy: 'fw', gunship: 'fw', divebomber: 'fw', locust: 'fw', hydro: 'boat',
   ...Object.fromEntries(vehicleParamIds('boat').map((id) => [id, 'boat'])) };
-export const VEHICLE_CLASSES = ['prop', 'heavy', 'ultralight', 'heli', 'gunship', 'divebomber', 'grasshopper', 'locust', 'truck', 'wreck', 'hydro', 'drake', 'podracer',
+export const VEHICLE_CLASSES = ['prop', 'heavy', 'ultralight', 'heli', 'gunship', 'divebomber', 'grasshopper', 'locust', 'truck', 'wreck', 'hydro', 'drake', 'podracer', 'column',
   ...vehicleParamIds('boat').filter((id) => id !== 'hydro')];
 // Framing derived from the subject, exactly as a building's is derived from its roof. These
 // craft differ in size by seven times — CONTACT_SIZE runs 0.030 for a rig to 0.21 for the

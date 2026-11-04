@@ -1,0 +1,105 @@
+{
+  "adorn": [],
+  "armTrim": true,
+  "basis": {
+    "fh": 0.4,
+    "h": 1
+  },
+  "bind": [
+    {
+      "by": "name",
+      "key": "glasshouse"
+    }
+  ],
+  "id": "glasshouse",
+  "note": "Ported from the hand-written trm_glass_old arm by scripts/shapes/autoport.mjs. The mass and the detail list are this file; everything else (lights, signs, moving parts) is still drawn by the arm.",
+  "pal": "ty_trm_glass",
+  "pixdiff": 0,
+  "portedFrom": "trm_glass_old",
+  "segs": [
+    {
+      "cx": 0,
+      "cy": -0.352,
+      "fd": 0.416,
+      "hw": 0.416,
+      "kind": "box",
+      "mapAligned": true,
+      "pal": "ty_trm_frame",
+      "roof": true,
+      "seed": 0,
+      "yaw": 0,
+      "z0": 0,
+      "z1": 0.86
+    },
+    {
+      "cx": 0,
+      "cy": -0.208,
+      "fd": 0.392,
+      "hw": 0.392,
+      "kind": "box",
+      "mapAligned": true,
+      "pal": "ty_trm_board",
+      "roof": true,
+      "seed": 2,
+      "yaw": 0,
+      "z0": 0,
+      "z1": 0.86
+    },
+    {
+      "cx": 0,
+      "cy": -0.056,
+      "fd": 0.392,
+      "hw": 0.392,
+      "kind": "box",
+      "mapAligned": true,
+      "pal": "ty_trm_glass",
+      "roof": true,
+      "seed": 3,
+      "yaw": 0,
+      "z0": 0,
+      "z1": 0.706666667
+    },
+    {
+      "cx": 0,
+      "cy": 0.096,
+      "fd": 0.392,
+      "hw": 0.392,
+      "kind": "box",
+      "mapAligned": true,
+      "pal": "ty_trm_board",
+      "roof": true,
+      "seed": 4,
+      "yaw": 0,
+      "z0": 0,
+      "z1": 0.553333333
+    },
+    {
+      "cx": 0,
+      "cy": 0.248,
+      "fd": 0.392,
+      "hw": 0.392,
+      "kind": "box",
+      "mapAligned": true,
+      "pal": "ty_trm_glass",
+      "roof": true,
+      "seed": 5,
+      "yaw": 0,
+      "z0": 0,
+      "z1": 0.4
+    },
+    {
+      "cx": -0.24,
+      "cy": 0.36,
+      "fd": 0.072,
+      "hw": 0.072,
+      "kind": "box",
+      "mapAligned": true,
+      "pal": "ty_door",
+      "roof": false,
+      "seed": 12,
+      "yaw": 0,
+      "z0": 0,
+      "z1": 0.32
+    }
+  ]
+}

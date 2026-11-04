@@ -1,0 +1,89 @@
+{
+  "adorn": [],
+  "armTrim": true,
+  "basis": {
+    "fh": 0.4,
+    "h": 1
+  },
+  "bind": [
+    {
+      "by": "type",
+      "key": "off_licence"
+    }
+  ],
+  "id": "off_licence",
+  "neon": "#ffd27a",
+  "note": "Ported from the hand-written off_licence arm by scripts/shapes/autoport.mjs. The mass and the detail list are this file; everything else (lights, signs, moving parts) is still drawn by the arm.",
+  "pal": "ty_spirit",
+  "pixdiff": 0,
+  "portedFrom": "off_licence",
+  "segs": [
+    {
+      "cx": 0,
+      "cy": 0,
+      "fd": 0.36,
+      "hw": 0.36,
+      "kind": "box",
+      "mapAligned": true,
+      "pal": "ty_spirit",
+      "roof": false,
+      "seed": 0,
+      "yaw": 0,
+      "z0": 0,
+      "z1": 0.72
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "fd": 0.384,
+      "hw": 0.384,
+      "kind": "box",
+      "mapAligned": true,
+      "pal": "ty_spirit_dk",
+      "roof": true,
+      "seed": 1,
+      "yaw": 0,
+      "z0": 0.72,
+      "z1": 0.84
+    },
+    {
+      "cx": 0,
+      "cy": 0.364,
+      "fd": 0.008,
+      "hw": 0.344,
+      "kind": "box",
+      "pal": "ty_pocket_shut",
+      "roof": false,
+      "seed": 2,
+      "yaw": 0,
+      "z0": 0,
+      "z1": 0.52
+    },
+    {
+      "cx": 0.056,
+      "cy": 0.376,
+      "fd": 0.008,
+      "hw": 0.06,
+      "kind": "box",
+      "pal": "ty_spirit_hatch",
+      "roof": false,
+      "seed": 3,
+      "yaw": 0,
+      "z0": 0.22,
+      "z1": 0.36
+    },
+    {
+      "cx": -0.144,
+      "cy": 0.376,
+      "fd": 0.008,
+      "hw": 0.104,
+      "kind": "box",
+      "pal": "ty_spirit_block",
+      "roof": false,
+      "seed": 4,
+      "yaw": 0,
+      "z0": 0.3,
+      "z1": 0.48
+    }
+  ]
+}

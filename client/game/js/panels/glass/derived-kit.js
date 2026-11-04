@@ -379,7 +379,9 @@ const NO_AD_TRADE = new Set(['power', 'dynamo', 'dw_turbine', 'trm_charge', 'sig
 // ⚠ Read `RENDER_TUNE`, never the per-view `TUNE`: the list is cached per model and shared by every view.
 // `cand` and `deck` are as in derivedTrim.
 function derivedKit(list, cand, deck, m, seed, A, have, rich, spars = [], mod = MODERN_NEUTRAL, place = null, claims = [], blocks = [], mass = cand, glazed = []) {
-  if (!RENDER_TUNE.derivedKit || NO_KIT.has(m.type) || m.noKit) return;
+  // A model still drawing its arm's trim (`armTrim`) is that arm for this purpose: a port of a wall
+  // or a pier would otherwise be glazed like a shop.
+  if (!RENDER_TUNE.derivedKit || NO_KIT.has(m.armTrim ? tradeOf(m) : m.type) || m.noKit) return;
   const wants = (s) => !have.has(s);   // a section somebody already drew is theirs; stay out of it
   const pal = m.pal;
   // What the openings are dressed in (see trimPalFor); a surround in the wall colour reads as paint.

@@ -1,0 +1,134 @@
+{
+  "adorn": [],
+  "armTrim": true,
+  "basis": {
+    "fh": 0.4,
+    "h": 1
+  },
+  "bind": [
+    {
+      "by": "name",
+      "key": "thegaugehouse"
+    }
+  ],
+  "id": "thegaugehouse",
+  "note": "Ported from the hand-written dw_gauge arm by scripts/shapes/autoport.mjs. The mass and the detail list are this file; everything else (lights, signs, moving parts) is still drawn by the arm.",
+  "pal": "ty_dw_stone",
+  "pixdiff": 0,
+  "portedFrom": "dw_gauge",
+  "segs": [
+    {
+      "cx": 0,
+      "cy": 0,
+      "fd": 0.232,
+      "hw": 0.232,
+      "kind": "box",
+      "mapAligned": true,
+      "pal": "ty_dw_stone",
+      "roof": false,
+      "seed": 0,
+      "yaw": 0,
+      "z0": 0,
+      "z1": 0.64
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "fd": 0.272,
+      "hw": 0.272,
+      "kind": "box",
+      "mapAligned": true,
+      "pal": "ty_dw_slate",
+      "roof": true,
+      "seed": 1,
+      "yaw": 0,
+      "z0": 0.64,
+      "z1": 0.8
+    },
+    {
+      "cx": 0.208,
+      "cy": -0.12,
+      "fd": 0.036,
+      "hw": 0.036,
+      "kind": "box",
+      "mapAligned": true,
+      "pal": "ty_dw_iron",
+      "roof": false,
+      "seed": 4,
+      "yaw": 0,
+      "z0": 0,
+      "z1": 0.5504
+    },
+    {
+      "cx": 0.208,
+      "cy": -0.12,
+      "fd": 0.06,
+      "hw": 0.06,
+      "kind": "box",
+      "mapAligned": true,
+      "pal": "ty_dw_iron",
+      "roof": true,
+      "seed": 5,
+      "yaw": 0,
+      "z0": 0.5504,
+      "z1": 0.6528
+    },
+    {
+      "cx": 0.208,
+      "cy": 0.04,
+      "fd": 0.048,
+      "hw": 0.048,
+      "kind": "box",
+      "mapAligned": true,
+      "pal": "ty_dw_iron",
+      "roof": false,
+      "seed": 6,
+      "yaw": 0.16,
+      "z0": 0,
+      "z1": 0.3
+    },
+    {
+      "cx": 0,
+      "cy": 0.24,
+      "fd": 0.016,
+      "front": true,
+      "hw": 0.08,
+      "kind": "box",
+      "mapAligned": true,
+      "pal": "ty_dw_slate",
+      "roof": true,
+      "seed": 10,
+      "yaw": 0,
+      "z0": 0.256,
+      "z1": 0.4992
+    },
+    {
+      "cx": -0.24,
+      "cy": 0.064,
+      "fd": 0.02,
+      "hw": 0.02,
+      "kind": "box",
+      "mapAligned": true,
+      "pal": "ty_dw_paint",
+      "roof": false,
+      "seed": 14,
+      "yaw": 0,
+      "z0": 0,
+      "z1": 0.92
+    },
+    {
+      "cx": 0,
+      "cy": 0.24,
+      "fd": 0.016,
+      "hw": 0.052,
+      "kind": "box",
+      "mapAligned": true,
+      "pal": "ty_door",
+      "roof": true,
+      "seed": 18,
+      "yaw": 0,
+      "z0": 0,
+      "z1": 0.384
+    }
+  ]
+}

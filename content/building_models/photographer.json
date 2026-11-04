@@ -1,0 +1,101 @@
+{
+  "adorn": [],
+  "armTrim": true,
+  "basis": {
+    "fh": 0.4,
+    "h": 1
+  },
+  "bind": [
+    {
+      "by": "type",
+      "key": "photographer"
+    }
+  ],
+  "id": "photographer",
+  "neon": "#cfe0ff",
+  "note": "Ported from the hand-written photographer arm by scripts/shapes/autoport.mjs. The mass and the detail list are this file; everything else (lights, signs, moving parts) is still drawn by the arm.",
+  "pal": "ty_negeq",
+  "pixdiff": 0,
+  "portedFrom": "photographer",
+  "segs": [
+    {
+      "cx": 0,
+      "cy": 0,
+      "fd": 0.368,
+      "hw": 0.368,
+      "kind": "box",
+      "mapAligned": true,
+      "pal": "ty_negeq",
+      "roof": false,
+      "seed": 0,
+      "yaw": 0,
+      "z0": 0,
+      "z1": 0.5
+    },
+    {
+      "cx": 0,
+      "cy": 0.184,
+      "fd": 0.064,
+      "hw": 0.344,
+      "kind": "box",
+      "pal": "ty_negeq_glass",
+      "roof": true,
+      "seed": 1,
+      "yaw": 0,
+      "z0": 0.5,
+      "z1": 0.6496
+    },
+    {
+      "cx": 0,
+      "cy": 0.064,
+      "fd": 0.064,
+      "hw": 0.344,
+      "kind": "box",
+      "pal": "ty_negeq_glass",
+      "roof": true,
+      "seed": 2,
+      "yaw": 0,
+      "z0": 0.5,
+      "z1": 0.7464
+    },
+    {
+      "cx": 0,
+      "cy": -0.056,
+      "fd": 0.064,
+      "hw": 0.344,
+      "kind": "box",
+      "pal": "ty_negeq_glass",
+      "roof": true,
+      "seed": 3,
+      "yaw": 0,
+      "z0": 0.5,
+      "z1": 0.8432
+    },
+    {
+      "cx": 0,
+      "cy": -0.24,
+      "fd": 0.096,
+      "hw": 0.36,
+      "kind": "box",
+      "pal": "ty_negeq",
+      "roof": true,
+      "seed": 5,
+      "yaw": 0,
+      "z0": 0.5,
+      "z1": 0.94
+    },
+    {
+      "cx": -0.2,
+      "cy": 0.376,
+      "fd": 0.024,
+      "hw": 0.08,
+      "kind": "box",
+      "pal": "ty_negeq_case",
+      "roof": true,
+      "seed": 6,
+      "yaw": 0,
+      "z0": 0.16,
+      "z1": 0.38
+    }
+  ]
+}

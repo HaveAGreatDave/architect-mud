@@ -1,0 +1,145 @@
+{
+  "adorn": [],
+  "armTrim": true,
+  "basis": {
+    "fh": 0.4,
+    "h": 1
+  },
+  "bind": [
+    {
+      "by": "type",
+      "key": "office"
+    }
+  ],
+  "detail": [
+    {
+      "half": 0.4,
+      "hh": 0.03,
+      "kind": "parapet",
+      "z": 0.5667
+    },
+    {
+      "half": 0.332,
+      "hh": 0.028,
+      "kind": "parapet",
+      "z": 1.1333
+    },
+    {
+      "half": 0.252,
+      "hh": 0.045,
+      "kind": "parapet",
+      "z": 1.7
+    },
+    {
+      "cx": 0.112,
+      "cy": 0.08,
+      "d": 0.036,
+      "hh": 0.055,
+      "kind": "acUnit",
+      "w": 0.044,
+      "z": 1.7
+    },
+    {
+      "cx": -0.12,
+      "cy": -0.072,
+      "d": 0.028,
+      "hh": 0.04,
+      "kind": "acUnit",
+      "w": 0.036,
+      "z": 1.7
+    },
+    {
+      "cx": 0.288,
+      "cy": 0.4,
+      "kind": "pipe",
+      "r": 0.0112,
+      "z0": 0.03,
+      "z1": 0.55
+    },
+    {
+      "cx": -0.22,
+      "cy": 0.4,
+      "hh": 0.05,
+      "kind": "vent",
+      "w": 0.044,
+      "z": 0.28
+    }
+  ],
+  "id": "office",
+  "note": "Ported from the hand-written office arm by scripts/shapes/autoport.mjs. The mass and the detail list are this file; everything else (lights, signs, moving parts) is still drawn by the arm.",
+  "pal": "ty_office",
+  "pixdiff": 0,
+  "portedFrom": "office",
+  "segs": [
+    {
+      "cx": 0,
+      "cy": 0,
+      "fd": 0.496,
+      "hw": 0.496,
+      "kind": "box",
+      "mapAligned": true,
+      "pal": "ty_precast",
+      "roof": false,
+      "seed": 6,
+      "yaw": 0,
+      "z0": 0,
+      "z1": 0.2
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "fd": 0.424,
+      "hw": 0.424,
+      "kind": "box",
+      "mapAligned": true,
+      "pal": "ty_office",
+      "roof": false,
+      "seed": 0,
+      "yaw": 0,
+      "z0": 0.2,
+      "z1": 1.07
+    },
+    {
+      "cx": 0,
+      "cy": -0.064,
+      "fd": 0.312,
+      "hw": 0.312,
+      "kind": "box",
+      "mapAligned": true,
+      "pal": "ty_office",
+      "roof": true,
+      "seed": 1,
+      "yaw": 0,
+      "z0": 1.07,
+      "z1": 1.7
+    },
+    {
+      "cx": 0.328,
+      "cy": -0.064,
+      "fd": 0.2,
+      "hw": 0.104,
+      "kind": "box",
+      "mapAligned": true,
+      "pal": "ty_precast_dk",
+      "roof": true,
+      "seed": 2,
+      "yaw": 0,
+      "z0": 0.2,
+      "z1": 1.86
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "fd": 0.436,
+      "hw": 0.436,
+      "kind": "box",
+      "mapAligned": true,
+      "pal": "ty_precast",
+      "roof": false,
+      "seed": 3,
+      "yaw": 0,
+      "z0": 1.02,
+      "z1": 1.07
+    }
+  ]
+}

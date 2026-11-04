@@ -278,6 +278,7 @@ export function shapeLodFaces(...a) { return (_m || _cold('shapeLodFaces')).shap
 export function shapeModelRegistry(...a) { return (_m || _cold('shapeModelRegistry')).shapeModelRegistry(...a); }
 export function shapeRenderSmoke(...a) { return (_m || _cold('shapeRenderSmoke')).shapeRenderSmoke(...a); }
 export function shapeRoofZ(...a) { return (_m || _cold('shapeRoofZ')).shapeRoofZ(...a); }
+export function shapeTurns(...a) { return (_m || _cold('shapeTurns')).shapeTurns(...a); }
 export function shapeVal(...a) { return (_m || _cold('shapeVal')).shapeVal(...a); }
 export function shapeWireList(...a) { return (_m || _cold('shapeWireList')).shapeWireList(...a); }
 export function shelterFill(...a) { return (_m || _cold('shelterFill')).shelterFill(...a); }

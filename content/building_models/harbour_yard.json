@@ -1,0 +1,159 @@
+{
+  "adorn": [],
+  "armTrim": true,
+  "basis": {
+    "fh": 0.4,
+    "h": 1
+  },
+  "bind": [
+    {
+      "by": "type",
+      "key": "harbour_yard"
+    }
+  ],
+  "id": "harbour_yard",
+  "neon": "#ffc24a",
+  "note": "Ported from the hand-written harbour_yard arm by scripts/shapes/autoport.mjs. The mass and the detail list are this file; everything else (lights, signs, moving parts) is still drawn by the arm.",
+  "pal": "ty_yard_tarmac",
+  "pixdiff": 0,
+  "portedFrom": "harbour_yard",
+  "segs": [
+    {
+      "cx": 0,
+      "cy": 0,
+      "fd": 0.504,
+      "hw": 0.504,
+      "kind": "box",
+      "mapAligned": true,
+      "pal": "ty_yard_tarmac",
+      "roof": true,
+      "seed": 0,
+      "yaw": 0,
+      "z0": 0,
+      "z1": 0.07
+    },
+    {
+      "cx": 0,
+      "cy": -0.48,
+      "fd": 0.024,
+      "hw": 0.504,
+      "kind": "box",
+      "pal": "ty_quay_deck",
+      "roof": true,
+      "seed": 1.8,
+      "yaw": 0,
+      "z0": 0.07,
+      "z1": 0.105
+    },
+    {
+      "cx": -0.48,
+      "cy": 0,
+      "fd": 0.504,
+      "hw": 0.024,
+      "kind": "box",
+      "pal": "ty_quay_deck",
+      "roof": true,
+      "seed": 1.8,
+      "yaw": 0,
+      "z0": 0.07,
+      "z1": 0.105
+    },
+    {
+      "cx": 0.48,
+      "cy": 0,
+      "fd": 0.504,
+      "hw": 0.024,
+      "kind": "box",
+      "pal": "ty_quay_deck",
+      "roof": true,
+      "seed": 4.2,
+      "yaw": 0,
+      "z0": 0.07,
+      "z1": 0.105
+    },
+    {
+      "cx": -0.312,
+      "cy": -0.296,
+      "fd": 0.128,
+      "hw": 0.128,
+      "kind": "box",
+      "mapAligned": true,
+      "pal": "ty_yard_hut",
+      "roof": false,
+      "seed": 11,
+      "yaw": 0,
+      "z0": 0.07,
+      "z1": 0.93
+    },
+    {
+      "cx": -0.312,
+      "cy": -0.296,
+      "fd": 0.144,
+      "hw": 0.144,
+      "kind": "box",
+      "mapAligned": true,
+      "pal": "ty_yard_hut",
+      "roof": true,
+      "seed": 12,
+      "yaw": 0,
+      "z0": 0.93,
+      "z1": 1.01
+    },
+    {
+      "cx": -0.408,
+      "cy": 0.12,
+      "fd": 0.0136,
+      "hw": 0.0136,
+      "kind": "box",
+      "mapAligned": true,
+      "pal": "ty_pier_steel",
+      "roof": false,
+      "seed": 14,
+      "yaw": 0,
+      "z0": 0.07,
+      "z1": 1.37
+    },
+    {
+      "cx": -0.408,
+      "cy": 0.12,
+      "fd": 0.04,
+      "hw": 0.04,
+      "kind": "box",
+      "mapAligned": true,
+      "pal": "ty_pier_steel",
+      "roof": true,
+      "seed": 16,
+      "yaw": 0,
+      "z0": 1.37,
+      "z1": 1.45
+    },
+    {
+      "cx": 0.408,
+      "cy": 0.12,
+      "fd": 0.0136,
+      "hw": 0.0136,
+      "kind": "box",
+      "mapAligned": true,
+      "pal": "ty_pier_steel",
+      "roof": false,
+      "seed": 16,
+      "yaw": 0,
+      "z0": 0.07,
+      "z1": 1.37
+    },
+    {
+      "cx": 0.408,
+      "cy": 0.12,
+      "fd": 0.04,
+      "hw": 0.04,
+      "kind": "box",
+      "mapAligned": true,
+      "pal": "ty_pier_steel",
+      "roof": true,
+      "seed": 18,
+      "yaw": 0,
+      "z0": 1.37,
+      "z1": 1.45
+    }
+  ]
+}

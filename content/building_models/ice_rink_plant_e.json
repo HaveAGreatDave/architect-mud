@@ -1,0 +1,312 @@
+{
+  "adorn": [],
+  "armTrim": true,
+  "basis": {
+    "fh": 0.4,
+    "h": 1
+  },
+  "bind": [
+    {
+      "by": "type",
+      "key": "ice_rink_plant_e"
+    }
+  ],
+  "id": "ice_rink_plant_e",
+  "noKit": true,
+  "note": "Ported from the hand-written ice_rink_wing arm by scripts/shapes/autoport.mjs. The mass and the detail list are this file; everything else (lights, signs, moving parts) is still drawn by the arm.",
+  "pal": "ty_unit_brick",
+  "pixdiff": 0,
+  "portedFrom": "ice_rink_wing",
+  "segs": [
+    {
+      "cx": -0.25,
+      "cy": -0.25,
+      "fd": 0.25,
+      "hw": 0.25,
+      "kind": "box",
+      "pal": "ty_oc_brick_dk",
+      "roof": false,
+      "scale": {
+        "cx": "abs",
+        "cy": "abs",
+        "fd": "abs",
+        "hw": "abs",
+        "z1": "abs"
+      },
+      "seed": 1,
+      "yaw": 0,
+      "z0": 0,
+      "z1": 0.035
+    },
+    {
+      "cx": -0.25,
+      "cy": 0.25,
+      "fd": 0.25,
+      "hw": 0.25,
+      "kind": "box",
+      "pal": "ty_oc_brick_dk",
+      "roof": false,
+      "scale": {
+        "cx": "abs",
+        "cy": "abs",
+        "fd": "abs",
+        "hw": "abs",
+        "z1": "abs"
+      },
+      "seed": 14,
+      "yaw": 0,
+      "z0": 0,
+      "z1": 0.035
+    },
+    {
+      "cx": 0.25,
+      "cy": -0.25,
+      "fd": 0.25,
+      "hw": 0.25,
+      "kind": "box",
+      "pal": "ty_oc_brick_dk",
+      "roof": false,
+      "scale": {
+        "cx": "abs",
+        "cy": "abs",
+        "fd": "abs",
+        "hw": "abs",
+        "z1": "abs"
+      },
+      "seed": 8,
+      "yaw": 0,
+      "z0": 0,
+      "z1": 0.035
+    },
+    {
+      "cx": 0.25,
+      "cy": 0.25,
+      "fd": 0.25,
+      "hw": 0.25,
+      "kind": "box",
+      "pal": "ty_oc_brick_dk",
+      "roof": false,
+      "scale": {
+        "cx": "abs",
+        "cy": "abs",
+        "fd": "abs",
+        "hw": "abs",
+        "z1": "abs"
+      },
+      "seed": 21,
+      "yaw": 0,
+      "z0": 0,
+      "z1": 0.035
+    },
+    {
+      "cx": -0.25,
+      "cy": -0.25,
+      "fd": 0.25,
+      "hw": 0.25,
+      "kind": "box",
+      "pal": "ty_unit_brick",
+      "roof": true,
+      "scale": {
+        "cx": "abs",
+        "cy": "abs",
+        "fd": "abs",
+        "hw": "abs",
+        "z0": "abs",
+        "z1": "abs"
+      },
+      "seed": 0,
+      "yaw": 0,
+      "z0": 0.035,
+      "z1": 0.4
+    },
+    {
+      "cx": -0.25,
+      "cy": 0.25,
+      "fd": 0.25,
+      "hw": 0.25,
+      "kind": "box",
+      "pal": "ty_unit_brick",
+      "roof": true,
+      "scale": {
+        "cx": "abs",
+        "cy": "abs",
+        "fd": "abs",
+        "hw": "abs",
+        "z0": "abs",
+        "z1": "abs"
+      },
+      "seed": 13,
+      "yaw": 0,
+      "z0": 0.035,
+      "z1": 0.4
+    },
+    {
+      "cx": 0.25,
+      "cy": -0.25,
+      "fd": 0.25,
+      "hw": 0.25,
+      "kind": "box",
+      "pal": "ty_unit_brick",
+      "roof": true,
+      "scale": {
+        "cx": "abs",
+        "cy": "abs",
+        "fd": "abs",
+        "hw": "abs",
+        "z0": "abs",
+        "z1": "abs"
+      },
+      "seed": 7,
+      "yaw": 0,
+      "z0": 0.035,
+      "z1": 0.4
+    },
+    {
+      "cx": 0.25,
+      "cy": 0.25,
+      "fd": 0.25,
+      "hw": 0.25,
+      "kind": "box",
+      "pal": "ty_unit_brick",
+      "roof": true,
+      "scale": {
+        "cx": "abs",
+        "cy": "abs",
+        "fd": "abs",
+        "hw": "abs",
+        "z0": "abs",
+        "z1": "abs"
+      },
+      "seed": 20,
+      "yaw": 0,
+      "z0": 0.035,
+      "z1": 0.4
+    },
+    {
+      "cx": -0.49,
+      "cy": -0.25,
+      "fd": 0.25,
+      "hw": 0.01,
+      "kind": "box",
+      "pal": "ty_precast",
+      "roof": true,
+      "scale": {
+        "cx": "abs",
+        "cy": "abs",
+        "fd": "abs",
+        "hw": "abs",
+        "z0": "abs",
+        "z1": "abs"
+      },
+      "seed": 2,
+      "yaw": 0,
+      "z0": 0.4,
+      "z1": 0.422
+    },
+    {
+      "cx": -0.49,
+      "cy": 0.25,
+      "fd": 0.25,
+      "hw": 0.01,
+      "kind": "box",
+      "pal": "ty_precast",
+      "roof": true,
+      "scale": {
+        "cx": "abs",
+        "cy": "abs",
+        "fd": "abs",
+        "hw": "abs",
+        "z0": "abs",
+        "z1": "abs"
+      },
+      "seed": 15,
+      "yaw": 0,
+      "z0": 0.4,
+      "z1": 0.422
+    },
+    {
+      "cx": -0.25,
+      "cy": -0.49,
+      "fd": 0.01,
+      "hw": 0.25,
+      "kind": "box",
+      "pal": "ty_precast",
+      "roof": true,
+      "scale": {
+        "cx": "abs",
+        "cy": "abs",
+        "fd": "abs",
+        "hw": "abs",
+        "z0": "abs",
+        "z1": "abs"
+      },
+      "seed": 3,
+      "yaw": 0,
+      "z0": 0.4,
+      "z1": 0.422
+    },
+    {
+      "cx": 0.25,
+      "cy": -0.49,
+      "fd": 0.01,
+      "hw": 0.25,
+      "kind": "box",
+      "pal": "ty_precast",
+      "roof": true,
+      "scale": {
+        "cx": "abs",
+        "cy": "abs",
+        "fd": "abs",
+        "hw": "abs",
+        "z0": "abs",
+        "z1": "abs"
+      },
+      "seed": 10,
+      "yaw": 0,
+      "z0": 0.4,
+      "z1": 0.422
+    },
+    {
+      "cx": 0.18,
+      "cy": 0.2,
+      "fd": 0.05,
+      "hw": 0.05,
+      "kind": "box",
+      "pal": "ty_precast_dk",
+      "roof": true,
+      "scale": {
+        "cx": "abs",
+        "cy": "abs",
+        "fd": "abs",
+        "hw": "abs",
+        "z0": "abs",
+        "z1": "abs"
+      },
+      "seed": 60,
+      "yaw": 0,
+      "z0": 0.4,
+      "z1": 0.435
+    },
+    {
+      "cx": -0.12,
+      "cy": -0.22,
+      "fd": 0.05,
+      "hw": 0.05,
+      "kind": "box",
+      "pal": "ty_precast_dk",
+      "roof": true,
+      "scale": {
+        "cx": "abs",
+        "cy": "abs",
+        "fd": "abs",
+        "hw": "abs",
+        "z0": "abs",
+        "z1": "abs"
+      },
+      "seed": 60,
+      "yaw": 0,
+      "z0": 0.4,
+      "z1": 0.435
+    }
+  ]
+}

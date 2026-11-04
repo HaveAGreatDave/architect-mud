@@ -1,0 +1,104 @@
+{
+  "adorn": [],
+  "armTrim": true,
+  "basis": {
+    "fh": 0.4,
+    "h": 1
+  },
+  "bind": [
+    {
+      "by": "type",
+      "key": "vet"
+    }
+  ],
+  "id": "vet",
+  "neon": "#ffd9a0",
+  "note": "Ported from the hand-written vet arm by scripts/shapes/autoport.mjs. The mass and the detail list are this file; everything else (lights, signs, moving parts) is still drawn by the arm.",
+  "pal": "ty_paws",
+  "pixdiff": 0,
+  "portedFrom": "vet",
+  "segs": [
+    {
+      "cx": 0,
+      "cy": 0,
+      "fd": 0.312,
+      "hw": 0.312,
+      "kind": "box",
+      "mapAligned": true,
+      "pal": "ty_paws",
+      "roof": false,
+      "seed": 0,
+      "yaw": 0,
+      "z0": 0,
+      "z1": 0.56
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "fd": 0.28,
+      "hw": 0.28,
+      "kind": "box",
+      "mapAligned": true,
+      "pal": "ty_paws_roof",
+      "roof": false,
+      "seed": 1,
+      "yaw": 0,
+      "z0": 0.56,
+      "z1": 0.7
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "fd": 0.176,
+      "hw": 0.176,
+      "kind": "box",
+      "mapAligned": true,
+      "pal": "ty_paws_roof",
+      "roof": true,
+      "seed": 2,
+      "yaw": 0,
+      "z0": 0.7,
+      "z1": 0.8
+    },
+    {
+      "cx": -0.192,
+      "cy": -0.12,
+      "fd": 0.044,
+      "hw": 0.044,
+      "kind": "box",
+      "mapAligned": true,
+      "pal": "ty_paws",
+      "roof": true,
+      "seed": 3,
+      "yaw": 0,
+      "z0": 0.56,
+      "z1": 0.96
+    },
+    {
+      "cx": -0.136,
+      "cy": 0.304,
+      "fd": 0.064,
+      "hw": 0.104,
+      "kind": "box",
+      "pal": "ty_paws_glass",
+      "roof": true,
+      "seed": 4,
+      "yaw": 0,
+      "z0": 0.1,
+      "z1": 0.42
+    },
+    {
+      "cx": 0,
+      "cy": 0.336,
+      "fd": 0.04,
+      "hw": 0.12,
+      "kind": "box",
+      "pal": "ty_paws_roof",
+      "roof": true,
+      "seed": 5,
+      "yaw": 0,
+      "z0": 0.4,
+      "z1": 0.44
+    }
+  ]
+}

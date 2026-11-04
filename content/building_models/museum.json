@@ -1,0 +1,143 @@
+{
+  "adorn": [],
+  "armTrim": true,
+  "basis": {
+    "fh": 0.4,
+    "h": 1
+  },
+  "bind": [
+    {
+      "by": "type",
+      "key": "museum"
+    }
+  ],
+  "id": "museum",
+  "neon": "#e2dcc4",
+  "note": "Ported from the hand-written museum arm by scripts/shapes/autoport.mjs. The mass and the detail list are this file; everything else (lights, signs, moving parts) is still drawn by the arm.",
+  "pal": "ty_past",
+  "pixdiff": 0,
+  "portedFrom": "museum",
+  "segs": [
+    {
+      "cx": 0,
+      "cy": -0.104,
+      "fd": 0.256,
+      "hw": 0.32,
+      "kind": "box",
+      "pal": "ty_past",
+      "roof": true,
+      "seed": 0,
+      "yaw": 0,
+      "z0": 0,
+      "z1": 0.64
+    },
+    {
+      "cx": 0,
+      "cy": 0.248,
+      "fd": 0.136,
+      "hw": 0.368,
+      "kind": "box",
+      "pal": "ty_past_stone",
+      "roof": true,
+      "seed": 1,
+      "yaw": 0,
+      "z0": 0,
+      "z1": 0.09
+    },
+    {
+      "cx": -0.264,
+      "cy": 0.28,
+      "fd": 0.036,
+      "hw": 0.036,
+      "kind": "box",
+      "mapAligned": true,
+      "pal": "ty_past_stone",
+      "roof": false,
+      "seed": -3.6000000000000005,
+      "yaw": 0,
+      "z0": 0.09,
+      "z1": 0.74
+    },
+    {
+      "cx": -0.088,
+      "cy": 0.28,
+      "fd": 0.036,
+      "hw": 0.036,
+      "kind": "box",
+      "mapAligned": true,
+      "pal": "ty_past_stone",
+      "roof": false,
+      "seed": 0.7999999999999998,
+      "yaw": 0,
+      "z0": 0.09,
+      "z1": 0.74
+    },
+    {
+      "cx": 0.088,
+      "cy": 0.28,
+      "fd": 0.036,
+      "hw": 0.036,
+      "kind": "box",
+      "mapAligned": true,
+      "pal": "ty_past_stone",
+      "roof": false,
+      "seed": 5.2,
+      "yaw": 0,
+      "z0": 0.09,
+      "z1": 0.74
+    },
+    {
+      "cx": 0.264,
+      "cy": 0.28,
+      "fd": 0.036,
+      "hw": 0.036,
+      "kind": "box",
+      "mapAligned": true,
+      "pal": "ty_past_stone",
+      "roof": false,
+      "seed": 9.600000000000001,
+      "yaw": 0,
+      "z0": 0.09,
+      "z1": 0.74
+    },
+    {
+      "cx": 0,
+      "cy": 0.264,
+      "fd": 0.12,
+      "hw": 0.376,
+      "kind": "box",
+      "pal": "ty_past_stone",
+      "roof": false,
+      "seed": 8,
+      "yaw": 0,
+      "z0": 0.74,
+      "z1": 0.83
+    },
+    {
+      "cx": 0,
+      "cy": 0.264,
+      "fd": 0.104,
+      "hw": 0.232,
+      "kind": "box",
+      "pal": "ty_past_stone",
+      "roof": true,
+      "seed": 9,
+      "yaw": 0,
+      "z0": 0.83,
+      "z1": 0.92
+    },
+    {
+      "cx": 0,
+      "cy": 0.156,
+      "fd": 0.008,
+      "hw": 0.048,
+      "kind": "box",
+      "pal": "ty_door",
+      "roof": false,
+      "seed": 10,
+      "yaw": 0,
+      "z0": 0.09,
+      "z1": 0.52
+    }
+  ]
+}

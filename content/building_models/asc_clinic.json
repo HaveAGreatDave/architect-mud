@@ -1,0 +1,63 @@
+{
+  "adorn": [],
+  "armTrim": true,
+  "basis": {
+    "fh": 0.4,
+    "h": 1
+  },
+  "bind": [
+    {
+      "by": "type",
+      "key": "asc_clinic"
+    }
+  ],
+  "id": "asc_clinic",
+  "note": "Ported from the hand-written asc_clinic arm by scripts/shapes/autoport.mjs. The mass and the detail list are this file; everything else (lights, signs, moving parts) is still drawn by the arm.",
+  "pal": "ty_asc_clinic",
+  "pixdiff": 0,
+  "portedFrom": "asc_clinic",
+  "segs": [
+    {
+      "cx": 0,
+      "cy": 0,
+      "fd": 0.44,
+      "hw": 0.44,
+      "kind": "box",
+      "mapAligned": true,
+      "pal": "ty_asc_clinic",
+      "roof": true,
+      "seed": 0,
+      "yaw": 0,
+      "z0": 0,
+      "z1": 0.7
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "fd": 0.28,
+      "hw": 0.28,
+      "kind": "box",
+      "mapAligned": true,
+      "pal": "ty_asc_clinic",
+      "roof": true,
+      "seed": 1,
+      "yaw": 0,
+      "z0": 0.7,
+      "z1": 0.9
+    },
+    {
+      "cx": 0,
+      "cy": 0.408,
+      "fd": 0.28,
+      "hw": 0.28,
+      "kind": "box",
+      "mapAligned": true,
+      "pal": "ty_door",
+      "roof": false,
+      "seed": 2,
+      "yaw": 0,
+      "z0": 0.06,
+      "z1": 0.18
+    }
+  ]
+}

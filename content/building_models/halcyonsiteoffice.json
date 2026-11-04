@@ -1,0 +1,246 @@
+{
+  "adorn": [],
+  "armTrim": true,
+  "basis": {
+    "fh": 0.4,
+    "h": 1
+  },
+  "bind": [
+    {
+      "by": "name",
+      "key": "halcyonsiteoffice"
+    }
+  ],
+  "id": "halcyonsiteoffice",
+  "neon": "#8ce4c0",
+  "note": "Ported from the hand-written hf_lowterrace arm by scripts/shapes/autoport.mjs. The mass and the detail list are this file; everything else (lights, signs, moving parts) is still drawn by the arm.",
+  "pal": "ty_hft_glass",
+  "pixdiff": 0,
+  "portedFrom": "hf_lowterrace",
+  "segs": [
+    {
+      "cap": true,
+      "capHi": [
+        200,
+        214,
+        224
+      ],
+      "capLo": [
+        122,
+        138,
+        152
+      ],
+      "capSkin": "chrome",
+      "capSpec": 1.4,
+      "cx": 0,
+      "cy": 0,
+      "hi": [
+        226,
+        238,
+        246
+      ],
+      "kind": "drum",
+      "lo": [
+        112,
+        128,
+        144
+      ],
+      "n": 18,
+      "pal": "ty_hf_deck",
+      "rb": 0.4,
+      "rt": 0.384,
+      "skin": "chrome",
+      "spec": 1.8,
+      "z0": 0,
+      "z1": 0.05
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "fd": 0.16,
+      "hw": 0.376,
+      "kind": "box",
+      "pal": "ty_hft_glass",
+      "roof": false,
+      "seed": 0,
+      "yaw": 0,
+      "z0": 0.05,
+      "z1": 0.84
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "fd": 0.176,
+      "hw": 0.392,
+      "kind": "box",
+      "pal": "ty_hf_chrome",
+      "roof": true,
+      "seed": 1,
+      "yaw": 0,
+      "z0": 0.84,
+      "z1": 0.96
+    },
+    {
+      "cx": 0,
+      "cy": 0.072,
+      "fd": 0.12,
+      "hw": 0.384,
+      "kind": "box",
+      "pal": "ty_hf_chrome",
+      "roof": true,
+      "seed": 3,
+      "yaw": 0,
+      "z0": 0.282352941,
+      "z1": 0.310352941
+    },
+    {
+      "cx": 0,
+      "cy": 0.072,
+      "fd": 0.12,
+      "hw": 0.384,
+      "kind": "box",
+      "pal": "ty_hf_chrome",
+      "roof": true,
+      "seed": 4,
+      "yaw": 0,
+      "z0": 0.514705882,
+      "z1": 0.542705882
+    },
+    {
+      "cx": 0,
+      "cy": 0.072,
+      "fd": 0.12,
+      "hw": 0.384,
+      "kind": "box",
+      "pal": "ty_hf_chrome",
+      "roof": true,
+      "seed": 5,
+      "yaw": 0,
+      "z0": 0.747058824,
+      "z1": 0.775058824
+    },
+    {
+      "cap": false,
+      "cx": 0.36,
+      "cy": -0.144,
+      "hi": [
+        188,
+        196,
+        204
+      ],
+      "kind": "drum",
+      "lo": [
+        96,
+        100,
+        106
+      ],
+      "n": 6,
+      "pal": "ty_hf_slab",
+      "rb": 0.0112,
+      "rt": 0.0104,
+      "skin": "chrome",
+      "spec": 1.7,
+      "z0": 0,
+      "z1": 1.02
+    },
+    {
+      "cap": false,
+      "cx": 0.36,
+      "cy": 0.144,
+      "hi": [
+        188,
+        196,
+        204
+      ],
+      "kind": "drum",
+      "lo": [
+        96,
+        100,
+        106
+      ],
+      "n": 6,
+      "pal": "ty_hf_slab",
+      "rb": 0.0112,
+      "rt": 0.0104,
+      "skin": "chrome",
+      "spec": 1.7,
+      "z0": 0,
+      "z1": 1.02
+    },
+    {
+      "cx": 0.36,
+      "cy": 0,
+      "fd": 0.16,
+      "hw": 0.02,
+      "kind": "box",
+      "pal": "ty_hf_slab",
+      "roof": true,
+      "seed": 11,
+      "yaw": 0,
+      "z0": 0.2775,
+      "z1": 0.2895
+    },
+    {
+      "cx": 0.36,
+      "cy": 0,
+      "fd": 0.16,
+      "hw": 0.02,
+      "kind": "box",
+      "pal": "ty_hf_slab",
+      "roof": true,
+      "seed": 12,
+      "yaw": 0,
+      "z0": 0.505,
+      "z1": 0.517
+    },
+    {
+      "cx": 0.36,
+      "cy": 0,
+      "fd": 0.16,
+      "hw": 0.02,
+      "kind": "box",
+      "pal": "ty_hf_slab",
+      "roof": true,
+      "seed": 13,
+      "yaw": 0,
+      "z0": 0.7325,
+      "z1": 0.7445
+    },
+    {
+      "cap": true,
+      "capHi": [
+        214,
+        228,
+        236
+      ],
+      "capLo": [
+        132,
+        148,
+        162
+      ],
+      "capSkin": "chrome",
+      "capSpec": 1.3,
+      "cx": 0,
+      "cy": 0.184,
+      "hi": [
+        242,
+        248,
+        252
+      ],
+      "kind": "drum",
+      "lo": [
+        122,
+        138,
+        152
+      ],
+      "n": 12,
+      "pal": "ty_hf_ice",
+      "rb": 0.112,
+      "rt": 0.112,
+      "skin": "chrome",
+      "spec": 1.7,
+      "z0": 0.05,
+      "z1": 0.068
+    }
+  ]
+}

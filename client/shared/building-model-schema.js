@@ -44,12 +44,19 @@ export const SEG_SCHEMA = {
   box: {
     geom: { cx: 'fh', cy: 'fh', hw: 'fh', fd: 'fh', z0: 'h', z1: 'h' },
     required: ['hw', 'z0', 'z1'],
-    plain: { pal: 'string', roof: 'boolean', yaw: 'number' },
+    plain: { pal: 'string', roof: 'boolean', yaw: 'number', seed: 'number', front: 'boolean', mapAligned: 'boolean' },
   },
   drum: {
     geom: { cx: 'fh', cy: 'fh', rb: 'fh', rt: 'fh', z0: 'h', z1: 'h' },
     required: ['rb', 'z0', 'z1'],
-    plain: { pal: 'string', cap: 'boolean', n: 'int' },
+    // `skin` names the shading an arm gave the drum, which a palette can't say: 'chrome' (a ramp
+    // from `lo` to `hi`, sharpened by `spec`), 'glass' (curtain glass in `tint`), 'flat' (one
+    // `fill`) or 'facets' (`fills`, one colour per facet, lit side first as the facets run).
+    // Absent, the drum shades off its palette. `capc` is a lid colour of its own, and `capSkin`
+    // with `capLo`/`capHi`/`capSpec`/`capTint` a lid with a skin, read as `skin` and its fields are.
+    plain: { pal: 'string', cap: 'boolean', n: 'int', front: 'boolean',
+      skin: 'string', lo: 'rgb', hi: 'rgb', spec: 'number', tint: 'rgb', fill: 'string', fills: 'strings', capc: 'string',
+      capSkin: 'string', capLo: 'rgb', capHi: 'rgb', capSpec: 'number', capTint: 'rgb' },
   },
   // A half-cylinder over a shed. `cx`/`cy` place the ANCHOR and `cxL` offsets the barrel
   // inside its own local frame, exactly as the primitive takes them.
@@ -65,7 +72,7 @@ export const SEG_SCHEMA = {
   barrel: {
     geom: { cx: 'fh', cy: 'fh', cxL: 'fh', hl: 'fh', hw: 'fh', z0: 'h', archH: 'fh' },
     required: ['hl', 'hw', 'z0', 'archH'],
-    plain: { pal: 'string', nf: 'int', base: 'rgb' },
+    plain: { pal: 'string', nf: 'int', base: 'rgb', front: 'boolean' },
   },
   // A north-light monitor roof: `teeth` sloped panels, each with a vertical glazed face.
   // Its three colours are authored because the primitive takes them as colours, not as a
@@ -73,9 +80,17 @@ export const SEG_SCHEMA = {
   sawtooth: {
     geom: { cx: 'fh', cy: 'fh', hx: 'fh', hy: 'fh', z0: 'h', rh: 'h' },
     required: ['hx', 'hy', 'z0', 'rh'],
-    plain: { pal: 'string', teeth: 'int', roofc: 'string', glassc: 'string', edge: 'string' },
+    plain: { pal: 'string', teeth: 'int', roofc: 'string', glassc: 'string', edge: 'string', front: 'boolean' },
   },
 };
+// Two passengers every kind may carry, both read by drawAuthoredModel and both written by a port:
+//   · `front`: drawn only while the entrance face is turned to the camera, as an arm draws a roller
+//     door or a truck bay behind `frontVis`. Capture finds it by drawing both ways round (frontOnly).
+//   · `seed` (box only): the box's texture seed as an OFFSET from the tile's. An arm passes
+//     `seed + 5`; without it a port is jittered `seed + index`, which is a different wall.
+//   · `mapAligned` (box only): the box keeps its yaw when the entrance turns, as an arm's box with
+//     no yaw does, instead of turning with the building. A rectangle then keeps its long side on
+//     the same map axis at every facing. A port sets it from shapeTurns.
 
 // Kinds whose top is DERIVED rather than authored, and from what. A barrel's roof is its
 // wall top plus the arch rise; a sawtooth's is its deck plus the tooth rise. Emitting the
@@ -466,6 +481,9 @@ export function compilePart(part, schema, basis, warnings = [], where = '') {
       warnings.push(`${where}: '${f}' is an absolute constant (${t[2]}) — it will NOT scale with the tile, `
         + 'which is right for a real world constant and is also what a modelling slip looks like');
     }
+    // ⚠ KNOWN BUG, LEFT AS IT IS FOR NOW: this renames a BARREL's `hw` too, and every renderer reads
+    // a barrel's `V(s.hw)`, so authored barrel roofs draw at zero half-width (four models). Fixing it
+    // turns those roofs on and buries three kit parts under them; see tools/modelshop/README.md.
     out[f === 'hw' ? 'hwRaw' : f === 'fd' ? 'fdRaw' : f] = t;
   }
   for (const f of Object.keys(def.plain)) if (part[f] != null) out[f] = part[f];
@@ -505,6 +523,11 @@ export function compileModel(doc, file = '<model>') {
   // and three of the four entrance facings, so a fork that claimed to be identical would be
   // claiming something false, and the port gate would rightly fail it.
   if (doc.replaces) rec.replaces = doc.replaces;
+  const bindings = (doc.bind || []).map((b) => bindKey(b));
+  // `armTrim` keeps the replaced arm drawing everything that isn't mass (see drawArmTrim in
+  // windshield.js). The record carries the KEY the arm was found under, because that is what the
+  // renderer looks the arm's own record up by; the first bind is the building it was forked from.
+  if (doc.armTrim && bindings.length) rec.armTrim = bindings[0];
   // What the building sells, for the signage tables — see the ⚠ in validateModel. It carries no
   // override claim at all, which is the whole reason it exists beside the two above.
   if (doc.trade) rec.trade = doc.trade;
@@ -512,7 +535,9 @@ export function compileModel(doc, file = '<model>') {
   // Read by `keepsReach()` in windshield.js, which is the ONE predicate `segFit`, both `MODEL_TILE`
   // sites and scripts/shapes/tilefit.mjs all ask — see the note beside it in validateModel.
   if (doc.keepsReach) rec.keepsReach = true;
-  return { rec, warnings, bindings: (doc.bind || []).map((b) => bindKey(b)) };
+  // Read by derivedTrim and derivedKit: the derived kit stays off this building.
+  if (doc.noKit) rec.noKit = true;
+  return { rec, warnings, bindings };
 }
 
 // ⚠ `repeat` IS AN OPERATOR, NOT A CONVENIENCE. Balconies every floor, a colonnade, a row of
@@ -566,6 +591,7 @@ function checkPart(where, part, schema, errors, basis) {
       const want = def.plain[k];
       const ok = want === 'int' ? Number.isInteger(v)
         : want === 'number' ? isNum(v)
+          : want === 'strings' ? (Array.isArray(v) && v.length > 0 && v.every((c) => typeof c === 'string'))
           : want === 'rgb' ? (Array.isArray(v) && v.length === 3 && v.every((c) => Number.isInteger(c) && c >= 0 && c <= 255))
             : typeof v === want;
       if (!ok) errors.push(`${where}: '${k}' must be ${want === 'rgb' ? 'three integers 0-255' : want}, got ${JSON.stringify(v)}`);
@@ -630,8 +656,14 @@ export function validateModel(doc, file = '<model>') {
   if (doc.trade != null && (typeof doc.trade !== 'string' || !doc.trade)) {
     errors.push(`${file}: 'trade' names what the building sells, as an arm's case label (bar, clinic, warehouse…)`);
   }
-  if (doc.trade && (doc.replaces || doc.portedFrom)) {
+  // ⚠ EXCEPT A PORT THAT KEEPS ITS ARM'S TRIM, which is that arm's record and carries what the
+  // record carried: six arm records say a trade that isn't their case label (a shop drawn by the
+  // `store` arm), and a port that dropped it would sign itself as the arm instead of the shop.
+  if (doc.trade && (doc.replaces || doc.portedFrom) && !doc.armTrim) {
     errors.push(`${file}: 'trade' is for a model that replaces nothing — 'replaces'/'portedFrom' already name the arm, and therefore the trade`);
+  }
+  if (doc.noKit != null && typeof doc.noKit !== 'boolean') {
+    errors.push(`${file}: 'noKit' is a boolean — the derived kit stays off this building, which draws all its own trim`);
   }
   // ⚠ The stated exception to "industry does not sign itself" — see UNSIGNED_TRADE in windshield.js.
   if (doc.signWorks != null && typeof doc.signWorks !== 'boolean') {
@@ -651,6 +683,11 @@ export function validateModel(doc, file = '<model>') {
   // belongs to this building and that nothing drives along.
   if (doc.keepsReach != null && typeof doc.keepsReach !== 'boolean') {
     errors.push(`${file}: 'keepsReach' is a boolean — this model's mass may cross its own plot line on the entrance side`);
+  }
+  // The arm's trim is only there to draw if there is an arm, and the renderer finds it by the bind.
+  if (doc.armTrim != null) {
+    if (typeof doc.armTrim !== 'boolean') errors.push(`${file}: 'armTrim' is a boolean: draw the replaced arm's trim over this model's mass`);
+    else if (doc.armTrim && !(doc.replaces || doc.portedFrom)) errors.push(`${file}: 'armTrim' needs 'replaces' or 'portedFrom', which name the arm whose trim it draws`);
   }
 
   const basis = { ...DEFAULT_BASIS, ...(doc.basis || {}) };
@@ -714,7 +751,9 @@ export function validateModel(doc, file = '<model>') {
     // is gone rather than tolerated.
     //   trade      what the building SELLS, as an arm's case label — see below
     //   keepsReach this model's mass may cross its own plot line  -> keepsReach() in windshield.js
-    if (!['id', 'pal', 'neon', 'basis', 'segs', 'adorn', 'detail', 'bind', 'note', 'portedFrom', 'pixdiff', 'replaces', 'trade', 'signWorks', 'keepsReach'].includes(k)) {
+    //   armTrim    the replaced arm still draws everything but mass -> drawArmTrim in windshield.js
+    //   noKit      the derived kit stays off this building           -> derivedTrim, derivedKit
+    if (!['id', 'pal', 'neon', 'basis', 'segs', 'adorn', 'detail', 'bind', 'note', 'portedFrom', 'pixdiff', 'replaces', 'trade', 'signWorks', 'keepsReach', 'armTrim', 'noKit'].includes(k)) {
       errors.push(`${file}: unknown top-level key '${k}'`);
     }
   }

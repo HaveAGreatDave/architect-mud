@@ -1,0 +1,434 @@
+{
+  "adorn": [],
+  "armTrim": true,
+  "basis": {
+    "fh": 0.4,
+    "h": 1
+  },
+  "bind": [
+    {
+      "by": "type",
+      "key": "pontoon"
+    }
+  ],
+  "id": "pontoon",
+  "neon": "#7fe4ff",
+  "note": "Ported from the hand-written pontoon arm by scripts/shapes/autoport.mjs. The mass and the detail list are this file; everything else (lights, signs, moving parts) is still drawn by the arm.",
+  "pal": "ty_hf_ice",
+  "pixdiff": 0,
+  "portedFrom": "pontoon",
+  "segs": [
+    {
+      "cx": 0,
+      "cy": 0,
+      "fd": 0.5,
+      "hw": 0.344,
+      "kind": "box",
+      "pal": "ty_asc_chrome_dk",
+      "roof": false,
+      "scale": {
+        "fd": "abs"
+      },
+      "seed": 0,
+      "yaw": 0,
+      "z0": -0.3,
+      "z1": 0.5
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "fd": 0.5,
+      "hw": 0.32,
+      "kind": "box",
+      "pal": "ty_hf_ice",
+      "roof": true,
+      "scale": {
+        "fd": "abs"
+      },
+      "seed": 1,
+      "yaw": 0,
+      "z0": 0.5,
+      "z1": 0.72
+    },
+    {
+      "cx": -0.408,
+      "cy": -0.26,
+      "fd": 0.085,
+      "hw": 0.12,
+      "kind": "box",
+      "pal": "ty_asc_chrome_dk",
+      "roof": false,
+      "scale": {
+        "cy": "abs",
+        "fd": "abs"
+      },
+      "seed": -0.33999999999999986,
+      "yaw": 0,
+      "z0": -0.26,
+      "z1": 0.5
+    },
+    {
+      "cx": -0.408,
+      "cy": -0.26,
+      "fd": 0.075,
+      "hw": 0.112,
+      "kind": "box",
+      "pal": "ty_hf_ice",
+      "roof": true,
+      "scale": {
+        "cy": "abs",
+        "fd": "abs"
+      },
+      "seed": 1.6600000000000001,
+      "yaw": 0,
+      "z0": 0.5,
+      "z1": 0.72
+    },
+    {
+      "cx": 0.408,
+      "cy": -0.26,
+      "fd": 0.085,
+      "hw": 0.12,
+      "kind": "box",
+      "pal": "ty_asc_chrome_dk",
+      "roof": false,
+      "scale": {
+        "cy": "abs",
+        "fd": "abs"
+      },
+      "seed": 1.6600000000000001,
+      "yaw": 0,
+      "z0": -0.26,
+      "z1": 0.5
+    },
+    {
+      "cx": 0.408,
+      "cy": -0.26,
+      "fd": 0.075,
+      "hw": 0.112,
+      "kind": "box",
+      "pal": "ty_hf_ice",
+      "roof": true,
+      "scale": {
+        "cy": "abs",
+        "fd": "abs"
+      },
+      "seed": 3.66,
+      "yaw": 0,
+      "z0": 0.5,
+      "z1": 0.72
+    },
+    {
+      "cx": -0.408,
+      "cy": 0.26,
+      "fd": 0.085,
+      "hw": 0.12,
+      "kind": "box",
+      "pal": "ty_asc_chrome_dk",
+      "roof": false,
+      "scale": {
+        "cy": "abs",
+        "fd": "abs"
+      },
+      "seed": 4.34,
+      "yaw": 0,
+      "z0": -0.26,
+      "z1": 0.5
+    },
+    {
+      "cx": -0.408,
+      "cy": 0.26,
+      "fd": 0.075,
+      "hw": 0.112,
+      "kind": "box",
+      "pal": "ty_hf_ice",
+      "roof": true,
+      "scale": {
+        "cy": "abs",
+        "fd": "abs"
+      },
+      "seed": 6.34,
+      "yaw": 0,
+      "z0": 0.5,
+      "z1": 0.72
+    },
+    {
+      "cx": 0.408,
+      "cy": 0.26,
+      "fd": 0.085,
+      "hw": 0.12,
+      "kind": "box",
+      "pal": "ty_asc_chrome_dk",
+      "roof": false,
+      "scale": {
+        "cy": "abs",
+        "fd": "abs"
+      },
+      "seed": 6.34,
+      "yaw": 0,
+      "z0": -0.26,
+      "z1": 0.5
+    },
+    {
+      "cx": 0.408,
+      "cy": 0.26,
+      "fd": 0.075,
+      "hw": 0.112,
+      "kind": "box",
+      "pal": "ty_hf_ice",
+      "roof": true,
+      "scale": {
+        "cy": "abs",
+        "fd": "abs"
+      },
+      "seed": 8.34,
+      "yaw": 0,
+      "z0": 0.5,
+      "z1": 0.72
+    },
+    {
+      "cx": -0.248,
+      "cy": -0.26,
+      "fd": 0.022,
+      "hw": 0.022,
+      "kind": "box",
+      "mapAligned": true,
+      "pal": "ty_asc_chrome",
+      "roof": false,
+      "scale": {
+        "cy": "abs"
+      },
+      "seed": 3.1399999999999997,
+      "yaw": 0,
+      "z0": 0.72,
+      "z1": 0.92
+    },
+    {
+      "cx": -0.248,
+      "cy": -0.26,
+      "fd": 0.0272,
+      "hw": 0.0272,
+      "kind": "box",
+      "mapAligned": true,
+      "pal": "ty_aur_frost",
+      "roof": true,
+      "scale": {
+        "cy": "abs"
+      },
+      "seed": 4.14,
+      "yaw": 0,
+      "z0": 0.92,
+      "z1": 0.955
+    },
+    {
+      "cx": 0.248,
+      "cy": -0.26,
+      "fd": 0.022,
+      "hw": 0.022,
+      "kind": "box",
+      "mapAligned": true,
+      "pal": "ty_asc_chrome",
+      "roof": false,
+      "scale": {
+        "cy": "abs"
+      },
+      "seed": 5.14,
+      "yaw": 0,
+      "z0": 0.72,
+      "z1": 0.92
+    },
+    {
+      "cx": 0.248,
+      "cy": -0.26,
+      "fd": 0.0272,
+      "hw": 0.0272,
+      "kind": "box",
+      "mapAligned": true,
+      "pal": "ty_aur_frost",
+      "roof": true,
+      "scale": {
+        "cy": "abs"
+      },
+      "seed": 6.14,
+      "yaw": 0,
+      "z0": 0.92,
+      "z1": 0.955
+    },
+    {
+      "cx": -0.248,
+      "cy": 0.26,
+      "fd": 0.022,
+      "hw": 0.022,
+      "kind": "box",
+      "mapAligned": true,
+      "pal": "ty_asc_chrome",
+      "roof": false,
+      "scale": {
+        "cy": "abs"
+      },
+      "seed": 8.86,
+      "yaw": 0,
+      "z0": 0.72,
+      "z1": 0.92
+    },
+    {
+      "cx": -0.248,
+      "cy": 0.26,
+      "fd": 0.0272,
+      "hw": 0.0272,
+      "kind": "box",
+      "mapAligned": true,
+      "pal": "ty_aur_frost",
+      "roof": true,
+      "scale": {
+        "cy": "abs"
+      },
+      "seed": 9.86,
+      "yaw": 0,
+      "z0": 0.92,
+      "z1": 0.955
+    },
+    {
+      "cx": 0.248,
+      "cy": 0.26,
+      "fd": 0.022,
+      "hw": 0.022,
+      "kind": "box",
+      "mapAligned": true,
+      "pal": "ty_asc_chrome",
+      "roof": false,
+      "scale": {
+        "cy": "abs"
+      },
+      "seed": 10.86,
+      "yaw": 0,
+      "z0": 0.72,
+      "z1": 0.92
+    },
+    {
+      "cx": 0.248,
+      "cy": 0.26,
+      "fd": 0.0272,
+      "hw": 0.0272,
+      "kind": "box",
+      "mapAligned": true,
+      "pal": "ty_aur_frost",
+      "roof": true,
+      "scale": {
+        "cy": "abs"
+      },
+      "seed": 11.86,
+      "yaw": 0,
+      "z0": 0.92,
+      "z1": 0.955
+    },
+    {
+      "cap": true,
+      "capc": "rgb(120,130,140)",
+      "cx": -0.28,
+      "cy": -0.4,
+      "fills": [
+        "rgb(148,158,168)",
+        "rgb(148,158,168)",
+        "rgb(148,158,168)",
+        "rgb(177,187,197)",
+        "rgb(219,229,239)",
+        "rgb(219,229,239)",
+        "rgb(177,187,197)",
+        "rgb(148,158,168)"
+      ],
+      "kind": "drum",
+      "n": 8,
+      "pal": "ty_asc_chrome",
+      "rb": 0.012,
+      "rt": 0.0144,
+      "scale": {
+        "cy": "abs"
+      },
+      "skin": "facets",
+      "z0": 0.72,
+      "z1": 0.77
+    },
+    {
+      "cap": true,
+      "capc": "rgb(120,130,140)",
+      "cx": 0.28,
+      "cy": -0.4,
+      "fills": [
+        "rgb(148,158,168)",
+        "rgb(148,158,168)",
+        "rgb(148,158,168)",
+        "rgb(177,187,197)",
+        "rgb(219,229,239)",
+        "rgb(219,229,239)",
+        "rgb(177,187,197)",
+        "rgb(148,158,168)"
+      ],
+      "kind": "drum",
+      "n": 8,
+      "pal": "ty_asc_chrome",
+      "rb": 0.012,
+      "rt": 0.0144,
+      "scale": {
+        "cy": "abs"
+      },
+      "skin": "facets",
+      "z0": 0.72,
+      "z1": 0.77
+    },
+    {
+      "cap": true,
+      "capc": "rgb(120,130,140)",
+      "cx": -0.28,
+      "cy": 0.4,
+      "fills": [
+        "rgb(148,158,168)",
+        "rgb(148,158,168)",
+        "rgb(148,158,168)",
+        "rgb(177,187,197)",
+        "rgb(219,229,239)",
+        "rgb(219,229,239)",
+        "rgb(177,187,197)",
+        "rgb(148,158,168)"
+      ],
+      "kind": "drum",
+      "n": 8,
+      "pal": "ty_asc_chrome",
+      "rb": 0.012,
+      "rt": 0.0144,
+      "scale": {
+        "cy": "abs"
+      },
+      "skin": "facets",
+      "z0": 0.72,
+      "z1": 0.77
+    },
+    {
+      "cap": true,
+      "capc": "rgb(120,130,140)",
+      "cx": 0.28,
+      "cy": 0.4,
+      "fills": [
+        "rgb(148,158,168)",
+        "rgb(148,158,168)",
+        "rgb(148,158,168)",
+        "rgb(177,187,197)",
+        "rgb(219,229,239)",
+        "rgb(219,229,239)",
+        "rgb(177,187,197)",
+        "rgb(148,158,168)"
+      ],
+      "kind": "drum",
+      "n": 8,
+      "pal": "ty_asc_chrome",
+      "rb": 0.012,
+      "rt": 0.0144,
+      "scale": {
+        "cy": "abs"
+      },
+      "skin": "facets",
+      "z0": 0.72,
+      "z1": 0.77
+    }
+  ]
+}

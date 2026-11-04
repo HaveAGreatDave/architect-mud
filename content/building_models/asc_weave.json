@@ -1,0 +1,91 @@
+{
+  "adorn": [],
+  "armTrim": true,
+  "basis": {
+    "fh": 0.4,
+    "h": 1
+  },
+  "bind": [
+    {
+      "by": "type",
+      "key": "asc_weave"
+    }
+  ],
+  "id": "asc_weave",
+  "note": "Ported from the hand-written asc_weave arm by scripts/shapes/autoport.mjs. The mass and the detail list are this file; everything else (lights, signs, moving parts) is still drawn by the arm.",
+  "pal": "ty_asc_weave",
+  "pixdiff": 0,
+  "portedFrom": "asc_weave",
+  "segs": [
+    {
+      "cx": 0,
+      "cy": 0,
+      "fd": 0.46,
+      "hw": 0.46,
+      "kind": "box",
+      "mapAligned": true,
+      "pal": "ty_asc_weave",
+      "roof": true,
+      "seed": 0,
+      "yaw": 0,
+      "z0": 0,
+      "z1": 0.6
+    },
+    {
+      "cx": -0.38,
+      "cy": 0,
+      "fd": 0.032,
+      "hw": 0.032,
+      "kind": "box",
+      "mapAligned": true,
+      "pal": "ty_asc_weave",
+      "roof": false,
+      "seed": 1,
+      "yaw": 0,
+      "z0": 0.6,
+      "z1": 0.95
+    },
+    {
+      "cx": 0.38,
+      "cy": 0,
+      "fd": 0.032,
+      "hw": 0.032,
+      "kind": "box",
+      "mapAligned": true,
+      "pal": "ty_asc_weave",
+      "roof": false,
+      "seed": 2,
+      "yaw": 0,
+      "z0": 0.6,
+      "z1": 0.95
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "fd": 0.42,
+      "hw": 0.42,
+      "kind": "box",
+      "mapAligned": true,
+      "pal": "ty_asc_weave",
+      "roof": false,
+      "seed": 3,
+      "yaw": 0,
+      "z0": 0.88,
+      "z1": 0.95
+    },
+    {
+      "cx": -0.24,
+      "cy": -0.16,
+      "fd": 0.048,
+      "hw": 0.048,
+      "kind": "box",
+      "mapAligned": true,
+      "pal": "ty_door",
+      "roof": true,
+      "seed": 4,
+      "yaw": 0,
+      "z0": 0.6,
+      "z1": 1.1
+    }
+  ]
+}

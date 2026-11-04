@@ -1,0 +1,210 @@
+{
+  "adorn": [],
+  "armTrim": true,
+  "basis": {
+    "fh": 0.4,
+    "h": 1
+  },
+  "bind": [
+    {
+      "by": "type",
+      "key": "concert_hall"
+    }
+  ],
+  "id": "concert_hall",
+  "neon": "#bfe8ff",
+  "note": "Ported from the hand-written concert_hall arm by scripts/shapes/autoport.mjs. The mass and the detail list are this file; everything else (lights, signs, moving parts) is still drawn by the arm.",
+  "pal": "ty_sound",
+  "pixdiff": 0,
+  "portedFrom": "concert_hall",
+  "segs": [
+    {
+      "cap": false,
+      "cx": 0,
+      "cy": 0,
+      "kind": "drum",
+      "n": 20,
+      "pal": "ty_sound_hall",
+      "rb": 0.352,
+      "rt": 0.336,
+      "skin": "glass",
+      "tint": [
+        44,
+        66,
+        90
+      ],
+      "z0": 0,
+      "z1": 0.66
+    },
+    {
+      "cap": true,
+      "capHi": [
+        196,
+        210,
+        220
+      ],
+      "capLo": [
+        112,
+        126,
+        140
+      ],
+      "capSkin": "chrome",
+      "capSpec": 1.4,
+      "cx": 0,
+      "cy": -0.12,
+      "hi": [
+        222,
+        234,
+        242
+      ],
+      "kind": "drum",
+      "lo": [
+        104,
+        118,
+        132
+      ],
+      "n": 16,
+      "pal": "ty_sound_fly",
+      "rb": 0.2,
+      "rt": 0.184,
+      "skin": "chrome",
+      "spec": 1.9,
+      "z0": 0.66,
+      "z1": 1.24
+    },
+    {
+      "cx": 0,
+      "cy": 0.24,
+      "fd": 0.12,
+      "hw": 0.328,
+      "kind": "box",
+      "pal": "ty_sound",
+      "roof": true,
+      "seed": 2,
+      "yaw": 0,
+      "z0": 0,
+      "z1": 0.52
+    },
+    {
+      "cap": true,
+      "capHi": [
+        204,
+        218,
+        228
+      ],
+      "capLo": [
+        126,
+        142,
+        156
+      ],
+      "capSkin": "chrome",
+      "capSpec": 1.4,
+      "cx": -0.328,
+      "cy": 0.24,
+      "hi": [
+        230,
+        240,
+        248
+      ],
+      "kind": "drum",
+      "lo": [
+        116,
+        132,
+        148
+      ],
+      "n": 14,
+      "pal": "ty_sound",
+      "rb": 0.12,
+      "rt": 0.12,
+      "skin": "chrome",
+      "spec": 1.8,
+      "z0": 0,
+      "z1": 0.52
+    },
+    {
+      "cap": true,
+      "capHi": [
+        204,
+        218,
+        228
+      ],
+      "capLo": [
+        126,
+        142,
+        156
+      ],
+      "capSkin": "chrome",
+      "capSpec": 1.4,
+      "cx": 0.328,
+      "cy": 0.24,
+      "hi": [
+        230,
+        240,
+        248
+      ],
+      "kind": "drum",
+      "lo": [
+        116,
+        132,
+        148
+      ],
+      "n": 14,
+      "pal": "ty_sound",
+      "rb": 0.12,
+      "rt": 0.12,
+      "skin": "chrome",
+      "spec": 1.8,
+      "z0": 0,
+      "z1": 0.52
+    },
+    {
+      "cx": 0,
+      "cy": 0.256,
+      "fd": 0.104,
+      "hw": 0.36,
+      "kind": "box",
+      "pal": "ty_sound",
+      "roof": true,
+      "seed": 3,
+      "yaw": 0,
+      "z0": 0.52,
+      "z1": 0.6
+    },
+    {
+      "cap": true,
+      "capHi": [
+        200,
+        214,
+        224
+      ],
+      "capLo": [
+        122,
+        138,
+        152
+      ],
+      "capSkin": "chrome",
+      "capSpec": 1.4,
+      "cx": 0,
+      "cy": 0,
+      "hi": [
+        226,
+        238,
+        246
+      ],
+      "kind": "drum",
+      "lo": [
+        112,
+        128,
+        144
+      ],
+      "n": 20,
+      "pal": "ty_sound",
+      "rb": 0.4,
+      "rt": 0.384,
+      "skin": "chrome",
+      "spec": 1.8,
+      "z0": 0,
+      "z1": 0.06
+    }
+  ]
+}

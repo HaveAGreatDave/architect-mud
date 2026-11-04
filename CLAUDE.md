@@ -94,6 +94,7 @@ Entries marked **(as built)** describe what actually ships and outrank design in
 - [docs/lore-wildblood.md](docs/lore-wildblood.md): Wildblood canon, read before writing mutants or the Under. The Under was theirs first
 - [docs/systems-wildlands.md](docs/systems-wildlands.md): the Curtain and the Wildlands. Map and wall built; systems are design; its camp section is superseded by the Scarletwastes
 - [docs/proposals/scarletwastes.md](docs/proposals/scarletwastes.md): the Scarletwastes and the Thornwarren (as built). The region is uniformly `redrock` on purpose; don't scatter terrain in code
+- [docs/proposals/wildblood-column.md](docs/proposals/wildblood-column.md): the Wildblood column, three rigs on a clock-driven loop from the Deadleg to the North Gate (phase 1 built, look only). Edit `scripts/shapes/concepts/wildblood-column.mjs`, never the mesh JSON; all three keep their tyres on h = 0
 - [docs/proposals/hover-rigs.md](docs/proposals/hover-rigs.md): the Hover Rig Expo concept as 2076 editions of the four trucks (phase 0 steps 1 to 3 and phase 1's body built; the rest is design). Phase 0 ports the trucks from `buildTruck` to mesh files held exact by `meshes.mjs`, as the aircraft were; an edition keeps its truck's `TYPES` row and kingpin frame, so it hitches any trailer
 - [docs/roadmap-world-expansion.md](docs/roadmap-world-expansion.md): the road to the 100×100 Basin; its open questions are still unanswered
 - [docs/devpanel-js.md](docs/devpanel-js.md): what each `client/devpanel/js/` script holds, and load order
@@ -121,7 +122,7 @@ Entries marked **(as built)** describe what actually ships and outrank design in
 - [docs/systems-jail.md](docs/systems-jail.md): Holding, confiscation, the cell door, `player.respawnZone`
 - [docs/systems-scavenging.md](docs/systems-scavenging.md): posture-based search, per-zone loot tables
 - [docs/systems-fishing.md](docs/systems-fishing.md): cast-and-wait, reel overlay, Fishing skill
-- [docs/proposals/boat-fishing.md](docs/proposals/boat-fishing.md): fishing from an anchored skiff (design). Fish are worked out from the place and the server's clock in `client/shared/fish.js`, as birds are, and drawn as shadows; shore fishing doesn't change
+- [docs/proposals/boat-fishing.md](docs/proposals/boat-fishing.md): fishing from an anchored skiff (phases 1 to 3 built; the logbook, forecast broadcast and passenger are design). Fish are worked out from the place and the server's clock in `client/shared/fish.js`, as birds are, and drawn as shadows; shore fishing doesn't change
 - [docs/systems-strays.md](docs/systems-strays.md): Cathode the stray cat and the `search` verb. Her 24h hide timer must be set before any `await` in the kill handler
 - [docs/systems-fauna.md](docs/systems-fauna.md): the birds (as built). A flock is a pure function of its anchor tile and the wall clock
 - [docs/systems-swimming.md](docs/systems-swimming.md): swimming, drowning, diving, hypothermia
@@ -164,6 +165,7 @@ Entries marked **(as built)** describe what actually ships and outrank design in
 - [docs/proposals/trading-cards.md](docs/proposals/trading-cards.md): trading cards (as built). The pack rolls at `openpack`, never at the vend
 - [docs/proposals/preparation-workspace.md](docs/proposals/preparation-workspace.md): the prep HUD over cooking and synthesis. The HUD holds no logic; every action is a typeable verb
 - [docs/proposals/kitchen-stage.md](docs/proposals/kitchen-stage.md): the Kitchen Stage, cooking's cel-shaded 3D rung over the workspace payload. Food colour moves only on a server beat, never a smooth clock
+- [docs/proposals/hd-figure.md](docs/proposals/hd-figure.md): the close-up figure (as built): one generator (`figure.js`) for a muscled body, separate clothes and hair cards, drawn in the Room Stage in the comic manner, with the street's crowd body its clothes sampled coarsely. A garment hulls the layer under it; the root solve pivots on the shoe's own sole (`figureSole`)
 - [docs/proposals/comic-ink.md](docs/proposals/comic-ink.md): the whole game in one Borderlands-style comic look (steps 1-4 and comic replays built: Settings → Cel Shading → Comic). Every view takes its ink, bands and line widths from gl/house-style.js, and its face atlas from gl/face-atlas.js; off, each helper must hand back the view's own numbers. After editing the face painter, run `npm run actors:faces`: it bakes the plain and the inked atlas
 
 **Before touching any system, read the relevant doc section if there's one applicable to the request.**

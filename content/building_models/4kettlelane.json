@@ -1,0 +1,397 @@
+{
+  "adorn": [],
+  "armTrim": true,
+  "basis": {
+    "fh": 0.4,
+    "h": 1
+  },
+  "bind": [
+    {
+      "by": "name",
+      "key": "4kettlelane"
+    }
+  ],
+  "id": "4kettlelane",
+  "note": "Ported from the hand-written hf_frame arm by scripts/shapes/autoport.mjs. The mass and the detail list are this file; everything else (lights, signs, moving parts) is still drawn by the arm.",
+  "pal": "ty_hft_glass",
+  "pixdiff": 0,
+  "portedFrom": "hf_frame",
+  "segs": [
+    {
+      "cap": true,
+      "capHi": [
+        190,
+        204,
+        214
+      ],
+      "capLo": [
+        112,
+        126,
+        140
+      ],
+      "capSkin": "chrome",
+      "capSpec": 1.4,
+      "cx": 0,
+      "cy": 0,
+      "hi": [
+        214,
+        226,
+        236
+      ],
+      "kind": "drum",
+      "lo": [
+        104,
+        118,
+        132
+      ],
+      "n": 16,
+      "pal": "ty_hf_deck",
+      "rb": 0.376,
+      "rt": 0.36,
+      "skin": "chrome",
+      "spec": 1.8,
+      "z0": 0,
+      "z1": 0.04
+    },
+    {
+      "cap": true,
+      "capHi": [
+        178,
+        190,
+        202
+      ],
+      "capLo": [
+        80,
+        94,
+        108
+      ],
+      "capSkin": "chrome",
+      "capSpec": 1.4,
+      "cx": 0,
+      "cy": 0,
+      "hi": [
+        196,
+        210,
+        222
+      ],
+      "kind": "drum",
+      "lo": [
+        74,
+        88,
+        102
+      ],
+      "n": 12,
+      "pal": "ty_hf_chrome_dk",
+      "rb": 0.096,
+      "rt": 0.084,
+      "skin": "chrome",
+      "spec": 2.1,
+      "z0": 0.04,
+      "z1": 0.94
+    },
+    {
+      "cap": false,
+      "cx": -0.248,
+      "cy": -0.232,
+      "hi": [
+        198,
+        210,
+        220
+      ],
+      "kind": "drum",
+      "lo": [
+        88,
+        100,
+        112
+      ],
+      "n": 8,
+      "pal": "ty_hf_slab",
+      "rb": 0.034,
+      "rt": 0.0248,
+      "skin": "chrome",
+      "spec": 1.9,
+      "z0": 0.04,
+      "z1": 0.9
+    },
+    {
+      "cap": false,
+      "cx": 0.248,
+      "cy": -0.232,
+      "hi": [
+        198,
+        210,
+        220
+      ],
+      "kind": "drum",
+      "lo": [
+        88,
+        100,
+        112
+      ],
+      "n": 8,
+      "pal": "ty_hf_slab",
+      "rb": 0.034,
+      "rt": 0.0248,
+      "skin": "chrome",
+      "spec": 1.9,
+      "z0": 0.04,
+      "z1": 0.9
+    },
+    {
+      "cap": false,
+      "cx": -0.248,
+      "cy": 0.232,
+      "hi": [
+        198,
+        210,
+        220
+      ],
+      "kind": "drum",
+      "lo": [
+        88,
+        100,
+        112
+      ],
+      "n": 8,
+      "pal": "ty_hf_slab",
+      "rb": 0.034,
+      "rt": 0.0248,
+      "skin": "chrome",
+      "spec": 1.9,
+      "z0": 0.04,
+      "z1": 0.9
+    },
+    {
+      "cap": false,
+      "cx": 0.248,
+      "cy": 0.232,
+      "hi": [
+        198,
+        210,
+        220
+      ],
+      "kind": "drum",
+      "lo": [
+        88,
+        100,
+        112
+      ],
+      "n": 8,
+      "pal": "ty_hf_slab",
+      "rb": 0.034,
+      "rt": 0.0248,
+      "skin": "chrome",
+      "spec": 1.9,
+      "z0": 0.04,
+      "z1": 0.9
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "fd": 0.272,
+      "hw": 0.288,
+      "kind": "box",
+      "pal": "ty_hf_slab",
+      "roof": true,
+      "seed": 0,
+      "yaw": 0,
+      "z0": 0.04,
+      "z1": 0.054
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "fd": 0.272,
+      "hw": 0.288,
+      "kind": "box",
+      "pal": "ty_hf_slab",
+      "roof": true,
+      "seed": 1,
+      "yaw": 0,
+      "z0": 0.101428571,
+      "z1": 0.115428571
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "fd": 0.272,
+      "hw": 0.288,
+      "kind": "box",
+      "pal": "ty_hf_slab",
+      "roof": true,
+      "seed": 2,
+      "yaw": 0,
+      "z0": 0.162857143,
+      "z1": 0.176857143
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "fd": 0.272,
+      "hw": 0.288,
+      "kind": "box",
+      "pal": "ty_hf_slab",
+      "roof": true,
+      "seed": 3,
+      "yaw": 0,
+      "z0": 0.224285714,
+      "z1": 0.238285714
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "fd": 0.272,
+      "hw": 0.288,
+      "kind": "box",
+      "pal": "ty_hf_slab",
+      "roof": true,
+      "seed": 4,
+      "yaw": 0,
+      "z0": 0.285714286,
+      "z1": 0.299714286
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "fd": 0.272,
+      "hw": 0.288,
+      "kind": "box",
+      "pal": "ty_hf_slab",
+      "roof": true,
+      "seed": 5,
+      "yaw": 0,
+      "z0": 0.347142857,
+      "z1": 0.361142857
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "fd": 0.272,
+      "hw": 0.288,
+      "kind": "box",
+      "pal": "ty_hf_slab",
+      "roof": true,
+      "seed": 6,
+      "yaw": 0,
+      "z0": 0.408571429,
+      "z1": 0.422571429
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "fd": 0.272,
+      "hw": 0.288,
+      "kind": "box",
+      "pal": "ty_hf_slab",
+      "roof": true,
+      "seed": 7,
+      "yaw": 0,
+      "z0": 0.47,
+      "z1": 0.484
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "fd": 0.272,
+      "hw": 0.288,
+      "kind": "box",
+      "pal": "ty_hf_slab",
+      "roof": true,
+      "seed": 8,
+      "yaw": 0,
+      "z0": 0.531428571,
+      "z1": 0.545428571
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "fd": 0.272,
+      "hw": 0.288,
+      "kind": "box",
+      "pal": "ty_hf_slab",
+      "roof": true,
+      "seed": 9,
+      "yaw": 0,
+      "z0": 0.592857143,
+      "z1": 0.606857143
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "fd": 0.272,
+      "hw": 0.288,
+      "kind": "box",
+      "pal": "ty_hf_slab",
+      "roof": true,
+      "seed": 10,
+      "yaw": 0,
+      "z0": 0.654285714,
+      "z1": 0.668285714
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "fd": 0.272,
+      "hw": 0.288,
+      "kind": "box",
+      "pal": "ty_hf_slab",
+      "roof": true,
+      "seed": 11,
+      "yaw": 0,
+      "z0": 0.715714286,
+      "z1": 0.729714286
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "fd": 0.272,
+      "hw": 0.288,
+      "kind": "box",
+      "pal": "ty_hf_slab",
+      "roof": true,
+      "seed": 12,
+      "yaw": 0,
+      "z0": 0.777142857,
+      "z1": 0.791142857
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "fd": 0.272,
+      "hw": 0.288,
+      "kind": "box",
+      "pal": "ty_hf_slab",
+      "roof": true,
+      "seed": 13,
+      "yaw": 0,
+      "z0": 0.838571429,
+      "z1": 0.852571429
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "fd": 0.272,
+      "hw": 0.288,
+      "kind": "box",
+      "pal": "ty_hf_slab",
+      "roof": true,
+      "seed": 14,
+      "yaw": 0,
+      "z0": 0.9,
+      "z1": 0.914
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "fd": 0.384,
+      "hw": 0.384,
+      "kind": "box",
+      "pal": "ty_hf_ice",
+      "roof": true,
+      "seed": 30,
+      "yaw": 0,
+      "z0": 0,
+      "z1": 0.05
+    }
+  ]
+}

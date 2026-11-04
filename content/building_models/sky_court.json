@@ -1,0 +1,231 @@
+{
+  "adorn": [],
+  "armTrim": true,
+  "basis": {
+    "fh": 0.4,
+    "h": 1
+  },
+  "bind": [
+    {
+      "by": "type",
+      "key": "sky_court"
+    }
+  ],
+  "id": "sky_court",
+  "neon": "#bfe8ff",
+  "note": "Ported from the hand-written sky_court arm by scripts/shapes/autoport.mjs. The mass and the detail list are this file; everything else (lights, signs, moving parts) is still drawn by the arm.",
+  "pal": "ty_hft_glass",
+  "pixdiff": 0,
+  "portedFrom": "sky_court",
+  "segs": [
+    {
+      "cap": true,
+      "capHi": [
+        202,
+        216,
+        226
+      ],
+      "capLo": [
+        124,
+        140,
+        156
+      ],
+      "capSkin": "chrome",
+      "capSpec": 1.4,
+      "cx": 0,
+      "cy": 0,
+      "hi": [
+        230,
+        240,
+        248
+      ],
+      "kind": "drum",
+      "lo": [
+        116,
+        132,
+        148
+      ],
+      "n": 18,
+      "pal": "ty_hf_deck",
+      "rb": 0.4,
+      "rt": 0.384,
+      "skin": "chrome",
+      "spec": 1.8,
+      "z0": 0,
+      "z1": 0.07
+    },
+    {
+      "cap": false,
+      "cx": -0.2,
+      "cy": 0,
+      "kind": "drum",
+      "n": 14,
+      "pal": "ty_hft_glass",
+      "rb": 0.16,
+      "rt": 0.14,
+      "skin": "glass",
+      "z0": 0.07,
+      "z1": 0.92
+    },
+    {
+      "cap": true,
+      "capHi": [
+        206,
+        220,
+        230
+      ],
+      "capLo": [
+        112,
+        128,
+        144
+      ],
+      "capSkin": "chrome",
+      "capSpec": 1.3,
+      "cx": -0.2,
+      "cy": 0,
+      "hi": [
+        242,
+        248,
+        252
+      ],
+      "kind": "drum",
+      "lo": [
+        102,
+        118,
+        134
+      ],
+      "n": 14,
+      "pal": "ty_hf_chrome",
+      "rb": 0.172,
+      "rt": 0.136,
+      "skin": "chrome",
+      "spec": 1.8,
+      "z0": 0.92,
+      "z1": 0.96
+    },
+    {
+      "cap": false,
+      "cx": 0.2,
+      "cy": 0,
+      "kind": "drum",
+      "n": 14,
+      "pal": "ty_hft_glass",
+      "rb": 0.16,
+      "rt": 0.14,
+      "skin": "glass",
+      "z0": 0.07,
+      "z1": 0.7728
+    },
+    {
+      "cap": true,
+      "capHi": [
+        206,
+        220,
+        230
+      ],
+      "capLo": [
+        112,
+        128,
+        144
+      ],
+      "capSkin": "chrome",
+      "capSpec": 1.3,
+      "cx": 0.2,
+      "cy": 0,
+      "hi": [
+        242,
+        248,
+        252
+      ],
+      "kind": "drum",
+      "lo": [
+        102,
+        118,
+        134
+      ],
+      "n": 14,
+      "pal": "ty_hf_chrome",
+      "rb": 0.172,
+      "rt": 0.136,
+      "skin": "chrome",
+      "spec": 1.8,
+      "z0": 0.7728,
+      "z1": 0.8128
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "fd": 0.096,
+      "hw": 0.208,
+      "kind": "box",
+      "pal": "ty_hft_glass",
+      "roof": false,
+      "seed": 8,
+      "yaw": 0,
+      "z0": 0.58,
+      "z1": 0.7
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "fd": 0.104,
+      "hw": 0.216,
+      "kind": "box",
+      "pal": "ty_hf_chrome",
+      "roof": true,
+      "seed": 9,
+      "yaw": 0,
+      "z0": 0.7,
+      "z1": 0.725
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "fd": 0.104,
+      "hw": 0.216,
+      "kind": "box",
+      "pal": "ty_hf_chrome",
+      "roof": true,
+      "seed": 10,
+      "yaw": 0,
+      "z0": 0.555,
+      "z1": 0.58
+    },
+    {
+      "cap": true,
+      "capHi": [
+        214,
+        228,
+        236
+      ],
+      "capLo": [
+        132,
+        148,
+        162
+      ],
+      "capSkin": "chrome",
+      "capSpec": 1.3,
+      "cx": 0,
+      "cy": 0.296,
+      "hi": [
+        242,
+        248,
+        252
+      ],
+      "kind": "drum",
+      "lo": [
+        122,
+        138,
+        152
+      ],
+      "n": 14,
+      "pal": "ty_hf_ice",
+      "rb": 0.176,
+      "rt": 0.176,
+      "skin": "chrome",
+      "spec": 1.7,
+      "z0": 0.062,
+      "z1": 0.082
+    }
+  ]
+}

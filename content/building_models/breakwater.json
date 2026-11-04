@@ -1,0 +1,692 @@
+{
+  "adorn": [],
+  "armTrim": true,
+  "basis": {
+    "fh": 0.4,
+    "h": 1
+  },
+  "bind": [
+    {
+      "by": "type",
+      "key": "breakwater"
+    }
+  ],
+  "id": "breakwater",
+  "note": "Ported from the hand-written breakwater arm by scripts/shapes/autoport.mjs. The mass and the detail list are this file; everything else (lights, signs, moving parts) is still drawn by the arm.",
+  "pal": "ty_quay_deck",
+  "pixdiff": 0,
+  "portedFrom": "breakwater",
+  "segs": [
+    {
+      "cx": 0,
+      "cy": 0,
+      "fd": 0.5,
+      "hw": 0.48,
+      "kind": "box",
+      "pal": "ty_dam_stain",
+      "roof": true,
+      "scale": {
+        "fd": "abs",
+        "hw": "abs",
+        "z0": "abs"
+      },
+      "seed": 0,
+      "yaw": 0,
+      "z0": -0.05,
+      "z1": 0
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "fd": 0.5,
+      "hw": 0.4,
+      "kind": "box",
+      "pal": "ty_dam_dk",
+      "roof": true,
+      "scale": {
+        "fd": "abs",
+        "hw": "abs",
+        "z1": "abs"
+      },
+      "seed": 1,
+      "yaw": 0,
+      "z0": 0,
+      "z1": 0.016
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "fd": 0.5,
+      "hw": 0.32,
+      "kind": "box",
+      "pal": "ty_dam_dk",
+      "roof": true,
+      "scale": {
+        "fd": "abs",
+        "hw": "abs",
+        "z0": "abs",
+        "z1": "abs"
+      },
+      "seed": 2,
+      "yaw": 0,
+      "z0": 0.016,
+      "z1": 0.032
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "fd": 0.5,
+      "hw": 0.25,
+      "kind": "box",
+      "pal": "ty_dam",
+      "roof": true,
+      "scale": {
+        "fd": "abs",
+        "hw": "abs",
+        "z0": "abs",
+        "z1": "abs"
+      },
+      "seed": 3,
+      "yaw": 0,
+      "z0": 0.032,
+      "z1": 0.042
+    },
+    {
+      "cx": 0.435487491,
+      "cy": -0.42364476,
+      "fd": 0.028800257,
+      "hw": 0.033927573,
+      "kind": "box",
+      "pal": "ty_dam",
+      "roof": true,
+      "scale": {
+        "cx": "abs",
+        "cy": "abs",
+        "fd": "abs",
+        "hw": "abs",
+        "z0": "abs",
+        "z1": "abs"
+      },
+      "seed": 10,
+      "yaw": -0.5326287060423055,
+      "z0": -0.03,
+      "z1": 0.014537031
+    },
+    {
+      "cx": -0.435487491,
+      "cy": 0.42364476,
+      "fd": 0.028800257,
+      "hw": 0.033927573,
+      "kind": "box",
+      "pal": "ty_dam",
+      "roof": true,
+      "scale": {
+        "cx": "abs",
+        "cy": "abs",
+        "fd": "abs",
+        "hw": "abs",
+        "z0": "abs",
+        "z1": "abs"
+      },
+      "seed": 10,
+      "yaw": -0.5326287060423055,
+      "z0": -0.03,
+      "z1": 0.014537031
+    },
+    {
+      "cx": 0.452202545,
+      "cy": -0.221304795,
+      "fd": 0.031394251,
+      "hw": 0.0372378,
+      "kind": "box",
+      "pal": "ty_dam",
+      "roof": true,
+      "scale": {
+        "cx": "abs",
+        "cy": "abs",
+        "fd": "abs",
+        "hw": "abs",
+        "z0": "abs",
+        "z1": "abs"
+      },
+      "seed": 11,
+      "yaw": -0.41314581433252895,
+      "z0": -0.03,
+      "z1": 0.021904903
+    },
+    {
+      "cx": -0.452202545,
+      "cy": 0.221304795,
+      "fd": 0.031394251,
+      "hw": 0.0372378,
+      "kind": "box",
+      "pal": "ty_dam",
+      "roof": true,
+      "scale": {
+        "cx": "abs",
+        "cy": "abs",
+        "fd": "abs",
+        "hw": "abs",
+        "z0": "abs",
+        "z1": "abs"
+      },
+      "seed": 11,
+      "yaw": -0.41314581433252895,
+      "z0": -0.03,
+      "z1": 0.021904903
+    },
+    {
+      "cx": 0.446931854,
+      "cy": -0.006788386,
+      "fd": 0.040104753,
+      "hw": 0.034522374,
+      "kind": "box",
+      "pal": "ty_dam_dk",
+      "roof": true,
+      "scale": {
+        "cx": "abs",
+        "cy": "abs",
+        "fd": "abs",
+        "hw": "abs",
+        "z0": "abs",
+        "z1": "abs"
+      },
+      "seed": 12,
+      "yaw": -0.46618062351626577,
+      "z0": -0.03,
+      "z1": 0.018464025
+    },
+    {
+      "cx": -0.446931854,
+      "cy": 0.006788386,
+      "fd": 0.040104753,
+      "hw": 0.034522374,
+      "kind": "box",
+      "pal": "ty_dam_dk",
+      "roof": true,
+      "scale": {
+        "cx": "abs",
+        "cy": "abs",
+        "fd": "abs",
+        "hw": "abs",
+        "z0": "abs",
+        "z1": "abs"
+      },
+      "seed": 12,
+      "yaw": -0.46618062351626577,
+      "z0": -0.03,
+      "z1": 0.018464025
+    },
+    {
+      "cx": 0.443642478,
+      "cy": 0.19176008,
+      "fd": 0.048666936,
+      "hw": 0.047872435,
+      "kind": "box",
+      "pal": "ty_dam_dk",
+      "roof": true,
+      "scale": {
+        "cx": "abs",
+        "cy": "abs",
+        "fd": "abs",
+        "hw": "abs",
+        "z0": "abs",
+        "z1": "abs"
+      },
+      "seed": 13,
+      "yaw": 0.3723086397323641,
+      "z0": -0.03,
+      "z1": 0.012411983
+    },
+    {
+      "cx": -0.443642478,
+      "cy": -0.19176008,
+      "fd": 0.048666936,
+      "hw": 0.047872435,
+      "kind": "box",
+      "pal": "ty_dam_dk",
+      "roof": true,
+      "scale": {
+        "cx": "abs",
+        "cy": "abs",
+        "fd": "abs",
+        "hw": "abs",
+        "z0": "abs",
+        "z1": "abs"
+      },
+      "seed": 13,
+      "yaw": 0.3723086397323641,
+      "z0": -0.03,
+      "z1": 0.012411983
+    },
+    {
+      "cx": 0.438172022,
+      "cy": 0.422038847,
+      "fd": 0.046430505,
+      "hw": 0.041590664,
+      "kind": "box",
+      "pal": "ty_dam",
+      "roof": true,
+      "scale": {
+        "cx": "abs",
+        "cy": "abs",
+        "fd": "abs",
+        "hw": "abs",
+        "z0": "abs",
+        "z1": "abs"
+      },
+      "seed": 14,
+      "yaw": -0.36130561012942053,
+      "z0": -0.03,
+      "z1": 0.013284554
+    },
+    {
+      "cx": -0.438172022,
+      "cy": -0.422038847,
+      "fd": 0.046430505,
+      "hw": 0.041590664,
+      "kind": "box",
+      "pal": "ty_dam",
+      "roof": true,
+      "scale": {
+        "cx": "abs",
+        "cy": "abs",
+        "fd": "abs",
+        "hw": "abs",
+        "z0": "abs",
+        "z1": "abs"
+      },
+      "seed": 14,
+      "yaw": -0.36130561012942053,
+      "z0": -0.03,
+      "z1": 0.013284554
+    },
+    {
+      "cx": 0.379703461,
+      "cy": -0.373107034,
+      "fd": 0.045619144,
+      "hw": 0.047942319,
+      "kind": "box",
+      "pal": "ty_dam_dk",
+      "roof": true,
+      "scale": {
+        "cx": "abs",
+        "cy": "abs",
+        "fd": "abs",
+        "hw": "abs",
+        "z1": "abs"
+      },
+      "seed": 15,
+      "yaw": -0.37458239329716886,
+      "z0": 0,
+      "z1": 0.03120626
+    },
+    {
+      "cx": -0.379703461,
+      "cy": 0.373107034,
+      "fd": 0.045619144,
+      "hw": 0.047942319,
+      "kind": "box",
+      "pal": "ty_dam_dk",
+      "roof": true,
+      "scale": {
+        "cx": "abs",
+        "cy": "abs",
+        "fd": "abs",
+        "hw": "abs",
+        "z1": "abs"
+      },
+      "seed": 15,
+      "yaw": -0.37458239329716886,
+      "z0": 0,
+      "z1": 0.03120626
+    },
+    {
+      "cx": 0.377585268,
+      "cy": -0.121562396,
+      "fd": 0.047384583,
+      "hw": 0.043137855,
+      "kind": "box",
+      "pal": "ty_dam_dk",
+      "roof": true,
+      "scale": {
+        "cx": "abs",
+        "cy": "abs",
+        "fd": "abs",
+        "hw": "abs",
+        "z1": "abs"
+      },
+      "seed": 16,
+      "yaw": 0.21632530579227022,
+      "z0": 0,
+      "z1": 0.039689692
+    },
+    {
+      "cx": -0.377585268,
+      "cy": 0.121562396,
+      "fd": 0.047384583,
+      "hw": 0.043137855,
+      "kind": "box",
+      "pal": "ty_dam_dk",
+      "roof": true,
+      "scale": {
+        "cx": "abs",
+        "cy": "abs",
+        "fd": "abs",
+        "hw": "abs",
+        "z1": "abs"
+      },
+      "seed": 16,
+      "yaw": 0.21632530579227022,
+      "z0": 0,
+      "z1": 0.039689692
+    },
+    {
+      "cx": 0.370112677,
+      "cy": 0.12832592,
+      "fd": 0.025228573,
+      "hw": 0.030660722,
+      "kind": "box",
+      "pal": "ty_dam_dk",
+      "roof": true,
+      "scale": {
+        "cx": "abs",
+        "cy": "abs",
+        "fd": "abs",
+        "hw": "abs",
+        "z1": "abs"
+      },
+      "seed": 17,
+      "yaw": 0.517870703752851,
+      "z0": 0,
+      "z1": 0.033136123
+    },
+    {
+      "cx": -0.370112677,
+      "cy": -0.12832592,
+      "fd": 0.025228573,
+      "hw": 0.030660722,
+      "kind": "box",
+      "pal": "ty_dam_dk",
+      "roof": true,
+      "scale": {
+        "cx": "abs",
+        "cy": "abs",
+        "fd": "abs",
+        "hw": "abs",
+        "z1": "abs"
+      },
+      "seed": 17,
+      "yaw": 0.517870703752851,
+      "z0": 0,
+      "z1": 0.033136123
+    },
+    {
+      "cx": 0.370703141,
+      "cy": 0.378740446,
+      "fd": 0.052898779,
+      "hw": 0.046580346,
+      "kind": "box",
+      "pal": "ty_dam",
+      "roof": true,
+      "scale": {
+        "cx": "abs",
+        "cy": "abs",
+        "fd": "abs",
+        "hw": "abs",
+        "z1": "abs"
+      },
+      "seed": 18,
+      "yaw": 0.20620894423336722,
+      "z0": 0,
+      "z1": 0.028037748
+    },
+    {
+      "cx": -0.370703141,
+      "cy": -0.378740446,
+      "fd": 0.052898779,
+      "hw": 0.046580346,
+      "kind": "box",
+      "pal": "ty_dam",
+      "roof": true,
+      "scale": {
+        "cx": "abs",
+        "cy": "abs",
+        "fd": "abs",
+        "hw": "abs",
+        "z1": "abs"
+      },
+      "seed": 18,
+      "yaw": 0.20620894423336722,
+      "z0": 0,
+      "z1": 0.028037748
+    },
+    {
+      "cx": 0.295653311,
+      "cy": -0.32992027,
+      "fd": 0.034395671,
+      "hw": 0.029295986,
+      "kind": "box",
+      "pal": "ty_dam",
+      "roof": true,
+      "scale": {
+        "cx": "abs",
+        "cy": "abs",
+        "fd": "abs",
+        "hw": "abs",
+        "z0": "abs",
+        "z1": "abs"
+      },
+      "seed": 19,
+      "yaw": 0.5703202361444709,
+      "z0": 0.016,
+      "z1": 0.045997936
+    },
+    {
+      "cx": -0.295653311,
+      "cy": 0.32992027,
+      "fd": 0.034395671,
+      "hw": 0.029295986,
+      "kind": "box",
+      "pal": "ty_dam",
+      "roof": true,
+      "scale": {
+        "cx": "abs",
+        "cy": "abs",
+        "fd": "abs",
+        "hw": "abs",
+        "z0": "abs",
+        "z1": "abs"
+      },
+      "seed": 19,
+      "yaw": 0.5703202361444709,
+      "z0": 0.016,
+      "z1": 0.045997936
+    },
+    {
+      "cx": 0.280596853,
+      "cy": -0.006112032,
+      "fd": 0.029456353,
+      "hw": 0.034297526,
+      "kind": "box",
+      "pal": "ty_dam",
+      "roof": true,
+      "scale": {
+        "cx": "abs",
+        "cy": "abs",
+        "fd": "abs",
+        "hw": "abs",
+        "z0": "abs",
+        "z1": "abs"
+      },
+      "seed": 20,
+      "yaw": 0.446059634599078,
+      "z0": 0.016,
+      "z1": 0.046927586
+    },
+    {
+      "cx": -0.280596853,
+      "cy": 0.006112032,
+      "fd": 0.029456353,
+      "hw": 0.034297526,
+      "kind": "box",
+      "pal": "ty_dam",
+      "roof": true,
+      "scale": {
+        "cx": "abs",
+        "cy": "abs",
+        "fd": "abs",
+        "hw": "abs",
+        "z0": "abs",
+        "z1": "abs"
+      },
+      "seed": 20,
+      "yaw": 0.446059634599078,
+      "z0": 0.016,
+      "z1": 0.046927586
+    },
+    {
+      "cx": 0.29777019,
+      "cy": 0.35413113,
+      "fd": 0.051658714,
+      "hw": 0.044304696,
+      "kind": "box",
+      "pal": "ty_dam",
+      "roof": true,
+      "scale": {
+        "cx": "abs",
+        "cy": "abs",
+        "fd": "abs",
+        "hw": "abs",
+        "z0": "abs",
+        "z1": "abs"
+      },
+      "seed": 21,
+      "yaw": 0.03325834250558728,
+      "z0": 0.016,
+      "z1": 0.048845431
+    },
+    {
+      "cx": -0.29777019,
+      "cy": -0.35413113,
+      "fd": 0.051658714,
+      "hw": 0.044304696,
+      "kind": "box",
+      "pal": "ty_dam",
+      "roof": true,
+      "scale": {
+        "cx": "abs",
+        "cy": "abs",
+        "fd": "abs",
+        "hw": "abs",
+        "z0": "abs",
+        "z1": "abs"
+      },
+      "seed": 21,
+      "yaw": 0.03325834250558728,
+      "z0": 0.016,
+      "z1": 0.048845431
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "fd": 0.5,
+      "hw": 0.21,
+      "kind": "box",
+      "pal": "ty_quay_deck",
+      "roof": true,
+      "scale": {
+        "fd": "abs",
+        "hw": "abs",
+        "z0": "abs",
+        "z1": "abs"
+      },
+      "seed": 40,
+      "yaw": 0,
+      "z0": 0.042,
+      "z1": 0.05
+    },
+    {
+      "cx": -0.195,
+      "cy": 0,
+      "fd": 0.5,
+      "hw": 0.018,
+      "kind": "box",
+      "pal": "ty_quay_deck",
+      "roof": true,
+      "scale": {
+        "cx": "abs",
+        "fd": "abs",
+        "hw": "abs",
+        "z0": "abs",
+        "z1": "abs"
+      },
+      "seed": 40,
+      "yaw": 0,
+      "z0": 0.05,
+      "z1": 0.068
+    },
+    {
+      "cx": 0.195,
+      "cy": 0,
+      "fd": 0.5,
+      "hw": 0.018,
+      "kind": "box",
+      "pal": "ty_quay_deck",
+      "roof": true,
+      "scale": {
+        "cx": "abs",
+        "fd": "abs",
+        "hw": "abs",
+        "z0": "abs",
+        "z1": "abs"
+      },
+      "seed": 42,
+      "yaw": 0,
+      "z0": 0.05,
+      "z1": 0.068
+    },
+    {
+      "cx": -0.15,
+      "cy": -0.25,
+      "fd": 0.012,
+      "hw": 0.012,
+      "kind": "box",
+      "pal": "ty_pier_steel",
+      "roof": true,
+      "scale": {
+        "cx": "abs",
+        "cy": "abs",
+        "fd": "abs",
+        "hw": "abs",
+        "z0": "abs",
+        "z1": "abs"
+      },
+      "seed": 43,
+      "yaw": 0,
+      "z0": 0.05,
+      "z1": 0.066
+    },
+    {
+      "cx": 0.15,
+      "cy": 0.25,
+      "fd": 0.012,
+      "hw": 0.012,
+      "kind": "box",
+      "pal": "ty_pier_steel",
+      "roof": true,
+      "scale": {
+        "cx": "abs",
+        "cy": "abs",
+        "fd": "abs",
+        "hw": "abs",
+        "z0": "abs",
+        "z1": "abs"
+      },
+      "seed": 45,
+      "yaw": 0,
+      "z0": 0.05,
+      "z1": 0.066
+    }
+  ]
+}

@@ -1,0 +1,198 @@
+{
+  "adorn": [],
+  "armTrim": true,
+  "basis": {
+    "fh": 0.4,
+    "h": 1
+  },
+  "bind": [
+    {
+      "by": "type",
+      "key": "land_office"
+    }
+  ],
+  "id": "land_office",
+  "neon": "#7fd8ff",
+  "note": "Ported from the hand-written land_office arm by scripts/shapes/autoport.mjs. The mass and the detail list are this file; everything else (lights, signs, moving parts) is still drawn by the arm.",
+  "pal": "ty_plot",
+  "pixdiff": 0,
+  "portedFrom": "land_office",
+  "segs": [
+    {
+      "cap": false,
+      "cx": 0,
+      "cy": 0,
+      "kind": "drum",
+      "n": 16,
+      "pal": "ty_plot",
+      "rb": 0.248,
+      "rt": 0.232,
+      "skin": "glass",
+      "tint": [
+        56,
+        86,
+        112
+      ],
+      "z0": 0,
+      "z1": 0.4
+    },
+    {
+      "cap": true,
+      "capHi": [
+        204,
+        218,
+        228
+      ],
+      "capLo": [
+        126,
+        142,
+        156
+      ],
+      "capSkin": "chrome",
+      "capSpec": 1.4,
+      "cx": 0,
+      "cy": 0,
+      "hi": [
+        230,
+        240,
+        248
+      ],
+      "kind": "drum",
+      "lo": [
+        116,
+        132,
+        148
+      ],
+      "n": 16,
+      "pal": "ty_hf_chrome",
+      "rb": 0.264,
+      "rt": 0.248,
+      "skin": "chrome",
+      "spec": 1.8,
+      "z0": 0.4,
+      "z1": 0.43
+    },
+    {
+      "cap": false,
+      "cx": -0.344,
+      "cy": 0.376,
+      "hi": [
+        224,
+        236,
+        244
+      ],
+      "kind": "drum",
+      "lo": [
+        84,
+        100,
+        116
+      ],
+      "n": 8,
+      "pal": "ty_gantry",
+      "rb": 0.014,
+      "rt": 0.012,
+      "skin": "chrome",
+      "spec": 2.3,
+      "z0": 0,
+      "z1": 0.94
+    },
+    {
+      "cap": false,
+      "cx": -0.12,
+      "cy": 0.376,
+      "hi": [
+        224,
+        236,
+        244
+      ],
+      "kind": "drum",
+      "lo": [
+        84,
+        100,
+        116
+      ],
+      "n": 8,
+      "pal": "ty_gantry",
+      "rb": 0.014,
+      "rt": 0.012,
+      "skin": "chrome",
+      "spec": 2.3,
+      "z0": 0,
+      "z1": 0.94
+    },
+    {
+      "cap": false,
+      "cx": 0.12,
+      "cy": 0.376,
+      "hi": [
+        224,
+        236,
+        244
+      ],
+      "kind": "drum",
+      "lo": [
+        84,
+        100,
+        116
+      ],
+      "n": 8,
+      "pal": "ty_gantry",
+      "rb": 0.014,
+      "rt": 0.012,
+      "skin": "chrome",
+      "spec": 2.3,
+      "z0": 0,
+      "z1": 0.94
+    },
+    {
+      "cap": false,
+      "cx": 0.344,
+      "cy": 0.376,
+      "hi": [
+        224,
+        236,
+        244
+      ],
+      "kind": "drum",
+      "lo": [
+        84,
+        100,
+        116
+      ],
+      "n": 8,
+      "pal": "ty_gantry",
+      "rb": 0.014,
+      "rt": 0.012,
+      "skin": "chrome",
+      "spec": 2.3,
+      "z0": 0,
+      "z1": 0.94
+    },
+    {
+      "cx": 0,
+      "cy": 0.392,
+      "fd": 0.02,
+      "hw": 0.4,
+      "kind": "box",
+      "pal": "ty_plot_board",
+      "roof": true,
+      "seed": 6,
+      "yaw": 0,
+      "z0": 0.16,
+      "z1": 0.94
+    },
+    {
+      "cx": 0,
+      "cy": 0.24,
+      "fd": 0.016,
+      "hw": 0.068,
+      "kind": "box",
+      "pal": "ty_hf_chrome",
+      "roof": true,
+      "seed": 71,
+      "yaw": 0,
+      "z0": 0,
+      "z1": 0.34
+    }
+  ]
+}

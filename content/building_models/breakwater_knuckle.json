@@ -1,0 +1,609 @@
+{
+  "adorn": [],
+  "armTrim": true,
+  "basis": {
+    "fh": 0.4,
+    "h": 1
+  },
+  "bind": [
+    {
+      "by": "type",
+      "key": "breakwater_knuckle"
+    }
+  ],
+  "id": "breakwater_knuckle",
+  "note": "Ported from the hand-written breakwater_head arm by scripts/shapes/autoport.mjs. The mass and the detail list are this file; everything else (lights, signs, moving parts) is still drawn by the arm.",
+  "pal": "ty_quay_deck",
+  "pixdiff": 0,
+  "portedFrom": "breakwater_head",
+  "segs": [
+    {
+      "cx": 0,
+      "cy": 0,
+      "fd": 0.48,
+      "hw": 0.48,
+      "kind": "box",
+      "pal": "ty_dam_stain",
+      "roof": true,
+      "scale": {
+        "fd": "abs",
+        "hw": "abs",
+        "z0": "abs"
+      },
+      "seed": 0,
+      "yaw": 0,
+      "z0": -0.05,
+      "z1": 0
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "fd": 0.4,
+      "hw": 0.4,
+      "kind": "box",
+      "pal": "ty_dam_dk",
+      "roof": true,
+      "scale": {
+        "fd": "abs",
+        "hw": "abs",
+        "z1": "abs"
+      },
+      "seed": 1,
+      "yaw": 0,
+      "z0": 0,
+      "z1": 0.016
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "fd": 0.32,
+      "hw": 0.32,
+      "kind": "box",
+      "pal": "ty_dam_dk",
+      "roof": true,
+      "scale": {
+        "fd": "abs",
+        "hw": "abs",
+        "z0": "abs",
+        "z1": "abs"
+      },
+      "seed": 2,
+      "yaw": 0,
+      "z0": 0.016,
+      "z1": 0.032
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "fd": 0.26,
+      "hw": 0.26,
+      "kind": "box",
+      "pal": "ty_dam",
+      "roof": true,
+      "scale": {
+        "fd": "abs",
+        "hw": "abs",
+        "z0": "abs",
+        "z1": "abs"
+      },
+      "seed": 3,
+      "yaw": 0,
+      "z0": 0.032,
+      "z1": 0.042
+    },
+    {
+      "cx": 0.420487491,
+      "cy": 0,
+      "fd": 0.028800257,
+      "hw": 0.033927573,
+      "kind": "box",
+      "pal": "ty_dam",
+      "roof": true,
+      "scale": {
+        "cx": "abs",
+        "fd": "abs",
+        "hw": "abs",
+        "z0": "abs",
+        "z1": "abs"
+      },
+      "seed": 10,
+      "yaw": -0.5326287060423055,
+      "z0": -0.03,
+      "z1": 0.014537031
+    },
+    {
+      "cx": 0.23683981,
+      "cy": 0.367495537,
+      "fd": 0.031394251,
+      "hw": 0.0372378,
+      "kind": "box",
+      "pal": "ty_dam",
+      "roof": true,
+      "scale": {
+        "cx": "abs",
+        "cy": "abs",
+        "fd": "abs",
+        "hw": "abs",
+        "z0": "abs",
+        "z1": "abs"
+      },
+      "seed": 11,
+      "yaw": -0.41314581433252895,
+      "z0": -0.03,
+      "z1": 0.021904903
+    },
+    {
+      "cx": -0.178425251,
+      "cy": 0.39335678,
+      "fd": 0.040104753,
+      "hw": 0.034522374,
+      "kind": "box",
+      "pal": "ty_dam_dk",
+      "roof": true,
+      "scale": {
+        "cx": "abs",
+        "cy": "abs",
+        "fd": "abs",
+        "hw": "abs",
+        "z0": "abs",
+        "z1": "abs"
+      },
+      "seed": 12,
+      "yaw": -0.46618062351626577,
+      "z0": -0.03,
+      "z1": 0.018464025
+    },
+    {
+      "cx": -0.424042303,
+      "cy": 0.06262986,
+      "fd": 0.048666936,
+      "hw": 0.047872435,
+      "kind": "box",
+      "pal": "ty_dam_dk",
+      "roof": true,
+      "scale": {
+        "cx": "abs",
+        "cy": "abs",
+        "fd": "abs",
+        "hw": "abs",
+        "z0": "abs",
+        "z1": "abs"
+      },
+      "seed": 13,
+      "yaw": 0.3723086397323641,
+      "z0": -0.03,
+      "z1": 0.012411983
+    },
+    {
+      "cx": -0.278751434,
+      "cy": -0.31839001,
+      "fd": 0.046430505,
+      "hw": 0.041590664,
+      "kind": "box",
+      "pal": "ty_dam",
+      "roof": true,
+      "scale": {
+        "cx": "abs",
+        "cy": "abs",
+        "fd": "abs",
+        "hw": "abs",
+        "z0": "abs",
+        "z1": "abs"
+      },
+      "seed": 14,
+      "yaw": -0.36130561012942053,
+      "z0": -0.03,
+      "z1": 0.013284554
+    },
+    {
+      "cx": 0.121177985,
+      "cy": -0.422676034,
+      "fd": 0.045619144,
+      "hw": 0.047942319,
+      "kind": "box",
+      "pal": "ty_dam_dk",
+      "roof": true,
+      "scale": {
+        "cx": "abs",
+        "cy": "abs",
+        "fd": "abs",
+        "hw": "abs",
+        "z0": "abs",
+        "z1": "abs"
+      },
+      "seed": 15,
+      "yaw": -0.37458239329716886,
+      "z0": -0.03,
+      "z1": 0.01520626
+    },
+    {
+      "cx": 0.418901471,
+      "cy": -0.126500692,
+      "fd": 0.047384583,
+      "hw": 0.043137855,
+      "kind": "box",
+      "pal": "ty_dam_dk",
+      "roof": true,
+      "scale": {
+        "cx": "abs",
+        "cy": "abs",
+        "fd": "abs",
+        "hw": "abs",
+        "z0": "abs",
+        "z1": "abs"
+      },
+      "seed": 16,
+      "yaw": 0.21632530579227022,
+      "z0": -0.03,
+      "z1": 0.023689692
+    },
+    {
+      "cx": 0.327566405,
+      "cy": 0.278742112,
+      "fd": 0.025228573,
+      "hw": 0.030660722,
+      "kind": "box",
+      "pal": "ty_dam_dk",
+      "roof": true,
+      "scale": {
+        "cx": "abs",
+        "cy": "abs",
+        "fd": "abs",
+        "hw": "abs",
+        "z0": "abs",
+        "z1": "abs"
+      },
+      "seed": 17,
+      "yaw": 0.517870703752851,
+      "z0": -0.03,
+      "z1": 0.017136123
+    },
+    {
+      "cx": -0.056929767,
+      "cy": 0.426924112,
+      "fd": 0.052898779,
+      "hw": 0.046580346,
+      "kind": "box",
+      "pal": "ty_dam",
+      "roof": true,
+      "scale": {
+        "cx": "abs",
+        "cy": "abs",
+        "fd": "abs",
+        "hw": "abs",
+        "z0": "abs",
+        "z1": "abs"
+      },
+      "seed": 18,
+      "yaw": 0.20620894423336722,
+      "z0": -0.03,
+      "z1": 0.012037748
+    },
+    {
+      "cx": -0.38965059,
+      "cy": 0.183397635,
+      "fd": 0.034395671,
+      "hw": 0.029295986,
+      "kind": "box",
+      "pal": "ty_dam",
+      "roof": true,
+      "scale": {
+        "cx": "abs",
+        "cy": "abs",
+        "fd": "abs",
+        "hw": "abs",
+        "z0": "abs",
+        "z1": "abs"
+      },
+      "seed": 19,
+      "yaw": 0.5703202361444709,
+      "z0": -0.03,
+      "z1": 0.017997936
+    },
+    {
+      "cx": -0.284619702,
+      "cy": -0.177811341,
+      "fd": 0.029456353,
+      "hw": 0.034297526,
+      "kind": "box",
+      "pal": "ty_dam",
+      "roof": true,
+      "scale": {
+        "cx": "abs",
+        "cy": "abs",
+        "fd": "abs",
+        "hw": "abs",
+        "z1": "abs"
+      },
+      "seed": 20,
+      "yaw": 0.446059634599078,
+      "z0": 0,
+      "z1": 0.034927586
+    },
+    {
+      "cx": 0.05027759,
+      "cy": -0.349168971,
+      "fd": 0.051658714,
+      "hw": 0.044304696,
+      "kind": "box",
+      "pal": "ty_dam",
+      "roof": true,
+      "scale": {
+        "cx": "abs",
+        "cy": "abs",
+        "fd": "abs",
+        "hw": "abs",
+        "z1": "abs"
+      },
+      "seed": 21,
+      "yaw": 0.03325834250558728,
+      "z0": 0,
+      "z1": 0.036845431
+    },
+    {
+      "cx": 0.340306453,
+      "cy": -0.095058417,
+      "fd": 0.035198592,
+      "hw": 0.041905579,
+      "kind": "box",
+      "pal": "ty_dam",
+      "roof": true,
+      "scale": {
+        "cx": "abs",
+        "cy": "abs",
+        "fd": "abs",
+        "hw": "abs",
+        "z1": "abs"
+      },
+      "seed": 22,
+      "yaw": 0.5056323999087908,
+      "z0": 0,
+      "z1": 0.035574258
+    },
+    {
+      "cx": 0.220310844,
+      "cy": 0.268141145,
+      "fd": 0.031281917,
+      "hw": 0.030929247,
+      "kind": "box",
+      "pal": "ty_dam",
+      "roof": true,
+      "scale": {
+        "cx": "abs",
+        "cy": "abs",
+        "fd": "abs",
+        "hw": "abs",
+        "z1": "abs"
+      },
+      "seed": 23,
+      "yaw": 0.030689917516428977,
+      "z0": 0,
+      "z1": 0.02823989
+    },
+    {
+      "cx": -0.162484537,
+      "cy": 0.321774415,
+      "fd": 0.034175753,
+      "hw": 0.029390636,
+      "kind": "box",
+      "pal": "ty_dam",
+      "roof": true,
+      "scale": {
+        "cx": "abs",
+        "cy": "abs",
+        "fd": "abs",
+        "hw": "abs",
+        "z1": "abs"
+      },
+      "seed": 24,
+      "yaw": -0.21635537370457314,
+      "z0": 0,
+      "z1": 0.033046939
+    },
+    {
+      "cx": -0.344753631,
+      "cy": -0.018016947,
+      "fd": 0.033429637,
+      "hw": 0.032571,
+      "kind": "box",
+      "pal": "ty_dam",
+      "roof": true,
+      "scale": {
+        "cx": "abs",
+        "cy": "abs",
+        "fd": "abs",
+        "hw": "abs",
+        "z1": "abs"
+      },
+      "seed": 25,
+      "yaw": 0.2219286161736818,
+      "z0": 0,
+      "z1": 0.032213643
+    },
+    {
+      "cx": -0.123511776,
+      "cy": -0.324993505,
+      "fd": 0.041814605,
+      "hw": 0.038785773,
+      "kind": "box",
+      "pal": "ty_dam",
+      "roof": true,
+      "scale": {
+        "cx": "abs",
+        "cy": "abs",
+        "fd": "abs",
+        "hw": "abs",
+        "z1": "abs"
+      },
+      "seed": 26,
+      "yaw": 0.04729221199813764,
+      "z0": 0,
+      "z1": 0.030913452
+    },
+    {
+      "cx": 0.243568406,
+      "cy": -0.240271137,
+      "fd": 0.042645936,
+      "hw": 0.037695184,
+      "kind": "box",
+      "pal": "ty_dam",
+      "roof": true,
+      "scale": {
+        "cx": "abs",
+        "cy": "abs",
+        "fd": "abs",
+        "hw": "abs",
+        "z1": "abs"
+      },
+      "seed": 27,
+      "yaw": -0.04023723486025119,
+      "z0": 0,
+      "z1": 0.033593811
+    },
+    {
+      "cx": 0.273949286,
+      "cy": 0.108408291,
+      "fd": 0.034289824,
+      "hw": 0.03148887,
+      "kind": "box",
+      "pal": "ty_dam",
+      "roof": true,
+      "scale": {
+        "cx": "abs",
+        "cy": "abs",
+        "fd": "abs",
+        "hw": "abs",
+        "z0": "abs",
+        "z1": "abs"
+      },
+      "seed": 28,
+      "yaw": -0.5530171842954587,
+      "z0": 0.016,
+      "z1": 0.043986554
+    },
+    {
+      "cx": -0.063377225,
+      "cy": 0.279196552,
+      "fd": 0.034101843,
+      "hw": 0.028579945,
+      "kind": "box",
+      "pal": "ty_dam",
+      "roof": true,
+      "scale": {
+        "cx": "abs",
+        "cy": "abs",
+        "fd": "abs",
+        "hw": "abs",
+        "z0": "abs",
+        "z1": "abs"
+      },
+      "seed": 29,
+      "yaw": 0.48019446614271144,
+      "z0": 0.016,
+      "z1": 0.050757129
+    },
+    {
+      "cx": -0.290261861,
+      "cy": -0.02023991,
+      "fd": 0.027491375,
+      "hw": 0.030998861,
+      "kind": "box",
+      "pal": "ty_dam",
+      "roof": true,
+      "scale": {
+        "cx": "abs",
+        "cy": "abs",
+        "fd": "abs",
+        "hw": "abs",
+        "z0": "abs",
+        "z1": "abs"
+      },
+      "seed": 30,
+      "yaw": 0.5266971137170913,
+      "z0": 0.016,
+      "z1": 0.049789007
+    },
+    {
+      "cx": -0.024372928,
+      "cy": -0.289534743,
+      "fd": 0.044594601,
+      "hw": 0.041676058,
+      "kind": "box",
+      "pal": "ty_dam",
+      "roof": true,
+      "scale": {
+        "cx": "abs",
+        "cy": "abs",
+        "fd": "abs",
+        "hw": "abs",
+        "z0": "abs",
+        "z1": "abs"
+      },
+      "seed": 31,
+      "yaw": 0.14180360461177768,
+      "z0": 0.016,
+      "z1": 0.045140354
+    },
+    {
+      "cx": 0.258823281,
+      "cy": -0.062675022,
+      "fd": 0.039346744,
+      "hw": 0.0453619,
+      "kind": "box",
+      "pal": "ty_dam_dk",
+      "roof": true,
+      "scale": {
+        "cx": "abs",
+        "cy": "abs",
+        "fd": "abs",
+        "hw": "abs",
+        "z0": "abs",
+        "z1": "abs"
+      },
+      "seed": 32,
+      "yaw": 0.3335242084984202,
+      "z0": 0.016,
+      "z1": 0.05146606
+    },
+    {
+      "cx": 0.10822287,
+      "cy": 0.26240045,
+      "fd": 0.026749225,
+      "hw": 0.032249825,
+      "kind": "box",
+      "pal": "ty_dam_dk",
+      "roof": true,
+      "scale": {
+        "cx": "abs",
+        "cy": "abs",
+        "fd": "abs",
+        "hw": "abs",
+        "z0": "abs",
+        "z1": "abs"
+      },
+      "seed": 33,
+      "yaw": 0.14644952471426223,
+      "z0": 0.016,
+      "z1": 0.045144609
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "fd": 0.24,
+      "hw": 0.24,
+      "kind": "box",
+      "pal": "ty_quay_deck",
+      "roof": true,
+      "scale": {
+        "fd": "abs",
+        "hw": "abs",
+        "z0": "abs",
+        "z1": "abs"
+      },
+      "seed": 30,
+      "yaw": 0,
+      "z0": 0.042,
+      "z1": 0.05
+    }
+  ]
+}

@@ -1,0 +1,192 @@
+{
+  "adorn": [],
+  "armTrim": true,
+  "basis": {
+    "fh": 0.4,
+    "h": 1
+  },
+  "bind": [
+    {
+      "by": "type",
+      "key": "members_club"
+    }
+  ],
+  "id": "members_club",
+  "neon": "#e6dcc2",
+  "note": "Ported from the hand-written members_club arm by scripts/shapes/autoport.mjs. The mass and the detail list are this file; everything else (lights, signs, moving parts) is still drawn by the arm.",
+  "pal": "ty_vested",
+  "pixdiff": 0,
+  "portedFrom": "members_club",
+  "segs": [
+    {
+      "cap": false,
+      "cx": 0,
+      "cy": 0,
+      "hi": [
+        206,
+        218,
+        232
+      ],
+      "kind": "drum",
+      "lo": [
+        96,
+        108,
+        124
+      ],
+      "n": 20,
+      "pal": "ty_vested",
+      "rb": 0.352,
+      "rt": 0.336,
+      "skin": "chrome",
+      "spec": 2.1,
+      "z0": 0,
+      "z1": 0.82
+    },
+    {
+      "cap": true,
+      "capHi": [
+        198,
+        212,
+        222
+      ],
+      "capLo": [
+        112,
+        126,
+        142
+      ],
+      "capSkin": "chrome",
+      "capSpec": 1.4,
+      "cx": 0,
+      "cy": 0,
+      "hi": [
+        230,
+        240,
+        248
+      ],
+      "kind": "drum",
+      "lo": [
+        106,
+        120,
+        136
+      ],
+      "n": 20,
+      "pal": "ty_hf_chrome",
+      "rb": 0.368,
+      "rt": 0.36,
+      "skin": "chrome",
+      "spec": 1.8,
+      "z0": 0.82,
+      "z1": 0.9
+    },
+    {
+      "cap": false,
+      "cx": -0.136,
+      "cy": 0.38,
+      "hi": [
+        232,
+        242,
+        248
+      ],
+      "kind": "drum",
+      "lo": [
+        88,
+        102,
+        118
+      ],
+      "n": 10,
+      "pal": "ty_hf_chrome",
+      "rb": 0.028,
+      "rt": 0.026,
+      "skin": "chrome",
+      "spec": 2.3,
+      "z0": 0.05,
+      "z1": 0.34
+    },
+    {
+      "cap": false,
+      "cx": 0.136,
+      "cy": 0.38,
+      "hi": [
+        232,
+        242,
+        248
+      ],
+      "kind": "drum",
+      "lo": [
+        88,
+        102,
+        118
+      ],
+      "n": 10,
+      "pal": "ty_hf_chrome",
+      "rb": 0.028,
+      "rt": 0.026,
+      "skin": "chrome",
+      "spec": 2.3,
+      "z0": 0.05,
+      "z1": 0.34
+    },
+    {
+      "cx": 0,
+      "cy": 0.32,
+      "fd": 0.08,
+      "hw": 0.184,
+      "kind": "box",
+      "pal": "ty_hf_chrome",
+      "roof": true,
+      "seed": 5,
+      "yaw": 0,
+      "z0": 0.34,
+      "z1": 0.4
+    },
+    {
+      "cap": true,
+      "capHi": [
+        198,
+        212,
+        222
+      ],
+      "capLo": [
+        124,
+        138,
+        154
+      ],
+      "capSkin": "chrome",
+      "capSpec": 1.4,
+      "cx": 0,
+      "cy": 0.344,
+      "hi": [
+        226,
+        238,
+        246
+      ],
+      "kind": "drum",
+      "lo": [
+        116,
+        130,
+        146
+      ],
+      "n": 16,
+      "pal": "ty_hf_deck",
+      "rb": 0.184,
+      "rt": 0.176,
+      "skin": "chrome",
+      "spec": 1.8,
+      "z0": 0,
+      "z1": 0.05
+    },
+    {
+      "cx": 0,
+      "cy": 0.348,
+      "fd": 0.008,
+      "hw": 0.052,
+      "kind": "box",
+      "pal": "ty_vested_dk",
+      "roof": false,
+      "seed": 7,
+      "yaw": 0,
+      "z0": 0.05,
+      "z1": 0.3
+    }
+  ]
+}

@@ -1,0 +1,486 @@
+{
+  "adorn": [],
+  "armTrim": true,
+  "basis": {
+    "fh": 0.4,
+    "h": 1
+  },
+  "bind": [
+    {
+      "by": "type",
+      "key": "cascade_block"
+    }
+  ],
+  "id": "cascade_block",
+  "neon": "#8ce4c0",
+  "note": "Ported from the hand-written cascade_block arm by scripts/shapes/autoport.mjs. The mass and the detail list are this file; everything else (lights, signs, moving parts) is still drawn by the arm.",
+  "pal": "ty_hft_glass",
+  "pixdiff": 0,
+  "portedFrom": "cascade_block",
+  "segs": [
+    {
+      "cap": true,
+      "capHi": [
+        200,
+        214,
+        224
+      ],
+      "capLo": [
+        122,
+        138,
+        152
+      ],
+      "capSkin": "chrome",
+      "capSpec": 1.4,
+      "cx": 0,
+      "cy": 0,
+      "hi": [
+        226,
+        238,
+        246
+      ],
+      "kind": "drum",
+      "lo": [
+        112,
+        128,
+        144
+      ],
+      "n": 18,
+      "pal": "ty_hf_deck",
+      "rb": 0.4,
+      "rt": 0.384,
+      "skin": "chrome",
+      "spec": 1.8,
+      "z0": 0,
+      "z1": 0.045
+    },
+    {
+      "cx": 0,
+      "cy": -0.136,
+      "fd": 0.104,
+      "hw": 0.168,
+      "kind": "box",
+      "pal": "ty_hft_glass",
+      "roof": false,
+      "seed": 0,
+      "yaw": 0,
+      "z0": 0.045,
+      "z1": 0.98
+    },
+    {
+      "cx": 0,
+      "cy": -0.136,
+      "fd": 0.132,
+      "hw": 0.192,
+      "kind": "box",
+      "pal": "ty_hf_chrome",
+      "roof": true,
+      "seed": 10,
+      "yaw": 0,
+      "z0": 0.98,
+      "z1": 1.002
+    },
+    {
+      "cap": true,
+      "capHi": [
+        204,
+        218,
+        228
+      ],
+      "capLo": [
+        106,
+        122,
+        138
+      ],
+      "capSkin": "chrome",
+      "capSpec": 1.4,
+      "cx": -0.168,
+      "cy": -0.136,
+      "hi": [
+        234,
+        244,
+        250
+      ],
+      "kind": "drum",
+      "lo": [
+        96,
+        112,
+        128
+      ],
+      "n": 12,
+      "pal": "ty_hf_chrome",
+      "rb": 0.124,
+      "rt": 0.124,
+      "skin": "chrome",
+      "spec": 2,
+      "z0": 0.045,
+      "z1": 1.002
+    },
+    {
+      "cap": true,
+      "capHi": [
+        204,
+        218,
+        228
+      ],
+      "capLo": [
+        106,
+        122,
+        138
+      ],
+      "capSkin": "chrome",
+      "capSpec": 1.4,
+      "cx": 0.168,
+      "cy": -0.136,
+      "hi": [
+        234,
+        244,
+        250
+      ],
+      "kind": "drum",
+      "lo": [
+        96,
+        112,
+        128
+      ],
+      "n": 12,
+      "pal": "ty_hf_chrome",
+      "rb": 0.124,
+      "rt": 0.124,
+      "skin": "chrome",
+      "spec": 2,
+      "z0": 0.045,
+      "z1": 1.002
+    },
+    {
+      "cx": 0,
+      "cy": -0.016,
+      "fd": 0.088,
+      "hw": 0.168,
+      "kind": "box",
+      "pal": "ty_hft_glass",
+      "roof": false,
+      "seed": 1,
+      "yaw": 0,
+      "z0": 0.045,
+      "z1": 0.74
+    },
+    {
+      "cx": 0,
+      "cy": -0.016,
+      "fd": 0.116,
+      "hw": 0.192,
+      "kind": "box",
+      "pal": "ty_hf_chrome",
+      "roof": true,
+      "seed": 11,
+      "yaw": 0,
+      "z0": 0.74,
+      "z1": 0.762
+    },
+    {
+      "cap": true,
+      "capHi": [
+        204,
+        218,
+        228
+      ],
+      "capLo": [
+        106,
+        122,
+        138
+      ],
+      "capSkin": "chrome",
+      "capSpec": 1.4,
+      "cx": -0.168,
+      "cy": -0.016,
+      "hi": [
+        234,
+        244,
+        250
+      ],
+      "kind": "drum",
+      "lo": [
+        96,
+        112,
+        128
+      ],
+      "n": 12,
+      "pal": "ty_hf_chrome",
+      "rb": 0.108,
+      "rt": 0.108,
+      "skin": "chrome",
+      "spec": 2,
+      "z0": 0.045,
+      "z1": 0.762
+    },
+    {
+      "cap": true,
+      "capHi": [
+        204,
+        218,
+        228
+      ],
+      "capLo": [
+        106,
+        122,
+        138
+      ],
+      "capSkin": "chrome",
+      "capSpec": 1.4,
+      "cx": 0.168,
+      "cy": -0.016,
+      "hi": [
+        234,
+        244,
+        250
+      ],
+      "kind": "drum",
+      "lo": [
+        96,
+        112,
+        128
+      ],
+      "n": 12,
+      "pal": "ty_hf_chrome",
+      "rb": 0.108,
+      "rt": 0.108,
+      "skin": "chrome",
+      "spec": 2,
+      "z0": 0.045,
+      "z1": 0.762
+    },
+    {
+      "cx": 0,
+      "cy": 0.096,
+      "fd": 0.076,
+      "hw": 0.168,
+      "kind": "box",
+      "pal": "ty_hft_glass",
+      "roof": false,
+      "seed": 2,
+      "yaw": 0,
+      "z0": 0.045,
+      "z1": 0.5
+    },
+    {
+      "cx": 0,
+      "cy": 0.096,
+      "fd": 0.104,
+      "hw": 0.192,
+      "kind": "box",
+      "pal": "ty_hf_chrome",
+      "roof": true,
+      "seed": 12,
+      "yaw": 0,
+      "z0": 0.5,
+      "z1": 0.522
+    },
+    {
+      "cap": true,
+      "capHi": [
+        204,
+        218,
+        228
+      ],
+      "capLo": [
+        106,
+        122,
+        138
+      ],
+      "capSkin": "chrome",
+      "capSpec": 1.4,
+      "cx": -0.168,
+      "cy": 0.096,
+      "hi": [
+        234,
+        244,
+        250
+      ],
+      "kind": "drum",
+      "lo": [
+        96,
+        112,
+        128
+      ],
+      "n": 12,
+      "pal": "ty_hf_chrome",
+      "rb": 0.096,
+      "rt": 0.096,
+      "skin": "chrome",
+      "spec": 2,
+      "z0": 0.045,
+      "z1": 0.522
+    },
+    {
+      "cap": true,
+      "capHi": [
+        204,
+        218,
+        228
+      ],
+      "capLo": [
+        106,
+        122,
+        138
+      ],
+      "capSkin": "chrome",
+      "capSpec": 1.4,
+      "cx": 0.168,
+      "cy": 0.096,
+      "hi": [
+        234,
+        244,
+        250
+      ],
+      "kind": "drum",
+      "lo": [
+        96,
+        112,
+        128
+      ],
+      "n": 12,
+      "pal": "ty_hf_chrome",
+      "rb": 0.096,
+      "rt": 0.096,
+      "skin": "chrome",
+      "spec": 2,
+      "z0": 0.045,
+      "z1": 0.522
+    },
+    {
+      "cx": 0,
+      "cy": 0.2,
+      "fd": 0.064,
+      "hw": 0.168,
+      "kind": "box",
+      "pal": "ty_hft_glass",
+      "roof": false,
+      "seed": 3,
+      "yaw": 0,
+      "z0": 0.045,
+      "z1": 0.28
+    },
+    {
+      "cx": 0,
+      "cy": 0.2,
+      "fd": 0.092,
+      "hw": 0.192,
+      "kind": "box",
+      "pal": "ty_hf_chrome",
+      "roof": true,
+      "seed": 13,
+      "yaw": 0,
+      "z0": 0.28,
+      "z1": 0.302
+    },
+    {
+      "cap": true,
+      "capHi": [
+        204,
+        218,
+        228
+      ],
+      "capLo": [
+        106,
+        122,
+        138
+      ],
+      "capSkin": "chrome",
+      "capSpec": 1.4,
+      "cx": -0.168,
+      "cy": 0.2,
+      "hi": [
+        234,
+        244,
+        250
+      ],
+      "kind": "drum",
+      "lo": [
+        96,
+        112,
+        128
+      ],
+      "n": 12,
+      "pal": "ty_hf_chrome",
+      "rb": 0.084,
+      "rt": 0.084,
+      "skin": "chrome",
+      "spec": 2,
+      "z0": 0.045,
+      "z1": 0.302
+    },
+    {
+      "cap": true,
+      "capHi": [
+        204,
+        218,
+        228
+      ],
+      "capLo": [
+        106,
+        122,
+        138
+      ],
+      "capSkin": "chrome",
+      "capSpec": 1.4,
+      "cx": 0.168,
+      "cy": 0.2,
+      "hi": [
+        234,
+        244,
+        250
+      ],
+      "kind": "drum",
+      "lo": [
+        96,
+        112,
+        128
+      ],
+      "n": 12,
+      "pal": "ty_hf_chrome",
+      "rb": 0.084,
+      "rt": 0.084,
+      "skin": "chrome",
+      "spec": 2,
+      "z0": 0.045,
+      "z1": 0.302
+    },
+    {
+      "cap": true,
+      "capHi": [
+        214,
+        228,
+        236
+      ],
+      "capLo": [
+        132,
+        148,
+        162
+      ],
+      "capSkin": "chrome",
+      "capSpec": 1.3,
+      "cx": 0,
+      "cy": 0.296,
+      "hi": [
+        242,
+        248,
+        252
+      ],
+      "kind": "drum",
+      "lo": [
+        122,
+        138,
+        152
+      ],
+      "n": 12,
+      "pal": "ty_hf_ice",
+      "rb": 0.12,
+      "rt": 0.12,
+      "skin": "chrome",
+      "spec": 1.7,
+      "z0": 0.05,
+      "z1": 0.068
+    }
+  ]
+}

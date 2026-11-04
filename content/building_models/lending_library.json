@@ -1,0 +1,104 @@
+{
+  "adorn": [],
+  "armTrim": true,
+  "basis": {
+    "fh": 0.4,
+    "h": 1
+  },
+  "bind": [
+    {
+      "by": "type",
+      "key": "lending_library"
+    }
+  ],
+  "id": "lending_library",
+  "neon": "#d8d2bc",
+  "note": "Ported from the hand-written lending_library arm by scripts/shapes/autoport.mjs. The mass and the detail list are this file; everything else (lights, signs, moving parts) is still drawn by the arm.",
+  "pal": "ty_fprint",
+  "pixdiff": 0,
+  "portedFrom": "lending_library",
+  "segs": [
+    {
+      "cx": 0,
+      "cy": 0,
+      "fd": 0.4,
+      "hw": 0.4,
+      "kind": "box",
+      "mapAligned": true,
+      "pal": "ty_fprint_stone",
+      "roof": false,
+      "seed": 0,
+      "yaw": 0,
+      "z0": 0,
+      "z1": 0.1
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "fd": 0.368,
+      "hw": 0.368,
+      "kind": "box",
+      "mapAligned": true,
+      "pal": "ty_fprint",
+      "roof": false,
+      "seed": 1,
+      "yaw": 0,
+      "z0": 0.1,
+      "z1": 0.88
+    },
+    {
+      "cx": 0,
+      "cy": 0.372,
+      "fd": 0.012,
+      "hw": 0.32,
+      "kind": "box",
+      "pal": "ty_fprint_glass",
+      "roof": false,
+      "seed": 2,
+      "yaw": 0,
+      "z0": 0.52,
+      "z1": 0.78
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "fd": 0.4,
+      "hw": 0.4,
+      "kind": "box",
+      "mapAligned": true,
+      "pal": "ty_fprint_stone",
+      "roof": true,
+      "seed": 3,
+      "yaw": 0,
+      "z0": 0.88,
+      "z1": 0.98
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "fd": 0.328,
+      "hw": 0.12,
+      "kind": "box",
+      "pal": "ty_fprint_glass",
+      "roof": true,
+      "seed": 4,
+      "yaw": 0,
+      "z0": 0.98,
+      "z1": 1.12
+    },
+    {
+      "cx": -0.248,
+      "cy": -0.232,
+      "fd": 0.04,
+      "hw": 0.04,
+      "kind": "box",
+      "mapAligned": true,
+      "pal": "ty_fprint_stone",
+      "roof": true,
+      "seed": 5,
+      "yaw": 0,
+      "z0": 0.88,
+      "z1": 1.26
+    }
+  ]
+}

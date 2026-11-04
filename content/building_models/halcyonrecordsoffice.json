@@ -1,0 +1,149 @@
+{
+  "adorn": [],
+  "armTrim": true,
+  "basis": {
+    "fh": 0.4,
+    "h": 1
+  },
+  "bind": [
+    {
+      "by": "name",
+      "key": "halcyonrecordsoffice"
+    }
+  ],
+  "id": "halcyonrecordsoffice",
+  "neon": "#c8efff",
+  "note": "Ported from the hand-written hf_sunkdrum arm by scripts/shapes/autoport.mjs. The mass and the detail list are this file; everything else (lights, signs, moving parts) is still drawn by the arm.",
+  "pal": "ty_hft_glass",
+  "pixdiff": 0,
+  "portedFrom": "hf_sunkdrum",
+  "segs": [
+    {
+      "cap": true,
+      "capHi": [
+        200,
+        214,
+        224
+      ],
+      "capLo": [
+        122,
+        138,
+        152
+      ],
+      "capSkin": "chrome",
+      "capSpec": 1.4,
+      "cx": 0,
+      "cy": 0,
+      "hi": [
+        226,
+        238,
+        246
+      ],
+      "kind": "drum",
+      "lo": [
+        112,
+        128,
+        144
+      ],
+      "n": 20,
+      "pal": "ty_hf_deck",
+      "rb": 0.408,
+      "rt": 0.4,
+      "skin": "chrome",
+      "spec": 1.8,
+      "z0": 0,
+      "z1": 0.3
+    },
+    {
+      "cap": false,
+      "cx": 0,
+      "cy": 0,
+      "kind": "drum",
+      "n": 20,
+      "pal": "ty_hft_glass",
+      "rb": 0.296,
+      "rt": 0.288,
+      "skin": "glass",
+      "tint": [
+        70,
+        102,
+        128
+      ],
+      "z0": 0.3,
+      "z1": 0.66
+    },
+    {
+      "cap": false,
+      "cx": 0,
+      "cy": 0,
+      "hi": [
+        242,
+        248,
+        252
+      ],
+      "kind": "drum",
+      "lo": [
+        104,
+        120,
+        136
+      ],
+      "n": 20,
+      "pal": "ty_hf_chrome",
+      "rb": 0.32,
+      "rt": 0.208,
+      "skin": "chrome",
+      "spec": 1.8,
+      "z0": 0.66,
+      "z1": 0.8
+    },
+    {
+      "cap": true,
+      "capHi": [
+        212,
+        226,
+        234
+      ],
+      "capLo": [
+        120,
+        136,
+        150
+      ],
+      "capSkin": "chrome",
+      "capSpec": 1.3,
+      "cx": 0,
+      "cy": 0,
+      "hi": [
+        244,
+        249,
+        252
+      ],
+      "kind": "drum",
+      "lo": [
+        112,
+        128,
+        144
+      ],
+      "n": 16,
+      "pal": "ty_hf_ice",
+      "rb": 0.2,
+      "rt": 0.104,
+      "skin": "chrome",
+      "spec": 1.7,
+      "z0": 0.8,
+      "z1": 0.92
+    },
+    {
+      "cx": 0,
+      "cy": 0.352,
+      "fd": 0.064,
+      "hw": 0.12,
+      "kind": "box",
+      "pal": "ty_hf_ice",
+      "roof": true,
+      "seed": 1,
+      "yaw": 0,
+      "z0": 0,
+      "z1": 0.165
+    }
+  ]
+}

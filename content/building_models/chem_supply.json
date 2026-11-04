@@ -1,0 +1,92 @@
+{
+  "adorn": [],
+  "armTrim": true,
+  "basis": {
+    "fh": 0.4,
+    "h": 1
+  },
+  "bind": [
+    {
+      "by": "type",
+      "key": "chem_supply"
+    }
+  ],
+  "id": "chem_supply",
+  "neon": "#7dff6a",
+  "note": "Ported from the hand-written chemsupply arm by scripts/shapes/autoport.mjs. The mass and the detail list are this file; everything else (lights, signs, moving parts) is still drawn by the arm.",
+  "pal": "ty_chem",
+  "pixdiff": 0,
+  "portedFrom": "chemsupply",
+  "segs": [
+    {
+      "cx": 0,
+      "cy": 0,
+      "fd": 0.5,
+      "hw": 0.5,
+      "kind": "box",
+      "mapAligned": true,
+      "pal": "ty_chem",
+      "roof": true,
+      "seed": 0,
+      "yaw": 0,
+      "z0": 0,
+      "z1": 0.62
+    },
+    {
+      "cx": -0.2,
+      "cy": 0,
+      "fd": 0.136,
+      "hw": 0.136,
+      "kind": "box",
+      "mapAligned": true,
+      "pal": "ty_chem",
+      "roof": true,
+      "seed": 2,
+      "yaw": 0,
+      "z0": 0.62,
+      "z1": 0.95
+    },
+    {
+      "cx": -0.168,
+      "cy": 0.36,
+      "fd": 0.08,
+      "hw": 0.08,
+      "kind": "box",
+      "mapAligned": true,
+      "pal": "ty_door",
+      "roof": true,
+      "seed": 3.2,
+      "yaw": 0,
+      "z0": 0,
+      "z1": 0.22
+    },
+    {
+      "cx": 0,
+      "cy": 0.36,
+      "fd": 0.08,
+      "hw": 0.08,
+      "kind": "box",
+      "mapAligned": true,
+      "pal": "ty_door",
+      "roof": true,
+      "seed": 5,
+      "yaw": 0,
+      "z0": 0,
+      "z1": 0.22
+    },
+    {
+      "cx": 0.168,
+      "cy": 0.36,
+      "fd": 0.08,
+      "hw": 0.08,
+      "kind": "box",
+      "mapAligned": true,
+      "pal": "ty_door",
+      "roof": true,
+      "seed": 6.8,
+      "yaw": 0,
+      "z0": 0,
+      "z1": 0.22
+    }
+  ]
+}

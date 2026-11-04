@@ -1,0 +1,87 @@
+{
+  "adorn": [],
+  "armTrim": true,
+  "basis": {
+    "fh": 0.4,
+    "h": 1
+  },
+  "bind": [
+    {
+      "by": "type",
+      "key": "cobbler"
+    }
+  ],
+  "id": "cobbler",
+  "neon": "#ffc87a",
+  "note": "Ported from the hand-written cobbler arm by scripts/shapes/autoport.mjs. The mass and the detail list are this file; everything else (lights, signs, moving parts) is still drawn by the arm.",
+  "pal": "ty_sole",
+  "pixdiff": 0,
+  "portedFrom": "cobbler",
+  "segs": [
+    {
+      "cx": 0.12,
+      "cy": 0,
+      "fd": 0.248,
+      "hw": 0.152,
+      "kind": "box",
+      "pal": "ty_sole",
+      "roof": false,
+      "seed": 0,
+      "yaw": 0,
+      "z0": 0,
+      "z1": 0.76
+    },
+    {
+      "cx": 0.12,
+      "cy": 0,
+      "fd": 0.272,
+      "hw": 0.176,
+      "kind": "box",
+      "pal": "ty_sole_dk",
+      "roof": true,
+      "seed": 1,
+      "yaw": 0,
+      "z0": 0.76,
+      "z1": 0.92
+    },
+    {
+      "cx": 0.12,
+      "cy": 0.248,
+      "fd": 0.02,
+      "hw": 0.112,
+      "kind": "box",
+      "pal": "ty_sole_glass",
+      "roof": false,
+      "seed": 2,
+      "yaw": 0,
+      "z0": 0.22,
+      "z1": 0.46
+    },
+    {
+      "cx": 0.12,
+      "cy": 0.24,
+      "fd": 0.012,
+      "hw": 0.056,
+      "kind": "box",
+      "pal": "ty_sole_dk",
+      "roof": false,
+      "seed": 3,
+      "yaw": 0,
+      "z0": 0.6,
+      "z1": 0.64
+    },
+    {
+      "cx": 0.12,
+      "cy": 0.28,
+      "fd": 0.02,
+      "hw": 0.028,
+      "kind": "box",
+      "pal": "ty_sole_dk",
+      "roof": true,
+      "seed": 4,
+      "yaw": 0,
+      "z0": 0.64,
+      "z1": 0.86
+    }
+  ]
+}

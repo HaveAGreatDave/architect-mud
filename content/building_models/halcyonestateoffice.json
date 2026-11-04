@@ -1,0 +1,233 @@
+{
+  "adorn": [],
+  "armTrim": true,
+  "basis": {
+    "fh": 0.4,
+    "h": 1
+  },
+  "bind": [
+    {
+      "by": "name",
+      "key": "halcyonestateoffice"
+    }
+  ],
+  "id": "halcyonestateoffice",
+  "neon": "#a8e2ff",
+  "note": "Ported from the hand-written hf_forecourt arm by scripts/shapes/autoport.mjs. The mass and the detail list are this file; everything else (lights, signs, moving parts) is still drawn by the arm.",
+  "pal": "ty_hft_glass",
+  "pixdiff": 0,
+  "portedFrom": "hf_forecourt",
+  "segs": [
+    {
+      "cx": 0,
+      "cy": -0.264,
+      "fd": 0.096,
+      "hw": 0.376,
+      "kind": "box",
+      "pal": "ty_hft_glass",
+      "roof": false,
+      "seed": 0,
+      "yaw": 0,
+      "z0": 0,
+      "z1": 0.76
+    },
+    {
+      "cx": 0,
+      "cy": -0.264,
+      "fd": 0.116,
+      "hw": 0.396,
+      "kind": "box",
+      "pal": "ty_hf_chrome",
+      "roof": true,
+      "seed": 3,
+      "yaw": 0,
+      "z0": 0.76,
+      "z1": 0.86
+    },
+    {
+      "cx": -0.288,
+      "cy": 0.04,
+      "fd": 0.208,
+      "hw": 0.08,
+      "kind": "box",
+      "pal": "ty_hft_glass",
+      "roof": false,
+      "seed": 1,
+      "yaw": 0,
+      "z0": 0,
+      "z1": 0.76
+    },
+    {
+      "cx": -0.288,
+      "cy": 0.04,
+      "fd": 0.228,
+      "hw": 0.1,
+      "kind": "box",
+      "pal": "ty_hf_chrome",
+      "roof": true,
+      "seed": 4,
+      "yaw": 0,
+      "z0": 0.76,
+      "z1": 0.86
+    },
+    {
+      "cx": 0.288,
+      "cy": 0.04,
+      "fd": 0.208,
+      "hw": 0.08,
+      "kind": "box",
+      "pal": "ty_hft_glass",
+      "roof": false,
+      "seed": 2,
+      "yaw": 0,
+      "z0": 0,
+      "z1": 0.76
+    },
+    {
+      "cx": 0.288,
+      "cy": 0.04,
+      "fd": 0.228,
+      "hw": 0.1,
+      "kind": "box",
+      "pal": "ty_hf_chrome",
+      "roof": true,
+      "seed": 5,
+      "yaw": 0,
+      "z0": 0.76,
+      "z1": 0.86
+    },
+    {
+      "cap": true,
+      "capHi": [
+        206,
+        220,
+        230
+      ],
+      "capLo": [
+        106,
+        122,
+        138
+      ],
+      "capSkin": "chrome",
+      "capSpec": 1.4,
+      "cx": -0.288,
+      "cy": -0.248,
+      "hi": [
+        236,
+        246,
+        250
+      ],
+      "kind": "drum",
+      "lo": [
+        96,
+        112,
+        128
+      ],
+      "n": 12,
+      "pal": "ty_hf_chrome",
+      "rb": 0.104,
+      "rt": 0.096,
+      "skin": "chrome",
+      "spec": 2,
+      "z0": 0,
+      "z1": 0.86
+    },
+    {
+      "cap": true,
+      "capHi": [
+        206,
+        220,
+        230
+      ],
+      "capLo": [
+        106,
+        122,
+        138
+      ],
+      "capSkin": "chrome",
+      "capSpec": 1.4,
+      "cx": 0.288,
+      "cy": -0.248,
+      "hi": [
+        236,
+        246,
+        250
+      ],
+      "kind": "drum",
+      "lo": [
+        96,
+        112,
+        128
+      ],
+      "n": 12,
+      "pal": "ty_hf_chrome",
+      "rb": 0.104,
+      "rt": 0.096,
+      "skin": "chrome",
+      "spec": 2,
+      "z0": 0,
+      "z1": 0.86
+    },
+    {
+      "cx": 0,
+      "cy": 0.248,
+      "fd": 0.064,
+      "hw": 0.304,
+      "kind": "box",
+      "pal": "ty_hf_ice",
+      "roof": true,
+      "seed": 7,
+      "yaw": 0,
+      "z0": 0.26,
+      "z1": 0.3
+    },
+    {
+      "cap": false,
+      "cx": -0.272,
+      "cy": 0.248,
+      "hi": [
+        230,
+        240,
+        248
+      ],
+      "kind": "drum",
+      "lo": [
+        88,
+        104,
+        120
+      ],
+      "n": 8,
+      "pal": "ty_hf_chrome_dk",
+      "rb": 0.022,
+      "rt": 0.0192,
+      "skin": "chrome",
+      "spec": 2.2,
+      "z0": 0,
+      "z1": 0.26
+    },
+    {
+      "cap": false,
+      "cx": 0.272,
+      "cy": 0.248,
+      "hi": [
+        230,
+        240,
+        248
+      ],
+      "kind": "drum",
+      "lo": [
+        88,
+        104,
+        120
+      ],
+      "n": 8,
+      "pal": "ty_hf_chrome_dk",
+      "rb": 0.022,
+      "rt": 0.0192,
+      "skin": "chrome",
+      "spec": 2.2,
+      "z0": 0,
+      "z1": 0.26
+    }
+  ]
+}

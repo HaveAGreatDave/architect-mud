@@ -1,0 +1,146 @@
+{
+  "adorn": [],
+  "armTrim": true,
+  "basis": {
+    "fh": 0.4,
+    "h": 1
+  },
+  "bind": [
+    {
+      "by": "type",
+      "key": "apartment"
+    }
+  ],
+  "detail": [
+    {
+      "cx": 0.16,
+      "cy": 0.392,
+      "flights": 4,
+      "half": 0.096,
+      "kind": "fireEscape",
+      "out": 0.06,
+      "z0": 0.24,
+      "z1": 0.98
+    },
+    {
+      "cx": -0.184,
+      "cy": 0.392,
+      "d": 0.026,
+      "hh": 0.036,
+      "kind": "acUnit",
+      "w": 0.034,
+      "z": 0.38
+    },
+    {
+      "cx": -0.088,
+      "cy": 0.392,
+      "d": 0.0232,
+      "hh": 0.032,
+      "kind": "acUnit",
+      "w": 0.03,
+      "z": 0.66
+    },
+    {
+      "cy": 0.392,
+      "half": 0.344,
+      "kind": "cableRun",
+      "r": 0.0044,
+      "sag": 0.05,
+      "z": 0.92
+    },
+    {
+      "cx": -0.248,
+      "cy": -0.168,
+      "hh": 0.08,
+      "kind": "roofTank",
+      "r": 0.064,
+      "z": 1.02
+    },
+    {
+      "cx": -0.12,
+      "cy": -0.104,
+      "hh": 0.18,
+      "kind": "antennaCluster",
+      "n": 6,
+      "r": 0.08,
+      "z": 1.18
+    }
+  ],
+  "id": "apartment",
+  "note": "Ported from the hand-written apartment arm by scripts/shapes/autoport.mjs. The mass and the detail list are this file; everything else (lights, signs, moving parts) is still drawn by the arm.",
+  "pal": "ty_apt_a",
+  "pixdiff": 0,
+  "portedFrom": "apartment",
+  "segs": [
+    {
+      "cx": 0,
+      "cy": 0,
+      "fd": 0.448,
+      "hw": 0.448,
+      "kind": "box",
+      "mapAligned": true,
+      "pal": "ty_apt_a",
+      "roof": true,
+      "seed": 5,
+      "yaw": 0,
+      "z0": 0,
+      "z1": 0.2
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "fd": 0.392,
+      "hw": 0.392,
+      "kind": "box",
+      "mapAligned": true,
+      "pal": "ty_apt_a",
+      "roof": true,
+      "seed": 0,
+      "yaw": 0,
+      "z0": 0.2,
+      "z1": 1.02
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "fd": 0.256,
+      "hw": 0.256,
+      "kind": "box",
+      "mapAligned": true,
+      "pal": "ty_apt_a",
+      "roof": true,
+      "seed": 4,
+      "yaw": 0,
+      "z0": 1.02,
+      "z1": 1.18
+    },
+    {
+      "cx": -0.136,
+      "cy": -0.088,
+      "fd": 0.064,
+      "hw": 0.064,
+      "kind": "box",
+      "mapAligned": true,
+      "pal": "ty_door",
+      "roof": true,
+      "seed": 6,
+      "yaw": 0,
+      "z0": 1.18,
+      "z1": 1.34
+    },
+    {
+      "cx": 0.12,
+      "cy": 0.048,
+      "fd": 0.08,
+      "hw": 0.08,
+      "kind": "box",
+      "mapAligned": true,
+      "pal": "ty_door",
+      "roof": true,
+      "seed": 7,
+      "yaw": 0,
+      "z0": 1.18,
+      "z1": 1.25
+    }
+  ]
+}

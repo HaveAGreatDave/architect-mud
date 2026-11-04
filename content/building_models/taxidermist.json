@@ -1,0 +1,130 @@
+{
+  "adorn": [],
+  "armTrim": true,
+  "basis": {
+    "fh": 0.4,
+    "h": 1
+  },
+  "bind": [
+    {
+      "by": "type",
+      "key": "taxidermist"
+    }
+  ],
+  "id": "taxidermist",
+  "neon": "#e8d6a8",
+  "note": "Ported from the hand-written taxidermist arm by scripts/shapes/autoport.mjs. The mass and the detail list are this file; everything else (lights, signs, moving parts) is still drawn by the arm.",
+  "pal": "ty_stuff",
+  "pixdiff": 0,
+  "portedFrom": "taxidermist",
+  "segs": [
+    {
+      "cx": 0,
+      "cy": 0,
+      "fd": 0.352,
+      "hw": 0.352,
+      "kind": "box",
+      "mapAligned": true,
+      "pal": "ty_stuff",
+      "roof": false,
+      "seed": 0,
+      "yaw": 0,
+      "z0": 0,
+      "z1": 0.64
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "fd": 0.376,
+      "hw": 0.376,
+      "kind": "box",
+      "mapAligned": true,
+      "pal": "ty_stuff",
+      "roof": true,
+      "seed": 1,
+      "yaw": 0,
+      "z0": 0.64,
+      "z1": 0.86
+    },
+    {
+      "cx": 0,
+      "cy": 0.36,
+      "fd": 0.016,
+      "hw": 0.32,
+      "kind": "box",
+      "pal": "ty_stuff_glass",
+      "roof": false,
+      "seed": 2,
+      "yaw": 0,
+      "z0": 0.12,
+      "z1": 0.3
+    },
+    {
+      "cx": 0,
+      "cy": 0.376,
+      "fd": 0.024,
+      "hw": 0.336,
+      "kind": "box",
+      "pal": "ty_stuff_glass",
+      "roof": true,
+      "seed": 3,
+      "yaw": 0,
+      "z0": 0.3,
+      "z1": 0.46
+    },
+    {
+      "cx": 0,
+      "cy": 0.364,
+      "fd": 0.02,
+      "hw": 0.36,
+      "kind": "box",
+      "pal": "ty_stuff_dk",
+      "roof": false,
+      "seed": 4,
+      "yaw": 0,
+      "z0": 0.46,
+      "z1": 0.58
+    },
+    {
+      "cx": 0,
+      "cy": 0.224,
+      "fd": 0.024,
+      "hw": 0.024,
+      "kind": "box",
+      "mapAligned": true,
+      "pal": "ty_stuff_dk",
+      "roof": false,
+      "seed": 5,
+      "yaw": 0,
+      "z0": 0.86,
+      "z1": 1.02
+    },
+    {
+      "cx": 0,
+      "cy": 0.224,
+      "fd": 0.02,
+      "hw": 0.136,
+      "kind": "box",
+      "pal": "ty_stuff_dk",
+      "roof": true,
+      "seed": 6,
+      "yaw": 0,
+      "z0": 0.95,
+      "z1": 0.98
+    },
+    {
+      "cx": 0.16,
+      "cy": -0.208,
+      "fd": 0.028,
+      "hw": 0.028,
+      "kind": "box",
+      "mapAligned": true,
+      "pal": "ty_stuff_dk",
+      "roof": true,
+      "seed": 7,
+      "yaw": 0,
+      "z0": 0.64,
+      "z1": 1.16
+    }
+  ]
+}

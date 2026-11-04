@@ -1,0 +1,209 @@
+{
+  "adorn": [],
+  "armTrim": true,
+  "basis": {
+    "fh": 0.4,
+    "h": 1
+  },
+  "bind": [
+    {
+      "by": "type",
+      "key": "fire_station"
+    }
+  ],
+  "id": "fire_station",
+  "neon": "#ff5a4a",
+  "note": "Ported from the hand-written fire_station arm by scripts/shapes/autoport.mjs. The mass and the detail list are this file; everything else (lights, signs, moving parts) is still drawn by the arm.",
+  "pal": "ty_engine_brick",
+  "pixdiff": 0,
+  "portedFrom": "fire_station",
+  "segs": [
+    {
+      "cx": 0,
+      "cy": 0,
+      "fd": 0.304,
+      "hw": 0.304,
+      "kind": "box",
+      "mapAligned": true,
+      "pal": "ty_engine_brick",
+      "roof": true,
+      "seed": 0,
+      "yaw": 0,
+      "z0": 0,
+      "z1": 0.86
+    },
+    {
+      "cap": true,
+      "capHi": [
+        198,
+        212,
+        222
+      ],
+      "capLo": [
+        114,
+        130,
+        146
+      ],
+      "capSkin": "chrome",
+      "capSpec": 1.4,
+      "cx": -0.304,
+      "cy": 0,
+      "hi": [
+        224,
+        236,
+        244
+      ],
+      "kind": "drum",
+      "lo": [
+        104,
+        120,
+        136
+      ],
+      "n": 14,
+      "pal": "ty_engine_brick",
+      "rb": 0.36,
+      "rt": 0.352,
+      "skin": "chrome",
+      "spec": 2,
+      "z0": 0,
+      "z1": 0.86
+    },
+    {
+      "cap": true,
+      "capHi": [
+        198,
+        212,
+        222
+      ],
+      "capLo": [
+        114,
+        130,
+        146
+      ],
+      "capSkin": "chrome",
+      "capSpec": 1.4,
+      "cx": 0.304,
+      "cy": 0,
+      "hi": [
+        224,
+        236,
+        244
+      ],
+      "kind": "drum",
+      "lo": [
+        104,
+        120,
+        136
+      ],
+      "n": 14,
+      "pal": "ty_engine_brick",
+      "rb": 0.36,
+      "rt": 0.352,
+      "skin": "chrome",
+      "spec": 2,
+      "z0": 0,
+      "z1": 0.86
+    },
+    {
+      "cx": -0.2,
+      "cy": 0.368,
+      "fd": 0.012,
+      "hw": 0.084,
+      "kind": "box",
+      "pal": "ty_engine",
+      "roof": false,
+      "seed": 2,
+      "yaw": 0,
+      "z0": 0.02,
+      "z1": 0.44
+    },
+    {
+      "cx": 0,
+      "cy": 0.368,
+      "fd": 0.012,
+      "hw": 0.084,
+      "kind": "box",
+      "pal": "ty_engine",
+      "roof": false,
+      "seed": 3,
+      "yaw": 0,
+      "z0": 0.02,
+      "z1": 0.44
+    },
+    {
+      "cx": 0.2,
+      "cy": 0.368,
+      "fd": 0.012,
+      "hw": 0.084,
+      "kind": "box",
+      "pal": "ty_engine",
+      "roof": false,
+      "seed": 4,
+      "yaw": 0,
+      "z0": 0.02,
+      "z1": 0.44
+    },
+    {
+      "cap": true,
+      "capHi": [
+        188,
+        202,
+        214
+      ],
+      "capLo": [
+        106,
+        120,
+        134
+      ],
+      "capSkin": "chrome",
+      "capSpec": 1.4,
+      "cx": -0.28,
+      "cy": -0.184,
+      "hi": [
+        210,
+        224,
+        234
+      ],
+      "kind": "drum",
+      "lo": [
+        96,
+        110,
+        124
+      ],
+      "n": 12,
+      "pal": "ty_wires_louvre",
+      "rb": 0.072,
+      "rt": 0.062,
+      "skin": "chrome",
+      "spec": 2.1,
+      "z0": 0,
+      "z1": 1.44
+    },
+    {
+      "cx": -0.28,
+      "cy": -0.072,
+      "fd": 0.112,
+      "hw": 0.02,
+      "kind": "box",
+      "pal": "ty_gantry",
+      "roof": false,
+      "seed": 7,
+      "yaw": 0,
+      "z0": 1.38,
+      "z1": 1.42
+    },
+    {
+      "cx": 0,
+      "cy": 0.464,
+      "fd": 0.096,
+      "hw": 0.352,
+      "kind": "box",
+      "pal": "ty_cold_slab",
+      "roof": true,
+      "seed": 9,
+      "yaw": 0,
+      "z0": 0,
+      "z1": 0.008
+    }
+  ]
+}

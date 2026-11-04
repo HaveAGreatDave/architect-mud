@@ -1,0 +1,314 @@
+{
+  "adorn": [],
+  "armTrim": true,
+  "basis": {
+    "fh": 0.4,
+    "h": 1
+  },
+  "bind": [
+    {
+      "by": "type",
+      "key": "transit_halt"
+    }
+  ],
+  "id": "transit_halt",
+  "neon": "#5ac8ff",
+  "note": "Ported from the hand-written transit_halt arm by scripts/shapes/autoport.mjs. The mass and the detail list are this file; everything else (lights, signs, moving parts) is still drawn by the arm.",
+  "pal": "ty_hf_chrome",
+  "pixdiff": 0,
+  "portedFrom": "transit_halt",
+  "segs": [
+    {
+      "cap": false,
+      "cx": -0.312,
+      "cy": -0.136,
+      "hi": [
+        222,
+        234,
+        242
+      ],
+      "kind": "drum",
+      "lo": [
+        74,
+        88,
+        104
+      ],
+      "n": 9,
+      "pal": "ty_hf_chrome",
+      "rb": 0.036,
+      "rt": 0.032,
+      "skin": "chrome",
+      "spec": 2.4,
+      "z0": 0,
+      "z1": 0.36
+    },
+    {
+      "cap": false,
+      "cx": 0,
+      "cy": -0.136,
+      "hi": [
+        222,
+        234,
+        242
+      ],
+      "kind": "drum",
+      "lo": [
+        74,
+        88,
+        104
+      ],
+      "n": 9,
+      "pal": "ty_hf_chrome",
+      "rb": 0.036,
+      "rt": 0.032,
+      "skin": "chrome",
+      "spec": 2.4,
+      "z0": 0,
+      "z1": 0.36
+    },
+    {
+      "cap": false,
+      "cx": 0.312,
+      "cy": -0.136,
+      "hi": [
+        222,
+        234,
+        242
+      ],
+      "kind": "drum",
+      "lo": [
+        74,
+        88,
+        104
+      ],
+      "n": 9,
+      "pal": "ty_hf_chrome",
+      "rb": 0.036,
+      "rt": 0.032,
+      "skin": "chrome",
+      "spec": 2.4,
+      "z0": 0,
+      "z1": 0.36
+    },
+    {
+      "cap": false,
+      "cx": -0.312,
+      "cy": 0.136,
+      "hi": [
+        222,
+        234,
+        242
+      ],
+      "kind": "drum",
+      "lo": [
+        74,
+        88,
+        104
+      ],
+      "n": 9,
+      "pal": "ty_hf_chrome",
+      "rb": 0.036,
+      "rt": 0.032,
+      "skin": "chrome",
+      "spec": 2.4,
+      "z0": 0,
+      "z1": 0.36
+    },
+    {
+      "cap": false,
+      "cx": 0,
+      "cy": 0.136,
+      "hi": [
+        222,
+        234,
+        242
+      ],
+      "kind": "drum",
+      "lo": [
+        74,
+        88,
+        104
+      ],
+      "n": 9,
+      "pal": "ty_hf_chrome",
+      "rb": 0.036,
+      "rt": 0.032,
+      "skin": "chrome",
+      "spec": 2.4,
+      "z0": 0,
+      "z1": 0.36
+    },
+    {
+      "cap": false,
+      "cx": 0.312,
+      "cy": 0.136,
+      "hi": [
+        222,
+        234,
+        242
+      ],
+      "kind": "drum",
+      "lo": [
+        74,
+        88,
+        104
+      ],
+      "n": 9,
+      "pal": "ty_hf_chrome",
+      "rb": 0.036,
+      "rt": 0.032,
+      "skin": "chrome",
+      "spec": 2.4,
+      "z0": 0,
+      "z1": 0.36
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "fd": 0.192,
+      "hw": 0.376,
+      "kind": "box",
+      "pal": "ty_hf_chrome",
+      "roof": true,
+      "seed": 0,
+      "yaw": 0,
+      "z0": 0.36,
+      "z1": 0.44
+    },
+    {
+      "cap": false,
+      "cx": -0.28,
+      "cy": -0.12,
+      "hi": [
+        232,
+        242,
+        248
+      ],
+      "kind": "drum",
+      "lo": [
+        82,
+        98,
+        114
+      ],
+      "n": 8,
+      "pal": "ty_hf_chrome",
+      "rb": 0.022,
+      "rt": 0.018,
+      "skin": "chrome",
+      "spec": 2.4,
+      "z0": 0.44,
+      "z1": 0.86
+    },
+    {
+      "cap": false,
+      "cx": 0.28,
+      "cy": -0.12,
+      "hi": [
+        232,
+        242,
+        248
+      ],
+      "kind": "drum",
+      "lo": [
+        82,
+        98,
+        114
+      ],
+      "n": 8,
+      "pal": "ty_hf_chrome",
+      "rb": 0.022,
+      "rt": 0.018,
+      "skin": "chrome",
+      "spec": 2.4,
+      "z0": 0.44,
+      "z1": 0.86
+    },
+    {
+      "cap": false,
+      "cx": -0.28,
+      "cy": 0.12,
+      "hi": [
+        232,
+        242,
+        248
+      ],
+      "kind": "drum",
+      "lo": [
+        82,
+        98,
+        114
+      ],
+      "n": 8,
+      "pal": "ty_hf_chrome",
+      "rb": 0.022,
+      "rt": 0.018,
+      "skin": "chrome",
+      "spec": 2.4,
+      "z0": 0.44,
+      "z1": 0.86
+    },
+    {
+      "cap": false,
+      "cx": 0.28,
+      "cy": 0.12,
+      "hi": [
+        232,
+        242,
+        248
+      ],
+      "kind": "drum",
+      "lo": [
+        82,
+        98,
+        114
+      ],
+      "n": 8,
+      "pal": "ty_hf_chrome",
+      "rb": 0.022,
+      "rt": 0.018,
+      "skin": "chrome",
+      "spec": 2.4,
+      "z0": 0.44,
+      "z1": 0.86
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "fd": 0.184,
+      "hw": 0.368,
+      "kind": "box",
+      "pal": "ty_hf_ice",
+      "roof": true,
+      "seed": 1,
+      "yaw": 0,
+      "z0": 0.86,
+      "z1": 0.91
+    },
+    {
+      "cx": -0.12,
+      "cy": 0,
+      "fd": 0.104,
+      "hw": 0.12,
+      "kind": "box",
+      "pal": "ty_hft_glass",
+      "roof": false,
+      "seed": 2,
+      "yaw": 0,
+      "z0": 0.44,
+      "z1": 0.8
+    },
+    {
+      "cx": 0.208,
+      "cy": 0.248,
+      "fd": 0.088,
+      "hw": 0.072,
+      "kind": "box",
+      "pal": "ty_hf_chrome_dk",
+      "roof": true,
+      "seed": 3,
+      "yaw": 0,
+      "z0": 0,
+      "z1": 0.44
+    }
+  ]
+}
