@@ -944,7 +944,7 @@ export const RENDER_TUNE = {
   armLive: 1,    // a kept building's animated helpers (smoke, rings, beams, wind wheels, flags) are left out of its kept set and called again each replay (armLiveCall); 0 makes any such building live
   flatEarly: 1,  // an arm's own flat and box primitives return before building what emitFlat and draw3DBoxAt would drop on the GL path (flatsDropped, massDropped: the ballpark, the clone facility's tubes); 0 builds, clips and colours each one first
   marksGPU: 1,   // the South Lock, the AA batteries, the media lot and the statue send their faces unshaded with a normal and a material code, the solids shader turns the normal to the eye and shades them (gl/solids.js, the marks), and their static parts are kept as a building's are (markKept); 0 shades every face on the CPU from the eye every frame, as before. On since 2026-10-25, after David saw the before/after shots (glass-headroom.md)
-  streetKit: 0,  // Coldwater Streets: on a road tile whose district sets a street condition (`sc`), the 4 m lane, the raised walkways, their furniture and the bridges are drawn over the road as a mark, at that condition (glass/street-kit.js, drawStreetKitPass; docs/proposals/coldwater-streets.md). Needs marksGPU. Off until David approves the look
+  streetKit: 1,  // Coldwater Streets: on a road tile whose district sets a street condition (`sc`), the 4 m lane, the raised walkways, their furniture and the bridges are drawn over the road as a mark, at that condition (glass/street-kit.js, drawStreetKitPass; docs/proposals/coldwater-streets.md). Needs marksGPU
   armNearWire: 1,   // a kept building with a stroke that crosses emitWire's near plane this frame runs live for the frame (armNearWire), as the live arm cuts that stroke at the plane; 0 replays the stroke whole, which the strokes shader draws with a wrong width once an end is behind the eye
   armFace3: 1,   // slumFaceK's eye test is recorded in a kept set (faceAway3) and asked again on replay, so a slum building's sheets change tone when the eye crosses them; 0 tests it unrecorded and a kept set keeps the tone it was probed with
   armFade: 1,    // a building in the haze band keeps: its kept set is its recording at alpha 1, alpha leaves the key, and a fading frame replays the set scaled by the fade, proved against the live draw (armFadeCanon); 0 runs every fading building live, as before
@@ -55032,6 +55032,10 @@ function drawWorldObjects(ctx, cam, v, sky, now, sun) {
   if (_ic) _ic(null);
   pEnd();                      // ── end world:arms ──
   pBegin('world:street');
+  // The street kit first: it is the ground the lamps and the people stand on. ⚠ NOT UNDER THE PEOPLE'S
+  // HEIGHT GATE BELOW. The ground pass leaves its pavement off wherever the kit is on, at any height,
+  // so gated it left bare black roads from about 67 m up, and took 24 m bridges with it.
+  if ((v.worldBlend ?? 1) > 0.02) drawStreetKitPass(ctx, cam, v, map, R, wcx, wcy, night, now, FAR, sun, sky);
   // THE PEOPLE. Queued into the same face sink for the same reason the AA sites are: a figure on
   // the far pavement must be hidden by the building between you and them, not painted over it.
   // Height-gated — a person is sub-pixel from anything but a low pass, and at cruise this is a few
@@ -55042,8 +55046,6 @@ function drawWorldObjects(ctx, cam, v, sky, now, sun) {
     // under it. Both are height-gated for the same reason — three lamps on a 9px head resolve to a
     // single ambiguous dot from anything but a low pass, and a dot that changes colour reads as a
     // rendering fault rather than as a traffic light.
-    // The street kit first: it is the ground the lamps and the people stand on.
-    drawStreetKitPass(ctx, cam, v, map, R, wcx, wcy, night, now, FAR, sun, sky);
     drawStreetLamps(ctx, cam, v, map, R, wcx, wcy, night, now, FAR);
     drawTrafficSignals(ctx, cam, v, map, R, wcx, wcy, night, now, FAR);
     drawStreetActors(ctx, cam, v, map, R, wcx, wcy, night, now, FAR);

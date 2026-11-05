@@ -1,6 +1,6 @@
 # Coldwater Streets
 
-**Status: phases 1 to 3 built behind `RENDER_TUNE.streetKit` (off, until David approves the look);
+**Status: phases 1 to 3 built and on (`RENDER_TUNE.streetKit`);
 phase 5 and part of phase 4 built behind `STREET_SYSTEMS` (off); cameras and the drone are still to build.** The brief is a Claude Doc, [Coldwater Streets: Build Brief](https://claude.ai/artifact/SFfx5RrSMryJPwM25HmDBB),
 with the [3D preview](https://claude.ai/artifact/Ec21rXU2QigfBvrkXZKUd1) as the visual reference. This
 file records what's built and the decisions taken on 2026-11-03.
@@ -14,15 +14,15 @@ dirt of Old Coldwater, and four bridges stack over the street by class.
 
 | Phase | Contains | State |
 |---|---|---|
-| 1 | The kit at the core level, and the people walking round it | Built, flag off |
-| 2 | Footbridge 7 m | Built, flag off |
-| 2 | Service bridge 9 and 16 m, skybridge 12.5 m, executive bridge 24 m | Built, flag off |
-| 3 | The comic-ink pass and the other four condition levels | Built, flag off |
+| 1 | The kit at the core level, and the people walking round it | Built |
+| 2 | Footbridge 7 m | Built |
+| 2 | Service bridge 9 and 16 m, skybridge 12.5 m, executive bridge 24 m | Built |
+| 3 | The comic-ink pass and the other four condition levels | Built |
 | 4 | Metered strips, passing vehicles | Built, switch off |
 | 4 | Paid crossings and the licensed lane | Dropped: scenery only |
 | 4 | Cameras and the drone feeding the wanted system | Design |
 | 5 | Room text in each zone's voice | Built, switch off |
-| - | The street two tiles wide | Built, flag off; Sorrel Way from 900 to 909 |
+| - | The street two tiles wide | Built; Sorrel Way from 900 to 909 |
 
 ## Decisions (David, 2026-11-03)
 
@@ -74,6 +74,10 @@ recentres.
 paint or crossing of its own (`streetKitShown`). The old pavement stands at `kerbHeight` (0.5 m),
 above the kit's 0.18 m walkway, and covered half of it; the old centreline showed through the kit's
 lane. A straight tile is still marked in `RAISED_WALK`.
+
+⚠ **The kit draws at every height.** `streetKitShown` doesn't look at altitude, so the kit can't sit under
+`STREET_FIGURE_MAX_H` with the people: gated, a flight above about 67 m saw bare black roads and no
+bridges. `__glStreetKit({ height, cz })` paints the view from the air.
 
 ### The parts
 
@@ -257,8 +261,7 @@ then. The verb reads `kitPlace`, so it matches what's drawn. Walking is unchange
 
 ## Not done yet
 
-- David's approval of the look. `RENDER_TUNE.streetKit` stays 0 until then.
-- ⚠ **What it costs, before the flag goes on.** On Cinder Lane from a cab with a 45-tile window the kit
+- ⚠ **What it costs.** On Cinder Lane from a cab with a 45-tile window the kit
   is about 72,800 faces, and a frame went from 52 ms to 290 ms. That's the Modelshop in a hidden pane,
   so it's a ratio and not a frame time, and it wants measuring on a real GPU. Kept replay works
   (about 3,600 replays and 2 live over 30 frames). Ordinary tiles are the same size they were in phase

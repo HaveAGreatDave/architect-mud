@@ -6683,9 +6683,11 @@ if (typeof window !== 'undefined') window.__glActors = runActors;
 // round the south crossroads, from the block's last tile into the junction and on west, for that
 // long at four frames a second, and shoots the last frame: about half of them have to cross the
 // street, and on the kit they go over the footbridge or across the zebra (glass/street-kit-walk.js).
+// `height` is the view's altitude (0 to 1), which the renderer gates street detail on; a standing
+// camera still sits at `cz`, so set both for a view from the air.
 // `wide: true` lays the street two tiles wide. `real: { cells, x, y }` paints the map itself instead,
 // centred on that tile, with `cells` from client/game/flightsim-world.json.
-export function runStreetKit({ W = 1280, H = 720, hour = 21, thresh = 12, shot = true, stand = true, yaw = 0, cx = 0.27, cy = 1.2, cz = 0.095, fov = 1, pitch = 0, people = 0, lapse = 0, level = 0, tall = 0, wide = false, real = null } = {}) {
+export function runStreetKit({ height = 0, W = 1280, H = 720, hour = 21, thresh = 12, shot = true, stand = true, yaw = 0, cx = 0.27, cy = 1.2, cz = 0.095, fov = 1, pitch = 0, people = 0, lapse = 0, level = 0, tall = 0, wide = false, real = null } = {}) {
   const holder = document.createElement('div');
   holder.style.cssText = 'position:fixed;left:-10000px;top:0';
   const el = document.createElement('canvas');
@@ -6710,7 +6712,7 @@ export function runStreetKit({ W = 1280, H = 720, hour = 21, thresh = 12, shot =
       if (rx === RR - 1 || rx === RR + (wide ? 2 : 1) || XS.some((x) => Math.abs(ry - x) === 1)) return { kind: 'land', biome: 'citycore', flr: tall, bt: 'office', is_building: 1, floors: 6 + ((rx * 7 + ry * 3) % 9) };
       return { kind: 'land', biome: 'citycore', flr: 0 };
     }));
-    const common = { worldBlend: 1, height: 0, propMul: 1.75, hour, weather: 'clear', speed: 0, resFloor: 1, map, heading: 0, mapCenter: { ...C } };
+    const common = { worldBlend: 1, height, propMul: 1.75, hour, weather: 'clear', speed: 0, resFloor: 1, map, heading: 0, mapCenter: { ...C } };
     const view = stand
       ? { ...common, external: true, hideOwnShip: true, phase: 'cruise', mapOffset: { x: 0, y: 0 }, acX: C.x, acY: C.y, airport: 'default',
           freeCam: { x: cx, y: cy, z: cz, yaw, pitch, roll: 0, fov } }
