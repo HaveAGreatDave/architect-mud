@@ -34814,6 +34814,9 @@ function drawStreetKitPass(ctx, cam, v, map, R, wcx, wcy, night, now, FAR, sun, 
     if (f + (cam.fwdOff || 0) <= VISIBLE_NEAR_F - 1 || f > FAR) continue;
     const alpha = clamp((FAR - f) / 5, 0, 1) * (v.worldBlend ?? 1);
     if (alpha <= 0.03) continue;
+    // Off the side of the canvas, as the buildings and the ground's dressing are. Two tiles wide, for a
+    // bridge's reach past its own tile, and the bank's pad, as sideCull has.
+    if (TUNE.frustum && offCanvasLaterally(cam, dx, dy, _frameW, 2, FRUSTUM_PAD_PX + _frameBankPad)) continue;
     const place = kitPlace(at, rx, ry, wide);
     if (!place) continue;
     const wx = Math.round((rx - R) + wcx), wy = Math.round((ry - R) + wcy);
@@ -53531,7 +53534,7 @@ function armReplay(e, ox, oy, cam, census, ctx, now, retain = true, cx = 0, cy =
   if (bx || by) {
     const seen = new Set();
     for (const q of e.rec.ba) for (const p of q.p) if (!seen.has(p)) { seen.add(p); p[0] += bx; p[1] += by; }
-    e.rec.ba = e.rec.ba.slice(); e.cx = cx; e.cy = cy;
+    e.rec.ba = e.rec.ba.slice(); e.rec.baSplit = null; e.cx = cx; e.cy = cy;
   }
   if (fade !== 1) { armFadePut(e, fade, census, cam); armKeepStats.replayed++; return true; }
   const retainOn = TUNE.glRetain !== 0 && retain;
@@ -53541,9 +53544,18 @@ function armReplay(e, ox, oy, cam, census, ctx, now, retain = true, cx = 0, cy =
     for (let i = 0; i < recs.length; i++) sink.push(recs[i]);
   };
   put(SPRITE_SINK, e.rec.sp); put(STROKE_SINK, e.rec.st); put(DECAL_SINK, e.rec.de);
-  // A mark's faces are never a retained group: its metals are smoothed against their neighbours on
-  // the stream (gl/solids.js smooth), which a group never is (markKept).
-  if (BAY_SINK && e.rec.ba.length) { if (retainOn && !ARM_MARK) bayGroup(e.rec.ba); else for (const q of e.rec.ba) BAY_SINK.push(q); }
+  // A mark's metals (`m`) are smoothed against their neighbours on the stream (gl/solids.js smooth),
+  // and its film is drawn as its own range, so neither can be a retained group (markKept). The rest of
+  // it can. ⚠ THE STREET KIT IS NEARLY ALL "THE REST": its metal is a `tex` code with no `m`. Streamed,
+  // every street tile in the window wrote every face every frame: 7.9M floats a Halcyon cockpit frame.
+  if (BAY_SINK && e.rec.ba.length) {
+    if (retainOn && !ARM_MARK) bayGroup(e.rec.ba);
+    else if (retainOn) {
+      const S = e.rec.baSplit || (e.rec.baSplit = { plain: e.rec.ba.filter((q) => !q.m && !q.film), rest: e.rec.ba.filter((q) => q.m || q.film) });
+      if (S.plain.length) bayGroup(S.plain);
+      for (const q of S.rest) BAY_SINK.push(q);
+    } else for (const q of e.rec.ba) BAY_SINK.push(q);
+  }
   // glowPool's census step, as it ran it: the same projection, the same near test and size.
   if (census && RAIN_LIGHTS) for (const r of e.rec.rain) {
     const g = cam.proj(r[0], r[1], r[2]); if (g.f <= 0.12) continue;
@@ -53706,8 +53718,8 @@ function armFadeKept(ctx, cam, it, fh, now, run, e, ox, oy, pose) {
 // drawTypeModelKept as a building does, so it's detected rather than assumed: two probes, the clock
 // tests, rechecks, and live if it does anything a replay can't. `dynamic` (the lock's end walls,
 // eye, collar and studs; the AA's guns, radar and lamps; the statue's water) runs every frame.
-// ⚠ A MARK'S FACES STREAM, they never go as a retained group: the lock's and the statue's copper
-// are metals, smoothed against their neighbours every frame (ARM_MARK in armReplay).
+// ⚠ A MARK'S METALS AND FILM STREAM, never as a retained group: the lock's and the statue's copper
+// are smoothed against their neighbours every frame. Its other faces are a group (ARM_MARK in armReplay).
 // ⚠ AND ITS KEPT ENTRY IS NOT ITS CELL'S. A lot wall stands on a building's tile, which has a kept
 // entry of its own, so a mark is filed under a stand-in object per cell (MARK_CELL).
 let ARM_MARK = false;
