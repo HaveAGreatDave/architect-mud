@@ -28,9 +28,12 @@ dirt of Old Coldwater, and four bridges stack over the street by class.
 
 - **Condition falls from west to east across the city** (David, 2026-11-04, replacing the brief's
   per-district table). `regions.street_gradient` gives the region's west and east columns and its south
-  edge, and the columns between split into five equal bands: 886-894 core, 895-902 middle ring, 903-910
-  worn, 911-919 unmaintained, 920-926 dirt. A road past `south` has left the city and takes no kit, which
-  keeps it off the highway beyond the South Gate.
+  edge, and the columns between split into bands a fifth wide: 886-894 core, 895-902 middle ring, 903-910
+  worn, 911-926 unmaintained. A road past `south` has left the city and takes no kit, which keeps it off
+  the highway beyond the South Gate.
+- **The dirt is the south-east corner only** (David, 2026-11-04). It goes by district, not by column: a
+  road in one of the gradient's `dirt_districts` is dirt, and Coldwater's list is `slum`. The east side
+  north of Old Coldwater stays unmaintained, however far east it runs.
 - **Prices are whole credits.** ₵1 a strip ride. Never "CR".
 - **The dirt corner is free.** Old Coldwater carries no words, so there's nowhere to post a price.
 - **No kiosk.** You come back at the clone vats, as now. David took the respawn kiosk out on 2026-11-04.
@@ -55,8 +58,7 @@ and a material and the static part is kept (`markKept`), so it needs `marksGPU`.
 **Which tiles.** A road tile in a region with a gradient: the server ships its level as `sc` on the
 surface cell (`deriveSurfaceCell` in plugins/flight/state.js), and a region without one has no kit.
 Curved, marked and building tiles take no kit, and neither does a road three or more tiles wide. A dust
-road takes it only at the dirt level. That's 285 tiles: 70 core, 67 middle, 61 worn, 44 unmaintained and
-43 dirt.
+road takes it only at the dirt level. That's 285 tiles: 70 core, 67 middle, 61 worn and 87 unmaintained.
 
 ⚠ **Nothing in Old Coldwater is a road.** Its lanes are `dirt` terrain and `sc` is only set on a road, so
 the dirt level has no tiles today. It's built and tested, and it's what a road painted into that

@@ -1814,13 +1814,15 @@ export function deriveSurfaceCell(cell, x, y, at = surfaceAt, live = true) {
   // How far gone a worn road is (0..1, plugins/trucking/corridor.js conditionAt). Absent on every
   // road that never set it, which keeps the one worn look it always had.
   const rc = Number.isFinite(cell.flags?.road_cond) ? cell.flags.road_cond : undefined;
-  // `sc`: the street kit's condition on a road (docs/proposals/coldwater-streets.md): 0 core to 4
-  // dirt, falling across the region from west to east in five equal bands of columns
-  // (`regions.street_gradient`). A region with no gradient has no street kit, and a road past the
-  // gradient's `south` edge has left the city.
+  // `sc`: the street kit's condition on a road (docs/proposals/coldwater-streets.md): 0 core to 3
+  // unmaintained, falling across the region from west to east in bands a fifth of its columns wide
+  // (`regions.street_gradient`), the last two bands alike. 4, the dirt, goes by district and not by
+  // column: only a road in one of the gradient's `dirt_districts` is dirt. A region with no gradient
+  // has no street kit, and a road past the gradient's `south` edge has left the city.
   const grad = road ? getRegion(cell.flags?.region_id)?.street_gradient : null;
   const sc = grad && !(y > grad.south)
-    ? Math.max(0, Math.min(4, Math.floor((x - grad.west) / (grad.east - grad.west + 1) * 5)))
+    ? (grad.dirt_districts?.includes(cell.flags?.district) ? 4
+      : Math.max(0, Math.min(3, Math.floor((x - grad.west) / (grad.east - grad.west + 1) * 5))))
     : undefined;
   // A BERTH'S TWO BEARINGS, and they are the whole of what an author writes: which way the open
   // water lies (a hull's bow points up it, and it is the way she comes and goes) and which side

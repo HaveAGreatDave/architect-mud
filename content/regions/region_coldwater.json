@@ -6,6 +6,9 @@
   "id": "region_coldwater",
   "name": "Coldwater",
   "street_gradient": {
+    "dirt_districts": [
+      "slum"
+    ],
     "east": 926,
     "south": 923,
     "west": 886

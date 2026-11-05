@@ -2099,6 +2099,13 @@ async function regressBody({ run, check, getPlayer }) {
     const { surfaceAt, deriveSurfaceCell } = await import('./state.js');
     const der = (x, y) => { const c = surfaceAt(x, y); return c ? deriveSurfaceCell(c, x, y, surfaceAt) : null; };
 
+    // THE DIRT IS THE SLUM'S (docs/proposals/coldwater-streets.md). Condition falls by column, but
+    // the far east of the city stops at unmaintained: Ironside and Kessler aren't Old Coldwater.
+    check('Ironside Street, at the east end of the gradient, is unmaintained and not dirt', der(919, 905)?.sc === 3, der(919, 905)?.sc);
+    check('Kessler Street, at the east end of the gradient, is unmaintained and not dirt', der(925, 913)?.sc === 3, der(925, 913)?.sc);
+    const slumRoad = { flags: { terrain: 'road', region_id: 'region_coldwater', district: 'slum' } };
+    check('a road painted into the slum is dirt', deriveSurfaceCell(slumRoad, 923, 916, surfaceAt).sc === 4);
+
     // The Reach, north end → south end. Buzzard Field's hangar sits BESIDE the strip (910,1042),
     // which is the layout that once made a clean landing read as off-field — see the ⚠ in the
     // `land` handler. The strip itself is x=909.
