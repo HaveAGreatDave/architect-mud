@@ -2,14 +2,14 @@
   "ambient_events": [],
   "ambient_theme": "forest",
   "color": "#b5744a",
-  "description": "The corner of the estate, where the Curtain turns along the wall. Through the light the Glacis road runs south, small and straight.",
+  "description": "Grass to the knee over ground that was outside the wall not long ago. Old tyre ruts run through it and stop.",
   "exits": {
+    "east": "zone_district_914_922",
     "north": "zone_district_913_925",
     "south": "zone_district_913_923",
     "west": "zone_district_912_926"
   },
   "flags": {
-    "curtain": true,
     "district": "halcyon_fields",
     "region_id": "region_coldwater",
     "terrain": "grass"

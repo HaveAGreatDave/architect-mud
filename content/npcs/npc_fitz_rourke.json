@@ -126,7 +126,7 @@
     "He pumps a zigzag of mustard down a frank in one stroke.",
     "He taps the tongs together twice, which seems to mean next."
   ],
-  "description": "A tall, stooped man in a paper hat and a striped apron, his sleeves rolled to the elbow and a pair of tongs in one hand at all times. He turns the franks to the crowd noise from next door.",
+  "description": "A tall, stooped man in a paper hat and a striped apron, his sleeves rolled to the elbow and a pair of tongs in one hand at all times. He turns the franks to the crowd noise from across the road.",
   "dialogue_tree": {
     "bye": {
       "options": [],
@@ -139,7 +139,7 @@
           "next": "root"
         }
       ],
-      "text": "\"This plot was glass and a lobby with nobody in it.\" He waves the tongs at the boulevard. \"The crowd walked past it twice a week, three times, and nobody sold them a thing. Now somebody does.\""
+      "text": "\"This plot was glass and a lobby with nobody in it.\" He waves the tongs at the street. \"The crowd walked past it twice a week, three times, and nobody sold them a thing. Now somebody does.\""
     },
     "ray": {
       "options": [
@@ -175,7 +175,7 @@
       "text": "\"Frank or sausage?\" The tongs are already moving.",
       "text_by_relation": {
         "familiar": "\"Two franks, mustard, no onion.\" It is in a boat before you finish the nod.",
-        "first": "The man behind the hatch clicks his tongs at you.\n\n\"Fitz. Fitz Rourke. Franks, sausages, something to wash them down.\" He nods at the gate next door. \"Cheaper out here than in there, and I don't make you sign anything.\"",
+        "first": "The man behind the hatch clicks his tongs at you.\n\n\"Fitz. Fitz Rourke. Franks, sausages, something to wash them down.\" He nods at the gate across the road. \"Cheaper out here than in there, and I don't make you sign anything.\"",
         "known": "\"You again. Mustard?\""
       }
     }

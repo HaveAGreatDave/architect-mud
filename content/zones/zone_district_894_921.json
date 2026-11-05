@@ -1,10 +1,11 @@
 {
   "ambient_events": [],
   "ambient_theme": "city",
-  "description": "The middle of Sorrel Way, under the Hughson Coliseum's south wall: limestone fins and lit windows along the north side, and the estate's chrome along the south. Ticket stubs collect in the gutter.",
+  "description": "Sorrel Way at the foot of Grandstand Walk, with the Coliseum's main gate up the walk to the north and Fitz's Franks on the south side. Crowd barriers are chained to the lamp posts.",
   "exits": {
     "east": "zone_district_895_921",
-    "south": "zone_district_892_911",
+    "north": "zone_ballpark_892_914",
+    "south": "zone_parkside_894_911",
     "west": "zone_district_893_921"
   },
   "flags": {

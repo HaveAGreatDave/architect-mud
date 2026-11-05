@@ -1,29 +1,24 @@
 {
-  "ambient_events": [
-    "Somebody cuts across the grass towards the gates with a folded scorecard.",
-    "A dog runs a long circle round nothing and comes back.",
-    "The wind brings over the smell of frying onions from Sorrel Way."
-  ],
-  "ambient_theme": "urban",
-  "color": "#8ba36a",
-  "description": "Flat grass worn thin along the line people walk from the boulevard to the gates. Nobody has put a path in.",
+  "ambient_events": [],
+  "ambient_theme": "city",
+  "description": "Hughson Way outside GATE C of the Hughson Coliseum, bronze doors in a stepped limestone front on the west side. The balconies of 11 Hughson Way stand over the north side.",
   "exits": {
     "east": "zone_ballpark_897_914",
-    "north": "zone_ballpark_896_913",
     "south": "zone_ballpark_896_915",
-    "west": "zone_ballpark_895_914"
+    "west": "zone_ballpark_897_916"
   },
   "flags": {
     "district": "halcyon_fields",
     "region_id": "region_coldwater",
+    "scavenging_table_id": "scav_roadside_junk",
     "street_life": true,
-    "terrain": "grass"
+    "terrain": "road"
   },
   "grid_x": 896,
   "grid_y": 914,
   "grid_z": 0,
   "id": "zone_ballpark_896_914",
   "map_id": "map_world",
-  "name": "Hughson Green",
+  "name": "Hughson Way",
   "parent_zone": null
 }

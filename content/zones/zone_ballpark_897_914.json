@@ -1,7 +1,7 @@
 {
   "ambient_events": [],
   "ambient_theme": "city",
-  "description": "Hughson Way, two lanes and a kerb with the lot either side of it. Crowd barriers are stacked against a lamp post, ready for game night.",
+  "description": "Hughson Way, open on the west side to the road outside GATE C. Sorrel Way goes off to the east from here, past the Box Office.",
   "exits": {
     "east": "zone_district_898_914",
     "north": "zone_ballpark_897_913",

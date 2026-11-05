@@ -1,7 +1,7 @@
 {
   "ambient_events": [],
   "ambient_theme": "city",
-  "description": "Halcyon Boulevard where Vetch Mews meets it, with Hughson Green open along the south side and the Coliseum's dome past the far end of it.",
+  "description": "Halcyon Boulevard where Vetch Mews meets it, with Yarrow Lane going off south between the towers.",
   "exits": {
     "east": "zone_district_890_909",
     "north": "zone_district_889_908",

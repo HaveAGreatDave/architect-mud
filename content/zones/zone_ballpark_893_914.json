@@ -9,21 +9,21 @@
   "description": "Mown grass and one bench. Halcyon's towers stand round the edge of the green and stop there.",
   "exits": {
     "east": "zone_ballpark_894_914",
-    "north": "zone_ballpark_893_913",
-    "south": "zone_ballpark_893_915",
-    "west": "zone_ballpark_892_914"
+    "north": "zone_district_895_912"
   },
   "flags": {
     "district": "halcyon_fields",
     "region_id": "region_coldwater",
+    "set_aside": true,
+    "set_aside_from": "893,914",
     "street_life": true,
     "terrain": "grass"
   },
-  "grid_x": 893,
-  "grid_y": 914,
+  "grid_x": 1,
+  "grid_y": 3,
   "grid_z": 0,
   "id": "zone_ballpark_893_914",
-  "map_id": "map_world",
+  "map_id": "map_set_aside",
   "name": "Hughson Green",
   "parent_zone": null
 }

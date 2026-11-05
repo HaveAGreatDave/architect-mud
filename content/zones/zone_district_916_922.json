@@ -1,8 +1,8 @@
 {
   "ambient_events": [],
-  "ambient_theme": "wasteland",
-  "color": "#b5744a",
-  "description": "Rust-red hardpan, dead level. The cracks run in long lines and short ones, and the wind whistles through the deeper ones.",
+  "ambient_theme": "forest",
+  "color": "#8ba36a",
+  "description": "A row of pegs crosses the meadow. The string between them has gone, and the pegs lean.",
   "exits": {
     "east": "zone_district_917_922",
     "north": "zone_district_916_921",
@@ -10,16 +10,15 @@
     "west": "zone_district_915_922"
   },
   "flags": {
-    "district": "wilds",
-    "radiation": 30,
+    "district": "residential",
     "region_id": "region_coldwater",
-    "terrain": "redrock"
+    "terrain": "grass"
   },
   "grid_x": 916,
   "grid_y": 922,
   "grid_z": 0,
   "id": "zone_district_916_922",
   "map_id": "map_world",
-  "name": "Mesa Shelf",
+  "name": "Grasslands",
   "parent_zone": null
 }

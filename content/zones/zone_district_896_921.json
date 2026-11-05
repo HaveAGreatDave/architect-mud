@@ -1,11 +1,11 @@
 {
   "ambient_events": [],
   "ambient_theme": "city",
-  "description": "Sorrel Way outside the Hughson Coliseum's main gate, a stepped limestone frontispiece with the name in gilt over bronze doors. Cable covers run across the road in yellow rubber, feeding the floods. Crowd barriers are chained to the lamp posts.",
+  "description": "Sorrel Way, where Hughson Way comes down from the Coliseum. On the south side 2 Halcyon Boulevard stands back behind a bare forecourt.",
   "exits": {
     "east": "zone_district_897_921",
-    "north": "zone_ballpark_896_920",
-    "south": "zone_parkside_894_911",
+    "north": "zone_ballpark_892_920",
+    "south": "zone_district_892_911",
     "west": "zone_district_895_921"
   },
   "flags": {
@@ -20,6 +20,6 @@
   "grid_z": 0,
   "id": "zone_district_896_921",
   "map_id": "map_world",
-  "name": "Sorrel Way",
+  "name": "Hughson Way + Sorrel Way",
   "parent_zone": null
 }

@@ -5,7 +5,10 @@
 //
 // A set-aside building (flags.set_aside, on the holding map map_set_aside; see
 // docs/proposals/hughson-coliseum.md) has no way in or out, so anybody standing in one of its rooms
-// when it was moved is stranded, and so is anything on its floor. This finds every runtime row that
+// when it was moved is stranded, and so is anything on its floor. The same goes for a sealed tile on
+// Sir Charles's lot (`zone_ballpark_*`, `is_building` with no `facade`): the towers on the old car park
+// and green have no exits, so anybody who logged out there would come back inside one
+// (docs/proposals/hughson-towers.md). This finds every runtime row that
 // points into one, and moves it to the Hughson Coliseum's rotunda, which stands where the
 // Coliseum's block was set aside from:
 //   - players.current_zone, the room a player is standing in;
@@ -26,7 +29,8 @@ const TO = 'zone_hughson_rotunda';
 const { rows: zs } = await query(`
   SELECT z.id FROM zones z
    WHERE z.map_id = 'map_set_aside'
-      OR z.parent_zone IN (SELECT id FROM zones WHERE map_id = 'map_set_aside')`);
+      OR z.parent_zone IN (SELECT id FROM zones WHERE map_id = 'map_set_aside')
+      OR (z.id LIKE 'zone_ballpark_%' AND z.flags->>'is_building' = 'true' AND z.flags->>'facade' IS NULL)`);
 const ids = zs.map((r) => r.id);
 console.log(`${ids.length} set-aside zone(s)`);
 if (!ids.length) { await pool?.end?.(); process.exit(0); }

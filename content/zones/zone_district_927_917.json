@@ -1,7 +1,7 @@
 {
   "ambient_events": [],
   "ambient_theme": "residential",
-  "description": "The Curtain, close enough to touch. It makes no sound and throws no heat. Tents are pitched hard against it the length of the corner, where the ground is dry. Men coming in from the wastes walk back along the wall with meat or salvage, unweighed.",
+  "description": "The Curtain, close enough to touch. It makes no sound and throws no heat. Tents are pitched hard against it the length of the wall, where the ground is dry. Men coming in from the wastes walk back along the wall with meat or salvage, unweighed.",
   "exits": {
     "north": "zone_district_927_916",
     "south": "zone_district_927_918"

@@ -1,29 +1,23 @@
 {
-  "ambient_events": [
-    "Somebody cuts across the grass towards the gates with a folded scorecard.",
-    "A dog runs a long circle round nothing and comes back.",
-    "The wind brings over the smell of frying onions from Sorrel Way."
-  ],
-  "ambient_theme": "urban",
-  "color": "#8ba36a",
-  "description": "Open grass behind the Hughson Coliseum, cut short. It's Sir Charles's ground, and the mowing comes out of the gate money.",
+  "ambient_events": [],
+  "ambient_theme": "city",
+  "description": "Burnet Walk, a narrow paved cut between the towers. The light gets down here for about an hour either side of noon.",
   "exits": {
     "east": "zone_ballpark_889_912",
-    "north": "zone_ballpark_888_911",
-    "south": "zone_ballpark_888_913",
     "west": "zone_ballpark_887_912"
   },
   "flags": {
     "district": "halcyon_fields",
     "region_id": "region_coldwater",
+    "scavenging_table_id": "scav_roadside_junk",
     "street_life": true,
-    "terrain": "grass"
+    "terrain": "road"
   },
   "grid_x": 888,
   "grid_y": 912,
   "grid_z": 0,
   "id": "zone_ballpark_888_912",
   "map_id": "map_world",
-  "name": "Hughson Green",
+  "name": "Burnet Walk",
   "parent_zone": null
 }

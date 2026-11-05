@@ -1,10 +1,9 @@
 {
   "ambient_events": [],
   "ambient_theme": "city",
-  "description": "Hughson Way, under the Coliseum's limestone wall: marble fins, tall bronze windows and a copper cornice, with the dome standing over them.",
+  "description": "Hughson Way, under the Coliseum's marble fins. The tall back of 7 Sorrel Way stands on the south side, and the road joins the east side of the park a few steps on.",
   "exits": {
-    "east": "zone_ballpark_896_915",
-    "north": "zone_ballpark_895_914",
+    "east": "zone_ballpark_892_919",
     "west": "zone_ballpark_894_915"
   },
   "flags": {
@@ -15,7 +14,7 @@
     "terrain": "road"
   },
   "grid_x": 895,
-  "grid_y": 915,
+  "grid_y": 919,
   "grid_z": 0,
   "id": "zone_ballpark_895_915",
   "map_id": "map_world",

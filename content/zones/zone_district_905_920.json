@@ -1,21 +1,27 @@
 {
-  "ambient_events": [],
-  "ambient_theme": "forest",
-  "color": "#8ba36a",
-  "description": "Long grass, gone to seed. A Halcyon board on two posts says the plot is sold, and a sticker under it says it's sold again.",
+  "ambient_events": [
+    "Somebody stops on the kerb to retie a shoe.",
+    "A street sweeper goes by on Sorrel Way with its brushes up.",
+    "A sparrow lands on the kerb, finds nothing and goes."
+  ],
+  "ambient_theme": "urban",
+  "color": "#8fd08a",
+  "description": "Four young trees on a mulch bed off Sorrel Way, between 1 and 15 Kerbstone Row, inside a timber edging.",
   "exits": {
     "south": "zone_district_905_921"
   },
   "flags": {
     "district": "halcyon_fields",
+    "park_feature": "grove",
     "region_id": "region_coldwater",
-    "terrain": "grass"
+    "street_life": true,
+    "terrain": "park"
   },
   "grid_x": 905,
   "grid_y": 920,
   "grid_z": 0,
   "id": "zone_district_905_920",
   "map_id": "map_world",
-  "name": "Grasslands",
+  "name": "Sorrel Gardens",
   "parent_zone": null
 }

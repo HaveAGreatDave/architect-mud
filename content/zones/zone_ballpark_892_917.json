@@ -1,12 +1,10 @@
 {
   "ambient_events": [],
   "ambient_theme": "city",
-  "description": "Hughson Way, under the Coliseum's limestone wall: marble fins, tall bronze windows and a copper cornice, with the dome standing over them.",
+  "description": "Hughson Way, under the Coliseum's east wall: marble fins, tall bronze windows and a copper cornice, with the dome standing over them. 21 Hughson Way comes down to the far kerb in terraces.",
   "exits": {
-    "east": "zone_ballpark_893_917",
     "north": "zone_ballpark_892_916",
-    "south": "zone_ballpark_892_918",
-    "west": "zone_ballpark_891_917"
+    "south": "zone_ballpark_892_918"
   },
   "flags": {
     "district": "halcyon_fields",
@@ -15,7 +13,7 @@
     "street_life": true,
     "terrain": "road"
   },
-  "grid_x": 892,
+  "grid_x": 896,
   "grid_y": 917,
   "grid_z": 0,
   "id": "zone_ballpark_892_917",

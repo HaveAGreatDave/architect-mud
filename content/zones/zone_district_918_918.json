@@ -1,7 +1,7 @@
 {
   "ambient_events": [],
   "ambient_theme": "city",
-  "description": "The Gate Road runs out here. Long Stay's gate is on the east side, and to the south there's nothing but the Curtain, humming across the road where the South Gate used to be.",
+  "description": "The Gate Road runs out here. Long Stay's gate is on the east side, and to the south there's rough meadow down to the Curtain, where the road used to end at the South Gate.",
   "exits": {
     "east": "zone_district_919_918",
     "north": "zone_district_918_917",

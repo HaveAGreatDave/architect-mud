@@ -1,12 +1,11 @@
 {
   "ambient_events": [],
   "ambient_theme": "city",
-  "description": "Hughson Way, two lanes and a kerb with the lot either side of it. Crowd barriers are stacked against a lamp post, ready for game night.",
+  "description": "Hughson Way, with Hughson Court on the west side and the Cart Yard on the east. Crowd barriers are stacked against a lamp post, ready for game night.",
   "exits": {
     "east": "zone_district_898_912",
     "north": "zone_ballpark_897_911",
-    "south": "zone_ballpark_897_913",
-    "west": "zone_ballpark_896_912"
+    "south": "zone_ballpark_897_913"
   },
   "flags": {
     "district": "halcyon_fields",

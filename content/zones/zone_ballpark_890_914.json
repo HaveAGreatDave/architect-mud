@@ -1,29 +1,23 @@
 {
-  "ambient_events": [
-    "Somebody cuts across the grass towards the gates with a folded scorecard.",
-    "A dog runs a long circle round nothing and comes back.",
-    "The wind brings over the smell of frying onions from Sorrel Way."
-  ],
+  "ambient_events": [],
   "ambient_theme": "urban",
-  "color": "#8ba36a",
-  "description": "Open grass behind the Hughson Coliseum, cut short. It's Sir Charles's ground, and the mowing comes out of the gate money.",
-  "exits": {
-    "east": "zone_ballpark_891_914",
-    "north": "zone_ballpark_890_913",
-    "south": "zone_ballpark_890_915",
-    "west": "zone_ballpark_889_914"
-  },
+  "description": "A string of glass bulges on a chrome spine. On a game night the crowd noise comes up the lane and you can see the residents move to the south side.",
+  "exits": {},
   "flags": {
+    "building_name": "8 Yarrow Lane",
+    "building_type": "bead_tower",
     "district": "halcyon_fields",
-    "region_id": "region_coldwater",
-    "street_life": true,
-    "terrain": "grass"
+    "entrance": "west",
+    "floors": 24,
+    "is_building": true,
+    "region_id": "region_coldwater"
   },
   "grid_x": 890,
   "grid_y": 914,
   "grid_z": 0,
   "id": "zone_ballpark_890_914",
   "map_id": "map_world",
-  "name": "Hughson Green",
+  "marker": "YC",
+  "name": "8 Yarrow Lane",
   "parent_zone": null
 }

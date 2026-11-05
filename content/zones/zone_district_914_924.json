@@ -5,7 +5,6 @@
   "description": "Red hardpan under a bleached sky. It's so flat that the horizon seems closer than it is.",
   "exits": {
     "east": "zone_district_915_924",
-    "north": "zone_district_914_923",
     "south": "zone_district_914_925",
     "west": "zone_district_913_920"
   },

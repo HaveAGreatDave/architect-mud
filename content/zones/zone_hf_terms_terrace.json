@@ -5,13 +5,13 @@
     "down": "zone_hf_terms_hall"
   },
   "flags": {
-    "building_name": "8 Vetch Mews",
+    "building_name": "2 Hughson Way",
     "building_type": "cascade_block",
     "floor": "stone",
     "is_building": true,
     "is_interior": true,
     "window": {
-      "description": "Glass from the deck to waist height the whole way along, through a milky film that softens the mews and the green beyond it into shapes. Wipe a hand across it and nothing changes, because the film is on the outside.",
+      "description": "Glass from the deck to waist height the whole way along, through a milky film that softens Hughson Way and the towers beyond it into shapes. Wipe a hand across it and nothing changes, because the film is on the outside.",
       "light": 0.7,
       "name": "the balustrade",
       "visibility": 0.4
@@ -23,6 +23,6 @@
   "grid_z": 0,
   "id": "zone_hf_terms_terrace",
   "map_id": "map_int_hf_terms",
-  "name": "8 Vetch Mews — The Second Terrace",
+  "name": "2 Hughson Way — The Second Terrace",
   "parent_zone": "zone_district_894_912"
 }

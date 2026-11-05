@@ -1,12 +1,11 @@
 {
   "ambient_events": [],
   "ambient_theme": "city",
-  "description": "Hughson Way, two lanes and a kerb with the lot either side of it. Crowd barriers are stacked against a lamp post, ready for game night.",
+  "description": "The top of Hughson Way, where it meets Halcyon Boulevard. The Land Office's hoarding stands over the west side, and Mulcahy's green neon shows on the east.",
   "exits": {
     "east": "zone_district_898_910",
     "north": "zone_district_891_908",
-    "south": "zone_ballpark_897_911",
-    "west": "zone_ballpark_896_910"
+    "south": "zone_ballpark_897_911"
   },
   "flags": {
     "district": "halcyon_fields",

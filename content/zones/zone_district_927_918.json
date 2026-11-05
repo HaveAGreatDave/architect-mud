@@ -1,7 +1,7 @@
 {
   "ambient_events": [],
   "ambient_theme": "residential",
-  "description": "The inside angle of the Curtain, where the south wall and the east wall meet and the hum of the two of them beats against each other slightly out of time. The light is good enough to read by. There is a bench.",
+  "description": "The Curtain used to turn here, from the east wall into the south one. It moved, and the name stayed. The light is good enough to read by. There is a bench.",
   "exits": {
     "north": "zone_district_927_917",
     "south": "zone_district_927_919",

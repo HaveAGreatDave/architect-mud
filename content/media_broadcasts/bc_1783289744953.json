@@ -3991,6 +3991,53 @@
               12
             ],
             "low": "concrete",
+            "tall": "glass",
+            "towers": {
+              "floors": [
+                24,
+                62
+              ],
+              "forms": [
+                "setback",
+                "taper",
+                "twist",
+                "twin",
+                "blade",
+                "bead"
+              ],
+              "from": 560,
+              "share": 0.62,
+              "styles": [
+                "glass",
+                "glass",
+                "chrome",
+                "chrome",
+                "stone"
+              ],
+              "to": 3400
+            },
+            "x": [
+              880,
+              914
+            ],
+            "y": [
+              895,
+              930
+            ]
+          },
+          {
+            "fill": [
+              "chrome",
+              "chrome",
+              "glass",
+              "glass",
+              "concrete"
+            ],
+            "floors": [
+              2,
+              12
+            ],
+            "low": "concrete",
             "tall": "glass"
           }
         ],
@@ -4069,18 +4116,28 @@
       "site": {
         "bearing": 315,
         "block": {
-          "x0": 893,
-          "x1": 897,
-          "y0": 916,
-          "y1": 920
+          "x0": 891,
+          "x1": 895,
+          "y0": 914,
+          "y1": 918
         },
         "camera_zones": [
           "zone_hughson_stands",
           "zone_hughson_nine"
         ],
         "ob_zone_id": "zone_hughson_pressbox",
-        "x": 896.61,
-        "y": 919.61
+        "set": {
+          "block": {
+            "x0": 887,
+            "x1": 897,
+            "y0": 910,
+            "y1": 920
+          },
+          "x": 894.86,
+          "y": 917.86
+        },
+        "x": 894.61,
+        "y": 917.61
       }
     }
   },

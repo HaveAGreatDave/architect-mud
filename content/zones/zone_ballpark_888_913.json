@@ -1,29 +1,23 @@
 {
-  "ambient_events": [
-    "Somebody cuts across the grass towards the gates with a folded scorecard.",
-    "A dog runs a long circle round nothing and comes back.",
-    "The wind brings over the smell of frying onions from Sorrel Way."
-  ],
+  "ambient_events": [],
   "ambient_theme": "urban",
-  "color": "#8ba36a",
-  "description": "Mown grass and one bench. Halcyon's towers stand round the edge of the green and stop there.",
-  "exits": {
-    "east": "zone_ballpark_889_913",
-    "north": "zone_ballpark_888_912",
-    "south": "zone_ballpark_888_914",
-    "west": "zone_ballpark_887_913"
-  },
+  "description": "Glazed bulges threaded on a chrome spine, pinched to a collar between each. Every flat is curved and no wardrobe in the city fits one.",
+  "exits": {},
   "flags": {
+    "building_name": "5 Yarrow Lane",
+    "building_type": "bead_tower",
     "district": "halcyon_fields",
-    "region_id": "region_coldwater",
-    "street_life": true,
-    "terrain": "grass"
+    "entrance": "east",
+    "floors": 26,
+    "is_building": true,
+    "region_id": "region_coldwater"
   },
   "grid_x": 888,
   "grid_y": 913,
   "grid_z": 0,
   "id": "zone_ballpark_888_913",
   "map_id": "map_world",
-  "name": "Hughson Green",
+  "marker": "Y3",
+  "name": "5 Yarrow Lane",
   "parent_zone": null
 }

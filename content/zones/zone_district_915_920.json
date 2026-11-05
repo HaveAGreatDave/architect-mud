@@ -1,24 +1,24 @@
 {
   "ambient_events": [],
-  "ambient_theme": "wasteland",
-  "color": "#8f9256",
-  "description": "Broken ground with a cover of low, brittle grey brush.",
+  "ambient_theme": "forest",
+  "color": "#8ba36a",
+  "description": "Open meadow, the grass long and silver-green. Survey stakes stand in it in rows, each one tied with a strip of orange tape.",
   "exits": {
     "east": "zone_district_916_920",
+    "north": "zone_district_915_919",
     "south": "zone_district_915_921",
     "west": "zone_district_914_920"
   },
   "flags": {
-    "district": "wilds",
-    "radiation": 25,
+    "district": "residential",
     "region_id": "region_coldwater",
-    "terrain": "redrock"
+    "terrain": "grass"
   },
   "grid_x": 915,
   "grid_y": 920,
   "grid_z": 0,
   "id": "zone_district_915_920",
   "map_id": "map_world",
-  "name": "Dead Scrub",
+  "name": "Grasslands",
   "parent_zone": null
 }

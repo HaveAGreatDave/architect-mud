@@ -321,6 +321,18 @@ export const NAMED_MODELS = {
   // Over the Coliseum's left-field wall, stepping down from the twin towers.
   '1halcyonboulevard':            { type: 'hf_beacon',    pal: 'ty_hft_glass', neon: '#7fd8ff' },
   '2halcyonboulevard':            { type: 'hf_skylink',   pal: 'ty_hft_glass', neon: '#bfe8ff' },
+  // The Hughson towers (docs/proposals/hughson-towers.md): the estate's silhouettes at new heights
+  // on the old car park and lawn, the ridge on the River Road and the rest falling toward the park.
+  '1riverroad':                   { type: 'hf_skylink',   pal: 'ty_hft_glass', neon: '#bfe8ff' },
+  '3riverroad':                   { type: 'hf_fluted',    pal: 'ty_hft_glass', neon: '#9fe0ff' },
+  '5riverroad':                   { type: 'hf_stepdrum',  pal: 'ty_hft_glass', neon: '#7fd8ff' },
+  '9riverroad':                   { type: 'hf_spindle',   pal: 'ty_hft_glass', neon: '#9fe0ff' },
+  '11riverroad':                  { type: 'hf_voidstack', pal: 'ty_hft_glass', neon: '#9fe0ff' },
+  '13riverroad':                  { type: 'hf_scurve',    pal: 'ty_hft_glass', neon: '#9fe0ff' },
+  '7yarrowlane':                  { type: 'hf_scarf',     pal: 'ty_hft_glass', neon: '#9fe0ff' },
+  '4yarrowlane':                  { type: 'hf_chamfer',   pal: 'ty_hft_glass', neon: '#7fd8ff' },
+  '6yarrowlane':                  { type: 'hf_lozenge',   pal: 'ty_hft_glass', neon: '#9fe0ff' },
+  '10yarrowlane':                 { type: 'hf_links',     pal: 'ty_hft_glass', neon: '#9fe0ff' },
   '7vetchmews':                   { type: 'hf_highsite',  pal: 'ty_hft_glass', neon: '#6fa8c8' },
   '10kettlelane':                 { type: 'hf_notch',     pal: 'ty_hft_glass', neon: '#9fe0ff' },
   '25kerbstonerow':               { type: 'hf_fan',       pal: 'ty_hft_glass', neon: '#9fe0ff' },
@@ -457,7 +469,7 @@ export const TYPE_MODEL = {
   ice_rink_plant_e:  { type: 'ice_rink_wing',     pal: 'ty_unit_brick', noKit: true, nave: 1, end: 'back', face: 'players' },
   // ── THE CHARLES B. HUGHSON COLISEUM, Deadball's park in Halcyon Fields (glass/models/coliseum.js) ──
   // 25 tiles, one arm (client/shared/coliseum-plan.js). `bc` and `br` are the tile's
-  // column and row in the block (887-897 by 910-920, from the north-west), and `facing` is the
+  // column and row in the block (891-895 by 914-918, from the north-west), and `facing` is the
   // entrance the tile was authored with, which the arm turns the park's coordinates by (see the ⚠ on
   // the frame in coliseum.js). Registered by type, never by name: all of them carry the park's name.
   ...Object.fromEntries(parkTiles().map((t) => [t.type, { type: 'ballpark', pal: 'ty_palais_stone', noKit: true, bc: t.bc, br: t.br, facing: t.facing }])),

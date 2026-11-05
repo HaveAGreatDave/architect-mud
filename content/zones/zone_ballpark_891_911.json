@@ -1,29 +1,23 @@
 {
-  "ambient_events": [
-    "Somebody cuts across the grass towards the gates with a folded scorecard.",
-    "A dog runs a long circle round nothing and comes back.",
-    "The wind brings over the smell of frying onions from Sorrel Way."
-  ],
+  "ambient_events": [],
   "ambient_theme": "urban",
-  "color": "#8ba36a",
-  "description": "Open grass behind the Hughson Coliseum, cut short. It's Sir Charles's ground, and the mowing comes out of the gate money.",
-  "exits": {
-    "east": "zone_ballpark_892_911",
-    "north": "zone_ballpark_891_910",
-    "south": "zone_ballpark_891_912",
-    "west": "zone_ballpark_890_911"
-  },
+  "description": "Masses of falling height stepping down to Hughson Way, twelve storeys at the back. Every terrace has one chair on it.",
+  "exits": {},
   "flags": {
+    "building_name": "15 Hughson Way",
+    "building_type": "cascade_block",
     "district": "halcyon_fields",
-    "region_id": "region_coldwater",
-    "street_life": true,
-    "terrain": "grass"
+    "entrance": "east",
+    "floors": 12,
+    "is_building": true,
+    "region_id": "region_coldwater"
   },
   "grid_x": 891,
   "grid_y": 911,
   "grid_z": 0,
   "id": "zone_ballpark_891_911",
   "map_id": "map_world",
-  "name": "Hughson Green",
+  "marker": "U2",
+  "name": "15 Hughson Way",
   "parent_zone": null
 }

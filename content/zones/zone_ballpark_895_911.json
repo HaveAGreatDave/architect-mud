@@ -1,29 +1,23 @@
 {
-  "ambient_events": [
-    "Somebody cuts across the grass towards the gates with a folded scorecard.",
-    "A dog runs a long circle round nothing and comes back.",
-    "The wind brings over the smell of frying onions from Sorrel Way."
-  ],
+  "ambient_events": [],
   "ambient_theme": "urban",
-  "color": "#8ba36a",
-  "description": "Open grass behind the Hughson Coliseum, cut short. It's Sir Charles's ground, and the mowing comes out of the gate money.",
-  "exits": {
-    "east": "zone_ballpark_896_911",
-    "north": "zone_ballpark_895_910",
-    "south": "zone_ballpark_895_912",
-    "west": "zone_ballpark_894_911"
-  },
+  "description": "A short chrome slab behind the Halcyon Institute, eight storeys. After dark the magenta from 9 Hughson Way's growing trays falls across its east wall.",
+  "exits": {},
   "flags": {
+    "building_name": "3 Hughson Court",
+    "building_type": "chrome_slab",
     "district": "halcyon_fields",
-    "region_id": "region_coldwater",
-    "street_life": true,
-    "terrain": "grass"
+    "entrance": "north",
+    "floors": 8,
+    "is_building": true,
+    "region_id": "region_coldwater"
   },
   "grid_x": 895,
   "grid_y": 911,
   "grid_z": 0,
   "id": "zone_ballpark_895_911",
   "map_id": "map_world",
-  "name": "Hughson Green",
+  "marker": "J3",
+  "name": "3 Hughson Court",
   "parent_zone": null
 }

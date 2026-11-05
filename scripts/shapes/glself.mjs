@@ -212,7 +212,10 @@ const KNOWN = new Map([
   // docs/proposals/halcyon-fields-infill.md): `hf_beacon`'s halo stem, `hf_skylink`'s link rails and
   // `hf_highsite`'s climbing crane are masts and lattice standing inside their own drums, the case
   // the reason below already names. Three models, 373 → 376; nothing else moved.
-  ['stroke', { budget: 648, why:
+  // 648 → 658 is `named:1riverroad`, one of the Hughson towers (docs/proposals/hughson-towers.md):
+  // `hf_skylink` a second time on the River Road, so its link rails count twice. Same strokes, same
+  // reason, and the rest of the rise had already been paid down since 648 was set.
+  ['stroke', { budget: 658, why:
    'masts, fire stairs, catwalk rails and guy wires are authored INSIDE the host they hang off — a '
    + 'mast at its tile centre is 0.44 tiles behind its own front wall — so `emitWire` still spends '
    + 'the full DECO_LIFT and they are pulled clear on purpose. The Dynamo lost its entire external '

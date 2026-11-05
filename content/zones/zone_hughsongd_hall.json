@@ -1,6 +1,6 @@
 {
   "ambient_theme": "indoors",
-  "description": "A tiled hall inside GATE D, with a turnstile and a bench under a faded fixture list. A ramp climbs east to the bleachers. The car park is through the doors behind you.",
+  "description": "A tiled hall inside GATE D, with a turnstile and a bench under a faded fixture list. A ramp climbs east to the bleachers. Hughson Way is through the doors behind you.",
   "exits": {
     "down": "zone_util_zone_hughsongd_hall",
     "east": "zone_hughsonbl_bleachers",

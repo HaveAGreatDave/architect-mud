@@ -5,7 +5,6 @@
   "description": "Flat red hardpan with a crazed surface. It rings faintly under a boot and gives nothing back but dust.",
   "exits": {
     "east": "zone_district_924_924",
-    "north": "zone_district_923_923",
     "south": "zone_district_923_925",
     "west": "zone_district_922_924"
   },

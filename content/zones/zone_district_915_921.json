@@ -1,8 +1,8 @@
 {
   "ambient_events": [],
-  "ambient_theme": "wasteland",
-  "color": "#b5744a",
-  "description": "Cracked hardpan stretches off in every direction, the color of old rust. The wind has scoured it bare of anything loose.",
+  "ambient_theme": "forest",
+  "color": "#8ba36a",
+  "description": "A row of pegs crosses the meadow. The string between them has gone, and the pegs lean.",
   "exits": {
     "east": "zone_district_916_921",
     "north": "zone_district_915_920",
@@ -10,16 +10,15 @@
     "west": "zone_district_914_921"
   },
   "flags": {
-    "district": "wilds",
-    "radiation": 30,
+    "district": "residential",
     "region_id": "region_coldwater",
-    "terrain": "redrock"
+    "terrain": "grass"
   },
   "grid_x": 915,
   "grid_y": 921,
   "grid_z": 0,
   "id": "zone_district_915_921",
   "map_id": "map_world",
-  "name": "The Rust Flats",
+  "name": "Grasslands",
   "parent_zone": null
 }

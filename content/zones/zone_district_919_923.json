@@ -1,26 +1,24 @@
 {
   "ambient_events": [],
-  "ambient_theme": "wasteland",
-  "color": "#8f9256",
-  "description": "Grey brush claws up from the cracks, low and dry and barely alive.",
+  "ambient_theme": "forest",
+  "color": "#8ba36a",
+  "description": "Rough grass at the wall. The Curtain seals the edge here, floor to sky, and the only way through is the South Gate.",
   "exits": {
     "east": "zone_district_920_923",
     "north": "zone_district_919_922",
-    "south": "zone_district_919_924",
     "west": "zone_district_918_923"
   },
   "flags": {
-    "district": "wilds",
-    "no_spawn": true,
-    "radiation": 25,
+    "curtain": true,
+    "district": "residential",
     "region_id": "region_coldwater",
-    "terrain": "scrub"
+    "terrain": "grass"
   },
   "grid_x": 919,
   "grid_y": 923,
   "grid_z": 0,
   "id": "zone_district_919_923",
   "map_id": "map_world",
-  "name": "Bonewood Flats",
+  "name": "Grasslands",
   "parent_zone": null
 }

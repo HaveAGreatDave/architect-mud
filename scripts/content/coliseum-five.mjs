@@ -28,7 +28,7 @@
  * interior is re-hung on its new door by its map's parent, the links in and out, and every room's
  * `world_exit_zone`.
  *
- * It refuses to run twice: once the venue's block starts at x 893 there's nothing to do.
+ * It refuses to run twice: once the venue's block is five tiles wide there's nothing to do.
  */
 import { createHash } from 'node:crypto';
 import fs from 'node:fs';
@@ -54,7 +54,8 @@ const pick = (list, x, y) => list[(x * 3 + y * 5) % list.length];
 const bc = store.get('media_broadcasts', BC);
 const site = bc?.sports_pools?.venue?.site;
 if (!site) throw new Error(`${BC} has no venue site`);
-if (site.block?.x0 === BLK.x0) { console.log('The park already stands on five tiles; nothing to do.'); process.exit(0); }
+// By its size, not its place: coliseum-west.mjs moved the block two tiles west afterwards.
+if (site.block && site.block.x1 - site.block.x0 === BLOCK - 1) { console.log('The park already stands on five tiles; nothing to do.'); process.exit(0); }
 const hp = (i) => Math.round(((i ? Y0 : X0) + HALF + HP[i] * SH) * 100) / 100;
 store.patch('media_broadcasts', BC, {
   sports_pools: { ...bc.sports_pools, venue: { ...bc.sports_pools.venue, site: { ...site, block: BLK, x: hp(0), y: hp(1) } } },

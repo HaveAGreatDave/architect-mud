@@ -11,9 +11,10 @@
 //   WIN       Sorrel Way and the east, where the grandstand stands against the wall: three lights
 //             and one step, under a bronze spandrel with a gilt chevron.
 //   WIN_OPEN  the outfield faces, the boulevard and the west: five lights and two steps, wider,
-//             from a lower sill up through where the spandrel was. The broadcast cuts their glass
-//             through the wall, so the city shows through them from the field, and from home plate
-//             the bleachers hide everything under about 40 ft, so the height is what shows the city.
+//             from a lower sill up through where the spandrel was. The map and the broadcast both
+//             cut these through the wall, so the city shows through them from the field, and from
+//             home plate the bleachers hide everything under about 40 ft, so the height is what
+//             shows the city. Both kinds stand on the wall's inside too.
 //
 // `mulls` are the mullions' offsets from the bay's middle, innermost first; `steps` the heads of the
 // lights outside each one, innermost first (the middle light's head is `z1`). Tiles: `t` along the
@@ -90,4 +91,22 @@ export function rayReach(deg, zPerT = 1, W = WIN) {
   const a = deg * Math.PI / 180, c = Math.cos(a), s = Math.sin(a);
   const side = W.mulls[0] - W.bar, room = (W.z1 - W.steps[0] - W.bar) / zPerT;
   return Math.min(Math.abs(c) > 1e-6 ? side / Math.abs(c) : Infinity, room / s) - SUN.inset;
+}
+
+// A face's wall between `z0` and `z1`, from -run to run along it, less the rectangles `holes`
+// ([t0, t1, z0, z1]), as rectangles: cut into courses at every hole's sill and head, and each
+// course into the runs between the holes that cross it.
+export function wallRects(run, holes, z0, z1) {
+  const zs = [...new Set([z0, z1, ...holes.flatMap((h) => [h[2], h[3]])])].filter((z) => z >= z0 && z <= z1).sort((a, b) => a - b);
+  const out = [];
+  for (let i = 0; i + 1 < zs.length; i++) {
+    const za = zs[i], zb = zs[i + 1];
+    let t = -run;
+    for (const h of holes.filter((h) => h[2] <= za && h[3] >= zb).sort((a, b) => a[0] - b[0])) {
+      if (h[0] > t) out.push([t, h[0], za, zb]);
+      t = Math.max(t, h[1]);
+    }
+    if (t < run) out.push([t, run, za, zb]);
+  }
+  return out;
 }

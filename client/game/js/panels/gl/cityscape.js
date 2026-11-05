@@ -88,7 +88,7 @@ export function buildCityscape(set, { art = null, outline = [] } = {}) {
   const T = set.T, EX = set.EX, EN = set.EN;
   const opaque = new Map(), glow = new Map();
   const B = (key, into = opaque) => { let b = into.get(key); if (!b) { b = createBatch(); into.set(key, b); } return b; };
-  const stats = { buildings: 0, missing: [], filler: 0, lamps: 0, beacons: 0, roads: 0, lit: 0 };
+  const stats = { buildings: 0, missing: [], filler: 0, towers: 0, lamps: 0, beacons: 0, roads: 0, lit: 0 };
   const G = -0.3;   // the city's ground, a hair under the park's
   const LP = [], LS = [], LB = [], LK = [];
 
@@ -221,8 +221,64 @@ export function buildCityscape(set, { art = null, outline = [] } = {}) {
     if (topY > 230 && !ownBeacons) { lamp([topAt[0], topY + 3, topAt[2]], topY > 600 ? 1.8 : 1.2, RED); stats.beacons++; }
   }
 
+  // ── the towers: a filler plot a quarter's art stands tall (composeSet), in one of TOWER_FORMS ──
+  const tower = (f) => {
+    const H = f.floors * 11.5, hw = f.w / 2, hd = f.d / 2, seed = f.seed;
+    const look = { seed, style: f.style, lit: STYLE_LIT[f.style] * (0.6 + 0.6 * seed), bay: BAY[f.style] || 12, floor: 11.5 };
+    const at = (a, c, ox = 0, oz = 0) => [f.at[0] + EX[0] * (a + ox) + EN[0] * (c + oz), 0, f.at[2] + EX[2] * (a + ox) + EN[2] * (c + oz)];
+    // a ring at height y: a rectangle (n 4) or an n-gon of half sizes w and d, turned `rot`, moved ox along
+    const ring = (w, d, y, { n = 4, rot = 0, ox = 0, oz = 0 } = {}) => {
+      const pts = Array.from({ length: n }, (_, i) => {
+        const t = (i + 0.5) / n * Math.PI * 2, k = n === 4 ? Math.SQRT2 : 1, a = Math.cos(t) * w * k, c = Math.sin(t) * d * k;
+        return at(a * Math.cos(rot) - c * Math.sin(rot), a * Math.sin(rot) + c * Math.cos(rot), ox, oz);
+      });
+      return { pts, y: y + G };
+    };
+    const mast = (y0, y1, ox = 0, oz = 0) => post(at(0, 0, ox, oz), y0 + G, y1 + G, 1.1, [0.09, 0.09, 0.1]);
+    let top = H, topAt = at(0, 0);
+    if (f.form === 'setback') {
+      // deco tiers, each stepping in, and a mast off the last
+      const tiers = [[1, 0.46], [0.8, 0.72], [0.6, 0.9], [0.36, 1]];
+      let y = 0;
+      for (const [s, t] of tiers) { loft([ring(hw * s, hd * s, y), ring(hw * s, hd * s, H * t)], look); y = H * t; }
+      top = H * 1.14; mast(H, top);
+    } else if (f.form === 'taper') {
+      // an eight-sided shaft drawing in to a needle
+      const rs = [[0, 1], [0.4, 0.9], [0.72, 0.68], [0.9, 0.4], [1, 0.05]];
+      loft(rs.map(([t, s]) => ring(hw * s, hd * s, H * t, { n: 8 })), look);
+    } else if (f.form === 'twist') {
+      // the plan turns as it climbs, as the quarter's torque towers do
+      const turn = (seed < 0.5 ? -1 : 1) * 1.25;
+      loft(Array.from({ length: 11 }, (_, i) => { const t = i / 10, s = 1 - 0.2 * t; return ring(hw * s, hd * s, H * t, { rot: turn * t }); }), look);
+    } else if (f.form === 'twin') {
+      // two slabs of unequal height with a bridge between them
+      const off = hw * 0.62, w = hw * 0.42;
+      loft([ring(w, hd, 0, { ox: -off }), ring(w, hd, H, { ox: -off })], look);
+      loft([ring(w, hd, 0, { ox: off }), ring(w, hd, H * 0.82, { ox: off })], look);
+      loft([ring(off, hd * 0.5, H * 0.62), ring(off, hd * 0.5, H * 0.66)], look);
+      topAt = at(0, 0, -off);
+    } else if (f.form === 'blade') {
+      // a wedge, its top drawn to one edge, as the quarter's glass prisms are
+      const sg = seed < 0.5 ? -1 : 1;
+      loft([ring(hw, hd, 0), ring(hw, hd, H * 0.55), ring(hw * 0.1, hd, H, { ox: sg * hw * 0.9 })], look);
+      topAt = at(0, 0, sg * hw * 0.9);
+    } else {
+      // stacked rings, drawn in at each neck, as the quarter's bead towers are
+      const beads = 6, rs = [];
+      for (let i = 0; i < beads; i++) {
+        const y0 = H * i / beads, y1 = H * (i + 1) / beads, s = 1 - 0.3 * i / beads;
+        rs.push(ring(hw * s * 0.7, hd * s * 0.7, y0, { n: 12 }), ring(hw * s, hd * s, y0 + (y1 - y0) * 0.5, { n: 12 }));
+      }
+      rs.push(ring(hw * 0.46, hd * 0.46, H, { n: 12 }));
+      loft(rs, look);
+    }
+    if (top + G > 230) { lamp([topAt[0], top + G + 3, topAt[2]], top > 600 ? 1.8 : 1.2, RED); stats.beacons++; }
+    stats.towers++;
+  };
+
   // ── the filler ──
   for (const f of set.fill) {
+    if (f.form) { tower(f); continue; }
     const h = f.floors * 11.5, hw = f.w / 2, hd = f.d / 2;
     const pts = [[-hw, -hd], [hw, -hd], [hw, hd], [-hw, hd]].map(([a, c]) => [f.at[0] + EX[0] * a + EN[0] * c, 0, f.at[2] + EX[2] * a + EN[2] * c]);
     loft([{ pts, y: G }, { pts, y: h + G }], { seed: f.seed, style: f.style, lit: STYLE_LIT[f.style] * (0.6 + 0.6 * f.seed), bay: BAY[f.style] || 12, floor: 11.5 });

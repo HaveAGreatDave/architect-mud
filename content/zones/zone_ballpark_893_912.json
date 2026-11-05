@@ -7,23 +7,20 @@
   "ambient_theme": "urban",
   "color": "#8ba36a",
   "description": "The green, level from the boulevard to Hughson Way. On a game night people bring blankets and listen to the crowd through the walls.",
-  "exits": {
-    "east": "zone_ballpark_894_912",
-    "north": "zone_ballpark_893_911",
-    "south": "zone_ballpark_893_913",
-    "west": "zone_ballpark_892_912"
-  },
+  "exits": {},
   "flags": {
     "district": "halcyon_fields",
     "region_id": "region_coldwater",
+    "set_aside": true,
+    "set_aside_from": "893,912",
     "street_life": true,
     "terrain": "grass"
   },
-  "grid_x": 893,
-  "grid_y": 912,
+  "grid_x": 3,
+  "grid_y": 9,
   "grid_z": 0,
   "id": "zone_ballpark_893_912",
-  "map_id": "map_world",
+  "map_id": "map_set_aside",
   "name": "Hughson Green",
   "parent_zone": null
 }

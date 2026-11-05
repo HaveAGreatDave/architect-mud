@@ -2,14 +2,14 @@
   "ambient_events": [],
   "ambient_theme": "forest",
   "color": "#8ba36a",
-  "description": "Grass has the end of the Gate Road, the tarmac broken up under it and going nowhere. There's a square of scorched rockcrete where the South Gate stood before it moved west to Meltwater Row, and the sawn-off stumps of two turret masts. The Architect's Curtain seals the edge here: a floor-to-sky sheet of humming hard light. There's no way through but the South Gate.",
+  "description": "Grass has the end of the Gate Road, the tarmac broken up under it and going nowhere. There's a square of scorched rockcrete where the South Gate stood before it moved west to Meltwater Row, and the sawn-off stumps of two turret masts.",
   "exits": {
     "east": "zone_district_919_919",
     "north": "zone_district_918_918",
+    "south": "zone_district_918_920",
     "west": "zone_district_917_919"
   },
   "flags": {
-    "curtain": true,
     "district": "wasteland",
     "region_id": "region_coldwater",
     "terrain": "grass"

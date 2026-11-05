@@ -1,24 +1,24 @@
 {
   "ambient_events": [],
-  "ambient_theme": "wasteland",
-  "description": "The land past the glacis goes to rust. Cracked red hardpan runs flat to a shimmer of heat, dry-veined with old runoff that dried orange decades ago. Nothing moves and nothing grows out here; there's wind hissing over stone and little else to hear. A Geiger tick you can almost feel prickles across your skin. It looks dead. It isn't.",
+  "ambient_theme": "forest",
+  "color": "#8ba36a",
+  "description": "Grass along the foot of the Curtain, the hard light humming a few feet off. The waste beyond it is red and flat to the hills.",
   "exits": {
     "east": "zone_district_919_923",
     "north": "zone_district_918_922",
-    "south": "zone_district_918_924",
     "west": "zone_district_917_923"
   },
   "flags": {
-    "district": "wilds",
-    "radiation": 28,
+    "curtain": true,
+    "district": "residential",
     "region_id": "region_coldwater",
-    "terrain": "redrock"
+    "terrain": "grass"
   },
   "grid_x": 918,
   "grid_y": 923,
   "grid_z": 0,
   "id": "zone_district_918_923",
   "map_id": "map_world",
-  "name": "Red Hardpan",
+  "name": "Grasslands",
   "parent_zone": null
 }

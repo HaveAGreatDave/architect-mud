@@ -14,6 +14,7 @@
 // the venue (venue.js), and the shot is placed off the site's frame. Returns null with no WebGL2.
 
 import { composeSet, mapAxes, SET_TILE } from '../../../../shared/city-set.js';
+import { setSite } from '../../../../shared/skyline-manifest.js';
 import { buildCityscape, cityShape, FACADE_GLSL, STREET_GLSL, LIGHT_STRIDE } from './cityscape.js';
 import { STRIDE, MAT, createBatch, quad } from './ballpark-mesh.js';
 import { shotMatrices, inv4, approachShot, shotAt } from '../diamond/camera.js';
@@ -110,7 +111,7 @@ function program(gl, vs, fs) {
 // The set and its geometry for a venue, with the venue's own tiles drawn from their shapes and the
 // goose on the tallest of them. Pure (no GL), so a gate can build it in node.
 export function buildApproach(venue) {
-  const site = venue?.site;
+  const site = setSite(venue?.site);
   if (!site || !venue.skyline) return null;
   const T = SET_TILE, { EX, EN } = mapAxes(site.bearing), sx = Number(site.x), sy = Number(site.y);
   const blk = site.block || { x0: Math.floor(sx), x1: Math.floor(sx), y0: Math.floor(sy), y1: Math.floor(sy) };

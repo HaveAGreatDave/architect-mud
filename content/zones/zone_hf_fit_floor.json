@@ -1,6 +1,6 @@
 {
   "ambient_theme": "indoors",
-  "description": "A long room under the first terrace with the machines in ranks facing the glass, all of them the same make, all of them new enough that the rubber still smells. Two thirds of them have never been used. The glass looks out at Vetch Green, which means the view from every machine is of six birches and a bin, and that is genuinely the best view from a gym in this city.",
+  "description": "A long room under the first terrace with the machines in ranks facing the glass, all of them the same make, all of them new enough that the rubber still smells. Two thirds of them have never been used. The glass looks north across Hughson Way, so every machine faces the Coliseum's limestone wall.",
   "exits": {
     "down": "zone_util_zone_hf_fit_floor",
     "south": "zone_district_897_913",
@@ -13,7 +13,7 @@
     "is_building": true,
     "is_interior": true,
     "window": {
-      "description": "Floor to ceiling the length of the room, with the underside of the terrace above cutting the sky off at the top of the frame. Vetch Green fills the whole of it.",
+      "description": "Floor to ceiling the length of the room, with the underside of the terrace above cutting the sky off at the top of the frame. The Coliseum's south wall fills the whole of it.",
       "light": 0.75,
       "name": "the terrace glazing",
       "visibility": 0.8

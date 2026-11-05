@@ -1,29 +1,23 @@
 {
-  "ambient_events": [
-    "Somebody cuts across the grass towards the gates with a folded scorecard.",
-    "A dog runs a long circle round nothing and comes back.",
-    "The wind brings over the smell of frying onions from Sorrel Way."
-  ],
+  "ambient_events": [],
   "ambient_theme": "urban",
-  "color": "#8ba36a",
-  "description": "The green, level from the boulevard to Hughson Way. On a game night people bring blankets and listen to the crowd through the walls.",
-  "exits": {
-    "east": "zone_ballpark_891_913",
-    "north": "zone_ballpark_890_912",
-    "south": "zone_ballpark_890_914",
-    "west": "zone_ballpark_889_913"
-  },
+  "description": "A long glass lozenge on its end, thirty storeys, rounded at both ends as if it might be rolled somewhere. The plaza in front of it is the width of a doormat.",
+  "exits": {},
   "flags": {
+    "building_name": "6 Yarrow Lane",
+    "building_type": "chrome_tower",
     "district": "halcyon_fields",
-    "region_id": "region_coldwater",
-    "street_life": true,
-    "terrain": "grass"
+    "entrance": "west",
+    "floors": 30,
+    "is_building": true,
+    "region_id": "region_coldwater"
   },
   "grid_x": 890,
   "grid_y": 913,
   "grid_z": 0,
   "id": "zone_ballpark_890_913",
   "map_id": "map_world",
-  "name": "Hughson Green",
+  "marker": "YB",
+  "name": "6 Yarrow Lane",
   "parent_zone": null
 }

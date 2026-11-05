@@ -1,6 +1,6 @@
 {
   "ambient_theme": "indoors",
-  "description": "A white-tiled room with a steel counter across it and a serving hatch onto the boulevard. Mustard and relish stand in pump jars, the steam cabinet ticks, and a menu board hangs over the griddle.",
+  "description": "A white-tiled room with a steel counter across it and a serving hatch onto Sorrel Way. Mustard and relish stand in pump jars, the steam cabinet ticks, and a menu board hangs over the griddle.",
   "exits": {
     "down": "zone_util_zone_fitzfranks_counter",
     "north": "zone_parkside_894_911",

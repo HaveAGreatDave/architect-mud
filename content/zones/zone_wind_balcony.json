@@ -1,11 +1,11 @@
 {
   "ambient_theme": "indoors",
-  "description": "A deep balcony the full width of the building, open to the south, with eight steamer chairs along it and a low white rail. From here the quarter reads as what it is: a new road, a hoarding, three buildings, and a great deal of grass going down to a wall of light. It is quiet enough that you can hear the wall.",
+  "description": "A deep balcony the full width of the building, open to the south, with eight steamer chairs along it and a low white rail. Below it is Hughson Way, and across the road the Coliseum's limestone wall with the dome over it. On a game night you can hear the organ from here.",
   "exits": {
     "north": "zone_wind_day"
   },
   "flags": {
-    "building_name": "5 Kettle Lane",
+    "building_name": "11 Hughson Way",
     "building_type": "hydro",
     "floor": "tile",
     "is_building": true,
@@ -17,6 +17,6 @@
   "grid_z": 0,
   "id": "zone_wind_balcony",
   "map_id": "map_int_wind",
-  "name": "5 Kettle Lane — The Balcony",
+  "name": "11 Hughson Way — The Balcony",
   "parent_zone": "zone_district_898_913"
 }

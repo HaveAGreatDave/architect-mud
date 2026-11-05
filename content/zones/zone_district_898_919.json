@@ -1,22 +1,28 @@
 {
-  "ambient_events": [],
-  "ambient_theme": "forest",
-  "color": "#8ba36a",
-  "description": "A stretch of hardy, knee-high grass gone silver-green and gnawed short by whatever still grazes out here. The wind moves through it in long slow waves. Something rustles, then goes very still.",
+  "ambient_events": [
+    "Somebody stops on the kerb to retie a shoe.",
+    "A street sweeper goes by on Sorrel Way with its brushes up.",
+    "A sparrow lands on the kerb, finds nothing and goes."
+  ],
+  "ambient_theme": "urban",
+  "color": "#8fd08a",
+  "description": "A kept corner where Windrow Lane meets Kettle Lane, behind Kimble's: a stone-kerbed flowerbed, a clipped hedge and an urn. The back of 25 Hughson Way stands over it.",
   "exits": {
     "east": "zone_district_899_919",
     "north": "zone_district_898_918"
   },
   "flags": {
     "district": "halcyon_fields",
+    "park_feature": "flowerbeds",
     "region_id": "region_coldwater",
-    "terrain": "grass"
+    "street_life": true,
+    "terrain": "park"
   },
   "grid_x": 898,
   "grid_y": 919,
   "grid_z": 0,
   "id": "zone_district_898_919",
   "map_id": "map_world",
-  "name": "Grasslands",
+  "name": "Windrow Corner",
   "parent_zone": null
 }

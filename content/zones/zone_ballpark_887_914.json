@@ -1,29 +1,23 @@
 {
-  "ambient_events": [
-    "Somebody cuts across the grass towards the gates with a folded scorecard.",
-    "A dog runs a long circle round nothing and comes back.",
-    "The wind brings over the smell of frying onions from Sorrel Way."
-  ],
+  "ambient_events": [],
   "ambient_theme": "urban",
-  "color": "#8ba36a",
-  "description": "The green, level from the boulevard to Hughson Way. On a game night people bring blankets and listen to the crowd through the walls.",
-  "exits": {
-    "east": "zone_ballpark_888_914",
-    "north": "zone_ballpark_887_913",
-    "south": "zone_ballpark_887_915",
-    "west": "zone_district_886_914"
-  },
+  "description": "Floor plates turned a few degrees each on the one below, so the tower has done a quarter turn by the thirty-fourth. The lifts run straight, which took an engineer some years.",
+  "exits": {},
   "flags": {
+    "building_name": "7 River Road",
+    "building_type": "torque_tower",
     "district": "halcyon_fields",
-    "region_id": "region_coldwater",
-    "street_life": true,
-    "terrain": "grass"
+    "entrance": "west",
+    "floors": 34,
+    "is_building": true,
+    "region_id": "region_coldwater"
   },
   "grid_x": 887,
   "grid_y": 914,
   "grid_z": 0,
   "id": "zone_ballpark_887_914",
   "map_id": "map_world",
-  "name": "Hughson Green",
+  "marker": "Q4",
+  "name": "7 River Road",
   "parent_zone": null
 }

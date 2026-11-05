@@ -5,7 +5,6 @@
   "description": "The clay here dried a long time ago and cracked as it went. The plates curl slightly at the edges and crumble when stepped on.",
   "exits": {
     "east": "zone_district_926_924",
-    "north": "zone_district_925_923",
     "south": "zone_district_925_925",
     "west": "zone_district_924_924"
   },

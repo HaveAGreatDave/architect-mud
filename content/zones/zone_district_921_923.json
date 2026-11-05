@@ -1,25 +1,24 @@
 {
   "ambient_events": [],
-  "ambient_theme": "wasteland",
-  "color": "#b5744a",
-  "description": "A dry red pan. Every surface is cracked, every crack is full of grit, and the wind keeps the grit moving.",
+  "ambient_theme": "forest",
+  "color": "#8ba36a",
+  "description": "Grass along the foot of the Curtain, the hard light humming a few feet off. The waste beyond it is red and flat to the hills.",
   "exits": {
     "east": "zone_district_922_923",
     "north": "zone_district_921_922",
-    "south": "zone_district_921_924",
     "west": "zone_district_920_923"
   },
   "flags": {
-    "district": "wilds",
-    "radiation": 30,
+    "curtain": true,
+    "district": "residential",
     "region_id": "region_coldwater",
-    "terrain": "redrock"
+    "terrain": "grass"
   },
   "grid_x": 921,
   "grid_y": 923,
   "grid_z": 0,
   "id": "zone_district_921_923",
   "map_id": "map_world",
-  "name": "Mesa Shelf",
+  "name": "Grasslands",
   "parent_zone": null
 }

@@ -24,6 +24,14 @@ const isCurtain = (z) => !!(z.flags?.curtain || z.flags?.perimeter_gate);
 // A line of the Curtain needs this many of its tiles within reach to count as a side's edge.
 const WALL_MIN = 5;
 
+// The site a broadcast's city is composed round, which isn't always the site on the map. A park drawn
+// smaller on the map than on TV names the ground it fills on TV as 'site.set' ({ x, y, block }), so the
+// set stands the city where it stands at true size.
+// ⚠ NOT THE MAP'S BLOCK. Composed round a block smaller than the park the broadcast draws, the warp
+// pushes the city out by the difference, and the view from the field loses the towers behind low
+// blocks. 'site.block' stays what the map's own systems answer for.
+export const setSite = (site) => (site?.set ? { ...site, ...site.set } : site);
+
 // The skyline within `radius` tiles of `site` ({ x, y } in tile coordinates, fractions
 // allowed: home plate stands inside a tile). Returns { buildings, edges }:
 //
@@ -33,7 +41,8 @@ const WALL_MIN = 5;
 //                { shore }  water instead: [[column or row, the line where land meets it], ...]
 //                           (a north shore at 902 is the top edge of row 902, the first land)
 //              A side with neither within reach is left out.
-export function skylineFrom(zones, site, { radius = 40, entranceOf } = {}) {
+export function skylineFrom(zones, venueSite, { radius = 40, entranceOf } = {}) {
+  const site = setSite(venueSite);
   const sx = Number(site?.x), sy = Number(site?.y);
   if (!Number.isFinite(sx) || !Number.isFinite(sy)) return { buildings: [], edges: {} };
   const near = (x, y) => Math.abs(x + 0.5 - sx) <= radius && Math.abs(y + 0.5 - sy) <= radius;

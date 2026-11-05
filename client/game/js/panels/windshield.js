@@ -17193,7 +17193,7 @@ const WALL_COL = { uptown: [46, 64, 92], civic: [72, 68, 60], citycore: [52, 56,
   // Halcyon Land Office — a glazed cabin and a hoarding lit from behind rather than printed on. The board
   // is the brightest surface in the quarter after dark and it always was; now it emits.
   ty_plot: [92, 130, 152], ty_plot_board: [216, 230, 238],
-  // 5 Kettle Lane — the terraces, and a rail that is a lit edge rather than painted steel. A
+  // 11 Hughson Way — the terraces, and a rail that is a lit edge rather than painted steel. A
   // convalescent home for people recovering from chrome, faced in chrome, and nobody remarks.
   ty_wind: [202, 216, 224], ty_wind_rail: [238, 246, 250],
   // The Winter Garden — the vault's plinth. Chrome, low, and the only dark band on the building.
@@ -18564,7 +18564,7 @@ const STUCCO_WALL = new Set(['ty_bd_blue', 'ty_gfc_cream','ty_trm_creche', 'ty_t
   'ty_stuff',
   // Coldwater Recital Hall's fly tower. Rendered, like Midway Parks's stage house and for the same reason: the
   // only people who have ever looked at it are pilots.
-  // 5 Kettle Lane's render. Stepped back at every floor, so most of what you see of it is the
+  // 11 Hughson Way's render. Stepped back at every floor, so most of what you see of it is the
   // soffit of the balcony above rather than the wall itself.,
   // Thornwarren mud render and Terminus lime-wash (2026-09-27), per building-styles.md §3.3-3.4.
   'ty_sw_kept', 'ty_sw_physic', 'ty_sw_flesh', 'ty_sw_whelp', 'ty_sw_fire', 'ty_trm_dorm', 'ty_trm_inn', 'ty_trm_wash', 'ty_trm_yard', 'ty_trm_still',

@@ -1,33 +1,23 @@
 {
-  "ambient_events": [
-    "A car noses into a bay and the driver sits a minute with the engine off.",
-    "Somebody walks the row twice, trying to remember where they parked.",
-    "A car door shuts somewhere along the row, and the sound comes back off the Coliseum."
-  ],
+  "ambient_events": [],
   "ambient_theme": "urban",
-  "color": "#5a5f62",
-  "description": "Bays of tarmac with a lamp post and a kerb. The dome stands over the far end, and an attendant's folding chair is chained to the post.",
-  "exits": {
-    "east": "zone_ballpark_889_917",
-    "north": "zone_ballpark_888_916",
-    "south": "zone_ballpark_888_918",
-    "west": "zone_ballpark_887_917"
-  },
+  "description": "Twenty storeys of turned floor plates, the short one of the family. From Teasel Walk it looks like a stack of plates somebody nudged.",
+  "exits": {},
   "flags": {
-    "building_name": "Hughson Car Park",
-    "building_type": "car_park",
+    "building_name": "11 Yarrow Lane",
+    "building_type": "torque_tower",
     "district": "halcyon_fields",
     "entrance": "east",
-    "floors": 1,
-    "region_id": "region_coldwater",
-    "street_life": true,
-    "terrain": "asphalt"
+    "floors": 20,
+    "is_building": true,
+    "region_id": "region_coldwater"
   },
   "grid_x": 888,
   "grid_y": 917,
   "grid_z": 0,
   "id": "zone_ballpark_888_917",
   "map_id": "map_world",
-  "name": "Hughson Car Park",
+  "marker": "Y6",
+  "name": "11 Yarrow Lane",
   "parent_zone": null
 }

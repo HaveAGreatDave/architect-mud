@@ -13,7 +13,7 @@
     "is_building": true,
     "is_interior": true,
     "window": {
-      "description": "Green-painted windows with MULCAHY'S in gold leaf, backwards from in here. Halcyon Boulevard is outside, and Hughson Green across the corner.",
+      "description": "Green-painted windows with MULCAHY'S in gold leaf, backwards from in here. Halcyon Boulevard is outside, and the top of Hughson Way round the corner.",
       "light": 0.5,
       "name": "the front windows",
       "visibility": 0.6

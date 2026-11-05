@@ -1,21 +1,27 @@
 {
-  "ambient_events": [],
-  "ambient_theme": "forest",
-  "color": "#8ba36a",
-  "description": "Rough meadow with a line of pegs across it. The string between them has gone, and the pegs lean.",
+  "ambient_events": [
+    "Somebody stops on the kerb to retie a shoe.",
+    "A street sweeper goes by on Sorrel Way with its brushes up.",
+    "A sparrow lands on the kerb, finds nothing and goes."
+  ],
+  "ambient_theme": "urban",
+  "color": "#8fd08a",
+  "description": "A flowerbed off Sorrel Way, between the Winter Garden and 1 Kerbstone Row. The plain chrome hoarding of 8 Kerbstone Row closes the north end.",
   "exits": {
     "south": "zone_district_903_921"
   },
   "flags": {
     "district": "halcyon_fields",
+    "park_feature": "flowerbeds",
     "region_id": "region_coldwater",
-    "terrain": "grass"
+    "street_life": true,
+    "terrain": "park"
   },
   "grid_x": 903,
   "grid_y": 920,
   "grid_z": 0,
   "id": "zone_district_903_920",
   "map_id": "map_world",
-  "name": "Grasslands",
+  "name": "Sorrel Gardens",
   "parent_zone": null
 }

@@ -12,13 +12,7 @@ row whenever one comes off the map, and take it out when one goes back.
 | Building | Trade | Stood at | Stored | Where it is now | Why |
 |---|---|---|---|---|---|
 | Lather & Lye | barber and bathhouse | 916,908 Marrow Street | 2026-10-08 | rooms only, no tile | gave its plot to Nico's Noodle Bar |
-| 8 Halcyon Boulevard | auctioneers | 895,911 | 2026-10-18 | holding map 1,1 | the Hughson Coliseum |
-| The Halcyon Institute | institute | 896,911 | 2026-10-18 | holding map 2,1 | the Hughson Coliseum |
-| Halcyon Land Office | land office | 897,911 | 2026-10-18 | holding map 3,1 | the Hughson Coliseum |
 | Vetch Green | green, three tiles | 895 to 897,912 | 2026-10-18 | holding map 1 to 3,2 | the Hughson Coliseum |
-| 3 Sorrel Way | offices | 895,913 | 2026-10-18 | holding map 1,3 | the Hughson Coliseum |
-| 5 Sorrel Way | offices | 896,913 | 2026-10-18 | holding map 2,3 | the Hughson Coliseum |
-| 7 Sorrel Way | offices | 897,913 | 2026-10-18 | holding map 3,3 | the Hughson Coliseum |
 | Skeleton Crew | locksmith | 898,905 | 2026-10-18 | holding map 1,5 | out of place by the Glasshouse towers |
 | Rest Assured | lodging house | 900,905 | 2026-10-18 | holding map 3,5 | out of place by the Glasshouse towers |
 | Corner the Market | grocer | 897,907 | 2026-10-18 | holding map 5,5 | out of place by the Glasshouse towers |

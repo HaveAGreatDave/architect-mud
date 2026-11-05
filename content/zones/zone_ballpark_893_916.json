@@ -5,7 +5,7 @@
   "color": "#d8c9a8",
   "description": "The bleacher gate of the Hughson Coliseum on Hughson Way: two grille gates between fluted pylons, BLEACHERS in gilt on a bronze plate over them, and the roof standing over the wall.",
   "exits": {
-    "north": "zone_ballpark_893_915",
+    "north": "zone_ballpark_891_913",
     "south": "zone_hughsonbl_bleachers"
   },
   "flags": {
@@ -19,10 +19,10 @@
     "region_id": "region_coldwater",
     "venue_lights": true,
     "venue_roof": true,
-    "world_exit_zone": "zone_ballpark_893_915"
+    "world_exit_zone": "zone_ballpark_891_913"
   },
-  "grid_x": 893,
-  "grid_y": 916,
+  "grid_x": 891,
+  "grid_y": 914,
   "grid_z": 0,
   "id": "zone_ballpark_893_916",
   "map_id": "map_world",

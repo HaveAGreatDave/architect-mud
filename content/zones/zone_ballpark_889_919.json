@@ -1,33 +1,23 @@
 {
-  "ambient_events": [
-    "A car noses into a bay and the driver sits a minute with the engine off.",
-    "Somebody walks the row twice, trying to remember where they parked.",
-    "A car door shuts somewhere along the row, and the sound comes back off the Coliseum."
-  ],
-  "ambient_theme": "urban",
-  "color": "#5a5f62",
-  "description": "Bays lined in white, oil-marked down the middle. Ticket stubs have blown against the kerb and stayed there.",
+  "ambient_events": [],
+  "ambient_theme": "city",
+  "description": "Yarrow Lane, a service street between tower lobbies, with the wind coming down it from the boulevard. Everything here is new and everything is locked.",
   "exits": {
-    "east": "zone_ballpark_890_919",
     "north": "zone_ballpark_889_918",
-    "south": "zone_ballpark_889_920",
-    "west": "zone_ballpark_888_919"
+    "south": "zone_ballpark_889_920"
   },
   "flags": {
-    "building_name": "Hughson Car Park",
-    "building_type": "car_park",
     "district": "halcyon_fields",
-    "entrance": "east",
-    "floors": 1,
     "region_id": "region_coldwater",
+    "scavenging_table_id": "scav_roadside_junk",
     "street_life": true,
-    "terrain": "asphalt"
+    "terrain": "road"
   },
   "grid_x": 889,
   "grid_y": 919,
   "grid_z": 0,
   "id": "zone_ballpark_889_919",
   "map_id": "map_world",
-  "name": "Hughson Car Park",
+  "name": "Yarrow Lane",
   "parent_zone": null
 }

@@ -8,11 +8,13 @@ Every building here was renamed on 2026-10-08 to its street address or a plain H
 this page uses the new names throughout; the old ones and the reason are in
 [*The fifth pass*](#the-fifth-pass-addresses-not-puns-2026-10-08).
 
-Six of these buildings and Vetch Green are no longer on the map. On 2026-10-18 the Charles B.
-Hughson Coliseum, Deadball's ballpark, took the nine tiles x 895 to 897, y 911 to 913: 8 Halcyon
-Boulevard, the Halcyon Institute, the Halcyon Land Office, 3, 5 and 7 Sorrel Way and the green
-between them. They're set aside on the holding map `map_set_aside`, whole, not deleted; see
-[hughson-coliseum.md](hughson-coliseum.md#3-what-was-set-aside).
+On 2026-10-18 the Charles B. Hughson Coliseum, Deadball's ballpark, took the nine tiles x 895 to 897,
+y 911 to 913: 8 Halcyon Boulevard, the Halcyon Institute, the Halcyon Land Office, 3, 5 and 7 Sorrel
+Way and the green between them. They went onto the holding map `map_set_aside`, whole, not deleted;
+see [hughson-coliseum.md](hughson-coliseum.md#3-what-was-set-aside). Those six and the five the
+park's trades displaced came back on 2026-11-04, onto the park's lot, and six of the eleven took Hughson
+Way addresses ([hughson-estate.md](hughson-estate.md)). This page keeps the names they had. Vetch
+Green is still on the holding map.
 
 On 2026-11-04 the map's park came down to five tiles ([coliseum-five-tiles.md](coliseum-five-tiles.md)).
 On 2026-11-02 the Coliseum went to true size, 11 by 11 tiles from x 887 to 897 and y 910 to 920,

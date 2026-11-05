@@ -217,7 +217,7 @@
       "text": "\"Welcome to Halcyon Fields.\" She says it to the room as much as to you, then arrives at your elbow. \"Take your time with the model. Everybody does.\"",
       "text_by_relation": {
         "familiar": "She does not come over. She lifts the folder an inch in greeting and carries on with what she is doing, which after the fourth or fifth visit is the warmest thing she does.\n\n\"Kettle to the row is still not made up,\" she says, without preamble. \"I know. I have said.\"",
-        "first": "The woman at the model looks up before the doors have finished closing behind you, and is beside you a moment later without seeming to have hurried.\n\n\"Lavinia Fairlie. Welcome to Halcyon Fields.\" She gestures at the case with the folder. \"That is the whole quarter. Take as long as you like. People always want to find where they are standing, and it is there.\"\n\nShe points to a low curved building on the model. It is this one. On the model, the meadow outside it is a boulevard with trees down the middle.",
+        "first": "The woman at the model looks up before the doors have finished closing behind you, and is beside you a moment later without seeming to have hurried.\n\n\"Lavinia Fairlie. Welcome to Halcyon Fields.\" She gestures at the case with the folder. \"That is the whole quarter. Take as long as you like. People always want to find where they are standing, and it is there.\"\n\nShe points to a low curved building on the model. It is this one. On the model, the road outside it is a boulevard with trees down the middle.",
         "known": "\"You came back.\" A small, real smile. \"Nobody comes back twice to look at a model. What is it you actually want to know?\""
       }
     }
@@ -230,8 +230,7 @@
       "low heels kept for the carpet and changed at the door",
       "a chrome estate badge at the lapel, the size of a thumbnail",
       "plain underthings"
-    ],
-    "set_aside": true
+    ]
   },
   "home_activities": [],
   "home_zone": "zone_hf_impression_booth",

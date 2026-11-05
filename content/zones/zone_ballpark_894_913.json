@@ -1,29 +1,23 @@
 {
-  "ambient_events": [
-    "Somebody cuts across the grass towards the gates with a folded scorecard.",
-    "A dog runs a long circle round nothing and comes back.",
-    "The wind brings over the smell of frying onions from Sorrel Way."
-  ],
+  "ambient_events": [],
   "ambient_theme": "urban",
-  "color": "#8ba36a",
-  "description": "The green, level from the boulevard to Hughson Way. On a game night people bring blankets and listen to the crowd through the walls.",
-  "exits": {
-    "east": "zone_ballpark_895_913",
-    "north": "zone_ballpark_894_912",
-    "south": "zone_ballpark_894_914",
-    "west": "zone_ballpark_893_913"
-  },
+  "description": "A chrome block of six storeys behind the Sales Suite, kept off the model in the suite next door.",
+  "exits": {},
   "flags": {
+    "building_name": "7 Hughson Court",
+    "building_type": "chrome_slab",
     "district": "halcyon_fields",
-    "region_id": "region_coldwater",
-    "street_life": true,
-    "terrain": "grass"
+    "entrance": "south",
+    "floors": 6,
+    "is_building": true,
+    "region_id": "region_coldwater"
   },
   "grid_x": 894,
   "grid_y": 913,
   "grid_z": 0,
   "id": "zone_ballpark_894_913",
   "map_id": "map_world",
-  "name": "Hughson Green",
+  "marker": "J7",
+  "name": "7 Hughson Court",
   "parent_zone": null
 }

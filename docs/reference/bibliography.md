@@ -59,7 +59,7 @@ The papers behind the FM matcher, the music critic and ORACLE are under [Papers 
 |---|---|---|
 | LAX and the Tom Bradley terminal | The airport terminal and its wave roof. | [world-rendering.md](world-rendering.md) |
 | The Hope Memorial Bridge, Cleveland | The Guardians on the Coliseum gate. | [hughson-coliseum.md](../proposals/hughson-coliseum.md) |
-| Pittsburgh's Civic Arena | How the Hughson Dome's leaves open. The dress is deco. | [coliseum-true-size.md](../proposals/coliseum-true-size.md) |
+| Toronto's SkyDome | How the Hughson Dome opens: shells on rails that slide over the fixed end and nest under it. The dress is deco. | [hughson-coliseum.md](../proposals/hughson-coliseum.md) |
 | Hollywood studio lots, CBS's Columbia Square, NBC's Radio City | The walled Media Lot in 1930s streamline moderne. | [media-lot.md](../proposals/media-lot.md) |
 | The Daily Express buildings in Fleet Street and Manchester | The Coldwater Sentinel building. | [media-lot.md](../proposals/media-lot.md) |
 | Diamond DA42 and the Garmin G1000 | The cockpit's layout and reading order. It must never look like a Garmin. | [Cockpit_Design_Reference.md](Cockpit_Design_Reference.md) |

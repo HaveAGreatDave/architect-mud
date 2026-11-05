@@ -1069,7 +1069,7 @@ export const OLD_COLDWATER_ARMS = {
       const [gx15, gy15] = F(0, fh * 0.66); glowPool(ctx, cam, gx15, gy15, h * 0.22, '255,238,196', 10, alpha * 0.30);   // outside the drum's glass (0.60)
     }
   },
-  hydro(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E, name, board, pal, sign, F, W3, frontVis) {   // 5 Kettle Lane: a stepped section, every floor set back to make a balcony.
+  hydro(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E, name, board, pal, sign, F, W3, frontVis) {   // 11 Hughson Way: a stepped section, every floor set back to make a balcony.
     const tiers = [0.00, 0.26, 0.50, 0.72], tops = [0.26, 0.50, 0.72, 0.92];
     // ⚠ The setback is on the entrance face, never a fixed axis, so balconies face the street.
     for (let i = 0; i < 4; i++) {

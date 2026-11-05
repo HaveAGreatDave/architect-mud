@@ -10,7 +10,7 @@
 // mask (diamond/board.js); skinned players (gl/ballplayer-mesh.js buildBody, diamond/rig.js, built a
 // few a frame so a cast never stalls, posed by gl/skin.js from diamond/cast.js or 'setPose'; faces
 // from the atlas as in the Actor Lab); the bowl's limestone EXTERIOR and the name plates
-// (paintPlates); the Hughson Dome, its leaves turning on their ring; and the city set
+// (paintPlates); the Hughson Dome, its shells on their rails; and the city set
 // (client/shared/city-set.js via gl/cityscape.js, sodium pools, gl/curtain.js), reached by the
 // towers through a narrower beam.
 // Frame order (docs/proposals/deadball-glass2.md): 1. tower shadow maps (gl/spotshadow.js);
@@ -22,7 +22,7 @@
 // 'createBallparkRenderer' returns null with no WebGL2, float target or shader, and the view falls
 // back to the 2-D Gameday. ⚠ NO FACE CULLING, as in arena.js: builders don't keep one winding.
 
-import { buildPark, buildDress, crowdMorph, createBatch, vtx, dragMat, lin, STRIDE, CROWD_STRIDE, CROWD_MORPH, MAT, BAY, BAND_RUNS, BAND_STONE, BAND_UV, MAIN_PLATE, PLATE_ATLAS, roofLights, roofTrack, leafSpin } from './ballpark-mesh.js';
+import { buildPark, buildDress, crowdMorph, createBatch, vtx, dragMat, lin, STRIDE, CROWD_STRIDE, CROWD_MORPH, MAT, BAY, BAND_RUNS, BAND_STONE, BAND_UV, MAIN_PLATE, PLATE_ATLAS, roofLights, roofTrack, shellShift } from './ballpark-mesh.js';
 import { insideOutline, ftUp } from '../diamond/geo.js';
 import { WIN, WIN_OPEN, RAYS, SUN, rayReach } from '../glass/coliseum-window.js';
 import { breathe } from '../diamond/anim.js';
@@ -74,10 +74,6 @@ import { boothLayout, buildBooth, paintBoothTexture } from './booth-mesh.js';
 const FACE = '"Arial Narrow", "Roboto Condensed", Arial, sans-serif';
 
 // ── shaders ─────────────────────────────────────────────────────────────────
-// A leaf of the dome turned on its axis (ballpark-mesh.js leafSpin): a point and a direction.
-const TURN_GLSL = `
-vec3 turnPos(vec3 p) { vec2 d = p.xz - uTurn.xy; float c = cos(uTurn.z), s = sin(uTurn.z); return vec3(uTurn.x + c * d.x - s * d.y, p.y, uTurn.y + s * d.x + c * d.y); }
-vec3 turnDir(vec3 n) { float c = cos(uTurn.z), s = sin(uTurn.z); return vec3(c * n.x - s * n.z, n.y, s * n.x + c * n.z); }`;
 const LIT_VS = `#version 300 es
 layout(location = 0) in vec3 aPos;
 layout(location = 1) in vec3 aNrm;
@@ -85,13 +81,11 @@ layout(location = 2) in vec2 aUv;
 layout(location = 3) in vec3 aCol;
 layout(location = 4) in float aMat;
 uniform mat4 uVP;
-// where a batch is drawn from where it was built: a leaf of the dome, turned uTurn.z radians about the
-// vertical through (uTurn.x, uTurn.y); nothing else turns, and 0 is as built
-uniform vec3 uTurn;
-${TURN_GLSL}
+// where a batch is drawn from where it was built: a shell of the roof on its rails, nothing else
+uniform vec3 uShift;
 // vBind: where the vertex was built, for the comic look's hatching to ride on (CEL_GLSL celInk)
 out vec3 vPos; out vec3 vNrm; out vec2 vUv; out vec3 vCol; flat out int vMat; out vec3 vBind;
-void main() { vPos = turnPos(aPos); vNrm = turnDir(aNrm); vUv = aUv; vCol = aCol; vMat = int(aMat + 0.5); vBind = aPos; gl_Position = uVP * vec4(vPos, 1.0); }`;
+void main() { vPos = aPos + uShift; vNrm = aNrm; vUv = aUv; vCol = aCol; vMat = int(aMat + 0.5); vBind = aPos; gl_Position = uVP * vec4(vPos, 1.0); }`;
 // The players: the same, skinned by their bones (gl/skin.js). A folded bone's vertices have no
 // normal, and draw nothing.
 const SKIN_VS = `#version 300 es
@@ -151,14 +145,13 @@ void main() {
 const DEPTH_FS = `#version 300 es
 precision mediump float;
 void main() { }`;
-// The park's own structure into the towers' maps (quality.stands): a leaf of the dome drawn where it
-// has turned to, as the lit pass draws it.
+// The park's own structure into the towers' maps (quality.stands): a shell of the roof drawn where it
+// has rolled to, as the lit pass draws it.
 const STATIC_DEPTH_VS = `#version 300 es
 layout(location = 0) in vec3 aPos;
 uniform mat4 uVP;
-uniform vec3 uTurn;
-${TURN_GLSL}
-void main() { gl_Position = uVP * vec4(turnPos(aPos), 1.0); }`;
+uniform vec3 uShift;
+void main() { gl_Position = uVP * vec4(aPos + uShift, 1.0); }`;
 
 // What every lit pass shares: the six towers, the sky's ambient, and the night air.
 const LIGHTS_GLSL = `
@@ -1236,10 +1229,10 @@ export function createBallparkRenderer(canvas, opts = {}) {
     const opaque = [...park.opaque].map(([key, b]) => ({ key, ...upload(b) }));
     const translucent = [...park.translucent].map(([key, b]) => ({ key, ...upload(b) }));
     // what burns on its own (the towers' floods, the decks' rows, the beacons, the gates' lanterns and
-    // the plates' halo), each at its own strength a frame; and the dome's leaves, each drawn turned as
-    // far as the roof has got (ballpark-mesh.js leafSpin)
+    // the plates' halo), each at its own strength a frame; and the roof's shells, each drawn where
+    // the roof has got to (ballpark-mesh.js shellShift)
     const lampDraws = Object.entries(park.lamps).filter(([, b]) => b.n).map(([kind, b]) => ({ key: 'lamp', kind, emis: 1, ...upload(b) }));
-    const leaves = park.roof.map((r) => ({ key: 'leaf', i: r.i, fixed: r.fixed, ...upload(r.batch) }));
+    const shells = park.roof.map((r) => ({ key: 'shell', i: r.i, fixed: r.fixed, ...upload(r.batch) }));
     // the crowd: one figure in its three poses (ballpark-mesh.js crowdMorph), drawn once for the fans
     // who rest sitting, once standing and once cheering, each getting up as his side roars. Each
     // kind's fans are dealt into a seeded order, so a tier that draws fewer (its `crowd`) draws the
@@ -1926,9 +1919,14 @@ export function createBallparkRenderer(canvas, opts = {}) {
     // the roof shut) FLOOD.row feet long, square to where it points.
     const LRef = new Float32Array(6), LRad = new Float32Array(6), LLen = new Float32Array(6), LAx = new Float32Array(18), LGeo = new Float32Array(18);
     const FLOOD = { bank: 32, row: 150 };
-    function placeLights(p) {
+    // ⚠ THE ROOF IS MORE GLASS THAN COPPER. By day the shut roof lets the sky through, so the decks'
+    // rows and the towers' lights under them, which are all that's left on the field, carry it: up to
+    // SKY_IN more with the roof shut at noon, and nothing at night. 'day' is the sky's, 0 to 1.
+    const SKY_IN = 0.9;
+    function placeLights(p, day = 0) {
+      const sky = 1 + SKY_IN * p * day;
       roofLights(lightsOf, p).forEach((L, i) => {
-        const k = lightK[i] * L.k;
+        const k = lightK[i] * L.k * sky;
         LPos.set(L.lamp, i * 3); LCol.set([k, k * 0.965, k * 0.9], i * 3); LDir.set(L.dir, i * 3);
         LRef[i] = L.dir[1] < -0.05 ? Math.min(900, L.lamp[1] / -L.dir[1]) : 400;
         const row = lightsOf[i].kind === 'deck' || L.lamp !== lightsOf[i].lamp, hl = Math.hypot(L.dir[0], L.dir[2]) || 1;
@@ -2152,7 +2150,7 @@ export function createBallparkRenderer(canvas, opts = {}) {
       let tris = 0, draws = 0;
       // where the roof has got to, and the lights with it; under it, nothing falls on the camera
       roofNow = roofT.at(clock());
-      placeLights(roofNow);
+      placeLights(roofNow, 1 - Math.min(1, Math.max(0, +look.night || 0)));
       const underRoof = roofNow > 0.5 && insideOutline(park.outline, M.eye);
       for (const d of lampDraws) d.emis = d.kind === 'tower' ? Math.max(0, 1 - 2 * roofNow) : d.kind === 'deck' ? 1 : look.lights;
       const flash = weather.flashAt(), add3 = (a, b) => [a[0] + b[0], a[1] + b[1], a[2] + b[2]];
@@ -2163,7 +2161,7 @@ export function createBallparkRenderer(canvas, opts = {}) {
       palette.upload();
 
       // 1. the towers' shadows, of whatever casts: the players, skinned; and where the tier has them
-      // (quality.stands), the park's own structure and the dome's leaves where they've turned to, and
+      // (quality.stands), the park's own structure and the roof's shells where they've rolled to, and
       // the ball, so a grandstand's shadow lies across the field and a fly ball's on the grass
       let spotN = 0;
       spotsNow = 0;
@@ -2199,13 +2197,13 @@ export function createBallparkRenderer(canvas, opts = {}) {
           if (struct) {
             gl.useProgram(STD.p);
             gl.uniformMatrix4fv(STD.u('uVP'), false, vp);
-            gl.uniform3f(STD.u('uTurn'), 0, 0, 0);
+            gl.uniform3f(STD.u('uShift'), 0, 0, 0);
             for (const d of opaque) { gl.bindVertexArray(d.vao); gl.drawArrays(gl.TRIANGLES, 0, d.n); }
             if (ballAt) { gl.bindVertexArray(ballDraw.vao); gl.drawArrays(gl.TRIANGLES, 0, ballDraw.n); }
             if (batDraw.n) { gl.bindVertexArray(batDraw.vao); gl.drawArrays(gl.TRIANGLES, 0, batDraw.n); }
-            for (const d of leaves) {
-              const s = leafSpin(d.i, roofNow);
-              gl.uniform3f(STD.u('uTurn'), s[0], s[1], s[2]);
+            for (const d of shells) {
+              const s = shellShift(d.i, roofNow);
+              gl.uniform3f(STD.u('uShift'), s[0], s[1], s[2]);
               gl.bindVertexArray(d.vao); gl.drawArrays(gl.TRIANGLES, 0, d.n);
             }
           }
@@ -2261,7 +2259,7 @@ export function createBallparkRenderer(canvas, opts = {}) {
         gl.uniform3f(P.u('uFence'), fence.line, fence.centre, fence.curve);
         gl.uniform2f(P.u('uBoardRes'), BOARD_W, BOARD_H); gl.uniform3f(P.u('uBoardOn'), 6.0, 3.0, 0.7);
         gl.uniform1f(P.u('uCityLit'), look.cityLit); gl.uniform1f(P.u('uPoolK'), look.pool);
-        gl.uniform1f(P.u('uRoof'), roofNow); gl.uniform1f(P.u('uDome'), roofNow); gl.uniform3f(P.u('uTurn'), 0, 0, 0);
+        gl.uniform1f(P.u('uRoof'), roofNow); gl.uniform1f(P.u('uDome'), roofNow); gl.uniform3f(P.u('uShift'), 0, 0, 0);
         shadows.bind(P.u, 4, q.light !== 0 && q.light !== false ? 1 : 0);
         gl.uniform1iv(P.u('uLSh'), LShF); gl.uniform1i(P.u('uSpotN'), spotN);
         gl.uniform4fv(P.u('uBlob'), blobs); gl.uniform1i(P.u('uBlobN'), blobN);
@@ -2289,13 +2287,13 @@ export function createBallparkRenderer(canvas, opts = {}) {
       litSetup(LIT);
       drawSet(opaque, 1);
       drawSet(lampDraws, 1);
-      // the dome's leaves, each turned as far as the roof has got on its ring
-      for (const d of leaves) {
-        const s = leafSpin(d.i, roofNow);
-        gl.uniform3f(LIT.u('uTurn'), s[0], s[1], s[2]);
+      // the roof's shells, each where the roof has got to on its rails
+      for (const d of shells) {
+        const s = shellShift(d.i, roofNow);
+        gl.uniform3f(LIT.u('uShift'), s[0], s[1], s[2]);
         drawSet([d], 1);
       }
-      gl.uniform3f(LIT.u('uTurn'), 0, 0, 0);
+      gl.uniform3f(LIT.u('uShift'), 0, 0, 0);
       if (final && dress) drawSet(dress.opaque, 1);
       if (final && champ && dress) drawSet([dress.trophy], 1);
       if (TEX.sign) drawSet([signDraw], 1);
@@ -2344,12 +2342,12 @@ export function createBallparkRenderer(canvas, opts = {}) {
       litSetup(LIT);
       gl.uniform1f(LIT.u('uGlass'), 1);
       gl.enable(gl.BLEND); gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA); gl.depthMask(false);
-      for (const d of leaves) {
-        const s = leafSpin(d.i, roofNow);
-        gl.uniform3f(LIT.u('uTurn'), s[0], s[1], s[2]);
+      for (const d of shells) {
+        const s = shellShift(d.i, roofNow);
+        gl.uniform3f(LIT.u('uShift'), s[0], s[1], s[2]);
         drawSet([d], 1);
       }
-      gl.uniform3f(LIT.u('uTurn'), 0, 0, 0); gl.uniform1f(LIT.u('uGlass'), 0);
+      gl.uniform3f(LIT.u('uShift'), 0, 0, 0); gl.uniform1f(LIT.u('uGlass'), 0);
       gl.disable(gl.BLEND); gl.depthMask(true);
       const detail = q.detail ?? 2;
       // the ink round the players (gl/cel-figure.js), first, so each man's lit body covers its
@@ -2532,7 +2530,7 @@ export function createBallparkRenderer(canvas, opts = {}) {
         if (depth) { gl.deleteFramebuffer(depth.fbo); gl.deleteTexture(depth.tex); depth = null; }
         for (const t of Object.values(TEX)) gl.deleteTexture(t);
         gl.deleteTexture(boardTex);
-        for (const d of [...opaque, ...translucent, ...lampDraws, ...leaves, signDraw, ballDraw, fxDraw, matDraw]) { gl.deleteVertexArray(d.vao); gl.deleteBuffer(d.st.buf); }
+        for (const d of [...opaque, ...translucent, ...lampDraws, ...shells, signDraw, ballDraw, fxDraw, matDraw]) { gl.deleteVertexArray(d.vao); gl.deleteBuffer(d.st.buf); }
         dropCity();
         dropCrowd(homeCrowd); if (fullCrowd) dropCrowd(fullCrowd);
         dropRoom(); if (tvFbo) gl.deleteFramebuffer(tvFbo);

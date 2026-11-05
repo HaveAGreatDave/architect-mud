@@ -1,25 +1,24 @@
 {
   "ambient_events": [],
-  "ambient_theme": "wasteland",
-  "color": "#b5744a",
-  "description": "Cracked hardpan stretches off in every direction, the color of old rust. The wind has scoured it bare of anything loose.",
+  "ambient_theme": "forest",
+  "color": "#8ba36a",
+  "description": "The Curtain runs dead straight along the south edge. Something moves out on the flats and stops.",
   "exits": {
     "east": "zone_district_924_923",
     "north": "zone_district_923_922",
-    "south": "zone_district_923_924",
     "west": "zone_district_922_923"
   },
   "flags": {
-    "district": "wilds",
-    "radiation": 30,
+    "curtain": true,
+    "district": "residential",
     "region_id": "region_coldwater",
-    "terrain": "redrock"
+    "terrain": "grass"
   },
   "grid_x": 923,
   "grid_y": 923,
   "grid_z": 0,
   "id": "zone_district_923_923",
   "map_id": "map_world",
-  "name": "Oxide Barrens",
+  "name": "Grasslands",
   "parent_zone": null
 }

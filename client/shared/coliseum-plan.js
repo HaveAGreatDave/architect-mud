@@ -23,8 +23,8 @@ export const OUT = 1.47;
 export const UNIT_FT = (BOWL_FT.near + BOWL_FT.far) / (2 * OUT);
 export const UP_FT = 226;
 
-// The block: 5 tiles a side, x 893-897 and y 916-920, the south-east corner of Sir Charles's lot (the
-// Deadball row's sports_pools.venue.site says the same). A block is three park units across, as the
+// The block: 5 tiles a side, x 891-895 and y 914-918, on Sir Charles's lot with its home plate a
+// quarter tile from the broadcast's (the Deadball row's sports_pools.venue.site says the same). A block is three park units across, as the
 // nine-tile park's was, which is what leaves the gates their gap to the tile's edge.
 export const BLOCK = 5;
 export const HALF = BLOCK / 2;
@@ -47,62 +47,62 @@ export const FIELD = Object.freeze({
 
 // The bowl, in park units: one wall round all four sides, its outer face at OUT and its inner at BACK,
 // in five courses up (Z); the decks over the east and west concourse reach in to DECK under the
-// dome's ring; a marble fin at every FIN_AT along each face; a stepped light tower at each corner,
+// dome's girders; a marble fin at every FIN_AT along each face; a stepped light tower at each corner,
 // `at` out; the Guardians either side of the main gate; and the plain stone band his name is cut into.
 export const BACK = 1.40;
 export const DECK = 1.13;
 export const Z = Object.freeze({ plinth: 0.04, wall: 0.34, frieze: 0.37, cler: 0.43, corn: 0.46 });
 
 // ── THE HUGHSON DOME ─────────────────────────────────────────────────────────────────────────
-// Eight leaves like the gores of an orange on a bronze ring, meeting under a glazed lantern. The two
-// over the outfield (A and B, either side of centre field) are fixed; the other six turn on the ring
-// and nest under them, three a side, so the dome opens from home plate outward. Each leaf steps: its
-// profile sets back three times on the way up (`steps`, a riser each), and the rib along its
-// trailing edge is a bronze fin that follows it, a ziggurat from the side.
+// Three shells on rails, a clamshell the way the SkyDome is: stepped barrel vaults from the east deck
+// to the west, each smaller and lower than the one before. The first is fixed over the bleachers on
+// the boulevard side; the other two ride the rails north and nest under it, so the roof opens from
+// Sorrel Way and the field and the grandstand have the sky. Each vault steps: its arch sets back three
+// times on the way up (`steps`, a riser each), so it's a ziggurat end on, and bronze ribs follow it.
 //
-// ⚠ A LEAF NESTS BY ITS LEVEL `k`. Leaf k is the top leaf's profile taken `dr` further out and set
-// `g` lower: z_k(r) = z_0(r + k·dr) - k·g. The profile never rises outward, so each level clears the
-// one over it by at least `g` everywhere, and its risers stand `dr` inside the ones over it. The rib
-// stands `rib` proud, under `g`, and sits on the edge that trails as the leaf opens, so no rib ever
-// passes through a leaf's edge: each one arrives at the edge over it as the dome finishes opening.
-// ⚠ ANGLES ARE ATAN2(v, u): home plate is at 45 degrees (south-east) and centre field at 225.
-// `a0`..`a1` is a leaf's span shut, `turn` how far it turns to open (radians, 0 fixed), and `rib`
-// which edge carries a rib (0, 1, or both).
+// ⚠ A SHELL NESTS BY ITS LEVEL `k`. Shell k is the top shell's arch taken `dr` in and set `g` lower:
+// z_k(r) = z_0(r + k·dr) - k·g. The profile never rises outward, so each level clears the one over it
+// by at least `g` everywhere, and its risers stand `dr` inside the ones over it. A rib stands `rib`
+// proud, under `g`, so it passes under the shell over it.
+// ⚠ THE FOOT STAYS INSIDE THE TOWERS. R0 is 1.22 because a corner tower's inner side is 1.265 and the
+// vaults run the whole length of the bowl, past all four.
+// ⚠ THE CROWN STANDS AT 0.85 FOR THE SKYLINE. From the field the Halcyon and Ascendant towers stand over
+// the roof and through its glass, and they're the picture this park is known for. At 1.05 the vault
+// shut them out. Raise H or zs and look from home plate before anything else.
+// `shut` and `open` are where a shell's north end stands, `len` how long it is. Shut they overlap by
+// 0.05, and open they lie 0.02 apart.
 const DEG = Math.PI / 180;
 export const DOME = Object.freeze({
-  R0: 1.33, zs: 0.56, H: 0.40, rL: 0.15,
-  steps: Object.freeze([1.06, 0.74, 0.44]), riser: 0.03, batter: 0.006,
-  g: 0.03, dr: 0.03, rib: 0.012, ribW: 0.014,
-  // a rib stands this far in from its edge, so nested under the leaf over it, its side never shares
-  // the plane of that leaf's fascia
-  ribIn: 0.002,
-  // the glazing strip down the middle of each leaf, as a fraction of its width
-  glaze: Object.freeze([0.4, 0.6]),
+  R0: 1.22, zs: 0.53, H: 0.23,
+  steps: Object.freeze([0.97, 0.68, 0.40]), riser: 0.03, batter: 0.006,
+  g: 0.03, dr: 0.03, rib: 0.012, ribW: 0.018,
+  // the glazing along each shell, this far either side of the ridge on the top shell: the two upper
+  // tiers, so a level's glass ends at its riser and only the shoulders are copper
+  glaze: 0.68,
+  // the ribs across each shell, as fractions of its length
+  ribs: Object.freeze([0.03, 0.265, 0.5, 0.735, 0.97]),
 });
-export const LEAVES = Object.freeze([
-  { key: 'A', a0: 180, a1: 225, k: 0, turn: 0, rib: [true, true] },
-  { key: 'B', a0: 225, a1: 270, k: 0, turn: 0, rib: [false, true] },
-  { key: 'a1', a0: 135, a1: 180, k: 1, turn: 45, rib: [true, false] },
-  { key: 'a2', a0: 90, a1: 135, k: 2, turn: 90, rib: [true, false] },
-  { key: 'a3', a0: 45, a1: 90, k: 3, turn: 135, rib: [true, false] },
-  { key: 'b1', a0: 270, a1: 315, k: 1, turn: -45, rib: [false, true] },
-  { key: 'b2', a0: 315, a1: 360, k: 2, turn: -90, rib: [false, true] },
-  { key: 'b3', a0: 360, a1: 405, k: 3, turn: -135, rib: [false, false] },
-].map((L) => Object.freeze({ ...L, a0: L.a0 * DEG, a1: L.a1 * DEG, turn: L.turn * DEG, rib: Object.freeze(L.rib) })));
-// How far leaf `i` has turned from shut at `p` (0 open, 1 shut), in radians about the block's centre.
-export const leafTurn = (i, p) => (LEAVES[i] ? LEAVES[i].turn * (1 - Math.min(1, Math.max(0, +p || 0))) : 0);
-// The top leaf's height at radius r: a quarter ellipse from the spring, plus a riser for every step
-// the point is inside.
+export const SHELLS = Object.freeze([
+  { key: 'a', k: 0, shut: -1.47, open: -1.47, len: 1.00 },
+  { key: 'b', k: 1, shut: -0.52, open: -1.45, len: 1.00 },
+  { key: 'c', k: 2, shut: 0.43, open: -1.43, len: 1.04 },
+].map((S) => Object.freeze(S)));
+// Where shell `i`'s north end stands at `p` (0 open, 1 shut).
+export const shellAt = (i, p) => { const S = SHELLS[i], k = Math.min(1, Math.max(0, +p || 0)); return S.open + (S.shut - S.open) * k; };
+// Where shell level k springs from.
+export const springZ = (k) => DOME.zs - k * DOME.g;
+// The top shell's height at r from the ridge: a quarter ellipse from the spring, plus a riser for every
+// step the point is inside.
 export function domeZ(r) {
   const D = DOME, e = D.zs + D.H * Math.sqrt(Math.max(0, 1 - (r / D.R0) ** 2));
   return e + D.riser * D.steps.filter((s) => s > r).length;
 }
-// Leaf level k's profile, spring to lantern: [r, z] points outer to inner, a riser at each step.
-// Each tier is sampled evenly in the ellipse's angle, so the steep foot gets more points.
-export function leafProfile(k = 0) {
+// Shell level k's half arch, spring to ridge: [r, z] points outer to inner, a riser at each step. Each
+// tier is sampled evenly in the ellipse's angle, so the steep foot gets more points.
+export function shellProfile(k = 0) {
   const D = DOME, o = k * D.dr, lo = k * D.g;
   const t = (rho) => Math.acos(Math.min(1, rho / D.R0));
-  const edges = [D.R0, ...D.steps, D.rL + o];
+  const edges = [D.R0, ...D.steps, o];
   const out = [];
   for (let j = 0; j + 1 < edges.length; j++) {
     const a = t(edges[j]), b = t(edges[j + 1]), n = Math.max(2, Math.ceil((b - a) / (8 * DEG)));
@@ -116,24 +116,27 @@ export function leafProfile(k = 0) {
   }
   return out;
 }
-// The ring the leaves turn on: a bronze band from the cornice to `z1`, `r0` to `r1` out, a gilt
-// chevron frieze round it between `frieze`, and inside it the rails stepping down and in, one for each
-// level under the top (`rail(k)`: the step's outer radius, inner radius and top).
-export const RING = Object.freeze({ r0: DOME.R0, r1: 1.37, z0: Z.corn, z1: 0.57, frieze: Object.freeze([0.50, 0.548]), n: 48 });
-export const rail = (k) => [DOME.R0 - (k - 1) * DOME.dr, DOME.R0 - k * DOME.dr - 0.012, DOME.zs - k * DOME.g];
-// The roof over the drum's corners, from the ring out to the wall, a hair over the decks' copper.
-export const CORNER_Z = Z.corn + 0.006;
-// The lantern at the crown: a bronze foot over the leaves' tips, two stepped drums of glass in bronze
+// A half arch made whole, west spring to east: [u, z].
+export const archOf = (P) => [...P.map(([r, z]) => [-r, z]), ...P.slice(0, -1).reverse()];
+export const shellArch = (k = 0) => archOf(shellProfile(k));
+// The girder along each deck: a bronze band from the cornice to `z1`, `u0` to `u1` out, with a gilt
+// chevron frieze along it between `frieze` (and across the boulevard end). Inside it the rails step
+// down and in, one for each level under the top (`rail(k)`: the step's outer edge, inner edge and top).
+export const GIRDER = Object.freeze({ u0: DOME.R0, u1: 1.26, z0: Z.corn, z1: 0.54, frieze: Object.freeze([0.472, 0.528]) });
+export const rail = (k) => [DOME.R0 - (k - 1) * DOME.dr, DOME.R0 - k * DOME.dr - 0.012, springZ(k)];
+// The lantern on the fixed shell's crown, `v` from the block's centre: it can't stand over the middle
+// of a roof that slides away. A bronze foot astride the ridge, two stepped drums of glass in bronze
 // mullions, a fluted gilt cap, and the finial, a gilt sun with a baseball for its disc and the red
 // beacon over it.
 export const LANTERN = Object.freeze({
-  foot: Object.freeze({ r: 0.19, z0: 0.95, z1: 1.06 }),
-  glass: Object.freeze([Object.freeze({ r: 0.16, z0: 1.06, z1: 1.11 }), Object.freeze({ r: 0.12, z0: 1.118, z1: 1.148 })]),
+  v: -0.97,
+  foot: Object.freeze({ r: 0.19, z0: 0.83, z1: 0.86 }),
+  glass: Object.freeze([Object.freeze({ r: 0.16, z0: 0.86, z1: 0.91 }), Object.freeze({ r: 0.12, z0: 0.918, z1: 0.948 })]),
   ledge: 0.008, mullions: 12,
-  cap: Object.freeze({ r0: 0.135, r1: 0.025, z0: 1.148, z1: 1.19, flutes: 16 }),
-  stem: Object.freeze({ r: 0.008, z1: 1.205 }),
-  sun: Object.freeze({ z: 1.228, r: 0.022, rays: 12, ray: 0.02 }),
-  beacon: 1.262,
+  cap: Object.freeze({ r0: 0.135, r1: 0.025, z0: 0.948, z1: 0.99, flutes: 16 }),
+  stem: Object.freeze({ r: 0.008, z1: 1.005 }),
+  sun: Object.freeze({ z: 1.028, r: 0.022, rays: 12, ray: 0.02 }),
+  beacon: 1.062,
 });
 export const FIN_AT = Object.freeze(Array.from({ length: 11 }, (_, k) => -1.225 + k * 0.245));
 export const TOWER = Object.freeze({ at: 1.37, r0: 0.105, z0: 0.62, r1: 0.08, z1: 0.76, r2: 0.062, z2: 0.86, r3: 0.045, z3: 0.905 });
@@ -161,14 +164,13 @@ export const DOORS = Object.freeze({
   '4,0': Object.freeze({ type: 'ballpark_gate_c', facing: 'east', label: 'GATE C' }),
   '0,1': Object.freeze({ type: 'ballpark_gate_d', facing: 'west', label: 'GATE D' }),
 });
-// How tall each tile stands, in storeys: the light towers at the corners (29 m), the bowl wall round
-// the rim (15 m), and the dome over the rest (34 m at the crown).
+// How tall each tile stands, in storeys: the light towers at the corners (29 m), and the roof over the
+// rest, which runs the bowl's whole length: its shoulders on the two outer columns, and the crown
+// (28 m) on the three between, with the towers standing over it as they should.
 export function tileFloors(bc, br) {
-  const edge = Math.min(bc, br, BLOCK - 1 - bc, BLOCK - 1 - br);
   const corner = (bc === 0 || bc === BLOCK - 1) && (br === 0 || br === BLOCK - 1);
   if (corner) return 8;
-  if (edge === 0) return 5;
-  return edge === 2 ? 10 : 8;
+  return bc === 0 || bc === BLOCK - 1 ? 7 : 8;
 }
 export function parkTiles() {
   const out = [];

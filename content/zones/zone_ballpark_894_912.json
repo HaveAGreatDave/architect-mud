@@ -1,29 +1,23 @@
 {
-  "ambient_events": [
-    "Somebody cuts across the grass towards the gates with a folded scorecard.",
-    "A dog runs a long circle round nothing and comes back.",
-    "The wind brings over the smell of frying onions from Sorrel Way."
-  ],
+  "ambient_events": [],
   "ambient_theme": "urban",
-  "color": "#8ba36a",
-  "description": "Flat grass worn thin along the line people walk from the boulevard to the gates. Nobody has put a path in.",
-  "exits": {
-    "east": "zone_ballpark_895_912",
-    "north": "zone_ballpark_894_911",
-    "south": "zone_ballpark_894_913",
-    "west": "zone_ballpark_893_912"
-  },
+  "description": "Six storeys of curved wing behind the terraces of 2 Hughson Way. The run-off from the terraces goes down its west wall at six and at seven.",
+  "exits": {},
   "flags": {
+    "building_name": "4 Hughson Court",
+    "building_type": "atrium_court",
     "district": "halcyon_fields",
-    "region_id": "region_coldwater",
-    "street_life": true,
-    "terrain": "grass"
+    "entrance": "west",
+    "floors": 6,
+    "is_building": true,
+    "region_id": "region_coldwater"
   },
   "grid_x": 894,
   "grid_y": 912,
   "grid_z": 0,
   "id": "zone_ballpark_894_912",
   "map_id": "map_world",
-  "name": "Hughson Green",
+  "marker": "J4",
+  "name": "4 Hughson Court",
   "parent_zone": null
 }

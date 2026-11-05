@@ -1,11 +1,11 @@
 {
   "ambient_events": [],
   "ambient_theme": "city",
-  "description": "Hughson Way, under the Coliseum's limestone wall: marble fins, tall bronze windows and a copper cornice, with the dome standing over them.",
+  "description": "Hughson Way's junction, at the Coliseum's south-east corner: north along the east wall, west along the south wall to the main gate, and south to Sorrel Way. A chrome slab stands on the far kerb, its windows on this side tinted dark.",
   "exits": {
     "north": "zone_ballpark_892_918",
     "south": "zone_ballpark_892_920",
-    "west": "zone_ballpark_891_919"
+    "west": "zone_ballpark_895_915"
   },
   "flags": {
     "district": "halcyon_fields",
@@ -14,7 +14,7 @@
     "street_life": true,
     "terrain": "road"
   },
-  "grid_x": 892,
+  "grid_x": 896,
   "grid_y": 919,
   "grid_z": 0,
   "id": "zone_ballpark_892_919",

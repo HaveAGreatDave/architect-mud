@@ -24,6 +24,8 @@
 // park's frame: cell (i, j) runs i east and j south, with home plate at the corner of (0, 0).
 
 // GLASS's tile in feet: a storey is 3.5 m, so a tile is about 17.9 m.
+import { setSite } from './skyline-manifest.js';
+
 export const SET_TILE = 58.6;
 const TAU = Math.PI * 2;
 
@@ -73,6 +75,8 @@ export function rayTo(poly, th) {
 // The art direction a venue's content gives its city: a style per building type, and quarters
 // of the map (tile rectangles, the first that holds a tile wins) whose tall and low buildings
 // and filler take their own styles. The styles are the facade shader's (gl/cityscape.js).
+// The tall forms a quarter's towers can take (gl/cityscape.js 'tower').
+export const TOWER_FORMS = Object.freeze(['setback', 'taper', 'twist', 'twin', 'blade', 'bead']);
 export const SET_STYLES = Object.freeze(['glass', 'concrete', 'brick', 'ribbon', 'works', 'farm', 'stone', 'ruin', 'chrome']);
 function quarterOf(art, x, y) {
   for (const q of art?.quarters || []) {
@@ -97,7 +101,8 @@ export function styleOf(art, b) {
 // bounds inclusive); `skyline` { buildings, edges } from the server; `outline` the full park's
 // outline in its own frame ([x, y, z] points, ballpark-mesh's `outline`); `art` the venue's
 // art direction; `cameras` the low cameras' eyes, kept clear of tall things.
-export function composeSet({ site, skyline, outline, art = null, tile = SET_TILE, reach = 40, cameras = [] }) {
+export function composeSet({ site: venueSite, skyline, outline, art = null, tile = SET_TILE, reach = 40, cameras = [] }) {
+  const site = setSite(venueSite);
   const T = tile, sx = Number(site?.x), sy = Number(site?.y);
   const { EX, EN } = mapAxes(site?.bearing);
   const blk = site?.block || { x0: Math.floor(sx), x1: Math.floor(sx), y0: Math.floor(sy), y1: Math.floor(sy) };
@@ -242,6 +247,20 @@ export function composeSet({ site, skyline, outline, art = null, tile = SET_TILE
     const list = (q?.fill || []).filter((s) => SET_STYLES.includes(s));
     const style = list.length ? list[Math.floor(unit('style:' + k) * list.length)] : 'concrete';
     const [lo, hi] = Array.isArray(q?.floors) ? q.floors : [2, 8];
+    // A quarter's 'towers' ({ share, floors, forms, styles, from, to }) stand tall on some of its plots,
+    // from `from` feet out, so they make a skyline behind the wall and never crowd the stands. Each
+    // is a form gl/cityscape.js builds (TOWER_FORMS), one to a plot, kept clear of the low cameras.
+    const tw = q?.towers;
+    if (tw && far >= (tw.from ?? 600) && far < (tw.to ?? 3200) && unit('tw:' + k) < tw.share && clearOf(c, 60)) {
+      const forms = (tw.forms || []).filter((f) => TOWER_FORMS.includes(f)), own = (tw.styles || []).filter((s) => SET_STYLES.includes(s));
+      if (forms.length) {
+        const [flo, fhi] = tw.floors || [20, 50], side = T * (0.6 + 0.22 * unit('tww:' + k));
+        fill.push({ i, j, at: c, style: own.length ? own[Math.floor(unit('tws:' + k) * own.length)] : style,
+          floors: Math.round(flo + unit('twf:' + k) ** 1.5 * (fhi - flo)), w: side, d: side * (0.85 + 0.3 * unit('twd:' + k)),
+          seed: unit('s:' + k), form: forms[Math.floor(unit('twk:' + k) * forms.length)] });
+        continue;
+      }
+    }
     // lower right by the park, so the stands aren't walled in, then a ring that climbs from about a
     // quarter mile out, so the skyline stands up round the roof rather than thinning away from it
     const near = Math.min(1, Math.max(0.6, far / 1100));

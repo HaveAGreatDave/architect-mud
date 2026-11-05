@@ -1,29 +1,23 @@
 {
-  "ambient_events": [
-    "Somebody cuts across the grass towards the gates with a folded scorecard.",
-    "A dog runs a long circle round nothing and comes back.",
-    "The wind brings over the smell of frying onions from Sorrel Way."
-  ],
-  "ambient_theme": "urban",
-  "color": "#8ba36a",
-  "description": "Flat grass worn thin along the line people walk from the boulevard to the gates. Nobody has put a path in.",
+  "ambient_events": [],
+  "ambient_theme": "city",
+  "description": "Hughson Way leaves Halcyon Boulevard here and runs straight south to the Coliseum's north wall. The blank flank of 6 Halcyon Boulevard is on the east side and 13 Hughson Way is on the west.",
   "exits": {
-    "east": "zone_ballpark_893_910",
     "north": "zone_district_887_908",
-    "south": "zone_ballpark_892_911",
-    "west": "zone_ballpark_891_910"
+    "south": "zone_ballpark_892_911"
   },
   "flags": {
     "district": "halcyon_fields",
     "region_id": "region_coldwater",
+    "scavenging_table_id": "scav_roadside_junk",
     "street_life": true,
-    "terrain": "grass"
+    "terrain": "road"
   },
   "grid_x": 892,
   "grid_y": 910,
   "grid_z": 0,
   "id": "zone_ballpark_892_910",
   "map_id": "map_world",
-  "name": "Hughson Green",
+  "name": "Hughson Way",
   "parent_zone": null
 }

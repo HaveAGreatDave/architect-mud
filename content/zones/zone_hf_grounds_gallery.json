@@ -11,7 +11,7 @@
     "is_building": true,
     "is_interior": true,
     "window": {
-      "description": "Glass from the rail up, all the way round. Over the wings you get the green, the mews and a slice of the Curtain, and from the far side, the top half of 15 Kerbstone Row.",
+      "description": "Glass from the rail up, all the way round. Over the wings you get Sorrel Way on one side and the Coliseum's dome on the other.",
       "light": 0.9,
       "name": "the upper curve",
       "visibility": 0.9

@@ -13,7 +13,7 @@
     "is_building": true,
     "is_interior": true,
     "window": {
-      "description": "Curved glass the whole way round, out onto the mews on one side and open meadow on the other. The view from the desks is of the ground the model says is a boulevard.",
+      "description": "Curved glass the whole way round, out onto Hughson Way on one side and the court on the other. The view from the desks is of the road the model says is a boulevard.",
       "light": 0.85,
       "name": "the drum glazing",
       "visibility": 0.9

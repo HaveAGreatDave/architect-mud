@@ -1,11 +1,9 @@
 {
   "ambient_events": [],
   "ambient_theme": "city",
-  "description": "Hughson Way, two lanes and a kerb with the lot either side of it. Crowd barriers are stacked against a lamp post, ready for game night.",
+  "description": "The east end of this stretch of Hughson Way, stopped by GATE D of the Hughson Coliseum, bronze doors in a stepped limestone front. Crowd barriers are stacked against a lamp post, ready for game night.",
   "exits": {
-    "east": "zone_ballpark_891_915",
-    "north": "zone_ballpark_890_914",
-    "south": "zone_ballpark_890_916",
+    "east": "zone_ballpark_893_917",
     "west": "zone_ballpark_889_915"
   },
   "flags": {

@@ -1,25 +1,24 @@
 {
   "ambient_events": [],
-  "ambient_theme": "wasteland",
-  "color": "#8f9256",
-  "description": "Low grey brush, dry and snapping, poking up through the rubble.",
+  "ambient_theme": "forest",
+  "color": "#8ba36a",
+  "description": "The Curtain runs dead straight along the south edge. Something moves out on the flats and stops.",
   "exits": {
     "east": "zone_district_927_923",
     "north": "zone_district_926_922",
-    "south": "zone_district_926_924",
     "west": "zone_district_925_923"
   },
   "flags": {
-    "district": "wilds",
-    "radiation": 25,
+    "curtain": true,
+    "district": "residential",
     "region_id": "region_coldwater",
-    "terrain": "redrock"
+    "terrain": "grass"
   },
   "grid_x": 926,
   "grid_y": 923,
   "grid_z": 0,
   "id": "zone_district_926_923",
   "map_id": "map_world",
-  "name": "The Grey Bramble",
+  "name": "Grasslands",
   "parent_zone": null
 }

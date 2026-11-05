@@ -13,7 +13,7 @@
     "is_interior": true,
     "rent_cost": 200,
     "window": {
-      "description": "East over Sorrel Way and the backs of the Cinder Lane towers, with a slice of the green between two of them. In the afternoon this room is the warmest in the building and there is nobody in it.",
+      "description": "East over Sorrel Way and the backs of the Cinder Lane towers, with a slice of the Coliseum's dome between two of them. In the afternoon this room is the warmest in the building and there is nobody in it.",
       "light": 0.75,
       "name": "the curved window",
       "visibility": 0.8

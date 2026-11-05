@@ -1,24 +1,24 @@
 {
   "ambient_events": [],
-  "ambient_theme": "wasteland",
-  "color": "#8f9256",
-  "description": "Broken ground with a cover of low, brittle grey brush.",
+  "ambient_theme": "forest",
+  "color": "#8ba36a",
+  "description": "Grass to the knee over ground that was outside the wall not long ago. Old tyre ruts run through it and stop.",
   "exits": {
     "east": "zone_district_927_920",
+    "north": "zone_district_926_919",
     "south": "zone_district_926_921",
     "west": "zone_district_925_920"
   },
   "flags": {
-    "district": "wilds",
-    "radiation": 25,
+    "district": "residential",
     "region_id": "region_coldwater",
-    "terrain": "redrock"
+    "terrain": "grass"
   },
   "grid_x": 926,
   "grid_y": 920,
   "grid_z": 0,
   "id": "zone_district_926_920",
   "map_id": "map_world",
-  "name": "The Grey Bramble",
+  "name": "Grasslands",
   "parent_zone": null
 }

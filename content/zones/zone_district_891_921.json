@@ -1,10 +1,9 @@
 {
   "ambient_events": [],
   "ambient_theme": "city",
-  "description": "A wide new street with nothing much on it yet. Somebody has already parked across two of the bays.",
+  "description": "A wide new street with a strip of garden along the south side. Somebody has already parked across two of the bays.",
   "exits": {
     "east": "zone_district_892_921",
-    "north": "zone_ballpark_891_920",
     "south": "zone_district_891_922",
     "west": "zone_district_890_921"
   },

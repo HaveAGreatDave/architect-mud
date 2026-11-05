@@ -1,7 +1,7 @@
 {
   "ambient_events": [],
   "ambient_theme": "residential",
-  "description": "Two walls of hard light meet at a right angle here, floor to sky, and the camp runs right up to both of them. It is the only corner of Coldwater the wind has never once got into, and the pitches here are handed down rather than taken.",
+  "description": "A wall of hard light stands along the east side, floor to sky, and the camp runs right up to it. There was a second wall across the south until it moved, and this was the one corner of Coldwater the wind never got into. The wind has found it now. The pitches are still handed down rather than taken.",
   "exits": {
     "east": "zone_district_927_918",
     "south": "zone_district_926_919",

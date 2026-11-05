@@ -1,29 +1,23 @@
 {
-  "ambient_events": [
-    "Somebody cuts across the grass towards the gates with a folded scorecard.",
-    "A dog runs a long circle round nothing and comes back.",
-    "The wind brings over the smell of frying onions from Sorrel Way."
-  ],
+  "ambient_events": [],
   "ambient_theme": "urban",
-  "color": "#8ba36a",
-  "description": "Mown grass and one bench. Halcyon's towers stand round the edge of the green and stop there.",
-  "exits": {
-    "east": "zone_ballpark_895_911",
-    "north": "zone_ballpark_894_910",
-    "south": "zone_ballpark_894_912",
-    "west": "zone_ballpark_893_911"
-  },
+  "description": "Curved wings behind 8 Halcyon Boulevard, six storeys, built to the plot line on every side. The light reaches the drum at noon and leaves shortly after.",
+  "exits": {},
   "flags": {
+    "building_name": "2 Hughson Court",
+    "building_type": "atrium_court",
     "district": "halcyon_fields",
-    "region_id": "region_coldwater",
-    "street_life": true,
-    "terrain": "grass"
+    "entrance": "north",
+    "floors": 6,
+    "is_building": true,
+    "region_id": "region_coldwater"
   },
   "grid_x": 894,
   "grid_y": 911,
   "grid_z": 0,
   "id": "zone_ballpark_894_911",
   "map_id": "map_world",
-  "name": "Hughson Green",
+  "marker": "J2",
+  "name": "2 Hughson Court",
   "parent_zone": null
 }

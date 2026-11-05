@@ -1,29 +1,24 @@
 {
-  "ambient_events": [
-    "Somebody cuts across the grass towards the gates with a folded scorecard.",
-    "A dog runs a long circle round nothing and comes back.",
-    "The wind brings over the smell of frying onions from Sorrel Way."
-  ],
-  "ambient_theme": "urban",
-  "color": "#8ba36a",
-  "description": "Mown grass and one bench. Halcyon's towers stand round the edge of the green and stop there.",
+  "ambient_events": [],
+  "ambient_theme": "city",
+  "description": "The east end of Burnet Walk, with Hughson Way in front of you and the terraces of 2 Hughson Way across it.",
   "exits": {
     "east": "zone_ballpark_892_912",
-    "north": "zone_ballpark_891_911",
     "south": "zone_ballpark_891_913",
     "west": "zone_ballpark_890_912"
   },
   "flags": {
     "district": "halcyon_fields",
     "region_id": "region_coldwater",
+    "scavenging_table_id": "scav_roadside_junk",
     "street_life": true,
-    "terrain": "grass"
+    "terrain": "road"
   },
   "grid_x": 891,
   "grid_y": 912,
   "grid_z": 0,
   "id": "zone_ballpark_891_912",
   "map_id": "map_world",
-  "name": "Hughson Green",
+  "name": "Burnet Walk",
   "parent_zone": null
 }

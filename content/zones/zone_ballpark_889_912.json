@@ -1,12 +1,7 @@
 {
-  "ambient_events": [
-    "Somebody cuts across the grass towards the gates with a folded scorecard.",
-    "A dog runs a long circle round nothing and comes back.",
-    "The wind brings over the smell of frying onions from Sorrel Way."
-  ],
-  "ambient_theme": "urban",
-  "color": "#8ba36a",
-  "description": "The green, level from the boulevard to Hughson Way. On a game night people bring blankets and listen to the crowd through the walls.",
+  "ambient_events": [],
+  "ambient_theme": "city",
+  "description": "Yarrow Lane crosses Burnet Walk here, where the pond was. A brass plate is set in the paving, moved from the coping: \"Sir Charles's ground. Please walk on the grass.\" Nobody has had the heart to take it up.",
   "exits": {
     "east": "zone_ballpark_890_912",
     "north": "zone_ballpark_889_911",
@@ -16,14 +11,15 @@
   "flags": {
     "district": "halcyon_fields",
     "region_id": "region_coldwater",
+    "scavenging_table_id": "scav_roadside_junk",
     "street_life": true,
-    "terrain": "grass"
+    "terrain": "road"
   },
   "grid_x": 889,
   "grid_y": 912,
   "grid_z": 0,
   "id": "zone_ballpark_889_912",
   "map_id": "map_world",
-  "name": "Hughson Green",
+  "name": "Burnet Walk + Yarrow Lane",
   "parent_zone": null
 }

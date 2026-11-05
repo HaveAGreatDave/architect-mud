@@ -5,6 +5,8 @@
   "description": "Planting in raised chrome beds, laid out in a pattern you can only read from about the eighth floor. From the ground it is a lot of low shrubs with gravel between them and a hose reel chained to a post.",
   "exits": {
     "east": "zone_district_897_912",
+    "north": "zone_ballpark_895_910",
+    "south": "zone_ballpark_894_914",
     "west": "zone_district_895_912"
   },
   "flags": {

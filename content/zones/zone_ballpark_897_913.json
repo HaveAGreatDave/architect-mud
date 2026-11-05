@@ -1,11 +1,11 @@
 {
   "ambient_events": [],
   "ambient_theme": "city",
-  "description": "Hughson Way, the short road round Sir Charles's lot. It doesn't go anywhere but the park, and it's swept more often than the public streets.",
+  "description": "Hughson Way, outside a modest door under a glass canopy: 11 Hughson Way, the convalescent rooms. The back of the Coliseum Box Office is across the road.",
   "exits": {
     "north": "zone_ballpark_897_912",
     "south": "zone_ballpark_897_914",
-    "west": "zone_ballpark_896_913"
+    "west": "zone_district_898_913"
   },
   "flags": {
     "district": "halcyon_fields",

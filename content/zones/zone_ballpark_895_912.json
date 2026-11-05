@@ -1,29 +1,23 @@
 {
-  "ambient_events": [
-    "Somebody cuts across the grass towards the gates with a folded scorecard.",
-    "A dog runs a long circle round nothing and comes back.",
-    "The wind brings over the smell of frying onions from Sorrel Way."
-  ],
+  "ambient_events": [],
   "ambient_theme": "urban",
-  "color": "#8ba36a",
-  "description": "Mown grass and one bench. Halcyon's towers stand round the edge of the green and stop there.",
-  "exits": {
-    "east": "zone_ballpark_896_912",
-    "north": "zone_ballpark_895_911",
-    "south": "zone_ballpark_895_913",
-    "west": "zone_ballpark_894_912"
-  },
+  "description": "Four falling masses in the middle of the court, the tallest of them eight storeys. It has no street, and its post comes through 9 Hughson Way.",
+  "exits": {},
   "flags": {
+    "building_name": "5 Hughson Court",
+    "building_type": "cascade_block",
     "district": "halcyon_fields",
-    "region_id": "region_coldwater",
-    "street_life": true,
-    "terrain": "grass"
+    "entrance": "south",
+    "floors": 8,
+    "is_building": true,
+    "region_id": "region_coldwater"
   },
   "grid_x": 895,
   "grid_y": 912,
   "grid_z": 0,
   "id": "zone_ballpark_895_912",
   "map_id": "map_world",
-  "name": "Hughson Green",
+  "marker": "J5",
+  "name": "5 Hughson Court",
   "parent_zone": null
 }

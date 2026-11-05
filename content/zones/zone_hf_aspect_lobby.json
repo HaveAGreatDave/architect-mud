@@ -13,7 +13,7 @@
     "is_building": true,
     "is_interior": true,
     "window": {
-      "description": "The whole way round except behind the lift core, looking out onto Cinder Lane, the backs of Kerbstone Row and, if you walk far enough round, the green. It is the only lobby in the quarter you can see three streets from without moving your feet, only your head.",
+      "description": "The whole way round except behind the lift core, looking out onto Cinder Lane, the backs of Kerbstone Row and, if you walk far enough round, the dome. It is the only lobby in the quarter you can see three streets from without moving your feet, only your head.",
       "light": 0.85,
       "name": "the full curve",
       "visibility": 0.9

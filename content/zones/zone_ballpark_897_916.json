@@ -3,9 +3,9 @@
   "ambient_theme": "urban",
   "bg_color": "#2a1d18",
   "color": "#d8c9a8",
-  "description": "GATE C of the Hughson Coliseum, at the end of Kerbstone Row: a plain stepped frontispiece in the bowl's limestone, bronze doors under a lit fanlight, and GATE C in gilt on a bronze plate.",
+  "description": "GATE C of the Hughson Coliseum, on Hughson Way: a plain stepped frontispiece in the bowl's limestone, bronze doors under a lit fanlight, and GATE C in gilt on a bronze plate.",
   "exits": {
-    "east": "zone_district_898_916",
+    "east": "zone_ballpark_896_914",
     "west": "zone_hughsongc_hall"
   },
   "flags": {
@@ -19,10 +19,10 @@
     "region_id": "region_coldwater",
     "venue_lights": true,
     "venue_roof": true,
-    "world_exit_zone": "zone_district_898_916"
+    "world_exit_zone": "zone_ballpark_896_914"
   },
-  "grid_x": 897,
-  "grid_y": 916,
+  "grid_x": 895,
+  "grid_y": 914,
   "grid_z": 0,
   "id": "zone_ballpark_897_916",
   "map_id": "map_world",

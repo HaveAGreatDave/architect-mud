@@ -1,29 +1,23 @@
 {
-  "ambient_events": [
-    "Somebody cuts across the grass towards the gates with a folded scorecard.",
-    "A dog runs a long circle round nothing and comes back.",
-    "The wind brings over the smell of frying onions from Sorrel Way."
-  ],
+  "ambient_events": [],
   "ambient_theme": "urban",
-  "color": "#8ba36a",
-  "description": "The green, level from the boulevard to Hughson Way. On a game night people bring blankets and listen to the crowd through the walls.",
-  "exits": {
-    "east": "zone_ballpark_888_910",
-    "north": "zone_district_887_909",
-    "south": "zone_ballpark_887_911",
-    "west": "zone_district_886_910"
-  },
+  "description": "Two unequal glass shafts off one podium, tied together by glazed links high up, fifty storeys in all. The upper link is a residents' lounge, and from the street you can see one person in it.",
+  "exits": {},
   "flags": {
+    "building_name": "1 River Road",
+    "building_type": "sky_court",
     "district": "halcyon_fields",
-    "region_id": "region_coldwater",
-    "street_life": true,
-    "terrain": "grass"
+    "entrance": "west",
+    "floors": 50,
+    "is_building": true,
+    "region_id": "region_coldwater"
   },
   "grid_x": 887,
   "grid_y": 910,
   "grid_z": 0,
   "id": "zone_ballpark_887_910",
   "map_id": "map_world",
-  "name": "Hughson Green",
+  "marker": "Q1",
+  "name": "1 River Road",
   "parent_zone": null
 }

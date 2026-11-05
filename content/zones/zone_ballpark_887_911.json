@@ -1,29 +1,23 @@
 {
-  "ambient_events": [
-    "Somebody cuts across the grass towards the gates with a folded scorecard.",
-    "A dog runs a long circle round nothing and comes back.",
-    "The wind brings over the smell of frying onions from Sorrel Way."
-  ],
+  "ambient_events": [],
   "ambient_theme": "urban",
-  "color": "#8ba36a",
-  "description": "Open grass behind the Hughson Coliseum, cut short. It's Sir Charles's ground, and the mowing comes out of the gate money.",
-  "exits": {
-    "east": "zone_ballpark_888_911",
-    "north": "zone_ballpark_887_910",
-    "south": "zone_ballpark_887_912",
-    "west": "zone_district_886_911"
-  },
+  "description": "Forty-two storeys of glass with sixteen chrome fins running unbroken from the pavement to the parapet. The west flats look through the Curtain at the river, tinted blue, at no extra charge.",
+  "exits": {},
   "flags": {
+    "building_name": "3 River Road",
+    "building_type": "chrome_tower",
     "district": "halcyon_fields",
-    "region_id": "region_coldwater",
-    "street_life": true,
-    "terrain": "grass"
+    "entrance": "west",
+    "floors": 42,
+    "is_building": true,
+    "region_id": "region_coldwater"
   },
   "grid_x": 887,
   "grid_y": 911,
   "grid_z": 0,
   "id": "zone_ballpark_887_911",
   "map_id": "map_world",
-  "name": "Hughson Green",
+  "marker": "Q2",
+  "name": "3 River Road",
   "parent_zone": null
 }

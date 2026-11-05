@@ -1369,6 +1369,14 @@ takes the page headless and screenshots a slot's plays at the moments the direct
 pitch, the catch, the throw, the tag, the landing and after), so the picture can be checked with
 nobody at the keyboard. The renderer's traps are in [glass-notes.md](reference/glass-notes.md#the-ballpark-glballparkjs).
 
+**The city's towers.** A quarter in the venue's art direction (`venue.city.quarters`) can carry
+`towers`: `share` of its filler plots, `from` and `to` feet out, `floors`, `styles` and `forms`. `composeSet`
+marks those plots and [gl/cityscape.js](../client/game/js/panels/gl/cityscape.js) `tower` builds them. The
+forms (`TOWER_FORMS` in [city-set.js](../client/shared/city-set.js)) are `setback`, `taper`, `twist`, `twin`,
+`blade` and `bead`, each a silhouette the quarter already has, drawn as rings. They're set dressing:
+no map tile stands behind one. A venue's `site.set` names the ground the broadcast's park fills, when
+that's more than `site.block`, and the city is composed round it (`setSite`).
+
 **The pitch camera.** The pitches are watched from behind the batter (`bat`) or, with the camera
 button on the picture (`.gds-cam`), from behind the pitcher on the long lens from centre field
 (`cf`). The choice is kept in this browser (`architect_deadball_cam`), and the sandbox takes

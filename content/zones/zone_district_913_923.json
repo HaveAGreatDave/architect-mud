@@ -4,6 +4,7 @@
   "color": "#b5744a",
   "description": "Grass beside the Curtain where it bends round the gate. The waste beyond it is red and flat to the hills.",
   "exits": {
+    "east": "zone_district_914_923",
     "north": "zone_district_913_926",
     "west": "zone_district_912_923"
   },

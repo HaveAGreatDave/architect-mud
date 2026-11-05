@@ -2,16 +2,18 @@
 
 **Status: BUILT, but for seats in person.** Deadball's ballpark, on the map and on TV: 25 tiles in
 Halcyon Fields, true size on TV, four gates, thirteen rooms, one vendor, one GLASS arm over 25 building
-types, a map icon, the Hughson Dome, whose six moving leaves open it and shut it for the weather, and field lights every night. It's an
+types, a map icon, the Hughson Dome, a clamshell of three stepped shells on rails that opens it and shuts it for the weather, and field lights every night. It's an
 art deco park from the Meridian's decade, kept up, under a roof added long after. Five ballpark
-trades stand on the plots either side of it (§10). The buildings and the green it replaced, and the
-five Halcyon buildings the trades replaced, are set aside on a holding map, not deleted. Built
+trades stand on the plots either side of it (§10), and Halcyon's estate and the Hughson towers stand north
+and west of it ([hughson-estate.md](hughson-estate.md), [hughson-towers.md](hughson-towers.md)). What's still off the map is set aside on a holding map,
+not deleted. Built
 2026-10-18 as Phase 6 of [deadball-glass2.md](deadball-glass2.md#phases), which called the park
 Halcyon Field, and rebuilt in deco with the roof the same day. On 2026-11-02 it went to true size,
 11 by 11 tiles, with the city grown west to the river round it ([coliseum-true-size.md](coliseum-true-size.md)),
-on 2026-11-03 its three shells gave way to the Hughson Dome, on the map and on TV together, and on
+on 2026-11-03 its three shells gave way to eight turning leaves, on the map and on TV together, on
 2026-11-04 the map's park came down to five tiles in the corner of its lot, with TV left at true size
-([coliseum-five-tiles.md](coliseum-five-tiles.md)). This page describes it as it stands now.
+([coliseum-five-tiles.md](coliseum-five-tiles.md)), and later that day the shells came back in the
+leaves' copper, steps, ribs and lantern. This page describes it as it stands now.
 
 The content is written by [scripts/content/hughson-coliseum.mjs](../../scripts/content/hughson-coliseum.mjs)
 and [scripts/content/hughson-parkside.mjs](../../scripts/content/hughson-parkside.mjs), and the models
@@ -38,6 +40,7 @@ Where it's told:
 | The bowl wall | his name cut into the stone in one line, on Sorrel Way and again on Halcyon Boulevard (§5) |
 | The main gate | two Guardians in the manner of Cleveland's bridge, GRANDSTAND in raised gilt on its plate, and the gilt sun with a baseball for its disc over it (§5) |
 | The broadcast | the main gate's name plate in the 3-D view, painted as the map's (`sports_pools.venue.name`, §7) |
+| Yarrow Lane | the cheques and the ground lease at 889,911, and his brass plate in the paving at 889,912 |
 | The trades | Lorna Pruitt's mother's peanuts on opening day, the photograph over Mulcahy's fireplace, and Odessa Kimble on the sunburst (§10) |
 
 ⚠ **They tell one story.** Change a line in one place and check the others.
@@ -46,11 +49,15 @@ Where it's told:
 
 Sir Charles's whole lot is x 887 to 897, y 910 to 920: Halcyon Boulevard along the north, Sorrel Way
 along the south, the river road and the Curtain on the west, and the trades on x 898 to the east. The
-park is the lot's south-east corner, x 893 to 897, y 916 to 920, and the rest is Hughson Way, Hughson
-Green and the car park ([coliseum-five-tiles.md](coliseum-five-tiles.md#the-lot)). The Deadball row's
+park is at x 891 to 895, y 914 to 918, two tiles in from the lot's south and east edges, so home plate
+stands a quarter tile from where TV has it ([coliseum-five-tiles.md](coliseum-five-tiles.md#two-tiles-north)). The rest
+is Hughson Way, which comes down x 892 from Halcyon Boulevard to the park's north wall, down x 896 past
+its east wall to Sorrel Way, and along its south wall on y 919, with a run west on y 915 to GATE D, eleven Halcyon buildings ([hughson-estate.md](hughson-estate.md))
+and the Hughson towers on the old car park and green ([hughson-towers.md](hughson-towers.md)). The
+ground is still his. The towers stand on a ground lease, and nothing in the world says he sold any of it. The Deadball row's
 `sports_pools.venue.site.block` names the same 25 tiles and
-`site.x`/`site.y` home plate, which [scripts/content/coliseum-park.mjs](../../scripts/content/coliseum-park.mjs)
-writes from the plan. Home plate is 168 ft in from the south-east corner, centre field is to the
+`site.x`/`site.y` home plate, which is 894.61,917.61. `site.set` is the broadcast's own ground, the whole
+lot with home plate at 894.86,917.86. Home plate is 168 ft in from the south-east corner, centre field is to the
 north-west (the venue's bearing of 315 degrees), and the foul lines run along the tile grid.
 
 ⚠ **The plan is [client/shared/coliseum-plan.js](../../client/shared/coliseum-plan.js).** The park is
@@ -65,13 +72,17 @@ north-west), each walled on every side a neighbour could walk in from.
 
 | Tile | Type | Door | Street |
 |---|---|---|---|
-| 896,920 | `ballpark` | the main gate, south, straight across from home plate (map code `HC`) | Sorrel Way |
-| 893,916 | `ballpark_bleachers` | the bleacher gate, north (`BG`) | Hughson Way |
-| 897,916 | `ballpark_gate_c` | GATE C, east (`G3`), a hall into the bleachers | the end of Kerbstone Row |
-| 893,917 | `ballpark_gate_d` | GATE D, west (`G4`), a hall into the bleachers | Hughson Way |
+| 894,918 | `ballpark` | the main gate, south, straight across from home plate (map code `HC`) | Hughson Way, with Grandstand Walk on to Sorrel Way and Fitz's Franks |
+| 891,914 | `ballpark_bleachers` | the bleacher gate, north (`BG`) | a short cut off Hughson Way at 891,913 |
+| 895,914 | `ballpark_gate_c` | GATE C, east (`G3`), a hall into the bleachers | Hughson Way at 896,914 |
+| 891,915 | `ballpark_gate_d` | GATE D, west (`G4`), a hall into the bleachers | Hughson Way at 890,915 |
 
-The nine tiles the park first stood on (x 895-897, y 911-913) are Hughson Green and Hughson Way now
-and kept their ids; their gates moved, and their rooms with them.
+⚠ **The main gate is on Hughson Way on the map and on Sorrel Way on TV.** `site.set` is TV's own ground,
+and the map's bowl is block-relative, so the Guardians, the plates and the name band on the south face
+stand over Hughson Way here. On foot the gate is one straight walk from Sorrel Way up Grandstand Walk.
+
+The nine tiles the park first stood on (x 895-897, y 911-913) are Hughson Green, Hughson Way and the
+plots of 9 and 11 Hughson Way now. Their gates moved, and their rooms with them.
 
 - **New ids, so nothing is overwritten.** The park's tiles are `zone_ballpark_<x>_<y>`, and the set-aside
   buildings keep their own `zone_district_<x>_<y>` ids. No runtime code builds a world tile's id
@@ -88,33 +99,29 @@ and kept their ids; their gates moved, and their rooms with them.
 At true size (2026-11-02) the whole square went the same way: its 112 street and meadow tiles
 (after the buildings on it had moved to new plots, [coliseum-true-size.md](coliseum-true-size.md#where-each-one-went))
 are on `map_set_aside` rows 11 to 21, grid x minus 886 and y minus 899, with `flags.set_aside_from`.
-The nine-tile park's own set-aside, below, is unchanged.
 
-| Tile | Building | Interior | Keeper |
-|---|---|---|---|
-| 895,911 | 8 Halcyon Boulevard | `map_int_going` | Dorothea Crake |
-| 896,911 | The Halcyon Institute | `map_int_course` | Clement Quainton |
-| 897,911 | Halcyon Land Office | `map_int_plot` | Merrick Follet |
-| 895 to 897,912 | Vetch Green, three tiles | none | none |
-| 895,913 | 3 Sorrel Way | `map_int_hf_assets` | none |
-| 896,913 | 5 Sorrel Way | `map_int_hf_grounds` | Nadia Ferreira |
-| 897,913 | 7 Sorrel Way | `map_int_hf_fit` | none |
+The nine-tile park set aside six buildings and Vetch Green on 2026-10-18, and the trades set aside
+five more buildings (§10). All eleven buildings went back onto the lot on 2026-11-04, with their
+eight keepers ([hughson-estate.md](hughson-estate.md)). What's still on the holding map from the park:
+
+| Tiles | Holding grid | What they are |
+|---|---|---|
+| Vetch Green, three tiles | 1 to 3,2 | the green from 895 to 897,912, with no plot to go to |
+| Hughson Green, eleven tiles | rows 1, 3 and 9, in the cells the buildings left | the green tiles the buildings displaced, each with `flags.set_aside_from` naming its plot |
+| 112 street and meadow tiles | rows 11 to 21 | the true-size square |
 
 Deleting a content file deletes its row on the next deploy and orphans any player row that points
 at it, so none of these was deleted. Instead:
 
-- **The nine tiles moved onto a holding map**, [map_set_aside](../../content/maps/map_set_aside.json),
-  in the block's own layout one tile in from its origin (grid x minus 894, y minus 910), so the
-  green still joins up and every facade faces the way it did. Each keeps its id, name, prose,
-  flags, interior map, rooms, furniture and the connections into its rooms. Each carries
-  `flags.set_aside`, and `flags.set_aside_from` says where it stood.
-- **Nothing on the holding map connects to the world.** The six connection files between the
-  facades and the streets were removed (the only files this build deleted), the street tiles'
-  exits into the block and the grass tile's at 898,912 were cut, and each facade's
-  `world_exit_zone` names the green in its own column. Regress checks both ways.
-- **The four keepers carry `flags.set_aside` too.** They were vendors on the estate's vendor graph,
-  which walks them to work and to an ATM; the game loop skips an NPC with that flag, so they stay
-  in their home rooms with their routines paused.
+- **A tile moves onto a holding map**, [map_set_aside](../../content/maps/map_set_aside.json), and
+  keeps its id, name, prose, flags, interior map, rooms, furniture and the connections into its
+  rooms. It carries `flags.set_aside`, and `flags.set_aside_from` says where it stood.
+- **Nothing on the holding map connects to the world.** The connection files between facades and
+  streets are removed, the street tiles' exits into the block are cut, and each facade's
+  `world_exit_zone` stays on the holding map. Regress checks both ways.
+- **A keeper carries `flags.set_aside` too.** The vendor graph walks a keeper to work and to an ATM;
+  the game loop skips an NPC with that flag, so they stay in their home rooms with their routines
+  paused.
 - **Players.** [scripts/oneshots/set-aside-players.mjs](../../scripts/oneshots/set-aside-players.mjs)
   moves anyone standing in a set-aside room, anything on its floor and any corpse in it to the
   Coliseum's rotunda, and a respawn point in one back to the default. Rented rooms and player
@@ -122,10 +129,8 @@ at it, so none of these was deleted. Instead:
   room. It reads the set-aside zones each run, so it converges and lives in `oneshots.bat`; run it
   after the deploy that lands this (`scripts\oneshots.bat prod`). The local database had nothing to
   move.
-- **The models stay.** 8 Halcyon Boulevard, the Institute and the Land Office are drawn by their
-  type arms in [old-coldwater.js](../../client/game/js/panels/glass/models/old-coldwater.js), 3 Sorrel
-  Way by the `lens_hall` arm, and 5 and 7 Sorrel Way are bound by name in `NAMED_MODELS`. The types
-  are still registered, so the shapes bake keeps them, and a building put back looks the same.
+- **The models stay.** A set-aside building's type or name stays registered, so the shapes bake keeps
+  it, and a building put back looks the same.
 
 **Putting one back:** move its zone to a new plot on `map_world` (its `map_id` and grid), give the
 street a link to the facade in the facade's entrance direction and point `world_exit_zone` at that
@@ -141,7 +146,7 @@ one is under 30 characters, so `docs:prose` doesn't count the dash in it.
 
 | Room | From | What's in it |
 |---|---|---|
-| Rotunda | the main gate (`map_int_hughson`) | the statue, the plaque, the turnstiles; the gates look onto Sorrel Way |
+| Rotunda | the main gate (`map_int_hughson`) | the statue, the plaque, the turnstiles; the gates look onto Hughson Way and Grandstand Walk |
 | Ticket Office | east of the rotunda | the seating plan, section nine crossed out in red |
 | Concourse | north of the rotunda | the way through to the stands, the club level and the plant room |
 | Concessions | west of the concourse | the concession stand and its cash drawer, Ray Dombrowski |
@@ -183,13 +188,13 @@ gate, east for GATE C, west for GATE D).
 - ⚠ **A gate is wider than its tile.** The main and bleacher gates each span three tiles, so the
   tile a gate's middle is on draws all of it, its clip widened across the gate while the gate's
   section runs. GATE C and GATE D are a plain stepped frontispiece each, cut tile by tile.
-- ⚠ **The dome's shape is boxes under its skin.** Under SHAPE_SINK the leaves' faces cut each tile
-  three by two, and each cell becomes one box from the lowest point of the dome over it to the
-  highest, so the shape's top and base are the mesh's (gl:mesh) and a tile holding nothing but dome
-  starts where the dome does. Two traps. The cells aren't square, because the kit rings any square
-  roofed box in coping (derived-kit.js `deck`), and on quarter tiles that drew a grid over the dome.
+- ⚠ **The roof's shape is boxes under its skin.** Under SHAPE_SINK the shells' faces cut each tile
+  three by two, and each cell becomes one box from the lowest point of the roof over it to the
+  highest, so the shape's top and base are the mesh's (gl:mesh) and a tile holding nothing but roof
+  starts where the roof does. Two traps. The cells aren't square, because the kit rings any square
+  roofed box in coping (derived-kit.js `deck`), and on quarter tiles that drew a grid over the roof.
   And the skin sits inside those boxes, so its faces carry `noAO` and the AO bake leaves them open
-  (gl/world.js `bakeFaceAO`); without it the dome baked dark in the same grid.
+  (gl/world.js `bakeFaceAO`); without it the roof baked dark in the same grid.
 
 - **The park is drawn in block coordinates**, u east and v south of the block's centre, in tiles,
   and each tile draws only what falls in its own square: flats are clipped to it, boxes are cut at
@@ -248,39 +253,51 @@ gate, east for GATE C, west for GATE D).
   letters in the `deco` hand that cast their shadow onto the plate (`embossText`, exported from
   coliseum.js for the trades), and on the main gate a halo round the plate after dark and
   floodlights under it.
-- **The roof is the Hughson Dome**: eight leaves on a bronze ring 170 m across, meeting under a
-  glazed lantern. Its numbers are the plan's (`DOME`, `LEAVES`, `RING`, `LANTERN` in
-  [coliseum-plan.js](../../client/shared/coliseum-plan.js)), which the broadcast builds from too.
-  The two leaves over the outfield are fixed; the other six turn on the ring and nest under them,
-  three a side, so the dome opens from home plate outward and the field and the grandstand get the
-  sky. Each leaf steps: its profile sets back three times on the way up, its rib is a bronze fin
-  along the edge that trails as it opens, and a glazing strip runs down its middle. The panels are
-  copper gone dark brown, lit as `plain` (as `metal` they mirrored the sky and read blue). The ring
-  is a bronze band with a gilt chevron frieze, and inside it the rails step down and in, one for
-  each level of leaf. The lantern is two drums of glass in bronze mullions under a fluted gilt cap,
-  and on its stem the main gate's sun with a baseball for its disc, facing all four streets, with the
-  red beacon over it after dark. Copper roofs the drum's corners between the ring and the wall.
-- ⚠ **A leaf nests by its level.** Level k is the top leaf's profile taken `dr` further out and set
-  `g` lower, and the profile never rises outward, so each level clears the one over it by at least
-  `g` (about seven feet) everywhere. The rib stands less than `g` proud on the trailing edge, so no
-  rib ever passes through a leaf's edge, and `ribIn` in from it, so a nested rib never shares the
-  plane of the fascia over it. Change `g`, `dr` or the rib and run `ballpark-smoke`.
+- **The roof is the Hughson Dome**, a clamshell in the SkyDome's manner: three stepped barrel vaults on
+  bronze girders, from the east deck to the west. Its numbers are the plan's (`DOME`, `SHELLS`,
+  `GIRDER`, `LANTERN` in [coliseum-plan.js](../../client/shared/coliseum-plan.js)), which the broadcast
+  builds from too. The first shell is fixed over the bleachers on the boulevard side; the other two
+  ride the rails north and nest under it, so the roof opens from Sorrel Way and the field and the
+  grandstand get the sky, and the fixed shell keeps the outfield seats dry. Each arch sets back three
+  times on the way up, a ziggurat end on, with five bronze ribs across each shell and glass over its
+  two upper tiers, so more of the roof is glass than copper. The panels are copper gone dark brown, lit as `plain` (as `metal` they mirrored the
+  sky and read blue). The girders are bronze bands with a gilt chevron frieze, which runs across the
+  boulevard's sill too, and inside them the rails step down and in, one for each level. The two outer
+  ends are glass fans behind bronze rays, in a bronze frame round the stepped arch, on a gilt hub.
+  The last shell's fan rides with it, so open it faces the field. The lantern stands on the fixed
+  shell's crown, because nothing can stand over the middle of a roof that slides away: two drums of
+  glass in bronze mullions under a fluted gilt cap, and on its stem the main gate's sun with a baseball
+  for its disc, facing all four streets, with the red beacon over it after dark.
+- ⚠ **A shell nests by its level.** Level k is the top shell's arch taken `dr` in and set `g` lower, and
+  the profile never rises outward, so each level clears the one over it by at least `g` (about seven
+  feet) everywhere, and a rib passes under the steel of the shell over it. Change `g`, `dr` or the rib
+  and run `ballpark-smoke`.
+- ⚠ **The crown stands at 0.85 for the skyline.** From the field the Halcyon and Ascendant towers stand
+  over the roof and through its glass, and that view is what the park is known for. At 1.05 the vault
+  shut them out. It's 28 m on the map, under the corner towers' lamp houses. Change `H` or `zs` and
+  look from home plate first.
+- ⚠ **The feet stay inside the towers.** `DOME.R0` is 1.22 and the girder ends at 1.26 because a corner
+  tower's inner side is 1.265 and the vaults run the bowl's whole length past all four. The leaves'
+  ring was 1.33 because a circle only touched the sides.
+- ⚠ **Above the spring, nothing stands behind the fan.** The last shell's fan is just behind the main
+  gate's face, so on the map the gate's upper boxes start in front of it (`FV`). Run back to the wall,
+  the setback and crown stood inside the vault and showed through the glass.
 - ⚠ **A moving roof is never mesh.** GLASS 2 caches the mesh per state: `venueKey` in
   [gl/world.js](../../client/game/js/panels/gl/world.js) adds the game night and the roof (shut,
   open, or moving) to `meshParams`, `placeOf` hands the same state to the capture, and the window
   key is memoised against `venueEpoch`, which a push or a roof arriving where it was going bumps. At
-  rest the six leaves are drawn into the mesh where they rest (shut or nested); while they turn the
-  mesh has none of them and the arm lays them down as depth-writing decals at the angle they've
-  reached, and asks `dutyPhase` so the arm-keep record never freezes them. The ring, the lantern and
-  the two fixed leaves are mesh in every state. GLASS 1 draws the leaves every frame as flats.
-  ⚠ The shape is the shut dome whatever the roof is doing, the stepped envelope above: the shape is
+  rest the two moving shells are drawn into the mesh where they rest (shut or nested); while they
+  travel the mesh has neither and the arm lays them down as depth-writing decals where they've
+  got to, and asks `dutyPhase` so the arm-keep record never freezes them. The girders, the lantern and
+  the fixed shell are mesh in every state. GLASS 1 draws the shells every frame as flats.
+  ⚠ The shape is the shut roof whatever it's doing, the stepped envelope above: the shape is
   per model, not per state, and collision, the occluders and the distance LOD read it, so from far
-  off the dome is those boxes, the ring and the lantern. A pilot who drops into the open bowl meets
-  the dome, which is rarer and less wrong than flying through one that looks solid. The skin goes
+  off the roof is those boxes and the lantern. A pilot who drops into the open bowl meets
+  the roof, which is rarer and less wrong than flying through one that looks solid. The skin goes
   into the mesh as roof faces, not trim, because as flats it stood well over the field tiles' only
   mass and `gl:mesh` failed it.
-- **Registrations:** `TYPE_MODEL` (with `noKit`, palette `ty_palais_stone`), `TYPE_FLOORS` (five at
-  the corners for the towers, four elsewhere for the vault), `BLDG_TYPE_3D`, `BUILDING_TYPE_ICON` and
+- **Registrations:** `TYPE_MODEL` (with `noKit`, palette `ty_palais_stone`), `TYPE_FLOORS` (eight at
+  the corners and on the roof's shoulders, ten under its crown), `BLDG_TYPE_3D`, `BUILDING_TYPE_ICON` and
   [bldg_ballpark.svg](../../client/game/assets/zone-icons/bldg_ballpark.svg) (a vault between two
   towers over a diamond, for both gates), the shapes and lights bakes, the flight-world snapshot and
   the wildlands field.
@@ -316,7 +333,7 @@ nights, and Ray Dombrowski's hours follow them.
 - `venue.roof` answers `{ shut }` from that set, synchronous and query-free; the derive puts `vr`
   on the cell (1 shut; a static bake shows it shut, so a picture with no weather behind it is the
   dome), and a change is pushed as `venue_roof`.
-- [world-feed.js](../../client/game/js/panels/world-feed.js) `noteVenueRoof` starts the leaves turning
+- [world-feed.js](../../client/game/js/panels/world-feed.js) `noteVenueRoof` starts the shells moving
   from wherever they are, over five minutes, eased out of rest and back into it (`ROOF_MS`).
   `venueState` is the cell as amended by the pushes, and is what the mesh key and the arm both read.
 
@@ -353,7 +370,7 @@ own, at full size, and the bowl round them is the map's model, transcribed
   tiles of TILE_FT feet each, which is 208.5 ft a unit across and 226 ft up: the size the map draws
   it now. The bowl is a square on the foul lines, 168 ft behind home on the two near sides and 445 ft
   out on the far ones (`BOWL`). The wall's five
-  courses, the fins, the four corner towers, the decks, the gates and the dome are the plan's, and a
+  courses, the fins, the four corner towers, the decks, the gates and the roof are the plan's, and a
   change in [coliseum.js](../../client/game/js/panels/glass/models/coliseum.js)
   wants the same change here. `parkOutline` is the bowl's square, so the city, the streets and the
   gulls stand round the same footprint.
@@ -383,8 +400,7 @@ own, at full size, and the bowl round them is the map's model, transcribed
   sun. Its glass is one translucent pane (`glazing`, `GLAZE` with uv.x 2, which lights nothing).
   The open faces' wall carries green 1 in its colour, so the shader paints the bigger frame round
   the holes and no spandrel. Sorrel Way and the east keep their windows painted, because the
-  grandstand stands against them. On the map the outfield stands are banked against the wall's
-  inside, so only the broadcast cuts through. The two bays behind the bleacher gate stay shut and
+  grandstand stands against them. The map cuts the same openings (`wallRects`, in coliseum-window.js so both read it), with no glass in them, so the city shows through from the field and the field from the boulevard. The two bays behind the bleacher gate stay shut and
   are painted, as is the one behind GATE D, so there are 17 openings. `ballpark-smoke` checks the panes and that no piece of the
   wall crosses an opening.
 - ⚠ **A gate's body stops inside the wall** (`GATE_BACK`), 0.004 tiles short of the inner face. It
@@ -412,22 +428,33 @@ own, at full size, and the bowl round them is the map's model, transcribed
   squeezed**: one too long for its space is set smaller. The plate stands off the frontispiece on a
   bronze bracket, with a halo round it after dark. `ballpark-smoke` holds the plates and the band
   to this.
-- **The roof** is eight batches, one a leaf, each built shut and drawn turned about the dome's axis
-  as far as the roof has got (`leafSpin`, the `uTurn` uniform, which the lit pass and the towers'
-  shadow pass apply to position and normal). The ring, its rails, the corner roofs and the lantern
-  are in the bowl's own batches. Each leaf has its underside, painted steel, and the steel arches
-  under it, which hang no lower than the gap to the leaf under it allows (`LEAF_STEEL`). The broadcast puts the roof on every Gameday line as it airs
+- **The roof** is three batches, one a shell, each built shut and drawn along its rails as far as the
+  roof has got (`shellShift`, the `uShift` uniform, which the lit pass and the towers' shadow pass add
+  to position). The girders, rails, sills and lantern are in the bowl's own batches. Each shell has its
+  underside, painted steel, a steel arch under every rib, pale Warren trusses between them and purlins
+  along the vault, none hanging past `SHELL_STEEL`. ⚠ An inner end is a beam, not a wall: the map closes
+  every end, which nobody sees from above, and from the field that walled the roof off where one shell
+  meets the next. Only the two outer ends are walls, the glass fans. The broadcast puts the roof on every Gameday line as it airs
   (`roof`, 1 shut and 0 open, from `venue.roof` at the block's middle tile, `gamedayOnAir`). The view
-  hands it to the renderer (`setRoof`), which turns the leaves over the map's five minutes
+  hands it to the renderer (`setRoof`), which moves the shells over the map's five minutes
   (`roofTrack`, world-feed.js `ROOF_MS`) and keeps drawing while they move. Until a payload says, the
   roof is shut, as the map's static picture is.
+- **Daylight comes through the shut roof** (`SKY_IN`, gl/ballpark.js). By day the field's light is the
+  towers' and the decks', and shutting the roof hands it to the dimmer rows under the decks, so a shut
+  roof carries up to 0.9 more at noon and nothing at night.
+- **The city past the wall** is composed round the whole lot, not the map's five tiles (`site.set`,
+  887 to 897 by 910 to 920, with the true-size home plate), because that's the ground the broadcast's
+  park fills. Composed round the five, the warp pushed the Halcyon towers eight tiles back behind low
+  blocks and the field lost them. `site.block` stays what the roof and the lights answer for. The
+  venue's Halcyon quarter has `towers`, so about a quarter of the set's filler there stands 24 to 60
+  storeys tall in six forms (see [systems-broadcast.md](../systems-broadcast.md)).
 - **The lights go with the roof.** There are six: a tower at each corner and a lamp row under each
-  deck. Open, the towers and the rows light the field. As the leaves come over, each tower's light
+  deck. Open, the towers and the rows light the field. As the shells come over, each tower's light
   fades out by the time they're halfway and comes up again at its place under a deck (`under` in the
   venue's towers, `roofLights`), so no light jumps while it's lit, and the towers' floods go dark.
   The four tower lights cast the players' shadows from wherever their light is.
 - **Under a shut roof** the field stays dry, nothing falls on a camera inside the bowl, the gulls stay
-  down, and after dark the glazing strip down each leaf and the clerestory glow (`uDome`). The sky shows
+  down, and after dark the glazing strip along each shell and the clerestory glow (`uDome`). The sky shows
   over the infield and the grandstand only when it's open.
 - The fans in the stands and the people walking to the gates are one figure
   ([gl/ballpark-mesh.js](../../client/game/js/panels/gl/ballpark-mesh.js) `crowdMesh`), rebuilt the same
@@ -440,7 +467,7 @@ own, at full size, and the bowl round them is the map's model, transcribed
 ## 8. Tests
 
 - `tests/regress.js` walks in at the main gate from Sorrel Way, through the concourse and the stands
-  to the bleachers and out onto Hughson Way, then over the green to Halcyon Boulevard; checks the nine tiles and the two doors; checks
+  to the bleachers and out onto Hughson Way, then up the road to Halcyon Boulevard; checks the nine tiles and the two doors; checks
   that nothing on the holding map connects to the world either way, that every set-aside building
   keeps its interior, its furniture and a way out on the holding map, and that its four keepers
   are home.
@@ -457,10 +484,11 @@ own, at full size, and the bowl round them is the map's model, transcribed
   holds the content.
 - `ballpark-smoke` holds the TV's bowl to the map's: the square outline, the wall facing out between
   the plinth and the frieze, the plate across from home on Sorrel Way, a tower at each corner. It
-  checks the dome's eight leaves go once round the ring shut and lie under the fixed two open, that
-  no two of one level cover the same ground as they turn, that each level clears the one over it by
-  six to eight feet with the steel and the rib in the gap, that each leaf springs from its rail, and
-  that the renderer turns a leaf where the plan does; that the lights cross to the decks with no jump; that the roof's travel
+  checks the three shells roof the bowl end to end shut and lie under the fixed one open, that each
+  level clears the one over it by six to eight feet with the steel and the ribs in the gap, that a
+  rib slides under the steel over it, that each shell springs from its rail, that the girders stand
+  inside the towers, that the lantern stands on the fixed shell, and that the renderer slides a shell
+  where the plan does; that the lights cross to the decks with no jump; that the roof's travel
   eases over ninety seconds and turns back from wherever it is; and that the plates letter his name
   over COLISEUM, raised and never squeezed. `diamond-smoke` checks a payload's `roof` reaches the
   renderer and one without leaves it alone.
@@ -474,7 +502,6 @@ own, at full size, and the bowl round them is the map's model, transcribed
   reads `venue.roof` but the map and the broadcast.
 - **Carts on the map.** The cart yard is described but draws as paved ground.
 - **People in the map's stands.** The map's park has no crowd; on a game night it's lit and empty.
-- **New plots for the set-aside buildings.** They wait on the holding map.
 
 ## 10. The trades round it
 
@@ -486,7 +513,7 @@ trades a ballpark street has now, written by
 | Plot | Building | Type | Door | Keeper | Sells |
 |---|---|---|---|---|---|
 | 898,913 | Coliseum Box Office | `box_office` | south, Sorrel Way, beside the main gate | Bernadette Okafor | tickets, the pocket schedule, scorecards |
-| 896,922 | Fitz's Franks | `frank_stand` | north, Sorrel Way, across from where the main gate goes (until 2026-11-02 at 894,911 beside the bleacher gate) | Fitz Rourke | franks, sausage on a roll, cola, lemon soda, beer |
+| 894,922 | Fitz's Franks | `frank_stand` | north, Sorrel Way, at the foot of Grandstand Walk, straight down from the main gate (until 2026-11-02 at 894,911 beside the bleacher gate, then at 896,922) | Fitz Rourke | franks, sausage on a roll, cola, lemon soda, beer |
 | 900,919 | Pruitt's Peanuts & Pretzels | `peanut_roaster` | west, Kettle Lane (until 2026-11-02 at 894,912 on Vetch Mews) | Lorna Pruitt | peanuts, pretzels, popcorn, lemon soda |
 | 898,911 | Mulcahy's Sports Bar | `sports_bar` | north, Halcyon Boulevard | Declan Mulcahy | beer, wings, cream soda, cola; the game on a set on channel 7 |
 | 898,920 | Kimble's Souvenirs & Cards | `souvenir_shop` | south, Sorrel Way (until 2026-11-02 at 894,913) | Odessa Kimble | pennants, caps, foam fingers, scorecards; a card machine |
@@ -499,10 +526,11 @@ trades a ballpark street has now, written by
   utility room, a light per room, a till, and a `power_zones` row copied from the plot. Game nights
   keep the food and the bar open late. Every keeper's greeting is split, and each knows a piece of
   Sir Charles's story (§1).
-- **What they replaced is set aside** on row 9 of the holding map, the way §3 describes:
-  6 Halcyon Boulevard, 8 Vetch Mews and the Halcyon Sales Suite on the west, 1 and 5 Kettle Lane on
-  the east, with their keepers Montague Fewtrell, Lavinia Fairlie, Adaeze Okonjo and Ottilie
-  Marchbank. Rows 5 and 7 are other builds'.
+- **What they replaced has gone back.** 6 Halcyon Boulevard, 8 Vetch Mews and the Halcyon Sales Suite
+  on the west and 1 and 5 Kettle Lane on the east waited on row 9 of the holding map, the way §3
+  describes, and moved onto the lot on 2026-11-04 with Montague Fewtrell, Lavinia Fairlie, Adaeze
+  Okonjo and Ottilie Marchbank. Three of them have new addresses: 2, 9 and 11 Hughson Way
+  ([hughson-estate.md](hughson-estate.md)).
 - **The models** are one tile each, in constants, with the park's language at a smaller size: the
   box office in its limestone and gilt with a brass queue rail, the frank stand white-tiled under a
   striped awning with a neon frank on the roof, Pruitt's in red brick with a copper roaster on a

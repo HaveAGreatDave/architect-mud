@@ -1,25 +1,24 @@
 {
   "ambient_events": [],
-  "ambient_theme": "wasteland",
-  "color": "#8f9256",
-  "description": "Grey brush claws up from the cracks, low and dry and barely alive.",
+  "ambient_theme": "forest",
+  "color": "#8ba36a",
+  "description": "Grass along the foot of the Curtain, the hard light humming a few feet off. The waste beyond it is red and flat to the hills.",
   "exits": {
     "east": "zone_district_916_923",
     "north": "zone_district_915_922",
-    "south": "zone_district_915_924",
     "west": "zone_district_914_923"
   },
   "flags": {
-    "district": "wilds",
-    "radiation": 25,
+    "curtain": true,
+    "district": "residential",
     "region_id": "region_coldwater",
-    "terrain": "redrock"
+    "terrain": "grass"
   },
   "grid_x": 915,
   "grid_y": 923,
   "grid_z": 0,
   "id": "zone_district_915_923",
   "map_id": "map_world",
-  "name": "Dead Scrub",
+  "name": "Grasslands",
   "parent_zone": null
 }

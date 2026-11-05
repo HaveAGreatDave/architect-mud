@@ -1,11 +1,9 @@
 {
   "ambient_events": [],
   "ambient_theme": "city",
-  "description": "Hughson Way, two lanes and a kerb with the lot either side of it. Crowd barriers are stacked against a lamp post, ready for game night.",
+  "description": "Hughson Way, under the Coliseum's south wall: limestone fins and lit windows along the north side. On the south a glass disc stands on six legs with its back to the road.",
   "exits": {
     "east": "zone_ballpark_893_915",
-    "north": "zone_ballpark_892_914",
-    "south": "zone_ballpark_892_916",
     "west": "zone_ballpark_891_915"
   },
   "flags": {
@@ -16,7 +14,7 @@
     "terrain": "road"
   },
   "grid_x": 892,
-  "grid_y": 915,
+  "grid_y": 919,
   "grid_z": 0,
   "id": "zone_ballpark_892_915",
   "map_id": "map_world",

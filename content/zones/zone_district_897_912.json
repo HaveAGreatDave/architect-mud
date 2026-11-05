@@ -4,6 +4,8 @@
   "color": "#8fd08a",
   "description": "A stand of six birches, semi-mature when they were craned in and doing better than the ones along Sorrel Way. Somebody has been eating their lunch under them: the grass is worn in one spot the size of a person.",
   "exits": {
+    "north": "zone_ballpark_896_910",
+    "south": "zone_ballpark_895_914",
     "west": "zone_district_896_912"
   },
   "flags": {

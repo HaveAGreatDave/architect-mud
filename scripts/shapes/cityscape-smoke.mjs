@@ -37,7 +37,7 @@ import { performance as clock } from 'node:perf_hooks';
 
 const ROOT = new URL('../../', import.meta.url);
 const P = '../../client/game/js/panels/';
-const { skylineFrom } = await import('../../client/shared/skyline-manifest.js');
+const { skylineFrom, setSite } = await import('../../client/shared/skyline-manifest.js');
 const { composeSet, insidePoly, SET_STYLES } = await import('../../client/shared/city-set.js');
 const { CURTAIN_H } = await import('../../client/shared/skyline-scale.js');
 const { buildingEntranceDir } = await import('../../server/engine/world.js');
@@ -71,12 +71,13 @@ const sky = skylineFrom(zones, venue.site, { radius: REACH, entranceOf: building
 check('the skyline has its buildings', sky.buildings.length > 150, `${sky.buildings.length}`);
 check('the skyline has an edge on every side', ['w', 'e', 'n', 's'].every((s) => sky.edges[s]), JSON.stringify(Object.keys(sky.edges)));
 check('every skyline row has a tile and a type', sky.buildings.every((b) => Number.isInteger(b.x) && Number.isInteger(b.y) && typeof b.t === 'string' && b.t));
-check('the skyline is nearest first', sky.buildings.every((b, i, a) => i === 0 || Math.hypot(a[i - 1].x + 0.5 - venue.site.x, a[i - 1].y + 0.5 - venue.site.y) <= Math.hypot(b.x + 0.5 - venue.site.x, b.y + 0.5 - venue.site.y) + 1e-9));
+const setAt = setSite(venue.site);
+check('the skyline is nearest first', sky.buildings.every((b, i, a) => i === 0 || Math.hypot(a[i - 1].x + 0.5 - setAt.x, a[i - 1].y + 0.5 - setAt.y) <= Math.hypot(b.x + 0.5 - setAt.x, b.y + 0.5 - setAt.y) + 1e-9));
 check('the skyline is small enough to send', JSON.stringify(sky).length < 40000, `${JSON.stringify(sky).length} bytes`);
 
 // ── 2. the set ───────────────────────────────────────────────────────────────
 const outline = parkOutline(venueField(venue));
-const blk = venue.site.block;
+const blk = setAt.block;
 const inBlock = (b) => b.x >= blk.x0 && b.x <= blk.x1 && b.y >= blk.y0 && b.y <= blk.y1;
 // composed as the broadcast composes it: once to find the street cameras on the crossing outside
 // the main gate and the road tiles next nearest it, then again keeping tall things clear of them

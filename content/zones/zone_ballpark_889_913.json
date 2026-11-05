@@ -1,29 +1,23 @@
 {
-  "ambient_events": [
-    "Somebody cuts across the grass towards the gates with a folded scorecard.",
-    "A dog runs a long circle round nothing and comes back.",
-    "The wind brings over the smell of frying onions from Sorrel Way."
-  ],
-  "ambient_theme": "urban",
-  "color": "#8ba36a",
-  "description": "Open grass behind the Hughson Coliseum, cut short. It's Sir Charles's ground, and the mowing comes out of the gate money.",
+  "ambient_events": [],
+  "ambient_theme": "city",
+  "description": "Yarrow Lane, a service street between tower lobbies, with the wind coming down it from the boulevard. Everything here is new and everything is locked.",
   "exits": {
-    "east": "zone_ballpark_890_913",
     "north": "zone_ballpark_889_912",
-    "south": "zone_ballpark_889_914",
-    "west": "zone_ballpark_888_913"
+    "south": "zone_ballpark_889_914"
   },
   "flags": {
     "district": "halcyon_fields",
     "region_id": "region_coldwater",
+    "scavenging_table_id": "scav_roadside_junk",
     "street_life": true,
-    "terrain": "grass"
+    "terrain": "road"
   },
   "grid_x": 889,
   "grid_y": 913,
   "grid_z": 0,
   "id": "zone_ballpark_889_913",
   "map_id": "map_world",
-  "name": "Hughson Green",
+  "name": "Yarrow Lane",
   "parent_zone": null
 }

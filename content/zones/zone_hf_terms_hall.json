@@ -1,21 +1,21 @@
 {
   "ambient_theme": "indoors",
-  "description": "A low, wide room glazed on the mews side and open to the stair on the other. A chrome board names the four terrace levels. A bootscraper is set into the floor, unused. It smells faintly of wet soil from the planting upstairs.",
+  "description": "A low, wide room glazed on the street side and open to the stair on the other. A chrome board names the four terrace levels. A bootscraper is set into the floor, unused. It smells faintly of wet soil from the planting upstairs.",
   "exits": {
     "down": "zone_util_zone_hf_terms_hall",
     "up": "zone_hf_terms_terrace",
     "west": "zone_district_894_912"
   },
   "flags": {
-    "building_name": "8 Vetch Mews",
+    "building_name": "2 Hughson Way",
     "building_type": "cascade_block",
     "floor": "stone",
     "is_building": true,
     "is_interior": true,
     "window": {
-      "description": "Floor to ceiling along the mews, so the hall is bright and entirely visible from outside. The view is Vetch Mews, which is a made road with nothing on the far side of it yet.",
+      "description": "Floor to ceiling along the street, so the hall is bright and entirely visible from outside. The view is Hughson Way and the towers on the far side of it.",
       "light": 0.8,
-      "name": "the mews glazing",
+      "name": "the street glazing",
       "visibility": 0.9
     },
     "world_exit_zone": "zone_district_894_912"
@@ -25,6 +25,6 @@
   "grid_z": 0,
   "id": "zone_hf_terms_hall",
   "map_id": "map_int_hf_terms",
-  "name": "8 Vetch Mews — The Entrance Hall",
+  "name": "2 Hughson Way — The Entrance Hall",
   "parent_zone": "zone_district_894_912"
 }

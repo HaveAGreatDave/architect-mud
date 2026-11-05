@@ -2,14 +2,14 @@
   "ambient_events": [],
   "ambient_theme": "forest",
   "color": "#b5744a",
-  "description": "Grass along the foot of the Curtain, the hard light humming a few feet off. The Gate Post stands on the far side of it, lit all night.",
+  "description": "Rough ground the Curtain took in when it moved south. Red dirt still shows through the new grass in patches.",
   "exits": {
+    "east": "zone_district_914_920",
     "north": "zone_district_913_919",
     "south": "zone_district_913_925",
     "west": "zone_district_912_924"
   },
   "flags": {
-    "curtain": true,
     "district": "halcyon_fields",
     "region_id": "region_coldwater",
     "terrain": "grass"

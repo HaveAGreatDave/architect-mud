@@ -1,22 +1,28 @@
 {
-  "ambient_events": [],
-  "ambient_theme": "forest",
-  "color": "#8ba36a",
-  "description": "Grass to the knee and a smell of cut hay from somewhere. Somebody has walked a path through it to the road and back.",
+  "ambient_events": [
+    "Somebody stops on the kerb to retie a shoe.",
+    "A street sweeper goes by on Sorrel Way with its brushes up.",
+    "A sparrow lands on the kerb, finds nothing and goes."
+  ],
+  "ambient_theme": "urban",
+  "color": "#8fd08a",
+  "description": "A flowerbed in a stone kerb between 4 Sorrel Way and Fitz's Franks, with a clipped hedge along the pavement. The planting is the same as the bed two plots along.",
   "exits": {
     "north": "zone_district_893_921",
     "south": "zone_district_893_923"
   },
   "flags": {
     "district": "halcyon_fields",
+    "park_feature": "flowerbeds",
     "region_id": "region_coldwater",
-    "terrain": "grass"
+    "street_life": true,
+    "terrain": "park"
   },
   "grid_x": 893,
   "grid_y": 922,
   "grid_z": 0,
   "id": "zone_district_893_922",
   "map_id": "map_world",
-  "name": "Grasslands",
+  "name": "Sorrel Gardens",
   "parent_zone": null
 }

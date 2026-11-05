@@ -5,7 +5,6 @@
   "description": "Broken ground with a cover of low, brittle grey brush.",
   "exits": {
     "east": "zone_district_928_924",
-    "north": "zone_district_927_923",
     "south": "zone_district_927_925",
     "west": "zone_district_926_924"
   },

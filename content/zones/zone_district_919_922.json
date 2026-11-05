@@ -1,8 +1,8 @@
 {
   "ambient_events": [],
-  "ambient_theme": "wasteland",
-  "color": "#b5744a",
-  "description": "Hardpan, red and hard and split into polygons. A skin of grit slides over it whenever the wind picks up.",
+  "ambient_theme": "forest",
+  "color": "#8ba36a",
+  "description": "Thin grass on red dirt, with a dry ditch along one side. Nobody has decided what goes here yet.",
   "exits": {
     "east": "zone_district_920_922",
     "north": "zone_district_919_921",
@@ -10,17 +10,15 @@
     "west": "zone_district_918_922"
   },
   "flags": {
-    "district": "wilds",
-    "no_spawn": true,
-    "radiation": 30,
+    "district": "residential",
     "region_id": "region_coldwater",
-    "terrain": "scrub"
+    "terrain": "grass"
   },
   "grid_x": 919,
   "grid_y": 922,
   "grid_z": 0,
   "id": "zone_district_919_922",
   "map_id": "map_world",
-  "name": "Red Hardpan",
+  "name": "Grasslands",
   "parent_zone": null
 }

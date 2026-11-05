@@ -1,33 +1,23 @@
 {
-  "ambient_events": [
-    "A car noses into a bay and the driver sits a minute with the engine off.",
-    "Somebody walks the row twice, trying to remember where they parked.",
-    "A car door shuts somewhere along the row, and the sound comes back off the Coliseum."
-  ],
+  "ambient_events": [],
   "ambient_theme": "urban",
-  "color": "#5a5f62",
-  "description": "Bays lined in white, oil-marked down the middle. Ticket stubs have blown against the kerb and stayed there.",
-  "exits": {
-    "east": "zone_ballpark_888_916",
-    "north": "zone_ballpark_887_915",
-    "south": "zone_ballpark_887_917",
-    "west": "zone_district_886_916"
-  },
+  "description": "A spindle of glass forty-six storeys tall, with one vast belly halfway up, drawn in at the top and the bottom. The hoarding has come down, and the name of the letting agent has stayed.",
+  "exits": {},
   "flags": {
-    "building_name": "Hughson Car Park",
-    "building_type": "car_park",
+    "building_name": "9 River Road",
+    "building_type": "chrome_tower",
     "district": "halcyon_fields",
-    "entrance": "east",
-    "floors": 1,
-    "region_id": "region_coldwater",
-    "street_life": true,
-    "terrain": "asphalt"
+    "entrance": "west",
+    "floors": 46,
+    "is_building": true,
+    "region_id": "region_coldwater"
   },
   "grid_x": 887,
   "grid_y": 916,
   "grid_z": 0,
   "id": "zone_ballpark_887_916",
   "map_id": "map_world",
-  "name": "Hughson Car Park",
+  "marker": "Q5",
+  "name": "9 River Road",
   "parent_zone": null
 }

@@ -1,29 +1,24 @@
 {
-  "ambient_events": [
-    "Somebody cuts across the grass towards the gates with a folded scorecard.",
-    "A dog runs a long circle round nothing and comes back.",
-    "The wind brings over the smell of frying onions from Sorrel Way."
-  ],
-  "ambient_theme": "urban",
-  "color": "#8ba36a",
-  "description": "Flat grass worn thin along the line people walk from the boulevard to the gates. Nobody has put a path in.",
+  "ambient_events": [],
+  "ambient_theme": "city",
+  "description": "A short cut off Hughson Way, ending at the Coliseum's bleacher gate, two grille gates in the north wall. Burnet Walk opens on the north side.",
   "exits": {
     "east": "zone_ballpark_892_913",
     "north": "zone_ballpark_891_912",
-    "south": "zone_ballpark_891_914",
-    "west": "zone_ballpark_890_913"
+    "south": "zone_ballpark_893_916"
   },
   "flags": {
     "district": "halcyon_fields",
     "region_id": "region_coldwater",
+    "scavenging_table_id": "scav_roadside_junk",
     "street_life": true,
-    "terrain": "grass"
+    "terrain": "road"
   },
   "grid_x": 891,
   "grid_y": 913,
   "grid_z": 0,
   "id": "zone_ballpark_891_913",
   "map_id": "map_world",
-  "name": "Hughson Green",
+  "name": "Hughson Way",
   "parent_zone": null
 }

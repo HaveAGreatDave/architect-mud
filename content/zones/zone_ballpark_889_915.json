@@ -1,7 +1,7 @@
 {
   "ambient_events": [],
   "ambient_theme": "city",
-  "description": "Hughson Way, the short road round Sir Charles's lot. It doesn't go anywhere but the park, and it's swept more often than the public streets.",
+  "description": "Hughson Way, swept more often than the public streets. Yarrow Lane crosses it here, between towers on all four corners.",
   "exits": {
     "east": "zone_ballpark_890_915",
     "north": "zone_ballpark_889_914",
@@ -20,6 +20,6 @@
   "grid_z": 0,
   "id": "zone_ballpark_889_915",
   "map_id": "map_world",
-  "name": "Hughson Way",
+  "name": "Hughson Way + Yarrow Lane",
   "parent_zone": null
 }

@@ -1,8 +1,12 @@
 {
-  "ambient_events": [],
-  "ambient_theme": "forest",
-  "color": "#8ba36a",
-  "description": "Grass to the knee and a smell of cut hay from somewhere. Somebody has walked a path through it to the road and back.",
+  "ambient_events": [
+    "Somebody stops on the kerb to retie a shoe.",
+    "A street sweeper goes by on Sorrel Way with its brushes up.",
+    "A sparrow lands on the kerb, finds nothing and goes."
+  ],
+  "ambient_theme": "urban",
+  "color": "#8fd08a",
+  "description": "Four young trees on a mulch bed at the corner of Sorrel Way and the River Road, inside a timber edging. The rough meadow starts again behind them.",
   "exits": {
     "north": "zone_district_887_921",
     "south": "zone_district_887_923",
@@ -10,14 +14,16 @@
   },
   "flags": {
     "district": "halcyon_fields",
+    "park_feature": "grove",
     "region_id": "region_coldwater",
-    "terrain": "grass"
+    "street_life": true,
+    "terrain": "park"
   },
   "grid_x": 887,
   "grid_y": 922,
   "grid_z": 0,
   "id": "zone_district_887_922",
   "map_id": "map_world",
-  "name": "Grasslands",
+  "name": "Sorrel Gardens",
   "parent_zone": null
 }

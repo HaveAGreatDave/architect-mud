@@ -1,29 +1,23 @@
 {
-  "ambient_events": [
-    "Somebody cuts across the grass towards the gates with a folded scorecard.",
-    "A dog runs a long circle round nothing and comes back.",
-    "The wind brings over the smell of frying onions from Sorrel Way."
-  ],
+  "ambient_events": [],
   "ambient_theme": "urban",
-  "color": "#8ba36a",
-  "description": "The green, level from the boulevard to Hughson Way. On a game night people bring blankets and listen to the crowd through the walls.",
-  "exits": {
-    "east": "zone_ballpark_892_914",
-    "north": "zone_ballpark_891_913",
-    "south": "zone_ballpark_891_915",
-    "west": "zone_ballpark_890_914"
-  },
+  "description": "Two curved wings round a glazed drum, ten storeys, wider than it is tall. The drum is a lobby, and the lobby has a fountain with a rope round it.",
+  "exits": {},
   "flags": {
+    "building_name": "19 Hughson Way",
+    "building_type": "atrium_court",
     "district": "halcyon_fields",
-    "region_id": "region_coldwater",
-    "street_life": true,
-    "terrain": "grass"
+    "entrance": "north",
+    "floors": 10,
+    "is_building": true,
+    "region_id": "region_coldwater"
   },
   "grid_x": 891,
-  "grid_y": 914,
+  "grid_y": 920,
   "grid_z": 0,
   "id": "zone_ballpark_891_914",
   "map_id": "map_world",
-  "name": "Hughson Green",
+  "marker": "U4",
+  "name": "19 Hughson Way",
   "parent_zone": null
 }

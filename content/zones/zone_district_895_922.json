@@ -1,22 +1,28 @@
 {
-  "ambient_events": [],
-  "ambient_theme": "forest",
-  "color": "#8ba36a",
-  "description": "Rough meadow with a line of pegs across it. The string between them has gone, and the pegs lean.",
+  "ambient_events": [
+    "Somebody stops on the kerb to retie a shoe.",
+    "A street sweeper goes by on Sorrel Way with its brushes up.",
+    "A sparrow lands on the kerb, finds nothing and goes."
+  ],
+  "ambient_theme": "urban",
+  "color": "#8fd08a",
+  "description": "A square of lawn on Sorrel Way, with benches round a lamp, next door to Fitz's Franks. Most of the people sitting here are eating.",
   "exits": {
     "north": "zone_district_895_921",
     "south": "zone_district_895_923"
   },
   "flags": {
     "district": "halcyon_fields",
+    "park_feature": "benches",
     "region_id": "region_coldwater",
-    "terrain": "grass"
+    "street_life": true,
+    "terrain": "park"
   },
   "grid_x": 895,
   "grid_y": 922,
   "grid_z": 0,
   "id": "zone_district_895_922",
   "map_id": "map_world",
-  "name": "Grasslands",
+  "name": "Sorrel Gardens",
   "parent_zone": null
 }

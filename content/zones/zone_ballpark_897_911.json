@@ -1,11 +1,11 @@
 {
   "ambient_events": [],
   "ambient_theme": "city",
-  "description": "Hughson Way, the short road round Sir Charles's lot. It doesn't go anywhere but the park, and it's swept more often than the public streets.",
+  "description": "Hughson Way, at the foot of a chrome column of growing trays lit magenta. The door of 9 Hughson Way is on the west side and smells of wet peat. Mulcahy's side wall is across the road.",
   "exits": {
     "north": "zone_ballpark_897_910",
     "south": "zone_ballpark_897_912",
-    "west": "zone_ballpark_896_911"
+    "west": "zone_district_898_911"
   },
   "flags": {
     "district": "halcyon_fields",

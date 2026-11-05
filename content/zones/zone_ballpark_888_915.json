@@ -1,11 +1,9 @@
 {
   "ambient_events": [],
   "ambient_theme": "city",
-  "description": "Hughson Way, two lanes and a kerb with the lot either side of it. Crowd barriers are stacked against a lamp post, ready for game night.",
+  "description": "Hughson Way, two lanes and a kerb between two rows of towers. Crowd barriers are stacked against a lamp post, ready for game night.",
   "exits": {
     "east": "zone_ballpark_889_915",
-    "north": "zone_ballpark_888_914",
-    "south": "zone_ballpark_888_916",
     "west": "zone_ballpark_887_915"
   },
   "flags": {

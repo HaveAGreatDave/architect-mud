@@ -1,11 +1,9 @@
 {
   "ambient_events": [],
   "ambient_theme": "city",
-  "description": "Hughson Way, the short road round Sir Charles's lot. It doesn't go anywhere but the park, and it's swept more often than the public streets.",
+  "description": "The west end of Hughson Way, where it meets the River Road. The towers start on both sides.",
   "exits": {
     "east": "zone_ballpark_888_915",
-    "north": "zone_ballpark_887_914",
-    "south": "zone_ballpark_887_916",
     "west": "zone_district_886_915"
   },
   "flags": {

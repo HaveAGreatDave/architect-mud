@@ -5,7 +5,7 @@
   "name": "frank",
   "tags": {
     "consumable": true,
-    "description": "A frank in a steamed bun with mustard down it in a zigzag, wrapped in wax paper that has already given up. From Fitz's by the bleacher gate.",
+    "description": "A frank in a steamed bun with mustard down it in a zigzag, wrapped in wax paper that has already given up. From Fitz's by the main gate.",
     "restore_hunger": 18,
     "stackable": true
   },

@@ -5,7 +5,7 @@
   "color": "#bfe8ff",
   "description": "Two glass towers off one chrome podium, one a good way taller, with two glazed bridges slung between them. You go in underneath, across a forecourt with nothing on it. The letting board lists a hundred and forty apartments and has a plastic sleeve for a photograph that has never had one in it.",
   "exits": {
-    "north": "zone_district_894_921",
+    "north": "zone_district_896_921",
     "south": "zone_hf_common_lobby"
   },
   "flags": {
@@ -17,9 +17,9 @@
     "floors": 45,
     "is_building": true,
     "region_id": "region_coldwater",
-    "world_exit_zone": "zone_district_894_921"
+    "world_exit_zone": "zone_district_896_921"
   },
-  "grid_x": 894,
+  "grid_x": 896,
   "grid_y": 922,
   "grid_z": 0,
   "id": "zone_district_892_911",

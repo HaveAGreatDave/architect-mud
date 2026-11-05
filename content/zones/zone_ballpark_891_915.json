@@ -1,12 +1,9 @@
 {
   "ambient_events": [],
   "ambient_theme": "city",
-  "description": "Hughson Way, the short road round Sir Charles's lot. It doesn't go anywhere but the park, and it's swept more often than the public streets.",
+  "description": "The west end of this stretch of Hughson Way, stopped by the side of 14 Yarrow Lane. The Coliseum's corner tower stands on the north side and 19 Hughson Way on the south.",
   "exits": {
-    "east": "zone_ballpark_892_915",
-    "north": "zone_ballpark_891_914",
-    "south": "zone_ballpark_891_916",
-    "west": "zone_ballpark_890_915"
+    "east": "zone_ballpark_892_915"
   },
   "flags": {
     "district": "halcyon_fields",
@@ -16,7 +13,7 @@
     "terrain": "road"
   },
   "grid_x": 891,
-  "grid_y": 915,
+  "grid_y": 919,
   "grid_z": 0,
   "id": "zone_ballpark_891_915",
   "map_id": "map_world",

@@ -1,9 +1,10 @@
 {
   "ambient_events": [],
   "ambient_theme": "city",
-  "description": "Hughson Way, under the Coliseum's limestone wall: marble fins, tall bronze windows and a copper cornice, with the dome standing over them.",
+  "description": "Hughson Way turns north here toward Halcyon Boulevard, and the end of Kerbstone Row opens on the south side. A stack of crowd barriers is chained to the lamp post.",
   "exits": {
     "north": "zone_ballpark_897_914",
+    "south": "zone_ballpark_891_918",
     "west": "zone_ballpark_896_915"
   },
   "flags": {

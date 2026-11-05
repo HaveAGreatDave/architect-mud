@@ -123,7 +123,7 @@
     "Ferreira knocks the portafilter out, wipes it, and has the next one in before the noise has finished.",
     "She looks up at the chalkboard through the glass, winces slightly, and does not change it.",
     "Somebody comes in and she has started their order before they are past the door.",
-    "She wipes a table on the green side and stands looking at the birches for a second longer than the job needs.",
+    "She wipes a table on the north side and stands looking out of the window for a second longer than the job needs.",
     "The machine sighs and she says something to it that is not quite words."
   ],
   "description": "A wiry woman in her thirties working the machine with her sleeves pushed up past the elbow and a cloth over one shoulder that she uses about every ninety seconds. She talks to everybody, remembers what they had, and has a running commentary on the estate that is funnier and more accurate than anything in the sales suite.",
@@ -198,8 +198,7 @@
       "jeans gone pale at the thigh where she leans on the counter",
       "canvas shoes with no grip left on them at all",
       "plain underthings"
-    ],
-    "set_aside": true
+    ]
   },
   "home_activities": [],
   "home_zone": "zone_hf_grounds_gallery",

@@ -1,25 +1,24 @@
 {
   "ambient_events": [],
-  "ambient_theme": "wasteland",
-  "color": "#8f9256",
-  "description": "Brittle grey brush grows low over cracked ground, most of it more dead than alive.",
+  "ambient_theme": "forest",
+  "color": "#8ba36a",
+  "description": "A row of pegs crosses the meadow. The string between them has gone, and the pegs lean.",
   "exits": {
     "east": "zone_district_920_920",
+    "north": "zone_district_919_919",
     "south": "zone_district_919_921",
     "west": "zone_district_918_920"
   },
   "flags": {
-    "district": "wilds",
-    "no_spawn": true,
-    "radiation": 25,
+    "district": "residential",
     "region_id": "region_coldwater",
-    "terrain": "scrub"
+    "terrain": "grass"
   },
   "grid_x": 919,
   "grid_y": 920,
   "grid_z": 0,
   "id": "zone_district_919_920",
   "map_id": "map_world",
-  "name": "Bonewood Flats",
+  "name": "Grasslands",
   "parent_zone": null
 }

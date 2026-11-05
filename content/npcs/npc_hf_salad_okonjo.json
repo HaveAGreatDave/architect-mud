@@ -148,7 +148,7 @@
           "next": "root"
         }
       ],
-      "text": "\"My water bill.\" She says it like a joke and then does not laugh. \"I draw off the main on Kettle Lane, same as the glasshouse across the road. Metered, and I read it myself every week because I am careful.\"\n\n\"Since the spring my meter says I am drawing about a fifth more than the racks use, and the racks are the only thing on my side of the valve.\" She rinses her hands. \"Either my meter is wrong, or something between the main and my pumps is taking water, and I have had a man out and he says the meter is right.\""
+      "text": "\"My water bill.\" She says it like a joke and then does not laugh. \"I draw off the Kettle Lane main, same as the rest of this street. Metered, and I read it myself every week because I am careful.\"\n\n\"Since the spring my meter says I am drawing about a fifth more than the racks use, and the racks are the only thing on my side of the valve.\" She rinses her hands. \"Either my meter is wrong, or something between the main and my pumps is taking water, and I have had a man out and he says the meter is right.\""
     },
     "pink": {
       "options": [
@@ -210,8 +210,7 @@
       "a long-sleeved thermal top pushed to the elbow",
       "work trousers tucked into short rubber boots",
       "plain underthings"
-    ],
-    "set_aside": true
+    ]
   },
   "home_activities": [],
   "home_zone": "zone_hf_salad_tray",
@@ -272,7 +271,7 @@
       }
     ]
   },
-  "vendor_shop_name": "1 Kettle Lane",
+  "vendor_shop_name": "9 Hughson Way",
   "vendor_stock_size": 10,
   "wander_zones": [],
   "wanders": 0,

@@ -1,33 +1,23 @@
 {
-  "ambient_events": [
-    "A car noses into a bay and the driver sits a minute with the engine off.",
-    "Somebody walks the row twice, trying to remember where they parked.",
-    "A car door shuts somewhere along the row, and the sound comes back off the Coliseum."
-  ],
+  "ambient_events": [],
   "ambient_theme": "urban",
-  "color": "#5a5f62",
-  "description": "Bays of tarmac with a lamp post and a kerb. The dome stands over the far end, and an attendant's folding chair is chained to the post.",
-  "exits": {
-    "east": "zone_ballpark_889_920",
-    "north": "zone_ballpark_888_919",
-    "south": "zone_district_888_921",
-    "west": "zone_ballpark_887_920"
-  },
+  "description": "A chrome slab of twenty storeys on Sorrel Way, every blind in it set to the same height. The blinds are in the lease.",
+  "exits": {},
   "flags": {
-    "building_name": "Hughson Car Park",
-    "building_type": "car_park",
+    "building_name": "15 Yarrow Lane",
+    "building_type": "chrome_slab",
     "district": "halcyon_fields",
     "entrance": "east",
-    "floors": 1,
-    "region_id": "region_coldwater",
-    "street_life": true,
-    "terrain": "asphalt"
+    "floors": 20,
+    "is_building": true,
+    "region_id": "region_coldwater"
   },
   "grid_x": 888,
   "grid_y": 920,
   "grid_z": 0,
   "id": "zone_ballpark_888_920",
   "map_id": "map_world",
-  "name": "Hughson Car Park",
+  "marker": "Y8",
+  "name": "15 Yarrow Lane",
   "parent_zone": null
 }

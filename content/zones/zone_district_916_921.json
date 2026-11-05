@@ -1,8 +1,8 @@
 {
   "ambient_events": [],
-  "ambient_theme": "wasteland",
-  "color": "#8f9256",
-  "description": "Low grey brush pushes up through broken ground, brittle and half dead. It shivers even when there's no wind.",
+  "ambient_theme": "forest",
+  "color": "#8ba36a",
+  "description": "Open meadow, the grass long and silver-green. Survey stakes stand in it in rows, each one tied with a strip of orange tape.",
   "exits": {
     "east": "zone_district_917_921",
     "north": "zone_district_916_920",
@@ -10,16 +10,15 @@
     "west": "zone_district_915_921"
   },
   "flags": {
-    "district": "wilds",
-    "radiation": 25,
+    "district": "residential",
     "region_id": "region_coldwater",
-    "terrain": "redrock"
+    "terrain": "grass"
   },
   "grid_x": 916,
   "grid_y": 921,
   "grid_z": 0,
   "id": "zone_district_916_921",
   "map_id": "map_world",
-  "name": "Bonewood Flats",
+  "name": "Grasslands",
   "parent_zone": null
 }

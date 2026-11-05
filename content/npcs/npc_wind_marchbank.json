@@ -139,7 +139,7 @@
           "next": "root"
         }
       ],
-      "text": "\"The glasshouse down the row sends up flowers on a Friday and will not take anything for them.\" A small, real warmth. \"The hall keeps asking me to send people to concerts, and I have started to, because sitting still for an hour listening to something is the regime with better company.\"\n\n\"The land office wants me to buy the plot next door and put another wing on it. He may be right. I have not got the money and he knows that and he keeps asking anyway, nicely.\""
+      "text": "\"The glasshouse down the row sends up flowers on a Friday and will not take anything for them.\" A small, real warmth. \"The hall keeps asking me to send people to concerts, and I have started to, because sitting still for an hour listening to something is the regime with better company.\"\n\n\"The land office wants me to buy a plot off Kettle Lane and open a second house. He may be right. I have not got the money and he knows that and he keeps asking anyway, nicely.\""
     },
     "root": {
       "options": [
@@ -226,8 +226,7 @@
       "a plain grey nursing dress with the sleeves rolled to the elbow",
       "soft-soled shoes for a floor she crosses four hundred times a day",
       "a slip and plain underthings"
-    ],
-    "set_aside": true
+    ]
   },
   "home_activities": [],
   "home_zone": "zone_wind_balcony",
@@ -292,7 +291,7 @@
       }
     ]
   },
-  "vendor_shop_name": "5 Kettle Lane",
+  "vendor_shop_name": "11 Hughson Way",
   "vendor_stock_size": 10,
   "wander_zones": [],
   "wanders": 0,

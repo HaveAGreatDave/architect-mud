@@ -1,29 +1,23 @@
 {
-  "ambient_events": [
-    "Somebody cuts across the grass towards the gates with a folded scorecard.",
-    "A dog runs a long circle round nothing and comes back.",
-    "The wind brings over the smell of frying onions from Sorrel Way."
-  ],
-  "ambient_theme": "urban",
-  "color": "#8ba36a",
-  "description": "Mown grass and one bench. Halcyon's towers stand round the edge of the green and stop there.",
+  "ambient_events": [],
+  "ambient_theme": "city",
+  "description": "Yarrow Lane leaves Halcyon Boulevard between two towers and runs straight south to Sorrel Way. The wind comes down it hard, and the Coliseum's dome shows past the end of Burnet Walk.",
   "exits": {
-    "east": "zone_ballpark_890_910",
     "north": "zone_district_889_909",
-    "south": "zone_ballpark_889_911",
-    "west": "zone_ballpark_888_910"
+    "south": "zone_ballpark_889_911"
   },
   "flags": {
     "district": "halcyon_fields",
     "region_id": "region_coldwater",
+    "scavenging_table_id": "scav_roadside_junk",
     "street_life": true,
-    "terrain": "grass"
+    "terrain": "road"
   },
   "grid_x": 889,
   "grid_y": 910,
   "grid_z": 0,
   "id": "zone_ballpark_889_910",
   "map_id": "map_world",
-  "name": "Hughson Green",
+  "name": "Yarrow Lane",
   "parent_zone": null
 }
