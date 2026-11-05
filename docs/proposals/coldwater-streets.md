@@ -52,8 +52,23 @@ dirt of Old Coldwater, and four bridges stack over the street by class.
 
 **The parts** are in [glass/street-kit.js](../../client/game/js/panels/glass/street-kit.js), with no
 renderer imports, as the Media Lot's are. `drawStreetKitPass` in windshield.js finds the tiles and
-hands each one a face, light and lettering sink. On GL the faces go to `BAY_SINK` unshaded with a normal
-and a material and the static part is kept (`markKept`), so it needs `marksGPU`. GLASS 1 draws no kit.
+hands each one a face, light and lettering sink. On GL the faces go over unshaded with a normal and a
+material, so it needs `marksGPU`. GLASS 1 draws no kit.
+
+**A tile is built once.** The static pass takes no camera and reads no clock, so it runs once per tile
+and tier, in the map window's frame, into a set (`KIT_SETS` in windshield.js). Its faces are retained on
+the GPU through `BAY_SINK.sets`, whole arrays that never go through the list, and the prop and lamp
+shadows read them there. Its ink is kept as strokes, and its lettering as decals once a sign has been in
+front of the eye. The dynamic pass runs only where `kitMoves` says something moves: every frame near to,
+from a pool, and past that on a 100 ms beat. A tile in the haze band streams pooled copies at its alpha
+(`BAY_SINK.fades`). Three tiles out of view are built each frame, so turning round doesn't build a hundred
+at once.
+
+⚠ **It doesn't go through `markKept`.** The probes never ran within reach of the eye, so the near tier
+drew live every frame: 30 tiles and 45 MB of garbage a frame. `armKeep` 0 still draws the old way, which
+is what `perf/armkeep-check.mjs` compares a set against. ⚠ A set may carry no film and no metal.
+A stroke that crosses the eye plane goes back through `emitWire` for the frame, because on a street
+there's always one.
 
 **Which tiles.** A road tile in a region with a gradient: the server ships its level as `sc` on the
 surface cell (`deriveSurfaceCell` in plugins/flight/state.js), and a region without one has no kit.
@@ -263,11 +278,11 @@ then. The verb reads `kitPlace`, so it matches what's drawn. Walking is unchange
 
 ## Not done yet
 
-- ⚠ **What it costs.** On Cinder Lane from a cab with a 45-tile window the kit
-  is about 72,800 faces, and a frame went from 52 ms to 290 ms. That's the Modelshop in a hidden pane,
-  so it's a ratio and not a frame time, and it wants measuring on a real GPU. Kept replay works
-  (about 3,600 replays and 2 live over 30 frames). Ordinary tiles are the same size they were in phase
-  1, so this cost dates from there; the upper bridges add a few hundred faces on eight tiles.
+- ⚠ **What it costs on a GPU.** On Cinder Lane from a cab with a 45-tile window the kit is about 72,800
+  faces, and a frame went from 52 ms to 290 ms when they all streamed. That was the Modelshop in a hidden
+  pane, so it's a ratio and not a frame time. They're retained now and it hasn't been measured since, so
+  it wants measuring on a real GPU. A resident set is about 450 bytes a face, so about 40 MB of heap with
+  all 285 tiles in the window, and as much again in the retained buffer.
 - The brief's per-room override of a district's condition.
 - A blackout: the kit's lit parts stay lit on a tile with no power. The brief wants that street dark.
 - Shopfronts, towers, hologram ads, graffiti and the drone from the brief's kit table. Buildings keep

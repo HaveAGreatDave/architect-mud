@@ -15,7 +15,7 @@
 // street goes over the bridge or the zebra and never through the lane, and on the dirt walks across.
 //
 // It reads the faces, not a picture, so it needs no DOM, no rasteriser and no GPU.
-import { drawStreetKit, kitCell, kitPaved, kitPlace, kitTowerV, KIT, KIT_M, LEVEL, M } from '../../client/game/js/panels/glass/street-kit.js';
+import { drawStreetKit, kitCell, kitMoves, kitPaved, kitPlace, kitTowerV, KIT, KIT_M, LEVEL, M } from '../../client/game/js/panels/glass/street-kit.js';
 import { KIT_SPANS, SPAN, SPAN_M } from '../../client/game/js/panels/glass/street-kit-spans.js';
 import { kitRoute, kitWalk } from '../../client/game/js/panels/glass/street-kit-walk.js';
 import { BIRD_M_PER_TILE as TILE_M } from '../../client/shared/birds.js';
@@ -268,6 +268,27 @@ for (const [name, o] of KINDS) for (let level = 0; level < 4; level++) {
   check(a.lines.length > 0 && b.lines.length > 0, `${name} L${level}: no ink lines`);
   check(a.lines.every(([p, q]) => [...p, ...q].every(Number.isFinite)), `${name}: an ink line with no ends`);
   check(run({ ...o, place, near: true, line: null, part: 'static' }).lines.length === 0, `${name}: ink with the ink off`);
+}
+
+// ── WHAT THE RENDERER TAKES ON TRUST ──
+// A tile's static pass is built once and kept (KIT_SETS in windshield.js) with nothing to find out if
+// that's safe, so it can't read the clock, the hour or the tile's fade. Its dynamic pass isn't run at
+// all where kitMoves says no. And near to it's drawn with pooled points, which must change nothing.
+const canon = (r) => JSON.stringify([r.faces.map((f) => [f.pts, f.rgb, f.given]), r.words.map((w) => [w.quad, w.label]), r.lines]);
+for (const [name, o] of [...KINDS, ['a tile under a span', { place: atLevel(0, 1, 3, { span: 'sky' }) }], ['dirt under a span', { place: atLevel(4, 1, 3, { span: 'exec' }) }]]) for (let level = 0; level < LEVEL.length; level++) {
+  const place = { ...o.place, level };
+  for (const tier of [{ near: true }, {}, { far: true }]) {
+    const at = { ...o, place, ...tier };
+    const a = canon(run({ ...at, part: 'static', now: 0, night: 0, alpha: 1 }));
+    check(a === canon(run({ ...at, part: 'static', now: 7654.5, night: 0.9, alpha: 1 })), `${name} L${level}: the static pass reads the clock or the hour`);
+    const dyn = run({ ...at, part: 'dynamic' });
+    if (!kitMoves(place, !!tier.near)) check(!dyn.faces.length && !dyn.lights.length && !dyn.plumes.length, `${name} L${level}: kitMoves says nothing moves and the dynamic pass drew ${dyn.faces.length} faces`);
+    const pool = [], lists = [];
+    let n = 0, l = 0;
+    const p3 = (x, y, z) => { const p = pool[n] || (pool[n] = [0, 0, 0]); n++; p[0] = x; p[1] = y; p[2] = z; return p; };
+    const l4 = (a2, b, c, d) => { const q = lists[l] || (lists[l] = [0, 0, 0, 0]); l++; q[0] = a2; q[1] = b; q[2] = c; q[3] = d; return q; };
+    check(canon(dyn) === canon(run({ ...at, part: 'dynamic', p3, l4 })), `${name} L${level}: pooled points change what the dynamic pass draws`);
+  }
 }
 
 // ── A BLOCK: BOLLARDS CARRIED ACROSS TILES, ONE CROSSING, ONE BRIDGE, PRICES IN CREDITS ──

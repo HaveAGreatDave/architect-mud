@@ -70,7 +70,10 @@ export async function openScene({ record = true, cloth = false } = {}) {
   let sinks = null;
   ws.RENDER_TUNE.gl = 1;
   ws.installGLWorld((cells, cam, o) => {
-    sinks = { sprites: o.sprites, strokes: o.strokes, decals: o.decals, scatter: o.scatter, ground: o.ground, bay: o.bay, curtain: o.curtain, ship: o.ship };
+    // The kit's retained sets are flattened for the tools that compare records. Not for the alloc tool,
+    // which would be charged for the copy.
+    const bay = record && o.bay ? o.bay.concat(...(o.bay.sets || []), o.bay.fades || []) : o.bay;
+    sinks = { sprites: o.sprites, strokes: o.strokes, decals: o.decals, scatter: o.scatter, ground: o.ground, bay, curtain: o.curtain, ship: o.ship };
     if (cloth) sinks.cloth = (o.fauna || []).filter((r) => r.cloth);
     return { canvas: glCanvas, faces: 0 };
   });

@@ -40,6 +40,8 @@ export const M = (m) => m / TILE_M;
 const TAU = Math.PI * 2;
 // A repeatable 0..1 from a seed and a position, so a part keeps its shade from frame to frame.
 const hash = (seed, k) => { const x = Math.sin((seed || 0) * 12.9898 + k * 78.233) * 43758.5453; return x - Math.floor(x); };
+const newPoint = (x, y, z) => [x, y, z], newQuad = (a, b, c, d) => [a, b, c, d];
+const SIDES = Object.freeze([-1, 1]);
 
 // ── THE STREET, IN CONSTANTS ──
 // Across the street from the centreline (`v`), along it from the tile centre (`u`). The brief's
@@ -227,6 +229,14 @@ function spanOn(at, rx, ry, axis, run, inner = 0) {
   return taken.get(run.i) || null;
 }
 
+// Whether a tile's dynamic pass has anything to draw at that distance. The renderer asks this before
+// it runs one, so it has to stay true of drawStreetKit's dynamic pass: the gate checks that a tile this
+// says no to draws nothing. A junction has no belts or vents, and the dirt has only what's overhead.
+export function kitMoves(P, near) {
+  if (P.span) return true;
+  return !LEVEL[P.level].dirt && !!P.axis && (near || !!P.cross || !!P.bridge);
+}
+
 // ── THE BUILD ────────────────────────────────────────────────────────────────
 //
 // `o` is everything the renderer knows about this tile and this frame:
@@ -235,7 +245,8 @@ function spanOn(at, rx, ry, axis, run, inner = 0) {
 //   s0            the tile centre's world coordinate along the axis, in tiles: anything that
 //                 repeats along the street (bollards, planters, vents, dashes) is spaced from it, so
 //                 a run carries on across tiles and doesn't move when the map window recentres
-//   part          'static', 'dynamic', or undefined for both (markKept's two passes)
+//   part          'static', 'dynamic', or undefined for both. The renderer runs 'static' once a tile and
+//                 keeps it (KIT_SETS in windshield.js), so it may not read now, night or the camera
 //   near          true within arm's length: the small parts
 //   seed, now, night, alpha
 //   face(pts, rgb, a, n, mat)     one convex polygon; `n` and `mat` absent for a lit face
@@ -246,6 +257,8 @@ function spanOn(at, rx, ry, axis, run, inner = 0) {
 //                                 so the parts that sit on the ground are ruled by hand
 //   steam(x, y, seed, gain)       a plume off a grate; near to, and only in the dynamic pass
 //   still                         true with moving parts stopped (RENDER_TUNE.motion 0)
+//   p3(x, y, z), l4(a, b, c, d)   a point and a quad's list, from the renderer's pool if it has one: a
+//                                 pass that's drawn again next frame needn't make new arrays for them
 // A face whose `mat` is 'film' is glass: see the film range in gl/solids.js.
 export function drawStreetKit(o) {
   const P = o.place;
@@ -258,6 +271,7 @@ export function drawStreetKit(o) {
   // strips, the trees, and the crossings and bridges. Bollards, vents and chevrons are gone by then.
   const dx = o.dx, dy = o.dy, near = !!o.near, far = !near && !!o.far;
   const doStatic = o.part !== 'dynamic', doDynamic = o.part !== 'static';
+  const P3 = o.p3 || newPoint, L4 = o.l4 || newQuad;
 
   // `xf` is set while a damaged part is drawn: every point goes through it, so a pole leans and a
   // bollard falls over without a second copy of its geometry (see `tilted`).
@@ -273,7 +287,7 @@ export function drawStreetKit(o) {
       nx += (a[1] - b[1]) * (a[2] + b[2]); ny += (a[2] - b[2]) * (a[0] + b[0]); nz += (a[0] - b[0]) * (a[1] + b[1]);
     }
     const nl = Math.hypot(nx, ny, nz); if (!(nl > 1e-12)) return;
-    o.face(pts, base, a, [nx / nl, ny / nl, nz / nl], mat || 'paint');
+    o.face(pts, base, a, P3(nx / nl, ny / nl, nz / nl), mat || 'paint');
   };
   const pane = (pts, base, a) => face(pts, base, 'film', a * alpha);
   const write = o.text ? (quad, label, css, lit) => o.text(xf ? quad.map(xf) : quad, label, css, lit) : null;
@@ -290,16 +304,16 @@ export function drawStreetKit(o) {
     };
     try { draw(); } finally { xf = null; }
   };
-  const T = (x, y, z) => [dx + x, dy + y, z];
+  const T = (x, y, z) => P3(dx + x, dy + y, z);
   // An axis-aligned box in tile-local x, y. Five faces: nothing here is seen from underneath, except
   // what hangs over the lane, which asks for its bottom.
   const boxXY = (x0, x1, y0, y1, z0, z1, base, mat, top = base, topMat = mat, under = false) => {
     const A = T(x0, y0, z0), B = T(x1, y0, z0), C = T(x1, y1, z0), D = T(x0, y1, z0);
     const A1 = T(x0, y0, z1), B1 = T(x1, y0, z1), C1 = T(x1, y1, z1), D1 = T(x0, y1, z1);
-    face([A1, B1, C1, D1], top, topMat);
-    face([A, B, B1, A1], base, mat); face([B, C, C1, B1], base, mat);
-    face([C, D, D1, C1], base, mat); face([D, A, A1, D1], base, mat);
-    if (under) face([D, C, B, A], base, mat);
+    face(L4(A1, B1, C1, D1), top, topMat);
+    face(L4(A, B, B1, A1), base, mat); face(L4(B, C, C1, B1), base, mat);
+    face(L4(C, D, D1, C1), base, mat); face(L4(D, A, A1, D1), base, mat);
+    if (under) face(L4(D, C, B, A), base, mat);
   };
   const flatXY = (x0, x1, y0, y1, z, base, mat) => face([T(x0, y0, z), T(x1, y0, z), T(x1, y1, z), T(x0, y1, z)], base, mat);
   // A tapered upright drum with a lid, in tile-local x, y.
@@ -329,7 +343,7 @@ export function drawStreetKit(o) {
   // frame stands on one.
   const ns = P.axis !== 'ew';
   const U = ns ? [0, 1] : [1, 0], V = ns ? [1, 0] : [0, 1];
-  const F = (u, v, z) => [dx + U[0] * u + V[0] * v, dy + U[1] * u + V[1] * v, z];
+  const F = (u, v, z) => P3(dx + U[0] * u + V[0] * v, dy + U[1] * u + V[1] * v, z);
   const loc = (u, v) => [U[0] * u + V[0] * v, U[1] * u + V[1] * v];
   // A box in the street frame: centre (u, v), half-extents (hu along, hv across).
   const box = (u, v, hu, hv, z0, z1, base, mat, top = base, topMat = mat, under = false) => {
@@ -659,13 +673,15 @@ export function drawStreetKit(o) {
   const beltMoves = LV.speed > 0 && !o.still;
   const chevrons = (s, travel) => {
     const v = s * STRIP_V, dir = ns ? -s : s, zc = KERB_H + M(K.STRIP_H) + M(0.006), arm = M(0.55), wd = M(0.11);
-    for (const u of spaced(K.CHEVRON, (s > 0 ? 0 : K.CHEVRON / 2) + dir * (travel % K.CHEVRON))) {
-      for (const e of [-1, 1]) {
+    const at = spaced(K.CHEVRON, (s > 0 ? 0 : K.CHEVRON / 2) + dir * (travel % K.CHEVRON));
+    for (let i = 0; i < at.length; i++) {
+      const u = at[i];
+      for (let j = 0; j < 2; j++) {
         // One stroke of the V: from the point (u + dir·0.3 m) back out to the side.
-        const tipU = u + dir * M(0.3), endU = u - dir * M(0.3), endV = v + e * arm;
+        const e = SIDES[j], tipU = u + dir * M(0.3), endU = u - dir * M(0.3), endV = v + e * arm;
         const nu = -(endV - v), nv = endU - tipU, nl = Math.hypot(nu, nv) || 1;
         const pu = nu / nl * wd / 2, pv = nv / nl * wd / 2;
-        face([F(tipU - pu, v - pv, zc), F(tipU + pu, v + pv, zc), F(endU + pu, endV + pv, zc), F(endU - pu, endV - pv, zc)], LV.chevron, LV.chevronMat);
+        face(L4(F(tipU - pu, v - pv, zc), F(tipU + pu, v + pv, zc), F(endU + pu, endV + pv, zc), F(endU - pu, endV - pv, zc)), LV.chevron, LV.chevronMat);
       }
     }
   };
@@ -892,7 +908,7 @@ export function drawStreetKit(o) {
   // ── WHAT MOVES: THE BELTS, THE VENTS, THE CROSSING LAMPS, THE LIFT CARS AND THE LIGHTS ──
   // Every one is a pure function of the clock, and all of it sits on the walkway or under the cab's
   // eye: a plume is gone by the height of a rig, and the belts are in the floor.
-  if (doDynamic && near && beltMoves) for (const s of [-1, 1]) chevrons(s, (o.now || 0) / 1000 * LV.speed);
+  if (doDynamic && near && beltMoves) for (let j = 0; j < 2; j++) chevrons(SIDES[j], (o.now || 0) / 1000 * LV.speed);
   if (doDynamic && near && o.steam) for (const s of [-1, 1]) for (const [u, vv] of vents(s)) {
     // One vent in two is venting at any time, the same ones until somebody fixes them.
     const r = hash(s, Math.round((s0 + u) * tm));

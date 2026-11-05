@@ -2454,6 +2454,13 @@ const lightRaw = new Float32Array(MAX_LIGHTS * 3);
     clothRecs.length = 0;
     cloudList.length = 0;
     const clouds = [], groups = [];
+    // Whole arrays that never went through the list: the street kit's tiles (BAY_SINK.sets), and the
+    // copies of the ones in the haze band (.fades), whose alpha changes and so go down the stream.
+    for (const l of lists) if (l && (l.sets || l.fades)) {
+      if (l.menv) all.menv = l.menv;
+      if (l.sets) for (const s of l.sets) groups.push(s);
+      if (l.fades) for (let i = 0; i < l.fades.length; i++) all.push(l.fades[i]);
+    }
     for (const l of lists) if (l && l.length) {
       // The marks' frame (marksGPU) rides on the list, once, for the solids layer's uniforms.
       if (l.menv) all.menv = l.menv;

@@ -44,7 +44,7 @@ import { fireworksAround, aaLive, AA_FIRE_MS, noteServiceAt, serviceNear } from 
 import { drawAAEmplacement } from './glass/aa-emplacement.js';   // the four AA batteries (drawAAMark)
 import { drawMediaLot, lotSolidAt, lotAirTopAt, lotArmSense, lotLive, lotTickerLine, lotVanKey, lotVans } from './glass/media-lot.js';   // the Media Lot's court and car park (drawLotMark)
 import { state } from '../state.js';
-import { drawStreetKit, kitCell, kitPaved, kitPlace, KIT } from './glass/street-kit.js';   // Coldwater's lane, walkways and street furniture (drawStreetKitPass)
+import { drawStreetKit, kitCell, kitMoves, kitPaved, kitPlace, KIT } from './glass/street-kit.js';   // Coldwater's lane, walkways and street furniture (drawStreetKitPass)
 import { kitWalk, KIT_WALK } from './glass/street-kit-walk.js';   // the people on it go round by the bridge or the crossing (drawStreetActors)
 import { skylineFar, SKYLINE_BASE_FAR } from '../../../shared/skyline-tall.js';
 import { hnoise2, hn2h, fbm2 } from '../../../shared/landform.js';
@@ -34788,10 +34788,280 @@ function drawStreetLampQueued(ctx, cam, dx, dy, inward, lit, alpha, night, seed,
 // (`sc` on the cell, from `districts.street_condition`). The build is glass/street-kit.js; this finds
 // the tiles, works out each one's arms and its place in its block, and hands it the sinks.
 //
-// GL only, drawn as a mark: its faces go to BAY_SINK unshaded during the sweep and its static part
-// is kept (markKept), as the Media Lot's are. Which tiles and what stands on each is kitPlace's
-// (glass/street-kit.js), which the people's walk reads too. A road two tiles wide is two kit streets
-// with one mall between them; a wider one is left as it is.
+// GL only, drawn as a mark. Which tiles and what stands on each is kitPlace's (glass/street-kit.js),
+// which the people's walk reads too. A road two tiles wide is two kit streets with one mall between
+// them; a wider one is left as it is.
+//
+// ── A TILE IS BUILT ONCE (KIT_SETS) ──────────────────────────────────────────────────────────────
+//
+// markKept finds out by probing whether an arm can be kept: two probes a dozen frames apart, two
+// clock tests, and never within reach of the eye. The kit doesn't need finding out. Its static pass
+// has no renderer imports and takes no camera, so what it draws is a function of the tile and the
+// tier. Through markKept every tile within reach of the eye ran live every frame, and those are the
+// dear ones (the near tier is 1,250 faces): 45 MB of garbage a frame and all of it re-sent to the GPU.
+// So each tile runs its static pass once, in the map window's frame, into a set:
+//   faces   retained on the GPU, by way of BAY_SINK.sets (see below)
+//   lines   the ink, kept as stroke records in the camera's frame and moved as the camera moves
+//   text    the lettering, tried until a sign has been in front of the eye, then kept as decals
+// A set lasts until the tile changes tier or a tune changes. The dynamic pass runs on top, on the
+// tiles with anything that moves (kitMoves): every frame near to, and past that KIT_TICK apart.
+// scripts/shapes/street-kit.mjs holds the two things this takes on trust: the static pass reads no
+// clock and no hour, and a tile kitMoves says no to has nothing in its dynamic pass.
+//
+// ⚠ BAY_SINK.sets, NOT BAY_SINK. A retained group still has every record pushed through the sink
+// (bayGroup), and at 80,000 faces just growing that array was 2 MB a frame. A set goes to the solids
+// as a whole array, and to the prop shadows (propCasters in gl/world.js), and never into the list.
+// BAY_SINK.fades is one more array like it, of pooled copies for the tiles in the haze band, streamed.
+// ⚠ IT MUST CARRY NO FILM AND NO METAL (bayGroup's promise). markFaceGL's records have no `m`, so
+// they're never smoothed; a film face goes to the stream.
+// ⚠ armKeep 0 RUNS THE OLD WAY, live through markKept, so scripts/perf/armkeep-check.mjs compares a
+// set's triangles with a live draw's.
+const KIT_SETS = new WeakMap();
+// How far apart the moving parts past arm's length are drawn, in ms, each tile on its own beat. A lift
+// car goes 0.14 m in that, which is under a pixel from 6 tiles off.
+const KIT_TICK = 100;
+// The clock at the start of a tile's beat. kitLive draws from it too, so the two paths still compare.
+const kitBeat = (now, seed) => { const off = seed & 127; return Math.floor((now + off) / KIT_TICK) * KIT_TICK - off; };
+// How many tiles out of view a frame builds ahead of being seen. Turning round brought a hundred new
+// tiles in over a few frames, and each is hundreds of faces.
+const KIT_AHEAD = 3;
+const KIT_PULL = { pull: 0.004 }, KIT_INK_POINT = [0, 0, 0], KIT_EYE_PLANE = 0.13;
+// What the run in hand writes to, and the frame's terms a plume needs: the sinks are shared so that a
+// tile with nothing to do costs no closures.
+let KIT_TO = null, KIT_CTX = null, KIT_CAM = null, KIT_F = 0, KIT_NIGHT = 0, KIT_ALPHA = 1, KIT_NOW = 0;
+const KIT_LIVE = { faces: null, film: null, glows: [] };
+// ── THE NEAR TIER'S MOVING PARTS ──
+// A belt near to is new points every frame, so they can't be kept. Their records come from a pool
+// reset at the top of the pass: only the stream holds them, and every reader finishes inside the frame.
+const KIT_POOL = { pts: [], lists: [], recs: [], np: 0, nl: 0, nr: 0, fade: [], nf: 0 };
+function kitP3(x, y, z) {
+  const P = KIT_POOL, p = P.pts[P.np] || (P.pts[P.np] = [0.5, 0.5, 0.5]);
+  P.np++; p[0] = x; p[1] = y; p[2] = z;
+  return p;
+}
+function kitL4(a, b, c, d) {
+  const P = KIT_POOL, l = P.lists[P.nl] || (P.lists[P.nl] = [a, b, c, d]);
+  P.nl++; l[0] = a; l[1] = b; l[2] = c; l[3] = d;
+  return l;
+}
+function kitRec() {
+  const P = KIT_POOL, q = P.recs[P.nr] || (P.recs[P.nr] = { p: null, rgb: null, a: 0.5, n: null, amb: false, tex: 0, film: false });
+  P.nr++;
+  return q;
+}
+function kitFacePooled(pts, rgb, a, n, mat) {
+  const q = kitRec();
+  q.p = pts; q.rgb = rgb; q.a = a; q.n = n || null; q.amb = !!n; q.film = mat === 'film';
+  q.tex = !n ? 0 : mat === 'metal' ? -3 : mat === 'glass' || mat === 'film' ? -4 : -2;
+  BAY_SINK.push(q);
+}
+// A tile in the haze band: a pooled copy of each face at this frame's alpha, in the one list the pass
+// hands over as BAY_SINK.fades. A set's own records stay as the GPU has them.
+function kitFadeFaces(faces, alpha) {
+  const P = KIT_POOL;
+  for (let i = 0; i < faces.length; i++) {
+    const s = faces[i], q = kitRec();
+    q.p = s.p; q.rgb = s.rgb; q.a = s.a * alpha; q.n = s.n || null; q.amb = !!s.amb; q.tex = s.tex || 0; q.film = false;
+    P.fade[P.nf++] = q;
+  }
+}
+function kitFace(pts, rgb, a, n, mat) {
+  if (!n) { KIT_TO.faces.push({ p: pts, rgb, a }); return; }
+  const q = { p: pts, rgb, a, n, amb: true, tex: mat === 'metal' ? -3 : mat === 'glass' || mat === 'film' ? -4 : -2 };
+  if (mat === 'film') { q.film = true; KIT_TO.film.push(q); } else KIT_TO.faces.push(q);
+}
+const kitLine = (A, B) => { KIT_TO.lines.push(A, B); };
+const kitWrite = (q, label, css, lit) => { KIT_TO.text.push({ q, label, css, lit }); };
+const kitGlow = (x, y, z, rgb, s0, a) => { KIT_TO.glows.push(x, y, z, rgb, s0, a); };
+// A plume off a grate, out of the same sprites the road's vents use (steamPlume). Thinner and
+// shorter than a manhole's: a grate is smaller, there are more of them, and at the road's width
+// a walkway of them read as a grey veil across the street, cut off along the ground.
+const kitSteam = (x, y, s, gain) => steamPlume(KIT_CTX, KIT_CAM, KIT_F, x - KIT_CAM.ox, y - KIT_CAM.oy, KIT_NIGHT, s, KIT_ALPHA, KIT_NOW, gain * 0.55, 0.8, 0.32, KIT.KERB_H);
+// One pass of a tile in the map window's frame: `lx`, `ly` is its centre there.
+const kitRun = (part, place, lx, ly, s0, seed, near, far, night, now, alpha) => drawStreetKit({
+  dx: lx, dy: ly, place, s0, part, near, far, seed, now, night, alpha,
+  face: kitFace, light: kitGlow, text: kitWrite, line: far ? null : kitLine, steam: kitSteam, still: RENDER_TUNE.motion === 0,
+});
+function kitGlows(ctx, cam, G, alpha) {
+  for (let i = 0; i < G.length; i += 6) glowPool(ctx, cam, G[i] - cam.ox, G[i + 1] - cam.oy, G[i + 2], G[i + 3], G[i + 4], G[i + 5] * alpha);
+}
+// The map window moved under a tile that's still in it. New arrays, because the layers retain a group
+// by the identity of its array and would draw the old place (armReplay does the same).
+function kitRecentre(set, bx, by) {
+  const seen = new Set();
+  const move = (p) => { if (!seen.has(p)) { seen.add(p); p[0] += bx; p[1] += by; } };
+  for (const q of set.faces) q.p.forEach(move);
+  for (const q of set.film) q.p.forEach(move);
+  for (const t of set.text) t.q.forEach(move);
+  set.lines.forEach(move);
+  set.faces = set.faces.slice(); set.rec.st = set.rec.st.slice(); set.rec.de = set.rec.de.slice();
+  set.lx += bx; set.ly += by; set.dyn = null;
+}
+// The ink as stroke records, in the camera's frame. What emitWire leaves in the sink, less the near
+// clip, which is asked of each stroke as it's sent (kitInk).
+function kitStrokes(set, cam, k) {
+  const out = [], L = set.lines, was = STROKE_SINK, c = cssRgb(STEEL_INK_CSS), px = steelInkPx() * 0.6;
+  STROKE_SINK = out;
+  try {
+    for (let i = 0; i < L.length; i += 2) {
+      const a = [L[i][0] - cam.ox, L[i][1] - cam.oy, L[i][2]], b = [L[i + 1][0] - cam.ox, L[i + 1][1] - cam.oy, L[i + 1][2]], n = out.length;
+      pushStroke(a, b, px, cssTriple(c), c[3] * k);
+      if (out.length > n) { const st = out[n]; st.ra = a; st.rb = b; st.pl = KIT_PULL.pull; }
+    }
+  } finally { STROKE_SINK = was; }
+  set.rec.st = out; set.ink = c[3]; set.k = k; set.dpr = _frameDpr; set.fade = null;
+  set.pts = armPoints(set.rec);
+}
+// A sink's kept records as a retained group, as armReplay's `put` sends them.
+function kitGroup(sink, recs, cam) {
+  if (!sink || !recs.length) return;
+  if (TUNE.glRetain !== 0) (sink.groups || (sink.groups = [])).push({ recs, at: sink.length, ox: cam.ox, oy: cam.oy, w: ARM_CX * 1e5 + ARM_CY });
+  for (let i = 0; i < recs.length; i++) sink.push(recs[i]);
+}
+// The set's ink and lettering for a fading frame, copied once. ⚠ THE STROKE AND DECAL STREAMS WRITE
+// EVERY RECORD EVERY FRAME, so a copy can have its alpha rewritten (armFadePut's fresh copies are for
+// its records' retained groups). The copies share their points with the set.
+function kitFading(set) {
+  return set.fade || (set.fade = { st: set.rec.st.map((s) => ({ ...s })), de: set.rec.de.map((d) => ({ ...d })) });
+}
+// ⚠ A STROKE THAT CROSSES THE EYE PLANE GOES THROUGH emitWire (see armNearWire). One end behind the
+// eye gives the strokes shader nothing to take a width from, and on a street there's always one: a
+// line runs the length of the tile you're standing on. Wholly behind is left for the GPU to clip.
+const kitCrosses = (cam, s) => (cam.rawF(s.ra[0], s.ra[1], s.ra[2]) <= KIT_EYE_PLANE) !== (cam.rawF(s.rb[0], s.rb[1], s.rb[2]) <= KIT_EYE_PLANE);
+function kitInk(set, ctx, cam, k, alpha) {
+  const st = set.rec.st;
+  if (!st.length) return;
+  let cross = false;
+  if (cam.rawF) for (let i = 0; i < st.length && !cross; i++) cross = kitCrosses(cam, st[i]);
+  if (!cross && alpha === 1) { kitGroup(STROKE_SINK, st, cam); return; }
+  const src = alpha < 1 ? kitFading(set).st : st, px = steelInkPx() * 0.6;
+  for (let i = 0; i < st.length; i++) {
+    const s = src[i];
+    if (alpha < 1) { s.alpha = st[i].alpha * alpha; if (!(s.alpha > 0.004)) continue; }
+    if (cross && kitCrosses(cam, s)) emitWire(ctx, cam, s.ra, s.rb, px, STEEL_INK_CSS, k * alpha, KIT_PULL);
+    else STROKE_SINK.push(s);
+  }
+}
+// The lettering not yet kept. A sign behind the eye can't be fitted, so it waits; one that takes is a
+// decal from then on, held at full alpha and scaled as it's sent. Off the decal path it stays live.
+function kitText(set, ctx, cam, alpha) {
+  let left = 0;
+  for (const t of set.text) {
+    // ⚠ THE FACE IS NAMED, for the Media Lot's reason: left to default, bakeSignText takes whatever
+    // building the sweep drew last.
+    const tex = bakeSignText(t.label, t.css, t.lit ? 1 : 0, false, true, true, { font: 'block' });
+    const P = tex ? t.q.map(([x, y, z]) => cam.proj(x - cam.ox, y - cam.oy, z)) : null;
+    if (!P || !P.every((p) => p && p.f > 0.065)) { set.text[left++] = t; continue; }
+    const n0 = DECAL_SINK ? DECAL_SINK.length : 0;
+    emitSurfaceText(ctx, cam, P, tex, false, DECAL_SINK ? 1 : alpha);
+    if (DECAL_SINK && DECAL_SINK.length > n0) { set.rec.de = set.rec.de.concat(DECAL_SINK.splice(n0)); set.pts = armPoints(set.rec); set.fade = null; }
+    else set.text[left++] = t;
+  }
+  set.text.length = left;
+}
+// A tile's set, built if it isn't there or isn't for this tier, in the window it's in now.
+function kitSetFor(c, place, lx, ly, dx, dy, s0, seed, near, far) {
+  const tier = near ? 0 : far ? 2 : 1;
+  let set = KIT_SETS.get(c);
+  if (!set || set.tier !== tier || set.tune !== ARM_TUNE) {
+    set = { tier, tune: ARM_TUNE, lx, ly, dx, dy, faces: [], film: [], lines: [], text: [], rec: { st: [], de: [] }, pts: [], k: -1, ink: 1, dpr: 0, fade: null, dyn: null };
+    KIT_TO = set;
+    kitRun('static', place, lx, ly, s0, seed, near, far, 0, 0, 1);
+    KIT_TO = null;
+    KIT_SETS.set(c, set);
+  } else if (set.lx !== lx || set.ly !== ly) kitRecentre(set, lx - set.lx, ly - set.ly);
+  return set;
+}
+// One tile, this frame.
+function kitDraw(ctx, cam, c, place, lx, ly, dx, dy, f, s0, seed, near, far, alpha, night, now) {
+  const set = kitSetFor(c, place, lx, ly, dx, dy, s0, seed, near, far);
+  if (set.dx !== dx || set.dy !== dy) {
+    const sx = dx - set.dx, sy = dy - set.dy, P = set.pts;
+    for (let i = 0; i < P.length; i++) { P[i][0] += sx; P[i][1] += sy; }
+    set.dx = dx; set.dy = dy;
+  }
+  // The faces.
+  if (alpha === 1 && TUNE.glRetain !== 0) { if (set.faces.length) (BAY_SINK.sets || (BAY_SINK.sets = [])).push(set.faces); }
+  else if (alpha === 1) for (let i = 0; i < set.faces.length; i++) BAY_SINK.push(set.faces[i]);
+  else kitFadeFaces(set.faces, alpha);
+  for (let i = 0; i < set.film.length; i++) { const q = set.film[i]; BAY_SINK.push(alpha === 1 ? q : { ...q, a: q.a * alpha }); }
+  // The ink, ruled by hand along what sits too low for the depth-based outline to find. It's the
+  // street steel's ink (steelInkK), so it goes with the city's lines. Half the outline's width:
+  // these are the detail lines of the comic look. None on the far tier: the fade starts past it.
+  if (set.lines.length) {
+    KIT_INK_POINT[0] = dx; KIT_INK_POINT[1] = dy;
+    const k = steelInkK(cam, KIT_INK_POINT);
+    if (k > 0 && (RENDER_TUNE.glSizeGPU === 0 || PULL_OFF || !cam.unproj)) {
+      // Nothing to keep: the pull is in the points, and it's from this eye.
+      for (let i = 0, L = set.lines; i < L.length; i += 2) emitWire(ctx, cam, [L[i][0] - cam.ox, L[i][1] - cam.oy, L[i][2]], [L[i + 1][0] - cam.ox, L[i + 1][1] - cam.oy, L[i + 1][2]], steelInkPx() * 0.6, STEEL_INK_CSS, alpha * k, KIT_PULL);
+    } else if (k > 0) {
+      if (set.k < 0 || set.dpr !== _frameDpr) kitStrokes(set, cam, k);
+      else if (set.k !== k) {
+        // Past 60% of glInkFar the line fades with depth. A new array, so a retained group is re-sent.
+        for (const s of set.rec.st) s.alpha = set.ink * k;
+        set.rec.st = set.rec.st.slice(); set.k = k; set.fade = null;
+      }
+      kitInk(set, ctx, cam, k, alpha);
+    }
+  }
+  // The lettering.
+  if (set.text.length) kitText(set, ctx, cam, alpha);
+  const de = set.rec.de;
+  if (alpha === 1) kitGroup(DECAL_SINK, de, cam);
+  else if (DECAL_SINK && de.length) {
+    const D = kitFading(set).de;
+    for (let i = 0; i < D.length; i++) { D[i].alpha = (de[i].alpha == null ? 1 : de[i].alpha) * alpha; DECAL_SINK.push(D[i]); }
+  }
+  // What moves. Near to, as the clock has it.
+  if (!kitMoves(place, near)) return;
+  if (near) {
+    KIT_CTX = ctx; KIT_CAM = cam; KIT_F = f; KIT_NIGHT = night; KIT_ALPHA = alpha; KIT_NOW = now;
+    KIT_LIVE.glows.length = 0;
+    KIT_TO = KIT_LIVE;
+    drawStreetKit({ dx: lx, dy: ly, place, s0, part: 'dynamic', near, far, seed, now, night, alpha, face: kitFacePooled, light: kitGlow, steam: kitSteam, p3: kitP3, l4: kitL4, still: RENDER_TUNE.motion === 0 });
+    KIT_TO = null;
+    kitGlows(ctx, cam, KIT_LIVE.glows, alpha);
+    return;
+  }
+  // Past arm's length, a beat at a time. Its records are the stream's, so a fade rewrites their alpha.
+  const beat = kitBeat(now, seed);
+  let D = set.dyn;
+  if (!D || D.beat !== beat || D.night !== night) {
+    D = set.dyn = { beat, night, faces: [], base: null, alpha: 1, glows: [] };
+    D.film = D.faces;
+    KIT_TO = D;
+    kitRun('dynamic', place, lx, ly, s0, seed, near, far, night, beat, 1);
+    KIT_TO = null;
+    D.base = D.faces.map((q) => q.a);
+  }
+  if (D.alpha !== alpha) { for (let i = 0; i < D.faces.length; i++) D.faces[i].a = D.base[i] * alpha; D.alpha = alpha; }
+  for (let i = 0; i < D.faces.length; i++) BAY_SINK.push(D.faces[i]);
+  kitGlows(ctx, cam, D.glows, alpha);
+}
+// The old way, for armKeep 0: every pass live through markKept, with the camera's own sinks.
+function kitLive(ctx, cam, c, place, dx, dy, f, s0, seed, near, far, alpha, night, now) {
+  const face = (pts, rgb, a, n, mat) => {
+    if (n) { markFaceGL(pts, cam, rgb, a, n, mat === 'metal' ? -3 : mat === 'glass' || mat === 'film' ? -4 : -2); if (mat === 'film') BAY_SINK[BAY_SINK.length - 1].film = true; return; }
+    BAY_SINK.push({ p: pts.map(([x, y, z]) => [x + cam.ox, y + cam.oy, z]), rgb, a });
+  };
+  const text = (a) => (quad, label, css, lit) => {
+    const tex = bakeSignText(label, css, lit ? 1 : 0, false, true, true, { font: 'block' });
+    if (!tex) return;
+    const P = quad.map(([x, y, z]) => cam.proj(x, y, z));
+    if (P.every((p) => p && p.f > 0.065)) emitSurfaceText(ctx, cam, P, tex, false, a);
+  };
+  const light = (x, y, z, rgb, s, a) => glowPool(ctx, cam, x, y, z, rgb, s, a * alpha);
+  const ink = (a) => {
+    const k = steelInkK(cam, [dx, dy, 0]);
+    return k > 0 ? (A, B) => emitWire(ctx, cam, A, B, steelInkPx() * 0.6, STEEL_INK_CSS, a * k, KIT_PULL) : null;
+  };
+  const steam = (x, y, s, gain) => steamPlume(ctx, cam, f, x, y, night, s, alpha, now, gain * 0.55, 0.8, 0.32, KIT.KERB_H);
+  const kit = (t, a, part) => drawStreetKit({
+    dx, dy, place, s0, part, near, far, seed, now: part === 'dynamic' && !near ? kitBeat(t, seed) : t, night, alpha: a, face, light, text: text(a), line: far ? null : ink(a), steam,
+    still: RENDER_TUNE.motion === 0,
+  });
+  markKept(ctx, cam, { c, dx, dy, alpha }, night, now, kit, near ? '|kn' : far ? '|kx' : '|kf');
+}
 const kitWide = (at) => (rx, ry, axis) => blockSpan(at, rx, ry, axis);
 // Whether the kit is drawn this frame at all, and on this cell. The ground pass asks too (it leaves
 // its pavement off where the kit lays its own), and the sweep's BAY_SINK isn't open yet when the
@@ -34805,57 +35075,36 @@ function drawStreetKitPass(ctx, cam, v, map, R, wcx, wcy, night, now, FAR, sun, 
   const at = (x, y) => map[y] && map[y][x];
   const wide = kitWide(at);
   let envSet = false;
+  KIT_POOL.np = KIT_POOL.nl = KIT_POOL.nr = KIT_POOL.nf = 0;
+  const keep = RENDER_TUNE.armKeep !== 0;
+  let ahead = keep ? KIT_AHEAD : 0;
   for (let ry = 0; ry < map.length; ry++) for (let rx = 0; rx < map[ry].length; rx++) {
     const c = map[ry][rx];
     if (!kitCell(c)) continue;
     const dx = (rx - R) - cam.ox, dy = (ry - R) - cam.oy, f = dx * cam.sinh - dy * cam.cosh;
     // Camera-relative near clip with a tile of slack, as the lamps have: the walkway runs the
     // whole tile, so a tile whose centre has passed the camera is still under the frame.
-    if (f + (cam.fwdOff || 0) <= VISIBLE_NEAR_F - 1 || f > FAR) continue;
-    const alpha = clamp((FAR - f) / 5, 0, 1) * (v.worldBlend ?? 1);
-    if (alpha <= 0.03) continue;
-    // Off the side of the canvas, as the buildings and the ground's dressing are. Two tiles wide, for a
-    // bridge's reach past its own tile, and the bank's pad, as sideCull has.
-    if (TUNE.frustum && offCanvasLaterally(cam, dx, dy, _frameW, 2, FRUSTUM_PAD_PX + _frameBankPad)) continue;
+    // Off the side of the canvas counts as out of view, as the buildings and the ground's dressing do. Two
+    // tiles wide, for a bridge's reach past its own tile, and the bank's pad, as sideCull has. A tile out
+    // of view can still be built ahead, so it comes off `shown` and not with a `continue`.
+    const inView = f + (cam.fwdOff || 0) > VISIBLE_NEAR_F - 1 && f <= FAR
+      && !(TUNE.frustum && offCanvasLaterally(cam, dx, dy, _frameW, 2, FRUSTUM_PAD_PX + _frameBankPad));
+    const alpha = inView ? clamp((FAR - f) / 5, 0, 1) * (v.worldBlend ?? 1) : 0;
+    const shown = alpha > 0.03;
+    if (!shown && (ahead <= 0 || KIT_SETS.has(c))) continue;
     const place = kitPlace(at, rx, ry, wide);
     if (!place) continue;
     const wx = Math.round((rx - R) + wcx), wy = Math.round((ry - R) + wcy);
     // Three tiers (see drawStreetKit): the small parts within 6 tiles, the street furniture within
     // 14, and past that only what still reads from a cab down the street.
     const range = eyeRange(cam, dx, dy), near = range < 6, far = range >= 14;
-    const face = (pts, rgb, a, n, mat) => {
-      if (n) { markFaceGL(pts, cam, rgb, a, n, mat === 'metal' ? -3 : mat === 'glass' || mat === 'film' ? -4 : -2); if (mat === 'film') BAY_SINK[BAY_SINK.length - 1].film = true; return; }
-      BAY_SINK.push({ p: pts.map(([x, y, z]) => [x + cam.ox, y + cam.oy, z]), rgb, a });
-    };
-    // ⚠ THE FACE IS NAMED, for the Media Lot's reason: left to default, bakeSignText takes whatever
-    // building the sweep drew last.
-    const text = (a) => (quad, label, css, lit) => {
-      const tex = bakeSignText(label, css, lit ? 1 : 0, false, true, true, { font: 'block' });
-      if (!tex) return;
-      const P = quad.map(([x, y, z]) => cam.proj(x, y, z));
-      if (P.every((p) => p && p.f > 0.065)) emitSurfaceText(ctx, cam, P, tex, false, a);
-    };
-    const light = (x, y, z, rgb, s0, a) => glowPool(ctx, cam, x, y, z, rgb, s0, a * alpha);
-    // The ink, ruled by hand along what sits too low for the depth-based outline to find. It's the
-    // street steel's ink (steelInkK), so it goes with the city's lines. Half the outline's width:
-    // these are the detail lines of the comic look. ⚠ NOT ON THE FAR TIER: the fade starts past it,
-    // and a line whose alpha moves with the eye would stop the tile's static pass being kept.
-    const ink = (a) => {
-      const k = steelInkK(cam, [dx, dy, 0]);
-      return k > 0 ? (A, B) => emitWire(ctx, cam, A, B, steelInkPx() * 0.6, STEEL_INK_CSS, a * k, { pull: 0.004 }) : null;
-    };
-    // A plume off a grate, out of the same sprites the road's vents use (steamPlume). Thinner and
-    // shorter than a manhole's: a grate is smaller, there are more of them, and at the road's width
-    // a walkway of them read as a grey veil across the street, cut off along the ground.
-    const steam = (x, y, s, gain) => steamPlume(ctx, cam, f, x, y, night, s, alpha, now, gain * 0.55, 0.8, 0.32, KIT.KERB_H);
-    const kit = (t, a, part) => drawStreetKit({
-      dx, dy, place, s0: place.axis === 'ns' ? wy : wx, part, near, far,
-      seed: wx * 73 + wy * 149, now: t, night, alpha: a, face, light, text: text(a), line: far ? null : ink(a), steam,
-      still: RENDER_TUNE.motion === 0,
-    });
+    const s0 = place.axis === 'ns' ? wy : wx, seed = wx * 73 + wy * 149;
+    if (!shown) { ahead--; kitSetFor(c, place, rx - R, ry - R, dx, dy, s0, seed, near, far); continue; }
     if (!envSet) { markEnvFrame(night, sun, sky); envSet = true; }
-    markKept(ctx, cam, { c, dx, dy, alpha }, night, now, kit, near ? '|kn' : far ? '|kx' : '|kf');
+    if (!keep) kitLive(ctx, cam, c, place, dx, dy, f, s0, seed, near, far, alpha, night, now);
+    else kitDraw(ctx, cam, c, place, rx - R, ry - R, dx, dy, f, s0, seed, near, far, alpha, night, now);
   }
+  if (KIT_POOL.nf) { KIT_POOL.fade.length = KIT_POOL.nf; BAY_SINK.fades = KIT_POOL.fade; }
 }
 
 // The signal pass: one head per arm of every junction in view. Queued into the shared face sink
