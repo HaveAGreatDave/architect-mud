@@ -34,7 +34,7 @@
 // Frame: x east, y SOUTH, z up, in tiles, camera-relative (the frame cam.proj takes).
 import { BIRD_M_PER_TILE as TILE_M } from '../../../../shared/birds.js';
 import { floorsFor } from '../../../../shared/skyline-scale.js';
-import { KIT_LANDS, KIT_SPANS, drawKitSpan, kitCamera } from './street-kit-spans.js';
+import { KIT_LANDS, KIT_SPANS, SPAN, drawKitSpan, kitCamera } from './street-kit-spans.js';
 export const M = (m) => m / TILE_M;
 
 const TAU = Math.PI * 2;
@@ -75,6 +75,9 @@ const WALK_V = 0.38;                           // the line people walk, out on t
 
 // What the gate and the people read, in tiles.
 export const KIT = Object.freeze({ LANE_HW, OUT, KERB_H, LANE_Z, STRIP_V, DECK_Z0, DECK_Z1, TOWER_V, BRIDGE_U, CROSS_U, WALK_V });
+// Where the footbridge's lift tower stands on side `s` of a tile: out at the frontage, or on the seam
+// down the middle of a two-wide street, where the two halves of the bridge share one tower.
+export const kitTowerV = (place, s) => (place && place.inner === s ? s * 0.5 : s * TOWER_V);
 
 // Core-level colours. Chrome is a pale metal that the shader gives a hard highlight; the lane is a
 // matte near-black, so the street reads as two bright banks either side of a dark gap.
@@ -145,16 +148,28 @@ export function kitCell(c) {
 export const kitPaved = (c) => kitCell(c) && !LEVEL[c.sc].dirt;
 const KIT_RUN_MAX = 24;   // how far along the street a block is looked for, each way
 const PLACE = new WeakMap();
+// The sides of a tile with a paved kit tile beyond them that no road joins it to: the two halves of a
+// two-wide street, whose walkways run on into each other. Auto-tiled neighbours are always joined, so
+// this only ever finds roads authored side by side.
+function seamOf(at, rx, ry, rd) {
+  let out = '';
+  for (const [d, ox, oy] of [['n', 0, -1], ['e', 1, 0], ['s', 0, 1], ['w', -1, 0]]) {
+    if (!rd.includes(d) && kitPaved(at(rx + ox, ry + oy))) out += d;
+  }
+  return out;
+}
 // What a tile is and what stands on it, or null for no kit. `at(rx, ry)` is the cell at a window
-// index, `wide(rx, ry, axis)` whether the road is two or more tiles across (blockSpan in windshield.js,
-// which a tile of kit isn't drawn on: the cross-section is one tile). Kept per cell object, which is
-// replaced when the window is.
+// index, `wide(rx, ry, axis)` the road's `{ width, index }` across (blockSpan in windshield.js). A road
+// two tiles wide is two kit streets side by side; a wider one takes no kit. Kept per cell object, which
+// is replaced when the window is.
 //   axis   'ns' or 'ew' on a straight tile, null on a junction, corner or end
 //   run    { i, n }: the straight tile's place in its block of straight kit tiles
 //   cross  the block's crossing is on this tile, at CROSS_U
 //   bridge a footbridge crosses this tile, at BRIDGE_U: the last tile of a block of two or more
 //   span   'service', 'sky' or 'exec', an upper bridge crossing this tile (glass/street-kit-spans.js),
 //          or null
+//   seam   the sides whose walkway runs on to the tile edge, 'e' and so on
+//   inner  which side of a straight tile is the middle of a two-wide street: -1, 1, or 0 on any other
 export function kitPlace(at, rx, ry, wide) {
   const c = at(rx, ry);
   if (!kitCell(c)) return null;
@@ -162,8 +177,14 @@ export function kitPlace(at, rx, ry, wide) {
   if (was !== undefined) return was;
   const rd = c.rd || '';
   const axis = rd === 'ns' || rd === 'ew' ? rd : null;
+  const seam = seamOf(at, rx, ry, rd);
+  const across = (axis && wide && wide(rx, ry, axis)) || { width: 1, index: 0 };
+  // A two-wide road's west or north half has its partner on the +v side. A partner that isn't a paved
+  // kit tile, a lock lane say, leaves this half with nothing to join, and no kit.
+  const inner = across.width === 2 ? (across.index === 0 ? 1 : -1) : 0;
+  const joined = !inner || seam.includes(axis === 'ns' ? (inner > 0 ? 'e' : 'w') : (inner > 0 ? 's' : 'n'));
   let out = null;
-  if (axis && !(wide && wide(rx, ry, axis))) {
+  if (axis && across.width <= 2 && joined) {
     const sx = axis === 'ns' ? 0 : 1, sy = axis === 'ns' ? 1 : 0;
     // A block is paved or dirt: a run of tiles doesn't take a crossing from the far side of the line.
     const paved = kitPaved(c), same = (cc) => kitCell(cc) && cc.rd === axis && kitPaved(cc) === paved;
@@ -171,9 +192,9 @@ export function kitPlace(at, rx, ry, wide) {
     while (lo < KIT_RUN_MAX && same(at(rx - sx * (lo + 1), ry - sy * (lo + 1)))) lo++;
     while (hi < KIT_RUN_MAX && same(at(rx + sx * (hi + 1), ry + sy * (hi + 1)))) hi++;
     const run = { i: lo, n: lo + hi + 1 };
-    out = { axis, arms: rd, run, cross: paved && run.i === Math.floor((run.n - 1) / 2), bridge: paved && run.n >= 2 && run.i === run.n - 1,
-      span: spanOn(at, rx, ry, axis, run), level: c.sc };
-  } else if (!axis && rd.length) out = { axis: null, arms: rd, run: null, cross: false, bridge: false, span: null, level: c.sc };
+    out = { axis, arms: rd, seam, inner, run, cross: paved && run.i === Math.floor((run.n - 1) / 2), bridge: paved && run.n >= 2 && run.i === run.n - 1,
+      span: spanOn(at, rx, ry, axis, run, inner), level: c.sc };
+  } else if (!axis && rd.length) out = { axis: null, arms: rd, seam, inner: 0, run: null, cross: false, bridge: false, span: null, level: c.sc };
   PLACE.set(c, out);
   return out;
 }
@@ -183,12 +204,15 @@ const landing = (c) => (c && KIT_LANDS.has(c.bt) && !c.mark ? floorsFor(c.bt, c.
 // The upper bridge on one tile of a block, if any. The whole block is worked out from its first tile
 // the same way from every tile in it, so the tiles agree: each class wants one place along the
 // block, dearest first, and takes the nearest free tile with both flanks tall enough for it. So a
-// block has one of each at most, and only where there are towers to hold them up.
-function spanOn(at, rx, ry, axis, run) {
-  const sx = axis === 'ns' ? 0 : 1, sy = axis === 'ns' ? 1 : 0;
+// block has one of each at most, and only where there are towers to hold them up. Over a two-wide
+// street a bridge goes from the far side of one half to the far side of the other, and the west or
+// north half (`inner` 1) is the one that draws it.
+function spanOn(at, rx, ry, axis, run, inner = 0) {
+  if (inner < 0) return null;
+  const sx = axis === 'ns' ? 0 : 1, sy = axis === 'ns' ? 1 : 0, reach = inner ? 2 : 1;
   const flank = (i) => {
     const x = rx + sx * (i - run.i), y = ry + sy * (i - run.i);
-    return Math.min(landing(at(x - sy, y - sx)), landing(at(x + sy, y + sx)));
+    return Math.min(landing(at(x - sy, y - sx)), landing(at(x + sy * reach, y + sx * reach)));
   };
   const taken = new Map();
   for (const { kind, floors, at: want } of KIT_SPANS) {
@@ -334,7 +358,15 @@ export function drawStreetKit(o) {
   };
   // What the upper bridges and the cameras draw with (glass/street-kit-spans.js).
   const tools = () => ({ box, strut, face, pane, F, line, text: write, light: o.light, signQuad, near, far, doStatic, doDynamic, now: o.now, night });
-  const spanOver = () => drawKitSpan(P.span, tools());
+  // A bridge over a two-wide street is centred on the seam, half a tile across from this tile's
+  // centre, and reaches that much further each way.
+  const spanTools = () => {
+    const B = tools();
+    if (!P.inner) return B;
+    const c = 0.5 * P.inner;
+    return { ...B, land: SPAN.LAND + 0.5, F: (u, v, z) => F(u, v + c, z), box: (u, v, ...rest) => box(u, v + c, ...rest) };
+  };
+  const spanOver = () => drawKitSpan(P.span, spanTools());
 
   const arms = P.arms || '';
   const has = (d) => arms.includes(d);
@@ -547,12 +579,12 @@ export function drawStreetKit(o) {
       if (ns) { flatXY(-LANE_HW, LANE_HW, -0.5, 0.5, LANE_Z, LV.lane, 'paint'); cracks(-LANE_HW, LANE_HW, -0.5, 0.5); }
       else { flatXY(-0.5, 0.5, -LANE_HW, LANE_HW, LANE_Z, LV.lane, 'paint'); cracks(-0.5, 0.5, -LANE_HW, LANE_HW); }
       for (const s of [-1, 1]) {
-        const a = s * LANE_HW, b = s * OUT, lo = Math.min(a, b), hi = Math.max(a, b);
+        const a = s * LANE_HW, b = s * (s === P.inner ? 0.5 : OUT), lo = Math.min(a, b), hi = Math.max(a, b);
         const c0 = s > 0 ? LANE_HW : -LANE_HW - CAP;
         if (ns) { walk(lo, hi, -0.5, 0.5, false); kerb(c0, c0 + CAP, -0.5, 0.5, false, -s); }
         else { walk(-0.5, 0.5, lo, hi, true); kerb(-0.5, 0.5, c0, c0 + CAP, true, -s); }
         // The walkway's outer edge, against the frontage.
-        if (line) { if (ns) line(T(b, -0.5, KERB_H), T(b, 0.5, KERB_H)); else line(T(-0.5, b, KERB_H), T(0.5, b, KERB_H)); }
+        if (line && s !== P.inner) { if (ns) line(T(b, -0.5, KERB_H), T(b, 0.5, KERB_H)); else line(T(-0.5, b, KERB_H), T(0.5, b, KERB_H)); }
       }
     } else {
       // A junction, a corner or an end: the lane down every arm and across the box, a walkway in
@@ -565,9 +597,10 @@ export function drawStreetKit(o) {
       if (has('e')) flatXY(LANE_HW, 0.5, -LANE_HW, LANE_HW, LANE_Z, LV.lane, 'paint');
       cracks(-LANE_HW, LANE_HW, -LANE_HW, LANE_HW);
       const RUN = M(K.RAIL_RUN), RIN = LANE_HW + M(0.3);
+      const edge = (d) => ((P.seam || '').includes(d) ? 0.5 : OUT);   // a seam's walkway runs to the tile edge
       for (const sx of [-1, 1]) for (const sy of [-1, 1]) {
         const armX = has(sx > 0 ? 'e' : 'w'), armY = has(sy > 0 ? 's' : 'n');
-        const ex = armX ? 0.5 : OUT, ey = armY ? 0.5 : OUT;
+        const ex = armX ? 0.5 : edge(sx > 0 ? 'e' : 'w'), ey = armY ? 0.5 : edge(sy > 0 ? 's' : 'n');
         const x0 = Math.min(sx * LANE_HW, sx * ex), x1 = Math.max(sx * LANE_HW, sx * ex);
         const y0 = Math.min(sy * LANE_HW, sy * ey), y1 = Math.max(sy * LANE_HW, sy * ey);
         walk(x0, x1, y0, y1, ex > ey);
@@ -582,12 +615,13 @@ export function drawStreetKit(o) {
       }
       for (const [d, sx, sy] of [['n', 0, -1], ['s', 0, 1], ['w', -1, 0], ['e', 1, 0]]) {
         if (has(d)) continue;
+        const out = edge(d);
         if (sx === 0) {
-          const y0 = Math.min(sy * LANE_HW, sy * OUT), y1 = Math.max(sy * LANE_HW, sy * OUT);
+          const y0 = Math.min(sy * LANE_HW, sy * out), y1 = Math.max(sy * LANE_HW, sy * out);
           walk(-LANE_HW, LANE_HW, y0, y1, true);
           const c0 = sy > 0 ? LANE_HW : -LANE_HW - CAP; kerb(-LANE_HW, LANE_HW, c0, c0 + CAP, true, -sy);
         } else {
-          const x0 = Math.min(sx * LANE_HW, sx * OUT), x1 = Math.max(sx * LANE_HW, sx * OUT);
+          const x0 = Math.min(sx * LANE_HW, sx * out), x1 = Math.max(sx * LANE_HW, sx * out);
           walk(x0, x1, -LANE_HW, LANE_HW, false);
           const c0 = sx > 0 ? LANE_HW : -LANE_HW - CAP; kerb(c0, c0 + CAP, -LANE_HW, LANE_HW, false, -sx);
         }
@@ -726,10 +760,9 @@ export function drawStreetKit(o) {
     // ── PLANTERS, BENCHES AND VENTS ──
     // Between the kerb and the strip. A planter is a steel box on a dark plinth with a lit rim, a
     // trunk and a low-poly crown, and a bench along its strip side; a vent is a grate in the walkway.
-    for (const s of [-1, 1]) {
-      const v = s * (LANE_HW + M(K.PLANT_IN + 0.15));
-      for (const u of spaced(K.PLANT_EVERY, s > 0 ? 6 : 0)) {
-        if (nearCross(u, 3) || nearBridge(u, 3) || (first && u < -0.5 + M(K.GATE_IN + 1.5)) || (last && u > 0.5 - M(K.GATE_IN + 1.5))) continue;
+    // Down the middle of a two-wide street's mall there's one more row, on the seam, with no bench,
+    // and the west or north half draws it. `bench` is which way a tree's bench lies, 0 for none.
+    const tree = (u, v, bench) => {
         const dead = LV.tree === 'stump', rim = LV.tree === 'lit';
         box(u, v, M(1.15), M(0.55), KERB_H, KERB_H + M(0.08), PAL.plinth, 'paint');
         box(u, v, M(1.1), M(0.5), KERB_H + M(0.08), KERB_H + M(0.55), PAL.planter, LV.capMat, rim ? LV.cyan : dead ? [36, 30, 22] : PAL.plinth, rim ? 'lit' : 'paint');
@@ -743,12 +776,19 @@ export function drawStreetKit(o) {
           const top = T(cx, cy, zc + r * 0.9), bot = T(cx, cy, zc - r * 0.8);
           for (let i = 0; i < 4; i++) { const j = (i + 1) % 4; face([eq[i], eq[j], top], LV.crown, 'paint'); face([eq[j], eq[i], bot], LV.crown, 'paint'); }
         }
-        if (near && !(dead && hash(o.seed, Math.round(u * 1000) + 3) < 0.5)) {
-          const bv = v + s * M(0.5 + 0.25);
+        if (bench && near && !(dead && hash(o.seed, Math.round(u * 1000) + 3) < 0.5)) {
+          const bv = v + bench * M(0.5 + 0.25);
           box(u, bv, M(0.9), M(0.2), KERB_H + M(0.42), KERB_H + M(0.47), LV.capMat === 'metal' ? PAL.bench : [92, 84, 72], LV.capMat);
           for (const e of [-1, 1]) box(u + e * M(0.75), bv, M(0.04), M(0.16), KERB_H, KERB_H + M(0.42), PAL.post, 'metal');
           rimAt(u, bv, M(0.9), M(0.2), KERB_H + M(0.47));
         }
+    };
+    if (P.inner > 0) for (const u of spaced(K.PLANT_EVERY, 3)) if (!nearCross(u, 3) && !nearBridge(u, 3)) tree(u, 0.5, 0);
+    for (const s of [-1, 1]) {
+      const v = s * (LANE_HW + M(K.PLANT_IN + 0.15));
+      for (const u of spaced(K.PLANT_EVERY, s > 0 ? 6 : 0)) {
+        if (nearCross(u, 3) || nearBridge(u, 3) || (first && u < -0.5 + M(K.GATE_IN + 1.5)) || (last && u > 0.5 - M(K.GATE_IN + 1.5))) continue;
+        tree(u, v, s);
       }
       if (!far) for (const [u, vv] of vents(s)) {
         box(u, vv, M(0.4), M(0.4), KERB_H, KERB_H + M(0.012), PAL.grate, 'paint');
@@ -760,7 +800,7 @@ export function drawStreetKit(o) {
     // ── JUNK ──
     // Lying about on a street nobody clears, out of the strip and off the lane.
     if (!far) for (let i = 0; i < LV.junk; i++) {
-      const s = hash(o.seed, i * 4 + 120) < 0.5 ? -1 : 1, u = (hash(o.seed, i * 4 + 121) - 0.5) * 0.9;
+      const s = P.inner ? -P.inner : hash(o.seed, i * 4 + 120) < 0.5 ? -1 : 1, u = (hash(o.seed, i * 4 + 121) - 0.5) * 0.9;
       const [x, y] = loc(u, s * (OUT - M(0.8 + hash(o.seed, i * 4 + 122) * 0.5)));
       junkAt(x, y, KERB_H, hash(o.seed, i * 4 + 123));
     }
@@ -768,7 +808,8 @@ export function drawStreetKit(o) {
     // ── THE SERVICE CHANNEL ──
     // A run of dark steel lids along the frontage edge of each walkway, the ducts under the street,
     // with a cyan status pip every 5 m near to.
-    if (!far) for (const s of [-1, 1]) {
+    // A two-wide street's mall has no frontage, so only its outer side has a channel.
+    if (!far) for (const s of (P.inner ? [-P.inner] : [-1, 1])) {
       const v = s * (OUT - M(K.LID_W / 2));
       box(0, v, 0.5, M(K.LID_W / 2), KERB_H - M(0.004), KERB_H + M(0.01), PAL.lid, LV.capMat);
       if (line) { const vi = v - s * M(K.LID_W / 2); line(F(-0.5, vi, KERB_H + M(0.01)), F(0.5, vi, KERB_H + M(0.01))); }
@@ -800,8 +841,11 @@ export function drawStreetKit(o) {
       const ub = BRIDGE_U, hu = M(K.DECK_W / 2), zr = DECK_Z1 + M(K.RAIL_H);
       const tw = M(K.TOWER_W / 2), tl = M(K.TOWER_L / 2), ztop = DECK_Z1 + M(K.TOWER_UP);
       for (const s of [-1, 1]) {
-        const v = s * TOWER_V;
+        // The tower on a two-wide street's seam is shared, and the west or north half draws it.
+        if (s === P.inner && s < 0) continue;
+        const v = kitTowerV(P, s), onSeam = s === P.inner;
         tactile(ub, v - s * (tw + M(0.45)), tl, M(0.35));
+        if (onSeam) tactile(ub, v + s * (tw + M(0.45)), tl, M(0.35));
         box(ub, v, tl + M(0.06), tw + M(0.06), KERB_H, KERB_H + M(0.12), PAL.plinth, 'paint');
         // ⚠ AN OPEN FRAME, GLAZED ONLY AT THE BACK. The faces here are opaque, so a tower glazed
         // all round drew as a grey box that hid its own car and whoever was riding it. Four corner
@@ -816,24 +860,25 @@ export function drawStreetKit(o) {
           box(ub + tl, v, M(0.05), tw, z, z + M(0.1), PAL.steel, 'metal');
         }
         const g0 = KERB_H + M(0.12), vb = v + s * tw;
-        face([F(ub - tl, vb, g0), F(ub + tl, vb, g0), F(ub + tl, vb, ztop), F(ub - tl, vb, ztop)], PAL.glass, 'glass');
+        if (!onSeam) face([F(ub - tl, vb, g0), F(ub + tl, vb, g0), F(ub + tl, vb, ztop), F(ub - tl, vb, ztop)], PAL.glass, 'glass');
         box(ub, v, tl + M(0.12), tw + M(0.12), ztop, ztop + M(0.3), PAL.steelDk, 'metal', PAL.steelDk, 'metal', true);
         box(ub, v, tl + M(0.12), tw + M(0.12), ztop - M(0.05), ztop, PAL.cyan, 'lit');
       }
-      // The deck from tower to tower.
-      const dv = TOWER_V - tw;
-      box(ub, 0, hu, dv, DECK_Z0, DECK_Z1, PAL.steelDk, 'metal', LV.deck, 'metal', true);
-      box(ub, 0, M(0.1), dv, DECK_Z0 - M(0.03), DECK_Z0, PAL.cyan, 'lit', PAL.cyan, 'lit', true);
+      // The deck from tower to tower. `vc` is its middle, off the tile's centre on a two-wide street,
+      // where this half's deck ends at the tower on the seam.
+      const vL = kitTowerV(P, -1) + tw, vR = kitTowerV(P, 1) - tw, vc = (vL + vR) / 2, dv = (vR - vL) / 2;
+      box(ub, vc, hu, dv, DECK_Z0, DECK_Z1, PAL.steelDk, 'metal', LV.deck, 'metal', true);
+      box(ub, vc, M(0.1), dv, DECK_Z0 - M(0.03), DECK_Z0, PAL.cyan, 'lit', PAL.cyan, 'lit', true);
       for (const e of [-1, 1]) {
         const ue = ub + e * hu;
         // A glass rail along each edge with a steel top.
-        face([F(ue, -dv, DECK_Z1), F(ue, dv, DECK_Z1), F(ue, dv, zr), F(ue, -dv, zr)], PAL.glass, 'glass');
-        box(ue, 0, M(0.04), dv, zr, zr + M(0.06), PAL.steel, 'metal');
+        face([F(ue, vL, DECK_Z1), F(ue, vR, DECK_Z1), F(ue, vR, zr), F(ue, vL, zr)], PAL.glass, 'glass');
+        box(ue, vc, M(0.04), dv, zr, zr + M(0.06), PAL.steel, 'metal');
         // The arch over this edge, in straight pieces, with a hanger down to the deck at each joint.
         const N = near ? 10 : 6, base = zr + M(0.1);
         let prev = null;
         for (let i = 0; i <= N; i++) {
-          const v = -dv + 2 * dv * i / N, k = v / dv, z = base + M(K.ARCH) * (1 - k * k);
+          const v = vL + 2 * dv * i / N, k = (v - vc) / dv, z = base + M(K.ARCH) * (1 - k * k);
           const p = F(ue, v, z);
           if (prev) strut(prev, p, M(0.09), PAL.steel, 'metal');
           if (i > 0 && i < N) strut(F(ue, v, zr + M(0.06)), p, M(0.035), PAL.steel, 'metal');
@@ -868,13 +913,14 @@ export function drawStreetKit(o) {
     // the two towers half a round apart. A pure function of the clock, like everything that moves.
     const tw = M(K.TOWER_W / 2), tl = M(K.TOWER_L / 2);
     for (const s of [-1, 1]) {
+      if (s === P.inner && s < 0) continue;   // the shared tower's car is the other half's
       const ph = (((o.now || 0) / 1000 + (s > 0 ? 10 : 0)) % 20 + 20) % 20;
       const k = ph < 5 ? 0 : ph < 10 ? (ph - 5) / 5 : ph < 15 ? 1 : 1 - (ph - 15) / 5;
       const e = k * k * (3 - 2 * k), z0 = KERB_H + M(0.12) + (DECK_Z1 - KERB_H - M(0.12)) * e;
-      box(BRIDGE_U, s * TOWER_V, tl - M(0.15), tw - M(0.15), z0, z0 + M(2.1), PAL.cab, 'metal');
-      box(BRIDGE_U, s * TOWER_V, tl - M(0.14), tw - M(0.14), z0 + M(2.0), z0 + M(2.06), PAL.cyan, 'lit');
+      box(BRIDGE_U, kitTowerV(P, s), tl - M(0.15), tw - M(0.15), z0, z0 + M(2.1), PAL.cab, 'metal');
+      box(BRIDGE_U, kitTowerV(P, s), tl - M(0.14), tw - M(0.14), z0 + M(2.0), z0 + M(2.06), PAL.cyan, 'lit');
     }
-    if (night > 0.2 && o.light) { const [x, y] = loc(BRIDGE_U, 0); o.light(dx + x, dy + y, DECK_Z0, '111,227,255', 8, 0.35 * night); }
+    if (night > 0.2 && o.light) { const [x, y] = loc(BRIDGE_U, (kitTowerV(P, -1) + kitTowerV(P, 1)) / 2); o.light(dx + x, dy + y, DECK_Z0, '111,227,255', 8, 0.35 * night); }
   }
   if (bridgeHere) for (const e of [-1, 1]) kitCamera(tools(), BRIDGE_U - e * M(0.9), e * M(2.4), DECK_Z0, 1.3 + e);
   if (P.span) spanOver();

@@ -15,7 +15,7 @@
 // street goes over the bridge or the zebra and never through the lane, and on the dirt walks across.
 //
 // It reads the faces, not a picture, so it needs no DOM, no rasteriser and no GPU.
-import { drawStreetKit, kitCell, kitPaved, kitPlace, KIT, KIT_M, LEVEL, M } from '../../client/game/js/panels/glass/street-kit.js';
+import { drawStreetKit, kitCell, kitPaved, kitPlace, kitTowerV, KIT, KIT_M, LEVEL, M } from '../../client/game/js/panels/glass/street-kit.js';
 import { KIT_SPANS, SPAN, SPAN_M } from '../../client/game/js/panels/glass/street-kit-spans.js';
 import { kitRoute, kitWalk } from '../../client/game/js/panels/glass/street-kit-walk.js';
 import { BIRD_M_PER_TILE as TILE_M } from '../../client/shared/birds.js';
@@ -348,6 +348,80 @@ check(walker.inLane === 0 && payer.inLane === 0, `people walked in the lane: ${w
   check(maxZ < KIT.DECK_Z0, 'somebody walking along one side went over the bridge');
 }
 check(kitRoute(win, null, null, true) === null, 'a route with no ends');
+
+// ── A ROAD TWO TILES WIDE ──
+// Columns 10 and 11 run side by side from row 4 to row 10, junctions at each end, office towers along
+// both frontages. Each lane stays on its own tile's centreline, and the walkways between them meet on
+// the seam.
+{
+  const wgrid = Array.from({ length: N }, (_, ry) => Array.from({ length: N }, (_, rx) => {
+    const main = rx === R || rx === R + 1, cross = ry === 4 || ry === 10;
+    if (main && cross) return { road: 1, rd: rx === R ? 'nsw' : 'nes', sc: 0 };
+    if (main) return { road: 1, rd: 'ns', sc: 0 };
+    if (cross) return { road: 1, rd: 'ew', sc: 0 };
+    return { bt: 'office', flr: 40 };
+  }));
+  const at = (x, y) => wgrid[y] && wgrid[y][x];
+  const wide = (x, y, axis) => {
+    const on = (c) => (c && c.rd === axis ? 1 : 0), px = axis === 'ns' ? 1 : 0, py = 1 - px;
+    const lo = on(at(x - px, y - py)), hi = on(at(x + px, y + py));
+    return { width: 1 + lo + hi, index: lo };
+  };
+  const w = { at, wide, R, wcx: WC, wcy: WC };
+  const Wt = kitPlace(at, R, 7, wide), Et = kitPlace(at, R + 1, 7, wide);
+  check(Wt?.inner === 1 && Wt.seam === 'e', `the west half: inner ${Wt?.inner}, seam ${Wt?.seam}`);
+  check(Et?.inner === -1 && Et.seam === 'w', `the east half: inner ${Et?.inner}, seam ${Et?.seam}`);
+  check(kitPlace(at, R, 4, wide)?.seam === 'e', 'the junction at the end of a two-wide road has no seam');
+  check(kitPlace(() => ({ road: 1, rd: 'ns', sc: 0 }), 5, 5, () => ({ width: 3, index: 1 })) === null, 'a road three tiles wide took the kit');
+  // A half whose partner isn't a paved kit tile has nothing to join.
+  check(kitPlace((x, y) => (x === 5 ? { road: 1, rd: 'ns', sc: 0 } : { road: 1, rd: 'ns', sc: 0, mark: 'gate' }), 5, 5, () => ({ width: 2, index: 0 })) === null, 'half a two-wide road took the kit alone');
+  for (const tier of ['near', 'mid', 'far']) for (const [side, p] of [['west', Wt], ['east', Et]]) {
+    const { faces } = run({ place: p, s0: 907, near: tier === 'near', far: tier === 'far' });
+    const xs = faces.filter((f) => f.pts.every((q) => near(q[2], KIT.KERB_H))).flatMap((f) => f.pts.map((q) => q[0]));
+    const inner = Math.max(...xs.map((x) => x * p.inner)), outer = Math.max(...xs.map((x) => -x * p.inner));
+    check(near(inner, 0.5, 3e-3), `${side} half ${tier}: walkway stops ${inner.toFixed(3)} out, short of the seam`);
+    check(near(outer, KIT.OUT, 3e-3), `${side} half ${tier}: frontage at ${outer.toFixed(3)}`);
+  }
+  const lane = run({ place: Wt, s0: 907, near: true }).faces.filter((f) => f.pts.every((q) => Math.abs(q[0]) <= KIT.LANE_HW + 1e-9 && near(q[2], KIT.LANE_Z, 1e-6)));
+  check(lane.length > 0, 'no lane on the tile\'s own centreline');
+  // The footbridge: a tower at each frontage and one shared on the seam, drawn by the west half.
+  const WB = kitPlace(at, R, 9, wide), EB = kitPlace(at, R + 1, 9, wide);
+  check(WB?.bridge && EB?.bridge, 'a two-wide block with no footbridge');
+  check(near(kitTowerV(WB, 1), 0.5) && near(kitTowerV(EB, -1), -0.5) && near(kitTowerV(WB, -1), -KIT.TOWER_V), 'the footbridge towers are not on the seam and the frontage');
+  // Upper bridges come from the west half only, and land past the far half.
+  const spans = [5, 6, 7, 8, 9].map((y) => kitPlace(at, R, y, wide)?.span).filter(Boolean);
+  check(spans.length === 3, `${spans.length} upper bridges over a two-wide road`);
+  check([5, 6, 7, 8, 9].every((y) => !kitPlace(at, R + 1, y, wide)?.span), 'the east half drew an upper bridge too');
+  const yS = [5, 6, 7, 8, 9].find((y) => kitPlace(at, R, y, wide)?.span), pS = kitPlace(at, R, yS, wide);
+  const reach = run({ place: pS, s0: 900 + yS, near: true }).faces.filter((f) => f.pts.some((q) => q[2] > M(8))).flatMap((f) => f.pts.map((q) => q[0]));
+  check(Math.max(...reach) >= 1.3 && Math.min(...reach) <= -0.8, `a two-wide bridge reaches ${Math.min(...reach).toFixed(2)} to ${Math.max(...reach).toFixed(2)}`);
+  // From the west frontage to the east: both lanes crossed, neither walked in.
+  const wpt2 = (rx, ry, lx) => [rx - R + WC + lx, ry - R + WC];
+  const go = (frugal) => {
+    const h = {}, [ax, ay] = wpt2(R, 6, -KIT.WALK_V), [bx, by] = wpt2(R + 1, 6, KIT.WALK_V);
+    let t = 0, top = 0, inLane = 0, done = false;
+    kitWalk(h, ax, ay, 0, t, w, frugal);
+    for (let k = 0; k < 8000 && !done; k++) {
+      t += 100;
+      const p = kitWalk(h, bx, by, 0, t, w, frugal);
+      top = Math.max(top, p.z);
+      const lat = Math.min(Math.abs(p.x - WC), Math.abs(p.x - (WC + 1)));
+      if (lat < KIT.LANE_HW && p.z < KIT.KERB_H - 1e-9 && Math.abs(p.y - (WC - 3)) > M(KIT_M.ZEBRA_L)) inLane++;
+      done = Math.hypot(p.x - bx, p.y - by) < 1e-6;
+    }
+    return { top, inLane, done };
+  };
+  const wf = go(true), wp = go(false);
+  check(wf.done && wp.done, `crossing a two-wide road: frugal ${wf.done}, the other ${wp.done}`);
+  check(wf.top >= KIT.DECK_Z1 - 1e-9, 'a frugal walker never went up onto the two-wide footbridge');
+  check(wf.inLane === 0 && wp.inLane === 0, `people walked in a two-wide road's lanes: ${wf.inLane} and ${wp.inLane} frames`);
+  // Across the mall alone there's no lane, so nobody goes near a bridge.
+  const h = {}, [ax, ay] = wpt2(R, 6, KIT.WALK_V), [bx, by] = wpt2(R + 1, 6, -KIT.WALK_V);
+  kitWalk(h, ax, ay, 0, 0, w, true);
+  let maxZ = 0;
+  for (let k = 1; k < 600; k++) maxZ = Math.max(maxZ, kitWalk(h, bx, by, 0, k * 100, w, true).z);
+  check(maxZ < KIT.DECK_Z0, 'somebody crossing the mall went over the bridge');
+}
 // The same street at the dirt level: there's no lane, so nobody goes round. They walk straight over,
 // on the ground, at any level of thrift.
 {

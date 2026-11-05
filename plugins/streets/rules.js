@@ -8,11 +8,15 @@ import { LEVEL, kitPlace } from '../../client/game/js/panels/glass/street-kit.js
 // Whole credits (docs/proposals/coldwater-streets.md).
 export const PRICE = Object.freeze({ strip: 1 });
 
-// A tile's place, or null. `at(x, y)` is the derived surface cell. A road two tiles wide takes no kit.
+// A tile's place, or null. `at(x, y)` is the derived surface cell. `wide` counts the road across as
+// blockSpan does in the renderer, so the verb and the paint agree on what's a two-wide street.
 export function placeOf(at, x, y) {
   const wide = (rx, ry, axis) => {
     const ox = axis === 'ns' ? 1 : 0, oy = axis === 'ns' ? 0 : 1;
-    return !!(at(rx - ox, ry - oy)?.road || at(rx + ox, ry + oy)?.road);
+    const same = (c) => !!c && !!c.road && !c.bt && c.rd === axis;
+    const reach = (s) => { let n = 0; while (n < 8 && same(at(rx + ox * s * (n + 1), ry + oy * s * (n + 1)))) n++; return n; };
+    const lo = reach(-1);
+    return { width: lo + reach(1) + 1, index: lo };
   };
   return kitPlace(at, x, y, wide);
 }

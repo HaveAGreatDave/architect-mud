@@ -22,12 +22,15 @@ dirt of Old Coldwater, and four bridges stack over the street by class.
 | 4 | Paid crossings and the licensed lane | Dropped: scenery only |
 | 4 | Cameras and the drone feeding the wanted system | Design |
 | 5 | Room text in each zone's voice | Built, switch off |
+| - | The street two tiles wide | Built, flag off; Sorrel Way from 900 to 909 |
 
 ## Decisions (David, 2026-11-03)
 
-- **Condition comes from the district.** `districts.street_condition`: 0 core (the Glasshouse, Halcyon
-  Fields), 1 middle ring (Hawker's Row, the Marquee, the Marrow, the Filaments, the Civic Center), 2 worn
-  (Nine Elms, Ironside, the Yards, the Docks), 3 unmaintained (the Ashway), 4 dirt (Old Coldwater).
+- **Condition falls from west to east across the city** (David, 2026-11-04, replacing the brief's
+  per-district table). `regions.street_gradient` gives the region's west and east columns and its south
+  edge, and the columns between split into five equal bands: 886-894 core, 895-902 middle ring, 903-910
+  worn, 911-919 unmaintained, 920-926 dirt. A road past `south` has left the city and takes no kit, which
+  keeps it off the highway beyond the South Gate.
 - **Prices are whole credits.** ₵1 a strip ride. Never "CR".
 - **The dirt corner is free.** Old Coldwater carries no words, so there's nowhere to post a price.
 - **No kiosk.** You come back at the clone vats, as now. David took the respawn kiosk out on 2026-11-04.
@@ -49,13 +52,11 @@ renderer imports, as the Media Lot's are. `drawStreetKitPass` in windshield.js f
 hands each one a face, light and lettering sink. On GL the faces go to `BAY_SINK` unshaded with a normal
 and a material and the static part is kept (`markKept`), so it needs `marksGPU`. GLASS 1 draws no kit.
 
-**Which tiles.** A road tile whose painted district sets a condition: the server ships it as `sc` on the
-surface cell (`deriveSurfaceCell` in plugins/flight/state.js). ⚠ It reads the painted
-`flags.district` only, never `districtFor`'s fallback: an unpainted tile anywhere falls back to the
-Residential Blocks, and the kit would follow it into every region. Curved, marked and building tiles
-take no kit, and neither does a road two or more tiles wide, because the 15.2 m cross-section is one
-tile (17.857 m). A dust road takes it only at the dirt level. That's 247 tiles: 121 core, 56 middle,
-45 worn and 25 unmaintained.
+**Which tiles.** A road tile in a region with a gradient: the server ships its level as `sc` on the
+surface cell (`deriveSurfaceCell` in plugins/flight/state.js), and a region without one has no kit.
+Curved, marked and building tiles take no kit, and neither does a road three or more tiles wide. A dust
+road takes it only at the dirt level. That's 285 tiles: 70 core, 67 middle, 61 worn, 44 unmaintained and
+43 dirt.
 
 ⚠ **Nothing in Old Coldwater is a road.** Its lanes are `dirt` terrain and `sc` is only set on a road, so
 the dirt level has no tiles today. It's built and tested, and it's what a road painted into that
@@ -173,6 +174,30 @@ gone by the height of a rig, so it never reaches a cab's eye. At the road's widt
 read as a grey veil across the street. Neither is ever in the lane, and the road's own vent (a plume and a
 lid at the tile's centre) is switched off on a kit tile because there that's the middle of the lane.
 `RENDER_TUNE.motion` 0 stops the belts.
+
+### The street two tiles wide
+
+Two kit streets side by side, not one wider street. Each lane stays on its own tile's centreline, so it
+meets a junction as a one-tile street does and no junction piece had to change. The walkways between
+the lanes run to the tile edge and join into one raised mall 13.9 m across, with a row of trees down the
+seam.
+
+- A tile finds its partner by `seam`: a side with a paved kit tile beyond it and no road joining them.
+  `inner` says which side of a straight tile that is.
+- ⚠ **The tiles must carry an authored icon** (`road_ns`, `road_ew`). Two adjacent painted road tiles
+  auto-tile into a run of junctions, because `rd` joins any road neighbours, and `blockSpan` won't count
+  a junction as width.
+- The footbridge has a tower at each frontage and one shared on the seam, which the west or north half
+  draws. An upper bridge goes over both halves from the same half, and needs tall buildings past each
+  frontage.
+- The service channel stays on the frontage. Crossings and belts stand on each half.
+- People cross the mall freely. Each lane still takes the bridge or the zebra.
+- **Sorrel Way is the one on the map**, rows 921 and 922 from 900 to 909, with a corner tile at 899,922 and
+  910,922 joining the south lane back into Kettle Lane and the road by the South Lock. Row 922 was plots
+  of grass, and the zones kept their ids. All twenty straight tiles carry `road_ew`. The block is 900 to
+  902 middle ring and 903 to 909 worn, so it isn't chrome for most of its length.
+- The room text doesn't mention the mall, because it has to stay true with the flag off, when the
+  same tiles draw as one wide road.
 
 ### The people
 

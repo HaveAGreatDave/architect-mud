@@ -2,7 +2,7 @@
   "ambient_events": [],
   "ambient_theme": "forest",
   "color": "#8ba36a",
-  "description": "Rough meadow with a line of pegs across it. The string between them has gone, and the pegs lean.",
+  "description": "Sorrel Way is two lanes wide here, and this is the newer one. The Curtain hums just past the south kerb.",
   "exits": {
     "east": "zone_district_902_922",
     "north": "zone_district_901_921",
@@ -11,14 +11,17 @@
   },
   "flags": {
     "district": "halcyon_fields",
+    "icon": "road_ew",
     "region_id": "region_coldwater",
-    "terrain": "grass"
+    "scavenging_table_id": "scav_roadside_junk",
+    "street_life": true,
+    "terrain": "road"
   },
   "grid_x": 901,
   "grid_y": 922,
   "grid_z": 0,
   "id": "zone_district_901_922",
   "map_id": "map_world",
-  "name": "Grasslands",
+  "name": "Sorrel Way",
   "parent_zone": null
 }

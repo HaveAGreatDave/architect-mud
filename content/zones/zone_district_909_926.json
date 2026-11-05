@@ -2,7 +2,7 @@
   "ambient_events": [],
   "ambient_theme": "forest",
   "color": "#8ba36a",
-  "description": "Long grass, gone to seed. A Halcyon board on two posts says the plot is sold, and a sticker under it says it's sold again.",
+  "description": "Sorrel Way is two lanes wide here, and this is the newer one. The Curtain hums just past the south kerb.",
   "exits": {
     "east": "zone_district_910_926",
     "north": "zone_district_909_925",
@@ -11,14 +11,17 @@
   },
   "flags": {
     "district": "halcyon_fields",
+    "icon": "road_ew",
     "region_id": "region_coldwater",
-    "terrain": "grass"
+    "scavenging_table_id": "scav_roadside_junk",
+    "street_life": true,
+    "terrain": "road"
   },
   "grid_x": 909,
   "grid_y": 922,
   "grid_z": 0,
   "id": "zone_district_909_926",
   "map_id": "map_world",
-  "name": "Grasslands",
+  "name": "Sorrel Way",
   "parent_zone": null
 }

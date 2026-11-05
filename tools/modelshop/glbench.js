@@ -6683,7 +6683,9 @@ if (typeof window !== 'undefined') window.__glActors = runActors;
 // round the south crossroads, from the block's last tile into the junction and on west, for that
 // long at four frames a second, and shoots the last frame: about half of them have to cross the
 // street, and on the kit they go over the footbridge or across the zebra (glass/street-kit-walk.js).
-export function runStreetKit({ W = 1280, H = 720, hour = 21, thresh = 12, shot = true, stand = true, yaw = 0, cx = 0.27, cy = 1.2, cz = 0.095, fov = 1, pitch = 0, people = 0, lapse = 0, level = 0, tall = 0 } = {}) {
+// `wide: true` lays the street two tiles wide. `real: { cells, x, y }` paints the map itself instead,
+// centred on that tile, with `cells` from client/game/flightsim-world.json.
+export function runStreetKit({ W = 1280, H = 720, hour = 21, thresh = 12, shot = true, stand = true, yaw = 0, cx = 0.27, cy = 1.2, cz = 0.095, fov = 1, pitch = 0, people = 0, lapse = 0, level = 0, tall = 0, wide = false, real = null } = {}) {
   const holder = document.createElement('div');
   holder.style.cssText = 'position:fixed;left:-10000px;top:0';
   const el = document.createElement('canvas');
@@ -6698,13 +6700,14 @@ export function runStreetKit({ W = 1280, H = 720, hour = 21, thresh = 12, shot =
   const was = { gl: RENDER_TUNE.gl, floor: RENDER_TUNE.glFloor, kit: RENDER_TUNE.streetKit };
   const out = { ok: false };
   try {
-    const RR = 20, NN = RR * 2 + 1, C = { x: 500, y: 500 }, XS = [RR - 4, RR + 2];
+    const RR = 20, NN = RR * 2 + 1, C = real ? { x: real.x, y: real.y } : { x: 500, y: 500 }, XS = [RR - 4, RR + 2];
     const map = Array.from({ length: NN }, (_, ry) => Array.from({ length: NN }, (_, rx) => {
-      const onMain = rx === RR, onCross = XS.includes(ry);
-      if (onMain && onCross) return { kind: 'land', biome: 'citycore', flr: 0, road: 1, rd: 'nesw', pw: 1, sc: level };
+      if (real) return real.cells[(real.x + rx - RR) + ',' + (real.y + ry - RR)] || { kind: 'land', biome: 'wasteland', flr: 0 };
+      const onMain = rx === RR || (wide && rx === RR + 1), onCross = XS.includes(ry);
+      if (onMain && onCross) return { kind: 'land', biome: 'citycore', flr: 0, road: 1, rd: !wide ? 'nesw' : rx === RR ? 'nsw' : 'nes', pw: 1, sc: level };
       if (onMain) return { kind: 'land', biome: 'citycore', flr: 0, road: 1, rd: 'ns', pw: 1, sc: level, sl: ry % 3 === 0 ? 1 : undefined };
       if (onCross) return { kind: 'land', biome: 'citycore', flr: 0, road: 1, rd: 'ew', pw: 1, sc: level };
-      if (Math.abs(rx - RR) === 1 || XS.some((x) => Math.abs(ry - x) === 1)) return { kind: 'land', biome: 'citycore', flr: tall, bt: 'office', is_building: 1, floors: 6 + ((rx * 7 + ry * 3) % 9) };
+      if (rx === RR - 1 || rx === RR + (wide ? 2 : 1) || XS.some((x) => Math.abs(ry - x) === 1)) return { kind: 'land', biome: 'citycore', flr: tall, bt: 'office', is_building: 1, floors: 6 + ((rx * 7 + ry * 3) % 9) };
       return { kind: 'land', biome: 'citycore', flr: 0 };
     }));
     const common = { worldBlend: 1, height: 0, propMul: 1.75, hour, weather: 'clear', speed: 0, resFloor: 1, map, heading: 0, mapCenter: { ...C } };

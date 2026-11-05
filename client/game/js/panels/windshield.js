@@ -34785,9 +34785,9 @@ function drawStreetLampQueued(ctx, cam, dx, dy, inward, lit, alpha, night, seed,
 //
 // GL only, drawn as a mark: its faces go to BAY_SINK unshaded during the sweep and its static part
 // is kept (markKept), as the Media Lot's are. Which tiles and what stands on each is kitPlace's
-// (glass/street-kit.js), which the people's walk reads too. A road two or more tiles wide is left as
-// it is, because the kit's 15.2 m cross-section is one tile.
-const kitWide = (at) => (rx, ry, axis) => blockSpan(at, rx, ry, axis).width !== 1;
+// (glass/street-kit.js), which the people's walk reads too. A road two tiles wide is two kit streets
+// with one mall between them; a wider one is left as it is.
+const kitWide = (at) => (rx, ry, axis) => blockSpan(at, rx, ry, axis);
 // Whether the kit is drawn this frame at all, and on this cell. The ground pass asks too (it leaves
 // its pavement off where the kit lays its own), and the sweep's BAY_SINK isn't open yet when the
 // ground runs, so this asks the same thing the sweep's `glOn` does.

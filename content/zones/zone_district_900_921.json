@@ -1,7 +1,7 @@
 {
   "ambient_events": [],
   "ambient_theme": "city",
-  "description": "Sorrel Way, new tarmac and a long view down to the gate. The Curtain runs behind the plots on the south side.",
+  "description": "Sorrel Way, new tarmac and a long view down to the gate. A second lane runs along the south side, with the Curtain past it.",
   "exits": {
     "east": "zone_district_901_921",
     "north": "zone_district_894_915",
@@ -10,6 +10,7 @@
   },
   "flags": {
     "district": "halcyon_fields",
+    "icon": "road_ew",
     "region_id": "region_coldwater",
     "scavenging_table_id": "scav_roadside_junk",
     "street_life": true,

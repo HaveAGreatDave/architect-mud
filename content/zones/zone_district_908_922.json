@@ -2,7 +2,7 @@
   "ambient_events": [],
   "ambient_theme": "forest",
   "color": "#8ba36a",
-  "description": "Open meadow at the edge of the estate, the grass long and silver-green. Survey stakes stand in it in rows, each one tied with a strip of orange tape.",
+  "description": "The south lane of Sorrel Way, new tarmac with the Curtain's light on it. The north lane runs alongside.",
   "exits": {
     "east": "zone_district_909_926",
     "north": "zone_district_908_921",
@@ -11,14 +11,17 @@
   },
   "flags": {
     "district": "halcyon_fields",
+    "icon": "road_ew",
     "region_id": "region_coldwater",
-    "terrain": "grass"
+    "scavenging_table_id": "scav_roadside_junk",
+    "street_life": true,
+    "terrain": "road"
   },
   "grid_x": 908,
   "grid_y": 922,
   "grid_z": 0,
   "id": "zone_district_908_922",
   "map_id": "map_world",
-  "name": "Grasslands",
+  "name": "Sorrel Way",
   "parent_zone": null
 }

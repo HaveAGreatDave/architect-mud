@@ -12,7 +12,6 @@ import { world, getZone, getAllZones, getLivePlayer, getMinimapData, buildingEnt
 import { OPPOSITE } from '../../server/engine/directions.js';
 import { describeZone } from '../../server/engine/commands/describe.js';
 import { biomeOf, districtBiome } from './biomes.js';
-import { DISTRICTS } from '../../server/engine/districts.js';
 import { thermalLiftMax, heatOfCell } from '../../client/shared/thermals.js';
 import { skylineFar } from '../../client/shared/skyline-tall.js';
 import { lotSides } from '../../scripts/content/derive.mjs';
@@ -1816,11 +1815,13 @@ export function deriveSurfaceCell(cell, x, y, at = surfaceAt, live = true) {
   // road that never set it, which keeps the one worn look it always had.
   const rc = Number.isFinite(cell.flags?.road_cond) ? cell.flags.road_cond : undefined;
   // `sc`: the street kit's condition on a road (docs/proposals/coldwater-streets.md): 0 core to 4
-  // dirt, from the district the tile is painted (`districts.street_condition`). ⚠ THE PAINTED
-  // DISTRICT ONLY, never districtFor's fallback: an unpainted tile anywhere in the world falls back to
-  // the Residential Blocks, and the kit would follow it into every region.
-  const scv = road ? DISTRICTS[cell.flags?.district]?.street_condition : null;
-  const sc = Number.isInteger(scv) ? scv : undefined;
+  // dirt, falling across the region from west to east in five equal bands of columns
+  // (`regions.street_gradient`). A region with no gradient has no street kit, and a road past the
+  // gradient's `south` edge has left the city.
+  const grad = road ? getRegion(cell.flags?.region_id)?.street_gradient : null;
+  const sc = grad && !(y > grad.south)
+    ? Math.max(0, Math.min(4, Math.floor((x - grad.west) / (grad.east - grad.west + 1) * 5)))
+    : undefined;
   // A BERTH'S TWO BEARINGS, and they are the whole of what an author writes: which way the open
   // water lies (a hull's bow points up it, and it is the way she comes and goes) and which side
   // the quay is on (she lies against it). Everything else about her — beam, deck height, how far

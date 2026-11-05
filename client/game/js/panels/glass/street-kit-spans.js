@@ -80,7 +80,7 @@ export function kitCamera(B, u, v, z, phase) {
 function service(B) {
   if (!B.doStatic) return;
   const { box, strut, F, line, near, far } = B;
-  const u = SPAN.U, hu = M(S.SERVICE_W / 2), L = SPAN.LAND, t = M(S.SERVICE_T);
+  const u = SPAN.U, hu = M(S.SERVICE_W / 2), L = B.land || SPAN.LAND, t = M(S.SERVICE_T);
   const [zA, zB] = S.SERVICE_Z.map(M);
   for (const z of [zA, zB]) {
     box(u, 0, hu, L, z, z + t, C.steelDk, 'metal', C.steelDk, 'metal', true);
@@ -112,7 +112,7 @@ function service(B) {
 // depth but not written to it, so what's inside and behind it still shows.
 function sky(B) {
   const { box, face, pane, F, line, near, far, doStatic, doDynamic } = B;
-  const u = SPAN.U, L = SPAN.LAND, R = M(S.SKY_R), z0 = M(S.SKY_Z), z1 = z0 + M(S.SKY_T), zc = z1 + M(S.SKY_FLOOR);
+  const u = SPAN.U, L = B.land || SPAN.LAND, R = M(S.SKY_R), z0 = M(S.SKY_Z), z1 = z0 + M(S.SKY_T), zc = z1 + M(S.SKY_FLOOR);
   const at = (a, v) => F(u + Math.cos(a) * R, v, zc + Math.sin(a) * R);
   if (doStatic) {
     const hu = M(S.SKY_W / 2);
@@ -151,7 +151,7 @@ function sky(B) {
 // A dark box glazed in gold, with angled steel fins under it.
 function exec(B) {
   const { box, face, F, line, near, far, doStatic, doDynamic } = B;
-  const u = SPAN.U, hu = M(S.EXEC_W / 2), L = SPAN.LAND, z0 = M(S.EXEC_Z), z1 = z0 + M(S.EXEC_H);
+  const u = SPAN.U, hu = M(S.EXEC_W / 2), L = B.land || SPAN.LAND, z0 = M(S.EXEC_Z), z1 = z0 + M(S.EXEC_H);
   if (doStatic) {
     box(u, 0, hu, L, z0, z1, C.box, 'metal', C.box, 'metal', true);
     box(u, 0, M(0.25), L, z0 - M(0.04), z0, C.cyan, 'lit', C.cyan, 'lit', true);

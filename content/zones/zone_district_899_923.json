@@ -2,7 +2,7 @@
   "ambient_events": [],
   "ambient_theme": "forest",
   "color": "#8ba36a",
-  "description": "The back of the plots, where the estate stops at the Curtain. Through the light the Glacis road runs south, small and straight.",
+  "description": "The verge behind Sorrel Way, where the estate stops at the Curtain. Through the light the Glacis road runs south, small and straight.",
   "exits": {
     "east": "zone_district_900_923",
     "north": "zone_district_899_922",

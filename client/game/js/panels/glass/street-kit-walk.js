@@ -15,10 +15,12 @@
 // The way is found over the walkways as regions: one side of a straight tile, or one quadrant of a
 // junction. Regions that touch without a lane between them are joined; a footbridge or a crossing
 // joins the two sides of its tile. Where those stand is kitPlace's, the same answer the paint uses.
+// The mall down a two-wide street joins the inner sides of its two halves with no lane between them,
+// and that street's footbridge comes down on the shared tower on the seam.
 //
 // Frame: absolute world tiles, x east, y south, z up. `win` is the map window: `at(rx, ry)` a cell
 // by window index, `wide` (see kitPlace), `R`, `wcx`, `wcy`.
-import { KIT, LEVEL, M, kitPlace } from './street-kit.js';
+import { KIT, LEVEL, M, kitPlace, kitTowerV } from './street-kit.js';
 
 const clamp = (v, lo, hi) => (v < lo ? lo : v > hi ? hi : v);
 
@@ -36,7 +38,7 @@ export const KIT_WALK = {
   crossFrugal: 9,   // and how far somebody who prefers the bridge will walk to avoid the zebra
 };
 
-const { LANE_HW, KERB_H, LANE_Z, TOWER_V, BRIDGE_U, CROSS_U, DECK_Z1, WALK_V } = KIT;
+const { LANE_HW, KERB_H, LANE_Z, BRIDGE_U, CROSS_U, DECK_Z1, WALK_V } = KIT;
 
 // A tile's place for walking. The dirt has no lane and no walkways, so it's off the kit here: people
 // cross it where they like, as they cross any open ground.
@@ -95,10 +97,16 @@ function links(win, r, frugal) {
         : !np.axis ? regionOf(win, nx, ny, 'q', U[0] * -dir + V[0] * s, U[1] * -dir + V[1] * s) : null;
       if (nb) out.push({ r: nb, pts: [W(dir * 0.5, s * WALK_V)], cost: 1 });
     }
+    // Across the mall to the other half of a two-wide street: no lane, so just walk over.
+    if (r.place.inner === s) {
+      const nb = regionOf(win, r.rx + V[0] * s, r.ry + V[1] * s, 's', -s);
+      if (nb) out.push({ r: nb, pts: [W(0, s * 0.5)], cost: 0.7 });
+    }
     const other = regionOf(win, r.rx, r.ry, 's', -s);
     if (other && r.place.bridge) {
+      const here = kitTowerV(r.place, s), there = kitTowerV(r.place, -s);
       out.push({ r: other, cost: 1 + KIT_WALK.bridgeCost, pts: [
-        W(BRIDGE_U, s * TOWER_V), W(BRIDGE_U, s * TOWER_V, DECK_Z1), W(BRIDGE_U, -s * TOWER_V, DECK_Z1), W(BRIDGE_U, -s * TOWER_V)] });
+        W(BRIDGE_U, here), W(BRIDGE_U, here, DECK_Z1), W(BRIDGE_U, there, DECK_Z1), W(BRIDGE_U, there)] });
     }
     if (other && r.place.cross) {
       const k = LANE_HW + M(0.6);
@@ -117,9 +125,12 @@ function links(win, r, frugal) {
     const nb = np.axis ? regionOf(win, nx, ny, 's', sideIfStraight) : regionOf(win, nx, ny, 'q', qx, qy);
     if (nb) out.push({ r: nb, pts: [pt], cost: 1 });
   };
+  const seam = r.place.seam || '';
   if (armX) out1(r.rx + sx, r.ry, sy, -sx, sy, P2(sx * 0.5, sy * WALK_V));
+  else if (seam.includes(sx > 0 ? 'e' : 'w')) out1(r.rx + sx, r.ry, -sx, -sx, sy, P2(sx * 0.5, sy * WALK_V));
   else { const nb = regionOf(win, r.rx, r.ry, 'q', sx, -sy); if (nb) out.push({ r: nb, pts: [P2(sx * WALK_V, 0)], cost: 0.5 }); }
   if (armY) out1(r.rx, r.ry + sy, sx, sx, -sy, P2(sx * WALK_V, sy * 0.5));
+  else if (seam.includes(sy > 0 ? 's' : 'n')) out1(r.rx, r.ry + sy, -sy, sx, -sy, P2(sx * WALK_V, sy * 0.5));
   else { const nb = regionOf(win, r.rx, r.ry, 'q', -sx, sy); if (nb) out.push({ r: nb, pts: [P2(0, sy * WALK_V)], cost: 0.5 }); }
   return out;
 }

@@ -2,7 +2,7 @@
   "ambient_events": [],
   "ambient_theme": "forest",
   "color": "#8ba36a",
-  "description": "Open ground waiting for a building. The grass is flattened in a square where a site hut stood, and the square is still yellow.",
+  "description": "The south lane of Sorrel Way, new tarmac with the Curtain's light on it. The north lane runs alongside.",
   "exits": {
     "east": "zone_district_901_922",
     "north": "zone_district_900_921",
@@ -11,14 +11,17 @@
   },
   "flags": {
     "district": "halcyon_fields",
+    "icon": "road_ew",
     "region_id": "region_coldwater",
-    "terrain": "grass"
+    "scavenging_table_id": "scav_roadside_junk",
+    "street_life": true,
+    "terrain": "road"
   },
   "grid_x": 900,
   "grid_y": 922,
   "grid_z": 0,
   "id": "zone_district_900_922",
   "map_id": "map_world",
-  "name": "Grasslands",
+  "name": "Sorrel Way",
   "parent_zone": null
 }

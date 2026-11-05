@@ -4,5 +4,10 @@
   "defaults": {},
   "grid_z": 0,
   "id": "region_coldwater",
-  "name": "Coldwater"
+  "name": "Coldwater",
+  "street_gradient": {
+    "east": 926,
+    "south": 923,
+    "west": 886
+  }
 }
