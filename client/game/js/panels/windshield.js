@@ -34244,12 +34244,16 @@ function signalHead(ctx, cam, x, y, z, u, face, lamp, s, night, gpu) {
     // An octagon, not a circle. At the size these actually draw the two are the same picture — the
     // point of the octagon is that its eight corners are WORLD points, so the lens sits in the
     // head's own plane and shears with it instead of staying a disc pinned to the screen.
-    const pts = [];
-    for (let k = 0; k < 8; k++) { const th = (k + 0.5) * Math.PI / 4; pts.push(bp(B, LENS_U * Math.cos(th), lb + LENS_V * Math.sin(th), lensC)); }
     // A dark lamp is the housing colour with a hint of its own, not a dimmed bright one — an unlit
     // red that still reads red makes all three look lit at the sizes this actually draws at.
     const lensCss = on ? `rgb(${col[0]},${col[1]},${col[2]})` : `rgba(${col[0] * 0.22 | 0},${col[1] * 0.22 | 0},${col[2] * 0.22 | 0},0.9)`;
-    const paintLens = () => fillPoly(ctx, pts, lensCss);
+    // The corners are built only if the lens paints on the canvas: on the GPU this is the fallback, and
+    // it runs for every lens in view otherwise.
+    const paintLens = () => {
+      const pts = [];
+      for (let k = 0; k < 8; k++) { const th = (k + 0.5) * Math.PI / 4; pts.push(bp(B, LENS_U * Math.cos(th), lb + LENS_V * Math.sin(th), lensC)); }
+      fillPoly(ctx, pts, lensCss);
+    };
     if (!gpu) paintLens();
     else {
       // ⚠ AN OCTAGON IS EIGHT CORNERS AND A DECAL CARRIES FOUR. A fan would put six quads on the
