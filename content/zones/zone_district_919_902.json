@@ -10,6 +10,7 @@
   },
   "flags": {
     "district": "industrial",
+    "no_footbridge": true,
     "region_id": "region_coldwater",
     "scavenging_table_id": "scav_roadside_junk",
     "street_life": true,

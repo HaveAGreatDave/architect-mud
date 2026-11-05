@@ -689,6 +689,8 @@
       help: 'What this floor sounds like underfoot — read by the footstep audio in the dense sound tier. INTERIORS ONLY: outdoors the sound is derived from `terrain`, which is null indoors by design (an interior has no ground surface), so this is the indoor half of the same question. Unset falls back to boards rather than going silent, so forgetting one costs a slightly wrong floor and never a missing sound.' },
     park_feature: { label: 'Park Feature', shape: 'enum', options: ['grove', 'pond', 'benches', 'flowerbeds', 'path'], scope: 'zone', group: 'Zone: Structure',
       help: 'On a "park" terrain tile, forces which flight-sim park dressing it draws (grove/pond/benches/flowerbeds/path) so a park can be laid out symmetrically. Unset → chosen from the tile position hash.' },
+    no_footbridge: { label: 'No Footbridge', shape: 'flag', scope: 'zone', group: 'Zone: Structure',
+      help: 'On a street kit road tile: the footbridge won\'t stand here, and its block goes without one. Set it on the road in front of a building whose frontage should stay in view.' },
 
     ascendant_campus: { label: 'Ascendant Campus', shape: 'flag', scope: 'zone', group: 'Zone: Ascendant',
       help: 'Marks a world tile as part of the Ascendant stronghold campus (western frontier) — used for ambience and faction framing.' },

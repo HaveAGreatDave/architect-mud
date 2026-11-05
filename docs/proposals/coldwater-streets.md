@@ -34,6 +34,12 @@ dirt of Old Coldwater, and four bridges stack over the street by class.
 - **The dirt is the south-east corner only** (David, 2026-11-04). It goes by district, not by column: a
   road in one of the gradient's `dirt_districts` is dirt, and Coldwater's list is `slum`. The east side
   north of Old Coldwater stays unmaintained, however far east it runs.
+- **Every paved street is grey** (David, 2026-11-05). Unmaintained keeps its damage but is dull grey steel,
+  not rust, so the east side reads as the same chrome street gone to seed. Brown is the dirt's, and the
+  street-kit gate fails a brown walkway, kerb or lane on any paved level.
+- **The Clone Facility's frontage stays in view** (David, 2026-11-05). `flags.no_footbridge` on a road tile
+  refuses the block's footbridge, and the block goes without one. Ironside Street's 919,902 and 919,903
+  carry it, in front of Second Helpings and the facility; the crossing on 919,902 stays.
 - **Prices are whole credits.** ₵1 a strip ride. Never "CR".
 - **The dirt corner is free.** Old Coldwater carries no words, so there's nowhere to post a price.
 - **No kiosk.** You come back at the clone vats, as now. David took the respawn kiosk out on 2026-11-04.
@@ -81,7 +87,8 @@ district would get. The lanes there already look the way the ladder asks.
 
 **Where a block's parts stand** is `kitPlace`, worked out once per cell and read by both the paint and
 the people: a toll gate at each end, the crossing on the middle tile, the footbridge on the last
-tile of a block of two or more (6.5 m short of the junction). A block is paved or dirt, never both, so a run stops at the
+tile of a block of two or more (6.5 m short of the junction), unless that tile is `nfb`
+(`flags.no_footbridge`). A block is paved or dirt, never both, so a run stops at the
 line between them, and the dirt has no crossing or footbridge. **What repeats** (bollards every 2.5 m, planters every 15 m,
 vents every 17 m, guide dashes every 4.7 m, service pips every 5 m) is spaced from the tile's world
 coordinate along the street, so a run carries on across tiles and doesn't move when the window
@@ -161,7 +168,7 @@ variant of the same parts and no part has a second model.
 
 | Part | Core | Middle ring | Worn | Unmaintained | Dirt |
 |---|---|---|---|---|---|
-| Walkway | Mirror chrome, ink bands | Dulled chrome, 20% of panels mismatched patches | Steel plate, scratched, slightly lifted, 8% missing, the odd door laid in the gap | Rust and concrete, lifted, 30% missing, weeds in the holes | None: a track with ruts, puddles and worn patches |
+| Walkway | Mirror chrome, ink bands | Dulled chrome, 20% of panels mismatched patches | Steel plate, scratched, slightly lifted, 8% missing, the odd door laid in the gap | Dull grey steel, lifted, 30% missing, weeds in the holes | None: a track with ruts, puddles and worn patches |
 | Lane | Lit guide | Lit guide | Dim guide | Unlit, cracked | Ruts |
 | Strip | Runs 1.4 m/s | Runs 0.45 m/s | Stopped, dim, still priced | Stopped, faded price, gate posts leaning or gone | None |
 | Bollards | Lit | Lit | 12% gone, dim | 30% gone, 25% knocked flat, the rest leaning, unlit | None |

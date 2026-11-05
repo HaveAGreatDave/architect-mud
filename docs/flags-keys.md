@@ -120,6 +120,7 @@ nothing, silently; wire a reader first.
 | `safehouse` | surveillance | launders wanted heat: unseen time bleeds a wanted star 3× as fast as lying low on the street. Pair with `unsurveilled`/`sanctuary` for a true refuge |
 | `mining_table_id` | mining | scavenging-table id used for mining here |
 | `mis_ok` | mis | zone-gated NPC consent (see `mis_requires_zone_flag`) |
+| `no_footbridge` | flight (street kit) | on a road tile: the street kit's footbridge won't stand here, and the block goes without one (`kitPlace`). Keeps a frontage in view. Rides the flight cell as `nfb`. Ironside Street's 919,902 and 919,903, in front of Second Helpings and the Clone Facility, carry it |
 | `no_spawn` | spawning | suppress enemy spawns |
 | `open_sky` | flight + environment | outdoor zone aircraft can overfly/land; on an `is_interior`/`is_building` zone (an open roof/deck) it also makes the zone climatically OUTDOORS — sky light, weather, and outdoor temp — while the raw interior flag keeps it in the power/building network (see `isIndoorZone`) |
 | `park_feature` | flight | on a `terrain:park` tile, forces which flight-sim park dressing draws (`grove\|pond\|benches\|flowerbeds\|path`) so a park lays out symmetrically; unset → tile position hash. Rides the flight cell as `pf` (live stream + baked snapshot) |

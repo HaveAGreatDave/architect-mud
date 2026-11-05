@@ -340,6 +340,25 @@ const win = { at: (x, y) => grid[y] && grid[y][x], wide: () => false, R, wcx: WC
 const wpt = (rx, ry, lx, ly) => [rx - R + WC + lx, ry - R + WC + ly];
 check(kitPlace(win.at, R, 7, win.wide)?.cross === true, 'the block\'s middle tile has no crossing');
 check(kitPlace(win.at, R, 9, win.wide)?.bridge === true, 'the block\'s last tile has no footbridge');
+// A tile that refuses the footbridge (flags.no_footbridge) leaves its block without one, crossing kept.
+{
+  const held = new Map();
+  const at = (x, y) => {
+    const k = x + ',' + y;
+    if (!held.has(k)) held.set(k, grid[y] && grid[y][x] && { ...grid[y][x], nfb: x === R && y === 9 ? 1 : undefined });
+    return held.get(k);
+  };
+  const block = [5, 6, 7, 8, 9].map((y) => kitPlace(at, R, y, win.wide));
+  check(block.every((p) => !p.bridge), 'a footbridge on a block whose last tile refuses one');
+  check(block[2].cross === true, 'refusing the footbridge took the crossing with it');
+}
+// Brown is the dirt's: no paved level has a brown walkway, kerb or lane.
+for (const lv of LEVEL) {
+  if (lv.dirt) continue;
+  for (const [part, rgb] of [['top', lv.top], ['slab', lv.slab], ['cap', lv.cap], ['lane', lv.lane], ['hatch', lv.hatch], ...lv.panels.map((c, i) => ['panel ' + i, c])]) {
+    check(rgb[0] - rgb[2] <= 14, `${lv.name}: the ${part} is brown`);
+  }
+}
 // Somebody on the west walkway of row 6 who needs the east walkway of row 6, walked frame by frame.
 const walkAcross = (frugal) => {
   const h = {}, [ax, ay] = wpt(R, 6, -KIT.WALK_V, 0), [bx, by] = wpt(R, 6, KIT.WALK_V, 0);

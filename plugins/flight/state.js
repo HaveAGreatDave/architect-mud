@@ -1824,6 +1824,8 @@ export function deriveSurfaceCell(cell, x, y, at = surfaceAt, live = true) {
     ? (grad.dirt_districts?.includes(cell.flags?.district) ? 4
       : Math.max(0, Math.min(3, Math.floor((x - grad.west) / (grad.east - grad.west + 1) * 5))))
     : undefined;
+  // `nfb`: this tile refuses the block's footbridge (`kitPlace`), to keep a frontage in view.
+  const nfb = sc != null && cell.flags?.no_footbridge ? 1 : undefined;
   // A BERTH'S TWO BEARINGS, and they are the whole of what an author writes: which way the open
   // water lies (a hull's bow points up it, and it is the way she comes and goes) and which side
   // the quay is on (she lies against it). Everything else about her — beam, deck height, how far
@@ -1843,7 +1845,7 @@ export function deriveSurfaceCell(cell, x, y, at = surfaceAt, live = true) {
     && [[-1, 0], [1, 0]].some(([ox, oy]) => { const c = at(x + ox, y + oy); return !!(c?.flags?.gate_lock && typeof c.flags.gate_lock === 'object'); });
   const bk = cell.flags?.aircraft_hangar && cell.flags?.heavy_hangar ? 'heavy' : cell.flags?.aircraft_hangar ? 'air' : besideLock ? 'lock' : undefined;
   // A runway is not a street (see `rwy` above): no kerbs, no steam vents, no pedestrians on it.
-  return { prp, kind, biome, road: rwy ? 0 : road, danger: cell.danger, pad, bt, bn, trd, ent, flr, mark, bk, strip, rwy, twy, hp, rd, rdeg, rt, rw, rl, wr, rc, sc, wake, sub, heading, cur, cld, ci, ft, hi, cf, pf: cell.flags?.park_feature, pw, em, og, sl, sgn, plz, lk, ml, bf, bq, aa, vl, vr, brd: brd && brd.length ? brd : undefined, gft: gft && gft.length ? gft : undefined };
+  return { prp, kind, biome, road: rwy ? 0 : road, danger: cell.danger, pad, bt, bn, trd, ent, flr, mark, bk, strip, rwy, twy, hp, rd, rdeg, rt, rw, rl, wr, rc, sc, nfb, wake, sub, heading, cur, cld, ci, ft, hi, cf, pf: cell.flags?.park_feature, pw, em, og, sl, sgn, plz, lk, ml, bf, bq, aa, vl, vr, brd: brd && brd.length ? brd : undefined, gft: gft && gft.length ? gft : undefined };
 }
 
 // The flight window's half-width, named so the things that have to AGREE with it can say so

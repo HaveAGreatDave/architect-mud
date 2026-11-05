@@ -11,7 +11,7 @@
 // street-kit.js reads their floors). It's never drawn ending in the air.
 //
 // ⚠ THEY NEVER DECAY. The condition ladder stops at the kerb: these are the same steel and the same
-// lights on a street that has gone to rust. That's the point of them.
+// lights on a street nobody has mended in years. That's the point of them.
 //
 // ⚠ NOBODY WALKS ON THESE. They're nothing to do with where a player or a street figure can go, and
 // the walk (glass/street-kit-walk.js) doesn't know they exist. The riders in the skybridge are

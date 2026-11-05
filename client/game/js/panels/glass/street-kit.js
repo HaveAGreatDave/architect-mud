@@ -98,9 +98,9 @@ const PAL = {
 
 // ── THE CONDITION LADDER ─────────────────────────────────────────────────────
 //
-// One street, five states, from the brief's table and the preview's colours. `districts.
-// street_condition` picks the row and every part reads it, so switching a tile's level changes every
-// part and adds no new model.
+// One street, five states, from the brief's table and the preview's colours. The server's `sc` picks
+// the row and every part reads it, so switching a tile's level changes every part and adds no new
+// model. ⚠ Every paved level is grey: brown is the dirt's, and the dirt is the south-east corner's.
 //   top, topMat   the walkway's surface from a distance
 //   panels        what the panels near to are made of; `patch` of them are `patches` instead, `gone`
 //                 are missing, `door` are a door somebody laid in the gap, and `tilt` is how far a
@@ -129,8 +129,8 @@ export const LEVEL = Object.freeze([
     strip: [12, 30, 40], stripMat: 'paint', chevron: [32, 72, 86], chevronMat: 'paint', speed: 0, price: '#b07a10', priceLit: true,
     gateGone: 0, bollardGone: 0.12, bollardFlat: 0, zebra: [176, 122, 16], zebraMat: 'lit', lamp: 'steady', lean: 0,
     crown: [107, 90, 52], crownK: 0.7, tree: 'wilted', deck: [142, 147, 151], junk: 0, weeds: 0, steam: 1.3 },
-  { name: 'unmaintained', top: [100, 90, 76], topMat: 'paint', slab: [42, 36, 28], panels: [[125, 106, 85], [110, 111, 106], [138, 106, 72], [92, 90, 82]], panelMat: 'paint', hatch: [84, 74, 62], patch: 0, patches: null, gone: 0.3, door: 0, tilt: 0.05, marks: 'scuff',
-    cap: [104, 96, 84], capMat: 'paint', lane: [28, 26, 23], guide: null, cyan: DEAD_CYAN, cyanMat: 'paint', amber: DEAD_AMBER, amberMat: 'paint', edge: false, cracks: 7,
+  { name: 'unmaintained', top: [112, 116, 120], topMat: 'metal', slab: [44, 46, 49], panels: [[118, 122, 127], [104, 108, 113], [129, 133, 137], [94, 98, 103]], panelMat: 'metal', hatch: [84, 88, 92], patch: 0, patches: null, gone: 0.3, door: 0, tilt: 0.05, marks: 'scuff',
+    cap: [108, 112, 116], capMat: 'metal', lane: [24, 25, 28], guide: null, cyan: DEAD_CYAN, cyanMat: 'paint', amber: DEAD_AMBER, amberMat: 'paint', edge: false, cracks: 7,
     strip: [20, 22, 22], stripMat: 'paint', chevron: [34, 42, 44], chevronMat: 'paint', speed: 0, price: '#6a5420', priceLit: false,
     gateGone: 0.33, bollardGone: 0.3, bollardFlat: 0.25, zebra: [106, 84, 32], zebraMat: 'paint', lamp: 'dead', lean: 0.22,
     crown: null, crownK: 0, tree: 'stump', deck: [110, 111, 106], junk: 3, weeds: 20, steam: 1.6 },
@@ -167,7 +167,8 @@ function seamOf(at, rx, ry, rd) {
 //   axis   'ns' or 'ew' on a straight tile, null on a junction, corner or end
 //   run    { i, n }: the straight tile's place in its block of straight kit tiles
 //   cross  the block's crossing is on this tile, at CROSS_U
-//   bridge a footbridge crosses this tile, at BRIDGE_U: the last tile of a block of two or more
+//   bridge a footbridge crosses this tile, at BRIDGE_U: the last tile of a block of two or more,
+//          unless that tile is `nfb` (flags.no_footbridge), and then the block goes without
 //   span   'service', 'sky' or 'exec', an upper bridge crossing this tile (glass/street-kit-spans.js),
 //          or null
 //   seam   the sides whose walkway runs on to the tile edge, 'e' and so on
@@ -194,7 +195,7 @@ export function kitPlace(at, rx, ry, wide) {
     while (lo < KIT_RUN_MAX && same(at(rx - sx * (lo + 1), ry - sy * (lo + 1)))) lo++;
     while (hi < KIT_RUN_MAX && same(at(rx + sx * (hi + 1), ry + sy * (hi + 1)))) hi++;
     const run = { i: lo, n: lo + hi + 1 };
-    out = { axis, arms: rd, seam, inner, run, cross: paved && run.i === Math.floor((run.n - 1) / 2), bridge: paved && run.n >= 2 && run.i === run.n - 1,
+    out = { axis, arms: rd, seam, inner, run, cross: paved && run.i === Math.floor((run.n - 1) / 2), bridge: paved && run.n >= 2 && run.i === run.n - 1 && !c.nfb,
       span: spanOn(at, rx, ry, axis, run, inner), level: c.sc };
   } else if (!axis && rd.length) out = { axis: null, arms: rd, seam, inner: 0, run: null, cross: false, bridge: false, span: null, level: c.sc };
   PLACE.set(c, out);
@@ -781,7 +782,7 @@ export function drawStreetKit(o) {
     const tree = (u, v, bench) => {
         const dead = LV.tree === 'stump', rim = LV.tree === 'lit';
         box(u, v, M(1.15), M(0.55), KERB_H, KERB_H + M(0.08), PAL.plinth, 'paint');
-        box(u, v, M(1.1), M(0.5), KERB_H + M(0.08), KERB_H + M(0.55), PAL.planter, LV.capMat, rim ? LV.cyan : dead ? [36, 30, 22] : PAL.plinth, rim ? 'lit' : 'paint');
+        box(u, v, M(1.1), M(0.5), KERB_H + M(0.08), KERB_H + M(0.55), PAL.planter, LV.capMat, rim ? LV.cyan : dead ? [34, 36, 40] : PAL.plinth, rim ? 'lit' : 'paint');
         if (!far) { rimAt(u, v, M(1.1), M(0.5), KERB_H + M(0.55)); rimAt(u, v, M(1.15), M(0.55), KERB_H + M(0.08)); }
         drumAt(u, v, M(0.12), M(0.08), KERB_H + M(0.55), KERB_H + M(dead ? 0.95 : 2.3), 6, PAL.trunk, 'paint');
         if (LV.crown) {
