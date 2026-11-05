@@ -12,6 +12,9 @@
 // go in off the side) and becomes `terrain: concrete`, which is land to GLASS: shelterFill finds it
 // upwind and flattens the sea behind it, drawn and ridden. Writes content/zones; run
 // `npm run content:import` after. Idempotent.
+//
+// The moles came off the map on 2026-11-04. Running this puts them back: see
+// docs/proposals/basin-breakwaters.md for the bakes that follow it.
 import { readFileSync, writeFileSync } from 'fs';
 import { canonicalJson } from './lib.mjs';
 

@@ -1,13 +1,8 @@
 {
-  "ambient_events": [
-    "A wave hits the armour on the sea side and comes over the wall as spray.",
-    "The light on the head comes round to its blink and goes out again.",
-    "A gull stands on a block out of the wind and watches the water.",
-    "Inside the mole the water barely moves."
-  ],
+  "ambient_events": [],
   "ambient_theme": "coast",
-  "color": "#8a8c88",
-  "description": "The mole starts again at a red light. West of it is the gap the container ships use. The armour on this end is scraped where a hull has come too close.",
+  "color": "#7fd3ff",
+  "description": "Dark, cold water at the shore, shelving away steeply. This is as far as walking goes: the channel needs a boat.",
   "exits": {
     "east": "zone_district_914_897",
     "north": "zone_district_913_896",
@@ -15,22 +10,15 @@
     "west": "zone_district_912_897"
   },
   "flags": {
-    "building_type": "breakwater_head_red",
-    "district": "docks",
-    "entrance": "east",
-    "fishing_table_id": "fish_coldwater_bay",
-    "floors": 1,
-    "liquid": false,
+    "district": "water",
     "region_id": "region_coldwater",
-    "routable": true,
-    "swimmable": false,
-    "terrain": "concrete"
+    "terrain": "water"
   },
   "grid_x": 913,
   "grid_y": 897,
   "grid_z": 0,
   "id": "zone_district_913_897",
   "map_id": "map_world",
-  "name": "The East Mole: Ship Gap",
+  "name": "Coldwater Basin",
   "parent_zone": null
 }

@@ -1,6 +1,25 @@
 # The Basin breakwaters
 
-**Status: as built.**
+**Status: built, then taken off the map on 2026-11-04. The models and the script are kept.**
+
+## Off the map
+
+The 44 tiles are open water again, exactly as they were before the moles, so the harbour takes the
+northerly sea. The arms, the building types and their bakes stay in the client with nothing placed
+on them. To put the moles back:
+
+1. `node scripts/content/breakwaters.mjs`
+2. `npm run content:import`
+3. `npm run wildlands:bake`
+4. `node scripts/snapshot-flight-world.mjs`
+
+Then take the row out of [stored-buildings.md](stored-buildings.md). The rest of this doc describes
+the moles as they stood.
+
+The pike's sandy floor (see Knock-ons) stayed in `client/shared/fish.js`. It does no harm without the
+moles, and they'd need it back.
+
+## What they were
 
 Two rubble moles across the north of the Coldwater Basin, so the water between Fairweather Marina and
 the Eastern Marina, and the river mouth west of it, lies calm. The tiles are written by
