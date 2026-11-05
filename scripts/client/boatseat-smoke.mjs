@@ -242,6 +242,37 @@ console.log('\nthe fish under her:');
   bv.boatSetWorld({ hour: 13, anchored: null });
   frameStep(96);
 }
+// ── THE LOOK WITH THE ROD OUT ────────────────────────────────────────────────
+//
+// A left drag aims and a middle or right drag looks, and stepRod must leave a free look where it was
+// left. Both failed silently once: the drag only moved the aim, and after the cast it did nothing.
+console.log('\nthe look with the rod out:');
+{
+  const T = bv._seatTest;
+  let phase = 'ready', now = 200;
+  const settle = (n = 40) => { for (let i = 0; i < n; i++) frameStep(now += 50); };
+  const near = (a, b) => Math.abs(a - b) < 0.5;
+  T.reel({ boatFishActive: () => true, boatFishState: () => ({ phase, ax: 894, ay: 902, castM: 25, skill: 4 }), attachBoatFishHost() {}, boatFishKey: () => false });
+  settle();
+  ck('rod out, the head follows the aim down to the water', near(T.look().yaw, 0) && near(T.look().pitch, -9), JSON.stringify(T.look()));
+  T.drag(100, 0, true);
+  const yaw = T.look().yaw;
+  ck('a free drag turns the head, and leaves the aim alone', yaw > 30 && T.look().bearing === 0, JSON.stringify(T.look()));
+  settle();
+  ck('…and the head stays where it was left', near(T.look().yaw, yaw), JSON.stringify(T.look()));
+  T.drag(100, 0, false);
+  ck('a left drag moves the aim', near(T.look().bearing, 25), JSON.stringify(T.look()));
+  settle();
+  ck('…and the head goes back to following it', near(T.look().yaw, 25), JSON.stringify(T.look()));
+  phase = 'wait';
+  T.drag(100, 0, false);
+  ck('with the line out a left drag looks, and the aim stays put', near(T.look().bearing, 25) && near(T.look().yaw, 60), JSON.stringify(T.look()));
+  settle();
+  ck('…and the head stays there too', near(T.look().yaw, 60), JSON.stringify(T.look()));
+  T.reel(null);
+  settle(2);
+  ck('stowing the rod puts the head forward', near(T.look().yaw, 0) && near(T.look().pitch, 0), JSON.stringify(T.look()));
+}
 ck('no frame threw with the fish', !TALLY.text.some((t) => String(t).includes('[boat] frame error')),
    TALLY.text.find((t) => String(t).includes('[boat] frame error')));
 

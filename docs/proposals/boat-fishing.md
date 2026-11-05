@@ -222,7 +222,8 @@ You type `fish` while you're aboard an anchored boat with a rod.
 
 - **Rod mode.** The R key, or the rod holder, puts you in rod mode. The throttle stops working, and the HUD shows the line instead: how deep the lure is, how much line is out, and the drag.
 - **Both views work.** In first person you look out from the thwart over the rod tip. In chase view the camera moves in over your shoulder, with a new `boatFrame('rod')`.
-- **Direction.** Moving the pointer or the stick swings the direction. It moves by how far you move it and stays where you leave it; it never follows the pointer's position on the screen.
+- **Direction.** A left drag, the arrows or the stick swing the direction. It moves by how far you move it and stays where you leave it; it never follows the pointer's position on the screen.
+- **Looking round.** A middle or right drag looks round in the seat and orbits in chase view, and so does any drag once the line's out. The camera stays where you leave it until you aim, start a cast, switch view or double-click, and then it goes back to following the aim.
 - **Distance.** Hold Space or the button to set the distance. It goes up and comes back down, like the shore power meter.
 - **The landing ring.** A ring on the water shows where the lure will land. It wobbles less the better your skill.
 - **The cast.** Let go to cast. The line runs from the rod tip to the float, and the float rides `seaHeight()`.

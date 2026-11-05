@@ -729,17 +729,18 @@ function bindKeys() {
     // ⚠ MIDDLE OR RIGHT BUTTON. The middle is the free camera's own orbit button everywhere else in
     // GLASS, so it looks round the pilothouse inside and swings round the hull outside; the right
     // button stays as the alias this seat shipped with.
-    // In rod mode the left button aims too (a press on a 3-D control is taken first, above).
+    // In rod mode the left button aims (a press on a 3-D control is taken first, above), and these
+    // two go on looking: `free` is what tells lookBy which it has.
     if ((e.button !== 1 && e.button !== 2 && !(e.button === 0 && rodOn())) || !st) return;
     e.preventDefault();
-    st.look.on = true; st.look.px = e.clientX; st.look.py = e.clientY;
+    st.look.on = true; st.look.free = e.button !== 0; st.look.px = e.clientX; st.look.py = e.clientY;
     glass.setPointerCapture?.(e.pointerId);
   });
   glass.addEventListener('pointermove', (e) => {
     if (!st?.look.on) return;
     const dx = e.clientX - st.look.px, dy = e.clientY - st.look.py;
     st.look.px = e.clientX; st.look.py = e.clientY;
-    lookBy(dx, dy);
+    lookBy(dx, dy, st.look.free);
   });
   // A finger can't press the middle button, so on a phone one finger is the same drag and two pinch
   // the dolly. A finger on a hotspot is the hotspot's (the capture handler above takes it first).
@@ -748,29 +749,6 @@ function bindKeys() {
     drag: (dx, dy) => { if (st) lookBy(dx, dy); },
     pinch: (f) => { if (st?.external) dollyTo(st.extZoom / f); },
   });
-  function lookBy(dx, dy) {
-    // ⚠ IN ROD MODE THE DRAG IS THE AIM, in both views, and it is RELATIVE: the bearing moves by how
-    // far you drag and stays where you leave it. The look and the chase camera follow the aim.
-    if (rodOn()) {
-      const ph = BF?.boatFishState?.()?.phase;
-      if (ph === 'ready' && !st.rod.cast) st.rod.bearing = clamp(st.rod.bearing + dx * AIM_DRAG, -AIM_MAX, AIM_MAX);
-      return;
-    }
-    // ⚠ ONE DRAG, TWO JOBS, DECIDED BY WHICH VIEW IS UP — and it is the SAME handler rather than a
-    // second set of listeners on the same element, which is the arrangement the cab's own note
-    // about `st.external` is a record of: two owners of one drag and the one that loses does so
-    // silently. Behind the glass the drag turns your head; outside it, it swings the camera round
-    // the boat, because out there there is no head to turn.
-    if (st.external) {
-      st.extYaw = (st.extYaw + dx * 0.4) % 360;
-      st.extPitch = clamp(st.extPitch - dy * 0.004, -0.10, 0.85);
-      return;
-    }
-    // ⚠ RELATIVE, NEVER A POSITION MAP. A look that maps the cursor's place on the glass to a head
-    // angle is a magnet at screen centre: let go and your head snaps forward.
-    st.look.yaw = clamp(st.look.yaw + dx * 0.35, -LOOK_YAW, LOOK_YAW);
-    st.look.pitch = clamp(st.look.pitch - dy * 0.30, -LOOK_PITCH, LOOK_PITCH);
-  }
   function dollyTo(z) {
     // in as far as the renderer's standoff, where the hull fills the frame (the seat hands over 1.15 x this)
     const lv = lastViewState(), lo = lv && lv.external && lv.chaseZoomFloor > 0 ? lv.chaseZoomFloor / 1.15 : 0.55;
@@ -790,9 +768,41 @@ function bindKeys() {
   // the trap the cab's own unlatch note is written about.
   glass.addEventListener('dblclick', () => {
     if (!st) return;
+    st.rod.lookFree = false;
     if (st.external) { st.extYaw = 0; st.extPitch = 0.18; st.extZoom = 1; return; }
     st.look.yaw = 0; st.look.pitch = 0;
   });
+}
+
+// `free` is a middle or right drag. Left and a finger leave it false.
+function lookBy(dx, dy, free = false) {
+  // ⚠ IN ROD MODE A LEFT DRAG OR A FINGER IS THE AIM, in both views, and it is RELATIVE: the bearing
+  // moves by how far you drag and stays where you leave it. The look and the chase camera follow the
+  // aim until a free look takes them off it (lookFree), and that holds where you leave it too. Once
+  // the line's out there's nothing to aim, so every drag looks.
+  if (rodOn()) {
+    const ph = BF?.boatFishState?.()?.phase;
+    if (!free && ph === 'ready' && !st.rod.cast) {
+      st.rod.bearing = clamp(st.rod.bearing + dx * AIM_DRAG, -AIM_MAX, AIM_MAX);
+      st.rod.lookFree = false;
+      return;
+    }
+    st.rod.lookFree = true;
+  }
+  // ⚠ ONE DRAG, TWO JOBS, DECIDED BY WHICH VIEW IS UP — and it is the SAME handler rather than a
+  // second set of listeners on the same element, which is the arrangement the cab's own note
+  // about `st.external` is a record of: two owners of one drag and the one that loses does so
+  // silently. Behind the glass the drag turns your head; outside it, it swings the camera round
+  // the boat, because out there there is no head to turn.
+  if (st.external) {
+    st.extYaw = (st.extYaw + dx * 0.4) % 360;
+    st.extPitch = clamp(st.extPitch - dy * 0.004, -0.10, 0.85);
+    return;
+  }
+  // ⚠ RELATIVE, NEVER A POSITION MAP. A look that maps the cursor's place on the glass to a head
+  // angle is a magnet at screen centre: let go and your head snaps forward.
+  st.look.yaw = clamp(st.look.yaw + dx * 0.35, -LOOK_YAW, LOOK_YAW);
+  st.look.pitch = clamp(st.look.pitch - dy * 0.30, -LOOK_PITCH, LOOK_PITCH);
 }
 
 // ⚠ A PLACEHOLDER SO THE LOOK BINDER READS THE SAME EITHER WAY. The orbit lives inside the pointer
@@ -913,8 +923,8 @@ function holdAtAnchor(dt) {
 // ── ROD MODE (docs/proposals/boat-fishing.md §5, §5b) ────────────────────────
 //
 // R, or the rod holder, sends `fish`; the server opens the reel (boatfish.js) and while it's open
-// this seat is in rod mode: the throttle is dead, the drag and the arrows aim, Space charges the
-// range and its release casts. Every key goes to the reel first (boatFishKey) and the seat acts only
+// this seat is in rod mode: the throttle is dead, a left drag and the arrows aim, a middle or right
+// drag looks, Space charges the range and its release casts. Every key goes to the reel first (boatFishKey) and the seat acts only
 // on what it leaves. The seat owns the aim, the landing ring and what's drawn (glass/rod-rig.js): the
 // angler's clips (angler.js), the lure's flight, the splash, the fish coming aboard.
 //
@@ -938,7 +948,7 @@ const SPLASH_S = 1.6, LAND_S = 1.8;
 function newRod() {
   return { on: false, want: false, wantAt: 0, nag: 0, bearing: 0, keys: new Set(), charging: false, chargeAt: 0, range: CAST_MIN_M,
     anim: null, phase: null, castAt: 0, snapAt: 0, cast: null, fly: null, splash: null, lure: null, fish: null,
-    lastLine: 0, lastBeat: 0, camAt: 0 };
+    lastLine: 0, lastBeat: 0, camAt: 0, lookFree: false };
 }
 function toggleRod() {
   if (!st) return;
@@ -952,6 +962,7 @@ function toggleRod() {
 function enterRod(now) {
   const R = st.rod;
   R.on = true; R.want = false; R.charging = false; R.cast = null; R.fly = null; R.lure = null; R.fish = null; R.splash = null;
+  R.lookFree = false;
   R.anim = ANG ? ANG.newAnim(now) : null;
   hostReel();
   if (st.external) { boatFrame('rod', 750); R.camAt = now + 800; }
@@ -984,7 +995,7 @@ function rodKey(e, k, down) {
   }
   if (k === ' ') {
     const ph = BF?.boatFishState?.()?.phase;
-    if (down && !e.repeat && ph === 'ready' && !R.charging && !R.cast) { R.charging = true; R.chargeAt = performance.now(); cue('fishing-charge'); }
+    if (down && !e.repeat && ph === 'ready' && !R.charging && !R.cast) { R.charging = true; R.chargeAt = performance.now(); R.lookFree = false; cue('fishing-charge'); }
     else if (!down && R.charging) castNow(performance.now());
     return true;
   }
@@ -1078,6 +1089,9 @@ export const _seatTest = {
   fishFrame: () => (st ? fishFrame(true) : null),
   skew: () => (st && st.sea ? st.sea.skew : null),
   lamp: (on) => { if (st) st.lamp = !!on; },
+  look: () => (st ? { yaw: st.look.yaw, pitch: st.look.pitch, extYaw: st.extYaw, extPitch: st.extPitch, bearing: st.rod.bearing } : null),
+  drag: (dx, dy, free) => { if (st) lookBy(dx, dy, free); },
+  reel: (fake) => { BF = fake; },   // boatfish.js can't load headless; a stand-in opens rod mode
 };
 
 function stepRod(dt, now) {
@@ -1102,6 +1116,7 @@ function stepRod(dt, now) {
       }
     } catch { /* no gamepads */ }
     R.bearing = clamp(R.bearing + rate * AIM_RATE * dt, -AIM_MAX, AIM_MAX);
+    if (rate) R.lookFree = false;
   }
   if (R.charging) R.range = chargeRange(now, castM);
 
@@ -1182,12 +1197,14 @@ function stepRod(dt, now) {
   }
 
   // ── the cameras ───────────────────────────────────────────────────────────────────────────
-  if (!st.external) {
+  // A free look or a held shoulder-check keeps the camera until the aim moves or a cast starts.
+  const follow = !R.lookFree && !st.look.held;
+  if (follow && !st.external) {
     // From the seat you look where you're aiming, down at the water over the rod tip.
     const k = 1 - Math.exp(-dt / 0.25);
     st.look.yaw += (clamp(R.bearing, -LOOK_YAW, LOOK_YAW) - st.look.yaw) * k;
     st.look.pitch += (-9 - st.look.pitch) * k;
-  } else if (now > R.camAt && !st.look.on) {
+  } else if (follow && now > R.camAt && !st.look.on) {
     const want = rodShot().yaw - (RENDER_TUNE.chaseYaw || 0);
     const err = ((want - st.extYaw) % 360 + 540) % 360 - 180;
     st.extYaw = ((st.extYaw + err * (1 - Math.exp(-dt / 0.6))) % 360 + 360) % 360;
@@ -1225,6 +1242,7 @@ function setExternal(on) {
   // you were outside is a driver who climbs back into the seat facing the transom — the cab
   // suppresses the same three things for the same reason.
   st.look.yaw = 0; st.look.pitch = 0; st.look.on = false;
+  st.rod.lookFree = false;
   st.root?.classList?.toggle('boat-is-ext', st.external);
 }
 
@@ -1781,8 +1799,8 @@ function drawRead() {
     const rodPh = rodOn() ? BF?.boatFishState?.()?.phase : null;
     keys.textContent = rodOn()
       ? (rodPh === 'ready'
-        ? (st.rod.charging ? 'CASTING: let go of SPACE at the range you want' : 'ROD: drag or ◀ ▶ to aim · hold SPACE to cast · R stow the rod · V ' + (st.external ? 'seat' : 'external'))
-        : 'ROD: SPACE twitches and strikes · ◀ ▶ lean in the fight · R stow the rod · V ' + (st.external ? 'seat' : 'external'))
+        ? (st.rod.charging ? 'CASTING: let go of SPACE at the range you want' : 'ROD: drag or ◀ ▶ to aim · middle-drag looks · hold SPACE to cast · R stow the rod · V ' + (st.external ? 'seat' : 'external'))
+        : 'ROD: SPACE twitches and strikes · ◀ ▶ lean in the fight · drag looks · R stow the rod · V ' + (st.external ? 'seat' : 'external'))
       : performance.now() - (st.rod?.nag || -1e9) < 3000
       ? 'DROP THE ANCHOR FIRST (B), THEN R FOR THE ROD.'
       : st.anchored && performance.now() - st.anchorNag < 3000
