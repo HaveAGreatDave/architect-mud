@@ -179,7 +179,9 @@ export default async function regress({ run, check, getPlayer }) {
 // the water is either fishless or uniform rock at twelve metres, and the clock is fixed.
 async function boatSuite({ run, check, p }) {
   const pid = p.id, BOAT = `boat_regress_fish_${process.pid}`;
-  const A = { x: 6000, y: 6000, at: Date.now() };
+  // A spot with slow fish in reach. About half the water has none, and the cells are hashed, so this
+  // is a draw: if the sea's scale moves, pick another.
+  const A = { x: 6004, y: 6002, at: Date.now() };
   const ROCK = { depth: 12, shore: 6, floor: 'rock', wreck: 0 };
   const EMPTY = { depth: 12, shore: 6, floor: 'none', wreck: 0 };
   let water = EMPTY;

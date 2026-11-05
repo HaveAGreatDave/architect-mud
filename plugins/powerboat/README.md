@@ -76,7 +76,7 @@ rungs. `tank` is still only the price of a fill.
 
 The sim poses her by the sea at a point, which is right for the hull it integrates: `hullLen`, a
 fiftieth of the swell. Nobody sees that hull. The chase camera draws her about 0.4 tiles long and the
-helm seats you in her at full size, about two tiles, and the drawn chop is about a tile long. Posed by
+helm seats you in her at full size, about 0.8 tiles, and the drawn chop is about 0.4 tiles long. Posed by
 her centre, from the helm the sea stood over her deck up to 8% of the time running across a 20-30 kt
 sea, over a metre of it at worst.
 

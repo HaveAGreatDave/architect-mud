@@ -17,7 +17,7 @@
 
 import { seabedDepth, seabedMaterial, shoreField, wrecksNear, scatterAt, SCATTER_SLOTS, SHORE_SEARCH } from '../../../shared/seabed.js';
 import { hn2h } from '../../../shared/landform.js';
-import { SEA_TILE_M } from '../../../shared/sea-swell.js';
+import { SEA_TILE_M, SEA_K } from '../../../shared/sea-swell.js';
 
 // ── HOW FAR YOU CAN SEE ───────────────────────────────────────────────────────
 // ⚠ 12 TILES WAS TOO LITTLE, AND SO WAS 7 BEFORE IT. At 12 the floor was gone by 11 tiles, and it
@@ -36,8 +36,9 @@ export const SEABED_MID_R = 14;
 export const SEABED_NEAR_R = 12;
 // Extinction per tile, per channel: red goes first, then green, then blue, the curve water.js uses
 // for the surface from below. 0.33 of that curve's strength puts the floor at a third of its colour
-// ten tiles off and gone by about 25, where gl/seabed.js dissolves the last of it (SEABED_FADE).
-export const SEABED_EXT = [1.05 * 0.33, 0.34 * 0.33, 0.22 * 0.33];
+// 70 m off and gone by about 175 m. SEA_K holds those metres on the ruler, or the water is 2.55 times
+// clearer than it was.
+export const SEABED_EXT = [1.05 * 0.33 * SEA_K, 0.34 * 0.33 * SEA_K, 0.22 * 0.33 * SEA_K];
 export const SEABED_FADE = [SEABED_R * 0.58, SEABED_R * 0.95];
 // Where the floor's green is down to a tenth: the other layers (hulls, the Echelon's keel, pier
 // legs) fog linearly in world.js's band and are gone here, so they don't vanish ahead of the floor.

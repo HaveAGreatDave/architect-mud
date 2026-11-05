@@ -10,7 +10,7 @@
 
 // The only import: sea-swell.js is the one JS copy of the sea's shape. Never sample a private
 // wave or reach into windshield.js, or the hull rides a sea nobody draws and can't run on a server.
-import { seaRoll, seaWind, seaSlope, seaChop } from '../../../shared/sea-swell.js';
+import { seaRoll, seaWind, seaSlope, seaChop, SEA_TILE_M } from '../../../shared/sea-swell.js';
 import { tileMph } from '../../../shared/world-scale.js';
 
 const clamp = (v, lo, hi) => (v < lo ? lo : v > hi ? hi : v);
@@ -344,7 +344,7 @@ export const TYPES = {
     hump: 12, humpDrag: 0.8,
     turnLock: 30, turnFade: 1.6,
     driftTau: 0.8,
-    hullLen: 0.349, hullBeam: 0.125,   // true size: she's drawn 1:1 (TRUE_SIZE_CLS in windshield.js)
+    hullLen: 2.443 / SEA_TILE_M, hullBeam: 0.875 / SEA_TILE_M,   // true size, in metres: she's drawn 1:1 (TRUE_SIZE_CLS in windshield.js)
     nitroMul: 1, nitroBurn: 0, nitroCool: 1,
     launchVs: 0.2,
     burn: 0.12,

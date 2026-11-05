@@ -31,12 +31,12 @@ import { viewProjMatrix, mat4f, eyePos } from './camera.js';
 import { makeVertexStream } from './stream.js';
 import { LINEAR_GLSL, applyLinOut } from './colour.js';
 import { STRIDE } from '../fish-shadow-scene.js';
-import { SEA_TILE_M } from '../../../../shared/sea-swell.js';
+import { SEA_TILE_M, SEA_K } from '../../../../shared/sea-swell.js';
 
 const DEPTH_K = 5;        // how many times the seabed's extinction a shadow's darkening crosses
 const SHADE = 0.5;        // how much light a shallow fish's shadow takes out at its middle
 const PULL = 0.03;        // tiles toward the eye, so the surface never cuts a shadow
-const GROW_NEAR = 1.5, GROW_SPAN = 2.5, GROW_MAX = 2;   // chase view: tiles from the eye where it starts, over which it reaches GROW_MAX
+const GROW_NEAR = 1.5 / SEA_K, GROW_SPAN = 2.5 / SEA_K, GROW_MAX = 2;   // chase view: tiles from the eye where it starts, over which it reaches GROW_MAX
 const f3 = (v) => 'vec3(' + v.map((q) => q.toFixed(4)).join(', ') + ')';
 const f1 = (v) => v.toFixed(4);
 

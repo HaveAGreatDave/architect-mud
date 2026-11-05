@@ -146,7 +146,7 @@ The new catches are `raw_fish` items in `content/items/`. A gate fails if a spec
 
 A school is worked out, never stored.
 
-- **The grid.** Water is cut into cells of 4×4 tiles (`SCHOOL_CELL`, 28 m). `schoolAt(cx, cy, habitat)` hashes the cell to decide whether it holds a school and which species. The habitat at the cell centre weights the choice.
+- **The grid.** Water is cut into cells of 28 m a side (`SCHOOL_CELL`, 1.57 tiles since the sea moved onto the ruler; tile figures elsewhere in this doc are the old 7 m tile unless they say so). `schoolAt(cx, cy, habitat)` hashes the cell to decide whether it holds a school and which species. The habitat at the cell centre weights the choice.
 - **The hash** is `hn2h`, not `frac(sin)`, so Node and every browser agree to the bit.
 - **Habitat is handed in.** fish.js never looks anything up on the map. The caller passes `habitat(x, y)`, which wraps `seabedDepth`, `shoreDistance` and `seabedMaterial` with its own `isLand`, as seabed.js requires.
 - **Listing them.** `schoolsNear(x, y, R, now, env, habitat)` lists the schools in range.

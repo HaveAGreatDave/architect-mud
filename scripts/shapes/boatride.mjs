@@ -16,7 +16,7 @@
 // over her: posed by her centre, the helm view had it up to 8% of frames running across a 20-30 kt
 // sea, worst at the transom mid-jump, and that pose fails here.
 import { stepBoat, stepBoatRide, boatFitPose, createBoatState, TYPES, BOAT_TYPES } from '../../client/game/js/panels/flight-model.js';
-import { seaRoll, seaWind, seaChop, seaAmpsFor, SEA_AMP, SEA_TILE_M } from '../../client/shared/sea-swell.js';
+import { seaRoll, seaWind, seaChop, seaAmpsFor, SEA_AMP, SEA_TILE_M, SEA_K } from '../../client/shared/sea-swell.js';
 import { boatGeom } from '../../client/shared/boat-house.js';
 import { BOAT_ROWS } from '../../client/shared/vehicle-models.js';
 
@@ -26,14 +26,14 @@ const ok = (c, m) => { checks++; if (!c) { fails++; console.log('  FAIL  ' + m);
 // The renderer's own numbers, restated because windshield.js cannot load headless: CONTACT_SIZE for a
 // hull, the chase multiplier and the vertical exaggeration. ⚠ IF ANY OF THESE MOVES THERE, MOVE IT
 // HERE: the gate below them asserts the restatement against the source text.
-const CONTACT = 0.034, EXT_MUL = 6.0, VS = 1.6, CHOP_DRAWN = 0.055;
+const CONTACT = 0.034, EXT_MUL = 6.0, VS = 1.6, CHOP_DRAWN = 0.055 / SEA_K;
 {
   const fs = await import('node:fs');
   const ws = fs.readFileSync(new URL('../../client/game/js/panels/windshield.js', import.meta.url), 'utf8');
   ok(/hydro: 0\.034 \};/.test(ws), 'windshield.js CONTACT_SIZE.hydro is no longer 0.034 — restate it here');
   ok(/OWN_EXT_MUL_BY_CLS = \{ truck: 7\.0, hydro: 6\.0 \}/.test(ws), 'windshield.js OWN_EXT_MUL_BY_CLS.hydro is no longer 6.0 — restate it here');
   ok(/const CONTACT_VS = 1\.6;/.test(ws), 'windshield.js CONTACT_VS is no longer 1.6 — restate it here');
-  ok(/glSeaAmp: 0\.055,/.test(ws), 'windshield.js glSeaAmp (the drawn chop) is no longer 0.055 — restate it here');
+  ok(/glSeaAmp: 0\.055 \/ SEA_K,/.test(ws), 'windshield.js glSeaAmp (the drawn chop) is no longer 0.055 — restate it here');
   // The green-water sheet starts at her DECK. At her keel (`rideZ + SZ * 0.05`) it was up on 53-68%
   // of frames in any sea, which is the "waves wash over her" report with no water over the deck.
   ok(/z: \(v\.rideZ \|\| 0\) \+ deckUp/.test(ws) && /const deckUp = SZ \* vsOf\(v\.cls\) \* \(row\.deckZ/.test(ws),

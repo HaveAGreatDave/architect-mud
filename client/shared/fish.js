@@ -24,12 +24,12 @@
 // length; kilograms for weight; milliseconds for time; hours 0..24 for the time of day.
 
 import { hn2h } from './landform.js';
-import { SEA_TILE_M } from './sea-swell.js';
+import { SEA_TILE_M, SEA_K } from './sea-swell.js';
 import { shoreDistance, seabedDepth, seabedMaterial, wrecksNear } from './seabed.js';
 
-export const SCHOOL_CELL = 4;      // tiles per cell side: 28 m of water
+export const SCHOOL_CELL = 28 / SEA_TILE_M;   // tiles per cell side: 28 m of water
 export const SLOTS = 2;            // candidate schools per cell
-export const SHADOW_R = 10;        // tiles: how far a shadow is drawn from your own hull
+export const SHADOW_R = 70 / SEA_TILE_M;      // tiles: how far a shadow is drawn from your own hull
 export const TAU = Math.PI * 2;
 
 const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
@@ -163,7 +163,7 @@ export const SPECIES_IDS = Object.keys(SPECIES);
 //
 // What a school needs to know about a point of water: { depth, shore, floor, wreck }, or null on
 // land. `wreck` is 1 with a wreck within WRECK_R tiles, else 0.
-export const WRECK_R = 2.5;
+export const WRECK_R = 2.5 / SEA_K;
 
 /**
  * A habitat function over an isLand(ix, iy) predicate, the same one seabed.js takes. Answers are
@@ -272,7 +272,7 @@ export function schoolAt(cx, cy, k, env, habitat, thinned = 0) {
  */
 export function schoolsNear(x, y, R, env, habitat, thinned = null) {
   const out = [];
-  const pad = 2;   // a loop's reach past its anchor, in tiles
+  const pad = 2 / SEA_K;   // a loop's reach past its anchor, in tiles
   const c0x = Math.floor((x - R - pad) / SCHOOL_CELL), c1x = Math.floor((x + R + pad) / SCHOOL_CELL);
   const c0y = Math.floor((y - R - pad) / SCHOOL_CELL), c1y = Math.floor((y + R + pad) / SCHOOL_CELL);
   for (let cy = c0y; cy <= c1y; cy++) for (let cx = c0x; cx <= c1x; cx++) {
@@ -324,7 +324,7 @@ export function wreckResident(w, env, habitat, thinned = 0) {
   if (!n) return null;
   return {
     id: w.id, cx: wx, cy: wy, k: 'wreck', sp: id, ax: w.x, ay: w.y, n,
-    floorM: h.depth, shoreT: h.shore, wreck: 1, reach: 0.35, home: w.kind,
+    floorM: h.depth, shoreT: h.shore, wreck: 1, reach: 0.35 / SEA_K, home: w.kind,
     fade: clamp((want - roll) / FADE_W, 0, 1),
     seed: Math.floor(h2(wx, wy, 103) * 65535),
   };
@@ -337,7 +337,7 @@ export function wreckResident(w, env, habitat, thinned = 0) {
 // is kept under half its distance from shore, so a loop never crosses onto the beach.
 
 /** The loop's reach in tiles. */
-export const loopReach = (s) => s.reach ?? clamp(s.shoreT * 0.45, 0.25, 1.4);
+export const loopReach = (s) => s.reach ?? clamp(s.shoreT * 0.45, 0.25 / SEA_K, 1.4 / SEA_K);
 
 /** How long one loop takes, in ms. */
 export function loopPeriod(s) {
@@ -400,11 +400,11 @@ export const fishLength = (sp, kg) => 0.42 * Math.cbrt(kg) * (sp.len || 1);
  */
 export function schoolFish(s, i, now, env = ENV0, st = schoolState(s, now, env)) {
   const sp = SPECIES[s.sp];
-  const spread = s.n > 1 ? 0.08 * Math.sqrt(s.n) : 0;    // tiles
+  const spread = s.n > 1 ? 0.08 / SEA_K * Math.sqrt(s.n) : 0;    // tiles
   const u = hn2h(s.seed + i * 131, 29) - 0.5, v = hn2h(s.seed + i * 131, 31) - 0.5;
   const ph = hn2h(s.seed + i * 131, 37);
   // A school is longer along its heading than across it.
-  const along = u * 2 * spread * 1.5 + 0.03 * Math.sin(TAU * frac(now / 2300 + ph));
+  const along = u * 2 * spread * 1.5 + 0.03 / SEA_K * Math.sin(TAU * frac(now / 2300 + ph));
   const across = v * 2 * spread * 0.7;
   const c = Math.cos(st.heading), sn = Math.sin(st.heading);
   const kg = fishKg(s, i);
@@ -443,7 +443,7 @@ export function fishNear(x, y, R, now, env, habitat, thinned = null) {
 //   · Only while she's anchored or slower than SHOW_MPH. Under way the water is all wake.
 //   · By daylight, everything within SHADOW_R (half that in fog). After dark, only what the lamp
 //     lights, LAMP_R round the hull, on a hull that carries one and has it on.
-export const LAMP_R = 1.5;          // tiles: the skiff's battery lamp lights the water this far round her
+export const LAMP_R = 10.5 / SEA_TILE_M;   // tiles: the skiff's battery lamp lights the water this far round her
 export const SHOW_MPH = 2;          // adrift.js STEP_OFF_MPH: at or over it, nothing is drawn
 export const FOG_SIGHT = 0.5;       // the share of SHADOW_R you can see into fog
 
@@ -465,7 +465,7 @@ export const daylightOfNight = (night) => clamp((0.85 - (night || 0)) / 0.6, 0, 
  * soft rim. `lamp` is whether a lamp is lit aboard.
  */
 export function lightOn(dist, daylight, lamp) {
-  const l = lamp ? 1 - ramp(dist, LAMP_R - 0.4, LAMP_R) : 0;
+  const l = lamp ? 1 - ramp(dist, LAMP_R * 0.73, LAMP_R) : 0;
   return Math.max(clamp(daylight || 0, 0, 1), l);
 }
 

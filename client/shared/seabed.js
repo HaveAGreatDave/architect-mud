@@ -23,12 +23,11 @@
 // A seabed on `vnoise2` would put a seam round the camera where the mesh meets anything the shader
 // synthesises.
 //
-// Units: tiles in, METRES out for depth (SEA_TILE_M is 7 m a tile). Metres because every gameplay
+// Units: tiles in, METRES out for depth. Metres because every gameplay
 // reader — crush depth, hull tiers, the gauge — thinks in metres, and a tile-denominated depth is
 // one conversion away from being wrong in one of them.
 
 import { hn2h, hnoise2, fbm2 } from './landform.js';
-import { SEA_TILE_M } from './sea-swell.js';
 
 // ── THE SHELF ─────────────────────────────────────────────────────────────────────────────────
 //
@@ -214,14 +213,16 @@ export function seabedSlope(x, y, isLand, h = 0.05, dist = null) {
 export const MATERIALS = ['sand', 'silt', 'rock', 'debris'];
 // `dist` is an optional (x, y) → shore distance function, typically a `shoreField(...).at`, so a
 // whole window of materials costs one transform rather than five ring searches a tile.
+const ROCK_GRADE = 4.2;
 export function seabedMaterial(x, y, isLand, d = null, dist = null) {
   if (d == null) d = dist ? dist(x, y) : shoreDistance(x, y, isLand);
   if (d <= 0) return null;
   const depth = seabedDepth(x, y, isLand, d);
   const { grade } = seabedSlope(x, y, isLand, 0.05, dist);
   const n = hnoise2(x * 0.21 + 300.5, y * 0.21 - 17.8);
-  // Steep in METRES per metre: grade is m/tile, so divide by the tile.
-  if (grade / SEA_TILE_M > 0.6 || n > 0.82) return 'rock';
+  // Steep in metres of depth a tile. The rock stays where it was authored, on seven-metre tiles: a
+  // fish's habitat keys off it, so it must not move with the sea's scale.
+  if (grade > ROCK_GRADE || n > 0.82) return 'rock';
   if (d < 6 && n < 0.30) return 'debris';          // the city throws things in the harbour
   return depth < 30 ? 'sand' : 'silt';
 }

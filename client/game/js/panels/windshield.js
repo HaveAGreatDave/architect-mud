@@ -380,7 +380,7 @@ export const RENDER_TUNE = {
   // shipped: crests arrive at whatever angle the wind set, which is the one thing surf never does.
   // Tiles within which the chop is real geometry rather than a normal map. 0 is the sea as it
   // shipped — chop lit but flat, with no edge on it at any range.
-  glSeaChopR: 6,
+  glSeaChopR: 6 / SEA_K,
   glSeaShoal: 0.55,
   // Crests swing round to face the beach across the whole shelf, not just the last tile of it
   // (gl/sea-glsl.js seaRefract). 0 leaves only the one-tile warp above, which measured invisible.
@@ -512,7 +512,7 @@ export const RENDER_TUNE = {
   // tiles (6.9°) the sea can reflect the horizon and nothing else, and a sun or moon 60° up put
   // literally nothing on the water. Real wind chop runs 10-25°, which is also what makes a glitter
   // path possible at all. See client/shared/sea-swell.js.
-  glSeaAmp: 0.055,
+  glSeaAmp: 0.055 / SEA_K,
   // ── THE NEAR PLANE, FITTED TO THE SEAT ───────────────────────────────────────────────────────
   // 1 = the frame solves its own clip plane from the camera (see `nearFor` in gl/camera.js); 0 is
   // the fixed 0.06 tiles GLASS 2 shipped with.
@@ -4426,7 +4426,8 @@ function paintWindshieldFrame(id, view) {
   // a class — and therefore a CONTACT_SIZE — with, so it counts as VIPER_SCALE× here or the
   // camera would sit at Mini-500 standoff against a gunship and crop it tight.
   const szOwn = (FRAME_SIZE[v.cls] || szRef) * (v.cls === 'heli' && v.armed ? VIPER_SCALE : 1);
-  const szFac = clamp(szOwn / szRef, 0.46, 1.15);
+  // A true-size hull is under the floor's trade: at 0.46 the Keel, a quarter of a tile, is a speck.
+  const szFac = TRUE_SIZE_CLS.has(v.cls) ? 0.46 / SEA_K : clamp(szOwn / szRef, 0.46, 1.15);
   // `extZoom` itself is resolved below, once it is known whether there is a model to stand off from.
   // Vertical orbit (middle-drag up/down): the chase camera rides a fixed-radius ARC around the
   // craft — a turntable, like the hangar walkaround — instead of sliding straight up. `extPitch` is
@@ -4434,7 +4435,7 @@ function paintWindshieldFrame(id, view) {
   // down-and-under to look UP at the belly. The radius is the same chaseBack the zoom scales, so the
   // azimuth orbit + zoom are untouched. (The resting pose no longer matches the pre-arc cam, and it
   // is the constants that were right: `EXT_REST_PITCH` asks for ~15° and used to deliver 25.5°.)
-  const EHbaseC = Math.max(0.05, (v.eyeH != null ? v.eyeH : RENDER_TUNE.eh) + height * RENDER_TUNE.climbLift);
+  const EHbaseC = Math.max(Math.min(0.05, eyeFloor(v)), (v.eyeH != null ? v.eyeH : RENDER_TUNE.eh) + height * RENDER_TUNE.climbLift);
   // ── ⚠ AN ARC HAS A CENTRE, AND IT WAS THE AEROPLANE'S TARMAC EYE HEIGHT ────
   //
   // `extPitch` is the elevation angle. The height used to be `EHbase + orbR·sin(pitch)`, and
@@ -14067,8 +14068,12 @@ const SUB_FX = { wl: 0, under: false, plungeT: -1e9, breachT: -1e9, horY: null,
   plungeK: 1, breachK: 1, fog: 0, vz: 0, dep: -1, depT: 0, lastX: -1e9 };
 // The floor under every eye-height solve: the terrain, normally, and nothing at all while the Drake is
 // down — a chase camera orbiting her under the sea has to be allowed to go under with her.
+const SEA_EYE_FLOOR_M = 0.35;
 function eyeFloor(v) {
   if (!v) return 0.05;
+  // A seat on the water sits on the sea's metre, not on the ground's: 0.05 tiles is 0.9 m on the
+  // ruler, which is above a low boat's eye in a trough.
+  if (v.metreTiles > 0 && !v.subHull) return SEA_EYE_FLOOR_M * v.metreTiles;
   // A free camera stops at whatever is under it: the ground over land (as before), the seabed
   // under the water. Its window position is the view's offset plus the camera's own.
   if (v.freeCam) { const o = v.mapOffset || { x: 0, y: 0 }; return Math.min(0.05, floorZAt(o.x + v.freeCam.x, o.y + v.freeCam.y) + 0.04); }
@@ -21475,7 +21480,7 @@ export function makeCam(W, horizonY, depth0, v, chase) {
   // Two optional overrides, defaulted to exactly what was there before — an aircraft passes
   // neither and is bit-identical.
   const eh0 = v.eyeH != null ? v.eyeH : RENDER_TUNE.eh;
-  const EHbase = Math.max(0.05, eh0 + (v.height || 0) * RENDER_TUNE.climbLift);   // additive + floor: altitude adds real eye-height so you climb above buildings; floor keeps the runway/ground from collapsing at eh→0
+  const EHbase = Math.max(Math.min(0.05, eyeFloor(v)), eh0 + (v.height || 0) * RENDER_TUNE.climbLift);   // additive + floor: altitude adds real eye-height so you climb above buildings; floor keeps the runway/ground from collapsing at eh→0
   // Our own altitude, for contactZ. `height` is exact on the curve; past its top it's capped, and the
   // rounded readout is good enough there because the line is straight.
   const ownH = v.height || 0;
@@ -21895,8 +21900,8 @@ function collectWakes(v, ax, ay, R) {
   // sourced amidships it was a mound as tall as three of her under the boat the camera follows,
   // and the hull, which rides the swell and not her own wake, sat inside it.
   const ownPush = (spd, beam) => {
-    // The model spans -1..1 along its length in units of its size, so the transom is one size aft.
-    const r = (v.heading || 0) * Math.PI / 180, half = (CONTACT_SIZE[v.cls] || 0.03) * ownExtMul(v.cls);
+    // The model spans -len..len in units of its size, so the transom is that far aft.
+    const r = (v.heading || 0) * Math.PI / 180, half = (CONTACT_SIZE[v.cls] || 0.03) * ownExtMul(v.cls) * (vehicleParamBase('boat', v.cls)?.len ?? 1);
     push(ax - Math.sin(r) * half, ay + Math.cos(r) * half, v.heading, spd, beam, 0);
   };
   //
@@ -35322,10 +35327,10 @@ const CONTACT_VS = 1.6;          // vertical exaggeration so the projected model
 const AIR_CLS = new Set(['ultralight', 'heli', 'prop', 'heavy', 'gunship', 'wreck', 'grasshopper', 'locust', 'divebomber', 'drake']);
 // ── HULLS DRAWN AT TRUE SIZE ──────────────────────────────────────────────────
 // The Keel is drawn in the chase view at the scale the helm seats you in her: her own `mPerUnit`
-// over the sea's seven-metre tile, at true height. At the hydro's framing she was a fifth of her
-// length with a third of her freeboard on a true-size sea, so every crest stood over her deck while
-// the helm, on the same water, was dry. She fits a tile and a berth at true size; the powerboats
-// (about two tiles) don't, so they keep the framing multiplier below.
+// over the sea's tile, which is the ruler, at true height: 4.9 m is 0.27 tiles, beside a one-tile
+// shop. At the hydro's framing she was a fifth of her length with a third of her freeboard on a
+// true-size sea, so every crest stood over her deck while the helm, on the same water, was dry. The
+// powerboats keep the framing multiplier below.
 const TRUE_SIZE_CLS = new Set(['skiff']);
 export const vsOf = (cls) => (AIR_CLS.has(cls) || TRUE_SIZE_CLS.has(cls) ? 1 : CONTACT_VS);
 // Sizes anchored to prop = DHC-6 Twin Otter (19.8m span) at 0.11; each class set to its real

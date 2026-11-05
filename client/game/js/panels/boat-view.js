@@ -1616,7 +1616,7 @@ function frame(now) {
       // that rose a fifth as far as the hull sank under every crest she climbed.
       ...(st.external
         ? { external: true, extYaw: st.extYaw, extPitch: st.extPitch, extZoom: 1.15 * st.extZoom }
-        : { height: 0, metreTiles: METRE_TILES, eyeH: Math.max(0.02, eyeTilesOf(st.typeId) + ride.heave) }),
+        : { height: 0, metreTiles: METRE_TILES, eyeH: Math.max(0.14 * METRE_TILES, eyeTilesOf(st.typeId) + ride.heave) }),
       speed: st.sim.speed,
       // The cabin lights (the profile's floods) and the dome lift come on with the engine.
       // ⚠ THE SKIFF'S LAMP IS A BATTERY LAMP: it lights the seat with the engine off, so it powers
@@ -1710,8 +1710,8 @@ function frame(now) {
 // it would have stopped being right the first time anybody retuned the helm.
 //
 // ⚠ THE METRE IS THE SEA'S, NOT THE ROAD'S. The cab's anchor (0.12 tiles is `EYE_M` metres) makes
-// a tile about 22 m, but the swell is authored at `SEA_TILE_M` (7 m), so on the cab's scale the
-// helm sat 0.44 sea-metres up and drove into the face of every wave over 10 kt. The same figure
+// a tile about 22 m, but the swell is measured on `SEA_TILE_M`, so on the cab's scale the helm sat
+// low and drove into the face of every wave over 10 kt. The same figure
 // goes to the renderer as `metreTiles`, which sizes the pilothouse, so the eye and the room stay
 // one scale.
 const METRE_TILES = 1 / SEA_TILE_M;

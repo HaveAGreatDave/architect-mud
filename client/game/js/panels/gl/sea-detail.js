@@ -100,7 +100,8 @@ export function bindSeaDetail(gl, locTex, locAmt, amt) {
 }
 
 // The slope it adds, in the sea's own frame (sample with the same p seaSlope gets, before
-// seaUnframe). Layer A repeats every 3.2 tiles and drifts downwind; layer B repeats every 1.9 tiles
+// seaUnframe). The sea's frame carries SEA_K, so a unit here is seven metres, not a tile. Layer A
+// repeats every 3.2 units and drifts downwind; layer B repeats every 1.9 units
 // on a heading turned 37 degrees and runs faster, as shorter waves would if they were longer. The
 // rotation is undone on B's slope (grad_p = R^T grad_q), or its streaks light the wrong way.
 // 'amt' is in tiles of chop amplitude, so a calm, which shrinks uSeaAmp, calms this too.

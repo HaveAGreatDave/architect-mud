@@ -22,10 +22,12 @@
 import {
   SPECIES, SHADOW_R, BREADTH, SHAPE_IDS, schoolsNear, schoolState, schoolFish,
   shadowsOn, sightRange, lightOn,
+  LAMP_R,
 } from '../../../shared/fish.js';
+import { SEA_K } from '../../../shared/sea-swell.js';
 
-const PAD = 2;          // fish.js schoolsNear's own reach past a school's anchor, in tiles
-const EDGE = 1.5;       // tiles over which a shadow fades in at the edge of sight, so none pops
+const PAD = 2 / SEA_K;    // fish.js schoolsNear's own reach past a school's anchor, in tiles
+const EDGE = 1.5 / SEA_K; // tiles over which a shadow fades in at the edge of sight, so none pops
 const MIN_A = 0.01;     // below this a shadow isn't sent
 const smooth = (a, b, v) => { const t = Math.max(0, Math.min(1, (v - a) / (b - a))); return t * t * (3 - 2 * t); };
 
@@ -81,7 +83,7 @@ export function eachShadow(q, fn) {
   if (day <= 0 && !q.lamp) return 0;
   const R = sightRange(q.env);
   // At night the lamp's circle is all there is, so only its schools are swum.
-  const reach = day > 0 ? R : Math.min(R, 2);
+  const reach = day > 0 ? R : Math.min(R, LAMP_R * 1.33);
   const sx = q.x + 0.5, sy = q.y + 0.5;
   let n = 0;
   for (const s of schoolsFor(sx, sy, SHADOW_R, q.env, q.habitat, q.thinned || null)) {

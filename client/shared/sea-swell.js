@@ -18,18 +18,18 @@ import { TILE_M as RULER_M } from './world-scale.js';
 // ── THE RULER SWITCH ─────────────────────────────────────────────────────────
 //
 // The sea was authored at 7 m a tile; everything else is drawn at the ruler's 17.857 (phase 6 of
-// docs/proposals/world-scale.md). With this on, SEA_TILE_M is the ruler, and every wave keeps its
-// length and height in METRES, so in tiles it comes out SEA_K times shorter and lower, its steepness
-// the same. It takes one scale: the sea's frame (ROT_C, seaFrame) carries SEA_K, so every train
-// samples further along itself and the chain rule brings every slope back right. Only the frame,
-// SEA_AMP, the Stokes steepness and TILE_M know about it. Off, SEA_K is exactly 1.
+// docs/proposals/world-scale.md). SEA_TILE_M is the ruler, and every wave keeps its length and
+// height in METRES, so in tiles it comes out SEA_K times shorter and lower, its steepness the same.
+// It takes one scale: the sea's frame (ROT_C, seaFrame) carries SEA_K, so every train samples further
+// along itself and the chain rule brings every slope back right. Whatever else is sized in tiles for
+// the sea (the mesh, the drawn chop, a school's cell) divides by SEA_K.
 //
-// ⚠ IT'S A PREVIEW, AND OFF UNTIL SOMEBODY HAS LOOKED AT IT. `?seaRuler=1` in a browser, SEA_RULER=1
-// for a gate or a server. The sea isn't drawn from the wire but a fish and a cast are worked out on
-// both sides, so a client and a server on different settings disagree about them.
-const SEA_RULER = (typeof process !== 'undefined' && process.env?.SEA_RULER === '1')
-  || (typeof location !== 'undefined' && /[?&]seaRuler=1\b/.test(location.search || ''));
-export const SEA_TILE_M = SEA_RULER ? RULER_M : 7;
+// ⚠ THE OLD SEA IS STILL HERE FOR COMPARISON: `?seaRuler=0` in a browser, SEA_RULER=0 for a gate.
+// There SEA_K is exactly 1. A fish and a cast are worked out on both sides of the wire, so a client
+// and a server on different settings disagree about them.
+const SEA_OLD = (typeof process !== 'undefined' && process.env?.SEA_RULER === '0')
+  || (typeof location !== 'undefined' && /[?&]seaRuler=0\b/.test(location.search || ''));
+export const SEA_TILE_M = SEA_OLD ? 7 : RULER_M;
 export const SEA_K = SEA_TILE_M / 7;
 
 // ── THE CHOP ──────────────────────────────────────────────────────────────────────────────────

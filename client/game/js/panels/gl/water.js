@@ -19,7 +19,7 @@
 import { viewProjMatrix, mat4f, zRow, NEAR } from './camera.js';
 import { SEA_GLSL } from './sea-glsl.js';
 import { SEA_DETAIL_GLSL, SEA_DETAIL_AMT, bindSeaDetail } from './sea-detail.js';
-import { seaSlopeVariance, SEA_FOAM_LEAD, SEA_FOAM_RAMP, SEA_FOAM_A, SURF_DEPTH_Q } from '../../../../shared/sea-swell.js';
+import { seaSlopeVariance, SEA_FOAM_LEAD, SEA_FOAM_RAMP, SEA_FOAM_A, SURF_DEPTH_Q, SEA_K } from '../../../../shared/sea-swell.js';
 import { declareProgram, layerProgram } from './programs.js';
 import { linearOut, applyLinOut } from './colour.js';
 
@@ -49,17 +49,20 @@ const EMPTY_NEON = [];
 // Graded, 28 tiles costs 140 divisions a side: 19,600 cells against the 63,504 the 14-tile uniform
 // grid was already paying. ⚠ It is the standard answer for ocean rendering and it is here for the
 // standard reason — the eye is at the centre, so that is the only place resolution is worth buying.
-export const PATCH_R = 28;
+// ⚠ THE WHOLE PATCH IS SIZED IN THE SEA'S METRES, AND EVERY TILE FIGURE HERE IS THAT DIVIDED BY SEA_K
+// (sea-swell.js). The waves are SEA_K shorter in tiles, so the same grid over the same metres carries
+// the same samples a wave at the same triangle count.
+export const PATCH_R = 28 / SEA_K;
 // The radius of the FINE zone. ⚠ IT MUST NOT FALL BELOW 'glSeaChopR', because the chop is the only
 // thing in this sea short enough to need nine samples a tile: displaced in a cell it cannot resolve,
 // a 0.6-tile wave does not read as rougher water, it reads as torn geometry — and silently, because
 // the LIGHTING goes on describing a smooth wave over the top of it. 'gl:sea' asserts the pair.
-const PATCH_FINE_R = 6;
+const PATCH_FINE_R = 6 / SEA_K;
 // The coarse zone's target spacing, in tiles. Set against the shortest wave still DISPLACED out
 // there — the wind sea — at about five samples across it.
-const PATCH_RIM_STEP = 1.4;
-export const PATCH_PER_TILE = 9;
-const RIM_FADE = 5;      // tiles of crossfade at the outer edge
+const PATCH_RIM_STEP = 1.4 / SEA_K;
+export const PATCH_PER_TILE = 9 * SEA_K;
+const RIM_FADE = 5 / SEA_K;      // tiles of crossfade at the outer edge
 // ── THE FAR BAND: THE SWELL OUT TO THE HORIZON ────────────────────────────────────────────────
 //
 // Past PATCH_R the sea was the flat floor: correctly LIT, so a storm swell read as texture, but with
@@ -75,9 +78,9 @@ const RIM_FADE = 5;      // tiles of crossfade at the outer edge
 // side at four tiles each, so the whole mesh goes from ~19k cells to ~35k — a disc three times the
 // radius for under twice the cells. glSeaFar 0 folds the fade back to PATCH_R: the far cells are
 // still in the buffer but carry alpha 0 and discard, and the picture is the sea as it shipped.
-const PATCH_FAR_R = 120;
-export const PATCH_FAR_STEP = 4;
-export const FAR_FADE = 24;     // tiles of crossfade at the far edge, deep in the haze by then
+const PATCH_FAR_R = 120 / SEA_K;
+export const PATCH_FAR_STEP = 4 / SEA_K;
+export const FAR_FADE = 24 / SEA_K;     // tiles of crossfade at the far edge, deep in the haze by then
 // ⚠ KEEP IN STEP WITH THE MAX_WAKES IN THE VERTEX SHADER — GLSL cannot read a JS constant, so this
 // is the second statement of one number and the array it sizes is silently truncated if it shrinks.
 const MAX_WAKES = 6;

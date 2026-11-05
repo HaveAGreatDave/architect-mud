@@ -44,7 +44,7 @@ import {
   SEA_SWELL_SIDE, SEA_WIND_SIDE, SEA_SWELL_PEAK, SEA_WIND_PEAK, SEA_SPREAD,
   seaChop, seaHeight, seaSlope, seaAmpsFor, whitecapFraction, seaFoamThreshold, seaSubmersion, seaFoamTear, seaFoamFine, SEA_FOAM_TEAR,
   surfGain, surfBreaking, SURF_GAMMA, surfHullGain,
-  seaChopGain, SEA_CHOP_CALM, SEA_FULL_KT, SEA_KA_LIMIT,
+  seaChopGain, SEA_CHOP_CALM, SEA_FULL_KT, SEA_KA_LIMIT, SEA_K,
 } from '../../client/shared/sea-swell.js';
 import { seabedDepth, shoreDistance } from '../../client/shared/seabed.js';
 
@@ -1198,8 +1198,8 @@ if (glslSrc) {
   // shortest chop train here is 0.60 tiles. Displacing what the grid cannot carry does not look
   // like rougher water, it looks like torn geometry — and it is silent, because the LIGHTING still
   // describes a smooth wave over the top of it.
-  const per = +(W.match(/PATCH_PER_TILE = (\d+)/) || [0, 0])[1];
-  const shortest = Math.min(...SEA_TRAINS.map((T) => 2 * Math.PI / Math.hypot(T.ku, T.kv)));
+  const per = +(W.match(/PATCH_PER_TILE = (\d+) \* SEA_K/) || [0, 0])[1] * SEA_K;
+  const shortest = Math.min(...SEA_TRAINS.map((T) => 2 * Math.PI / Math.hypot(T.ku, T.kv))) / SEA_K;
   const samples = per * shortest;
   if (!(per > 0)) fail.push('gl/water.js: PATCH_PER_TILE could not be read');
   else if (samples < 5) {
@@ -1208,8 +1208,8 @@ if (glslSrc) {
 
   // And the radius is small on purpose: silhouette only reads near the eye, and the arithmetic at
   // the top of water.js is why the whole patch cannot be this dense.
-  const tune = read('client/game/js/panels/windshield.js').match(/glSeaChopR:\s*([\d.]+)/);
-  const R = +(W.match(/PATCH_R = (\d+)/) || [0, 0])[1];
+  const tune = read('client/game/js/panels/windshield.js').match(/glSeaChopR:\s*([\d.]+) \/ SEA_K/);
+  const R = +(W.match(/PATCH_R = (\d+) \/ SEA_K/) || [0, 0])[1];
   if (!tune) fail.push('windshield.js: glSeaChopR is not in RENDER_TUNE');
   else if (+tune[1] >= R) fail.push(`the chop is displaced out to ${tune[1]} tiles against a patch of ${R} — there is no rim left to fade it in`);
   else ok.push(`the chop is geometry within ${tune[1]} tiles of the eye and a normal past it`);
@@ -1315,8 +1315,8 @@ if (glslSrc) {
   // raise the camera floor or shrink the sea and this becomes a correct implementation of something
   // that never happens. It is asserted against the FLOOR READ OUT OF THE SOURCE rather than a 0.05
   // written here, so moving that floor moves this check with it.
-  const fm = WS.match(/Math\.max\(0\.05, \(v\.eyeH/);
-  const floor = fm ? 0.05 : null;
+  const fm = WS.match(/const SEA_EYE_FLOOR_M = ([\d.]+);/);
+  const floor = fm ? +fm[1] / (7 * SEA_K) : null;
   if (!floor) fail.push('windshield.js: the camera eye-height floor could not be read');
   else {
     const gm = WS.match(/glSeaGain:\s*([\d.]+)/);
@@ -1466,7 +1466,8 @@ if (glslSrc) {
   const N = 120000;
   let s1 = 0, s2 = 0, s3 = 0, face = 0, n = 0;
   for (let i = 0; i < N; i++) {
-    const u = ((i * 0.3717) % 400) - 200, v = ((i * 0.9113) % 400) - 200, t = (i * 0.0137) % 628;
+    // The same water in the sea's own metres, whatever a tile is, or the extreme is a different draw.
+    const u = (((i * 0.3717) % 400) - 200) / SEA_K, v = (((i * 0.9113) % 400) - 200) / SEA_K, t = (i * 0.0137) % 628;
     const [du, dv] = seaSlope(u, v, t, A.roll, SEA_AMP, A.wind);
     s1 += du; s2 += du * du; s3 += du * du * du; n++;
     const fa = Math.atan(Math.hypot(du, dv)) * 180 / Math.PI;
@@ -1705,8 +1706,8 @@ if (glslSrc) {
   const Wt = read('client/game/js/panels/gl/water.js');
   const vert = Wt.slice(Wt.indexOf('const VERT'), Wt.indexOf('const FRAG'));
   const frag = Wt.slice(Wt.indexOf('const FRAG'));
-  const step = +(Wt.match(/PATCH_FAR_STEP = ([\d.]+)/) || [0, 0])[1];
-  const rollL = 2 * Math.PI / Math.hypot(SEA_ROLL.ku, SEA_ROLL.kv);
+  const step = +(Wt.match(/PATCH_FAR_STEP = ([\d.]+) \/ SEA_K/) || [0, 0])[1] / SEA_K;
+  const rollL = 2 * Math.PI / Math.hypot(SEA_ROLL.ku, SEA_ROLL.kv) / SEA_K;
   // ⚠ THE FAR GRID MUST CARRY THE ROLL, or the far crests are a zigzag on the skyline.
   if (!(step > 0)) fail.push('gl/water.js: PATCH_FAR_STEP could not be read');
   else if (rollL / step < 5) fail.push('the far band carries ' + (rollL / step).toFixed(1) + ' vertices across the roll — below five it is a zigzag on the horizon');
@@ -1885,7 +1886,7 @@ if (glslSrc) {
       let lo = Infinity, hi = -Infinity, loH = 0, hiH = 0;
       if (encounterW(T0, 1.234, 0) !== T0.w) fail.push('encounterW at rest is not the wave frequency');
       for (let d = 0; d < 360; d += 5) {
-        const w = encounterW(T0, d * Math.PI / 180, 0.3);   // below the swell's phase speed (~0.73 tiles/s), where the extremes are clean
+        const w = encounterW(T0, d * Math.PI / 180, 0.3 / SEA_K);   // below the swell's phase speed (5 m/s), where the extremes are clean
         if (w < lo) { lo = w; loH = d; }
         if (w > hi) { hi = w; hiH = d; }
       }

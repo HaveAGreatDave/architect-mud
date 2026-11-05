@@ -1,7 +1,7 @@
 # One world scale
 
-> **Status: phases 1 to 5 and 7 built (2026-11-03); phase 6 built behind a switch, off, and waiting on
-> Dave's eyes (see [Phase 6 as built](#phase-6-as-built)).** The ruler, the
+> **Status: all seven phases built; phase 6, the sea on the ruler, went on 2026-11-04 (see
+> [Phase 6 as built](#phase-6-as-built)).** The ruler, the
 > conversions, the paces, the labels and `scale:lint` are in, and the truck reads km/h (see
 > [Phase 2 as built](#phase-2-as-built)). Where this disagrees with a `systems-*.md` doc about what
 > ships today, that doc wins until the phase that changes it lands.
@@ -275,39 +275,47 @@ price moved. What changed is what the numbers mean.
 
 ### Phase 6 as built
 
-**Behind a switch, off: the sea players see is the 7 m sea.** `?seaRuler=1` in a browser, or
-`SEA_RULER=1` for a gate or a server, sets `SEA_TILE_M` to the ruler. It's a preview: a client and a
-server on different settings disagree about a cast or a fish.
+**On (2026-11-04): the sea and the Keel are on the ruler.** `SEA_TILE_M` is `TILE_M`, so a wave
+keeps its length and height in metres and comes out 2.55 times shorter and lower in tiles. The Keel
+is 4.9 m, so she's 0.27 tiles long, beside a one-tile shop. Dave asked for it because she and the
+waves were out of scale with the buildings. `?seaRuler=0` in a browser, or `SEA_RULER=0` for a gate
+or a server, brings the 7 m sea back to compare. A client and a server on different settings
+disagree about a cast or a fish.
 
-Everything in metres lands on the ruler by itself, because it all went through `SEA_TILE_M`:
+Everything in metres lands on the ruler by itself, because it all goes through `SEA_TILE_M`:
 swell and wind-sea height, the surf, casts, fish, the nav readout and the boat seats'
-`metreTiles`. The last two `/ 7` literals (the sub's `rideZ`, the rod rig's fallback) now read it.
-Wave LENGTH needed one scale, `SEA_K` (2.55), carried by the sea's frame: `seaFrame` already
-wrapped every sample and `seaUnframe` every slope, so a train samples further along itself and the
+`metreTiles`. Wave LENGTH takes one scale, `SEA_K` (2.55), carried by the sea's frame: `seaFrame`
+wraps every sample and `seaUnframe` every slope, so a train samples further along itself and the
 chain rule brings each slope back. The GLSL's literal coefficients didn't move, so the gate that
 compares them needs no change. `SEA_AMP`, the Stokes steepness and `encounterW` carry `SEA_K` too.
-With the switch off `SEA_K` is exactly 1, and `sea.mjs` and `boatride.mjs` pass as before.
 
-With it on, the wave is right: at 30 kt a sampled height reads -0.31 m on both settings, the
-analytic slope still equals a finite difference, and the roll is 10 tiles where it was 25.6.
+What was still in tiles, and now divides by `SEA_K`:
 
-**What it still needs before it can be on.**
+- **The drawn chop.** `glSeaAmp` was a tile literal, so on the ruler the chop stood 2.55 times too
+  steep in metres. That one number was both the white water and the 38 failures in `boatride.mjs`,
+  which passes 129 of 129 now. `sea-detail.js` and the foam needed no change: they sample in the
+  sea's frame.
+- **The water mesh.** `PATCH_R`, the fine zone, `glSeaChopR`, the rim, the far band and the fades are
+  all the same metres as before, so it's the same samples a wave at the same 34,000 cells. The
+  displaced sea reaches 11 tiles and the far band 47.
+- **The chase camera on the Keel.** `szFac` is `0.46 / SEA_K` for a `TRUE_SIZE_CLS` hull, below the
+  floor the small helicopters need, or she's a speck. She fills the frame she filled before, and
+  the city behind her is the right size.
+- **The eye floor.** A seat with `metreTiles` floors at 0.35 m (`SEA_EYE_FLOOR_M`), not 0.05 tiles,
+  which on the ruler is 0.9 m and above the Keel's eye in a trough.
+- **Fish.** A school's cell, loop, spread and wreck radius, the shadow range, the lamp and the chase
+  view's shadow growth keep their metres. There are 6.5 times as many schools a tile, and the same
+  number a metre, so a cast reaches what it always did.
 
-- **Foam.** At the same wind the near water is far whiter on the ruler, even at state 0.2. Whitecap
-  coverage should be the same fraction. This is the first thing to look at: `sea-detail.js`'s
-  layers repeat in tiles, and the foam trail ages in tiles.
-- **The boat ride.** `SEA_RULER=1 node scripts/shapes/boatride.mjs` passes 91 of 129. `hullLen`,
-  `hullBeam`, the crest launch and the chase's `CONTACT_VS` of 1.6 were all tuned in tiles against
-  the old swell.
-- **`sea.mjs` on the ruler** fails two of its checks: the steepest face is 43 degrees against a
-  ceiling of 42, on a sampling grid that's in tiles, and the head-sea test.
-- **The water mesh.** `PATCH_R` and `PATCH_PER_TILE` were sized to a 25.6-tile roll and to chop at
-  0.6 tiles. Chop is 0.24 tiles now, finer than the mesh, so it's carried by the floor's shading
-  alone. Not measured for cost.
-- **The seabed** is in metres out and tiles in, so `SHELF_K` and the rest keep their tile distances
-  and the shelf falls 2.55 times faster in metres.
+The powerboats keep their chase scale, 0.204 tiles a unit with height times 1.6, which is about a
+sixth over true on the ruler. The seabed keeps its depth at every tile, so the shelf is gentler per
+metre than it was; the rock stays where it was (`ROCK_GRADE`, in metres a tile) because habitat keys
+off it.
 
-When it's right, the switch comes out: `SEA_TILE_M` is `TILE_M`, and `METRE_TILES` goes with it.
+A boat's speed in tiles didn't change, so a boat meets 2.55 times as many waves a second at the same
+dial speed. That's the sea pace in the table above, and it's why a hard run feels busier.
+
+Once nobody needs the old sea to compare, the switch comes out and `METRE_TILES` goes with it.
 
 ## Small fixes found on the way
 

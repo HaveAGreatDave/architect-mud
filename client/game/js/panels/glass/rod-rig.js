@@ -152,7 +152,7 @@ export function drawRodRig(ctx, cam, v, now, env = {}) {
   }
   if (end) {
     drawLine(ctx, cam, tip, end, R);
-    if (R.fish) drawFish(ctx, cam, end, R.fish, chase);
+    if (R.fish) drawFish(ctx, cam, end, R.fish);
     else drawFloat(ctx, cam, end);
   }
 
@@ -198,9 +198,9 @@ function drawFloat(ctx, cam, P) {
 }
 
 // The catch, hanging off the line by its mouth.
-function drawFish(ctx, cam, P, F, chase) {
+function drawFish(ctx, cam, P, F) {
   const lenM = 0.12 + 0.24 * Math.cbrt(Math.max(0.05, F.kg || 1));
-  const len = lenM / 7 * (chase ? 0.25 : 1);
+  const len = lenM / SEA_TILE_M;   // she's true size in both views, so the catch is too
   const f = cam.proj ? cam.proj(P[0], P[1], P[2]).f : 1;
   const w = clamp(len * 0.3 * (cam.FL || 600) / Math.max(0.15, f), 2, 40);
   const tail = [P[0], P[1], P[2] - len];

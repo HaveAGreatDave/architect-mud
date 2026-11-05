@@ -15,7 +15,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { wildlandsAt } from '../../client/shared/wildlands.js';
-import { SEA_TILE_M } from '../../client/shared/sea-swell.js';
+import { SEA_TILE_M, SEA_K } from '../../client/shared/sea-swell.js';
 import {
   SPECIES, SPECIES_IDS, ACTIVE, WATCHES, habitatFor, schoolsNear,
   schoolState, schoolFish, fishKg, fishNear, loopPeriod, forecastLines,
@@ -60,10 +60,10 @@ const ENVS = WATCHES.map(([, hour]) => ({ hour, doy: 100, weather: 'clear', roug
 
 // 4. The same question gets the same answer, from a fresh cache too.
 for (const env of ENVS) {
-  const a = JSON.stringify(schoolsNear(30, 30, 25, env, habA));
-  const b = JSON.stringify(schoolsNear(30, 30, 25, env, habB));
+  const a = JSON.stringify(schoolsNear(30, 30, 25 / SEA_K, env, habA));
+  const b = JSON.stringify(schoolsNear(30, 30, 25 / SEA_K, env, habB));
   if (a !== b) { say(`schoolsNear differs between two habitat caches at ${env.hour}:00`); break; }
-  const s = schoolsNear(30, 30, 25, env, habA)[0];
+  const s = schoolsNear(30, 30, 25 / SEA_K, env, habA)[0];
   if (s && JSON.stringify(schoolFish(s, 0, NOW, env)) !== JSON.stringify(schoolFish(s, 0, NOW, env))) say('schoolFish gave two answers to one question');
 }
 
@@ -71,7 +71,7 @@ for (const env of ENVS) {
 const night = ENVS[3], day = ENVS[1];
 let swum = 0;
 for (const env of [day, night]) {
-  for (const s of schoolsNear(30, 30, 30, env, habA)) {
+  for (const s of schoolsNear(30, 30, 30 / SEA_K, env, habA)) {
     const sp = SPECIES[s.sp], P = loopPeriod(s);
     let prev = null, onLand = 0, jump = 0, dist = 0;
     const steps = 200, dt = P / steps;
@@ -96,13 +96,13 @@ for (const env of [day, night]) {
 if (!swum) say('no schools on the made-up coast at noon or midnight, so nothing was swum');
 
 // 6. Weights stay inside the species' range and don't change.
-for (const s of schoolsNear(30, 30, 30, night, habA)) {
+for (const s of schoolsNear(30, 30, 30 / SEA_K, night, habA)) {
   for (let i = 0; i < s.n; i++) {
     const kg = fishKg(s, i), [lo, , hi] = SPECIES[s.sp].kg;
     if (kg < lo - 0.01 || kg > hi + 0.01) say(`${s.id} fish ${i} weighs ${kg} kg, outside ${lo}-${hi}`);
   }
 }
-const near = fishNear(30, 30, 8, NOW, night, habA);
+const near = fishNear(30, 30, 8 / SEA_K, NOW, night, habA);
 for (let i = 1; i < near.length; i++) if (near[i].dist < near[i - 1].dist) { say("fishNear isn't nearest first"); break; }
 
 // 7. The real coast: the marinas' water, read from content/zones by file name. A tile with no zone
@@ -117,7 +117,14 @@ for (let x = X0; x < X1; x++) for (let y = Y0; y < Y1; y++) {
   const z = JSON.parse(fs.readFileSync(f, 'utf8'));
   if (z.map_id === 'map_world' && (z.grid_z | 0) === 0) water.set(x + ',' + y, z.flags?.terrain === 'water');
 }
-const realLand = (ix, iy) => { const v = water.get(ix + ',' + iy); return v === undefined ? !wildlandsAt(ix, iy).sea : !v; };
+// Kept, because the shore searches ask the same tiles thousands of times and this is most of the run.
+const landKept = new Map();
+const realLand = (ix, iy) => {
+  const k = ix + ',' + iy;
+  let l = landKept.get(k);
+  if (l === undefined) { const v = water.get(k); l = v === undefined ? !wildlandsAt(ix, iy).sea : !v; landKept.set(k, l); }
+  return l;
+};
 const habR = habitatFor(realLand);
 const MARINAS = [['Fairweather', 892.5, 901.5], ['the Fish Quay', 903.5, 904.5], ['the Eastern Marina', 919.5, 899.5]];
 const seen = new Set();
