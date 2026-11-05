@@ -452,7 +452,8 @@ function propShadowFor(cam, camAt, cssH, dpr, opts) {
   };
 }
 const propCasters = (cam, camAt, cssH, dpr, opts) => ({
-  solids: [opts.bay, opts.fauna, (opts.bay && opts.bay.fades) || null, ...((opts.bay && opts.bay.sets) || [])],
+  solids: [opts.bay, opts.fauna, (opts.bay && opts.bay.fades) || null],
+  kept: (opts.bay && opts.bay.sets) || null,
   strokes: cam.FL > 0 ? { runs: strokeRuns(opts.strokes, cam.ox || 0, cam.oy || 0), vp: viewProjMatrix(camAt, cssH), FL: cam.FL * (dpr || 1) } : null,
 });
 

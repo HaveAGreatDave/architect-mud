@@ -88,6 +88,9 @@ if (flyArg >= 0) {
   if (process.env.ARMLIVE != null) scene.ws.RENDER_TUNE.armLive = Number(process.env.ARMLIVE);
   // TUNE=k=v,... on the kept flight only (keep 1), to pin which switch a difference comes from.
   if (Number(keepS) && process.env.TUNE) for (const kv of process.env.TUNE.split(',')) { const [k, v] = kv.split('='); scene.ws.RENDER_TUNE[k] = Number(v); }
+  // A triangle here includes its vertices' alpha, and at kitFadeGPU 1 the haze band's is in the shader.
+  // At 0 a fading tile's faces are the same tiles with the alpha written in, so that's what's compared.
+  scene.ws.RENDER_TUNE.kitFadeGPU = 0;
   // TUNEALL=k=v,... on both flights: a switch whose kept draw has to match its own live draw (marksGPU).
   if (process.env.TUNEALL) for (const kv of process.env.TUNEALL.split(',')) { const [k, v] = kv.split('='); scene.ws.RENDER_TUNE[k] = Number(v); }
   // STEP=33 flies at an apparent 30 fps, where the scene governor steps the tune down.

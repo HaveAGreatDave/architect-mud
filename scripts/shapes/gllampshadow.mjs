@@ -11,7 +11,7 @@
 //   3. buildPropCasters with no light direction lays every slab as an X, so a post casts from
 //      any side.
 import { pickShadowLamps, lampMatrix, LAMP_SHADOW_TUNE as T, LAMP_SHADOW_MAX } from '../../client/game/js/panels/gl/lampshadow.js';
-import { buildPropCasters } from '../../client/game/js/panels/gl/propshadow.js';
+import { buildPropCasters, PROP_SHADOW_TUNE } from '../../client/game/js/panels/gl/propshadow.js';
 
 const problems = [];
 const check = (cond, msg) => { if (!cond) problems.push(msg); };
@@ -70,6 +70,24 @@ for (let i = 0; i < n.verts; i++) { spanX = Math.max(spanX, Math.abs(buf.data[i 
 check(spanX > 0.005 && spanY > 0.005, `the X spans ${spanX.toFixed(4)} by ${spanY.toFixed(4)}; one arm is missing`);
 const lit = buildPropCasters(buf, box, { solids: [[{ actor: 1, x: 0, y: 0, z: 0, s: 0.05 }]], strokes: null, travel: [0.6, 0, -0.8] });
 check(lit.verts === 6, `with a light direction a person made ${lit.verts} vertices, not one slab (6)`);
+
+// 4. A kept set casts what the walk would, to the float: a tile wholly in the box, one out of it, and
+// one across its edge, with a fan of five points and the faces that don't cast (flat, thin, film).
+const face = (x, y, extra = {}) => ({ p: [[x, y, 0], [x + 0.1, y, 0], [x + 0.1, y, 0.2], [x, y, 0.2]], ...extra });
+const tile = (x, y) => [face(x, y), face(x + 0.4, y + 0.2), { p: [[x, y, 0], [x + 0.2, y, 0], [x + 0.2, y + 0.2, 0], [x, y + 0.2, 0]] },
+  face(x, y, { a: 0.3 }), face(x, y, { film: true }), { p: [[x, y, 0], [x + 0.1, y, 0], [x + 0.2, y, 0.1], [x + 0.1, y, 0.3], [x, y, 0.1]] }];
+const sets = [tile(0, 0), tile(40, 40), [...tile(2.8, 0), ...tile(3.4, 0)], tile(0, 2.95)];
+const castBox = { x0: -2, x1: 2, y0: -2, y1: 2, z0: -0.02, z1: 1 };
+const both = (b) => {
+  const k = { data: new Float32Array(16) }, w = { data: new Float32Array(16) };
+  const nk = buildPropCasters(k, b, { solids: [], kept: sets, strokes: null, travel: null }, { ...PROP_SHADOW_TUNE, keep: 1 });
+  const nw = buildPropCasters(w, b, { solids: [], kept: sets, strokes: null, travel: null }, { ...PROP_SHADOW_TUNE, keep: 0 });
+  return { same: nk.verts === nw.verts && nk.solids === nw.solids && k.data.subarray(0, nk.verts * 3).every((v, i) => Object.is(v, w.data[i])), verts: nw.verts };
+};
+const moved = { ...castBox, x0: castBox.x0 + 0.5, x1: castBox.x1 + 0.5 };
+const a0 = both(castBox), a1 = both(moved);
+check(a0.same && a1.same, 'a kept set cast something other than what walking its records casts');
+check(a0.verts > 0 && a0.verts !== a1.verts, 'the kept casters test never had a tile across the edge of the box');
 
 if (problems.length) {
   console.error('✗ gl:lampshadow');

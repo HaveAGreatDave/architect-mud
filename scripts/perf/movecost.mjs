@@ -58,7 +58,10 @@ if (GLW) {
     bufferData: (t, size) => { if (typeof size !== 'number' && size && size.length) glWritten += size.length; },
     bufferSubData: (t, off, data, src = 0, len) => { glWritten += len ?? (data.length - src); },
     getProgramParameter: () => true, getShaderParameter: () => true, getExtension: () => null, isContextLost: () => false,
-    getUniformLocation: () => ({}), getAttribLocation: () => 1, checkFramebufferStatus: () => 0x8CD5,
+    getUniformLocation: () => ({}), getAttribLocation: () => 1,
+    // ⚠ THE NAME, NOT THE NUMBER: the proxy hands constants back as their names, so gl.FRAMEBUFFER_COMPLETE
+    // is this string. With 0x8CD5 every framebuffer failed and the prop and lamp maps never ran here.
+    checkFramebufferStatus: () => 'FRAMEBUFFER_COMPLETE',
     getParameter: (q) => (q === 'MAX_TEXTURE_SIZE' ? 8192 : 16), getContextAttributes: () => ({ antialias: true }),
     getShaderInfoLog: () => '', getProgramInfoLog: () => '', getSupportedExtensions: () => [],
     getShaderPrecisionFormat: () => ({ precision: 23, rangeMin: 127, rangeMax: 127 }),

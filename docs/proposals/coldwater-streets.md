@@ -285,10 +285,9 @@ then. The verb reads `kitPlace`, so it matches what's drawn. Walking is unchange
 
 ## Not done yet
 
-- ⚠ **What it costs on a GPU.** On Cinder Lane from a cab with a 45-tile window the kit is about 72,800
+- ⚠ **What it costs on a GPU.** Measured and cut on 2026-11-05: see [glass-headroom.md](glass-headroom.md). The older figures: on Cinder Lane from a cab with a 45-tile window the kit is about 72,800
   faces, and a frame went from 52 ms to 290 ms when they all streamed. That was the Modelshop in a hidden
-  pane, so it's a ratio and not a frame time. They're retained now and it hasn't been measured since, so
-  it wants measuring on a real GPU. A resident set is about 450 bytes a face, so about 40 MB of heap with
+  pane, so it's a ratio and not a frame time. A resident set is about 450 bytes a face, so about 40 MB of heap with
   all 285 tiles in the window, and as much again in the retained buffer.
 - The brief's per-room override of a district's condition.
 - A blackout: the kit's lit parts stay lit on a tile with no power. The brief wants that street dark.

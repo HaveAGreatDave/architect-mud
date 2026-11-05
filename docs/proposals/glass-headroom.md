@@ -3,6 +3,30 @@
 **Status: Stage 1 started (the bench fixed, per-frame GL state queries removed); the 2026-10-01 record caches built (below); Stage 1b built; Stage 3 phases 1-5 built, phase 6 started, kept-arm follow-ups built (2026-10-06 and 07, below); kept arms made to work for a moving camera (2026-10-19, below); flat decal fills batched (2026-10-19, below); the caches keyed on the map window made to survive a recentre (2026-10-19, below); Stage 2 superseded by Stage 3; a still camera keeps (2026-10-24, below); armChunk measured and not built (2026-10-24, below); the live arms and marks profiled, two exact cuts built (2026-10-24, below); buildings in the haze band keep (`armFade`, 2026-10-24, below); the lock, AA, media lot and statue shaded on the GPU and kept (`marksGPU`, built 2026-10-24, on since 2026-10-25, below); why `world:gl` rose with it found and fixed (2026-10-25, below); kept strokes that cross the eye plane run live (`armNearWire`, 2026-10-25, below); `cssRgb`'s double lookup measured and left (2026-10-25, below); the GL canvas hands each pass over, which took the ~1 ms off the cabin's copy (`glTransfer`, 2026-10-26, below); the occlusion pass skipped from the air on GL while nothing on the canvas asks for it (`occAir`, built and off, 2026-10-26, below); the ~1 ms at the sky strip traced to the frame boundary (2026-10-26, below); the 2-D frame drawn off the page and handed to it as a bitmap (`wsHandover`, on since 2026-10-26, below); the scatter, cliffs and plateaus off the side of the canvas skipped (`sideCull`, built 2026-10-26, on since 2026-10-26, below), and the order-dependent scatter card fixed for it (`bakeTileFree`, on).** The vertex-animated layers it follows from are built (actors,
 birds, cloth; see [glass-notes.md](../reference/glass-notes.md#vertex-animated-layers-actors-birds-cloth)).
 
+## Built 2026-11-05, on: the street kit's casters kept, and its haze band in the shader (`kitFadeGPU`)
+
+On the reference GPU at 1280x720 with a moving camera, the kit took a Halcyon cab from 12-20 ms to 36-42 and a
+Halcyon aircraft from 22-27 to 36-44. Almost all of it was JavaScript in `world:gl`; GPU time was 7-8 ms.
+
+- **Casters.** `buildPropCasters` walked every kit face every frame, 10-13 ms. `keptCasters` in gl/propshadow.js
+  builds each set's triangles once. Paired runs, loaded machine: Halcyon cab 58-63 to 45-49 ms, aircraft 70-73 to
+  52-59, Marrow cab 32-35 to 28-29. The buffer is the walk's to the float over 300 frames; `gl:lampshadow` holds that.
+- **Haze band.** A tile in the band streamed a copy of its faces every frame, 1.1M floats a Halcyon cab frame. Its
+  faces now stay retained and the solids shader fades them per vertex (`uKitFade`); ink and lettering still fade
+  by tile. 0 keeps the stream. Real GPU, cab, 1° a frame: 24.5 to 17.1 ms median, p99 47.8 to 41.1. Against a
+  0.002% control, 0.016% of pixels move, worst 8/255. A faded tile below half alpha now casts, as its faces are the set's.
+- **Tried and removed:** retained copies at a stepped alpha. The median matched, but the copies filled the retained
+  buffer and its full rewrite cost 60-145 ms.
+- ⚠ **`perf:move` never ran the prop or lamp maps.** Its fake `checkFramebufferStatus` returned a number and the
+  proxy's constants are strings, so the kit's cost didn't show headless until that was fixed.
+
+- **Tried and removed:** the sun map's kept casters in a GPU arena, written once a tile. It halved the floats sent
+  (cab 1.13M to 0.57M, cockpit 1.63M to 0.93M) and moved 0.002% of pixels, but five interleaved pairs on the real GPU
+  read 26.0 against 25.7 ms in a cab and 38.7 against 38.4 from the air. The upload isn't what the frame waits on.
+
+**Still open:** the retained buffer's full rewrite when tiles change tier (about 12M floats; at a 1° turn it no
+longer showed in 120 headless frames once the fades stopped filling the buffer, so it's rarer, not proved gone).
+
 ## Built 2026-11-03, on: the dusk blended on the GPU (`glDuskGPU`)
 
 A hitch, not a steady cost. Measured headless by sweeping the hour a game minute at a time: every

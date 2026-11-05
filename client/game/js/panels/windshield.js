@@ -944,6 +944,7 @@ export const RENDER_TUNE = {
   armLive: 1,    // a kept building's animated helpers (smoke, rings, beams, wind wheels, flags) are left out of its kept set and called again each replay (armLiveCall); 0 makes any such building live
   flatEarly: 1,  // an arm's own flat and box primitives return before building what emitFlat and draw3DBoxAt would drop on the GL path (flatsDropped, massDropped: the ballpark, the clone facility's tubes); 0 builds, clips and colours each one first
   marksGPU: 1,   // the South Lock, the AA batteries, the media lot and the statue send their faces unshaded with a normal and a material code, the solids shader turns the normal to the eye and shades them (gl/solids.js, the marks), and their static parts are kept as a building's are (markKept); 0 shades every face on the CPU from the eye every frame, as before. On since 2026-10-25, after David saw the before/after shots (glass-headroom.md)
+  kitFadeGPU: 1,  // a street kit tile in the haze band fades in the solids shader, per vertex; 0 streams a copy of its faces every frame at the tile's alpha (kitFadeFaces)
   streetKit: 1,  // Coldwater Streets: on a road tile whose district sets a street condition (`sc`), the 4 m lane, the raised walkways, their furniture and the bridges are drawn over the road as a mark, at that condition (glass/street-kit.js, drawStreetKitPass; docs/proposals/coldwater-streets.md). Needs marksGPU
   armNearWire: 1,   // a kept building with a stroke that crosses emitWire's near plane this frame runs live for the frame (armNearWire), as the live arm cuts that stroke at the plane; 0 replays the stroke whole, which the strokes shader draws with a wrong width once an end is behind the eye
   armFace3: 1,   // slumFaceK's eye test is recorded in a kept set (faceAway3) and asked again on replay, so a slum building's sheets change tone when the eye crosses them; 0 tests it unrecorded and a kept set keeps the tone it was probed with
@@ -34815,7 +34816,7 @@ function drawStreetLampQueued(ctx, cam, dx, dy, inward, lit, alpha, night, seed,
 // ⚠ BAY_SINK.sets, NOT BAY_SINK. A retained group still has every record pushed through the sink
 // (bayGroup), and at 80,000 faces just growing that array was 2 MB a frame. A set goes to the solids
 // as a whole array, and to the prop shadows (propCasters in gl/world.js), and never into the list.
-// BAY_SINK.fades is one more array like it, of pooled copies for the tiles in the haze band, streamed.
+// BAY_SINK.fades is one more array like it, of pooled copies for the tiles in the haze band, streamed. Only at kitFadeGPU 0.
 // ⚠ IT MUST CARRY NO FILM AND NO METAL (bayGroup's promise). markFaceGL's records have no `m`, so
 // they're never smoothed; a film face goes to the stream.
 // ⚠ armKeep 0 RUNS THE OLD WAY, live through markKept, so scripts/perf/armkeep-check.mjs compares a
@@ -34985,7 +34986,7 @@ function kitDraw(ctx, cam, c, place, lx, ly, dx, dy, f, s0, seed, near, far, alp
     set.dx = dx; set.dy = dy;
   }
   // The faces.
-  if (alpha === 1 && TUNE.glRetain !== 0) { if (set.faces.length) (BAY_SINK.sets || (BAY_SINK.sets = [])).push(set.faces); }
+  if ((alpha === 1 || BAY_SINK.kitFade) && TUNE.glRetain !== 0) { if (set.faces.length) (BAY_SINK.sets || (BAY_SINK.sets = [])).push(set.faces); }
   else if (alpha === 1) for (let i = 0; i < set.faces.length; i++) BAY_SINK.push(set.faces[i]);
   else kitFadeFaces(set.faces, alpha);
   for (let i = 0; i < set.film.length; i++) { const q = set.film[i]; BAY_SINK.push(alpha === 1 ? q : { ...q, a: q.a * alpha }); }
@@ -35082,6 +35083,9 @@ function drawStreetKitPass(ctx, cam, v, map, R, wcx, wcy, night, now, FAR, sun, 
   KIT_POOL.np = KIT_POOL.nl = KIT_POOL.nr = KIT_POOL.nf = 0;
   const keep = RENDER_TUNE.armKeep !== 0;
   let ahead = keep ? KIT_AHEAD : 0;
+  // The haze band in the solids shader, by each vertex's own distance: a tile's faces stay as the GPU
+  // has them. Streaming the band was 1.1M floats a Halcyon cab frame. Its ink and lettering still fade by tile.
+  if (keep && RENDER_TUNE.kitFadeGPU > 0 && TUNE.glRetain !== 0) BAY_SINK.kitFade = [cam.sinh, -cam.cosh, FAR + cam.ox * cam.sinh - cam.oy * cam.cosh, v.worldBlend ?? 1];
   for (let ry = 0; ry < map.length; ry++) for (let rx = 0; rx < map[ry].length; rx++) {
     const c = map[ry][rx];
     if (!kitCell(c)) continue;

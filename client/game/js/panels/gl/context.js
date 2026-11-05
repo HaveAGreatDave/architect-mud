@@ -2454,11 +2454,13 @@ const lightRaw = new Float32Array(MAX_LIGHTS * 3);
     clothRecs.length = 0;
     cloudList.length = 0;
     const clouds = [], groups = [];
+    let kitFade = null;
     // Whole arrays that never went through the list: the street kit's tiles (BAY_SINK.sets), and the
     // copies of the ones in the haze band (.fades), whose alpha changes and so go down the stream.
     for (const l of lists) if (l && (l.sets || l.fades)) {
       if (l.menv) all.menv = l.menv;
       if (l.sets) for (const s of l.sets) groups.push(s);
+      if (l.kitFade) kitFade = { n: groups.length, v: l.kitFade };
       if (l.fades) for (let i = 0; i < l.fades.length; i++) all.push(l.fades[i]);
     }
     for (const l of lists) if (l && l.length) {
@@ -2489,7 +2491,7 @@ const lightRaw = new Float32Array(MAX_LIGHTS * 3);
       }
     }
     if (mg && clouds.length) mg.sweep(clouds[0].now);
-    solidQuads = all.length || groups.length || shp ? solidsLayer().upload(all, null, null, null, null, groups) : 0;
+    solidQuads = all.length || groups.length || shp ? solidsLayer().upload(all, null, null, null, null, groups, kitFade) : 0;
     faunaInst = (instRecs.length || fnl) ? faunaLayer().upload(instRecs) : 0;
     actorInst = (actorRecs.length || acl) ? actorLayer().upload(actorRecs) : 0;
     clothInst = (clothRecs.length || cll) ? clothLayer().upload(clothRecs) : 0;

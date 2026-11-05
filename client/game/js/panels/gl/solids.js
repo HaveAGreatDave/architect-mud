@@ -82,6 +82,9 @@ uniform float uFogFar;
 uniform float uFogAmt;
 uniform float uWaterZ;
 uniform float uWaterT;
+// The street kit's haze band (kitFade in upload): x, y the ground direction ahead, z the far edge less
+// the eye's own distance along it, w the world blend. (0, 0, 1e9, 1) is off, and multiplies by exactly 1.
+uniform vec4 uKitFade;
 // ⚠ CENTROID, BECAUSE OF MSAA. With multisampling a pixel a triangle only partly covers is shaded
 // ONCE, at the pixel centre, even when that centre lies outside the triangle, and every varying is
 // EXTRAPOLATED to it. On a thin part at a low resolution-dial step (the Drake's minigun at 54%)
@@ -128,7 +131,7 @@ void main() {
   vec4 clip = uViewProj * wp;
   gl_Position = clip;
   vColor = aColor;
-  vAlpha = aAlpha;
+  vAlpha = aAlpha * clamp((uKitFade.z - dot(wp.xy, uKitFade.xy)) / 5.0, 0.0, 1.0) * uKitFade.w;
   vPos = wp.xyz; vN = uNMatOn > 0.5 ? uNMat * aNormal : mat3(uModel) * aNormal * uNScale; vMetal = aMetal;
   // floor, not a cast: a cast rounds toward zero, and the marks' codes are negative (see the marks in
   // the fragment shader). For every code of 0 or more the two are the same number.
@@ -964,6 +967,7 @@ export function createSolidsLayer(gl, opt = {}) {
     sunK: gl.getUniformLocation(prog, 'uSunK'),
     waterZ: gl.getUniformLocation(prog, 'uWaterZ'),
     waterT: gl.getUniformLocation(prog, 'uWaterT'),
+    kitFade: gl.getUniformLocation(prog, 'uKitFade'),
     under: gl.getUniformLocation(prog, 'uUnder'),
     underD: gl.getUniformLocation(prog, 'uUnderD'),
     wlN: gl.getUniformLocation(prog, 'uWLN'), wlP: gl.getUniformLocation(prog, 'uWLP'),
@@ -1170,7 +1174,9 @@ export function createSolidsLayer(gl, opt = {}) {
   // RETAIN_KEEP frames and grows to twice that when they don't fit.
   const RETAIN_KEEP = 120;
   let ret = null;
-  function retain(groups) {
+  // The first `nFade` groups are the street kit's tiles, which fade in the shader: their runs stay apart
+  // from the rest, and carry a third entry.
+  function retain(groups, nFade = 0) {
     if (!groups || !groups.length) { if (ret) { ret.runs = []; ret.n = 0; } return 0; }
     if (!ret) {
       const rv = gl.createVertexArray();
@@ -1209,23 +1215,26 @@ export function createSolidsLayer(gl, opt = {}) {
       }
     }
     // This frame's ranges in buffer order, neighbours merged into one draw.
-    const spans = groups.map((recs) => R.map.get(recs)).sort((a, b) => a.at - b.at);
+    const spans = groups.map((recs, i) => { const e = R.map.get(recs); e.fade = i < nFade; return e; }).sort((a, b) => a.at - b.at);
     const runs = [];
     let n = 0;
     for (const s of spans) {
       const last = runs.length ? runs[runs.length - 1] : null;
-      if (last && last[0] + last[1] === s.at) last[1] += s.n;
-      else if (!last || s.at >= last[0] + last[1]) runs.push([s.at, s.n]);
+      if (last && last[0] + last[1] === s.at && last[2] === s.fade) last[1] += s.n;
+      else if (!last || s.at >= last[0] + last[1]) runs.push([s.at, s.n, s.fade]);
       else continue;   // the same array twice in one frame: drawn once
       n += s.n;
     }
     R.runs = runs; R.n = n;
     return quads;
   }
-  function upload(quads, mdl = null, lt = null, att = null, ship = null, groups = null) {
+  // `fade`: { n, v }, the street kit's first `n` groups and uKitFade's four numbers (BAY_SINK.kitFade).
+  let kitFade = null;
+  function upload(quads, mdl = null, lt = null, att = null, ship = null, groups = null, fade = null) {
     attP = att; shipP = ship;
     light = lt; shadowDirty = !!(lt && lt.lightMat);
-    const kept = retain(groups);
+    kitFade = fade;
+    const kept = retain(groups, fade ? fade.n : 0);
     const metals = [];
     menv = (quads && quads.menv) || null;
     count = quads && quads.length ? tris(quads, metals) : 0;
@@ -1426,6 +1435,7 @@ export function createSolidsLayer(gl, opt = {}) {
     }
     gl.uniform1f(loc.waterZ, opts.water != null ? opts.water : -1e9);
     gl.uniform1f(loc.waterT, (performance.now() / 1000) % 1000);
+    gl.uniform4f(loc.kitFade, 0, 0, 1e9, 1);
     gl.uniform1f(loc.under, opts.under || 0);
     gl.uniform1f(loc.underD, opts.underD || 0);
     // ⚠ SET ON EVERY DRAW for the reason the ship's sun is: a shared program keeps the last value.
@@ -1459,7 +1469,16 @@ export function createSolidsLayer(gl, opt = {}) {
     gl.enable(gl.BLEND);
     gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
     if (opts.depthOnly) { gl.disable(gl.BLEND); gl.colorMask(false, false, false, false); }
-    if (runs) { gl.bindVertexArray(ret.vao); for (const [a, k] of runs) gl.drawArrays(gl.TRIANGLES, a, k); }
+    if (runs) {
+      gl.bindVertexArray(ret.vao);
+      let on = false;
+      for (const [a, k, f] of runs) {
+        const want = !!(f && kitFade);
+        if (want !== on) { on = want; if (on) gl.uniform4fv(loc.kitFade, kitFade.v); else gl.uniform4f(loc.kitFade, 0, 0, 1e9, 1); }
+        gl.drawArrays(gl.TRIANGLES, a, k);
+      }
+      if (on) gl.uniform4f(loc.kitFade, 0, 0, 1e9, 1);
+    }
     if (n) { gl.bindVertexArray(vao); gl.drawArrays(gl.TRIANGLES, first, n); }
     gl.bindVertexArray(null);
     if (opts.film) gl.depthMask(true);

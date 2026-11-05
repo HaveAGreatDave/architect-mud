@@ -12,7 +12,8 @@
 // aircraft. A lamp column is 0.016 of a tile across, a quarter of a texel there, so it would cast
 // a dotted line or nothing. Over the ground in front of the eye the same 2048 gives about 100 from a cab.
 // ⚠ BUILT ON THE CPU FROM THE RECORDS THE FRAME ALREADY HAS: a solid's `p`, a stroke's two ends, an
-// actor's foot point. A few thousand triangles in one buffer and one draw. The solids and actors
+// actor's foot point, in one buffer and one draw: about 160,000 triangles on a Halcyon street, nearly all
+// of them the street kit's (see keptCasters). The solids and actors
 // layers' own VAOs can't be borrowed: an actor is skinned from a texture in its vertex shader, and
 // a stroke is expanded to a SCREEN width there, which from the sun is no width at all.
 import { lightMatrix } from './camera.js';
@@ -31,7 +32,7 @@ export const PROP_BIAS_TILES = 0.012;
 // that would be a plank of shadow on the road.
 // `actorH`/`actorW`: a person, in metres, as a slab turned to face the sun. `top` is the box's
 // ceiling in tiles: anything higher clips out of the map (an aircraft overhead).
-export const PROP_SHADOW_TUNE = { near: 6, perEye: 10, far: 18, ahead: 0.55, wMin: 0.002, wMax: 0.016, actorH: 1.75, actorW: 0.5, top: 1.4, flat: 0.02 };
+export const PROP_SHADOW_TUNE = { near: 6, perEye: 10, far: 18, ahead: 0.55, wMin: 0.002, wMax: 0.016, actorH: 1.75, actorW: 0.5, top: 1.4, flat: 0.02, keep: 1 };
 
 const VERT = `#version 300 es
 layout(location = 0) in vec3 aPos;
@@ -97,16 +98,74 @@ export function propBox(eye, fwd, T = PROP_SHADOW_TUNE) {
 
 const inBox = (b, x, y) => x >= b.x0 - 1 && x <= b.x1 + 1 && y >= b.y0 - 1 && y <= b.y1 + 1;
 
+// ⚠ FILM IS SEE-THROUGH (a rotor disc), THE ROOM IS INSIDE THE NEAR PLANE, AND A BIRD, A CLOTH OR A
+// MURMURATION IS AN INSTANCE RECORD WITH NO `p`. Nothing else is filtered: a translucent solid is a
+// fading one, and its shadow fades with it below half.
+const castable = (q) => {
+  if (q.film || q.interior || q.inst || q.cloth || q.cloud) return false;
+  const P = q.p;
+  return !!P && P.length >= 3 && !(q.a != null && q.a < 0.5);
+};
+// ⚠ A FACE THAT NEVER LEAVES THE GROUND CASTS NOTHING BUT ACNE. A kerb top, a plinth, a paving slab
+// lies within a hair of the road it would shade, and the bias can't separate them: it came out as
+// blotches all over a crossing. Above T.flat at one corner or it is skipped.
+const offGround = (P, T) => {
+  let top = -1;
+  for (let k = 0; k < P.length; k++) if (P[k][2] > top) top = P[k][2];
+  return top >= T.flat;
+};
+
+// ── WHAT A KEPT SET CASTS ─────────────────────────────────────────────────────
+// A street kit tile's faces (BAY_SINK.sets) stay one array until the tile changes, which is what the
+// solids layer retains them by, so what they cast is worked out once per array. Walking them record by
+// record was 10 to 13 ms of a Halcyon frame: 60,000 faces against a budget of a few thousand triangles.
+// `tri` is the same floats the walk would write, in the same order. A tile wholly in the box goes in
+// as one copy; only a tile across its edge asks face by face, so the buffer is the walk's to the byte.
+const KEPT_CASTERS = new WeakMap();
+function keptCasters(L, T) {
+  let e = KEPT_CASTERS.get(L);
+  if (e && e.flat === T.flat) return e;
+  const faces = [];
+  let floats = 0;
+  for (let i = 0; i < L.length; i++) {
+    const q = L[i];
+    if (q && castable(q) && offGround(q.p, T)) { faces.push(q.p); floats += (q.p.length - 2) * 9; }
+  }
+  const n = faces.length, tri = new Float32Array(floats), off = new Int32Array(n + 1);
+  const px = new Float64Array(n), py = new Float64Array(n);
+  let o = 0, x0 = Infinity, x1 = -Infinity, y0 = Infinity, y1 = -Infinity;
+  for (let i = 0; i < n; i++) {
+    const P = faces[i], p0 = P[0];
+    px[i] = p0[0]; py[i] = p0[1]; off[i] = o;
+    if (p0[0] < x0) x0 = p0[0];
+    if (p0[0] > x1) x1 = p0[0];
+    if (p0[1] < y0) y0 = p0[1];
+    if (p0[1] > y1) y1 = p0[1];
+    for (let k = 1; k + 1 < P.length; k++) {
+      const a = P[k], b = P[k + 1];
+      tri[o] = p0[0]; tri[o + 1] = p0[1]; tri[o + 2] = p0[2];
+      tri[o + 3] = a[0]; tri[o + 4] = a[1]; tri[o + 5] = a[2];
+      tri[o + 6] = b[0]; tri[o + 7] = b[1]; tri[o + 8] = b[2];
+      o += 9;
+    }
+  }
+  off[n] = o;
+  e = { flat: T.flat, n, tri, off, px, py, x0, x1, y0, y1 };
+  KEPT_CASTERS.set(L, e);
+  return e;
+}
+
 // Triangles for every caster in the box, as xyz floats in the map window's frame. `buf` is reused.
 //   solids:  lists of solid records ({ p: [[x,y,z]...] }), map window. Film, the room, the birds and
-//            the cloth are skipped: see the ⚠s below.
+//            the cloth are skipped: see `castable`.
+//   kept:    the same, in arrays that don't change: see `keptCasters`. They carry no actors.
 //   strokes: { runs: [{ list, ox, oy }], vp, FL }: the stroke list cut where a retained group
 //            carries its own shift (strokeRuns), the window camera's view-projection (for each end's
 //            depth) and its focal length in the stroke widths' device pixels.
 //   travel:  the light's travel direction, world, unit. null for a lamp (gl/lampshadow.js): one buffer
 //            serves several lamps on every side of a caster, so a slab is laid as an X of two, each
 //            square to the segment, and casts near its full width from any side.
-export function buildPropCasters(buf, box, { solids, strokes, travel }, T = PROP_SHADOW_TUNE) {
+export function buildPropCasters(buf, box, { solids, kept, strokes, travel }, T = PROP_SHADOW_TUNE) {
   let d = buf.data, o = 0;
   const need = (n) => {
     if (o + n <= d.length) return;
@@ -136,8 +195,7 @@ export function buildPropCasters(buf, box, { solids, strokes, travel }, T = PROP
     quad(ax, ay, az, bx, by, bz, ey * uz - ez * uy, ez * ux - ex * uz, ex * uy - ey * ux, hw);
   };
   let nSolid = 0, nStroke = 0, nActor = 0;
-  for (const L of solids || []) {
-    if (!L) continue;
+  const walk = (L) => {
     for (let i = 0; i < L.length; i++) {
       const q = L[i];
       if (!q) continue;
@@ -149,27 +207,34 @@ export function buildPropCasters(buf, box, { solids, strokes, travel }, T = PROP
         nActor++;
         continue;
       }
-      // ⚠ FILM IS SEE-THROUGH (a rotor disc), THE ROOM IS INSIDE THE NEAR PLANE, AND A BIRD, A CLOTH
-      // OR A MURMURATION IS AN INSTANCE RECORD WITH NO `p`. Nothing else is filtered: a translucent
-      // solid is a fading one, and its shadow fades with it below half.
-      if (q.film || q.interior || q.inst || q.cloth || q.cloud) continue;
-      const P = q.p;
-      if (!P || P.length < 3 || (q.a != null && q.a < 0.5)) continue;
-      const p0 = P[0];
-      if (!inBox(box, p0[0], p0[1])) continue;
-      // ⚠ A FACE THAT NEVER LEAVES THE GROUND CASTS NOTHING BUT ACNE. A kerb top, a plinth, a paving
-      // slab lies within a hair of the road it would shade, and the bias can't separate them: it
-      // came out as blotches all over a crossing. Above T.flat at one corner or it is skipped.
-      let top = -1;
-      for (let k = 0; k < P.length; k++) if (P[k][2] > top) top = P[k][2];
-      if (top < T.flat) continue;
+      if (!castable(q)) continue;
+      const P = q.p, p0 = P[0];
+      if (!inBox(box, p0[0], p0[1]) || !offGround(P, T)) continue;
       need((P.length - 2) * 9);
       for (let k = 1; k + 1 < P.length; k++) {
         put(p0[0], p0[1], p0[2]); put(P[k][0], P[k][1], P[k][2]); put(P[k + 1][0], P[k + 1][1], P[k + 1][2]);
       }
       nSolid++;
     }
-  }
+  };
+  const copy = (e) => {
+    if (e.x1 < box.x0 - 1 || e.x0 > box.x1 + 1 || e.y1 < box.y0 - 1 || e.y0 > box.y1 + 1) return;
+    if (inBox(box, e.x0, e.y0) && inBox(box, e.x1, e.y1)) {
+      need(e.tri.length);
+      d.set(e.tri, o);
+      o += e.tri.length; nSolid += e.n;
+      return;
+    }
+    for (let i = 0; i < e.n; i++) {
+      if (!inBox(box, e.px[i], e.py[i])) continue;
+      const a = e.off[i], b = e.off[i + 1];
+      need(b - a);
+      for (let k = a; k < b; k++) d[o++] = e.tri[k];
+      nSolid++;
+    }
+  };
+  for (const L of solids || []) if (L) walk(L);
+  for (const L of kept || []) if (L) { if (T.keep) copy(keptCasters(L, T)); else walk(L); }
   const S = strokes;
   if (S && S.runs && S.vp && S.FL > 0) {
     // `vp` is the WINDOW camera's (windowFrame in context.js), the frame every run is shifted into.
