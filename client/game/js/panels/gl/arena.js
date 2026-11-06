@@ -942,24 +942,32 @@ export function createArenaRenderer(canvas, overlay, W0, ice) {
       }
     }
     // ── the ink round the players ─────────────────────────────────────────────
-    const INK_COL = [0.035, 0.04, 0.05];
-    function drawInk(vp, shake, w, h, u) {
+    const INK_COL = [0.035, 0.04, 0.05], INK_BACK = 0.3;
+    function drawInk(vp, proj, shake, w, h, u) {
       gl.useProgram(INK.p);
       gl.uniformMatrix4fv(INK.u('uVP'), false, vp); gl.uniform2fv(INK.u('uShake'), shake);
       gl.uniform2f(INK.u('uRes'), w, h);
-      // 0.09 ft of the man, between 1.2 and 3.6 px of a 900-wide picture; the house style's line
-      // when the comic look is on (gl/house-style.js)
-      const ink = inkOf({ ft: 0.09, px: [1.2, 3.6], col: INK_COL });
-      gl.uniform4f(INK.u('uInk'), ink.ft, ink.px[0] * u, ink.px[1] * u, 0.0006);
-      gl.uniform3fv(INK.u('uCol'), ink.col);
       // heavier on the side away from the banks with it on (HOUSE.weigh), as the park's line is
       gl.uniform3fv(INK.u('uKey'), KEY);
       gl.uniform1f(INK.u('uWeigh'), figureLightOf({ bands: CEL.bands, shade: CEL.shade }).weigh);
-      for (const [Ly, first] of [[L.dyn, propsN], [L.jers, 0], [L.masks, 0]]) {
-        if (Ly.n - first <= 0) continue;
-        gl.bindVertexArray(Ly.vao); gl.drawArrays(gl.TRIANGLES, first, Ly.n - first);
-        st.draws++; st.tris += (Ly.n - first) / 3;
-      }
+      // 0.09 ft of the man, between 1.2 and 3.6 px of a 900-wide picture; the house style's line
+      // when the comic look is on (gl/house-style.js)
+      const own = { ft: 0.09, px: [1.2, 3.6], col: INK_COL }, ink = inkOf(own);
+      gl.uniform3fv(INK.u('uCol'), ink.col);
+      const pass = (ft, px, depth, back) => {
+        gl.uniform4f(INK.u('uInk'), ft, px[0] * u, px[1] * u, depth);
+        gl.uniform2f(INK.u('uBack'), -proj[14], back);
+        for (const [Ly, first] of [[L.dyn, propsN], [L.jers, 0], [L.masks, 0]]) {
+          if (Ly.n - first <= 0) continue;
+          gl.bindVertexArray(Ly.vao); gl.drawArrays(gl.TRIANGLES, first, Ly.n - first);
+          st.draws++; st.tris += (Ly.n - first) / 3;
+        }
+      };
+      // The comic look's line is wide enough to be a slab across his own chest, so it stays well
+      // behind him, round the outside only. Either way the view's own line goes a few inches
+      // behind the man (gl/ink.js): an arm keeps its line across his body.
+      if (ink !== own) pass(ink.ft, ink.px, 0.0006, 0);
+      pass(own.ft, own.px, 0, INK_BACK);
     }
     // ── the comic look's outlines ─────────────────────────────────────────────
     // The park lines its picture off the depth it already keeps (gl/ssao.js createDepthSSAO ink,
@@ -1101,7 +1109,7 @@ export function createArenaRenderer(canvas, overlay, W0, ice) {
       // the bowl, less the stands this view's camera stands in, and the fans in it
       for (let i = 0; i < 4; i++) if (!((i & 1) && !ring)) draw(L.bowl[i]);
       drawFans(vp, shake, shown, eye);
-      if (api.ink) { drawInk(vp, shake, w, h, u); }
+      if (api.ink) { drawInk(vp, M0.proj, shake, w, h, u); }
       useLit(vp, eye, shake, -1e9);
       draw(L.stat); draw(L.ads, texAds);
       drawFigures();

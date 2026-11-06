@@ -5,7 +5,15 @@
 // on the screen (a world width, `uInk.x`, held between `uInk.y` and `uInk.z` pixels so a far body
 // keeps a line and a near one doesn't get a slab) and sets it a little behind itself (`uInk.w`), so
 // the body covers the inside and the line shows round its edge, and round anything held in front of
-// it. An unlit vertex (a zero normal) gets none: it stays on the body, unpushed.
+// it. An unlit vertex (a zero normal) gets none: it stays on the body, unpushed. Nor does one
+// marked with arena-mesh.js noInk: a stick is thinner than the line, which would swallow it.
+//
+// ⚠ HOW FAR BEHIND IS A DISTANCE, NOT A DEPTH. `uInk.w` is in depth-buffer units, and a depth
+// buffer's unit grows with the square of the range: the rink's 0.0006 was five feet at the far
+// boards. An arm's line then sat behind the chest the arm was in front of, so the line stopped at
+// the edge of the body, and a line that stops at an edge says the thing went behind it. `uBack` is
+// [-P[14], feet]: set, the line sits that many feet behind at any range, whatever is there to see
+// it against. A view that never sets it keeps `uInk.w`.
 //
 // The comic look's weighted line (gl/house-style.js HOUSE.weigh, as the park's SKIN_INK_VS): on
 // the side away from `uKey`, the way to the key light, the line is up to `uWeigh` times as wide.
@@ -15,17 +23,21 @@
 export const INK_VS = `#version 300 es
 layout(location = 0) in vec3 aPos;
 layout(location = 1) in vec3 aNor;
+layout(location = 4) in float aTex;
 uniform mat4 uVP;
 uniform vec2 uShake;
 uniform vec2 uRes;
 uniform vec4 uInk;
 uniform vec3 uKey; uniform float uWeigh;
+uniform vec2 uBack;
+// ndc z is A + B / depth, so a clip z at depth w put ft further off moves by -B ft / (w + ft)
+float backOf(float w) { return uBack.y > 0.0 ? uBack.x * uBack.y / (w + uBack.y) : uInk.w * w; }
 void main() {
   float nl = dot(aNor, aNor);
   vec4 c = uVP * vec4(aPos, 1.0);
   // a vertex with no normal, or behind the eye, stays where it is unpushed: thrown off screen
   // alone, it dragged its triangle across the picture with it
-  if (nl < 0.01 || c.w <= 0.0) { c.z += uInk.w * max(c.w, 0.0); gl_Position = c; return; }
+  if (nl < 0.01 || c.w <= 0.0 || aTex < -0.5) { c.z += backOf(max(c.w, 0.0)); gl_Position = c; return; }
   vec3 n = aNor * inversesqrt(nl);
   vec4 cn = uVP * vec4(aPos + n * uInk.x, 1.0);
   vec2 d = (cn.xy / max(cn.w, 1e-3) - c.xy / c.w) * uRes * 0.5;
@@ -33,7 +45,7 @@ void main() {
   vec2 dir = L > 1e-4 ? d / L : vec2(0.0);
   float wk = mix(max(uWeigh, 1.0), 1.0, smoothstep(-0.5, 0.7, dot(n, uKey)));
   c.xy += dir * clamp(L, uInk.y, uInk.z) * wk / (uRes * 0.5) * c.w;
-  c.z += uInk.w * c.w;
+  c.z += backOf(c.w);
   c.xy += uShake * c.w;
   gl_Position = c;
 }`;

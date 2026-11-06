@@ -1678,7 +1678,7 @@ export function createDirector(W, opts = {}) {
           // (in alone he starts his deke a little before the shot's time, so the save it ends in
           // lands as it's called)
           const lead = kind === 'breakaway' && g && g.active ? 0.45 : 0;
-          if (has && alone) sh.maxV = clamp(d / Math.max(0.3, left - lead), 11, 24);
+          if (has && alone) sh.maxV = clamp(d / Math.max(0.3, left - lead), 9, 24);
           if (has && !(left <= 0 && !inRange) && !alone) runUp(sh, leg, left, type);
           // (and if he's there anyway, he doesn't stop to wait for it)
           const there = alone && d < 5 && (kind !== 'goal' || inFront);
@@ -1940,7 +1940,9 @@ export function createDirector(W, opts = {}) {
         // running late, the hitter finds another gear and the man with it, once he's on the
         // wall, eases up into him (short of it he keeps going to it)
         if (rel > (impT != null ? impT + 0.4 : 3.0)) { hitter.maxV = 34; hitter.acc = 60; if (there || style === 'behind') victim.maxV = Math.min(victim.maxV, 6); }
-        if (charging && hyp(hitter.x - victim.x, hitter.y - victim.y) < 3.3) { hit = true; impact(); }
+        // (never in the play's first moments: a man already on him when it starts hit him on its
+        // first frame, before there was any of it recorded for the replay to run up to the hit)
+        if (charging && rel > 0.6 && hyp(hitter.x - victim.x, hitter.y - victim.y) < 3.3) { hit = true; impact(); }
       } else if (B.ownsCam) {
         // (once play has stopped for him, the picture goes to the man down)
         const v = victim.rag ? victim.rag.pts[0] : victim;

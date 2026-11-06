@@ -79,6 +79,9 @@ export function createBatch(cap = 1 << 15) {
   return { data: new Float32Array(cap * STRIDE), n: 0, uv: null };
 }
 export const reset = (b) => { b.n = 0; b.uv = null; return b; };
+// What's thinner than the line goes without it (gl/ink.js): every vertex in `b` from `from` on is
+// marked in the slot that says textured, and only the ink pass reads below zero.
+function noInk(b, from) { for (let i = from; i < b.n; i++) b.data[i * STRIDE + 12] = -1; }
 function grow(b, more) {
   const need = (b.n + more) * STRIDE;
   if (need <= b.data.length) return;
@@ -636,8 +639,10 @@ export function buildBody(b, bt, J, o) {
     const heel = at(-0.24, 0, -0.25), toeC = at(0.76, 0, -0.36);
     tube(b, heel, toeC, 0.16, 0.12, BOOT, seg);
     tube(b, at(0, 0, 0.05), at(0.12, 0, -0.21), 0.19, 0.16, BOOT, seg);
+    const steel0 = b.n;
     box(b, at(-0.24, 0, -0.45), at(0.76, 0, -0.46), 0.035, 0.07, HOLDER, fr.Z);
     box(b, at(-0.32, 0, -0.525), at(0.9, 0, -0.525), 0.012, 0.025, STEEL, fr.Z);
+    noInk(b, steel0);
     if (det) {
       // the tongue up the front of the boot, and the tendon guard at the back
       box(b, at(0.14, 0, -0.31), at(0.2, 0, -0.03), 0.1, 0.03, mix(BOOT, 0.25), fr.X);
@@ -795,7 +800,7 @@ export function buildBody(b, bt, J, o) {
 
   // stick
   if (J[18] && J[19] && J[20]) {
-    const bend = J.meta && J.meta.bend;
+    const stick0 = b.n, bend = J.meta && J.meta.bend;
     if (bend) { tube(b, J[18], bend, 0.07, 0.065, STICK, 6); tube(b, bend, J[19], 0.065, gk ? 0.09 : 0.06, STICK, 6); }
     else tube(b, J[18], J[19], 0.07, gk ? 0.09 : 0.06, STICK, 6);
     tube(b, J[18], V.lerp(J[18], J[19], 0.06), 0.08, 0.077, TAPE, 6);
@@ -809,6 +814,7 @@ export function buildBody(b, bt, J, o) {
     box(b, V.add(J[19], o13), V.add(mid, o13), 0.03, 0.13, STICK, bu);
     box(b, V.add(mid, o13), V.add(toe, o12), 0.03, 0.12, STICK, bu);
     if (det) { box(b, V.add(V.lerp(J[19], J[20], 0.15), o13), V.add(mid, o13), 0.034, 0.12, TAPE, bu); box(b, V.add(mid, o13), V.add(V.lerp(mid, toe, 0.7), o125), 0.034, 0.115, TAPE, bu); }
+    noInk(b, stick0);
   }
   if (J.meta && J.meta.bottle) tube(b, J.meta.bottle, V.add(J.meta.bottle, [0, 0, -0.75]), 0.12, 0.13, rgb('#468cdc'), 8);
 }
@@ -919,8 +925,10 @@ export function ribbon(b, pts, eye, w0, w1, c0, c1) {
 
 // ── the arena's furniture ────────────────────────────────────────────────────
 export function buildPuck(b, pk) {
+  const n0 = b.n;
   disc(b, [pk.x, pk.y, pk.z + 0.06], [0, 0, 1], 0.21, rgb('#0b0c0f'), 14, 0.11);
   disc(b, [pk.x, pk.y, pk.z + 0.118], [0, 0, 1], 0.17, rgb('#2c2f36'), 14, 0.005);
+  noInk(b, n0);
 }
 export function buildDebris(b, d, K) {
   if (d.kind === 'stick') {

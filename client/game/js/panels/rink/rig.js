@@ -110,16 +110,16 @@ function bladeRaw(s, T, carrying) {
     }
     return carryRaw(s, T);
   }
-  return [2.3, 0.75 + 0.18 * Math.sin(s.phase * TAU)];
+  return [3.2, 0.75 + 0.18 * Math.sin(s.phase * TAU)];
 }
 function carryRaw(s, T) {
   {
     const sp = hyp(s.vx || 0, s.vy || 0);
     if (s.protect) return [1.5, -s.protect * mirrorOf(s) * 1.35];   // on the far side from the man
-    if (sp > 21) return [3.0, 0.45 + 0.15 * Math.sin(T * 4 + s.seed)];  // pushed ahead, one hand
+    if (sp > 21) return [3.7, 0.45 + 0.15 * Math.sin(T * 4 + s.seed)];  // pushed ahead, one hand
     // the dangle: forehand to backhand and back, a little ahead and behind, never the same twice
     const f = 1.55 + (s.seed % 7) * 0.06;
-    return [2.35 + 0.22 * Math.cos(T * f * 2.1 + s.seed), 0.5 + 0.7 * Math.sin(T * f * TAU * 0.5 + s.seed)];
+    return [3.25 + 0.22 * Math.cos(T * f * 2.1 + s.seed), 0.5 + 0.7 * Math.sin(T * f * TAU * 0.5 + s.seed)];
   }
 }
 export function bladeWorld(s, T, carrying) {
@@ -146,17 +146,46 @@ const bump = (t) => Math.sin(clamp(t, 0, 1) * Math.PI);
 export const STICK = 4.5;            // top hand to the heel of the blade, feet
 const GSTICK = 2.45;                 // a goalie's blocker to his heel, at the top of the paddle
 const ARM = 2.12;                    // shoulder to glove at full stretch
-function fitStick(R0, blade0, shR, shL, wantT, oneHand) {
-  let d = V.sub(R0, blade0), len = V.len(d) || 1;
-  let hand = V.add(blade0, V.mul(d, STICK / len));
-  // look for a grip that keeps the blade where it is AND the hand within reach: alternate
-  // between the two constraints, which settles on a point both allow whenever one exists
-  for (let i = 0; i < 6; i++) {
+// THE CHEST IS SOLID. A stick's length from a blade near his feet is a spot inside his sweater,
+// and a top hand left there took the forearm through the chest and, when the blade came in, out
+// through his back, which read as his arms going behind him. So a hand is kept outside the
+// sweater (arena-mesh.js SK_RINGS, about 0.8 by 0.55 through the chest, plus the glove), in front
+// of him if it was behind his middle. `T` is his torso: pelvis, up, side, forward, length.
+const CHEST = { rs: 0.8, rf: 0.55 };
+const torsoOf = (pel, neck, shL, shR) => {
+  const U = V.norm(V.sub(neck, pel)), s = V.sub(shL, shR), S = V.norm(V.sub(s, V.mul(U, V.dot(s, U))));
+  return { pel, U, S, F: V.cross(S, U), len: V.len(V.sub(neck, pel)) };
+};
+function clearChest(p, T, pad) {
+  const d = V.sub(p, T.pel), f = V.dot(d, T.U) / T.len;
+  if (f < -0.25 || f > 1.05) return p;
+  const side = V.dot(d, T.S), fwd = V.dot(d, T.F), a = CHEST.rs + pad, b = CHEST.rf + pad, r = hyp(side / a, fwd / b);
+  if (r >= 1) return p;
+  const k = 1 / Math.max(r, 0.05), f2 = Math.abs(fwd) * k, s2 = side * k;
+  // (dead centre has no direction of its own: straight out of his front)
+  const out = r < 0.05 ? b : f2;
+  return V.add(p, V.add(V.mul(T.S, s2 - side), V.mul(T.F, out - fwd)));
+}
+function fitStick(R0, blade0, shR, shL, wantT, oneHand, T) {
+  // a stick's length from the blade: with the blade on the ice the hand keeps its height and the
+  // stick swings round the blade, so a blade in close sends the hands out to the side of him and
+  // not up to his chin; off the ice, straight along the shaft
+  const onStick = (p) => {
+    if (blade0[2] < 0.3) {
+      const dz = p[2] - blade0[2], du = p[0] - blade0[0], dv = p[1] - blade0[1], k = Math.sqrt(Math.max(0.04, STICK * STICK - dz * dz)) / (hyp(du, dv) || 1);
+      return [blade0[0] + du * k, blade0[1] + dv * k, p[2]];
+    }
+    const b = V.sub(p, blade0);
+    return V.add(blade0, V.mul(b, STICK / (V.len(b) || 1)));
+  };
+  let hand = onStick(R0);
+  // look for a grip that keeps the blade where it is, the hand within reach and out of his chest:
+  // alternate between the constraints, which settles on a point they all allow whenever one exists
+  for (let i = 0; i < 8; i++) {
     const a = V.sub(hand, shR), al = V.len(a);
-    if (al <= ARM) break;
-    hand = V.add(shR, V.mul(a, ARM / al));
-    const b = V.sub(hand, blade0), bl = V.len(b) || 1;
-    hand = V.add(blade0, V.mul(b, STICK / bl));
+    const out = clearChest(al > ARM ? V.add(shR, V.mul(a, ARM / al)) : hand, T, 0.3);
+    if (out === hand) break;
+    hand = onStick(out);
   }
   let blade = blade0;
   const a = V.sub(hand, shR), al = V.len(a);
@@ -176,9 +205,9 @@ function fitStick(R0, blade0, shR, shL, wantT, oneHand) {
   let L = null;
   if (!oneHand) {
     let bs = 1e9;
-    for (let t = 0.9; t <= 2.8; t += 0.1) {
+    for (let t = 0.8; t <= 2.8; t += 0.1) {
       const p = V.add(hand, V.mul(dir, t)), r = V.len(V.sub(p, shL));
-      if (r > ARM * 0.98) continue;
+      if (r > ARM * 1.02) continue;
       const sc = Math.abs(t - wantT) + Math.max(0, 1.3 - r) * 2;
       if (sc < bs) { bs = sc; L = p; }
     }
@@ -297,10 +326,11 @@ function standRig(s, T, feet) {
   // ── body from the stride: weight over the gliding skate, hips dropping on the push ──
   // knees bent with the work, but never into a squat: the stride's share is capped
   let crouch = s.crouch + Math.min(0.55, 0.4 * a * (1 - wBack) + 0.35 * wBack + 0.06 * wCross + 0.12 * wStart + 0.1 * wGlide) + s.duck * 0.5;
-  let lean = (official ? 0.08 : 0.24) + 0.42 * a + 0.12 * crouch + 0.3 * wStart - 0.2 * wBack;
+  let lean = (official ? 0.08 : s.stick ? 0.36 : 0.24) + 0.42 * a + 0.12 * crouch + 0.3 * wStart - 0.2 * wBack;
   // into the acceleration, back against the braking: weight moves with the speed change
   lean += clamp((s.accel || 0) * 0.012, -0.22, 0.26) * (1 - wBack);
-  let twist = -0.16 * stridePush;
+  // (a stick in both hands brings the bottom hand's shoulder round to it)
+  let twist = -0.16 * stridePush - (s.stick && !official ? 0.24 : 0);
   // ⚠ INTO THE TURN. roll() tips a positive angle to his right (-v) and a positive turn
   // bends to his left (+v), so the lean is the turn's negative. It was the other way, and the
   // whole league leaned out of every corner.
@@ -440,10 +470,10 @@ function standRig(s, T, feet) {
       const pl = toLocal(aimAt[0], aimAt[1], 0), r = hyp(pl[0], pl[1]);
       if (r < 4.2) {
         const k = 0.12 / (r || 1);
-        bBlade = [clamp(pl[0] - pl[0] * k, 0.7, 3.5), clamp(pl[1] - pl[1] * k, -2.2, 2.2), 0.06];
+        bBlade = [clamp(pl[0] - pl[0] * k, 0.7, 3.9), clamp(pl[1] - pl[1] * k, -2.2, 2.2), 0.06];
       }
     }
-    let bR = [0.55 + 0.16 * stridePush, -0.32 + 0.16 * stridePush, zp + 0.72];
+    let bR = [1.1 + 0.16 * stridePush, -0.4 + 0.16 * stridePush, zp + 0.95];
     let bL = null;
     const fast = sp > 21 && !carrying ? true : (carrying && sp > 21 && !s.protect);
     if (s.defend && !carrying) {
@@ -578,7 +608,7 @@ function standRig(s, T, feet) {
     if (blade && stickFit) {
       // fit the stick: fixed length, top hand at the knob, bottom hand on the shaft
       if (blade[2] < 1.4) { const ko = keepOut(blade[0], blade[1], 0.05); blade = [ko[0], ko[1], blade[2]]; }
-      const fit = fitStick(R, blade, rShR, rShL, stickFit.wantT, stickFit.oneHand);
+      const fit = fitStick(R, blade, rShR, rShL, stickFit.wantT, stickFit.oneHand, torsoOf(rPel, rNeck, rShL, rShR));
       R = fit.R; blade = fit.blade; stickDir = fit.dir;
       if (!stickFit.oneHand && !stickFit.aL) {
         // no comfortable grip for the bottom hand: it comes off the stick and swings free
@@ -588,8 +618,8 @@ function standRig(s, T, feet) {
       if (stickFit.oneHand) oneHanded = true;
       [R, L] = easeStick(s, T, R, L, blade, handRate, m);
     }
-    [rElL, rHL] = ik(rShL, L, 1.12, 1.05, roll([-0.3, 1, -0.8], tilt));
-    [rElR, rHR] = ik(rShR, R, 1.12, 1.05, roll([-0.3, -1, -0.8], tilt));
+    [rElL, rHL] = ik(rShL, L, 1.12, 1.05, roll([0.1, 0.8, -1], tilt));
+    [rElR, rHR] = ik(rShR, R, 1.12, 1.05, roll([0.1, -0.8, -1], tilt));
   }
 
   // ── legs: the blended stride, then whatever the action wants of them ─────

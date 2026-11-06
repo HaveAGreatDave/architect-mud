@@ -393,6 +393,37 @@ body(skaters[8], 'skater missing his head', null, BUD);
   check('coming out of the net it never jumps', worst < 1.6, `${worst.toFixed(2)} ft in a step`);
 }
 
+// ── a top hand stays out of the sweater ──────────────────────────────────────
+// A stick's length up the shaft from a blade near his feet is inside his chest: 88% of the time
+// standing about and 63% with the puck, before the stick fit kept the hand out, and it read as his
+// arms going behind him. Sampled over open play. The half-width and half-depth are the sweater's
+// through the chest (arena-mesh.js SK_RINGS), which clearChest in rink/rig.js keeps a glove off.
+{
+  const W2 = createWorld(createIce(document), 'chest');
+  const D2 = createDirector(W2, {});
+  for (let i = 0; i < 60; i++) W2.step(DT);
+  D2.reset();
+  const sub = (a, b) => [a[0] - b[0], a[1] - b[1], a[2] - b[2]], dot = (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
+  const unit = (a) => { const l = Math.hypot(...a) || 1; return [a[0] / l, a[1] / l, a[2] / l]; };
+  let n = 0, inside = 0;
+  for (let i = 0; i < 20 / DT; i++) {
+    W2.step(DT);
+    if (i % 24) continue;
+    for (const b of W2.skaters()) {
+      if (b.rag || !b.stick || b.act || b.carrying) continue;
+      const J = W2.rigOf(b);
+      if (!J[18]) continue;
+      const U = unit(sub(J[2], J[0])), s = sub(J[4], J[7]), k = dot(s, U), S = unit([s[0] - U[0] * k, s[1] - U[1] * k, s[2] - U[2] * k]);
+      const F = [S[1] * U[2] - S[2] * U[1], S[2] * U[0] - S[0] * U[2], S[0] * U[1] - S[1] * U[0]];
+      const d = sub(J[b.hand === 'R' ? 6 : 9], J[0]), up = dot(d, U) / Math.hypot(...sub(J[2], J[0]));
+      n++;
+      if (up > -0.2 && up < 1 && Math.hypot(dot(d, S) / 0.8, dot(d, F) / 0.55) < 1) inside++;
+    }
+  }
+  check('skaters were sampled for their hands', n > 200, `${n} samples`);
+  check('a top hand stays out of the sweater', inside / n < 0.06, `${inside} of ${n} samples inside him`);
+}
+
 // ── positions ────────────────────────────────────────────────────────────────
 // Between plays the men play their positions. Set a club up with the puck deep in the
 // other end and they should be on the points, at the net and in support, with the other

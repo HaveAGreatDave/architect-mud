@@ -2156,7 +2156,11 @@ the blade is, at the stick's exact length, and the bottom hand moves with the st
 rig.js). Without a stick fit (an official, a fight, a stick held up or across) both hands ease
 straight to their places (`easeHands`). About a quarter of a second for an ordinary move, quicker
 in an action, and nearly at once in a shot, a deke or a punch. The head turns the same way, slower
-(`easeLook`), and a goalie's hands ease quickly. The easing is kept on the body against the
+(`easeLook`), and a goalie's hands ease quickly. The stick fit keeps a top hand out of the sweater
+(`clearChest` in rig.js): with the blade on the ice the hand holds its height and the stick swings
+round the blade, so a blade in close sends the hands out to his side. Left a stick's length up the
+shaft, the hand was inside his chest most of the time and came out of his back on a close dangle,
+which read as his arms going behind him. The easing is kept on the body against the
 instant, as the blade's is, so the picture and its reflection ease once.
 
 **One shape for every body.** Every field the sim, the director or the rig hangs on a man is

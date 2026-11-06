@@ -254,6 +254,11 @@ layer. Before this it took only the house ink and a wider hull, over smooth ligh
 - **The weighted line.** [gl/ink.js](../../client/game/js/panels/gl/ink.js) `INK_VS` swells to
   `HOUSE.weigh` on the side away from `uKey`, as the park's line does. A view that never sets
   `uWeigh` (the kitchen) reads 0 as 1.
+- **Two lines on a man.** The wide comic line stays well behind him, round the outside only: it's
+  wide enough to be a slab across his own chest. The rink's own thin line goes over it, 0.3 ft
+  behind him at any range (`uBack` in gl/ink.js), so an arm keeps a line across his body. With the
+  look off, only the thin line is drawn. Sticks, skate steel and the puck take neither (`noInk` in
+  gl/arena-mesh.js): they're thinner than the line.
 - **Inked sweaters.** `inkSweater` paints the park kits' strokes at the rink's slot scale: the side
   seams and the collar ruled, folds under the arms and off the hem, a quarter-strength painted
   shadow, and the number, the name and the plain crest outlined. The strokes are
