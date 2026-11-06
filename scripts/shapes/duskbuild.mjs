@@ -7,7 +7,9 @@
 // night blend climbs through wallTexMixed's 64 steps. With glDuskGPU 1 the shader blends the hour, so
 // no minute may rebuild the mass buffer or the atlas. With it 0 the blend is baked, and the sweep must
 // see rebuilds, or it never reached the band and the first check proved nothing. On the baked path
-// each one repacked about 8 million floats and cost 70 ms or more of a headless frame.
+// each one repacked about 8 million floats and cost 70 ms or more of a headless frame, so the second
+// sweep takes every third minute: it only has to show the band is there, and at every minute it was
+// two-thirds of this gate. The first sweep is the claim, and it keeps every minute.
 // It also reads the packed mass: on the shader's path the vertices must carry night colours and the
 // "the city's blend" marker (aColorN.w = -1), or the hour would rebuild nothing because the colours
 // were frozen at whatever blend the last build had.
@@ -50,15 +52,16 @@ document.createElement = (t, ...a) => {
 const { installGL, glLastFrame } = await import(new URL('../../client/game/js/panels/gl/install.js', import.meta.url).href);
 installGL(() => host);
 
-// Minutes since midnight, swept with the switch at `on`. Returns rebuilds and atlas uploads.
-const sweep = (on) => {
+// Minutes since midnight, swept with the switch at `on`, `step` minutes apart. Returns rebuilds and
+// atlas uploads.
+const sweep = (on, step) => {
   scene.ws.RENDER_TUNE.glDuskGPU = on;
   // Settle on the first minute: the switch itself changes the atlas, which is one rebuild.
   const v0 = scene.view(PLACES.halcyon, 'cab', { hour: 17 + 25 / 60, heading: 30 });
   for (let i = 0; i < 3; i++) scene.ws.paintWindshield('__perf', v0);
   const b0 = glLastFrame().builds;
   atlasUploads = 0;
-  for (let m = 17 * 60 + 26; m <= 18 * 60 + 35; m++) scene.ws.paintWindshield('__perf', scene.view(PLACES.halcyon, 'cab', { hour: m / 60, heading: 30 }));
+  for (let m = 17 * 60 + 26; m <= 18 * 60 + 35; m += step) scene.ws.paintWindshield('__perf', scene.view(PLACES.halcyon, 'cab', { hour: m / 60, heading: 30 }));
   // What the last pack wrote: vertices told to take the city's blend, and ones whose night differs.
   const d = massNow(), n = d ? Math.floor(d.length / MASS_STRIDE) : 0;
   let city = 0, nightDiff = 0;
@@ -69,12 +72,12 @@ const sweep = (on) => {
   return { builds: glLastFrame().builds - b0, atlas: atlasUploads, city, nightDiff };
 };
 let gpu, baked;
-try { gpu = sweep(1); baked = sweep(0); }
+try { gpu = sweep(1, 1); baked = sweep(0, 3); }
 finally { scene.ws.RENDER_TUNE.glDuskGPU = 1; scene.close(); }
 let bad = 0;
 if (gpu.builds || gpu.atlas) { bad++; console.error(`  ✗ glDuskGPU 1: ${gpu.builds} mass rebuilds and ${gpu.atlas} atlas uploads across dusk; the hour must rebuild nothing`); }
 if (!gpu.city || !gpu.nightDiff) { bad++; console.error(`  ✗ glDuskGPU 1: ${gpu.city} vertices take the city's blend and ${gpu.nightDiff} carry a night colour; the buffer was packed with the blend baked in`); }
 if (baked.city) { bad++; console.error(`  ✗ glDuskGPU 0: ${baked.city} vertices are told to take the shader's blend on the baked path`); }
-if (baked.builds < 30) { bad++; console.error(`  ✗ glDuskGPU 0: only ${baked.builds} rebuilds across dusk, so the sweep didn't cross the band and the check above proved nothing`); }
+if (baked.builds < 10) { bad++; console.error(`  ✗ glDuskGPU 0: only ${baked.builds} rebuilds across dusk, so the sweep didn't cross the band and the check above proved nothing`); }
 if (bad) process.exit(1);
-console.log(`✓ duskbuild: 70 game minutes across dusk rebuild nothing with the shader's blend (the baked blend rebuilt ${baked.builds} times).`);
+console.log(`✓ duskbuild: 70 game minutes across dusk rebuild nothing with the shader's blend (the baked blend rebuilt at ${baked.builds} of the minutes it sampled).`);

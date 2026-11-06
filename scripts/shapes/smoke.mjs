@@ -724,20 +724,9 @@ async function main() {
     // flank — swap it and the count is identical. See facePalsSmoke in windshield.js.
     for (const f of ws.facePalsSmoke()) problems.push(`face palettes — ${f}`);
 
-    // 5. DETERMINISM, and 6. THE PORT CLAIMS. Both from scripts/shapes/modeldiff.mjs.
-    //
-    // Determinism is the precondition for every comparison the port depends on: a model that draws
-    // differently on a second identical render cannot be diffed at all. It is also worth having on
-    // its own — a Math.random or a real-clock read in an arm makes that building different every
-    // frame, and nothing else here would see it, because the capture harness holds `now` fixed and
-    // never runs one model twice at the same camera.
-    //
-    // The port gate then re-checks every `portedFrom` claim against the arm it replaced, for as
-    // long as that arm exists. It is vacuous until something is ported, and wired now so that the
-    // first port is measured rather than trusted.
-    const { determinismSweep, portedSweep } = await import('./modeldiff.mjs');
-    for (const f of determinismSweep(ws)) problems.push(`determinism — ${f}`);
-    for (const f of portedSweep(ws)) problems.push(`port — ${f}`);
+    // 5. DETERMINISM, and 6. THE PORT CLAIMS, are gates of their own: `modeldiff.mjs --determinism`
+    // and `--ported` in the manifest. They were a third of this file's CPU, and it was the gate
+    // closest to its budget. Neither reads anything this file builds.
     const ported = models.filter((r) => r.m.type === 'authored' && r.m.portedFrom).length;
     // A stand-in is NOT diffed against the arm it replaces — it is a different building on
     // purpose — but it is named, every push, because a model quietly overriding a hand-written
@@ -746,7 +735,7 @@ async function main() {
     for (const r of standIns) {
       console.log(`  ⓘ ${r.key} stands in for the hand-written ${r.m.replaces} arm — RENDER_TUNE.legacyArms puts it back.`);
     }
-    diffLine = `Model diff: all ${models.length} models render identically twice; ${ported} ported model(s) match the arm they replaced.`;
+    diffLine = `Model diff: ${ported} ported model(s) and ${standIns.length} stand-in(s), checked by modeldiff.mjs.`;
 
     // 7. CAN ANY TILE ACTUALLY REACH IT?
     //

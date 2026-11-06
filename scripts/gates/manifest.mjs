@@ -11,10 +11,41 @@
 // A gate is a node script that exits non-zero on failure and is safe to run beside any other gate:
 // no database, no fixed port, no files written. One that can't be goes in a `serial` group.
 //
-// Budget. A gate may spend DEFAULT_BUDGET_S seconds of its own CPU. The runner fails anything over,
-// by name: before this, one gate took 11 minutes of a 30-minute chain and nothing said so. A gate
-// that genuinely needs more is written as { run: 'scripts/…', budget: 90, why: '…' }, and the
-// reason has to survive review.
+// Budget. A gate may spend DEFAULT_BUDGET_S seconds of CPU on its main thread, measured alone. The
+// runner fails anything over, by name: before this, one gate took 11 minutes of a 30-minute chain
+// and nothing said so. A gate that genuinely needs more is written as
+// { run: 'scripts/…', budget: 90, why: '…' }, and the reason has to survive review.
+//
+// Why main thread, and why alone. The budget is there to catch a gate that got slower, so it has to
+// hold still when the gate didn't. Whole-process CPU beside other gates doesn't: on 2026-11-05 it
+// failed a deploy window on smoke and duskbuild with nothing wrong, and total gate CPU ran from 14 to
+// 26 minutes between CI runs of near-identical code. Seconds on a Ryzen 3600, before the fix below,
+// main thread / whole process:
+//
+//                  alone         4 at once on 4 logical CPUs   8 at once on 12
+//   duskbuild      14.6 / 35.1   21 / 43                       26 / 54
+//   smoke          23.9 / 35.6   31-37 / 46-52                 39-41 / 55-65
+//   rink 37        17.9 / 29.4   29 / 44                       32 / 52
+//   diamond 16     32.7 / 35.4   54 / 58                       52 / 56
+//
+// Three things move those numbers, and each needs its own answer:
+//
+//   1. V8's background threads, charged to the gate. In duskbuild 12 s of the 35 is concurrent
+//      marking of a 300 MB heap (--no-concurrent-marking takes it to 23), and the marker runs one
+//      worker per spare core, so it also grows with the machine. In rink the 11 s is the optimising
+//      compiler. Neither is the gate's own work. So the charge is the main thread alone.
+//   2. Sharing a core. CPU time counts a thread that's stalled behind its SMT sibling as running, so
+//      the main thread itself reads up to 1.8 times high under load, with the same work done, and no
+//      counter separates that out. So a gate over budget in the pool runs again alone at the end,
+//      and that number is the verdict. Over budget alone is the gate; beside others, maybe not.
+//   3. The runner. Every gate in a CI run moves together, by up to 1.75 times between runs, and
+//      nothing measured on the runner removes that. So it's margin: a gate at 30 s alone on the Ryzen
+//      still passes on the slowest runner seen, and one at 35 s or more has none left.
+//
+// Not everything was the measure. Smoke gave up its two model sweeps to their own gates, and
+// duskbuild's control sweep samples every third minute. A failure here still means the gate got
+// slower, so make the slow thing cheaper before raising a number. A gate passing only on the second
+// run prints a line saying so, which is the warning that it's getting close.
 export const DEFAULT_BUDGET_S = 60;
 
 export const GROUPS = [
@@ -105,6 +136,10 @@ export const GROUPS = [
     // GLASS: every building model, seat, sign and effect, headless against the DOM stub.
     gates: [
       'scripts/shapes/smoke.mjs',
+      // A model drawn twice draws the same thing: a Math.random or a clock read in an arm shows up
+      // nowhere else, because the capture harness holds `now` and never repeats a camera.
+      'scripts/shapes/modeldiff.mjs --determinism',
+      'scripts/shapes/modeldiff.mjs --ported',   // every portedFrom claim, against the arm it replaced, on 48 cameras and the mesh
       'scripts/shapes/wildlands.mjs',
       'scripts/shapes/meshes.mjs',
       'scripts/shapes/vehicle-materials.mjs',
@@ -242,8 +277,8 @@ export const GROUPS = [
       'scripts/shapes/yacht.mjs',
       'scripts/shapes/chess3d-smoke.mjs',
       // one game each, side by side (see the file)
-      { run: 'scripts/shapes/rink-smoke.mjs 37', budget: 90, why: '18 s of profiled CPU alone, 61 to 65 s on the CI runner beside three other gates (2026-10-25 and -26, four runs over 60 s). 70% is rink/sim.js stepping the whole game, which is what the gate tests; the stub renders are 14%' },
-      { run: 'scripts/shapes/rink-smoke.mjs 289', budget: 90, why: 'The same game sim as seed 37, played at sim v5 (it was slot 914 at v1 until 2026-10-28): 61 to 62 s on the CI runner beside three other gates (2026-10-25 and -26), about 47 s locally beside seven' },
+      'scripts/shapes/rink-smoke.mjs 37',
+      'scripts/shapes/rink-smoke.mjs 289',
       'scripts/shapes/arena-smoke.mjs',      // GLASS 2 rink: matrices match the 2-D camera, meshes and heads sound, ice tiles listed
       'scripts/shapes/kitchen-smoke.mjs',    // the Kitchen Stage: the matter table whole, the knife's pieces and evenness, every food, vessel and hob mesh sound
       'scripts/shapes/gameday-smoke.mjs',    // Deadball's 2-D Gameday: real games, every play lands, the runners end where the sim left them
@@ -252,8 +287,8 @@ export const GROUPS = [
       'scripts/shapes/cityscape-smoke.mjs',  // the city round it: the set composed from the content tree's skyline, every building placed and shaped, the streets from their arms
       'scripts/shapes/anim-smoke.mjs',       // Deadball's players skinned: the rig's frames, four weights a vertex, every pose on the posed build's surface, the hands on the bat
       // Deadball staged in 3-D: each pitch at its spot, every clip on the ball, every ball in play's gloves, throws and call at first, the line held to the landing (one game each, side by side)
-      { run: 'scripts/shapes/diamond-smoke.mjs 16', budget: 90, why: '31 s of CPU alone, 61 to 64 s beside seven other gates (2026-10-25), after the smoother-motion build took it from 445,786 checks to 475,200. The same animation solver cost as seed 41' },
-      { run: 'scripts/shapes/diamond-smoke.mjs 41', budget: 90, why: '36 s of CPU alone, 65 s beside seven other gates (2026-10-19). The time is the animation solver (diamond/anim.js, rig.js) posing every body at every check, not the smoke; dropping the long-hold pass to every fourth at-bat saved 8%' },
+      { run: 'scripts/shapes/diamond-smoke.mjs 16', budget: 90, why: '33 s of main-thread CPU alone (2026-11-05), past the 30 s that survives the slowest runner seen. The time is the animation solver (diamond/anim.js, rig.js) posing every body at each of 476,000 checks, which is what the gate tests, and the poses read world state that moves between checks, so they cannot be shared' },
+      { run: 'scripts/shapes/diamond-smoke.mjs 41', budget: 90, why: 'The same animation solver cost as seed 16, a little more: 36 s of CPU alone (2026-10-19). Dropping the long-hold pass to every fourth at-bat saved 8%' },
       'scripts/shapes/final-smoke.mjs',      // Deadball's final: the champions' show, the searchlights, the dress, the gold graphics, the line-ups read and the pile
       'scripts/shapes/variety-smoke.mjs',    // Deadball's balls in play over a season: spray by handedness, every grade, every line pool reachable
       'scripts/shapes/bolt.mjs',

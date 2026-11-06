@@ -10,9 +10,10 @@
 // whole output as soon as it finishes, and the run ends with one summary line and the five gates
 // that cost the most CPU, so a gate getting slow is visible before it's a problem.
 //
-// Every gate is charged for its own CPU (scripts/gates/cpu.mjs) and fails over its budget. The
-// chain this replaced ran 131 steps one after another and took about 30 minutes, 11 of them in
-// one gate that nobody knew was slow.
+// Every gate is charged for the CPU of its main thread (scripts/gates/cpu.mjs). One that goes over
+// its budget beside other gates runs again alone at the end, and that second number is the verdict;
+// the note on the budget in manifest.mjs says why. The chain this replaced ran 131 steps one after
+// another and took about 30 minutes, 11 of them in one gate that nobody knew was slow.
 import { spawn } from 'node:child_process';
 import { availableParallelism, tmpdir } from 'node:os';
 import { mkdtempSync, mkdirSync, readFileSync, writeFileSync, rmSync, existsSync } from 'node:fs';
@@ -90,21 +91,22 @@ function runGate(e, live) {
       if (settled) return;
       settled = true;
       clearTimeout(timer);
-      let cpu = null;
-      try { cpu = Number(readFileSync(cpuFile, 'utf8')); } catch { /* killed, or never started */ }
-      resolve({ e, rc: code ?? 1, signal, timedOut, cpu, wall: (performance.now() - t0) / 1000, out: Buffer.concat(chunks).toString('utf8') });
+      let cpu = null, all = null;
+      try { ({ main: cpu, all } = JSON.parse(readFileSync(cpuFile, 'utf8'))); } catch { /* killed, or never started */ }
+      resolve({ e, rc: code ?? 1, signal, timedOut, cpu, all, wall: (performance.now() - t0) / 1000, out: Buffer.concat(chunks).toString('utf8') });
     };
     child.on('error', (err) => { chunks.push(Buffer.from(`${err.message}\n`)); finish(1, null); });
     child.on('close', finish);
   });
 }
 
+const overBudget = (r) => r.cpu != null && r.cpu > r.e.budget;
 const verdict = (r) => (r.timedOut ? `timed out after ${Math.round(r.wall)} s`
   : r.rc !== 0 ? `exit ${r.rc}${r.signal ? ` (${r.signal})` : ''}`
-  : r.cpu != null && r.cpu > r.e.budget ? `over budget: ${r.cpu.toFixed(1)} s of CPU, and the budget is ${r.e.budget} s`
+  : overBudget(r) ? `over budget: ${r.cpu.toFixed(1)} s of CPU alone, and the budget is ${r.e.budget} s`
   : null);
 const secs = (s) => (s >= 60 ? `${Math.floor(s / 60)}m ${Math.round(s % 60)}s` : `${s.toFixed(1)} s`);
-const cost = (r) => `${r.cpu != null ? `${r.cpu.toFixed(1)} s CPU, ` : ''}${r.wall.toFixed(1)} s wall`;
+const cost = (r) => `${r.cpu != null ? `${r.cpu.toFixed(1)} s CPU, ${r.all.toFixed(1)} s with V8's threads, ` : ''}${r.wall.toFixed(1)} s wall`;
 const indent = (s) => s.trimEnd().split('\n').map((l) => `    ${l}`).join('\n');
 
 let lastSaid = Date.now();
@@ -115,6 +117,7 @@ function report(r) {
   results.push(r);
   const bad = verdict(r);
   if (bad) say(`✗ ${r.e.run}: ${bad} (${cost(r)})${r.out.trim() ? `\n${indent(r.out)}` : ''}`);
+  else if (r.beside != null) say(`  · ${r.e.run}: ${r.beside.toFixed(1)} s of CPU beside other gates, ${r.cpu.toFixed(1)} s alone; the budget is ${r.e.budget} s`);
   else if (VERBOSE) say(`✓ ${r.e.run} (${cost(r)})${r.out.trim() ? `\n${indent(r.out)}` : ''}`);
 }
 
@@ -134,15 +137,24 @@ const beat = setInterval(() => {
   say(`  · ${results.length - first.length}/${pool.length} done; still running ${[...running].map((e) => e.path.replace(/^scripts\//, '')).join(', ')}`);
 }, 5000);
 const queue = pool.slice();
+const again = [];
 await Promise.all(Array.from({ length: Math.min(JOBS, queue.length) }, async () => {
   while (queue.length) {
     const e = queue.shift();
     running.add(e);
     const r = await runGate(e, false);
     running.delete(e);
-    report(r);
+    if (JOBS > 1 && r.rc === 0 && !r.timedOut && overBudget(r)) again.push(r);
+    else report(r);
   }
 }));
+// Over budget beside other gates can be the neighbours. Alone, it can only be the gate.
+for (const { e, cpu } of again) {
+  running.add(e);
+  const r = await runGate(e, false);
+  running.delete(e);
+  report({ ...r, beside: cpu });
+}
 clearInterval(beat);
 
 // The serial tail prepares for the suite (check-stale imports content), and npm won't run the
@@ -161,7 +173,7 @@ try {
 } catch { /* read-only checkout: the order hint just isn't kept */ }
 
 const failed = results.filter(verdict);
-const cpuTotal = results.reduce((n, r) => n + (r.cpu || 0), 0);
+const cpuTotal = results.reduce((n, r) => n + (r.all || 0), 0);
 say(`${failed.length ? '✗' : '✓'} gates: ${results.length - failed.length}/${results.length} passed in ${secs((performance.now() - t0) / 1000)}`
   + ` (${Math.min(JOBS, pool.length)} at a time, ${secs(cpuTotal)} of CPU)`);
 const slow = results.filter((r) => r.cpu != null).sort((a, b) => b.cpu - a.cpu).slice(0, 5);
