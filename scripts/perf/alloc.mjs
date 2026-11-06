@@ -10,6 +10,11 @@
 // few frames that lands in whichever item happens to be running. Frame time on a shared machine swings
 // 3x between runs; bytes allocated over a fixed headless scene don't, so this is the number held.
 //
+// ⚠ THE BASELINE IS CI'S NUMBERS, NOT THIS MACHINE'S. Node versions read differently, and not by one
+// factor: on 2026-11-05 CI's Node 22 read 5% over Node 24 on the cab and 12% over on the cockpit. So
+// --write on a newer Node sets a baseline CI will fail. Take the figures from a CI log, where a red
+// run prints them, and write them into alloc.json by hand.
+//
 // V8's sampling heap profiler, with collected objects kept (without them it reports only what is
 // still alive at the end, which leaves out the per-frame garbage this is about). Frozen clocks, a
 // fixed heading sweep, warm frames first so caches that fill once aren't charged to every frame.
