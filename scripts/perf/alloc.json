@@ -1,13 +1,13 @@
 {
  "cases": {
   "halcyon cab": {
-   "mbPerFrame": 9.5
+   "mbPerFrame": 10.34
   },
   "halcyon cockpit": {
-   "mbPerFrame": 16.04
+   "mbPerFrame": 15.1
   },
   "residential cockpit": {
-   "mbPerFrame": 12.87
+   "mbPerFrame": 13.47
   }
  }
 }
