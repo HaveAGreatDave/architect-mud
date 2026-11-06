@@ -244,6 +244,23 @@ having made exactly that mistake in this section's first draft.
 
 ---
 
+## 4c. The wake loop (November 2026)
+
+A cold start is only as cheap as what it reads, so an empty server that something keeps waking is the worst case for this budget. It looks like this in `data/ops/usage-history.json`:
+
+| Period | Egress/day | Compute/day | Render uptime/day |
+|---|---|---|---|
+| 20–27 Oct (world held open) | ~1 MB | ~6 CU-h | not recorded |
+| 3–5 Nov (world empty, instance woken) | ~600 MB | ~0.8 CU-h | ~10 h |
+
+Compute falls while egress rises, because each wake is a boot with no play after it. Something outside the repo was waking the instance about 25 times a day at about 24 MB a boot; nothing in the repo, the Actions crons or the scheduled routines calls prod on a timer. The caller was not identified.
+
+⚠ **The report's loads/day is a 7-day average, so it lags by days.** It read 12.7 while the true rate was about twice that, and "Neon reports 2.0× the modelled figure" came from that lag as much as from a real leak. Take daily deltas from the history file.
+
+`server/keepalive.js` has pinged 24/7 since 2026-11-05, so the instance no longer spins down and a wake costs nothing. That spends ~720 of the 750 Render hours.
+
+---
+
 ## 5. What the APIs will and won't tell you
 
 **⚠ Neon's `/consumption_history` is a paid endpoint.** The obvious API for this
@@ -303,7 +320,7 @@ exposes no build-minutes endpoint. Labelled `derived` everywhere it travels.
 | **Neon storage** | `neon_usage_log.top_tables` names the biggest tables; the report prints growth per day. |
 | **Neon branches** | Almost always `predeploy-*` snapshots. The prune in `deploy-content.yml` keeps the newest 5 but is `continue-on-error`, so a wedged prune is silent — until the *next* deploy's snapshot fails and aborts the deploy before prod. Delete stale branches in the Neon console. |
 | **Render bandwidth** | Client asset payload, then player count. |
-| **Render instance hours** | `keepalive.js` idle-gating, and whether the service is spinning down at all. |
+| **Render instance hours** | `keepalive.js` pings 24/7 since 2026-11-05, so ~720 h is the normal month and 744 h a 31-day one. Over that means a second free service on the workspace. |
 | **Render build minutes** | Deploy frequency. `autoDeploy: false`, so this is CI's deploy hook. |
 
 ---

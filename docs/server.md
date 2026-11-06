@@ -12,7 +12,7 @@ On startup (`boot()` in `index.js`), it runs in order:
 4. `loadPlugins()` — scans `/plugins/` and wires up hook/command/route registrations
 5. `initEnvironment()` — loads the game clock and weather state, fires `environment.init` hooks (non-fatal if schema not yet applied)
 6. `startGameLoop()` — starts all the timed intervals
-7. `startKeepalive()` — begins pinging Render `/health` every 10 minutes (deliberately does **not** touch the database, so the Neon compute can sleep)
+7. `startKeepalive()` — begins pinging Render `/health` every 10 minutes, whether or not anyone is online, so an idle instance never pays a cold start (deliberately does **not** touch the database, so the Neon compute can sleep)
 8. HTTP server listens — behind an `EADDRINUSE` guard that exits rather than lingering as a zombie holding pool connections
 
 **Note:** there is no `migrate()` call at startup. The server never touches the schema on boot — schema changes are applied deliberately with `npm run db:schema`.

@@ -99,8 +99,9 @@ export const LIMITS = {
     unit: 'hours',
     scope: 'workspace',
     period: 'cycle',
-    // Corroborated in-repo: server/keepalive.js documents spending ~730 of 750
-    // on 24/7 health pings, which is why it idle-gates on hasActivePlayers().
+    // Corroborated in-repo: 24/7 health pings spent ~730 of 750 before August 2026.
+    // server/keepalive.js pings 24/7 again since 2026-11-05: a spin-down costs a world
+    // load from Neon, and that budget ran out first.
     overrun: 'The free service stops serving until the cycle resets.',
     source: 'https://render.com/docs/free',
     checkedOn: '2026-08-31',
