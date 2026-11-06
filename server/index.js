@@ -101,6 +101,7 @@ import { activateForcefield, deactivateForcefield, reconcileApartmentDoorLocks, 
 import { wakeFromDream } from "./engine/dreamscape.js";
 import { fatigueOf } from "./engine/condition.js";
 import { startKeepalive } from "./keepalive.js";
+import { logBootPacks } from "./models/boot-pack.js";
 import { startUsageLog } from "./usage-log.js";
 import { setBroadcast as setMessagingBroadcast } from "./engine/messaging.js";
 import { handlePanelData, sendPanelCatalog } from "./engine/panels.js";
@@ -2652,6 +2653,7 @@ async function boot() {
 		console.log(`   Dev:     http://localhost:${PORT}/dev`);
 		console.log(`   Health:  http://localhost:${PORT}/health\n`);
 		warmBootAssets().catch((err) => console.error(`[assets] boot warm-up failed: ${err.message}`));
+		logBootPacks();
 	});
 }
 

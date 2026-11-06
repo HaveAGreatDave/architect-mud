@@ -1,6 +1,7 @@
 import { randomUUID } from 'crypto';
 import { textRender } from '../../server/engine/minigame.js';
 import { query } from '../../server/models/db.js';
+import { packedRows } from '../../server/models/boot-pack.js';
 import { schedule } from '../../server/engine/scheduler.js';
 import { zoneAtTile, world, getZonePlayers, getZone, getZoneNpcs, getZoneEnemies, reloadZone, hasActivePlayers, insertFurniture, updateFurniture, deleteFurnitureWhere, getZoneFurniture, getFurnitureById, resolveLanding, getNpcsByFlag, moveNpcToZone } from '../../server/engine/world.js';
 import { resolveInventoryItem } from '../../server/engine/inventory.js';
@@ -1176,9 +1177,9 @@ let _sportsLibraryGen = 0;
 async function sportsLibrary() {
   if (_sportsLibrary) return _sportsLibrary;
   const gen = _sportsLibraryGen;
-  const { rows } = await query(
+  const rows = await packedRows('broadcast_sports',
     `SELECT sports_pools FROM media_broadcasts WHERE playback_mode='sports' AND sports_pools IS NOT NULL`,
-  ).catch(() => ({ rows: null }));
+  ).catch(() => null);
   if (!rows) return [];   // a failed read is not cached, so the next caller retries
   const scripts = [];
   for (const row of rows) {
@@ -1250,7 +1251,7 @@ async function loadChannelRuntimes() {
          LEFT JOIN media_themes t ON t.id = c.theme_id
         WHERE c.enabled = 1 ORDER BY c.number`
     );
-    const { rows: playlist } = await query(
+    const playlist = await packedRows('broadcast_playlist',
       `SELECT p.*, b.name AS broadcast_name, b.playback_mode, b.messages, b.message_interval, b.override_duration, b.loop, b.broadcast_graph, b.fallback_messages, b.weather_pools, b.sports_pools, b.news_pools, b.talkshow_pools, b.morning_pools, b.gameshow_pools, b.sermon_pools, b.location_zone_id, b.acted
          FROM media_channel_playlist p
          LEFT JOIN media_broadcasts b ON b.id = p.broadcast_id
@@ -1355,7 +1356,7 @@ async function loadChannelRuntimes() {
       .flatMap((p) => (Array.isArray(condOf(p).broadcasts) ? condOf(p).broadcasts : [])))];
     const slateBroadcasts = new Map();
     if (slateIds.length) {
-      const { rows } = await query(
+      const rows = await packedRows('broadcast_slate',
         `SELECT id, name, sports_pools, fallback_messages FROM media_broadcasts WHERE id = ANY($1) AND playback_mode = 'sports'`, [slateIds]);
       for (const b of rows) slateBroadcasts.set(b.id, b);
     }
@@ -1530,7 +1531,7 @@ async function loadChannelRuntimes() {
 
 async function loadGraphicsCache() {
   try {
-    const { rows } = await query('SELECT id, name, type, content FROM media_graphics');
+    const rows = await packedRows('media_graphics', 'SELECT id, name, type, content FROM media_graphics');
     graphicsCache.clear();
     for (const row of rows) graphicsCache.set(row.id, row);
   } catch (err) {
@@ -7713,7 +7714,7 @@ function filmRunElapsed(item, gameSecondsSinceMidnight) {
 }
 
 async function recalculateNpcSchedules() {
-  const { rows: plItems } = await query(`
+  const plItems = await packedRows('broadcast_schedules', `
     SELECT p.id, p.channel_id, p.broadcast_id, p.conditions,
            b.broadcast_graph, b.playback_mode, b.talkshow_pools, b.morning_pools, b.gameshow_pools, b.weather_pools,
            b.location_zone_id, b.acted,

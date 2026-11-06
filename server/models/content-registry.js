@@ -413,6 +413,7 @@ export const REGISTRY = [
   // authored it. TRUNCATEd and rebuilt by the derive pass of content:import
   // (map-pipeline-spec §2.1, §9; terrain-property-presets.md).
   { table: 'zone_derived', class: 'runtime' },
+  { table: 'boot_pack', class: 'runtime' },       // compressed copies of the big boot reads (boot-pack.js); rebuilt whenever one misses
   { table: 'zone_edges', class: 'runtime' },      // generated traversal graph — grid geometry + connections (spec §2.2)
   // Trading cards (plugins/cards). Deliberately NOT content, even though the NPC
   // and enemy cards are derived from content: they are regenerated on any DB by

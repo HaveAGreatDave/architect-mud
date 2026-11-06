@@ -17,7 +17,7 @@ import { LIMITS, staleLimits, fmt, BYTES_PER_GB } from './limits.js';
 import { toBytes, pickService } from './render-usage.mjs';
 // Importing attribution.mjs does NOT open a connection — its pool is built lazily
 // inside getPool(), on the first query. These two are the pure half.
-import { deployRate, combineLoads } from './attribution.mjs';
+import { deployRate, combineLoads, applyPacks } from './attribution.mjs';
 
 let passed = 0;
 const failures = [];
@@ -146,6 +146,18 @@ check('deploy rate is per observed day', deployRate(28, 7) === 4);
 // report hundreds of deploys a day. The floor is half a day.
 check('a young table is floored, not extrapolated', deployRate(1, 0.01) === 2);
 check('an empty window is zero, not NaN', deployRate(0, 0) === 0);
+
+// A table with a boot pack costs the pack, and the order follows the new sizes.
+const packedTables = applyPacks(
+  [{ table: 'zones', bytes: 900, rows: 9 }, { table: 'items', bytes: 200, rows: 2 }],
+  [{ key: 'zones', bytes: 90 }],
+);
+check('a packed table costs its pack', packedTables.find((t) => t.table === 'zones').bytes === 90);
+check('an unpacked table keeps its size', packedTables.find((t) => t.table === 'items').bytes === 200);
+check('the biggest table is still listed first', packedTables[0].table === 'items');
+check('no packs changes nothing', applyPacks([{ table: 'a', bytes: 1, rows: 1 }], [])[0].bytes === 1);
+check('a pack that is not a boot table still counts',
+  applyPacks([{ table: 'a', bytes: 1, rows: 1 }], [{ key: 'broadcast_playlist', bytes: 5 }])[0].table === 'broadcast_playlist');
 
 // ------------------------------------------------------------------- report
 if (failures.length) {

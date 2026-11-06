@@ -259,6 +259,10 @@ Compute falls while egress rises, because each wake is a boot with no play after
 
 `server/keepalive.js` has pinged 24/7 since 2026-11-05, so the instance no longer spins down and a wake costs nothing. That spends ~720 of the 750 Render hours.
 
+**What a boot really reads.** Metered on a local boot with `CONTENT_READONLY` set, 2026-11-05: **23.9 MB over 204 queries**, as JSON, against the 13.9 MB this report modelled. `pg_column_size` measures compressed storage rather than the wire, and the model only sums `readTier: 'boot'` tables, so it missed `power_zones` (4.0 MB, 'fresh' tier) and about 5 MB of broadcast joins.
+
+**The boot pack** cut that to **3.7 MB**: the 13 biggest reads come out of `boot_pack` compressed while their rows still match, checked by a hash Postgres takes of the live rows ([architecture.md](architecture.md), "An eighth: the boot pack"). The report sizes a packed read at its pack. That's the cheap case: a table play has changed is a plain read on the next boot, and the log line `boot pack: 13/13 reads from packs` says which it was. The first boot after a deploy that changed a table reads that table plain and writes its pack; a table still moving when the boot ends isn't packed until the next one.
+
 ---
 
 ## 5. What the APIs will and won't tell you

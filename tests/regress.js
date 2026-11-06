@@ -52,6 +52,7 @@ import { CONTENT_TABLES, EXCLUDED_TABLES, REGISTRY } from '../server/models/cont
 import { SCHEMA_SQL } from '../server/models/schema.js';
 import { handleApiRequest, apiUpdateZone, apiPatchZoneTag } from '../server/api/routes.js';
 import { query } from '../server/models/db.js';
+import { readPacked, packedRows, packsSettled, bootPackStats } from '../server/models/boot-pack.js';
 import { resolveDefault, resolveTerrain, resolveProps, PROP_DEFAULTS, deriveWorld, deriveMarker, deriveColors, deriveLabel, assignBuildingMarkers, projectEdges, edgesToExits, OPPOSITE, featureProvenance, autoTileFamily, buildCellIndex, gridKey } from '../scripts/content/derive.mjs';
 import { ASSET_REFS, assetRefIds, isAssetRef } from '../scripts/content/lib.mjs';
 
@@ -503,6 +504,58 @@ section('layer 1c2: authored columns off the checkout');
   const lost = talkers.filter(n => !Object.keys(NPC_DIALOGUE.read(n.id)).length);
   check('every sampled talker has its tree in content/', lost.length === 0,
     `${lost.length} missing, e.g. ${lost.slice(0, 3).map(n => n.id).join(', ')}`);
+}
+
+// ── Layer 1c3: boot pack ─────────────────────────────────────────────────
+// Like 1c2, this only runs in production, so the pieces are exercised directly. The
+// one thing that must never happen is a pack that doesn't match the live rows.
+section('layer 1c3: boot pack');
+{
+  const KEY = 'regress:probe', SEED = 'regress:seed';
+  const SQL = `SELECT key, raw_bytes, packed_at FROM boot_pack WHERE key = '${SEED}'`;
+  const last = () => bootPackStats().at(-1);
+  await query('DELETE FROM boot_pack WHERE key = ANY($1)', [[KEY, SEED]]);
+  await query(`INSERT INTO boot_pack (key, fingerprint, format, payload, raw_bytes) VALUES ($1, 'x', 'x', 'x', 1)`, [SEED]);
+  try {
+    const plain = (await query(SQL)).rows;
+    const first = await readPacked(KEY, SQL);
+    await packsSettled();
+    check('the first read is the plain one', last().packed === false);
+    check('…and it wrote a pack', (await query('SELECT 1 FROM boot_pack WHERE key = $1', [KEY])).rows.length === 1);
+
+    const second = await readPacked(KEY, SQL);
+    check('unchanged rows come from the pack', last().packed === true && last().bytes > 0);
+    check('…and they are the rows', JSON.stringify(second) === JSON.stringify(plain) && JSON.stringify(first) === JSON.stringify(plain));
+    check('…with a Date still a Date', second[0].packed_at instanceof Date);
+
+    // A pack that outlives a change to its rows is the failure this exists to prevent.
+    await query('UPDATE boot_pack SET raw_bytes = 2 WHERE key = $1', [SEED]);
+    const third = await readPacked(KEY, SQL);
+    await packsSettled();
+    check('a changed row misses the pack', last().packed === false);
+    check('…and reads the new value', Number(third[0].raw_bytes) === 2);
+    await readPacked(KEY, SQL);
+    check('…and the miss repacks', last().packed === true);
+
+    // A boot never depends on a pack.
+    await query(`UPDATE boot_pack SET payload = 'not a pack' WHERE key = $1`, [KEY]);
+    const warn = console.warn;
+    console.warn = () => {};
+    const broken = await readPacked(KEY, SQL).finally(() => { console.warn = warn; });
+    await packsSettled();
+    check('a corrupt pack falls through to the rows', Number(broken[0].raw_bytes) === 2 && last().packed === false);
+
+    await query(`UPDATE boot_pack SET format = 'older' WHERE key = $1`, [KEY]);
+    await readPacked(KEY, SQL);
+    await packsSettled();
+    check('a pack from another engine version misses', last().packed === false);
+
+    const before = bootPackStats().length;
+    const rows = await packedRows(KEY, SQL);
+    check('packedRows is a plain query outside production', rows.length === 1 && bootPackStats().length === before);
+  } finally {
+    await query('DELETE FROM boot_pack WHERE key = ANY($1)', [[KEY, SEED]]).catch(() => {});
+  }
 }
 
 // ── Layer 1d: zone tag substrate ──────────────────────────────────────────────

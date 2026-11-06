@@ -1,4 +1,5 @@
 import { query } from '../models/db.js';
+import { packedRows } from '../models/boot-pack.js';
 import { neighborZoneIds, primaryExits, allExits, addExit, removeExit } from './exits.js';
 import { OPPOSITE, DIR_OFFSET } from './directions.js';
 import { titleCaseName, composeRoomName } from './text.js';
@@ -872,7 +873,7 @@ async function loadZones() {
   const files = contentBacked ? ZONE_DESCRIPTION.fileNames() : null;
   const cols = files?.size ? await ZONE_DESCRIPTION.columnsExcept(query) : null;
   // query-lint-ok: boot loader for world.zones — read once so nothing else has to.
-  const { rows } = await query(cols ? `SELECT ${cols} FROM zones` : 'SELECT * FROM zones');
+  const rows = await packedRows('zones', cols ? `SELECT ${cols} FROM zones` : 'SELECT * FROM zones');
   const noFile = [];
   for (const zone of rows) {
     const live = {
@@ -911,9 +912,9 @@ async function loadNpcs() {
   // (and its standing rule that nothing may bulk-scan the column) buys nothing here.
   const npcFiles = contentBacked ? NPC_DIALOGUE.fileNames() : null;
   const npcCols = npcFiles?.size ? await NPC_DIALOGUE.columnsExcept(query) : null;
-  const [{ rows }, homeOverrides] = await Promise.all([
+  const [rows, homeOverrides] = await Promise.all([
     // query-lint-ok: boot loader for world.npcs (write-funneled via updateNpc/syncNpc).
-    query(npcCols ? `SELECT ${npcCols} FROM npcs` : 'SELECT * FROM npcs'),
+    packedRows('npcs', npcCols ? `SELECT ${npcCols} FROM npcs` : 'SELECT * FROM npcs'),
     loadNpcHomeOverrides(),
   ]);
   // An NPC with no content file — none ship today, but apiCreateNpc exists and a
@@ -1002,7 +1003,7 @@ export async function updateNpc(id, cols) {
 }
 
 async function loadSpawnTemplates() {
-  const { rows } = await query(`
+  const rows = await packedRows('spawn_templates', `
     SELECT e.*, zs.id as spawn_id, zs.zone_id, zs.max_count, zs.spawn_weight, zs.respawn_seconds
     FROM zone_spawns zs JOIN enemies e ON e.id = zs.enemy_id
   `);
@@ -1086,7 +1087,7 @@ const connByPair = new Map();   // "a~b" (sorted) -> connections row
 const pairKey = (x, y) => (String(x) < String(y) ? `${x}~${y}` : `${y}~${x}`);
 
 async function loadConnections() {
-  const { rows } = await query('SELECT * FROM connections').catch(() => ({ rows: [] }));
+  const rows = await packedRows('connections', 'SELECT * FROM connections').catch(() => []);
   world.connections.clear();
   connByPair.clear();
   for (const c of rows) {
@@ -1244,7 +1245,7 @@ function _uncacheFurniture(id) {
 }
 
 async function loadFurniture() {
-  const { rows } = await query('SELECT * FROM furniture').catch(() => ({ rows: [] }));
+  const rows = await packedRows('furniture', 'SELECT * FROM furniture').catch(() => []);
   world.furniture.clear();
   furnitureByZone.clear();
   for (const row of rows) _cacheFurnitureRow(row);

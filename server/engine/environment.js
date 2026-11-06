@@ -29,6 +29,7 @@ import { fallRates, stepGround, freshGround } from '../../client/shared/ground-a
 import { moonPhaseOf } from '../../client/shared/moon.js';
 import { setTimeScale, getTimeScale } from './gametime.js';
 import { logActivity } from '../models/db.js';
+import { packedRows } from '../models/boot-pack.js';
 import { emit } from './events.js';
 import { world, addExitOverride, removeExitOverride, insertFurniture, updateFurnitureWhere, getZoneFurniture, getFurnitureById, propsOf, reloadZone } from './world.js';
 import { neighborZoneIds, allExits, addExit } from './exits.js';
@@ -569,7 +570,7 @@ const lightingRows = new Map();  // zone_id -> lighting_states row
 
 async function loadPowerTopology(query) {
   const [pz, gens, lights] = await Promise.all([
-    query('SELECT * FROM power_zones'),
+    packedRows('power_zones', 'SELECT * FROM power_zones').then((rows) => ({ rows })),
     query('SELECT * FROM generators'),
     query('SELECT * FROM lighting_states').catch(() => ({ rows: [] })),
   ]);

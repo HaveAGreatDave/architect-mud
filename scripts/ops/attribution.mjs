@@ -104,12 +104,33 @@ export async function bootPayload() {
   const parts = tables.map(({ table, where }) =>
     `SELECT '${table}' AS table_name, COALESCE(SUM(pg_column_size(t.*)), 0)::bigint AS bytes, COUNT(*)::bigint AS rows
        FROM ${table} t${where ? ` WHERE ${where}` : ''}`);
-  const { rows } = await query(`${parts.join('\nUNION ALL\n')}\nORDER BY bytes DESC`);
-  const total = rows.reduce((a, r) => a + Number(r.bytes), 0);
-  return {
-    totalBytes: total,
-    tables: rows.map((r) => ({ table: r.table_name, bytes: Number(r.bytes), rows: Number(r.rows) })),
-  };
+  const [{ rows }, packs] = await Promise.all([
+    query(`${parts.join('\nUNION ALL\n')}\nORDER BY bytes DESC`),
+    // A database from before boot_pack existed just has no packs.
+    query('SELECT key, length(payload)::bigint AS bytes FROM boot_pack').catch(() => ({ rows: [] })),
+  ]);
+  const sized = applyPacks(
+    rows.map((r) => ({ table: r.table_name, bytes: Number(r.bytes), rows: Number(r.rows) })),
+    packs.rows.map((p) => ({ key: p.key, bytes: Number(p.bytes) })),
+  );
+  return { totalBytes: sized.reduce((a, t) => a + t.bytes, 0), tables: sized };
+}
+
+/**
+ * A table with a boot pack costs the pack, not its rows, so long as the rows haven't
+ * changed since it was written. That makes this the cheap case, and a day of play that
+ * touches npcs will spend more than it says. Pure, for `npm run ops:smoke`.
+ */
+export function applyPacks(tables, packs) {
+  const size = new Map(packs.map((p) => [p.key, p.bytes]));
+  const named = new Set(tables.map((t) => t.table));
+  // Not every pack is a boot-tier table: power_zones is 'fresh' tier and the broadcast
+  // keys are joins, and the boot reads them all the same.
+  const extras = packs
+    .filter((p) => !named.has(p.key))
+    .map((p) => ({ table: p.key, bytes: p.bytes, rows: null, packed: true }));
+  return [...tables.map((t) => (size.has(t.table) ? { ...t, bytes: size.get(t.table), packed: true } : t)), ...extras]
+    .sort((a, b) => b.bytes - a.bytes);
 }
 
 /**

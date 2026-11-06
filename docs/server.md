@@ -15,6 +15,8 @@ On startup (`boot()` in `index.js`), it runs in order:
 7. `startKeepalive()` — begins pinging Render `/health` every 10 minutes, whether or not anyone is online, so an idle instance never pays a cold start (deliberately does **not** touch the database, so the Neon compute can sleep)
 8. HTTP server listens — behind an `EADDRINUSE` guard that exits rather than lingering as a zombie holding pool connections
 
+In production the biggest of these reads (zones, npcs, furniture, items, connections, power zones, spawn templates, the broadcast joins) go through `packedRows()`, which returns a compressed copy from `boot_pack` while the rows still match it. See [architecture.md](architecture.md), "An eighth: the boot pack".
+
 **Note:** there is no `migrate()` call at startup. The server never touches the schema on boot — schema changes are applied deliberately with `npm run db:schema`.
 
 ---

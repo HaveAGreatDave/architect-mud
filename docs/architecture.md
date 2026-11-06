@@ -507,6 +507,22 @@ silently desyncs room descriptions, and a raw `UPDATE npcs` desyncs shop shelves
 table's decided read tier is machine-readable as `readTier` in
 `server/models/content-registry.js` — regress fails a content table that hasn't declared one.
 
+### An eighth: the boot pack
+
+A column the derive pass or runtime writes can't come off the checkout, and those are most of what a
+cold start reads. So the big boot reads go through `packedRows()` in
+[`server/models/boot-pack.js`](../server/models/boot-pack.js): the first boot stores the rows brotli-compressed
+in `boot_pack`, and later boots ask Postgres to hash the live rows and compare. A match sends the pack
+and a miss is the plain read, which writes a new pack.
+
+The hash runs in Postgres on every boot, so a pack is only used if it holds what the plain read would
+have returned, whoever wrote the rows. That's what lets it skip the question a cache normally has to
+answer, which is who else writes this table. It costs compute, not egress.
+
+**When to use it:** a full-table read at boot that's big enough to matter. Rows that change every boot
+gain nothing, because every boot is then a miss that also writes. A `WHERE`-less `SELECT` with no
+parameters only, and one key per shape of query.
+
 Rules of thumb when building features:
 
 - **Hot paths (per-move, per-swing, per-condition, per-tick) must not add awaited round trips.**

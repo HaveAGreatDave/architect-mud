@@ -1762,6 +1762,18 @@ export const SCHEMA_SQL = `
   );
   CREATE INDEX IF NOT EXISTS idx_neon_usage_log_time ON neon_usage_log(captured_at DESC);
 
+  -- Boot pack: a big boot read kept compressed, so a cold start doesn't pull the rows
+  -- over the wire again while they still match. See server/models/boot-pack.js.
+  -- payload is base64 text because pg sends BYTEA as hex, at double the size.
+  CREATE TABLE IF NOT EXISTS boot_pack (
+    key         TEXT PRIMARY KEY,
+    fingerprint TEXT NOT NULL,
+    format      TEXT NOT NULL,
+    payload     TEXT NOT NULL,
+    raw_bytes   BIGINT NOT NULL,
+    packed_at   TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  );
+
   -- Dev Log: team heads-ups / important changes shown at check-in.
   -- kind: change | heads-up | action-required (the last needs an action, e.g. restart/migration).
   CREATE TABLE IF NOT EXISTS dev_notes (
