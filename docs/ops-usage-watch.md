@@ -257,7 +257,7 @@ Compute falls while egress rises, because each wake is a boot with no play after
 
 ⚠ **The report's loads/day is a 7-day average, so it lags by days.** It read 12.7 while the true rate was about twice that, and "Neon reports 2.0× the modelled figure" came from that lag as much as from a real leak. Take daily deltas from the history file.
 
-`server/keepalive.js` has pinged 24/7 since 2026-11-05, so the instance no longer spins down and a wake costs nothing. That spends ~720 of the 750 Render hours.
+`server/keepalive.js` has pinged 24/7 since the deploy of 2026-11-06 07:2xZ (committed the 5th; the deploys between failed), so the instance no longer spins down and a wake costs nothing. That spends ~720 of the 750 Render hours.
 
 **What a boot really reads.** Metered on a local boot with `CONTENT_READONLY` set, 2026-11-05: **23.9 MB over 204 queries**, as JSON, against the 13.9 MB this report modelled. `pg_column_size` measures compressed storage rather than the wire, and the model only sums `readTier: 'boot'` tables, so it missed `power_zones` (4.0 MB, 'fresh' tier) and about 5 MB of broadcast joins.
 
@@ -324,7 +324,7 @@ exposes no build-minutes endpoint. Labelled `derived` everywhere it travels.
 | **Neon storage** | `neon_usage_log.top_tables` names the biggest tables; the report prints growth per day. |
 | **Neon branches** | Almost always `predeploy-*` snapshots. The prune in `deploy-content.yml` keeps the newest 5 but is `continue-on-error`, so a wedged prune is silent — until the *next* deploy's snapshot fails and aborts the deploy before prod. Delete stale branches in the Neon console. |
 | **Render bandwidth** | Client asset payload, then player count. |
-| **Render instance hours** | `keepalive.js` pings 24/7 since 2026-11-05, so ~720 h is the normal month and 744 h a 31-day one. Over that means a second free service on the workspace. |
+| **Render instance hours** | `keepalive.js` pings 24/7 since 2026-11-06, so ~720 h is the normal month and 744 h a 31-day one. Over that means a second free service on the workspace. |
 | **Render build minutes** | Deploy frequency. `autoDeploy: false`, so this is CI's deploy hook. |
 
 ---
@@ -410,9 +410,8 @@ Adding a secret needs repo **admin**, which johna does not have (`admin: false` 
 ⚠ **The commit-back's `[skip ci]` marker is load-bearing.** `sync-commits.yml`
 triggers on *every* push to main with no path filter and writes to the prod
 database. Without the marker, a bookkeeping commit whose only purpose is to
-record a number would kick off a prod DB write every morning. (`data/ops/**` is
-already outside `deploy-content.yml`'s push filter, so a content deploy was
-never at risk.)
+record a number would kick off a prod DB write every morning. The scheduled
+deploy is a separate matter; see §8.
 
 ---
 
@@ -421,5 +420,11 @@ never at risk.)
 `data/ops/usage-history.json`, one row per run. **Not a DB table**: the thing
 being measured is DB egress, and a monitor that writes to prod every run spends
 from the budget it reports on. A flat file costs nothing and makes the trend
-readable with `git log -p`. `data/**` is outside `deploy-content.yml`'s push path
-filter, so committing it cannot trigger a production deploy.
+readable with `git log -p`.
+
+⚠ **A history commit moves HEAD, and the deploy schedule judges by sha.** The push
+filter doesn't help, because a scheduled run ignores `paths:`. So until 2026-11-06
+each morning's row made the next 4-hourly window a real deploy with nothing in it:
+~7 MB of import, a boot and a reboot, spent by the monitor on the budget it watches.
+The `gate` job now skips a scheduled deploy when `data/ops/` is all that changed
+since the last deployed sha. Nothing at runtime reads that directory; keep it so.

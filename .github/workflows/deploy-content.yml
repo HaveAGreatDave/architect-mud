@@ -70,8 +70,10 @@
 # starts no run and deploys nothing. Use the Run workflow button for that.
 #
 # Note the schedule ignores `paths:` entirely — a scheduled run deploys whatever
-# is on main, judged only by sha, so code changes reach prod on the 4-hourly
-# window whether or not they matched a path filter.
+# is on main, judged by sha, so code changes reach prod on the 4-hourly window
+# whether or not they matched a path filter. The one exception is data/ops/: the
+# usage watch commits a row there every morning, nothing at runtime reads it, and
+# until 2026-11-06 that commit alone rebooted prod once a day.
 #
 # Required repo secrets:
 #   PROD_DATABASE_URL        — Neon connection string. Use the DIRECT (unpooled)
@@ -177,9 +179,10 @@ jobs:
   #   push (no token)    → validate only; deploy waits for the schedule
   #   push with [deploy] → deploy now (force from a commit)
   #   workflow_dispatch  → deploy now (force button)
-  #   schedule           → deploy the batch, UNLESS HEAD is already the live sha
-  #                        (idle window — skip the pointless ~13.6MB reboot)
-  # The sha comparison is content-agnostic, so this batches code changes too.
+  #   schedule           → deploy the batch, UNLESS HEAD is already the live sha,
+  #                        or only data/ops/ changed since it (nothing to ship, so
+  #                        skip the reboot: ~7MB of import plus a boot)
+  # The comparison is content-agnostic, so this batches code changes too.
   gate:
     needs: regress
     runs-on: ubuntu-latest
@@ -187,6 +190,8 @@ jobs:
       deploy: ${{ steps.decide.outputs.deploy }}
     steps:
       - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0        # decide diffs HEAD against the last deployed sha
       - uses: actions/setup-node@v5
         with:
           node-version: 22
@@ -210,8 +215,14 @@ jobs:
             # Fail-open: if the idle check can't run, deploy rather than risk
             # silently skipping a real change (empty $last never equals $GITHUB_SHA).
             last=$(node --input-type=module -e "import pg from 'pg'; const c=new pg.Client({connectionString:process.env.PROD_DATABASE_URL, ssl:{rejectUnauthorized:true}}); await c.connect(); const {rows}=await c.query(\"SELECT changes_summary->>'sha' AS sha FROM deployments WHERE deployed_by='ci' ORDER BY deployed_at DESC LIMIT 1\"); await c.end(); process.stdout.write(rows[0]?.sha||'');" || true)
+            # A diff that can't run (no $last, or a sha we don't have) falls through
+            # to deploy. Test the assignment, never just the empty result: a failed
+            # git diff prints nothing too.
             if [ "$last" = "$GITHUB_SHA" ]; then
               why="scheduled: HEAD ($GITHUB_SHA) already deployed — skipping the idle reboot"
+            elif [ -n "$last" ] && changed=$(git diff --name-only "$last" "$GITHUB_SHA") \
+                 && [ -z "$(printf '%s\n' "$changed" | grep -v '^data/ops/')" ]; then
+              why="scheduled: only data/ops/ changed since $last — skipping the idle reboot"
             else
               deploy=true; why="scheduled batch deploy (last deployed: ${last:-none})"
             fi
