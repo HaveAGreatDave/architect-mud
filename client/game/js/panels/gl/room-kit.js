@@ -22,6 +22,10 @@ export function roomKit(L, bake, { textures = {}, cell = 1.5, glow = MAT.EMISSIV
   const solid = createBatch(8192), screen = createBatch(16), glass = createBatch(64), textured = new Map();
   const TB = (k) => { let b = textured.get(k); if (!b) { b = createBatch(2048); textured.set(k, b); } return b; };
   const E = MAT.EMISSIVE, UV = [0, 0];
+  // how far up or down whatever's drawn next goes: a piece in a sunken floor is drawn as ever and
+  // lowered here, so no form has to know. The light is baked as if it hadn't moved
+  let raised = 0;
+  const lift = (y) => { raised = y; };
   const C = (hex, k = 1) => lin(hex).map((c) => c * k);
   // a material: [texture key or null, the colour its texture is multiplied by]
   const matOf = (m) => (m && typeof m === 'object' ? [textures[m.t] ? m.t : null, m.c || '#ffffff'] : [textures[m] ? m : null, '#ffffff']);
@@ -39,7 +43,7 @@ export function roomKit(L, bake, { textures = {}, cell = 1.5, glow = MAT.EMISSIV
       const a = i / nu, c = j / nv, mix = (k) => (ps[0][k] * (1 - a) + ps[1][k] * a) * (1 - c) + (ps[3][k] * (1 - a) + ps[2][k] * a) * c;
       const mixU = (k) => (U[0][k] * (1 - a) + U[1][k] * a) * (1 - c) + (U[3][k] * (1 - a) + U[2][k] * a) * c;
       const lp = [mix(0), mix(1), mix(2)];
-      return { p: L.world(lp[0], lp[1], lp[2]), uv: [mixU(0), mixU(1)], col: raw ? col : bake(lp, nl, col) };
+      return { p: L.world(lp[0], lp[1], lp[2] + raised), uv: [mixU(0), mixU(1)], col: raw ? col : bake(lp, nl, col) };
     };
     for (let j = 0; j < nv; j++) for (let i = 0; i < nu; i++) {
       const q = [at(i, j), at(i + 1, j), at(i + 1, j + 1), at(i, j + 1)];
@@ -144,5 +148,5 @@ export function roomKit(L, bake, { textures = {}, cell = 1.5, glow = MAT.EMISSIV
     const front = (b, x0, x1, y0, y1, z, col, mat = E, uvs = null, raw = true) => quad(b, [P(x0, y0, z), P(x1, y0, z), P(x1, y1, z), P(x0, y1, z)], N(0, 0, 1), col, mat, uvs, raw);
     return { P, N, alongX, alongZ, alongY, pbox, front };
   };
-  return { solid, screen, glass, textured, TB, E, C, nrmOf, quad, box, drop, rounded, onU, onV, leanV, lathe, ball, frame };
+  return { solid, screen, glass, textured, TB, E, C, nrmOf, lift, quad, box, drop, rounded, onU, onV, leanV, lathe, ball, frame };
 }

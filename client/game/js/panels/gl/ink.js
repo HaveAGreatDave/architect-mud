@@ -30,6 +30,10 @@ uniform vec2 uRes;
 uniform vec4 uInk;
 uniform vec3 uKey; uniform float uWeigh;
 uniform vec2 uBack;
+// A view with big flat faces sets uInkEye.w: a face turned to the eye (the eye is uInkEye.xyz) stays on
+// its body, and only the faces turned away make the line. Pushed sideways, a face seen at a slant
+// lands nearer the eye than itself and paints over the thing it should outline.
+uniform vec4 uInkEye;
 // ndc z is A + B / depth, so a clip z at depth w put ft further off moves by -B ft / (w + ft)
 float backOf(float w) { return uBack.y > 0.0 ? uBack.x * uBack.y / (w + uBack.y) : uInk.w * w; }
 void main() {
@@ -37,7 +41,8 @@ void main() {
   vec4 c = uVP * vec4(aPos, 1.0);
   // a vertex with no normal, or behind the eye, stays where it is unpushed: thrown off screen
   // alone, it dragged its triangle across the picture with it
-  if (nl < 0.01 || c.w <= 0.0 || aTex < -0.5) { c.z += backOf(max(c.w, 0.0)); gl_Position = c; return; }
+  bool facing = uInkEye.w > 0.5 && dot(aNor, uInkEye.xyz - aPos) > 0.0;
+  if (nl < 0.01 || c.w <= 0.0 || aTex < -0.5 || facing) { c.z += backOf(max(c.w, 0.0)); gl_Position = c; return; }
   vec3 n = aNor * inversesqrt(nl);
   vec4 cn = uVP * vec4(aPos + n * uInk.x, 1.0);
   vec2 d = (cn.xy / max(cn.w, 1e-3) - c.xy / c.w) * uRes * 0.5;

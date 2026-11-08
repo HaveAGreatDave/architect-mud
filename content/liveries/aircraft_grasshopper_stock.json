@@ -1,6 +1,6 @@
 {
   "blurb": "Grass green with a straw-yellow cowl and tail. It hops. It is green. Nobody argued.",
-  "default": true,
+  "default": false,
   "exterior": {
     "base": "#5f8f3a",
     "finish": "gloss",
@@ -15,5 +15,5 @@
   "kind": "aircraft",
   "model": "grasshopper",
   "name": "Meadow Green",
-  "unlock": null
+  "unlock": "retired_stock"
 }

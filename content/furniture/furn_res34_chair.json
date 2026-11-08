@@ -1,0 +1,23 @@
+{
+  "description": "A single upholstered chair by the window. Nobody sits in it. It's there so the hall looks like somewhere a person could sit.",
+  "flags": {
+    "aliases": "chair",
+    "interactions": [
+      "sit"
+    ],
+    "look": {
+      "arche": "seat",
+      "form": "chair"
+    }
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_res34_chair",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "hall chair",
+  "object_type": "furniture",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_solenne_residences_34"
+}

@@ -6,9 +6,10 @@
 wizard over the directives below, with a preview of the finished broadcast and a `.bsm` export, so
 nothing here has to be typed from memory. The dev panel reaches it two ways: a **📝 BSM Studio**
 entry in the nav under Broadcasts, and a **✎ BSM** button beside that panel's **↑ BSM** importer.
-It isn't a local tool like the Studio or the Modelshop and shouldn't be made into one: it's a single
-self-contained page served from the game origin at `/bsm-studio.html`, with no process to start, no
-localhost gate, and no network call of its own. It hands you a file; the import button eats it.
+It's a single self-contained page served from the game origin at `/bsm-studio.html`, with no process
+to start and no network call of its own. It hands you a file; the import button eats it. The
+[Broadcast Studio](../tools/broadcast-studio/README.md) holds it on its Script tab, beside a show's 3-D
+sequences.
 
 ⚠ It vendors a **verbatim copy** of `compileBsm()` to validate its own export and drive the
 preview, so **re-vendor that copy whenever [bsm-compiler.js](../client/devpanel/js/bsm-compiler.js)

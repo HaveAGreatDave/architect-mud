@@ -1,0 +1,31 @@
+{
+  "description": "A fat glass television on a milk crate, its picture rolling every few seconds. Somebody has wedged a fork into the back to hold the channel. Nobody takes the fork out.",
+  "flags": {
+    "aliases": "tv,telly,television",
+    "broadcast_device_type": "tv",
+    "broadcast_receiver": true,
+    "channel_default": 7,
+    "interactions": [
+      "watch"
+    ],
+    "look": {
+      "arche": "screen",
+      "form": "crt",
+      "wear": 0.9
+    },
+    "tuned_channel": 7,
+    "tv": true,
+    "tv_dial_freq": 7,
+    "tv_skin": "crt"
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_hostel_telly",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "old telly",
+  "object_type": "tv",
+  "power_draw_kw": 0.1,
+  "price": 10,
+  "zone_id": "zone_trackmarks_shop"
+}

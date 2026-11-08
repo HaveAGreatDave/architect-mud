@@ -31,6 +31,8 @@ import { skylineAround } from '../../server/engine/skyline.js';
 import { HOCKEY, rivalOf, healSlot, reprintSlots, rosterFor } from './sports/hockey.js';
 import { bindingOf, whereabouts, seasonLine } from './sports/league-npcs.js';
 import { finalPackage, packageText } from './sports/final-package.js';
+import { deskSegment, deskOverlay, deskStaffed, castOnAir, withLive, stageSet, guestPerson } from './sequences.js';
+import { factsAt, watchOf } from './sports/facts.js';
 import {
   gameshowAiring, gameshowDayBucket, getGameshowGraph, gameshowOpenRound, gameshowResolveRound,
   gameshowTokens, gameshowForgetPlayer, makeGuessCommand, assembleGameshowGraph, gameshowPool,
@@ -246,6 +248,45 @@ async function sendTvClubs(playerId, sport) {
   if (!clubs) return;
   const mod = sportOf(script);
   sendToPlayer(playerId, { type: 'tv_clubs', sport: id, rev: mod.clubsRevOf ? mod.clubsRevOf(clubs) : '', clubs });
+}
+
+// The stage for a text show on the TV's 3-D button (client tv-stage.js): the set it's played on
+// and the people in it, with their looks. Who's in it is the programme's own cast, and for a show
+// performed on its stage, anybody standing there now, so it has who's really there. Asked once a programme.
+on('tv.stage', ({ playerId, channel }) => {
+  try { sendToPlayer(playerId, stageFor(channel)); } catch (err) { console.error('[broadcast] stageFor error:', err.message); }
+});
+function stageFor(channelId) {
+  const state = channelRuntime.get(channelId), none = { type: 'tv_stage', channel: channelId, set: null };
+  if (!state) return none;
+  const bid = state.graphBlackboard?.activeBroadcastId || null;
+  const item = (state.playlist || []).find((i) => i.broadcastId === bid) || null;
+  // a game has its own picture; and a slate's game isn't a graph the blackboard names, so ask the runner too
+  if (item?.playback_mode === 'sports' || state.currentPlaybackMode === 'sports') return none;
+  const graph = item?.broadcastGraph || null, zone = graph?._locationZone || state.studioZoneId || null;
+  // A show assembled from pools names its own cast, the host first so they take the first mark. A talk
+  // show seats its host and sidekick and leaves the guest's chair for whoever speaks as the guest,
+  // since the guest's lines are a persona's, never the guest NPC's. Anybody else on the floor isn't in
+  // it: the box office and the crew stand in that room too.
+  const pools = { talkshow: [item?.talkshowScript?.host, item?.talkshowScript?.sidekick], morning: [item?.morningScript?.host, item?.morningScript?.cohost], gameshow: [item?.gameshowScript?.host, item?.gameshowScript?.sidekick], weather: [item?.weatherHost] }[item?.playback_mode];
+  const ids = new Set((pools || []).filter(Boolean));
+  if (!pools) {
+    // otherwise the script's own speakers, and for a show performed on its stage, whoever's there now
+    for (const id of item?.npcStaff || []) ids.add(id);
+    for (const n of Object.values(graph?.nodes || {})) { const id = n.npc_id || n.data?.npc_id; if (id) ids.add(id); }
+    const acted = state.channelType === 'live' || !!graph?._requireHost;
+    if (acted) for (const id of world.zones.get(zone)?.npcs || []) ids.add(id);
+  }
+  // a camera droid is the crew, never the cast
+  const people = [...ids].map((id) => world.npcs.get(id)).filter((n) => n && !n._dead && !n.flags?.camera_droid).slice(0, 12).map((n) => ({ id: n.id, name: n.name, sex: n.sex, figure: n.flags?.figure || null }));
+  // a talk show's guest is tonight's: the persona the day draws, or the townsperson who's come in to do it
+  if (item?.playback_mode === 'talkshow' && item.talkshowScript) {
+    const persona = talkshowPersonaFor(item.talkshowScript, talkshowDayBucket());
+    const guest = guestPerson(persona, talkshowRealGuest(persona, item.talkshowScript.guestNpc));
+    if (guest && !people.some((p) => p.name === guest.name)) people.push(guest);
+  }
+  const set = stageSet(graphicsCache, { broadcast: bid, zone, type: item?.playback_mode || '' });
+  return { ...none, set, broadcast: bid, programName: item?.broadcastName || '', people, ...(pools ? { kind: item.playback_mode } : {}) };
 }
 
 // The same for a league's venue: where its park stands (sports_pools.venue) and the skyline
@@ -504,6 +545,14 @@ function _lostPictureLine(script) {
 // KSAB5's item, and the OB decks are bound to KSAB5, so the relay checks KSAB5's feed
 // and shows the same card.
 function _sportsOnAir(state, item, r) {
+  // A desk segment is performed: with the cast off the stage its lines don't go out (sequences.js).
+  if (r?.graphic?.overlayType === 'desk') {
+    if (!deskStaffed(r.graphic, (id) => world.npcs.get(id))) return { style: 'live_relay', key: `desk:${r.key}` };
+    if (r.graphic.pack) {
+      const env = getEnvironmentState();
+      r = { ...r, graphic: withLive(r.graphic, { watching: _liveWatchers(state.channelId), weather: String(env.currentWeatherType || env.weatherType || 'still').replace(/_/g, ' '), tempC: Math.round(env.tempC ?? 0), hour: Math.floor((env.minutes ?? 0) / 60) }) };
+    }
+  }
   const bb = state.graphBlackboard || (state.graphBlackboard = {});
   const cov = groundCoverage(item?.sportsScript, item?.relayedFrom || state.channelId);
   if (cov.covered) { bb.pictureLost = null; bb.lostBug = null; return r; }
@@ -756,6 +805,7 @@ function makeWanderGraph() {
 // graphicsCache.get(id) = { id, name, type, content }
 // Loaded at startup and after any graphics CRUD operation.
 const graphicsCache = new Map();
+let _deskCast = null;   // who's cast in a show that's on air (sequences.js), read per NPC tick
 
 // Per-channel broadcast log: the graceful-failure events the live runtime hits
 // while airing — unknown/unparseable nodes, missing graphics/songs, node errors.
@@ -1534,6 +1584,7 @@ async function loadGraphicsCache() {
     const rows = await packedRows('media_graphics', 'SELECT id, name, type, content FROM media_graphics');
     graphicsCache.clear();
     for (const row of rows) graphicsCache.set(row.id, row);
+    _deskCast = null;
   } catch (err) {
     console.error('[broadcast] loadGraphicsCache error:', err.message);
   }
@@ -2957,6 +3008,21 @@ function assembleSportsGraph(script, broadcastId, slot, override, opts = {}) {
   const booth = (node) => { const lex = sportsLexFor(node.text, script.say); return { ...node, ...(lex ? { lex } : {}), ...(script.voice ? { voice: script.voice } : {}), ...(script.announcer ? { speaker: script.announcer } : {}) }; };
   const say = (line, tok, sb, graphic, gd, meta) => { if (!line) return; const text = sportsFill(line, tok).trim(); if (!text) return; add(booth({ type: 'say', text, style: 'raw', ...(sb ? { scorebug: sb } : {}), ...(graphic ? { graphic } : {}), ...(gd ? { gameday: gd } : {}), ...(meta && meta.cue ? { _cue: meta.cue } : {}), ...(meta && meta.opt ? { _opt: meta.opt } : {}), ...(meta && meta.excite ? { excite: meta.excite } : {}), ...(meta && meta.play ? { play: meta.play } : {}), ...(meta && meta.call ? { call: true } : {}), ...(meta && meta.song ? { song: meta.song } : {}) })); };
 
+  // ── the desk ─────────────────────────────────────────────────
+  // A sequence at this moment of the game, if the show's entry has one (sequences.js): two people
+  // at KSAB5's desk before the first pitch, in a break and after the final. `at` is where the game
+  // has got to, a beat or null or 'end', and the facts are counted up to there (sports/facts.js).
+  // Its lines come off the show's own seed, so no line the booth picks moves.
+  const deskNow = (when, at, sb) => {
+    const sport = sportOf(script).id, cache = _standingsCaches.get(sport) || {};
+    const data = {
+      ...factsAt(sport, game, at, { season: cache.extras, clubs: script.clubs, records: (t) => recordOf(t, sport), rows: cache.rows }),
+      announcer, analyst: script.analyst || '', venue: venueSaid(script) || '',
+    };
+    const seg = deskSegment(graphicsCache, { broadcast: broadcastId, when, seed: `${slot}|${when}|${data.section}`, npcOf: (id) => world.npcs.get(id), data });
+    seg?.lines.forEach((l, n) => say(l.name ? `${l.name} says, "${l.text.replace(/"/g, "'")}"` : l.text, {}, sb, deskOverlay(seg, l, n)));
+  };
+
   // ── the sport seam ──────────────────────────────────────────────────────────
   // Everything above this line is sport-agnostic: the node chain, the say/pick
   // helpers, the seeded narration rng. The `else` is Deadball's (halves, bases, RBI, extra
@@ -2971,7 +3037,7 @@ function assembleSportsGraph(script, broadcastId, slot, override, opts = {}) {
   let outroId = null;
   if (typeof sportMod.narrate === 'function') {
     const r = sportMod.narrate({
-      script, game, gs, slot, ws, announcer, analyst: script.analyst || '', pools, nrng,
+      script, game, gs, slot, ws, announcer, analyst: script.analyst || '', pools, nrng, desk: deskNow,
       sport: sportMod, add, say, pick, abbr: sportsAbbr,
       // Bound to THIS sport's table — a narrator asking for a record must not be able
       // to accidentally read the other league's.
@@ -2998,7 +3064,7 @@ function assembleSportsGraph(script, broadcastId, slot, override, opts = {}) {
     // Deadball's play-by-play (sports/baseball-narrator.js), a pure module so a gate can run a
     // game's real lines without this file (scripts/shapes/parkclock-smoke.mjs).
     outroId = narrateBaseball({
-      script, game, gs, ws, announcer, pools, nrng, pick, xpick, say, winner, nodes, startId,
+      script, game, gs, ws, announcer, pools, nrng, pick, xpick, say, winner, nodes, startId, desk: deskNow,
       sport: sportMod, fillMs: slotLen() * SPORTS_GAME_FILL, abbr: sportsAbbr, ordinal: sportsOrdinal,
       recordOf: (team) => recordOf(team),
       pregame: (opts) => pregameFx('baseball', (_standingsCaches.get('baseball') || {}).rows, opts),
@@ -3054,13 +3120,17 @@ function assembleSportsGraph(script, broadcastId, slot, override, opts = {}) {
   const gameSayIds = allSayIds.filter((id) => !nodes[id]._recap);
   const recapSayIds = allSayIds.filter((id) => nodes[id]._recap);
   let lastFloor;
+  // What a paced game may borrow from the post-game tail, for its breaks: all of it but a
+  // minute, and what the recap reel needs at its floor.
+  const tailMs = slotMs * (1 - SPORTS_GAME_FILL);
+  const spareMs = Math.max(0, tailMs - 60000 - recapSayIds.length * SPORTS_LINE_HOLD_MS);
   if (typeof sportMod.paceCalls === 'function') {
     // A sport that calls the play in short lines paces each line by its length and cuts
     // optional lines on a short slot (see sports/hockey-pacing.js).
     const order = [];
     for (let id = startId; id; id = nodes[id].next) order.push(id);
     const lines = order.filter((id) => nodes[id].type === 'say' && !nodes[id]._recap).map((id) => nodes[id]);
-    const { holds, dropped } = sportMod.paceCalls(lines, slotMs * SPORTS_GAME_FILL, BROADCAST_TICK_MS);
+    const { holds, gaps, dropped } = sportMod.paceCalls(lines, slotMs * SPORTS_GAME_FILL, BROADCAST_TICK_MS, { spareMs });
     let prev = null;
     for (const id of order) {
       const nd = nodes[id];
@@ -3068,6 +3138,14 @@ function assembleSportsGraph(script, broadcastId, slot, override, opts = {}) {
       if (holds.has(nd)) nd.holdMs = holds.get(nd);
       delete nd._cue; delete nd._opt;
       prev = id;
+      // a silence of its own, so the line's caption and voice keep the line's length
+      if (gaps?.get(nd)) {
+        const wid = `${id}_gap`, ms = gaps.get(nd);
+        nodes[wid] = { type: 'wait', seconds: ms / 1000, holdMs: ms, next: nd.next };
+        nd.next = wid;
+        if (prevId === id) prevId = wid;
+        prev = wid;
+      }
     }
     lastFloor = SPORTS_LINE_HOLD_MS;
   } else {
@@ -3076,7 +3154,7 @@ function assembleSportsGraph(script, broadcastId, slot, override, opts = {}) {
     lastFloor = perLine;
   }
   if (recapSayIds.length) {
-    const recapPerLine = Math.min(45000, Math.max(SPORTS_LINE_HOLD_MS, floorTick(slotMs * (1 - SPORTS_GAME_FILL) / recapSayIds.length)));
+    const recapPerLine = Math.min(45000, Math.max(SPORTS_LINE_HOLD_MS, floorTick((tailMs - (sportMod.id === 'hockey' ? spareMs : 0)) / recapSayIds.length)));
     for (const id of recapSayIds) nodes[id].holdMs = recapPerLine;
     lastFloor = recapPerLine;
   }
@@ -3614,40 +3692,7 @@ function finalPackageFor(sportMod, script, game, { brand = null, show = null } =
   const sport = sportMod.id, cache = _standingsCaches.get(sport) || {}, ex = cache.extras || {};
   const s = seasonOf(sport), seed = (t) => (t === s.finalistA ? 1 : t === s.finalistB ? 2 : null);
   const watch = {}, out = {};
-  for (const side of ['away', 'home']) {
-    const t = game[side];
-    if (sport === 'hockey') {
-      const P = ex.players || {}, G = ex.goalies || {};
-      const men = (t.skaters || []).map((m) => ({ name: m.name, ...(P[m.name] || { gp: 0, g: 0, a: 0 }) }))
-        .sort((a, b) => (b.g + b.a) - (a.g + a.a) || b.g - a.g || a.name.localeCompare(b.name));
-      const list = men.slice(0, 2).filter((m) => m.gp).map((m) => ({ role: 'F', name: m.name, stat: `${m.g} G · ${m.a} A · ${m.g + m.a} PTS`, said: `${m.g} goals and ${m.a} assists` }));
-      const g = t.goalie ? G[t.goalie] : null;
-      if (g?.gp) {
-        const sv = g.sa ? ((g.sa - g.ga) / g.sa).toFixed(3).replace(/^0/, '') : '.000', gaa = (g.ga / g.gp).toFixed(2);
-        list.splice(1, 0, { role: 'G', name: t.goalie, stat: `${g.w} W · ${sv} SV% · ${gaa} GAA`, said: `${g.w} wins, saving ${sv}` });
-      }
-      watch[side] = list;
-      out[side] = (t.dressed || []).filter((d) => d.callup && d.replacing).map((d) => d.replacing);
-    } else {
-      const L = ex.ledger || {}, bats = L.bats instanceof Map ? L.bats : new Map(), arms = L.arms instanceof Map ? L.arms : new Map();
-      const lineup = (t.lineup || []).map((n) => bats.get(n)).filter(Boolean);
-      const most = lineup.reduce((m, r) => Math.max(m, r.ab), 0), avg = (r) => (r.ab ? r.hits / r.ab : 0);
-      const fmt = (r) => avg(r).toFixed(3).replace(/^0/, '');
-      const hitter = lineup.filter((r) => r.ab >= Math.max(5, most * 0.4)).sort((a, b) => avg(b) - avg(a) || b.hits - a.hits)[0];
-      // the home-run man: the leader, or the next one down when the leader's already up as the best bat
-      const slugger = lineup.filter((r) => r !== hitter).sort((a, b) => b.hr - a.hr || b.rbi - a.rbi)[0];
-      const list = [];
-      if (hitter) list.push({ role: 'AVG', name: hitter.name, stat: `${fmt(hitter)} · ${hitter.hr} HR · ${hitter.rbi} RBI`, said: `hitting ${fmt(hitter)} with ${hitter.rbi} driven in` });
-      const p = t.pitcher ? arms.get(t.pitcher) : null;
-      if (p) {
-        const era = (p.outs ? (p.er * 27) / p.outs : 0).toFixed(2);
-        list.push({ role: 'SP', name: t.pitcher, stat: `${p.w}-${p.l} · ${era} ERA · ${p.k} K`, said: `${p.w} and ${p.l} with an earned run average of ${era}` });
-      }
-      if (slugger && slugger !== hitter && slugger.hr) list.push({ role: 'HR', name: slugger.name, stat: `${slugger.hr} HR · ${slugger.rbi} RBI`, said: `${slugger.hr} home runs` });
-      watch[side] = list;
-      out[side] = [];
-    }
-  }
+  for (const side of ['away', 'home']) ({ list: watch[side], out: out[side] } = watchOf(sport, game[side], ex));
   return finalPackage({
     sport, final: sportMod.season?.finalName || 'Final', away: game.away.name, home: game.home.name,
     rows: cache.rows || [], results: ex.results || [], clubs: script.clubs || {},
@@ -3961,8 +4006,18 @@ function assembleNewsGraph(script, broadcastId, stories, bucket, env = {}) {
   const announcer = script.announcer || anchor;
   const baseTok = { anchor, anchor2, announcer };
 
+  // The bulletin's entry in the Broadcast Studio, if it's on air: a sequence at the desk in place
+  // of the anchor's intro (`open`, with the lead story's facts) and of the outro (`close`). The
+  // anchors here are display names, so a line is attributed by name, as the sports desk does.
+  const desk = (when, data) => {
+    const seg = deskSegment(graphicsCache, { broadcast: broadcastId, when, seed: `${bucket}|${when}`, npcOf: (id) => world.npcs.get(id), data });
+    if (!seg) return false;
+    seg.lines.forEach((l, i) => add({ type: 'say', text: l.name ? `${l.name} says, "${l.text.replace(/"/g, "'")}"` : l.text, style: 'raw', graphic: deskOverlay(seg, l, i) }));
+    return true;
+  };
+  const leadStory = stories[0] || {};
   say(announcer, newsPick(pools, 'open'), baseTok);
-  say(anchor, newsPick(pools, 'anchor.intro'), baseTok);
+  if (!desk('open', { ...baseTok, headline: leadStory.headline || '', byline: leadStory.byline || '', stories: stories.slice(0, NEWS_FEATURE + NEWS_RUNDOWN).map((s) => ({ headline: s.headline || '' })) })) say(anchor, newsPick(pools, 'anchor.intro'), baseTok);
 
   const feature = stories.slice(0, NEWS_FEATURE);
   const rundown = stories.slice(NEWS_FEATURE, NEWS_FEATURE + NEWS_RUNDOWN);
@@ -4013,7 +4068,7 @@ function assembleNewsGraph(script, broadcastId, stories, bucket, env = {}) {
 
   say(anchor2, newsPick(pools, 'kicker.lead'), baseTok);   // co-anchor takes the feel-good pivot
   say(anchor2, newsPick(pools, 'kicker'), baseTok);
-  say(anchor, newsPick(pools, 'outro'), baseTok);
+  if (!desk('close', baseTok)) say(anchor, newsPick(pools, 'outro'), baseTok);
   say(announcer, newsPick(pools, 'signoff'), baseTok);
 
   // _normalizeBroadcastGraph strips _broadcastId, so stamp it after: folding the bucket
@@ -4583,6 +4638,15 @@ function assembleTalkshowGraph(script, broadcastId, bucket, persona) {
   // Two greetings drawn on the trunk: [0] opens the show at the desk, [1] is the throwback on
   // the way to the goodnight. Drawn together so they're never the same line twice in a night.
   const greetDeck = talkshowDraw(pools, 'greeting', 2, tok, rand);
+  // The show's entry in the Broadcast Studio, if it's on air: a sequence at the desk in place of
+  // the greeting (`open`) and before the sign-off (`close`), each line spoken by its cast member
+  // and carrying the desk overlay so the visual rung plays it in 3-D. Null when there's no entry.
+  const desk = (when) => {
+    const seg = deskSegment(graphicsCache, { broadcast: broadcastId, when, seed: `${bucket}|${when}`, npcOf: (id) => world.npcs.get(id), data: tok });
+    if (!seg) return false;
+    seg.lines.forEach((l, i) => { anchor(l.npc); add({ type: 'say', text: l.text, style: 'raw', graphic: deskOverlay(seg, l, i) }); });
+    return true;
+  };
   const show = branch(() => {
     // The first thing John does is talk to Graham. A late-night show opens on the two of them,
     // not on a monologue — the greeting is the moment the audience learns these two have known
@@ -4593,7 +4657,7 @@ function assembleTalkshowGraph(script, broadcastId, bucket, persona) {
       const settle = talkshowDraw(pools, 'settle', 1, tok, rand);
       if (settle.length) { applause(); lines(host, settle); }
     }
-    if (duet(host, sidekick, greetDeck[0])) react();
+    if (desk('open') || duet(host, sidekick, greetDeck[0])) react();
 
     // ── SEGMENT 2: the monologue. John's — 4–5 jokes, each one landing on an audience beat so
     // the room breathes between punchlines. SHORT SEGMENT, DEEP POOL: see TALKSHOW_MONOLOGUE.
@@ -4715,7 +4779,7 @@ function assembleTalkshowGraph(script, broadcastId, bucket, persona) {
     applause();
     // The throwback. Moved here from the way out of the interview, where it interrupted the
     // guest segment; on the way to the goodnight it's the bookend to the greeting instead.
-    if (rand() < 0.5 && duet(host, sidekick, greetDeck[1])) react();
+    if (desk('close') || (rand() < 0.5 && duet(host, sidekick, greetDeck[1]))) react();
     // Sign-off — host thanks the guest and says goodnight. ONE line, so the show never says
     // goodnight twice, and it is JOHN'S line: the host closes his own show.
     lines(host, talkshowDraw(pools, 'signoff', 1, { ...tok }, rand));
@@ -5093,7 +5157,15 @@ function assembleMorningGraph(script, broadcastId, bucket, ctx) {
   else if (script.theme) add({ type: 'music', song: script.theme, text: '♪ The morning theme plays. ♪' });
 
   // Cold open — the real clock, the real temperature, the real day of the week.
-  beat('open', null, "Good morning, it is {time}, it is {temp} degrees, and you're alive. >> Statistically.");
+  // The show's entry in the Broadcast Studio, if it's on air: a sequence on the couch in place of
+  // the cold open (`open`) and of the sign-off (`close`), each line anchored to its cast member.
+  const desk = (when) => {
+    const seg = deskSegment(graphicsCache, { broadcast: broadcastId, when, seed: `${bucket}|${when}`, npcOf: (id) => world.npcs.get(id), data: tok });
+    if (!seg) return false;
+    seg.lines.forEach((l, i) => { anchor(l.npc); add({ type: 'say', text: l.text, style: 'raw', graphic: deskOverlay(seg, l, i) }); });
+    return true;
+  };
+  if (!desk('open')) beat('open', null, "Good morning, it is {time}, it is {temp} degrees, and you're alive. >> Statistically.");
   if (rand() < 0.6) beat('couch');
 
   // Weather window — keyed to what the sky is actually doing, with the severe channel
@@ -5167,7 +5239,7 @@ function assembleMorningGraph(script, broadcastId, bucket, ctx) {
   for (const s of (ctx.stories || []).slice(MORNING_STORIES)) if (s.headline) crawl.push(String(s.headline).replace(/[.\s]+$/, ''));
   add({ type: 'ticker', text: crawl.filter(Boolean).join(' · ') });
 
-  beat('signoff', null, "That's the morning. >> Go be statistically alive.");
+  if (!desk('close')) beat('signoff', null, "That's the morning. >> Go be statistically alive.");
   // Credits are the one pool that isn't alternatives — every line is a card of the same
   // roll, so they're joined rather than picked between.
   const credits = Array.isArray(pools.credits) ? pools.credits.join('\n') : '';
@@ -6868,7 +6940,11 @@ function sendCatchUp(playerId, channelId) {
   const now = Date.now();
   if (state.lastScorebug && now - (state.lastScorebugAt || 0) < CATCHUP_BUG_MAX_AGE_MS)
     sendToPlayer(playerId, { type: 'tv_overlay', channelId, overlay: state.lastScorebug });
-  if (state.lastGameday && now - (state.lastGamedayAt || 0) < CATCHUP_BUG_MAX_AGE_MS) {
+  // A break outlasts the bug's age limit, and it's still on until the period comes back. A
+  // tuner joining one is told how far in it is (`aired`, s), or the rink would start it over.
+  const gdAge = now - (state.lastGamedayAt || 0);
+  const inBreak = state.lastGameday?.type === 'intermission' && gdAge < (state.lastGameday.cues?.find((c) => c.ev === 'resume')?.ms ?? 0);
+  if (state.lastGameday && (inBreak || gdAge < CATCHUP_BUG_MAX_AGE_MS)) {
     // The game's table, leaders, season and venue stamp ride only its first payload, so a
     // late tuner gets them here.
     const gd = state.lastGameday;
@@ -6879,6 +6955,7 @@ function sendCatchUp(playerId, channelId) {
     if (!gd.leaders && kept?.leaders) once.leaders = kept.leaders;
     if (!gd.season && kept?.season) once.season = kept.season;
     if (!gd.venueRev && kept?.venueRev) once.venueRev = kept.venueRev;
+    if (inBreak) once.aired = gdAge / 1000;
     sendToPlayer(playerId, { type: 'tv_overlay', channelId, overlay: Object.keys(once).length ? { ...gd, ...once } : gd });
   }
 }
@@ -6946,6 +7023,12 @@ registerViewerChecker((channelId) => {
   return false;
 });
 
+function _deskCallOn() {
+  const slot = sportsSlotIndex();
+  for (const state of channelRuntime.values()) for (const item of state.playlist || []) if (item.slotType === 'sports_slate' && sportsAiring(item.sportsScript, slot)) return true;
+  return false;
+}
+
 // IS_BROADCAST_SCHEDULED: is this NPC in an active daily schedule slot right now?
 registerNpcScheduleChecker((npcId) => {
   // Tonight's guest, when it's somebody who lives here: on shift for the show while called
@@ -6956,6 +7039,8 @@ registerNpcScheduleChecker((npcId) => {
   // A league man's shift is his club's game, nothing else (leagueNpcTick above).
   const league = leagueNpcWhere(npcId);
   if (league) return league === 'game';
+  // The desk's cast are on while any slate has a game on, which is round the clock but for Cup day.
+  if ((_deskCast ??= castOnAir(graphicsCache, { type: 'sports' })).has(npcId)) return _deskCallOn();
   const { minutes, dayOfWeek } = getEnvironmentState();
   const gameSecs = (minutes ?? 0) * 60;
   const nowMs = Date.now();
@@ -10812,7 +10897,9 @@ function buildTvPanel(channelId, player, dialFrequency, dest) {
   const channelList = [...channelRuntime.values()]
     .filter(s => s.number != null)
     .sort((a, b) => a.number - b.number)
-    .map(s => ({ number: s.number, name: s.name, channelId: s.channelId }));
+    // ⚠ `wasActive` is only kept by the tick for a channel somebody's tuned to, so on its own it called
+    // every unwatched channel dark and the wall set in the Room Stage found nothing to come on to.
+    .map(s => ({ number: s.number, name: s.name, channelId: s.channelId, onAir: channelTransmitterLive(s) && (!!s.wasActive || (s.playlist || []).length > 0) }));
   // Resolve dialFrequency + chassis skin from the zone's TV device if not passed directly
   const fEntry = isTablet ? null : _furnitureEntryForZoneChannel(player.current_zone, channelId);
   if (dialFrequency === undefined) dialFrequency = fEntry?.dialFrequency ?? 0;
@@ -10866,7 +10953,7 @@ async function cmdTabletTune(args, raw, player) {
     // set's power-off and the client routes it to the standalone CRT panel, so
     // sending it here would switch off the wall television because you turned your
     // tablet's screen down. The tablet's own power button closes its view locally.
-    tabletTuners.delete(player.id);
+    emit('tablet_tv.unwatch', { playerId: player.id });
     return null;
   }
 
@@ -11433,6 +11520,7 @@ export const _piracyTest = { canOperateDeck, deckLockError: _deckLockError, next
 // Test seam (never loaded in production) — the deterministic league engine, so the
 // regress suite can assert same-slot reproducibility and the round-robin schedule.
 export const _test = {
+  graphicsCache, stageFor, stageOf: (state, item) => { const s = state.graphBlackboard; state.graphBlackboard = { ...(s || {}), activeBroadcastId: item.broadcastId }; try { return stageFor(state.channelId); } finally { state.graphBlackboard = s; } },
   // Lets the regress suite drive a tick by hand and assert what actually reached a
   // player — the Tablet TV's portable tuner has no zone furniture, so "did a program
   // come out the other end" is only observable this way.

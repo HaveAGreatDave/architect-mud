@@ -4,7 +4,13 @@
   "id": "item_sound_gin",
   "name": "an interval gin",
   "tags": {
+    "consumable": true,
     "description": "Gin and something in a heavy plastic cup, poured at the interval from a table in the foyer and left on the shelf outside the doors when the bell goes. It is a large measure. Nobody is watching the bottle.",
+    "hydrating": true,
+    "laced_drug": "drug_alcohol",
+    "laced_potency": 1.2,
+    "restore_sanity": 8,
+    "restore_thirst": 20,
     "stackable": false
   },
   "type": "drink",

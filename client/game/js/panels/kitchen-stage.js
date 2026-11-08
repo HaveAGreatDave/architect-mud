@@ -27,6 +27,7 @@ import { openWorkspacePanel } from './workspace.js';
 import * as M from './gl/arena-mesh.js';
 import * as KS from './gl/kitchen-mesh.js';
 import { createKitchenRenderer, pickPlane, toScreen } from './gl/kitchen.js';
+import { coverWithVeil } from './glass-veil.js';
 import { matterFor, beatOf } from '../../../shared/kitchen-matter.js';
 import * as Lq from './gl/kitchen-liquid.js';
 import { footprint, cutPieces, balancedGuides, bounds, cutToken, MAX_TILT } from '../../../shared/knife.js';
@@ -110,6 +111,7 @@ export function openKitchenStage(data) {
     hobMix: createLoopMixer({ engine: () => window.AudioEngine, cueOf: (id) => window.SFXCatalog?.get(id) }),
     coldMix: createLoopMixer({ engine: () => window.AudioEngine, cueOf: (id) => window.SFXCatalog?.get(id) }),
   };
+  coverWithVeil(root, 'kitchen-stage');
   root.addEventListener('click', onClick);
   gl.addEventListener('pointerdown', onDown);
   gl.addEventListener('auxclick', (e) => e.preventDefault());

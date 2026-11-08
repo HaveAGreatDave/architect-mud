@@ -109,6 +109,7 @@ export function createGrandstandView(host, opts = {}) {
   let skyField = null;
   // the box's screen's own graphics (opts.room) and the canvas they're painted on
   let tvHud = null, tvCanvas = null, tvWas = null;
+  let era = 0;   // counts clears, so work waiting on a load can tell it has been cleared
   let R = null, hud = null, canvas = null, mounted = false, modsP = null, mods = null, ro = null, raf = 0, unVenue = null, unClubs = null, dressed = null;
   // where the venue's roof is going (1 shut, 0 open) as the seat last heard it, for a renderer built after
   let roofWant = null;
@@ -1116,8 +1117,9 @@ export function createGrandstandView(host, opts = {}) {
     if (flat) { flat.showIdle(); return; }
     if (!host) return;
     clearCard();
+    const mine = era;
     const go = () => {
-      if (flat || !mount()) return;
+      if (mine !== era || flat || !mount()) return;
       if (!last) { R?.setEmpty?.(true); shot = opts.shot || 'high'; paint(); }
       // in a box's suite nobody needs telling: the room is the thing to look at till the game starts
       if (opts.room || host.querySelector('.gds-idle')) return;
@@ -1129,6 +1131,7 @@ export function createGrandstandView(host, opts = {}) {
     if (mods) go(); else loadMods().then(go).catch((err) => fallback(err && err.message));
   }
   function clear() {
+    era++;
     if (flat) { flat.clear(); flat = null; }
     parkQueue = []; clearInterval(parkTimer); parkTimer = null; parkHold = 0;
     stopTimers(); stopLoop(); stopTable(); dropHolds(); stopWorld();

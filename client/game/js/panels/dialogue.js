@@ -218,6 +218,7 @@ function renderDialogue(msg) {
 
   const textEl = document.getElementById('dialogue-text');
   textEl.innerHTML = msg.text;
+  import('./npc-bubbles.js').then((m) => m.voiceLine(msg.npcName, textEl.textContent, state.player?.displayRung)).catch(() => {});
   const opts = document.getElementById('dialogue-options');
   opts.innerHTML = '';
   // Back to the top for the new set. Clearing innerHTML does not reliably reset a

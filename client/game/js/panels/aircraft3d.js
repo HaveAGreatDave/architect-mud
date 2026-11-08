@@ -21,6 +21,8 @@ import {
 } from '../../../shared/vehicle-mesh.js';
 import { MESH_ROWS } from '../../../shared/vehicle-meshes.js';
 import { defaultLivery, aircraftLiveryModel } from '../../../shared/livery-sets.js';
+import { skiffFrame, skiffLayout } from '../../../shared/interior-skiff.js';
+import { legend } from '../../../shared/legend-font.js';
 // How far down the doorway a strike falls before it's behind the apron (drawInspectDoor's bolt reader).
 const DOOR_BOLT_DROP = 0.66;
 export const shadeRgb = (c, m) => `rgb(${clampN(c[0] * m, 0, 255) | 0},${clampN(c[1] * m, 0, 255) | 0},${clampN(c[2] * m, 0, 255) | 0})`;
@@ -152,6 +154,12 @@ function faceWearsTrim(face, pat) {
 // Raw (pre-shade) rgb for a facet. Glass/windows read as dark panes; gear/struts/gun/
 // intakes as dark structural metal, all independent of the livery colour.
 export function faceBaseRgb(face, pal) {
+  // `tone` shades a face against the rest of its paint: one plate of a riveted hull a little lighter or
+  // darker than the next (skiffKit). It sits on top of whatever the paint is, so a livery still repaints her.
+  if (face.tone) { const c = paintRgb(face, pal); return [c[0] * face.tone, c[1] * face.tone, c[2] * face.tone]; }
+  return paintRgb(face, pal);
+}
+function paintRgb(face, pal) {
   const role = face.role;
   // `pk` is a paint key buildTruck stamps by identity against its CHROME/GLOW consts. Absent on aircraft.
   if (face.pk === 'bright') return pal.chrome === 0 ? (pal.hw || [44, 48, 54]) : (pal.bright || face.tint || [226, 232, 240]);
@@ -2309,6 +2317,394 @@ export function boatPipeTint(cls, detail = 1) {
   return (m && m.pipeTint) || null;
 }
 
+// ── THE KEEL MK 1 ── Everything of hers that isn't the hull's loft: plates, paint, lettering, the outboard
+// and what a working boat has lying about in her. Where a thing is comes from interior-skiff.js
+// (`skiffFrame`, `skiffLayout`), so the seat and the chase view draw one boat. The plate has no texture
+// map out here, so what reads as surface is real faces: plates a tone apart (`tone`, which a livery still
+// repaints), the seams and rivets between them, oxide run down from the rivets, and scuffs to bare metal.
+const skiffMat = (rgb, mk) => { const a = rgb.slice(); a.mk = mk; return a; };
+const SKIFF_RGB = {
+  deck: skiffMat([78, 72, 62], -0.08), cap: skiffMat([100, 94, 84], -0.08), rail: skiffMat([150, 154, 152], 0.1),
+  inside: skiffMat([92, 98, 92], -0.08), sole: skiffMat([66, 70, 68], -0.08), rib: skiffMat([104, 104, 92], -0.08),
+  alu: skiffMat([94, 88, 76], -0.08), plank: skiffMat([146, 112, 74], -0.08), seam: skiffMat([50, 56, 54], -0.08),
+  rivet: skiffMat([168, 174, 170], 0.1), oxide: skiffMat([82, 92, 84], -0.08), bloom: skiffMat([176, 182, 172], -0.08),
+  bare: skiffMat([150, 154, 150], -0.08), stain: skiffMat([54, 60, 46], -0.08), stripe: skiffMat([206, 198, 172], -0.08),
+  letter: skiffMat([232, 228, 212], -0.08), stencil: skiffMat([40, 46, 44], -0.08),
+  cowl: skiffMat([42, 46, 54], -0.26), cowlDk: skiffMat([26, 28, 32], -0.08), cowlBand: skiffMat([192, 58, 38], -0.22),
+  leg: skiffMat([58, 62, 68], -0.22), rope: skiffMat([176, 150, 104], -0.08), line: skiffMat([212, 178, 58], -0.08),
+  box: skiffMat([40, 66, 84], -0.08), lid: skiffMat([50, 80, 100], -0.08), boxRib: skiffMat([32, 54, 70], -0.08),
+  tank: skiffMat([172, 44, 32], -0.22), tankRib: skiffMat([140, 34, 26], -0.22), tackle: skiffMat([178, 142, 50], -0.08),
+  pail: skiffMat([100, 104, 100], -0.08), jacket: skiffMat([226, 106, 26], -0.08), jacketDk: skiffMat([184, 80, 20], -0.08),
+  reflect: skiffMat([214, 218, 214], -0.08), oar: skiffMat([164, 130, 88], -0.08), blade: skiffMat([196, 176, 138], -0.08),
+  unit: skiffMat([84, 90, 96], -0.08), screen: skiffMat([20, 26, 24], -0.26), blank: skiffMat([36, 40, 46], -0.08),
+  cork: skiffMat([170, 130, 84], -0.08), steel: skiffMat([84, 88, 94], 0.3), net: skiffMat([44, 58, 54], -0.08),
+};
+
+function skiffKit({ face, strip, box, tube, prop, G, S, META, fine, WHITE_LENS, faces }) {
+  const C = SKIFF_RGB;
+  const { LEN, STATIONS, atF } = G;
+  const TS = STATIONS[STATIONS.length - 1];
+  const F = skiffFrame(S), L = skiffLayout(F);
+  const { cpF0, cpF1, deckZ } = F;
+  const sole = G.soleZ;
+  let seed = 7;
+  const rnd = () => { seed = (seed * 1664525 + 1013904223) >>> 0; return seed / 4294967296; };
+  const sub3 = (a, b) => [a[0] - b[0], a[1] - b[1], a[2] - b[2]];
+  const add3 = (a, b) => [a[0] + b[0], a[1] + b[1], a[2] + b[2]];
+  const mul3 = (a, k) => [a[0] * k, a[1] * k, a[2] * k];
+  const cross3 = (a, b) => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
+  const nrm3 = (a) => { const l = Math.hypot(a[0], a[1], a[2]) || 1; return [a[0] / l, a[1] / l, a[2] / l]; };
+
+  // A polyline of tube, and a hoop of it.
+  const rope = (pts, r, tint, n = 5) => { for (let i = 0; i < pts.length - 1; i++) tube(pts[i], pts[i + 1], r, 'body', tint, n); };
+  const hoop = (c, e1, e2, rad, r, tint, n = 10, sides = 4, a0 = 0, a1 = Math.PI * 2) => {
+    const pts = [];
+    for (let i = 0; i <= n; i++) { const t = a0 + (a1 - a0) * (i / n); pts.push(add3(c, add3(mul3(e1, Math.cos(t) * rad), mul3(e2, Math.sin(t) * rad)))); }
+    rope(pts, r, tint, sides);
+  };
+  // A box whose top edges are chamfered by `c`, from two corners.
+  const chamfer = (f0, f1, g0, g1, z0, z1, c, tint, sh = 1) => {
+    const cen = [(f0 + f1) / 2, (g0 + g1) / 2, (z0 + z1) / 2], zc = z1 - c;
+    const side = (a, b, k) => face([a, b, [b[0], b[1], zc], [a[0], a[1], zc]], k * sh, cen, 'body', tint);
+    side([f1, g0, z0], [f1, g1, z0], 0.9); side([f0, g0, z0], [f0, g1, z0], 0.6);
+    side([f0, g0, z0], [f1, g0, z0], 0.82); side([f0, g1, z0], [f1, g1, z0], 0.7);
+    face([[f1, g0, zc], [f1, g1, zc], [f1 - c, g1 - c, z1], [f1 - c, g0 + c, z1]], 1.0 * sh, cen, 'body', tint);
+    face([[f0, g0, zc], [f0, g1, zc], [f0 + c, g1 - c, z1], [f0 + c, g0 + c, z1]], 0.74 * sh, cen, 'body', tint);
+    face([[f0, g0, zc], [f1, g0, zc], [f1 - c, g0 + c, z1], [f0 + c, g0 + c, z1]], 0.92 * sh, cen, 'body', tint);
+    face([[f0, g1, zc], [f1, g1, zc], [f1 - c, g1 - c, z1], [f0 + c, g1 - c, z1]], 0.84 * sh, cen, 'body', tint);
+    face([[f1 - c, g0 + c, z1], [f1 - c, g1 - c, z1], [f0 + c, g1 - c, z1], [f0 + c, g0 + c, z1]], 1.0 * sh, cen, 'body', tint);
+  };
+  // A box on any three axes.
+  const obox = (c, R, U, N, hr, hu, hn, tint) => {
+    const P = (a, b, d) => add3(add3(add3(c, mul3(R, a * hr)), mul3(U, b * hu)), mul3(N, d * hn));
+    const q = (pts, sh) => face(pts, sh, c, 'body', tint);
+    q([P(-1, -1, 1), P(1, -1, 1), P(1, 1, 1), P(-1, 1, 1)], 0.98);
+    q([P(-1, -1, -1), P(1, -1, -1), P(1, 1, -1), P(-1, 1, -1)], 0.6);
+    q([P(-1, 1, -1), P(1, 1, -1), P(1, 1, 1), P(-1, 1, 1)], 1);
+    q([P(-1, -1, -1), P(1, -1, -1), P(1, -1, 1), P(-1, -1, 1)], 0.5);
+    q([P(1, -1, -1), P(1, 1, -1), P(1, 1, 1), P(1, -1, 1)], 0.8);
+    q([P(-1, -1, -1), P(-1, 1, -1), P(-1, 1, 1), P(-1, -1, 1)], 0.72);
+  };
+  // Legend-face lettering onto any surface: `map(a, b)` turns a place in the line into a model point.
+  const letter = (str, ca, cb, h, map, sh, cen, tint) => legend({ plate: (pts) => face(pts.map(([a, b]) => map(a, b)), sh, cen, 'body', tint) }, str, ca, cb, h, tint, 0, 0);
+
+  // ── THE OUTBOARD ── Lofted in plan: a rounded case, narrower at the back, stacked up the shaft.
+  {
+    const O = G.outboard, M = O.M, fc = (O.f0 + O.f1) / 2, a = (O.f1 - O.f0) / 2, b = O.hw;
+    const N = fine ? 12 : 8;
+    const sp = (v, e) => Math.sign(v) * Math.abs(v) ** e;
+    const ring = (z, k) => Array.from({ length: N }, (_, i) => {
+      const t = (i / N) * Math.PI * 2, u = sp(Math.cos(t), 0.62), v = sp(Math.sin(t), 0.62);
+      return [fc + a * k * u, b * k * v * (0.88 + 0.12 * u), z];
+    });
+    const band = (A, B, tint, sh = 1) => {
+      const q = [];
+      for (let i = 0; i < N; i++) { const j = (i + 1) % N; q.push([A[i], A[j], B[j], B[i]]); }
+      strip(q, sh, [fc, 0, (A[0][2] + B[0][2]) / 2], 'body', tint);
+    };
+    const stack = (rows, tint) => { for (let i = 0; i < rows.length - 1; i++) band(ring(...rows[i]), ring(...rows[i + 1]), tint, 0.72 + 0.28 * (i / Math.max(1, rows.length - 2))); };
+    const zb = TS.sz - 0.012;
+    // The clamp bracket over the transom.
+    box(TS.f - 0.024, TS.f + 0.007, O.hw * 0.62, TS.sz - 0.016, TS.sz + 0.004, 'body', C.cowlDk);
+    stack([[O.z0, 0.70], [O.z0 + 0.008, 0.95], [O.zMid, 1]], C.cowlDk);
+    stack([[O.zMid, 0.965], [O.zMid + 0.004, 1.0], [O.z1 - 0.008, 0.97], [O.z1 - 0.0025, 0.84], [O.z1, 0.60]], C.cowl);
+    face(ring(O.z1, 0.60), 1, [fc, 0, O.z1 - 0.02], 'body', C.cowl);
+    if (fine) {
+      band(ring(O.zMid + 0.008, 1.012), ring(O.zMid + 0.0125, 1.012), C.cowlBand, 0.9);
+      // Her size, on both sides of the cowl.
+      const zt = O.zMid + 0.0195;
+      for (const s of [-1, 1]) {
+        const gz = s * (b * 0.985 + 0.0007);
+        letter('15', 0, 0, 0.0088, (u, v) => [fc + 0.003 + s * u, gz, zt + v], s < 0 ? 0.92 : 0.8, [fc, 0, zt], C.letter);
+      }
+    }
+    // The leg, a foil in section, from under the pan down to the gearcase.
+    const leg = (z, hw, hl, f) => { const n = 6; return Array.from({ length: n }, (_, i) => { const t = (i / n) * Math.PI * 2; return [f + Math.cos(t) * hl, Math.sin(t) * hw * (0.62 + 0.38 * Math.cos(t)), z]; }); };
+    const lf = TS.f - 0.027, zc = -0.030, zp = TS.k + 0.004;
+    const legR = [[zb, 0.0072 * M, 0.018 * M], [zp + 0.004, 0.0060 * M, 0.016 * M], [zc, 0.0050 * M, 0.014 * M]];
+    for (let i = 0; i < 2; i++) {
+      const A = leg(legR[i][0], legR[i][1], legR[i][2], lf), B = leg(legR[i + 1][0], legR[i + 1][1], legR[i + 1][2], lf), q = [];
+      for (let j = 0; j < 6; j++) { const k = (j + 1) % 6; q.push([A[j], A[k], B[k], B[j]]); }
+      strip(q, 0.76, [lf, 0, (legR[i][0] + legR[i + 1][0]) / 2], 'body', C.leg);
+    }
+    if (fine) {
+      box(lf - 0.030 * M, lf + 0.024 * M, 0.015 * M, zp, zp + 0.0022, 'body', C.leg);        // the cavitation plate
+      tube([lf + 0.024 * M, 0, zc - 0.002], [lf - 0.034 * M, 0, zc - 0.002], 0.0072 * M, 'body', C.leg, 8);   // the gearcase
+      box(lf - 0.012 * M, lf + 0.016 * M, 0.0016, zc - 0.018 * M, zc - 0.006 * M, 'body', C.leg);              // the skeg
+      prop(lf - 0.040 * M, 0, zc - 0.002, 0.021 * M);
+      // The tiller: the swivel at the front of the cowl, the arm, and a twist grip by the aft thwart.
+      const root = [O.f1 + 0.002, 0, TS.sz + 0.010], end = [G.helm.f, 0, G.helm.z - 0.645 / G.helm.mPerUnit];
+      const grip = add3(end, mul3(nrm3(sub3(root, end)), 0.19 / G.helm.mPerUnit));
+      tube(root, grip, 0.0024, 'body', C.cowl, 6);
+      tube(grip, end, 0.0029, 'body', C.cowlDk, 6);
+    }
+  }
+
+  // ── THE THWARTS ── Stamped plate with a raised rib; a plank where you sit; a knee at each end.
+  const thwarts = Array.isArray(S.thwarts) ? S.thwarts : [];
+  thwarts.forEach((u, ti) => {
+    const f = u * LEN, top = G.thwartTop(f), zb = top - 0.006, ge = F.thwartEnd(f, zb);
+    box(f - 0.024, f + 0.024, ge, zb, top, 'body', C.alu);
+    if (!fine) return;
+    for (const d of [-0.016, 0.016]) box(f + d - 0.0028, f + d + 0.0028, ge * 0.97, top, top + 0.0011, 'body', C.rib);
+    if (ti < 2) box(f - 0.0105, f + 0.0105, ge * 0.60, top, top + 0.0028, 'body', C.plank);
+    for (const s of [-1, 1]) {
+      const a = [f, s * ge, zb], b = [f, s * (ge - 0.018), zb], c = [f, s * F.wallAt(f, zb - 0.020), zb - 0.020];
+      face([a, b, c], 0.74, null, 'body', C.alu);
+    }
+    // The bench under you is boxed in for flotation.
+    if (ti === 0) face([[f + 0.024, -ge, zb], [f + 0.024, ge, zb], [f + 0.024, F.wallAt(f + 0.024, sole), sole], [f + 0.024, -F.wallAt(f + 0.024, sole), sole]], 0.74, [f, 0, zb - 0.02], 'body', C.inside);
+  });
+
+  // ── THE FISH BOX ── A moulded blue cooler, FISH on its lid.
+  if (Array.isArray(S.fishBox)) {
+    const f0 = S.fishBox[0] * LEN, f1 = S.fishBox[1] * LEN, w = atF((f0 + f1) / 2).sw * 0.40, zt = sole + (S.fishBoxH ?? 0.032);
+    chamfer(f0, f1, -w, w, sole, zt - 0.004, 0.003, C.box);
+    chamfer(f0 - 0.002, f1 + 0.002, -w * 1.05, w * 1.05, zt - 0.004, zt, 0.0016, C.lid);
+    if (fine) {
+      for (const g of [-w * 0.52, 0, w * 0.52]) box(f1 - 0.001, f1 + 0.0012, 0.003, sole + 0.002, zt - 0.008, 'body', C.boxRib, g);
+      const fc = (f0 + f1) / 2;
+      letter('FISH', 0, 0, 0.018, (a, b) => [fc + b, a, zt + 0.0006], 1, [fc, 0, zt - 0.01], C.stencil);
+      for (const s of [-1, 1]) box(f1 - 0.03, f1 - 0.018, 0.002, zt - 0.012, zt - 0.006, 'body', C.boxRib, s * (w + 0.0014));
+    }
+  }
+
+  // ── THE TANK, THE TACKLE, THE PAIL, THE JACKET, THE COIL, THE NET ──
+  if (fine) {
+    const T = L.tank, K = L.tackle, B = L.bucket, J = L.jacket, Co = L.coil, Ne = L.net;
+    chamfer(T.f0, T.f1, T.g0, T.g1, sole + 0.0015, T.z1, 0.0042, C.tank);
+    for (const g of [-0.3, 0, 0.3]) { const gc = (T.g0 + T.g1) / 2 + (T.g1 - T.g0) * g; box(T.f0 + 0.008, T.f1 - 0.018, 0.0016, T.z1 - 0.0002, T.z1 + 0.0006, 'body', C.tankRib, gc); }
+    tube([T.f1 - 0.012, (T.g0 + T.g1) / 2 - 0.012, T.z1], [T.f1 - 0.012, (T.g0 + T.g1) / 2 - 0.012, T.z1 + 0.003], 0.0048, 'body', C.cowlDk, 8);
+    chamfer(K.f0, K.f1, K.g0, K.g1, sole + 0.001, sole + K.h - 0.005, 0.001, C.tackle);
+    chamfer(K.f0 - 0.0008, K.f1 + 0.0008, K.g0 - 0.0008, K.g1 + 0.0008, sole + K.h - 0.005, sole + K.h, 0.0018, C.tackle, 1.1);
+    const kf = (K.f0 + K.f1) / 2, kg = (K.g0 + K.g1) / 2, kz = sole + K.h;
+    rope([[kf - 0.01, kg, kz], [kf - 0.01, kg, kz + 0.002], [kf + 0.01, kg, kz + 0.002], [kf + 0.01, kg, kz]], 0.0009, C.cowlDk, 4);
+    tube([B.f, B.g, sole + 0.001], [B.f, B.g, sole + B.h], B.r, 'body', C.pail, 10);
+    face(Array.from({ length: 10 }, (_, i) => { const t = (i / 10) * Math.PI * 2; return [B.f + Math.cos(t) * B.r, B.g + Math.sin(t) * B.r, sole + B.h - 0.0004]; }), 0.42, [B.f, B.g, sole], 'body', C.cowlDk);
+    hoop([B.f, B.g, sole + B.h], [0, 1, 0], [0, 0, 1], B.r, 0.0006, C.steel, 8, 3, 0, Math.PI * 0.8);
+    const jc = (J.g0 + J.g1) / 2;
+    chamfer(J.f - 0.016, J.f + 0.016, J.g0, J.g1, J.z, J.z + 0.0055, 0.002, C.jacket);
+    chamfer(J.f - 0.013, J.f + 0.013, J.g0 + 0.003, J.g1 - 0.003, J.z + 0.0055, J.z + 0.0095, 0.002, C.jacketDk);
+    box(J.f - 0.0145, J.f + 0.0145, 0.0014, J.z + 0.0095, J.z + 0.0102, 'body', C.reflect, jc - 0.008);
+    box(J.f - 0.0145, J.f + 0.0145, 0.0014, J.z + 0.0095, J.z + 0.0102, 'body', C.reflect, jc + 0.008);
+    for (const dz of [0.0012, 0.0032]) hoop([Co.f, Co.g, sole + dz], [1, 0, 0], [0, 1, 0], Co.r - dz * 0.6, 0.0016, C.line, 10, 4);
+    tube(Ne.butt, Ne.neck, 0.0016, 'body', C.alu, 5);
+    {
+      const d = nrm3(sub3(Ne.hoop, Ne.neck)), e = nrm3(cross3(d, [0, 0, 1]));
+      hoop(Ne.hoop, d, e, Ne.r, 0.0013, C.alu, 10, 4);
+      face(Array.from({ length: 10 }, (_, i) => { const t = (i / 10) * Math.PI * 2; return add3(add3(Ne.hoop, mul3(d, Math.cos(t) * Ne.r)), add3(mul3(e, Math.sin(t) * Ne.r), [0, 0, -0.0015])); }), 0.8, null, 'body', C.net);
+    }
+
+    // The oars, shipped along the thwarts.
+    for (const o of L.oars) {
+      tube(o.a, o.b, 0.0028, 'body', C.oar, 5);
+      const d = nrm3(sub3(o.b, o.a)), s = [0, 1, 0];
+      const q = add3(o.b, mul3(d, 0.05));
+      face([add3(o.b, mul3(s, 0.0027)), add3(q, mul3(s, 0.0055)), add3(q, mul3(s, -0.0055)), add3(o.b, mul3(s, -0.0027))], 0.9, null, 'body', C.blade);
+    }
+
+    // The rod lying up the starboard gunwale in its holder and on its clip, and the spare on the port
+    // quarter, raked aft. The seat's rule (nothing over eye height) is why she doesn't stand one by you.
+    const R = L.rod;
+    tube(R.holderA, R.holderB, 0.0036, 'body', C.alu, 6);
+    tube(R.butt, R.grip, 0.0023, 'body', C.cork, 5);
+    tube(R.grip, R.tip, 0.0010, 'body', C.blank, 4);
+    box(R.clip[0] - 0.002, R.clip[0] + 0.002, 0.003, R.clip[2] - 0.003, R.clip[2] + 0.0008, 'body', C.alu, R.clip[1]);
+    for (const s of [-1, 1]) {
+      const fr = TS.f + LEN * 0.12, ar = atF(fr), base = [fr, s * ar.sw * 0.93, ar.sz - 0.006], top = [fr - 0.012, s * ar.sw * 0.985, ar.sz + 0.016];
+      tube(base, top, 0.0026, 'body', C.alu, 6);
+      if (s < 0) {
+        const d = nrm3([-0.62, -0.20, 0.76]);
+        const g0 = add3(top, mul3(d, 0.044)), tip = add3(top, mul3(d, 0.285));
+        tube(top, g0, 0.0021, 'body', C.cork, 5);
+        tube(g0, tip, 0.0009, 'body', C.blank, 4);
+        box(top[0] + 0.012, top[0] + 0.022, 0.003, top[2] + 0.026, top[2] + 0.033, 'body', C.steel, top[1] - 0.006);
+      }
+    }
+
+    // The fish finder on its arm, and the transducer on the transom with its cable going forward to it.
+    const U = L.sonar, eye = [G.helm.f, G.helm.g, G.helm.z];
+    const n = nrm3(sub3(eye, U.c)), up = nrm3(sub3([0, 0, 1], mul3(n, n[2]))), rt = nrm3(cross3(up, n));
+    tube(U.clamp, add3(U.c, mul3(n, -U.hd)), 0.0017, 'body', C.steel, 6);
+    box(U.clamp[0] - 0.005, U.clamp[0] + 0.005, 0.0045, U.clamp[2] - 0.004, U.clamp[2] + 0.0035, 'body', C.alu, U.clamp[1]);
+    obox(U.c, rt, up, n, U.hw, U.hh, U.hd, C.unit);
+    obox(add3(U.c, mul3(n, U.hd + 0.0002)), rt, up, n, U.hw * 0.74, U.hh * 0.78, 0.0002, C.screen);
+    const Tr = L.transducer;
+    box(Tr.f - 0.002, Tr.f + 0.0015, 0.005, Tr.z - 0.002, Tr.z + 0.016, 'body', C.alu, Tr.g);
+    box(Tr.f - 0.024, Tr.f - 0.001, 0.0048, Tr.z - 0.007, Tr.z + 0.001, 'body', C.cowlDk, Tr.g);
+    rope(L.cable, 0.0006, C.cowlDk, 3);
+  }
+
+  // ── THE FOREDECK ── The anchor and its rode, a cleat, a bow handle and a bow eye.
+  if ((S.anchor ?? 0) > 0) {
+    const fa = LEN * 0.74, fc = LEN * 0.84, dz = (f) => deckZ(f, 0) + 0.0006;
+    if (fine) {
+      tube([fa - 0.026, 0, dz(fa) + 0.003], [fa + 0.016, 0, dz(fa) + 0.003], 0.0014, 'body', C.steel, 5);   // the shank
+      tube([fa + 0.012, -0.021, dz(fa) + 0.002], [fa + 0.012, 0.021, dz(fa) + 0.002], 0.0012, 'body', C.steel, 5);   // the stock
+      for (const s of [-1, 1]) face([[fa + 0.012, s * 0.0015, dz(fa) + 0.002], [fa - 0.016, s * 0.018, dz(fa) + 0.001], [fa - 0.006, s * 0.003, dz(fa) + 0.002]], 0.92, null, 'body', C.steel);
+      const cc = [fa - 0.040, 0, dz(fa - 0.04)];
+      for (let i = 0; i < 3; i++) hoop(add3(cc, [0, 0, 0.0016 + i * 0.0026]), [1, 0, 0], [0, 1, 0], 0.0124 - i * 0.0012, 0.0017, C.rope, 10, 4);
+      rope([add3(cc, [0.008, 0.008, 0.005]), [fa - 0.026, 0.002, dz(fa) + 0.003]], 0.0012, C.rope, 4);
+      rope([add3(cc, [0.012, -0.004, 0.005]), [fc - 0.012, -0.002, dz(fc) + 0.004], [fc, 0, dz(fc) + 0.007]], 0.0013, C.rope, 4);
+    }
+    box(fc - 0.008, fc + 0.008, 0.003, dz(fc), dz(fc) + 0.0055, 'body', C.alu);   // the cleat
+    box(fc - 0.014, fc + 0.014, 0.0025, dz(fc) + 0.005, dz(fc) + 0.008, 'body', C.alu);
+    if (fine) {
+      const fb = LEN * 0.955;
+      rope([[fb + 0.006, -0.009, dz(fb)], [fb + 0.006, -0.009, dz(fb) + 0.012], [fb + 0.006, 0.009, dz(fb) + 0.012], [fb + 0.006, 0.009, dz(fb)]], 0.0016, C.rail, 5);
+      const be = atF(LEN);
+      hoop([be.f + 0.002, 0, be.cz - 0.008], [1, 0, 0], [0, 0, 1], 0.0042, 0.0011, C.rail, 8, 4);
+      for (const s of [-1, 1]) {
+        const fq = TS.f + 0.014, g = s * TS.sw * 0.72, z = deckZ(fq, g) + 0.0005;
+        box(fq - 0.009, fq + 0.009, 0.0022, z, z + 0.0034, 'body', C.alu, g);
+        box(fq - 0.0035, fq + 0.0035, 0.0028, z - 0.0005, z + 0.002, 'body', C.alu, g);
+      }
+    }
+  }
+
+  // ── THE LAMP ── All round, on a pole on the starboard quarter.
+  if ((S.lampPole ?? 0) > 0) {
+    const fl = TS.f + 0.03, gl = TS.sw * 0.7, zb = deckZ(fl, gl), zt = TS.sz + S.lampPole;
+    tube([fl, gl, zb], [fl, gl, zt], 0.0025, 'body', C.alu, 6);
+    box(fl - 0.004, fl + 0.004, 0.004, zt, zt + 0.007, 'body', WHITE_LENS, gl);
+    box(fl - 0.0045, fl + 0.0045, 0.0045, zt + 0.007, zt + 0.0085, 'body', C.cowlDk, gl);
+    META.lamps.push({ at: [fl, gl, zt + 0.004], n: [-1, 0, 0.3], rgb: '255,244,214' });
+  }
+  // Oarlocks on the gunwale abreast the middle thwart.
+  if (fine) {
+    const tw = thwarts.length ? thwarts[Math.floor(thwarts.length / 2)] * LEN : 0;
+    const fo = tw - 0.04, ao = atF(fo);
+    for (const s of [-1, 1]) {
+      tube([fo, s * ao.sw, ao.sz], [fo, s * ao.sw, ao.sz + 0.008], 0.0016, 'body', C.alu, 5);
+      hoop([fo, s * ao.sw, ao.sz + 0.012], [1, 0, 0], [0, 0, 1], 0.0048, 0.0008, C.alu, 8, 3, Math.PI, Math.PI * 2);
+    }
+  }
+  if (!fine) return;
+
+  // ── THE TOPSIDES, IN PLATES ── Two rows, with the butts staggered, each plate its own tone.
+  const onTop = (st, s, u, o = 0) => [st.f, s * (st.cw + (st.sw - st.cw) * u + o), st.cz + (st.sz - st.cz) * u];
+  const at = (f) => { const a = atF(f); a.f = f; return a; };
+  const stF = STATIONS.map((x) => x.f);
+  const fBow = LEN, fAft = TS.f;
+  const rows = [[0, 0.52, [0.20, 0.46, 0.71]], [0.52, 1, [0.32, 0.58, 0.83]]];
+  for (const s of [-1, 1]) for (const [u0, u1, butts] of rows) {
+    const cuts = butts.map((t) => fAft + (fBow - fAft) * t);
+    const fs = [...new Set([...stF, ...cuts])].sort((x, y) => y - x);
+    let plate = [], tone = 0.95 + rnd() * 0.10;
+    const flush = () => {
+      if (!plate.length) return;
+      const from = faces.length;
+      strip(plate, s < 0 ? 1.0 : 0.88, [0, 0, 0.03]);
+      for (let i = from; i < faces.length; i++) faces[i].tone = tone;
+      plate = []; tone = 0.93 + rnd() * 0.14;
+    };
+    for (let i = 0; i < fs.length - 1; i++) {
+      const a = at(fs[i]), b = at(fs[i + 1]);
+      plate.push([onTop(a, s, u0), onTop(b, s, u0), onTop(b, s, u1), onTop(a, s, u1)]);
+      if (cuts.includes(fs[i + 1])) flush();
+    }
+    flush();
+  }
+  // A strip along the topside from a height to a height, over a run of the length, a hair proud of it.
+  const PROUD = 0.0009;
+  const run = (fA, fB, u0, u1, s, lift = PROUD) => {
+    const a = at(fA), b = at(fB);
+    return [onTop(a, s, u0, lift), onTop(b, s, u0, lift), onTop(b, s, u1, lift), onTop(a, s, u1, lift)];
+  };
+  const band = (u0, u1, fA, fB, tint) => {
+    const fs = [fA, ...stF.filter((f) => f < fA && f > fB), fB];
+    for (const s of [-1, 1]) {
+      const q = [];
+      for (let i = 0; i < fs.length - 1; i++) q.push(run(fs[i], fs[i + 1], u0, u1, s));
+      strip(q, s < 0 ? 1.0 : 0.88, [0, 0, 0.03], 'body', tint);
+    }
+  };
+  // The waterline stain follows the water, not the chine, and its top edge is ragged.
+  for (const s of [-1, 1]) {
+    const q = [], n = 22, f1 = LEN * 0.80;
+    for (let i = 0; i < n; i++) {
+      const fa = fAft + (f1 - fAft) * (i / n), fb = fAft + (f1 - fAft) * ((i + 1) / n), A = at(fa), B = at(fb);
+      const zt = 0.017 + rnd() * 0.0055, ua = (zt - A.cz) / (A.sz - A.cz), ub = (zt - B.cz) / (B.sz - B.cz);
+      if (ua <= 0 || ub <= 0) continue;
+      q.push([onTop(A, s, 0, PROUD), onTop(B, s, 0, PROUD), onTop(B, s, ub, PROUD), onTop(A, s, ua, PROUD)]);
+    }
+    strip(q, s < 0 ? 1.0 : 0.88, [0, 0, 0.03], 'body', C.stain);
+  }
+  band(0.735, 0.795, LEN * 0.93, fAft, C.stripe);     // the sheer stripe, just under the rub rail
+  band(0.515, 0.527, fBow * 0.97, fAft, C.seam);      // the lap between the two rows
+  // Rivet heads, in dashes along the lap and under the rail, and oxide run down from some of them.
+  for (const s of [-1, 1]) {
+    const dots = [], runs = [];
+    const line = (u, step, streak) => {
+      for (let f = fAft + 0.008; f < LEN * 0.9; f += step) {
+        dots.push(run(f, f + 0.0026, u, u + 0.012, s, PROUD + 0.0002));
+        if (streak && rnd() < 0.26) { const l = 0.05 + rnd() * 0.15; runs.push(run(f + 0.0003, f + 0.0015, u - l, u, s, PROUD + 0.0001)); }
+      }
+    };
+    line(0.552, 0.0165, true);
+    line(0.698, 0.0165, true);
+    line(0.09, 0.0165, false);
+    for (const [u0, u1, butts] of rows) for (const t of butts) {
+      const f = fAft + (fBow - fAft) * t;
+      strip([run(f - 0.0006, f + 0.0006, u0 + 0.01, u1 - 0.01, s)], 0.6, [0, 0, 0.03], 'body', C.seam);
+      for (let u = u0 + 0.05; u < u1 - 0.03; u += 0.085) dots.push(run(f - 0.0044, f - 0.0024, u, u + 0.011, s, PROUD + 0.0002));
+    }
+    strip(dots, s < 0 ? 0.92 : 0.8, [0, 0, 0.03], 'body', C.rivet);
+    strip(runs, s < 0 ? 1.0 : 0.88, [0, 0, 0.03], 'body', C.oxide);
+    // Bare metal where she rubs on the quay, and white bloom where the paint has lifted.
+    for (const [t0, t1, ua, ub] of [[0.26, 0.33, 0.76, 0.86], [0.49, 0.53, 0.78, 0.9], [0.63, 0.70, 0.72, 0.86], [0.12, 0.15, 0.16, 0.28]]) {
+      const jig = (s < 0 ? 0.04 : 0), a = fAft + (fBow - fAft) * (t0 + jig), b = fAft + (fBow - fAft) * (t1 + jig);
+      strip([run(a, b, ua, ub, s, PROUD + 0.0002)], 0.9, [0, 0, 0.03], 'body', C.bare);
+    }
+    for (const [t, u] of [[0.36, 0.3], [0.58, 0.42], [0.22, 0.62]]) {
+      const a = fAft + (fBow - fAft) * (t + (s < 0 ? 0.07 : 0)), l = 0.012 + rnd() * 0.012;
+      strip([run(a, a + l, u, u + 0.05 + rnd() * 0.06, s, PROUD + 0.0001)], 0.8, [0, 0, 0.03], 'body', C.bloom);
+    }
+    // One painted-out repair per side: a patch of her own paint a shade darker, riveted on.
+    {
+      const a = fAft + (fBow - fAft) * (s < 0 ? 0.56 : 0.34), b = a + 0.034, from = faces.length;
+      strip([run(a, b, 0.14, 0.44, s, PROUD + 0.0002)], s < 0 ? 1.0 : 0.88, [0, 0, 0.03]);
+      for (let i = from; i < faces.length; i++) faces[i].tone = 0.80;
+      const dd = [];
+      for (let k = 0; k <= 4; k++) { const f = a + (b - a) * (k / 4) - 0.0008; dd.push(run(f, f + 0.0018, 0.155, 0.166, s, PROUD + 0.0003), run(f, f + 0.0018, 0.415, 0.426, s, PROUD + 0.0003)); }
+      strip(dd, 0.9, [0, 0, 0.03], 'body', C.rivet);
+    }
+  }
+
+  // ── LETTERING ── Her number at the bow, reading true from outside on each flank, and a builder's stencil.
+  const flank = (s, fm, um) => (a, b) => {
+    const f = fm + s * a, st = at(f), span = Math.hypot(st.sw - st.cw, st.sz - st.cz) || 1;
+    return onTop(st, s, um + b / span, PROUD + 0.0003);
+  };
+  for (const s of [-1, 1]) {
+    letter('CW 4471', 0, 0, 0.0135, flank(s, LEN * 0.40, 0.63), s < 0 ? 1.0 : 0.88, [0, 0, 0.03], C.letter);
+    letter('KEEL', 0, 0, 0.0062, flank(s, fAft + 0.052, 0.635), s < 0 ? 1.0 : 0.88, [0, 0, 0.03], C.stencil);
+  }
+  const tz = TS.cz + (TS.sz - TS.cz) * 0.64, tf = TS.f - 0.0007;
+  const stern = (a, b) => [tf, a, b];
+  letter('KEEL', -0.066, tz, 0.0145, stern, 0.62, [TS.f + 0.05, 0, tz], C.letter);
+  letter('MK 1', 0.066, tz, 0.0145, stern, 0.62, [TS.f + 0.05, 0, tz], C.letter);
+  letter('COLDWATER', -0.066, tz - 0.0135, 0.0060, stern, 0.62, [TS.f + 0.05, 0, tz], C.letter);
+  letter('15 HP MAX', 0.066, tz - 0.0135, 0.0060, stern, 0.62, [TS.f + 0.05, 0, tz], C.letter);
+  // The cap along the transom's top.
+  face([[TS.f - 0.0015, -TS.sw, TS.sz + 0.0012], [TS.f - 0.0015, TS.sw, TS.sz + 0.0012], [TS.f + 0.008, TS.sw * 0.98, TS.sz + 0.0012], [TS.f + 0.008, -TS.sw * 0.98, TS.sz + 0.0012]], 0.96, [TS.f, 0, TS.sz - 0.02], 'body', C.cap);
+  face([[TS.f - 0.0015, -TS.sw, TS.sz + 0.0012], [TS.f - 0.0015, TS.sw, TS.sz + 0.0012], [TS.f - 0.0015, TS.sw, TS.sz - 0.005], [TS.f - 0.0015, -TS.sw, TS.sz - 0.005]], 0.7, [TS.f + 0.05, 0, TS.sz], 'body', C.cap);
+
+  // ── THE RIBS ── Up each wall and across the sole, as in the seat.
+  const NR = 11, ribs = { w: [[], []], sole: [] };
+  for (let k = 0; k <= NR; k++) {
+    const f = cpF0 + 0.012 + (cpF1 - cpF0 - 0.024) * (k / NR), hw = 0.0024, a = at(f), b = at(f + 2 * hw);
+    for (const [i, s] of [[0, -1], [1, 1]]) {
+      const P = (st, ff, up) => (up ? [ff, s * (st.sw * G.WELL.hi - 0.0014), st.sz - G.WELL.cap] : [ff, s * (st.sw * G.WELL.lo - 0.0014), sole + 0.0005]);
+      ribs.w[i].push([P(a, f, 0), P(b, f + 2 * hw, 0), P(b, f + 2 * hw, 1), P(a, f, 1)]);
+    }
+    ribs.sole.push([[f, -a.sw * G.WELL.lo, sole + 0.0014], [f, a.sw * G.WELL.lo, sole + 0.0014], [f + 2 * hw, a.sw * G.WELL.lo, sole + 0.0014], [f + 2 * hw, -a.sw * G.WELL.lo, sole + 0.0014]]);
+  }
+  strip(ribs.w[0], 0.98, [0, -0.3, sole], 'body', C.rib);
+  strip(ribs.w[1], 0.86, [0, 0.3, sole], 'body', C.rib);
+  strip(ribs.sole, 0.82, [0, 0, sole - 0.05], 'body', C.rib);
+}
+
 function buildBoat(id = 'hydro', detail = 1) {
   const S = boatShape(id) || boatShape('hydro') || {};
   const fine = detail >= 1;
@@ -2334,7 +2730,8 @@ function buildBoat(id = 'hydro', detail = 1) {
   const BOTTOM = [70, 74, 82];
   const PKB = (t) => (t === CHROME ? 'bright' : t === ACCENT ? 'glow' : t === BOTTOM ? 'trim' : null);
   // Material for the reflection pass (`mk`, read by windshield.js metalKOf): positive metal, negative clear coat.
-  const MKB = (t, role) => (t === CHROME || t === POLISH || t === PIPE ? 0.92 : t === BLOCK ? 0.38
+  // A tint can state its own (`skiffKit`'s mill plate is dull, not chrome and not clear coat).
+  const MKB = (t, role) => (t && t.mk !== undefined ? t.mk : t === CHROME || t === POLISH || t === PIPE ? 0.92 : t === BLOCK ? 0.38
     : t === RUBBER || t === DARK ? -0.08 : t === ACCENT ? 0 : role === 'body' || role === 'deck' ? -0.34 : undefined);
   // ⚠ A literal tint is marked `fixed`, or faceBaseRgb paints it the livery base (an orange V8). Paint-keyed tints keep their key.
   const tag = (q, role, tint) => {
@@ -2455,7 +2852,8 @@ function buildBoat(id = 'hydro', detail = 1) {
     }
   }
   // Topside, chine to sheer, off the plain stations (steps are only in the bottom).
-  for (let i = 0; i < STATIONS.length - 1; i++) {
+  // A skiff's is laid in plates (skiffKit) at full detail.
+  for (let i = 0; i < STATIONS.length - 1 && !(G.SKIFF && fine); i++) {
     const a = STATIONS[i], b = STATIONS[i + 1];
     const cen = [(a.f + b.f) / 2, 0, (a.k + b.sz) / 2];
     for (const s of [-1, 1]) {
@@ -2529,7 +2927,7 @@ function buildBoat(id = 'hydro', detail = 1) {
       strip([[
         [a.f, s * a.cw, a.cz], [b.f, s * b.cw, b.cz],
         [b.f, s * (b.cw + 0.012), b.cz - 0.006], [a.f, s * (a.cw + 0.012), a.cz - 0.006],
-      ]], 0.92, cen, 'body', rich(0.5) ? CHROME : null);
+      ]], G.OPEN ? 0.8 : 0.92, cen, 'body', G.OPEN ? SKIFF_RGB.stain : rich(0.5) ? CHROME : null);
     }
   }
 
@@ -2548,7 +2946,7 @@ function buildBoat(id = 'hydro', detail = 1) {
       strip([[
         [a.f, s * a.sw, a.sz], [b.f, s * b.sw, b.sz],
         [b.f, 0, b.sz + crown], [a.f, 0, a.sz + crown],
-      ]], 1.00, cen, 'deck');
+      ]], G.OPEN ? 0.82 : 1.00, cen, G.OPEN ? 'body' : 'deck', G.OPEN ? SKIFF_RGB.deck : null);
     }
   }
   // The gunwale cap round the cockpit well, so the opening has an edge.
@@ -2560,7 +2958,7 @@ function buildBoat(id = 'hydro', detail = 1) {
       }
       return [STATIONS[STATIONS.length - 1].sw, STATIONS[STATIONS.length - 1].sz];
     };
-    const N = 6;
+    const N = 6, WK = G.WELL;
     for (let i = 0; i < N; i++) {
       const f0 = cpF1 + (cpF0 - cpF1) * (i / N), f1 = cpF1 + (cpF0 - cpF1) * ((i + 1) / N);
       const [w0, z0] = gz(f0), [w1, z1] = gz(f1);
@@ -2568,14 +2966,14 @@ function buildBoat(id = 'hydro', detail = 1) {
       for (const s of [-1, 1]) {
         strip([[
           [f0, s * w0, z0], [f1, s * w1, z1],
-          [f1, s * w1 * 0.80, z1 - 0.030], [f0, s * w0 * 0.80, z0 - 0.030],
-        ]], 0.58, cen);
+          [f1, s * w1 * WK.hi, z1 - WK.cap], [f0, s * w0 * WK.hi, z0 - WK.cap],
+        ]], G.OPEN ? 0.86 : 0.58, cen, 'body', G.OPEN ? SKIFF_RGB.cap : null);
       }
     }
     // The sole. ⚠ It's also the cabin floor (`G.soleZ`), or a step shows through the doorway.
     const [wa, za] = gz(cpF1), [wb, zb] = gz(cpF0);
-    face([[cpF1, -wa * 0.78, G.soleZ], [cpF1, wa * 0.78, G.soleZ],
-          [cpF0, wb * 0.78, G.soleZ], [cpF0, -wb * 0.78, G.soleZ]], 0.66, [(cpF0 + cpF1) / 2, 0, 0]);
+    face([[cpF1, -wa * WK.lo, G.soleZ], [cpF1, wa * WK.lo, G.soleZ],
+          [cpF0, wb * WK.lo, G.soleZ], [cpF0, -wb * WK.lo, G.soleZ]], G.OPEN ? 0.74 : 0.66, [(cpF0 + cpF1) / 2, 0, G.OPEN ? G.soleZ - 0.05 : 0], 'body', G.OPEN ? SKIFF_RGB.sole : null);
     // ⚠ The well needs walls: the hull is a shell of outward faces, so without them the sea shows through.
     // The forward bulkhead leaves the doorway open.
     const wall = [];
@@ -2583,20 +2981,20 @@ function buildBoat(id = 'hydro', detail = 1) {
       const f0 = cpF1 + (cpF0 - cpF1) * (i / N), f1 = cpF1 + (cpF0 - cpF1) * ((i + 1) / N);
       const [w0, z0] = gz(f0), [w1, z1] = gz(f1);
       for (const s of [-1, 1]) {
-        wall.push({ s, q: [[f0, s * w0 * 0.80, z0 - 0.030], [f1, s * w1 * 0.80, z1 - 0.030],
-          [f1, s * w1 * 0.78, G.soleZ], [f0, s * w0 * 0.78, G.soleZ]] });
+        wall.push({ s, q: [[f0, s * w0 * WK.hi, z0 - WK.cap], [f1, s * w1 * WK.hi, z1 - WK.cap],
+          [f1, s * w1 * WK.lo, G.soleZ], [f0, s * w0 * WK.lo, G.soleZ]] });
       }
     }
     for (const s of [-1, 1]) {
-      strip(wall.filter((w) => w.s === s).map((w) => w.q), 0.50, [(cpF0 + cpF1) / 2, s * wa * 1.6, G.soleZ], 'body', HOUSE_TONE_WELL);
+      strip(wall.filter((w) => w.s === s).map((w) => w.q), G.OPEN ? (s < 0 ? 0.92 : 0.80) : 0.50, [(cpF0 + cpF1) / 2, s * wa * 1.6, G.soleZ], 'body', G.OPEN ? SKIFF_RGB.inside : HOUSE_TONE_WELL);
     }
-    face([[cpF0, -wb * 0.78, G.soleZ], [cpF0, wb * 0.78, G.soleZ], [cpF0, wb * 0.80, zb - 0.030], [cpF0, -wb * 0.80, zb - 0.030]],
-      0.62, [cpF0 - 0.05, 0, G.soleZ], 'body', HOUSE_TONE_WELL);
+    face([[cpF0, -wb * WK.lo, G.soleZ], [cpF0, wb * WK.lo, G.soleZ], [cpF0, wb * WK.hi, zb - WK.cap], [cpF0, -wb * WK.hi, zb - WK.cap]],
+      0.62, [cpF0 - 0.05, 0, G.soleZ], 'body', G.OPEN ? SKIFF_RGB.inside : HOUSE_TONE_WELL);
     // An open boat has no house behind this bulkhead, so it is solid all the way across.
     const dW = G.OPEN ? 0 : G.door.halfW;
     for (const s of [-1, 1]) {
-      face([[cpF1, s * dW, G.soleZ], [cpF1, s * wa * 0.78, G.soleZ], [cpF1, s * wa * 0.80, za - 0.030], [cpF1, s * dW, za]],
-        0.44, [cpF1 + 0.05, s * wa * 0.5, G.soleZ], 'body', HOUSE_TONE_WELL);
+      face([[cpF1, s * dW, G.soleZ], [cpF1, s * wa * WK.lo, G.soleZ], [cpF1, s * wa * WK.hi, za - WK.cap], [cpF1, s * dW, za]],
+        G.OPEN ? 0.70 : 0.44, [cpF1 + 0.05, s * wa * 0.5, G.soleZ], 'body', G.OPEN ? SKIFF_RGB.inside : HOUSE_TONE_WELL);
     }
   }
 
@@ -2830,7 +3228,8 @@ function buildBoat(id = 'hydro', detail = 1) {
   const platZ = TS.cz + 0.030;
 
   const mot = Math.max(0, Math.round(S.motors ?? 4));
-  if (mot > 0) {
+  // An open boat's outboard is in skiffKit.
+  if (mot > 0 && !G.SKIFF) {
     const t = TS;
     // ⚠ Sized against the hull (low and tight to the transom). With a platform they sit on a bracket aft of it.
     // `motorScale` shrinks the whole motor about its transom bracket (the Keel's 15 hp is 0.7).
@@ -2958,88 +3357,8 @@ function buildBoat(id = 'hydro', detail = 1) {
     if (fine) box(cpF0 + 0.020, cpF0 + 0.078, w * 0.98, z0 + 0.032, z0 + 0.034, 'body', [196, 190, 174]);   // the welt
   }
 
-  // ── The open boat's fittings ── Thwarts across the well, the fish box on the sole, the anchor and
-  // its cleat on the foredeck, and an all-round lamp on a pole at the stern. `thwarts` and `fishBox`
-  // are fractions of LEN; the aft thwart is the helm seat (boat-house.js).
-  if (G.OPEN) {
-    const ALLOY = [150, 158, 164], ROPE = [176, 150, 104];
-    const dz = (f) => atF(f).sz + crown * 0.6;
-    for (const u of (Array.isArray(S.thwarts) ? S.thwarts : [])) {
-      const f = u * LEN, top = G.thwartTop(f);
-      box(f - 0.024, f + 0.024, atF(f).sw * 0.80, top - 0.006, top, 'body', ALLOY);
-    }
-    if (Array.isArray(S.fishBox)) {
-      const f0 = S.fishBox[0] * LEN, f1 = S.fishBox[1] * LEN;
-      const w = atF((f0 + f1) / 2).sw * 0.40, zt = G.soleZ + (S.fishBoxH ?? 0.032);
-      box(f0, f1, w, G.soleZ, zt - 0.004, 'body', [222, 226, 220]);
-      box(f0 - 0.002, f1 + 0.002, w * 1.05, zt - 0.004, zt, 'body', [204, 210, 204]);   // the lid
-    }
-    if ((S.anchor ?? 0) > 0) {
-      const fa = LEN * 0.74, fc = LEN * 0.84;
-      box(fa - 0.014, fa + 0.010, 0.012, dz(fa), dz(fa) + 0.004, 'body', DARK);          // the flukes
-      box(fa - 0.003, fa + 0.003, 0.016, dz(fa) + 0.004, dz(fa) + 0.007, 'body', DARK);  // the stock
-      box(fa - 0.040, fa - 0.016, 0.010, dz(fa - 0.028), dz(fa - 0.028) + 0.004, 'body', ROPE);   // the coil
-      box(fc - 0.008, fc + 0.008, 0.003, dz(fc), dz(fc) + 0.006, 'body', ALLOY);          // the cleat
-      box(fc - 0.014, fc + 0.014, 0.0025, dz(fc) + 0.005, dz(fc) + 0.008, 'body', ALLOY);
-    }
-    if ((S.lampPole ?? 0) > 0) {
-      const fl = TS.f + 0.03, gl = TS.sw * 0.7, zb = TS.sz, zt = zb + S.lampPole;
-      tube([fl, gl, zb], [fl, gl, zt], 0.0025, 'body', ALLOY, 5);
-      box(fl - 0.004, fl + 0.004, 0.004, zt, zt + 0.007, 'body', WHITE_LENS, gl);
-      META.lamps.push({ at: [fl, gl, zt + 0.004], n: [-1, 0, 0.3], rgb: '255,244,214' });
-    }
-    // Oarlocks on the gunwale abreast the middle thwart, and two rod holders raked aft off the quarters.
-    if (fine) {
-      const tw = Array.isArray(S.thwarts) && S.thwarts.length ? S.thwarts[Math.floor(S.thwarts.length / 2)] * LEN : 0;
-      const fo = tw - 0.04, ao = atF(fo);
-      for (const s of [-1, 1]) {
-        tube([fo, s * ao.sw, ao.sz], [fo, s * ao.sw, ao.sz + 0.010], 0.0018, 'body', ALLOY, 5);
-        box(fo - 0.006, fo + 0.006, 0.0015, ao.sz + 0.010, ao.sz + 0.013, 'body', ALLOY, s * ao.sw);
-      }
-      const fr = TS.f + LEN * 0.10, ar = atF(fr);
-      for (const s of [-1, 1]) {
-        tube([fr, s * ar.sw * 0.92, ar.sz - 0.006], [fr - 0.012, s * ar.sw * 0.98, ar.sz + 0.016], 0.0022, 'body', ALLOY, 5);
-      }
-    }
-  }
-
-  // ── The open boat's plating and paint ── Riveted alloy plates, a painted topside with a sheer stripe,
-  // a waterline stain and paint rubbed back to bare metal where the gunwale takes the knocks. All of it
-  // sits a hair proud of the topside it's drawn on.
-  if (G.OPEN && fine) {
-    const SEAM = [62, 70, 66], RIVET = [128, 136, 138], STRIPE = [214, 206, 182];
-    const STAIN = [58, 62, 44], BARE = [168, 176, 180];
-    const PROUD = 0.0012;
-    const onTop = (st, s, u, o = PROUD) => [st.f, s * (st.cw + (st.sw - st.cw) * u + o), st.cz + (st.sz - st.cz) * u];
-    // A band along the topside between two heights, over a run of the length.
-    const band = (u0, u1, fA, fB, tint) => {
-      const fs = [fA, ...STATIONS.map((x) => x.f).filter((f) => f < fA && f > fB), fB];
-      for (const s of [-1, 1]) {
-        const quads = [];
-        for (let i = 0; i < fs.length - 1; i++) {
-          const a = atF(fs[i]), b = atF(fs[i + 1]);
-          a.f = fs[i]; b.f = fs[i + 1];
-          quads.push([onTop(a, s, u1), onTop(b, s, u1), onTop(b, s, u0), onTop(a, s, u0)]);
-        }
-        strip(quads, s < 0 ? 0.80 : 0.68, [(fA + fB) / 2, 0, 0.03], 'body', tint);
-      }
-    };
-    const fBow = LEN * 0.90, fAft = TS.f;
-    band(0.00, 0.16, fBow, fAft, STAIN);              // the waterline stain
-    band(0.64, 0.74, fBow, fAft, STRIPE);             // the stripe, just under the rub rail
-    band(0.47, 0.50, fBow, fAft, SEAM);               // the lap seam between the two plates
-    band(0.51, 0.525, fBow, fAft, RIVET);             // and its rivet line
-    // Butt seams where plates meet end to end, each with a rivet row beside it.
-    for (const t of [0.22, 0.46, 0.70]) {
-      const f = fAft + (fBow - fAft) * t;
-      band(0.02, 0.63, f + 0.0012, f - 0.0012, SEAM);
-      band(0.04, 0.62, f - 0.0030, f - 0.0042, RIVET);
-    }
-    // Scuffs: paint worn back to bare alloy along the gunwale, where it rubs on the quay and the oars.
-    for (const [a, b] of [[0.30, 0.38], [0.52, 0.56], [0.64, 0.71]]) {
-      band(0.75, 0.81, fAft + (fBow - fAft) * b, fAft + (fBow - fAft) * a, BARE);
-    }
-  }
+  // ── The open boat ── Her plating, paint, lettering, outboard and fittings, in skiffKit below.
+  if (G.SKIFF) skiffKit({ face, strip, box, tube, prop, G, S, META, fine, WHITE_LENS, faces });
 
   // ── The rub rail ── With a chrome insert on rich trims.
   if (fine) {
@@ -3053,7 +3372,7 @@ function buildBoat(id = 'hydro', detail = 1) {
     }
     for (const s of [-1, 1]) {
       const m = (q) => q.map((p) => [p[0], s * p[1], p[2]]);
-      strip(rail.map(m), 0.60, [0, 0, 0.05], 'body', RUBBER);
+      strip(rail.map(m), G.OPEN ? 0.90 : 0.60, [0, 0, 0.05], 'body', G.OPEN ? SKIFF_RGB.rail : RUBBER);
       if (rich(0.5)) strip(insert.map(m), 0.96, [0, 0, 0.05], 'body', CHROME);
     }
   }
@@ -3069,7 +3388,7 @@ function buildBoat(id = 'hydro', detail = 1) {
   }
 
   // ── The foredeck ── A hatch, a knuckle crease and stem fittings break up the blank deck.
-  {
+  if (!G.OPEN) {
     // ⚠ Read from the row: HOUSE and the house stations are scoped to the pilothouse block.
     const HOUSE_TONE = [26, 28, 33];
     const hF0Ref = S.houseF0 ?? -0.54;

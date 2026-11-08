@@ -98,7 +98,8 @@
   "flags": {
     "drug_class": "depressant",
     "drug_family": "dissociative",
-    "skin_permeability": 0.9
+    "skin_permeability": 0.9,
+    "taken": "huff"
   },
   "id": "drug_ether",
   "item_id": "item_ether",

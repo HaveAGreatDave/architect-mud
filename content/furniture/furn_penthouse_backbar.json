@@ -1,0 +1,36 @@
+{
+  "description": "Glass shelves of bottles, lit from behind, over a walnut cabinet. The top shelf still has its seals on.",
+  "flags": {
+    "aliases": [
+      "bottles",
+      "shelves",
+      "top shelf"
+    ],
+    "interactions": [
+      "lean"
+    ],
+    "look": {
+      "arche": "surface",
+      "dims": [
+        3.6,
+        0.46,
+        2.3
+      ],
+      "form": "barwall"
+    },
+    "spot": {
+      "along": -5,
+      "wall": "back"
+    }
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_penthouse_backbar",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "back bar",
+  "object_type": "furniture",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_solenne_penthouse"
+}

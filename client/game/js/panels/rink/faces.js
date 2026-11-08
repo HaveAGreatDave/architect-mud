@@ -13,7 +13,12 @@
 // a medic can have any face. A player's layout leans to stubble and beards (a full beard half as
 // likely again as a clean face, the way a dressing room looks by spring), and his lips are a
 // little nearer his skin than the street's.
+// ⚠ A PLAYER OR OFFICIAL HAS THE SCULPTED FACE, A MEDIC THE ATLAS'S. `paint` says so (gl/face-paint.js is a man's
+// face, and a medic can be anybody). His head shape, weight and facial hair come off the name like everything else,
+// and the facial hair follows the layout's beard, so a beard in the booth's playoff talk stays a beard.
 import { FACE_LAYOUTS, actorFace, faceCell, faceHair, faceLip } from '../actor-faces.js';
+import { SCULPT_HEADS } from '../actor-head.js';
+import { FACIAL_CODE } from '../gl/face-paint.js';
 import { hash } from './util.js';
 
 const PLAIN = FACE_LAYOUTS.map((L, i) => (L.makeup ? -1 : i)).filter((i) => i >= 0);
@@ -23,6 +28,8 @@ function plainLayout(r) {
   for (let k = 0; k < PLAIN.length; k++) if ((x -= PLAIN_W[k]) < 0) return PLAIN[k];
   return PLAIN[PLAIN.length - 1];
 }
+// By the layout's beard: the shadow of a road trip, or a beard grown out for the playoffs.
+const facialOf = (b, r) => (b === 0 ? 'clean' : b === 1 ? (r < 0.5 ? 'stubble' : 'shadow') : r < 0.15 ? 'moustache' : r < 0.4 ? 'goatee' : 'trimmed');
 const hex255 = (h, dflt) => {
   const s = /^#[0-9a-f]{6}$/i.test(String(h || '')) ? h : dflt;
   return [1, 3, 5].map((i) => parseInt(s.slice(i, i + 2), 16));
@@ -47,6 +54,8 @@ export function rinkFace(o) {
     skin: unit(skin), hair: unit(faceHair(hex255(o.hair, '#2a1c14'), layout)),
     lip: unit(medic ? lip : lip.map((c, i) => c + (skin[i] * 0.8 - c) * 0.35)),
     iris: unit(pick.iris), seed: (hash(`face:${id}:seed`) % 1000) / 20,
+    paint: !medic, shape: SCULPT_HEADS[Math.floor(rand(21) * 3) % 3], weight: [0.3, 0.5, 0.5, 0.7][Math.floor(rand(23) * 4) % 4],
+    facial: FACIAL_CODE[facialOf(FACE_LAYOUTS[layout].beard, rand(22))],
   };
   if (cache.size > 512) cache.clear();
   cache.set(key, f);

@@ -102,6 +102,7 @@ export function createRinkView(host, opts = {}) {
   let W = null, D = null, R = null, ice = null, canvas = null, modsP = null, mods = null;
   const sfxAt = {};
   let costAvg = 0;
+  let era = 0;   // counts clears, so work that was waiting on a load can tell it's been cleared
 
   // The ./rink modules load on first mount, so tv.js's import of this file stays cheap.
   // The CPhL soundset (hockey-sfx.js, a classic script) comes with them rather than at boot:
@@ -460,6 +461,7 @@ export function createRinkView(host, opts = {}) {
       },
       emit: (name, data) => { if (name === 'sfx') _sfx(data.key, data); },
       zamboniLapse: opts.zamboniLapse,
+      zamboniReal: !!opts.seat,
     });
     // the scorer's stat line goes up with his goal's replay and comes down with it (and the
     // frame loop checks again, for a replay that runs out on its own)
@@ -682,7 +684,9 @@ export function createRinkView(host, opts = {}) {
   function showIdle() {
     if (!host) return;
     clearCard();
+    const mine = era;
     const go = () => {
+      if (mine !== era) return;      // cleared while the modules loaded: the host is somebody else's now
       mount();
       if (last) head(last);
       if (host.querySelector('.gdr-idle')) return;
@@ -696,6 +700,7 @@ export function createRinkView(host, opts = {}) {
   }
 
   function clear() {
+    era++;
     stop(); clearCard(); stopFly();
     if (crowdBack) { clearTimeout(crowdBack); crowdBack = null; }
     if (crowd) crowd.stop();
@@ -703,6 +708,7 @@ export function createRinkView(host, opts = {}) {
     if (offClubs) { offClubs(); offClubs = null; }
     if (holdTimer) { clearTimeout(holdTimer); holdTimer = null; }
     leaveFullscreen(host);
+    try { R?.dispose?.(); } catch { /* already gone */ }
     if (host) host.innerHTML = '';
     mounted = false; canvas = null; W = null; D = null; R = null; ice = null;
     caption = ''; pendingCaption = null; pendingCard = null; last = null;

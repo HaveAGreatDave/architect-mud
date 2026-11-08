@@ -96,7 +96,8 @@
     }
   },
   "flags": {
-    "drug_family": "psychedelic"
+    "drug_family": "psychedelic",
+    "taken": "smoke"
   },
   "id": "drug_salvia",
   "item_id": "item_salvia",

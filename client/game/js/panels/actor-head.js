@@ -106,21 +106,50 @@ const NOSE_W = spline([[1.583, 0.0125], [1.59, 0.0115], [1.597, 0.0105], [1.605,
 // angle, so the head reads square from the front and in silhouette.
 export const FACE_STYLES = {
   real: { brow: 1, bridge: 1, socket: 1, ball: 1, cheek: 1, hollow: 1, nose: 1, tip: 1, wings: 1, folds: 1, lips: 1, chin: 1, jaw: 0, browEdge: 1, cheekHi: 0, chinW: 1, jawSq: 0 },
+  // the revised close-up head (docs/proposals/sculpted-figure.md): the same mesh, the planes cut deeper,
+  // and `asym` the small unevenness a real face has
+  sculpt: { brow: 3, browY: 1.659, bridge: 0.9, socket: 1.6, eyeX: 0.0292, ball: 0.45, cheek: 2.4, hollow: 1.7, nose: 1.28, noseNarrow: 0.3, tip: 1, wings: 1.25, folds: 0.5, lips: 0.42, chin: 2.3, jaw: 0.1, browEdge: 0.62, cheekHi: 0.004, chinW: 1.15, jawSq: 1, jawY: 1.574, jawR: 0.02, chinOut: 0.0035, chinUp: 0.007, asym: 1 },
   comic: { brow: 1.9, bridge: 0.9, socket: 0.65, ball: 0.4, cheek: 1.85, hollow: 1.1, nose: 1.05, tip: 1.1, wings: 0.8, folds: 0.3, lips: 0.55, chin: 1.6, jaw: -0.7, browEdge: 0.78, cheekHi: 0.004, chinW: 1.35, jawSq: 1 },
 };
+
+// The sculpted head's other shapes, a person's pick (SCULPT_HEADS, by index): the same mesh, broader,
+// leaner, or softer with a fuller mouth.
+FACE_STYLES.sculptBroad = { ...FACE_STYLES.sculpt, jaw: -0.25, jawSq: 1.3, chinW: 1.25, cheek: 2.6, nose: 1.35 };
+FACE_STYLES.sculptLean = { ...FACE_STYLES.sculpt, jaw: 0.3, jawSq: 0.6, hollow: 2.6, chin: 2.5, chinW: 1, nose: 1.35 };
+// The soft head is a woman's: hardly any brow ridge, a shorter smaller nose, the jaw tapering to a small
+// chin with no corner, and `chinUp` shortening the face under the mouth.
+FACE_STYLES.sculptSoft = { ...FACE_STYLES.sculpt, brow: 0.6, bridge: 0.75, socket: 0.7, ball: 0.7, cheek: 1.5, cheekHi: 0.006, hollow: 0.35, nose: 0.72, tip: 0.85, wings: 0.7, folds: 0, lips: 1.3, chin: 0.8, chinW: 0.85, jaw: 1.1, jawSq: 0, browEdge: 1.2, chinUp: 0.011, chinOut: 0, browY: 1.6645, eyeX: 0.0312, noseNarrow: 0, wings: 0.7, tip: 0.85 };
+export const SCULPT_HEADS = ['sculpt', 'sculptBroad', 'sculptLean', 'sculptSoft'];
+// A sculpted head at a body's weight (figure.js SOMA), 0 to 1. What each body does to the face, added to
+// the head's own shape: an ectomorph's goes hollow and narrow, a mesomorph's heavier in the
+// jaw, an endomorph's round and full, the jaw lost and a second chin under it (`fat` in skullPoint).
+const FACE_WEIGHT = {
+  ecto: { cheek: 0.5, hollow: 2.6, jaw: 0.6, jawSq: -0.3, chin: 0.2, chinUp: 0, fat: 0, lean: 1 },
+  meso: { cheek: 0.1, hollow: 0.2, jaw: -0.2, jawSq: 0.3, chin: 0.3, chinUp: 0, fat: 0, lean: 0 },
+  endo: { cheek: -1, hollow: -1.4, jaw: -0.3, jawSq: -1.6, chin: -0.9, chinUp: 0.009, fat: 1, lean: 0 },
+};
+export function weightedFace(style, w) {
+  if (w === null || w === undefined) return style;
+  const name = style + '@' + w;
+  if (FACE_STYLES[name]) return name;
+  const lo = w < 0.5, t = lo ? w * 2 : (w - 0.5) * 2, A = lo ? FACE_WEIGHT.ecto : FACE_WEIGHT.meso, B = lo ? FACE_WEIGHT.meso : FACE_WEIGHT.endo, K = { ...FACE_STYLES[style] };
+  for (const k of Object.keys(A)) K[k] = Math.max(k === 'jaw' ? -9 : 0, (K[k] || 0) + A[k] + (B[k] - A[k]) * t);
+  FACE_STYLES[name] = K;
+  return name;
+}
 
 // The face's relief, added to z on the front of the skull. A level only keeps what its loops
 // land on; what falls between them is the painter's to shade.
 function faceDisp(x, y, K = FACE_STYLES.real) {
   const ax = Math.abs(x);
   let d = 0;
-  d += K.brow * 0.005 * gauss(x, y, 0, 1.6645, 0.045, 0.0085 * K.browEdge);          // brow ridge
+  d += K.brow * 0.005 * gauss(x, y, 0, K.browY || 1.6645, 0.045, 0.0085 * K.browEdge);          // brow ridge
   d -= K.bridge * 0.004 * gauss(x, y, 0, 1.6485, 0.011, 0.0075);          // the bridge's root
-  d -= K.socket * 0.0095 * gauss(ax, y, 0.031, 1.6415, 0.019, 0.012);     // sockets
-  d += K.ball * 0.0052 * gauss(ax, y, 0.0312, 1.6395, 0.0115, 0.0068);  // the eyeball in them
+  d -= K.socket * 0.0095 * gauss(ax, y, K.eyeX || 0.031, 1.6415, 0.019, 0.012);     // sockets
+  d += K.ball * 0.0052 * gauss(ax, y, K.eyeX || 0.0312, 1.6395, 0.0115, 0.0068);  // the eyeball in them
   d += K.cheek * 0.006 * gauss(ax, y, 0.047, 1.6215 + K.cheekHi, 0.016, 0.012);      // cheekbones
   d -= K.hollow * 0.0035 * gauss(ax, y, 0.047, 1.59, 0.013, 0.014);       // and the hollow under them
-  d += K.nose * NOSE_H(y) * Math.exp(-((x / NOSE_W(y)) ** 2));
+  d += K.nose * NOSE_H(y) * Math.exp(-((x / (NOSE_W(y) * (1 - (K.noseNarrow || 0) * sstep(1.598, 1.625, y)))) ** 2));
   d += K.tip * 0.0035 * gauss(x, y, 0, 1.5985, 0.0085, 0.0075);        // the tip
   d += K.wings * 0.0075 * gauss(ax, y, 0.0155, 1.5925, 0.0066, 0.0064);  // the wings of the nostrils
   d -= K.folds * 0.0018 * gauss(ax, y, 0.0225, 1.5985, 0.004, 0.006);    // and the groove behind them
@@ -183,11 +212,33 @@ export function skullPoint(y, phi, style = 'real') {
   const n = s > 0 ? S.nf : 2.1;
   // the jaw's width from the cheekbones down, most at the chin (the comic style's is a little wider)
   let x = S.w * se(c, n) * (1 - K.jaw * 0.1 * sstep(1.615, 1.53, y) * (0.4 + 0.6 * Math.max(0, s)));
-  // the jaw's corner at its angle, out to the side and a little forward (the comic style's)
-  if (K.jawSq) x += Math.sign(c) * K.jawSq * 0.0065 * Math.exp(-(((y - 1.553) / 0.016) ** 2)) * sstep(0.2, 0.75, Math.abs(c)) * (0.5 + 0.5 * Math.max(0, s));
+  // a full face: wider from the cheeks down, and under the chin the rings open into a second one
+  if (K.fat) x *= 1 + K.fat * (0.15 * Math.exp(-(((y - 1.598) / 0.042) ** 2)) + 0.3 * sstep(1.542, 1.524, y));
+  // and a lean one: drawn in below the cheekbones, so the bones stand out
+  if (K.lean) x *= 1 - K.lean * 0.09 * sstep(1.625, 1.575, y);
+  // the jaw's corner at its angle, out to the side and a little forward. The sculpted heads put it up by the mouth,
+  // where a real jaw turns (`jawY`, `jawR`): at chin height it's a box
+  if (K.jawSq) x += Math.sign(c) * K.jawSq * 0.0065 * Math.exp(-(((y - (K.jawY || 1.553)) / (K.jawR || 0.016)) ** 2)) * sstep(0.2, 0.75, Math.abs(c)) * (0.5 + 0.5 * Math.max(0, s));
   let z = S.zw + (s > 0 ? S.zf - S.zw : S.zw - S.zb) * se(s, n);
   if (s > 0) z += faceDisp(x, y, K) * sstep(0.1, 0.5, s);
-  return [x, y, z];
+  // the chin and the mouth over it brought forward, for a firm line in profile
+  if (K.chinOut && s > 0) z += K.chinOut * sstep(1.585, 1.545, y) * s;
+  if (K.fat && s > 0) z += K.fat * s * (0.018 * gauss(Math.abs(x), y, 0.052, 1.592, 0.032, 0.032) + 0.01 * sstep(1.54, 1.524, y));
+  if (K.asym && s > 0) {
+    z += K.asym * 0.0014 * gauss(x, y, 0.045, 1.62, 0.02, 0.02);   // the left cheekbone a little fuller
+    x += K.asym * 0.0011 * gauss(x, y, 0, 1.6, 0.013, 0.022);      // the nose a little off true
+  }
+  return [x, y + (K.chinUp || 0) * sstep(1.556, 1.522, y) - (K.fat || 0) * 0.012 * sstep(1.542, 1.524, y), z];
+}
+// The sculpted eye's opening, by face: its centre's half-width, half its length, how far the lids stand above
+// and below the middle, and how much it tilts up to the outer corner. gl/figure-hd.js draws the same curve.
+export const EYE = { y: 1.6398, man: { x: 0.0292, w: 0.0158, t: 0.0051, b: 0.0034, tilt: 0.02 }, soft: { x: 0.0312, w: 0.0168, t: 0.0074, b: 0.0052, tilt: 0.07 } };
+// The point on the face at half-width `x` and height `y`, for what's fitted to the skin.
+export function facePoint(x, y, style) {
+  let lo = 0.02, hi = Math.PI / 2;
+  for (let i = 0; i < 26; i++) { const m = (lo + hi) / 2; if (skullPoint(y, m, style)[0] > Math.abs(x)) lo = m; else hi = m; }
+  const p = skullPoint(y, (lo + hi) / 2, style);
+  return [Math.sign(x) * Math.abs(p[0]), p[1], p[2]];
 }
 // The angle on ring `y` whose point sits at half-width `x` on the front of the skull. A column
 // wider than a small ring is eased in to just inside its edge rather than clamped onto it.
@@ -212,13 +263,24 @@ function ringPhis(L, y) {
 // Thirteen knots a twelfth of pi apart, read the same way by the shell builder here and by the
 // scalp paint in the head's fragment shader, so the paint is under the shell's edge.
 export const HAIRLINE = [1.703, 1.7, 1.688, 1.662, 1.63, 1.648, 1.664, 1.666, 1.65, 1.612, 1.586, 1.574, 1.571];
-export function hairlineAt(x, z) {
+// The sculpted head's: a sideburn in front of the ear rather than at the eye's corner, and the hair
+// coming down round the ear.
+export const HAIRLINE_SCULPT = [1.697, 1.695, 1.687, 1.672, 1.651, 1.63, 1.598, 1.622, 1.64, 1.615, 1.585, 1.57, 1.565];
+export function hairlineAt(x, z, line = HAIRLINE) {
   const psi = Math.atan2(Math.abs(x), z - ZC), u = (psi / Math.PI) * 12;
-  const i = Math.floor(u), t = u - i, k = (j) => HAIRLINE[Math.max(0, Math.min(12, j))];
+  const i = Math.floor(u), t = u - i, k = (j) => line[Math.max(0, Math.min(12, j))];
   const p0 = k(i - 1), p1 = k(i), p2 = k(i + 1), p3 = k(i + 2);
   return 0.5 * (2 * p1 + (-p0 + p2) * t + (2 * p0 - 5 * p1 + 4 * p2 - p3) * t * t + (-p0 + 3 * p1 - 3 * p2 + p3) * t * t * t);
 }
 export const HAIRLINE_GLSL = `const float HL[13] = float[13](${HAIRLINE.map((v) => v.toFixed(3)).join(', ')});
+const float HLS[13] = float[13](${HAIRLINE_SCULPT.map((v) => v.toFixed(3)).join(', ')});
+float hairlineSculpt(vec3 r) {
+  float u = atan(abs(r.x), r.z - (${ZC.toFixed(3)})) / 3.14159265 * 12.0;
+  int i = int(floor(u));
+  float t = u - float(i);
+  float p0 = HLS[clamp(i - 1, 0, 12)], p1 = HLS[clamp(i, 0, 12)], p2 = HLS[clamp(i + 1, 0, 12)], p3 = HLS[clamp(i + 2, 0, 12)];
+  return 0.5 * (2.0 * p1 + (-p0 + p2) * t + (2.0 * p0 - 5.0 * p1 + 4.0 * p2 - p3) * t * t + (-p0 + 3.0 * p1 - 3.0 * p2 + p3) * t * t * t);
+}
 float hairlineAt(vec3 r) {
   float u = atan(abs(r.x), r.z - (${ZC.toFixed(3)})) / 3.14159265 * 12.0;
   int i = int(floor(u));
@@ -288,7 +350,7 @@ function grid(lv, style = 'real') {
   const L = HEAD_LEVELS[lv], ys = L.rings;
   const pts = ys.map((y) => ringPhis(L, y).map((phi) => skullPoint(y, phi, style)));
   const n = pts[0].length;
-  const top = [0, FACE.top, ZC], bot = [0, FACE.chin, 0.05];
+  const top = [0, FACE.top, ZC], bot = [0, FACE.chin + (FACE_STYLES[style]?.chinUp || 0) - (FACE_STYLES[style]?.fat || 0) * 0.012, 0.05];
   // Normals off a throwaway mesh of the whole closed skull.
   const M = builder();
   const ti = M.v(top, 7), rings = pts.map((r) => r.map((p) => M.v(p, 7))), bi = M.v(bot, 7);
@@ -304,8 +366,8 @@ function grid(lv, style = 'real') {
 
 // An ear: a flattened ellipsoid with a hollow in its outer face, leaned back and flared from the
 // head, its front edge sunk into the side of the skull.
-function addEar(M, side, nu, nv) {
-  const rx = 0.0068, ry = 0.029, rz = 0.0172;
+function addEar(M, side, nu, nv, sculpt = false) {
+  const rx = 0.0068, ry = sculpt ? 0.0245 : 0.029, rz = sculpt ? 0.0158 : 0.0172;
   const tilt = -0.2, flare = -0.26 * side;
   const place = (lx, ly, lz) => {
     // lean back about x, flare about a vertical line near the front edge, then put it on the head
@@ -319,9 +381,9 @@ function addEar(M, side, nu, nv) {
     let lx = rx * Math.sin(th) * Math.cos(ph);
     const ly = ry * Math.cos(th);
     let lz = rz * Math.sin(th) * Math.sin(ph);
-    if (ly < 0) lz *= 1 - 0.22 * sstep(0, -ry, ly);
+    if (ly < 0) lz *= 1 - (sculpt ? 0.34 : 0.22) * sstep(0, -ry, ly);
     const dent = gauss(ly, lz, -0.004, 0.001, 0.013, 0.0085) * sstep(0, rx * 0.6, lx);
-    lx -= 0.0058 * dent;
+    lx -= (sculpt ? 0.0085 : 0.0058) * dent;
     return M.v(place(lx, ly, lz), 8, 1, Math.max(0, ly / ry) ** 2, dent);
   };
   const top = vert(0, 0), rings = [];
@@ -353,11 +415,12 @@ export const NECK = [
   [1.56, 0.0438, 0.047, -0.012],
   [1.6, 0.043, 0.046, -0.01],
 ];
-function addNeck(M, n, rows) {
+export const NECK_SCULPT = 1.13;
+function addNeck(M, n, rows, k = 1) {
   const rings = [], f = [1, 2, 3].map((k) => spline(NECK.map((r) => [r[0], r[k]])));
   for (let i = 0; i < rows; i++) {
     const y = NECK_TOP - ((NECK_TOP - NECK_FOOT) * i) / (rows - 1);
-    const rx = f[0](y), rz = f[1](y), cz = f[2](y), w = sstep(1.495, 1.565, y), r = [];
+    const rx = f[0](y) * k, rz = f[1](y) * k, cz = f[2](y), w = sstep(1.495, 1.565, y), r = [];
     for (let k = 0; k < n; k++) {
       const ph = (k * TAU) / n, s = Math.sin(ph);
       // the throat is flatter than the back of the neck
@@ -380,8 +443,9 @@ export function headMesh(lv = 0, style = 'real') {
   stitch(M, rings);
   const R = rings[rings.length - 1];
   for (let k = 0; k < n; k++) M.t(R[k], R[(k + 1) % n], bi);
-  addEar(M, 1, ...L.ear); addEar(M, -1, ...L.ear);
-  addNeck(M, ...L.neck);
+  const sculpt = style.startsWith('sculpt');
+  addEar(M, 1, ...L.ear, sculpt); addEar(M, -1, ...L.ear, sculpt);
+  addNeck(M, ...L.neck, sculpt ? NECK_SCULPT : 1);
   _head[hk] = done(M);
   return _head[hk];
 }
@@ -392,25 +456,27 @@ export function headMesh(lv = 0, style = 'real') {
 // 3 long, 4 a quiff over cut sides.
 export const HAIR_STYLES = 5;
 const _hair = [];
-export function hairMesh(style, lv = 0) {
-  const key = lv * HAIR_STYLES + style;
+// `sculpt` fits the sculpted head and its hairline, and leaves the volume to figure.js's locks.
+export function hairMesh(style, lv = 0, sculpt = false) {
+  const key = lv * HAIR_STYLES + style + (sculpt ? 100 : 0);
   if (_hair[key]) return _hair[key];
-  const L = HEAD_LEVELS[lv], G = grid(lv), M = builder(), n = G.n;
+  const L = HEAD_LEVELS[lv], G = grid(lv, sculpt ? 'sculpt' : 'real'), M = builder(), n = G.n, line = sculpt ? HAIRLINE_SCULPT : HAIRLINE;
   const shell = (p, nn) => {
     const ax = Math.abs(p[0]);
     let T = [0.0032, 0.0042, 0.008, 0.007, 0.011][style];
     if (style === 2) T += 0.007 * vnoise3(p[0] * 55, p[1] * 55, p[2] * 55 + 3);
     if (style === 3) T += 0.004 * vnoise3(p[0] * 40, p[1] * 40, p[2] * 40 + 9);
     let thin = 0;
-    if (style === 4) {
+    if (sculpt) T = 0.0045;
+    else if (style === 4) {
       thin = Math.max(sstep(0.04, 0.05, ax) * (1 - sstep(1.708, 1.722, p[1])), sstep(-0.02, -0.07, p[2]) * (1 - sstep(1.63, 1.66, p[1])));
       T = T + (0.0016 - T) * thin;
     }
-    const hl = hairlineAt(p[0], p[2]);
+    const hl = hairlineAt(p[0], p[2], line);
     const tuck = sstep(hl + 0.003, hl + 0.016, p[1]);
     const t = 0.0007 + (T - 0.0007) * tuck;
     const q = [p[0] + nn[0] * t, p[1] + nn[1] * t, p[2] + nn[2] * t];
-    if (style === 4) {
+    if (style === 4 && !sculpt) {
       const front = sstep(0.02, 0.08, p[2]) * sstep(1.7, 1.73, p[1]) * (1 - thin) * tuck;
       q[1] += 0.03 * front; q[2] += 0.018 * front;
     }
@@ -420,7 +486,7 @@ export function hairMesh(style, lv = 0) {
   // hair's colour, so the stepped edge of the cut lands on hair, not skin. Each column's first
   // vertex below the line is pulled up onto it, so the edge follows the hairline instead of
   // stepping ring by ring.
-  const thr = (p) => hairlineAt(p[0], p[2]) + 0.0045;
+  const thr = (p) => hairlineAt(p[0], p[2], line) + 0.0045;
   const ti = M.v(shell(G.top, G.topN), 9);
   const rings = G.pts.map((r) => r.map(() => -1));
   for (let j = 0; j < n; j++) {
@@ -437,7 +503,7 @@ export function hairMesh(style, lv = 0) {
   }
   for (let k = 0; k < n; k++) M.t(ti, rings[0][(k + 1) % n], rings[0][k]);
   stitch(M, rings);
-  if (style === 3) {
+  if (style === 3 && !sculpt) {
     // Long hair hangs off the back of the head as a sheet, ragged at the ends, over the shoulders.
     // It rides the head at the top and the neck below the nape.
     const rx = spline([[1.38, 0.13], [1.44, 0.122], [1.5, 0.098], [1.58, 0.084], [1.645, 0.082]]);

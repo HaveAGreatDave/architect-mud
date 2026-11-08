@@ -1,0 +1,23 @@
+{
+  "description": "A deep chair in rust velvet with a brass lamp curved over it. A cashmere throw is folded over the arm.",
+  "flags": {
+    "aliases": "chair",
+    "interactions": [
+      "sit"
+    ],
+    "look": {
+      "arche": "seat",
+      "form": "armchair"
+    }
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_solenne_apt_e_armchair",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "reading chair",
+  "object_type": "furniture",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_solenne_apt_e"
+}

@@ -54,7 +54,7 @@ export const KIT_M = Object.freeze({
   ZEBRA_L: 3.2, ZEBRA_BAR: 0.5, ZEBRA_PITCH: 0.8,
   POLE_H: 3.4, POLE_IN: 0.45,
   PLANT_EVERY: 15, PLANT_IN: 1.05, VENT_EVERY: 17,
-  GATE_IN: 1.5, PRICE_Z: 2.5,
+  GATE_IN: 1.5,
   // The footbridge: the hydrogen hauler is 4.2 m and every bridge clears it by 2.8 m.
   HAULER: 4.2, CLEAR: 2.8, DECK_T: 0.45, DECK_W: 2.6, RAIL_H: 1.1, ARCH: 1.5,
   TOWER_IN: 1.05, TOWER_W: 1.5, TOWER_L: 1.8, TOWER_UP: 2.8, BRIDGE_IN: 6.5,
@@ -105,36 +105,35 @@ const PAL = {
 //   panels        what the panels near to are made of; `patch` of them are `patches` instead, `gone`
 //                 are missing, `door` are a door somebody laid in the gap, and `tilt` is how far a
 //                 panel has lifted, in metres
-//   marks         'ink' is the chrome's two reflection bands, 'scuff' a worn plate's scratches
+//   marks         'sheen' is the chrome's two reflection bands, 'scuff' a worn plate's scratches
 //   cyan, amber   every small light; a dead one is the same part in the same place, unlit
-//   speed         how fast the strip runs, m/s. Stopped from Worn down, and still priced
-//   price         the strip's lettering; null at dirt, where nothing carries words
+//   speed         how fast the strip runs, m/s. Stopped from Worn down
 //   gateGone, bollardGone, bollardFlat  the share of posts missing or knocked over
 //   lean          how far a pole or post has gone over, in radians
 //   steam         how hard the vents go: more of it the less anybody is looking after them
 const DEAD_CYAN = [16, 35, 43], DEAD_AMBER = [26, 18, 6];
 export const LEVEL = Object.freeze([
-  { name: 'core', top: PAL.chrome, topMat: 'metal', slab: PAL.slab, panels: [PAL.chrome], panelMat: 'metal', hatch: PAL.hatch, patch: 0, patches: null, gone: 0, door: 0, tilt: 0, marks: 'ink',
+  { name: 'core', top: PAL.chrome, topMat: 'metal', slab: PAL.slab, panels: [PAL.chrome], panelMat: 'metal', hatch: PAL.hatch, patch: 0, patches: null, gone: 0, door: 0, tilt: 0, marks: 'sheen',
     cap: PAL.cap, capMat: 'metal', lane: PAL.lane, guide: PAL.guide, cyan: PAL.cyan, cyanMat: 'lit', amber: PAL.amber, amberMat: 'lit', edge: true, cracks: 0,
-    strip: PAL.strip, stripMat: 'lit', chevron: PAL.cyan, chevronMat: 'lit', speed: 1.4, price: '#ffb21d', priceLit: true,
+    strip: PAL.strip, stripMat: 'lit', chevron: PAL.cyan, chevronMat: 'lit', speed: 1.4,
     gateGone: 0, bollardGone: 0, bollardFlat: 0, zebra: PAL.amber, zebraMat: 'lit', lamp: 'blink', lean: 0,
     crown: PAL.crown, crownK: 1, tree: 'lit', deck: PAL.chrome, junk: 0, weeds: 0, steam: 1 },
-  { name: 'middle', top: [185, 201, 214], topMat: 'metal', slab: PAL.slab, panels: [[185, 201, 214]], panelMat: 'metal', hatch: PAL.hatch, patch: 0.2, patches: [[185, 170, 142], [159, 178, 161], [201, 193, 180], [167, 161, 179]], gone: 0, door: 0, tilt: 0, marks: 'ink',
+  { name: 'middle', top: [185, 201, 214], topMat: 'metal', slab: PAL.slab, panels: [[185, 201, 214]], panelMat: 'metal', hatch: PAL.hatch, patch: 0.2, patches: [[185, 170, 142], [159, 178, 161], [201, 193, 180], [167, 161, 179]], gone: 0, door: 0, tilt: 0, marks: 'sheen',
     cap: PAL.cap, capMat: 'metal', lane: PAL.lane, guide: PAL.guide, cyan: PAL.cyan, cyanMat: 'lit', amber: PAL.amber, amberMat: 'lit', edge: true, cracks: 0,
-    strip: PAL.strip, stripMat: 'lit', chevron: PAL.cyan, chevronMat: 'lit', speed: 0.45, price: '#ffb21d', priceLit: true,
+    strip: PAL.strip, stripMat: 'lit', chevron: PAL.cyan, chevronMat: 'lit', speed: 0.45,
     gateGone: 0, bollardGone: 0, bollardFlat: 0, zebra: PAL.amber, zebraMat: 'lit', lamp: 'blink', lean: 0,
     crown: [47, 124, 116], crownK: 1, tree: 'lit', deck: [185, 201, 214], junk: 0, weeds: 0, steam: 1.1 },
   { name: 'worn', top: [136, 140, 142], topMat: 'metal', slab: [58, 58, 56], panels: [[142, 147, 151], [128, 133, 138], [153, 152, 145]], panelMat: 'metal', hatch: [104, 108, 112], patch: 0, patches: null, gone: 0.08, door: 0.015, tilt: 0.02, marks: 'scuff',
     cap: [128, 132, 136], capMat: 'metal', lane: PAL.lane, guide: PAL.cyanDim, cyan: PAL.cyanDim, cyanMat: 'lit', amber: PAL.amberDim, amberMat: 'paint', edge: true, cracks: 0,
-    strip: [12, 30, 40], stripMat: 'paint', chevron: [32, 72, 86], chevronMat: 'paint', speed: 0, price: '#b07a10', priceLit: true,
+    strip: [12, 30, 40], stripMat: 'paint', chevron: [32, 72, 86], chevronMat: 'paint', speed: 0,
     gateGone: 0, bollardGone: 0.12, bollardFlat: 0, zebra: [176, 122, 16], zebraMat: 'lit', lamp: 'steady', lean: 0,
     crown: [107, 90, 52], crownK: 0.7, tree: 'wilted', deck: [142, 147, 151], junk: 0, weeds: 0, steam: 1.3 },
   { name: 'unmaintained', top: [112, 116, 120], topMat: 'metal', slab: [44, 46, 49], panels: [[118, 122, 127], [104, 108, 113], [129, 133, 137], [94, 98, 103]], panelMat: 'metal', hatch: [84, 88, 92], patch: 0, patches: null, gone: 0.3, door: 0, tilt: 0.05, marks: 'scuff',
     cap: [108, 112, 116], capMat: 'metal', lane: [24, 25, 28], guide: null, cyan: DEAD_CYAN, cyanMat: 'paint', amber: DEAD_AMBER, amberMat: 'paint', edge: false, cracks: 7,
-    strip: [20, 22, 22], stripMat: 'paint', chevron: [34, 42, 44], chevronMat: 'paint', speed: 0, price: '#6a5420', priceLit: false,
+    strip: [20, 22, 22], stripMat: 'paint', chevron: [34, 42, 44], chevronMat: 'paint', speed: 0,
     gateGone: 0.33, bollardGone: 0.3, bollardFlat: 0.25, zebra: [106, 84, 32], zebraMat: 'paint', lamp: 'dead', lean: 0.22,
     crown: null, crownK: 0, tree: 'stump', deck: [110, 111, 106], junk: 3, weeds: 20, steam: 1.6 },
-  { name: 'dirt', dirt: true, price: null, deck: [110, 111, 106], junk: 6, weeds: 12, steam: 0 },
+  { name: 'dirt', dirt: true, deck: [110, 111, 106], junk: 6, weeds: 12, steam: 0 },
 ]);
 
 // ── WHERE A BLOCK'S PARTS STAND ──────────────────────────────────────────────
@@ -457,7 +456,7 @@ export function drawStreetKit(o) {
   if (doStatic) {
     // A walkway is a dark slab with the panels standing on it. Far off it's the slab with a panel-
     // coloured top; near to, the slab drops by a panel's thickness and the panels sit on it with a
-    // gap between each, so the joints read as dark lines and each panel carries two ink bands. One
+    // gap between each, so the joints read as dark lines and each panel carries two bands of sheen. One
     // panel in sixteen is an inspection hatch: duller, bolted at the corners, with a status pip.
     // Down the ladder a panel is patched, dented, lifted, missing or a door somebody laid in the gap.
     const walk = (x0, x1, y0, y1, alongX) => {
@@ -518,11 +517,15 @@ export function drawStreetKit(o) {
           continue;
         }
         if (patched) continue;
-        if (LV.marks === 'ink') {
-          // Two ink bands across each panel, leaning the same way on every panel in the city: the
-          // comic read of a reflection. From the preview's band texture, in panel fractions.
-          face([q(0.06, 1, KERB_H + zb), q(0.34, 1, KERB_H + zb), q(0.66, 0, KERB_H + zb), q(0.38, 0, KERB_H + zb)], PAL.band, 'paint');
-          face([q(0.55, 1, KERB_H + zb), q(0.64, 1, KERB_H + zb), q(0.95, 0, KERB_H + zb), q(0.86, 0, KERB_H + zb)], PAL.band, 'paint');
+        if (LV.marks === 'sheen') {
+          // Polished metal, never paint: a wide cool band of the sky in the panel and a thin bright
+          // glint, leaning the same way on every panel in the city, so the shader's reflection still
+          // runs through both. Black bands here read as a road marking, not a reflection. Every third
+          // row has a lit seam across its end.
+          const [r, gr, bl] = rgb, cool = [r * 0.74, gr * 0.81, bl * 0.9].map(Math.round), glint = [r, gr, bl].map((c) => Math.min(255, Math.round(c * 1.14)));
+          face([q(0.06, 1, KERB_H + zb), q(0.34, 1, KERB_H + zb), q(0.66, 0, KERB_H + zb), q(0.38, 0, KERB_H + zb)], cool, LV.panelMat);
+          face([q(0.55, 1, KERB_H + zb), q(0.6, 1, KERB_H + zb), q(0.91, 0, KERB_H + zb), q(0.86, 0, KERB_H + zb)], glint, LV.panelMat);
+          if (ri % 3 === 0) quad(ga, 1 - ga, gb, gb + M(0.035) / rl, M(0.012), LV.cyan, LV.cyanMat);
         } else {
           // Plate takes no reflection, only what's been done to it: a couple of scratches in ink.
           for (let i = 0; i < 2; i++) {
@@ -723,9 +726,8 @@ export function drawStreetKit(o) {
     }
 
     // ── TOLL GATES ──
-    // Two short posts either side of each strip at each end of the block, an amber cap on each, a
-    // comb plate across the belt in hazard stripes, and the price floating over the belt, read from
-    // both ways: one strip steps on here and the other steps off, and lettering is one-sided.
+    // Two short posts either side of each strip at each end of the block, an amber cap on each, and
+    // a comb plate across the belt in hazard stripes. No sign: David took the ride price off.
     const gate = (u) => {
       for (const s of [-1, 1]) {
         const v = s * STRIP_V;
@@ -743,8 +745,6 @@ export function drawStreetKit(o) {
           const zc = KERB_H + M(K.STRIP_H) + M(0.012), n = 6, w = M(K.STRIP_W) / n;
           for (let i = 0; i < n; i++) flat(u, v - M(K.STRIP_W / 2) + w * (i + 0.5), M(0.18), w / 2, zc, i % 2 ? PAL.band : LV.zebra, 'paint');
         }
-        // Still priced with the belt stopped; only the dirt has no sign to put a price on.
-        if (write && LV.price) for (const t of [-1, 1]) write(signQuad(u + t * M(0.01), v, M(0.95), KERB_H + M(K.PRICE_Z - 0.24), KERB_H + M(K.PRICE_Z + 0.24), t), '₵1 A RIDE', LV.price, LV.priceLit);
       }
     };
     if (first) gate(-0.5 + M(K.GATE_IN));

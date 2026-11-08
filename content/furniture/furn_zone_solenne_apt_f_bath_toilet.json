@@ -1,0 +1,19 @@
+{
+  "description": "A low pan hung off a stone panel, its cistern somewhere in the wall.",
+  "flags": {
+    "look": {
+      "arche": "toilet",
+      "form": "hung"
+    }
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_zone_solenne_apt_f_bath_toilet",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "toilet",
+  "object_type": "toilet",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_solenne_apt_f_bath"
+}

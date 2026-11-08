@@ -31,6 +31,7 @@
 
 import { clamp, lerp } from './util.js';
 import { RL, RW, GOAL_X, MID_Y, BOARD_H } from './geo.js';
+import { ROOF_Z } from '../gl/arena-crowd.js';
 
 export const NEAR = 0.6, FAR = 600;
 
@@ -65,6 +66,8 @@ const SWING = 1.1;
 const KEYS = ['lx', 'ly', 'lz', 'dist', 'pitch', 'fm'];
 // the steepest a vertical framing tilts to keep its eye out of the end stands
 const EYE_MAX_PITCH = 1.2;
+// the highest any eye goes: above the roof line it looks down through the vault (arena-crowd.js)
+const EYE_TOP = ROOF_Z - 8;
 // how long each number takes to settle, seconds
 const TIME = { lx: 0.55, ly: 0.7, lz: 0.6, dist: 0.8, pitch: 0.8, fm: 0.7 };
 
@@ -161,15 +164,18 @@ export function createRinkCamera(W, { snap = false, from = null } = {}) {
     if (sheetV && Math.abs(aspect - sheetVFor) < 1e-3) return sheetV;
     const pitch = 1.0, cp = Math.cos(pitch), sp = Math.sin(pitch), vlo = -0.42 / aspect, vhi = 0.42 / aspect;
     const must = [[-1, -1, 3.5], [RL + 1, -1, 3.5], [-1, RW + 1, 3.5], [RL + 1, RW + 1, 3.5]];
-    let dist = 200, lx = RL / 2;
-    for (let it = 0; it < 80; it++) {
+    // ⚠ THE LENGTH DOWN THE PICTURE NEEDS MORE ROOM THAN THE ROOF GIVES, so past the roof line the lens
+    // widens. Pulled back alone it rose to 240 to 430 ft and the vault blocked the shot.
+    const top = EYE_TOP / sp;
+    let dist = Math.min(200, top), lx = RL / 2, fm = 1;
+    for (let it = 0; it < 200; it++) {
       const cx0 = lx - dist * cp, cz = dist * sp;
       let um = 0, v0 = 1e9, v1 = -1e9;
       for (const q of must) { const dx = q[0] - cx0, dz = q[2] - cz, d = dx * cp - dz * sp, up = dx * sp + dz * cp; um = Math.max(um, Math.abs(q[1] - RW / 2) / d); v0 = Math.min(v0, up / d); v1 = Math.max(v1, up / d); }
-      if (um > 0.47 || v1 - v0 > vhi - vlo) { dist *= 1.04; continue; }
-      if (v0 < vlo) lx -= 2; else if (v1 > vhi) lx += 2; else break;
+      if (um * fm > 0.47 || (v1 - v0) * fm > vhi - vlo) { if (dist < top) dist = Math.min(top, dist * 1.04); else fm *= 0.97; continue; }
+      if (v0 * fm < vlo) lx -= 2; else if (v1 * fm > vhi) lx += 2; else break;
     }
-    sheetVFor = aspect; sheetV = { lx, ly: RW / 2, lz: 0, dist, pitch, fm: 1 };
+    sheetVFor = aspect; sheetV = { lx, ly: RW / 2, lz: 0, dist, pitch, fm };
     return sheetV;
   }
   function broadcast(f, c, aspect) {
@@ -219,15 +225,17 @@ export function createRinkCamera(W, { snap = false, from = null } = {}) {
     if (sheet && Math.abs(aspect - sheetFor) < 1e-3) return sheet;
     const pitch = 0.66, cp = Math.cos(pitch), sp = Math.sin(pitch), vlo = -0.4 / aspect, vhi = 0.4 / aspect;
     const must = [[-1, -1, 0], [RL + 1, -1, 0], [-1, RW + 1, 3.5], [RL + 1, RW + 1, 3.5]];
-    let dist = 150, ly = RW / 2;
-    for (let it = 0; it < 60; it++) {
+    // (pulled back only as far as the roof, then the lens widens instead: a tall picture needs it)
+    const top = EYE_TOP / sp;
+    let dist = Math.min(150, top), ly = RW / 2, fm = 1;
+    for (let it = 0; it < 160; it++) {
       const cy0 = ly - dist * cp, cz = dist * sp;
       let um = 0, v0 = 1e9, v1 = -1e9;
       for (const q of must) { const dy = q[1] - cy0, dz = q[2] - cz, d = dy * cp - dz * sp, up = dy * sp + dz * cp; um = Math.max(um, Math.abs(q[0] - RL / 2) / d); v0 = Math.min(v0, up / d); v1 = Math.max(v1, up / d); }
-      if (um > 0.47 || v1 - v0 > vhi - vlo) { dist *= 1.04; continue; }
-      if (v0 < vlo) ly -= 1.5; else if (v1 > vhi) ly += 1.5; else break;
+      if (um * fm > 0.47 || (v1 - v0) * fm > vhi - vlo) { if (dist < top) dist = Math.min(top, dist * 1.04); else fm *= 0.97; continue; }
+      if (v0 * fm < vlo) ly -= 1.5; else if (v1 * fm > vhi) ly += 1.5; else break;
     }
-    sheetFor = aspect; sheet = { lx: RL / 2, ly, lz: 0, dist, pitch, fm: 1 };
+    sheetFor = aspect; sheet = { lx: RL / 2, ly, lz: 0, dist, pitch, fm };
     return sheet;
   }
 

@@ -62,7 +62,8 @@
   },
   "flags": {
     "drug_class": "stimulant",
-    "drug_family": "stimulant"
+    "drug_family": "stimulant",
+    "taken": "snort"
   },
   "id": "drug_buzz",
   "item_id": "item_drug_buzz",

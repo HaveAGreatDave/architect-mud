@@ -212,6 +212,59 @@
       "straightens things on a desk that doesn't need straightening, quickly, twice.",
       "\"I can do twenty minutes on nothing. I would rather not. But I can.\""
     ],
+    "figure": {
+      "age": 0,
+      "beard": 0.9,
+      "brow": 1.05,
+      "build": "average",
+      "cut": "suit",
+      "gear": false,
+      "hair": [
+        88,
+        48,
+        26
+      ],
+      "hair_style": 4,
+      "head": 0,
+      "iris": [
+        60,
+        125,
+        200
+      ],
+      "layout": 0,
+      "legs": [
+        16,
+        16,
+        20
+      ],
+      "mouth": 1.05,
+      "shirt": [
+        12,
+        12,
+        15
+      ],
+      "shoes": [
+        18,
+        15,
+        15
+      ],
+      "skin": [
+        224,
+        152,
+        98
+      ],
+      "smile": 1,
+      "top": [
+        18,
+        18,
+        23
+      ],
+      "trim": [
+        50,
+        170,
+        235
+      ]
+    },
     "preshow_habit": "Neural Overclock",
     "studio_npc": true,
     "tangents": {

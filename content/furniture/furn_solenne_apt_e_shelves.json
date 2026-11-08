@@ -1,0 +1,21 @@
+{
+  "description": "A walnut drinks cabinet with glass shelves and a decanter of something the colour of tea. The bottles are labelled in another language.",
+  "flags": {
+    "aliases": "cabinet",
+    "container": 20000,
+    "look": {
+      "arche": "cabinet",
+      "form": "vitrine"
+    }
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_solenne_apt_e_shelves",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "drinks cabinet",
+  "object_type": "container",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_solenne_apt_e"
+}

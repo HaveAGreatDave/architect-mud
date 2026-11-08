@@ -1,0 +1,21 @@
+{
+  "description": "A door off its hinges laid on two trestles, with the handle still on. It's ringed with mug stains, scored with initials, and sticky in a way no rag has ever fixed. A game of cards from last night is still on it.",
+  "flags": {
+    "aliases": "table,long table",
+    "look": {
+      "arche": "table",
+      "form": "dining",
+      "wear": 0.95
+    }
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_hostel_table",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "long table",
+  "object_type": "furniture",
+  "power_draw_kw": null,
+  "price": 10,
+  "zone_id": "zone_trackmarks_shop"
+}

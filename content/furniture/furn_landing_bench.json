@@ -1,0 +1,23 @@
+{
+  "description": "A bench of bronze and stone against the wall, opposite the door. It's for people Mr Akerson has asked to wait. It's very comfortable, so the waiting can be long.",
+  "flags": {
+    "aliases": "bench",
+    "interactions": [
+      "sit"
+    ],
+    "look": {
+      "arche": "bench",
+      "form": "bench"
+    }
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_landing_bench",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "waiting bench",
+  "object_type": "furniture",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_solenne_ph_landing"
+}

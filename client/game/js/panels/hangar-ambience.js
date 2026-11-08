@@ -15,6 +15,7 @@
 
 import { isWeatherFxEnabled } from './weather-fx.js';
 import { growBolt } from '../../../shared/lightning.js';
+import { strikesAfter } from '../../../shared/strike-feed.js';
 
 const AE = () => window.AudioEngine;
 const LOOP_ID = 'hb-weather';
@@ -54,7 +55,8 @@ let curKey = null;      // bed currently playing (null = silent)
 let lastT = 0;          // performance.now()/1000 at the previous update
 let flash = 0;          // full-door lightning flash 0..1, decays each frame
 let bolt = null;        // { seg:[[x,y]…] in 0..1 door space, born, dur } while alive
-let boltCd = 1.5;       // seconds until the next possible strike
+let strikeSeq = 0;      // the last real strike looked at (client/shared/strike-feed.js)
+const DOOR_SEEN_TILES = 50;   // how near a strike has to be to show in the doorway
 
 // A strike in the doorway. The channel itself is the shared tree from
 // client/shared/lightning.js — the same one the canopy and the windscreen draw, because a storm
@@ -119,18 +121,16 @@ export function updateHangarAmbience(sky, active) {
 
   if (!on) { flash = 0; bolt = null; return { motion: false, flash: 0, bolt: null }; }
 
-  // Lightning — only in a storm. Cadence tightens with the sky's wind (a proxy for
-  // how hard it's blowing through); each strike lights the door and calls thunder.
-  if (key === 'storm') {
-    boltCd -= dt;
-    if (boltCd <= 0) {
-      bolt = makeBolt();
-      const intensity = clamp01(0.4 + Math.min(1, (sky?.wind || 0) / 50) * 0.6);
-      flash = 0.7 + 0.3 * intensity;
-      playThunder(intensity);
-      boltCd = 2.5 + Math.random() * 5;
-    }
-  } else { bolt = null; }
+  // Lightning: only the server's strikes, within sight of where you're standing. Each lights the
+  // door and calls thunder; one that stays in the cloud lights the door and draws no channel.
+  for (const s of strikesAfter(strikeSeq)) {
+    strikeSeq = s.seq;
+    if (s.d == null || s.d >= DOOR_SEEN_TILES) continue;
+    const intensity = clamp01(1 - s.d / DOOR_SEEN_TILES);
+    if (!s.cc) bolt = makeBolt();
+    flash = Math.max(flash, 0.35 + 0.65 * intensity);
+    playThunder(intensity);
+  }
   flash = Math.max(0, flash - dt * 3.2);
   if (bolt && performance.now() - bolt.born > bolt.dur) bolt = null;
   return { motion: true, flash, bolt };
@@ -141,5 +141,5 @@ export function updateHangarAmbience(sky, active) {
 export function stopHangarAmbience() {
   const ae = AE();
   if (ae && curKey) { try { ae.setLoopGain?.(LOOP_ID, 0, 0.3); } catch {} setTimeout(() => { try { ae.stopLoop(LOOP_ID); } catch {} }, 400); }
-  curKey = null; flash = 0; bolt = null; boltCd = 1.5;
+  curKey = null; flash = 0; bolt = null;
 }

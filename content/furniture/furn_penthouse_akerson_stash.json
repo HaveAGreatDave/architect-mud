@@ -3,6 +3,10 @@
   "flags": {
     "aliases": "box,stash,lacquer box,lacquered box,humidor,console box",
     "container": 20000,
+    "look": {
+      "arche": "small",
+      "form": "box"
+    },
     "restock_items": [
       "item_overclock",
       "item_redline",

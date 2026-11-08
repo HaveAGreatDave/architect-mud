@@ -3,7 +3,11 @@
   "flags": {
     "interactions": [
       "lean"
-    ]
+    ],
+    "look": {
+      "arche": "table",
+      "form": "coffee"
+    }
   },
   "hp": null,
   "hp_max": null,

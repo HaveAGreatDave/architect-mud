@@ -1,7 +1,11 @@
 {
   "description": "A two-burner electric hot plate plugged into the wall near the door. One burner glows red when switched on. The other has been dead for a while.",
   "flags": {
-    "interactions": []
+    "interactions": [],
+    "look": {
+      "arche": "hob",
+      "form": "cooktop"
+    }
   },
   "hp": null,
   "hp_max": null,

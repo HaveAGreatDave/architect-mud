@@ -34,7 +34,7 @@
 import { viewProjMatrix, eyePos } from './camera.js';
 import { declareProgram, layerProgram } from './programs.js';
 import { linearOut, applyLinOut } from './colour.js';
-import { vehicleInkOf } from './house-style.js';
+import { vehicleInkOf, cabinInkOf } from './house-style.js';
 
 export const VINK = {
   crease: 0.78,    // cos of the angle past which two faces' edge is a crease (about 39°)
@@ -135,6 +135,17 @@ uniform vec3 uW;         // outline width, detail width, the weight on the side 
 uniform float uFogNear;
 uniform float uFogFar;
 uniform float uFogAmt;
+// The cockpit's attitude (solids.js seatAtt, the same function): its points are cab-local, the eye at
+// the origin, and the seat's look, roll and shear are applied before the model matrix.
+uniform vec4 uAttA; uniform vec4 uAttB; uniform float uAttOn;
+vec3 seatAtt(vec3 q) {
+  if (uAttOn < 0.5) return q;
+  float cy = uAttA.x, sy = uAttA.y, cb = uAttA.z, sb = uAttA.w;
+  float f = q.y * cy + q.x * sy, r = q.x * cy - q.y * sy, u = q.z;
+  float r2 = r * cb + uAttB.x * u * sb, u2 = u * cb - uAttB.y * r * sb;
+  if (f > 0.0) { r2 += uAttB.z * f; u2 -= uAttB.w * f; }
+  return vec3(r2 * cy + f * sy, f * cy - r2 * sy, u2);
+}
 out float vFog;
 const vec4 GONE = vec4(2.0, 2.0, 2.0, 1.0);
 void main() {
@@ -153,8 +164,8 @@ void main() {
     else if (!thin && (kind == 1 || kind == 2 || kind == 4)) w = uW.y;
   }
   if (w <= 0.0) { gl_Position = GONE; return; }
-  vec4 pa = uViewProj * (uModel * vec4(mix(aA, uEyeL, ${VINK.pull}), 1.0));
-  vec4 pb = uViewProj * (uModel * vec4(mix(aB, uEyeL, ${VINK.pull}), 1.0));
+  vec4 pa = uViewProj * (uModel * vec4(seatAtt(mix(aA, uEyeL, ${VINK.pull})), 1.0));
+  vec4 pb = uViewProj * (uModel * vec4(seatAtt(mix(aB, uEyeL, ${VINK.pull})), 1.0));
   const float E = 0.002;
   if (pa.w < E && pb.w < E) { gl_Position = GONE; return; }
   if (pa.w < E) pa = mix(pa, pb, (E - pa.w) / (pb.w - pa.w));
@@ -184,7 +195,11 @@ out vec4 outColor;
 void main() { outColor = vec4(mix(uInkCol, uFog, vFog), 1.0); }`, 'outColor');
 declareProgram(VERT, FRAG);
 
-export function createVehicleInkLayer(gl) {
+// `cabin`: the cockpit's lines (V5). Its records are cab-local (`mp`) with no mesh face; a face
+// with no material (lettering, a gauge face, a lamp) and glass take no line, its own colour stands in
+// for a part, and every normal is turned toward the eye at the origin, so only creases, part lines
+// and open edges draw, all at the thin cabin width (cabinInkOf).
+export function createVehicleInkLayer(gl, { cabin = false } = {}) {
   let prog = null, loc = null, vao = null, vbo = null, ibo = null;
   let edges = [], sig = '', data = null, cap = 0, last = [], model = null, ship = null;
   const normals = new WeakMap();
@@ -196,7 +211,7 @@ export function createVehicleInkLayer(gl) {
   function build() {
     prog = layerProgram(gl, VERT, FRAG, 'vehicle ink');
     const u = (n) => gl.getUniformLocation(prog, n);
-    loc = { vp: u('uViewProj'), model: u('uModel'), eye: u('uEyeL'), sun: u('uSunL'), res: u('uRes'), w: u('uW'),
+    loc = { attA: u('uAttA'), attB: u('uAttB'), attOn: u('uAttOn'), vp: u('uViewProj'), model: u('uModel'), eye: u('uEyeL'), sun: u('uSunL'), res: u('uRes'), w: u('uW'),
       fogNear: u('uFogNear'), fogFar: u('uFogFar'), fogAmt: u('uFogAmt'), ink: u('uInkCol'), fog: u('uFog') };
     vao = gl.createVertexArray();
     vbo = gl.createBuffer(); ibo = gl.createBuffer();
@@ -228,9 +243,29 @@ export function createVehicleInkLayer(gl) {
 
   // `list` is the own ship's GL records (those with `mp`), `M` its model matrix, `S` its shipState.
   // Returns the edges it holds. Costs a pass over the list when nothing moved.
-  function upload(list, M, S) {
-    model = M; ship = S;
-    const recs = list && M ? list.filter((r) => r.mp && r.src) : [];
+  // A cockpit record, as the builder wants it: its colour as its part, its normal toward the eye.
+  const cabRecs = new WeakMap();
+  const cabRec = (r) => {
+    let w = cabRecs.get(r);
+    if (!w || w.mp !== r.mp) {
+      const P = r.mp, n = P.length;
+      let x = 0, y = 0, z = 0;
+      for (const p of P) { x += p[0]; y += p[1]; z += p[2]; }
+      // The MATERIAL is the part, never the colour: the Drake's veneer is bands of walnut tones laid as
+      // strips (interior-drake.js woodGrain), and keyed on colour every band took an ink line, so the
+      // grain came out as black scribble. Wood on plastic is a line; two tones of wood aren't.
+      const key = 't' + r.tex;
+      w = { mp: P, a: r.a, rec: r, src: (w && w.src && w.src.part === key) ? w.src : { part: key, role: '', cen: [2 * x / n, 2 * y / n, 2 * z / n] } };
+      cabRecs.set(r, w);
+    }
+    return w;
+  };
+  let att = null;
+  function upload(list, M, S, A) {
+    model = M; ship = S; att = A || null;
+    const recs = !list || !M ? [] : cabin
+      ? list.filter((r) => r.mp && r.tex > 0 && r.tex !== 10 && !r.film && r.mp.length >= 3).map(cabRec)
+      : list.filter((r) => r.mp && r.src);
     if (!recs.length) { edges = []; sig = ''; last = []; return 0; }
     if (!prog) build();
     let h = recs.length + ':';
@@ -239,6 +274,9 @@ export function createVehicleInkLayer(gl) {
     if (fresh) {
       sig = h;
       edges = buildEdges(recs);
+      // A cockpit lays trim on its panels as flat strips (the Drake's slats), every one of them all
+      // open edges, so in the cabin an open edge draws nothing: only folds and changes of material.
+      if (cabin) edges = edges.filter((e) => e.kind !== EDGE.seam);
       if (edges.length * 4 * STRIDE > cap) { cap = edges.length * 4 * STRIDE; data = new Float32Array(cap); }
       const idx = new Uint32Array(edges.length * 6);
       for (let k = 0; k < edges.length; k++) idx.set([k * 4, k * 4 + 1, k * 4 + 2, k * 4, k * 4 + 2, k * 4 + 3], k * 6);
@@ -271,19 +309,24 @@ export function createVehicleInkLayer(gl) {
   }
 
   function draw(cam, cssH, opts = {}) {
-    const K = vehicleInkOf(gl.drawingBufferWidth);
-    if (!K || !edges.length || !model || !ship || !ship.nmat) return 0;
+    const K = cabin ? cabinInkOf(gl.drawingBufferWidth) : vehicleInkOf(gl.drawingBufferWidth);
+    if (!K || !edges.length || !model || (!cabin && (!ship || !ship.nmat))) return 0;
     gl.useProgram(prog); applyLinOut(gl, prog);
+    gl.uniform1f(loc.attOn, cabin && att ? 1 : 0);
+    if (cabin && att) { gl.uniform4f(loc.attA, att.cy, att.sy, att.cb, att.sb); gl.uniform4f(loc.attB, att.kr, att.ku, att.hr, att.hu); }
     gl.uniformMatrix4fv(loc.vp, false, opts.vp || viewProjMatrix(cam, cssH, opts.near, opts.far));
     gl.uniformMatrix4fv(loc.model, false, model);
     // The eye and the sun in the ship's frame: nmat is the inverse-transpose of the model's 3x3, so
     // its transpose is the inverse, and n·d is the same number in both frames.
-    const N = ship.nmat, e = eyePos(cam), d = [e[0] - model[12], e[1] - model[13], e[2] - model[14]];
-    const tr = (v) => [N[0] * v[0] + N[1] * v[1] + N[2] * v[2], N[3] * v[0] + N[4] * v[1] + N[5] * v[2], N[6] * v[0] + N[7] * v[1] + N[8] * v[2]];
-    const el = tr(d);
-    gl.uniform3f(loc.eye, el[0], el[1], el[2]);
-    const sw = ship.sun || [0, 0, 1], sl = tr(sw), slen = Math.hypot(sl[0], sl[1], sl[2]) || 1;
-    gl.uniform3f(loc.sun, sl[0] / slen, sl[1] / slen, sl[2] / slen);
+    if (cabin) { gl.uniform3f(loc.eye, 0, 0, 0); gl.uniform3f(loc.sun, 0, 0, 1); }
+    else {
+      const N = ship.nmat, e = eyePos(cam), d = [e[0] - model[12], e[1] - model[13], e[2] - model[14]];
+      const tr = (v) => [N[0] * v[0] + N[1] * v[1] + N[2] * v[2], N[3] * v[0] + N[4] * v[1] + N[5] * v[2], N[6] * v[0] + N[7] * v[1] + N[8] * v[2]];
+      const el = tr(d);
+      gl.uniform3f(loc.eye, el[0], el[1], el[2]);
+      const sw = ship.sun || [0, 0, 1], sl = tr(sw), slen = Math.hypot(sl[0], sl[1], sl[2]) || 1;
+      gl.uniform3f(loc.sun, sl[0] / slen, sl[1] / slen, sl[2] / slen);
+    }
     gl.uniform2f(loc.res, gl.drawingBufferWidth, gl.drawingBufferHeight);
     gl.uniform3f(loc.w, K.sil, K.detail, K.weigh);
     gl.uniform3f(loc.ink, K.col[0], K.col[1], K.col[2]);

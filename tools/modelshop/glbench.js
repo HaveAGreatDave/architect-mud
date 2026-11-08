@@ -24,6 +24,7 @@ import { installGL, glLastFrame, glCapabilities } from '/client/game/js/panels/g
 import { LIGHT_TUNE } from '/client/game/js/panels/gl/world.js';
 import { perchedNow, perchesHigh, flocksNear, flockState, flockCentreAt, speciesAt, placeOf, flockSize, falconStoop, isGrandRoost, SPECIES, groundSpot, groundSpotParts, groundPatchR, groundMill, flockSpreadScale, BIRD_M_PER_TILE } from '/client/shared/birds.js';
 import { faunaPaintCount } from '/client/game/js/panels/fauna3d.js';
+import { setWeatherFxEnabled } from '/client/game/js/panels/weather-fx.js';   // a strike is off with the player's weather effects, and the game's settings never run here
 import { perchFor, perchSeat, perchSpot, perchLegState, landSite, looseOf, paintWindshield, pushLightningStrike, foamReset, shapeModelRegistry, captureModelMesh, wallPaletteInfo, makeCam, RENDER_TUNE, FLASH_FLOOR, FLASH_BANK, murmurFrameBirds, glWorldInstalled, setWindshieldProfiler, perfSnapshot } from '/client/game/js/panels/windshield.js';
 
 const R = 16, N = R * 2 + 1;
@@ -5296,6 +5297,7 @@ export function runBolt({ W = 420, H = 300, hour = 21, weather = 'storm', dist =
       RENDER_TUNE.boltDetail = c.detail ?? 1;
       RENDER_TUNE.boltForce = c.age ?? 0;
       const d = c.dist ?? dist;
+      setWeatherFxEnabled(true);
       pushLightningStrike(100 + (c.off ?? 0), 100 - d, c.intensity ?? 0.9);
       if (c.second) pushLightningStrike(100 + c.second[0], 100 - c.second[1], 0.7);
       const view = {
@@ -5361,6 +5363,7 @@ export function runBoltLum({ W = 420, H = 300, dist = 12, hour = 21, weather = '
     try {
       RENDER_TUNE.resFloor = 1; RENDER_TUNE.perfDS = 0; RENDER_TUNE.boltDetail = 1; RENDER_TUNE.boltForce = 0;
       for (const k of Object.keys(tune)) RENDER_TUNE[k] = tune[k];
+      setWeatherFxEnabled(true);
       pushLightningStrike(100, 100 - d, 0.9);
       const view = { cls: 'truck', phase: 'cruise', worldBlend: 1, height: 0, eyeH: 0.12,
         hour, weather, speed: 0.3, map: scene(true, 20), heading: 0, acX: 100, acY: 100,

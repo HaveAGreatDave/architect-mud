@@ -62,7 +62,8 @@
   "flags": {
     "drug_class": "stimulant",
     "drug_family": "stimulant",
-    "injectable": true
+    "injectable": true,
+    "taken": "snort"
   },
   "id": "drug_overclock",
   "item_id": "item_overclock",

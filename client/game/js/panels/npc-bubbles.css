@@ -1,0 +1,21 @@
+/* What NPCs say, along the bottom of the screen (npc-bubbles.js). Over the Room Stage (8900), under
+   the tablet (9200). Nothing here takes the pointer. */
+#npc-bubbles {
+	position: fixed; left: 50%; bottom: 12px; transform: translateX(-50%); z-index: 8960;
+	width: min(640px, calc(100vw - 32px)); display: flex; flex-direction: column; align-items: center; gap: 8px; pointer-events: none;
+}
+.npc-bubble {
+	position: relative; max-width: 100%; padding: 8px 14px; border-radius: 14px; background: rgba(14, 13, 12, 0.9);
+	border: 1px solid rgba(255, 255, 255, 0.16); color: #f0e9dc; font: 16px/1.35 system-ui, sans-serif;
+	animation: npc-bubble-in 0.18s ease-out; transition: opacity 0.3s;
+}
+.npc-bubble::after {
+	content: ''; position: absolute; left: 24px; bottom: -7px; width: 12px; height: 12px; transform: rotate(45deg);
+	background: rgb(14, 13, 12); border-right: 1px solid rgba(255, 255, 255, 0.16); border-bottom: 1px solid rgba(255, 255, 255, 0.16);
+}
+.npc-bubble b { display: block; color: var(--who, #e3b04f); font-size: 13px; font-weight: 700; }
+.npc-bubble.npc-scene { background: rgba(14, 13, 12, 0.66); color: #d8d0c4; font-style: italic; font-size: 14px; }
+.npc-bubble.npc-scene::after { display: none; }
+.npc-bubble.out { opacity: 0; }
+@keyframes npc-bubble-in { from { opacity: 0; transform: translateY(8px); } }
+@media (prefers-reduced-motion: reduce) { .npc-bubble { animation: none; } }

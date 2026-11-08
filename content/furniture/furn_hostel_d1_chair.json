@@ -1,0 +1,24 @@
+{
+  "description": "A wooden chair at the end of the row, buried under the coats of everybody on this floor. Nobody has sat on it since winter.",
+  "flags": {
+    "aliases": "chair",
+    "interactions": [
+      "sit"
+    ],
+    "look": {
+      "arche": "seat",
+      "form": "chair",
+      "wear": 0.9
+    }
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_hostel_d1_chair",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "clothes chair",
+  "object_type": "furniture",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_hostel_dorm"
+}

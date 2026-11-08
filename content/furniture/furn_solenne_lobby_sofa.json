@@ -1,0 +1,23 @@
+{
+  "description": "A long banquette in oxblood leather facing the living wall. It's for waiting on, briefly. Sit too long and the concierge brings you a glass of water and the question of who you're here for.",
+  "flags": {
+    "aliases": "banquette,sofa,bench",
+    "interactions": [
+      "sit"
+    ],
+    "look": {
+      "arche": "bench",
+      "form": "booth"
+    }
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_solenne_lobby_sofa",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "lobby banquette",
+  "object_type": "furniture",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_solenne_lobby"
+}

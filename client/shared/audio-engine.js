@@ -120,6 +120,7 @@
     buildReverb();
     _applyGains();
     loadRetro(ctx);
+    Speech.loadWorklet(ctx);   // early, so the first line isn't on the fallback
     return ctx;
   }
 
@@ -4058,10 +4059,10 @@ return out;
     }
 
     // Speech channels: tv (TV, PA, welcome), scene (voices inside a broadcast,
-    // routed as tv), ui (Read Aloud, dry bus). A line cancels only its own
+    // routed as tv), npc (people in the room, routed as tv), ui (Read Aloud, dry bus). A line cancels only its own
     // channel (or queues); cancel() with none stops all. Read Aloud ducks tv.
     // see docs/systems-accessibility.md#speech-channels-what-a-typed-command-stops
-    const CHANNELS = { tv: { lines: [] }, scene: { lines: [] }, ui: { lines: [] } };
+    const CHANNELS = { tv: { lines: [] }, scene: { lines: [] }, npc: { lines: [] }, ui: { lines: [] } };
     const QUEUE_MAX = 3;          // lines that may wait behind the one speaking
     const GIVEN_S = 20;           // how long a word said on a channel stays given
     const READER_DUCK_DB = -12;
@@ -4084,10 +4085,10 @@ return out;
       return ch.lines.reduce((m, l) => Math.max(m, l.end - ctx.currentTime), 0);
     }
 
-    // Worklet back end (prototype, Voice Lab only): `backend: 'worklet'` schedules
-    // into recorders, samples them into tracks every WK.frame s, and hands those to
-    // oracle-worklet.js (LF pulse into a Klatt cascade). The output stage is shared.
-    // Falls back to the graph until the module loads.
+    // Worklet back end, the default: speak() schedules into recorders, samples them into
+    // tracks every WK.frame s, and hands those to oracle-worklet.js (LF pulse into a Klatt
+    // cascade). The output stage is shared. The graph speaks until the module loads, where
+    // it can't, after a failure, and for `backend: 'graph'`.
     const WK_TRACK = ['f0', 'jitA', 'jitB', 'av', 'ah', 'af', 'f1', 'f2', 'f3', 'f4', 'q1', 'q2', 'q3', 'q4',
       'nf', 'nq', 'nzf', 'nzdb', 'tilt', 'closure', 'rd', 'creak'];   // ⚠ the same list, in the same order, as TRACK in oracle-worklet.js
     const WK = {
@@ -4102,7 +4103,8 @@ return out;
       // scaled by the voice's `natural`:
       rdBreath: 6,      // Rd rises by this share per unit of aspiration (breath holds the folds apart)
       aspPulse: 0.8,    // how far aspiration drops in the closed phase (0 steady, 1 silent)
-      f1Open: 0.5,      // F1 bandwidth widening while open (0.8 smeared /iy/)
+      f1Open: 0.7,      // F1 bandwidth widening at the glottis's widest
+      f1Rise: 0.04,     // F1 rise at the glottis's widest, as a share of F1
       creakJit: 0.2,    // creak: random spread of period length
       creakDip: 0.6,    // creak: every other period this much weaker (diplophonia)
       creakAlt: 0.08,   // creak: and alternately this much longer and shorter
@@ -4175,7 +4177,7 @@ return out;
       if (!_settings.enabled || (!ui && !_settings.tv)) return;
       const c = ensureContext(); if (!c) return;
       if (c.state === 'suspended') c.resume();
-      const chName = ui ? 'ui' : opt.channel === 'scene' ? 'scene' : 'tv';
+      const chName = ui ? 'ui' : opt.channel === 'scene' || opt.channel === 'npc' ? opt.channel : 'tv';
       const chan = CHANNELS[chName];
       chan.lines = chan.lines.filter(l => l.end > c.currentTime);
       const queued = !!opt.queue && chan.lines.length > 0;
@@ -4221,8 +4223,9 @@ return out;
       // 'ui' is a dry bus (see busFor).
       const out = busFor(ui ? 'ui' : 'tv_voice');
       // `S` builds the source side: real nodes, or recorders for the worklet.
-      const wk = opt.backend === 'worklet' && _wkState.get(c) === true && typeof global.AudioWorkletNode === 'function';
-      if (opt.backend === 'worklet' && !wk) loadOracleWorklet(c);
+      const wantWk = (opt.backend || 'worklet') === 'worklet';
+      const wk = wantWk && _wkState.get(c) === true && typeof global.AudioWorkletNode === 'function';
+      if (wantWk && !wk) loadOracleWorklet(c);
       const S = wk ? REC : c;
       const closure = wk ? new RecParam(0) : null;
       // Worklet only: `tense` is Rd per syllable (0.3 pressed, 1 modal, 2.7 breathy);
@@ -4833,12 +4836,24 @@ return out;
           rd: tense, creak: creakP,
         };
         WK_TRACK.forEach((key, col) => P[key].sample(t0, frames, WK.frame, tracks, col, NP));
-        const node = new global.AudioWorkletNode(c, 'oracle-voice', { numberOfInputs: 0, numberOfOutputs: 1,
-          outputChannelCount: [1], processorOptions: { seed: (hashName(String(opt.seed || text)) >>> 0) || 1 } });
+        let node;
+        try {
+          node = new global.AudioWorkletNode(c, 'oracle-voice', { numberOfInputs: 0, numberOfOutputs: 1,
+            outputChannelCount: [1], processorOptions: { seed: (hashName(String(opt.seed || text)) >>> 0) || 1 } });
+        } catch (e) {
+          _wkState.set(c, false);
+          console.warn('[voice] worklet back end unavailable:', e && e.message);
+          return speak(text, { ...opt, backend: 'graph' });
+        }
+        // A crash loses this line; the next one is on the graph.
+        node.onprocessorerror = () => { _wkState.set(c, false); console.error('[voice] worklet stopped'); };
         const lineStats = opt.stats && typeof opt.stats === 'object' ? opt.stats : null;
         node.port.onmessage = (e) => {
           if (e.data?.type === 'error') console.error('[voice] worklet:', e.data.error);
-          else if (e.data?.type === 'done' && lineStats) Object.assign(lineStats, e.data);
+          else if (e.data?.type === 'done') {
+            if (lineStats) Object.assign(lineStats, e.data);
+            try { node.disconnect(); } catch { /* gone */ }
+          }
         };
         node.port.postMessage({ type: 'line', names: WK_TRACK, frames, frame: WK.frame, t0, tracks, k: {
           ...WK, f0: F0, fshift, oq: Math.max(0.4, Math.min(0.85, V.oq + D.oq * nat)), natural: nat, buzz: buzzAmt, rd0,
@@ -4912,7 +4927,7 @@ return out;
     readerDuck: (opts) => Speech.readerDuck(opts),
     // live TUNING (Voice Lab; tv.js reads lineGapMs)
     voiceTuning: Speech.tuning,
-    // the voice worklet back end (prototype)
+    // the voice worklet back end
     loadVoiceWorklet: () => Speech.loadWorklet(),
     voiceWorkletTuning: Speech.wk,
     _setVoiceWorkletUrl: (url) => Speech.setWorkletUrl(url),

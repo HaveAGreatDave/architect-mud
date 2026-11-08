@@ -55,7 +55,8 @@
   },
   "flags": {
     "drug_class": "depressant",
-    "drug_family": "opioid"
+    "drug_family": "opioid",
+    "taken": "swallow"
   },
   "id": "drug_grey",
   "item_id": "item_grey",

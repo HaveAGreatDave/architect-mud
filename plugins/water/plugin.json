@@ -1,7 +1,7 @@
 {
   "name": "water",
   "version": "1.0.0",
-  "description": "Water domain: DRINK from furniture, gated on the water_source capability tag.",
+  "description": "Water domain: DRINK from furniture, gated on the water_source capability tag. `drink water` takes the easiest clean water without leaving the room.",
   "hooks": [],
   "commands": [],
   "specializedActions": ["drink"]

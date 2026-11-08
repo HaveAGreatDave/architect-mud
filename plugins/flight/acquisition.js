@@ -8,6 +8,7 @@ import { randomUUID } from 'crypto';
 import { query } from '../../server/models/db.js';
 import { adjustCredits } from '../../server/engine/economy.js';
 import { noteFreshVehicle } from '../../server/engine/fresh-vehicle.js';
+import { lineName } from './livery.js';
 import { getZone, liveAircraft, persist, pushHud, sendToPlayer, REFUEL_PRICE_PER_UNIT, effStats, partDefs, partEnvelope, fieldFor as fieldOf, rentalOpFee, vtolOnlyField, acquirableTypes, airfieldOf, fieldName } from './state.js';
 import { refillChampagne, pushChampagne } from './champagne.js';
 import { allExits } from '../../server/engine/exits.js';
@@ -43,7 +44,7 @@ async function listTypes(kind, field) {
 
 function typeLine(t, kind) {
   const price = kind === 'buy' ? `${t.price_buy}₵` : `${t.price_rent_hourly}₵/hr`;
-  return `<b>${t.name}</b> <span class="text-dim">(${t.class}, ${t.seats} seat${t.seats > 1 ? 's' : ''}, ${t.fuel_type})</span>: ${price} · <span class="action-link" data-action="cmd" data-cmd="${kind} ${t.id}">${kind}</span>`;
+  return `<b>${lineName(t)}</b> <span class="text-dim">(${t.class}, ${t.seats} seat${t.seats > 1 ? 's' : ''}, ${t.fuel_type})</span>: ${price} · <span class="action-link" data-action="cmd" data-cmd="${kind} ${t.id}">${kind}</span>`;
 }
 
 // Anti-clutter cap. Buying counts only aircraft you OWN outright (rental=0) so a

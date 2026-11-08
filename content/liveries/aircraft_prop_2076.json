@@ -1,6 +1,6 @@
 {
-  "blurb": "Concept. The Mule fifty years on: eight electric props on the old wing, the cream and the red kept.",
-  "default": false,
+  "blurb": "The Mule fifty years on: eight electric props on the old wing, the cream and the red kept.",
+  "default": true,
   "exterior": {
     "base": "#e8e6de",
     "finish": "gloss",

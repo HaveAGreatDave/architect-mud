@@ -1,0 +1,33 @@
+{
+  "description": "A leather bar stool, a little shorter than the one beside it. A pencil mark on the leg reads HOST MINUS 4 CM.",
+  "flags": {
+    "aliases": [
+      "stool",
+      "bar stool"
+    ],
+    "interactions": [
+      "sit"
+    ],
+    "look": {
+      "arche": "seat",
+      "form": "stool"
+    },
+    "spot": {
+      "at": [
+        -4.2,
+        15.1
+      ],
+      "turn": 180
+    }
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_penthouse_guest_stool",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "guest stool",
+  "object_type": "furniture",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_solenne_penthouse"
+}

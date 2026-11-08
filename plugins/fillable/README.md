@@ -18,6 +18,10 @@ None of this shape is new. The topical substrate's resolver has read `custom_dat
 - `fill` · `empty` · `drink` · `pour` — gated on `fillable`
 - `dissolve` — gated on `soluble`
 
+## Registered actions
+
+- `fillable.drinkCarriedWater`: the **water** plugin hands over the carried rows for `drink water`, and this drinks the best one or returns null. Foul water, fuel and neat product don't count. Dosed water does, last, because `dissolve` promises it looks like clean water.
+
 ## Ordering note
 
 **drinks** deliberately claims `drink` and `pour` before this plugin, so a cup holding a mixed drink is not treated as an empty vessel. The `holdsDrink()` guard here is the ordering-independent backstop for that.

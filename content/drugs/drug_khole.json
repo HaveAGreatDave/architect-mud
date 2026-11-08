@@ -84,7 +84,8 @@
     }
   },
   "flags": {
-    "drug_family": "dissociative"
+    "drug_family": "dissociative",
+    "taken": "snort"
   },
   "id": "drug_khole",
   "item_id": "item_khole",

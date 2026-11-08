@@ -112,7 +112,6 @@ export const flightSimKill = ifLoaded(cockpit, 'flightSimKill');
 export const flightSimAaTracer = ifLoaded(cockpit, 'flightSimAaTracer');
 export const flightSimAirThreat = ifLoaded(cockpit, 'flightSimAirThreat');
 export const flightSimFireworks = ifLoaded(cockpit, 'flightSimFireworks');   // the boom, for an airborne occupant; the burst itself is world-feed.js
-export const flightSimLightning = ifLoaded(cockpit, 'flightSimLightning');   // sent to every airborne occupant, passengers included
 
 // cab-view.js
 export const isCabActive = ifLoaded(cab, 'isCabActive', false);

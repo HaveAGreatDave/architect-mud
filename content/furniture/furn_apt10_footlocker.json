@@ -3,7 +3,11 @@
   "flags": {
     "interactions": [
       "sit"
-    ]
+    ],
+    "look": {
+      "arche": "store",
+      "form": "crate"
+    }
   },
   "hp": null,
   "hp_max": null,

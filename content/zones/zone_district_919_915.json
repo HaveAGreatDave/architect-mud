@@ -10,6 +10,7 @@
   "flags": {
     "district": "ashway",
     "region_id": "region_coldwater",
+    "street_dirt": true,
     "terrain": "road"
   },
   "grid_x": 919,

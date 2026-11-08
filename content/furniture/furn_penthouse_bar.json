@@ -1,0 +1,40 @@
+{
+  "description": "A stone-topped bar with a reeded oak front and a brass foot rail. A decanter of amber stands on it, with a strip of tape across the neck: JOHN'S.",
+  "flags": {
+    "aliases": [
+      "bar",
+      "counter",
+      "decanter",
+      "rail"
+    ],
+    "interactions": [
+      "lean"
+    ],
+    "look": {
+      "arche": "surface",
+      "dims": [
+        3.6,
+        0.8,
+        1.12
+      ],
+      "form": "bar"
+    },
+    "spot": {
+      "at": [
+        -5,
+        16
+      ],
+      "turn": 0
+    }
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_penthouse_bar",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "private bar",
+  "object_type": "furniture",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_solenne_penthouse"
+}

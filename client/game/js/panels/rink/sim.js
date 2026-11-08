@@ -1607,7 +1607,7 @@ export function createWorld(ice, seedKey) {
   // the two laps along the boards, and out the way it came. It keeps its own clock, machine
   // time, at a driver's pace; the broadcast shows it as a time-lapse, `z.lapse` machine
   // seconds to every second on air, which the director sets so the sheet is done inside the
-  // break. The path is for the rear axle and the machine points along it, so it turns like a
+  // break. A seat in the stands watches it at 1, with no lapse at all. The path is for the rear axle and the machine points along it, so it turns like a
   // wheeled machine; its origin, which the renderers draw round, is `AXLE` ahead of that.
   // The conditioner behind lays the clean sheet back over the strip it sweeps.
   W.zamboniTime = () => ZPLAN.T;
@@ -1630,6 +1630,8 @@ export function createWorld(ice, seedKey) {
   W.netsOff = () => { W.nets.want = 'off'; };
   W.netsOn = () => { W.nets.want = 'on'; };
   W.netsOut = () => W.nets.state === 'off' && !W.nets.job;
+  // (for a viewer joining a break partway: they went before he sat down)
+  W.netsGone = () => { Object.assign(W.nets, { state: 'off', want: 'off', job: null }); for (const side of ['a', 'h']) W.nets[side].out = true; };
   function stepNets(dt) {
     const N = W.nets;
     if (!N.job) {
@@ -1664,9 +1666,9 @@ export function createWorld(ice, seedKey) {
   }
   // the crew are moved by their job, not by skating physics
   function holdCrew() {}
-  W.startZamboni = (lapse = 10) => {
-    W.zamboni = { mt: 0, i: 0, lapse, x: 0, y: 0, h: 0, v: 0, ax: 0, ay: 0, down: false, cond: null, done: false, leaving: null };
-    placeZamboni(W.zamboni, planAt(0));
+  W.startZamboni = (lapse = 10, mt = 0) => {
+    W.zamboni = { mt, i: 0, lapse, x: 0, y: 0, h: 0, v: 0, ax: 0, ay: 0, down: false, cond: null, done: false, leaving: null };
+    placeZamboni(W.zamboni, planAt(mt));
   };
   function placeZamboni(z, q) {
     z.ax = q.x; z.ay = q.y; z.h = q.h; z.v = q.v; z.i = q.i; z.down = q.down;

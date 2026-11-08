@@ -23,12 +23,23 @@
   <a href="/actor-lab.html" style="color:inherit" title="The street figures">Actor Lab →</a>
   <label>dress <select id="dress"><option value="">the city's</option><option value="wildblood">Wildblood</option></select></label>
   <label>changes <select id="muts"><option value="">by person</option><option value="all">all of them</option><option value="none">none</option></select></label>
-  <label>cut <select id="cut"><option value="">by person</option><option value="each">one of each</option><option>coat</option><option>jacket</option><option>tee</option><option>hoodie</option><option>bomber</option><option>duster</option><option>vest</option><option>tunic</option></select></label>
+  <label>cut <select id="cut"><option value="">by person</option><option value="each">one of each</option><option>coat</option><option>jacket</option><option>tee</option><option>hoodie</option><option>bomber</option><option>duster</option><option>vest</option><option>tunic</option><option>suit</option></select></label>
   <label>hair <select id="hair"><option value="">by person</option><option value="0">cropped</option><option value="1">neat</option><option value="2">tousled</option><option value="3">long</option><option value="4">quiff</option></select></label>
   <label>level <select id="level"><option>hd</option><option>lite</option></select></label>
   <label>wear <select id="wear"><option value="all">dressed</option><option value="body">body only</option><option value="legs">trousers and shoes</option></select></label>
   <label>gear <select id="gear"><option value="">by person</option><option value="none">none</option><option value="all">all</option></select></label>
-  <label>pose <select id="pose"><option>stand</option><option>sit</option></select></label>
+  <label>pose <select id="pose"><option>stand</option><option>sit</option><option value="lie">lie</option></select></label>
+  <label>state <select id="rest"><option value="">awake</option><option value="sleep">asleep</option><option value="out">out cold</option></select></label>
+  <label>work <select id="manner"><option value="">none</option><option>bar</option><option>shop</option><option>guard</option><option>rough</option></select></label>
+  <label>doing <select id="doing"><option value="">idling</option></select></label>
+  <label>id <input id="who" placeholder="lab people" style="width:11em"></label>
+  <label>say <input id="say" placeholder="a line, then Enter" style="width:13em"></label>
+  <label>facial hair <select id="facial"><option value="">by person</option><option>clean</option><option>stubble</option><option>shadow</option><option>moustache</option><option>goatee</option><option>vandyke</option><option>soulpatch</option><option>chinstrap</option><option>sideburns</option><option>trimmed</option><option>full</option><option>long</option></select></label>
+  <label>mouth <select id="shape"><option value="">by what they say</option></select></label>
+  <label><input type="checkbox" id="sculpt"> sculpted</label>
+  <label>build <select id="build"><option value="">by person</option><option>average</option><option>older</option><option>hunched</option><option>woman</option></select></label>
+  <label><input type="checkbox" id="useW"> weight <input type="range" id="weight" min="0" max="1" step="0.1" value="0.5" title="ectomorph, mesomorph, endomorph"></label>
+  <label><input type="checkbox" id="both"> before / after</label>
   <label><input type="checkbox" id="crowd"> crowd body beside</label>
   <label><input type="checkbox" id="comic"> comic look</label>
   <label><input type="checkbox" id="lamp" checked> lamp</label>
@@ -38,6 +49,7 @@
   <label>seed <input type="number" id="seed" value="7" style="width:4em"></label>
 </header>
 <div id="view"><canvas id="c"></canvas><div id="stats"></div></div>
+<script src="/client/shared/audio-engine.js"></script>
 <script type="module">
 // The close-up figure (client/game/js/panels/figure.js), drawn by the Room Stage's own renderer
 // (gl/room.js) in an empty room: the same light, the same ink and the same skinning a flat's
@@ -47,6 +59,8 @@
 import { createRoomRenderer } from '/client/game/js/panels/gl/room.js';
 import { figurePeople, peopleBatch, preparePeople } from '/client/game/js/panels/gl/room-people.js';
 import { createBatch, vtx, MAT } from '/client/game/js/panels/gl/ballpark-mesh.js';
+import { MOUTHS, mouthTrack, textTrack, mouthAt } from '/client/shared/lip-sync.js';
+import { ACTOR_CLIPS, ACTOR_ROOM_CLIPS } from '/client/game/js/panels/actor3d.js';
 
 const $ = (id) => document.getElementById(id);
 const canvas = $('c');
@@ -68,10 +82,31 @@ canvas.addEventListener('pointermove', (e) => { if (!drag) return; cam.yaw = dra
 canvas.addEventListener('pointerup', () => { drag = null; });
 canvas.addEventListener('wheel', (e) => { e.preventDefault(); cam.dist = Math.max(0.5, Math.min(9, cam.dist * (e.deltaY > 0 ? 1.08 : 1 / 1.08))); }, { passive: false });
 
+// a line to mouth, voiced if the audio engine's here, and any shape held to look at
+let line = null;
+for (const k of Object.keys(MOUTHS)) $('shape').add(new Option(k));
+// every clip a person in a room can play, to look at one by one; a clip that plays once starts again every few seconds
+for (const c of [...ACTOR_CLIPS, ...ACTOR_ROOM_CLIPS]) if (c.name !== 'walk') $('doing').add(new Option(c.name));
+const onceOf = (name) => ACTOR_ROOM_CLIPS.find((c) => c.name === name && c.once)?.dur || 0;
+$('say').addEventListener('keydown', (e) => {
+  if (e.key !== 'Enter') return;
+  const trace = [], text = $('say').value, res = window.AudioEngine?.speak?.(text, { channel: 'npc', seed: $('who').value || 'lab', trace });
+  line = { track: res && trace.length ? mouthTrack(trace) : textTrack(text), t0: performance.now() + (res?.delay || 0) * 1000 };
+});
+const mouthNow = () => ($('shape').value ? MOUTHS[$('shape').value] : line ? mouthAt(line.track, (performance.now() - line.t0) / 1000) || undefined : undefined);
 const WEAR = { all: null, body: { top: false, legs: false, shoes: false }, legs: { top: false } };
+// an NPC's own sex and settled figure, off their content file, when `id` names one
+let settled = {};
+async function readSettled() { const id = $('who').value.trim(); settled = id ? await fetch('/api/npc-figure?id=' + encodeURIComponent(id)).then((r) => (r.ok ? r.json() : {})).catch(() => ({})) : {}; }
+$('who').addEventListener('change', readSettled);
 function bodies() {
-  const n = Math.max(1, Math.min(8, +$('n').value || 1)), seed = +$('seed').value || 0, out = [];
-  for (let i = 0; i < n; i++) out.push({ id: `lab-${seed}-${i}`, at: [(i - (n - 1) / 2) * 0.85, 0], yaw: 0, pose: $('pose').value, dress: $('dress').value });
+  const n = Math.max(1, Math.min(8, +$('n').value || 1)), seed = +$('seed').value || 0, out = [], who = $('who').value.trim();
+  // one person, the current figure and the sculpted one side by side under the same light
+  if ($('both').checked) return [false, true].map((sculpt, i) => ({ id: who || `lab-${seed}-0`, at: [(i - 0.5) * 1.0, 0], yaw: 0, pose: $('pose').value, dress: $('dress').value, sculpt, ...(who ? settled : {}) }));
+  // lying, a row of them on the floor, heads to the right
+  const lie = $('pose').value === 'lie', doing = $('doing').value, once = onceOf(doing), m = who ? 1 : n;
+  const act = { ...(doing ? { clip: doing } : {}), ...(doing && once ? { phase: Math.min(0.999, ((performance.now() / 1000) % (once + 1.5)) / once) } : {}), ...($('rest').value ? { rest: $('rest').value } : {}), ...($('manner').value ? { manner: $('manner').value } : {}) };
+  for (let i = 0; i < m; i++) out.push({ id: who || `lab-${seed}-${i}`, ...act, ...(lie ? { at: [0.8, (i - (m - 1) / 2) * 0.9], head: [1, 0], top: 0 } : { at: [(i - (m - 1) / 2) * 0.85, 0] }), yaw: 0, pose: $('pose').value, dress: $('dress').value, sculpt: $('sculpt').checked, build: $('build').value, mouth: mouthNow(), facial: $('facial').value, ...(who ? settled : {}), ...($('useW').checked ? { weight: +$('weight').value } : {}) });
   return out;
 }
 let crowdReady = false;

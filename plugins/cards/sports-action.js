@@ -7,10 +7,10 @@
 //
 //   Deadball   P pitch · C catch (behind the plate, in the gear) · infield: field a grounder ·
 //              outfield: leap for one · DH and the bench man: swing
-//   CPhL       forwards shoot · D throw a check · G drop into the butterfly
+//   CPhL       HOCKEY_POSES: each position has a pool, and his name picks from it
 //
-// A fielder or a defenseman is caught at the plate or shooting about half the time instead, off
-// his name, so the same man is always caught the same way and a club's cards aren't all one pose.
+// A fielder is caught at the plate about half the time instead. Both come off his name, so the
+// same man is always caught the same way and a club's cards aren't all one pose.
 import { escapeHtml as esc } from '../../server/engine/html.js';
 
 function fnv(str) { let x = 0x811c9dc5 >>> 0; const s = String(str); for (let i = 0; i < s.length; i++) x = Math.imul(x ^ s.charCodeAt(i), 16777619) >>> 0; return x >>> 0; }
@@ -33,16 +33,47 @@ const POSES = {
     lp: [50, 66], rp: [58, 66], lk: [40, 84], rk: [66, 82], lf: [32, 102], rf: [76, 98] },
   check: { face: 1, back: ['l'], h: [63, 36], ls: [53, 44], rs: [64, 46], le: [61, 57], re: [73, 54], lh: [70, 63], rh: [65, 65],
     lp: [44, 66], rp: [52, 68], lk: [37, 84], rk: [60, 84], lf: [27, 102], rf: [67, 104] },
+  wrist: { face: -1, back: ['r'], h: [44, 30], ls: [40, 40], rs: [52, 40], le: [33, 49], re: [49, 51], lh: [27, 54], rh: [42, 47],
+    lp: [48, 66], rp: [56, 66], lk: [38, 84], rk: [66, 84], lf: [30, 102], rf: [78, 97] },
+  deke: { face: -1, back: ['r'], h: [42, 38], ls: [40, 48], rs: [52, 47], le: [34, 58], re: [50, 59], lh: [30, 68], rh: [42, 62],
+    lp: [52, 70], rp: [60, 69], lk: [42, 85], rk: [66, 85], lf: [36, 103], rf: [72, 102] },
+  celebrate: { face: 1, back: [], h: [50, 32], ls: [43, 42], rs: [57, 42], le: [37, 31], re: [63, 31], lh: [41, 18], rh: [59, 18],
+    lp: [46, 67], rp: [54, 67], lk: [43, 85], rk: [58, 85], lf: [42, 103], rf: [60, 103] },
+  faceoff: { face: -1, back: ['r'], h: [38, 46], ls: [40, 55], rs: [51, 53], le: [34, 66], re: [47, 66], lh: [33, 76], rh: [41, 73],
+    lp: [56, 70], rp: [63, 70], lk: [45, 84], rk: [72, 84], lf: [38, 103], rf: [76, 103] },
+  block: { face: -1, back: ['r'], h: [40, 52], ls: [44, 60], rs: [55, 60], le: [36, 68], re: [48, 72], lh: [28, 72], rh: [40, 78],
+    lp: [60, 78], rp: [66, 76], lk: [46, 92], rk: [78, 90], lf: [36, 103], rf: [90, 103] },
+  poke: { face: -1, back: ['r'], h: [40, 36], ls: [40, 46], rs: [51, 45], le: [31, 54], re: [46, 56], lh: [24, 58], rh: [38, 58],
+    lp: [52, 68], rp: [59, 68], lk: [42, 85], rk: [68, 85], lf: [38, 103], rf: [76, 103] },
+  glove: { face: -1, back: [], h: [50, 40], ls: [42, 50], rs: [58, 50], le: [33, 40], re: [66, 60], lh: [28, 26], rh: [68, 72],
+    lp: [44, 74], rp: [56, 74], lk: [37, 90], rk: [63, 90], lf: [30, 104], rf: [70, 104] },
+  stack: { face: -1, back: [], h: [22, 70], ls: [30, 65], rs: [32, 81], le: [24, 54], re: [40, 92], lh: [20, 44], rh: [48, 98],
+    lp: [56, 73], rp: [58, 84], lk: [72, 68], rk: [74, 84], lf: [92, 72], rf: [90, 90] },
+  kick: { face: -1, back: [], h: [46, 42], ls: [38, 52], rs: [54, 51], le: [31, 44], re: [62, 60], lh: [26, 34], rh: [64, 72],
+    lp: [42, 76], rp: [54, 76], lk: [36, 92], rk: [70, 88], lf: [32, 104], rf: [90, 100] },
   save: { face: -1, back: [], h: [50, 46], ls: [42, 56], rs: [58, 56], le: [33, 62], re: [66, 66], lh: [25, 54], rh: [68, 77],
     lp: [44, 78], rp: [56, 78], lk: [35, 96], rk: [65, 96], lf: [17, 104], rf: [83, 104] },
+};
+
+// Who gets what. The camera's half of each pose is RINK_ACT in client/game/js/panels/card-photo.js.
+export const HOCKEY_POSES = {
+  C: ['shot', 'wrist', 'deke', 'celebrate', 'faceoff'],
+  F: ['shot', 'wrist', 'deke', 'celebrate'],
+  D: ['check', 'shot', 'block', 'poke'],
+  G: ['save', 'glove', 'stack', 'kick'],
+};
+const GOALIE = new Set(HOCKEY_POSES.G);
+// A stick as [butt, heel, toe], for the poses that only need one drawn.
+const STICKS = {
+  wrist: [[42, 47], [8, 72], [2, 76]], deke: [[42, 62], [18, 104], [8, 104]], celebrate: [[40, 19], [78, 8], [84, 12]],
+  faceoff: [[41, 73], [24, 104], [14, 104]], block: [[40, 78], [10, 104], [2, 104]], poke: [[38, 58], [2, 102], [-8, 103]],
 };
 
 export function poseOf(card) {
   const alt = fnv(`pose:${card.name}`) % 2 === 0;
   if (card.league === 'hockey') {
-    if (card.pos === 'G') return 'save';
-    if (card.pos === 'D') return alt ? 'check' : 'shot';
-    return 'shot';
+    const pool = HOCKEY_POSES[card.pos] || HOCKEY_POSES.F;
+    return pool[fnv(`pose:${card.name}`) % pool.length];
   }
   if (card.pos === 'P') return 'pitch';
   if (card.pos === 'C') return alt ? 'catch' : 'swing';
@@ -75,7 +106,7 @@ export function actionSvg(card, club) {
   const hockey = card.league === 'hockey';
   const K = kit(card.league, club);
   const skin = SKIN[fnv(`skin:${card.name}`) % SKIN.length];
-  const goalie = name === 'save', catcher = name === 'catch';
+  const goalie = GOALIE.has(name), catcher = name === 'catch';
   const legW = goalie ? 11 : 7, armW = 5.6;
 
   const bg = hockey
@@ -149,7 +180,10 @@ export function actionSvg(card, club) {
   } else if (name === 'check') {
     props = seg([68, 61], [88, 102], 2, '#d8c49a') + seg([88, 102], [96, 103], 2.6, '#1a1a1a') + speed([P.h[0] - 8, P.h[1] + 10], 1)
       + `<path d="M74 40 l6 -4 M76 46 l7 -1 M74 52 l6 2" stroke="#fff" stroke-width="1.2" opacity=".8"/>`;
-  } else if (name === 'save') {
+  } else if (STICKS[name]) {
+    const [butt, heel, toe] = STICKS[name];
+    props = seg(butt, heel, 2, '#d8c49a') + seg(heel, toe, 2.6, '#1a1a1a');
+  } else if (goalie) {
     props = dot(P.lh, 6, K.glove) + dot([P.lh[0], P.lh[1]], 2.4, '#111')
       + `<rect x="${P.rh[0] - 3}" y="${P.rh[1] - 5}" width="7" height="9" rx="1" fill="${esc(K.glove)}" stroke="#fff" stroke-width=".5"/>`
       + seg([P.rh[0], P.rh[1] + 3], [62, 106], 2.4, '#d8c49a') + seg([62, 106], [46, 106], 3.4, '#1a1a1a')
@@ -161,5 +195,7 @@ export function actionSvg(card, club) {
 export const ACTION_LABEL = {
   swing: 'At the plate', pitch: 'On the mound', catch: 'Behind the plate', field: 'In the field', leap: 'At the wall',
   shot: 'Shooting', check: 'Finishing a check', save: 'In the butterfly',
+  wrist: 'Letting one go', deke: 'Dangling', celebrate: 'After the goal', faceoff: 'On the draw', block: 'Blocking a shot', poke: 'Poke check',
+  glove: 'Glove save', stack: 'Stacking the pads', kick: 'Kick save',
 };
 export const _test = { POSES };

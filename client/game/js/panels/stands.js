@@ -12,6 +12,7 @@
 // you'd brought a radio. The voice goes through AudioEngine.speak on the tv channel, queued so a
 // call never cuts the last one off; it never touches the room's sound.
 
+import { coverWithVeil } from './glass-veil.js';
 import { sendCmd, sendRaw } from '../net.js';
 import { loadCss } from '../../../shared/dom.js';
 import { addTvView } from './tv.js';
@@ -160,6 +161,8 @@ export async function openStands(msg) {
   const seat = { eye: msg.sport === 'hockey' && !msg.screen ? rinkSeatEye(msg.section.eye) : msg.section.eye, mode: 'follow', fov: msg.sport === 'hockey' ? 64 : 50, yaw: null, pitch: null };
   const ui = { root, seat, view: null, unview: null, channelId: msg.channelId, sport: msg.sport, got: false };
   seatUi = ui;
+  // over the root, not the host: the view takes the host for itself when it mounts
+  coverWithVeil(root, 'stands', { ready: () => !!ui.view });
   // A big screen (msg.screen) is the broadcast's own cameras: no seat, nothing to turn.
   if (msg.screen) {
     root.classList.add('st-screen');

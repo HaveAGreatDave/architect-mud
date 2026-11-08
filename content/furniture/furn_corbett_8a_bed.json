@@ -9,7 +9,11 @@
     "interactions": [
       "lie",
       "sit"
-    ]
+    ],
+    "look": {
+      "arche": "bed",
+      "form": "bed"
+    }
   },
   "id": "furn_corbett_8a_bed",
   "name": "the bed",

@@ -12,6 +12,7 @@
     "district": "ashway",
     "region_id": "region_coldwater",
     "scavenging_table_id": "scav_west_wastes",
+    "street_dirt": true,
     "terrain": "road"
   },
   "grid_x": 920,

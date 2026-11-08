@@ -16,6 +16,7 @@
  */
 import { availableActions } from './specializedActions.js';
 import { escAttr } from './text.js';
+import { gatherHookSync } from './plugins.js';
 
 // Verbs that act on an "on <name>" object ("sit on couch", "lie on bed").
 // Every other verb targets the bare name.
@@ -55,4 +56,18 @@ export function genericFurnitureLinks(f, exclude = [], viewer) {
   return furnitureVerbs(f, viewer)
     .filter((v) => !skip.has(v))
     .map((v) => `<span class="action-link" data-action="${v}" data-target="${escAttr(verbTarget(v, n))}">${v}</span>`);
+}
+
+// The same list as commands, for a surface with buttons (the Room Stage's card). A plugin adds a verb
+// that no tag or flag can gate, such as a shower matched by its name, through `furniture.acts`:
+// { verb, bare } where `bare` sends the verb alone. No viewer is passed: a room's pieces go to everyone
+// in it, so a verb that hides itself from strangers stays off the card.
+const ALIASES = new Set(['flip', 'turn', 'close']);
+export function furnitureActs(f) {
+  const out = new Map();
+  const add = (verb, bare) => { if (verb && !ALIASES.has(verb) && !out.has(verb)) out.set(verb, { verb, cmd: bare ? verb : `${verb} ${verbTarget(verb, f.name.toLowerCase())}` }); };
+  for (const v of furnitureVerbs(f)) add(v);
+  if (f.object_type === 'container') add('open');
+  for (const a of gatherHookSync('furniture.acts', f)) add(a.verb, a.bare);
+  return [...out.values()];
 }

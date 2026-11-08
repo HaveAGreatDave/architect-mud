@@ -330,7 +330,7 @@ function paintFloorCards() {
   }
   for (const cv of root.querySelectorAll('canvas[data-charter]')) {
     paintVehicleCard(cv, { style: 'showroom', seed: 5, dim: !(B.data.pilot?.present || B.data.charterWaiting),
-      v: { cls: B.data.venue === 'helipad' ? 'heli' : 'prop', livery: charterLivery(), yaw: 0.62, fit: 1.5 } });
+      v: { cls: B.data.venue === 'helipad' ? 'heli' : 'prop', variant: '2076', livery: charterLivery(), yaw: 0.62, fit: 1.5 } });
   }
   for (const cv of root.querySelectorAll('canvas[data-slot]')) {
     const buy = cv.dataset.slot === 'buy';
@@ -473,7 +473,7 @@ function lotCard(t) {
       ${kind === 'buy' ? 'BUY' : 'RENT'} · ₵${price}${kind === 'rent' ? '/hr' : ''}</button>`;
   };
   return `<div class="hb-lot">
-    <div class="hb-lot-view"><canvas class="hb-wf-lot" data-wf-cls="${esc(t.class)}" data-wf-armed="${t.class === 'heli' && (t.hardpoints > 0) ? '1' : ''}" width="200" height="142"></canvas></div>
+    <div class="hb-lot-view"><canvas class="hb-wf-lot" data-wf-cls="${esc(t.class)}" data-wf-armed="${t.class === 'heli' && (t.hardpoints > 0) ? '1' : ''}" data-wf-variant="${esc(t.variant && t.variant !== 'stock' ? t.variant : '')}" width="200" height="142"></canvas></div>
     <div class="hb-lot-name">${esc(t.name)}</div>
     <div class="hb-lot-meta">${esc(t.class)} · ${t.seats} seat${t.seats > 1 ? 's' : ''} · ${esc(t.fuel)}</div>
     <div class="hb-lot-acts">
@@ -1531,7 +1531,7 @@ function startSpin() {
       const accent = themeColor('--accent', '#39ff9e');   // one getComputedStyle for the whole row, not per-card
       wfLots.forEach((cv) => {
         if (cv._phase == null) cv._phase = Math.random() * 6.28;
-        drawWireframe3D(cv.getContext('2d'), { cls: cv.getAttribute('data-wf-cls'), armed: cv.getAttribute('data-wf-armed') === '1', w: cv.width, h: cv.height, accent, yaw: yaw + cv._phase });
+        drawWireframe3D(cv.getContext('2d'), { cls: cv.getAttribute('data-wf-cls'), armed: cv.getAttribute('data-wf-armed') === '1', variant: cv.getAttribute('data-wf-variant') || '', detail: 0, w: cv.width, h: cv.height, accent, yaw: yaw + cv._phase });
       });
     }
     raf = requestAnimationFrame(loop);

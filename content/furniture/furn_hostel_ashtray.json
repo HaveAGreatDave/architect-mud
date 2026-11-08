@@ -1,0 +1,21 @@
+{
+  "description": "A paint tin full of sand and butts on the floor by the sofa, overflowing. It's the only rule in here everyone keeps, more or less.",
+  "flags": {
+    "aliases": "ashtray,tin",
+    "look": {
+      "arche": "small",
+      "form": "box",
+      "wear": 0.95
+    }
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_hostel_ashtray",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "paint-tin ashtray",
+  "object_type": "furniture",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_trackmarks_shop"
+}

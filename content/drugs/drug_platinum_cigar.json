@@ -66,7 +66,8 @@
     "drug_family": "stimulant",
     "legal": true,
     "skin_permeability": 0.85,
-    "smokeable": true
+    "smokeable": true,
+    "taken": "smoke"
   },
   "id": "drug_platinum_cigar",
   "item_id": "item_platinum_cigar",

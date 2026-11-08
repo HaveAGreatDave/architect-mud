@@ -1,8 +1,8 @@
 {
   "ambient_events": [],
-  "ambient_theme": "coast",
-  "color": "#7fd3ff",
-  "description": "Cold water to the knees, then the bottom shelves steeply into murk. The channel beyond can't be crossed on foot.",
+  "ambient_theme": "outdoors",
+  "color": "#f5d400",
+  "description": "A taxiway on fill, laid in the same dark panels as the runway, with blue lamps along its edges and the Basin close on the open side.",
   "exits": {
     "east": "zone_district_928_905",
     "north": "zone_district_927_904",
@@ -10,15 +10,17 @@
     "west": "zone_district_926_905"
   },
   "flags": {
-    "district": "water",
+    "district": "docks",
     "region_id": "region_coldwater",
-    "terrain": "water"
+    "runway": "pad",
+    "scavenging_table_id": "scav_industrial_salvage",
+    "terrain": "asphalt"
   },
   "grid_x": 927,
   "grid_y": 905,
   "grid_z": 0,
   "id": "zone_district_927_905",
   "map_id": "map_world",
-  "name": "Coldwater Basin",
+  "name": "Taxiway",
   "parent_zone": null
 }

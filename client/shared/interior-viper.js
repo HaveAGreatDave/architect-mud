@@ -456,7 +456,7 @@ const collectiveGrip = (thr) => {
   const a = (2 + clamp(thr, 0, 1) * 16) * Math.PI / 180;
   return add(COLL.pivot, [0, Math.cos(a) * COLL.len, Math.sin(a) * COLL.len]);
 };
-const cyclicTip = (ail, elev) => [CYC.base[0] + ail * 0.08, CYC.base[1] + elev * 0.09, -0.52];
+const cyclicTip = (ail, elev) => [CYC.base[0] + ail * 0.08, CYC.base[1] - elev * 0.09, -0.52];
 
 function viperHotspots(P, live) {
   const L = live || {};

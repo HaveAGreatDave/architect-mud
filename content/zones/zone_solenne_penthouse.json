@@ -13,10 +13,40 @@
   },
   "flags": {
     "building_name": "Solenne Residences",
-    "floor": "carpet",
+    "floor": "stone",
     "is_dwelling": true,
     "is_interior": true,
     "rest_multiplier": 2,
+    "room": {
+      "balcony": {
+        "wrap": "all"
+      },
+      "d": 18,
+      "ensuite": {
+        "d": 4.4,
+        "w": 4.2
+      },
+      "finish": "fine",
+      "glass": [
+        "front",
+        "left"
+      ],
+      "ground": "stone",
+      "h": 5,
+      "pit": {
+        "at": [
+          -2.4,
+          3.8,
+          3.2,
+          9.2
+        ],
+        "depth": 0.42,
+        "step": 0.42
+      },
+      "storey": 35,
+      "storeys": 36,
+      "w": 16
+    },
     "window": {
       "description": "Floor-to-ceiling glass runs the whole west wall, black-framed and seamless, holding the city out there like something in a case.",
       "light": 0.9,

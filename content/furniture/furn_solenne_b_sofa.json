@@ -1,0 +1,19 @@
+{
+  "description": "A long low sofa in grey wool, deep enough to sleep on and firm enough that you would rather not.",
+  "flags": {
+    "interactions": [
+      "sit",
+      "lie"
+    ]
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_solenne_b_sofa",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "low sofa",
+  "object_type": "furniture",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_solenne_apt_b"
+}

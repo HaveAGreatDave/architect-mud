@@ -4,7 +4,11 @@
     "interactions": [
       "lie",
       "sit"
-    ]
+    ],
+    "look": {
+      "arche": "bed",
+      "form": "platform"
+    }
   },
   "hp": null,
   "hp_max": null,

@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Room Lab</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  html, body { margin: 0; height: 100%; background: #111; color: #ddd; font: 13px system-ui, sans-serif; }
+  #pick { position: fixed; z-index: 20000; left: 8px; bottom: 8px; display: flex; gap: 6px; align-items: center; background: #000a; padding: 6px 8px; border-radius: 6px; }
+  #pick select, #pick input { background: #222; color: #ddd; border: 1px solid #444; }
+</style>
+</head>
+<body>
+<div id="area-content"></div>
+<div id="output-container" hidden><div id="output"></div></div>
+<div id="pick">
+  <label>Room <select id="zone"></select></label>
+  <label>Hour <input id="hour" type="number" min="0" max="24" step="0.5" value="13" style="width:4em"></label>
+  <label><input id="glass" type="checkbox" checked> GLASS view</label>
+</div>
+<script type="importmap">{ "imports": { "/shared/": "/client/shared/" } }</script>
+<script type="module">
+// The Room Stage opened on any room in content/, with no server: the rows are read off the files and
+// laid out by the same layRows the plugin calls, and the view out of the window is drawn from the
+// baked flight world. Every verb the Stage sends goes nowhere here, so an en-suite is walked into by
+// answering its door. scripts/shapes/room-stage.mjs is what gates the meshes; this is a picture.
+import { roomSpecOf, withAnnex, annexFrame, layRows } from '/client/shared/room-layout.js';
+import { openRoomStage, closeRoomStage, roomOutlook, roomHere, roomSky, _test } from '/client/game/js/panels/room-stage.js';
+
+const q = new URLSearchParams(location.search);
+const $ = (id) => document.getElementById(id);
+const list = await (await fetch('/api/room-lab')).json();
+for (const z of list) $('zone').append(new Option(`${z.name} (${z.id})`, z.id));
+$('zone').value = q.get('zone') || 'zone_solenne_apt_b';
+$('hour').value = q.get('hour') || 13;
+$('glass').checked = q.get('glass') !== '0';
+const world = await (await fetch('/api/world')).json();
+
+const BEARING = { north: 0, northeast: 45, east: 90, southeast: 135, south: 180, southwest: 225, west: 270, northwest: 315 };
+async function open() {
+  const id = $('zone').value, hour = Number($('hour').value);
+  const d = await (await fetch('/api/room-lab?zone=' + encodeURIComponent(id))).json();
+  const mark = parseInt(d.zone.marker, 10);
+  let spec = roomSpecOf(d.zone.flags, true, { storey: mark > 0 ? mark : null });
+  if (d.annex) spec = withAnnex(spec, d.annex.id, d.annex.name);
+  const pieces = layRows(d.rows, spec, { finish: spec.finish }).pieces;
+  if (d.annex) pieces.push(...layRows(d.annexRows, annexFrame(spec).spec, { annex: true, finish: spec.annex.finish }).pieces);
+  closeRoomStage(true);
+  openRoomStage({ type: 'room_view', zone: id, here: id, name: d.zone.name, spec, hasView: !!d.tile && $('glass').checked, mine: true, you: 'lab', pieces, people: [], clock: { hour, hourMs: Date.now(), rate: 0 } });
+  const own = Number(d.zone.flags?.room?.face), dir = Object.keys(d.zone.exits || {}).find((k) => BEARING[k] !== undefined);
+  const bearing = Number.isFinite(own) ? own : dir ? (BEARING[dir] + 180) % 360 : 0;
+  const R = 36, N = R * 2 + 1, tile = d.tile, bare = { kind: 'land', biome: 'wasteland', flr: 0 };
+  const map = tile && $('glass').checked ? Array.from({ length: N }, (_, j) => Array.from({ length: N }, (_, i) => {
+    const c = world.cells[(tile.x + i - R) + ',' + (tile.y + j - R)] || bare;
+    return i === R && j === R ? { ...c, self: 1 } : c;
+  })) : null;
+  roomOutlook({ zone: id, gx: tile?.x, gy: tile?.y, storey: Number(d.zone.flags?.room?.storey) || (mark > 0 ? mark : 1), storeys: Number(d.zone.flags?.room?.storeys) || null, bearing, map, sky: { hour, weather: q.get('wx') || 'clear' }, contacts: [], actors: [], fields: Object.entries(world.cells).filter(([, c]) => c.kind === 'field').map(([k, c]) => { const [gx, gy] = k.split(',').map(Number); return { id: c.field || k, gx, gy, pad: !!c.pad || !!c.helipad }; }) });
+  window.__lab = { spec, pieces, stage: _test };
+}
+for (const el of ['zone', 'hour', 'glass']) $(el).addEventListener('change', open);
+window.__labOpen = open;
+window.__labHere = (here) => roomHere({ zone: $('zone').value, here });
+// What the server would say: __labSky({ weather: 'thunderstorm', wind: 60, here: { precipType: 'rain', precipRate: 0.9 } })
+window.__labSky = (sky) => roomSky({ zone: $('zone').value, contacts: [], ...sky });
+// A frame to disk, from anywhere in the room: 'at' is [u, v] in the room's frame, 'yaw' and 'pitch'
+// radians. It draws the frame itself and reads it in the same task, since a GL canvas keeps nothing
+// after that and a hidden pane may not be running frames at all.
+window.__snap = async (name, { at, y = 1.6, yaw, pitch, fov } = {}) => {
+  const t = _test(), L = t.S.L;
+  if (at) t.seat.eye = L.world(at[0], at[1], y);
+  if (yaw !== undefined) t.seat.yaw = yaw;
+  if (pitch !== undefined) t.seat.pitch = pitch;
+  if (fov) t.seat.fov = fov;
+  // a hidden pane can have no size at all, which is a one-pixel picture
+  const cv = document.querySelector('.rs-canvas');
+  if (!cv.clientWidth) { cv.style.width = '1280px'; cv.style.height = '720px'; }
+  t.draw(performance.now());
+  const url = cv.toDataURL('image/jpeg', 0.92);
+  const r = await fetch('/api/shot?name=' + name, { method: 'POST', body: await (await fetch(url)).blob() });
+  return r.json();
+};
+await open();
+</script>
+</body>
+</html>

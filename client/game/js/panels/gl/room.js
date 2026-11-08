@@ -2,8 +2,8 @@
 // (docs/proposals/room-stage.md, "Renderer"): the batches room-mesh.js builds, lit per pixel.
 //
 // The suite is drawn by the ballpark, whose room is all baked light. A flat lights itself here
-// instead: the vertex colour is the surface times its baked occlusion, and the pendant lamp and the
-// window (an area light, four points across the glass) light it per pixel, with a specular term by
+// instead: the vertex colour is the surface times its baked occlusion, and the lamps and the panes
+// (each an area light, four points across the glass) light it per pixel, with a specular term by
 // material (GLOSS on enamel and glass, METAL on steel, LEATHER, SATIN, CLOTH, MATTE), so the lamp
 // switching and the hour turning move the light with no rebuild. Then ACES, the sRGB curve and a
 // vignette. With the comic look on (gl/house-style.js) it draws the ink first and bands the light.
@@ -11,6 +11,9 @@
 // ⚠ NO FACE CULLING: the kit's builders don't keep one winding (arena.js's reason).
 // ⚠ TEXTURES ARE sRGB. Every painted canvas is uploaded SRGB8_ALPHA8, so a sample is linear light, as
 // the vertex colours are (ballpark-mesh.js lin).
+//
+// ⚠ WITH `see` A PANE IS A HOLE. The canvas is transparent there and the live GLASS view under it
+// (panels/room-outlook.js) shows through. Without it, the painted street is looked up by direction.
 
 import { makeVertexStream } from './stream.js';
 import { declareProgram, prewarmPrograms, layerProgram } from './programs.js';
@@ -19,6 +22,7 @@ import { comicOn, inkOf, HOUSE } from './house-style.js';
 import { STRIDE } from './ballpark-mesh.js';
 import { ROOM_LIGHT_GLSL } from './room-light.js';
 import { createFigureLayer } from './figure-hd.js';
+import { ROOM_SKY_GLSL, setOutsideUniforms } from './room-sky.js';
 
 const VS = `#version 300 es
 layout(location = 0) in vec3 aPos;
@@ -36,19 +40,56 @@ const FS = `#version 300 es
 precision highp float;
 in vec3 vPos; in vec3 vNor; in vec2 vUv; in vec3 vCol; flat in float vMat;
 uniform sampler2D uTex;
-uniform int uMode;          // 0 plain, 1 textured, 2 a picture (the view, a screen), 3 glass
+uniform float uBearing;     // the way the room's front wall faces, radians clockwise from north
+uniform vec3 uFront;        // the room's front and right, in the frame the eye is in
+uniform vec3 uRight;
+uniform bool uLive;         // the broadcast: its texture is plain RGBA, so it's decoded here
+uniform int uMode;          // 0 plain, 1 textured, 2 a picture (a screen), 3 glass, 4 the view out
 out vec4 outColor;
 ${ROOM_LIGHT_GLSL}
+uniform float uLampDim;      // how far down the dimmer has a lamp's own face
+// A direction as east and north.
+vec2 compass(vec3 d) {
+  float fw = dot(d, uFront), rt = dot(d, uRight), s = sin(uBearing), c = cos(uBearing);
+  return vec2(s * fw + c * rt, c * fw - s * rt);
+}
+${ROOM_SKY_GLSL}
 void main() {
   vec3 base = vCol;
-  if (uMode == 1 || uMode == 2) base *= texture(uTex, vUv).rgb;
+  if (vMat == 43.0) { outColor = fireAt(vUv); return; }
+  if (uMode == 4) {
+    vec3 d = normalize(vPos - uEye);
+    // the painted street, wrapped round: it mirrors every half turn so there's no seam to find
+    float az = atan(dot(d, uRight), dot(d, uFront)) / 3.14159265;
+    float t = d.y / max(length(vec2(dot(d, uRight), dot(d, uFront))), 0.05);
+    outColor = vec4(fallOver(d, finish(texture(uTex, vec2(abs(fract(az * 0.5 + 0.25) * 2.0 - 1.0), clamp(0.62 - t * 0.42, 0.01, 0.99))).rgb)), 1.0);
+    return;
+  }
+  if (uMode == 1 || uMode == 2) {
+    vec3 t = texture(uTex, vUv).rgb;
+    base *= uLive ? mix(t / 12.92, pow((t + 0.055) / 1.055, vec3(2.4)), step(0.04045, t)) : t;
+  }
+  // frosted glass: the day through it and nothing else
+  if (vMat == 41.0) { outColor = vec4(finish(base * (uWinC * 0.3 + vec3(0.03))), 1.0); return; }
+  // a lamp, on the dimmer
+  if (vMat == 42.0) { outColor = vec4(finish(base * uLampDim), 1.0); return; }
   // a light itself, or a picture: as it is
   if (uMode == 2 || vMat == 40.0) { outColor = vec4(finish(base), 1.0); return; }
   vec3 n = normalize(vNor), v = normalize(uEye - vPos);
   if (dot(n, v) < 0.0) n = -n;
   vec3 diff, spec;
   roomLight(vPos, n, v, vMat, diff, spec);
-  if (uMode == 3) { outColor = roomGlass(spec, fresnelOf(n, v)); return; }
+  if (uMode == 3) {
+    vec4 g = roomGlass(spec, fresnelOf(n, v));
+    // a pane to the weather (its uv is metres on the glass, from 100): what's on it bends the view
+    if (vUv.x > 50.0 && uFall.z > 0.004 && uEye.z <= uOutZ) {
+      vec3 dr = paneDrops(vUv);
+      vec3 pic = uWinC * 0.2 + 0.1;
+      g = vec4(mix(g.rgb, pic * 0.92 + 0.03, dr.z), max(g.a, dr.z * 0.3));
+    }
+    outColor = g;
+    return;
+  }
   outColor = vec4(finish(roomShade(base, diff, spec, vMat)), 1.0);
 }`;
 declareProgram(VS, FS);
@@ -56,17 +97,22 @@ declareProgram(INK_VS, INK_FS);
 
 const ATTRS = [[0, 3, 0], [1, 3, 12], [2, 2, 24], [3, 3, 32], [4, 1, 44]];
 const INK_COL = [0.05, 0.045, 0.06];
+const NEAR = 0.04, FAR = 120;
+// How far behind its body the ink sits, in metres. Only the faces turned away are pushed out
+// (ink.js uInkEye): pushed too, a face seen at a slant blacked out whole fridges and ceilings.
+const INK_BACK = 0.03;
 
 // ── the camera ──────────────────────────────────────────────────────────────────────────────────
 // `cam` is { eye, yaw, pitch, fov (degrees, vertical) }: yaw 0 looks along +z and grows to the left
 // (room-layout.js's frame), pitch up is positive.
-export function roomMatrices(cam, aspect) {
+// `lens` is [x, y], the projection's own scales, for a room drawn over a camera with a lens of its own.
+export function roomMatrices(cam, aspect, lens = null) {
   const y = cam.yaw || 0, p = cam.pitch || 0;
   const f = [Math.sin(y) * Math.cos(p), Math.sin(p), Math.cos(y) * Math.cos(p)];
   const r = norm(cross(f, [0, 1, 0])), u = cross(r, f), e = cam.eye;
   const view = [r[0], u[0], -f[0], 0, r[1], u[1], -f[1], 0, r[2], u[2], -f[2], 0, -dot(r, e), -dot(u, e), dot(f, e), 1];
-  const near = 0.04, far = 120, t = 1 / Math.tan(((cam.fov || 70) * Math.PI / 180) / 2);
-  const proj = [t / aspect, 0, 0, 0, 0, t, 0, 0, 0, 0, (far + near) / (near - far), -1, 0, 0, (2 * far * near) / (near - far), 0];
+  const near = NEAR, far = FAR, t = 1 / Math.tan(((cam.fov || 70) * Math.PI / 180) / 2);
+  const proj = [lens ? lens[0] : t / aspect, 0, 0, 0, 0, lens ? lens[1] : t, 0, 0, 0, 0, (far + near) / (near - far), -1, 0, 0, (2 * far * near) / (near - far), 0];
   return new Float32Array(mat4mul(proj, view));
 }
 // A point in the room to the picture's pixels, or null behind the eye.
@@ -77,9 +123,10 @@ export function projectWith(vp, p, w, h) {
   return { x: (x / W + 1) / 2 * w, y: (1 - y / W) / 2 * h };
 }
 
-export function createRoomRenderer(canvas, { phone = false } = {}) {
+// `see`: the panes are holes. The canvas is transparent there and a live GLASS view under it is the view out.
+export function createRoomRenderer(canvas, { phone = false, see = false } = {}) {
   let gl = null;
-  try { gl = canvas.getContext('webgl2', { antialias: true, alpha: false, depth: true, powerPreference: phone ? 'low-power' : 'high-performance' }); } catch { gl = null; }
+  try { gl = canvas.getContext('webgl2', { antialias: true, alpha: see, premultipliedAlpha: !see, depth: true, powerPreference: phone ? 'low-power' : 'high-performance' }); } catch { gl = null; }
   if (!gl) return null;
   try { return build(); } catch (err) { console.warn('[room] the 3-D room is unavailable:', err && err.message); return null; }
 
@@ -95,10 +142,10 @@ export function createRoomRenderer(canvas, { phone = false } = {}) {
     canvas.addEventListener('webglcontextlost', onLost);
 
     const tex = new Map();
-    const texture = (src, { repeat = true, mips = true } = {}) => {
+    const texture = (src, { repeat = true, mips = true, format = gl.SRGB8_ALPHA8 } = {}) => {
       const t = gl.createTexture();
       gl.bindTexture(gl.TEXTURE_2D, t);
-      gl.texImage2D(gl.TEXTURE_2D, 0, gl.SRGB8_ALPHA8, gl.RGBA, gl.UNSIGNED_BYTE, src);
+      gl.texImage2D(gl.TEXTURE_2D, 0, format, gl.RGBA, gl.UNSIGNED_BYTE, src);
       if (mips) gl.generateMipmap(gl.TEXTURE_2D);
       const wrap = repeat ? gl.REPEAT : gl.CLAMP_TO_EDGE;
       gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, mips ? gl.LINEAR_MIPMAP_LINEAR : gl.LINEAR);
@@ -114,7 +161,7 @@ export function createRoomRenderer(canvas, { phone = false } = {}) {
     // what's in the room: the solid batch, one per material, the screens, the glass, the view, and
     // the people: the close-up figures (gl/figure-hd.js, posed by the stage every frame) and a batch
     // the Figure Lab fills with the crowd's body to set beside them
-    let room = null, view = null, screen = null, figures = [];
+    let room = null, view = null, screen = null, live = null, figures = [];
     const people = layer(), fig = createFigureLayer(gl, { half: phone });
     function setRoom(m, paint) {
       if (room) { for (const L of [room.solid, room.screen, room.glass, room.view, ...room.mats]) drop(L); }
@@ -124,26 +171,38 @@ export function createRoomRenderer(canvas, { phone = false } = {}) {
     }
     function setView(src) { if (view && src.width === view.w) refill(view.t, src); else { view = { t: texture(src, { repeat: false }), w: src.width }; } }
     function setScreen(src) { if (screen && src.width === screen.w) refill(screen.t, src); else { screen = { t: texture(src, { repeat: false, mips: false }), w: src.width }; } }
+    // what's on the set that's on (room-tv.js): mipped, or the words on it shimmer from across the room.
+    // ⚠ RGBA8, NOT SRGB8_ALPHA8. Filling an sRGB texture from a canvas took 11 ms against 0.7, on every
+    // new picture; the shader decodes it instead (uLive).
+    function setLive(src) {
+      if (live && src.width === live.w) { refill(live.t, src); gl.generateMipmap(gl.TEXTURE_2D); } else live = { t: texture(src, { repeat: false, format: gl.RGBA8 }), w: src.width };
+    }
     function setPeople(b) { upload(people, b); }
     function setFigures(recs) { figures = recs || []; }
 
     let vp = null;
     return {
       get lost() { return lost; },
-      setRoom, setView, setScreen, setPeople, setFigures,
+      setRoom, setView, setScreen, setLive, setPeople, setFigures,
       get figureTris() { return fig.tris; },
       prepareFigure: (key) => fig.prepare(key),
       project(p, w, h) { return vp ? projectWith(vp, p, w, h) : null; },
-      // one frame. `light` is { lamp: [x,y,z], lampOn, day: 0..1, sky: [r,g,b], win: { p, n, a, b } }
+      // one frame. `light` is { lamps: [{ p: [x,y,z], k }], lampOn, day: 0..1, sky: [r,g,b],
+      // wins: [{ p, n, a, b, k }], annex: [x0, x1, z0, z1] | null, outZ, outRing, front, right, bearing, panoU, panoV,
+      // lampLevel (the dimmer, 0..1), fire (how a lamp marked `fire` is burning, 0..1) and outside (what
+      // panels/room-window.js says is going on past the glass) }
+      // (or one `lamp` and one `win`, for a caller with a room of its own)
+      // `light.tvOn` is { first, count }, the stretch of the screen batch showing the broadcast, or null
       render(cam, light) {
         if (lost || gl.isContextLost()) { lost = true; return false; }
         if (!room) return false;
         const dpr = Math.min(phone ? 1.5 : 2, window.devicePixelRatio || 1);
         const w = Math.max(1, Math.round(canvas.clientWidth * dpr)), h = Math.max(1, Math.round(canvas.clientHeight * dpr));
         if (canvas.width !== w || canvas.height !== h) { canvas.width = w; canvas.height = h; }
-        vp = roomMatrices(cam, w / h);
+        vp = roomMatrices(cam, w / h, light.lens);
         gl.viewport(0, 0, w, h);
-        gl.clearColor(0.02, 0.02, 0.025, 1);
+        // with `see` the canvas is premultiplied, so any colour at alpha 0 is added to the city through every pane
+        gl.clearColor(see ? 0 : 0.02, see ? 0 : 0.02, see ? 0 : 0.025, see ? 0 : 1);
         gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
         gl.enable(gl.DEPTH_TEST); gl.depthMask(true);
         gl.disable(gl.CULL_FACE); gl.disable(gl.BLEND);
@@ -159,6 +218,8 @@ export function createRoomRenderer(canvas, { phone = false } = {}) {
           // 6 mm of the thing, between 1 and 3 px of a 900-tall picture: the house line
           const ink = inkOf({ ft: 0.006, px: phone ? [0.9, 2.2] : [1.1, 3.0], col: INK_COL }), k = h / 900;
           gl.uniform4f(INK.u('uInk'), ink.ft, ink.px[0] * k, ink.px[1] * k, 0.0004);
+          gl.uniform2f(INK.u('uBack'), 2 * FAR * NEAR / (FAR - NEAR), INK_BACK);
+          gl.uniform4f(INK.u('uInkEye'), cam.eye[0], cam.eye[1], cam.eye[2], 1);
           gl.uniform3fv(INK.u('uCol'), ink.col);
           gl.uniform3f(INK.u('uKey'), 0, -1, 0);
           opaque.forEach(draw);
@@ -177,18 +238,29 @@ export function createRoomRenderer(canvas, { phone = false } = {}) {
         });
 
         const day = Math.max(0, Math.min(1, light.day || 0)), sky = light.sky || [0.7, 0.8, 1];
-        const lampK = light.lampOn ? 2.6 : 0;
+        // the dimmer is on the lamps one by one, since a fire isn't on the switch
+        const level = light.lampOn ? (light.lampLevel ?? 1) : 0, lampK = 2.6;
+        const lamps = (light.lamps || [{ p: light.lamp, k: 1 }]).slice(0, 6), wins = (light.wins || [light.win]).slice(0, 3);
+        const flat = (list, key, n) => { const o = new Float32Array(n * 3); list.forEach((q, i) => o.set(q[key], i * 3)); return o; };
+        const lampP = flat(lamps, 'p', 6), lampKs = new Float32Array(6), winK = new Float32Array(3);
+        lamps.forEach((q, i) => { lampKs[i] = (q.k ?? 1) * (q.fire ? (light.fire ?? 1) : level * level); });
+        wins.forEach((q, i) => { winK[i] = q.k ?? 1; });
+        const winP = flat(wins, 'p', 3), winN = flat(wins, 'n', 3), winA = flat(wins, 'a', 3), winB = flat(wins, 'b', 3), ax = light.annex || [0, 0, 0, 0];
         // the room's light (gl/room-light.js), on the room's program and the figures' alike
         const setLight = (P) => {
           gl.uniform3fv(P.u('uEye'), cam.eye);
-          gl.uniform3fv(P.u('uLampP'), light.lamp);
+          gl.uniform3fv(P.u('uLampP'), lampP); gl.uniform1fv(P.u('uLampK'), lampKs); gl.uniform1i(P.u('uLampN'), lamps.length);
           gl.uniform3f(P.u('uLampC'), 1.0 * lampK, 0.82 * lampK, 0.6 * lampK);
-          gl.uniform3fv(P.u('uWinP'), light.win.p); gl.uniform3fv(P.u('uWinN'), light.win.n);
-          gl.uniform3fv(P.u('uWinA'), light.win.a); gl.uniform3fv(P.u('uWinB'), light.win.b);
+          gl.uniform3fv(P.u('uWinP'), winP); gl.uniform3fv(P.u('uWinN'), winN);
+          gl.uniform3fv(P.u('uWinA'), winA); gl.uniform3fv(P.u('uWinB'), winB);
+          gl.uniform1fv(P.u('uWinK'), winK); gl.uniform1i(P.u('uWinCount'), wins.length);
+          gl.uniform4f(P.u('uAnnex'), ax[0], ax[1], ax[2], ax[3]);
+          gl.uniform1f(P.u('uOutZ'), light.outZ ?? 1e6);
+          gl.uniform3fv(P.u('uOutRing'), light.outRing ?? [-1e6, 1e6, -1e6]);
           const wk = 0.25 + 3.4 * day;
           gl.uniform3f(P.u('uWinC'), sky[0] * wk, sky[1] * wk, sky[2] * wk);
           // what bounces round the room off the walls: some of the lamp and some of the day
-          const amb = 0.035 + 0.16 * day + (light.lampOn ? 0.1 : 0);
+          const amb = 0.035 + 0.16 * day + 0.1 * level;
           gl.uniform3f(P.u('uAmb'), amb * (0.9 + 0.1 * sky[0]), amb * (0.92 + 0.08 * sky[1]), amb);
           gl.uniform1f(P.u('uExpo'), 1.15);
           gl.uniform1f(P.u('uComic'), comic ? 1 : 0);
@@ -199,16 +271,30 @@ export function createRoomRenderer(canvas, { phone = false } = {}) {
         gl.uniformMatrix4fv(LIT.u('uVP'), false, vp);
         setLight(LIT);
         gl.uniform1i(LIT.u('uTex'), 0);
+        gl.uniform1f(LIT.u('uLampDim'), 0.28 + 0.72 * level);
+        setOutsideUniforms(gl, LIT, light.outside || null);
         gl.activeTexture(gl.TEXTURE0);
         gl.uniform1i(LIT.u('uMode'), 0);
         draw(room.solid); draw(people);
         gl.uniform1i(LIT.u('uMode'), 1);
         for (const m of room.mats) { gl.bindTexture(gl.TEXTURE_2D, tex.get(m.key)); draw(m); }
         gl.uniform1i(LIT.u('uMode'), 2);
-        if (view) { gl.bindTexture(gl.TEXTURE_2D, view.t); draw(room.view); }
-        if (screen) { gl.bindTexture(gl.TEXTURE_2D, screen.t); draw(room.screen); }
+        if (screen) {
+          const on = live && light.tvOn, S = room.screen, part = (a, n) => { if (n > 0) { gl.bindVertexArray(S.vao); gl.drawArrays(gl.TRIANGLES, a, n); } };
+          gl.bindTexture(gl.TEXTURE_2D, screen.t);
+          if (on) { part(0, on.first); part(on.first + on.count, S.n - on.first - on.count); gl.bindTexture(gl.TEXTURE_2D, live.t); gl.uniform1i(LIT.u('uLive'), 1); part(on.first, on.count); gl.uniform1i(LIT.u('uLive'), 0); } else draw(S);
+        }
+        // the painted street, on a phone or a room with no tile; with `see` the panes are holes
+        if (!see && view) {
+          gl.uniform1i(LIT.u('uMode'), 4);
+          gl.uniform1f(LIT.u('uBearing'), (light.bearing || 0) * Math.PI / 180);
+          gl.uniform3fv(LIT.u('uFront'), light.front || [0, 0, 1]);
+          gl.uniform3fv(LIT.u('uRight'), light.right || [-1, 0, 0]);
+          if (view) gl.bindTexture(gl.TEXTURE_2D, view.t);
+          draw(room.view);
+        }
         // the glass last, blended over what's behind it, writing no depth
-        gl.enable(gl.BLEND); gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA); gl.depthMask(false);
+        gl.enable(gl.BLEND); gl.blendFuncSeparate(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA, gl.ONE, gl.ONE_MINUS_SRC_ALPHA); gl.depthMask(false);
         gl.uniform1i(LIT.u('uMode'), 3);
         draw(room.glass);
         gl.depthMask(true); gl.disable(gl.BLEND);

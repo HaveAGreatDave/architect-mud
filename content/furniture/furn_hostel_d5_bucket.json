@@ -1,0 +1,21 @@
+{
+  "description": "A red bucket of sand under the ladder, half full of cigarette ends. FIRE is stencilled on it. It has never been used for one.",
+  "flags": {
+    "aliases": "bucket",
+    "look": {
+      "arche": "small",
+      "form": "box",
+      "wear": 0.9
+    }
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_hostel_d5_bucket",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "fire bucket",
+  "object_type": "furniture",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_hostel_dorm_5"
+}

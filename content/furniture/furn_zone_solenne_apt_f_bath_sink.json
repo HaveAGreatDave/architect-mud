@@ -1,0 +1,16 @@
+{
+  "description": "A bowl cut into a slab of grey stone that floats off the wall, under a mirror lit from behind.",
+  "flags": {
+    "water_source": true
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_zone_solenne_apt_f_bath_sink",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "sink",
+  "object_type": "sink",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_solenne_apt_f_bath"
+}

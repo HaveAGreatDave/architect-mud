@@ -1,0 +1,23 @@
+{
+  "description": "Low armchairs in tan leather, set in ones and twos facing the water. Each has a small table at its elbow and enough space round it that you can't hear the next one.",
+  "flags": {
+    "aliases": "armchair,chairs,chair",
+    "interactions": [
+      "sit"
+    ],
+    "look": {
+      "arche": "seat",
+      "form": "armchair"
+    }
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_aerie_chairs",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "leather armchairs",
+  "object_type": "furniture",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_solenne_aerie"
+}

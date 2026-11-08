@@ -1,0 +1,25 @@
+{
+  "description": "A glass case on the counter with a dozen pastries in it, glazed and in rows. They're made upstairs at four in the morning. The price card says ASK, and the honest answer is a lot.",
+  "flags": {
+    "aliases": "pastries,case,pastry case",
+    "look": {
+      "arche": "cabinet",
+      "dims": [
+        1,
+        0.5,
+        1.1
+      ],
+      "form": "vitrine"
+    }
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_salon_pastry",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "pastry case",
+  "object_type": "furniture",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_solenne_salon"
+}

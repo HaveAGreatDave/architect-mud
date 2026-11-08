@@ -153,6 +153,7 @@ export function narrateBaseball(c) {
     ? { overlayType: 'sportsfx', kind: 'worldseries', final: sportMod.season?.finalName || 'Final', away: away.name, home: home.name, awayRecord, homeRecord, duration: 4.6 }
     : null;
   say(pick(...(ws ? ['worldseries.matchup', 'matchup.records', 'matchup'] : (hasRecords ? ['matchup.records', 'matchup'] : ['matchup']))), gameTok, pregameBug, muGraphic);
+  c.desk?.('open', null, pregameBug);
 
   // The half-innings, each narrated in full: every plate appearance is called, so the park
   // never jumps a man the booth skipped, and between them the booth talks
@@ -183,6 +184,8 @@ export function narrateBaseball(c) {
   let bank = 0;   // the booth's seconds in hand
 
   for (const h of regHalves) {
+    // the stretch is the game's one break: the desk has it before the bottom of the seventh
+    if (h.start.inning === 7 && h.start.half === 'bottom') c.desk?.('break', h.start, beatBug(h.start));
     say(pick(`half.${h.start.half}`, 'half'), beatTok(h.start), beatBug(h.start), null, halfGameday(h.start));
     bank += 1.5 * share - 6;
     bank -= talk(talkers.changeover(h.start, { ...halfGameday(h.start), pl: beatGameday(h.atbats.find((x) => x.type === 'atbat'))?.pl }, bank * 0.6), beatBug(h.start));
@@ -337,6 +340,7 @@ export function narrateBaseball(c) {
     sport: 'baseball', kind: 'final', for: winName, against: winName === away.name ? home.name : away.name,
     away: away.name, home: home.name, awayScore, homeScore, champion: !!ws,
   } } : null);
+  c.desk?.('close', 'end', finalBug);
   const outroId = c.lastId();
   say(pick(...(ws ? ['worldseries.outro', 'outro'] : ['outro'])), finalTok, finalBug);
 

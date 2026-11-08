@@ -1,0 +1,10 @@
+{
+  "content": "{\n \"kind\": \"show\",\n \"format\": 1,\n \"id\": \"show_deadball\",\n \"name\": \"Deadball\",\n \"type\": \"sports\",\n \"broadcast\": \"bc_1783289744953\",\n \"live\": true,\n \"cast\": {\n  \"a\": \"npc_joan_dempsey\",\n  \"b\": \"npc_lou_ferraro\"\n },\n \"slots\": [\n  {\n   \"id\": \"open\",\n   \"label\": \"Pregame\",\n   \"when\": \"open\",\n   \"sequence\": \"seq_deadball_open\"\n  },\n  {\n   \"id\": \"break_blowout\",\n   \"label\": \"The stretch, a blowout\",\n   \"when\": \"break\",\n   \"sequence\": \"seq_deadball_break_blowout\",\n   \"if\": [\n    {\n     \"fact\": \"margin\",\n     \"op\": \">=\",\n     \"value\": 5\n    }\n   ]\n  },\n  {\n   \"id\": \"break\",\n   \"label\": \"The stretch\",\n   \"when\": \"break\",\n   \"sequence\": \"seq_deadball_break\"\n  },\n  {\n   \"id\": \"close\",\n   \"label\": \"Postgame\",\n   \"when\": \"close\",\n   \"sequence\": \"seq_deadball_close\"\n  }\n ],\n \"samples\": {}\n}",
+  "created_at": "1794083972",
+  "description": "",
+  "id": "show_deadball",
+  "name": "Deadball",
+  "tags": [],
+  "type": "show",
+  "updated_at": "1794085385"
+}

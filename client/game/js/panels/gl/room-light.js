@@ -1,4 +1,4 @@
-// GLASS 2 · THE ROOM STAGE'S LIGHT, as GLSL: the pendant lamp, the window (an area light, four
+// GLASS 2 · THE ROOM STAGE'S LIGHT, as GLSL: the room's lamps, its windows (each an area light, four
 // points across the glass), the bounce, a highlight by MAT code, the comic look's bands and the
 // finish. gl/room.js lights the room with it and gl/figure-hd.js lights the people in it, so a
 // person stands in the same light as the chair beside them.
@@ -12,13 +12,25 @@ import { COMIC_LIGHT_GLSL } from './comic-light.js';
 export const ROOM_LIGHT_GLSL = `
 ${COMIC_LIGHT_GLSL}
 uniform vec3 uEye;
-uniform vec3 uLampP;
+// up to six lamps and three panes. An en-suite's lamp is the last, and with 'uAnnex' set (its box on
+// the ground, x0 x1 z0 z1) it lights only in there and the rest light only outside it: nothing here
+// casts a shadow, so without this the wall between would let everything through.
+uniform vec3 uLampP[6];
+uniform float uLampK[6];
+uniform int uLampN;
 uniform vec3 uLampC;
-uniform vec3 uWinP;
-uniform vec3 uWinN;
-uniform vec3 uWinA;
-uniform vec3 uWinB;
+uniform vec3 uWinP[3];
+uniform vec3 uWinN[3];
+uniform vec3 uWinA[3];
+uniform vec3 uWinB[3];
+uniform float uWinK[3];
+uniform int uWinCount;
 uniform vec3 uWinC;
+uniform vec4 uAnnex;
+// past this z is the balcony: it's outdoors, so the lamps stop and the day lights it
+uniform float uOutZ;
+// and where the balcony wraps round the building: west of x, east of y, and south of z
+uniform vec3 uOutRing;
 uniform vec3 uAmb;
 uniform float uExpo;
 uniform float uComic;
@@ -46,25 +58,33 @@ void roomLight(vec3 pos, vec3 n, vec3 v, float m, out vec3 diff, out vec3 spec) 
   float fres = fresnelOf(n, v);
   float ks = sp.y * (m == 4.0 ? mix(1.0, 3.0, fres) : 1.0);
   diff = vec3(0.0); spec = vec3(0.0);
-  // the pendant: a bulb in a shade that throws most of its light down and out
-  {
-    vec3 L = uLampP - pos; float d2 = max(dot(L, L), 0.01); vec3 l = L * inversesqrt(d2);
+  if (pos.z > uOutZ || pos.x < uOutRing.x || pos.x > uOutRing.y || pos.z < uOutRing.z) { diff = uWinC * 0.3; return; }
+  bool hasAnnex = uAnnex.y > uAnnex.x;
+  bool inAnnex = hasAnnex && pos.x > uAnnex.x && pos.x < uAnnex.y && pos.z > uAnnex.z && pos.z < uAnnex.w;
+  // the lamps: a bulb in a shade or a fitting in the ceiling, throwing most of its light down and out
+  for (int i = 0; i < 6; i++) {
+    if (i >= uLampN) break;
+    if ((hasAnnex && i == uLampN - 1) != inAnnex) continue;
+    vec3 L = uLampP[i] - pos; float d2 = max(dot(L, L), 0.01); vec3 l = L * inversesqrt(d2);
     float shade = mix(0.35, 1.0, smoothstep(-0.15, 0.35, l.y));
-    float att = shade / (1.0 + d2 * 1.1);
+    float att = shade / (1.0 + d2 * 1.1) * uLampK[i];
     float nl = dot(n, l), lam = uComic > 0.5 ? mix(0.32, 0.85 + 0.15 * max(nl, 0.0), comicStep(nl)) : max(nl, 0.0);
     diff += uLampC * lam * att;
     spec += uLampC * pow(max(dot(n, normalize(l + v)), 0.0), sp.x) * ks * att * 2.0;
   }
-  // the window: four points across the glass, each lighting what faces it, and only into the room
-  for (int i = 0; i < 4; i++) {
-    vec2 o = vec2(i == 0 || i == 2 ? -0.5 : 0.5, i < 2 ? -0.5 : 0.5);
-    vec3 q = uWinP + uWinA * o.x + uWinB * o.y;
-    vec3 L = q - pos; float d2 = max(dot(L, L), 0.02); vec3 l = L * inversesqrt(d2);
-    float out_ = max(dot(-l, uWinN), 0.0);
-    float att = out_ / (1.0 + d2 * 0.55);
-    float nl = dot(n, l), lam = uComic > 0.5 ? mix(0.32, 0.85 + 0.15 * max(nl, 0.0), comicStep(nl)) : max(nl, 0.0);
-    diff += uWinC * 0.25 * lam * att;
-    spec += uWinC * 0.25 * pow(max(dot(n, normalize(l + v)), 0.0), sp.x) * ks * att * 1.5;
+  // the panes: four points across the glass, each lighting what faces it, and only into the room
+  if (!inAnnex) for (int w = 0; w < 3; w++) {
+    if (w >= uWinCount) break;
+    for (int i = 0; i < 4; i++) {
+      vec2 o = vec2(i == 0 || i == 2 ? -0.35 : 0.35, i < 2 ? -0.35 : 0.35);
+      vec3 q = uWinP[w] + uWinA[w] * o.x + uWinB[w] * o.y;
+      vec3 L = q - pos; float d2 = max(dot(L, L), 0.02); vec3 l = L * inversesqrt(d2);
+      float out_ = max(dot(-l, uWinN[w]), 0.0);
+      float att = out_ / (1.0 + d2 * 0.55) * uWinK[w];
+      float nl = dot(n, l), lam = uComic > 0.5 ? mix(0.32, 0.85 + 0.15 * max(nl, 0.0), comicStep(nl)) : max(nl, 0.0);
+      diff += uWinC * 0.25 * lam * att;
+      spec += uWinC * 0.25 * pow(max(dot(n, normalize(l + v)), 0.0), sp.x) * ks * att * 1.5;
+    }
   }
   if (uComic > 0.5) spec = step(0.35, dot(spec, vec3(0.333))) * vec3(0.9);
 }

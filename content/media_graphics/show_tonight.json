@@ -1,0 +1,10 @@
+{
+  "content": "{\n \"kind\": \"show\",\n \"format\": 1,\n \"id\": \"show_tonight\",\n \"name\": \"The Tonight Show\",\n \"type\": \"talkshow\",\n \"broadcast\": \"bc_1783897506108\",\n \"live\": true,\n \"cast\": {\n  \"a\": \"npc_john_akerson\",\n  \"b\": \"npc_graham_mercer\"\n },\n \"slots\": [\n  {\n   \"id\": \"open\",\n   \"label\": \"Cold open\",\n   \"when\": \"open\",\n   \"sequence\": \"seq_tonight_open\"\n  },\n  {\n   \"id\": \"close\",\n   \"label\": \"Goodnight\",\n   \"when\": \"close\",\n   \"sequence\": \"seq_tonight_close\"\n  }\n ],\n \"samples\": {\n  \"Example\": {\n   \"guest\": \"Dovie Deeb\"\n  }\n },\n \"set\": \"set_ksab_talk\"\n}",
+  "created_at": "1794083972",
+  "description": "",
+  "id": "show_tonight",
+  "name": "The Tonight Show",
+  "tags": [],
+  "type": "show",
+  "updated_at": "1794094641"
+}

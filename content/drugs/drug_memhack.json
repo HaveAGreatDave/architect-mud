@@ -45,7 +45,8 @@
     }
   },
   "flags": {
-    "drug_family": "nootropic"
+    "drug_family": "nootropic",
+    "taken": "swallow"
   },
   "id": "drug_memhack",
   "item_id": "item_memhack",

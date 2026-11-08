@@ -1,9 +1,9 @@
 {
   "ambient_events": [],
-  "ambient_theme": "city",
+  "ambient_theme": "outdoors",
   "bg_color": "#1f3646",
-  "color": "#4f83a8",
-  "description": "Brackish water, shallow and warm. The bank is a mess of grit and old plastic, with reeds pushing through.",
+  "color": "#f5d400",
+  "description": "A taxiway on fill, laid in the same dark panels as the runway, with blue lamps along its edges and the Basin close on the open side.",
   "exits": {
     "east": "zone_district_929_905",
     "north": "zone_district_928_904",
@@ -11,14 +11,18 @@
     "west": "zone_district_927_905"
   },
   "flags": {
+    "district": "docks",
     "region_id": "region_coldwater",
-    "terrain": "water"
+    "runway": "pad",
+    "scavenging_table_id": "scav_industrial_salvage",
+    "taxiway": "ns",
+    "terrain": "asphalt"
   },
   "grid_x": 928,
   "grid_y": 905,
   "grid_z": 0,
   "id": "zone_district_928_905",
   "map_id": "map_world",
-  "name": "Coldwater Basin",
+  "name": "Taxiway",
   "parent_zone": null
 }

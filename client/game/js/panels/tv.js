@@ -18,6 +18,8 @@ import { crestSvg, clubOf, wantClubs, onClubs } from './club-crest.js';
 import { wantVenue } from './venue.js';
 import { state } from '../state.js';
 import { makeCornerResizable } from './corner-resize.js';
+import { createTvDesk } from './tv-desk.js';
+import { createTvStage, stageWanted, rememberStage } from './tv-stage.js';
 
 // The two sports sub-screens (gameday.js, gameday-rink.js) are about 209 KB, and they
 // were in the boot download for every player. They load on the first sports broadcast
@@ -180,6 +182,10 @@ export function createTvView(root, opts = {}) {
   const watchMsg   = opts.watchMsg || 'tv_watch';
   const unwatchMsg = opts.unwatchMsg || 'tv_unwatch';
   const isCrt      = chassis === 'crt';
+  // The 3-D picture: a set in a room shows it by default (`opts.stage.always`); the others behind the button.
+  // `opts.stage.onFrame(host)` hears each frame, for a surface that copies its page (room-tv.js).
+  const stageOpts  = { inset: chassis === 'wall' ? '0' : null, onFrame: opts.stage?.onFrame || null };
+  const wantStage  = () => !!opts.stage?.always || stageWanted();
 
   // Scoped lookup — the whole reason two surfaces can coexist.
   const el = (name) => root ? root.querySelector(`[data-tv="${name}"]`) : null;
@@ -219,6 +225,9 @@ export function createTvView(root, opts = {}) {
   let _lastSpoken = null;   // the last line the booth said, so an open that lands just after it can caption it
   let _pregameUp = false;   // the pregame open is on screen; spoken lines go to its caption strip
   let _gamedayView = null;
+  let _desk = null;           // the desk over the game (tv-desk.js), made on its first segment
+  let _stage = null;          // a text show on its set (tv-stage.js), behind the 3-D button
+  let _stageKey = '';         // the programme the stage was asked for
   let _gamedaySport = null;   // which sport the mounted sub-screen renders
   let _stationName = '';      // the tuned station's name, for a sub-screen's corner bug
   let _channelNumber = 0;     // and its number, for the network's tag on a sports bug
@@ -370,7 +379,9 @@ export function createTvView(root, opts = {}) {
     // `dl` is the line's delivery from the broadcast, when it has one: `excite` (how hard the
     // booth is selling it, a goal call or a death), `lex` (how to say the names in it) and
     // `voice` (the booth's own voice). See AudioEngine.speak().
-    const res = window.AudioEngine?.speak(item.speech, { seed: item.seed, budget: item.budget, ...(item.dl || null) });
+    const trace = _desk?.open || _stage?.open ? [] : null;
+    const res = window.AudioEngine?.speak(item.speech, { seed: item.seed, budget: item.budget, ...(item.dl || null), ...(trace ? { trace } : {}) });
+    if (trace && res) { _desk?.voice(item.seed, trace, res); _stage?.voice(item.seed, trace, res); }
     const spoke = !!(res && res.duration > 0);
     // The authority on whether there is a voice to wait for. If the engine produced
     // nothing, every queued caption is released at once and display goes back to the
@@ -528,6 +539,9 @@ export function createTvView(root, opts = {}) {
     setAll('channel-num', data.deckInput ? 'CH 0' : (data.channelNumber > 0) ? `CH ${data.channelNumber}` : '——');
     const pnEl = el('program-name');
     if (pnEl) { pnEl.textContent = ''; pnEl.style.opacity = ''; }
+    // the stage is asked for again: the set may have changed channel, or been off
+    _stageKey = '';
+    _stageAvail();
     const msgs = el('messages');
     if (msgs) msgs.innerHTML = '';
 
@@ -721,6 +735,7 @@ export function createTvView(root, opts = {}) {
     _tvActiveChannelId = null;
     _tvOffAir = false;
     _tvThemeKey = null;
+    _stage?.close(); _stageKey = '';
     if (_tvThemeTimer) { clearTimeout(_tvThemeTimer); _tvThemeTimer = null; }
     sendRaw({ type: unwatchMsg });
     if (_tuneTimer) { clearTimeout(_tuneTimer); _tuneTimer = null; }
@@ -807,6 +822,8 @@ export function createTvView(root, opts = {}) {
     // The score-bug is a persistent layer (updated in place, its own container) —
     // it must not be wiped by transient overlays, nor auto-dismiss on a timer.
     if (overlay && overlay.overlayType === 'scorebug') { _applyScorebug(overlay); return; }
+    // Two people at the desk, over the game: with the flag off the lines air as text and this is nothing.
+    if (overlay && overlay.overlayType === 'desk') { _handleDesk(overlay); return; }
     // the final's package gives way to the game: its first play, or the card on the matchup line
     const packageUp = () => el('fx')?.classList.contains('fx-package');
     if (overlay && overlay.overlayType === 'gameday') { if (overlay.phase !== 'arrive' && packageUp()) _clearSportsFx(); _handleGameday(overlay); return; }
@@ -1047,11 +1064,12 @@ export function createTvView(root, opts = {}) {
   // await runs in one turn, so two calls can't both mount a view.
   async function _gamedayViewFor(gd, hostEl) {
     const { createGrandstandView, createRinkView } = await loadGamedayViews();
+    if (!_gamedayOpen) return null;   // closed, or the channel changed, while the views loaded
     const want = gd && gd.sport === 'hockey' ? 'hockey' : 'baseball';
     if (_gamedayView && _gamedaySport === want) return _gamedayView;
     _gamedayView?.clear();
     _gamedaySport = want;
-    _gamedayView = want === 'hockey' ? createRinkView(hostEl) : createGrandstandView(hostEl, { station: _networkLabel() || _stationName });
+    _gamedayView = want === 'hockey' ? createRinkView(hostEl, opts.gameday) : createGrandstandView(hostEl, { station: _networkLabel() || _stationName, ...opts.gameday });
     return _gamedayView;
   }
 
@@ -1075,8 +1093,46 @@ export function createTvView(root, opts = {}) {
     }
   }
 
+  // The desk goes over the sub-screen, on the same screen. The game keeps running under it, and its
+  // canvas is the picture in a box and on the desk's wall.
+  function _handleDesk(o) {
+    const screen = el('gameday')?.parentElement, rung = state.player?.displayRung;
+    if (!screen || (rung && rung !== 'visual')) return;
+    _desk ??= createTvDesk(screen, { feed: () => el('gameday')?.querySelector('canvas') || null, ...stageOpts });
+    _desk.overlay(o);
+  }
+
+  // ── the stage: a text show on its set ──
+  // The button shows for any programme that isn't a game. On, it asks for the set once a programme,
+  // and each line the TV shows is a cut on it.
+  function _stageAvail() {
+    const btn = el('stage-btn');
+    const can = _tvOpen && !_lastGameday && !!_programName;
+    btn?.classList.toggle('avail', can);
+    btn?.classList.toggle('on', can && wantStage());
+    if (!can) { _stage?.close(); _stageKey = ''; return; }
+    if (wantStage() && _stageKey !== _programName) {
+      _stageKey = _programName;
+      sendRaw({ type: 'tv_stage', channel: _tvActiveChannelId });
+    }
+  }
+  function _toggleStage() {
+    rememberStage(!stageWanted());
+    if (!wantStage()) { _stage?.close(); _stageKey = ''; }
+    _stageAvail();
+  }
+  function applyStage(msg) {
+    if (msg.channel !== _tvActiveChannelId || !wantStage()) return;
+    const screen = el('gameday')?.parentElement;
+    if (!screen) return;
+    _stage ??= createTvStage(screen, stageOpts);
+    // an assembled programme's own reply can carry no name; the TV has it off its lines
+    _stage.show({ ...msg, programName: msg.programName || _programName || '' });
+  }
+
   function _handleGameday(gd) {
     _lastGameday = gd;
+    _stage?.close();
     const btn = el('gameday-btn');
     if (btn) btn.classList.add('avail');
     _brandGamedayBtn(gd && gd.sport === 'hockey' ? 'hockey' : 'baseball');
@@ -1086,7 +1142,7 @@ export function createTvView(root, opts = {}) {
     if (!_gamedayOpen && !_gamedayDismissed && _tvOpen && (!rung || rung === 'visual')) { _toggleGameday(); return; }
     if (_gamedayOpen) {
       _gamedayViewFor(gd, el('gameday'))
-        .then((view) => { if (_gamedayOpen && _lastGameday === gd) view.apply(gd); })
+        .then((view) => { if (view && _gamedayOpen && _lastGameday === gd) view.apply(gd); })
         .catch((err) => console.error('[tv] gameday view failed to load:', err));
     }
   }
@@ -1100,9 +1156,11 @@ export function createTvView(root, opts = {}) {
     host.classList.toggle('on', _gamedayOpen);
     btn?.classList.toggle('on', _gamedayOpen);
     if (_gamedayOpen) {
-      _gamedayViewFor(_lastGameday, host).then((view) => {
-        if (!_gamedayOpen) return;   // closed again while the views loaded
-        if (_lastGameday) view.apply(_lastGameday);
+      const gd = _lastGameday;
+      _gamedayViewFor(gd, host).then((view) => {
+        // closed again while the views loaded, or a newer payload came, whose own call mounts its sport
+        if (!view || !_gamedayOpen || _lastGameday !== gd) return;
+        if (gd) view.apply(gd);
         else view.showIdle();   // opened before a play arrived — never blank
       }).catch((err) => {
         // A failed chunk (a deploy mid-session, a dropped connection) must not leave
@@ -1120,6 +1178,8 @@ export function createTvView(root, opts = {}) {
     _lastGameday = null;
     _gamedayView?.clear();
     _gamedayView = null; _gamedaySport = null;   // next sport mounts its own view
+    _desk?.close();
+    _stage?.close(); _stageKey = '';
     el('gameday')?.classList.remove('on');
     el('gameday-btn')?.classList.remove('on', 'avail');
     // Forget which sport branded it, so the next broadcast re-marks the button rather
@@ -2015,6 +2075,7 @@ export function createTvView(root, opts = {}) {
     if (spoken) {
       _lastSpoken = { text: new DOMParser().parseFromString(String(text), 'text/html').body.textContent, at: performance.now() };
       _pregameCaption(_lastSpoken.text);
+      _stage?.line(text, style);
     }
 
     // Clear before title cards, and after them on the next message
@@ -2225,6 +2286,7 @@ export function createTvView(root, opts = {}) {
     _programName = next;
     const pn = el('program-name');
     if (pn) pn.textContent = next;
+    _stageAvail();
   }
 
   // ── wiring ────────────────────────────────────────────────────────────────
@@ -2296,6 +2358,7 @@ export function createTvView(root, opts = {}) {
     // Gameday toggle: reveals the animated at-bat sub-screen. Hidden until a sports
     // broadcast sends its first `gameday` overlay (which adds `.avail`).
     el('gameday-btn')?.addEventListener('click', () => { if (_tvOpen) _toggleGameday(); });
+    el('stage-btn')?.addEventListener('click', () => { if (_tvOpen) _toggleStage(); });
 
     // TV guide toggle: shows the tuned channel's running order + in-world time.
     el('schedule-btn')?.addEventListener('click', () => { if (_tvOpen) _toggleSchedule(); });
@@ -2464,7 +2527,7 @@ export function createTvView(root, opts = {}) {
 
   const view = {
     open, close, shutdown, init, destroy,
-    applyOverlay, appendMessage, updateTicker, showOffAir, showOnAir,
+    applyOverlay, appendMessage, updateTicker, showOffAir, showOnAir, applyStage,
     renderSchedule, renderStandings, renderDeck, speak, applyTheme, tunerInput, setProgramName,
     clearMessages: _clearTvMessages,
     isOpen: () => _tvOpen,
@@ -2499,7 +2562,12 @@ export function tvOpenViews() {
 // Preserves the historical module API so dispatch.js and the app bootstrap need
 // no knowledge of the factory.
 let _panel = null;
+// A set in the Room Stage takes the panel's calls while the room's open (room-tv.js), so `watch` and
+// `tune` come up on the wall and not in a popup over the room. Null hands them back.
+let _wallTv = null;
+export function setWallTv(view) { _wallTv = view; }
 function panel() {
+  if (_wallTv) return _wallTv;
   if (!_panel) {
     const root = document.getElementById('tv-panel');
     if (!root) return null;

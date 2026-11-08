@@ -1,0 +1,23 @@
+{
+  "description": "A bar along the back wall in dark wood and brass, with a hundred bottles on lit glass shelves and no prices on any of them. Members sign. Nobody's ever seen the bill.",
+  "flags": {
+    "aliases": "bar",
+    "interactions": [
+      "lean"
+    ],
+    "look": {
+      "arche": "surface",
+      "form": "bar"
+    }
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_aerie_bar",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "members bar",
+  "object_type": "furniture",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_solenne_aerie"
+}

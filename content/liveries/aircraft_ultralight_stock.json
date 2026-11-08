@@ -1,6 +1,6 @@
 {
   "blurb": "White over blue with a navy pinstripe. Every flight school on the Basin buys them in this.",
-  "default": true,
+  "default": false,
   "exterior": {
     "base": "#eceef0",
     "finish": "satin",
@@ -15,5 +15,5 @@
   "kind": "aircraft",
   "model": "ultralight",
   "name": "Flight School",
-  "unlock": null
+  "unlock": "retired_stock"
 }

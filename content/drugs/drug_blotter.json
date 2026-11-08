@@ -93,7 +93,8 @@
     }
   },
   "flags": {
-    "drug_family": "psychedelic"
+    "drug_family": "psychedelic",
+    "taken": "swallow"
   },
   "id": "drug_blotter",
   "item_id": "item_blotter",

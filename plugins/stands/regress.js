@@ -9,6 +9,7 @@ import { getBroadcast, setBroadcast } from '../../server/engine/messaging.js';
 import { liveSportsChannel, lastSportsSlot, _test as bc } from '../broadcast/index.js';
 import { standsOf, findSection, seatsOf, freeSeat, _test } from './index.js';
 import { getItem } from '../../server/engine/items-cache.js';
+import { emit } from '../../server/engine/events.js';
 
 export default async function regress({ run, check, getPlayer }) {
   for (const [id, sport] of [['zone_slush_stands', 'hockey'], ['zone_hughson_stands', 'baseball']]) {
@@ -63,6 +64,13 @@ export default async function regress({ run, check, getPlayer }) {
   _test.seated.set(me.id, { zoneId: 'zone_slush_stands', section: 'glass', seat: 0, channelId: 'x' });
   _test.leave(me, true);
   check('stands: leaving clears the seat', !_test.seated.has(me.id));
+  // the seat and the Tablet TV share a tuner: the tablet going off hands it back, and getting up doesn't
+  _test.seated.set(me.id, { zoneId: 'zone_slush_stands', section: 'glass', seat: 0, channelId: 'x', tuned: 'x' });
+  bc.tabletTuners.set(me.id, 'x');
+  emit('tablet_tv.unwatch', { playerId: me.id });
+  check('stands: shutting the tablet TV leaves the seat tuned', bc.tabletTuners.get(me.id) === 'x', bc.tabletTuners.get(me.id));
+  _test.leave(me, true);
+  check('stands: getting up drops the tuner', !bc.tabletTuners.has(me.id));
 
   // The Platinum Box: its chairs name a section the box sells, its screen and bar are there, and
   // standing up out of a chair seat leaves it.

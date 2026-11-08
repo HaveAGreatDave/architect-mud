@@ -793,6 +793,19 @@ export function parseZoneInfo(html) {
   renderSmartBar();
 }
 
+// The d-pad's room button: dim with no Stage here, lit when there is one, solid while it's open.
+const roomBtn = { avail: false, open: false };
+export function setRoomButton(next) {
+  Object.assign(roomBtn, next);
+  const state = roomBtn.open ? 'open' : roomBtn.avail ? 'available' : 'none';
+  for (const b of document.querySelectorAll('.dpad-room-btn')) {
+    b.dataset.room = state;
+    b.disabled = state === 'none';
+    b.setAttribute('aria-pressed', String(roomBtn.open));
+    b.title = state === 'open' ? 'Leave the 3-D room' : state === 'available' ? 'Walk round this room in 3-D' : 'No 3-D room here';
+  }
+}
+
 export function showDevPanelButton() {
   const btn = document.getElementById('dev-panel-btn');
   if (btn) btn.style.display = '';

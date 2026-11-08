@@ -14,17 +14,22 @@
 // line for line (the key from the banks, the hemisphere, the bounce off the sheet), so a head
 // doesn't look pasted onto a body lit another way. With the comic look on it's LIT_FS's comic line
 // too (gl/cel-figure.js celKey), hatched in the head's own bind space.
+// ⚠ A PLAYER'S FACE IS THE SCULPTED ONE (docs/proposals/sculpted-figure.md), a medic's the atlas's (rink/faces.js
+// `paint`): the sculpted head at his weight, gl/face-paint.js in place of the atlas, the face lifted to thirds in the
+// vertex shader after the paint's coordinates are taken, and deep shadow on the skin. It's the same head and the same
+// triangle count at each level, so it costs nothing at TV distance, where fwidth has already faded the fine paint.
 // ⚠ THE NECK IS LEFT OUT. The rink body has its own, under the strap; the generator's would swing
 // with the head and stand out of the collar.
 // ⚠ UPLOADED WITH FLIP_Y ON, PREMULTIPLYING OFF AND NO COLOUR CONVERSION, as actor-faces.js asks:
 // the four channels are four masks, not a picture. Until it has loaded, the faces are plain skin.
-import { headMesh, hairMesh, HEAD_FEAT, HAIRLINE_GLSL } from '../actor-head.js';
+import { headMesh, hairMesh, weightedFace, HEAD_FEAT, HAIRLINE_GLSL } from '../actor-head.js';
 import { faceLeaned } from '../form-normals.js';
 import { FACE_GLSL } from '../actor-faces.js';
+import { FACE_PAINT_GLSL } from './face-paint.js';
 import { createFaceAtlasFeed } from './face-atlas.js';
 import { figureLightOf, HOUSE } from './house-style.js';
 import { CEL, CEL_GLSL } from './cel-figure.js';
-import { HEAD_S } from './arena-mesh.js';
+import { HEAD_S, FACE_UP } from './arena-mesh.js';
 
 // The key light off the banks, for LIT_FS (gl/arena.js) and the heads alike: from above, and a
 // little towards the camera's side of the rink.
@@ -39,10 +44,13 @@ layout(location = 4) in float aX;
 uniform mat4 uVP;
 uniform vec2 uShake;
 uniform mat4 uM;
+uniform float uFaceUp;
 out vec3 vW; out vec3 vN; out vec3 vR; out vec2 vUV; out float vAux; out float vFront;
 flat out int vF;
 void main() {
-  vec4 w = uM * vec4(aP, 1.0);
+  vec3 q = aP;
+  if (abs(aF - ${HEAD_FEAT.skin}.0) < 0.5 && q.y < 1.64) q.y += uFaceUp * smoothstep(1.64, 1.588, q.y);
+  vec4 w = uM * vec4(q, 1.0);
   vW = w.xyz; vN = mat3(uM) * aN; vR = aP; vUV = aUV; vAux = aX; vFront = aN.z; vF = int(aF + 0.5);
   vec4 p = uVP * w;
   p.xy += uShake * p.w;
@@ -67,6 +75,9 @@ uniform vec3 uEye;
 uniform float uMourn;
 uniform float uClipZ;
 uniform float uCel; uniform vec3 uCelInk; uniform float uCelGap;
+uniform float uPaint;
+uniform float uFacial;
+uniform float uBlink;
 out vec4 outColor;
 const vec3 L = vec3(${KEY.join(', ')});
 ${CEL_GLSL}
@@ -77,7 +88,9 @@ float vnoise(vec3 p) {
   return mix(mix(mix(h1(i), h1(i + vec3(1, 0, 0)), f.x), mix(h1(i + vec3(0, 1, 0)), h1(i + vec3(1, 1, 0)), f.x), f.y),
              mix(mix(h1(i + vec3(0, 0, 1)), h1(i + vec3(1, 0, 1)), f.x), mix(h1(i + vec3(0, 1, 1)), h1(i + vec3(1, 1, 1)), f.x), f.y), f.z);
 }
+float vn3(vec3 p) { return vnoise(p); }
 ${FACE_GLSL}
+${FACE_PAINT_GLSL}
 ${HAIRLINE_GLSL}
 // The hair's colour at a point, for the shell and the scalp under its edge alike (the lab's).
 vec3 hairAt(vec3 r, float psi) {
@@ -94,7 +107,7 @@ void main() {
   vec3 col;
   float ao = 1.0, wet = 0.0;
   if (vF == ${HEAD_FEAT.hair}) {
-    float hl = hairlineAt(r);
+    float hl = uPaint > 0.5 ? hairlineSculpt(r) : hairlineAt(r);
     col = hairAt(r, psi);
     if (uStyle == 1) col *= 1.0 - 0.5 * (1.0 - smoothstep(0.0, 0.0012, abs(r.x - 0.024))) * smoothstep(1.7, 1.72, r.y) * smoothstep(-0.03, 0.02, r.z);
     ao = mix(0.85, 1.0, smoothstep(hl + 0.004, hl + 0.016, r.y));
@@ -108,10 +121,14 @@ void main() {
   } else {
     // the face where the skull faces forward, the scalp under the hairline, the shadow under the jaw
     float wt = smoothstep(0.1, 0.4, vFront);
-    vec3 fc = faceColour(texture(uFace, uCell.xy + clamp(vUV, 0.0, 1.0) * uCell.zw), r, uSkin, uHair, uLip, uLip, 0.0, uIris, wet);
-    col = mix(uSkin, fc, wt);
-    wet *= wt;
-    float hl = hairlineAt(r);
+    // (the paint works in linear colour, and this shader in the picture's own)
+    if (uPaint > 0.5) col = pow(paintManFace(r, pow(uSkin, vec3(2.2)), pow(uHair, vec3(2.2)), pow(uIris, vec3(2.2)), uFacial, uBlink), vec3(1.0 / 2.2));
+    else {
+      vec3 fc = faceColour(texture(uFace, uCell.xy + clamp(vUV, 0.0, 1.0) * uCell.zw), r, uSkin, uHair, uLip, uLip, 0.0, uIris, wet);
+      col = mix(uSkin, fc, wt);
+      wet *= wt;
+    }
+    float hl = uPaint > 0.5 ? hairlineSculpt(r) : hairlineAt(r);
     float jit = 0.0026 * (vnoise(vec3(psi * 70.0, r.y * 400.0, uSeed)) - 0.5);
     float sc = smoothstep(hl - 0.0025, hl + 0.0025, r.y + jit);
     col = mix(col, hairAt(r, psi) * 0.95, sc);
@@ -130,14 +147,21 @@ void main() {
   if (dot(n, v) < 0.0) n = -n;
   vec3 rgb;
   // the comic look (uCel), hatched in the head's bind space in the rink's feet
-  if (uCel > 0.5) rgb = celKey(col * ao, n, v, L, 0.08 + 0.4 * wet, r * ${HEAD_S.toFixed(4)}, uCelGap, uCelInk);
+  if (uCel > 0.5) rgb = celKey(col * ao, n, v, L, uPaint > 0.5 ? 0.0 : 0.08 + 0.4 * wet, r * ${HEAD_S.toFixed(4)}, uCelGap, uCelInk);
   else {
     float diff = max(dot(n, L), 0.0);
     float hemi = 0.5 + 0.5 * n.z;
     float bounce = max(-n.z, 0.0) * 0.3;
-    float spec = pow(max(dot(n, normalize(L + v)), 0.0), 32.0) * (0.08 + 0.4 * wet);
+    float spec = pow(max(dot(n, normalize(L + v)), 0.0), 32.0) * (uPaint > 0.5 ? 0.0 : 0.08 + 0.4 * wet);
     float rim = pow(1.0 - max(dot(n, v), 0.0), 3.0) * 0.1;
     rgb = col * ao * (0.3 + 0.24 * hemi + 0.6 * diff + bounce) + vec3(spec + rim);
+  }
+  // the sculpted figure's skin: a darker third tone high on the form and deep shadow under it, so the face is carved
+  // by the banks overhead. Dark skin reads by its lights, and takes less of it.
+  if (uPaint > 0.5 && vF != ${HEAD_FEAT.hair}) {
+    float kf = dot(n, L), dk = 1.0 - 0.75 * smoothstep(0.17, 0.07, dot(uSkin, vec3(0.333)) * dot(uSkin, vec3(0.333))), lt = smoothstep(-0.12, -0.06, kf), hi = smoothstep(0.26, 0.32, kf);
+    rgb *= mix(vec3(1.0), vec3(0.74, 0.62, 0.62), dk * (1.0 - lt));
+    rgb *= 1.0 - 0.14 * dk * lt * (1.0 - hi);
   }
   float g = dot(rgb, vec3(0.299, 0.587, 0.114));
   rgb = mix(rgb, vec3(g), uMourn * 0.75) * (1.0 - 0.22 * uMourn);
@@ -190,11 +214,11 @@ export function createRinkHeads(gl, prog, doc) {
   // One VAO a mesh, built the first time it's drawn: the head (no neck) by level, the hair by level
   // and style.
   const meshes = new Map();
-  function mesh(kind, lv, style = 0) {
-    const key = `${kind}:${lv}:${style}`;
+  function mesh(kind, lv, style = 0, fs = 'comic') {
+    const key = `${kind}:${lv}:${style}:${fs}`;
     let m = meshes.get(key);
     if (m) return m;
-    const src = kind === 'head' ? headMesh(lv, 'comic') : hairMesh(style, lv);
+    const src = kind === 'head' ? headMesh(lv, fs) : hairMesh(style, lv, fs !== 'comic');
     let I = src.I;
     if (kind === 'head') {
       const keep = [];
@@ -241,6 +265,7 @@ export function createRinkHeads(gl, prog, doc) {
     gl.uniform3fv(P.u('uCelInk'), HOUSE.ink); gl.uniform1f(P.u('uCelGap'), HOUSE.hatchFt);
     gl.activeTexture(gl.TEXTURE0);
     gl.bindTexture(T2, tex);
+    const now = (globalThis.performance?.now() || 0) / 1000;
     for (const h of list) {
       const f = h.face, lv = h.lv;
       gl.uniformMatrix4fv(P.u('uM'), false, h.M);
@@ -252,7 +277,14 @@ export function createRinkHeads(gl, prog, doc) {
       gl.uniform1f(P.u('uSeed'), f.seed);
       gl.uniform1i(P.u('uStyle'), f.style);
       gl.uniform1f(P.u('uBlood'), h.blood || 0);
-      for (const m of [mesh('head', lv), mesh('hair', lv, h.hs ?? f.style)]) {
+      gl.uniform1f(P.u('uPaint'), f.paint ? 1 : 0);
+      gl.uniform1f(P.u('uFacial'), f.facial || 0);
+      gl.uniform1f(P.u('uFaceUp'), f.paint ? FACE_UP : 0);
+      // a blink every few seconds, off his seed and the clock
+      const every = 3.2 + (f.seed % 3.4), at = (now + f.seed) % every;
+      gl.uniform1f(P.u('uBlink'), f.paint && at < 0.16 ? Math.sin((at / 0.16) * Math.PI) : 0);
+      const fs = f.paint ? weightedFace(f.shape, f.weight) : 'comic';
+      for (const m of [mesh('head', lv, 0, fs), mesh('hair', lv, h.hs ?? f.style, f.paint ? 'sculpt' : 'comic')]) {
         gl.bindVertexArray(m.vao);
         gl.drawElements(gl.TRIANGLES, m.n, gl.UNSIGNED_SHORT, 0);
         if (st) { st.draws++; st.tris += m.n / 3; }

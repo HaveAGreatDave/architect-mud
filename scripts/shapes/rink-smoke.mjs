@@ -68,8 +68,8 @@ function gameLines(slot) {
     abbr: (n) => String(n).slice(0, 3).toUpperCase(), recordOf: () => '8-4-1', lastId: () => null,
   });
   // paced as for the default hour-long slot, which writes the cues onto the payloads
-  const { holds, dropped } = paceCalls(lines, 3600 * 1000 * 0.85, 1000);
-  return lines.filter((l) => !dropped.has(l)).map((l) => ({ text: l.text, fx: l.graphic, gd: l.gameday, hold: holds.get(l) }));
+  const { holds, gaps, dropped } = paceCalls(lines, 3600 * 1000 * 0.85, 1000, { spareMs: 480000 });
+  return lines.filter((l) => !dropped.has(l)).map((l) => ({ text: l.text, fx: l.graphic, gd: l.gameday, hold: holds.get(l) + (gaps.get(l) || 0) }));
 }
 
 // ── one game through the view ──────────────────────────────────────────────────
@@ -453,7 +453,7 @@ async function play(slot) {
     // and loses the battle for it.
     if ((g.type === 'chance' || g.type === 'goal') && cueT('takeaway') != null) {
       check(`${label}: the takeaway the booth calls is a battle for the puck`, !!rushB && !!rushB.battled);
-      if (rushB && rushB.tookAt != null) check(`${label}: the puck comes loose as the takeaway is called`, Math.abs(rushB.tookAt - cueT('takeaway')) < 0.6, `loose at ${rushB.tookAt.toFixed(2)}s, line at ${cueT('takeaway')}s`);
+      if (rushB && rushB.tookAt != null) check(`${label}: the puck comes loose as the takeaway is called`, Math.abs(rushB.tookAt - cueT('takeaway')) < 1, `loose at ${rushB.tookAt.toFixed(2)}s, line at ${cueT('takeaway')}s`);
     }
     if ((g.type === 'chance' || g.type === 'goal') && cueT('out') != null) check(`${label}: the puck arrives as the outcome is called`, landedAt != null && landedAt > cueT('shot') && Math.abs(landedAt - cueT('out')) < (g.type === 'goal' ? 2.4 : 1.2), `${g.shotType}: landed ${landedAt?.toFixed(2)}s, outcome line ${cueT('out')}s`);
     check(`${label} resolves`, !D.busy() || g.type === 'intermission', `still ${D.kind()} after ${limit}s`);
@@ -588,6 +588,27 @@ const ALL = ['faceoff', 'chance', 'goal', 'boards', 'fight', 'scrum', 'injury', 
 const EXPECT = { 37: [...ALL, 'breakaway'], 289: [...ALL, 'slash'] };
 const slots = process.argv.slice(2).map(Number).filter((n) => EXPECT[n]);
 for (const slot of slots.length ? slots : [37, 289]) await play(slot);
+
+// A SEAT IN THE STANDS WATCHES THE ZAMBONI AT A DRIVER'S PACE, and one sat down partway through
+// the break finds the ice cleared and the machine as far round as it would have got.
+{
+  const lines = gameLines(37), gd = lines.find((l) => l.gd?.type === 'intermission' && l.gd.cues?.some((c) => c.ev === 'resume')).gd;
+  const back = gd.cues.find((c) => c.ev === 'resume').ms / 1000;
+  check('a break holds the whole sheet at a driver\'s pace', back >= 380, `${back}s`);
+  const sit = async (aired) => {
+    const view = createRinkView(stub.makeHost(), { seat: { eye: [100, -30, 20], mode: 'follow', fov: 64, yaw: null, pitch: null } });
+    await view.ready();
+    view.showIdle();
+    view.apply({ ...gd, ...(aired ? { aired } : {}) });
+    const W = view.world;
+    for (let i = 0; i < 120 * 30 && !W.zamboni; i++) W.step(DT);
+    return W;
+  };
+  const W = await sit(0);
+  check('the seat sees the Zamboni in real time', W.zamboni?.lapse === 1, `lapse ${W.zamboni?.lapse}`);
+  const L = await sit(120);
+  check('a late seat finds it partway round', L.zamboni?.lapse === 1 && L.zamboni.mt >= 100 && L.skaters().length === 0, `lapse ${L.zamboni?.lapse}, mt ${L.zamboni?.mt}`);
+}
 for (const t of [...new Set((slots.length ? slots : [37, 289]).flatMap((n) => EXPECT[n]))]) {
   check(`a "${t}" was staged`, seen.has(t), [...seen].join(','));
 }

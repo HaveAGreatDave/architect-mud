@@ -1,6 +1,6 @@
 # Boat fishing
 
-**Status: phases 1 to 3 are built (2026-10-27, the shadows 2026-11-03): the Keel Mk 1 with her first-person seat, `boat anchor`, the fish sim (`client/shared/fish.js`), the shadows (`gl/fish-shadows.js`) and `look water`, the reel (`boatfish.js`, `boatfish-rules.js`), rod mode and the cast in both views, the server loop (`plugins/fishing/boat.js`) and the fish box (`boat_hold`). The logbook, the forecast broadcast and the passenger are design.** It's a cozy fishing sim on top of the boat system. You buy a basic two-seat skiff with a small fish box, drive her in first or third person to a spot, anchor, and cast at any bearing and distance into fish that are simulated swimming. Each water has its own species and difficulty. It works only from a boat. Shore fishing ([systems-fishing.md](../systems-fishing.md)) stays exactly as it is.
+**Status: phases 1 to 3 are built (2026-10-27, the shadows 2026-11-03): the Keel Mk 1 with her first-person seat, `boat anchor`, the fish sim (`client/shared/fish.js`), the shadows (`gl/fish-shadows.js`) and `look water`, the reel (`boatfish.js`, `boatfish-rules.js`), rod mode and the cast in both views, the server loop (`plugins/fishing/boat.js`) and the fish box (`boat_hold`). The sounder, the take, the worked fight and the net followed on 2026-11-05 (§5b, §5c). The logbook, the forecast broadcast and the passenger are design.** It's a cozy fishing sim on top of the boat system. You buy a basic two-seat skiff with a small fish box, drive her in first or third person to a spot, anchor, and cast at any bearing and distance into fish that are simulated swimming. Each water has its own species and difficulty. It works only from a boat. Shore fishing ([systems-fishing.md](../systems-fishing.md)) stays exactly as it is.
 
 Decided with David on 2026-10-26:
 
@@ -11,7 +11,7 @@ Decided with David on 2026-10-26:
 And on 2026-10-27:
 
 - the hull is the **Keel Mk 1**, built in the Shed by the man who sells it;
-- a bite is struck on the dip: the float dips and you have about a second;
+- a bite is struck on the dip: the float dips and you have about a second (superseded 2026-11-05 by the take, §5b);
 - there's a daily fishing forecast on the radio, worked out from fish.js and read by ORACLE (§7).
 
 ## What it reuses
@@ -299,14 +299,33 @@ The style is passed in, so `textfishing.js` gets it with no extra work.
 
 ## 5b. The reel and its wire (the contract, 2026-10-27)
 
-This replaces "The wait", "The fight" and "Landing" above. David chose it on 2026-10-27: twitch to a rhythm, strike on pulses, lean against the fish. The rules live in one pure module, `client/shared/boatfish-rules.js`, which the server and the seat both import, so the beat the client draws is the beat the server judges.
+This replaces "The wait", "The fight" and "Landing" above. David chose the first version on 2026-10-27: twitch to a rhythm, strike on pulses, lean against the fish. On 2026-11-05 he asked for getting a fish on the line to be more realistic and more fun, so the strike on pulses went and the take, the worked fight and the net came in; twitching to a tempo and leaning against the fish stayed. The rules live in one pure module, `client/shared/boatfish-rules.js`, which the server and the seat both import, so the float the client draws is the float the server judges.
 
 **The loop:**
 
 1. **Cast.** Bearing and range from the anchor point. The lure lands and sinks at `SINK_MPS`.
 2. **Twitch.** Each tap draws the lure `TWITCH_M` (1 m) closer and lifts it a little. Taps closer than `TWITCH_MIN_MS` count as one. Fish within `NOTICE_M` (7 m, in 3D) of the lure gain interest, more when the gaps between taps keep their species' tempo (`tempoOf`: about 380 ms for a runner, 1.5 s for a sulker). Interest fades between taps. At `REEL_IN_M` (0.5 m) of line the reel winds in by itself and you cast again; Reel in (`fish reel`) winds it in sooner.
-3. **Strike.** A fish whose interest reaches `BITE_AT` takes the lure. The float knocks in pulses: `beatCount(kg, difficulty)` beats, one for a carp up to four for a sturgeon, at `beatTimes(n)`, each gap shorter than the last. Hit each inside `BEAT_WINDOW_MS`. Miss one and it spits the hook.
-4. **Fight.** The fish runs left or right and changes side every `switchMs`. Lean the other way (A/D, the arrows, a relative mouse drag, or two thumb buttons on a phone). Leaning right drains its stamina, eases the tension and wins line. Leaning wrong, or not at all, loses line and builds tension. Tension at 1 snaps the line. Stamina gone and line inside `LAND_M` (6 m), and the reel winds it in by itself, into the fish box. The client plays the fight; the server refuses a win faster than `minFightMs`.
+3. **The take.** A fish whose interest reaches `BITE_AT` comes to the lure and the server sends a `takeScript`: when it nibbles, when it takes and how long you've got. You read the float. Strike on a nibble and you pull the lure out of its mouth; leave it too long and it drops the lure. Either way the school spooks and the lure stays in the water (an early strike costs `STRIKE_YANK_M` of line). You get one strike. How close it is to the script's `sweetAt` is the hook `set`, 0.15 to 1, which the fight reads. Each fight style takes a lure in its own way (`TAKES`), and a heavier fish gives you less time:
+
+| kind | fight style | what the float does |
+|---|---|---|
+| slide | steady | a few nibbles, then it's drawn slowly under |
+| slam | runner, jumper | one touch at most, then gone. A short window |
+| lift | sulker | it rises, tips over and lies flat, and only late slides away |
+| rattle | wriggler | a shiver of tiny pulls, then a dip |
+
+4. **The fight.** `stepFight` in the rules, so `scripts/fish/fight-sim.mjs` can play it. Two inputs: the lean (A/D, the arrows, a relative drag, two thumb buttons) and the reel (hold Space or the Wind button). Tension settles toward a target made of those and what the fish is doing, and it has to stay in the green:
+
+| the fish | what you do | if you don't |
+|---|---|---|
+| pulling | lean against it and wind | leaning with it builds tension and it takes line |
+| running (`mode: run`) | stop winding, let the drag work. It tires itself | winding through it snaps the line |
+| swimming at you (`charge`) | wind hard | the line goes slack and the hook drops out |
+| jumping (`jump`) | ease off the lean | leaning hard into it tears the hook free or snaps the line |
+
+Tension at 1 snaps the line. Tension under `SLACK_AT` for `slackHoldMs` lets the hook drop out, and a lip hook (a poor set) lasts about half as long as a solid one. Only the jumper jumps; a sulker's runs are long, a runner's are often. Spent, it comes in on the reel with no more arguing.
+
+5. **The net.** Spent and inside `LAND_M`, it's alongside (client phase `net`). It rolls past and you press Space as it crosses the net, with a window that widens with the hook set. A miss sends it off for one more short run; `NET_TRIES` misses and the hook pulls. The client plays the fight and the net; the server refuses a win faster than `minFightMs`, so the net doesn't open before then.
 
 **Server to client:** one message type, `boatfish`, with a `phase`. Coordinates on the wire are in the boat's convention (a tile's centre on the integer); a caller adds half a tile before asking fish.js or seabed.js.
 
@@ -316,9 +335,9 @@ This replaces "The wait", "The fight" and "Landing" above. David chose it on 202
 | `lure` | the cast is accepted | `token, lx, ly, lineM, depthM` |
 | `twitch` | each accepted tap | `token, lx, ly, lineM, depthM, follow: [{ school, i }]` (the fish now following, for the shadows) |
 | `reeled` | line reaches `REEL_IN_M` with no bite | `token` |
-| `bite` | a fish takes it | `token, school, i, species, beats, biteAt` (server ms) |
-| `fight` | every beat hit | `token, species, name, kg, difficulty, fight, lineM, skill` |
-| `spat` | a beat missed or late | `token, reason` |
+| `bite` | a fish comes to the lure | `token, school, i, species, script, biteAt` (server ms). `script` is `takeScript`'s |
+| `fight` | a strike in the window | `token, species, name, kg, difficulty, fight, lineM, skill, set` |
+| `spat` | a strike early or late, or none | `token, reason` ('early' or 'late'), and `lx, ly, lineM, depthM` for the lure, or `reeled: true` if it came home |
 | `landed` | a won fight | `token, species, name, kg, holdKg, holdCap` |
 | `full` | a won fight with no room | `token, species, name, kg` |
 | `lost` | a lost fight | `token, snapped` |
@@ -331,17 +350,32 @@ This replaces "The wait", "The fight" and "Landing" above. David chose it on 202
 | `fish` | aboard an anchored boat with a rod, opens the reel (`open`) |
 | `fishcast boat <bearingDeg> <rangeM> <token>` | casts; the server clamps both to the rod's reach from the anchor point |
 | `fishtwitch <token>` | one tap |
-| `fishstrike <beat> <hitServerMs> <token>` | one beat hit, in server time (the client's clock plus the skew from `open`) |
+| `fishstrike <hitServerMs> <token>` | the strike, in server time (the client's clock plus the skew from `open`) |
 | `fishresolve boat <1|0> <token>` | the fight's result |
 
-Typed, `fish <bearing> <metres>` casts, `fish twitch` taps, and `fish strike` hits the next beat. The log rung settles the strike and the fight with one fishing check, as `settleLogBite` does. A text-rung board for the boat reel is a follow-up; until it exists, textgames gets the log rung's settle.
+Typed, `fish <bearing> <metres>` casts, `fish twitch` taps, `fish strike` strikes and `fish sonar` reads the sounder. The log rung settles the strike and the fight with one fishing check, as `settleLogBite` does. A text-rung board for the boat reel is a follow-up; until it exists, textgames gets the log rung's settle.
 
 **The seams between the four parts:**
 
-- `client/game/js/panels/boatfish.js` is the reel: its HUD over the seat, its state machine, and the routing of `boatfish` messages. It exports `boatFishState()`, read every frame by the seat for the rod's bend, the line and the lure.
+- `client/game/js/panels/boatfish.js` is the reel: its HUD over the seat, its state machine, and the routing of `boatfish` messages. It exports `boatFishState()`, read every frame by the seat for the rod's bend, the line, the lure and the float's pose.
+- `float-cam.js` is the lens over the HUD, a close-up of the float, then the line and the fish, then the fish at the net, because from the thwart a float at twenty metres is two pixels. It draws `floatPose`, and so does the 3-D float, so it can't show a take the server doesn't judge.
+- `fish-portrait.js` draws a fish in 2-D for the lens and the catch card. `client/shared/fish-look.js` is what each species looks like, and its `fishMesh` is the solid `rod-rig.js` draws leaping, alongside and coming aboard.
+- The fish that notice the lure leave their school: `lureFish` in `fish-shadow-scene.js`, driven by the seat from `follow` and `bite`, moves the shadow and the mark on the sounder alike. The server's fish doesn't move, only the picture of it.
 - `boat-view.js` owns rod mode: the aim, the landing ring, the cast, and drawing the rod, line, lure and splash in both views.
 - The first-person shell is the skiff's open-boat interior in `client/shared/interior-*.js`.
 - `plugins/fishing/boat.js` is the server, and the fish box is the `boat_hold` table (§6).
+
+## 5c. The sounder (2026-11-05)
+
+The Keel carries a fish finder (hull field `sonar`). M, the ◉ SONAR chip or the unit's PWR key switch it. It's a switch on the seat like the lamp: it runs fish.js on the clock and the sea the seat already keeps, so nothing goes over the wire.
+
+- **It reads the fish the server bites on.** Every mark is a fish `fishNear` would return (`scripts/fish/sonar-smoke.mjs`). So a mark you cast at can take.
+- **It does what your eyes can't.** It works after dark, in fog and under way, when the shadows don't. `shadowsOn` doesn't gate it.
+- **It can't name a fish.** It knows how big a return is and how deep. You learn the rest from the depth, the water and the hour, and from what the float does.
+- **Two views of one scan** (`sonar-scene.js`, drawn by `sonar-panel.js`). The sweep is a plan round her with the bow up, over a chart of the depth. The beam is a vertical slice out along the rod's bearing, 14 degrees either side, in the manner of a forward-looking sounder: distance across, depth down, the floor in profile, fish as arches and the lure as it sinks. That's what tells you the fish are at nine metres and your lure's at four.
+- **RANGE** steps 30, 50 and 70 m. **GAIN** steps LOW, MID and HIGH: a low gain loses the small fish, and a high one brings up the clutter with them.
+- **The unit in the seat** (`interior-skiff.js`) shows the beam as a block of lit cells (`sonarCells`), rebuilt ten times a second, and its three keys are hotspots. The panel over the seat is the same scan at a size you can read.
+- **Typed:** `fish sonar` gives the depth under her and the nearest marks, for the rungs with no screen. It doesn't name a fish either.
 
 ## 6. The fish box, selling and records
 
@@ -423,12 +457,12 @@ The line has its own cues: the swish of the cast, the reel's click, the plop of 
      - there are at least N schools within 9 tiles of each marina at some hour;
      - the seat's shadow list is the server's `fishNear` on the land mask it's sent, the same input gives the same instances, nothing is drawn under way, and after dark nothing outside the lamp.
    - Regress checks that the anchor push carries a finite `serverNow`, `env`, `thinned` and the land, that `look water` names the schools `fishNear` returns, and that a shore player's `look water` is unchanged.
-   - Still to do: the bite turning the exact shadow toward the lure (`follow` and `bite` carry the fish; the seat doesn't steer it yet), and drawing the rings and swirls.
+   - The fish that follow or take the lure swim to it (`lureFish`, 2026-11-05). Still to do: drawing the feeding rings and swirls from `look water`.
 3. **Casting, the fight and the box.**
    - `plugins/fishing/boat.js`; `fishcast boat`, `fishstrike` and `fishresolve boat`; rod mode in `boat-view.js`.
    - `openFishing({ startAt: 'fight' })` and the fight styles, in `fishing.js` and `textfishing.js`.
    - The `boat_hold` table in `SCHEMA_SQL` (then `npm run db:schema`), `boat sell catch`, `boat unload` and the weight price in `vendor.js`.
-   - Regress takes a fake anchored rig through `fish`, `fishcast`, `fishstrike` and `fishresolve`. It checks the range clamp, the strike window and the box cap. It also checks that an unanchored player and a shore player get exactly what they get today.
+   - Regress takes a fake anchored rig through `fish`, `fishcast`, `fishstrike` and `fishresolve`. It checks the range clamp, the take's window and the box cap. It also checks that an unanchored player and a shore player get exactly what they get today.
 4. **The logbook, the boat-only species, the rode, ice box and lures at the chandlery, the sounds, the accolades and the gulls.**
 5. **A passenger.**
    - `boat board <owner>` takes the second seat.

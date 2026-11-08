@@ -82,7 +82,8 @@
     }
   },
   "flags": {
-    "drug_family": "psychedelic"
+    "drug_family": "psychedelic",
+    "taken": "smoke"
   },
   "id": "drug_dmt",
   "item_id": "item_dmt",

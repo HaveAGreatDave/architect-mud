@@ -206,6 +206,8 @@ The `type` field controls how the content is rendered. `ascii` content is displa
 
 4. `setInterval(broadcastTick, BROADCAST_TICK_MS)` — `BROADCAST_TICK_MS = 1000`.
 
+A wall set in the Room Stage is a third client surface beside the CRT popup and the tablet: `panels/room-tv.js` runs `createTvView` on a page bent onto the set, and `setWallTv` routes the panel calls to it while a flat is open (see [room-stage.md](proposals/room-stage.md#television-on-the-wall)). Its page is off the side of the window, so `room-stage.js` works out where a click lands on the picture (`tvPoint`) and presses the button there (`buttonAt`), which is how full screen and the camera buttons work on a wall set.
+
 ### `broadcastTick()`
 
 Every tick (1 s):
@@ -1544,6 +1546,12 @@ with tv.js to show the bug and the cards. Serve the repo root. The gate is
 instruments and play-once on the live player, each theme's files against its script, no FM ratio
 of 1 or 0.5 in either, and every timeline in each open against its theme's length.
 
+### The desk and the stage (as built)
+
+Two people at KSAB5's desk open a game, take its break and close it, as 3-D sequences made in the [Broadcast Studio](../tools/broadcast-studio/README.md). A show's entry (a `media_graphics` row of type `show`) names its cast and which sequence plays at which moment, and the narrators call `ctx.desk(moment, facts, bug)` at `open`, `break` and `close`. Both leagues' entries are on air, and a segment plays as part of the game on the visual rung. Any text show can also be watched on its set behind the TV's **3D** button (`tv_stage`, client `tv-stage.js`). See [proposals/broadcast-3d.md](proposals/broadcast-3d.md#0-the-first-version-as-built).
+
+⚠ A desk line carries its `desk` overlay as a `graphic`, never a `gameday` payload. A gameday payload ends the hockey pacer's break run and restarts its cues.
+
 ### Sim v2
 
 `simGameV2` in [sports/baseball.js](../plugins/broadcast/sports/baseball.js) adds the plays v1
@@ -2633,8 +2641,16 @@ director now sets `W.cup` on every game, and both
 renderers read it: render.js lays the piece's canvas on the flank, and GLASS 2 has it in
 the lettering texture under ICE CREW (`ZAMBONI_LABEL`).
 
-The broadcast shows it as a time-lapse: the director sets `lapse` so the machine is through
-its gate seven and a half seconds before the `resume` cue (ten times over with no cue), a
+A break is six and a half minutes on air (`BREAK_MS` in [hockey-pacing.js](../plugins/broadcast/sports/hockey-pacing.js)),
+so a seat in the stands (`zamboniReal`) watches the whole sheet done at a driver's pace, sped up
+only if a short slot's break can't hold it. The booth's lines are spread through the break with
+silences between them (`gaps`, `wait` nodes), the sign-off last. The time comes from the
+post-game tail first and then from the play, and 30% of a short slot is the most breaks
+can take. The break before overtime stays as long as its words, so that one is sped up in the seats too. A viewer who joins a break is told how far in it is (`aired`) and finds the machine
+as far round as it would have got.
+
+The broadcast shows it as a time-lapse: the director sets `lapse` to at least three, so the machine is through
+its gate well before the `resume` cue (ten times over with no cue) and the shot holds on the clean sheet, a
 TIME-LAPSE bug sits in the top right while it's out, and the camera holds a locked-off shot
 of the whole sheet. Everything about the machine runs on its own clock, `dt × lapse`, and so
 does the water freezing behind it, which carries on at that rate after it's gone until the
@@ -3633,3 +3649,11 @@ All broadcast routes use `directAPI`:
 - **NPC presence requires `studio_zone_id`**: if not set, presence checks are skipped — the broadcast runs regardless of NPC location.
 - **Blackboard lifetime**: one per channel, persists across ticks, resets when the active `broadcast_id` changes.
 - **SVG title cards**: 640×360 is the recommended canvas size (and the Vector editor's default).
+
+## Cluster Puck's faces
+
+A CPhL player or official has the sculpted figure's face ([sculpted-figure.md](proposals/sculpted-figure.md)): gl/arena-heads.js draws the sculpted head at his weight with gl/face-paint.js in place of the atlas. A medic keeps the atlas, because the paint is a man's face and a medic can be anybody (`paint` in rink/faces.js). His head shape, weight and facial hair come off his name, so he's the same every night, and the facial hair follows the layout's beard.
+
+The head has the same triangles as the one it replaced at each of its three levels, so the broadcast pays nothing. His lower face is lifted to thirds in the vertex shader (`uFaceUp`), and the head sinks by as much (`FACE_UP` in gl/arena-mesh.js) so the chin stays at the strap. There are no real eyes: the camera never gets close enough through a cage to justify them.
+
+The sculpted nose and chin reach further, so the cage stands 0.03 ft further out and a keeper's mask is moulded over the sculpted heads too. The arena smoke measures the fit against every head shape, so run it after moving any of those numbers.

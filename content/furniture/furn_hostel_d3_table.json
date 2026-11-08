@@ -1,0 +1,21 @@
+{
+  "description": "A wooden cable drum on its side, used as a table. It has candle wax, a cup of cold tea and a library book four months overdue.",
+  "flags": {
+    "aliases": "drum",
+    "look": {
+      "arche": "table",
+      "form": "coffee",
+      "wear": 0.9
+    }
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_hostel_d3_table",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "upturned cable drum",
+  "object_type": "furniture",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_hostel_dorm_3"
+}

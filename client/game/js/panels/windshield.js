@@ -79,7 +79,8 @@ import { SHINY, PANE, TEXTURE, TONE_TEX, texIndex } from '../../../shared/interi
 // The wet/standing-water/snow arithmetic, shared with the server so a player logging in mid-storm
 // is handed the ground everybody else is already standing on. See the ⚠ at the head of that file.
 import { fallRates, stepGround, freshGround, SNOW_PTYPES } from '../../../shared/ground-accum.js';
-import { growBolt, boltBright, boltExtent, boltSeed, BOLT_GEN } from '../../../shared/lightning.js';
+import { growBolt, roughenBolt, boltBright, boltExtent, boltSeed, leaderFront, BOLT_GEN, BOLT_LEAD } from '../../../shared/lightning.js';
+import { noteStrike, strikesAfter } from '../../../shared/strike-feed.js';
 import { paintBolt } from '../../../shared/lightning-draw.js';
 import { seaSlope, seaRoll, seaWind, stepSea, seaAmpsFor, seaFoamThreshold, seaClock, seaSubmersion, seaChop, seaHeight, seaFoamTear, SEA_FOAM_LEAD, SEA_FOAM_TEAR, SEA_FOAM_ALONG, SEA_FULL_KT, SEA_AMP, SEA_TILE_M, seaChopGain, SEA_ROLL, SEA_WIND } from '../../../shared/sea-swell.js';   // the ONE JS copy of the swell's shape — gl/floor.js carries the GLSL twin, and nothing else may
 import { underwaterScene, noteSeabedWindow, floorZAt, seabedWindowReady } from './seabed-scene.js';
@@ -665,8 +666,11 @@ export const RENDER_TUNE = {
   // 0.5 → 0.75 on 2026-10-20 ("dim the night considerably"), with the light sources cut to street
   // lamps and bright neon (LIGHT_TUNE.srcGate in gl/world.js).
   // 0.75 → 0.85 the same day, with the night desaturation in context.js, ground.js and floor.js.
-  // ⚠ 0 FOR A LOOK ONLY (2026-10-20): David is comparing the night undimmed. Put 0.85 back.
-  nightDark: 0,
+  // 0.85 → 0 the same day, to compare the night undimmed, and it stayed there. At 0 a wall has no
+  // night at all (a pale pillar read 173 at noon, 163 at 23:00) and the lamps can't lift it, since
+  // `liftOn` in gl/world.js needs a dim to give back. 0 → 0.4 on 2026-11-06 ("buildings a bit too
+  // bright at night, except lit parts"). 0.5 put a comic wall darker than the walkway under it.
+  nightDark: 0.4,
   // A dark-weighted lift over the whole finished world after dark (see "THE NIGHT, LIFTED OUT OF
   // THE BLACK" in paintWindshield). 0 is off. `nightDark` and `moonLight` can't fix a dim night on
   // their own: on a pinned street frame at 23:00, `nightDark` from 0.6 to 0 moves the world's mean
@@ -943,6 +947,10 @@ export const RENDER_TUNE = {
   armPoseMove: 1, // a kept-arm probe counts the camera's travel through the window (`ox`/`oy`) as a move; 0 counts only the eye's offset and heading, so a straight run never keeps a building
   armLive: 1,    // a kept building's animated helpers (smoke, rings, beams, wind wheels, flags) are left out of its kept set and called again each replay (armLiveCall); 0 makes any such building live
   flatEarly: 1,  // an arm's own flat and box primitives return before building what emitFlat and draw3DBoxAt would drop on the GL path (flatsDropped, massDropped: the ballpark, the clone facility's tubes); 0 builds, clips and colours each one first
+  // What a mark keeps of its ambient at full night, and the gain on the road's lamp pools laid over it
+  // (solids.js). The street kit is a mark, so these are its night. 0.5 and 0 are the marks as shipped.
+  markNight: 0.75,
+  markPool: 1.0,
   marksGPU: 1,   // the South Lock, the AA batteries, the media lot and the statue send their faces unshaded with a normal and a material code, the solids shader turns the normal to the eye and shades them (gl/solids.js, the marks), and their static parts are kept as a building's are (markKept); 0 shades every face on the CPU from the eye every frame, as before. On since 2026-10-25, after David saw the before/after shots (glass-headroom.md)
   kitFadeGPU: 1,  // a street kit tile in the haze band fades in the solids shader, per vertex; 0 streams a copy of its faces every frame at the tile's alpha (kitFadeFaces)
   streetKit: 1,  // Coldwater Streets: on a road tile whose district sets a street condition (`sc`), the 4 m lane, the raised walkways, their furniture and the bridges are drawn over the road as a mark, at that condition (glass/street-kit.js, drawStreetKitPass; docs/proposals/coldwater-streets.md). Needs marksGPU
@@ -3238,15 +3246,11 @@ const BOLT_POOL_TILES = 3.2;
 // How flat that pool is allowed to get before it stops being a pool — see the ⚠ at the solve.
 const BOLT_POOL_SQUASH = 0.13;
 
-// Server-pushed strikes waiting to become bolts. The engine's stormTick is the sole
-// strike authority (so the sim matches the ground weather); the flight message relays
-// each located strike here and the next forward-view paint turns it into a 3-D bolt.
-const _pendingStrikes = [];
+// Every bolt in this file is a strike the server made (client/shared/strike-feed.js). Each canvas
+// keeps its own place in the feed, so a cab's forward view and its mirror both see a strike.
 // `cc` is a cloud-to-cloud flash: the same tree laid on its side inside the deck.
 export function pushLightningStrike(gx, gy, intensity, cc = false) {
-  if (!Number.isFinite(gx) || !Number.isFinite(gy)) return;
-  _pendingStrikes.push({ gx, gy, intensity: intensity ?? 0.6, cc: !!cc });
-  if (_pendingStrikes.length > 32) _pendingStrikes.shift();   // bound if no sim is draining
+  noteStrike({ gx, gy, intensity, cc });
 }
 
 // Nodes live in the normalized channel space client/shared/lightning.js builds — a lateral offset
@@ -3260,11 +3264,12 @@ export function pushLightningStrike(gx, gy, intensity, cc = false) {
 // got three times longer, and a strike seen from altitude would draw as a bare wire.
 function makeBolt(bx, by, t0, intensity, cc = false) {
   const det = clamp(RENDER_TUNE.boltDetail ?? 1, 0, 1);
-  const bolt = growBolt(boltSeed(bx, by, t0), {
+  const bolt = roughenBolt(growBolt(boltSeed(bx, by, t0), {
     gens: det <= 0 ? 1 : 1 + Math.round(det * 3),
     fork: det,
-  });
-  bolt.bx = bx; bolt.by = by; bolt.t0 = t0; bolt.intensity = intensity;
+  }));
+  // The return stroke lands BOLT_LEAD ms from now. Until then the age is negative and the leader's coming down.
+  bolt.bx = bx; bolt.by = by; bolt.t0 = cc ? t0 : t0 + BOLT_LEAD; bolt.intensity = intensity;
   // A cloud-to-cloud channel runs along a bearing inside the deck. Rolled from the seed so a
   // restrike runs the same way.
   if (cc) { bolt.cc = true; const a = ((bolt.seed >>> 0) % 6283) / 1000; bolt.ccx = Math.cos(a); bolt.ccy = Math.sin(a); }
@@ -3322,21 +3327,30 @@ function drawLightning(ctx, cam, st, now, acX, acY, wx) {
   const topZ = Math.max(1.2, cloudBaseZ(wx));
   for (const b of st.bolts) {
     const age = boltAge(b, now);
-    if (age < 0 || age >= b.dur) continue;
+    if (age >= b.dur) continue;
     const dx = b.bx - acX, dy = b.by - acY;
     const fwd = dx * cam.sinh - dy * cam.cosh;
     // Slack for the tree, which hangs out to either side of the point that was struck. Past this
     // the whole thing is behind you and every node would be culled anyway.
     if (fwd < -(b.reach * topZ) - 1) continue;
+    const dist = Math.hypot(dx, dy);
+    // The stepped leader: a faint tree feeling its way down, a few frames before the ground answers.
+    if (age < 0) {
+      const front = leaderFront(age), down = boltProjector(cam, dx, dy, topZ), sp0 = cam.proj(dx, dy, 0);
+      const clip = sp0 && sp0.f > 0.25 ? beginOcclusionClip(ctx, sp0.f) : false;
+      paintBolt(ctx, b, (p) => (p.f < front ? null : down(p)), { ch: 0.26, br: 0.17, w: clamp(1.2 / (0.55 + dist / 16), 0.4, 1.3) });
+      if (clip) ctx.restore();
+      continue;
+    }
     const { ch, br } = boltBright(b, age);
     if (ch <= 0.02) continue;
-    const dist = Math.hypot(dx, dy);
     // A channel is a few metres of air and would be sub-pixel at every range this renderer draws it
     // at. What the eye judges is a LIGHT SOURCE, which blooms — so the width closes on a floor with
     // distance rather than vanishing, because the far side of a storm still has to read as
     // lightning and not as a scratch on the canopy.
     const w = clamp(1.7 / (0.55 + dist / 16), 0.5, 1.9);
-    const gain = 0.62 + 0.38 * clamp(b.intensity ?? 0.6, 0, 1);
+    // Rain and air take the far ones down, so depth in a storm reads from brightness as well as size.
+    const gain = (0.62 + 0.38 * clamp(b.intensity ?? 0.6, 0, 1)) * (0.5 + 0.5 * Math.exp(-dist / 34));
     const trunkStyle = (head, foot) => {
       const a = Math.min(1, 0.95 * BOLT_GEN[0].a * ch * gain);
       const g = ctx.createLinearGradient(head[0], head[1], foot[0], foot[1]);
@@ -3485,32 +3499,6 @@ function boltFlare(ctx, sx, sy, r, rgbs, alpha) {
 
 // ── A BOLT ON THE GLASS ─────────────────────────────────────────────────────────────────────
 //
-// The pane reader for a lightning tree: `bx` is where the channel enters the top of the frame as a
-// fraction of the width, and the channel's own height fraction maps down to GLASS_BOLT_DROP of the
-// pane — far enough to sink behind a skyline, which is what makes it a strike in the distance
-// rather than one in the room.
-//
-// ⚠ ONE UNIT OF CHANNEL IS ONE CHANNEL HEIGHT, AND THAT IS A HEIGHT IN PIXELS RATHER THAN A WIDTH.
-// The tree is authored square — it reaches out about sixty per cent of how far it drops — so
-// scaling `ox` by W on a 16:9 pane stretches every branch to nearly twice its intended angle and
-// the bolt comes out as a fan. It is scaled by the same span the drop is.
-const GLASS_BOLT_DROP = 0.62;
-
-function drawGlassBolt(ctx, W, H, bolt, bx, age) {
-  const { ch, br } = boltBright(bolt, age);
-  if (ch <= 0.02) return;
-  const span = H * GLASS_BOLT_DROP;
-  const x0 = bx * W;
-  paintBolt(ctx, bolt, (p) => [x0 + p.ox * span, (1 - p.f) * span], { ch, br, w: 1.1 });
-  // The cloud the channel came out of. On the glass it is the only cue that the bolt has a TOP
-  // rather than simply beginning at the edge of the frame.
-  ctx.save();
-  ctx.globalCompositeOperation = 'lighter';
-  boltFlare(ctx, x0, 0, H * 0.30, '160,196,255', 0.26 * ch);
-  boltFlare(ctx, x0, 0, H * 0.13, '232,242,255', 0.34 * ch);
-  ctx.restore();
-}
-
 // ── Airport terrain themes ────────────────────────────────────────────────────
 // The look of the field out the canopy while you're on the deck: ground colour +
 // which silhouette flanks the runway (city towers, dock cranes, wasteland rock…).
@@ -3643,7 +3631,7 @@ function sceneFor(id, W, H) {
   if (!st) {
     // Deterministic-ish scatter without Math.random dependence on first frame.
     const rnd = (n) => { let x = Math.sin((n + 1) * 12.9898) * 43758.5453; return x - Math.floor(x); };
-    st = { scroll: 0, sideScroll: 0, last: 0, w: 0, h: 0, flash: 0, bolt: null, boltT: 0,
+    st = { scroll: 0, sideScroll: 0, last: 0, w: 0, h: 0,
       // World-anchored sky bodies: fixed compass bearing (az 0..360) + elevation (° above the
       // horizon), projected fresh each frame so they hold their place in the sky as you yaw.
       //
@@ -4322,6 +4310,15 @@ function paintWindshieldFrame(id, view) {
   // else, which is why the mirror shows the same city out of the same renderer rather than a
   // second opinion about what is behind you.
   const bare = !!v.bare;
+  // ⚠ 'still': THIS FRAME IS THE WORLD AND NOTHING ELSE, the view out of a room's windows
+  // (panels/room-outlook.js). Everything painted over the frame rather than placed in the world is left
+  // out: a pane's sheen, a lens's flare and vignette, and the aurora, which is pinned to the frame and not the sky.
+  const still = !!v.still;
+  // ⚠ AND A ROOM IS NEVER IN THE CLOUD. Towers are drawn far taller than the deck's feet allow (a penthouse's eye is
+  // at 5.3, a rainy deck's base at 4.7), so the eye counted as flying through it: the volume thickened round
+  // it, lit from below by the city, and every night out of a high flat went pale and pink. Here the deck is held
+  // just past the height at which drawVolumetricClouds says the eye is in it.
+  DECK_FLOOR = still && v.freeCam ? v.freeCam.z + RENDER_TUNE.cloudThick * 0.9 + 0.5 : 0;
   // A flat colour where the sky would be, for a viewer looking at one thing (the Modelshop's grey
   // backdrop). The sky passes are painted over or skipped and the ground stays, so the subject keeps
   // its shadow; the light is still the hour's, so it's lit the way the game lights it.
@@ -4904,9 +4901,9 @@ function paintWindshieldFrame(id, view) {
   const lightStr = _dayKey ? clamp(0.4 + sunElev * 0.6, 0, 1) : (sky.night > 0.4 && mArc.up && _moonPos.front ? 0.14 + _moonLit * 0.62 : 0);
   sunFx.moonElev *= 0.2 + _moonLit * 0.8;
   const _clearish = wx === 'clear' || wx === 'cloudy';
-  const glareStr = (sunUp && sunFront && !framed && !backdrop && _clearish) ? clamp(0.32 + (1 - sunElev) * 0.7, 0, 1) * (wx === 'cloudy' ? 0.45 : 1) : 0;
-  const rayStr   = (sunUp && sunFront && !framed && !backdrop && _clearish && worldBlend > 0.02) ? clamp((0.55 - sunElev) / 0.55, 0, 1) * (wx === 'cloudy' ? 0.5 : 1) : 0;
-  const auroraOn = sky.night > 0.4 && (wx === 'clear' || wx === 'ash') && !framed;
+  const glareStr = (sunUp && sunFront && !framed && !backdrop && _clearish && !still) ? clamp(0.32 + (1 - sunElev) * 0.7, 0, 1) * (wx === 'cloudy' ? 0.45 : 1) : 0;
+  const rayStr   = (sunUp && sunFront && !framed && !backdrop && _clearish && worldBlend > 0.02 && !still) ? clamp((0.55 - sunElev) / 0.55, 0, 1) * (wx === 'cloudy' ? 0.5 : 1) : 0;
+  const auroraOn = sky.night > 0.4 && (wx === 'clear' || wx === 'ash') && !framed && !still;
   const cockpitGlow = clamp(sky.night * 0.85 + (sunUp && sunElev < 0.28 ? 0.22 : 0), 0, 1);
   // Instrument-panel lights (the PANEL switch): flipping them on gives a guaranteed, richer warm
   // glow pooled up onto the lower canopy — the "instruments lit" ambience — even at dusk when the
@@ -5228,28 +5225,27 @@ function paintWindshieldFrame(id, view) {
     foamFeed(v, now);
   }
 
-  // Lightning is server-authoritative: the engine (stormTick) is the SINGLE strike
-  // source and pushes each located strike here via pushLightningStrike, so the sim
-  // shows exactly the strikes the ground weather produces — no client-side cadence.
-  // We drain the queue on the forward view, which has our live world position for
-  // the distance cull + the near-strike CRACK.
+  // The engine (stormTick) is the single strike source. The forward view has our live position for
+  // the range cull and the near-strike crack. No strike, no bolt: there's no client-side cadence.
   if (!st.bolts) st.bolts = [];
-  if (_pendingStrikes.length && v.acX != null && !framed) {
-    for (const s of _pendingStrikes) {
+  if (v.acX != null && !framed) {
+    for (const s of strikesAfter(st.strikeSeq || 0)) {
+      st.strikeSeq = s.seq;
       const dist = Math.hypot(s.gx - v.acX, s.gy - v.acY);
-      if (dist >= BOLT_MAX_DIST) continue;   // out of view — discard
+      // Out of view, or the player has weather effects off (a strike is a full-frame flash).
+      if (dist >= BOLT_MAX_DIST || !isWeatherFxEnabled()) continue;
       st.bolts.push(makeBolt(s.gx, s.gy, now, s.intensity, s.cc));
       if (st.bolts.length > 10) st.bolts.shift();
       // A recorded thunderclap for a near strike, delayed by its distance (sound lags the flash);
       // the ambient storm thunder in engine-audio covers the rest, so only clap up close. Real
-      // samples (not a synth noise burst, which read as static).
-      if (dist < 30) {
+      // samples (not a synth noise burst, which read as static). Once a strike, however many views.
+      if (dist < 30 && !s.heard) {
+        s.heard = true;
         const near = clamp(1 - dist / 30, 0, 1);
         // From where it struck, placed when it lands (the craft has moved on by then).
         setTimeout(() => playThunderSample(0.28 + near * 0.5, seatSpot(s.gx, s.gy)), Math.min(1400, dist * 40));
       }
     }
-    _pendingStrikes.length = 0;
   }
   if (RENDER_TUNE.boltForce == null) st.bolts = st.bolts.filter(b => now - b.t0 < b.dur);
 
@@ -6154,7 +6150,7 @@ function paintWindshieldFrame(id, view) {
   { const wsv = stormSeverity(wx, wxSample); if (wsv > 0.02) applyStormGrade(ctx, W, H, horizonY, wsv, sky.night, wx); }
 
   // Heat shimmer: the tarmac wavers in the hot air above the horizon (hot fields, high sun).
-  if (shimmerStr > 0.01) drawHeatShimmer(ctx, FRAME_CV, W, H, horizonY, dpr, now, shimmerStr);
+  if (shimmerStr > 0.01 && !still) drawHeatShimmer(ctx, FRAME_CV, W, H, horizonY, dpr, now, shimmerStr);
 
   // G-force grey-out: a hard, sustained bank loads you up — the edges desaturate and darken
   // as blood drains, tunnelling the view. Proxy G off bank angle (steep = high load); forward
@@ -6198,18 +6194,22 @@ function paintWindshieldFrame(id, view) {
   }
 
   // Canopy glass sheen — a soft diagonal reflection that slides a touch with bank.
-  const sheen = ctx.createLinearGradient(0, 0, W, H);
-  const so = clamp(0.5 + (v.bank || 0) / 120, 0.1, 0.9);
-  sheen.addColorStop(clamp(so - 0.18, 0, 1), 'rgba(255,255,255,0)');
-  sheen.addColorStop(so, 'rgba(255,255,255,0.06)');
-  sheen.addColorStop(clamp(so + 0.18, 0, 1), 'rgba(255,255,255,0)');
-  ctx.fillStyle = sheen; ctx.fillRect(0, 0, W, H);
+  if (!still) {
+    const sheen = ctx.createLinearGradient(0, 0, W, H);
+    const so = clamp(0.5 + (v.bank || 0) / 120, 0.1, 0.9);
+    sheen.addColorStop(clamp(so - 0.18, 0, 1), 'rgba(255,255,255,0)');
+    sheen.addColorStop(so, 'rgba(255,255,255,0.06)');
+    sheen.addColorStop(clamp(so + 0.18, 0, 1), 'rgba(255,255,255,0)');
+    ctx.fillStyle = sheen; ctx.fillRect(0, 0, W, H);
+  }
   // Instrument-panel glow reflected up onto the lower canopy at dusk/night.
   if (!framed && !ext && instrGlow > 0.02) drawInstrumentReflection(ctx, W, H, instrGlow, v.bank || 0, panelLit);
   // corner vignette
-  const vg = ctx.createRadialGradient(W / 2, H / 2, Math.min(W, H) * 0.35, W / 2, H / 2, Math.max(W, H) * 0.7);
-  vg.addColorStop(0, 'rgba(0,0,0,0)'); vg.addColorStop(1, 'rgba(0,0,0,0.5)');
-  ctx.fillStyle = vg; ctx.fillRect(0, 0, W, H);
+  if (!still) {
+    const vg = ctx.createRadialGradient(W / 2, H / 2, Math.min(W, H) * 0.35, W / 2, H / 2, Math.max(W, H) * 0.7);
+    vg.addColorStop(0, 'rgba(0,0,0,0)'); vg.addColorStop(1, 'rgba(0,0,0,0.5)');
+    ctx.fillStyle = vg; ctx.fillRect(0, 0, W, H);
+  }
 
   // Hero-event colour cast over the whole scene — drawn after the vignette so it
   // grades the world AND the canopy, the way flying inside a chemical cloud
@@ -6458,14 +6458,21 @@ function paintWindshieldFrame(id, view) {
     // rate and streak in two places. Lazily built, so a clear day allocates nothing.
     if (!st.near) st.near = Array.from({ length: 70 }, (_, i) => ({ x: ((i * 37) % 100) / 100, y: ((i * 61) % 100) / 100, v: 0.4 + ((i * 17) % 100) / 125 }));
     ctx.save();
-    ctx.strokeStyle = `rgba(198,220,245,${(heavy ? 0.5 : 0.36) * (0.55 + rate * 0.45)})`;
+    const nearA = (heavy ? 0.5 : 0.36) * (0.55 + rate * 0.45);
+    ctx.strokeStyle = `rgba(198,220,245,${nearA})`;
     ctx.lineWidth = 1.6;                       // near rain is a fatter streak than the far field
+    const spr = rainSprite(), sl = heavy ? 9 : 5, skew = -sl / 41;   // 41 = the mean length below
+    if (spr) ctx.transform(1, 0, skew, 1, 0, 0);
     for (let i = 0; i < n; i++) {
       const p = st.near[i];
       p.y = (p.y + (2.2 + p.v * 1.6) * dt) % 1;      // …and much faster, because it is close
       p.x = (p.x + 0.05 * dt) % 1;
       const x = p.x * W, y = p.y * H, len = 26 + p.v * 30;
-      ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x - (heavy ? 9 : 5), y + len); ctx.stroke();
+      if (spr) {
+        const wd = 2 + p.v * 1.6;
+        ctx.globalAlpha = Math.min(1, nearA * 2) * (0.6 + 0.35 * p.v);
+        ctx.drawImage(spr, x - skew * y - wd / 2, y, wd, len);
+      } else { ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x - sl, y + len); ctx.stroke(); }
     }
     ctx.restore();
     pEnd();
@@ -14697,36 +14704,6 @@ function drawGlassInner(ctx, W, H, wx, st, dt, speed, framed = false, wipers = 0
       }
     }
   }
-  if (wx === 'storm' && isWeatherFxEnabled()) {
-    // ── THE STORM BEHIND THE SKYLINE ────────────────────────────────────────────────────────────
-    //
-    // This is the ambient bolt, drawn flat on the pane rather than out in the world: the strikes a
-    // storm produces where there is nobody standing to locate them, which is most of them. Same
-    // tree as the world one — see the header of client/shared/lightning.js — under a different
-    // projection, because a storm that looked like a fractal through the canopy and like a zigzag
-    // on the glass in front of it is two weathers at once.
-    //
-    // ⚠ FEWER GENERATIONS, ON PURPOSE. It reads as DISTANT: it stands behind the city, it is drawn
-    // at a couple of pixels, and past about three generations the tree is finer than the pane can
-    // resolve — so the fourth is cost with nothing on the other side of it.
-    st.flash = Math.max(0, st.flash - dt * 2.6);
-    st.boltT -= dt;
-    if (st.boltT <= 0 && Math.random() < 0.04) {
-      st.flash = 0.9; st.boltT = 1.5 + Math.random() * 4;
-      st.boltX = 0.2 + Math.random() * 0.6;
-      st.boltAt = performance.now();
-      st.bolt = growBolt((Math.random() * 2 ** 31) | 0, { gens: 3, segs: 9, fork: 0.85, spread: 0.85 });
-    }
-    if (st.flash > 0) {
-      ctx.fillStyle = `rgba(220,232,255,${st.flash * 0.35})`; ctx.fillRect(0, 0, W, H);
-      // Sheet-glow biased to the upper sky: even when the bolt is off-screen, the storm
-      // behind the skyline lights up (distant cloud-to-cloud lightning).
-      const sheet = ctx.createLinearGradient(0, 0, 0, H * 0.6);
-      sheet.addColorStop(0, `rgba(226,236,255,${st.flash * 0.28})`); sheet.addColorStop(1, 'rgba(226,236,255,0)');
-      ctx.fillStyle = sheet; ctx.fillRect(0, 0, W, H * 0.6);
-      if (st.bolt) drawGlassBolt(ctx, W, H, st.bolt, st.boltX, performance.now() - st.boltAt);
-    }
-  }
   // The arms themselves, over the top of everything on the glass — they are OUTSIDE it, and the
   // one bit of the vehicle that crosses your view of the road. Drawn only when there is something
   // to draw: a parked wiper at rest is a dark line at the very bottom edge and nothing more.
@@ -16394,7 +16371,9 @@ function drawMode7Floor(ctx, W, H, horizonY, depth0, v, sky, gTop, now, sun, cha
 // so the deck sits at that real altitude — overhead when you're on the runway, flown INTO only once you
 // actually climb up to it, never smeared across the ground the way the old fixed low base was.
 const CLOUD_BASE_FT = { clear: 3200, cloudy: 1600, rain: 1200, storm: 1800, snow: 1500, fog: 150, ash: 900, dust: 700, ion_storm: 1400 };
-const cloudBaseZ = (wx) => Math.max(0.05, RENDER_TUNE.eh + Math.sqrt((CLOUD_BASE_FT[wx] ?? 1600) / 3000) * RENDER_TUNE.climbLift);
+// The lowest the deck may sit this frame, 0 for no limit. A room's frame sets it (see 'still').
+let DECK_FLOOR = 0;
+const cloudBaseZ = (wx) => Math.max(0.05, DECK_FLOOR, RENDER_TUNE.eh + Math.sqrt((CLOUD_BASE_FT[wx] ?? 1600) / 3000) * RENDER_TUNE.climbLift);
 // ── WHERE IT IS ACTUALLY RAINING ───────────────────────────────────────────────────────────────
 //
 // Rain falls from a cloud base to the ground. `drawWeather` is a full-screen curtain keyed off the
@@ -22942,6 +22921,8 @@ function pushInteriorShell(cam, v) {
       sunC: sunOn ? sunC : null, sunK: sunOn ? clamp(sEl * 1.8, 0, 1) * (1 - murk * 0.9) * (1 - E.cover) * 0.85 * (RENDER_TUNE.cabSunGain ?? 1) : 0,
       cabEnv: ce ? { back: c01(ce.back), low: c01(ce.low), high: c01(ce.high) } : null,
       lightMat, worldSun: RENDER_TUNE.cabWorldSun !== 0,
+      // Which seat this is, for the comic look's wear (gl/house-style.js cabinComicOf).
+      cls: v.cls, variant: (v.drakeCab && v.drakeCab.trim) || v.variant || '',
     };
   }
   INTERIOR_TALLY = { faces: n, cls: v.cls, eyeH: cam.EH, scale: S };
@@ -36523,7 +36504,7 @@ function drawContacts(ctx, cam, v, W, H, sun, now, marks = true) {
       // ⚠ THE BOX THIS RETURNS IS MEASURED, and the derived one is only the fallback — so the
       // designation bracket goes back to sitting on the aircraft rather than on an estimate of it.
       ctx.globalAlpha = contactFade(pc.f);
-      bb = drawAircraftModel(ctx, cam, { ...c, bodyOnGL: true }, baseWz, sun, now) || c._glbb;
+      bb = drawAircraftModel(ctx, cam, { ...c, bodyOnGL: true, lampsOnGL: c._lampsGL }, baseWz, sun, now) || c._glbb;
       ctx.globalAlpha = 1;
       c._glSolid = false;
     } else if (c._glDrawn) { bb = c._glbb; c._glDrawn = false; }   // a card, baked before the world pass
@@ -36579,6 +36560,7 @@ function collectSolidContacts(cam, v, sun, now) {
       // without this every contact arrives at the depth buffer fully opaque and the convention that
       // distant traffic is faint dies silently — see contactFade.
       drawAircraftModel(null, cam, { ...c, solid: true, collect: true, solidAlpha: contactFade(pc.f) }, baseWz, sun, now);
+      c._lampsGL = contactLampsOnGL(c);
       // ⚠ COLLECT MODE RETURNS NO SCREEN BOX, AND THE DESIGNATION BRACKET NEEDS ONE. `collect`
       // stops at the geometry by design — everything past it is canvas — so there is no measured
       // silhouette to hand the HUD. The box is derived from the projection instead, the same way
@@ -36587,8 +36569,16 @@ function collectSolidContacts(cam, v, sun, now) {
       const sz = (FRAME_SIZE[c.cls] || 0.11) * (c.sizeMul || 1) * cam.FL / Math.max(0.25, pc.f);
       c._glbb = { minx: pc.sx - sz, maxx: pc.sx + sz, miny: pc.sy - sz * vsOf(c.cls), maxy: pc.sy };
     }
-    catch { OWNSHIP_SINK.length = mark; c._glSolid = false; c._glbb = null; }
+    catch { OWNSHIP_SINK.length = mark; c._glSolid = false; c._glbb = null; c._lampsGL = false; }
   }
+}
+// ⚠ A CONTACT'S LAMPS GO IN WITH ITS HULL OR THEY GO OVER THE CITY. The sprite sink is shut by the time
+// `drawContacts` runs, so `lampGL` in the lamp pass could only ever be false there: every bogey's nav
+// lights were painted on the finished frame, through the tower in front of it and through its own
+// body. So they're pushed from the collect pass, and the canvas pass is told to leave them
+// (`lampsOnGL`). A road vehicle's glow is canvas only and stays where it was.
+function contactLampsOnGL(c) {
+  return !!(SPRITE_SINK && OWNSHIP_SINK && TUNE.glDeco) && !vehicleLamps(c.cls, c.variant);
 }
 // Live battle-damage break-up: a persistent break-up spec from a craft's sheared-surface map
 // ({leftWing,rightWing,tail,rudder} where 0 = gone). Each lost surface's faces are drifted far
@@ -38396,6 +38386,8 @@ function drawAircraftModel(ctx, cam, c, baseWz, sun, now) {
     }
     // A boat's spray goes in here for the same reason the rotor does: see drawBoatSprayGL.
     if (SPRITE_SINK && (c.own || c.solid) && WATER_CLASSES().has(c.cls)) drawBoatSprayGL(cam, c, Wp, SIZE, sun, now);
+    // And the lamps, for the same reason again: see contactLampsOnGL.
+    if (c.solid && contactLampsOnGL(c)) navLamps();
     return null;
   }
   if (!drawn) return null;
@@ -38690,7 +38682,11 @@ function drawAircraftModel(ctx, cam, c, baseWz, sun, now) {
   // engine: `lights===false` (own ship, master cut) blacks the whole set out. Contacts leave it
   // undefined → lit as before. Landing/taxi lamps (`landing`) add a bright forward set on top.
   // A wreck carries no lights, unless its body is a variant that mounts its own (the Carcass 2076).
+  if (!c.lampsOnGL) navLamps();
+  function navLamps() {
+  const big = c.sizeMul ? 1.4 : 1;
   if ((c.cls !== 'wreck' || meshLamps(c.cls, c.variant || '')) && c.lights !== false) {
+    const fade = c.solidAlpha == null ? 1 : c.solidAlpha;   // the canvas has this on globalAlpha; a sprite has to carry it
     const nb = clamp((sun ? sun.night : 0) * 0.7 + 0.34, 0.3, 1);
     const strobe = (now && Math.sin((now || 0) * 0.007 + (c.dx || 0) * 3) > 0.72) ? 1 : 0.1;
     const beac = 0.32 + 0.68 * Math.abs(Math.sin((now || 0) * 0.004 + (c.dy || 0)));
@@ -38705,20 +38701,13 @@ function drawAircraftModel(ctx, cam, c, baseWz, sun, now) {
       const q = P(lp); if (q.f <= 0.08 || lit <= 0.02) return;
       const s = clamp(3.2 / q.f, 1, 8) * big;
       if (lampGL) {
-        // ⚠ THE SPRITE LAYER PULLS EVERY LIGHT 0.05 TILES TOWARD THE EYE (gl/sprites.js LIGHT_PULL),
-        // sized for a light bolted to a BUILDING. An aircraft is a tenth of a tile across, so that
-        // pull carried a hull lamp straight through the body in front of it — the Drake's belly
-        // beacon shone through its own chest and a flank lamp through the folded wing. Slide the
-        // point back along its own view ray by nearly all of it: same pixels, and what is left
-        // (plus the lamp's own stand-off off the skin) only has to win the tie with its lens.
-        const w0 = Wp(lp), ex = cam.ex || 0, ey = cam.ey || 0, ez = cam.EH || 0, k = (q.f + AIR_LAMP_PUSH) / q.f;
-        const w = [ex + (w0[0] - ex) * k, ey + (w0[1] - ey) * k, ez + (w0[2] - ez) * k];
+        const w = pushedBack(lp, q);
         // ⚠ `air`: A NAV LAMP IS SEEN, IT DOES NOT LIGHT THE CITY. Without it these went into
         // pickLights, and an own-ship lamp a fraction of a tile from the eye has the best `I * r / f`
         // score in the frame, so powering up took the wall-wash, road-pool and water slots and laid
         // the red/green/strobe colours over everything in view like a filter.
-        pushLight(w[0], w[1], w[2], s * 2.2, col, 0.85 * lit * nb, false, true, false, true);
-        pushLight(w[0], w[1], w[2], Math.max(0.7, s * 0.42), '255,255,255', 0.75 * lit * nb, true, false, false, true);
+        pushLight(w[0], w[1], w[2], s * 2.2, col, 0.85 * lit * nb * fade, false, true, false, true);
+        pushLight(w[0], w[1], w[2], Math.max(0.7, s * 0.42), '255,255,255', 0.75 * lit * nb * fade, true, false, false, true);
         return;
       }
       const rg = ctx.createRadialGradient(q.sx, q.sy, 0, q.sx, q.sy, s * 2.2);
@@ -38726,6 +38715,16 @@ function drawAircraftModel(ctx, cam, c, baseWz, sun, now) {
       ctx.fillStyle = rg; ctx.beginPath(); ctx.arc(q.sx, q.sy, s * 2.2, 0, 7); ctx.fill();
       ctx.fillStyle = `rgba(255,255,255,${0.75 * lit * nb})`; ctx.beginPath(); ctx.arc(q.sx, q.sy, Math.max(0.7, s * 0.42), 0, 7); ctx.fill();
     };
+    function pushedBack(lp, q) {
+        // ⚠ THE SPRITE LAYER PULLS EVERY LIGHT 0.05 TILES TOWARD THE EYE (gl/sprites.js LIGHT_PULL),
+        // sized for a light bolted to a BUILDING. An aircraft is a tenth of a tile across, so that
+        // pull carried a hull lamp straight through the body in front of it — the Drake's belly
+        // beacon shone through its own chest and a flank lamp through the folded wing. Slide the
+        // point back along its own view ray by nearly all of it: same pixels, and what is left
+        // (plus the lamp's own stand-off off the skin) only has to win the tie with its lens.
+        const w0 = Wp(lp), ex = cam.ex || 0, ey = cam.ey || 0, ez = cam.EH || 0, k = (q.f + AIR_LAMP_PUSH) / q.f;
+        return [ex + (w0[0] - ex) * k, ey + (w0[1] - ey) * k, ez + (w0[2] - ez) * k];
+    }
     // ── A ROAD VEHICLE LIGHTS ITSELF LIKE A ROAD VEHICLE ─────────────────────
     //
     // Not port-red / starboard-green / anti-collision strobe, which is the grammar of something
@@ -38845,6 +38844,12 @@ function drawAircraftModel(ctx, cam, c, baseWz, sun, now) {
       const land = (lp) => {
         const q = P(lp); if (q.f <= 0.08) return;
         const s = clamp(3.6 / q.f, 1.2, 10) * big;
+        if (lampGL) {
+          const w = pushedBack(lp, q);
+          pushLight(w[0], w[1], w[2], s * 3, '255,248,220', 0.7 * fade, false, true, false, true);
+          pushLight(w[0], w[1], w[2], Math.max(0.9, s * 0.5), '255,255,255', 0.95 * fade, true, false, false, true);
+          return;
+        }
         const rg = ctx.createRadialGradient(q.sx, q.sy, 0, q.sx, q.sy, s * 3);
         rg.addColorStop(0, 'rgba(255,252,235,0.95)'); rg.addColorStop(0.5, 'rgba(255,248,220,0.38)'); rg.addColorStop(1, 'rgba(255,248,220,0)');
         ctx.fillStyle = rg; ctx.beginPath(); ctx.arc(q.sx, q.sy, s * 3, 0, 7); ctx.fill();
@@ -38852,7 +38857,8 @@ function drawAircraftModel(ctx, cam, c, baseWz, sun, now) {
       };
       land([tf + 0.12, -tg * 0.6, th]); land([tf + 0.12, tg * 0.6, th]);   // leading-edge lamps, inboard of the nav tips
     }
-    ctx.globalAlpha = 1;
+    if (ctx) ctx.globalAlpha = 1;
+  }
   }
 
   // (Landing gear is drawn inline with the model above, from the shared baked mesh — see the
@@ -40094,7 +40100,7 @@ function drawGroundSurfaces(ctx, cam, v, sky = null, now = 0) {  _walkGen++; con
         }
       }
     } else if (surf === 'field' && c.rwy) {
-      paintAirfieldTile({ ctx, cam, c, at, rx, ry, dx, dy, stripeA, nite, al: ctx.globalAlpha, now, acAlt, f, windKt, windDeg });
+      paintAirfieldTile({ ctx, cam, c, at, rx, ry, wy, dx, dy, stripeA, nite, al: ctx.globalAlpha, now, acAlt, f, windKt, windDeg });
     } else if (surf === 'field' && c.pad) {
       // ── ⚠ A HELIPAD IS NOT A ONE-TILE RUNWAY ────────────────────────────────
       //
@@ -40649,6 +40655,9 @@ function drawGroundSurfaces(ctx, cam, v, sky = null, now = 0) {  _walkGen++; con
 // The same clip is what ends a lead-in at a hangar door: the door face is the edge of the plan.
 const AF_WHITE = 'rgba(236,239,243,0.9)', AF_YEL = 'rgba(232,192,60,0.92)', AF_RED = 'rgba(190,40,36,0.85)';
 const AF_JOINT = 'rgba(18,20,24,0.3)';
+const AF_RAIL = 'rgba(86,226,255,0.82)';   // the runway's inset light rails and chevrons
+// How far a windsock stands from the runway's centreline, in tiles: clear of the paving and the PAPI.
+const SOCK_OFF = 1.3;
 const AF_SIDES = { n: [0, -1], e: [1, 0], s: [0, 1], w: [-1, 0] };
 const afRunway = (c) => !!c && (c.rwy === 'ns' || c.rwy === 'ew');
 const afPaved = (c) => !!c && (!!c.rwy || (c.kind === 'field' && !c.bt && c.ft !== 'dust'));
@@ -40733,6 +40742,13 @@ function paintAirfieldTile(T) {
     const run = (s) => { let n = 0; while (n < 3 && same(at(rx + A[0] * s * (n + 1), ry + A[1] * s * (n + 1)))) n++; return n; };
     const back = run(-1), fwd = run(1), dEnd = Math.min(back, fwd);
     for (const o of [-0.42, 0.42]) line(L(-0.5, o), L(0.5, o), 0.016, AF_WHITE);
+    // The surface is composite panels, so the seams come first and the paint lies over them.
+    for (const a of [-0.25, 0.25]) line(L(a, -0.42), L(a, 0.42), 0.003, AF_JOINT);
+    for (const o of [-0.21, 0.21]) line(L(-0.5, o), L(0.5, o), 0.003, AF_JOINT);
+    // A light rail let into the surface inside each edge line, stopping short of the piano keys.
+    for (const o of [-0.37, 0.37]) line(L(back ? -0.5 : -0.3, o), L(fwd ? 0.5 : 0.3, o), 0.007, AF_RAIL);
+    // Chevrons either side of the centreline, on the tiles clear of the touchdown markings.
+    if (dEnd >= 3) for (const s of [-1, 1]) for (const a of [-0.2, 0.2]) line(L(a - 0.09, s * 0.1), L(a + 0.09, s * 0.3), 0.01, AF_RAIL);
     // The centreline stops short of the numbers on a threshold tile.
     dashes(L(back ? -0.5 : -0.08, 0), L(fwd ? 0.5 : 0.08, 0), 0.02, 0.34, 0.2, AF_WHITE);
     // Aiming point one tile in from each end, then the touchdown-zone bars.
@@ -40754,10 +40770,12 @@ function paintAirfieldTile(T) {
       // The PAPI and the sock go on whichever side has no building standing beside the end.
       const bldg = (s) => { const b = at(rx + P[0] * s, ry + P[1] * s); return !!(b && b.bt); };
       const side = bldg(1) && !bldg(-1) ? -1 : 1;
-      const sx = dx + A[0] * (-end * 0.3) + P[0] * side * 0.66, sy = dy + A[1] * (-end * 0.3) + P[1] * side * 0.66;
+      const sx = dx + A[0] * (-end * 0.3) + P[0] * side * SOCK_OFF, sy = dy + A[1] * (-end * 0.3) + P[1] * side * SOCK_OFF;
       late.push(() => {
         if (side > 0) drawPAPI(ctx, cam, dx, dy, A, end, T.acAlt, T.f, nite, al);
         else drawPAPI(ctx, cam, dx, dy, [-A[0], -A[1]], -end, T.acAlt, T.f, nite, al);
+        // It stands clear of the paving, which here is usually water, so it gets a concrete footing.
+        emitWire(ctx, cam, [sx, sy, 0], [sx, sy, 0.03], 7, 'rgba(112,116,122,0.95)', al, { pull: DECO_PULL });
         windsockAt(ctx, cam, sx, sy, T.windKt, T.windDeg, now, nite, al);
       });
       // Green across the threshold, red at the lip.
@@ -40781,6 +40799,13 @@ function paintAirfieldTile(T) {
       const nearEnd = (a <= -0.3 && !back) || (a >= 0.3 && !fwd);
       for (const o of [-0.44, 0.44]) { const p = L(a, o); lamp(p[0], p[1], nearEnd ? '255,186,74' : '255,246,214', 1, 2.2); }
     }
+    // The rails at night: a pulse runs down the whole runway, tile by tile, about once a second.
+    const pulse = Math.floor((now || 0) / 90) % 12;
+    [-0.25, 0.25].forEach((a, i) => {
+      if ((a < 0 && !back) || (a > 0 && !fwd)) return;
+      const hot = (((T.wy | 0) * 2 + i) % 12 + 12) % 12 === pulse;
+      for (const o of [-0.37, 0.37]) { const p = L(a, o); lamp(p[0], p[1], '86,226,255', hot ? 1 : 0.45, hot ? 2.8 : 1.5); }
+    });
     [-0.375, -0.125, 0.125, 0.375].forEach((a, i) => {
       const p = L(a, 0), red = dEnd === 0 || (dEnd === 1 && i % 2 === 0);
       lamp(p[0], p[1], red ? '255,80,70' : '235,240,255', 0.7, 1.3);
@@ -40993,7 +41018,7 @@ function sockCone(ctx, cam, x0, y0, z0, dirX, dirY, droop, alpha, lit, now, seed
 // direction and strength at a glance.
 function drawWindsock(ctx, cam, dx, dy, A, end, windKt, windDeg, now, nite, alpha = 1) {
   const Px = A[1], Py = -A[0];
-  windsockAt(ctx, cam, dx + A[0] * (end * 0.42) + Px * (-0.6), dy + A[1] * (end * 0.42) + Py * (-0.6), windKt, windDeg, now, nite, alpha);
+  windsockAt(ctx, cam, dx + A[0] * (end * 0.42) - Px * SOCK_OFF, dy + A[1] * (end * 0.42) - Py * SOCK_OFF, windKt, windDeg, now, nite, alpha);
 }
 // The sock itself, at a world point — a threshold puts one beside the numbers and a helipad puts
 // one on its corner, and neither should have to know the other's offsets.
@@ -53981,7 +54006,7 @@ function armFadeKept(ctx, cam, it, fh, now, run, e, ox, oy, pose) {
 // entry of its own, so a mark is filed under a stand-in object per cell (MARK_CELL).
 let ARM_MARK = false;
 const MARK_IT = { c: null, dx: 0, dy: 0, alpha: 1 }, MARK_FACE = [0, 0], MARK_CELL = new WeakMap();
-const MARK_ENV = { L: [0.35, -0.5, 0.79], L2: [0, 0, 1], p: [0, 0, 0, 0], hor: [0, 0, 0], top: [0, 0, 0], g1: [0, 0, 0] };
+const MARK_ENV = { L: [0.35, -0.5, 0.79], L2: [0, 0, 1], p: [0, 0, 0, 0], n: [1, 0], hor: [0, 0, 0], top: [0, 0, 0], g1: [0, 0, 0] };
 let MARK_ENV_AT = -1;
 // The frame's MARK_ENV, from the values each mark's own shading read: makeShade's (glass/aa-emplacement.js,
 // glass/media-lot.js) and statueShade's, which differ in their light with no sun.
@@ -53994,7 +54019,9 @@ function markEnvFrame(night, sun, sky) {
   if (sun && sun.dir) { E.L[0] = sun.dir[0] * fl; E.L[1] = sun.dir[1] * fl; E.L[2] = se; } else { E.L[0] = 0.35; E.L[1] = -0.5; E.L[2] = 0.79; }
   const s2 = sun ? clamp(sun.elev, 0, 1) : 0, f2 = Math.sqrt(Math.max(0, 1 - s2 * s2));
   if (sun) { E.L2[0] = sun.dir[0] * f2; E.L2[1] = sun.dir[1] * f2; E.L2[2] = s2; } else { E.L2[0] = 0; E.L2[1] = 0; E.L2[2] = 1; }
-  E.p[0] = nt; E.p[1] = wet; E.p[2] = sun ? clamp(se * 4, 0, 1) * day : day; E.p[3] = sun && s2 > 0.02 ? 1 : 0;  const SK = (sky && sky.top && sky.hor && sky.g1) ? sky : STATUE_SKY;
+  E.p[0] = nt; E.p[1] = wet; E.p[2] = sun ? clamp(se * 4, 0, 1) * day : day; E.p[3] = sun && s2 > 0.02 ? 1 : 0;
+  E.n[0] = RENDER_TUNE.markNight ?? 0.5; E.n[1] = RENDER_TUNE.markPool ?? 0;
+  const SK = (sky && sky.top && sky.hor && sky.g1) ? sky : STATUE_SKY;
   for (let i = 0; i < 3; i++) { E.hor[i] = SK.hor[i] / 255; E.top[i] = SK.top[i] / 255; E.g1[i] = SK.g1[i] / 255; }
   return E;
 }
@@ -60881,6 +60908,33 @@ function drawRainFromBelow(ctx, W, H, st, dt, amt) {
   ctx.restore();
 }
 
+// A falling drop is a streak that is a hair at the tail and solid at the head, not a ruled line.
+// One sprite, stretched per drop; null where there's no 2D context (the gate's DOM stub), and the
+// callers then draw the old stroke.
+let RAIN_SPRITE;
+function rainSprite() {
+  if (RAIN_SPRITE !== undefined) return RAIN_SPRITE;
+  RAIN_SPRITE = null;
+  if (typeof document === 'undefined') return null;
+  const c = document.createElement('canvas');
+  c.width = 8; c.height = 64;
+  const g = c.getContext && c.getContext('2d');
+  if (!g || !g.createLinearGradient) return null;
+  const grad = g.createLinearGradient(0, 0, 0, 64);
+  grad.addColorStop(0, 'rgba(196,216,242,0)');
+  grad.addColorStop(0.5, 'rgba(196,216,242,0.35)');
+  grad.addColorStop(0.88, 'rgba(206,224,246,0.9)');
+  grad.addColorStop(1, 'rgba(226,238,252,1)');
+  g.fillStyle = grad;
+  g.beginPath();
+  g.moveTo(3.6, 0); g.lineTo(4.4, 0); g.lineTo(7, 58); g.quadraticCurveTo(4, 66, 1, 58);
+  g.closePath(); g.fill();
+  g.fillStyle = 'rgba(255,255,255,0.4)';
+  g.beginPath(); g.ellipse(4, 59, 1.5, 3, 0, 0, Math.PI * 2); g.fill();
+  RAIN_SPRITE = c;
+  return c;
+}
+
 function drawWeather(ctx, W, H, wx, st, dt, speed, precipLocal, phase = 'both') {
   // Resolve the precip to render: the local cell's if present, else the global weather string.
   let rainy = wx === 'rain' || wx === 'storm', snowy = wx === 'snow', stormy = wx === 'storm', rate = 1;
@@ -60936,6 +60990,11 @@ function drawWeather(ctx, W, H, wx, st, dt, speed, precipLocal, phase = 'both') 
       // so batching everything the lights do not reach buys back more than the tint costs. Only a
       // drop that is actually near a light gets a style of its own.
       let batched = false;
+      // Unlit drops are the tapered sprite. The slant is one skew for the whole layer (x' = x + k·y),
+      // so each drop is a plain drawImage placed at x - k·y; lit drops below keep their own stroke.
+      const spr = rainSprite();
+      const skew = -(slant * vmul * 0.6) / ((10 + 0.5 * 12) * lmul);
+      const unlit = [];
       for (let i = 0; i < cnt; i++) {
         const p = st.parts[(layer * 331 + i) % st.parts.length];
         if (!near) { p.y = (p.y + (0.9 + p.v) * dt * (1.4 + speed)) % 1; p.x = (p.x + 0.02 * dt) % 1; }
@@ -60980,10 +61039,27 @@ function drawWeather(ctx, W, H, wx, st, dt, speed, precipLocal, phase = 'both') 
           ctx.strokeStyle = plain;
           continue;
         }
+        if (spr) { unlit.push(x, y, len, p.v); continue; }
         if (!batched) { ctx.beginPath(); batched = true; }
         ctx.moveTo(x, y); ctx.lineTo(x2, y2);
       }
       if (batched) ctx.stroke();
+      if (spr && unlit.length) {
+        ctx.save();
+        ctx.transform(1, 0, skew, 1, 0, 0);
+        const a0 = ctx.globalAlpha;
+        // The sprite is near-opaque at the head, so scale to the curtain's own alpha; a spread of
+        // widths and strengths inside each layer stops it reading as a comb.
+        const aK = Math.min(1, baseA * 2.1), wBase = near ? 2.6 : 1.5;
+        for (let j = 0; j < unlit.length; j += 4) {
+          const x = unlit[j], y = unlit[j + 1], len = unlit[j + 2], v = unlit[j + 3];
+          const wd = wBase * (0.6 + 0.6 * v);
+          ctx.globalAlpha = a0 * aK * (0.6 + 0.4 * v);
+          ctx.drawImage(spr, x - skew * y - wd / 2, y, wd, len * 1.15);
+        }
+        ctx.globalAlpha = a0;
+        ctx.restore();
+      }
     }
     if (stormy && !precipLocal && Math.abs(Math.sin(st.scroll * 40)) > 0.985) { ctx.fillStyle = 'rgba(255,255,255,0.25)'; ctx.fillRect(0, 0, W, H); }
   } else if (snowy) {

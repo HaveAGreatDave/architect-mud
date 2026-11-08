@@ -110,7 +110,8 @@
     }
   },
   "flags": {
-    "drug_family": "psychedelic"
+    "drug_family": "psychedelic",
+    "taken": "swallow"
   },
   "id": "drug_ibogaine",
   "item_id": "item_ibogaine",

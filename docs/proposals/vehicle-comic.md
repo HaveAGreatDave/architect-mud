@@ -1,7 +1,7 @@
 # Vehicle comic: the figures' ink on the aircraft, the rigs, the boats and the pod racer
 
-> **Status: V1 and V2 built (2026-11-03); V3 to V6 are design.** See [V1, as built](#v1-as-built)
-> and [V2, as built](#v2-as-built). The
+> **Status: V1 and V2 built (2026-11-03), V5 built (2026-11-07); V3, V4 and V6 are design.** See
+> [V1, as built](#v1-as-built), [V2, as built](#v2-as-built) and [V5, as built](#v5-as-built). The
 > preview concepts are a live page in Dave's artifacts, "Vehicle Comic Ink".
 
 ## Why
@@ -185,6 +185,41 @@ edge-list builder (`buildEdges`) and a GL layer that context.js uploads in `uplo
 - **The pod racer** (the pod's mesh): a clean outline, part lines on the rails and the trim, and the
   V1 terminator across the body. Nothing busy. Its turbines weren't in the frame.
 - **Not yet looked at:** a phone.
+
+## V5, as built
+
+With Comic on, every cockpit takes the look in the CABIN branch of
+[gl/solids.js](../../client/game/js/panels/gl/solids.js), and its lines from
+[gl/vehicle-ink.js](../../client/game/js/panels/gl/vehicle-ink.js) in cabin mode.
+
+- **Only faces with a material.** A face whose texture kind is 0 (lettering, a gauge face, a lamp, a
+  display) takes no band, no wear, no hatching and no line, and neither does glass. That's the
+  whole legibility rule, so the Drake bar holds without a list of exceptions.
+- **Bands.** The light a face gets against its own colour is rounded to a band every 0.8 of a stop,
+  with an edge about a pixel wide, after the floods and the sun patches. Bands under the room's
+  plain light are painted toward `HOUSE.shade`. Metals keep their own ramp and glint.
+- **Hatching** in the bands under the plain light, about 14 mm apart in the face's own plane,
+  crossed in the deepest band, lighter at night, gone before it's finer than a pixel.
+- **Wear, by aircraft.** `CABIN_WEAR` in [gl/house-style.js](../../client/game/js/panels/gl/house-style.js)
+  gives each class its grime, chips, hatching, grain and dirt colour: the Drake nearly clean, the
+  Reaper chipped grey enamel and soot, the Locust chemical crust, a boat dried salt, the wreck rust
+  everywhere. A 2076 airframe gets a third of the grime and a quarter of the chips. Grime is
+  hard-edged, with a darker line where it stops, and heavier low in the room; chips are flakes with
+  an ink rim; cloth, leather and carpet wear lighter instead. The photographic grain is cut to the
+  class's `grain` share, because it fights a painted surface.
+- **Lines.** The cabin's records go through `buildEdges` with their material (texture kind) as the
+  part and every normal turned toward the eye, so only creases and changes of material draw. Never
+  the colour: the Drake's veneer is walnut bands laid as strips, and keyed on colour every band
+  took an ink line. Open edges and silhouettes don't draw either, because a cockpit lays its trim
+  on as flat strips. The Drake also takes almost no wear.
+- **Wood is painted its own way** (`cabWood`): its photographic grain goes, and it takes two or three
+  flat tones in broad bands, a few long wavy strokes in a darker shade of its own colour (never
+  ink), and the odd knot.
+  All at `cabinInkOf`'s width, 1.2 px of a 900-wide picture (held to a pixel), under the seat's
+  attitude (`seatAtt`, copied into the ink shader). Drawn after the room and before the glass.
+- **Seen** with the Modelshop's `seatShot` at 11:00: the Reaper, the Drake, the Grasshopper and the
+  wreck; and the Leviathan at 21:00 with the panel and dome lights on. Every gauge and label reads
+  as before. Not looked at: a phone, the boats, the trucks, the pod racer.
 
 ## Per tier
 

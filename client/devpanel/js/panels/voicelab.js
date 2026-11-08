@@ -152,8 +152,8 @@ function renderVoiceLabPanel(data) {
       <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px;align-items:center;font-size:11px;color:var(--text-dim)">
         back end
         <select id="vl-backend" onchange="vlBackendChanged()" style="background:var(--bg3);color:var(--text);border:1px solid var(--border);border-radius:3px;padding:4px">
-          <option value="graph">graph (Web Audio nodes, as shipped)</option>
-          <option value="worklet">worklet (LF pulse + Klatt cascade, prototype)</option>
+          <option value="graph">graph (Web Audio nodes, the fallback)</option>
+          <option value="worklet" selected>worklet (LF pulse + Klatt cascade, as shipped)</option>
         </select>
         <button class="action-btn" onclick="vlAB()" title="The same line on the graph, then on the worklet">A/B this line</button>
         <span id="vl-wk-state"></span>
@@ -238,7 +238,7 @@ function renderVoiceLabPanel(data) {
   vlRender();
   vlMrtHistory();
   const be = _vlEl('vl-backend');
-  try { if (be && localStorage.getItem('vl.backend') === 'worklet') { be.value = 'worklet'; vlBackendChanged(); } } catch { /* no storage */ }
+  try { const saved = localStorage.getItem('vl.backend'); if (be && saved) be.value = saved; if (be) vlBackendChanged(); } catch { /* no storage */ }
   document.getElementById('vl-text').addEventListener('input', vlRender);
   document.getElementById('vl-npc').addEventListener('change', (e) => {
     if (!e.target.value) return;
@@ -302,10 +302,10 @@ function vlBuildVoice() {
   }
 }
 
-// ── Back end: the node graph or the worklet prototype ───────────────────────
+// ── Back end: the worklet or the node graph fallback ───────────────────────
 // Both read the same phoneme run and the same scheduled targets; only the stage that
 // turns them into sound differs (see WK in audio-engine.js).
-const _vlBackend = () => _vlEl('vl-backend')?.value || 'graph';
+const _vlBackend = () => _vlEl('vl-backend')?.value || 'worklet';
 function vlBackendChanged() {
   const engine = window.AudioEngine, st = _vlEl('vl-wk-state');
   const be = _vlBackend();

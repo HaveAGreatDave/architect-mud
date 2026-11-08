@@ -161,6 +161,9 @@ function placedCoords() {
 function isMapRim(zone, direction) {
   const d = RIM_DELTA[direction];
   if (!d || !zone?.map_id || zone.grid_x == null || zone.grid_y == null) return false;
+  // Only the world has a rim. An interior map is a few rooms around 0,0 with nothing beside them,
+  // so every wall of a building would read as the edge, and its region_id would supply the gate.
+  if (zone.map_id !== 'map_world') return false;
   // You cross the waste on foot. Open water is not the waste: the entire northern
   // edge of Coldwater (y=896) is basin, and "the ground runs out to the north" is a
   // lie told to someone who is swimming in it. A water tile has no rim in any

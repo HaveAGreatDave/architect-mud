@@ -127,6 +127,10 @@ Not done: an official's stripes stop at his shoulders (only the torso carries th
 
 [actors.mjs](../../scripts/shapes/actors.mjs) and [actor-head.mjs](../../scripts/shapes/actor-head.mjs) gate the crowd's bake as before, unchanged.
 
+## The sculpted revision
+
+A revised figure on the same rig is in review behind a switch: [sculpted-figure.md](sculpted-figure.md).
+
 ## Open questions
 
 - **The street's own close-ups.** The standing camera and free look still draw the crowd body with the L0 head. Swapping in the close-up figure past some size would mean GPU skinning on the street (gl/actors.js bakes every vertex for every frame), as the ballplayers do.

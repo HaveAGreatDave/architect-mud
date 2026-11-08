@@ -13,7 +13,8 @@
     "drug_family": "cannabis",
     "form": "leaf",
     "legal": true,
-    "sub": "dried"
+    "sub": "dried",
+    "taken": "smoke"
   },
   "id": "drug_loose_cannabis",
   "item_id": "item_loose_cannabis",

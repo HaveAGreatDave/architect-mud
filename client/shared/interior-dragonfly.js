@@ -573,7 +573,7 @@ const readings = (live) => {
 // The cyclic: a stick from a boot on the floor, leaning with the disc. Returns the base and grip.
 function cyclicAt(P, R) {
   const base = [CYC.base[0], CYC.base[1], P.dragonfly.zF + 0.05];
-  const dir = norm([R.ail * 0.34, -CYC.lean + R.elev * 0.30, 1]);
+  const dir = norm([R.ail * 0.34, -CYC.lean - R.elev * 0.30, 1]);
   const top = add(base, mul(dir, CYC.len));
   return { base, top, dir };
 }

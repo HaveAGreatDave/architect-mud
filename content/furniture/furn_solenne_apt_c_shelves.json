@@ -1,0 +1,21 @@
+{
+  "description": "Floor-to-ceiling walnut shelves holding hardback books bought by the metre, spines arranged by colour. A few have been read. You can tell which.",
+  "flags": {
+    "aliases": "bookshelf",
+    "container": 30000,
+    "look": {
+      "arche": "store",
+      "form": "shelves"
+    }
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_solenne_apt_c_shelves",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "bookshelf",
+  "object_type": "container",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_solenne_apt_c"
+}

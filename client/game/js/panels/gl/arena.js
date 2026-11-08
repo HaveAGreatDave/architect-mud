@@ -947,11 +947,11 @@ export function createArenaRenderer(canvas, overlay, W0, ice) {
       gl.useProgram(INK.p);
       gl.uniformMatrix4fv(INK.u('uVP'), false, vp); gl.uniform2fv(INK.u('uShake'), shake);
       gl.uniform2f(INK.u('uRes'), w, h);
-      // heavier on the side away from the banks with it on (HOUSE.weigh), as the park's line is
+      // one even width: comic mode's line matches the cel line here, unweighted
       gl.uniform3fv(INK.u('uKey'), KEY);
-      gl.uniform1f(INK.u('uWeigh'), figureLightOf({ bands: CEL.bands, shade: CEL.shade }).weigh);
+      gl.uniform1f(INK.u('uWeigh'), 1);
       // 0.09 ft of the man, between 1.2 and 3.6 px of a 900-wide picture; the house style's line
-      // when the comic look is on (gl/house-style.js)
+      // in either look (gl/house-style.js gives the comic look its colour)
       const own = { ft: 0.09, px: [1.2, 3.6], col: INK_COL }, ink = inkOf(own);
       gl.uniform3fv(INK.u('uCol'), ink.col);
       const pass = (ft, px, depth, back) => {
@@ -963,10 +963,8 @@ export function createArenaRenderer(canvas, overlay, W0, ice) {
           st.draws++; st.tris += (Ly.n - first) / 3;
         }
       };
-      // The comic look's line is wide enough to be a slab across his own chest, so it stays well
-      // behind him, round the outside only. Either way the view's own line goes a few inches
-      // behind the man (gl/ink.js): an arm keeps its line across his body.
-      if (ink !== own) pass(ink.ft, ink.px, 0.0006, 0);
+      // The comic look takes only the house ink here, never the house width: that read as a slab.
+      // The line goes a few inches behind the man (gl/ink.js): an arm keeps its line across his body.
       pass(own.ft, own.px, 0, INK_BACK);
     }
     // ── the comic look's outlines ─────────────────────────────────────────────
@@ -1196,7 +1194,10 @@ export function createArenaRenderer(canvas, overlay, W0, ice) {
       }
     }
 
-    const api = { render, stats: st, cam: camera.cam, view: 'broadcast', glow: false, ink: true, xrayGore: 'full', kind: 'gl', lost: false, rungs: ARENA_RUNGS, quality: { ...ARENA_RUNGS[0] },
+    // A view that's done gives its context back: a browser keeps about sixteen, and past that it
+    // kills the oldest, which may be the room's or the windshield's.
+    const dispose = () => { lost = true; api.lost = true; gl.getExtension('WEBGL_lose_context')?.loseContext(); };
+    const api = { render, dispose, stats: st, cam: camera.cam, view: 'broadcast', glow: false, ink: true, xrayGore: 'full', kind: 'gl', lost: false, rungs: ARENA_RUNGS, quality: { ...ARENA_RUNGS[0] },
       // the reflection buffer, for a bench that wants to know it isn't empty
       mirrorPeak: () => mirror.peak() };
     return api;

@@ -1,6 +1,6 @@
 {
-  "blurb": "Concept. The Locust fifty years on: a battery hopper with ten spray drones on the wing, the yellow and the green kept.",
-  "default": false,
+  "blurb": "The Locust fifty years on: a battery hopper with ten spray drones on the wing, the yellow and the green kept.",
+  "default": true,
   "exterior": {
     "base": "#e6be2c",
     "finish": "gloss",

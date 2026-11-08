@@ -85,7 +85,8 @@
     }
   },
   "flags": {
-    "drug_family": "dissociative"
+    "drug_family": "dissociative",
+    "taken": "drink"
   },
   "id": "drug_dxm",
   "item_id": "item_dxm",

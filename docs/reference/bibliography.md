@@ -27,6 +27,7 @@ The rule that runs through the list is the one [house-voice.md](house-voice.md) 
 | Work | What Architect takes | Where |
 |---|---|---|
 | South Park | The simple comic faces on the broadcast stage. | [broadcast-3d.md](../proposals/broadcast-3d.md) |
+| Preston Blair, *Cartoon Animation* | The animator's mouth chart: a handful of shapes standing for all the sounds, which is what lip sync's `MOUTHS` are. | [sculpted-figure.md](../proposals/sculpted-figure.md) |
 | The FoxTrax puck | The glowing puck halo and the tail that turns red at speed. | [systems-broadcast.md](../systems-broadcast.md) |
 
 ## Writing

@@ -35,6 +35,7 @@ import {
   liveAircraft, getLivePlayer, sendToPlayer, getZone, isContinuous, effStats,
   bandFromAltitude, surfacesWire, toDeg, degToCardinal, bounds,
   registerTextPilotTeardown, contextPayload, nearestAirfield, surfaceAt,
+  gearRetracts,
 } from './state.js';
 import { getMinimapData } from '../../server/engine/world.js';
 import { loggedPanelsSync } from '../../server/engine/presentation.js';
@@ -472,6 +473,7 @@ export function cmdTextFlaps(args, player) {
 
 export function cmdTextGear(args, player) {
   const { live, err } = requireTextPilot(player); if (err) return err; if (!live) return null;
+  if (!gearRetracts(live.type)) return { type: 'emote', message: 'Fixed gear: the wheels stay where they are.' };
   const up = /^(up|in|retract)$/i.test(args[0] || '');
   live.textTargets.gear = up ? 0 : 1;
   return { type: 'emote', message: up ? 'Gear up: she cleans up and accelerates.' : 'Gear down and locked.' };

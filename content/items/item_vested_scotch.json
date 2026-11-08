@@ -4,7 +4,13 @@
   "id": "item_vested_scotch",
   "name": "a glass of the club scotch",
   "tags": {
+    "consumable": true,
     "description": "A heavy tumbler, a large measure, no ice offered. The bottle it came from has no label on it and lives under the desk rather than behind a bar, because there is no bar.",
+    "hydrating": true,
+    "laced_drug": "drug_alcohol",
+    "laced_potency": 1.6,
+    "restore_sanity": 14,
+    "restore_thirst": 28,
     "stackable": false
   },
   "type": "drink",

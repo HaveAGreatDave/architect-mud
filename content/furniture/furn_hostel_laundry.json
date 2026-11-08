@@ -1,0 +1,22 @@
+{
+  "description": "A plastic crate marked LOST in marker. Single socks, a belt, a book swollen with damp, one boot. Everything in it smells of the wash.",
+  "flags": {
+    "aliases": "crate,lost property",
+    "container": 12000,
+    "look": {
+      "arche": "store",
+      "form": "crate",
+      "wear": 0.95
+    }
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_hostel_laundry",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "lost property crate",
+  "object_type": "container",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_trackmarks_back"
+}

@@ -7,12 +7,12 @@ import { withinShift, pilotTarget, charterOwnsPilot, stepToward, charterFare, pi
 import { parsePartsArg, cleanParts, normalizeLivery as _normLv } from './livery.js';
 import { signatureMult, signatureScore, colorName, describeExterior,
   normalizeLivery, sanitizeLivery, conspicuousnessMult, paintCost, isPaintable,
-  readSchemes, schemeOf, classDefault, liveryFromSet, LIVERY_DEFAULT } from './livery.js';
+  readSchemes, schemeOf, classDefault, liveryFromSet, lineName, onLine, LIVERY_DEFAULT } from './livery.js';
 import { LIVERIES } from '../../client/shared/liveries.js';
 import { LIVERY_MODELS } from '../../client/shared/livery-schema.js';
 import { liveriesFor, liveryById, unlockedLiveries, aircraftLiveryModel } from '../../client/shared/livery-sets.js';
 import { crashSeverity, collateralBill, isSeverelyImpaired } from './collateral.js';
-import { boundUnpoweredClimb, hangarTileFor, toDeg } from './state.js';
+import { boundUnpoweredClimb, hangarTileFor, toDeg, gearRetracts } from './state.js';
 import { thermalLift } from '../../client/shared/thermals.js';
 import { sellAircraft, cancelRental, flushAirborne, pushHangarBay, _liveryTest } from './hangars.js';
 import { getBroadcast, setBroadcast } from '../../server/engine/messaging.js';
@@ -449,6 +449,8 @@ async function regressBody({ run, check, getPlayer }) {
       return drakeWaterFrame(F, { onGround: true, altitude: 0, groundFt: 0, airspeed: 30, heading: 0 }, 1 / 30, 0, null, 0.008).drag; };
     return run(true) === 0 && run(false) > 0;
   })());
+  check('gear: the Viper retracts, the Mule and Dragonfly stay fixed',
+    gearRetracts({ class: 'heli', data: { retract_gear: true } }) && !gearRetracts({ class: 'prop', data: {} }) && !gearRetracts({ class: 'heli', data: {} }));
   check('drake water: gear up is a belly landing that costs hull',
     (judgeWaterTouchdown({ sinkFpm: 300, kt: 40, gearDown: false, rough: 0 }).hullPct || 0) > 0);
   check('drake water: feet tucked, slow or straight down onto calm water is a clean float-on',
@@ -595,7 +597,17 @@ async function regressBody({ run, check, getPlayer }) {
   check('an armed heli type is painted as a Viper, an unarmed one as a Dragonfly',
     aircraftLiveryModel('heli', 8) === 'viper' && aircraftLiveryModel('heli', 0) === 'heli' && aircraftLiveryModel('gunship', 4) === 'gunship');
   check('an unpainted Viper wears its own set, not the Dragonfly teal',
-    normalizeLivery({}, 'viper').base !== normalizeLivery({}, 'heli').base && liveryById('aircraft', 'viper', 'stock')?.default === true);
+    normalizeLivery({}, 'viper').base !== normalizeLivery({}, 'heli').base && liveryById('aircraft', 'viper', '2076')?.default === true);
+  check('the line builds the 2076: an unpainted aircraft wears it, and the desk calls it that',
+    normalizeLivery({}, 'heli').variant === '2076' && lineName({ class: 'heli', hardpoints: 0, name: 'Dragonfly' }) === 'Dragonfly 2076');
+  check('an aircraft stored as stock draws the 2076 and keeps its colours',
+    (() => { const l = normalizeLivery({ livery: { base: '#101010', trim: '#202020', pattern: 'solid', variant: 'stock' } }, 'prop'); return l.variant === '2076' && l.base === '#101010'; })());
+  check('a stock Drake takes the 2076 cabin; a special edition keeps its own',
+    normalizeLivery({ livery: { base: '#101010', variant: 'stock', itrim: 'stock' } }, 'drake').itrim === '2076' && normalizeLivery({ livery: { base: '#101010', variant: 'quackhawk', itrim: 'quackhawk' } }, 'drake').variant === 'quackhawk');
+  check('a generic set goes on the 2076 body, and on the wreck stays stock',
+    onLine(liveryFromSet(liveryById('aircraft', 'heli', 'racing')), 'heli').variant === '2076' && onLine(liveryFromSet(liveryById('aircraft', 'wreck', 'racing')), 'wreck').variant === 'stock');
+  check('the stock sets are off the shelf', !unlockedLiveries('aircraft', 'heli', () => false).some(l => l.id === 'stock'));
+  check('the wreck stays as it was', normalizeLivery({}, 'wreck').variant === 'stock');
   check('schemeOf saves the whole look (factory scheme, cockpit trim, plate)', (() => { const s = schemeOf(qhLook, 'drake'); return s.variant === 'quackhawk' && s.itrim === 'quackhawk' && s.plate === 'QUACKHAWK DOWN'; })());
   {
     // A locked set stays hidden until its flag is set. Pushed onto the baked table for the check
@@ -1585,7 +1597,7 @@ async function regressBody({ run, check, getPlayer }) {
   }
 
   // ── A runway tile belongs to the field its paving joins ──────────────────────────
-  // Coldwater Regional's field tile is 925,903 and its strip runs north to 925,898, five tiles
+  // Coldwater Regional's field tile is 925,903 and its strip runs north to 925,897, six tiles
   // away. The resolver gave a runway tile to a field only within three, and it was handed the
   // surface cell `land` passes, which has no grid_x, so it never resolved anything: a Mule shut
   // down at the north end parked on the runway tile, off the field, and a Leviathan was towed
@@ -2129,7 +2141,7 @@ async function regressBody({ run, check, getPlayer }) {
     // ⚠ AND A PAVED FIELD IS LEFT ALONE. Coldwater Regional already has paint, lights and a PAPI;
     // drums down the side of it would read as roadworks. The gate is the DUST surface, not the
     // runway flag, and this is the case that proves the difference is being read.
-    const paved = [898, 899, 900, 901, 902, 903].map(y => der(925, y));
+    const paved = [897, 898, 899, 900, 901, 902, 903, 904, 905, 906].map(y => der(925, y));
     check('a paved runway carries the flag but is never drum-marked',
       paved.every(d => d && d.mark !== 'strip'), paved.map(d => d?.mark).join(','));
 

@@ -1,0 +1,29 @@
+{
+  "description": "A walk-up cabinet of Spanish cedar behind glass, with a hygrometer that's never once read wrong. Boxes sit on the shelves with their lids cracked, and the bands on them name farms that stopped existing before the Collapse. The key is on the top. Nobody up here steals.",
+  "flags": {
+    "aliases": "humidor,cigar cabinet,cigars",
+    "container": 20000,
+    "interactions": [
+      "lean"
+    ],
+    "look": {
+      "arche": "cabinet",
+      "dims": [
+        0.8,
+        0.48,
+        1.45
+      ],
+      "form": "vitrine"
+    }
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_penthouse_humidor",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "cigar humidor",
+  "object_type": "container",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_solenne_penthouse"
+}

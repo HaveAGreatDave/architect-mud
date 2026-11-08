@@ -634,7 +634,7 @@ function throttleTip(i, thr) {
   return [p[0], p[1] + Math.sin(a) * THR_LEN, p[2] + Math.cos(a) * THR_LEN];
 }
 const STICK_BASE = [0, 0.30, FLOOR_Z];
-function stickTip(R) { return [R.ail * 0.07, 0.34 + R.elev * 0.08, -0.52]; }
+function stickTip(R) { return [R.ail * 0.07, 0.34 - R.elev * 0.08, -0.52]; }
 const FLAP_PIVOT = [-0.49, 0.05, CONS_Z - 0.06];
 function flapTip(R) { const a = lerp(-0.55, 0.55, R.flap); return [FLAP_PIVOT[0], FLAP_PIVOT[1] + Math.sin(a) * 0.11, FLAP_PIVOT[2] + Math.cos(a) * 0.11]; }
 // The lighting panel's switch row on the right console, centred on `o`.

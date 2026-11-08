@@ -40,6 +40,7 @@ import { DRINKS } from '../drinks/recipes.js';
 import { isToilet, isShower } from '../bodily/index.js';
 import { zoneIsDark } from './blackout.js';
 import { randInt } from '../../server/engine/util.js';
+import { emit } from '../../server/engine/events.js';
 
 const START_CHANCE = 0.35;                 // per eligible zone, per tick
 const COOLDOWN_MS = [8 * 60_000, 20 * 60_000];
@@ -131,7 +132,7 @@ const BATHROOM_GOING = [
   `{npc} gets up without a word and heads for the bathroom.`,
   `{npc} says "give me a minute" to nobody in particular and goes through.`,
   `{npc} pauses mid-thought, makes a face, and goes to the bathroom.`,
-  `{npc} disappears into the bathroom. The door doesn't quite latch.`,
+  `{npc} goes into the bathroom and shuts the door.`,
 ];
 const BATHROOM_BACK = [
   `{npc} comes back drying their hands on their trousers.`,
@@ -199,6 +200,16 @@ function playBathroom(zoneId, npc, bathId) {
       done();
     }, away);
   }, randInt(BEAT_GAP_MS[0], BEAT_GAP_MS[1]));
+}
+
+// A trip asked for from outside a scene: a resident on the Room Stage who needs the bathroom. False
+// when the flat has none or something else is going on in it.
+export function tripToBathroom(zoneId, npc) {
+  if (activeHome.has(zoneId)) return false;
+  const bath = bathroomFor(zoneId);
+  if (!bath) return false;
+  playBathroom(zoneId, npc, bath);
+  return true;
 }
 
 // A plausible thing to have made. Straight off the live catalogues, so anything
@@ -317,10 +328,12 @@ export function homeLifeTick() {
       if (bath) { playBathroom(zoneId, npc, bath); continue; }
     }
 
-    let beats;
-    if (mealtime && roll < 0.45) beats = rand(MEAL).map(l => l.replace('{thing}', pickMeal()));
-    else if (roll < 0.8) beats = rand(DRINK).map(l => l.replace('{thing}', pickDrink(timePhase)));
-    else beats = rand(TIDY);
+    let beats, kind;
+    if (mealtime && roll < 0.45) { beats = rand(MEAL).map(l => l.replace('{thing}', pickMeal())); kind = 'meal'; }
+    else if (roll < 0.8) { beats = rand(DRINK).map(l => l.replace('{thing}', pickDrink(timePhase))); kind = 'drink'; }
+    else { beats = rand(TIDY); kind = 'tidy'; }
+    // a Room Stage open on this flat walks them to the cooker for it (plugins/roomstage/npc-life.js)
+    emit('npc.home.scene', { zoneId, npcId: npc.id, kind });
 
     play(zoneId, npc, beats.map(l => l.replace(/\{npc\}/g, npc.name)));
   }

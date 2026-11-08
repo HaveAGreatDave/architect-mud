@@ -1,0 +1,30 @@
+/* THE SOUNDER (sonar-panel.js): a small unit over the seat, on the left under the reel's readout. */
+.sn-unit { position:absolute; left:12px; top:var(--bf-top, 56px); z-index:19; width:340px; padding:5px 6px 6px; white-space:normal;
+  border:1px solid #1d3a44; border-radius:6px; background:linear-gradient(180deg, #27323a, #151c22);
+  box-shadow:0 6px 18px rgba(0,0,0,0.55), inset 0 1px 0 rgba(255,255,255,0.08);
+  font-family:'Courier New',monospace; color:#cfe9ef; letter-spacing:0.5px; pointer-events:auto; }
+.sn-unit[hidden] { display:none; }
+.sn-head { display:flex; justify-content:space-between; align-items:baseline; padding:0 2px 4px; }
+.sn-name { font-size:0.625rem; font-weight:bold; letter-spacing:2px; color:#8fb4bf; }
+.sn-under { font-size:0.875rem; font-weight:bold; color:#ffe27a; }
+.sn-screen { display:block; width:100%; height:158px; border-radius:3px; background:#02070f; border:1px solid #0a1418; }
+.sn-keys { display:flex; gap:5px; margin-top:5px; }
+.sn-key { flex:1; min-height:26px; padding:2px 4px; font-family:inherit; font-size:0.625rem; letter-spacing:1px; color:#cfe9ef; cursor:pointer;
+  border:1px solid #38505a; border-radius:4px; background:linear-gradient(180deg, #33434c, #1f2b32); }
+.sn-key:active { background:linear-gradient(180deg, #1f2b32, #33434c); }
+.sn-off { flex:0 0 44px; color:#ff9a8a; }
+
+/* With the reel open its readout has the top of the left side, and the throttle and the wheel aren't
+   doing anything, so the unit stands where they were. */
+.boat-reeling .sn-unit { top:auto; bottom:30px; }
+.boat-reeling .boat-lever, .boat-reeling .boat-wheel { visibility:hidden; }
+.boat-reeling .boat-read { visibility:hidden; }
+/* With the unit up the reel's bottom row moves over to give it room. */
+.boat-sounding .bf-hosted .bf-fight { left:364px; right:150px; width:auto; transform:none; }
+.boat-sounding .bf-hosted[data-phase="fight"] .bf-controls { left:364px; right:150px; }
+.boat-sounding .bf-hosted .bf-status { left:364px; right:150px; width:auto; max-width:none; transform:none; }
+.boat-sounding.boat-reeling .boat-keys { padding-left:356px; }
+html[data-density="compact"] .sn-unit { width:min(46vw, 230px); padding:3px 4px 4px; }
+html[data-density="compact"] .boat-sounding .bf-hosted .bf-fight, html[data-density="compact"] .boat-sounding .bf-hosted .bf-status { left:50%; right:auto; transform:translateX(-50%); width:min(420px, calc(100% - 32px)); }
+html[data-density="compact"] .sn-screen { height:96px; }
+html[data-density="compact"] .sn-key { min-height:44px; }

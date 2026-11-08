@@ -1,6 +1,6 @@
 {
   "blurb": "Dark green over a pale grey belly, and a shark's mouth on the nose, because somebody always paints one.",
-  "default": true,
+  "default": false,
   "exterior": {
     "base": "#46523c",
     "decal": "sharkmouth",
@@ -16,5 +16,5 @@
   "kind": "aircraft",
   "model": "gunship",
   "name": "Swamp Green",
-  "unlock": null
+  "unlock": "retired_stock"
 }

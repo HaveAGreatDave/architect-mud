@@ -58,6 +58,35 @@ export default async ({ run, check, getPlayer }) => {
     check(`${it.name} is taken by ${want}`, consumeVerb(it) === want, consumeVerb(it));
   }
 
+  // A shop drink has to be drinkable. `type` is only an authoring category, so
+  // twelve teas, coffees and spirits once sold fine and did nothing when drunk.
+  const sold = [...getItemCache().values()].filter(i => i.type === 'drink');
+  check('the world has items filed as drinks', sold.length > 0);
+  const dry = sold.filter(i => !hasTag(i, 'consumable') || consumeVerb(i) !== 'drink');
+  check('every item filed as a drink can be drunk', dry.length === 0, dry.map(i => i.id).join(', '));
+
+  // One of them end to end: thirst, caffeine, warmth and its own line.
+  {
+    const p = getPlayer();
+    const saved = { thirst: p.thirst, _warmC: p._warmC, _warmMin: p._warmMin, _warmFullMin: p._warmFullMin };
+    const id = randomUUID();
+    await query(`INSERT INTO player_inventory (id,player_id,item_id,quantity,condition) VALUES ($1,$2,'item_hf_flatwhite',1,1.0)`, [id, p.id]);
+    try {
+      p.thirst = 30;
+      const r = await run('drink flat white');
+      check('a flat white is drunk', r?.type === 'use' && /very good coffee/.test(r.message), JSON.stringify(r));
+      check('…and slakes thirst', p.thirst === 50, String(p.thirst));
+      check('…and carries its caffeine', (p.activeDrugs || []).some(d => d.drugId === 'drug_coffee'), JSON.stringify(p.activeDrugs));
+      check('…and warms you', p._warmMin > 0 && p._warmC > 0, `${p._warmC} for ${p._warmMin}`);
+      check('…and is gone', !(await query('SELECT 1 FROM player_inventory WHERE id=$1', [id])).rows.length);
+    } finally {
+      await query('DELETE FROM player_inventory WHERE id=$1', [id]);
+      Object.assign(p, saved);
+      p.activeDrugs = [];
+      p.pendingOnsets = [];
+    }
+  }
+
 
   // The refusal, end to end — the half a derivation test cannot reach. `eat` gets
   // here down two separate paths (this plugin's specialized action and the engine

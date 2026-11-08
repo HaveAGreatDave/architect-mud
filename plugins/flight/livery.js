@@ -24,66 +24,46 @@ export const LIVERY_DEFAULT = {
 // The id reaches the client as livery.variant: the exterior mesh takes it as a paint scheme from its
 // own file (content/vehicle_models/mesh_*.json 'schemes') and the cockpit swaps its palette.
 export const TRIMS = {
-  drake: [
-    { id: 'stock', label: 'Mandarin · walnut & gold' },
-    { id: 'noir', label: 'Darkwing · carbon & gold', plate: 'DARKWING' },
+  drake: [    { id: 'noir', label: 'Darkwing · carbon & gold', plate: 'DARKWING' },
     // The mesh file carried these two all along and nothing could select them. The cockpit has no
     // palette of its own for them and sits in the stock walnut.
     { id: 'midnight', label: 'Midnight' },
     { id: 'neon', label: 'Neon' },
     // SPECIAL EDITION: a bald eagle outside, red white and blue inside (interior-drake.js DRAKE_TRIM_QUACKHAWK).
     { id: 'quackhawk', label: 'Quackhawk Down · special edition' },
-    // CONCEPT: the Drake 2076 is a different airframe (mesh_drake.json 'variants'), with its own cockpit.
-    { id: '2076', label: 'Drake 2076 · concept' },
+    // the Drake 2076 is a different airframe (mesh_drake.json 'variants'), with its own cockpit.
+    { id: '2076', label: 'Drake 2076 · the 2076' },
   ],
-  // CONCEPT: the 2076 body is a different model, not a paint scheme (mesh_heli.json 'variants').
+  // the 2076 body is a different model, not a paint scheme (mesh_heli.json 'variants').
   // An armed heli reads `viper` below, not this (its livery model; aircraftLiveryModel).
-  heli: [
-    { id: 'stock', label: 'Mini-500 · the original' },
-    { id: '2076', label: 'Dragonfly 2076 · concept' },
+  heli: [    { id: '2076', label: 'Dragonfly 2076 · the 2076' },
   ],
-  // CONCEPT: the Mule 2076 is a different airframe (mesh_prop.json 'variants'), with its own cockpit.
-  prop: [
-    { id: 'stock', label: 'Twin Otter · the original' },
-    { id: '2076', label: 'Mule 2076 · concept' },
+  // the Mule 2076 is a different airframe (mesh_prop.json 'variants'), with its own cockpit.
+  prop: [    { id: '2076', label: 'Mule 2076 · the 2076' },
   ],
-  // CONCEPT: the Mayfly 2076 is a different airframe (mesh_ultralight.json 'variants'), with its own cockpit.
-  ultralight: [
-    { id: 'stock', label: 'Cessna 172 · the original' },
-    { id: '2076', label: 'Mayfly 2076 · concept' },
+  // the Mayfly 2076 is a different airframe (mesh_ultralight.json 'variants'), with its own cockpit.
+  ultralight: [    { id: '2076', label: 'Mayfly 2076 · the 2076' },
   ],
-  // CONCEPT: the Grasshopper 2076 is a different airframe (mesh_grasshopper.json 'variants'), with its own cockpit.
-  grasshopper: [
-    { id: 'stock', label: 'Piper Cub · the original' },
-    { id: '2076', label: 'Grasshopper 2076 · concept' },
+  // the Grasshopper 2076 is a different airframe (mesh_grasshopper.json 'variants'), with its own cockpit.
+  grasshopper: [    { id: '2076', label: 'Grasshopper 2076 · the 2076' },
   ],
-  // CONCEPT: the Locust 2076 is a different airframe (mesh_locust.json 'variants'), with its own cockpit.
-  locust: [
-    { id: 'stock', label: 'Air Tractor · the original' },
-    { id: '2076', label: 'Locust 2076 · concept' },
+  // the Locust 2076 is a different airframe (mesh_locust.json 'variants'), with its own cockpit.
+  locust: [    { id: '2076', label: 'Locust 2076 · the 2076' },
   ],
-  // CONCEPT: the Leviathan 2076 is a different airframe (mesh_heavy.json 'variants'), with its own cockpit.
-  heavy: [
-    { id: 'stock', label: 'Antonov An-124 · the original' },
-    { id: '2076', label: 'Leviathan 2076 · concept' },
+  // the Leviathan 2076 is a different airframe (mesh_heavy.json 'variants'), with its own cockpit.
+  heavy: [    { id: '2076', label: 'Leviathan 2076 · the 2076' },
   ],
-  // CONCEPT: the Shrike 2076 is a different airframe (mesh_divebomber.json 'variants'), with its own cockpit.
-  divebomber: [
-    { id: 'stock', label: 'Ju 87 Stuka · the original' },
-    { id: '2076', label: 'Shrike 2076 · concept' },
+  // the Shrike 2076 is a different airframe (mesh_divebomber.json 'variants'), with its own cockpit.
+  divebomber: [    { id: '2076', label: 'Shrike 2076 · the 2076' },
   ],
-  // CONCEPT: the armed heli's 2076 edition is the Viper 2076 (mesh_heli_armed.json 'variants'), with
+  // the armed heli's 2076 edition is the Viper 2076 (mesh_heli_armed.json 'variants'), with
   // its own cockpit. Keyed on the livery model, as the armed heli's liveries are.
-  viper: [
-    { id: 'stock', label: 'Apache · the original' },
-    { id: '2076', label: 'Viper 2076 · concept' },
+  viper: [    { id: '2076', label: 'Viper 2076 · the 2076' },
   ],
-  // CONCEPT: the Reaper 2076 is a different airframe (mesh_gunship.json 'variants'), with its own cockpit.
-  gunship: [
-    { id: 'stock', label: 'Thunderbolt II · the original' },
-    { id: '2076', label: 'Reaper 2076 · concept' },
+  // the Reaper 2076 is a different airframe (mesh_gunship.json 'variants'), with its own cockpit.
+  gunship: [    { id: '2076', label: 'Reaper 2076 · the 2076' },
   ],
-  // CONCEPT: the Carcass 2076 is a different airframe (mesh_wreck.json 'variants'), with its own cockpit.
+  // the Carcass 2076 is a different airframe (mesh_wreck.json 'variants'), with its own cockpit.
   wreck: [
     { id: 'stock', label: 'Fly Baby · the original' },
     { id: '2076', label: 'Carcass 2076 · concept' },
@@ -242,6 +222,9 @@ export function normalizeLivery(cd, cls = null) {
   const stockGrey = String(raw.base || '').toLowerCase() === LIVERY_DEFAULT.base && String(raw.trim || '').toLowerCase() === LIVERY_DEFAULT.trim
     && (!raw.pattern || raw.pattern === 'bare');
   if (stockGrey) return { ...d, text: typeof raw.text === 'string' ? raw.text.slice(0, 80) : '', plate: cleanPlate(raw.plate) || d.plate };
+  // THE OLD AIRFRAMES ARE RETIRED. A class whose line builds the 2076 draws it for any aircraft still
+  // stored as stock, keeping its colours. A special edition (noir, quackhawk) is left alone.
+  const retired = d.variant !== 'stock' && (!raw.variant || raw.variant === 'stock');
   // Anything the stored object leaves out falls back to the class default, not to grey.
   return {
     base:    isHex(raw.base) ? raw.base : d.base,
@@ -254,8 +237,8 @@ export function normalizeLivery(cd, cls = null) {
     cabin:   isHex(raw.cabin) ? raw.cabin : d.cabin,
     uphol:   UPHOL_IDS.has(raw.uphol) ? raw.uphol : d.uphol,
     text:    typeof raw.text === 'string' ? raw.text.slice(0, 80) : '',
-    variant: TRIM_IDS.has(raw.variant) ? raw.variant : d.variant,
-    itrim: CABIN_IDS.has(raw.itrim) ? raw.itrim : CABIN_IDS.has(raw.variant) ? raw.variant : d.itrim,
+    variant: !retired && TRIM_IDS.has(raw.variant) ? raw.variant : d.variant,
+    itrim: retired && (!raw.itrim || raw.itrim === 'stock') ? d.itrim : CABIN_IDS.has(raw.itrim) ? raw.itrim : CABIN_IDS.has(raw.variant) ? raw.variant : d.itrim,
     plate: typeof raw.plate === 'string' ? cleanPlate(raw.plate) : d.plate,
     parts: cleanParts(raw.parts),
   };
@@ -293,6 +276,24 @@ export function liveryFromSet(set, text = '') {
 export function classDefault(cls) {
   const d = cls ? defaultLivery('aircraft', cls) : null;
   return d ? liveryFromSet(d) : { ...LIVERY_DEFAULT };
+}
+
+// What the desk calls a type: the edition its line builds ("Dragonfly 2076"), or the type's own name.
+export function lineName(t) {
+  const d = defaultLivery('aircraft', aircraftLiveryModel(t.class, t.hardpoints || 0));
+  return d && d.exterior?.variant && d.exterior.variant !== 'stock' ? d.name : t.name;
+}
+// The body variant that line builds, for a card that draws a type nobody owns yet.
+export function lineVariant(t) {
+  return classDefault(aircraftLiveryModel(t.class, t.hardpoints || 0)).variant;
+}
+
+// A look that names no body (a generic set, a scheme saved before the 2076) goes on the body the line
+// builds. The booth previews a look as sent, so this can't wait for normalizeLivery on the way back.
+export function onLine(look, cls) {
+  const d = classDefault(cls);
+  if (d.variant === 'stock' || (look.variant && look.variant !== 'stock')) return look;
+  return { ...look, variant: d.variant, itrim: !look.itrim || look.itrim === 'stock' ? d.itrim : look.itrim };
 }
 
 // Saved paint schemes live at custom_data.livery.schemes = { name: {core fields} }.

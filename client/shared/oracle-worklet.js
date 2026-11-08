@@ -2,8 +2,9 @@
  * ORACLE's sample-level back end: an LF glottal source and a Klatt-style cascade, per sample.
  *
  * Loaded by audio-engine.js (loadOracleWorklet) into an AudioContext as an AudioWorklet
- * module, from beside that file. It is not a page script. A prototype beside the node-graph
- * back end, chosen per line with `backend: 'worklet'` (the Voice Lab toggle): the text,
+ * module, from beside that file. It is not a page script. The default back end: the node
+ * graph speaks until this module loads, wherever it can't, and for `backend: 'graph'`
+ * (the Voice Lab toggle). The text,
  * phoneme, accent and prosody stages are the same for both, and so is every target they
  * schedule. speak() records those targets into parameter tracks, one frame per FRAME
  * seconds, and posts them here. Nothing here knows a phoneme.
@@ -181,7 +182,7 @@ class OracleVoice extends AudioWorkletProcessor {
     this.fb1 = new BandPass(); this.fb2 = new BandPass();  // the frication band, twice
     this.lpf = 0; this.done = false; this.stopped = false; this.tilt = 0;
     this.emph = 0; this.emphNorm = 1; this.px = 0;
-    this.rms = 0; this.n = 0;
+    this.rms = 0; this.n = 0; this.rd = 1;
     this.port.onmessage = (e) => {
       const d = e.data || {};
       if (d.type === 'line') {
@@ -249,6 +250,7 @@ class OracleVoice extends AudioWorkletProcessor {
     const ah = this.at(IX.ah, lt);
     let rd = this.at(IX.rd, lt) * (1 + (k.rdBreath * ah + this.rand.white() * 0.02) * nat) * (1 - k.creakPress * cr);
     rd = Math.max(0.3, Math.min(2.7, rd));
+    this.rd = rd;
     const L = lfFromRd(rd);
     // RETURN PHASE = spectral tilt. The graph's tilt lowpass corner becomes Ta = 1/(2 pi Fa),
     // as a fraction of this period, never shorter than a sample; that is the brightness
@@ -271,6 +273,21 @@ class OracleVoice extends AudioWorkletProcessor {
     this.cyc++;
   }
 
+  // How far the glottis stands open at this point of the period, 0 shut to about 1 at a
+  // modal voice's peak: a smooth rise to the flow peak and fall to closure. Lax folds open
+  // wider, and above Rd 1 they stop closing fully, so a breathy voice never rings free.
+  // Scaled by `natural`.
+  openness() {
+    const L = this.lf;
+    if (!L) return 0;
+    const x = this.ph;
+    let s = 0;
+    if (x < L.tp) s = Math.sin(Math.PI / 2 * x / L.tp) ** 2;
+    else if (x < L.te) s = Math.cos(Math.PI / 2 * (x - L.tp) / (L.te - L.tp)) ** 2;
+    const leak = 0.4 * Math.max(0, Math.min(1, (this.rd - 1) / 1.7));
+    return Math.max(s, leak) * Math.min(1.6, 0.6 + 0.4 * this.rd) * (this.k.natural ?? 1);
+  }
+
   process(inputs, outputs) {
     const out = outputs[0][0];
     if (this.stopped) return false;
@@ -288,15 +305,16 @@ class OracleVoice extends AudioWorkletProcessor {
       // 5 ms tracks, and an eighth of the trig.
       if ((i & 15) === 0) {
         const fs = k.fshift;
-        // PITCH-SYNCHRONOUS F1 BANDWIDTH. With the glottis open the tract is coupled to the
-        // lungs below it and loses energy there, so F1 is damped wider in the open phase and
-        // rings narrow in the closed one. (The bank is updated every 16 samples, which is
-        // finer than any open phase a voice has.)
-        const opened = this.lf && this.ph < this.lf.te ? 1 + k.f1Open * (k.natural ?? 1) : 1;
+        // SOURCE-TRACT INTERACTION. With the glottis open the tract is coupled to the lungs
+        // below it: it loses energy there, so F1 damps wider, and F1 rises a little. Both
+        // follow the opening through each period, and F1 rings narrow and low in the closed
+        // phase. (The bank is updated every 16 samples, which is finer than any open phase
+        // a voice has.)
+        const gl = this.openness();
         for (let n = 0; n < 4; n++) {
           const f = Math.max(60, Math.min(sampleRate * 0.45, this.at(IX.f1 + n, lt)));
           const q = Math.max(0.5, this.at(IX.q1 + n, lt));
-          R[n].set(f, Math.max(30, f / q) * k.bwK * (n === 0 ? opened : 1), T);
+          R[n].set(n === 0 ? f * (1 + k.f1Rise * gl) : f, Math.max(30, f / q) * k.bwK * (n === 0 ? 1 + k.f1Open * gl : 1), T);
         }
         R[4].set(4800 * fs, 400, T);
         const nzf = Math.max(200, this.at(IX.nzf, lt));

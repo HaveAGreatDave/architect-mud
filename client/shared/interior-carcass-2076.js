@@ -39,6 +39,7 @@
 // The fuel flow is the engine's at this throttle and rpm (a 55 kW biofuel twin burns about 17 litres
 // an hour flat out). The recorder's page is the live channels themselves. The flicker, the dead page's
 // static and the hologram's glitch are decoration on wall time; no readout moves except on a live value.
+import { brandTrim } from './interior-brands.js';
 import { makeKit, C, clamp, lerp, SHINY, PANE, TEXTURE } from './interior-kit.js';
 import { contactShadow, hotspotHalo, panelGps, gpsHotspot, lensLamp, eased, pressPulse, HALO, wallSec,
   bootAge, reveal, alertLight, sweep, lightLine, bandFrame, glassBand, holoFrame, holoProjector, windscreenHud,
@@ -89,6 +90,7 @@ SHINY.set(T.alu, { spec: 0.5, pow: 20 });
 SHINY.set(T.buckle, { spec: 0.8, pow: 40 });
 SHINY.set(T.screen, { spec: 0.6, pow: 60 });
 SHINY.set(T.dead, { spec: 0.7, pow: 70 });
+brandTrim(T, 'carcass', TEXTURE, SHINY);
 // The hologram's donor panel, in the donor's own amber, and its glitch ghost: translucent like the rest.
 const HOLO_DONOR = [255, 170, 90], HOLO_GHOST = [255, 80, 120];
 PANE.set(HOLO_DONOR, 0.5); PANE.set(HOLO_GHOST, 0.35);
@@ -486,7 +488,7 @@ export function cr76Fit(P, live, push) {
   // The cabin's light lines carry the alert: teal, amber on low fuel or a hot engine, red and
   // breathing on a hull or stall warning.
   const warn = lit && (R.hull < 0.3 || R.stall), caution = lit && (R.fuel < 0.15 || R.oil > 0.85);
-  const al = alertLight(caution, warn), lineK = (k) => (lit ? k * al.k : 0.05);
+  const al = alertLight(caution, warn, T.line), lineK = (k) => (lit ? k * al.k : 0.05);
 
   // ── THE DASH: a wing swept along the band's curve, held inside the fuselage ──
   const curve = dashCurve();

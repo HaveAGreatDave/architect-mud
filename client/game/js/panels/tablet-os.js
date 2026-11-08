@@ -5713,6 +5713,7 @@ function renderTv(d) {
         <span class="tos-tv-spacer"></span>
         <button data-tv="schedule-btn" title="TV guide, what's on and when">&#x1F5D3;</button>
         <button data-tv="gameday-btn" title="Gameday: animated play-by-play">&#x26BE;</button>
+        <button data-tv="stage-btn" title="3-D: watch this show on its set">3D</button>
         <button data-tv="standings-btn" title="Standings: the DEADBALL league table">&#x1F3C6;</button>
         <button data-tv="read-btn" title="Read broadcast aloud">&#x1F508;</button>
         <button data-tv="close-btn" title="Switch the screen off">&#x23FB;</button>
@@ -7824,6 +7825,9 @@ function fkSpawnNest(scrim, depth) {
 
 function render() {
   if (!_overlay || !_data) return;
+  // ⚠ A REPAINT REBUILDS THE TV, and the sub-screen that's full screen goes with it, dropping you back
+  // to the tablet. Whatever came in can wait: the picture owns the screen until you leave it.
+  if (_data.view === 'tv' && _tvView && _overlay.contains(document.fullscreenElement)) return;
   const scroll = _overlay.querySelector('#tos-scroll');
   if (!scroll) return;
   if (_pollTimer) { clearInterval(_pollTimer); _pollTimer = null; }

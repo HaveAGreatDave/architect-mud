@@ -15,7 +15,7 @@
 
 import { V, clamp, lerp, rotZ, footFrame } from '../rink/util.js';
 import { rinkFace } from '../rink/faces.js';
-import { headMesh, hairMesh, HEAD_FEAT } from '../actor-head.js';
+import { headMesh, hairMesh, weightedFace, SCULPT_HEADS, HEAD_FEAT } from '../actor-head.js';
 import { maskColours, OFFICIAL_KIT, MEDIC_KIT, CREW_KIT } from '../rink/hud.js';
 import { FLANK, cupColour, LIVERY_W, LIVERY_H } from '../rink/livery.js';
 
@@ -30,6 +30,8 @@ export const STRIDE = 13;
 // fills the helmet the old one was made for; HEAD_A is the point of the bind-space head that sits
 // on the rig's head joint (the middle of the skull, between chin and crown).
 export const HEAD_S = 3.2808 * 1.15;
+// How far a sculpted face below the nose is lifted, in the head's metres: the face in thirds, as gl/figure-hd.js faceLift.
+export const FACE_UP = 0.012;
 const HEAD_A = [0, 1.635, -0.006];
 // Where HEAD_A goes, forward and up of the head joint, in feet.
 export const HEAD_AT = [0.02, -0.03];
@@ -41,7 +43,8 @@ export const HELM_C = [-0.02, 0.08], HELM_OPEN = 0.45, HELM_BROW = 0.15, BRIM_U 
 // How far in front of the head joint the cage and the visor stand at height `u`: off the face,
 // pulled in toward the chin, and in to the shell at the brim.
 export function faceRad(R, u) {
-  return u > -0.05 ? R * (1.12 - 0.5 * (u + 0.05)) : R * 1.12 * (1 - Math.max(0, -u - 0.2) * 0.35);
+  // (0.03 ft is the sculpted nose's clearance)
+  return 0.03 + (u > -0.05 ? R * (1.12 - 0.5 * (u + 0.05)) : R * 1.12 * (1 - Math.max(0, -u - 0.2) * 0.35));
 }
 // actor-head.js's hair styles are numbered: cropped, neat and parted, tousled, long, a quiff.
 const TOUSLED = 2, LONG = 3, QUIFF = 4;
@@ -52,8 +55,9 @@ const TOUSLED = 2, LONG = 3, QUIFF = 4;
 // Fh, Sd and Uh are the head's forward, left and up, so the map has no mirror in it.
 export function headRecord(C, Fh, Sd, Uh, o, lv = 1, blood = 0, helmet = false) {
   const s = HEAD_S, X = V.mul(Sd, s), Y = V.mul(Uh, s), Z = V.mul(Fh, s);
-  const T = V.sub(C, V.add(V.add(V.mul(X, HEAD_A[0]), V.mul(Y, HEAD_A[1])), V.mul(Z, HEAD_A[2])));
   const face = rinkFace(o);
+  // a sculpted face's lower half rides up (HEAD_VS uFaceUp), so the head sinks by as much and the chin stays where the strap is
+  const T = V.sub(C, V.add(V.add(V.mul(X, HEAD_A[0]), V.mul(Y, HEAD_A[1] + (face.paint ? FACE_UP : 0))), V.mul(Z, HEAD_A[2])));
   return {
     M: new Float32Array([X[0], X[1], X[2], 0, Y[0], Y[1], Y[2], 0, Z[0], Z[1], Z[2], 0, T[0], T[1], T[2], 1]),
     lv, face, blood, hs: helmet && face.style === QUIFF ? 0 : helmet && o.goalie && face.style === LONG ? TOUSLED : face.style,
@@ -260,17 +264,17 @@ const sstep = (a, b, x) => { const t = clamp((x - a) / (b - a), 0, 1); return t 
 // bind space to the head's frame, as headRecord places it
 const toHead = (P, i) => [HEAD_AT[0] + HEAD_S * (P[i * 3 + 2] - HEAD_A[2]), HEAD_S * (P[i * 3] - HEAD_A[0]), HEAD_AT[1] + HEAD_S * (P[i * 3 + 1] - HEAD_A[1])];
 // The padding: the shell stands further off the chin, which a cup sits well clear of.
-const maskPad = (az, el) => 0.055 + 0.05 * sstep(-0.6, -1.0, el) * (1 - sstep(0.5, 1.0, Math.abs(az)));
+const maskPad = (az, el) => 0.076 + 0.05 * sstep(-0.6, -1.0, el) * (1 - sstep(0.5, 1.0, Math.abs(az)));
 let _mp = null;
 // The head's reach from MASK_O (skull, ears and the three haircuts that can be under a mask),
 // in bins of 10° each way, and the shell's radius over it.
 function maskProfile() {
   if (_mp) return _mp;
   const reach = new Float32Array(MP_AZ * MP_EL).fill(-1);
-  const take = (src, keep) => {
+  const take = (src, keep, sink = 0) => {
     for (let i = 0; i < src.P.length / 3; i++) {
       if (!keep(src, i)) continue;
-      const p = toHead(src.P, i), f = p[0] - MASK_O[0], s = p[1] - MASK_O[1], u = p[2] - MASK_O[2];
+      const p = toHead(src.P, i), f = p[0] - MASK_O[0], s = p[1] - MASK_O[1], u = p[2] - sink - MASK_O[2];
       const h = Math.hypot(f, s), az = Math.atan2(s, f), el = Math.atan2(u, h), d = Math.hypot(h, u);
       const ia = ((Math.floor((az + Math.PI) / TAU2 * MP_AZ) % MP_AZ) + MP_AZ) % MP_AZ;
       const k = clamp(Math.round((el + HALF_PI) / Math.PI * (MP_EL - 1)), 0, MP_EL - 1) * MP_AZ + ia;
@@ -278,6 +282,8 @@ function maskProfile() {
     }
   };
   take(headMesh(0, 'comic'), (m, i) => m.F[i] !== HEAD_FEAT.neck);
+  // and the sculpted heads a keeper can have, at their heaviest
+  for (let h = 0; h < 3; h++) take(headMesh(0, weightedFace(SCULPT_HEADS[h], 0.7)), (m, i) => m.F[i] !== HEAD_FEAT.neck, FACE_UP * HEAD_S);
   // the cuts a mask goes over: a quiff is cropped and long hair tucked in (headRecord)
   for (let st = 0; st < 3; st++) take(hairMesh(st, 0), () => true);
   const at = (A, ia, ie) => A[clamp(ie, 0, MP_EL - 1) * MP_AZ + (((ia % MP_AZ) + MP_AZ) % MP_AZ)];

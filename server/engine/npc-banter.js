@@ -28,6 +28,7 @@ import { formatChitchat, isNpcAsleep } from './ai-behaviour.js';
 import { getEnvironmentState, getZoneWeatherType, isIndoorZone } from './environment.js';
 import { dispatchAction } from './actions.js';
 import { randInt } from './util.js';
+import { emit } from './events.js';
 
 // ── Tunables ──────────────────────────────────────────────────────────────────
 const START_CHANCE    = 0.33;          // per eligible zone, per initiation tick
@@ -200,6 +201,7 @@ function endScene(zoneId) {
   const scene = activeScenes.get(zoneId);
   if (scene?.timer) clearTimeout(scene.timer);
   activeScenes.delete(zoneId);
+  if (scene?.participants?.length) emit('npc.banter.end', { zoneId, participants: scene.participants });
   zoneCooldown.set(zoneId, Date.now() + randInt(ZONE_COOLDOWN_MS[0], ZONE_COOLDOWN_MS[1]) * 60_000);
 }
 
@@ -246,6 +248,8 @@ async function startScene(zoneId, npcs, broadcast) {
 
   const participants = shuffled.slice(0, 2).map(n => n.id);
   activeScenes.set(zoneId, { participants, turns: turns.slice(0, MAX_TURNS), index: 0, timer: null });
+  // the Room Stage turns them to face each other (plugins/roomstage/npc-life.js)
+  emit('npc.banter.start', { zoneId, participants });
   runTurn(zoneId, broadcast);
 }
 

@@ -24,7 +24,7 @@ A seat at the game, in the park it's played in. Golden Goose Gardens (`zone_slus
 
 ## How it works
 
-A seat is a receiver. Buying one tunes the player to the channel carrying that sport's game (`liveSportsChannel` in plugins/broadcast) through the Tablet TV's per-player path (`tablet_tv.watch`), so the game is the broadcast's game. A player with the Tablet TV open on another channel loses it while seated.
+A seat is a receiver. Buying one tunes the player to the channel carrying that sport's game (`liveSportsChannel` in plugins/broadcast) through the Tablet TV's per-player path (`tablet_tv.watch`), so the game is the broadcast's game. A player with the Tablet TV open on another channel loses it while seated. The two share one tuner, so when the tablet's TV goes off the seat takes it back (`seated.tuned`).
 
 The client (`client/game/js/panels/stands.js`) registers as one more TV view (`addTvView` in tv.js) and mounts the TV sub-screen's view with `opts.seat`: `gameday-rink.js` sets `R.seat`, which `rink/camera.js` turns into a free-heading camera (`seatFrame`, `C.ax`), and `gameday-grandstand.js` wraps the director's shot in `seatShot`. Following, the eye turns to what the director looks at; free look is drag, arrows and the wheel; F switches. Only GLASS 2 turns the rink's camera; the 2-D fallback shows the broadcast view.
 

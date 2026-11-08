@@ -11,15 +11,13 @@
 // Metres about the eye, +x right (starboard), +y forward, +z up, like every seat. The hull is the
 // exterior's own: every surface that belongs to the boat (sheer, sole, well, thwarts, fish box,
 // decks, the cleat, the lamp pole) is placed off `boatGeom` through one conversion (`H`), and only
-// the things sized for a person (the grip, the knobs, the tank, the lettering) are authored in
-// metres. The eye is the exterior's helm point (boat-house.js, the aft thwart), so `eyeM` and the
-// sea's metre agree with the boat drawn from outside.
+// the things sized for a person (the grip, the knobs, the lettering) are authored in metres. The eye
+// is the exterior's helm point (boat-house.js, the aft thwart), so `eyeM` and the sea's metre agree
+// with the boat drawn from outside. What's lying about in her (`skiffLayout`) is placed once, in
+// model units, and aircraft3d.js's `skiffKit` draws the same things in the same places.
 //
-// Two places differ from the exterior on purpose, and aircraft3d.js should follow them:
-//   · the outboard stands on the transom with its cowl above it. The exterior's cowl top is below
-//     the transom's top edge, so from the thwart there was no motor behind you at all;
-//   · the tiller reaches forward to beside the aft thwart. The exterior's ends behind it, where no
-//     hand on the thwart can reach.
+// One place differs from the exterior on purpose: the spare rod on the port quarter stands raked aft
+// in the chase view and isn't drawn here, because nothing in this seat may stand over eye height.
 //
 // Every control drawn here is a hotspot (`skiffHotspots`), lettered in the legend face in plain
 // stamped or painted words, as a man in a shed would letter them:
@@ -33,11 +31,15 @@
 //   box          the fish box lid: FISH
 //   rod          the rod holder on the starboard gunwale: ROD
 //   ign          the starter cord's handle on the front of the cowl: PULL
-// Nothing is branded; Keel built her.
+//   sonar, sonarRange, sonarGain   the fish finder's three buttons: PWR, RANGE, GAIN
+// Nothing is branded; Keel built her. Two plates say what she is: the builder's on the port wall and
+// the capacity plate on the starboard.
 //
 // The live keys it reads: `throttle`, `steer`, `fuel`, `running`, `hover`, `press` (all sent by
-// boat-view.js today) and `anchored`, `lamp`, `boxOpen`, `choke`, `prime` (0..1, the bulb squeezed)
-// and `rod` (rod mode: the holder is empty), which the seat sends as it wires them.
+// boat-view.js today) and `anchored`, `lamp`, `boxOpen`, `choke`, `prime` (0..1, the bulb squeezed),
+// `rod` (rod mode: the holder is empty), `netOut` (the landing net is in use, so it isn't stowed),
+// `boxFill` (0..1, how much is on the ice) and `sonar` ({ w, h, cells, depthM }, or null when it's off;
+// a cell is a level 0..3), which the seat sends as it wires them.
 //
 // Keep her low: nothing stands above eye height, and nothing above 5 degrees below the horizon
 // ahead or abeam, so the water you cast into and the rod's arc are clear. scripts/shapes/shell.mjs
@@ -50,37 +52,66 @@ import { hotspotHalo } from './interior-cockpit-kit.js';
 export const SK = {
   // ⚠ DARKER THAN THEY LOOK HERE: the cabin is lit by the open sky on every face, and at noon the
   // first cut of these (mill aluminium at 176) read as white plastic.
-  alu: [122, 128, 132],        // mill-finish aluminium: thwarts, gunwale bars, the cleat
-  hull: [88, 95, 100],         // the inside of the hull plating, weathered
-  hullDk: [70, 76, 81],        // the topsides low down, in their own shadow
-  sole: [62, 67, 70],          // the sole, scuffed
-  rib: [104, 110, 115],        // the frames
-  rivet: [150, 155, 158],      // the rivet heads
+  alu: [120, 126, 130],        // mill-finish aluminium: thwarts, gunwale bars, the cleat
+  deck: [118, 124, 126],       // the decks, tread plate
+  hull: [172, 182, 172],       // the inside of the hull plating, in a worn grey-green primer
+  hullDk: [154, 164, 154],     // the same, low down
+  sole: [104, 110, 108],       // the sole, tread plate
+  rib: [188, 196, 186],        // the frames
+  rivet: [214, 218, 212],      // the rivet heads
+  press: [134, 140, 142],      // a rib pressed in a thwart, and the frames across the sole
+  oxide: [112, 124, 112],        // oxide weeping from a seam
   plate: [196, 198, 192],      // a stamped tag or decal: light, so the ink is dark on it
   ink: [26, 28, 30],           // stamped or painted lettering on a light face
   white: [232, 232, 226],      // painted lettering on a dark or red face
-  tank: [176, 40, 30],         // the fuel tank
-  box: [196, 198, 190],        // the fish box, insulated plastic
-  boxLid: [182, 186, 178],
-  ice: [130, 148, 152],        // inside the fish box
+  tank: [170, 44, 32],         // the fuel tank
+  tankRib: [132, 32, 24],      // its embossing
+  box: [62, 98, 124],          // the fish box, a moulded cooler gone chalky
+  boxLid: [84, 122, 146],
+  boxRib: [50, 82, 104],
+  ice: [104, 122, 126],        // inside the fish box
+  fish: [66, 78, 84],          // what's on the ice
+  fishDk: [34, 42, 48],
+  liner: [170, 182, 184],      // the underside of the lid
   cowl: [44, 48, 56],          // the outboard's cowl and the tiller arm
   cowlDk: [28, 30, 34],
+  band: [186, 56, 36],         // the stripe round the cowl
   rubber: [22, 22, 24],        // the grip, the bulb, the hose
   red: [196, 34, 28],          // the kill switch and its cord
   rope: [176, 150, 104],       // the rode
+  line: [206, 172, 54],        // the coil of yellow line
   lens: [228, 224, 206],       // the lamp, off
   lensOn: [255, 244, 214],     // the lamp, lit
   anchor: [70, 74, 80],        // galvanised steel
+  plank: [120, 90, 58],        // the seat planks
+  tackle: [166, 130, 44],      // the tackle box
+  pail: [124, 130, 128],       // the bailing pail
+  jacket: [224, 102, 24],      // the life jacket
+  jacketDk: [176, 74, 16],
+  reflect: [206, 210, 206],    // its reflective tape
+  oar: [136, 104, 68],         // the oars
+  cork: [158, 120, 78],        // the rod's grip
+  blank: [36, 40, 46],         // the rod
+  steel: [88, 92, 98],         // the reel, the arm
+  unit: [58, 62, 68],          // the fish finder's case
+  hood: [34, 36, 40],          // its hood
+  lcd: [18, 30, 24],           // its screen, off
 };
 // Mill finish is dull: a broad, weak sheen. At 0.45 the thwarts flared white under a noon sky.
 SHINY.set(SK.alu, { spec: 0.12, pow: 10 }); TEXTURE.set(SK.alu, 'brushed');
-SHINY.set(SK.rib, { spec: 0.10, pow: 10 }); TEXTURE.set(SK.rib, 'brushed');
-SHINY.set(SK.rivet, { spec: 0.6, pow: 30 });
-TEXTURE.set(SK.hull, 'brushed'); TEXTURE.set(SK.hullDk, 'brushed'); TEXTURE.set(SK.sole, 'cast');
+SHINY.set(SK.rib, { spec: 0.08, pow: 10 }); TEXTURE.set(SK.rib, 'paint');
+SHINY.set(SK.rivet, { spec: 0.5, pow: 30 });
+SHINY.set(SK.deck, { spec: 0.10, pow: 10 }); TEXTURE.set(SK.deck, 'tread');
+TEXTURE.set(SK.hull, 'cast'); TEXTURE.set(SK.hullDk, 'cast'); TEXTURE.set(SK.sole, 'tread');
+TEXTURE.set(SK.oxide, 'cast'); SHINY.set(SK.press, { spec: 0.08, pow: 10 }); TEXTURE.set(SK.press, 'brushed');
 TEXTURE.set(SK.tank, 'paint'); SHINY.set(SK.tank, { spec: 0.4, pow: 24, coat: 0.3 });
-TEXTURE.set(SK.box, 'plastic'); TEXTURE.set(SK.boxLid, 'plastic');
+TEXTURE.set(SK.tankRib, 'paint'); SHINY.set(SK.tankRib, { spec: 0.4, pow: 24, coat: 0.3 });
+TEXTURE.set(SK.box, 'plastic'); TEXTURE.set(SK.boxLid, 'plastic'); TEXTURE.set(SK.boxRib, 'plastic');
 TEXTURE.set(SK.cowl, 'paint'); SHINY.set(SK.cowl, { spec: 0.5, pow: 30, coat: 0.4 });
-TEXTURE.set(SK.rubber, 'rubber'); TEXTURE.set(SK.rope, 'fabric');
+TEXTURE.set(SK.rubber, 'rubber'); TEXTURE.set(SK.rope, 'fabric'); TEXTURE.set(SK.line, 'fabric');
+TEXTURE.set(SK.plank, 'wood'); TEXTURE.set(SK.oar, 'wood'); TEXTURE.set(SK.tackle, 'plastic');
+TEXTURE.set(SK.jacket, 'fabric'); TEXTURE.set(SK.jacketDk, 'fabric'); TEXTURE.set(SK.unit, 'plastic'); TEXTURE.set(SK.hood, 'rubber');
+SHINY.set(SK.pail, { spec: 0.14, pow: 12 }); TEXTURE.set(SK.pail, 'brushed');
 
 const add = (a, b) => [a[0] + b[0], a[1] + b[1], a[2] + b[2]];
 const sub = (a, b) => [a[0] - b[0], a[1] - b[1], a[2] - b[2]];
@@ -104,30 +135,27 @@ export function skiffFrame(row) {
   const cpF0 = S.cockpitF0 ?? -0.88, cpF1 = S.cockpitF1 ?? 0.2;
   const crown = S.crown ?? 0.012;
   const sole = G.soleZ;
-  // The well's wall and topside, as the exterior cuts them (aircraft3d.js, the gunwale cap and the
-  // well walls): the wall from 0.78 of the half-beam at the sole up to 0.80 at 0.030 under the
-  // sheer, then the topside out to the sheer. `INB` keeps the sheer edge a hair inboard of the skin.
+  // The well's wall and topside, as the exterior cuts them (boat-house.js `WELL`): the wall from the
+  // sole up to just under the sheer, then a narrow cap out to the sheer. `INB` keeps the sheer edge a
+  // hair inboard of the skin.
   const INB = 0.992;
-  const wallLo = (f) => 0.78 * G.atF(f).sw, wallHi = (f) => 0.80 * G.atF(f).sw;
-  const capZ = (f) => G.atF(f).sz - 0.030;
+  const wallLo = (f) => G.WELL.lo * G.atF(f).sw, wallHi = (f) => G.WELL.hi * G.atF(f).sw;
+  const capZ = (f) => G.atF(f).sz - G.WELL.cap;
+  // The wall's half-width at a height, and a point on it at fraction t of the way up.
+  const wallAt = (f, z) => wallLo(f) + (wallHi(f) - wallLo(f)) * clamp((z - sole) / ((capZ(f) - sole) || 1), 0, 1);
+  const wallPt = (f, s, t) => [f, s * (wallLo(f) + (wallHi(f) - wallLo(f)) * t), sole + (capZ(f) - sole) * t];
   // A point on the topside at fraction t (0 at the top of the wall, 1 at the sheer).
   const topside = (f, s, t) => { const a = G.atF(f); return [f, s * (wallHi(f) + (a.sw * INB - wallHi(f)) * t), capZ(f) + (a.sz - capZ(f)) * t]; };
   // The deck surface fore and aft of the well: the sheer at the side, `crown` higher on the centreline.
   const deckZ = (f, g) => { const a = G.atF(f); return a.sz + crown * Math.max(0, 1 - Math.abs(g) / (a.sw || 1)); };
-  // Where a thwart's underside meets the topside: it rests on it rather than stopping in the air.
-  const thwartEnd = (f, zb) => {
-    const a = G.atF(f), t = clamp((zb - capZ(f)) / ((a.sz - capZ(f)) || 1), 0, 1);
-    return wallHi(f) + (a.sw * INB - wallHi(f)) * t - 0.001;
-  };
-  // The outboard, on the transom with its cowl above it (see the header).
-  const mot = {
-    f0: TS.f - 0.088 * Mo, f1: TS.f + 0.006 * Mo,
-    hw: 0.021 * Mo, z0: TS.sz - 0.012, zMid: TS.sz + 0.020, z1: TS.sz + 0.045,
-  };
+  // Where a thwart's underside meets the wall: it rests on it rather than stopping in the air.
+  const thwartEnd = (f, zb) => wallAt(f, zb) - 0.001;
+  // The outboard, on the transom with its cowl above it, as the exterior's.
+  const mot = G.outboard;
   // The extent in metres, for the bounds (interior-shell.js shellBounds).
   const maxSw = Math.max(...G.STATIONS.map((s) => s.sw));
   F = {
-    G, E, m, S, LEN, H, TS, Mo, cpF0, cpF1, crown, sole, INB, wallLo, wallHi, capZ, topside, deckZ, thwartEnd, mot,
+    G, E, m, S, LEN, H, TS, Mo, cpF0, cpF1, crown, sole, INB, wallLo, wallHi, wallAt, wallPt, capZ, topside, deckZ, thwartEnd, mot,
     xC: -E.g * m,
     halfW: (maxSw + 0.004) * m,
     front: (LEN - E.f) * m + 0.02,
@@ -136,6 +164,43 @@ export function skiffFrame(row) {
   };
   FRAMES.set(row, F);
   return F;
+}
+
+// ── WHAT'S LYING ABOUT IN HER, ONCE ──────────────────────────────────────────
+// In model units (f along her, g to starboard, z up), for this seat and for aircraft3d.js's skiffKit.
+const LAYOUTS = new WeakMap();
+export function skiffLayout(F) {
+  let L = LAYOUTS.get(F);
+  if (L) return L;
+  const { G, E, m, S, LEN, TS, sole, cpF0, wallPt, capZ } = F;
+  const at = (x, y, z) => [E.f + y / m, E.g + x / m, E.z + z / m];
+  const th = (Array.isArray(S.thwarts) ? S.thwarts : [-0.6, 0, 0.45]).map((u) => u * LEN);
+  // The rod on the starboard gunwale: its butt and grip by your right hand, in a holder laid forward,
+  // the blank running on up the inside of the rail to a clip by the forward thwart.
+  const fh = E.f + 0.80 / m, ah = G.atF(fh), ft = th[2] + 0.012, at2 = G.atF(ft);
+  const holderA = [fh, ah.sw * 0.945, ah.sz + 0.004], tip = [ft + 0.024, at2.sw * 0.885, at2.sz - 0.0035];
+  const dir = (() => { const d = [tip[0] - holderA[0], tip[1] - holderA[1], tip[2] - holderA[2]], l = Math.hypot(...d); return d.map((v) => v / l); })();
+  const along = (k) => holderA.map((v, i) => v + dir[i] * k);
+  const port = -1;
+  L = {
+    tank: { f0: E.f + 0.30 / m, f1: E.f + 0.76 / m, g0: 0.030, g1: 0.070, z1: E.z - 0.86 / m },
+    tackle: { f0: 0.045, f1: 0.092, g0: -0.090, g1: -0.056, h: 0.019 },
+    bucket: { f: -0.064, g: 0.062, r: 0.0150, h: 0.030 },
+    jacket: { f: th[2], g0: 0.016, g1: 0.066, z: G.thwartTop(th[2]) + 0.0011 },
+    coil: { f: -0.108, g: -0.052, r: 0.0150 },
+    net: { butt: [-0.176, -0.088, sole + 0.030], neck: [-0.082, -0.080, sole + 0.012], hoop: [-0.052, -0.078, sole + 0.010], r: 0.024 },
+    oars: [-1, 1].map((s) => {
+      const f0 = th[0] - 0.012, f1 = th[2] - 0.05, z0 = G.thwartTop(th[0]) + 0.0028, z1 = G.thwartTop(th[1]) + 0.0028;
+      return { s, a: [f0, s * (F.wallAt(f0, z0) - 0.008), z0], b: [f1, s * (F.wallAt(f1, z1) - 0.0075), z1 + 0.0012] };
+    }),
+    rod: { holderA, holderB: along(0.038), butt: along(-0.030), grip: along(0.040), tip, clip: along(0.21) },
+    sonar: { c: at(-0.36, 0.50, -0.46), clamp: [E.f + 0.50 / m, port * G.atF(E.f + 0.50 / m).sw * 0.955, G.atF(E.f + 0.50 / m).sz + 0.002], hw: 0.135 / m, hh: 0.098 / m, hd: 0.030 / m },
+    transducer: { f: TS.f - 0.002, g: -0.066, z: TS.k + 0.006 },
+    cable: [[TS.f - 0.002, -0.066, TS.k + 0.016], [TS.f - 0.0015, -0.066, TS.sz + 0.002], [TS.f + 0.004, -0.066, TS.sz + 0.0035], [cpF0, -0.086, TS.sz + 0.002],
+      wallPt(cpF0 + 0.006, port, 0.86), wallPt(E.f + 0.42 / m, port, 0.92), [E.f + 0.50 / m, port * G.atF(E.f + 0.50 / m).sw * 0.94, G.atF(E.f + 0.50 / m).sz + 0.001]],
+  };
+  LAYOUTS.set(F, L);
+  return L;
 }
 
 // ── WHERE THE CONTROLS ARE, ONCE ─────────────────────────────────────────────
@@ -162,8 +227,11 @@ const housingPanel = (K, T) => K.panel(T.at(T.aH, 0, 0.0335), mul(T.A, -1), T.S)
 const HOUSING = { kill: [-0.036, -0.002], choke: [0.036, -0.002], slow: [-0.040, 0.031], fast: [0.040, 0.031] };
 
 // The fuel tank, on the sole forward of the aft thwart and to starboard, by your right foot.
-const TANK = { x0: 0.50, x1: 0.80, y0: 0.30, y1: 0.76, zt: -0.86 };
-const tankPanel = (K, F) => K.panel([(TANK.x0 + TANK.x1) / 2, (TANK.y0 + TANK.y1) / 2, TANK.zt + 0.0005], [1, 0, 0], [0, 1, 0]);
+function tankOf(F) {
+  const T = skiffLayout(F).tank, [x0, y0, zt] = F.H(T.f0, T.g0, T.z1), [x1, y1] = F.H(T.f1, T.g1, T.z1);
+  return { x0, x1, y0, y1, zt };
+}
+const tankPanel = (K, F) => { const T = tankOf(F); return K.panel([(T.x0 + T.x1) / 2, (T.y0 + T.y1) / 2, T.zt + 0.0005], [1, 0, 0], [0, 1, 0]); };
 const BULB = { a: -0.085, b0: -0.17, b1: -0.05 };   // on the tank top, in its panel's metres
 const GAUGE = [0.075, -0.035];                      // the gauge in the filler cap, likewise
 // The cap's top, which the gauge is drawn on: a panel of its own, or the dial is inside the cap.
@@ -171,31 +239,38 @@ const capPanel = (K, Tp) => K.panel(Tp.pt(GAUGE[0], GAUGE[1], 0.0105), [1, 0, 0]
 
 // The lamp switch: a box riveted to the starboard topside just forward of the aft thwart.
 function lampPanel(K, F) {
-  const { H, topside, E, m } = F;
+  const { H, wallPt, E, m } = F;
   const f = E.f + 0.40 / m;
-  const lo = H(...topside(f, 1, 0.30)), hi = H(...topside(f, 1, 0.70));
+  const lo = H(...wallPt(f, 1, 0.56)), hi = H(...wallPt(f, 1, 0.88));
   const u = norm(sub(hi, lo)), r = [0, -1, 0], n = norm(cross(r, u));
   return K.panel(add(lerp3(lo, hi, 0.5), mul(n, 0.022)), r, u);
 }
-// The rod holder, clamped to the starboard gunwale abreast of you, and the tag on its clamp.
+// The rod holder, clamped to the starboard gunwale abreast of you and laid forward along it, and the
+// tag on its clamp.
 function rodAt(F) {
-  const { H, G, E, m } = F;
-  const f = E.f + 0.80 / m, a = G.atF(f);
-  const base = H(f, a.sw * 0.955, a.sz + 0.001);
-  const dir = norm([0.10, -0.42, 0.90]);
-  return { base, top: add(base, mul(dir, 0.28)), dir, tag: [base[0] - 0.065, base[1], base[2] + 0.045] };
+  const { H } = F, R = skiffLayout(F).rod;
+  const base = H(...R.holderA), top = H(...R.holderB);
+  const dir = norm(sub(top, base));
+  return { base, top, dir, tag: [base[0] - 0.075, base[1], base[2] + 0.030], butt: H(...R.butt), grip: H(...R.grip), tip: H(...R.tip), clip: H(...R.clip) };
 }
 const rodPanel = (K, R) => K.panel(R.tag, [0, -1, 0], [0, 0, 1]);
-// The fish box lid, hinged at its aft edge so it opens up toward you.
+// The fish finder: a panel square to your eye, its face a hair in front of the case.
+function sonarAt(K, F) {
+  const U = skiffLayout(F).sonar, c = F.H(...U.c), n = norm(mul(c, -1));
+  const u = norm(sub([0, 0, 1], mul(n, n[2]))), r = cross(u, n), hd = U.hd * F.m;
+  return { c, n, u, r, hw: U.hw * F.m, hh: U.hh * F.m, hd, P: K.panel(add(c, mul(n, hd)), r, u) };
+}
+const SONAR_KEYS = [['sonar', 'PWR', -0.078], ['sonarRange', 'RANGE', 0], ['sonarGain', 'GAIN', 0.078]];
+// The fish box lid, hinged at its forward edge, so it stands up beyond the box and you see into it.
 function lidAt(F, L) {
   const { G, S, LEN, H } = F;
   const f0 = S.fishBox[0] * LEN, f1 = S.fishBox[1] * LEN;
   const w = G.atF((f0 + f1) / 2).sw * 0.40, zt = G.soleZ + (S.fishBoxH ?? 0.032);
   const th = L.boxOpen ? 1.25 : 0, c = Math.cos(th), s = Math.sin(th);
-  const fh = f0 - 0.002, zh = zt - 0.004, Ls = (f1 + 0.002) - fh, W = w * 1.05;
+  const fh = f1 + 0.002, zh = zt - 0.004, Ls = fh - (f0 - 0.002), W = w * 1.05;
   // (g, along from the hinge, up through the lid) in model units, to metres.
-  const P = (g, a, t) => H(fh + a * c - t * s, g, zh + a * s + t * c);
-  return { f0, f1, w, zt, W, Ls, P, th, u: [0, c, s] };
+  const P = (g, a, t) => H(fh - a * c + t * s, g, zh + a * s + t * c);
+  return { f0, f1, w, zt, W, Ls, P, th, u: [0, c, -s] };
 }
 const lidPanel = (K, D) => K.panel(D.P(0, D.Ls * 0.56, 0.0042), [1, 0, 0], D.u);
 // The cleat, and the bulkhead under it that says what it is for.
@@ -226,12 +301,14 @@ export function skiffHotspots(P, live) {
   out.push({ id: 'cleat', p: bulkheadPanel(K, F).pt(0, 0, 0.004), r: 0.11, kind: 'click' });
   out.push({ id: 'lamp', p: lampPanel(K, F).pt(0, 0.008, 0.028), r: 0.030, kind: 'click' });
   const D = lidAt(F, L);
-  out.push({ id: 'box', p: lidPanel(K, D).pt(0, 0, 0.004), r: 0.12, kind: 'click' });
+  out.push({ id: 'box', p: L.boxOpen ? D.P(0, D.Ls * 0.56, -0.001) : lidPanel(K, D).pt(0, 0, 0.004), r: 0.12, kind: 'click' });
   const R = rodAt(F);
   out.push({ id: 'rod', p: rodPanel(K, R).pt(0, 0, 0.004), r: 0.045, kind: 'click' });
   out.push({ id: 'rod', p: R.top, r: 0.045, kind: 'click' });
   const pu = pullAt(F);
   out.push({ id: 'ign', p: [pu[0], pu[1] + 0.03, pu[2]], r: 0.040, kind: 'click' });
+  const U = sonarAt(K, F);
+  for (const [id, , a] of SONAR_KEYS) out.push({ id, p: U.P.pt(a, -0.078, 0.008), r: 0.028, kind: 'click' });
   return out;
 }
 
@@ -257,6 +334,19 @@ function flatBar(K, a, b, n, w, d, rgb, k = 0.2) {
   K.face([a0, b0, add(b0, up), add(a0, up)], mul(norm(side), -1), 'dash', k, rgb);
   K.face([a1, add(a1, up), add(b1, up), b1], norm(side), 'dash', k, rgb);
 }
+// A box with its top edges chamfered by `c`, in metres, from two corners.
+function chamferBox(K, x0, y0, z0, x1, y1, z1, c, rgb, k = 0.2) {
+  const zc = z1 - c, q = (pts, n) => K.face(pts, norm(n), 'dash', k, rgb);
+  q([[x0, y0, z0], [x1, y0, z0], [x1, y0, zc], [x0, y0, zc]], [0, -1, 0]);
+  q([[x0, y1, z0], [x1, y1, z0], [x1, y1, zc], [x0, y1, zc]], [0, 1, 0]);
+  q([[x0, y0, z0], [x0, y1, z0], [x0, y1, zc], [x0, y0, zc]], [-1, 0, 0]);
+  q([[x1, y0, z0], [x1, y1, z0], [x1, y1, zc], [x1, y0, zc]], [1, 0, 0]);
+  q([[x0, y0, zc], [x1, y0, zc], [x1 - c, y0 + c, z1], [x0 + c, y0 + c, z1]], [0, -1, 1]);
+  q([[x0, y1, zc], [x1, y1, zc], [x1 - c, y1 - c, z1], [x0 + c, y1 - c, z1]], [0, 1, 1]);
+  q([[x0, y0, zc], [x0, y1, zc], [x0 + c, y1 - c, z1], [x0 + c, y0 + c, z1]], [-1, 0, 1]);
+  q([[x1, y0, zc], [x1, y1, zc], [x1 - c, y1 - c, z1], [x1 - c, y0 + c, z1]], [1, 0, 1]);
+  q([[x0 + c, y0 + c, z1], [x1 - c, y0 + c, z1], [x1 - c, y1 - c, z1], [x0 + c, y1 - c, z1]], [0, 0, 1]);
+}
 // A rivet head: a hexagon a couple of millimetres proud of the plate.
 function rivet(K, p, n, r = 0.0065) {
   const ref = Math.abs(n[2]) < 0.9 ? [0, 0, 1] : [1, 0, 0];
@@ -279,16 +369,19 @@ function wellStations(F) {
 }
 
 function hullParts(K, F) {
-  const { H, G, sole, wallLo, wallHi, capZ, topside, deckZ, cpF0, cpF1, TS, LEN } = F;
+  const { H, G, sole, wallLo, wallHi, capZ, topside, wallPt, deckZ, cpF0, cpF1, TS, LEN } = F;
   const fs = wellStations(F);
-  // The sole, the walls and the topsides, both sides.
+  // The sole, the walls and the narrow cap along their top, both sides.
   for (let i = 0; i < fs.length - 1; i++) {
     const f0 = fs[i], f1 = fs[i + 1];
-    K.face([H(f0, -wallLo(f0), sole), H(f0, wallLo(f0), sole), H(f1, wallLo(f1), sole), H(f1, -wallLo(f1), sole)], [0, 0, 1], 'floor', -0.1, SK.sole);
+    K.face([H(f0, -wallLo(f0), sole), H(f0, wallLo(f0), sole), H(f1, wallLo(f1), sole), H(f1, -wallLo(f1), sole)], [0, 0, 1], 'floor', -0.05, SK.sole);
     for (const s of [-1, 1]) {
       const inb = [-s, 0, 0];
-      quad2(K, H(f0, s * wallLo(f0), sole), H(f1, s * wallLo(f1), sole), H(f1, s * wallHi(f1), capZ(f1)), H(f0, s * wallHi(f0), capZ(f0)), inb, SK.hullDk, 0);
-      quad2(K, H(...topside(f0, s, 0)), H(...topside(f1, s, 0)), H(...topside(f1, s, 1)), H(...topside(f0, s, 1)), inb, SK.hull, 0.1);
+      // In two lifts, low and high, with a lap between them.
+      const L0 = (f) => H(...wallPt(f, s, 0)), L1 = (f) => H(...wallPt(f, s, 0.46)), L2 = (f) => H(...wallPt(f, s, 1));
+      quad2(K, L0(f0), L0(f1), L1(f1), L1(f0), inb, SK.hullDk, 0.05);
+      quad2(K, L1(f0), L1(f1), L2(f1), L2(f0), inb, SK.hull, 0.1);
+      quad2(K, H(...topside(f0, s, 0)), H(...topside(f1, s, 0)), H(...topside(f1, s, 1)), H(...topside(f0, s, 1)), inb, SK.alu, 0.1);
       // The gunwale: a flat bar along the sheer, riveted down.
       const a0 = G.atF(f0), a1 = G.atF(f1);
       const q = [H(f0, s * a0.sw * 0.95, a0.sz + 0.0012), H(f1, s * a1.sw * 0.95, a1.sz + 0.0012), H(f1, s * a1.sw * 0.999, a1.sz + 0.0012), H(f0, s * a0.sw * 0.999, a0.sz + 0.0012)];
@@ -296,30 +389,37 @@ function hullParts(K, F) {
       K.face([H(f0, s * a0.sw * 0.95, a0.sz + 0.0012), H(f1, s * a1.sw * 0.95, a1.sz + 0.0012), H(f1, s * a1.sw * 0.95, a1.sz - 0.0035), H(f0, s * a0.sw * 0.95, a0.sz - 0.0035)], inb, 'dash', 0.1, SK.alu);
     }
   }
-  // The ribs: a frame up each wall and topside and across the sole, every 0.42 m or so, with a rivet
-  // line down each; and a seam of rivets along each topside and along each gunwale bar.
+  // The ribs: a frame up each wall and across the sole, every 0.3 m or so, with a rivet line up each;
+  // and a stringer along each wall, with the lap's rivets under it.
   const NR = 11;
   for (let k = 0; k <= NR; k++) {
     const f = cpF0 + 0.012 + (cpF1 - cpF0 - 0.024) * (k / NR);
     for (const s of [-1, 1]) {
-      const b = H(f, s * wallLo(f), sole), w = H(f, s * wallHi(f), capZ(f)), t = H(...topside(f, s, 0.97));
-      const nW = norm(cross(sub(w, b), [0, 1, 0])), nT = norm(cross(sub(t, w), [0, 1, 0]));
-      const nw = nW[0] * s > 0 ? mul(nW, -1) : nW, nt = nT[0] * s > 0 ? mul(nT, -1) : nT;
-      flatBar(K, b, w, nw, 0.034, 0.010, SK.rib);
-      flatBar(K, w, t, nt, 0.034, 0.010, SK.rib);
-      for (let j = 1; j <= 2; j++) rivet(K, add(lerp3(b, w, j / 3), mul(nw, 0.010)), nw);
-      for (let j = 1; j <= 3; j++) rivet(K, add(lerp3(w, t, j / 4), mul(nt, 0.010)), nt);
+      const b = H(...wallPt(f, s, 0)), t = H(...wallPt(f, s, 0.985));
+      const nW = norm(cross(sub(t, b), [0, 1, 0])), nw = nW[0] * s > 0 ? mul(nW, -1) : nW;
+      flatBar(K, b, t, nw, 0.036, 0.012, SK.rib, 0.1);
+      for (let j = 1; j <= 4; j++) rivet(K, add(lerp3(b, t, j / 5), mul(nw, 0.012)), nw);
     }
     // Across the sole.
-    flatBar(K, H(f, -wallLo(f) + 0.004, sole), H(f, wallLo(f) - 0.004, sole), [0, 0, 1], 0.030, 0.014, SK.rib, 0.1);
+    flatBar(K, H(f, -wallLo(f) + 0.004, sole), H(f, wallLo(f) - 0.004, sole), [0, 0, 1], 0.030, 0.014, SK.press, 0.05);
+  }
+  for (const s of [-1, 1]) {
+    for (let i = 0; i < fs.length - 1; i++) {
+      const a = H(...wallPt(fs[i], s, 0.46)), b = H(...wallPt(fs[i + 1], s, 0.46));
+      const n0 = norm(cross(sub(b, a), [0, 0, 1])), n = n0[0] * s > 0 ? mul(n0, -1) : n0;
+      flatBar(K, a, b, n, 0.044, 0.008, SK.rib, 0.15);
+    }
+    // Oxide weeping down the plate from the stringer, here and there.
+    for (let i = 0; i < 11; i++) {
+      const u = (i * 37 % 11) / 11, f = cpF0 + 0.03 + (cpF1 - cpF0 - 0.06) * (i / 11);
+      const a = H(...wallPt(f, s, 0.44)), b = H(...wallPt(f, s, 0.44 - 0.12 - 0.2 * u));
+      const n0 = norm(cross(sub(b, a), [0, 1, 0])), n = n0[0] * s > 0 ? mul(n0, -1) : n0;
+      flatBar(K, a, b, n, 0.012, 0.0015, SK.oxide, 0.05);
+    }
   }
   for (let i = 0; i < 40; i++) {
     const f = cpF0 + 0.006 + (cpF1 - cpF0 - 0.012) * (i / 39);
     for (const s of [-1, 1]) {
-      const a = H(...topside(f, s, 0.45)), b = H(...topside(f + 0.002, s, 0.45)), c = H(...topside(f, s, 0.55));
-      let n = norm(cross(sub(b, a), sub(c, a)));
-      if (n[0] * s > 0) n = mul(n, -1);
-      rivet(K, a, n, 0.0055);
       const g = G.atF(f);
       rivet(K, H(f, s * g.sw * 0.975, g.sz + 0.0012), [0, 0, 1], 0.0055);
     }
@@ -331,8 +431,8 @@ function hullParts(K, F) {
     for (let i = 0; i < st.length - 1; i++) {
       const p = st[i], q = st[i + 1], ap = G.atF(p), aq = G.atF(q);
       for (const s of [-1, 1]) {
-        faceToward(K, [H(p, s * ap.sw * 0.999, ap.sz), H(q, s * aq.sw * 0.999, aq.sz), H(q, 0, deckZ(q, 0))], [0, 0, 1], SK.alu, 0.2);
-        faceToward(K, [H(p, s * ap.sw * 0.999, ap.sz), H(q, 0, deckZ(q, 0)), H(p, 0, deckZ(p, 0))], [0, 0, 1], SK.alu, 0.2);
+        faceToward(K, [H(p, s * ap.sw * 0.999, ap.sz), H(q, s * aq.sw * 0.999, aq.sz), H(q, 0, deckZ(q, 0))], [0, 0, 1], SK.deck, 0.2);
+        faceToward(K, [H(p, s * ap.sw * 0.999, ap.sz), H(q, 0, deckZ(q, 0)), H(p, 0, deckZ(p, 0))], [0, 0, 1], SK.deck, 0.2);
       }
     }
   };
@@ -354,24 +454,45 @@ function hullParts(K, F) {
   };
   bulkhead(cpF1, -1);
   bulkhead(cpF0, 1);
-  // The thwarts, each resting on the topsides, with a rolled lip fore and aft and rivets at the ends.
-  for (const u of (Array.isArray(F.S.thwarts) ? F.S.thwarts : [])) {
+  // The thwarts: stamped plate resting on the walls, a rolled lip fore and aft, two pressed ribs, knees
+  // at the ends and rivets. A plank on the two you sit on, and the aft one boxed in for flotation.
+  (Array.isArray(F.S.thwarts) ? F.S.thwarts : []).forEach((u, ti) => {
     const f = u * LEN, top = G.thwartTop(f), zb = top - 0.006, ge = F.thwartEnd(f, zb);
-    K.box(...H(f - 0.024, -ge, zb), ...H(f + 0.024, ge, top), 'dash', 0, SK.alu);
-    for (const d of [-1, 1]) K.box(...H(f + d * 0.0235, -ge, zb - 0.004), ...H(f + d * 0.0225, ge, zb), 'dash', -0.1, SK.alu);
-    for (const s of [-1, 1]) for (const d of [-0.012, 0.012]) rivet(K, H(f + d, s * (ge - 0.006), top), [0, 0, 1], 0.006);
-  }
+    K.box(...H(f - 0.024, -ge, zb), ...H(f + 0.024, ge, top), 'dash', 0.05, SK.alu);
+    for (const d of [-1, 1]) K.box(...H(f + d * 0.0235, -ge, zb - 0.004), ...H(f + d * 0.0225, ge, zb), 'dash', -0.05, SK.alu);
+    for (const d of [-0.016, 0.016]) K.box(...H(f + d - 0.0028, -ge * 0.97, top), ...H(f + d + 0.0028, ge * 0.97, top + 0.0011), 'dash', 0.15, SK.press);
+    if (ti < 2) K.box(...H(f - 0.0105, -ge * 0.6, top), ...H(f + 0.0105, ge * 0.6, top + 0.0028), 'dash', 0.1, SK.plank);
+    for (const s of [-1, 1]) {
+      for (const d of [-0.012, 0.012]) rivet(K, H(f + d, s * (ge - 0.006), top), [0, 0, 1], 0.006);
+      for (const d of [-0.02, 0.02]) faceToward(K, [H(f + d, s * ge, zb), H(f + d, s * (ge - 0.018), zb), H(f + d, s * F.wallAt(f, zb - 0.020), zb - 0.020)], [0, Math.sign(d), 0], SK.alu, 0);
+    }
+    if (ti === 0) K.face([H(f + 0.024, -ge, zb), H(f + 0.024, ge, zb), H(f + 0.024, F.wallAt(f + 0.024, sole), sole), H(f + 0.024, -F.wallAt(f + 0.024, sole), sole)], [0, 1, 0], 'dash', 0, SK.hull);
+  });
 }
 
 // ── THE FITTINGS THAT DO NOT MOVE ────────────────────────────────────────────
 function fixedParts(K, F) {
   const { H, G, LEN, TS, mot, xC, deckZ, S, E, m } = F;
-  // The outboard: the clamp bracket over the transom, the lower cowl and the upper cowl.
-  K.box(...H(TS.f - 0.004, -mot.hw * 0.8, TS.sz - 0.004), ...H(TS.f + 0.004, mot.hw * 0.8, TS.sz + 0.004), 'dash', 0.1, SK.cowlDk);
-  K.box(...H(mot.f0, -mot.hw, mot.z0), ...H(mot.f1, mot.hw, mot.zMid), 'dash', 0.1, SK.cowlDk);
-  K.box(...H(mot.f0 + 0.004 * F.Mo, -mot.hw * 0.92, mot.zMid), ...H(mot.f1 - 0.003 * F.Mo, mot.hw * 0.92, mot.z1), 'dash', 0.2, SK.cowl);
+  // The outboard: the clamp bracket over the transom, the pan and the cowl, lofted in plan as the
+  // exterior's is, and the stripe round it.
+  K.box(...H(TS.f - 0.004, -mot.hw * 0.72, TS.sz - 0.004), ...H(TS.f + 0.007, mot.hw * 0.72, TS.sz + 0.004), 'dash', 0.1, SK.cowlDk);
+  {
+    const fc = (mot.f0 + mot.f1) / 2, a = (mot.f1 - mot.f0) / 2, N = 12;
+    const sp = (v) => Math.sign(v) * Math.abs(v) ** 0.62;
+    const ring = (z, k) => Array.from({ length: N }, (_, i) => {
+      const t = (i / N) * Math.PI * 2, u = sp(Math.cos(t)), v = sp(Math.sin(t));
+      return H(fc + a * k * u, mot.hw * k * v * (0.88 + 0.12 * u), z);
+    });
+    const mid = H(fc, 0, (mot.z0 + mot.z1) / 2);
+    const lift = (A, B, rgb, kk) => { for (let i = 0; i < N; i++) { const j = (i + 1) % N; quad2(K, A[i], A[j], B[j], B[i], sub(add(A[i], A[j]), mul(mid, 2)), rgb, kk); } };
+    const stack = (rows, rgb, kk) => { for (let i = 0; i < rows.length - 1; i++) lift(ring(...rows[i]), ring(...rows[i + 1]), rgb, kk); };
+    stack([[mot.z0, 0.70], [mot.z0 + 0.008, 0.95], [mot.zMid, 1]], SK.cowlDk, 0.1);
+    stack([[mot.zMid, 0.965], [mot.zMid + 0.004, 1], [mot.z1 - 0.008, 0.97], [mot.z1 - 0.0025, 0.84], [mot.z1, 0.60]], SK.cowl, 0.2);
+    K.face(ring(mot.z1, 0.60), [0, 0, 1], 'dash', 0.2, SK.cowl);
+    lift(ring(mot.zMid + 0.008, 1.012), ring(mot.zMid + 0.0125, 1.012), SK.band, 0.2);
+  }
   // PULL on the cowl top, near its front, read turned round to face aft.
-  const cowlTop = K.panel(H(mot.f1 - 0.012, 0, mot.z1 + 0.0004), [-1, 0, 0], [0, -1, 0]);
+  const cowlTop = K.panel(H(mot.f1 - 0.024, 0, mot.z1 + 0.0004), [-1, 0, 0], [0, -1, 0]);
   cowlTop.rect(-0.07, -0.03, 0.07, 0.03, SK.plate, 0, 0.001);
   cowlTop.text('PULL', 0, 0, 0.040, SK.ink, 0.05, 0.0034);
   // The lamp pole on the starboard quarter, its foot on the transom deck.
@@ -381,14 +502,15 @@ function fixedParts(K, F) {
   // The lamp's cable, from the switch aft along the topside and over the deck to the pole's foot.
   const lp = lampPanel(K, F);
   const fA = F.cpF0 + 0.004;
-  line(K, [lp.pt(0, -0.045, -0.018), H(...F.topside(E.f + 0.25 / m, 1, 0.75)), H(...F.topside(fA, 1, 0.75)), H(fl, gl, zb + 0.002)], 0.004, SK.rubber, 4);
-  // The rod holder: a clamp on the gunwale, the tube, and the tag riveted to the clamp.
+  line(K, [lp.pt(0, -0.045, -0.018), H(...F.wallPt(E.f + 0.25 / m, 1, 0.92)), H(...F.wallPt(fA, 1, 0.92)), H(fl, gl, zb + 0.002)], 0.004, SK.rubber, 4);
+  // The rod holder: a clamp on the gunwale, the tube laid forward along it, the clip further up, and
+  // the tag riveted to the clamp.
   const R = rodAt(F);
-  K.box(R.base[0] - 0.06, R.base[1] - 0.045, R.base[2] - 0.03, R.base[0] + 0.03, R.base[1] + 0.045, R.base[2] + 0.02, 'dash', 0.2, SK.alu);
-  K.rod(add(R.base, mul(R.dir, 0.01)), R.top, 0.022, 'dash', 0.2, SK.alu, 0, 8, false);
-  K.rod(sub(R.top, mul(R.dir, 0.02)), R.top, 0.026, 'dash', 0.2, SK.alu, 0, 8, false);
-  K.rod(R.top, add(R.top, mul(R.dir, -0.004)), 0.016, 'dash', 0, SK.cowlDk, 0, 8);
-  K.box(R.tag[0] + 0.0005, R.tag[1] - 0.052, R.base[2] + 0.012, R.tag[0] + 0.006, R.tag[1] + 0.052, R.tag[2] + 0.030, 'dash', 0.2, SK.alu);
+  K.box(R.base[0] - 0.06, R.base[1] - 0.045, R.base[2] - 0.03, R.base[0] + 0.03, R.base[1] + 0.045, R.base[2] + 0.012, 'dash', 0.2, SK.alu);
+  K.rod(R.base, R.top, 0.024, 'dash', 0.2, SK.alu, 0, 8, false);
+  K.rod(sub(R.top, mul(R.dir, 0.02)), R.top, 0.028, 'dash', 0.2, SK.alu, 0, 8, false);
+  K.box(R.clip[0] - 0.012, R.clip[1] - 0.014, R.clip[2] - 0.024, R.clip[0] + 0.012, R.clip[1] + 0.014, R.clip[2] - 0.008, 'dash', 0.2, SK.alu);
+  K.box(R.tag[0] + 0.0005, R.tag[1] - 0.052, R.tag[2] - 0.030, R.tag[0] + 0.006, R.tag[1] + 0.052, R.tag[2] + 0.030, 'dash', 0.2, SK.alu);
   const Rp = rodPanel(K, R);
   Rp.rect(-0.05, -0.028, 0.05, 0.028, SK.plate, 0, 0.001);
   Rp.text('ROD', 0, 0, 0.036, SK.ink, 0.05, 0.0034);
@@ -401,10 +523,12 @@ function fixedParts(K, F) {
   const fc = LEN * 0.84, dzc = deckZ(fc, 0);
   K.box(...H(fc - 0.008, -0.003, dzc), ...H(fc + 0.008, 0.003, dzc + 0.005), 'dash', 0.2, SK.alu);
   K.box(...H(fc - 0.015, -0.0028, dzc + 0.005), ...H(fc + 0.015, 0.0028, dzc + 0.0085), 'dash', 0.3, SK.alu);
-  // The fuel tank, its handle, cap, gauge, and the lettering.
-  const Tz0 = F.floor + 0.012;
-  K.box(TANK.x0, TANK.y0, Tz0, TANK.x1, TANK.y1, TANK.zt, 'dash', 0.2, SK.tank);
+  // The fuel tank, chamfered, its top embossed, with its handle, cap, gauge and lettering.
+  const Tz0 = F.floor + 0.012, TANK = tankOf(F);
+  chamferBox(K, TANK.x0, TANK.y0, Tz0, TANK.x1, TANK.y1, TANK.zt, 0.030, SK.tank);
   const Tp = tankPanel(K, F);
+  for (const a of [-0.125, 0.125]) Tp.stud(a, 0.0, 0.0085, 0.205, 0.0045, SK.tankRib, 0, 0);
+  K.box(TANK.x0 + 0.03, TANK.y0 - 0.0015, Tz0 + 0.03, TANK.x1 - 0.03, TANK.y0, TANK.zt - 0.05, 'dash', 0.1, SK.tankRib);
   Tp.text('FUEL', 0, 0.13, 0.052, SK.white, 0.1, 0.0034);
   Tp.text('PRIME', 0.062, -0.11, 0.028, SK.white, 0.1, 0.0034);
   // An arrow from PRIME to the bulb.
@@ -413,7 +537,7 @@ function fixedParts(K, F) {
   K.rod(Tp.pt(-0.11, 0.21, 0.0), Tp.pt(-0.11, 0.21, 0.05), 0.008, 'dash', 0.1, SK.cowlDk, 0, 4);
   K.rod(Tp.pt(0.11, 0.21, 0.0), Tp.pt(0.11, 0.21, 0.05), 0.008, 'dash', 0.1, SK.cowlDk, 0, 4);
   K.rod(Tp.pt(-0.11, 0.21, 0.05), Tp.pt(0.11, 0.21, 0.05), 0.010, 'dash', 0.1, SK.cowlDk, 0, 6);
-  Tp.knob(GAUGE[0], GAUGE[1], 0.040, 0.010, SK.cowlDk, 0);
+  Tp.knob(GAUGE[0], GAUGE[1], 0.044, 0.012, SK.cowlDk, 0);
   // The hose: from the connector at the tank's aft end, over the tank top to the bulb, then off the
   // tank's port side to the sole, aft under the thwart, up the aft bulkhead and over to the motor.
   const hz = TANK.zt + 0.012;
@@ -423,17 +547,119 @@ function fixedParts(K, F) {
   line(K, [bulbF, Tp.pt(BULB.a, BULB.b1 + 0.03, 0.02), [TANK.x0 - 0.02, 0.58, hz - 0.04], [TANK.x0 - 0.04, 0.50, F.floor + 0.03],
     [0.44, 0.0, F.floor + 0.03], H(fB + 0.004, 0.012, F.sole + 0.004), H(fB + 0.002, 0.012, G.atF(fB).sz - 0.004),
     H(TS.f + 0.004, 0.012, TS.sz + 0.004), H(mot.f1 + 0.001, 0.012, TS.sz + 0.004)], 0.007, SK.rubber);
-  // The fish box's body: four insulated walls and the ice inside, which shows with the lid up.
+  // The fish box's body: a moulded cooler, four walls with ribs pressed in them, and the ice inside,
+  // which shows with the lid up.
   const D = { f0: S.fishBox[0] * LEN, f1: S.fishBox[1] * LEN };
   const w = G.atF((D.f0 + D.f1) / 2).sw * 0.40, zt2 = G.soleZ + (S.fishBoxH ?? 0.032) - 0.004, th = 0.003;
-  K.box(...H(D.f0, -w, G.soleZ), ...H(D.f0 + th, w, zt2), 'dash', 0.2, SK.box);
-  K.box(...H(D.f1 - th, -w, G.soleZ), ...H(D.f1, w, zt2), 'dash', 0.2, SK.box);
-  K.box(...H(D.f0, -w, G.soleZ), ...H(D.f1, -w + th, zt2), 'dash', 0.2, SK.box);
-  K.box(...H(D.f0, w - th, G.soleZ), ...H(D.f1, w, zt2), 'dash', 0.2, SK.box);
+  K.box(...H(D.f0, -w, G.soleZ), ...H(D.f0 + th, w, zt2), 'dash', 0.1, SK.box);
+  K.box(...H(D.f1 - th, -w, G.soleZ), ...H(D.f1, w, zt2), 'dash', 0.1, SK.box);
+  K.box(...H(D.f0, -w, G.soleZ), ...H(D.f1, -w + th, zt2), 'dash', 0.1, SK.box);
+  K.box(...H(D.f0, w - th, G.soleZ), ...H(D.f1, w, zt2), 'dash', 0.1, SK.box);
+  for (const g of [-w * 0.6, -w * 0.2, w * 0.2, w * 0.6]) K.box(...H(D.f0 - 0.0012, g - 0.003, G.soleZ + 0.002), ...H(D.f0, g + 0.003, zt2 - 0.003), 'dash', 0.05, SK.boxRib);
   K.face([H(D.f0 + th, -w + th, zt2 - 0.010), H(D.f0 + th, w - th, zt2 - 0.010), H(D.f1 - th, w - th, zt2 - 0.010), H(D.f1 - th, -w + th, zt2 - 0.010)], [0, 0, 1], 'dash', 0.1, SK.ice);
+  // The two plates, riveted to the walls and turned to read from the thwart.
+  const plateOn = (s, y0) => {
+    const f = E.f + y0 / m, lo = H(...F.wallPt(f, s, 0.62)), hi = H(...F.wallPt(f, s, 0.92));
+    const u = norm(sub(hi, lo)), r = [0, -s, 0], n = norm(cross(r, u));
+    return K.panel(add(lerp3(lo, hi, 0.5), mul(n, s > 0 ? 0.016 : -0.016)), r, u);
+  };
+  {
+    const Pc = plateOn(1, 1.02), Pb = plateOn(-1, 1.02);
+    for (const P of [Pc, Pb]) {
+      P.rect(-0.165, -0.098, 0.165, 0.098, SK.plate, 0, 0.001);
+      for (const a of [-0.152, 0.152]) for (const b of [-0.086, 0.086]) P.disc(a, b, 0.006, SK.rivet, 0, 0.002, 6);
+    }
+    Pc.text('MAX 3 PERSONS', 0, 0.054, 0.024, SK.ink, 0.05, 0.0034);
+    Pc.text('MAX 15 HP', 0, 0.002, 0.024, SK.ink, 0.05, 0.0034);
+    Pc.text('MAX 360 KG', 0, -0.050, 0.024, SK.ink, 0.05, 0.0034);
+    Pb.text('KEEL MK 1', 0, 0.054, 0.030, SK.ink, 0.05, 0.0034);
+    Pb.text('HULL CW 4471', 0, 0.002, 0.022, SK.ink, 0.05, 0.0034);
+    Pb.text('BUILT COLDWATER', 0, -0.050, 0.020, SK.ink, 0.05, 0.0034);
+  }
+}
+
+// ── WHAT'S LYING ABOUT IN HER ────────────────────────────────────────────────
+function looseParts(K, F) {
+  const { H, sole, E, m } = F, L = skiffLayout(F);
+  const up = [0, 0, 1];
+  // The tackle box: a body, a lid a hair wider, a handle and two latches.
+  {
+    const T = L.tackle, [x0, y0, z0] = H(T.f0, T.g0, sole + 0.001), [x1, y1, z1] = H(T.f1, T.g1, sole + T.h - 0.005), zt = (sole + T.h - E.z) * m, c = [(x0 + x1) / 2, (y0 + y1) / 2];
+    K.box(x0, y0, z0, x1, y1, z1, 'dash', 0.05, SK.tackle);
+    chamferBox(K, x0 - 0.008, y0 - 0.008, z1, x1 + 0.008, y1 + 0.008, zt, 0.014, SK.tackle, 0.15);
+    line(K, [[c[0] - 0.08, c[1], zt], [c[0] - 0.08, c[1], zt + 0.022], [c[0] + 0.08, c[1], zt + 0.022], [c[0] + 0.08, c[1], zt]], 0.007, SK.rubber, 4);
+    for (const d of [-0.06, 0.06]) K.box(c[0] + d - 0.016, y0 - 0.012, z1 - 0.022, c[0] + d + 0.016, y0 - 0.008, z1 + 0.012, 'dash', 0.2, SK.steel);
+  }
+  // The bailing pail, with a little water left in it.
+  {
+    const B = L.bucket, p0 = H(B.f, B.g, sole + 0.0005), p1 = H(B.f, B.g, sole + B.h), r = B.r * m;
+    K.rod(p0, p1, r, 'dash', 0.1, SK.pail, 0, 12, false);
+    K.torus(p1, [1, 0, 0], [0, 1, 0], r, 0.006, 14, 'dash', 0.2, SK.pail);
+    K.face(Array.from({ length: 12 }, (_, i) => { const t = (i / 12) * Math.PI * 2; return add(p1, [Math.cos(t) * r * 0.97, Math.sin(t) * r * 0.97, -0.05]); }), up, 'dash', -0.15, SK.hood);
+    K.torus(p1, [1, 0, 0], [0, 0.42, 0.9], r * 1.02, 0.0035, 8, 'dash', 0.1, SK.steel, 0, 0, Math.PI);
+  }
+  // The life jacket on the forward thwart, folded, with its tape.
+  {
+    const J = L.jacket, a = H(J.f - 0.016, J.g0, J.z), b = H(J.f + 0.016, J.g1, J.z + 0.0055), c = H(J.f - 0.013, J.g0 + 0.003, J.z + 0.0055), d = H(J.f + 0.013, J.g1 - 0.003, J.z + 0.0095);
+    chamferBox(K, a[0], a[1], a[2], b[0], b[1], b[2], 0.014, SK.jacket);
+    chamferBox(K, c[0], c[1], c[2], d[0], d[1], d[2], 0.014, SK.jacketDk);
+    const jc = (J.g0 + J.g1) / 2;
+    for (const off of [-0.008, 0.008]) K.box(...H(J.f - 0.0145, jc + off - 0.0014, J.z + 0.0095), ...H(J.f + 0.0145, jc + off + 0.0014, J.z + 0.0100), 'dash', 0.2, SK.reflect);
+  }
+  // The coil of line on the sole.
+  {
+    const Co = L.coil, c = H(Co.f, Co.g, sole), r = Co.r * m;
+    for (const [dz, k] of [[0.012, 1], [0.012, 0.8], [0.012, 0.6], [0.012, 0.4], [0.030, 0.9], [0.030, 0.68]]) K.torus(add(c, [0, 0, dz]), [1, 0, 0], [0, 1, 0], r * k, 0.0115, 14, 'dash', 0.1, SK.line);
+  }
+  // The oars, shipped along the thwarts.
+  for (const o of L.oars) {
+    const a = H(...o.a), b = H(...o.b), d = norm(sub(b, a));
+    K.rod(a, b, 0.021, 'dash', 0.1, SK.oar, 0, 6);
+    const q = add(b, mul(d, 0.37));
+    faceToward(K, [add(b, [0.02, 0, 0]), add(q, [0.04, 0, 0]), add(q, [-0.04, 0, 0]), add(b, [-0.02, 0, 0])], up, SK.oar, 0.15);
+  }
+  // The transducer's cable, from over the transom up the port wall to the fish finder.
+  line(K, L.cable.slice(3).map((p) => H(...p)), 0.0045, SK.rubber, 4);
+}
+// The landing net, while it's stowed.
+function netParts(K, F) {
+  const { H } = F, Ne = skiffLayout(F).net;
+  const b = H(...Ne.butt), n = H(...Ne.neck), h = H(...Ne.hoop), r = Ne.r * F.m;
+  K.rod(b, n, 0.012, 'dash', 0.2, SK.alu, 0, 6);
+  const d = norm(sub(h, n)), e = norm(cross(d, [0, 0, 1]));
+  K.torus(h, d, e, r, 0.009, 16, 'dash', 0.2, SK.alu);
+  K.face(Array.from({ length: 14 }, (_, i) => { const t = (i / 14) * Math.PI * 2; return add(add(h, [0, 0, -0.012]), add(mul(d, Math.cos(t) * r), mul(e, Math.sin(t) * r))); }), [0, 0, 1], 'dash', -0.1, SK.hood);
+}
+// The rod, while it's in the holder.
+function rodParts(K, F) {
+  const R = rodAt(F);
+  K.rod(R.butt, R.grip, 0.013, 'dash', 0.1, SK.cork, 0, 6);
+  K.rod(R.grip, R.tip, 0.0055, 'dash', 0.2, SK.blank, 0, 5, false);
+  const reel = add(lerp3(R.butt, R.grip, 0.5), [-0.022, 0, -0.024]);
+  K.rod(add(reel, [-0.024, 0, 0]), add(reel, [0.024, 0, 0]), 0.03, 'dash', 0.2, SK.steel, 0, 8);
+}
+// The fish finder's case, hood, keys and the arm it stands on. Its screen is drawn live, in the room.
+function sonarParts(K, F) {
+  const { H } = F, U = sonarAt(K, F), L = skiffLayout(F).sonar;
+  const hw = U.hw, hh = U.hh, hd = U.hd;
+  K.obox(U.c, U.r, U.u, U.n, hw, hh, hd, 'dash', 0.05, SK.unit);
+  // The hood over the screen: a top and two cheeks standing proud of the face.
+  const P = U.P, sa = 0.105, b0 = -0.040, b1 = 0.086;
+  P.stud(0, b1 + 0.004, sa + 0.006, 0.0045, 0.028, SK.hood, 0, 0);
+  for (const s of [-1, 1]) P.stud(s * (sa + 0.004), (b0 + b1) / 2, 0.0035, (b1 - b0) / 2, 0.022, SK.hood, 0, 0);
+  P.rect(-sa, b0, sa, b1, SK.hood, 0, 0.0008);
+  for (const [, name, a] of SONAR_KEYS) {
+    P.stud(a, -0.066, 0.026, 0.0115, 0.006, SK.hood, 0, 0.0005);
+    P.text(name, a, -0.086, 0.0135, SK.white, 0.3, 0.0034);
+  }
+  // The arm: a ball at each end of a short tube, down to a clamp on the gunwale.
+  const back = sub(U.c, mul(U.n, hd)), cl = H(...L.clamp);
+  K.rod(back, cl, 0.016, 'dash', 0.2, SK.steel, 0, 8);
+  K.obox(cl, [1, 0, 0], [0, 0, 1], [0, 1, 0], 0.018, 0.024, 0.040, 'dash', 0.2, SK.alu);
 }
 
 // ── THE ROOM ─────────────────────────────────────────────────────────────────
+const SONAR_LCD = [null, [36, 104, 70], [178, 150, 44], [255, 196, 80]];
 export function skiffRoom(P, live, push) {
   const K = makeKit(push);
   const L = live || {}, F = P.frame, { H, G, LEN, xC, deckZ } = F;
@@ -441,6 +667,10 @@ export function skiffRoom(P, live, push) {
   // frame, and the memo is kept per profile, so it is closed over rather than compared every frame.
   K.group('skiffHull', (k) => hullParts(k, F));
   K.group('skiffFixed', (k) => fixedParts(k, F));
+  K.group('skiffLoose', (k) => looseParts(k, F));
+  K.group('skiffSonar', (k) => sonarParts(k, F));
+  K.group('skiffNet', (k, on) => { if (on) netParts(k, F); }, !L.netOut);
+  K.group('skiffRod', (k, on) => { if (on) rodParts(k, F); }, !L.rod);
   // The lamp lens, lit or not. The room's floods follow the same switch (see the profile).
   const lampOn = !!L.lamp;
   P.lampLit = lampOn;
@@ -459,6 +689,27 @@ export function skiffRoom(P, live, push) {
     Lp.text('LAMP', 0, -0.022, 0.022, SK.ink, 0.05, 0.0034);
     for (const a of [-0.040, 0.040]) for (const b of [-0.030, 0.030]) Lp.disc(a, b, 0.0035, SK.rivet, 0, 0.002, 6);
   }
+  // The fish finder's screen, drawn from the cells the seat hands it. A run of one level on a row is
+  // one rect, so a frame costs a few dozen faces. Dark when it's off.
+  {
+    const U = sonarAt(K, F), P = U.P, sa = 0.100, b0 = -0.036, b1 = 0.082, D = L.sonar;
+    P.rect(-sa, b0, sa, b1, SK.lcd, D ? 0.25 : 0, 0.0016);
+    if (D && D.cells && D.w > 0 && D.h > 0) {
+      const cw = (2 * sa) / D.w, ch = (b1 - b0) / D.h;
+      for (let y = 0; y < D.h; y++) {
+        const row = y * D.w, bt = b1 - (y + 1) * ch;
+        let x = 0;
+        while (x < D.w) {
+          const lv = D.cells[row + x];
+          let e = x + 1;
+          while (e < D.w && D.cells[row + e] === lv) e++;
+          if (lv > 0) P.rect(-sa + x * cw, bt, -sa + e * cw, bt + ch, SONAR_LCD[lv > 3 ? 3 : lv], 1, 0.0024);
+          x = e;
+        }
+      }
+      if (Number.isFinite(D.depthM)) P.digits(0.046, 0.060, 0.019, String(Math.round(D.depthM)).padStart(3, ' '), SONAR_LCD[3], false);
+    }
+  }
   // The anchor on the foredeck with its rode coiled beside it, or, at anchor, the rode from the cleat
   // over the bow.
   {
@@ -473,6 +724,7 @@ export function skiffRoom(P, live, push) {
       const cc = H(fa - 0.044, 0.0, dza);
       K.torus(cc, [1, 0, 0], [0, 1, 0], 0.085, 0.014, 14, 'dash', 0.1, SK.rope);
       K.torus(add(cc, [0, 0, 0.018]), [1, 0, 0], [0, 1, 0], 0.070, 0.014, 14, 'dash', 0.1, SK.rope);
+      K.torus(add(cc, [0, 0, 0.034]), [1, 0, 0], [0, 1, 0], 0.056, 0.014, 14, 'dash', 0.1, SK.rope);
       line(K, [add(cc, [0.07, 0.03, 0.02]), H(fa - 0.022, 0.002, dza + 0.002)], 0.010, SK.rope);
       line(K, [add(cc, [-0.05, 0.06, 0.02]), H(fc - 0.010, -0.004, deckZ(fc, 0) + 0.004), cl], 0.010, SK.rope);
     } else {
@@ -490,17 +742,33 @@ export function skiffRoom(P, live, push) {
     const top = c.map(([g, a]) => D.P(g, a, 0.004)), bot = c.map(([g, a]) => D.P(g, a, 0));
     const nTop = norm(sub(D.P(0, 0, 1), D.P(0, 0, 0)));
     K.face(top, nTop, 'dash', 0.25, SK.boxLid);
-    K.face(bot.slice().reverse(), mul(nTop, -1), 'dash', 0.1, SK.boxLid);
+    K.face(bot.slice().reverse(), mul(nTop, -1), 'dash', 0.1, SK.liner);
     for (let i = 0; i < 4; i++) {
       const j = (i + 1) % 4, mid = mul(add(add(top[i], top[j]), add(bot[i], bot[j])), 0.25), cen = D.P(0, D.Ls / 2, 0.002);
       faceToward(K, [bot[i], bot[j], top[j], top[i]], sub(mid, cen), SK.boxLid, 0.15);
     }
-    const Dp = lidPanel(K, D);
-    Dp.text('FISH', 0, 0, 0.078, SK.ink, 0.05, 0.0034);
-    // The handle across the forward edge, and the two hinges aft.
+    // Open, you're looking at its underside, so there's nothing to read.
+    if (!L.boxOpen) {
+      const Dp = lidPanel(K, D);
+      Dp.text('FISH', 0, 0, 0.078, SK.white, 0.05, 0.0034);
+      for (const a of [-0.21, 0.21]) Dp.rect(a - 0.02, -0.22, a + 0.02, 0.22, SK.boxRib, 0, 0.0016);
+    }
+    // The handle across the aft edge, and the two hinges forward.
     const h0 = D.P(-0.012, D.Ls - 0.006, 0.004), h1 = D.P(0.012, D.Ls - 0.006, 0.004);
     line(K, [h0, D.P(-0.012, D.Ls - 0.006, 0.009), D.P(0.012, D.Ls - 0.006, 0.009), h1], 0.007, SK.cowlDk, 4);
     for (const g of [-D.W * 0.6, D.W * 0.6]) K.box(...D.P(g - 0.006, -0.0015, 0.0), ...D.P(g + 0.006, 0.004, 0.0045), 'dash', 0.1, SK.alu);
+  }
+  // What's on the ice, with the lid up: a fish lying each way across the box for every sixth of it.
+  if (L.boxOpen && L.boxFill > 0) {
+    const { S } = F, f0 = S.fishBox[0] * LEN, f1 = S.fishBox[1] * LEN, zi = G.soleZ + (S.fishBoxH ?? 0.032) - 0.0135;
+    const n = Math.min(6, Math.ceil(clamp(L.boxFill, 0, 1) * 6)), w = G.atF((f0 + f1) / 2).sw * 0.30;
+    for (let i = 0; i < n; i++) {
+      const fm = f0 + (f1 - f0) * (0.2 + 0.6 * ((i >> 1) / 2)), gm = (i % 2 ? 1 : -1) * w * 0.5, d = i % 2 ? 1 : -1, l = 0.030, z = zi + i * 0.0003;
+      const P2 = (a, b) => H(fm + b, gm + a * d, z);
+      faceToward(K, [P2(-l, 0), P2(-l * 0.5, 0.006), P2(l * 0.3, 0.008), P2(l * 0.8, 0.003), P2(l * 0.8, -0.003), P2(l * 0.3, -0.008), P2(-l * 0.5, -0.006)], [0, 0, 1], SK.fish, 0.2);
+      faceToward(K, [P2(l * 0.75, 0), P2(l * 1.15, 0.007), P2(l * 1.15, -0.007)], [0, 0, 1], SK.fishDk, 0.1);
+      faceToward(K, [P2(-l * 0.5, 0.0012), P2(l * 0.3, 0.0016), P2(l * 0.3, -0.0016), P2(-l * 0.5, -0.0012)], [0, 0, 1], SK.fishDk, 0.1);
+    }
   }
   // The primer bulb, squeezed flat while `prime` is pressed.
   {

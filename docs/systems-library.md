@@ -819,16 +819,17 @@ moving it far means refitting the hold or lines land on top of the voice. And
 `lineGapMs` lives here rather than in `tv.js` precisely so there is one pacing
 number, not two in different files quietly disagreeing.
 
-### The worklet back end and the rhyme test (prototype)
+### The worklet back end and the rhyme test
 
 The lab's **back end** select picks what turns the scheduled targets into sound. The
-default is the node graph that ships. `worklet` is a prototype in
+default, in the game too, is the worklet in
 [`client/shared/oracle-worklet.js`](../client/shared/oracle-worklet.js): a
 Liljencrants-Fant glottal pulse built per cycle (open quotient, return phase, jitter and
 shimmer drawn per period), a Klatt cascade of five resonators for voicing and
 aspiration, a parallel band for frication and bursts, and a nasal pole-zero pair.
-Nothing in the game asks for it; `speak(text, { backend: 'worklet' })` does, and falls
-back to the graph until the module has loaded (the result's `backend` says which ran).
+The engine loads it when the audio context is made. The node graph speaks until it has
+loaded, where there's no AudioWorklet, after a node fails to build or crashes, and for
+`speak(text, { backend: 'graph' })`. The result's `backend` says which ran.
 
 Only the last stage swaps. In worklet mode `speak()` builds recorders in place of the
 source-side nodes, the same loop schedules the same targets into them, and they're
@@ -910,6 +911,11 @@ zero, every period is the same pulse, and /a i u/ formants, bursts and stop aspi
 match natural 1.
 
 ### The source as it speaks (worklet only)
+
+Source-tract interaction runs under all of this. An open glottis couples the tract to the
+lungs, so `openness()` follows the opening through each period and F1 widens by up to
+`f1Open` and rises by up to `f1Rise`. Lax folds couple more, and above Rd 1 they never
+fully close. At natural 0 F1 holds still.
 
 A real voice changes its source syllable by syllable: it presses on an accent, relaxes
 and goes breathy as a phrase runs out, and drops into creak at the end of a statement.

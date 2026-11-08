@@ -1,0 +1,163 @@
+{
+  "banter": [],
+  "behaviour_graph": {
+    "_start": "n_start",
+    "nodes": {
+      "n_atwork": {
+        "action_type": "AT_WORK",
+        "next": "n_check",
+        "type": "action"
+      },
+      "n_check": {
+        "action_type": "CHECK_WORK",
+        "goToWork": "n_work",
+        "haveLife": "n_life",
+        "type": "action"
+      },
+      "n_life": {
+        "action_type": "HAVE_LIFE",
+        "next": "n_check",
+        "type": "action"
+      },
+      "n_start": {
+        "next": "n_check",
+        "type": "start"
+      },
+      "n_work": {
+        "action_type": "GO_TO_WORK",
+        "next": "n_atwork",
+        "params": {
+          "zone_id": "zone_ksab5_stage"
+        },
+        "type": "action"
+      }
+    }
+  },
+  "chitchat": [],
+  "description": "A heavy man in a brown check jacket that doesn't quite button, with a broken nose and big scarred hands flat on the desk. A paper cup of coffee sits by his elbow next to a scorecard covered in pencil. He has a two-day shadow the makeup hasn't quite hidden.",
+  "dialogue_tree": {
+    "bye": {
+      "options": [],
+      "text": "\"See you.\""
+    },
+    "nose": {
+      "options": [
+        {
+          "label": "Right.",
+          "next": "root"
+        }
+      ],
+      "text": "\"A puck, then a guy, then the same guy. I stopped getting it fixed.\""
+    },
+    "pick": {
+      "options": [
+        {
+          "label": "Thanks.",
+          "next": "root"
+        }
+      ],
+      "text": "\"Whoever gets the first one. Don't put money on that.\""
+    },
+    "root": {
+      "options": [
+        {
+          "label": "Who wins tonight?",
+          "next": "pick"
+        },
+        {
+          "label": "What happened to your nose?",
+          "next": "nose"
+        }
+      ],
+      "text": "\"Yeah?\"",
+      "text_by_relation": {
+        "first": "\"Lou Ferraro. I played nine years and now I tell people what they just watched.\"",
+        "known": "\"Back again. Sit down if you want, just not in Joan's chair.\""
+      }
+    }
+  },
+  "faction": null,
+  "flags": {
+    "absent_lines": [
+      "\"Joan's not here. I'm not doing this by myself, I'll tell you that now.\"",
+      "drinks the coffee and looks at the door."
+    ],
+    "clothing_layers": [
+      "a brown check sport jacket that does not quite button",
+      "a blue shirt with the collar open",
+      "a pair of grey boxers"
+    ],
+    "figure": {
+      "age": 0.7,
+      "beard": 0.5,
+      "brow": 1.1,
+      "build": "older",
+      "cut": "suit",
+      "gear": false,
+      "hair": [
+        96,
+        90,
+        84
+      ],
+      "hair_style": 1,
+      "head": 0,
+      "iris": [
+        80,
+        70,
+        50
+      ],
+      "layout": 9,
+      "legs": [
+        52,
+        42,
+        32
+      ],
+      "mouth": 1.05,
+      "shirt": [
+        104,
+        130,
+        170
+      ],
+      "shoes": [
+        40,
+        28,
+        20
+      ],
+      "skin": [
+        214,
+        164,
+        124
+      ],
+      "smile": 1,
+      "top": [
+        92,
+        66,
+        44
+      ],
+      "trim": [
+        190,
+        160,
+        90
+      ]
+    },
+    "studio_npc": true
+  },
+  "home_activities": [],
+  "home_zone": "zone_kestrel_11b",
+  "hp": 20,
+  "hp_max": 20,
+  "id": "npc_lou_ferraro",
+  "name": "Lou Ferraro",
+  "npc_type": "npc",
+  "sex": "male",
+  "studio_zone_id": null,
+  "vendor_inventory": [],
+  "vendor_restock_rate": 1,
+  "vendor_schedule": {},
+  "vendor_shop_name": null,
+  "vendor_stock_size": 10,
+  "wander_zones": [],
+  "wanders": 0,
+  "work_zone_id": "zone_ksab5_stage"
+}
+

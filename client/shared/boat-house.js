@@ -109,7 +109,22 @@ function build(S) {
   // tenth of the boat, which from dead ahead is a monohull. The cat's stem station is a third of the
   // beam wide, so the two sponson tips are still two tips at the very front.
   const CAT = S.hullForm === 'cat';
-  const STATIONS = (CAT ? [
+  // `hullForm: 'skiff'` is a riveted work skiff. The deep-V table below is drawn for a hull one unit
+  // long, and its chine heights are absolutes, so a third of that length read as a thin speedboat with
+  // a knife for a bow. This one is her own: a full bow carried well forward, a flat run with a shallow
+  // vee, a hard chine at the waterline, a wide transom and the sheer rising to the stem. Every height
+  // is a fraction of her own numbers. The `-5 degrees ahead` rule in shell.mjs is what limits `bowZ`.
+  const SKIFF = S.hullForm === 'skiff';
+  const STATIONS = SKIFF ? [
+    st( 1.000 * LEN,  0.052 * KEEL / 0.026, 0.10 * B1, 0.066, 0.20 * B1, BW),
+    st( 0.860 * LEN,  0.014 * KEEL / 0.026, 0.42 * B1, 0.038, 0.56 * B1, BW * 0.985),
+    st( 0.640 * LEN, -0.012 * KEEL / 0.026, 0.70 * B1, 0.020, 0.80 * B1, DK + (BW - DK) * 0.70),
+    st( 0.380 * LEN, -0.022 * KEEL / 0.026, 0.86 * B1, 0.012, 0.94 * B1, DK + (BW - DK) * 0.44),
+    st( 0.060 * LEN, -0.026 * KEEL / 0.026, 0.93 * B1, CH + 0.001, 1.00 * B1, DK + (BW - DK) * 0.22),
+    st(-0.320 * LEN, -0.026 * KEEL / 0.026, 0.93 * B1, CH, 1.00 * B1, DK + (BW - DK) * 0.09),
+    st(-0.700 * LEN, -0.023 * KEEL / 0.026, 0.92 * B1, CH, 0.98 * B1, DK + (BW - DK) * 0.03),
+    st(-1.000 * LEN, -0.019 * KEEL / 0.026, 0.90 * B1, CH, 0.95 * B1, DK),
+  ] : (CAT ? [
     { ...st( 1.000 * LEN, 0.038, 0.30 * B1, 0.056, 0.34 * B1, BW), tw: 0.14 * B1, tz: BW - 0.022, iz: 0.056 },
     { ...st( 0.860 * LEN, 0.004, 0.62 * B1, 0.044, 0.68 * B1, BW * 0.97), tw: 0.30 * B1, tz: 0.074, iz: 0.046 },
     { ...st( 0.640 * LEN, -0.020, 0.85 * B1, 0.032, 0.88 * B1, DK + (BW - DK) * 0.70), tw: 0.38 * B1, tz: 0.062, iz: 0.034 },
@@ -239,6 +254,11 @@ function build(S) {
   // tiller, a seated eye (`seatEyeM`, metres) over the thwart top. The house numbers above are still
   // computed and nothing draws them.
   const OPEN = !!S.open;
+  // The well's wall, as fractions of the sheer's half-width, and how far under the sheer its top is.
+  // One set of numbers for the outside and the seat. A pilothouse boat's is a moulded liner with a
+  // wide gunwale; a skiff is one skin of plate, so her inside follows her outside, with only a narrow
+  // cap along the top. `wellF(f, t)` is a point on it, 0 at the sole and 1 at the sheer.
+  const WELL = SKIFF ? { lo: 0.82, hi: 0.955, cap: 0.0055 } : { lo: 0.78, hi: 0.80, cap: 0.030 };
   const thwartTop = (f) => atF(f).sz - (S.thwartDrop ?? 0.018);
   const helmF = OPEN ? (S.thwarts?.[0] ?? -0.62) * LEN : hF1 - H.fFrac * (hF1 - hF0);
   const helmZ = OPEN ? thwartTop(helmF) + (S.seatEyeM ?? 0.78) / (S.mPerUnit ?? 7.4)
@@ -256,8 +276,16 @@ function build(S) {
     mPerUnit: H.eyeM / helmZ,
   };
 
+  // The outboard on her transom, cowl above it, for an open boat: the seat and the outside draw this
+  // one motor. `M` is `motorScale`; shell.mjs holds the seat to this box.
+  const TSt = STATIONS[STATIONS.length - 1], MS = S.motorScale ?? 1;
+  const outboard = {
+    M: MS, f0: TSt.f - 0.088 * MS, f1: TSt.f + 0.006 * MS, hw: 0.021 * MS,
+    z0: TSt.sz - 0.012, zMid: TSt.sz + 0.020, z1: TSt.sz + 0.045,
+  };
+
   return {
-    S, LEN, BEAM, DECK, BOW, KEEL, CH, CAT, OPEN,
+    S, LEN, BEAM, DECK, BOW, KEEL, CH, CAT, OPEN, SKIFF, WELL, outboard,
     STATIONS, atF, thwartTop,
     hF0, hF1, hH, rake, TUM, WRAP, NOSE, fw, fwT, rF, sideF1,
     hw, hz, cen,

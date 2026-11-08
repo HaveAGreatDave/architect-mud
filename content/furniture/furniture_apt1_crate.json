@@ -4,7 +4,11 @@
     "interactions": [
       "sit",
       "lean"
-    ]
+    ],
+    "look": {
+      "arche": "store",
+      "form": "crate"
+    }
   },
   "hp": null,
   "hp_max": null,

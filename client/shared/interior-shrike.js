@@ -742,7 +742,7 @@ export function shrikeFit(P, live, push) {
     const b = lv.stickBase;
     K.obox([b[0], b[1], b[2] + 0.02], [1, 0, 0], [0, 1, 0], [0, 0, 1], 0.06, 0.06, 0.025, 'floor', 0, T.rubber);
     // A leather boot, in three rings that lean with the stick.
-    const tip = [R.ail * 0.10, b[1] + 0.03 + R.elev * 0.10, -0.40];
+    const tip = [R.ail * 0.10, b[1] + 0.03 - R.elev * 0.10, -0.40];
     const dir = norm(sub(tip, b));
     for (let i = 0; i < 3; i++) {
       const c = add(b, mul(dir, 0.04 + i * 0.03));
@@ -806,7 +806,7 @@ export function shrikeHotspots(P, live) {
   const R = readings(live), lv = levers(P, live);
   const Pn = makeKit(() => {}).panel(PANEL_O, PANEL_R, PANEL_U);
   const out = SWITCHES.map(([id, x]) => ({ id: 'ck:' + id, p: Pn.pt(x, SW_Z, 0.01), r: 0.013, kind: 'click' }));
-  const tip = [R.ail * 0.10, lv.stickBase[1] + 0.03 + R.elev * 0.10, -0.40];
+  const tip = [R.ail * 0.10, lv.stickBase[1] + 0.03 - R.elev * 0.10, -0.40];
   out.push({ id: 'yoke', p: add(tip, [0, 0.01, 0.08]), r: 0.07, kind: 'yoke' });
   out.push({ id: 'throttle', p: add(lv.throttle.tip, [0.015, 0, 0]), r: 0.035, kind: 'throttle' });
   out.push({ id: 'trim', p: lv.trimC, r: 0.07, kind: 'trim' });

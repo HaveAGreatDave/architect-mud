@@ -1,0 +1,23 @@
+{
+  "description": "A partners desk in black walnut, wide enough for two people to sign something across. One side has a leather blotter, a fountain pen and a stack of letters nobody has opened. The other side has never had a chair.",
+  "flags": {
+    "aliases": "desk,writing desk",
+    "interactions": [
+      "lean"
+    ],
+    "look": {
+      "arche": "surface",
+      "form": "desk"
+    }
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_penthouse_desk",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "partners desk",
+  "object_type": "furniture",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_solenne_penthouse"
+}

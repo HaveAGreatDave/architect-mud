@@ -1,6 +1,11 @@
 {
   "description": "A soaking tub hewn from one block of the same grey stone as the walls, deep enough to disappear in. It fills from a slot in the rim with no visible tap, the water sheeting in silent and steaming. It faces the whole bay: a bath with a hundred-mile view and nothing able to look back.",
-  "flags": {},
+  "flags": {
+    "look": {
+      "arche": "shower",
+      "form": "soak"
+    }
+  },
   "hp": null,
   "hp_max": null,
   "id": "furn_zone_solenne_penthouse_bath_tub",

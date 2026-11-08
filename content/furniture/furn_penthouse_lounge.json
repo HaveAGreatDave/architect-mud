@@ -1,0 +1,41 @@
+{
+  "description": "A square pit let into the stone floor, two steps down, lined on one side with a long banquette in undyed wool.",
+  "flags": {
+    "aliases": [
+      "lounge",
+      "pit",
+      "banquette",
+      "seating"
+    ],
+    "interactions": [
+      "sit",
+      "lie"
+    ],
+    "look": {
+      "arche": "sofa",
+      "dims": [
+        4.6,
+        1,
+        0.72
+      ],
+      "form": "sofa"
+    },
+    "spot": {
+      "at": [
+        -1.46,
+        6
+      ],
+      "turn": 90
+    }
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_penthouse_lounge",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "sunken lounge",
+  "object_type": "furniture",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_solenne_penthouse"
+}

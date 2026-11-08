@@ -4,8 +4,16 @@
   "id": "item_holder_tea",
   "name": "a mug off the stove",
   "tags": {
+    "consumable": true,
     "description": "Stewed to within an inch of its life on a stove that has not gone out in living memory. There is no milk and he does not apologise for that.",
-    "stackable": false
+    "hot_drink": true,
+    "hydrating": true,
+    "laced_drug": "drug_coffee",
+    "laced_potency": 0.75,
+    "restore_sanity": 2,
+    "restore_thirst": 30,
+    "stackable": false,
+    "use_message": "You drink the tea. It has been stewing for days and it tastes like it."
   },
   "type": "drink",
   "value": 2,

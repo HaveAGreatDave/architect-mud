@@ -3,7 +3,11 @@
   "flags": {
     "aliases": "cabinet,cupboard,glass cabinet",
     "container": 80000,
-    "dish_cabinet": true
+    "dish_cabinet": true,
+    "look": {
+      "arche": "cabinet",
+      "form": "vitrine"
+    }
   },
   "hp": null,
   "hp_max": null,

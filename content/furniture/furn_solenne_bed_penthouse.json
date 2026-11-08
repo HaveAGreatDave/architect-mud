@@ -4,7 +4,23 @@
     "interactions": [
       "lie",
       "sit"
-    ]
+    ],
+    "look": {
+      "arche": "bed",
+      "dims": [
+        3.6,
+        2.7,
+        0.62
+      ],
+      "form": "platform"
+    },
+    "spot": {
+      "at": [
+        -4.6,
+        1.6
+      ],
+      "turn": 180
+    }
   },
   "hp": null,
   "hp_max": null,

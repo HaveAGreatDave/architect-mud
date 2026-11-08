@@ -1,0 +1,22 @@
+{
+  "description": "Crates between the pallets, used as nightstands. Candle stubs, a radio with no back, a photo propped against a mug.",
+  "flags": {
+    "aliases": "crates",
+    "container": 10000,
+    "look": {
+      "arche": "store",
+      "form": "crate",
+      "wear": 0.9
+    }
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_hostel_d5_crates",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "pallet crates",
+  "object_type": "container",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_hostel_dorm_5"
+}

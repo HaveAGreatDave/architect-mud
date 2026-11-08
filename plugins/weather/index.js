@@ -9,12 +9,12 @@
 import { createHash } from 'node:crypto';
 import { query } from '../../server/models/db.js';
 import { on, emit } from '../../server/engine/events.js';
-import { getAllLivePlayers } from '../../server/engine/world.js';
+import { getAllLivePlayers, world } from '../../server/engine/world.js';
 import { sendToPlayer } from '../../server/engine/messaging.js';
 import { recomputeEquipped } from '../../server/engine/commands/inventory.js';
 import { registerAction } from '../../server/engine/actions.js';
 import { getFlag, setFlag } from '../../server/engine/flags.js';
-import { devTriggerWeatherEvent, registerWeatherEventCurrent, getEnvironmentState, getBirdClock, seasonForDate, empReaches } from '../../server/engine/environment.js';
+import { devTriggerWeatherEvent, registerWeatherEventCurrent, getEnvironmentState, getBirdClock, seasonForDate, empReaches, powerAnchorOf } from '../../server/engine/environment.js';
 import { gatherHook } from '../../server/engine/plugins.js';
 import { mulberry32 } from '../../server/engine/rng.js';
 
@@ -1190,6 +1190,17 @@ async function fryCarriedElectronics(playerIds) {
 // faraday-bag exemption, same chrome blackout, same bench repair — rather than a
 // second implementation that would inevitably disagree about what a shielded
 // container does. A charge is a small storm; the sky is a large one.
+// Every strike goes to every client, because the server can't tell who's looking at the sky: a boat,
+// a cab, a free-look walker and an aeroplane each hold their own position. The client culls on range.
+// `d` is tiles from the player's body, for the views that have no world position of their own.
+on('weather.lightningStrike', ({ gx, gy, intensity, cc }) => {
+  if (!Number.isFinite(gx) || !Number.isFinite(gy)) return;
+  for (const p of getAllLivePlayers()) {
+    const a = powerAnchorOf(world.zones.get(p.current_zone));
+    sendToPlayer(p.id, { type: 'lightning_strike', gx, gy, intensity, cc: !!cc, d: a ? Math.round(Math.hypot(a.x - gx, a.y - gy)) : null });
+  }
+});
+
 on('weather.empPulse', async (pulse) => {
   const { minutes, zoneId = null } = pulse;
 

@@ -937,6 +937,10 @@ function wireDpadPressRelease(container) {
 for (const b of document.querySelectorAll("[data-home-cmd]"))
 	b.addEventListener("click", () => sendCmd(b.dataset.homeCmd));
 
+// The room button toggles the Stage. Its state comes from setRoomButton (render.js).
+for (const b of document.querySelectorAll(".dpad-room-btn"))
+	b.addEventListener("click", () => sendCmd(b.dataset.room === "open" ? "room close" : "room"));
+
 // Mobile dpad — send movement commands without opening the keyboard
 wireDpadPressRelease(document.getElementById("mob-dpad"));
 

@@ -1,0 +1,24 @@
+{
+  "description": "A row of teak loungers with white cushions, angled at the drop. Each has a folded towel and a clip so the towel doesn't end up in the street.",
+  "flags": {
+    "aliases": "loungers,lounger,sunbed",
+    "interactions": [
+      "sit",
+      "lie"
+    ],
+    "look": {
+      "arche": "sofa",
+      "form": "cot"
+    }
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_skydeck_loungers",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "teak loungers",
+  "object_type": "furniture",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_solenne_skydeck"
+}

@@ -24,7 +24,7 @@ import { linearOut, applyLinOut } from './colour.js';
 import { LIGHTGRID_GLSL, LIGHTGRID_UNIFORMS, bindNoLightGrid } from './lightgrid.js';
 import { TOON_GLSL, TOON_INK_GLSL, TOON_INK_UNIFORMS, bindToonInk } from './toon.js';
 import { COMIC, COMIC_LIGHT_GLSL } from './comic-light.js';
-import { vehicleLightOf } from './house-style.js';
+import { vehicleLightOf, cabinComicOf } from './house-style.js';
 
 const INK_UNIT = 27;   // the ink lines' texture (gl/toon.js); clear of the cabin's 6 and 7 and the light grid's 8..10
 const SHIP_LIGHT_DEFAULT = [0.55, 0.95, 0.45];   // windshield.js shipLightOf
@@ -176,6 +176,7 @@ uniform vec3 uLmL;      // the ship's own light: shade-side floor, sun share, wr
 // night, wet, makeShade's sun share, whether the statue has a sun to glint; the statue's sky and ground.
 uniform vec3 uMarkL; uniform vec3 uMarkL2; uniform vec4 uMarkP;
 uniform vec3 uMarkHor; uniform vec3 uMarkTop; uniform vec3 uMarkG;
+uniform vec2 uMarkN;      // the share of a mark's ambient the night leaves it, and its lamp pool's gain
 // The city's own lights, the same list the mass shader takes (world.js pickLights), and the night
 // outside them. Off (0 lights, dim 1) on every draw that does not hand them over.
 uniform int uWLN;
@@ -253,7 +254,7 @@ vec3 envSoft(float rz) {
 }
 // ── SURFACE TEXTURE, PER PIXEL, IN THE COCKPIT'S OWN FRAME ───────────────────
 // The kinds are interior-kit.js TEX_KINDS, by index: 1 plastic, 2 fabric, 3 leather, 4 rubber,
-// 5 brushed, 6 cast, 7 paint, 8 wood, 9 carpet. Each returns a brightness multiplier around 1 — a
+// 5 brushed, 6 cast, 7 paint, 8 wood, 9 carpet, 15 tread. Each returns a brightness multiplier around 1 — a
 // texture here is the VALUE of the surface varying, never a new colour, so a retrim still reaches
 // it and a lamp is never tinted. ⚠ EVERY TERM FADES OUT WHERE ITS FEATURE IS SMALLER THAN A PIXEL
 // (fade), because a procedural pattern sampled below its own frequency is not a finer texture, it
@@ -332,6 +333,13 @@ float texHeight(int kind, vec2 uv, float px) {
     float tow = sin(across * 3.14159);
     float h = 0.3 + 0.45 * tow + tw * 0.18 + (vnoise(uv * 900.0) - 0.5) * 0.08;
     return mix(0.5, h, fade(170.0, px));
+  } else if (kind == 15) { // tread plate: raised lozenges, alternating, on 30 mm centres, over a dull oxide
+    vec2 q = uv * 33.0;
+    vec2 c = fract(q) - 0.5;
+    c = mod(floor(q.x) + floor(q.y), 2.0) < 1.0 ? c : vec2(c.y, -c.x);
+    float a = (c.x + c.y) * 0.7071, b = (c.x - c.y) * 0.7071;
+    float lug = 1.0 - smoothstep(0.75, 1.1, length(vec2(a / 0.36, b / 0.11)));
+    return 0.34 + mix(0.16, lug * 0.62, fade(33.0, px)) + (vnoise(uv * 24.0) - 0.5) * 0.3 * fade(24.0, px);
   } else if (kind == 14) { // metal flake: a candy coat over flakes that catch the light one by one
     float fl = smoothstep(0.8, 0.97, vnoise(uv * 1500.0)) * fade(1500.0, px);
     float peel = (vnoise(uv * 230.0) - 0.5) * 0.4 * fade(230.0, px);
@@ -353,6 +361,7 @@ vec2 texAmount(int kind) {
   if (kind == 11) return vec2(0.24, 0.35);  // gelcoat
   if (kind == 13) return vec2(0.30, 0.25);  // carbon
   if (kind == 14) return vec2(0.22, 0.05);  // metal flake: value, a breath of relief
+  if (kind == 15) return vec2(0.26, 0.55);  // tread plate
   return vec2(0.0);
 }
 // How glossy a clear coat is, from its strength (VEHICLE_MATS in client/shared/vehicle-materials.js):
@@ -413,6 +422,100 @@ uniform float uSunCK;     // how strong the direct sun is
 uniform vec3 uCabBack; uniform vec3 uCabLow; uniform vec3 uCabHigh; uniform float uCabEnvOn;
 uniform highp sampler2D uShadow; uniform mat4 uLightMat; uniform float uShadowOn; uniform float uShadowTexel;
 uniform highp sampler2D uWSun; uniform mat4 uWVP; uniform float uWOn; uniform float uWTexel; uniform float uWBias;
+// THE COMIC COCKPIT (V5 of docs/proposals/vehicle-comic.md; gl/house-style.js cabinComicOf). Off is
+// uCabComic 0 and every face shades exactly as before. Only faces with a material (vTex > 0) take
+// any of it: lettering, gauge faces and lamps carry none, so the Drake bar's legibility is untouched.
+uniform float uCabComic;
+uniform vec4 uCabWear;    // grime, chips, hatching, how much of the photographic grain is kept
+uniform vec3 uCabDirt;    // what the grime is made of (oil, dust, soot, salt)
+uniform vec3 uCabShade;   // the painted shadow colour
+uniform vec3 uCabInk;
+// A face's own plane, in cab metres, and a pixel's footprint there.
+vec2 cabUV(out float px) {
+  vec3 L = vLocal;
+  vec3 n = normalize(cross(dFdx(L), dFdy(L)));
+  vec3 t = normalize(cross(n, abs(n.z) < 0.9 ? vec3(0.0, 0.0, 1.0) : vec3(1.0, 0.0, 0.0)));
+  px = max(length(fwidth(L)), 1e-5);
+  return vec2(dot(L, t), dot(L, cross(n, t)));
+}
+// The wear, painted into the surface's colour before it's lit: hard-edged grime with a darker line
+// where it stops, heavier low in the room; chips of paint and plastic, each a lighter flake with an
+// ink rim; worn, lighter patches on cloth, leather and carpet. Painted, not photographed: every edge
+// is about a pixel wide, and nothing is finer than the pixel (fade).
+vec3 cabWood(vec3 c);
+vec3 cabWear(vec3 c, int kind) {
+  if (kind == 8) c = cabWood(c);
+  float px; vec2 uv = cabUV(px);
+  vec3 n = normalize(cross(dFdx(vLocal), dFdy(vLocal)));
+  float zf = clamp((vLocal.z - uBox.z) / max(uBox.w - uBox.z, 1e-3), 0.0, 1.0);
+  bool soft = kind == 2 || kind == 3 || kind == 9;
+  float gn = vnoise(uv * 8.0 + 3.7) * 0.6 + vnoise(uv * 23.0 + 1.3) * 0.4 * fade(23.0, px);
+  float gt = 1.0 - uCabWear.x * (0.12 + 0.22 * (1.0 - zf) + 0.08 * abs(n.z) * (1.0 - zf));
+  float ga = max(fwidth(gn), 0.004);
+  float g = smoothstep(gt - ga, gt + ga, gn);
+  float gRim = g - smoothstep(gt + 0.035 - ga, gt + 0.035 + ga, gn);
+  c = mix(c, uCabDirt * mix(0.75, 1.1, dot(c, vec3(0.333))), g * 0.55);
+  c *= 1.0 - gRim * 0.3;
+  if (kind == 15) return c;
+  float fd = fade(60.0, px);
+  float cluster = smoothstep(0.45, 0.9, vnoise(uv * 4.0 + 5.3));
+  float cn = vnoise(uv * 60.0 + 7.1);
+  float ct = 1.0 - 0.16 * uCabWear.y * cluster;
+  float ca = max(fwidth(cn), 0.004);
+  float ch = smoothstep(ct - ca, ct + ca, cn);
+  if (soft) return mix(c, c * 1.22 + 0.02, ch * fd * 0.5);
+  float ring = smoothstep(ct - 0.04 - ca, ct - 0.04 + ca, cn) - ch;
+  bool metal = kind == 5 || kind == 6 || kind == 7;
+  vec3 bare = metal ? mix(c, vec3(0.50, 0.51, 0.52), 0.65) : min(c * 1.25 + 0.04, vec3(1.0));
+  c = mix(c, bare, ch * fd);
+  return mix(c, uCabInk, ring * 0.75 * fd);
+}
+// WOOD, PAINTED: the photographic grain's fine dark lines read as black ink scribbled over every
+// board. A comic board is two or three flat tones in broad bands along the grain, a few long wavy
+// strokes in a darker shade of its own colour (never ink), and now and then a knot. Every stroke
+// is wider than a pixel or gone.
+vec3 cabWood(vec3 c) {
+  float px; vec2 uv = cabUV(px);
+  vec3 n = normalize(cross(dFdx(vLocal), dFdy(vLocal)));
+  // The grain runs along the face's longer world axis in its plane: across x unless it's upright.
+  vec2 g = abs(n.z) > 0.7 ? uv : uv.yx;
+  float wy = g.y + (vnoise(vec2(g.x * 1.2, g.y * 4.0)) - 0.5) * 0.05 + sin(g.x * 3.1 + g.y * 9.0) * 0.006;
+  float band = vnoise(vec2(g.x * 0.9, wy * 11.0));
+  float tone = band < 0.4 ? 0.9 : band < 0.68 ? 1.0 : 1.07;
+  c *= mix(1.0, tone, fade(11.0, px));
+  float ln = abs(fract(wy * 14.0 + vnoise(vec2(g.x * 0.7, wy * 2.0)) * 1.5) - 0.5) * 2.0;
+  float keep = smoothstep(0.62, 0.74, vnoise(vec2(g.x * 2.2, floor(wy * 14.0) * 3.7)));
+  float lw = max(fwidth(wy * 14.0) * 1.5, 0.1);
+  float stroke = (1.0 - smoothstep(lw, lw * 1.8, ln)) * keep * fade(14.0, px);
+  c = mix(c, c * vec3(0.8, 0.74, 0.68), stroke * 0.7);
+  vec2 kc = floor(g * vec2(2.0, 9.0));
+  vec2 kp = (fract(g * vec2(2.0, 9.0)) - 0.5) * vec2(1.0, 0.22 * 9.0 / 2.0);
+  float knot = step(0.86, h21(kc + 3.1)) * (1.0 - smoothstep(0.1, 0.14, length(kp * vec2(1.0, 3.0))));
+  return mix(c, c * vec3(0.55, 0.48, 0.42), knot * 0.8 * fade(9.0, px));
+}
+// The room's light in bands: the light a face gets, against its own colour, rounded to a band every
+// 0.8 of a stop with an edge about a pixel wide; the bands under the room's plain light painted
+// toward the house shade. 'band' comes back for the hatching (0 the plain light, -1 a band under).
+vec3 cabComicBand(vec3 lit, vec3 base, out float band) {
+  float lb = max(dot(base, vec3(0.299, 0.587, 0.114)), 0.004);
+  float s = max(dot(lit, vec3(0.299, 0.587, 0.114)) / lb, 1e-4);
+  float x = log2(s) / 0.8;
+  float fl = floor(x), fr = x - fl, w = clamp(fwidth(x) * 0.75, 0.02, 0.5);
+  band = fl + smoothstep(0.5 - w, 0.5 + w, fr);
+  vec3 r = lit * (exp2(band * 0.8) / s);
+  return r * mix(vec3(1.0), uCabShade, 0.55 * clamp(-band * 0.5, 0.0, 1.0));
+}
+// Pen hatching across a face in the bands under the plain light, crossed in the deepest: about 14 mm
+// apart, the line a fifth of that, gone before it's finer than a pixel.
+float cabHatch(float band) {
+  float px; vec2 uv = cabUV(px);
+  float k = uCabWear.z * clamp(-band / 2.0, 0.0, 1.0) * fade(70.0, px) * (0.45 + 0.55 * clamp(uOutK, 0.0, 1.0));
+  float d1 = (uv.x + uv.y) * 0.7071 * 70.0, d2 = (uv.x - uv.y) * 0.7071 * 70.0;
+  float a1 = abs(fract(d1) - 0.5), a2 = abs(fract(d2) - 0.5), f1 = fwidth(d1), f2 = fwidth(d2);
+  float m = smoothstep(0.4 - f1, 0.4 + f1, a1);
+  m = max(m, smoothstep(0.4 - f2, 0.4 + f2, a2) * step(band, -1.5));
+  return m * k * 0.5;
+}
 // ⚠ THE SAME MODEL pushInteriorShell RAN PER FACE, now per pixel, plus the one thing it couldn't do:
 // the direct sun, occluded by the room itself (a shadow map from the sun, drawn by this layer).
 float cabShadow(vec3 P, vec3 n, float nd) {
@@ -449,12 +552,13 @@ vec3 cabinShade(vec3 base) {
     // face there runs past 1.2 and goes to the sky's colour: under an open sky every thwart and
     // gunwale read as one flat white. Here the sky is a dome (n against up), the sea gives a little
     // back from below, the hull shades its own low faces, and the sun comes in at the sun pass
-    // below with its shadow map, so the colour itself is never pushed to white.
+    // below with its shadow map, so the colour itself is never pushed to white. A wall gets the bright
+    // water beside it and the sole the sun lands on, which is what keeps her inside from going black.
     float up = dot(n, uUp);
     float dome = 0.5 + 0.5 * up;
     float zf0 = clamp((P.z - uBox.z) / (uBox.w - uBox.z), 0.0, 1.0);
     float occ = 0.62 + 0.38 * smoothstep(0.0, 0.85, zf0);
-    float fac = (0.36 + 0.42 * dome * dome + 0.10 * max(0.0, -up)) * occ * (1.0 + 0.10 * k);
+    float fac = (0.36 + 0.42 * dome * dome + 0.10 * max(0.0, -up) + 0.26 * (1.0 - abs(up))) * occ * (1.0 + 0.10 * k);
     fac *= 0.55 + 0.45 * uOutK;
     // The direct sun below adds up to base × 0.85 on a face that meets it; take the sky down by as
     // much so a lit thwart top lands under 1 and keeps its colour.
@@ -500,6 +604,14 @@ vec3 cabinShade(vec3 base) {
     float nd = dot(n, uSunC);
     sunVis = cabShadow(P, n, max(nd, 0.0)) * worldSunVis(vPos, n);
     if (nd > 0.0 && emis < 1.0) lit += base * vec3(1.0, 0.93, 0.80) * nd * uSunCK * sunVis * (1.0 - emis) * (uNormalLit > 1.5 ? 0.7 : 1.0);
+  }
+  // THE COMIC LOOK: the light in bands, then the hatching. Worked out on every pixel and chosen
+  // after, so the derivatives inside are taken in straight-line code.
+  if (uCabComic > 0.5) {
+    float band;
+    vec3 banded = cabComicBand(lit, base, band);
+    float hatch = cabHatch(band);
+    if (vTex > 0 && emis <= 0.0) lit = banded * (1.0 - hatch);
   }
   float kind = vCB.x;
   if (kind > 0.5 && kind < 1.5 && hasN) {
@@ -557,6 +669,17 @@ vec3 cabinShade(vec3 base) {
   return lit;
 }
 #endif
+// One lamp's pool on a mark, ground.js's poolLum and poolLight: white lamps only, since neon shows on
+// a road by reflection, and inverse square above a lamp head so a tower beacon doesn't light the street.
+float markPool(vec3 P, vec3 C, vec3 at) {
+  float mx = max(C.r, max(C.g, C.b)), mn = min(C.r, min(C.g, C.b));
+  float sat = mx > 1e-5 ? (mx - mn) / mx : 0.0;
+  float lum = dot(C, vec3(0.299, 0.587, 0.114)) * (1.0 - smoothstep(0.15, 0.35, sat));
+  vec2 rel = at.xy - P.xy;
+  float h = max(0.14, P.z - at.z);
+  float r2 = dot(rel, rel) + h * h;
+  return lum * min(1.0, (0.33 * 0.33) / (h * h)) * ((h * h * h) / (r2 * sqrt(r2)));
+}
 void main() {
   if (vAlpha <= 0.002) discard;
   vec3 c = vColor;
@@ -574,8 +697,10 @@ void main() {
   // colour that arrives is the base, unshaded. ⚠ THE NORMAL IS TURNED TO THE EYE HERE, PER PIXEL,
   // which is what the CPU did per face. That is what lets the faces be sent once: nothing in them
   // depends on where the camera is. The night tint and the sun share are the CPU's numbers exactly.
-  // None of them is lit by the city's lamps or tinted by the sky below, as none was before.
+  // None of them is tinted by the sky below or lifted by the lamps as a wall is; the lamps reach them
+  // as the road's pools instead (see below). Their night floor is uMarkN.x, not the walls' dim.
   bool mk = vTex <= -2 && vTex >= -6;
+  vec3 mkAlb = c;   // the face's own colour, for the lamp pool below
   if (vTex <= -2 && vTex >= -7) {
     vec3 n = dot(vN, vN) > 0.0 ? normalize(vN) : vec3(0.0, 0.0, 1.0);
     vec3 v = normalize(uEye - vPos);
@@ -583,7 +708,7 @@ void main() {
     float night = uMarkP.x, day = 1.0 - night;
     if (vTex >= -4) {
       float nl = max(0.0, dot(n, uMarkL)), sky = 0.5 + 0.5 * n.z;
-      float k = (0.34 + 0.20 * sky) * (0.50 + 0.50 * day) + 0.62 * nl * uMarkP.z;
+      float k = (0.34 + 0.20 * sky) * mix(1.0, uMarkN.x, night) + 0.62 * nl * uMarkP.z;
       if (vTex == -2) k *= 1.0 - 0.22 * uMarkP.y;
       float spec = 0.0;
       if (vTex != -2) {
@@ -712,9 +837,19 @@ void main() {
     c = mix(c, verd, pat * 0.85);
     cuMet = 1.0 - pat * 0.9;
   } else if (vTex > 20) { vec2 tx = surfaceTexTri(vTex - 20, vLocal, dot(vNL, vNL) > 0.01 ? normalize(vNL) : vec3(0.0, 0.0, 1.0)); c = max(c * tx.x + tx.y, 0.0); }
-  else if (vTex > 0) { vec2 tx = surfaceTex(vTex, vLocal); c = max(c * tx.x + tx.y, 0.0); }
+  else if (vTex > 0) {
+    vec2 tx = surfaceTex(vTex, vLocal);
 #ifdef CABIN
-  if (vCB.x > -0.5 && vTex != 10) c = cabinShade(c);
+    // Comic: wood is painted its own way (cabWear), so its photographic grain goes altogether.
+    if (uCabComic > 0.5) tx = vTex == 8 ? vec2(1.0, 0.0) : mix(vec2(1.0, 0.0), tx, uCabWear.w);
+#endif
+    c = max(c * tx.x + tx.y, 0.0);
+  }
+#ifdef CABIN
+  if (vCB.x > -0.5 && vTex != 10) {
+    if (uCabComic > 0.5 && vTex > 0) c = cabWear(c, vTex);
+    c = cabinShade(c);
+  }
 #endif
   // PER PIXEL: the view ray changes across every face and the normal is smoothed across the
   // facets (upload), so a hub or a barrel carries one continuous reflection rather than a band per
@@ -883,6 +1018,30 @@ void main() {
     }
     c += max(vec3(0.0), undimmed - c) * min(vec3(1.0), lamp);
   }
+  // ── THE ROAD'S LAMP POOLS, ON WHAT COVERS THE ROAD ─────────────────────────
+  // The street kit is a mark laid over the ground pass, so ground.js's pools landed under it and a
+  // street with lamps on it read darker than the buildings beside it. A lift toward the day colour,
+  // the wall's rule, can't do this: the lane's asphalt is darker by day than the night's blue leaves
+  // it. So it's the road's own term, into the headroom, weighted by the face's colour so a belt stays
+  // darker than the chrome beside it. Up-facing faces only, as a pool lies on the ground.
+  if (vTex <= -2 && vTex >= -4 && uMarkN.y > 0.0 && uMarkP.x > 0.01 && dot(vN, vN) > 0.01 && abs(normalize(vN).z) > 0.5) {
+    float pool = 0.0;
+    if (uLGOn == 1) {
+      uvec2 hc = lgCell(vPos.xy);
+      // A cell lists up to 81 lights and most are neon, so the position decides first: past a tile a
+      // pool is about 3% of its peak. Without this the loop cost 30% of a street-level frame.
+      for (uint k = 0u; k < hc.y; k++) {
+        int li = lgAt(hc.x + k);
+        vec3 P = lgP(li).xyz;
+        vec2 rel = P.xy - vPos.xy;
+        if (dot(rel, rel) < 1.0) pool += markPool(P, lgC(li).rgb, vPos);
+      }
+    } else {
+      for (int i = 0; i < 12; i++) { if (i >= uWLN) break; pool += markPool(uWLP[i], uWLC[i] * 0.45, vPos); }
+    }
+    float lit = 1.0 - exp(-pool * uMarkN.y * uMarkP.x);
+    c += lit * 0.6 * (0.3 + 0.7 * max(mkAlb.r, max(mkAlb.g, mkAlb.b))) * max(vec3(0.0), 1.0 - c);
+  }
   if (uUnder > 0.001 && vTex != 10) {
     vec3 nn = dot(vN, vN) > 0.01 ? normalize(vN) : vec3(0.0, 0.0, 1.0);
     float up = clamp(nn.z * 0.75 + 0.25, 0.0, 1.0);          // lit from the surface overhead
@@ -976,6 +1135,7 @@ export function createSolidsLayer(gl, opt = {}) {
     wlFocus: gl.getUniformLocation(prog, 'uWLFocus'),
     markL: gl.getUniformLocation(prog, 'uMarkL'), markL2: gl.getUniformLocation(prog, 'uMarkL2'), markP: gl.getUniformLocation(prog, 'uMarkP'),
     markHor: gl.getUniformLocation(prog, 'uMarkHor'), markTop: gl.getUniformLocation(prog, 'uMarkTop'), markG: gl.getUniformLocation(prog, 'uMarkG'),
+    markN: gl.getUniformLocation(prog, 'uMarkN'),
   };
   const wlP = new Float32Array(36), wlC = new Float32Array(36), wlR = new Float32Array(12);
 
@@ -989,7 +1149,8 @@ export function createSolidsLayer(gl, opt = {}) {
     for (const [name, n, off] of [['aCN', 3, 0], ['aCA', 4, 3], ['aCB', 4, 7], ['aCC', 4, 11], ['aR0', 3, 15], ['aR1', 3, 18], ['aMA', 3, 21]])
       attrs.push([gl.getAttribLocation(prog, name), n, (STRIDE + off) * 4]);
     for (const u of ['uKey', 'uUp', 'uOutK', 'uAmb', 'uBox', 'uNormalLit', 'uFloodRgb', 'uFloodK', 'uFloods', 'uFloodN', 'uSunC', 'uSunCOn', 'uSunCK',
-      'uCabBack', 'uCabLow', 'uCabHigh', 'uCabEnvOn', 'uShadow', 'uLightMat', 'uShadowOn', 'uShadowTexel', 'uWSun', 'uWVP', 'uWOn', 'uWTexel', 'uWBias']) cl[u] = gl.getUniformLocation(prog, u);
+      'uCabBack', 'uCabLow', 'uCabHigh', 'uCabEnvOn', 'uShadow', 'uLightMat', 'uShadowOn', 'uShadowTexel', 'uWSun', 'uWVP', 'uWOn', 'uWTexel', 'uWBias',
+      'uCabComic', 'uCabWear', 'uCabDirt', 'uCabShade', 'uCabInk']) cl[u] = gl.getUniformLocation(prog, u);
   }
   const stream = makeVertexStream(gl, vao, ST, attrs, 8192);
   let data = new Float32Array(1 << 13);
@@ -1355,6 +1516,13 @@ export function createSolidsLayer(gl, opt = {}) {
     v3('uSunC', L.sunC, [0, 0, 1]); gl.uniform1f(cl.uSunCOn, L.sunC ? 1 : 0); gl.uniform1f(cl.uSunCK, L.sunK || 0);
     const E = L.cabEnv; gl.uniform1f(cl.uCabEnvOn, E ? 1 : 0);
     v3('uCabBack', E && E.back, [0, 0, 0]); v3('uCabLow', E && E.low, [0, 0, 0]); v3('uCabHigh', E && E.high, [0, 0, 0]);
+    // The comic cockpit, by seat (gl/house-style.js). ⚠ Set on every draw, on or off.
+    const K = cabinComicOf(L.cls, L.variant);
+    gl.uniform1f(cl.uCabComic, K ? 1 : 0);
+    if (K) {
+      gl.uniform4f(cl.uCabWear, K.wear[0], K.wear[1], K.wear[2], K.wear[3]);
+      v3('uCabDirt', K.dirt); v3('uCabShade', K.shade); v3('uCabInk', K.ink);
+    }
     const shOn = !!(L.lightMat && sh && sh.ok);
     gl.uniform1f(cl.uShadowOn, shOn ? 1 : 0);
     gl.uniform1f(cl.uShadowTexel, 1 / SHADOW_SIZE);
@@ -1428,9 +1596,10 @@ export function createSolidsLayer(gl, opt = {}) {
     if (M) {
       gl.uniform3f(loc.markL, M.L[0], M.L[1], M.L[2]); gl.uniform3f(loc.markL2, M.L2[0], M.L2[1], M.L2[2]);
       gl.uniform4f(loc.markP, M.p[0], M.p[1], M.p[2], M.p[3]);
+      gl.uniform2f(loc.markN, M.n[0], M.n[1]);
       gl.uniform3f(loc.markHor, M.hor[0], M.hor[1], M.hor[2]); gl.uniform3f(loc.markTop, M.top[0], M.top[1], M.top[2]); gl.uniform3f(loc.markG, M.g1[0], M.g1[1], M.g1[2]);
     } else {
-      gl.uniform3f(loc.markL, 0, 0, 1); gl.uniform3f(loc.markL2, 0, 0, 1); gl.uniform4f(loc.markP, 0, 0, 0, 0);
+      gl.uniform3f(loc.markL, 0, 0, 1); gl.uniform3f(loc.markL2, 0, 0, 1); gl.uniform4f(loc.markP, 0, 0, 0, 0); gl.uniform2f(loc.markN, 1, 0);
       gl.uniform3f(loc.markHor, 0, 0, 0); gl.uniform3f(loc.markTop, 0, 0, 0); gl.uniform3f(loc.markG, 0, 0, 0);
     }
     gl.uniform1f(loc.waterZ, opts.water != null ? opts.water : -1e9);

@@ -1,0 +1,10 @@
+{
+  "content": "{\n \"kind\": \"sequence\",\n \"format\": 1,\n \"id\": \"seq_am_close\",\n \"name\": \"Coldwater A.M.: sign-off\",\n \"set\": \"set_ksab_morning\",\n \"roles\": {\n  \"a\": {\n   \"mark\": \"a\",\n   \"label\": \"Host\"\n  },\n  \"b\": {\n   \"mark\": \"b\",\n   \"label\": \"Co-host\"\n  }\n },\n \"wallText\": \"COLDWATER A.M.\",\n \"wallSub\": \"Back tomorrow\",\n \"beats\": [\n  {\n   \"id\": \"b1\",\n   \"shot\": {\n    \"cam\": \"cam1\",\n    \"frame\": \"two\",\n    \"on\": [\n     \"a\",\n     \"b\"\n    ],\n    \"move\": \"drift\",\n    \"cut\": \"cut\"\n   },\n   \"say\": {\n    \"role\": \"a\",\n    \"lines\": [\n     \"That's us for this morning. Back tomorrow, same couch.\",\n     \"That's the show. Go have a good {day}, Coldwater.\"\n    ]\n   },\n   \"gfx\": []\n  },\n  {\n   \"id\": \"b2\",\n   \"shot\": {\n    \"cam\": \"cam3\",\n    \"frame\": \"medium\",\n    \"on\": [\n     \"b\"\n    ],\n    \"move\": \"none\",\n    \"cut\": \"cut\"\n   },\n   \"say\": {\n    \"role\": \"b\",\n    \"lines\": [\n     \"Tomorrow's {tomorrow}, so you've been warned.\",\n     \"Take a coat. It's {temp} degrees.\"\n    ]\n   },\n   \"gfx\": []\n  },\n  {\n   \"id\": \"b3\",\n   \"shot\": {\n    \"cam\": \"cam1\",\n    \"frame\": \"wide\",\n    \"on\": [],\n    \"move\": \"pull\",\n    \"cut\": \"dissolve\"\n   },\n   \"hold\": 2.6,\n   \"gfx\": [\n    {\n     \"kind\": \"full\",\n     \"title\": \"Coldwater A.M.\",\n     \"sub\": \"Weekdays on KSAB-TV\",\n     \"at\": 0.4,\n     \"for\": 0\n    }\n   ]\n  }\n ]\n}",
+  "created_at": "1794098460",
+  "description": "",
+  "id": "seq_am_close",
+  "name": "Coldwater A.M.: sign-off",
+  "tags": [],
+  "type": "sequence",
+  "updated_at": "1794098460"
+}

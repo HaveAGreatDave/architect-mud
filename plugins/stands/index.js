@@ -324,8 +324,9 @@ async function takeSeat(player, zone, stands, section, channelId, { chair = fals
   if (price > 0 && !(await adjustCredits(player, -price, undefined, 'stands'))) {
     return { type: 'error', message: `A seat in ${esc(section.name)} is ₵${price}. You have ₵${player.credits | 0}.` };
   }
-  seated.set(player.id, { zoneId: zone.id, section: section.id, seat, channelId, chair, suite: !!section.room });
-  if (channelId || (tv && !rerun)) emit('tablet_tv.watch', { playerId: player.id, channelId: channelId || tv });
+  const tuned = channelId || (rerun ? null : tv);
+  seated.set(player.id, { zoneId: zone.id, section: section.id, seat, channelId, tuned, chair, suite: !!section.room });
+  if (tuned) emit('tablet_tv.watch', { playerId: player.id, channelId: tuned });
   // the log rung gets the game as log lines through the same receiver, and no picture
   if (!loggedPanelsSync(player)) sendToPlayer(player.id, { type: 'stands_open', sport: stands.sport, channelId, tvChannelId: tv, ...(rerun ? { rerun: true } : {}), station: channelId ? channelLabel(channelId) : '', field: skyField(stands.sport), venue: zone.flags?.building_name || zone.name, roof: stands.sport === 'baseball' ? venueRoofOf(zone.flags?.building_name) : null,
     section: { id: section.id, name: section.name || section.id, eye: where.eye, seat: `Row ${ROW(where.row)}, seat ${where.number}`, ...(section.room ? { room: section.room } : {}) } });
@@ -347,8 +348,9 @@ function watchScreen(player, screen) {
   if (suite) {
     leave(player, true);
     const { channelId, tv, rerun } = suiteChannels(player);
-    seated.set(player.id, { zoneId: zone.id, section: null, seat: -1, channelId, screen: true, suite: true });
-    if (channelId || (tv && !rerun)) emit('tablet_tv.watch', { playerId: player.id, channelId: channelId || tv });
+    const tuned = channelId || (rerun ? null : tv);
+    seated.set(player.id, { zoneId: zone.id, section: null, seat: -1, channelId, tuned, screen: true, suite: true });
+    if (tuned) emit('tablet_tv.watch', { playerId: player.id, channelId: tuned });
     if (!loggedPanelsSync(player)) sendToPlayer(player.id, { type: 'stands_open', sport: 'baseball', channelId, tvChannelId: tv, ...(rerun ? { rerun: true } : {}), station: channelId ? channelLabel(channelId) : '', field: skyField('baseball'), venue: zone.flags?.building_name || zone.name, roof: venueRoofOf(zone.flags?.building_name),
       section: { id: suite.id, name: suite.name || suite.id, room: suite.room, spot: 'sofa' } });
     const on = channelId ? "The game's on it, and through the glass." : rerun ? "The last game's on it again, and the field through the glass is empty under the lights." : tv ? "The hockey's on it, and the field through the glass is empty under the lights." : "There's no game on it, and the field through the glass is empty under the lights.";
@@ -358,7 +360,7 @@ function watchScreen(player, screen) {
   const channelId = liveSportsChannel(sport);
   if (!channelId) return { type: 'output', message: `<span class="msg-system">${esc(screen.name)} shows the park empty under the lights. No game on right now.</span>` };
   leave(player, true);
-  seated.set(player.id, { zoneId: zone.id, section: null, seat: -1, channelId, screen: true });
+  seated.set(player.id, { zoneId: zone.id, section: null, seat: -1, channelId, tuned: channelId, screen: true });
   emit('tablet_tv.watch', { playerId: player.id, channelId });
   if (!loggedPanelsSync(player)) sendToPlayer(player.id, { type: 'stands_open', sport, channelId, screen: true, field: skyField(sport), venue: zone.flags?.building_name || zone.name,
     section: { id: 'screen', name: String(screen.name).replace(/^the /i, '') } });
@@ -406,6 +408,14 @@ on('zone.entered', ({ actor, zone }) => {
   if (z) enterSuite(actor, z).catch((e) => console.error('[stands] suite:', e.message));
 });
 on('player.logout', ({ id }) => { if (id) seated.delete(id); });
+// A seat and the Tablet TV share one tuner, so shutting the tablet's TV dropped the seat's game too:
+// the park stood still until the tablet was opened again. Getting up clears `seated` first, so this
+// only answers a tablet going off under somebody still sitting. Broadcast loads first (a dependency),
+// so its delete has already run.
+on('tablet_tv.unwatch', ({ playerId }) => {
+  const tuned = seated.get(playerId)?.tuned;
+  if (tuned) emit('tablet_tv.watch', { playerId, channelId: tuned });
+});
 
 // A fresh copy of the sky to whoever's in an open-air park's seats, when the cells are reseeded
 // or moved or a weather event changes the cloud

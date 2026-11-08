@@ -81,7 +81,8 @@
     }
   },
   "flags": {
-    "drug_family": "psychedelic"
+    "drug_family": "psychedelic",
+    "taken": "swallow"
   },
   "id": "drug_psilocybin",
   "item_id": "item_psilocybin",

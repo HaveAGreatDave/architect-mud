@@ -14,7 +14,7 @@
     "region_id": "region_coldwater",
     "runway": "pad",
     "scavenging_table_id": "scav_industrial_salvage",
-    "taxiway": "ne",
+    "taxiway": "nes",
     "terrain": "asphalt"
   },
   "grid_x": 928,

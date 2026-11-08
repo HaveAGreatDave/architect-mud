@@ -6,7 +6,7 @@
 // cover on any sortie logged without a living pilot at the controls, so the controls are real and
 // they work, and the panel says, politely, that they are advisory.
 //
-// A fighter's seat: you sit back in an ejection seat under a gold-filmed canopy, the sidestick on the
+// A fighter's seat: you sit back in an ejection seat under a gold-filmed canopy, the centre stick ahead of the
 // right console and the throttle on the left, your heels on the pedals under the dash. Across the dash
 // is one curved band of glass: the engine page, the flight page, the dive page and the alert page, the
 // map, seven glass keys and four lamps. The windscreen carries the head-up symbology; over the dash
@@ -38,10 +38,11 @@
 // floor. The gate (scripts/shapes/cockpit-shrike-2076.mjs) reads the server's numbers back out of
 // its source and fails if these drift. Decoration may move on wall time (the alert breathing, the
 // boot, the alert's rings); every readout moves only on live values.
+import { brandTrim } from './interior-brands.js';
 import { makeKit, C, clamp, lerp, SHINY, PANE, TEXTURE } from './interior-kit.js';
 import { contactShadow, hotspotHalo, panelGps, gpsHotspot, lensLamp, eased, pressPulse, HALO,
   bootAge, reveal, alertLight, sweep, lightLine, bandFrame, glassBand, holoFrame, holoProjector, windscreenHud,
-  wallSec, HOLO, HOLO_LINE, HOLO_AMBER, HOLO_RED } from './interior-cockpit-kit.js';
+  wallSec, HOLO, HOLO_LINE, HOLO_AMBER, HOLO_RED, stickColumn } from './interior-cockpit-kit.js';
 import { MESH_ROWS } from './vehicle-meshes.js';
 import { SH76_M_PER_UNIT, SH76_STATIONS, SH76_RING, SH76_K, SH76_GLASS, SH76_BAY, SH76_INSIDE, SH76_WING, SH76_INTAKE, SH76_NOZZLE,
   sh76Station, sh76Half, sh76Point } from './cabin-shrike-2076.js';
@@ -115,6 +116,7 @@ SHINY.set(T.lining, { spec: 0.18, pow: 14 });
 SHINY.set(T.metal, { spec: 0.7, pow: 36 });
 SHINY.set(T.buckle, { spec: 0.8, pow: 40 });
 SHINY.set(T.screen, { spec: 0.6, pow: 60 });
+brandTrim(T, 'shrike', TEXTURE, SHINY);
 // The dive lines are paint on the glass: red, thin, a little see-through.
 const DIVE_PAINT = [214, 36, 28];
 PANE.set(DIVE_PAINT, 0.8);
@@ -391,9 +393,9 @@ const RACK = 4;                     // the rack's stations, as the type carries 
 
 // ── WHERE THE CONTROLS ARE ───────────────────────────────────────────────────
 // One place says where each thing you can grab is; the drawing and the hotspots both read it. The
-// sidestick is on the right console, the throttle and the trim wheel on the left, at arm's rest.
+// stick is on a column ahead of the pilot, the throttle and the trim wheel on the left, at arm's rest.
 const CONSOLE = { x: 0.3, top: 0.42, w: 0.065, y0: -0.12, y1: 0.46 };   // top: z off the floor
-const STICK = { x: 0.3, y: 0.24, len: 0.14 };
+const STICK = { x: 0, y: 0.3, len: 0.14 };
 const LEVER = { x: -0.3, pivotY: 0.14, len: 0.14 };
 const TRIMW = { x: -0.3, y: 0.38, r: 0.04 };
 function stickAt(P, R) {
@@ -516,7 +518,7 @@ export function sh76Fit(P, live, push) {
   // The cabin's light lines carry the alert: teal, amber while the zone is being told she is coming
   // or on low fuel, red and breathing under the pull-out height, on a hull or a stall warning.
   const warn = lit && (R.hull < 0.3 || R.stall || D.pullNow), caution = lit && (R.fuel < 0.15 || D.alert);
-  const al = alertLight(caution, warn), lineK = (k) => (lit ? k * al.k : 0.05);
+  const al = alertLight(caution, warn, T.line), lineK = (k) => (lit ? k * al.k : 0.05);
 
   // ── THE DASH: a wing swept along the band's curve, held inside the hull ──
   const curve = dashCurve();
@@ -663,11 +665,12 @@ export function sh76Fit(P, live, push) {
     K.rod(add(tc, [0.0095, 0, 0]), add(tc, [0.0095, Math.cos(ia) * TRIMW.r * 0.95, Math.sin(ia) * TRIMW.r * 0.95]), 0.0022, 'dash', 0.3, al.rgb, lit ? 0.6 + 0.4 * tNear : 0.1, 4);
     K.torus(add(tc, [0.011, 0, 0]), [0, 1, 0], [0, 0, 1], TRIMW.r + 0.004, 0.0025, 20, 'dash', 0.2, T.glow, lit ? 0.15 + 0.6 * tNear : 0);
   }
-  // The sidestick on the right console: a short force stick, its grip canted in, a ring at its foot lit
+  // The stick on a column ahead of the pilot: a short force stick, its grip canted in, a ring at its foot lit
   // as the hand comes near, the pickle (the bomb button) red on its top.
   {
     const st = stickAt(P, R), stNear = eased('sh76:near:yoke', live && (live.hover === 'yoke' || live.press === 'yoke') ? 1 : 0, 12);
     const b = st.base;
+    stickColumn(K, b, zF, T.tub, T.metal);
     K.rod(add(b, [0, 0, -0.012]), add(b, [0, 0, 0.004]), 0.034, 'dash', 0.1, T.tub, 0, 16);
     K.torus(add(b, [0, 0, 0.004]), [1, 0, 0], [0, 1, 0], 0.034, 0.003, 18, 'dash', 0.2, al.rgb, lit ? 0.5 + 0.5 * stNear : 0);
     K.rod(add(b, [0, 0, 0.004]), add(b, mul(st.dir, 0.03)), 0.014, 'dash', 0.2, T.metal, 0, 8);
@@ -677,7 +680,7 @@ export function sh76Fit(P, live, push) {
     K.rod(gTop, add(gTop, mul(st.dir, 0.012)), 0.018, 'dash', 0.2, T.carbonLt, 0, 12);
     K.rod(add(gTop, mul(st.dir, 0.012)), add(gTop, mul(st.dir, 0.018)), 0.007, 'dash', 0.3, T.warn, lit ? 0.45 + 0.4 * stNear : 0, 8);
     K.rod(add(add(gTop, mul(st.dir, -0.03)), [0, 0.022, 0]), add(add(gTop, mul(st.dir, -0.055)), [0, 0.026, 0]), 0.005, 'dash', 0.3, T.metal, 0, 6);
-    contactShadow(K, [b[0], b[1], ct + 0.0005], [1, 0, 0], [0, 1, 0], [0, 0, 1], 0.04, 0.04);
+    contactShadow(K, [b[0], b[1], zF + 0.0005], [1, 0, 0], [0, 1, 0], [0, 0, 1], 0.04, 0.04);
   }
 
   // ── THE PEDALS: two plates on rails in the footwell, one forward as the other comes back ──

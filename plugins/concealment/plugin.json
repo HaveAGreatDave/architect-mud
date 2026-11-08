@@ -9,5 +9,6 @@
     "concealcode": { "discoverVia": "furniture:flags.conceal_hides", "exposed": false, "note": "Client transport only — the keypad overlay's submit, sent silently so the digits never reach the log. Players use `keypad`." },
     "concealsetcode": { "discoverVia": "furniture:flags.conceal_hides", "exposed": false, "note": "Client transport only — the overlay's change-code panel (old code + new). Reached through `keypad`, never typed." }
   },
-  "extensionPoints": ["furniture.flags.conceal_hides", "furniture.flags.conceal_code", "furniture.flags.conceal_brand", "furniture.flags.concealed"]
+  "extensionPoints": ["furniture.flags.conceal_hides", "furniture.flags.conceal_code", "furniture.flags.conceal_brand", "furniture.flags.concealed"],
+  "events": { "emits": ["furniture.changed"] }
 }

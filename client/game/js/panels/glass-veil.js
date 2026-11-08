@@ -1,5 +1,5 @@
-// The loading veil over a 3D seat: a neon link-up screen laid over the view until its first frames
-// are drawn. The game's wordmark glitches in a bracketed frame over a scrolling grid floor, with a
+// The loading veil over a 3D view, a seat or a room: a neon link-up screen laid over it until its first
+// frames are drawn. The game's wordmark glitches in a bracketed frame over a scrolling grid floor, with a
 // segmented sync bar, a status line and hex rails running down the sides. The renderer isn't named.
 //
 // There's no build phase ahead of the first frame. Shader compiles, the texture atlas and the city
@@ -242,6 +242,40 @@ export function veilPainted(id, ms) {
   if ((s.paints > SETTLE && ms < Math.max(FAST_MS, s.worst * 0.25)) || performance.now() - s.t0 > MAX_MS) { s.done = true; lift(node); return; }
   s.p += (0.92 - s.p) * 0.5;
   setProgress(node, s.p);
+}
+
+// The veil over a 3-D view that isn't a windshield: a flat, a box at the ballpark, the Kitchen Stage.
+// `host` is what it covers. It watches the view's frames from outside rather than being called by
+// them, because the veil only has to know one thing: the main thread has stopped being held up. A
+// frame that took a long time is a build still going on, and a run of short ones is the view up.
+// `ready` holds it down for longer, for a view with more to fetch than its first frame.
+const COVER_MAX_MS = 25000;
+export function coverWithVeil(host, id, { ready = () => true } = {}) {
+  if (typeof document === 'undefined' || !host) return;
+  if (!document.getElementById('glass-veil-css')) {
+    const s = document.createElement('style');
+    s.id = 'glass-veil-css'; s.textContent = VEIL_CSS;
+    document.head.appendChild(s);
+  }
+  if (getComputedStyle(host).position === 'static') host.style.position = 'relative';
+  veilReset(id);
+  host.insertAdjacentHTML('beforeend', veilHTML(id));
+  const t0 = performance.now();
+  let last = t0;
+  const step = (now) => {
+    const node = el(id), s = _state.get(id);
+    if (!node || s?.done) return;
+    const ms = now - last;
+    last = now;
+    if (!veilHold(id)) {
+      const st = _state.get(id);
+      if (!ready() && now - t0 < COVER_MAX_MS) { st.p += (0.92 - st.p) * 0.015; setProgress(node, st.p); }
+      else if (now - t0 > COVER_MAX_MS) { st.done = true; lift(node); return; }
+      else veilPainted(id, ms);
+    }
+    requestAnimationFrame(step);
+  };
+  requestAnimationFrame(step);
 }
 
 // Called when a seat closes, so the next entry shows the veil again (its GL context is rebuilt).

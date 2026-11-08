@@ -4,8 +4,16 @@
   "id": "item_glass_tea",
   "name": "a cup of tea in the warm",
   "tags": {
+    "consumable": true,
     "description": "Made on a ring in the stokehold and drunk standing up among the ferns. The cup is warm before the tea is in it, because everything in this building is.",
-    "stackable": false
+    "hot_drink": true,
+    "hydrating": true,
+    "laced_drug": "drug_coffee",
+    "laced_potency": 0.5,
+    "restore_sanity": 3,
+    "restore_thirst": 25,
+    "stackable": false,
+    "use_message": "You drink the tea. The cup stays warm after it has gone."
   },
   "type": "drink",
   "value": 3,

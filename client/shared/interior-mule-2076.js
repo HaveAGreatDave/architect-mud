@@ -9,7 +9,7 @@
 // advisory. The pilot's real job is to sign the manifest.
 //
 // So it is still a working room, but a clean one: two crew side by side, the pilot on the LEFT as
-// in the Otter, a sidestick outboard of each seat on a swept side console, a swept pedestal between
+// in the Otter, a centre stick ahead of each seat, armrest consoles outboard, a swept pedestal between
 // them with the thrust levers and the flap lever, and a sculpted deck from wall to wall with one curved
 // band of glass across it carrying every page, key and lamp. The flight symbology is projected into
 // the windscreen, and a hologram of the aircraft stands on the deck's shelf. Behind the seats is a
@@ -39,7 +39,7 @@
 //
 // The four keys the sim has (power and three lighting circuits) are glass keys on the band, the flap
 // lever stands up on the pedestal's forward riser and the map is the one page you click; all of them
-// are inside the forward look. The sidesticks, the thrust levers, the pedals and the flaps sit low, so
+// are inside the forward look. The stick, the thrust levers, the pedals and the flaps sit low, so
 // each is mirrored in the windscreen HUD and on the motors page. Every number on every page is a live
 // value or is derived from one in the open (power from thrust and rpm, endurance from hydrogen over
 // burn); nothing shows a constant dressed as a reading, and nothing looks operable that isn't.
@@ -54,10 +54,11 @@
 // of the live state.
 //
 // Pure apart from that easing: no camera, no DOM. `live` arrives as an argument.
+import { brandTrim } from './interior-brands.js';
 import { makeKit, C, clamp, lerp, SHINY, TEXTURE } from './interior-kit.js';
 import { contactShadow, hotspotHalo, panelGps, gpsHotspot, lensLamp, facingPanel, eased, pressPulse, HALO,
   bootAge, reveal, alertLight, sweep, lightLine, bandFrame, glassBand, holoFrame, holoProjector, windscreenHud,
-  HOLO, HOLO_LINE, HOLO_AMBER, HOLO_RED, HUD_LINE, HUD_DIM, HUD_AMBER, HUD_RED } from './interior-cockpit-kit.js';
+  HOLO, HOLO_LINE, HOLO_AMBER, HOLO_RED, HUD_LINE, HUD_DIM, HUD_AMBER, HUD_RED, stickColumn } from './interior-cockpit-kit.js';
 import { MESH_ROWS } from './vehicle-meshes.js';
 import { compileMesh } from './vehicle-mesh.js';
 import { MULE76_STATIONS, MULE76_GLASS, MULE76_INSIDE, MULE76_LENGTH_M, MULE76_APEX, MULE76_TAIL, muleSection, mulePoint } from './cabin-mule-2076.js';
@@ -98,6 +99,7 @@ SHINY.set(T.graphiteLt, { spec: 0.35, pow: 24 });
 SHINY.set(T.metal, { spec: 0.7, pow: 36 });
 SHINY.set(T.buckle, { spec: 0.8, pow: 40 });
 SHINY.set(T.screen, { spec: 0.6, pow: 60 });
+brandTrim(T, 'mule', TEXTURE, SHINY);
 
 // ── THE EXTERIOR, MEASURED ──────────────────────────────────────────────────
 function modelLength(doc) {
@@ -447,13 +449,14 @@ const panelOn = (R) => R.powered && (R.L.panelLight != null ? !!R.L.panelLight :
 // ── WHERE THE CONTROLS ARE ───────────────────────────────────────────────────
 // One place says where each thing you can grab or click is; the drawing and the hotspots both read it.
 // Shell metres, the eye at the origin, the pilot in the left seat and the centreline to the right.
-const STICK = { x: -0.42, y: 0.12, z: 0.53, len: 0.13 };             // z off the floor; outboard left
+const STICK = { x: 0, y: 0.42, z: 0.53, len: 0.13 };                  // z off the floor; dead ahead of the pilot
+const ARMREST = { x: -0.42, y: 0.12, z: 0.53 };                       // the outboard console, a forearm rest
 const PED = { hw: 0.12, y0: 0.0, y1: 0.66, top: 0.5, riserY: 0.54, riserTop: 0.56, nose: 0.86 };   // the pedestal, z off the floor
 const LEVER = { pivotY: 0.3, len: 0.15, dx: [-0.035, 0.035] };      // twin thrust levers, left and right banks
 const FLAP = { dx: 0.075, y0: 0.58, y1: 0.66 };                       // the flap lever on the riser, UP forward, FULL aft
 function stickAt(P, R, x = STICK.x) {
   const base = [x, STICK.y, P.m76.zF + STICK.z];
-  const dir = norm([R.ail * 0.32, R.elev * 0.32, 1]);
+  const dir = norm([R.ail * 0.32, -R.elev * 0.32, 1]);
   return { base, top: add(base, mul(dir, STICK.len)), dir };
 }
 // `dx` is the lever's slot; its bank (left or right) picks which lever value it stands at. `t` overrides
@@ -474,7 +477,7 @@ function flapKnob(P, R) {
 // seat, and every page, key and lamp sits on it. `curve(s)` gives the band's lower edge and the
 // outward direction across the deck; the deck body is swept along the same curve, so the glass is the
 // deck's own face.
-const DASH = { xL: -0.6, xR: 1.46, yMid: 0.86, sag: 0.14, w: 1.03, z0: -0.4, h: 0.27, lean: 0.45 };
+const DASH = { xL: -0.6, xR: 1.46, yMid: 0.86, sag: 0.14, w: 1.03, z0: -0.5, h: 0.27, lean: 0.45 };
 function dashCurve(P) {
   const xC = P.xCentre;
   return (s) => {
@@ -586,7 +589,7 @@ export function m76Fit(P, live, push) {
   // The light lines carry the alert: teal, amber on low hydrogen, red and breathing on a hull or stall
   // warning. They are the first thing in the room to change colour.
   const warn = lit && (R.hull < 0.3 || R.stall), caution = lit && R.fuel < 0.15;
-  const al = alertLight(caution, warn), lineK = (k) => (lit ? k * al.k : 0.05);
+  const al = alertLight(caution, warn, T.line), lineK = (k) => (lit ? k * al.k : 0.05);
   // How near the hand is to a control: eased up while the pointer is over it or pressing it.
   const near = (key, ids) => eased('m76:near:' + key, live && ids.some((id) => live.hover === id || live.press === id) ? 1 : 0, 12);
 
@@ -767,23 +770,25 @@ export function m76Fit(P, live, push) {
     if (flash > 0.02) facingPanel(K, kb, 'dash', 0).annulus(0, 0, 0.034, 0.039, HALO, flash, 0.003, 18);
   }
 
-  // ── THE SIDESTICKS, outboard of each seat on a swept side console ──
+  // ── THE STICKS, one on a column ahead of each seat, and the swept side consoles as armrests ──
   const stHand = near('yoke', ['yoke']);
   for (const [x, own] of [[STICK.x, true], [2 * xC - STICK.x, false]]) {
-    const st = stickAt(P, R, x), arm = st.base, s = x < xC ? -1 : 1;
+    const con = [own ? ARMREST.x : 2 * xC - ARMREST.x, ARMREST.y, zF + ARMREST.z];
+    const st = stickAt(P, R, x), arm = st.base, s = con[0] < xC ? -1 : 1;
     const crings = [], pads = [];
     for (let i = 0; i <= 8; i++) {
-      const y = lerp(-0.3, arm[1] + 0.1, i / 8);
-      crings.push(roundSection(arm[0], y, 0.06, zF, arm[2] - 0.005, 0.1));
+      const y = lerp(-0.3, con[1] + 0.1, i / 8);
+      crings.push(roundSection(con[0], y, 0.06, zF, con[2] - 0.005, 0.1));
     }
     sweep(K, crings, 'dash', 0.05, T.graphite);
     K.face(crings[0].slice(), [0, -1, 0], 'dash', 0.05, T.graphiteLt);
     K.face(crings[8].slice().reverse(), [0, 1, 0], 'dash', 0.05, T.graphiteLt);
     // The leather pad the forearm rests on, a cushion along the console's top.
-    for (let i = 0; i <= 6; i++) pads.push(roundSection(arm[0], lerp(-0.28, arm[1] - 0.05, i / 6), 0.05, arm[2] - 0.008, arm[2] + 0.014, 0.018));
+    for (let i = 0; i <= 6; i++) pads.push(roundSection(con[0], lerp(-0.28, con[1] - 0.05, i / 6), 0.05, con[2] - 0.008, con[2] + 0.014, 0.018));
     sweep(K, pads, 'dash', 0.1, T.seat);
     lightLine(K, crings.map((r) => add(r[s < 0 ? 0 : 10], [-s * 0.002, 0, 0.11])), 0.003, al.rgb, lineK(0.7 * amb / Math.max(0.05, amb)));
     const hand = own ? stHand : 0;
+    stickColumn(K, arm, zF, T.tub, T.metal);
     K.rod(add(arm, [0, 0, -0.01]), add(arm, [0, 0, 0.012]), 0.035, 'dash', 0.1, T.tub, 0, 14);
     K.torus(add(arm, [0, 0, 0.012]), [1, 0, 0], [0, 1, 0], 0.036, 0.004, 18, 'dash', 0.2, R.handsOn && own ? C.green : al.rgb, lit ? 0.5 + 0.5 * hand : 0);
     K.rod(add(arm, [0, 0, 0.012]), add(arm, mul(st.dir, 0.04)), 0.022, 'dash', -0.1, T.tub, 0, 10);

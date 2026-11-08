@@ -23,6 +23,7 @@
       "npc_id": "npc_fs_dispatcher",
       "npc_name": "Delia Kell"
     },
+    "no_footbridge": true,
     "region_id": "region_coldwater",
     "scavenging_table_id": "scav_roadside_junk",
     "street_life": true,

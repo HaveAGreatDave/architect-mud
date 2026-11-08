@@ -196,6 +196,34 @@ function bindables() {
   return _bindables;
 }
 
+// What the Room Lab opens. Zones and furniture are read once per request off content/: it's a tool,
+// and a room you've just edited should open as it now is.
+function roomLab(zoneId) {
+  const zdir = join(ROOT, 'content', 'zones'), fdir = join(ROOT, 'content', 'furniture');
+  const read = (dir, f) => { try { return JSON.parse(readFileSync(join(dir, f), 'utf8')); } catch { return null; } };
+  if (!zoneId) {
+    const out = [];
+    for (const f of readdirSync(zdir)) {
+      const z = f.endsWith('.json') ? read(zdir, f) : null;
+      if (z?.flags?.is_apartment || z?.flags?.room) out.push({ id: z.id, name: z.name });
+    }
+    return out.sort((a, b) => a.name.localeCompare(b.name));
+  }
+  const zone = read(zdir, zoneId + '.json');
+  if (!zone) return { error: 'no such zone' };
+  const inner = zone.exits?.in ? read(zdir, zone.exits.in + '.json') : null;
+  const annex = inner && inner.exits?.out === zone.id && inner.parent_zone === zone.id ? inner : null;
+  const rows = [], annexRows = [];
+  for (const f of readdirSync(fdir)) {
+    const r = f.endsWith('.json') ? read(fdir, f) : null;
+    if (r?.zone_id === zone.id) rows.push(r);
+    else if (annex && r?.zone_id === annex.id) annexRows.push(r);
+  }
+  let t = zone;
+  for (let hop = 0; hop < 4 && t && t.map_id !== 'map_world'; hop++) t = t.parent_zone ? read(zdir, t.parent_zone + '.json') : null;
+  return { zone, annex, rows, annexRows, tile: t ? { x: t.grid_x, y: t.grid_y } : null };
+}
+
 const server = createServer(async (req, res) => {
   try {
     const url = new URL(req.url, 'http://localhost');
@@ -223,6 +251,15 @@ const server = createServer(async (req, res) => {
     // gates the meshes.
     if (req.method === 'GET' && path === '/figure-lab.html') {
       return send(res, 200, await readFile(join(HERE, 'figure-lab.html')), 'text/html; charset=utf-8');
+    }
+    // The Room Stage opened on any room in content/, with no server (scripts/shapes/room-stage.mjs
+    // gates the meshes; this is a picture). Bare, the rooms it can open; with `zone`, that room's
+    // rows and its en-suite's, read off the files.
+    if (req.method === 'GET' && path === '/room-lab.html') {
+      return send(res, 200, await readFile(join(HERE, 'room-lab.html')), 'text/html; charset=utf-8');
+    }
+    if (req.method === 'GET' && path === '/api/room-lab') {
+      return json(res, 200, roomLab(url.searchParams.get('zone')));
     }
     // The tool's own modules. Name-restricted and joined onto this directory, so it cannot climb
     // out of it — the same shape as the client allowlist below, and the reason it is a pattern
@@ -437,6 +474,16 @@ const server = createServer(async (req, res) => {
       const file = join(SHOT_DIR, name.endsWith('.png') ? name : name + '.png');
       await writeFile(file, buf);
       return json(res, 200, { ok: true, file, bytes: buf.length });
+    }
+
+    // An NPC's sex and settled figure, for the Figure Lab's `id` box.
+    if (req.method === 'GET' && path === '/api/npc-figure') {
+      const id = new URL(req.url, 'http://x').searchParams.get('id') || '';
+      if (!/^[\w-]+$/.test(id)) return json(res, 400, { error: 'bad id' });
+      try {
+        const npc = JSON.parse(await readFile(join(ROOT, 'content', 'npcs', id + '.json'), 'utf8'));
+        return json(res, 200, { sex: npc.sex, figure: npc.flags?.figure });
+      } catch { return json(res, 404, { error: 'no such npc' }); }
     }
 
     if (req.method === 'GET' && path.startsWith('/client/')) {

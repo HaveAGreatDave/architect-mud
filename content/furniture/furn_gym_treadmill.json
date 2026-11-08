@@ -1,0 +1,28 @@
+{
+  "description": "A treadmill set to face the glass, so you can run at the city and never get any closer. The screen on it offers forty scenic routes, all of them somewhere else.",
+  "flags": {
+    "aliases": "treadmill,runner",
+    "interactions": [
+      "lean"
+    ],
+    "look": {
+      "arche": "surface",
+      "dims": [
+        0.85,
+        1.9,
+        1.3
+      ],
+      "form": "desk"
+    }
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_gym_treadmill",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "treadmill",
+  "object_type": "furniture",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_solenne_gym"
+}

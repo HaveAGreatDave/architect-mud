@@ -1,0 +1,25 @@
+{
+  "description": "A plinth of pale stone with one white orchid on it. A card in the soil says it is watered by appointment.",
+  "flags": {
+    "aliases": "plinth,orchid",
+    "look": {
+      "arche": "small",
+      "dims": [
+        0.4,
+        0.4,
+        1.1
+      ],
+      "form": "box"
+    }
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_landing_plinth",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "orchid plinth",
+  "object_type": "furniture",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_solenne_ph_landing"
+}

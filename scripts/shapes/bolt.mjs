@@ -280,6 +280,17 @@ const bolts = SEEDS.map((s) => growBolt(s));
   }
 }
 
+// ── 10b. every bolt on screen is a strike the server made ──
+// The on-glass ambient bolt rolled its own, a few a minute in any storm, with no strike behind them.
+{
+  for (const f of ['windshield', 'hangar-ambience', 'room-window']) {
+    const src = blank(fs.readFileSync(`client/game/js/panels/${f}.js`, 'utf8'));
+    if (!src.includes('strikesAfter(')) fail.push(`${f}.js does not read the strike feed`);
+    else ok.push(`${f}.js takes its strikes from the feed`);
+    if (/st[.]boltT|boltCd|boltNow[(]/.test(src)) fail.push(`${f}.js has a lightning clock of its own`);
+  }
+}
+
 // ── 11. the channel is drawn after every grade that could crush it ──────────────────────────────
 //
 // The ordering claim, and the reason this file exists. See the header.

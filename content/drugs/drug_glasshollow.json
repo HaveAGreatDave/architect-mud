@@ -105,7 +105,8 @@
     }
   },
   "flags": {
-    "drug_family": "deliriant"
+    "drug_family": "deliriant",
+    "taken": "swallow"
   },
   "id": "drug_glasshollow",
   "item_id": "item_drug_glasshollow",

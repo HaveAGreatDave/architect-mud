@@ -28,12 +28,16 @@ export const HOUSE = Object.freeze({
   bands: 2,                                  // light and shadow, nothing between
   widen: 2.5,                                // a figure's line, as a multiple of its view's own world width
   px: Object.freeze([1.8, 4.5]),             // ...held between these many pixels of a 900-wide picture
+  rinkLinePx: 1,                             // the rink's screen-pass lines: they lie on top of a man's own line, so they stay thin
   cityPx: 2.5,                               // the city's outline, CSS px (RENDER_TUNE.glInkPx)
   cityFar: 30,                               // ...and the tiles it holds to (glInkFar)
   shade: Object.freeze([0.62, 0.52, 0.7]),   // a figure's unlit side: a painted warm violet, not a cool grey
   weigh: 1.7,                                // the line on a figure's side away from the light, times its width
   hatchFt: 0.07,                             // a figure's hatching: the gap between strokes, in feet of him
-  parkPx: 2,                                 // the park's screen-pass lines, px of a 900-wide picture
+  // The park's players are small in most shots, so the house line would fill a fielder in black.
+  // Their line is thinner, and it's held at far less: the weighted side still swells it by `weigh`.
+  parkFigure: Object.freeze({ widen: 1.3, px: Object.freeze([0.6, 1.8]) }),
+  parkPx: 1,                                 // the park's screen-pass lines, px of a 900-wide picture: they lie on top of a man's own line, so they stay thin
   // ...where its lines fade, in feet: detail over the first two, outlines over the last two. The
   // detail lines (gl/ssao.js INK_FRAG's r) are off in the park: with the field in the depth, which
   // the city's never has, its one-texel taps read the grazing grass as creases in alternate rows,
@@ -51,6 +55,12 @@ export const comicOn = () => !!globalThis.__houseComic;
 export function inkOf(own) {
   if (!comicOn()) return own;
   return { ft: own.ft * HOUSE.widen, px: HOUSE.px, col: HOUSE.ink };
+}
+
+/** The ink round the park's players (gl/ballpark.js): inkOf's, at HOUSE.parkFigure's width. */
+export function parkFigureInkOf(own) {
+  if (!comicOn()) return own;
+  return { ft: own.ft * HOUSE.parkFigure.widen, px: HOUSE.parkFigure.px, col: HOUSE.ink };
 }
 
 /**
@@ -73,12 +83,12 @@ export function parkInkOf(w) {
 
 /**
  * The rink's screen-pass lines (gl/arena.js) for a picture `w` device pixels wide: null unless the
- * comic look is on. The park's width; outlines only, as the park's; and the house ink as it is,
+ * comic look is on. Thinner than the park's; outlines only, as the park's; and the house ink as it is,
  * since the rink draws straight to the canvas with no grade after it.
  */
 export function rinkInkOf(w) {
   if (!comicOn()) return null;
-  return { step: Math.max(1, HOUSE.parkPx * w / 900), col: HOUSE.ink };
+  return { step: Math.max(1, HOUSE.rinkLinePx * w / 900), col: HOUSE.ink };
 }
 
 /**
@@ -88,6 +98,68 @@ export function rinkInkOf(w) {
  */
 export function vehicleLightOf() {
   return { comic: comicOn() ? 1 : 0, shade: HOUSE.shade };
+}
+
+/**
+ * How worn each cockpit is drawn in the comic look (V5 of docs/proposals/vehicle-comic.md), by the
+ * seat's class. `grime` is hard-edged painted dirt, heavier toward the floor; `chips` are flakes off
+ * paint and plastic, each a lighter patch with an ink rim; `hatch` is pen hatching in the darkest
+ * band; `grain` is how much of the photographic surface grain is kept (it fights a painted look);
+ * `dirt` is what the grime is made of. A 2076 airframe is new: a third of the grime and a quarter of
+ * the chips. Faces with no material (lettering, gauge faces, lamps) never take any of it.
+ */
+export const CABIN_WEAR = Object.freeze({
+  // A gold-and-chrome duck that somebody details every week.
+  drake: { grime: 0.05, chips: 0, hatch: 0.35, grain: 0.15, dirt: [0.36, 0.30, 0.22] },
+  // A fabric-and-tube Cub: dust from grass strips, paint worn off the stick and the sill.
+  grasshopper: { grime: 0.45, chips: 0.55, hatch: 0.7, grain: 0.4, dirt: [0.52, 0.42, 0.28] },
+  // A crop sprayer: chemical crust in yellow-green, everything scuffed.
+  locust: { grime: 0.75, chips: 0.7, hatch: 0.8, grain: 0.35, dirt: [0.48, 0.50, 0.26] },
+  // A flying-school 172: clean, a little tired.
+  ultralight: { grime: 0.25, chips: 0.25, hatch: 0.55, grain: 0.4, dirt: [0.40, 0.36, 0.32] },
+  // A bush freighter: oil and boot dirt on the floor, scuffed consoles.
+  prop: { grime: 0.6, chips: 0.5, hatch: 0.7, grain: 0.35, dirt: [0.26, 0.22, 0.17] },
+  // A heavy lifter's flight deck: grey industrial grime, worn paint on everything touched.
+  heavy: { grime: 0.65, chips: 0.55, hatch: 0.8, grain: 0.3, dirt: [0.24, 0.24, 0.22] },
+  // A gun platform: soot and chipped grey enamel.
+  gunship: { grime: 0.6, chips: 0.75, hatch: 0.9, grain: 0.3, dirt: [0.16, 0.15, 0.14] },
+  // An old dive bomber: oily brown grime and paint flaking to the metal.
+  divebomber: { grime: 0.7, chips: 0.85, hatch: 0.9, grain: 0.3, dirt: [0.30, 0.22, 0.13] },
+  // A helicopter cockpit: hot, dusty, chipped by boots and kit.
+  heli: { grime: 0.55, chips: 0.6, hatch: 0.8, grain: 0.3, dirt: [0.40, 0.34, 0.25] },
+  // The wreck you bought: rust-brown crust everywhere.
+  wreck: { grime: 0.95, chips: 0.95, hatch: 0.9, grain: 0.3, dirt: [0.36, 0.20, 0.10] },
+  // A truck cab: road dirt on the floor, wear on the wheel and the shifter.
+  truck: { grime: 0.55, chips: 0.45, hatch: 0.7, grain: 0.35, dirt: [0.30, 0.26, 0.20] },
+  // A boat: dried salt, pale, not dark.
+  hydro: { grime: 0.5, chips: 0.4, hatch: 0.6, grain: 0.4, dirt: [0.86, 0.85, 0.80] },
+  skiff: { grime: 0.6, chips: 0.5, hatch: 0.6, grain: 0.4, dirt: [0.86, 0.85, 0.80] },
+  any: { grime: 0.45, chips: 0.45, hatch: 0.7, grain: 0.35, dirt: [0.32, 0.28, 0.22] },
+});
+const NEW_AIRFRAME = { grime: 0.33, chips: 0.25 };
+
+/**
+ * A cockpit's comic look for the class `cls` and its `variant`: null with the comic look off.
+ * `wear` is [grime, chips, hatch, grain], `dirt` the grime's colour, `shade` the painted shadow.
+ */
+export function cabinComicOf(cls, variant) {
+  if (!comicOn()) return null;
+  const base = String(cls || '').replace(/_2076$/, '');
+  const W = CABIN_WEAR[base] || CABIN_WEAR.any;
+  const neu = variant === '2076' || /_2076$/.test(String(cls || ''));
+  const g = neu ? NEW_AIRFRAME.grime : 1, c = neu ? NEW_AIRFRAME.chips : 1;
+  return { wear: [W.grime * g, W.chips * c, W.hatch, W.grain], dirt: W.dirt, shade: HOUSE.shade, ink: HOUSE.ink };
+}
+
+/**
+ * The cockpit's edge lines (V5) for a target `w` device pixels wide: thinner than the outside's,
+ * because the dash is close and busy. Null with the comic look off.
+ */
+export function cabinInkOf(w) {
+  if (!comicOn()) return null;
+  const k = w / 900;
+  const px = Math.max(1, HOUSE.cityPx * 0.48 * k);
+  return { sil: px, detail: px, weigh: 1, col: HOUSE.ink };
 }
 
 /**

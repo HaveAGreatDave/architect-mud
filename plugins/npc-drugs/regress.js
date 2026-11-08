@@ -1,4 +1,5 @@
 // npc-drugs regression suite — run by tests/regress.js (never loaded in production).
+import { readdirSync, readFileSync } from 'node:fs';
 import { _test } from './index.js';
 
 export default async function regress({ run, check }) {
@@ -20,6 +21,11 @@ export default async function regress({ run, check }) {
 
   r = await run('jab nobodyxyz with lull');
   check('jab target resolution', /no "nobodyxyz"/.test(r?.message || ''), r?.message);
+
+  // ── How each drug is taken: the clip the Room Stage plays for it
+  const dir = new URL('../../content/drugs/', import.meta.url);
+  const untaken = readdirSync(dir).filter((f) => !['snort', 'smoke', 'inject', 'swallow', 'huff', 'drink'].includes(JSON.parse(readFileSync(new URL(f, dir), 'utf8')).flags?.taken));
+  check('every drug says how it is taken', !untaken.length, untaken.join(', '));
 
   // ── Pure helpers ──────────────────────────────────────────────────────────────
   const { classify, parseTargetWith } = _test;

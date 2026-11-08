@@ -18,6 +18,7 @@
         "label": "#4a9ad8"
       }
     },
+    "potable": true,
     "restore_thirst": 40,
     "stackable": true
   },

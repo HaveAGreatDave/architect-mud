@@ -10,6 +10,10 @@
 import { query } from '../../server/models/db.js';
 import { world, getZone, getAllZones, getLivePlayer, getMinimapData, buildingEntranceDir, getRegion, addPlayerToZone, removePlayerFromZone, airfieldOf, getZoneFurniture, isTransientZone } from '../../server/engine/world.js';
 import { OPPOSITE } from '../../server/engine/directions.js';
+
+// Whether a type's gear folds away. By class, except the Viper, which shares `heli` with the
+// skidded Dragonfly and says so in its own row. Everything else, the Mule included, is fixed.
+export const gearRetracts = (type) => ['gunship', 'heavy', 'drake'].includes(type?.class) || !!type?.data?.retract_gear;
 import { describeZone } from '../../server/engine/commands/describe.js';
 import { biomeOf, districtBiome } from './biomes.js';
 import { thermalLiftMax, heatOfCell } from '../../client/shared/thermals.js';
@@ -1817,11 +1821,12 @@ export function deriveSurfaceCell(cell, x, y, at = surfaceAt, live = true) {
   // `sc`: the street kit's condition on a road (docs/proposals/coldwater-streets.md): 0 core to 3
   // unmaintained, falling across the region from west to east in bands a fifth of its columns wide
   // (`regions.street_gradient`), the last two bands alike. 4, the dirt, goes by district and not by
-  // column: only a road in one of the gradient's `dirt_districts` is dirt. A region with no gradient
+  // column: only a road in one of the gradient's `dirt_districts`, or one flagged `street_dirt` for
+  // running along that ground, is dirt. A region with no gradient
   // has no street kit, and a road past the gradient's `south` edge has left the city.
   const grad = road ? getRegion(cell.flags?.region_id)?.street_gradient : null;
   const sc = grad && !(y > grad.south)
-    ? (grad.dirt_districts?.includes(cell.flags?.district) ? 4
+    ? (grad.dirt_districts?.includes(cell.flags?.district) || cell.flags?.street_dirt ? 4
       : Math.max(0, Math.min(3, Math.floor((x - grad.west) / (grad.east - grad.west + 1) * 5))))
     : undefined;
   // `nfb`: this tile refuses the block's footbridge (`kitPlace`), to keep a frontage in view.
@@ -1957,6 +1962,17 @@ function nearbyFields(x, y) {
   let out = all.filter((f) => f._d <= FIELD_TAG_RANGE);
   if (!out.length && all.length) out = [all[0]];
   return out.map(({ _d, ...f }) => f);
+}
+
+// Every airfield within `range` tiles, for what flies between them past a window
+// (client/shared/window-sky.js airTraffic). `pad` is a field only a helicopter can use.
+export function fieldsNear(x, y, range) {
+  const out = [];
+  for (const z of getAllZones()) {
+    if (z.map_id !== 'map_world' || !z.flags?.airfield_id || z.grid_x == null) continue;
+    if (Math.hypot(z.grid_x - x, z.grid_y - y) <= range) out.push({ id: z.flags.airfield_id, gx: z.grid_x, gy: z.grid_y, pad: vtolOnlyField(z) });
+  }
+  return out;
 }
 
 // Named buildings near a coord, as targetable waypoints for the cockpit's target guide —

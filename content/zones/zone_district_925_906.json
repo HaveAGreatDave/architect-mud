@@ -1,8 +1,8 @@
 {
   "ambient_events": [],
-  "ambient_theme": "city",
-  "color": "#9aa0b0",
-  "description": "Open apron stretching flat in every direction, tie-down rings rusted into the concrete. The wind has nothing to break it here and comes at you sideways, carrying grit and the ghost of jet fuel.",
+  "ambient_theme": "outdoors",
+  "color": "#f5d400",
+  "description": "The runway ends here at the piano keys and the numbers. South of the threshold the old lead-in carries on to Kessler Street, and the water sits close on both sides.",
   "exits": {
     "east": "zone_district_926_906",
     "north": "zone_district_925_905",
@@ -11,10 +11,10 @@
   },
   "flags": {
     "district": "docks",
+    "icon": "runway_ns",
     "region_id": "region_coldwater",
-    "runway": "pad",
+    "runway": "ns",
     "scavenging_table_id": "scav_industrial_salvage",
-    "taxiway": "ns",
     "terrain": "asphalt"
   },
   "grid_x": 925,

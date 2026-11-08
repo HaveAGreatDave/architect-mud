@@ -1,6 +1,6 @@
 {
   "blurb": "Ag-plane yellow with a green stripe, so the farmer can see where you went down.",
-  "default": true,
+  "default": false,
   "exterior": {
     "base": "#e2ba2a",
     "finish": "gloss",
@@ -15,5 +15,5 @@
   "kind": "aircraft",
   "model": "locust",
   "name": "Crop Yellow",
-  "unlock": null
+  "unlock": "retired_stock"
 }

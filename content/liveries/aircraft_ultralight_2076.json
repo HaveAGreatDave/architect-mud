@@ -1,6 +1,6 @@
 {
-  "blurb": "Concept. The Mayfly fifty years on: eight props on two wings, one seat under a bubble, the flight school's white and blue kept.",
-  "default": false,
+  "blurb": "The Mayfly fifty years on: eight props on two wings, one seat under a bubble, the flight school's white and blue kept.",
+  "default": true,
   "exterior": {
     "base": "#eceef0",
     "finish": "gloss",

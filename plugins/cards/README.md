@@ -292,9 +292,11 @@ Draft, with its own table (`sports_cards`, one row per card pulled), its own sle
 - **Action shots** (`sports-action.js`): every card shows the man full length doing his job,
   with his posed face small on the back. Cards printed as portraits before that keep theirs. The pose comes from his position: Deadball pitchers
   pitch, catchers crouch behind the plate, infielders field a grounder, outfielders leap at the
-  wall, and the DH and bench man swing; CPhL forwards shoot, defensemen finish a check, goalies drop
-  into the butterfly in front of their own net. A fielder, catcher or defenseman is caught at the plate or shooting about half
-  the time instead, fixed off his name. A card reveals at its edition's rank, and nothing on it says it's an action shot.
+  wall, and the DH and bench man swing; each CPhL position has a pool (`HOCKEY_POSES`): forwards shoot, let a
+  wrister go, dangle or celebrate, a centre also takes the draw, defensemen finish a check on a man from the other club, shoot,
+  block or poke, and goalies make a butterfly, glove, stacked-pad or kick save in front of their own net. A pose needs a row in
+  `POSES` for the drawing and in `RINK_ACT` (`card-photo.js`) for the camera; `arena-smoke` fails if one is missing. A fielder or
+  catcher is caught at the plate about half the time instead. All of it is fixed off his name. A card reveals at its edition's rank, and nothing on it says it's an action shot.
 - **Nothing is authored per man.** Club and position come from each league's rosters: hockey's
   `rosterFor`, Deadball's season squads (`clubRosters` in `broadcast/sports/baseball.js`, sim v3).
   Numbers are the hashes the rink and the Grandstand put on his back, so the card never disagrees

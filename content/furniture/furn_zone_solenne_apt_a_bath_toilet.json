@@ -1,6 +1,11 @@
 {
   "description": "A wall-hung toilet in warm white stone, cistern concealed behind the wall, a soft-close seat. It flushes without a sound.",
-  "flags": {},
+  "flags": {
+    "look": {
+      "arche": "toilet",
+      "form": "hung"
+    }
+  },
   "hp": null,
   "hp_max": null,
   "id": "furn_zone_solenne_apt_a_bath_toilet",

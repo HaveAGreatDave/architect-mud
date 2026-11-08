@@ -130,7 +130,7 @@ export const TYPES = {
   },
   // Viper: attack helicopter (Apache analogue). Heavy, stabilised, the fastest rotorcraft.
   viper: {
-    name: 'Viper', heli: true, mass: 2.6,
+    name: 'Viper', heli: true, mass: 2.6, gearDragFrac: 0.15,
     vne: 190, cruise: 150, vs0: 22,       // vs0 doubles as the translational-lift (ETL) speed
     vr: 0, aoaCrit: 90, liftScale: 1,
     pitchRate: 22, pitchTau: 0.5, rollRate: 40, rollTau: 0.45,   // authoritative but heavier cyclic
@@ -334,6 +334,7 @@ export const TYPES = {
   //   rodHolders  how many lines can be out at once
   //   rode_m      the anchor rope, in metres; no rode, no anchor (anchor.js)
   //   lamp        she carries a lamp for night fishing
+  //   sonar       she carries a sounder (sonar-panel.js in the seat, `fish sonar` typed)
   //   thrustSteer the motor swings with the tiller, so its thrust turns her with no way on (0..1)
   skiff: {
     name: 'Keel Mk 1', short: 'Mk 1', water: true, tier: 0,
@@ -350,7 +351,7 @@ export const TYPES = {
     burn: 0.12,
     hullKg: 160, tank: 40, tankL: 30, price: 3900,
     exclusive: true,
-    seats: 2, hold_kg: 40, rodHolders: 2, rode_m: 30, lamp: true, thrustSteer: 0.8,
+    seats: 2, hold_kg: 40, rodHolders: 2, rode_m: 30, lamp: true, sonar: 1, thrustSteer: 0.8,
     blurb: "Built in the shed by the man who sells it. Sixteen feet of riveted aluminium, a tiller and a 15 hp motor. He'll fix it if it breaks. He says it won't.",
   },
 };
@@ -497,7 +498,8 @@ function stepHeli(state, input, p, dt) {
 
   // 4. Horizontal accel: disc tilt, plus gravity when nose-low so a dive builds real speed.
   const accel = s.onGround ? 0 : (-s.pitch * (p.cyclicThrust || 2) * Nr) + clamp(-s.pitch, 0, 35) * 0.16;
-  const drag = p.dragP * s.airspeed * Math.abs(s.airspeed);
+  // Retractable gear (the Viper): the tuned top speed is gear up. Skids and fixed gear pass 0.
+  const drag = p.dragP * (1 + clamp(input.gear || 0, 0, 1) * (p.gearDragFrac ?? 0)) * s.airspeed * Math.abs(s.airspeed);
   s.airspeed = clamp(s.airspeed + (accel - drag) * dt, -0.18 * p.cruise, p.vne * 1.03);
   if (s.onGround) s.airspeed -= Math.sign(s.airspeed) * Math.min(Math.abs(s.airspeed), p.rollFric * dt);
   s.groundSpeed = Math.abs(s.airspeed);

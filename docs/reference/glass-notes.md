@@ -119,6 +119,7 @@ Engineering notes for the GLASS renderer (`client/game/js/panels/windshield.js` 
 - [Street lamp pools](#street-lamp-pools)
 - [Glow radius floor and lamp halos](#glow-radius-floor-and-lamp-halos)
 - [Ground shader lights on dry nights](#ground-shader-lights-on-dry-nights)
+- [The street kit's night](#the-street-kits-night)
 - [Measuring the pools](#measuring-the-pools)
 - [Lightning channel](#lightning-channel)
 - [Lightning draw order](#lightning-draw-order)
@@ -1727,6 +1728,22 @@ With the pool on, the lamp's second disc is gone. It sat at z 0.01 as a screen-s
 ## Ground shader lights on dry nights
 
 A separate fix in the same commit. The light list was handed over only when `opts.wet > 0`, so a clear night uploaded `uNWet` 0 and every loop in the shader broke on its first iteration. Reflections didn't care (they're gated on `refl`, `uWet` times a coverage, 0 when dry), but two non-water terms died too: the pool, and the volumetric light shaft, which is gated on haze. So fog without rain had no light cones, with a slider, uniform and loop all correct. Turning `glPool` off deliberately doesn't restore this, so that's the one place the flag's 0 isn't the shipped renderer.
+
+## The street kit's night
+
+Reported on 2026-11-06 as "roads seem darker compared to buildings, buildings a bit too bright at night, except lit parts", at 919,905. Two separate things, one on each side.
+
+- **Walls had no night.** `nightDark` sat at 0 from 2026-10-20, set for a look and left there. A pale pillar read 173 at noon and 163 at 23:00. At 0 the lamps can't lift a wall either, because `liftOn` in gl/world.js needs a dim to give back. It's 0.4 now; 0.5 put a comic wall darker than the walkway under it.
+- **The kit has its own night.** It's a mark (`vTex` -2 to -4), so it never took `uWLDim`: an up-facing deck kept about 18% of its colour while the wall beside it kept all of it. `RENDER_TUNE.markNight` is the share of its ambient the night leaves (0.5 as shipped, 0.75 now). The South Lock, the AA batteries and the media lot share this path.
+- **The kit covers the road's pools.** It's laid over the ground pass, so ground.js's pools land under it. `RENDER_TUNE.markPool` puts the same term on up-facing marks in solids.js (0 is off). A lift toward the day colour, the wall's rule, can't do this: the lane's asphalt reads 33 at noon and 36 at night, because the night adds blue to a mark.
+- **The pool loop rejects on position first.** A cell lists up to 81 lights and most are neon. Reading each one's colour cost 45 ms of a 147 ms street-level frame in a hidden pane; rejecting past a tile before the second fetch took it to about 4 ms.
+
+Once walls dim, the lit-window guess in context.js decides what stays lit, and brightness alone can't. Pale trim and a mint pane are both near 0.7. So the guess moved up to 0.68-0.88, and two better signals sit beside it:
+
+- `vLitN`: the face's night colour is brighter than its day colour, so the arm lit it after dark. Only on faces that take their own colour; the atlas's are the material page's to answer.
+- A flat face that's strongly coloured counts as lit, on the peak channel rather than luma, because a sign's fill has one colour day and night and a blue sign is far under any luma threshold. This also holds a painted saturated board up after dark, which is the cost of having no emissive flag on a face.
+
+The numbers come from `__street` at 919,905, heading 180, with every `sl` patched to 1. Pin nothing and read the median of a rect, and pick rects on chrome panels: the lane and the belts are dark at noon too, so they can't show a night. The kit is the city street: only 3 tiles have a road with no `sc` near buildings, and they're out on the highway.
 
 ## Measuring the pools
 

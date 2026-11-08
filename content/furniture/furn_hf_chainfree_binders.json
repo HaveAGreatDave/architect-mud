@@ -1,6 +1,11 @@
 {
   "description": "Reservation forms, withdrawn reservations, and the correspondence that went with them, filed by month rather than by flat, which tells you what he is actually tracking. The withdrawn file is thicker than the live one and he has not moved it to the back.",
-  "flags": {},
+  "flags": {
+    "look": {
+      "arche": "store",
+      "form": "shelves"
+    }
+  },
   "id": "furn_hf_chainfree_binders",
   "name": "a shelf of ring binders",
   "object_type": "container",

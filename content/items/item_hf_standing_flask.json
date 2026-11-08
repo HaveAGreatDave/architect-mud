@@ -4,8 +4,16 @@
   "id": "item_hf_standing_flask",
   "name": "a flask of something hot",
   "tags": {
+    "consumable": true,
     "description": "Poured out of a flask on a bench by a man who brings two flasks and only ever needs one. Six credits, which is what the flask costs him, divided by how many cups are in it.",
-    "stackable": false
+    "hot_drink": true,
+    "hydrating": true,
+    "laced_drug": "drug_coffee",
+    "laced_potency": 0.5,
+    "restore_sanity": 2,
+    "restore_thirst": 25,
+    "stackable": false,
+    "use_message": "You drink it. It's hot, and that's all you can say for sure."
   },
   "type": "drink",
   "value": 6,

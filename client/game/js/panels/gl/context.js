@@ -90,6 +90,7 @@ out float vAlpha;
 out float vFlat;
 out float vJit;
 out float vBakedAo;
+out float vLitN;
 // ⚠ FLAT, BECAUSE A MATERIAL INDEX IS NOT A QUANTITY. Interpolating it would put fragments in the
 // middle of a triangle at fractional indices, and every vertex of a face carries the same value
 // anyway — so this is both cheaper and the only spelling that cannot round to the wrong family.
@@ -101,7 +102,10 @@ void main() {
   vec4 clip = uViewProj * vec4(P, 1.0);
   gl_Position = clip;
   vNormal = aNormal;
-  vColor = mix(aColor, aColorN.rgb, aColorN.w < 0.0 ? uNB : aColorN.w);
+  float nbK = aColorN.w < 0.0 ? uNB : aColorN.w;
+  vColor = mix(aColor, aColorN.rgb, nbK);
+  // A face whose night colour is brighter than its day colour has a light behind it (see litK).
+  vLitN = smoothstep(0.03, 0.12, dot(aColorN.rgb - aColor, vec3(0.299, 0.587, 0.114))) * nbK;
   vUV = aUV;
   vRamp = aRamp;
   vAlpha = aAlpha;
@@ -139,6 +143,7 @@ in float vAlpha;
 in float vFlat;
 in float vJit;
 in float vBakedAo;
+in float vLitN;
 flat in float vMat;
 in vec3 vWorld;
 in vec4 vEdge;
@@ -1039,8 +1044,17 @@ void main() {
   // shadow fell under it; the page's g is the pane loop's own answer. Elsewhere it's the guess.
   // The guess's thresholds are display values, so a linear base is encoded before it is asked.
   // ⚠ The guess starts at 0.55, not 0.28: a tan or whitewashed wall sits near 0.45 and was taken
-  // for a lit window, so whole buildings kept most of their daylight tone at midnight.
-  float litK = mix(smoothstep(0.55, 0.8, dot(uLinIn > 0.5 ? glassSrgb(base) : base, vec3(0.299, 0.587, 0.114))), mpg.g * uNBMat, pageK);
+  // for a lit window, so whole buildings kept most of their daylight tone at midnight. 0.55 → 0.68 for
+  // the same reason: pale trim at about 0.65 stayed bright on a dimmed wall, a white frame round a dark box.
+  float litK = mix(smoothstep(0.68, 0.88, dot(uLinIn > 0.5 ? glassSrgb(base) : base, vec3(0.299, 0.587, 0.114))), mpg.g * uNBMat, pageK);
+  // A face the arm lit after dark says so by its own night colour, whatever its brightness, so a mint
+  // pane keeps its light while the guess leaves pale trim to the dim. Faces that take their colour
+  // from the atlas are the page's to answer. A sign's fill has the same colour day and night, so a flat
+  // face also counts as lit when it's strongly coloured, which pale trim never is. That's on the peak
+  // channel, not luma: a blue or magenta sign is well under the guess's 0.68.
+  vec3 litD = uLinIn > 0.5 ? glassSrgb(base) : base;
+  float litMx = max(litD.r, max(litD.g, litD.b)), litSat = (litMx - min(litD.r, min(litD.g, litD.b))) / max(litMx, 0.001);
+  litK = max(litK, max(vLitN * (1.0 - texW), (1.0 - solid) * smoothstep(0.45, 0.65, litSat) * smoothstep(0.55, 0.75, litMx)));
   // ⚠ SNOW IS NEVER A LIT WINDOW. Its 0.9 albedo sits well over the guess's 0.55, so every snowy
   // roof, sill and awning was taken for a light source and kept its daylight white at midnight.
   // snowW is 0 on anything that isn't facing up, so a wall's lit windows are untouched.
@@ -2549,16 +2563,28 @@ const lightRaw = new Float32Array(MAX_LIGHTS * 3);
   // `model`, when the interior sends one, is its local-to-world matrix: the faces arrive in the cab's own
   // frame and only the parts that moved are re-sent (see the incremental mode in solids.js).
   // `light` is the frame's cabin light (pushInteriorShell): the room is shaded per pixel from it.
+  // The cockpit's comic lines (gl/vehicle-ink.js, cabin mode), only while the comic look is on.
+  // ⚠ A failed compile turns them off for this context, as the ship's do.
+  let intInk = null, intInkDead = false, intInkOn = false;
   function uploadInterior(list, model = null, light = null, att = null) {
-    intQuads = list && list.length ? interiorLayer().upload(list, model && list.every((q) => q.mp) ? model : null, light, att) : 0;
+    const local = model && list && list.every((q) => q.mp) ? model : null;
+    intQuads = list && list.length ? interiorLayer().upload(list, local, light, att) : 0;
+    intInkOn = false;
+    if (!intInkDead && comicOn() && intQuads && local) {
+      try { intInkOn = (intInk || (intInk = createVehicleInkLayer(gl, { cabin: true }))).upload(list, local, null, att) > 0; }
+      catch (e) { intInkDead = true; console.warn('cockpit ink off:', e.message); }
+    }
     return intQuads;
   }
+  // Drawn after the room and before the glass, so the panes lie over the lines as over the room.
+  const drawInteriorInk = (cam, cssH) => { if (intInkOn && comicOn()) intInk.draw(cam, cssH, { near: INTERIOR_NEAR, far: INTERIOR_FAR }); };
   // What the main pass draws into (float target or canvas), so a pass can restore it without a getParameter.
   const frameTarget = () => ({ fb: targetLive && hdr ? hdr.drawFbo : null, w: canvas.width, h: canvas.height });
   function drawInterior(cam, cssH, opts) {
     if (!intQuads) return 0;
     gl.clear(gl.DEPTH_BUFFER_BIT);
     const n = interiorLayer().draw(cam, cssH || canvas.height, { ...(opts || {}), near: INTERIOR_NEAR, far: INTERIOR_FAR, worldSun, target: frameTarget() });
+    drawInteriorInk(cam, cssH || canvas.height);
     // THE GLASS, after the room: see-through, tested against the room and writing no depth (film).
     interiorLayer().draw(cam, cssH || canvas.height, { ...(opts || {}), near: INTERIOR_NEAR, far: INTERIOR_FAR, film: true });
     return n;
@@ -2576,6 +2602,7 @@ const lightRaw = new Float32Array(MAX_LIGHTS * 3);
     gl.clearColor(0, 0, 0, 0);
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
     const n = interiorLayer().draw(cam, cssH || canvas.height, { near: INTERIOR_NEAR, far: INTERIOR_FAR, under: aloneUnder, underD: aloneUnderD, worldSun, target: { fb: null, w: canvas.width, h: canvas.height } });
+    drawInteriorInk(cam, cssH || canvas.height);
     interiorLayer().draw(cam, cssH || canvas.height, { near: INTERIOR_NEAR, far: INTERIOR_FAR, film: true, under: aloneUnder, underD: aloneUnderD });
     return n;
   }

@@ -16,6 +16,12 @@
  * a warmth that survived a relog would be state pretending to matter.
  */
 
+// A hot drink is the cheapest cold-weather gear in the game and the only kind you can carry
+// in your hands. Worth about a wool hat while it lasts, and it does not last long. This is a
+// full-heat cup, brewed in a vessel or bought over a counter.
+export const WARM_DRINK_C = 4;
+export const WARM_DRINK_MIN = 12;   // game-minutes at full heat, tapering to nothing
+
 // Fades linearly to nothing rather than expiring off a cliff, because a drink going cold in
 // your hands is a gradual disappointment and the numbers should say so.
 export function applyWarmth(player, degrees, minutes) {

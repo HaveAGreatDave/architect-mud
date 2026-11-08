@@ -184,6 +184,37 @@ function refreshThemeColors() {
   // renders nothing.
   spiderRGB = bgIsLight() ? '18,16,20' : '206,198,214';
   veinRGB   = bgIsLight() ? '58,30,62' : '168,126,178';
+  dropSprite = null;  // rebuilt in the new colour on next draw
+}
+
+// A raindrop seen falling is a streak that is faint at the tail and solid at the
+// head, not a ruled line. One sprite per theme, stretched and turned per drop:
+// a gradient per drop per frame costs far more than a drawImage.
+let dropSprite = null;
+let curDpr = 1;
+let splashes = [];  // { x, y, t, r, a } — where a near drop met the floor
+function getDropSprite() {
+  if (dropSprite) return dropSprite;
+  const c = document.createElement('canvas');
+  c.width = 8; c.height = 64;
+  const g = c.getContext && c.getContext('2d');
+  if (!g || !g.createLinearGradient) return null;
+  const grad = g.createLinearGradient(0, 0, 0, 64);
+  grad.addColorStop(0, `rgba(${rainRGB},0)`);
+  grad.addColorStop(0.55, `rgba(${rainRGB},0.35)`);
+  grad.addColorStop(0.9, `rgba(${rainRGB},0.9)`);
+  grad.addColorStop(1, `rgba(${rainRGB},1)`);
+  g.fillStyle = grad;
+  // Tapered: a hair at the tail, the drop's width at the head.
+  g.beginPath();
+  g.moveTo(3.6, 0); g.lineTo(4.4, 0);
+  g.lineTo(7, 58); g.quadraticCurveTo(4, 66, 1, 58);
+  g.closePath(); g.fill();
+  // The head catches the light.
+  g.fillStyle = 'rgba(255,255,255,0.35)';
+  g.beginPath(); g.ellipse(4, 59, 1.6, 3, 0, 0, Math.PI * 2); g.fill();
+  dropSprite = c;
+  return c;
 }
 
 function ensureCanvas() {
@@ -203,6 +234,7 @@ function syncRect() {
   const r = pane.getBoundingClientRect();
   if (r.width < 4 || r.height < 4) return false;
   const dpr = Math.min(window.devicePixelRatio || 1, 2);
+  curDpr = dpr;
   const changed = r.left !== paneRect.left || r.top !== paneRect.top ||
     r.width !== paneRect.width || r.height !== paneRect.height;
   paneRect = { left: r.left, top: r.top, width: r.width, height: r.height };
@@ -229,7 +261,9 @@ function targetCount(S) {
   // Rain keeps a healthy floor (0.9·density) so even a light drizzle reads as
   // rain, then scales up with intensity — always visible while fully present.
   let base = 0;
-  if (S.active === 'rain') base = density * (0.9 + 1.6 * S.dispIntensity);
+  // Most drops are far and faint (see spawnParticle's depth), so it takes more
+  // of them than the old flat lines to read as the same downpour.
+  if (S.active === 'rain') base = density * (1.4 + 2.6 * S.dispIntensity);
   else if (S.active === 'snow') base = density * (0.2 + 0.5 * S.dispIntensity);
   else if (S.active === 'ash')  base = density * (0.15 + 0.35 * S.dispIntensity);
   else if (S.active === 'wind') base = density * (0.03 + 0.05 * S.dispIntensity);
@@ -271,10 +305,21 @@ function spawnParticle(S, fromTop) {
   const w = paneRect.width, h = paneRect.height;
   const wind = S.cur.windKph / 60; // 0..~1.5
   if (S.active === 'rain') {
+    // z is depth: 0 is far (short, thin, faint, slow), 1 is close to the glass.
+    // Squared so most of the rain is in the distance and the near drops count.
+    const z = Math.random() ** 2;
+    const I = S.dispIntensity;
+    const vy = (420 + 720 * z) * (0.6 + I) * rand(0.9, 1.1);
     return {
-      x: rand(-0.1 * w, w), y: fromTop ? rand(-h, 0) : rand(0, h),
-      len: rand(10, 18) * (0.7 + S.dispIntensity), vy: rand(600, 900) * (0.6 + S.dispIntensity),
-      vx: (120 + 300 * wind), a: rand(0.45, 0.8),
+      x: rand(-0.15 * w, w), y: fromTop ? rand(-h, 0) : rand(0, h),
+      z,
+      len: (7 + 30 * z) * (0.7 + I) * rand(0.8, 1.2),
+      wid: 0.7 + 2.0 * z,
+      vy,
+      vx: (120 + 300 * wind) * (0.5 + 0.5 * z) + rand(-25, 25),
+      a: (0.32 + 0.55 * z) * rand(0.8, 1.1),
+      // Only the near drops land in view; far ones fall past the floor.
+      land: z > 0.55 ? h * rand(0.8, 1.0) : h + 1,
     };
   }
   if (S.active === 'snow') {
@@ -413,6 +458,7 @@ function growStrand(x, y, dx, dy) {
 function reseed(S) {
   refreshThemeColors();
   S.particles = [];
+  splashes = [];
   S.fogBlobs = [];
   S.strands = [];
   if (S.active === 'fog') {
@@ -653,17 +699,50 @@ function drawBase(S, dt, w, h) {
   if (S.particles.length > want) S.particles.length = want;
 
   if (S.active === 'rain') {
-    ctx.strokeStyle = `rgba(${rainRGB},1)`;   // per-particle alpha × presence is the attenuation
-    ctx.lineWidth = 1.4;
+    const spr = getDropSprite();
+    const d = curDpr;
+    // Gusts lean the whole sheet a little, slowly.
+    const gust = 1 + 0.25 * Math.sin(fxClock * 0.7) * Math.sin(fxClock * 0.23 + 1.3);
     for (const p of S.particles) {
-      p.x += p.vx * dt; p.y += p.vy * dt;
-      if (p.y > h || p.x > w + 20) { Object.assign(p, spawnParticle(S, true)); continue; }
-      const dx = p.vx / p.vy * p.len, dy = p.len;
+      const vx = p.vx * gust;
+      p.x += vx * dt; p.y += p.vy * dt;
+      if (p.y >= p.land) {
+        if (p.land <= h && splashes.length < 90) {
+          splashes.push({ x: p.x, y: p.land, t: 0, r: 2 + 5 * p.z, a: p.a });
+        }
+        Object.assign(p, spawnParticle(S, true)); continue;
+      }
+      if (p.y > h || p.x > w + 40) { Object.assign(p, spawnParticle(S, true)); continue; }
+      // Turn the sprite onto the drop's velocity; its head sits at (p.x, p.y).
+      const sp = Math.hypot(vx, p.vy);
+      const cs = p.vy / sp, sn = -vx / sp;
+      ctx.setTransform(d * cs, d * sn, -d * sn, d * cs, d * p.x, d * p.y);
       ctx.globalAlpha = p.a * S.presence;
+      if (spr) ctx.drawImage(spr, -p.wid / 2, -p.len, p.wid, p.len);
+      else {
+        ctx.strokeStyle = `rgb(${rainRGB})`; ctx.lineWidth = p.wid;
+        ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(0, -p.len); ctx.stroke();
+      }
+    }
+    ctx.setTransform(d, 0, 0, d, 0, 0);
+    // Splashes: a ring flattened by perspective and two flecks thrown up.
+    ctx.strokeStyle = `rgb(${rainRGB})`;
+    ctx.fillStyle = `rgb(${rainRGB})`;
+    ctx.lineWidth = 0.8;
+    for (let i = splashes.length - 1; i >= 0; i--) {
+      const s = splashes[i];
+      s.t += dt;
+      const k = s.t / 0.28;
+      if (k >= 1) { splashes[i] = splashes[splashes.length - 1]; splashes.pop(); continue; }
+      const fade = (1 - k) * s.a * S.presence;
+      ctx.globalAlpha = fade * 0.8;
       ctx.beginPath();
-      ctx.moveTo(p.x, p.y);
-      ctx.lineTo(p.x - dx, p.y - dy);
+      ctx.ellipse(s.x, s.y, s.r * (0.4 + k), s.r * 0.3 * (0.4 + k), 0, 0, Math.PI * 2);
       ctx.stroke();
+      ctx.globalAlpha = fade;
+      const up = s.r * 2.2 * k * (1 - k);
+      ctx.fillRect(s.x - s.r * k * 1.1, s.y - up, 1, 1);
+      ctx.fillRect(s.x + s.r * k * 0.9, s.y - up * 0.8, 1, 1);
     }
     ctx.globalAlpha = 1;
     return;
@@ -1228,6 +1307,11 @@ export function suppressWeatherFx(on, owner = 'default') {
   suppressed = suppressors.size > 0;
   if (suppressed) stopLoop();
   else startLoop();
+}
+
+// Public: a 3D view owns the pane, so anything laid flat over the page would cover it.
+export function isWeatherFxSuppressed() {
+  return suppressed;
 }
 
 export function initWeatherFx() {

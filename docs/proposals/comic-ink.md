@@ -182,7 +182,7 @@ plain again pixel for pixel.
   up only where he turns away from his brightest light (`keyD`, from `celAdd`). A first cut hatched
   all of full shadow, and under the floods from behind that was his whole front.
 - **The angler** (glass/rod-rig.js), shaded on the CPU, takes the same bands, shade and no rim.
-- **The line** (`SKIN_INK_VS` in gl/ballpark.js) swells to `HOUSE.weigh` (1.7) times on the side
+- **The line** (`SKIN_INK_VS` in gl/ballpark.js) is thinner than the house line, at `HOUSE.parkFigure`, since a fielder is small in most shots and the house line filled him in black. It swells to `HOUSE.weigh` (1.7) times on the side
   away from `uKey`, the sun or straight up under the floods. At weight 1 it's the old line exactly.
 - **The kits** ([diamond/kits.js](../../client/game/js/panels/diamond/kits.js) `ink`): numbers and
   lettering outlined, seams and the placket hand-ruled, the collar's edge, folds off the tuck and
@@ -251,14 +251,12 @@ layer. Before this it took only the house ink and a wider hull, over smooth ligh
   nothing else reads; a sweater's own uv already runs round him (`SWEATER_FT`), and a head hatches
   in its bind space. His skating and his turning don't move the strokes; a swinging limb moves
   through them a little. It runs only with the look on.
-- **The weighted line.** [gl/ink.js](../../client/game/js/panels/gl/ink.js) `INK_VS` swells to
-  `HOUSE.weigh` on the side away from `uKey`, as the park's line does. A view that never sets
-  `uWeigh` (the kitchen) reads 0 as 1.
-- **Two lines on a man.** The wide comic line stays well behind him, round the outside only: it's
-  wide enough to be a slab across his own chest. The rink's own thin line goes over it, 0.3 ft
-  behind him at any range (`uBack` in gl/ink.js), so an arm keeps a line across his body. With the
-  look off, only the thin line is drawn. Sticks, skate steel and the puck take neither (`noInk` in
-  gl/arena-mesh.js): they're thinner than the line.
+- **One line on a man.** The rink draws the same line in both looks, 0.09 ft held between 1.2 and 3.6 px,
+  in the house ink when comic is on. It sits 0.3 ft behind him at any range (`uBack` in gl/ink.js), so an
+  arm keeps a line across his body. It takes no `HOUSE.weigh` and no wide house line: a seat on the glass
+  puts a man close enough that those read as a slab. The screen pass is thin for the same reason
+  (`HOUSE.rinkLinePx`). Sticks, skate steel and the puck take no line (`noInk` in gl/arena-mesh.js):
+  they're thinner than it.
 - **Inked sweaters.** `inkSweater` paints the park kits' strokes at the rink's slot scale: the side
   seams and the collar ruled, folds under the arms and off the hem, a quarter-strength painted
   shadow, and the number, the name and the plain crest outlined. The strokes are
@@ -299,6 +297,7 @@ What each view takes of the look, after the rink. "Own" is the view's own light.
 | Kitchen | ✓ | ✓ | own | no | no | no | no |
 | Street people, buildings | ✓ | ✓ | own grey | no | no | no | city (not phones) |
 | Vehicles ([V1](vehicle-comic.md#v1-as-built), [V2](vehicle-comic.md#v2-as-built)) | ✓ | ✓ | ✓ | no | the own ship | no | city (not phones) |
+| Cockpits ([V5](vehicle-comic.md#v5-as-built)) | ✓ | ✓ | ✓ | ✓ | no (thin, even) | painted wear | no |
 
 Bringing the vehicles and the cockpits up to the figures is scoped in
 [vehicle-comic.md](vehicle-comic.md) (design).

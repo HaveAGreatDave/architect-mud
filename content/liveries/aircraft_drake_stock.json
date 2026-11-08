@@ -1,6 +1,6 @@
 {
   "blurb": "Mandarin drake plumage over walnut and gold. The Drake as her maker meant her.",
-  "default": true,
+  "default": false,
   "exterior": {
     "base": "#c09252",
     "finish": "gloss",
@@ -17,5 +17,5 @@
   "kind": "aircraft",
   "model": "drake",
   "name": "Mandarin",
-  "unlock": null
+  "unlock": "retired_stock"
 }

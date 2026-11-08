@@ -83,6 +83,7 @@
     "legal": true,
     "refractory_mult": 0.2,
     "requires_site": "testicles",
+    "taken": "inject",
     "volume_boost": 2.4
   },
   "id": "drug_grey_ampoule",

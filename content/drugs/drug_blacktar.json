@@ -56,7 +56,8 @@
   "flags": {
     "drug_class": "depressant",
     "drug_family": "opioid",
-    "injectable": true
+    "injectable": true,
+    "taken": "inject"
   },
   "id": "drug_blacktar",
   "item_id": "item_blacktar",

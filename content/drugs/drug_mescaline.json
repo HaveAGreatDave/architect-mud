@@ -82,7 +82,8 @@
     }
   },
   "flags": {
-    "drug_family": "psychedelic"
+    "drug_family": "psychedelic",
+    "taken": "swallow"
   },
   "id": "drug_mescaline",
   "item_id": "item_mescaline",

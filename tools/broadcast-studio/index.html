@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Broadcast Studio</title>
+<link rel="stylesheet" href="/studio.css">
+<script type="importmap">{ "imports": { "/shared/": "/client/shared/" } }</script>
+<script src="/client/shared/audio-engine.js"></script>
+<script src="/bsm-compiler.js"></script>
+</head>
+<body>
+<header id="top">
+  <b class="brand">BROADCAST STUDIO</b>
+  <nav id="tabs">
+    <button data-tab="show">Show</button>
+    <button data-tab="sequence">Sequence</button>
+    <button data-tab="set">Set</button>
+    <button data-tab="script">Script</button>
+  </nav>
+  <span id="status" role="status"></span>
+  <span class="grow"></span>
+  <button id="save" title="Write what's changed to content/media_graphics">Save</button>
+  <button id="export" title="Download this show or sequence, with what it needs, as one file">Export</button>
+  <label class="btn" title="Bring in a file made by Export">Import<input id="import" type="file" accept=".json" hidden></label>
+</header>
+<datalist id="fact-list"></datalist>
+<div id="body">
+  <aside id="rail"></aside>
+  <main id="main">
+    <section id="stage-pane">
+      <div id="monitor-wrap">
+        <div id="monitor"></div>
+        <div id="transport">
+          <button id="play" title="Play from here (space)">▶</button>
+          <button id="prev" title="Previous beat">⏮</button>
+          <button id="next" title="Next beat">⏭</button>
+          <input id="scrub" type="range" min="0" max="1000" value="0" aria-label="Position in the sequence">
+          <span id="clock">0:00</span>
+          <label><input id="voice" type="checkbox" checked> voice</label>
+          <label>data <select id="sample"></select></label>
+          <button id="reroll" title="Play a different simulated game">🎲</button>
+        </div>
+      </div>
+      <div id="board"></div>
+      <div id="plan-wrap"><canvas id="plan" width="900" height="360"></canvas></div>
+    </section>
+    <section id="form-pane"></section>
+    <iframe id="script-frame" title="BSM Studio" hidden></iframe>
+  </main>
+  <aside id="inspector"></aside>
+</div>
+<script type="module" src="/studio.js"></script>
+</body>
+</html>

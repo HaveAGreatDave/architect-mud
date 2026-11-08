@@ -504,7 +504,7 @@ function layout(P, live) {
   return {
     L, ail, elev, thr, trim, flap,
     stickBase: [0, 0.24, fz + 0.01],
-    stickTip: [ail * 0.085, 0.27 + elev * 0.085, -0.42],
+    stickTip: [ail * 0.085, 0.27 - elev * 0.085, -0.42],
     thrPivot, thrKnob: add(thrPivot, [0.012, Math.sin(ta) * 0.13, Math.cos(ta) * 0.13]),
     trimPivot: [-0.24, -0.16, -0.62], trimTip: add([-0.24, -0.16, -0.62], [0.01, Math.sin(trim * 0.7) * 0.10, Math.cos(trim * 0.7) * 0.10]),
     flapPivot, flapTip: add(flapPivot, [0, -Math.cos(fa) * 0.24, Math.sin(fa) * 0.24]),

@@ -86,7 +86,8 @@
     }
   },
   "flags": {
-    "drug_family": "dissociative"
+    "drug_family": "dissociative",
+    "taken": "snort"
   },
   "id": "drug_deadair",
   "item_id": "item_deadair",

@@ -17,7 +17,8 @@
     "form": "leaf",
     "legal": true,
     "skin_permeability": 0.85,
-    "sub": "dried"
+    "sub": "dried",
+    "taken": "smoke"
   },
   "id": "drug_loose_tobacco",
   "item_id": "item_loose_tobacco",

@@ -1,0 +1,23 @@
+{
+  "description": "A standing desk with a screen on an arm and a mat to stand on, at the height of someone who has never had to stand at work.",
+  "flags": {
+    "aliases": "desk",
+    "interactions": [
+      "lean"
+    ],
+    "look": {
+      "arche": "surface",
+      "form": "desk"
+    }
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_solenne_apt_d_desk",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "standing desk",
+  "object_type": "furniture",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_solenne_apt_d"
+}

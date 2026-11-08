@@ -200,16 +200,17 @@ async function boatSuite({ run, check, p }) {
   const rig = { playerId: pid, boatId: BOAT, typeId: 'skiff', name: 'Regress', heading: 0, x: A.x, y: A.y, speed: 0, pedal: 0, anchored: null };
   // A fish on the line without going through the water, for the strike and fight checks.
   const st = () => p.fishState;
-  const craftBite = (beats) => {
+  const SCRIPT = { kind: 'slide', nibbles: [{ at: 800, size: 0.5 }], takeAt: 1800, windowMs: 900, sweetAt: 2100 };
+  const craftBite = () => {
     const s = st();
     s.phase = 'bite';
     s.lure = { x: A.x + 2, y: A.y, depth: 5, floor: 12, lineM: 14, at: clock };
-    s.bite = { schoolId: 'regress_school', i: 0, sp: 'irontooth_bass', kg: 3, difficulty: 6, beats, biteAt: clock, hit: 0, x: A.x + 2, y: A.y, depth: 5 };
+    s.bite = { schoolId: 'regress_school', i: 0, sp: 'irontooth_bass', kg: 3, difficulty: 6, script: SCRIPT, biteAt: clock, set: 0, x: A.x + 2, y: A.y, depth: 5 };
   };
   const craftFight = ({ kg = 3, ago = 600_000 } = {}) => {
     const s = st();
     s.phase = 'fight';
-    s.fight = { schoolId: 'regress_school', i: 0, sp: 'irontooth_bass', kg, difficulty: 6, beats: 1, lineM: 20, startAt: clock - ago, settled: false, x: A.x + 2, y: A.y, depth: 5 };
+    s.fight = { schoolId: 'regress_school', i: 0, sp: 'irontooth_bass', kg, difficulty: 6, lineM: 20, startAt: clock - ago, settled: false, x: A.x + 2, y: A.y, depth: 5 };
   };
   try {
     Map.prototype.set.call(aboard, pid, BOAT);   // straight onto the map: the seat's flag write is not under test
@@ -353,38 +354,45 @@ async function boatSuite({ run, check, p }) {
       clock += 60_000;
     }
     const b = last('bite');
-    check('boat: on-tempo twitches near a fish bring a bite', st()?.phase === 'bite' && !!b && b.beats === R.beatCount(st().bite.kg, st().bite.difficulty) && b.biteAt === st().bite.biteAt,
+    check('boat: on-tempo twitches near a fish bring a bite', st()?.phase === 'bite' && !!b && b.script?.takeAt === st().bite.script.takeAt && b.biteAt === st().bite.biteAt,
       `${st()?.phase} ${JSON.stringify(b)}`);
     check('boat: twitches report the fish following the lure', sent.some((m) => m.phase === 'twitch' && m.follow?.length));
 
-    // ── The beats: judged in and out of the window ────────────────────────────
-    craftBite(3);
-    let times = R.beatTimes(3);
-    for (let i = 0; i < 3; i++) {
-      clock = st().bite.biteAt + times[i] + 60;
-      await run(`fishstrike ${i} ${clock} ${tok}`);
-    }
+    // ── The strike: judged against the take ───────────────────────────────────
+    craftBite();
+    clock = st().bite.biteAt + SCRIPT.sweetAt;
+    await run(`fishstrike ${clock} ${tok}`);
     let fight = last('fight');
-    check('boat: every beat hit in its window starts the fight', st()?.phase === 'fight' && fight?.kg === 3 && fight?.species === 'irontooth_bass' && fight?.fight === SPECIES.irontooth_bass.fight,
+    check('boat: a strike in the window starts the fight, with how well it set', st()?.phase === 'fight' && fight?.kg === 3 && fight?.species === 'irontooth_bass' && fight?.fight === SPECIES.irontooth_bass.fight && fight?.set === 1,
       `${st()?.phase} ${JSON.stringify(fight)}`);
 
-    craftBite(2);
-    times = R.beatTimes(2);
-    clock = st().bite.biteAt + times[0] + R.BEAT_WINDOW_MS + R.LATENCY_SLACK_MS + 60;
-    await run(`fishstrike 0 ${clock} ${tok}`);
-    check('boat: a strike outside the window spits the hook', last('spat')?.reason === 'miss' && st()?.phase === 'aim', JSON.stringify(last('spat')));
-    check('boat: a missed strike scares the school off the lure', (st()?.spooked?.regress_school || 0) > clock);
+    craftBite();
+    clock = st().bite.biteAt + SCRIPT.nibbles[0].at + 100;
+    await run(`fishstrike ${clock} ${tok}`);
+    check('boat: a strike on a nibble is too soon, and the lure stays out with less line', last('spat')?.reason === 'early' && st()?.phase === 'line' && st().lure?.lineM === 12, JSON.stringify(last('spat')));
+    check('boat: a strike that pulls it away scares the school off the lure', (st()?.spooked?.regress_school || 0) > clock);
 
-    craftBite(2);
-    clock = st().bite.biteAt + times[1];
-    await run(`fishstrike 1 ${clock} ${tok}`);
-    check('boat: a beat struck out of order spits the hook', st()?.phase === 'aim');
+    craftBite();
+    clock = st().bite.biteAt + SCRIPT.takeAt + SCRIPT.windowMs + R.LATENCY_SLACK_MS * 2 + 50;
+    await run(`fishstrike ${clock} ${tok}`);
+    check('boat: a strike after the window is too slow', last('spat')?.reason === 'late' && st()?.phase === 'line', JSON.stringify(last('spat')));
 
-    craftBite(1);
-    clock = st().bite.biteAt + R.beatTimes(1)[0] + R.BEAT_WINDOW_MS + R.LATENCY_SLACK_MS * 2 + 10;
+    craftBite();
+    clock = st().bite.biteAt + SCRIPT.takeAt;
+    await run(`fishstrike ${clock + 5000} ${tok}`);
+    check('boat: a strike can\'t claim a moment that hasn\'t happened', last('spat')?.reason === 'early' && st()?.phase === 'line');
+
+    craftBite();
+    clock = st().bite.biteAt + SCRIPT.takeAt + SCRIPT.windowMs + R.LATENCY_SLACK_MS * 2 + 10;
     const sp0 = sent.filter((m) => m.phase === 'spat').length;
     boatTick(p, st());
-    check('boat: a beat never struck is spat on the tick', sent.filter((m) => m.phase === 'spat').length === sp0 + 1 && st()?.phase === 'aim');
+    check('boat: a take never struck is spat on the tick', sent.filter((m) => m.phase === 'spat').length === sp0 + 1 && st()?.phase === 'line');
+
+    // ── The sounder, typed ────────────────────────────────────────────────────
+    {
+      const r = await run('fish sonar');
+      check('boat: fish sonar reads the depth under her', /sounder gives/i.test(r?.message || '') && !Object.values(SPECIES).some((s) => (r?.message || '').includes(s.name)), r?.message);
+    }
 
     // ── Landing ───────────────────────────────────────────────────────────────
     craftFight({ ago: 10 });

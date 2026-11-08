@@ -13,6 +13,9 @@ import { dispatchAction } from '../../server/engine/actions.js';
 const tabletTunersClear = (id) => _test.tabletTuners.delete(id);
 import { getCrimeStars, getCrimeWitness } from '../../server/engine/crimes.js';
 import { _audienceTest } from './audience.js';
+import { deskSegment, deskOverlay, deskStaffed, castOnAir, liveShows, withLive, stageSet, guestPerson, personaSex } from './sequences.js';
+import { factsAt, momentBeat } from './sports/facts.js';
+import { sampleGame } from './sports/sample-game.js';
 import { TANGENT_POOLS, WRANGLE_POOLS, canTangent, tangentRuns, wrangleLines, buildTangent, tangentHoldMs } from './tangents.js';
 import { rowIsInstanced, NOT_INSTANCED_SQL } from '../../server/engine/inventory.js';
 import { getRegisteredMoveGates } from '../../server/engine/movement-gates.js';
@@ -3193,6 +3196,8 @@ export default async function regress({ check, run, getPlayer }) {
       check('hockey: the score bug never calls a goal before it goes in', early.length === 0 && game.beats.some((b) => b.type === 'goal'), early.slice(0, 3).join(' | '));
       const air = [...holds.values()].reduce((a, b) => a + b, 0);
       check('hockey: an hour slot holds the whole game', air <= 3600 * 1000 * 0.85 * 1.05, `${(air / 60000).toFixed(1)} min`);
+      const breakCue = all.find((l) => l.gameday?.type === 'intermission' && l.gameday.cues?.some((c) => c.ev === 'resume'))?.gameday.cues.find((c) => c.ev === 'resume').ms;
+      check('hockey: a break is long enough for the Zamboni in real time', breakCue >= 380000, `${breakCue} ms`);
       const half = narrateLines();
       const short = paceCalls(half, 1800 * 1000 * 0.85, 1000);
       const kept = half.filter((l) => !short.dropped.has(l));
@@ -5273,6 +5278,123 @@ export default async function regress({ check, run, getPlayer }) {
     } finally {
       setVenueRoof('auto'); _roofState.clear(); for (const [k, v] of saved) _roofState.set(k, v);
       refreshVenueRoofs(Date.now(), false);
+    }
+  }
+
+  // ── The desk (sequences.js): a show's 3-D segments, from object literals ─────────────────────
+  {
+    const doc = (o) => ({ type: o.kind, content: JSON.stringify(o) });
+    const set = { kind: 'set', id: 'set_t', zone: 'zone_t', marks: { a: { at: [0, 0] }, b: { at: [1, 0] } }, cameras: { c: { at: [0, 0] } } };
+    const seq = { kind: 'sequence', id: 'seq_t', set: 'set_t', roles: { a: {}, b: {} }, beats: [
+      { id: 'b1', hold: 2 },
+      { id: 'b2', say: { role: 'a', lines: ['{home} tonight.'] } },
+      { id: 'b3', say: { role: 'b', lines: ['Watch {star.name}.'] } },
+      { id: 'b4', say: { role: 'a', lines: ['Good night, {b.name}.'] } },
+    ] };
+    const show = { kind: 'show', id: 'show_t', name: 'T', broadcast: 'bc_t', live: true, cast: { a: 'npc_a', b: 'npc_b' }, slots: [{ id: 'open', when: 'open', sequence: 'seq_t' }] };
+    const npcs = { npc_a: { id: 'npc_a', name: 'Ann', sex: 'female', zone_id: 'zone_t' }, npc_b: { id: 'npc_b', name: 'Bob', sex: 'male', zone_id: 'zone_t' } };
+    const npcOf = (id) => npcs[id];
+    const g = new Map([['set_t', doc(set)], ['seq_t', doc(seq)], ['show_t', doc(show)]]);
+    const seg = deskSegment(g, { broadcast: 'bc_t', when: 'open', data: { home: 'Home' }, seed: 's', npcOf });
+    check('desk: a live show gives its spoken lines, in order', seg?.lines.length === 2 && seg.lines[0].text === 'Home tonight.' && seg.lines[0].name === 'Ann');
+    check("desk: a line with a fact it can't fill loses its beat, and never airs a hole", !seg?.lines.some((l) => /{|Watch/.test(l.text)));
+    check('desk: {b.name} is the cast', seg?.lines[1].text === 'Good night, Bob.');
+    check('desk: each line names the NPC who speaks it, so a talk show can anchor them', seg?.lines[0].npc === 'npc_a' && seg?.lines[1].npc === 'npc_b');
+    check('desk: beats keep their index in the sequence, for the client', seg?.lines[0].i === 1 && seg?.lines[1].i === 3);
+    const first = deskOverlay(seg, seg.lines[0], 0), last = deskOverlay(seg, seg.lines[1], 1);
+    check('desk: only the first line carries the documents, and the last says so', !!first.pack && !last.pack && last.last === true && !first.last);
+    check('desk: staffed with everybody on the stage', deskStaffed(first, npcOf));
+    npcs.npc_b.zone_id = 'zone_home';
+    check('desk: real shifts: somebody off the stage stops the segment', !deskStaffed(first, npcOf));
+    npcs.npc_b.zone_id = 'zone_t';
+    check('desk: nothing at a moment with no slot', deskSegment(g, { broadcast: 'bc_t', when: 'break', npcOf }) === null);
+    check('desk: nothing for another broadcast', deskSegment(g, { broadcast: 'bc_other', when: 'open', npcOf }) === null);
+    check("desk: a role nobody can fill loses the segment", deskSegment(g, { broadcast: 'bc_t', when: 'open', npcOf: (id) => (id === 'npc_a' ? npcs.npc_a : null) }) === null);
+    check("desk: the cast are the schedule checker's", castOnAir(g).has('npc_a') && castOnAir(g).has('npc_b'));
+    check("desk: a talk show's cast isn't kept on by the sports slate", !castOnAir(g, { type: 'sports' }).has('npc_a') && castOnAir(new Map([['show_t', doc({ ...show, type: 'sports' })]]), { type: 'sports' }).has('npc_a'));
+    const off = new Map([['show_t', doc({ ...show, live: false })], ['set_t', doc(set)], ['seq_t', doc(seq)]]);
+    check("desk: an entry that's off air is nothing", !liveShows(off).length && deskSegment(off, { broadcast: 'bc_t', when: 'open', npcOf }) === null && castOnAir(off).size === 0);
+    const shipped = new Map();
+    for (const f of readdirSync('content/media_graphics')) { const r = JSON.parse(readFileSync(`content/media_graphics/${f}`, 'utf8')); shipped.set(r.id, r); }
+    check('desk: both leagues have an entry, on the broadcast they air as', ['bc_cluster_puck', 'bc_1783289744953'].every((b) => [...shipped.values()].some((r) => r.type === 'show' && JSON.parse(r.content).broadcast === b)));
+
+    // A slot with conditions plays only when they pass, and the first that does wins.
+    const blowout = { ...seq, id: 'seq_b', beats: [{ id: 'b1', say: { role: 'a', lines: ['A rout.'] } }] };
+    const two = new Map(g);
+    two.set('seq_b', doc(blowout));
+    two.set('show_t', doc({ ...show, slots: [{ id: 'big', when: 'open', sequence: 'seq_b', if: [{ fact: 'margin', op: '>=', value: 3 }] }, ...show.slots] }));
+    check('desk: a blowout gets its own sequence', deskSegment(two, { broadcast: 'bc_t', when: 'open', data: { margin: 4 }, npcOf })?.lines[0].text === 'A rout.');
+    check('desk: a close game gets the usual one', deskSegment(two, { broadcast: 'bc_t', when: 'open', data: { margin: 1, home: 'H' }, npcOf })?.lines[0].text === 'H tonight.');
+    const withIf = new Map(g);
+    withIf.set('seq_t', doc({ ...seq, beats: [seq.beats[1], { id: 'b5', if: [{ fact: 'fights', op: '>', value: 0 }], say: { role: 'b', lines: ['A fight.'] } }] }));
+    check('desk: a beat whose condition fails is left out, and keeps the others\' indexes', deskSegment(withIf, { broadcast: 'bc_t', when: 'open', data: { home: 'H', fights: 0 }, npcOf })?.lines.length === 1 && deskSegment(withIf, { broadcast: 'bc_t', when: 'open', data: { home: 'H', fights: 2 }, npcOf })?.lines[1].i === 1);
+    const lived = withLive(first, { watching: 3 });
+    check('desk: what\'s live at air time rides the documents, and only them', lived.pack.data.live.watching === 3 && withLive(last, { watching: 3 }) === last);
+
+    // The feed can't run ahead of the play: at a break it knows nothing that comes after it.
+    for (const file of ['bc_cluster_puck', 'bc_1783289744953']) {
+      const row = JSON.parse(readFileSync(new URL(`../../content/media_broadcasts/${file}.json`, import.meta.url), 'utf8')).sports_pools;
+      const { sport, game, ctx } = sampleGame(row, 11);
+      const pre = factsAt(sport, game, null, ctx), mid = factsAt(sport, game, momentBeat(sport, game, 'break'), ctx), end = factsAt(sport, game, 'end', ctx);
+      check(`facts: ${sport} before the first play is nil-nil`, pre.awayScore === 0 && pre.homeScore === 0 && pre.status === 'TONIGHT' && !pre.winner);
+      check(`facts: ${sport} at the end is the game's own score`, end.awayScore === game.awayScore && end.homeScore === game.homeScore && end.status === 'FINAL' && !!end.winner);
+      check(`facts: ${sport}'s break has no winner, and no more than the end has`, !mid.winner && mid.awayScore <= end.awayScore && mid.homeScore <= end.homeScore && mid.hits <= end.hits);
+      check(`facts: ${sport}'s men have the sweater number the card has`, /^\d+$/.test(end.stars[0]?.num || '') && end.stars[0]?.league === sport);
+      if (sport === 'hockey') check('facts: goals on the board are the score', end.goals.length === end.awayScore + end.homeScore || !!game.shootout, `${end.goals.length} goals, ${end.awayScore}-${end.homeScore}`);
+      if (sport === 'hockey') check('facts: a break only knows its own period', mid.goals.every((x) => x.period === mid.section));
+    }
+
+    // The stage for a text show: its entry's set, then the room's, then one for its kind, then the default.
+    const sets = new Map([['s_room', doc({ kind: 'set', id: 's_room', zone: 'zone_r' })], ['s_talk', doc({ kind: 'set', id: 's_talk', uses: ['talkshow'] })], ['s_def', doc({ kind: 'set', id: 's_def', uses: ['default'] })]]);
+    check("stage: the room it's staged in has a set", stageSet(sets, { zone: 'zone_r', type: 'talkshow' })?.id === 's_room');
+    check('stage: else one for its kind of show', stageSet(sets, { zone: 'zone_x', type: 'talkshow' })?.id === 's_talk');
+    check('stage: else the default', stageSet(sets, { type: 'news' })?.id === 's_def');
+    sets.set('show_x', doc({ kind: 'show', id: 'show_x', broadcast: 'bc_x', set: 's_def' }));
+    check("stage: a show's own entry beats the room", stageSet(sets, { broadcast: 'bc_x', zone: 'zone_r' })?.id === 's_def');
+
+    // The TV's answer for a text channel: a set to play it on, whoever's in it, and nothing for a game.
+    for (const [id, st] of [..._test.channelRuntime?.entries?.() || []].slice(0, 6)) {
+      const r = _test.stageFor(id);
+      check(`stage: ${id} answers in the TV's shape`, r.type === 'tv_stage' && r.channel === id && (r.set === null || !!r.set.id) && (!r.people || r.people.every((p) => p.name)));
+      void st;
+    }
+    check('stage: a channel nobody runs has nothing', _test.stageFor('ch_none').set === null);
+
+    // Tonight's guest: a persona is a person of their own, the same every time they're booked; a
+    // townsperson is themselves; the placeholder is nobody.
+    const pA = guestPerson({ name: 'Dr. Priya Sundaram', title: 'the surgeon who transplants organs she prints at home' });
+    check('guest: a persona is their own person, with their title', pA?.id === 'guest:Dr. Priya Sundaram' && pA.title.startsWith('the surgeon') && pA.sex === 'female');
+    check('guest: the same persona looks the same on another night', guestPerson({ name: 'Dr. Priya Sundaram', title: 'x' })?.id === pA.id);
+    check('guest: a townsperson doing the show is themselves', guestPerson({ name: 'Moe', title: 'baker' }, { id: 'npc_moe', name: 'Moe', sex: 'male', flags: {} })?.id === 'npc_moe');
+    check("guest: the placeholder isn't seated", guestPerson({ name: "Tonight's Guest" }) === null);
+    check('guest: sex only from what the persona says', personaSex({ name: 'Mr. Ward' }) === 'male' && personaSex({ name: 'Lenny Malone', title: 'professional lottery winner' }) === '' && personaSex({ name: 'Jo', title: 'he sells fish and his own bait' }) === 'male');
+
+    // A real game with its entry on air: the desk is in the graph at its three moments, and no line
+    // of the booth's moved. An entry ships off air, so nothing else runs this.
+    const says = (g) => Object.values(g.nodes).filter((n) => n.type === 'say');
+    const isDesk = (n) => (n.data?.graphic || n.graphic)?.overlayType === 'desk';
+    const textOf = (n) => n.data?.text ?? n.text;
+    const cache = _test.graphicsCache, saved = new Map(cache), added = [];
+    try {
+      for (const [id, r] of shipped) cache.set(id, r);
+      for (const [showId, file, bid, slot] of [['show_cluster_puck', 'bc_cluster_puck', 'bc_regress_desk_cphl', 42], ['show_deadball', 'bc_1783289744953', 'bc_regress_desk_ball', 40002]]) {
+        const row = JSON.parse(readFileSync(new URL(`../../content/media_broadcasts/${file}.json`, import.meta.url), 'utf8')).sports_pools;
+        const entry = JSON.parse(shipped.get(showId).content);
+        for (const id of Object.values(entry.cast)) if (!world.npcs.has(id)) { world.npcs.set(id, { id, name: id, sex: 'female', flags: {} }); added.push(id); }
+        cache.set(showId, { ...shipped.get(showId), content: JSON.stringify({ ...entry, live: false, broadcast: bid }) });
+        const before = says(_test.assembleSportsGraph(row, bid, slot, null));
+        check(`desk: ${showId} off air is no lines at all`, !before.some(isDesk));
+        cache.set(showId, { ...shipped.get(showId), content: JSON.stringify({ ...entry, live: true, broadcast: bid }) });
+        const after = says(_test.assembleSportsGraph(row, bid, slot, null)), desk = after.filter(isDesk), overlay = (n) => n.data?.graphic || n.graphic;
+        const packs = desk.filter((n) => overlay(n).pack), ends = desk.filter((n) => overlay(n).last);
+        check(`desk: ${showId} has an open, a break and a close`, packs.length >= 3 && packs.length === ends.length, `${packs.length} segments, ${ends.length} ends`);
+        check(`desk: no raw token on air in ${showId}`, !desk.some((n) => /[{}]/.test(textOf(n))), desk.map(textOf).find((s) => /[{}]/.test(s)));
+        const kept = after.filter((n) => !isDesk(n)).map(textOf), was = before.map(textOf);
+        check(`desk: ${showId} moved none of the booth's lines`, kept.length === was.length && kept.every((s, i) => s === was[i]), `${kept.length} vs ${was.length}`);
+      }
+    } finally {
+      cache.clear(); for (const [k, v] of saved) cache.set(k, v);
+      for (const id of added) world.npcs.delete(id);
     }
   }
 }

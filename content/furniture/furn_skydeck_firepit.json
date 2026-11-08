@@ -1,0 +1,25 @@
+{
+  "description": "A long trough of black stone with gas flames running along a bed of glass beads. It warms nobody past a metre, but it looks warm, and up here that's the point.",
+  "flags": {
+    "aliases": "fire,trough,fire trough",
+    "look": {
+      "arche": "fireplace",
+      "dims": [
+        2.4,
+        0.6,
+        0.45
+      ],
+      "form": "hearth"
+    }
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_skydeck_firepit",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "fire trough",
+  "object_type": "furniture",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_solenne_skydeck"
+}

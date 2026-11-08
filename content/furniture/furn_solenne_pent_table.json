@@ -1,0 +1,34 @@
+{
+  "description": "A low oak table with two books on it that nobody chose.",
+  "flags": {
+    "interactions": [
+      "lean"
+    ],
+    "look": {
+      "arche": "table",
+      "dims": [
+        1.8,
+        0.9,
+        0.36
+      ],
+      "form": "coffee"
+    },
+    "spot": {
+      "at": [
+        1,
+        5.6
+      ],
+      "turn": 90
+    }
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_solenne_pent_table",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "coffee table",
+  "object_type": "furniture",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_solenne_penthouse"
+}

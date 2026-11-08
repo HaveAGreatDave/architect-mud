@@ -27,14 +27,10 @@ import { sendToZone } from '../../server/engine/messaging.js';
 import { skillCheck, awardSkillUse } from '../../server/engine/skills.js';
 import { useDrug } from '../../server/engine/drugs.js';
 import { isPluggedIn } from '../appliances/index.js';
-import { applyWarmth } from '../../server/engine/warmth.js';
+import { applyWarmth, WARM_DRINK_C, WARM_DRINK_MIN } from '../../server/engine/warmth.js';
 import { registerFluidResolver } from '../../server/engine/topical.js';
 import { adjustCredits } from '../../server/engine/economy.js';
 
-// A hot drink is the cheapest cold-weather gear in the game and the only kind you can carry
-// in your hands. Worth about a wool hat while it lasts, and it does not last long.
-const WARM_DRINK_C = 4;
-const WARM_DRINK_MIN = 12;   // game-minutes at full heat, tapering to nothing
 import {
   DRINKS, UNKNOWN_DRINK, signature, matchDrink, drinkName, composeBand,
   seasoningBonus, DRINKWARE_KINDS, describeRecipe,

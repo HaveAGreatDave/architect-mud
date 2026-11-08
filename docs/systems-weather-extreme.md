@@ -393,10 +393,17 @@ An ion storm is clear air under a heavy, low deck, very little rain, and a lot o
 
 ## What a strike looks like *(built)*
 
-The engine has been the single strike authority since `stormTick` shipped: it picks the tile, tells
-the room, and emits `weather.lightningStrike` with world coordinates, which the flight sim turns
-into a bolt through `pushLightningStrike`. None of that changed. What changed is everything
-downstream of it.
+The engine is the single strike authority: `stormTick` picks the tile, tells the room, and emits
+`weather.lightningStrike` with world coordinates. The weather plugin sends each strike to every
+client as `lightning_strike`, and [client/shared/strike-feed.js](../client/shared/strike-feed.js) holds
+it. ⚠ **Every view reads that feed and nothing in the client may invent a strike**: the windshield
+seats (boat, cab, helm, aircraft, free look) cull on their own position, the room window on its tile,
+and the hangar door on `d`, the server's distance from the player's body. The on-glass ambient bolt,
+the door's timer and the window's clock are gone. A strike over 65 tiles off draws nothing, and the
+page-wide `lightning` flash stays out of a view that has claimed the pane with `suppressWeatherFx`.
+
+The Deadball broadcast keeps its own clock (`boltsBetween`), so every TV strikes the same bolt, and
+the 2-D `weather-fx` ion storm overlay keeps its own random arcs. Neither is a GLASS world view.
 
 **There were three bolt generators and they were three different phenomena.** windshield.js grew one
 for the world channel and a second for the on-glass one; hangar-ambience.js grew a third for the
@@ -404,8 +411,8 @@ doorway. Each was a nine-ish-node zigzag with its own jitter constant, its own w
 colour, so a storm looked like one thing through the canopy, a slightly different thing on the glass
 in front of it, and a third thing from the hangar. There is now one channel in
 [client/shared/lightning.js](../client/shared/lightning.js), one painter in
-[lightning-draw.js](../client/shared/lightning-draw.js), and three readers that differ only in how
-they project it — the world camera, the pane, and the door rect.
+[lightning-draw.js](../client/shared/lightning-draw.js), and readers that differ only in how
+they project it. The world camera and the door rect are the two left.
 
 **The channel is a recursive tree.** A stepped leader forks, and the forks fork: four generations,
 about twenty branches, each thinner and fainter than its parent. Three rules keep it from reading as
@@ -425,6 +432,11 @@ lit them — so the channel stammers while the tree behind it fades once and sta
 of what makes a bolt read as flickering rather than as blinking. It is rolled at birth and
 deterministic; the old one multiplied by a per-frame coin flip, so a fast machine flickered, a slow
 one did not, and neither could be photographed twice.
+
+**A ground strike starts with its leader.** For `BOLT_LEAD` ms before the return stroke a faint tree
+comes down in steps (`leaderFront`). A windshield bolt's age is negative for that time, so age 0 is
+still the first stroke. `roughenBolt` adds fine kinks to the trunk and the big limbs, and the far
+bolts lose up to half their brightness to the air.
 
 **The bolt comes out of the cloud the clouds are drawn at.** `topZ` was `max(3.5, cam.EH + 1.5)` — a
 fixed 3.5 tiles that followed the eye at altitude — while `cloudBaseZ('storm')` is 5.66. So every

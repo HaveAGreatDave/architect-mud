@@ -981,7 +981,7 @@ export function heliFit(P, live, push) {
 
   // ── THE CYCLIC ─────────────────────────────────────────────────────────────
   const cb = [0, 0.14, P.floor + 0.02];
-  const ct = [ail * 0.06, 0.20 + elev * 0.07, -0.42];
+  const ct = [ail * 0.06, 0.20 - elev * 0.07, -0.42];
   K.obox([0, 0.14, P.floor + 0.04], [1, 0, 0], [0, 1, 0], [0, 0, 1], 0.06, 0.06, 0.03, 'dash', 0, C.rubber);
   K.rod(cb, ct, 0.014, 'dash', 0, C.black, 0, 6);
   const grip = add3(ct, [0.01, -0.03, 0.10]);

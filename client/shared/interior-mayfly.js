@@ -455,7 +455,7 @@ function layout(P) {
     mags: [-0.180, top - 0.290],
     throttle: [xC - 0.045, top - 0.335], mixture: [xC + 0.045, top - 0.335],
     flap: [xC + 0.165, top - 0.290],
-    yoke: (x, elev) => [x, y - 0.24 + clamp(elev, -1, 1) * 0.07, top - 0.21],
+    yoke: (x, elev) => [x, y - 0.24 - clamp(elev, -1, 1) * 0.07, top - 0.21],
     column: top - 0.225,
     pedestal: { x: xC, hw: 0.055, y0: 0.26, y1: y },
     trim: [xC - 0.058, 0.42, 0],       // z filled in from the floor

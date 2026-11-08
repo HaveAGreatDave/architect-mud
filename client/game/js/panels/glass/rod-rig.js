@@ -12,8 +12,10 @@
 //     posed by the same clip, so it moves as the one in the chase view does.
 //   · THE ROD in the chase view is a stroke; from the seat it's a ribbon of solids in the cabin
 //     pass, since the world pass clips anything nearer than about a metre.
-//   · THE LINE, the lure, the ring and the splash are strokes on the water, in the world pass,
-//     depth-tested against everything (berth-marks.js's arrangement).
+//   · THE LINE, the lure, the ring, the rings on the water and the splash are strokes on the water,
+//     in the world pass, depth-tested against everything (berth-marks.js's arrangement).
+//   · THE FISH is a solid (client/shared/fish-look.js fishMesh), in the two bands the figures are lit
+//     in: leaping on the line, rolling alongside, and coming aboard in the net.
 //
 // GLASS 1 has no solids sink, so it gets the strokes and no angler; GLASS 2 is the view this is for.
 //
@@ -28,6 +30,7 @@ import { FT_M } from '../../../../shared/world-scale.js';
 import { SEA_TILE_M } from '../../../../shared/sea-swell.js';
 import { CEL, CEL_TUNE, celLightJS, celToneJS, celRimJS } from '../gl/cel-figure.js';
 import { inkOf, figureLightOf } from '../gl/house-style.js';
+import { fishMesh } from '../../../../shared/fish-look.js';
 
 let AN = null, anP = null;
 const loadAngler = () => anP || (anP = import('../angler.js').then((m) => { AN = m; return m; }).catch(() => null));
@@ -39,7 +42,8 @@ const PULL = 0.05;             // strokes on the water are pulled toward the eye
 const KEY = (() => { const l = Math.hypot(0.32, -0.42, 0.85); return [0.32 / l, -0.42 / l, 0.85 / l]; })();
 
 // Record pools: the same objects go into the sink every frame, their points rewritten in place.
-const POOL = { body: [], ink: [], rod: [] };
+const POOL = { body: [], ink: [], rod: [], fish: [], fishFP: [] };
+let fishK = 0, fishFPK = 0;
 const tri = () => ({ p: [[0, 0, 0], [0, 0, 0], [0, 0, 0]], rgb: [0, 0, 0], a: 1 });
 const triFP = () => ({ p: [[0, 0, 0], [0, 0, 0], [0, 0, 0]], mp: [[0, 0, 0], [0, 0, 0], [0, 0, 0]], rgb: [0, 0, 0], a: 1, interior: 1, mv: 0 });
 
@@ -49,6 +53,7 @@ const triFP = () => ({ p: [[0, 0, 0], [0, 0, 0], [0, 0, 0]], mp: [[0, 0, 0], [0,
 export function drawRodRig(ctx, cam, v, now, env = {}) {
   const R = v.rod;
   if (!R || !v.mapCenter) return;
+  fishK = 0; fishFPK = 0;
   if (!AN) loadAngler();
   const cx = v.mapCenter.x + ((v.mapOffset && v.mapOffset.x) || 0);
   const cy = v.mapCenter.y + ((v.mapOffset && v.mapOffset.y) || 0);
@@ -141,6 +146,21 @@ export function drawRodRig(ctx, cam, v, now, env = {}) {
     const f = R.fly, L = W(f.x, f.y, f.z), s = clamp(f.s, 0, 1);
     end = [tip[0] + (L[0] - tip[0]) * s, tip[1] + (L[1] - tip[1]) * s, tip[2] + (L[2] - tip[2]) * s + (f.apex || 0) * 4 * s * (1 - s)];
   } else if (R.lure) end = W(R.lure.x, R.lure.y, R.lure.z - (R.lure.dip || 0));
+  else if (R.hook) end = W(R.hook.x, R.hook.y, R.hook.z);
+  // A fish in the air takes the line with it.
+  if (R.jump) {
+    const j = R.jump, s = clamp(j.s, 0, 1), up = (0.5 + j.lenM * 0.9) / SEA_TILE_M;
+    const P = W(j.x, j.y, j.z + 4 * s * (1 - s) * up);
+    end = P;
+    drawLeap(ctx, cam, W(j.x, j.y, j.z), s);
+    pushFishMesh(env.sink, cam, v, P, j.hdg, (0.5 - s) * 2.3, Math.sin(s * 19) * 0.5, j.lenM / SEA_TILE_M, j.species, j.shape, !chase, now);
+  }
+  // Rolling alongside, half out of the water.
+  if (R.alongside) {
+    const a = R.alongside, P = W(a.x, a.y, a.z + 0.015);
+    end = P;
+    pushFishMesh(env.sink, cam, v, P, a.hdg, 0, a.roll, a.lenM / SEA_TILE_M, a.species, a.shape, !chase, now);
+  }
   if (R.fish) {
     // Landed: up out of the water on the line, then swung in over the gunwale into the box.
     const F = R.fish, s = clamp(F.s, 0, 1), from = W(F.x, F.y, F.z);
@@ -151,10 +171,14 @@ export function drawRodRig(ctx, cam, v, now, env = {}) {
     if (s < 0.55) end[2] += 0.04 * Math.sin(Math.PI * s / 0.55) * (chase ? 0.3 : 1);
   }
   if (end) {
-    drawLine(ctx, cam, tip, end, R);
-    if (R.fish) drawFish(ctx, cam, end, R.fish);
-    else drawFloat(ctx, cam, end);
+    drawLine(ctx, cam, tip, end, R, now);
+    if (R.fish) {
+      if (env.sink) pushFishMesh(env.sink, cam, v, end, 0.6, 1.45, 0, (R.fish.lenM || 0.4) / SEA_TILE_M, R.fish.species, R.fish.shape || 'round', !chase, now);
+      else drawFish(ctx, cam, end, R.fish);
+    } else if (R.lure) drawFloat(ctx, cam, end, R.lure.tilt || 0);
   }
+  if (R.net) drawNet(ctx, cam, R.fish && end ? end : W(R.net.x, R.net.y, R.net.z), tip);
+  if (R.ripples) for (const r of R.ripples) drawRipple(ctx, cam, W(r.x, r.y, r.z), r.age, r.k);
 
   // ── the splash where it went in ─────────────────────────────────────────────────────────────
   if (R.splash) drawSplash(ctx, cam, W(R.splash.x, R.splash.y, R.splash.z || 0), R.splash.age || 0);
@@ -172,11 +196,13 @@ function hullPoint(G, H, f, g, h) {
 
 // ── the line ───────────────────────────────────────────────────────────────────────────────────
 // Out in the air it trails in a curve; at rest it sags to the water; under tension it's straight.
-function drawLine(ctx, cam, A, B, R) {
+function drawLine(ctx, cam, A, B, R, now = 0) {
   const n = 16, d = Math.hypot(B[0] - A[0], B[1] - A[1], B[2] - A[2]);
   const t = clamp(R.tension || 0, 0, 1);
   const sag = R.fly ? d * 0.10 * (1 - clamp(R.fly.s, 0, 1) * 0.6) : R.fish ? d * 0.02 : d * 0.16 * (1 - t) * (1 - t);
-  const C = [(A[0] + B[0]) / 2, (A[1] + B[1]) / 2, (A[2] + B[2]) / 2 - sag * 2];
+  // A line near its limit sings: it shivers across its length.
+  const sing = t > 0.68 ? d * 0.012 * (t - 0.68) / 0.32 * Math.sin(now * 0.09) : 0;
+  const C = [(A[0] + B[0]) / 2, (A[1] + B[1]) / 2, (A[2] + B[2]) / 2 - sag * 2 + sing];
   const floor = Math.min(A[2], B[2], 0.002);
   let p = A;
   const alpha = 0.55 + 0.35 * t;
@@ -188,13 +214,110 @@ function drawLine(ctx, cam, A, B, R) {
   }
 }
 
-// The float: red under white, a few pixels whatever the range, so you can find it.
-function drawFloat(ctx, cam, P) {
+// The float: red under white, a few pixels whatever the range, so you can find it. A lifted float
+// lies over on its side.
+function drawFloat(ctx, cam, P, tilt = 0) {
   const f = cam.proj ? cam.proj(P[0], P[1], P[2]).f : 1;
   const w = clamp(0.012 * (cam.FL || 600) / Math.max(0.2, f), 3, 9);
   const h = 0.004 + 0.004 * clamp(f / 4, 0, 2);
-  emitWire(ctx, cam, [P[0], P[1], P[2] - h * 0.3], [P[0], P[1], P[2] + h * 0.6], w, 'rgba(214,52,34,1)', 1, { pull: PULL, tag: 'rodfloat' });
-  emitWire(ctx, cam, [P[0], P[1], P[2] + h * 0.6], [P[0], P[1], P[2] + h * 1.2], w * 0.8, 'rgba(244,240,230,1)', 1, { pull: PULL, glow: 2, tag: 'rodfloat' });
+  const sx = Math.sin(tilt), cz = Math.cos(tilt);
+  const at = (k) => [P[0] + sx * h * k * 1.6, P[1], P[2] + cz * h * k];
+  emitWire(ctx, cam, at(-0.3), at(0.6), w, 'rgba(214,52,34,1)', 1, { pull: PULL, tag: 'rodfloat' });
+  emitWire(ctx, cam, at(0.6), at(1.2), w * 0.8, 'rgba(244,240,230,1)', 1, { pull: PULL, glow: 2, tag: 'rodfloat' });
+}
+
+// One ring going out from a touch on the water.
+function drawRipple(ctx, cam, P, age, k) {
+  if (!(age >= 0) || age > 1.7) return;
+  const r = (0.008 + 0.06 * Math.sqrt(age)) * k, al = clamp(1 - age / 1.7, 0, 1) * Math.min(1, 0.45 + k * 0.5), n = 16;
+  for (let i = 0; i < n; i++) {
+    const a0 = i / n * Math.PI * 2, a1 = (i + 1) / n * Math.PI * 2;
+    emitWire(ctx, cam, [P[0] + Math.cos(a0) * r, P[1] + Math.sin(a0) * r, P[2] + 0.004], [P[0] + Math.cos(a1) * r, P[1] + Math.sin(a1) * r, P[2] + 0.004],
+      1.4, 'rgba(232,244,246,1)', al * 0.75, { pull: PULL, tag: 'rodripple' });
+  }
+}
+
+// The water thrown off a fish as it leaves and comes back.
+function drawLeap(ctx, cam, P, s) {
+  const fade = s < 0.35 ? 1 - s / 0.35 : s > 0.8 ? (s - 0.8) / 0.2 : 0;
+  if (fade <= 0) return;
+  for (let i = 0; i < 12; i++) {
+    const th = i * 2.399, u = s < 0.35 ? s / 0.35 : 1 - (s - 0.8) / 0.2, sp = 0.012 + 0.012 * (i % 3), up = 0.03 + 0.012 * (i % 4);
+    const q0 = [P[0] + Math.cos(th) * sp * u, P[1] + Math.sin(th) * sp * u, P[2] + up * u * (1 - u * 0.5)];
+    const q1 = [q0[0] * 0.98 + P[0] * 0.02, q0[1] * 0.98 + P[1] * 0.02, q0[2] - 0.006];
+    emitWire(ctx, cam, q1, q0, 2.4, 'rgba(244,250,252,1)', fade, { pull: PULL, tag: 'rodsplash' });
+  }
+}
+
+// The landing net: its hoop on the water, or lifted with the fish in it, and the handle back to her.
+function drawNet(ctx, cam, P, tip) {
+  const r = 0.28 / SEA_TILE_M, n = 18, z = P[2] + 0.002, hoop = 'rgba(214,218,210,1)', mesh = 'rgba(214,218,210,1)';
+  for (let i = 0; i < n; i++) {
+    const a0 = i / n * Math.PI * 2, a1 = (i + 1) / n * Math.PI * 2;
+    emitWire(ctx, cam, [P[0] + Math.cos(a0) * r, P[1] + Math.sin(a0) * r, z], [P[0] + Math.cos(a1) * r, P[1] + Math.sin(a1) * r, z], 2, hoop, 1, { pull: PULL, tag: 'rodnet' });
+  }
+  for (let i = -2; i <= 2; i++) {
+    const c = (i / 3) * r, w = Math.sqrt(Math.max(0, r * r - c * c));
+    emitWire(ctx, cam, [P[0] + c, P[1] - w, z], [P[0] + c, P[1] + w, z], 1, mesh, 0.5, { pull: PULL, tag: 'rodnet' });
+    emitWire(ctx, cam, [P[0] - w, P[1] + c, z], [P[0] + w, P[1] + c, z], 1, mesh, 0.5, { pull: PULL, tag: 'rodnet' });
+  }
+  // The handle runs from the hoop toward the rod's butt end, along the boat's side of the line.
+  const h = [P[0] + (tip[0] - P[0]) * 0.7, P[1] + (tip[1] - P[1]) * 0.7, P[2] + (tip[2] - P[2]) * 0.55];
+  emitWire(ctx, cam, [P[0], P[1], z], h, 3, 'rgba(120,128,134,1)', 1, { pull: 0.01, tag: 'rodnet' });
+}
+
+// ── the fish, as a solid ───────────────────────────────────────────────────────────────────────
+// `P` is where its middle is, in the camera-relative frame. Lit in the figures' flat bands. From the
+// seat a fish close enough to the eye goes in the cabin pass, as the rod does, since the world pass
+// clips anything nearer than about a metre.
+function pushFishMesh(sink, cam, v, P, yaw, pitch, roll, len, id, shape, seat, now) {
+  if (!sink || !id) return;
+  const ox = cam.ox || 0, oy = cam.oy || 0, ez = cam.EH || 0;
+  const cy = Math.cos(yaw), sy = Math.sin(yaw), cp = Math.cos(pitch), sp = Math.sin(pitch), cr = Math.cos(roll), sr = Math.sin(roll);
+  const T = (q, o) => {
+    const x = q[0] * len, y = q[1] * len, z = q[2] * len;
+    const y1 = y * cr - z * sr, z1 = y * sr + z * cr;
+    const x2 = x * cp - z1 * sp, z2 = x * sp + z1 * cp;
+    o[0] = P[0] + x2 * cy - y1 * sy; o[1] = P[1] + x2 * sy + y1 * cy; o[2] = P[2] + z2;
+    return o;
+  };
+  const near = seat && Math.hypot(P[0], P[1], P[2] - ez) < 1.8 / SEA_TILE_M;
+  const S = v.metreTiles > 0 ? v.metreTiles : 1 / SEA_TILE_M;
+  const hd = ((v.ownHdg != null ? v.ownHdg : v.heading) || 0) * Math.PI / 180, sh = Math.sin(hd), ch = Math.cos(hd);
+  const hr = v.hour == null ? 12 : v.hour;
+  const dim = 1 - 0.5 * (hr < 5.5 || hr > 20 ? 1 : 0);
+  const A = [0, 0, 0], B = [0, 0, 0], C = [0, 0, 0];
+  for (const f of fishMesh(id, shape)) {
+    T(f.a, A); T(f.b, B); T(f.c, C);
+    const ux = B[0] - A[0], uy = B[1] - A[1], uz = B[2] - A[2], wx = C[0] - A[0], wy = C[1] - A[1], wz = C[2] - A[2];
+    let nx = uy * wz - uz * wy, ny = uz * wx - ux * wz, nz = ux * wy - uy * wx;
+    const nl = Math.hypot(nx, ny, nz);
+    if (!(nl > 1e-14)) continue;
+    nx /= nl; ny /= nl; nz /= nl;
+    if (nx * (cam.ex || 0) + ny * (cam.ey || 0) + nz * (ez - A[2]) - nx * A[0] - ny * A[1] < 0) { nx = -nx; ny = -ny; nz = -nz; }
+    const d = Math.max(0, nx * KEY[0] + ny * KEY[1] + nz * KEY[2]);
+    const lit = (d < 0.3 ? 0.66 : d < 0.7 ? 0.88 : 1.08) * dim;
+    let r;
+    if (near) {
+      r = POOL.fishFP[fishFPK] || (POOL.fishFP[fishFPK] = triFP());
+      fishFPK++;
+      const Q = [A, B, C];
+      for (let j = 0; j < 3; j++) {
+        const q = Q[j];
+        r.p[j][0] = q[0] + ox; r.p[j][1] = q[1] + oy; r.p[j][2] = q[2];
+        r.mp[j][0] = (q[0] * ch + q[1] * sh) / S; r.mp[j][1] = (q[0] * sh - q[1] * ch) / S; r.mp[j][2] = (q[2] - ez) / S;
+      }
+      r.mv = now;
+    } else {
+      r = POOL.fish[fishK] || (POOL.fish[fishK] = tri());
+      fishK++;
+      r.p[0][0] = A[0] + ox; r.p[0][1] = A[1] + oy; r.p[0][2] = A[2];
+      r.p[1][0] = B[0] + ox; r.p[1][1] = B[1] + oy; r.p[1][2] = B[2];
+      r.p[2][0] = C[0] + ox; r.p[2][1] = C[1] + oy; r.p[2][2] = C[2];
+    }
+    r.rgb[0] = clamp(f.rgb[0] * lit, 0, 255) | 0; r.rgb[1] = clamp(f.rgb[1] * lit, 0, 255) | 0; r.rgb[2] = clamp(f.rgb[2] * lit, 0, 255) | 0;
+    sink.push(r);
+  }
 }
 
 // The catch, hanging off the line by its mouth.

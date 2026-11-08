@@ -9,6 +9,6 @@
     "fishcast": { "discoverVia": "none", "exposed": false, "note": "KNOWN GAP: internal cast overlay callback (token-gated); reports the player's cast power/angle, which chooses the catch and arms the reel fight. Never typed by a player." },
     "fishresolve": { "discoverVia": "none", "exposed": false, "note": "KNOWN GAP: internal tension-bar overlay callback (token-gated); never typed by a player." },
     "fishtwitch": { "discoverVia": "none", "exposed": false, "note": "KNOWN GAP: the boat reel's tap (token-gated, plugins/fishing/boat.js). A player types it as `fish twitch` while the reel is open." },
-    "fishstrike": { "discoverVia": "none", "exposed": false, "note": "KNOWN GAP: the boat reel's beat hit (token-gated, plugins/fishing/boat.js). A player types it as `fish strike` while a fish is on." }
+    "fishstrike": { "discoverVia": "none", "exposed": false, "note": "KNOWN GAP: the boat reel's strike (token-gated, plugins/fishing/boat.js). A player types it as `fish strike` while a fish is on." }
   }
 }

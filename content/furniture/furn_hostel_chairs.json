@@ -1,0 +1,24 @@
+{
+  "description": "Six chairs that came from six places: a school chair, an office chair with no wheels, two folding ones, a kitchen chair and a crate with a cushion. You take the one that's free and don't lean back in it.",
+  "flags": {
+    "aliases": "chair,chairs",
+    "interactions": [
+      "sit"
+    ],
+    "look": {
+      "arche": "seat",
+      "form": "chair",
+      "wear": 0.9
+    }
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_hostel_chairs",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "odd chairs",
+  "object_type": "furniture",
+  "power_draw_kw": null,
+  "price": 5,
+  "zone_id": "zone_trackmarks_shop"
+}

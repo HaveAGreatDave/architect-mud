@@ -230,6 +230,9 @@
              bootstrap.js keys off that attribute. -->
         <a class="nav-item" id="nav-bsm-studio" href="/bsm-studio.html" target="_blank" rel="noopener"
            title="Author a .bsm broadcast script, then import it from Broadcasts" style="text-decoration:none">📝 BSM Studio ↗</a>
+        <!-- The Broadcast Studio: scripts and 3-D sequences in one tool, on its own port (tools/broadcast-studio). Local only: run npm run broadcast-studio. -->
+        <a class="nav-item" id="nav-broadcast-studio" href="http://localhost:5190/" target="_blank" rel="noopener"
+           title="Scripts and 3-D sequences for shows. Start it with: npm run broadcast-studio" style="text-decoration:none">🎬 Broadcast Studio ↗</a>
       </div>
     </div>
     <div class="nav-group" data-group="server">
@@ -627,6 +630,7 @@
 <script src="/shared/sfx-catalog.js"></script>
 <!-- The Deadball bank is an ES module, so it runs after the catalog and joins it with addBank. -->
 <script type="module" src="/shared/deadball-sfx.js"></script>
+<script type="module" src="/shared/room-sfx.js"></script>
 <script src="/shared/procedural-sfx.js"></script>
 <script src="/shared/mod-parser.js"></script>
 <script src="/dev/js/panels/audio.js"></script>

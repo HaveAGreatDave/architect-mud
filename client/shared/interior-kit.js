@@ -60,7 +60,8 @@ export const PANE = new Map();
 // face that says nothing takes its tone's default (TONE_TEX) — so every cockpit gets a textured
 // dash and headliner with nothing registered, and a fit-out only has to name its exceptions.
 // ⚠ THE INDEX IS WHAT THE SHADER READS, so the list is APPENDED to, never reordered.
-export const TEX_KINDS = ['none', 'plastic', 'fabric', 'leather', 'rubber', 'brushed', 'cast', 'paint', 'wood', 'carpet', 'glass'];
+// By index into gl/solids.js: 11 to 14 are the exterior's, so 'tread' (a boat's sole) comes after them.
+export const TEX_KINDS = ['none', 'plastic', 'fabric', 'leather', 'rubber', 'brushed', 'cast', 'paint', 'wood', 'carpet', 'glass', '', '', '', '', 'tread'];
 export const TEXTURE = new Map();
 setKeyedColourTest((a) => SHINY.has(a) || PANE.has(a) || TEXTURE.has(a));
 export const TONE_TEX = { floor: 'carpet', hdr: 'fabric', seat: 'fabric', dash: 'plastic', pil: 'plastic', post: 'plastic' };

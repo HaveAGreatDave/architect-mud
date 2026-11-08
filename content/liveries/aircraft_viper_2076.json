@@ -1,6 +1,6 @@
 {
-  "blurb": "Concept. The Viper fifty years on: a slate tiltrotor with eight drones in her tubes, the sand kept for the trim.",
-  "default": false,
+  "blurb": "The Viper fifty years on: a slate tiltrotor with eight drones in her tubes, the sand kept for the trim.",
+  "default": true,
   "exterior": {
     "base": "#565e5c",
     "finish": "satin",

@@ -22,7 +22,7 @@ import { getZonePowerStatus, registerHeatSource } from '../../server/engine/envi
 import { isPluggedIn } from '../appliances/index.js';
 import { sendToZone } from '../../server/engine/messaging.js';
 import { getTimeScale } from '../../server/engine/gametime.js';
-import { applyWarmth } from '../../server/engine/warmth.js';
+import { applyWarmth, WARM_DRINK_C, WARM_DRINK_MIN } from '../../server/engine/warmth.js';
 
 // A heater is any furniture carrying `flags.heater_target_c` — the temperature it HOLDS its
 // room at. A target rather than an offset, because that is what a thermostat does and because
@@ -113,10 +113,15 @@ export const hooks = {
 
   // The `warming` tag, fired by the engine's consumable path for every item used — so it must
   // be cheap and silent for the overwhelming majority that are food, exactly like the injury
-  // and frostbite hooks. Hot DRINKS do not come through here (a vessel never touches
+  // and frostbite hooks. Hot drinks in a VESSEL do not come through here (a vessel never touches
   // `applyItemUse`); the drinks plugin applies their warmth itself, scaled by how hot the cup
   // still is. This is for the disposable stuff: hand warmers, heat patches.
+  //
+  // A cup bought over a counter is `hot_drink` rather than `warming`, because `warming` means
+  // the thing is applied to a body and `consumeVerb` won't let you drink it. It's sold hot and
+  // drunk there, so it gets a full-heat cup's warmth, and its own use_message does the talking.
   'item.consumed': (player, tags) => {
+    if (tags?.hot_drink) { applyWarmth(player, WARM_DRINK_C, WARM_DRINK_MIN); return undefined; }
     const rx = tags?.warming;
     if (!rx) return undefined;
     const degrees = Number(rx.degrees) || 0;

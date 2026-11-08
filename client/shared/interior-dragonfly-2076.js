@@ -8,7 +8,7 @@
 //
 // So this is the opposite room to the Mini-500's. That was grey cloth and a vacu-formed pod on a
 // post; this is a carbon tub under a bubble that wraps from your feet to over your head, two
-// sculpted seats, a sidestick on the right armrest, a thrust lever on the console, yaw pedals that
+// sculpted seats, a centre stick on a column, a thrust lever on the console, yaw pedals that
 // slide on rails, and one long display across the front with the attitude, the eight rotors, the
 // battery and the map on it. A head-up combiner stands over the pilot's screen.
 //
@@ -39,10 +39,11 @@
 // can drive every moving thing to both stops headlessly, as it can every other cockpit.
 //
 // Pure: no clock, no camera, no DOM. `live` arrives as an argument.
+import { brandTrim } from './interior-brands.js';
 import { makeKit, C, clamp, lerp, SHINY, PANE, TEXTURE } from './interior-kit.js';
 import { contactShadow, hotspotHalo, panelGps, gpsHotspot, lensLamp, eased, pressPulse, HALO,
   bootAge, reveal, alertLight, sweep, lightLine, bandFrame, glassBand, holoFrame, holoProjector, windscreenHud,
-  HOLO, HOLO_LINE, HOLO_AMBER, HOLO_RED } from './interior-cockpit-kit.js';
+  HOLO, HOLO_LINE, HOLO_AMBER, HOLO_RED, stickColumn } from './interior-cockpit-kit.js';
 import { MESH_ROWS } from './vehicle-meshes.js';
 import { compileMesh } from './vehicle-mesh.js';
 import { CAB_STATIONS, CAB_GLASS, CAB_DOOR, CAB_INSIDE, EH216_LENGTH_M, cabSection, cabPoint, cabGlassAt } from './cabin-dragonfly-2076.js';
@@ -81,6 +82,7 @@ SHINY.set(T.lining, { spec: 0.2, pow: 16 });
 SHINY.set(T.metal, { spec: 0.7, pow: 36 });
 SHINY.set(T.buckle, { spec: 0.8, pow: 40 });
 SHINY.set(T.screen, { spec: 0.6, pow: 60 });
+brandTrim(T, 'dragonfly', TEXTURE, SHINY);
 // The head-up combiner: a sheet of tinted glass you read the symbology on and look through.
 PANE.set(T.combiner, 0.12);
 
@@ -382,13 +384,14 @@ const panelOn = (R) => R.powered && (R.L.panelLight != null ? !!R.L.panelLight :
 
 // ── WHERE THE CONTROLS ARE ───────────────────────────────────────────────────
 // One place says where each thing you can grab is; the drawing and the hotspots both read it.
-// The sidestick on the right armrest; the thrust lever on the console at the pilot's left hand.
-const STICK = { base: [0.30, 0.16, 0.56], len: 0.15 };            // z off the floor
+// The centre stick on its column; the thrust lever on the console at the pilot's left hand.
+const STICK = { base: [0, 0.42, 0.56], len: 0.15 };
+const ARMREST = [0.30, 0.16, 0.56];            // z off the floor
 const LEVER = { dx: 0.08, pivotY: -0.02, top: 0.50, len: 0.20 };  // dx right of the console's middle
 const CONSOLE = { hw: 0.11, y0: -0.36, y1: 0.42, top: 0.46 };
 function stickAt(P, R) {
   const base = [STICK.base[0], STICK.base[1], P.df76.zF + STICK.base[2]];
-  const dir = norm([R.ail * 0.32, R.elev * 0.32, 1]);
+  const dir = norm([R.ail * 0.32, -R.elev * 0.32, 1]);
   return { base, top: add(base, mul(dir, STICK.len)), dir };
 }
 function leverAt(P, R) {
@@ -402,7 +405,7 @@ function leverAt(P, R) {
 // The band runs door to door in a shallow curve round the pilot, and every page, key and lamp sits
 // on it. `curve(s)` gives the band's lower edge and the outward direction across the dash; the dash
 // body is swept along the same curve, so the glass is the dash's own face.
-const DASH = { xL: -0.93, xR: 0.31, yMid: 0.76, sag: 0.16, w: 0.66, z0: -0.38, h: 0.25, lean: 0.45 };
+const DASH = { xL: -0.93, xR: 0.31, yMid: 0.76, sag: 0.16, w: 0.66, z0: -0.48, h: 0.25, lean: 0.45 };
 function dashCurve(P) {
   const xC = P.xCentre;
   return (s) => {
@@ -416,7 +419,7 @@ const bandPanel = (K, P, x, v, lift = 0.005) => bandFrame(dashCurve(P), DASH.lea
 
 // ── ⚠ EVERY CONTROL IN ONE FORWARD VIEW ──────────────────────────────────────
 // The four keys the sim has (power and three lighting circuits) are glass keys on the band's right
-// end, beside the pilot's page, so a forward look shows every one and its state. The sidestick, the
+// end, beside the pilot's page, so a forward look shows every one and its state. The stick, the
 // thrust lever and the pedals sit low, so each is mirrored in the windscreen HUD (`windscreenHud`):
 // the pilot sees what every hand and foot is doing without looking down.
 const BTN = { ids: ['master', 'land', 'panel', 'dome'], names: { master: 'PWR', land: 'LAND', panel: 'PANEL', dome: 'CABIN' } };
@@ -508,7 +511,7 @@ export function df76Fit(P, live, push) {
   // The cabin's own light lines carry the alert: teal, amber on low charge, red and breathing on a
   // hull or stall warning. They are the first thing to change colour.
   const warn = lit && (R.hull < 0.3 || R.stall), caution = lit && R.fuel < 0.15;
-  const al = alertLight(caution, warn), lineK = (k) => (lit ? k * al.k : 0.05);
+  const al = alertLight(caution, warn, T.line), lineK = (k) => (lit ? k * al.k : 0.05);
 
   // ── THE DASH: a wing swept along the band's curve ──
   const curve = dashCurve(P);
@@ -636,11 +639,12 @@ export function df76Fit(P, live, push) {
   K.obox(mul(add(lv.end, gripEnd), 0.5), [1, 0, 0], lv.dir, norm(cross([1, 0, 0], lv.dir)), 0.022, 0.035, 0.018, 'dash', 0.1, T.carbon);
   K.obox(add(gripEnd, mul(lv.dir, 0.002)), [1, 0, 0], norm(cross([1, 0, 0], lv.dir)), lv.dir, 0.018, 0.012, 0.003, 'dash', 0.3, T.glow, lit ? 0.4 + R.thr * 0.4 + lvNear * 0.2 : 0);
 
-  // ── THE SIDESTICK on the right armrest ──
+  // ── THE STICK, on a column ahead of the pilot, and the right armrest ──
   const st = stickAt(P, R), stNear = eased('df76:near:yoke', live && (live.hover === 'yoke' || live.press === 'yoke') ? 1 : 0, 12);
-  const arm = [STICK.base[0], STICK.base[1], zF + STICK.base[2]];
-  K.box(arm[0] - 0.05, -0.30, zF + 0.42, arm[0] + 0.05, arm[1] + 0.06, arm[2] - 0.005, 'dash', 0.05, T.carbon);
-  K.box(arm[0] - 0.045, -0.28, arm[2] - 0.006, arm[0] + 0.045, arm[1] - 0.04, arm[2] + 0.012, 'dash', 0.1, T.leather);
+  const arm = st.base, rest = [ARMREST[0], ARMREST[1], zF + ARMREST[2]];
+  K.box(rest[0] - 0.05, -0.30, zF + 0.42, rest[0] + 0.05, rest[1] + 0.06, rest[2] - 0.005, 'dash', 0.05, T.carbon);
+  K.box(rest[0] - 0.045, -0.28, rest[2] - 0.006, rest[0] + 0.045, rest[1] - 0.04, rest[2] + 0.012, 'dash', 0.1, T.leather);
+  stickColumn(K, arm, zF, T.tub, T.metal);
   K.rod(add(arm, [0, 0, -0.01]), add(arm, [0, 0, 0.012]), 0.035, 'dash', 0.1, T.tub, 0, 14);
   K.torus(add(arm, [0, 0, 0.012]), [1, 0, 0], [0, 1, 0], 0.036, 0.004, 18, 'dash', 0.2, al.rgb, lit ? 0.6 + 0.4 * stNear : 0);
   K.rod(add(arm, [0, 0, 0.012]), add(arm, mul(st.dir, 0.04)), 0.022, 'dash', -0.1, T.tub, 0, 10);

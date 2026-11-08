@@ -1,0 +1,25 @@
+{
+  "description": "Today's papers on wooden poles, ironed flat by the staff so the ink doesn't come off on a member's hands. The Coldwater ones are on top. The ones from out of town are a week late and read anyway.",
+  "flags": {
+    "aliases": "papers,newspapers,rack",
+    "look": {
+      "arche": "store",
+      "dims": [
+        0.7,
+        0.4,
+        1.3
+      ],
+      "form": "shelves"
+    }
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_salon_papers",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "newspaper rack",
+  "object_type": "furniture",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_solenne_salon"
+}

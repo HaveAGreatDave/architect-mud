@@ -1,8 +1,8 @@
 {
   "ambient_events": [],
-  "ambient_theme": "coast",
-  "color": "#7fd3ff",
-  "description": "The water at the shoreline is cold and the bottom drops away fast into dark. Beyond this the channel is too deep to wade without a boat.",
+  "ambient_theme": "outdoors",
+  "color": "#f5d400",
+  "description": "A taxiway on fill, laid in the same dark panels as the runway, with blue lamps along its edges and the Basin close on the open side.",
   "exits": {
     "east": "zone_district_927_897",
     "north": "zone_district_926_896",
@@ -10,15 +10,18 @@
     "west": "zone_district_925_897"
   },
   "flags": {
-    "district": "water",
+    "district": "docks",
     "region_id": "region_coldwater",
-    "terrain": "water"
+    "runway": "pad",
+    "scavenging_table_id": "scav_industrial_salvage",
+    "taxiway": "sw",
+    "terrain": "asphalt"
   },
   "grid_x": 926,
   "grid_y": 897,
   "grid_z": 0,
   "id": "zone_district_926_897",
   "map_id": "map_world",
-  "name": "Coldwater Basin",
+  "name": "Taxiway",
   "parent_zone": null
 }

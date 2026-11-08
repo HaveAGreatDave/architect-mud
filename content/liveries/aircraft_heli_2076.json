@@ -1,6 +1,6 @@
 {
-  "blurb": "Concept. The Dragonfly fifty years on: a pearl pod on eight rotors, the teal kept for the trim.",
-  "default": false,
+  "blurb": "The Dragonfly fifty years on: a pearl pod on eight rotors, the teal kept for the trim.",
+  "default": true,
   "exterior": {
     "base": "#e2e6e2",
     "finish": "gloss",

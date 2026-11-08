@@ -15,6 +15,21 @@
     "is_interior": true,
     "rent_cost": 400,
     "rest_multiplier": 1.5,
+    "room": {
+      "d": 13,
+      "ensuite": {
+        "d": 3.4,
+        "w": 3.2
+      },
+      "finish": "fine",
+      "glass": [
+        "front",
+        "left"
+      ],
+      "h": 3,
+      "storeys": 36,
+      "w": 12
+    },
     "window": {
       "description": "A tall pane runs floor to ceiling down one wall, black-framed, holding the city out there like something in a case.",
       "light": 0.9,

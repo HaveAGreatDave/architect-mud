@@ -1,0 +1,23 @@
+{
+  "description": "A walnut console table under the window with lilies on it, fresh this morning. The water in the vase is clear, and the petals that fall are gone before the next resident passes.",
+  "flags": {
+    "aliases": "console,table,flowers",
+    "interactions": [
+      "lean"
+    ],
+    "look": {
+      "arche": "surface",
+      "form": "rail"
+    }
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_res30_console",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "console table",
+  "object_type": "furniture",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_solenne_residences"
+}

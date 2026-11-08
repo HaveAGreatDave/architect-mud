@@ -122,6 +122,8 @@ someone keeping both a bottle and a baggie gets one roll each.
 raw Flags JSON). NPC flags are *not* catalogue-validated the way zone and item tags are, so
 a hand-typed key is accepted silently and inert forever — the fields exist to stop that.
 
+**In the Room Stage** each beat emits `npc.ritual` `{ npc, clip }`: `prep` while they measure it out, then the drug's `flags.taken` (the drink columns always `drink`), and `null` when it ends or is interrupted. `plugins/roomstage/npc-life.js` stands a resident at home up and plays it. An NPC the engine has sat down, or anyone away from home, isn't drawn doing it.
+
 ## The aftermath — why it changes behaviour *from that point on*
 
 Coming down is not the same as never having taken it. On expiry `sober()` sets

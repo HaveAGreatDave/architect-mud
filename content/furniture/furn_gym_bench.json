@@ -1,0 +1,23 @@
+{
+  "description": "A slatted teak bench along the mirrors for lacing shoes. It smells of eucalyptus, the same as the rest of the room.",
+  "flags": {
+    "aliases": "bench",
+    "interactions": [
+      "sit"
+    ],
+    "look": {
+      "arche": "bench",
+      "form": "bench"
+    }
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_gym_bench",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "changing bench",
+  "object_type": "furniture",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_solenne_gym"
+}

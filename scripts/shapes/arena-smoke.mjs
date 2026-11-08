@@ -24,6 +24,7 @@
 //
 // Run:  node scripts/shapes/arena-smoke.mjs
 
+import { ROOF_Z } from '../../client/game/js/panels/gl/arena-crowd.js';
 import { __install } from './rink-dom-stub.mjs';
 
 __install();
@@ -71,6 +72,9 @@ const check = (label, ok, detail) => {
       else if (pr ? !qr : qr && qr.d >= NEAR + 1e-9) sideBad++;
     }
     const tag = `${mode}/${view} ${w}x${h}`;
+    // the vault is over the roof line, so an eye above it looks through the vault at the ice
+    check(`camera ${tag}: the eye is under the roof`, C.z < ROOF_Z, `z ${C.z.toFixed(1)}`);
+    if (mode === 'zam' && view !== 'low') for (const [x, y] of [[0, 0], [200, 0], [0, 85], [200, 85]]) { const q = P(x, y, 0); check(`camera ${tag}: the whole sheet is in frame`, q && q.x >= 0 && q.x <= w && q.y >= 0 && q.y <= h, q ? `${q.x.toFixed(0)},${q.y.toFixed(0)}` : 'behind'); }
     check(`camera ${tag}: GL matrix matches P`, worst < 0.01, `worst ${worst.toFixed(4)} px`);
     check(`camera ${tag}: mirror matrix matches P(x, y, -z)`, worstR < 0.01, `worst ${worstR.toFixed(4)} px`);
     check(`camera ${tag}: near-plane agreement`, sideBad === 0, `${sideBad} points`);
@@ -218,7 +222,7 @@ body(skaters[8], 'skater missing his head', null, BUD);
 // HEAD_S, and a face from a layout without makeup. The helmet is built round it, so the
 // skull and every haircut it can wear under one must clear the shell, and the face the cage.
 {
-  const { headMesh, hairMesh, HEAD_FEAT } = await import(R + 'actor-head.js');
+  const { headMesh, hairMesh, weightedFace, SCULPT_HEADS, HEAD_FEAT } = await import(R + 'actor-head.js');
   const { FACE_LAYOUTS } = await import(R + 'actor-faces.js');
   const { rinkFace } = await import(R + 'rink/faces.js');
   const near = (a, b, e = 1e-4) => Math.abs(a - b) < e;
@@ -268,6 +272,15 @@ body(skaters[8], 'skater missing his head', null, BUD);
     for (const kind of ['skater', 'goalie', 'official']) for (let i = 0; i < 300; i++) if (FACE_LAYOUTS[rinkFace({ name: `${kind}${i}`, kind }).layout].makeup) made++;
     check('no player or official wears a makeup layout', made === 0, `${made}`);
   }
+  // Every head a player can have: the three sculpted shapes at his lightest and heaviest.
+  const sculptedHeads = [0, 1, 2].flatMap((h) => [0.3, 0.7].map((w) => weightedFace(SCULPT_HEADS[h], w)));
+  // A player's face is the sculpted one, on the same triangles as the head it replaced, and a medic keeps the atlas.
+  {
+    const nt = (fs) => headMesh(0, fs).I.length / 3;
+    check('a sculpted head costs what the comic one did', sculptedHeads.every((fs) => nt(fs) === nt('comic')));
+    const p = rinkFace({ name: 'Lindqvist', kind: 'skater' }), d = rinkFace({ name: 'Doc', kind: 'medic' });
+    check('a player is painted and a medic is not', p.paint === true && d.paint === false && SCULPT_HEADS.includes(p.shape) && Number.isFinite(p.facial));
+  }
   // The fit, in the head's own frame: every skull and hair vertex under the shell is inside its
   // liner (0.95), so no facet of the shell cuts through, and the face is behind the cage.
   const rec = M.headRecord([M.HEAD_AT[0], 0, M.HEAD_AT[1]], [1, 0, 0], [0, 1, 0], [0, 0, 1], { name: 'Fit' }, 0, 0, true), m = rec.M;
@@ -285,8 +298,8 @@ body(skaters[8], 'skater missing his head', null, BUD);
         if (style < 0 && Math.abs(a) < 1.05 && w[2] < M.BRIM_U && w[2] > -0.64) cageWorst = Math.max(cageWorst, Math.hypot(w[0], w[1]) - (M.faceRad(R0, w[2]) - 0.018));
       }
     };
-    scan(headMesh(0), -1);
-    for (let s = 0; s < 5; s++) scan(hairMesh(s === 4 ? 0 : s, 0), s);
+    for (const fs of sculptedHeads) scan(headMesh(0, fs), -1);
+    for (let s = 0; s < 5; s++) scan(hairMesh(s === 4 ? 0 : s, 0, true), s);
     check(`${who} helmet: the skull and every haircut clear the shell`, worst < 0.95, `r ${worst.toFixed(3)}, style ${worstStyle}`);
     check(`${who} helmet: the face is behind the cage`, cageWorst < 0, `${cageWorst.toFixed(3)} ft through`);
   }
@@ -320,16 +333,16 @@ body(skaters[8], 'skater missing his head', null, BUD);
       for (let i = 0; i < src.P.length / 3; i++) {
         if (src.F[i] === HEAD_FEAT.neck) continue;
         const w = at(src.P, i), v = sub(w, O), r = Math.hypot(...v);
-        if (src === headMesh(0) && w[2] < -0.3 && w[0] < 0.1) continue;   // (the jaw under the backplate's edge, behind the cup)
+        if (label === 'skull' && w[2] < -0.3 && w[0] < 0.1) continue;   // (the jaw under the backplate's edge, behind the cup)
         const t = hit(v.map((x) => x / r));
         if (t === Infinity) { if (label === 'skull') open.push(w); continue; }
         if (t - r < tight) { tight = t - r; tightAt = label; }
         if (t - r < (lv ? 0.02 : 0.01)) through++;   // (L0's coarser facets cut closer, at under 24 px a foot)
       }
     };
-    scan(headMesh(0), 'skull');
+    for (const fs of sculptedHeads) scan(headMesh(0, fs), 'skull');
     // (a keeper's quiff is cropped and his long hair tucked in, so these are all he can wear)
-    for (let st = 0; st < 3; st++) scan(hairMesh(st, 0), `hair ${st}`);
+    for (let st = 0; st < 3; st++) scan(hairMesh(st, 0, true), `hair ${st}`);
     check(`mask L${lv}: the skull and every haircut sit inside the shell`, through === 0, `${through} vertices too close, the closest ${tight.toFixed(3)} ft (${tightAt})`);
     const segs = T.bars.flatMap((bar) => bar.slice(1).map((q, k) => [bar[k], q]));
     const near = (p) => Math.min(...segs.map(([a, b]) => { const ab = sub(b, a), t = Math.max(0, Math.min(1, dot(sub(p, a), ab) / dot(ab, ab))); return Math.hypot(...sub(p, [a[0] + ab[0] * t, a[1] + ab[1] * t, a[2] + ab[2] * t])); }));
@@ -391,6 +404,47 @@ body(skaters[8], 'skater missing his head', null, BUD);
   worst = watch(5);
   check('a netted puck comes out through the mouth to him', pk.carrier === m && !pk.inNet, `carrier ${pk.carrier && pk.carrier.name}, inNet ${pk.inNet}`);
   check('coming out of the net it never jumps', worst < 1.6, `${worst.toFixed(2)} ft in a step`);
+}
+
+// ── an elbow folds one way, and a wound-up stick is in front of him ───────────
+// The pole once leaned forward and ignored his twist, so a hand behind the shoulder bent the
+// forearm back. The forearm's swing is measured against the way an elbow flexes for that upper
+// arm. A slapper's shaft ran through his back at the top of the wind-up, which hid the stick.
+{
+  const W3 = createWorld(createIce(document), 'elbow');
+  for (let i = 0; i < 30; i++) W3.step(1 / 60);
+  const sub = (a, b) => [a[0] - b[0], a[1] - b[1], a[2] - b[2]], dot = (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
+  const mul = (a, k) => [a[0] * k, a[1] * k, a[2] * k], unit = (a) => mul(a, 1 / (Math.hypot(...a) || 1)), perp = (a, n) => sub(a, mul(n, dot(a, n)));
+  const frame = (J) => { const U = unit(sub(J[2], J[0])), S = unit(perp(sub(J[4], J[7]), U)); return { U, F: [S[1] * U[2] - S[2] * U[1], S[2] * U[0] - S[0] * U[2], S[0] * U[1] - S[1] * U[0]] }; };
+  const m = W3.team.h[0];
+  m.hand = 'L';                                   // (a righty is mirrored, which flips the frame below)
+  const pose = (act, at) => {
+    W3.act(m, act, 60);
+    for (let i = 0; i < 45; i++) { m.actT = at; W3.step(1 / 60); m.x = 100; m.y = 30; m.h = 0; m.vx = m.vy = 0; }
+    m.actT = at;
+    const J = W3.rigOf(m); m.act = null; return J;
+  };
+  let worst = 0, at0 = '';
+  for (const [act, ts] of [['slap', [0.3, 0.5, 0.75]], ['onetimer', [0.2, 0.6]], ['wrist', [0.3, 0.6]], ['check', [0.55]]]) {
+    for (const t of ts) {
+      const J = pose(act, t), { U, F } = frame(J);
+      for (const [sh, el, hd] of [[4, 5, 6], [7, 8, 9]]) {
+        const h = unit(sub(J[el], J[sh])), p = perp(sub(J[hd], J[el]), h);
+        if (Math.hypot(...p) < 0.25) continue;
+        const n = perp([F[0] + U[0] * 0.5, F[1] + U[1] * 0.5, F[2] + U[2] * 0.5], h);
+        const deg = Math.acos(Math.max(-1, Math.min(1, dot(unit(p), unit(n))))) * 180 / Math.PI;
+        if (deg > worst) { worst = deg; at0 = `${act} ${t}`; }
+      }
+    }
+  }
+  check('a forearm never folds back past the elbow', worst < 125, `${worst.toFixed(0)} degrees at ${at0}`);
+  const J = pose('slap', 0.5), { F } = frame(J), mid = [(J[4][0] + J[7][0]) / 2, (J[4][1] + J[7][1]) / 2, (J[4][2] + J[7][2]) / 2];
+  const a = J[18], d = unit(sub(J[19], a)), t = dot(sub(mid, a), d), near = [a[0] + d[0] * t, a[1] + d[1] * t, a[2] + d[2] * t];
+  check('a slapper\'s shaft passes in front of his chest', dot(sub(near, mid), F) > 0.1, `${dot(sub(near, mid), F).toFixed(2)} ft`);
+  const { RINK_ACT } = await import(R + 'card-photo.js');
+  const { HOCKEY_POSES, _test } = await import('../../plugins/cards/sports-action.js');
+  const missing = Object.values(HOCKEY_POSES).flat().filter((p) => !RINK_ACT[p] || !_test.POSES[p]);
+  check('every hockey card pose has a camera and a drawing', !missing.length, missing.join(' '));
 }
 
 // ── a top hand stays out of the sweater ──────────────────────────────────────

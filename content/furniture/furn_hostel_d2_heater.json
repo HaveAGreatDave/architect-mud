@@ -1,0 +1,21 @@
+{
+  "description": "A one-bar electric heater with a scorched grille, turned to face whoever got to it first.",
+  "flags": {
+    "aliases": "heater",
+    "look": {
+      "arche": "small",
+      "form": "heater",
+      "wear": 0.9
+    }
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_hostel_d2_heater",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "bar heater",
+  "object_type": "furniture",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_hostel_dorm_2"
+}

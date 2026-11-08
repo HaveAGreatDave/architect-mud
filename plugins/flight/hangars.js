@@ -15,7 +15,7 @@ import { liveAircraft, persist, out, effStats, fieldFor as fieldOf,
   PARTS, PART_SLOTS, slotsFor, installedParts, partDefs, partEnvelope,
   detach, getLivePlayer, resetSurfaces, acquirableTypes, airfieldOf, fieldName, hangarTileFor, helipadTileFor, standTileFor, REFUEL_PRICE_PER_UNIT } from './state.js';
 import { normalizeLivery, sanitizeLivery, parsePartsArg, signatureScore, describeExterior,
-  paintCost, isPaintable, readSchemes, schemeOf, liveryFromSet, classDefault,
+  paintCost, isPaintable, readSchemes, schemeOf, liveryFromSet, classDefault, lineName, lineVariant, onLine,
   PATTERNS, FINISHES, UPHOLSTERY, DECALS, TRIMS, CABIN_TRIMS, PLATE_DEFAULT, PLATE_CHARS, PLATE_MAX } from './livery.js';
 import { unlockedLiveries, unlockKeysFor, liveriesFor, aircraftLiveryModel } from '../../client/shared/livery-sets.js';
 import { getFlagsIn } from '../../server/engine/flags.js';
@@ -122,7 +122,7 @@ async function liveryUnlocks(player, classes) {
 // The sets a player may pick for a class, each resolved into the livery it would paint.
 function setsFor(cls, unlocks) {
   return unlockedLiveries('aircraft', cls, (k) => unlocks.has(k)).map(s => {
-    const { text, ...look } = liveryFromSet(s);
+    const { text, ...look } = onLine(liveryFromSet(s), cls);
     return { id: s.id, name: s.name, blurb: s.blurb, factory: s.default, look };
   });
 }
@@ -152,7 +152,7 @@ async function buildCards(player, field) {
     // from the class default, the same as a set applied fresh. The flat fields are what the
     // scheme cards draw; `look` is the whole thing to try on.
     const schemes = Object.entries(readSchemes(r.custom_data)).map(([name, s]) => {
-      const look = sanitizeLivery(s, classDefault(model));
+      const look = onLine(sanitizeLivery(s, classDefault(model)), model);
       return { name, base: look.base, trim: look.trim, accent: look.accent, variant: look.variant, parts: look.parts, look };
     });
     const sets = setsFor(model, unlocks);
@@ -307,7 +307,7 @@ async function textHangarBay(player, field, selectId, opts) {
         const bits = [];
         if (canBuy) bits.push(`${link(`buy ${t.id}`, 'buy')} ${t.price_buy}₵`);
         if (canRent) bits.push(`${link(`rent ${t.id}`, 'rent')} ${t.price_rent_hourly}₵/hr`);
-        msg += `\n· <b>${t.name}</b> <span class="text-dim">(${t.class}, ${t.seats} seat${t.seats > 1 ? 's' : ''}, ${fuelName(t.fuel_type)})</span>: ${bits.join(' · ')}`;
+        msg += `\n· <b>${lineName(t)}</b> <span class="text-dim">(${t.class}, ${t.seats} seat${t.seats > 1 ? 's' : ''}, ${fuelName(t.fuel_type)})</span>: ${bits.join(' · ')}`;
       }
       if (!await isPilotLicensed(player) && !['admin', 'dev'].includes(player.role))
         msg += `\n<span class="text-amber">You're not rated to fly: see the examiner for a checkride before you buy.</span>`;
@@ -396,7 +396,7 @@ export async function pushHangarBay(player, selectId, opts = {}) {
     // `hardpoints` rides along because CLASS ALONE DOESN'T NAME THE MESH: an armed heli draws the
     // Viper (stub wings, rocket pods, chin gun), an unarmed one the Dragonfly, and without this the
     // whole lot fell back to the Dragonfly — you shopped for a gunship and were shown a taxi.
-    lots = types.map(t => ({ id: t.id, name: t.name, class: t.class, seats: t.seats, fuel: t.fuel_type,
+    lots = types.map(t => ({ id: t.id, name: lineName(t), variant: lineVariant(t), class: t.class, seats: t.seats, fuel: t.fuel_type,
       hardpoints: t.hardpoints || 0, priceBuy: t.price_buy, priceRent: t.price_rent_hourly }));
   }
   // What's in your hands to pour, for the bench's Hopper tab. GATED on somebody on the floor
@@ -561,7 +561,7 @@ export const _liveryTest = { applyLook: (...a) => applyLook(...a), setsFor, live
 async function applyLook(player, ac, look, label) {
   const model = ac.model || ac.class;
   const prev = normalizeLivery(ac.custom_data, model);
-  const next = { ...sanitizeLivery(look, classDefault(model)), text: prev.text };
+  const next = { ...onLine(sanitizeLivery(look, classDefault(model)), model), text: prev.text };
   if (JSON.stringify(next) === JSON.stringify(prev)) { out(player.id, `She's already wearing ${label}.`); return null; }
   const fee = paintCost({ class: ac.class });
   if ((player.credits || 0) < fee) return { type: 'emote', message: `A respray on the ${ac.tname} runs ${fee}₵. You're short.` };

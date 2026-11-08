@@ -57,7 +57,8 @@
   "flags": {
     "drug_class": "depressant",
     "drug_family": "opioid",
-    "smokeable": true
+    "smokeable": true,
+    "taken": "smoke"
   },
   "id": "drug_opium",
   "item_id": "item_opium",

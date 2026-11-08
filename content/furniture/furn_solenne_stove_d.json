@@ -4,6 +4,10 @@
     "interactions": [
       "lean"
     ],
+    "look": {
+      "arche": "hob",
+      "form": "seam"
+    },
     "stove_tier": "high"
   },
   "hp": null,

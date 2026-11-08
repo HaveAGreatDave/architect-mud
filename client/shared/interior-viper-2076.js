@@ -38,10 +38,10 @@
 //
 // The proprotors on the pages and the hologram turn on `live.phase`, the attitude and the tapes on
 // the flight state, the weapons page on `weapon`, `ammo`, `missiles` and `weaponsArmed`. The drones
-// leave their tubes while the master arm is on and come home when it is off, the way the exterior's
-// `drones` channel moves them (cockpit.js classAnim); the pages ease the same way off the same switch.
+// are disabled for now: they stay in their tubes here and on the exterior (see dronesOut).
 //
 // Pure: no clock, no camera, no DOM. `live` arrives as an argument.
+import { brandTrim } from './interior-brands.js';
 import { makeKit, C, clamp, lerp, SHINY, PANE, TEXTURE } from './interior-kit.js';
 import { contactShadow, hotspotHalo, panelGps, gpsHotspot, lensLamp, eased, pressPulse, HALO,
   bootAge, reveal, alertLight, sweep, lightLine, bandFrame, glassBand, holoFrame, holoProjector, windscreenHud,
@@ -83,6 +83,7 @@ SHINY.set(T.carbonLt, { spec: 0.4, pow: 26 });
 SHINY.set(T.metal, { spec: 0.7, pow: 36 });
 SHINY.set(T.buckle, { spec: 0.8, pow: 40 });
 SHINY.set(T.screen, { spec: 0.6, pow: 60 });
+brandTrim(T, 'viper', TEXTURE, SHINY);
 // The gun's ammunition as cockpit.js counts it: a full load is 1,174 rounds (F.gunCap), and the
 // page draws `ammo` against it.
 export const GUN_LOAD = 1174;
@@ -352,7 +353,7 @@ const readings = (live) => {
     temp: clamp(num(L.oilTemp, 0.4), 0, 1),
     powered: L.powered !== false,
     ail: clamp(num(L.stickX), -1, 1), elev: clamp(num(L.stickY), -1, 1), rud: clamp(num(L.rudder), -1, 1),
-    land: !!L.landingLight, dome: !!L.dome, hour: num(L.hour, 12),
+    land: !!L.landingLight, gearDown: L.gearDown !== false, dome: !!L.dome, hour: num(L.hour, 12),
     phase: num(L.phase), stall: !!L.stall,
     armed: !!(L.weaponsArmed || L.armed),
     weapon: w.startsWith('msl') || w.startsWith('mis') ? 'msl' : w.startsWith('bomb') ? 'bomb' : 'guns',
@@ -361,9 +362,9 @@ const readings = (live) => {
 };
 const night = (R) => R.hour < 6.5 || R.hour > 19.5;
 const panelOn = (R) => R.powered && (R.L.panelLight != null ? !!R.L.panelLight : night(R));
-// The drones' place between the tubes (0) and the box (1), eased off the master arm the way the
-// exterior's `drones` channel is (cockpit.js classAnim: about a second and a quarter each way).
-const dronesOut = (R) => eased('v76:drones', R.armed && R.powered ? 1 : 0, 2.2);
+// The drones' place between the tubes (0) and the box (1). Held at 0 with the exterior's `drones`
+// channel (cockpit.js classAnim) until they have a job in the sim, so the pages read STOWED.
+const dronesOut = () => 0;
 // The pylons' lean in the hologram: the sim has no tilt, so this is the conversion schedule a
 // tiltrotor would fly at this airspeed, drawn small (to 12 degrees by 120 kt) and only in the hologram.
 const pylonLean = (R) => clamp(R.ias / 120, 0, 1) * 12;
@@ -371,12 +372,12 @@ const pylonLean = (R) => clamp(R.ias / 120, 0, 1) * 12;
 // ── WHERE THE CONTROLS ARE ───────────────────────────────────────────────────
 // The cyclic between the pilot's knees; the collective at the left hand, hinged beside the hip on
 // the console's edge, rising as it is pulled; the pedals on rails.
-const CYC = { base: [0, 0.3, 0.3], len: 0.36 };                    // z off the floor
+const CYC = { base: [0, 0.3, 0.22], len: 0.36 };                    // z off the floor
 const COLL = { x: -0.28, pivotY: -0.42, z: 0.42, len: 0.42 };       // pivot z off the floor
 const PED = { x: 0.12, y: 0.74, z: 0.14 };
 function cyclicAt(P, R) {
   const base = [CYC.base[0], CYC.base[1], P.vp76.zF + CYC.base[2]];
-  const dir = norm([R.ail * 0.3, R.elev * 0.3, 1]);
+  const dir = norm([R.ail * 0.3, -R.elev * 0.3, 1]);
   return { base, top: add(base, mul(dir, CYC.len)), dir };
 }
 function collectiveAt(P, R) {
@@ -387,7 +388,7 @@ function collectiveAt(P, R) {
 }
 
 // ── THE DASH: a sculpted wing across the deck and on its face one band of glass ──
-const DASH = { xL: -1.42, xR: 0.36, yMid: 0.8, sag: 0.17, w: 0.98, z0: -0.4, h: 0.26, lean: 0.45 };
+const DASH = { xL: -1.42, xR: 0.36, yMid: 0.8, sag: 0.17, w: 0.98, z0: -0.5, h: 0.26, lean: 0.45 };
 function dashCurve(P) {
   const xC = P.xCentre;
   return (s) => {
@@ -403,14 +404,15 @@ const bandPanel = (K, P, x, v, lift = 0.005) => bandFrame(dashCurve(P), DASH.lea
 // The five keys the sim has (power, the three lighting circuits and the master arm) are glass keys on
 // the band's right end; the map is clicked for destinations. The cyclic, the collective and the
 // pedals sit low, so each is mirrored in the windscreen HUD.
-const BTN = { ids: ['master', 'land', 'panel', 'dome', 'arm'], names: { master: 'PWR', land: 'LAND', panel: 'PANEL', dome: 'CABIN', arm: 'ARM' } };
-const BTN_AT = (i) => (i < 3 ? { x: [0.17, 0.235, 0.3][i], v: 0.18, w: 0.031 } : i === 3 ? { x: 0.17, v: 0.11, w: 0.031 } : { x: 0.268, v: 0.11, w: 0.062 });
+const BTN = { ids: ['master', 'land', 'panel', 'dome', 'arm', 'gear'], names: { master: 'PWR', land: 'LAND', panel: 'PANEL', dome: 'CABIN', arm: 'ARM', gear: 'GEAR' } };
+const BTN_AT = (i) => (i < 3 ? { x: [0.17, 0.235, 0.3][i], v: 0.18, w: 0.031 } : i === 3 ? { x: 0.17, v: 0.11, w: 0.031 } : i === 5 ? { x: 0.365, v: 0.18, w: 0.031 } : { x: 0.268, v: 0.11, w: 0.062 });
 function switchOn(id, R) {
   if (id === 'master') return R.powered;
   if (id === 'land') return R.land;
   if (id === 'panel') return panelOn(R);
   if (id === 'dome') return R.dome && R.powered;
   if (id === 'arm') return R.armed && R.powered;
+  if (id === 'gear') return R.gearDown && R.powered;
   return R.powered;
 }
 
@@ -490,7 +492,7 @@ export function vp76Fit(P, live, push) {
   // The light lines carry the alert: teal, amber on low fuel or the master arm, red and breathing on
   // a hull warning or a stall.
   const warn = lit && (R.hull < 0.3 || R.stall), caution = lit && (R.fuel < 0.15 || R.armed);
-  const al = alertLight(caution, warn), lineK = (k) => (lit ? k * al.k : 0.05);
+  const al = alertLight(caution, warn, T.line), lineK = (k) => (lit ? k * al.k : 0.05);
   const out = dronesOut(R);
 
   // ── THE DASH: a wing swept along the band's curve ──
@@ -552,7 +554,7 @@ export function vp76Fit(P, live, push) {
     lamps.forEach(([name, on, rgb], i) => lensLamp(bandPanel(K, P, LAMP_X[i], 0.026, 0.012), 0, 0, 0.2, 0.032, on && reveal(boot, 0.6) >= 1, rgb, name));
   }
 
-  // ── THE KEYS: five glass keys on the band's right end, ARM wide and red ──
+  // ── THE KEYS: six glass keys on the band's right end, ARM wide and red ──
   BTN.ids.forEach((id, i) => {
     const b = BTN_AT(i), Kp = bandPanel(K, P, b.x, b.v, 0.004), on = switchOn(id, R);
     const pressed = !!live && live.press === 'ck:' + id, near = !!live && live.hover === 'ck:' + id;
@@ -834,8 +836,8 @@ function weaponsPage(Pn, R) {
 
 // ── THE EFFECTS PAGE: the eight drones, where they are and what they are doing ──
 // The aircraft at the middle, nose up; each drone at its tube or its station or between, as far
-// out as the channel has them; their state in words: STOWED, LAUNCH, or ON STATION. They go out
-// with the master arm and home without it, which is the whole of what the sim lets them do.
+// out as the channel has them; their state in words: STOWED, LAUNCH, or ON STATION. While dronesOut
+// holds them at 0 the page only ever reads STOWED.
 function effectsPage(Pn, R, out) {
   const sc = 0.034, cu = 0, cv = -0.012, Q = (f, g) => [cu + g * sc, cv + f * sc];
   Pn.text('ALE', -0.115, 0.083, 0.012, [160, 196, 190], 0.5, 0.003);

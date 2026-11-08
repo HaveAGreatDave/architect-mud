@@ -36,8 +36,8 @@ import { TOON_GLSL, TOON_INK_GLSL, TOON_INK_UNIFORMS, bindToonInk } from './toon
 
 // Per instance: x, y, z, tiles per metre | clip A row0, frames, phase, heading | clip B row0, frames,
 // phase, share of B | coat rgb | trousers rgb | skin rgb | hair rgb | shoes rgb | brightness, alpha |
-// materials (coat + trousers·8 + shoes·64, ACTOR_MATERIAL codes)
-const STRIDE = 30;
+// materials (coat + trousers·8 + shoes·64, ACTOR_MATERIAL codes) | body (actor3d.js bodyOf)
+const STRIDE = 34;
 // Units no other layer binds: 0-5 are the world pass's, 7 is fauna.js's pose, 8-17 are the
 // murmuration's simulation and its drawing.
 const POS_UNIT = 20, NRM_UNIT = 21;
@@ -70,6 +70,8 @@ precision highp float;
 precision highp int;
 in float aMat;
 in vec3 aRest;
+in vec4 aBody;
+in vec4 iBody;
 in vec4 iPos;
 in vec4 iClipA;
 in vec4 iClipB;
@@ -126,6 +128,8 @@ void main() {
     p = mix(p, pb, iClipB.w);
     n = mix(n, nb, iClipB.w);
   }
+  // their body type: the bake's one body moved along its normals, by how much of each type they are
+  p += normalize(n) * dot(aBody, iBody);
   // The mesh faces +Z with its left hand on +X and Y up. Here forward is the heading on the ground
   // plane, up is world z, and left is forward turned the way the camera's own left is (see makeCam:
   // screen right for a forward of (sin h, -cos h) is (cos h, sin h)).
@@ -669,7 +673,7 @@ export function createActorLayer(gl) {
   if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) throw new Error('actors link: ' + gl.getProgramInfoLog(prog));
   const A = (n) => gl.getAttribLocation(prog, n);
   const loc = {
-    mat: A('aMat'), pos: A('iPos'), clipA: A('iClipA'), clipB: A('iClipB'),
+    mat: A('aMat'), bodyV: A('aBody'), bodyI: A('iBody'), pos: A('iPos'), clipA: A('iClipA'), clipB: A('iClipB'),
     coat: A('iCoat'), legs: A('iLegs'), skin: A('iSkin'), hair: A('iHair'), shoe: A('iShoe'), lit: A('iLit'), mats: A('iMats'),
     posT: gl.getUniformLocation(prog, 'uPosT'),
     nrmT: gl.getUniformLocation(prog, 'uNrmT'),
@@ -824,6 +828,10 @@ export function createActorLayer(gl) {
     gl.bindBuffer(gl.ARRAY_BUFFER, mb);
     gl.bufferData(gl.ARRAY_BUFFER, bk.mat, gl.STATIC_DRAW);
     if (loc.mat >= 0) { gl.enableVertexAttribArray(loc.mat); gl.vertexAttribPointer(loc.mat, 1, gl.FLOAT, false, 4, 0); }
+    const bb = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, bb);
+    gl.bufferData(gl.ARRAY_BUFFER, bk.body || new Float32Array(bk.nv * 4), gl.STATIC_DRAW);
+    if (loc.bodyV >= 0) { gl.enableVertexAttribArray(loc.bodyV); gl.vertexAttribPointer(loc.bodyV, 4, gl.FLOAT, false, 16, 0); }
     // The rest shape: the idle clip's first frame, a static coordinate the fragment shader hangs
     // seams and grime on. A body without a preview gets a constant, which leaves the detail inert.
     if (loc.rest >= 0) {
@@ -846,11 +854,11 @@ export function createActorLayer(gl) {
     const at = (l, n, off) => [l, n, off * 4];
     const stream = makeVertexStream(gl, vao, STRIDE, [
       at(loc.pos, 4, 0), at(loc.clipA, 4, 4), at(loc.clipB, 4, 8), at(loc.coat, 3, 12), at(loc.legs, 3, 15),
-      at(loc.skin, 3, 18), at(loc.hair, 3, 21), at(loc.shoe, 3, 24), at(loc.lit, 2, 27), at(loc.mats, 1, 29),
+      at(loc.skin, 3, 18), at(loc.hair, 3, 21), at(loc.shoe, 3, 24), at(loc.lit, 2, 27), at(loc.mats, 1, 29), at(loc.bodyI, 4, 30),
     ], STRIDE * 64);
     // One advance per instance, not per vertex. The divisor is VAO state, so it is set once, here.
     gl.bindVertexArray(vao);
-    for (const l of [loc.pos, loc.clipA, loc.clipB, loc.coat, loc.legs, loc.skin, loc.hair, loc.shoe, loc.lit, loc.mats]) if (l >= 0) gl.vertexAttribDivisor(l, 1);
+    for (const l of [loc.pos, loc.clipA, loc.clipB, loc.coat, loc.legs, loc.skin, loc.hair, loc.shoe, loc.lit, loc.mats, loc.bodyI]) if (l >= 0) gl.vertexAttribDivisor(l, 1);
     gl.bindVertexArray(null);
     const tex = (unit, data) => {
       const t = gl.createTexture();
@@ -903,6 +911,8 @@ export function createActorLayer(gl) {
       data[o + 27] = r.lum == null ? 1 : r.lum; data[o + 28] = r.a == null ? 1 : r.a;
       const mt = r.o.mat;
       data[o + 29] = mt ? (mt[0] & 7) + (mt[1] & 7) * 8 + (mt[2] & 7) * 64 : 0;
+      const bd = r.o.body;
+      data[o + 30] = bd ? bd[0] : 0; data[o + 31] = bd ? bd[1] : 0; data[o + 32] = bd ? bd[2] : 0; data[o + 33] = bd ? bd[3] : 0;
       M.n++; n++;
     }
     const r0 = recs[0];

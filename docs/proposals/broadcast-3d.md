@@ -1,8 +1,25 @@
 # Broadcast 3-D: shows and films on a set
 
-**Status: design only.** Nothing here is built. Phase 1 is St Garneau's basement kitchen and
-*Cooking Shit With Neil McManistan*; phase 2 is a soundstage set on KSAB's stage. Section 9 lists
-the decisions that need answering before phase 1 starts.
+**Status: the first version is built and on air: the KSAB5 sports desk inside both games, a 3-D button on the TV for every text show, the sequence format and the Broadcast Studio (section 0). Phases 1 to 3 are design.** Since this was written the Room Stage, the comic look and lip sync shipped, so sections 1, 3, 5 and 6 note where they replaced what's here.
+
+## 0. The first version (as built)
+
+Two people at KSAB5's desk open every game, take the break and close it. The same parts make any show: nothing below knows a sport.
+
+- **The format** is [client/shared/sequence.js](../../client/shared/sequence.js): a **set**, a **sequence** of beats on it, and a **show** that says which sequence plays at which moment of a broadcast. Each is a `media_graphics` row, so there's no new table and they're in the boot cache. A beat is one shot, and a spoken beat lasts as long as its line, so a sequence is a shot list and can't fall out of step with the voice.
+- **The picture** is [sequence-player.js](../../client/game/js/panels/sequence-player.js) on `gl/room.js`, so a set is lit and inked as a flat is, and the people are the close-up figure. [gl/set-mesh.js](../../client/game/js/panels/gl/set-mesh.js) builds a set from the room kit. [sequence-gfx.js](../../client/game/js/panels/sequence-gfx.js) draws lower thirds, over-the-shoulder boxes, pictures in pictures, player profiles, score panels, tables, cards and a ticker over it. A box or a picture in picture shows the live game, the set's screen or another camera.
+- **The facts** are [sports/facts.js](../../plugins/broadcast/sports/facts.js). `factsAt(sport, game, at)` walks the game's own beats up to a moment and returns everything known there: the score, the margin, the status, shots, hits, penalties, fights, injuries, goals or home runs with who and when, stars of the game, who's missing, the table, and each man's number, colour and season. A break can't mention anything that hasn't happened, and it can't disagree with the booth, because it reads what the booth reads. A new fact is a line in the sport's section.
+- **Conditions** make a show change with the game. A beat, a graphic or a slot can carry `if`, conditions on the facts. A beat that fails is left out, and several slots can share a moment, the first that passes playing, so Cluster Puck has a blowout intermission above its usual one. A line with a token the facts can't fill is never picked.
+- **Lists and people.** A table runs over a list in the data (`goals`, `stars`, `table`), and the set's wall can show one. A profile points at a person (`lastGoal`, `gameStar`, `hatTrick`, `star`), and takes their number, club colour, season and tonight's line from there.
+- **At air time** `_sportsOnAir` adds `live` to the first line's data: viewers, weather, temperature and the hour. A game's lines are written when it's assembled, so `{live.watching}` works in graphics and not in lines.
+- **The tool** is the Broadcast Studio ([README](../../tools/broadcast-studio/README.md)), on its own port and linked from the dev panel. It holds BSM Studio on its Script tab, and Deadball and Cluster Puck each have an entry in it. Files export and import.
+- **On air**, a broadcast calls `deskSegment` ([plugins/broadcast/sequences.js](../../plugins/broadcast/sequences.js)) at a moment (`open`, `break`, `close`) with that moment's facts. The lines air as ordinary booth lines, each carrying a `desk` overlay. The first takes the documents with it, about 10 KB. The desk's lines come off their own seed, so no line of the booth's moves, and regress holds that.
+- **The moments.** Cluster Puck's break is each intermission, first thing, and its lines run straight through with the pacer's silence left to the booth. Deadball's is the seventh-inning stretch, before the bottom of the seventh.
+- **The cast** are [Joan Dempsey](../../content/npcs/npc_joan_dempsey.json) and [Lou Ferraro](../../content/npcs/npc_lou_ferraro.json). They work real shifts: `_sportsOnAir` holds a segment's lines back unless everybody cast is standing on the set's `zone`. KSAB5 has a game in every slot, so anyone cast in a live show is on shift while any slate has a game on, which is round the clock but for Cup day. They share Kestrel Court 11B, two tiles from the stage.
+- **The TV** is [tv-desk.js](../../client/game/js/panels/tv-desk.js), over the sub-screen, with the game running under it. A desk segment is part of the broadcast: on the visual rung it comes up by itself at its moment and goes again after its last line, and on the other rungs, or with no WebGL2, its lines air as text. Both leagues' entries are on air. An entry's **On air** switch decides whether its lines air at all.
+- **Text shows** get a **3D** button on the TV and the tablet's TV ([tv-stage.js](../../client/game/js/panels/tv-stage.js)), shown for any programme that isn't a game. It asks the server for the stage once a programme (`tv_stage`, `stageFor` in the plugin): the set from the show's entry, else the set built for the room it's staged in (`zone`), else one whose `uses` names its kind of show, else the `default` one, and the people in it, being the programme's cast and anybody standing on its stage now. Every line the TV shows is then a cut, chosen by `autoShot` in sequence.js: the speaker from the camera that faces them, a two-shot every third exchange in a back-and-forth, the whole set for the announcer, a lower third the first time somebody speaks. Somebody with no seat left is heard over the wide shot. The choice stays on for the next show (`tv.stage` in the browser's storage).
+
+Not done yet: a location show such as *Cooking Shit With Neil* has no set of its own, so it plays on the default talk set until somebody builds the kitchen. A highlight reel in a box (the comic replays exist, and nothing plays them here), a facts feed for anything but the two sports, and anchors have no seated talking clips, so they sit in their idle poses with their mouths moving, and a player or a live impairment isn't in the picture, since the desk plays its sequence and has no census (section 5). The profile's photo is the card camera's and needs that league's renderer, so the first one is slow.
 
 ## 1. The idea
 
@@ -26,24 +43,7 @@ The missing part is the backlot. No room in the game has a shape.
 
 ### The look
 
-Cel-shaded, with simple comical faces in the style of *South Park*, and mouths that move to the
-sound of the voice.
-
-- **Cel shading** on everything in the frame: the set, the props, the people, and the city through
-  a window. Light falls in a few hard bands, shadows have hard edges, and every shape has an ink
-  outline.
-- **Faces** are flat and cartoonish: two big white eyes with dot pupils, brows as single strokes, and
-  a mouth picked from a small chart of shapes. There's no realistic skin, nose or lip detail. The
-  bodies are still the skinned 3-D figures, shaded in bands.
-- **Lip sync** comes from the audio as it plays (section 6). Whatever is heard moves the mouth,
-  including ORACLE's voice, the garbler's fumbles and pauses, and a sampled clip.
-- **The broadcast grade goes over the top**, so it reads as a cartoon on an old TV.
-
-This look is for shows and films. The Grandstand and the rink keep their own.
-
-A cartoon also lowers the cost of the riskiest parts. A prop needs a clean silhouette and flat
-colour instead of a material, and a face with six mouth shapes and a few eyelid positions can't
-fall into the uncanny valley.
+**Replaced 2026-11-07.** This section asked for flat *South Park* faces. On 2026-11-01 the whole game went comic ([comic-ink.md](comic-ink.md)), so a set is drawn in the house look and its people are the close-up figure ([hd-figure.md](hd-figure.md)) with its inked faces. The broadcast grade over the top is still to do. The Grandstand and the rink keep their own renderers.
 
 ## 2. What it builds on
 
@@ -114,18 +114,11 @@ building's recorded shape belongs in phase 1 anyway, so the rule exists before t
 
 ### Layouts
 
-A layout is a few kilobytes of JSON. Zones load into RAM at boot, so a layout shouldn't ride on the
-zone row: every boot would read thousands of layouts that only a viewer of a 3-D show ever uses.
-The proposal is its own table, `room_layouts` (`zone_id` primary key, `layout` JSONB), one file per
-room under `content/room_layouts/`, fetched by the client the first time it shows that room and
-cached by the browser after that. Section 9 asks whether this is the right place.
+**Replaced.** The Room Stage shipped a room spec (`flags.room`), `roomLayout` and pieces with spots ([room-stage.md](room-stage.md)), so a real room's shape comes from there and `room_layouts` isn't needed. A real room needs marks and camera positions on top of that, which a set document already has. A sequence on a real room should be a set whose shell comes from the zone's room spec.
 
-### Sets (phase 2)
+### Sets
 
-A set is a layout with `kind: "set"`, standing on a stage zone. It has flats instead of walls, no
-ceiling, one open side facing the cameras, and a backing (a painted cloth, or the cyclorama). A
-script names one with `@set <id>`. A set is the stage's, so moving the show to another stage
-means building or copying the set there.
+**Built**, in a wider form than this asked for: a set document is a shell, pieces from `SET_PIECES`, marks and cameras. It can stand for a real stage (`zone`) or for flats on one. A script naming a set with `@set` is still to do.
 
 ### Props
 
@@ -175,43 +168,11 @@ The indoor clips phase 1 needs: stand, stand at a counter, turn to camera, talk 
 chop, pour, open a door, walk in and out, sit, and, for impairment, sway, steady yourself on the
 counter and fold. A slurring anchor who stands perfectly still would look worse than no 3-D at all.
 
-### Faces
+### Faces and lip sync
 
-The head is a simple rounded shape, and the face is drawn flat onto its front from a few parts: the
-eyes (white, a dot pupil, an upper lid that can drop), two brow strokes, and the mouth. A character's
-face is their head shape, skin and hair colours, eye spacing and a few extras (glasses, stubble, a
-moustache). By default it comes from a seed on the NPC id, and an author can set it on the NPC. The
-street figures take their faces from an anonymous token so nobody can be identified from a street
-away, but a show's cast are named on air, so a face tied to the NPC is fine here.
+**Replaced.** [lip-sync.js](../../client/shared/lip-sync.js) drives the close-up figure's mouth from ORACLE's own timing: `speak()` fills `opt.trace` with each phoneme, and the mouth follows the pauses and stretches. It's more exact than reading the sound would be, so the analyser planned here wasn't built. In the Studio the mouth takes the trace directly. On the TV, tv.js passes it to the desk as the line is spoken, and with the sound off the mouth reads the letters at speaking pace.
 
-The eyes and brows show the impairment state the census carries. `drunk` and `loose` get half-shut
-lids, `wired` wide eyes and pinned pupils, `paranoid` eyes that dart between cameras, `tripping`
-huge pupils, and `out` closed eyes. It's one row per `_DELIVERY` state, and the same gate that
-requires a tangent voice for each state should require a face.
-
-### Lip sync from the sound
-
-An `AnalyserNode` taps the TV voice bus and is read once a frame:
-
-- **How open the mouth is** comes from the signal's level, smoothed with a fast attack and a slower
-  release so it doesn't chatter.
-- **The mouth's shape** comes from where the energy is in the spectrum. Most of it above about 4 kHz
-  gives teeth (s, sh, f, ch). Low energy with a low centroid gives round (o, oo, w). Strong energy
-  in the second-formant range gives wide (ee). Otherwise the shape is open, at the size the level
-  says. Silence gives closed. A loud onset straight after silence shows a closed frame first, so m,
-  b and p read.
-- **Whose mouth moves** comes from the payload. The `tv` speech channel plays one line at a time,
-  so it only carries the current line's speaker. The `scene` channel (the Grandstand's voices) plays
-  on the same bus, so if both ever sound at once the analyser hears both. That can't happen inside
-  this view, but a gate should check it stays that way.
-
-The chart is about six mouths: closed, small, open, wide, round and teeth. The thresholds are
-tuned against ORACLE in the Voice Lab, and that tuning is most of the work.
-
-Because it listens to the output, ORACLE doesn't change. A garbled line lip-syncs correctly as it's
-garbled: a stall closes the mouth and a repeated word moves it twice. A player with TV speech
-switched off hears nothing, so for them the mouth flaps from the text instead, timed by the
-existing `Speech.estimate()` and `Speech.phonemesFor()`.
+An impairment state on the face is still to do, and needs the census.
 
 ## 7. Light, sound and the world outside
 
@@ -294,41 +255,23 @@ Named here so the first two phases don't close them off; none of them are planne
 - More real rooms, as shows go on location in them.
 - Player-built sets, depending on the answer in section 9.
 
-## 9. Decisions to make
+## 9. Decisions
 
-Each has a recommendation. These need answers before phase 1 starts, because each one changes what
-phase 1 builds.
+Answered 2026-11-07, for the first version.
 
-**1. Is 3-D only the TV picture, or can a viewer walk the set?**
+- **Look:** the house comic figure.
+- **Who's at the desk:** real shifts, with their schedules set so they're always available, and a home nearby.
+- **How far:** the tool, with the TV behind a flag.
+- **Where the editor lives:** a new Broadcast Studio on its own port, opened from the dev panel, taking in BSM Studio. Files export and import, and Deadball and Cluster Puck have their own entries.
+- **It has to make shows in general:** so the format knows no sport, and a linear `.bsm` reads into a sequence.
 
-- *TV picture only (recommended).* You see what the cameras see. Real sets get away with this:
-  only what a lens frames has to hold up, so the prop and layout work is bounded by camera coverage,
-  and the look stays cinematic.
-- *A free camera on the set.* Every corner has to hold up from every angle, which roughly doubles
-  the prop and layout work and turns the picture into a level viewer.
+Still open, for later phases:
 
-**2. Who builds sets?**
+**Can a viewer walk the set?** The recommendation stands: TV picture only.
 
-- *Authored sets only, through content (recommended for phases 1 and 2).* Sets go through git and
-  CODEX like every other piece of content.
-- *Players build sets in the phase 3 studio.* That's the full *The Movies* loop, and it needs
-  moderation, a size limit, and a storage plan that fits the Neon egress budget
-  ([ops-usage-watch.md](../ops-usage-watch.md)). It can be decided at phase 3 as long as the set
-  format in phase 2 doesn't assume an author.
+**Who builds sets?** Authored sets for now. Player-built sets need moderation, a size limit and a storage plan that fits the Neon egress budget ([ops-usage-watch.md](../ops-usage-watch.md)).
 
-**3. Which rooms get layouts?**
-
-- *Only rooms that go on air (recommended).* The scope is the shows, and grows one location at a
-  time.
-- *Every room, eventually.* That's a world-modelling project (17,690 zones) that broadcasts would
-  only be one use of, and it should get its own proposal before anything here assumes it.
-
-**4. Where do layouts live?**
-
-- *Their own table and content directory, fetched by the client on demand (recommended).* Nothing
-  is added to boot, and a layout is read only by someone watching.
-- *A key on the zone's `flags`.* Simpler, but it puts every layout into the boot read and the
-  world Maps.
+**Which rooms get a set?** Only rooms that go on air.
 
 ## 10. Risks
 

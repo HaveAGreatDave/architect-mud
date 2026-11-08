@@ -35,7 +35,13 @@ const CROUCH_PACE = 0.5;   // and how much slower
 //   seatMode   (seat) => mode a seat puts the view in ('free' by default)
 //   canSit     (seat) => true unless somebody else is in it
 //   onSettle   ([u, v], yaw) => void, when you stop walking (where you stand now)
+//   onUse      () => true if the host took the use key itself
+//   aimable    (pieceId) => true if the piece is on your side of any wall
+//   turnKeys   true: Q and E turn you while held, and F is the use key
 //   start      a seat to start in, or { at: [u, v], yaw } to start on your feet
+// how fast Q and E turn you, in radians a second
+const TURN_RATE = 2;
+
 export function createRoomWalk(opts) {
   const { L, seat } = opts;
   const ft = L.ft || 1;
@@ -43,6 +49,9 @@ export function createRoomWalk(opts) {
   const setMode = (m) => opts.setMode?.(m);
   let at = null, sat = null, raf = 0, last = 0, walked = false;
   const held = new Set();
+  // Q and E held, for a host that sets `turnKeys`. Apart from `held`, because turning in a seat doesn't
+  // get you up. E is the use key without it, and F with it.
+  const spin = new Set();
   // Shift sprints while it's held. Ctrl (or C) is a toggle, not a hold: Ctrl+W closes the browser
   // tab and no page can stop it, so crouch-walking forward with Ctrl held would shut the game.
   let sprint = false, crouched = false, eyeH = STAND * ft;
@@ -88,10 +97,12 @@ export function createRoomWalk(opts) {
     // the eye going down into a crouch or back up, eased, whether or not you're walking
     const wantH = (crouched ? CROUCH : STAND) * ft, settling = !sat && Math.abs(eyeH - wantH) > 0.01 * ft;
     if (settling) { eyeH += (wantH - eyeH) * (1 - Math.exp(-dt * 12)); if (Math.abs(eyeH - wantH) <= 0.01 * ft) eyeH = wantH; }
+    const turning = (spin.has('q') ? 1 : 0) - (spin.has('e') ? 1 : 0);
+    if (turning) { seat.yaw = (seat.yaw || 0) + turning * TURN_RATE * dt; redraw(); }
     if (!held.size) {
       if (walked) { walked = false; opts.onSettle?.(at, seat.yaw || 0); }
       if (settling) place();
-      if (!settling) { last = 0; return; }
+      if (!settling && !spin.size) { last = 0; return; }
       raf = requestAnimationFrame(tick); return;
     }
     if (sat) standUp();
@@ -127,6 +138,9 @@ export function createRoomWalk(opts) {
     place();
   }
   if (opts.pane) claimSeatKeyboard(opts.pane, { label: opts.label || 'ROOM' });
+  // a key let go in another window never comes up here, and you'd turn on the spot until you came back
+  const letGo = () => spin.clear();
+  window.addEventListener('blur', letGo);
 
   return {
     key(e, down) {
@@ -145,9 +159,36 @@ export function createRoomWalk(opts) {
         if (down) { held.add(k); if (!raf) raf = requestAnimationFrame(tick); } else held.delete(k);
         return true;
       }
+      if (opts.turnKeys && (k === 'q' || k === 'e') && !e.ctrlKey && !e.metaKey) {
+        if (down) { spin.add(k); if (!raf) raf = requestAnimationFrame(tick); } else spin.delete(k);
+        return true;
+      }
       if (!down) return false;
-      if (k === 'e') { toggleSit(); return true; }
+      if (k === (opts.turnKeys ? 'f' : 'e')) { if (!e.repeat && !opts.onUse?.()) toggleSit(); return true; }
       return false;
+    },
+    // the piece you're facing and within reach of, or the one you're on: what the card talks about
+    aim() {
+      if (sat) return sat.piece;
+      const y = seat.yaw || 0, wx = Math.sin(y), wz = Math.cos(y);
+      const fu = wx * L.r[0] + wz * L.r[2], fv = -(wx * L.f[0] + wz * L.f[2]);
+      let best = null, score = Infinity;
+      for (const t of [...(L.stations || []), ...L.seats]) {
+        if (opts.aimable && !opts.aimable(t.piece)) continue;
+        const du = t.u - at[0], dv = t.v - at[1], dist = Math.hypot(du, dv), facing = dist ? (du * fu + dv * fv) / dist : 1;
+        if (dist > (t.reach ? t.reach + 4 * ft : 8 * ft) || facing < 0.55) continue;
+        const s = dist * (2 - facing);
+        if (s < score) { score = s; best = t.piece; }
+      }
+      return best;
+    },
+    // how squarely a point in the room is in front of you and within reach, lower being better, or
+    // Infinity. For what isn't a piece: the host's people
+    sight(u, v) {
+      const y = seat.yaw || 0, wx = Math.sin(y), wz = Math.cos(y);
+      const fu = wx * L.r[0] + wz * L.r[2], fv = -(wx * L.f[0] + wz * L.f[2]);
+      const du = u - at[0], dv = v - at[1], dist = Math.hypot(du, dv), facing = dist ? (du * fu + dv * fv) / dist : 1;
+      return dist > 8 * ft || facing < 0.7 ? Infinity : dist * (2 - facing);
     },
     // what's under a point on the picture: a station within a generous hand of it (they win over a
     // seat, which is what you'd mostly not mean), else the nearest seat
@@ -187,12 +228,15 @@ export function createRoomWalk(opts) {
       for (const s of free) { const dd = Math.hypot(s.u - at[0], s.v - at[1]); if (dd < bd) { bd = dd; best = s; } }
       return best ? sit(best) : false;
     },
+    // put the walker somewhere: the host's, when the server says you're not where you'd walked to
+    moveTo(p) { if (sat) return; at = p.slice(); place(); opts.onSettle?.(at, seat.yaw || 0); },
     get sat() { return sat; },
     get at() { return at; },
     walking: () => !sat && held.size > 0,
     stop() {
       if (raf) cancelAnimationFrame(raf);
-      raf = 0; held.clear();
+      raf = 0; held.clear(); spin.clear();
+      window.removeEventListener('blur', letGo);
       if (opts.pane) endSeatKeyboard(opts.pane);
     },
   };

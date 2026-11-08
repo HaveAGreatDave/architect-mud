@@ -7,7 +7,7 @@
 // no pilot, and the panel says so, lit, all the time it has power (NO COVER).
 //
 // So the room is the 172's opposite. That was a steel panel of round gauges with two yokes coming
-// out of it; this is one curved band of glass low across a swept dash, a sidestick on the right
+// out of it; this is one curved band of glass low across a swept dash, a centre stick ahead of the pilot
 // sill, a single thrust lever on the left (one engine as the sim has it: the eight motors share one
 // throttle), yaw pedals on rails, and the sky everywhere else. A miniature of the aircraft floats
 // over the dash's right end and flies as she does.
@@ -17,7 +17,7 @@
 //     single seat, eight motors on tandem wings that tilt the whole aircraft to take off, a joystick
 //     and a few buttons, an ultralight under US Part 103.
 //   https://www.pivotal.aero (the Helix, the BlackFly's production descendant): a three-axis
-//     sidestick, a thrust control at the other hand, a small glass display, a ballistic parachute.
+//     stick, a thrust control at the other hand, a small glass display, a ballistic parachute.
 //
 // ── ⚠ THE ROOM IS THE EXTERIOR'S POD ────────────────────────────────────────
 //
@@ -38,10 +38,11 @@
 // Decoration (the alert's breathing) may move on wall time; no readout does.
 //
 // Pure: no camera, no DOM. `live` arrives as an argument.
+import { brandTrim } from './interior-brands.js';
 import { makeKit, C, clamp, lerp, SHINY, PANE, TEXTURE } from './interior-kit.js';
 import { contactShadow, hotspotHalo, panelGps, gpsHotspot, lensLamp, eased, pressPulse, HALO,
   bootAge, reveal, alertLight, sweep, lightLine, bandFrame, glassBand, holoFrame, holoProjector, windscreenHud,
-  HOLO, HOLO_LINE, HOLO_AMBER, HOLO_RED } from './interior-cockpit-kit.js';
+  HOLO, HOLO_LINE, HOLO_AMBER, HOLO_RED, stickColumn } from './interior-cockpit-kit.js';
 import { MESH_ROWS } from './vehicle-meshes.js';
 import { compileMesh } from './vehicle-mesh.js';
 import { MAYFLY76_STATIONS, MAYFLY76_GLASS, MAYFLY76_INSIDE, MAYFLY76_LENGTH_M, mayfly76Section, mayfly76Point } from './cabin-mayfly-2076.js';
@@ -79,6 +80,7 @@ SHINY.set(T.lining, { spec: 0.2, pow: 16 });
 SHINY.set(T.metal, { spec: 0.7, pow: 36 });
 SHINY.set(T.buckle, { spec: 0.8, pow: 40 });
 SHINY.set(T.screen, { spec: 0.6, pow: 60 });
+brandTrim(T, 'mayfly', TEXTURE, SHINY);
 
 // ── THE EXTERIOR, MEASURED ──────────────────────────────────────────────────
 function modelLength(doc) {
@@ -327,13 +329,13 @@ const panelOn = (R) => R.powered && (R.L.panelLight != null ? !!R.L.panelLight :
 
 // ── WHERE THE CONTROLS ARE ───────────────────────────────────────────────────
 // One place says where each thing you can grab is; the drawing and the hotspots both read it. The
-// sidestick on the right sill console, the thrust lever on the left; z is off the floor.
-const STICK = { base: [0.25, 0.1, 0.5], len: 0.13 };
+// centre stick on its column, the thrust lever on the left; z is off the floor.
+const STICK = { base: [0, 0.36, 0.4], len: 0.13 };
 const LEVER = { x: -0.25, pivotY: 0.04, top: 0.48, len: 0.15 };
 const CONSOLE = { x: 0.25, hw: 0.065, y0: -0.2, y1: 0.36, top: 0.47 };
 function stickAt(P, R) {
   const base = [STICK.base[0], STICK.base[1], P.mf76.zF + STICK.base[2]];
-  const dir = norm([R.ail * 0.32, R.elev * 0.32, 1]);
+  const dir = norm([R.ail * 0.32, -R.elev * 0.32, 1]);
   return { base, top: add(base, mul(dir, STICK.len)), dir };
 }
 function leverAt(P, R) {
@@ -346,7 +348,7 @@ function leverAt(P, R) {
 // ── THE DASH: a low swept wing across the bubble, and on its face one band of glass ──
 // A shallow arc round the pilot; `curve(s)` gives the band's lower edge and the outward direction
 // across the dash. The dash is swept along the same curve, so the glass is the dash's own face.
-const DASH = { xL: -0.36, xR: 0.36, yMid: 0.72, sag: 0.13, w: 0.38, z0: -0.39, h: 0.27, lean: 0.4 };
+const DASH = { xL: -0.36, xR: 0.36, yMid: 0.72, sag: 0.13, w: 0.38, z0: -0.47, h: 0.27, lean: 0.4 };
 function dashCurve() {
   return (s) => {
     const x = lerp(DASH.xL, DASH.xR, s), q = x / DASH.w;
@@ -359,7 +361,7 @@ const bandPanel = (K, x, v, lift = 0.005) => bandFrame(dashCurve(), DASH.lean).a
 
 // ── ⚠ EVERY CONTROL IN ONE FORWARD VIEW ──────────────────────────────────────
 // Every key the sim has a circuit for is a glass key along the band's lower row, with the flap gate
-// and the trim strip beside them, so a forward look shows each and its state. The sidestick, the
+// and the trim strip beside them, so a forward look shows each and its state. The stick, the
 // thrust lever and the pedals sit low, so each is mirrored in the windscreen HUD (`windscreenHud`).
 const BTN = { ids: ['master', 'land', 'panel', 'dome', 'flaps'], names: { master: 'PWR', land: 'LAND', panel: 'PANEL', dome: 'CABIN', flaps: 'FLAP' } };
 const KEY_V = 0.082, KEY_X = [-0.3, -0.23, -0.16, -0.09, -0.02];
@@ -445,7 +447,7 @@ export function mf76Fit(P, live, push) {
   // The tub's light lines carry the alert: blue-teal, amber on low charge, red and breathing on a
   // hull or stall warning.
   const warn = lit && (R.hull < 0.3 || R.stall), caution = lit && R.fuel < 0.15;
-  const al = alertLight(caution, warn), lineK = (k) => (lit ? k * al.k : 0.05);
+  const al = alertLight(caution, warn, T.line), lineK = (k) => (lit ? k * al.k : 0.05);
 
   // ── THE DASH: a wing swept along the band's curve, thinning toward the sills ──
   const curve = dashCurve();
@@ -585,9 +587,10 @@ export function mf76Fit(P, live, push) {
   K.obox(mul(add(lv.end, gripEnd), 0.5), [1, 0, 0], lv.dir, norm(cross([1, 0, 0], lv.dir)), 0.02, 0.032, 0.017, 'dash', 0.1, T.carbon);
   K.obox(add(gripEnd, mul(lv.dir, 0.002)), [1, 0, 0], norm(cross([1, 0, 0], lv.dir)), lv.dir, 0.016, 0.011, 0.003, 'dash', 0.3, T.glow, lit ? 0.4 + R.thr * 0.4 + lvNear * 0.2 : 0);
 
-  // ── THE SIDESTICK on the right console ──
+  // ── THE STICK, on a column ahead of the pilot ──
   const st = stickAt(P, R), stNear = eased('mf76:near:yoke', live && (live.hover === 'yoke' || live.press === 'yoke') ? 1 : 0, 12);
   const arm = st.base;
+  stickColumn(K, arm, zF, T.tub, T.metal);
   K.rod(add(arm, [0, 0, -0.01]), add(arm, [0, 0, 0.012]), 0.032, 'dash', 0.1, T.tub, 0, 14);
   K.torus(add(arm, [0, 0, 0.012]), [1, 0, 0], [0, 1, 0], 0.033, 0.004, 18, 'dash', 0.2, al.rgb, lit ? 0.6 + 0.4 * stNear : 0);
   K.rod(add(arm, [0, 0, 0.012]), add(arm, mul(st.dir, 0.035)), 0.02, 'dash', -0.1, T.tub, 0, 10);

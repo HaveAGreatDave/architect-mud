@@ -49,6 +49,22 @@ function schoolsFor(sx, sy, R, env, habitat, thinned) {
   return c.schools;
 }
 
+/**
+ * A fish that's noticed the lure leaves its school and swims to it. `to` is { x, y, depth, k }, with
+ * x and y in fish.js's frame and `k` a Map of 'schoolId:i' to 0..1, how far it's come. The server only
+ * says who's following and who took it (`follow`, `bite`); this is what that looks like, for the
+ * shadows and the sounder alike.
+ */
+export function lureFish(f, key, to) {
+  const k = to.k.get(key);
+  if (!k) return f;
+  const dx = to.x - f.x, dy = to.y - f.y;
+  f.x += dx * k; f.y += dy * k;
+  f.depth += (to.depth - f.depth) * k;
+  if (k < 0.98 && (dx || dy)) f.heading = Math.atan2(dy, dx);
+  return f;
+}
+
 /** Forget the kept schools (a new land mask, or the smoke starting a fresh case). */
 export function resetShadowScene() { cache.habitat = null; cache.schools = []; }
 
@@ -91,6 +107,7 @@ export function eachShadow(q, fn) {
     const st = schoolState(s, q.now, q.env);
     for (let i = 0; i < s.n; i++) {
       const f = schoolFish(s, i, q.now, q.env, st);
+      if (q.lureTo) lureFish(f, s.id + ':' + i, q.lureTo);
       const dist = Math.hypot(f.x - sx, f.y - sy);
       if (dist > R) continue;
       const a = lightOn(dist, day, q.lamp) * (1 - smooth(R - EDGE, R, dist)) * s.fade;

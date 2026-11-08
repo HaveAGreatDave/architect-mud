@@ -53,7 +53,7 @@ function makeEl(tag = 'div') {
     remove() { if (this.parentNode) { const p = this.parentNode; p.children = p.children.filter((x) => x !== this); this.parentNode = null; } },
     querySelector(sel) { if (!kids.has(sel)) kids.set(sel, makeEl()); return kids.get(sel); },
     querySelectorAll(sel) {
-      if (!lists.has(sel)) lists.set(sel, sel === '.bf-ring' ? [makeEl('span'), makeEl('span'), makeEl('span'), makeEl('span')] : []);
+      if (!lists.has(sel)) lists.set(sel, []);
       return lists.get(sel);
     },
   };
@@ -104,7 +104,7 @@ check('open: the HUD mounts in the seat\'s host', host.children.length === 1 && 
 check('open: castM, skill and the anchor in the state', st().castM === 25 && st().skill === 4 && st().ax === 900 && st().ay === 901);
 check('open: serverNow is our clock plus the skew', BF.serverNow() === T + SKEW, `${BF.serverNow() - T}`);
 check('open: the state has every field the seat reads',
-  ['phase', 'bearing', 'lineM', 'lx', 'ly', 'depthM', 'lean', 'pull', 'tension', 'stamina', 'beat', 'follow', 'catch'].every((k) => k in st()));
+  ['phase', 'bearing', 'lineM', 'lx', 'ly', 'depthM', 'lean', 'pull', 'tension', 'stamina', 'pose', 'mode', 'wind', 'net', 'fish', 'follow', 'catch'].every((k) => k in st()));
 check('ready on the seat: Space is the seat\'s aim, not ours', key('Space', true) === false && key('Space', false) === false);
 check('ready on the seat: A and D are the seat\'s', key('KeyA', true) === false && key('ArrowRight', true) === false);
 
@@ -147,94 +147,135 @@ check('reeled: the line winds in by itself', st().phase === 'reeling');
 advance(4000);
 check('…and comes back to ready', st().phase === 'ready' && st().lineM === 0 && st().follow.length === 0, st().phase);
 
-// ── the bite ─────────────────────────────────────────────────────────────────────────────────────
-BF.boatFishCast(0, 18); msg('lure', { lx: 900, ly: 898, lineM: 18, depthM: 0 });
-const N = 3, times = R.beatTimes(N);
-const biteAt = BF.serverNow() + 40;
-msg('bite', { school: '225_224_0', i: 3, species: 'irontooth_bass', beats: N, biteAt });
-check('bite: the beat the seat reads is beatTimes(n)[0] after biteAt',
-  st().phase === 'bite' && st().beat?.i === 0 && st().beat?.n === N && st().beat?.nextAtServerMs === biteAt + times[0], JSON.stringify(st().beat));
-const rings = host.children[0].querySelectorAll('.bf-ring');
-const knocks = () => played.filter((p) => p === 'boatfish-knock').length;
-const k0 = knocks();
-// Up to just before the first knock: no knock yet, and the ring is still closing.
-advance(biteAt + times[0] - BF.serverNow() - 30, 10);
-check('no knock before its beat', knocks() === k0, `${knocks() - k0}`);
-const scaleOf = (el) => Number(/scale\(([\d.]+)\)/.exec(el.style.transform || '')?.[1]);
-check('…and its ring is still closing on the mark', scaleOf(rings[0]) > 1.02, rings[0].style.transform);
-check('an early tap nowhere near a knock counts for nothing', (() => {
-  const before = sent.length; T -= 1000; tap(); T += 1000; return sent.length === before;
-})());
-advance(40, 10);
-check('the knock sounds on its beat', knocks() === k0 + 1, `${knocks() - k0}`);
-check('…and its ring meets the mark', Math.abs(scaleOf(rings[0]) - 1) < 0.02, rings[0].style.transform);
-check('…and the later beats\' rings are further out', scaleOf(rings[1]) > scaleOf(rings[0]) || Number(rings[1].style.opacity) === 0);
+// ── the take ─────────────────────────────────────────────────────────────────────────────────────
+// A fixed script, so the test says exactly when the float moves.
+const SCRIPT = { kind: 'slide', nibbles: [{ at: 900, size: 0.5 }, { at: 1700, size: 0.4 }], takeAt: 2600, windowMs: 900, sweetAt: 2900 };
+const bite = (script = SCRIPT, species = 'carp') => {
+  BF.boatFishCast(0, 18); msg('lure', { lx: 900, ly: 898, lineM: 18, depthM: 0 });
+  const at = BF.serverNow();
+  msg('bite', { school: '225_224_0', i: 3, species, script, biteAt: at });
+  return at;
+};
+const nibbles = () => played.filter((p) => p === 'boatfish-nibble').length;
+const n1 = nibbles();
+let biteAt = bite();
+check('bite: the state carries the fish and the float\'s pose', st().phase === 'bite' && st().fish?.school === '225_224_0' && st().fish?.i === 3 && st().pose?.dip === 0, JSON.stringify(st().pose));
+const sAtBite = sent.length;
+tap();
+check('a tap as the bite arrives is the last twitch, not a strike', sent.length === sAtBite, last());
+advance(SCRIPT.nibbles[0].at + R.NIBBLE_MS / 2);
+check('a nibble moves the float and makes a sound', st().pose.dip > 0.3 && nibbles() === n1 + 1, `${st().pose?.dip} ${nibbles() - n1}`);
+check('…but it hasn\'t gone', st().pose.under === false);
+advance(SCRIPT.takeAt - (BF.serverNow() - biteAt) + 500);
+check('the take: the float goes under', st().pose.under === true && st().pose.dip > 0.9, JSON.stringify(st().pose));
+check('every nibble sounded once, and the take with it', nibbles() === n1 + 2 && played.includes('boatfish-take'));
 const hit0 = BF.serverNow();
 tap();
-check('a hit on time sends fishstrike 0 <serverMs> <token>', last() === `fishstrike 0 ${Math.round(hit0)} ${TOK}`, last());
-check('…stamped in server time, on the beat', R.onBeat(hit0 - biteAt, 0, N), `${hit0 - biteAt} vs ${times[0]}`);
-check('…and the next beat is up', st().beat.i === 1 && st().beat.nextAtServerMs === biteAt + times[1]);
-for (const b of [1, 2]) {
-  advance(biteAt + times[b] - BF.serverNow() + 15, 10);
-  const h = BF.serverNow(); tap();
-  check(`beat ${b} hit on time sends fishstrike ${b}`, last() === `fishstrike ${b} ${Math.round(h)} ${TOK}` && R.onBeat(h - biteAt, b, N), last());
+check('a strike sends fishstrike <serverMs> <token>', last() === `fishstrike ${Math.round(hit0)} ${TOK}`, last());
+check('…stamped in server time, inside the window', R.judgeStrike(hit0 - biteAt, SCRIPT).ok, `${hit0 - biteAt}`);
+const s1 = sent.length;
+tap();
+check('one strike: a second press sends nothing', sent.length === s1, last());
+
+// The rules that judge it, here because the client draws them.
+check('judge: on a nibble is early', R.judgeStrike(SCRIPT.nibbles[0].at + 50, SCRIPT).why === 'early');
+check('judge: past the window is late', R.judgeStrike(SCRIPT.takeAt + SCRIPT.windowMs + 1, SCRIPT).why === 'late');
+check('judge: the sweet spot is the best set', R.judgeStrike(SCRIPT.sweetAt, SCRIPT).set === 1, JSON.stringify(R.judgeStrike(SCRIPT.sweetAt, SCRIPT)));
+check('judge: the edge of the window is a poorer set', R.judgeStrike(SCRIPT.takeAt + SCRIPT.windowMs, SCRIPT).set < 0.5);
+{
+  const a = R.takeScript(4242, 'carp', 2), b = R.takeScript(4242, 'carp', 2);
+  check('takeScript is a pure function of its seed', JSON.stringify(a) === JSON.stringify(b));
+  const kinds = new Set(Object.keys(R.TAKES).map((f) => R.TAKES[f].kind));
+  check('there are four ways to take a lure', kinds.size === 4, [...kinds].join());
+  check('a bigger fish gives you less time', R.takeScript(1, 'coldwater_sturgeon', 25).windowMs < R.takeScript(1, 'coldwater_sturgeon', 8).windowMs);
+  check('a sturgeon lifts the float', (() => { const S = R.takeScript(9, 'coldwater_sturgeon', 12), p = R.floatPose(S, S.takeAt + 400); return p.lift > 0.5 && p.tilt > 1; })());
 }
-check('every knock sounded once', knocks() === k0 + N, `${knocks() - k0}`);
 
 // ── the fight ────────────────────────────────────────────────────────────────────────────────────
-const fight1 = { species: 'irontooth_bass', name: 'irontooth bass', kg: 2.6, difficulty: 6, fight: 'jumper', lineM: 15, skill: 4 };
+const fight1 = { species: 'irontooth_bass', name: 'irontooth bass', kg: 2.6, difficulty: 6, fight: 'jumper', lineM: 15, skill: 4, set: 0.8 };
 msg('fight', fight1);
 check('fight: on the line, at the board\'s figures', st().phase === 'fight' && st().stamina === 1 && st().tension === R.fightBoard(fight1).tension && st().lineM === 15);
-check('fight: the catch is in the state', st().catch?.species === 'irontooth_bass' && st().catch?.kg === 2.6);
+check('fight: the catch is in the state', st().catch?.species === 'irontooth_bass' && st().catch?.kg === 2.6 && st().set === 0.8);
 // Lean against the pull (correct) or with it (wrong), checking the side every frame since it switches.
 let heldCode = null;
-const lean = (correct, ms) => {
+const lean = (correct, ms, wind = true) => {
+  if (wind) key('Space', true);
   for (let left = ms; left > 0 && st()?.phase === 'fight'; left -= 16) {
     const side = Math.sign(st().pull) || 1;
     const want = (correct ? -side : side) < 0 ? 'KeyA' : 'KeyD';
     if (heldCode !== want) { if (heldCode) key(heldCode, false); key(want, true); heldCode = want; }
+    // A careful angler lets it run.
+    if (correct && wind) key('Space', st().mode !== 'run' && st().mode !== 'jump' && st().tension < 0.85);
     advance(16);
   }
   if (heldCode) { key(heldCode, false); heldCode = null; }
+  if (st()?.phase === 'fight') key('Space', false);
 };
 advance(200);   // the pull builds from nothing
 check('fight: the fish pulls to one side', Math.abs(st().pull) > 0.1, `${st().pull}`);
-const s0 = st().stamina, t0 = st().tension;
-lean(true, 1200);
-check('leaning against it drains its stamina', st().stamina < s0 - 0.03, `${s0} -> ${st().stamina}`);
-check('…and eases the tension', st().tension < t0, `${t0} -> ${st().tension}`);
+const s0 = st().stamina;
+lean(true, 1500);
+check('leaning against it drains its stamina', st().stamina < s0 - 0.02, `${s0} -> ${st().stamina}`);
+check('fight: holding Space winds the reel', (key('Space', true), st().wind === true) && (key('Space', false), st().wind === false));
 check('fight: A, D and the arrows are ours', key('ArrowLeft', true) === true && key('ArrowLeft', false) === true && key('KeyD', true) === true && key('KeyD', false) === true);
 check('fight: other keys are not', key('KeyW', true) === false && key('KeyR', true) === false && key('Escape', true) === false && key('KeyA', true, { ctrlKey: true }) === false);
-const t1 = st().tension, l1 = st().lineM;
-lean(false, 800);
-check('leaning with it builds tension', st().phase !== 'fight' || st().tension > t1 + 0.05, `${t1} -> ${st().tension}`);
-check('…and loses line', st().phase !== 'fight' || st().lineM > l1, `${l1} -> ${st().lineM}`);
 const before = sent.length;
 lean(false, 20000);
-check('tension at 1 snaps the line: fishresolve boat 0', sent.slice(before).includes(`fishresolve boat 0 ${TOK}`), sent.slice(before).join(' | '));
+check('leaning with it and winding snaps the line: fishresolve boat 0', sent.slice(before).includes(`fishresolve boat 0 ${TOK}`), sent.slice(before).join(' | '));
 check('…once', sent.slice(before).filter((c) => c.startsWith('fishresolve')).length === 1);
 msg('lost', { snapped: false });
 check('lost: back to ready, with a card', st().phase === 'ready' && host.children[0].dataset.card === '1');
 check('…in plain words', host.children[0].querySelector('[data-r="ctitle"]').textContent === 'The line broke and it got away.',
   host.children[0].querySelector('[data-r="ctitle"]').textContent);
 
+// The rules' four moods, straight, with no HUD in the way.
+{
+  const b = R.fightBoard({ kg: 3, difficulty: 6, fight: 'runner', skill: 4, lineM: 20, set: 0.3 });
+  const F = R.fightState(b, () => 0.5);
+  F.runLeft = 2000; F.runAge = 700;
+  let end = null;
+  for (let i = 0; i < 300 && !end; i++) { F.runLeft = 2000; F.side = 1; end = R.stepFight(F, b, { lean: -1, wind: true }, 1 / 60, () => 0.5); }
+  check('winding through a run snaps the line', end === 'snap', String(end));
+  const G = R.fightState(b, () => 0.5);
+  end = null;
+  for (let i = 0; i < 600 && !end; i++) { G.chargeLeft = 2000; G.runIn = 1e9; G.jumpIn = 1e9; end = R.stepFight(G, b, { lean: 0, wind: false }, 1 / 60, () => 0.5); }
+  check('not winding when it swims at you lets the hook drop out', end === 'thrown', String(end));
+  const Hs = R.fightBoard({ kg: 3, difficulty: 6, fight: 'runner', skill: 4, lineM: 20, set: 1 });
+  check('a solid hook holds on slack line longer than a lip hook', Hs.slackHoldMs > b.slackHoldMs + 300);
+  const H = R.fightState(b, () => 0.5);
+  H.stamina = 0; H.lineM = R.LAND_M + 1;
+  end = null;
+  for (let i = 0; i < 600 && !end; i++) end = R.stepFight(H, b, { lean: 0, wind: true }, 1 / 60, () => 0.5);
+  check('a spent fish wound inside LAND_M is ready for the net', end === 'tired', String(end));
+}
+
 // ── a landing ────────────────────────────────────────────────────────────────────────────────────
-BF.boatFishCast(-15, 12); msg('lure', { lx: 899, ly: 899, lineM: 12, depthM: 0 });
-const bite2 = BF.serverNow();
-msg('bite', { species: 'lamp_herring', beats: 1, biteAt: bite2 });
-advance(bite2 + R.beatTimes(1)[0] - BF.serverNow(), 10);
-tap();
-const fight2 = { species: 'lamp_herring', name: 'lamp herring', kg: 0.28, difficulty: 2, fight: 'steady', lineM: 10, skill: 9 };
+const smallBite = () => {
+  const S = { kind: 'slam', nibbles: [], takeAt: 900, windowMs: 600, sweetAt: 1050 };
+  bite(S, 'lamp_herring');
+  advance(1000, 10);
+  tap();
+};
+smallBite();
+const fight2 = { species: 'lamp_herring', name: 'lamp herring', kg: 0.28, difficulty: 2, fight: 'steady', lineM: 10, skill: 9, set: 0.9 };
 msg('fight', fight2);
 const fightAt = T;
-const b4 = sent.length;
 lean(true, 60000);
-let guard = 0;
-while (st()?.phase === 'reeling' && !sent.slice(b4).some((c) => c.startsWith('fishresolve')) && guard++ < 1000) advance(16);
-const res = sent.slice(b4).filter((c) => c.startsWith('fishresolve'));
-check('tired and inside LAND_M, it winds in and resolves 1', res.length === 1 && res[0] === `fishresolve boat 1 ${TOK}`, res.join(' | ') || st()?.phase);
+check('tired and inside LAND_M, it comes alongside for the net', st().phase === 'net', st()?.phase);
+const b4 = sent.length;
+const netPlayed = () => played.filter((p) => p === 'boatfish-net').length;
+// Press Space when the fish is well outside the net's window: it kicks off the rim.
+const swingTo = (test) => { for (let i = 0; i < 4000 && st()?.phase === 'net'; i++) { advance(16); if (test(Math.abs(st().net))) return true; } return false; };
+advance(1200);
+check('a miss at the net sends it off for another short run', swingTo((p) => p > 0.8) && (tap(), st().phase === 'fight' && st().lineM > R.LAND_M), st()?.phase);
+lean(true, 60000);
+check('…and it comes back', st().phase === 'net', st()?.phase);
+const nets0 = netPlayed();
+advance(1200);
+check('timed right, the net takes it: fishresolve boat 1', swingTo((p) => p < 0.05) && (tap(), sent.slice(b4).includes(`fishresolve boat 1 ${TOK}`)), sent.slice(b4).join(' | ') || st()?.phase);
+check('…with a sound', netPlayed() === nets0 + 1);
 check('…never sooner than minFightMs', T - fightAt >= R.minFightMs(fight2), `${T - fightAt} < ${R.minFightMs(fight2)}`);
-check('…with the line in', st().lineM < 0.01, `${st().lineM}`);
+advance(800);
 msg('landed', { species: 'lamp_herring', name: 'lamp herring', kg: 0.28, holdKg: 3.78, holdCap: 40 });
 const ct = host.children[0].querySelector('[data-r="ctitle"]').textContent, cb = host.children[0].querySelector('[data-r="cbody"]').textContent;
 check('landed: the card names it and weighs it to two places', st().phase === 'landed' && ct === 'Lamp herring, 0.28 kg.', ct);
@@ -244,16 +285,17 @@ check('landed: the catch splashes into the box', played.includes('boatfish-splas
 key('Space', true); key('Space', false);
 check('Space after the card is ready again', st().phase === 'ready' && st().catch === null, st().phase);
 
-// ── a missed knock ───────────────────────────────────────────────────────────────────────────────
-BF.boatFishCast(5, 15); msg('lure', { lineM: 15, depthM: 0 });
-const bite3 = BF.serverNow();
-msg('bite', { species: 'carp', beats: 2, biteAt: bite3 });
+// ── a strike at the wrong moment ─────────────────────────────────────────────────────────────────
+biteAt = bite();
+advance(1000);
 const s3 = sent.length;
-advance(R.beatTimes(2)[0] + R.BEAT_WINDOW_MS + R.LATENCY_SLACK_MS + 100, 10);
-check('a knock let go by sends nothing', sent.length === s3);
-check('…and the beat is past', st().beat.nextAtServerMs === null);
-msg('spat', { reason: 'missed' });
-check('spat: back to ready', st().phase === 'ready');
+tap();
+check('a strike on a nibble goes to the server', sent.length === s3 + 1 && last().startsWith('fishstrike '), last());
+msg('spat', { reason: 'early', lx: 900.1, ly: 898.2, lineM: 16, depthM: 1 });
+check('spat: the lure\'s still out, with less line', st().phase === 'wait' && st().lineM === 16, st().phase);
+check('…and the card says what happened', host.children[0].querySelector('[data-r="ctitle"]').textContent === 'Too soon.');
+msg('reeled');
+advance(4000);
 
 // ── the overlay, when the seat goes ──────────────────────────────────────────────────────────────
 BF.detachBoatFishHost();
@@ -269,7 +311,7 @@ check('nothing sent a stand on a server close', !sent.includes('stand'));
 
 // ── the cues ─────────────────────────────────────────────────────────────────────────────────────
 // Each one is in the catalog, and renders as a finite sound under 0 dBFS that isn't silent.
-const CUES = ['boatfish-cast', 'boatfish-plop', 'boatfish-plip', 'boatfish-knock', 'boatfish-click', 'boatfish-zing', 'boatfish-snap', 'boatfish-splash'];
+const CUES = ['boatfish-cast', 'boatfish-plop', 'boatfish-plip', 'boatfish-nibble', 'boatfish-take', 'boatfish-strike', 'boatfish-click', 'boatfish-drag', 'boatfish-jump', 'boatfish-zing', 'boatfish-snap', 'boatfish-net', 'boatfish-splash'];
 {
   const g = {};
   new Function('globalThis', 'window', readFileSync(join(ROOT, 'client/shared/sfx-catalog.js'), 'utf8'))(g, g);

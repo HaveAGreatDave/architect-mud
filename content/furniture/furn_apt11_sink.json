@@ -1,7 +1,11 @@
 {
   "description": "A wall sink that coughs rust for a full minute before the water runs anything like clear. The enamel is worn through to black at the drain.",
   "flags": {
-    "interactions": []
+    "interactions": [],
+    "look": {
+      "arche": "sink",
+      "form": "kitchen"
+    }
   },
   "hp": null,
   "hp_max": null,

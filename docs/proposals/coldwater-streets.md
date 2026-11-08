@@ -34,12 +34,19 @@ dirt of Old Coldwater, and four bridges stack over the street by class.
 - **The dirt is the south-east corner only** (David, 2026-11-04). It goes by district, not by column: a
   road in one of the gradient's `dirt_districts` is dirt, and Coldwater's list is `slum`. The east side
   north of Old Coldwater stays unmaintained, however far east it runs.
+- **The streets along the slum are dirt too** (David, 2026-11-05). `flags.street_dirt` puts a road on the
+  dirt level whatever its column or district says. Glacier and Kessler Street carry it from 919 to 923 on
+  row 915, then 923,914 and 924 to 926 on row 913, where they run beside the run-down buildings. The Gate
+  Road and the junctions at 918,915 and 923,913 stay paved, so the way to the South Gate isn't broken up.
 - **Every paved street is grey** (David, 2026-11-05). Unmaintained keeps its damage but is dull grey steel,
   not rust, so the east side reads as the same chrome street gone to seed. Brown is the dirt's, and the
   street-kit gate fails a brown walkway, kerb or lane on any paved level.
 - **The Clone Facility's frontage stays in view** (David, 2026-11-05). `flags.no_footbridge` on a road tile
   refuses the block's footbridge, and the block goes without one. Ironside Street's 919,902 and 919,903
   carry it, in front of Second Helpings and the facility; the crossing on 919,902 stays.
+  919,908 carries it too, in front of the Meridian's door.
+- **No ride signs** (David, 2026-11-05). The ₵1 A RIDE lettering over the belts is gone at every level.
+  The gate posts and comb plates stay, and `belt` still charges ₵1 if `STREET_SYSTEMS` goes on.
 - **Prices are whole credits.** ₵1 a strip ride. Never "CR".
 - **The dirt corner is free.** Old Coldwater carries no words, so there's nowhere to post a price.
 - **No kiosk.** You come back at the clone vats, as now. David took the respawn kiosk out on 2026-11-04.
@@ -82,8 +89,8 @@ Curved, marked and building tiles take no kit, and neither does a road three or 
 road takes it only at the dirt level. That's 285 tiles: 70 core, 67 middle, 61 worn and 87 unmaintained.
 
 ⚠ **Nothing in Old Coldwater is a road.** Its lanes are `dirt` terrain and `sc` is only set on a road, so
-the dirt level has no tiles today. It's built and tested, and it's what a road painted into that
-district would get. The lanes there already look the way the ladder asks.
+the dirt level's nine tiles are the `street_dirt` streets along its edge. The lanes inside already look
+the way the ladder asks.
 
 **Where a block's parts stand** is `kitPlace`, worked out once per cell and read by both the paint and
 the people: a toll gate at each end, the crossing on the middle tile, the footbridge on the last
@@ -107,11 +114,11 @@ bridges. `__glStreetKit({ height, cz })` paints the view from the air.
 
 | Part | What it is |
 |---|---|
-| Walkway | A dark slab with chrome panels on it, two ink bands across each; one panel in sixteen is a duller inspection hatch with four bolts and a cyan pip |
+| Walkway | A dark slab with chrome panels on it, a cool band and a bright glint across each, in metal, and a lit cyan seam every third row; one panel in sixteen is a duller inspection hatch with four bolts and a cyan pip |
 | Kerb | A steel cap along the lane edge with a cyan light set into the face the lane sees, and a drain slot with grate bars in the lane at its foot |
 | Lane | Matte near-black, a cyan guide dash down the middle and an edge line inside each drain. ⚠ It stands 0.07 m up, above `ROAD_EPS`: at 0.03 m it sat under the road it covers |
 | Metered strip | A belt in a steel housing with amber lights along it, chevrons the way it runs. The belt on your right carries you forward. Near to the chevrons move, at 1.4 m/s in the core and 0.45 in the middle ring |
-| Toll gate | Two posts with amber caps either side of each strip, a hazard comb plate across the belt, ₵1 A RIDE over it on both faces |
+| Toll gate | Two posts with amber caps either side of each strip, a hazard comb plate across the belt |
 | Bollard | Octagonal, 0.95 m, on a base plate, a cyan ring near the top and a red sensor eye on the lane side; a gap of at least 5 m at the crossing |
 | Planter | A steel box on a plinth with a lit rim, a trunk and a low-poly crown, and a bench along its strip side |
 | Vent, service channel | A grate in the walkway, one in two of them steaming; dark lids along the frontage edge with a cyan status pip every 5 m |
@@ -168,9 +175,9 @@ variant of the same parts and no part has a second model.
 
 | Part | Core | Middle ring | Worn | Unmaintained | Dirt |
 |---|---|---|---|---|---|
-| Walkway | Mirror chrome, ink bands | Dulled chrome, 20% of panels mismatched patches | Steel plate, scratched, slightly lifted, 8% missing, the odd door laid in the gap | Dull grey steel, lifted, 30% missing, weeds in the holes | None: a track with ruts, puddles and worn patches |
+| Walkway | Mirror chrome, metal sheen bands | Dulled chrome, 20% of panels mismatched patches | Steel plate, scratched, slightly lifted, 8% missing, the odd door laid in the gap | Dull grey steel, lifted, 30% missing, weeds in the holes | None: a track with ruts, puddles and worn patches |
 | Lane | Lit guide | Lit guide | Dim guide | Unlit, cracked | Ruts |
-| Strip | Runs 1.4 m/s | Runs 0.45 m/s | Stopped, dim, still priced | Stopped, faded price, gate posts leaning or gone | None |
+| Strip | Runs 1.4 m/s | Runs 0.45 m/s | Stopped, dim | Stopped, gate posts leaning or gone | None |
 | Bollards | Lit | Lit | 12% gone, dim | 30% gone, 25% knocked flat, the rest leaning, unlit | None |
 | Crossing | Blinking amber | Blinking amber | Steady dim amber | Dead, poles leaning, fee faded | None |
 | Trees | Lit rim, teal crown | Lit rim | Wilted brown, smaller | Stump | None |
@@ -247,14 +254,14 @@ as before. With the kit off the follower is dropped and nothing about the people
 `scripts/shapes/street-kit.mjs` (a gate, `--report` prints what it measured) runs the kit on a fake
 sink for every tile kind at every tier and level and checks the brief's numbers: the lane, walkway and
 kerb, the 1.4 ratio, bollards every 2.5 m across tiles with one gap of at least 5 m, one crossing on
-the middle tile and one footbridge on the last, every bridge's height and its clearance, every price
-in credits, nothing outside its tile but an upper bridge, and nothing over the lane above a cab's eye
+the middle tile and one footbridge on the last, every bridge's height and its clearance, no words over
+the belts, nothing outside its tile but an upper bridge, and nothing over the lane above a cab's eye
 except a bridge and the crossing. ⚠ It carries two plain tiles for that last check: every other
 straight kind has a crossing or a bridge on it, and the check ran on none of them until a mutant showed it.
 
 Then the bridges: they land in pairs of tall enough buildings of a type with floors and nowhere else,
 one of each to a block, in order. Then the ladder: chrome stops at the middle ring, the belts run and
-stop where they should and stay priced, the share of missing panels is the brief's, the dirt has no
+stop where they should, the share of missing panels is the brief's, the dirt has no
 paving, nothing lit and no words, the bridges are the same at every level, the static pass doesn't
 move with the clock, steam stays out of the lane, and every tile has its ink. Then it walks people on
 a fake window: a frugal one goes up onto the deck, a payer takes the zebra, nobody is in the lane,
@@ -289,7 +296,7 @@ then. The verb reads `kitPlace`, so it matches what's drawn. Walking is unchange
   faces, and a frame went from 52 ms to 290 ms when they all streamed. That was the Modelshop in a hidden
   pane, so it's a ratio and not a frame time. A resident set is about 450 bytes a face, so about 40 MB of heap with
   all 285 tiles in the window, and as much again in the retained buffer.
-- The brief's per-room override of a district's condition.
+- The brief's per-room override of a street's condition, beyond `street_dirt`.
 - A blackout: the kit's lit parts stay lit on a tile with no power. The brief wants that street dark.
 - Shopfronts, towers, hologram ads, graffiti and the drone from the brief's kit table. Buildings keep
   their own models. The cables stay out under the "infrastructure, not clutter" decision.

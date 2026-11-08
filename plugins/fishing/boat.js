@@ -4,10 +4,10 @@
 // index.js (posture 'fishing', stateKey `fishState`), with `fishState.mode = 'boat'`, because
 // registerActivity allows one registration per posture. The rules are client/shared/boatfish-rules.js
 // and the fish are client/shared/fish.js; both are pure, and the seat runs the same arithmetic, so the
-// beat the client draws is the beat judged here and the shadow it casts at is the fish that bites.
+// take the client draws is the take judged here and the shadow it casts at is the fish that bites.
 //
-// The loop: cast from the anchor point, twitch the lure in, strike on the beats, fight, land into
-// the fish box (`boat_hold`, plugins/powerboat/hold.js). One message type goes out, `boatfish`, with
+// The loop: cast from the anchor point, twitch the lure in, read the float and strike when the fish
+// takes, fight, land into the fish box (`boat_hold`, plugins/powerboat/hold.js). One message type goes out, `boatfish`, with
 // a `phase`.
 //
 // ⚠ THE ANCHOR POINT IS THE ORIGIN, NEVER THE REPORTED POSITION. The lure is worked out from
@@ -34,7 +34,7 @@ import { resolveInventoryItem } from '../../server/engine/inventory.js';
 import { seaEnv, dayOfYear, taken, thinnedNow as seaThinned, takeFrom as seaTake } from './sea.js';
 import {
   TWITCH_M, TWITCH_LIFT_M, TWITCH_MIN_MS, REEL_IN_M, SINK_MPS, CAST_MIN_M, NOTICE_M, BITE_AT,
-  interestGain, decayInterest, BEAT_WINDOW_MS, LATENCY_SLACK_MS, beatCount, beatTimes, onBeat, minFightMs,
+  interestGain, decayInterest, LATENCY_SLACK_MS, takeScript, judgeStrike, setWords, minFightMs,
 } from '../../client/shared/boatfish-rules.js';
 import { SPECIES, habitatFor, fishNear, keenness, fishKg } from '../../client/shared/fish.js';
 import { SEA_TILE_M } from '../../client/shared/sea-swell.js';
@@ -51,6 +51,7 @@ const CAST_DEFAULT_M = 25;     // a rod without `cast_m` on its tags reaches thi
 const SPOOK_MS = 20000;        // a missed strike scares the school off the lure this long
 const FOLLOW_AT = 0.15;        // interest at which a fish shows as following the lure
 const FLOOR_GAP_M = 0.2;       // the lure stops this far above the bottom
+const STRIKE_YANK_M = 2;       // a strike at nothing pulls the lure this far back through the water
 const STOW = 'You reel in and stow the rod.';
 
 // A hull with rod holders (`rodHolders` in flight-model.js) comes with rods in them. They aren't
@@ -236,8 +237,8 @@ export function boatTick(player, st) {
   if (endReason(player.id, st)) { endBoatFishing(player); return; }
   if (st.phase === 'line') settle(st, t);
   if (st.phase === 'bite' && st.bite) {
-    const b = st.bite, times = beatTimes(b.beats);
-    if (t - b.biteAt > times[b.hit] + BEAT_WINDOW_MS + LATENCY_SLACK_MS * 2) spit(player, st, 'late', t);
+    const b = st.bite, S = b.script;
+    if (t - b.biteAt > S.takeAt + S.windowMs + LATENCY_SLACK_MS * 2) spit(player, st, 'late', t);
   }
 }
 
@@ -304,16 +305,18 @@ export async function boatTwitch(player, token, { typed = false, reel = false } 
 async function bite(player, st, fish, t, typed) {
   const s = fish.school, sp = SPECIES[s.sp];
   const kg = fishKg(s, fish.i);
-  const beats = beatCount(kg, sp.difficulty);
+  // What it'll do to the float. Made here and sent whole, so the strike is judged against the same
+  // object the client draws. Not a secret worth keeping: the client plays the fight too.
+  const script = takeScript(Math.floor(Math.random() * 2 ** 31), s.sp, kg);
   st.phase = 'bite';
-  st.bite = { schoolId: s.id, i: fish.i, sp: s.sp, kg, difficulty: sp.difficulty, beats, biteAt: t, hit: 0,
+  st.bite = { schoolId: s.id, i: fish.i, sp: s.sp, kg, difficulty: sp.difficulty, script, biteAt: t, set: 0,
     x: fish.x - 0.5, y: fish.y - 0.5, depth: fish.depth };
-  send(player.id, 'bite', { token: st.token, school: s.id, i: fish.i, species: s.sp, beats, biteAt: t });
+  send(player.id, 'bite', { token: st.token, school: s.id, i: fish.i, species: s.sp, script, biteAt: t });
   // ⚠ THE TEXT AND LOG RUNGS HAVE NO FLOAT TO WATCH. One fishing check against the fish settles
   // the strike and the fight together, as settleLogBite does on the shore; the landing is the
   // same code every rung runs.
   if (st.textRung) return settleBoatBite(player, st);
-  return typed ? { type: 'emote', message: 'The float knocks. <b>fish strike</b>!' } : noop;
+  return typed ? { type: 'emote', message: "Something's at the lure. Wait until the float goes, then <b>fish strike</b>." } : noop;
 }
 
 /** The log rung's bite, strike and fight in one check. */
@@ -326,14 +329,27 @@ export async function settleBoatBite(player, st = boatState(player)) {
   return boatResolve(player, won ? '1' : '0', st.token);
 }
 
+// The fish has gone and the lure is still in the water, so you fish on. A strike at nothing pulls
+// the lure back through the water, so an early one costs line as well as the fish.
 function spit(player, st, reason, t = now()) {
-  const b = st.bite;
+  const b = st.bite, L = st.lure;
   if (b) st.spooked[b.schoolId] = t + SPOOK_MS;
-  st.phase = 'aim'; st.bite = null; st.lure = null; st.interest = {};
-  send(player.id, 'spat', { token: st.token, reason });
-  out(player.id, reason === 'miss'
-    ? 'Wrong moment. It spits the hook and the shadows scatter.'
-    : 'Too slow. It spits the hook.');
+  st.bite = null; st.interest = {}; st.lastTapAt = null;
+  if (reason === 'early' && L) {
+    const a = st.anchor, dx = a.x - L.x, dy = a.y - L.y, d = Math.hypot(dx, dy), step = Math.min(d, STRIKE_YANK_M / SEA_TILE_M);
+    if (d > 0) { L.x += (dx / d) * step; L.y += (dy / d) * step; }
+    L.lineM = Math.max(0, L.lineM - STRIKE_YANK_M);
+    L.depth = Math.max(0, L.depth - TWITCH_LIFT_M * 2);
+  }
+  out(player.id, reason === 'early' ? "Too soon. You pull it out of its mouth and it's gone." : "Too slow. It drops the lure and it's gone.");
+  if (!L || L.lineM <= REEL_IN_M) {
+    st.phase = 'aim'; st.lure = null;
+    send(player.id, 'spat', { token: st.token, reason, reeled: true });
+    return;
+  }
+  L.at = t;
+  st.phase = 'line';
+  send(player.id, 'spat', { token: st.token, reason, lx: +L.x.toFixed(3), ly: +L.y.toFixed(3), lineM: r2(L.lineM), depthM: r2(L.depth) });
 }
 
 function startFight(player, st, t, { settled = false } = {}) {
@@ -343,29 +359,27 @@ function startFight(player, st, t, { settled = false } = {}) {
   st.fight = { ...b, lineM, startAt: t, settled };
   if (!settled) {
     send(player.id, 'fight', { token: st.token, species: b.sp, name: sp.name, kg: b.kg, difficulty: b.difficulty,
-      fight: sp.fight, lineM: r2(lineM), skill: st.skill });
+      fight: sp.fight, lineM: r2(lineM), skill: st.skill, set: b.set });
   }
 }
 
-/** `fishstrike <beat> <hitServerMs> <token>`: one beat hit, in server time. */
-export function boatStrike(player, beatArg, hitArg, token, { typed = false } = {}) {
+/** `fishstrike <hitServerMs> <token>`: the strike, in server time. One, and it's judged. */
+export function boatStrike(player, hitArg, token, { typed = false } = {}) {
   const st = boatState(player);
   if (!st || st.token !== token || st.phase !== 'bite' || !st.bite) return typed ? { type: 'emote', message: "Nothing's on." } : noop;
-  const t = now(), b = st.bite, times = beatTimes(b.beats);
-  const i = Number(beatArg), hit = Number(hitArg) - b.biteAt, arrive = t - b.biteAt;
-  if (!Number.isInteger(i) || i !== b.hit) { spit(player, st, 'miss', t); return noop; }
-  // Late: the beat's window has closed by the time the strike arrives, whatever time it claims.
-  if (arrive > times[i] + BEAT_WINDOW_MS + LATENCY_SLACK_MS * 2) { spit(player, st, 'late', t); return noop; }
+  const t = now(), b = st.bite, S = b.script;
+  const hit = Number(hitArg) - b.biteAt, arrive = t - b.biteAt;
+  // Late: the window has closed by the time the strike arrives, whatever time it claims.
+  if (arrive > S.takeAt + S.windowMs + LATENCY_SLACK_MS * 2) { spit(player, st, 'late', t); return noop; }
   // A hit can't claim a moment that hasn't happened yet.
-  if (!Number.isFinite(hit) || hit > arrive + LATENCY_SLACK_MS || !onBeat(hit, i, b.beats, LATENCY_SLACK_MS)) {
-    spit(player, st, 'miss', t); return noop;
-  }
-  b.hit += 1;
-  if (b.hit >= b.beats) {
-    startFight(player, st, t);
-    return typed ? { type: 'emote', message: `It's on. ${SPECIES[b.sp].name[0].toUpperCase()}${SPECIES[b.sp].name.slice(1)}, by the way it pulls.` } : noop;
-  }
-  return noop;
+  const when = Number.isFinite(hit) && hit <= arrive + LATENCY_SLACK_MS ? hit : -Infinity;
+  const j = judgeStrike(when, S, LATENCY_SLACK_MS);
+  if (!j.ok) { spit(player, st, j.why, t); return noop; }
+  b.set = j.set;
+  startFight(player, st, t);
+  if (!typed) return noop;
+  const nm = SPECIES[b.sp].name;
+  return { type: 'emote', message: `${setWords(j.set) === 'lip' ? "It's on, but only just." : "It's on."} ${nm[0].toUpperCase()}${nm.slice(1)}, by the way it pulls.` };
 }
 
 // ── LANDING ───────────────────────────────────────────────────────────────────
@@ -436,14 +450,36 @@ export async function boatResolve(player, wonArg, token) {
 
 // ── TYPED ─────────────────────────────────────────────────────────────────────
 
-/** `fish …` while the boat reel is open: a cast, a twitch or a strike. Null when it's none. */
+// The sonar in words, for the rungs with no screen and anyone who'd rather read it: the depth under
+// her and the nearest marks. It reads the sim straight, as the seat's screen does, so it works after
+// dark, when `look water` can't. It doesn't name a fish: a sonar doesn't know what it's looking at.
+function boatSonarText(player, st) {
+  if (!(Number(TYPES[st.typeId]?.sonar) > 0)) return { type: 'emote', message: 'She has no sounder.' };
+  const a = st.anchor, t = now();
+  const under = Math.round(floorAt(a.x, a.y));
+  const marks = fishNear(a.x + 0.5, a.y + 0.5, 70 / SEA_TILE_M, t, st.env, habitat(), st.thinned);
+  if (!marks.length) return { type: 'emote', message: `The sounder gives ${numberWords(under)} metres under her and nothing on the screen.` };
+  const seen = new Set(), lines = [], head = headingOf(player.id);
+  for (const f of marks) {
+    if (seen.has(f.school.id)) continue;
+    seen.add(f.school.id);
+    const b = ((Math.atan2(f.x - 0.5 - a.x, -(f.y - 0.5 - a.y)) / D2R - head + 540) % 360) - 180;
+    const size = f.school.n > 6 ? 'A big cloud of marks' : f.school.n > 1 ? 'A few marks' : f.kg > 5 ? 'One heavy mark' : 'One mark';
+    lines.push(`${size} ${numberWords(Math.round(f.dist * SEA_TILE_M))} metres ${sideWords(b)}, ${numberWords(Math.round(f.depth))} down.`);
+    if (lines.length >= 3) break;
+  }
+  return { type: 'emote', message: `The sounder gives ${numberWords(under)} metres under her. ${lines.join(' ')}` };
+}
+
+/** `fish …` while the boat reel is open: a cast, a twitch, a strike or the sonar. Null when it's none. */
 export async function boatTyped(args, player) {
   const st = boatState(player);
   if (!st) return null;
   const w = String(args[0] || '').toLowerCase();
   if (w === 'twitch' || w === 'tap') return boatTwitch(player, st.token, { typed: true });
   if (w === 'reel') return boatTwitch(player, st.token, { typed: true, reel: true });
-  if (w === 'strike') return boatStrike(player, st.bite?.hit ?? 0, now(), st.token, { typed: true });
+  if (w === 'strike') return boatStrike(player, now(), st.token, { typed: true });
+  if (w === 'sonar') return boatSonarText(player, st);
   if (args.length >= 2 && Number.isFinite(Number(args[0])) && Number.isFinite(Number(args[1]))) {
     return boatCast(player, args[0], args[1], st.token, { typed: true });
   }

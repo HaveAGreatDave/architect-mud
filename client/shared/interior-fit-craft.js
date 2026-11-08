@@ -27,7 +27,7 @@ const CTRL = {
   // The reference bubble (heliFit in interior-fit.js): the switches are a row along the bottom of the
   // pod, right of the vertical-speed dial, and the cyclic and the collective are what you grab.
   heli: { panel: (P) => [[0, P.dashY, P.dashZ], [1, 0, 0], [0, 0.35, 0.94]], strip: [0.06, -0.103, ['master', 'land', 'dome']],
-    stick: (P, R) => [R.ail * 0.06 + 0.01, 0.17 + R.elev * 0.07, -0.37],
+    stick: (P, R) => [R.ail * 0.06 + 0.01, 0.17 - R.elev * 0.07, -0.37],
     thr: (P, R) => [-P.seatHalf - 0.06, P.seatY[1] + 0.18, P.seatZ + 0.08 + R.thr * 0.16] },
 };
 const panelOf = (c, P) => makeKit(() => {}).panel(...c.panel(P));

@@ -32,6 +32,7 @@
  */
 import { getZone, getZoneFurniture, getFurnitureById, updateFurniture } from '../../server/engine/world.js';
 import { sendToPlayer, sendToZone } from '../../server/engine/messaging.js';
+import { emit } from '../../server/engine/events.js';
 import { zoneOwnerId } from '../../server/engine/zone-filth.js';
 import { prefersLoggedPanelsOrDefault } from '../../server/engine/presentation.js';
 import { escAttr } from '../../server/engine/text.js';
@@ -106,6 +107,8 @@ async function setConcealed(disguise, concealed) {
   const flags = { ...(hidden.flags || {}) };
   if (concealed) flags.concealed = true; else delete flags.concealed;
   await updateFurniture(hidden.id, { flags: JSON.stringify(flags) });
+  // the Room Stage turns the cabinet round for whoever has it open
+  emit('furniture.changed', { zoneId: disguise.zone_id, id: disguise.id });
   return hidden;
 }
 

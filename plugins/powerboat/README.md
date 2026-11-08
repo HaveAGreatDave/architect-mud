@@ -35,7 +35,7 @@ row, so the helm view draws the hull with no interior shell.
 
 Fields only she sets, each read as none when missing: `exclusive` (only a desk whose furniture
 lists her id in `flags.boat_stock` sells or hires her; `deskStock` in desk.js), `seats`, `hold_kg`,
-`rodHolders`, `rode_m` and `lamp`. An exclusive hull needs sell and hire nodes only in the trees of
+`rodHolders`, `rode_m`, `lamp` and `sonar`. An exclusive hull needs sell and hire nodes only in the trees of
 the desks that stock her, and regress checks each clerk against their own desk's stock.
 
 ### The anchor ([anchor.js](anchor.js))

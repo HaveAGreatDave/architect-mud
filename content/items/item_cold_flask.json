@@ -4,8 +4,16 @@
   "id": "item_cold_flask",
   "name": "a flask of something hot",
   "tags": {
+    "consumable": true,
     "description": "Filled off a tap on the return main, which is the hottest water in the quarter and is technically not for drinking. It is strong tea by the time it reaches you and nobody has ever complained.",
-    "stackable": false
+    "hot_drink": true,
+    "hydrating": true,
+    "laced_drug": "drug_coffee",
+    "laced_potency": 0.75,
+    "restore_sanity": 2,
+    "restore_thirst": 30,
+    "stackable": false,
+    "use_message": "You drink the tea out of the flask. It's strong, and hot enough to hurt."
   },
   "type": "drink",
   "value": 5,

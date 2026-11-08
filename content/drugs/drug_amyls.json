@@ -69,7 +69,8 @@
     }
   },
   "flags": {
-    "drug_family": "stimulant"
+    "drug_family": "stimulant",
+    "taken": "huff"
   },
   "id": "drug_amyls",
   "item_id": "item_amyls",

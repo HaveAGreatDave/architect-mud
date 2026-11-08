@@ -1,0 +1,24 @@
+{
+  "description": "A buttoned chesterfield in green leather under the window, worn pale where three generations of elbows have rested on the arm. The spot where you'd sit to watch the chess has the best view of the city.",
+  "flags": {
+    "aliases": "settee,sofa,chesterfield",
+    "interactions": [
+      "sit",
+      "lie"
+    ],
+    "look": {
+      "arche": "sofa",
+      "form": "sofa"
+    }
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_salon_settee",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "chesterfield",
+  "object_type": "furniture",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_solenne_salon"
+}

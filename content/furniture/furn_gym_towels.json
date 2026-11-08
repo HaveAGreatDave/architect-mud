@@ -1,0 +1,21 @@
+{
+  "description": "A warmed cabinet of white towels, rolled tight and stacked by size. Used ones go down a chute and don't come back.",
+  "flags": {
+    "aliases": "towels,towel cabinet",
+    "container": 15000,
+    "look": {
+      "arche": "store",
+      "form": "locker"
+    }
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_gym_towels",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "towel cabinet",
+  "object_type": "container",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_solenne_gym"
+}

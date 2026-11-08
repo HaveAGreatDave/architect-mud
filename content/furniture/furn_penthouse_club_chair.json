@@ -1,0 +1,23 @@
+{
+  "description": "A deep club chair in leather the colour of the drink it's named for, set by the humidor with a smoking stand at its elbow. The cushion keeps the shape of one man, and it isn't yours.",
+  "flags": {
+    "aliases": "club chair,armchair,chair",
+    "interactions": [
+      "sit"
+    ],
+    "look": {
+      "arche": "seat",
+      "form": "armchair"
+    }
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_penthouse_club_chair",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "cognac club chair",
+  "object_type": "furniture",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_solenne_penthouse"
+}

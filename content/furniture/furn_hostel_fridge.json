@@ -1,0 +1,26 @@
+{
+  "description": "A humming fridge with every item in it labelled in marker, and every label a threat. The milk says KEV'S. The mould says nobody's. A note on the door says CLEAN ME and has been there long enough to fade.",
+  "flags": {
+    "aliases": "fridge",
+    "container": 40000,
+    "interactions": [
+      "lean"
+    ],
+    "look": {
+      "arche": "cold",
+      "form": "fridge",
+      "wear": 0.95
+    },
+    "preserves": "refrigerated"
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_hostel_fridge",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "shared fridge",
+  "object_type": "container",
+  "power_draw_kw": 0.1,
+  "price": 20,
+  "zone_id": "zone_trackmarks_shop"
+}

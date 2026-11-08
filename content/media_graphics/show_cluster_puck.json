@@ -1,0 +1,10 @@
+{
+  "content": "{\n \"kind\": \"show\",\n \"format\": 1,\n \"id\": \"show_cluster_puck\",\n \"name\": \"Cluster Puck\",\n \"type\": \"sports\",\n \"broadcast\": \"bc_cluster_puck\",\n \"live\": true,\n \"cast\": {\n  \"a\": \"npc_joan_dempsey\",\n  \"b\": \"npc_lou_ferraro\"\n },\n \"slots\": [\n  {\n   \"id\": \"open\",\n   \"label\": \"Pregame\",\n   \"when\": \"open\",\n   \"sequence\": \"seq_cphl_open\"\n  },\n  {\n   \"id\": \"break_blowout\",\n   \"label\": \"Intermission, a blowout\",\n   \"when\": \"break\",\n   \"sequence\": \"seq_cphl_break_blowout\",\n   \"if\": [\n    {\n     \"fact\": \"margin\",\n     \"op\": \">=\",\n     \"value\": 3\n    }\n   ]\n  },\n  {\n   \"id\": \"break\",\n   \"label\": \"Intermission\",\n   \"when\": \"break\",\n   \"sequence\": \"seq_cphl_break\"\n  },\n  {\n   \"id\": \"close\",\n   \"label\": \"Postgame\",\n   \"when\": \"close\",\n   \"sequence\": \"seq_cphl_close\"\n  }\n ],\n \"samples\": {}\n}",
+  "created_at": "1794083972",
+  "description": "",
+  "id": "show_cluster_puck",
+  "name": "Cluster Puck",
+  "tags": [],
+  "type": "show",
+  "updated_at": "1794085385"
+}

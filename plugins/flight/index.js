@@ -17,7 +17,7 @@ import { effectiveSkill, awardSkillUse, skillCheck } from '../../server/engine/s
 import { grantSkillIp } from '../../server/engine/ip.js';
 import { registerMoveGate } from '../../server/engine/movement-gates.js';
 import { registerZoneReloadHook } from '../../server/engine/world.js';
-import { invalidateCoordIndex, crewedAircraft, standTileFor, clearHangarTiles, hangarHeading } from './state.js';
+import { invalidateCoordIndex, crewedAircraft, standTileFor, clearHangarTiles, hangarHeading, gearRetracts } from './state.js';
 
 // A DEV-PANEL TILE EDIT MOVES THE WORLD, and `surfaceAt` is an index OVER positions rather than
 // a read THROUGH them — so without this it answers with the world as it stood at boot, for the
@@ -1020,10 +1020,9 @@ function sendFlightSim(player, live) {
     fuel: ctx.fuel, fuelCap: ctx.fuelCap, map: ctx.map, sky: ctx.sky, biomeBelow: ctx.biomeBelow, minimap: ctx.minimap, fields: ctx.fields,
     checkride: ctx.checkride,   // guided-checkride state carried on the initial cockpit open
     engines: ctx.engines, seats: ctx.seats, occupants: ctx.occupants,   // gauge count + cabin-occupancy readout
-    // Per-airframe capabilities the continuous cockpit adapts to (Phase 3): the Mule,
-    // Reaper + Leviathan have retractable gear (only the fixed-gear Mayfly stays down);
-    // hardpoints arm the weapons; cargo enables jettison.
-    gearRetract: ['prop', 'gunship', 'heavy', 'drake'].includes(live.type.class),
+    // Per-airframe capabilities the continuous cockpit adapts to (Phase 3): gear that
+    // retracts; hardpoints arm the weapons; cargo enables jettison.
+    gearRetract: gearRetracts(live.type),
     hardpoints: effStats(live).hardpoints,   // pylon set included — a retrofit arms through the same path
     salvo: (live.type.data && live.type.data.salvo) || 0,   // swarm airframe (Viper): >1 → no-lock ripple-fire, not the locked single shot
     sprayer: !!(live.type.data && live.type.data.spray),   // ag-plane crop-duster (Locust): shows the SPRAY control
@@ -2005,20 +2004,6 @@ on('zone.entered', async ({ actor, zone: zoneId, from }) => {
 // aircraft's occupant set and the player's flying posture don't stay stale.
 on('player.death', ({ player }) => {
   if (player.aircraftId) detach(player);
-});
-
-// Storm lightning → the flight sim. The engine's stormTick is the SINGLE strike
-// authority; each located strike is relayed to any airborne aircraft close enough
-// to render it as a bolt out the canopy, so pilots see the SAME lightning the
-// ground does. View push only — the flash + rare kill are the engine's.
-const LIGHTNING_VIEW_DIST2 = 70 * 70;   // tiles² — just past the client's bolt cull
-on('weather.lightningStrike', ({ gx, gy, intensity, cc }) => {
-  for (const live of liveAircraft.values()) {
-    if (!live.row.airborne) continue;
-    const dx = (live.row.grid_x || 0) - gx, dy = (live.row.grid_y || 0) - gy;
-    if (dx * dx + dy * dy > LIGHTNING_VIEW_DIST2) continue;
-    for (const pid of live.occupants) sendToPlayer(pid, { type: 'lightning_strike', gx, gy, intensity, cc: !!cc });
-  }
 });
 
 on('player.login', async ({ id }) => {

@@ -89,7 +89,8 @@
     }
   },
   "flags": {
-    "drug_family": "deliriant"
+    "drug_family": "deliriant",
+    "taken": "swallow"
   },
   "id": "drug_screamers",
   "item_id": "item_screamers",

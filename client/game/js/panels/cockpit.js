@@ -22,7 +22,7 @@ const FSIM_CSS = await loadCss(new URL('./cockpit-fsim.css', import.meta.url));
 const HUD_CSS = await loadCss(new URL('./cockpit-hud.css', import.meta.url));
 // Mirrors MIN_WATER in plugins/submersible/sub.js; only lights the SUB gate.
 const SUB_MIN_WATER_M = 3;
-import { subCrossing, interiorHotspots, glWorldInstalled, glDecision, glLastError, lastViewState, lastFloorState, lastOwnShipMask, yachtPadZ, ensureWindshieldStyles, windshieldHTML, paintWindshield, disposeWindshield, panelControlRects, RENDER_TUNE, navMarks, buildingRoofFtAt, curtainRoofFtAt, lotRoofFtAt, modelTopZAt, altForRoofZ, altRestingOnZ, seaAmpsNow, hullSeaGains, ROOF_CATCH_R, ROOF_CATCH_CEIL_Z, MODEL_MAX_EXTENT, BUILDING_FOOT, VISIBLE_NEAR_F, VISIBLE_FAR_F, pushLightningStrike, surfaceBreakup, perfBegin, perfEnd, perfTick } from './windshield.js';
+import { subCrossing, interiorHotspots, glWorldInstalled, glDecision, glLastError, lastViewState, lastFloorState, lastOwnShipMask, yachtPadZ, ensureWindshieldStyles, windshieldHTML, paintWindshield, disposeWindshield, panelControlRects, RENDER_TUNE, navMarks, buildingRoofFtAt, curtainRoofFtAt, lotRoofFtAt, modelTopZAt, altForRoofZ, altRestingOnZ, seaAmpsNow, hullSeaGains, ROOF_CATCH_R, ROOF_CATCH_CEIL_Z, MODEL_MAX_EXTENT, BUILDING_FOOT, VISIBLE_NEAR_F, VISIBLE_FAR_F, surfaceBreakup, perfBegin, perfEnd, perfTick } from './windshield.js';
 import { padCatchStep } from './pad-catch.js';
 // ── GLASS 2 ────────────────────────────────────────────────────────────────
 // Installed here, not in windshield.js, because the cold open and the smoke suite load that file without a GPU.
@@ -3081,8 +3081,9 @@ function powerAgeOf(F) {
 // computer on `diveBrake`, eased over about a second (mesh_divebomber_2076.json).
 function classAnim(F, dt) {
   if (F.cls === 'locust') return { spray: (F.droneOut = clampNum((F.droneOut || 0) + ((F.sprayT && performance.now() - F.sprayT < 1900) ? dt : -dt) * 1.1, 0, 1)) };
-  // The Viper 2076's drones fly out of their tubes while the master arm is on and home after it.
-  if (F.cls === 'heli' && F.hardpoints > 0) return { drones: (F.droneOut = clampNum((F.droneOut || 0) + (F.armed ? dt : -dt) * 0.8, 0, 1)) };
+  // The Viper 2076's drones stay in their tubes until they have a job in the sim. To fly them again,
+  // ease this off F.armed, and do the same to dronesOut in interior-viper-2076.js.
+  if (F.cls === 'heli' && F.hardpoints > 0) return { drones: 0 };
   if (F.cls === 'divebomber') return { diveBrake: (F.diveBrakeEase = clampNum((F.diveBrakeEase || 0) + ((F.diveAuto ? 1 : 0) - (F.diveBrakeEase || 0)) * Math.min(1, dt * 2.5), 0, 1)) };
   // The Reaper 2076's wingmen fly out off her tips while the weapons are armed and come home when safed.
   if (F.cls === 'gunship') return { wingmen: (F.wingmenOut = clampNum((F.wingmenOut || 0) + (F.armed ? dt : -dt) * 0.8, 0, 1)) };
@@ -4896,11 +4897,6 @@ export function flightSimFireworks(msg) {
   }
 }
 
-// Storm lightning from the server's stormTick.
-export function flightSimLightning(msg) {
-  if (!msg) return;
-  pushLightningStrike(msg.gx, msg.gy, msg.intensity, !!msg.cc);
-}
 
 // The hopper card, answering `hopperbay`. A can of another fluid shows disabled with the reason, never hidden.
 export function flightSimHopper(msg) {

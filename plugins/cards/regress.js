@@ -2,6 +2,7 @@
 // that silently starts truncating is exactly the regression a text card cannot
 // survive, and it has to hold for all three subject types (an enemy row with a
 // 900-character description is the case that breaks it).
+import * as SA from './sports-action.js';
 import { query } from '../../server/models/db.js';
 import { insertFurniture } from '../../server/engine/world.js';
 import { getGameDateTime } from '../../server/engine/environment.js';
@@ -598,7 +599,8 @@ export default async function regress({ run, check, getPlayer }) {
     const act = SP.snapshotCard(H, H.men.get('Fen'), 'base', 'action');
     check('an action shot reveals at its edition rank',
       SP.rarityOf(act) === 'common' && SP.rarityOf({ ...act, edition: 'captain' }) === 'legendary' && SP.rarityOf(bo) === 'common');
-    check('a goalie\'s action shot is a save', act.pose === 'save');
+    check('a goalie\'s action shot is one of a goalie\'s', SA.HOCKEY_POSES.G.includes(act.pose), act.pose);
+    check('a man is always caught the same way', SP.snapshotCard(H, H.men.get('Fen'), 'base', 'action').pose === act.pose);
     const actFace = SP.renderSportsCard(act, {});
     check('an action shot draws the man in action, without saying so', actFace.includes('spc-action') && !actFace.includes('IN ACTION') && !/action shot/i.test(actFace));
     check('an action shot has his face small on the back', actFace.includes('spc-bface') && actFace.includes('&quot;art&quot;:&quot;portrait&quot;'));
@@ -608,7 +610,7 @@ export default async function regress({ run, check, getPlayer }) {
     // the photo slot carries what the client needs to shoot him (card-photo.js)
     const spec = JSON.parse(SP.photoSpec(act, { colours: ['#111', '#222', '#333'] }));
     check('a card\'s photo names the man, his trade and his club for the 3-D shot',
-      actFace.includes('data-photo=') && spec.name === act.name && spec.pos === act.pos && spec.art === 'action' && spec.pose === 'save' && spec.club?.colours?.length === 3);
+      actFace.includes('data-photo=') && spec.name === act.name && spec.pos === act.pos && spec.art === 'action' && spec.pose === act.pose && spec.club?.colours?.length === 3);
     check('league words name the league', SP.leagueOfWord('puck') === 'hockey' && SP.leagueOfWord('Deadball') === 'baseball' && SP.leagueOfWord('confirm') === null);
 
     // Deadball: no fixed rosters, so a man's club and position come off the season fold.

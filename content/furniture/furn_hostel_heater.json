@@ -1,0 +1,21 @@
+{
+  "description": "A paraffin heater in the middle of the floor with a ring of socks drying round it at a distance learned the hard way. It smells like a garage and keeps the room just above miserable.",
+  "flags": {
+    "aliases": "heater",
+    "look": {
+      "arche": "small",
+      "form": "heater",
+      "wear": 0.9
+    }
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_hostel_heater",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "paraffin heater",
+  "object_type": "furniture",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_trackmarks_shop"
+}

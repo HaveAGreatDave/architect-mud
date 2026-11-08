@@ -88,6 +88,7 @@
     "skin_permeability": 0.05,
     "sober_amount": 30,
     "sobering": true,
+    "taken": "drink",
     "wakefulness": 0.6
   },
   "id": "drug_coffee",

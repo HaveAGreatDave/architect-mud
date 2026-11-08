@@ -1,0 +1,23 @@
+{
+  "description": "A console of book-matched marble with a bowl of green apples on it. The apples are real. They're replaced every morning whether anybody takes one or not, and nobody does.",
+  "flags": {
+    "aliases": "console,table,apples",
+    "interactions": [
+      "lean"
+    ],
+    "look": {
+      "arche": "surface",
+      "form": "rail"
+    }
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_solenne_lobby_table",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "marble console",
+  "object_type": "furniture",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_solenne_lobby"
+}

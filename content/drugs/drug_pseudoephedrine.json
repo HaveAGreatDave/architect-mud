@@ -52,7 +52,8 @@
   },
   "flags": {
     "drug_class": "stimulant",
-    "legal": true
+    "legal": true,
+    "taken": "swallow"
   },
   "id": "drug_pseudoephedrine",
   "item_id": "item_precursor_stim",

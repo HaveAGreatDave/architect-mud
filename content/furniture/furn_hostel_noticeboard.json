@@ -1,0 +1,21 @@
+{
+  "description": "A cork board shingled with notes. Lost dog. Found dog, different. Bunk 14 snores, bunk 14 knows. A rota for washing up that nobody has signed since spring. A drawing of the Warden that the Warden has signed.",
+  "flags": {
+    "aliases": "board,noticeboard,notes",
+    "look": {
+      "arche": "prop",
+      "form": "cabinet",
+      "wear": 0.85
+    }
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_hostel_noticeboard",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "noticeboard",
+  "object_type": "furniture",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_trackmarks_shop"
+}

@@ -1,12 +1,13 @@
 import { state } from './state.js';
 import { saveRememberToken, forgetRememberToken } from './remember.js';
 import { sessionGet, sessionSet, sessionRemove } from './session-store.js';
-import { appendMsg, appendHtml, appendPre, updateVitals, parseZoneInfo, showDevPanelButton, setAreaPane, setPaneSilent, showSkyBanner, pointAtRoomTarget, setRoomBeacon, clearRoomBeacons, isAreaPaneVisible } from './render.js';
+import { appendMsg, appendHtml, appendPre, updateVitals, parseZoneInfo, showDevPanelButton, setRoomButton, setAreaPane, setPaneSilent, showSkyBanner, pointAtRoomTarget, setRoomBeacon, clearRoomBeacons, isAreaPaneVisible } from './render.js';
 import { sendCmd, sendCmdSilent, sendRaw, closeConnection, attemptAutoReauth, showVerifyScreen, rememberDisplayRung } from './net.js';
 import { setVerbs } from './complete.js';
 import { renderMinimap, setRoadWindow, setGpsRoute, setRunState, startAutoWalk, resumeAutoWalkIfArmed, setAutoWalkPersist, isAutoWalking, isManualAutoWalkInProgress, cancelAutoWalk, autoWalkBlocked, resolveAutoWalkPicker, armAutoWalkPrompt, notifyElevatorDoors } from './panels/minimap.js';
 import { updateEnvironmentHUD, updateZoneTempHUD, refreshZoneVisibility, signalPowerOut, isFxIndoors, setEnvUnreal } from './panels/environment.js';
-import { setWeatherEventFx, setFireworksGlow, launchFirework } from './panels/weather-fx.js';
+import { setWeatherEventFx, setFireworksGlow, launchFirework, isWeatherFxSuppressed } from './panels/weather-fx.js';
+import { noteStrike } from '../../shared/strike-feed.js';
 import { receiveClubs } from './panels/club-crest.js';
 import { receiveVenue } from './panels/venue.js';
 import { setDreamFx } from './panels/environment.js';
@@ -55,7 +56,7 @@ import { pullConfig, receiveConfig } from './configsync.js';
 import { setTabletAccess, showTabletOffer } from './panels/smartbar.js';
 import { offerInterfaceTour, startInterfaceTour, startTabletTour, consumeTourHandoff } from './panels/tour.js';
 import { playIntroCinematic } from './panels/lazy-views.js';
-import { updateCockpit, closeCockpit, cabinAudio, openTargeting, openFlightSim, flightSimContext, flightSimGps, drakeSubmerged, drakeChampagne, flightBurst, flightSimContacts, flightSimHopper, flightSimAirHit, flightSimKill, flightSimAaTracer, flightSimAirThreat, flightSimFireworks, flightSimLightning, isFlightSimActive, isCockpitHudActive, resumeFlightAfterLogin } from './panels/lazy-views.js';
+import { updateCockpit, closeCockpit, cabinAudio, openTargeting, openFlightSim, flightSimContext, flightSimGps, drakeSubmerged, drakeChampagne, flightBurst, flightSimContacts, flightSimHopper, flightSimAirHit, flightSimKill, flightSimAaTracer, flightSimAirThreat, flightSimFireworks, isFlightSimActive, isCockpitHudActive, resumeFlightAfterLogin } from './panels/lazy-views.js';
 import { openTextCockpit, updateTextCockpit, closeTextCockpit, isTextCockpitActive } from './panels/textcockpit.js';
 import { openHelm, closeHelm, isHelmActive, helmSetSky, helmSetWorld, helmSetContacts, helmSetFar, helmEndTransit, helmBeginTransit } from './panels/lazy-views.js';
 import { openCab, closeCab, cabContext, cabGalley, isCabActive } from './panels/lazy-views.js';
@@ -385,6 +386,16 @@ const loadBoatFish = () => (boatFishMod ??= import('./panels/boatfish.js').catch
 let standsMod = null;
 // The seat is a TV view, so the TV wrapper has to be in too, or no broadcast is routed to it and
 // the game in the park stops until somebody opens a set.
+// What an NPC says comes up in a bubble in their own voice as well as in the log. With the Room Stage
+// up the log is covered, so the room's other lines (`scene`) come up there too.
+let bubbleMod = null;
+function heard(html, scene = false) {
+  if (!html) return;
+  const said = html.includes('speech-line');
+  if (!said && !(scene && document.getElementById('room-stage'))) return;
+  (bubbleMod ??= import('./panels/npc-bubbles.js').catch((e) => { bubbleMod = null; throw e; })).then((m) => m.heard(html, state.player?.displayRung)).catch(() => {});
+}
+
 // The Room Stage (plugins/roomstage): a flat in first person, loaded the first time one opens.
 let roomMod = null;
 const loadRoom = () => (roomMod ??= import('./panels/room-stage.js').catch((e) => { roomMod = null; throw e; }));
@@ -711,8 +722,10 @@ const handlers = {
   // revision this client hasn't got.
   tv_clubs: (msg) => { receiveClubs(msg); },
   tv_venue: (msg) => { receiveVenue(msg); },
+  // The set and the people for a text show on the TV's 3-D button (tv-stage.js).
+  tv_stage: (msg) => { for (const v of tvViewsForChannel(msg.channel)) v.applyStage?.(msg); },
   system: (msg) => { appendHtml(msg.message, 'system'); },
-  ambient: (msg) => { appendHtml(msg.message, 'ambient'); },
+  ambient: (msg) => { appendHtml(msg.message, 'ambient'); heard(msg.message, true); },
   // Cosmetic nudge: ripple a room-pane link so the player sees where to click.
   point_at: (msg) => { pointAtRoomTarget(msg.action, msg.target); },
   // Sticky version of the above: the object the tutorial is steering you toward
@@ -791,6 +804,7 @@ const handlers = {
     return (msg) => {
       // A refresh-only event (no message) just re-looks the room — don't print a blank line.
       if (msg.message) appendHtml(msg.message, 'zone-event');
+      heard(msg.message, true);
       // Grid power cut: the server tags the cutout line with class="power-out".
       // Arm the flicker + pop and refresh brightness now, don't wait for the look debounce.
       if (msg.message && msg.message.includes('power-out')) { signalPowerOut(); refreshZoneVisibility(); }
@@ -1174,8 +1188,9 @@ const handlers = {
   'environment.daily': (msg) => { updateEnvironmentHUD(msg); updateForecast(msg.forecast); },
   'environment.weatherOverride': (msg) => { updateEnvironmentHUD(msg); },
   'weather_event': (msg) => { setWeatherEventFx(msg.eventType, msg.phase); setRainbowSky(msg.eventType, msg.phase); },
-  'lightning': () => { triggerLightningFlash(); },
-  'lightning_strike': (msg) => { flightSimLightning(msg); },
+  // The page-wide flash is for the text and room views. A 3D view draws the strike itself, where it fell.
+  'lightning': () => { if (!isWeatherFxSuppressed()) triggerLightningFlash(); },
+  'lightning_strike': (msg) => { noteStrike(msg); },
 
   output: (msg) => {
     // A GPS auto-walk that hit a numbered exit picker answers it itself (matching
@@ -1187,6 +1202,8 @@ const handlers = {
     // The Kitchen Stage shows what the server says in its own caption, not the log.
     if (isKitchenStageActive() && kitchenSays(msg.message)) return;
     appendHtml(msg.message, 'help');
+    heard(msg.message);
+    roomMod?.then((m) => m.roomSays(msg.message)).catch(() => {});
   },
   // The lift has come to rest with its doors open on a floor. Nothing to show — the
   // rider already got the chime, the panel and the prose. This is purely so an
@@ -1359,10 +1376,14 @@ const handlers = {
   stands_sky: (msg) => { standsMod?.then((m) => m.setStandsSky(msg.field)).catch(() => {}); },
   stands_close: () => { standsMod?.then((m) => m.closeStands()).catch(() => {}); },
   stands_menu: (msg) => { standsMod?.then((m) => m.openStandsMenu(msg)).catch(() => {}); },
-  room_view: (msg) => { loadRoom().then((m) => m.openRoomStage(msg)).catch((e) => console.error('[room]', e)); },
+  room_avail: (msg) => setRoomButton({ avail: !!msg.on }),
+  room_view: (msg) => { setRoomButton({ open: true }); loadRoom().then((m) => m.openRoomStage(msg)).catch((e) => { setRoomButton({ open: false }); console.error('[room]', e); }); },
   room_piece: (msg) => { roomMod?.then((m) => m.roomPiece(msg)).catch(() => {}); },
   room_people: (msg) => { roomMod?.then((m) => m.roomPeople(msg)).catch(() => {}); },
-  room_close: () => { roomMod?.then((m) => m.closeRoomStage(true)).catch(() => {}); },
+  room_here: (msg) => { roomMod?.then((m) => m.roomHere(msg)).catch(() => {}); },
+  room_outlook: (msg) => { roomMod?.then((m) => m.roomOutlook(msg)).catch(() => {}); },
+  room_sky: (msg) => { roomMod?.then((m) => m.roomSky(msg)).catch(() => {}); },
+  room_close: () => { setRoomButton({ open: false }); roomMod?.then((m) => m.closeRoomStage(true)).catch(() => {}); },
   cardpack_open: (msg) => { if (msg.render !== 'log') openPackReveal(msg); if (msg.message) appendHtml(msg.message, 'loot'); },
   // Same contract again: the cabinet is the show, the character box is the
   // record and always prints, so the bottom rung losing the panel loses nothing.

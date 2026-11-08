@@ -5,7 +5,9 @@
   "effects": {
     "take_line": "You knock back the {name} and hope."
   },
-  "flags": {},
+  "flags": {
+    "taken": "swallow"
+  },
   "id": "drug_compound",
   "item_id": "item_compound",
   "name": "hand-mixed compound",

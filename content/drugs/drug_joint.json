@@ -46,7 +46,8 @@
     "cannabis": true,
     "drug_family": "cannabis",
     "high_seconds": 300,
-    "legal": true
+    "legal": true,
+    "taken": "smoke"
   },
   "id": "drug_joint",
   "item_id": "item_joint",

@@ -222,6 +222,31 @@ export function growBolt(seed, { gens = 4, segs = 10, fork = 1, spread = 1 } = {
   return { branches, strokes, dur, seed };
 }
 
+// How long the stepped leader takes to come down, in ms, and how far it's got at `age` (which runs
+// from -BOLT_LEAD to 0). It arrives in steps, because that's what a stepped leader does.
+export const BOLT_LEAD = 72;
+const LEAD_STEPS = 5;
+export const leaderFront = (age) => 1 - Math.ceil((1 + age / BOLT_LEAD) * LEAD_STEPS) / LEAD_STEPS;
+
+// Fine kinks on the trunk and the big limbs. Ten straight segments read as a polygon from close up,
+// and a real channel is crooked at every scale, so each span is split twice with the midpoint pushed
+// sideways by a share of its own length. Heights only interpolate, so nothing climbs and the ends stay put.
+export function roughenBolt(bolt) {
+  const rnd = rng((bolt.seed ^ 0x5bd1e995) >>> 0);
+  for (const b of bolt.branches) {
+    if (b.gen > 1) continue;
+    for (let pass = 0; pass < 2; pass++) {
+      const out = [b.pts[0]];
+      for (let i = 1; i < b.pts.length; i++) {
+        const p = b.pts[i - 1], q = b.pts[i], k = Math.hypot(q.ox - p.ox, q.oy - p.oy, q.f - p.f) * 0.34;
+        out.push({ ox: (p.ox + q.ox) / 2 + (rnd() - 0.5) * k, oy: (p.oy + q.oy) / 2 + (rnd() - 0.5) * k, f: (p.f + q.f) / 2 }, q);
+      }
+      b.pts = out;
+    }
+  }
+  return bolt;
+}
+
 // How bright the channel and the side branches are at `age` ms.
 //
 // `ch` drives the trunk (and the flash on the glass, which must pulse with it or the white flood

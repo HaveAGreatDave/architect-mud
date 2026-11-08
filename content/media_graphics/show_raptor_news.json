@@ -1,0 +1,10 @@
+{
+  "content": "{\n \"kind\": \"show\",\n \"format\": 1,\n \"id\": \"show_raptor_news\",\n \"name\": \"Raptor News: Nightly Fury\",\n \"type\": \"news\",\n \"broadcast\": \"bc_1783893568943\",\n \"live\": true,\n \"set\": \"set_raptor_news\",\n \"cast\": {\n  \"a\": \"{anchor}\",\n  \"b\": \"{anchor2}\"\n },\n \"slots\": [\n  {\n   \"id\": \"open\",\n   \"label\": \"The intro\",\n   \"when\": \"open\",\n   \"sequence\": \"seq_raptor_open\"\n  },\n  {\n   \"id\": \"close\",\n   \"label\": \"The outro\",\n   \"when\": \"close\",\n   \"sequence\": \"seq_raptor_close\"\n  }\n ],\n \"samples\": {\n  \"Example\": {\n   \"anchor\": \"Brick Hardline\",\n   \"anchor2\": \"Chastity Vale\",\n   \"announcer\": \"The Voice of Raptor\",\n   \"headline\": \"Power cut on the east shore\",\n   \"byline\": \"our newsroom\",\n   \"stories\": [\n    {\n     \"headline\": \"Power cut on the east shore\"\n    },\n    {\n     \"headline\": \"Ferry fares up again\"\n    },\n    {\n     \"headline\": \"Crows drop a third straight\"\n    }\n   ]\n  }\n }\n}",
+  "created_at": "1794098460",
+  "description": "",
+  "id": "show_raptor_news",
+  "name": "Raptor News: Nightly Fury",
+  "tags": [],
+  "type": "show",
+  "updated_at": "1794098460"
+}

@@ -23,10 +23,11 @@ export const G = 32;
 // Shots and passes: blade wound back to `back`, through the puck at `hit`, out to `fol`.
 // `wind` is the fraction of the action spent loading; the puck leaves at `release`. `flex`
 // is how far the shaft bows at contact (feet), `bh` marks the backhand side, where the
-// weight shifts the other way.
+// weight shifts the other way. `grip` is the top hand off the hips, where a big wind-up needs it:
+// the shaft has to pass in front of his chest on its way up to the blade, not through it.
 export const SHOTS = {
-  slap:     { wind: 0.55, back: [-1.7, 1.6, 3.9], hit: [1.45, 1.0, 0.08], fol: [3.0, 0.3, 3.5], dur: 0.7, flex: 0.55 },
-  onetimer: { wind: 0.3, back: [-1.1, 1.5, 3.0], hit: [1.5, 1.0, 0.08], fol: [3.0, 0.3, 3.2], dur: 0.42, flex: 0.5 },
+  slap:     { wind: 0.55, back: [-0.3, 3.6, 6.0], grip: [1.35, -0.2, 0.7], hit: [1.45, 1.0, 0.08], fol: [3.0, 0.3, 3.5], dur: 0.7, flex: 0.55 },
+  onetimer: { wind: 0.3, back: [-0.2, 3.3, 5.0], grip: [1.3, -0.2, 0.75], hit: [1.5, 1.0, 0.08], fol: [3.0, 0.3, 3.2], dur: 0.42, flex: 0.5 },
   wrist:    { wind: 0.45, back: [-0.35, 1.95, 0.2], hit: [1.6, 0.9, 0.1], fol: [2.8, 0.4, 2.2], dur: 0.5, flex: 0.22 },
   snap:     { wind: 0.3, back: [0.3, 1.85, 0.9], hit: [1.5, 0.9, 0.08], fol: [2.6, 0.4, 1.6], dur: 0.4, flex: 0.35 },
   backhand: { wind: 0.4, back: [-0.1, -1.95, 0.5], hit: [1.4, -0.7, 0.1], fol: [2.2, -0.4, 2.6], dur: 0.5, flex: 0.15, bh: true },
@@ -504,7 +505,7 @@ function standRig(s, T, feet) {
     if (shot) {
       const w = shot.wind;
       aBlade = shotPath(shot, at, bBlade);
-      aR = shot.bh ? [0.5, 0.25, zp + 0.95] : [0.35, -0.25, zp + 0.95];
+      aR = shot.grip ? [shot.grip[0], shot.grip[1], zp + shot.grip[2]] : shot.bh ? [0.5, 0.25, zp + 0.95] : [0.35, -0.25, zp + 0.95];
       // the shaft loads through the downswing and is at its deepest bend as it strikes
       if (at > w && at < w + SWING * 1.8) flex = (shot.flex || 0) * bump((at - w) / (SWING * 1.8));
     } else if (deke) { aBlade = path3(DEKES[act], at); aR = [0.6, -0.2 + aBlade[1] * 0.2, zp + 0.6]; }
@@ -518,7 +519,7 @@ function standRig(s, T, feet) {
     else if (act === 'lift') { const k = bump(at); aBlade = V.lerp([2.6, 0.3, 0.05], [2.2, 0.1, 1.4], k); aR = [0.7, -0.3, zp + 0.9]; }
     else if (act === 'faceoff') { aBlade = [1.9, 0.25, 0.05]; aR = [0.75, -0.2, zp + 0.45]; }
     else if (act === 'block') { const k = bump(at); aBlade = V.lerp(bBlade, [1.4, 1.8, 0.06], k); aR = V.lerp(bR, [1.0, -1.0, zp + 0.2], k); }
-    else if ((act === 'check' || act === 'checkElbow') && at > 0.3 && at < 0.9) { const m = bump((at - 0.3) / 0.6); aR = V.lerp(bR, [0.95, -0.4, zp + 1.45], m); aBlade = V.lerp(bBlade, [1.15, 2.4, zp + 1.25], m); }
+    else if ((act === 'check' || act === 'checkElbow') && at > 0.3 && at < 0.9) { const m = bump((at - 0.3) / 0.6); aR = V.lerp(bR, [2.2, -0.6, zp + 1.45], m); aBlade = V.lerp(bBlade, [2.5, 2.4, zp + 1.25], m); }
     else if (act === 'celebrate') {
       // both arms up and the stick held over his head, the way it has always looked
       const k = easeOut(clamp(at * 3, 0, 1)), pump = Math.sin(T * 7) * 0.12 * k;
@@ -618,8 +619,11 @@ function standRig(s, T, feet) {
       if (stickFit.oneHand) oneHanded = true;
       [R, L] = easeStick(s, T, R, L, blade, handRate, m);
     }
-    [rElL, rHL] = ik(rShL, L, 1.12, 1.05, roll([0.1, 0.8, -1], tilt));
-    [rElR, rHR] = ik(rShR, R, 1.12, 1.05, roll([0.1, -0.8, -1], tilt));
+    // ⚠ AN ELBOW ONLY FOLDS ONE WAY. The pole sits behind him and turns with his shoulders: one
+    // with any forward in it, or left facing up the ice while he winds up, puts the elbow in
+    // front of the arm whenever a hand drops behind the shoulder, and the forearm bends back.
+    [rElL, rHL] = ik(rShL, L, 1.12, 1.05, roll(rotZ([-0.45, 0.85, -0.9], twist), tilt));
+    [rElR, rHR] = ik(rShR, R, 1.12, 1.05, roll(rotZ([-0.45, -0.85, -0.9], twist), tilt));
   }
 
   // ── legs: the blended stride, then whatever the action wants of them ─────

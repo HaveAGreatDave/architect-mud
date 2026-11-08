@@ -3,7 +3,7 @@
   "version": "2.0.0",
   "description": "Weight/thaw-based timed cooking at stoves (flags.stove_tier) or a carried portable oven (tags.portable_oven). `cook <food|vessel>` — background/lazy, no tick; a bounded set of timers narrate stage transitions and completion, rescheduled on boot. Food tagged `food_profile` adds depth: a peak window, a burn point, handling (`flip`/`stir`), and a quality band stamped by `plate` that scales the meal's effects and awards Cooking IP. `stove` is an 11-position dial (0=off .. 10) whose three named tiers are notches on it — the fine position sets the cook RATE and 0 pauses the session outright (heat.js: apparent time + session translation, identity at rate 1); the tier is still the only scoring axis. `pour`/`empty` tip a pan's fluids out or decant them into another pan. Owns the shared `cook` verb and routes drug-cooking to plugins/synthesis via the `synthesis.cook` Action; a room holding both a stove and a chem lab disambiguates through SIFT. Bread is an EDIBLE vessel (tags.edible_vessel): sandwiches are assembled in it, an unmatched one is named off its contents rather than becoming slop, and `butter` counts as the dish fat. `cut` halves a finished dish. `heat` is an alias.",
   "hooks": [
-    "item.checkCooking",
+    "furniture.acts", "item.checkCooking",
     "item.describeVessel",
     "cooking.restMultiplier",
     "cooking.wellFedMs",

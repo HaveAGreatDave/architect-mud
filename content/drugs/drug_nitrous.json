@@ -81,7 +81,8 @@
     }
   },
   "flags": {
-    "drug_family": "dissociative"
+    "drug_family": "dissociative",
+    "taken": "huff"
   },
   "id": "drug_nitrous",
   "item_id": "item_nitrous",

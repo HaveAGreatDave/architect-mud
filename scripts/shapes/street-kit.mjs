@@ -9,7 +9,7 @@
 // crossing and one footbridge a block, all four bridges clearing a 4.2 m hauler by 2.8 m and landing
 // only in buildings tall enough, every price in credits, nothing outside its tile but an upper
 // bridge, and nothing but a bridge and the crossing's arm over the lane above a driver's eye. Then
-// the ladder: chrome stops at the middle ring, the belts stop at Worn and stay priced, the damage is
+// the ladder: chrome stops at the middle ring, the belts stop at Worn, the damage is
 // the brief's share, the dirt has no paving, no lane furniture and no words, and the bridges are
 // the same at every level. Then glass/street-kit-walk.js on a fake window: somebody crossing a kit
 // street goes over the bridge or the zebra and never through the lane, and on the dirt walks across.
@@ -187,9 +187,9 @@ for (let level = 0; level < LEVEL.length; level++) {
     check(words.length === 0 && crossed.words.length === 0, `words on the dirt: ${words.map((w) => w.label).join(', ')}`);
     continue;
   }
-  // Every paved level still charges, including with the belt stopped.
+  // Nothing over the belts, and no fee posted at a crossing.
   const labels = new Set([...words, ...crossed.words].map((w) => w.label));
-  check(labels.has('₵1 A RIDE'), `level ${level} has no strip price`);
+  check(!labels.has('₵1 A RIDE'), `level ${level} has a ride sign over the belt`);
   check(!labels.has('₵2 · CROSS'), `level ${level} posts a crossing fee nothing charges`);
 }
 const stands = (level) => { const n = LEVEL[level]; return n.bollardGone; };
@@ -322,7 +322,7 @@ const crossTiles = [...new Set(crossings)];
 check(crossTiles.length === 1 && crossTiles[0] === 2, `crossing on tiles ${crossTiles.join(', ') || 'none'}, not the middle one`);
 const bridgeTiles = [...new Set(bridges)];
 check(bridgeTiles.length === 1 && bridgeTiles[0] === 4, `footbridge on tiles ${bridgeTiles.join(', ') || 'none'}, not the last one`);
-for (const want of ['₵1 A RIDE']) check(labels.has(want), `no "${want}" on the block`);
+check(labels.size === 0, `words on the block: ${[...labels].join(', ')}`);
 for (const span of [null, 'sky', 'exec', 'service']) check(run({ place: straight('ns', 2, 3, { bridge: true, span }), near: true, s0: 905 }).words.every((w) => !/CROSSING|EXECUTIVE|CLEARANCE/.test(w.label)), 'a bridge with a sign on it');
 
 // ── THE PEOPLE ──

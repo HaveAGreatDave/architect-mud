@@ -128,7 +128,15 @@ async function parkShot(spec) {
 
 // ── Cluster Puck: the rink ─────────────────────────────────────────────────────
 export const RINK = { face: 0, three: 0.35, dist: 6, headY: 5.75, goalieY: 4.2, rise: 0.15, fov: 26, actDist: 15, actY: 3, actFov: 30 };
-const RINK_ACT = { shot: ['slap', 0.5], check: ['check', 0.55], save: ['butterfly', 0.6] };
+// A pose is an act of the rig's, how far through it the shutter falls, and optionally where the
+// camera stands: `turn` swings it round him (toward his stick side), `dist` and `y` move it in.
+export const RINK_ACT = {
+  shot: { act: 'slap', at: 0.5, turn: 0.9 }, wrist: { act: 'wrist', at: 0.66, turn: 0.4 }, deke: { act: 'toedrag', at: 0.45, turn: 0.9 },
+  celebrate: { act: 'celebrate', at: 0.7, turn: 0.6 }, faceoff: { act: 'faceoff', at: 0.5, turn: 0.9 },
+  check: { act: 'check', at: 0.55, turn: -1.3, foe: true }, block: { act: 'block', at: 0.5, turn: 0.9 }, poke: { act: 'poke', at: 0.5, turn: 1.2, dist: 18 },
+  save: { act: 'butterfly', at: 0.6 }, glove: { act: 'glove', at: 0.5, turn: 0.2, glove: [1.2, 2.2, 5.6] },
+  stack: { act: 'stack', at: 0.5, turn: 0.5, dist: 17 }, kick: { act: 'kick', at: 0.5, turn: 0.3, data: 1 },
+};
 let rink = null;
 async function rinkRenderer() {
   if (rink) return rink;
@@ -152,7 +160,7 @@ async function rinkShot(spec) {
   if (!P) return null;
   const { R, W, canvas } = P;
   await holdClub('hockey', spec.club);
-  const [{ kitFor }, { GOAL_X, MID_Y }] = await Promise.all([import('./rink/director.js'), import('./rink/geo.js')]);
+  const [{ kitFor }, { GOAL_X, MID_Y }, { hash }] = await Promise.all([import('./rink/director.js'), import('./rink/geo.js'), import('./rink/util.js')]);
   const colours = spec.club?.colours || null;
   W.kits.h = kitFor(colours, 'h', spec.team);
   W.kits.a = kitFor(null, 'a');
@@ -161,27 +169,44 @@ async function rinkShot(spec) {
   const surname = String(spec.name).split(/\s+/).pop();
   man.name = surname; man.num = spec.num;
   man.faceKey = spec.name;
+  // he shoots the way he does on the air (director.js bindName)
+  man.hand = hash('hand:' + spec.name) % 5 < 2 ? 'R' : 'L';
   // settle the sheet so every body has joints, then stand him at centre ice, turned to the
   // camera, with everybody else down the far end. A goalie's save is made in his crease: he's
   // shot from the slot with his own net behind him, and everybody else goes the other way.
   for (let i = 0; i < 30; i++) W.step(1 / 60);
   const inNet = goalie && spec.art === 'action';
   const x = inNet ? GOAL_X[1] - 3 : 100, y = inNet ? MID_Y : 30, h = inNet ? Math.PI : RINK.face;
+  const pose = spec.art === 'action' ? RINK_ACT[spec.pose] : null;
+  // (the same man is shot for every card, so nothing of the last one's pose stays on him)
+  man.act = null; man.actT = 0; man.gloveW = 0; man.gloveHold = false; man.gloveTarget = null;
+  // the man a check lands on: square in front of him, going over
+  const foe = pose?.foe ? W.team.a[0] : null;
   const hold = () => {
     const others = [...W.team.a, ...W.team.h, W.goalie.a, W.goalie.h, ...W.officials, ...W.extras];
-    others.forEach((b, i) => { if (b && b !== man) { b.x = (inNet ? 15 : 175) + (i % 4) * 3; b.y = 15 + (i % 9) * 6; } });
+    others.forEach((b, i) => { if (b && b !== man && b !== foe) { b.x = (inNet ? 15 : 175) + (i % 4) * 3; b.y = 15 + (i % 9) * 6; } });
     man.x = x; man.y = y; man.vx = 0; man.vy = 0; man.h = h;
+    if (foe) { foe.x = x + Math.cos(h) * 3.5; foe.y = y + Math.sin(h) * 3.5; foe.vx = 0; foe.vy = 0; foe.h = h + 2.4; }
   };
   for (let i = 0; i < 4; i++) { hold(); W.step(1 / 60); }
   hold();
   // an action shot catches him mid-move: a slapper at the top of the wind-up, a check as it
   // lands, a goalie down in the butterfly. The act is held there for the render.
-  const act = spec.art === 'action' && RINK_ACT[spec.pose];
-  if (act) { W.act(man, act[0], 60); man.actT = act[1]; W.step(1 / 60); hold(); man.actT = act[1]; }
+  const act = pose;
+  // The hands ease toward a pose, so the act is held for a moment first: one step catches them on
+  // their way there, with the stick end-on to the lens.
+  if (act) {
+    W.act(man, act.act, 60, act.data);
+    if (act.glove) { man.gloveW = 1; man.gloveHold = true; man.gloveTarget = [x + Math.cos(h) * act.glove[0] - Math.sin(h) * act.glove[1], y + Math.sin(h) * act.glove[0] + Math.cos(h) * act.glove[1], act.glove[2]]; }
+    if (foe) { W.act(foe, 'stagger', 60); foe.react = 0.7; }
+    for (let i = 0; i < 45; i++) { man.actT = act.at; if (foe) foe.actT = 0.5; W.step(1 / 60); hold(); }
+    man.actT = act.at; if (foe) foe.actT = 0.5;
+  }
   // the camera: a seat (camera.js seatFrame), which is a free eye; yaw is from +y toward +x
   const action = spec.art === 'action';
-  const dist = action ? RINK.actDist : RINK.dist, hy = action ? RINK.actY : goalie ? RINK.goalieY : RINK.headY;
-  const az = h + RINK.three;
+  const dist = act?.dist ?? (action ? RINK.actDist : RINK.dist), hy = act?.y ?? (action ? RINK.actY : goalie ? RINK.goalieY : RINK.headY);
+  // (a righty is a lefty mirrored, so a turn toward the stick goes the other way round him)
+  const az = h + (act?.turn != null ? act.turn * (man.hand === 'R' && !goalie ? -1 : 1) : RINK.three);
   const eye = [x + Math.cos(az) * dist, y + Math.sin(az) * dist, hy + RINK.rise];
   const dx = x - eye[0], dy = y - eye[1];
   R.seat = { eye, mode: 'free', yaw: Math.atan2(dx, dy), pitch: Math.atan2(RINK.rise, Math.hypot(dx, dy)), fov: action ? RINK.actFov : RINK.fov };

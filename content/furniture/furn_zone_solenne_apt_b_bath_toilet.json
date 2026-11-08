@@ -1,6 +1,11 @@
 {
   "description": "A low toilet set flush into the stone monolith, cistern hidden, a soft-close seat. It flushes without a sound.",
-  "flags": {},
+  "flags": {
+    "look": {
+      "arche": "toilet",
+      "form": "hung"
+    }
+  },
   "hp": null,
   "hp_max": null,
   "id": "furn_zone_solenne_apt_b_bath_toilet",

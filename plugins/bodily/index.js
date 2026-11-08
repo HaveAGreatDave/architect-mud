@@ -1170,6 +1170,8 @@ async function finishShower(player, session) {
 
 // An unflushed toilet reads that way on a look, until someone flushes it.
 export const hooks = {
+  // What the Room Stage's card offers. A shower and a toilet are matched by name too, so no flag gates these.
+  'furniture.acts': (f) => (isShower(f) ? [{ verb: 'shower', bare: true }] : isToilet(f) ? [{ verb: 'pee' }, { verb: 'poop' }, { verb: 'flush' }] : undefined),
   // An unflushed toilet has no floor stain — the mess is in the bowl — so
   // nothing else would ever report it. It's also the single most useful thing
   // smell can tell you before you decide to use one.

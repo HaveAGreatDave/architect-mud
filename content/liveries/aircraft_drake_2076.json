@@ -1,6 +1,6 @@
 {
-  "blurb": "Concept. The Drake fifty years on: a printed air yacht in champagne pearl and titanium, the mandarin kept as a vanity hull.",
-  "default": false,
+  "blurb": "The Drake fifty years on: a printed air yacht in champagne pearl and titanium, the mandarin kept as a vanity hull.",
+  "default": true,
   "exterior": {
     "base": "#dac49e",
     "finish": "gloss",

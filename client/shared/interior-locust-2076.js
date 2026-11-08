@@ -9,7 +9,7 @@
 //
 // One seat on the centreline, set high behind the hopper for seeing the ground in a turn, as the
 // AT-802's is. The throttle is on a swept console on the left with the flap lever at its forward end,
-// a sidestick on a swept console on the right, and ahead a sculpted deck from wall to wall with one
+// a centre stick ahead of the pilot, and ahead a sculpted deck from wall to wall with one
 // curved band of glass across it carrying every page, key and lamp: the charge, the spray, the flight
 // page in front of the pilot, the drones and the map. The flight symbology is projected into the
 // windscreen, and a hologram of the aircraft stands on the deck's shelf with her drones round her.
@@ -36,7 +36,7 @@
 //
 // The five keys (power, three lighting circuits and the spray) are glass keys on the band, the flap
 // lever stands at the forward end of the left console and the map is the page you click; all of them
-// are inside the forward look. The sidestick, the throttle and the pedals sit low, so each is mirrored
+// are inside the forward look. The stick, the throttle and the pedals sit low, so each is mirrored
 // in the windscreen HUD. Every number is a live value or derived from one in the open (the motor's
 // draw from throttle and rpm, endurance from charge over draw, the boom's flow from airspeed); the
 // hopper's level shows only when the sim sends one, and nothing looks operable that isn't.
@@ -50,10 +50,11 @@
 // light lines breathe. Every readout is still a function of the live state.
 //
 // Pure apart from that easing: no camera, no DOM. `live` arrives as an argument.
+import { brandTrim } from './interior-brands.js';
 import { makeKit, C, clamp, lerp, SHINY, TEXTURE } from './interior-kit.js';
 import { contactShadow, hotspotHalo, panelGps, gpsHotspot, lensLamp, facingPanel, eased, pressPulse, HALO,
   bootAge, reveal, alertLight, sweep, lightLine, bandFrame, glassBand, holoFrame, holoProjector, windscreenHud,
-  HOLO, HOLO_LINE, HOLO_AMBER, HOLO_RED, HUD_LINE, HUD_DIM, HUD_AMBER, HUD_RED } from './interior-cockpit-kit.js';
+  HOLO, HOLO_LINE, HOLO_AMBER, HOLO_RED, HUD_LINE, HUD_DIM, HUD_AMBER, HUD_RED, stickColumn } from './interior-cockpit-kit.js';
 import { MESH_ROWS } from './vehicle-meshes.js';
 import { compileMesh } from './vehicle-mesh.js';
 import { LC_STATIONS, LC_APEX_AFT, LC_GLASS, LC_DOOR, LC_INSIDE, LC_DRONES, AT802_LENGTH_M, lcSection, lcPoint } from './cabin-locust-2076.js';
@@ -92,6 +93,7 @@ SHINY.set(T.graphiteLt, { spec: 0.35, pow: 24 });
 SHINY.set(T.metal, { spec: 0.7, pow: 36 });
 SHINY.set(T.buckle, { spec: 0.8, pow: 40 });
 SHINY.set(T.screen, { spec: 0.6, pow: 60 });
+brandTrim(T, 'locust', TEXTURE, SHINY);
 
 // ── THE EXTERIOR, MEASURED ──────────────────────────────────────────────────
 function modelLength(doc) {
@@ -408,13 +410,13 @@ const panelOn = (R) => R.powered && (R.L.panelLight != null ? !!R.L.panelLight :
 // ── WHERE THE CONTROLS ARE ───────────────────────────────────────────────────
 // One place says where each thing you can grab or click is; the drawing and the hotspots both read it.
 // Shell metres, the eye at the origin on the centreline.
-const STICK = { x: 0.33, y: 0.1, z: 0.52, len: 0.13 };                 // z off the floor; on the right console
+const STICK = { x: 0, y: 0.36, z: 0.52, len: 0.13 };                   // z off the floor; dead ahead of the pilot
 const CON = { hw: 0.06, y0: -0.15, top: 0.5 };                          // the two side consoles, top off the floor
 const LEVER = { x: -0.33, pivotY: 0.12, len: 0.15 };                     // the throttle, on the left console
 const FLAP = { x: -0.355, y0: 0.42, y1: 0.49, riserY: 0.36, riserTop: 0.56 };   // the flap lever, UP forward, FULL aft
 function stickAt(P, R) {
   const base = [STICK.x, STICK.y, P.l76.zF + STICK.z];
-  const dir = norm([R.ail * 0.32, R.elev * 0.32, 1]);
+  const dir = norm([R.ail * 0.32, -R.elev * 0.32, 1]);
   return { base, top: add(base, mul(dir, STICK.len)), dir };
 }
 function leverAt(P, R) {
@@ -431,7 +433,7 @@ function flapKnob(P, R) {
 // The band runs across in a shallow arc centred on the seat, so it comes round toward the pilot at
 // each end, and every page, key and lamp sits on it. `curve(s)` gives the band's lower edge and the
 // direction forward across the deck; the deck body is swept along the same curve.
-const DASH = { xL: -0.43, xR: 0.43, yMid: 0.62, sag: 0.12, w: 0.48, z0: -0.37, h: 0.25, lean: 0.4 };
+const DASH = { xL: -0.43, xR: 0.43, yMid: 0.62, sag: 0.12, w: 0.48, z0: -0.43, h: 0.25, lean: 0.4 };
 function dashCurve() {
   return (s) => {
     const x = lerp(DASH.xL, DASH.xR, s), q = x / DASH.w;
@@ -539,7 +541,7 @@ export function l76Fit(P, live, push) {
   // The light lines carry the alert: teal, amber on a low charge, red and breathing on a hull or stall
   // warning. They are the first thing in the room to change colour.
   const warn = lit && (R.hull < 0.3 || R.stall), caution = lit && R.fuel < 0.15;
-  const al = alertLight(caution, warn), lineK = (k) => (lit ? k * al.k : 0.05);
+  const al = alertLight(caution, warn, T.line), lineK = (k) => (lit ? k * al.k : 0.05);
   // How near the hand is to a control: eased up while the pointer is over it or pressing it.
   const near = (key, ids) => eased('l76:near:' + key, live && ids.some((id) => live.hover === id || live.press === id) ? 1 : 0, 12);
   // How far out the drones are: eased toward the valve's state, so the hologram and the drone page fly
@@ -665,10 +667,10 @@ export function l76Fit(P, live, push) {
     if (lit && reveal(boot, 0.7) > 0) holoLocust(K, add(base, [0, 0, HOLO_AT.rise + 0.02]), R, out);
   }
 
-  // ── THE SIDE CONSOLES: swept, the throttle on the left and the stick on the right ──
+  // ── THE SIDE CONSOLES: swept, the throttle on the left, an armrest on the right ──
   for (const s of [-1, 1]) {
     const cx = s * Math.abs(LEVER.x), crings = [], pads = [];
-    const yEnd = s < 0 ? FLAP.riserY : STICK.y + 0.14;
+    const yEnd = s < 0 ? FLAP.riserY : 0.24;
     for (let i = 0; i <= 10; i++) {
       const y = lerp(CON.y0, yEnd, i / 10);
       crings.push(roundSection(cx, y, CON.hw, zF, zF + CON.top - 0.005, 0.1));
@@ -678,7 +680,7 @@ export function l76Fit(P, live, push) {
     K.face(crings[10].slice().reverse(), [0, 1, 0], 'dash', 0.05, T.graphiteLt);
     lightLine(K, crings.map((r) => add(r[s < 0 ? 10 : 0], [-s * 0.002, 0, 0.36])), 0.003, al.rgb, lineK(0.75));
     // The forearm pad along the top, aft of the control.
-    for (let i = 0; i <= 6; i++) pads.push(roundSection(cx, lerp(CON.y0 + 0.02, (s < 0 ? LEVER.pivotY : STICK.y) - 0.09, i / 6), 0.05, zF + CON.top - 0.008, zF + CON.top + 0.014, 0.018));
+    for (let i = 0; i <= 6; i++) pads.push(roundSection(cx, lerp(CON.y0 + 0.02, (s < 0 ? LEVER.pivotY : 0.1) - 0.09, i / 6), 0.05, zF + CON.top - 0.008, zF + CON.top + 0.014, 0.018));
     sweep(K, pads, 'dash', 0.1, T.seat);
     // The livery's yellow along the console's inboard lip.
     lightLine(K, crings.map((r) => add(r[s < 0 ? 10 : 0], [-s * 0.0015, 0, 0.3])), 0.0025, T.yellow, 0.15);
@@ -730,10 +732,11 @@ export function l76Fit(P, live, push) {
     // The spray lamp on the grip's inboard face: lit while the valve is open (a lamp, not a switch).
     K.obox(add(mul(add(lv.end, gripEnd), 0.5), [0.0225, 0, 0]), lv.dir, side, [1, 0, 0], 0.012, 0.008, 0.001, 'dash', 0.3, R.spraying && lit ? T.chem : [40, 60, 40], R.spraying && lit ? 0.9 : 0);
   }
-  // The sidestick, on the right console: its base ring lights green under a hand, the grip's cap
+  // The stick, on a column ahead of the pilot: its base ring lights green under a hand, the grip's cap
   // light brightens as the hand comes to it.
   {
     const st = stickAt(P, R), arm = st.base, hand = near('yoke', ['yoke']);
+    stickColumn(K, arm, zF, T.tub, T.metal);
     K.rod(add(arm, [0, 0, -0.01]), add(arm, [0, 0, 0.012]), 0.035, 'dash', 0.1, T.tub, 0, 14);
     K.torus(add(arm, [0, 0, 0.012]), [1, 0, 0], [0, 1, 0], 0.036, 0.004, 18, 'dash', 0.2, R.handsOn ? C.green : al.rgb, lit ? 0.5 + 0.5 * hand : 0);
     K.rod(add(arm, [0, 0, 0.012]), add(arm, mul(st.dir, 0.04)), 0.022, 'dash', -0.1, T.tub, 0, 10);

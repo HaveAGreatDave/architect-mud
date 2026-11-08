@@ -1396,7 +1396,7 @@
         "pts": [[0.438, 0.143, -0.115], [0.438, 0.0821, -0.0828]],
         "r": 0.003,
         "sides": 5,
-        "role": "gear",
+        "role": "strut",
         "paint": "metal",
         "minDetail": 1
       },
@@ -1406,7 +1406,7 @@
         "pts": [[0.482, 0.143, -0.115], [0.482, 0.081, -0.0829]],
         "r": 0.003,
         "sides": 5,
-        "role": "gear",
+        "role": "strut",
         "paint": "metal",
         "minDetail": 1
       },
@@ -1859,7 +1859,7 @@
         "pts": [[0.438, -0.143, -0.115], [0.438, -0.0821, -0.0828]],
         "r": 0.003,
         "sides": 5,
-        "role": "gear",
+        "role": "strut",
         "paint": "metal",
         "minDetail": 1
       },
@@ -1869,7 +1869,7 @@
         "pts": [[0.482, -0.143, -0.115], [0.482, -0.081, -0.0829]],
         "r": 0.003,
         "sides": 5,
-        "role": "gear",
+        "role": "strut",
         "paint": "metal",
         "minDetail": 1
       },
@@ -2909,7 +2909,7 @@
         "pts": [[0.77, 0.0892, -0.0222], [0.81, 0.0879, -0.0324], [0.85, 0.058, -0.0325]],
         "r": 0.0025,
         "sides": 5,
-        "role": "gear",
+        "role": "strut",
         "sh": 0.85,
         "paint": "metal",
         "minDetail": 1
@@ -3045,7 +3045,7 @@
         "pts": [[0.77, -0.0892, -0.0222], [0.81, -0.0879, -0.0324], [0.85, -0.058, -0.0325]],
         "r": 0.0025,
         "sides": 5,
-        "role": "gear",
+        "role": "strut",
         "sh": 0.85,
         "paint": "metal",
         "minDetail": 1
@@ -3105,7 +3105,7 @@
         "pts": [[0.33, 0.1252, 0.1726], [0.33, 0.1334, 0.1797], [0.29, 0.1339, 0.1833], [0.29, 0.1257, 0.1762]],
         "r": 0.0022,
         "sides": 4,
-        "role": "gear",
+        "role": "strut",
         "paint": "metal",
         "minDetail": 1
       },
@@ -3115,7 +3115,7 @@
         "pts": [[0.33, -0.1252, 0.1726], [0.33, -0.1334, 0.1797], [0.29, -0.1339, 0.1833], [0.29, -0.1257, 0.1762]],
         "r": 0.0022,
         "sides": 4,
-        "role": "gear",
+        "role": "strut",
         "paint": "metal",
         "minDetail": 1
       },
@@ -6216,35 +6216,64 @@
               {
                 "kind": "loft",
                 "name": "sponson",
-                "sides": 10,
+                "sides": 12,
                 "section": "ellipse",
                 "role": "nacelle",
                 "shade": { "base": 0.58, "amp": 0.3 },
                 "stations": [
-                  { "f": 0.14, "rg": 0.006, "rv": 0.006, "rvT": 0.006, "rvB": 0.006, "cz": 0 },
-                  { "f": 0.11, "rg": 0.026, "rv": 0.026, "rvT": 0.026, "rvB": 0.026, "cz": 0 },
-                  { "f": 0.05, "rg": 0.034, "rv": 0.034, "rvT": 0.034, "rvB": 0.034, "cz": 0 },
-                  { "f": -0.03, "rg": 0.034, "rv": 0.034, "rvT": 0.034, "rvB": 0.034, "cz": 0 },
-                  { "f": -0.1, "rg": 0.024, "rv": 0.024, "rvT": 0.024, "rvB": 0.024, "cz": 0 },
-                  { "f": -0.13, "rg": 0.006, "rv": 0.006, "rvT": 0.006, "rvB": 0.006, "cz": 0 }
+                  { "f": 0.15, "rg": 0.008, "rv": 0.008, "rvT": 0.008, "rvB": 0.008, "cz": 0 },
+                  { "f": 0.12, "rg": 0.05, "rv": 0.05, "rvT": 0.05, "rvB": 0.05, "cz": 0 },
+                  { "f": 0.05, "rg": 0.072, "rv": 0.072, "rvT": 0.072, "rvB": 0.072, "cz": 0 },
+                  { "f": -0.1, "rg": 0.072, "rv": 0.072, "rvT": 0.072, "rvB": 0.072, "cz": 0 },
+                  { "f": -0.2, "rg": 0.052, "rv": 0.052, "rvT": 0.052, "rvB": 0.052, "cz": 0 },
+                  { "f": -0.25, "rg": 0.008, "rv": 0.008, "rvT": 0.008, "rvB": 0.008, "cz": 0 }
                 ],
                 "paint": "hull"
               }
             ],
-            "xf": { "t": [0.03, 0.17, -0.07] },
+            "xf": { "t": [0.03, 0.175, -0.075] },
             "minDetail": 1
           },
-          { "kind": "strut", "name": "trailing leg", "at": [0.09, 0.19], "top": -0.06, "bot": -0.2121, "r": 0.014, "minDetail": 1 },
           {
-            "kind": "tube",
-            "name": "trailing arm",
-            "pts": [[0.09, 0.19, -0.2121], [0.06, 0.19, -0.2321]],
-            "r": 0.01,
-            "sides": 6,
-            "role": "gear",
-            "sh": 0.75,
-            "paint": "metal",
-            "minDetail": 1
+            "kind": "poly",
+            "name": "main gear door",
+            "faces": [
+              { "role": "nacelle", "sh": 0.5, "p": [[0.15, 0.135, -0.148], [-0.2, 0.135, -0.148], [-0.2, 0.205, -0.148], [0.15, 0.205, -0.148]] },
+              { "role": "nacelle", "sh": 0.5, "p": [[0.15, 0.135, -0.151], [0.15, 0.205, -0.151], [-0.2, 0.205, -0.151], [-0.2, 0.135, -0.151]] }
+            ],
+            "paint": "hull",
+            "minDetail": 1,
+            "anim": { "ang": [0, -80], "axis": [1, 0, 0], "ch": "gear", "pivot": [0, 0.135, -0.148], "span": [0, 0.25] }
+          },
+          {
+            "kind": "group",
+            "name": "main leg",
+            "parts": [
+              { "kind": "strut", "name": "trailing leg", "at": [0.09, 0.19], "top": -0.06, "bot": -0.2121, "r": 0.014 },
+              {
+                "kind": "tube",
+                "name": "trailing arm",
+                "pts": [[0.09, 0.19, -0.2121], [0.06, 0.19, -0.2321]],
+                "r": 0.01,
+                "sides": 6,
+                "role": "gear",
+                "sh": 0.75,
+                "paint": "metal"
+              },
+              { "kind": "tube", "name": "axle", "pts": [[0.06, 0.185, -0.2321], [0.06, 0.225, -0.2321]], "r": 0.009, "sides": 6, "role": "gear", "paint": "metal" },
+              { "kind": "wheel", "name": "main wheel", "at": [0.06, 0.225, -0.2321], "r": 0.058, "hw": 0.03, "n": 14 },
+              {
+                "kind": "tube",
+                "name": "brake line",
+                "pts": [[0.09, 0.195, -0.07], [0.092, 0.196, -0.2021]],
+                "r": 0.0018,
+                "sides": 3,
+                "role": "gear",
+                "paint": "carbon"
+              }
+            ],
+            "minDetail": 1,
+            "anim": { "ang": [0, -88], "axis": [0, 1, 0], "ch": "gear", "pivot": [0.09, 0.19, -0.06], "slide": [0, -0.03, 0], "span": [0.95, 0.25] }
           },
           {
             "kind": "tube",
@@ -6255,28 +6284,8 @@
             "role": "gear",
             "sh": 0.75,
             "paint": "metal",
-            "minDetail": 1
-          },
-          {
-            "kind": "tube",
-            "name": "axle",
-            "pts": [[0.06, 0.185, -0.2321], [0.06, 0.225, -0.2321]],
-            "r": 0.009,
-            "sides": 6,
-            "role": "gear",
-            "paint": "metal",
-            "minDetail": 1
-          },
-          { "kind": "wheel", "name": "main wheel", "at": [0.06, 0.225, -0.2321], "r": 0.058, "hw": 0.03, "n": 14, "minDetail": 1 },
-          {
-            "kind": "tube",
-            "name": "brake line",
-            "pts": [[0.09, 0.195, -0.07], [0.092, 0.196, -0.2021]],
-            "r": 0.0018,
-            "sides": 3,
-            "role": "gear",
-            "paint": "carbon",
-            "minDetail": 1
+            "minDetail": 1,
+            "anim": { "ang": [0, -105], "axis": [0, 1, 0], "ch": "gear", "pivot": [-0.05, 0.175, -0.075], "slide": [0.13, -0.03, 0.02], "span": [0.95, 0.25] }
           }
         ],
         "minDetail": 1
@@ -6291,18 +6300,25 @@
         "paint": "hull",
         "minDetail": 1
       },
-      { "kind": "strut", "name": "tailwheel leg", "at": [-0.71, 0], "top": -0.065, "bot": -0.1523, "r": 0.008, "minDetail": 1 },
       {
-        "kind": "tube",
-        "name": "tailwheel fork",
-        "pts": [[-0.71, 0, -0.1503], [-0.72, -0.016, -0.1643], [-0.72, 0.016, -0.1643]],
-        "r": 0.004,
-        "sides": 5,
-        "role": "gear",
-        "paint": "metal",
-        "minDetail": 1
+        "kind": "group",
+        "name": "tail leg",
+        "parts": [
+          { "kind": "strut", "name": "tailwheel leg", "at": [-0.71, 0], "top": -0.065, "bot": -0.1523, "r": 0.008 },
+          {
+            "kind": "tube",
+            "name": "tailwheel fork",
+            "pts": [[-0.71, 0, -0.1503], [-0.72, -0.016, -0.1643], [-0.72, 0.016, -0.1643]],
+            "r": 0.004,
+            "sides": 5,
+            "role": "gear",
+            "paint": "metal"
+          },
+          { "kind": "wheel", "name": "tailwheel", "at": [-0.72, 0, -0.1643], "r": 0.03, "hw": 0.014, "n": 10 }
+        ],
+        "minDetail": 1,
+        "anim": { "ang": [0, 80], "axis": [0, 1, 0], "ch": "gear", "pivot": [-0.71, 0, -0.065], "span": [0.95, 0.25] }
       },
-      { "kind": "wheel", "name": "tailwheel", "at": [-0.72, 0, -0.1643], "r": 0.03, "hw": 0.014, "n": 10, "minDetail": 1 },
       {
         "kind": "drum",
         "name": "beacon base",
@@ -6435,29 +6451,43 @@
             "maxDetail": 0
           },
           {
-            "kind": "tube",
-            "name": "gear (far)",
-            "pts": [[0.06, 0.19, -0.06], [0.06, 0.225, -0.2321]],
-            "r": 0.012,
-            "sides": 5,
-            "role": "gear",
-            "paint": "metal",
-            "maxDetail": 0
-          },
-          { "kind": "wheel", "name": "main wheel (far)", "at": [0.06, 0.225, -0.2321], "r": 0.058, "hw": 0.03, "n": 8, "maxDetail": 0 }
+            "kind": "group",
+            "name": "main leg (far)",
+            "parts": [
+              {
+                "kind": "tube",
+                "name": "gear (far)",
+                "pts": [[0.06, 0.19, -0.06], [0.06, 0.225, -0.2321]],
+                "r": 0.012,
+                "sides": 5,
+                "role": "gear",
+                "paint": "metal"
+              },
+              { "kind": "wheel", "name": "main wheel (far)", "at": [0.06, 0.225, -0.2321], "r": 0.058, "hw": 0.03, "n": 8 }
+            ],
+            "maxDetail": 0,
+            "anim": { "ang": [0, -88], "axis": [0, 1, 0], "ch": "gear", "pivot": [0.09, 0.19, -0.06], "slide": [0, -0.03, 0], "span": [0.95, 0.25] }
+          }
         ],
         "minDetail": 1
       },
-      { "kind": "wheel", "name": "tailwheel (far)", "at": [-0.72, 0, -0.1643], "r": 0.03, "hw": 0.014, "n": 6, "maxDetail": 0 },
       {
-        "kind": "tube",
-        "name": "tailwheel leg (far)",
-        "pts": [[-0.72, 0, 0.04], [-0.72, 0, -0.1643]],
-        "r": 0.008,
-        "sides": 4,
-        "role": "gear",
-        "paint": "metal",
-        "maxDetail": 0
+        "kind": "group",
+        "name": "tail leg (far)",
+        "parts": [
+          { "kind": "wheel", "name": "tailwheel (far)", "at": [-0.72, 0, -0.1643], "r": 0.03, "hw": 0.014, "n": 6 },
+          {
+            "kind": "tube",
+            "name": "tailwheel leg (far)",
+            "pts": [[-0.72, 0, 0.04], [-0.72, 0, -0.1643]],
+            "r": 0.008,
+            "sides": 4,
+            "role": "gear",
+            "paint": "metal"
+          }
+        ],
+        "maxDetail": 0,
+        "anim": { "ang": [0, 80], "axis": [0, 1, 0], "ch": "gear", "pivot": [-0.71, 0, -0.065], "span": [0.95, 0.25] }
       }
     ]
   }

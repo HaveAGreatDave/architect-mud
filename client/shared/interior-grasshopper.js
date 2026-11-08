@@ -456,7 +456,7 @@ function controls(P, L) {
   const thr = clamp(num(L.throttle), 0, 1), trim = clamp(num(L.trim), -1, 1), rud = clamp(num(L.rudder), -1, 1);
   const stick = (y, top) => {
     const base = [0, y, zF + 0.02];
-    const tip = [ail * 0.075, y + 0.03 + elev * 0.08, top];
+    const tip = [ail * 0.075, y + 0.03 - elev * 0.08, top];
     return { base, tip };
   };
   // The rear throttle: a lever on the left wall, pivoted low, idle aft and full forward.

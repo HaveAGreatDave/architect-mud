@@ -278,12 +278,13 @@ export function paintWood(doc) {
   return c;
 }
 // The mask's bars on a 256² tile: uprights every 44 texels from 40, crossbars every 60 from 60,
-// each 9 wide. The crossbars miss the eye line (ballpark-smoke.mjs holds them to it).
-export const MASK_BARS = Object.freeze({ size: 256, width: 9, cols: [40, 44], rows: [60, 60] });
+// each 6 wide, inside a heavier frame. The crossbars miss the eye line (ballpark-smoke.mjs holds them to it).
+export const MASK_BARS = Object.freeze({ size: 256, width: 6, cols: [40, 44], rows: [60, 60] });
 export function paintMask(doc) {
   const B = MASK_BARS, c = canvasOf(doc, B.size, B.size), g = c.getContext('2d');
   g.clearRect(0, 0, B.size, B.size); g.strokeStyle = '#111'; g.lineWidth = B.width;
   for (let x = B.cols[0]; x < B.size; x += B.cols[1]) { g.beginPath(); g.moveTo(x, 0); g.lineTo(x, B.size); g.stroke(); }
   for (let y = B.rows[0]; y < B.size; y += B.rows[1]) { g.beginPath(); g.moveTo(0, y); g.lineTo(B.size, y); g.stroke(); }
+  g.lineWidth = 16; g.strokeRect(0, 0, B.size, B.size);
   return c;
 }

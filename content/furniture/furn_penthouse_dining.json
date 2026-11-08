@@ -1,0 +1,20 @@
+{
+  "description": "A single slab of grey basalt on two bronze trestles, long enough for twelve and laid for one. The light over it is set exactly right for a face across the table, and the chair across the table is empty.",
+  "flags": {
+    "aliases": "table,dining table",
+    "look": {
+      "arche": "table",
+      "form": "dining"
+    }
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_penthouse_dining",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "dining table",
+  "object_type": "furniture",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_solenne_penthouse"
+}

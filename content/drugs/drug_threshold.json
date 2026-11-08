@@ -62,7 +62,8 @@
     }
   },
   "flags": {
-    "drug_family": "psychedelic"
+    "drug_family": "psychedelic",
+    "taken": "huff"
   },
   "id": "drug_threshold",
   "item_id": "item_threshold",

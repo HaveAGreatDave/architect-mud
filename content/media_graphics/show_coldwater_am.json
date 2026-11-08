@@ -1,0 +1,10 @@
+{
+  "content": "{\n \"kind\": \"show\",\n \"format\": 1,\n \"id\": \"show_coldwater_am\",\n \"name\": \"Coldwater A.M.\",\n \"type\": \"morning\",\n \"broadcast\": \"bc_coldwater_am\",\n \"live\": true,\n \"set\": \"set_ksab_morning\",\n \"cast\": {\n  \"a\": \"npc_am_pace\",\n  \"b\": \"npc_am_dorn\"\n },\n \"slots\": [\n  {\n   \"id\": \"open\",\n   \"label\": \"Cold open\",\n   \"when\": \"open\",\n   \"sequence\": \"seq_am_open\"\n  },\n  {\n   \"id\": \"close\",\n   \"label\": \"Sign-off\",\n   \"when\": \"close\",\n   \"sequence\": \"seq_am_close\"\n  }\n ],\n \"samples\": {\n  \"Example\": {\n   \"host\": \"Bijou Pace\",\n   \"cohost\": \"Hal Dorn\",\n   \"time\": \"7:10\",\n   \"day\": \"Tuesday\",\n   \"temp\": 3,\n   \"feels\": -2,\n   \"weather\": \"light rain\",\n   \"hi\": 6,\n   \"lo\": 1,\n   \"tomorrow\": \"overcast\",\n   \"tomorrowTemp\": 5,\n   \"wind\": 18,\n   \"precip\": 70\n  }\n }\n}",
+  "created_at": "1794098460",
+  "description": "",
+  "id": "show_coldwater_am",
+  "name": "Coldwater A.M.",
+  "tags": [],
+  "type": "show",
+  "updated_at": "1794098460"
+}

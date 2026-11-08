@@ -70,7 +70,8 @@
     "drug_family": "depressant",
     "intox_per_dose": 31,
     "legal": true,
-    "skin_permeability": 0.02
+    "skin_permeability": 0.02,
+    "taken": "drink"
   },
   "id": "drug_alcohol",
   "item_id": "item_drug_beer",

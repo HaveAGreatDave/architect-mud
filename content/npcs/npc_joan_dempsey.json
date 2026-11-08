@@ -1,0 +1,163 @@
+{
+  "banter": [],
+  "behaviour_graph": {
+    "_start": "n_start",
+    "nodes": {
+      "n_atwork": {
+        "action_type": "AT_WORK",
+        "next": "n_check",
+        "type": "action"
+      },
+      "n_check": {
+        "action_type": "CHECK_WORK",
+        "goToWork": "n_work",
+        "haveLife": "n_life",
+        "type": "action"
+      },
+      "n_life": {
+        "action_type": "HAVE_LIFE",
+        "next": "n_check",
+        "type": "action"
+      },
+      "n_start": {
+        "next": "n_check",
+        "type": "start"
+      },
+      "n_work": {
+        "action_type": "GO_TO_WORK",
+        "next": "n_atwork",
+        "params": {
+          "zone_id": "zone_ksab5_stage"
+        },
+        "type": "action"
+      }
+    }
+  },
+  "chitchat": [],
+  "description": "A tall woman in a navy blazer with a KSAB5 pin on the lapel and a stack of run sheets under one hand. She has a pencil behind her ear and reading glasses on a cord. Her earpiece wire runs down the back of her collar. She checks the clock over the cameras every few seconds.",
+  "dialogue_tree": {
+    "bye": {
+      "options": [],
+      "text": "\"Mind the cables on your way out.\""
+    },
+    "off": {
+      "options": [
+        {
+          "label": "Fair enough.",
+          "next": "root"
+        }
+      ],
+      "text": "\"Eight games a day. Lou and I took the flat at Kestrel Court so we could walk in. Ask me again on Cup day.\""
+    },
+    "pick": {
+      "options": [
+        {
+          "label": "Right.",
+          "next": "root"
+        }
+      ],
+      "text": "\"I don't pick. I read what's on the card. Lou picks, and he's wrong half the time.\""
+    },
+    "root": {
+      "options": [
+        {
+          "label": "Who do you like tonight?",
+          "next": "pick"
+        },
+        {
+          "label": "Do you ever get a day off?",
+          "next": "off"
+        }
+      ],
+      "text": "\"Make it quick, we're back in four minutes.\"",
+      "text_by_relation": {
+        "first": "\"Joan Dempsey, I do the desk here. If you're looking for the production office, it's up the stairs.\"",
+        "known": "\"You again. Want the score, or are you just here for the air conditioning?\""
+      }
+    }
+  },
+  "faction": null,
+  "flags": {
+    "absent_lines": [
+      "\"Where's {missing}? We're on in ninety seconds.\"",
+      "looks at the empty chair, then at the clock."
+    ],
+    "clothing_layers": [
+      "a navy blazer with a KSAB5 pin on the lapel",
+      "a pressed white blouse",
+      "a plain cotton bra and panties"
+    ],
+    "figure": {
+      "age": 0.45,
+      "beard": 0,
+      "brow": 0.95,
+      "build": "woman",
+      "cut": "suit",
+      "gear": false,
+      "hair": [
+        58,
+        38,
+        28
+      ],
+      "hair_style": 3,
+      "head": 3,
+      "iris": [
+        90,
+        110,
+        90
+      ],
+      "layout": 7,
+      "legs": [
+        20,
+        24,
+        40
+      ],
+      "mouth": 1,
+      "shirt": [
+        226,
+        226,
+        222
+      ],
+      "shoes": [
+        20,
+        18,
+        18
+      ],
+      "skin": [
+        226,
+        178,
+        140
+      ],
+      "smile": 1,
+      "top": [
+        24,
+        34,
+        64
+      ],
+      "trim": [
+        57,
+        160,
+        255
+      ]
+    },
+    "studio_npc": true
+  },
+  "home_activities": [],
+  "home_zone": "zone_kestrel_11b",
+  "hp": 20,
+  "hp_max": 20,
+  "id": "npc_joan_dempsey",
+  "name": "Joan Dempsey",
+  "npc_type": "npc",
+  "sex": "female",
+  "studio_zone_id": null,
+  "vendor_inventory": [],
+  "vendor_restock_rate": 1,
+  "vendor_schedule": {},
+  "vendor_shop_name": null,
+  "vendor_stock_size": 10,
+  "wander_zones": [],
+  "wanders": 0,
+  "work_zone_id": "zone_ksab5_stage"
+}
+

@@ -150,7 +150,7 @@ function doors(s) {
     ...boxAt([sf, sy, sz], [0.06, 0.03, 0.006], { paint: 'carbon' }),
     ...range(sf - 0.022, sf + 0.022, 3).map((f) => quad([f - 0.003, sy - 0.012, sz + 0.0035], [f + 0.003, sy - 0.012, sz + 0.0035], [f + 0.003, sy + 0.012, sz + 0.0035], [f - 0.003, sy + 0.012, sz + 0.0035], { paint: 'rubber' })),
   ], FINE));
-  for (const f of [sf - 0.022, sf + 0.022]) parts.push(tube('crew step arm (' + side + ')', [[f, sy - sg * 0.012, sz], at(f, A(-62), -0.002)], 0.003, { role: 'gear', paint: 'metal', sides: 5, ...FINE }));
+  for (const f of [sf - 0.022, sf + 0.022]) parts.push(tube('crew step arm (' + side + ')', [[f, sy - sg * 0.012, sz], at(f, A(-62), -0.002)], 0.003, { role: 'strut', paint: 'metal', sides: 5, ...FINE }));
   return parts;
 }
 
@@ -178,7 +178,7 @@ const hullWork = [
       LED('formation strip (' + (s ? 'left' : 'right') + ')', alongF([0.3, 0.2, 0.1], A(14), 0.004), 0.003),
       LED('formation strip aft (' + (s ? 'left' : 'right') + ')', alongF([-0.5, -0.58, -0.66], A(24), 0.004), 0.003),
       // Pitot-static probes either side of the radome, on short swept stalks.
-      tube('pitot (' + (s ? 'left' : 'right') + ')', [at(0.77, A(-10), 0), add(at(0.81, A(-10), 0.02), [0, 0, -0.004]), add(at(0.85, A(-10), 0.02), [0, 0, -0.004])], 0.0025, { role: 'gear', paint: 'metal', sh: 0.85, sides: 5, ...FINE }),
+      tube('pitot (' + (s ? 'left' : 'right') + ')', [at(0.77, A(-10), 0), add(at(0.81, A(-10), 0.02), [0, 0, -0.004]), add(at(0.85, A(-10), 0.02), [0, 0, -0.004])], 0.0025, { role: 'strut', paint: 'metal', sh: 0.85, sides: 5, ...FINE }),
       // The distributed aperture system: six dark sensor windows round the airframe, two here.
       poly('DAS window (' + (s ? 'left' : 'right') + ')', patch([0.735, 0.71], [A(-6), A(6)], { role: 'glass', tint: [18, 22, 26] }, 0.003), FINE),
       poly('DAS window aft (' + (s ? 'left' : 'right') + ')', patch([-0.6, -0.625], [A(-4), A(8)], { role: 'glass', tint: [18, 22, 26] }, 0.003), FINE),
@@ -190,7 +190,7 @@ const hullWork = [
   poly('DAS window (chin)', patch([0.7, 0.675], [-96, -84], { role: 'glass', tint: [18, 22, 26] }, 0.003), FINE),
   poly('DAS window (crown)', patch([0.24, 0.215], [84, 96], { role: 'glass', tint: [18, 22, 26] }, 0.003), FINE),
   // A boarding grab handle by each crew door and the cabin's step well under the sliding doors.
-  ...[1, -1].map((s) => tube('grab handle', [at(0.33, s > 0 ? 40 : 140, 0.002), at(0.33, s > 0 ? 40 : 140, 0.012), at(0.29, s > 0 ? 40 : 140, 0.012), at(0.29, s > 0 ? 40 : 140, 0.002)], 0.0022, { role: 'gear', paint: 'metal', sides: 4, ...FINE })),
+  ...[1, -1].map((s) => tube('grab handle', [at(0.33, s > 0 ? 40 : 140, 0.002), at(0.33, s > 0 ? 40 : 140, 0.012), at(0.29, s > 0 ? 40 : 140, 0.012), at(0.29, s > 0 ? 40 : 140, 0.002)], 0.0022, { role: 'strut', paint: 'metal', sides: 4, ...FINE })),
 ];
 
 // ── The nose: the sensor turret and the chin gun ────────────────────────────────
@@ -412,20 +412,38 @@ const MW = { f: 0.06, g: 0.225, r: 0.058 };
 const mwz = groundZ(MW.f) + MW.r;
 const TW = { f: -0.72, r: 0.03 };
 const twz = groundZ(TW.f) + TW.r;
+// The mains fold aft into the sponsons and the wheel comes in a little as it goes. The leg moves over
+// the middle of the channel and the door shuts behind it. The brace telescopes: it swings about its
+// own top and slides up through it, so its foot stays with the leg.
+const LEG = { ch: 'gear', span: [0.95, 0.25] };
+const legPivot = [MW.f + 0.03, 0.19, -0.06];
+const mainFold = { ...LEG, pivot: legPivot, axis: [0, 1, 0], ang: [0, -88], slide: [0, -0.03, 0] };
+const braceTop = [-0.05, 0.175, -0.075];
+const braceFold = { ...LEG, pivot: braceTop, axis: [0, 1, 0], ang: [0, -105], slide: [0.13, -0.03, 0.02] };
+const tailFold = { ...LEG, pivot: [TW.f + 0.01, 0, -0.065], axis: [0, 1, 0], ang: [0, 80] };
+const SPON = { f: 0.03, g: 0.175, h: -0.075 };
+const bayDoor = (name, f0, f1, g0, g1, h, sg) => ({ kind: 'poly', name, paint: 'hull',
+  faces: [{ role: 'nacelle', sh: 0.5, p: [[f0, g0, h], [f1, g0, h], [f1, g1, h], [f0, g1, h]] }, { role: 'nacelle', sh: 0.5, p: [[f0, g0, h - 0.003], [f0, g1, h - 0.003], [f1, g1, h - 0.003], [f1, g0, h - 0.003]] }],
+  anim: { ch: 'gear', span: [0, 0.25], pivot: [0, g0, h], axis: [1, 0, 0], ang: [0, sg * 80] } });
 const gear = [
   mirror('main gear', [
-    group('gear sponson', [pod('sponson', 0, 0, [[0.14, 0.006], [0.11, 0.026], [0.05, 0.034], [-0.03, 0.034], [-0.1, 0.024], [-0.13, 0.006]], { sides: 10, paint: 'hull', shade: { base: 0.58, amp: 0.3 } })], { xf: { t: [0.03, 0.17, -0.07] }, ...FINE }),
-    { kind: 'strut', name: 'trailing leg', at: [R(MW.f + 0.03), 0.19], top: -0.06, bot: R(mwz + 0.02), r: 0.014, ...FINE },
-    tube('trailing arm', [[MW.f + 0.03, 0.19, mwz + 0.02], [MW.f, MW.g - 0.035, mwz]], 0.01, { role: 'gear', paint: 'metal', sh: 0.75, sides: 6, ...FINE }),
-    tube('drag brace', [[-0.05, 0.175, -0.075], [MW.f + 0.02, 0.19, mwz + 0.03]], 0.007, { role: 'gear', paint: 'metal', sh: 0.75, sides: 6, ...FINE }),
-    tube('axle', [[MW.f, MW.g - 0.04, mwz], [MW.f, MW.g, mwz]], 0.009, { role: 'gear', paint: 'metal', sides: 6, ...FINE }),
-    { kind: 'wheel', name: 'main wheel', at: P3([MW.f, MW.g, mwz]), r: MW.r, hw: 0.03, n: 14, ...FINE },
-    tube('brake line', [[MW.f + 0.03, 0.195, -0.07], [MW.f + 0.032, 0.196, mwz + 0.03]], 0.0018, { role: 'gear', paint: 'carbon', sides: 3, ...FINE }),
+    group('gear sponson', [pod('sponson', 0, 0, [[0.15, 0.008], [0.12, 0.05], [0.05, 0.072], [-0.1, 0.072], [-0.2, 0.052], [-0.25, 0.008]], { sides: 12, paint: 'hull', shade: { base: 0.58, amp: 0.3 } })], { xf: { t: [SPON.f, SPON.g, SPON.h] }, ...FINE }),
+    { ...bayDoor('main gear door', 0.15, -0.2, 0.135, 0.205, SPON.h - 0.073, -1), ...FINE },
+    group('main leg', [
+      { kind: 'strut', name: 'trailing leg', at: [R(MW.f + 0.03), 0.19], top: -0.06, bot: R(mwz + 0.02), r: 0.014 },
+      tube('trailing arm', [[MW.f + 0.03, 0.19, mwz + 0.02], [MW.f, MW.g - 0.035, mwz]], 0.01, { role: 'gear', paint: 'metal', sh: 0.75, sides: 6 }),
+      tube('axle', [[MW.f, MW.g - 0.04, mwz], [MW.f, MW.g, mwz]], 0.009, { role: 'gear', paint: 'metal', sides: 6 }),
+      { kind: 'wheel', name: 'main wheel', at: P3([MW.f, MW.g, mwz]), r: MW.r, hw: 0.03, n: 14 },
+      tube('brake line', [[MW.f + 0.03, 0.195, -0.07], [MW.f + 0.032, 0.196, mwz + 0.03]], 0.0018, { role: 'gear', paint: 'carbon', sides: 3 }),
+    ], { anim: mainFold, ...FINE }),
+    { ...tube('drag brace', [braceTop, [MW.f + 0.02, 0.19, mwz + 0.03]], 0.007, { role: 'gear', paint: 'metal', sh: 0.75, sides: 6, ...FINE }), anim: braceFold },
   ]),
   { kind: 'blade', name: 'ventral strake', role: 'fin', paint: 'hull', t: 0.006, sh: [0.8, 0.62], outline: [[-0.6, 0.05], [-0.665, -0.07], [-0.77, -0.07], [-0.84, 0.07]], ...FINE },
-  { kind: 'strut', name: 'tailwheel leg', at: [R(TW.f + 0.01), 0], top: -0.065, bot: R(twz + 0.012), r: 0.008, ...FINE },
-  tube('tailwheel fork', [[TW.f + 0.01, 0, twz + 0.014], [TW.f, -0.016, twz], [TW.f, 0.016, twz]], 0.004, { role: 'gear', paint: 'metal', sides: 5, ...FINE }),
-  { kind: 'wheel', name: 'tailwheel', at: P3([TW.f, 0, twz]), r: TW.r, hw: 0.014, n: 10, ...FINE },
+  group('tail leg', [
+    { kind: 'strut', name: 'tailwheel leg', at: [R(TW.f + 0.01), 0], top: -0.065, bot: R(twz + 0.012), r: 0.008 },
+    tube('tailwheel fork', [[TW.f + 0.01, 0, twz + 0.014], [TW.f, -0.016, twz], [TW.f, 0.016, twz]], 0.004, { role: 'gear', paint: 'metal', sides: 5 }),
+    { kind: 'wheel', name: 'tailwheel', at: P3([TW.f, 0, twz]), r: TW.r, hw: 0.014, n: 10 },
+  ], { anim: tailFold, ...FINE }),
 ];
 
 // ── The room behind the glass ───────────────────────────────────────────────────
@@ -458,11 +476,15 @@ const coarse = [
     { kind: 'panel', name: 'V-tail (far)', role: 'fin', sh: 0.85, th: 0.012, paint: 'hull', c: P3s([VT.rootLE, VT.tipLE, VT.tipTE, VT.rootTE]), ...COARSE },
     { kind: 'panel', name: 'stub wing (far)', role: 'wing', sh: 0.85, th: 0.02, paint: 'hull', c: P3s([[0.15, 0.1, -0.04], [0.125, 0.42, -0.05], [-0.075, 0.42, -0.05], [-0.1, 0.1, -0.04]]), ...COARSE },
     tube('rocket pod (far)', [[0.14, POD.g, POD.h], [-0.17, POD.g, POD.h]], 0.042, { role: 'nacelle', paint: 'hull', sides: 6, caps: 1, ...COARSE }),
-    tube('gear (far)', [[MW.f, 0.19, -0.06], [MW.f, MW.g, mwz]], 0.012, { role: 'gear', paint: 'metal', sides: 5, ...COARSE }),
-    { kind: 'wheel', name: 'main wheel (far)', at: P3([MW.f, MW.g, mwz]), r: MW.r, hw: 0.03, n: 8, ...COARSE },
+    group('main leg (far)', [
+      tube('gear (far)', [[MW.f, 0.19, -0.06], [MW.f, MW.g, mwz]], 0.012, { role: 'gear', paint: 'metal', sides: 5 }),
+      { kind: 'wheel', name: 'main wheel (far)', at: P3([MW.f, MW.g, mwz]), r: MW.r, hw: 0.03, n: 8 },
+    ], { anim: mainFold, ...COARSE }),
   ]),
-  { kind: 'wheel', name: 'tailwheel (far)', at: P3([TW.f, 0, twz]), r: TW.r, hw: 0.014, n: 6, ...COARSE },
-  tube('tailwheel leg (far)', [[TW.f, 0, 0.04], [TW.f, 0, twz]], 0.008, { role: 'gear', paint: 'metal', sides: 4, ...COARSE }),
+  group('tail leg (far)', [
+    { kind: 'wheel', name: 'tailwheel (far)', at: P3([TW.f, 0, twz]), r: TW.r, hw: 0.014, n: 6 },
+    tube('tailwheel leg (far)', [[TW.f, 0, 0.04], [TW.f, 0, twz]], 0.008, { role: 'gear', paint: 'metal', sides: 4 }),
+  ], { anim: tailFold, ...COARSE }),
 ];
 
 // ── Rotors and lamps ────────────────────────────────────────────────────────────

@@ -434,7 +434,7 @@ function readLive(live) {
 
 // Where the hands go, one place, read by both the drawing and the hotspots.
 const HAND = {
-  stick: (R) => [R.ail * 0.07, 0.30 + R.elev * 0.08, -0.34],
+  stick: (R) => [R.ail * 0.07, 0.30 - R.elev * 0.08, -0.34],
   thrPivot: [-0.27, 0.12, -0.44],
   throttle: (R) => { const t = -0.55 + R.thr * 1.1; return [-0.27, 0.12 + Math.sin(t) * 0.13, -0.44 + Math.cos(t) * 0.13]; },
   mixture: (R) => { const t = -0.55 + (R.powered ? 1 : 0) * 1.0; return [-0.245, 0.12 + Math.sin(t) * 0.12, -0.44 + Math.cos(t) * 0.12]; },

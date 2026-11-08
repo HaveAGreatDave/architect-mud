@@ -46,7 +46,8 @@
     }
   },
   "flags": {
-    "drug_family": "nootropic"
+    "drug_family": "nootropic",
+    "taken": "huff"
   },
   "id": "drug_static",
   "item_id": "item_static",

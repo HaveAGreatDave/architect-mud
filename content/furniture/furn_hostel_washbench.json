@@ -1,0 +1,24 @@
+{
+  "description": "A slatted bench under the shower hooks, black with damp at the ends. A sliver of soap has fused itself to one slat.",
+  "flags": {
+    "aliases": "bench",
+    "interactions": [
+      "sit"
+    ],
+    "look": {
+      "arche": "bench",
+      "form": "bench",
+      "wear": 0.95
+    }
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_hostel_washbench",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "wash bench",
+  "object_type": "furniture",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_trackmarks_back"
+}

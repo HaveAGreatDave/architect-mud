@@ -3,7 +3,11 @@
   "flags": {
     "aliases": "rack,dish rack,draining board",
     "container": 30000,
-    "dish_cabinet": true
+    "dish_cabinet": true,
+    "look": {
+      "arche": "cabinet",
+      "form": "rack"
+    }
   },
   "hp": null,
   "hp_max": null,

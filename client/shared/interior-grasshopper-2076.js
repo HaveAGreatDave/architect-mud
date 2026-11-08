@@ -38,6 +38,7 @@
 // power from throttle and rpm. The sensor page's ranges come off the altitude and the ball's fixed
 // look-down. Nothing shows a constant dressed as a reading. Decoration may move on wall time (the
 // alert breathing, the boot); every readout moves only on live values.
+import { brandTrim } from './interior-brands.js';
 import { makeKit, C, clamp, lerp, SHINY, PANE, TEXTURE } from './interior-kit.js';
 import { contactShadow, hotspotHalo, panelGps, gpsHotspot, lensLamp, eased, pressPulse, HALO,
   bootAge, reveal, alertLight, sweep, lightLine, bandFrame, glassBand, holoFrame, holoProjector, windscreenHud,
@@ -80,6 +81,7 @@ SHINY.set(T.lining, { spec: 0.2, pow: 16 });
 SHINY.set(T.metal, { spec: 0.7, pow: 36 });
 SHINY.set(T.buckle, { spec: 0.8, pow: 40 });
 SHINY.set(T.screen, { spec: 0.6, pow: 60 });
+brandTrim(T, 'grasshopper', TEXTURE, SHINY);
 // The hologram's cells, lit by the sun: translucent like the rest of it.
 const HOLO_SUN = [255, 214, 120];
 PANE.set(HOLO_SUN, 0.5);
@@ -398,7 +400,7 @@ function leverAt(P, R) {
 }
 
 // ── THE DASH: a sculpted wing across the pod, and on its face toward you one band of glass ──
-const DASH = { xL: -0.232, xR: 0.232, yMid: 0.65, sag: 0.12, w: 0.232, z0: -0.37, h: 0.215, lean: 0.42 };
+const DASH = { xL: -0.232, xR: 0.232, yMid: 0.65, sag: 0.12, w: 0.232, z0: -0.41, h: 0.215, lean: 0.42 };
 function dashCurve() {
   return (s) => {
     const x = lerp(DASH.xL, DASH.xR, s), q = x / DASH.w;
@@ -511,7 +513,7 @@ export function gh76Fit(P, live, push) {
   // The cabin's light lines carry the alert: teal, amber on low charge or a draining array at night,
   // red and breathing on a hull or stall warning.
   const warn = lit && (R.hull < 0.3 || R.stall), caution = lit && R.fuel < 0.15;
-  const al = alertLight(caution, warn), lineK = (k) => (lit ? k * al.k : 0.05);
+  const al = alertLight(caution, warn, T.line), lineK = (k) => (lit ? k * al.k : 0.05);
 
   // ── THE DASH: a wing swept along the band's curve, held inside the pod ──
   const curve = dashCurve();

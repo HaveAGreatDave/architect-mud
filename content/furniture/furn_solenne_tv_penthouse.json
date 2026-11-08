@@ -6,6 +6,19 @@
     "interactions": [
       "watch"
     ],
+    "look": {
+      "arche": "screen",
+      "dims": [
+        3.4,
+        0.1,
+        1.5
+      ],
+      "form": "flat"
+    },
+    "spot": {
+      "along": 3.6,
+      "wall": "right"
+    },
     "tv": true,
     "tv_dial_freq": 7,
     "tv_skin": "flatscreen"

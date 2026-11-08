@@ -1,0 +1,25 @@
+{
+  "description": "A two-ring hotplate on a sheet of steel, one ring working. The pan beside it has been scrubbed but never really clean. The wall behind it is brown to the height of a person.",
+  "flags": {
+    "aliases": "hotplate,cooker,stove",
+    "interactions": [
+      "lean"
+    ],
+    "look": {
+      "arche": "hob",
+      "form": "cooktop",
+      "wear": 0.95
+    },
+    "stove_tier": "low"
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_hostel_hotplate",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "hotplate",
+  "object_type": "fixture",
+  "power_draw_kw": 0.1,
+  "price": 10,
+  "zone_id": "zone_trackmarks_shop"
+}

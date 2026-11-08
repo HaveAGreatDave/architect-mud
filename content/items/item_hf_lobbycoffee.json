@@ -4,8 +4,16 @@
   "id": "item_hf_lobbycoffee",
   "name": "a cup of lobby coffee",
   "tags": {
+    "consumable": true,
     "description": "Out of a machine that cost more than the chairs, into a cup with the building crest on it. It is genuinely good, which surprises everybody, because the machine is on the service contract and the service contract was written by the same people who took out the second lift.",
-    "stackable": false
+    "hot_drink": true,
+    "hydrating": true,
+    "laced_drug": "drug_coffee",
+    "laced_potency": 1,
+    "restore_sanity": 4,
+    "restore_thirst": 20,
+    "stackable": false,
+    "use_message": "You drink the coffee. It's good, which you weren't expecting."
   },
   "type": "drink",
   "value": 6,

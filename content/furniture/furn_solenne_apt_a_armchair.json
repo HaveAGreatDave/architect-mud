@@ -1,0 +1,23 @@
+{
+  "description": "A wing chair in grey wool, turned to the bay. There's a throw over the arm and a book face down on the seat, spine cracked at the middle.",
+  "flags": {
+    "aliases": "chair",
+    "interactions": [
+      "sit"
+    ],
+    "look": {
+      "arche": "seat",
+      "form": "armchair"
+    }
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_solenne_apt_a_armchair",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "reading chair",
+  "object_type": "furniture",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_solenne_apt_a"
+}

@@ -2,7 +2,7 @@
   "ambient_events": [],
   "ambient_theme": "outdoors",
   "color": "#f5d400",
-  "description": "The north–south centreline runs out to the far threshold here, the last stretch of tarmac before the ground gives way to the cold shoreline beyond. Paint and grooved concrete underfoot; open water a stone's throw past the numbers.",
+  "description": "The centreline runs straight down the middle of the tarmac, and a thin blue light rail runs inside each edge line. The surface is laid in dark composite panels, and the seams are tight enough to stop a coin.",
   "exits": {
     "east": "zone_district_926_898",
     "north": "zone_district_925_897",

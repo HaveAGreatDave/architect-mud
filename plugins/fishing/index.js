@@ -552,7 +552,7 @@ export const commands = {
   fishresolve: cmdFishResolve,
   // The boat reel's taps and strikes (boat.js). Typed as `fish twitch` and `fish strike`.
   fishtwitch: (args, raw, player) => boatTwitch(player, args[0], { reel: args[1] === 'reel' }),
-  fishstrike: (args, raw, player) => boatStrike(player, args[0], args[1], args[2]),
+  fishstrike: (args, raw, player) => boatStrike(player, args[0], args[1]),
 };
 
 // `look water` from a boat, and the surface signs in the room prose (water.js). The matcher returns

@@ -232,11 +232,14 @@ reason; it now draws it field green and the taxiways a darker green.
 
 What the painter lays down:
 
-- **Runway:** edge lines, a dashed centreline stopping short of the numbers, piano keys and the
+- **Runway:** ten tiles, 925,897 to 925,906. It can't reach row 896: that would cut the Basin's water in
+  two. Composite panel seams, a blue light rail inside each edge line with a pulse running down it at
+  night, and blue chevrons on the tiles clear of the touchdown markings. Then edge lines, a dashed centreline stopping short of the numbers, piano keys and the
   designator at each end (18 at the north, 36 at the south, each upright to a pilot landing over
   that end), the aiming point one tile in and touchdown-zone bars one tile further. White edge
   lights turning amber over the last stretch, green and red threshold bars, centreline lights red
-  over the last tile, and the PAPI and windsock on whichever side has no building beside the end.
+  over the last tile, and the PAPI and windsock on whichever side has no building beside the end. The sock stands
+  `SOCK_OFF` tiles from the centreline on a concrete footing, because that's usually water.
 - **Approach lights** where the ground past an end isn't pavement: barrettes three tiles out over
   the water, a crossbar, and a sequenced flasher running in toward the threshold once a second.
 - **Taxiways:** a yellow centreline that turns on a quarter circle, double yellow edge lines where
@@ -1398,14 +1401,15 @@ has **Fly** (`hangaract launch <id>`), Refuel, Store or Roll out, and Sell or Re
   the Heavy Hangar is at 929,904 at the end of the spur, door west onto 928,904, so the Leviathan
   rolls out along the taxiway. A shutdown on paving resolves through `airfieldForRunway`: a field owns
   every `flags.runway` tile within three of its field tile, plus every `flags.runway` tile joined to
-  those edge to edge. So the north end of the strip (925,898), the apron at 924,899 and the lead-in to
+  those edge to edge. So the north end of the strip (925,897), the apron at 924,899 and the lead-in to
   Kessler Street (925,907) all belong to Coldwater Regional. A new taxiway tile needs `flags.runway`
   (`pad`) and an edge shared with the paving; a tile without the flag, or one that touches only at a
   corner, reads as off-strip.
 - **The taxiway network is painted** *(as built, 2026-10-04)*. Each paved tile's `flags.taxiway` is
-  the sides its yellow centreline leaves by: a parallel taxiway down x=926 with exits onto the runway
+  the sides its yellow centreline leaves by: a parallel taxiway down x=926 from the north threshold (926,897), a loop
+  from the spur round the helipad to the south threshold (928,905 to 926,906), with exits onto the runway
   at 899, 901 and 903, the spur east to both hangar doors, a lead-in off the runway's south end
-  (925,904) running down to Kessler Street, two stands (924,900, 927,904) and the helipad (926,905). See
+  (925,907) running down to Kessler Street, two stands (924,900, 927,904) and the helipad (926,905). See
   [The paved field](#the-paved-field-as-built-2026-10-04) for how it is drawn.
 - **The doors are roller doors, shut by default.** One goes up as an aircraft taxis at it, stays up
   while one that came in through it is inside, goes up when an aircraft on the floor starts her engine,
@@ -1717,6 +1721,8 @@ ammeter, no prop governor, no mixture and no airframe ice in this flight model:
   equipment may be present without pretending to read anything. What it may not do is animate a value
   nothing computes.
 
+Gear retracts on the Reaper, Leviathan, Drake and Viper (`gearRetracts` in `plugins/flight/state.js`; the Viper by `data.retract_gear`, since it shares `heli` with the skidded Dragonfly). The Mule's is fixed. The Viper 2076's mains fold aft into its sponsons on the mesh's `gear` channel, and a role `gear` face stows with the legs, so a pitot or grab handle is role `strut`.
+
 ⚠ **A fixed-gear aeroplane gets no gear lever**, and the flap gate takes the whole block. A handle for
 a leg that cannot retract is a control with nothing behind it.
 
@@ -1840,3 +1846,7 @@ A dive-bomb attack is two manoeuvres either side of one button press: push over 
 It's one control with two phases. It pushes over to 68 degrees and holds; the server's confirmation that a bomb left the rack (`flightBurst`) switches it to the pull-out, so a refused release keeps you diving. The pull-out eases off as the nose comes up, so it doesn't sit on the g limit, and lets go once she's climbing. It writes only the elevator input, after the yoke spring and before the flight model, so the model, the g limit, the stall and the chase-view control surfaces see one ordinary input.
 
 The pilot always wins: dragging the yoke pad or deflecting the mouse stick disengages it. Arming the mouse stick alone doesn't, because arming is a mode switch and a deflection is the pilot taking control back.
+
+## Cockpit makers and stick rules
+
+Every aircraft's stick or yoke is dead ahead of the pilot, and a stick's grip goes forward as the mouse goes up: `stickY` positive is a pull, and shell `+y` is forward, so pulling moves the grip to `-y`. Pulling still climbs. The 2076 cockpits share four makers in [interior-brands.js](../client/shared/interior-brands.js): Corvane Aerospace (Viper, Reaper, Shrike), Harcourt Airframes (Mule, Leviathan), Lumen Light Aircraft (Mayfly, Dragonfly, Grasshopper) and Ostler Works (Locust, Carcass). A maker sets cabin colours, the light-line colour and surface finish. Red, amber and green stay warning colours, so a maker's line colour must never be one of them.

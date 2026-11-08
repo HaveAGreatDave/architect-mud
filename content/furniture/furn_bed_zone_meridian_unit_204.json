@@ -6,7 +6,11 @@
       "sit",
       "lie",
       "lean"
-    ]
+    ],
+    "look": {
+      "arche": "bed",
+      "form": "bed"
+    }
   },
   "hp": null,
   "hp_max": null,

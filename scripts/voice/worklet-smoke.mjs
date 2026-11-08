@@ -2,8 +2,8 @@
 //
 //   node scripts/voice/worklet-smoke.mjs
 //
-// The worklet (client/shared/oracle-worklet.js) is a prototype the Voice Lab A/Bs against
-// the node graph. Its failures are all silent: a track list out of step between the two
+// The worklet (client/shared/oracle-worklet.js) is the default back end, with the node
+// graph as its fallback. Its failures are all silent: a track list out of step between the two
 // files shifts every control by one, a resonator that blows up is a burst of noise, and a
 // recorder that samples setTargetAtTime wrong is a voice that is merely worse. None of
 // them throws.
@@ -14,7 +14,9 @@
 //
 // WHAT IT GUARDS:
 //   - the engine's WK_TRACK and the worklet's TRACK are the same list
-//   - a worklet line falls back to the graph until the module has loaded, and says so
+//   - a line falls back to the graph until the module has loaded, and says so; after that
+//     a line with no backend is on the worklet, and one whose node fails is on the graph
+//   - F1 follows the glottis through each period, and doesn't at natural 0
 //   - the recorders sample a closed tract (the /b/ of "a bee") into the closure track
 //   - a rendered line is finite, not silent, and never blows up
 //   - vowel formants come out where the tracks put them
@@ -97,8 +99,9 @@ globalThis.AudioWorkletNode = FakeWorkletNode;
 A._setVoiceWorkletUrl('oracle-worklet.js');
 const early = A.speak('Bean.', { seed: 'smoke', backend: 'worklet' });
 check('a worklet line before the module loads falls back to the graph', early?.backend === 'graph', `got ${early?.backend}`);
-check('the graph is the default', A.speak('Bean.', { seed: 'smoke' })?.backend === 'graph');
 check('the module loads', await A.loadVoiceWorklet() === true);
+check('the worklet is the default', A.speak('Bean.', { seed: 'smoke' })?.backend === 'worklet');
+check('a line can still ask for the graph', A.speak('Bean.', { seed: 'smoke', backend: 'graph' })?.backend === 'graph');
 A.cancelSpeech();
 
 // One worklet line: what it posted, and the processor run over it.
@@ -307,7 +310,25 @@ function cycles(text, extra) {
   check('a question asks for no creak', absMax(trackOf(q.line, 'creak')) === 0);
 }
 
-// ── Synthiness: the character axis ─────────────────────────────────────────────
+// ── Source-tract interaction ──────────────────────────────────────────────────
+{
+  const orig = Proc.prototype.openness;
+  const seen = (extra) => {
+    const log = [];
+    Proc.prototype.openness = function () { const v = orig.call(this); if (this.lf) log.push([this.ph, v, this.lf.te]); return v; };
+    try { render('Ah, the long road north.', extra); return log; } finally { Proc.prototype.openness = orig; }
+  };
+  const mean = (a) => a.reduce((s, v) => s + v, 0) / Math.max(1, a.length);
+  const modal = seen({ voice: { oq: 0.6 } });
+  const inOpen = modal.filter(([x, , te]) => x < te).map(c => c[1]), shut = modal.filter(([x, , te]) => x >= te).map(c => c[1]);
+  check('the glottis opens through the period', Math.max(...inOpen) > 0.5 && mean(inOpen) > 2 * mean(shut), `open ${mean(inOpen).toFixed(3)}, shut ${mean(shut).toFixed(3)}`);
+  check('and the opening is a curve, not a switch', new Set(inOpen.map(v => v.toFixed(2))).size > 10);
+  check('F1 is steady at natural 0', seen({ voice: { natural: 0 } }).every(c => c[1] === 0));
+  const lax = mean(seen({ voice: { oq: 0.8 } }).map(c => c[1])), pressed = mean(seen({ voice: { oq: 0.45 } }).map(c => c[1]));
+  check('lax folds couple more than pressed ones', lax > pressed, `${lax.toFixed(3)} vs ${pressed.toFixed(3)}`);
+}
+
+// ── Synthiness: the character axis─────────────────────────────────────────────
 {
   // Buzz swaps the source for an impulse train: still finite, bounded and about as loud.
   const rms = (o) => Math.sqrt(o.reduce((s, v) => s + v * v, 0) / o.length);
@@ -333,6 +354,18 @@ function cycles(text, extra) {
   made.length = 0;
   A.speak('Bean.', { seed: 'smoke', channel: 'ui', voice: { crush: 1, rmod: 1, buzz: 1 } });
   check('Read Aloud gets no character', !made.some(m => m.name === 'siren-retro'));
+  A.cancelSpeech();
+}
+
+// A node that can't be built leaves the line on the graph, and the worklet off for good,
+// so this goes last.
+{
+  const Real = globalThis.AudioWorkletNode, warn = console.warn;
+  globalThis.AudioWorkletNode = class { constructor() { throw new Error('no node'); } };
+  console.warn = () => {};
+  const res = A.speak('Bean.', { seed: 'smoke' });
+  globalThis.AudioWorkletNode = Real; console.warn = warn;
+  check('a line whose node fails is spoken on the graph', res?.backend === 'graph', `got ${res?.backend}`);
   A.cancelSpeech();
 }
 

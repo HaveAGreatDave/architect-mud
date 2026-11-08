@@ -61,7 +61,8 @@
   },
   "flags": {
     "drug_class": "depressant",
-    "drug_family": "depressant"
+    "drug_family": "depressant",
+    "taken": "swallow"
   },
   "id": "drug_slow",
   "item_id": "item_drug_slow",

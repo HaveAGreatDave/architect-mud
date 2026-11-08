@@ -1,0 +1,21 @@
+{
+  "description": "A wooden clothes horse hung with somebody else's grey underwear and a towel that will never be dry. The floor under it is always wet.",
+  "flags": {
+    "aliases": "rack,clothes horse,laundry",
+    "look": {
+      "arche": "store",
+      "form": "shelves",
+      "wear": 0.95
+    }
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_hostel_dryer",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "drying rack",
+  "object_type": "furniture",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_trackmarks_back"
+}

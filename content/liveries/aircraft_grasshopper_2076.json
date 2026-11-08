@@ -1,6 +1,6 @@
 {
-  "blurb": "Concept. The Grasshopper fifty years on: a pearl pod under a long wing of solar cells, the meadow green kept for the trim.",
-  "default": false,
+  "blurb": "The Grasshopper fifty years on: a pearl pod under a long wing of solar cells, the meadow green kept for the trim.",
+  "default": true,
   "exterior": {
     "base": "#dee4d8",
     "finish": "gloss",

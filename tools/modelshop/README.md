@@ -1808,6 +1808,8 @@ view of a whole terrace; `off` is where you stand *inside* the centre tile, beca
 fractional `y` would miss every cell and paint an empty world.
 
 ⚠ **The cells are the baked snapshot, not a second derivation.**
+The Room Lab (`/room-lab.html`) opens the Room Stage on any flat in `content/` with no server: it reads the rows off the files, lays them out with the same `layRows` the plugin calls, and draws the view out of the window from the baked world below. `?zone=`, `?hour=` and `?glass=0` set what it opens, and `__snap(name, { at, yaw, pitch, fov })` writes a frame through `/api/shot` from anywhere in the room, including with the pane hidden, when a screenshot times out.
+
 `client/game/flightsim-world.json` is written by `buildFlightSnapshot`, which calls the same
 `deriveSurfaceCell` a live flight streams to the cockpit — and that sharing exists precisely
 because the bake once kept its own copy and drifted twice, silently losing 144 street tiles

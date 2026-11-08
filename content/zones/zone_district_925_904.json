@@ -1,8 +1,8 @@
 {
   "ambient_events": [],
-  "ambient_theme": "city",
-  "color": "#9aa0b0",
-  "description": "A broad grey ribbon of cracked asphalt, its painted centreline dwindling to a pale seam in the heat-shimmer. Weeds push up through the expansion joints. A windsock hangs limp at the far edge.",
+  "ambient_theme": "outdoors",
+  "color": "#f5d400",
+  "description": "The centreline runs straight down the middle of the tarmac, and a thin blue light rail runs inside each edge line. The surface is laid in dark composite panels, and the seams are tight enough to stop a coin.",
   "exits": {
     "east": "zone_district_926_904",
     "north": "zone_district_925_903",
@@ -11,10 +11,10 @@
   },
   "flags": {
     "district": "docks",
+    "icon": "runway_ns",
     "region_id": "region_coldwater",
-    "runway": "pad",
+    "runway": "ns",
     "scavenging_table_id": "scav_industrial_salvage",
-    "taxiway": "ns",
     "terrain": "asphalt"
   },
   "grid_x": 925,

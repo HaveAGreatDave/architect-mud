@@ -48,7 +48,8 @@
   },
   "flags": {
     "drug_class": "depressant",
-    "drug_family": "depressant"
+    "drug_family": "depressant",
+    "taken": "swallow"
   },
   "id": "drug_lull",
   "item_id": "item_lull",

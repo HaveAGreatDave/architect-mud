@@ -530,7 +530,12 @@ const preshowRolled = new Map();            // npcId -> latch key already rolled
 // the flag, and a pool that says "his" is a pool that can only ever fit one man.
 const RITUAL_BEAT_MS = [4500, 8000];
 
-function runRitual(npc, beats, onDone) {
+// How a thing is taken, for the body in the Room Stage (plugins/roomstage/npc-life.js). A drug's is
+// its flags.taken; a drink's name isn't in the catalogue, and the drink columns say so themselves.
+const takenBy = (name) => Object.values(getDrugCache()).find(x => (x.name || '').toLowerCase() === String(name).toLowerCase())?.flags?.taken || 'swallow';
+
+// 'taken' is the clip for the last beat; the ones before it are measuring it out.
+function runRitual(npc, beats, onDone, taken = 'swallow') {
   const zoneId = npc.zone_id;
   let i = 0;
   const step = () => {
@@ -540,12 +545,14 @@ function runRitual(npc, beats, onDone) {
     const live = world.npcs.get(npc.id);
     if (!live || live._dead || (live.hp != null && live.hp <= 0)
         || live.zone_id !== zoneId || live._combatTargetId
-        || live._ai?.homeSleeping || live._ai?.dosedOut) return;
+        || live._ai?.homeSleeping || live._ai?.dosedOut) { emit('npc.ritual', { npc, clip: null }); return; }
     if (i < beats.length) {
+      emit('npc.ritual', { npc: live, clip: i === beats.length - 1 ? taken : 'prep' });
       sendToZone(zoneId, { type: 'zone_event', message: `${live.name} ${beats[i++]}` });
       setTimeout(step, RITUAL_BEAT_MS[0] + Math.random() * (RITUAL_BEAT_MS[1] - RITUAL_BEAT_MS[0]));
       return;
     }
+    emit('npc.ritual', { npc: live, clip: null });
     onDone(live);
   };
   step();
@@ -597,7 +604,7 @@ function kindForNamed(name) {
  *                   before curtain doesn't make the broadcast, which is a
  *                   different character than the one intended.
  */
-function preshowScan(flag, { rituals, kindFor, neverOut }) {
+function preshowScan(flag, { rituals, kindFor, neverOut, drink }) {
   // No longer gated on someone standing in the room — a habit that only happens
   // when watched isn't a habit. Still gated on the server having ANY players: an
   // empty world has nobody to ever see the consequence, and the engine's rule is
@@ -643,14 +650,14 @@ function preshowScan(flag, { rituals, kindFor, neverOut }) {
         mutterChance: PRESHOW_MUTTER_CHANCE,
         neverOut,
       });
-    });
+    }, drink ? 'drink' : takenBy(name));
   }
 }
 
 schedule('45s', () => {
   try {
     preshowScan('preshow_habit', { rituals: PRESHOW_RITUALS,       kindFor: kindForNamed, neverOut: false });
-    preshowScan('preshow_drink', { rituals: PRESHOW_DRINK_RITUALS, kindFor: () => 'sedated', neverOut: true });
+    preshowScan('preshow_drink', { rituals: PRESHOW_DRINK_RITUALS, kindFor: () => 'sedated', neverOut: true, drink: true });
   } catch (e) { console.error('[npc-drugs] preshow error:', e.message); }
 });
 
@@ -720,6 +727,8 @@ function keepPouring(npc, drinkName, extra, opts) {
         || live.zone_id !== zoneId || live._combatTargetId
         || live._ai?.homeSleeping || live._ai?.dosedOut) return;
     sendToZone(zoneId, { type: 'zone_event', message: `${live.name} ${pick(POUR_AGAIN)}` });
+    emit('npc.ritual', { npc: live, clip: 'drink' });
+    setTimeout(() => emit('npc.ritual', { npc: live, clip: null }), 6000);
     doseNpc(live, 'sedated', drinkName, opts);
     if (--left > 0) setTimeout(step, POUR_GAP_MS[0] + Math.random() * (POUR_GAP_MS[1] - POUR_GAP_MS[0]));
   };
@@ -774,7 +783,7 @@ function habitScan(flag, { rituals, mins, kindFor, neverOut, drink }) {
       // and the next one is a decision you make again in four minutes, so only the
       // drink columns go back to it.
       if (drink) keepPouring(live, name, pick(POUR_WEIGHTS), opts);
-    });
+    }, drink ? 'drink' : takenBy(name));
   }
 }
 
@@ -975,7 +984,7 @@ export const commands = {
 // Exposed for the regression suite (pure helpers — no side effects).
 export const _test = {
   classify, parseTargetWith, doseState, TALK_TELL,
-  kindForNamed, PRESHOW_RITUALS, PRESHOW_DRINK_RITUALS, BOOZE_RITUALS, DRUG_RITUALS,
+  kindForNamed, takenBy, PRESHOW_RITUALS, PRESHOW_DRINK_RITUALS, BOOZE_RITUALS, DRUG_RITUALS,
   LINE, SOBER, CLASS_KIND,
   POUR_WEIGHTS, POUR_AGAIN, POUR_GAP_MS, keepPouring,
 };

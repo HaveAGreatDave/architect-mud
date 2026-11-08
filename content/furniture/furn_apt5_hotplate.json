@@ -1,7 +1,11 @@
 {
   "description": "A two-burner hotplate wired straight into the wall socket by someone who didn't respect electricity. One burner glows. The other waits.",
   "flags": {
-    "interactions": []
+    "interactions": [],
+    "look": {
+      "arche": "hob",
+      "form": "cooktop"
+    }
   },
   "hp": null,
   "hp_max": null,

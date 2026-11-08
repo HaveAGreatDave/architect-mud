@@ -1655,6 +1655,26 @@ export function createDirector(W, opts = {}) {
         if (leg.gg) { if (shotCue != null && shotCue - rel < 1.2) leg.gg.hurry = true; if (giveGo(sh, null, leg, 0)) return; }
         const has = pk.carrier === sh, d = hyp(leg.sx - sh.x, leg.sy - sh.y);
         if (has) { sh.tx = leg.sx; sh.ty = leg.sy; }
+        // THE PUCK CAN GET THERE WHEN HE CAN'T. With it in his own corner and the shot about to be
+        // called, he used to skate the length of the ice alone and shoot from the red line seconds
+        // late. A man much nearer the spot gets a stretch pass and takes the shot instead.
+        if (has && shotCue != null && !leg.stretch && !ba && !leg.breakaway && kind !== 'breakaway' && !p.breakaway && d > 24 * Math.max(0, shotCue - rel) + 60) {
+          const mate = W.nearestOf(W.mates(att).filter((m) => m !== sh && able(m)), leg.sx, leg.sy);
+          if (mate && hyp(mate.x - leg.sx, mate.y - leg.sy) < d - 40) {
+            const pkind = passKind(sh, mate), spd = passSpeed(pkind, hyp(mate.x - sh.x, mate.y - sh.y)), mine = leg;
+            leg.stretch = true;
+            script(mate); mate.tx = leg.sx; mate.ty = leg.sy; mate.maxV = 22;
+            W.act(sh, pkind, SHOTS[pkind].dur); sh.look = [mate.x, mate.y, 1];
+            at(B, releaseAt(pkind), () => {
+              if (leg !== mine || pk.carrier !== sh) return;
+              W.give(sh); W.pass(sh, mate, spd);
+              mate.meetPass = W.t + 3;
+              W.act(mate, 'receive', 0.6, [sh.x, sh.y]);
+              sh.scripted = false; lastPasser = sh;
+              cur = mate; leg.shooter = mate; nameBody(mate, p.shooter);
+            });
+          }
+        }
         else if (pk.home !== sh && pk.target !== sh && !pk.held) W.collect(sh);
         if (shotCue != null) {
           // he lets it go as the shot is called, given a moment to get somewhere he can
@@ -1664,7 +1684,7 @@ export function createDirector(W, opts = {}) {
           // spot it was to be taken from, flat out till then, or it's a man shooting the
           // length of the ice. A save or a miss the booth has already got to goes from over
           // the red line: a puck fetched out of his own corner got there too late for 75.)
-          const inRange = hyp(netX - sh.x, MID_Y - sh.y) < 75 || d < 14 || (kind !== 'goal' && left < 0 && (sh.x - RL / 2) * dir > 0);
+          const inRange = hyp(netX - sh.x, MID_Y - sh.y) < 75 || d < 14 || (kind !== 'goal' && !leg.stretch && left < 0 && (sh.x - RL / 2) * dir > 0);
           if (has) sh.maxV = left <= 0 && !inRange ? 26 : clamp(d / Math.max(0.3, left), 6, 24);
           // in alone he's skating, not drifting: early, he holds his speed in, and close to the
           // net with time still to kill he cuts across the slot to wait the goalie out
@@ -2830,7 +2850,13 @@ export function createDirector(W, opts = {}) {
     // seconds before it, so the opening draw finds them lined up, and the Zamboni is through
     // its gate a second before that. Without the cue, the teams come on when the period's
     // first draw arrives.
-    const back = cueOf(p, 'resume');
+    // A viewer joining partway (`aired`, from the catch-up) finds the ice already cleared.
+    const aired = p.aired || 0, cue = cueOf(p, 'resume'), back = cue != null ? cue - aired : null;
+    if (aired > 20) {
+      for (const b of [...W.team.a, ...W.team.h, W.goalie.a, W.goalie.h, lin, ref]) if (b) b.active = false;
+      D.tasks = D.tasks.filter((k) => !k.leave);
+      W.netsGone();
+    }
     if (back != null) at(B, Math.max(10, back - 6.5), () => { W.zamboniOff(); teamsOn(); B.regroup = 'C'; B.stopped = true; W.cam.mode = 'broadcast'; });
     B.update = () => {
       if (B.stopped) return;
@@ -2838,15 +2864,18 @@ export function createDirector(W, opts = {}) {
       // next period's draw picks it up off the ice); the referee goes straight off
       if (lin.active && !busyBody(lin) && (fetchPuck(lin) || W.t - B.t0 > 4)) leave(lin, lin.x, false);
       if (ref.active && !busyBody(ref)) leave(ref, ref.x, false);
-      // The Zamboni once the ice is clear, or near enough: the whole sheet, shown as a
-      // time-lapse sped up to finish inside what's left of the break (about five and a half
-      // minutes of a driver's time in a typical half minute on air), or ten times over
-      // without the cue.
+      // The Zamboni once the ice is clear, or near enough: the whole sheet, inside what's left
+      // of the break, or ten times over without the cue. A seat in the stands (`zamboniReal`)
+      // sees it at a driver's pace, sped up only if a short slot's break can't hold that. The
+      // broadcast shows a time-lapse, at least three times over, and holds on the clean sheet.
       // (the officials off too: the linesman skating off with the puck behind it cut the fresh ice)
       if (!W.zamboni && !B.zam && W.netsOut() && ((W.skaters().length === 0 && !lin.active && !ref.active) || W.t - B.t0 > 7.5)) {
         B.zam = true;
-        const left = back != null ? back - 7.5 - (W.t - B.t0) : null;
-        W.startZamboni(opts.zamboniLapse || (left != null ? clamp(W.zamboniTime() / Math.max(1, left), 3, 60) : 10));
+        const left = back != null ? back - 7.5 - (W.t - B.t0) : null, least = opts.zamboniReal ? 1 : 3;
+        // (joining late, it's as far round as it would have got; past the end, it has been and gone)
+        const mt = aired > 20 ? (aired - 20) * least : 0;
+        if (mt >= W.zamboniTime()) W.netsOn();
+        else W.startZamboni(opts.zamboniLapse || (left != null ? clamp((W.zamboniTime() - mt) / Math.max(1, left), least, 60) : 10), mt);
         W.cam.mode = 'zam';
       }
       const z = W.zamboni;

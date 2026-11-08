@@ -359,11 +359,37 @@
       config: { duration: 0.16, layers: [
         { waveform: 'sine', freq: 1400, pitchBend: { to: 620, time: 0.04 }, adsr: { a: 0.001, d: 0.06, s: 0, r: 0.04 }, gain: 0.14 },
         { waveform: 'noise', noiseMix: 1, filter: { type: 'bandpass', freq: 2800, q: 2 }, adsr: { a: 0.001, d: 0.03, s: 0, r: 0.02 }, gain: 0.04 } ] } },
-    // A knock on the float, one per beat of the strike: a dull wooden tap up the line.
-    { id: 'boatfish-knock', name: 'Boat fishing: knock on the float', group: 'fishing', category: 'sfx', priority: 7,
-      config: { duration: 0.2, layers: [
-        { waveform: 'triangle', freq: 240, pitchBend: { to: 120, time: 0.05 }, adsr: { a: 0.001, d: 0.09, s: 0, r: 0.05 }, gain: 0.4 },
-        { waveform: 'noise', noiseMix: 1, filter: { type: 'bandpass', freq: 900, q: 2 }, adsr: { a: 0.001, d: 0.04, s: 0, r: 0.02 }, gain: 0.14 } ] } },
+    // A fish mouthing the lure: a small dull tap up the line. It's a nibble, so it stays quiet.
+    { id: 'boatfish-nibble', name: 'Boat fishing: nibble on the float', group: 'fishing', category: 'sfx', priority: 6,
+      config: { duration: 0.16, layers: [
+        { waveform: 'triangle', freq: 300, pitchBend: { to: 170, time: 0.04 }, adsr: { a: 0.001, d: 0.06, s: 0, r: 0.04 }, gain: 0.2 },
+        { waveform: 'noise', noiseMix: 1, filter: { type: 'bandpass', freq: 1400, q: 2 }, adsr: { a: 0.001, d: 0.025, s: 0, r: 0.02 }, gain: 0.06 } ] } },
+    // The take: the float pulled under, a deep gulp of water closing over it.
+    { id: 'boatfish-take', name: 'Boat fishing: the float goes under', group: 'fishing', category: 'sfx', priority: 7,
+      config: { duration: 0.34, layers: [
+        { waveform: 'sine', freq: 260, pitchBend: { to: 90, time: 0.14 }, adsr: { a: 0.002, d: 0.2, s: 0, r: 0.08 }, gain: 0.34 },
+        { waveform: 'noise', noiseMix: 1, filter: { type: 'lowpass', freq: 900, q: 1 }, adsr: { a: 0.002, d: 0.12, s: 0, r: 0.06 }, gain: 0.12 } ] } },
+    // The strike: the rod swept back through the air.
+    { id: 'boatfish-strike', name: 'Boat fishing: the strike', group: 'fishing', category: 'sfx', priority: 7,
+      config: { duration: 0.24, layers: [
+        { waveform: 'noise', noiseMix: 1, filter: { type: 'bandpass', freq: 900, q: 1.2, to: 2800, time: 0.1 }, adsr: { a: 0.012, d: 0.14, s: 0, r: 0.05 }, gain: 0.14 },
+        { waveform: 'triangle', freq: 180, pitchBend: { to: 110, time: 0.08 }, adsr: { a: 0.002, d: 0.08, s: 0, r: 0.04 }, gain: 0.12 } ] } },
+    // The drag slipping as a fish takes line: a run of quick pawl clicks with a whine in them.
+    { id: 'boatfish-drag', name: 'Boat fishing: drag slipping', group: 'fishing', category: 'sfx', priority: 6,
+      config: { duration: 0.34, layers: [
+        { waveform: 'square', freq: 46, filter: { type: 'bandpass', freq: 2600, q: 3 }, adsr: { a: 0.004, d: 0.28, s: 0.3, r: 0.05 }, gain: 0.1 },
+        { waveform: 'sawtooth', freq: 1200, pitchBend: { to: 1050, time: 0.3 }, filter: { type: 'bandpass', freq: 1500, q: 7 }, adsr: { a: 0.01, d: 0.26, s: 0.2, r: 0.05 }, gain: 0.03 } ] } },
+    // A fish breaking the surface and slapping back: spray, then a flat wet smack.
+    { id: 'boatfish-jump', name: 'Boat fishing: a fish jumps', group: 'fishing', category: 'sfx', priority: 7,
+      config: { duration: 0.55, layers: [
+        { waveform: 'noise', noiseMix: 1, filter: { type: 'bandpass', freq: 2600, q: 0.8 }, adsr: { a: 0.002, d: 0.2, s: 0, r: 0.08 }, gain: 0.16 },
+        { waveform: 'noise', noiseMix: 1, delay: 0.1, filter: { type: 'bandpass', freq: 1000, q: 1.4 }, adsr: { a: 0.001, d: 0.09, s: 0, r: 0.05 }, gain: 0.2 },
+        { waveform: 'sine', freq: 300, delay: 0.1, pitchBend: { to: 120, time: 0.1 }, adsr: { a: 0.001, d: 0.12, s: 0, r: 0.05 }, gain: 0.16 } ] } },
+    // The net going under a fish and lifting it clear: a scoop of water and the mesh running.
+    { id: 'boatfish-net', name: 'Boat fishing: netted', group: 'fishing', category: 'sfx', priority: 8,
+      config: { duration: 0.6, layers: [
+        { waveform: 'noise', noiseMix: 1, filter: { type: 'lowpass', freq: 1400, q: 1, to: 500, time: 0.3 }, adsr: { a: 0.02, d: 0.34, s: 0, r: 0.1 }, gain: 0.2 },
+        { waveform: 'noise', noiseMix: 1, delay: 0.16, filter: { type: 'highpass', freq: 3000, q: 0.8 }, adsr: { a: 0.01, d: 0.3, s: 0, r: 0.1 }, gain: 0.06 } ] } },
     // One pawl click of the reel. Repeated while it winds in, and on a hit knock.
     { id: 'boatfish-click', name: 'Boat fishing: reel click', group: 'fishing', category: 'sfx', priority: 3,
       config: { duration: 0.06, layers: [

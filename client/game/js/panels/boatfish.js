@@ -8,12 +8,16 @@
 //   flight    the cast is in the air, waiting for the server's `lure`.
 //   wait      the lure sinks. Each tap is a twitch (fishtwitch) that draws it in TWITCH_M. At
 //             REEL_IN_M the server sends `reeled` and the line winds in by itself.
-//   bite      the float knocks at beatTimes(n) after biteAt, in server time. Hit each knock
-//             (fishstrike <beat> <hitServerMs>). A missed one is the server's `spat`.
-//   fight     fightBoard's physics: the fish pulls to one side and switches every switchMs; lean
-//             the other way. Tension 1 snaps the line (fishresolve boat 0). Tired and inside LAND_M,
-//             it winds in (fishresolve boat 1), never sooner than minFightMs.
-//   reeling   the line winding in, after `reeled`, a won fight or a snap.
+//   bite      a fish is at the lure. The float does what the server's script says (floatPose); the
+//             lens shows it close up. One strike, stamped in server time (fishstrike <hitServerMs>):
+//             on a nibble it's too soon, past the window it's too late, and the server's `spat` puts
+//             you back in `wait` with the lure still out. How well it's timed is how well it's hooked.
+//   fight     the rules' stepFight: lean against the fish, wind when you can, let it run, wind hard
+//             when it swims at you, ease off when it jumps. Tension 1 snaps the line; slack too long
+//             and the hook drops out (both fishresolve boat 0). Spent and inside LAND_M, on to `net`.
+//   net       it rolls past the boat, and you time the net (fishresolve boat 1), never sooner than
+//             minFightMs. A miss sends it off for one more short run.
+//   reeling   the line winding in, after `reeled`, a net or a snap.
 //   landed    the catch card, after `landed` or `full`. Back to ready after it.
 //
 // The seat (boat-view.js) owns the aim, the landing ring and drawing the rod, line, lure and
@@ -21,15 +25,18 @@
 // or its own overlay when no seat is attached (the text rung, or before the seat opens).
 //
 // Time: the server's clock is the client's plus the skew taken from `open`'s serverNow. Every beat
-// is judged in server time, so serverNow() is what a hit is stamped with.
+// is judged in server time, so serverNow() is what a strike is stamped with.
 
 import { sendCmdSilent } from '../net.js';
 import { sfx, mountOverlay, ensureChassisStyles, deviceHeader } from './minigame-common.js';
 import { loadCss } from '../../../shared/dom.js';
 import { SPECIES } from '../../../shared/fish.js';
+import { paintFloat, paintFight, paintNet } from './float-cam.js';
+import { paintCatch } from './fish-portrait.js';
 import {
-  TWITCH_M, TWITCH_LIFT_M, TWITCH_MIN_MS, REEL_IN_M, SINK_MPS, CAST_MIN_M,
-  tempoOf, BEAT_WINDOW_MS, LATENCY_SLACK_MS, beatTimes, onBeat, LAND_M, fightBoard, minFightMs, SURGE_MS,
+  TWITCH_M, TWITCH_LIFT_M, TWITCH_MIN_MS, SINK_MPS, CAST_MIN_M,
+  tempoOf, LATENCY_SLACK_MS, floatPose, setWords, fightBoard, fightState, stepFight, minFightMs, netSwing,
+  LAND_M, SLACK_AT, NET_TRIES, JUMP_MS,
 } from '../../../shared/boatfish-rules.js';
 
 // boatfish.css ships beside this file; see loadCss in client/shared/dom.js.
@@ -42,19 +49,20 @@ const _env = {
   raf: (fn) => (typeof requestAnimationFrame === 'function' ? requestAnimationFrame(fn) : 0),
   caf: (id) => { if (typeof cancelAnimationFrame === 'function') cancelAnimationFrame(id); },
 };
-/** For the headless gate only: replace the clock and the frame pump. */
+/** For a headless gate or a test page: replace the clock, the frame pump or the wire. */
 export function boatFishTestHooks(over = {}) { Object.assign(_env, over); }
 
-const send = (cmd) => sendCmdSilent(cmd);
+const send = (cmd) => (_env.send ? _env.send(cmd) : sendCmdSilent(cmd));
 const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
 const fmt1 = (v) => String(Math.round(v * 10) / 10);
 
 // ── Tuning that is the client's alone (feel, not rules) ──────────────────────────────────────────
-const LEAN_RATE = 10;         // how fast the angler's lean follows the input, per second
-const TURN_MS = 160;          // after the fish changes side, this long before leaning wrong costs you
 const DRAG_PX = 140;          // pixels of drag for a full lean
-const EARLY_TAP_MS = 2 * BEAT_WINDOW_MS;   // a tap further ahead of a knock than this isn't counted
+// A tap this soon after the bite is the last of the twitches, still on its way down, not a strike.
+const STRIKE_GRACE_MS = 450;
 const REEL_MPS = 9;           // the auto reel-in's speed
+const NET_READY_MS = 900;     // from the fish coming alongside to the net being in the water
+const NET_FLASH_MS = 420;     // how long a missed net shows
 const CARD_MS = 3400;         // how long a result card stays
 const NOTE_MS = 2200;         // how long a one-off status line stays
 const FLIGHT_TIMEOUT_MS = 5000;
@@ -73,8 +81,9 @@ let _raf = 0;
 let _lastT = 0;
 let _listeners = [];
 const _out = {};
-const _beat = { i: 0, n: 0, nextAtServerMs: null };
+const _pose = {};
 const _catch = { species: null, kg: 0 };
+const _fish = { school: null, i: 0, species: null };
 
 /** The server's clock: ours plus the skew from `open`. */
 export function serverNow() { return _env.now() + _skew; }
@@ -94,15 +103,21 @@ export function boatFishState() {
   o.depthM = depthNow(_env.now());
   o.lean = S.lean; o.pull = S.pull;
   o.tension = S.tension; o.stamina = S.stamina;
-  if (S.phase === 'bite' && S.beatN) {
-    _beat.i = S.beatI; _beat.n = S.beatN;
-    _beat.nextAtServerMs = S.beatI < S.beatN ? S.biteAt + S.times[S.beatI] : null;
-    o.beat = _beat;
-  } else o.beat = null;
+  // What the fish is doing, and the moments the seat draws: the take, the jump, the net.
+  o.mode = S.F ? S.F.mode : null;
+  o.wind = !!S.windHeld;
+  o.set = S.set || 0;
+  o.jumpAt = S.jumpAt || 0;
+  o.struckAt = S.struckAt || 0;
+  o.pose = S.phase === 'bite' && S.script ? floatPose(S.script, _env.now() + _skew - S.biteAt, _pose) : null;
+  o.net = S.phase === 'net' ? netPos(_env.now()) : null;
+  o.netAt = S.netAt || 0;
+  if (S.biteFish) { _fish.school = S.biteFish.school; _fish.i = S.biteFish.i; _fish.species = S.biteFish.species; o.fish = _fish; } else o.fish = null;
   o.follow = S.follow;
   if (S.catch) { _catch.species = S.catch.species; _catch.kg = S.catch.kg; o.catch = _catch; } else o.catch = null;
   // Added to the contract on 2026-10-27: the seat aims with castM and draws from the anchor.
   o.castM = S.castM; o.skill = S.skill; o.ax = S.ax; o.ay = S.ay;
+  o.holdKg = S.holdKg; o.holdCap = S.holdCap;
   // And what the seat needs to draw the same schools the server rolls (fish.js schoolsNear).
   o.env = S.env; o.thinned = S.thinned;
   return o;
@@ -145,23 +160,31 @@ export function onBoatFishMessage(msg) {
     case 'bite': {
       S.phase = 'bite';
       S.biteSpecies = msg.species || null;
-      S.beatN = clamp(msg.beats | 0, 1, 4);
-      S.times = beatTimes(S.beatN);
+      S.biteFish = { school: msg.school ?? null, i: msg.i | 0, species: msg.species || null };
+      S.script = msg.script || null;
       S.biteAt = num(msg.biteAt, serverNow());
-      S.beatI = 0; S.knocked = 0;
-      S.beatRes = new Array(S.beatN).fill(null);
       S.biteSeenAt = t;
+      S.nibbled = 0; S.took = false; S.struckAt = 0; S.struck = false;
       sfx('boatfish-plip');
       break;
     }
     case 'fight':
       startFight(msg, t);
       break;
-    case 'spat':
-      toReady();
-      card('It spat the hook.', msg.reason === 'late' ? 'You were late on a knock.'
-        : msg.reason === 'missed' || msg.reason === 'miss' ? 'You missed a knock.' : '', t);
+    case 'spat': {
+      // The fish has gone. The lure's still out unless a strike pulled it home.
+      const early = msg.reason === 'early';
+      S.script = null; S.struck = false; S.biteFish = null;
+      if (msg.reeled) toReady();
+      else {
+        S.phase = 'wait';
+        S.lx = num(msg.lx, S.lx); S.ly = num(msg.ly, S.ly); S.lineM = num(msg.lineM, S.lineM);
+        setDepth(num(msg.depthM, S.depthBase), t);
+        S.lastTapAt = null; S.gap = null; S.follow = [];
+      }
+      card(early ? 'Too soon.' : 'Too slow.', early ? 'You pulled it out of its mouth.' : 'It dropped the lure and left.', t, true);
       break;
+    }
     case 'landed': {
       const name = nameOf(msg.species, msg.name);
       S.phase = 'landed'; S.lineM = 0; S.waitResolve = false;
@@ -171,6 +194,7 @@ export function onBoatFishMessage(msg) {
       sfx('boatfish-splash');
       card(`${cap(name)}, ${num(msg.kg, 0).toFixed(2)} kg.`,
         `In the box. It's carrying ${S.holdKg.toFixed(2)} of ${fmt1(S.holdCap)} kg.`, t, true);
+      showCatch(msg.species, num(msg.kg, 0));
       break;
     }
     case 'full': {
@@ -180,12 +204,13 @@ export function onBoatFishMessage(msg) {
       sfx('boatfish-splash');
       card(`${cap(name)}, ${num(msg.kg, 0).toFixed(2)} kg.`,
         'The box is full, so it goes back over the side.', t, true);
+      showCatch(msg.species, num(msg.kg, 0));
       break;
     }
     case 'lost': {
-      const line = S.snapLine;
+      const line = S.snapLine, threw = S.threw;
       toReady();
-      const head = line ? 'The line broke and it got away.' : 'It got away.';
+      const head = line ? 'The line broke and it got away.' : threw ? 'The hook pulled out and it got away.' : 'It got away.';
       card(head, msg.snapped ? 'The rod snapped as well.' : '', t);
       break;
     }
@@ -214,10 +239,10 @@ function open(msg) {
     follow: [], catch: null,
     lastTapAt: null, gap: null,
     aimBearing: 0, charging: false, chargeAt: 0,
-    beatN: 0, beatI: 0, times: [], biteAt: 0, knocked: 0, beatRes: [],
-    board: null, side: 1, nextSwitchAt: 0, jumpUntil: 0, nextJumpAt: 0,
-    holdL: false, holdR: false, dragLean: 0, dragging: false, dragX: 0,
-    snapLine: false, waitResolve: false, resolveAt: 0,
+    script: null, biteAt: 0, biteFish: null, nibbled: 0, took: false, struck: false, struckAt: 0, set: 0,
+    board: null, F: null, jumpAt: 0, netAt: 0, netOpenAt: 0, netTries: 0, netFlashAt: 0,
+    holdL: false, holdR: false, windHeld: false, dragLean: 0, dragging: false, dragX: 0,
+    snapLine: false, threw: false, waitResolve: false, resolveAt: 0,
     reelFrom: 0, reelAt: 0, reelDur: 0, reelThen: null, lastClickAt: 0, lastZingAt: 0,
     card: null, cardUntil: 0, note: null, noteUntil: 0,
   };
@@ -233,9 +258,9 @@ function toReady() {
   if (!S) return;
   Object.assign(S, {
     phase: 'ready', lineM: 0, lx: null, ly: null, depthBase: 0, follow: [], catch: null,
-    lean: 0, pull: 0, tension: 0, stamina: 1, board: null, beatN: 0, beatI: 0,
-    lastTapAt: null, gap: null, snapLine: false, waitResolve: false, reelThen: null,
-    holdL: false, holdR: false, dragLean: 0, dragging: false, charging: false,
+    lean: 0, pull: 0, tension: 0, stamina: 1, board: null, F: null, script: null, biteFish: null, set: 0,
+    lastTapAt: null, gap: null, snapLine: false, threw: false, waitResolve: false, reelThen: null,
+    holdL: false, holdR: false, windHeld: false, dragLean: 0, dragging: false, charging: false,
   });
 }
 
@@ -297,110 +322,117 @@ function twitch(t) {
 }
 
 // ── The strike ───────────────────────────────────────────────────────────────────────────────────
+// One, and the server judges it. It goes whenever you press, because pressing on a nibble is the
+// mistake the whole phase is about. The tap that was already on its way down isn't a strike.
 function strike(t) {
-  if (S.beatI >= S.beatN) return false;
-  const sn = t + _skew;
-  const i = S.beatI;
-  const due = S.biteAt + S.times[i];
-  if (sn < due - EARLY_TAP_MS) return false;   // nowhere near a knock yet
-  send(`fishstrike ${i} ${Math.round(sn)} ${S.token}`);
-  S.beatRes[i] = onBeat(sn - S.biteAt, i, S.beatN) ? 'hit' : 'off';
-  S.beatI++;
-  sfx('boatfish-click');
+  if (S.struck || !S.script) return false;
+  if (t - S.biteSeenAt < STRIKE_GRACE_MS) return false;
+  S.struck = true; S.struckAt = t;
+  send(`fishstrike ${Math.round(t + _skew)} ${S.token}`);
+  sfx('boatfish-strike');
   return true;
 }
 
 function stepBite(t) {
-  const sn = t + _skew;
-  while (S.knocked < S.beatN && sn >= S.biteAt + S.times[S.knocked]) { S.knocked++; sfx('boatfish-knock'); }
-  const i = S.beatI;
-  if (i < S.beatN && sn > S.biteAt + S.times[i] + BEAT_WINDOW_MS + LATENCY_SLACK_MS) {
-    S.beatRes[i] = 'miss';
-    S.beatI = S.beatN;            // the server spits it; nothing more to hit
-    note('Missed.', t);
-  }
-  // No word from the server long after the last knock: don't leave the float hanging.
-  if (sn > S.biteAt + S.times[S.beatN - 1] + RESOLVE_TIMEOUT_MS) toReady();
+  const rel = t + _skew - S.biteAt, K = S.script;
+  if (!K) return;
+  while (S.nibbled < K.nibbles.length && rel >= K.nibbles[S.nibbled].at) { S.nibbled++; sfx('boatfish-nibble'); }
+  if (!S.took && rel >= K.takeAt) { S.took = true; sfx(K.kind === 'lift' ? 'boatfish-plip' : 'boatfish-take'); }
+  // No word from the server long after the window: don't leave the float hanging.
+  if (rel > K.takeAt + K.windowMs + LATENCY_SLACK_MS * 2 + RESOLVE_TIMEOUT_MS) toReady();
 }
 
 // ── The fight ────────────────────────────────────────────────────────────────────────────────────
 function startFight(msg, t) {
   const kg = num(msg.kg, 1), difficulty = num(msg.difficulty, 5), skill = num(msg.skill, S.skill);
-  const lineM = num(msg.lineM, S.lineM);
+  const lineM = num(msg.lineM, S.lineM), set = num(msg.set, 0.6);
   const fight = msg.fight || SPECIES[msg.species]?.fight || 'steady';
-  const b = fightBoard({ kg, difficulty, fight, skill, lineM });
+  const b = fightBoard({ kg, difficulty, fight, skill, lineM, set });
   S.phase = 'fight';
   S.board = b;
-  S.stamina = b.stamina; S.tension = b.tension; S.lineM = b.lineM;
-  S.lineCap = Math.max(S.castM, lineM) * 1.4;
-  S.side = Math.random() < 0.5 ? -1 : 1;
-  S.pull = 0; S.pullMag = 0; S.lean = 0; S.dragLean = 0;
-  S.switchedAt = t;
-  S.nextSwitchAt = t + b.switchMs;
-  S.nextJumpAt = b.jumps ? t + 2500 + Math.random() * 2500 : Infinity;
-  S.jumpUntil = 0;
+  S.F = fightState(b);
+  S.set = set;
+  S.stamina = 1; S.tension = b.tension; S.lineM = b.lineM;
+  S.pull = 0; S.lean = 0; S.dragLean = 0;
   S.fightAt = t;
   S.minEnd = t + minFightMs({ kg, difficulty, skill, lineM }) + 150;
   S.catch = { species: msg.species || null, kg };
   S.catchName = nameOf(msg.species, msg.name);
-  S.snapLine = false;
+  S.snapLine = false; S.threw = false; S.jumpAt = 0;
+  S.script = null;
   sfx('fishing-bite');
+  note(setWords(set) === 'solid' ? 'Hooked solid.' : setWords(set) === 'good' ? 'Hooked.' : 'Only just hooked. Keep the line tight.', t);
 }
 
-function stepFight(t, dt) {
-  const b = S.board;
-  if (S.stamina > 0 && t >= S.nextSwitchAt) {
-    S.side = -S.side;
-    S.switchedAt = t;
-    S.nextSwitchAt = t + b.switchMs * (0.75 + Math.random() * 0.5);
-    if (b.surge && Math.random() < b.surge) { S.surgeUntil = t + SURGE_MS; note('It surges. Give it line.', t); sfx('boatfish-zing'); }
-  }
-  if (t >= S.nextJumpAt) { S.jumpUntil = t + 550; S.nextJumpAt = t + 3000 + Math.random() * 3000; note('It jumps.', t); sfx('boatfish-plop'); }
-  const jumping = t < S.jumpUntil;
-  const surging = t < (S.surgeUntil || 0);
-  const target = S.holdL && !S.holdR ? -1 : S.holdR && !S.holdL ? 1 : S.dragLean;
-  S.lean += clamp(target - S.lean, -LEAN_RATE * dt, LEAN_RATE * dt);
-  const mag = S.stamina > 0 ? b.pull * (0.45 + 0.55 * S.stamina) * (jumping ? 1.6 : surging ? 1.8 : 1) : 0;
-  // The side shows at once (the player reacts to it); only the strength eases in.
-  S.pullMag += (mag - S.pullMag) * Math.min(1, dt * 8);
-  S.pull = S.side * S.pullMag;
-  if (S.stamina > 0) {
-    const q = clamp(-S.lean * S.side, 0, 1);    // how hard you're leaning against it
-    if (surging) {
-      // A surge: leaning into it strains the line; easing off gives it line and it tires itself.
-      if (q > 0.25) S.tension += b.strain * 1.6 * q * dt;
-      else S.stamina = Math.max(0, S.stamina - b.tire * 0.6 * dt);
-      S.lineM += b.runMps * mag * dt;
-      if (S.lineM > S.lineCap) { S.lineM = S.lineCap; S.tension += 0.6 * dt; }
-    } else if (q > 0.25) {
-      S.stamina = Math.max(0, S.stamina - b.tire * q * dt);
-      S.tension = Math.max(0, S.tension - 0.5 * q * dt + (b.heavy || 0) * dt);
-      S.lineM = Math.max(0, S.lineM - b.gainMps * q * dt);
-    } else if (t - S.switchedAt < TURN_MS) {
-      // The fish is still turning. A wriggler switches every 600 ms, and without this the time it
-      // takes anyone to see the switch and lean across was most of every run, so it never landed.
-    } else {
-      const wrong = S.lean * S.side > 0.25 ? 1.6 : 1;
-      S.tension += b.strain * mag * wrong * dt;
-      S.lineM += b.runMps * mag * dt;
-      if (S.lineM > S.lineCap) { S.lineM = S.lineCap; S.tension += 0.6 * dt; }
-    }
-  } else {
-    // Spent: it comes in on the reel, and the strain comes off.
-    S.tension = Math.max(0, S.tension - 0.4 * dt);
-    S.lineM = Math.max(0, S.lineM - b.gainMps * 0.8 * dt);
-  }
-  if (S.tension > 0.7 && t - S.lastZingAt > 380) { S.lastZingAt = t; sfx('boatfish-zing'); }
-  if (S.tension >= 1) {
-    S.tension = 1; S.snapLine = true;
-    send(`fishresolve boat 0 ${S.token}`);
+function mirror() {
+  const F = S.F;
+  S.stamina = F.stamina; S.tension = F.tension; S.lineM = F.lineM; S.lean = F.lean; S.pull = F.pull;
+}
+
+function stepFightFrame(t, dt) {
+  const F = S.F;
+  const lean = S.holdL && !S.holdR ? -1 : S.holdR && !S.holdL ? 1 : S.dragLean;
+  const end = stepFight(F, S.board, { lean, wind: S.windHeld }, dt);
+  mirror();
+  if (F.fired === 'run') { note('It runs. Let it go.', t); sfx('boatfish-drag'); S.lastDragAt = t; }
+  else if (F.fired === 'charge') { note('It\'s swimming at you. Wind.', t); sfx('boatfish-plip'); }
+  else if (F.fired === 'jump') { S.jumpAt = t; note('It jumps. Ease off.', t); sfx('boatfish-jump'); }
+  if (F.mode === 'run' && t - (S.lastDragAt || 0) > 340) { S.lastDragAt = t; sfx('boatfish-drag'); }
+  if (S.windHeld && F.mode !== 'run' && t - S.lastClickAt > 95) { S.lastClickAt = t; sfx('boatfish-click'); }
+  if (S.tension > 0.72 && t - S.lastZingAt > 380) { S.lastZingAt = t; sfx('boatfish-zing'); }
+  if (end === 'snap') {
+    S.snapLine = true; S.windHeld = false;
     sfx('boatfish-snap');
-    startReel(t, null, 600);
-    S.waitResolve = true; S.resolveAt = t;
-  } else if (S.stamina <= 0 && S.lineM <= LAND_M) {
-    // Never finish sooner than the server's minFightMs, or it refuses the win.
-    startReel(t, 'resolve', Math.max(S.lineM / REEL_MPS * 1000, S.minEnd - t, 700));
+    settle(t, 0, 600);
+  } else if (end === 'thrown') {
+    throwHook(t);
+  } else if (end === 'tired') {
+    startNet(t);
   }
+}
+
+function throwHook(t) {
+  S.threw = true; S.windHeld = false;
+  sfx('boatfish-plip');
+  settle(t, 0, 600);
+}
+
+// The line comes in while the server says what happened. Its answer can land at any moment after
+// this, so the state's set before the verb goes.
+function settle(t, won, ms) {
+  startReel(t, null, ms);
+  S.waitResolve = true; S.resolveAt = t;
+  send(`fishresolve boat ${won} ${S.token}`);
+}
+
+// ── The net ──────────────────────────────────────────────────────────────────────────────────────
+// Beside the boat and spent. It rolls past on the swell and you've three goes. Never sooner than the
+// server's minFightMs, or it refuses the win.
+function startNet(t) {
+  S.phase = 'net';
+  S.netAt = t; S.netTries = 0; S.netFlashAt = 0;
+  S.netOpenAt = Math.max(t + NET_READY_MS, S.minEnd);
+  S.windHeld = false; S.lineM = Math.min(S.lineM, LAND_M);
+  sfx('boatfish-click');
+}
+function netPos(t) { return netSwing(t - S.netAt, S.netTries); }
+function netTry(t) {
+  if (t < S.netOpenAt) return;
+  if (Math.abs(netPos(t)) <= S.board.netWidth) {
+    sfx('boatfish-net');
+    settle(t, 1, 500);
+    return;
+  }
+  S.netTries++;
+  S.netFlashAt = t;
+  if (S.netTries >= NET_TRIES) { note('It rolls off the rim and the hook pulls.', t); throwHook(t); return; }
+  // It kicks off the rim and takes a little line.
+  note('It kicks off the rim. Bring it back.', t);
+  sfx('boatfish-jump');
+  const F = S.F;
+  F.stamina = 0.08; F.lineM = LAND_M + 2.5; F.tension = 0.45; F.side = -F.side;
+  S.phase = 'fight';
+  mirror();
 }
 
 // ── Reeling in ───────────────────────────────────────────────────────────────────────────────────
@@ -416,12 +448,7 @@ function stepReel(t) {
   S.lineM = S.reelFrom * (1 - p);
   S.lean *= 0.9; S.pull *= 0.85;
   if (p < 1 && t - S.lastClickAt > 110) { S.lastClickAt = t; sfx('boatfish-click'); }
-  if (p >= 1 && S.reelThen) {
-    const then = S.reelThen;
-    S.reelThen = null;
-    if (then === 'ready') toReady();
-    else if (then === 'resolve') { send(`fishresolve boat 1 ${S.token}`); S.waitResolve = true; S.resolveAt = t; }
-  }
+  if (p >= 1 && S.reelThen) { S.reelThen = null; toReady(); }
   if (S.waitResolve && t - S.resolveAt > RESOLVE_TIMEOUT_MS) toReady();
 }
 
@@ -431,6 +458,13 @@ function card(title, body, t, keepPhase = false) {
   S.card = { title, body };
   S.cardUntil = t + CARD_MS;
   S.cardPhase = keepPhase;
+}
+
+// The catch's picture on the card, drawn once.
+function showCatch(id, kg) {
+  const cv = _E?.cfish;
+  if (!cv) return;
+  try { paintCatch(cv, id, kg); } catch (e) { console.error('[boatfish] card:', e?.message); }
 }
 
 const COUNT = ['', 'One', 'Two', 'Three', 'Four', 'Five'];
@@ -450,19 +484,33 @@ function statusLine(t) {
     case 'ready': return _host ? 'Cast when you\'re ready.' : 'Aim with A and D. Hold Cast or Space, then let go.';
     case 'flight': return 'The line\'s out.';
     case 'wait': return 'Tap to twitch it in. Keep a rhythm. Reel in to cast again.';
-    case 'bite': return 'Bite. Hit each knock.';
-    case 'fight':
-      if (S.stamina <= 0) return 'It\'s tired. Bring it in.';
-      return S.side < 0 ? 'It\'s running to port. Lean to starboard.' : 'It\'s running to starboard. Lean to port.';
-    case 'reeling': return S.snapLine ? 'The line\'s gone slack.' : 'Reeling in.';
+    case 'bite': return S.struck ? '' : TAKE_WORDS[S.script?.kind] || TAKE_WORDS.slide;
+    case 'fight': {
+      const F = S.F;
+      if (F.mode === 'spent') return 'It\'s done. Wind it in.';
+      if (F.mode === 'run') return 'It\'s taking line. Stop winding.';
+      if (F.mode === 'charge') return 'It\'s swimming at you. Wind.';
+      if (F.mode === 'jump') return 'It\'s jumping. Ease off.';
+      if (S.tension < SLACK_AT) return 'Slack line. Wind.';
+      return S.pull < 0 ? 'It\'s pulling to port. Lean to starboard and wind.' : 'It\'s pulling to starboard. Lean to port and wind.';
+    }
+    case 'net': return t < S.netOpenAt ? 'It\'s alongside. Get the net under it.' : 'Net it as it rolls past.';
+    case 'reeling': return S.snapLine || S.threw ? 'The line\'s gone slack.' : S.waitResolve ? 'Lifting it aboard.' : 'Reeling in.';
     case 'landed': return '';
     default: return '';
   }
 }
-const PHASE_LABEL = { ready: 'READY', flight: 'CAST', wait: 'LURE', bite: 'BITE', fight: 'ON THE LINE', reeling: 'REELING', landed: 'LANDED' };
+// What you're told when a fish comes to the lure. It's the kind of fish, not when to strike.
+const TAKE_WORDS = {
+  slide: 'Something\'s mouthing it. Let it take the float down.',
+  slam: 'Something\'s at it. It\'ll be quick.',
+  lift: 'Something heavy. Watch the float for a lift.',
+  rattle: 'It\'s shivering. Wait for the dip.',
+};
+const PHASE_LABEL = { ready: 'READY', flight: 'CAST', wait: 'LURE', bite: 'BITE', fight: 'ON THE LINE', net: 'ALONGSIDE', reeling: 'REELING', landed: 'LANDED' };
 // The big button is the verb you'd type: fish <bearing> <metres>, fish twitch, fish strike. The CSS
 // hides it in the phases where it has no verb.
-const ACT_LABEL = { ready: 'Cast', wait: 'Twitch', bite: 'Strike' };
+const ACT_LABEL = { ready: 'Cast', wait: 'Twitch', bite: 'Strike', fight: 'Wind', net: 'Net' };
 
 // ── The frame ────────────────────────────────────────────────────────────────────────────────────
 function frame() {
@@ -474,7 +522,7 @@ function frame() {
   try {
     if (S.phase === 'flight' && t - S.flightAt > FLIGHT_TIMEOUT_MS) { toReady(); note('The cast didn\'t take.', t); }
     else if (S.phase === 'bite') stepBite(t);
-    else if (S.phase === 'fight') stepFight(t, dt);
+    else if (S.phase === 'fight') stepFightFrame(t, dt);
     else if (S.phase === 'reeling') stepReel(t);
     if (S && S.card && t >= S.cardUntil) {
       S.card = null;
@@ -514,6 +562,9 @@ export function boatFishKey(e, down) {
       render(t);
       return true;
     }
+    // The reel handle: held, not tapped, so a key repeat is the same turn of the handle.
+    if (ph === 'fight') { S.windHeld = !!down; return true; }
+    if (!down) S.windHeld = false;
     if (down && !e.repeat) actDown(t);
     render(t);
     return true;
@@ -536,11 +587,17 @@ function actDown(t) {
     case 'ready': if (!_host) chargeStart(t); break;
     case 'wait': twitch(t); break;
     case 'bite': strike(t); break;
+    case 'fight': S.windHeld = true; break;
+    case 'net': netTry(t); break;
     case 'landed': S.card = null; toReady(); break;
     default: break;
   }
 }
-function actUp(t) { if (S && S.phase === 'ready' && !_host) chargeRelease(t); }
+function actUp(t) {
+  if (!S) return;
+  S.windHeld = false;
+  if (S.phase === 'ready' && !_host) chargeRelease(t);
+}
 
 function on(target, type, fn, opts) { target.addEventListener(type, fn, opts); _listeners.push([target, type, fn, opts]); }
 function offAll() { for (const [tg, ty, fn, o] of _listeners) { try { tg.removeEventListener(ty, fn, o); } catch { /* gone */ } } _listeners = []; }
@@ -550,7 +607,7 @@ function wire() {
   const now = () => _env.now();
   on(E.act, 'pointerdown', (e) => { e.preventDefault?.(); actDown(now()); render(now()); });
   on(window, 'pointerup', () => { actUp(now()); if (S) { S.holdL = false; S.holdR = false; S.dragging = false; } });
-  on(window, 'pointercancel', () => { if (S) { S.holdL = false; S.holdR = false; S.dragging = false; } });
+  on(window, 'pointercancel', () => { if (S) { S.holdL = false; S.holdR = false; S.windHeld = false; S.dragging = false; } });
   // The thumb buttons lean in the fight. In the overlay's ready, with no seat to aim, they aim.
   const thumb = (isL) => (e) => {
     e.preventDefault?.();
@@ -570,8 +627,8 @@ function wire() {
     S.dragLean = clamp(S.dragLean + (x - S.dragX) / DRAG_PX, -1, 1);
     S.dragX = x;
   });
-  // The strike pad is a tap target too, the size of a thumb.
-  on(E.strike, 'pointerdown', (e) => { e.preventDefault?.(); actDown(now()); render(now()); });
+  // The lens is a tap target too: on a phone you strike at the float you're looking at.
+  on(E.lens, 'pointerdown', (e) => { e.preventDefault?.(); actDown(now()); render(now()); });
   on(E.reel, 'click', () => reelNow());
   on(E.stow, 'click', () => send('stand'));
   if (!_host) {
@@ -588,7 +645,6 @@ function ensureStyles() {
   document.head.appendChild(s);
 }
 
-const RINGS = '<span class="bf-ring"></span><span class="bf-ring"></span><span class="bf-ring"></span><span class="bf-ring"></span>';
 function hudHtml() {
   return `<div class="bf-read">
       <div class="bf-phase" data-r="phase">READY</div>
@@ -597,14 +653,15 @@ function hudHtml() {
       <div class="bf-follow" data-r="follow"></div>
       <div class="bf-tempo"><span class="bf-lamp" data-r="lamp"></span><span data-r="tempo"></span></div>
     </div>
-    <div class="bf-strike" data-r="strike"><span class="bf-mark"></span>${RINGS}</div>
+    <div class="bf-lens" data-r="lens"><canvas class="bf-lenscv" data-r="lenscv"></canvas><span class="bf-lensname" data-r="lensname">FLOAT</span></div>
     <div class="bf-fight" data-r="fight">
-      <div class="bf-meter"><span class="bf-mlabel">LINE</span><span class="bf-bar bf-tension"><i data-r="tension"></i></span></div>
+      <div class="bf-fightrow"><span class="bf-mode" data-r="mode"></span><span class="bf-lineout" data-r="lineout"></span></div>
+      <div class="bf-meter"><span class="bf-mlabel">LINE</span><span class="bf-bar bf-tension"><i data-r="tension"></i><b class="bf-needle" data-r="needle"></b></span></div>
       <div class="bf-meter"><span class="bf-mlabel">FISH</span><span class="bf-bar bf-stamina"><i data-r="stamina"></i></span></div>
       <div class="bf-leanpad" data-r="leanpad"><span class="bf-port">PORT</span><span class="bf-stbd">STBD</span><i class="bf-pull" data-r="pull"></i><i class="bf-lean" data-r="lean"></i></div>
     </div>
     <div class="bf-status" data-r="status"></div>
-    <div class="bf-card" data-r="card"><div class="bf-card-title" data-r="ctitle"></div><div class="bf-card-body" data-r="cbody"></div></div>
+    <div class="bf-card" data-r="card"><canvas class="bf-cfish" data-r="cfish" width="320" height="130"></canvas><div class="bf-card-title" data-r="ctitle"></div><div class="bf-card-body" data-r="cbody"></div></div>
     <div class="bf-controls">
       <button class="bf-btn bf-thumb bf-left" data-r="left" aria-label="Lean to port">&#9664; Port</button>
       <button class="bf-btn bf-act" data-r="act">Twitch</button>
@@ -617,9 +674,8 @@ function hudHtml() {
 function findParts(root) {
   const q = (r) => root.querySelector(`[data-r="${r}"]`);
   const E = {};
-  for (const r of ['phase', 'lure', 'out', 'depth', 'follow', 'lamp', 'tempo', 'strike', 'fight', 'tension', 'stamina',
-    'leanpad', 'pull', 'lean', 'status', 'card', 'ctitle', 'cbody', 'left', 'act', 'reel', 'right', 'stow']) E[r] = q(r);
-  E.rings = Array.from(root.querySelectorAll('.bf-ring') || []);
+  for (const r of ['phase', 'lure', 'out', 'depth', 'follow', 'lamp', 'tempo', 'lens', 'lenscv', 'lensname', 'fight', 'mode', 'lineout',
+    'tension', 'needle', 'stamina', 'leanpad', 'pull', 'lean', 'status', 'card', 'ctitle', 'cbody', 'cfish', 'left', 'act', 'reel', 'right', 'stow']) E[r] = q(r);
   E.last = {};
   return E;
 }
@@ -683,6 +739,16 @@ export function detachBoatFishHost() {
   else unmount();
 }
 
+// How light it is on the water, from the seat, for the lens. Daylight by default.
+let _light = () => 1;
+/** The seat tells the lens how much daylight there is: a function returning 0..1. */
+export function setBoatFishLight(fn) { _light = typeof fn === 'function' ? fn : () => 1; }
+function lightNow() { try { return _light(); } catch { return 1; } }
+
+const LENS_MS = 33;
+let _lensAt = 0;
+const MODE_LABEL = { pull: 'PULLING', run: 'RUNNING', charge: 'COMING AT YOU', jump: 'JUMPING', spent: 'SPENT' };
+
 // ── Drawing the HUD ──────────────────────────────────────────────────────────────────────────────
 function put(key, el, text) {
   if (!el || _E.last[key] === text) return;
@@ -732,33 +798,40 @@ function render(t) {
     if (E.last.lamp !== lit) { E.last.lamp = lit; E.lamp.classList.toggle('on', lit); }
   }
 
-  // The knocks: a ring for each closes on the mark and meets it on the beat.
-  if (S.phase === 'bite') {
-    const sn = t + _skew;
-    for (let k = 0; k < E.rings.length; k++) {
-      const el = E.rings[k];
-      if (k >= S.beatN) { setStyle(el, 'opacity', '0'); continue; }
-      const dtb = S.biteAt + S.times[k] - sn;
-      const res = S.beatRes[k];
-      const shown = !res && dtb < 1400 && dtb > -BEAT_WINDOW_MS * 2;
-      setStyle(el, 'opacity', shown ? (dtb > 1000 ? ((1400 - dtb) / 400).toFixed(2) : '1') : (res ? '0.35' : '0'));
-      setStyle(el, 'transform', `scale(${(1 + Math.max(dtb, 0) / 1400 * 2.4).toFixed(3)})`);
-      const cls = res || (Math.abs(dtb) <= BEAT_WINDOW_MS ? 'now' : '');
-      if (E.last['ring' + k] !== cls) {
-        E.last['ring' + k] = cls;
-        for (const c of ['hit', 'off', 'miss', 'now']) el.classList.toggle(c, c === cls);
-      }
+  // The lens: the float while there's a lure in the water, the fish while it's alongside.
+  const lensOn = S.phase === 'wait' || S.phase === 'bite' || S.phase === 'fight' || S.phase === 'net';
+  if (lensOn && E.lenscv && t - (_lensAt || 0) >= LENS_MS) {
+    _lensAt = t;
+    const day = lightNow();
+    if (S.phase === 'net') {
+      paintNet(E.lenscv, { t, day, swing: netPos(t), width: t < S.netOpenAt ? 0 : S.board.netWidth, species: S.catch?.species, kg: S.catch?.kg, tries: S.netTries,
+        flash: t - S.netFlashAt < NET_FLASH_MS ? 'miss' : null });
+    } else if (S.phase === 'fight') {
+      const js = S.jumpAt && t - S.jumpAt < JUMP_MS ? (t - S.jumpAt) / JUMP_MS : null;
+      paintFight(E.lenscv, { t, day, species: S.catch?.species, kg: S.catch?.kg, mode: S.F?.mode, pull: S.pull, tension: S.tension, jump: js });
+    } else {
+      paintFloat(E.lenscv, { t, day, script: S.phase === 'bite' ? S.script : null, rel: S.phase === 'bite' ? t + _skew - S.biteAt : null,
+        twitchAge: S.lastTapAt != null ? t - S.lastTapAt : null });
     }
   }
+  put('lensname', E.lensname, S.phase === 'net' ? 'NET' : S.phase === 'fight' ? 'LINE' : 'FLOAT');
 
-  // The fight's meters.
-  if (S.phase === 'fight' || S.phase === 'reeling') {
-    setStyle(E.tension, 'width', `${Math.round(clamp(S.tension, 0, 1) * 100)}%`);
+  // The fight's meters. The tension's needle sits on a track with a green band: under it the line's
+  // slack, over it it's about to go.
+  if (S.phase === 'fight' || S.phase === 'reeling' || S.phase === 'net') {
+    const T = clamp(S.tension, 0, 1);
+    setStyle(E.tension, 'width', `${Math.round(T * 100)}%`);
+    setStyle(E.needle, 'left', `${(T * 100).toFixed(1)}%`);
     setStyle(E.stamina, 'width', `${Math.round(clamp(S.stamina, 0, 1) * 100)}%`);
     setStyle(E.pull, 'left', `${(50 + S.pull * 45).toFixed(1)}%`);
     setStyle(E.lean, 'left', `${(50 + S.lean * 45).toFixed(1)}%`);
-    const hot = S.tension > 0.7;
+    const hot = S.tension > 0.72, slack = S.tension < SLACK_AT;
     if (E.last.hot !== hot) { E.last.hot = hot; E.tension?.classList.toggle('hot', hot); }
+    if (E.last.slack !== slack) { E.last.slack = slack; E.tension?.classList.toggle('slack', slack); }
+    const m = S.F ? S.F.mode : '';
+    if (_root.dataset && _root.dataset.mode !== m) _root.dataset.mode = m;
+    put('mode', E.mode, MODE_LABEL[m] || '');
+    put('lineout', E.lineout, `${Math.round(S.lineM)} m out`);
   }
 
   if (S.card) {

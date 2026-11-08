@@ -96,7 +96,8 @@
     }
   },
   "flags": {
-    "drug_family": "deliriant"
+    "drug_family": "deliriant",
+    "taken": "snort"
   },
   "id": "drug_wraithdust",
   "item_id": "item_wraithdust",

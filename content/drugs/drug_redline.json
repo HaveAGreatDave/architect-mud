@@ -66,7 +66,8 @@
   "flags": {
     "drug_class": "stimulant",
     "drug_family": "stimulant",
-    "injectable": true
+    "injectable": true,
+    "taken": "inject"
   },
   "id": "drug_redline",
   "item_id": "item_redline",

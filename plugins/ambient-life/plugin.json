@@ -22,7 +22,9 @@
       "npc.lockup",
       "zone.power.changed"
     ],
-    "emits": []
+    "emits": [
+      "npc.home.scene"
+    ]
   },
   "ticks": [
     "30s"

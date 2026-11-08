@@ -182,12 +182,12 @@ export function bootAge(live) {
 // 0..1: how far a page `delay` seconds into the boot has come up, over `dur` seconds.
 export const reveal = (bootT, delay, dur = 0.6) => clamp((bootT - delay) / dur, 0, 1);
 
-// The colour a cockpit's light lines run in: teal, amber on a caution, red on a warning, and a red
+// The colour a cockpit's light lines run in: the maker's own (teal if none), amber on a caution, red on a warning, and a red
 // that breathes, so the cabin itself says something is wrong before a screen does.
 export const ALERT_TEAL = [70, 232, 212], ALERT_AMBER = [255, 186, 72], ALERT_RED = [255, 70, 60];
-export function alertLight(caution, warning) {
+export function alertLight(caution, warning, line = ALERT_TEAL) {
   if (warning) return { rgb: ALERT_RED, k: 0.55 + 0.45 * (0.5 + 0.5 * Math.sin(wallSec() * 6)) };
-  return { rgb: caution ? ALERT_AMBER : ALERT_TEAL, k: 1 };
+  return { rgb: caution ? ALERT_AMBER : line, k: 1 };
 }
 
 // ── A swept surface ──────────────────────────────────────────────────────────
@@ -386,7 +386,7 @@ export function windscreenHud(K, R, o = {}) {
     const sx = -hw * 0.8, sy = -hh * 0.62, sb2 = 0.017;
     box(sx, sy, sb2, sb2);
     seg([sx, sy - sb2], [sx, sy + sb2], 0.0005, HUD_DIM); seg([sx - sb2, sy], [sx + sb2, sy], 0.0005, HUD_DIM);
-    if (M.stick) { const d = [sx + M.stick[0] * (sb2 - 0.003), sy + M.stick[1] * (sb2 - 0.003)]; poly([[d[0] - 0.003, d[1] - 0.003], [d[0] + 0.003, d[1] - 0.003], [d[0] + 0.003, d[1] + 0.003], [d[0] - 0.003, d[1] + 0.003]]); }
+    if (M.stick) { const d = [sx + M.stick[0] * (sb2 - 0.003), sy - M.stick[1] * (sb2 - 0.003)]; poly([[d[0] - 0.003, d[1] - 0.003], [d[0] + 0.003, d[1] - 0.003], [d[0] + 0.003, d[1] + 0.003], [d[0] - 0.003, d[1] + 0.003]]); }
     if (M.thrs && M.thrs.length) {
       const tx = -hw * 0.97, t0 = -hh * 0.75, t1 = hh * 0.25;
       seg([tx, t0], [tx, t1], 0.0007, HUD_DIM);
@@ -408,3 +408,10 @@ export function windscreenHud(K, R, o = {}) {
 const lerpN = (a, b, t) => a + (b - a) * t;
 
 export { clamp };
+
+// The column a centre stick stands on: a floor flange and a shaft up to the stick's own base, so
+// every seat's grab is dead ahead of the pilot.
+export function stickColumn(K, base, zF, body, metal) {
+  K.rod([base[0], base[1], zF], [base[0], base[1], zF + 0.02], 0.07, 'dash', 0.1, body, 0, 14);
+  K.rod([base[0], base[1], zF + 0.02], [base[0], base[1], base[2] - 0.01], 0.03, 'dash', 0.05, body, 0, 12);
+}

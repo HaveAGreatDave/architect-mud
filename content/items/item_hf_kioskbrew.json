@@ -4,8 +4,16 @@
   "id": "item_hf_kioskbrew",
   "name": "a cup of kiosk tea",
   "tags": {
+    "consumable": true,
     "description": "Out of an urn that is filled at half past six and is never quite emptied, into a paper cup with a lid that does not fit. It is too strong, it is too hot, and every contractor on this estate has one in their hand at some point in the morning.",
-    "stackable": false
+    "hot_drink": true,
+    "hydrating": true,
+    "laced_drug": "drug_coffee",
+    "laced_potency": 0.75,
+    "restore_sanity": 2,
+    "restore_thirst": 20,
+    "stackable": false,
+    "use_message": "You drink the tea. It's too strong and too hot, and the lid leaks."
   },
   "type": "drink",
   "value": 3,

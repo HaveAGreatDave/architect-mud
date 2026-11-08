@@ -178,8 +178,15 @@ The fish aren't a loot table. They're `client/shared/fish.js`: schools worked ou
 | The sea's moment, the take and the land mask the seat is sent | `plugins/fishing/sea.js` |
 | `look water` and the surface signs in the room prose | `plugins/fishing/water.js`, `water-view.js` |
 | The reel's HUD and messages | `client/game/js/panels/boatfish.js` |
+| The lens: the float, the line and the net, close up | `client/game/js/panels/float-cam.js` |
+| What each fish looks like, in 2-D and 3-D | `client/shared/fish-look.js`, `client/game/js/panels/fish-portrait.js` |
+| The sounder: what it sees, and its screen | `client/game/js/panels/sonar-scene.js`, `sonar-panel.js` |
 | Rod mode, and the shadows' gate and packing | `client/game/js/panels/boat-view.js`, `fish-shadow-scene.js` |
 | The shadows themselves (GLASS 2) | `client/game/js/panels/gl/fish-shadows.js` |
+
+**Getting one on the line.** A fish that comes to the lure doesn't hook itself. The server sends a script of what it'll do to the float, and you read the float in the lens: nibbles first, then the take, each style of fish in its own way. One strike, and too soon or too late loses the fish with the lure still out. How well it's timed is how firmly it's hooked, which decides how long it can have slack line and how wide the net is. The fight is a lean and the reel together: wind while it pulls, stop when it runs, wind hard when it swims at you, ease off when it jumps. Too tight snaps the line and too slack lets the hook drop out. Then you net it as it rolls past. [boat-fishing.md](proposals/boat-fishing.md) §5b has the rules; `node scripts/fish/fight-sim.mjs --table` plays them.
+
+**The sounder.** The Keel's fish finder (M) shows the same fish as marks, after dark and under way as well, and never says what they are. It's a sweep round her and a slice along the rod, with your lure on it. See §5c of the same doc.
 
 **The seat runs on the server's terms.** The anchor push, the boarding context and each window recentre (`boat_ctx`) carry `serverNow`, `env`, `thinned` and `land` (`seaContext` in sea.js). The seat keeps `skew = serverNow - Date.now()` and runs fish.js on `Date.now() + skew`. The reel's `open` sends a fresh clock, env and take, and the bites are rolled on those, so they win while it's open. `land` is the server's land round her as a bitmask (fish.js `landMask`, 65 by 65 tiles, about 700 base64 characters): a school's habitat looks for shore out to 48 tiles, and the seat's own 33-tile window disagreed with the server about one school in a dozen.
 

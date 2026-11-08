@@ -230,6 +230,10 @@ export default async function regress({ run, check, getPlayer }) {
     check('an unexited neighbour is a wall, not the rim',
       notRim?.type === 'error' && /no exit/i.test(notRim?.message || ''), `${notRim?.type}: ${notRim?.message}`);
 
+    // An interior map has empty coordinates all round it, and its rooms keep their region_id.
+    check('an interior room is never the rim',
+      !_test.isMapRim({ id: 'x', map_id: 'map_int_x', grid_x: 0, grid_y: 0, grid_z: 1, flags: { region_id: VOIDKEY } }, 'south'), 'interior');
+
     // `voidwalk` is no longer an entry point — walking out of the world is the only way in.
     player.current_zone = GATE; player._lastStepAt = 0;
     const verb = await run('voidwalk');

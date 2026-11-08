@@ -1,0 +1,23 @@
+{
+  "description": "A walnut writing desk under the window with a lamp that dims when you look away from it. The drawer is locked and the key is in it.",
+  "flags": {
+    "aliases": "desk",
+    "interactions": [
+      "lean"
+    ],
+    "look": {
+      "arche": "surface",
+      "form": "desk"
+    }
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_solenne_apt_a_desk",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "writing desk",
+  "object_type": "furniture",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_solenne_apt_a"
+}

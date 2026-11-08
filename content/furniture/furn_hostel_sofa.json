@@ -1,0 +1,25 @@
+{
+  "description": "A brown corduroy sofa with a spring through one cushion and a burn on the arm in the shape of a continent. The duct tape on the back has been duct taped. It is never empty after dark.",
+  "flags": {
+    "aliases": "sofa,couch",
+    "interactions": [
+      "sit",
+      "lie"
+    ],
+    "look": {
+      "arche": "sofa",
+      "form": "sofa",
+      "wear": 0.95
+    }
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_hostel_sofa",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "common-room sofa",
+  "object_type": "furniture",
+  "power_draw_kw": null,
+  "price": 15,
+  "zone_id": "zone_trackmarks_shop"
+}

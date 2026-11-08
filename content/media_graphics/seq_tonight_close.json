@@ -1,0 +1,10 @@
+{
+  "content": "{\n \"kind\": \"sequence\",\n \"format\": 1,\n \"id\": \"seq_tonight_close\",\n \"name\": \"Tonight Show: goodnight\",\n \"set\": \"set_ksab_talk\",\n \"roles\": {\n  \"a\": {\n   \"mark\": \"a\",\n   \"label\": \"Host\"\n  },\n  \"b\": {\n   \"mark\": \"b\",\n   \"label\": \"Sidekick\"\n  }\n },\n \"wallText\": \"{show}\",\n \"wallSub\": \"Live from the Media Lot\",\n \"beats\": [\n  {\n   \"id\": \"b1\",\n   \"shot\": {\n    \"cam\": \"cam1\",\n    \"frame\": \"two\",\n    \"on\": [\n     \"a\",\n     \"b\"\n    ],\n    \"move\": \"drift\",\n    \"cut\": \"dissolve\"\n   },\n   \"hold\": 2,\n   \"gfx\": []\n  },\n  {\n   \"id\": \"b2\",\n   \"shot\": {\n    \"cam\": \"cam2\",\n    \"frame\": \"medium\",\n    \"on\": [\n     \"a\"\n    ],\n    \"move\": \"none\",\n    \"cut\": \"cut\"\n   },\n   \"say\": {\n    \"role\": \"a\",\n    \"lines\": [\n     \"{sidekick_first}, how did we do tonight?\"\n    ]\n   },\n   \"gfx\": []\n  },\n  {\n   \"id\": \"b3\",\n   \"shot\": {\n    \"cam\": \"cam1\",\n    \"frame\": \"two\",\n    \"on\": [\n     \"a\",\n     \"b\"\n    ],\n    \"move\": \"none\",\n    \"cut\": \"cut\"\n   },\n   \"say\": {\n    \"role\": \"b\",\n    \"lines\": [\n     \"They laughed at most of it.\",\n     \"Nobody left early. I counted.\"\n    ]\n   },\n   \"gfx\": []\n  },\n  {\n   \"id\": \"b4\",\n   \"shot\": {\n    \"cam\": \"cam2\",\n    \"frame\": \"medium\",\n    \"on\": [\n     \"a\"\n    ],\n    \"move\": \"push\",\n    \"cut\": \"cut\"\n   },\n   \"say\": {\n    \"role\": \"a\",\n    \"lines\": [\n     \"I'll take that.\",\n     \"Good enough for me.\"\n    ]\n   },\n   \"gfx\": []\n  }\n ]\n}",
+  "created_at": "1794098011",
+  "description": "",
+  "id": "seq_tonight_close",
+  "name": "Tonight Show: goodnight",
+  "tags": [],
+  "type": "sequence",
+  "updated_at": "1794098011"
+}

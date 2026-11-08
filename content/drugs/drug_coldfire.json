@@ -63,7 +63,8 @@
   "flags": {
     "drug_class": "stimulant",
     "drug_family": "stimulant",
-    "injectable": true
+    "injectable": true,
+    "taken": "inject"
   },
   "id": "drug_coldfire",
   "item_id": "item_coldfire",

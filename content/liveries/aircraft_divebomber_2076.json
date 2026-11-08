@@ -1,6 +1,6 @@
 {
-  "blurb": "Concept. The Shrike fifty years on: graphite with a black mask and a red jaw, a gold canopy nobody sees into.",
-  "default": false,
+  "blurb": "The Shrike fifty years on: graphite with a black mask and a red jaw, a gold canopy nobody sees into.",
+  "default": true,
   "exterior": {
     "base": "#34383c",
     "finish": "satin",

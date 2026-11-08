@@ -94,7 +94,8 @@
   "flags": {
     "drug_class": "depressant",
     "legal": true,
-    "skin_permeability": 0.9
+    "skin_permeability": 0.9,
+    "taken": "huff"
   },
   "id": "drug_toluene",
   "item_id": "item_reagent_solvent",

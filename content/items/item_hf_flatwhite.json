@@ -4,8 +4,16 @@
   "id": "item_hf_flatwhite",
   "name": "a flat white",
   "tags": {
+    "consumable": true,
     "description": "Properly made, in a heavy cup, by somebody who has done it eleven thousand times and still watches the pour. It is the best coffee in the south of the city and the competition is a machine in a lobby two streets away.",
-    "stackable": false
+    "hot_drink": true,
+    "hydrating": true,
+    "laced_drug": "drug_coffee",
+    "laced_potency": 1,
+    "restore_sanity": 6,
+    "restore_thirst": 20,
+    "stackable": false,
+    "use_message": "You drink the flat white. It's very good coffee."
   },
   "type": "drink",
   "value": 9,

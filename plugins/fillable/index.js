@@ -17,10 +17,10 @@
 import { randomUUID } from 'crypto';
 import { query } from '../../server/models/db.js';
 import { adjustCredits } from '../../server/engine/economy.js';
-import { tagValue } from '../../server/engine/tags.js';
+import { hasTag, tagValue } from '../../server/engine/tags.js';
 import { resolveInventoryItem, burnCharge } from '../../server/engine/inventory.js';
 import { applyThirst } from '../../server/engine/bodily.js';
-import { dispatchAction } from '../../server/engine/actions.js';
+import { dispatchAction, registerAction } from '../../server/engine/actions.js';
 import { registerFluidResolver } from '../../server/engine/topical.js';
 import { getZoneFurniture } from '../../server/engine/world.js';
 import { useDrug, getDrugCache, drugForItem } from '../../server/engine/drugs.js';
@@ -242,7 +242,13 @@ async function drink(args, raw, player, context) {
   const c = await resolveContainer(player, name);
   if (!c) return undefined; // fall through (e.g. to water-source furniture)
   if (holdsDrink(c)) return undefined;  // a poured drink is the drinks plugin's cup
+  return drinkContainer(c, player, context);
+}
 
+// Drink from one resolved row. Split from `drink` because a name can't always
+// say which row: two canteens answer to "canteen", and `drink water` has to take
+// the clean one.
+async function drinkContainer(c, player, context) {
   const amount = c.custom_data?.fluid_amount || 0;
   if (amount <= 0) return { type:'error', message:`The ${c.name} is empty.` };
 
@@ -353,6 +359,30 @@ async function drinkDosed(c, drugId, player, context) {
     ...(thirstGain > 0 ? { player_update: { thirst: player.thirst } } : {}),
   };
 }
+
+// -- `drink water` -----------------------------------------------------------
+//
+// The water plugin does the looking and hands over the rows you're carrying.
+// What counts as water in a container is this plugin's schema, so the answer
+// lives here. Foul water, fuel and neat product don't count.
+//
+// Dosed water does count. `dissolve` promises that a laced canteen looks exactly
+// like a clean one, and skipping it would make `drink water` a free poison test.
+// It only goes last, so somebody carrying a clean canteen as well drinks that.
+const holdsWater = c => {
+  const cd = c.custom_data || {};
+  return (cd.fluid_amount || 0) > 0 && !holdsDrink(c)
+    && (cd.fluid_type || 'water') === 'water' && !cd.contaminated;
+};
+
+registerAction({
+  type: 'fillable.drinkCarriedWater',
+  handler: async ({ actor, params, context }) => {
+    const water = params.rows.filter(c => hasTag(c, 'fillable') && holdsWater(c));
+    const c = water.find(r => !r.custom_data.drug_id) || water[0];
+    return c ? drinkContainer(c, actor, context) : null;
+  },
+});
 
 // -- pour (transfer) ---------------------------------------------------------
 //

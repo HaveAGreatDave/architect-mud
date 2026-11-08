@@ -6,10 +6,10 @@
                    seat opens). Laid out in flow.
    The phase is on the root as data-phase, so what shows when is all here. */
 
-.bf-hud { --bf-accent:#7fd6e8; --bf-ink:#cfe9ef; --bf-dim:#6f95a0; --bf-warn:#ffb23e; --bf-bad:#ff4a5b; --bf-good:#46e05a;
+.bf-hud { white-space:normal; --bf-accent:#7fd6e8; --bf-ink:#cfe9ef; --bf-dim:#6f95a0; --bf-warn:#ffb23e; --bf-bad:#ff4a5b; --bf-good:#46e05a;
   font-family:'Courier New',monospace; color:var(--bf-ink); letter-spacing:0.5px; }
 .bf-hud.bf-hosted { position:absolute; inset:0; z-index:20; pointer-events:none; }
-.bf-hud.bf-hosted .bf-read, .bf-hud.bf-hosted .bf-btn, .bf-hud.bf-hosted .bf-strike,
+.bf-hud.bf-hosted .bf-read, .bf-hud.bf-hosted .bf-btn,
 .bf-hud.bf-hosted .bf-leanpad, .bf-hud.bf-hosted .bf-card { pointer-events:auto; }
 
 /* ── The readout: phase, the line gauge, depth, who's following and the tempo lamp ── */
@@ -30,30 +30,42 @@
 .bf-follow:empty, .bf-tempo:has(span:last-child:empty) { display:none; }
 .bf-hud:not([data-phase="wait"]) .bf-follow, .bf-hud:not([data-phase="wait"]) .bf-tempo { display:none; }
 
-/* ── The strike pad: a mark, and a ring per knock closing on it ── */
-.bf-strike { display:none; position:relative; width:150px; height:150px; border-radius:50%; cursor:pointer; touch-action:none; }
-.bf-hosted .bf-strike { position:absolute; left:50%; top:50%; transform:translate(-50%, -50%); }
-.bf-standalone .bf-strike { margin:14px auto; }
-.bf-hud[data-phase="bite"] .bf-strike { display:block; }
-.bf-mark { position:absolute; left:50%; top:50%; width:44px; height:44px; margin:-22px 0 0 -22px; border-radius:50%;
-  border:3px solid var(--bf-ink); box-shadow:0 0 10px rgba(207,233,239,0.4), inset 0 0 8px rgba(207,233,239,0.25); }
-.bf-ring { position:absolute; left:50%; top:50%; width:44px; height:44px; margin:-22px 0 0 -22px; border-radius:50%;
-  border:2px solid var(--bf-accent); opacity:0; pointer-events:none; }
-.bf-ring.now { border-color:#fff; box-shadow:0 0 12px #fff; }
-.bf-ring.hit { border-color:var(--bf-good); }
-.bf-ring.off, .bf-ring.miss { border-color:var(--bf-bad); }
+/* ── The lens: the float close up, and the fish alongside. It's a tap target for the strike. ── */
+.bf-lens { display:none; position:relative; width:168px; height:168px; border-radius:50%; cursor:pointer; touch-action:none; overflow:hidden;
+  border:5px solid #20343c; outline:1px solid #0a1418; box-shadow:0 8px 22px rgba(0,0,0,0.55), inset 0 0 0 1px rgba(255,255,255,0.08); background:#0a1c24; }
+.bf-hosted .bf-lens { position:absolute; left:50%; top:calc(var(--bf-top, 56px) + 4px); transform:translateX(-50%); pointer-events:auto; }
+.bf-standalone .bf-lens { margin:14px auto; }
+.bf-hud[data-phase="wait"] .bf-lens, .bf-hud[data-phase="bite"] .bf-lens, .bf-hud[data-phase="fight"] .bf-lens, .bf-hud[data-phase="net"] .bf-lens { display:block; }
+.bf-lenscv { display:block; width:100%; height:100%; }
+.bf-lens::after { content:''; position:absolute; inset:0; border-radius:50%; pointer-events:none;
+  box-shadow:inset 0 0 26px 8px rgba(0,8,12,0.6); }
+.bf-lensname { position:absolute; left:50%; bottom:9px; transform:translateX(-50%); font-size:0.5625rem; letter-spacing:2px; color:#b9d6dd; text-shadow:0 1px 2px #000; }
+.bf-hud[data-phase="bite"] .bf-lens { border-color:#9a7a2c; }
+.bf-hud[data-phase="net"] .bf-lens { border-color:#3e7a4a; }
+.bf-hud[data-mode="run"] .bf-lens { border-color:#8a3030; }
+.bf-hud[data-mode="jump"] .bf-lens { border-color:#b09a3e; }
 
 /* ── The fight: the line's tension, the fish's strength, and the lean bar ── */
 .bf-fight { display:none; width:min(420px, 100%); padding:8px 10px; border:1px solid #1d3a44; border-radius:6px;
   background:linear-gradient(180deg, rgba(8,22,28,0.88), rgba(3,10,14,0.88)); }
 .bf-hosted .bf-fight { position:absolute; left:50%; bottom:calc(var(--bf-bottom, 64px) + 70px); transform:translateX(-50%); width:min(420px, calc(100% - 32px)); }
-.bf-hud[data-phase="fight"] .bf-fight, .bf-hud[data-phase="reeling"] .bf-fight { display:block; }
+.bf-hud[data-phase="fight"] .bf-fight, .bf-hud[data-phase="reeling"] .bf-fight, .bf-hud[data-phase="net"] .bf-fight { display:block; }
+.bf-fightrow { display:flex; justify-content:space-between; align-items:baseline; margin-bottom:6px; }
+.bf-mode { font-size:0.75rem; font-weight:bold; letter-spacing:2px; color:var(--bf-accent); }
+.bf-lineout { font-size:0.75rem; color:var(--bf-ink); }
+.bf-hud[data-mode="run"] .bf-mode { color:var(--bf-bad); }
+.bf-hud[data-mode="charge"] .bf-mode { color:var(--bf-warn); }
+.bf-hud[data-mode="jump"] .bf-mode { color:#ffd76a; }
+.bf-hud[data-mode="spent"] .bf-mode { color:var(--bf-good); }
 .bf-meter { display:flex; align-items:center; gap:8px; margin-bottom:5px; }
 .bf-mlabel { width:3.5em; font-size:0.625rem; letter-spacing:1.5px; color:var(--bf-dim); }
-.bf-bar { position:relative; flex:1; height:8px; border:1px solid #2b4c58; border-radius:3px; background:#06141a; overflow:hidden; }
+.bf-bar { position:relative; flex:1; height:10px; border:1px solid #2b4c58; border-radius:3px; background:#06141a; overflow:hidden; }
+/* The tension's track: red for slack, green where you want it, red again where the line goes. */
+.bf-tension { background:linear-gradient(90deg, #5c1e24 0, #5c1e24 12%, #15402a 12%, #15402a 72%, #6a4a16 72%, #6a4a16 86%, #6e1c20 86%); }
+.bf-needle { position:absolute; top:-1px; bottom:-1px; width:3px; margin-left:-1px; background:#fff; box-shadow:0 0 5px #fff; }
 .bf-bar i { position:absolute; left:0; top:0; bottom:0; width:0; transition:width .08s linear; }
-.bf-tension i { background:linear-gradient(90deg, var(--bf-good), var(--bf-warn) 60%, var(--bf-bad)); }
-.bf-tension i.hot { animation:bf-hot .25s linear infinite; }
+.bf-tension i { background:rgba(255,255,255,0.14); }
+.bf-tension i.hot, .bf-tension i.slack { background:rgba(255,90,80,0.4); animation:bf-hot .25s linear infinite; }
 @keyframes bf-hot { 50% { opacity:0.6; } }
 .bf-stamina i { background:var(--bf-accent); }
 .bf-leanpad { position:relative; height:34px; margin-top:6px; border:1px solid #2b4c58; border-radius:17px; background:#06141a;
@@ -74,6 +86,8 @@
 .bf-hosted .bf-card { position:absolute; left:50%; top:38%; transform:translate(-50%, -50%); }
 .bf-standalone .bf-card { margin:10px auto; }
 .bf-hud[data-card="1"] .bf-card { display:block; }
+.bf-cfish { display:none; width:100%; height:auto; border-radius:4px; margin-bottom:8px; border:1px solid #0a1418; }
+.bf-hud[data-phase="landed"] .bf-cfish { display:block; }
 .bf-card-title { font-size:0.9375rem; font-weight:bold; color:var(--bf-accent); }
 .bf-card-body { font-size:0.8125rem; color:var(--bf-ink); margin-top:4px; }
 .bf-card-body:empty { display:none; }
@@ -97,6 +111,7 @@
 .bf-act, .bf-thumb, .bf-reel { display:none; }
 .bf-hud[data-phase="wait"] .bf-reel { display:inline-block; }
 .bf-hud[data-phase="wait"] .bf-act, .bf-hud[data-phase="bite"] .bf-act,
+.bf-hud[data-phase="fight"] .bf-act, .bf-hud[data-phase="net"] .bf-act,
 .bf-standalone[data-phase="ready"] .bf-act { display:inline-block; }
 .bf-hud[data-phase="fight"] .bf-thumb, .bf-standalone[data-phase="ready"] .bf-thumb { display:inline-block; }
 /* In the fight the thumbs go to the two edges, where thumbs are. */
@@ -116,5 +131,5 @@ html[data-density="compact"] .bf-nums, html[data-density="compact"] .bf-follow {
 html[data-density="compact"] .bf-act { min-width:120px; min-height:60px; }
 html[data-density="compact"] .bf-thumb { min-width:110px; min-height:64px; font-size:1rem; }
 html[data-density="compact"] .bf-stow { min-height:44px; min-width:44px; }
-html[data-density="compact"] .bf-strike { width:170px; height:170px; }
+html[data-density="compact"] .bf-lens { width:132px; height:132px; }
 html[data-density="compact"] .bf-hosted .bf-fight { bottom:calc(var(--bf-bottom, 64px) + 80px); }

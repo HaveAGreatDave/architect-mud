@@ -2308,6 +2308,7 @@ function donenessRisk(cd) {
 }
 
 export const hooks = {
+  'furniture.acts': (f) => (f.flags?.stove_tier ? [{ verb: 'workspace', bare: true }] : undefined),
   'item.checkCooking': (invRow) => checkCooking(invRow),
   'item.describeVessel': (invRow, player) => describeVessel(invRow, player),
   // Read by the engine eat path; the curves live here, not in the engine.

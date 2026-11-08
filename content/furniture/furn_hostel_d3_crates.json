@@ -1,0 +1,22 @@
+{
+  "description": "Milk crates under the bunks, wired shut with coat hangers. It keeps nobody out who wants in, and everybody knows it.",
+  "flags": {
+    "aliases": "crates",
+    "container": 10000,
+    "look": {
+      "arche": "store",
+      "form": "crate",
+      "wear": 0.9
+    }
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_hostel_d3_crates",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "footlocker crates",
+  "object_type": "container",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_hostel_dorm_3"
+}

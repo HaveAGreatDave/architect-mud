@@ -1,0 +1,10 @@
+{
+  "content": "{\n \"kind\": \"sequence\",\n \"format\": 1,\n \"id\": \"seq_raptor_close\",\n \"name\": \"Raptor News: the outro\",\n \"set\": \"set_raptor_news\",\n \"roles\": {\n  \"a\": {\n   \"mark\": \"a\",\n   \"label\": \"Anchor\"\n  },\n  \"b\": {\n   \"mark\": \"b\",\n   \"label\": \"Co-anchor\"\n  }\n },\n \"wallText\": \"RAPTOR NEWS\",\n \"wallSub\": \"Trust no one but us\",\n \"beats\": [\n  {\n   \"id\": \"b1\",\n   \"shot\": {\n    \"cam\": \"cam1\",\n    \"frame\": \"two\",\n    \"on\": [\n     \"a\",\n     \"b\"\n    ],\n    \"move\": \"pull\",\n    \"cut\": \"cut\"\n   },\n   \"say\": {\n    \"role\": \"a\",\n    \"lines\": [\n     \"That's the news. It was bad, and it'll be bad tomorrow. I'm {a.name}.\",\n     \"For all of us at Raptor News, I'm {a.name}. Stay indoors.\"\n    ]\n   },\n   \"gfx\": []\n  },\n  {\n   \"id\": \"b2\",\n   \"shot\": {\n    \"cam\": \"cam3\",\n    \"frame\": \"medium\",\n    \"on\": [\n     \"b\"\n    ],\n    \"move\": \"none\",\n    \"cut\": \"cut\"\n   },\n   \"say\": {\n    \"role\": \"b\",\n    \"lines\": [\n     \"And I'm {b.name}. Good night, and lock your door.\",\n     \"I'm {b.name}. Good night, Coldwater. Trust nobody.\"\n    ]\n   },\n   \"gfx\": []\n  },\n  {\n   \"id\": \"b3\",\n   \"shot\": {\n    \"cam\": \"jib\",\n    \"frame\": \"wide\",\n    \"on\": [],\n    \"move\": \"crane\",\n    \"cut\": \"dissolve\"\n   },\n   \"hold\": 3,\n   \"gfx\": [\n    {\n     \"kind\": \"full\",\n     \"title\": \"RAPTOR NEWS\",\n     \"sub\": \"Nightly Fury\",\n     \"at\": 0.6,\n     \"for\": 0\n    }\n   ]\n  }\n ]\n}",
+  "created_at": "1794098460",
+  "description": "",
+  "id": "seq_raptor_close",
+  "name": "Raptor News: the outro",
+  "tags": [],
+  "type": "sequence",
+  "updated_at": "1794098460"
+}

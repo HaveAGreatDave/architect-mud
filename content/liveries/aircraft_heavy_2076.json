@@ -1,6 +1,6 @@
 {
-  "blurb": "Concept. The Leviathan fifty years on: one pearl lifting body as wide as its hold, four hydrogen fans on its back, the blue kept.",
-  "default": false,
+  "blurb": "The Leviathan fifty years on: one pearl lifting body as wide as its hold, four hydrogen fans on its back, the blue kept.",
+  "default": true,
   "exterior": {
     "base": "#e6e9ec",
     "finish": "gloss",

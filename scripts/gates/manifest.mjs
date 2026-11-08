@@ -72,7 +72,7 @@ export const GROUPS = [
       'scripts/client/seatkeys-smoke.mjs',
       'scripts/client/boatseat-smoke.mjs',
       'scripts/client/maintbay-smoke.mjs',   // the bay controller's rules, and all four depots' bays walked job by job
-      'scripts/client/boatfish-smoke.mjs',   // the boat reel: cast, twitch, the knocks, the fight and the landing, against boatfish-rules.js
+      'scripts/client/boatfish-smoke.mjs',   // the boat reel: cast, twitch, the take, the fight and the net, against boatfish-rules.js
       'scripts/client/console-escape-smoke.mjs',   // player text in the pirate/emergency consoles renders inert
     ],
   },
@@ -145,6 +145,8 @@ export const GROUPS = [
       'scripts/shapes/vehicle-materials.mjs',
       'scripts/shapes/liveries.mjs',
       'scripts/shapes/actors.mjs',
+      'scripts/client/room-window-smoke.mjs', // flights and lightning are pure functions of the clock; the shot masks find sky, sea and open ground
+      'scripts/shapes/sequence.mjs',     // every set, sequence and show in media_graphics, built and checked
       'scripts/shapes/room-stage.mjs',   // the suite's layout as frozen, every room form builds, placeSpot never stacks pieces
       'scripts/shapes/actor-head.mjs',
       'scripts/shapes/figure.mjs',   // the close-up figure: every cut and hair style sound, the crowd's coat its coat
@@ -212,6 +214,8 @@ export const GROUPS = [
       'scripts/shapes/murmurgpu.mjs',
       'scripts/shapes/birdseason.mjs',
       'scripts/fish/smoke.mjs',          // fish.js is pure, every catch is raw_fish, schools swim true and every marina has fish
+      'scripts/fish/sonar-smoke.mjs',    // every mark on the sounder is a fish the server would bite on, and it never names one
+      'scripts/fish/fight-sim.mjs',      // the reel's fight, played by a simulated angler: an easy fish is easy and a sturgeon isn't
       'scripts/shapes/perch.mjs',
       'scripts/shapes/skyline.mjs',
       'scripts/shapes/falcondive.mjs',
@@ -372,6 +376,7 @@ export const GROUPS = [
       'scripts/audio/loudness-smoke.mjs',  // every cue preset's LUFS and peak against its target; ratcheted by loudness-baseline.json
       'scripts/audio/modes-smoke.mjs',     // struck surfaces: metal rings longer than wood, peaks at the modes, as loud as the old path
       'scripts/audio/sfx-smoke.mjs',       // every preset and bed passes the critic; vary and rand density work
+      'scripts/audio/room-sound-smoke.mjs',  // the view out of a room's cues pass the critic at their level; the bath is quieter than the balcony; stop stops
       'scripts/audio/kitchen-sound-smoke.mjs', // the Kitchen Stage's cues pass the critic; the hob's state follows the pan and dial, never a clock
       'scripts/audio/sound-match-smoke.mjs', // the matcher reads a bell's carrier and ratio and fits it; the composed loops pass the critic
     ],

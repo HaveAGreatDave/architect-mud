@@ -1,0 +1,25 @@
+{
+  "description": "A brass telescope on a tripod by the north glass, aimed at the deep water. Somebody has left a card on the eyepiece reading PLEASE DO NOT MOVE. It's been moved.",
+  "flags": {
+    "aliases": "telescope,scope",
+    "look": {
+      "arche": "small",
+      "dims": [
+        0.5,
+        0.5,
+        1.5
+      ],
+      "form": "box"
+    }
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_aerie_telescope",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "brass telescope",
+  "object_type": "furniture",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_solenne_aerie"
+}

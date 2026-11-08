@@ -30,8 +30,10 @@
 
 import { paintWindshield, windshieldHTML, ensureWindshieldStyles, disposeWindshield, lastViewState, seaAmpsNow, hullSeaGains, hullSeaWarp, interiorHotspots, ownHullScale, RENDER_TUNE, ROAD_RIG_MUL } from './windshield.js';
 import { airHornOn, airHornOff } from './engine-audio.js';
+import { suppressWeatherFx } from './weather-fx.js';
 import { seaClock, seaHeight, SEA_TILE_M } from '../../../shared/sea-swell.js';
-import { CAST_MIN_M } from '../../../shared/boatfish-rules.js';
+import { CAST_MIN_M, LAND_M } from '../../../shared/boatfish-rules.js';
+import { sonarScan, sonarCells, chartGrid, inBeam, RANGES_M, GAIN_NAMES } from './sonar-scene.js';
 import { navHomeHTML, drawNavHome } from './nav-home.js';
 import { stepBoat, shiftBoatOrigin, stepBoatRide, TYPES, CRANK_S } from './flight-model.js';
 import { createHelmWheel } from './helm-wheel.js';
@@ -47,7 +49,7 @@ import { wildlandsAt } from '../../../shared/wildlands.js';
 import { SWING_R, LIE_FRAC, clampToSwing } from '../../../shared/boat-anchor.js';
 import { bindTouchGestures } from './touch-gestures.js';
 import { loadCss } from '../../../shared/dom.js';
-import { habitatFor, maskedLand, daylightOfNight, SHOW_MPH } from '../../../shared/fish.js';
+import { SPECIES, fishLength, habitatFor, maskedLand, daylightOfNight, SHOW_MPH } from '../../../shared/fish.js';
 import { packShadows, resetShadowScene } from './fish-shadow-scene.js';
 
 // boat-view.css ships beside this file and is fetched when the module loads, so ensureBoatStyles
@@ -319,6 +321,7 @@ function revKick(now) {
 export function openBoat(ctx = {}) {
   closeBoat();
   ensureWindshieldStyles();
+  suppressWeatherFx(true, 'boat');   // she draws her own weather; the room overlay's rain and arcs would lie flat on it
   // ⚠ A HANDED-IN MOUNT WINS, the free-look seat's arrangement. dispatch.js passes none and gets
   // #area-content, which is what the cab does; a gate passes its own node, which is the only way
   // a panel that writes straight into the page can be opened without one.
@@ -377,6 +380,8 @@ export function openBoat(ctx = {}) {
     + '<button class="boat-chip boat-hold boat-push" data-key="r" type="button" hidden title="shove her back off the beach (R), shuts the lever">⇤ PUSH OFF</button>'
     // The anchor, on a hull that carries one (`rode_m`): drop it, or pull it up. B, or the cleat.
     + '<button class="boat-chip boat-anchor" type="button" hidden title="anchor: drop it or pull it up (B)">⚓ ANCHOR</button>'
+    // The sounder, on a hull that carries one (`sonar`). M, or the unit's PWR key.
+    + '<button class="boat-chip boat-sonar" type="button" hidden title="sounder: fish finder (M)">◉ SONAR</button>'
     + '<button class="boat-chip boat-ext" type="button" title="external / helm view (V)">◎ EXT</button>'
     + '<button class="boat-chip boat-ride" type="button" title="helm camera motion: full / soft / steady (N), the boat still rides the full sea">RIDE FULL</button>'
     + '<button class="boat-chip boat-help-btn" type="button" title="controls (?)">?</button>'
@@ -465,7 +470,7 @@ export function openBoat(ctx = {}) {
     lamp: false, boxOpen: false, choke: false, primeAt: -1e9,
     // Rod mode, and what you look like on the thwart (angler.js anglerBody): the helm's push may
     // carry `look: { id, skin, hair, hairStyle }`; without it the boat's name keeps you the same man.
-    rod: newRod(), rodView: null, angLook: ctx.look || { id: ctx.player || ctx.name || 'angler' },
+    sonar: newSonar(), rod: newRod(), rodView: null, angLook: ctx.look || { id: ctx.player || ctx.name || 'angler' },
     lastSync: 0, last: performance.now(), alive: true, raf: 0,
     onSend: ctx.onSend || null,
     onExit: ctx.onExit || (() => send('disembark')),
@@ -549,6 +554,8 @@ export function openBoat(ctx = {}) {
     if (!st.sim.running) { st.clickCrank = true; st.clickCrankLeft = CRANK_S + 0.5; }
   });
   root.querySelector?.('.boat-ext')?.addEventListener('click', () => setExternal(!st.external));
+  const sonarBtn = root.querySelector?.('.boat-sonar');
+  if (sonarBtn && hasSonar()) { sonarBtn.hidden = false; sonarBtn.addEventListener('click', () => toggleSonar()); }
   const anchorBtn = root.querySelector?.('.boat-anchor');
   if (anchorBtn) { anchorBtn.hidden = !(Number(p.rode_m) > 0); anchorBtn.addEventListener('click', () => anchorAct()); }
   root.querySelector?.('.boat-help-btn')?.addEventListener('click', () => toggleHelp());
@@ -593,6 +600,7 @@ export function closeBoat() {
   exitBigScreen();
   document.body.classList.remove('boat-hidepanel');
   disposeWindshield(ID);
+  suppressWeatherFx(false, 'boat');
   endSeatKeyboard(st.pane);
   if (st.ownsPane) window.dispatchEvent(new Event('pane:released'));  // hand the pane back to the phone layout
   st = null;
@@ -645,6 +653,8 @@ function bindKeys() {
       if (k === 'b') { e.preventDefault(); anchorAct(); return; }
       // The rod. ⚠ ON THE SAND R IS STILL THE SHOVE, and you can't be anchored there anyway.
       if (k === 'r' && !st.sim.beached) { e.preventDefault(); toggleRod(); return; }
+      // The sounder. M because it's free: every other letter here is bound.
+      if (k === 'm') { e.preventDefault(); toggleSonar(); return; }
       // The shoulder-checks, and they are the cab's three letters. ⚠ SNAP AND LATCH rather than
       // held: a boat is steered with two hands and there is no third one to hold a look key with.
       // Q / E / S are HELD shoulder-checks, the cab's and the cockpit's own three keys.
@@ -857,6 +867,7 @@ const CONTROL_TIP = {
   choke: 'CHOKE: pull it for a cold start', prime: 'PRIME: squeeze the fuel bulb',
   cleat: 'CLEAT: the anchor, drop it or pull it up (B)', lamp: 'LAMP: the battery lamp on its pole',
   box: 'BOX: the fish box lid', rod: 'ROD: fish from her, at anchor (R)',
+  sonar: 'PWR: the sounder (M)', sonarRange: 'RANGE: how far out the sounder looks', sonarGain: 'GAIN: how faint a return the sounder shows',
 };
 function switchState(id) {
   if (!st) return false;
@@ -889,6 +900,9 @@ function pressControl(id) {
   } else if (id === 'kill') { if (st.sim.running) ignition(); }
   else if (id === 'cleat') anchorAct();
   else if (id === 'rod') toggleRod();
+  else if (id === 'sonar') toggleSonar();
+  else if (id === 'sonarRange') sonarAct('range');
+  else if (id === 'sonarGain') sonarAct('gain');
   else flipSwitch(id);
 }
 
@@ -920,6 +934,88 @@ function holdAtAnchor(dt) {
   st.sim.heading = ((st.sim.heading + err * (1 - Math.exp(-dt / 10))) % 360 + 360) % 360;
 }
 
+// ── THE SOUNDER ──────────────────────────────────────────────────────────────
+//
+// The fish finder (sonar-scene.js, sonar-panel.js). A switch like the lamp, on the seat rather than the
+// server: it reads the same fish.js the shadows do, on the clock and the sea the seat already keeps,
+// so it costs nothing on the wire. It works under way and in the dark, which your eyes don't.
+//
+// ⚠ THE PANEL IS FETCHED, NEVER IMPORTED: it reads its stylesheet with a top-level await, which a
+// headless gate can't, and a boat without a sounder never loads it.
+let SP = null, spP = null;
+const loadSonar = () => spP || (spP = import('./sonar-panel.js').then((m) => { SP = m; return m; }).catch(() => null));
+const SONAR_MS = 100;      // the screen's refresh
+const CHART_MS = 1000;     // how often the sweep's chart is redrawn
+const CHART_N = 22;
+const CELLS_W = 34, CELLS_H = 22;   // the block of cells the unit in the seat shows
+function newSonar() {
+  return { on: false, range: 1, gain: 1, panel: null, at: 0, chartAt: 0, grid: null, scan: {}, cells: { w: CELLS_W, h: CELLS_H, cells: null, depthM: 0 }, q: {}, follow: new Set() };
+}
+const hasSonar = () => !!st && Number(st.p?.sonar) > 0;
+function toggleSonar() {
+  if (!hasSonar()) return;
+  const N = st.sonar;
+  N.on = !N.on; N.at = 0; N.chartAt = 0;
+  cue('boatfish-click');
+  st.root?.querySelector?.('.boat-sonar')?.classList?.toggle('on', N.on);
+  st.root?.classList?.toggle('boat-sounding', N.on);
+  if (!N.on) { if (SP) SP.showSonar(N.panel, false); return; }
+  loadSonar().then((m) => {
+    if (!m || !st || !st.sonar.on) return;
+    if (!st.sonar.panel) st.sonar.panel = m.mountSonar(st.root, sonarAct);
+    m.showSonar(st.sonar.panel, true);
+  });
+}
+function sonarAct(a) {
+  if (!st) return;
+  const N = st.sonar;
+  if (a === 'power') { toggleSonar(); return; }
+  if (!N.on) return;
+  if (a === 'range') { N.range = (N.range + 1) % RANGES_M.length; N.chartAt = 0; }
+  else if (a === 'gain') N.gain = (N.gain + 1) % GAIN_NAMES.length;
+  N.at = 0;
+  cue('boatfish-click');
+}
+// The way the screen's beam points: down the line once there's one out, along the aim while you're
+// choosing, and over the bow the rest of the time.
+function sonarBearing() {
+  const R = st.rod;
+  if (!R.on) return 0;
+  const S = BF?.boatFishState?.();
+  return S && S.phase !== 'ready' && S.phase !== 'landed' && S.bearing != null ? S.bearing : R.bearing;
+}
+function stepSonar(now) {
+  const N = st.sonar;
+  if (!N.on || now - N.at < SONAR_MS) return;
+  const sea = st.sea;
+  if (!sea || !sea.has || !sea.env) return;
+  if (!sea.hab) sea.hab = habitatFor(seaLand);
+  N.at = now;
+  const reel = reelOpen() ? BF.boatFishState() : null, R = st.rod, q = N.q;
+  q.x = st.cx + st.sim.x; q.y = st.cy + st.sim.y; q.heading = st.sim.heading; q.bearing = sonarBearing();
+  q.now = Date.now() + sea.skew; q.env = (reel && reel.env) || sea.env; q.habitat = sea.hab; q.thinned = (reel && reel.thinned) || sea.thinned;
+  q.rangeM = RANGES_M[N.range]; q.gain = N.gain; q.lureTo = R.lureTo;
+  const scan = sonarScan(q, N.scan);
+  sonarCells(scan, q, N.cells);
+  if (!SP || !N.panel) return;
+  if (now - N.chartAt > CHART_MS) { N.chartAt = now; N.grid = chartGrid(q, CHART_N, N.grid); }
+  // The lure, in the frame of the screen.
+  let lure = null;
+  if (R.lure && reel) {
+    const hd = st.sim.heading * Math.PI / 180, dx = (R.lure.x - q.x) * SEA_TILE_M, dy = (R.lure.y - q.y) * SEA_TILE_M;
+    const right = dx * Math.cos(hd) + dy * Math.sin(hd), ahead = dx * Math.sin(hd) - dy * Math.cos(hd);
+    const m = { r: Math.hypot(right, ahead), brg: Math.atan2(right, ahead) * 180 / Math.PI };
+    lure = { right, ahead, along: inBeam(m, q.bearing), depth: reel.depthM || 0 };
+  }
+  N.follow.clear();
+  if (reel) for (const f of reel.follow || []) N.follow.add(f.school + ':' + f.i);
+  SP.paintSonar(N.panel, {
+    scan, rangeM: q.rangeM, rangeIdx: N.range, gain: N.gain, bearing: q.bearing, t: now, grid: N.grid, n: CHART_N, lure,
+    aimM: R.on && reel?.phase === 'ready' ? (R.charging ? R.range : Number(reel.castM) || 0) : 0,
+    follow: N.follow, hooked: reel?.fish ? reel.fish.school + ':' + reel.fish.i : null,
+  });
+}
+
 // ── ROD MODE (docs/proposals/boat-fishing.md §5, §5b) ────────────────────────
 //
 // R, or the rod holder, sends `fish`; the server opens the reel (boatfish.js) and while it's open
@@ -944,11 +1040,25 @@ const AIM_DRAG = 0.25;     // degrees a pixel of drag
 const AIM_MAX = 150;       // off the bow either way: past it you'd be casting over the outboard
 const CHARGE_MS = 1400;    // the range meter, short to long, as the reel's own
 const SPLASH_S = 1.6, LAND_S = 1.8;
+const JUMP_S = 0.65;       // the jump's flight, as the rules' JUMP_MS
+const RIPPLE_S = 1.7;      // how long a ring lasts on the water
+const FLOAT_TRAVEL = 0.26; // metres: how far under a take pulls the float
+const NET_OUT_M = LAND_M * 0.42;   // how far from her the net goes in
+const WANT = new Map();
+// A ring on the water, of size `k`. The list stays in age order, so the oldest are shed from the front.
+function ripple(R, x, y, now, k) { R.rip.push({ x, y, t0: now, k }); if (R.rip.length > 24) R.rip.shift(); }
+function rippleView(R, now) {
+  const a = R.ripOut || (R.ripOut = []);
+  a.length = 0;
+  for (const r of R.rip) a.push({ x: r.x, y: r.y, z: seaAt(r.x, r.y), age: (now - r.t0) / 1000, k: r.k });
+  return a;
+}
 
 function newRod() {
   return { on: false, want: false, wantAt: 0, nag: 0, bearing: 0, keys: new Set(), charging: false, chargeAt: 0, range: CAST_MIN_M,
     anim: null, phase: null, castAt: 0, snapAt: 0, cast: null, fly: null, splash: null, lure: null, fish: null,
-    lastLine: 0, lastBeat: 0, camAt: 0, lookFree: false };
+    lastLine: 0, camAt: 0, lookFree: false,
+    pullK: new Map(), lureTo: null, rip: [], struck: 0, jumpSeen: 0, jump: null, side: null, hadUnder: false, hadDip: 0, cutAt: 0 };
 }
 function toggleRod() {
   if (!st) return;
@@ -962,7 +1072,9 @@ function toggleRod() {
 function enterRod(now) {
   const R = st.rod;
   R.on = true; R.want = false; R.charging = false; R.cast = null; R.fly = null; R.lure = null; R.fish = null; R.splash = null;
-  R.lookFree = false;
+  R.lookFree = false; R.pullK.clear(); R.lureTo = null; R.rip.length = 0; R.jump = null; R.side = null;
+  st.root?.classList?.add('boat-reeling');
+  try { BF?.setBoatFishLight?.(() => daylightOfNight(lastViewState()?.night ?? 0)); } catch { /* full light */ }
   R.anim = ANG ? ANG.newAnim(now) : null;
   hostReel();
   if (st.external) { boatFrame('rod', 750); R.camAt = now + 800; }
@@ -977,7 +1089,9 @@ function pilotView(now) {
 }
 function leaveRod() {
   const R = st.rod;
-  R.on = false; R.anim = null; R.charging = false; R.keys.clear();
+  R.on = false; R.anim = null; R.charging = false; R.keys.clear(); R.lureTo = null; R.pullK.clear();
+  st.rod.side = null;
+  st.root?.classList?.remove('boat-reeling');
   st.rodView = null;
   st.look.yaw = 0; st.look.pitch = 0;
 }
@@ -1077,6 +1191,7 @@ function fishFrame(anyRenderer = false) {
   q.x = st.cx + st.sim.x; q.y = st.cy + st.sim.y; q.now = Date.now() + S.skew;
   q.env = S.env; q.habitat = S.hab; q.thinned = S.thinned;
   q.anchored = !!st.anchored; q.speedMph = speed; q.daylight = day; q.lamp = lamp;
+  q.lureTo = st.rod.lureTo;
   const n = packShadows(q, S.box, st.cx, st.cy, seaAt, SEA_TILE_M);
   if (!n) return null;
   S.out.data = S.box.data; S.out.n = n; S.out.chase = st.external ? 1 : 0;
@@ -1133,16 +1248,16 @@ function stepRod(dt, now) {
     } else if (ph === 'reeling') {
       if (A.id !== 'fish_reel') ANG.play(A, 'fish_reel', now, { mixMs: 300 });
     } else if (ph === 'bite') {
-      const bi = S.beat ? S.beat.i : 0;
-      if (bi > R.lastBeat) ANG.play(A, 'fish_strike', now, { mixMs: 80 });
-      R.lastBeat = bi;
+      // The strike: the sweep of the rod, whether it was right or not.
+      if (S.struckAt && S.struckAt !== R.struck) { R.struck = S.struckAt; ANG.play(A, 'fish_strike', now, { mixMs: 80 }); }
+    } else if (ph === 'net') {
+      if (A.id !== 'fish_reel') ANG.play(A, 'fish_reel', now, { mixMs: 300 });
     } else if (ph === 'wait') {
       if (S.lineM < R.lastLine - 0.4 && A.id !== 'fish_cast') ANG.play(A, 'fish_twitch', now, { mixMs: 90 });
       else if (ended) ANG.play(A, 'fish_sit', now, { mixMs: 300 });
     } else if (A.id === 'fight' || A.id === 'fish_reel' || ended) {
       if (A.id !== 'fish_sit') ANG.play(A, 'fish_sit', now, { mixMs: 350 });
     }
-    if (ph !== 'bite') R.lastBeat = 0;
   }
   R.lastLine = S.lineM || 0;
 
@@ -1167,16 +1282,16 @@ function stepRod(dt, now) {
   if (R.splash && (now - R.splash.t0) / 1000 > SPLASH_S) R.splash = null;
 
   // ── the lure in the water: along the line from the anchor, as much line as is out ─────────
-  const inWater = ph === 'wait' || ph === 'bite' || ph === 'fight' || ph === 'reeling';
+  const inWater = ph === 'wait' || ph === 'bite' || ph === 'fight' || ph === 'net' || ph === 'reeling';
   if (!R.fly && inWater && S.lx != null) {
     const a = aimPoint(S, 0, 0);
     let dx = S.lx - a.ax, dy = S.ly - a.ay;
     const d = Math.hypot(dx, dy) || 1e-6;
     // In the fight the fish takes the line off to the side it's running.
-    const sw = ph === 'fight' ? (S.pull || 0) * 0.45 : 0;
+    const sw = ph === 'fight' ? (S.pull || 0) * 0.45 : ph === 'net' ? (S.net || 0) * 0.5 : 0;
     const c = Math.cos(sw), s = Math.sin(sw);
     [dx, dy] = [(dx * c - dy * s) / d, (dx * s + dy * c) / d];
-    const out = Math.min((S.lineM || 0) / SEA_TILE_M, ph === 'fight' ? Infinity : d);
+    const out = Math.min((ph === 'net' ? NET_OUT_M : S.lineM || 0) / SEA_TILE_M, ph === 'fight' || ph === 'net' ? Infinity : d);
     const tx = a.ax + dx * out, ty = a.ay + dy * out;
     if (!R.lure) R.lure = { x: tx, y: ty };
     const k = 1 - Math.exp(-dt / 0.18);
@@ -1185,15 +1300,65 @@ function stepRod(dt, now) {
 
   // ── landed: up out of the water on the line and over the gunwale into the box ─────────────
   if (ph === 'landed' && !R.fish && R.lure) {
-    R.fish = { t0: now, kg: S.catch?.kg || 1, x: R.lure.x, y: R.lure.y };
+    R.fish = { t0: now, kg: S.catch?.kg || 1, species: S.catch?.species || null, x: R.lure.x, y: R.lure.y };
     if (A && ANG) ANG.play(A, 'fish_strike', now, { mixMs: 120 });
+    ripple(R, R.lure.x, R.lure.y, now, 1.2);
+    if (Number.isFinite(S.holdKg)) st.boxFill = S.holdCap > 0 ? S.holdKg / S.holdCap : 0;
   }
   if (R.fish && (now - R.fish.t0) / 1000 > LAND_S) { R.fish = null; R.lure = null; }
 
-  // ── the float knocks on a bite ────────────────────────────────────────────────────────────
-  let dip = 0;
-  if (ph === 'bite' && S.beat && S.beat.nextAtServerMs != null) {
-    try { const d = Math.abs(BF.serverNow() - S.beat.nextAtServerMs); if (d < 160) dip = 0.005 * (1 - d / 160); } catch { /* no clock */ }
+  // ── the float: what the take is doing to it, the same pose the lens draws ─────────────────
+  let dip = 0, tilt = 0;
+  const pose = ph === 'bite' ? S.pose : null;
+  if (pose) {
+    dip = pose.dip * FLOAT_TRAVEL - pose.lift * FLOAT_TRAVEL * 0.4; tilt = pose.tilt;
+    if (R.lure) {
+      if (pose.dip > 0.18 && R.hadDip <= 0.18) ripple(R, R.lure.x, R.lure.y, now, 0.5);
+      if (pose.under && !R.hadUnder) ripple(R, R.lure.x, R.lure.y, now, 1);
+    }
+    R.hadDip = pose.dip; R.hadUnder = pose.under;
+  } else { R.hadDip = 0; R.hadUnder = false; }
+
+  // ── the fish that have noticed the lure leave their school and swim to it ─────────────────
+  // The server says who's following and who took it; how they get there is this seat's. They close
+  // half the gap while they follow, and the one that bites comes all the way.
+  const K = R.pullK;
+  const want = (key, v) => { if (!(K.get(key) >= v)) K.set(key, Math.max(K.get(key) || 0, 0.001)); WANT.set(key, v); };
+  WANT.clear();
+  for (const f of S.follow || []) want(f.school + ':' + f.i, 0.55);
+  if (S.fish && (ph === 'bite' || ph === 'fight' || ph === 'net')) want(S.fish.school + ':' + S.fish.i, 1);
+  for (const [key, v] of K) {
+    const to = WANT.get(key) || 0;
+    const nv = v + (to - v) * (1 - Math.exp(-dt / (to ? 1.1 : 2.2)));
+    if (nv < 0.01 && !to) K.delete(key); else K.set(key, nv);
+  }
+  R.lureTo = R.lure && K.size ? { x: R.lure.x + 0.5, y: R.lure.y + 0.5, depth: S.depthM || 0, k: K } : null;
+
+  // ── the jump, the wake of the line, and the fish alongside ───────────────────────────────
+  if (S.jumpAt && S.jumpAt !== R.jumpSeen && R.lure) {
+    R.jumpSeen = S.jumpAt;
+    R.jump = { t0: now, x: R.lure.x, y: R.lure.y, hdg: Math.random() * Math.PI * 2 };
+    ripple(R, R.lure.x, R.lure.y, now, 1.3);
+    R.splash = { x: R.lure.x, y: R.lure.y, z: seaAt(R.lure.x, R.lure.y), t0: now };
+  }
+  if (R.jump && (now - R.jump.t0) / 1000 > JUMP_S) {
+    ripple(R, R.jump.x, R.jump.y, now, 1.3);
+    R.splash = { x: R.jump.x, y: R.jump.y, z: seaAt(R.jump.x, R.jump.y), t0: now };
+    R.jump = null;
+    cue('boatfish-plop');
+  }
+  if (ph === 'fight' && R.lure && now - R.cutAt > 260 + 500 * (1 - (S.tension || 0))) {
+    R.cutAt = now;
+    ripple(R, R.lure.x, R.lure.y, now, S.mode === 'run' ? 0.8 : 0.45);
+  }
+  if (ph === 'wait' && R.lure && S.lineM < R.lastRip - 0.4) ripple(R, R.lure.x, R.lure.y, now, 0.35);
+  R.lastRip = S.lineM || 0;
+  while (R.rip.length && (now - R.rip[0].t0) / 1000 > RIPPLE_S) R.rip.shift();
+  const sp = S.catch?.species ? SPECIES[S.catch.species] : null;
+  let alongside = null;
+  if (ph === 'net' && R.lure && sp) {
+    alongside = { species: S.catch.species, shape: sp.shape, lenM: fishLength(sp, S.catch.kg || 1), x: R.lure.x, y: R.lure.y, z: seaAt(R.lure.x, R.lure.y),
+      hdg: Math.atan2(R.lure.y - st.cy - st.sim.y, R.lure.x - st.cx - st.sim.x) + Math.PI / 2, roll: 0.5 + 0.2 * Math.sin(now / 340) };
   }
 
   // ── the cameras ───────────────────────────────────────────────────────────────────────────
@@ -1202,8 +1367,15 @@ function stepRod(dt, now) {
   if (follow && !st.external) {
     // From the seat you look where you're aiming, down at the water over the rod tip.
     const k = 1 - Math.exp(-dt / 0.25);
-    st.look.yaw += (clamp(R.bearing, -LOOK_YAW, LOOK_YAW) - st.look.yaw) * k;
-    st.look.pitch += (-9 - st.look.pitch) * k;
+    // Once there's a fish on you watch the line, wherever it's gone.
+    let aimYaw = R.bearing;
+    if (R.lure && (ph === 'fight' || ph === 'net')) {
+      const dx = R.lure.x - st.cx - st.sim.x, dy = R.lure.y - st.cy - st.sim.y;
+      aimYaw = ((Math.atan2(dx, -dy) * 180 / Math.PI - st.sim.heading + 540) % 360) - 180;
+    }
+    st.look.yaw += (clamp(aimYaw, -LOOK_YAW, LOOK_YAW) - st.look.yaw) * k;
+    // Alongside and coming aboard, you look down over the side at it.
+    st.look.pitch += ((BF.boatFishState()?.phase === 'net' || R.fish ? -26 : -9) - st.look.pitch) * k;
   } else if (follow && now > R.camAt && !st.look.on) {
     const want = rodShot().yaw - (RENDER_TUNE.chaseYaw || 0);
     const err = ((want - st.extYaw) % 360 + 540) % 360 - 180;
@@ -1220,14 +1392,23 @@ function stepRod(dt, now) {
       r: (0.9 + wob * 0.4) / SEA_TILE_M, a: R.charging ? 0.95 : 0.45 };
   }
 
-  const tension = ph === 'fight' ? (S.tension || 0) : ph === 'reeling' ? 0.6 : ph === 'bite' ? 0.35 : ph === 'wait' ? 0.12 : 0;
+  const tension = ph === 'fight' ? (S.tension || 0) : ph === 'reeling' || ph === 'net' ? 0.6 : ph === 'bite' ? 0.2 + 0.5 * (pose?.dip || 0) : ph === 'wait' ? 0.12 : 0;
+  // Where the net goes in: alongside her, on the line's bearing.
+  const netting = (ph === 'net' || R.fish) && R.lure;
   st.rodView = {
     typeId: st.typeId, bearing: R.bearing, anim: A, look: st.angLook,
     ring,
     fly: R.fly ? R.flyView : null,
-    lure: !R.fly && R.lure && !R.fish ? { x: R.lure.x, y: R.lure.y, z: seaAt(R.lure.x, R.lure.y) + 0.002, dip } : null,
+    lure: !R.fly && R.lure && !R.fish && ph !== 'fight' && ph !== 'net' ? { x: R.lure.x, y: R.lure.y, z: seaAt(R.lure.x, R.lure.y) + 0.002, dip: dip / SEA_TILE_M, tilt } : null,
+    // On the fight the line goes straight into the water where the fish is.
+    hook: !R.fly && R.lure && (ph === 'fight' || ph === 'net') ? { x: R.lure.x, y: R.lure.y, z: seaAt(R.lure.x, R.lure.y) } : null,
+    ripples: R.rip.length ? rippleView(R, now) : null,
+    jump: R.jump && sp ? { s: (now - R.jump.t0) / 1000 / JUMP_S, x: R.jump.x, y: R.jump.y, z: seaAt(R.jump.x, R.jump.y), hdg: R.jump.hdg, species: S.catch.species, shape: sp.shape, lenM: fishLength(sp, S.catch.kg || 1) } : null,
+    alongside,
+    net: netting ? { x: R.lure.x, y: R.lure.y, z: seaAt(R.lure.x, R.lure.y), up: R.fish ? clamp((now - R.fish.t0) / 1000 / LAND_S, 0, 1) : 0 } : null,
     splash: R.splash ? { x: R.splash.x, y: R.splash.y, z: R.splash.z, age: (now - R.splash.t0) / 1000 } : null,
-    fish: R.fish ? { s: (now - R.fish.t0) / 1000 / LAND_S, kg: R.fish.kg, x: R.fish.x, y: R.fish.y, z: seaAt(R.fish.x, R.fish.y) } : null,
+    fish: R.fish ? { s: (now - R.fish.t0) / 1000 / LAND_S, kg: R.fish.kg, species: R.fish.species, shape: SPECIES[R.fish.species]?.shape || 'round', lenM: fishLength(SPECIES[R.fish.species] || SPECIES.carp, R.fish.kg),
+      x: R.fish.x, y: R.fish.y, z: seaAt(R.fish.x, R.fish.y) } : null,
     tension, bend: ph === 'fight' ? 0.15 + 0.85 * tension : tension * 0.5, pull: ph === 'fight' ? (S.pull || 0) * facing : 0,
   };
 }
@@ -1277,7 +1458,8 @@ function buildHelp() {
     + '<dt>Q / E / S</dt><dd>hold to look port, starboard, astern. Middle-drag looks anywhere.</dd>'
     + '<dt>P</dt><dd>at a marked berth, stopped inside the box: fill her at the fuel pumps, or dock her under the marina roof.</dd>'
     + (Number(st.p.rode_m) > 0 ? '<dt>B</dt><dd>the anchor. Stopped, off the berths, in water the rope reaches. It cuts the engine; B again pulls it up.</dd>'
-      + '<dt>R (at anchor)</dt><dd>the rod. Drag or the arrows aim, hold Space and let go to cast, Space twitches and strikes, the arrows lean in the fight. R again stows it.</dd>' : '')
+      + '<dt>R (at anchor)</dt><dd>the rod. Drag or the arrows aim, hold Space and let go to cast, Space twitches. When a fish comes, watch the float and Space strikes, once, when it goes. In the fight the arrows lean and Space winds. R again stows it.</dd>' : '')
+      + (hasSonar() ? '<dt>M</dt><dd>the sounder. Works in the dark and under way. The sweep shows what\'s round her, the beam shows how deep it is along the rod, and where your lure is.</dd>' : '')
     + '<dt>ESC</dt><dd>step off: alongside to moor her, or over the side into the water.</dd>'
     + '</dl>'
     + '<p class="boat-help-foot">Everything here is also a button. Press <b>?</b> or <b>Esc</b> to close.</p>';
@@ -1597,6 +1779,7 @@ function frame(now) {
     updateBoatContacts({ x: st.cx + st.sim.x, y: st.cy + st.sim.y, heading: st.sim.heading, speed: st.sim.speed }, st.contacts.raw);
     updateBerth();
     stepRod(dt, performance.now());
+    stepSonar(performance.now());
     // How she sits on the water the picture draws, at the size this view draws her (see `drawnRide`).
     const ride = drawnRide(dt, spd01);
 
@@ -1677,7 +1860,9 @@ function frame(now) {
         cabin: st.cabin, wipers: st.wipers, horn: st.hornOn, hover: st.hover, press: st.press,
         // The skiff's (interior-skiff.js): the cleat, the battery lamp, the box lid, the choke, the
         // primer bulb's squeeze and the rod holder.
-        anchored: !!st.anchored, lamp: !!st.lamp, boxOpen: !!st.boxOpen, choke: !!st.choke, prime: primeLevel(), rod: rodOn(),
+        anchored: !!st.anchored, lamp: !!st.lamp, boxOpen: !!st.boxOpen || !!st.rod.fish, choke: !!st.choke, prime: primeLevel(), rod: rodOn(),
+        // The sounder's screen in the seat, the net out of its clips, and how full the box looks.
+        sonar: st.sonar.on && st.sonar.cells.cells ? st.sonar.cells : null, netOut: !!st.rodView?.net, boxFill: st.boxFill || 0,
       },
       // Rod mode's angler, rod, line, lure and ring (glass/rod-rig.js).
       // Out of rod mode, the Keel's chase view still has somebody in her: the same man on the same
@@ -1800,7 +1985,10 @@ function drawRead() {
     keys.textContent = rodOn()
       ? (rodPh === 'ready'
         ? (st.rod.charging ? 'CASTING: let go of SPACE at the range you want' : 'ROD: drag or ◀ ▶ to aim · middle-drag looks · hold SPACE to cast · R stow the rod · V ' + (st.external ? 'seat' : 'external'))
-        : 'ROD: SPACE twitches and strikes · ◀ ▶ lean in the fight · drag looks · R stow the rod · V ' + (st.external ? 'seat' : 'external'))
+        : rodPh === 'fight' ? 'FIGHT: ◀ ▶ lean against it · hold SPACE to wind, let go when it runs · R stow the rod'
+        : rodPh === 'bite' ? 'BITE: watch the float · SPACE strikes, once, when it goes'
+        : rodPh === 'net' ? 'NET: SPACE as it rolls over the net'
+        : 'ROD: SPACE twitches · M sounder · drag looks · R stow the rod · V ' + (st.external ? 'seat' : 'external'))
       : performance.now() - (st.rod?.nag || -1e9) < 3000
       ? 'DROP THE ANCHOR FIRST (B), THEN R FOR THE ROD.'
       : st.anchored && performance.now() - st.anchorNag < 3000

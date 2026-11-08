@@ -1,0 +1,21 @@
+{
+  "description": "A wall of walnut doors behind the concierge, one per residence, each with a brass number and no handle. Deliveries go in. Residents never come down for them; somebody takes them up.",
+  "flags": {
+    "aliases": "parcels,lockers,parcel lockers",
+    "container": 60000,
+    "look": {
+      "arche": "store",
+      "form": "locker"
+    }
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_solenne_lobby_parcels",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "parcel room",
+  "object_type": "container",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_solenne_lobby"
+}

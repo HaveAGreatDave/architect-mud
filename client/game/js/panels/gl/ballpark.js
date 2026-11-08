@@ -45,14 +45,15 @@ import { ballGlowOn } from '../../../../shared/settings.js';
 import { SKIN_GLSL, createBonePalette } from './skin.js';
 import { CEL, CEL_TUNE, CEL_GLSL } from './cel-figure.js';
 import { COMIC } from './comic-light.js';
-import { inkOf, figureLightOf, HOUSE, comicOn, parkInkOf } from './house-style.js';
+import { parkFigureInkOf, figureLightOf, HOUSE, comicOn, parkInkOf } from './house-style.js';
 import { createFaceAtlasFeed } from './face-atlas.js';
 import { INK_FS } from './ink.js';
 import { bodyKey } from '../diamond/cast.js';
 // the view loads this module lazily and takes the cast from it, so the 2-D path never fetches it
 export { castOf } from '../diamond/cast.js';
 import { paintKitAtlas, paintLogos, paintLeather, paintWood, paintMask, kitsFor } from '../diamond/kits.js';
-import { FACE_GLSL, FACE_ATLAS } from '../actor-faces.js';
+import { FACE_ATLAS } from '../actor-faces.js';
+import { FACE_PAINT_GLSL } from './face-paint.js';
 import { HAIRLINE_GLSL } from '../actor-head.js';
 import { buildCityscape, FACADE_GLSL, STREET_GLSL, LIGHT_STRIDE } from './cityscape.js';
 import { CURTAIN_FRAG } from './curtain.js';
@@ -118,6 +119,7 @@ void main() { gl_Position = uVP * vec4(skinPos(aPos), 1.0); }`;
 const SKIN_INK_VS = `#version 300 es
 layout(location = 0) in vec3 aPos;
 layout(location = 1) in vec3 aNrm;
+layout(location = 4) in float aMat;
 ${SKIN_GLSL}
 uniform mat4 uVP;
 uniform vec2 uRes;
@@ -139,7 +141,9 @@ void main() {
   vec2 dir = L > 1e-4 ? d / L : vec2(0.0);
   float wk = mix(uWeigh, 1.0, smoothstep(-0.5, 0.7, dot(n, uKey)));
   c.xy += dir * clamp(L, uInk.y, uInk.z) * wk / (uRes * 0.5) * c.w;
-  c.z += uInk.w * c.w;
+  // a sculpted face's nose and brow, and a helmet's dome, stand out further than the body's forms, so their line sits
+  // further back, or the shell comes through beside the nose and in steps across the crown
+  c.z += uInk.w * c.w * (abs(aMat - ${MAT.HEAD}.0) < 0.5 || abs(aMat - ${MAT.GLOSS}.0) < 0.5 || abs(aMat - ${MAT.MATTE}.0) < 0.5 ? 9.0 : 1.0);
   gl_Position = c;
 }`;
 const DEPTH_FS = `#version 300 es
@@ -218,7 +222,7 @@ float vn3(vec3 p) {
   return mix(mix(mix(h13(i), h13(i + vec3(1, 0, 0)), f.x), mix(h13(i + vec3(0, 1, 0)), h13(i + vec3(1, 1, 0)), f.x), f.y),
              mix(mix(h13(i + vec3(0, 0, 1)), h13(i + vec3(1, 0, 1)), f.x), mix(h13(i + vec3(0, 1, 1)), h13(i + vec3(1, 1, 1)), f.x), f.y), f.z);
 }
-${FACE_GLSL}
+${FACE_PAINT_GLSL}
 ${HAIRLINE_GLSL}
 vec3 hairAtP(vec3 r, float psi, vec3 hairC, int style, float seed) {
   float strand = style == 4 ? vn3(vec3(r.x * 320.0, r.y * 60.0 - r.z * 20.0, seed))
@@ -235,17 +239,64 @@ float blinkAt(float t, float seed) {
   float u = (fract(ph) - 0.5 * fract(sin(k * 12.9898 + seed * 78.233) * 43758.5453)) * period;
   return u > 0.0 && u < 0.14 ? sin(u / 0.14 * PI) : 0.0;
 }
+// One fold, as the sculpted figure draws a form (gl/figure-hd.js form): an inked line that swells and tapers to
+// nothing, with a flat cool shadow on one side. In feet, in the rig's bind pose.
+void kitFold(vec2 p, vec2 a, vec2 b, float bow, float w, float sh, float k, inout vec3 alb) {
+  vec2 ab = b - a; float L = length(ab); vec2 u = ab / L, n = vec2(-u.y, u.x);
+  float t = dot(p - a, u) / L, tc = clamp(t, 0.0, 1.0);
+  float off = dot(p - a, n) - bow * 4.0 * tc * (1.0 - tc), tp = pow(sin(3.14159 * tc), 0.75), aa = max(fwidth(off), 1e-4), on = step(0.0, t) * step(t, 1.0);
+  float inS = on * step(off, 0.0) * (1.0 - smoothstep(sh * tp - aa, sh * tp + aa, -off));
+  alb *= mix(vec3(1.0), vec3(0.7, 0.71, 0.78), k * inS);
+  alb = mix(alb, alb * 0.28, k * on * (1.0 - smoothstep(w * tp, w * tp + aa, abs(off))));
+}
+// Where a uniform gathers and pulls. Gone once a fold is under a pixel or so: from the stands it's only noise.
+void kitForms(vec3 b, inout vec3 alb) {
+  if (fwidth(b.y) > 0.03) return;
+  float ax = abs(b.x), lg = ax - 0.37, up = b.y;
+  vec2 q = vec2(ax, up), p = vec2(lg, up);
+  if (up > 3.62 && ax < 0.64) {
+    if (b.z >= 0.0) {
+      // pulled from the armpits, and bloused over the belt
+      kitFold(q, vec2(0.56, 4.5), vec2(0.2, 4.16), 0.03, 0.006, 0.05, 1.0, alb);
+      kitFold(q, vec2(0.58, 4.26), vec2(0.3, 3.98), 0.02, 0.005, 0.04, 0.9, alb);
+      kitFold(q, vec2(0.54, 3.84), vec2(0.16, 3.74), 0.025, 0.005, 0.05, 1.0, alb);
+      kitFold(q, vec2(0.14, 3.86), vec2(0.03, 3.74), 0.01, 0.004, 0.03, 0.8, alb);
+    } else {
+      kitFold(q, vec2(0.12, 4.62), vec2(0.5, 4.36), -0.03, 0.006, 0.05, 1.0, alb);
+      kitFold(q, vec2(0.5, 3.84), vec2(0.1, 3.75), 0.025, 0.005, 0.05, 1.0, alb);
+    }
+  } else if (ax > 0.64 && up > 3.3) {
+    // the arm: the sleeve's breaks at the shoulder, and the undershirt's at the elbow
+    vec2 s = vec2(b.z, up);
+    kitFold(s, vec2(-0.14, 4.44), vec2(0.14, 4.36), 0.02, 0.005, 0.04, 0.9, alb);
+    kitFold(s, vec2(-0.2, 4.08), vec2(0.04, 3.96), 0.02, 0.005, 0.04, 1.0, alb);
+    kitFold(s, vec2(-0.16, 3.94), vec2(0.06, 3.86), 0.015, 0.0045, 0.035, 0.9, alb);
+  } else if (up < 3.3 && up > 0.5) {
+    // the trousers: the crotch's pull, the knee's breaks, and the blouse over the socks
+    if (b.z >= 0.0) {
+      kitFold(p, vec2(-0.3, 3.08), vec2(-0.02, 2.72), 0.04, 0.006, 0.05, 1.0, alb);
+      kitFold(p, vec2(0.16, 3.12), vec2(0.02, 2.82), -0.02, 0.005, 0.04, 0.8, alb);
+      kitFold(p, vec2(-0.16, 1.96), vec2(0.16, 1.9), -0.02, 0.006, 0.05, 1.0, alb);
+      kitFold(p, vec2(-0.14, 1.74), vec2(0.16, 1.66), 0.025, 0.006, 0.05, 1.0, alb);
+    } else {
+      kitFold(p, vec2(-0.15, 1.86), vec2(0.15, 1.8), 0.02, 0.006, 0.05, 1.0, alb);
+      kitFold(q, vec2(0.04, 3.06), vec2(0.42, 2.96), -0.04, 0.006, 0.06, 1.0, alb);
+    }
+    kitFold(p, vec2(-0.17, 1.38), vec2(0.17, 1.32), -0.015, 0.006, 0.05, 1.0, alb);
+    kitFold(p, vec2(-0.15, 1.24), vec2(0.15, 1.2), 0.015, 0.005, 0.04, 0.9, alb);
+  }
+}
 void headShade(inout vec3 alb, inout float rough, inout float f0s, inout float wrap, inout float ao) {
   int pi = clamp(int(vCol.b + 0.5) + uHeadSlot, 0, 27);
   vec4 A = uHeadA[pi], Bh = uHeadB[pi], C = uHeadC[pi], D = uHeadD[pi];
-  vec3 skin = A.rgb; int lay = int(A.a + 0.5); vec3 hairC = Bh.rgb; int style = int(Bh.a + 0.5);
+  vec3 skin = A.rgb; float facial = A.a; vec3 hairC = Bh.rgb; int style = int(Bh.a + 0.5);
   vec3 iris = C.rgb; float eyeBlack = C.a; vec3 lip = D.rgb; float seed = D.a;
   vec3 r = vec3(mix(-0.1, 0.1, vUv.x), mix(1.515, 1.765, vUv.y), vCol.r);
   float psi = atan(abs(r.x), r.z + 0.006);
   vec3 col = skin; float wet = 0.0;
   rough = 0.5; f0s = 0.028; wrap = 0.45; ao = 1.0;
   if (vMat == ${MAT.HAIR}) {
-    float hl = hairlineAt(r);
+    float hl = hairlineSculpt(r);
     col = hairAtP(r, psi, hairC, style, seed);
     if (style == 1) col *= 1.0 - 0.5 * (1.0 - smoothstep(0.0, 0.0012, abs(r.x - 0.024))) * smoothstep(1.7, 1.72, r.y) * smoothstep(-0.03, 0.02, r.z);
     ao = mix(0.85, 1.0, smoothstep(hl + 0.004, hl + 0.016, r.y));
@@ -253,21 +304,17 @@ void headShade(inout vec3 alb, inout float rough, inout float f0s, inout float w
     rough = 0.42; f0s = 0.035; wrap = 0.2;
   } else if (vMat == ${MAT.HEAD}) {
     float wt = smoothstep(0.1, 0.4, vCol.g);
-    vec2 c0 = vec2(mod(float(lay), 8.0) / 8.0, (3.0 - floor(float(lay) / 8.0)) / 4.0);
-    vec4 m = texture(uFaceAtlas, c0 + clamp(vUv, 0.0, 1.0) * vec2(0.125, 0.25));
-    vec3 fc = faceColour(m, r, skin, hairC, lip, lip, 0.0, iris, wet);
-    // a blink: the lids down over the eye's opening for about a seventh of a second, every few
-    // seconds on his own beat
-    float bl = blinkAt(uBlinkT, seed) * (1.0 - m.a);
-    fc = mix(fc, skin * m.r * 1.5 * 0.82, bl); wet *= 1.0 - bl;
-    col = mix(skin, fc, wt); wet *= wt;
-    // eye black: a greasy stripe under each eye, along the top of the cheekbone
+    // the sculpted figure's face (gl/face-paint.js), and a blink: the lids down for about a seventh of a second,
+    // every few seconds on his own beat
+    // its numbers are the sculpted figure's, for linear colour, and this shader's head is in sRGB until the end
+    col = pow(max(paintManFace(r, pow(skin, vec3(2.2)), pow(hairC, vec3(2.2)), pow(iris, vec3(2.2)), facial, blinkAt(uBlinkT, seed)), vec3(0.0)), vec3(1.0 / 2.2));
+    // eye black: a greasy stripe along the top of the cheekbone, thin and well under the eye, or it reads as a second one
     float ax = abs(r.x);
-    float ey = (r.y - 1.6185) / 0.0062, ex = (ax - 0.0325) / 0.0165;
+    float ey = (r.y - 1.6165 - 0.1 * (ax - 0.036)) / 0.0036, ex = (ax - 0.036) / 0.019;
     float eb = (1.0 - smoothstep(0.55, 1.0, ey * ey + ex * ex * ex * ex)) * (0.85 + 0.15 * vn3(r * 2400.0)) * eyeBlack * wt;
     col = mix(col, vec3(0.045, 0.04, 0.038), eb);
     // the scalp under the hair, with a soft broken edge for a hairline
-    float hl = hairlineAt(r);
+    float hl = hairlineSculpt(r);
     float jit = 0.0026 * (vn3(vec3(psi * 70.0, r.y * 400.0, seed)) - 0.5);
     float sc = smoothstep(hl - 0.0025, hl + 0.0025, r.y + jit);
     col = mix(col, hairAtP(r, psi, hairC, style, seed) * 0.95, sc);
@@ -473,11 +520,13 @@ void main() {
       // where a thread is two pixels or more, so it's a texture in a close-up and nothing further off
       vec2 wv = uvT * (2048.0 / 3.0) * 3.14159;
       float kw = (1.0 - smoothstep(0.25, 0.6, tp)) * float(vMat == ${MAT.CLOTH});
-      vec2 weave = vec2(cos(wv.x) * (0.5 + 0.5 * sin(wv.y)), cos(wv.y) * (0.5 - 0.5 * sin(wv.x))) * 0.12 * kw;
+      vec2 weave = vec2(cos(wv.x) * (0.5 + 0.5 * sin(wv.y)), cos(wv.y) * (0.5 - 0.5 * sin(wv.x))) * 0.05 * kw;
       N = normalize(N - 2.2 * k * ((hx - h0) * T + (hy - h0) * Bt) - weave.x * T - weave.y * Bt);
     }
   }
   vec3 alb = vCol * tex.rgb;
+  // the cloth's big forms, in the house manner, on the man in his bind pose so they go where he goes
+  if (uCel > 0.5 && vMat == ${MAT.CLOTH}) kitForms(vBind, alb);
   // the game on his uniform (uWear): infield dirt ground into the cloth low down, his knees, shins
   // and seat, and up his front after a dive, in blotches fixed on the cloth (its uv) so they move
   // with him; a slide's worth is plain from the stands, a game's crouching shows on a catcher
@@ -660,8 +709,10 @@ void main() {
         aS = clamp(a + uLGeo[i].y / (2.0 * d), 0.003, 1.0);
       }
       // a bank's shadow, looked up further off the surface and stepped softly under the comic look: the
-      // banks' maps are coarse at a close shot, and hard-stepped their acne cut a face into blocks
-      float sh = (uLSh[i] >= 0 && uLSh[i] < uSpotN) ? (uCelComic > 0.5 ? smoothstep(0.25, 0.75, spotShadow(uLSh[i], vPos + N * 0.12)) : toonStep(0.5, spotShadow(uLSh[i], vPos + N * 0.04))) : 1.0;
+      // banks' maps are coarse at a close shot, and hard-stepped their acne cut a face into blocks. A face looks further
+      // still, or its own shadow lands on the cheek as a ragged patch; a bill's shadow still reaches it
+      float shOff = vMat >= ${MAT.HEAD} && vMat <= ${MAT.NECK} ? 0.3 : 0.12;
+      float sh = (uLSh[i] >= 0 && uLSh[i] < uSpotN) ? (uCelComic > 0.5 ? smoothstep(0.25, 0.75, spotShadow(uLSh[i], vPos + N * shOff)) : toonStep(0.5, spotShadow(uLSh[i], vPos + N * 0.04))) : 1.0;
       celAdd(N, V, L, Ls, a, aS, NoV, f0, uLCol[i] * spotOf(i, L, 0.05) * floodAtt(i, d), mix(sh, 1.0, 0.08), key, keyD, lit, hi);
     }
     if (uSunCol.r + uSunCol.g + uSunCol.b > 0.0)
@@ -676,6 +727,8 @@ void main() {
       // doesn't, so a face under the banks takes one clean shape (the brim's shadow among it)
       float t = comicStep(litK * 2.0 - 1.0);
       vec3 S = mix(vec3(1.0), uCelShade, ${COMIC.tint.toFixed(3)}) * ${(COMIC.shadow / COMIC.lit).toFixed(4)} * comicShadeK(keyD);
+      // a face and bare skin go deeper into shadow than cloth, so a man's head is carved under the banks
+      if ((vMat >= ${MAT.HEAD} && vMat <= ${MAT.NECK}) || vMat == ${MAT.SKIN}) S *= vec3(0.74, 0.65, 0.68);
       float rim = smoothstep(0.62, 0.86, 1.0 - NoV) * (1.0 - t);
       col += dif / PI * (key * S * (1.0 - t) + lit * t + key * ${COMIC.rim.toFixed(3)} * rim) + hi;
     } else {
@@ -1530,7 +1583,7 @@ export function createBallparkRenderer(canvas, opts = {}) {
       for (const c of cast) {
         const look = lookOf({ ...c.look });
         const f = faceFor(look), i = c.look.slot * 4;
-        HA.set([...f.skin, f.layout], i); HB.set([...f.hair, f.style], i); HC.set([...f.iris, f.eyeBlack], i); HD.set([...f.lip, f.seed], i);
+        HA.set([...f.skin, f.facial], i); HB.set([...f.hair, f.style], i); HC.set([...f.iris, f.eyeBlack], i); HD.set([...f.lip, f.seed], i);
         // each where the cast stands him, until something moves him
         const rest = Object.assign(scalePose(c.mirror ? mirrorPose(POSES[c.pose]()) : POSES[c.pose](), c.scale), { at: c.at, yaw: c.yaw, scale: c.scale });
         rests.set(c.look.slot, rest);
@@ -2360,7 +2413,7 @@ export function createBallparkRenderer(canvas, opts = {}) {
         gl.uniform1i(SKINK.u('uBones'), 9);
         gl.uniform2f(SKINK.u('uRes'), w, h);
         // the house style's line when the comic look is on (gl/house-style.js), else the park's own
-        const ink = inkOf({ ft: CEL.inkFt, px: CEL.inkPx, col: CEL.ink });
+        const ink = parkFigureInkOf({ ft: CEL.inkFt, px: CEL.inkPx, col: CEL.ink });
         gl.uniform4f(SKINK.u('uInk'), ink.ft, ink.px[0] * u, ink.px[1] * u, CEL.inkBias);
         gl.uniform3fv(SKINK.u('uCol'), ink.col);
         gl.uniform3fv(SKINK.u('uKey'), sunNow ? sunNow.dir : [0, 1, 0]);

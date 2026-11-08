@@ -501,6 +501,7 @@ export function narrate(ctx) {
     },
   );
   colour(ws ? ['colour.cup', 'colour.matchup'] : rivalry ? ['colour.rivalry', 'colour.matchup'] : 'colour.matchup', gameTok, null, preBug);
+  ctx.desk?.('open', null, preBug);
 
   // The injury report, read between the matchup and the opening face-off. Counted
   // separately because it is spoken BEFORE the beat loop declares its line tally.
@@ -574,6 +575,8 @@ export function narrate(ctx) {
     }); said++;
     // The rink is showing the Zamboni come on while the booth reads the summary.
     call('pbp.zamboni.on', t, null, sb, { opt: true });
+    // (after the 3rd the game's over unless it's tied, and the desk has the close to do)
+    if (per.section !== '3rd' || b.awayScore === b.homeScore) ctx.desk?.('break', b, sb);
     if (per.goals.length) {
       say(pick('intermission.summary'), stat, sb); said++;
       // One line per goal, in the order they went in — the scoring summary is a list,
@@ -589,6 +592,13 @@ export function narrate(ctx) {
     say(pick('intermission.stats'), stat, sb); said++;
     colour(per.goals.length ? 'colour.intermission' : ['colour.intermission.scoreless', 'colour.intermission'], stat, null, sb);
     call('pbp.zamboni.lap', t, null, sb, { opt: true });
+    // The break is six and a half minutes (hockey-pacing.js), so the booth has more to get through
+    // than the period. After the 3rd there may be no break, only the sign-off.
+    // (no play to name, so a line that needs a shooter or a team isn't for here)
+    if (per.section !== '3rd') for (let i = 0; i < 4; i++) {
+      const l = pick(i < 2 ? clubKey(i ? home.name : away.name) : 'chatter', 'chatter');
+      if (l && !/{(team|goalie|shooter)}/.test(l)) { say(l, tok(b), sb); said++; }
+    }
     if (per.casualties.length) {
       say(pick('intermission.casualties'), { ...stat, player: per.casualties[0], casualties: per.casualties.join(', '), count: per.casualties.length }, sb); said++;
     }
@@ -881,7 +891,7 @@ export function narrate(ctx) {
         // (cued: on an intermission's payload this is when the period comes back, so the
         // rink sends the Zamboni off and brings the teams out in time for the opening draw)
         // (the 1st has lines of its own: there has been no intermission to come back from)
-        if (b.sudden) say(pick('ot.intro'), t, sb, null, null, { cue: { ev: 'resume' } });
+        if (b.sudden) say(pick('ot.intro'), t, sb, null, null, { cue: { ev: 'resume', sudden: true } });
         else if (b.section === '1st') say(pick('section.first', 'section.start', 'section'), t, sb, null, null, { cue: { ev: 'resume' } });
         else say(pick('section.start', 'section'), t, sb, null, null, { cue: { ev: 'resume' } });
         said++;
@@ -1177,6 +1187,7 @@ export function narrate(ctx) {
     duration: ws ? 5.4 : 4.4,
   }, null, winName ? playMeta({ awayScore, homeScore }, 'final', winName, { champion: !!ws }) : null);
   colour('colour.final', finalTok, null, finalBug);
+  ctx.desk?.('close', 'end', finalBug);
   const outroId = ctx.lastId();
   say(pick(...(ws ? ['cup.outro', 'outro'] : ['outro'])), finalTok, finalBug);
   return { outroId, lines: said + colourLines };

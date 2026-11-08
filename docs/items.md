@@ -117,7 +117,9 @@ tag model and the rationale behind it.
 | `heal_over_time` | hot | Gradual heal `{ amount, duration_seconds }`, ticks once/min, stacks. |
 | `use_message` | text | Flavour line shown in place of the default `You use X.` when a plain consumable is eaten/drunk. Also makes a non-consumable `use`-able. |
 | `well_fed` | flag | Grants the Well-Fed buff (faster HP regen), 10 min. |
+| `hot_drink` | flag | A cup sold hot. Warms the player as much as a fresh brewed cup. Not `warming`, which means the item is applied to a body and takes `drink` away. |
 | `hydrating` | flag | Grants the Hydrated buff (faster radiation decay), 10 min. |
+| `potable` | flag | Plain drinking water. `drink water` reaches for it when carried. Needs `consumable` and `restore_thirst`. Mixers leave it off. |
 | `laced_drug` | text (drug id) | Consumable applies this drug on use (systemic effects only — meter/phases/OD, not its instant restores). The "drugged drink/food" path; alcohol uses `"drug_alcohol"`. See [systems-survival.md](systems-survival.md). |
 | `laced_potency` | int | Strength multiplier for `laced_drug` (default 1). Alcohol: scales `intox_per_dose` per drink. |
 | `container` | int | Marks the item as a container; value is the max total weight it can hold. See **Containers** below. |
