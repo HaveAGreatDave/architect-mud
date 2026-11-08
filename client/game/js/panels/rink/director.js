@@ -975,7 +975,8 @@ export function createDirector(W, opts = {}) {
           lane = Math.min(lane, hyp(m.x + (o.x - m.x) * t - e.x, m.y + (o.y - m.y) * t - e.y));
         }
         if (open < 8 || lane < 4.5) continue;
-        const sc = open + lane * 0.8 - Math.abs(d - 24) * 0.3;
+        // (up the ice beats back: a pass that gains ground is worth a tighter lane)
+        const sc = open + lane * 0.8 - Math.abs(d - 24) * 0.3 + clamp((o.x - m.x) * dir, -10, 14) * 0.35;
         if (sc > bs) { bs = sc; best = o; }
       }
       return best;
@@ -995,15 +996,17 @@ export function createDirector(W, opts = {}) {
     // Started only with the time for the round trip and some over (`left`, seconds), after he's
     // had it a couple of seconds (one, with their man on him), and not twice running. True
     // while one is going on.
-    function giveGo(m, home, L, left) {
+    // (`quick` is the one-two on a long carry: no settling on the puck first, and he has it
+    // back on the line he was skating, not out across the ice)
+    function giveGo(m, home, L, left, quick = false) {
       if (L.gg) return stepGiveGo(m, L.gg, L);
       // (never in a breakaway's build-up: the man he'd give it to is the one who has to be left
       // behind them, or one of theirs is drawn back to it)
-      if (ba || pk.carrier !== m || left < 3.2 || (L.ggAt != null && W.t - L.ggAt < 1.5) || slack() < 4.5) return false;
+      if (ba || pk.carrier !== m || left < 3.2 || (L.ggAt != null && W.t - L.ggAt < 1.5) || slack() < (quick ? 1 : 4.5)) return false;
       if (L.heldAt == null) L.heldAt = W.t;
       const foe = W.nearestOf(W.mates(def).filter((o) => o.active && !o.rag), m.x, m.y);
       const fd = foe ? hyp(foe.x - m.x, foe.y - m.y) : 99;
-      if (W.t - L.heldAt < (fd < 8 ? 0.9 : 1.8)) return false;
+      if (!quick && W.t - L.heldAt < (fd < 8 ? 0.7 : 1.4)) return false;
       const mate = openMate(m);
       if (!mate) return false;
       script(mate);
@@ -1011,10 +1014,10 @@ export function createDirector(W, opts = {}) {
       // stride up the ice (sent through and past the spot, he went back toward his own end
       // and the return went by him the length of the ice)
       const across = Math.sign(home[1] - mate.y) || (m.seed % 2 ? 1 : -1);
-      let rx = home[0] + dir * 4, ry = home[1] + across * 9;
+      let rx = home[0] + dir * 4, ry = home[1] + (quick ? 0 : across * 9);
       const c = insideRink(rx, ry, 6); if (c) { rx = c.x; ry = c.y; }
       rx = inFront(rx);
-      const G = L.gg = { mate, rx, ry, phase: 'out', t0: W.t, back: false };
+      const G = L.gg = { mate, rx, ry, phase: 'out', t0: W.t, back: false, quick };
       // he calls for it, his blade tapping the ice, and it's played to him
       W.act(mate, 'tap', 0.45); W.sfx('stick', { x: mate.x }); m.look = [mate.x, mate.y, 1];
       at(B, 0.3, () => {
@@ -1039,7 +1042,7 @@ export function createDirector(W, opts = {}) {
       if (G.phase === 'held') {
         // (he has it a moment and gives it straight back, skating on as he was)
         mate.tx = mate.x + mate.vx * 0.5; mate.ty = mate.y + mate.vy * 0.5; mate.maxV = 10;
-        if (!G.back && (W.t - G.heldAt > 0.45 || G.hurry)) {
+        if (!G.back && (W.t - G.heldAt > (G.quick ? 0.12 : 0.45) || G.hurry)) {
           G.back = true;
           const kind = passKind(mate, m);
           W.act(mate, kind, SHOTS[kind].dur); mate.look = [m.x, m.y, 1];
@@ -1593,6 +1596,19 @@ export function createDirector(W, opts = {}) {
           const sd = r() < 0.5 ? 1 : -1, d = leg.deke;
           cur.tx = leg.tx - Math.sin(cur.h) * 5 * sd; cur.ty = leg.ty + Math.cos(cur.h) * 5 * sd;
           at(B, 0.35, () => { W.act(d, 'stagger', 0.6); d.react = 0.4; d.scripted = false; });
+        }
+        // THE ONE-TWO. On a long carry with a man of his open up the ice, he bumps it to him
+        // and has it straight back further on, which is how a rush moves the puck faster than a
+        // man skates. The touch is still his, so the booth's man has it when it's called.
+        if (!leg.deke && !leg.bumped && leg.dist > 44 && hyp(leg.tx - cur.x, leg.ty - cur.y) > 30 && pk.carrier === cur) {
+          leg.bumped = true;
+          const h = hyp(leg.tx - cur.x, leg.ty - cur.y), k = Math.min(1, 20 / h);
+          giveGo(cur, [lerp(cur.x, leg.tx, k) - dir * 4, lerp(cur.y, leg.ty, k)], leg, 9, true);
+        }
+        if (leg.gg) {
+          if (giveGo(cur, null, leg, 9)) return;
+          // (back on his stick: on to the touch's spot, with the time for what's left of it)
+          cur.tx = leg.tx; cur.ty = leg.ty; cur.maxV = 22; leg.t = 0; leg.dist = hyp(leg.tx - cur.x, leg.ty - cur.y);
         }
         if (hyp(cur.tx - cur.x, cur.ty - cur.y) < 4 || leg.t > leg.dist / 17 + 0.6) { leg = null; nextLeg(); }
       } else if (leg.kind === 'pass') {

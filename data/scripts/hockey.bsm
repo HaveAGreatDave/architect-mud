@@ -6,7 +6,8 @@
 # v2: a man who dies on the ice is reprinted and back in three to five game-days.
 # v4: fights are harder: more damage a punch, more knockdowns, more of them hurt.
 # v5: open-ice cross-checks, and slashes the referee sees some of.
-@sim 6
+# v7: more passing in the rushes, and nine goals in ten assisted.
+@sim 7
 @announcer "Tug Brennan"
 # the colour man beside him: his lines are the colour.* pools at the bottom
 @analyst "Rennie Gault"

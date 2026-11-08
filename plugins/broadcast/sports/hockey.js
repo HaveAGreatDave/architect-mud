@@ -370,7 +370,11 @@ export function playDesc(b) {
 // The Gameday analogue of baseball's synthPitches: a sparse keyframe chain the
 // client splines and improvises around. Cosmetic only — the outcome is already
 // decided by the sim and is passed in, so this can never change the result.
-export function synthPossession(seed, kind, side) {
+// v7 passes more: a rush is mostly passes, as in the real game, where the more passes go
+// before a shot the likelier it goes in. Before v7 nearly a third of the touches were passes.
+const TOUCH_V1 = [0.30, 0.50, 0.68, 0.84], TOUCH_V7 = [0.44, 0.60, 0.73, 0.87];
+export function synthPossession(seed, kind, side, version = 1) {
+  const TW = Number(version) >= 7 ? TOUCH_V7 : TOUCH_V1;
   const rand = sportsRng(seed);
   const dir = side === 0 ? 1 : -1;
   const startX = side === 0 ? 0.22 : 0.78, netX = side === 0 ? 0.955 : 0.045;
@@ -389,10 +393,10 @@ export function synthPossession(seed, kind, side) {
     // are things one man does. All of it is COLOUR: the outcome arrived decided.
     const r = rand();
     const ev = i === 1 ? 'entry'
-      : r < 0.30 ? 'pass'
-      : r < 0.50 ? 'cycle'
-      : r < 0.68 ? 'battle'
-      : r < 0.84 ? 'deke'
+      : r < TW[0] ? 'pass'
+      : r < TW[1] ? 'cycle'
+      : r < TW[2] ? 'battle'
+      : r < TW[3] ? 'deke'
       : 'dump';
     const k = rand(), w = rand();
     let x = startX + (netX - startX) * f * (0.72 + k * 0.5), y = 0.16 + w * 0.68;
@@ -745,6 +749,9 @@ export function simGame(matchup, players, rand = Math.random, opts = {}) {
   const v5 = Number(opts.version) >= 5;
   // v6 leaves rebounds for a second shot (REBOUND_CHANCE).
   const v6 = Number(opts.version) >= 6;
+  // v7 passes more in the rushes (synthPossession) and assists nine goals in ten, which is the
+  // NHL's rate; before it, 72%.
+  const v7 = Number(opts.version) >= 7;
   // A final is the game that matters most; the caller says so (sportsGameForSlot).
   const important = !!opts.important;
   let brawled = false;
@@ -1102,10 +1109,10 @@ export function simGame(matchup, players, rand = Math.random, opts = {}) {
       if (out.kind === 'goal') {
         att.score += 1; shooter.goals += 1;
         const mates = live(att).filter(s => s !== shooter);
-        const assist = mates.length && rand() < 0.72 ? mates[Math.floor(rand() * mates.length)] : null;
+        const assist = mates.length && rand() < (v7 ? 0.9 : 0.72) ? mates[Math.floor(rand() * mates.length)] : null;
         if (assist) assist.assists += 1;
         const hat = shooter.goals === 3;
-        const goalNodes = synthPossession(Math.floor(rand() * 1e9), 'goal', attackAway ? 0 : 1);
+        const goalNodes = synthPossession(Math.floor(rand() * 1e9), 'goal', attackAway ? 0 : 1, opts.version);
         const goalShot = rollShot(goalNodes);
         // The names the carrier indices count through, kept on the beat so the booth can call
         // the rush touch by touch and the rink can put the same names on the same sweaters.
@@ -1126,7 +1133,7 @@ export function simGame(matchup, players, rand = Math.random, opts = {}) {
         // The goalie either covers it (whistle → a draw in his own end) or it stays
         // live. This is what makes end-zone dots the commonest in the game.
         const frozen = (out.kind === 'save' || out.kind === 'glove') && rand() < FREEZE_ON_SAVE;
-        const chanceNodes = synthPossession(Math.floor(rand() * 1e9), out.kind, attackAway ? 0 : 1);
+        const chanceNodes = synthPossession(Math.floor(rand() * 1e9), out.kind, attackAway ? 0 : 1, opts.version);
         const chanceShot = rollShot(chanceNodes, out.kind === 'breakaway');
         const chanceNames = live(att).map(s => s.name);
         push({ type: 'chance', kind: out.kind, shot: out.shot, shooter: shooter.name, goalie,
@@ -1340,7 +1347,7 @@ export const HOCKEY = {
   // v2 reprints a dead man (reprintSlots); broadcast records the slot it plays from.
   // v3 plays fights by the fighters and the game's momentum (simFightV3); v4 fights harder;
   // v5 has open-ice cross-checks and slashes.
-  simVersions: [1, 2, 3, 4, 5, 6],
+  simVersions: [1, 2, 3, 4, 5, 6, 7],
   section: 'period',
   sectionPlural: 'periods',
   simGame,

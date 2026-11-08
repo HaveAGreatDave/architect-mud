@@ -111,7 +111,9 @@ function bladeRaw(s, T, carrying) {
     }
     return carryRaw(s, T);
   }
-  return [3.2, 0.75 + 0.18 * Math.sin(s.phase * TAU)];
+  // (in close when he's stood waiting for it, out ahead when he's skating)
+  const w = Math.min(1, hyp(s.vx || 0, s.vy || 0) / 9);
+  return [2.6 + 0.6 * w, 0.75 + 0.18 * w * Math.sin(s.phase * TAU)];
 }
 function carryRaw(s, T) {
   {
@@ -340,6 +342,11 @@ function standRig(s, T, feet) {
   let bob = 0.13 * a * (pushW(cyc[0]) + pushW(cyc[1])) * (1 - wBack);
   let stance = s.stance;
   let yaw = 0, pitch = -0.12;
+  // THE READY STANCE. Stood or drifting with a stick, he stood nearly upright with the blade a
+  // long way out, then folded forward only when the puck came. Knees bent, chest over them,
+  // feet a little wider and the blade in closer is how a skater waits for it.
+  const ready = s.stick && !official && !s.guard && (!act || act === 'receive' || act === 'tap') ? 1 - smooth(sp, 3, 9) : 0;
+  if (ready) { crouch += 0.26 * ready; lean += 0.2 * ready; stance = Math.max(stance, 0.35 * ready); pitch = lerp(pitch, -0.05, ready); }
 
   // ── action layer ─────────────────────────────────────────────────────────
   // envU: how much the action owns the upper body; envL: the legs. A wrist shot or a pass
