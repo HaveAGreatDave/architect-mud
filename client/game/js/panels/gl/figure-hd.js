@@ -16,7 +16,7 @@
 //
 // ⚠ NO FACE CULLING, as in room.js: the cloth is one-sided and is seen from both sides.
 
-import { buildFigure, figureKey, somaOf, FIG_SLOT, FIG_PIECE, FIGURE_BONES, FIGURE_CUT_NAMES, FIGURE_CUTS } from '../figure.js';
+import { buildFigure, figureKey, somaOf, FIG_SLOT, FIG_PIECE, FIGURE_BONES, FIGURE_BONE, FIGURE_BONE_COUNT, FIGURE_CUT_NAMES, FIGURE_CUTS } from '../figure.js';
 import { FACE_GLSL, FACE_ATLAS } from '../actor-faces.js';
 import { FACE, HAIRLINE_GLSL } from '../actor-head.js';
 import { createFaceAtlasFeed } from './face-atlas.js';
@@ -24,10 +24,11 @@ import { declareProgram, layerProgram } from './programs.js';
 import { ROOM_LIGHT_GLSL } from './room-light.js';
 import { HOUSE } from './house-style.js';
 
-export const FIG_BONE_ROWS = FIGURE_BONES.length * 12;
+export const FIG_BONE_ROWS = FIGURE_BONE_COUNT * 12;
 // how a cut's front is painted (FIGURE_CUTS front), as uCutF.x
-const FRONT_KIND = { buttons: 1, zip: 2, pocket: 3, vest: 4, tunic: 5, suit: 6 };
-const NB = FIGURE_BONES.length * 3;
+const FRONT_KIND = { buttons: 1, zip: 2, pocket: 3, vest: 4, tunic: 5, suit: 6, open: 7 };
+const NB = FIGURE_BONE_COUNT * 3;
+const NO_FAB = new Float32Array(20), MUT_C = new Float32Array([0.05, 0.3, 0.32]);
 const f4 = (v) => v.toFixed(4);
 
 const SKIN_VS_GLSL = `
@@ -37,6 +38,7 @@ uniform vec4 uBone[${NB}];
 uniform vec3 uMouthA;        // the mouth's shape (client/shared/lip-sync.js): open, wide, round
 // The jaw drops and the lips spread or purse in bind space, before the skin, in the body and its ink alike.
 uniform float uBlink;        // the eyes: 0 open, 1 shut
+uniform float uBlink2;       // a second head's eyes, on their own clock
 uniform float uFaceUp;       // how far the sculpted face's lower half is lifted, in metres
 // The face in thirds: everything from the nose down rides up, so the middle third shortens and the nose sits
 // higher. It's done here, after the paint's coordinates are taken, so all the face's paint goes with it.
@@ -46,8 +48,10 @@ vec3 faceLift(vec3 p, float slot) {
   return p;
 }
 vec3 mouthMorph(vec3 p, float slot, vec2 uv) {
-  if (abs(slot - ${FIG_SLOT.lid}.0) < 0.5) { p.y += uBlink * uv.x * uv.y; return p; }
-  if (uMouthA.x + uMouthA.y + uMouthA.z <= 0.0) return p;
+  // a second head (its own bone) blinks on its own clock and keeps its mouth shut
+  bool second = int(aBones.x + 0.5) == ${FIGURE_BONE.head2};
+  if (abs(slot - ${FIG_SLOT.lid}.0) < 0.5) { p.y += (second ? uBlink2 : uBlink) * uv.x * uv.y; return p; }
+  if (second || uMouthA.x + uMouthA.y + uMouthA.z <= 0.0) return p;
   // a beard hangs below the skin's limit and goes with the jaw
   float m = smoothstep(0.02, 0.055, p.z) * (1.0 - smoothstep(0.055, 0.08, abs(p.x))) * (abs(slot - ${FIG_SLOT.hair}.0) < 0.5 ? 1.0 : smoothstep(1.505, 1.525, p.y)) * (1.0 - smoothstep(1.6, 1.625, p.y));
   float j = smoothstep(1.5665, 1.548, p.y), lip = exp(-pow(p.x / 0.04, 2.0) - pow((p.y - 1.565) / 0.018, 2.0));
@@ -84,6 +88,9 @@ precision highp float;
 in vec3 vPos; in vec3 vNor; in vec3 vNorF; in vec3 vRest; in vec3 vMouthP; in vec2 vUv; in float vAux; flat in float vSlot;
 uniform vec3 uCol[20];
 uniform float uSurf[20];
+uniform float uFab[20];      // what each slot is made of (figure.js FIG_FABRIC), 0 plain
+uniform int uMut;            // what their mutations do to the skin (figure.js MUT_PAINT bits)
+uniform vec3 uMutC;          // the one accent colour their changes share
 uniform sampler2D uAtlas;
 uniform vec4 uFace;          // layout, makeup, hair style, a seed
 uniform vec3 uLip;
@@ -107,6 +114,7 @@ uniform vec3 uTrim;          // the piping on a suit's lapels
 uniform vec3 uMouthA;        // the mouth: open, wide, round
 uniform vec3 uMouthB;        // and pressed, teeth, tongue
 uniform float uBlink;        // the eyes: 0 open, 1 shut
+uniform float uBlink2;       // a second head's eyes, on their own clock
 uniform float uRealEye;      // an eyeball behind the skin: the close-up level
 uniform vec2 uGaze;          // where it's looking, in its own radii
 uniform vec4 uBeardA;        // solid facial hair (figure.js FIGURE_FACIAL): cheeks, chin, moustache, sideburns
@@ -129,6 +137,57 @@ float vn3(vec3 p) {
 float inkL(float d, float w) { float aa = max(fwidth(d), 1e-5); return 1.0 - smoothstep(w, w + aa * 1.3, abs(d)); }
 float inkBox(vec2 p, vec2 c, vec2 h, float w) { vec2 q = abs(p - c) - h; return inkL(max(q.x, q.y), w); }
 float within(float v, float a, float b) { return step(a, v) * step(v, b); }
+// an overshirt worn open (front 'open'): how far each front edge stands off the middle. It opens at the
+// collar and gapes again over the belly, where it can't close.
+float openHalf(float y) { return 0.034 + 0.05 * smoothstep(1.3, 1.02, y) + 0.5 * max(0.0, y - 1.37); }
+bool openBand(vec3 r) { return int(uCutF.x + 0.5) == 7 && r.z > 0.0 && r.y > uCutY.x && abs(r.x) < openHalf(r.y); }
+// the tee's print under it, half hidden by the overshirt: three wolves howling at a moon, the print cracked
+// by years in the wash. Built of flat triangles, as a screen print is, so its edges stay crisp.
+float triP(vec2 p, vec2 a, vec2 b, vec2 c) {
+  vec2 e0 = b - a, e1 = c - b, e2 = a - c, v0 = p - a, v1 = p - b, v2 = p - c;
+  vec2 q0 = v0 - e0 * clamp(dot(v0, e0) / dot(e0, e0), 0.0, 1.0), q1 = v1 - e1 * clamp(dot(v1, e1) / dot(e1, e1), 0.0, 1.0), q2 = v2 - e2 * clamp(dot(v2, e2) / dot(e2, e2), 0.0, 1.0);
+  float sg = sign(e0.x * e2.y - e0.y * e2.x);
+  vec2 d = min(min(vec2(dot(q0, q0), sg * (v0.x * e0.y - v0.y * e0.x)), vec2(dot(q1, q1), sg * (v1.x * e1.y - v1.y * e1.x))), vec2(dot(q2, q2), sg * (v2.x * e2.y - v2.y * e2.x)));
+  return -sqrt(d.x) * sign(d.y);
+}
+// one wolf, its head thrown back and howling, facing +x, in its own units (about 0.1 tall)
+float wolfD(vec2 q, out float eye) {
+  float d = triP(q, vec2(-0.03, -0.07), vec2(0.03, -0.07), vec2(0.018, 0.012));           // the chest and neck
+  d = min(d, triP(q, vec2(-0.03, -0.07), vec2(0.018, 0.012), vec2(-0.012, 0.02)));
+  d = min(d, triP(q, vec2(-0.012, 0.02), vec2(0.02, 0.008), vec2(0.004, 0.044)));          // the skull
+  d = min(d, triP(q, vec2(0.0, 0.03), vec2(0.02, 0.01), vec2(0.04, 0.07)));                // the snout, up at the moon
+  d = min(d, max(triP(q, vec2(0.018, 0.006), vec2(0.03, 0.006), vec2(0.048, 0.05)), -triP(q, vec2(0.02, 0.016), vec2(0.03, 0.012), vec2(0.044, 0.05)))); // the jaw, open
+  d = min(d, triP(q, vec2(-0.012, 0.024), vec2(0.002, 0.04), vec2(-0.022, 0.056)));        // the ear, laid back
+  eye = length((q - vec2(0.008, 0.032)) / vec2(1.0, 0.6)) - 0.0028;
+  return d;
+}
+void teePrint(vec3 r, inout vec3 base, inout float ink, float W) {
+  vec2 p = vec2(r.x, r.y - 1.18);
+  float wear = 0.74 + 0.26 * step(0.32, vn3(r * 460.0));
+  vec3 cream = vec3(0.93, 0.88, 0.66), navy = vec3(0.1, 0.11, 0.17), fur = vec3(0.5, 0.52, 0.58);
+  // the moon, with its seas
+  float moon = length(p - vec2(0.0, 0.085)) - 0.056;
+  vec3 mc = cream;
+  mc = mix(mc, cream * 0.8, 1.0 - smoothstep(0.0, 0.001, length(p - vec2(-0.018, 0.1)) - 0.014));
+  mc = mix(mc, cream * 0.8, 1.0 - smoothstep(0.0, 0.001, length(p - vec2(0.02, 0.07)) - 0.009));
+  base = mix(base, mc * wear, 1.0 - smoothstep(0.0, 0.0012, moon));
+  // the wolves: the middle one biggest, the outer two facing away from it
+  float d = 1e3, eye = 1e3;
+  for (int i = -1; i <= 1; i++) {
+    float fi = float(i), k = i == 0 ? 1.15 : 0.95, e;
+    vec2 q = (p - vec2(fi * 0.05, i == 0 ? 0.0 : -0.018)) / k;
+    q.x *= i < 0 ? -1.0 : 1.0;
+    float wd = wolfD(q, e) * k;
+    d = min(d, wd); eye = min(eye, e * k);
+  }
+  float aa = 0.0012;
+  base = mix(base, navy * wear, 1.0 - smoothstep(0.0, aa, d));
+  // their fur: a pale edge round each against the black of the shirt, and a few strokes inside
+  base = mix(base, fur * wear, step(0.0, moon) * (1.0 - smoothstep(0.0012, 0.0024, abs(d - 0.0008))));
+  base = mix(base, fur * 0.7 * wear, step(d, 0.0) * 0.6 * step(0.86, fract((p.x * 0.6 + p.y) / 0.008)) * step(-0.012, d));
+  base = mix(base, vec3(0.98, 0.82, 0.2), 1.0 - smoothstep(0.0, 0.0008, eye));
+  ink = max(ink, inkL(moon, W * 0.8) * step(0.0, d));
+}
 float paintCloth(int s, int piece, vec3 r, inout vec3 base, inout float mat) {
   // the line's half-width: heavy enough to hold as a figure gets smaller, as a comic's inking does
   float ink = 0.0, W = 0.0014, hem = uCutY.x, cuff = uCutY.y;
@@ -178,6 +237,55 @@ float paintCloth(int s, int piece, vec3 r, inout vec3 base, inout float mat) {
       vec2 tp = h - vec2(0.036, 0.0); hand = min(hand, length(vec2(tp.x - tp.y * 0.6, max(0.0, abs(tp.y + 0.004) - 0.012))) - 0.006);
       float ah = max(fwidth(hand), 1e-4);
       base = mix(base, vec3(0.42, 0.41, 0.4) * (0.8 + 0.3 * vn3(r * 300.0)), front * 0.85 * (1.0 - smoothstep(0.0, ah * 1.5, hand)));
+    } else if (fk == 7) {
+      // open down the front over the tee: the tee is the shirt's colour, with its print and its own
+      // hem showing below, and the overshirt's placket edges, buttons and breast pockets
+      float hx = openHalf(r.y), ax = abs(r.x);
+      if (openBand(r)) {
+        base = uCol[${FIG_SLOT.shirt}] * (0.9 + 0.1 * vn3(r * 60.0));
+        teePrint(r, base, ink, W);
+        // the tee's crew neck
+        ink = max(ink, inkL(r.y - 1.432 + 1.6 * r.x * r.x, W));
+      }
+      ink = max(ink, front * inkL(ax - hx, W * 1.3) * step(hem, r.y));
+      // the placket a band in from each edge, with the buttons down the right-hand one and their holes down the left
+      ink = max(ink, front * 0.6 * inkL(ax - hx - 0.018, W * 0.7) * within(r.y, hem, 1.4));
+      for (int i = 0; i < 6; i++) {
+        float by = 1.37 - float(i) * 0.085, d = length(vec2(r.x - (hx + 0.009), r.y - by)), ab = max(fwidth(d), 1e-4);
+        base = mix(base, vec3(0.78, 0.74, 0.66), front * (1.0 - smoothstep(0.0042, 0.0042 + ab, d)));
+        ink = max(ink, front * inkL(d - 0.0042, W * 0.6));
+        ink = max(ink, front * inkL(abs(r.y - by) - 0.0006, W * 0.5) * within(-r.x - hx, 0.003, 0.015));
+      }
+      // a breast pocket each side clear of the placket: a box with a pointed flap over it and a button at
+      // the point, a shadow under the flap, a pale topstitch round both
+      for (int k = 0; k < 2; k++) {
+        float sx = k == 0 ? 1.0 : -1.0;
+        vec2 pq = vec2(r.x * sx - 0.106, r.y - 1.262);
+        float box = max(abs(pq.x) - 0.03, abs(pq.y + 0.006) - 0.036);
+        float flap = max(max(abs(pq.x) - 0.031, pq.y - 0.03), (0.012 - pq.y) - 0.5 * (0.031 - abs(pq.x)));
+        float af = max(fwidth(flap), 1e-4), ab = max(fwidth(box), 1e-4);
+        base = mix(base, base * 0.86, front * (1.0 - smoothstep(-ab, ab, box)) * smoothstep(-af, af, flap));
+        base = mix(base, base * 0.55, front * (1.0 - smoothstep(0.0, 0.004, flap)) * step(0.0, flap) * (1.0 - smoothstep(-ab, ab, box)));
+        base = mix(base, base * 1.12, front * (1.0 - smoothstep(-af, af, flap)));
+        ink = max(ink, front * max(inkL(box, W) * step(0.0, flap), inkL(flap, W)));
+        float stitch = step(0.5, fract((pq.x + pq.y) * 260.0));
+        base = mix(base, vec3(0.86, 0.8, 0.7), front * 0.55 * stitch * max(inkL(flap + 0.0035, 0.0004), inkL(box + 0.0035, 0.0004) * step(0.0, flap)));
+        float bt = length(pq - vec2(0.0, 0.009)), abt = max(fwidth(bt), 1e-4);
+        base = mix(base, vec3(0.8, 0.76, 0.68), front * (1.0 - smoothstep(0.0034, 0.0034 + abt, bt)));
+        ink = max(ink, front * inkL(bt - 0.0034, W * 0.6));
+      }
+      // the collar's points, folded down on the chest either side of the opening, a shadow under each
+      for (int k = 0; k < 2; k++) {
+        float sx = k == 0 ? 1.0 : -1.0;
+        vec2 cq = vec2(r.x * sx, r.y);
+        float cp = triP(cq, vec2(openHalf(1.45) - 0.006, 1.455), vec2(0.105, 1.445), vec2(openHalf(1.37) + 0.004, 1.365));
+        float ac = max(fwidth(cp), 1e-4);
+        base = mix(base, base * 0.5, front * (1.0 - smoothstep(0.0, 0.005, cp)) * step(0.0, cp) * step(cq.y, 1.44));
+        base = mix(base, base * 1.14, front * (1.0 - smoothstep(-ac, ac, cp)));
+        ink = max(ink, front * inkL(cp, W * 1.1));
+        base = mix(base, vec3(0.86, 0.8, 0.7), front * 0.5 * step(0.5, fract((cq.x - cq.y) * 260.0)) * inkL(cp + 0.003, 0.0004));
+      }
+      ink = max(ink, inkL(r.y - (hem + 0.02), W * 0.8));
     } else {
       ink = max(ink, inkL(r.y - (hem + 0.022), W * 0.8));
     }
@@ -348,6 +456,256 @@ void skinPaint(vec3 r, float rough, inout vec3 base) {
   base *= 1.0 + mix(0.02, 0.1, rough) * smoothstep(0.66, 0.74, vn3(r * 430.0 + 7.0)) * fade;
 }
 void deep(float d, float k, inout vec3 base) { float aa = max(fwidth(d), 1e-4); base *= mix(vec3(1.0), vec3(0.6, 0.53, 0.55), k * (1.0 - smoothstep(-aa, aa, d))); }
+// What the cloth is (figure.js FIG_FABRIC), painted the comic's way: flat tones with hard edges and
+// ink lines, every fine pattern fading out before it would turn to grey. r is the rest position in
+// metres; u runs round the body without a seam, so a pattern wraps rather than streaks at the sides.
+float fineK(float t) { return 1.0 - smoothstep(0.25, 0.5, fwidth(t)); }
+float fabricPaint(int s, vec3 r, inout vec3 base, inout float mat) {
+  int fb = int(uFab[s] + 0.5);
+  if (fb == 0 || (s == ${FIG_SLOT.top} && openBand(r))) return 0.0;
+  float ink = 0.0, u = r.x + r.z;
+  vec3 alt = uCol[${FIG_SLOT.shirt}];
+  if (fb == 1) {
+    // denim: the twill on the diagonal and the indigo fading in vertical streaks
+    float t = (r.y + u) / 0.006;
+    ink = 0.28 * fineK(t) * inkL((fract(t) - 0.5) * 0.006, 0.0006);
+    base *= 0.88 + 0.26 * vn3(r * vec3(40.0, 5.0, 40.0));
+  } else if (fb == 2) {
+    // canvas / duck: a coarse plain weave and the slubs in it
+    float a = u / 0.0045, b = r.y / 0.0045, k = fineK(a) * fineK(b);
+    ink = 0.18 * k * max(inkL((fract(a) - 0.5) * 0.0045, 0.0005), inkL((fract(b) - 0.5) * 0.0045, 0.0005));
+    base *= 0.9 + 0.18 * vn3(r * 140.0);
+  } else if (fb == 3) {
+    // leather: crackle where it creases, the edges of the cracks scuffed pale
+    float c = vn3(r * 48.0), c2 = vn3(r * 110.0 + 7.0);
+    ink = max(0.55 * inkL(c - 0.5, 0.0), 0.3 * fineK(r.y * 110.0) * inkL(c2 - 0.5, 0.0));
+    base = mix(base, base * 1.45 + 0.015, 0.35 * smoothstep(0.66, 0.74, vn3(r * 30.0 + 3.0)));
+    base *= 0.9 + 0.15 * c;
+  } else if (fb == 4) {
+    // knit: columns of V stitches, ribbed
+    float col = u / 0.006, row = r.y / 0.007, k = fineK(col) * fineK(row);
+    float v = fract(row + abs(fract(col) - 0.5));
+    ink = k * max(0.42 * inkL((v - 0.5) * 0.007, 0.0007), 0.3 * inkL((fract(col) - 0.5) * 0.006, 0.0005));
+    base *= 0.92 + 0.1 * (1.0 - abs(fract(col) - 0.5) * 2.0);
+  } else if (fb == 5) {
+    // corduroy: wales down the garment, each lit along its crown
+    float w = u / 0.005, k = fineK(w);
+    base *= mix(1.0, 0.8 + 0.34 * (1.0 - abs(fract(w) - 0.5) * 2.0), k);
+    ink = 0.5 * k * inkL(fract(w) * 0.005 - 0.0, 0.0005);
+  } else if (fb == 6) {
+    // quilted nylon: channels stitched across, each puffed, a hard band of sheen along its top
+    float p = fract(r.y / 0.06);
+    base *= 0.78 + 0.32 * sin(p * 3.14159);
+    base += base * 0.5 * within(p, 0.58, 0.68);
+    ink = 0.8 * inkL((fract(r.y / 0.06 + 0.5) - 0.5) * 0.06, 0.0011);
+  } else if (fb == 7) {
+    // plaid: two bands each way in the shirt's colour, darker where they cross, a pin stripe through
+    float a = fract(u / 0.07), b = fract(r.y / 0.07);
+    float sa = step(a, 0.26), sb = step(b, 0.26);
+    base = mix(base, alt * 0.85, 0.55 * max(sa, sb));
+    base = mix(base, base * 0.55, sa * sb);
+    ink = 0.55 * max(inkL((a - 0.62) * 0.07, 0.0006), inkL((b - 0.62) * 0.07, 0.0006));
+  } else if (fb == 8) {
+    // camo: three flat tones in blots, inked round
+    float a = vn3(r * 13.0), b = vn3(r * 13.0 + 17.3);
+    vec3 dark = base * vec3(0.5, 0.56, 0.48), light = base * 1.35 + vec3(0.02, 0.025, 0.0);
+    base = a > 0.6 ? dark : (b > 0.62 ? light : base);
+    ink = 0.6 * max(inkL(a - 0.6, 0.0), inkL(b - 0.62, 0.0) * step(a, 0.6));
+  } else if (fb == 9) {
+    // rubber / PVC: no grain at all, a shade deeper; the light makes it (MAT.GLOSS)
+    base *= 0.82;
+  } else if (fb == 10) {
+    // rag: square patches of other cloth, stitched on in dashes, and the grime over everything
+    vec2 g = vec2(u, r.y) / 0.085, id = floor(g), f = fract(g);
+    float h = hh(id.x * 13.1 + id.y * 71.7);
+    if (h < 0.22) {
+      vec2 e = abs(f - 0.5);
+      float inside = step(max(e.x, e.y), 0.36);
+      // a patch is half its own cloth, so a pale shirt doesn't put white squares on dark trousers
+      base = mix(base, h < 0.11 ? mix(base, alt, 0.22) : base * 1.4 + 0.02, inside);
+      float edge = inkL((max(e.x, e.y) - 0.36) * 0.085, 0.0007);
+      ink = 0.8 * edge * step(0.5, fract((f.x + f.y) * 9.0));
+    }
+    base *= 0.82 + 0.24 * vn3(r * 22.0);
+  }
+  return ink;
+}
+// ── Mutations (figure.js MUTATION_LOOK) ──
+// The growths' own paint by piece, then what a mutation does to bare skin (uMut's bits, MUT_PAINT), then
+// the coat torn where something grew out through its back. 'glow' is light the skin gives off itself.
+float hex(vec2 p) { p = abs(p); return max(dot(p, vec2(0.866, 0.5)), p.y); }
+float mutPaint(int s, int piece, vec3 r, vec2 uv, inout vec3 base, inout float mat, inout vec3 glow) {
+  // Drawn as a comic draws a costume, not a wound: clean shapes, flat tones, one accent colour per
+  // person (uMutC) tying every change on them together, and nothing wet or raw.
+  float ink = 0.0;
+  bool flesh = s == ${FIG_SLOT.skin} || s == ${FIG_SLOT.face} || s == ${FIG_SLOT.ear} || s == ${FIG_SLOT.neck};
+  vec3 acc = uMutC, accD = uMutC * 0.35, accL = mix(uMutC, vec3(1.0), 0.45);
+  float ang = atan(r.x, r.z);
+  if (piece == ${FIG_PIECE.eye3}) {
+    // a third eye: the accent for an iris, a clean round pupil and a glint
+    vec2 q = (r.xy - vec2(0.0, 1.682)) / vec2(0.015, 0.012);
+    float d = length(q);
+    base = mix(vec3(0.9, 0.88, 0.82), acc, 1.0 - smoothstep(0.52, 0.56, d));
+    base = mix(base, vec3(0.01), 1.0 - smoothstep(0.2, 0.24, d));
+    base = mix(base, vec3(1.0), 1.0 - smoothstep(0.08, 0.11, length(q - vec2(-0.18, 0.2))));
+    ink = max(inkL(d - 0.54, 0.0) * 0.5, inkL(d - 0.95, 0.0));
+    mat = 4.0;
+  } else if (piece == ${FIG_PIECE.compound}) {
+    // compound eyes: a lens of the accent, its facets drawn faintly, one big glint
+    vec2 c = vec2(sign(r.x) * 0.031, 1.6418), q = (r.xy - c) / 0.0048;
+    vec2 g = vec2(q.x / 1.732, q.y), a = mod(g, 2.0) - 1.0, b = mod(g + 1.0, 2.0) - 1.0;
+    vec2 f = dot(a, a) < dot(b, b) ? a : b;
+    float hx = hex(vec2(f.x * 1.732, f.y)), e = length((r.xy - c) / vec2(0.026, 0.021));
+    base = mix(accD, acc, smoothstep(1.0, 0.2, e));
+    base = mix(base, vec3(1.0), 1.0 - smoothstep(0.12, 0.17, length((r.xy - c) / vec2(0.026, 0.021) - vec2(-0.35 * sign(r.x), 0.4))));
+    ink = 0.3 * fineK(q.x) * inkL(hx - 0.95, 0.0);
+    mat = 4.0;
+  } else if (piece == ${FIG_PIECE.wing}) {
+    // a wing's membrane in the accent, shading toward its edge, with fanned ribs
+    base = mix(acc, accD, smoothstep(0.2, 1.0, uv.y));
+    float rib = abs(fract(uv.x * 4.0) - 0.5);
+    ink = max(0.5 * inkL(rib * 0.04, 0.0007), inkL(uv.y - 1.0, 0.0));
+    base = mix(base, accL, 0.35 * (1.0 - smoothstep(0.0, 0.12, rib)));
+  } else if (piece == ${FIG_PIECE.spider}) {
+    // lacquered legs: the accent gone dark, a lighter band at each joint, a hard glint
+    float seg = fract(uv.x * 2.0);
+    base = mix(accD * 0.8, acc * 0.8, 1.0 - smoothstep(0.0, 0.12, min(seg, 1.0 - seg)));
+    mat = 4.0;
+  } else if (piece == ${FIG_PIECE.tentacle}) {
+    // tentacles: the skin's own colour on top, the accent underneath, round suckers in a neat row
+    float under = 1.0 - smoothstep(0.14, 0.2, abs(uv.y - 0.5));
+    base = mix(base * 0.95, accL, under);
+    float cell = fract(uv.x * 14.0) - 0.5, d = length(vec2(cell * 0.07, (uv.y - 0.5) * 0.12));
+    float sk = under * (1.0 - smoothstep(0.85, 1.0, uv.x));
+    base = mix(base, acc, sk * (1.0 - smoothstep(0.007, 0.009, d)));
+    ink = 0.6 * sk * inkL(d - 0.009, 0.0);
+    mat = 5.0;
+  } else if (piece == ${FIG_PIECE.tail}) {
+    // a tail in bands of the accent, like a cat's
+    float band = step(0.62, fract(uv.x * 7.0));
+    base = mix(base, mix(base, acc, 0.75), band);
+    ink = 0.4 * inkL((fract(uv.x * 7.0) - 0.62) * 0.02, 0.0004);
+  } else if (piece == ${FIG_PIECE.plate}) {
+    // carapace: a beetle's shell in the accent, darkened, lit with one hard glint
+    base = mix(accD, acc * 0.7, 0.3 + 0.4 * smoothstep(-0.02, 0.02, r.z + 0.12));
+    mat = 4.0;
+  } else if (piece == ${FIG_PIECE.earbig}) {
+    // a bat's ear: the inside a deeper, warmer tone with ridges across it, the rim inked
+    float inner = (1.0 - smoothstep(0.28, 0.42, abs(uv.x - 0.5))) * (1.0 - smoothstep(0.6, 0.95, uv.y));
+    base = mix(base, base * vec3(0.78, 0.6, 0.6), inner);
+    ink = max(0.45 * inner * inkL((fract(uv.y * 6.0) - 0.5) * 0.02, 0.0005) * step(0.15, uv.y), inkL(abs(uv.x - 0.5) - 0.5, 0.0));
+    mat = 5.0;
+  } else if (piece == ${FIG_PIECE.blade}) {
+    base = mix(base * 1.1, accL, 0.2);
+    mat = 3.0;
+  }
+  if (flesh && (uMut & 16384) != 0) {
+    // one colour over all the skin, keeping its light and dark: blue, red, violet, as the comics colour them
+    float lum = dot(base, vec3(0.3, 0.55, 0.15));
+    base = mix(base, acc * (0.45 + 2.2 * lum), 0.88);
+  }
+  if (flesh && (uMut & (4096 | 8192)) != 0) {
+    // thick hide: pebbled, creased round the limbs and the neck, a little greyed; in patches unless it's all of it
+    float mask = (uMut & 8192) != 0 ? 1.0 : smoothstep(0.42, 0.5, vn3(r * 6.0 + 4.0));
+    vec3 pp = r * 110.0, ip = floor(pp); float f1 = 9.0, f2 = 9.0;
+    for (int z = -1; z <= 1; z++) for (int y = -1; y <= 1; y++) for (int x = -1; x <= 1; x++) {
+      vec3 cc = ip + vec3(x, y, z); vec3 o = cc + vec3(h3(cc), h3(cc + 7.1), h3(cc + 13.3)); float d = length(pp - o);
+      if (d < f1) { f2 = f1; f1 = d; } else if (d < f2) f2 = d;
+    }
+    float k = mask * fineK(pp.y * 0.3);
+    base = mix(base, base * vec3(0.86, 0.85, 0.84) * (0.9 + 0.2 * smoothstep(0.0, 0.5, f2 - f1)), mask);
+    ink = max(ink, 0.35 * k * (1.0 - smoothstep(0.0, 0.08, f2 - f1)));
+    float fold = (fract(r.y / 0.032 + 0.25 * sin(ang * 2.0)) - 0.5) * 0.032;
+    ink = max(ink, 0.55 * mask * inkL(fold, 0.0006) * step(0.55, vn3(vec3(r.x * 3.0, floor(r.y / 0.032), r.z * 3.0))));
+  }
+  if (s == ${FIG_SLOT.eye} && (uMut & 32768) != 0) {
+    // solid eyes, no iris: a flat yellow with a hard glint
+    base = vec3(1.0, 0.68, 0.06);
+    mat = 4.0;
+  }
+  if (flesh && uMut != 0) {
+    if ((uMut & 3) != 0) {
+      // scales: neat rounded rows, the accent laid into them, all over or in a band down the limbs
+      float mask = (uMut & 2) != 0 ? 1.0 : smoothstep(0.55, 0.6, 0.5 + 0.5 * sin(ang * 2.0 + r.y * 6.0));
+      float u = (r.x + r.z) / 0.017, row = r.y / 0.012;
+      vec2 f = vec2(fract(u + mod(floor(row), 2.0) * 0.5), fract(row));
+      float d = length((f - vec2(0.5, 1.0)) * vec2(1.0, 1.35)), k = fineK(u) * fineK(row) * mask;
+      base = mix(base, mix(base, acc, 0.45) * (0.85 + 0.25 * step(0.55, f.y)), k);
+      ink = max(ink, 0.55 * k * inkL((d - 0.6) * 0.012, 0.0006));
+    }
+    if ((uMut & 4) != 0) {
+      // mottling as markings: clean round rosettes, the accent in the middle of each
+      vec3 cl = floor(r / 0.045), fp = (fract(r / 0.045) - 0.5) * 0.045;
+      float h = hh(dot(cl, vec3(7.0, 31.0, 113.0)));
+      vec2 o = vec2(hh(h * 9.1), hh(h * 3.7)) * 0.012 - 0.006;
+      float d = length(fp.xy - o + fp.z * 0.3);
+      float on = step(h, 0.55);
+      base = mix(base, mix(base, acc, 0.5), on * (1.0 - smoothstep(0.007, 0.0085, d)));
+      ink = max(ink, on * 0.7 * inkL(d - 0.011, 0.0011));
+    }
+    if ((uMut & 128) != 0) {
+      // chameleon: the skin shifting through bands of the accent, as a comic would colour it
+      float t = 0.5 + 0.5 * sin(r.y * 22.0 + ang * 1.5);
+      base = mix(base, mix(acc, accL, t), 0.38 * (s == ${FIG_SLOT.face} ? 0.6 : 1.0));
+      ink = max(ink, 0.3 * inkL((fract(r.y * 22.0 / 6.2832 + ang * 1.5 / 6.2832) - 0.25) * 0.05, 0.0004));
+    }
+    if ((uMut & 8) != 0) {
+      // freckles: a dusting across the nose and shoulders, small and even
+      vec3 cl = floor(r / 0.007), fp = fract(r / 0.007) - 0.5;
+      float h = hh(dot(cl, vec3(1.0, 57.0, 113.0))), zone = s == ${FIG_SLOT.face} ? 1.0 - smoothstep(0.035, 0.06, length(vec2(r.x, r.y - 1.6))) : smoothstep(1.3, 1.4, r.y);
+      base = mix(base, base * vec3(0.7, 0.55, 0.45), zone * step(h, 0.3) * (1.0 - smoothstep(0.2, 0.28, length(fp))) * fineK(r.y / 0.007));
+    }
+    if ((uMut & 16) != 0) {
+      // weeping sores, drawn as a pattern of small glowing pores in the accent
+      vec3 cl = floor(r / 0.035), fp = (fract(r / 0.035) - 0.5) * 0.035;
+      if (hh(dot(cl, vec3(3.1, 71.0, 17.0))) < 0.3) {
+        float d = length(fp);
+        float core = 1.0 - smoothstep(0.003, 0.004, d);
+        base = mix(base, accL, core);
+        glow += acc * 0.35 * core;
+        ink = max(ink, 0.5 * inkL(d - 0.0055, 0.0004));
+      }
+    }
+    if ((uMut & (32 | 2048)) != 0) {
+      // veins as flowing lines down the body, like a tattoo; charged, they glow
+      float w = r.y * 26.0 + sin(ang * 3.0 + r.y * 9.0) * 1.4, v = abs(fract(w / 6.2832 * 2.0) - 0.5);
+      float l = (1.0 - smoothstep(0.03, 0.05, v)) * fineK(w);
+      if ((uMut & 32) != 0) base = mix(base, mix(base, acc, 0.7), l);
+      if ((uMut & 2048) != 0) { base = mix(base, accL, 0.85 * l); glow += acc * 0.7 * l; }
+    }
+    if ((uMut & 64) != 0) {
+      // scars: a few clean stitched seams across the arms and face, a comic's cross-stitches
+      float sy = fract(r.y / 0.16), on = within(sy, 0.48, 0.52) * step(0.6, hh(floor(r.y / 0.16) + 3.0));
+      float cross = step(0.5, fract((r.x + r.z) / 0.008));
+      ink = max(ink, on * max(0.8, cross));
+      base = mix(base, base * 1.15, within(sy, 0.45, 0.55) * step(0.6, hh(floor(r.y / 0.16) + 3.0)));
+    }
+    if ((uMut & 256) != 0 && r.z > -0.03 && r.y > 1.44 && r.y < 1.52) {
+      // gills: three neat curved lines up each side of the neck, the accent between them
+      float ax = abs(r.x);
+      for (int i = 0; i < 3; i++) {
+        float y0 = 1.458 + float(i) * 0.017 + (ax - 0.04) * 0.25, on = within(ax, 0.026, 0.058);
+        base = mix(base, mix(base, acc, 0.6), on * within(r.y, y0 - 0.004, y0));
+        ink = max(ink, on * inkL(r.y - y0, 0.0006));
+      }
+    }
+    if ((uMut & 512) != 0 && s == ${FIG_SLOT.face} && r.z > 0.03) {
+      // a wide grin: the mouth's line carried up into the cheeks, a row of neat white teeth along it
+      vec2 q = vec2(abs(r.x), r.y), a = vec2(0.024, 1.566), b = vec2(0.066, 1.594);
+      float d = segD(q, a, b), along = clamp(dot(q - a, b - a) / dot(b - a, b - a), 0.0, 1.0);
+      float lip = 1.0 - smoothstep(0.0016, 0.0022, d);
+      base = mix(base, vec3(0.95, 0.93, 0.86), lip * (1.0 - smoothstep(0.85, 1.0, along)));
+      ink = max(ink, max(inkL(d - 0.0022, 0.0005), lip * inkL((fract(along * 7.0) - 0.5) * 0.004, 0.0003)));
+    }
+  }
+  if ((uMut & 1024) != 0 && (s == ${FIG_SLOT.top} || s == ${FIG_SLOT.collar} || s == ${FIG_SLOT.cloak} || s == ${FIG_SLOT.shirt}) && r.z < -0.03) {
+    // the coat cut open across the back, its edge hemmed in a neat line
+    float e = min(length(vec2(r.x / 0.12, (r.y - 1.27) / 0.15)), length(vec2(r.x / 0.11, (r.y - 0.99) / 0.07)));
+    base = mix(base, base * 0.25, step(e, 1.0));
+    ink = max(ink, inkL((e - 1.0) * 0.1, 0.0012));
+  }
+  return ink;
+}
 float paintSculpt(int s, int piece, vec3 r, inout vec3 base) {
   if (s == ${FIG_SLOT.skin}) skinPaint(r, 0.6 * (1.0 - uFaceV.w), base);
   if (s == ${FIG_SLOT.skin} && r.y > 0.9 && uSoma.x + uSoma.y + uSoma.z > 0.0) paintBody(piece, r, base);
@@ -576,7 +934,7 @@ void main() {
         shape(ax - mix(0.0026, 0.004, soft) - mix(0.0115, 0.0105, soft) * pow(smoothstep(1.648, 1.598, r.y), 1.6), mix(0.8, 0.2, soft) * away * within(r.y, 1.592, 1.648), base);
       }
       // the hair's shadow on the forehead, and cooler skin at the jaw
-      shape(hairlineSculpt(r) - 0.012 + 0.004 * (vn3(r * 90.0) - 0.5) - r.y, 0.75, base);
+      shape(hairlineSculpt(r) - 0.012 + 0.004 * (vn3(r * 90.0) - 0.5) - r.y, uFace.z > 4.5 ? 0.0 : 0.75, base);
       base *= mix(vec3(1.0), vec3(0.93, 0.96, 1.02), (1.0 - soft) * smoothstep(1.575, 1.53, r.y));
       // warmth over the nose, cheeks and chin, and the forehead's plane a little paler
       base *= mix(vec3(1.0), vec3(1.05, 0.93, 0.87), mix(0.8, 0.3, soft) * exp(-pow(ax / 0.022, 2.0) - pow((r.y - 1.602) / 0.02, 2.0)) + mix(0.55, 0.95, soft) * exp(-pow((ax - 0.05) / 0.02, 2.0) - pow((r.y - 1.602) / 0.02, 2.0)));
@@ -589,10 +947,10 @@ void main() {
       float fadeZ = smoothstep(-0.05, 0.05, r.z + 0.03 * (vn3(r * 180.0) - 0.5));
       // the beard stays dark, whatever the hair's colour
       vec3 beardC = min(hair, vec3(0.09));
-      base = mix(base, mix(skin * vec3(0.72, 0.66, 0.66), beardC, 0.3), 0.55 * beard * fadeZ * min(1.0, uFaceV.z * 1.4));
+      base = mix(base, mix(skin * vec3(0.72, 0.66, 0.66), beardC, 0.3), (0.55 + 0.2 * smoothstep(1.0, 1.4, uFaceV.z)) * beard * fadeZ * min(1.0, uFaceV.z * 1.4));
       // stubble: short strokes running down the face, thickest at the beard's edge
       float fleck = smoothstep(0.68, 0.72, vn3(vec3(r.x * 2200.0, r.y * 620.0, r.z * 2200.0)));
-      base = mix(base, beardC * 1.6, 0.4 * step(0.01, uFaceV.z) * fleck * fadeZ * smoothstep(edge + 0.006, edge, r.y) * smoothstep(edge - 0.016, edge - 0.004, r.y) * (1.0 - mouth));
+      base = mix(base, beardC * 1.6, 0.4 * step(0.01, uFaceV.z) * fleck * fadeZ * max(smoothstep(edge + 0.006, edge, r.y) * smoothstep(edge - 0.016, edge - 0.004, r.y), smoothstep(0.95, 1.3, uFaceV.z) * beard) * (1.0 - mouth));
       // heavy brows drawn as one tapering mass, the lid's line, the crease under the eye, a furrow
       if (r.z > 0.0) {
         // a soft face's fine lines stay darker than its skin, whatever the skin
@@ -732,7 +1090,7 @@ void main() {
     // sculpted, the shell's own colour, so its stepped edge doesn't show on pale hair
     // sculpted, the line breaks into short points running down onto the skin
     if (uSculpt > 0.5 && uFace.z > 0.5) { float ha = atan(r.x, r.z - 0.0), tri = abs(fract(ha * 4.1 + 0.9 * vn3(vec3(ha * 3.0, 2.0, uFace.w))) - 0.5) * 2.0; hl -= 0.0062 * pow(tri, 3.0) * (0.45 + vn3(vec3(ha * 11.0, 1.0, uFace.w))) * smoothstep(1.25, 0.75, abs(ha)); }
-    base = mix(base, uSculpt > 0.5 ? (uFace.z < 0.5 ? mix(skin * 0.72, hair * 0.75, 0.5) : hair * 0.75) : hair * 0.9, smoothstep(hl - 0.0012, hl + 0.0012, r.y));
+    base = mix(base, uSculpt > 0.5 ? (uFace.z < 0.5 ? mix(skin * 0.72, hair * 0.75, 0.5) : hair * 0.75) : hair * 0.9, smoothstep(hl - 0.0012, hl + 0.0012, r.y) * (uFace.z > 4.5 ? skulletPaint(r, uFace.w) : 1.0));
     base *= 1.0 - 0.18 * smoothstep(1.534, 1.522, r.y);
   } else if (s == ${FIG_SLOT.ear}) {
     base = skin * vec3(1.03, 0.94, 0.92) * (1.0 - (uSculpt > 0.5 ? 0.62 : 0.3) * vAux);
@@ -767,11 +1125,23 @@ void main() {
     // a crop is stubble over the scalp, thinning to skin at its edge, not a cap
     float cropK = uFace.z < 0.5 ? 0.55 + 0.45 * smoothstep(0.0, 0.03, vRest.y - hairlineSculpt(vRest)) : 1.0;
     base = uSculpt > 0.5 ? mix(skin * 0.72, hair * 0.75, cropK * (uFace.z < 0.5 ? 0.45 + 0.75 * vn3(vRest * 620.0) : 1.0)) : hair * (0.82 + 0.2 * hh(floor(atan(vRest.x, vRest.z) * 40.0) + uFace.w));
+    // a skullet's dome: bare skin, a little ruddy, with a comic's hard shine on top
+    if (uFace.z > 4.5) {
+      float hk = skulletPaint(vRest, uFace.w);
+      vec3 dome = skin * vec3(1.04, 0.95, 0.92);
+      float sh = length((vRest.xz - vec2(0.018, 0.012)) / vec2(0.026, 0.038)) + 4.0 * max(0.0, 1.735 - vRest.y);
+      dome = mix(dome, min(vec3(1.0), skin * 1.45 + 0.08), 1.0 - smoothstep(0.85, 1.0, sh));
+      // the hair that's left on the sides is cropped short: the scalp shows through it
+      vec3 crop = mix(skin * 0.72, hair * 0.8, 0.55 + 0.45 * vn3(vRest * 620.0));
+      base = mix(dome, uSculpt > 0.5 ? crop : base, hk);
+    }
   }
   float ink = 0.0;
   int piece = int(vAux + 0.5);
   if (s == ${FIG_SLOT.top} || s == ${FIG_SLOT.legs} || s == ${FIG_SLOT.shoes} || s == ${FIG_SLOT.collar} || s == ${FIG_SLOT.gear} || s == ${FIG_SLOT.pad} || s == ${FIG_SLOT.cloak} || s == ${FIG_SLOT.shirt})
     ink = paintCloth(s == ${FIG_SLOT.shirt} ? ${FIG_SLOT.top} : s, piece, vRest, base, mat);
+  if (s == ${FIG_SLOT.top} || s == ${FIG_SLOT.collar} || s == ${FIG_SLOT.legs} || s == ${FIG_SLOT.shoes} || s == ${FIG_SLOT.cloak})
+    ink = max(ink, fabricPaint(s, vRest, base, mat));
   if (uSculpt > 0.5) {
     ink = max(ink, paintSculpt(s, piece, vRest, base));
     // the hand: warm at the knuckles and fingertips
@@ -832,6 +1202,8 @@ void main() {
     base = uGlove * (0.93 + 0.14 * vn3(vRest * 60.0)); mat = 3.0;
     ink = max(inkL(vRest.y - 0.87, 0.001), inkL(vRest.y - 0.758, 0.0008) * 0.7);
   }
+  vec3 glow = vec3(0.0);
+  ink = max(ink, mutPaint(s, piece, vRest, vUv, base, mat, glow));
   // a little darker low down, where the room's light doesn't reach
   base *= 0.72 + 0.28 * clamp(vRest.y / 0.9, 0.0, 1.0);
   // The comic light (gl/comic-light.js, in ROOM_LIGHT_GLSL): lit or in shadow by the FORM, so a head or a limb takes
@@ -845,8 +1217,9 @@ void main() {
   roomLight(vPos, n, v, mat, diff, spec);
   float lit;
   // the scalp under the hair's edge is painted on the face but lights as hair, or it shows through on dark skin
-  bool scalp = uSculpt > 0.5 && s == ${FIG_SLOT.face} && vRest.y > hairlineSculpt(vRest);
-  bool flesh = (s == 0 || s == ${FIG_SLOT.face} || s == ${FIG_SLOT.ear} || s == ${FIG_SLOT.neck} || s == ${FIG_SLOT.lid}) && !scalp;
+  bool bald = uFace.z > 4.5 && skulletHair(vRest) < 0.5;
+  bool scalp = uSculpt > 0.5 && s == ${FIG_SLOT.face} && vRest.y > hairlineSculpt(vRest) && !bald;
+  bool flesh = (s == 0 || s == ${FIG_SLOT.face} || s == ${FIG_SLOT.ear} || s == ${FIG_SLOT.neck} || s == ${FIG_SLOT.lid} || (bald && s == ${FIG_SLOT.hair} && vAux < 0.5)) && !scalp;
   float dkS = uSculpt > 0.5 ? darkSkin() : 0.0;
   vec3 shadeC = uSculpt > 0.5 && flesh ? mix(vec3(0.76, 0.58, 0.53), vec3(0.72, 0.62, 0.74), dkS) : uShade;
   vec3 c = comicTone(base, nf, n, v, key, dFull, uAmb, shadeC, lit);
@@ -867,8 +1240,16 @@ void main() {
     if (flesh) c += base * dFull * mix(0.55, 0.3, uFaceV.w) * dkS * lit * smoothstep(0.5, mix(0.56, 0.72, uFaceV.w), dot(normalize(n + nf), key));
     if (s != ${FIG_SLOT.hair} && !scalp) c += base * dFull * (0.24 + 0.5 * (flesh ? dkS : 0.0)) * lit * smoothstep(0.58, 0.82, 1.0 - max(dot(n, v), 0.0));
   }
+  // growths are drawn harder than the body: cross-hatching through their shadow side
+  if ((s == ${FIG_SLOT.skin} && piece >= ${FIG_PIECE.eye3}) || s == ${FIG_SLOT.horn}) {
+    float kf2 = dot(nf, key), h1 = (vRest.y + vRest.x * 0.8) / 0.004, h2 = (vRest.y - vRest.z * 0.8) / 0.004;
+    float l1 = (1.0 - smoothstep(0.25, 0.35, abs(fract(h1) - 0.5))) * (1.0 - smoothstep(0.25, 0.5, fwidth(h1)));
+    float l2 = (1.0 - smoothstep(0.25, 0.35, abs(fract(h2) - 0.5))) * (1.0 - smoothstep(0.25, 0.5, fwidth(h2)));
+    c = mix(c, c * 0.6, 0.4 * max(l1 * smoothstep(0.1, -0.15, kf2), l2 * smoothstep(-0.2, -0.45, kf2)));
+  }
   if (mat == 3.0 || mat == 4.0 || mat == 6.0) c += step(0.35, dot(spec, vec3(0.333))) * lit * (mat == 6.0 ? base * 1.6 + 0.2 : vec3(0.75));
   // the line always darker than the cloth it is drawn on: the house ink, or a third of a dark cloth
+  c += glow;
   c = mix(c, min(uLine, c * 0.32), 0.85 * ink);
   if (eyeHole) discard;
   outColor = vec4(finish(c), 1.0);
@@ -890,8 +1271,12 @@ uniform vec3 uKey; uniform float uWeigh;
 layout(location = 2) in vec2 aUv;
 layout(location = 5) in float aSlot;
 uniform vec3 uEyeI; uniform float uBack; uniform float uInkK;
+layout(location = 6) in float aAux;
+// a growth (figure.js MUTATION_LOOK) is inked heavier than the body, as a comic draws the thing it wants you to see
+float growInk(float slot, float aux) { return abs(slot - ${FIG_SLOT.horn}.0) < 0.5 || (abs(slot) < 0.5 && aux > 16.5) || aBones.x > ${FIGURE_BONES.length}.0 - 0.5 ? 1.35 : 1.0; }
 void main() {
   vec3 p = skinAll(vec4(faceLift(mouthMorph(aPos, aSlot, aUv), aSlot), 1.0)), sn = skinAll(vec4(aNor, 0.0));
+  float grow = growInk(aSlot, aAux);
   // an eye and its lids take no outline: the lids' dark undersides are its line
   if (aSlot > ${FIG_SLOT.eye}.0 - 0.5) { gl_Position = vec4(2.0, 2.0, 2.0, 1.0); return; }
   p += normalize(p - uEyeI) * uBack;
@@ -904,7 +1289,7 @@ void main() {
   float L = length(d);
   vec2 dir = L > 1e-4 ? d / L : vec2(0.0);
   float wk = mix(max(uWeigh, 1.0), 1.0, smoothstep(-0.5, 0.7, dot(n, uKey)));
-  c.xy += dir * clamp(L, uInk.y, uInk.z) * wk * uInkK / (uRes * 0.5) * c.w;
+  c.xy += dir * clamp(L, uInk.y, uInk.z) * wk * uInkK * grow / (uRes * 0.5) * c.w;
   c.z += uInk.w * c.w;
   gl_Position = c;
 }`;
@@ -995,6 +1380,7 @@ export function createFigureLayer(gl, { half = false } = {}) {
         gl.uniform4fv(INK.u('uBone'), r.rows);
         gl.uniform3fv(INK.u('uMouthA'), r.mouthA || [0, 0, 0]);
         gl.uniform1f(INK.u('uBlink'), r.blink || 0);
+        gl.uniform1f(INK.u('uBlink2'), r.blink2 || 0);
         gl.uniform1f(INK.u('uFaceUp'), r.faceUp || 0);
         // the sculpted figure's forms and paint carry the drawing, so its outline is lighter
         gl.uniform1f(INK.u('uInkK'), r.key.sculpt ? 0.5 : 1);
@@ -1020,6 +1406,9 @@ export function createFigureLayer(gl, { half = false } = {}) {
         gl.uniform4fv(LIT.u('uBone'), r.rows);
         gl.uniform3fv(LIT.u('uCol'), r.col);
         gl.uniform1fv(LIT.u('uSurf'), r.surf);
+        gl.uniform1fv(LIT.u('uFab'), r.fab || NO_FAB);
+        gl.uniform1i(LIT.u('uMut'), r.mut || 0);
+        gl.uniform3fv(LIT.u('uMutC'), r.mutCol || MUT_C);
         gl.uniform4fv(LIT.u('uFace'), r.face);
         gl.uniform3fv(LIT.u('uLip'), r.lip);
         gl.uniform3fv(LIT.u('uLipstick'), r.lipstick);
@@ -1040,6 +1429,7 @@ export function createFigureLayer(gl, { half = false } = {}) {
         gl.uniform3fv(LIT.u('uMouthA'), r.mouthA || [0, 0, 0]);
         gl.uniform3fv(LIT.u('uMouthB'), r.mouthB || [0, 0, 0]);
         gl.uniform1f(LIT.u('uBlink'), r.blink || 0);
+        gl.uniform1f(LIT.u('uBlink2'), r.blink2 || 0);
         gl.uniform1f(LIT.u('uFaceUp'), r.faceUp || 0);
         gl.uniform1f(LIT.u('uRealEye'), r.realEye ? 1 : 0);
         gl.uniform2fv(LIT.u('uGaze'), r.gaze || [0, 0]);

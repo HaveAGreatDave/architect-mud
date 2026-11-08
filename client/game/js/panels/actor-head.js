@@ -272,7 +272,26 @@ export function hairlineAt(x, z, line = HAIRLINE) {
   const p0 = k(i - 1), p1 = k(i), p2 = k(i + 1), p3 = k(i + 2);
   return 0.5 * (2 * p1 + (-p0 + p2) * t + (2 * p0 - 5 * p1 + 4 * p2 - p3) * t * t + (-p0 + 3 * p1 - 3 * p2 + p3) * t * t * t);
 }
-export const HAIRLINE_GLSL = `const float HL[13] = float[13](${HAIRLINE.map((v) => v.toFixed(3)).join(', ')});
+// The skullet (hair style 5): the dome bald, the hair a horseshoe from ear to ear round the back and
+// long down it. 1 where there's hair over the scalp, 0 on the bald, by height on the skull's ellipsoid
+// and the angle from the brow over the crown (0) to the nape (180).
+export function skulletHair(x, y, z) {
+  const qy = (y - 1.655) / 0.097, qz = (z - ZC) / 0.101, th = Math.atan2(qy, qz) * 180 / Math.PI;
+  return Math.max(1 - sstep(0.26, 0.36, qy), sstep(136, 150, th));
+}
+export const HAIRLINE_GLSL = `float skulletHair(vec3 r) {
+  float qy = (r.y - 1.655) / 0.097, qz = (r.z - (${ZC.toFixed(3)})) / 0.101, th = degrees(atan(qy, qz));
+  return max(1.0 - smoothstep(0.26, 0.36, qy), smoothstep(136.0, 150.0, th));
+}
+// how much of the skullet's scalp shows hair: the line between it and the bald wanders, and across it the
+// hair thins a fleck at a time, as a balding man's does
+float skulletPaint(vec3 r, float seed) {
+  float h = fract(sin(dot(floor(r * 1400.0), vec3(12.9898, 78.233, 37.719)) + seed) * 43758.5453);
+  float k = skulletHair(r + vec3(0.0, 0.012 * (sin(r.x * 140.0 + r.z * 90.0) * 0.5 + sin(r.z * 230.0 - r.x * 60.0) * 0.3), 0.0));
+  // never on the forehead: the horseshoe starts in front of the ears
+  return clamp((k * 1.25 - h) * 5.0, 0.0, 1.0) * smoothstep(0.0, 0.15, k) * (1.0 - smoothstep(0.03, 0.055, r.z));
+}
+const float HL[13] = float[13](${HAIRLINE.map((v) => v.toFixed(3)).join(', ')});
 const float HLS[13] = float[13](${HAIRLINE_SCULPT.map((v) => v.toFixed(3)).join(', ')});
 float hairlineSculpt(vec3 r) {
   float u = atan(abs(r.x), r.z - (${ZC.toFixed(3)})) / 3.14159265 * 12.0;
@@ -454,7 +473,7 @@ export function headMesh(lv = 0, style = 'real') {
 // A shell grown off the scalp above the hairline, thinning to nothing at its edge so it meets the
 // skin instead of standing off it like a helmet. Styles: 0 cropped, 1 neat and parted, 2 tousled,
 // 3 long, 4 a quiff over cut sides.
-export const HAIR_STYLES = 5;
+export const HAIR_STYLES = 6;
 const _hair = [];
 // `sculpt` fits the sculpted head and its hairline, and leaves the volume to figure.js's locks.
 export function hairMesh(style, lv = 0, sculpt = false) {
@@ -463,11 +482,13 @@ export function hairMesh(style, lv = 0, sculpt = false) {
   const L = HEAD_LEVELS[lv], G = grid(lv, sculpt ? 'sculpt' : 'real'), M = builder(), n = G.n, line = sculpt ? HAIRLINE_SCULPT : HAIRLINE;
   const shell = (p, nn) => {
     const ax = Math.abs(p[0]);
-    let T = [0.0032, 0.0042, 0.008, 0.007, 0.011][style];
+    let T = [0.0032, 0.0042, 0.008, 0.007, 0.011, 0.006][style];
     if (style === 2) T += 0.007 * vnoise3(p[0] * 55, p[1] * 55, p[2] * 55 + 3);
     if (style === 3) T += 0.004 * vnoise3(p[0] * 40, p[1] * 40, p[2] * 40 + 9);
     let thin = 0;
-    if (sculpt) T = 0.0045;
+    // a skullet's shell lies flat on the bald dome, where the paint makes it skin
+    if (style === 5) T = sculpt ? 0.0012 : 0.0009 + (T - 0.0009) * skulletHair(p[0], p[1], p[2]);
+    else if (sculpt) T = 0.0045;
     else if (style === 4) {
       thin = Math.max(sstep(0.04, 0.05, ax) * (1 - sstep(1.708, 1.722, p[1])), sstep(-0.02, -0.07, p[2]) * (1 - sstep(1.63, 1.66, p[1])));
       T = T + (0.0016 - T) * thin;

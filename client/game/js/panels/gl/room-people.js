@@ -13,7 +13,7 @@
 // one to compare.
 
 import { actorBake, actorOutfit, actorSkinAt, actorSkinMix, actorClipFace, actorStrideM, ACTOR_CLIPS, ACTOR_IDLES, ACTOR_IDLE_SLOT, ACTOR_ACTS, ACTOR_MAT, ACTOR_ROOM_CLIPS } from '../actor3d.js';
-import { buildFigure, figureKey, figureGear, somaOf, FIGURE_FACIAL, FIG_SLOT, FIGURE_BONES, FIGURE_BONE, SCULPT_BUILDS } from '../figure.js';
+import { buildFigure, figureKey, figureGear, figureFabric, mutationLook, wildMutations, somaOf, FIGURE_FACIAL, FIG_SLOT, FIG_FABRIC, FIGURE_XBONES, FIGURE_BONE_COUNT, FIGURE_BONES, FIGURE_BONE, SCULPT_BUILDS, FIGURE_CROWN } from '../figure.js';
 import { createBatch, vtx, lin, MAT } from './ballpark-mesh.js';
 
 let bake = null;
@@ -52,6 +52,8 @@ const SHIRTS = [[200, 196, 184], [150, 160, 170], [120, 60, 50], [90, 110, 90], 
 // The Thornwarren's: reds and earth for the cloth (the Actor Lab's order dress), skin tints and amber
 // eyes from the changes, pigment for the marks (ash, ochre, the order's green, old blood) and linen
 // for the wraps
+// the accent a person's mutations share (gl/figure-hd.js uMutC): teal, violet, amber, jade, coral, cobalt
+const MUT_ACCENT = [[40, 170, 170], [140, 90, 210], [235, 160, 40], [60, 180, 110], [240, 110, 90], [60, 110, 220]];
 const WILD = {
   cloak: [[150, 34, 30], [120, 26, 30], [170, 50, 34], [100, 22, 34]],
   tunic: [[120, 96, 64], [96, 80, 60], [140, 110, 70], [80, 64, 50], [110, 70, 50]],
@@ -100,25 +102,36 @@ function lookOf(id, level, dress = '', sculpt = false, sex = '', figure = null) 
   put(FIG_SLOT.skin, skin, MAT.MATTE); put(FIG_SLOT.face, skin, MAT.MATTE); put(FIG_SLOT.ear, skin, MAT.MATTE); put(FIG_SLOT.neck, skin, MAT.MATTE);
   put(FIG_SLOT.top, top, SURF[f.mat[0]] ?? MAT.CLOTH); put(FIG_SLOT.collar, top, SURF[f.mat[0]] ?? MAT.CLOTH);
   put(FIG_SLOT.legs, legs, SURF[f.mat[1]] ?? MAT.CLOTH); put(FIG_SLOT.shoes, shoes, SURF[f.mat[2]] ?? MAT.LEATHER);
+  // what each is made of (figure.js figureFabric), slots 60 to 62; a settled look may name them
+  const fb = figureFabric([R(60), R(61), R(62)], f.cut, wild), fab = new Float32Array(20);
+  const FAB_SURF = { [FIG_FABRIC.leather]: MAT.LEATHER, [FIG_FABRIC.rubber]: MAT.GLOSS, [FIG_FABRIC.quilt]: MAT.SATIN };
+  const fabOf = (slot, kind) => { const k = FIG_FABRIC[kind] ?? kind; fab[slot] = k; if (FAB_SURF[k] != null) surf[slot] = FAB_SURF[k]; };
+  fabOf(FIG_SLOT.top, fg?.fabric_top ?? fb.top); fabOf(FIG_SLOT.collar, fg?.fabric_top ?? fb.top);
+  fabOf(FIG_SLOT.legs, fg?.fabric_legs ?? fb.legs); fabOf(FIG_SLOT.shoes, fg?.fabric_shoes ?? fb.shoes);
+  if (fb.cloak != null) fabOf(FIG_SLOT.cloak, fb.cloak);
   put(FIG_SLOT.hair, hair, MAT.SATIN); put(FIG_SLOT.card, hair, MAT.SATIN);
   put(FIG_SLOT.eye, skin, MAT.MATTE); put(FIG_SLOT.lid, skin, MAT.MATTE);
   // the gear's leather and the pads, from a short list each, and the gloves'
   const leather = c(pickOf(GEAR_LEATHER, 23)), pad = c(pickOf(GEAR_PADS, 24)), glove = c(pickOf(GEAR_LEATHER, 25));
   put(FIG_SLOT.gear, leather, MAT.LEATHER); put(FIG_SLOT.pad, pad, MAT.SATIN);
   // a shirt under a vest, a cloak, horn and bone, and the one blue a Wildblood wears: salvage
-  put(FIG_SLOT.shirt, c(fg?.shirt ?? pickOf(SHIRTS, 33)), MAT.CLOTH); put(FIG_SLOT.cloak, c(pickOf(WILD.cloak, 34)), MAT.CLOTH);
+  put(FIG_SLOT.shirt, c(fg?.shirt ?? pickOf(SHIRTS, 33)), MAT.CLOTH); put(FIG_SLOT.cloak, c(pickOf(WILD.cloak, 34)), surf[FIG_SLOT.cloak] === MAT.LEATHER ? MAT.LEATHER : MAT.CLOTH);
   put(FIG_SLOT.horn, c(pickOf(WILD.horn, 35)), MAT.SATIN); put(FIG_SLOT.salvage, c([58, 110, 190]), MAT.GLOSS);
   const g0 = figureGear(R), style = fg?.hair_style ?? (soft ? pickOf([3, 3, 1, 4], 55) : f.face?.hairStyle ?? 0);
   const gear = wild ? { belt: true, strap: g0.strap, pouch: true, pads: false, gloves: false } : fg?.gear === false ? { belt: false } : g0;
   // their changes, a Gift asked for or a Lesson not (docs/lore-wildblood.md): one or two each
   const body = wild ? { mighty: R(36) < 0.35 ? (R(37) < 0.5 ? 'L' : 'R') : '', thorn: R(38) < 0.3, horns: R(39) < 0.3, claws: R(40) < 0.35, teeth: R(41) < 0.6, goggles: R(42) < 0.25 } : null;
   if (body && !body.mighty && !body.thorn && !body.horns && !body.claws) body.claws = true;
+  // their mutations (figure.js MUTATION_LOOK): a Wildblood rolls one or two, slots 63 to 65; a settled
+  // look names its own (flags.figure.mutations), which replace the roll
+  const muts = fg?.mutations || figure?.mutations || (wild ? wildMutations([R(63), R(64), R(65)]) : []), ml = mutationLook(muts);
+  const bodyM = Object.keys(ml.body).length ? { ...(body || {}), ...ml.body } : body;
   // a sculpted face's brows, mouth and facial hair: slots 47 to 51
   let fw = R(47) * FACIAL_ROLL.reduce((n, c) => n + c[1], 0), rolled = 'clean';
   for (const c of FACIAL_ROLL) { fw -= c[1]; if (fw <= 0) { rolled = c[0]; break; } }
   const fl = facialLook(!sculpt || soft ? 'clean' : fg ? fg.facial ?? (fg.beard ? 'stubble' : 'clean') : rolled);
   o = {
-    key: { cut: f.cut, style, level, gear, body, sculpt, head: sculptHead, build, weight, beard: fl.beardMesh }, age, col, beardA: fl.beardA, beardB: fl.beardB, faceV: new Float32Array([fg?.brow ?? (soft ? 0.5 : 0.75 + 0.55 * R(48)), fg?.mouth ?? 0.88 + 0.22 * R(49), fg?.beard ?? fl.stubble * (0.8 + 0.4 * R(51)), soft ? 1 : 0]), smile: fg?.smile || 0, trim: new Float32Array(fg?.trim ? c(fg.trim) : [0.02, 0.02, 0.02]), surf, gloves: gear.gloves, glove: new Float32Array(glove),
+    mut: ml.paint, mutCol: new Float32Array(c(fg?.mut_accent ?? pickOf(MUT_ACCENT, 69))), key: { cut: f.cut, style, level, gear, body: bodyM, sculpt, head: sculptHead, build, weight, beard: fl.beardMesh }, age, col, beardA: fl.beardA, beardB: fl.beardB, faceV: new Float32Array([fg?.brow ?? (soft ? 0.5 : 0.75 + 0.55 * R(48)), fg?.mouth ?? 0.88 + 0.22 * R(49), fg?.beard ?? fl.stubble * (0.8 + 0.4 * R(51)), soft ? 1 : 0]), smile: fg?.smile || 0, trim: new Float32Array(fg?.trim ? c(fg.trim) : [0.02, 0.02, 0.02]), surf, fab, gloves: gear.gloves, glove: new Float32Array(glove),
     wild, mark: Math.floor(R(43) * 4), markCol: new Float32Array(c(pickOf(WILD.mark, 44))), wrapCol: new Float32Array(c(pickOf(WILD.wrap, 45))),
     face: new Float32Array([f.face?.layout ?? 0, sculpt && !soft ? 0 : f.face?.makeup ?? 0, style, rand(id)(5) * 50]),
     lip: new Float32Array(sculpt ? skin.map((v, j) => v * [0.8, 0.6, 0.55][j]) : c(f.face?.lip || f.skin)), lipstick: new Float32Array(c(f.face?.lipstick || f.skin)), iris: new Float32Array(c(f.face?.iris || [60, 40, 30])),
@@ -148,7 +161,59 @@ export const actClip = (act, pose) => ACTOR_ACTS[act]?.[POSE_KEY[pose]] || null;
 export const clipHold = (name) => clipOnce(name) || Math.min(14, Math.max(8, 2 * (CLIP_DUR[name] || 6)));
 // Seconds a clip's cycle takes.
 export const clipDur = (name) => CLIP_DUR[name] || 6;
-const NBONE = FIGURE_BONES.length;
+const NBONE = FIGURE_BONE_COUNT;
+// The grown bones (figure.js FIGURE_XBONES), posed off their parents after the clip and the stance:
+// each is its parent's skin matrix, then to its joint, turned, scaled, and back from where it was modelled.
+const XPARENT = FIGURE_XBONES.map((x) => FIGURE_BONE[x.parent]);
+function mul4(a, b) { const o = new Array(16); for (let c = 0; c < 4; c++) for (let r = 0; r < 4; r++) o[c * 4 + r] = a[r] * b[c * 4] + a[4 + r] * b[c * 4 + 1] + a[8 + r] * b[c * 4 + 2] + a[12 + r] * b[c * 4 + 3]; return o; }
+// Ry · Rx · Rz, column-major, scaled by k
+function turn4(yaw, pitch, roll, k) {
+  const cy = Math.cos(yaw), sy = Math.sin(yaw), cx = Math.cos(pitch), sx = Math.sin(pitch), cz = Math.cos(roll), sz = Math.sin(roll);
+  const m = [cy * cz + sy * sx * sz, cx * sz, -sy * cz + cy * sx * sz, 0, -cy * sz + sy * sx * cz, cx * cz, sy * sz + cy * sx * cz, 0, sy * cx, -sx, cy * cx, 0, 0, 0, 0, 1];
+  for (let i = 0; i < 11; i++) if (i % 4 !== 3) m[i] *= k;
+  return m;
+}
+// an affine 4×4's inverse (column-major)
+function inv4(m) {
+  const a = m[0], b = m[4], c = m[8], d = m[1], e = m[5], f = m[9], g = m[2], h = m[6], k = m[10];
+  const A = e * k - f * h, Bq = -(d * k - f * g), C = d * h - e * g, det = a * A + b * Bq + c * C || 1e-9;
+  const i00 = A / det, i01 = -(b * k - c * h) / det, i02 = (b * f - c * e) / det;
+  const i10 = Bq / det, i11 = (a * k - c * g) / det, i12 = -(a * f - c * d) / det;
+  const i20 = C / det, i21 = -(a * h - b * g) / det, i22 = (a * e - b * d) / det;
+  const tx = m[12], ty = m[13], tz = m[14];
+  return [i00, i10, i20, 0, i01, i11, i21, 0, i02, i12, i22, 0, -(i00 * tx + i01 * ty + i02 * tz), -(i10 * tx + i11 * ty + i12 * tz), -(i20 * tx + i21 * ty + i22 * tz), 1];
+}
+const T4 = (p) => [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, p[0], p[1], p[2], 1];
+// a second head blinks on its own clock
+const blinkOf = (t, R0) => { const every = 4.1 + 2.3 * R0(67), b = (t + R0(68) * 9) % every; return b < 0.16 ? Math.sin((b / 0.16) * Math.PI) : 0; };
+const hash1 = (n) => { const x = Math.sin(n) * 43758.5453; return x - Math.floor(x); };
+function growBones(S, t, seed) {
+  const out = S.slice();
+  FIGURE_XBONES.forEach((x, i) => {
+    let yaw = x.yaw || 0, pitch = x.pitch || 0, roll = x.roll || 0;
+    if (x.move === 'look') {
+      // a second head looks about on its own clock: a glance every couple of seconds, eased
+      const u = t + seed * 5, g = Math.floor(u / 2.4), e = Math.min(1, (u % 2.4) / 0.35), k = e * e * (3 - 2 * e);
+      const was = hash1(g * 12.9898 + seed * 78.2) - 0.5, now = hash1((g + 1) * 12.9898 + seed * 78.2) - 0.5;
+      yaw += (was + (now - was) * k) * 1.1; pitch = 0.06 * Math.sin(t * 0.7 + seed) - 0.05;
+    } else if (x.move === 'sway') {
+      roll += x.amp * Math.sin(t * 0.9 + x.ph + seed * 6); pitch += x.amp * 0.7 * Math.sin(t * 0.63 + x.ph * 1.3 + seed * 4);
+    } else if (x.move === 'flap') {
+      yaw += 0.07 * Math.sin(t * 0.8 + seed) * Math.sign(x.at[0]);
+    }
+    if (x.move === 'copy') {
+      // the source bone's motion relative to its own parent, laid on this one: a root is also moved
+      // from where it was modelled to where it sits, and turned there
+      const si = FIGURE_BONE[x.src], sp = FIGURE_BONES[si][1], rel = mul4(inv4(out[sp]), out[si]);
+      const off = x.from ? mul4(mul4(T4(x.at), turn4(yaw, pitch, roll, 1)), T4(x.from.map((v) => -v))) : null;
+      out[FIGURE_BONES.length + i] = mul4(out[XPARENT[i]], off ? mul4(off, rel) : rel);
+      return;
+    }
+    const m = mul4(mul4(T4(x.at), turn4(yaw, pitch, roll, x.k || 1)), T4((x.from || x.at).map((v) => -v)));
+    out[FIGURE_BONES.length + i] = mul4(out[XPARENT[i]], m);
+  });
+  return out;
+}
 // A build's stance, laid on the posed bones so it holds through every clip. Each turn is about a joint
 // where the pose has put it: the arms held off the body, the back bowed from the chest, and the head
 // brought most of the way back up to look ahead.
@@ -246,10 +311,14 @@ export function figurePeople(L, bodies, t = 0, { level: asked = 'hd', eye = null
     // the eyes settle on something for a couple of seconds, then flick to something else
     const look = Math.floor((t + R0(9) * 7) / (1.8 + 1.6 * R0(10))), gaze = body.gaze || [(R0(70 + (look % 24)) - 0.5) * 0.5, (R0(95 + (look % 24)) - 0.5) * 0.22];
     const every = 3.2 + 3.4 * R0(7), blinkAt = (t + R0(8) * 9) % every, blink = Math.max(blinkAt < 0.16 ? Math.sin((blinkAt / 0.16) * Math.PI) : 0, cf?.shut || 0);
-    const S0 = stance(plan ?actorSkinMix(plan.a, plan.pa, plan.b, plan.pb, plan.k) : actorSkinAt(clip, body.phase ?? (clip === 'walk' ? (body.walked || 0) / actorStrideM() : t / dur + rand(body.id)(3))), o.key, seated ? 0.3 : 1);
+    // `mix` is a host's own blend of two clips ({ a, pa, b, pb, k }), as the Zamboni's driver eases into a wave
+    const mx = body.mix;
+    const S0 = stance(mx ? actorSkinMix(mx.a, mx.pa, mx.b, mx.pb, mx.k) : plan ? actorSkinMix(plan.a, plan.pa, plan.b, plan.pb, plan.k) : actorSkinAt(clip, body.phase ?? (clip === 'walk' ? (body.walked || 0) / actorStrideM() : t / dur + rand(body.id)(3))), o.key, seated ? 0.3 : 1);
     const { O, AX, AY, AZ } = placeOf(L, body);
     // the head goes where the eyes go, and turns to whoever's watching when they come close
-    const { S, eyes } = lying ? { S: S0, eyes: gaze } : lookAround(S0, body, kind, O, AX, AY, AZ, eye, gaze, t);
+    const { S: S1, eyes } = lying ? { S: S0, eyes: gaze } : lookAround(S0, body, kind, O, AX, AY, AZ, eye, gaze, t);
+    // the grown bones, off the posed ones (only a mutated body has anything on them)
+    const S = o.key.body ? growBones(S1, t, R0(66)) : S1;
     // stood on the floor: the lowest sole point at zero, as the bake drops its frames. Lying, the feet are where
     // placeOf puts them, and a knee drawn up mustn't slide the whole body up the bed
     let drop = lying ? 0 : Infinity;
@@ -259,17 +328,21 @@ export function figurePeople(L, bodies, t = 0, { level: asked = 'hd', eye = null
       if (y < drop) drop = y;
     }
     if (!Number.isFinite(drop)) drop = 0;
+    // their height (flags.figure.height, or the Lab's pick), metres to the crown: the posed body scaled about
+    // the floor under it, or about the pelvis when they're sat or lying, so a tall man still sits on the chair
+    const hm = o.key.sculpt ? +(body.height || body.figure?.height || 0) : 0, hk = hm > 1 ? hm / FIGURE_CROWN : 1;
+    const piv = seated ? [S[0][12], S[0][13], S[0][14]] : [0, drop, 0];
     // each bone's 3×4, bind space into the room: placed (O + AX x + AY (y - drop) + AZ z) after its skin matrix
     const rows = new Float32Array(NBONE * 12);
-    for (let b = 0; b < NBONE; b++) {
-      const m = S[b];
+    for (let b = 0; b < Math.min(NBONE, S.length); b++) {
+      const m0 = S[b], m = hk === 1 ? m0 : m0.map((v, i) => (i === 12 || i === 13 || i === 14 ? hk * v + (1 - hk) * piv[i - 12] : i % 4 === 3 ? v : hk * v));
       for (let r = 0; r < 3; r++) {
         const o4 = b * 12 + r * 4;
         for (let c = 0; c < 4; c++) rows[o4 + c] = AX[r] * m[c * 4] + AY[r] * m[c * 4 + 1] + AZ[r] * m[c * 4 + 2];
         rows[o4 + 3] += O[r] - AY[r] * drop;
       }
     }
-    out.push({ key: o.key, rows, col: o.col, surf: o.surf, face: o.face, lip: o.lip, lipstick: o.lipstick, iris: o.iris, faceV: o.faceV, age: o.age, smile: o.smile, trim: o.trim, beardA: o.beardA, beardB: o.beardB,
+    out.push({ key: o.key, rows, col: o.col, surf: o.surf, fab: o.fab, mut: o.mut || 0, mutCol: o.mutCol, blink2: o.key.body?.head2 ? blinkOf(t + 1.7, R0) : 0, face: o.face, lip: o.lip, lipstick: o.lipstick, iris: o.iris, faceV: o.faceV, age: o.age, smile: o.smile, trim: o.trim, beardA: o.beardA, beardB: o.beardB,
       mouthA: [M?.open ?? cf?.open ?? 0, M?.wide ?? 0, M?.round ?? cf?.round ?? 0], mouthB: [M?.press ?? 0, M?.teeth ?? 0, M?.tongue ?? 0], blink: o.key.sculpt ? blink : 0, faceUp: faceUpOf(o.key), realEye: o.key.sculpt && o.key.level === 'hd', gaze: eyes, gloves: o.gloves, glove: o.glove, wild: o.wild, mark: o.mark, markCol: o.markCol, wrapCol: o.wrapCol });
   }
   return out;

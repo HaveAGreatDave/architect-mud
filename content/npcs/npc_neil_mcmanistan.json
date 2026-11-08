@@ -31,6 +31,64 @@
       "\"I have been here since ten. TEN. And I'm the one who's supposedly unreliable.\""
     ],
     "booze_habit": "embassy reserve",
+    "figure": {
+      "age": 0.4,
+      "beard": 1.35,
+      "brow": 1.15,
+      "build": "dadbod",
+      "cut": "flannel",
+      "fabric_legs": "denim",
+      "fabric_shoes": "canvas",
+      "fabric_top": "plaid",
+      "facial": "handlebar_patch",
+      "gear": false,
+      "hair": [
+        92,
+        66,
+        44
+      ],
+      "hair_style": 5,
+      "head": 1,
+      "height": 1.83,
+      "iris": [
+        96,
+        110,
+        120
+      ],
+      "legs": [
+        64,
+        84,
+        112
+      ],
+      "mouth": 0.95,
+      "shirt": [
+        26,
+        26,
+        30
+      ],
+      "shoes": [
+        150,
+        146,
+        136
+      ],
+      "skin": [
+        228,
+        166,
+        132
+      ],
+      "smile": 0,
+      "top": [
+        150,
+        30,
+        28
+      ],
+      "trim": [
+        150,
+        30,
+        28
+      ],
+      "weight": 0.7
+    },
     "preshow_drink": "embassy reserve",
     "studio_npc": true,
     "tangents": {
