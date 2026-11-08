@@ -18,6 +18,81 @@ import { GUT, flatOut, gutPhase, slugLine, tubeRun } from './downtown.js';
 // The hazard placard on Second Helpings' party wall. Baked here and not by `bakeSignText`, which
 // letters names: this is a label, black on safety yellow, and it never lights. Like that function
 // it bakes nothing during shape capture.
+// THE THORNWARREN KIT. One set of parts for every Wildblood building, so the town reads as one
+// hand in the comic manner: few big shapes, two tones each, and the ink-dark lashing doing the
+// line work. Local frame as the arms use it: F(x, y), +y toward the building's front.
+// Outside (the road, the wall's face) gets salvage, spikes and bone; inside gets cloth, fire and
+// children's things. No part here may carry lettering, and the only light is fire.
+
+// A scavenged panel of car or tank skin lashed on, facing `yaw`: the sheet, a rust band along its
+// foot and an ink strap across it. `tilt` leans it, because nothing salvaged hangs square.
+function swPlate(ctx, cam, F, lx, ly, w, z0, z1, yaw, seed, night, alpha, tilt = 0) {
+  const [px, py] = F(lx, ly);
+  draw3DBoxAt(ctx, cam, px, py, w, z0, z1, (seed & 1) ? 'ty_sw_rust' : 'ty_sw_iron', seed, night, alpha, false, yaw + tilt, w * 0.08);
+  draw3DBoxAt(ctx, cam, px, py, w * 1.02, z0, z0 + (z1 - z0) * 0.22, 'ty_sw_rust', seed + 1, night, alpha, false, yaw + tilt, w * 0.10);
+  const s = z0 + (z1 - z0) * 0.66;
+  draw3DBoxAt(ctx, cam, px, py, w * 1.06, s, s + (z1 - z0) * 0.07, 'ty_sw_ink', seed + 2, night, alpha, false, yaw + tilt, w * 0.12);
+}
+
+// A spike: a fat dark shank and a bone point. Few and big, so it reads at range as a wedge.
+function swSpike(ctx, cam, x, y, z0, len, r, seed, night, alpha, rot = 0, shank = 'ty_sw_iron') {
+  draw3DBoxAt(ctx, cam, x, y, r, z0, z0 + len * 0.62, shank, seed, night, alpha, false, rot);
+  draw3DBoxAt(ctx, cam, x, y, r * 0.55, z0 + len * 0.62, z0 + len * 0.86, shank, seed + 1, night, alpha, false, rot);
+  draw3DBoxAt(ctx, cam, x, y, r * 0.26, z0 + len * 0.86, z0 + len, 'ty_sw_bone', seed + 2, night, alpha, false, rot);
+}
+
+// A skull: a bone block with an ink brow-and-socket band on the face toward `yaw`.
+function swSkull(ctx, cam, x, y, z, s, sh, yaw, seed, night, alpha) {   // s: half-width (fh units), sh: height (h units)
+  draw3DBoxAt(ctx, cam, x, y, s, z, z + sh, 'ty_sw_bone', seed, night, alpha, true, yaw, s * 0.9);
+  draw3DBoxAt(ctx, cam, x, y, s * 0.80, z + sh * 0.44, z + sh * 0.66, 'ty_sw_ink', seed + 1, night, alpha, false, yaw, s * 0.96);
+}
+
+// A fire in a cut-down drum: the only light the town has. Smoke by day, a pool by night.
+function swFirePot(ctx, cam, x, y, z, r, h, seed, night, alpha, now) {
+  drawFacetDrum(ctx, cam, x, y, z, z + h * 0.20, r, r * 1.08, 8, alpha,
+    (f) => 'rgb(' + (70 + f.nl * 40 | 0) + ',' + (46 + f.nl * 24 | 0) + ',' + (34 + f.nl * 16 | 0) + ')', 'rgb(26,20,16)');
+  draw3DBoxAt(ctx, cam, x, y, r * 1.4, z + h * 0.20, z + h * 0.23, 'ty_sw_ember', seed, night, alpha, true);
+  glowPool(ctx, cam, x, y, z + h * 0.26, '255,150,64', 9, alpha * (night ? 0.7 : 0.22));
+  drawSmoke(ctx, cam, x, y, z + h * 0.26, '196,184,168', alpha * 0.35, now, seed + 3);
+}
+
+// Dyed cloth hung in strips from a line at `z`, across local x from `x0` to `x1` at depth `ly`.
+// Ochre, indigo and oxblood in turn: the colour inside the wall that the outside never gets.
+const SW_DYES = ['ty_sw_ochre', 'ty_sw_indigo', 'ty_sw_oxblood', 'ty_sw_cloth'];
+function swHangings(ctx, cam, F, x0, x1, ly, z, drop, yaw, n, seed, night, alpha) {
+  const [ax, ay] = F((x0 + x1) / 2, ly);
+  draw3DBoxAt(ctx, cam, ax, ay, Math.abs(x1 - x0) / 2, z, z + drop * 0.05, 'ty_sw_ink', seed, night, alpha, false, yaw, drop * 0.03);
+  for (let i = 0; i < n; i++) {
+    const t = (i + 0.5) / n, g = frac(seed * 3 + i);
+    const [sx, sy] = F(x0 + (x1 - x0) * t, ly);
+    draw3DBoxAt(ctx, cam, sx, sy, Math.abs(x1 - x0) / (n * 2.6), z - drop * (0.55 + g * 0.45), z,
+      SW_DYES[(seed + i) % SW_DYES.length], seed + 10 + i, night, alpha, false, yaw, drop * 0.02);
+  }
+}
+
+// A shared table with a bench down each side, its long axis on local x. Nobody sits at the head:
+// there is no head.
+function swTable(ctx, cam, F, lx, ly, len, yaw, h, fh, seed, night, alpha) {
+  const [tx, ty] = F(lx, ly);
+  draw3DBoxAt(ctx, cam, tx, ty, len, h * 0.16, h * 0.20, 'ty_sw_gate', seed, night, alpha, true, yaw, fh * 0.10);
+  for (const t of [-1, 1]) { const [lx2, ly2] = F(lx + t * len * 0.8, ly);
+    draw3DBoxAt(ctx, cam, lx2, ly2, fh * 0.02, 0, h * 0.16, 'ty_sw_ink', seed + 1 + t, night, alpha, false, yaw, fh * 0.08); }
+  for (const t of [-1, 1]) { const [bx, by] = F(lx, ly + t * fh * 0.20);
+    draw3DBoxAt(ctx, cam, bx, by, len, h * 0.08, h * 0.11, 'ty_sw_gate_dk', seed + 4 + t, night, alpha, true, yaw, fh * 0.04); }
+}
+
+// A child's swing: two lashed posts, a bar, two ropes and a plank seat. The most domestic object
+// the town owns, and it stands in the open where anyone coming through the gate can see it.
+function swSwing(ctx, cam, F, W3, lx, ly, yaw, h, fh, seed, night, alpha) {
+  const top = h * 0.46, span = fh * 0.16;
+  for (const t of [-1, 1]) { const [px, py] = F(lx + t * span, ly);
+    draw3DBoxAt(ctx, cam, px, py, fh * 0.02, 0, top, 'ty_sw_gate_dk', seed + t, night, alpha, false); }
+  const [bx, by] = F(lx, ly);
+  draw3DBoxAt(ctx, cam, bx, by, span * 1.15, top, top + h * 0.03, 'ty_sw_ink', seed + 3, night, alpha, false, yaw, fh * 0.02);
+  draw3DBoxAt(ctx, cam, bx, by, fh * 0.06, h * 0.12, h * 0.14, 'ty_sw_ochre', seed + 4, night, alpha, true, yaw, fh * 0.03);
+  for (const t of [-1, 1]) emitWire(ctx, cam, W3(lx + t * fh * 0.05, ly, top), W3(lx + t * fh * 0.05, ly, h * 0.14), 1, 'rgba(40,30,24,0.9)', alpha, { pull: 0 });
+}
+
 let _placard = null;
 function placardTex() {
   if (SHAPE_SINK) return null;
@@ -96,22 +171,30 @@ export const OUTPOST_ARMS = {
     draw3DBoxAt(ctx, cam, dx, dy, fh * 0.94, berm, mid, pal, seed + 1, night, alpha, false, 0.00);
     draw3DBoxAt(ctx, cam, dx, dy, fh * 0.86, berm, low, 'ty_thorn_dk', seed + 2, night, alpha, false, 0.34);
     draw3DBoxAt(ctx, cam, dx, dy, fh * 0.78, berm, crest, 'ty_thorn_dk', seed + 3, night, alpha, false, -0.42);
-    // 3) Two boles — the old growth, thick enough to have been here longer than the town.
-    for (const t of [-1, 1]) {
-      const [bx, by] = F(t * fh * 0.42, t * fh * 0.16);
-      drawFacetDrum(ctx, cam, bx, by, berm, mid, fh * 0.15, fh * 0.09, 7, alpha,
-        (f) => 'rgb(' + (28 + f.nl * 26 | 0) + ',' + (38 + f.nl * 30 | 0) + ',' + (26 + f.nl * 20 | 0) + ')', 'rgb(18,24,18)');
+    // 3) One bole — the old growth, thicker than the town is old. One, not two: a comic panel
+    //    wants one strong vertical per tile, not a forest.
+    { const t = (seed & 1) ? 1 : -1; const [bx, by] = F(t * fh * 0.46, t * fh * 0.14);
+      drawFacetDrum(ctx, cam, bx, by, berm, mid, fh * 0.17, fh * 0.10, 7, alpha,
+        (f) => 'rgb(' + (30 + f.nl * 34 | 0) + ',' + (40 + f.nl * 36 | 0) + ',' + (28 + f.nl * 24 | 0) + ')', 'rgb(12,16,12)'); }
+    // 4) SALVAGE IN THE TANGLE — what the town scavenged, wedged in and grown through: one panel
+    //    on two tiles in three, either face, leaning. Seeded per tile so a run of wall is a
+    //    patchwork, never a fence of identical plates. Nobody fixed it there; the thorn kept it.
+    if (seed % 3 !== 0) {
+      const side = (seed & 2) ? 1 : -1, g = frac(seed * 7);
+      swPlate(ctx, cam, F, (g - 0.5) * fh * 1.0, side * fh * 1.00, fh * (0.34 + g * 0.14),
+        berm * 0.4, berm + h * (0.48 + g * 0.22), faceYaw(E) + (side < 0 ? Math.PI : 0), seed + 50, night, alpha, (g - 0.5) * 0.5);
     }
-    // 4) THE CREST — spurs at four fixed stations, each a seeded height. Fixed stations (not
-    //    seeded positions) so neighbouring tiles interlock instead of leaving gaps; seeded
-    //    heights so the top line is never level. The pale tips are the only light tone in it.
-    for (const [i, lx] of [[0, -0.62], [1, -0.20], [2, 0.22], [3, 0.60]]) {
+    // 5) THE CREST — three FAT spikes at fixed stations, seeded heights and lean. Comic-sized, so
+    //    the line reads at range; fixed stations so neighbouring tiles interlock; the bone points
+    //    are the only light tone in the wall.
+    for (const [i, lx] of [[0, -0.56], [1, 0.02], [2, 0.58]]) {
       const g = frac(seed * 4 + i);
-      const [sx, sy] = F(lx * fh, (frac(seed * 4 + i + 40) - 0.5) * fh * 0.7);
-      const spur = crest + h * (0.06 + g * 0.30);
-      draw3DBoxAt(ctx, cam, sx, sy, fh * 0.045, low, spur, 'ty_thorn_dk', seed + 20 + i, night, alpha, false, g * 1.2);
-      draw3DBoxAt(ctx, cam, sx, sy, fh * 0.022, spur, spur + h * 0.07, 'ty_thorn_tip', seed + 30 + i, night, alpha, false, g * 1.2);
+      const [sx, sy] = F(lx * fh, (frac(seed * 4 + i + 40) - 0.5) * fh * 0.6);
+      swSpike(ctx, cam, sx, sy, low, (crest - low) + h * (0.42 + g * 0.40), fh * 0.11, seed + 20 + i * 3, night, alpha, g * 1.2, 'ty_thorn_dk');
     }
+    // 6) A skull on the middle spike, one tile in five. A trophy, kept: the road side of the argument.
+    if (seed % 5 === 0) { const [kx, ky] = F(0.02 * fh, (frac(seed * 4 + 41) - 0.5) * fh * 0.6);
+      swSkull(ctx, cam, kx, ky, crest + h * 0.10, fh * 0.07, h * 0.12, faceYaw(E), seed + 60, night, alpha); }
   },
   damwall(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E, name, board, pal, sign, F, W3, frontVis) {   // THE DAM (Deadwater) — the wall the region is named for not having any more.
     // A battered concrete face stepped back as it rises, buttress ribs down both flanks, rebar
@@ -235,12 +318,9 @@ export const OUTPOST_ARMS = {
         (f) => 'rgb(' + (58 + f.nl * 44 | 0) + ',' + (48 + f.nl * 36 | 0) + ',' + (34 + f.nl * 26 | 0) + ')', 'rgb(38,32,24)'); }
     draw3DBoxAt(ctx, cam, dx, dy, fh * 0.92, post, lintel, 'ty_sw_gate_dk', seed + 4, night, alpha, true);
     // 2) THE THORN grown over the frame — the same tangle as the wall, so the gate is visibly a
-    //    part of it rather than a hole cut in it. Yawed masses, never a clean arch.
-    draw3DBoxAt(ctx, cam, dx, dy, fh * 0.86, lintel, lintel + h * 0.30, 'ty_thorn', seed + 5, night, alpha, false, 0.28);
-    draw3DBoxAt(ctx, cam, dx, dy, fh * 0.70, lintel, lintel + h * 0.44, 'ty_thorn_dk', seed + 6, night, alpha, false, -0.36);
-    for (const [i, lx] of [[0, -0.44], [1, 0.10], [2, 0.50]]) { const g = frac(seed * 5 + i);
-      const [sx, sy] = F(lx * fh, (g - 0.5) * fh * 0.5);
-      draw3DBoxAt(ctx, cam, sx, sy, fh * 0.03, lintel + h * 0.30, lintel + h * (0.40 + g * 0.18), 'ty_thorn_tip', seed + 20 + i, night, alpha, false, g); }
+    //    part of it rather than a hole cut in it. Kept low, so the spike crown and the salvage read.
+    draw3DBoxAt(ctx, cam, dx, dy, fh * 0.70, lintel, lintel + h * 0.18, 'ty_thorn', seed + 5, night, alpha, false, 0.28);
+    draw3DBoxAt(ctx, cam, dx, dy, fh * 0.52, lintel, lintel + h * 0.26, 'ty_thorn_dk', seed + 6, night, alpha, false, -0.36, fh * 0.30);
     // 3) THE MASK RACK on the inboard post — a rail with the shift's masks hung along it, level
     //    and evenly spaced. The horror is on the road behind you; this is a coat hook.
     // ⚠ A RAIL AND FOUR MASKS HUNG FACING THE ROAD. With no `fd` the rail was a 0.84 fh square
@@ -249,11 +329,24 @@ export const OUTPOST_ARMS = {
       draw3DBoxAt(ctx, cam, rx, ry, fh * 0.30, h * 0.62, h * 0.66, 'ty_sw_gate_dk', seed + 30, night, alpha, false, faceYaw(E), fh * 0.02); }
     for (const [i, lx] of [[0, 0.50], [1, 0.66], [2, 0.82], [3, 0.98]]) { const [mx, my] = F(lx * fh, -fh * 0.34);
       draw3DBoxAt(ctx, cam, mx, my, fh * 0.055, h * 0.44, h * 0.62, 'ty_sw_mask', seed + 40 + i, night, alpha, false, faceYaw(E), fh * 0.015); }
-    // 4) One low fire in a pan by the post — warmth for a long shift, not a beacon.
-    { const [fx, fy] = F(-fh * 0.72, -fh * 0.40);
-      drawFacetDrum(ctx, cam, fx, fy, 0, h * 0.22, fh * 0.10, fh * 0.11, 7, alpha,
-        (f) => 'rgb(' + (64 + f.nl * 34 | 0) + ',' + (52 + f.nl * 26 | 0) + ',' + (40 + f.nl * 20 | 0) + ')', 'rgb(40,32,26)');
-      glowPool(ctx, cam, fx, fy, h * 0.24, '255,152,72', 8, alpha * (night ? 0.6 : 0.2)); }
+    // 4) THE ROAD FACE — salvage and menace, for the people arriving. A car's roof skin riveted
+    //    along the lintel's outer face, a crown of iron spikes over it, and a row of skulls
+    //    under the edge, evenly spaced. Evenly: somebody measured.
+    const yaw = faceYaw(E);
+    swPlate(ctx, cam, F, 0, fh * 0.98, fh * 0.90, post - h * 0.10, lintel + h * 0.04, yaw, seed + 70, night, alpha, 0.04);
+    for (const [i, lx] of [[0, -0.70], [1, -0.34], [2, 0.02], [3, 0.38], [4, 0.72]]) {
+      const g = frac(seed * 9 + i); const [sx, sy] = F(lx * fh, fh * 0.70);
+      swSpike(ctx, cam, sx, sy, lintel + h * 0.06, h * (0.46 + g * 0.24) * (i === 2 ? 1.35 : 1), fh * 0.085, seed + 80 + i * 3, night, alpha, (lx) * 0.5);
+    }
+    for (const [i, lx] of [[0, -0.48], [1, -0.16], [2, 0.16], [3, 0.48]]) { const [kx, ky] = F(lx * fh, fh * 1.04);
+      swSkull(ctx, cam, kx, ky, post - h * 0.24, fh * 0.055, h * 0.10, yaw, seed + 100 + i * 2, night, alpha); }
+    // 5) THE TOWN FACE — cloth, a bench and a fire, for the people on shift. A line of dyed rags
+    //    under the inner edge of the lintel, the shift's bench by the post, and the fire in a
+    //    cut-down drum: warmth for a long night, not a beacon.
+    swHangings(ctx, cam, F, -fh * 0.56, fh * 0.56, -fh * 0.16, post - h * 0.02, h * 0.26, yaw, 6, seed + 120, night, alpha);
+    { const [bx, by] = F(-fh * 0.50, -fh * 0.62);
+      draw3DBoxAt(ctx, cam, bx, by, fh * 0.20, h * 0.08, h * 0.15, 'ty_sw_gate_dk', seed + 130, night, alpha, true, yaw, fh * 0.06); }
+    { const [fx, fy] = F(-fh * 0.80, -fh * 0.42); swFirePot(ctx, cam, fx, fy, 0, fh * 0.10, h, seed + 140, night, alpha, now); }
   },
   sw_den(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E, name, board, pal, sign, F, W3, frontVis) {   // THE CHORUS' DEN (the Thornwarren) — the song house, and the only round thing
     // in the town: a drum of rammed earth half sunk into the ground under a conical hide roof with
@@ -275,6 +368,19 @@ export const OUTPOST_ARMS = {
     // 4) A low covered entrance porch, because the door is below ground level.
     { const [gx, gy] = F(0, fh * 0.94);
       draw3DBoxAt(ctx, cam, gx, gy, fh * 0.26, 0, h * 0.34, 'ty_sw_hide', seed + 8, night, alpha, true); }
+    // THE COMIC PASS: the inside of the town's argument. Two ink hoops lash the thatch so the cone
+    // reads as a drawn line; dyed cloth runs round the doorway on two poles; two hide drums stand
+    // by the door, waiting for the evening; the fire for the singers' supper is outside.
+    drawFacetDrum(ctx, cam, dx, dy, eave + (peak - eave) * 0.30, eave + (peak - eave) * 0.36, fh * 0.70, fh * 0.66, 12, alpha, () => 'rgb(26,18,14)', 'rgb(12,8,6)');
+    drawFacetDrum(ctx, cam, dx, dy, eave + (peak - eave) * 0.62, eave + (peak - eave) * 0.68, fh * 0.40, fh * 0.37, 12, alpha, () => 'rgb(26,18,14)', 'rgb(12,8,6)');
+    const yaw = faceYaw(E);
+    for (const t of [-1, 1]) { const [px, py] = F(t * fh * 0.46, fh * 1.04);
+      draw3DBoxAt(ctx, cam, px, py, fh * 0.025, 0, h * 0.52, 'ty_sw_gate_dk', seed + 30 + t, night, alpha, false); }
+    swHangings(ctx, cam, F, -fh * 0.46, fh * 0.46, fh * 1.04, h * 0.50, h * 0.22, yaw, 5, seed + 34, night, alpha);
+    for (const [i, lx] of [[0, -0.70], [1, -0.56]]) { const [bx, by] = F(lx * fh, fh * 0.92);
+      drawFacetDrum(ctx, cam, bx, by, 0, h * (0.16 + i * 0.05), fh * 0.08, fh * 0.08, 8, alpha,
+        (f) => 'rgb(' + (150 + f.nl * 50 | 0) + ',' + (112 + f.nl * 40 | 0) + ',' + (74 + f.nl * 28 | 0) + ')', 'rgb(26,18,14)'); }
+    { const [fx, fy] = F(fh * 0.72, fh * 1.04); swFirePot(ctx, cam, fx, fy, 0, fh * 0.09, h, seed + 40, night, alpha, now); }
   },
   sw_roofwalk(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E, name, board, pal, sign, F, W3, frontVis) {   // THE ROOFWALK (the Thornwarren) — not a building with a roof you can walk
     // on; a WALK that happens to be a building. A plank deck carried on posts above the height of
@@ -294,7 +400,13 @@ export const OUTPOST_ARMS = {
     // 4) THE SHADE — cloth on four spindly poles over the middle. A watch here is a long one.
     for (const tx of [-1, 1]) for (const ty of [-1, 1]) { const [sx, sy] = F(tx * fh * 0.44, ty * fh * 0.44);
       draw3DBoxAt(ctx, cam, sx, sy, fh * 0.025, deck1, shade, 'ty_sw_walk_dk', seed + 20 + tx + ty, night, alpha, false); }
-    draw3DBoxAt(ctx, cam, dx, dy, fh * 1.02, shade, shade + h * 0.04, 'ty_sw_cloth', seed + 24, night, alpha, true);
+    draw3DBoxAt(ctx, cam, dx, dy, fh * 1.02, shade, shade + h * 0.04, 'ty_sw_ochre', seed + 24, night, alpha, true);
+    // THE COMIC PASS: the shade is dyed ochre now, so the roofwalk reads from the gate as the
+    // town's one bright roof; dyed cloth hangs off both rails, and a fire burns in a drum on the
+    // deck for the people who sleep up here in the heat. FIXED SEEDS ONLY: this arm is ported
+    // (content/building_models/theroofwalk.json), and modeldiff holds a port to one shape.
+    for (const t of [-1, 1]) swHangings(ctx, cam, F, -fh * 0.44, fh * 0.44, t * fh * 0.44, shade, h * 0.18, faceYaw(E), 4, 320 + t * 5, night, alpha);
+    { const [fx, fy] = F(fh * 0.40, fh * 0.40); swFirePot(ctx, cam, fx, fy, deck1, fh * 0.07, h, 340, night, alpha, now); }
     // 5) The ladder up, on the entrance side.
     for (const t of [-1, 1]) { const [lx, ly] = F(t * fh * 0.14, fh * 0.92);
       draw3DBoxAt(ctx, cam, lx, ly, fh * 0.03, 0, deck1, 'ty_sw_walk_dk', seed + 30 + t, night, alpha, false); }
@@ -319,7 +431,11 @@ export const OUTPOST_ARMS = {
     emitWire(ctx, cam, W3(-fh * 0.94, -fh * 0.86, h * 0.61), W3(fh * 0.94, -fh * 0.86, h * 0.61), 1.2, 'rgba(70,58,46,0.9)', alpha, { pull: 0.02 });
     for (const [i, lx] of [[0, -0.62], [1, -0.20], [2, 0.22], [3, 0.64]]) {
       const g = frac(seed * 6 + i), [cx, cy] = F(lx * fh, -fh * 0.86);
-      draw3DBoxAt(ctx, cam, cx, cy, fh * 0.12, h * (0.30 - g * 0.08), h * 0.60, 'ty_sw_cloth', seed + 40 + i, night, alpha, false, faceYaw(E), fh * 0.008); }
+      draw3DBoxAt(ctx, cam, cx, cy, fh * 0.12, h * (0.30 - g * 0.08), h * 0.60, SW_DYES[(i + 3) % SW_DYES.length], seed + 40 + i, night, alpha, false, faceYaw(E), fh * 0.008); }
+    // THE COMIC PASS: a swing in the yard, and the fire the mothers sit up by. The washing above
+    // is now dyed, which is what it was all along; it was drawn undyed.
+    swSwing(ctx, cam, F, W3, fh * 0.66, fh * 0.98, faceYaw(E), h, fh, seed + 60, night, alpha);
+    { const [fx, fy] = F(-fh * 0.50, fh * 1.04); swFirePot(ctx, cam, fx, fy, 0, fh * 0.08, h, seed + 66, night, alpha, now); }
     // 3) One small high window and a door. The light behind it is on at every hour.
     if (frontVis) { const [wx, wy] = F(fh * 0.34, fh * 0.90);
       glowPool(ctx, cam, wx, wy, wallTop * 0.74, '255,214,164', 5, alpha * (night ? 0.5 : 0.18)); }
@@ -673,6 +789,10 @@ export const OUTPOST_ARMS = {
     { const [gx, gy] = F(fh * 0.18, fh * 0.94);
       draw3DBoxAt(ctx, cam, gx, gy, fh * 0.18, 0, wallTop * 0.60, 'ty_door', seed + 18, night, alpha, false);
       glowPool(ctx, cam, gx, gy, wallTop * 0.56, '255,206,152', 7, alpha * (night ? 0.44 : 0.14)); }
+    // THE COMIC PASS: herbs drying under the front eave in bunches (ochre and oxblood, never a
+    // label), and an ink band round the eave so the drum reads as drawn.
+    swHangings(ctx, cam, F, -fh * 0.70, -fh * 0.10, fh * 0.92, wallTop, h * 0.16, faceYaw(E), 5, seed + 30, night, alpha);
+    drawFacetDrum(ctx, cam, dx, dy, wallTop - h * 0.02, wallTop + h * 0.01, fh * 0.86, fh * 0.86, 10, alpha, () => 'rgb(26,18,14)', 'rgb(12,8,6)');
   },
   sw_kept(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E, name, board, pal, sign, F, W3, frontVis) {   // THE KEPT (the Thornwarren) — long-term care, and its shape is the argument:
     // a low ward wing wrapped around a SHADED COURTYARD, so everyone inside gets outside. The
@@ -696,6 +816,11 @@ export const OUTPOST_ARMS = {
     { const [tx, ty] = F(0, fh * 0.10);
       draw3DBoxAt(ctx, cam, tx, ty, fh * 0.24, h * 0.06, h * 0.14, 'ty_sw_water', seed + 30, night, alpha, true); }
     glowPool(ctx, cam, dx, dy, h * 0.40, '255,196,140', 11, alpha * (night ? 0.36 : 0.12));
+    // THE COMIC PASS: the court is where the kept sit out, so a shared table under the awning,
+    // and dyed cloth hung from the awning's front edge. FIXED SEEDS ONLY: this arm is ported
+    // (content/building_models/thekept.json), and modeldiff holds a port to one shape.
+    swTable(ctx, cam, F, 0, fh * 0.62, fh * 0.30, yaw, h, fh, 300, night, alpha);
+    swHangings(ctx, cam, F, -fh * 0.40, fh * 0.40, fh * 0.34, h * 0.72, h * 0.18, yaw, 5, 310, night, alpha);
   },
   sw_flesh(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E, name, board, pal, sign, F, W3, frontVis) {   // THE FLESHERY (the Thornwarren) — the Wildblood's own vat room, and it must
     // NOT be the Coldwater Clone Facility model: that one is a clean lab shell with a reactor dome,
@@ -711,7 +836,9 @@ export const OUTPOST_ARMS = {
       drawFacetDrum(ctx, cam, vx, vy, 0, top, fh * 0.22, fh * 0.21, 10, alpha,
         (f) => 'rgb(' + (64 + f.nl * 40 | 0) + ',' + (96 + f.nl * 56 | 0) + ',' + (76 + f.nl * 40 | 0) + ')', 'rgb(52,74,60)');
       drawRing(ctx, cam, vx, vy, top, fh * 0.225, 10, 'rgba(0,0,0,0.30)', 2, alpha);
-      glowPool(ctx, cam, vx, vy, top, '120,255,168', 7, alpha * (night ? 0.5 : 0.18));
+      // The vats are kept warm by a bed of coals under each, and that is the only light here.
+      // (It was a green glow, an electric colour in a town with no electricity.)
+      glowPool(ctx, cam, vx, vy, h * 0.06, '255,140,60', 6, alpha * (night ? 0.44 : 0.14));
     }
     // 2) The awning over them on four poles — the vats are worked outdoors, in shade.
     for (const tx of [-1, 1]) for (const ly of [0.40, 1.32]) { const [px, py] = F(tx * fh * 0.90, ly * fh);
@@ -743,6 +870,11 @@ export const OUTPOST_ARMS = {
     for (const [i, lx] of [[0, -0.42], [1, 0.42]]) { const [vx, vy] = F(lx * fh, fh * 0.94);
       draw3DBoxAt(ctx, cam, vx, vy, fh * 0.16, wallTop * 0.76, wallTop * 0.88, 'ty_sw_milk_dk', seed + 20 + i, night, alpha, false, yaw, fh * 0.03); }
     { const [gx, gy] = F(0, fh * 0.95); draw3DBoxAt(ctx, cam, gx, gy, fh * 0.20, h * 0.10, wallTop * 0.62, 'ty_door', seed + 24, night, alpha, false, yaw, fh * 0.03); }
+    // THE COMIC PASS: churning is done sitting down and in company, so a bench along the wall by
+    // the door, and cheesecloth hung to dry beside it.
+    { const [bx, by] = F(-fh * 0.60, fh * 1.00);
+      draw3DBoxAt(ctx, cam, bx, by, fh * 0.26, h * 0.07, h * 0.12, 'ty_sw_gate_dk', seed + 30, night, alpha, true, yaw, fh * 0.05); }
+    swHangings(ctx, cam, F, fh * 0.30, fh * 0.86, fh * 0.98, wallTop * 0.96, h * 0.20, yaw, 4, seed + 34, night, alpha);
   },
   sw_fire(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E, name, board, pal, sign, F, W3, frontVis) {   // THE LONG FIRE (the Thornwarren) — the town eats around an OPEN FIRE TRENCH,
     // so unlike Terminus' Long Table there is no roof over the middle at all: a long stone-lined
@@ -771,6 +903,14 @@ export const OUTPOST_ARMS = {
     // 4) A rack of split wood at the back, stacked. Somebody stacked it.
     { const [wx, wy] = F(fh * 0.86, -fh * 0.60);
       draw3DBoxAt(ctx, cam, wx, wy, fh * 0.24, 0, h * 0.34, 'ty_sw_gate_dk', seed + 18, night, alpha, true); }
+    // THE COMIC PASS: the long shared table beside the trench, and dyed cloth on a line between
+    // two poles over the benches, for shade at noon and colour at night. And a swing, because the
+    // children eat first and are done first.
+    swTable(ctx, cam, F, 0, fh * 0.80, fh * 0.40, yaw, h, fh, seed + 30, night, alpha);
+    for (const t of [-1, 1]) { const [px, py] = F(t * fh * 0.96, -fh * 0.70);
+      draw3DBoxAt(ctx, cam, px, py, fh * 0.025, 0, h * 0.62, 'ty_sw_gate_dk', seed + 36 + t, night, alpha, false); }
+    swHangings(ctx, cam, F, -fh * 0.96, fh * 0.96, -fh * 0.70, h * 0.60, h * 0.20, yaw, 8, seed + 40, night, alpha);
+    swSwing(ctx, cam, F, W3, fh * 0.80, fh * 0.80, yaw, h, fh, seed + 50, night, alpha);
   },
   sw_foundry(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E, name, board, pal, sign, F, W3, frontVis) {   // THE FOUNDRY (the Thornwarren) — where the plate comes from. Deliberately
     // not the Yards' Ferro model, which is a cupola-and-twin-chimneys industrial plant: this is an
@@ -778,7 +918,7 @@ export const OUTPOST_ARMS = {
     // quench trough by the door. It is small, and it does one thing.
     const post = h * 0.92, roof = h * 1.04, stack = h * 1.62;
     // 1) The shed: a roof on posts, open on the entrance side, walled at the back against the wind.
-    { const [bx, by] = F(0, -fh * 0.88); draw3DBoxAt(ctx, cam, bx, by, fh * 1.00, 0, post, pal, seed, night, alpha, false); }
+    { const [bx, by] = F(0, -fh * 0.88); draw3DBoxAt(ctx, cam, bx, by, fh * 1.00, 0, post, pal, seed, night, alpha, false, faceYaw(E), fh * 0.10); }   // a wall takes a depth: square, it filled the shed
     for (const tx of [-1, 1]) for (const ly of [-0.30, 0.70]) { const [px, py] = F(tx * fh * 0.86, ly * fh);
       draw3DBoxAt(ctx, cam, px, py, fh * 0.07, 0, post, 'ty_sw_plate', seed + 2 + tx + ly, night, alpha, false); }
     draw3DBoxAt(ctx, cam, dx, dy, fh * 1.06, post, roof, 'ty_sw_plate', seed + 8, night, alpha, true);
@@ -798,6 +938,20 @@ export const OUTPOST_ARMS = {
     { const [qx, qy] = F(fh * 0.20, fh * 0.86);
       draw3DBoxAt(ctx, cam, qx, qy, fh * 0.26, 0, h * 0.16, 'ty_sw_water', seed + 24, night, alpha, true);
       drawSmoke(ctx, cam, qx, qy, h * 0.16, '214,220,216', alpha * 0.4, now, seed + 24); }
+    // 5) SALVAGE AND MENACE — the comic pass. The back wall is skinned in scavenged panels, each
+    //    a different lean; the stack wears two ink bands; a row of spikes stands along the roof's
+    //    front edge, cut from the plate the shed makes. Finished plate leans in a rack by the door.
+    const yaw = faceYaw(E);
+    for (const [i, lx] of [[0, -0.56], [1, 0.02], [2, 0.58]]) {
+      swPlate(ctx, cam, F, lx * fh, -fh * 1.02, fh * 0.30, h * 0.10, h * (0.62 + frac(seed * 3 + i) * 0.22), yaw + Math.PI, seed + 40 + i * 3, night, alpha, (frac(seed + i) - 0.5) * 0.3);
+    }
+    { const [fx, fy] = F(-fh * 0.34, -fh * 0.34);
+      for (const z of [h * 1.20, h * 1.46]) draw3DBoxAt(ctx, cam, fx, fy, fh * 0.15, z, z + h * 0.05, 'ty_sw_ink', seed + 50, night, alpha, false); }
+    for (const [i, lx] of [[0, -0.84], [1, -0.28], [2, 0.28], [3, 0.84]]) { const [sx, sy] = F(lx * fh, fh * 0.98);
+      swSpike(ctx, cam, sx, sy, roof, h * (0.26 + frac(seed * 5 + i) * 0.16), fh * 0.06, seed + 60 + i * 3, night, alpha, lx); }
+    for (const [i, lx] of [[0, -0.70], [1, -0.56]]) {
+      swPlate(ctx, cam, F, lx * fh, fh * 1.06, fh * 0.20, 0, h * 0.40, yaw, seed + 80 + i * 3, night, alpha, 0.25 + i * 0.1);
+    }
   },
   sw_kiln(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E, name, board, pal, sign, F, W3, frontVis) {   // THE KILN (the Thornwarren) — the town is built out of fired earth, so this
     // is where the town comes from. A pair of bottle kilns, which is a silhouette nothing else in
@@ -810,20 +964,29 @@ export const OUTPOST_ARMS = {
         (f) => 'rgb(' + (128 + f.nl * 54 | 0) + ',' + (82 + f.nl * 38 | 0) + ',' + (56 + f.nl * 28 | 0) + ')', 'rgb(88,54,36)');
       drawFacetDrum(ctx, cam, kx, ky, top * 0.52, top, fh * 0.38 * sc, fh * 0.11 * sc, 12, alpha,
         (f) => 'rgb(' + (120 + f.nl * 50 | 0) + ',' + (76 + f.nl * 36 | 0) + ',' + (52 + f.nl * 26 | 0) + ')', 'rgb(82,50,34)');
-      // Iron banding round the waist — a kiln that isn't banded comes apart.
-      drawRing(ctx, cam, kx, ky, top * 0.34, fh * 0.40 * sc, 12, 'rgba(0,0,0,0.36)', 2, alpha);
-      drawRing(ctx, cam, kx, ky, top * 0.52, fh * 0.385 * sc, 12, 'rgba(0,0,0,0.36)', 2, alpha);
-      // The stoking mouth at the base, and the heat off the throat.
+      // Iron banding round the waist — a kiln that isn't banded comes apart. Drawn as two solid
+      // ink hoops, which is the comic line doing double duty as the strap.
+      drawFacetDrum(ctx, cam, kx, ky, top * 0.32, top * 0.36, fh * 0.405 * sc, fh * 0.40 * sc, 12, alpha, () => 'rgb(26,18,14)', 'rgb(12,8,6)');
+      drawFacetDrum(ctx, cam, kx, ky, top * 0.50, top * 0.54, fh * 0.39 * sc, fh * 0.37 * sc, 12, alpha, () => 'rgb(26,18,14)', 'rgb(12,8,6)');
+      // The stoking mouth at the base, its door a salvaged panel propped open beside it, and the
+      // heat off the throat.
       { const [mx, my] = F(lx * fh, fh * 0.40 * sc);
         draw3DBoxAt(ctx, cam, mx, my, fh * 0.13 * sc, 0, h * 0.22, 'ty_sw_ember', seed + 10 + i, night, alpha, false);
-        glowPool(ctx, cam, mx, my, h * 0.16, '255,140,52', 8, alpha * (night ? 0.6 : 0.2)); }
+        glowPool(ctx, cam, mx, my, h * 0.16, '255,140,52', 8, alpha * (night ? 0.6 : 0.2));
+        swPlate(ctx, cam, F, lx * fh + fh * 0.24 * sc, fh * 0.42 * sc, fh * 0.11 * sc, 0, h * 0.26, faceYaw(E), seed + 14 + i * 3, night, alpha, 0.5); }
       drawSmoke(ctx, cam, kx, ky, top, '196,184,170', alpha * 0.7, now, seed + 20 + i);
       glowPool(ctx, cam, kx, ky, top, '255,158,70', 7, alpha * (night ? 0.42 : 0.12));
     }
     // The drying yard between them — racks of unfired ware waiting its turn.
     { const [yx, yy] = F(0, fh * 1.06);
       draw3DBoxAt(ctx, cam, yx, yy, fh * 0.70, 0, h * 0.08, 'ty_sw_kiln_dk', seed + 30, night, alpha, true);
-      draw3DBoxAt(ctx, cam, yx, yy, fh * 0.60, h * 0.08, h * 0.24, 'ty_sw_kiln_dk', seed + 31, night, alpha, true); }
+      draw3DBoxAt(ctx, cam, yx, yy, fh * 0.60, h * 0.08, h * 0.24, 'ty_sw_kiln_dk', seed + 31, night, alpha, true);
+      // The ware itself on the rack: pots, fat and round, in a row, and the small ones at the
+      // end are a child's, lopsided, fired with the rest because they always are.
+      for (const [i, lx, r] of [[0, -0.48, 0.09], [1, -0.24, 0.09], [2, 0.00, 0.09], [3, 0.24, 0.09], [4, 0.44, 0.05], [5, 0.56, 0.04]]) {
+        const [px, py] = F(lx * fh, fh * 1.06);
+        drawFacetDrum(ctx, cam, px, py, h * 0.24, h * 0.24 + h * r * 1.6, fh * r, fh * r * 0.62, 8, alpha,
+          (f) => 'rgb(' + (156 + f.nl * 50 | 0) + ',' + (96 + f.nl * 34 | 0) + ',' + (62 + f.nl * 24 | 0) + ')', 'rgb(26,18,14)'); } }
   },
   sw_water(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E, name, board, pal, sign, F, W3, frontVis) {   // THE SWEETWATER (the Thornwarren) — the clean well, and the reason the town
     // is where it is. A stone well head under a shingled canopy on four posts, a hand pump, and a
@@ -846,7 +1009,13 @@ export const OUTPOST_ARMS = {
       draw3DBoxAt(ctx, cam, px, py, fh * 0.20, h * 0.56, h * 0.60, 'ty_sw_plate', seed + 15, night, alpha, false); }
     { const [tx, ty] = F(-fh * 0.52, fh * 0.44);
       draw3DBoxAt(ctx, cam, tx, ty, fh * 0.22, 0, h * 0.16, 'ty_sw_water', seed + 18, night, alpha, true); }
-    glowPool(ctx, cam, dx, dy, h * 0.36, '160,220,224', 8, alpha * (night ? 0.22 : 0.08));
+    // THE COMIC PASS: water does not glow (it was a cold blue pool, the one non-fire light inside
+    // the wall). The well is where people wait their turn and talk, so a bench and a fire.
+    const yaw = faceYaw(E);
+    { const [bx, by] = F(fh * 0.52, fh * 0.74);
+      draw3DBoxAt(ctx, cam, bx, by, fh * 0.26, h * 0.07, h * 0.12, 'ty_sw_gate_dk', seed + 30, night, alpha, true, yaw, fh * 0.05); }
+    { const [fx, fy] = F(fh * 0.90, -fh * 0.60); swFirePot(ctx, cam, fx, fy, 0, fh * 0.08, h, seed + 34, night, alpha, now); }
+    swHangings(ctx, cam, F, -fh * 0.62, fh * 0.62, -fh * 0.62, post * 0.98, h * 0.16, yaw, 6, seed + 40, night, alpha);
   },
   sw_hound(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E, name, board, pal, sign, F, W3, frontVis) {   // THE HOUNDYARD (the Thornwarren) — building_type junkyard, but nobody here
     // is scrapping cars: it is the DOG YARD, and the salvage is what the runs are built out of. A
@@ -855,7 +1024,9 @@ export const OUTPOST_ARMS = {
     const wall = h * 0.54, pen = h * 0.44, roof = h * 0.52;
     // 1) THE SPINE — one long back wall of mismatched plate that every run hangs off.
     { const [bx, by] = F(0, -fh * 0.86);
-      draw3DBoxAt(ctx, cam, bx, by, fh * 1.10, 0, wall, 'ty_sw_plate', seed, night, alpha, true); }
+      // ⚠ A WALL, so it takes a depth. With no 'fd' it was a 2.2 fh square slab roofing the whole
+      //   yard, pens and all (found 2026-11-07).
+      draw3DBoxAt(ctx, cam, bx, by, fh * 1.10, 0, wall, 'ty_sw_plate', seed, night, alpha, true, faceYaw(E), fh * 0.08); }
     // 2) THE PENS — four, identical, each roofed, each with a gate. Identical is the point.
     for (let i = 0; i < 4; i++) {
       const [px, py] = F((-0.78 + i * 0.52) * fh, -fh * 0.34);
@@ -873,6 +1044,26 @@ export const OUTPOST_ARMS = {
     // 4) THE FEED STORE — the one lockable thing on the tile, because meat is worth more than dogs.
     { const [sx, sy] = F(fh * 0.92, -fh * 0.30);
       draw3DBoxAt(ctx, cam, sx, sy, fh * 0.30, 0, h * 0.60, 'ty_sw_plate', seed + 30, night, alpha, true); }
+    // 5) SALVAGE AND MENACE — the comic pass. The spine's back face is a patchwork of scavenged
+    //    panels at odd leans, and a comb of spikes runs along its top: the yard faces the wastes.
+    //    The pen fronts are cab doors on their hinges. A bone rack by the store is the dogs'
+    //    dinner, not a trophy, and it is stacked by size.
+    //    Every number here is fixed, not seeded: this arm is ported (content/building_models/
+    //    thehoundyard.json), and a port holds one shape, so a seeded lean would fail modeldiff.
+    const yaw = faceYaw(E);
+    for (const [i, lx] of [[0, -0.66], [1, 0.00], [2, 0.66]]) {
+      swPlate(ctx, cam, F, lx * fh, -fh * 0.96, fh * 0.34, h * 0.04, wall + h * 0.04 * i, yaw + Math.PI, 40 + i * 3, night, alpha, (frac(7.3 + i * 0.37) - 0.5) * 0.3); }
+    for (const [i, lx] of [[0, -0.92], [1, -0.46], [2, 0.00], [3, 0.46], [4, 0.92]]) { const [sx, sy] = F(lx * fh, -fh * 0.86);
+      swSpike(ctx, cam, sx, sy, wall, h * (0.26 + frac(3.1 + i * 0.61) * 0.14), fh * 0.06, 50 + i * 3, night, alpha, lx); }
+    for (let i = 0; i < 4; i++) {
+      swPlate(ctx, cam, F, (-0.78 + i * 0.52) * fh, -fh * 0.10, fh * 0.17, h * 0.04, pen * 0.86, yaw, 70 + i * 3, night, alpha, (i & 1) ? 0.06 : -0.06); }
+    { const [kx, ky] = F(fh * 0.92, fh * 0.06);
+      draw3DBoxAt(ctx, cam, kx, ky, fh * 0.22, 0, h * 0.16, 'ty_sw_bone', 90, night, alpha, true, yaw, fh * 0.08);
+      draw3DBoxAt(ctx, cam, kx, ky, fh * 0.16, h * 0.16, h * 0.24, 'ty_sw_bone', 91, night, alpha, true, yaw, fh * 0.06); }
+    // 6) The kennel-hand's fire by the ring, with a bench: somebody sits up with the whelps.
+    { const [fx, fy] = F(-fh * 0.66, fh * 0.70); swFirePot(ctx, cam, fx, fy, 0, fh * 0.09, h, 96, night, alpha, now);
+      const [bx, by] = F(-fh * 0.36, fh * 0.70);
+      draw3DBoxAt(ctx, cam, bx, by, fh * 0.14, h * 0.07, h * 0.13, 'ty_sw_gate_dk', 98, night, alpha, true, yaw, fh * 0.05); }
   },
   sw_merc(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E, name, board, pal, sign, F, W3, frontVis) {   // RINDLE'S (the Thornwarren) — the town's store, and it must not share the
     // Reach's Dry Goods false front: that is a frontier BOARDWALK building on a street, squared off
@@ -900,6 +1091,9 @@ export const OUTPOST_ARMS = {
       draw3DBoxAt(ctx, cam, hx, hy, fh * 0.03, h * 0.40, h * 0.56, 'ty_sw_plate', seed + 30, night, alpha, false);
       draw3DBoxAt(ctx, cam, hx, hy, fh * 0.14, h * 0.36, h * 0.40, 'ty_sw_plate', seed + 31, night, alpha, true, 0, fh * 0.06); }
     glowPool(ctx, cam, dx, dy, wallTop * 0.6, '255,204,146', 9, alpha * (night ? 0.36 : 0.12));
+    // THE COMIC PASS: the stock is the sign. Dyed cloth for sale hangs from the awning's front
+    // edge, so the store is the most colourful thing on the street, and not one word says so.
+    swHangings(ctx, cam, F, -fh * 0.86, fh * 0.86, fh * 1.52, h * 0.56, h * 0.24, faceYaw(E), 7, seed + 40, night, alpha);
   },
   sw_bath(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E, name, board, pal, sign, F, W3, frontVis) {   // THE BATHHOUSE (the Thornwarren) — an OPEN-AIR bathing pool with a screen
     // wall round it and a fire under the water at one end, which is a different building entirely
@@ -913,7 +1107,7 @@ export const OUTPOST_ARMS = {
     drawFacetDrum(ctx, cam, dx, dy, 0, h * 0.06, fh * 0.72, fh * 0.72, 12, alpha,
       (f) => 'rgb(' + (72 + f.nl * 40 | 0) + ',' + (100 + f.nl * 50 | 0) + ',' + (102 + f.nl * 46 | 0) + ')', 'rgb(50,72,74)');
     drawSmoke(ctx, cam, dx, dy, h * 0.10, '216,224,222', alpha * 0.65, now, seed + 2);
-    glowPool(ctx, cam, dx, dy, h * 0.10, '170,236,232', 12, alpha * (night ? 0.4 : 0.14));
+    // (No pool light: water does not glow. The firebox below is what lights the steam.)
     // 3) THE FIRE END — a stoke hole through the screen wall with the heat under the pool floor.
     { const [fx, fy] = F(0, -fh * 1.00);
       draw3DBoxAt(ctx, cam, fx, fy, fh * 0.22, 0, h * 0.26, 'ty_sw_ember', seed + 4, night, alpha, false);
@@ -924,6 +1118,10 @@ export const OUTPOST_ARMS = {
     // 4) A bench and pegs by the gap — clothes go somewhere, and somebody built a place for them.
     { const [bx, by] = F(fh * 0.52, fh * 0.96);
       draw3DBoxAt(ctx, cam, bx, by, fh * 0.26, h * 0.08, h * 0.14, 'ty_sw_gate_dk', seed + 8, night, alpha, true); }
+    // THE COMIC PASS: towels, dyed, on a line round the inside of the screen's mouth.
+    for (const t of [-1, 1]) { const [px, py] = F(t * fh * 0.70, fh * 0.80);
+      draw3DBoxAt(ctx, cam, px, py, fh * 0.025, 0, h * 0.62, 'ty_sw_gate_dk', seed + 20 + t, night, alpha, false); }
+    swHangings(ctx, cam, F, -fh * 0.70, fh * 0.70, fh * 0.80, h * 0.60, h * 0.22, faceYaw(E), 6, seed + 24, night, alpha);
   },
   sw_depot(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E, name, board, pal, sign, F, W3, frontVis) {   // THE DEADLEG (the Thornwarren) — the haulage yard, and the name says what
     // it is: the end of a road that goes nowhere else. An open yard rather than a shed, with a
@@ -935,8 +1133,9 @@ export const OUTPOST_ARMS = {
     // 2) THE OFFICE — one small hut on the ramp, which is the whole built portion of the depot.
     { const [ox, oy] = F(-fh * 0.66, -fh * 0.50);
       draw3DBoxAt(ctx, cam, ox, oy, fh * 0.36, ramp, office, pal, seed + 4, night, alpha, false);
-      draw3DBoxAt(ctx, cam, ox, oy, fh * 0.44, office, office + h * 0.10, 'ty_sw_plate', seed + 5, night, alpha, true);
-      glowPool(ctx, cam, ox, oy, office * 0.86, '255,200,146', 6, alpha * (night ? 0.42 : 0.14)); }
+      draw3DBoxAt(ctx, cam, ox, oy, fh * 0.44, office, office + h * 0.10, 'ty_sw_plate', seed + 5, night, alpha, true); }
+    // The office's light is the fire at its door, not a lamp in it: fire is the only light here.
+    { const [fx, fy] = F(-fh * 0.24, -fh * 0.30); swFirePot(ctx, cam, fx, fy, ramp, fh * 0.08, h, seed + 6, night, alpha, now); }
     // 3) THE THORN SCREEN down the windward flank — the wall's own material, put to a dull use,
     //    which is the most Thornwarren thing on the tile.
     draw3DBoxAt(ctx, cam, dx, dy, fh * 0.30, ramp, ramp + h * 0.46, 'ty_thorn_dk', seed + 8, night, alpha, false, 0.30);
@@ -945,6 +1144,26 @@ export const OUTPOST_ARMS = {
       const [wx, wy] = F(lx * fh, fh * 0.58);
       drawFacetDrum(ctx, cam, wx, wy, ramp, ramp + h * 0.28, fh * 0.13, fh * 0.13, 9, alpha,
         (f) => 'rgb(' + (48 + f.nl * 26 | 0) + ',' + (44 + f.nl * 24 | 0) + ',' + (42 + f.nl * 22 | 0) + ')', 'rgb(30,28,28)'); }
+    // 5) THE DEAD LEG ITSELF — a scrapped rig's cab, half-sunk nose-down in the ramp at the yard's
+    //    mouth as its gatepost: the road ends here, and this is what ended on it. Rust body, an
+    //    ink windscreen, a bull bar of spikes and a skull on the grille. Its lamps are empty
+    //    sockets; only the column's running rigs carry headlamps.
+    const yaw = faceYaw(E);
+    { const [cx, cy] = F(fh * 0.70, fh * 0.98), lean = 0.22;
+      draw3DBoxAt(ctx, cam, cx, cy, fh * 0.30, 0, h * 0.62, 'ty_sw_rust', seed + 30, night, alpha, true, yaw + lean, fh * 0.22);
+      draw3DBoxAt(ctx, cam, cx, cy, fh * 0.31, h * 0.40, h * 0.56, 'ty_sw_ink', seed + 31, night, alpha, false, yaw + lean, fh * 0.20);
+      draw3DBoxAt(ctx, cam, cx, cy, fh * 0.32, h * 0.62, h * 0.66, 'ty_sw_iron', seed + 32, night, alpha, true, yaw + lean, fh * 0.23);
+      for (const [i, t] of [[0, -0.24], [1, 0.00], [2, 0.24]]) { const [sx, sy] = F(fh * (0.70 + t), fh * 1.24);
+        swSpike(ctx, cam, sx, sy, h * 0.04, h * 0.40, fh * 0.05, seed + 34 + i * 3, night, alpha, yaw + lean); }
+      const [kx, ky] = F(fh * 0.70, fh * 1.22);
+      swSkull(ctx, cam, kx, ky, h * 0.20, fh * 0.06, h * 0.11, yaw, seed + 46, night, alpha); }
+    // 6) Drivers wait here, so there is a bench in the lee of the screen, and a line of washing
+    //    — a driver's things, dyed, drying between runs.
+    swHangings(ctx, cam, F, -fh * 0.90, -fh * 0.20, fh * 0.20, ramp + h * 0.40, h * 0.22, yaw, 5, seed + 50, night, alpha);
+    for (const lx of [-0.92, -0.18]) { const [px, py] = F(lx * fh, fh * 0.20);
+      draw3DBoxAt(ctx, cam, px, py, fh * 0.025, ramp, ramp + h * 0.43, 'ty_sw_gate_dk', seed + 56, night, alpha, false); }
+    { const [bx, by] = F(-fh * 0.40, fh * 0.02);
+      draw3DBoxAt(ctx, cam, bx, by, fh * 0.20, ramp + h * 0.06, ramp + h * 0.12, 'ty_sw_gate_dk', seed + 60, night, alpha, true, yaw, fh * 0.06); }
   },
   // ══ DEADWATER ═══════════════════════════════════════════════
   // The region that stopped. Two buildings and a dam, and the shared read on all three is that

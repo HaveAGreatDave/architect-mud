@@ -177,6 +177,167 @@
       "yaw": 0,
       "z0": 0.06,
       "z1": 0.14
+    },
+    {
+      "cx": 0,
+      "cy": 0.248,
+      "fd": 0.04,
+      "hw": 0.12,
+      "kind": "box",
+      "pal": "ty_sw_gate",
+      "roof": true,
+      "seed": 300,
+      "yaw": 0,
+      "z0": 0.16,
+      "z1": 0.2
+    },
+    {
+      "cx": -0.096,
+      "cy": 0.248,
+      "fd": 0.032,
+      "hw": 0.008,
+      "kind": "box",
+      "pal": "ty_sw_ink",
+      "roof": false,
+      "seed": 300,
+      "yaw": 0,
+      "z0": 0,
+      "z1": 0.16
+    },
+    {
+      "cx": 0.096,
+      "cy": 0.248,
+      "fd": 0.032,
+      "hw": 0.008,
+      "kind": "box",
+      "pal": "ty_sw_ink",
+      "roof": false,
+      "seed": 302,
+      "yaw": 0,
+      "z0": 0,
+      "z1": 0.16
+    },
+    {
+      "cx": 0,
+      "cy": 0.168,
+      "fd": 0.016,
+      "hw": 0.12,
+      "kind": "box",
+      "pal": "ty_sw_gate_dk",
+      "roof": true,
+      "seed": 303,
+      "yaw": 0,
+      "z0": 0.08,
+      "z1": 0.11
+    },
+    {
+      "cx": 0,
+      "cy": 0.328,
+      "fd": 0.016,
+      "hw": 0.12,
+      "kind": "box",
+      "pal": "ty_sw_gate_dk",
+      "roof": true,
+      "seed": 305,
+      "yaw": 0,
+      "z0": 0.08,
+      "z1": 0.11
+    },
+    {
+      "cx": 0,
+      "cy": 0.136,
+      "fd": 0.0054,
+      "hw": 0.16,
+      "kind": "box",
+      "pal": "ty_sw_ink",
+      "roof": false,
+      "scale": {
+        "fd": "h"
+      },
+      "seed": 310,
+      "yaw": 0,
+      "z0": 0.72,
+      "z1": 0.729
+    },
+    {
+      "cx": -0.128,
+      "cy": 0.136,
+      "fd": 0.0036,
+      "hw": 0.024615385,
+      "kind": "box",
+      "pal": "ty_sw_oxblood",
+      "roof": false,
+      "scale": {
+        "fd": "h"
+      },
+      "seed": 320,
+      "yaw": 0,
+      "z0": 0.554526687,
+      "z1": 0.72
+    },
+    {
+      "cx": -0.064,
+      "cy": 0.136,
+      "fd": 0.0036,
+      "hw": 0.024615385,
+      "kind": "box",
+      "pal": "ty_sw_cloth",
+      "roof": false,
+      "scale": {
+        "fd": "h"
+      },
+      "seed": 321,
+      "yaw": 0,
+      "z0": 0.57318831,
+      "z1": 0.72
+    },
+    {
+      "cx": 0,
+      "cy": 0.136,
+      "fd": 0.0036,
+      "hw": 0.024615385,
+      "kind": "box",
+      "pal": "ty_sw_ochre",
+      "roof": false,
+      "scale": {
+        "fd": "h"
+      },
+      "seed": 322,
+      "yaw": 0,
+      "z0": 0.569640258,
+      "z1": 0.72
+    },
+    {
+      "cx": 0.064,
+      "cy": 0.136,
+      "fd": 0.0036,
+      "hw": 0.024615385,
+      "kind": "box",
+      "pal": "ty_sw_indigo",
+      "roof": false,
+      "scale": {
+        "fd": "h"
+      },
+      "seed": 323,
+      "yaw": 0,
+      "z0": 0.607211444,
+      "z1": 0.72
+    },
+    {
+      "cx": 0.128,
+      "cy": 0.136,
+      "fd": 0.0036,
+      "hw": 0.024615385,
+      "kind": "box",
+      "pal": "ty_sw_oxblood",
+      "roof": false,
+      "scale": {
+        "fd": "h"
+      },
+      "seed": 324,
+      "yaw": 0,
+      "z0": 0.5976436,
+      "z1": 0.72
     }
   ]
 }

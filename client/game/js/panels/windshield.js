@@ -17396,7 +17396,12 @@ const WALL_COL = { uptown: [46, 64, 92], civic: [72, 68, 60], citycore: [52, 56,
   ty_trm_wall: [86, 82, 74], ty_trm_base: [72, 64, 54], ty_trm_patch: [64, 62, 58], ty_trm_rail: [54, 52, 48],
   // The Thorn Wall — the deliberate anti-Curtain: grown, not built. Near-black green mass over a
   // raw earth berm, with the one pale note in the whole thing being the thorns themselves.
-  ty_thorn: [32, 44, 32], ty_thorn_dk: [20, 28, 20], ty_thorn_tip: [150, 142, 112], ty_thorn_berm: [98, 62, 46],
+  ty_thorn: [40, 58, 36], ty_thorn_dk: [20, 28, 20], ty_thorn_tip: [214, 198, 156], ty_thorn_berm: [140, 70, 46],
+  // THE THORNWARREN KIT (outposts.js swPlate/swSpike/swSkull/swHangings): salvage rust and iron
+  // for the road face, bone for the trophies, ink for the lashing that does the comic line, and
+  // three dyes that only ever hang on the town side of a wall.
+  ty_sw_rust: [148, 70, 36], ty_sw_iron: [64, 60, 58], ty_sw_bone: [222, 206, 168], ty_sw_ink: [22, 16, 14],
+  ty_sw_ochre: [210, 150, 52], ty_sw_indigo: [52, 64, 120], ty_sw_oxblood: [124, 34, 30],
   // The Dam (Deadwater) — dead concrete, water-stained where the spillway used to run.
   ty_dam: [104, 102, 96], ty_dam_dk: [70, 70, 66], ty_dam_stain: [92, 72, 52],
   // THE SEVEN CIVIC BUILDINGS OUTSIDE COLDWATER. `civic` resolved to { type: 'police' }, so a
@@ -18273,7 +18278,7 @@ const PLAIN_WALL = new Set([ 'ty_ae_navy', 'ty_ae_cream', 'ty_bd_blue_dk', 'ty_b
   'ty_trm_creche_roof', 
   'ty_trm_hall_glass', 
   'ty_sw_mask', 'ty_sw_hide',
-  'ty_sw_cloth',
+  'ty_sw_cloth', 'ty_sw_bone', 'ty_sw_ink', 'ty_sw_ochre', 'ty_sw_indigo', 'ty_sw_oxblood',
   // Terminus, the rest. Nothing here is taller than two storeys and every window in the settlement
   // is placed by hand, so none of these wants the default branch's facade grid.
   'ty_trm_glass', 'ty_trm_frame', 
@@ -18418,7 +18423,7 @@ const PLATE_WALL = new Set(['ty_sr_cabin',
   'ty_pocket_shut', 'ty_pocket_stair', 'ty_penny',
   'ty_yacht', 'ty_yacht_deck', 'ty_wharf_steel', 'ty_foundry', 'ty_embassy_iron', 'ty_embassy_lead',
   'ty_foundry_stack', 'ty_cold_unit', 'ty_reefer_blk',
-  'ty_dw_iron', 'ty_dw_forge', 'ty_sw_plate', 'ty_sw_foundry',
+  'ty_dw_iron', 'ty_dw_forge', 'ty_sw_plate', 'ty_sw_foundry', 'ty_sw_rust', 'ty_sw_iron',
   // The harbour yard's site hut — a bolted steel cabin, which is what plate is.
   'ty_yard_hut',
   // Old Coldwater (docs/proposals/old-coldwater.md) — the water seller's tank. A riveted

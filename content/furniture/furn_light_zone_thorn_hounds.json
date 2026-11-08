@@ -1,14 +1,14 @@
 {
-  "description": "A single caged bulb over the bench, because the dogs don't want it brighter and he doesn't either.",
+  "description": "A single lantern in a wire cage over the bench, because the dogs don't want it brighter and he doesn't either.",
   "flags": {},
   "hp": null,
   "hp_max": null,
   "id": "furn_light_zone_thorn_hounds",
-  "light_type": "overhead",
+  "light_type": "oil",
   "lumen_output": 1100,
-  "name": "a caged bulb",
+  "name": "a caged lantern",
   "object_type": "light",
-  "power_draw_kw": 0.04,
+  "power_draw_kw": 0,
   "price": 0,
   "zone_id": "zone_thorn_hounds"
 }

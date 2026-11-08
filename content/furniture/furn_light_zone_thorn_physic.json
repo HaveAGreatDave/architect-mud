@@ -1,14 +1,14 @@
 {
-  "description": "A good lamp on a jointed arm over the table, off the Bank, and a row of fresh candles beside it for when the Bank is down.",
+  "description": "An oil lamp with a mirror behind it on a jointed arm over the table, and a row of candles beside it, because a second light is never wasted in a surgery.",
   "flags": {},
   "hp": null,
   "hp_max": null,
   "id": "furn_light_zone_thorn_physic",
-  "light_type": "overhead",
+  "light_type": "oil",
   "lumen_output": 1100,
   "name": "the jointed lamp",
   "object_type": "light",
-  "power_draw_kw": 0.04,
+  "power_draw_kw": 0,
   "price": 0,
   "zone_id": "zone_thorn_physic"
 }

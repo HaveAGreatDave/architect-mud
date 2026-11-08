@@ -6,7 +6,7 @@
     "A name goes up on one of the small shelves. Chalk, not paint, and nobody remarks on why."
   ],
   "ambient_theme": "indoors",
-  "description": "Warm and quiet, bigger inside than the door suggests. Beds along one wall with curtains that pull round, a stove, a worn rocking chair, and a wall of small shelves each chalked with a name.\n\nBy the door, the numbers of what went wrong, written on the wall.",
+  "description": "Warm and quiet, bigger inside than the door suggests. Beds along one wall with curtains that pull round, a stove, a worn rocking chair, and a wall of small shelves each chalked with a name. Through the window, a swing in the yard with a seat painted yellow.\n\nBy the door, the numbers of what went wrong, written on the wall.",
   "exits": {
     "down": "zone_util_zone_thorn_whelp",
     "south": "zone_scw_1049_975"

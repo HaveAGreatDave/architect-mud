@@ -6,7 +6,7 @@
     "A mask goes back on its peg the wrong way round and is turned round by the next person through, without comment."
   ],
   "ambient_theme": "indoors",
-  "description": "A mask rack. Eleven masks: bone, plate, horn, a jaw wired open, one with too many sockets.\n\nEvery one is lined with quilted rag so it won't chafe on a long shift. Beside the rack, a tally board of names against hours, a kettle, four mugs and a tin of food.",
+  "description": "A mask rack. Eleven masks: bone, plate, horn, a jaw wired open, one with too many sockets.\n\nEvery one is lined with quilted rag so it won't chafe on a long shift. Beside the rack, a tally board of names against hours, a kettle, four mugs and a tin of food. Outside the door, a fire in a cut-down drum and a bench worn smooth.",
   "exits": {
     "down": "zone_util_zone_thorn_gatehouse",
     "east": "zone_scw_1045_969"

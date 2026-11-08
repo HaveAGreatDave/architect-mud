@@ -166,6 +166,39 @@ quilted rag, stitched down flat at every edge, **so they do not chafe on a long 
 tally board of names against hours. The horror is a costume, the costume is rota'd, and somebody's
 grandmother sews the lining.
 
+### How it looks: the comic pass (2026-11-07)
+
+The town is drawn in the game's Borderlands comic manner: few big shapes, two flat tones a surface,
+and dark lashings and hoops doing the line work. The rule above sets which half of the look a face
+gets.
+
+- **Outward faces** (the wall, the gate's road side, the Houndyard's spine, the Foundry's back, the
+  Deadleg's mouth) get the menace: scavenged car and tank panels lashed on at a lean, few fat spikes
+  with bone points, and skulls in evenly spaced rows. The Deadleg's gatepost is a scrapped rig's cab
+  sunk in its ramp, with empty headlamp sockets.
+- **Inward faces and yards** get the town: dyed cloth on lines (ochre, indigo, oxblood, undyed),
+  fires in cut-down drums with a bench beside them, shared tables with no head, two children's
+  swings, and a child's lopsided pots on the Kiln's rack.
+
+The parts are one kit at the top of `client/game/js/panels/glass/models/outposts.js` (`swPlate`,
+`swSpike`, `swSkull`, `swFirePot`, `swHangings`, `swTable`, `swSwing`), with their colours as
+`ty_sw_rust`, `ty_sw_iron`, `ty_sw_bone`, `ty_sw_ink` and the three dyes in `windshield.js`.
+
+- **Fire is the only light, and the bake proves it.** Every light the sixteen buildings put in
+  `client/shared/building-lights.js` is a fire colour; the greys there are smoke and steam. Three
+  were not until this pass: the Fleshery's green vats (now coals under them), and cold blue pools at
+  the Sweetwater and the Bathhouse (water doesn't glow).
+- **The derived kit stays out.** All sixteen `sw_*` types are on `NO_KIT` in
+  `client/game/js/panels/glass/derived-kit.js`. Before that the kit gave the Deadleg and the Foundry
+  a blue-white street lamp, a neon run and window glows, and could have hung a name board on any of
+  them.
+- **Three are ports.** The Houndyard, the Kept and the Roofwalk draw from
+  `content/building_models/*.json`, and `modeldiff --ported` holds a port to one shape. So their kit
+  parts take fixed numbers, never the tile seed. After changing one of those arms, re-port it and run
+  `npm run models:bake`.
+- **Inside, the fixtures are fire too.** The fifteen `furn_light_zone_thorn_*` lights are
+  `light_type` `oil` or `flame` at 0 kW, the off-grid types `environment.js` never switches off.
+
 The town's proudest structure is **The Sweetwater**: rain off every roof, through settling tanks and
 beds of crushed limestone and burnt bone, into a covered cistern, tested twice a day in two hands for
 years. The best engineering for sixty miles belongs to the people the city calls animals. Nobody
@@ -357,6 +390,10 @@ Still genuinely unbuilt, and each one is a real gap rather than a deferral:
   actually turns up. Quarrel Nine names four incidents at the gate and all four are backstory.
 - **The Breakers cell inside Coldwater is not connected to any of this.** Ossa Vurn is Sledge Vurn's
   son and the game still says so in exactly one place.
+- **The town is still on a grid it doesn't use.** The infrastructure pass gave every room a
+  junction box, a power zone and a generator (`gen_region_region_scarletwastes`), and the boxes
+  still say their feed "comes off the Bank". Since 2026-11-07 no light draws from it. Taking it out
+  is a deletion pass of its own (run `content:import` before committing it).
 - **The Quickening's outcomes are not modelled.** Tallow Skeen's tally board says 360 / 38 / 9 / 4,
   and the game only implements the first number.
 

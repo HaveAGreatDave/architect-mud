@@ -6,7 +6,7 @@
     "Something enormous puts its chin on the bench and is elbowed off, gently."
   ],
   "ambient_theme": "indoors",
-  "description": "The shed at the end of the run: collars on pegs, a bench of ointments and clippers, a bin of feed with a scoop.\n\nA man works down the line cleaning ears with a rag. The hounds are the size of ponies, some with the wrong number of eyes, one with a bone plate across its skull. Every one sits for him.\n\nSixteen pegs hold collars with no dogs, each labelled with a name.",
+  "description": "The shed at the end of the run: collars on pegs, a bench of ointments and clippers, a bin of feed with a scoop. A kettle on a fire outside, and a bench, because somebody sits up with the whelps.\n\nA man works down the line cleaning ears with a rag. The hounds are the size of ponies, some with the wrong number of eyes, one with a bone plate across its skull. Every one sits for him.\n\nSixteen pegs hold collars with no dogs, each labelled with a name.",
   "exits": {
     "down": "zone_util_zone_thorn_hounds",
     "west": "zone_scw_1047_972"

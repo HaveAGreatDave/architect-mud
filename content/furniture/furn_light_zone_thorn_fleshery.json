@@ -1,14 +1,14 @@
 {
-  "description": "A hard overhead over the table and a hand lamp on a lead, and a third lamp much softer at the head end, which is for the person in the chair rather than the person on the table.",
+  "description": "A bright reflector lamp over the table, a hand lamp on a hook, and a third much softer at the head end, which is for the person in the chair rather than the person on the table.",
   "flags": {},
   "hp": null,
   "hp_max": null,
   "id": "furn_light_zone_thorn_fleshery",
-  "light_type": "overhead",
+  "light_type": "oil",
   "lumen_output": 1100,
-  "name": "the overhead and a hand lamp",
+  "name": "three lamps",
   "object_type": "light",
-  "power_draw_kw": 0.04,
+  "power_draw_kw": 0,
   "price": 0,
   "zone_id": "zone_thorn_fleshery"
 }

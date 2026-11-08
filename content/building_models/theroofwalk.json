@@ -14,7 +14,7 @@
   "id": "theroofwalk",
   "note": "Ported from the hand-written sw_roofwalk arm by scripts/shapes/autoport.mjs. The mass and the detail list are this file; everything else (lights, signs, moving parts) is still drawn by the arm.",
   "pal": "ty_sw_walk",
-  "pixdiff": 0,
+  "pixdiff": 0.0021,
   "portedFrom": "sw_roofwalk",
   "segs": [
     {
@@ -220,12 +220,210 @@
       "hw": 0.408,
       "kind": "box",
       "mapAligned": true,
-      "pal": "ty_sw_cloth",
+      "pal": "ty_sw_ochre",
       "roof": true,
       "seed": 24,
       "yaw": 0,
       "z0": 1.46,
       "z1": 1.5
+    },
+    {
+      "cx": 0,
+      "cy": -0.176,
+      "fd": 0.0054,
+      "hw": 0.176,
+      "kind": "box",
+      "pal": "ty_sw_ink",
+      "roof": false,
+      "scale": {
+        "fd": "h"
+      },
+      "seed": 315,
+      "yaw": 0,
+      "z0": 1.46,
+      "z1": 1.469
+    },
+    {
+      "cx": -0.132,
+      "cy": -0.176,
+      "fd": 0.0036,
+      "hw": 0.033846154,
+      "kind": "box",
+      "pal": "ty_sw_cloth",
+      "roof": false,
+      "scale": {
+        "fd": "h"
+      },
+      "seed": 325,
+      "yaw": 0,
+      "z0": 1.34741794,
+      "z1": 1.46
+    },
+    {
+      "cx": -0.044,
+      "cy": -0.176,
+      "fd": 0.0036,
+      "hw": 0.033846154,
+      "kind": "box",
+      "pal": "ty_sw_ochre",
+      "roof": false,
+      "scale": {
+        "fd": "h"
+      },
+      "seed": 326,
+      "yaw": 0,
+      "z0": 1.307055289,
+      "z1": 1.46
+    },
+    {
+      "cx": 0.044,
+      "cy": -0.176,
+      "fd": 0.0036,
+      "hw": 0.033846154,
+      "kind": "box",
+      "pal": "ty_sw_indigo",
+      "roof": false,
+      "scale": {
+        "fd": "h"
+      },
+      "seed": 327,
+      "yaw": 0,
+      "z0": 1.293910325,
+      "z1": 1.46
+    },
+    {
+      "cx": 0.132,
+      "cy": -0.176,
+      "fd": 0.0036,
+      "hw": 0.033846154,
+      "kind": "box",
+      "pal": "ty_sw_oxblood",
+      "roof": false,
+      "scale": {
+        "fd": "h"
+      },
+      "seed": 328,
+      "yaw": 0,
+      "z0": 1.324292602,
+      "z1": 1.46
+    },
+    {
+      "cx": 0,
+      "cy": 0.176,
+      "fd": 0.0054,
+      "hw": 0.176,
+      "kind": "box",
+      "pal": "ty_sw_ink",
+      "roof": false,
+      "scale": {
+        "fd": "h"
+      },
+      "seed": 325,
+      "yaw": 0,
+      "z0": 1.46,
+      "z1": 1.469
+    },
+    {
+      "cx": -0.132,
+      "cy": 0.176,
+      "fd": 0.0036,
+      "hw": 0.033846154,
+      "kind": "box",
+      "pal": "ty_sw_indigo",
+      "roof": false,
+      "scale": {
+        "fd": "h"
+      },
+      "seed": 335,
+      "yaw": 0,
+      "z0": 1.316819045,
+      "z1": 1.46
+    },
+    {
+      "cx": -0.044,
+      "cy": 0.176,
+      "fd": 0.0036,
+      "hw": 0.033846154,
+      "kind": "box",
+      "pal": "ty_sw_oxblood",
+      "roof": false,
+      "scale": {
+        "fd": "h"
+      },
+      "seed": 336,
+      "yaw": 0,
+      "z0": 1.355869457,
+      "z1": 1.46
+    },
+    {
+      "cx": 0.044,
+      "cy": 0.176,
+      "fd": 0.0036,
+      "hw": 0.033846154,
+      "kind": "box",
+      "pal": "ty_sw_cloth",
+      "roof": false,
+      "scale": {
+        "fd": "h"
+      },
+      "seed": 337,
+      "yaw": 0,
+      "z0": 1.345744857,
+      "z1": 1.46
+    },
+    {
+      "cx": 0.132,
+      "cy": 0.176,
+      "fd": 0.0036,
+      "hw": 0.033846154,
+      "kind": "box",
+      "pal": "ty_sw_ochre",
+      "roof": false,
+      "scale": {
+        "fd": "h"
+      },
+      "seed": 338,
+      "yaw": 0,
+      "z0": 1.359979935,
+      "z1": 1.46
+    },
+    {
+      "cap": true,
+      "capc": "rgb(26,20,16)",
+      "cx": 0.16,
+      "cy": 0.16,
+      "fills": [
+        "rgb(70,46,34)",
+        "rgb(70,46,34)",
+        "rgb(70,46,34)",
+        "rgb(85,55,40)",
+        "rgb(106,67,48)",
+        "rgb(106,67,48)",
+        "rgb(85,55,40)",
+        "rgb(70,46,34)"
+      ],
+      "kind": "drum",
+      "n": 8,
+      "pal": "ty_sw_walk",
+      "rb": 0.028,
+      "rt": 0.03024,
+      "skin": "facets",
+      "z0": 1.02,
+      "z1": 1.22
+    },
+    {
+      "cx": 0.16,
+      "cy": 0.16,
+      "fd": 0.0392,
+      "hw": 0.0392,
+      "kind": "box",
+      "mapAligned": true,
+      "pal": "ty_sw_ember",
+      "roof": true,
+      "seed": 340,
+      "yaw": 0,
+      "z0": 1.22,
+      "z1": 1.25
     },
     {
       "cx": -0.056,

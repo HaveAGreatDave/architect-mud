@@ -239,7 +239,12 @@ const NO_KIT = new Set(['trm_wall', 'thornwall', 'damwall', 'pier', 'harbour_yar
   // The Coliseum draws all nine tiles itself; a bare-type tile would get a hoarding over the field.
   'ballpark',
   // The land office's board is its only box, so the kit read it as a wall.
-  'land_office']);
+  'land_office',
+  // The Thornwarren (building-styles.md §3.3): fire is the only light and nothing carries a word,
+  // and the kit's gifts are a street lamp, a neon run, glazed windows and a name board. The Deadleg
+  // and the Foundry were standing in a blue-white lamp until 2026-11-07.
+  'sw_gate', 'sw_den', 'sw_roofwalk', 'sw_whelp', 'sw_physic', 'sw_kept', 'sw_flesh', 'sw_milk',
+  'sw_fire', 'sw_foundry', 'sw_kiln', 'sw_water', 'sw_hound', 'sw_merc', 'sw_bath', 'sw_depot']);
 // Spray colours: saturated and light, since a tag is read against a dark wall.
 export const TAG_COLS = ['#b8f03a', '#ff4a9a', '#5fd0ff', '#ffcf3e', '#ff6a4a', '#c88cff'];
 // ── A BUILDING MAY REFUSE ONE SECTION WITHOUT REFUSING THE KIT ─────────

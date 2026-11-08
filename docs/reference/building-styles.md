@@ -406,11 +406,23 @@ anti-Curtain. Hide, bone, canvas, fired clay, mud render, timber lashed rather t
 
 - **Families.** `bale`, `timber`, `stucco` (mud render) and `tile` (fired clay) — nineteen of the
   twenty-nine `ty_sw_*` keys are currently `plain` and should not be.
+- **Look.** The Borderlands comic manner, built 2026-11-07: few big shapes, two flat tones a
+  surface, and `ty_sw_ink` lashings and hoops doing the line. Mad Max outside, a home inside. Outward
+  faces take scavenged plate at a lean, fat spikes with bone points and evenly spaced skulls; inward
+  faces and yards take dyed cloth (`ty_sw_ochre`, `ty_sw_indigo`, `ty_sw_oxblood`), fires in drums
+  with a bench beside them, shared tables and children's things. Build from the kit at the top of
+  `glass/models/outposts.js` (`swPlate`, `swSpike`, `swSkull`, `swFirePot`, `swHangings`, `swTable`,
+  `swSwing`) rather than drawing a new part; [scarletwastes.md](../proposals/scarletwastes.md#how-it-looks-the-comic-pass-2026-11-07)
+  says which building got what.
 - **Light.** Fire. There is no electric light in this region and there should be none in the palette.
   The one exception is the column's rigs (plugins/column), which carry salvaged headlamps, caged on
-  the bull bar. Nothing built or standing in the region gets one.
+  the bull bar. Nothing built or standing in the region gets one. Every `sw_*` type is on `NO_KIT`
+  (`glass/derived-kit.js`), because the kit's gifts are a street lamp, a neon run and lit windows,
+  and the interiors' fixtures are the off-grid `oil` and `flame` light types.
 - **Signage.** None. No lettering at all — a trade word implies a trade counter. That holds on the
   rigs too: the Slake cart's tank carries hood tallies and ash handprints, never a stencil.
+  Rindle's is the worked example: the dyed cloth for sale along its awning is its sign. Writing
+  inside a room (a rota, a tally, the Kept's one sentence) is prose, not signage, and stays.
 
 ⚠ **THE TERROR IS ON THE APPROACH AND THE INSIDE IS DOMESTIC, AND THE ARCHITECTURE HAS TO CARRY BOTH
 WITHOUT REMARKING ON IT.** The trophy road is a performance whose tell is that it is *maintained*;
