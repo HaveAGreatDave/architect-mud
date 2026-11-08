@@ -21,6 +21,9 @@
 //
 // ⚠ AND THE SHADING IS solids.js's: flat colour, the same fog, premultiplied alpha, depth written,
 // no culling. A bird drawn here and a bird drawn there must be indistinguishable in a still.
+//
+// A record carries its `kind`, so Bracken's hounds (`quadruped`, windshield.js drawHounds) ride the
+// same path: their gallop is the sixteen beat rows, exactly as a wingbeat is.
 import { viewProjMatrix } from './camera.js';
 import { makeVertexStream } from './stream.js';
 import { faunaPoseSlot, faunaPoseBake, FAUNA_BEAT_STEPS, FAUNA_GLIDE_ROW, FAUNA_PECK_ROW } from '../fauna3d.js';

@@ -6,7 +6,9 @@
 // `column` with a variant the mesh file knows; and the passing line reaches somebody standing on a
 // tile the column drives onto, and the near line somebody next to it.
 import { _test as C } from './index.js';
-import { columnAt, routeTiles, WAYPOINTS, STOPS, PERIOD_S, LOOP_TILES, TILES_PER_S, RIGS } from './route.js';
+import { columnAt, routeTiles, WAYPOINTS, STOPS, PERIOD_S, LOOP_TILES, TILES_PER_S, RIGS,
+  houndsAt, HOUNDS, HOUND_COUNT_MIN, HOUND_COUNT_MAX, HOUND_AHEAD, HOUND_REST, HOUND_SURGE, LANE, HOUND_SIDE, HOUND_WEAVE,
+  offRoute, aheadOfLead } from '../../client/shared/column-route.js';
 import { zoneAtTile, addPlayerToZone, removePlayerFromZone } from '../../server/engine/world.js';
 import { getBroadcast, setBroadcast } from '../../server/engine/messaging.js';
 import { readFileSync } from 'node:fs';
@@ -54,6 +56,60 @@ export default async function regress({ check, getPlayer }) {
   }
   check('column: the stops are on the loop', Object.keys(STOPS).every((i) => WAYPOINTS[i]), Object.keys(STOPS).join());
   check('column: the loop is the length of its legs', LOOP_TILES > 100 && LOOP_TILES < 200, LOOP_TILES.toFixed(1));
+
+  // ── Bracken's hounds ──
+  // Worked out from the clock like the rigs, and not published as contacts. Sampled every 250 ms over
+  // one whole loop: that's every stretch, every stop, every corner and both turnarounds.
+  const hA = houndsAt(T).map((h) => ({ ...h })), hB = houndsAt(T).map((h) => ({ ...h }));
+  check('column: the same instant gives the same hounds', JSON.stringify(hA) === JSON.stringify(hB));
+  check('column: a reused list is filled in place with the same pack', (() => { const o = []; houndsAt(T + 5000, o); const k = o[0]; houndsAt(T + 6000, o); return o[0] === k && JSON.stringify(o) === JSON.stringify(houndsAt(T + 6000)); })());
+  check('column: four to six hounds', HOUNDS.length >= HOUND_COUNT_MIN && HOUNDS.length <= HOUND_COUNT_MAX && hA.length === HOUNDS.length, HOUNDS.length);
+  const laneMax = LANE + HOUND_SIDE + HOUND_WEAVE + 0.005;
+  let offWorst = 0, jump = 0, prevH = null, runAhead = [Infinity, -Infinity], spreadAhead = [Infinity, -Infinity];
+  let stoppedSamples = 0, lyingWrong = 0, lieFar = 0, runAtStop = 0, cageFull = 0;
+  const allStates = new Set();
+  const out = [];
+  for (let t = T; t < T + PERIOD_S * 1000; t += 250) {
+    const rigs = columnAt(t);
+    const hs = houndsAt(t, out);
+    const standing = rigs[0].stop != null;
+    if (standing) stoppedSamples++;
+    for (let i = 0; i < hs.length; i++) {
+      const h = hs[i];
+      allStates.add(h.state);
+      offWorst = Math.max(offWorst, offRoute(h.x, h.y));
+      if (prevH) jump = Math.max(jump, Math.hypot(h.x - prevH[i].x, h.y - prevH[i].y));
+      if (standing) {
+        if (h.state !== 'lie') lyingWrong++;
+        if (Math.hypot(h.x - rigs[0].x, h.y - rigs[0].y) > HOUND_REST[1] + 0.3) lieFar++;
+      } else if (h.state === 'lie') runAtStop++;
+      // The hound-runner tows the cage; no hound is ever inside it (the cage is a tile and a bit behind the Howl).
+      if (Math.hypot(h.x - rigs[2].x, h.y - rigs[2].y) < 0.25) cageFull++;
+    }
+    if ((t - T) % 2000 === 0) {
+      for (const h of hs) if (h.state === 'run') {
+        const ah = aheadOfLead(t, h.x, h.y);
+        runAhead = [Math.min(runAhead[0], ah), Math.max(runAhead[1], ah)];
+      }
+      // Ten seconds into a stretch the pack is out at its spread.
+      const lateRun = !standing && columnAt(t - 10_000)[0].stop == null;
+      if (lateRun) for (const h of hs) if (h.state === 'run') {
+        const ah = aheadOfLead(t, h.x, h.y);
+        spreadAhead = [Math.min(spreadAhead[0], ah), Math.max(spreadAhead[1], ah)];
+      }
+    }
+    prevH = hs.map((h) => ({ x: h.x, y: h.y }));
+  }
+  check('column: a hound never leaves the road the rigs drive', offWorst <= laneMax, offWorst.toFixed(3) + ' of ' + laneMax.toFixed(3));
+  check('column: a hound never jumps, corners and turnarounds included', jump < TILES_PER_S * 0.25 * 2, jump.toFixed(3) + ' tiles in 250 ms');
+  check('column: the pack runs, waits and lies down', ['run', 'walk', 'lie'].every((s) => allStates.has(s)), [...allStates].join());
+  check('column: a running hound is in front of the Howl\'s plough', runAhead[0] > 0.4, runAhead.map((x) => x.toFixed(2)).join('..'));
+  check('column: once the pack is out it runs 0.8 to 1.5 tiles ahead', spreadAhead[0] >= HOUND_AHEAD[0] - HOUND_SURGE - 0.02 && spreadAhead[1] <= HOUND_AHEAD[1] + HOUND_SURGE + 0.02, spreadAhead.map((x) => x.toFixed(2)).join('..'));
+  check('column: while the column stands every hound lies down', stoppedSamples > 0 && lyingWrong === 0, lyingWrong + ' of ' + stoppedSamples * HOUNDS.length);
+  check('column: they lie near the Howl', lieFar === 0, lieFar);
+  check('column: no hound lies down while the column drives', runAtStop === 0, runAtStop);
+  check('column: the cage stays empty', cageFull === 0, cageFull);
+  check('column: the hounds are not contacts', C.columnContactsNear(a[0].x, a[0].y, 26, T).every((c) => !/hound_/.test(c.id)));
 
   // ── The contact feed ──
   const lead = a[0];

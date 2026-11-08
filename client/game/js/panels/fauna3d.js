@@ -32,7 +32,7 @@
 // chinstrap, a cambered arm and a hand cut into primaries, two legs and its blotches, and there is
 // no honest way to spend fewer. `FACE_MAX` in scripts/shapes/fauna.mjs is what bounds a frame; the
 // slack there is what any future part is spent out of, so check it before adding one.
-import { BIRD_ROWS, BIRD_ROWS_FAR } from '../../../shared/fauna-models.js';
+import { BIRD_ROWS, BIRD_ROWS_FAR, QUADRUPED_ROWS, QUADRUPED_ROWS_FAR } from '../../../shared/fauna-models.js';
 import { GOOSE_SPAN } from '../../../shared/birds.js';
 
 const V = (f, g, h) => [f, g, h];
@@ -46,9 +46,9 @@ const hex2rgb = (h) => { if (typeof h !== 'string' || !/^#[0-9a-fA-F]{6}$/.test(
 // The same seam aircraft3d.js exposes at vehicleParamBase/setVehicleParams: every read goes
 // through `row()`, so a tuner slider reaches the mesh builder and a table read that skipped it
 // would be a slider that moves half the animal.
-const TABLES = { bird: BIRD_ROWS };
-const FAR_TABLES = { bird: BIRD_ROWS_FAR };
-const _override = { bird: new Map() };
+const TABLES = { bird: BIRD_ROWS, quadruped: QUADRUPED_ROWS };
+const FAR_TABLES = { bird: BIRD_ROWS_FAR, quadruped: QUADRUPED_ROWS_FAR };
+const _override = { bird: new Map(), quadruped: new Map() };
 
 function baseRow(kind, id) { return (TABLES[kind] || {})[id] || null; }
 // ⚠ THE FAR TIER IS A WHOLE ROW, ALREADY MERGED BY THE BAKE. Nothing is combined here: this
@@ -1036,6 +1036,205 @@ function buildBird(p, state, wing, dihK, gear = 0, phase = null) {
   return faces;
 }
 
+// ── THE HOUND ─────────────────────────────────────────────────────────────────
+// Bracken's hounds, which run in front of the Wildblood column (client/shared/column-route.js). The
+// first animal on four legs, and the builder for the `quadruped` kind; a later dog or rat is a new
+// row, not a new builder.
+//
+// STATES: 'run' (the gallop, with `phase` 0..1 through one stride: the sixteen beat rows), 'lie'
+// (down in front of the Howl while the column stands) and 'walk' (standing still, waiting at the
+// stop). Anything else builds the standing dog, so a bird pose asked of a hound draws a dog.
+//
+// ⚠ THE LEGS ARE SOLVED, NOT SWUNG. Each foot has a target, on the ground while the leg bears weight
+// and on an arc while it swings forward, and a two-bone solve finds the joint in between. A leg
+// swung at fixed angles puts its foot through the road at full reach and in the air at mid-stance,
+// and at the 15 to 25 pixels a dog is drawn at that reads as a dog with no idea where the ground is.
+//
+// ⚠ THE FORE KNEE AND THE HOCK BEND OPPOSITE WAYS. The middle joint of a fore leg (the wrist) points
+// forward as the paw folds up behind it; the hock points back. Bent the same way, the dog runs on
+// four fore legs, which is a goat.
+//
+// ⚠ THE SAME FACES IN EVERY ROW. gl/fauna.js puts the sixteen gallop rows in one texture and needs
+// the topology to match across them (faunaPoseBake refuses a group that doesn't), so nothing here
+// is added or dropped by the phase: only where the corners are.
+//
+// The house look (comic-ink.md): pushed forms. A barrel of a chest, a waist you could close a hand
+// round, a heavy neck and a jaw too big for the skull; two flat tones, coat over a pale underside.
+const HOUND_FOOT = [['fore', -1, 0.52], ['fore', 1, 0.42], ['hind', -1, 0.0], ['hind', 1, 0.1]];   // the rotary gallop's footfalls
+const HOUND_STANCE = 0.32;                                // the share of a stride a foot bears weight
+// The discrete gallop the Modelshop's sheet and the canvas smoke draw: a stride in four shapes. The
+// renderer walks all sixteen beat rows; this is only how many columns a sheet gets.
+export const QUAD_RUN_SHAPES = 4;
+// Nose to tail in model units: the body, the neck's reach, the head and muzzle, and half the tail.
+const houndLength = (r) => (r.bodyLen ?? 0.78) + (r.neckLen ?? 0.3) * 0.6 + (r.headLen ?? 0.2) + (r.muzzleLen ?? 0.14) + (r.tailLen ?? 0.42) * 0.5;
+const smooth = (t) => { const k = clampN(t, 0, 1); return k * k * (3 - 2 * k); };
+
+// Two bones from j, l1 then l2, reaching for p in the f-h plane at lateral g. `apex` +1 puts the middle
+// joint forward of the line from j to p, -1 behind it. Returns the middle joint and the end of the reach.
+function reach2(j, p, l1, l2, apex) {
+  let df = p[0] - j[0], dh = p[2] - j[2];
+  let d = Math.hypot(df, dh) || 1e-6;
+  const dMax = (l1 + l2) * 0.999, dMin = Math.abs(l1 - l2) + 1e-3;
+  if (d > dMax) { df *= dMax / d; dh *= dMax / d; d = dMax; }
+  if (d < dMin) { df *= dMin / d; dh *= dMin / d; d = dMin; }
+  const a = Math.acos(clampN((l1 * l1 + d * d - l2 * l2) / (2 * l1 * d), -1, 1));
+  const base = Math.atan2(dh, df);
+  // Rotating the reach direction by +a lifts the joint above the line when the reach points down and
+  // forward; which of +a and -a puts it FORWARD depends on that, so pick by the sign that lands it ahead.
+  const k1 = [j[0] + l1 * Math.cos(base + a), j[2] + l1 * Math.sin(base + a)];
+  const k2 = [j[0] + l1 * Math.cos(base - a), j[2] + l1 * Math.sin(base - a)];
+  const m = (apex > 0) === (k1[0] > k2[0]) ? k1 : k2;
+  return { knee: V(m[0], j[1], m[1]), foot: V(j[0] + df, j[1], j[2] + dh) };
+}
+
+function buildHound(p, state, phase) {
+  const faces = [];
+  const run = state === 'run', lie = state === 'lie';
+  const ph = run && typeof phase === 'number' ? phase - Math.floor(phase) : 0;
+  const bodyLen = p.bodyLen ?? 0.78, legLen = p.legLen ?? 0.5, legW = p.legW ?? 0.04;
+  const chestH = p.chestH ?? 0.34, chestW = p.chestW ?? 0.24, waistH = p.waistH ?? 0.16, waistW = p.waistW ?? 0.15;
+  const neckLen = p.neckLen ?? 0.3, neckW = p.neckW ?? 0.1, neckRise = p.neckRise ?? 0.75;
+  const headLen = p.headLen ?? 0.2, headH = p.headH ?? 0.15, muzzleLen = p.muzzleLen ?? 0.14, jaw = p.jaw ?? 0.6;
+  const earLen = p.earLen ?? 0.09, tailLen = p.tailLen ?? 0.42, tailW = p.tailW ?? 0.035;
+  const eyeF = clampN(p.eyeR ?? 0, 0, 0.5);
+  // How high the ankle sits over the road when the foot is down: the paw block's depth under its axis
+  // (legW * 0.75 * sin 60°) and the 0.004 it is set below the ankle, so a bearing paw rests on h = 0.
+  const ankle = legW * 0.75 * 0.866 + 0.004;
+  const gallop = run ? clampN(p.gallop ?? 1, 0, 1.5) : 0;
+  const hSide = chestW * 0.42;                               // how far out the legs hang
+
+  // ── Where the body is this frame ──
+  // Two suspensions a stride, so the back rises and falls twice; and the spine gathers (shoulders and
+  // hips drawn together, the loin arched) as the hind feet come through, and stretches as they push.
+  const flex = run ? Math.cos(2 * Math.PI * (ph - 0.82)) * gallop : 0;       // +1 gathered, -1 stretched
+  // High while the hind legs drive and through the suspension after them, low as the fore feet land.
+  const bob = run ? 0.035 * Math.cos(2 * Math.PI * (ph - 0.02)) * gallop : 0;
+  const pitch = run ? 0.06 * Math.sin(2 * Math.PI * (ph - 0.1)) * gallop : 0; // nose up as the fore feet reach
+  // The bones: a fore leg is a long arm and a short pastern, a hind leg a long thigh and a short
+  // hock. Standing, the fore leg is all but straight and the hind leg bent at the hock.
+  const fl1 = legLen * 0.74, fl2 = legLen * 0.3, hl1 = legLen * 0.7, hl2 = legLen * 0.36;
+  // A galloping dog runs low: the shoulders and hips come down so a leg can reach well out in front
+  // and well out behind and still put its foot on the road.
+  const low = run ? 1 - 0.14 * gallop : 1;
+  const shoulder = V(bodyLen * 0.5 - 0.06 * flex, 0, (lie ? 0.22 : ankle + (fl1 + fl2) * 0.975 * low) + bob + pitch * 0.4);
+  const hip = V(-bodyLen * 0.5 + 0.07 * flex, 0, (lie ? 0.2 : ankle + (hl1 + hl2) * 0.88 * low) + bob - pitch * 0.4);
+  const mid = (a, b, t) => V(a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t);
+  const arch = 0.05 * Math.max(0, flex) + (lie ? 0 : 0.02);
+
+  // ── The body: brisket, chest, waist, rump ──
+  // `topRole` paints the spine facets as the hackles; `botRole` the underside as the pale belly.
+  const sh = shoulder, hp = hip;
+  const top = (q, dz) => V(q[0], 0, q[2] + dz);
+  // ⚠ THE CHEST HOLDS ITS DEPTH OVER A THIRD OF THE BODY. Tapered from a single deep ring it is a
+  // spindle, and at the gallop a spindle on four legs reads as a weasel. Two rings at full depth, the
+  // second dropped a little, make the barrel; the waist then draws in hard behind it.
+  const brisket = V(sh[0] + chestH * 0.42, 0, sh[2] - chestH * 0.02);
+  const chestF = top(mid(sh, hp, 0.0), chestH * 0.06);
+  const chestB = top(mid(sh, hp, 0.34), chestH * 0.04);
+  const waistC = top(mid(sh, hp, 0.7), chestH * 0.3 + arch);    // tucked up: the centre rides high
+  const rumpC = top(mid(sh, hp, 0.98), chestH * 0.16 + arch * 0.4);
+  const tailRoot = V(hp[0] - chestH * 0.32, 0, rumpC[2] + chestH * 0.1);
+  const sq = chestH / chestW;
+  tube(faces, brisket, chestF, chestW * 0.24, chestW * 0.5, 'body', 1, 6, sq * 0.85, 'crown', 'belly', -0.2);
+  tube(faces, chestF, chestB, chestW * 0.5, chestW * 0.48, 'body', 1, 6, sq, 'crown', 'belly', -0.2);
+  tube(faces, chestB, waistC, chestW * 0.48, waistW * 0.5, 'body', 1, 6, sq * 0.92, 'crown', 'belly', -0.2);
+  tube(faces, waistC, rumpC, waistW * 0.5, chestW * 0.42, 'body', 1, 6, waistH / waistW * 1.25, 'crown', 'belly', -0.45);
+  tube(faces, rumpC, tailRoot, chestW * 0.42, chestW * 0.12, 'body', 0.92, 6, 1.1, 'crown', 'belly', -0.45);
+
+  // ── The neck, the collar and the head ──
+  const rise = lie ? neckRise + 0.25 : run ? neckRise - 0.35 - pitch : neckRise;   // a running dog carries its head low and out
+  const n0 = V(sh[0] + chestH * 0.18, 0, sh[2] + chestH * 0.32);
+  const n1 = V(n0[0] + neckLen * Math.cos(rise), 0, n0[2] + neckLen * Math.sin(rise));
+  tube(faces, n0, n1, neckW * 0.62, neckW * 0.5, 'neck', 1, 5, 1.25, 'crown');
+  const c0 = mid(n0, n1, 0.18), c1 = mid(n0, n1, 0.34);
+  tube(faces, c0, c1, neckW * 0.68, neckW * 0.66, 'patch', 1, 5, 1.25);       // the collar, off the Houndyard's pegs
+  // The skull leans forward of the neck's line, level or a little nose-down, as a dog's does.
+  const hDir = run ? -0.12 : lie ? -0.05 : -0.2;
+  const hc = Math.cos(hDir), hs = Math.sin(hDir);
+  const s0 = V(n1[0] - headLen * 0.3, 0, n1[2] + headH * 0.12);
+  const s1 = V(s0[0] + headLen * hc, 0, s0[2] + headLen * hs);
+  tube(faces, s0, s1, headH * 0.5, headH * 0.46, 'head', 1, 5, 1.05, 'crown');
+  // The muzzle, deep for the jaw, and the nose on the end of it.
+  const m1 = V(s1[0] + muzzleLen * hc, 0, s1[2] + muzzleLen * hs - headH * 0.08);
+  tube(faces, V(s1[0] - headLen * 0.1, 0, s1[2] - headH * 0.08), m1, headH * 0.36, headH * 0.26, 'cheek', 1, 4, 1 + jaw, 'head');
+  const nz = headH * 0.13;
+  sheet(faces, [V(m1[0] + 0.006, -nz, m1[2] + nz * 0.6), V(m1[0] + 0.006, nz, m1[2] + nz * 0.6),
+    V(m1[0] + 0.004, nz, m1[2] - nz * 0.4), V(m1[0] + 0.004, -nz, m1[2] - nz * 0.4)], 'bill', 1);
+  // Ears: short, torn and laid back. Two triangles.
+  const ear = run ? -0.9 : lie ? -0.5 : -0.3;              // how far they lie back
+  for (const g of [-1, 1]) {
+    const b0 = V(s0[0] + headLen * 0.28, g * headH * 0.32, s0[2] + headH * 0.42);
+    const b1 = V(s0[0] + headLen * 0.05, g * headH * 0.42, s0[2] + headH * 0.38);
+    const tip = V(b1[0] + earLen * Math.cos(Math.PI / 2 - ear) * 0.6 - earLen * 0.25, g * headH * 0.55, b1[2] + earLen * Math.sin(Math.PI / 2 - ear));
+    sheet(faces, [b0, tip, b1], 'crown', 0.9);
+  }
+  // Eyes: a fraction of the head, set on its side. No eye at all and no faces when unset.
+  if (eyeF > 0) {
+    const er = headH * eyeF;
+    for (const g of [-1, 1]) {
+      const ec = V(s0[0] + headLen * 0.72, g * (headH * 0.5 + 0.003), s0[2] + headH * 0.22);
+      sheet(faces, [V(ec[0] + er, ec[1], ec[2]), V(ec[0], ec[1], ec[2] + er * 0.7), V(ec[0] - er, ec[1], ec[2]), V(ec[0], ec[1], ec[2] - er * 0.7)], 'eye', 1);
+    }
+  }
+
+  // ── The tail ──
+  // Streamed out behind at the gallop, low and still at rest, curled on the ground lying down.
+  const tAng = run ? 0.1 + 0.08 * Math.sin(2 * Math.PI * ph) : lie ? -1.25 : -0.85;
+  const t1 = V(tailRoot[0] - tailLen * 0.5 * Math.cos(tAng), 0, tailRoot[2] + tailLen * 0.5 * Math.sin(tAng));
+  const tAng2 = lie ? tAng + 0.9 : tAng + (run ? 0.15 : 0.35);
+  const t2 = V(t1[0] - tailLen * 0.5 * Math.cos(tAng2), lie ? 0.06 : 0, Math.max(0.012, t1[2] + tailLen * 0.5 * Math.sin(tAng2)));
+  tube(faces, tailRoot, t1, tailW, tailW * 0.75, 'tail', 1, 3);
+  tube(faces, t1, t2, tailW * 0.75, tailW * 0.3, 'tail', 0.95, 3);
+
+  // ── The legs ──
+  // Each a thigh or forearm, a shank, and a paw. Fore legs hang from the shoulder, hind from the hip.
+  const footAt = (kind, g, off) => {
+    const fore = kind === 'fore';
+    const j = V((fore ? sh : hp)[0], g * hSide, (fore ? sh : hp)[2] - (fore ? 0.02 : 0.03));
+    const l1 = fore ? fl1 : hl1, l2 = fore ? fl2 : hl2;
+    let foot;
+    if (lie) {
+      // Fore legs out in front along the ground; hind legs folded under, the hock on the ground.
+      foot = fore ? V(j[0] + legLen * 0.97, j[1], ankle) : V(j[0] + legLen * 0.68, g * (hSide + 0.04), ankle);
+    } else if (!run) {
+      foot = V(j[0] + (fore ? 0.02 : -0.05), j[1], ankle);
+    } else {
+      const f = ((ph - off) % 1 + 1) % 1;
+      const fwd = (fore ? 0.28 : 0.2) * gallop, back = (fore ? -0.2 : -0.32) * gallop;
+      if (f < HOUND_STANCE) {
+        // On the ground, sweeping back under the body.
+        foot = V(j[0] + fwd + (back - fwd) * (f / HOUND_STANCE), j[1], ankle);
+      } else {
+        // In the air, coming forward, lifted, and tucked up most in the middle of the swing.
+        const u = (f - HOUND_STANCE) / (1 - HOUND_STANCE);
+        foot = V(j[0] + back + (fwd - back) * smooth(u), j[1], ankle + (fore ? 0.2 : 0.16) * Math.pow(Math.sin(Math.PI * u), 0.6) * gallop);
+      }
+    }
+    // The fore leg's wrist points forward when it folds, the hind leg's hock points back. Lying, the
+    // fore legs are out straight in front and the hind leg folds with the stifle up by the flank; any
+    // other fold of these bones from a hip this low goes through the road.
+    const apex = fore ? 1 : lie ? 1 : -1;
+    const r = reach2(j, foot, l1, l2, apex);
+    tube(faces, j, r.knee, legW * (fore ? 1.15 : 1.5), legW, 'leg', 0.96, 4, 1.1);
+    tube(faces, r.knee, r.foot, legW * 0.9, legW * 0.75, 'leg', 0.88, 4);
+    // The paw: a short block forward of the ankle, sitting on the ground when the leg bears weight.
+    const pf = legW * 2.2, pz = r.foot[2] - 0.004;
+    tube(faces, V(r.foot[0] - legW * 0.3, r.foot[1], pz), V(r.foot[0] + pf, r.foot[1], pz - 0.003), legW * 0.75, legW * 0.55, 'leg', 0.8, 3);
+  };
+  for (const [kind, g, off] of HOUND_FOOT) footAt(kind, g, off);
+  // ⚠ NO LIFT TO THE LOWEST CORNER. A bird is raised onto its feet after it is built; a dog at the
+  // gallop must not be, because the lowest corner moves from row to row and lifting each row by its
+  // own would plant the dog through both suspensions, where no foot is down. The ankle height is
+  // chosen so a bearing paw's lowest corner sits on h = 0 instead (the gate checks it). Standing and
+  // lying are one row each, so those are simply set down on their lowest corner.
+  if (!run) {
+    let lo = Infinity;
+    for (const f of faces) for (const v of f.p) if (v[2] < lo) lo = v[2];
+    if (lo !== 0 && Number.isFinite(lo)) for (const f of faces) f.p = f.p.map((v) => V(v[0], v[1], v[2] - lo));
+  }
+  return faces;
+}
+
 // ── The pose table ────────────────────────────────────────────────────────────
 // ⚠ A TABLE, NOT A CACHE. There are eleven poses in the whole game (walk, raft, and three wing
 // shapes, per animal), they are built once and they never age out — so there is no eviction rule
@@ -1044,13 +1243,14 @@ function buildBird(p, state, wing, dihK, gear = 0, phase = null) {
 const _faces = new Map();
 
 export function faunaFaces(kind, id, state = 'walk', wing = 0) {
-  const w = state === 'air' ? clampN(wing | 0, 0, 2) : 0;
+  const w = state === 'air' ? clampN(wing | 0, 0, 2) : state === 'run' ? clampN(wing | 0, 0, QUAD_RUN_SHAPES - 1) : 0;
   const key = kind + ':' + id + ':' + state + ':' + w;
   const hit = _faces.get(key);
   if (hit) return hit;
   const p = row(kind, id);
   if (!p) return [];
-  const faces = kind === 'bird' ? scaleFaces(buildBird(p, state, w), faunaScale(kind, id)) : [];
+  const faces = kind === 'bird' ? scaleFaces(buildBird(p, state, w), faunaScale(kind, id))
+    : kind === 'quadruped' ? scaleFaces(buildHound(p, state, w / QUAD_RUN_SHAPES), faunaScale(kind, id)) : [];
   _faces.set(key, faces);
   return faces;
 }
@@ -1177,7 +1377,11 @@ export function faunaDotPx(kind, id) {
 
 export function faunaSpanTiles(kind, id) {
   const r = row(kind, id);
-  return r ? (r.span ?? 1) * 2 * FAUNA_TILE * faunaScale(kind, id) : 0;
+  if (!r) return 0;
+  // A dog has no wingspan; its widest measure is nose to tail: the body, the reach of the neck and
+  // head, and half the tail.
+  if (kind === 'quadruped') return houndLength(r) * FAUNA_TILE * faunaScale(kind, id);
+  return (r.span ?? 1) * 2 * FAUNA_TILE * faunaScale(kind, id);
 }
 
 // The model faces plus their resolved colours, per pose. The palette is per row and the shade is
@@ -1191,7 +1395,9 @@ const _poses = new Map();
 // one renderer and not the other.
 function poseParts(state, beatStep, flare, gear) {
   const air = state === 'air';
-  const step = air ? ((beatStep | 0) % FAUNA_BEAT_STEPS + FAUNA_BEAT_STEPS) % FAUNA_BEAT_STEPS : 0;
+  // A gallop is the wingbeat's sixteen rows over again: one stride, a step a row.
+  const beats = air || state === 'run';
+  const step = beats ? ((beatStep | 0) % FAUNA_BEAT_STEPS + FAUNA_BEAT_STEPS) % FAUNA_BEAT_STEPS : 0;
   return { air, step, fl: air && flare ? 1 : 0, gr: air && gear ? 1 : 0 };
 }
 
@@ -1238,7 +1444,8 @@ function faunaPose(kind, id, state, beatStep, flare = 0, gear = 0, far = 0, glid
   const ownGlide = glide && air && p.glideFold != null;
   const gStep = glide && air && !ownGlide ? 2 : step;
   const dih = !air ? null : ownGlide ? clampN(p.glideDih ?? 0.1, -1, 1) : beatDihedral(gStep / FAUNA_BEAT_STEPS, fl);
-  const faces = kind !== 'bird' ? []
+  const faces = kind === 'quadruped' ? buildHound(p, state, state === 'run' ? step / FAUNA_BEAT_STEPS : null)
+    : kind !== 'bird' ? []
     : glyph ? buildBirdGlyph(p, state, dih, far === FAUNA_LOD_COARSE)
       : buildBird(p, state, 0, dih, gr, !air ? walk : ownGlide ? 'glide' : fl ? null : gStep / FAUNA_BEAT_STEPS);
   scaleFaces(faces, faunaScale(kind, id));
@@ -1294,7 +1501,7 @@ export function faunaPoseSlot(kind, id, state, beat = 0, flare = 0, gear = 0, fa
 export function faunaPoseBake(kind, id, state, flare = 0, gear = 0, far = 0) {
   // An air bake carries the sixteen beat steps and then the glide row (FAUNA_GLIDE_ROW).
   const walks = state === 'walk' && faunaWalks(kind, id);
-  const rows = state === 'air' || walks ? FAUNA_BEAT_STEPS + 1 : 1;
+  const rows = state === 'air' || walks ? FAUNA_BEAT_STEPS + 1 : state === 'run' ? FAUNA_BEAT_STEPS : 1;
   let verts = -1, pos = null, rgb = null, sig = null;
   for (let r = 0; r < rows; r++) {
     const walk = !walks ? null : r === FAUNA_PECK_ROW ? 'peck' : r / FAUNA_BEAT_STEPS;
@@ -1369,11 +1576,11 @@ export function faunaWorldFaces(kind, id, opts = {}) {
 export function faunaRecordFaces(list) {
   const out = [];
   for (const q of list) {
-    if (!(q && q.inst && q.kind === 'bird')) { out.push(q); continue; }
-    const faces = faunaWorldFaces('bird', q.sp, { state: q.state, beat: q.beat, flare: q.flare, gear: q.gear,
+    if (!(q && q.inst && (q.kind === 'bird' || q.kind === 'quadruped'))) { out.push(q); continue; }
+    const faces = faunaWorldFaces(q.kind, q.sp, { state: q.state, beat: q.beat, flare: q.flare, gear: q.gear,
       x: q.x, y: q.y, z: q.z, heading: q.heading, pitch: q.pitch, roll: q.roll, scale: q.scale, alpha: q.a, far: q.far });
     if (!faces.length) continue;
-    faces[0].bird = { sp: q.sp, state: q.state, x: q.x, y: q.y, z: q.z, heading: q.heading, beat: q.beat, flare: q.flare, gear: q.gear };
+    faces[0].bird = { kind: q.kind, sp: q.sp, state: q.state, x: q.x, y: q.y, z: q.z, heading: q.heading, beat: q.beat, flare: q.flare, gear: q.gear };
     for (const f of faces) out.push(f);
   }
   return out;
@@ -1390,7 +1597,7 @@ export function faunaRecordFaces(list) {
 // The ground is sampled more coarsely than the air, which is still the right call for a sheet: a
 // walking bird is a few pixels of blob whose aspect barely changes, a flying one is read almost
 // entirely by the angle its wings make, and a rafting one is a lump on water.
-export const FAUNA_BEARINGS = { walk: 6, raft: 4, air: 12 };
+export const FAUNA_BEARINGS = { walk: 6, raft: 4, air: 12, run: 8, lie: 4 };
 export const FAUNA_WINGS = 3;
 
 const TAU = Math.PI * 2;
@@ -1407,12 +1614,19 @@ export const FAUNA_POSES = [
   { state: 'walk', wing: 0 }, { state: 'raft', wing: 0 },
   ...Array.from({ length: FAUNA_WINGS }, (_, w) => ({ state: 'air', wing: w })),
 ];
+// A four-legged animal's: standing, lying down, and the gallop in QUAD_RUN_SHAPES shapes (`wing` is
+// the shape, so the sheet and the Modelshop's pose buttons need no second field).
+export const QUAD_POSES = [
+  { state: 'walk', wing: 0 }, { state: 'lie', wing: 0 },
+  ...Array.from({ length: QUAD_RUN_SHAPES }, (_, w) => ({ state: 'run', wing: w })),
+];
+export const faunaPosesFor = (kind) => (kind === 'quadruped' ? QUAD_POSES : FAUNA_POSES);
 
 // Every (pose, bearing) cell the sheet lays out, enumerated once so the layout and the paint agree
 // by construction rather than by two copies of the same arithmetic.
-export function faunaKeySpace() {
+export function faunaKeySpace(kind = 'bird') {
   const out = [];
-  for (const p of FAUNA_POSES) {
+  for (const p of faunaPosesFor(kind)) {
     for (let b = 0; b < (FAUNA_BEARINGS[p.state] ?? 6); b++) out.push({ ...p, bearing: b });
   }
   return out;
@@ -1500,8 +1714,8 @@ const shadeCss = (c, m) => 'rgb(' + (clampN(c[0] * m, 0, 255) | 0) + ',' + (clam
 // flying halves are different code, so deleting the canvas path from one of them leaves the other
 // still painting and a `> 0` check still green. Restoring the bug with a total in place took the
 // count from 56 to 32 and passed.
-const _painted = { walk: 0, raft: 0, air: 0 };
-export const faunaPaintCount = () => ({ ..._painted, total: _painted.walk + _painted.raft + _painted.air });
+const _painted = { walk: 0, raft: 0, air: 0, run: 0, lie: 0 };
+export const faunaPaintCount = () => ({ ..._painted, total: _painted.walk + _painted.raft + _painted.air + _painted.run + _painted.lie });
 // The GL path hands triangles to gl/solids.js and never reaches 'paintFauna', so for as long as
 // this counter lived only in the painter it answered ZERO for every bird GLASS 2 drew -- and zero
 // is also what a flock that failed to draw reports, which is the one thing a census exists to tell
@@ -1609,24 +1823,25 @@ export function renderFaunaPreview(canvas, opts = {}) {
 export function renderFaunaSheet(canvas, opts = {}) {
   const { kind = 'bird', id = 'goose', unit = 13, night = 0, mag = 4 } = opts;
   const ctx = canvas.getContext('2d');
-  const space = faunaKeySpace();
+  const poses = faunaPosesFor(kind);
+  const space = faunaKeySpace(kind);
   // Widest cell across the whole space, so the grid does not reflow as you tune.
   let cw = 8, ch = 8;
   for (const k of space) {
     const box = faunaBox(kind, id, k.state, k.wing, bucketBearing(k.state, k.bearing), unit);
     cw = Math.max(cw, box.w); ch = Math.max(ch, box.h);
   }
-  const padX = 6, padY = 16, cols = Math.max(...FAUNA_POSES.map((p) => FAUNA_BEARINGS[p.state] ?? 6));
+  const padX = 6, padY = 16, cols = Math.max(...poses.map((p) => FAUNA_BEARINGS[p.state] ?? 6));
   const cellW = Math.ceil(cw) + padX * 2, cellH = Math.ceil(ch * (1 + mag)) + padY;
-  canvas.width = cols * cellW; canvas.height = FAUNA_POSES.length * cellH;
+  canvas.width = cols * cellW; canvas.height = poses.length * cellH;
   const W = canvas.width, H = canvas.height;
   bg(ctx, W, H, night > 0.5);
 
   ctx.font = '9px ui-monospace, monospace'; ctx.textBaseline = 'top';
-  FAUNA_POSES.forEach((p, r) => {
+  poses.forEach((p, r) => {
     const n = FAUNA_BEARINGS[p.state] ?? 6;
     ctx.fillStyle = night > 0.5 ? '#7d8796' : '#aab3c0';
-    ctx.fillText(p.state === 'air' ? 'air w' + p.wing : p.state, 4, r * cellH + 2);
+    ctx.fillText(p.state === 'air' ? 'air w' + p.wing : p.state === 'run' ? 'run ' + p.wing : p.state, 4, r * cellH + 2);
     for (let b = 0; b < n; b++) {
       const bearing = bucketBearing(p.state, b);
       const box = faunaBox(kind, id, p.state, p.wing, bearing, unit);
@@ -1661,7 +1876,7 @@ export function faunaRenderSmoke(makeCtx) {
   const bad = [];
   for (const kind of Object.keys(TABLES)) {
     for (const id of Object.keys(TABLES[kind])) {
-      for (const pose of FAUNA_POSES) {
+      for (const pose of faunaPosesFor(kind)) {
         const faces = faunaFaces(kind, id, pose.state, pose.wing);
         if (!faces.length) { bad.push(kind + '/' + id + ' ' + pose.state + '/' + pose.wing + ': builds no faces at all'); continue; }
         for (const f of faces) {
@@ -1687,6 +1902,10 @@ export function faunaRenderSmoke(makeCtx) {
             for (const v of [{ flare: 0, gear: 1 }, { flare: 1, gear: 1 }]) {
               for (const beat of [0, 5, 11]) paintFauna(ctx, kind, id, { state: 'air', beat, ...v, bearing: 1.2, size: 24 });
             }
+          }
+          // The gallop's sixteen rows, which the four discrete shapes above only sample.
+          if (kind === 'quadruped' && pose.state === 'run' && pose.wing === 0) {
+            for (let beat = 0; beat < FAUNA_BEAT_STEPS; beat++) paintFauna(ctx, kind, id, { state: 'run', beat, bearing: 1.2, size: 24 });
           }
           for (const c of calls || []) {
             const s = JSON.stringify(c.args ?? c);

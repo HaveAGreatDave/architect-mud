@@ -4,8 +4,9 @@
 `client/game/js/panels/murmur.js`, `client/game/js/panels/fauna3d.js`, `client/game/js/panels/gl/murmur-gpu.js`,
 `client/game/js/panels/gl/fauna.js`, `content/fauna_models/`).
 Six species, the flock cycle, perching, the hawk's hunt, the murmuration, the voices and the room
-prose all ship. Everything that is not a bird — dogs, rats, anything on four legs — is not built and
-nothing here is written for it.
+prose all ship. The one animal on four legs is Bracken's hounds, which run in front of the Wildblood
+column ([The hounds](#the-hounds-four-legs), built 2026-11-03); everything else in this doc is about
+birds.
 
 ## One rule holds the whole system up
 
@@ -1312,9 +1313,56 @@ would mean shipping the shape capture to the server.
   snapshot is baked in grid order (`buildFlightSnapshot`), so which site the gate finds first doesn't
   change with the DB's row order.
 
+## The hounds (four legs)
+
+**Built 2026-11-03.** Bracken's hounds, running in front of the Wildblood column's Howl
+([proposals/wildblood-column.md](proposals/wildblood-column.md)). The first fauna that isn't a bird,
+and the second kind in `FAUNA_KINDS`: `quadruped`, with the one row `hound`
+(`content/fauna_models/quadruped_hound.json`, baked into `QUADRUPED_ROWS` by `npm run fauna:bake`).
+A kind is a builder, so a later dog or rat is another id under `quadruped`, never a new kind.
+
+**The pack is arithmetic, like a flock.** `houndsAt(nowMs)` in
+[column-route.js](../client/shared/column-route.js) answers every hound's place, heading, state
+(`run`, `walk` while it waits at a stop, `lie` while the column stands) and stride phase from the
+column's own timetable and a fixed seed. There's no anchor tile and no habitat: the dogs are where the
+Howl is. ⚠ They are never vehicle contacts, for the reason a goose isn't one.
+
+**The model** is `buildHound` in [fauna3d.js](../client/game/js/panels/fauna3d.js), beside
+`buildBird`, out of the same `tube` and `sheet`. The roles are the bird's, read as a dog's: `body`
+the coat, `belly` the underside, `crown` the hackles and ears, `cheek` the muzzle, `bill` the nose,
+`patch` the collar. 104 faces in every pose.
+
+- ⚠ **The legs are solved, not swung.** Each foot has a target (on the road while it bears weight,
+  on an arc while it swings) and a two-bone solve finds the joint. Fixed angles put a foot through the
+  road at full reach and in the air mid-stance.
+- ⚠ **The fore knee and the hock bend opposite ways.** Bent the same way the dog runs on four fore
+  legs.
+- ⚠ **The gallop is never lifted onto its lowest corner.** A bird is set on its feet after it's built;
+  a galloping dog lifted row by row would be planted through the suspension, where no foot is down.
+  The ankle height is the paw's depth instead, so a bearing paw rests on h = 0 (`fauna.mjs` checks
+  every row: lowest corner 0.000, 0.055 clear in the suspension). Standing and lying are one row each
+  and are set down on their lowest corner.
+- **The gallop is the sixteen beat rows.** `poseParts` steps a `run` pose as it steps `air`, and
+  `faunaPoseBake` gives it sixteen rows, so gl/fauna.js draws it with no change: one instanced group
+  per state, the stride a texture row. The four `run` shapes in `QUAD_POSES` are only the Modelshop
+  sheet's columns.
+
+**Drawing.** `drawHounds` in windshield.js, beside `drawGeese`: a record into `FAUNA_SINK` on GLASS 2,
+`paintFauna` through `emitScatterFace` on GLASS 1. Out to 9 tiles and only below
+`STREET_FIGURE_MAX_H`. ⚠ The seat corrects its clock: the rigs are worked out on the server and the
+dogs here, so each column contact carries `clock` and the skew is eased in from it; a second off would
+otherwise draw the pack a third of a tile off the Howl. ⚠ **Day only**, gated on `GOOSE_NIGHT_OFF` like
+the birds, because the fauna layer draws flat colour with no night tint. No bark.
+
+**Gates.** `fauna.mjs` section 16 (the gallop's feet and suspension, the bake, the pass putting the
+pack where `houndsAt` says, lying at a stop, gone at night, painted on GLASS 1); `faunabake.mjs` section
+5 (every row and slot is the CPU pose); `shapes:smoke` (every pose builds finite geometry, the bake is
+current); `plugins/column/regress.js` (the pack is deterministic, on the lane, in front of the plough,
+lying at every stop, never in the cage, never a contact).
+
 ## Not built
 
-Ground fauna of any kind. Nesting, feeding, or anything that remembers a player. Birds reacting to
+Ground fauna other than the hounds. Nesting, feeding, or anything that remembers a player. Birds reacting to
 weather beyond the gull coming ashore before a blow. A bird a player can interact with at all — the
 one animal in the game you can touch is the cat, which is a plugin and a different thing entirely
 (see [systems-strays.md](systems-strays.md)).

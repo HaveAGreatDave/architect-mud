@@ -60,6 +60,7 @@ import { streetLifeGroups, streetLifeStep, streetLifeLeg, curtainSide } from './
 import { buildRibbons, RIBBON_FAR_RGB } from './glass/highway-ribbons.js';   // the void highway as one ribbon of tarmac; see drawHighwayRibbons
 import { paintFauna, faunaPoseFaces, faunaWorldFaces, faunaHasFar, faunaFaces, faunaCountPainted, faunaDotColour, faunaDotPx, faunaSpanTiles, FAUNA_BEAT_STEPS, FAUNA_TILE, FAUNA_LOD_FAR, FAUNA_LOD_COARSE, FAUNA_LOD_GLYPH } from './fauna3d.js';
 import { MURMUR_NND_TILES, agitationWave, murmurEnvelope, MURMUR_RULES, MURMUR_MEASURED, rankOf, waveTurn } from './murmur.js';
+import { houndsAt } from '../../../shared/column-route.js';   // Bracken's hounds, out in front of the Wildblood column; see drawHounds
 import { setMurmurAudio, murmurStartle } from './murmur-audio.js';
 // ⚠ The lattice and the cycle are SHARED with the text game — see the header in birds.js. Reading
 // them from anywhere else here would be a second answer to "are there geese in this field".
@@ -32886,6 +32887,67 @@ function drawThermalMarks(ctx, cam, v, wcx, wcy, night) {
   }
 }
 
+// ── BRACKEN'S HOUNDS ─────────────────────────────────────────────────────────
+// The pack that runs in front of the Wildblood column's Howl. Where each dog is, which way it faces,
+// whether it's running, waiting or lying down, and where it is in its stride all come from
+// `houndsAt` (client/shared/column-route.js), the column's own clock, the way a flock comes from
+// birds.js: nothing on the wire, nothing stored. The dog is the `quadruped`/`hound` fauna row,
+// drawn through the same pose path as a bird: a record into FAUNA_SINK on GLASS 2 (gl/fauna.js puts
+// the gallop on the sixteen beat rows), and `paintFauna` on the canvas.
+//
+// ⚠ THE CLOCK IS THE SERVER'S WHEN THE SEAT HAS ONE. The rigs are contacts, worked out on the server;
+// the dogs are worked out here. A machine whose clock is a second out would draw the pack a third of
+// a tile off the Howl it is running in front of, so each column contact carries `clock`, and the
+// skew is taken the first frame a new one is seen (eased, so a late packet doesn't jerk the pack).
+// No contact, no correction: the dogs fall back to this machine's own clock, as a flock does.
+//
+// ⚠ DAY ONLY, LIKE THE BIRDS. The fauna layer draws flat colours with no night tint, so a dog drawn
+// after dark would glow. They fade out with the birds' GOOSE_NIGHT_OFF and come back at first light.
+const HOUND_RANGE = 9;              // tiles: a dog is about two pixels long out here
+const _hounds = [];
+let _colClock = null, _colSkew = 0;
+function drawHounds(ctx, cam, v, wcx, wcy, sky, FAR) {
+  if ((v.height || 0) >= STREET_FIGURE_MAX_H) return;          // a ground animal; from the air it is a speck
+  if ((sky.night || 0) > GOOSE_NIGHT_OFF) return;
+  const now = Date.now();
+  const cs = v.contacts;
+  if (cs) for (const c of cs) {
+    if (!c || c.cls !== 'column' || c.variant !== 'howl' || !Number.isFinite(c.clock)) continue;
+    if (c.clock !== _colClock) {
+      const m = c.clock - now;
+      _colSkew = _colClock == null || Math.abs(m - _colSkew) > 30_000 ? m : _colSkew + 0.25 * (m - _colSkew);
+      _colClock = c.clock;
+    }
+    break;
+  }
+  const dayFade = clamp((GOOSE_NIGHT_OFF - (sky.night || 0)) / 0.25, 0, 1);
+  const reach = Math.min(FAR || HOUND_RANGE, HOUND_RANGE);
+  const hs = houndsAt(now + _colSkew, _hounds);
+  for (const h of hs) {
+    const dx = h.x - wcx - (cam.ox || 0), dy = h.y - wcy - (cam.oy || 0);
+    const d = Math.hypot(dx, dy);
+    if (d > reach) continue;
+    const a = dayFade * clamp((reach - d) / 1.5, 0, 1) * (v.worldBlend ?? 1);
+    if (!(a > 0.01)) continue;
+    // The route's heading is 0 north and clockwise; a fauna heading is the (cos, sin) of the way it faces.
+    const heading = (h.hdg - 90) * Math.PI / 180;
+    const beat = h.state === 'run' ? Math.floor(h.stride * FAUNA_BEAT_STEPS) % FAUNA_BEAT_STEPS : 0;
+    if (FAUNA_SINK) {
+      FAUNA_SINK.push({ inst: 1, kind: 'quadruped', sp: 'hound', state: h.state, beat, flare: 0, gear: 0, far: 0,
+        x: dx + (cam.ox || 0), y: dy + (cam.oy || 0), z: 0, heading, pitch: 0, roll: 0, scale: FAUNA_TILE, a });
+      faunaCountPainted(h.state);
+      continue;
+    }
+    const p = cam.proj(dx, dy, 0);
+    if (!p || !(p.f > 0.12)) continue;
+    const unit = cam.FL * FAUNA_TILE / p.f;
+    // Everything the deferred paint reads is copied here: `_hounds` is refilled in place next frame.
+    const bearing = heading - Math.atan2(dy, dx), sx = p.sx, sy = p.sy, state = h.state;
+    const paint = () => paintFauna(ctx, 'quadruped', 'hound', { state, beat, bearing, unit, x: sx, y: sy, alpha: a });
+    if (SCATTER_SINK) paint(); else emitScatterFace(p.f + (cam.fwdOff || 0), paint);
+  }
+}
+
 function drawGeese(ctx, cam, v, map, R, wcx, wcy, sky, frameNow, FAR) {
   const now = Date.now();
   OWN_AC = ownAircraftFor(v, now);
@@ -55360,6 +55422,7 @@ function drawWorldObjects(ctx, cam, v, sky, now, sun) {
   // visible from a cockpit. The gate is a property of the STATE, so drawGeese owns both.
   pBegin('world:fauna');
   if ((v.worldBlend ?? 1) > 0.02) drawGeese(ctx, cam, v, map, R, wcx, wcy, sky, now, FAR);
+  if ((v.worldBlend ?? 1) > 0.02) drawHounds(ctx, cam, v, wcx, wcy, sky, FAR);
   if ((v.worldBlend ?? 1) > 0.02) drawThermalMarks(ctx, cam, v, wcx, wcy, sky.night || 0);
   pEnd();                      // ── end world:fauna ──
   pEnd();                      // ── end world:build (queueing) ──

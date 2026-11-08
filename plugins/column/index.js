@@ -1,9 +1,15 @@
 // THE WILDBLOOD COLUMN: three rigs that run the Scarletwastes roads on a timetable.
 //
 // The Howl, the Slake cart and the hound-runner drive a loop from the Deadleg yard to the Slake and
-// up to the North Gate (route.js). It is look only: no raid, no shadowing, nothing to fight. A seat
-// sees and hears them through `vehicle.contacts`, the seam that already puts other players' rigs in
-// a windscreen and a mirror; somebody on foot gets a line as they pass.
+// up to the North Gate (client/shared/column-route.js). It is look only: no raid, no shadowing,
+// nothing to fight. A seat sees and hears them through `vehicle.contacts`, the seam that already
+// puts other players' rigs in a windscreen and a mirror; somebody on foot gets a line as they pass.
+//
+// Bracken's hounds, out in front, are not contacts. The renderer works them out from the same clock
+// (`houndsAt` in column-route.js), the way it works out a flock, and draws them as fauna. Each column
+// contact carries `clock`, the server instant it was worked out at, so a seat whose own clock is a
+// few seconds out can put the dogs in front of the Howl it is drawing rather than in front of where
+// its own clock thinks the Howl is.
 //
 // ⚠ NOTHING IS STORED AND NOTHING IS QUERIED. Where the column is comes from the clock (columnAt),
 // so the contact feed is arithmetic and the tick reads only the world Maps. The tick goes through
@@ -14,7 +20,7 @@
 import { schedule } from '../../server/engine/scheduler.js';
 import { zoneAtTile, getZonePlayers } from '../../server/engine/world.js';
 import { sendToPlayer } from '../../server/engine/messaging.js';
-import { columnAt, STOP_NAMES } from './route.js';
+import { columnAt, STOP_NAMES } from '../../client/shared/column-route.js';
 
 const MAP = 'map_world';
 
@@ -33,6 +39,7 @@ export function columnContactsNear(x, y, range = 26, nowMs = Date.now()) {
       alt: 0, band: 'ground', onGround: true, groundZ: 0, altDiff: 0,
       bank: 0, pitch: 0, vs: 0,
       reg: r.name,
+      clock: nowMs,
     });
   }
   return out;
