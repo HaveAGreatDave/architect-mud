@@ -1531,7 +1531,7 @@ function startSpin() {
       const accent = themeColor('--accent', '#39ff9e');   // one getComputedStyle for the whole row, not per-card
       wfLots.forEach((cv) => {
         if (cv._phase == null) cv._phase = Math.random() * 6.28;
-        drawWireframe3D(cv.getContext('2d'), { cls: cv.getAttribute('data-wf-cls'), armed: cv.getAttribute('data-wf-armed') === '1', variant: cv.getAttribute('data-wf-variant') || '', detail: 0, w: cv.width, h: cv.height, accent, yaw: yaw + cv._phase });
+        drawWireframe3D(cv.getContext('2d'), { cls: cv.getAttribute('data-wf-cls'), armed: cv.getAttribute('data-wf-armed') === '1', variant: cv.getAttribute('data-wf-variant') || '', detail: 0, w: cv.width, h: cv.height, accent, yaw: yaw + cv._phase, contain: 0.96 });
       });
     }
     raf = requestAnimationFrame(loop);

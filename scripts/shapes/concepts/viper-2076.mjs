@@ -470,9 +470,15 @@ const coarse = [
     capFore: { kind: 'apex', at: [0.88, 0, -0.02] }, capAft: { kind: 'apex', at: [-1.025, 0, 0.115] },
     regions: [{ at: [0.75], k: [0, 1, 2, 3, 4, 5, 6], role: 'glass', tint: GLASS }] },
   { kind: 'panel', name: 'wing (far)', role: 'wing', sh: 0.9, th: 0.03, paint: 'hull', c: P3s([[0.12, -NAC.g, NAC.hWing + 0.012], [0.12, NAC.g, NAC.hWing + 0.012], [-0.14, NAC.g, NAC.hWing + 0.012], [-0.14, -NAC.g, NAC.hWing + 0.012]]), ...COARSE },
-  mirror('nacelles (far)', [
+  // ⚠ The mirror needs COARSE itself. The sweep at the bottom marks any top-level part that says
+  // neither as fine, and a fine wrapper is skipped at detail 0 before its far children are read:
+  // the far body lost its nacelles, tail, stub wings, pods and legs, and the dealer's schematic
+  // (which draws detail 0) showed a bare fuselage.
+  { ...COARSE, ...mirror('nacelles (far)', [
     tube('nacelle (far)', [[0.17, NAC.g, NAC.hWing], [-0.27, NAC.g, NAC.hWing]], 0.068, { role: 'nacelle', paint: 'hull', sides: 8, caps: 1, ...COARSE }),
     { kind: 'drum', name: 'pylon (far)', f: NAC.f, g: NAC.g, r: 0.06, n: 8, z: [NAC.hWing + 0.03, NAC.hRotor + 0.03], role: 'nacelle', paint: 'hull', sh: { base: 0.62, alt: 0.1 }, top: { sh: 0.9 }, ...COARSE },
+    { kind: 'ngon', name: 'proprotor disc (far)', note: 'Schematic only, like the Dragonfly\'s main rotor disc: every painted and GL renderer skips the rotor role, so only the dealer\'s wireframe draws it.',
+      f: NAC.f, g: NAC.g, h: NAC.hRotor, r: NAC.rRotor, n: 12, role: 'rotor', sh: 0.65, ...COARSE },
     { kind: 'panel', name: 'V-tail (far)', role: 'fin', sh: 0.85, th: 0.012, paint: 'hull', c: P3s([VT.rootLE, VT.tipLE, VT.tipTE, VT.rootTE]), ...COARSE },
     { kind: 'panel', name: 'stub wing (far)', role: 'wing', sh: 0.85, th: 0.02, paint: 'hull', c: P3s([[0.15, 0.1, -0.04], [0.125, 0.42, -0.05], [-0.075, 0.42, -0.05], [-0.1, 0.1, -0.04]]), ...COARSE },
     tube('rocket pod (far)', [[0.14, POD.g, POD.h], [-0.17, POD.g, POD.h]], 0.042, { role: 'nacelle', paint: 'hull', sides: 6, caps: 1, ...COARSE }),
@@ -480,7 +486,7 @@ const coarse = [
       tube('gear (far)', [[MW.f, 0.19, -0.06], [MW.f, MW.g, mwz]], 0.012, { role: 'gear', paint: 'metal', sides: 5 }),
       { kind: 'wheel', name: 'main wheel (far)', at: P3([MW.f, MW.g, mwz]), r: MW.r, hw: 0.03, n: 8 },
     ], { anim: mainFold, ...COARSE }),
-  ]),
+  ]) },
   group('tail leg (far)', [
     { kind: 'wheel', name: 'tailwheel (far)', at: P3([TW.f, 0, twz]), r: TW.r, hw: 0.014, n: 6 },
     tube('tailwheel leg (far)', [[TW.f, 0, 0.04], [TW.f, 0, twz]], 0.008, { role: 'gear', paint: 'metal', sides: 4 }),

@@ -58,7 +58,11 @@ function fitBox(key, faces, projAt, w, h, fill) {
 // x-ray depth cue) rather than being hidden, so the whole airframe reads through
 // itself like a real technical drawing. `yaw` (radians) spins it in place —
 // callers animate this every frame for the "alive" showroom feel.
-export function drawWireframe3D(ctx, { cls, armed = false, variant = '', detail = 1, w, h, accent = '#39ff9e', yaw = 0, glow = true, fill = 0, fitRef = '' }) {
+// `contain` (0…1) is `fill` that only ever shrinks: an airframe whose full turn would overrun that
+// fraction of the viewport is scaled down to it, and one that fits draws at the stock focal. The
+// aircraft lot uses it so the Viper 2076's proprotors stay on the card without every other airframe
+// on the line being blown up to the same size.
+export function drawWireframe3D(ctx, { cls, armed = false, variant = '', detail = 1, w, h, accent = '#39ff9e', yaw = 0, glow = true, fill = 0, fitRef = '', contain = 0 }) {
   ctx.save();
   ctx.clearRect(0, 0, w, h);
   const faces = aircraftFaces(cls, detail, armed, variant);
@@ -85,10 +89,14 @@ export function drawWireframe3D(ctx, { cls, armed = false, variant = '', detail 
   // a dealer's line is for — vanishes. Measuring the BIGGEST in the family and scaling everything
   // by that one factor fills the frame for the flagship and leaves a stubby cab looking stubby.
   const ref = fill ? (fitRef || variant) : '';
-  const box = fill
+  let box = fill
     ? fitBox(`${cls}|${ref}|${armed ? 1 : 0}|${w}x${h}|${fill}`,
         ref === variant ? faces : aircraftFaces(cls, 1, armed, ref), projAt, w, h, fill)
     : null;
+  if (!box && contain) {
+    const b = fitBox(`${cls}|${variant}|${armed ? 1 : 0}|${detail}|${w}x${h}|c${contain}`, faces, projAt, w, h, contain);
+    if (b.s < 1) box = b;
+  }
   const proj = box
     ? (f0, g, h0) => { const q = spun(f0, g, h0); return { sx: (q.sx - box.cx) * box.s + w / 2, sy: (q.sy - box.cy) * box.s + h / 2, z: q.z }; }
     : spun;
