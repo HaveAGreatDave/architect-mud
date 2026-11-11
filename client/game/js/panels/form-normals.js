@@ -19,14 +19,15 @@ export function formNormals(F, iters, keep = null) {
     const a = I[t], b = I[t + 1], c = I[t + 2];
     adj[fill[a]++] = b; adj[fill[a]++] = c; adj[fill[b]++] = a; adj[fill[b]++] = c; adj[fill[c]++] = a; adj[fill[c]++] = b;
   }
+  for (let k = 0; k < adj.length; k++) adj[k] *= 3;   // stored as float offsets: the loop below is the hot path of every figure build
   let cur = Float32Array.from(N), nxt = new Float32Array(nv * 3);
   let held = null;
   for (let it = 0; it < iters; it++) {
     if (keep && it === keep.at) held = Float32Array.from(cur);
     for (let v = 0; v < nv; v++) {
       let x = cur[v * 3], y = cur[v * 3 + 1], z = cur[v * 3 + 2];
-      for (let k = deg[v]; k < deg[v + 1]; k++) { const u = adj[k] * 3; x += cur[u]; y += cur[u + 1]; z += cur[u + 2]; }
-      const l = Math.hypot(x, y, z) || 1;
+      for (let k = deg[v], e = deg[v + 1]; k < e; k++) { const u = adj[k]; x += cur[u]; y += cur[u + 1]; z += cur[u + 2]; }
+      const l = Math.sqrt(x * x + y * y + z * z) || 1;   // not Math.hypot, which is several times slower in V8
       nxt[v * 3] = x / l; nxt[v * 3 + 1] = y / l; nxt[v * 3 + 2] = z / l;
     }
     [cur, nxt] = [nxt, cur];

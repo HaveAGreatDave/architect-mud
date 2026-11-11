@@ -243,6 +243,7 @@ export const RENDER_TUNE = {
   perfDS: 1,          // 1 = under sustained frame-load, bump the Mode-7 floor's per-pixel downscale (DS) up to +4 on top of `pixel`, quartering the ground-raster texel count. The floor is a fixed-cost software raster the canvas dynamic-res dial can't touch, so this is the one lever that sheds its load. 0 = fixed `pixel` DS always.
   pace30: 0,          // 0 = never halve (default since 2026-09-25: an uneven 40-55 beats a locked 30). 1 = once the governor is at its floor and frames still miss vsync, paint every second refresh for an even 30 fps instead of an uneven 30-60 (see paintWindshield). 0 = never halve.
   glassLite: 0,       // 1 = GLASS Lite: under GLASS 2, a building the bake holds (client/game/assets/lite/, gl/lite.js) draws its mesh, signs, lights and masts from the bake instead of running its arm, and the occluder, the people and the birds are skipped. On in PHONE_TIER. See glass-notes.md, GLASS Lite
+  liteLife: 1,        // 1 = under GLASS Lite, still draw the street people, the npc doors, the geese and the hounds (they are not building arms, so the bake does not replace them). 0 on PHONE_TIER, where they cost too much CPU.
   glass1Basic: 0,     // 1 = GLASS 1 (the canvas path) draws every building as its captured boxes, with no arm run for signs, neon or glows (GLASS1_BASIC); 0 = the full canvas painter. 0 here so the Modelshop and every gate keep the full painter; the game client turns it on at boot (main.js, window.__glass1BasicPending)
   resCpu: 1,          // 1 = the resolution dial holds native resolution while the paint's own CPU time is most of the frame interval (fewer pixels buy nothing then); 0 = it drops on the interval alone
   govern: 1,          // 1 = the scene governor pulls the draw distance and the LOD/deco/glow/shadow rings in under load to hold 60 fps instead of dropping to 30 (see governScene). 0 = fixed distances, the renderer as it shipped.
@@ -2246,7 +2247,7 @@ export const PHONE_TIER = Object.freeze({ glSsao: 0, glShadow: 0, glPropShadow: 
   // skipped refresh is CPU the phone gets back.
   pace30: 1,
   // GLASS Lite: the city's buildings from the bake rather than from their arms (see glassLite).
-  glassLite: 1 });
+  glassLite: 1, liteLife: 0 });
 // ── GLASS 1, THE PLAIN FALLBACK ──────────────────────────────────────────────
 // GLASS 1 draws the world only when GLASS 2 can't (no WebGL2, a lost context past its revivals, or
 // the player's own switch), and it had grown into the full city on a canvas: every arm run and its
@@ -16563,9 +16564,9 @@ function drawMode7Floor(ctx, W, H, horizonY, depth0, v, sky, gTop, now, sun, cha
   // `TUNE.gl` term it would go on returning early for ever on a machine that cannot draw the
   // replacement: not a degraded floor, NO floor, permanently, on exactly the hardware that has no
   // way to tell you why. Harmless while glFloor defaulted to 0 and load-bearing the moment it did
-  // not. `!GL_FAILS` is the same fail-safe for the frames before that: a pass that drew nothing
+  // not. The `GL_FAILS` check at the return is the same fail-safe for the frames before that: a pass that drew nothing
   // isn't switched off until GL_FAIL_MAX in a row, and the frames in between still need a ground.
-  if (TUNE.gl && TUNE.glFloor && GL_HOOK && LUT && !GL_FAILS) {
+  if (TUNE.gl && TUNE.glFloor && GL_HOOK && LUT) {
     perfBegin('floor:bytes');
     const lutBytes = floorLutBytes(LUT, mh, windFromView(v).dx, windFromView(v).dy, v.mapCenter);
     perfEnd();
@@ -16658,7 +16659,7 @@ function drawMode7Floor(ctx, W, H, horizonY, depth0, v, sky, gTop, now, sun, cha
       debug: RENDER_TUNE.glFloorDebug | 0,
     };
     LAST_FLOOR = FLOOR_STATE;   // the frame clears FLOOR_STATE in its finally; this is what __glass2() reads
-    return;
+    if (!GL_FAILS) return;   // a failing pass still gets the 2-D floor under it until GL_FAIL_MAX turns GL off
   }
   // ── GLASS 1'S FLOOR IS THE PLAIN ONE ─────────────────────────────────────────────────────────
   // The ground GLASS 2 draws is gl/floor.js; this raster only runs when GLASS 2 can't (no WebGL2, a
@@ -24570,14 +24571,14 @@ globalThis.document?.addEventListener?.('visibilitychange', () => {
 // GLASS 1 picked is never revived onto GLASS 2 by the handler above, and GLASS 2 picked after an
 // auto-off is back on the next frame.
 export function setGlass(on) { RENDER_TUNE.gl = on ? 1 : 0; GL_AUTO_OFF = false; }
-// Settings → Renderer since GLASS Lite: 'auto' is Lite on the phone tier and GLASS 2 elsewhere,
+// Settings → Renderer since GLASS Lite: 'auto' is the bake on every device (GLASS 2 with Lite on),
 // 'full' is GLASS 2 and 'lite' is GLASS Lite. Every mode is GL, so it clears GL_AUTO_OFF as setGlass
 // does; GLASS 1 is left to the fallbacks.
 let GLASS_MODE = 'auto';
 export function setGlassMode(mode) {
   GLASS_MODE = mode === 'full' || mode === 'lite' ? mode : 'auto';
   RENDER_TUNE.gl = 1; GL_AUTO_OFF = false;
-  RENDER_TUNE.glassLite = GLASS_MODE === 'lite' ? 1 : GLASS_MODE === 'full' ? 0 : (GL_TIER === 'phone' ? 1 : 0);
+  RENDER_TUNE.glassLite = GLASS_MODE === 'full' ? 0 : 1;
 }
 // ── WHAT WAS THE RENDERER BEING TOLD? ───────────────────────────────────────
 // A picture is a question about the INPUT as often as about the code, and the input arrives from
@@ -55140,7 +55141,7 @@ function drawWorldObjects(ctx, cam, v, sky, now, sun) {
   // The doors of the buildings somebody on foot can walk into (glass/street-doors.js): decals that move, so here.
   if (v.streetDoors) drawStreetDoors(ctx, cam, v, now, v.hour != null && (v.hour < 6 || v.hour >= 20));
   // The doors people on the street are going in and out of (glass/npc-doors.js), for the same reason.
-  if (!LITE) drawNpcDoors(ctx, cam, v, now, v.hour != null && (v.hour < 6 || v.hour >= 20));
+  if (!LITE || TUNE.liteLife) drawNpcDoors(ctx, cam, v, now, v.hour != null && (v.hour < 6 || v.hour >= 20));
   // A boat seat's rod mode (glass/rod-rig.js): strokes on the water, and the angler as solids, so
   // here with the sinks open and before the interior (his forearms are cabin records from the seat).
   if (v.rod) { try { drawRodRig(ctx, cam, v, now, { sink: OWNSHIP_SINK, hull: v.external ? ownHullFrame(cam, v) : null }); } catch (e) { if (!_rodErr) { _rodErr = true; console.error('[windshield] rod rig:', e); } } }
@@ -56268,7 +56269,7 @@ function drawWorldObjects(ctx, cam, v, sky, now, sun) {
     drawStreetLamps(ctx, cam, v, map, R, wcx, wcy, night, now, FAR);
     drawTrafficSignals(ctx, cam, v, map, R, wcx, wcy, night, now, FAR);
     // GLASS Lite leaves the people out: each is a mesh posed on the CPU every frame.
-    if (!LITE) drawStreetActors(ctx, cam, v, map, R, wcx, wcy, night, now, FAR);
+    if (!LITE || TUNE.liteLife) drawStreetActors(ctx, cam, v, map, R, wcx, wcy, night, now, FAR);
     // The corridor's own figure. Outside the ACTORS map entirely, so an empty city population never
     // suppresses them — 'drawStreetActors' returns early on an empty set and this must not ride it.
     drawRoadside(ctx, cam, v, wcx, wcy, night, now, FAR);
@@ -56281,8 +56282,8 @@ function drawWorldObjects(ctx, cam, v, sky, now, sun) {
   // the recorded sea at the nearest shore, placed on the water (field-audio.js)
   try { shoreAudioFrame(map, R, wcx, wcy, wcx + cam.ox, wcy + cam.oy, v.wind || 0); } catch { /* audio is never load-bearing */ }
   // GLASS Lite leaves the birds and hounds out: the flock search alone was a quarter of a frame.
-  if (!LITE && (v.worldBlend ?? 1) > 0.02) drawGeese(ctx, cam, v, map, R, wcx, wcy, sky, now, FAR);
-  if (!LITE && (v.worldBlend ?? 1) > 0.02) drawHounds(ctx, cam, v, wcx, wcy, sky, FAR);
+  if ((!LITE || TUNE.liteLife) && (v.worldBlend ?? 1) > 0.02) drawGeese(ctx, cam, v, map, R, wcx, wcy, sky, now, FAR);
+  if ((!LITE || TUNE.liteLife) && (v.worldBlend ?? 1) > 0.02) drawHounds(ctx, cam, v, wcx, wcy, sky, FAR);
   if ((v.worldBlend ?? 1) > 0.02) drawThermalMarks(ctx, cam, v, wcx, wcy, sky.night || 0);
   pEnd();                      // ── end world:fauna ──
   pEnd();                      // ── end world:build (queueing) ──
