@@ -33,6 +33,7 @@ Engineering notes for the GLASS renderer (`client/game/js/panels/windshield.js` 
 - [Declining kit sections (`KIT_DECLINE`)](#declining-kit-sections-kit_decline)
 - [What's left on the canvas](#whats-left-on-the-canvas)
 - [GLASS 1 is the plain fallback (2026-10-17)](#glass-1-is-the-plain-fallback-2026-10-17)
+- [GLASS Lite (`RENDER_TUNE.glassLite`, 2026-11-09)](#glass-lite-render_tuneglasslite-2026-11-09)
 - [Per-pass GPU time (`__glPassMs()`)](#per-pass-gpu-time-__glpassms)
 - [The mass culled to the view (`RENDER_TUNE.glMassCull`)](#the-mass-culled-to-the-view-render_tuneglmasscull)
 - [The dusk blended on the GPU (`RENDER_TUNE.glDuskGPU`)](#the-dusk-blended-on-the-gpu-render_tuneglduskgpu)
@@ -501,6 +502,39 @@ GLASS 1 draws the world only when GLASS 2 can't: no WebGL2, a lost context past 
 - **Who gets the basic tier.** `glass1Basic` defaults to 0, so the Modelshop and every gate (shapes smoke, framecost, worldresidue) keep the full painter; framecost's 342,761-call baseline is that painter. The game turns it on at boot: main.js sets `window.__glass1BasicPending`, which windshield.js reads when it loads, as it does for cel shading. No seat passes `gl: 0` in its view tune, so in the game the tier applies only when GLASS 2 is off or has failed.
 - ⚠ **`decoFar` is read `|| Infinity`,** so 0 means no limit; the tier uses 0.001. `glowFar` 0 does mean none.
 
+## GLASS Lite (`RENDER_TUNE.glassLite`, 2026-11-09)
+
+GLASS 1 Basic draws a building as its biggest box, which isn't a usable picture of the city, and GLASS 2 on a phone pays nearly the whole desktop CPU bill. GLASS Lite is GLASS 2 with the buildings drawn from a bake: the same GL pass, atlas, shader and lights, without running a building's arm.
+
+- **The bake.** `npm run lite:bake` ([scripts/lite/bake.mjs](../../scripts/lite/bake.mjs)) writes `client/game/assets/lite/`: the surface map in 32×32-tile chunks ([gl/lite-format.js](../../client/game/js/panels/gl/lite-format.js)), about 9 MB raw and 1.2 MB with brotli for the whole map, in about 6 s, with no database. For each building tile it stores:
+  - its faces from `captureTileMesh`, the GL pass's own `tileMesh`, with the tile's build key (`meshParamsOf`);
+  - its signs, lights and masts from `canvasResidue`, run from all four sides at noon and at midnight;
+  - each sign's artwork as a recipe: `signArgsTap` records the call that made each texture (`bakeSignText`, the marquee board's `marqueeArt`, `bakeTagText`), and a flat or ramped panel is its key.
+
+  It reads the cells from `client/game/flightsim-world.json` and builds each tile with `liteCellOf`, the function the world pass builds its GL cells with.
+- **On the device.** [gl/lite.js](../../client/game/js/panels/gl/lite.js) fetches the chunks round the window and decodes them (about 180 ms on the reference machine for Coldwater's two). The frame then changes in three places:
+  - In the GL pass, `tileMesh` takes a tile's faces from the bake (`deps.bakedFaces`) when the building's type, name and build key all match. Anything else is captured as before.
+  - In `drawWorldObjects`, a baked building tile isn't an item: no arm runs, and its signs, lights and masts are pushed into the sinks. Each record is built once and moved by the camera offset in place each frame. The signs are shed past `lodNear` and the window lights past `glBloomFar`, as an arm sheds them. Strokes are kept at every range: a lattice mast is thin strokes, and shed it took The Beacon's lattice away from the helm.
+  - A sky beam or a stack's smoke is baked as its `LIVE_RECORD` and redrawn each frame with the live clock (`liteLiveDraw`), so it still sweeps and drifts.
+  - A building whose arm changes with the clock in any other way is marked animated (`an`) by the bake, which runs it at three moments as the kept-arm test does. Fifteen are, The Beacon, The Spire and the airport tower among them. Their arms run each frame for everything but the mesh.
+  - The occluder, the street people, the geese and the hounds are skipped.
+- **Every seat.** Lite lives in the world pass every seat shares, so the cab and its mirror, the cockpit, the boat, the helm and bridge, the podracer, the hangar bay and free look all take it. Checked in the Modelshop over the real map at 20:30: boat 214 of 214 buildings from the bake, helm 287 of 296, podracer 240 of 244, free look 287 of 296 (the misses were a stale cached chunk, drawn by their arms). The room outlook paints on a worker with no GL hook, so it never takes Lite.
+- **Who gets it.** `PHONE_TIER` turns it on. Settings → Renderer is Automatic (Lite on the phone tier, GLASS 2 elsewhere), GLASS 2 or GLASS Lite (`setGlassMode`). A stored `'2'` reads as Automatic and `'1'` as Lite. On Automatic, `glass:struggling` first switches GLASS 2 to Lite and says so in the log, and offers the text views only if Lite struggles too. GLASS 1 Basic is still the last resort after a lost context.
+- **Measured** at Marrow Street (916,909, heading 90) in the Modelshop, warm, under the phone tier's settings on the reference machine, medians:
+
+  | Seat | GLASS 2 frame | Lite frame |
+  |---|---|---|
+  | Cab, noon | 27-36 ms | 19 ms |
+  | Cab, midnight | 24-33 ms | 20-26 ms |
+  | Aircraft, noon | 28-37 ms | 18-36 ms |
+
+  The world build (`world:build`) halves in every seat, from 11-20 ms to 7-9 ms, because the arms go from 7-11 ms to 3. The GL pass (`world:gl`) doesn't change, and at night Lite's is slightly higher: it streams its lights and masts every frame, where a kept arm's are retained groups (gl/retain.js). Moving Lite's records onto retained groups is the next step. Picture: the cab frame at Marrow is the same as GLASS 2's but for one small sign. Nothing is measured on a phone yet; ⚑ reports now carry `lite` and `glErr` in `glass`.
+- **What it leaves out:** street people, birds and hounds, building ground shadows, and about 1,200 pieces of artwork with no recipe (slum slogans, flags, dishes).
+- ⚠ **The build key is compared to six decimals.** The bake runs in Node and the frame in Chrome, whose Math functions differ around 1e-12, so 18 of 480 tiles missed an exact match. `liteStats()` counts `faceHits` and `faceMisses`.
+- ⚠ **A sign's quad is fitted to its texture twice.** The bake's DOM stub measures text at 20 px a character, so the bake keeps the raw board (`rc`) and the device fits it to the texture it bakes (`liteFitQuad`).
+- ⚠ **The bake follows the map snapshot, which can lag content.** A tile the snapshot is behind on is drawn by its own arm, so it costs speed, never a wrong building. Re-run `scripts/snapshot-flight-world.mjs` (it needs the local database), then `npm run lite:bake`.
+- **Gate:** `node scripts/lite/smoke.mjs` (in `shapes:smoke`) bakes again in memory and fails when the result isn't the committed files, so an arm edited since the last bake fails the push. It compares bytes first and then decoded values within a few least-significant bits, because V8 versions disagree in the last bits. Mutation-tested 2 of 2: a vertex moved in a chunk, and a chunk missing from the index.
+
 ## Per-pass GPU time (`__glPassMs()`)
 
 `glPassTimer` in gl/context.js times each GLASS 2 pass with `EXT_disjoint_timer_query_webgl2`. It covers the view's draw methods, plus the shadow and SSAO passes that run inside `draw`. Timer queries can't nest, so an inner pass pauses the outer one. The timer is off unless a bench turns it on, and an untimed frame allocates nothing. In the Modelshop, `__glPassMs({ place, seat })` returns GPU ms per frame for each pass. It can't run alongside `__glWhere`'s whole-frame clock.
@@ -638,11 +672,13 @@ Three things in windshield.js exist for phones. None of them runs in the smoke s
     - the GL window shrinking under load (`govWindowGL: 1`);
     - `lodNear` 14, `glGlowFar` 28 and `glBloomFar` 16;
     - fewer birds (`faunaMeshMax` 240, `birdFacesGL` 60,000);
-    - a world backing store capped at 1.5 device pixels a CSS pixel (`dprMax`) and the painted dash at 2 (`dashDprMax`).
+    - a world backing store capped at 1.5 device pixels a CSS pixel (`dprMax`) and the painted dash at 2 (`dashDprMax`);
+    - `glLampShadow` off and `pace30` on;
+    - GLASS Lite (`glassLite`), since 2026-11-09: see [GLASS Lite](#glass-lite-render_tuneglasslite-2026-11-09).
 
-  None of this is measured on a phone yet.
+  City ink is off on the tier too (`setCelTune`). None of this is measured on a phone yet.
 - **Revival after a lost context.** When the pass turns GL off itself (`glAutoOff`), the next `visibilitychange` to visible sets `RENDER_TUNE.gl` back to 1, at most twice a session (`GL_REVIVE_MAX`). A backgrounded phone tab is the common way to lose a context. The player's own GLASS 2 switch is never overridden, and the world-pass throw inside `drawWorldObjects` (a code fault, not a lost context) still switches GL off for good.
-- **`glass:struggling`.** On a coarse-pointer device, a view that keeps its smoothed frame interval above 85 ms for six seconds of painting fires this window event once a session. Gaps over a second (a hidden tab) don't count. main.js answers it once per device with a log line offering `displaymode textgames`.
+- **`glass:struggling`.** On a coarse-pointer device, a view that keeps its smoothed frame interval above 85 ms for six seconds of painting fires this window event once a session. Gaps over a second (a hidden tab) don't count. main.js answers it once per device with a log line offering `displaymode textgames`. With the renderer on Automatic and GLASS 2 drawing, the watch first switches to GLASS Lite (`glass:lite`, one log line) and keeps watching.
 
 The cockpit's two frame loops (`fsimFrame`, `hudFrame`) are wrappers around `…Body` functions now: a throw is logged once and the loop re-arms, so a bad frame no longer ends the flight.
 
@@ -1178,6 +1214,15 @@ On the GPU each card is a quad: 1,200–1,595 canvas calls saved and 0.5–1.0 m
 - It's a second hook at a second moment. The deck collects after the world blit, so a sink the world pass reads would fill and never draw, silently (the Curtain's trap).
 - The sort is kept: cards are translucent, so composite order changes colour; depth only decides what the deck is behind.
 - Every card gets the full treatment. In 2-D a card wider than 26 px gets a sun-raked gradient and value-noise mottle and smaller ones blit one of twelve top-lit sprites; the fragment shader solves the two-circle cone per pixel and reads the curdle tile, so there's no tier. Same argument as the mesh capturing at `ADORN_NEAR`.
+
+## The day's cloud floor is drawn as clouds (`RENDER_TUNE.skyFloor`)
+
+The server's sky opens at a floor (`baseCloud`: 0.4 cloudy, 0.7 overcast, 0.72 rain, 0.8 storm) and the cells thicken it. Until 2026-11-09 the renderer drew only the cells, so an overcast day was a grey tint with two or three clouds in it. `skyFloor` 0 puts that back.
+
+- **Floor clouds** (`stepFloorCells` in `client/shared/wx-cells.js`): small cloud cells on a 14-tile lattice round the viewer, more of them as the floor rises, drifting on the day's wind. They join the weather's cells in the dome sprites, the card swarm and the volume's coverage map. They're render only: nothing samples them, and `st.cells` doesn't hold them, so rain, lightning and `sampleWeatherCells` never see one.
+- **The sheet** (`floorSheet`): from a floor of 0.45 up to 0.7 the gaps close. The volume gets a stratus layer across the bottom of its slab (`uSheet` in `gl/cloudvol.js`), and the 2-D sky's overcast veil thickens by the same amount.
+- **It stays per region.** The packet's `baseCloud` is the viewer's own floor, cut by the region's `dryness` on the server (`floorAt` in the weather plugin's snapshot), as `sampleWeatherAt` cuts it.
+- A floor cloud takes a ninth of a weather cell's puffs and two dome sprites. On the 2-D path the deck's median cost in `shapes:clouds` went from about 5,400 canvas calls to about 8,200.
 
 ## Nothing in the cloud deck is cut (2026-10-02)
 
@@ -1728,6 +1773,13 @@ With the pool on, the lamp's second disc is gone. It sat at z 0.01 as a screen-s
 ## Ground shader lights on dry nights
 
 A separate fix in the same commit. The light list was handed over only when `opts.wet > 0`, so a clear night uploaded `uNWet` 0 and every loop in the shader broke on its first iteration. Reflections didn't care (they're gated on `refl`, `uWet` times a coverage, 0 when dry), but two non-water terms died too: the pool, and the volumetric light shaft, which is gated on haze. So fog without rain had no light cones, with a slider, uniform and loop all correct. Turning `glPool` off deliberately doesn't restore this, so that's the one place the flag's 0 isn't the shipped renderer.
+
+## The fog wash at night
+
+Reported on 2026-11-09 as "bad light washout at night" from the Reaper 2076 on the Coldwater Regional runway (925,905), in fog. The fog wash in `paintWindshield` laid its two noon greys over the finished world at every hour: `rgb(150,158,168)` at 0.34 over the whole frame and a gradient to `rgb(176,184,194)` at 0.5 at the bottom, against a night horizon of (14,16,30). It now scales both by `fogWashLight`, the frame's horizon dimmed by `moonNightDim` over the noon horizon, which is exactly 1 at noon. Measured at 925,907 at 22:00 with the fog density pinned, the world above the dash averages 64 of 255 against 68 for a clear night.
+
+- Trap: any screen-space wash over the world needs a night term. A fixed colour is a noon colour, and the frame can't tell you, because it only looks wrong after dark. Snow on the road was the same fault (see the snow section).
+- What's left after the fix is the lamp scatter (`glScatter`), which is meant to be there: it lifts the apron beside the runway from 54 to 87, and a quarter of it is over 110.
 
 ## The street kit's night
 

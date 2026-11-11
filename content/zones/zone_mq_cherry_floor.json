@@ -3,11 +3,12 @@
     "The bass drops and the spotlight swings to catch the stage.",
     "A bouncer folds his arms in the doorway and studies you without warmth.",
     "Someone tucks a bill into a garter without making eye contact.",
-    "The cherry underlight flickers, tinting the whole room arterial red."
+    "The cherry underlight flickers, tinting the whole room arterial red.",
+    "The strobe kicks in on the drop, and for a few seconds the whole room moves in stills."
   ],
   "ambient_theme": "indoors",
   "bg_color": "#c0304a",
-  "description": "A strip club that leans hard on the one gimmick it can afford: a single working spotlight and a stage of scuffed acrylic lit cherry-red from beneath. Vinyl banquettes ring the room in various states of split and repair. The music is a heartbeat of bass you feel in your fillings. Dancers work the pole with the flat professionalism of people counting the minutes, and the bar sells watered drinks at armed-robbery prices. Everyone is watching everyone, and pretending not to.",
+  "description": "A strip club that leans hard on the gimmicks it can afford: a spotlight, a strobe that fires in bursts on the drop, and a stage of scuffed acrylic lit cherry-red from beneath. Band bills and two-for-ones are pasted over every wall. Vinyl banquettes ring the pit in various states of split and repair. The music is a heartbeat of bass you feel in your fillings. Dancers work the pole with the flat professionalism of people counting the minutes, and the bar sells watered drinks at armed-robbery prices. Everyone is watching everyone, and pretending not to.",
   "exits": {
     "down": "zone_mq_cherry_office",
     "east": "zone_district_901_907",
@@ -19,6 +20,40 @@
     "floor": "concrete",
     "is_building": true,
     "is_interior": true,
+    "room": {
+      "balcony": false,
+      "club": true,
+      "d": 14,
+      "doors": {
+        "down": [
+          5,
+          0.7
+        ],
+        "north": 4,
+        "run": 2.2
+      },
+      "h": 4.2,
+      "pit": {
+        "depth": 1.1,
+        "round": [
+          0,
+          8.6,
+          3
+        ],
+        "step": 0.55
+      },
+      "studio": false,
+      "w": 11,
+      "walls": [
+        [
+          -5.5,
+          4.3,
+          1.4,
+          1.52
+        ]
+      ],
+      "windowless": true
+    },
     "world_exit_zone": "zone_district_901_907"
   },
   "grid_x": 0,

@@ -1,0 +1,153 @@
+/* ROOM · THE HOLOLOCK (room-lock.js): a hologram hung off a door's reader, bent onto the room by a
+   matrix3d each frame. Laid out at a fixed size in px (300 x 400, and 640 x 384 for the bypass), so
+   every length here is in that page's own pixels, whatever size it lands on screen.
+   .rl-comic is the house's comic look (Settings, Cel Shading, Comic): one ink, flat colour, halftone,
+   a hard offset shadow. Without it the same card is drawn in light alone. */
+#room-stage .rl-layer { position: absolute; inset: 0; overflow: hidden; pointer-events: none; z-index: 3; }
+#room-stage .rl-holo {
+	--rl-hue: #ff2a4f; --rl-ink: #0c0b0e; --rl-paper: #f6f1df;
+	position: absolute; left: 0; top: 0; transform-origin: 0 0; box-sizing: border-box; pointer-events: none;
+	display: flex; flex-direction: column; gap: 14px; padding: 18px 18px 16px;
+	font-family: 'K7 Bungee', Bungee, 'Arial Black', Impact, sans-serif; color: var(--rl-hue);
+	background:
+		repeating-linear-gradient(0deg, color-mix(in srgb, var(--rl-hue) 16%, transparent) 0 2px, transparent 2px 6px),
+		color-mix(in srgb, var(--rl-hue) 13%, rgba(6, 10, 18, 0.5));
+	border: 2px solid var(--rl-hue); border-radius: 6px;
+	box-shadow: 0 0 26px color-mix(in srgb, var(--rl-hue) 55%, transparent), inset 0 0 30px color-mix(in srgb, var(--rl-hue) 22%, transparent);
+	text-shadow: 0 0 10px color-mix(in srgb, var(--rl-hue) 70%, transparent);
+	animation: rl-hum 3.2s ease-in-out infinite;
+	will-change: transform;
+}
+@keyframes rl-hum { 0%, 100% { opacity: 0.94; } 47% { opacity: 1; } 50% { opacity: 0.8; } 53% { opacity: 1; } }
+#room-stage .rl-holo.rl-far .rl-acts, #room-stage .rl-holo.rl-far .rl-note { visibility: hidden; }
+#room-stage .rl-holo.rl-shake { animation: rl-shake 0.3s ease-out; }
+@keyframes rl-shake { 0%, 100% { translate: 0 0; } 20% { translate: -5px 0; } 45% { translate: 4px 0; } 70% { translate: -2px 0; } }
+
+#room-stage .rl-head { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; font-size: 17px; letter-spacing: 0.06em; }
+#room-stage .rl-head b { font-weight: 400; }
+#room-stage .rl-head span { font: 15px 'Permanent Marker', 'Comic Sans MS', 'Chalkboard SE', cursive; letter-spacing: 0; text-transform: none; opacity: 0.9; }
+/* whose unit it is, under the head: one line, cut short with an ellipsis */
+#room-stage .rl-owner { margin: -6px 0 -8px; text-align: center; font-size: 19px; letter-spacing: 0.04em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+#room-stage .rl-comic .rl-owner { margin: -4px 0 -8px; padding: 3px 8px 2px; color: var(--rl-ink); background: var(--rl-paper); border: 3px solid var(--rl-ink); }
+#room-stage .rl-state { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; }
+#room-stage .rl-state strong { font-weight: 400; font-size: 40px; line-height: 1; letter-spacing: 0.02em; white-space: nowrap; overflow-wrap: normal; word-break: normal; transform: rotate(-4deg) skewX(-6deg); }
+/* a long word (UNLOCKED) is set smaller to stay on one line */
+#room-stage .rl-state strong.rl-long, #room-stage .rl-comic .rl-state strong.rl-long { font-size: 34px; }
+#room-stage .rl-comic .rl-state strong.rl-long { -webkit-text-stroke-width: 7px; }
+/* the padlock: a body and a shackle, the shackle swung open when the lock is */
+#room-stage .rl-icon { position: relative; width: 84px; height: 66px; margin-top: 44px; border-radius: 8px; background: var(--rl-hue); }
+#room-stage .rl-icon::before { content: ''; position: absolute; left: 14px; bottom: 100%; width: 34px; height: 36px; border: 11px solid var(--rl-hue); border-bottom: 0; border-radius: 28px 28px 0 0; transform-origin: 100% 100%; transition: transform 0.25s cubic-bezier(0.3, 1.6, 0.5, 1); }
+#room-stage .rl-icon::after { content: ''; position: absolute; left: 36px; top: 20px; width: 12px; height: 26px; border-radius: 6px; background: rgba(6, 10, 18, 0.85); }
+#room-stage :is(.rl-open, .rl-ajar, .rl-pass) .rl-icon::before { transform: rotate(38deg) translateY(-6px); }
+/* a door with no lock on it: the same card with no padlock */
+#room-stage .rl-plain .rl-icon { display: none; }
+#room-stage .rl-plain .rl-state strong { font-size: 52px; }
+#room-stage .rl-note { margin: 0; min-height: 20px; text-align: center; font: 17px 'Permanent Marker', 'Comic Sans MS', 'Chalkboard SE', cursive; text-transform: none; }
+#room-stage .rl-say { margin: 0; padding: 7px 9px; font: 15px/1.25 'Permanent Marker', 'Comic Sans MS', 'Chalkboard SE', cursive; color: var(--rl-ink); background: var(--rl-paper); border: 2px solid var(--rl-ink); border-radius: 3px; text-shadow: none; }
+#room-stage .rl-say[hidden], #room-stage .rl-burst[hidden] { display: none; }
+
+#room-stage .rl-acts { display: flex; gap: 10px; }
+#room-stage .rl-act {
+	flex: 1; display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 46px; padding: 6px 8px;
+	font: inherit; font-size: 17px; letter-spacing: 0.04em; text-transform: uppercase; color: var(--rl-hue); cursor: pointer; pointer-events: auto;
+	background: rgba(6, 10, 18, 0.55); border: 2px solid var(--rl-hue); border-radius: 4px; text-shadow: inherit;
+}
+#room-stage .rl-act:hover, #room-stage .rl-act:focus-visible { background: var(--rl-hue); color: #06080c; text-shadow: none; outline: none; }
+#room-stage .rl-act kbd { font: 700 12px var(--font-mono, 'Courier New', monospace); padding: 2px 5px; border: 1px solid currentColor; border-radius: 3px; text-shadow: none; }
+#room-stage .rl-act-hack { --rl-hue: #37d6ff; }
+
+/* the sound word: a small stamp across the card, in the lock's own colour, there for a second */
+#room-stage .rl-burst {
+	position: absolute; left: 50%; top: 43%; translate: -50% -50%; rotate: -5deg; padding: 5px 14px 4px; white-space: nowrap;
+	font-size: 22px; letter-spacing: 0.1em; color: var(--rl-hue); text-shadow: none; pointer-events: none;
+	background: rgba(6, 10, 18, 0.86); border: 2px solid currentColor; border-radius: 3px;
+}
+#room-stage .rl-burst.rl-bad { color: #ff5a73; }
+#room-stage .rl-burst.on { animation: rl-pop 1.1s ease-out both; }
+@keyframes rl-pop { 0% { scale: 1.12; opacity: 0; } 10% { scale: 1; opacity: 1; } 78% { scale: 1; opacity: 1; } 100% { scale: 1; opacity: 0; } }
+
+/* ── a lift car's panel (room-lift.js): the same card, 300 px wide and as tall as its floors need ── */
+#room-stage .rl-lift .rl-state { min-height: 88px; }
+#room-stage .rl-lift .rl-state strong { font-size: 72px; }
+#room-stage .rl-lift .rl-state strong::before { display: none; margin-right: 10px; font-size: 34px; vertical-align: 0.3em; }
+#room-stage .rl-lift.rl-up .rl-state strong::before { display: inline; content: '\25B2'; }
+#room-stage .rl-lift.rl-down .rl-state strong::before { display: inline; content: '\25BC'; }
+#room-stage .rl-floors { display: grid; grid-template-columns: repeat(var(--rl-cols, 2), minmax(0, 1fr)); gap: 10px; }
+#room-stage .rl-fl { min-width: 0; justify-content: flex-start; padding: 6px 10px; }
+#room-stage .rl-fl b { font-weight: 400; min-width: 1.6em; text-align: center; }
+#room-stage .rl-fl span { flex: 1; min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; text-align: left; font: 15px 'Permanent Marker', 'Comic Sans MS', 'Chalkboard SE', cursive; letter-spacing: 0; text-transform: none; }
+#room-stage .rl-floors[style*='cols:4'] .rl-fl { justify-content: center; padding: 6px 2px; }
+#room-stage .rl-fl.rl-here { background: color-mix(in srgb, var(--rl-hue) 35%, rgba(6, 10, 18, 0.55)); box-shadow: 0 0 14px color-mix(in srgb, var(--rl-hue) 60%, transparent); }
+#room-stage .rl-fl.rl-going { background: var(--rl-hue); color: #06080c; text-shadow: none; }
+#room-stage .rl-comic .rl-fl.rl-here { background: #ffd91a; box-shadow: 4px 4px 0 var(--rl-ink); }
+#room-stage .rl-comic .rl-fl.rl-going { background: var(--rl-ink); color: var(--rl-paper); }
+#room-stage .rl-comic .rl-fl.rl-going kbd { background: var(--rl-paper); color: var(--rl-ink); }
+
+/* ── the bypass board─────────────────────────────────────────────────────────────── */
+#room-stage .rl-hacking { --rl-hue: #37d6ff; gap: 10px; }
+#room-stage .rl-g-hud { display: flex; align-items: center; justify-content: space-between; font-size: 15px; letter-spacing: 0.05em; }
+#room-stage .rl-g-hud b { font-weight: 400; color: #fff; }
+#room-stage .rl-g-fb { display: inline-flex; align-items: center; gap: 10px; }
+#room-stage .rl-g-fb i { display: block; width: 190px; height: 16px; background: rgba(6, 10, 18, 0.7); border: 2px solid var(--rl-hue); border-radius: 3px; overflow: hidden; }
+#room-stage .rl-g-fill { display: block; height: 100%; width: 0; background: #2ff3c0; text-decoration: none; transition: width 0.1s linear; }
+#room-stage .rl-g-fill[data-level='warn'] { background: #ffc21a; }
+#room-stage .rl-g-fill[data-level='bad'] { background: #ff2a4f; }
+#room-stage .rl-g-chans { flex: 1; display: flex; flex-direction: column; justify-content: center; gap: 8px; }
+#room-stage .rl-ch { position: relative; flex: 1; max-height: 34px; min-height: 18px; background: rgba(6, 10, 18, 0.6); border: 2px solid color-mix(in srgb, var(--rl-hue) 45%, transparent); border-radius: 3px; overflow: hidden; opacity: 0.45; }
+#room-stage .rl-ch.rl-live { opacity: 1; border-color: var(--rl-hue); }
+#room-stage .rl-ch.rl-set { opacity: 1; border-color: #2ff3c0; background: rgba(47, 243, 192, 0.2); }
+#room-stage .rl-sweet { position: absolute; top: 0; bottom: 0; display: none; background: color-mix(in srgb, var(--rl-hue) 38%, transparent); border-inline: 2px solid var(--rl-hue); }
+#room-stage .rl-ch.rl-live .rl-sweet { display: block; }
+#room-stage .rl-ch.rl-set .rl-sweet { display: block; background: rgba(47, 243, 192, 0.45); border-color: #2ff3c0; }
+#room-stage .rl-scan { position: absolute; top: -2px; bottom: -2px; width: 5px; margin-left: -2px; display: none; background: #fff; box-shadow: 0 0 10px #fff, 0 0 20px var(--rl-hue); }
+#room-stage .rl-ch.rl-live .rl-scan { display: block; }
+#room-stage .rl-g-status { margin: 0; min-height: 20px; font: 16px 'Permanent Marker', 'Comic Sans MS', 'Chalkboard SE', cursive; color: #fff; text-shadow: none; }
+#room-stage .rl-g-status span { color: inherit !important; }
+#room-stage .rl-hacking .rl-act { flex: 0 1 auto; min-height: 38px; font-size: 14px; }
+#room-stage .rl-hacking .rl-burst { top: 50%; font-size: 30px; }
+
+/* ── the comic look ───────────────────────────────────────────────────────────────── */
+#room-stage .rl-comic {
+	color: var(--rl-ink); text-shadow: none; animation: none;
+	background:
+		radial-gradient(circle at 3px 3px, color-mix(in srgb, var(--rl-ink) 26%, transparent) 1.6px, transparent 2.1px) 0 0 / 9px 9px,
+		linear-gradient(160deg, color-mix(in srgb, var(--rl-hue) 96%, #fff) 0 58%, color-mix(in srgb, var(--rl-hue) 72%, var(--rl-ink)) 58% 100%);
+	border: 6px solid var(--rl-ink); border-radius: 2px;
+	box-shadow: 10px 10px 0 var(--rl-ink);
+	clip-path: none; opacity: 0.93;
+}
+#room-stage .rl-comic .rl-head { margin: -18px -18px 0; padding: 9px 14px 8px; background: var(--rl-ink); color: var(--rl-paper); }
+#room-stage .rl-comic .rl-head span { color: var(--rl-hue); opacity: 1; }
+#room-stage .rl-comic .rl-state strong { color: var(--rl-paper); font-size: 44px; -webkit-text-stroke: 9px var(--rl-ink); paint-order: stroke fill; text-shadow: 5px 5px 0 var(--rl-ink); }
+#room-stage .rl-comic .rl-icon { background: var(--rl-paper); border: 6px solid var(--rl-ink); box-shadow: 5px 5px 0 var(--rl-ink); border-radius: 4px; }
+#room-stage .rl-comic .rl-icon::before { left: 10px; width: 30px; height: 34px; border: 6px solid var(--rl-ink); border-bottom: 0; outline: 0; box-shadow: inset 0 0 0 7px var(--rl-paper); }
+#room-stage .rl-comic .rl-icon::after { left: 31px; top: 16px; background: var(--rl-ink); }
+#room-stage .rl-comic .rl-note { align-self: center; padding: 3px 10px; background: var(--rl-paper); border: 3px solid var(--rl-ink); rotate: 1.5deg; }
+#room-stage .rl-comic .rl-say { border-width: 3px; box-shadow: 4px 4px 0 var(--rl-ink); rotate: -1deg; }
+#room-stage .rl-comic .rl-act { color: var(--rl-ink); background: var(--rl-paper); border: 4px solid var(--rl-ink); border-radius: 2px; box-shadow: 4px 4px 0 var(--rl-ink); }
+#room-stage .rl-comic .rl-act:hover, #room-stage .rl-comic .rl-act:focus-visible { background: #ffd91a; color: var(--rl-ink); translate: 2px 2px; box-shadow: 2px 2px 0 var(--rl-ink); }
+#room-stage .rl-comic .rl-act-hack { background: #37d6ff; }
+#room-stage .rl-comic .rl-act kbd { border-width: 2px; background: var(--rl-ink); color: var(--rl-paper); }
+#room-stage .rl-comic .rl-burst { color: var(--rl-ink); background: var(--rl-paper); border: 4px solid var(--rl-ink); border-radius: 2px; box-shadow: 4px 4px 0 var(--rl-ink); }
+#room-stage .rl-comic .rl-burst.rl-bad { color: #d4183a; }
+#room-stage .rl-comic.rl-hacking { background:
+		radial-gradient(circle at 3px 3px, color-mix(in srgb, var(--rl-ink) 22%, transparent) 1.6px, transparent 2.1px) 0 0 / 9px 9px,
+		linear-gradient(160deg, #37d6ff 0 55%, #1f8fc2 55% 100%); }
+#room-stage .rl-comic .rl-g-hud { padding: 4px 8px; background: var(--rl-paper); border: 3px solid var(--rl-ink); }
+#room-stage .rl-comic .rl-g-hud b { color: var(--rl-ink); }
+#room-stage .rl-comic .rl-g-fb i { background: #fff; border: 3px solid var(--rl-ink); border-radius: 0; }
+#room-stage .rl-comic .rl-ch { background: var(--rl-paper); border: 4px solid var(--rl-ink); border-radius: 0; opacity: 0.55; }
+#room-stage .rl-comic .rl-ch.rl-live { opacity: 1; box-shadow: 4px 4px 0 var(--rl-ink); }
+#room-stage .rl-comic .rl-ch.rl-set { opacity: 1; background: #2ff3c0; }
+#room-stage .rl-comic .rl-sweet { background: #ffd91a; border-inline: 4px solid var(--rl-ink); }
+#room-stage .rl-comic .rl-ch.rl-set .rl-sweet { background: #17b98f; border-color: var(--rl-ink); }
+#room-stage .rl-comic .rl-scan { width: 8px; margin-left: -4px; background: var(--rl-ink); box-shadow: none; }
+#room-stage .rl-comic .rl-g-status { align-self: flex-start; padding: 3px 10px; color: var(--rl-ink); background: var(--rl-paper); border: 3px solid var(--rl-ink); }
+
+/* at a lock the hologram says what the keys do, so the tip under it goes */
+#room-stage.rs-lock-on .rs-tip { display: none; }
+/* a conversation over the room has the picture */
+body:has(#dialogue-panel.active) #room-stage .rl-layer { display: none; }
+@media (prefers-reduced-motion: reduce) {
+	#room-stage .rl-holo, #room-stage .rl-holo.rl-shake, #room-stage .rl-burst.on { animation: none; }
+}

@@ -125,7 +125,15 @@ const rgba = (v, a) => `rgba(${v.map((c) => Math.max(0, Math.min(255, Math.round
 export const isTrimHex = (v) => hx(v) !== null;
 
 // What an edition's cab leaves the factory in, until the bench says otherwise. Keyed `<type>~e<edition>`.
-const EDITION_TRIM = { 'hauler~e2076': { mat: 'vinyl', col: CUSTOM_COL, cust: { panel: '#d6cbb6', needle: '#c9a23a', glow: '#39d0c4' } } };
+const EDITION_TRIM = {
+  'hauler~e2076': { mat: 'vinyl', col: CUSTOM_COL, cust: { panel: '#d6cbb6', needle: '#c9a23a', glow: '#39d0c4' } },
+  // Gunmetal and hazard orange, after the Bulwark HX.
+  'continental~e2076': { mat: 'vinyl', col: CUSTOM_COL, cust: { panel: '#3c4048', needle: '#ff7a1a', glow: '#ff8c2a' } },
+  // Navy and teal, after the Strand.
+  'drayman~e2076': { mat: 'vinyl', col: CUSTOM_COL, cust: { panel: '#1c2638', needle: '#2fd0c4', glow: '#34d6ca' } },
+  // Primer grey and rust, after the Mule: the glow is the stack tips' amber.
+  'scrapper~e2076': { mat: 'vinyl', col: CUSTOM_COL, cust: { panel: '#5c5a54', needle: '#c8682e', glow: '#ffae42' } },
+};
 export function editionTrimOf(variant) {
   const s = String(variant || ''), e = s.match(/~e[a-z0-9]+/);
   return e ? EDITION_TRIM[s.replace(/[~^+].*$/, '') + e[0]] || null : null;

@@ -117,7 +117,7 @@ function sky(B) {
   if (doStatic) {
     const hu = M(S.SKY_W / 2);
     box(u, 0, hu, L, z0, z1, C.steel, 'metal', C.steelDk, 'metal', true);
-    box(u, 0, M(0.15), L, z0 - M(0.05), z0, C.gold, 'lit', C.gold, 'lit', true);
+    box(u, 0, M(0.15), L, z0 - M(0.06), z0 - M(0.01), C.gold, 'lit', C.gold, 'lit', true);
     if (line) for (const e of [-1, 1]) line(F(u + e * hu, -L, z0), F(u + e * hu, L, z0));
     // The rings: a ribbon each, twelve sides near to.
     const every = M(S.RIB_EVERY) * (far ? 3 : 1), n = near ? 12 : far ? 6 : 8, w = M(0.05);
@@ -154,7 +154,7 @@ function exec(B) {
   const u = SPAN.U, hu = M(S.EXEC_W / 2), L = B.land || SPAN.LAND, z0 = M(S.EXEC_Z), z1 = z0 + M(S.EXEC_H);
   if (doStatic) {
     box(u, 0, hu, L, z0, z1, C.box, 'metal', C.box, 'metal', true);
-    box(u, 0, M(0.25), L, z0 - M(0.04), z0, C.cyan, 'lit', C.cyan, 'lit', true);
+    box(u, 0, M(0.25), L, z0 - M(0.05), z0 - M(0.01), C.cyan, 'lit', C.cyan, 'lit', true);
     for (const e of [-1, 1]) {
       const ue = u + e * (hu + M(0.01)), g0 = z0 + M(0.55), g1 = z0 + M(1.6);
       face([F(ue, -L, g0), F(ue, L, g0), F(ue, L, g1), F(ue, -L, g1)], C.gold, 'lit');

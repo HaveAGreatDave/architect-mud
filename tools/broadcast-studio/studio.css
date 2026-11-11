@@ -35,6 +35,7 @@ input[type=checkbox] { width: auto; }
 .item:hover { background: var(--panel2); }
 .item.on { background: #2b2a24; color: var(--accent); }
 .item.slot { padding-left: 20px; color: var(--dim); }
+.item.tpl { color: var(--dim); font-style: italic; }
 .item.slot.on { color: var(--accent); }
 .item.slot .none { color: #5d6474; font-style: italic; }
 .item.show { font-weight: 600; }

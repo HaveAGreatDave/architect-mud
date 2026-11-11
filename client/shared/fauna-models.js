@@ -27,7 +27,7 @@ export const BIRD_ROWS_FAR = {
 
 // Four legs: Bracken's hounds, and whatever else is built by buildHound. The same two tables.
 export const QUADRUPED_ROWS = {
-  "hound": { "bellyCol": "#b98f63", "billCol": "#161214", "bodyCol": "#3b302c", "bodyLen": 0.78, "cheekCol": "#a37c55", "chestH": 0.38, "chestW": 0.27, "crownCol": "#221a18", "earLen": 0.09, "eyeCol": "#e2a43a", "eyeR": 0.16, "gallop": 1, "headCol": "#46382f", "headH": 0.15, "headLen": 0.2, "jaw": 0.6, "legCol": "#302622", "legLen": 0.5, "legW": 0.04, "muzzleLen": 0.14, "neckCol": "#3b302c", "neckLen": 0.3, "neckRise": 0.75, "neckW": 0.12, "patchCol": "#d9cdb2", "tailCol": "#3b302c", "tailLen": 0.42, "tailW": 0.035, "waistH": 0.16, "waistW": 0.15 },
+  "hound": { "bands": 2, "bellyCol": "#a0603a", "billCol": "#141012", "bodyCol": "#35292a", "bodyLen": 0.8, "brow": 0.8, "cheekCol": "#8a4a2e", "chestH": 0.42, "chestW": 0.29, "crownCol": "#151012", "earLen": 0.1, "eyeCol": "#ff7a1a", "eyeGlow": 1, "eyeR": 0.2, "facets": 8, "gallop": 1, "gape": 0.35, "hackle": 0.8, "headCol": "#2e2422", "headH": 0.16, "headLen": 0.2, "jaw": 0.7, "legCol": "#221a19", "legLen": 0.5, "legW": 0.042, "muscle": 0.6, "muzzleLen": 0.14, "neckCol": "#2a2120", "neckLen": 0.28, "neckRise": 0.7, "neckW": 0.15, "patchCol": "#e6dcc0", "primaryCol": "#b5a586", "scars": 1, "spines": 0.13, "studs": 5, "tailCol": "#2a2120", "tailLen": 0.42, "tailW": 0.035, "undertailCol": "#8e2418", "waistH": 0.14, "waistW": 0.13 },
 };
 
 export const QUADRUPED_ROWS_FAR = {};

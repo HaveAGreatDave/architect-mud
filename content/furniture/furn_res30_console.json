@@ -1,5 +1,5 @@
 {
-  "description": "A walnut console table under the window with lilies on it, fresh this morning. The water in the vase is clear, and the petals that fall are gone before the next resident passes.",
+  "description": "A walnut console table facing the elevator, with lilies on it, fresh this morning. The water in the vase is clear.",
   "flags": {
     "aliases": "console,table,flowers",
     "interactions": [
@@ -7,7 +7,12 @@
     ],
     "look": {
       "arche": "surface",
-      "form": "rail"
+      "dress": "lilies",
+      "form": "console"
+    },
+    "spot": {
+      "along": 0,
+      "wall": "front"
     }
   },
   "hp": null,

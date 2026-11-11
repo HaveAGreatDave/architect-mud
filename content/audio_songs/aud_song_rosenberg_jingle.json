@@ -1,0 +1,1212 @@
+{
+  "category": "commercial",
+  "channel_pan": [
+    -0.2,
+    0.2,
+    0,
+    0,
+    0.1,
+    0.25
+  ],
+  "channels": [
+    [
+      {
+        "instrument": "aud_inst_ad_epiano",
+        "len": 6,
+        "note": "E4",
+        "vol": 0.438
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_ad_epiano",
+        "len": 10,
+        "note": "E4",
+        "vol": 0.435
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_ad_epiano",
+        "len": 6,
+        "note": "F4",
+        "vol": 0.44
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_ad_epiano",
+        "len": 10,
+        "note": "F4",
+        "vol": 0.43
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_ad_epiano",
+        "len": 6,
+        "note": "F4",
+        "vol": 0.43
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_ad_epiano",
+        "len": 10,
+        "note": "F4",
+        "vol": 0.435
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_ad_epiano",
+        "len": 6,
+        "note": "E4",
+        "vol": 0.445
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_ad_epiano",
+        "len": 10,
+        "note": "E4",
+        "vol": 0.406
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_ad_epiano",
+        "len": 6,
+        "note": "F4",
+        "vol": 0.454
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_ad_epiano",
+        "len": 10,
+        "note": "F4",
+        "vol": 0.466
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_ad_epiano",
+        "len": 6,
+        "note": "F#4",
+        "vol": 0.436
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_ad_epiano",
+        "len": 10,
+        "note": "F#4",
+        "vol": 0.41
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null
+    ],
+    [
+      {
+        "instrument": "aud_inst_ad_epiano",
+        "len": 6,
+        "note": "G4",
+        "vol": 0.407
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_ad_epiano",
+        "len": 10,
+        "note": "G4",
+        "vol": 0.369
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_ad_epiano",
+        "len": 6,
+        "note": "A4",
+        "vol": 0.39
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_ad_epiano",
+        "len": 10,
+        "note": "A4",
+        "vol": 0.39
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_ad_epiano",
+        "len": 6,
+        "note": "A4",
+        "vol": 0.398
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_ad_epiano",
+        "len": 10,
+        "note": "A4",
+        "vol": 0.427
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_ad_epiano",
+        "len": 6,
+        "note": "G4",
+        "vol": 0.388
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_ad_epiano",
+        "len": 10,
+        "note": "G4",
+        "vol": 0.409
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_ad_epiano",
+        "len": 6,
+        "note": "A4",
+        "vol": 0.393
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_ad_epiano",
+        "len": 10,
+        "note": "A4",
+        "vol": 0.417
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_ad_epiano",
+        "len": 6,
+        "note": "A4",
+        "vol": 0.397
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_ad_epiano",
+        "len": 10,
+        "note": "A4",
+        "vol": 0.428
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null
+    ],
+    [
+      {
+        "instrument": "aud_inst_ad_epiano",
+        "len": 6,
+        "note": "Bb4",
+        "vol": 0.404
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_ad_epiano",
+        "len": 10,
+        "note": "Bb4",
+        "vol": 0.426
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_ad_epiano",
+        "len": 6,
+        "note": "C#5",
+        "vol": 0.393
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_ad_epiano",
+        "len": 10,
+        "note": "C#5",
+        "vol": 0.383
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_ad_epiano",
+        "len": 6,
+        "note": "C5",
+        "vol": 0.387
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_ad_epiano",
+        "len": 10,
+        "note": "C5",
+        "vol": 0.409
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_ad_epiano",
+        "len": 6,
+        "note": "Bb4",
+        "vol": 0.392
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_ad_epiano",
+        "len": 10,
+        "note": "Bb4",
+        "vol": 0.378
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_ad_epiano",
+        "len": 6,
+        "note": "C#5",
+        "vol": 0.403
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_ad_epiano",
+        "len": 10,
+        "note": "C#5",
+        "vol": 0.387
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_ad_epiano",
+        "len": 6,
+        "note": "D5",
+        "vol": 0.387
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_ad_epiano",
+        "len": 10,
+        "note": "D5",
+        "vol": 0.428
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null
+    ],
+    [
+      {
+        "instrument": "aud_inst_ad_upright",
+        "len": 4,
+        "note": "E2",
+        "vol": 0.603
+      },
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_ad_upright",
+        "len": 4,
+        "note": "G2",
+        "vol": 0.619
+      },
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_ad_upright",
+        "len": 4,
+        "note": "A2",
+        "vol": 0.615
+      },
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_ad_upright",
+        "len": 4,
+        "note": "C#3",
+        "vol": 0.611
+      },
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_ad_upright",
+        "len": 4,
+        "note": "A2",
+        "vol": 0.591
+      },
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_ad_upright",
+        "len": 4,
+        "note": "C#3",
+        "vol": 0.598
+      },
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_ad_upright",
+        "len": 4,
+        "note": "E3",
+        "vol": 0.605
+      },
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_ad_upright",
+        "len": 4,
+        "note": "A2",
+        "vol": 0.566
+      },
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_ad_upright",
+        "len": 4,
+        "note": "D2",
+        "vol": 0.596
+      },
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_ad_upright",
+        "len": 4,
+        "note": "F2",
+        "vol": 0.616
+      },
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_ad_upright",
+        "len": 4,
+        "note": "A2",
+        "vol": 0.615
+      },
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_ad_upright",
+        "len": 4,
+        "note": "D3",
+        "vol": 0.581
+      },
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_ad_upright",
+        "len": 4,
+        "note": "E2",
+        "vol": 0.596
+      },
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_ad_upright",
+        "len": 4,
+        "note": "G2",
+        "vol": 0.572
+      },
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_ad_upright",
+        "len": 4,
+        "note": "A2",
+        "vol": 0.605
+      },
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_ad_upright",
+        "len": 4,
+        "note": "C#3",
+        "vol": 0.567
+      },
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_ad_upright",
+        "len": 4,
+        "note": "A2",
+        "vol": 0.595
+      },
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_ad_upright",
+        "len": 4,
+        "note": "E2",
+        "vol": 0.6
+      },
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_ad_upright",
+        "len": 4,
+        "note": "C#2",
+        "vol": 0.578
+      },
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_ad_upright",
+        "len": 4,
+        "note": "A1",
+        "vol": 0.591
+      },
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_ad_upright",
+        "len": 16,
+        "note": "D2",
+        "vol": 0.599
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null
+    ],
+    [
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_ad_sax",
+        "len": 2,
+        "note": "A4",
+        "vol": 0.55
+      },
+      null,
+      {
+        "instrument": "aud_inst_ad_sax",
+        "len": 2,
+        "note": "Bb4",
+        "vol": 0.586
+      },
+      null,
+      {
+        "instrument": "aud_inst_ad_sax",
+        "len": 4,
+        "note": "A4",
+        "vol": 0.58
+      },
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_ad_sax",
+        "len": 4,
+        "note": "G4",
+        "vol": 0.554
+      },
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_ad_sax",
+        "len": 2,
+        "note": "F4",
+        "vol": 0.562
+      },
+      null,
+      {
+        "instrument": "aud_inst_ad_sax",
+        "len": 2,
+        "note": "E4",
+        "vol": 0.57
+      },
+      null,
+      {
+        "instrument": "aud_inst_ad_sax",
+        "len": 2,
+        "note": "F4",
+        "vol": 0.562
+      },
+      null,
+      {
+        "instrument": "aud_inst_ad_sax",
+        "len": 2,
+        "note": "G4",
+        "vol": 0.579
+      },
+      null,
+      {
+        "instrument": "aud_inst_ad_sax",
+        "len": 8,
+        "note": "A4",
+        "vol": 0.548
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_ad_sax",
+        "len": 4,
+        "note": "D5",
+        "vol": 0.556
+      },
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_ad_sax",
+        "len": 2,
+        "note": "C5",
+        "vol": 0.544
+      },
+      null,
+      {
+        "instrument": "aud_inst_ad_sax",
+        "len": 2,
+        "note": "A4",
+        "vol": 0.584
+      },
+      null,
+      {
+        "instrument": "aud_inst_ad_sax",
+        "len": 4,
+        "note": "F4",
+        "vol": 0.585
+      },
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_ad_sax",
+        "len": 4,
+        "note": "D4",
+        "vol": 0.563
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_ad_sax",
+        "len": 2,
+        "note": "A4",
+        "vol": 0.533
+      },
+      null,
+      {
+        "instrument": "aud_inst_ad_sax",
+        "len": 2,
+        "note": "Bb4",
+        "vol": 0.534
+      },
+      null,
+      {
+        "instrument": "aud_inst_ad_sax",
+        "len": 4,
+        "note": "A4",
+        "vol": 0.562
+      },
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_ad_sax",
+        "len": 4,
+        "note": "G4",
+        "vol": 0.566
+      },
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_ad_sax",
+        "len": 2,
+        "note": "F4",
+        "vol": 0.578
+      },
+      null,
+      {
+        "instrument": "aud_inst_ad_sax",
+        "len": 2,
+        "note": "G4",
+        "vol": 0.564
+      },
+      null,
+      {
+        "instrument": "aud_inst_ad_sax",
+        "len": 2,
+        "note": "A4",
+        "vol": 0.528
+      },
+      null,
+      {
+        "instrument": "aud_inst_ad_sax",
+        "len": 2,
+        "note": "C5",
+        "vol": 0.599
+      },
+      null,
+      {
+        "instrument": "aud_inst_ad_sax",
+        "len": 8,
+        "note": "E5",
+        "vol": 0.561
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_ad_sax",
+        "len": 16,
+        "note": "F#5",
+        "vol": 0.559
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null
+    ],
+    [
+      {
+        "instrument": "aud_inst_ad_brush",
+        "note": "C4",
+        "vol": 0.579
+      },
+      null,
+      null,
+      {
+        "instrument": "aud_inst_ad_brush",
+        "note": "C4",
+        "vol": 0.246
+      },
+      {
+        "instrument": "aud_inst_ad_brush",
+        "note": "C4",
+        "vol": 0.559
+      },
+      null,
+      null,
+      {
+        "instrument": "aud_inst_ad_brush",
+        "note": "C4",
+        "vol": 0.276
+      },
+      {
+        "instrument": "aud_inst_ad_brush",
+        "note": "C4",
+        "vol": 0.578
+      },
+      null,
+      null,
+      {
+        "instrument": "aud_inst_ad_brush",
+        "note": "C4",
+        "vol": 0.263
+      },
+      {
+        "instrument": "aud_inst_ad_brush",
+        "note": "C4",
+        "vol": 0.54
+      },
+      null,
+      null,
+      {
+        "instrument": "aud_inst_ad_brush",
+        "note": "C4",
+        "vol": 0.246
+      },
+      {
+        "instrument": "aud_inst_ad_brush",
+        "note": "C4",
+        "vol": 0.562
+      },
+      null,
+      null,
+      {
+        "instrument": "aud_inst_ad_brush",
+        "note": "C4",
+        "vol": 0.274
+      },
+      {
+        "instrument": "aud_inst_ad_brush",
+        "note": "C4",
+        "vol": 0.57
+      },
+      null,
+      null,
+      {
+        "instrument": "aud_inst_ad_brush",
+        "note": "C4",
+        "vol": 0.249
+      },
+      {
+        "instrument": "aud_inst_ad_brush",
+        "note": "C4",
+        "vol": 0.564
+      },
+      null,
+      null,
+      {
+        "instrument": "aud_inst_ad_brush",
+        "note": "C4",
+        "vol": 0.247
+      },
+      {
+        "instrument": "aud_inst_ad_brush",
+        "note": "C4",
+        "vol": 0.529
+      },
+      null,
+      null,
+      {
+        "instrument": "aud_inst_ad_brush",
+        "note": "C4",
+        "vol": 0.245
+      },
+      {
+        "instrument": "aud_inst_ad_brush",
+        "note": "C4",
+        "vol": 0.558
+      },
+      null,
+      null,
+      {
+        "instrument": "aud_inst_ad_brush",
+        "note": "C4",
+        "vol": 0.269
+      },
+      {
+        "instrument": "aud_inst_ad_brush",
+        "note": "C4",
+        "vol": 0.576
+      },
+      null,
+      null,
+      {
+        "instrument": "aud_inst_ad_brush",
+        "note": "C4",
+        "vol": 0.235
+      },
+      {
+        "instrument": "aud_inst_ad_brush",
+        "note": "C4",
+        "vol": 0.535
+      },
+      null,
+      null,
+      {
+        "instrument": "aud_inst_ad_brush",
+        "note": "C4",
+        "vol": 0.264
+      },
+      {
+        "instrument": "aud_inst_ad_brush",
+        "note": "C4",
+        "vol": 0.584
+      },
+      null,
+      null,
+      {
+        "instrument": "aud_inst_ad_brush",
+        "note": "C4",
+        "vol": 0.27
+      },
+      {
+        "instrument": "aud_inst_ad_brush",
+        "note": "C4",
+        "vol": 0.554
+      },
+      null,
+      null,
+      {
+        "instrument": "aud_inst_ad_brush",
+        "note": "C4",
+        "vol": 0.281
+      },
+      {
+        "instrument": "aud_inst_ad_brush",
+        "note": "C4",
+        "vol": 0.563
+      },
+      null,
+      null,
+      {
+        "instrument": "aud_inst_ad_brush",
+        "note": "C4",
+        "vol": 0.259
+      },
+      {
+        "instrument": "aud_inst_ad_brush",
+        "note": "C4",
+        "vol": 0.578
+      },
+      null,
+      null,
+      {
+        "instrument": "aud_inst_ad_brush",
+        "note": "C4",
+        "vol": 0.24
+      },
+      {
+        "instrument": "aud_inst_ad_brush",
+        "note": "C4",
+        "vol": 0.543
+      },
+      null,
+      null,
+      {
+        "instrument": "aud_inst_ad_brush",
+        "note": "C4",
+        "vol": 0.274
+      },
+      {
+        "instrument": "aud_inst_ad_brush",
+        "note": "C4",
+        "vol": 0.559
+      },
+      null,
+      null,
+      {
+        "instrument": "aud_inst_ad_brush",
+        "note": "C4",
+        "vol": 0.281
+      },
+      {
+        "instrument": "aud_inst_ad_brush",
+        "note": "C4",
+        "vol": 0.572
+      },
+      null,
+      null,
+      {
+        "instrument": "aud_inst_ad_brush",
+        "note": "C4",
+        "vol": 0.233
+      },
+      {
+        "instrument": "aud_inst_ad_brush",
+        "note": "C4",
+        "vol": 0.544
+      },
+      null,
+      null,
+      {
+        "instrument": "aud_inst_ad_brush",
+        "note": "C4",
+        "vol": 0.266
+      },
+      {
+        "instrument": "aud_inst_ad_brush",
+        "note": "C4",
+        "vol": 0.583
+      },
+      null,
+      null,
+      {
+        "instrument": "aud_inst_ad_brush",
+        "note": "C4",
+        "vol": 0.271
+      },
+      {
+        "instrument": "aud_inst_ad_brush",
+        "note": "C4",
+        "vol": 0.56
+      },
+      null,
+      null,
+      {
+        "instrument": "aud_inst_ad_brush",
+        "note": "C4",
+        "vol": 0.231
+      },
+      {
+        "instrument": "aud_inst_ad_brush",
+        "note": "C4",
+        "vol": 0.555
+      },
+      null,
+      null,
+      {
+        "instrument": "aud_inst_ad_brush",
+        "note": "C4",
+        "vol": 0.253
+      },
+      {
+        "instrument": "aud_inst_ad_brush",
+        "note": "C4",
+        "vol": 0.563
+      },
+      null,
+      null,
+      {
+        "instrument": "aud_inst_ad_brush",
+        "note": "C4",
+        "vol": 0.231
+      },
+      {
+        "instrument": "aud_inst_ad_brush",
+        "note": "C4",
+        "vol": 0.586
+      },
+      null,
+      null,
+      {
+        "instrument": "aud_inst_ad_brush",
+        "note": "C4",
+        "vol": 0.253
+      }
+    ]
+  ],
+  "enabled": 1,
+  "id": "aud_song_rosenberg_jingle",
+  "instrument_ids": [
+    "aud_inst_ad_brush",
+    "aud_inst_ad_epiano",
+    "aud_inst_ad_sax",
+    "aud_inst_ad_upright"
+  ],
+  "loop_end": 0,
+  "loop_start": 0,
+  "name": "rosenberg_jingle",
+  "priority": 5,
+  "swing": 0.6,
+  "tempo": 88
+}

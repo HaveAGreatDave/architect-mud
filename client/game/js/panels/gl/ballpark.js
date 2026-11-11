@@ -38,7 +38,8 @@ import { createDepthSSAO, ssaoConstants } from './ssao.js';
 import { createBroadcastPass } from './broadcast.js';
 import { makeVertexStream } from './stream.js';
 import { declareProgram, prewarmPrograms, takeWarm } from './programs.js';
-import { createPlayerSet, buildBody, POSES, mirrorPose, lookOf, faceFor, kitCell, SKIN_STRIDE, PLAYER_LODS, rigBuildOf } from './ballplayer-mesh.js';
+import { createPlayerSet, buildBody, POSES, mirrorPose, lookOf, faceFor, kitCell, SKIN_STRIDE, PLAYER_LODS, rigBuildOf, hex as hexLin } from './ballplayer-mesh.js';
+import { gen1Of, GEN1_ORDERS } from '../../../../shared/deadball-gen1.js';
 import { solvePose, boneFrames, bindFrames, skinRows, BONES, FRAME_FLOATS, scalePose } from '../diamond/rig.js';
 import { BALL_R } from '../diamond/flight.js';
 import { ballGlowOn } from '../../../../shared/settings.js';
@@ -127,13 +128,24 @@ uniform vec4 uInk;
 // the comic look's weighted line: on the side away from uKey (the way to the sun, or straight up
 // under the floods) the line is up to uWeigh times as wide; 1 leaves it as it was
 uniform vec3 uKey; uniform float uWeigh;
+// how far behind him the line sits, as gl/ink.js uBack: [-P[14], feet], or y 0 for uInk.w in
+// clip depth. In clip depth it grew with the square of the range, a foot behind at a broadcast
+// camera, so an arm's line sat behind the chest it crossed and stopped at its edge, and the arm
+// read as gone behind his back. uBack.y is the body's; a head's sits uHeadBack feet back.
+uniform vec2 uBack; uniform float uHeadBack;
+float backOf(float w, float ft) { return uBack.y > 0.0 ? uBack.x * ft / (w + ft) : uInk.w * w; }
 void main() {
   vec3 p = skinPos(aPos), sn = skinDir(aNrm);
   float nl = dot(sn, sn);
   vec4 c = uVP * vec4(p, 1.0);
+  // a sculpted face's nose and brow, and a helmet's dome, stand out further than the body's forms,
+  // so their line sits further back, or the shell comes through beside the nose and in steps
+  // across the crown
+  bool head = abs(aMat - ${MAT.HEAD}.0) < 0.5 || abs(aMat - ${MAT.GLOSS}.0) < 0.5 || abs(aMat - ${MAT.MATTE}.0) < 0.5;
+  float ft = head ? uHeadBack : uBack.y;
   // a vertex with no normal, or behind the eye, stays where it is unpushed: thrown off screen
   // alone, it dragged its triangle across the picture with it
-  if (nl < 0.01 || c.w <= 0.0) { c.z += uInk.w * max(c.w, 0.0); gl_Position = c; return; }
+  if (nl < 0.01 || c.w <= 0.0) { c.z += uBack.y > 0.0 ? backOf(max(c.w, 0.0), ft) : uInk.w * max(c.w, 0.0); gl_Position = c; return; }
   vec3 n = sn * inversesqrt(nl);
   vec4 cn = uVP * vec4(p + n * uInk.x, 1.0);
   vec2 d = (cn.xy / max(cn.w, 1e-3) - c.xy / c.w) * uRes * 0.5;
@@ -141,9 +153,7 @@ void main() {
   vec2 dir = L > 1e-4 ? d / L : vec2(0.0);
   float wk = mix(uWeigh, 1.0, smoothstep(-0.5, 0.7, dot(n, uKey)));
   c.xy += dir * clamp(L, uInk.y, uInk.z) * wk / (uRes * 0.5) * c.w;
-  // a sculpted face's nose and brow, and a helmet's dome, stand out further than the body's forms, so their line sits
-  // further back, or the shell comes through beside the nose and in steps across the crown
-  c.z += uInk.w * c.w * (abs(aMat - ${MAT.HEAD}.0) < 0.5 || abs(aMat - ${MAT.GLOSS}.0) < 0.5 || abs(aMat - ${MAT.MATTE}.0) < 0.5 ? 9.0 : 1.0);
+  c.z += uBack.y > 0.0 ? backOf(c.w, ft) : uInk.w * c.w * (head ? 9.0 : 1.0);
   gl_Position = c;
 }`;
 const DEPTH_FS = `#version 300 es
@@ -1279,7 +1289,24 @@ export function createBallparkRenderer(canvas, opts = {}) {
       st.write(b.data, b.n * STRIDE);
       return { vao, n: b.n, st };
     };
-    const opaque = [...park.opaque].map(([key, b]) => ({ key, ...upload(b) }));
+    const opaque = [...park.opaque].filter(([key]) => key !== 'jumbo').map(([key, b]) => ({ key, ...upload(b) }));
+    // the videoboard: its own draw, a picture off a canvas (setJumbo), black until one comes
+    const jumboBatch = park.opaque.get('jumbo');
+    const jumboDraw = jumboBatch?.n ? { key: 'jumbo', emis: 1.8, ...upload(jumboBatch) } : null;
+    TEX.jumbo = gl.createTexture();
+    gl.bindTexture(T2, TEX.jumbo);
+    gl.texImage2D(T2, 0, gl.RGBA8, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, new Uint8Array([2, 2, 3, 255]));
+    for (const [k, v] of [[gl.TEXTURE_MIN_FILTER, gl.LINEAR], [gl.TEXTURE_MAG_FILTER, gl.LINEAR], [gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE], [gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE]]) gl.texParameteri(T2, k, v);
+    // setJumbo(src): a canvas (diamond/jumbo.js JUMBO_W by JUMBO_H) onto the videoboard, mipmapped,
+    // since from the plate it's 400 ft off and a few hundred pixels across at most
+    function setJumbo(src) {
+      if (lost || !src || !(src.width > 0)) return false;
+      gl.activeTexture(gl.TEXTURE0); gl.bindTexture(T2, TEX.jumbo);
+      gl.texImage2D(T2, 0, gl.RGBA8, gl.RGBA, gl.UNSIGNED_BYTE, src);
+      gl.generateMipmap(T2);
+      gl.texParameteri(T2, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR);
+      return true;
+    }
     const translucent = [...park.translucent].map(([key, b]) => ({ key, ...upload(b) }));
     // what burns on its own (the towers' floods, the decks' rows, the beacons, the gates' lanterns and
     // the plates' halo), each at its own strength a frame; and the roof's shells, each drawn where
@@ -1296,8 +1323,8 @@ export function createBallparkRenderer(canvas, opts = {}) {
     const cardQuad = gl.createBuffer();
     gl.bindBuffer(gl.ARRAY_BUFFER, cardQuad); gl.bufferData(gl.ARRAY_BUFFER, CARD_QUAD, gl.STATIC_DRAW);
     const norm3 = (v) => { const l = Math.hypot(v[0], v[1], v[2]) || 1; return [v[0] / l, v[1] / l, v[2] / l]; };
-    // Each kind has a second VAO over the same fans with the figure's near level (456 triangles to
-    // the far's 256), drawn when the shot's lens is long enough to bring the stands up close
+    // Each kind has a second VAO over the same fans with the figure's near level (the same
+    // street body today; crowdMorph `street: false` keeps the old fan's two), drawn when the shot's lens is long enough to bring the stands up close
     // (quality.fans 2, CLOSE_FOV).
     const crowdOf = (src, towels) => {
       const list = [];
@@ -1578,6 +1605,8 @@ export function createBallparkRenderer(canvas, opts = {}) {
       queue = [...want].filter(([k]) => !bodies.has(k));
       members = cast.map((c) => ({ key: keyOf(c), slot: c.look.slot }));
       roles.clear(); for (const c of cast) roles.set(c.look.slot, c.look.role);
+      // the First Generation men on the field, for their lights (gen1Fx)
+      gen1Slots = cast.filter((c) => c.look.role !== 'ump' && c.look.role !== 'crew' && gen1Of(c.look.id)).map((c) => ({ slot: c.look.slot, g: gen1Of(c.look.id) }));
       builds.clear(); for (const c of cast) builds.set(c.look.slot, rigBuildOf(c.look));
       HA.fill(0); HB.fill(0); HC.fill(0); HD.fill(0);
       for (const c of cast) {
@@ -1835,6 +1864,105 @@ export function createBallparkRenderer(canvas, opts = {}) {
       fxDraw.st.write(fxBatch.data, fxBatch.n * STRIDE);
       fxDraw.n = fxBatch.n;
       return fxDraw;
+    }
+
+    // ── the First Generation's lights ─────────────────────────────────────────────
+    // Light added over the frame round each First Generation man on the field (client/shared/
+    // deadball-gen1.js), on his joints as the rig poses him this frame, in his order's glow:
+    //   · Ascendant: a ring of motes turning round his head and a scan line sweeping down him;
+    //   · Long Watch: amber motes drifting up off him and slow rings spreading on the ground at his feet;
+    //   · Wildblood: embers flying up off his shoulders, and a red streak behind him when he runs flat out;
+    //   · Null: grey-white shards that blink in and out round him a few times a second, and a scan line
+    //     that jumps about his head.
+    // Everything is a quad turned to the eye, lit by its colour (MAT.EMISSIVE in the additive pass),
+    // and worked out from the world's clock and the man's slot, so a replay draws the same lights.
+    let gen1Slots = [];
+    const g1Batch = createBatch(1024), g1Draw = { key: 'gen1fx', ...upload(createBatch(1)) };
+    const g1Glow = new Map(), g1Trail = new Map();
+    const glowOf = (o) => { let c = g1Glow.get(o); if (!c) g1Glow.set(o, (c = hexLin(GEN1_ORDERS[o].glow))); return c; };
+    const hash1 = (a, b) => { let h = Math.imul(a ^ 0x9e3779b1, 0x85ebca6b) ^ Math.imul(b + 0x632be5ab, 0xc2b2ae35); h ^= h >>> 15; return ((Math.imul(h, 0x27d4eb2f) ^ (h >>> 13)) >>> 0) / 4294967296; };
+    function gen1Fx(eye) {
+      if (!gen1Slots.length || empty) return null;
+      g1Batch.n = 0;
+      const N = [0, 1, 0], UV = [0, 0], E = MAT.EMISSIVE, t = worldT;
+      // a quad at p, turned to the eye, w across and h tall (h along `up` if given)
+      const quad = (p, w, h, col, up = null) => {
+        const v = unit3(sub3(p, eye));
+        if (!v) return;
+        const r = unit3(cross3(v, up || [0, 1, 0])) || [1, 0, 0], u = up || cross3(r, v);
+        // a long thin one (a shard, a scan line) is a bar; a mote is a diamond, which reads as a spark
+        const bar = w > 2.5 * h || h > 2.5 * w;
+        const q = (bar ? [[-1, -1], [1, -1], [1, 1], [-1, 1]] : [[0, -1], [1, 0], [0, 1], [-1, 0]]).map(([a, b]) => p.map((x, j) => x + r[j] * a * w + u[j] * b * h));
+        for (const n of [0, 1, 2, 0, 2, 3]) vtx(g1Batch, q[n], N, UV, col, E);
+      };
+      // a flat ring on the ground round c, radius R, width w
+      const groundRing = (c, R, w, col, seg = 28) => {
+        for (let k = 0; k < seg; k++) {
+          const a0 = k / seg * Math.PI * 2, a1 = (k + 1) / seg * Math.PI * 2;
+          const P = (a, rr) => [c[0] + Math.cos(a) * rr, 0.06, c[2] + Math.sin(a) * rr];
+          const q = [P(a0, R - w), P(a0, R + w), P(a1, R + w), P(a1, R - w)];
+          for (const n of [0, 1, 2, 0, 2, 3]) vtx(g1Batch, q[n], N, UV, col, E);
+        }
+      };
+      const ringAt = (c, R, col, seg = 22, w = 0.05) => {
+        for (let k = 0; k < seg; k++) { const a0 = k / seg * Math.PI * 2, a1 = (k + 1) / seg * Math.PI * 2; const p0 = [c[0] + Math.cos(a0) * R, c[1], c[2] + Math.sin(a0) * R], p1 = [c[0] + Math.cos(a1) * R, c[1], c[2] + Math.sin(a1) * R]; const q = [[p0[0], p0[1] - w, p0[2]], [p0[0], p0[1] + w, p0[2]], [p1[0], p1[1] + w, p1[2]], [p1[0], p1[1] - w, p1[2]]]; for (const n of [0, 1, 2, 0, 2, 3]) vtx(g1Batch, q[n], N, UV, col, E); }
+      };
+      const k = (c, a) => c.map((x) => x * a);
+      for (const { slot, g } of gen1Slots) {
+        const J = joints.get(slot);
+        if (!J?.head || !J.pelvis) continue;
+        const C = glowOf(g.order), head = J.head, pel = J.pelvis, feet = [(J.anL[0] + J.anR[0]) / 2, 0, (J.anL[2] + J.anR[2]) / 2];
+        const tall = Math.max(4, head[1] + 0.8);
+        // every one: a faint ring on the ground under him, breathing
+        groundRing(feet, 1.5, 0.05, k(C, 0.18 + 0.08 * Math.sin(t * 1.7 + slot)));
+        if (g.order === 'asc') {
+          for (let i = 0; i < 8; i++) { const a = t * 1.6 + i / 8 * Math.PI * 2; quad([head[0] + Math.cos(a) * 1.05, head[1] + 0.55 + 0.08 * Math.sin(a * 2), head[2] + Math.sin(a) * 1.05], 0.045, 0.06, k(C, 0.9)); }
+          const ph = (t * 0.4 + slot * 0.13) % 1;
+          if (ph < 0.6) ringAt([pel[0], tall - (ph / 0.6) * tall, pel[2]], 1.15, k(C, 0.3 * Math.sin(ph / 0.6 * Math.PI)));
+        } else if (g.order === 'lw') {
+          for (let i = 0; i < 10; i++) {
+            const life = 4, ph = ((t + hash1(slot, i) * life) % life) / life, a = hash1(slot, i + 50) * Math.PI * 2, r = 0.7 + 0.6 * hash1(slot, i + 90);
+            quad([pel[0] + Math.cos(a + ph) * r, 0.4 + ph * (tall + 0.6), pel[2] + Math.sin(a + ph) * r], 0.045, 0.045, k(C, 0.55 * Math.sin(ph * Math.PI)));
+          }
+          for (let i = 0; i < 2; i++) { const ph = ((t * 0.25 + i * 0.5) % 1); groundRing(feet, 0.8 + ph * 3.2, 0.04, k(C, 0.3 * (1 - ph))); }
+        } else if (g.order === 'wb') {
+          for (let i = 0; i < 12; i++) {
+            const life = 1.3, ph = ((t + hash1(slot, i) * life) % life) / life, sh = i % 2 ? J.shL : J.shR, a = hash1(slot, i + 30) * Math.PI * 2;
+            const p = [sh[0] + Math.cos(a) * 0.3 + (hash1(slot, i + 70) - 0.5) * ph * 1.2, sh[1] + ph * 2.6, sh[2] + Math.sin(a) * 0.3];
+            quad(p, 0.04, 0.09, k(C, 0.9 * (1 - ph) * (0.6 + 0.4 * Math.sin(t * 23 + i))));
+          }
+          // the streak: where his pelvis has been over the last third of a second, lit by how fast
+          let tr = g1Trail.get(slot);
+          if (!tr) g1Trail.set(slot, (tr = []));
+          const last = tr[tr.length - 1];
+          if (last && (t < last.t || Math.hypot(pel[0] - last.p[0], pel[2] - last.p[2]) > 30)) tr.length = 0;
+          if (!last || t > last.t) tr.push({ p: pel.slice(), t });
+          while (tr.length > 2 && tr[1].t < t - 0.35) tr.shift();
+          for (let i = 0; i + 1 < tr.length; i++) {
+            const a = tr[i], b = tr[i + 1], dt = b.t - a.t, v = dt > 1e-4 ? Math.hypot(b.p[0] - a.p[0], b.p[2] - a.p[2]) / dt : 0;
+            const fast = Math.min(1, Math.max(0, (v - 14) / 10)), fade = 1 - (t - a.t) / 0.35;
+            if (fast * fade < 0.02) continue;
+            const d = unit3(sub3(b.p, a.p)), side = d && unit3(cross3(d, sub3(eye, a.p)));
+            if (!side) continue;
+            const w = 0.9 * fade, ca = k(C, 0.5 * fast * fade);
+            const q = [a.p.map((x, j) => x + side[j] * w), a.p.map((x, j) => x - side[j] * w), b.p.map((x, j) => x - side[j] * w), b.p.map((x, j) => x + side[j] * w)];
+            for (const n of [0, 1, 2, 0, 2, 3]) vtx(g1Batch, q[n], N, UV, ca, E);
+          }
+        } else if (g.order === 'nul') {
+          const tick = Math.floor(t * 4 + slot * 0.37);
+          for (let i = 0; i < 9; i++) {
+            if (hash1(tick + slot * 97, i) < 0.45) continue;
+            const a = hash1(tick, i + 11) * Math.PI * 2, y = 0.5 + hash1(tick, i + 23) * (tall - 0.3), r = 0.8 + 0.5 * hash1(tick, i + 31);
+            quad([pel[0] + Math.cos(a) * r, y, pel[2] + Math.sin(a) * r], 0.04 + 0.16 * hash1(tick, i + 41), 0.025 + 0.04 * hash1(tick, i + 43), k(C, 0.45));
+          }
+          const sy = head[1] + 0.1 + (hash1(Math.floor(t * 3), slot) - 0.5) * 0.4;
+          quad([head[0], sy, head[2]], 0.45, 0.012, k(C, 0.5));
+        }
+      }
+      if (!g1Batch.n) return null;
+      g1Draw.st.write(g1Batch.data, g1Batch.n * STRIDE);
+      g1Draw.n = g1Batch.n;
+      return g1Draw;
     }
 
     // ── the loose bats ───────────────────────────────────────────────────────────
@@ -2339,6 +2467,7 @@ export function createBallparkRenderer(canvas, opts = {}) {
       };
       litSetup(LIT);
       drawSet(opaque, 1);
+      if (jumboDraw) { gl.uniform1f(LIT.u('uScreen'), 1); drawSet([jumboDraw], 1); gl.uniform1f(LIT.u('uScreen'), 0); }
       drawSet(lampDraws, 1);
       // the roof's shells, each where the roof has got to on its rails
       for (const d of shells) {
@@ -2413,21 +2542,29 @@ export function createBallparkRenderer(canvas, opts = {}) {
         gl.uniform1i(SKINK.u('uBones'), 9);
         gl.uniform2f(SKINK.u('uRes'), w, h);
         // the house style's line when the comic look is on (gl/house-style.js), else the park's own
-        const ink = parkFigureInkOf({ ft: CEL.inkFt, px: CEL.inkPx, col: CEL.ink });
-        gl.uniform4f(SKINK.u('uInk'), ink.ft, ink.px[0] * u, ink.px[1] * u, CEL.inkBias);
+        const own = { ft: CEL.inkFt, px: CEL.inkPx, col: CEL.ink }, ink = parkFigureInkOf(own);
         gl.uniform3fv(SKINK.u('uCol'), ink.col);
         gl.uniform3fv(SKINK.u('uKey'), sunNow ? sunNow.dir : [0, 1, 0]);
         gl.uniform1f(SKINK.u('uWeigh'), figureLightOf({ bands: CEL.bands, shade: CEL.shade }).weigh);
-        for (const m of shown) {
-          const body = bodies.get(m.key);
-          if (!body) continue;
-          gl.uniform1i(SKINK.u('uBoneRow'), m.slot);
-          for (const d of body.levels?.[lodOf(m.slot, M.viewProj, h, detail)] || body.batches) {
-            if (ALPHA_TEST.has(d.key)) continue;
-            gl.bindVertexArray(d.vao); gl.drawArrays(gl.TRIANGLES, 0, d.n);
-            tris += d.n / 3; draws++;
+        const pass = (o, back) => {
+          gl.uniform4f(SKINK.u('uInk'), o.ft, o.px[0] * u, o.px[1] * u, CEL.inkBias);
+          gl.uniform2f(SKINK.u('uBack'), -M.proj[14], back);
+          gl.uniform1f(SKINK.u('uHeadBack'), back * CEL.inkHeadBack);
+          for (const m of shown) {
+            const body = bodies.get(m.key);
+            if (!body) continue;
+            gl.uniform1i(SKINK.u('uBoneRow'), m.slot);
+            for (const d of body.levels?.[lodOf(m.slot, M.viewProj, h, detail)] || body.batches) {
+              if (ALPHA_TEST.has(d.key)) continue;
+              gl.bindVertexArray(d.vao); gl.drawArrays(gl.TRIANGLES, 0, d.n);
+              tris += d.n / 3; draws++;
+            }
           }
-        }
+        };
+        // The park's own line, CEL.inkBack ft behind him at any range, so an arm keeps its line
+        // across his body (the rink's fix, gl/ink.js uBack). The comic look takes only its colour:
+        // its wide line, drawn under this one, read as less detailed than this one alone.
+        pass({ ...own, col: ink.col }, CEL.inkBack);
       }
       // the players: each one's bones from his row of the palette (unit 9), his face from the atlas
       // (unit 8) and the head arrays, his jersey from his slot's cell
@@ -2487,6 +2624,7 @@ export function createBallparkRenderer(canvas, opts = {}) {
       // light added over the frame: the lamps' pools on the streets, the Curtain, then the spectacle
       gl.blendFunc(gl.ONE, gl.ONE);
       { const bf = ballFx(M.eye, ballGlowOn()); if (bf) drawSet([bf], 1); }
+      { const gf = gen1Fx(M.eye); if (gf) drawSet([gf], 1); }
       if (city) {
         drawSet(city.glow, 1);
         if (city.curtain) {
@@ -2583,7 +2721,7 @@ export function createBallparkRenderer(canvas, opts = {}) {
         if (depth) { gl.deleteFramebuffer(depth.fbo); gl.deleteTexture(depth.tex); depth = null; }
         for (const t of Object.values(TEX)) gl.deleteTexture(t);
         gl.deleteTexture(boardTex);
-        for (const d of [...opaque, ...translucent, ...lampDraws, ...shells, signDraw, ballDraw, fxDraw, matDraw]) { gl.deleteVertexArray(d.vao); gl.deleteBuffer(d.st.buf); }
+        for (const d of [...opaque, ...translucent, ...lampDraws, ...shells, signDraw, ballDraw, fxDraw, matDraw, ...(jumboDraw ? [jumboDraw] : [])]) { gl.deleteVertexArray(d.vao); gl.deleteBuffer(d.st.buf); }
         dropCity();
         dropCrowd(homeCrowd); if (fullCrowd) dropCrowd(fullCrowd);
         dropRoom(); if (tvFbo) gl.deleteFramebuffer(tvFbo);
@@ -2730,7 +2868,11 @@ export function createBallparkRenderer(canvas, opts = {}) {
       // keeps it), the first one heard taken as where it is; `roof` is { p, to, moving } now, and the
       // view keeps drawing while it moves
       setRoof, get roof() { const now = clock(); return { p: roofT.at(now), to: roofT.to, moving: roofT.moving(now) }; },
-      render, setBoard, setCast, setPose, idle, setBall, setBats, setSpectacle: (fx, t) => spectacle.set(fx, t), pump, setVenue, dispose, stats,
+      render, setBoard, setJumbo, setCast, setPose, idle, setBall, setBats, setSpectacle: (fx, t) => spectacle.set(fx, t), pump, setVenue, dispose, stats,
+      // for the sandbox: the First Generation men on the field, where each one's head and feet are now
+      // for the Pose Lab and the shots: a slot's joints as last posed (the rig's J), or undefined
+      jointsOf: (slot) => joints.get(slot),
+      gen1: () => gen1Slots.map(({ slot, g }) => ({ slot, name: g.name, order: g.order, head: joints.get(slot)?.head, pelvis: joints.get(slot)?.pelvis })),
       markDirt, resetDirt, smoothDirt, setMats, dirtStats, setHour, setMoon, setWeather, setSkyField, get look() { return look; },
       setTime: (t) => { worldT = Number.isFinite(t) ? t : 0; weather.setTime(worldT); },
       get cityLights() { return cityLights.counts; },

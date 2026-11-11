@@ -91,7 +91,7 @@ export function createWorld() {
         if (b.clip !== mine.clip || b.start !== mine.start) return;
         const at = (t) => { const P = W.pose(slot, t, { look: false }); if (!P?.bat) return null; const J = solvePose(P).J; return J.batKnob ? { knob: J.batKnob, dir: J.batDir } : null; };
         const dt = 1 / 60, q0 = at(tr - 1e-3 - dt), q1 = at(tr - 1e-3);
-        if (q0 && q1) { W.bats.push({ t0: tr, T: launch(q0, q1, dt) }); if (W.bats.length > 3) W.bats.shift(); }
+        if (q0 && q1) { W.bats.push({ t0: tr, T: launch(q0, q1, dt, o.toss) }); if (W.bats.length > 3) W.bats.shift(); }
       });
     }
     return clip;

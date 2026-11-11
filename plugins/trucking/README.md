@@ -169,7 +169,7 @@ first mount writes the baseline. Every truck that has never been serviced theref
 as before, and regress asserts it. Worn tyres are `p.tread`, one optional factor on the surface grip
 in `stepTruck`.
 
-**Bodies** (editions.js): `rig edition <truck> <body>`, a second body and cab on the same truck, bought once and free to swap back. The Courier has the 2076; no number moves. See docs/proposals/hover-rigs.md.
+**Bodies** (editions.js): `rig edition <truck> <body>`, a second body and cab on the same truck, bought once and free to swap back. All four trucks have a 2076 (the Barrow, Courier, Drayman and Continental); no number moves. See docs/proposals/hover-rigs.md.
 
 **Horns** (client/shared/truck-horns.js): `rig horn <truck> <horn>`, one catalogue that both the
 bench and the synth read. `stock` is stored as nothing.

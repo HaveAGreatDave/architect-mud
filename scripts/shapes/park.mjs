@@ -29,7 +29,7 @@ const REPORT = process.argv.includes('--report');
 const W = 640, H = 480;
 stubCanvas('__park', W, H);
 
-const FEATURES = ['grove', 'pond', 'benches', 'flowerbeds', 'path'];
+const FEATURES = ['grove', 'pond', 'benches', 'flowerbeds', 'path', 'fountain', 'parterre', 'pergola', 'forecourt'];
 // Flat grass with one park tile on it, several tiles ahead. ⚠ THE GRASS IS `citycore`, because a
 // lawn of `park` tiles would put furniture on every tile and the control would measure all of it.
 const N = 25, C = 12, AHEAD = 5;

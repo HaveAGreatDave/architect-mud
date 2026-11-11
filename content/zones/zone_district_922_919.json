@@ -1,8 +1,10 @@
 {
-  "ambient_events": [],
-  "ambient_theme": "forest",
-  "color": "#8ba36a",
-  "description": "A stretch of hardy, knee-high grass gone silver-green and gnawed short by whatever still grazes out here. The wind moves through it in long slow waves. Something rustles, then goes very still.",
+  "ambient_events": [
+    "A man walks between the tents counting pegs under his breath.",
+    "A kettle starts to whistle and is taken off quickly."
+  ],
+  "ambient_theme": "residential",
+  "description": "Tents in two uneven rows, each with a square of carpet laid outside the flap. A cable runs overhead from a pole in the Pitch to a pole here, with one bulb on it that has never lit.",
   "exits": {
     "east": "zone_district_923_919",
     "north": "zone_district_922_918",
@@ -10,16 +12,17 @@
     "west": "zone_district_921_919"
   },
   "flags": {
-    "district": "residential",
+    "camp": true,
+    "district": "slum",
     "region_id": "region_coldwater",
-    "scavenging_table_id": "scav_west_wastes",
-    "terrain": "grass"
+    "scavenging_table_id": "scav_consumer_trash",
+    "terrain": "ash"
   },
   "grid_x": 922,
   "grid_y": 919,
   "grid_z": 0,
   "id": "zone_district_922_919",
   "map_id": "map_world",
-  "name": "Grasslands",
+  "name": "The Overspill",
   "parent_zone": null
 }

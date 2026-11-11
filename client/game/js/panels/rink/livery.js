@@ -173,3 +173,10 @@ export function paintLivery(x, w = LIVERY_W, h = LIVERY_H) {
   fade(0, 10); fade(W, W - 10);
   x.restore();
 }
+
+// Ken Raven drives the Zamboni and waves to the crowd 3 s in every 39 (gl/arena-mesh.js
+// buildKen, render.js). This is how far into a wave he is: 0, both hands on the wheel, to 1, arm up.
+export function kenWave(t) {
+  const c = ((t % 39) + 39) % 39;
+  return c < 3.2 ? Math.sin(Math.PI / 2 * Math.min(1, c / 0.5, (3.2 - c) / 0.5)) : 0;
+}

@@ -920,6 +920,35 @@ export function lintContentTree(baseDir, { tree: preRead = null } = {}) {
       if (prior) errors.push(`${label}: ${conn.id} already carries door ${prior} — one fixture per connection, or the two sides drift apart`);
       else byConnection.set(d.connection_id, d.id);
     }
+
+    // ── Every flat's front door has a hololock ───────────────────────────────
+    // A front door is the step from an `is_apartment` zone to a room that isn't
+    // part of the flat. Without a door row there the tenant has nothing to close
+    // or lock behind them, and 87 of 141 flats shipped that way. A step to
+    // another flat, or to one of the flat's own rooms (its id starts with the
+    // flat's, as a bathroom's does), isn't a front door.
+    if (zoneFiles.length && doorFiles.length) {
+      const zoneById = new Map(zoneFiles.map(f => [f.data.id, f.data]));
+      const doorOnPair = new Map();
+      for (const f of doorFiles) {
+        const conn = connById.get(f.data.connection_id);
+        if (conn) doorOnPair.set([conn.a, conn.b].sort().join('~'), f.data);
+      }
+      const bare = [];
+      for (const z of zoneById.values()) {
+        if (!z.flags?.is_apartment) continue;
+        for (const v of Object.values(z.exits || {})) {
+          for (const t of (Array.isArray(v) ? v : [v])) {
+            const far = zoneById.get(t);
+            if (!far || far.flags?.is_apartment || far.id.startsWith(z.id + '_')) continue;
+            const door = doorOnPair.get([z.id, far.id].sort().join('~'));
+            if (!door || !door.tags?.['lock:hololock']) bare.push(`${z.id} → ${far.id}${door ? ` (${door.id} has no hololock)` : ''}`);
+          }
+        }
+      }
+      for (const b of bare.slice(0, 10)) errors.push(`apartment front door with no hololock: ${b}. Run node scripts/content/fit-apartment-hololocks.mjs --write`);
+      if (bare.length > 10) errors.push(`…and ${bare.length - 10} more apartment front door(s) with no hololock`);
+    }
   }
 
   // Quest objectives must point somewhere a player can actually be SENT.

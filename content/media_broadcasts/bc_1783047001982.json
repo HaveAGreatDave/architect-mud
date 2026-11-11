@@ -238,7 +238,7 @@
           "x": 520,
           "y": 400
         },
-        "graphic_id": "divorced",
+        "graphic_id": "neil_believe_title",
         "next": "bsm_13",
         "type": "title_card"
       },
@@ -1075,8 +1075,18 @@
           "y": 6320
         },
         "graphic_id": "jerry_rosenberg_logo",
-        "next": "bsm_200",
+        "next": "bsm_199_jingle",
         "type": "title_card"
+      },
+      "bsm_199_jingle": {
+        "_vine": {
+          "x": 1070,
+          "y": 6380
+        },
+        "next": "bsm_200",
+        "song": "rosenberg_jingle",
+        "text": "♪ A lounge sax plays under the Rosenberg card. ♪",
+        "type": "music"
       },
       "bsm_2": {
         "_vine": {
@@ -2122,8 +2132,18 @@
           "y": 2160
         },
         "graphic_id": "hungry_man_just_meats_logo",
-        "next": "bsm_69",
+        "next": "bsm_68_jingle",
         "type": "title_card"
+      },
+      "bsm_68_jingle": {
+        "_vine": {
+          "x": 850,
+          "y": 2220
+        },
+        "next": "bsm_69",
+        "song": "just_meats_jingle",
+        "text": "♪ The Hungry Man jingle: grunts and one bass note. ♪",
+        "type": "music"
       },
       "bsm_69": {
         "_vine": {
@@ -2466,6 +2486,7 @@
   "film_meta": null,
   "gameshow_pools": null,
   "id": "bc_1783047001982",
+  "location_zone_id": "zone_ksab7_stage_b",
   "loop": 0,
   "message_interval": 5,
   "messages": [

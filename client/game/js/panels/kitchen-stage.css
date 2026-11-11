@@ -223,3 +223,7 @@
 .ks-rack-tool.wants { border-color: var(--ks-red); animation: ks-wants 0.9s ease-out infinite; }
 .ks-rack-tool.wants:not(.on) svg { color: var(--ks-red); }
 @media (prefers-reduced-motion: reduce) { .ks-rack-tool.wants { animation: none; box-shadow: 3px 3px 0 var(--ks-red); } }
+
+/* Drawn into the apartment (kitchen-stage.js host): the Room Stage's own canvas under this one draws the
+   picture, so the stage keeps to the room's pane and lets it show through. */
+.ks-root.ks-hosted { position: absolute; background: transparent; }

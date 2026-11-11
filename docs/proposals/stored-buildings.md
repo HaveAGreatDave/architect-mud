@@ -23,6 +23,7 @@ row whenever one comes off the map, and take it out when one goes back.
 | Wrap Party | pub | 914,911 Foundry Way | 2026-10-18 | holding map 3,9 | the Media Lot's car park |
 | The Deadline | press bar | 912,910 Marrow Street | 2026-10-19 | holding map 5,9 | the Media Lot closed its block; the tile is the backlot |
 | Grind House | bladesmith | 912,913 Foundry Way | 2026-10-18 | holding map 7,7 | taken out for now; its film shows at Midway Parks |
+| 3, 5 and 7 Sorrel Way, and 19 Hughson Way | Halcyon glass and a sealed tower | 892, 893, 895 and 891,920 | 2026-11-09 | holding map 3, 5, 7 and 1,23 | Hughson Gardens ([hughson-gardens.md](hughson-gardens.md)) |
 | The Basin breakwaters | West and East Mole, 44 tiles | 878,897 to 900 and row 897 | 2026-11-04 | no tiles; the models and `scripts/content/breakwaters.mjs` are kept ([how to put them back](basin-breakwaters.md#off-the-map)) | taken out for now |
 
 ## Lather & Lye (stored 2026-10-08)

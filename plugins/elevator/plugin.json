@@ -5,7 +5,7 @@
   "hooks": ["zone.describeRoom"],
   "commands": ["floor"],
   "events": {
-    "emits": ["zone.entered"]
+    "emits": ["zone.entered", "elevator.parked"]
   },
   "extensionPoints": ["zones.flags.elevator", "zones.flags.elevator_floors"]
 }

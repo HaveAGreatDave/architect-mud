@@ -1,0 +1,12 @@
+{
+  "content": "{\n \"brand\": \"THE WIDOWMAKER\",\n \"line\": \"Safe. Family.\",\n \"small\": \"IRONCLAD MOTORS. BLAST RATING: WHATEVER IT NEEDS TO BE.\",\n \"color\": \"#e0503c\",\n \"accent\": \"#f4f4f4\",\n \"face\": \"block\",\n \"motif\": \"bars\",\n \"weight\": 1\n}",
+  "created_at": "1794182400",
+  "description": "Hologram advert: Ironclad Motors, The Widowmaker. Baked to the client by npm run holoads:bake.",
+  "id": "holo_ad_widowmaker",
+  "name": "Holo ad: Ironclad Motors, The Widowmaker",
+  "tags": [
+    "holo_ad"
+  ],
+  "type": "holo_ad",
+  "updated_at": "1794182400"
+}

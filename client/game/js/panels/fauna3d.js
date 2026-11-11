@@ -34,6 +34,7 @@
 // slack there is what any future part is spent out of, so check it before adding one.
 import { BIRD_ROWS, BIRD_ROWS_FAR, QUADRUPED_ROWS, QUADRUPED_ROWS_FAR } from '../../../shared/fauna-models.js';
 import { GOOSE_SPAN } from '../../../shared/birds.js';
+import { HOUSE, comicOn } from './gl/house-style.js';
 
 const V = (f, g, h) => [f, g, h];
 const clampN = (v, lo, hi) => (v < lo ? lo : v > hi ? hi : v);
@@ -1097,9 +1098,11 @@ function buildHound(p, state, phase) {
   const headLen = p.headLen ?? 0.2, headH = p.headH ?? 0.15, muzzleLen = p.muzzleLen ?? 0.14, jaw = p.jaw ?? 0.6;
   const earLen = p.earLen ?? 0.09, tailLen = p.tailLen ?? 0.42, tailW = p.tailW ?? 0.035;
   const eyeF = clampN(p.eyeR ?? 0, 0, 0.5);
-  // How high the ankle sits over the road when the foot is down: the paw block's depth under its axis
-  // (legW * 0.75 * sin 60°) and the 0.004 it is set below the ankle, so a bearing paw rests on h = 0.
-  const ankle = legW * 0.75 * 0.866 + 0.004;
+  // The paw: a six-sided pad, flattened, with four toes. `pawH` is how high the pad's axis rides
+  // when it bears weight: its lowest ring corner (sin 60° of a six-sided ring) times the squash, so
+  // a planted pad and its toes sit exactly on h = 0.
+  const PAW_SQ = 0.55, pr = legW * 1.05, pl = legW * 3.0;
+  const pawH = 0.866 * pr * PAW_SQ;
   const gallop = run ? clampN(p.gallop ?? 1, 0, 1.5) : 0;
   const hSide = chestW * 0.42;                               // how far out the legs hang
 
@@ -1112,12 +1115,15 @@ function buildHound(p, state, phase) {
   const pitch = run ? 0.06 * Math.sin(2 * Math.PI * (ph - 0.1)) * gallop : 0; // nose up as the fore feet reach
   // The bones: a fore leg is a long arm and a short pastern, a hind leg a long thigh and a short
   // hock. Standing, the fore leg is all but straight and the hind leg bent at the hock.
-  const fl1 = legLen * 0.74, fl2 = legLen * 0.3, hl1 = legLen * 0.7, hl2 = legLen * 0.36;
+  // Three bones a leg. Fore: the upper arm (shoulder to elbow), the forearm (elbow to wrist) and the
+  // pastern. Hind: the thigh (hip to stifle), the gaskin (stifle to hock) and the long hock bone.
+  const fl1 = legLen * 0.38, fl2 = legLen * 0.48, fl3 = legLen * 0.18;
+  const hl1 = legLen * 0.4, hl2 = legLen * 0.42, hl3 = legLen * 0.27;
   // A galloping dog runs low: the shoulders and hips come down so a leg can reach well out in front
   // and well out behind and still put its foot on the road.
   const low = run ? 1 - 0.14 * gallop : 1;
-  const shoulder = V(bodyLen * 0.5 - 0.06 * flex, 0, (lie ? 0.22 : ankle + (fl1 + fl2) * 0.975 * low) + bob + pitch * 0.4);
-  const hip = V(-bodyLen * 0.5 + 0.07 * flex, 0, (lie ? 0.2 : ankle + (hl1 + hl2) * 0.88 * low) + bob - pitch * 0.4);
+  const shoulder = V(bodyLen * 0.5 - 0.06 * flex, 0, (lie ? 0.22 : pawH + legLen * 1.014 * low) + bob + pitch * 0.4);
+  const hip = V(-bodyLen * 0.5 + 0.07 * flex, 0, (lie ? 0.2 : pawH + legLen * 0.933 * low) + bob - pitch * 0.4);
   const mid = (a, b, t) => V(a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t);
   const arch = 0.05 * Math.max(0, flex) + (lie ? 0 : 0.02);
 
@@ -1135,33 +1141,102 @@ function buildHound(p, state, phase) {
   const rumpC = top(mid(sh, hp, 0.98), chestH * 0.16 + arch * 0.4);
   const tailRoot = V(hp[0] - chestH * 0.32, 0, rumpC[2] + chestH * 0.1);
   const sq = chestH / chestW;
-  tube(faces, brisket, chestF, chestW * 0.24, chestW * 0.5, 'body', 1, 6, sq * 0.85, 'crown', 'belly', -0.2);
-  tube(faces, chestF, chestB, chestW * 0.5, chestW * 0.48, 'body', 1, 6, sq, 'crown', 'belly', -0.2);
-  tube(faces, chestB, waistC, chestW * 0.48, waistW * 0.5, 'body', 1, 6, sq * 0.92, 'crown', 'belly', -0.2);
-  tube(faces, waistC, rumpC, waistW * 0.5, chestW * 0.42, 'body', 1, 6, waistH / waistW * 1.25, 'crown', 'belly', -0.45);
-  tube(faces, rumpC, tailRoot, chestW * 0.42, chestW * 0.12, 'body', 0.92, 6, 1.1, 'crown', 'belly', -0.45);
+  // `facets` rounds the barrel: 6 sides was the first dog, 8 reads as muscle rather than a box.
+  const bn = clampN(Math.round(p.facets ?? 6), 4, 10);
+  const rumpSq = waistH / waistW * 1.25;
+  tube(faces, brisket, chestF, chestW * 0.24, chestW * 0.5, 'body', 1, bn, sq * 0.85, 'crown', 'belly', -0.2);
+  tube(faces, chestF, chestB, chestW * 0.5, chestW * 0.48, 'body', 1, bn, sq, 'crown', 'belly', -0.2);
+  tube(faces, chestB, waistC, chestW * 0.48, waistW * 0.5, 'body', 1, bn, sq * 0.92, 'crown', 'belly', -0.2);
+  tube(faces, waistC, rumpC, waistW * 0.5, chestW * 0.42, 'body', 1, bn, rumpSq, 'crown', 'belly', -0.45);
+  tube(faces, rumpC, tailRoot, chestW * 0.42, chestW * 0.12, 'body', 0.92, bn, 1.1, 'crown', 'belly', -0.45);
+
+  // ── The hackles: a hump of raised coat over the shoulders ──
+  // `hackle` 0 draws none. It rides the chest, so it rolls with the shoulders at the gallop.
+  const hackle = clampN(p.hackle ?? 0, 0, 1);
+  const spineTop = [                                         // the top line of the barrel, front to back
+    V(chestF[0], 0, chestF[2] + chestW * 0.5 * sq), V(chestB[0], 0, chestB[2] + chestW * 0.48 * sq * 0.92),
+    V(waistC[0], 0, waistC[2] + waistW * 0.5 * rumpSq), V(rumpC[0], 0, rumpC[2] + chestW * 0.42 * 1.1),
+    V(tailRoot[0], 0, tailRoot[2] + chestW * 0.12)];
+  if (hackle > 0) {
+    const hA = V(spineTop[0][0] + chestH * 0.12, 0, spineTop[0][2] - chestH * 0.06);
+    const hB = V(spineTop[1][0], 0, spineTop[1][2] - chestH * 0.08);
+    tube(faces, hA, hB, chestW * 0.34 * hackle, chestW * 0.26 * hackle, 'crown', 0.92, 6, 0.9);
+  }
+
+  // ── Spines down the back ──
+  // `spines` is the length of the longest, in model units; 0 draws none. They stand tallest over the
+  // shoulders and lean back, and the gallop lays them flatter. Flat sheets on the centre line: the
+  // side and the three-quarter view are where they read, and from above a dog is a back anyway.
+  const spines = clampN(p.spines ?? 0, 0, 0.2);
+  const lay = run ? 0.55 + 0.12 * flex : lie ? 0.75 : 0.35;  // radians back from upright
+  const spikeAt = (a, b, t, len, w) => {
+    const c = mid(a, b, t), dx = b[0] - a[0], dz = b[2] - a[2], L = Math.hypot(dx, dz) || 1;
+    const ux = dx / L, uz = dz / L;                          // along the back, nose-ward
+    const tip = V(c[0] - len * Math.sin(lay) * 1, 0, c[2] + len * Math.cos(lay));
+    sheet(faces, [V(c[0] + ux * w, 0, c[2] + uz * w - 0.003), tip, V(c[0] - ux * w, 0, c[2] - uz * w - 0.003)], 'primary', 1);
+  };
+  if (spines > 0) {
+    const spineAt = [[0, 0.25, 0.8], [0, 0.75, 1], [1, 0.3, 0.9], [1, 0.8, 0.7], [2, 0.4, 0.55], [3, 0.1, 0.5], [3, 0.6, 0.4]];
+    for (const [seg, t, k] of spineAt) spikeAt(spineTop[seg + 1], spineTop[seg], 1 - t, spines * k, spines * 0.28);
+  }
 
   // ── The neck, the collar and the head ──
-  const rise = lie ? neckRise + 0.25 : run ? neckRise - 0.35 - pitch : neckRise;   // a running dog carries its head low and out
+  // A running dog carries its head low and out, and the neck pumps with the spine: up as the body
+  // gathers, out as it stretches.
+  const rise = lie ? neckRise + 0.25 : run ? neckRise - 0.35 - pitch + 0.1 * flex : neckRise;
   const n0 = V(sh[0] + chestH * 0.18, 0, sh[2] + chestH * 0.32);
   const n1 = V(n0[0] + neckLen * Math.cos(rise), 0, n0[2] + neckLen * Math.sin(rise));
-  tube(faces, n0, n1, neckW * 0.62, neckW * 0.5, 'neck', 1, 5, 1.25, 'crown');
+  tube(faces, n0, n1, neckW * 0.62, neckW * 0.5, 'neck', 1, 6, 1.25, 'crown');
+  if (spines > 0) for (const [t, k] of [[0.35, 0.6], [0.75, 0.45]]) spikeAt(n1, n0, t, spines * k, spines * 0.22);
   const c0 = mid(n0, n1, 0.18), c1 = mid(n0, n1, 0.34);
-  tube(faces, c0, c1, neckW * 0.68, neckW * 0.66, 'patch', 1, 5, 1.25);       // the collar, off the Houndyard's pegs
-  // The skull leans forward of the neck's line, level or a little nose-down, as a dog's does.
-  const hDir = run ? -0.12 : lie ? -0.05 : -0.2;
+  // The collar, off the Houndyard's pegs: `collarCol` (the `bill` role is near black, iron), with
+  // `studs` iron points standing out of it. Unset, the old pale leather collar.
+  const studs = clampN(Math.round(p.studs ?? 0), 0, 6);
+  tube(faces, c0, c1, neckW * 0.68, neckW * 0.66, studs ? 'bill' : 'patch', 1, 6, 1.25);
+  const cm = mid(c0, c1, 0.5), cr = neckW * 0.68;
+  for (let i = 0; i < studs; i++) {
+    const a = (i / studs) * Math.PI * 2 + 0.3, gy = Math.cos(a), gz = Math.sin(a) * 1.25;
+    const base = (o) => V(cm[0] + o, gy * cr, cm[2] + gz * cr);
+    sheet(faces, [base(-0.012), V(cm[0], gy * cr * 1.7, cm[2] + gz * cr * 1.7), base(0.012)], 'patch', 1.05);
+  }
+  // The skull leans forward of the neck's line, level or a little nose-down, as a dog's does, and
+  // at the gallop it nods against the stride so the eyes hold steady while the body bounces.
+  const hDir = (run ? -0.12 : lie ? -0.05 : -0.2) + (run ? 0.09 * Math.sin(2 * Math.PI * (ph - 0.3)) * gallop : 0);
   const hc = Math.cos(hDir), hs = Math.sin(hDir);
   const s0 = V(n1[0] - headLen * 0.3, 0, n1[2] + headH * 0.12);
   const s1 = V(s0[0] + headLen * hc, 0, s0[2] + headLen * hs);
-  tube(faces, s0, s1, headH * 0.5, headH * 0.46, 'head', 1, 5, 1.05, 'crown');
+  tube(faces, s0, s1, headH * 0.5, headH * 0.46, 'head', 1, 6, 1.05, 'crown');
   // The muzzle, deep for the jaw, and the nose on the end of it.
   const m1 = V(s1[0] + muzzleLen * hc, 0, s1[2] + muzzleLen * hs - headH * 0.08);
-  tube(faces, V(s1[0] - headLen * 0.1, 0, s1[2] - headH * 0.08), m1, headH * 0.36, headH * 0.26, 'cheek', 1, 4, 1 + jaw, 'head');
+  // `gape` opens the mouth (radians of lower jaw). 0 is the closed muzzle of the first dog; above it
+  // the upper muzzle stands alone, the lower jaw drops away under it, and there are fangs and a maw.
+  const gape0 = clampN(p.gape ?? 0, 0, 0.8);
+  const gape = gape0 * (run ? 0.75 + 0.25 * Math.sin(2 * Math.PI * (ph - 0.6)) : lie ? 0.4 : 1);   // panting at the gallop
+  const mBase = V(s1[0] - headLen * 0.1, 0, s1[2] - headH * 0.08);
+  tube(faces, mBase, m1, headH * 0.36, headH * 0.26, 'cheek', 1, 5, gape0 > 0 ? 0.75 : 1 + jaw, 'head');
+  if (gape0 > 0) {
+    const jHinge = V(s0[0] + headLen * 0.55, 0, s0[2] - headH * 0.3);
+    const jl = Math.hypot(m1[0] - jHinge[0], m1[2] - jHinge[2]) * 0.92, ja = hDir - 0.1 - gape;
+    const jTip = V(jHinge[0] + jl * Math.cos(ja), 0, jHinge[2] + jl * Math.sin(ja));
+    tube(faces, jHinge, jTip, headH * 0.22 * (1 + jaw * 0.5), headH * 0.14, 'cheek', 0.9, 4, 0.8);
+    // The maw between the jaws, red, on the centre line so it reads from either side.
+    const top0 = V(m1[0] - muzzleLen * 0.15, 0, m1[2] - headH * 0.24);
+    sheet(faces, [jHinge, top0, V(jTip[0] - 0.004, 0, jTip[2] + headH * 0.06)], 'undertail', 0.9);
+    // Fangs: one down from each side of the muzzle, one up from each side of the jaw.
+    const fang = headH * 0.36;
+    for (const g of [-1, 1]) {
+      const yy = g * headH * 0.2;
+      const u = V(m1[0] - muzzleLen * 0.2, yy, m1[2] - headH * 0.18);
+      sheet(faces, [V(u[0] - fang * 0.3, yy, u[2]), V(u[0] + fang * 0.12, yy, u[2]), V(u[0] - fang * 0.05, yy, u[2] - fang)], 'patch', 1.15);
+      const l = V(jTip[0] - jl * 0.22, yy, jTip[2] + headH * 0.06);
+      sheet(faces, [V(l[0] - fang * 0.25, yy, l[2]), V(l[0] + fang * 0.1, yy, l[2]), V(l[0] - fang * 0.05, yy, l[2] + fang * 0.7)], 'patch', 1.1);
+    }
+  }
   const nz = headH * 0.13;
   sheet(faces, [V(m1[0] + 0.006, -nz, m1[2] + nz * 0.6), V(m1[0] + 0.006, nz, m1[2] + nz * 0.6),
     V(m1[0] + 0.004, nz, m1[2] - nz * 0.4), V(m1[0] + 0.004, -nz, m1[2] - nz * 0.4)], 'bill', 1);
-  // Ears: short, torn and laid back. Two triangles.
-  const ear = run ? -0.9 : lie ? -0.5 : -0.3;              // how far they lie back
+  // Ears: short, torn and laid back. Two triangles, flicking with the stride.
+  const ear = (run ? -0.9 : lie ? -0.5 : -0.3) + (run ? 0.18 * Math.sin(2 * Math.PI * (ph - 0.45)) * gallop : 0);
   for (const g of [-1, 1]) {
     const b0 = V(s0[0] + headLen * 0.28, g * headH * 0.32, s0[2] + headH * 0.42);
     const b1 = V(s0[0] + headLen * 0.05, g * headH * 0.42, s0[2] + headH * 0.38);
@@ -1169,59 +1244,128 @@ function buildHound(p, state, phase) {
     sheet(faces, [b0, tip, b1], 'crown', 0.9);
   }
   // Eyes: a fraction of the head, set on its side. No eye at all and no faces when unset.
+  // `eyeGlow` lifts them past the coat's light, so an orange eye burns rather than sits there, and
+  // with `brow` a heavy ridge comes down over each at a scowl.
   if (eyeF > 0) {
-    const er = headH * eyeF;
+    const er = headH * eyeF, glow = 1 + clampN(p.eyeGlow ?? 0, 0, 1) * 0.6, brow = clampN(p.brow ?? 0, 0, 1);
     for (const g of [-1, 1]) {
       const ec = V(s0[0] + headLen * 0.72, g * (headH * 0.5 + 0.003), s0[2] + headH * 0.22);
-      sheet(faces, [V(ec[0] + er, ec[1], ec[2]), V(ec[0], ec[1], ec[2] + er * 0.7), V(ec[0] - er, ec[1], ec[2]), V(ec[0], ec[1], ec[2] - er * 0.7)], 'eye', 1);
+      sheet(faces, [V(ec[0] + er, ec[1], ec[2]), V(ec[0], ec[1], ec[2] + er * 0.7), V(ec[0] - er, ec[1], ec[2]), V(ec[0], ec[1], ec[2] - er * 0.7)], 'eye', glow);
+      if (brow > 0) {
+        const by = g * (headH * 0.5 + 0.005);
+        sheet(faces, [V(ec[0] - er * 1.4, by, ec[2] + er * 1.5), V(ec[0] + er * 1.5, by, ec[2] + er * (0.9 - brow * 0.6)),
+          V(ec[0] + er * 1.2, by, ec[2] + er * (0.3 - brow * 0.4)), V(ec[0] - er * 1.2, by, ec[2] + er * 0.9)], 'crown', 0.8);
+      }
+    }
+  }
+
+  // ── Scars ──
+  // `scars` 1 draws three raked strokes across each flank behind the shoulder, the `undertail` colour:
+  // old claw marks, and in the comic look the hatching on the barrel's shadow side.
+  if ((p.scars ?? 0) > 0) {
+    const fy = chestW * 0.5 + 0.004;
+    for (const g of [-1, 1]) for (let i = 0; i < 3; i++) {
+      const c = mid(chestF, chestB, 0.35 + i * 0.22), w = 0.006, hgt = chestH * 0.32;
+      const a = V(c[0] + hgt * 0.35, g * fy, c[2] + hgt * 0.5), b = V(c[0] - hgt * 0.35, g * fy, c[2] - hgt * 0.5);
+      sheet(faces, [V(a[0] - w, a[1], a[2]), V(a[0] + w, a[1], a[2]), V(b[0] + w, b[1], b[2]), V(b[0] - w, b[1], b[2])], 'undertail', 0.95);
     }
   }
 
   // ── The tail ──
-  // Streamed out behind at the gallop, low and still at rest, curled on the ground lying down.
-  const tAng = run ? 0.1 + 0.08 * Math.sin(2 * Math.PI * ph) : lie ? -1.25 : -0.85;
-  const t1 = V(tailRoot[0] - tailLen * 0.5 * Math.cos(tAng), 0, tailRoot[2] + tailLen * 0.5 * Math.sin(tAng));
-  const tAng2 = lie ? tAng + 0.9 : tAng + (run ? 0.15 : 0.35);
-  const t2 = V(t1[0] - tailLen * 0.5 * Math.cos(tAng2), lie ? 0.06 : 0, Math.max(0.012, t1[2] + tailLen * 0.5 * Math.sin(tAng2)));
-  tube(faces, tailRoot, t1, tailW, tailW * 0.75, 'tail', 1, 3);
-  tube(faces, t1, t2, tailW * 0.75, tailW * 0.3, 'tail', 0.95, 3);
+  // Streamed out behind at the gallop, low and still at rest, curled on the ground lying down. At the
+  // gallop it is a whip: the root lifts with the stride and the tip follows a quarter-beat late,
+  // swinging side to side as the hips roll.
+  const tAng = run ? 0.1 + 0.12 * Math.sin(2 * Math.PI * ph) * gallop : lie ? -1.25 : -0.85;
+  const sway = run ? tailLen * 0.14 * gallop : 0;
+  const t1 = V(tailRoot[0] - tailLen * 0.5 * Math.cos(tAng), sway * 0.4 * Math.sin(2 * Math.PI * (ph - 0.1)), tailRoot[2] + tailLen * 0.5 * Math.sin(tAng));
+  const tAng2 = lie ? tAng + 0.9 : run ? 0.1 + 0.2 * Math.sin(2 * Math.PI * (ph - 0.25)) * gallop + 0.12 : tAng + 0.35;
+  const t2 = V(t1[0] - tailLen * 0.5 * Math.cos(tAng2), lie ? 0.06 : sway * Math.sin(2 * Math.PI * (ph - 0.35)), Math.max(0.012, t1[2] + tailLen * 0.5 * Math.sin(tAng2)));
+  tube(faces, tailRoot, t1, tailW, tailW * 0.75, 'tail', 1, 4);
+  tube(faces, t1, t2, tailW * 0.75, tailW * 0.3, 'tail', 0.95, 4);
+  if (spines > 0) spikeAt(t1, tailRoot, 0.5, spines * 0.35, spines * 0.18);
 
   // ── The legs ──
-  // Each a thigh or forearm, a shank, and a paw. Fore legs hang from the shoulder, hind from the hip.
+  // ⚠ THREE BONES AND A PAW, AND THE ELBOW AND THE STIFLE BEND OPPOSITE WAYS. The elbow points back
+  // and the wrist forward; the stifle points forward and the hock back. A dog's leg is a zigzag, and
+  // two bones can't draw one: it reads as a stilt with a knee.
+  //
+  // How it's solved: the paw has a target (on the road while it bears weight, on an arc in the swing)
+  // and an angle; the last bone (pastern or hock) hangs off it at an angle of its own, which folds the
+  // paw up behind the wrist in the fore swing and tucks it forward in the hind; and a two-bone solve
+  // from the shoulder or hip finds the elbow or stifle that reaches the top of that last bone.
+  const mu = 1 + clampN(p.muscle ?? 0, 0, 1) * 0.6;          // `muscle` thickens the forearm and the ham
   const footAt = (kind, g, off) => {
     const fore = kind === 'fore';
     const j = V((fore ? sh : hp)[0], g * hSide, (fore ? sh : hp)[2] - (fore ? 0.02 : 0.03));
-    const l1 = fore ? fl1 : hl1, l2 = fore ? fl2 : hl2;
-    let foot;
+    // phi: the last bone's lean, from straight down, + when the paw is forward of the joint above it.
+    // alpha: the paw's pitch, 0 flat on the road, - toes down.
+    let B, phi, alpha = 0;
+    const phi0 = fore ? 0.25 : 0.3;
     if (lie) {
-      // Fore legs out in front along the ground; hind legs folded under, the hock on the ground.
-      foot = fore ? V(j[0] + legLen * 0.97, j[1], ankle) : V(j[0] + legLen * 0.68, g * (hSide + 0.04), ankle);
+      // Fore legs out in front along the road; the hind leg folded, the hock bone flat on the road.
+      B = fore ? V(j[0] + legLen * 0.95, j[1], pawH) : V(j[0] + legLen * 0.52, g * (hSide + 0.04), pawH);
+      phi = fore ? 1.45 : 1.5;
     } else if (!run) {
-      foot = V(j[0] + (fore ? 0.02 : -0.05), j[1], ankle);
+      B = V(j[0] + (fore ? 0.05 : -0.01), j[1], pawH);
+      phi = phi0;
     } else {
       const f = ((ph - off) % 1 + 1) % 1;
       const fwd = (fore ? 0.28 : 0.2) * gallop, back = (fore ? -0.2 : -0.32) * gallop;
       if (f < HOUND_STANCE) {
-        // On the ground, sweeping back under the body.
-        foot = V(j[0] + fwd + (back - fwd) * (f / HOUND_STANCE), j[1], ankle);
+        // On the road, sweeping back under the body; the heel lifts off it at the end of the push.
+        const k = f / HOUND_STANCE;
+        B = V(j[0] + fwd + (back - fwd) * k, j[1], pawH);
+        phi = phi0 - (fore ? 0.35 : 0.25) * smooth((k - 0.6) / 0.4) * gallop;
       } else {
-        // In the air, coming forward, lifted, and tucked up most in the middle of the swing.
+        // In the air: coming forward, lifted, and folded most early in the swing, then reaching out
+        // straight again for the landing.
         const u = (f - HOUND_STANCE) / (1 - HOUND_STANCE);
-        foot = V(j[0] + back + (fwd - back) * smooth(u), j[1], ankle + (fore ? 0.2 : 0.16) * Math.pow(Math.sin(Math.PI * u), 0.6) * gallop);
+        const fold = Math.pow(Math.sin(Math.PI * Math.pow(u, 0.75)), 1.2) * gallop;
+        B = V(j[0] + back + (fwd - back) * smooth(u), j[1], pawH + (fore ? 0.2 : 0.16) * Math.pow(Math.sin(Math.PI * u), 0.6) * gallop);
+        phi = fore ? phi0 - 2.0 * fold : phi0 + 0.9 * fold;
+        alpha = fore ? -1.5 * fold : -0.7 * fold;
       }
     }
-    // The fore leg's wrist points forward when it folds, the hind leg's hock points back. Lying, the
-    // fore legs are out straight in front and the hind leg folds with the stifle up by the flank; any
-    // other fold of these bones from a hip this low goes through the road.
-    const apex = fore ? 1 : lie ? 1 : -1;
-    const r = reach2(j, foot, l1, l2, apex);
-    tube(faces, j, r.knee, legW * (fore ? 1.15 : 1.5), legW, 'leg', 0.96, 4, 1.1);
-    tube(faces, r.knee, r.foot, legW * 0.9, legW * 0.75, 'leg', 0.88, 4);
-    // The paw: a short block forward of the ankle, sitting on the ground when the leg bears weight.
-    const pf = legW * 2.2, pz = r.foot[2] - 0.004;
-    tube(faces, V(r.foot[0] - legW * 0.3, r.foot[1], pz), V(r.foot[0] + pf, r.foot[1], pz - 0.003), legW * 0.75, legW * 0.55, 'leg', 0.8, 3);
+    const l1 = fore ? fl1 : hl1, l2 = fore ? fl2 : hl2, l3 = fore ? fl3 : hl3;
+    const top = V(B[0] - l3 * Math.sin(phi), B[1], B[2] + l3 * Math.cos(phi));   // the wrist or the hock
+    // Elbow back (-1), stifle forward (+1).
+    const r = reach2(j, top, l1, l2, fore ? -1 : 1);
+    // The solve can come up short of a target out of reach; hang the last bone from where it got to.
+    const dB = [r.foot[0] - top[0], r.foot[2] - top[2]];
+    const Bx = B[0] + dB[0], Bz = B[2] + dB[1];
+    if (fore) {
+      tube(faces, j, r.knee, legW * 1.45 * mu, legW * 1.05, 'leg', 0.98, 6, 1.15);       // upper arm
+      tube(faces, r.knee, r.foot, legW * 1.05 * Math.sqrt(mu), legW * 0.68, 'leg', 0.92, 5, 1.1);   // forearm
+    } else {
+      tube(faces, j, r.knee, legW * 1.65 * mu, legW * 1.05, 'leg', 0.98, 6, 1.25);        // thigh, the ham
+      tube(faces, r.knee, r.foot, legW * 1.2 * Math.sqrt(mu), legW * 0.62, 'leg', 0.92, 5, 1.15);   // gaskin
+    }
+    tube(faces, r.foot, V(Bx, B[1], Bz), legW * 0.66, legW * 0.72, 'leg', 0.86, 5);       // pastern / hock bone
+    // The paw, in its own frame: a along it (toes +), c up from its axis, pitched by alpha about B.
+    const ca = Math.cos(alpha), sa = Math.sin(alpha);
+    const P = (a, y, c) => V(Bx + a * ca - c * sa, B[1] + y, Bz + a * sa + c * ca);
+    tube(faces, P(-pl * 0.3, 0, 0), P(pl * 0.4, 0, -pr * 0.05), pr, pr * 0.9, 'leg', 0.82, 6, PAW_SQ);
+    // Four toes fanned across the front of the pad, the middle two longest, each with a claw.
+    const tr = pr * 0.3, bottom = -pawH;
+    for (const [ty, tl] of [[-0.62, 0.75], [-0.21, 1], [0.21, 1], [0.62, 0.75]]) {
+      const y0 = ty * pr, y1 = ty * pr * 1.2, len = pl * 0.42 * tl;
+      const t0 = P(pl * 0.3, y0, bottom + tr * 1.1), t1 = P(pl * 0.3 + len, y1, bottom + tr);
+      tube(faces, t0, t1, tr * 1.1, tr * 0.85, 'leg', 0.78, 4);
+      const cl = tr * 1.3;
+      sheet(faces, [P(pl * 0.3 + len, y1, bottom + tr * 1.7), P(pl * 0.3 + len + cl, y1, bottom + tr * 0.05),
+        P(pl * 0.3 + len - tr * 0.2, y1, bottom + tr * 0.3)], 'primary', 1);
+    }
   };
   for (const [kind, g, off] of HOUND_FOOT) footAt(kind, g, off);
+  // `bands` 2 is the comic look (docs/proposals/comic-ink.md): the coat in two flat tones, lit and
+  // shadow, nothing between. The eyes, fangs and maw keep their own light so they still burn. Done
+  // here rather than at paint so GLASS 1 and GLASS 2 bake the same colours.
+  if ((p.bands ?? 0) >= 2) {
+    for (const f of faces) {
+      if (f.role === 'eye' || f.role === 'patch' || f.role === 'undertail') continue;
+      f.sh = f.sh >= 0.9 ? 1 : 0.7;
+    }
+  }
   // ⚠ NO LIFT TO THE LOWEST CORNER. A bird is raised onto its feet after it is built; a dog at the
   // gallop must not be, because the lowest corner moves from row to row and lifting each row by its
   // own would plant the dog through both suspensions, where no foot is down. The ankle height is
@@ -1747,6 +1891,11 @@ export function paintFauna(ctx, kind, id, opts = {}) {
 
   ctx.save();
   if (alpha !== 1) ctx.globalAlpha = alpha;
+  const ink = (opts.ink ?? comicOn()) && (row(kind, id)?.bands ?? 0) >= 2;
+  if (ink) {
+    ctx.strokeStyle = `rgb(${HOUSE.ink.map((c) => Math.round(c * 255)).join(',')})`;
+    ctx.lineWidth = Math.max(0.6, unit * 0.006); ctx.lineJoin = 'round';
+  }
   for (const { f, q } of drawn) {
     ctx.fillStyle = shadeCss(pal[f.role] || FALLBACK.body, f.sh * dim);
     ctx.beginPath();
@@ -1754,6 +1903,9 @@ export function paintFauna(ctx, kind, id, opts = {}) {
     for (let i = 1; i < q.length; i++) ctx.lineTo(x + q[i][0] * unit, y + q[i][1] * unit);
     ctx.closePath();
     ctx.fill();
+    // The comic look's ink, on a row authored in bands: a thin line round each facet in the house
+    // ink. At the size an animal is drawn the facet edges ARE its contours.
+    if (ink) ctx.stroke();
   }
   ctx.restore();
   return faunaBox(kind, id, state, wing, bearing, unit, el);

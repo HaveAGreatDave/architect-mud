@@ -138,7 +138,8 @@ const noseBits = [
   poly('lidar strip', patchB([1.058, 1.052], range(-150, -30, 16), { role: 'glass', tint: [24, 30, 36] }, 0.002), FINE),
   // Pitot and static probes either side of the cab, angle-of-attack vanes below them.
   mirror('nose probes', [
-    tube('pitot', [atB(0.99, 30, 0), [1.01, 0.12, 0.05], [1.035, 0.12, 0.05]], 0.0022, { role: 'gear', paint: 'metal', sh: 0.85, sides: 5, ...FINE }),
+    // Role `strut`, not `gear`: a gear face is hidden while the gear is up.
+    tube('pitot', [atB(0.99, 30, 0), [1.01, 0.12, 0.05], [1.035, 0.12, 0.05]], 0.0022, { role: 'strut', paint: 'metal', sh: 0.85, sides: 5, ...FINE }),
     { kind: 'panel', name: 'AoA vane', role: 'fin', sh: 0.7, th: 0.002, paint: 'metal', ...FINE, c: P3s([atB(0.95, 22, 0.002), atB(0.935, 22, 0.002), [0.93, 0.19, 0.03], [0.942, 0.188, 0.033]]) },
     { kind: 'drum', name: 'static port', f: 0.9, g: 0.0, r: 0.006, n: 8, z: [0, 0], role: 'nacelle', paint: 'seam', sh: { base: 0.4 }, ...FINE, note: 'placeholder, replaced below' },
   ]),
@@ -379,32 +380,35 @@ const fins = mirror('fins', [group('fin', finParts, { xf: { t: [0, FIN_G, FIN_H]
 // ── Gear: sponsons, the centipede, the nose units ───────────────────────────────
 const GZ = -0.24, WR = 0.045, MAIN_G = 0.21;
 const MAIN_F = [0.26, 0.13, 0, -0.13, -0.26];
+// The gear channel runs 1 (down) to 0 (up); the reversed span lifts the legs as it falls.
+const MAIN_UP = { ch: 'gear', span: [1, 0], slide: [0, 0, 0.125] };
 const mainGear = mirror('main gear', [
   group('gear sponson', [pod('sponson', 0, 0, [[0.36, 0.008], [0.32, 0.03], [0.24, 0.045], [-0.3, 0.045], [-0.38, 0.032], [-0.44, 0.008]], { sides: 14, paint: 'belly', shade: { base: 0.55, amp: 0.34 } })],
     { xf: { t: [0, MAIN_G, -0.15], s: [1, 1.15, 1] }, ...FINE }),
   // Door seams along each sponson's belly, one door per axle.
   ...MAIN_F.map((f) => tube('sponson door seam', [[f + 0.06, MAIN_G - 0.03, -0.19], [f + 0.06, MAIN_G + 0.03, -0.19]], 0.0016, { role: 'nacelle', paint: 'seam', sides: 4, ...FINE })),
-  ...MAIN_F.flatMap((f) => [
+  // The legs ride straight up through the sponson as the gear comes up, the An-124 way.
+  group('main legs', MAIN_F.flatMap((f) => [
     tube('main leg', [[f, MAIN_G, -0.17], [f, MAIN_G, GZ + 0.01]], 0.008, { role: 'gear', paint: 'metal', sides: 8, ...FINE }),
     tube('oleo', [[f, MAIN_G, -0.2], [f, MAIN_G, GZ + 0.012]], 0.0055, { role: 'gear', paint: 'chrome', sides: 8, ...FINE }),
     tube('torque link', [[f + 0.004, MAIN_G, -0.205], [f + 0.016, MAIN_G, -0.215], [f + 0.004, MAIN_G, -0.226]], 0.0025, { role: 'gear', paint: 'metal', sides: 4, ...FINE }),
     tube('axle', [[f, MAIN_G - 0.042, GZ], [f, MAIN_G + 0.042, GZ]], 0.005, { role: 'gear', paint: 'metal', sides: 6, ...FINE }),
     { ...wheel('main wheel', [f, MAIN_G - 0.028, GZ], WR, 0.014, 14), ...FINE },
     { ...wheel('main wheel', [f, MAIN_G + 0.028, GZ], WR, 0.014, 14), ...FINE },
-  ]),
+  ]), { anim: MAIN_UP }),
 ]);
 const NOSE_F = [0.47, 0.39];
-const noseGear = group('nose gear', [
-  ...NOSE_F.flatMap((f) => [
-    tube('nose leg', [[f, 0, surf(f, 0, false) + 0.01], [f, 0, GZ + 0.01]], 0.009, { role: 'gear', paint: 'metal', sides: 8 }),
-    tube('nose oleo', [[f, 0, -0.205], [f, 0, GZ + 0.012]], 0.006, { role: 'gear', paint: 'chrome', sides: 8 }),
-    tube('nose axle', [[f, -0.042, GZ], [f, 0.042, GZ]], 0.005, { role: 'gear', paint: 'metal', sides: 6 }),
-    wheel('nose wheel', [f, 0.026, GZ], WR, 0.013, 14),
-    wheel('nose wheel', [f, -0.026, GZ], WR, 0.013, 14),
-    tube('drag brace', [[f + 0.05, 0, surf(f + 0.05, 0, false) + 0.006], [f, 0, -0.205]], 0.004, { role: 'gear', paint: 'metal', sides: 5 }),
-  ]),
-  tube('taxi lamp', [[0.475, 0, -0.19], [0.49, 0, -0.19]], 0.007, { role: 'gear', paint: 'strobe', sh: 1, sides: 8, caps: 1 }),
-], FINE);
+// Each nose leg swings aft into the belly about a hinge just above its top. The taxi lamp rides the fore leg.
+const noseUp = (f) => ({ ch: 'gear', pivot: [f, 0, R(surf(f, 0, false) + 0.03)], axis: [0, 1, 0], ang: [90, 0] });
+const noseGear = group('nose gear', NOSE_F.map((f, i) => group(i ? 'aft nose leg' : 'fore nose leg', [
+  tube('nose leg', [[f, 0, surf(f, 0, false) + 0.01], [f, 0, GZ + 0.01]], 0.009, { role: 'gear', paint: 'metal', sides: 8 }),
+  tube('nose oleo', [[f, 0, -0.205], [f, 0, GZ + 0.012]], 0.006, { role: 'gear', paint: 'chrome', sides: 8 }),
+  tube('nose axle', [[f, -0.042, GZ], [f, 0.042, GZ]], 0.005, { role: 'gear', paint: 'metal', sides: 6 }),
+  wheel('nose wheel', [f, 0.026, GZ], WR, 0.013, 14),
+  wheel('nose wheel', [f, -0.026, GZ], WR, 0.013, 14),
+  tube('drag brace', [[f + 0.05, 0, surf(f + 0.05, 0, false) + 0.006], [f, 0, -0.205]], 0.004, { role: 'gear', paint: 'metal', sides: 5 }),
+  ...(i ? [] : [tube('taxi lamp', [[0.475, 0, -0.19], [0.49, 0, -0.19]], 0.007, { role: 'gear', paint: 'strobe', sh: 1, sides: 8, caps: 1 })]),
+], { anim: noseUp(f) })), FINE);
 // The nose gear bay's doors on the belly: seams either side of the legs.
 const noseBay = mirror('nose bay seams', [SEAM('nose bay seam', [[0.52, 0.034, surf(0.52, 0.034, false) - 0.002], [0.34, 0.034, surf(0.34, 0.034, false) - 0.002]])]);
 
@@ -431,10 +435,12 @@ const coarse = [
   mirror('engines (far)', ENG_G.map((g) => group('engine (far)', [pod('nacelle (far)', 0, 0, [[IN_F, ER * 0.9], [IN_F - 0.1, ER * 1.05], [IN_F - 0.3, ER * 0.8], [IN_F - EL, ER * 0.5]], { sides: 8, paint: 'cowl' })], { xf: { t: [0, g, engH(g)] }, ...COARSE }))),
   mirror('gear (far)', [
     group('sponson (far)', [pod('sponson (far)', 0, 0, [[0.36, 0.01], [0.24, 0.045], [-0.3, 0.045], [-0.44, 0.01]], { sides: 6, paint: 'belly' })], { xf: { t: [0, MAIN_G, -0.15] }, ...COARSE }),
-    ...[0.2, -0.2].map((f) => ({ ...wheel('main wheel (far)', [f, MAIN_G, GZ], WR, 0.03, 8), ...COARSE })),
+    group('main wheels (far)', [0.2, -0.2].map((f) => ({ ...wheel('main wheel (far)', [f, MAIN_G, GZ], WR, 0.03, 8), ...COARSE })), { anim: MAIN_UP }),
   ]),
-  { ...wheel('nose wheel (far)', [0.43, 0, GZ], WR, 0.026, 8), ...COARSE },
-  tube('nose leg (far)', [[0.43, 0, -0.15], [0.43, 0, GZ]], 0.01, { role: 'gear', paint: 'metal', sides: 4, ...COARSE }),
+  group('nose leg (far)', [
+    { ...wheel('nose wheel (far)', [0.43, 0, GZ], WR, 0.026, 8), ...COARSE },
+    tube('nose leg (far)', [[0.43, 0, -0.15], [0.43, 0, GZ]], 0.01, { role: 'gear', paint: 'metal', sides: 4, ...COARSE }),
+  ], { anim: noseUp(0.43), ...COARSE }),
 ];
 
 // ── Lamps ───────────────────────────────────────────────────────────────────────

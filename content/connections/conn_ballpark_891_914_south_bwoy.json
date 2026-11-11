@@ -1,9 +1,0 @@
-{
-  "a": "zone_ballpark_891_914",
-  "b": "zone_district_891_921",
-  "blocked": true,
-  "dir": "south",
-  "id": "conn_ballpark_891_914_south_bwoy",
-  "lockable": false,
-  "one_way": false
-}

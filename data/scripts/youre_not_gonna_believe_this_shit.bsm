@@ -4,6 +4,7 @@
 @host npc_neil_mcmanistan
 @type live
 @length 1800
+@location zone_ksab7_stage_b
 
 ::actors
 @actor npc_neil_mcmanistan Neil McManistan
@@ -22,53 +23,66 @@
 ::endactors
 
 ::asset hungry_man_just_meats_logo
-
-╔══════════════════════════════════════════════════════════════════════════════╗
-║						                               ║
-║  ██╗  ██╗██╗   ██╗███╗   ██╗ ██████╗ ██████╗ ██╗   ██╗                       ║
-║  ██║  ██║██║   ██║████╗  ██║██╔════╝ ██╔══██╗╚██╗ ██╔╝                       ║
-║  ███████║██║   ██║██╔██╗ ██║██║  ███╗██████╔╝ ╚████╔╝                        ║
-║  ██╔══██║██║   ██║██║╚██╗██║██║   ██║██╔══██╗  ╚██╔╝                         ║
-║  ██║  ██║╚██████╔╝██║ ╚████║╚██████╔╝██║  ██║   ██║                          ║
-║  ╚═╝  ╚═╝ ╚═════╝ ╚═╝  ╚═══╝ ╚═════╝ ╚═╝  ╚═╝   ╚═╝                          ║
-║                                                                              ║
-║      ███╗   ███╗ █████╗ ███╗   ██╗                                           ║
-║      ████╗ ████║██╔══██╗████╗  ██║                                           ║
-║      ██╔████╔██║███████║██╔██╗ ██║                                           ║
-║      ██║╚██╔╝██║██╔══██║██║╚██╗██║                                           ║
-║      ██║ ╚═╝ ██║██║  ██║██║ ╚████║                                           ║
-║      ╚═╝     ╚═╝╚═╝  ╚═╝╚═╝  ╚═══╝                                           ║                                                                             
-║  ╔══════════════════════════════════════════════════════════════════════╗    ║
-║  ║    ▶  J U S T   T H E   M E A T S ™                                  ║    ║
-║  ╚══════════════════════════════════════════════════════════════════════╝    ║                                                                           
-║          "She can't control you anymore, king."                              ║
-║                                                                              ║
-╚══════════════════════════════════════════════════════════════════════════════╝
-
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 360" font-family="Impact,'Arial Black',Helvetica,sans-serif">
+  <!-- Hungry Man: a grill over flames, the name stamped on in two hits, then the meats bar and the line. -->
+  <defs>
+    <linearGradient id="hm_bg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#1a0604"/><stop offset="1" stop-color="#3a0e04"/></linearGradient>
+    <linearGradient id="hm_fire" x1="0" y1="1" x2="0" y2="0"><stop offset="0" stop-color="#ff3000"/><stop offset="0.6" stop-color="#ff9000"/><stop offset="1" stop-color="#ffe060" stop-opacity="0"/></linearGradient>
+  </defs>
+  <rect width="640" height="360" fill="url(#hm_bg)"/>
+  <path fill="url(#hm_fire)" opacity="0.85" d="M0 360 Q40 250 80 360 Q120 230 160 360 Q200 260 240 360 Q280 220 320 360 Q360 250 400 360 Q440 230 480 360 Q520 260 560 360 Q600 240 640 360 Z">
+    <animate attributeName="d" dur="0.6s" repeatCount="indefinite" values="M0 360 Q40 250 80 360 Q120 230 160 360 Q200 260 240 360 Q280 220 320 360 Q360 250 400 360 Q440 230 480 360 Q520 260 560 360 Q600 240 640 360 Z;M0 360 Q40 230 80 360 Q120 260 160 360 Q200 225 240 360 Q280 255 320 360 Q360 225 400 360 Q440 260 480 360 Q520 230 560 360 Q600 265 640 360 Z;M0 360 Q40 250 80 360 Q120 230 160 360 Q200 260 240 360 Q280 220 320 360 Q360 250 400 360 Q440 230 480 360 Q520 260 560 360 Q600 240 640 360 Z"/>
+  </path>
+  <path d="M40 318 H600 M40 336 H600" stroke="#2a2a2a" stroke-width="6"/>
+  <rect x="12" y="12" width="616" height="336" fill="none" stroke="#ffb020" stroke-width="4"/>
+  <g opacity="0">
+    <animate attributeName="opacity" values="0;1" dur="0.01s" begin="0.4s" fill="freeze"/>
+    <animateTransform attributeName="transform" type="translate" values="0,-10;0,5;0,0" dur="0.2s" begin="0.4s" fill="freeze"/>
+    <text x="320" y="110" font-size="92" fill="#ffd040" stroke="#5a1000" stroke-width="4" text-anchor="middle" letter-spacing="4">HUNGRY</text>
+  </g>
+  <g opacity="0">
+    <animate attributeName="opacity" values="0;1" dur="0.01s" begin="1s" fill="freeze"/>
+    <animateTransform attributeName="transform" type="translate" values="0,-10;0,5;0,0" dur="0.2s" begin="1s" fill="freeze"/>
+    <text x="320" y="200" font-size="92" fill="#ffd040" stroke="#5a1000" stroke-width="4" text-anchor="middle" letter-spacing="4">MAN</text>
+  </g>
+  <g opacity="0">
+    <animate attributeName="opacity" values="0;1" dur="0.01s" begin="1.8s" fill="freeze"/>
+    <rect x="90" y="222" width="460" height="40" fill="#5a1000" stroke="#ffb020" stroke-width="2"><animate attributeName="width" values="0;460" dur="0.4s" begin="1.8s" fill="freeze"/></rect>
+    <text x="320" y="252" font-size="24" fill="#fff0c0" text-anchor="middle" letter-spacing="8" font-family="'Arial Black',Helvetica,sans-serif" opacity="0">▶ JUST THE MEATS™<animate attributeName="opacity" values="0;1" dur="0.2s" begin="2.2s" fill="freeze"/></text>
+  </g>
+  <text x="320" y="292" font-size="17" fill="#ffe8c0" text-anchor="middle" font-style="italic" font-family="Georgia,serif" opacity="0">"She can't control you anymore, king."<animate attributeName="opacity" values="0;1" dur="0.8s" begin="2.8s" fill="freeze"/></text>
+</svg>
 ::endasset
 
 ::asset jerry_rosenberg_logo
-
-╔══════════════════════════════════════════════════════════════════════════════╗
-║                                                                              ║
-║     ██╗███████╗██████╗ ██████╗ ██╗   ██╗                                     ║
-║     ██║██╔════╝██╔══██╗██╔══██╗╚██╗ ██╔╝                                     ║
-║     ██║█████╗  ██████╔╝██████╔╝ ╚████╔╝                                      ║
-║██   ██║██╔══╝  ██╔══██╗██╔══██╗  ╚██╔╝                                       ║
-║╚█████╔╝███████╗██║  ██║██║  ██║   ██║                                        ║
-║ ╚════╝ ╚══════╝╚═╝  ╚═╝╚═╝  ╚═╝   ╚═╝                                        ║
-║                                                                              ║
-║  ██████╗  ██████╗ ███████╗███████╗███╗  ██╗██████╗ ███████╗██████╗  ██████╗  ║
-║  ██╔══██╗██╔═══██╗██╔════╝██╔════╝████╗ ██║██╔══██╗██╔════╝██╔══██╗██╔════╝  ║
-║  ██████╔╝██║   ██║███████╗█████╗  ██╔██╗██║██████╔╝█████╗  ██████╔╝██║  ███╗ ║
-║  ██╔══██╗██║   ██║╚════██║██╔══╝  ██║╚████f██╔══██╔══╝ ██╔══██╗██║ ██║ ║ ██║ ║
-║  ██║  ██║╚██████╔╝███████║███████╗██║ ╚███║██████╔╝███████╗██║  ██║╚██████ ║ ║
-║  ╚═╝  ╚═╝ ╚═════╝ ╚══════╝╚══════╝╚═╝  ╚══╝╚═════╝ ╚══════╝╚═╝  ╚═╝ ╚═════╝  ║                                                                              
-║              ═══  F A M I L Y   L A W  ═══                                   ║
-║                                                                              ║
-║                       "divorce attorney"                                     ║                                                                              
-╚══════════════════════════════════════════════════════════════════════════════╝
-
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 360" font-family="Georgia,'Times New Roman',serif">
+  <!-- Jerry Rosenberg: a gold wedding ring cracks and falls apart, the scales swing and settle, the name in gold. -->
+  <defs>
+    <linearGradient id="jr_bg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#14100c"/><stop offset="1" stop-color="#2c2218"/></linearGradient>
+    <linearGradient id="jr_gold" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff0b0"/><stop offset="0.5" stop-color="#d0a040"/><stop offset="1" stop-color="#7a5410"/></linearGradient>
+  </defs>
+  <rect width="640" height="360" fill="url(#jr_bg)"/>
+  <path d="M0 80 C160 60 220 140 400 100 S600 160 640 120 M0 300 C120 260 300 330 460 280 S620 300 640 270" stroke="#3a2e22" fill="none" opacity="0.6"/>
+  <g transform="translate(320 110)">
+    <g opacity="1">
+      <animate attributeName="opacity" values="1;1;0" keyTimes="0;0.7;1" dur="2s" fill="freeze"/>
+      <g><animateTransform attributeName="transform" type="translate" values="0,0;0,0;-40,30" keyTimes="0;0.4;1" dur="1.6s" fill="freeze"/>
+        <path d="M0 -40 A40 40 0 0 0 0 40" fill="none" stroke="url(#jr_gold)" stroke-width="9"/></g>
+      <g><animateTransform attributeName="transform" type="translate" values="0,0;0,0;40,30" keyTimes="0;0.4;1" dur="1.6s" fill="freeze"/>
+        <path d="M0 -40 A40 40 0 0 1 0 40" fill="none" stroke="url(#jr_gold)" stroke-width="9"/></g>
+      <path d="M0 -52 L5 -40 L-4 -28 L4 -16" stroke="#fff" stroke-width="2" fill="none" opacity="0"><animate attributeName="opacity" values="0;1;0" dur="0.3s" begin="0.6s"/></path>
+    </g>
+    <g opacity="0" stroke="url(#jr_gold)" stroke-width="3" fill="none">
+      <animate attributeName="opacity" values="0;1" dur="0.6s" begin="1.6s" fill="freeze"/>
+      <path d="M0 -50 V50 M-30 50 H30"/>
+      <g><animateTransform attributeName="transform" type="rotate" values="-14;9;-5;2;0" dur="2.2s" begin="1.6s" fill="freeze"/>
+        <path d="M-80 -40 H80 M-80 -40 L-95 0 H-65 Z M80 -40 L65 0 H95 Z"/></g>
+    </g>
+  </g>
+  <text x="320" y="240" font-size="52" fill="url(#jr_gold)" text-anchor="middle" letter-spacing="3" opacity="0">JERRY ROSENBERG<animate attributeName="opacity" values="0;1" dur="0.8s" begin="2.2s" fill="freeze"/><animate attributeName="letter-spacing" values="12;3" dur="0.8s" begin="2.2s" fill="freeze"/></text>
+  <text x="320" y="282" font-size="18" fill="#c8a860" text-anchor="middle" letter-spacing="12" opacity="0">═══ FAMILY LAW ═══<animate attributeName="opacity" values="0;1" dur="0.6s" begin="3s" fill="freeze"/></text>
+  <text x="320" y="320" font-size="16" fill="#a08860" text-anchor="middle" font-style="italic" opacity="0">"divorce attorney"<animate attributeName="opacity" values="0;1" dur="0.6s" begin="3.8s" fill="freeze"/></text>
+</svg>
 ::endasset
 
 ::scene COLD_OPEN
@@ -103,7 +117,7 @@ CAM 2 SIDE_PROFILE on Neil McManistan
 
 ACTION npc_neil_mcmanistan pulls out a Zippo lighter and ignites a cigarette with the ease of a man who has been doing this since before it was legal.
 
-TITLE divorced	
+TITLE neil_believe_title
 
 EVENT DISSOLVE
 
@@ -219,6 +233,9 @@ EVENT COMMERCIAL_BREAK
 ::scene AD_1
 
 TITLE hungry_man_just_meats_logo
+
+MUSIC just_meats_jingle
+MUSIC_END
 
 SHOT
 The basement drops away. We cut to a commercial. A sad man sits alone at a kitchen table, staring at a wall.
@@ -489,6 +506,9 @@ EVENT COMMERCIAL_BREAK
 ::scene AD_2
 
 TITLE jerry_rosenberg_logo
+
+MUSIC rosenberg_jingle
+MUSIC_END
 
 SHOT
 Cut to exterior. California. The sun is aggressively bright. A convertible sports car rolls up a coastal road to the sound of smooth jazz.

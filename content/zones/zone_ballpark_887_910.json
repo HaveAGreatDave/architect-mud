@@ -1,14 +1,14 @@
 {
   "ambient_events": [],
   "ambient_theme": "urban",
-  "description": "Two unequal glass shafts off one podium, tied together by glazed links high up, fifty storeys in all. The upper link is a residents' lounge, and from the street you can see one person in it.",
+  "description": "Ten storeys of glass stepped back in a sawtooth, each step a terrace with a planter on it. From the top terrace you can see over the left-field wall into the Coliseum.",
   "exits": {},
   "flags": {
     "building_name": "1 River Road",
-    "building_type": "sky_court",
+    "building_type": "cascade_block",
     "district": "halcyon_fields",
     "entrance": "west",
-    "floors": 50,
+    "floors": 10,
     "is_building": true,
     "region_id": "region_coldwater"
   },
@@ -17,7 +17,7 @@
   "grid_z": 0,
   "id": "zone_ballpark_887_910",
   "map_id": "map_world",
-  "marker": "Q1",
+  "marker": "R1",
   "name": "1 River Road",
   "parent_zone": null
 }

@@ -3,8 +3,8 @@
   "description": "A round room under a round ceiling, all of it the same pale grey, with a desk that is a single curved slab and nothing behind it but a wall. Two lifts, one of them keyed. The acoustics are very slightly wrong and everybody who comes in here drops their voice without deciding to.",
   "exits": {
     "down": "zone_util_zone_hf_common_lobby",
-    "north": "zone_district_892_911",
-    "up": "zone_hf_common_bridge"
+    "up": "zone_hf_common_bridge",
+    "west": "zone_district_892_911"
   },
   "flags": {
     "building_name": "2 Halcyon Boulevard",

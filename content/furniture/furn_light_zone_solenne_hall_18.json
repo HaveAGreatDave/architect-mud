@@ -1,0 +1,17 @@
+{
+  "description": "A warm light hidden in the cove round the ceiling, and two bronze sconces either side of the door.",
+  "flags": {
+    "is_light": true,
+    "light_type": "lamp"
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_light_zone_solenne_hall_18",
+  "light_type": "lamp",
+  "lumen_output": 1600,
+  "name": "cove lights",
+  "object_type": "light",
+  "power_draw_kw": 0.02,
+  "price": 0,
+  "zone_id": "zone_solenne_hall_18"
+}

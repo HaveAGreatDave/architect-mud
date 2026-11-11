@@ -41,6 +41,11 @@ const IDLE = 'bigscreen-idle';
 // A shade longer than the free camera's 2400. The one thing left on this screen is the way off it,
 // and somebody who has just pressed the button deserves to read it before it goes.
 const IDLE_MS = 3200;
+// The hint goes for good this long after big screen opens, input or not: walking a room is keys all the
+// time, so the idle fade alone never came. Not on a touch screen, where the hint is the only way out.
+const HINT_MS = 10000;
+const HINT_DONE = 'bigscreen-hint-done';
+let hintTimer = 0;
 // Every way a player can say they are still here. Capture-phase and passive, exactly as
 // bindFreeCamIdle does it: this only ever reads the clock, so nothing below can be starved of an
 // event and nothing here can swallow one.
@@ -191,6 +196,8 @@ export function enterBigScreen() {
   document.addEventListener('webkitfullscreenchange', onFullscreenChange);
   for (const ev of WAKERS) window.addEventListener(ev, onInput, IDLE_OPTS);
   wake();
+  if (hintTimer) clearTimeout(hintTimer);
+  hintTimer = hintText().startsWith('Esc') ? setTimeout(() => { hintTimer = 0; if (on) document.body.classList.add(HINT_DONE); }, HINT_MS) : 0;
   askFullscreen();
   syncButtons();
   // The pane has just changed size by a lot. Every windshield canvas sizes itself off its own CSS
@@ -202,7 +209,9 @@ export function enterBigScreen() {
 export function exitBigScreen() {
   if (!on) return;
   on = false;
-  document.body.classList.remove(ON, IDLE);
+  document.body.classList.remove(ON, IDLE, HINT_DONE);
+  if (hintTimer) clearTimeout(hintTimer);
+  hintTimer = 0;
   window.removeEventListener('keydown', onKey, true);
   document.removeEventListener('fullscreenchange', onFullscreenChange);
   document.removeEventListener('webkitfullscreenchange', onFullscreenChange);
@@ -304,9 +313,11 @@ function ensureStyles() {
       background:rgba(8,11,15,.62); border:1px solid rgba(255,255,255,.16); border-radius:11px;
       padding:7px 14px; cursor:pointer; white-space:nowrap; transition:opacity .35s linear; }
     #bigscreen-hint:hover{ border-color:rgba(255,255,255,.42); }
+    /* ROOM has its tablet button in that corner (room-stage.css .rs-tablet), so the hint sits above it */
+    body.room-stage-on #bigscreen-hint{ bottom:64px; }
     /* Opacity rather than display: this is a look and it must not move the layout under a shot
        being composed — with pointer-events, so a faded control cannot be clicked by a cursor that
        cannot see it. */
-    body.bigscreen-idle #bigscreen-hint{ opacity:0; pointer-events:none; }`;
+    body.bigscreen-idle #bigscreen-hint, body.bigscreen-hint-done #bigscreen-hint{ opacity:0; pointer-events:none; }`;
   if (!el.parentNode) document.head.appendChild(el);
 }

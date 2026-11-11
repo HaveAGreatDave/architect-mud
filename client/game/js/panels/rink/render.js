@@ -21,7 +21,8 @@ import { TPX, WPX, BPX, CPX, CX0, CX1, CROWS, ROWH, sharedTextures } from './tex
 import { drawBody, drawSevered } from './figure.js';
 import { createRinkCamera } from './camera.js';
 import { bodyOpts, drawHud, drawnJoints, drawnAt, drawnPuck, glowTail, GLOW } from './hud.js';
-import { FLANK, cupColour, liveryCanvas } from './livery.js';
+import { FLANK, cupColour, liveryCanvas, kenWave } from './livery.js';
+import { goalLights } from './goal-lights.js';
 
 const FACE = '"Saira Condensed", "Arial Narrow", "Roboto Condensed", sans-serif';
 
@@ -110,10 +111,11 @@ export function createRenderer(canvas, W0, ice, { cam: from = null } = {}) {
     boards(P, inner, 'front');
 
     ctx.setTransform(1, 0, 0, 1, 0, 0);
-    if (W.lamp > 0 && W.lampSide) {
-      // the goal lamp: red light washing over the building, pulsing
-      const k = (Math.sin(W.t * 18) > 0 ? 0.1 : 0.035) * Math.min(1, W.lamp);
-      ctx.fillStyle = `rgba(255,30,40,${k})`; ctx.fillRect(0, 0, w, h);
+    const gl8 = goalLights(W);
+    if (gl8.wash > 0) {
+      // a goal: the house lights down and the red lamp strobing over the building (goal-lights.js)
+      ctx.fillStyle = `rgba(0,0,0,${(0.42 * gl8.dim).toFixed(3)})`; ctx.fillRect(0, 0, w, h);
+      ctx.fillStyle = `rgba(255,30,40,${gl8.wash.toFixed(3)})`; ctx.fillRect(0, 0, w, h);
     }
     const vg = ctx.createRadialGradient(w / 2, h * 0.5, h * 0.35, w / 2, h * 0.5, w * 0.62);
     vg.addColorStop(0, 'rgba(0,0,0,0)'); vg.addColorStop(1, `rgba(0,0,0,${0.42 + 0.3 * W.mourning})`); ctx.fillStyle = vg; ctx.fillRect(0, 0, w, h);
@@ -340,9 +342,9 @@ export function createRenderer(canvas, W0, ice, { cam: from = null } = {}) {
     if (pl.some((p) => !p)) return;
     ctx.strokeStyle = '#d42e28'; ctx.lineWidth = Math.max(1.6, 0.2 * pl[1].s); ctx.beginPath(); pl.forEach((p, i) => (i ? ctx.lineTo(p.x, p.y) : ctx.moveTo(p.x, p.y))); ctx.stroke();
     if (W.lamp > 0 && W.lampSide === side) {
-      // the lamp behind the net
-      const l = P(gx + dir * (NET_DEPTH + 6), MID_Y, GLASS_H + 1);
-      if (l) { const g = ctx.createRadialGradient(l.x, l.y, 0, l.x, l.y, 3 * l.s); g.addColorStop(0, 'rgba(255,60,50,0.95)'); g.addColorStop(1, 'rgba(255,40,40,0)'); ctx.fillStyle = g; ctx.beginPath(); ctx.arc(l.x, l.y, 3 * l.s, 0, TAU); ctx.fill(); }
+      // the lamp behind the net, strobing (goal-lights.js): big when lit, an ember between
+      const l = P(gx + dir * (NET_DEPTH + 6), MID_Y, GLASS_H + 1), rr = (goalLights(W).on ? 5 : 1.5) * (l ? l.s : 0);
+      if (l) { const g = ctx.createRadialGradient(l.x, l.y, 0, l.x, l.y, rr); g.addColorStop(0, 'rgba(255,60,50,0.95)'); g.addColorStop(1, 'rgba(255,40,40,0)'); ctx.fillStyle = g; ctx.beginPath(); ctx.arc(l.x, l.y, rr, 0, TAU); ctx.fill(); }
     }
   }
   function puck(P, at) {
@@ -514,15 +516,26 @@ export function createRenderer(canvas, W0, ice, { cam: from = null } = {}) {
         ctx.strokeStyle = 'rgba(20,24,30,0.3)'; ctx.lineWidth = Math.max(0.5, 0.035 * pp[0].s); quad(ctx, pp[0], pp[1], pp[2], pp[3]); ctx.stroke();
       }
     }
-    // the driver's head and cap, his hands on the wheel, and the wheels on the side we see
-    const hd = pt(-3.15, 1.5, 5.75);
+    // Ken Raven: his head (swept-up brown hair, beard, black glasses), his hands on the
+    // wheel, and now and then his outside arm up, waving to the crowd (kenWave)
+    const hd = pt(-3.12, 1.5, 5.78);
     if (hd) {
-      ctx.fillStyle = '#d9a27e'; ctx.beginPath(); ctx.arc(hd.x, hd.y, 0.42 * hd.s, 0, TAU); ctx.fill();
-      ctx.fillStyle = cupColour('#1f4fbf', !!W0.cup); ctx.beginPath(); ctx.arc(hd.x, hd.y - 0.1 * hd.s, 0.45 * hd.s, Math.PI, TAU); ctx.fill();
-      ctx.fillRect(hd.x - 0.05 * hd.s, hd.y - 0.14 * hd.s, 0.62 * hd.s * Math.sign(Math.cos(z.h) || 1), 0.1 * hd.s);
+      const r = hd.s, fx = (pt(-2.6, 1.5, 5.78)?.x ?? hd.x) - hd.x, fd = Math.sign(fx) || 1, side = Math.min(1, Math.abs(fx) / (0.5 * r));
+      ctx.fillStyle = '#e2ad8e'; ctx.beginPath(); ctx.ellipse(hd.x, hd.y, 0.37 * r, 0.45 * r, 0, 0, TAU); ctx.fill();
+      ctx.fillStyle = '#4a3122'; ctx.beginPath(); ctx.ellipse(hd.x + fd * 0.08 * side * r, hd.y + 0.24 * r, 0.33 * r, 0.24 * r, 0, 0, Math.PI); ctx.fill();
+      ctx.fillStyle = '#8e8274'; ctx.beginPath(); ctx.arc(hd.x + fd * 0.2 * side * r, hd.y + 0.4 * r, 0.06 * r, 0, TAU); ctx.fill();
+      ctx.fillStyle = '#5b3b25'; ctx.beginPath(); ctx.ellipse(hd.x - fd * 0.05 * r, hd.y - 0.2 * r, 0.38 * r, 0.3 * r, 0, Math.PI, TAU); ctx.fill();
+      ctx.fillStyle = '#7a5236'; ctx.beginPath(); ctx.ellipse(hd.x + fd * 0.12 * r, hd.y - 0.42 * r, 0.22 * r, 0.14 * r, -fd * 0.4, 0, TAU); ctx.fill();
+      if (r > 6) {
+        ctx.strokeStyle = '#111214'; ctx.lineWidth = Math.max(1, 0.035 * r);
+        const gx = hd.x + fd * 0.2 * side * r;
+        for (const o of side > 0.6 ? [0] : [-0.14, 0.14]) ctx.strokeRect(gx + o * r - 0.09 * r, hd.y - 0.08 * r, 0.18 * r, 0.12 * r);
+      }
     }
-    const sh = pt(-2.7, 1.5, 4.9), wh = pt(-0.85, 1.4, 4.45);
-    if (sh && wh) line(ctx, sh, wh, Math.max(1, 0.28 * sh.s), '#2c3a4e');
+    const wv = kenWave(W.t), sh = pt(-3.15, 2.05, 4.9);
+    const wh = wv > 0 ? pt(lerp(-0.95, -3.0, wv), 1.76 + lerp(0, 0.9 + Math.sin(W.t * 8) * 0.28, wv), lerp(4.55, 6.15, wv)) : pt(-0.85, 1.4, 4.45);
+    if (sh && wh) line(ctx, sh, wh, Math.max(1, 0.28 * sh.s), '#24324a');
+    if (wh && wv > 0.3) { ctx.fillStyle = '#e2ad8e'; ctx.beginPath(); ctx.arc(wh.x, wh.y - 0.15 * wh.s, 0.17 * wh.s, 0, TAU); ctx.fill(); }
     for (const sv of [-1, 1]) {
       const nw = [-sn * sv, ch * sv, 0], c0 = W3(0, sv * 3.5, 0.9);
       if (V.dot(nw, V.sub(camPos, c0)) <= 0) continue;

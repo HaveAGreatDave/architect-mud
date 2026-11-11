@@ -301,6 +301,8 @@ const MIME = {
 	".webp": "image/webp",
 	// The two self-hosted neon sign faces (client/shared/fonts/).
 	".woff2": "font/woff2",
+	// GLASS Lite's baked city chunks (client/game/assets/lite/, scripts/lite/bake.mjs).
+	".bin": "application/octet-stream",
 };
 
 // ── Static asset cache + compression ──────────────────────────────────────────
@@ -324,7 +326,8 @@ const MIME = {
 //
 // Only text types are compressed — .png/.ico are already compressed formats and
 // running deflate over them burns CPU to make them marginally bigger.
-const COMPRESSIBLE = new Set([".html", ".js", ".css", ".json", ".svg", ".txt", ".xml"]);
+// .bin is GLASS Lite's chunks: quantised vertices, which brotli takes to about an eighth.
+const COMPRESSIBLE = new Set([".html", ".js", ".css", ".json", ".svg", ".txt", ".xml", ".bin"]);
 // Below ~1 KB the framing overhead and the CPU round trip cost more than the
 // handful of bytes saved.
 const COMPRESS_MIN_BYTES = 1024;
@@ -1104,6 +1107,18 @@ wss.on("connection", (ws, req) => {
 		if (msg.type === "tv_stage") {
 			if (!session.playerId) return;
 			emit("tv.stage", { playerId: session.playerId, channel: typeof msg.channel === "string" ? msg.channel.slice(0, 64) : "" });
+			return;
+		}
+		// A Room Stage in a building's entry room asks for the street outside its door ahead of time, so walking out
+		// through it shows the street at once (plugins/roomstage, plugins/freelook: a `freelook_open` marked `prewarm`).
+		if (msg.type === "room_street") {
+			if (!session.playerId) return;
+			emit("roomstage.warm", { playerId: session.playerId });
+			return;
+		}
+		if (msg.type === "room_set") {
+			if (!session.playerId) return;
+			emit("room.set", { playerId: session.playerId, zone: typeof msg.zone === "string" ? msg.zone.slice(0, 80) : "" });
 			return;
 		}
 		if (msg.type === "tv_venue") {

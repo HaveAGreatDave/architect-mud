@@ -14,6 +14,7 @@ import { airTraffic } from '../../../shared/window-sky.js';
 import { strikesAfter } from '../../../shared/strike-feed.js';
 import { growBolt, boltBright, boltSeed } from '../../../shared/lightning.js';
 import { FLIGHT_EYE_H, FLIGHT_CLIMB_LIFT, FLIGHT_HEIGHT_FT } from '../../../shared/flight-height.js';
+import { TILE_M, FT_M } from '../../../shared/world-scale.js';
 
 const ROLL = 3600;
 // how fast a change in the weather comes through, per second
@@ -34,7 +35,8 @@ export function createRoomWindow() {
   let at = null;            // { gx, gy, eyeZ, eyeX, eyeY, fields }
   let word = 'clear', wantRain = 0, wantSnow = 0, windKph = 0, windDir = 220, storm = 0;
   let rain = 0, snow = 0, wet = 0, wind = 0, cover = 0.1, seaShare = 0, lastT = 0, strikeSeq = 0, strike = null, bolt = null, told = false;
-  const hear = { rain: 0, snow: 0, wind: 0, storm: 0, thunder: null, sea: 0 };
+  const hear = { rain: 0, snow: 0, wind: 0, storm: 0, thunder: null, sea: 0, flights: [] };
+  let flightsAt = 0;
 
   function weather(sky) {
     if (!sky) return;
@@ -67,6 +69,28 @@ export function createRoomWindow() {
     }));
   }
 
+  // The timetable as room-sound.js hears it: each flight's place and velocity in metres on the room's
+  // floor plan (u across, v back from the front glass, z up), the frame its listener pose is in. The
+  // front looks out on `bearing`, so out of the front is −v and its right is +u.
+  function heardFlights(t, bearing) {
+    if (!at) return [];
+    const b = (bearing || 0) * Math.PI / 180, s = Math.sin(b), c = Math.cos(b);
+    const plan = (e, n) => [c * e - s * n, -(s * e + c * n)];
+    const sched = airTraffic(at.fields, at.gx, at.gy, t).map((f) => {
+      const [u, v] = plan((f.x - at.gx) * TILE_M, (at.gy - f.y) * TILE_M), [du, dv] = plan(f.vx * TILE_M, -f.vy * TILE_M);
+      return { id: f.id, cls: CLASS[f.kind], pos: [u, v, ftOf(f.z) * FT_M], vel: [du, dv, 0] };
+    });
+    // …and whatever the server put in the sky (a pilot, a helicopter going over): absolute tiles,
+    // carried along between its words, so no `vel` and SIREN works the speed out from the moves
+    let live = [];
+    try { live = (pilotsOf?.() || []).filter((c) => c && c.id != null && Number.isFinite(c.dx) && Number.isFinite(c.dy)).map((c) => {
+      const [u, v] = plan((c.dx - at.gx) * TILE_M, (at.gy - c.dy) * TILE_M);
+      return { id: 'live_' + c.id, cls: c.cls, pos: [u, v, (c.groundZ === 0 ? 0 : +c.altDiff || 0) * FT_M], vel: null };
+    }); } catch { /* the sky is never load-bearing */ }
+    return sched.concat(live);
+  }
+  let pilotsOf = null;
+
   // The strike lighting the sky now: its picture is painted once, when it starts.
   function boltAt(t) {
     if (!at) { bolt = null; strike = null; hear.thunder = null; return null; }
@@ -86,6 +110,8 @@ export function createRoomWindow() {
   }
   return {
     weather, flightsNow, hear, settle,
+    // who's really flying, for the hearing: a function returning the contacts as absolute tiles in dx/dy
+    hearPilots(fn) { pilotsOf = fn; },
     // where the eye is, in the world: a room's tile, and `fields` for its flights
     setPlace(p) { at = { ...(at || {}), ...p }; },
     // how much of the view is the sea, once the shots are in: it's what you hear from the water
@@ -106,6 +132,7 @@ export function createRoomWindow() {
       const g = day * (1 - cover * 0.55), ck = 0.1 + 0.72 * g;
       const b = boltAt(t), flash = b?.flash ?? 0;
       hear.rain = rain; hear.snow = snow; hear.wind = wind; hear.storm = storm; hear.sea = seaShare;
+      if (t - flightsAt > 0.2) { flightsAt = t; hear.flights = heardFlights(t, bearing); }
       return {
         t: t % ROLL, fall: [rain, snow, wet, wind], windV,
         tint: [ck * 0.92 + 0.12, ck * 0.94 + 0.12, ck + 0.12], flash,

@@ -1,0 +1,12 @@
+{
+  "content": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 640 360\" font-family=\"'Arial Black','Impact',sans-serif\">\n<defs>\n  <pattern id=\"ht\" width=\"8\" height=\"8\" patternUnits=\"userSpaceOnUse\"><circle cx=\"4\" cy=\"4\" r=\"1.6\" fill=\"#ffffff\" opacity=\"0.07\"/></pattern>\n  <pattern id=\"hatch\" width=\"7\" height=\"7\" patternUnits=\"userSpaceOnUse\" patternTransform=\"rotate(35)\"><line x1=\"0\" y1=\"0\" x2=\"0\" y2=\"7\" stroke=\"#0a0608\" stroke-width=\"2.2\"/></pattern>\n</defs>\n<rect width=\"640\" height=\"360\" fill=\"#020203\"/>\n<polygon points=\"300,0 340,0 420,360 220,360\" fill=\"#ffffff\" opacity=\"0.05\"/>\n<polygon points=\"312,0 328,0 360,360 280,360\" fill=\"#ffffff\" opacity=\"0.06\"/>\n<text x=\"325\" y=\"192\" text-anchor=\"middle\" font-size=\"64\" letter-spacing=\"3\" fill=\"#0a0608\">SUDDEN DARK</text>\n<text x=\"320\" y=\"186\" text-anchor=\"middle\" font-size=\"64\" letter-spacing=\"3\" fill=\"#e8eef6\" stroke=\"#0a0608\" stroke-width=\"4.571428571428571\" paint-order=\"stroke\">SUDDEN DARK</text>\n<line x1=\"120\" y1=\"222\" x2=\"520\" y2=\"222\" stroke=\"#ff5a3c\" stroke-width=\"5\"/>\n<text x=\"320\" y=\"258\" text-anchor=\"middle\" fill=\"#8a96a6\" font-size=\"16\" letter-spacing=\"6\">HOUSE LIGHTS DOWN · ONE THROW EACH</text>\n<text x=\"320\" y=\"300\" text-anchor=\"middle\" fill=\"#4a525e\" font-size=\"12\" letter-spacing=\"4\" font-family=\"'Courier New',monospace\">charter, page forty</text>\n</svg>",
+  "created_at": "1794200000",
+  "description": "SLAGBALL: the Sudden Dark overtime card.",
+  "id": "slagball_sudden_dark",
+  "name": "slagball_sudden_dark",
+  "tags": [
+    "movie"
+  ],
+  "type": "svg",
+  "updated_at": "1794200000"
+}

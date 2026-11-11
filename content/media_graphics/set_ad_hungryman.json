@@ -1,0 +1,10 @@
+{
+  "content": "{\n \"kind\": \"set\",\n \"format\": 1,\n \"id\": \"set_ad_hungryman\",\n \"name\": \"Hungry Man's Just Meats Advert\",\n \"base\": \"tpl_pitch\",\n \"brand\": {\n  \"name\": \"JUST MEATS\",\n  \"colour\": \"#ff4020\"\n },\n \"broadcasts\": [\n  \"bc_commercial_hungryman\"\n ],\n \"palette\": {\n  \"floor\": \"#2a1410\",\n  \"wall\": \"#3a1a14\",\n  \"trim\": \"#5a2418\",\n  \"desk\": \"#4a2014\",\n  \"deskTop\": \"#2a2624\",\n  \"riser\": \"#2a1410\"\n },\n \"parts\": {\n  \"counter\": {\n   \"hob\": 4,\n   \"text\": \"HUNGRY MAN\"\n  }\n },\n \"description\": \"The Hungry Man advert: a grill counter with four burners going, everything the colour of meat.\"\n}",
+  "created_at": "1794108637",
+  "description": "The Hungry Man advert: a grill counter with four burners going, everything the colour of meat.",
+  "id": "set_ad_hungryman",
+  "name": "Hungry Man's Just Meats Advert",
+  "tags": [],
+  "type": "set",
+  "updated_at": "1794108921"
+}

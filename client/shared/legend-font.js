@@ -78,24 +78,53 @@ export const LEGEND_TRACE = { label: null };
 export function legend(Pn, str, ca, cb, h, rgb, emis = 0.12, lift = 0.002, shadow = null) {
   if (LEGEND_TRACE.label && Pn.pt && String(str).trim()) LEGEND_TRACE.label(String(str), Pn.pt(ca, cb - h / 2, lift), Pn.pt(ca, cb + h / 2, lift));
   const u = h / 6, W = legendWidth(str, h);
-  const bar = (x0, y0, x1, y1, ox, oy, c, l) => {
+  // The comic look letters it by hand, as Borderlands does: a forward lean, each letter a little
+  // off the baseline and turned a degree or two, and each stroke heavier where the pen came down.
+  // The wobble is seeded by the text and the letter's place, so a label draws the same every time.
+  // Off, it draws as it always did.
+  const C = comicHand();
+  const bar = (x0, y0, x1, y1, ox, oy, c, l, wob) => {
     let dx = x1 - x0, dy = y1 - y0;
     const L = Math.hypot(dx, dy) || 1;
     dx /= L; dy /= L;
-    const ex = dx * HALF, ey = dy * HALF, nx = -dy * HALF, ny = dx * HALF;
-    const P = (x, y) => [ox + x * u, oy + y * u];
-    Pn.plate([P(x0 - ex + nx, y0 - ey + ny), P(x0 - ex - nx, y0 - ey - ny), P(x1 + ex - nx, y1 + ey - ny), P(x1 + ex + nx, y1 + ey + ny)], c, c === rgb ? emis : 0, l);
+    const ha = C ? HALF * C.head : HALF, ta = C ? HALF * C.tail : HALF;
+    const ex = dx * HALF, ey = dy * HALF;
+    const P = (x, y) => {
+      if (wob) {   // turn about the letter's middle, bob, then lean
+        const cx = x - 2, cy = y - 3;
+        x = 2 + cx * wob.c - cy * wob.s; y = 3 + cx * wob.s + cy * wob.c + wob.bob;
+        x += y * C.slant;
+      }
+      return [ox + x * u, oy + y * u];
+    };
+    Pn.plate([P(x0 - ex - dy * ha, y0 - ey + dx * ha), P(x0 - ex + dy * ha, y0 - ey - dx * ha), P(x1 + ex + dy * ta, y1 + ey - dx * ta), P(x1 + ex - dy * ta, y1 + ey + dx * ta)], c, c === rgb ? emis : 0, l);
   };
+  const seed = hashStr(String(str));
   const draw = (dx, dy, c, l) => {
-    let x = ca - W / 2 + HALF * u + dx;
+    let x = ca - W / 2 + HALF * u + dx - (C ? 3 * C.slant * u : 0);   // the lean, centred
     const y = cb - h / 2 + dy;
+    let i = 0;
     for (const ch of String(str).toUpperCase()) {
       const g = G[ch];
-      if (g) for (const s of g) bar(s[0], s[1], s[2], s[3], x, y, c, l);
-      x += ADV * u;
+      let wob = null;
+      if (C) {
+        const r1 = rnd(seed, i * 2), r2 = rnd(seed, i * 2 + 1), a = (r1 - 0.5) * C.turn;
+        wob = { c: Math.cos(a), s: Math.sin(a), bob: (r2 - 0.5) * C.bob };
+      }
+      if (g) for (const s of g) bar(s[0], s[1], s[2], s[3], x, y, c, l, wob);
+      x += ADV * u; i++;
     }
   };
   if (shadow) draw(u * 0.35, -u * 0.35, shadow, lift);
-  draw(0, 0, rgb, shadow ? lift + 0.0015 : lift);
+  else if (C) draw(u * 0.45, -u * 0.45, C.ink, lift);   // the comic drop: an inked offset under every label
+  draw(0, 0, rgb, shadow || C ? lift + 0.0015 : lift);
   return W;
 }
+
+// The hand-lettered tune, or null when the comic look is off (gl/house-style.js comicOn reads the
+// same flag; this file is shared, so it reads the global itself). `head`/`tail` are each stroke's
+// half-width at its start and end, as a share of HALF; `turn` is radians, `bob` grid units.
+export const LEGEND_HAND = { slant: 0.16, turn: 0.07, bob: 0.35, head: 1.12, tail: 0.86, ink: [0.05, 0.045, 0.055] };
+function comicHand() { return globalThis.__houseComic ? LEGEND_HAND : null; }
+function hashStr(s) { let h = 2166136261; for (let i = 0; i < s.length; i++) h = Math.imul(h ^ s.charCodeAt(i), 16777619); return h >>> 0; }
+function rnd(seed, i) { let x = Math.imul(seed ^ Math.imul(i + 1, 0x9e3779b1), 0x85ebca6b) >>> 0; x ^= x >>> 13; x = Math.imul(x, 0xc2b2ae35) >>> 0; return ((x ^ (x >>> 16)) >>> 0) / 4294967296; }

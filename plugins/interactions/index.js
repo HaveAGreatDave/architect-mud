@@ -42,6 +42,7 @@ import {
 } from "../../server/engine/sift.js";
 import { registerAction, dispatchAction } from "../../server/engine/actions.js";
 import { setPosture } from "../../server/engine/posture.js";
+import { setNpcMood } from "../../server/engine/npc-mood.js";
 import { findTransformByName, isTransformed } from "../../server/engine/phantoms.js";
 import { query } from "../../server/models/db.js";
 import { fireHook } from "../../server/engine/plugins.js";
@@ -393,15 +394,33 @@ async function cmdPoint(args, raw, player, broadcast) {
 // Expressive emotes
 // ---------------------------------------------------------------------------
 
+// An expression aimed at somebody: "smile at Marta". Aimed at an NPC, it shows on their face for a while
+// (server/engine/npc-mood.js): a smile is returned, a frown or a laugh at them puts them out.
+const AIMED_MOOD = { smile: ["happy", 0.5], frown: ["annoyed", 0.55], laugh: ["annoyed", 0.7] };
+function aimedEmote(verb, third, args, player, broadcast) {
+	const target = stripPrep(args, ["at", "to"]);
+	if (!target) return null;
+	const lower = target.toLowerCase();
+	const npc = getZoneNpcs(player.current_zone).find((n) => n.name.toLowerCase().includes(lower));
+	const pl = npc ? null : getZonePlayers(player.current_zone).find((p) => p.id !== player.id && p.handle?.toLowerCase().includes(lower));
+	const who = npc?.name || pl?.handle;
+	if (!who) return null;
+	const [mood, i] = AIMED_MOOD[verb];
+	if (npc) setNpcMood(npc, mood, { i, secs: 30 });
+	return doEmote(`You ${verb} at ${who}.`, `${player.handle} ${third} at ${who}.`, player, broadcast);
+}
+
 function cmdSmile(args, raw, player, broadcast) {
-	return doEmote("You smile.", `${player.handle} smiles.`, player, broadcast);
+	return aimedEmote("smile", "smiles", args, player, broadcast) || doEmote("You smile.", `${player.handle} smiles.`, player, broadcast);
 }
 
 function cmdFrown(args, raw, player, broadcast) {
-	return doEmote("You frown.", `${player.handle} frowns.`, player, broadcast);
+	return aimedEmote("frown", "frowns", args, player, broadcast) || doEmote("You frown.", `${player.handle} frowns.`, player, broadcast);
 }
 
 function cmdLaugh(args, raw, player, broadcast) {
+	const aimed = aimedEmote("laugh", "laughs", args, player, broadcast);
+	if (aimed) return aimed;
 	const { env } = getCtx(player);
 	const loud = ["storm", "thunderstorm"].includes(env.weatherType)
 		? ": barely audible over the weather"

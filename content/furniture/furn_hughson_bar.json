@@ -10,9 +10,14 @@
       "mirror",
       "bottles"
     ],
+    "bar_counter": true,
     "interactions": [
       "sit"
-    ]
+    ],
+    "look": {
+      "arche": "surface",
+      "form": "bar"
+    }
   },
   "id": "furn_hughson_bar",
   "name": "the club bar",

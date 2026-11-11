@@ -10,6 +10,8 @@ import { createSpriteLayer } from './sprites.js';
 import { createCurtainLayer } from './curtain.js';
 import { createDecalLayer } from './decals.js';
 import { createStrokeLayer } from './strokes.js';
+import { createInteriorLayer } from './interiors.js';
+import { INTERIOR_TUNE } from '../glass/interiors-near.js';
 import { createBillboardLayer } from './billboards.js';
 import { createGroundLayer } from './ground.js';
 import { createSolidsLayer } from './solids.js';
@@ -2327,6 +2329,18 @@ const lightRaw = new Float32Array(MAX_LIGHTS * 3);
     return L.draw(w.cam, canvas.width, canvas.height, cssH);
   }
 
+  // The rooms inside the buildings near the eye (gl/interiors.js), lazy like the others. `light` is the frame's
+  // night (0 day, 1 night) and sun; a room's own lamps arrive on each entry.
+  let rooms = null;
+  function drawInteriors(cam, list, cssH, light = {}) {
+    if ((!list || !list.length) && !rooms) return 0;
+    const L = rooms || (rooms = createInteriorLayer(gl)), w = windowFrame(cam);
+    L.sync(list, INTERIOR_TUNE.budget);
+    const day = 1 - Math.max(0, Math.min(1, light.night || 0)), sd = light.sun && light.sun.dir;
+    const el = (light.sun && light.sun.elev) || 0.5, sun = sd ? [sd[0] * day, sd[1] * day, Math.max(0, el) * day] : [0, 0, day];   // dir is flat [x, y]; elev lifts it
+    return L.draw(w.cam, cssH, w.ox, w.oy, { amb: [0.08 + 0.5 * day, 0.08 + 0.52 * day, 0.1 + 0.55 * day], sun });
+  }
+
   // Ground scatter, on the same depth buffer. Lazy like the others.
   let bbs = null;
   const bbLayer = () => (bbs || (bbs = createBillboardLayer(gl)));
@@ -2635,7 +2649,7 @@ const lightRaw = new Float32Array(MAX_LIGHTS * 3);
   const drawFishShadows = (cam, s, cssH) => (s && s.n > 0 ? (fsh || (fsh = createFishShadowLayer(gl))).draw(cam, s, cssH) : 0);
   // The window's cells and the eye in the mesh frame (gl/skyline.js). Called before draw, which reads it.
   function setSkyline(cells, eye, facesOf) { try { skylineLayer().update(cells, eye, facesOf); } catch { /* no strip is the flat environment, which is the picture that shipped */ } }
-  const api = { murmurGPU: () => mg, gl, massDrawn: () => [massDrawn, count], setNightPage, setSkyline, upload, uploadGroups, uploadKept, setMassShift, massDebug, draw, drawFade, beginTarget, hdrLive, composite, hdrPeak, setMatPage, setSurfPage, drawSeabed, drawSeabedPoints, drawFishShadows, drawSprites, drawCurtain, drawDecals, decalCost, drawStrokes, drawBillboards, billboardTextures, drawGround, groundGrid: () => (grd ? grd.grid : null), wallGrid: () => massGrid, setLightGrid, taaSplit, drawFloor, drawWater, drawCloudDeck, drawCloudVolume, drawMirror, mirrorPeak, uploadSolids, uploadShip, drawSolids, drawActors, uploadInterior, drawInterior, drawInteriorAlone, setAtlas, lost: () => gl.isContextLost(),
+  const api = { murmurGPU: () => mg, gl, massDrawn: () => [massDrawn, count], setNightPage, setSkyline, upload, uploadGroups, uploadKept, setMassShift, massDebug, draw, drawFade, beginTarget, hdrLive, composite, hdrPeak, setMatPage, setSurfPage, drawSeabed, drawSeabedPoints, drawFishShadows, drawSprites, drawCurtain, drawDecals, decalCost, drawStrokes, drawInteriors, drawBillboards, billboardTextures, drawGround, groundGrid: () => (grd ? grd.grid : null), wallGrid: () => massGrid, setLightGrid, taaSplit, drawFloor, drawWater, drawCloudDeck, drawCloudVolume, drawMirror, mirrorPeak, uploadSolids, uploadShip, drawSolids, drawActors, uploadInterior, drawInterior, drawInteriorAlone, setAtlas, lost: () => gl.isContextLost(),
     maxTexture: gl.getParameter(gl.MAX_TEXTURE_SIZE), get triangles() { return count / 3; },
     // The mesh's box in the window's frame (for the light projection) and the shadow map size (0: refused).
     get bounds() { return boundsInWindow(); }, get shadowSize() { return shadow ? shadow.size : 0; },

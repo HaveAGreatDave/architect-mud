@@ -1,24 +1,28 @@
 {
-  "ambient_events": [],
-  "ambient_theme": "forest",
-  "color": "#8ba36a",
-  "description": "Open meadow, the grass long and silver-green. Survey stakes stand in it in rows, each one tied with a strip of orange tape.",
+  "ambient_events": [
+    "\"Batteries, tested, all of them tested!\"",
+    "Coins are counted out onto a trestle one at a time.",
+    "Somebody haggles over a coat and walks off. They come back a minute later."
+  ],
+  "ambient_theme": "city",
+  "description": "A yard off Tenter Lane where people sell what they have. Trestles stand in two rows under tarps, laid out with boots, tins, batteries, coats and engine parts. Prices are said out loud and nobody writes anything down.",
   "exits": {
-    "east": "zone_district_922_921",
     "north": "zone_district_921_920",
-    "south": "zone_district_921_922",
-    "west": "zone_district_920_921"
+    "south": "zone_district_921_922"
   },
   "flags": {
-    "district": "residential",
+    "camp": true,
+    "district": "slum",
     "region_id": "region_coldwater",
-    "terrain": "grass"
+    "scavenging_table_id": "scav_roadside_junk",
+    "street_life": true,
+    "terrain": "ash"
   },
   "grid_x": 921,
   "grid_y": 921,
   "grid_z": 0,
   "id": "zone_district_921_921",
   "map_id": "map_world",
-  "name": "Grasslands",
+  "name": "The Swap",
   "parent_zone": null
 }

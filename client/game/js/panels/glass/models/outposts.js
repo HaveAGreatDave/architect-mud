@@ -93,6 +93,77 @@ function swSwing(ctx, cam, F, W3, lx, ly, yaw, h, fh, seed, night, alpha) {
   for (const t of [-1, 1]) emitWire(ctx, cam, W3(lx + t * fh * 0.05, ly, top), W3(lx + t * fh * 0.05, ly, h * 0.14), 1, 'rgba(40,30,24,0.9)', alpha, { pull: 0 });
 }
 
+// THE NULL KIT. One set of parts for every building in the Null's works, so the place reads as one
+// hand (docs/reference/building-styles.md §3.2). The Null keep only what they can open and mend, so
+// the parts are what a maintainer needs to see: plate in bolted courses, a hatch with its cover
+// off, a dial read from outside, chalk on slate. Square and exact, never salvage at a lean. Local
+// frame as the arms use it: F(x, y), +y toward the front; `yaw` is faceYaw(E).
+// No part here lights anything but an oil lamp, and none carries lettering.
+
+// A plate shell: the body, a stone footing, a flange band at each bolted course and a stiffener
+// up each corner.
+function nlShell(ctx, cam, dx, dy, w, top, pal, seed, night, alpha, courses = 2) {
+  draw3DBoxAt(ctx, cam, dx, dy, w, 0, top, pal, seed, night, alpha, false);
+  draw3DBoxAt(ctx, cam, dx, dy, w * 1.03, 0, top * 0.07, 'ty_dw_stone', seed + 90, night, alpha, false);
+  for (let i = 1; i <= courses; i++) { const z = top * (0.07 + 0.93 * i / (courses + 1));
+    draw3DBoxAt(ctx, cam, dx, dy, w * 1.018, z, z + top * 0.032, 'ty_dw_turbine_dk', seed + 90 + i, night, alpha, false); }
+  for (const sx of [-1, 1]) for (const sy of [-1, 1])
+    draw3DBoxAt(ctx, cam, dx + sx * w, dy + sy * w, w * 0.045, 0, top, 'ty_dw_iron', seed + 96 + sx + sy * 2, night, alpha, false);
+}
+
+// A plate roof, with a ridge ventilator unless the arm puts something else up there.
+function nlRoof(ctx, cam, dx, dy, w, z0, z1, seed, night, alpha, vent = true) {
+  draw3DBoxAt(ctx, cam, dx, dy, w, z0, z1, 'ty_dw_turbine_dk', seed, night, alpha, true);
+  if (vent) draw3DBoxAt(ctx, cam, dx, dy, w * 0.26, z1, z1 + (z1 - z0) * 0.7, 'ty_dw_iron', seed + 1, night, alpha, true);
+}
+
+// An inspection hatch on a wall at local (lx, ly): a dark opening in a brass frame, a paint tag
+// over it, and its cover stood on edge against the wall to one `side`.
+function nlHatch(ctx, cam, F, lx, ly, w, z0, z1, yaw, fh, seed, night, alpha, side = 1) {
+  const [x, y] = F(lx, ly), zh = z1 - z0;
+  draw3DBoxAt(ctx, cam, x, y, w * 1.18, z0 - zh * 0.09, z1 + zh * 0.09, 'ty_dw_brass', seed, night, alpha, false, yaw, fh * 0.012);
+  draw3DBoxAt(ctx, cam, x, y, w, z0, z1, 'ty_dw_slate', seed + 1, night, alpha, false, yaw, fh * 0.018);
+  draw3DBoxAt(ctx, cam, x, y, w * 0.4, z1 + zh * 0.18, z1 + zh * 0.32, 'ty_dw_paint', seed + 2, night, alpha, false, yaw, fh * 0.014);
+  const [cx, cy] = F(lx + side * w * 2.5, ly + fh * 0.05);
+  draw3DBoxAt(ctx, cam, cx, cy, w * 1.1, 0, zh * 1.1, 'ty_dw_iron', seed + 3, night, alpha, true, yaw + side * 0.14, fh * 0.02);
+}
+
+// A dial: a brass bezel `r` across and `zh` tall with a white face and a needle, on the wall at
+// local (lx, ly), or on its own pipe with `stem`.
+function nlGauge(ctx, cam, F, lx, ly, z, zh, r, yaw, seed, night, alpha, stem = false) {
+  const [x, y] = F(lx, ly);
+  if (stem) draw3DBoxAt(ctx, cam, x, y, r * 0.18, 0, z, 'ty_dw_iron', seed, night, alpha, false);
+  draw3DBoxAt(ctx, cam, x, y, r, z, z + zh, 'ty_dw_brass', seed + 1, night, alpha, true, yaw, r * 0.30);
+  draw3DBoxAt(ctx, cam, x, y, r * 0.76, z + zh * 0.12, z + zh * 0.88, 'ty_dw_paint', seed + 2, night, alpha, false, yaw, r * 0.34);
+  draw3DBoxAt(ctx, cam, x, y, r * 0.07, z + zh * 0.5, z + zh * 0.82, 'ty_dw_slate', seed + 3, night, alpha, false, yaw, r * 0.38);
+}
+
+// A chalk tally: a slate with ruled rows of unequal length and the total, heavier, at the bottom.
+function nlTally(ctx, cam, F, lx, ly, w, z0, z1, yaw, fh, seed, night, alpha, rows = 5) {
+  const [x, y] = F(lx, ly), dz = (z1 - z0) / (rows + 2);
+  draw3DBoxAt(ctx, cam, x, y, w, z0, z1, 'ty_dw_slate', seed, night, alpha, false, yaw, fh * 0.014);
+  for (let i = 0; i < rows; i++) {
+    const len = w * (0.30 + frac(seed * 3 + i) * 0.50), z = z1 - dz * (i + 1.4);
+    const [rx, ry] = F(lx - w * 0.86 + len, ly);
+    draw3DBoxAt(ctx, cam, rx, ry, len, z, z + dz * 0.30, 'ty_dw_paint', seed + 1 + i, night, alpha, false, yaw, fh * 0.018);
+  }
+  const [tx, ty] = F(lx + w * 0.56, ly);
+  draw3DBoxAt(ctx, cam, tx, ty, w * 0.22, z0 + dz * 0.25, z0 + dz * 0.95, 'ty_dw_paint', seed + 20, night, alpha, false, yaw, fh * 0.018);
+}
+
+// A plate door on two brass strap hinges. `pal` repaints the leaf (the Surgery's is white).
+function nlDoor(ctx, cam, F, lx, ly, w, top, yaw, fh, seed, night, alpha, pal = 'ty_dw_iron') {
+  const [x, y] = F(lx, ly);
+  draw3DBoxAt(ctx, cam, x, y, w, 0, top, pal, seed, night, alpha, false, yaw, fh * 0.024);
+  for (const k of [0.20, 0.72]) draw3DBoxAt(ctx, cam, x, y, w * 1.05, top * k, top * (k + 0.06), 'ty_dw_brass', seed + 1, night, alpha, false, yaw, fh * 0.030);
+}
+
+// An oil lamp: a brass font and the only kind of light the works has.
+function nlLamp(ctx, cam, x, y, z, zh, fh, seed, night, alpha) {
+  draw3DBoxAt(ctx, cam, x, y, fh * 0.025, z, z + zh, 'ty_dw_brass', seed, night, alpha, true);
+  glowPool(ctx, cam, x, y, z + zh * 0.6, '255,192,114', 6, alpha * (night ? 0.46 : 0.12));
+}
+
 let _placard = null;
 function placardTex() {
   if (SHAPE_SINK) return null;
@@ -1165,347 +1236,363 @@ export const OUTPOST_ARMS = {
     { const [bx, by] = F(-fh * 0.40, fh * 0.02);
       draw3DBoxAt(ctx, cam, bx, by, fh * 0.20, ramp + h * 0.06, ramp + h * 0.12, 'ty_sw_gate_dk', seed + 60, night, alpha, true, yaw, fh * 0.06); }
   },
-  // ══ DEADWATER ═══════════════════════════════════════════════
-  // The region that stopped. Two buildings and a dam, and the shared read on all three is that
-  // nothing has been maintained for a very long time — the exact inversion of Terminus, which is
-  // built out of the same materials and keeps every one of them.
-  dw_turbine(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E, name, board, pal, sign, F, W3, frontVis) {   // THE TURBINE HALL (Deadwater) — and the thing to understand is that it
-    // WORKS. It was written first as a dead powerhouse with a hole in the roof, which is exactly
-    // the wrong region: the Null are not squatting in a ruin, they are running one. The generators
-    // came OUT; the penstocks now turn a line shaft that leaves the building on pillow blocks and
-    // goes overhead to the shops, so the works runs on water and belting and not one volt.
-    const wallTop = h * 0.94, ridge = h * 1.10;
-    draw3DBoxAt(ctx, cam, dx, dy, fh * 1.04, 0, wallTop, pal, seed, night, alpha, false);
-    // 1) A COMPLETE ROOF, swept and sound. Its being intact is the whole argument of the building.
-    draw3DBoxAt(ctx, cam, dx, dy, fh * 1.12, wallTop, ridge, 'ty_dw_slate', seed + 1, night, alpha, true);
-    // 2) THE PENSTOCKS — three pipes down the back wall, wet and in use.
+  // ══ DEADBAND ════════════════════════════════════════════════
+  // The Null's works. The region was Deadwater until 2026-11-09; the ids and palette keys still say
+  // `dw`. Every arm is built from the Null kit at the top of this file, so the works reads as one
+  // hand: riveted plate in bolted courses on a stone footing, a brass-framed hatch with its cover
+  // stood beside it, a dial you can read from the yard, a plate door on brass straps.
+  // ⚠ THREE RULES, and every arm below obeys all three.
+  //  1. NOTHING IS ELECTRIC. The region is dark (one orphan `power_zones` row per tile), so every
+  //     light is flame, oil or carbide. No LED, beacon, neon band or blinkLight anywhere in this
+  //     block. A lamp is small and warm and close to a door; nothing floodlights anything.
+  //  2. IT IS MAINTAINED, NOT SURVIVING, AND IT IS NOT A SCRAPYARD. Roofs are whole, ground is
+  //     swept, work is square. Stone is what stood here before the Null (the dam, the Reckoning,
+  //     the Gauge House); plate and brass are what they built.
+  //  3. THE COVERS ARE OFF (the region's own rule 4). Every mechanism is open to inspection, and a
+  //     cover stands ON EDGE AGAINST its housing, never lying about as debris.
+  dw_turbine(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E, name, board, pal, sign, F, W3, frontVis) {   // THE TURBINE HALL. It works: the generators came out, and the penstocks
+    // turn a line shaft that leaves the gable on pillow blocks and runs overhead to the shops. The
+    // works runs on water and belting.
+    const wallTop = h * 0.94, ridge = h * 1.10, yaw = faceYaw(E);
+    nlShell(ctx, cam, dx, dy, fh * 1.04, wallTop, pal, seed, night, alpha, 3);
+    nlRoof(ctx, cam, dx, dy, fh * 1.12, wallTop, ridge, seed + 1, night, alpha);
+    // 1) THE PENSTOCKS: three pipes down the back wall, flanged at every joint.
     for (const [i, lx] of [[0, -0.56], [1, 0.00], [2, 0.56]]) { const [px, py] = F(lx * fh, -fh * 0.98);
       drawFacetDrum(ctx, cam, px, py, 0, h * (0.62 + i * 0.04), fh * 0.19, fh * 0.19, 10, alpha,
         (f) => 'rgb(' + (70 + f.nl * 40 | 0) + ',' + (74 + f.nl * 40 | 0) + ',' + (72 + f.nl * 36 | 0) + ')', 'rgb(44,46,44)');
-      drawRing(ctx, cam, px, py, h * 0.40, fh * 0.195, 10, 'rgba(0,0,0,0.30)', 2, alpha); }
-    // 3) THE LINE SHAFT — a shaft leaving the gable on pillow blocks and running out over the yard
-    //    on trestles, with a belt hanging off the first pulley. This is Deadwater's power grid,
-    //    and drawing it as a shaft rather than as a cable is the entire anti-tech statement.
+      for (const k of [0.14, 0.34, 0.54]) drawRing(ctx, cam, px, py, h * k, fh * 0.20, 10, 'rgba(0,0,0,0.34)', 2, alpha); }
+    // 2) THE LINE SHAFT: out of the gable and over the yard on iron trestles, with a belt off the
+    //    first pulley. This is the region's power grid, and it is a shaft, not a cable.
     { const shaftZ = h * 0.86;
-      draw3DBoxAt(ctx, cam, dx, dy, fh * 0.05, shaftZ, shaftZ + h * 0.05, 'ty_dw_iron', seed + 10, night, alpha, true);
+      emitWire(ctx, cam, W3(0, 0, shaftZ + h * 0.025), W3(0, fh * 1.62, shaftZ + h * 0.025), 2.4, 'rgba(58,60,58,0.95)', alpha, { pull: 0.02 });
       for (const [i, ly] of [[0, 1.02], [1, 1.62]]) { const [tx, ty] = F(0, ly * fh);
-        draw3DBoxAt(ctx, cam, tx, ty, fh * 0.05, shaftZ, shaftZ + h * 0.05, 'ty_dw_iron', seed + 12 + i, night, alpha, true);
+        draw3DBoxAt(ctx, cam, tx, ty, fh * 0.05, shaftZ, shaftZ + h * 0.05, 'ty_dw_brass', seed + 12 + i, night, alpha, true);
         for (const t of [-1, 1]) { const [lx2, ly2] = F(t * fh * 0.16, ly * fh);
-          draw3DBoxAt(ctx, cam, lx2, ly2, fh * 0.035, 0, shaftZ, 'ty_dw_timber', seed + 16 + i + t, night, alpha, false); } }
-      // The pulley and the belt coming off it, running down toward the shops.
+          draw3DBoxAt(ctx, cam, lx2, ly2, fh * 0.03, 0, shaftZ, 'ty_dw_iron', seed + 16 + i + t, night, alpha, false); } }
       { const [gx, gy] = F(0, fh * 1.02);
         drawFacetDrum(ctx, cam, gx, gy, shaftZ - h * 0.09, shaftZ + h * 0.02, fh * 0.15, fh * 0.15, 10, alpha,
           (f) => 'rgb(' + (96 + f.nl * 44 | 0) + ',' + (76 + f.nl * 36 | 0) + ',' + (54 + f.nl * 26 | 0) + ')', 'rgb(58,46,32)');
         draw3DBoxAt(ctx, cam, gx, gy, fh * 0.04, h * 0.30, shaftZ - h * 0.06, 'ty_dw_belt', seed + 22, night, alpha, false, 0.16); } }
-    // 4) THE COVERS OFF. Rule 4 of the region, drawn: two inspection covers stood on edge AGAINST
-    //    the wall beside the openings they came out of, rather than lying about as debris.
-    for (const [i, lx] of [[0, -0.40], [1, 0.34]]) { const [cx, cy] = F(lx * fh, fh * 1.00);
-      draw3DBoxAt(ctx, cam, cx, cy, fh * 0.16, 0, h * 0.40, 'ty_dw_iron', seed + 30 + i, night, alpha, true, 0.12 + i * 0.06, fh * 0.03); }
-    // 5) One oil lamp over the door. Warm, small, and the only light on the building — there is no
-    //    electricity in this region and a floodlit powerhouse would say the opposite of the truth.
-    { const [lx, ly] = F(0, fh * 1.06);
-      glowPool(ctx, cam, lx, ly, h * 0.66, '255,196,118', 6, alpha * (night ? 0.44 : 0.12)); }
+    if (frontVis) {
+      // 3) THE COVERS OFF: two inspection hatches open, each cover on edge beside its opening.
+      nlHatch(ctx, cam, F, -fh * 0.52, fh * 1.04, fh * 0.11, h * 0.10, h * 0.36, yaw, fh, seed + 30, night, alpha, -1);
+      nlHatch(ctx, cam, F, fh * 0.52, fh * 1.04, fh * 0.11, h * 0.10, h * 0.36, yaw, fh, seed + 34, night, alpha, 1);
+      // 4) THE HEAD GAUGE over the door: the biggest dial in the works, read from across the yard.
+      nlGauge(ctx, cam, F, 0, fh * 1.04, h * 0.56, h * 0.20, fh * 0.13, yaw, seed + 40, night, alpha, false);
+      nlDoor(ctx, cam, F, 0, fh * 1.04, fh * 0.17, h * 0.46, yaw, fh, seed + 44, night, alpha);
+    }
+    { const [lx, ly] = F(fh * 0.26, fh * 1.08); nlLamp(ctx, cam, lx, ly, h * 0.40, h * 0.08, fh, seed + 48, night, alpha); }
   },
-  dw_depot(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E, name, board, pal, sign, F, W3, frontVis) {   // THE DRY RUN (Deadwater) — the works' road head, and it is KEPT: a swept
-    // hardstanding, a gantry of scaffold and chain-block instead of a crane, a hand-pumped fuel
-    // drum on a stand, and a board with the week's runs chalked on it. Not a derelict truck stop.
-    const wallTop = h * 0.82, ridge = h * 0.96;
-    draw3DBoxAt(ctx, cam, dx, dy, fh * 0.96, 0, wallTop, pal, seed, night, alpha, false);
-    draw3DBoxAt(ctx, cam, dx, dy, fh * 1.06, wallTop, ridge, 'ty_dw_slate', seed + 1, night, alpha, true);
-    // 1) THE DOORS — timber, hung on strap hinges, standing OPEN and hooked back. Open because
-    //    somebody is working, not because the shed has been left.
-    if (frontVis) for (const [i, t] of [[0, -1], [1, 1]]) { const [dx2, dy2] = F(t * fh * 0.62, fh * 0.94);
-      draw3DBoxAt(ctx, cam, dx2, dy2, fh * 0.30, 0, wallTop * 0.82, 'ty_dw_timber', seed + 4 + i, night, alpha, true, t * 0.42, fh * 0.04); }
-    // 2) THE GANTRY — scaffold tube and a chain block. A hand hoist, which is the whole point.
+  dw_depot(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E, name, board, pal, sign, F, W3, frontVis) {   // THE DRY RUN, the works' road head, and it is KEPT: a swept hardstanding,
+    // a gantry of tube and chain block instead of a crane, a hand-pumped fuel drum with a sight
+    // gauge, and the week's runs chalked on a board.
+    const wallTop = h * 0.82, ridge = h * 0.96, yaw = faceYaw(E);
+    nlShell(ctx, cam, dx, dy, fh * 0.96, wallTop, pal, seed, night, alpha, 2);
+    nlRoof(ctx, cam, dx, dy, fh * 1.06, wallTop, ridge, seed + 1, night, alpha);
+    // 1) THE DOORS: plate leaves on strap hinges, standing OPEN and hooked back, because somebody
+    //    is working.
+    if (frontVis) for (const [i, t] of [[0, -1], [1, 1]]) { const [dx2, dy2] = F(t * fh * 0.62, fh * 0.98);
+      draw3DBoxAt(ctx, cam, dx2, dy2, fh * 0.30, 0, wallTop * 0.82, 'ty_dw_iron', seed + 4 + i, night, alpha, true, yaw + t * 0.42, fh * 0.03);
+      draw3DBoxAt(ctx, cam, dx2, dy2, fh * 0.31, wallTop * 0.20, wallTop * 0.25, 'ty_dw_brass', seed + 6 + i, night, alpha, false, yaw + t * 0.42, fh * 0.036);
+      draw3DBoxAt(ctx, cam, dx2, dy2, fh * 0.31, wallTop * 0.58, wallTop * 0.63, 'ty_dw_brass', seed + 8 + i, night, alpha, false, yaw + t * 0.42, fh * 0.036); }
+    // 2) THE GANTRY: tube and a chain block. A hand hoist.
     for (const tx of [-1, 1]) for (const ly of [0.90, 1.60]) { const [px, py] = F(tx * fh * 0.72, ly * fh);
       draw3DBoxAt(ctx, cam, px, py, fh * 0.045, 0, h * 0.92, 'ty_dw_iron', seed + 10 + tx + ly, night, alpha, false); }
     { const [bx, by] = F(0, fh * 1.24);
-      draw3DBoxAt(ctx, cam, bx, by, fh * 0.76, h * 0.92, h * 0.98, 'ty_dw_iron', seed + 16, night, alpha, false);
-      draw3DBoxAt(ctx, cam, bx, by, fh * 0.09, h * 0.60, h * 0.92, 'ty_dw_iron', seed + 17, night, alpha, true, 0, fh * 0.03); }
-    // 3) THE FUEL DRUM on a stand with a hand pump on top — no dispenser, no dial, no card reader.
+      draw3DBoxAt(ctx, cam, bx, by, fh * 0.76, h * 0.92, h * 0.98, 'ty_dw_iron', seed + 16, night, alpha, false, yaw, fh * 0.40);
+      draw3DBoxAt(ctx, cam, bx, by, fh * 0.07, h * 0.66, h * 0.92, 'ty_dw_brass', seed + 17, night, alpha, true, yaw, fh * 0.03); }
+    // 3) THE FUEL DRUM on a plate stand, a hand pump on top and a sight gauge on its side. No
+    //    dispenser, no card reader.
     { const [fx, fy] = F(fh * 0.94, fh * 0.50);
-      draw3DBoxAt(ctx, cam, fx, fy, fh * 0.26, 0, h * 0.34, 'ty_dw_timber', seed + 20, night, alpha, true);
+      draw3DBoxAt(ctx, cam, fx, fy, fh * 0.26, 0, h * 0.34, 'ty_dw_iron', seed + 20, night, alpha, true);
       drawFacetDrum(ctx, cam, fx, fy, h * 0.34, h * 0.72, fh * 0.20, fh * 0.20, 10, alpha,
-        (f) => 'rgb(' + (84 + f.nl * 40 | 0) + ',' + (72 + f.nl * 36 | 0) + ',' + (62 + f.nl * 28 | 0) + ')', 'rgb(50,44,38)');
-      draw3DBoxAt(ctx, cam, fx, fy, fh * 0.05, h * 0.72, h * 0.94, 'ty_dw_brass', seed + 21, night, alpha, false); }
-    // 4) THE RUN BOARD by the doors — slate, ruled, under its own little roof so the chalk keeps.
-    { const [sx, sy] = F(-fh * 0.88, fh * 1.06);
-      for (const t of [-1, 1]) { const [lx, ly] = F(fh * (-0.88 + t * 0.20), fh * 1.06);
-        draw3DBoxAt(ctx, cam, lx, ly, fh * 0.03, 0, h * 0.70, 'ty_dw_timber', seed + 26 + t, night, alpha, false); }
-      draw3DBoxAt(ctx, cam, sx, sy, fh * 0.42, h * 0.36, h * 0.70, 'ty_dw_slate', seed + 30, night, alpha, true, 0, fh * 0.03);
-      draw3DBoxAt(ctx, cam, sx, sy, fh * 0.48, h * 0.70, h * 0.76, 'ty_dw_timber', seed + 31, night, alpha, true); }
-    { const [lx, ly] = F(0, fh * 1.00); glowPool(ctx, cam, lx, ly, h * 0.62, '255,190,112', 6, alpha * (night ? 0.40 : 0.12)); }
+        (f) => 'rgb(' + (84 + f.nl * 40 | 0) + ',' + (80 + f.nl * 38 | 0) + ',' + (74 + f.nl * 32 | 0) + ')', 'rgb(50,48,44)');
+      for (const k of [0.40, 0.66]) drawRing(ctx, cam, fx, fy, h * k, fh * 0.205, 10, 'rgba(0,0,0,0.32)', 2, alpha);
+      draw3DBoxAt(ctx, cam, fx, fy, fh * 0.05, h * 0.72, h * 0.94, 'ty_dw_brass', seed + 21, night, alpha, false);
+      nlGauge(ctx, cam, F, fh * 0.94, fh * 0.74, h * 0.40, h * 0.14, fh * 0.07, yaw, seed + 22, night, alpha, false); }
+    // 4) THE RUN BOARD by the doors, under its own hood so the chalk keeps.
+    { for (const t of [-1, 1]) { const [lx, ly] = F(fh * (-0.88 + t * 0.22), fh * 1.10);
+        draw3DBoxAt(ctx, cam, lx, ly, fh * 0.025, 0, h * 0.74, 'ty_dw_iron', seed + 26 + t, night, alpha, false); }
+      nlTally(ctx, cam, F, -fh * 0.88, fh * 1.10, fh * 0.20, h * 0.34, h * 0.70, yaw, fh, seed + 30, night, alpha);
+      const [sx, sy] = F(-fh * 0.88, fh * 1.10);
+      draw3DBoxAt(ctx, cam, sx, sy, fh * 0.26, h * 0.70, h * 0.75, 'ty_dw_turbine_dk', seed + 31, night, alpha, true, yaw, fh * 0.08); }
+    { const [lx, ly] = F(0, fh * 1.02); nlLamp(ctx, cam, lx, ly, h * 0.60, h * 0.08, fh, seed + 36, night, alpha); }
   },
-  // ══ DEADWATER — THE WORKS ═══════════════════════════════════
-  // ⚠ THREE RULES, and every arm below obeys all three.
-  //  1. NOTHING IS ELECTRIC. The region is deliberately dark — one orphan `power_zones` row per
-  //     tile, offline from the first power cycle — so every light here is flame, oil or carbide,
-  //     and there is not one LED, beacon, neon band or blinkLight anywhere in this block. A lamp
-  //     is small and warm and close to a door; nothing floodlights anything.
-  //  2. IT IS MAINTAINED, NOT SURVIVING. Deadwater is not a ruin the Null are squatting in. Roofs
-  //     are whole, ground is swept, paint is fresh, and the difference between this region and a
-  //     derelict one has to be legible from the air or the whole faction reads wrong.
-  //  3. THE COVERS ARE OFF (the region's own rule 4). Every mechanism is open to inspection, and
-  //     the covers stand ON EDGE AGAINST their housings rather than lying about as debris. That
-  //     one detail is the difference between 'stripped' and 'being worked on', and it recurs
-  //     deliberately across these arms — it is the region's signature, not a repeated asset.
-  dw_school(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E, name, board, pal, sign, F, W3, frontVis) {   // THE SCHOOLROOM — a dozen crates facing a slate, and on the wall a clock
-    // WITH THE CASE OFF so the class can watch the escapement let go. A timber schoolhouse with
-    // big windows, because you cannot teach by lamplight in a region that has no electricity.
-    const wallTop = h * 0.70, ridge = h * 0.92;
-    draw3DBoxAt(ctx, cam, dx, dy, fh * 0.90, 0, wallTop, pal, seed, night, alpha, false);
-    draw3DBoxAt(ctx, cam, dx, dy, fh * 1.02, wallTop, ridge, 'ty_dw_slate', seed + 1, night, alpha, true);
-    // 1) THE WINDOW WALL — three tall lights down the sunny flank, and they are the lighting plan.
+  dw_school(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E, name, board, pal, sign, F, W3, frontVis) {   // THE SCHOOLROOM: a dozen crates facing a slate, and a clock WITH THE
+    // CASE OFF so the class can watch the escapement let go. Plate like the shops, with tall
+    // windows, because you cannot teach by lamplight. The clock's dial is on the outside wall too.
+    const wallTop = h * 0.70, ridge = h * 0.92, yaw = faceYaw(E);
+    nlShell(ctx, cam, dx, dy, fh * 0.90, wallTop, pal, seed, night, alpha, 2);
+    nlRoof(ctx, cam, dx, dy, fh * 1.02, wallTop, ridge, seed + 1, night, alpha);
+    // 1) THE WINDOW WALL: three tall lights down the sunny flank. They are the lighting plan.
     for (const [i, ly] of [[0, -0.42], [1, 0.00], [2, 0.42]]) { const [wx, wy] = F(fh * 0.92, ly * fh);
       draw3DBoxAt(ctx, cam, wx, wy, fh * 0.05, h * 0.22, wallTop * 0.90, 'ty_dw_paint', seed + 4 + i, night, alpha, false); }
-    // 2) THE BELL on a bracket over the door — rung by hand, on a rope, which is how a school
-    //    without a siren starts its day.
-    { const [bx, by] = F(0, fh * 0.94);
+    // 2) THE BELL on a bracket over the door, rung by hand on a rope.
+    { const [bx, by] = F(fh * 0.50, fh * 0.94);
       draw3DBoxAt(ctx, cam, bx, by, fh * 0.03, wallTop * 0.86, wallTop + h * 0.16, 'ty_dw_iron', seed + 10, night, alpha, false);
       drawFacetDrum(ctx, cam, bx, by, wallTop + h * 0.06, wallTop + h * 0.16, fh * 0.09, fh * 0.05, 8, alpha,
         (f) => 'rgb(' + (140 + f.nl * 56 | 0) + ',' + (110 + f.nl * 44 | 0) + ',' + (52 + f.nl * 26 | 0) + ')', 'rgb(96,74,34)'); }
-    // 3) THE STOVE FLUE, and a stack of split wood against the gable with a board over it.
+    // 3) THE STOVE FLUE, and split wood stacked against the gable.
     { const [fx, fy] = F(-fh * 0.36, -fh * 0.40);
       draw3DBoxAt(ctx, cam, fx, fy, fh * 0.07, ridge, ridge + h * 0.22, 'ty_dw_iron', seed + 14, night, alpha, true);
       drawSmoke(ctx, cam, fx, fy, ridge + h * 0.22, '204,198,186', alpha * 0.45, now, seed + 14); }
     { const [wx, wy] = F(-fh * 0.92, fh * 0.30);
       draw3DBoxAt(ctx, cam, wx, wy, fh * 0.16, 0, h * 0.30, 'ty_dw_timber', seed + 18, night, alpha, true); }
-    { const [gx, gy] = F(0, fh * 0.92); draw3DBoxAt(ctx, cam, gx, gy, fh * 0.16, 0, wallTop * 0.58, 'ty_door', seed + 20, night, alpha, true, 0, fh * 0.05); }
+    if (frontVis) {
+      // 4) THE CLOCK, its works open behind a hatch and its dial on the wall above the door.
+      nlGauge(ctx, cam, F, 0, fh * 0.90, wallTop * 0.66, h * 0.18, fh * 0.12, yaw, seed + 22, night, alpha, false);
+      nlHatch(ctx, cam, F, -fh * 0.50, fh * 0.90, fh * 0.09, h * 0.12, h * 0.32, yaw, fh, seed + 26, night, alpha, -1);
+      nlDoor(ctx, cam, F, 0, fh * 0.90, fh * 0.16, wallTop * 0.58, yaw, fh, seed + 20, night, alpha);
+    }
     glowPool(ctx, cam, dx, dy, wallTop * 0.52, '255,206,146', 7, alpha * (night ? 0.30 : 0.12));
   },
-  dw_sleepers(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E, name, board, pal, sign, F, W3, frontVis) {   // THE SLEEPERS — the bunkhouse. Two long rows, beds made, a stove at
-    // EACH end, and it smells of soap and cold iron. So: long and low with two flues rather than
-    // one, and a boot rack and a wash line outside. Made beds are the tell, and the flues carry it.
-    const wallTop = h * 0.64, ridge = h * 0.82;
-    draw3DBoxAt(ctx, cam, dx, dy, fh * 0.84, 0, wallTop, pal, seed, night, alpha, false);
-    draw3DBoxAt(ctx, cam, dx, dy, fh * 0.98, wallTop, ridge, 'ty_dw_slate', seed + 1, night, alpha, true);
-    // 1) A STOVE AT EACH END — two flues, symmetric, both alight. One would be a cottage.
+  dw_sleepers(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E, name, board, pal, sign, F, W3, frontVis) {   // THE SLEEPERS, the bunkhouse. Two long rows, beds made, a stove at EACH
+    // end. Long and low in plate, two flues, a boot rack and a wash line, and the water tank's
+    // level on a dial by the door.
+    const wallTop = h * 0.64, ridge = h * 0.82, yaw = faceYaw(E);
+    nlShell(ctx, cam, dx, dy, fh * 0.84, wallTop, pal, seed, night, alpha, 2);
+    nlRoof(ctx, cam, dx, dy, fh * 0.98, wallTop, ridge, seed + 1, night, alpha, false);
+    // 1) A STOVE AT EACH END: two flues, both alight. One would be a cottage.
     for (const [i, ly] of [[0, -0.66], [1, 0.66]]) { const [fx, fy] = F(0, ly * fh);
       draw3DBoxAt(ctx, cam, fx, fy, fh * 0.07, ridge, ridge + h * 0.24, 'ty_dw_iron', seed + 4 + i, night, alpha, true);
       drawSmoke(ctx, cam, fx, fy, ridge + h * 0.24, '206,200,188', alpha * 0.42, now, seed + 4 + i); }
-    // 2) THE WINDOW ROW — small, high, evenly spaced, and about half of them lit. Half, because
-    //    the works runs shifts and the ones not lit are the ones on gate duty.
+    // 2) THE WINDOW ROW: small, high, evenly spaced, about half lit. The works runs shifts.
     if (frontVis) for (let i = 0; i < 6; i++) { const [wx, wy] = F((-0.62 + i * 0.25) * fh, fh * 0.86);
       if (frac(seed * 6 + i) > 0.5) glowPool(ctx, cam, wx, wy, wallTop * 0.66, '255,198,132', 4, alpha * (night ? 0.36 : 0.10)); }
     // 3) THE BOOT RACK under the eave, and a wash line on two poles behind. Boots OFF at the door.
-    // ⚠ EVERY BOX HERE TAKES A DEPTH. `draw3DBoxAt` with no `fd` is as deep as it is wide, so the
-    //    rack was a 1.4 fh slab, each sheet a cube of canvas and each door a block standing out of
-    //    the wall. And the line is drawn now: the sheets used to hang between the poles from nothing.
-    const yaw = faceYaw(E);
-    { const [bx, by] = F(0, fh * 1.02); draw3DBoxAt(ctx, cam, bx, by, fh * 0.70, 0, h * 0.12, 'ty_dw_timber', seed + 12, night, alpha, true, yaw, fh * 0.06); }
+    // ⚠ EVERY BOX HERE TAKES A DEPTH. `draw3DBoxAt` with no `fd` is as deep as it is wide.
+    { const [bx, by] = F(0, fh * 1.02); draw3DBoxAt(ctx, cam, bx, by, fh * 0.34, 0, h * 0.12, 'ty_dw_timber', seed + 12, night, alpha, true, yaw, fh * 0.06); }
     for (const t of [-1, 1]) { const [px, py] = F(t * fh * 0.86, -fh * 0.92);
-      draw3DBoxAt(ctx, cam, px, py, fh * 0.025, 0, h * 0.56, 'ty_dw_timber', seed + 16 + t, night, alpha, false); }
+      draw3DBoxAt(ctx, cam, px, py, fh * 0.025, 0, h * 0.56, 'ty_dw_iron', seed + 16 + t, night, alpha, false); }
     emitWire(ctx, cam, W3(-fh * 0.86, -fh * 0.92, h * 0.53), W3(fh * 0.86, -fh * 0.92, h * 0.53), 1.2, 'rgba(70,62,52,0.9)', alpha, { pull: 0.02 });
     for (const [i, lx] of [[0, -0.48], [1, -0.06], [2, 0.36]]) { const g = frac(seed * 4 + i);
       const [cx, cy] = F(lx * fh, -fh * 0.92);
       draw3DBoxAt(ctx, cam, cx, cy, fh * 0.16, h * (0.28 - g * 0.06), h * 0.52, 'ty_dw_canvas', seed + 20 + i, night, alpha, false, yaw, fh * 0.008); }
-    for (const t of [-1, 1]) { const [gx, gy] = F(t * fh * 0.56, fh * 0.86);
-      draw3DBoxAt(ctx, cam, gx, gy, fh * 0.14, 0, wallTop * 0.58, 'ty_door', seed + 26 + t, night, alpha, false, yaw, fh * 0.02); }
+    if (frontVis) {
+      for (const t of [-1, 1]) nlDoor(ctx, cam, F, t * fh * 0.56, fh * 0.84, fh * 0.13, wallTop * 0.58, yaw, fh, seed + 26 + t, night, alpha);
+      nlGauge(ctx, cam, F, 0, fh * 0.84, wallTop * 0.30, h * 0.14, fh * 0.08, yaw, seed + 30, night, alpha, false);
+    }
   },
-  dw_reckoning(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E, name, board, pal, sign, F, W3, frontVis) {   // THE RECKONING — one table, four chairs, and every wall covered in the
-    // working for a march across the whole width of the world. It is the most important room in
-    // the region and it is the SMALLEST BUILDING ON THE PLATFORM, which is the point: a squat
-    // windowless stone cell with one door and one flue. No sign. Nothing marks it at all.
-    const wallTop = h * 0.60, cap = h * 0.68;
+  dw_reckoning(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E, name, board, pal, sign, F, W3, frontVis) {   // THE RECKONING: one table, four chairs, and every wall covered in the
+    // working for a march across the width of the world. The most important room in the region is
+    // the SMALLEST BUILDING ON THE PLATFORM: a squat windowless stone cell that was here before
+    // the Null, with their plate door hung in it. No sign. Nothing marks it at all.
+    const wallTop = h * 0.60, cap = h * 0.68, yaw = faceYaw(E);
     draw3DBoxAt(ctx, cam, dx, dy, fh * 0.62, 0, wallTop, pal, seed, night, alpha, false);
     draw3DBoxAt(ctx, cam, dx, dy, fh * 0.70, wallTop, cap, 'ty_dw_stone', seed + 1, night, alpha, true);
-    // 1) ONE small high window on the door side, lit late. The room works after everything else.
-    if (frontVis) { const [wx, wy] = F(fh * 0.20, fh * 0.64);
-      draw3DBoxAt(ctx, cam, wx, wy, fh * 0.10, wallTop * 0.56, wallTop * 0.80, 'ty_dw_slate', seed + 4, night, alpha, false);
+    // 1) ONE small high window on the door side, lit late, behind a plate shutter hooked open.
+    if (frontVis) { const [wx, wy] = F(fh * 0.24, fh * 0.62);
+      draw3DBoxAt(ctx, cam, wx, wy, fh * 0.10, wallTop * 0.56, wallTop * 0.80, 'ty_dw_slate', seed + 4, night, alpha, false, yaw, fh * 0.014);
+      const [sx, sy] = F(fh * 0.46, fh * 0.64);
+      draw3DBoxAt(ctx, cam, sx, sy, fh * 0.10, wallTop * 0.56, wallTop * 0.80, 'ty_dw_iron', seed + 5, night, alpha, false, yaw, fh * 0.012);
       glowPool(ctx, cam, wx, wy, wallTop * 0.68, '255,190,116', 5, alpha * (night ? 0.50 : 0.14)); }
-    // 2) The flue, and a water butt at the corner. That is the entire exterior of the building.
+    // 2) The flue, and a water butt at the corner. That is the whole exterior.
     { const [fx, fy] = F(-fh * 0.18, -fh * 0.24);
       draw3DBoxAt(ctx, cam, fx, fy, fh * 0.06, cap, cap + h * 0.20, 'ty_dw_iron', seed + 8, night, alpha, true);
       drawSmoke(ctx, cam, fx, fy, cap + h * 0.20, '200,194,182', alpha * 0.35, now, seed + 8); }
     { const [bx, by] = F(-fh * 0.56, fh * 0.44);
       drawFacetDrum(ctx, cam, bx, by, 0, h * 0.26, fh * 0.10, fh * 0.10, 8, alpha,
-        (f) => 'rgb(' + (88 + f.nl * 40 | 0) + ',' + (72 + f.nl * 34 | 0) + ',' + (56 + f.nl * 26 | 0) + ')', 'rgb(54,44,34)'); }
-    { const [gx, gy] = F(0, fh * 0.64); draw3DBoxAt(ctx, cam, gx, gy, fh * 0.15, 0, wallTop * 0.62, 'ty_door', seed + 12, night, alpha, true, 0, fh * 0.05); }
+        (f) => 'rgb(' + (78 + f.nl * 40 | 0) + ',' + (80 + f.nl * 40 | 0) + ',' + (78 + f.nl * 36 | 0) + ')', 'rgb(46,48,46)');
+      for (const k of [0.07, 0.20]) drawRing(ctx, cam, bx, by, h * k, fh * 0.105, 8, 'rgba(0,0,0,0.32)', 2, alpha); }
+    if (frontVis) nlDoor(ctx, cam, F, -fh * 0.06, fh * 0.62, fh * 0.15, wallTop * 0.62, yaw, fh, seed + 12, night, alpha);
   },
-  dw_forge(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E, name, board, pal, sign, F, W3, frontVis) {   // THE FORGE — an open-fronted smithy with a HAND-CRANKED BLOWER on the
+  dw_forge(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E, name, board, pal, sign, F, W3, frontVis) {   // THE FORGE: an open-fronted smithy with a HAND-CRANKED BLOWER on the
     // hearth and a DROP HAMMER worked off the overhead line shaft. What comes out is pinned or
-    // bolted and there is not one weld on any of it, because everything here is made to be taken
-    // apart again. The line shaft coming in over the roof is the detail that ties it to the hall.
-    const post = h * 0.88, roof = h * 1.00, stack = h * 1.54;
-    // 1) Open front: a back wall and a roof on posts, so you see straight into the working bay.
-    { const [bx, by] = F(0, -fh * 0.86); draw3DBoxAt(ctx, cam, bx, by, fh * 0.98, 0, post, pal, seed, night, alpha, false); }
+    // bolted, never welded, because everything here is made to be taken apart again.
+    const post = h * 0.88, roof = h * 1.00, stack = h * 1.54, yaw = faceYaw(E);
+    // 1) Open front: a plate back wall in bolted courses and a roof on iron posts, so you see
+    //    straight into the working bay.
+    { const [bx, by] = F(0, -fh * 0.90);
+      draw3DBoxAt(ctx, cam, bx, by, fh * 0.98, 0, post, pal, seed, night, alpha, false, yaw, fh * 0.08);
+      for (const k of [0.33, 0.66]) draw3DBoxAt(ctx, cam, bx, by, fh * 1.0, post * k, post * (k + 0.035), 'ty_dw_turbine_dk', seed + 1, night, alpha, false, yaw, fh * 0.095); }
     for (const tx of [-1, 1]) for (const ly of [-0.20, 0.76]) { const [px, py] = F(tx * fh * 0.86, ly * fh);
-      draw3DBoxAt(ctx, cam, px, py, fh * 0.07, 0, post, 'ty_dw_timber', seed + 2 + tx + ly, night, alpha, false); }
-    draw3DBoxAt(ctx, cam, dx, dy, fh * 1.06, post, roof, 'ty_dw_slate', seed + 8, night, alpha, true);
-    // 2) THE HEARTH and its stack, with the blower's wheel standing off the side of it — a big
-    //    hand wheel is the single most legible 'no motor' object available.
+      draw3DBoxAt(ctx, cam, px, py, fh * 0.05, 0, post, 'ty_dw_iron', seed + 2 + tx + ly, night, alpha, false); }
+    nlRoof(ctx, cam, dx, dy, fh * 1.06, post, roof, seed + 8, night, alpha, false);
+    // 2) THE HEARTH and its stack, with the blower's hand wheel standing off the side of it.
     { const [hx, hy] = F(-fh * 0.44, -fh * 0.30);
       draw3DBoxAt(ctx, cam, hx, hy, fh * 0.28, 0, h * 0.36, 'ty_dw_stone', seed + 10, night, alpha, true);
       draw3DBoxAt(ctx, cam, hx, hy, fh * 0.24, h * 0.36, post, 'ty_dw_iron', seed + 11, night, alpha, false);
       draw3DBoxAt(ctx, cam, hx, hy, fh * 0.11, roof, stack, 'ty_dw_iron', seed + 12, night, alpha, true);
+      draw3DBoxAt(ctx, cam, hx, hy, fh * 0.125, roof + (stack - roof) * 0.5, roof + (stack - roof) * 0.56, 'ty_dw_turbine_dk', seed + 13, night, alpha, false);
       drawSmoke(ctx, cam, hx, hy, stack, '186,178,168', alpha * 0.6, now, seed + 12);
       glowPool(ctx, cam, hx, hy, h * 0.32, '255,128,44', 11, alpha * (night ? 0.70 : 0.28));
       const [bx2, by2] = F(-fh * 0.76, fh * 0.02);
       drawFacetDrum(ctx, cam, bx2, by2, h * 0.22, h * 0.28, fh * 0.20, fh * 0.20, 12, alpha,
         (f) => 'rgb(' + (74 + f.nl * 44 | 0) + ',' + (76 + f.nl * 44 | 0) + ',' + (74 + f.nl * 40 | 0) + ')', 'rgb(46,48,46)'); }
-    // 3) THE DROP HAMMER — a frame with a head hung in it, and the belt going up to the shaft that
+    // 3) THE DROP HAMMER: a frame with a head hung in it, and the belt going up to the shaft that
     //    crosses the roof. The belt is the power cable of this region.
     { const [mx, my] = F(fh * 0.42, -fh * 0.20);
       for (const t of [-1, 1]) { const [lx, ly] = F(fh * (0.42 + t * 0.14), -fh * 0.20);
         draw3DBoxAt(ctx, cam, lx, ly, fh * 0.05, 0, h * 0.94, 'ty_dw_iron', seed + 20 + t, night, alpha, false); }
-      draw3DBoxAt(ctx, cam, mx, my, fh * 0.34, h * 0.94, h * 1.02, 'ty_dw_iron', seed + 24, night, alpha, false);
-      draw3DBoxAt(ctx, cam, mx, my, fh * 0.13, h * 0.44, h * 0.72, 'ty_dw_iron', seed + 25, night, alpha, false);
+      draw3DBoxAt(ctx, cam, mx, my, fh * 0.20, h * 0.94, h * 1.02, 'ty_dw_iron', seed + 24, night, alpha, false, yaw, fh * 0.06);
+      draw3DBoxAt(ctx, cam, mx, my, fh * 0.10, h * 0.44, h * 0.72, 'ty_dw_turbine_dk', seed + 25, night, alpha, false);
       draw3DBoxAt(ctx, cam, mx, my, fh * 0.04, h * 1.02, roof + h * 0.16, 'ty_dw_belt', seed + 26, night, alpha, false, 0.10); }
-    draw3DBoxAt(ctx, cam, dx, dy, fh * 0.04, roof + h * 0.14, roof + h * 0.19, 'ty_dw_iron', seed + 30, night, alpha, false);
-    // 4) THE QUENCH TROUGH with a skin on it, and the finished rack: everything pinned, no welds.
+    emitWire(ctx, cam, W3(-fh * 1.0, 0, roof + h * 0.165), W3(fh * 1.0, 0, roof + h * 0.165), 2.4, 'rgba(58,60,58,0.95)', alpha, { pull: 0.02 });
+    for (const t of [-1, 1]) { const [px, py] = F(t * fh * 0.70, 0);
+      draw3DBoxAt(ctx, cam, px, py, fh * 0.05, roof + h * 0.03, roof + h * 0.19, 'ty_dw_brass', seed + 30 + t, night, alpha, true); }
+    // 4) THE QUENCH TROUGH, and the finished rack: everything pinned, no welds, each tagged.
     { const [qx, qy] = F(fh * 0.10, fh * 0.60);
-      draw3DBoxAt(ctx, cam, qx, qy, fh * 0.22, 0, h * 0.14, 'ty_dw_iron', seed + 34, night, alpha, true); }
+      draw3DBoxAt(ctx, cam, qx, qy, fh * 0.22, 0, h * 0.14, 'ty_dw_iron', seed + 34, night, alpha, true, yaw, fh * 0.10); }
     { const [rx, ry] = F(fh * 0.80, fh * 0.40);
-      draw3DBoxAt(ctx, cam, rx, ry, fh * 0.14, h * 0.20, h * 0.56, 'ty_dw_timber', seed + 36, night, alpha, true); }
+      draw3DBoxAt(ctx, cam, rx, ry, fh * 0.14, h * 0.20, h * 0.56, 'ty_dw_iron', seed + 36, night, alpha, true, yaw, fh * 0.05);
+      draw3DBoxAt(ctx, cam, rx, ry, fh * 0.05, h * 0.58, h * 0.64, 'ty_dw_paint', seed + 37, night, alpha, false, yaw, fh * 0.02); }
+    // 5) THE BLAST GAUGE on a post at the front of the bay, where the striker can see it.
+    nlGauge(ctx, cam, F, -fh * 0.86, fh * 0.80, h * 0.42, h * 0.16, fh * 0.08, yaw, seed + 40, night, alpha, true);
   },
-  dw_winding(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E, name, board, pal, sign, F, W3, frontVis) {   // THE WINDING SHOP — coils of enamelled wire on spindles overhead feeding
-    // down to FOUR WINDING JIGS TURNED BY HAND. The old windings are kept, stripped, because the
-    // copper is the point. So: a long bench shed with a spindle rack across the front and a copper
-    // bin outside, and the only bright colour anywhere in the region is that bin.
-    const wallTop = h * 0.72, ridge = h * 0.86;
-    draw3DBoxAt(ctx, cam, dx, dy, fh * 0.92, 0, wallTop, pal, seed, night, alpha, false);
-    draw3DBoxAt(ctx, cam, dx, dy, fh * 1.04, wallTop, ridge, 'ty_dw_slate', seed + 1, night, alpha, true);
-    // 1) THE SPINDLE RACK — six wire drums on a rail across the front under the eave, graded.
-    for (let i = 0; i < 6; i++) { const [sx, sy] = F((-0.62 + i * 0.25) * fh, fh * 0.94);
+  dw_winding(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E, name, board, pal, sign, F, W3, frontVis) {   // THE WINDING SHOP: coils of enamelled wire on spindles feeding down to
+    // FOUR WINDING JIGS TURNED BY HAND. The old windings are kept, stripped, because the copper is
+    // the point. A long plate bench shed with a spindle rack across the front and a copper bin
+    // outside, the one bright colour in the works.
+    const wallTop = h * 0.72, ridge = h * 0.86, yaw = faceYaw(E);
+    nlShell(ctx, cam, dx, dy, fh * 0.92, wallTop, pal, seed, night, alpha, 2);
+    nlRoof(ctx, cam, dx, dy, fh * 1.04, wallTop, ridge, seed + 1, night, alpha);
+    // 1) THE SPINDLE RACK: six wire drums on a rail across the front under the eave, graded.
+    for (let i = 0; i < 6; i++) { const [sx, sy] = F((-0.62 + i * 0.25) * fh, fh * 0.98);
       drawFacetDrum(ctx, cam, sx, sy, wallTop * 0.62, wallTop * 0.82, fh * 0.09, fh * 0.09, 9, alpha,
         (f) => 'rgb(' + (134 + f.nl * 54 | 0) + ',' + (84 + f.nl * 38 | 0) + ',' + (46 + f.nl * 24 | 0) + ')', 'rgb(88,56,30)'); }
-    draw3DBoxAt(ctx, cam, dx, dy, fh * 0.98, wallTop * 0.84, wallTop * 0.88, 'ty_dw_iron', seed + 8, night, alpha, false);
-    // 2) THE WINDOW BENCH — one long light down the front, because winding is close work and the
-    //    only light in Deadwater that is any good is daylight.
-    if (frontVis) { const [wx, wy] = F(0, fh * 0.90);
-      draw3DBoxAt(ctx, cam, wx, wy, fh * 0.70, wallTop * 0.24, wallTop * 0.56, 'ty_dw_paint', seed + 10, night, alpha, true, 0, fh * 0.05);
-      glowPool(ctx, cam, wx, wy, wallTop * 0.42, '255,204,140', 8, alpha * (night ? 0.38 : 0.12)); }
-    // 3) THE COPPER BIN outside — stripped old windings, kept. Warm-toned and deliberately the
-    //    brightest object in the works.
+    emitWire(ctx, cam, W3(-fh * 0.80, fh * 0.98, wallTop * 0.86), W3(fh * 0.80, fh * 0.98, wallTop * 0.86), 2, 'rgba(58,60,58,0.95)', alpha, { pull: 0.02 });
+    // 2) THE WINDOW BENCH: one long light down the front, because winding is close work.
+    if (frontVis) { const [wx, wy] = F(fh * 0.14, fh * 0.92);
+      draw3DBoxAt(ctx, cam, wx, wy, fh * 0.52, wallTop * 0.26, wallTop * 0.54, 'ty_dw_paint', seed + 10, night, alpha, false, yaw, fh * 0.016);
+      glowPool(ctx, cam, wx, wy, wallTop * 0.42, '255,204,140', 8, alpha * (night ? 0.38 : 0.12));
+      nlDoor(ctx, cam, F, -fh * 0.64, fh * 0.92, fh * 0.14, wallTop * 0.56, yaw, fh, seed + 20, night, alpha); }
+    // 3) THE COPPER BIN outside: stripped old windings, kept, and weighed in on the tag.
     { const [bx, by] = F(fh * 0.90, fh * 0.50);
       draw3DBoxAt(ctx, cam, bx, by, fh * 0.20, 0, h * 0.22, 'ty_dw_iron', seed + 14, night, alpha, false);
       draw3DBoxAt(ctx, cam, bx, by, fh * 0.17, h * 0.22, h * 0.32, 'ty_dw_coal', seed + 15, night, alpha, true); }
-    { const [gx, gy] = F(-fh * 0.62, fh * 0.90); draw3DBoxAt(ctx, cam, gx, gy, fh * 0.15, 0, wallTop * 0.56, 'ty_door', seed + 20, night, alpha, true, 0, fh * 0.05); }
+    // 4) An inspection hatch in the end wall, where the shaft's belt comes in.
+    { const [ex, ey] = F(-fh * 0.92, -fh * 0.20);
+      draw3DBoxAt(ctx, cam, ex, ey, fh * 0.03, h * 0.14, h * 0.40, 'ty_dw_brass', seed + 24, night, alpha, false, yaw, fh * 0.14);
+      const [cx, cy] = F(-fh * 1.00, fh * 0.16);
+      draw3DBoxAt(ctx, cam, cx, cy, fh * 0.02, 0, h * 0.28, 'ty_dw_iron', seed + 25, night, alpha, true, yaw + 0.14, fh * 0.12); }
   },
-  dw_tally(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E, name, board, pal, sign, F, W3, frontVis) {   // THE TALLY — the middle of the works, and it is a SWEPT YARD with a roofed
-    // board at one end, not a building. The board carries the week in chalk, ruled off in columns
-    // with a straight edge. Everything in this arm is low, so it never blocks the sight line across
-    // the platform: the Tally is a place you look ACROSS, and a mass in the middle would ruin it.
-    const boardZ0 = h * 0.34, boardZ1 = h * 0.92, roof = h * 1.02;
-    // 1) THE SWEPT YARD — a graded apron, and it is swept, which is why it is drawn at all.
+  dw_tally(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E, name, board, pal, sign, F, W3, frontVis) {   // THE TALLY, the middle of the works: a SWEPT YARD with a hooded board at
+    // one end, not a building. The board carries the week in chalk, ruled in columns, with the
+    // number at the bottom. Everything here is low, so the yard is a place you look ACROSS.
+    const boardZ0 = h * 0.30, boardZ1 = h * 0.92, roof = h * 1.02, yaw = faceYaw(E);
+    // 1) THE SWEPT YARD: a graded apron, and it is swept, which is why it is drawn at all.
     draw3DBoxAt(ctx, cam, dx, dy, fh * 1.24, 0, h * 0.03, 'ty_dw_stone', seed, night, alpha, true);
-    // 2) THE BOARD, at ONE END, under its own little roof so the chalk keeps. Two posts, a slate
-    //    face and a boarded pediment — the most-read object in the region.
-    for (const t of [-1, 1]) { const [px, py] = F(t * fh * 0.54, -fh * 0.86);
-      draw3DBoxAt(ctx, cam, px, py, fh * 0.06, 0, roof, 'ty_dw_timber', seed + 2 + t, night, alpha, false); }
-    // ⚠ THE BOARD IS A BOARD: thin (`fd`), facing the yard, under a hood that oversails it, and the
-    //    benches run down the sides. With no depth the board and its roof were 1.1 fh square blocks.
-    const yaw = faceYaw(E);
-    { const [bx, by] = F(0, -fh * 0.86);
-      draw3DBoxAt(ctx, cam, bx, by, fh * 0.56, boardZ0, boardZ1, pal, seed + 6, night, alpha, false, yaw, fh * 0.03);
-      { const [hx, hy] = F(0, -fh * 0.80); draw3DBoxAt(ctx, cam, hx, hy, fh * 0.66, boardZ1, roof, 'ty_dw_timber', seed + 7, night, alpha, true, yaw, fh * 0.12); }
-      // A hooded oil lamp on the board's own roof, aimed down at it. The one thing lit after dark.
-      const [gx, gy] = F(0, -fh * 0.78);
-      glowPool(ctx, cam, gx, gy, boardZ1, '255,196,120', 7, alpha * (night ? 0.52 : 0.14)); }
-    // 3) BENCHES DOWN BOTH SIDES — people wait here, and the benches are what make it a yard
-    //    rather than a gap between sheds.
+    // 2) THE BOARD at one end, on two iron posts under a plate hood. The most-read object in the
+    //    region. ⚠ It is thin (`fd`) and faces the yard.
+    for (const t of [-1, 1]) { const [px, py] = F(t * fh * 0.62, -fh * 0.86);
+      draw3DBoxAt(ctx, cam, px, py, fh * 0.05, 0, roof, 'ty_dw_iron', seed + 2 + t, night, alpha, false); }
+    nlTally(ctx, cam, F, 0, -fh * 0.86, fh * 0.56, boardZ0, boardZ1, yaw, fh, seed + 6, night, alpha, 9);
+    { const [hx, hy] = F(0, -fh * 0.80); draw3DBoxAt(ctx, cam, hx, hy, fh * 0.70, boardZ1, roof, 'ty_dw_turbine_dk', seed + 7, night, alpha, true, yaw, fh * 0.14); }
+    // A hooded oil lamp under the board's roof, aimed down at it. The one thing lit after dark.
+    { const [gx, gy] = F(0, -fh * 0.74); nlLamp(ctx, cam, gx, gy, boardZ1 - h * 0.08, h * 0.07, fh, seed + 9, night, alpha); }
+    // 3) BENCHES DOWN BOTH SIDES. People wait here, and the benches make it a yard.
     for (const t of [-1, 1]) { const [nx, ny] = F(t * fh * 0.86, fh * 0.16);
       draw3DBoxAt(ctx, cam, nx, ny, fh * 0.08, h * 0.08, h * 0.16, 'ty_dw_timber', seed + 12 + t, night, alpha, true, yaw, fh * 0.40); }
+    // 4) THE WORKS CLOCK on a post at the open end: a dial, and its weight case standing open.
+    nlGauge(ctx, cam, F, fh * 0.70, fh * 0.90, h * 0.56, h * 0.22, fh * 0.12, yaw, seed + 16, night, alpha, true);
   },
-  dw_standpipe(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E, name, board, pal, sign, F, W3, frontVis) {   // THE STANDPIPE — the works' water: a CAST COLUMN with four taps round
-    // it and a stone trough beneath, fed off the tailrace through a sand bed you can see the top
-    // of. A tin cup hangs on a chain. It is one object, and it is the most public one here.
-    const col = h * 0.96;
-    // 1) The stone apron and the trough — worn, and standing water in it.
+  dw_standpipe(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E, name, board, pal, sign, F, W3, frontVis) {   // THE STANDPIPE, the works' water: a CAST COLUMN with four taps round it
+    // and a stone trough beneath, fed off the tailrace through a sand bed you can see the top of,
+    // with the main's pressure on a dial at the head of the column.
+    const col = h * 0.96, yaw = faceYaw(E);
+    // 1) The stone apron and the trough, worn, with standing water in it.
     draw3DBoxAt(ctx, cam, dx, dy, fh * 1.00, 0, h * 0.04, 'ty_dw_stone', seed, night, alpha, true);
     draw3DBoxAt(ctx, cam, dx, dy, fh * 0.56, h * 0.04, h * 0.20, 'ty_dw_stone', seed + 1, night, alpha, true);
     draw3DBoxAt(ctx, cam, dx, dy, fh * 0.46, h * 0.16, h * 0.19, 'ty_sw_water', seed + 2, night, alpha, true);
-    // 2) THE COLUMN — cast, fluted, with a moulded cap. A piece of civic ironmongery, cared for.
+    // 2) THE COLUMN: cast in three flanged lengths, with a moulded cap.
     drawFacetDrum(ctx, cam, dx, dy, h * 0.20, col, fh * 0.13, fh * 0.10, 10, alpha,
       (f) => 'rgb(' + (74 + f.nl * 44 | 0) + ',' + (76 + f.nl * 44 | 0) + ',' + (74 + f.nl * 42 | 0) + ')', 'rgb(46,48,46)');
     drawFacetDrum(ctx, cam, dx, dy, col, col + h * 0.10, fh * 0.17, fh * 0.06, 10, alpha,
       (f) => 'rgb(' + (80 + f.nl * 46 | 0) + ',' + (82 + f.nl * 46 | 0) + ',' + (80 + f.nl * 44 | 0) + ')', 'rgb(50,52,50)');
-    drawRing(ctx, cam, dx, dy, h * 0.30, fh * 0.135, 10, 'rgba(0,0,0,0.30)', 2, alpha);
+    for (const k of [0.30, 0.46, 0.72]) drawRing(ctx, cam, dx, dy, h * k, fh * 0.135, 10, 'rgba(0,0,0,0.32)', 2, alpha);
     // 3) FOUR TAPS, one to each quarter. Four, because the whole works drinks here at once.
     for (const [tx, ty] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const [qx, qy] = F(tx * fh * 0.17, ty * fh * 0.17);
       draw3DBoxAt(ctx, cam, qx, qy, fh * 0.05, h * 0.52, h * 0.60, 'ty_dw_brass', seed + 10 + tx + ty * 2, night, alpha, false); }
-    // 4) THE SAND BED beside it, open to view — you can see the top of it, which is the region's
-    //    covers-off rule applied to the water supply.
+    // 4) THE PRESSURE DIAL on a branch off the column, facing the front.
+    nlGauge(ctx, cam, F, 0, fh * 0.20, h * 0.70, h * 0.16, fh * 0.08, yaw, seed + 16, night, alpha, false);
+    // 5) THE SAND BED beside it, open to view, its plate cover on edge against the kerb.
     { const [sx, sy] = F(-fh * 0.74, -fh * 0.52);
       draw3DBoxAt(ctx, cam, sx, sy, fh * 0.28, 0, h * 0.14, 'ty_dw_stone', seed + 20, night, alpha, true);
-      draw3DBoxAt(ctx, cam, sx, sy, fh * 0.24, h * 0.14, h * 0.18, 'ty_fallow_canvas', seed + 21, night, alpha, true); }
+      draw3DBoxAt(ctx, cam, sx, sy, fh * 0.24, h * 0.14, h * 0.18, 'ty_fallow_canvas', seed + 21, night, alpha, true);
+      const [cx, cy] = F(-fh * 0.74, -fh * 0.18);
+      draw3DBoxAt(ctx, cam, cx, cy, fh * 0.24, 0, h * 0.26, 'ty_dw_iron', seed + 22, night, alpha, true, yaw + 0.14, fh * 0.02); }
   },
-  dw_stores(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E, name, board, pal, sign, F, W3, frontVis) {   // THE STORES — the most orderly room in the region: racked steel shelving,
+  dw_stores(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E, name, board, pal, sign, F, W3, frontVis) {   // THE STORES, the most orderly room in the region: racked shelving,
     // fasteners by thread and length, bar stock standing in bins by section, and a card index by
-    // the door. NOTHING IS LOCKED. So the doors are open, and the racking is visible THROUGH them —
-    // an unlocked stores in a region that is planning a war is the whole faction in one building.
-    const wallTop = h * 0.86, ridge = h * 0.98;
-    draw3DBoxAt(ctx, cam, dx, dy, fh * 1.00, 0, wallTop, pal, seed, night, alpha, false);
-    draw3DBoxAt(ctx, cam, dx, dy, fh * 1.08, wallTop, ridge, 'ty_dw_slate', seed + 1, night, alpha, true);
-    // 1) THE OPEN DOORWAY — a wide gap, no shutter, no door leaf, no hasp. Deliberately no
-    //    'ty_door' box: this building's argument is the absence of one.
-    if (frontVis) { const [gx, gy] = F(0, fh * 0.98);
-      draw3DBoxAt(ctx, cam, gx, gy, fh * 0.44, 0, wallTop * 0.76, 'ty_dw_slate', seed + 2, night, alpha, true, 0, fh * 0.05);
-      // 2) THE RACKING seen through it — three bays of shelf receding into the dark.
-      for (const [i, ly] of [[0, 0.84], [1, 0.58], [2, 0.32]]) { const [rx, ry] = F(0, ly * fh);
-        draw3DBoxAt(ctx, cam, rx, ry, fh * 0.40, wallTop * (0.20 + i * 0.04), wallTop * (0.26 + i * 0.04), 'ty_dw_iron', seed + 6 + i, night, alpha, true, 0, fh * 0.04); }
-      glowPool(ctx, cam, gx, gy, wallTop * 0.40, '255,192,120', 6, alpha * (night ? 0.34 : 0.12)); }
-    // 3) BAR STOCK STANDING IN BINS outside the end wall, by section — round, square, flat. Upright
-    //    and sorted, which is the difference between a stores and a scrapyard.
-    for (const [i, ly] of [[0, -0.30], [1, 0.06], [2, 0.42]]) { const [bx, by] = F(-fh * 0.94, ly * fh);
-      draw3DBoxAt(ctx, cam, bx, by, fh * 0.09, 0, h * (0.62 + i * 0.08), 'ty_dw_iron', seed + 14 + i, night, alpha, false); }
-    // 4) A ventilator on the ridge, turning on the wind, and the slate by the exit for what you took.
+    // the door. NOTHING IS LOCKED. The doorway has no leaf, and the racking shows through it.
+    const wallTop = h * 0.86, ridge = h * 0.98, yaw = faceYaw(E);
+    nlShell(ctx, cam, dx, dy, fh * 1.00, wallTop, pal, seed, night, alpha, 3);
+    nlRoof(ctx, cam, dx, dy, fh * 1.08, wallTop, ridge, seed + 1, night, alpha, false);
+    // 1) THE OPEN DOORWAY: a wide gap in a brass-edged frame, no shutter, no leaf, no hasp.
+    if (frontVis) { const [gx, gy] = F(0, fh * 1.00);
+      draw3DBoxAt(ctx, cam, gx, gy, fh * 0.48, 0, wallTop * 0.80, 'ty_dw_brass', seed + 2, night, alpha, false, yaw, fh * 0.012);
+      draw3DBoxAt(ctx, cam, gx, gy, fh * 0.44, 0, wallTop * 0.76, 'ty_dw_slate', seed + 3, night, alpha, false, yaw, fh * 0.018);
+      // 2) THE RACKING seen through it: three shelves, each with its label strip.
+      for (const i of [0, 1, 2]) {
+        draw3DBoxAt(ctx, cam, gx, gy, fh * 0.40, wallTop * (0.18 + i * 0.18), wallTop * (0.22 + i * 0.18), 'ty_dw_iron', seed + 6 + i, night, alpha, false, yaw, fh * 0.024);
+        draw3DBoxAt(ctx, cam, gx, gy, fh * 0.34, wallTop * (0.225 + i * 0.18), wallTop * (0.245 + i * 0.18), 'ty_dw_paint', seed + 9 + i, night, alpha, false, yaw, fh * 0.026); }
+      glowPool(ctx, cam, gx, gy, wallTop * 0.40, '255,192,120', 6, alpha * (night ? 0.34 : 0.12));
+      // 3) THE INDEX by the door: what went out, who took it, in chalk.
+      nlTally(ctx, cam, F, fh * 0.72, fh * 1.00, fh * 0.16, wallTop * 0.30, wallTop * 0.62, yaw, fh, seed + 24, night, alpha, 4); }
+    // 4) BAR STOCK STANDING IN BINS outside the end wall, by section. Upright and sorted, which is
+    //    the difference between a stores and a scrapyard.
+    for (const [i, ly] of [[0, -0.30], [1, 0.06], [2, 0.42]]) { const [bx, by] = F(-fh * 0.98, ly * fh);
+      draw3DBoxAt(ctx, cam, bx, by, fh * 0.09, 0, h * (0.62 + i * 0.08), 'ty_dw_iron', seed + 14 + i, night, alpha, false);
+      draw3DBoxAt(ctx, cam, bx, by, fh * 0.10, h * 0.10, h * 0.15, 'ty_dw_paint', seed + 17 + i, night, alpha, false); }
+    // 5) A ventilator on the ridge, turning on the wind.
     { const [vx, vy] = F(fh * 0.34, -fh * 0.20);
       drawFacetDrum(ctx, cam, vx, vy, ridge, ridge + h * 0.12, fh * 0.10, fh * 0.12, 9, alpha,
         (f) => 'rgb(' + (84 + f.nl * 44 | 0) + ',' + (86 + f.nl * 44 | 0) + ',' + (84 + f.nl * 42 | 0) + ')', 'rgb(52,54,52)'); }
-    { const [sx, sy] = F(fh * 0.42, fh * 0.98);
-      draw3DBoxAt(ctx, cam, sx, sy, fh * 0.16, wallTop * 0.32, wallTop * 0.56, 'ty_dw_slate', seed + 24, night, alpha, true, 0, fh * 0.03); }
   },
-  dw_surgery(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E, name, board, pal, sign, F, W3, frontVis) {   // THE SURGERY — a scrubbed table, instruments laid out on cloth in order of
-    // size, and a HAND-CRANKED DRILL on a stand. On a shelf behind, four finished limbs in plain
-    // steel. It is a limb shop, and the region does not pretend otherwise: the building is
-    // lime-washed white, which nothing else here is, and that is the whole exterior statement.
-    const wallTop = h * 0.78, ridge = h * 0.90;
-    draw3DBoxAt(ctx, cam, dx, dy, fh * 0.88, 0, wallTop, pal, seed, night, alpha, false);
-    draw3DBoxAt(ctx, cam, dx, dy, fh * 0.98, wallTop, ridge, 'ty_dw_slate', seed + 1, night, alpha, true);
-    // 1) THE ROOFLIGHT — a raised glazed lantern along the ridge, because you cannot operate by
-    //    lamplight and there is no other way to get light into the middle of a room here.
-    { const [lx, ly] = F(0, 0);
-      draw3DBoxAt(ctx, cam, lx, ly, fh * 0.36, ridge, ridge + h * 0.16, 'ty_dw_paint', seed + 4, night, alpha, true);
-      glowPool(ctx, cam, lx, ly, ridge + h * 0.10, '236,240,232', 8, alpha * (night ? 0.30 : 0.14)); }
-    // 2) THE WASH — a tank on the gable with a pipe down to a scrub sink outside the door. Washing
-    //    is the visible half of surgery and it is the half you can put on the outside of a building.
+  dw_surgery(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E, name, board, pal, sign, F, W3, frontVis) {   // THE SURGERY: a scrubbed table, instruments laid out by size, and a
+    // HAND-CRANKED DRILL on a stand. It is a limb shop and does not pretend otherwise. The plate
+    // is painted white over its courses, which nothing else here is.
+    const wallTop = h * 0.78, ridge = h * 0.90, yaw = faceYaw(E);
+    nlShell(ctx, cam, dx, dy, fh * 0.88, wallTop, pal, seed, night, alpha, 2);
+    nlRoof(ctx, cam, dx, dy, fh * 0.98, wallTop, ridge, seed + 1, night, alpha, false);
+    // 1) THE ROOFLIGHT: a raised glazed lantern along the ridge, because you cannot operate by
+    //    lamplight.
+    { draw3DBoxAt(ctx, cam, dx, dy, fh * 0.36, ridge, ridge + h * 0.16, 'ty_dw_paint', seed + 4, night, alpha, true);
+      draw3DBoxAt(ctx, cam, dx, dy, fh * 0.37, ridge + h * 0.07, ridge + h * 0.09, 'ty_dw_iron', seed + 5, night, alpha, false);
+      glowPool(ctx, cam, dx, dy, ridge + h * 0.10, '236,240,232', 8, alpha * (night ? 0.30 : 0.14)); }
+    // 2) THE WASH: a tank on the gable with its level on a dial, and a brass pipe down to a scrub
+    //    sink outside the door.
     { const [tx, ty] = F(-fh * 0.66, -fh * 0.40);
       drawFacetDrum(ctx, cam, tx, ty, wallTop, wallTop + h * 0.24, fh * 0.15, fh * 0.15, 9, alpha,
         (f) => 'rgb(' + (150 + f.nl * 56 | 0) + ',' + (152 + f.nl * 56 | 0) + ',' + (146 + f.nl * 52 | 0) + ')', 'rgb(100,102,98)');
+      for (const k of [0.04, 0.20]) drawRing(ctx, cam, tx, ty, wallTop + h * k, fh * 0.155, 9, 'rgba(0,0,0,0.30)', 2, alpha);
       draw3DBoxAt(ctx, cam, tx, ty, fh * 0.03, h * 0.42, wallTop, 'ty_dw_brass', seed + 10, night, alpha, false);
-      const [sx, sy] = F(-fh * 0.66, fh * 0.30);
-      draw3DBoxAt(ctx, cam, sx, sy, fh * 0.16, h * 0.30, h * 0.42, 'ty_dw_paint', seed + 12, night, alpha, true); }
-    // 3) A CLEAN WINDOW either side of the door, and the door itself painted the same white.
-    if (frontVis) for (const t of [-1, 1]) { const [wx, wy] = F(t * fh * 0.38, fh * 0.90);
-      draw3DBoxAt(ctx, cam, wx, wy, fh * 0.16, wallTop * 0.34, wallTop * 0.72, 'ty_dw_slate', seed + 16 + t, night, alpha, true, 0, fh * 0.04);
-      glowPool(ctx, cam, wx, wy, wallTop * 0.54, '255,214,158', 5, alpha * (night ? 0.40 : 0.12)); }
-    { const [gx, gy] = F(0, fh * 0.90); draw3DBoxAt(ctx, cam, gx, gy, fh * 0.16, 0, wallTop * 0.60, 'ty_dw_paint', seed + 20, night, alpha, true, 0, fh * 0.05); }
+      const [sx, sy] = F(-fh * 0.66, fh * 0.94);
+      draw3DBoxAt(ctx, cam, sx, sy, fh * 0.12, h * 0.26, h * 0.36, 'ty_dw_paint', seed + 12, night, alpha, true, yaw, fh * 0.06); }
+    // 3) A CLEAN WINDOW either side of the door, and the door painted the same white.
+    if (frontVis) {
+      for (const t of [-1, 1]) { const [wx, wy] = F(t * fh * 0.38, fh * 0.88);
+        draw3DBoxAt(ctx, cam, wx, wy, fh * 0.13, wallTop * 0.36, wallTop * 0.70, 'ty_dw_slate', seed + 16 + t, night, alpha, false, yaw, fh * 0.016);
+        glowPool(ctx, cam, wx, wy, wallTop * 0.54, '255,214,158', 5, alpha * (night ? 0.40 : 0.12)); }
+      nlDoor(ctx, cam, F, 0, fh * 0.88, fh * 0.15, wallTop * 0.60, yaw, fh, seed + 20, night, alpha, 'ty_dw_paint');
+      nlGauge(ctx, cam, F, fh * 0.70, fh * 0.88, wallTop * 0.42, h * 0.14, fh * 0.07, yaw, seed + 24, night, alpha, false); }
   },
-  dw_gauge(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E, name, board, pal, sign, F, W3, frontVis) {   // THE GAUGE HOUSE — a stone hut on the dam's east shoulder: one room, one
-    // window, one chair. A float on a wire goes down a pipe to the water and up to a DRUM OF PAPER
-    // on the wall, and a pen draws the level as the drum turns, driven by a weight on a cord that
-    // somebody winds every day. That weight is the model: an instrument powered by gravity.
-    const wallTop = h * 0.64, ridge = h * 0.80;
+  dw_gauge(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E, name, board, pal, sign, F, W3, frontVis) {   // THE GAUGE HOUSE: a stone hut on the dam's east shoulder, older than the
+    // Null. A float on a wire goes down a pipe to the water and up to a DRUM OF PAPER, and a pen
+    // draws the level as the drum turns, driven by a weight somebody winds every day. They added
+    // the dial on the wall, so the level reads from the dam without going in.
+    const wallTop = h * 0.64, ridge = h * 0.80, yaw = faceYaw(E);
     draw3DBoxAt(ctx, cam, dx, dy, fh * 0.58, 0, wallTop, pal, seed, night, alpha, false);
     draw3DBoxAt(ctx, cam, dx, dy, fh * 0.68, wallTop, ridge, 'ty_dw_slate', seed + 1, night, alpha, true);
-    // 1) THE FLOAT PIPE — a stack going down through the shoulder to the water, with its head
-    //    box on the outside wall so the mechanism is inspectable without going in.
+    // 1) THE FLOAT PIPE: a flanged stack going down through the shoulder to the water, with its
+    //    head box on the outside wall and the cover off, on edge beside it.
     { const [px, py] = F(fh * 0.52, -fh * 0.30);
       draw3DBoxAt(ctx, cam, px, py, fh * 0.09, 0, wallTop * 0.86, 'ty_dw_iron', seed + 4, night, alpha, false);
-      draw3DBoxAt(ctx, cam, px, py, fh * 0.15, wallTop * 0.86, wallTop * 1.02, 'ty_dw_iron', seed + 5, night, alpha, true);
-      // The cover, off, on edge against the wall beside it. The region's signature detail.
+      for (const k of [0.28, 0.56]) draw3DBoxAt(ctx, cam, px, py, fh * 0.105, wallTop * k, wallTop * (k + 0.04), 'ty_dw_turbine_dk', seed + 5, night, alpha, false);
+      draw3DBoxAt(ctx, cam, px, py, fh * 0.15, wallTop * 0.86, wallTop * 1.02, 'ty_dw_brass', seed + 6, night, alpha, true);
       const [cx, cy] = F(fh * 0.52, fh * 0.10);
-      draw3DBoxAt(ctx, cam, cx, cy, fh * 0.12, 0, h * 0.30, 'ty_dw_iron', seed + 6, night, alpha, false, 0.16); }
-    // 2) ONE WINDOW, facing the water, and a chair-height sill. It is a place somebody sits.
-    if (frontVis) { const [wx, wy] = F(0, fh * 0.60);
-      draw3DBoxAt(ctx, cam, wx, wy, fh * 0.20, wallTop * 0.40, wallTop * 0.78, 'ty_dw_slate', seed + 10, night, alpha, true, 0, fh * 0.04);
-      glowPool(ctx, cam, wx, wy, wallTop * 0.60, '255,196,124', 5, alpha * (night ? 0.44 : 0.14)); }
-    // 3) THE GAUGE BOARD on the outside wall — a painted staff with the levels marked, and one
-    //    ringed in white where the water stands today.
+      draw3DBoxAt(ctx, cam, cx, cy, fh * 0.12, 0, h * 0.30, 'ty_dw_iron', seed + 7, night, alpha, false, yaw + 0.16, fh * 0.02); }
+    // 2) ONE WINDOW, facing the water, and THE DIAL beside it: the lake's level, a hand's width
+    //    across, the one instrument in the region everybody reads.
+    if (frontVis) { const [wx, wy] = F(-fh * 0.30, fh * 0.58);
+      draw3DBoxAt(ctx, cam, wx, wy, fh * 0.14, wallTop * 0.40, wallTop * 0.78, 'ty_dw_slate', seed + 10, night, alpha, false, yaw, fh * 0.016);
+      glowPool(ctx, cam, wx, wy, wallTop * 0.60, '255,196,124', 5, alpha * (night ? 0.44 : 0.14));
+      nlGauge(ctx, cam, F, fh * 0.30, fh * 0.58, wallTop * 0.50, h * 0.24, fh * 0.13, yaw, seed + 12, night, alpha, false);
+      nlDoor(ctx, cam, F, 0, fh * 0.58, fh * 0.11, wallTop * 0.60, yaw, fh, seed + 18, night, alpha); }
+    // 3) THE GAUGE BOARD on the outside wall: a painted staff with the levels marked.
     { const [bx, by] = F(-fh * 0.60, fh * 0.16);
-      draw3DBoxAt(ctx, cam, bx, by, fh * 0.05, 0, h * 0.92, 'ty_dw_paint', seed + 14, night, alpha, false); }
-    { const [gx, gy] = F(0, fh * 0.60); draw3DBoxAt(ctx, cam, gx, gy, fh * 0.13, 0, wallTop * 0.60, 'ty_door', seed + 18, night, alpha, true, 0, fh * 0.04); }
+      draw3DBoxAt(ctx, cam, bx, by, fh * 0.05, 0, h * 0.92, 'ty_dw_paint', seed + 14, night, alpha, false);
+      for (const k of [0.22, 0.44, 0.66]) draw3DBoxAt(ctx, cam, bx, by, fh * 0.055, h * k, h * (k + 0.02), 'ty_dw_slate', seed + 15, night, alpha, false); }
   },
   signalbox(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E, name, board, pal, sign, F, W3, frontVis) {   // TRACK MARKS FREIGHT — a dead railway SIGNAL BOX at the top of the cut:
     // three storeys of rusted lever frame, the windows knocked out and replaced by freight

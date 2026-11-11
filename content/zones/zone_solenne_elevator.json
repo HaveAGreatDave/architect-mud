@@ -1,23 +1,23 @@
 {
   "ambient_events": [
-    "The floor-number display ticks smoothly upward and resettles.",
-    "A note of piped strings, so quiet it might be imagined, threads the car."
+    "The amber read-out changes floor and stops.",
+    "The car hums quietly somewhere above the ceiling panel."
   ],
   "ambient_theme": "indoors",
   "bg_color": "#2c2c38",
   "color": "#eae1cf",
-  "description": "The car is a jewel-box of mirror-bronze and hand-rubbed walnut, a bench of oxblood leather along the back wall and a single orchid on a shelf that's replaced before it can ever wilt. A brushed panel of lit buttons glows beside the door, and a small screen overhead reads SOLENNE and the car's drifting position. Step <b>out</b> to return to the Grand Lobby.",
+  "description": "Walnut to waist height under a brass handrail, mirror-bronze above, a white marble floor with a black border and a lit ceiling panel. The buttons are on the right-hand wall under an amber floor read-out. The bronze doors shut while the car moves. Step <b>out</b> when they open.",
   "exits": {
     "out": "zone_solenne_lobby",
     "up": [
-      "zone_solenne_gym",
-      "zone_solenne_salon",
+      "zone_solenne_hall_12",
+      "zone_solenne_hall_18",
       "zone_solenne_residences",
       "zone_solenne_residences_34",
-      "zone_solenne_skydeck",
-      "zone_solenne_aerie",
+      "zone_solenne_hall_40",
+      "zone_solenne_hall_41",
       "zone_solenne_ph_landing",
-      "zone_solenne_helipad"
+      "zone_solenne_hall_45"
     ]
   },
   "flags": {
@@ -27,12 +27,12 @@
       {
         "label": "Fitness Club",
         "n": 12,
-        "zone": "zone_solenne_gym"
+        "zone": "zone_solenne_hall_12"
       },
       {
         "label": "Bishop's Blend",
         "n": 18,
-        "zone": "zone_solenne_salon"
+        "zone": "zone_solenne_hall_18"
       },
       {
         "label": "The Residences",
@@ -47,12 +47,12 @@
       {
         "label": "Sky Deck & Pool",
         "n": 40,
-        "zone": "zone_solenne_skydeck"
+        "zone": "zone_solenne_hall_40"
       },
       {
-        "label": "The Aerie — members",
+        "label": "The Aerie: members",
         "n": 41,
-        "zone": "zone_solenne_aerie"
+        "zone": "zone_solenne_hall_41"
       },
       {
         "label": "The Penthouse",
@@ -60,14 +60,25 @@
         "zone": "zone_solenne_ph_landing"
       },
       {
-        "label": "Sky Pad — residents",
+        "label": "Sky Pad: residents",
         "n": 45,
-        "zone": "zone_solenne_helipad"
+        "zone": "zone_solenne_hall_45"
       }
     ],
     "floor": "metal",
     "hide_exits": true,
     "is_interior": true,
+    "room": {
+      "balcony": false,
+      "car": true,
+      "d": 2.2,
+      "face": 180,
+      "finish": "fine",
+      "h": 2.7,
+      "studio": false,
+      "w": 2.2,
+      "windowless": true
+    },
     "sanctuary": true
   },
   "grid_x": 0,

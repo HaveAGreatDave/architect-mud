@@ -1,17 +1,24 @@
 {
   "ambient_events": [],
   "ambient_theme": "city",
-  "description": "Grandstand Walk, a paved cut between 5 and 7 Sorrel Way. The Coliseum's main gate is at the north end, across Hughson Way, and Fitz's Franks is at the south end, across Sorrel Way.",
+  "description": "Grandstand Walk, a paved way between the two fountains of Hughson Gardens, lined with banner poles. The Coliseum's main gate is at the north end across the plaza, and Fitz's Franks is across Sorrel Way at the south end, behind a row of bollards.",
   "exits": {
+    "east": "zone_ballpark_896_913",
     "north": "zone_ballpark_894_915",
-    "south": "zone_district_894_921"
+    "south": "zone_district_894_921",
+    "west": "zone_ballpark_896_911"
   },
   "flags": {
     "district": "halcyon_fields",
+    "park_feature": "forecourt",
+    "park_focus": {
+      "x": 894,
+      "y": 918.5
+    },
     "region_id": "region_coldwater",
     "scavenging_table_id": "scav_roadside_junk",
     "street_life": true,
-    "terrain": "road"
+    "terrain": "park"
   },
   "grid_x": 894,
   "grid_y": 920,

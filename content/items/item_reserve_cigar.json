@@ -1,0 +1,14 @@
+{
+  "description": null,
+  "flags": {},
+  "id": "item_reserve_cigar",
+  "name": "reserve cigar",
+  "tags": {
+    "description": "A dark cigar with a plain black band, cool and a little damp from the humidor. It smells of cedar.",
+    "drug": true,
+    "stackable": true
+  },
+  "type": "consumable",
+  "value": 40,
+  "weight": 25
+}

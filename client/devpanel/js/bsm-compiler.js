@@ -237,6 +237,8 @@ function compileBsm(text) {
         // records the slot a new version starts at and never moves it, so games that have
         // aired replay as they aired (docs/bsm-format.md, sports).
         else if (key === 'sim') { const v = parseInt(val, 10); if (Number.isFinite(v) && v >= 1) meta.sim = v; }
+        // Deadball: the First Generation drafted into the clubs ("@firstgen on"), client/shared/deadball-gen1.js
+        else if (key === 'firstgen') meta.firstGen = /^(on|yes|true|1)$/i.test(val.trim());
         else if (key === 'titlecard') meta.titlecard = val;   // weather/news: graphic id shown before the report
         // sports: the booth's voice, over the one the station's name seeds. key=value pairs
         // of ORACLE voice parameters ("@voice ring=0 drive=0"); numbers only.
@@ -246,6 +248,12 @@ function compileBsm(text) {
           if (Object.keys(v).length) meta.voice = v;
         }
         else if (key === 'theme') meta.theme = unquote(val);  // news/talkshow: intro theme sting — an audio_songs.name OR an audio_samples.name (quote names with spaces)
+        // talkshow: the house band, "@band <moment> <song> | <what the text says>": walkon, sting, walkover,
+        // guest or playoff. A moment can have several; the night draws one.
+        else if (key === 'band') {
+          const m = /^(\w+)\s+("[^"]+"|\S+)\s*(?:\|\s*([\s\S]*))?$/.exec(val);
+          if (m) ((meta.band ||= {})[m[1]] ||= []).push({ song: unquote(m[2]), text: (m[3] || '').trim() });
+        }
         // talkshow: the REAL studio cast — npc_ ids, acted live on stage (unlike news/sports names).
         // @host = desk host, @sidekick = announcer/bandleader who does the intro, @guest = the
         // reusable guest NPC renamed each episode. All three are spawned/placed by the importer.
@@ -750,7 +758,7 @@ function compileBsm(text) {
   // server assembles a fresh simulated game each airing. The announcer is a plain name
   // string spoken as narration — deliberately NOT added to npcIds, so importing a sports
   // broadcast never spawns a studio NPC. See docs/bsm-format.md#sports-broadcasts-type-sports.
-  const sportsScript = { sport: meta.sport || 'baseball', announcer: meta.announcer, ...(meta.analyst ? { analyst: meta.analyst } : {}), teams, players, pools: weatherPools, title: meta.titlecard || '', airSlots: (meta.airSlots && meta.airSlots.length) ? meta.airSlots : null, ...(meta.sim ? { sim: { version: meta.sim } } : {}),
+  const sportsScript = { sport: meta.sport || 'baseball', announcer: meta.announcer, ...(meta.analyst ? { analyst: meta.analyst } : {}), teams, players, pools: weatherPools, title: meta.titlecard || '', airSlots: (meta.airSlots && meta.airSlots.length) ? meta.airSlots : null, ...(meta.sim ? { sim: { version: meta.sim, ...(meta.firstGen ? { firstGen: true } : {}) } } : {}),
     ...(Object.keys(say).length ? { say } : {}), ...(meta.voice ? { voice: meta.voice } : {}),
     // the network's open: plays under the title card, once, and the card holds for it
     ...(meta.theme ? { theme: meta.theme } : {}) };
@@ -771,6 +779,7 @@ function compileBsm(text) {
     host: meta.host || '', sidekick: meta.sidekick || '', guestNpc: meta.guestNpc || '',
     guests, pools: weatherPools, title: meta.titlecard || '', theme: meta.theme || '',
     airSlots: (meta.airSlots && meta.airSlots.length) ? meta.airSlots : null,
+    ...(meta.band ? { band: meta.band } : {}),
   };
   if (meta.type === 'talkshow') {
     for (const id of [meta.host, meta.sidekick, meta.guestNpc]) if (id) npcIds.add(id);

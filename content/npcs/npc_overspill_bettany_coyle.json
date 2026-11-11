@@ -1,0 +1,323 @@
+{
+  "banter": [],
+  "behaviour_graph": {
+    "_start": "start",
+    "nodes": {
+      "day_home": {
+        "action_type": "GO_HOME",
+        "next": "day_wait",
+        "type": "action"
+      },
+      "day_pick": {
+        "branch_0": "day_home",
+        "branch_1": "day_walk",
+        "branches": [
+          {
+            "weight": 3
+          },
+          {
+            "weight": 2
+          }
+        ],
+        "type": "random"
+      },
+      "day_wait": {
+        "jitter": 180,
+        "next": "start",
+        "seconds": 240,
+        "type": "wait"
+      },
+      "day_walk": {
+        "action_type": "PATROL",
+        "next": "day_wait",
+        "params": {
+          "loop": true,
+          "mode": "walk",
+          "waypoints": [
+            "zone_district_921_921",
+            "zone_district_921_920",
+            "zone_district_923_920"
+          ]
+        },
+        "type": "action"
+      },
+      "fire_0": {
+        "action_type": "EMOTE",
+        "next": "fire_wait",
+        "params": {
+          "message": "wears a different coat to the drum every night and says so."
+        },
+        "type": "action"
+      },
+      "fire_1": {
+        "action_type": "EMOTE",
+        "next": "fire_wait",
+        "params": {
+          "message": "warms her feet on the drum's bricks."
+        },
+        "type": "action"
+      },
+      "fire_pick": {
+        "branch_0": "fire_0",
+        "branch_1": "fire_1",
+        "branches": [
+          {
+            "weight": 1
+          },
+          {
+            "weight": 1
+          }
+        ],
+        "type": "random"
+      },
+      "fire_wait": {
+        "jitter": 90,
+        "next": "start",
+        "seconds": 150,
+        "type": "wait"
+      },
+      "go_home": {
+        "action_type": "GO_HOME",
+        "next": "sleep",
+        "type": "action"
+      },
+      "is_evening": {
+        "condition_type": "HOUR_RANGE",
+        "ifFalse": "is_work",
+        "ifTrue": "to_fire",
+        "params": {
+          "from": 19,
+          "to": 1
+        },
+        "type": "condition"
+      },
+      "is_late": {
+        "condition_type": "HOUR_RANGE",
+        "ifFalse": "is_evening",
+        "ifTrue": "go_home",
+        "params": {
+          "from": 1,
+          "to": 5
+        },
+        "type": "condition"
+      },
+      "is_work": {
+        "condition_type": "HOUR_RANGE",
+        "ifFalse": "day_pick",
+        "ifTrue": "to_work",
+        "params": {
+          "from": 7,
+          "to": 19
+        },
+        "type": "condition"
+      },
+      "sleep": {
+        "action_type": "AT_HOME_LIFE",
+        "next": "start",
+        "type": "action"
+      },
+      "start": {
+        "next": "is_late",
+        "type": "start"
+      },
+      "to_fire": {
+        "action_type": "GO_TO_WORK",
+        "next": "fire_pick",
+        "params": {
+          "zone_id": "zone_district_922_922"
+        },
+        "type": "action"
+      },
+      "to_work": {
+        "action_type": "GO_TO_WORK",
+        "next": "work_check",
+        "params": {
+          "zone_id": "zone_district_921_921"
+        },
+        "type": "action"
+      },
+      "work_0": {
+        "action_type": "EMOTE",
+        "next": "work_wait",
+        "params": {
+          "message": "shakes out a coat and hangs it on the rail."
+        },
+        "type": "action"
+      },
+      "work_1": {
+        "action_type": "EMOTE",
+        "next": "work_wait",
+        "params": {
+          "message": "pairs up a heap of socks."
+        },
+        "type": "action"
+      },
+      "work_2": {
+        "action_type": "EMOTE",
+        "next": "work_wait",
+        "params": {
+          "message": "\"Gloves! Mittens! Odd ones half price!\""
+        },
+        "type": "action"
+      },
+      "work_3": {
+        "action_type": "EMOTE",
+        "next": "work_wait",
+        "params": {
+          "message": "sniffs a jumper and puts it in the wash pile."
+        },
+        "type": "action"
+      },
+      "work_chat": {
+        "action_type": "VENDOR_CHITCHAT",
+        "next": "work_wait",
+        "type": "action"
+      },
+      "work_check": {
+        "condition_type": "PLAYER_IN_ZONE",
+        "ifFalse": "work_pick",
+        "ifTrue": "work_chat",
+        "type": "condition"
+      },
+      "work_pick": {
+        "branch_0": "work_0",
+        "branch_1": "work_1",
+        "branch_2": "work_2",
+        "branch_3": "work_3",
+        "branches": [
+          {
+            "weight": 1
+          },
+          {
+            "weight": 1
+          },
+          {
+            "weight": 1
+          },
+          {
+            "weight": 1
+          }
+        ],
+        "type": "random"
+      },
+      "work_wait": {
+        "jitter": 60,
+        "next": "start",
+        "seconds": 90,
+        "type": "wait"
+      }
+    }
+  },
+  "chitchat": [
+    "\"Washed, every one. Holes are free.\"",
+    "holds a jumper up to the light and pokes a finger through the elbow."
+  ],
+  "description": "A big, cheerful woman behind a trestle heaped with coats, socks and gloves, every piece of it washed. She holds each one up to the light before she sells it, to show you where the holes are.",
+  "dialogue_tree": {},
+  "faction": null,
+  "flags": {
+    "clothing_layers": [
+      "three coats at once, the outer one a red puffer",
+      "a cable-knit jumper",
+      "jogging bottoms and a thermal vest"
+    ],
+    "mis_willing": false,
+    "personality": "vagrant"
+  },
+  "home_activities": [
+    "folds socks into pairs that don't quite match.",
+    "darns a mitten by the light from the wall."
+  ],
+  "home_zone": "zone_district_921_922",
+  "hp": 20,
+  "hp_max": 20,
+  "id": "npc_overspill_bettany_coyle",
+  "name": "Bettany Coyle",
+  "npc_type": "npc",
+  "sex": "female",
+  "studio_zone_id": null,
+  "vendor_inventory": [
+    {
+      "item_id": "item_wool_socks",
+      "price": 6
+    },
+    {
+      "item_id": "item_wool_mittens",
+      "price": 9
+    },
+    {
+      "item_id": "item_gloves_fingerless",
+      "price": 7
+    },
+    {
+      "item_id": "item_watch_cap",
+      "price": 8
+    },
+    {
+      "item_id": "item_hoodie_grey",
+      "price": 18
+    },
+    {
+      "item_id": "item_padded_jacket",
+      "price": 45
+    },
+    {
+      "item_id": "item_wind_blanket",
+      "price": 22
+    },
+    {
+      "item_id": "item_longjohns_thermal",
+      "price": 16
+    }
+  ],
+  "vendor_restock_rate": 1,
+  "vendor_schedule": {
+    "fri": [
+      {
+        "from": 7,
+        "to": 19
+      }
+    ],
+    "mon": [
+      {
+        "from": 7,
+        "to": 19
+      }
+    ],
+    "sat": [
+      {
+        "from": 7,
+        "to": 19
+      }
+    ],
+    "sun": [
+      {
+        "from": 7,
+        "to": 19
+      }
+    ],
+    "thu": [
+      {
+        "from": 7,
+        "to": 19
+      }
+    ],
+    "tue": [
+      {
+        "from": 7,
+        "to": 19
+      }
+    ],
+    "wed": [
+      {
+        "from": 7,
+        "to": 19
+      }
+    ]
+  },
+  "vendor_shop_name": "Bettany's stall",
+  "vendor_stock_size": 10,
+  "wander_zones": [],
+  "wanders": 0,
+  "work_zone_id": "zone_district_921_921"
+}

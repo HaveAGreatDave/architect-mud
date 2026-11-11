@@ -1,24 +1,26 @@
 {
-  "ambient_events": [],
-  "ambient_theme": "forest",
-  "color": "#8ba36a",
-  "description": "Rough ground the Curtain took in when it moved south. Red dirt still shows through the new grass in patches.",
+  "ambient_events": [
+    "A radio in one of the tents finds a station, loses it, and finds it again.",
+    "A tent flap opens, somebody looks out at the weather, and it closes."
+  ],
+  "ambient_theme": "residential",
+  "description": "Tents pitched in a row along the south wall, guyed on the north side only. The light off the Curtain falls across them all night.",
   "exits": {
     "east": "zone_district_921_922",
-    "north": "zone_district_920_921",
-    "south": "zone_district_920_923",
-    "west": "zone_district_919_922"
+    "south": "zone_district_920_923"
   },
   "flags": {
-    "district": "residential",
+    "camp": true,
+    "district": "slum",
     "region_id": "region_coldwater",
-    "terrain": "grass"
+    "scavenging_table_id": "scav_consumer_trash",
+    "terrain": "ash"
   },
   "grid_x": 920,
   "grid_y": 922,
   "grid_z": 0,
   "id": "zone_district_920_922",
   "map_id": "map_world",
-  "name": "Grasslands",
+  "name": "Wallside",
   "parent_zone": null
 }

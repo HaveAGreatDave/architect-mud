@@ -1,0 +1,24 @@
+{
+  "ambient_events": [],
+  "ambient_theme": "indoors",
+  "bg_color": "#141a26",
+  "description": "KSAB5's booth: a small dark room built round a wall of screens. A big one in the middle, a tall one either side, a ticker running under them and the station's name along the top. A presenter stands at the wall on a taped mark, and an anchor desk sits on a lit riser to one side. The floor is black gloss with a ring let into it. The studio is through the west door.",
+  "exits": {
+    "west": "zone_ksab5_stage"
+  },
+  "flags": {
+    "building_name": "KSAB5",
+    "building_type": "studio",
+    "floor": "linoleum",
+    "is_building": true,
+    "is_interior": true,
+    "world_exit_zone": "zone_district_913_910"
+  },
+  "grid_x": 2,
+  "grid_y": 0,
+  "grid_z": 0,
+  "id": "zone_ksab5_booth",
+  "map_id": "map_int_ksab",
+  "name": "KSAB5 Booth",
+  "parent_zone": "zone_district_913_910"
+}

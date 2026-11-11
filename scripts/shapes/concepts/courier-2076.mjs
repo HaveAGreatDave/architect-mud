@@ -43,7 +43,10 @@ const CAB0 = L.cab0, CAB1 = L.cab1, NOSE1 = L.nose1, FRAME0 = L.frame0;
 const [PIN0, PIN1] = T.pin;
 
 // ── Colours ──
-const CHROME = [226, 232, 240];          // pk 'bright': the booth's trim colour (gold on the factory paint)
+// pk 'bright': the booth's brightwork, drawn as chrome (vehicle-materials.js metalKOf). The gold is not
+// brightwork: chrome is a mirror tinted by its colour, and gold over a blue sky came out olive, so the
+// pinstripes, fin edges, waist band and badge are the `gilt` slot, painted the booth's trim colour.
+const CHROME = [226, 232, 240];
 const ACCENT = [96, 196, 214];           // pk 'glow': the running light
 const GLOW = [128, 226, 255];            // the lifter emitters, as the road wash
 const GLASS = [58, 84, 104];
@@ -128,6 +131,7 @@ const box = (name, f0, f1, w, z0, z1, o = {}) => {
 const sheet = (name, pts, o = {}) => {
   const f = { role: o.role || 'body', sh: o.sh ?? 0.9, p: pts.map((v) => P(v[0], v[1], v[2])) };
   if (o.tint) { f.tint = o.tint; if (o.pk) f.pk = o.pk; }
+  if (o.paint) f.paint = o.paint;
   return { kind: 'poly', name, faces: [f], ...tags(o) };
 };
 const LR = [-1, 1];
@@ -194,11 +198,11 @@ const glassSide = LR.flatMap((s) => [pane('door glass', s, 0.228, 0.40, 0.146, 0
 // The waist band (one strip a side, so its top doesn't plate the bonnet), the rocker light line and
 // the nose bar.
 const trim = [
-  ...LR.map((s) => box('waist band', CAB0 + 0.004, 0.398, 0.0025, BELT - 0.010, BELT + 0.002, { role: 'window', tint: CHROME, pk: 'bright', g: s * (W + 0.0005) })),
+  ...LR.map((s) => box('waist band', CAB0 + 0.004, 0.398, 0.0025, BELT - 0.010, BELT + 0.002, { role: 'body', paint: 'gilt', g: s * (W + 0.0005) })),
   box('rocker light', CAB0 + 0.010, 0.404, W + 0.001, 0.040, 0.044, { role: 'window', tint: ACCENT, pk: 'glow', ...fine }),
   box('nose light bar', 0.414, 0.420, 0.105, 0.084, 0.088, { role: 'window', tint: [220, 226, 236], ...fine }),
   // Roof edge pinstripe over the screen head, and the marker lamps along it (truck.geom.markF/markZ).
-  box('roof pinstripe', SCR1 - 0.010, SCR1 + 0.002, WT, ROOF - 0.003, ROOF + 0.002, { role: 'window', tint: CHROME, pk: 'bright', ...fine }),
+  box('roof pinstripe', SCR1 - 0.010, SCR1 + 0.002, WT, ROOF - 0.003, ROOF + 0.002, { role: 'body', paint: 'gilt', ...fine }),
   ...[-2, -1, 0, 1, 2].map((i) => box('marker lamp', SCR1 - 0.008, SCR1, 0.008, ROOF + 0.002, ROOF + 0.007, { role: 'window', tint: AMBER, g: i * W * 0.34, ...fine })),
 ];
 const MARK_F = SCR1 - 0.004, MARK_Z = ROOF + 0.0045;
@@ -211,8 +215,8 @@ const lamps = LR.flatMap((s) => [
 
 // The winged badge on the nose tip, ahead of where a mascot stands: a chrome ball with swept wings.
 const badge = [
-  box('badge', 0.411, 0.417, 0.006, 0.094, 0.104, { role: 'window', tint: CHROME, pk: 'bright', ...fine }),
-  ...LR.map((s) => sheet('badge wing', [[0.416, s * 0.005, 0.101], [0.408, s * 0.032, 0.108], [0.412, s * 0.010, 0.097]], { role: 'window', tint: CHROME, pk: 'bright', ...fine })),
+  box('badge', 0.411, 0.417, 0.006, 0.094, 0.104, { role: 'body', paint: 'gilt', ...fine }),
+  ...LR.map((s) => sheet('badge wing', [[0.416, s * 0.005, 0.101], [0.408, s * 0.032, 0.108], [0.412, s * 0.010, 0.097]], { role: 'body', paint: 'gilt', ...fine })),
 ];
 
 // Tail fins on the roof's back corners, rising aft, with a red lens at the top and a trim edge;
@@ -224,7 +228,7 @@ const fins = LR.flatMap((s) => {
   return [
     loft('tail fin', [tri(-FIN_T), tri(FIN_T)], { paint: 'pearl' }),
     box('fin lens', RBACK + 0.002, RBACK + 0.012, FIN_T + 0.001, FIN_TOP - 0.016, FIN_TOP - 0.004, { role: 'window', tint: [214, 74, 58], g: s * FIN_G, ...fine }),
-    loft('fin edge', [edge(-FIN_T - 0.001), edge(FIN_T + 0.001)], { role: 'window', tint: CHROME, pk: 'bright', ...fine }),
+    loft('fin edge', [edge(-FIN_T - 0.001), edge(FIN_T + 0.001)], { role: 'body', paint: 'gilt', ...fine }),
   ];
 });
 
@@ -243,8 +247,10 @@ const stalks = LR.flatMap((s) => [
 ]);
 
 // Door shut lines either side of the door art panel (drawTruckDoorArt: CAB1-0.104 to CAB1-0.052).
+// They stop under the waist band (BELT - 0.010): a flat face inside the band's fore-aft span gets
+// one depth in the painter's sort and eats one side of it (truckNoseSliceSmoke).
 const seams = LR.flatMap((s) => [CAB1 - 0.112, CAB1 - 0.008].map((f) =>
-  box('door shut line', f - 0.0015, f + 0.0015, 0.0015, CHAMF, BELT - 0.006, { role: 'strut', g: s * (W + 0.0005), ...fine })));
+  box('door shut line', f - 0.0015, f + 0.0015, 0.0015, CHAMF, BELT - 0.011, { role: 'strut', g: s * (W + 0.0005), ...fine })));
 
 // ── The lift pads ── Three a side under the floor: a puck, a lit emitter ring (out when parked), a
 // trim band, and an arm up into the frame for the aft pair. truck.pods gets one row each.
@@ -280,13 +286,13 @@ const chassis = [
 const POD_SEC = (f, w, z1) => [[f, -w * 0.86, 0.072], [f, w * 0.86, 0.072], [f, w, 0.084], [f, w, z1 - 0.012], [f, w * 0.82, z1], [f, -w * 0.82, z1], [f, -w, z1 - 0.012], [f, -w, 0.084]];
 const cargo = [
   loft('cargo pod', [POD_SEC(-0.052, 0.070, 0.128), POD_SEC(-0.036, 0.100, 0.150), POD_SEC(0.086, 0.100, 0.150), POD_SEC(0.104, 0.084, 0.140)], { paint: 'pearl', whenNot: 'trailer' }),
-  box('pod band', -0.034, 0.084, 0.102, 0.104, 0.110, { role: 'window', tint: CHROME, pk: 'bright', whenNot: 'trailer', ...fine }),
+  box('pod band', -0.034, 0.084, 0.102, 0.104, 0.110, { role: 'body', paint: 'gilt', whenNot: 'trailer', ...fine }),
   box('pod scan line', -0.020, 0.070, 0.101, 0.132, 0.135, { role: 'window', tint: ACCENT, pk: 'glow', whenNot: 'trailer', ...fine }),
 ];
 
 // ── Adornments ── What makes it an expensive truck rather than a clean one.
 const SOLAR = [22, 36, 84];
-const LOUVRE_H = [0.100, 0.108, 0.116];
+const LOUVRE_H = [0.094, 0.102, 0.110];   // under the waist band (truckNoseSliceSmoke)
 const adorn = [
   // A solar panel let into the roof, glassy and nearly black-blue, with a trim line round it.
   box('roof solar panel', RLIP + 0.006, SCR1 - 0.016, WT - 0.014, ROOF - 0.001, ROOF + 0.0015, { role: 'window', tint: SOLAR, ...fine }),
@@ -344,9 +350,11 @@ const doc = {
     name: 'Ostrek Courier 2076',
     note: 'The Courier after the Aria GT (docs/proposals/hover-rigs.md). Written by scripts/shapes/concepts/courier-2076.mjs from mesh_truck_hauler.json; edit that, not this. '
       + 'Same channels as the stock file: trailer (+t), parked (~p), fit_<code> (^code).',
-    // Surfaces (gl/solids.js `tex`). Pearl follows the booth's base colour and flash; the rest are fixed.
+    // Surfaces (gl/solids.js `tex`). Pearl follows the booth's base colour and flash, gilt its trim colour;
+    // the rest are fixed.
     paints: {
       pearl: { rgb: [236, 230, 218], livery: 'base', tex: 'flake', note: 'the body: the booth colour over a metal flake' },
+      gilt: { rgb: [201, 162, 58], livery: 'trim', tex: 'paint', note: 'pinstripes, fin edges, waist band, badge: the booth trim colour (gold at the factory)' },
       carbon: { rgb: [30, 32, 36], livery: 'fixed', mat: 'satin', tex: 'carbon', note: 'rocker, intake, pillars, louvres, camera pods' },
       titanium: { rgb: [166, 170, 178], livery: 'fixed', mat: 'bare', tex: 'brushed', note: 'heat mast and thrusters' },
       gunmetal: { rgb: [58, 62, 70], livery: 'fixed', mat: 'steel', tex: 'cast', note: 'the lift pads' },

@@ -47,6 +47,9 @@ export const TYPE_FLOORS = {
   // cupola and a kiln. Checked before setting — no Coldwater building carries any of these.
   infra: 2, dynamo: 2, clone: 3, foundry: 3, industrial: 3,
   gun_shop: 2, casino: 3, fence: 2, chem_supply: 3, fuel_yard: 1, default: 4,
+  // The Overspill's shacks are one room high; the arm's fractions are of two storeys, which makes
+  // a hut about one. The Stack is three shacks high and says so with `flags.floors: 3` on its tile.
+  shack: 2,
   // The Basin Jetty. A deck and a yard are both ONE storey of nothing — every fraction in their
   // arms is measured against this, and the forecourt ⚠ above is what happens when they are not.
   // The beacon is authored tall on purpose: it is the only built thing north of the shoreline and

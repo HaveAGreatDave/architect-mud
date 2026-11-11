@@ -26,7 +26,7 @@ const LOOKS = [
   [/induction seam$/, { arche: 'hob', form: 'seam' }],
   [/micro-LED screen$/, { arche: 'screen', form: 'flat', dims: [3.4, 0.1, 1.5] }],
   [/^glass-front cabinet$/, { arche: 'cabinet', form: 'vitrine' }],
-  [/^lacquered box$/, { arche: 'small', form: 'box' }],
+  [/^lacquered box$/, { arche: 'small', form: 'lacquer' }],
   [/bean-to-cup$/, { arche: 'top', form: 'press' }],
   [/^dish rack$/, { arche: 'cabinet', form: 'rack' }],
   [/coffee table$/, { arche: 'table', form: 'coffee' }],

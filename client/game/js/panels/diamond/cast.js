@@ -24,6 +24,7 @@
 
 import { BAGS, DEG, DUGOUT, FOUL_GROUND, offLine } from './geo.js';
 import { fieldSpots, POSITIONS } from './play.js';
+import { gen1Of } from '../../../../shared/deadball-gen1.js';
 
 const RUBBER = [0, 0.833, 60.5];
 // Facing home from a spot, in degrees about the vertical (0 faces +z).
@@ -62,6 +63,12 @@ export function buildOf(id, role) {
   const [h0, hs, f0, s0, b0] = BUILDS[BUILD_OF_ROLE(role)];
   const inches = Math.max(66, Math.min(79, h0 + hs * bell())), heft = f0 + bell();
   const round = (x, n = 1000) => Math.round(x * n) / n;
+  // a First Generation man's build is his own where it's given (client/shared/deadball-gen1.js)
+  const g = gen1Of(id)?.build;
+  if (g) {
+    const gi = g.inches ?? inches, gh = g.girth ?? Math.max(-0.05, Math.min(0.09, 0.03 * heft));
+    return { inches: round(gi, 10), scale: round(gi / RIG_INCHES), girth: round(gh), shoulders: round(g.shoulders ?? 1 + 0.004 * (gi - 73)), belly: 0 };
+  }
   return {
     inches: round(inches, 10),
     scale: round(inches / RIG_INCHES),
@@ -121,12 +128,14 @@ export function castOf(p) {
   // the battery
   const lefty = p.throws === 'L';
   person(0, p.pitcher || `${fieldTeam}:P`, fieldSide, 'pitcher', 'pSet', RUBBER, lefty ? -90 : 90, { glove: lefty ? 'R' : 'L' }, { mirror: lefty });
-  person(1, `${fieldTeam}:C`, fieldSide, 'catcher', 'catcher', [0, 0, -2.75], 0, { glove: 'L' });
+  // a fielder is his place on his club, or the First Generation man the payload names there (`gen1`)
+  const fielder = (pos) => (p.gen1 && typeof p.gen1[pos] === 'string' ? p.gen1[pos] : `${fieldTeam}:${pos}`);
+  person(1, fielder('C'), fieldSide, 'catcher', 'catcher', [0, 0, -2.75], 0, { glove: 'L' });
   // the seven others where the play's fielders start (diamond/play.js), shaded to the hitter's pull side
   const spots = fieldSpots(p.bats);
   ['1B', '2B', 'SS', '3B', 'LF', 'CF', 'RF'].forEach((pos, i) => {
     const at = spots[POSITIONS.indexOf(pos)];
-    person(2 + i, `${fieldTeam}:${pos}`, fieldSide, 'fielder', pos.length === 2 && /F$/.test(pos) ? 'outfield' : 'infield', at, faceHome(at), { glove: 'L', ...(pos === '1B' ? { mitt: 'first' } : {}) });
+    person(2 + i, fielder(pos), fieldSide, 'fielder', pos.length === 2 && /F$/.test(pos) ? 'outfield' : 'infield', at, faceHome(at), { glove: 'L', ...(pos === '1B' ? { mitt: 'first' } : {}) });
   });
   // the batter, in the box for his side; a play on the bases has him standing in it too
   const left = p.bats === 'L';

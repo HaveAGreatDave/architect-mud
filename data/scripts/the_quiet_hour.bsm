@@ -2,35 +2,14 @@
 @category overnight
 @length 300
 @type scripted
+@acted
+@host npc_leland_vey
 
-::asset quiet_hour_testcard
-
-┌───────┬───────┬───────┬───────┬───────┐
-│▓▓▓▓▓▓▓│░░░░░░░│▓▓▓▓▓▓▓│░░░░░░░│▓▓▓▓▓▓▓│
-├───────┴───────┴───────┴───────┴───────┤
-│                                       │
-│           T H E   Q U I E T           │
-│                H O U R                │
-│                                       │
-│              ● 02:00 ●                │
-│                                       │
-│         please remain seated          │
-│                                       │
-├───────┬───────┬───────┬───────┬───────┤
-│░░░░░░░│▓▓▓▓▓▓▓│░░░░░░░│▓▓▓▓▓▓▓│░░░░░░░│
-└───────┴───────┴───────┴───────┴───────┘
-
-::endasset
-
-::asset quiet_hour_count
-
-▁▂▃▄▅▆▇█▇▆▅▄▃▂▁▁▂▃▄▅▆▇█▇▆▅▄▃▂▁
-
-      STILL AWAKE: 1,412
-
-▁▂▃▄▅▆▇█▇▆▅▄▃▂▁▁▂▃▄▅▆▇█▇▆▅▄▃▂▁
-
-::endasset
+::actors
+@actor npc_leland_vey
+@alias npc_leland_vey CONTROL
+@billing npc_leland_vey THE CONTROL VOICE
+::endactors
 
 ::scene SIGN_ON
 
@@ -38,55 +17,72 @@ EVENT FADE_IN
 
 TITLE quiet_hour_testcard
 
+SHOT
+The test card rolls, slips sideways, and comes back. A sine wave crosses the screen, flattens into one bright line, and holds.
+SHOT_END
+
+CONTROL:
+Your set's fine. Leave it alone. We've got the picture now.
+
+WAIT 2
+
+CONTROL:
+We can make it roll. We can make it so bright you look away, or so dim you lean in. We can make that line do anything we like.
+
+CONTROL:
+For the next hour we decide what you see and what you hear. Sit back. We'll tell you when it's yours again.
+
+WAIT 3
+
 ♪ A single sustained tone, low and warm, the kind you stop hearing after a while and then notice you have stopped hearing. ♪
 
 WAIT 4
 
-NARRATOR:
+CONTROL:
 It is two o'clock in the morning in Coldwater Basin.
 
 WAIT 2
 
-NARRATOR:
+CONTROL:
 There is nothing on. That is what this is for.
 
 ::scene THE_BREATHING
 
-CAM 1 WIDE testcard
+TITLE quiet_hour_testcard
 
 SHOT
 The test card holds. In the lower right corner, a small counter increments by one, then by three, then settles.
 SHOT_END
 
-NARRATOR:
+CONTROL:
 If you are awake because you are working, we hope the shift is a short one.
 
-NARRATOR:
+CONTROL:
 If you are awake because you cannot sleep, try this with us.
 
 WAIT 2
 
-NARRATOR:
+CONTROL:
 Breathe in for four.
 
 WAIT 4
 
-NARRATOR:
+CONTROL:
 Hold for four.
 
 WAIT 4
 
-NARRATOR:
+CONTROL:
 Out for six.
 
 WAIT 6
 
-NARRATOR:
+CONTROL:
 Better. Your heart rate came down two points.
 
 WAIT 3
 
-NARRATOR:
+CONTROL:
 We can see that from here.
 
 ::scene THE_COUNT
@@ -97,27 +93,27 @@ SHOT
 The number on screen ticks downward as the hour goes on. It does not tick up.
 SHOT_END
 
-NARRATOR:
+CONTROL:
 {viewers} people are awake and watching this with you.
 
 WAIT 2
 
-NARRATOR:
+CONTROL:
 Four hundred of them are in the vats and do not know they are watching.
 
 WAIT 2
 
-NARRATOR:
+CONTROL:
 Eleven of them will not be watching by four o'clock. We are not going to tell you which eleven. That would spoil the hour.
 
 WAIT 3
 
-NARRATOR:
+CONTROL:
 You are not one of the eleven. You can relax.
 
 WAIT 2
 
-NARRATOR:
+CONTROL:
 We checked.
 
 ::scene INTERFERENCE
@@ -130,53 +126,59 @@ SHOT_END
 
 TITLE quiet_hour_testcard
 
-NARRATOR:
+CONTROL:
 Apologies. That was not us.
 
 WAIT 2
 
-NARRATOR:
+CONTROL:
 Where were we.
 
 ::scene THE_QUESTION
 
-NARRATOR:
+CONTROL:
 Some of you write in and ask who makes this programme.
 
 WAIT 2
 
-NARRATOR:
+CONTROL:
 It is made for you. It is made every night. It has been made every night for a very long time, and it will be made tomorrow, whether or not you are here to receive it.
 
 WAIT 3
 
-NARRATOR:
+CONTROL:
 That is not a threat. It is a schedule.
 
 ::scene SIGN_OFF
 
-CAM 1 WIDE testcard
+TITLE quiet_hour_testcard
 
-NARRATOR:
+CONTROL:
 The Quiet Hour will continue until the morning service begins at four.
 
-NARRATOR:
+CONTROL:
 Until then: stay in. Stay warm. Stay still.
 
 WAIT 2
 
-NARRATOR:
+CONTROL:
 We like it when you are still.
 
 TICKER
 THE QUIET HOUR · Overnight service · This broadcast contains no advertising and requires no subscription · Viewing figures are collected passively and are not stored, except where they are · Persons experiencing distress should remain seated until it passes · The morning service begins at 04:00 · Thank you for watching · Thank you for watching · Thank you for watching
 TICKER_END
 
+CONTROL:
+That's the hour. We give you back your set.
+
+CONTROL:
+Same time tomorrow. You'll know it's us when the picture starts to roll.
+
 ♪ The tone resumes. It does not resolve. It simply continues, at exactly the volume it was before. ♪
 
 CREDITS 8
 THE QUIET HOUR
-No presenter. No audience participation. No repeats.
+Presented by THE CONTROL VOICE.
 Broadcast nightly since before the record begins.
 END_CREDITS
 

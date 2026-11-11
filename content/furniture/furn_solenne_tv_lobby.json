@@ -1,11 +1,25 @@
 {
-  "description": "A wall-mounted flatscreen in a slim brushed-chrome bezel, angled toward the seating cluster so arriving residents catch the feed without breaking stride. Flat glass, no CRT bulge: a pre-Collapse luxury set kept in mint condition.",
+  "description": "A big flatscreen in a thin gold bezel, hung on the wall over the reception desk. It's on all day with the sound down, and the manager watches it when nobody's at the desk.",
   "flags": {
     "broadcast_device_type": "tv",
     "broadcast_receiver": true,
     "interactions": [
       "watch"
     ],
+    "look": {
+      "arche": "screen",
+      "dims": [
+        1.9,
+        0.08,
+        1.07
+      ],
+      "form": "flat"
+    },
+    "spot": {
+      "along": 5,
+      "wall": "left",
+      "y": 2.05
+    },
     "tv": true,
     "tv_dial_freq": 7,
     "tv_skin": "flatscreen"

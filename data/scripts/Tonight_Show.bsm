@@ -8,6 +8,13 @@
 @airtime 22
 @titlecard tonight_show_logo
 @theme tonight_theme_late
+# The house band's short bits, built by scripts/content/build-tonight-band.mjs off the theme's riff
+@band walkon tonight_band_walkon | The band plays him on.
+@band sting tonight_band_sting_a | The horns hit the punchline.
+@band sting tonight_band_sting_b | A rimshot from the band.
+@band walkover tonight_band_walkover | The band vamps while {host_first} crosses to the desk.
+@band guest tonight_band_guest | The band plays {guest_first} on.
+@band playoff tonight_band_playoff | The band plays them off.
 @length 300
 
 # =============================================================================

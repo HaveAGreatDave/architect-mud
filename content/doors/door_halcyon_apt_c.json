@@ -1,0 +1,22 @@
+{
+  "connection_id": "conn_halcyon_apt_c_north",
+  "door_type": "basic",
+  "exit_dir": "north",
+  "flags": {},
+  "hololock_difficulty": 5,
+  "hp": 1000,
+  "hp_max": 1000,
+  "id": "door_halcyon_apt_c",
+  "is_locked": 0,
+  "is_open": 0,
+  "lock_state": "locked",
+  "name": "Halcyon Residence 41-C door",
+  "tags": {
+    "lock:hololock": {
+      "canHack": true,
+      "difficulty": 5
+    }
+  },
+  "target_zone": "zone_halcyon_residences",
+  "zone_id": "zone_halcyon_apt_c"
+}

@@ -108,6 +108,14 @@ Processed top to bottom, building a linked chain of VINE nodes (`node.next` poin
 | any other non-empty line with no `activeNpc` | no node; recorded in `_debug.unknownDirectives` | |
 | lines ending in `_END` / `END_ACTION` / `END_CREDITS` seen outside their opening block | skipped silently | guards against stray terminators |
 
+### What the 3-D stage reads (as built)
+
+A text show on the TV's 3D button, and a script imported into the Broadcast Studio, are acted out from the same lines:
+
+- **Stage directions** (`ACTION`, or a bare line under a speaker) go through `actOfLine` in [npc-acts.js](../client/shared/npc-acts.js), and the person plays that act's clip, sitting or standing ([actor3d.js](../client/game/js/panels/actor3d.js) `ACTOR_ACTS`). Show acts: `slam`, `toss`, `holdup`, `spread`, `flex`, `point`, `clap`, `reach`, `grab`, `stare`, `lens` (a look at the camera), `wink`, `leanin`, `stumble`, `adjust`, `brace`, `enter`, plus everything the Room Stage already had (smoke, drink, shrug, nod…). Write the verb plainly: "slams his fist on the table", not "brings the hammer down".
+- **The camera follows the words** (`directionOf` in [sequence.js](../client/shared/sequence.js)): "grabs Camera 1 … toward Nguyen" whips to Nguyen, "the camera jerks up" jolts it, "lets go of Camera 1 and it drops" lays it on the floor until the next `CAM` line, and a slam, a look into the lens or a held-up prop gets its own push-in.
+- **`CAM` lines** with no room go to the TV as a `direction` overlay; the text picture ignores it. The first word of the label that's a camera word wins: `WIDE` `MEDIUM` `CLOSEUP` `TIGHT` `SNAP_TIGHT` `SNAPS_BACK` `ZOOM` `PUSH_IN` `PULL_BACK` `PAN` `SWING` `WHIP` `TRACK` `FOLLOW` `HANDHELD` `SIDE_PROFILE` `OVERHEAD` `STATIC`. `on <name>` / `to <name>` frames that person. A set with fewer cameras than the script counts takes them round again.
+
 ### Directive-line detection (`isDirectiveLine`)
 
 Several block collectors (e.g. `OVERLAY <id>`, `SPEAKER:` text) stop early if the next line looks like a directive rather than free text. A line counts as a directive if it starts with any of:
@@ -546,6 +554,7 @@ All the standard headers (`@broadcast`, `@channel`, `@category`, `@length`) work
 | `@analyst "Dusty Merriman"` | Optional, either sport. The colour man beside the announcer, a name too. His lines air as `Name says, "…"`, so a TV shows who is talking and the voice is seeded off his name. Compiles to `sports_pools.analyst`. See the booth pools below. |
 | `@airtime 19` | Optional. Feature only the game(s) covering these **in-game hours** (0–23, comma/space-separated) each day — one full game, snapped to the grid, at a fixed time of day; the channel is dark otherwise. Omit for **continuous** back-to-back games all day. The league itself always plays a full slate on the in-game clock (one game every 3 in-game hours → 8/in-game-day, ~1/team/day) and the standings advance regardless of what's aired; `@airtime` only picks which of those games this channel *shows*. `19` → the 18:00–21:00 game. |
 | `@sim 2` | Optional. Baseball's v2 adds errors, hit batters, steals, caught stealing, pickoffs, throws over, double steals, wild pitches and passed balls. Hockey's v2 reprints a man who dies: he's back in three to five game-days instead of out for the season. Hockey's v3 (`@sim 3`, which includes v2) plays fights by the fighters and the game's momentum, with draws, fight injuries and the rare line brawl. Compiles to `sports_pools.sim.version`. Omit for v1. The server records the slot v2 starts at, the first slot of the next in-game day after it first sees this, and never moves it, so every game that has aired replays as it aired. Removing the line records an end slot the same way; a version that has played and ended can't be switched back on. See [systems-broadcast.md](systems-broadcast.md#sim-v2). |
+| `@firstgen on` | Optional, Deadball only. Drafts the First Generation into the clubs: two augmented or mutant players a club a season, from `client/shared/deadball-gen1.js`. Compiles to `sports_pools.sim.firstGen`. Off or missing, the rosters are the plain ones. See [systems-broadcast.md](systems-broadcast.md#the-first-generation-as-built). |
 | `@titlecard <graphic_id>` | The card shown before the first pitch or the opening draw. Pair it with a `::asset <graphic_id>` block. |
 | `@theme <song>` | Optional. An `audio_songs` name that plays under the title card, once; the card holds for its length, and the pacer counts it for that long. Compiles to `sports_pools.theme`. Deadball's is KSAB-7 Sports' theme, `ksab7_deadball_theme` (see [systems-broadcast.md](systems-broadcast.md#the-networks-package-ksab-7-sports)). |
 
@@ -663,6 +672,8 @@ Each airing the runner simulates the game, then walks its beats: `intro → matc
 ## Score-bug overlay
 
 Every spoken line also carries a **score-bug** — a persistent on-screen graphic (top-left of the TV panel) that stays up for the whole game and updates in place as the state changes. It's authored by nobody: the runner derives it from the live game state and attaches it to each `say` node; the walker returns it and `broadcastTick` pushes a `tv_overlay` (`overlayType: 'scorebug'`) to every TV watcher alongside the line. The client keeps one persistent element (`#tv-scorebug`), updated per line, cleared on off-air / channel-change / power-off.
+
+A film can carry one too: any `say` node with a `scorebug` puts it up, and `{ "off": true }` takes it down. Slagball's tournament does this, written by [build-slagball.mjs](../scripts/content/build-slagball.mjs), which also writes its arena set (`set_slagball_open`) and cards.
 
 **The payload is sport-agnostic by design**, so other sports reuse the same bug:
 
@@ -872,6 +883,7 @@ Standard headers (`@broadcast`, `@channel`, `@category`, `@length`) plus:
 | `@airtime 22` | The nightly slot. On import the show **auto-pins a daily playlist slot to this in-game 3-hour block** on its channel (reuses the sports slot clock; `22` → 21:00–24:00) and flips the channel to daily mode, so it's locked to its broadcast time with no manual scheduling. Omit ⇒ a single all-day slot (always available). |
 | `@titlecard <graphic_id>` | Graphic shown as a `title_card` before each episode. Pair with a `::asset` block. |
 | `@theme <song>` | Intro theme; plays the matching `audio_songs` row if one exists, else the cue text shows briefly. |
+| `@band <moment> <song> \| <text>` | The house band. `walkon` plays as the announcer names the host, `sting` buttons one joke in the middle of the monologue, `walkover` plays while the host walks from the star to his desk after it (the walk rides on this line), `guest` plays the guest on, and `playoff` follows the goodnight. The text airs as an ambient `♪ … ♪` line and takes the tokens. A moment can have several lines; the night draws one. Compiles to `talkshow_pools.band`. The Tonight Show's bits are built by `scripts/content/build-tonight-band.mjs`. |
 
 ## `::guests` block — the persona pool
 
@@ -1442,7 +1454,7 @@ script — the walker, the late-tune seeker and the TV panel already carry them.
 | Directive | Node | Notes |
 |---|---|---|
 | `ACT 2 — The Boom` | `overlay` `act_card` (8 s) | everything after the em-dash is the subtitle |
-| `SLUG THE BASIN \| 2079 — SUMMER` | `overlay` `lower_third` (6 s) | place before the pipe, time after; extra fields join with an em-dash |
+| `SLUG THE BASIN \| 2079 — SUMMER` | `overlay` `lower_third` (6 s) | place before the pipe, time after; extra fields join with an em-dash. In a film it also moves the TV's 3-D stage to the backlot set its words name ([the backlot](../tools/broadcast-studio/README.md)), so name the kind of place: "AN OFFICE", "THE KITCHEN" |
 | `INTERMISSION [sec]` | `overlay` `intermission` (60 s default) | the reel change. A viewer who tunes in during one **sees an intermission** — it is real airtime, not a marker |
 | `LETTERBOX on` / `off` | `overlay` `letterbox` (**0 s**) | a **persistent** matte, not a card. Costs no airtime, stays up until switched off, and also puts the picture in filmic grade (`.tv-filmic`) |
 | `FADE out [sec]` / `FADE in [sec]` | `overlay` `fade` | one-shot optical transition; `out` dips to black and holds, `in` lifts |

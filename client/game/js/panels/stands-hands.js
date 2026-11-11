@@ -1020,6 +1020,8 @@ export function createHands(root, host, { send }) {
   return {
     // busy for this item (see whyNot)
     busy: (item) => !canTake(item),
+    // something in your hands (or a smoke set down in your fingers): the seat gives it the keys
+    active: () => !!(act || held),
     // a left click in the view: true when the hands took it (a bite of what you're eating), so the
     // view doesn't also turn your head or pick a chair
     click() { if (!act?.eat) return false; act.click(); return true; },

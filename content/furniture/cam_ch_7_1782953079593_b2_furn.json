@@ -1,0 +1,18 @@
+{
+  "description": "A studio camera on a dolly, cabled back to the gallery. A small red light glows when it's live.",
+  "flags": {
+    "broadcast_transmitter": true,
+    "camera_id": "cam_ch_7_1782953079593_b2",
+    "channel_id": "ch_7_1782953079593"
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "cam_ch_7_1782953079593_b2_furn",
+  "light_type": "lamp",
+  "lumen_output": null,
+  "name": "stage B camera 2",
+  "object_type": "broadcast_camera",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_ksab7_stage_b"
+}

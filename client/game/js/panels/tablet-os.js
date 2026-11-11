@@ -2356,10 +2356,12 @@ const TOS_OPT_GROUPS = [
     { v: 'off', t: 'Off: the city as it is lit now', g: '◐' },
     { v: 'on', t: 'On: flat light and ink outlines', g: '✎' },
     { v: 'comic', t: 'Comic: two tones and heavy ink, everywhere', g: '✒' } ] },
-  // GLASS 2 or GLASS 1 (main.js _applyGlass). GLASS 1 is the fallback, without cel shading.
+  // Which renderer draws the 3-D views (main.js _applyGlass, windshield.js setGlassMode). Automatic
+  // is GLASS Lite on a phone and GLASS 2 elsewhere. A stored '2' reads as auto and '1' as Lite.
   { key: 'glass', label: 'Renderer', opts: [
-    { v: '2', t: 'GLASS 2: the GPU renderer, lit and shadowed', g: 'G2', s: 'font-size:0.6875rem;letter-spacing:1px' },
-    { v: '1', t: 'GLASS 1: the 2-D painter, lighter on a slow machine', g: 'G1', s: 'font-size:0.6875rem;letter-spacing:1px' } ] },
+    { v: 'auto', t: 'Automatic: GLASS Lite on a phone, GLASS 2 elsewhere', g: 'A', s: 'font-size:0.6875rem;letter-spacing:1px' },
+    { v: 'full', t: 'GLASS 2: the full GPU renderer, lit and shadowed', g: 'G2', s: 'font-size:0.6875rem;letter-spacing:1px' },
+    { v: 'lite', t: 'GLASS Lite: the same city from a baked copy, easy on the CPU', g: 'GL', s: 'font-size:0.6875rem;letter-spacing:1px' } ] },
   { key: 'dpadSize', label: 'D-Pad Size', mobileOnly: true, opts: [
     { v: 'small', t: 'Small', g: 'S' }, { v: 'medium', t: 'Medium', g: 'M' }, { v: 'large', t: 'Large', g: 'L' } ] },
   { key: 'tempUnit', label: 'Temp Units', opts: [
@@ -5716,7 +5718,7 @@ function renderTv(d) {
         <button data-tv="stage-btn" title="3-D: watch this show on its set">3D</button>
         <button data-tv="standings-btn" title="Standings: the DEADBALL league table">&#x1F3C6;</button>
         <button data-tv="read-btn" title="Read broadcast aloud">&#x1F508;</button>
-        <button data-tv="close-btn" title="Switch the screen off">&#x23FB;</button>
+        <button class="tos-tv-fs" type="button" title="Full screen" aria-label="Full screen" aria-pressed="false"></button>
       </div>
     </div>
     <div class="tos-tv-dial">${chips}</div>
@@ -5738,6 +5740,35 @@ function mountWorldmap() {
 }
 function unmountWorldmap() { _worldmapGen++; _worldmap?.destroy(); _worldmap = null; }
 
+// The control row's right-hand button takes the picture full screen; Esc or the button again
+// comes back. render() holds off repainting while the screen is full (see its first guard). A
+// browser that can't take an element full screen (an iPhone) gets no button.
+const TV_FS_ON = '<svg viewBox="0 0 16 16" width="12" height="12" aria-hidden="true"><path d="M2 6V2h4M10 2h4v4M14 10v4h-4M6 14H2v-4" fill="none" stroke="currentColor" stroke-width="1.8"/></svg>';
+const TV_FS_OFF = '<svg viewBox="0 0 16 16" width="12" height="12" aria-hidden="true"><path d="M6 2v4H2M14 6h-4V2M10 14v-4h4M2 10h4v4" fill="none" stroke="currentColor" stroke-width="1.8"/></svg>';
+function bindTabletTvFullscreen(set) {
+  const btn = set.querySelector('.tos-tv-fs');
+  const screen = set.querySelector('.tos-tv-screen');
+  if (!btn || !screen) return;
+  if (!document.fullscreenEnabled || typeof screen.requestFullscreen !== 'function') { btn.remove(); return; }
+  const paint = () => {
+    const on = document.fullscreenElement === screen;
+    btn.innerHTML = on ? TV_FS_OFF : TV_FS_ON;
+    btn.title = on ? 'Leave full screen (Esc)' : 'Full screen';
+    btn.setAttribute('aria-label', btn.title);
+    btn.setAttribute('aria-pressed', String(on));
+    btn.classList.toggle('on', on);
+  };
+  paint();
+  btn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    if (document.fullscreenElement === screen) document.exitFullscreen?.().catch(() => {});
+    else screen.requestFullscreen().catch(() => {});
+  });
+  // the set is rebuilt on every fresh mount, so the listener goes when its button does
+  const sync = () => { if (!btn.isConnected) document.removeEventListener('fullscreenchange', sync); else paint(); };
+  document.addEventListener('fullscreenchange', sync);
+}
+
 function mountTabletTv() {
   unmountTabletTv();
   const host = _overlay?.querySelector('.tos-tv-set');
@@ -5750,6 +5781,7 @@ function mountTabletTv() {
     unwatchMsg: 'tablet_tv_unwatch',
   });
   _tvView.init();
+  bindTabletTvFullscreen(host);
   // Open with the picture centred, not under the clock/summary row.
   requestAnimationFrame(() => {
     const scroll = _overlay?.querySelector('.tos-scroll');

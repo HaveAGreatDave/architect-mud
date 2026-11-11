@@ -18,7 +18,7 @@ Units are the bake's bind space: metres, Y up, facing +Z, the left hand on +X, t
 
 | level | used by | vertices (coat, no cards) |
 |---|---|---|
-| `hd` | the Room Stage, the Figure Lab | about 15,000 to 18,000 with cards, 32,000 budget |
+| `hd` | the Room Stage, the Figure Lab, Ken Raven on the rink's Zamboni ([gl/arena-ken.js](../../client/game/js/panels/gl/arena-ken.js)) | about 15,000 to 18,000 with cards, 32,000 budget |
 | `lite` | the Room Stage on a phone | about 5,000 |
 | `crowd` | the street's near body (actor3d.js) | 1,732, against the old body's 1,832 |
 | `far` | the street's far body | 228, plus its old head |
@@ -75,6 +75,29 @@ Two art-direction reports (2026-11-03) asked for Borderlands' faces: a strong ja
 
 A cut's `front` says how the paint closes it (`FRONT_KIND` in gl/figure-hd.js). The cuts' order is their index in the shader, so new ones are appended.
 
+**The wardrobe** (2026-11-08) is 25 more cuts on the same parts and fronts, all in the roll, weighted by `CUT_WEIGHT` in figure.js so tees, jackets, coats and hoodies stay the commonest and a robe or a maxi is rare:
+
+| Kind | Cuts |
+|---|---|
+| Tops | `crop` (to the ribs), `longsleeve`, `tank` (no sleeves), `oversized` (loose, to the thigh), `oxford` (tucked), `rolled` (sleeves to the elbow, untucked) |
+| Knits | `sweater`, `turtleneck`, `cardigan` (buttoned, to the hip) |
+| Jackets | `cropjacket` (to the waist), `blazer` (the shirt's collar showing), `gilet` (quilted, the shirt's sleeves out), `uniform` (stand collar, buttoned) |
+| Coats | `peacoat` (thigh), `parka` (quilted, hood down), `mac` (knee, closed), `labcoat` (knee), `robe` (shin, open over a tee), `poncho` (a cape to the hip) |
+| Workwear | `coverall` (zipped; its trousers are its cloth) |
+| Dresses | `shift` (sleeveless, above the knee), `dress` (short sleeves, knee), `knitdress` (long sleeves, calf), `maxi` (sleeveless, ankle) |
+
+Fit is in each cut's numbers (`hug` close, `ease` off the body), and length is the hem: anything under 0.81 drapes between the legs and over a seat as the overcoat does. A layer is a cut's slots: a `slot: 'shirt'` sleeve or collar is a shirt under it, and front `open` shows a tee. **Underwear** () is six matched sets, never rolled, worn by name: `briefs` (sports bra and briefs), `boyshorts`, `bodysuit`, `baselayer` (long sleeves and leggings), `strapwrap` (pale bands with skin between and bright braces, after The Fifth Element) and `boxers`. A cut's `legs` cuts the trousers short (`hem` where the leg ends, `waist` where the seat starts), and the bottoms take the top's colour and cloth. The futuristic look is the paint: front `seam` lights a seam down each side, round the hem and under the bust in the shirt's colour (`flags.figure.shirt` sets it), inked either side so it stays flat.
+
+**Underwear** (`FIGURE_UNDER_CUTS`) is six matched sets, never rolled, worn by name: `briefs` (a sports bra and briefs), `boyshorts`, `bodysuit`, `baselayer` (long sleeves and leggings), `strapwrap` (pale bands with skin between and bright braces, after The Fifth Element) and `boxers`. A cut's `legs` cuts the trousers short (`hem` where the leg ends, `waist` where the seat starts), and the bottoms take the top's colour and cloth. The futuristic part is the paint: front `seam` lights a seam down each side, round the hem and under the bust in the shirt's colour (`flags.figure.shirt` sets it), inked either side so it stays flat.
+
+**Shape and necklines.** On the sculpted body, `bust` and `butt` (0 to 1, in the figure's key) size the chest's lobes and the seat's (`bustOf`, `buttOf` in figure.js); a woman rolls both off her id (slots 70 and 71) and `flags.figure` can set them for anyone. The clothes hull the body, so every cut follows. A low-cut top is a `neckline` [depth, half-width, V or scoop] painted as skin down the front with its edge inked (`uNeck`): the cuts `scoop` and `wrap` are in the roll, and `plunge`, `gown` and `corset` are by name. `flags.figure.neckline` cuts any top low.
+
+More sets (also never rolled): `bikini` (a holographic film, front `holo`), `longline` (a longline bra and high-waisted briefs in a sheer hex mesh, front `hex`), `slip` (lace at the hem and neckline, front `lace`), `cutout` (a bodysuit with lit windows at the waist, front `cutout`) and `hexsuit` (a hex-mesh catsuit). All paint over the fabric in `paintOver`, after `fabricPaint`, or the fabric would repaint them.
+
+**The body close up.** `bustOf` reaches 0.13 m of relief at 1, and the seat is a dome each side, tucked at the fold under it (`seatDome`). The bust bounces: a damped spring on the chest bone in gl/room-people.js (`JIGGLE`) gives each record a `jiggle`, and the vertex shader moves whatever lies over the bust by it, skin and cloth alike (`uBust`). The skin's torso carries a spine groove, shoulder-blade shadows, the dimples and folds of the seat, and moles and freckles (`bodyDetail`); the rib and abdominal lines are held back, more on a soft body. Gravity pulls both down: the bust's upper slope is long and flat and its fullness sits low, and the vertex shader adds a steady pull toward the floor whichever way the body lies. The seat has the same spring off the pelvis (`SEAT_JIGGLE`, `uSeat`) and a deep cleft. For a player in the mature layer ([systems-mis.md](../systems-mis.md)) the bare chest is drawn with nipples at the bust's apex (`uMature`, set from `render.js` as `__figureMature`); for everyone else it stays plain. The same gate draws the genitals at rest: a man's as relief built only into a mature-layer player's mesh (`groin` in the figure's key, `groinForm`), a woman's as paint, and the pubic hair as paint on both. They're static and have nothing to do with the mis plugin. The Figure Lab has `sex`, `bust` and `butt` controls, and a `mature` box, and `wear: body only` shows the shape bare.
+
+**Bottoms, hats and scarves** go with any cut and roll separately off the id (slots 72 to 74; women roll skirts, the Wildblood none of it). Bottoms (`FIGURE_BOTTOMS`) are `shorts`, `cutoffs`, `bermudas` and `capris`, which cut the trousers short as the underwear does, and `mini`, `pencil`, `aline`, `midi` and `longskirt`, a skirt piece from the waist over briefs that drapes between the legs and over a seat as a long coat's hem does (`FIG_PIECE.skirt` in `drape`). A cut with its own legs, or a top past the knee, ignores them. Hats (`FIGURE_HATS`: `beanie`, `cap`, `fedora`, `bucket`, `hardhat`, `flatcap`) are a crown and a brim rigid on the head bone in the shoes' colour, the crown's lower half inside the head; long hair can show through one. Scarves (`FIGURE_SCARVES`: `scarf`, `chunky`, `snood`, `bandana`) are a tube looped round the neck and a tail down the front, in the shirt's colour. The Figure Lab has a menu for each.
+
 **The Wildblood** ([lore-wildblood.md](../lore-wildblood.md)) dress as the Thornwarren does at home, which is domestic, so there are no masks:
 
 - a sleeveless **tunic** with a ragged hem (`jag`) and a woven band over it, and an ash handprint over the heart (a handprint in ash is the wearer's own);
@@ -130,6 +153,17 @@ Not done: an official's stripes stop at his shoulders (only the torso carries th
 ## The sculpted revision
 
 A revised figure on the same rig is in review behind a switch: [sculpted-figure.md](sculpted-figure.md).
+
+## Mutations, seen
+
+A mutation (`content/mutations`) shows on the close-up figure through `MUTATION_LOOK` in `figure.js`. Each id maps to mesh keys on `body` (part of the figure's key), paint bits (`MUT_PAINT`, uniform `uMut`, painted by `mutPaint` in `gl/figure-hd.js`), or both. A Wildblood rolls one or two (`wildMutations`); `flags.figure.mutations` names them instead.
+
+- **Paint:** scales in patches or all over, mottling, chameleon ground colours, freckles, weeping sores, dark or charged veins (charged ones glow), scars, gills, the maw, and a coat torn across the back where something grew through it.
+- **Rigid growths:** a third eye, compound eyes, long ears, bone blades, spurs, a carapace and the vestigial tail.
+- **Grown bones:** a second head, four spider legs, three tentacles, the long tail and the wings ride `FIGURE_XBONES`, bones after the 19 that clips drive. `growBones` in `gl/room-people.js` poses them each frame off their parents. No clip knows them and the crowd's bake doesn't use them. A second head is modelled as the head and carried to the shoulder by its bone, so its face paint works unchanged; it keeps its mouth shut and blinks on its own clock.
+- **The grounded set** (the X-Men look, an experiment): spider limbs are a second pair of human arms on `arm2*` bones that copy the real arms' motion bone for bone; echolocation and predator senses grow cupped bat ears; thickening and bio armour are pebbled, creased hide; chameleon is one colour over all the skin (`uMutC`); thermal vision and the membranes give solid yellow eyes. The Wildblood roll leans on these, and the fantasy growths are rare.
+- Each person's changes share one accent colour (`mutCol`, `flags.figure.mut_accent`).
+- Only the close-up levels draw them. The street crowd doesn't.
 
 ## Open questions
 

@@ -7,6 +7,8 @@
 <style>
   html, body { margin: 0; height: 100%; background: #111; color: #ddd; font: 13px system-ui, sans-serif; }
   #pick { position: fixed; z-index: 20000; left: 8px; bottom: 8px; display: flex; gap: 6px; align-items: center; background: #000a; padding: 6px 8px; border-radius: 6px; }
+  /* the Stage fills the window, as the game's room pane does; unsized it fell to its 320px floor, squashed flat */
+  #area-content { position: fixed; inset: 0; display: flex; flex-direction: column; }
   #pick select, #pick input { background: #222; color: #ddd; border: 1px solid #444; }
 </style>
 </head>
@@ -25,7 +27,7 @@
 // baked flight world. Every verb the Stage sends goes nowhere here, so an en-suite is walked into by
 // answering its door. scripts/shapes/room-stage.mjs is what gates the meshes; this is a picture.
 import { roomSpecOf, withAnnex, annexFrame, layRows } from '/client/shared/room-layout.js';
-import { openRoomStage, closeRoomStage, roomOutlook, roomHere, roomSky, _test } from '/client/game/js/panels/room-stage.js';
+import { openRoomStage, closeRoomStage, roomOutlook, roomHere, roomSky, roomAhead, roomLocks, roomLockHack, _test } from '/client/game/js/panels/room-stage.js';
 
 const q = new URLSearchParams(location.search);
 const $ = (id) => document.getElementById(id);
@@ -36,30 +38,89 @@ $('hour').value = q.get('hour') || 13;
 $('glass').checked = q.get('glass') !== '0';
 const world = await (await fetch('/api/world')).json();
 
+// a room next door's pieces, its en-suite's with them, as the plugin's roomPieces lays them out: from the room's
+// own spec (`nextSpecs`), so they're the pieces it has once you're in it
+const nextPieces = (d, n) => {
+  const s = d.nextSpecs?.[n.zone] || n.spec;
+  const out = layRows(d.nextRows?.[n.zone] || [], s, { finish: s.finish }).pieces;
+  if (s.annex) out.push(...layRows(d.nextAnnexRows?.[n.zone] || [], annexFrame(s).spec, { annex: true, finish: s.annex.finish }).pieces);
+  return out;
+};
 const BEARING = { north: 0, northeast: 45, east: 90, southeast: 135, south: 180, southwest: 225, west: 270, northwest: 315 };
-async function open() {
+async function open(_, via = null) {
   const id = $('zone').value, hour = Number($('hour').value);
-  const d = await (await fetch('/api/room-lab?zone=' + encodeURIComponent(id))).json();
+  const d = await (await fetch('/api/room-lab?zone=' + encodeURIComponent(id) + (window.__labParked ? '&parked=' + encodeURIComponent(window.__labParked) : ''))).json();
   const mark = parseInt(d.zone.marker, 10);
-  let spec = roomSpecOf(d.zone.flags, true, { storey: mark > 0 ? mark : null });
+  // a room on a building's walk comes with its doorways and the rooms past them (building-stage.md)
+  let spec = d.building ? d.building.spec : roomSpecOf(d.zone.flags, true, { storey: mark > 0 ? mark : null });
   if (d.annex) spec = withAnnex(spec, d.annex.id, d.annex.name);
   const pieces = layRows(d.rows, spec, { finish: spec.finish }).pieces;
   if (d.annex) pieces.push(...layRows(d.annexRows, annexFrame(spec).spec, { annex: true, finish: spec.annex.finish }).pieces);
-  closeRoomStage(true);
-  openRoomStage({ type: 'room_view', zone: id, here: id, name: d.zone.name, spec, hasView: !!d.tile && $('glass').checked, mine: true, you: 'lab', pieces, people: [], clock: { hour, hourMs: Date.now(), rate: 0 } });
+  // the rooms next door, furnished the way the plugin furnishes them; nobody's in them here unless
+  // __labNext puts somebody there: __labNext = { zone_voltage_vip: [{ id: 'a', name: 'Ann', npc: true, posture: 'standing', at: [1, 3] }] }
+  for (const n of d.building?.building.neighbours || []) {
+    n.pieces = nextPieces(d, n);
+    n.people = window.__labNext?.[n.zone] || [];
+  }
+  // through a doorway the game keeps the Stage open and moves it (ui.cross); closing it here first hid what a crossing costs
+  if (!via) closeRoomStage(true);
+  openRoomStage({ type: 'room_view', zone: id, here: id, name: d.zone.name, spec, ...(d.building ? { building: d.building.building } : {}), ...(d.lift ? { lift: d.lift } : {}), ...(via ? { via } : {}), ...(lockList(id, spec).length ? { locks: lockList(id, spec) } : {}), hasView: !!d.tile && $('glass').checked, mine: true, you: 'lab', pieces, people: [], clock: { hour, hourMs: Date.now(), rate: 0 } });
   const own = Number(d.zone.flags?.room?.face), dir = Object.keys(d.zone.exits || {}).find((k) => BEARING[k] !== undefined);
-  const bearing = Number.isFinite(own) ? own : dir ? (BEARING[dir] + 180) % 360 : 0;
+  // a room on a building's walk is placed as the plugin places it (frameOf): where it stands and how high, so the
+  // lobby's window is at street level and not a fraction of the way up the tower
+  let placed = null;
+  try { if (d.building) placed = (await (await fetch('/api/building-rooms?zone=' + encodeURIComponent(id))).json()).rooms?.find((r) => r.zone === id) || null; } catch { /* an older Modelshop: placed the old way */ }
+  const frame = placed?.frame || null;
+  const bearing = frame ? frame.face : Number.isFinite(own) ? own : dir ? (BEARING[dir] + 180) % 360 : 0;
   const R = 36, N = R * 2 + 1, tile = d.tile, bare = { kind: 'land', biome: 'wasteland', flr: 0 };
   const map = tile && $('glass').checked ? Array.from({ length: N }, (_, j) => Array.from({ length: N }, (_, i) => {
     const c = world.cells[(tile.x + i - R) + ',' + (tile.y + j - R)] || bare;
     return i === R && j === R ? { ...c, self: 1 } : c;
   })) : null;
-  roomOutlook({ zone: id, gx: tile?.x, gy: tile?.y, storey: Number(d.zone.flags?.room?.storey) || (mark > 0 ? mark : 1), storeys: Number(d.zone.flags?.room?.storeys) || null, bearing, map, sky: { hour, weather: q.get('wx') || 'clear' }, contacts: [], actors: [], fields: Object.entries(world.cells).filter(([, c]) => c.kind === 'field').map(([k, c]) => { const [gx, gy] = k.split(',').map(Number); return { id: c.field || k, gx, gy, pad: !!c.pad || !!c.helipad }; }) });
+  roomOutlook({ zone: id, ...(frame ? { frame } : {}), gx: tile?.x, gy: tile?.y, storey: Number(d.zone.flags?.room?.storey) || (mark > 0 ? mark : 1), storeys: Number(d.zone.flags?.room?.storeys) || null, bearing, map, sky: { hour, weather: q.get('wx') || 'clear' }, contacts: [], actors: [], fields: Object.entries(world.cells).filter(([, c]) => c.kind === 'field').map(([k, c]) => { const [gx, gy] = k.split(',').map(Number); return { id: c.field || k, gx, gy, pad: !!c.pad || !!c.helipad }; }) });
   window.__lab = { spec, pieces, stage: _test };
+  // what the plugin sends after the room (`room_ahead`): each room next door as it would open, for the Stage to
+  // build before you walk there. __labAhead = false leaves it out, to see a crossing with nothing baked
+  if (d.building && window.__labAhead !== false) {
+    const rooms = await Promise.all(d.building.building.neighbours.map(async (n) => {
+      const e = await (await fetch('/api/room-lab?zone=' + encodeURIComponent(n.zone))).json();
+      let s = e.building.spec;
+      if (e.annex) s = withAnnex(s, e.annex.id, e.annex.name);
+      return { zone: n.zone, spec: s, ...(e.lift ? { lift: e.lift } : {}), neighbours: e.building.building.neighbours.map((x) => (x.zone === id ? { zone: x.zone, name: x.name, spec: x.spec }
+        : { ...x, pieces: nextPieces(e, x), people: window.__labNext?.[x.zone] || [] })) };
+    }));
+    if ($('zone').value === id) roomAhead({ type: 'room_ahead', zone: id, rooms });
+  }
 }
 for (const el of ['zone', 'hour', 'glass']) $(el).addEventListener('change', open);
 window.__labOpen = open;
+// A lock on a doorway, as plugins/roomstage sends it (docs/proposals/room-hololock.md). There's no server here, so
+// the verbs go nowhere and the lab works the lock itself:
+//   __labLock('zone_solenne_apt_b')                  locks the door to that room (pass { yours, pass, hack } to say more)
+//   __labLock('zone_solenne_apt_b', { locked: false })   what the server sends when it gives
+//   __labLock('zone_solenne_apt_b', { open: true })      and when somebody opens the door; { lock: false } is a door with no lock
+//   __labHack('zone_solenne_apt_b', { skill: 6, difficulty: 5 })   the bypass, on the door's hologram
+const labLocks = {};
+function lockList(id, spec) {
+  return Object.entries(labLocks[id] || {}).map(([to, k]) => { const o = (spec.openings || []).find((x) => x.to === to && x.dir); return o ? { to, dir: o.dir, door: 'lab_' + to, noun: 'hololock', lock: true, open: false, locked: true, yours: false, pass: false, hack: true, ...k } : null; }).filter(Boolean);
+}
+window.__labLock = (to, k = {}) => {
+  const id = $('zone').value;
+  (labLocks[id] ??= {})[to] = { ...(labLocks[id]?.[to] || {}), ...k };
+  if (k.open) labLocks[id][to].locked = false;
+  if (labLocks[id][to].locked === false && k.pass === undefined) labLocks[id][to].pass = true;
+  const locks = lockList(id, _test().S.spec);
+  roomLocks({ type: 'room_locks', zone: id, locks });
+  return locks;
+};
+window.__labHack = (to, { skill = 5, difficulty = 5 } = {}) => roomLockHack({ doorId: 'lab_' + to }, { skill, difficulty, deviceName: 'hololock', onResult: ({ won }) => { window.__labHackResult = won; if (won) window.__labLock(to, { locked: false, pass: true }); } });
+// A lift ride as the elevator plugin does it: the car stays put and its doors open on that floor.
+// __labRide('zone_solenne_residences'), then __labVia('zone_solenne_residences') to step out
+window.__labRide = async (floorZone) => { window.__labParked = floorZone; await open(null, floorZone); };
 window.__labHere = (here) => roomHere({ zone: $('zone').value, here });
+// What the server does when you walk through a building's doorway: the next room, stood in the doorway
+// you came through. __labVia('zone_voltage_vip')
+window.__labVia = async (to) => { const from = $('zone').value; if (![...$('zone').options].some((o) => o.value === to)) $('zone').append(new Option(to, to)); $('zone').value = to; await open(null, from); };
 // What the server would say: __labSky({ weather: 'thunderstorm', wind: 60, here: { precipType: 'rain', precipRate: 0.9 } })
 window.__labSky = (sky) => roomSky({ zone: $('zone').value, contacts: [], ...sky });
 // A frame to disk, from anywhere in the room: 'at' is [u, v] in the room's frame, 'yaw' and 'pitch'

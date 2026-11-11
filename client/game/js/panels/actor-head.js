@@ -119,7 +119,11 @@ FACE_STYLES.sculptLean = { ...FACE_STYLES.sculpt, jaw: 0.3, jawSq: 0.6, hollow: 
 // The soft head is a woman's: hardly any brow ridge, a shorter smaller nose, the jaw tapering to a small
 // chin with no corner, and `chinUp` shortening the face under the mouth.
 FACE_STYLES.sculptSoft = { ...FACE_STYLES.sculpt, brow: 0.6, bridge: 0.75, socket: 0.7, ball: 0.7, cheek: 1.5, cheekHi: 0.006, hollow: 0.35, nose: 0.72, tip: 0.85, wings: 0.7, folds: 0, lips: 1.3, chin: 0.8, chinW: 0.85, jaw: 1.1, jawSq: 0, browEdge: 1.2, chinUp: 0.011, chinOut: 0, browY: 1.6645, eyeX: 0.0312, noseNarrow: 0, wings: 0.7, tip: 0.85 };
-export const SCULPT_HEADS = ['sculpt', 'sculptBroad', 'sculptLean', 'sculptSoft'];
+// The leading man's head: the plain sculpted head with a firmer jaw and a broad, rounded chin, a little
+// squared in front (`chinFlat`), and nothing pushed far enough to read as a caricature. Nobody rolls it
+// (the rolls stop at 3); a settled look asks for it (John Akerson's).
+FACE_STYLES.sculptChin = { ...FACE_STYLES.sculpt, cheek: 2.5, hollow: 1.9, nose: 1.2, chin: 1.9, chinW: 1.4, chinOut: 0.0045, jaw: -0.1, jawSq: 1.1, jawY: 1.57, jawR: 0.02, chinFlat: 0.35 };
+export const SCULPT_HEADS = ['sculpt', 'sculptBroad', 'sculptLean', 'sculptSoft', 'sculptChin'];
 // A sculpted head at a body's weight (figure.js SOMA), 0 to 1. What each body does to the face, added to
 // the head's own shape: an ectomorph's goes hollow and narrow, a mesomorph's heavier in the
 // jaw, an endomorph's round and full, the jaw lost and a second chin under it (`fat` in skullPoint).
@@ -209,7 +213,8 @@ const se = (v, n) => Math.sign(v) * Math.abs(v) ** (2 / n);
 export function skullPoint(y, phi, style = 'real') {
   const K = FACE_STYLES[style] || FACE_STYLES.real;
   const S = station(y), c = Math.cos(phi), s = Math.sin(phi);
-  const n = s > 0 ? S.nf : 2.1;
+  // `chinFlat` squares the front below the mouth, so the chin ends in a flat front with corners, not a point
+  const n = s > 0 ? S.nf * (1 + (K.chinFlat || 0) * sstep(1.585, 1.54, y)) : 2.1;
   // the jaw's width from the cheekbones down, most at the chin (the comic style's is a little wider)
   let x = S.w * se(c, n) * (1 - K.jaw * 0.1 * sstep(1.615, 1.53, y) * (0.4 + 0.6 * Math.max(0, s)));
   // a full face: wider from the cheeks down, and under the chin the rings open into a second one
@@ -435,15 +440,41 @@ export const NECK = [
   [1.6, 0.043, 0.046, -0.01],
 ];
 export const NECK_SCULPT = 1.13;
+// The sculpted neck (`k` not 1) is modelled: twice as fine, the two sternomastoids standing out as ridges from
+// behind each ear down to the notch at the base of the throat, the column drawn in a little above them and its
+// back thicker than its front. The street figure's stays a tube.
+// `ph` runs round from the left side (+x) through the throat (+z) at a quarter turn.
+const SCM_TOP = 1.575, SCM_FOOT = 1.438;
+function scmRidge(ph, y) {
+  const t = Math.max(0, Math.min(1, (SCM_TOP - y) / (SCM_TOP - SCM_FOOT))), env = sstep(SCM_FOOT - 0.004, SCM_FOOT + 0.022, y) * sstep(SCM_TOP + 0.01, SCM_TOP - 0.03, y);
+  let best = 0;
+  for (const side of [1, -1]) {
+    // behind the ear at the top, a little behind the side; at the foot, either side of the notch
+    const at = side > 0 ? -0.32 + (Math.PI / 2 - 0.2 + 0.32) * t : Math.PI + 0.32 - (Math.PI / 2 - 0.2 + 0.32) * t;
+    const d = Math.atan2(Math.sin(ph - at), Math.cos(ph - at));
+    best = Math.max(best, Math.exp(-((d / 0.26) ** 2)));
+  }
+  return best * env;
+}
 function addNeck(M, n, rows, k = 1) {
+  // the extra rings and columns only at the close-up level (12 round), where the ridges can be seen
+  const sculpt = k !== 1, fine = sculpt && n >= 12, N = fine ? n * 2 : n, R = fine ? Math.round(rows * 1.75) : rows;
   const rings = [], f = [1, 2, 3].map((k) => spline(NECK.map((r) => [r[0], r[k]])));
-  for (let i = 0; i < rows; i++) {
-    const y = NECK_TOP - ((NECK_TOP - NECK_FOOT) * i) / (rows - 1);
+  for (let i = 0; i < R; i++) {
+    const y = NECK_TOP - ((NECK_TOP - NECK_FOOT) * i) / (R - 1);
     const rx = f[0](y) * k, rz = f[1](y) * k, cz = f[2](y), w = sstep(1.495, 1.565, y), r = [];
-    for (let k = 0; k < n; k++) {
-      const ph = (k * TAU) / n, s = Math.sin(ph);
+    for (let j = 0; j < N; j++) {
+      const ph = (j * TAU) / N, s = Math.sin(ph), c = Math.cos(ph);
       // the throat is flatter than the back of the neck
-      r.push(M.v([rx * Math.cos(ph), y, cz + rz * s * (s > 0 ? 0.92 : 1)], 12, w));
+      let px = rx * c, pz = rz * s * (s > 0 ? 0.92 : 1);
+      if (sculpt) {
+        // the back of the neck thicker than the front (the shoulders' slope is the torso's, under the collar)
+        if (s < 0) pz *= 1.05;
+        // drawn in a little at the middle of its height, and the ridges standing out of it
+        const pinch = 1 - 0.035 * Math.exp(-(((y - 1.52) / 0.03) ** 2)), ridge = 1 + 0.085 * scmRidge(ph, y);
+        px *= pinch * ridge; pz *= pinch * ridge;
+      }
+      r.push(M.v([px, y, cz + pz], 12, w));
     }
     rings.push(r);
   }

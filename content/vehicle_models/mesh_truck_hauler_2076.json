@@ -6,6 +6,12 @@
     "note": "The Courier after the Aria GT (docs/proposals/hover-rigs.md). Written by scripts/shapes/concepts/courier-2076.mjs from mesh_truck_hauler.json; edit that, not this. Same channels as the stock file: trailer (+t), parked (~p), fit_<code> (^code).",
     "paints": {
       "carbon": { "rgb": [30, 32, 36], "livery": "fixed", "mat": "satin", "tex": "carbon", "note": "rocker, intake, pillars, louvres, camera pods" },
+      "gilt": {
+        "rgb": [201, 162, 58],
+        "livery": "trim",
+        "tex": "paint",
+        "note": "pinstripes, fin edges, waist band, badge: the booth trim colour (gold at the factory)"
+      },
       "gunmetal": { "rgb": [58, 62, 70], "livery": "fixed", "mat": "steel", "tex": "cast", "note": "the lift pads" },
       "pearl": { "rgb": [236, 230, 218], "livery": "base", "tex": "flake", "note": "the body: the booth colour over a metal flake" },
       "titanium": { "rgb": [166, 170, 178], "livery": "fixed", "mat": "bare", "tex": "brushed", "note": "heat mast and thrusters" }
@@ -818,28 +824,8 @@
             ],
             "minDetail": 1
           },
-          {
-            "kind": "box",
-            "name": "waist band",
-            "f": [0.124, 0.398],
-            "w": 0.0025,
-            "z": [0.118, 0.13],
-            "g": -0.1505,
-            "role": "window",
-            "tint": [226, 232, 240],
-            "pk": "bright"
-          },
-          {
-            "kind": "box",
-            "name": "waist band",
-            "f": [0.124, 0.398],
-            "w": 0.0025,
-            "z": [0.118, 0.13],
-            "g": 0.1505,
-            "role": "window",
-            "tint": [226, 232, 240],
-            "pk": "bright"
-          },
+          { "kind": "box", "name": "waist band", "f": [0.124, 0.398], "w": 0.0025, "z": [0.118, 0.13], "g": -0.1505, "paint": "gilt" },
+          { "kind": "box", "name": "waist band", "f": [0.124, 0.398], "w": 0.0025, "z": [0.118, 0.13], "g": 0.1505, "paint": "gilt" },
           {
             "kind": "box",
             "name": "rocker light",
@@ -861,17 +847,7 @@
             "tint": [220, 226, 236],
             "minDetail": 1
           },
-          {
-            "kind": "box",
-            "name": "roof pinstripe",
-            "f": [0.252, 0.264],
-            "w": 0.116,
-            "z": [0.245, 0.25],
-            "role": "window",
-            "tint": [226, 232, 240],
-            "pk": "bright",
-            "minDetail": 1
-          },
+          { "kind": "box", "name": "roof pinstripe", "f": [0.252, 0.264], "w": 0.116, "z": [0.245, 0.25], "paint": "gilt", "minDetail": 1 },
           {
             "kind": "box",
             "name": "marker lamp",
@@ -952,22 +928,12 @@
             "pk": "bright",
             "minDetail": 1
           },
-          {
-            "kind": "box",
-            "name": "badge",
-            "f": [0.411, 0.417],
-            "w": 0.006,
-            "z": [0.094, 0.104],
-            "role": "window",
-            "tint": [226, 232, 240],
-            "pk": "bright",
-            "minDetail": 1
-          },
+          { "kind": "box", "name": "badge", "f": [0.411, 0.417], "w": 0.006, "z": [0.094, 0.104], "paint": "gilt", "minDetail": 1 },
           {
             "kind": "poly",
             "name": "badge wing",
             "faces": [
-              { "role": "window", "sh": 0.9, "p": [[0.416, -0.005, 0.101], [0.408, -0.032, 0.108], [0.412, -0.01, 0.097]], "pk": "bright", "tint": [226, 232, 240] }
+              { "role": "body", "sh": 0.9, "p": [[0.416, -0.005, 0.101], [0.408, -0.032, 0.108], [0.412, -0.01, 0.097]], "paint": "gilt" }
             ],
             "minDetail": 1
           },
@@ -975,7 +941,7 @@
             "kind": "poly",
             "name": "badge wing",
             "faces": [
-              { "role": "window", "sh": 0.9, "p": [[0.416, 0.005, 0.101], [0.408, 0.032, 0.108], [0.412, 0.01, 0.097]], "pk": "bright", "tint": [226, 232, 240] }
+              { "role": "body", "sh": 0.9, "p": [[0.416, 0.005, 0.101], [0.408, 0.032, 0.108], [0.412, 0.01, 0.097]], "paint": "gilt" }
             ],
             "minDetail": 1
           },
@@ -1036,52 +1002,46 @@
             "name": "fin edge",
             "faces": [
               {
-                "role": "window",
+                "role": "body",
                 "sh": 0.952648,
                 "p": [[0.205, -0.101, 0.2445], [0.126, -0.101, 0.2885], [0.126, -0.111, 0.2885], [0.205, -0.111, 0.2445]],
                 "cen": [0.16375, -0.106, 0.265],
-                "pk": "bright",
-                "tint": [226, 232, 240]
+                "paint": "gilt"
               },
               {
-                "role": "window",
+                "role": "body",
                 "sh": 0.55,
                 "p": [[0.126, -0.101, 0.2885], [0.126, -0.101, 0.283], [0.126, -0.111, 0.283], [0.126, -0.111, 0.2885]],
                 "cen": [0.16375, -0.106, 0.265],
-                "pk": "bright",
-                "tint": [226, 232, 240]
+                "paint": "gilt"
               },
               {
-                "role": "window",
+                "role": "body",
                 "sh": 0.44949,
                 "p": [[0.126, -0.101, 0.283], [0.198, -0.101, 0.244], [0.198, -0.111, 0.244], [0.126, -0.111, 0.283]],
                 "cen": [0.16375, -0.106, 0.265],
-                "pk": "bright",
-                "tint": [226, 232, 240]
+                "paint": "gilt"
               },
               {
-                "role": "window",
+                "role": "body",
                 "sh": 0.421929,
                 "p": [[0.198, -0.101, 0.244], [0.205, -0.101, 0.2445], [0.205, -0.111, 0.2445], [0.198, -0.111, 0.244]],
                 "cen": [0.16375, -0.106, 0.265],
-                "pk": "bright",
-                "tint": [226, 232, 240]
+                "paint": "gilt"
               },
               {
-                "role": "window",
+                "role": "body",
                 "sh": 0.72,
                 "p": [[0.205, -0.111, 0.2445], [0.126, -0.111, 0.2885], [0.126, -0.111, 0.283], [0.198, -0.111, 0.244]],
                 "cen": [0.16375, -0.106, 0.265],
-                "pk": "bright",
-                "tint": [226, 232, 240]
+                "paint": "gilt"
               },
               {
-                "role": "window",
+                "role": "body",
                 "sh": 0.62,
                 "p": [[0.198, -0.101, 0.244], [0.126, -0.101, 0.283], [0.126, -0.101, 0.2885], [0.205, -0.101, 0.2445]],
                 "cen": [0.16375, -0.106, 0.265],
-                "pk": "bright",
-                "tint": [226, 232, 240]
+                "paint": "gilt"
               }
             ],
             "minDetail": 1
@@ -1143,52 +1103,46 @@
             "name": "fin edge",
             "faces": [
               {
-                "role": "window",
+                "role": "body",
                 "sh": 0.952648,
                 "p": [[0.205, 0.111, 0.2445], [0.126, 0.111, 0.2885], [0.126, 0.101, 0.2885], [0.205, 0.101, 0.2445]],
                 "cen": [0.16375, 0.106, 0.265],
-                "pk": "bright",
-                "tint": [226, 232, 240]
+                "paint": "gilt"
               },
               {
-                "role": "window",
+                "role": "body",
                 "sh": 0.55,
                 "p": [[0.126, 0.111, 0.2885], [0.126, 0.111, 0.283], [0.126, 0.101, 0.283], [0.126, 0.101, 0.2885]],
                 "cen": [0.16375, 0.106, 0.265],
-                "pk": "bright",
-                "tint": [226, 232, 240]
+                "paint": "gilt"
               },
               {
-                "role": "window",
+                "role": "body",
                 "sh": 0.44949,
                 "p": [[0.126, 0.111, 0.283], [0.198, 0.111, 0.244], [0.198, 0.101, 0.244], [0.126, 0.101, 0.283]],
                 "cen": [0.16375, 0.106, 0.265],
-                "pk": "bright",
-                "tint": [226, 232, 240]
+                "paint": "gilt"
               },
               {
-                "role": "window",
+                "role": "body",
                 "sh": 0.421929,
                 "p": [[0.198, 0.111, 0.244], [0.205, 0.111, 0.2445], [0.205, 0.101, 0.2445], [0.198, 0.101, 0.244]],
                 "cen": [0.16375, 0.106, 0.265],
-                "pk": "bright",
-                "tint": [226, 232, 240]
+                "paint": "gilt"
               },
               {
-                "role": "window",
+                "role": "body",
                 "sh": 0.72,
                 "p": [[0.205, 0.101, 0.2445], [0.126, 0.101, 0.2885], [0.126, 0.101, 0.283], [0.198, 0.101, 0.244]],
                 "cen": [0.16375, 0.106, 0.265],
-                "pk": "bright",
-                "tint": [226, 232, 240]
+                "paint": "gilt"
               },
               {
-                "role": "window",
+                "role": "body",
                 "sh": 0.62,
                 "p": [[0.198, 0.111, 0.244], [0.126, 0.111, 0.283], [0.126, 0.111, 0.2885], [0.205, 0.111, 0.2445]],
                 "cen": [0.16375, 0.106, 0.265],
-                "pk": "bright",
-                "tint": [226, 232, 240]
+                "paint": "gilt"
               }
             ],
             "minDetail": 1
@@ -1363,10 +1317,10 @@
             "tint": [30, 40, 60],
             "minDetail": 1
           },
-          { "kind": "box", "name": "door shut line", "f": [0.2465, 0.2495], "w": 0.0015, "z": [0.046, 0.122], "g": -0.1505, "role": "strut", "minDetail": 1 },
-          { "kind": "box", "name": "door shut line", "f": [0.3505, 0.3535], "w": 0.0015, "z": [0.046, 0.122], "g": -0.1505, "role": "strut", "minDetail": 1 },
-          { "kind": "box", "name": "door shut line", "f": [0.2465, 0.2495], "w": 0.0015, "z": [0.046, 0.122], "g": 0.1505, "role": "strut", "minDetail": 1 },
-          { "kind": "box", "name": "door shut line", "f": [0.3505, 0.3535], "w": 0.0015, "z": [0.046, 0.122], "g": 0.1505, "role": "strut", "minDetail": 1 },
+          { "kind": "box", "name": "door shut line", "f": [0.2465, 0.2495], "w": 0.0015, "z": [0.046, 0.117], "g": -0.1505, "role": "strut", "minDetail": 1 },
+          { "kind": "box", "name": "door shut line", "f": [0.3505, 0.3535], "w": 0.0015, "z": [0.046, 0.117], "g": -0.1505, "role": "strut", "minDetail": 1 },
+          { "kind": "box", "name": "door shut line", "f": [0.2465, 0.2495], "w": 0.0015, "z": [0.046, 0.117], "g": 0.1505, "role": "strut", "minDetail": 1 },
+          { "kind": "box", "name": "door shut line", "f": [0.3505, 0.3535], "w": 0.0015, "z": [0.046, 0.117], "g": 0.1505, "role": "strut", "minDetail": 1 },
           {
             "kind": "poly",
             "name": "lift pad",
@@ -5185,7 +5139,7 @@
             "name": "flank louvre",
             "f": [0.138, 0.196],
             "w": 0.0015,
-            "z": [0.1, 0.1045],
+            "z": [0.094, 0.0985],
             "g": -0.1505,
             "role": "strut",
             "paint": "carbon",
@@ -5196,7 +5150,7 @@
             "name": "flank louvre",
             "f": [0.138, 0.196],
             "w": 0.0015,
-            "z": [0.108, 0.1125],
+            "z": [0.102, 0.1065],
             "g": -0.1505,
             "role": "strut",
             "paint": "carbon",
@@ -5207,7 +5161,7 @@
             "name": "flank louvre",
             "f": [0.138, 0.196],
             "w": 0.0015,
-            "z": [0.116, 0.1205],
+            "z": [0.11, 0.1145],
             "g": -0.1505,
             "role": "strut",
             "paint": "carbon",
@@ -5229,7 +5183,12 @@
             "kind": "poly",
             "name": "a-pillar",
             "faces": [
-              { "role": "strut", "sh": 0.66, "p": [[0.384, -0.1468, 0.128], [0.368, -0.1468, 0.128], [0.25, -0.1168, 0.246], [0.262, -0.1168, 0.246]] }
+              {
+                "role": "strut",
+                "sh": 0.66,
+                "p": [[0.384, -0.1468, 0.128], [0.368, -0.1468, 0.128], [0.25, -0.1168, 0.246], [0.262, -0.1168, 0.246]],
+                "paint": "carbon"
+              }
             ],
             "minDetail": 1
           },
@@ -5238,7 +5197,7 @@
             "name": "flank louvre",
             "f": [0.138, 0.196],
             "w": 0.0015,
-            "z": [0.1, 0.1045],
+            "z": [0.094, 0.0985],
             "g": 0.1505,
             "role": "strut",
             "paint": "carbon",
@@ -5249,7 +5208,7 @@
             "name": "flank louvre",
             "f": [0.138, 0.196],
             "w": 0.0015,
-            "z": [0.108, 0.1125],
+            "z": [0.102, 0.1065],
             "g": 0.1505,
             "role": "strut",
             "paint": "carbon",
@@ -5260,7 +5219,7 @@
             "name": "flank louvre",
             "f": [0.138, 0.196],
             "w": 0.0015,
-            "z": [0.116, 0.1205],
+            "z": [0.11, 0.1145],
             "g": 0.1505,
             "role": "strut",
             "paint": "carbon",
@@ -5282,7 +5241,12 @@
             "kind": "poly",
             "name": "a-pillar",
             "faces": [
-              { "role": "strut", "sh": 0.66, "p": [[0.384, 0.1468, 0.128], [0.368, 0.1468, 0.128], [0.25, 0.1168, 0.246], [0.262, 0.1168, 0.246]] }
+              {
+                "role": "strut",
+                "sh": 0.66,
+                "p": [[0.384, 0.1468, 0.128], [0.368, 0.1468, 0.128], [0.25, 0.1168, 0.246], [0.262, 0.1168, 0.246]],
+                "paint": "carbon"
+              }
             ],
             "minDetail": 1
           },
@@ -5817,18 +5781,7 @@
             ],
             "whenNot": "trailer"
           },
-          {
-            "kind": "box",
-            "name": "pod band",
-            "f": [-0.034, 0.084],
-            "w": 0.102,
-            "z": [0.104, 0.11],
-            "role": "window",
-            "tint": [226, 232, 240],
-            "pk": "bright",
-            "minDetail": 1,
-            "whenNot": "trailer"
-          },
+          { "kind": "box", "name": "pod band", "f": [-0.034, 0.084], "w": 0.102, "z": [0.104, 0.11], "paint": "gilt", "minDetail": 1, "whenNot": "trailer" },
           {
             "kind": "box",
             "name": "pod scan line",

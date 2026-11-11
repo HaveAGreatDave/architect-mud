@@ -235,20 +235,41 @@ export async function rollHazards(live) {
   // (Stalls are owned by the continuous energy model — a real slow/high-AoA break with its own
   // wing-drop, spin and authoritative consequences. See stalledState + flightTick. No dice-roll here.)
 
-  // ENGINE FIRE — sustained overheat (from throttle, birds, tuning). Give one
-  // OVERHEAT warning tick, then it lights.
+  // ENGINE FIRE: sustained overheat (from throttle, birds, tuning). It used to warn for one 3s tick
+  // and then light, with only a line of text between. Now: HOT at 130 (caution on the HUD), OVERHEAT
+  // at 145, and it lights only after OVERHEAT_GRACE ticks in the red, long enough to ease the throttle
+  // or hit COOLANT. The HUD reads the stage from `warn` (hudState).
   if (!live.hazard && a.engine_temp >= 145) {
-    if (live._overheatTicks) {
+    live._overheatTicks = (live._overheatTicks || 0) + 1;
+    if (live._overheatTicks > OVERHEAT_GRACE) {
       live.hazard = { type: 'FIRE', stage: 0 };
       live._overheatTicks = 0;
       toOccupants(live, '<span class="text-red">🔥 ENGINE FIRE: smoke pours back over the cockpit. <b>extinguish</b> it or <b>cut fuel</b>, fast.</span>');
-    } else {
-      live._overheatTicks = 1;
-      toOccupants(live, '<span class="text-amber">⚠ OVERHEAT: the temp\'s in the red. Ease the throttle before it lights.</span>');
+    } else if (live._overheatTicks === 1) {
+      toOccupants(live, `<span class="text-amber">⚠ OVERHEAT: the temp's in the red. Ease the throttle or <b>coolant</b> before it lights (${coolantLeft(live)} flush${coolantLeft(live) === 1 ? '' : 'es'} left).</span>`);
     }
   } else if (a.engine_temp < 130) {
     live._overheatTicks = 0;
   }
+}
+
+// Ticks (3s each) an engine may sit at 145+ before it lights.
+const OVERHEAT_GRACE = 3;
+// Coolant flushes per flight. A flush dumps the coolant reservoir through the engines.
+export const COOLANT_CHARGES = 2;
+export function coolantLeft(live) { return live.coolant ?? COOLANT_CHARGES; }
+
+async function cmdCoolant(args, raw, player) {
+  const { live, err } = requirePilot(player); if (err) return err;
+  if (!live.row.airborne && !live.row.engine_on) return { type: 'emote', message: 'The engine\'s cold. Nothing to flush.' };
+  const left = coolantLeft(live);
+  if (left <= 0) return { type: 'emote', message: 'The coolant reservoir\'s dry. Ease the throttle.' };
+  live.coolant = left - 1;
+  const drop = 45;
+  if (live.engines?.length) { for (const e of live.engines) e.temp = Math.max(30, e.temp - drop); live.row.engine_temp = Math.round(live.engines.reduce((s, e) => s + e.temp, 0) / live.engines.length); }
+  else live.row.engine_temp = Math.max(30, live.row.engine_temp - drop);
+  live._overheatTicks = 0;
+  return { type: 'emote', message: `You pull the coolant flush. The temp needle drops to ${Math.round(live.row.engine_temp)}°. ${live.coolant} flush${live.coolant === 1 ? '' : 'es'} left.` };
 }
 
 async function escalate(live) {
@@ -615,6 +636,7 @@ async function cmdScanVerb(args, raw, player, broadcast) {
 
 export const commands = {
   extinguish: cmdExtinguish,
+  coolant: cmdCoolant,
   eject: cmdEject,
   bail: cmdEject,
   preflight: cmdPreflight,

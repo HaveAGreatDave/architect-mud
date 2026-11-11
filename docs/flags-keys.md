@@ -21,7 +21,7 @@ nothing, silently; wire a reader first.
 
 | key | owner | meaning |
 |---|---|---|
-| `room` | roomstage | the 3-D room: `{ w, d, h }` in metres, plus any of `glass` (walls that are floor-to-ceiling glass: `front`, `left`, `right`), `finish` (`plain`, `fine`), `ensuite` (`{ w, d, finish }`), `pit` (a sunken floor, `{ at: [u0, u1, v0, v1], depth, step }`), `ground` (`stone`), `studio` (`false` for no studio plan), `balcony` (`false` for none), `storey` and `storeys` (how far up the building, for the view out) and `face` (the front wall's bearing, when the way in doesn't say). Any zone carrying it has a Stage; a flat has one without it. See [room-stage.md](proposals/room-stage.md#room-sizes-and-finishes) |
+| `room` | roomstage | the 3-D room: `{ w, d, h }` in metres, plus any of `glass` (walls that are floor-to-ceiling glass: `front`, `left`, `right`), `finish` (`plain`, `fine`), `ensuite` (`{ w, d, finish }`), `pit` (a sunken floor, `{ at: [u0, u1, v0, v1], depth, step }`), `ground` (`stone`, `marble`), `car` (`true`: clad as a lift car, walnut and mirror-bronze, with sliding doors), `sign` (`{ text, wall, y, size, at }`: lettering in brass on a walnut panel, as a hotel's name behind its desk), `studio` (`false` for no studio plan), `balcony` (`false` for none), `street_door` (`{ kind: 'sliding', w }`: the street door is a pair of automatic glass doors `w` metres wide, cut in the glass front, that part as you come up to them; the Solenne lobby), `storey` and `storeys` (how far up the building, for the view out) and `face` (the front wall's bearing, when the way in doesn't say). Any zone carrying it has a Stage; a flat has one without it. See [room-stage.md](proposals/room-stage.md#room-sizes-and-finishes) |
 | `open_all_hours` | commerce | interior room with no closing time: its vendors keep their shifts, but the door never locks for them (the Coliseum and Golden Goose Gardens, where a game is always on) |
 | `residents_only` | residency | interior tile only enterable by a player holding a unit in the named building — walked in OR ridden to by lift (the lift runs the gate chain too) |
 | `residents_only_deny` | residency | optional refusal line for `residents_only`, in the building's voice |
@@ -121,7 +121,8 @@ nothing, silently; wire a reader first.
 | `safehouse` | surveillance | launders wanted heat: unseen time bleeds a wanted star 3× as fast as lying low on the street. Pair with `unsurveilled`/`sanctuary` for a true refuge |
 | `mining_table_id` | mining | scavenging-table id used for mining here |
 | `mis_ok` | mis | zone-gated NPC consent (see `mis_requires_zone_flag`) |
-| `no_footbridge` | flight (street kit) | on a road tile: the street kit's footbridge won't stand here, and the block goes without one (`kitPlace`). Keeps a frontage in view. Rides the flight cell as `nfb`. Ironside Street's 919,902, 919,903 and 919,908, in front of Second Helpings, the Clone Facility and the Meridian, carry it |
+| `no_footbridge` | flight (street kit) | on a road tile: the street kit's footbridge won't stand here, and the block goes without one (`kitPlace`). Keeps a frontage in view. Rides the flight cell as `nfb`. Ironside Street's 919,902, 919,903 and 919,908, in front of Second Helpings, the Clone Facility and the Meridian, carry it, and so does Sorrel Way's 893,921 in front of the Hughson Coliseum's main gate |
+| `no_holo_ad` | flight (hologram adverts) | on a building tile: it never carries a hologram advert, whatever its region's `holo_ads` plan rolls (`holoAdsFor`). No tile carries it yet |
 | `no_spawn` | spawning | suppress enemy spawns |
 | `open_sky` | flight + environment | outdoor zone aircraft can overfly/land; on an `is_interior`/`is_building` zone (an open roof/deck) it also makes the zone climatically OUTDOORS — sky light, weather, and outdoor temp — while the raw interior flag keeps it in the power/building network (see `isIndoorZone`) |
 | `park_feature` | flight | on a `terrain:park` tile, forces which flight-sim park dressing draws (`grove\|pond\|benches\|flowerbeds\|path`) so a park lays out symmetrically; unset → tile position hash. Rides the flight cell as `pf` (live stream + baked snapshot) |
@@ -147,12 +148,15 @@ nothing, silently; wire a reader first.
 | `world_exit_zone` | movement | exterior seam zone for this building |
 | `work_venue` | work | Steady Work shift venue: `{ role, wage, employer?, name?, pool?, boss?, employer_npc?, clock_in_line? }`. `pool` selects the event set (`'diner'` default, `'bar'` = Brawn/Cool-leaning, `'bench'` = Brains-leaning repair-shop work). `boss` names who pays you (defaults 'Gus'); `employer_npc` is an NPC id — finishing a shift raises your standing with them, which discounts what they charge you ([systems-durability.md](systems-durability.md)); `clock_in_line` overrides the zone-event line ( substitutes). Venues: Meltwater Diner, Voltage, Brownout Municipal Turbine Hall (Watts's bench) |
 | `work_fence_blacklist` (player) | work | Set `'true'` when a player burns a hot courier run (cracked the parcel). Hides the fence's hot-job dialogue option (`OFFER_COURIER_HOT`) from then on |
+| `outing_venue` | outings | a room NPCs meet friends in on a night out, though its building isn't a bar or club |
+| `no_outings` | outings | a bar or club NPCs skip on a night out |
 
 ## npcs.flags
 
 | key | owner | meaning |
 |---|---|---|
 | `set_aside` | engine (`gameLoop.js`) | this NPC's building is set aside on the holding map: the game loop skips them, so they stay in their rooms with their routines paused (their street is gone). Cleared when the building comes back |
+| `mood` | engine (`npc-mood.js`) | the NPC's resting mood, as a name (`'sad'`) or `{ mood, i }`: their face on the Room Stage and a line in `look`. Anything that happens to them (a blow, a smile, `SET_MOOD`) overrides it for a while. See [systems-expressions.md](systems-expressions.md) |
 | `kin` | content:lint | array of NPC ids this NPC is related to but doesn't live with. A shared surname is a household: `content:lint` fails two NPCs who share one across different `home_zone`s unless one lists the other here. Keep it rare, or a surname stops meaning anything. Nothing reads it at runtime |
 | `cphl` | broadcast (`sports/league-npcs.js`) | `{ player, club, role }`: this NPC is a Cluster Puck man. `player` is his exact roster string, `club` the club the roster deals him to, `role` one of `captain`, `goalie`, `star`. He's on shift at his `studio_zone_id` for his club's games, out of the world while the vat has him, and `npc.cphl.season` (RAM) is his season in his own words. See [systems-broadcast.md](systems-broadcast.md#league-players-who-are-npcs-as-built) |
 | `aa_engineer` | aa-sites | bunker engineer who repairs a strafed AA battery; value = the owning `aa_sites.id` |
@@ -172,7 +176,8 @@ nothing, silently; wire a reader first.
 | `mule_counter` | smuggle | the ground fence's back room — claims the engine purchase-delivery seam, so buying raw off his `shelf: 'back_room'` catalogue books a `smuggle_orders` MULE drop at the Scald instead of handing anything over. Pairs with `trust_flag: 'bm_trust'` + per-entry `min_trust` for the tiers, replacing the old per-raw dialogue fan-out. Sully at the Pigeon Bar |
 | `raws_counter` | flight | the raws order counter — `raws` only works while this NPC is alive and in the room, and each order is run out to one of the dead-drop caches ([systems-flight.md](systems-flight.md#raw-drug-dead-drops--the-air-smuggling-run)). Amos Dune at the Layover; a second quartermaster elsewhere is content, not code |
 | `clothing_layers` | npc-clothing | descriptive outfit model (see npc-clothing.md) |
-| `figure` | roomstage | a settled close-up look that beats the id's roll, any of `head` (0 to 3), `build`, `weight` (0 to 1), `cut`, `gear` (`false` for none), `hair_style`, `facial`, `layout`, `age`, `brow`, `mouth`, `beard` (the stubble's strength), `smile` (0 to 1), `height` (metres to the crown; the base figure is 1.75, `figure.js` FIGURE_CROWN), and colours as `[r, g, b]`: `skin`, `hair`, `iris`, `top`, `legs`, `shoes`, `shirt`, `trim`, and fabrics by `figure.js` FIG_FABRIC name: `fabric_top`, `fabric_legs`, `fabric_shoes`, and `mutations` (mutation ids, drawn through `figure.js` MUTATION_LOOK; for a Wildblood they replace the roll). Sent with the NPC to the Room Stage; see [sculpted-figure.md](proposals/sculpted-figure.md#settled-looks) |
+| `figure` | roomstage | a settled close-up look that beats the id's roll, any of `head` (0 to 4, an `actor-head.js` SCULPT_HEADS index; 4 is never rolled), `build`, `weight` (0 to 1), `bust` and `butt` (0 to 1, the sculpted body's chest and seat; women roll their own), `bottoms`, `hat` and `scarf` (by `figure.js` FIGURE_BOTTOMS, FIGURE_HATS, FIGURE_SCARVES name, `false` for none; each rolls off the id otherwise), `neckline` (`[depth, half-width, 0 V or 1 scoop]` in metres, cutting any top low), `slit` (`[top, half-width at the hem, centre x]` in metres: skin painted up one leg of a skirt or dress from the hem), `cut` (any `figure.js` FIGURE_CUTS name; the wardrobe is listed in [hd-figure.md](proposals/hd-figure.md#more-cuts-and-the-wildblood)), `gear` (`false` for none), `hair_style`, `spikes` (0 to 1, the front row of locks stood up in points over the forehead, whatever the style; sculpted only), `facial`, `layout`, `age`, `brow`, `mouth`, `beard` (the stubble's strength), `smile` (0 to 1), `height` (metres to the crown; the base figure is 1.75, `figure.js` FIGURE_CROWN), `print` (an open front's tee: `wolves`, `plain`, `redstar`), `props` (what each hand holds, `{ L, R }` by `figure.js` PROPS name: `cigarette`, `scotch`), and colours as `[r, g, b]`: `skin`, `hair`, `iris`, `top`, `legs`, `shoes`, `shirt`, `trim`, and fabrics by `figure.js` FIG_FABRIC name: `fabric_top`, `fabric_legs`, `fabric_shoes`, and `mutations` (mutation ids, drawn through `figure.js` MUTATION_LOOK; for a Wildblood they replace the roll). Sent with the NPC to the Room Stage; see [sculpted-figure.md](proposals/sculpted-figure.md#settled-looks) |
+| `figure_work` | roomstage | the look worn at work: any `figure` keys, laid over `figure` while the NPC is at their work zone on shift (`isNpcAtWork`). The Cherry Pit's dancers change into it for their shift |
 | `consort` | consort | a kept companion — stays in their billet until the keeper `beckon`s them |
 | `devoted_to` | consort | handle of the keeper this consort is devoted to |
 | `consort_archetype` | consort | **which of the 12 sub-personalities they are** (`strategist`, `romantic`, `feral`, `devout`, `brat`, `ghost`, `wit`, `scholar`, `ice`, `starlet`, `soldier`, `stray`). Every spoken line resolves off this — never off the NPC's name |
@@ -194,7 +199,10 @@ nothing, silently; wire a reader first.
 | `essential` | — | **no reader.** Nothing checks it; unkillability is `no_attack` (`combat.js:705`). Setting `essential` protects nobody |
 | `faction_guard` | — | **no reader.** There is no `factions` plugin (reworked into ideologies) and no code consumes this key, though ~5 content NPCs still carry it |
 | `gift_trade` | trade | accepts gifts |
+| `friends` | outings | array of NPC ids always counted as this NPC's friends (the strongest tie in the network) |
 | `haunt_zone` | ai-behaviour | zone a wandering NPC gravitates back to (`haunt_zones` array wins when present) |
+| `smalltalk` | smalltalk | how readily this NPC says what they're up to: `'open'`, `'normal'`, `'guarded'` or `'closed'` beats the level their `personality` gives them; `'never'` refuses everybody; `false` takes the question off them (a machine, a mute). See [plugins/smalltalk/README.md](../plugins/smalltalk/README.md) |
+| `up_to` | smalltalk | this NPC's own answer to "What are you up to?": a line, a list of lines, or lines keyed by what they're doing (`working`, `to_work`, `heading_home`, `at_home`, `out`, `idle`, `banking`, `any`), plus `refuse` for when they won't say. `{work}`, `{place}` and `{when}` fill in. For an NPC whose custom behaviour graph does something the default answers can't describe |
 | `inner_circle_flag` | vendor | player flag that unlocks inner-circle stock |
 | `job_board_dispatcher` | jobboard | quest turn-in dispatcher |
 | `mis_requires_zone_flag` | mis | only consents in zones carrying this flag |
@@ -215,6 +223,7 @@ nothing, silently; wire a reader first.
 | `preshow_drink` | npc-drugs | the DRINK counterpart to `preshow_habit`, same cadence and its own pouring ritual (Neil Mcmanistan's "embassy reserve"). Always sedated, `neverOut`. **Separate from `preshow_habit` on purpose** — a drink's name is authored flavour and is never in the drugs catalogue, so the drug path would classify whisky as a stimulant |
 | `booze_habit` | npc-drugs | drink name for a standing dependency on no schedule but its own (20-min cooldown × 35%/scan). Always sedated, **never** floored — an NPC out cold stops turning up for work |
 | `drug_habit` | npc-drugs | drug name for a standing habit, same cadence as `booze_habit` but with the drug's own classified effect (and it *can* put them under). A stimulant comedown sets `ai.crashSleepy`, which sends them to bed early |
+| `no_outings` | outings | this NPC never goes on a night out with friends |
 | `stray_cat` | strays | marks the animal the strays plugin owns (Cathode in Dray Lane) — the plugin's only selector, so its pet hook, kill handler and accolade predicates all key off this rather than an id. Pairs with `home_zone` pointing at an exitless den zone, which is what makes hiding work; do NOT add `no_attack` (killing it is the point). See [systems-strays.md](systems-strays.md) |
 | `stripper` | strippers | performs at the club |
 | `studio_npc` | broadcast | broadcast-studio actor |
@@ -238,6 +247,7 @@ nothing, silently; wire a reader first.
 | `atm` | atm | ATM terminal (pairs with `atm_units` row) |
 | `look` | roomstage | what the Room Stage draws the row as when its flags can't say: `{ arche, form, dims, wear }`, any of them, or the row is drawn as its flags make it (client/shared/room-layout.js) |
 | `spot` | roomstage | where the row stands in its room, `{ wall, along, turn }`, `{ at: [u, v], turn }` or `{ on, x }`, in metres. Stamped on a player's piece when it lands; an authored row may carry one to fix its place |
+| `post` | roomstage | on an NPC: a furniture id in their work zone. On shift they stand half a metre behind that piece on the Room Stage, facing the way it faces (a front desk, a counter). The piece needs an authored `spot` and `look.dims` |
 | `bed` | posture/sleep | sleepable |
 | `asc_rite` | ascendant | the Uplink terminal — gates `ascend`, the Rite of Ascension. Content decides where the ritual stands; the plugin never names a room. Sibling of `psi_purifier`, and the two rituals undo each other ([systems-ascension.md](systems-ascension.md)) |
 | `broadcast_device_type` / `broadcast_receiver` / `broadcast_transmitter` | broadcast | broadcast hardware role |
@@ -356,3 +366,9 @@ backlog. The feed stays live to the wall.
 | `recover_after` | power | ISO timestamp a **storm** fault expires at. Rolled by the sim, never authored — the tick clears the key once the window lapses, so an authored one would be wiped |
 | `battery` / `battery_max` | power | portable player generators only: charge remaining, and the ceiling it recharges to. Drives the unit's work light |
 | `junction_box_id` | power | portable player generators only: the junction box this unit back-feeds when it is running |
+
+## doors.flags
+
+| Key | Owner | What it does |
+|---|---|---|
+| `slides` | engine (`movement.js`) | automatic glass doors: going through says "The glass doors slide apart" instead of "It swings closed behind you". Set on the Solenne's street door; the Room Stage's own doors come from the room's `street_door` |

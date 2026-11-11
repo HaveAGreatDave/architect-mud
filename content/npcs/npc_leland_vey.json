@@ -1,0 +1,113 @@
+{
+  "banter": [],
+  "behaviour_graph": {
+    "_start": "n_start",
+    "nodes": {
+      "n_atwork": {
+        "action_type": "AT_WORK",
+        "next": "n_check",
+        "type": "action"
+      },
+      "n_check": {
+        "action_type": "CHECK_WORK",
+        "goToWork": "n_work",
+        "haveLife": "n_life",
+        "type": "action"
+      },
+      "n_life": {
+        "action_type": "HAVE_LIFE",
+        "next": "n_check",
+        "type": "action"
+      },
+      "n_start": {
+        "next": "n_check",
+        "type": "start"
+      },
+      "n_work": {
+        "action_type": "GO_TO_WORK",
+        "next": "n_atwork",
+        "params": {
+          "zone_id": "zone_studio_1782953094650"
+        },
+        "type": "action"
+      }
+    }
+  },
+  "chitchat": [],
+  "description": "He presents The Quiet Hour from a bare desk under one lamp, and on air he's billed only as THE CONTROL VOICE. Off air he's polite and very still, and he keeps both hands flat on whatever's in front of him.",
+  "dialogue_tree": {},
+  "faction": null,
+  "flags": {
+    "absent_lines": [
+      "\"{missing} isn't here. The picture stays as it is until they are.\"",
+      "sits with both hands flat on the desk and waits."
+    ],
+    "clothing_layers": [
+      "a narrow black suit",
+      "a white shirt buttoned to the collar",
+      "a thin black tie"
+    ],
+    "personality": "tv_host",
+    "studio_npc": true
+  },
+  "home_activities": [],
+  "home_zone": "zone_solenne_apt_a",
+  "hp": 20,
+  "hp_max": 20,
+  "id": "npc_leland_vey",
+  "name": "Leland Vey",
+  "npc_type": "npc",
+  "sex": "male",
+  "studio_zone_id": "zone_studio_1782953094650",
+  "vendor_inventory": [],
+  "vendor_restock_rate": 1,
+  "vendor_schedule": {
+    "fri": [
+      {
+        "from": 1,
+        "to": 4
+      }
+    ],
+    "mon": [
+      {
+        "from": 1,
+        "to": 4
+      }
+    ],
+    "sat": [
+      {
+        "from": 1,
+        "to": 4
+      }
+    ],
+    "sun": [
+      {
+        "from": 1,
+        "to": 4
+      }
+    ],
+    "thu": [
+      {
+        "from": 1,
+        "to": 4
+      }
+    ],
+    "tue": [
+      {
+        "from": 1,
+        "to": 4
+      }
+    ],
+    "wed": [
+      {
+        "from": 1,
+        "to": 4
+      }
+    ]
+  },
+  "vendor_shop_name": null,
+  "vendor_stock_size": 10,
+  "wander_zones": [],
+  "wanders": 0,
+  "work_zone_id": "zone_studio_1782953094650"
+}

@@ -2085,7 +2085,7 @@
                 "pts": [[0.99, 0.1557, 0.033], [1.01, 0.12, 0.05], [1.035, 0.12, 0.05]],
                 "r": 0.0022,
                 "sides": 5,
-                "role": "gear",
+                "role": "strut",
                 "sh": 0.85,
                 "paint": "metal",
                 "minDetail": 1
@@ -6349,259 +6349,280 @@
             "minDetail": 1
           },
           {
-            "kind": "tube",
-            "name": "main leg",
-            "pts": [[0.26, 0.21, -0.17], [0.26, 0.21, -0.23]],
-            "r": 0.008,
-            "sides": 8,
-            "role": "gear",
-            "paint": "metal",
-            "minDetail": 1
-          },
-          {
-            "kind": "tube",
-            "name": "oleo",
-            "pts": [[0.26, 0.21, -0.2], [0.26, 0.21, -0.228]],
-            "r": 0.0055,
-            "sides": 8,
-            "role": "gear",
-            "paint": "chrome",
-            "minDetail": 1
-          },
-          {
-            "kind": "tube",
-            "name": "torque link",
-            "pts": [[0.264, 0.21, -0.205], [0.276, 0.21, -0.215], [0.264, 0.21, -0.226]],
-            "r": 0.0025,
-            "sides": 4,
-            "role": "gear",
-            "paint": "metal",
-            "minDetail": 1
-          },
-          {
-            "kind": "tube",
-            "name": "axle",
-            "pts": [[0.26, 0.168, -0.24], [0.26, 0.252, -0.24]],
-            "r": 0.005,
-            "sides": 6,
-            "role": "gear",
-            "paint": "metal",
-            "minDetail": 1
-          },
-          { "kind": "wheel", "name": "main wheel", "at": [0.26, 0.182, -0.24], "r": 0.045, "hw": 0.014, "n": 14, "minDetail": 1 },
-          { "kind": "wheel", "name": "main wheel", "at": [0.26, 0.238, -0.24], "r": 0.045, "hw": 0.014, "n": 14, "minDetail": 1 },
-          {
-            "kind": "tube",
-            "name": "main leg",
-            "pts": [[0.13, 0.21, -0.17], [0.13, 0.21, -0.23]],
-            "r": 0.008,
-            "sides": 8,
-            "role": "gear",
-            "paint": "metal",
-            "minDetail": 1
-          },
-          {
-            "kind": "tube",
-            "name": "oleo",
-            "pts": [[0.13, 0.21, -0.2], [0.13, 0.21, -0.228]],
-            "r": 0.0055,
-            "sides": 8,
-            "role": "gear",
-            "paint": "chrome",
-            "minDetail": 1
-          },
-          {
-            "kind": "tube",
-            "name": "torque link",
-            "pts": [[0.134, 0.21, -0.205], [0.146, 0.21, -0.215], [0.134, 0.21, -0.226]],
-            "r": 0.0025,
-            "sides": 4,
-            "role": "gear",
-            "paint": "metal",
-            "minDetail": 1
-          },
-          {
-            "kind": "tube",
-            "name": "axle",
-            "pts": [[0.13, 0.168, -0.24], [0.13, 0.252, -0.24]],
-            "r": 0.005,
-            "sides": 6,
-            "role": "gear",
-            "paint": "metal",
-            "minDetail": 1
-          },
-          { "kind": "wheel", "name": "main wheel", "at": [0.13, 0.182, -0.24], "r": 0.045, "hw": 0.014, "n": 14, "minDetail": 1 },
-          { "kind": "wheel", "name": "main wheel", "at": [0.13, 0.238, -0.24], "r": 0.045, "hw": 0.014, "n": 14, "minDetail": 1 },
-          {
-            "kind": "tube",
-            "name": "main leg",
-            "pts": [[0, 0.21, -0.17], [0, 0.21, -0.23]],
-            "r": 0.008,
-            "sides": 8,
-            "role": "gear",
-            "paint": "metal",
-            "minDetail": 1
-          },
-          {
-            "kind": "tube",
-            "name": "oleo",
-            "pts": [[0, 0.21, -0.2], [0, 0.21, -0.228]],
-            "r": 0.0055,
-            "sides": 8,
-            "role": "gear",
-            "paint": "chrome",
-            "minDetail": 1
-          },
-          {
-            "kind": "tube",
-            "name": "torque link",
-            "pts": [[0.004, 0.21, -0.205], [0.016, 0.21, -0.215], [0.004, 0.21, -0.226]],
-            "r": 0.0025,
-            "sides": 4,
-            "role": "gear",
-            "paint": "metal",
-            "minDetail": 1
-          },
-          {
-            "kind": "tube",
-            "name": "axle",
-            "pts": [[0, 0.168, -0.24], [0, 0.252, -0.24]],
-            "r": 0.005,
-            "sides": 6,
-            "role": "gear",
-            "paint": "metal",
-            "minDetail": 1
-          },
-          { "kind": "wheel", "name": "main wheel", "at": [0, 0.182, -0.24], "r": 0.045, "hw": 0.014, "n": 14, "minDetail": 1 },
-          { "kind": "wheel", "name": "main wheel", "at": [0, 0.238, -0.24], "r": 0.045, "hw": 0.014, "n": 14, "minDetail": 1 },
-          {
-            "kind": "tube",
-            "name": "main leg",
-            "pts": [[-0.13, 0.21, -0.17], [-0.13, 0.21, -0.23]],
-            "r": 0.008,
-            "sides": 8,
-            "role": "gear",
-            "paint": "metal",
-            "minDetail": 1
-          },
-          {
-            "kind": "tube",
-            "name": "oleo",
-            "pts": [[-0.13, 0.21, -0.2], [-0.13, 0.21, -0.228]],
-            "r": 0.0055,
-            "sides": 8,
-            "role": "gear",
-            "paint": "chrome",
-            "minDetail": 1
-          },
-          {
-            "kind": "tube",
-            "name": "torque link",
-            "pts": [[-0.126, 0.21, -0.205], [-0.114, 0.21, -0.215], [-0.126, 0.21, -0.226]],
-            "r": 0.0025,
-            "sides": 4,
-            "role": "gear",
-            "paint": "metal",
-            "minDetail": 1
-          },
-          {
-            "kind": "tube",
-            "name": "axle",
-            "pts": [[-0.13, 0.168, -0.24], [-0.13, 0.252, -0.24]],
-            "r": 0.005,
-            "sides": 6,
-            "role": "gear",
-            "paint": "metal",
-            "minDetail": 1
-          },
-          { "kind": "wheel", "name": "main wheel", "at": [-0.13, 0.182, -0.24], "r": 0.045, "hw": 0.014, "n": 14, "minDetail": 1 },
-          { "kind": "wheel", "name": "main wheel", "at": [-0.13, 0.238, -0.24], "r": 0.045, "hw": 0.014, "n": 14, "minDetail": 1 },
-          {
-            "kind": "tube",
-            "name": "main leg",
-            "pts": [[-0.26, 0.21, -0.17], [-0.26, 0.21, -0.23]],
-            "r": 0.008,
-            "sides": 8,
-            "role": "gear",
-            "paint": "metal",
-            "minDetail": 1
-          },
-          {
-            "kind": "tube",
-            "name": "oleo",
-            "pts": [[-0.26, 0.21, -0.2], [-0.26, 0.21, -0.228]],
-            "r": 0.0055,
-            "sides": 8,
-            "role": "gear",
-            "paint": "chrome",
-            "minDetail": 1
-          },
-          {
-            "kind": "tube",
-            "name": "torque link",
-            "pts": [[-0.256, 0.21, -0.205], [-0.244, 0.21, -0.215], [-0.256, 0.21, -0.226]],
-            "r": 0.0025,
-            "sides": 4,
-            "role": "gear",
-            "paint": "metal",
-            "minDetail": 1
-          },
-          {
-            "kind": "tube",
-            "name": "axle",
-            "pts": [[-0.26, 0.168, -0.24], [-0.26, 0.252, -0.24]],
-            "r": 0.005,
-            "sides": 6,
-            "role": "gear",
-            "paint": "metal",
-            "minDetail": 1
-          },
-          { "kind": "wheel", "name": "main wheel", "at": [-0.26, 0.182, -0.24], "r": 0.045, "hw": 0.014, "n": 14, "minDetail": 1 },
-          { "kind": "wheel", "name": "main wheel", "at": [-0.26, 0.238, -0.24], "r": 0.045, "hw": 0.014, "n": 14, "minDetail": 1 }
+            "kind": "group",
+            "name": "main legs",
+            "parts": [
+              {
+                "kind": "tube",
+                "name": "main leg",
+                "pts": [[0.26, 0.21, -0.17], [0.26, 0.21, -0.23]],
+                "r": 0.008,
+                "sides": 8,
+                "role": "gear",
+                "paint": "metal",
+                "minDetail": 1
+              },
+              {
+                "kind": "tube",
+                "name": "oleo",
+                "pts": [[0.26, 0.21, -0.2], [0.26, 0.21, -0.228]],
+                "r": 0.0055,
+                "sides": 8,
+                "role": "gear",
+                "paint": "chrome",
+                "minDetail": 1
+              },
+              {
+                "kind": "tube",
+                "name": "torque link",
+                "pts": [[0.264, 0.21, -0.205], [0.276, 0.21, -0.215], [0.264, 0.21, -0.226]],
+                "r": 0.0025,
+                "sides": 4,
+                "role": "gear",
+                "paint": "metal",
+                "minDetail": 1
+              },
+              {
+                "kind": "tube",
+                "name": "axle",
+                "pts": [[0.26, 0.168, -0.24], [0.26, 0.252, -0.24]],
+                "r": 0.005,
+                "sides": 6,
+                "role": "gear",
+                "paint": "metal",
+                "minDetail": 1
+              },
+              { "kind": "wheel", "name": "main wheel", "at": [0.26, 0.182, -0.24], "r": 0.045, "hw": 0.014, "n": 14, "minDetail": 1 },
+              { "kind": "wheel", "name": "main wheel", "at": [0.26, 0.238, -0.24], "r": 0.045, "hw": 0.014, "n": 14, "minDetail": 1 },
+              {
+                "kind": "tube",
+                "name": "main leg",
+                "pts": [[0.13, 0.21, -0.17], [0.13, 0.21, -0.23]],
+                "r": 0.008,
+                "sides": 8,
+                "role": "gear",
+                "paint": "metal",
+                "minDetail": 1
+              },
+              {
+                "kind": "tube",
+                "name": "oleo",
+                "pts": [[0.13, 0.21, -0.2], [0.13, 0.21, -0.228]],
+                "r": 0.0055,
+                "sides": 8,
+                "role": "gear",
+                "paint": "chrome",
+                "minDetail": 1
+              },
+              {
+                "kind": "tube",
+                "name": "torque link",
+                "pts": [[0.134, 0.21, -0.205], [0.146, 0.21, -0.215], [0.134, 0.21, -0.226]],
+                "r": 0.0025,
+                "sides": 4,
+                "role": "gear",
+                "paint": "metal",
+                "minDetail": 1
+              },
+              {
+                "kind": "tube",
+                "name": "axle",
+                "pts": [[0.13, 0.168, -0.24], [0.13, 0.252, -0.24]],
+                "r": 0.005,
+                "sides": 6,
+                "role": "gear",
+                "paint": "metal",
+                "minDetail": 1
+              },
+              { "kind": "wheel", "name": "main wheel", "at": [0.13, 0.182, -0.24], "r": 0.045, "hw": 0.014, "n": 14, "minDetail": 1 },
+              { "kind": "wheel", "name": "main wheel", "at": [0.13, 0.238, -0.24], "r": 0.045, "hw": 0.014, "n": 14, "minDetail": 1 },
+              {
+                "kind": "tube",
+                "name": "main leg",
+                "pts": [[0, 0.21, -0.17], [0, 0.21, -0.23]],
+                "r": 0.008,
+                "sides": 8,
+                "role": "gear",
+                "paint": "metal",
+                "minDetail": 1
+              },
+              {
+                "kind": "tube",
+                "name": "oleo",
+                "pts": [[0, 0.21, -0.2], [0, 0.21, -0.228]],
+                "r": 0.0055,
+                "sides": 8,
+                "role": "gear",
+                "paint": "chrome",
+                "minDetail": 1
+              },
+              {
+                "kind": "tube",
+                "name": "torque link",
+                "pts": [[0.004, 0.21, -0.205], [0.016, 0.21, -0.215], [0.004, 0.21, -0.226]],
+                "r": 0.0025,
+                "sides": 4,
+                "role": "gear",
+                "paint": "metal",
+                "minDetail": 1
+              },
+              {
+                "kind": "tube",
+                "name": "axle",
+                "pts": [[0, 0.168, -0.24], [0, 0.252, -0.24]],
+                "r": 0.005,
+                "sides": 6,
+                "role": "gear",
+                "paint": "metal",
+                "minDetail": 1
+              },
+              { "kind": "wheel", "name": "main wheel", "at": [0, 0.182, -0.24], "r": 0.045, "hw": 0.014, "n": 14, "minDetail": 1 },
+              { "kind": "wheel", "name": "main wheel", "at": [0, 0.238, -0.24], "r": 0.045, "hw": 0.014, "n": 14, "minDetail": 1 },
+              {
+                "kind": "tube",
+                "name": "main leg",
+                "pts": [[-0.13, 0.21, -0.17], [-0.13, 0.21, -0.23]],
+                "r": 0.008,
+                "sides": 8,
+                "role": "gear",
+                "paint": "metal",
+                "minDetail": 1
+              },
+              {
+                "kind": "tube",
+                "name": "oleo",
+                "pts": [[-0.13, 0.21, -0.2], [-0.13, 0.21, -0.228]],
+                "r": 0.0055,
+                "sides": 8,
+                "role": "gear",
+                "paint": "chrome",
+                "minDetail": 1
+              },
+              {
+                "kind": "tube",
+                "name": "torque link",
+                "pts": [[-0.126, 0.21, -0.205], [-0.114, 0.21, -0.215], [-0.126, 0.21, -0.226]],
+                "r": 0.0025,
+                "sides": 4,
+                "role": "gear",
+                "paint": "metal",
+                "minDetail": 1
+              },
+              {
+                "kind": "tube",
+                "name": "axle",
+                "pts": [[-0.13, 0.168, -0.24], [-0.13, 0.252, -0.24]],
+                "r": 0.005,
+                "sides": 6,
+                "role": "gear",
+                "paint": "metal",
+                "minDetail": 1
+              },
+              { "kind": "wheel", "name": "main wheel", "at": [-0.13, 0.182, -0.24], "r": 0.045, "hw": 0.014, "n": 14, "minDetail": 1 },
+              { "kind": "wheel", "name": "main wheel", "at": [-0.13, 0.238, -0.24], "r": 0.045, "hw": 0.014, "n": 14, "minDetail": 1 },
+              {
+                "kind": "tube",
+                "name": "main leg",
+                "pts": [[-0.26, 0.21, -0.17], [-0.26, 0.21, -0.23]],
+                "r": 0.008,
+                "sides": 8,
+                "role": "gear",
+                "paint": "metal",
+                "minDetail": 1
+              },
+              {
+                "kind": "tube",
+                "name": "oleo",
+                "pts": [[-0.26, 0.21, -0.2], [-0.26, 0.21, -0.228]],
+                "r": 0.0055,
+                "sides": 8,
+                "role": "gear",
+                "paint": "chrome",
+                "minDetail": 1
+              },
+              {
+                "kind": "tube",
+                "name": "torque link",
+                "pts": [[-0.256, 0.21, -0.205], [-0.244, 0.21, -0.215], [-0.256, 0.21, -0.226]],
+                "r": 0.0025,
+                "sides": 4,
+                "role": "gear",
+                "paint": "metal",
+                "minDetail": 1
+              },
+              {
+                "kind": "tube",
+                "name": "axle",
+                "pts": [[-0.26, 0.168, -0.24], [-0.26, 0.252, -0.24]],
+                "r": 0.005,
+                "sides": 6,
+                "role": "gear",
+                "paint": "metal",
+                "minDetail": 1
+              },
+              { "kind": "wheel", "name": "main wheel", "at": [-0.26, 0.182, -0.24], "r": 0.045, "hw": 0.014, "n": 14, "minDetail": 1 },
+              { "kind": "wheel", "name": "main wheel", "at": [-0.26, 0.238, -0.24], "r": 0.045, "hw": 0.014, "n": 14, "minDetail": 1 }
+            ],
+            "anim": { "ch": "gear", "slide": [0, 0, 0.125], "span": [1, 0] }
+          }
         ]
       },
       {
         "kind": "group",
         "name": "nose gear",
         "parts": [
-          { "kind": "tube", "name": "nose leg", "pts": [[0.47, 0, -0.1505], [0.47, 0, -0.23]], "r": 0.009, "sides": 8, "role": "gear", "paint": "metal" },
-          { "kind": "tube", "name": "nose oleo", "pts": [[0.47, 0, -0.205], [0.47, 0, -0.228]], "r": 0.006, "sides": 8, "role": "gear", "paint": "chrome" },
           {
-            "kind": "tube",
-            "name": "nose axle",
-            "pts": [[0.47, -0.042, -0.24], [0.47, 0.042, -0.24]],
-            "r": 0.005,
-            "sides": 6,
-            "role": "gear",
-            "paint": "metal"
+            "kind": "group",
+            "name": "fore nose leg",
+            "parts": [
+              { "kind": "tube", "name": "nose leg", "pts": [[0.47, 0, -0.1505], [0.47, 0, -0.23]], "r": 0.009, "sides": 8, "role": "gear", "paint": "metal" },
+              { "kind": "tube", "name": "nose oleo", "pts": [[0.47, 0, -0.205], [0.47, 0, -0.228]], "r": 0.006, "sides": 8, "role": "gear", "paint": "chrome" },
+              {
+                "kind": "tube",
+                "name": "nose axle",
+                "pts": [[0.47, -0.042, -0.24], [0.47, 0.042, -0.24]],
+                "r": 0.005,
+                "sides": 6,
+                "role": "gear",
+                "paint": "metal"
+              },
+              { "kind": "wheel", "name": "nose wheel", "at": [0.47, 0.026, -0.24], "r": 0.045, "hw": 0.013, "n": 14 },
+              { "kind": "wheel", "name": "nose wheel", "at": [0.47, -0.026, -0.24], "r": 0.045, "hw": 0.013, "n": 14 },
+              { "kind": "tube", "name": "drag brace", "pts": [[0.52, 0, -0.1534], [0.47, 0, -0.205]], "r": 0.004, "sides": 5, "role": "gear", "paint": "metal" },
+              {
+                "kind": "tube",
+                "name": "taxi lamp",
+                "pts": [[0.475, 0, -0.19], [0.49, 0, -0.19]],
+                "r": 0.007,
+                "sides": 8,
+                "role": "gear",
+                "sh": 1,
+                "caps": 1,
+                "paint": "strobe"
+              }
+            ],
+            "anim": { "ang": [90, 0], "axis": [0, 1, 0], "ch": "gear", "pivot": [0.47, 0, -0.1305] }
           },
-          { "kind": "wheel", "name": "nose wheel", "at": [0.47, 0.026, -0.24], "r": 0.045, "hw": 0.013, "n": 14 },
-          { "kind": "wheel", "name": "nose wheel", "at": [0.47, -0.026, -0.24], "r": 0.045, "hw": 0.013, "n": 14 },
-          { "kind": "tube", "name": "drag brace", "pts": [[0.52, 0, -0.1534], [0.47, 0, -0.205]], "r": 0.004, "sides": 5, "role": "gear", "paint": "metal" },
-          { "kind": "tube", "name": "nose leg", "pts": [[0.39, 0, -0.1518], [0.39, 0, -0.23]], "r": 0.009, "sides": 8, "role": "gear", "paint": "metal" },
-          { "kind": "tube", "name": "nose oleo", "pts": [[0.39, 0, -0.205], [0.39, 0, -0.228]], "r": 0.006, "sides": 8, "role": "gear", "paint": "chrome" },
           {
-            "kind": "tube",
-            "name": "nose axle",
-            "pts": [[0.39, -0.042, -0.24], [0.39, 0.042, -0.24]],
-            "r": 0.005,
-            "sides": 6,
-            "role": "gear",
-            "paint": "metal"
-          },
-          { "kind": "wheel", "name": "nose wheel", "at": [0.39, 0.026, -0.24], "r": 0.045, "hw": 0.013, "n": 14 },
-          { "kind": "wheel", "name": "nose wheel", "at": [0.39, -0.026, -0.24], "r": 0.045, "hw": 0.013, "n": 14 },
-          { "kind": "tube", "name": "drag brace", "pts": [[0.44, 0, -0.155], [0.39, 0, -0.205]], "r": 0.004, "sides": 5, "role": "gear", "paint": "metal" },
-          {
-            "kind": "tube",
-            "name": "taxi lamp",
-            "pts": [[0.475, 0, -0.19], [0.49, 0, -0.19]],
-            "r": 0.007,
-            "sides": 8,
-            "role": "gear",
-            "sh": 1,
-            "caps": 1,
-            "paint": "strobe"
+            "kind": "group",
+            "name": "aft nose leg",
+            "parts": [
+              { "kind": "tube", "name": "nose leg", "pts": [[0.39, 0, -0.1518], [0.39, 0, -0.23]], "r": 0.009, "sides": 8, "role": "gear", "paint": "metal" },
+              { "kind": "tube", "name": "nose oleo", "pts": [[0.39, 0, -0.205], [0.39, 0, -0.228]], "r": 0.006, "sides": 8, "role": "gear", "paint": "chrome" },
+              {
+                "kind": "tube",
+                "name": "nose axle",
+                "pts": [[0.39, -0.042, -0.24], [0.39, 0.042, -0.24]],
+                "r": 0.005,
+                "sides": 6,
+                "role": "gear",
+                "paint": "metal"
+              },
+              { "kind": "wheel", "name": "nose wheel", "at": [0.39, 0.026, -0.24], "r": 0.045, "hw": 0.013, "n": 14 },
+              { "kind": "wheel", "name": "nose wheel", "at": [0.39, -0.026, -0.24], "r": 0.045, "hw": 0.013, "n": 14 },
+              { "kind": "tube", "name": "drag brace", "pts": [[0.44, 0, -0.155], [0.39, 0, -0.205]], "r": 0.004, "sides": 5, "role": "gear", "paint": "metal" }
+            ],
+            "anim": { "ang": [90, 0], "axis": [0, 1, 0], "ch": "gear", "pivot": [0.39, 0, -0.1318] }
           }
         ],
         "minDetail": 1
@@ -6887,20 +6908,35 @@
             "xf": { "t": [0, 0.21, -0.15] },
             "maxDetail": 0
           },
-          { "kind": "wheel", "name": "main wheel (far)", "at": [0.2, 0.21, -0.24], "r": 0.045, "hw": 0.03, "n": 8, "maxDetail": 0 },
-          { "kind": "wheel", "name": "main wheel (far)", "at": [-0.2, 0.21, -0.24], "r": 0.045, "hw": 0.03, "n": 8, "maxDetail": 0 }
+          {
+            "kind": "group",
+            "name": "main wheels (far)",
+            "parts": [
+              { "kind": "wheel", "name": "main wheel (far)", "at": [0.2, 0.21, -0.24], "r": 0.045, "hw": 0.03, "n": 8, "maxDetail": 0 },
+              { "kind": "wheel", "name": "main wheel (far)", "at": [-0.2, 0.21, -0.24], "r": 0.045, "hw": 0.03, "n": 8, "maxDetail": 0 }
+            ],
+            "anim": { "ch": "gear", "slide": [0, 0, 0.125], "span": [1, 0] }
+          }
         ]
       },
-      { "kind": "wheel", "name": "nose wheel (far)", "at": [0.43, 0, -0.24], "r": 0.045, "hw": 0.026, "n": 8, "maxDetail": 0 },
       {
-        "kind": "tube",
+        "kind": "group",
         "name": "nose leg (far)",
-        "pts": [[0.43, 0, -0.15], [0.43, 0, -0.24]],
-        "r": 0.01,
-        "sides": 4,
-        "role": "gear",
-        "paint": "metal",
-        "maxDetail": 0
+        "parts": [
+          { "kind": "wheel", "name": "nose wheel (far)", "at": [0.43, 0, -0.24], "r": 0.045, "hw": 0.026, "n": 8, "maxDetail": 0 },
+          {
+            "kind": "tube",
+            "name": "nose leg (far)",
+            "pts": [[0.43, 0, -0.15], [0.43, 0, -0.24]],
+            "r": 0.01,
+            "sides": 4,
+            "role": "gear",
+            "paint": "metal",
+            "maxDetail": 0
+          }
+        ],
+        "maxDetail": 0,
+        "anim": { "ang": [90, 0], "axis": [0, 1, 0], "ch": "gear", "pivot": [0.43, 0, -0.1312] }
       }
     ]
   }

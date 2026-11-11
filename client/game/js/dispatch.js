@@ -63,7 +63,7 @@ import { openCab, closeCab, cabContext, cabGalley, isCabActive } from './panels/
 import { openBoat, closeBoat, boatSetWorld, isBoatActive } from './panels/lazy-views.js';
 import { openPodracer, closePodracer, podracerSetWorld, isPodracerActive, isPodracerDepotActive, openPodracerDepot, closePodracerDepot, closePodracerBay } from './panels/lazy-views.js';
 import { openMarina, closeMarina, marinaSetData, isMarinaActive, openMarinaService, closeMarinaService } from './panels/lazy-views.js';
-import { openFreelook, closeFreelook, isFreelookActive, freelookSetSky, freelookSetActors, freelookSetContacts } from './panels/lazy-views.js';
+import { openFreelook, closeFreelook, parkFreelook, warmFreelookReady, openUnderLook, closeUnderLook, isFreelookActive, freelookSetSky, freelookSetActors, freelookSetContacts, freelookStep, freelookTakeRoom, freelookInside } from './panels/lazy-views.js';
 import { noteFirework, noteAAState, noteAAFire, noteVenueLit, noteVenueRoof, noteVenuePlay } from './panels/world-feed.js';
 import { airHorn, loadTv } from './panels/lazy-views.js';
 import { openTruckDepot, closeTruckDepot, closeBayService, isTruckDepotActive } from './panels/lazy-views.js';
@@ -497,6 +497,10 @@ const handlers = {
     // A cockpit still flying from before this login (a server restart drops the seat while the
     // sim flies on) asks for it back. No open sim, nothing sent. See cockpit.js.
     resumeFlightAfterLogin();
+    // A Room Stage still up from before a server restart: the server forgot it was open (its viewers are RAM),
+    // so a doorway or a lift sent nothing back. Asking for the room again opens it where the player is now,
+    // and the view out of the window carries on (room-stage.js parkView).
+    if (wasReconnect && document.getElementById('room-stage')) sendCmdSilent('room');
   },
 
   // The account's macros. See receiveMacros() for the three arrival states and
@@ -1209,6 +1213,8 @@ const handlers = {
   // rider already got the chime, the panel and the prose. This is purely so an
   // auto-walk riding the car knows the moment to step out.
   elevator_doors: (msg) => { notifyElevatorDoors(msg); },
+  // a lift you're in has started to move: the Room Stage counts the floors and sways with it (room-stage.js roomRide)
+  elevator_ride: (msg) => { roomMod?.then((m) => m.roomRide?.(msg)).catch(() => {}); },
 
   gps_route: (msg) => {
     // A background quest re-plot (routeToObjective/routeToTurnIn: continueOnArrival,
@@ -1372,18 +1378,34 @@ const handlers = {
   // you get — which this file's own note says loses nothing.
   stands_chart: (msg) => { loadStands().then((m) => m.openStandsChart(msg)).catch((e) => console.error('[stands]', e)); },
   stands_open: (msg) => { loadStands().then((m) => m.openStands(msg)).catch((e) => console.error('[stands]', e)); },
-  stands_hand: (msg) => { standsMod?.then((m) => m.standsHand(msg)).catch(() => {}); },
+  // a box's or a seat's hands, or the Room Stage's when it came out of a machine in a flat
+  stands_hand: (msg) => { if (document.getElementById('room-stage')) roomMod?.then((m) => m.roomHand(msg)).catch(() => {}); else standsMod?.then((m) => m.standsHand(msg)).catch(() => {}); },
   stands_sky: (msg) => { standsMod?.then((m) => m.setStandsSky(msg.field)).catch(() => {}); },
   stands_close: () => { standsMod?.then((m) => m.closeStands()).catch(() => {}); },
-  stands_menu: (msg) => { standsMod?.then((m) => m.openStandsMenu(msg)).catch(() => {}); },
+  // a box's menu, or a machine's in a flat (plugins/vending), which opens the same card over the Room Stage
+  stands_menu: (msg) => { if (msg.buy && document.getElementById('room-stage')) loadStands().then((m) => m.openStandsMenu(msg, { root: document.getElementById('room-stage') })).catch(() => {}); else standsMod?.then((m) => m.openStandsMenu(msg)).catch(() => {}); },
   room_avail: (msg) => setRoomButton({ avail: !!msg.on }),
-  room_view: (msg) => { setRoomButton({ open: true }); loadRoom().then((m) => m.openRoomStage(msg)).catch((e) => { setRoomButton({ open: false }); console.error('[room]', e); }); },
+  // one world: a room the street view on foot has drawn is walked into in GLASS (freelook-view.js freelookTakeRoom)
+  room_view: (msg) => { if (freelookTakeRoom(msg)) return; setRoomButton({ open: true }); loadRoom().then((m) => m.openRoomStage(msg)).catch((e) => { setRoomButton({ open: false }); console.error('[room]', e); }); },
+  room_ahead: (msg) => { roomMod?.then((m) => m.roomAhead?.(msg)).catch(() => {}); },
   room_piece: (msg) => { roomMod?.then((m) => m.roomPiece(msg)).catch(() => {}); },
   room_people: (msg) => { roomMod?.then((m) => m.roomPeople(msg)).catch(() => {}); },
+  // how the locks on the room's doorways stand now (panels/room-lock.js)
+  room_locks: (msg) => { roomMod?.then((m) => m.roomLocks(msg)).catch(() => {}); },
+  room_set: (msg) => { roomMod?.then((m) => m.roomSet(msg)).catch(() => {}); },
   room_here: (msg) => { roomMod?.then((m) => m.roomHere(msg)).catch(() => {}); },
   room_outlook: (msg) => { roomMod?.then((m) => m.roomOutlook(msg)).catch(() => {}); },
   room_sky: (msg) => { roomMod?.then((m) => m.roomSky(msg)).catch(() => {}); },
-  room_close: () => { setRoomButton({ open: false }); roomMod?.then((m) => m.closeRoomStage(true)).catch(() => {}); },
+  // `street`: out of a building's street door, with the street view on its way (plugins/freelook); the
+  // room holds still until it takes the pane, and closes anyway if it never comes
+  room_close: (msg) => {
+    setRoomButton({ open: false });
+    if (msg?.street && document.getElementById('room-stage')) {
+      roomMod?.then((m) => { m.roomStageLeaving(); setTimeout(() => { if (!isFreelookActive()) m.closeRoomStage(true); }, 15000); }).catch(() => {});
+      return;
+    }
+    roomMod?.then((m) => m.closeRoomStage(true)).catch(() => {});
+  },
   cardpack_open: (msg) => { if (msg.render !== 'log') openPackReveal(msg); if (msg.message) appendHtml(msg.message, 'loot'); },
   // Same contract again: the cabinet is the show, the character box is the
   // record and always prints, so the bottom rung losing the panel loses nothing.
@@ -1562,6 +1584,8 @@ const handlers = {
       return;
     }
     if (msg.render === 'text') { openTextHololock(args, () => openHololock(args)); return; }
+    // a door of the room you're walking round: the same lock, played on the hologram at the door (panels/room-lock.js)
+    if (roomMod && document.getElementById('room-stage')) { roomMod.then((m) => { if (!m.roomLockHack(msg, args)) openHololock(args); }).catch(() => openHololock(args)); return; }
     openHololock(args);
   },
 
@@ -1643,6 +1667,15 @@ const handlers = {
   // message with a new window, and openFreelook swaps the ground under the camera rather than
   // rebuilding the view — which is what keeps the shot you had while the world moves to meet it.
   freelook_open: (msg) => {
+    // ⚠ THE STREET OUTSIDE A LOBBY, SENT AHEAD (`prewarm`, plugins/freelook): built hidden behind the Room Stage so
+    // walking out through the doors shows it at once. Nothing on screen changes, and a seat or a closed Stage
+    // means nobody's about to walk out, so it's dropped.
+    if (msg.prewarm) {
+      if (isFlightSimActive() || isCabActive() || isHelmActive() || isBoatActive() || isPodracerActive() || !document.getElementById('room-stage')) return;
+      openFreelook({ gx: msg.gx, gy: msg.gy, map: msg.map, skyline: msg.skyline, sky: msg.sky, actors: msg.actors, stand: msg.stand || null, roads: msg.roads, regions: msg.regions, contacts: msg.contacts, doors: msg.doors, prewarm: true,
+        onMove: (dir) => sendCmdSilent(dir), onRecenter: (x, y) => sendCmdSilent('freelook ' + x + ' ' + y + ' follow'), onExit: () => sendCmdSilent('freelook close') });
+      return;
+    }
     // ⚠ A SEAT KEEPS THE PANE, AND THE REFUSAL IS THE USEFUL ANSWER. All three vehicle views write
     // straight into #area-content and keep a rAF loop, a camera and a pile of listeners against it;
     // mounting over one would leave a cab painting into a canvas that is no longer in the document
@@ -1670,6 +1703,30 @@ const handlers = {
       return;
     }
     closeTruckDepot();
+    const open = () => openFreelook({ gx: msg.gx, gy: msg.gy, map: msg.map, skyline: msg.skyline, sky: msg.sky, actors: msg.actors, stand: msg.stand || null, recentre: !!msg.recentre,
+      onMove: (dir) => sendCmdSilent(dir),
+      roads: msg.roads, regions: msg.regions, contacts: msg.contacts, doors: msg.doors,
+      onRecenter: (x, y) => sendCmdSilent('freelook ' + x + ' ' + y + ' follow'),
+      onExit: () => sendCmdSilent('freelook close') });
+    // on foot out of a street door: the room's last frame fades over the street as it takes the pane (and the street
+    // was warmed while you were in the lobby, so it's already drawn). The room goes first, in the same task as the
+    // open, so no frame shows neither.
+    // ⚠ AND WITH NO STREET WARMED, THE ROOM STAYS UP WHILE ONE IS BUILT. A GLASS view's first paints are its loading
+    // screen, and a loading screen between a lobby and its pavement is what this is here to be rid of. So the view
+    // is built behind the room, as a warm one is, and the room (held still since `room_close`) goes when the street
+    // has painted, or after 8 s whatever it has. A phone keeps one renderer at a time and loads as it did.
+    if (msg.stand?.foot && !msg.recentre && roomMod) {
+      roomMod.then((m) => {
+        const go = () => { m.closeRoomStage(true, null, { fade: true }); open(); };
+        const up = () => !!document.getElementById('room-stage');
+        if (warmFreelookReady() || !up() || isFreelookActive() || matchMedia('(pointer: coarse)').matches) { go(); return; }
+        openFreelook({ gx: msg.gx, gy: msg.gy, map: msg.map, skyline: msg.skyline, sky: msg.sky, actors: msg.actors, stand: msg.stand, roads: msg.roads, regions: msg.regions, contacts: msg.contacts, doors: msg.doors, prewarm: true });
+        const t0 = performance.now();
+        const wait = () => { if (warmFreelookReady() || !up() || performance.now() - t0 > 8000) go(); else setTimeout(wait, 60); };
+        setTimeout(wait, 60);
+      }).catch(() => open());
+      return;
+    }
     // ⚠ AND THE SAME MESSAGE CARRIES A VANTAGE. `msg.stand` is a telescope (or whatever else gets
     // bolted down later) saying "put the camera HERE, on its feet, and leash it" — the same window,
     // the same sky and the same way out, which is exactly why it is not a second message type. The
@@ -1679,12 +1736,24 @@ const handlers = {
     // camera flies anywhere, so past that edge the buildings, lights, signs and the Curtain simply
     // stop being in the payload — see RECENTER_R in freelook-view.js. It fires the same verb a
     // person types, which is what keeps the re-centre one path on both sides of the wire.
-    openFreelook({ gx: msg.gx, gy: msg.gy, map: msg.map, skyline: msg.skyline, sky: msg.sky, actors: msg.actors, stand: msg.stand || null,
-      roads: msg.roads, regions: msg.regions, contacts: msg.contacts,
-      onRecenter: (x, y) => sendCmdSilent('freelook ' + x + ' ' + y + ' follow'),
-      onExit: () => sendCmdSilent('freelook close') });
+    open();
   },
-  freelook_close: () => { closeFreelook(); sendCmdSilent('look'); },
+  // The Under: its own small renderer (panels/under-view.js), since GLASS draws nothing below the street.
+  freelook_under: (msg) => {
+    if (isFlightSimActive() || isCabActive() || isHelmActive() || isBoatActive() || isPodracerActive()) {
+      appendHtml('You are in a seat, and a seat keeps the view. Get out first.', 'msg-system');
+      sendCmdSilent('freelook close');
+      return;
+    }
+    closeTruckDepot();
+    closeFreelook();
+    openUnderLook({ gx: msg.gx, gy: msg.gy, tiles: msg.tiles, annexes: msg.annexes, start: msg.start, onExit: () => sendCmdSilent('freelook close') });
+  },
+  // in off the street on foot the Room Stage takes the pane next, and the `look` puts the room's text under it
+  // (`indoors`: that Stage is coming, so the street view is kept asleep for the walk back out, its last frame over
+  // the pane until the room has drawn; freelook-view.js parkFreelook)
+  freelook_close: (msg) => { if (msg?.indoors && freelookInside()) return; if (msg?.indoors) parkFreelook(); else closeFreelook(); closeUnderLook(); sendCmdSilent('look'); },
+  freelook_step: (msg) => { freelookStep(msg); },
   freelook_sky: (msg) => { if (isFreelookActive()) { freelookSetSky(msg.sky); if (msg.actors !== undefined) freelookSetActors(msg.actors); } },
   freelook_contacts: (msg) => { if (isFreelookActive()) freelookSetContacts(msg.contacts); },   // what is moving in front of the camera
   helm_sky: (msg) => { if (!isHelmActive()) return; helmSetSky(msg.sky); if (msg.actors !== undefined) helmSetFar({ actors: msg.actors }); },   // live sim weather field, streamed like the flight sim's

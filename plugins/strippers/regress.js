@@ -10,4 +10,7 @@ export default async function regress({ run, check }) {
 
   r = await run('tip candy');
   check('tip with no amount prompts for credits', r?.type === 'error' && /how much/i.test(r.message || ''), r?.message);
+
+  r = await run('lapdance candy');
+  check('lapdance with no private room is refused', r?.type === 'error' && /private room/i.test(r.message || ''), r?.message);
 }

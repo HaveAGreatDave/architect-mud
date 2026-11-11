@@ -29,6 +29,7 @@ export const MOUTHS = {
 const PHONE = {
   IY: 'ee', IH: 'ih', EH: 'ih', AE: 'ah', AA: 'aa', AO: 'oh', UH: 'er', UW: 'oo', ER: 'er', ERR: 'er', AH: 'ah', AX: 'ah',
   EY: ['ih', 'ee'], AY: ['aa', 'ee'], OY: ['oh', 'ee'], OW: ['oh', 'oo'], OWR: ['oh', 'oo'], AW: ['aa', 'oo'],
+  AWC: ['oh', 'oo'], AYC: ['ah', 'ee'], OWC: 'oh', EYC: 'ih',
   M: 'mbp', B: 'mbp', P: 'mbp', F: 'fv', V: 'fv', TH: 'th', DH: 'th',
   T: 'ss', D: 'ss', DX: 'ss', S: 'ss', Z: 'ss', N: 'ss', SH: 'sh', ZH: 'sh', CH: 'sh', JH: 'sh',
   K: 'kg', G: 'kg', NG: 'kg', HH: 'ah', L: 'll', R: 'er', W: 'oo', Y: 'ee',

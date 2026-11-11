@@ -517,6 +517,10 @@ export async function cmdMove(direction, player, broadcast, opts = {}) {
       if (step) { direction = step.dir; targets = [step.target]; }
     }
   }
+  // On foot in GLASS (plugins/freelook `footstep`), the 3-D view decides where you can walk: its collision is the
+  // buildings' own walls, and the step names the tile it reached. So a tile the camera walked into is a step even
+  // where the grid has no authored exit between the two, and in a direction with several, it's that tile.
+  if (opts.footTo && !targets.includes(opts.footTo)) targets = [opts.footTo];
   if (!targets.length) {
     // No authored exit this way — but a plugin may turn a map edge into a
     // transition (walking off the perimeter into the void-travel waste). Offer
@@ -767,6 +771,9 @@ export async function cmdMove(direction, player, broadcast, opts = {}) {
     const unlockMsg = lockTag?.messages?.unlock ?? 'The lock disengages.';
     const closeMsg = doorWasClosed ? ' It swings closed and locks behind you.' : '';
     narration = `→ ${unlockMsg} You open the door ${narrateDir} into ${destName}.${closeMsg}`;
+  } else if (doorWasClosed && door?.flags?.slides) {
+    // automatic glass doors (`flags.slides` on the door row): nobody pushes them
+    narration = `→ The glass doors slide apart and you go ${narrateDir} into ${destName}.`;
   } else if (doorWasClosed) {
     narration = `→ You open the door ${narrateDir} into ${destName}. It swings closed behind you.`;
   } else {

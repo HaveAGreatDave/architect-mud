@@ -1,24 +1,27 @@
 {
-  "ambient_events": [],
-  "ambient_theme": "forest",
-  "color": "#8ba36a",
-  "description": "Rough grass at the wall. The Curtain seals the edge here, floor to sky, and the only way through is the South Gate.",
+  "ambient_events": [
+    "The Curtain hums, steady, a few feet off."
+  ],
+  "ambient_theme": "residential",
+  "description": "Under the south wall. Somebody has scratched a line in the dirt a stride out from the Curtain, and everybody keeps their things behind it.",
   "exits": {
     "east": "zone_district_923_923",
     "north": "zone_district_922_922",
     "west": "zone_district_921_923"
   },
   "flags": {
+    "camp": true,
     "curtain": true,
-    "district": "residential",
+    "district": "slum",
     "region_id": "region_coldwater",
-    "terrain": "grass"
+    "scavenging_table_id": "scav_consumer_trash",
+    "terrain": "ash"
   },
   "grid_x": 922,
   "grid_y": 923,
   "grid_z": 0,
   "id": "zone_district_922_923",
   "map_id": "map_world",
-  "name": "Grasslands",
+  "name": "Under the Wall",
   "parent_zone": null
 }

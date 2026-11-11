@@ -63,7 +63,11 @@ export function kitchenStageDeclined() {
 export function openKitchenStage(data) {
   if (S) return refreshKitchenStage(data);
   ensureStyles();
-  setAreaPane(`<div id="ks-root" class="ks-root" role="region" aria-label="Kitchen">
+  // Cooking in a room that's open in 3-D happens in that room: the Stage goes over the Room Stage,
+  // which pauses underneath and is still there, where you stood, when the Stage closes. setAreaPane
+  // would throw the room away.
+  const roomHost = document.querySelector('#room-stage .rs-host');
+  mountStage(roomHost, `<div id="ks-root" class="ks-root" role="region" aria-label="Kitchen">
     <canvas class="ks-gl" aria-hidden="true"></canvas>
     <canvas class="ks-fx" aria-hidden="true"></canvas>
     <div class="ks-top">
@@ -88,18 +92,31 @@ export function openKitchenStage(data) {
     <div class="ks-sheet" hidden></div>
   </div>`);
   const root = document.getElementById('ks-root');
+  // the room answers with its kitchen gear (roomKitchenKit), so the set is the stove you walked up to
+  let room = null, host = null;
+  if (roomHost) {
+    root.classList.add('ks-in-room');
+    const ask = new CustomEvent('kitchen:open', { detail: { kit: null, host: null } });
+    window.dispatchEvent(ask);
+    room = roomSet(ask.detail.kit);
+    // and, when it has a hob to stand you at, it draws the kitchen into the apartment itself
+    // (gl/kitchen.js host), so looking round shows the flat
+    host = ask.detail.host || null;
+    if (host) root.classList.add('ks-hosted');
+  }
   const gl = root.querySelector('.ks-gl'), fx = root.querySelector('.ks-fx');
   const phone = matchMedia?.('(pointer: coarse)').matches && Math.min(screen.width, screen.height) < 600;
-  const renderer = createKitchenRenderer(gl, { phone });
+  const renderer = createKitchenRenderer(gl, { phone, host });
   if (!renderer) {
     root.remove();
+    if (roomHost) window.dispatchEvent(new Event('kitchen:close'));
     try { sessionStorage.setItem(LIST_KEY, '1'); } catch { /* private window */ }
     openWorkspacePanel(data);
     return;
   }
   S = {
     root, gl, fx, fxc: fx.getContext('2d'), renderer, phone,
-    data: null, station: 'hob', cam: { ...SHOTS.hob }, from: null, to: null, tAt: 0,
+    room, host, boxRoom: [], boxKey: null, data: null, station: 'hob', cam: { ...SHOTS.hob }, from: null, to: null, tAt: 0,
     bodies: new Map(), board: null, boardBody: null, dish: null,
     stat: M.createBatch(1 << 14), dyn: M.createBatch(1 << 15), hobKind: null,
     flash: 0, impact: 0, shake: 0, lines: 0, puffs: [], bubbles: [], last: performance.now(), acc: 0, t: 0,
@@ -121,7 +138,7 @@ export function openKitchenStage(data) {
   window.addEventListener('pointermove', onMove);
   window.addEventListener('pointerup', onUp);
   window.addEventListener('keydown', onKey);
-  window.dispatchEvent(new Event('pane:claimed'));
+  if (!roomHost) window.dispatchEvent(new Event('pane:claimed'));
   claimSeatKeyboard(root, { label: 'KITCHEN' });
   sendCmdSilent('kitchenstage on');
   refreshKitchenStage(data);
@@ -131,11 +148,17 @@ export function openKitchenStage(data) {
 export function refreshKitchenStage(data) {
   if (!S || !data) return;
   S.data = data;
-  const dial = dialOf(data), hob = HOB_FOR_TIER[dial?.ceilingBand] || 'domestic';
+  matchRoomBoxes();
+  const dial = dialOf(data), tierHob = HOB_FOR_TIER[dial?.ceilingBand] || 'domestic';
+  // in a room, the room's own stove: a range is a range, a cooktop a domestic hob, whatever its tier
+  const roomHob = S.room?.hobForm === 'range' ? 'range' : S.room?.hobForm === 'cooktop' ? 'domestic' : null;
+  // drawn into the flat, the flat's own cooktop is the hob: nothing is set down over it
+  const hosted = S.root.classList.contains('ks-hosted');
+  const hob = hosted ? 'room' : roomHob && tierHob !== 'camp' ? roomHob : tierHob;
   if (hob !== S.hobKind) {
     S.hobKind = hob;
     M.reset(S.stat);
-    KS.buildSet(S.stat, { hob });
+    KS.buildSet(S.stat, { hob, room: S.room, bare: S.root.classList.contains('ks-hosted') });
     S.renderer.setStatic(S.stat);
   }
   syncBodies();
@@ -175,9 +198,31 @@ export function closeKitchenStage({ quiet = false } = {}) {
   window.removeEventListener('keydown', onKey);
   endSeatKeyboard(s.root);
   s.root.remove();
-  window.dispatchEvent(new Event('pane:released'));
+  const inRoom = s.root.classList.contains('ks-in-room');
+  if (!inRoom) window.dispatchEvent(new Event('pane:released'));
   sendCmdSilent('kitchenstage off');
-  if (!quiet) sendCmdSilent('look');
+  // back in the room where you cooked; the room is still drawn under it, so no look
+  if (inRoom) window.dispatchEvent(new Event('kitchen:close'));
+  else if (!quiet) sendCmdSilent('look');
+}
+
+// The room's kitchen gear as the set's colours. Null when the room said nothing.
+function roomSet(kit) {
+  if (!kit) return null;
+  const c = (hex) => (hex ? M.rgb(hex) : null);
+  return {
+    top: c(kit.top), front: c(kit.front), wall: c(kit.wall), sink: !!kit.sink,
+    hob: kit.hob ? { colour: c(kit.hob.colour) } : null, hobForm: kit.hob?.form || null,
+    cold: c(kit.cold?.colour),
+  };
+}
+
+// Into the open Room Stage when there is one, else the game pane as before.
+function mountStage(roomHost, html) {
+  if (!roomHost) return setAreaPane(html);
+  const t = document.createElement('template');
+  t.innerHTML = html.trim();
+  roomHost.appendChild(t.content.firstElementChild);
 }
 
 // ── reading the payload ──────────────────────────────────────────────────────────────────────────
@@ -384,6 +429,8 @@ function liquidDepth(pan) {
 // ── the frame ────────────────────────────────────────────────────────────────────────────────────
 function frame(now) {
   if (!S) return;
+  // the room it was cooking in closed round it
+  if (!S.root.isConnected) { closeKitchenStage({ quiet: true }); return; }
   const dt = Math.min(0.1, (now - S.last) / 1000);
   S.last = now; S.lastDt = dt; S.t += dt; S.acc += dt;
   while (S.acc >= STEP) { step(STEP); S.acc -= STEP; }
@@ -427,12 +474,23 @@ function moveCamera(now) {
   const aspect = (S.gl.clientWidth || 1) / (S.gl.clientHeight || 1), fov = L(S.from.fov, S.to.fov);
   const wide = aspect < 1.3 ? Math.min(1.5, 2 * Math.atan(Math.tan(fov / 2) * 1.3 / aspect)) : fov;
   const eye = V3(S.from.eye, S.to.eye), at = V3(S.from.at, S.to.at);
-  S.cam = { eye: orbitEye(eye, at), at, fov: wide, roll: L(S.from.roll, S.to.roll) };
+  // in the apartment the drag turns your head where you stand, so looking round shows the flat; on the
+  // show set it swings the eye round what you're working on
+  const hosted = S.root.classList.contains('ks-hosted');
+  S.cam = hosted ? { eye, at: lookFrom(eye, at), fov: wide, roll: L(S.from.roll, S.to.roll) } : { eye: orbitEye(eye, at), at, fov: wide, roll: L(S.from.roll, S.to.roll) };
   if (k < 1 && want !== 'push') S.lines = Math.max(S.lines, 0.6);
 }
 
 // Middle-drag looks round: the shot's eye swung round its target by the look offset, which holds
 // where it was left (it's a delta, not a position).
+// The aim turned about the eye by the look offset (in the apartment).
+function lookFrom(eye, at) {
+  const v = [at[0] - eye[0], at[1] - eye[1], at[2] - eye[2]], r = Math.hypot(...v);
+  const az = Math.atan2(v[1], v[0]) + S.orbit.yaw;
+  const el = Math.max(-1.3, Math.min(1.3, Math.asin(v[2] / r) - S.orbit.pitch));
+  return [eye[0] + r * Math.cos(el) * Math.cos(az), eye[1] + r * Math.cos(el) * Math.sin(az), eye[2] + r * Math.sin(el)];
+}
+
 function orbitEye(eye, at) {
   const v = [eye[0] - at[0], eye[1] - at[1], eye[2] - at[2]], r = Math.hypot(...v);
   const az = Math.atan2(v[1], v[0]) + S.orbit.yaw;
@@ -1006,7 +1064,7 @@ function PAN_AT(pan) {
   if (!pan) return [KS.STATIONS.hob, 0, KS.PAN_Z];
   if (pan.hot) return [KS.STATIONS.hob, 0, KS.PAN_Z];
   const cold = vesselsOf(S.data).filter((v) => !v.hot), i = Math.max(0, cold.findIndex((v) => String(v.id) === String(pan.id)));
-  const r = RACK[i % RACK.length], camp = S.hobKind === 'camp';
+  const r = RACK[i % RACK.length], camp = S.hobKind === 'camp' || S.hobKind === 'room';
   return [KS.STATIONS.hob + r[0], r[1], camp ? 0 : r[2]];
 }
 // A pan that isn't the one you're using, under the pointer.
@@ -1131,13 +1189,57 @@ const DOOR_OPEN = 1.95;                          // radians, a touch past square
 const SHADOW = M.mix(M.rgb('#b9a888'), -0.25);
 const PICKED = M.rgb('#c8323a');
 const boxX = (i) => -132 - i * 72;
-const boxFront = (i) => [boxX(i), BOX.y0, 50];
+const boxFront = (i) => toRoom(i, [boxX(i), BOX.y0, 50]);
+
+// ── the room's own fridges ──
+// Drawn into the flat (ks-hosted), a fridge or freezer opens where the room's own stands, in its place:
+// the room takes its fridge out of its mesh while the kitchen is up (room-stage.js host.hide) and the
+// box is drawn there, scaled to its height and turned to face the way it does. A box is built where it
+// always was (boxX) and moved by boxT; every point the rest of the panel uses goes through toRoom.
+// A box with no room fridge to match (a cupboard, or one more box than fridges) stays where it was.
+function matchRoomBoxes() {
+  const host = S.host;
+  if (!host?.cold?.length) { S.boxRoom = []; return; }
+  const free = [...host.cold], out = coldBoxes().map((x) => {
+    if (isCupboard(x) || !free.length) return null;
+    // a freezer takes a double (fridge-freezer) or chest first, a fridge anything
+    const j = x.preserves === 'frozen' ? Math.max(0, free.findIndex((r) => r.form && r.form !== 'fridge')) : 0;
+    return free.splice(j, 1)[0];
+  });
+  const key = out.map((r) => r?.id ?? '').join(',');
+  if (key === S.boxKey) return;
+  S.boxKey = key; S.boxRoom = out; S.coldShots = [];
+  host.hide?.(out.filter(Boolean).map((r) => r.id));
+}
+function boxT(i) {
+  const r = S.boxRoom?.[i];
+  if (!r) return null;
+  if (r.T) return r.T;
+  const sc = r.h / (BOX.top - BOX.z0), th = Math.atan2(r.dir[0], -r.dir[1]), c = Math.cos(th), s = Math.sin(th), x0 = boxX(i), f = r.front;
+  const rot = (v) => [v[0] * c - v[1] * s, v[0] * s + v[1] * c, v[2]];
+  const p = (q) => { const l = rot([(q[0] - x0) * sc, (q[1] - BOX.y0) * sc, (q[2] - BOX.z0) * sc]); return [l[0] + f[0], l[1] + f[1], l[2] + f[2]]; };
+  const inv = (q) => { const d = [q[0] - f[0], q[1] - f[1], q[2] - f[2]]; return [(d[0] * c + d[1] * s) / sc + x0, (-d[0] * s + d[1] * c) / sc + BOX.y0, d[2] / sc + BOX.z0]; };
+  return (r.T = { p, inv, rot, sc });
+}
+const toRoom = (i, q) => { const T = boxT(i); return T ? T.p(q) : q; };
+const fromRoom = (i, q) => { const T = boxT(i); return T ? T.inv(q) : q; };
+// A box's batch moved to where its room fridge stands: positions mapped, normals turned.
+function placeBox(b, i, draw) {
+  const T = boxT(i), n0 = b.n;
+  draw(b);
+  if (!T) return;
+  const st = KS.STRIDE;
+  for (let v = n0; v < b.n; v++) {
+    const src = b.data, o = v * st, q = T.p([src[o], src[o + 1], src[o + 2]]), m = T.rot([src[o + 3], src[o + 4], src[o + 5]]);
+    src[o] = q[0]; src[o + 1] = q[1]; src[o + 2] = q[2]; src[o + 3] = m[0]; src[o + 4] = m[1]; src[o + 5] = m[2];
+  }
+}
 const coldBox = () => (S.cold ? coldBoxes().find((x) => String(x.id) === String(S.cold.id)) : null);
 
 // The shot for a box: square on, far enough back to see every shelf and the open door.
 function coldShot(i) {
   const x = boxX(i);
-  return (S.coldShots[i] ||= { eye: [x + 30, -265, 78], at: [x - 6, 0, 44], fov: 0.62, roll: 0 });
+  return (S.coldShots[i] ||= { eye: toRoom(i, [x + 30, -265, 78]), at: toRoom(i, [x - 6, 0, 44]), fov: 0.62, roll: 0 });
 }
 
 function openCold(id) {
@@ -1188,7 +1290,8 @@ function doorAngle(open) {
 }
 
 // Where the k-th thing inside stands, and how small it has to be to fit the shelf.
-function insideSpot(i, k) {
+const insideSpot = (i, k) => toRoom(i, insideAt(i, k));
+function insideAt(i, k) {
   const x = boxX(i), shelf = Math.floor(k / PER_SHELF), col = k % PER_SHELF;
   return [x - BOX.w / 2 + 7 + col * ((BOX.w - 14) / (PER_SHELF - 1)), BOX.y0 + 15 + (col % 2) * 5, SHELVES[shelf] + 0.2];
 }
@@ -1203,7 +1306,8 @@ function fitScale(m, roomH = 26) {
 function doorPose(i, ang, lift = 0) {
   return KS.pose([boxX(i) - BOX.w / 2, BOX.y0, BOX.z0 + lift], -ang);
 }
-function doorSpot(i, ang, k) {
+const doorSpot = (i, ang, k) => toRoom(i, doorAt(i, ang, k));
+function doorAt(i, ang, k) {
   const bin = Math.floor(k / PER_BIN), col = k % PER_BIN;
   return doorPose(i, ang).p([9 + col * 12.5, 4, DOOR_BINS[bin] - BOX.z0 + 1.6]);
 }
@@ -1239,14 +1343,18 @@ function drawThing(b, it, at, yaw, scale, seed) {
 function buildBoxes(b) {
   const boxes = coldBoxes();
   if (!boxes.length) return;
-  // a wall behind them, so the counter's wall carries on
-  KS.slab(b, [boxX(boxes.length - 1) - 50, 30, BOX.z0], [-118, 34, 150], KS.COLOURS.wall, 0.2);
-  for (const [i, box] of boxes.entries()) buildBox(b, box, i);
+  // a wall behind them, so the counter's wall carries on (in the flat the flat's own walls are there)
+  if (!S.host) KS.slab(b, [boxX(boxes.length - 1) - 50, 30, BOX.z0], [-118, 34, 150], S.room?.wall || KS.COLOURS.wall, 0.2);
+  for (const [i, box] of boxes.entries()) placeBox(b, i, (bb) => buildBox(bb, box, i));
 }
 
+// Built where the box stands on the show set; placeBox moves it to the room's fridge. Points the panel
+// keeps in the room's frame (a carried thing, a flight) come back with fromRoom first.
 function buildBox(b, box, i) {
   const x = boxX(i), frozen = box.preserves === 'frozen', cup = isCupboard(box), c = S.cold && S.cold.i === i ? S.cold : null;
-  const body = M.rgb(cup ? '#9b6a3f' : frozen ? '#dfe8ef' : '#efeee9'), trim = M.rgb(cup ? '#3a2a1c' : '#9aa3aa');
+  const loc = (q) => fromRoom(i, q);
+  // a fridge is the room's fridge, in its enamel (a room's freezer too, standing in for its own)
+  const body = (!cup && (!frozen || S.boxRoom?.[i]) && S.room?.cold) || M.rgb(cup ? '#9b6a3f' : frozen ? '#dfe8ef' : '#efeee9'), trim = M.rgb(cup ? '#3a2a1c' : '#9aa3aa');
   const liner = M.rgb(cup ? '#d9bf94' : frozen ? '#d3e6f6' : '#fbf6e6'), glass = M.rgb(cup ? '#b88a58' : frozen ? '#b8d4ea' : '#cfe3e6');
   const x0 = x - BOX.w / 2, x1 = x + BOX.w / 2, y0 = BOX.y0, y1 = BOX.y0 + BOX.d, z0 = BOX.z0, z1 = BOX.top;
   // the carcass, hollow so the shelves can be seen into
@@ -1264,7 +1372,7 @@ function buildBox(b, box, i) {
   // what's inside: standing on the shelves, the one under the pointer lifted
   const inside = c ? coldInside(box) : (box.items || []).slice(0, SHELVES.length * PER_SHELF);
   for (const [k, it] of inside.entries()) {
-    const carried = carriedFrom(c, 'in', k), at = carried || insideSpot(i, k);
+    const carried = carriedFrom(c, 'in', k), at = carried ? loc(carried) : insideAt(i, k);
     const hot = c?.hover?.where === 'in' && c.hover.k === k;
     if (hot) {
       at[2] += 1.6 + Math.sin(S.t * 6) * 0.6;
@@ -1291,7 +1399,7 @@ function buildBox(b, box, i) {
     KS.prism(b, [[3, 7.4], [BOX.w - 3, 7.4], [BOX.w - 3, 8], [3, 8]], 2.2, 0.1, glass, doorPose(i, ang, z - z0));
   }
   for (const [k, { comp }] of coldDoor(box).entries()) {
-    const carried = carriedFrom(c, 'door', k), at = carried || doorSpot(i, ang, k);
+    const carried = carriedFrom(c, 'door', k), at = carried ? loc(carried) : doorAt(i, ang, k);
     const hot = c.hover?.where === 'door' && c.hover.k === k;
     if (hot) at[2] += 1.6 + Math.sin(S.t * 6) * 0.6;
     drawThing(b, comp, at, -ang + 0.3, 0.9, 61 + k);
@@ -1300,7 +1408,7 @@ function buildBox(b, box, i) {
   // things on their way: out to you, or into the box
   for (const f of c.fly) {
     const e = f.t * f.t * (3 - 2 * f.t), lift = Math.sin(f.t * Math.PI) * f.arc;
-    const at = [f.from[0] + (f.to[0] - f.from[0]) * e, f.from[1] + (f.to[1] - f.from[1]) * e, f.from[2] + (f.to[2] - f.from[2]) * e + lift];
+    const at = loc([f.from[0] + (f.to[0] - f.from[0]) * e, f.from[1] + (f.to[1] - f.from[1]) * e, f.from[2] + (f.to[2] - f.from[2]) * e + lift]);
     drawThing(b, f.it, at, f.t * 5, f.shrink ? 1 - 0.7 * e : 1, 91);
   }
 }
@@ -1348,7 +1456,7 @@ function dropCold(g) {
   if (!c) return;
   hideTip();
   if (!g.moved) return coldUse(g.hit, g.shift || c.toBoard);
-  const out = g.at[1] < BOX.y0 - 6, inside = g.at[1] > BOX.y0 + 2 && Math.abs(g.at[0] - boxX(c.i)) < BOX.w / 2;
+  const ga = fromRoom(c.i, g.at), out = ga[1] < BOX.y0 - 6, inside = ga[1] > BOX.y0 + 2 && Math.abs(ga[0] - boxX(c.i)) < BOX.w / 2;
   if (g.hit.where === 'in' && out) {
     coldUse(g.hit, true);
     c.fly = [];
@@ -1509,7 +1617,7 @@ function buildElement(b, level, max) {
   const k = Math.min(1, level / Math.max(1, max)) * (0.96 + 0.04 * Math.sin(S.t * 9)), seg = k * 3;
   const i = Math.min(2, Math.floor(seg)), f = seg - i, A = ELEMENT[i], B = ELEMENT[i + 1];
   const col = [A[0] + (B[0] - A[0]) * f, A[1] + (B[1] - A[1]) * f, A[2] + (B[2] - A[2]) * f, 1];
-  const x = KS.STATIONS.hob, z = S.hobKind === 'camp' ? 3.05 : 2.95;
+  const x = KS.STATIONS.hob, z = S.hobKind === 'camp' ? 3.05 : S.hobKind === 'room' ? 0.15 : 2.95;
   for (const r of [2.2, 4.5, 6.8]) KS.ring(b, [x, 0, z], r, 0.55 + 0.25 * k, col, 20);
   // heat haze over a bare ring: a faint puff now and then, more as it climbs
   if (!vesselsOf(S.data).some((v) => v.hot) && Math.random() < k * 0.15) S.puffs.push({ p: [x + (Math.random() - 0.5) * 8, (Math.random() - 0.5) * 8, 4], age: 0, life: 0.9, c: KS.COLOURS.steam, size: 0.5 });
@@ -1607,7 +1715,8 @@ function stepFog(dt) {
     const frozen = box.preserves === 'frozen', rate = (frozen ? 7 : 3) * Math.min(1, c.open);
     if (Math.random() < dt * rate) {
       const x = boxX(c.i) + (Math.random() - 0.5) * (BOX.w - 8), z = SHELVES[Math.floor(Math.random() * 2)] + 1;   // from the bottom shelves, so it never hides the food
-      S.fog.push({ p: [x, BOX.y0 - 3, z], v: [(Math.random() - 0.5) * 6, -18 - Math.random() * 10, -8 - Math.random() * 6], age: 0, life: 1.1 + Math.random() * 0.6, r: 1.2 + Math.random() * 1.2 });
+      const T = boxT(c.i), v = [(Math.random() - 0.5) * 6, -18 - Math.random() * 10, -8 - Math.random() * 6];
+      S.fog.push({ p: toRoom(c.i, [x, BOX.y0 - 3, z]), v: T ? T.rot(v) : v, age: 0, life: 1.1 + Math.random() * 0.6, r: 1.2 + Math.random() * 1.2 });
     }
   }
   S.fog = S.fog.filter((f) => (f.age += dt / f.life) < 1);
@@ -1656,7 +1765,7 @@ function embers(b, level, max, dt) {
 function paintPolish(x, w, h, dt) {
   const c = S.cold, box = coldBox();
   if (c && box && c.open > 0.05 && !isCupboard(box)) {
-    const s = screenOf([boxX(c.i), BOX.y0 + BOX.d * 0.6, 60]);
+    const s = screenOf(toRoom(c.i, [boxX(c.i), BOX.y0 + BOX.d * 0.6, 60]));
     if (s) {
       const frozen = box.preserves === 'frozen', k = Math.min(1, c.open) * (0.92 + 0.08 * Math.sin(S.t * 2));
       const g = x.createRadialGradient(s[0] * w, s[1] * h, 0, s[0] * w, s[1] * h, h * 0.55);

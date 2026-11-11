@@ -9,14 +9,125 @@
   "ambient_theme": "indoors",
   "bg_color": "#2b2419",
   "color": "#e6d9c2",
-  "description": "A coffee house eighteen floors up, in a building that can afford to spend a whole floor on coffee. The east wall is glass from carpet to ceiling and Coldwater hangs in it entire: rail yards stitched in sodium, the Marquee signs turning over, the basin going blue all the way out to the Curtain. Inside is figured walnut and a short marble counter, with a brass espresso rig on it polished past the point of usefulness. Deep leather chairs sit facing each other across chessboards inlaid into the tables, ebony and holly, the middle squares worn pale by a century of hands. A black upright stands against the far wall with its lid up. The carpet swallows every footfall, and nobody in here has ever had to hurry. Step <b>in</b> to the elevator.",
+  "description": "A coffee house eighteen floors up, in a building that can afford to spend a whole floor on coffee. The east wall is glass from carpet to ceiling and Coldwater hangs in it entire: rail yards stitched in sodium, the Marquee signs turning over, the basin going blue all the way out to the Curtain. Inside is figured walnut and a short marble counter, with a brass espresso rig on it polished past the point of usefulness. Deep leather chairs sit facing each other across chessboards inlaid into the tables, ebony and holly, the middle squares worn pale by a century of hands. A black upright stands against the far wall with its lid up. The carpet swallows every footfall, and nobody in here has ever had to hurry. The hall is <b>south</b>.",
   "exits": {
-    "in": "zone_solenne_elevator"
+    "south": "zone_solenne_hall_18"
   },
   "flags": {
     "building_name": "Solenne Residences",
     "floor": "boards",
     "is_interior": true,
+    "room": {
+      "balcony": false,
+      "d": 9,
+      "decor": {
+        "art": [
+          {
+            "at": 3.7,
+            "h": 1.1,
+            "seed": 21,
+            "w": 1.8,
+            "wall": "front",
+            "y": 1.95
+          }
+        ],
+        "ceiling": {
+          "band": 0.5,
+          "cell": 2.2,
+          "drop": 0.3,
+          "hex": "#2a211b",
+          "kind": "coffer",
+          "trim": "#b8913e"
+        },
+        "downlights": false,
+        "lights": [
+          {
+            "at": [
+              -2.6,
+              4.5
+            ],
+            "drop": 1.2,
+            "k": 1.4,
+            "r": 0.6,
+            "tiers": 2
+          },
+          {
+            "at": [
+              2.6,
+              4.5
+            ],
+            "drop": 1.2,
+            "k": 1.4,
+            "r": 0.6,
+            "tiers": 2
+          }
+        ],
+        "plants": [
+          [
+            5.3,
+            8.25,
+            1
+          ],
+          [
+            -5.3,
+            8.3,
+            0.9
+          ]
+        ],
+        "sconces": {
+          "points": [
+            [
+              "left",
+              1.1
+            ],
+            [
+              "left",
+              7.9
+            ],
+            [
+              "front",
+              -4.6
+            ],
+            [
+              "front",
+              1.4
+            ],
+            [
+              "back",
+              -2.4
+            ],
+            [
+              "back",
+              2.2
+            ]
+          ],
+          "y": 1.9
+        },
+        "walls": {
+          "hex": "#5a3a26",
+          "kind": "walnut",
+          "on": [
+            "front",
+            "left",
+            "back"
+          ]
+        }
+      },
+      "face": 0,
+      "finish": "fine",
+      "glass": [
+        "right"
+      ],
+      "h": 3.4,
+      "studio": false,
+      "tone": {
+        "accent": "#b8913e",
+        "ceiling": "#2a211b",
+        "trim": "#17130f",
+        "wall": "#3a2a20"
+      },
+      "w": 12
+    },
     "sanctuary": true,
     "window": {
       "description": "The east wall is one unbroken sheet of glass, black-framed at the floor and the ceiling and nowhere in between. Eighteen floors of Coldwater hang in it, close enough to pick out a lit stairwell, high enough that none of it makes a sound.",

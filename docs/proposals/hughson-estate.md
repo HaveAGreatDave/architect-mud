@@ -12,12 +12,13 @@ sections below are what was there.
 ⚠ **The road moved.** When the park went two tiles west
 ([coliseum-five-tiles.md](coliseum-five-tiles.md#two-tiles-west)) x 892 came to stop at the junction on
 y 915, and Hughson Way reaches Sorrel Way down x 896 instead. 2 Halcyon Boulevard and Fitz's Franks
-swapped plots on Sorrel Way.
+swapped plots on Sorrel Way. On 2026-11-09 2 Halcyon Boulevard left Sorrel Way for the River Road
+([hughson-towers.md](hughson-towers.md#2-halcyon-boulevard)), and Kimble's took its plot.
 
 ⚠ **Three buildings moved again.** When the park went two tiles north
 ([coliseum-five-tiles.md](coliseum-five-tiles.md#two-tiles-north)) it took their plots, so 3, 5 and 7 went to
 892,920, 893,920 and 895,920 with their south doors on Sorrel Way, and took their Sorrel Way addresses
-back. The tables below are as they stand now, and the map is what was built. y 915 east of x 890 is gone.
+back. On 2026-11-09 those three went to the holding map for Hughson Gardens ([hughson-gardens.md](hughson-gardens.md)). The tables below are as they stood then, and the map is what was built. y 915 east of x 890 is gone.
 
 ## Why
 

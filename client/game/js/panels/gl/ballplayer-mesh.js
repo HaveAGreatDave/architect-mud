@@ -38,6 +38,7 @@ import { faceLeaned } from '../form-normals.js';
 import { FACE_LAYOUTS, actorFace, faceHair, faceLip } from '../actor-faces.js';
 import { FT_M } from '../../../../shared/world-scale.js';
 import { clubOf } from '../club-crest.js';
+import { gen1Of, GEN1_ORDERS } from '../../../../shared/deadball-gen1.js';
 
 const TAU = Math.PI * 2;
 const add = (a, b) => [a[0] + b[0], a[1] + b[1], a[2] + b[2]];
@@ -89,11 +90,18 @@ export const HAIRS = ['#1d1510', '#3a2416', '#5b3a1e', '#141414', '#7a5530', '#2
 
 // ── the kit atlas ──────────────────────────────────────────────────────────────
 // One 2048² texture holds every jersey (a 512×256 slot each, 28 of them, in rows 0 to 6) and,
-// in row 7, each side's trousers and socks. A jersey is flattened round the body: u runs round it
-// with the chest a quarter of the way in and the back three quarters, v from the collar down.
+// in row 7, each side's trousers, and its socks over its sleeves. A jersey is flattened round the
+// body: u runs round it with the chest a quarter of the way in and the back three quarters, v from
+// the collar down. The sleeves have their own cloth, so the weave and the pinstripes are the
+// size they are on the body: the right arm in the left half of KIT_SLEEVES and the left arm in
+// the right, each round its arm with the outside of the arm at the middle of its half.
 export const kitCell = (slot) => [(slot % 4) / 4, Math.floor(slot / 4) / 8, 1 / 4, 1 / 8];
 export const KIT_PANTS = { home: [0, 7 / 8, 1 / 4, 1 / 8], away: [1 / 4, 7 / 8, 1 / 4, 1 / 8] };
-export const KIT_SOCKS = { home: [2 / 4, 7 / 8, 1 / 4, 1 / 8], away: [3 / 4, 7 / 8, 1 / 4, 1 / 8] };
+export const KIT_SOCKS = { home: [2 / 4, 7 / 8, 1 / 4, 1 / 16], away: [3 / 4, 7 / 8, 1 / 4, 1 / 16] };
+export const KIT_SLEEVES = { home: [2 / 4, 15 / 16, 1 / 4, 1 / 16], away: [3 / 4, 15 / 16, 1 / 4, 1 / 16] };
+// The logo atlas (diamond/kits.js paintLogos): four square cells in a row, each side's cap mark
+// (for the cap and the helmet) and then each side's sleeve patch.
+export const LOGO_CELLS = Object.freeze({ count: 4, cap: { home: 0, away: 1 }, patch: { home: 2, away: 3 } });
 // A cell's uv from a part's own 0..1, kept a texel or two inside so the slots don't bleed.
 const inCell = (c, u, v) => [c[0] + (0.004 + clamp(u, 0, 1) * 0.992) * c[2], c[1] + (0.008 + clamp(v, 0, 1) * 0.984) * c[3]];
 // A skinned body is built once and stands in any slot, so its jersey's uv is the cell's own 0..1
@@ -143,7 +151,9 @@ function tri(b, a, c, d) {
 // A part's columns round, more of them on the comic look's near level (createPlayerSet `hd`).
 const hdCols = (G, n) => (G.hd ? Math.round(n * 1.5) : n);
 // A parametric surface, rows i and columns j, joined round when `wrap`. `key`, `mat` and `col` may
-// be per row (a function of i); `col` may also be per point.
+// be per row (a function of i); `col` may also be per point. `col` and `uv` are handed the quad's own
+// row last, so a band made of one thing can be that all the way up it: a vertex shared with the band
+// above otherwise took that band's colour, or its uv in another part of the atlas.
 //
 // A set built at a lower level of detail (`G.lod` 1 or 2, createPlayerSet) keeps only some of the
 // grid: every second column at level 1, every fourth at level 2 (at least six round), and at level 2
@@ -194,7 +204,7 @@ function emitGrid(G, rows, cols, pos, opt) {
       const q = (ii, jj) => {
         const idx = ii * cols + (wrap ? jj % cols : jj);
         const c = typeof col === 'function' ? col(ii, jj % cols, P[idx], i) : col;
-        return { p: P[idx], n: mul(N[idx], sign), uv: uv(ii, jj), col: c, mat: m, w: wts ? wts(ii, jj % cols) : G.cur };
+        return { p: P[idx], n: mul(N[idx], sign), uv: uv(ii, jj, i), col: c, mat: m, w: wts ? wts(ii, jj % cols) : G.cur };
       };
       const a = q(i, j), bq = q(i, j1), c = q(i1, j1), d = q(i1, j);
       tri(b, a, bq, c); tri(b, a, c, d);
@@ -212,14 +222,16 @@ function ellipsoid(G, key, c, ax, r, rows, cols, col, mat, { vmin = 0, vmax = 1,
 
 // The body's profiles. The torso's rings: [frame, height in it, half-width, depth in front, depth
 // behind, what it's made of]. The torso is the body without its arms: narrow under them, deep at
-// the chest and the seat, the jersey bloused a touch over the belt. The breadth of the shoulders is
+// the chest and the seat, the jersey bloused a touch over the belt: the ring at the belt's top is
+// already shirt, so what climbs off the belt to the blouse is cloth and not a ledge of leather that
+// caught the floods as a white line. The breadth of the shoulders is
 // the arms' own (ARM's cap), so an arm hanging at the side lies against the ribs and an arm across
 // the chest passes in front of it; the hull the rig keeps the arms off (diamond/rig.js HULL)
 // stands just inside these.
 export const TORSO = Object.freeze([
   ['pelvis', -0.42, 0.30, 0.22, 0.26, 'pants'], ['pelvis', -0.30, 0.54, 0.36, 0.44, 'pants'], ['pelvis', -0.12, 0.61, 0.38, 0.46, 'pants'],
   ['pelvis', 0.06, 0.595, 0.38, 0.41, 'pants'], ['pelvis', 0.18, 0.57, 0.375, 0.385, 'pants'], ['pelvis', 0.22, 0.575, 0.385, 0.385, 'belt'],
-  ['pelvis', 0.30, 0.57, 0.38, 0.38, 'belt'], ['spine', 0.03, 0.578, 0.402, 0.377, 'jersey'], ['spine', 0.26, 0.58, 0.41, 0.37, 'jersey'],
+  ['pelvis', 0.30, 0.57, 0.38, 0.38, 'jersey'], ['spine', 0.03, 0.592, 0.414, 0.388, 'jersey'], ['spine', 0.26, 0.58, 0.41, 0.37, 'jersey'],
   ['chest', 0.02, 0.60, 0.44, 0.385, 'jersey'], ['chest', 0.20, 0.625, 0.475, 0.405, 'jersey'], ['chest', 0.36, 0.615, 0.45, 0.42, 'jersey'],
   ['chest', 0.47, 0.6, 0.39, 0.4, 'jersey'], ['chest', 0.55, 0.5, 0.31, 0.34, 'jersey'], ['chest', 0.61, 0.29, 0.23, 0.25, 'jersey'],
   ['neck', 0.02, 0.24, 0.225, 0.225, 'skin'],
@@ -229,16 +241,17 @@ export const TORSO = Object.freeze([
 // knee, bloused over the elastic, the stirrup sock below. The arm's tube starts just short of the
 // shoulder joint, inside the deltoid (`deltoid`, on the collarbone, so the cap stays on top of the
 // shoulder wherever the arm swings: a cap on the arm stood up behind it like a pad whenever the
-// arm came across); the sleeve ends half way down the upper arm in its piping, and the undershirt
-// runs on to the wrist.
+// arm came across); the sleeve ends half way down the upper arm in its piping, cut full and easing
+// out to the hem as a flannel sleeve hangs, with the hem's turned edge showing where it stands off
+// the undershirt, which runs on to the wrist.
 const LEG = [[-0.24, 0.31, 0.33, 'pants'], [0.08, 0.322, 0.342, 'pants'], [0.5, 0.302, 0.318, 'pants'], [1.0, 0.262, 0.276, 'pants'], [1.4, 0.24, 0.252, 'pants'],
   [1.6, 0.236, 0.246, 'pants'], [1.8, 0.242, 0.252, 'pants'], [1.88, 0.234, 0.244, 'pants'], [1.905, 0.2, 0.208, 'pants'], [1.93, 0.176, 0.186, 'sock'],
   [2.15, 0.18, 0.198, 'sock'], [2.45, 0.158, 0.172, 'sock'], [2.78, 0.12, 0.13, 'sock'], [3.02, 0.104, 0.11, 'sock']];
 const SLACKS = [[-0.24, 0.30, 0.32, 'pants'], [0.10, 0.31, 0.33, 'pants'], [0.55, 0.285, 0.30, 'pants'], [1.05, 0.25, 0.26, 'pants'], [1.55, 0.225, 0.235, 'pants'],
   [2.1, 0.205, 0.215, 'pants'], [2.6, 0.19, 0.20, 'pants'], [3.0, 0.18, 0.19, 'pants']];
 const ARM = [[-0.035, 0, 0, 'sleeve'], [-0.03, 0.12, 0.124, 'sleeve'], [-0.02, 0.175, 0.18, 'sleeve'],
-  [-0.02, 0.21, 0.216, 'sleeve'], [0.1, 0.218, 0.223, 'sleeve'], [0.24, 0.212, 0.218, 'sleeve'], [0.38, 0.208, 0.214, 'sleeve'],
-  [0.43, 0.207, 0.213, 'trim'], [0.455, 0.206, 0.212, 'trim'], [0.462, 0.186, 0.19, 'under'], [0.47, 0.172, 0.178, 'under'],
+  [-0.02, 0.21, 0.216, 'sleeve'], [0.1, 0.222, 0.227, 'sleeve'], [0.24, 0.226, 0.232, 'sleeve'], [0.38, 0.232, 0.238, 'sleeve'],
+  [0.43, 0.235, 0.241, 'trim'], [0.455, 0.236, 0.242, 'trim'], [0.462, 0.2, 0.205, 'trim'], [0.47, 0.172, 0.178, 'under'],
   [0.62, 0.178, 0.184, 'under'], [0.82, 0.154, 0.16, 'under'], [0.98, 0.143, 0.15, 'under'], [1.14, 0.152, 0.157, 'under'],
   [1.42, 0.127, 0.114, 'under'], [1.7, 0.103, 0.082, 'under'], [1.86, 0.094, 0.076, 'under'], [1.89, 0.08, 0.066, 'under'], [1.91, 0, 0, 'under']];
 
@@ -282,8 +295,8 @@ function limb(G, J0, J1, J2, ref, prof, s, keyOf, colOf, matOf, uvOf, rig = null
     const xA = norm(cross(t, zA)), a = j / cols * TAU;
     return add(c, add(mul(xA, Math.sin(a) * rx * thick * s), mul(zA, Math.cos(a) * rz * thick * s)));
   }, {
-    key: (i) => keyOf(rings[i][3]), col: (ii) => colOf(rings[Math.min(ii, rows - 1)][3]), mat: (i) => matOf(rings[i][3]),
-    uv: (i, j) => uvOf(rings[i][3], j / cols, rings[i][0] / prof[prof.length - 1][0]), centre: lerp(J0, J2, 0.5),
+    key: (i) => keyOf(rings[i][3]), col: (ii, jj, p, i) => colOf(rings[Math.min(i, rows - 1)][3]), mat: (i) => matOf(rings[i][3]),
+    uv: (i, j, q = i) => uvOf(rings[q][3], j / cols, rings[i][0] / prof[prof.length - 1][0]), centre: lerp(J0, J2, 0.5),
     wts: wOf ? (ii) => wOf(rings[Math.min(ii, rows - 1)][0] * s) : undefined,
   });
 }
@@ -299,7 +312,8 @@ function deltoid(G, J, W, S, s, keyOf, colOf, matOf, uvOf, thick = 1) {
   emitGrid(G, rows, cols, (i, j) => {
     const u = unitAt(i, j);
     return add(c, m3v(C, [u[0] * 0.19 * thick * s, u[1] * (u[1] > 0 ? 0.135 : 0.12) * thick * s, u[2] * 0.2 * thick * s]));
-  },{ key: keyOf('sleeve'), col: colOf('sleeve'), mat: matOf('sleeve'), uv: (i, j) => { const u = unitAt(i, j); return uvOf('sleeve', clamp(0.5 + sg * u[0] * 0.5, 0, 1), clamp(0.3 - u[1] * 0.3, 0, 1)); }, centre: c, wts: () => [[BONE['clav' + S], 1]] });
+  // its uv as 'shoulder': across it 0 to 1, front to back, and down it from 0 on top to 0.6 (the arm's own uvOf places it)
+  },{ key: keyOf('sleeve'), col: colOf('sleeve'), mat: matOf('sleeve'), uv: (i, j) => { const u = unitAt(i, j); return uvOf('shoulder', clamp(0.5 + sg * u[0] * 0.5, 0, 1), clamp(0.3 - u[1] * 0.3, 0, 1)); }, centre: c, wts: () => [[BONE['clav' + S], 1]] });
 }
 // The torso's frames as bones, for a skinned body.
 const FRAME_BONE = { pelvis: BONE.pelvis, spine: BONE.spine, chest: BONE.chest, neck: BONE.neck };
@@ -368,8 +382,10 @@ function torso(G, J, W, s, keyOf, colOf, matOf, uvOf, extra = 0, front = 0, b = 
     const sc = scOf(S), Lc = m3v(CwT, sub(p, J.chest)), moved = add(sc, m3v(turn[S], sub(Lc, sc)));
     return add(J.chest, m3v(Cw, lerp(Lc, moved, w)));
   }, {
-    key: (i) => keyOf(rings[i].part), col: (ii) => colOf(rings[Math.min(ii, rings.length - 1)].part), mat: (i) => matOf(rings[i].part),
-    uv: (i, j) => uvOf(rings[i].part, j / cols, rings[i].v), centre: J.chest,
+    // a band's colour is its own row's all the way up it: the next row's, at its top edge, faded the
+    // belt to white where it met the shirt
+    key: (i) => keyOf(rings[i].part), col: (ii, jj, p, i) => colOf(rings[Math.min(i, rings.length - 1)].part), mat: (i) => matOf(rings[i].part),
+    uv: (i, j, q = i) => uvOf(rings[q].part, j / cols, rings[i].v), centre: J.chest,
     wts: (ii, jj) => {
       const r = rings[Math.min(ii, rings.length - 1)];
       const base = r.f0 === r.f1 ? [[FRAME_BONE[r.f0], 1]] : [[FRAME_BONE[r.f0], 1 - r.t], [FRAME_BONE[r.f1], r.t]];
@@ -601,9 +617,11 @@ export function faceFor(look) {
   const layout = look.layout ?? pool[Math.floor(rand(13) * pool.length) % pool.length][1];
   // the atlas's lip colour reads as lipstick under the floods, so it's taken halfway back to the skin
   const skin = rgb255(look.skin), lip = faceLip(skin).map((c, i) => c + (skin[i] - c) * 0.5);
+  // a First Generation man's eyes are his order's light (client/shared/deadball-gen1.js)
+  const g1 = gen1Of(look.id), iris = g1 ? rgb255(GEN1_ORDERS[g1.order].glow) : f.iris;
   return {
     skin: skin.map((c) => c / 255), hair: faceHair(rgb255(look.hair), layout).map((c) => c / 255), lip: lip.map((c) => c / 255),
-    iris: f.iris.map((c) => c / 255), layout, style: look.hairStyle ?? f.hairStyle, eyeBlack: look.eyeBlack ? 1 : 0, seed: (h % 997) / 10,
+    iris: iris.map((c) => c / 255), layout, style: look.hairStyle ?? f.hairStyle, eyeBlack: look.eyeBlack ? 1 : 0, seed: (h % 997) / 10,
     // a shape of head off the name, its weight off his girth; and his facial hair, by the layout's beard: a 1990s
     // clubhouse, so moustaches and goatees, and a good many clean-shaven
     shape: SCULPT_HEADS[Math.floor(rand(21) * 3) % 3], weight: Math.round(Math.max(0.2, Math.min(0.9, 0.45 + 5 * (look.girth || 0))) * 10) / 10,
@@ -678,11 +696,53 @@ function bill(G, F, band, t, L, span, drop, colTop, colUnder, mat) {
   emitGrid(G, along, across, (i, j) => pt(i, j, 0), { key: 'plain', col: (ii) => (ii >= along - 2 ? mul(colTop, 0.78) : colTop), mat, wrap: false, flip: true });
   emitGrid(G, along, across, (i, j) => pt(i, j, -0.003), { key: 'plain', col: colUnder, mat, wrap: false, flip: false });
 }
-// A club's monogram on the crown or the helmet's side: `cell` is its place in the logo atlas.
-function logoOn(G, F, band, t, a0, a1, y0, y1, cell, mat, mirror = false) {
-  const T = typeof t === 'function' ? t : () => t;
-  emitGrid(G, 4, 4, (i, j) => { const a = a0 + (a1 - a0) * (j / 3), y = y1 - (y1 - y0) * (i / 3); return toHead(F, skullOut(y, a, T(a, y) + 0.0012)); },
-    { key: 'logo', col: [1, 1, 1], mat, wrap: false, centre: F.c, uv: (i, j) => [(cell + (mirror ? 1 - j / 3 : j / 3)) / 2, i / 3] });
+// A club's mark on the crown or the helmet's side: `cell` is its place in the logo atlas
+// (LOGO_CELLS). On a cap it's embroidered, so it stands a little proud in the middle (`puff`); a
+// helmet's is a decal, flat on the shell.
+function logoOn(G, F, band, t, a0, a1, y0, y1, cell, mat, mirror = false, puff = 0) {
+  const T = typeof t === 'function' ? t : () => t, n = G.lod ? 3 : 4, m = n - 1;
+  emitGrid(G, n, n, (i, j) => {
+    const a = a0 + (a1 - a0) * (j / m), y = y1 - (y1 - y0) * (i / m), bump = puff * Math.sin(Math.PI * i / m) * Math.sin(Math.PI * j / m);
+    return toHead(F, skullOut(y, a, T(a, y) + 0.0012 + bump));
+  }, { key: 'logo', col: [1, 1, 1], mat, wrap: false, centre: F.c, uv: (i, j) => [(cell + (mirror ? 1 - j / m : j / m)) / LOGO_CELLS.count, i / m] });
+}
+// The club's crest as a patch sewn on the outside of the left sleeve, just under the shoulder: a
+// curved sheet on the sleeve's own surface, the way a limb lays it (limb), standing a thread's
+// thickness off the cloth and bowed out a little, as a patch is over the sleeve's give. Close up and
+// at broadcast distance only; it's under a pixel in the wide shots. Its picture is the logo atlas's
+// patch cell, the crest painted as embroidery (diamond/kits.js paintLogos).
+const profAt = (prof, x) => {
+  for (let k = 0; k < prof.length - 1; k++) {
+    const a = prof[k], b = prof[k + 1];
+    if (x <= b[0]) { const t = clamp((x - a[0]) / ((b[0] - a[0]) || 1), 0, 1); return [a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t]; }
+  }
+  const z = prof[prof.length - 1]; return [z[1], z[2]];
+};
+// down the arm from the shoulder joint in feet, and round it in radians: about 3 inches square
+export const PATCH = Object.freeze({ top: 0.1, bottom: 0.35, span: 1.08 });
+// Its frame is the upper arm bone's (diamond/rig.js boneFrames: down the arm, and across it toward
+// the elbow's pole, the chest's back blended in where the pole runs along the arm), so the body
+// skinned to that bone and the body built posed put it in the same place. The round sleeve can
+// take its frame off the chest; a patch, being on one side of it, can't.
+function armAcross(v, y, alt) {
+  const a = sub(v, mul(y, dot(v, y))), la = len(a);
+  if (la > 0.35) return mul(a, 1 / la);
+  const b = norm(sub(alt, mul(y, dot(alt, y)))), k = la / 0.35;
+  const c = la > 1e-9 ? add(mul(a, k / la), mul(b, 1 - k)) : b;
+  return len(c) > 1e-6 ? norm(c) : b;
+}
+function sleevePatch(G, J, W, s, thick, cell) {
+  if (G.lod >= 2) return;
+  const cur = G.cur, J0 = J.shL, T1 = norm(sub(J.elL, J0)), n = G.lod ? 3 : 4, m = n - 1;
+  const zA = armAcross(J.epoleL || m3v(W.chest, [0, 0, -1]), T1, m3v(W.chest, [0, 0, -1])), xA = norm(cross(T1, zA));
+  G.cur = [[BONE.upperArmL, 1]];
+  emitGrid(G, n, n, (i, j) => {
+    const sv = PATCH.top + (PATCH.bottom - PATCH.top) * (i / m), [rx, rz] = profAt(ARM, sv);
+    // its left edge toward his front, so it reads from his side the right way round
+    const a = Math.PI / 2 + PATCH.span / 2 - PATCH.span * (j / m), out = (0.006 + 0.008 * Math.sin(Math.PI * i / m) * Math.sin(Math.PI * j / m)) * s;
+    return add(madd(J0, T1, sv * s), add(mul(xA, Math.sin(a) * (rx * thick * s + out)), mul(zA, Math.cos(a) * (rz * thick * s + out))));
+  }, { key: 'logo', col: [1, 1, 1], mat: MAT.CLOTH, wrap: false, centre: madd(J0, T1, 0.2 * s), uv: (i, j) => [(cell + j / m) / LOGO_CELLS.count, i / m] });
+  G.cur = cur;
 }
 // The cap's band, and the batting helmet's for the ear it covers. Exported for the gate, which
 // holds them above the brow and the ears (ballpark-smoke.mjs).
@@ -711,7 +771,8 @@ function cap(G, W, s, look, col, under, cell, billTop = col) {
   ellipsoid(G, 'plain', toHead(F, [0, 1.7505 + 0.0185, SKULL_ZC]), [W.head[0], W.head[1], W.head[2]], [0.017 * s, 0.009 * s, 0.017 * s], 5, 8, seam, MAT.MATTE);
   if (!G.lod) for (const a of [-1.05, 1.05, 2.09, -2.09]) spotOn(G, F, a, 1.722, 0.05, 0.0032, capLift(a, 1.722) + 0.0012, mul(seam, 0.5));
   bill(G, F, capBand, 0.011, 0.08, 0.82, BILL_DROP.cap, billTop, under, MAT.MATTE);
-  if (cell != null) logoOn(G, F, capBand, capLift, -0.42, 0.42, capBand(0) + 0.004, capBand(0) + 0.044, cell, MAT.MATTE);
+  // the mark on the front panels, square on the crown (it was 0.84 across by 0.04 up, and squashed)
+  if (cell != null) logoOn(G, F, capBand, capLift, -0.34, 0.34, capBand(0) + 0.004, capBand(0) + 0.055, cell, MAT.MATTE, false, 0.0012);
 }
 // The batting helmet: the shell comes down over the ear facing the pitcher and stops above the
 // other one, the flap standing off the ear it covers.
@@ -721,7 +782,12 @@ function helmet(G, W, s, look, flapSide, col, cell) {
   skullShell(G, F, band, t, { col, mat: MAT.GLOSS, rows: 14, cols: 40 });
   skullShell(G, F, band, (a, y) => t(a, y) - 0.005, { col: hex('#141414'), mat: MAT.CLOTH, rows: 14, cols: 40 });
   bill(G, F, band, 0.022, 0.036, 0.62, BILL_DROP.helmet, col, mul(col, 0.6), MAT.GLOSS);
-  if (cell != null) logoOn(G, F, band, 0.022, flapSide * 1.15, flapSide * 1.75, 1.665, 1.715, cell, MAT.GLOSS, flapSide > 0);
+  // the decal on both sides, over the flap and over the open ear, each reading the right way round
+  // from its own side (a letter can't be mirrored, so neither is anything else)
+  if (cell != null) {
+    logoOn(G, F, band, 0.022, flapSide * 1.15, flapSide * 1.75, 1.665, 1.715, cell, MAT.GLOSS, flapSide < 0);
+    logoOn(G, F, band, 0.022, -flapSide * 1.15, -flapSide * 1.75, 1.675, 1.722, cell, MAT.GLOSS, flapSide > 0);
+  }
   // the vents over the crown, and the hole in the flap over the ear
   const hole = hex('#0b0b0c');
   for (const [a, y] of [[0.42, 1.742], [-0.42, 1.742], [Math.PI, 1.728]]) spotOn(G, F, a, y, 0.1, 0.006, 0.0225, hole);
@@ -879,6 +945,208 @@ function elbowGuard(G, J, S, s, col, t = 1) {
   G.cur = cur;
 }
 
+// ── the First Generation ─────────────────────────────────────────────────────────
+// What a First Generation man has had fitted or grown, over his club's kit, in his order's colours
+// (client/shared/deadball-gen1.js GEN1_ORDERS): Ascendant white plate with clinical blue light, Long
+// Watch cloth and wood in earth tones, Wildblood red hide, horn and bone, Null gunmetal to black
+// with white light. Every one also wears the order's band on his left arm with a light in it and a
+// lit ring at each ankle, so he reads as one of them from the wide shot. `MAT.EMISSIVE` is the
+// park's lit material (gl/ballpark.js LIT_FS), unshaded, so a light reads in the shade. Fine detail
+// (rivets, seams, feathers) is built at the near level only. Units as buildPlayer's: feet, `s` his
+// scale; on the head, the head's bind metres through toHead.
+function gen1Gear(G, J, W, s, look, g, thickArm = 1, thickLeg = 1) {
+  const O = GEN1_ORDERS[g.order], base = hex(O.base), trim = hex(O.trim), dark = hex(O.dark), glow = hex(O.glow);
+  const cur = G.cur, F = headFrame(W, look), near = !G.lod, has = (k) => g.gear.includes(k), hk = F.k;
+  const skin = hex(look.skin), bone = hex('#e6dcc2'), black = hex('#0c0c0e'), gun = hex('#2c2f34');
+  const E = MAT.EMISSIVE, GL = MAT.GLOSS, MT = MAT.METAL, CL = MAT.CLOTH, MA = MAT.MATTE;
+  const on = (b) => { G.cur = [[BONE[b], 1]]; };
+  const at = (f, x, y, z) => add(J[f], m3v(W[f], [x * s, y * s, z * s]));
+  const hd = (x, y, z) => toHead(F, [x, y, z]);
+  const perp = (d) => norm(cross(d, Math.abs(d[1]) < 0.9 ? [0, 1, 0] : [1, 0, 0]));
+  // a tube from a to b, its radius r0 to r1, through a bend `mid` if given
+  const rod = (a, b, r0, r1, col, mat, cols = 10, mid = null) => {
+    const m = mid || lerp(a, b, 0.5), d = norm(sub(b, a));
+    tube(G, [[a, r0, r0], [lerp(a, m, 0.5), r0 * 0.75 + r1 * 0.25, r0 * 0.75 + r1 * 0.25], [m, (r0 + r1) / 2, (r0 + r1) / 2], [lerp(m, b, 0.5), r0 * 0.25 + r1 * 0.75, r0 * 0.25 + r1 * 0.75], [b, r1, r1]], perp(d), cols, { key: 'plain', col, mat, centre: m });
+  };
+  const spike = (a, b, r, col, mat, cols = 7) => rod(a, b, r, r * 0.04, col, mat, cols);
+  const blob = (c, r, col, mat, ax = W.chest, rows = 6, cols = 10) => ellipsoid(G, 'plain', c, ax, Array.isArray(r) ? r : [r, r, r], rows, cols, col, mat);
+  // a ring of radius R round `c`, square to `axis`, its tube r thick
+  const ring = (c, axis, R, r, col, mat, n = 18) => {
+    const z = norm(axis), x = perp(z), y = cross(z, x), st = [];
+    for (let k = 0; k <= n; k++) { const a = k / n * TAU; st.push([add(c, add(mul(x, Math.cos(a) * R), mul(y, Math.sin(a) * R))), r, r]); }
+    tube(G, st, z, 6, { key: 'plain', col, mat, centre: c });
+  };
+  // a band round a limb segment, a fraction u of the way from a to b, as thick as the limb at r
+  const cuff = (a, b, u, r, w, col, mat) => { const d = norm(sub(b, a)), c = lerp(a, b, u); tube(G, [[madd(c, d, -w / 2), r, r], [c, r * 1.04, r * 1.04], [madd(c, d, w / 2), r, r]], perp(d), 14, { key: 'plain', col, mat, centre: c }); };
+  // a limb's sleeve of plate from a to b, r0 to r1, with lit rings and panel seams
+  const sleeve = (a, b, r0, r1, col, rings = 0, seam = dark) => {
+    rod(a, b, r0, r1, col, GL, 14);
+    for (let k = 0; k < rings; k++) cuff(a, b, 0.3 + 0.5 * k / Math.max(1, rings - 1), lerp([r0], [r1], 0.3 + 0.5 * k / Math.max(1, rings - 1))[0] * 1.02, 0.03 * s, glow, E);
+    if (near) for (const u of [0.12, 0.88]) cuff(a, b, u, (u < 0.5 ? r0 : r1) * 1.03, 0.012 * s, seam, MA);
+  };
+  const armR = (S, k) => (0.17 - 0.035 * k) * thickArm * s;
+  const legR = (k) => (0.27 - 0.06 * k) * thickLeg * s;
+  const handBone = (S) => ((J['grip' + S] ? 'fist' : 'hand') + S);
+
+  // ── what every one of them wears ──
+  // the order's band on the left upper arm, a lit pip on it; a lit ring round each ankle
+  on('upperArmL'); cuff(J.shL, J.elL, 0.42, armR('L', 0.4) * 1.1, 0.15 * s, trim, CL);
+  cuff(J.shL, J.elL, 0.42, armR('L', 0.4) * 1.13, 0.03 * s, g.order === 'nul' ? glow : base, g.order === 'nul' ? E : CL);
+  { const d = norm(sub(J.elL, J.shL)), out = norm(sub(lerp(J.shL, J.elL, 0.42), J.chest)), c = madd(lerp(J.shL, J.elL, 0.42), norm(sub(out, mul(d, dot(out, d)))), armR('L', 0.4) * 1.14); blob(c, [0.035 * s, 0.035 * s, 0.035 * s], glow, E, W.chest, 5, 8); }
+  for (const S of ['L', 'R']) { on('shin' + S); cuff(J['kn' + S], J['an' + S], 0.86, legR(1) * 0.92, 0.035 * s, glow, E); }
+  // the order's marks on his face, for the close shots: a strip laid on the skull from (y0, a0) to
+  // (y1, a1), w tall. An Ascendant's lit lines down from the eyes, a Long Watch ochre bar down the
+  // brow, three Wildblood claw marks across a cheek, a Null barcode under an eye.
+  if (near) {
+    on('head');
+    const mark = (y0, a0, y1, a1, w, col, mat, t = 0.0035) => emitGrid(G, 2, 6, (i, j) => { const u = j / 5; return toHead(F, skullOut(y0 + (y1 - y0) * u + (i - 0.5) * w, a0 + (a1 - a0) * u, t)); }, { key: 'plain', col, mat, wrap: false, centre: F.c });
+    const markV = (y0, y1, a, wa, col, mat, t = 0.0035) => emitGrid(G, 2, 6, (i, j) => toHead(F, skullOut(y0 + (y1 - y0) * (j / 5), a + (i - 0.5) * wa, t)), { key: 'plain', col, mat, wrap: false, centre: F.c });
+    if (g.order === 'asc') for (const sg of [-1, 1]) { markV(1.632, 1.585, sg * 0.5, 0.035, glow, E); markV(1.6, 1.57, sg * 0.62, 0.025, glow, E); }
+    if (g.order === 'lw') { markV(1.725, 1.62, 0, 0.09, hex('#b06a2a'), MA); mark(1.646, -0.75, 1.646, 0.75, 0.007, hex('#3a2416'), MA); }
+    if (g.order === 'wb') for (let k = 0; k < 3; k++) mark(1.64 - k * 0.016, 0.35, 1.585 - k * 0.016, 0.85, 0.006, hex('#c4161c'), MA);
+    if (g.order === 'nul') for (let k = 0; k < 6; k++) markV(1.618, 1.592, -0.42 - k * 0.04, k % 2 ? 0.012 : 0.022, hex('#101114'), MA);
+  }
+
+  // ── Ascendant: white plate and clinical blue light ──
+  if (has('cyberArm') || has('glassHand')) {
+    const S = 'R';
+    if (has('cyberArm')) {
+      on('upperArm' + S); sleeve(J['sh' + S], J['el' + S], armR(S, 0) * 1.12, armR(S, 0.6) * 1.08, base, 0);
+      blob(J['el' + S], armR(S, 0.7) * 1.15, dark, MT, W.chest, 6, 10);
+      on('forearm' + S); sleeve(J['el' + S], J['wr' + S], armR(S, 0.7) * 1.12, armR(S, 1.2) * 1.0, base, 3);
+      if (near) for (let k = 0; k < 4; k++) { const c = lerp(J['el' + S], J['wr' + S], 0.2 + k * 0.18), d = norm(sub(J['wr' + S], J['el' + S])); blob(madd(c, perp(d), armR(S, 1) * 1.12), 0.018 * s, trim, MT, W.chest, 4, 6); }
+    }
+    on(handBone(S)); blob(J['hand' + S], [0.13 * s, 0.13 * s, 0.13 * s], has('glassHand') ? hex('#bfe6fa') : base, GL, W.chest, 8, 12);
+    if (has('glassHand')) for (let k = 0; k < 3; k++) { on('forearm' + S); cuff(J['el' + S], J['wr' + S], 0.82 + k * 0.06, armR(S, 1.2) * 1.05, 0.012 * s, glow, E); }
+  }
+  if (has('pauldron') || has('pauldrons')) for (const [S, sg] of has('pauldrons') ? [['L', 1], ['R', -1]] : [['R', -1]]) {
+    const C = W['clav' + S] || W.chest;
+    on('clav' + S);
+    ellipsoid(G, 'plain', add(J['sh' + S], m3v(C, [-sg * 0.01 * s, 0.07 * s, 0.0])), C, [0.27 * thickArm * s, 0.16 * thickArm * s, 0.27 * thickArm * s], 8, 16, base, GL, { vmax: 0.55 });
+    ellipsoid(G, 'plain', add(J['sh' + S], m3v(C, [-sg * 0.01 * s, 0.07 * s, 0.0])), C, [0.285 * thickArm * s, 0.12 * thickArm * s, 0.285 * thickArm * s], 4, 16, trim, GL, { vmin: 0.48, vmax: 0.56 });
+    if (near) for (const a of [-0.6, 0, 0.6]) blob(add(J['sh' + S], m3v(C, [Math.sin(a) * 0.2 * s, 0.2 * s, Math.cos(a) * 0.12 * s])), 0.02 * s, dark, MT, C, 4, 6);
+  }
+  if (has('lenses')) {
+    on('head');
+    // a slim visor across the eyes, lit
+    emitGrid(G, 3, 16, (i, j) => { const a = (j / 15 - 0.5) * 1.5, y = 1.646 - 0.012 * i; return toHead(F, skullOut(y, a, 0.016)); }, { key: 'plain', col: glow, mat: E, wrap: false, centre: F.c });
+    emitGrid(G, 2, 16, (i, j) => { const a = (j / 15 - 0.5) * 1.62, y = 1.656 - 0.034 * i; return toHead(F, skullOut(y, a, 0.012)); }, { key: 'plain', col: base, mat: GL, wrap: false, centre: F.c });
+  }
+  if (has('halo')) {
+    on('head');
+    const c = hd(0, 1.72, -0.15);
+    ring(c, m3v(W.head, [0, 0, 1]), 0.85 * s, 0.022 * s, glow, E, 32);
+    if (near) for (let k = 0; k < 10; k++) { const a = k / 10 * TAU; blob(add(c, m3v(W.head, [Math.cos(a) * 0.85 * s, Math.sin(a) * 0.85 * s, 0])), 0.045 * s, base, GL, W.head, 5, 8); }
+  }
+  if (has('neckSeams')) { on('neck'); for (const sg of [-1, 1]) rod(at('neck', sg * 0.19, 0.0, 0.1), at('neck', sg * 0.2, 0.26, 0.08), 0.011 * s, 0.011 * s, glow, E, 5); }
+  if (has('spine')) { on('chest'); for (let k = 0; k < 5; k++) { blob(at('chest', 0, 0.55 - k * 0.12, -0.4), [0.075 * s, 0.035 * s, 0.03 * s], base, GL); if (near) blob(at('chest', 0, 0.5 - k * 0.12, -0.425), [0.04 * s, 0.01 * s, 0.012 * s], glow, E, W.chest, 3, 6); } }
+  if (has('chestPlate') || has('chestCore')) {
+    on('chest');
+    if (has('chestPlate')) emitGrid(G, 6, 13, (i, j) => { const a = (j / 12 - 0.5) * 2.2, y = 0.1 + i * 0.09; return at('chest', Math.sin(a) * 0.6, y, Math.cos(a) * (0.51 - 0.06 * Math.abs(i - 2.5) / 2.5)); }, { key: 'plain', col: (ii, jj) => (jj === 6 ? dark : base), mat: GL, wrap: false, centre: J.chest });
+    ring(at('chest', 0, 0.32, 0.53), m3v(W.chest, [0, 0, 1]), 0.11 * s, 0.025 * s, has('chestPlate') ? dark : base, MT, 20);
+    blob(at('chest', 0, 0.32, 0.52), [0.1 * s, 0.1 * s, 0.03 * s], glow, E, W.chest, 6, 12);
+  }
+  if (has('jaw')) { on('head'); emitGrid(G, 3, 14, (i, j) => { const a = (j / 13 - 0.5) * 1.7, y = 1.556 - 0.011 * i; return toHead(F, skullOut(Math.max(1.53, y), a, 0.005)); }, { key: 'plain', col: (ii, jj) => (jj === 6 || jj === 7 ? trim : base), mat: GL, wrap: false, centre: F.c }); }
+  if (has('skinWeave') && near) for (const S of ['L', 'R']) { on('forearm' + S); for (let k = 0; k < 4; k++) cuff(J['el' + S], J['wr' + S], 0.2 + k * 0.2, armR(S, 1) * 0.98, 0.008 * s, trim, MA); }
+  if (has('calfFins')) for (const S of ['L', 'R']) { on('shin' + S); const back = norm(sub(lerp(J['kn' + S], J['an' + S], 0.35), J['toe' + S])); spike(madd(lerp(J['kn' + S], J['an' + S], 0.35), back, legR(0.6)), madd(lerp(J['kn' + S], J['an' + S], 0.55), back, legR(0.6) + 0.22 * s), 0.05 * s, base, GL); }
+  if (has('crown')) { on('head'); for (let k = 0; k < 7; k++) { const a = (k / 7) * TAU - Math.PI, p0 = skullOut(1.735, a, 0.03), p1 = [p0[0] * 1.15, 1.84, (p0[2] - SKULL_ZC) * 1.15 + SKULL_ZC]; rod(toHead(F, p0), toHead(F, p1), 0.03 * s, 0.006 * s, base, GL, 6); blob(toHead(F, p1), 0.03 * s, glow, E, W.head, 4, 6); } }
+  if (has('droneRing')) { on('head'); for (let k = 0; k < 5; k++) { const a = k / 5 * TAU; const c = hd(Math.cos(a) * 0.2, 1.8, Math.sin(a) * 0.2); blob(c, [0.07 * s, 0.035 * s, 0.07 * s], base, GL, W.head, 5, 8); blob(madd(c, m3v(W.head, [0, -1, 0]), 0.03 * s), 0.025 * s, glow, E, W.head, 4, 6); } }
+  if (has('stole')) { on('chest'); for (const sg of [-1, 1]) emitGrid(G, 8, 3, (i, j) => at('chest', sg * (0.18 + 0.08 * j), 0.62 - i * 0.14, 0.48 + 0.02 * Math.sin(i)), { key: 'plain', col: (ii) => (ii === 7 ? trim : base), mat: CL, wrap: false, flip: sg < 0 }); }
+  if (has('thrusters')) for (const S of ['L', 'R']) {
+    const f = footFrame(J, S, s); on('foot' + S);
+    ellipsoid(G, 'plain', add(f.at, add(mul(f.Fs, 0.2 * s), mul(f.Us, 0.17 * s))), [f.Sd, f.Fs, f.Us], [0.2 * s, 0.4 * s, 0.17 * s], 7, 14, base, GL);
+    spike(add(f.at, mul(f.Fs, -0.05 * s)), add(f.at, add(mul(f.Fs, -0.05 * s), mul(f.Us, -0.35 * s))), 0.13 * s, glow, E, 10);
+  }
+
+  // ── Long Watch: cloth, wood, cord and feather in earth tones ──
+  if (has('wrap')) { on('head'); emitGrid(G, 4, 18, (i, j) => { const a = (j / 17 - 0.5) * 3.4, y = 1.6 - 0.024 * i; return toHead(F, skullOut(Math.max(1.53, y), a, 0.014 + 0.003 * i)); }, { key: 'plain', col: (ii) => (ii === 1 ? dark : trim), mat: CL, wrap: false, centre: F.c }); }
+  if (has('hood')) { on('head'); emitGrid(G, 6, 18, (i, j) => { const a = Math.PI * (0.45 + 1.1 * j / 17), y = 1.7 - i * 0.04; return toHead(F, skullOut(Math.max(1.51, y), a, 0.03 + 0.012 * i)); }, { key: 'plain', col: (ii) => (ii % 2 ? base : mul(base, 0.85)), mat: CL, wrap: false, centre: F.c }); }
+  if (has('wristWraps')) for (const S of ['L', 'R']) { on('forearm' + S); for (let k = 0; k < 4; k++) cuff(J['el' + S], J['wr' + S], 0.62 + k * 0.09, armR(S, 1.1) * (1.06 + 0.02 * (k % 2)), 0.06 * s, k % 2 ? trim : base, CL); }
+  if (has('cord')) { on('forearmR'); for (let k = 0; k < 5; k++) cuff(J.elR, J.wrR, 0.58 + k * 0.07, armR('R', 1.1) * 1.07, 0.018 * s, hex('#8a2a1a'), CL); }
+  if (has('feather')) { on('head'); const a = 1.5, p0 = toHead(F, skullOut(1.69, a, 0.022)), p1 = toHead(F, [0.15, 1.9, -0.09]); ellipsoid(G, 'plain', lerp(p0, p1, 0.55), [norm(cross(sub(p1, p0), m3v(W.head, [0, 0, 1]))), norm(sub(p1, p0)), m3v(W.head, [0, 0, 1])], [0.06 * s, len(sub(p1, p0)) * 0.55, 0.01 * s], 6, 10, hex('#16120e'), MA); rod(p0, p1, 0.008 * s, 0.004 * s, hex('#c8b89a'), MA, 5); }
+  if (has('beads')) { on('chest'); const n = near ? 22 : 10; for (let k = 0; k < n; k++) { const a = (k / n) * TAU; const y = 0.6 - 0.14 * Math.max(0, Math.cos(a)) ** 2; blob(at('chest', Math.sin(a) * 0.32, y, Math.cos(a) * 0.4 + 0.05), 0.03 * s, k % 3 ? hex('#5a3a22') : trim, MA, W.chest, 4, 6); } blob(at('chest', 0, 0.42, 0.48), [0.05 * s, 0.07 * s, 0.02 * s], trim, MT, W.chest, 5, 8); }
+  if (has('mantle')) for (const [S, sg] of [['L', 1], ['R', -1]]) {
+    const C = W.chest; on('clav' + S);
+    const rows = near ? 3 : 2, per = near ? 8 : 4;
+    for (let r = 0; r < rows; r++) for (let k = 0; k < per; k++) {
+      // round the shoulder from the chest to the back, each row lower and further out
+      const a = (k / (per - 1) - 0.5) * 2.6, p0 = add(J['sh' + S], m3v(C, [sg * (0.06 + r * 0.06) * s, (0.14 - r * 0.1) * s, Math.sin(a) * (0.26 + r * 0.03) * s]));
+      const p1 = add(p0, m3v(C, [sg * (0.16 + r * 0.04) * s, -(0.42 + r * 0.06) * s, Math.sin(a) * 0.1 * s]));
+      const ax = norm(sub(p1, p0)), fl = norm(cross(ax, [0, 1, 0])), fn = norm(cross(fl, ax));
+      ellipsoid(G, 'plain', lerp(p0, p1, 0.5), [fn, ax, fl], [0.075 * s, len(sub(p1, p0)) * 0.56, 0.012 * s], 5, 8, r === rows - 1 ? mul(dark, 0.8) : r ? dark : mul(base, 0.7), MA);
+      if (near && r === 0) rod(p0, lerp(p0, p1, 0.85), 0.006 * s, 0.003 * s, trim, MA, 4);
+    }
+  }
+  if (has('braid')) { on('chest'); for (let k = 0; k < 10; k++) blob(at('chest', 0.03 * Math.sin(k * 1.7), 0.7 - k * 0.15, -0.48 - 0.04 * Math.sin(k / 10 * Math.PI)), [0.07 * s, 0.09 * s, 0.06 * s], hex('#d7dbde'), MAT.SATIN, W.chest, 5, 8); blob(at('chest', 0, -0.82, -0.5), 0.05 * s, trim, CL, W.chest, 4, 6); }
+  if (has('beard')) { on('head'); ellipsoid(G, 'plain', hd(0, 1.5, 0.07), [W.head[0], W.head[1], W.head[2]], [0.06 * hk, 0.09 * hk, 0.04 * hk], 8, 12, hex('#e6e2d8'), MAT.SATIN); }
+
+  // ── Wildblood: red hide, horn and bone ──
+  if (has('ears')) { on('head'); for (const sg of [-1, 1]) { const p0 = hd(sg * 0.085, 1.71, -0.03), p1 = hd(sg * 0.21, 1.97, -0.11), m = lerp(p0, p1, 0.5); ellipsoid(G, 'plain', m, [m3v(W.head, [0, 0, 1]), norm(sub(p1, p0)), norm(cross(norm(sub(p1, p0)), m3v(W.head, [0, 0, 1])))], [0.048 * hk, len(sub(p1, p0)) * 0.55, 0.011 * hk], 7, 10, skin, MAT.SKIN); if (near) ellipsoid(G, 'plain', madd(m, m3v(W.head, [0, 0, 1]), 0.012 * s), [m3v(W.head, [0, 0, 1]), norm(sub(p1, p0)), norm(cross(norm(sub(p1, p0)), m3v(W.head, [0, 0, 1])))], [0.028 * hk, len(sub(p1, p0)) * 0.42, 0.005 * hk], 5, 8, trim, MA); } }
+  if (has('horns')) { on('head'); for (const sg of [-1, 1]) { const a = hd(sg * 0.06, 1.715, 0.04), m = hd(sg * 0.2, 1.76, 0.03), b = hd(sg * 0.25, 1.9, -0.04); rod(a, b, 0.09 * s, 0.01 * s, bone, MAT.SATIN, 12, m); ring(a, sub(m, a), 0.1 * s, 0.025 * s, base, MA, 14); if (near) for (let k = 1; k < 4; k++) ring(lerp(a, m, k / 4), sub(m, a), (0.09 - 0.015 * k) * s, 0.008 * s, mul(bone, 0.7), MA, 10); } }
+  if (has('tusks')) { on('head'); for (const sg of [-1, 1]) spike(hd(sg * 0.03, 1.55, 0.085), hd(sg * 0.05, 1.6, 0.11), 0.02 * s, bone, MAT.SATIN); }
+  if (has('hump')) { on('chest'); blob(at('chest', 0, 0.55, -0.32), [0.45 * s, 0.32 * s, 0.25 * s], skin, MAT.SKIN, W.chest, 8, 14); }
+  if (has('spurs') || has('blades') || has('thorns')) for (const S of ['L', 'R']) {
+    on('forearm' + S);
+    const el = J['el' + S], wr = J['wr' + S], d = norm(sub(wr, el)), out = norm(sub(sub(el, J.chest), mul(d, dot(sub(el, J.chest), d))));
+    if (has('spurs')) spike(madd(el, out, armR(S, 0.8) * 0.8), madd(madd(el, out, armR(S, 0.8) + 0.12 * s), d, -0.2 * s), 0.05 * s, bone, MAT.SATIN);
+    if (has('blades')) { const a = madd(lerp(el, wr, 0.75), out, armR(S, 1) * 0.9); tube(G, [[a, 0.04 * s, 0.012 * s], [madd(madd(a, d, -0.3 * s), out, 0.1 * s), 0.035 * s, 0.01 * s], [madd(madd(a, d, -0.65 * s), out, 0.12 * s), 0.003 * s, 0.002 * s]], out, 8, { key: 'plain', col: bone, mat: MAT.SATIN, centre: a }); }
+    if (has('thorns')) { const n = near ? 6 : 3; for (let k = 0; k < n; k++) { const c = madd(lerp(el, wr, 0.15 + 0.7 * k / n), out, armR(S, 1) * 0.9); spike(c, madd(madd(c, out, 0.09 * s), d, -0.05 * s), 0.025 * s, k % 2 ? bone : base, MAT.SATIN, 6); } }
+  }
+  if (has('claws')) for (const S of ['L', 'R']) {
+    if (J['grip' + S] || !J['hdir' + S]) continue;
+    on('hand' + S);
+    const hdv = J['hdir' + S], pm = J['palm' + S], sd = norm(cross(pm, hdv)), wr = J['wr' + S];
+    for (let f = 0; f < 4; f++) { const base0 = add(wr, add(mul(sd, (0.075 - f * 0.05) * s * (S === 'L' ? -1 : 1)), mul(hdv, 0.5 * s))); spike(base0, add(madd(base0, hdv, 0.14 * s), mul(pm, 0.07 * s)), 0.018 * s, hex('#2a1210'), MAT.GLOSS, 6); }
+  }
+  if (has('tail')) { on('pelvis'); const a = at('pelvis', 0, 0.05, -0.4), m = at('pelvis', 0.1, -0.6, -1.2), b = at('pelvis', -0.2, -1.9, -1.4); rod(a, b, 0.14 * s, 0.03 * s, skin, MAT.SKIN, 12, m); blob(b, 0.07 * s, base, MA, W.pelvis, 5, 8); }
+  if (has('hindLegs')) for (const S of ['L', 'R']) {
+    on('shin' + S); const kn = J['kn' + S], an = J['an' + S], back = norm(sub(lerp(kn, an, 0.5), J['toe' + S]));
+    blob(madd(lerp(kn, an, 0.3), back, legR(0.5) * 0.7), [legR(0.4) * 0.95, len(sub(an, kn)) * 0.32, legR(0.4) * 0.95], skin, MAT.SKIN, W.pelvis, 7, 12);
+    spike(madd(lerp(kn, an, 0.9), back, legR(1) * 0.8), madd(madd(lerp(kn, an, 0.95), back, legR(1) + 0.2 * s), [0, 1, 0], -0.05 * s), 0.05 * s, bone, MAT.SATIN);
+  }
+  if (has('arms4')) for (const sg of [-1, 1]) {
+    on('chest');
+    const a = at('chest', sg * 0.52, 0.12, 0.05), e = at('chest', sg * 0.95, -0.25, 0.4), h = at('chest', sg * 0.75, -0.1, 0.95);
+    rod(a, e, 0.13 * s, 0.11 * s, skin, MAT.SKIN, 12); blob(e, 0.11 * s, skin, MAT.SKIN); rod(e, h, 0.11 * s, 0.08 * s, skin, MAT.SKIN, 12);
+    ellipsoid(G, 'leather', madd(h, norm(sub(h, e)), 0.12 * s), W.chest, [0.17 * s, 0.22 * s, 0.09 * s], 7, 12, onLeather(hex('#5a3418')), MAT.LEATHER);
+  }
+  if (has('frogEyes')) { on('head'); for (const sg of [-1, 1]) { const c = hd(sg * 0.052, 1.705, 0.05); blob(c, 0.052 * hk, hex('#e8d86a'), GL, W.head, 8, 12); blob(madd(c, m3v(W.head, [0, 0, 1]), 0.045 * hk), [0.012 * hk, 0.03 * hk, 0.01 * hk], black, GL, W.head, 4, 6); } }
+  if (has('mottle') && near) { const spots = [['forearmL', 'elL', 'wrL'], ['forearmR', 'elR', 'wrR'], ['upperArmL', 'shL', 'elL'], ['upperArmR', 'shR', 'elR']]; for (const [b, a0, a1] of spots) { on(b); for (let k = 0; k < 4; k++) { const d = norm(sub(J[a1], J[a0])), c = lerp(J[a0], J[a1], 0.2 + k * 0.2), o = perp(d); const ang = k * 2.1; const out = add(mul(o, Math.cos(ang)), mul(cross(d, o), Math.sin(ang))); blob(madd(c, out, 0.15 * s * thickArm), [0.045 * s, 0.045 * s, 0.01 * s], hex('#2e4424'), MA, [cross(d, out), d, out], 4, 6); } } }
+  if (has('glowSpots')) { const spots = [['chest', 0.28, 0.4, 0.5], ['chest', -0.33, 0.25, 0.5], ['chest', 0.05, 0.52, -0.45], ['neck', 0.18, 0.2, 0.18], ['neck', -0.2, 0.3, 0.14]]; for (const [f, x, y, z] of spots) { on(f); blob(at(f, x, y, z), 0.04 * s, glow, E, W[f], 4, 6); } for (const S of ['L', 'R']) { on('forearm' + S); for (let k = 0; k < 3; k++) { const d = norm(sub(J['wr' + S], J['el' + S])), c = lerp(J['el' + S], J['wr' + S], 0.25 + k * 0.25); blob(madd(c, perp(d), armR(S, 1) * 1.02), 0.03 * s, glow, E, W.chest, 4, 6); } } }
+  if (has('muzzle')) { on('head'); const c = hd(0, 1.575, 0.09); ellipsoid(G, 'plain', c, [W.head[0], W.head[1], W.head[2]], [0.045 * hk, 0.032 * hk, 0.04 * hk], 7, 12, skin, MAT.SKIN); blob(hd(0, 1.59, 0.128), 0.014 * hk, black, GL, W.head, 4, 6); for (const sg of [-1, 1]) spike(hd(sg * 0.022, 1.56, 0.115), hd(sg * 0.024, 1.53, 0.118), 0.008 * hk, bone, MAT.SATIN, 5); }
+  if (has('mane')) { on('neck'); const n = near ? 9 : 4; for (let k = 0; k < n; k++) { const x = ((k % 3) - 1) * 0.12, y = 0.75 - Math.floor(k / 3) * 0.22; spike(at('neck', x, y, -0.22), at('neck', x * 1.4, y - 0.35, -0.42), 0.06 * s, k % 2 ? dark : base, MA, 6); } }
+
+  // ── Null: gunmetal to black, white light ──
+  if (has('visor')) { on('head'); emitGrid(G, 4, 18, (i, j) => { const a = (j / 17 - 0.5) * 1.9, y = 1.668 - 0.016 * i; return toHead(F, skullOut(y, a, 0.02)); }, { key: 'plain', col: black, mat: GL, wrap: false, centre: F.c }); emitGrid(G, 2, 14, (i, j) => { const a = (j / 13 - 0.5) * 1.6, y = 1.646 - 0.005 * i; return toHead(F, skullOut(y, a, 0.0215)); }, { key: 'plain', col: glow, mat: E, wrap: false, centre: F.c }); blob(toHead(F, skullOut(1.643, 0.25, 0.024)), 0.012 * hk, hex('#ff3a2a'), E, W.head, 4, 6); }
+  if (has('ports')) { on('head'); for (const sg of [-1, 1]) { const p = toHead(F, skullOut(1.63, sg * 1.45, 0.004)), n = norm(sub(p, F.c)); ring(madd(p, n, 0.01 * s), n, 0.03 * s, 0.012 * s, gun, MT, 12); blob(madd(p, n, 0.012 * s), 0.018 * s, glow, E, W.head, 4, 6); } }
+  if (has('halfMask')) { on('head'); emitGrid(G, 7, 9, (i, j) => { const a = -0.05 - 1.25 * j / 8, y = 1.72 - 0.032 * i; return toHead(F, skullOut(Math.max(1.53, y), a, 0.01)); }, { key: 'plain', col: (ii, jj) => (jj === 0 ? glow : gun), mat: MT, wrap: false, centre: F.c }); blob(toHead(F, skullOut(1.64, -0.36, 0.016)), 0.014 * hk, glow, E, W.head, 4, 6); }
+  if (has('gunArm')) {
+    const S = 'R';
+    on('upperArm' + S); sleeve(J['sh' + S], J['el' + S], armR(S, 0) * 1.25, armR(S, 0.6) * 1.18, gun, 0, black);
+    const C = W['clav' + S] || W.chest; on('clav' + S); ellipsoid(G, 'plain', add(J['sh' + S], m3v(C, [0, 0.06 * s, 0])), C, [0.3 * s, 0.18 * s, 0.3 * s], 7, 14, gun, MT, { vmax: 0.55 });
+    on('forearm' + S); sleeve(J['el' + S], J['wr' + S], armR(S, 0.7) * 1.35, armR(S, 1.2) * 1.2, gun, 2, black);
+    const d = norm(sub(J['wr' + S], J['el' + S])), o = perp(d);
+    for (const sg of [-1, 1]) rod(madd(J['el' + S], o, sg * armR(S, 0.7) * 1.4), madd(lerp(J['el' + S], J['wr' + S], 0.8), o, sg * armR(S, 1.1) * 1.3), 0.022 * s, 0.022 * s, hex('#9aa0a8'), MT, 6);
+    on(handBone(S)); blob(J['hand' + S], [0.15 * s, 0.15 * s, 0.15 * s], gun, MT, W.chest, 8, 12);
+  }
+  if (has('spinePlates')) { on('chest'); for (let k = 0; k < 6; k++) blob(at('chest', 0, 0.6 - k * 0.12, -0.45), [0.12 * s, 0.05 * s, 0.07 * s], k % 2 ? gun : dark, MT); }
+  if (has('roboJaw')) { on('head'); emitGrid(G, 4, 14, (i, j) => { const a = (j / 13 - 0.5) * 2.6, y = 1.585 - 0.02 * i; return toHead(F, skullOut(Math.max(1.53, y), a, 0.012)); }, { key: 'plain', col: (ii, jj) => (jj % 3 === 0 ? black : gun), mat: MT, wrap: false, centre: F.c }); }
+  if (has('pack')) { on('chest'); blob(at('chest', 0, 0.3, -0.75), [0.42 * s, 0.5 * s, 0.22 * s], dark, MT, W.chest, 6, 4); for (let k = 0; k < 3; k++) blob(at('chest', 0, 0.12 + k * 0.17, -0.97), [0.28 * s, 0.022 * s, 0.01 * s], glow, E, W.chest, 3, 6); rod(at('chest', 0.25, 0.75, -0.75), at('chest', 0.3, 1.8, -0.8), 0.015 * s, 0.008 * s, hex('#9aa0a8'), MT, 5); blob(at('chest', 0.3, 1.82, -0.8), 0.03 * s, glow, E); }
+  if (has('cables') || has('sleeveCable')) {
+    if (has('cables')) { on('chest'); for (let k = 0; k < 3; k++) rod(at('chest', -0.15 + k * 0.15, 0.55, -0.45), at('pelvis', -0.3 + k * 0.3, 0.1, -0.42), 0.035 * s, 0.035 * s, k === 1 ? glow : gun, k === 1 ? E : GL, 8, at('chest', -0.3 + k * 0.3, -0.2, -0.9)); }
+    if (has('sleeveCable')) { on('upperArmR'); const d = norm(sub(J.elR, J.shR)), o = perp(d); rod(madd(J.shR, o, armR('R', 0) * 1.05), madd(J.elR, o, armR('R', 0.6) * 1.05), 0.02 * s, 0.02 * s, glow, E, 6); on('forearmR'); const d2 = norm(sub(J.wrR, J.elR)), o2 = perp(d2); rod(madd(J.elR, o2, armR('R', 0.7) * 1.05), madd(J.wrR, o2, armR('R', 1.1) * 1.05), 0.02 * s, 0.02 * s, glow, E, 6); }
+  }
+  if (has('headset')) { on('head'); for (const sg of [-1, 1]) { const p = toHead(F, skullOut(1.63, sg * 1.55, 0.02)), n = norm(sub(p, F.c)); blob(madd(p, n, 0.03 * s), [0.12 * s, 0.12 * s, 0.12 * s], black, MAT.PLATE, W.head, 6, 10); } rod(toHead(F, skullOut(1.62, 1.5, 0.05)), toHead(F, [-0.04, 1.565, 0.1]), 0.012 * s, 0.01 * s, black, MAT.PLATE, 5); blob(toHead(F, [-0.035, 1.565, 0.105]), 0.02 * s, glow, E, W.head, 4, 6); }
+  if (has('roboLegs')) for (const S of ['L', 'R']) {
+    on('shin' + S); rod(lerp(J['kn' + S], J['an' + S], 0.1), lerp(J['kn' + S], J['an' + S], 0.9), legR(0.4) * 1.15, legR(1) * 1.12, gun, MT, 14);
+    blob(J['kn' + S], legR(0.2) * 1.15, black, MT, W.pelvis, 7, 12);
+    if (near) { const fwd = norm(sub(J['toe' + S], J['an' + S])); for (let k = 0; k < 3; k++) blob(madd(lerp(J['kn' + S], J['an' + S], 0.3 + k * 0.2), fwd, legR(0.6) * 1.15), [0.05 * s, 0.04 * s, 0.012 * s], glow, E, W.pelvis, 3, 6); }
+  }
+  if (has('roboHead')) { on('head'); emitGrid(G, 8, 16, (i, j) => { const a = (j / 15 - 0.5) * 2.8, y = 1.72 - 0.028 * i; return toHead(F, skullOut(Math.max(1.53, y), a, 0.018)); }, { key: 'plain', col: (ii, jj) => (ii === 0 || jj === 0 || jj === 15 ? black : hex('#c9ccd2')), mat: MT, wrap: false, centre: F.c }); blob(toHead(F, skullOut(1.65, 0, 0.025)), [0.025 * hk, 0.025 * hk, 0.006 * hk], glow, E, W.head, 4, 6); }
+  if (has('cage')) { on('chest'); for (let k = 0; k < 4; k++) emitGrid(G, 2, 12, (i, j) => { const a = (j / 11 - 0.5) * 2.2; return at('chest', Math.sin(a) * 0.62, 0.12 + k * 0.11 + i * 0.03, Math.cos(a) * 0.53); }, { key: 'plain', col: hex('#9aa0a8'), mat: MT, wrap: false, centre: J.chest }); for (let k = 0; k < 6; k++) blob(at('chest', ((k % 3) - 1) * 0.16, 0.2 + Math.floor(k / 3) * 0.17, 0.55), 0.035 * s, glow, E); }
+  G.cur = cur;
+}
+
 // ── one player ─────────────────────────────────────────────────────────────────
 // What a player looks like, off his id: skin, hair, a beard on some, eye black on some, a style.
 export function lookOf(o) {
@@ -895,6 +1163,10 @@ export function lookOf(o) {
     L.wristbands = w < 0.4 ? null : w < 0.7 ? 'both' : w < 0.85 ? 'L' : 'R';
     L.elbowGuard = o.helmet && g() < 0.35 ? lead : null;
   }
+  // a First Generation man: his own skin where he's changed, war paint under the eyes, and his
+  // order's gear in place of the bands (gen1Gear)
+  const g1 = o.role !== 'ump' && o.role !== 'crew' ? gen1Of(o.id) : null;
+  if (g1) { if (g1.skin) L.skin = g1.skin; L.eyeBlack = true; L.wristbands = null; L.gen1 = g1; }
   return Object.assign(L, o);
 }
 
@@ -921,22 +1193,40 @@ export function buildPlayer(G, pose, look) {
   const plain = PLAIN[look.role] || null, ump = !!plain, side = look.side === 'away' ? 'away' : 'home', kit = look.kit || KITS[side];
   const navyU = hex(plain ? plain.shirt : '#1d2740'), greyU = hex(plain ? plain.pants : '#7d8186');
   const under = ump ? navyU : hex(kit.ink), trim = ump ? navyU : hex(kit.trim), skin = hex(look.skin);
-  const jersey = G.skin ? KIT_REL : kitCell(look.slot ?? 0), pants = KIT_PANTS[side], socks = KIT_SOCKS[side];
+  const jersey = G.skin ? KIT_REL : kitCell(look.slot ?? 0), pants = KIT_PANTS[side], socks = KIT_SOCKS[side], sleeves = KIT_SLEEVES[side];
   const keyOf = (p) => (ump ? 'plain' : (p === 'jersey' || p === 'sleeve' || p === 'pants' || p === 'sock') ? 'kit' : 'plain');
   const colOf = (p) => ump ? (p === 'pants' ? greyU : p === 'skin' ? skin : p === 'belt' ? hex(plain.belt) : navyU)
     : (p === 'jersey' || p === 'sleeve' || p === 'pants' || p === 'sock') ? [1, 1, 1] : p === 'belt' ? hex(kit.belt) : p === 'under' ? under : p === 'trim' ? trim : p === 'skin' ? skin : [1, 0, 1];
   const matOf = (p) => (p === 'skin' ? MAT.SKIN : p === 'belt' ? MAT.LEATHER : MAT.CLOTH);
-  // a sleeve takes a strip of the jersey's back, wide enough to carry its pinstripes round the arm and clear of his name
+  // The trousers' cell is one leg laid open from the front (0), round the outside seam (a quarter)
+  // and the back (a half) to the inside seam (three quarters), the waist at the top: so the stripe
+  // painted at the quarter runs down the outside of each leg, and the seat, round the pelvis from the
+  // front to the back either side, takes the first half of it with the stripe at each hip. Down the
+  // seat the cloth is as many rows a foot as the leg's (legUv), or the weave and the pockets stretch.
   const uvOf = (p, u, v) => p === 'jersey' ? inCell(jersey, u, (0.93 - v) / 0.47)
-    : p === 'sleeve' ? inCell(jersey, 0.505 + u * 0.08, 0.05 + v * 0.3)
-    : p === 'pants' ? inCell(pants, u, v)
+    : p === 'pants' ? inCell(pants, Math.min(Math.abs(u - 0.25), 1 - Math.abs(u - 0.25)), Math.max(0, 0.34 - v) * 0.95)
     : p === 'sock' ? inCell(socks, u, v) : [u, v];
-  // down the leg: the sock runs down the shin
-  const legUv = (p, u, v) => p === 'sock' ? inCell(socks, u, (v - 0.62) / 0.38) : p === 'pants' ? inCell(pants, u, v * 1.5) : [u, v];
+  // Each arm in its half of the sleeves' cell: round it from the back of the arm, where the limb's
+  // own seam is, and down it the shoulder's cap over the top 0.4, then the sleeve to its hem. The
+  // cap is laid over the outside of the arm (the limb's u a quarter on the left arm, three quarters
+  // on the right), about as many threads across it as the sleeve has. Anything else is the body's.
+  const armUv = (S) => (p, u, v) => {
+    const half = S === 'L' ? 0.5 : 0, outer = half + 0.5 * (S === 'L' ? 0.25 : 0.75);
+    if (p === 'sleeve') return inCell(sleeves, half + 0.5 * u, 0.4 + 0.6 * clamp(v / 0.238, 0, 1));
+    if (p === 'shoulder') return inCell(sleeves, outer + (u - 0.5) * 0.15, (v / 0.6) * 0.4);
+    return uvOf(p, u, v);
+  };
+  // down the leg: the sock runs down the shin. The left leg's u is turned round so that its outside
+  // is at a quarter too (a limb's u runs from the front round its right side)
+  const legUv = (S) => (p, u, v) => {
+    const uu = S === 'L' ? 1 - u : u;
+    return p === 'sock' ? inCell(socks, uu, (v - 0.62) / 0.38) : p === 'pants' ? inCell(pants, uu, v * 1.5) : [u, v];
+  };
   for (const S of ['L', 'R']) {
-    limb(G, J['hip' + S], J['kn' + S], J['an' + S], m3v(W.pelvis, [0, 0, 1]), ump ? SLACKS : LEG, s, keyOf, colOf, matOf, legUv, LEG_RIG[S], thickLeg);
-    limb(G, J['sh' + S], J['el' + S], J['wr' + S], m3v(W.chest, [0, 0, -1]), ARM, s, keyOf, colOf, matOf, uvOf, ARM_RIG[S], thickArm);
-    deltoid(G, J, W, S, s, keyOf, colOf, matOf, uvOf, thickArm);
+    limb(G, J['hip' + S], J['kn' + S], J['an' + S], m3v(W.pelvis, [0, 0, 1]), ump ? SLACKS : LEG, s, keyOf, colOf, matOf, legUv(S), LEG_RIG[S], thickLeg);
+    limb(G, J['sh' + S], J['el' + S], J['wr' + S], m3v(W.chest, [0, 0, -1]), ARM, s, keyOf, colOf, matOf, armUv(S), ARM_RIG[S], thickArm);
+    deltoid(G, J, W, S, s, keyOf, colOf, matOf, armUv(S), thickArm);
+    if (!ump && S === 'L') sleevePatch(G, J, W, s, thickArm, LOGO_CELLS.patch[side]);
     G.cur = [[BONE['foot' + S], 1]];
     shoe(G, J, S, s, ump ? hex(plain.shoe) : hex('#151515'), !ump);
   }
@@ -952,12 +1242,13 @@ export function buildPlayer(G, pose, look) {
   if (look.role === 'ump' && look.mask) ballBags(G, J, W, s, mul(navyU, 0.9), b.girth);
   head(G, J, W, s, look);
   look.s = s;
-  const logo = side === 'home' ? 0 : 1;
+  const logo = LOGO_CELLS.cap[side];
   G.cur = [[BONE.head, 1]];
   if (look.role === 'catcher') catcherGear(G, J, W, s, look, hex(kit.helmet));
   else if (ump) { cap(G, W, s, look, hex(plain.cap), hex(plain.capUnder), null); if (look.mask) mask(G, W, s, look); }
   else if (look.helmet) helmet(G, W, s, look, look.flapSide || 1, hex(kit.helmet), logo);
   else cap(G, W, s, look, hex(kit.cap), hex(kit.under), logo, hex(kit.bill || kit.cap));
+  if (!ump && look.gen1) gen1Gear(G, J, W, s, look, look.gen1, thickArm, thickLeg);
   for (const S of ['L', 'R']) {
     // a hand on a bat holds the bat, glove or no glove
     G.cur = [[BONE[(J['grip' + S] ? 'fist' : 'hand') + S], 1]];

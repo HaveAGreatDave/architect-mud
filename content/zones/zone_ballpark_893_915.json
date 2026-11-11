@@ -1,23 +1,29 @@
 {
   "ambient_events": [],
   "ambient_theme": "city",
-  "description": "Hughson Way, with the Coliseum's limestone wall on the north side and the back of 5 Sorrel Way on the south, a glass drum between two short curved wings.",
+  "description": "Grandstand Plaza, with the Coliseum's limestone wall on the north side and a fountain on the south. Dark granite rings in the paving curve round toward the main gate.",
   "exits": {
     "east": "zone_ballpark_894_915",
+    "south": "zone_ballpark_896_911",
     "west": "zone_ballpark_892_915"
   },
   "flags": {
     "district": "halcyon_fields",
+    "park_feature": "forecourt",
+    "park_focus": {
+      "x": 894,
+      "y": 918.5
+    },
     "region_id": "region_coldwater",
     "scavenging_table_id": "scav_roadside_junk",
     "street_life": true,
-    "terrain": "road"
+    "terrain": "park"
   },
   "grid_x": 893,
   "grid_y": 919,
   "grid_z": 0,
   "id": "zone_ballpark_893_915",
   "map_id": "map_world",
-  "name": "Hughson Way",
+  "name": "Grandstand Plaza",
   "parent_zone": null
 }

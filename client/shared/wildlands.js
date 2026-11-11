@@ -11,7 +11,8 @@
 // scripts/content/bake-wildlands.mjs bakes that with the region distance fields into
 // wildlands-field.js. Nothing in this file names a region or a place.
 //
-// ⚠ RENDER AND PROSE ONLY. This must never become `surfaceAt` or reach collision: "no placed tile
+// ⚠ RENDER AND PROSE ONLY, with one exception: a volcano with `peakTiers` is solid (landformTile).
+// Nothing else may become `surfaceAt` or reach collision: "no placed tile
 // here" is how regionGates and voidwalking find the edge of the world (see plugins/trucking/roadnet.js).
 //
 // The noise is `hnoise2`, the integer-hash lattice from landform.js, because the GL floor evaluates
@@ -136,6 +137,48 @@ export function createWildlands(F) {
     for (const l of LANDFORMS) if (l.kind === 'volcano') { const v = volcanoAt(l, x, y); if (v) h = Math.max(h, v.h); }
     return h;
   }
+  // THE SOLID CONE. A volcano with `peakTiers` stands up out of the ground as stacked bands of high
+  // ground, the same bands a mesa is drawn in, and this is the one answer to how many bands stand
+  // on a tile: the server raises the map window's empty cells by it and the cockpit floors the
+  // aircraft on it, so what you see is what you hit. Whole tiles only, so both agree exactly.
+  // `ledge` is a flat bench held at the height of its own centre: the one place on the mountain an
+  // aircraft can set down. Within `fade` tiles of a placed tile the cone comes down to nothing, so
+  // a region's edge never meets a wall of rock.
+  // ⚠ THE SOLID CONE IS NARROWER THAN THE PAINTED ONE. The flight eye tops out about seven tiles up,
+  // so the peak can't be taller than that, and spread over the painted 74-tile foot it was a 6°
+  // heap of terraces. Stood up inside `solidRadius` it is a steep stratovolcano rising out of its
+  // own wide apron of ash and old flows, which the floor goes on painting as before.
+  // `part`: 'lava' for the pool at the bottom of the crater, 'crater' for its walls, 'ledge', 'flank'.
+  function coneShape(l, x, y) {
+    const r = Math.hypot(x - l.x, y - l.y) + (hnoise2(x * 0.11, y * 0.11) - 0.5) * 3, CR = l.crater, SR = l.solidRadius || l.radius;
+    if (r >= SR) return null;
+    if (r < CR) { const u = r / CR; return { h: 0.70 + 0.30 * u * u, part: u < 0.55 ? 'lava' : 'crater' }; }
+    return { h: Math.pow(1 - (r - CR) / (SR - CR), 1.5), part: 'flank' };
+  }
+  for (const l of LANDFORMS) if (l.ledge) { const v = coneShape(l, l.ledge.x, l.ledge.y); l.ledgeH = v ? v.h : 0; }
+  // The cone at a point, in bands (unrounded), or null. The renderer draws the smooth surface off
+  // this and the cockpit floors the aircraft on it; the server's map window rounds it to whole bands
+  // at whole tiles (landformTile), which is what GLASS 1 draws and what the map reads.
+  function coneAt(x, y) {
+    let best = null;
+    for (const l of LANDFORMS) {
+      if (l.kind !== 'volcano' || !l.peakTiers) continue;
+      const v = coneShape(l, x, y);
+      if (!v) continue;
+      const ledge = !!l.ledge && Math.hypot(x - l.ledge.x, y - l.ledge.y) <= l.ledge.r;
+      const k = sstep(0, l.fade || 10, distTo('land', x, y));
+      const bands = (ledge ? l.ledgeH : v.h) * k * l.peakTiers;
+      if (bands > 0 && (!best || bands > best.bands)) best = { bands, part: ledge ? 'ledge' : v.part, id: l.id, name: l.name };
+    }
+    return best;
+  }
+  const landformBands = (x, y) => coneAt(x, y)?.bands || 0;
+  function landformTile(x, y) {
+    const c = coneAt(Math.round(x), Math.round(y));
+    const tier = c ? Math.round(c.bands) : 0;
+    return tier > 0 ? { tier, part: c.part, id: c.id, name: c.name } : null;
+  }
+  const landformTier = (x, y) => landformTile(x, y)?.tier || 0;
 
   // ── the answer ───────────────────────────────────────────────────────────────
   //
@@ -301,7 +344,10 @@ export function createWildlands(F) {
     return grid;
   }
 
-  return { wildlandsAt, wildlandsColour, landformHeight, landforms, routeNumber, routeType, wildlandsRect, inField, reliefAt, groundZ, highGroundAt, groundTierAt, reliefGrid, reliefShadePlanes, reliefView: V };
+  // Tiles from the bay's own water (the baked `bay` plane, on its 4-tile grid). Render only: the far
+  // floor asks it where wildlandsAt can't answer, on a region's placed tiles.
+  function bayDist(x, y) { return inField(x, y) ? plane('bay', x, y) : 1e9; }
+  return { wildlandsAt, bayDist, wildlandsColour, landformHeight, landformTile, landformTier, landformBands, coneAt, landforms, routeNumber, routeType, wildlandsRect, inField, reliefAt, groundZ, highGroundAt, groundTierAt, reliefGrid, reliefShadePlanes, reliefView: V };
 }
 
 // Terrain → biome, for the edge band (the same mapping plugins/flight/biomes.js TERRAIN_BIOME makes
@@ -322,9 +368,14 @@ export const BIOME_TERRAIN = {
 // ── bound to the shipped field ──────────────────────────────────────────────
 const W = createWildlands(WILDLANDS_FIELD);
 export const wildlandsAt = W.wildlandsAt;
+export const bayDist = W.bayDist;
 export const wildlandsColour = W.wildlandsColour;
 export const landformHeight = W.landformHeight;
 export const landforms = W.landforms;
+export const landformTile = W.landformTile;
+export const landformTier = W.landformTier;
+export const landformBands = W.landformBands;
+export const coneAt = W.coneAt;
 export const routeNumber = W.routeNumber;
 export const routeType = W.routeType;
 export const wildlandsRect = W.wildlandsRect;

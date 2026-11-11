@@ -1,0 +1,33 @@
+{
+  "description": "A high-backed chair in black walnut with a seat of grey suede, pulled out and turned a little, the way somebody left it. The suede is worn pale at the front edge.",
+  "flags": {
+    "aliases": [
+      "chair",
+      "dining chair"
+    ],
+    "interactions": [
+      "sit"
+    ],
+    "look": {
+      "arche": "seat",
+      "form": "chair"
+    },
+    "spot": {
+      "at": [
+        -3.3,
+        7.6
+      ],
+      "turn": 0
+    }
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_penthouse_dining_chair_host",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "dining chair",
+  "object_type": "furniture",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_solenne_penthouse"
+}

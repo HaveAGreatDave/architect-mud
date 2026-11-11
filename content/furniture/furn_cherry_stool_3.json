@@ -1,0 +1,29 @@
+{
+  "description": "A chrome stool with a red vinyl top, bolted to the floor so nobody throws it.",
+  "flags": {
+    "interactions": [
+      "sit"
+    ],
+    "look": {
+      "arche": "seat",
+      "form": "stool"
+    },
+    "spot": {
+      "at": [
+        -3.3,
+        12.1
+      ],
+      "turn": -90
+    }
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_cherry_stool_3",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "bar stool",
+  "object_type": "fixture",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_mq_cherry_floor"
+}

@@ -1,0 +1,14 @@
+{
+  "description": null,
+  "flags": {},
+  "id": "item_unfiltered_cigarettes",
+  "name": "unfiltered cigarettes",
+  "tags": {
+    "description": "Short, flat, unfiltered cigarettes in a paper pack. You get bits of tobacco on your lip and the whole of the smoke.",
+    "drug": true,
+    "stackable": true
+  },
+  "type": "consumable",
+  "value": 14,
+  "weight": 20
+}

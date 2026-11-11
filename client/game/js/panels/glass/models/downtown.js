@@ -1069,8 +1069,9 @@ export const DOWNTOWN_ARMS = {
       const Pq = (x0, x1, z0, z1, fill, back) => emitFlat(ctx, cam, [L(x0, z1, back), L(x1, z1, back), L(x1, z0, back), L(x0, z0, back)], fill, alpha, { lift: DETAIL_LIFT });
       const glass = night ? 'rgba(255,214,150,0.97)' : 'rgba(70,86,96,0.97)', frame = 'rgb(78,58,34)';
       Pq(-dw, dw, 0, doorZ, frame, 0.003);                                                     // the bronze frame, a hair behind the glass
-      for (const s of [-1, 1]) { const a = s * podW * 0.012, b = s * (dw - podW * 0.02);
-        Pq(Math.min(a, b), Math.max(a, b), doorZ * 0.04, doorZ * 0.94, glass, 0); } }
+      // ⚠ THE DOORWAY, NOT THE DOORS. The building has a Stage, so its leaves move (glass/street-doors.js draws them,
+      // a hair in front of this) and what's here is the lobby seen through them: one pane, with no meeting line.
+      Pq(-(dw - podW * 0.02), dw - podW * 0.02, doorZ * 0.04, doorZ * 0.94, night ? glass : 'rgba(34,42,48,0.97)', 0); }
     // The canopy on two columns. `awning` places by the front edge, so the tile fit trims its back.
     awning(ctx, cam, dx, dy, E, podW * 0.62, podW * 1.02, headZ, headZ + h * 0.022, bronze, seed + 34, night, alpha, podW * 0.30);
     for (const s of [-1, 1]) { const [cx2, cy2] = F(s * podW * 0.56, podW * 0.92);

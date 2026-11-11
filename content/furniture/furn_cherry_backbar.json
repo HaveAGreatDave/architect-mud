@@ -1,0 +1,36 @@
+{
+  "description": "Three glass shelves of bottles lit red from behind, over a black cabinet with a padlock on it. Half the labels have been steamed off and replaced in biro.",
+  "flags": {
+    "aliases": [
+      "bottles",
+      "shelves",
+      "back bar"
+    ],
+    "interactions": [
+      "look"
+    ],
+    "look": {
+      "arche": "surface",
+      "dims": [
+        3.8,
+        0.42,
+        2.3
+      ],
+      "form": "barwall"
+    },
+    "spot": {
+      "along": 10.9,
+      "wall": "left"
+    }
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_cherry_backbar",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "the back bar",
+  "object_type": "fixture",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_mq_cherry_floor"
+}

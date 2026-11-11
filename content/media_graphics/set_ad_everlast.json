@@ -1,0 +1,10 @@
+{
+  "content": "{\n \"kind\": \"set\",\n \"format\": 1,\n \"id\": \"set_ad_everlast\",\n \"name\": \"Everlast Augments Advert\",\n \"base\": \"tpl_pitch\",\n \"brand\": {\n  \"name\": \"EVERLAST\",\n  \"colour\": \"#e0e0ff\"\n },\n \"broadcasts\": [\n  \"bc_commercial_everlast\"\n ],\n \"palette\": {\n  \"floor\": \"#0a0a12\",\n  \"wall\": \"#10101c\",\n  \"trim\": \"#2a2a40\",\n  \"desk\": \"#14141e\",\n  \"deskTop\": \"#e0e0ea\",\n  \"riser\": \"#0e0e18\"\n },\n \"parts\": {\n  \"counter\": {\n   \"text\": \"FOREVER\"\n  }\n },\n \"description\": \"The Everlast advert: a jeweller's black with a cold white glow.\"\n}",
+  "created_at": "1794108637",
+  "description": "The Everlast advert: a jeweller's black with a cold white glow.",
+  "id": "set_ad_everlast",
+  "name": "Everlast Augments Advert",
+  "tags": [],
+  "type": "set",
+  "updated_at": "1794108921"
+}

@@ -7,7 +7,7 @@ import { getZone, getZoneFurniture } from '../../server/engine/world.js';
 import { runMoveGates } from '../../server/engine/movement-gates.js';
 import { getBroadcast, setBroadcast } from '../../server/engine/messaging.js';
 import { liveSportsChannel, lastSportsSlot, _test as bc } from '../broadcast/index.js';
-import { standsOf, findSection, seatsOf, freeSeat, _test } from './index.js';
+import { standsOf, findSection, seatsOf, freeSeat, heldAs, concessionGroup, CONCESSION_GROUPS, _test } from './index.js';
 import { getItem } from '../../server/engine/items-cache.js';
 import { emit } from '../../server/engine/events.js';
 
@@ -29,9 +29,16 @@ export default async function regress({ run, check, getPlayer }) {
   check('stands: refused outside the stands', r?.type === 'error' && /no seats/i.test(r.message || ''), r?.message);
   r = await run('stands leave');
   check('stands: getting up when not sat refuses', r?.type === 'error', r?.message);
-  // the hawker: the Coliseum sells a menu whose every item exists, and he only comes to a seat
-  { const menu = standsOf(getZone('zone_hughson_stands'))?.menu || [];
-    check('stands: the Coliseum hawker has four things priced', menu.length === 4 && menu.every((m) => getItem(m.item) && m.price > 0), JSON.stringify(menu)); }
+  // the concessions: both venues sell food, drinks, cigarettes and cigars from the cupholder, every
+  // item exists and is priced, and every smoke is one the seat's hands can light
+  for (const id of ['zone_hughson_stands', 'zone_slush_stands']) {
+    const menu = (standsOf(getZone(id))?.menu || []).map((m) => ({ ...m, it: getItem(m.item) }));
+    check(`stands: ${id} prices every concession`, menu.length >= 8 && menu.every((m) => m.it && m.price > 0), JSON.stringify(menu.filter((m) => !m.it || !(m.price > 0)).map((m) => m.item)));
+    const groups = new Set(menu.filter((m) => m.it).map((m) => concessionGroup(m.it, m.group)));
+    check(`stands: ${id} sells all four kinds`, CONCESSION_GROUPS.every((g) => groups.has(g)), [...groups].join());
+    const smokes = menu.filter((m) => m.it && ['cigarettes', 'cigars'].includes(concessionGroup(m.it, m.group)));
+    check(`stands: ${id} smokes are all held as a smoke`, smokes.every((m) => heldAs(m.it) === 'smoke'), smokes.filter((m) => heldAs(m.it) !== 'smoke').map((m) => m.item).join());
+  }
   r = await run('stands order');
   check('stands: ordering when not sat refuses', r?.type === 'error' && /aren't in a seat/i.test(r.message || ''), r?.message);
 

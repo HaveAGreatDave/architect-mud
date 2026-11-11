@@ -70,6 +70,7 @@ uniform vec3 uLitCol;
 uniform vec3 uStormBase;
 uniform vec3 uStormLit;
 uniform vec2 uWind;
+uniform float uSheet;           // how much of a continuous stratus sheet the day's cloud floor is (floorSheet)
 // City underglow: lit ground under the deck, on the coverage map's grid, lifting the base from below.
 uniform sampler2D uGlow;
 uniform float uGlowStr;
@@ -90,7 +91,7 @@ vec2 cover(vec3 p) {
 }
 
 float density(vec3 p, float cov) {
-  if (cov < 0.01) return 0.0;
+  if (cov < 0.01 && uSheet < 0.01) return 0.0;
   float hf = (p.z - uBase) / (uTop - uBase);
   if (hf < 0.0 || hf > 1.0) return 0.0;
   // Flat stratus base, rounded cumulus tops: a cumulus deck (uCum 1) tapers from half way up.
@@ -103,7 +104,10 @@ float density(vec3 p, float cov) {
   float c = cov * mix(0.62, 0.8, uCum);
   float base = clamp((n - (1.0 - c)) / max(c, 0.05), 0.0, 1.0);
   base = clamp(base - (1.0 - d) * 0.45 * (1.0 - base), 0.0, 1.0);
-  return base * shape * 2.2;
+  // The overcast: a sheet across the bottom of the slab wherever the day's floor is high, cells or
+  // no cells. The low octave thins it in patches, so it is a ceiling with lighter spots, not a lid.
+  float sh = uSheet * smoothstep(0.0, 0.08, hf) * (1.0 - smoothstep(0.24, 0.46, hf)) * (0.5 + 0.5 * n);
+  return max(base * shape * 2.2, sh * 3.4);
 }
 
 void main() {
@@ -253,7 +257,7 @@ export function createCloudVolume(gl) {
     coverRange: U(march, 'uCoverRange'), origin: U(march, 'uOrigin'), base: U(march, 'uBase'), top: U(march, 'uTop'),
     far: U(march, 'uFar'), time: U(march, 'uTime'), frame: U(march, 'uFrame'), cum: U(march, 'uCum'), steps: U(march, 'uSteps'),
     sun: U(march, 'uSun'), sunStr: U(march, 'uSunStr'), baseCol: U(march, 'uBaseCol'), litCol: U(march, 'uLitCol'),
-    stormBase: U(march, 'uStormBase'), stormLit: U(march, 'uStormLit'), wind: U(march, 'uWind'),
+    stormBase: U(march, 'uStormBase'), stormLit: U(march, 'uStormLit'), wind: U(march, 'uWind'), sheet: U(march, 'uSheet'),
     glow: U(march, 'uGlow'), glowStr: U(march, 'uGlowStr'), glowCol: U(march, 'uGlowCol'), glowOff: U(march, 'uGlowOff'),
     hist: U(march, 'uHist'), prevVP: U(march, 'uPrevVP'), shift: U(march, 'uShift'), histW: U(march, 'uHistW'),
   };
@@ -419,6 +423,7 @@ export function createCloudVolume(gl) {
     gl.uniform3f(um.stormBase, sb[0], sb[1], sb[2]); gl.uniform3f(um.stormLit, sl[0], sl[1], sl[2]);
     const wd = vol.wind || [0.05, 0.02];
     gl.uniform2f(um.wind, wd[0], wd[1]);
+    gl.uniform1f(um.sheet, Math.max(0, Math.min(1, vol.sheet || 0)));
     const glowOn = !!(vol.glow && vol.glow.length && vol.glowStr > 0);
     if (glowOn) bakeGlow(vol.glow);
     gl.activeTexture(gl.TEXTURE3); gl.bindTexture(gl.TEXTURE_2D, glowTex); gl.uniform1i(um.glow, 3);

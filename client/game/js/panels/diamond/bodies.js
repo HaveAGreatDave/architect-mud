@@ -70,6 +70,7 @@ export function makeBody(o) {
     if (p.from != null) e.from = p.from;
     if (p.issue != null) e.issue = p.issue;
     if (p.carry) e.carry = true;
+    if (p.toss) e.toss = p.toss;
     if (last && onOf(e) < onOf(last) - 1e-6) throw new Error(`plays: ${B.id} plays ${clip} at ${onOf(e).toFixed(3)}, before ${last.clip} at ${onOf(last).toFixed(3)}`);
     e.F = p.frame ? { at: [p.frame.at[0], p.frame.at[1] ?? 0, p.frame.at[2]], yaw: p.frame.yaw }
       : last ? carried(last.F, CLIPS[last.clip], last.start, last.speed, start, B.mirror) : { at: B.base.at.slice(), yaw: B.base.yaw };

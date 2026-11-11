@@ -221,6 +221,37 @@ belt to those braces is the `holdsDrink()` guard inside
 [plugins/fillable/index.js](../plugins/fillable/index.js), which doesn't depend
 on ordering. Both are asserted by regress.
 
+## The bar
+
+A zone is a bar when a piece of its furniture carries **`flags.bar_counter`**
+(`plugins/drinks/bar.js`). Fifteen public bars have one, each with `flags.look`
+`{ arche: 'surface', form: 'bar' }` and a `flags.room` on its zone, so the Room
+Stage opens in every bar and clicking the counter opens the bar HUD.
+
+**Every bar stocks everything.** The freezer is every item with a
+`drink_profile`, and the rack is every glass, tumbler, coupe, tankard and shaker.
+None of it is rows: the stock comes off the item cache, so a new bottle is on
+every bar the day it's authored.
+
+**You pay as you take it out.** `measure <thing>` charges and hands over one
+measure, a row with `custom_data.pours = 1` named for what's in it ("dark rum",
+not "bottle of dark rum"). `poursOf` reads `custom_data.pours` before the item's
+`pour_units`, so a measure is one pour and never the whole bottle. A measure costs
+the bottle's price per pour times `BAR_MARKUP` (2), at least ₵1. A glass costs
+what it's worth, and you keep it.
+
+**The minigame is the workspace HUD** (`workspace`, or click the counter):
+
+1. Take a glass off the rack.
+2. Tick what you want in the freezer. `take N` pays for them now; `→ tumbler`
+   sends `prepare tumbler with a, b, c`, which pays for each measure you aren't
+   already holding and pours them in, in the order you ticked them.
+3. `mix it` resolves the build (the ordinary `mix <glass>`), then `drink`.
+
+The menu lists every cold recipe with what it wants and the glass it goes in.
+The skill is still in the pour: the band comes out of `resolveBuild` exactly as it
+does anywhere else.
+
 ## The dish cabinet
 
 Cooking resolved its pan strictly from top-level inventory, so a kitchen you own

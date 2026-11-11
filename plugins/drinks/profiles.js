@@ -153,7 +153,8 @@ export function profileFor(row) {
 // silently vanish from a signature.
 export function poursOf(row) {
   const bag = row?.tags || row?.flags || {};
-  const n = Number(bag.pour_units);
+  // A measure from a bar's freezer (bar.js) is one pour, whatever the bottle it came out of holds.
+  const n = Number(row?.custom_data?.pours) || Number(bag.pour_units);
   const q = Number(row?.quantity);
   const stack = Number.isFinite(q) && q > 0 ? q : 1;
   return (Number.isFinite(n) && n > 0 ? n : 1) * stack;

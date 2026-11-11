@@ -118,7 +118,10 @@ export function tension(p, S) {
 // player's. `seat` (stands.js) puts the ear in the stands rather than the booth: see `fromSeat`.
 // `announcer` (a function, read per call) lets a seat hear the announcer anyway: a box's suite, whose
 // screen has the broadcast on (stands.js, boxAnnouncerOn).
-export function createParkSound({ win = globalThis, state = () => ({}), detail = null, seat = null, announcer = null } = {}) {
+// `onHype(kind)` is told when the park gets the crowd going, so the videoboard (diamond/jumbo.js)
+// can put the words up on the beat: 'homerun', 'walkoff', 'play', 'letsgo', 'defense', 'charge',
+// 'noise'.
+export function createParkSound({ win = globalThis, state = () => ({}), detail = null, seat = null, announcer = null, onHype = null } = {}) {
   const calls = () => !seat || !!announcer?.();
   const AE = () => win?.AudioEngine || null;
   let tier = detail || sfxDetail(loadSettings());
@@ -132,6 +135,20 @@ export function createParkSound({ win = globalThis, state = () => ({}), detail =
   const log = [];       // what's played, for the gates: [key, id] and ['say', who, text]
   const later = (ms, fn) => { timers.push(setTimeout(fn, Math.max(0, ms))); };
   const booth = () => AE()?.speechLeft?.('tv') || 0;
+  // a chant (or the noise meter's stamping) `ms` from now, and the board told as it starts; only
+  // one at a time, and none in the last one's tail
+  let chantUntil = 0;
+  const CHANT_S = { letsgo: 6, defense: 6, charge: 3.6, noise: 4 };
+  function hype(kind, ms = 0, t = world ? world.t : 0) {
+    later(ms, () => {
+      const now = win?.performance?.now?.() ?? Date.now();
+      if (now < chantUntil || !tierAllows(tier, 'bed')) return;
+      chantUntil = now + (CHANT_S[kind] || 4) * 1000;
+      if (kind === 'noise') { play('stomp', {}, 'bed', t); later(1800, () => play('cheer', {}, 'bed', t + 1.8)); }
+      else play(kind, {}, 'bed', t + ms / 1000);
+      onHype?.(kind);
+    });
+  }
   const scene = () => AE()?.speechLeft?.('scene') || 0;
 
   // A seat in the stands hears the field, not the broadcast. There are no graphics to sting and
@@ -409,7 +426,12 @@ export function createParkSound({ win = globalThis, state = () => ({}), detail =
         seen.batter = p.batter;
         // the home side up with men on and the game to win: the bleachers' drum
         const bags = Array.isArray(p.basesBefore) ? p.basesBefore : [];
-        if (p.half === 'bottom' && bags.some(Boolean) && tension(p, state()?.S) >= 0.45) later(2400, () => { if (booth() < 0.5) play('drum', {}, 'bed', t + 2.4); });
+        const x = tension(p, state()?.S);
+        if (p.half === 'bottom' && bags.some(Boolean) && x >= 0.45) {
+          if (h % 2) hype('charge', 2400); else later(2400, () => { if (booth() < 0.5) play('drum', {}, 'bed', t + 2.4); });
+        } else if (p.half === 'bottom' && x >= 0.25 && h % 3 === 0) hype('letsgo', 2600);
+        else if (p.half === 'top' && x >= 0.35 && h % 3 === 1) hype('defense', 2600);
+        else if (x >= 0.55 && h % 4 === 2) hype('noise', 2000);
         later(700, () => {
           if (booth() > 0.1 || scene() > 0.1) return;
           const num = state()?.S?.matchup?.bNum;
@@ -446,9 +468,17 @@ export function createParkSound({ win = globalThis, state = () => ({}), detail =
         play('boom', {}, 'event', t);
         later(250, () => play('airhorn', {}, 'event', t + 0.25));
         later(2600, () => play('drum', {}, 'bed', t + 2.6));
+        onHype?.(p.walkoff ? 'walkoff' : 'homerun');
+        if (!p.end) hype('letsgo', 4400);
       } else if (!homeFielding && (p.runs > 0 || p.rbi > 0)) later(500, () => play('whistle', {}, 'event', t + 0.5));
       else if (homeFielding && (['doubleplay', 'tripleplay'].includes(p.kind) || (p.kind === 'strikeout' && h % 2 === 0))) later(350, () => play('whistle', {}, 'event', t + 0.35));
       if (homeFielding && p.kind === 'strikeout' && (p.outs | 0) >= 3 && tension(p, s.S) >= 0.4) later(200, () => play('airhorn', {}, 'event', t + 0.2));
+      // a great play by the home side in the field: the board says so, and the park roars it
+      if (homeFielding && p.out && (['leaping', 'rail'].includes(p.play?.g) || ['doubleplay', 'tripleplay'].includes(p.kind))) {
+        play('roar', {}, 'event', t);
+        onHype?.('play');
+        if ((p.outs | 0) < 3) hype('defense', 2500);
+      }
       // sold, but not to the top of his range: an all-caps shout already leans on its last word, and
       // at full excitement "THREE" went up nine semitones and shrill
       // the announcer is the broadcast's; a seat hears the umpire and the crowd

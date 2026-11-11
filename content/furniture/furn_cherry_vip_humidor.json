@@ -1,0 +1,41 @@
+{
+  "description": "A tall cedar humidor behind smoked glass, the one good piece of furniture in the room. House cigars lie in rows on the racks. The card slot charges VIP prices, and the glass has fingerprints at the height of somebody kneeling.",
+  "flags": {
+    "aliases": [
+      "humidor",
+      "cigars",
+      "cigar",
+      "cigar cabinet"
+    ],
+    "interactions": [
+      "lean"
+    ],
+    "look": {
+      "arche": "cabinet",
+      "dims": [
+        0.8,
+        0.48,
+        1.45
+      ],
+      "form": "humidor"
+    },
+    "spot": {
+      "along": 1.6,
+      "wall": "left"
+    },
+    "vend_cooldown_s": 5,
+    "vend_line": "The slot takes your card, the door lets go with a breath of cool air, and you lift a house cigar off the rack.",
+    "vend_price": 38,
+    "vends": "item_house_cigar"
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_cherry_vip_humidor",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "cigar humidor",
+  "object_type": "fixture",
+  "power_draw_kw": 0.05,
+  "price": 0,
+  "zone_id": "zone_mq_cherry_vip"
+}

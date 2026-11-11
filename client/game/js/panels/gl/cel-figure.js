@@ -30,6 +30,8 @@ export const CEL = {
   inkFt: 0.035,                   // the line's world width round a man: a hairline, not a marker
   inkPx: [0.8, 1.5],              // held between these many pixels of a 900-wide picture
   inkBias: 0.0006,                // how far behind the body the ink sits, in clip depth
+  inkBack: 0.3,                   // the same in feet, for a view that sets uBack (the ballpark)
+  inkHeadBack: 2,                 // a head's, as a multiple of inkBack: the nose stands out further
 };
 
 const f = (v) => (Number.isInteger(v) ? v.toFixed(1) : String(v));

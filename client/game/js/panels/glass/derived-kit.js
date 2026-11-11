@@ -284,7 +284,7 @@ const KIT_DECLINE = { meridian: ['signRoof', 'wall', 'pier'],   // 'wall' and 'p
   // plant, fire escape or neat coping. `riser` stays.
   flophouse: SLUM_DECLINE, soup_kitchen: SLUM_DECLINE, bonesetter: SLUM_DECLINE, shebeen: SLUM_DECLINE,
   cornershop: SLUM_DECLINE,   // Bare Necessities, the Rag Row lock-up: an authored model, so it names its trade
-  ruin: SLUM_DECLINE,
+  ruin: SLUM_DECLINE, shack: SLUM_DECLINE,
   // Second Helpings is one storey with its name on the fascia; the clone facility draws its own front.
   helpings: ['signRoof', 'wall', 'stair'], clone: ['stair', 'wall', 'riser'],
   // Batter Days draws its own shopfront, sash windows, cornice and roof, and paints its own name,
@@ -334,7 +334,7 @@ const quietSign = (pal) => typeof pal === 'string' && pal.startsWith('ty_hf');
 // `window grid` would classify as `block` and get a shopfront and a name board.
 // ⚠ The building's own signage only. The gable ad panel isn't gated on this: a works still rents its wall.
 // `signWorks` on the model opts a works back in.
-const UNSIGNED_TRADE = new Set([
+export const UNSIGNED_TRADE = new Set([
   // Power and utility.
   'power', 'dynamo', 'dw_turbine', 'trm_charge', 'signalbox', 'damwall', 'interstack', 'trm_cistern',
   // Heavy industry and processing. The incinerator letters its own gate plate in its arm.
@@ -352,7 +352,7 @@ const UNSIGNED_TRADE = new Set([
   // St Garneau's identifies itself by the building; its only lit thing is the plate over the door.
   'church',
   // A ruin's `building_name` isn't a trading name.
-  'ruin',
+  'ruin', 'shack',
   // The Shingles carry no lit sign. This also keeps the roundel out, which doesn't ask KIT_DECLINE.
   'flophouse', 'soup_kitchen', 'bonesetter', 'shebeen', 'water_seller', 'cornershop',
 ]);
@@ -374,9 +374,9 @@ const BAY_TRADE = new Set([
 ]);
 // Trades that won't carry somebody else's hoarding either: plant hung with catenary and pipework
 // (the wires cross the board), and ruins, which have nobody to rent the wall from.
-const NO_AD_TRADE = new Set(['power', 'dynamo', 'dw_turbine', 'trm_charge', 'signalbox', 'damwall',
+export const NO_AD_TRADE = new Set(['power', 'dynamo', 'dw_turbine', 'trm_charge', 'signalbox', 'damwall',
   'interstack', 'foundry', 'fabrication', 'ff_kiln', 'dw_forge', 'sw_foundry', 'sw_kiln', 'asc_vats',
-  'clone', 'refinery', 'fuel_yard', 'ruin',
+  'clone', 'refinery', 'fuel_yard', 'ruin', 'shack',
   // The rest of the Shingles: nobody rents a wall in Old Coldwater.
   'flophouse', 'soup_kitchen', 'bonesetter', 'shebeen', 'water_seller', 'cornershop',
   // The airfield carries its own terminal boards and nobody else's.

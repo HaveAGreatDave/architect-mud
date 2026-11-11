@@ -1,24 +1,20 @@
 {
   "ambient_events": [],
-  "ambient_theme": "forest",
-  "color": "#8ba36a",
-  "description": "A row of pegs crosses the meadow. The string between them has gone, and the pegs lean.",
-  "exits": {
-    "east": "zone_district_921_921",
-    "north": "zone_district_920_920",
-    "south": "zone_district_920_922",
-    "west": "zone_district_919_921"
-  },
+  "ambient_theme": "outdoors",
+  "description": "Two old houses that stood outside the wall for years. The roofs went first and most of the front walls after, and what is left is one gable standing three storeys high with a fireplace on every floor. The doors and floorboards have been taken for building.",
+  "exits": {},
   "flags": {
-    "district": "residential",
-    "region_id": "region_coldwater",
-    "terrain": "grass"
+    "building_name": "The Gable End",
+    "building_type": "ruin",
+    "district": "slum",
+    "is_building": true,
+    "region_id": "region_coldwater"
   },
   "grid_x": 920,
   "grid_y": 921,
   "grid_z": 0,
   "id": "zone_district_920_921",
   "map_id": "map_world",
-  "name": "Grasslands",
+  "name": "The Gable End",
   "parent_zone": null
 }

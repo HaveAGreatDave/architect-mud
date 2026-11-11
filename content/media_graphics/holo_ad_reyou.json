@@ -1,0 +1,12 @@
+{
+  "content": "{\n \"brand\": \"HALCYON RE-YOU\",\n \"line\": \"When the first time wasn't good enough.\",\n \"color\": \"#8fd9d4\",\n \"accent\": \"#eaf6f4\",\n \"face\": \"serif\",\n \"motif\": \"none\",\n \"weight\": 1\n}",
+  "created_at": "1794182400",
+  "description": "Hologram advert: Halcyon Re-You. Baked to the client by npm run holoads:bake.",
+  "id": "holo_ad_reyou",
+  "name": "Holo ad: Halcyon Re-You",
+  "tags": [
+    "holo_ad"
+  ],
+  "type": "holo_ad",
+  "updated_at": "1794182400"
+}

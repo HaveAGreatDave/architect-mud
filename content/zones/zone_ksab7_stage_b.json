@@ -1,0 +1,24 @@
+{
+  "ambient_events": [],
+  "ambient_theme": "indoors",
+  "bg_color": "#2a2018",
+  "description": "Stage B is a basement built on a soundstage. The walls are flats faced with wood panelling, the ceiling is joists on a grid, and a bare bulb hangs on a cord over a kitchen table with an old microphone on it. Round the edges are a corkboard of red yarn, a payphone, a barstool by a red button, a couch, a coffee table of empties and bongs, and a television with rabbit ears. Three cameras on dollies point at the table. The main stage is through the east door.",
+  "exits": {
+    "east": "zone_studio_1782953094650"
+  },
+  "flags": {
+    "building_name": "KSAB-TV Studio Stage",
+    "building_type": "studio",
+    "floor": "concrete",
+    "is_building": true,
+    "is_interior": true,
+    "world_exit_zone": "zone_district_912_911"
+  },
+  "grid_x": -1,
+  "grid_y": 0,
+  "grid_z": 0,
+  "id": "zone_ksab7_stage_b",
+  "map_id": "map_int_1782953094650",
+  "name": "KSAB-TV Sound Stage B",
+  "parent_zone": "zone_district_912_911"
+}

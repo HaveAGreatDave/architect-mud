@@ -6,6 +6,10 @@
     "look": {
       "arche": "store",
       "form": "locker"
+    },
+    "spot": {
+      "along": 5.4,
+      "wall": "back"
     }
   },
   "hp": null,

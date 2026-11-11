@@ -10,6 +10,13 @@
     "floor": "boards",
     "is_building": true,
     "is_interior": true,
+    "room": {
+      "w": 12,
+      "d": 9,
+      "h": 3.4,
+      "studio": false,
+      "balcony": false
+    },
     "window": {
       "description": "Glass on three sides and underfoot at the edges, looking north over the length of the marina and out into the Basin. At night the water under the dock is lit from below and the room is not, which is the trick the place is built around.",
       "light": 0.9,

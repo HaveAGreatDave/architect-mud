@@ -29,9 +29,53 @@ export function createCaption(host) {
 }
 
 // `inset` is where the picture sits on the screen (the CRT's own header and footer by default), and
-// `onFrame(host)` hears each frame drawn, for a set that copies its page (room-tv.js).
-export function createTvStage(parent, { phone = false, feed = null, inset = null, onFrame = null } = {}) {
-  let host = null, player = null, loading = null, key = '', caption = null;
+// `onFrame(host)` hears each frame drawn, for a set that copies its page (room-tv.js). `onStranger(name)`
+// hears a line from somebody the cast it was given doesn't hold: the cast was asked for between shows, or
+// before they came on, and the TV asks again rather than drawing them as a stranger.
+export function createTvStage(parent, { phone = false, feed = null, inset = null, onFrame = null, onStranger = null } = {}) {
+  let host = null, player = null, loading = null, key = '', caption = null, facts = {};
+  // A title card (a script's TITLE: a test card, a logo) fills the picture when it airs, and the line
+  // straight after it is read over it if nobody on the set says it. The next line takes it down, and
+  // from then on it's what the set's own screen shows.
+  let cardEl = null, cardRead = false;
+  const dropCard = () => { cardEl?.remove(); cardEl = null; cardRead = false; };
+  function showCard(text, style) {
+    dropCard();
+    cardEl = document.createElement('div');
+    cardEl.className = 'tv-stage-card';
+    cardEl.style.cssText = 'position:absolute;inset:0;z-index:4;background:#000;display:flex;align-items:center;justify-content:center;overflow:hidden';
+    let svg = null;
+    if (style === 'svg') {
+      cardEl.innerHTML = String(text);
+      svg = cardEl.querySelector('svg');
+      if (!svg) { dropCard(); return; }
+      const box = (svg.getAttribute('viewBox') || '').split(/[\s,]+/).map(Number), w = box[2] || parseFloat(svg.getAttribute('width')) || 640, h = box[3] || parseFloat(svg.getAttribute('height')) || 360;
+      if (!svg.getAttribute('viewBox')) svg.setAttribute('viewBox', `0 0 ${w} ${h}`);
+      // the set's screen takes a still of it: an image needs a size of its own, which the card on the page mustn't have
+      svg.setAttribute('width', w); svg.setAttribute('height', h);
+      const img = new Image(), el = cardEl;
+      img.onload = () => { if (cardEl === el || !cardEl) player?.liveCard(img, w, h); };
+      img.src = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(new XMLSerializer().serializeToString(svg))}`;
+      svg.removeAttribute('width'); svg.removeAttribute('height');
+      svg.style.cssText = 'width:100%;height:100%;display:block';
+    } else {
+      const pre = document.createElement('pre'), lines = String(text).split('\n'), cols = Math.max(1, ...lines.map((l) => l.length));
+      pre.textContent = text;
+      pre.style.cssText = `margin:0;color:#e6ece8;font:${Math.min(90 / cols, 60 / lines.length).toFixed(2)}cqmin/1.25 var(--font-mono,monospace);white-space:pre`;
+      cardEl.style.containerType = 'size';
+      cardEl.appendChild(pre);
+      // the same words on the set's screen
+      const c = document.createElement('canvas'), px = 22;
+      c.width = Math.ceil(cols * px * 0.62) + 80; c.height = Math.ceil(lines.length * px * 1.25) + 60;
+      const g = c.getContext('2d');
+      g.fillStyle = '#000'; g.fillRect(0, 0, c.width, c.height);
+      g.fillStyle = '#e6ece8'; g.font = `${px}px monospace`; g.textBaseline = 'top';
+      lines.forEach((l, i) => g.fillText(l, 40, 30 + i * px * 1.25));
+      player?.liveCard(c, c.width, c.height);
+    }
+    host.appendChild(cardEl);
+    caption?.('', '');
+  }
 
   async function ensurePlayer() {
     if (player) return player;
@@ -56,18 +100,38 @@ export function createTvStage(parent, { phone = false, feed = null, inset = null
       const p = await ensurePlayer();
       if (!p) return;
       host.style.display = '';
+      dropCard();
       key = `${msg.broadcast || ''}|${msg.programName || ''}`;
-      p.liveStart({ set: msg.set, people: msg.people || [], data: { show: msg.programName || '' } });
+      p.liveStart({ set: msg.set, people: msg.people || [], data: { ...facts, show: msg.programName || '' } });
     },
     // a line as the TV shows it: somebody saying something, or the announcer
     line(text, style) {
       if (!key || !player) return;
       if (style && style !== 'raw' && style !== 'narrate' && style !== 'emote') return;
       const t = plain(text), m = SAYS.exec(t);
-      if (m) { player.liveLine(m[1].trim(), m[2].trim()); caption?.(m[1].trim(), m[2].trim()); } else if (t) { player.liveLine('', t); caption?.('', t); }
+      if (m) {
+        dropCard();
+        if (onStranger && !player.liveKnows(m[1].trim())) onStranger(m[1].trim());
+        player.liveLine(m[1].trim(), m[2].trim()); caption?.(m[1].trim(), m[2].trim()); return;
+      }
+      if (!t) return;
+      // "Neil slams his fist on the table." is Neil doing it, not the announcer saying it
+      if (player.liveAct(t)) { dropCard(); caption?.('', t); return; }
+      // the announcer's line straight after a card describes it, so it's read over it; the one after isn't
+      if (cardEl) { if (cardRead) dropCard(); else cardRead = true; }
+      player.liveLine('', t); caption?.('', t);
     },
+    // a title card as it airs (the TV's `svg` and `ascii_art` messages): it takes the picture
+    card(text, style) { if (key && player && host && text) showCard(text, style); },
+    // a CAM line from the script (the server's `direction` overlay): the next shot is that camera's
+    direction(label) { if (key) player?.liveDirection(label); },
+    // the show moving somebody: the talk show's host to the star for the monologue, and back (the `blocking` overlay)
+    block(name, to) { if (key) player?.liveBlock(name, to); },
+    // facts the picture shows as they change (the score bug's score, on an arena's wall); kept for a stage
+    // turned on mid-show
+    data(patch) { Object.assign(facts, patch); if (key) player?.liveData(patch); },
     voice(name, trace, res) { if (key) player?.voice(name, trace, res?.delay || 0); },
-    close() { key = ''; if (host) host.style.display = 'none'; player?.stop(); },
+    close() { key = ''; facts = {}; dropCard(); if (host) host.style.display = 'none'; player?.stop(); },
     dispose() { this.close(); player?.dispose(); host?.remove(); player = null; host = null; loading = null; },
   };
   globalThis.__tvStage = api;   // for the console

@@ -215,17 +215,20 @@
     "figure": {
       "age": 0,
       "beard": 0.9,
+      "bottoms": false,
       "brow": 1.05,
       "build": "average",
       "cut": "suit",
+      "facial": "stubble",
       "gear": false,
       "hair": [
-        88,
-        48,
-        26
+        50,
+        27,
+        12
       ],
-      "hair_style": 4,
-      "head": 0,
+      "hair_style": 1,
+      "hat": false,
+      "head": 4,
       "iris": [
         60,
         125,
@@ -237,7 +240,8 @@
         16,
         20
       ],
-      "mouth": 1.05,
+      "mouth": 0.9,
+      "scarf": false,
       "shirt": [
         12,
         12,
@@ -249,11 +253,12 @@
         15
       ],
       "skin": [
-        224,
-        152,
-        98
+        232,
+        146,
+        82
       ],
-      "smile": 1,
+      "smile": 0.35,
+      "spikes": 0.8,
       "top": [
         18,
         18,
@@ -263,7 +268,8 @@
         50,
         170,
         235
-      ]
+      ],
+      "weight": 0.5
     },
     "preshow_habit": "Neural Overclock",
     "studio_npc": true,

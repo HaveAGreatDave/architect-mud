@@ -260,6 +260,48 @@ export default async function regress({ run, check, getPlayer }) {
       deleteItemCache(CUP);
       player.current_zone = Z;
     }
+    // ── A BOX WITH A MENU (`vend_menu`): several things, each its own price, never empty ──
+    // The lacquered box in the Solenne Penthouse. `vend <box>` lists them, `vend <box> <name>` and
+    // `vend <box> <item id>` (the Room Stage card's button) take one, and it charges that one's price.
+    {
+      const BOX = 'furn_vend_regress_menu', ZM = 'zone_vend_regress_menu', ITEM2 = 'item_vend_regress_two';
+      try {
+        await query(
+          `INSERT INTO items (id,name,description,type,value,weight,tags) VALUES ($1,'test tonic','test tonic','consumable',1,10,$2)
+           ON CONFLICT (id) DO UPDATE SET tags=$2`,
+          [ITEM2, JSON.stringify({ consumable: true, stackable: true })]);
+        await reloadItem(ITEM2);
+        await insertFurniture({
+          id: BOX, name: 'test box', description: 'a test box', object_type: 'fixture', zone_id: ZM,
+          flags: JSON.stringify({ vends: ITEM, vend_cooldown_s: 0, vend_menu: [{ item: ITEM, price: 3 }, { item: ITEM2, price: 9 }] }),
+        }, 'ON CONFLICT (id) DO UPDATE SET flags=EXCLUDED.flags, zone_id=EXCLUDED.zone_id');
+        await query(
+          `INSERT INTO players (id, username, password_hash, handle, credits) VALUES ($1,$2,'x',$3,50)
+           ON CONFLICT (id) DO UPDATE SET credits=50`,
+          [player.id, `vendtest_${player.id}`, player.handle || 'Regressor']);
+        player.credits = 50;
+        await query('DELETE FROM player_inventory WHERE player_id=$1 AND item_id = ANY($2)', [player.id, [ITEM, ITEM2]]);
+        player.current_zone = ZM;
+
+        r = await run('vend');
+        check('a box with a menu lists what it holds and the prices', r?.type === 'output' && /test slop/.test(r.message || '') && /test tonic/.test(r.message || '') && /₵9/.test(r.message || ''), JSON.stringify(r)?.slice(0, 200));
+        r = await run('vend test box test tonic');
+        inv = await query('SELECT COALESCE(SUM(quantity),0)::int AS qty FROM player_inventory WHERE player_id=$1 AND item_id=$2', [player.id, ITEM2]);
+        check('vend <box> <name> takes that one at its own price', r?.type === 'output' && inv.rows[0].qty === 1 && player.credits === 41, `${JSON.stringify(r)?.slice(0, 120)} qty=${inv.rows[0].qty} credits=${player.credits}`);
+        r = await run(`vend test box ${ITEM}`);
+        check('vend <box> <item id> takes that one, as the card does', r?.type === 'output' && player.credits === 38, `${JSON.stringify(r)?.slice(0, 120)} credits=${player.credits}`);
+        r = await run('vend test box item_not_in_it');
+        check('an item the box does not hold is refused', r?.type === 'error', JSON.stringify(r)?.slice(0, 120));
+      } finally {
+        await query('DELETE FROM player_inventory WHERE player_id=$1 AND item_id = ANY($2)', [player.id, [ITEM, ITEM2]]).catch(() => {});
+        await deleteFurniture(BOX).catch(() => {});
+        await query('DELETE FROM items WHERE id=$1', [ITEM2]).catch(() => {});
+        await query('DELETE FROM players WHERE id=$1', [player.id]).catch(() => {});
+        deleteItemCache(ITEM2);
+        player.credits = 0;
+        player.current_zone = Z;
+      }
+    }
   } finally {
     // Always restore state + clean up, even if an assertion above threw, so a
     // failure here can't strand the fake player in a nonexistent zone.

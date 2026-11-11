@@ -15,12 +15,16 @@ import { createTvView, setWallTv } from './tv.js';
 import { sendCmdSilent } from '../net.js';
 import { createPagePaint } from './page-paint.js';
 import { paintScreen } from './gl/room-mesh.js';
+import { tvLine } from './npc-bubbles.js';
 
 // the size the page is laid out at, and the texture it's painted to: a 16:9 screen
 const PAGE_W = 800, PAGE_H = 450, TEX_W = 1024, TEX_H = 576;
 // how often the picture is repainted, and the Gameday's picture kept for it. A page that takes long to
 // paint waits PAINT_SHARE times what it took, so it never has more than a quarter of the frame time.
 const PAINT_MS = 33, GRAB_MS = 33, PAINT_SHARE = 4;
+// A set that looks small (`size`, its width over its distance) is painted less often: at SMALL_SIZE or
+// under, SMALL_SLOW times as seldom. A grab is only taken within WANT_MS of the room asking for a paint.
+const SMALL_SIZE = 0.35, SMALL_SLOW = 3, WANT_MS = 250;
 // how near a click on the picture has to land to take a button, in the page's pixels: a set across the
 // room is a small target
 const BUTTON_REACH = 14;
@@ -63,7 +67,7 @@ export function createWallTv(host, { onChange }) {
     },
   });
   const gameday = el.querySelector('[data-tv="gameday"]');
-  let grabAt = 0, paintAt = 0, paintGap = PAINT_MS;
+  let grabAt = 0, paintAt = 0, paintGap = PAINT_MS, askedAt = -1e9;
 
   const info = { on: false, number: 0, station: '', list: [] };
   // ⚠ A GAMEDAY PICTURE IS WEBGL, gone when the task that drew it ends. The ballpark keeps its buffer
@@ -71,12 +75,22 @@ export function createWallTv(host, { onChange }) {
   // A set you can see in a room plays its show in 3-D by default, the desk and the stage alike, and
   // each of their frames is kept for the paint as the Gameday's is.
   let stageAt = 0;
-  const view = createTvView(el, { key: 'wall', chassis: 'wall', gameday: { preserve: true, onFrame() {
+  // What's said on it, along the bottom of the screen with the room's own bubbles: under the speaker's name,
+  // or the station's for a line nobody on it says.
+  const onLine = (text) => {
+    const m = /^(.+?) says, "([\s\S]*)"$/.exec(text);
+    tvLine(m ? m[1] : info.station || 'TV', m ? m[2] : text);
+  };
+  // ⚠ A GRAB IS A COPY OFF THE GPU, so it's taken only while a paint wants one: the room asked for a paint
+  // lately (the set's in view) and no faster than the paints come. Grabbing every 33 ms with the set behind
+  // you cost the room frames for a picture nobody saw.
+  const wanted = (now, at) => now - askedAt < WANT_MS && now - at >= Math.max(GRAB_MS, paintGap);
+  const view = createTvView(el, { key: 'wall', chassis: 'wall', onLine, gameday: { preserve: true, onFrame() {
     const now = performance.now();
-    if (now - grabAt >= GRAB_MS) { grabAt = now; painter.grab(gameday); }
+    if (wanted(now, grabAt)) { grabAt = now; painter.grab(gameday); }
   } }, stage: { always: true, onFrame(stageHost) {
     const now = performance.now();
-    if (now - stageAt >= GRAB_MS) { stageAt = now; painter.grab(stageHost); }
+    if (wanted(now, stageAt)) { stageAt = now; painter.grab(stageHost); }
   } } });
   view.init();
   const say = () => onChange?.(info);
@@ -143,8 +157,10 @@ export function createWallTv(host, { onChange }) {
     // the set's own buttons show while the pointer's on the picture, as they do on any other screen
     touching(on) { el.classList.toggle('tv-touch', !!on); },
     // Called every frame: true when `canvas` has a new picture on it.
-    paint(now) {
-      if (now - paintAt < paintGap) return false;
+    paint(now, size = 1) {
+      askedAt = now;
+      const slow = size >= 1 ? 1 : 1 + (SMALL_SLOW - 1) * Math.min(1, (1 - size) / (1 - SMALL_SIZE));
+      if (now - paintAt < paintGap * slow) return false;
       // (gone full screen: the picture is the whole window, and nobody's looking at the wall)
       if (document.fullscreenElement === gameday) return false;
       paintAt = now;

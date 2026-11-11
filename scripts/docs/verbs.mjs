@@ -37,6 +37,8 @@ const NOT_PLAYER_TYPED = new Set([
   // …and mastery's Read board, which is the same handshake: the panel reports the answer and the
   // server decides. Its own handler says so ("Silent — fired by the panel, never typed").
   'readresolve',
+  // The street view on foot reports the tile it walked into (plugins/freelook); nobody types it.
+  'footstep',
   // The Kitchen Stage (docs/proposals/kitchen-stage.md): its knife and plate-dressing boards
   // report the same way, and `kitchenstage on|off` is the panel saying it opened or closed.
   // `kitchenstock` asks for the Stage's stock-up catalogue; `kitchenorder` is its Buy button;

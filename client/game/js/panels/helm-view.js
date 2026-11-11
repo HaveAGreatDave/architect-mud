@@ -69,7 +69,7 @@ const CRUISE = 0.78;   // steady making-way throttle held across a passage (0..1
 // strong yaw gives the rear-quarter flank angle; the pitch tips the eye DOWN over her stern so the
 // whole hull drops clear of the top edge into the water band — foreground sea in front of her — and
 // is never clipped by the console/HUD along the bottom. zoom pulls back so the full hull reads.
-const REST = { yaw: 34, pitch: 0.58, zoom: 1.7 };   // high elevated chase — the eye rides well up-and-over her stern looking DOWN onto the deck, so the hull sits in the water band off the horizon, clear of the wheel; the windshield still clamps it above the water so the eye never goes under
+const REST = { yaw: 34, pitch: 0.58, zoom: 0.7 };   // high elevated chase — the eye rides well up-and-over her stern looking DOWN onto the deck, so the hull sits in the water band off the horizon, clear of the wheel; the windshield still clamps it above the water so the eye never goes under
 
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 const lerp = (a, b, t) => a + (b - a) * t;
@@ -94,7 +94,12 @@ const FLAT_PITCH = 0.06;   // rad — camera almost level with the waterline: a 
 // WORLD-Z TILES, measured off her DRAWN size (she is drawn at YACHT_SCALE), not off a real hull.
 const BRIDGE_EYE = 0.115, BRIDGE_OY = 0.34;
 const HIGH_PITCH = 0.72;   // rad — the most top-down we lift to when the wheel dollies the camera all the way back
-const ZOOM_MIN = 0.6, ZOOM_MAX = 2.4;   // matches the zoom() clamp — the dolly's near (close to water) / far bounds
+// The chase distance was tuned before the Echelon was shrunk to 0.4 of her size (YACHT_SCALE in
+// windshield.js), and the camera never came in with her: at the resting distance she was a speck.
+// The helm's own zoom numbers (the dolly, the console's fit, the pitch curve) stay as they were, and
+// this brings the camera in by about her shrink when the view is painted.
+const CHASE_K = 0.42;
+const ZOOM_MIN = 0.35, ZOOM_MAX = 2.4;   // matches the zoom() clamp — the dolly's near (close to water) / far bounds
 function pitchForZoom(z) {
   // Below the resting frame ⇒ dollying IN toward the water: ease pitch FLAT for the side view.
   // Above it ⇒ pulling back: lift the eye toward top-down. Rest zoom keeps exactly the tuned REST pose.
@@ -170,6 +175,11 @@ function makeBoatAudio() {
 
 export function openHelmChase(container, opts = {}) {
   ensureWindshieldStyles();
+  // GLASS 2 is installed by the lazy loader, not by importing the renderer. A helm opened before any
+  // other 3-D seat ran on the 2-D painter, which has no wheelhouse: the bridge seat was open sea.
+  // It's the same module instance, so this only installs the GPU passes (once); the frames before it
+  // lands draw on the painter as they always did.
+  import('./windshield-lazy.js').then((m) => m.loadWindshield()).catch(() => {});
   // ⚠ PER HELM, not module-scoped like the cab's and the sim's. A wheelhouse can be opened and
   // destroyed repeatedly in one session and each one owns its own listeners, so a shared camera
   // would be stowed by whichever view closed first.
@@ -389,7 +399,7 @@ export function openHelmChase(container, opts = {}) {
 
     paintWindshield(id, {
       external: !bridge, hideOwnShip: true, phase: 'cruise', worldBlend: 1, frameY: st.frameY,
-      heading: hdgN, extYaw: st.extYaw, extPitch: st.extPitch, extZoom: st.extZoom,
+      heading: hdgN, extYaw: st.extYaw, extPitch: st.extPitch, extZoom: st.extZoom * CHASE_K,
       // On the bridge the eye is ON her: her heave IS the camera's height, and her attitude is the
       // camera's. In the chase both are 0 and the payload is byte-for-byte the one that shipped.
       height: bridge ? ride.heave : 0,
@@ -399,7 +409,7 @@ export function openHelmChase(container, opts = {}) {
       // round a camera floating off her quarter. `ownHdg` is her heading, which the room is bolted
       // to, and `instr` is what the console reads — every value one this panel already has.
       ...(bridge ? {
-        cls: 'bridge', ownHdg: hdgN,
+        cls: 'bridge', ownHdg: hdgN, ownHull: st.center,
         instr: { hdg: hdgN, speed: st.spd * 30, rudder: clamp((st.headingTarget - st.heading) / 45, -1, 1) || 0,
           throttle: clamp(st.spd, 0, 1), t: performance.now() / 1000 },
       } : {}),
@@ -459,7 +469,7 @@ export function openHelmChase(container, opts = {}) {
       } else if (!on) hint?.remove();
       // THE CONSOLE OUT OF THE SHOT. A body class, because the console is not in this container —
       // it is helm-mode's `.helm-dash`, wrapped round this chase view — and a class on the body is
-      // how every other layout state here already crosses that line (`helm-fullscreen` is one).
+      // how every other layout state here already crosses that line (`seat-fullscreen` is one).
       // ⚠ NOT the same argument as the cab's and the cockpit's, and worth not conflating: she is
       // steered from that console with a pointer, so hiding it while the camera is out does take a
       // control away rather than tidying an inert one. That is the right trade for a mode you hold
@@ -583,7 +593,7 @@ export function openHelmChase(container, opts = {}) {
     // in a dome at the lowest sea-level angle, holding her centred and high on screen. Elevation is
     // pinned (no vertical lift), so you can spin all the way around but never tilt the eye up or down.
     orbit(dYaw) { st.extYaw = (st.extYaw + dYaw + 360) % 360; },
-    zoom(dz) { st.extZoom = Math.max(0.6, Math.min(2.4, st.extZoom * (1 + dz))); },
+    zoom(dz) { st.extZoom = Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, st.extZoom * (1 + dz))); },
     resetView() { st.extYaw = opts.extYaw ?? REST.yaw; st.extPitch = st.restPitch; st.extZoom = st.restZoom; },
     // Resting elevation, driven by the console from the visible water band: a cramped view (panel up)
     // pitches DOWN (top-down) so the whole hull reads in the short band; a roomy view (fullscreen)

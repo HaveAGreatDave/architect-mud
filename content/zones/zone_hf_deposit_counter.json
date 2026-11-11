@@ -12,7 +12,7 @@
     "is_building": true,
     "is_interior": true,
     "window": {
-      "description": "The curve, from the partition round to the doors, looking out at Sorrel Way and the glass disc of 3 Sorrel Way across it. At this height the glass is the only part of the building anybody designed and it is being used as a shopfront.",
+      "description": "The curve, from the partition round to the doors, looking out at Sorrel Way and the fountains of Hughson Gardens across it. At this height the glass is the only part of the building anybody designed and it is being used as a shopfront.",
       "light": 0.8,
       "name": "the drum glazing",
       "visibility": 0.85

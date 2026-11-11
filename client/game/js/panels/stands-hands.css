@@ -1,20 +1,26 @@
 /* stands-hands.js: what's in your hands in a box's suite, over the 3-D view */
-#stands-view .sh-canvas {
+:is(#stands-view, #room-stage) .sh-canvas {
 	position: absolute; left: 0; z-index: 2; pointer-events: none;
 }
-#stands-view .sh-prompt {
+:is(#stands-view, #room-stage) .sh-prompt {
 	position: absolute; left: 50%; bottom: 10px; transform: translateX(-50%); z-index: 3;
 	padding: 4px 12px; border-radius: 10px; background: rgba(0, 0, 0, 0.6); color: #f1e6cf;
 	font: 13px system-ui, sans-serif; pointer-events: none; white-space: nowrap;
 }
-#stands-view .sh-glass {
+:is(#stands-view, #room-stage) .sh-glass {
 	position: absolute; left: 36px; bottom: 6px; z-index: 3; width: 70px; height: 110px;
 	background: transparent; border: 0; border-radius: 8px; cursor: pointer;
 }
-#stands-view .sh-glass:hover, #stands-view .sh-glass:focus-visible { background: rgba(255, 230, 160, 0.08); outline: 1px solid rgba(255, 230, 160, 0.4); }
-#stands-view .sh-swap {
+:is(#stands-view, #room-stage) .sh-glass:hover, :is(#stands-view, #room-stage) .sh-glass:focus-visible { background: rgba(255, 230, 160, 0.08); outline: 1px solid rgba(255, 230, 160, 0.4); }
+:is(#stands-view, #room-stage) .sh-swap {
 	position: absolute; right: 12px; bottom: 10px; z-index: 3; padding: 4px 10px; border-radius: 10px;
 	background: rgba(0, 0, 0, 0.6); border: 1px solid rgba(255, 230, 160, 0.35); color: #f1e6cf;
 	font: 12px system-ui, sans-serif; cursor: pointer; white-space: pre;
 }
-#stands-view .sh-swap:hover, #stands-view .sh-swap:focus-visible { background: rgba(40, 30, 10, 0.75); }
+:is(#stands-view, #room-stage) .sh-swap:hover, :is(#stands-view, #room-stage) .sh-swap:focus-visible { background: rgba(40, 30, 10, 0.75); }
+
+/* Over the Room Stage (a machine in a flat handed it you) the prompt and the swap wear the theme. */
+#room-stage .sh-prompt, #room-stage .sh-swap { background: var(--rs-panel); color: var(--text); border: 1px solid var(--border); font-family: var(--rs-font); }
+#room-stage .sh-swap:hover, #room-stage .sh-swap:focus-visible { background: var(--rs-btn-hover); border-color: var(--accent); }
+/* the card would sit on the prompt: while your hands are busy it steps up */
+#room-stage:has(.sh-prompt:not([hidden])) .rs-card { bottom: 56px; }

@@ -9,7 +9,7 @@
  * Pure: no DOM and no GL, so the gates run it in Node.
  */
 
-import { BOWL_FT, OUT, UNIT_FT, UP_FT } from '../../../../shared/coliseum-plan.js';
+import { BOWL_FT, OUT, POLES, UNIT_FT, UP_FT } from '../../../../shared/coliseum-plan.js';
 
 export const DEG = Math.PI / 180;
 export const BASE_PATH = 90;
@@ -59,23 +59,28 @@ export const sf = (s3, s1, y = 0) => [(s3 - s1) / Math.SQRT2, y, (s3 + s1) / Mat
 export const sOf = (p) => [(p[0] + p[2]) / Math.SQRT2, (p[2] - p[0]) / Math.SQRT2];
 export const fromBlock = (w) => -BOWL.near + (OUT - w) * UNIT_FT;
 export const ftUp = (z) => z * UP_FT;
-// The light towers at the corners (the map's TOWER.at, 1.37 tiles out) and the lamp rows under the
-// two decks the roof's rails run along (its DECK, 1.13), at the height of the map's deck lamps.
-const TOWER_AT = [fromBlock(1.37), fromBlock(-1.37)], DECK_AT = [fromBlock(1.13), fromBlock(-1.13)];
-const LAMP_Y = ftUp(0.816), DECK_LAMP_Y = ftUp(0.415), DECK_MID = (fromBlock(1.26) + fromBlock(-1.26)) / 2;
+// The four end light poles on the decks' roofs (the plan's POLES: the lamps' face, at the outer
+// poles' v), and the lamp rows under the two decks the roof's rails run along (its DECK, 1.13), at
+// the height of the map's deck lamps. The middle poles burn with these; only these four cast.
+const PU = POLES.u - POLES.r - POLES.bank.d, PV = Math.max(...POLES.vs);
+const TOWER_AT = [fromBlock(PU), fromBlock(-PU)], POLE_V = [fromBlock(PV), fromBlock(-PV)], DECK_AT = [fromBlock(1.13), fromBlock(-1.13)];
+const LAMP_Y = ftUp((POLES.bank.z0 + POLES.bank.z1) / 2), DECK_LAMP_Y = ftUp(0.415), DECK_MID = (fromBlock(1.26) + fromBlock(-1.26)) / 2;
 
 // The venue's defaults: a fence 330 ft down the lines and 400 to centre, 9.5 ft high; the
 // scoreboard behind right-centre; and the lights, four towers at the corners of the bowl and a lamp
-// row under each deck. The four towers cast the night's shadows. With the roof shut they're outside
-// it, so each tower's light moves to the lamps under a deck (`under`, ballpark-mesh.js roofLights).
+// row under each deck. The four end poles cast the night's shadows (kind 'tower', the name the
+// renderer keys on). With the roof shut they're outside it, so each tower's light moves to the lamps under a deck (`under`, ballpark-mesh.js roofLights).
 export const VENUE_DEFAULTS = Object.freeze({
   fence: Object.freeze({ line: 330, centre: 400, curve: 1.6, height: 9.5 }),
   board: Object.freeze({ bearing: -31, r: 420 }),
+  // the videoboard behind left-centre, the scoreboard's twin across centre field: the replays,
+  // the chants and the noise meter (diamond/jumbo.js)
+  jumbo: Object.freeze({ bearing: 31, r: 420 }),
   towers: Object.freeze([
-    { kind: 'tower', base: sf(TOWER_AT[0], TOWER_AT[1]), h: LAMP_Y, aim: [0, 0, 120], under: sf(DECK_AT[0], 260, DECK_LAMP_Y) },
-    { kind: 'tower', base: sf(TOWER_AT[1], TOWER_AT[0]), h: LAMP_Y, aim: [0, 0, 120], under: sf(DECK_AT[1], 40, DECK_LAMP_Y) },
-    { kind: 'tower', base: sf(TOWER_AT[0], TOWER_AT[0]), h: LAMP_Y, aim: [0, 0, 110], under: sf(DECK_AT[0], 40, DECK_LAMP_Y) },
-    { kind: 'tower', base: sf(TOWER_AT[1], TOWER_AT[1]), h: LAMP_Y, aim: [0, 0, 170], under: sf(DECK_AT[1], 260, DECK_LAMP_Y) },
+    { kind: 'tower', base: sf(TOWER_AT[0], POLE_V[1]), h: LAMP_Y, aim: [0, 0, 120], under: sf(DECK_AT[0], 260, DECK_LAMP_Y) },
+    { kind: 'tower', base: sf(TOWER_AT[1], POLE_V[0]), h: LAMP_Y, aim: [0, 0, 120], under: sf(DECK_AT[1], 40, DECK_LAMP_Y) },
+    { kind: 'tower', base: sf(TOWER_AT[0], POLE_V[0]), h: LAMP_Y, aim: [0, 0, 110], under: sf(DECK_AT[0], 40, DECK_LAMP_Y) },
+    { kind: 'tower', base: sf(TOWER_AT[1], POLE_V[1]), h: LAMP_Y, aim: [0, 0, 170], under: sf(DECK_AT[1], 260, DECK_LAMP_Y) },
     { kind: 'deck', base: sf(DECK_AT[0], DECK_MID), h: DECK_LAMP_Y, aim: [0, 0, 150] },
     { kind: 'deck', base: sf(DECK_AT[1], DECK_MID), h: DECK_LAMP_Y, aim: [0, 0, 150] },
   ]),
@@ -91,6 +96,7 @@ export function venueField(venue) {
   return {
     fence: { ...VENUE_DEFAULTS.fence, ...(v.fence || {}) },
     board: { ...VENUE_DEFAULTS.board, ...(v.board || {}) },
+    jumbo: { ...VENUE_DEFAULTS.jumbo, ...(v.jumbo || {}) },
     towers: towersOf(Array.isArray(v.towers) && v.towers.length ? v.towers : VENUE_DEFAULTS.towers, v),
   };
 }

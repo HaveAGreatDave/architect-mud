@@ -1,0 +1,10 @@
+{
+  "content": "{\n \"kind\": \"set\",\n \"format\": 1,\n \"id\": \"set_ad_acid_cola\",\n \"name\": \"Acid Cola Advert\",\n \"base\": \"tpl_pitch\",\n \"brand\": {\n  \"name\": \"ACID COLA\",\n  \"colour\": \"#a0ff20\"\n },\n \"broadcasts\": [\n  \"bc_1782872045373\"\n ],\n \"palette\": {\n  \"floor\": \"#0c1408\",\n  \"wall\": \"#142010\",\n  \"trim\": \"#2a4018\",\n  \"desk\": \"#1a2a10\",\n  \"deskTop\": \"#c8e8a0\",\n  \"riser\": \"#101a0a\"\n },\n \"parts\": {},\n \"description\": \"The Acid Cola advert: a lit can on the plinth, acid green on black.\"\n}",
+  "created_at": "1794108637",
+  "description": "The Acid Cola advert: a lit can on the plinth, acid green on black.",
+  "id": "set_ad_acid_cola",
+  "name": "Acid Cola Advert",
+  "tags": [],
+  "type": "set",
+  "updated_at": "1794108921"
+}

@@ -1,24 +1,20 @@
 {
   "ambient_events": [],
-  "ambient_theme": "forest",
-  "color": "#8ba36a",
-  "description": "Thin grass on red dirt, with a dry ditch along one side. Nobody has decided what goes here yet.",
-  "exits": {
-    "east": "zone_district_920_922",
-    "north": "zone_district_919_921",
-    "south": "zone_district_919_923",
-    "west": "zone_district_918_922"
-  },
+  "ambient_theme": "outdoors",
+  "description": "A hut of corrugated tin on a timber frame, its pent roof weighted down with tyres and paving slabs. A stovepipe comes up through the roof with a tin can over the top to keep the rain out.",
+  "exits": {},
   "flags": {
-    "district": "residential",
-    "region_id": "region_coldwater",
-    "terrain": "grass"
+    "building_name": "The Tin Hut",
+    "building_type": "shack",
+    "district": "slum",
+    "is_building": true,
+    "region_id": "region_coldwater"
   },
   "grid_x": 919,
   "grid_y": 922,
   "grid_z": 0,
   "id": "zone_district_919_922",
   "map_id": "map_world",
-  "name": "Grasslands",
+  "name": "The Tin Hut",
   "parent_zone": null
 }

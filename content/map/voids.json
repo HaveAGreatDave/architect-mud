@@ -34,7 +34,7 @@
           "key": "deadwater",
           "dest": "zone_dw_812_955",
           "region": "region_deadwater",
-          "heading": "Deadwater",
+          "heading": "Deadband",
           "dir": "west"
         }
       ],
@@ -59,7 +59,7 @@
           "key": "deadwater",
           "dest": "zone_dw_818_988",
           "region": "region_deadwater",
-          "heading": "Deadwater",
+          "heading": "Deadband",
           "dir": "west",
           "gate": "zone_the_reach_863_1955"
         },
@@ -75,7 +75,7 @@
       ]
     },
     "region_deadwater": {
-      "origin": "Deadwater",
+      "origin": "Deadband",
       "dests": [
         {
           "key": "reach",

@@ -1,0 +1,31 @@
+{
+  "description": "A deep outdoor sofa in grey canvas, facing the fire and the drop past it.",
+  "flags": {
+    "aliases": "sofa,couch",
+    "interactions": [
+      "sit",
+      "lie"
+    ],
+    "look": {
+      "arche": "sofa",
+      "form": "sofa"
+    },
+    "spot": {
+      "at": [
+        3.6,
+        7.95
+      ],
+      "turn": 0
+    }
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_skydeck_sofa",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "deck sofa",
+  "object_type": "furniture",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_solenne_skydeck"
+}

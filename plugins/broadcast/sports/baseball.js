@@ -26,6 +26,7 @@ import {
   toFirst, throwTime, railRoom, RANGING, TRANSFER, POSITIONS,
 } from '../../../client/game/js/panels/diamond/play.js';
 import { BAGS } from '../../../client/game/js/panels/diamond/geo.js';
+import { gen1Rosters, gen1Trait, gen1Hand, gen1Of } from '../../../client/shared/deadball-gen1.js';
 
 // ── At-bat outcomes ──────────────────────────────────────────────────────────
 // One plate appearance → an outcome. Weights are tuned to real MLB per-PA rates:
@@ -81,6 +82,9 @@ export const DEFAULT_NAMES = ['Rodriguez', 'Kane', 'Okafor', 'Bishop', 'Hale', '
 // one: about six in ten bat right, three left and one both ways; a quarter throw left.
 const nameHash = (name, salt) => sportsHash(...[...String(name || '')].map((c) => c.charCodeAt(0)), salt);
 export function handOf(name) {
+  // a First Generation man's hand is his own (client/shared/deadball-gen1.js)
+  const g = gen1Hand(name);
+  if (g) return g;
   const h = nameHash(name, 0x4a4e);
   const b = (h & 0xffff) / 65536, t = (h >>> 16) / 65536;
   return { bats: b < 0.6 ? 'R' : b < 0.9 ? 'L' : 'S', throws: t < 0.75 ? 'R' : 'L' };
@@ -865,10 +869,12 @@ export const SIM_V2_OFF = Object.freeze(Object.fromEntries(Object.keys(SIM_V2_RA
 
 // A player's legs, his arm and how quick he is to the plate, from his name as his
 // handedness is, so he's the same in every game. Each is 0 to 1.
+// A First Generation man's come off his ratings instead (deadball-gen1.js gen1Trait), so a
+// Wildblood leaper runs like one; nobody else's moves.
 const traitOf = (name, salt) => (nameHash(name, salt) & 0xffff) / 65536;
-export const speedOf = (name) => traitOf(name, 0x5350);
-export const armOf = (name) => traitOf(name, 0x4152);
-export const quicknessOf = (name) => traitOf(name, 0x5155);
+export const speedOf = (name) => gen1Trait(name, 'speed') ?? traitOf(name, 0x5350);
+export const armOf = (name) => gen1Trait(name, 'arm') ?? traitOf(name, 0x4152);
+export const quicknessOf = (name) => gen1Trait(name, 'quickness') ?? traitOf(name, 0x5155);
 
 // Where each lineup slot plays (the pitcher doesn't bat; the ninth slot is the DH). In
 // v2 the catcher's arm decides steals and an error is charged to a position.
@@ -952,7 +958,19 @@ function offSeason(prev, league, season) {
 // The league's rosters for `season`. Walked forward from the newest season already worked
 // out, so a season costs one off-season the first time it's asked for and nothing after.
 const _rosterCache = new Map();   // league|pool signature -> Map(season -> rosters)
-export function clubRosters(teams, players, season) {
+// With `firstGen` (sports_pools.sim.firstGen) the season's First Generation draft is played into
+// them (client/shared/deadball-gen1.js gen1Rosters). The walk forward is always the plain rosters',
+// so turning it on or off moves nobody else.
+const _gen1Cache = new Map();
+export function clubRosters(teams, players, season, { firstGen = false } = {}) {
+  const R = plainRosters(teams, players, season);
+  if (!firstGen || !R) return R;
+  const key = `${[...teams].sort().join('|')}#${season | 0}`;
+  let G = _gen1Cache.get(key);
+  if (!G || G.base !== R) { G = { base: R, out: gen1Rosters(R, [...teams], Math.max(ROSTER_ANCHOR, season | 0)) }; _gen1Cache.set(key, G); }
+  return G.out;
+}
+function plainRosters(teams, players, season) {
   const pool = (Array.isArray(players) && players.length) ? players : DEFAULT_NAMES;
   const league = (Array.isArray(teams) && teams.length) ? [...teams].sort() : [];
   if (!league.length || pool.length < league.length * ROSTER_SIZE) return null;
@@ -1227,12 +1245,24 @@ export function playTokens(b, play) {
 // The descriptor's sim: v2 when sportsGameForSlot says the slot plays it, else v1.
 function simGameFor(matchup, players, rand, opts) {
   if (opts?.version >= 3 && Number.isFinite(opts.day)) {
-    const R = clubRosters(matchup?.teams, players, seasonOfDay(opts.day));
+    const R = clubRosters(matchup?.teams, players, seasonOfDay(opts.day), { firstGen: !!opts.firstGen });
     const a = R?.clubs[matchup?.away], h = R?.clubs[matchup?.home];
     if (a && h) {
       const lineups = { [matchup.away]: lineupForDay(a, opts.day), [matchup.home]: lineupForDay(h, opts.day) };
       // v3 is v2's game played by fixed squads, so it keeps v2's mark (baseball-gameday.js reads it)
-      return simGameV2(matchup, players, rand, { ...opts, lineups });
+      const game = simGameV2(matchup, players, rand, { ...opts, lineups });
+      // where each side's First Generation men play in the field tonight, so the TV can put them
+      // there: the payload names the pitcher and the batter, but a fielder only by his place
+      if (opts.firstGen && game) {
+        const gen1 = {};
+        for (const [team, L] of Object.entries(lineups)) {
+          const at = {};
+          L.lineup.forEach((n, k) => { if (gen1Of(n) && LINEUP_POSITIONS[k] !== 'DH') at[LINEUP_POSITIONS[k]] = n; });
+          if (Object.keys(at).length) gen1[team] = at;
+        }
+        if (Object.keys(gen1).length) game.gen1 = gen1;
+      }
+      return game;
     }
   }
   return opts?.version >= 2 ? simGameV2(matchup, players, rand, opts) : simGame(matchup, players, rand);

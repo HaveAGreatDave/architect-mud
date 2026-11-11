@@ -1,26 +1,33 @@
 {
   "ambient_events": [
-    "Somebody cuts across the grass towards the gates with a folded scorecard.",
-    "A dog runs a long circle round nothing and comes back.",
-    "The wind brings over the smell of frying onions from Sorrel Way."
+    "The fountains drop for a second, then come back up.",
+    "Somebody sits on the edge of the basin and eats a hot dog over the water.",
+    "A groundskeeper picks ticket stubs out of a hedge one at a time."
   ],
   "ambient_theme": "urban",
   "color": "#8ba36a",
-  "description": "The green, level from the boulevard to Hughson Way. On a game night people bring blankets and listen to the crowd through the walls.",
-  "exits": {},
+  "description": "Hughson Gardens, the west walk: a pergola of limestone piers and timber from Sorrel Way up to the plaza, with wisteria hanging through the slats. There are benches underneath and lavender along both edges.",
+  "exits": {
+    "east": "zone_ballpark_893_913",
+    "north": "zone_ballpark_891_915",
+    "south": "zone_district_891_921"
+  },
   "flags": {
     "district": "halcyon_fields",
+    "park_feature": "pergola",
+    "park_focus": {
+      "x": 894,
+      "y": 918.5
+    },
     "region_id": "region_coldwater",
-    "set_aside": true,
-    "set_aside_from": "893,912",
     "street_life": true,
-    "terrain": "grass"
+    "terrain": "park"
   },
-  "grid_x": 3,
-  "grid_y": 9,
+  "grid_x": 891,
+  "grid_y": 920,
   "grid_z": 0,
   "id": "zone_ballpark_893_912",
-  "map_id": "map_set_aside",
-  "name": "Hughson Green",
+  "map_id": "map_world",
+  "name": "Hughson Gardens",
   "parent_zone": null
 }

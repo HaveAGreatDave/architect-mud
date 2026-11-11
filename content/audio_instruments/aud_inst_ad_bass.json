@@ -1,0 +1,53 @@
+{
+  "category": "commercial",
+  "config": {
+    "layers": [
+      {
+        "adsr": {
+          "a": 0.004,
+          "d": 0.25,
+          "r": 0.08,
+          "s": 0.5
+        },
+        "filter": {
+          "freq": 500,
+          "q": 1.2,
+          "type": "lowpass"
+        },
+        "gain": 0.2,
+        "mods": [
+          {
+            "a": 0.003,
+            "d": 0.12,
+            "id": "pl",
+            "r": 0.2,
+            "s": 0,
+            "to": [
+              {
+                "amount": 1500,
+                "param": "filter.cutoff"
+              }
+            ],
+            "type": "env"
+          }
+        ],
+        "waveform": "square"
+      },
+      {
+        "adsr": {
+          "a": 0.004,
+          "d": 0.3,
+          "r": 0.08,
+          "s": 0.6
+        },
+        "gain": 0.18,
+        "waveform": "sine"
+      }
+    ]
+  },
+  "enabled": 1,
+  "id": "aud_inst_ad_bass",
+  "name": "Ad: Synth bass",
+  "sample_id": null,
+  "waveform": "square"
+}

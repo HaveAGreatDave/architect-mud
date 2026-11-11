@@ -3,8 +3,8 @@
   "description": "A narrow shop lined with pennants, caps on a tree by the door, foam fingers in a bin, and a glass counter of signed balls on stands. Two card machines hum in the corner, and the walls are papered with old game posters.",
   "exits": {
     "down": "zone_util_zone_kimble_shop",
-    "north": "zone_kimble_stock",
-    "south": "zone_parkside_894_913"
+    "north": "zone_parkside_894_913",
+    "south": "zone_kimble_stock"
   },
   "flags": {
     "building_name": "Kimble's Souvenirs & Cards",

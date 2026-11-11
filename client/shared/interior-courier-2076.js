@@ -139,7 +139,7 @@ function routePage(Pn, R, G) {
   Pn.text('HDG', -0.012, 0.011, LABEL, G, 0.6, 0.003);
   if (R.legLeft != null) {
     Pn.digits(0.026, 0.004, 0.034, pad(R.legLeft, 3).slice(-3), [236, 244, 240], false);
-    Pn.text('MI', 0.109, 0.012, LABEL, G, 0.6, 0.003);
+    Pn.text('KM', 0.109, 0.012, LABEL, G, 0.6, 0.003);
   }
   bar(Pn, -0.112, 0.112, -0.016, 0.006, R.legFrac, G);
   const aim = String(R.aim || 'NO ROUTE').toUpperCase().replace(/[^A-Z0-9 /-]/g, ' ').slice(0, 18);
@@ -185,7 +185,7 @@ function hud(K, R, G, warn, caution) {
   if (R.clutch > 0.01) H.rect(0.195, -0.014, lerp(0.195, 0.235, R.clutch), -0.0115, col, e, 0.0015);
   // The lane ahead, as two ticks either side of the sight line, and the next stop.
   for (const s of [-1, 1]) H.plate([[s * 0.070, -0.018], [s * 0.074, -0.018], [s * 0.046, 0.016], [s * 0.043, 0.016]], col, 0.45, 0.001);
-  if (R.legLeft != null && !R.elecOut) H.text(pad(R.legLeft, 3).trim() + ' MI', 0, -0.024, 0.0095, col, 0.55, 0.001);
+  if (R.legLeft != null && !R.elecOut) H.text(pad(R.legLeft, 3).trim() + ' KM', 0, -0.024, 0.0095, col, 0.55, 0.001);
 }
 
 // ── THE HOLOGRAM ── The rig in its own frame, nose forward, turned to show its flank. A small model of

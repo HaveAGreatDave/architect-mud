@@ -1,0 +1,10 @@
+{
+  "content": "{\n \"kind\": \"set\",\n \"format\": 1,\n \"id\": \"set_jackpot_protocol\",\n \"name\": \"Jackpot Protocol Stage\",\n \"base\": \"tpl_gameshow\",\n \"brand\": {\n  \"name\": \"JACKPOT PROTOCOL\",\n  \"colour\": \"#ffc030\"\n },\n \"broadcasts\": [\n  \"bc_1783114654023\"\n ],\n \"uses\": [\n  \"gameshow\"\n ],\n \"parts\": {\n  \"host_lectern\": {\n   \"text\": \"JP\"\n  }\n },\n \"description\": \"Jackpot Protocol on the game show template: purple and gold, the name in lights.\"\n}",
+  "created_at": "1794108637",
+  "description": "Jackpot Protocol on the game show template: purple and gold, the name in lights.",
+  "id": "set_jackpot_protocol",
+  "name": "Jackpot Protocol Stage",
+  "tags": [],
+  "type": "set",
+  "updated_at": "1794108921"
+}

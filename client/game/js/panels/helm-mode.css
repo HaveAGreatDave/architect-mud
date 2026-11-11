@@ -103,8 +103,8 @@ body.bigscreen .helm-root{ border-radius:0; }
   box-shadow:0 0 10px color-mix(in srgb,var(--accent) 60%,transparent); opacity:.85; }
 /* Fullscreen re-adds the smoked-glass slab, so it's a solid surface again — recapture pointers on
    it (the windowed click-through is only for the transparent windowed console). */
-body.helm-fullscreen .helm-console{ pointer-events:auto; }
-body.helm-fullscreen .helm-console{ border-radius:0;
+body.seat-fullscreen .helm-console{ pointer-events:auto; }
+body.seat-fullscreen .helm-console{ border-radius:0;
   background:
     linear-gradient(180deg,color-mix(in srgb,var(--accent) 12%,transparent) 0,transparent 30%),
     radial-gradient(160% 140% at 50% -20%,color-mix(in srgb,var(--bg2) 88%,transparent) 0,color-mix(in srgb,var(--bg) 92%,transparent) 42%,color-mix(in srgb,var(--bg) 96%,#000) 100%);
@@ -133,7 +133,7 @@ body.helm-fullscreen .helm-console{ border-radius:0;
     linear-gradient(0deg,color-mix(in srgb,var(--accent) 10%,transparent),transparent 30%);
   mix-blend-mode:screen; opacity:.7; }
 /* faint carbon-fibre weave milled into the console face — fullscreen only (part of the panel) */
-body.helm-fullscreen .helm-console-face::before{ content:''; position:absolute; inset:0; pointer-events:none; opacity:.14;
+body.seat-fullscreen .helm-console-face::before{ content:''; position:absolute; inset:0; pointer-events:none; opacity:.14;
   background:var(--hcarbon); background-size:6px 6px,6px 6px; mix-blend-mode:overlay; }
 /* ── Brushed-metal binnacle — a machined plinth the wheel rises out of. A trapezoid of vertical
    brushed-titanium grain with a beveled accent top lip; sits behind the wheel canvas so the ship's
@@ -307,3 +307,19 @@ body.helm-fullscreen .helm-console-face::before{ content:''; position:absolute; 
   .helm-gauges{ grid-template-columns:repeat(2,1fr); }
   .helm-wheel{ width:calc(128px*var(--hs)); height:calc(128px*var(--hs)); }
   .helm-nav-scope{ width:100px; height:74px; } }
+
+/* Loading: the veil is inside .helm-chase, under everything else here, so the console, the chips and
+   the placard wait for the picture instead of floating over the loading screen. */
+.helm-root.helm-loading > :not(.helm-chase){ visibility:hidden; }
+
+/* First person (the bridge seat): the wheelhouse is drawn round you, so the console, the placard and
+   the readout chips go. The wheel and the telegraph are keys (helm-fp-hint), and the chip row keeps
+   only its buttons. */
+.helm-fp-hint{ display:none; }
+.helm-root.helm-bridge .helm-dash,
+.helm-root.helm-bridge .helm-placard,
+.helm-root.helm-bridge .helm-chip{ display:none; }
+.helm-root.helm-bridge .helm-fp-hint{ display:block; position:absolute; left:50%; bottom:14px; transform:translateX(-50%); z-index:6;
+  padding:4px 12px; border-radius:10px; background:rgba(0,0,0,.5); color:#d8e4ea; font:11px/1.3 var(--hmono, monospace);
+  letter-spacing:1px; pointer-events:none; white-space:nowrap; }
+body.bigscreen .helm-root.helm-bridge .helm-fp-hint{ display:none; }

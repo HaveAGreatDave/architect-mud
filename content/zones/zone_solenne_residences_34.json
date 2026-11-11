@@ -1,13 +1,12 @@
 {
   "ambient_events": [
-    "The lift chimes on a floor somewhere below and doesn't stop here.",
-    "A door releases down the gallery, seals, and the carpet takes the rest.",
-    "The arrangement on the console table is, impossibly, always at its best hour."
+    "The runner takes every footstep and gives nothing back.",
+    "Somewhere behind a door a television is on, very low."
   ],
   "ambient_theme": "indoors",
   "bg_color": "#28323d",
   "color": "#d9e6f2",
-  "description": "The higher gallery, and the building knows the difference: the same panelled walnut and swallowing carpet as the floor below, but fewer doors, wider apart, and a window at the end that gives the bay, the mountains and the weather coming off both. A console table carries an arrangement that's changed, not watered. Three private residences open off this landing: <b>north</b>, <b>east</b>, and <b>west</b>. Step <b>in</b> to the elevator.",
+  "description": "The thirty-fourth floor, the same walnut and carpet as thirty with the doors further apart. Opposite the elevator a console holds dried thistle and something blue. 34-D is to the right of it, <b>north</b>; 34-F is at the <b>west</b> end and 34-E at the <b>east</b>. The elevator is <b>in</b> behind you.",
   "exits": {
     "east": "zone_solenne_apt_e",
     "in": "zone_solenne_elevator",
@@ -16,15 +15,103 @@
   },
   "flags": {
     "building_name": "Solenne Residences",
-    "floor": "boards",
+    "floor": "carpet",
     "is_interior": true,
-    "sanctuary": true,
-    "window": {
-      "description": "A window with a bad seal, letting in a draught and a slice of whatever the weather is doing.",
-      "light": 0.75,
-      "name": "the window",
-      "visibility": 0.8
-    }
+    "room": {
+      "balcony": false,
+      "d": 2.8,
+      "decor": {
+        "art": [
+          {
+            "at": -4.6,
+            "h": 1,
+            "seed": 47,
+            "w": 1.15,
+            "wall": "back",
+            "y": 1.62
+          },
+          {
+            "at": 4.6,
+            "h": 1,
+            "seed": 52,
+            "w": 1.15,
+            "wall": "back",
+            "y": 1.62
+          }
+        ],
+        "ceiling": {
+          "band": 0.28,
+          "drop": 0.1,
+          "hex": "#ece5d8",
+          "kind": "slot",
+          "trim": "#b8913e"
+        },
+        "downlights": false,
+        "plaques": {
+          "zone_solenne_apt_d": "34-D",
+          "zone_solenne_apt_e": "34-E",
+          "zone_solenne_apt_f": "34-F"
+        },
+        "rug": false,
+        "runner": {
+          "border": "#b8913e",
+          "end": 0.3,
+          "hex": "#1e2e26",
+          "w": 1.25
+        },
+        "sconces": {
+          "points": [
+            [
+              "front",
+              -1.25
+            ],
+            [
+              "front",
+              1.25
+            ],
+            [
+              "front",
+              2.7
+            ],
+            [
+              "front",
+              -3.6
+            ],
+            [
+              "back",
+              -1.75
+            ],
+            [
+              "back",
+              1.75
+            ]
+          ],
+          "y": 1.82
+        },
+        "walls": {
+          "hex": "#5a3a28",
+          "kind": "walnut",
+          "pitch": 0.92,
+          "rail": 0.95
+        }
+      },
+      "doors": {
+        "north": 4.65
+      },
+      "face": 0,
+      "finish": "fine",
+      "h": 3,
+      "studio": false,
+      "tone": {
+        "accent": "#b8913e",
+        "ceiling": "#ece5d8",
+        "trim": "#17130f",
+        "wall": "#3a2a20"
+      },
+      "w": 12.4,
+      "windowless": true
+    },
+    "sanctuary": true
   },
   "grid_x": 0,
   "grid_y": -1,

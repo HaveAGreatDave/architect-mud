@@ -7,10 +7,15 @@
       "bar fridge",
       "drinks"
     ],
+    "bar_counter": true,
     "container": 60000,
     "interactions": [
       "lean"
     ],
+    "look": {
+      "arche": "surface",
+      "form": "bar"
+    },
     "restock_items": [
       "item_platinum_champagne",
       "item_platinum_lager",

@@ -2,10 +2,9 @@
   "ambient_events": [],
   "ambient_theme": "forest",
   "color": "#8ba36a",
-  "description": "Long grass, gone to seed. A Halcyon board on two posts says the plot is sold, and a sticker under it says it's sold again.",
+  "description": "Long grass, gone to seed. Halcyon Heights stands next door, and its podium's shadow lies across the grass all afternoon.",
   "exits": {
-    "east": "zone_district_889_907",
-    "west": "zone_district_887_907"
+    "east": "zone_district_889_907"
   },
   "flags": {
     "district": "halcyon_fields",

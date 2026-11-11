@@ -594,6 +594,13 @@ function standRig(s, T, feet) {
     if ((act === 'break' || act === 'shove' || act === 'crosscheck') && s.target) { const t = s.target; L = toLocal(t.x, t.y, 4.4); L[1] += 0.4; R = toLocal(t.x, t.y, 4.3); R[1] -= 0.4; }
     if (act === 'carry') { L = [1.25, 0.65, zp - 0.5]; R = [1.25, -0.65, zp - 0.5]; }
     if (act === 'point') R = [0.6, -0.5, zp + 2.9];
+    // a referee's penalty call at the scorer's bench: one arm out straight at shoulder
+    // height toward the box (actData -1 his right, 1 his left), pumped twice
+    if (act === 'signal') {
+      const k = Math.min(1, at * 4), pump = 0.25 * Math.max(0, Math.sin(at * Math.PI * 4));
+      const arm = V.lerp([0.4, 0, zp + 1.0], [0.5 + pump, 2.3, zp + 1.95], k);
+      if ((s.actData || -1) < 0) R = [arm[0], -arm[1], arm[2]]; else L = arm;
+    }
     if (act === 'washout') { const k = bump(Math.min(1, at * 1.3)); L = V.lerp(L, [0.6, 2.0, zp + 1.2], k); R = V.lerp(R, [0.6, -2.0, zp + 1.2], k); }
   }
   // a shove with the stick is a cross-check: both hands on it, the shaft across his chest

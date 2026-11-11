@@ -23,6 +23,64 @@
   "dialogue_tree": {},
   "faction": null,
   "flags": {
+    "figure": {
+      "age": 0.45,
+      "beard": 0.15,
+      "brow": 1,
+      "build": "average",
+      "cut": "suit",
+      "fabric_legs": "canvas",
+      "fabric_shoes": "leather",
+      "fabric_top": "canvas",
+      "facial": "clean",
+      "gear": false,
+      "hair": [
+        44,
+        32,
+        26
+      ],
+      "hair_style": 4,
+      "head": 2,
+      "height": 1.83,
+      "iris": [
+        70,
+        90,
+        60
+      ],
+      "legs": [
+        226,
+        218,
+        196
+      ],
+      "mouth": 1,
+      "shirt": [
+        168,
+        196,
+        230
+      ],
+      "shoes": [
+        120,
+        80,
+        48
+      ],
+      "skin": [
+        214,
+        160,
+        120
+      ],
+      "smile": 1,
+      "top": [
+        226,
+        218,
+        196
+      ],
+      "trim": [
+        196,
+        186,
+        160
+      ],
+      "weight": 0.4
+    },
     "studio_npc": true
   },
   "home_activities": [],

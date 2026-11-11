@@ -15,7 +15,7 @@ import { sendCmdSilent, sendRaw } from '../net.js';
 import { renderMarkup } from '../markup.js';
 import { cphlMark, cphlLockup } from './cphl-brand.js';
 import { crestSvg, clubOf, wantClubs, onClubs } from './club-crest.js';
-import { wantVenue } from './venue.js';
+import { wantVenue, venueOf } from './venue.js';
 import { state } from '../state.js';
 import { makeCornerResizable } from './corner-resize.js';
 import { createTvDesk } from './tv-desk.js';
@@ -184,7 +184,10 @@ export function createTvView(root, opts = {}) {
   const isCrt      = chassis === 'crt';
   // The 3-D picture: a set in a room shows it by default (`opts.stage.always`); the others behind the button.
   // `opts.stage.onFrame(host)` hears each frame, for a surface that copies its page (room-tv.js).
-  const stageOpts  = { inset: chassis === 'wall' ? '0' : null, onFrame: opts.stage?.onFrame || null };
+  // A speaker the stage wasn't given (asked between shows, or before they came on) gets the cast asked for
+  // again, once a name a programme, so a real stranger can't restart the picture every line.
+  const stageOpts  = { inset: chassis === 'wall' ? '0' : null, onFrame: opts.stage?.onFrame || null,
+    onStranger: (name) => { if (_stageAsked.has(name)) return; _stageAsked.add(name); sendRaw({ type: 'tv_stage', channel: _tvActiveChannelId }); } };
   const wantStage  = () => !!opts.stage?.always || stageWanted();
 
   // Scoped lookup — the whole reason two surfaces can coexist.
@@ -228,7 +231,13 @@ export function createTvView(root, opts = {}) {
   let _desk = null;           // the desk over the game (tv-desk.js), made on its first segment
   let _stage = null;          // a text show on its set (tv-stage.js), behind the 3-D button
   let _stageKey = '';         // the programme the stage was asked for
+  const _stageAsked = new Set();   // speakers it was asked again for, this programme (stageOpts.onStranger)
   let _gamedaySport = null;   // which sport the mounted sub-screen renders
+  // The other sport's view, put aside rather than torn down: each holds a WebGL context and a few
+  // dozen compiled shaders, and building them again froze the screen for seconds on every switch
+  // between the CPhL and Deadball. { sport: { view, box } }, the box out of the page while parked.
+  const _parkedViews = {};
+  let _gamedayBox = null;
   let _stationName = '';      // the tuned station's name, for a sub-screen's corner bug
   let _channelNumber = 0;     // and its number, for the network's tag on a sports bug
   let _gamedayOpen = false;
@@ -455,6 +464,20 @@ export function createTvView(root, opts = {}) {
     _deliverQ = _deliverQ.slice(-1);   // keep only the freshest, drop the stale ones
   }
 
+  // Read Aloud, on or off: the set's own button and the Commentary toggle on a live game's
+  // picture (commentary-button.js) are the same switch. Remembered in tvReadAloud; off cuts the
+  // line being read.
+  function _setReadAloud(on) {
+    _readAloud = !!on;
+    try { localStorage.setItem('tvReadAloud', _readAloud ? '1' : '0'); } catch { /* storage blocked: this session only */ }
+    el('read-btn')?.classList.toggle('on', _readAloud);
+    if (!_readAloud) { window.AudioEngine?.cancelSpeech('tv'); _clearSpeech(); }
+    else _voiceLive = true;   // give the voice the benefit of the doubt again
+    _gamedayView?.syncCommentary?.();
+    for (const k of Object.keys(_parkedViews)) _parkedViews[k].view.syncCommentary?.();
+  }
+  const _commentary = { on: () => _readAloud, toggle: () => _setReadAloud(!_readAloud) };
+
   function _speakNow(rawText, style, windowSec, dl) {
     if (!_readAloud || !rawText) return;
     if (_speechOwner && _speechOwner !== view) return;   // another surface owns the voice
@@ -510,6 +533,13 @@ export function createTvView(root, opts = {}) {
     // A held card belongs to the station that raised it. Anything with duration 0 — a
     // stand-by delay card above all — waits for its own channel to take it down, so it
     // has to come off the glass when you tune away or it hangs over the next station.
+    // The voice goes with it. _tvTuneTo cuts it for a tune made on this set, but the old
+    // channel keeps sending lines until this echo arrives, and a typed tune or somebody
+    // else turning the dial comes through here alone. 'scene' is the voices inside a
+    // broadcast (the ballpark's PA and booth), which cancelSpeech('tv') doesn't reach.
+    if (_channelChanged && (_speechOwner === view || !_speechOwner || data.channelId)) {
+      window.AudioEngine?.cancelSpeech('tv'); window.AudioEngine?.cancelSpeech('scene'); _clearSpeech();
+    }
     if (_channelChanged) { _programName = null; _clearOverlay(); _clearScorebug(); _clearStandings(); _clearSportsFx(); _clearGameday(); _clearStandingsPanel(); _clearFilmLayers(); }
     _tvActiveChannelId = data.channelId || null;
     _tvPendingTune = null;   // the round trip is home; the lock check can arm again
@@ -745,6 +775,7 @@ export function createTvView(root, opts = {}) {
     _clearStandings();
     _clearSportsFx();
     _clearGameday();
+    _dropGamedayViews();
     _clearSchedule();
     _clearStandingsPanel();
     _clearFilmLayers();
@@ -821,13 +852,24 @@ export function createTvView(root, opts = {}) {
     if (overlay?.venueRev && wantVenue(overlay.sport || 'baseball', overlay.venueRev)) sendRaw({ type: 'tv_venue', sport: overlay.sport || 'baseball' });
     // The score-bug is a persistent layer (updated in place, its own container) —
     // it must not be wiped by transient overlays, nor auto-dismiss on a timer.
-    if (overlay && overlay.overlayType === 'scorebug') { _applyScorebug(overlay); return; }
+    // A scripted show takes it down between games with `{ off: true }` (a film's tournament).
+    if (overlay && overlay.overlayType === 'scorebug') { if (overlay.off) { _lastScorebug = null; _clearScorebug(); } else _applyScorebug(overlay); _stage?.data(_scoreFacts(_lastScorebug)); return; }
+    // A script's CAM line: only the 3-D stage has cameras to cut, so the text picture ignores it.
+    if (overlay && overlay.overlayType === 'direction') { _stage?.direction(overlay.label); return; }
+    // The show moving somebody on the set (the host to the star for his monologue): the 3-D stage's alone too.
+    if (overlay && overlay.overlayType === 'blocking') { _stage?.block(overlay.name, overlay.to); return; }
+    // The show cut to an advert on its own set, or back from one: the 3-D stage changes set.
+    if (overlay && overlay.overlayType === 'stage') { if (_stage?.open) applyStage({ ...overlay, channel: _tvActiveChannelId }); return; }
+    // a film's SLUG that moves the scene to another set carries it, and the lower third still goes up
+    if (overlay?.stage && _stage?.open) applyStage({ ...overlay.stage, channel: _tvActiveChannelId });
     // Two people at the desk, over the game: with the flag off the lines air as text and this is nothing.
     if (overlay && overlay.overlayType === 'desk') { _handleDesk(overlay); return; }
     // the final's package gives way to the game: its first play, or the card on the matchup line
     const packageUp = () => el('fx')?.classList.contains('fx-package');
     if (overlay && overlay.overlayType === 'gameday') { if (overlay.phase !== 'arrive' && packageUp()) _clearSportsFx(); _handleGameday(overlay); return; }
     if (overlay && overlay.overlayType === 'standings') { _applyStandingsBug(overlay); return; }
+    // The weather show's graphics: the today card, the radar, the week strip, a warning.
+    if (overlay && overlay.overlayType === 'weather') { _applyWeather(overlay); return; }
     // Film layers. Letterbox is persistent — a matte the picture switches on and off,
     // never a timed card — and the fade is a one-shot transition that paints over
     // everything, so neither may go through the transient overlay container.
@@ -1066,31 +1108,59 @@ export function createTvView(root, opts = {}) {
     const { createGrandstandView, createRinkView } = await loadGamedayViews();
     if (!_gamedayOpen) return null;   // closed, or the channel changed, while the views loaded
     const want = gd && gd.sport === 'hockey' ? 'hockey' : 'baseball';
-    if (_gamedayView && _gamedaySport === want) return _gamedayView;
-    _gamedayView?.clear();
+    if (_gamedayView && _gamedaySport === want && _gamedayBox?.parentNode === hostEl) return _gamedayView;
+    _parkGameday();
+    const kept = _parkedViews[want];
+    delete _parkedViews[want];
     _gamedaySport = want;
-    _gamedayView = want === 'hockey' ? createRinkView(hostEl, opts.gameday) : createGrandstandView(hostEl, { station: _networkLabel() || _stationName, ...opts.gameday });
+    if (kept) {
+      ({ view: _gamedayView, box: _gamedayBox } = kept);
+      hostEl.appendChild(_gamedayBox);
+      _gamedayView.wake?.();
+      return _gamedayView;
+    }
+    // each view writes its own innerHTML, so it gets a box of its own; 'contents' leaves the
+    // layout as if the view were the host's
+    // The city round the park comes with the venue, and only a game's first payload carries its
+    // venueRev, so a set tuned in mid-game would draw the park with no skyline. Ask outright.
+    if (want === 'baseball' && !venueOf('baseball')) sendRaw({ type: 'tv_venue', sport: 'baseball' });
+    _gamedayBox = document.createElement('div');
+    _gamedayBox.style.display = 'contents';
+    hostEl.appendChild(_gamedayBox);
+    _gamedayView = want === 'hockey' ? createRinkView(_gamedayBox, { commentary: _commentary, ...opts.gameday }) : createGrandstandView(_gamedayBox, { station: _networkLabel() || _stationName, commentary: _commentary, ...opts.gameday });
     return _gamedayView;
   }
+  // Take the mounted view out of the page and keep it for its sport's next game.
+  function _parkGameday() {
+    if (!_gamedayView) return;
+    const old = _parkedViews[_gamedaySport];
+    if (old) { try { old.view.clear(); } catch { /* gone */ } }
+    try { _gamedayView.rest ? _gamedayView.rest() : _gamedayView.clear(); } catch { /* gone */ }
+    _gamedayBox?.remove();
+    if (_gamedayView.rest) _parkedViews[_gamedaySport] = { view: _gamedayView, box: _gamedayBox };
+    _gamedayView = null; _gamedayBox = null; _gamedaySport = null;
+  }
+  // The TV's off or gone: let the GL contexts go.
+  function _dropGamedayViews() {
+    _parkGameday();
+    for (const k of Object.keys(_parkedViews)) { try { _parkedViews[k].view.clear(); } catch { /* gone */ } delete _parkedViews[k]; }
+  }
 
-  // The toggle wears the sport it would open. A baseball is a lie on a hockey night —
-  // and the button is the only affordance telling a viewer the sub-screen exists at
-  // all, so it has to name the right game. The puck is the league's own mark, which
-  // is a disc with one line struck through it, so the button and everything else in
-  // the CPhL presentation come from the same drawing.
-  function _brandGamedayBtn(sport) {
-    const btn = el('gameday-btn');
-    if (!btn || btn.dataset.sport === sport) return;
-    btn.dataset.sport = sport;
-    if (sport === 'hockey') {
-      btn.innerHTML = cphlMark('15px');
-      btn.title = 'Rinkside: live play on the ice';
-      btn.setAttribute('aria-label', 'Rinkside view');
-    } else {
-      btn.innerHTML = '&#x26BE;';
-      btn.title = 'Gameday: animated play-by-play';
-      btn.setAttribute('aria-label', 'Gameday view');
-    }
+  // ONE 3D BUTTON. The 3D button is the way into every 3-D picture the TV has: during a game it
+  // opens that sport's view (Cluster Puck's rink, Deadball's park), and for any other programme it
+  // puts the show on its set. The old sport-marked Gameday toggle stays in the markup but is never
+  // shown. The button's words say which it will do.
+  function _paintStageBtn() {
+    const btn = el('stage-btn');
+    if (!btn) return;
+    const game = !!_lastGameday;
+    const can = _tvOpen && (game || !!_programName);
+    btn.classList.toggle('avail', can);
+    btn.classList.toggle('on', can && (game ? _gamedayOpen : wantStage()));
+    const title = !game ? '3-D: watch this show on its set'
+      : _lastGameday.sport === 'hockey' ? '3-D: the game live on the ice' : '3-D: the game live in the park';
+    btn.title = title;
+    btn.setAttribute('aria-label', title);
   }
 
   // The desk goes over the sub-screen, on the same screen. The game keeps running under it, and its
@@ -1106,13 +1176,13 @@ export function createTvView(root, opts = {}) {
   // The button shows for any programme that isn't a game. On, it asks for the set once a programme,
   // and each line the TV shows is a cut on it.
   function _stageAvail() {
-    const btn = el('stage-btn');
+    _paintStageBtn();
+    // a game has its own 3-D view (the 3D button opens it), so no set while one is on
     const can = _tvOpen && !_lastGameday && !!_programName;
-    btn?.classList.toggle('avail', can);
-    btn?.classList.toggle('on', can && wantStage());
     if (!can) { _stage?.close(); _stageKey = ''; return; }
     if (wantStage() && _stageKey !== _programName) {
       _stageKey = _programName;
+      _stageAsked.clear();
       sendRaw({ type: 'tv_stage', channel: _tvActiveChannelId });
     }
   }
@@ -1121,21 +1191,25 @@ export function createTvView(root, opts = {}) {
     if (!wantStage()) { _stage?.close(); _stageKey = ''; }
     _stageAvail();
   }
+  // The score as a set's wall letters it ('{score}' and '{scoreSub}'): the 3-D stage's arena scoreboard
+  function _scoreFacts(sb) {
+    if (!sb) return { score: '', scoreSub: '', lights: '' };
+    return { score: `${sb.awayAbbr || sb.away || ''} ${sb.awayScore | 0}  ${sb.homeAbbr || sb.home || ''} ${sb.homeScore | 0}`, scoreSub: sb.status || '', lights: sb.lights ?? '' };
+  }
   function applyStage(msg) {
     if (msg.channel !== _tvActiveChannelId || !wantStage()) return;
     const screen = el('gameday')?.parentElement;
     if (!screen) return;
     _stage ??= createTvStage(screen, stageOpts);
+    _stage.data(_scoreFacts(_lastScorebug));
     // an assembled programme's own reply can carry no name; the TV has it off its lines
     _stage.show({ ...msg, programName: msg.programName || _programName || '' });
   }
 
   function _handleGameday(gd) {
     _lastGameday = gd;
-    _stage?.close();
-    const btn = el('gameday-btn');
-    if (btn) btn.classList.add('avail');
-    _brandGamedayBtn(gd && gd.sport === 'hockey' ? 'hockey' : 'baseball');
+    _stage?.close(); _stageKey = '';
+    _paintStageBtn();
     loadGamedayViews().catch(() => { /* retried when the button is pressed */ });
     // On the visual rung the game opens by itself; the other rungs keep it behind the button.
     const rung = state.player?.displayRung;
@@ -1155,6 +1229,7 @@ export function createTvView(root, opts = {}) {
     if (!_gamedayOpen) _gamedayDismissed = true;
     host.classList.toggle('on', _gamedayOpen);
     btn?.classList.toggle('on', _gamedayOpen);
+    _paintStageBtn();
     if (_gamedayOpen) {
       const gd = _lastGameday;
       _gamedayViewFor(gd, host).then((view) => {
@@ -1176,17 +1251,12 @@ export function createTvView(root, opts = {}) {
     _gamedayOpen = false;
     _gamedayDismissed = false;
     _lastGameday = null;
-    _gamedayView?.clear();
-    _gamedayView = null; _gamedaySport = null;   // next sport mounts its own view
+    _parkGameday();   // a channel change: the next sport takes its own view back, if it has one
     _desk?.close();
     _stage?.close(); _stageKey = '';
     el('gameday')?.classList.remove('on');
     el('gameday-btn')?.classList.remove('on', 'avail');
-    // Forget which sport branded it, so the next broadcast re-marks the button rather
-    // than inheriting the last one's — a hockey puck over a ballgame is the same lie
-    // in the other direction.
-    const btn = el('gameday-btn');
-    if (btn) delete btn.dataset.sport;
+    _paintStageBtn();
   }
 
   // ── TV guide sub-screen ───────────────────────────────────────────────────
@@ -1860,8 +1930,168 @@ export function createTvView(root, opts = {}) {
     strip.classList.add('in');
   }
 
+  // ── weather graphics ──────────────────────────────────────────────────────
+  // The weather show reads its lines over four cards (plugins/broadcast wxGraphicOnAir):
+  // 'today' (the sky now), 'radar' (the live rain cells over the region, swept), 'week'
+  // (seven days, the one being read picked out) and 'warn'. Every line re-sends its card,
+  // so a repeat of the card already up updates it in place instead of replaying its entry.
+  const WX_ICON = {
+    clear: '\u2600\uFE0F', sunny: '\u2600\uFE0F', cloudy: '\u26C5', overcast: '\u2601\uFE0F', fog: '\uD83C\uDF2B\uFE0F', haze: '\uD83C\uDF2B\uFE0F',
+    ash: '\uD83C\uDF0B', rain: '\uD83C\uDF27\uFE0F', drizzle: '\uD83C\uDF26\uFE0F', sleet: '\uD83C\uDF28\uFE0F', snow: '\uD83C\uDF28\uFE0F', blizzard: '\u2744\uFE0F',
+    thunderstorm: '\u26C8\uFE0F', storm: '\u26C8\uFE0F', wind: '\uD83D\uDCA8', acid: '\u2622\uFE0F', ion: '\u26A1', dust: '\uD83C\uDF2A\uFE0F',
+  };
+  const _wxIcon = (sky) => WX_ICON[sky] || WX_ICON[String(sky || '').split(/[_ ]/)[0]] || '\u2601\uFE0F';
+  const WX_WARN = {
+    acid: ['ACID RAIN WARNING', 'Stay under cover. Rinse anything it touched.'],
+    ion: ['ION STORM WARNING', 'Expect power and comms to fail. Stay off the roofs.'],
+    blizzard: ['BLIZZARD WARNING', 'Whiteout. Do not travel.'],
+    storm: ['SEVERE STORM WARNING', 'Lightning and flooding. Get inside.'],
+    cold: ['EXTREME COLD WARNING', 'Exposed skin freezes in minutes.'],
+    heat: ['EXTREME HEAT WARNING', 'Drink water. Stay out of the sun.'],
+    wind: ['HIGH WIND WARNING', 'Loose things will move. So will you.'],
+    generic: ['SEVERE WEATHER WARNING', 'Check back before you go out.'],
+  };
+  let _wxKind = null;
+  function _applyWeather(wx) {
+    const host = el('fx');
+    if (!host) return;
+    // a weather card never sits over a sports card that's still up
+    if (_pregameUp) return;
+    const rung = state.player?.displayRung;
+    const text = rung === 'textgames' || rung === 'log';
+    const same = _wxKind === wx.kind && host.classList.contains('fx-wx');
+    if (wx.kind === 'week' && same && !text) {
+      host.querySelectorAll('.tv-wx-day').forEach((d, i) => d.classList.toggle('hl', i === wx.hl));
+    } else if (wx.kind === 'radar' && same && !text) {
+      _drawRadar(host.querySelector('canvas'), wx);
+      const t = host.querySelector('.tv-wx-radar-time'); if (t) t.textContent = _wxClock(wx.minutes);
+    } else if (!(same && (wx.kind === 'today' || wx.kind === 'warn') && !text)) {
+      let inner = '';
+      if (text) inner = `<pre class="tv-wx-text">${_esc(_wxText(wx))}</pre>`;
+      else if (wx.kind === 'today') {
+        const d = wx.day || {};
+        const facts = [
+          d.feels != null && d.feels !== d.temp ? ['Feels like', `${d.feels}\u00B0`] : null,
+          ['Wind', `${d.wind ?? 0} km/h${d.windLabel ? ` \u00B7 ${d.windLabel}` : ''}`],
+          d.humidity != null && d.humidity !== '' ? ['Humidity', `${d.humidity}%`] : null,
+          ['Precip', `${d.precip ?? 0}%`],
+        ].filter(Boolean);
+        inner =
+          `<div class="tv-wx-today${d.severe ? ' severe' : ''} sky-${_esc(d.sky || '')}">` +
+            `<div class="tv-wx-head">Right now</div>` +
+            `<div class="tv-wx-now"><span class="tv-wx-icon">${_wxIcon(d.sky)}</span><span class="tv-wx-temp">${d.temp ?? ''}\u00B0</span></div>` +
+            `<div class="tv-wx-word">${_esc(d.word || '')}</div>` +
+            `<div class="tv-wx-facts">${facts.map(([k, v]) => `<div><i>${k}</i><b>${_esc(v)}</b></div>`).join('')}</div>` +
+          `</div>`;
+      } else if (wx.kind === 'week') {
+        const days = Array.isArray(wx.days) ? wx.days : [];
+        inner =
+          `<div class="tv-wx-week">` +
+            `<div class="tv-wx-head">The week ahead</div>` +
+            `<div class="tv-wx-days">${days.map((d, i) =>
+              `<div class="tv-wx-day${i === wx.hl ? ' hl' : ''}${d.severe ? ' severe' : ''}" style="--i:${i}">` +
+                `<div class="tv-wx-dl">${_esc(d.label)}</div>` +
+                `<div class="tv-wx-di">${_wxIcon(d.sky)}</div>` +
+                `<div class="tv-wx-dt">${d.temp}\u00B0</div>` +
+                `<div class="tv-wx-dp">${d.precip > 0 ? `${d.precip}%` : '&nbsp;'}</div>` +
+                `<div class="tv-wx-dw">${_esc(d.word)}</div>` +
+              `</div>`).join('')}</div>` +
+          `</div>`;
+      } else if (wx.kind === 'warn') {
+        const [title, sub] = WX_WARN[wx.channel] || WX_WARN.generic;
+        const d = wx.day || {};
+        inner =
+          `<div class="tv-wx-warn ch-${_esc(wx.channel || 'generic')}">` +
+            `<div class="tv-wx-warn-bar">${_esc(title)}</div>` +
+            `<div class="tv-wx-warn-body"><span class="tv-wx-icon">${_wxIcon(d.sky)}</span>` +
+              `<div><div class="tv-wx-warn-when">${_esc(d.label || '')}: ${_esc(d.word || '')}, ${d.temp ?? ''}\u00B0</div>` +
+              `<div class="tv-wx-warn-sub">${_esc(sub)}</div></div></div>` +
+            `<div class="tv-wx-warn-crawl"><span>${_esc(`${title} \u00B7 ${sub} \u00B7 `.repeat(4))}</span></div>` +
+          `</div>`;
+      } else if (wx.kind === 'radar') {
+        inner =
+          `<div class="tv-wx-radar${wx.event ? ` ev-${_esc(wx.event)}` : ''}">` +
+            `<div class="tv-wx-radar-frame">` +
+              `<canvas></canvas><div class="tv-wx-radar-sweep"></div>` +
+              `<div class="tv-wx-radar-tag"><b>DOPPLER</b> ${_esc(wx.region || '')}</div>` +
+              `<div class="tv-wx-radar-time">${_wxClock(wx.minutes)}</div>` +
+              `<div class="tv-wx-radar-key"><i class="r1"></i><i class="r2"></i><i class="r3"></i><i class="r4"></i><span>light \u2192 heavy</span>${/a/.test(wx.wet || '') ? '<span class="acid">\u2622 acid</span>' : ''}</div>` +
+            `</div>` +
+          `</div>`;
+      } else return;
+      host.innerHTML = inner;
+      host.className = `tv-fx-host on fx-wx fx-wx-${wx.kind}${text ? ' fx-wx-txt' : ''}`;
+      _wxKind = wx.kind;
+      if (wx.kind === 'radar' && !text) _drawRadar(host.querySelector('canvas'), wx);
+    }
+    if (_fxTimer) clearTimeout(_fxTimer);
+    _fxTimer = setTimeout(_clearSportsFx, (wx.duration || 12) * 1000);
+  }
+  const _wxClock = (m) => Number.isFinite(m) ? `${String(Math.floor(m / 60) % 24).padStart(2, '0')}:${String(Math.floor(m % 60)).padStart(2, '0')}` : '';
+  // Land and water as the map has them, then the rain at one pixel a cell drawn up with
+  // smoothing on, which gives the blobby look a radar return has.
+  const RADAR_LAND = { '~': '#123f6b', b: '#5b6a5e', '.': '#2f4a35' };
+  const RADAR_RAMP = {
+    r: ['#1f9d3a', '#2ecc40', '#7be04a', '#ffdc00', '#ffb300', '#ff851b', '#ff4136', '#d6002a', '#ff3cf0'],
+    s: ['#5aa9ff', '#7cbcff', '#9fd0ff', '#c4e2ff', '#e4f2ff', '#ffffff', '#ffffff', '#ffffff', '#ffffff'],
+    l: ['#c77dff', '#d291ff', '#dca6ff', '#e6bbff', '#f0d0ff', '#f7e3ff', '#ffffff', '#ffffff', '#ffffff'],
+    a: ['#7dff00', '#a4ff00', '#c8ff00', '#e8ff00', '#fffb00', '#ff00c8', '#ff00e6', '#ff00ff', '#ff00ff'],
+    h: ['#ff6bd6', '#ff4fc8', '#ff33bb', '#ff1aad', '#ff00a0', '#ff0090', '#ff0080', '#ff0070', '#ff0060'],
+  };
+  function _drawRadar(cv, wx) {
+    if (!cv || !wx.w || !wx.h) return;
+    const S = 8, W = wx.w * S, H = wx.h * S;
+    cv.width = W; cv.height = H;
+    const g = cv.getContext('2d');
+    if (!g) return;
+    for (let j = 0; j < wx.h; j++) for (let i = 0; i < wx.w; i++) {
+      const c = RADAR_LAND[wx.land[j * wx.w + i]];
+      if (!c) continue;
+      g.fillStyle = c; g.fillRect(i * S, j * S, S, S);
+    }
+    // the coast and the built-up blocks get a faint grid, as a radar's base map has
+    g.strokeStyle = 'rgba(120,200,140,0.10)'; g.lineWidth = 1;
+    for (let x = 0; x <= W; x += S * 4) { g.beginPath(); g.moveTo(x + 0.5, 0); g.lineTo(x + 0.5, H); g.stroke(); }
+    for (let y = 0; y <= H; y += S * 4) { g.beginPath(); g.moveTo(0, y + 0.5); g.lineTo(W, y + 0.5); g.stroke(); }
+    const off = document.createElement('canvas');
+    off.width = wx.w; off.height = wx.h;
+    const o = off.getContext('2d');
+    if (!o) return;
+    const img = o.createImageData(wx.w, wx.h);
+    let k = 0;
+    for (let n = 0; n < wx.w * wx.h; n++) {
+      const lv = +wx.rate[n] || 0;
+      if (!lv) continue;
+      const hex = (RADAR_RAMP[(wx.wet || '')[k++]] || RADAR_RAMP.r)[lv - 1];
+      const p = n * 4;
+      img.data[p] = parseInt(hex.slice(1, 3), 16); img.data[p + 1] = parseInt(hex.slice(3, 5), 16); img.data[p + 2] = parseInt(hex.slice(5, 7), 16);
+      img.data[p + 3] = 150 + lv * 11;
+    }
+    o.putImageData(img, 0, 0);
+    g.imageSmoothingEnabled = true;
+    g.drawImage(off, 0, 0, W, H);
+  }
+  // The same cards in characters, for the textgames rung.
+  function _wxText(wx) {
+    if (wx.kind === 'today') { const d = wx.day || {}; return `RIGHT NOW  ${d.temp}\u00B0  ${String(d.word || '').toUpperCase()}\nwind ${d.wind ?? 0} km/h  precip ${d.precip ?? 0}%${d.humidity != null ? `  humidity ${d.humidity}%` : ''}`; }
+    if (wx.kind === 'week') return 'THE WEEK AHEAD\n' + (wx.days || []).map((d, i) => `${i === wx.hl ? '>' : ' '} ${String(d.label).padEnd(6)} ${String(d.temp).padStart(3)}\u00B0 ${String(d.precip).padStart(3)}%  ${d.word}${d.severe ? ' !' : ''}`).join('\n');
+    if (wx.kind === 'warn') { const [t, s] = WX_WARN[wx.channel] || WX_WARN.generic; return `!! ${t} !!\n${wx.day?.label || ''}: ${wx.day?.word || ''}\n${s}`; }
+    if (wx.kind === 'radar') {
+      const ch = { '~': '~', b: '#', '.': '.', ' ': ' ' };
+      const rows = [];
+      for (let j = 0; j < wx.h; j += 2) {
+        let r = '';
+        for (let i = 0; i < wx.w; i++) { const n = j * wx.w + i, lv = +wx.rate[n] || 0; r += lv >= 7 ? '@' : lv >= 4 ? '%' : lv ? '+' : (ch[wx.land[n]] ?? ' '); }
+        rows.push(r);
+      }
+      return `RADAR ${String(wx.region || '').toUpperCase()}  ${_wxClock(wx.minutes)}\n${rows.join('\n')}`;
+    }
+    return '';
+  }
+
   function _clearSportsFx() {
     _pregameUp = false;
+    _wxKind = null;
     if (_fxTimer) { clearTimeout(_fxTimer); _fxTimer = null; }
     const host = el('fx');
     if (host) { host.innerHTML = ''; host.className = 'tv-fx-host'; }
@@ -1871,7 +2101,7 @@ export function createTvView(root, opts = {}) {
   function _tvTuneTo(num) {
     // A tune abandons the old channel's timeline outright — anything still queued
     // belongs to a programme you are no longer watching.
-    window.AudioEngine?.cancelSpeech('tv'); _clearSpeech();
+    window.AudioEngine?.cancelSpeech('tv'); window.AudioEngine?.cancelSpeech('scene'); _clearSpeech();
     _speechOwner = view;   // the surface being tuned takes the voice
     if (_sweepRaf) { cancelAnimationFrame(_sweepRaf); _sweepRaf = null; }
     _wheelTarget = null;
@@ -2076,7 +2306,11 @@ export function createTvView(root, opts = {}) {
       _lastSpoken = { text: new DOMParser().parseFromString(String(text), 'text/html').body.textContent, at: performance.now() };
       _pregameCaption(_lastSpoken.text);
       _stage?.line(text, style);
+      // a set across a room is too small to read, so its surface puts the line up itself (room-tv.js)
+      opts.onLine?.(_lastSpoken.text, style);
     }
+    // a title card fills the 3-D picture too, which otherwise covers it
+    if (style === 'svg' || style === 'ascii_art') _stage?.card(text, style);
 
     // Clear before title cards, and after them on the next message
     if (isTitleCard || _clearAfterTitleCard) {
@@ -2283,6 +2517,12 @@ export function createTvView(root, opts = {}) {
     // station to take it down, so when the next programme starts it has to come off
     // the glass — otherwise a bulletin's lower third hangs over the show after it.
     if (_programName !== null && next !== _programName) _clearOverlay();
+    // So does the last game's picture. KSAB5 goes from a hockey game to a ballgame on one channel,
+    // and the rink sub-screen sat over the message area holding the hockey final while Deadball's
+    // title card and theme played under it. The next game's own payloads open its view again.
+    if (_programName && next !== _programName && (_lastGameday || _gamedayOpen)) _clearGameday();
+    // and its score: the hockey FINAL bug isn't the ballgame's
+    if (_programName && next !== _programName && _lastScorebug) { _lastScorebug = null; _clearScorebug(); }
     _programName = next;
     const pn = el('program-name');
     if (pn) pn.textContent = next;
@@ -2347,18 +2587,13 @@ export function createTvView(root, opts = {}) {
     const readBtn = el('read-btn');
     const syncReadBtn = () => readBtn?.classList.toggle('on', _readAloud);
     syncReadBtn();
-    readBtn?.addEventListener('click', () => {
-      _readAloud = !_readAloud;
-      localStorage.setItem('tvReadAloud', _readAloud ? '1' : '0');
-      syncReadBtn();
-      if (!_readAloud) { window.AudioEngine?.cancelSpeech('tv'); _clearSpeech(); }
-      else _voiceLive = true;   // give the voice the benefit of the doubt again
-    });
+    readBtn?.addEventListener('click', () => _setReadAloud(!_readAloud));
 
     // Gameday toggle: reveals the animated at-bat sub-screen. Hidden until a sports
     // broadcast sends its first `gameday` overlay (which adds `.avail`).
     el('gameday-btn')?.addEventListener('click', () => { if (_tvOpen) _toggleGameday(); });
-    el('stage-btn')?.addEventListener('click', () => { if (_tvOpen) _toggleStage(); });
+    // the one 3D button: the game's own 3-D view while a game is on, the show's set otherwise
+    el('stage-btn')?.addEventListener('click', () => { if (_tvOpen) (_lastGameday ? _toggleGameday() : _toggleStage()); });
 
     // TV guide toggle: shows the tuned channel's running order + in-world time.
     el('schedule-btn')?.addEventListener('click', () => { if (_tvOpen) _toggleSchedule(); });

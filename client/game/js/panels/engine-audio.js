@@ -86,6 +86,67 @@ const ROLL_SURFACE = {
 };
 const voiceOf = (cls) => FE_VOICE[cls] || FE_VOICE.prop;
 
+// ── Somebody else's aircraft, heard from the ground or another seat ──────────
+// The same per-class numbers the pilot hears, held at a cruise RPM and written as a SIREN cue, so
+// a Locust going over sounds like the Locust you fly and not a generic drone. A cue (not the live
+// graph) because SIREN's positioned path gives it a panner and doppler for free: the caller passes
+// `position` and moves it, and the pitch drops as it goes past.
+//
+// `muffled` is the version heard through a wall or a window: the prop-tip bite and the airflow
+// hiss are the first things glass takes, so they go, and the core's filter closes.
+//
+// FLYBY_LOUD is how loud each class is, as the distance in tiles at which it's at full level
+// (`ref`) and the distance past which it isn't worth a voice (`hear`). A heavy is heard right
+// across a district; an ultralight barely over the next roof.
+const FLYBY_CLASS = { grasshopper: 'ultralight', drake: 'prop', jet: 'heavy' };
+export const FLYBY_LOUD = {
+  ultralight: { ref: 1.0, hear: 22 }, wreck: { ref: 1.8, hear: 30 }, prop: { ref: 2.2, hear: 36 },
+  locust: { ref: 2.6, hear: 40 }, divebomber: { ref: 3.2, hear: 48 }, heli: { ref: 3.0, hear: 46 },
+  // a heavy at cruise is 10 km up and still a faint rumble, so it's heard a very long way
+  gunship: { ref: 5.0, hear: 120 }, heavy: { ref: 6.5, hear: 700 },
+};
+// Past this many `ref`s the air has taken the highs as well: play the muffled cue.
+export const FLYBY_FAR_REFS = 25;
+export const flybyClass = (cls) => {
+  const c = FLYBY_CLASS[cls] || cls;
+  return c === 'heli' || FE_VOICE[c] && c !== 'truck' ? c : null;
+};
+export function flybyCue(cls, { muffled = false } = {}) {
+  const c = flybyClass(cls) || 'prop', A = { a: 0.9, d: 0, s: 1, r: 1.2 };
+  if (c === 'heli') {
+    // the deck heli's loop rows and its start-up's rotor chop: a low body chopped by the blades,
+    // a broadband slap on the same beat, a tail rotor buzzing over it and the turboshaft's whine
+    const P = CLASS_AUDIO.heli, slap = 11;
+    return [
+      { waveform: P.wave, freq: P.power[0] / 2, filter: { type: 'lowpass', freq: muffled ? 260 : 420, q: 1 }, tremolo: { rate: slap, depth: 0.7 }, adsr: A, gain: 0.15 },
+      { waveform: 'noise', noiseMix: 1, noise: 'pink', filter: { type: 'lowpass', freq: 380, q: 0.8 }, tremolo: { rate: slap, depth: 0.85 }, adsr: A, gain: 0.13 },
+      ...(muffled ? [] : [
+        { waveform: 'noise', noiseMix: 1, noise: 'pink', filter: { type: 'bandpass', freq: 950, q: 0.7 }, tremolo: { rate: slap, depth: 0.9 }, adsr: A, gain: 0.05 },
+        { waveform: P.wave, freq: P.power[1], filter: { type: 'lowpass', freq: 700, q: 1 }, tremolo: { rate: 46, depth: 0.5 }, adsr: A, gain: 0.03 },
+        { waveform: 'sine', freq: 1850, adsr: A, gain: 0.01 },
+      ]),
+    ];
+  }
+  const V = FE_VOICE[c], r = 0.75, core = V.coreB + r * V.coreS, lp = (V.lpB + r * V.lpS) * (muffled ? 0.45 : 1);
+  const pulse = V.pulseB + r * V.pulseS, depth = Math.min(0.9, (V.pDep[0] + 0.4 * V.pDep[1]) * 1.6), m = V.mas;
+  const turbofan = c === 'heavy' || c === 'gunship';
+  return [
+    { waveform: V.wave, freq: core, filter: { type: 'lowpass', freq: lp, q: 1.4 }, tremolo: { rate: pulse, depth }, adsr: A, gain: 0.11 * m },
+    { waveform: V.wave, freq: core * V.det, filter: { type: 'lowpass', freq: lp, q: 1.4 }, adsr: A, gain: 0.05 * m },
+    { waveform: 'sine', freq: V.subB + r * 6, adsr: A, gain: 0.03 * V.subM },
+    { waveform: 'noise', noiseMix: 1, noise: 'pink', filter: { type: 'bandpass', freq: 750, q: 1.2 }, tremolo: { rate: 12, depth: 0.5 }, adsr: A, gain: 0.025 * V.crk },
+    // a turbofan passing over is mostly roar: the jet wash the cockpit never hears
+    ...(turbofan ? [
+      { waveform: 'noise', noiseMix: 1, noise: 'brown', filter: { type: 'lowpass', freq: muffled ? 200 : 300, q: 0.6 }, adsr: A, gain: 0.12 },
+      { waveform: 'noise', noiseMix: 1, noise: 'pink', filter: { type: 'bandpass', freq: muffled ? 380 : 650, q: 0.5 }, adsr: A, gain: 0.1 },
+    ] : []),
+    ...(muffled ? [] : [
+      { waveform: 'sine', freq: V.biteB + r * V.biteS, fm: { rate: 200, depth: 40 + r * 120 }, filter: { type: 'bandpass', freq: 1200 + r * 1400, q: 2 }, adsr: A, gain: 0.03 * V.biteM },
+      { waveform: 'noise', noiseMix: 1, noise: 'white', filter: { type: 'highpass', freq: 500 + r * 700, q: 0.7 }, adsr: A, gain: 0.025 },
+    ]),
+  ];
+}
+
 function createFlightEngine(cls) {
   try {
     const ae = AE(); if (!ae?.engineNodes) return null;
@@ -340,6 +401,8 @@ const THUNDER_SAMPLES = [
   'smp_357d0dd8-6e28-44c8-8db9-33ede3ca6e79',   // thunder4
   'smp_457b9e5f-a133-4351-bd19-deedb2e96fd4',   // thunder5
   'smp_94055023-841c-4346-8f75-ba4b85a28eee',   // thunder6
+  'smp_field_thunder_a',                         // field recordings (client/shared/field-recordings.js)
+  'smp_field_thunder_b',
 ];
 // `position` (seatSpot in seat-audio.js) places the clap in a GLASS seat. The caller's gain already
 // says how far off it is, so the panner only gives it a direction: no rolloff, no doppler.

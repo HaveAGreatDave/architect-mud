@@ -5,7 +5,7 @@
 //   (b) is it the inside of the OUTSIDE: every vertex inside the hull's skin, and the exterior's
 //       compiled glass where the shared layout (cabin-reaper-2076.js) says it is;
 //   (c) does every control and every display move: the geometry differs between the stops, the
-//       gun and wingmen pages and the hologram included, each thrust lever on its own;
+//       gun and stores pages and the hologram included, each thrust lever on its own;
 //   (d) is every click control in the forward view, and does the forward view show every low
 //       control (sidestick, both thrust levers, pedals, flaps) moving;
 //   (e) do the pages boot in turn when the power comes on.
@@ -99,7 +99,7 @@ const STOPS = {
   stickX: [-1, 1], stickY: [-1, 1], rudder: [-1, 1], throttle: [0, 1], rpm: [0.2, 1.05], phase: [0, 1.7], flapNotch: [0, 3],
   ias: [0, 120], alt: [0, 4500], vsi: [-1500, 1500], bank: [-45, 45], pitch: [-20, 20], hdg: [0, 135],
   fuel: [0.1, 1], hull: [0.1, 1], powered: [false, true], landingLight: [false, true], dome: [false, true], hour: [12, 23], stall: [false, true],
-  weaponsArmed: [false, true], weapon: ['guns', 'msl'], ammo: [1174, 300], missiles: [0, 2], bombs: [0, 3], wingmen: [0, 1], oilTemp: [0.3, 0.9],
+  weaponsArmed: [false, true], weapon: ['guns', 'msl'], ammo: [1174, 300], missiles: [0, 2], bombs: [0, 3], oilTemp: [0.3, 0.9],
 };
 for (const [k, [a, b]] of Object.entries(STOPS)) {
   const base = k === 'phase' ? { ...REST, rpm: 1 } : REST;
@@ -121,7 +121,7 @@ for (const [k, [a, b]] of Object.entries(STOPS)) {
   ok(pa.length > 20 && Math.abs(sig(pa) - sig(pb)) > 1e-6, 'rudder: the pedals do not slide');
 }
 roomChecks('all low', { ...REST, stickX: -1, stickY: -1, rudder: -1, throttle: 0, rpm: 0, bank: -45, pitch: -25, flapNotch: 0 });
-roomChecks('all high', { ...REST, stickX: 1, stickY: 1, rudder: 1, throttle: 1, rpm: 1.05, bank: 45, pitch: 25, flapNotch: 3, landingLight: true, dome: true, hour: 23, weaponsArmed: true, wingmen: 1 });
+roomChecks('all high', { ...REST, stickX: 1, stickY: 1, rudder: 1, throttle: 1, rpm: 1.05, bank: 45, pitch: 25, flapNotch: 3, landingLight: true, dome: true, hour: 23, weaponsArmed: true, missiles: 2, bombs: 2 });
 {
   const h0 = P.hotspots({ ...REST, stickY: -1, throttle: 0, flapNotch: 0 }), h1 = P.hotspots({ ...REST, stickY: 1, throttle: 1, flapNotch: 3 });
   const at = (hs, id) => hs.find((h) => h.id === id).p;
@@ -157,9 +157,9 @@ roomChecks('all high', { ...REST, stickX: 1, stickY: 1, rudder: 1, throttle: 1, 
   const hud = (live) => shellFaces(P, live, { rich: true }).filter((f) => f.p.every((q) => q[1] > 0.5 && q[1] < 0.6 && q[2] > -0.1 && q[2] < 0.08 && Math.abs(q[0]) < 0.16));
   ok(hud(REST).length > 50 && hud({ ...REST, powered: false }).length === 0, 'no windscreen HUD ahead of the pilot, or one that stays lit with the power off');
   // The master arm shows in the forward view: the gun page, the HUD's weapon box and the ARM key; and
-  // the wingmen fly out on the wingmen page and in the hologram.
+  // what hangs on the pylons shows on the stores page and in the hologram.
   ok(Math.abs(sig(forward({ ...REST, weaponsArmed: true })) - sig(forward({ ...REST, weaponsArmed: false }))) > 1e-6, 'weaponsArmed: nothing in the forward view shows the master arm');
-  ok(Math.abs(sig(forward({ ...REST, wingmen: 1 })) - sig(forward({ ...REST, wingmen: 0 }))) > 1e-6, 'wingmen: nothing in the forward view shows the wingmen out');
+  for (const k of ['missiles', 'bombs']) ok(Math.abs(sig(forward({ ...REST, [k]: 2 })) - sig(forward({ ...REST, [k]: 0 }))) > 1e-6, k + ': nothing in the forward view shows what hangs on the pylons');
 }
 
 // ── (e) THE PAGES BOOT IN TURN ───────────────────────────────────────────────
@@ -186,7 +186,7 @@ roomChecks('all high', { ...REST, stickX: 1, stickY: 1, rudder: 1, throttle: 1, 
     const rv = dh >= 0 ? s.rvT : s.rvB;
     return Math.pow(Math.abs(g) / s.rg, 2 / e) + Math.pow(Math.abs(dh) / rv, 2 / e) <= 1.0005;
   };
-  const every = [...D.faces, ...shellFaces(P, { ...REST, stickX: 1, stickY: 1, rudder: 1, throttle: 1, flapNotch: 3, bank: 45, pitch: 20, weaponsArmed: true, wingmen: 1 }, { rich: true }),
+  const every = [...D.faces, ...shellFaces(P, { ...REST, stickX: 1, stickY: 1, rudder: 1, throttle: 1, flapNotch: 3, bank: 45, pitch: 20, weaponsArmed: true, missiles: 2, bombs: 2 }, { rich: true }),
     ...shellFaces(P, { ...REST, stickX: -1, stickY: -1, rudder: -1, bank: -45, pitch: -20 }, { rich: true })];
   let outside = 0, n = 0, worst = null;
   for (const f of every) for (const q of f.p) {

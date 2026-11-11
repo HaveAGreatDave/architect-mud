@@ -1,0 +1,10 @@
+{
+  "content": "{\n \"kind\": \"set\",\n \"format\": 1,\n \"id\": \"set_14b_living\",\n \"name\": \"Neighbors from 14B Apartment\",\n \"base\": \"tpl_living\",\n \"broadcasts\": [\n  \"bc_neighbors_14b\"\n ],\n \"description\": \"Neighbors from 14B on the sitcom template: brown seventies furniture and a door the neighbours come through.\"\n}",
+  "created_at": "1794108637",
+  "description": "Neighbors from 14B on the sitcom template: brown seventies furniture and a door the neighbours come through.",
+  "id": "set_14b_living",
+  "name": "Neighbors from 14B Apartment",
+  "tags": [],
+  "type": "set",
+  "updated_at": "1794108921"
+}

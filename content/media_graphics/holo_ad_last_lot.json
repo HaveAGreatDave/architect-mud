@@ -1,0 +1,12 @@
+{
+  "content": "{\n \"brand\": \"THE LAST LOT\",\n \"line\": \"Everything must go. It did.\",\n \"small\": \"SOLD AS SEEN. NO RETURNS. NO PROVENANCE PROVIDED OR IMPLIED.\",\n \"color\": \"#f0b429\",\n \"accent\": \"#ffe9a8\",\n \"face\": \"block\",\n \"motif\": \"grid\",\n \"weight\": 1\n}",
+  "created_at": "1794182400",
+  "description": "Hologram advert: The Last Lot. Baked to the client by npm run holoads:bake.",
+  "id": "holo_ad_last_lot",
+  "name": "Holo ad: The Last Lot",
+  "tags": [
+    "holo_ad"
+  ],
+  "type": "holo_ad",
+  "updated_at": "1794182400"
+}

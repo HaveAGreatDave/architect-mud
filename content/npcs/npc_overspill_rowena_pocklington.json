@@ -1,0 +1,204 @@
+{
+  "banter": [
+    [
+      "\"Is the rope tight?\"",
+      "\"Tight as it goes.\"",
+      "\"Make it go tighter.\""
+    ],
+    [
+      "\"If the school wall comes down, we come down.\"",
+      "\"The school wall's been up a hundred years.\"",
+      "\"Not with us tied to it, it hasn't.\""
+    ]
+  ],
+  "behaviour_graph": {
+    "_start": "start",
+    "nodes": {
+      "day_home": {
+        "action_type": "GO_HOME",
+        "next": "day_wait",
+        "type": "action"
+      },
+      "day_pick": {
+        "branch_0": "day_home",
+        "branch_1": "day_walk",
+        "branches": [
+          {
+            "weight": 3
+          },
+          {
+            "weight": 2
+          }
+        ],
+        "type": "random"
+      },
+      "day_wait": {
+        "jitter": 180,
+        "next": "start",
+        "seconds": 240,
+        "type": "wait"
+      },
+      "day_walk": {
+        "action_type": "PATROL",
+        "next": "day_wait",
+        "params": {
+          "loop": true,
+          "mode": "walk",
+          "waypoints": [
+            "zone_district_922_920",
+            "zone_district_923_920",
+            "zone_district_920_920",
+            "zone_district_921_921"
+          ]
+        },
+        "type": "action"
+      },
+      "fire_0": {
+        "action_type": "EMOTE",
+        "next": "fire_wait",
+        "params": {
+          "message": "sits on a crate at the drum and picks splinters out of her hands with a pin."
+        },
+        "type": "action"
+      },
+      "fire_1": {
+        "action_type": "EMOTE",
+        "next": "fire_wait",
+        "params": {
+          "message": "says she can get a fourth floor on if the school wall holds."
+        },
+        "type": "action"
+      },
+      "fire_pick": {
+        "branch_0": "fire_0",
+        "branch_1": "fire_1",
+        "branches": [
+          {
+            "weight": 1
+          },
+          {
+            "weight": 1
+          }
+        ],
+        "type": "random"
+      },
+      "fire_wait": {
+        "jitter": 90,
+        "next": "start",
+        "seconds": 150,
+        "type": "wait"
+      },
+      "go_home": {
+        "action_type": "GO_HOME",
+        "next": "sleep",
+        "type": "action"
+      },
+      "is_evening": {
+        "condition_type": "HOUR_RANGE",
+        "ifFalse": "day_pick",
+        "ifTrue": "to_fire",
+        "params": {
+          "from": 19,
+          "to": 1
+        },
+        "type": "condition"
+      },
+      "is_late": {
+        "condition_type": "HOUR_RANGE",
+        "ifFalse": "is_evening",
+        "ifTrue": "go_home",
+        "params": {
+          "from": 1,
+          "to": 5
+        },
+        "type": "condition"
+      },
+      "sleep": {
+        "action_type": "AT_HOME_LIFE",
+        "next": "start",
+        "type": "action"
+      },
+      "start": {
+        "next": "is_late",
+        "type": "start"
+      },
+      "to_fire": {
+        "action_type": "GO_TO_WORK",
+        "next": "fire_pick",
+        "params": {
+          "zone_id": "zone_district_922_922"
+        },
+        "type": "action"
+      }
+    }
+  },
+  "chitchat": [
+    "\"It's fine. It's just settling.\"",
+    "pulls a nail out of an old board with her claw hammer and drops it in a tin."
+  ],
+  "description": "A short, strong woman in a roofer's knee pads with a claw hammer through her belt. She built the bottom two floors of the Stack and is building the third, and she sleeps in the middle one because it is the warmest.",
+  "dialogue_tree": {
+    "ask": {
+      "options": [
+        {
+          "label": "Right.",
+          "next": "root"
+        }
+      ],
+      "text": "\"The old houses on the lane. Floorboards, doors, roof laths. Nobody's lived in them since the wall came down, so I don't think anybody minds.\""
+    },
+    "bye": {
+      "options": [],
+      "text": "Rowena goes back to her hammering."
+    },
+    "root": {
+      "options": [
+        {
+          "label": "Where does the timber come from?",
+          "next": "ask"
+        },
+        {
+          "label": "Bye.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Hello again,\" says Rowena.",
+      "text_by_relation": {
+        "familiar": "\"You want to see the top floor? Mind the fourth rung.\"",
+        "first": "The woman at the foot of the ladder looks you up and down.\n\n\"Rowena. If you're here about the lean, it's fine. It's tied.\"",
+        "known": "\"You want to see the top floor? Mind the fourth rung.\""
+      }
+    }
+  },
+  "faction": null,
+  "flags": {
+    "clothing_layers": [
+      "a canvas work jacket with a hammer loop",
+      "a hooded top with the cuffs worn through",
+      "work trousers with knee pads and thermal underwear"
+    ],
+    "mis_willing": false,
+    "personality": "labourer"
+  },
+  "home_activities": [
+    "hammers a pallet slat across a gap.",
+    "climbs the ladder to the top floor and comes down again.",
+    "\"Rafe! Hold the bottom.\""
+  ],
+  "home_zone": "zone_district_922_920",
+  "hp": 20,
+  "hp_max": 20,
+  "id": "npc_overspill_rowena_pocklington",
+  "name": "Rowena Pocklington",
+  "npc_type": "npc",
+  "sex": "female",
+  "studio_zone_id": null,
+  "vendor_inventory": [],
+  "vendor_restock_rate": 1,
+  "vendor_schedule": {},
+  "vendor_shop_name": null,
+  "vendor_stock_size": 10,
+  "wander_zones": [],
+  "wanders": 0,
+  "work_zone_id": null
+}

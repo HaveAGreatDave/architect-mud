@@ -16,6 +16,7 @@ import { DEADBALL_SFX } from '../../../shared/deadball-sfx.js';
 import { prefersReducedMotion, playByPlayOn } from '../../../shared/settings.js';
 import { fenceAt } from './diamond/play.js';
 import { addFullscreenButton, leaveFullscreen } from './view-fullscreen.js';
+import { addCommentaryButton } from './commentary-button.js';
 import { clubOf } from './club-crest.js';
 
 // ── the clubs' colours ───────────────────────────────────────────────────────────
@@ -359,7 +360,8 @@ export const GAMEDAY_CARDS = {
   champion: (fx) => ({ title: '🏆 CHAMPIONS', sub: fx.winner || '', cls: 'hot' }),
 };
 
-export function createGamedayView(host) {
+export function createGamedayView(host, opts = {}) {
+  let syncVoice = () => {};   // repaints the Commentary button (commentary-button.js)
   let timers = [];
   let caption = '';          // last announcer line, retained across the shell rebuild
   // Who the caption's tag names: a "Name says, ..." line is the colour man's, his name on the
@@ -388,6 +390,7 @@ export function createGamedayView(host) {
     if (!bodyEl || ![...host.children].includes(bodyEl)) {
       host.innerHTML = `<div class="gd-live sr-only" role="log" aria-live="polite"></div><div class="gd-body"></div>`;
       addFullscreenButton(host, host);
+      syncVoice = addCommentaryButton(host, opts.commentary, host.ownerDocument);
       liveEl = host.querySelector('.gd-live');
       bodyEl = host.querySelector('.gd-body');
     }
@@ -1028,7 +1031,7 @@ export function createGamedayView(host) {
     callCaption = null;
   }
 
-  return { apply, clear, setCaption, showIdle, showCard };
+  return { apply, clear, setCaption, showIdle, showCard, syncCommentary: () => syncVoice() };
 }
 
 // Test hook — pure, DOM-independent pieces exercised by the offline harness.

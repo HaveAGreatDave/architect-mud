@@ -1,6 +1,6 @@
 {
   "a": "zone_solenne_elevator",
-  "b": "zone_solenne_skydeck",
+  "b": "zone_solenne_hall_40",
   "blocked": false,
   "dir": "up",
   "id": "conn_solenne_elevator_up_lslf",

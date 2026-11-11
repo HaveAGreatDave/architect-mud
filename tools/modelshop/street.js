@@ -28,6 +28,7 @@
 // and they are deliberately a different file.
 import { paintWindshield, RENDER_TUNE, tagArtwork, tagWordList, tagHandList, tagFaceList } from '/client/game/js/panels/windshield.js';
 import { installGL, glLastFrame } from '/client/game/js/panels/gl/install.js';
+import { interiorRoomsOf } from '/client/game/js/panels/room-interiors.js';
 
 let _world = null, _uninstall = null, _canvas = null;
 
@@ -391,7 +392,37 @@ export async function shot(name = 'shot', el = null) {
   return out;
 }
 
+// ── `__interiors()` — A BUILDING'S ROOMS IN THE CITY ─────────────────────────────────────────────────
+//
+// The one-world prototype (docs/proposals/one-world-interiors.md): GLASS paints the street, and the rooms of a
+// building with a Stage are drawn in it by gl/interiors.js, picked by distance (glass/interiors-near.js). Stand in
+// a room and its own building comes off the map, so you see its walls, its furniture and the real city past them.
+//
+//   __interiors({ zone: 'zone_solenne_apt_b' })                            stood in that room, facing its glass
+//   __interiors({ zone: 'zone_solenne_apt_b', at: [0, 3], heading: 90 })   [u, v] in the room, degrees
+//   __interiors({ zone: 'zone_solenne_apt_b', outside: true })             from the street, building whole
+export async function interiors(opts = {}) {
+  const zone = opts.zone || 'zone_solenne_apt_b';
+  const data = await (await fetch('/api/building-rooms?zone=' + encodeURIComponent(zone))).json();
+  if (!data.rooms?.length) { console.warn('__interiors: ' + zone + ' is not on a building walk'); return null; }
+  const rooms = interiorRoomsOf(data), r = rooms.find((x) => x.zone === zone) || rooms[0];
+  const gx = data.tile.x, gy = data.tile.y, view = { ...(opts.view || {}), interiorRooms: rooms };
+  // outside: a tile out from its street door, facing it
+  const side = data.rooms[0].frame?.side ?? 180, rad = side * Math.PI / 180;
+  if (opts.outside) return street({ x: gx + Math.round(Math.sin(rad)), y: gy - Math.round(Math.cos(rad)), heading: (side + 180) % 360, eyeH: 0.1, ...opts, seat: 'free', view });
+  // the eye in that room, carried to the tile by the room's own matrix
+  const [u, v] = opts.at || [0, Math.min(r.L.d - 0.5, 1.2)], P = r.L.world(u, v, 1.6), M = r.M;
+  const ex = M[0] * P[0] + M[4] * P[1] + M[8] * P[2] + M[12], ey = M[1] * P[0] + M[5] * P[1] + M[9] * P[2] + M[13];
+  const ez = M[2] * P[0] + M[6] * P[1] + M[10] * P[2] + M[14];
+  // facing the room's glass unless told otherwise: a room faces its bearing
+  const heading = opts.heading ?? (data.rooms.find((x) => x.zone === r.zone)?.frame?.face ?? 0);
+  // its own building off the map, as the window view does it (room-view.js withoutOwnTower)
+  const cells = { [gx + ',' + gy]: { kind: 'land', bt: null, bn: null, pad: 0, self: 1 }, ...(opts.cells || {}) };
+  return street({ ...opts, x: gx, y: gy, seat: 'free', off: { x: ex, y: ey }, eyeH: ez, heading, cells, view });
+}
+
 if (typeof window !== 'undefined') {
+  window.__interiors = interiors;
   window.__street = street;
   window.__redtail = redtail;
   window.__streetHide = streetHide;

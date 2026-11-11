@@ -23,6 +23,11 @@ function paint(btn, host) {
 export function addFullscreenButton(into, host) {
   const doc = host?.ownerDocument;
   if (!into || !doc?.fullscreenEnabled || typeof host.requestFullscreen !== 'function') return null;
+  // ⚠ THE HOST MAY HAVE NO BOX. The TV mounts a view in a 'display: contents' wrapper (tv.js
+  // _gamedayViewFor), and the views lay out 'position: absolute; inset: 0' against the nearest box.
+  // Full screen, a box-less host draws nothing, so the class gives it one while it's full screen
+  // (.view-fs-host:fullscreen in styles.css).
+  host.classList.add('view-fs-host');
   const btn = doc.createElement('button');
   btn.type = 'button';
   btn.className = 'view-fs';

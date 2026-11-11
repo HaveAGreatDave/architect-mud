@@ -152,7 +152,35 @@ export function fovFor(fov, aspect, fit) {
 // 'field', eye, frame, track }`) does the same on one man in a play. Anything else is a camera by name
 // or a shot as given, and comes back as it was. Pure in t, so the renderer and the graphics
 // resolve the same picture.
+// A shot that carries the ball's track (`ball`, plays.js, on every camera of a live play) keeps the
+// ball on screen: every play is shown being made. It turns toward the ball just as far as keeps it
+// inside BALL_MARGIN of the frame, and widens, up to BALL_FOV, if that turn would lose what it was
+// framing. Both move with the ball, so nothing jumps. A ball behind the camera is left to the next cut.
+export const BALL_MARGIN = 0.75, BALL_FOV = 60;
 export function shotAt(s, t) {
+  const sh = aimOf(s, t);
+  if (!sh || sh === s || typeof s.ball !== 'function') return sh;
+  const b = s.ball(t);
+  return Array.isArray(b) && b.every(Number.isFinite) ? keepBall(sh, b) : sh;
+}
+function inFrame(eye, at, fov, p) {
+  const f = norm(sub(at, eye)), r = norm(cross(f, [0, 1, 0])), u = cross(r, f), d = sub(p, eye), z = dot(d, f);
+  if (z <= 0.5) return Infinity;
+  // how far out it is, as a share of the frame's half-height or half-width (whichever is more)
+  return Math.max(Math.abs(dot(d, u) / z), Math.abs(dot(d, r) / z) / DESIGN_ASPECT) / Math.tan(fov * DEG / 2);
+}
+function keepBall(sh, b) {
+  const { eye, at, fov } = sh;
+  if (inFrame(eye, at, fov, b) <= BALL_MARGIN) return sh;
+  if (dot(sub(b, eye), sub(at, eye)) <= 0) return sh;
+  const lerp = (k) => [at[0] + (b[0] - at[0]) * k, at[1] + (b[1] - at[1]) * k, at[2] + (b[2] - at[2]) * k];
+  let lo = 0, hi = 1;
+  for (let i = 0; i < 14; i++) { const m = (lo + hi) / 2; if (inFrame(eye, lerp(m), fov, b) <= BALL_MARGIN) hi = m; else lo = m; }
+  const to = lerp(hi), was = inFrame(eye, to, fov, at);
+  const wide = was > 0.9 && Number.isFinite(was) ? Math.min(BALL_FOV, 2 * Math.atan(Math.tan(fov * DEG / 2) * was / 0.9) / DEG) : fov;
+  return { ...sh, at: to, fov: Math.max(fov, wide) };
+}
+function aimOf(s, t) {
   if (!s || typeof s !== 'object' || typeof s.track !== 'function') return s;
   const base = SHOTS[s.shot] || SHOTS.high, q = s.track(t);
   if (s.shot === 'approach') return { ...q, near: 2, shadow: [[q.at[0], 0, q.at[2]], Math.max(140, Math.min(900, q.eye[1]))] };

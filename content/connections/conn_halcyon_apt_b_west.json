@@ -1,0 +1,9 @@
+{
+  "a": "zone_halcyon_apt_b",
+  "b": "zone_halcyon_residences",
+  "blocked": false,
+  "dir": "west",
+  "id": "conn_halcyon_apt_b_west",
+  "lockable": true,
+  "one_way": false
+}

@@ -1,0 +1,34 @@
+{
+  "description": "A small round table at elbow height between two of the chairs, with a coaster on it and nothing else.",
+  "flags": {
+    "aliases": "table",
+    "interactions": [
+      "lean"
+    ],
+    "look": {
+      "arche": "table",
+      "dims": [
+        0.5,
+        0.5,
+        0.52
+      ],
+      "form": "coffee"
+    },
+    "spot": {
+      "at": [
+        -4.5,
+        5.25
+      ]
+    }
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_aerie_side_table",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "drinks table",
+  "object_type": "furniture",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_solenne_aerie"
+}

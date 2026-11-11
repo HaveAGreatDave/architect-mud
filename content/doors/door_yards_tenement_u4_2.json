@@ -1,0 +1,22 @@
+{
+  "connection_id": "conn_yards_tenement_u4_2_west",
+  "door_type": "basic",
+  "exit_dir": "west",
+  "flags": {},
+  "hololock_difficulty": 5,
+  "hp": 1000,
+  "hp_max": 1000,
+  "id": "door_yards_tenement_u4_2",
+  "is_locked": 0,
+  "is_open": 0,
+  "lock_state": "locked",
+  "name": "Unit 402 door",
+  "tags": {
+    "lock:hololock": {
+      "canHack": true,
+      "difficulty": 5
+    }
+  },
+  "target_zone": "zone_yards_tenement_f4",
+  "zone_id": "zone_yards_tenement_u4_2"
+}

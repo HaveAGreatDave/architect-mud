@@ -1,0 +1,14 @@
+{
+  "description": null,
+  "flags": {},
+  "id": "item_cherry_cigarillo",
+  "name": "cherry cigarillo",
+  "tags": {
+    "description": "A thin brown cigarillo with a plastic tip, sweetened to smell of cherries. It still tastes of cigar.",
+    "drug": true,
+    "stackable": true
+  },
+  "type": "consumable",
+  "value": 9,
+  "weight": 25
+}

@@ -50,7 +50,9 @@ const CHANCE = {
   fight: 0.7, injury: 0.5, death: 0.95,
   final: 0.75, champion: 0.95,
 };
-const NO_STAKE    = 0.4;   // nobody in the room backs either club, or either one's rival
+const NO_STAKE    = 0.85;  // nobody in the room backs either club, or either one's rival: they still watch
+const WATCH_CHANCE       = 0.7;   // with no fan pair, two people talk the play over...
+const WATCH_CHANCE_STAKE = 0.35;  // ...less often when somebody in the room has a stake
 const PAIR_CHANCE = { feud: 0.85, needle: 0.75, clash: 0.6, brag: 0.5, together_up: 0.4, together_down: 0.4 };
 const AT_CHANCE   = 0.35;  // a lone reaction aimed at the fan on the other side
 const BIG = new Set(['grandslam', 'walkoff', 'hattrick', 'tripleplay', 'death', 'final', 'champion']);
@@ -209,6 +211,14 @@ export function planReaction(zoneId, play, now = Date.now(), rand = rand0, avoid
       const key = pick(fresh(AT[me.stance], avoid), rand);
       const line = fill(key, tokensFor(me, pick(them, rand), play));
       if (line) return { kind, type: 'at', speakers: [me.npc], turns: [line], key };
+    }
+  }
+  // Nobody's arguing, so two people follow the play together, whoever they back.
+  const watchers = shuffled(cands.filter(c => firstName(c.npc)), rand);
+  if (watchers.length >= 2 && rand() < (stake.length ? WATCH_CHANCE_STAKE : WATCH_CHANCE)) {
+    for (let i = 0; i + 1 < watchers.length && i < 4; i++) {
+      const t = threadFor('watch', kind, play, watchers[i], watchers[i + 1], rand, avoid);
+      if (t) return { kind, type: 'pair', pairType: 'watch', speakers: [watchers[i].npc, watchers[i + 1].npc], turns: t.turns, key: t.key };
     }
   }
   const solo = pickSolo(kind, me.stance, tokensFor(me, null, play), rand, avoid);

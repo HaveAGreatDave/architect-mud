@@ -1,8 +1,10 @@
 {
-  "ambient_events": [],
-  "ambient_theme": "forest",
-  "color": "#8ba36a",
-  "description": "Open grassland quietly reclaiming old ground, seedheads nodding over the buried kerb of a road that used to matter. Insects drone. The horizon wobbles in the heat.",
+  "ambient_events": [
+    "A radio in one of the tents finds a station, loses it, and finds it again.",
+    "A tent flap opens, somebody looks out at the weather, and it closes."
+  ],
+  "ambient_theme": "residential",
+  "description": "Pitches marked out with string, three of them still empty. A man sits on a crate beside them and asks everybody who passes how many are in their family.",
   "exits": {
     "east": "zone_district_924_919",
     "north": "zone_district_923_918",
@@ -10,16 +12,17 @@
     "west": "zone_district_922_919"
   },
   "flags": {
-    "district": "residential",
+    "camp": true,
+    "district": "slum",
     "region_id": "region_coldwater",
-    "scavenging_table_id": "scav_west_wastes",
-    "terrain": "grass"
+    "scavenging_table_id": "scav_consumer_trash",
+    "terrain": "ash"
   },
   "grid_x": 923,
   "grid_y": 919,
   "grid_z": 0,
   "id": "zone_district_923_919",
   "map_id": "map_world",
-  "name": "Grasslands",
+  "name": "The Overspill",
   "parent_zone": null
 }

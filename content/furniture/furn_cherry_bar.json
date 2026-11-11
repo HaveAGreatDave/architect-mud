@@ -1,0 +1,35 @@
+{
+  "description": "A long bar of chipped black laminate with a strip of red light under its lip. Rudi works behind it. The bottles on the shelves behind him are mostly the same bottle refilled.",
+  "flags": {
+    "bar_counter": true,
+    "interactions": [
+      "lean"
+    ],
+    "look": {
+      "arche": "surface",
+      "dims": [
+        3.8,
+        0.6,
+        1.12
+      ],
+      "form": "bar"
+    },
+    "spot": {
+      "at": [
+        -3.95,
+        10.9
+      ],
+      "turn": 90
+    }
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_cherry_bar",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "the bar",
+  "object_type": "fixture",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_mq_cherry_floor"
+}

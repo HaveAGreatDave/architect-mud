@@ -12,7 +12,8 @@
 
 import { openHelmChase } from './helm-view.js';
 import { createHelmWheel } from './helm-wheel.js';
-import { bindBigScreenButton, exitBigScreen, BIGSCREEN_GLYPH, BIGSCREEN_TITLE } from './bigscreen.js';
+import { bindBigScreenButton, BIGSCREEN_GLYPH, BIGSCREEN_TITLE } from './bigscreen.js';
+import { bindSeatRungs, clearSeatRungs } from './seat-ladder.js';
 import { claimSeatKeyboard, endSeatKeyboard } from './seat-keys.js';
 import { bindTouchGestures } from './touch-gestures.js';
 import { loadCss } from '../../../shared/dom.js';
@@ -81,7 +82,7 @@ export function openHelm(opts = {}) {
   const onExit = opts.onExit || (() => {});
 
   mount.innerHTML = `
-    <div class="helm-root">
+    <div class="helm-root helm-loading">
       <div class="helm-chase"></div>
       <div class="helm-placard"><span class="m"></span><span class="n">ECHELON&nbsp; <small>HELM</small></span></div>
       <div class="helm-chips">
@@ -94,6 +95,7 @@ export function openHelm(opts = {}) {
         <button class="helm-icon" data-big title="${BIGSCREEN_TITLE}">${BIGSCREEN_GLYPH}</button>
         <button class="helm-icon exit" data-exit title="leave the helm">✕</button>
       </div>
+      <div class="helm-fp-hint">A D steer · W ahead · S all stop · ⎈ back to the chase</div>
       <div class="helm-dash">
         <div class="helm-console">
           <div class="helm-console-face">
@@ -190,12 +192,12 @@ export function openHelm(opts = {}) {
   // inside the water band above the console. A roomy/fullscreen pane eases back to the resting frame.
   // Keeping her a constant fraction of the visible water band means zoom ∝ 1/band; calibrated so the
   // resting distance (BASE_ZOOM, = REST.zoom in helm-view) frames her well at a comfortable ~REF-tall band.
-  const BASE_ZOOM = 1.7, REF_BAND = 340;   // px — the water-band height at which the resting distance is right
+  const BASE_ZOOM = 0.7, REF_BAND = 340;   // px — the water-band height at which the resting distance is right
   function fitCamera() {
     const paneH = root.clientHeight, consoleEl = q('.helm-console');
     if (!paneH || !consoleEl) return;
     const band = Math.max(40, paneH - consoleEl.offsetHeight);   // clear water above the console lip
-    const z = Math.max(BASE_ZOOM, Math.min(2.4, BASE_ZOOM * REF_BAND / band));   // only ever pull BACK from the resting frame
+    const z = Math.max(BASE_ZOOM, Math.min(1.4, BASE_ZOOM * REF_BAND / band));   // only ever pull BACK from the resting frame
     ctrl.setRestZoom(z);
     // Seat the Echelon's visual centre at the MIDDLE of that clear band (as a fraction of the whole
     // pane), so she's framed with water above and below her and never dips behind the console — no
@@ -524,6 +526,7 @@ export function openHelm(opts = {}) {
   root.querySelectorAll('[data-seat]').forEach((el) => el.addEventListener('click', () => {
     const on = ctrl && ctrl.toggleBridge ? ctrl.toggleBridge() : false;
     el.classList.toggle('on', on);
+    root.classList.toggle('helm-bridge', on);
     el.textContent = on ? '⎈' : '⌖';
     el.title = on ? 'the bridge: back to the chase camera' : 'the bridge: stand at the wheel and ride her';
   }));
@@ -539,20 +542,13 @@ export function openHelm(opts = {}) {
 
   // Fullscreen + collapse-panel — the SAME body-class mechanism the flight sim uses (styles.css),
   // instead of an OS-fullscreen overlay; both are cleared on close.
-  //   ⊟ collapse (helm-hidepanel): folds away just the scrollback log — the command bar stays.
-  //   ⛶ fullscreen (helm-fullscreen): folds the log AND the command bar for the fully immersive view.
+  //   ⊟ collapse (seat-hidepanel): folds away just the scrollback log — the command bar stays.
+  //   ⛶ fullscreen (seat-fullscreen): folds the log AND the command bar for the fully immersive view.
   // They're mutually exclusive (engaging one drops the other), mirroring the flight sim's ⊟ / ⛶ chrome.
   const fsBtn = q('[data-fs]'), hideBtn = q('[data-hide]');
-  fsBtn.addEventListener('click', () => {
-    const on = document.body.classList.toggle('helm-fullscreen'); fsBtn.classList.toggle('on', on);
-    if (on) { document.body.classList.remove('helm-hidepanel'); hideBtn.classList.remove('on'); }   // fullscreen supersedes collapse
-    fitCamera();
-  });
-  hideBtn.addEventListener('click', () => {
-    const on = document.body.classList.toggle('helm-hidepanel'); hideBtn.classList.toggle('on', on);
-    if (on) { document.body.classList.remove('helm-fullscreen'); fsBtn.classList.remove('on'); }   // collapse supersedes fullscreen
-    fitCamera();
-  });
+  // ⊟ and ⛶ are the shared ladder's (seat-ladder.js), opening on ⊟; the chase reframes after either.
+  bindSeatRungs({ hide: hideBtn, fs: fsBtn });
+  for (const b of [fsBtn, hideBtn]) b.addEventListener('click', () => fitCamera());
   // ⤢ big screen — the rung above ⛶, and a different layer rather than a third mutually-exclusive
   // one: it takes the PAGE (header, sidebar, log, command bar) and the wheelhouse's own chrome with
   // it, and leaves whatever ⛶/⊟ were set to for when Esc brings you back. bigscreen.js keeps the
@@ -568,11 +564,22 @@ export function openHelm(opts = {}) {
   // Default to the hide-panel view: fold the scrollback log so the helm fills the whole column
   // (the windowed pane is too short to see the ship with the log up), keeping the command bar so you
   // can still type. ⊟ toggles back to windowed, ⛶ goes fully immersive; closeHelm() clears the class.
-  document.body.classList.add('helm-hidepanel'); hideBtn.classList.add('on');
   fitCamera();
 
   // Keyboard: Esc exits. (Course is the wheel; the throttle is the telegraph — both are grab-and-drag.)
-  const keyH = (e) => { if (e.key === 'Escape') { closeHelm(); onExit(); } };
+  const keyH = (e) => {
+    if (e.key === 'Escape') { closeHelm(); onExit(); return; }
+    if (!root.classList.contains('helm-bridge') || e.repeat || e.ctrlKey || e.metaKey || e.altKey) return;
+    if (e.target.closest?.('input, textarea, select, [contenteditable]')) return;
+    const k = e.key.toLowerCase();
+    if ((k === 'a' || k === 'arrowleft' || k === 'd' || k === 'arrowright') && !engaged) {
+      if (plannedTarget) clearCourse();
+      ctrl.steerBy(k === 'a' || k === 'arrowleft' ? -45 : 45); e.preventDefault();
+    } else if ((k === 'w' || k === 'arrowup') && !engaged) {
+      if (knobP <= 0.2) setKnob(0.6);
+      tryEngage(); e.preventDefault();
+    } else if ((k === 's' || k === 'arrowdown') && engaged) { cutThrottle(); e.preventDefault(); }
+  };
   addEventListener('keydown', keyH);
 
   // Restore an in-progress passage (helm opened mid-transit): lock + run out the remaining time,
@@ -583,6 +590,12 @@ export function openHelm(opts = {}) {
   // tracks her actual under-way state, so a server-driven begin/arrive keeps the console in sync.
   let wasSailing = engaged;
   const poll = setInterval(() => {
+    // The console follows the loading screen, both ways: the GPU passes arriving can put a fresh one up
+    // after the first has gone.
+    {
+      const up = !!sea.querySelector('.ws-veil');   // through its fade too, or the console shows through it
+      if (up !== root.classList.contains('helm-loading')) { root.classList.toggle('helm-loading', up); if (!up) fitCamera(); }
+    }
     const h = ((Math.round(ctrl.heading()) % 360) + 360) % 360;
     q('[data-hdg]').textContent = CARD[h] ?? (h + '°');
     q('[data-kn]').textContent = (ctrl.speed() * 20).toFixed(1);
@@ -623,8 +636,7 @@ export function closeHelm() {
   try { h.fitRO?.disconnect(); } catch {}
   try { h.stopNav?.(); } catch {}
   try { h.stopChart?.(); } catch {}
-  document.body.classList.remove('helm-fullscreen', 'helm-hidepanel');
-  exitBigScreen();   // …and the rung above them, which owns the page rather than the pane
+  clearSeatRungs();   // ⊟ and ⛶, and big screen, which own the page rather than the pane
   endSeatKeyboard(h.root);   // the keyboard goes back to the command bar with the wheelhouse
   try { h.wheel?.destroy(); } catch {}
   try { h.ctrl?.destroy(); } catch {}

@@ -225,11 +225,11 @@ check('defaults: the board inside the outline', G.insideOutline(base.outline, ba
     check('defaults: the name band is on Sorrel Way and the boulevard, outside, reading left to right from the street',
       ok.every(Boolean) && meet && s1Of(halves[0]) < n && s1Of(halves[2]) > f, ok.map((v) => (v ? 1 : 0)).join('') + (meet ? '' : ' halves apart'));
   }
-  // the lights: a tower at each corner of the bowl with its lamps up in its lamp house and a place
+  // the lights: an end light pole near each corner of the bowl with its lamps up in its bank and a place
   // under a deck for its light when the roof is shut, and a row under each deck
   const towers = base.field.towers.filter((T) => T.kind === 'tower'), decks = base.field.towers.filter((T) => T.kind === 'deck');
   const nearCorner = (T) => Math.min(...base.outline.map((p) => Math.hypot(p[0] - T.base[0], p[2] - T.base[2])));
-  check('defaults: four towers at the corners and a lamp row under each deck', towers.length === 4 && decks.length === 2 && towers.every((T) => nearCorner(T) < 40 && G.insideOutline(base.outline, T.base) && T.lamp[1] > 170 && T.under && G.insideOutline(base.outline, T.under.lamp) && T.under.lamp[1] < M.BOWL_Z.corn),
+  check('defaults: four end poles near the corners and a lamp row under each deck', towers.length === 4 && decks.length === 2 && towers.every((T) => nearCorner(T) < 120 && G.insideOutline(base.outline, T.base) && T.lamp[1] > 170 && T.under && G.insideOutline(base.outline, T.under.lamp) && T.under.lamp[1] < M.BOWL_Z.corn),
     towers.map((T) => nearCorner(T).toFixed(0)).join(','));
   // the lamps, the beacons, the lanterns and the halo: whole triangles, finite, lit
   let lampBad = 0;
@@ -264,10 +264,14 @@ check('defaults: the board inside the outline', G.insideOutline(base.outline, ba
   const S = M.SHELLS, last = S[S.length - 1];
   check('the roof: three shells, the first fixed and on top', base.roof.length === 3 && S.length === 3 && base.roof.filter((r) => r.fixed).length === 1
     && S.every((x, i) => base.roof[i].fixed === (x.open === x.shut) && base.roof[i].i === i && x.k === i) && S[0].open === S[0].shut);
+  // the fixed shell at C.FIXED_END: sorted north to south, each shut shell laps the next
+  const byV = [...S].sort((a, b) => a.shut - b.shut), fe = C.FIXED_END, fixedEnd = fe > 0 ? S[0].shut + S[0].len : S[0].shut;
   check('the roof: shut, the shells run the bowl from end to end, each lapping the next',
-    S[0].shut === -C.OUT && Math.abs(last.shut + last.len - C.OUT) < 1e-9 && S.every((x, i) => !i || (x.shut < S[i - 1].shut + S[i - 1].len && x.shut > S[i - 1].shut)));
-  check('the roof: open, the two that move lie under the first and leave the field the sky',
-    S.slice(1).every((x) => x.open >= S[0].open && x.open < S[0].shut + 0.1) && Math.max(...S.map((x) => x.open + x.len)) < -0.3);
+    Math.abs(fixedEnd - fe * C.OUT) < 1e-9 && Math.abs(byV[0].shut + C.OUT) < 1e-9 && Math.abs(byV[2].shut + byV[2].len - C.OUT) < 1e-9
+      && byV.every((x, i) => !i || (x.shut < byV[i - 1].shut + byV[i - 1].len && x.shut > byV[i - 1].shut)));
+  check('the roof: open, the two that move lie under the first, behind home plate, and leave the outfield the sky',
+    S.slice(1).every((x) => x.open >= S[0].open - 0.1 && x.open + x.len <= S[0].open + S[0].len) && fe > 0 && Math.min(...S.map((x) => x.open)) > 0.3);
+  check('the roof: the fans are the two outer ends', [0, 1, 2].every((i) => [-1, 1].every((sg) => C.isFan(i, sg) === ((i === 0 && sg === fe) || (i === 2 && sg === -fe)))));
   // heights at r from the ridge, along a profile that runs outside in (r falling the whole way)
   const zAt = (Pf, r) => { for (let k = 0; k + 1 < Pf.length; k++) { const [ra, za] = Pf[k], [rb, zb] = Pf[k + 1]; if (r <= ra && r >= rb) return za + (zb - za) * (ra - r) / (ra - rb); } return NaN; };
   const ft = G.ftUp(1), falls = [0, 1, 2].every((k) => M.shellProfile(k).every((p, i, a) => i === 0 || p[0] < a[i - 1][0]));
@@ -962,16 +966,17 @@ for (const kind of ['sit', 'stand', 'cheer']) for (const far of [false, true]) {
     try {
       atlas = paintKitAtlas(document, cast, { home: 'Plain Placeholders', away: 'Plain Placeholders' });
       const again = paintKitAtlas(document, cast, teams, atlas.canvas);
-      check('kits: a club\'s kit arriving repaints its side\'s jerseys and legs, and only its side\'s', again.dirty.length === cast.filter((c) => c.look.side === 'home').length + 2, `${again.dirty.length} rects`);
+      check('kits: a club\'s kit arriving repaints its side\'s jerseys, legs and sleeves, and only its side\'s', again.dirty.length === cast.filter((c) => c.look.side === 'home').length + 3, `${again.dirty.length} rects`);
       check('kits: the same kits again repaint nothing', paintKitAtlas(document, cast, teams, atlas.canvas).dirty.length === 0);
       // the comic look's inked kits (diamond/kits.js `ink`): flipping it repaints every jersey and
       // both sides' legs, the same look again nothing, and flipping back repaints them all again
       const kitted = cast.filter((c) => (c.look.side === 'home' || c.look.side === 'away') && c.look.role !== 'crew').length;
       const inked = paintKitAtlas(document, cast, teams, atlas.canvas, { ink: true });
-      check('kits: the comic look repaints every jersey and both sides\' legs, inked', inked.dirty.length === kitted + 4, `${inked.dirty.length} rects for ${kitted} jerseys`);
+      check('kits: the comic look repaints every jersey and both sides\' legs, inked', inked.dirty.length === kitted + 6, `${inked.dirty.length} rects for ${kitted} jerseys`);
       check('kits: the comic look again repaints nothing', paintKitAtlas(document, cast, teams, atlas.canvas, { ink: true }).dirty.length === 0);
-      check('kits: the plain look back repaints them all', paintKitAtlas(document, cast, teams, atlas.canvas).dirty.length === kitted + 4);
-      paintLogos(document, teams);
+      check('kits: the plain look back repaints them all', paintKitAtlas(document, cast, teams, atlas.canvas).dirty.length === kitted + 6);
+      const logos = paintLogos(document, teams);
+      check('kits: the logo atlas is four cells, each side\'s cap mark and then its sleeve patch', logos.width === 4 * 512 && logos.height === 512, `${logos.width}x${logos.height}`);
     } catch (e) { threw = e.message; }
     check('kits: the atlas and the badges paint in a club\'s kit', !threw, threw);
     setClubs('baseball', '', {});
@@ -1152,7 +1157,7 @@ for (const kind of ['sit', 'stand', 'cheer']) for (const far of [false, true]) {
   {
     const { crowdMesh, crowdMorph, CROWD_MORPH, CROWD_VERTEX } = await import('../../client/game/js/panels/gl/ballpark-mesh.js');
     for (const far of [true, false]) {
-      const M = crowdMorph({ far, towels: true }), n = M.length / CROWD_MORPH, poses = ['sit', 'stand', 'cheer'].map((k) => crowdMesh(k, { far, towels: k === 'cheer' }));
+      const M = crowdMorph({ far, towels: true, street: false }), n = M.length / CROWD_MORPH, poses = ['sit', 'stand', 'cheer'].map((k) => crowdMesh(k, { far, towels: k === 'cheer' }));
       let bad = 0, folded = 0;
       for (let i = 0; i < n; i++) for (let k = 0; k < 3; k++) {
         const src = poses[k], at = i * CROWD_VERTEX;

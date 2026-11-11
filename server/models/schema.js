@@ -182,6 +182,11 @@ export const SCHEMA_SQL = `
   -- 4 dirt at the east one, in five equal bands of columns; a road past south has left the city.
   -- NULL draws no kit (docs/proposals/coldwater-streets.md).
   ALTER TABLE regions ADD COLUMN IF NOT EXISTS street_gradient JSONB;
+  -- Which buildings carry a hologram advert: { districts: { <district id>: share 0..1 },
+  -- roof: <multiple of the share for a roof slab>, no_types: [building types, 'x*' = prefix],
+  -- east: <last column that carries any> }.
+  -- NULL is a region with no holograms (holoAdsFor in plugins/flight/state.js).
+  ALTER TABLE regions ADD COLUMN IF NOT EXISTS holo_ads JSONB;
 
   -- EVERYTHING THE BUILD RESOLVED, one row per zone. TRUNCATEd and rebuilt by the
   -- derive pass of content:import (docs/proposals/map-pipeline-spec.md §2.1) —

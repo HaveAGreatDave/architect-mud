@@ -9,7 +9,14 @@
         0.6,
         0.45
       ],
-      "form": "hearth"
+      "form": "firetrough"
+    },
+    "spot": {
+      "at": [
+        3.6,
+        5.6
+      ],
+      "turn": 180
     }
   },
   "hp": null,

@@ -35,9 +35,12 @@ export const COMIC = Object.freeze({ freeze: 1.4, page: 2.8, tilt: 6, zoom: 1.14
 // The sound of each kind of replay's moment, a few to choose between so a run of home runs doesn't
 // say the same thing every time.
 export const COMIC_WORDS = Object.freeze({
-  homerun: ['KRAKK!', 'CRACK!', 'KA-BLAM!', 'THWOCK!'], walkoff: ['KA-BOOM!', 'KRAKK!', 'CRACK!'],
-  catch: ['THWAP!', 'SNAG!', 'WHUMP!'], doubleplay: ['SNAP!', 'ZIP-ZIP!'], tripleplay: ['SNAP-SNAP!', 'ZIP-ZIP-ZIP!'],
-  triple: ['FWOOSH!', 'ZOOOM!'], close: ['BANG-BANG!', 'WHAM!'],
+  homerun: ['KRAKK!', 'CRACK!', 'KA-BLAM!', 'THWOCK!', 'KA-POW!', 'BLAMMO!'], walkoff: ['KA-BOOM!', 'KRAKK!', 'CRACK!', 'BA-DOOM!'],
+  catch: ['THWAP!', 'SNAG!', 'WHUMP!', 'FWUMP!', 'SNATCH!'], robbed: ['YOINK!', 'DENIED!', 'SNAG!', 'NOPE!'],
+  doubleplay: ['SNAP!', 'ZIP-ZIP!', 'POP-POP!'], tripleplay: ['SNAP-SNAP!', 'ZIP-ZIP-ZIP!'],
+  triple: ['FWOOSH!', 'ZOOOM!', 'VROOSH!'], close: ['BANG-BANG!', 'WHAM!', 'THUD!'],
+  plate: ['SKRRSH!', 'WHUMP!', 'KA-THUD!'], caught: ['SLAP!', 'GOTCHA!', 'THWAP!'], steal: ['ZIP!', 'SKRRT!', 'FWISH!'],
+  strikeout: ['WHIFF!', 'SWOOSH!', 'POP!'],
 });
 // What the page's two small panels say, the run-up's and what followed's, by kind.
 export const COMIC_CAPTIONS = Object.freeze({
@@ -45,7 +48,30 @@ export const COMIC_CAPTIONS = Object.freeze({
   catch: ['HE\'S GOING BACK...', '...HE GOT IT!'], doubleplay: ['TWO ON THE BAGS...', '...TURNED TWO!'],
   tripleplay: ['NOBODY BELIEVES IT...', '...ALL THREE OF THEM!'], triple: ['HE\'S NOT STOPPING...', '...IN STANDING UP!'],
   close: ['DOWN THE LINE...', '...AND THE CALL IS IN!'],
+  robbed: ['THAT ONE\'S GOING...', '...NOT TODAY!'], plate: ['THEY\'RE SENDING HIM...', '...AT THE PLATE!'],
+  caught: ['HE\'S GOING...', '...AND HE\'S GONE!'], steal: ['HE\'S GOING...', '...UNDER THE TAG!'],
+  strikeout: ['TWO STRIKES...', '...SIT DOWN!'],
 });
+// The page's headline for the kinds the HUD has no words for (hud.js HUD_THEME.words has the rest).
+export const COMIC_HEADLINES = Object.freeze({
+  catch: 'WHAT A CATCH!', robbed: 'ROBBED!', plate: 'PLAY AT THE PLATE!', close: 'BANG-BANG PLAY!',
+  caught: 'CAUGHT STEALING!', steal: 'STOLEN BASE!', strikeout: 'STRIKE THREE!', triple: 'TRIPLE!',
+});
+/** The headline for a replay of `kind` of the play `p`: a grand slam says so. Null where the HUD's own words do. */
+export function comicHeadlineOf(kind, p = null) {
+  if (p?.kind === 'homerun' && (p.rbi | 0) >= 4) return p.walkoff ? 'WALK-OFF GRAND SLAM!' : 'GRAND SLAM!';
+  return COMIC_HEADLINES[kind] || null;
+}
+// The inks a kind is lettered and burst in: [the face's top, its foot, the extrusion, the burst's
+// outer]. Off the bat it's the hot set; into a glove, the cold; in the dirt at a bag, the dust.
+export const COMIC_INKS = Object.freeze({
+  hot: Object.freeze(['#ffd23a', '#ff8a1c', '#7a1410', '#d8321f']),
+  cold: Object.freeze(['#eafcff', '#3cc8f2', '#0b2f6b', '#1b6fd0']),
+  dust: Object.freeze(['#fff1bf', '#f2a03a', '#4f260c', '#b4541c']),
+});
+const INK_OF = { catch: 'cold', robbed: 'cold', strikeout: 'cold', close: 'dust', plate: 'dust', caught: 'dust', steal: 'dust', triple: 'dust', doubleplay: 'dust', tripleplay: 'dust' };
+/** The inks for a replay of `kind` (COMIC_INKS). */
+export const comicInksOf = (kind) => COMIC_INKS[INK_OF[kind] || 'hot'];
 const hashStr = (s) => { let h = 2166136261; for (const ch of String(s)) { h ^= ch.charCodeAt(0); h = Math.imul(h, 16777619); } return h >>> 0; };
 /** The sound for a replay of `kind`, picked off `seed` (the play's words, say), so it's the same every time. */
 export function comicWordOf(kind, seed = '') {
@@ -141,7 +167,7 @@ export function loadComicFaces(doc) {
 // lift: a gamma under 1 brightens the mid-tones first, because a night game posterized as it comes
 // is mostly black; black: below it is solid ink; dots: below it the Ben-Day screen starts; edge: the
 // brightness step that's inked.
-export const PRINT = Object.freeze({ levels: 5, lift: 0.72, sat: 1.5, contrast: 1.15, black: 0.05, dots: 0.26, cell: 5, edge: 0.34 });
+export const PRINT = Object.freeze({ levels: 5, lift: 0.64, sat: 1.45, contrast: 1.08, black: 0.025, dots: 0.2, cell: 5, edge: 0.5, dotInk: 0.55 });
 export function printPanel(doc, src, o = PRINT) {
   const w = src?.width | 0, h = src?.height | 0;
   if (!doc?.createElement || !(w > 0 && h > 0)) return src;
@@ -160,7 +186,8 @@ export function printPanel(doc, src, o = PRINT) {
   for (let i = 0; i < n * 4; i += 4) { d[i] = lut[d[i]] * 255; d[i + 1] = lut[d[i + 1]] * 255; d[i + 2] = lut[d[i + 2]] * 255; }
   for (let i = 0; i < n; i++) L[i] = (0.2126 * d[i * 4] + 0.7152 * d[i * 4 + 1] + 0.0722 * d[i * 4 + 2]) / 255;
   const q = (v) => Math.round(Math.max(0, Math.min(1, v)) * (o.levels - 1)) / (o.levels - 1);
-  const cell = o.cell, half = cell / 2;
+  // the dot screen keeps its size against the picture, whatever the frame's is (o.cell is at 720 wide)
+  const cell = Math.max(3, o.cell * Math.max(w, h * 16 / 9) / 720), half = cell / 2;
   for (let y = 0; y < h; y++) {
     for (let x = 0; x < w; x++) {
       const i = y * w + x, p = i * 4, l = L[i];
@@ -181,7 +208,7 @@ export function printPanel(doc, src, o = PRINT) {
       if (l < o.dots) {
         const u = (x + y) * 0.7071, v = (x - y) * 0.7071;
         const du = ((u % cell) + cell) % cell - half, dv = ((v % cell) + cell) % cell - half;
-        if (Math.hypot(du, dv) < half * 1.2 * (o.dots - l) / (o.dots - o.black)) { r *= 0.25; gg *= 0.22; b *= 0.2; }
+        if (Math.hypot(du, dv) < half * 1.2 * (o.dots - l) / (o.dots - o.black)) { const k = o.dotInk ?? 0.25; r *= k; gg *= k * 0.92; b *= k * 0.85; }
       }
       d[p] = r * 255; d[p + 1] = gg * 255; d[p + 2] = b * 255;
     }
@@ -191,7 +218,7 @@ export function printPanel(doc, src, o = PRINT) {
 }
 
 // ── the painters ──────────────────────────────────────────────────────────────────────────────────
-const INK = '#120f0c', PAPER = '#efe6d2', YELLOW = '#ffd23a', ORANGE = '#ff8a1c', RED = '#d8321f', DEEP = '#7a1410', WHITE = '#fffaf0';
+const INK = '#120f0c', PAPER = '#efe6d2', YELLOW = '#ffd23a', RED = '#d8321f', WHITE = '#fffaf0';
 const clamp01 = (t) => Math.max(0, Math.min(1, t));
 const ease = (t) => 1 - Math.pow(1 - clamp01(t), 3);
 // a little overshoot, for a thing that slaps down
@@ -221,21 +248,22 @@ function burstPath(g, cx, cy, R, spikes, inner, seed) {
   }
   g.closePath();
 }
-export function paintBurst(g, cx, cy, R, s = 1, seed = 7) {
+export function paintBurst(g, cx, cy, R, s = 1, seed = 7, inks = COMIC_INKS.hot) {
   if (!(s > 0.01) || !(R > 1)) return;
+  const [top, foot, deep, outer] = inks || COMIC_INKS.hot;
   g.save();
   g.translate(cx, cy); g.scale(s, s); g.translate(-cx, -cy);
   const lw = Math.max(2, R * 0.045);
   // red, its inside dotted darker
   burstPath(g, cx, cy, R, 16, 0.62, seed);
-  g.fillStyle = RED; g.fill();
-  g.save(); g.clip(); dots(g, cx - R, cy - R, cx + R, cy + R, Math.max(5, R * 0.07), Math.max(1.2, R * 0.022), DEEP); g.restore();
+  g.fillStyle = outer; g.fill();
+  g.save(); g.clip(); dots(g, cx - R, cy - R, cx + R, cy + R, Math.max(5, R * 0.07), Math.max(1.2, R * 0.022), deep); g.restore();
   g.lineWidth = lw; g.strokeStyle = INK; g.lineJoin = 'miter'; g.stroke();
   // orange, yellow, the white core
   burstPath(g, cx, cy, R * 0.74, 14, 0.66, seed + 1);
-  g.fillStyle = ORANGE; g.fill(); g.lineWidth = lw * 0.7; g.stroke();
+  g.fillStyle = foot; g.fill(); g.lineWidth = lw * 0.7; g.stroke();
   burstPath(g, cx, cy, R * 0.5, 12, 0.7, seed + 2);
-  g.fillStyle = YELLOW; g.fill(); g.lineWidth = lw * 0.6; g.stroke();
+  g.fillStyle = top; g.fill(); g.lineWidth = lw * 0.6; g.stroke();
   burstPath(g, cx, cy, R * 0.24, 9, 0.68, seed + 3);
   g.fillStyle = WHITE; g.fill();
   g.restore();
@@ -282,9 +310,10 @@ function streaks(g, cx, cy, dir, len, k, seed) {
  * face. The letters land one after another `t` seconds in (COMIC.letter apart), each slapping down.
  * `size` px at the first letter, centred on (x, y), turned `rot`. A `t` of Infinity draws it whole.
  */
-export function paintWord(g, word, x, y, size, t = Infinity, rot = -0.12, seed = 3) {
+export function paintWord(g, word, x, y, size, t = Infinity, rot = -0.12, seed = 3, inks = COMIC_INKS.hot) {
   const letters = [...String(word)];
   if (!letters.length || !(size > 1)) return;
+  const [top, foot, deep] = inks || COMIC_INKS.hot;
   const r = rnd(seed + hashStr(word));
   g.save();
   g.translate(x, y); g.rotate(rot);
@@ -306,7 +335,7 @@ export function paintWord(g, word, x, y, size, t = Infinity, rot = -0.12, seed =
   const each = (fn) => { for (const l of placed) { if (!(l.s > 0.01)) continue; g.save(); g.translate(l.at, l.rise); g.rotate(l.tilt); g.scale(l.sc * l.s, l.sc * l.s); fn(l); g.restore(); } };
   // the extrusion, down and to the right, deep red with an ink edge
   each((l) => {
-    g.fillStyle = DEEP; g.strokeStyle = INK; g.lineWidth = ow * 0.9;
+    g.fillStyle = deep; g.strokeStyle = INK; g.lineWidth = ow * 0.9;
     for (let k = ext; k >= 1; k--) { g.strokeText(l.ch, k, k); }
     for (let k = ext; k >= 1; k--) { g.fillText(l.ch, k, k); }
   });
@@ -315,7 +344,7 @@ export function paintWord(g, word, x, y, size, t = Infinity, rot = -0.12, seed =
   // the face: yellow at the top to orange at the foot, and a white glint along the top
   each((l) => {
     const gr = g.createLinearGradient?.(0, -size * 0.45, 0, size * 0.45);
-    if (gr) { gr.addColorStop(0, YELLOW); gr.addColorStop(0.55, YELLOW); gr.addColorStop(1, ORANGE); g.fillStyle = gr; } else g.fillStyle = YELLOW;
+    if (gr) { gr.addColorStop(0, top); gr.addColorStop(0.55, top); gr.addColorStop(1, foot); g.fillStyle = gr; } else g.fillStyle = top;
     g.fillText(l.ch, 0, 0);
     g.lineWidth = Math.max(1, size * 0.03); g.strokeStyle = 'rgba(255,255,255,0.7)';
     g.strokeText(l.ch, -size * 0.02, -size * 0.03);
@@ -366,7 +395,8 @@ export function freezeLayout(w, h, cx, cy, subject = null, dir = null) {
  *   print  the held frame as a printed panel (printPanel), drawn under everything, shaking;
  *   dir      which way the ball's going on screen, for its motion streaks;
  *   subject  the player at the ball, { x, y, r } in px, kept clear (freezeLayout);
- *   seed     so the burst and the lines are the play's own.
+ *   seed     so the burst and the lines are the play's own;
+ *   inks     the kind's inks (comicInksOf), for the burst and the word.
  * Under the burst: a white flash, then a negative frame; the picture shaking; focus lines in to a
  * clear ring round the player; the explosion balloon popping out beside the ball; the streaks behind
  * it; a dot screen darkening the corners; and the word, letter by letter, in the clearest corner.
@@ -400,7 +430,7 @@ export function paintFreeze(g, w, h, cx, cy, word, t, o = {}) {
   focusLines(g, w, h, fx, fy, F.clear, ease(t / 0.15), seed);
   if (o.dir) streaks(g, cx, cy, o.dir, short * 0.42, k, seed + 5);
   // the balloon, beside the ball on the far side from the player
-  paintBurst(g, F.burst.x, F.burst.y, F.burst.R, pop(t / COMIC.pop), seed + 9);
+  paintBurst(g, F.burst.x, F.burst.y, F.burst.R, pop(t / COMIC.pop), seed + 9, o.inks);
   g.restore();
   // the flash, then the negative
   if (t < COMIC.flash) { g.fillStyle = `rgba(255,255,255,${0.9 * (1 - t / COMIC.flash)})`; g.fillRect(0, 0, w, h); }
@@ -408,20 +438,22 @@ export function paintFreeze(g, w, h, cx, cy, word, t, o = {}) {
     g.save(); g.globalCompositeOperation = 'difference'; g.fillStyle = WHITE; g.fillRect(0, 0, w, h); g.restore();
   }
   // the word, in the corner clearest of the player and the burst, landing as the burst does
-  paintWord(g, word, F.word.x + jx, F.word.y + jy, short * 0.15, t - 0.03, F.word.rot, seed);
+  paintWord(g, word, F.word.x + jx, F.word.y + jy, short * 0.15, t - 0.03, F.word.rot, seed, o.inks);
 }
 
 // Where the page's three panels go in a `w` by `h` picture: the moment big on the left, the run-up
-// above the follow-through on the right, each a little turned, with a gutter between.
-export function pageLayout(w, h) {
+// above the follow-through on the right, each a little turned, with a gutter between. `flip` puts
+// the moment on the right and the two small panels on the left, so two pages running aren't one page.
+export function pageLayout(w, h, flip = false) {
   const m = Math.min(w, h) * 0.05, gut = Math.min(w, h) * 0.03, cap = Math.min(w, h) * 0.12;
   const top = m + cap, bh = h - top - m, lw = (w - 2 * m - gut) * 0.6, rw = w - 2 * m - gut - lw, rh = (bh - gut) / 2;
+  const bigX = flip ? m + rw + gut : m, smallX = flip ? m : m + lw + gut, k = flip ? -1 : 1;
   return {
     margin: m, caption: { x: m, y: m * 0.6, h: cap },
     panels: [
-      { x: m + lw + gut, y: top, w: rw, h: rh, rot: 0.025 },          // the run-up
-      { x: m, y: top, w: lw, h: bh, rot: -0.018 },                     // the moment
-      { x: m + lw + gut, y: top + rh + gut, w: rw, h: rh, rot: -0.03 }, // what followed
+      { x: smallX, y: top, w: rw, h: rh, rot: 0.025 * k },           // the run-up
+      { x: bigX, y: top, w: lw, h: bh, rot: -0.018 * k },             // the moment
+      { x: smallX, y: top + rh + gut, w: rw, h: rh, rot: -0.03 * k }, // what followed
     ],
   };
 }
@@ -472,11 +504,14 @@ function caption(g, text, x, y, size, maxW, k, alignRight = false) {
  *   at        where the moment is in its shot, as fractions [u, v];
  *   subject   the player at it in the shot, { x, y, r } as fractions of its height (freezeLayout:
  *             the burst goes beside the ball, clear of him);
- *   seed      as the freeze's.
+ *   seed      as the freeze's;
+ *   inks      the kind's inks (comicInksOf);
+ *   flip      the moment's panel on the right (pageLayout);
+ *   issue     the masthead's number, top right (the inning, say); none without it.
  * `words` is the headline across the top (HOME RUN!).
  */
 export function paintPage(g, w, h, shots, word, words, t, o = {}) {
-  const L = pageLayout(w, h), k = Math.min(w, h) / 600, seed = o.seed ?? 11;
+  const L = pageLayout(w, h, !!o.flip), k = Math.min(w, h) / 600, seed = o.seed ?? 11;
   g.save();
   g.globalAlpha = ease(t / 0.15);
   g.fillStyle = PAPER; g.fillRect(0, 0, w, h);
@@ -509,7 +544,7 @@ export function paintPage(g, w, h, shots, word, words, t, o = {}) {
     if (i === 1 && img && img.width && Array.isArray(o.at)) {
       const W2 = img.width * sc, H2 = img.height * sc, S = o.subject;
       const F = freezeLayout(W2, H2, o.at[0] * W2, o.at[1] * H2, S ? { x: S.x * W2, y: S.y * H2, r: S.r * H2 } : null, o.dir);
-      paintBurst(g, ox + F.burst.x, oy + F.burst.y, Math.min(F.burst.R, Math.min(P.w, P.h) * 0.16), pop((t - 0.2) / COMIC.pop), seed + 9);
+      paintBurst(g, ox + F.burst.x, oy + F.burst.y, Math.min(F.burst.R, Math.min(P.w, P.h) * 0.16), pop((t - 0.2) / COMIC.pop), seed + 9, o.inks);
     }
     g.restore();
     g.lineWidth = Math.max(3, 6 * k); g.strokeStyle = INK; g.strokeRect(-P.w / 2, -P.h / 2, P.w, P.h);
@@ -538,7 +573,24 @@ export function paintPage(g, w, h, shots, word, words, t, o = {}) {
   });
   // the word over the moment, breaking out of its frame once its panel's down
   const M = L.panels[1];
-  paintWord(g, word, M.x + M.w * 0.6, M.y + M.h * 0.22, Math.min(M.w, M.h) * 0.2, t - 0.3, -0.14, seed);
+  paintWord(g, word, M.x + M.w * 0.6, M.y + M.h * 0.22, Math.min(M.w, M.h) * 0.2, t - 0.3, -0.14, seed, o.inks);
+  // the masthead, top right: the comic's name and its number, as a cover's corner box has them
+  if (o.issue != null) {
+    const a = ease((t - 0.7) / 0.25);
+    if (a > 0) {
+      const C = L.caption, bh = C.h * 0.86, size = bh * 0.3, text = 'DEADBALL COMICS', no = `No. ${o.issue}`;
+      g.save(); g.globalAlpha = a;
+      g.font = HAND(Math.round(size));
+      const bw = Math.max(g.measureText?.(text)?.width || size * text.length * 0.6, size * 4) + size, x = w - L.margin - bw, y = C.y + (C.h - bh) / 2;
+      g.fillStyle = INK; g.fillRect(x + 3 * k, y + 3 * k, bw, bh);
+      g.fillStyle = WHITE; g.fillRect(x, y, bw, bh);
+      g.lineWidth = Math.max(1.5, 3 * k); g.strokeStyle = INK; g.strokeRect(x, y, bw, bh);
+      g.fillStyle = RED; g.textAlign = 'center'; g.textBaseline = 'middle';
+      g.fillText(text, x + bw / 2, y + bh * 0.32);
+      g.fillStyle = INK; g.fillText(no, x + bw / 2, y + bh * 0.72);
+      g.restore();
+    }
+  }
   // the headline and the narration, upper left
   if (words) {
     const a = ease((t - 0.55) / 0.25);
@@ -562,12 +614,29 @@ export function paintPage(g, w, h, shots, word, words, t, o = {}) {
  * The slow-motion beats' frame, over the moving picture: a dot screen darkening the corners and an
  * ink border with the "SLOW MO" tag, so the replay reads as a comic before it freezes. Cheap enough
  * for every frame: no per-pixel work. `t` is seconds into the beat, `beat` 0 the run, 1 what follows.
+ * `o.note`: a narration box along the foot of the run (the inning and the outs, say); `o.lines`
+ * false leaves the speed lines out.
  */
-export function paintRun(g, w, h, t, beat = 0) {
+export function paintRun(g, w, h, t, beat = 0, o = {}) {
   const k = Math.min(w, h) / 600, a = ease(t / 0.3);
   if (!(a > 0)) return;
   g.save();
-  g.globalAlpha = 0.38 * a;
+  // speed lines in from the edges toward the middle, drawn afresh eight times a second so they
+  // flicker the way a page of them reads, and kept out of the middle of the picture
+  if (o.lines !== false) {
+    const r = rnd(1009 + Math.floor(t * 8) * 31 + beat * 7), cx0 = w / 2, cy0 = h / 2, R0 = Math.hypot(cx0, cy0) * 1.05;
+    g.globalAlpha = 0.7 * a;
+    g.fillStyle = INK;
+    for (let i = 0; i < 60; i++) {
+      const an = r() * Math.PI * 2, spread = 0.005 + r() * 0.009, inner = R0 * (0.5 + r() * 0.3);
+      g.beginPath();
+      g.moveTo(cx0 + Math.cos(an - spread) * R0, cy0 + Math.sin(an - spread) * R0);
+      g.lineTo(cx0 + Math.cos(an) * inner, cy0 + Math.sin(an) * inner);
+      g.lineTo(cx0 + Math.cos(an + spread) * R0, cy0 + Math.sin(an + spread) * R0);
+      g.fill();
+    }
+  }
+  g.globalAlpha = 0.22 * a;
   const step = Math.max(8, 12 * k), cx = w / 2, cy = h / 2, R = Math.hypot(cx, cy);
   g.fillStyle = INK;
   for (let y = step / 2, row = 0; y < h; y += step, row++) {
@@ -577,9 +646,10 @@ export function paintRun(g, w, h, t, beat = 0) {
     }
   }
   g.globalAlpha = a;
-  const bw = Math.max(4, 9 * k);
+  const bw = Math.max(3, 6 * k);
   g.lineWidth = bw; g.strokeStyle = INK; g.strokeRect(bw / 2, bw / 2, w - bw, h - bw);
   const size = Math.max(12, 22 * k);
   caption(g, beat ? 'AND THEN...' : 'SLOW MO', beat ? w - bw - 10 * k : bw + 10 * k, bw + 10 * k, size, w * 0.4, k, !!beat);
+  if (o.note && !beat) caption(g, String(o.note).toUpperCase(), bw + 10 * k, h - bw - 10 * k - size * 1.2, size * 0.8, w * 0.6, k);
   g.restore();
 }

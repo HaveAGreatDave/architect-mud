@@ -1,0 +1,10 @@
+{
+  "content": "{\n \"kind\": \"set\",\n \"format\": 1,\n \"id\": \"set_ad_scrubgod\",\n \"name\": \"ScrubGod 9000 Advert\",\n \"base\": \"tpl_pitch\",\n \"brand\": {\n  \"name\": \"SCRUBGOD 9000\",\n  \"colour\": \"#40a0ff\"\n },\n \"broadcasts\": [\n  \"bc_commercial_scrubgod\"\n ],\n \"palette\": {},\n \"parts\": {\n  \"counter\": {\n   \"hob\": 0,\n   \"text\": \"BUT WAIT\"\n  }\n },\n \"description\": \"The ScrubGod 9000 infomercial: a demonstration counter, a blue glow.\"\n}",
+  "created_at": "1794108637",
+  "description": "The ScrubGod 9000 infomercial: a demonstration counter, a blue glow.",
+  "id": "set_ad_scrubgod",
+  "name": "ScrubGod 9000 Advert",
+  "tags": [],
+  "type": "set",
+  "updated_at": "1794108921"
+}

@@ -1,6 +1,6 @@
 {
   "a": "zone_solenne_elevator",
-  "b": "zone_solenne_gym",
+  "b": "zone_solenne_hall_12",
   "blocked": false,
   "dir": "up",
   "id": "conn_solenne_elevator_up_wgsn",

@@ -1,0 +1,14 @@
+{
+  "description": null,
+  "flags": {},
+  "id": "item_house_cigar",
+  "name": "house cigar",
+  "tags": {
+    "description": "A plain brown cigar in a cellophane sleeve, rolled cheap and rolled loose. It draws easily and burns hot.",
+    "drug": true,
+    "stackable": true
+  },
+  "type": "consumable",
+  "value": 18,
+  "weight": 25
+}

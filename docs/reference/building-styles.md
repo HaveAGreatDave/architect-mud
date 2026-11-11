@@ -368,7 +368,10 @@ colours in a different geometry. A ninth value would have made the quarter a col
 ⚠ **The voice tell is punctuation.** Em dashes belong to Ascendant wire copy and to the Architect,
 and to nothing else in the game. Worth knowing when you write a sign, a plaque or a placard here.
 
-### 3.2 The Null — Deadwater · built ground, style half-written
+### 3.2 The Null: Deadband (was Deadwater) · built, one kit
+
+**Built 2026-11-10.** Every works building is drawn from the Null kit at the top of `glass/models/outposts.js` (`nlShell`, `nlRoof`, `nlHatch`, `nlGauge`, `nlTally`, `nlDoor`, `nlLamp`): plate in bolted courses on a stone footing, a brass-framed hatch with its cover stood beside it, a dial read from the yard, chalk on slate, plate doors on brass straps, oil lamps. Timber is gone from the walls (the Schoolroom, Sleepers and Winding Shop are plate now); stone stays only on what stood before the Null (the dam, the Reckoning, the Gauge House). A new Deadband building is built from the kit.
+
 
 **What they believe decides what they build, and here that is unusually literal.** The Null refuse
 technology they cannot open: *"what they keep, they keep because they can build it, break it, and

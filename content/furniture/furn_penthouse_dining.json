@@ -1,10 +1,17 @@
 {
-  "description": "A single slab of grey basalt on two bronze trestles, long enough for twelve and laid for one. The light over it is set exactly right for a face across the table, and the chair across the table is empty.",
+  "description": "A single slab of grey basalt on two bronze trestles, long enough for twelve and laid for one. The light over it is set exactly right for a face across the table, and the chair across the table is always empty.",
   "flags": {
     "aliases": "table,dining table",
     "look": {
       "arche": "table",
       "form": "dining"
+    },
+    "spot": {
+      "at": [
+        -3.3,
+        6.8
+      ],
+      "turn": 0
     }
   },
   "hp": null,

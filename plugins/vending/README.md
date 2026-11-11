@@ -11,6 +11,9 @@ The machine's `flags.vends` carries the item id. A new dispenser is content.
 ## Some dispensers charge
 A plain dispenser with `flags.vend_price` charges that many credits per vend: the airport's snack and can machines. The debit and the dispense are one transaction, so a player who can't pay gets nothing and pays nothing, and the cooldown isn't armed. On a machine with `vend_drink` the price belongs to the drinks plugin instead (next section), so this plugin ignores `vend_price` there.
 
+## Some hold more than one thing
+A machine with `flags.vend_menu` (`[{ item, price }]`) holds several things, each at its own price, and never runs out. `vend <machine>` lists them, `vend <machine> <name>` takes one, and the Room Stage's card sends `vend <machine> <item id>`. `flags.vends` stays its first item, so VEND still shows on examine. The lacquered box on the Solenne Penthouse's bar is the first: its lid opens on the Stage while its card is up (`gl/room-stash.js`).
+
 ## Some dispensers fill what they hand you
 A machine carrying `flags.vend_drink` doesn't hand over an empty vessel — it makes the cup **and** what goes in it, and charges. An espresso rig was a cup dispenser that then expected you to produce your own grounds and brew them at it, which is not what a person does at a coffee machine.
 

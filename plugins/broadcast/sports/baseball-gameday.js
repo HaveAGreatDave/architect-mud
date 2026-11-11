@@ -222,6 +222,8 @@ export function gamedayPayloads(game, seed, { abbr, ordinal, ledger = null, venu
       pitcher: s.pitcher || '', throws: handOf(s.pitcher).throws,
       awayScore: s.awayScore, homeScore: s.homeScore,
       line: line.get(s) || null,
+      // the fielding side's First Generation men by their place (baseball.js simGameFor), for the TV's cast
+      ...(game.gen1?.[s.fieldingName] ? { gen1: game.gen1[s.fieldingName] } : {}),
     };
     half.set(s, hp); order.push(hp);
     let prev = [false, false, false];
@@ -245,6 +247,7 @@ export function gamedayPayloads(game, seed, { abbr, ordinal, ledger = null, venu
         battingTeam: b.battingName, fieldingTeam: b.fieldingName,
         battingAbbr: abbr(b.battingName), fieldingAbbr: abbr(b.fieldingName),
         inning: b.inning, inningOrd: ordinal(b.inning), half: b.half,
+        ...(game.gen1?.[b.fieldingName] ? { gen1: game.gen1[b.fieldingName] } : {}),
       };
       // A sim v2 game names its runners and hands over each man's fate; a v1 game's are
       // worked out from the bags.

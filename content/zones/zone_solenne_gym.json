@@ -6,14 +6,52 @@
   "ambient_theme": "indoors",
   "bg_color": "#20303a",
   "color": "#d9e6f2",
-  "description": "A private gym walled in glass, the city laid out grey and glittering forty metres down. Rubberised black flooring, a rack of chromed free-weights polished to a shine, and a bench-press station set beneath a run of full-height mirrors. The air is cool and filtered and smells faintly of eucalyptus. A towel, folded into a swan, waits on every station. Step <b>in</b> to the elevator.",
+  "description": "A private gym walled in glass, the city laid out grey and glittering forty metres down. Rubberised black flooring, a rack of chromed free-weights polished to a shine, and a bench-press station set beneath a run of full-height mirrors. The air is cool and filtered and smells faintly of eucalyptus. A towel, folded into a swan, waits on every station. The hall is <b>south</b>.",
   "exits": {
-    "in": "zone_solenne_elevator"
+    "south": "zone_solenne_hall_12"
   },
   "flags": {
     "building_name": "Solenne Residences",
     "floor": "boards",
     "is_interior": true,
+    "room": {
+      "balcony": false,
+      "d": 10,
+      "decor": {
+        "mirrors": [
+          {
+            "at": 4.2,
+            "w": 7.2,
+            "wall": "left",
+            "y0": 0.15,
+            "y1": 3.1
+          }
+        ],
+        "plants": [
+          [
+            -6.3,
+            9.2,
+            0.9
+          ]
+        ],
+        "rug": false
+      },
+      "face": 0,
+      "finish": "fine",
+      "glass": [
+        "front",
+        "right"
+      ],
+      "ground": "rubber",
+      "h": 3.6,
+      "studio": false,
+      "tone": {
+        "ceiling": "#f1f2f2",
+        "trim": "#2a2d31",
+        "wall": "#dfe3e6"
+      },
+      "w": 14
+    },
     "sanctuary": true
   },
   "grid_x": 0,

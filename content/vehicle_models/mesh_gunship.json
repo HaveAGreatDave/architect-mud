@@ -1441,17 +1441,27 @@
             ],
             "xf": { "t": [0, 0.34, 0] }
           },
-          { "kind": "faired", "name": "main leg", "pts": [[0.25, 0.34, -0.1], [0.24, 0.34, -0.2]], "chord": 0.04, "th": 0.012, "role": "gear" },
-          { "kind": "wheel", "name": "main wheel", "at": [0.24, 0.34, -0.238], "r": 0.041, "hw": 0.018, "n": 12 }
+          {
+            "kind": "group",
+            "name": "main gear",
+            "note": "Swings aft about the top of the leg, up into the pod, as the gear comes up.",
+            "parts": [
+              { "kind": "faired", "name": "main leg", "pts": [[0.25, 0.34, -0.1], [0.24, 0.34, -0.2]], "chord": 0.04, "th": 0.012, "role": "gear" },
+              { "kind": "wheel", "name": "main wheel", "at": [0.24, 0.34, -0.238], "r": 0.041, "hw": 0.018, "n": 12 }
+            ],
+            "anim": { "ang": [90, 0], "axis": [0, 1, 0], "ch": "gear", "pivot": [0.25, 0.34, -0.085] }
+          }
         ]
       },
       {
         "kind": "group",
         "name": "nose gear",
+        "note": "Swings aft into the belly about a hinge just inside it.",
         "parts": [
           { "kind": "strut", "name": "nose leg", "at": [0.72, 0.03], "top": -0.11, "bot": -0.22, "r": 0.01 },
           { "kind": "wheel", "name": "nose wheel", "at": [0.72, 0.03, -0.24], "r": 0.039, "hw": 0.014, "n": 12 }
-        ]
+        ],
+        "anim": { "ang": [90, 0], "axis": [0, 1, 0], "ch": "gear", "pivot": [0.72, 0.03, -0.075] }
       },
       {
         "kind": "mirror",

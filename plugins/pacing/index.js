@@ -167,6 +167,9 @@ async function drainOne(player) {
 export function cadenceGate({ player, direction, opts }) {
   if (opts?.bypassEncumbrance) return;                // system move — never paced
   if (opts?._pacingDrain) return;                     // a drained step — its turn has come
+  // On foot in GLASS the camera's own walking speed is the pace (plugins/freelook `footstep`). A queued step there
+  // arrived seconds after the view had walked on, and the view took the silence as a refusal and pulled you back.
+  if (opts?.footTo) return;
   if (Date.now() >= nextReadyAt(player)) return;      // cadence elapsed — go now
 
   player._moveQueue = player._moveQueue || [];

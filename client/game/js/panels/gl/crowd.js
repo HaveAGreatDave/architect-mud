@@ -177,7 +177,8 @@ void main() {
   // his head (the face and neck, and the hair over it), turned about his neck toward the play as
   // far as his interest takes him, and wandering a little of its own; the neck is at the top of
   // the shoulders sitting or standing (gl/ballpark-mesh.js CROWD_POSE)
-  bool head = aPart < 0.2 || abs(aPart - 3.0) < 0.1;
+  // (3.45 is the face's eyes, brows and mouth: ballpark-mesh.js CROWD_PART.face)
+  bool head = aPart < 0.2 || abs(aPart - 3.0) < 0.1 || abs(aPart - 3.45) < 0.03;
   if (head) {
     vec2 d = uLook.xy - iA.xz;
     float want = atan(c * d.x - s * d.y, s * d.x + c * d.y);

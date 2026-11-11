@@ -1,24 +1,27 @@
 {
-  "ambient_events": [],
-  "ambient_theme": "forest",
-  "color": "#8ba36a",
-  "description": "Thin grass on red dirt, with a dry ditch along one side. Nobody has decided what goes here yet.",
+  "ambient_events": [
+    "Somebody is snoring in a tent nearby, loudly and evenly.",
+    "Someone shakes out a blanket and hangs it over a guy line."
+  ],
+  "ambient_theme": "residential",
+  "description": "A run of lean-tos made of doors and tarps, propped against each other. Each tarp is a different colour, and the people in them give the colour as their address.",
   "exits": {
     "east": "zone_district_925_922",
-    "north": "zone_district_924_921",
     "south": "zone_district_924_923",
     "west": "zone_district_923_922"
   },
   "flags": {
-    "district": "residential",
+    "camp": true,
+    "district": "slum",
     "region_id": "region_coldwater",
-    "terrain": "grass"
+    "scavenging_table_id": "scav_consumer_trash",
+    "terrain": "ash"
   },
   "grid_x": 924,
   "grid_y": 922,
   "grid_z": 0,
   "id": "zone_district_924_922",
   "map_id": "map_world",
-  "name": "Grasslands",
+  "name": "Wallside",
   "parent_zone": null
 }

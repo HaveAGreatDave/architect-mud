@@ -1,5 +1,5 @@
 {
-  "description": "A single upholstered chair by the window. Nobody sits in it. It's there so the hall looks like somewhere a person could sit.",
+  "description": "A single upholstered chair against the hall wall. Nobody sits in it. It is there so the hall looks like somewhere a person could sit.",
   "flags": {
     "aliases": "chair",
     "interactions": [
@@ -8,6 +8,10 @@
     "look": {
       "arche": "seat",
       "form": "chair"
+    },
+    "spot": {
+      "along": -2.45,
+      "wall": "front"
     }
   },
   "hp": null,

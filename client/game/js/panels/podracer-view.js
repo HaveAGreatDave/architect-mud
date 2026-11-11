@@ -25,7 +25,7 @@ import { PODRACER_TYPES, CRANK_S, createPodracerState, stepPodracer, placePodrac
 import { claimSeatKeyboard, endSeatKeyboard, panelTakesKey } from './seat-keys.js';
 import { ensureDepotStyles, jobsHtml, meterHtml, money } from './depot-shell.js';
 import { makeContactTrack } from './world-feed.js';
-import { seatHidePanel } from '../../../shared/compact-view.js';
+import { bindSeatRungs, clearSeatRungs } from './seat-ladder.js';
 import { bindBigScreenButton, exitBigScreen, BIGSCREEN_GLYPH, BIGSCREEN_TITLE } from './bigscreen.js';
 
 const ID = 'podracer-sim';
@@ -175,8 +175,7 @@ export function openPodracer(ctx = {}) {
   st.brokeEl = root.querySelector?.('.pod-broke') || null;
   bindBigScreenButton(root.querySelector?.('.pod-big'));
   const hideBtn = root.querySelector?.('.pod-hidebtn');
-  hideBtn?.addEventListener('click', () => { hideBtn.classList.toggle('on', document.body.classList.toggle('pod-hidepanel')); });
-  seatHidePanel('pod-hidepanel', hideBtn);
+  bindSeatRungs({ hide: hideBtn });   // ⊟, opening folded (seat-ladder.js)
   root.querySelector?.('.pod-x')?.addEventListener('click', () => toggleOut());
   root.querySelector?.('.pod-cam')?.addEventListener('click', () => cycleCam());
   root.querySelector?.('.pod-help-btn')?.addEventListener('click', () => toggleHelp());
@@ -214,8 +213,7 @@ export function closePodracer() {
   window.removeEventListener('keyup', st.ku, true);
   for (const l of st.levers || []) l?.destroy?.();
   stopEngineAudio();
-  exitBigScreen();
-  document.body.classList.remove('pod-hidepanel');
+  clearSeatRungs();
   disposeWindshield(ID);
   endSeatKeyboard(st.pane);
   if (st.ownsPane) window.dispatchEvent(new Event('pane:released'));
@@ -754,9 +752,6 @@ function ensurePodStyles() {
   const el = document.getElementById('pod-styles') || document.createElement('style');
   el.id = 'pod-styles';
   el.textContent = `
-    body.pod-hidepanel #area-pane{max-height:none !important;height:auto !important;flex:1 1 auto}
-    body.pod-hidepanel #area-content{flex:1 1 auto;display:flex;min-height:0}
-    body.pod-hidepanel #output, body.pod-hidepanel #look-resize-handle{display:none}
     .pod-hidebtn.on{ color:#ffc890; }
     #area-content:has(.pod-root){ height:100%; overflow:hidden; overscroll-behavior:contain; touch-action:none; }
     .pod-root{ position:relative; width:100%; height:100%; min-height:380px; overflow:hidden;

@@ -22,8 +22,10 @@ import { createRoomWalk } from './room-walk.js';
 import { rinkSeats, SEAT_EYE } from './gl/arena-crowd.js';
 import { standsBoothOn, boxAnnouncerOn, loadSettings, saveSettings, applySettings } from '../../../shared/settings.js';
 import { createHands } from './stands-hands.js';
+import { createCupholder } from './stands-cupholder.js';
 import { createDrunk } from './stands-drunk.js';
 import { getDrugFx } from './flight-drugfx.js';
+import { seatLadderHTML, bindSeatLadder, releaseSeatLadder } from './seat-ladder.js';
 
 const CSS = await loadCss(new URL('./stands.css', import.meta.url));
 function ensureStyles() {
@@ -139,6 +141,15 @@ export async function openStands(msg) {
   ensureStyles();
   closeStandsChart();
   closeStands();
+  // a box's suite (the section's 'room'): the Grandstand builds it round the seat and hands back its
+  // layout, which the walker below moves the eye round
+  const room = msg.sport === 'baseball' && !msg.screen ? msg.section?.room || null : null;
+  let layout = null, startSuite = null;
+  // A box is a room you walk round, so it goes where the Room Stage goes: in the game pane, over the
+  // room text, with the seat ladder in its bar (seat-ladder.js). A seat and a big screen keep the window.
+  const pane = room ? document.getElementById('area-content') : null;
+  // one view in the pane at a time
+  if (pane && document.getElementById('room-stage')) { try { (await import('./room-stage.js')).closeRoomStage(); } catch { /* it wasn't up */ } }
   const root = document.createElement('div');
   root.id = 'stands-view';
   root.innerHTML = `<div class="st-bar">
@@ -146,23 +157,32 @@ export async function openStands(msg) {
       <button type="button" class="st-mode" aria-pressed="true" title="Follow the play (F)">Follow the play</button>
       <button type="button" class="st-tablet" title="Open your tablet">Tablet</button>
       <button type="button" class="st-settings" title="Settings" aria-label="Settings">⚙</button>
-      <button type="button" class="st-sit" hidden title="Sit down or get up (E)">Get up</button>
+      <button type="button" class="st-sit" hidden title="Sit down or get up (F)">Get up</button>
       <button type="button" class="st-tv" hidden aria-pressed="false" title="The big screen, full size (T)">Big screen</button>
       <button type="button" class="st-announcer" hidden aria-pressed="true" title="The announcer's calls from the screen">Announcer</button>
       <button type="button" class="st-lights" hidden title="Turn the box's lights up or down">Lights: full</button>
       <button type="button" class="st-seats">Change seat</button>
+      ${pane ? '<span class="st-ladder">' + seatLadderHTML('st-chip') + '</span>' : ''}
       <button type="button" class="st-leave">Leave the stands</button>
     </div>
     <div class="st-host"></div>
     <div class="st-tip">Drag to look around · wheel to zoom</div>`;
-  document.body.appendChild(root);
+  if (pane) {
+    // the pane's text is at size 0 while the box is up (stands.css), so the box takes its size first
+    root.classList.add('st-pane');
+    root.style.fontSize = getComputedStyle(pane).fontSize;
+    pane.appendChild(root);
+    document.body.classList.add('stands-pane-on');
+    bindSeatLadder(root);
+  } else document.body.appendChild(root);
   const host = root.querySelector('.st-host');
   // the eye the view reads every frame; the controls below turn it
   const seat = { eye: msg.sport === 'hockey' && !msg.screen ? rinkSeatEye(msg.section.eye) : msg.section.eye, mode: 'follow', fov: msg.sport === 'hockey' ? 64 : 50, yaw: null, pitch: null };
-  const ui = { root, seat, view: null, unview: null, channelId: msg.channelId, sport: msg.sport, got: false };
+  const ui = { root, seat, view: null, unview: null, channelId: msg.channelId, sport: msg.sport, got: false, paned: !!pane };
   seatUi = ui;
-  // over the root, not the host: the view takes the host for itself when it mounts
-  coverWithVeil(root, 'stands', { ready: () => !!ui.view });
+  // over the root, not the host: the view takes the host for itself when it mounts. A box stays
+  // covered until its room is built too, as a flat does.
+  coverWithVeil(root, 'stands', { ready: () => !!ui.view && (!room || !!layout) });
   // A big screen (msg.screen) is the broadcast's own cameras: no seat, nothing to turn.
   if (msg.screen) {
     root.classList.add('st-screen');
@@ -175,10 +195,6 @@ export async function openStands(msg) {
 
   let view;
   const vs = msg.screen ? undefined : seat;
-  // a box's suite (the section's 'room'): the Grandstand builds it round the seat and hands back its
-  // layout, which the walker below moves the eye round
-  const room = msg.sport === 'baseball' && !msg.screen ? msg.section?.room || null : null;
-  let layout = null, startSuite = null;
   // no ballgame on: the suite's screen shows the hockey, from a rink view kept out of sight
   // (or with no hockey either, msg.rerun: the last ballgame again, from a grandstand kept out of sight)
   const onScreen = room && !msg.channelId && msg.tvChannelId ? await (msg.rerun ? rerunOnScreen : hockeyOnScreen)(ui, msg.tvChannelId) : null;
@@ -186,8 +202,8 @@ export async function openStands(msg) {
   ui.stopScreen = onScreen?.stop;
   try {
     view = msg.sport === 'hockey'
-      ? (await import('./gameday-rink.js')).createRinkView(host, { seat: vs, fly: false })
-      : (await import('./gameday-grandstand.js')).createGrandstandView(host, { seat: vs, force: true, room, announcer: room ? boxAnnouncerOn : null, tvSource: onScreen?.frame || null, station: msg.station || '', onRoom: (L) => { layout = L; startSuite?.(); } });
+      ? (await import('./gameday-rink.js')).createRinkView(host, { seat: vs, fly: false, commentary: BOOTH_SWITCH })
+      : (await import('./gameday-grandstand.js')).createGrandstandView(host, { seat: vs, force: true, commentary: BOOTH_SWITCH, room, announcer: room ? boxAnnouncerOn : null, tvSource: onScreen?.frame || null, station: msg.station || '', onRoom: (L) => { layout = L; startSuite?.(); } });
   } catch (err) {
     console.error('[stands] the view failed to load:', err);
     host.textContent = 'The view would not load.';
@@ -288,30 +304,18 @@ export async function openStands(msg) {
     clearTimeout(flashT); flashT = setTimeout(() => flashEl.classList.remove('on'), 1800);
   }
   ui.flash = flash;
-  // the cupholder on your armrest (a seat, not a box or a big screen): a click calls the hawker over
-  // with his tray (plugins/stands `stands order`)
-  if (msg.sport === 'baseball' && !room && !msg.screen) {
-    const cup = document.createElement('button');
-    cup.type = 'button'; cup.className = 'st-cup'; cup.title = 'Call the hawker: beer, soda, a hot dog, water';
-    cup.setAttribute('aria-label', 'Cupholder: call the hawker');
-    cup.innerHTML = '<svg viewBox="0 0 120 90" aria-hidden="true">'
-      // the armrest, the ring of the holder and the paper cup standing in it
-      + '<path d="M2 66 Q2 50 20 50 H118 V80 H20 Q2 80 2 66Z" fill="#8a2a30" stroke="#3a0e12" stroke-width="2"/>'
-      + '<ellipse cx="62" cy="56" rx="30" ry="9" fill="#1a1c20" stroke="#c8a446" stroke-width="3"/>'
-      + '<path d="M44 14 L80 14 L75 58 L49 58 Z" fill="#f2efe6" stroke="#9a968a" stroke-width="1.5"/>'
-      + '<path d="M46 26 L78 26 L77 36 L47 36 Z" fill="#b8262c"/>'
-      + '<ellipse cx="62" cy="14" rx="18" ry="4" fill="#e7c766" stroke="#9a968a" stroke-width="1.5"/></svg>'
-      + '<span>Hawker: drinks and food</span>';
-    cup.addEventListener('pointerdown', (e) => e.stopPropagation());
-    cup.addEventListener('click', () => { flash('You wave the hawker over.', true); sendCmd('stands order'); });
-    host.appendChild(cup);
-    // what he hands you is held in first person, as a box's is (stands-hands.js)
+  // the cupholder on your armrest (a seat, not a box or a big screen), in 3-D where the seat is, down
+  // to your right: a click opens the concessions (plugins/stands `stands order`), and what you buy is
+  // held in first person, as a box's is (stands-hands.js). The hands go in after it, so they're on top.
+  if (!room && !msg.screen) {
+    ui.cup = createCupholder(root, host, { sport: msg.sport, seat, onOpen: () => sendCmd('stands order') });
+    root.querySelector('.st-tip').textContent = 'Drag to look around · wheel to zoom · the cupholder on your armrest, down to your right, has the concessions';
     ui.hands = createHands(root, host, { send: sendCmd });
     ui.onKeyUp = (e) => { ui.hands?.key(e, false); }; document.addEventListener('keyup', ui.onKeyUp);
   }
   // the view rewrites the picture's markup when it mounts (and again if it falls back), which takes
   // these with it, so they're put back whenever they go
-  const ours = [...host.children].filter((el) => el.matches('.st-hover, .st-flash, .st-cup'));
+  const ours = [...host.children].filter((el) => el.matches('.st-hover, .st-flash'));
   ui.keepOverlay = new MutationObserver(() => { for (const el of ours) if (!el.isConnected) host.appendChild(el); });
   ui.keepOverlay.observe(host, { childList: true });
   host.addEventListener('wheel', (e) => {
@@ -321,9 +325,13 @@ export async function openStands(msg) {
   }, { passive: false });
   ui.onKey = (e) => {
     // a field on top of the seat (a container's count) keeps its keys; the command line under the
-    // seat is out of sight but takes focus back on its own, so it lets go and the room walks
+    // seat is out of sight but takes focus back on its own, so it lets go and the room walks. In a
+    // plain seat the command line keeps its keys, except while something's in your hands: then
+    // Space bites, drinks or drags, and the rest of the hands' keys work, wherever the focus was.
     const field = e.target.closest?.('input, textarea, [contenteditable]');
-    if (field && (field.closest('#stands-view, #container-panel') || !suite)) return;
+    // A box in the pane has the command box in sight under it, so typing there is typing, as in a flat;
+    // a click on the picture takes the keys back (walkSuite's letGo).
+    if (field && (ui.paned || field.closest('#stands-view, #container-panel') || (!suite && !ui.hands?.active?.()))) return;
     if (document.getElementById('tablet-os-overlay')) return;   // the tablet has the keys
     if (field) field.blur();
     const k = e.key;
@@ -366,6 +374,18 @@ export async function openStands(msg) {
 // The booth's line in the TV's voice: a "Name says" line seeds off that name, as tv.js does, and
 // anything else off whoever the broadcast says is on the mic.
 // (`on` is the setting that lets him be heard where this is: the seats' radio by default)
+// The Commentary toggle on the seat's picture (commentary-button.js) is Booth in the Stands: the
+// same setting as Settings and the 'booth' verb. Off cuts the line being read.
+const BOOTH_SWITCH = {
+  on: standsBoothOn,
+  toggle() {
+    const st = loadSettings();
+    st.standsBooth = standsBoothOn() ? 'off' : 'on';
+    saveSettings(st); applySettings(st);
+    if (st.standsBooth === 'off') window.AudioEngine?.cancelSpeech('tv');
+  },
+};
+
 function sayBooth(plain, duration, dl, on = standsBoothOn) {
   if (!on()) return;
   const said = /^(.+?) says, "([\s\S]*)"$/.exec(plain);
@@ -379,7 +399,7 @@ function sayBooth(plain, duration, dl, on = standsBoothOn) {
 const STATION_NAME = { bar: 'Fridge', buffet: 'Buffet', smokes: 'Smokes' };
 const STATION_SAY = { bar: 'You open the fridge.', buffet: 'You go over to the buffet.', smokes: 'You reach for the smokes.' };
 // A fresh copy of the weather cells, when the day's field is reseeded or a cell moved
-// What the hawker passed down the row (stands_hand): into your hands, if they're free for it.
+// What a runner brought up from the concessions (stands_hand): into your hands, if they're free for it.
 export function standsHand(msg) { if (msg?.item) seatUi?.hands?.take?.(msg.item); }
 export function setStandsSky(field) { seatUi?.view?.setSkyField?.(field || null); }
 // A venue's roof has started to move (venue_roof): the seat's park rolls it if the push names its tile.
@@ -392,33 +412,61 @@ export function setStandsRoof(msg) {
 
 // What the bar, the buffet or the smokes in a box keep (stands_menu, plugins/stands `stands fetch`):
 // a card over the picture, the way a host would show you what's going. Taking one sends
-// `stands fetch <thing> <item>`; it's all on the house, so nothing has a price.
-export function openStandsMenu(msg) {
-  const root = seatUi?.root;
+// `stands fetch <thing> <item>`; it's all on the house, so nothing has a price. A machine in a flat
+// (plugins/vending, `vend <machine> menu`) sends the same card with `buy` and prices, over the Room
+// Stage (`host`): a click sends `<buy> <item>` and the server says if you can't pay.
+export function openStandsMenu(msg, host = seatUi) {
+  const root = host?.root;
   if (!root) return;
+  ensureStyles();
   root.querySelector('.st-menu')?.remove();
   const card = document.createElement('div');
   card.className = 'st-menu';
   card.setAttribute('role', 'dialog');
   card.setAttribute('aria-label', String(msg.name || msg.target));
-  // the hawker's tray (target 'order') is paid for; everything in a box is on the house
-  const paid = msg.target === 'order';
+  // the concessions (target 'order') are paid for; everything in a box is on the house
+  const paid = msg.target === 'order' || !!msg.buy;
+  const row = (it) => `<li><button type="button" data-id="${esc(it.id)}"><b>${esc(it.name)}</b>${it.description ? `<span>${esc(it.description)}</span>` : ''}<i>${paid ? `₵${it.price | 0}` : 'Take one'}</i></button></li>`;
+  // a menu that files its items (the concessions: food, drinks, cigarettes, cigars) gets a heading
+  // for each, and a strip of tabs along the top that jumps to one
+  const groups = Array.isArray(msg.groups) ? msg.groups.filter((g) => (msg.items || []).some((it) => it.group === g)) : [];
+  const title = (g) => g.charAt(0).toUpperCase() + g.slice(1);
+  if (groups.length) card.classList.add('st-menu-wide');
+  const list = groups.length
+    ? `<nav class="st-menu-tabs">${groups.map((g) => `<button type="button" data-go="${esc(g)}">${esc(title(g))}</button>`).join('')}</nav>`
+      + `<div class="st-menu-groups">${groups.map((g) => `<section data-group="${esc(g)}"><h3>${esc(title(g))}</h3><ul>${msg.items.filter((it) => it.group === g).map(row).join('')}</ul></section>`).join('')}</div>`
+    : `<ul>${(msg.items || []).map(row).join('')}</ul>`;
+  const credits = msg.credits != null ? `You have ₵${msg.credits | 0}.` : '';
   card.innerHTML = `<div class="st-menu-head"><b>${esc(msg.name || msg.target)}</b><button type="button" class="st-menu-x" aria-label="Close">✕</button></div>`
     + (msg.description ? `<p class="st-menu-desc">${esc(msg.description)}</p>` : '')
-    + `<ul>${(msg.items || []).map((it) => `<li><button type="button" data-id="${esc(it.id)}"><b>${esc(it.name)}</b>${it.description ? `<span>${esc(it.description)}</span>` : ''}<i>${paid ? `₵${it.price | 0}` : 'Take one'}</i></button></li>`).join('')}</ul>`
-    + `<p class="st-menu-foot">${paid ? 'Pay the hawker and it comes down the row.' : 'On the house.'}</p>`;
+    + list
+    + `<p class="st-menu-foot">${msg.buy ? credits : paid ? `${credits} A runner brings it to your seat.`.trim() : 'On the house.'}</p>`;
   const close = () => { card.remove(); document.removeEventListener('keydown', onEsc, true); };
   const onEsc = (e) => { if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); close(); } };
   document.addEventListener('keydown', onEsc, true);
   card.querySelector('.st-menu-x').addEventListener('click', close);
   card.addEventListener('pointerdown', (e) => e.stopPropagation());
   card.addEventListener('click', (e) => {
+    const go = e.target.closest('button[data-go]');
+    if (go) { card.querySelector(`section[data-group="${CSS_ESC(go.dataset.go)}"]`)?.scrollIntoView({ block: 'start', behavior: 'smooth' }); return; }
     const b = e.target.closest('button[data-id]');
     if (!b) return;
     // what your hands can't hold keeps the card up, and they say why; otherwise the card goes and
     // what you took is in your hand. A spirit with no glass to go in brings the bar's glass with it.
     const it = (msg.items || []).find((x) => x.id === b.dataset.id);
-    if (paid) { seatUi?.flash?.(`One ${it?.name || 'of those'}, coming down the row.`, true); sendCmd(`stands order ${b.dataset.id}`); close(); return; }
+    if (msg.buy) {
+      // too dear keeps the card up and says so; otherwise the machine is paid and the server hands it over
+      if ((it?.price | 0) > (msg.credits | 0)) { const f = card.querySelector('.st-menu-foot'); f.textContent = `That's ₵${it.price | 0}, and you have ₵${msg.credits | 0}.`; f.classList.add('st-menu-no'); return; }
+      sendCmd(`${msg.buy} ${b.dataset.id}`); close(); return;
+    }
+    if (paid) {
+      // as at a box's buffet, the card stays up and says why when you can't have it: too dear, or
+      // your hands already full; otherwise it's paid for, the card goes and it comes to your hands
+      const no = (text) => { const f = card.querySelector('.st-menu-foot'); f.textContent = text; f.classList.add('st-menu-no'); };
+      if (msg.credits != null && (it?.price | 0) > (msg.credits | 0)) { no(`That's ₵${it.price | 0}, and you have ₵${msg.credits | 0}.`); return; }
+      if (it?.kind && seatUi?.hands?.busy?.(it)) { no('Your hands are full. Finish what you have first.'); return; }
+      seatUi?.flash?.(`You order the ${it?.name || 'one'}. A runner brings it up.`, true); sendCmd(`stands order ${b.dataset.id}`); close(); return;
+    }
     const hands = seatUi?.hands;
     if (!it?.kind || !hands) { sendCmd(`stands fetch ${msg.target} ${b.dataset.id}`); return; }
     const glass = hands.needsGlass?.(it) ? (msg.items || []).find((x) => x.kind === 'glass') : null;
@@ -598,11 +646,14 @@ export function closeStands() {
   if (ui.onKeyUp) document.removeEventListener('keyup', ui.onKeyUp);
   ui.stopSuite?.();
   ui.hands?.stop();
+  ui.cup?.stop();
   ui.keepOverlay?.disconnect();
   ui.drunk?.stop();
   ui.stopScreen?.();
   try { ui.view?.clear(); } catch { /* already torn down */ }
   ui.root.remove();
+  // the pane and the page given back: the room text is underneath
+  if (ui.paned) { document.body.classList.remove('stands-pane-on'); releaseSeatLadder(); }
 }
 
 export const standsOpen = () => !!seatUi;
@@ -639,7 +690,9 @@ function walkSuite(ui, L, msg, setMode, redraw) {
   setLights(lightsAt);
   lightsBtn.addEventListener('click', () => setLights(lightsAt + 1));
   root.querySelector('.st-leave').textContent = 'Leave the box';
-  root.querySelector('.st-tip').textContent = 'WASD to walk, Shift to run, Ctrl or C to crouch · click a chair or E to sit · click the buffet or the smokes, or go behind the bar to the fridge, to help yourself · Space to smoke, drink or bite and a click to turn food in your hand, any two of a drink, a smoke and food, Q to swap · T for the big screen · drag to look (middle-drag with food)';
+  // F is the room's use key in here (room-walk.js), so the button says nothing of it
+  root.querySelector('.st-mode').title = 'Follow the play';
+  root.querySelector('.st-tip').textContent = 'WASD to walk, Shift to run, Ctrl or C to crouch · drag to look, Q and E to turn · click a chair or F to sit · click the buffet or the smokes, or F beside them, or go behind the bar to the fridge, to help yourself · Space to smoke, drink or bite and a click to turn food in your hand, any two of a drink, a smoke and food, Q to swap them · T for the big screen (middle-drag to look with food)';
   seat.near = 0.3;
   // the command line keeps the keys while it has focus, so WASD would type; let it go now
   // and whenever you click into the room

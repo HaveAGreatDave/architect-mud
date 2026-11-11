@@ -1,0 +1,308 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>First Generation Lab</title>
+<style>
+  html, body { margin: 0; height: 100%; background: #14120f; color: #e8e0cc; font: 13px system-ui, sans-serif; }
+  #c { position: fixed; inset: 0; width: 100%; height: 100%; display: block; }
+  #ui { position: fixed; left: 10px; top: 10px; width: 250px; max-height: calc(100% - 20px); overflow-y: auto; background: rgba(20,18,15,.85); padding: 8px; border: 1px solid #444; }
+  #ui button { display: block; width: 100%; text-align: left; margin: 2px 0; background: #26231d; color: #e8e0cc; border: 1px solid #3a352c; padding: 3px 6px; cursor: pointer; font: 12px system-ui; }
+  #ui button.on { background: #e8e0cc; color: #14120f; }
+  #ui label { display: block; margin: 4px 0; }
+  #card { position: fixed; right: 10px; bottom: 10px; width: 340px; background: rgba(20,18,15,.88); padding: 10px 12px; border: 1px solid #444; }
+  #card h2 { margin: 0 0 2px; font: 700 22px Impact, sans-serif; letter-spacing: .5px; }
+  .sw { display: inline-block; width: 10px; height: 10px; margin-right: 6px; vertical-align: middle; }
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div id="ui">
+  <label>clip <select id="clip"></select></label>
+  <label>mood <select id="mood"></select> <input id="moodI" type="range" min="0" max="1" step="0.05" value="1" style="width:70px"></label>
+  <label>season <input id="season" type="number" value="24360" style="width:80px"></label>
+  <label><input id="orbit" type="checkbox" checked> orbit</label>
+  <label><input id="comic" type="checkbox" checked> comic ink</label>
+  <div id="list"></div>
+</div>
+<div id="card"></div>
+<script type="module">
+// The First Generation: 32 Deadball expansion players, drawn by the Room Stage's own HD figure (room.js,
+// room-people.js) with their gear as bind-space parts carried by the posed bones. Concept only.
+import { createRoomRenderer } from '/client/game/js/panels/gl/room.js';
+import { figurePeople } from '/client/game/js/panels/gl/room-people.js';
+import { createBatch, vtx, MAT } from '/client/game/js/panels/gl/ballpark-mesh.js';
+import { ACTOR_CLIPS, ACTOR_ROOM_CLIPS } from '/client/game/js/panels/actor3d.js';
+import { MOODS } from '/client/shared/expressions.js';
+import { FIGURE_BONES, FIGURE_XBONES, MUT_PAINT, FIG_SLOT } from '/client/game/js/panels/figure.js';
+import { gen1Draft, GEN1_ORDERS } from '/client/shared/deadball-gen1.js';
+
+const $ = (id) => document.getElementById(id);
+const canvas = $('c');
+const R = createRoomRenderer(canvas, {});
+if (!R) throw new Error('no WebGL2');
+const BONE = {}; [...FIGURE_BONES.map((b) => b[0]), ...FIGURE_XBONES.map((x) => x.name)].forEach((n, i) => { BONE[n] = i; });
+
+const ORD = { asc: ['Ascendant', '#c9962b'], lw: ['Long Watch', '#3b3f52'], wb: ['Wildblood', '#b0402a'], nul: ['Null', '#2f8f7d'] };
+const P = [
+  ['Aurel Vance', 'The Gilt Arm', 'asc', 'P'], ['Solace Wren', 'Halo', 'asc', 'SS'], ['Kasimir Oduya', 'Chrome Clipper', 'asc', '1B'], ['Petra Lisle', 'Second Skin', 'asc', 'CF'],
+  ['Dorian Saltmarsh', 'The Ledger', 'asc', 'C'], ['Ilse Marrow', 'Gilt Lady', 'asc', '3B'], ['Benedikt Croft', 'Glasshand', 'asc', 'RP'], ['Yuna Castellane', 'The Ascension', 'asc', 'DH'],
+  ['Hiro Thane', 'The Quiet Hand', 'lw', 'SS'], ['Mara Coil', 'Nine Breaths', 'lw', 'CF'], ['Ansel Pike', 'The Long Count', 'lw', 'P'], ['Teodor Vey', 'Two Strikes', 'lw', '2B'],
+  ['Rook Hallam', 'Nightwatch', 'lw', 'C'], ['Sela Fen', 'The Patient', 'lw', '1B'], ['Corvin Ashe', 'Corvid', 'lw', 'RF'], ['Wen Halloway', 'The Last Bat', 'lw', 'DH'],
+  ['Grist Mallow', 'Hopscotch', 'wb', '2B'], ['Vesna Ruk', 'Long Jump', 'wb', 'LF'], ['Bram Ochre', 'The Horn', 'wb', '1B'], ['Ottilie Fenn', 'Four Arms', 'wb', '3B'],
+  ['Mott Caul', 'Mudlark', 'wb', 'C'], ['Kessa Thorn', 'Briar', 'wb', 'P'], ['Hob Lantern', 'Lantern', 'wb', 'CF'], ['Dace Ironjaw', 'The Underdog', 'wb', 'RP'],
+  ['Pax Static', 'Zero Day', 'nul', 'CF'], ['Juno Blank', 'The Glitch', 'nul', 'SS'], ['Rasmus Kell', 'Brute Force', 'nul', 'DH'], ['Nyx Ohara', 'Null Pointer', 'nul', 'P'],
+  ['Fennick Dross', 'Backdoor', 'nul', '3B'], ['Ada Vox', 'Overwrite', 'nul', '2B'], ['Kip Nullson', 'Dead Pixel', 'nul', 'RF'], ['Sorrel Dane', 'Rootkit', 'nul', 'C'],
+];
+// kits by order, 0-255
+const KIT = {
+  asc: { top: [236, 230, 214], legs: [236, 230, 214], shoes: [30, 26, 22], cap: [217, 169, 51] },
+  lw: { top: [30, 32, 40], legs: [36, 38, 46], shoes: [14, 14, 16], cap: [18, 19, 24] },
+  wb: { top: [130, 34, 22], legs: [200, 186, 160], shoes: [40, 26, 18], cap: [80, 22, 14] },
+  nul: { top: [26, 40, 40], legs: [58, 68, 70], shoes: [16, 18, 18], cap: [14, 18, 18] },
+};
+const SK = [[226, 180, 142], [192, 138, 98], [122, 74, 48], [240, 207, 174], [168, 111, 72], [78, 46, 30]];
+// the clubs' kits, off the Deadball row (sports_pools.clubs); a man the season's draft leaves out
+// wears the pool's grey, his order's colours on his gear either way
+const hex255 = (h) => { const n = parseInt(String(h).slice(1, 7), 16); return [(n >> 16) & 255, (n >> 8) & 255, n & 255]; };
+let CLUBS = {}, TEAMS = [];
+fetch('/content/media_broadcasts/bc_1783289744953.json').then((r) => (r.ok ? r.json() : null)).then((j) => { CLUBS = j?.sports_pools?.clubs || {}; TEAMS = (j?.sports_pools?.teams || []).map((t) => (typeof t === 'string' ? t : t.name)); list(); card(); }).catch(() => {});
+const POOL_KIT = { top: [150, 154, 160], legs: [150, 154, 160], shoes: [20, 20, 22], cap: [40, 42, 46], trim: [90, 94, 100] };
+function teamOf(i) { if (!TEAMS.length) return null; const d = gen1Draft(TEAMS, +$('season').value || 24360); return Object.keys(d).find((t) => d[t].includes(P[i][0])) || null; }
+function kitOf(i) {
+  const t = teamOf(i), k = t && CLUBS[t]?.kit?.home;
+  if (!k) return POOL_KIT;
+  return { top: hex255(k.base), legs: hex255(k.pants || k.base), shoes: [18, 18, 20], cap: hex255(k.cap || k.ink), trim: hex255(k.trim || k.ink) };
+}
+// per player: figure, mutations (figure.js body), paint (MUT_PAINT), clip, gear
+const M = MUT_PAINT;
+const C = [
+  { b: 'average', skin: SK[3], gear: ['goldarm', 'vents', 'cap', 'ball'], clip: 'flex' },
+  { b: 'woman', skin: SK[1], gear: ['halo', 'cap', 'bat'], clip: 'guard', paint: M.veins },
+  { b: 'average', skin: SK[5], h: 2.05, body: { mighty: 'R' }, gear: ['panel', 'pauldrons', 'cap', 'bat'], clip: 'flex' },
+  { b: 'woman', skin: [235, 235, 235], gear: ['lenses', 'cap', 'bat'], clip: 'stare' },
+  { b: 'average', w: 0.8, skin: SK[0], gear: ['dome', 'chestglow', 'mitt'], clip: 'guard' },
+  { b: 'woman', skin: SK[2], gear: ['drones', 'jaw', 'cap', 'bat'], clip: 'point' },
+  { b: 'older', skin: SK[3], cut: 'cassock', top: [246, 242, 232], gear: ['glasshand', 'ball'], clip: 'stare' },
+  { b: 'woman', skin: SK[4], gear: ['goldlegs', 'thrusters', 'crown', 'bat'], clip: 'stare', lift: 0.08 },
+  { b: 'average', skin: SK[4], cut: 'hoodie', gear: ['wrap', 'blackbat'], clip: 'guard' },
+  { b: 'woman', skin: SK[3], gear: ['wrap', 'cap', 'feather', 'blackbat'], clip: 'stare' },
+  { b: 'average', skin: SK[1], gear: ['cap', 'ball'], clip: 'stare' },
+  { b: 'average', w: 0.1, skin: SK[0], hair: [0, 0, 0], gear: ['cord', 'blackbat'], clip: 'stare' },
+  { b: 'average', skin: SK[2], gear: ['mask', 'chestpad', 'mitt'], clip: 'guard' },
+  { b: 'woman', skin: SK[3], hair: [216, 221, 224], gear: ['braid', 'blackbat'], clip: 'stare' },
+  { b: 'average', skin: SK[5], cut: 'duster', top: [18, 18, 22], gear: ['feathers', 'wrap', 'blackbat'], clip: 'guard' },
+  { b: 'older', skin: SK[3], hair: [232, 228, 220], beard: 'full', gear: ['cap', 'oldbat'], clip: 'stare' },
+  { b: 'average', skin: [143, 133, 123], body: { ears: true, claws: true }, paint: M.hide | M.eyes, gear: ['cap', 'bat'], clip: 'guard' },
+  { b: 'woman', skin: [181, 154, 122], body: { ears: true, ptail: true }, paint: M.mottle | M.eyes, gear: ['cap', 'bat'], clip: 'guard' },
+  { b: 'average', h: 2.0, skin: [138, 58, 40], body: { horns: true, mighty: 'R', spurs: true, teeth: true }, paint: M.hideFull | M.scars, gear: ['ring', 'bat'], clip: 'flex' },
+  { b: 'woman', skin: [182, 154, 122], body: { arms4: true }, paint: M.hide, gear: ['cap', 'gloves4', 'bat'], clip: 'guard' },
+  { b: 'average', w: 0.9, skin: [93, 122, 72], body: { claws: true }, paint: M.mottle | M.eyes, gear: ['frogeyes', 'mask', 'mitt'], clip: 'guard' },
+  { b: 'woman', skin: [154, 106, 90], body: { thorn: true, claws: true }, paint: M.scars | M.eyes, gear: ['cap', 'ball'], clip: 'point' },
+  { b: 'average', skin: [79, 124, 116], body: { ears: true, spurs: true }, paint: M.charge | M.freckles, gear: ['spots', 'cap', 'bat'], clip: 'stare' },
+  { b: 'average', skin: [107, 98, 90], body: { teeth: true, claws: true, blades: true, ears: true }, paint: M.scars | M.eyes | M.maw, gear: ['ball'], clip: 'slam' },
+  { b: 'average', skin: SK[1], gear: ['visor', 'cap', 'sleevecable', 'bat'], clip: 'stare' },
+  { b: 'woman', skin: SK[3], gear: ['glitch', 'cap', 'bat'], clip: 'guard' },
+  { b: 'average', h: 1.98, skin: SK[4], body: { mighty: 'R' }, gear: ['gunarm', 'spineplates', 'robohead2', 'bat'], clip: 'flex' },
+  { b: 'woman', skin: SK[0], gear: ['visor', 'cap', 'pack', 'ball'], clip: 'stare' },
+  { b: 'average', skin: SK[3], top: [122, 127, 132], gear: ['ports', 'cap', 'cables', 'bat'], clip: 'guard' },
+  { b: 'woman', skin: SK[2], gear: ['robolegs', 'cap', 'bat'], clip: 'guard' },
+  { b: 'average', skin: SK[1], gear: ['robohead', 'bat'], clip: 'point' },
+  { b: 'woman', skin: SK[5], gear: ['cage', 'capback', 'headset', 'mitt'], clip: 'guard' },
+];
+
+// ── primitives in bind space: triangles as [p, n] lists ──────────────────────────────────────────
+const sub = (a, b) => [a[0] - b[0], a[1] - b[1], a[2] - b[2]], add3 = (a, b) => [a[0] + b[0], a[1] + b[1], a[2] + b[2]], mul = (a, k) => [a[0] * k, a[1] * k, a[2] * k];
+const cross = (a, b) => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]], norm = (a) => { const l = Math.hypot(...a) || 1; return mul(a, 1 / l); };
+function frame(axis) { const z = norm(axis), t = Math.abs(z[1]) < 0.9 ? [0, 1, 0] : [1, 0, 0], x = norm(cross(t, z)), y = cross(z, x); return [x, y, z]; }
+// a lathe along a→b: radius r(s) for s in 0..1
+function lathe(a, b, rf, seg = 18, rings = 8, cap = true) {
+  const d = sub(b, a), [X, Y] = frame(d), out = [];
+  const pt = (s, u) => { const r = rf(s), c = Math.cos(u), si = Math.sin(u); return [add3(add3(a, mul(d, s)), add3(mul(X, c * r), mul(Y, si * r))), norm(add3(mul(X, c), mul(Y, si)))]; };
+  for (let i = 0; i < rings; i++) for (let j = 0; j < seg; j++) {
+    const s0 = i / rings, s1 = (i + 1) / rings, u0 = (j / seg) * Math.PI * 2, u1 = ((j + 1) / seg) * Math.PI * 2;
+    const A = pt(s0, u0), B = pt(s1, u0), Cc = pt(s1, u1), D = pt(s0, u1);
+    out.push(A, B, Cc, A, Cc, D);
+  }
+  if (cap) for (const [s, sg] of [[0, -1], [1, 1]]) { const c = add3(a, mul(d, s)), n = mul(norm(d), sg); for (let j = 0; j < seg; j++) { const p0 = pt(s, (j / seg) * Math.PI * 2)[0], p1 = pt(s, ((j + 1) / seg) * Math.PI * 2)[0]; out.push(...(sg > 0 ? [[c, n], [p0, n], [p1, n]] : [[c, n], [p1, n], [p0, n]])); } }
+  return out;
+}
+const cyl = (a, b, r1, r2 = r1, seg) => lathe(a, b, (s) => r1 + (r2 - r1) * s, seg, 1);
+const cone = (a, b, r) => lathe(a, b, (s) => r * (1 - s) + 0.0005, 10, 1);
+function ellip(c, r, k = [1, 1, 1], phiMax = Math.PI, seg = 20, rings = 12) {
+  const out = [], pt = (th, ph) => { const n = [Math.sin(ph) * Math.cos(th), Math.cos(ph), Math.sin(ph) * Math.sin(th)]; return [[c[0] + n[0] * r * k[0], c[1] + n[1] * r * k[1], c[2] + n[2] * r * k[2]], norm([n[0] / k[0], n[1] / k[1], n[2] / k[2]])]; };
+  for (let i = 0; i < rings; i++) for (let j = 0; j < seg; j++) {
+    const p0 = (i / rings) * phiMax, p1 = ((i + 1) / rings) * phiMax, t0 = (j / seg) * Math.PI * 2, t1 = ((j + 1) / seg) * Math.PI * 2;
+    const A = pt(t0, p0), B = pt(t0, p1), Cc = pt(t1, p1), D = pt(t1, p0); out.push(A, Cc, B, A, D, Cc);
+  }
+  return out;
+}
+const sph = (c, r, k) => ellip(c, r, k);
+function box(c, s, rotY = 0) {
+  const out = [], h = mul(s, 0.5), cs = Math.cos(rotY), sn = Math.sin(rotY), rot = (p) => [p[0] * cs + p[2] * sn, p[1], -p[0] * sn + p[2] * cs];
+  const F = [[[1, 0, 0], [0, 1, 0], [0, 0, 1]], [[-1, 0, 0], [0, 0, 1], [0, 1, 0]], [[0, 1, 0], [0, 0, 1], [1, 0, 0]], [[0, -1, 0], [1, 0, 0], [0, 0, 1]], [[0, 0, 1], [1, 0, 0], [0, 1, 0]], [[0, 0, -1], [0, 1, 0], [1, 0, 0]]];
+  for (const [n, u, v] of F) {
+    const q = (a, b) => rot([n[0] * h[0] + u[0] * a * h[0] + v[0] * b * h[0], n[1] * h[1] + u[1] * a * h[1] + v[1] * b * h[1], n[2] * h[2] + u[2] * a * h[2] + v[2] * b * h[2]]);
+    const P4 = [q(-1, -1), q(1, -1), q(1, 1), q(-1, 1)].map((p) => [add3(c, p), rot(n)]);
+    out.push(P4[0], P4[1], P4[2], P4[0], P4[2], P4[3]);
+  }
+  return out;
+}
+function torus(c, Rr, r, axis = [0, 1, 0], seg = 32, sides = 8, arc = Math.PI * 2) {
+  const [X, Y, Z] = frame(axis), out = [];
+  const pt = (u, v) => { const ring = add3(mul(X, Math.cos(u)), mul(Y, Math.sin(u))), n = norm(add3(mul(ring, Math.cos(v)), mul(Z, Math.sin(v)))); return [add3(c, add3(mul(ring, Rr), mul(n, r))), n]; };
+  for (let i = 0; i < seg; i++) for (let j = 0; j < sides; j++) { const u0 = (i / seg) * arc, u1 = ((i + 1) / seg) * arc, v0 = (j / sides) * Math.PI * 2, v1 = ((j + 1) / sides) * Math.PI * 2; const A = pt(u0, v0), B = pt(u1, v0), Cc = pt(u1, v1), D = pt(u0, v1); out.push(A, B, Cc, A, Cc, D); }
+  return out;
+}
+
+// ── gear: [bone, tris, colour 0-1, mat] in bind space ──────────────────────────────────────────────
+const rgb = (r, g, b) => [(r / 255) ** 2.2, (g / 255) ** 2.2, (b / 255) ** 2.2];
+const GOLD = rgb(222, 170, 52), CHROME = rgb(190, 198, 204), GUN = rgb(58, 63, 70), BLACK = rgb(18, 18, 22), BONE_C = rgb(236, 226, 196), ASH = rgb(206, 166, 112), DARKWOOD = rgb(52, 36, 22);
+const HEAD = [0, 1.625, 0.005];
+const HAND_R = [-0.205, 0.83, 0.02], HAND_L = [0.205, 0.83, 0.02];
+function gearOf(i, t) {
+  const o = P[i][2], c = C[i], G = new Set(c.gear), g = [], k = kitOf(i), cap = rgb(...k.cap);
+  // the order's colours (deadball-gen1.js GEN1_ORDERS): Ascendant white and clinical blue, Long Watch earth,
+  // Wildblood red, Null grey to black; every light is the order's glow
+  const OC = GEN1_ORDERS[o], BASE = rgb(...hex255(OC.base)), TRIMC = rgb(...hex255(OC.trim)), DARKC = rgb(...hex255(OC.dark)), GLOWC = rgb(...hex255(OC.glow)).map((v) => Math.min(1, v * 1.6));
+  const GOLD = o === 'asc' ? BASE : TRIMC, CHROME = o === 'nul' ? TRIMC : BASE, GUN = o === 'nul' ? DARKC : rgb(58, 63, 70);
+  const put = (bone, tris, col, mat = MAT.GLOSS) => g.push([bone, tris, col, mat]);
+  const glow = (bone, tris) => g.push([bone, tris, GLOWC, MAT.EMISSIVE]);
+  // every one: the order's band on the left arm with a light in it, and a lit ring at each ankle
+  put('uarmL', cyl([0.2, 1.29, -0.01], [0.202, 1.19, -0.01], 0.062), BASE, MAT.CLOTH);
+  put('uarmL', torus([0.201, 1.24, -0.01], 0.064, 0.006), TRIMC, MAT.CLOTH);
+  glow('uarmL', sph([0.262, 1.24, -0.01], 0.014));
+  for (const [s2, L] of [[1, 'L'], [-1, 'R']]) glow('shin' + L, torus([s2 * 0.1, 0.17, 0], 0.056, 0.007));
+  const bat = (col) => put('handR', lathe([-0.205, 0.86, 0.025], [-0.24, 0.0, 0.2], (s) => 0.013 + 0.023 * Math.pow(s, 1.6), 16, 6), col, MAT.SATIN);
+  if (G.has('bat')) bat(ASH); if (G.has('blackbat')) bat(DARKWOOD); if (G.has('oldbat')) bat(rgb(222, 200, 150));
+  if (G.has('ball')) put('handR', sph([-0.215, 0.76, 0.05], 0.037), rgb(246, 242, 230), MAT.SATIN);
+  if (G.has('mitt')) put('handL', sph([0.23, 0.75, 0.05], 0.09, [0.7, 1.15, 1]), o === 'lw' ? rgb(26, 20, 16) : rgb(96, 54, 26), MAT.LEATHER);
+  if (G.has('cap') || G.has('capback')) {
+    const back = G.has('capback') ? -1 : 1;
+    put('head', ellip([0, 1.668, 0.0], 0.108, [1, 0.95, 1.05], Math.PI / 2), cap, MAT.CLOTH);
+    put('head', box([0, 1.672, back * 0.125], [0.15, 0.012, 0.09]), cap, MAT.CLOTH);
+    if (o === 'asc') put('head', torus([0, 1.67, 0], 0.108, 0.006), GOLD, MAT.METAL);
+  }
+  if (G.has('feather')) put('head', cone([0.08, 1.7, -0.06], [0.16, 1.98, -0.12], 0.016), BLACK, MAT.SATIN);
+  if (G.has('goldarm')) { put('uarmR', cyl([-0.198, 1.36, -0.01], [-0.2, 1.11, -0.01], 0.06, 0.05), GOLD, MAT.METAL); put('farmR', cyl([-0.2, 1.1, -0.01], [-0.202, 0.88, 0], 0.05, 0.04), GOLD, MAT.METAL); put('handR', sph([-0.205, 0.84, 0.01], 0.05, [0.8, 1.2, 1]), GOLD, MAT.METAL); put('uarmR', sph([-0.2, 1.4, -0.01], 0.085, [1.15, 0.8, 1.1]), GOLD, MAT.METAL); }
+  if (G.has('vents')) for (let v = 0; v < 3; v++) glow('farmR', torus([-0.2, 1.06 - v * 0.06, -0.005], 0.052, 0.009), [1, 0.45 + 0.25 * Math.sin(t * 6 + v), 0.1]);
+  if (G.has('halo')) { const a = t * 0.7; for (let n = 0; n < 14; n++) { const u = a + (n / 14) * Math.PI * 2; glow('head', sph([Math.cos(u) * 0.24, 1.72 + Math.sin(u) * 0.24, -0.14], 0.017), [1, 0.85, 0.4]); } glow('head', torus([0, 1.72, -0.15], 0.24, 0.008, [0, 0, 1], 48, 6), [1, 0.78, 0.3]); }
+  if (G.has('panel')) { put('chest', box([0, 1.3, 0.13], [0.28, 0.22, 0.05]), CHROME, MAT.METAL); glow('chest', box([0, 1.3, 0.158], [0.15, 0.08, 0.008]), [0.4, 0.85, 1]); }
+  if (G.has('pauldrons')) for (const [s, b] of [[1, 'uarmL'], [-1, 'uarmR']]) put(b, ellip([s * 0.2, 1.4, -0.01], 0.12, [1.1, 0.75, 1.05], Math.PI / 2), CHROME, MAT.METAL);
+  if (G.has('lenses')) for (const s of [-1, 1]) glow('head', sph([s * 0.031, 1.642, 0.088], 0.016), [1, 0.76, 0.2]);
+  if (G.has('dome')) { put('head', torus([0, 1.53, 0.0], 0.13, 0.016), CHROME, MAT.METAL); for (let n = 0; n < 10; n++) { const u = t * 0.8 + n * 0.63; glow('head', box([Math.cos(u) * 0.14, 1.63 + Math.sin(t * 1.3 + n) * 0.06, Math.sin(u) * 0.14], [0.03, 0.008, 0.004], -u), [0.4, 0.88, 1]); } for (const s of [-1, 1]) for (let r = 0; r < 4; r++) put('head', cyl([s * 0.16 * Math.cos(r), 1.53, 0.16 * Math.sin(r)], [s * 0.1 * Math.cos(r), 1.79, 0.1 * Math.sin(r)], 0.005), CHROME, MAT.METAL); }
+  if (G.has('chestglow')) glow('chest', cyl([0, 1.3, 0.13], [0, 1.3, 0.16], 0.075), [0.55, 0.92, 1]);
+  if (G.has('drones')) for (let n = 0; n < 6; n++) { const u = t * 1.5 + n * 1.05; put('head', sph([Math.cos(u) * 0.27, 1.76 + Math.sin(u * 2) * 0.04, Math.sin(u) * 0.27], 0.024, [1, 0.6, 1]), GOLD, MAT.METAL); }
+  if (G.has('jaw')) put('head', box([0, 1.565, 0.06], [0.1, 0.035, 0.07]), CHROME, MAT.METAL);
+  if (G.has('glasshand')) { put('handR', sph([-0.205, 0.84, 0.01], 0.05, [0.85, 1.25, 1.05]), rgb(170, 225, 250), MAT.GLOSS); for (let v = 0; v < 3; v++) put('handR', torus([-0.205, 0.81 + v * 0.03, 0.01], 0.022, 0.006), GOLD, MAT.METAL); }
+  if (G.has('goldlegs')) for (const [s, a, b] of [[1, 'shinL', 'footL'], [-1, 'shinR', 'footR']]) { put(a, cyl([s * 0.098, 0.5, 0.005], [s * 0.1, 0.12, -0.005], 0.06, 0.05), GOLD, MAT.METAL); put(b, box([s * 0.1, 0.05, 0.05], [0.11, 0.08, 0.27]), GOLD, MAT.METAL); }
+  if (G.has('thrusters')) for (const s of [1, -1]) glow(s > 0 ? 'footL' : 'footR', cone([s * 0.1, 0.01, 0.04], [s * 0.1, -0.12 - 0.04 * Math.sin(t * 24 + s), 0.04], 0.045), [0.5, 0.92, 1]);
+  if (G.has('crown')) put('head', torus([0, 1.79, 0], 0.11, 0.009), GOLD, MAT.METAL);
+  if (G.has('wrap')) put('head', cyl([0, 1.53, 0.01], [0, 1.6, 0.012], 0.088, 0.093), o === 'lw' ? rgb(44, 47, 58) : rgb(110, 110, 110), MAT.CLOTH);
+  if (G.has('mask')) { put('head', box([0, 1.61, 0.105], [0.19, 0.22, 0.04]), BLACK, MAT.LEATHER); for (let b = 0; b < 4; b++) put('head', box([0, 1.54 + b * 0.045, 0.13], [0.17, 0.01, 0.012]), rgb(85, 90, 102), MAT.METAL); put('head', ellip([0, 1.66, 0], 0.112, [1, 1, 1.05], Math.PI / 2), BLACK, MAT.GLOSS); }
+  if (G.has('chestpad')) put('chest', box([0, 1.2, 0.12], [0.32, 0.4, 0.06]), BLACK, MAT.PAD);
+  if (G.has('braid')) { for (let n = 0; n < 12; n++) put(n < 4 ? 'head' : 'chest', sph([Math.sin(n * 1.5) * 0.015, 1.62 - n * 0.075, -0.11 - Math.sin((n / 12) * Math.PI) * 0.06], 0.032, [1, 1.3, 1]), rgb(216, 221, 224), MAT.SATIN); }
+  if (G.has('feathers')) for (const s of [1, -1]) for (let n = 0; n < 8; n++) put('chest', cone([s * (0.1 + n * 0.022), 1.44 - n * 0.012, -0.02], [s * (0.22 + n * 0.03), 1.32 - n * 0.04, -0.1], 0.028), BLACK, MAT.SATIN);
+  if (G.has('cord')) put('handR', torus([-0.205, 0.8, 0.03], 0.02, 0.008), rgb(200, 30, 20), MAT.CLOTH);
+  if (G.has('ring')) put('head', torus([0, 1.59, 0.103], 0.016, 0.005, [0, 0, 1]), GOLD, MAT.METAL);
+  if (G.has('gloves4')) for (const [s, b] of [[1, 'arm2HL'], [-1, 'arm2HR']]) put(b, sph([s * 0.2, 0.79, 0.03], 0.085, [0.7, 1.15, 1]), rgb(96, 54, 26), MAT.LEATHER);
+  if (G.has('frogeyes')) for (const s of [-1, 1]) { put('head', sph([s * 0.05, 1.7, 0.06], 0.045), rgb(242, 226, 122), MAT.GLOSS); put('head', sph([s * 0.05, 1.7, 0.101], 0.018), BLACK, MAT.GLOSS); }
+  if (G.has('spots')) [['chest', 0.08, 1.3, 0.12], ['chest', -0.1, 1.24, 0.12], ['spine', 0.13, 1.1, 0.09], ['uarmL', 0.22, 1.25, 0.03], ['uarmR', -0.22, 1.2, 0.04], ['farmL', 0.21, 1.0, 0.03], ['head', 0.06, 1.7, 0.07], ['head', -0.07, 1.66, 0.075], ['chest', 0.04, 1.36, -0.13], ['thighL', 0.13, 0.75, 0.07]].forEach(([b, x, y, z], n) => glow(b, sph([x, y, z], 0.017), [0.3, 1, 0.75 + 0.25 * Math.sin(t * 3 + n)]));
+  if (G.has('visor')) { put('head', box([0, 1.645, 0.086], [0.19, 0.055, 0.04]), BLACK, MAT.GLOSS); glow('head', box([Math.sin(t * 3) * 0.065, 1.645, 0.107], [0.025, 0.02, 0.004]), [1, 0.2, 0.15]); }
+  if (G.has('sleevecable')) glow('uarmR', cyl([-0.24, 1.32, 0.03], [-0.23, 1.14, 0.04], 0.008), [0.35, 1, 0.8]);
+  if (G.has('glitch')) { const on = Math.sin(t * 13) > -0.6; if (on) for (let n = 0; n < 9; n++) glow('head', box([0.05 + (Math.sin(t * 40 + n) > 0.8 ? 0.01 : 0), 1.57 + n * 0.02, 0.07], [0.06, 0.006, 0.05]), [0.3, 0.97, 1]); }
+  if (G.has('gunarm')) { put('uarmR', cyl([-0.2, 1.37, -0.01], [-0.2, 1.11, -0.01], 0.072, 0.06), GUN, MAT.METAL); put('farmR', cyl([-0.2, 1.1, -0.01], [-0.205, 0.88, 0], 0.075, 0.055), GUN, MAT.METAL); put('uarmR', cyl([-0.26, 1.36, 0.03], [-0.25, 1.12, 0.04], 0.016), CHROME, MAT.METAL); put('handR', box([-0.205, 0.83, 0.01], [0.09, 0.1, 0.1]), GUN, MAT.METAL); put('uarmR', sph([-0.2, 1.41, -0.01], 0.1, [1.1, 0.85, 1.1]), GUN, MAT.METAL); }
+  if (G.has('spineplates')) for (let n = 0; n < 7; n++) put(n < 3 ? 'spine' : 'chest', box([0, 1.02 + n * 0.065, -0.135], [0.09, 0.045, 0.06]), GUN, MAT.METAL);
+  if (G.has('robohead') || G.has('robohead2')) {
+    const kip = G.has('robohead');
+    put('head', box([0, 1.63, 0.005], [0.21, 0.24, 0.22]), kip ? rgb(214, 216, 222) : GUN, MAT.METAL);
+    if (kip) { glow('head', box([0, 1.65, 0.117], [0.05, (t % 3) < 0.12 ? 0.005 : 0.05, 0.004]), [0.4, 0.8, 1]); put('head', ellip([0, 1.75, 0], 0.11, [1, 0.6, 1.05], Math.PI / 2), cap, MAT.CLOTH); put('head', box([0, 1.755, 0.13], [0.15, 0.012, 0.09]), cap, MAT.CLOTH); }
+    else glow('head', box([0, 1.65, 0.117], [0.17, 0.03, 0.004]), [1, 0.42, 0]);
+    for (const s of [-1, 1]) put('head', cyl([s * 0.105, 1.63, 0], [s * 0.135, 1.63, 0], 0.035), BLACK, MAT.METAL);
+  }
+  if (G.has('pack')) { put('chest', box([0, 1.25, -0.2], [0.34, 0.42, 0.17]), BLACK, MAT.PLATE); for (let n = 0; n < 3; n++) glow('chest', box([0, 1.15 + n * 0.1, -0.287], [0.26, 0.018, 0.005]), [0.2, 0.6 + 0.4 * Math.sin(t * 5 + n * 2), 0.6]); put('chest', cyl([0.12, 1.45, -0.2], [0.12, 1.9, -0.2], 0.006), CHROME, MAT.METAL); }
+  if (G.has('ports')) for (const s of [-1, 1]) glow('head', cyl([s * 0.085, 1.64, 0], [s * 0.1, 1.64, 0], 0.016), [0.35, 1, 0.8]);
+  if (G.has('cables')) [[0.18, 0.85, 0.75], [0.1, 0.12, 0.14], [0.8, 0.12, 0.08]].forEach((col, n) => put('chest', lathe([-0.05 + n * 0.05, 1.35, -0.12], [-0.3 + n * 0.15, 0.0, -1.2], () => 0.013, 8, 1), col, MAT.GLOSS));
+  if (G.has('robolegs')) for (const [s, L] of [[1, 'L'], [-1, 'R']]) { put('thigh' + L, cyl([s * 0.095, 0.92, 0], [s * 0.1, 0.52, 0.01], 0.085, 0.06), GUN, MAT.METAL); put('shin' + L, cyl([s * 0.1, 0.5, 0.01], [s * 0.1, 0.12, -0.005], 0.06, 0.045), CHROME, MAT.METAL); put('shin' + L, sph([s * 0.1, 0.51, 0.02], 0.06), BLACK, MAT.METAL); put('foot' + L, box([s * 0.1, 0.05, 0.05], [0.11, 0.08, 0.27]), GUN, MAT.METAL); put('shin' + L, box([s * 0.1, 0.3, 0.06], [0.05, 0.13, 0.01]), rgb(47, 216, 176), MAT.MATTE); }
+  if (G.has('cage')) { for (let r = 0; r < 4; r++) put('chest', torus([0, 1.18 + r * 0.06, 0.0], 0.16, 0.009, [0, 1, 0], 20, 6, Math.PI * 0.75).map(([p, n]) => [[p[0] * Math.cos(2.2) - p[2] * Math.sin(2.2), p[1], p[0] * Math.sin(2.2) + p[2] * Math.cos(2.2)], [n[0] * Math.cos(2.2) - n[2] * Math.sin(2.2), n[1], n[0] * Math.sin(2.2) + n[2] * Math.cos(2.2)]]), CHROME, MAT.METAL); for (let n = 0; n < 6; n++) { const h = (t * 0.3 + n / 6) % 1; glow('chest', sph([(n % 3 - 1) * 0.06, 1.2 + Math.floor(n / 3) * 0.09, 0.14], 0.018), [0.5 + 0.5 * Math.cos(h * 6.28), 0.5 + 0.5 * Math.cos(h * 6.28 + 2), 0.5 + 0.5 * Math.cos(h * 6.28 + 4)]); } }
+  if (G.has('headset')) { put('head', torus([0, 1.64, 0], 0.115, 0.009, [1, 0, 0], 24, 6, Math.PI), BLACK, MAT.PLATE); for (const s of [-1, 1]) put('head', cyl([s * 0.1, 1.62, 0], [s * 0.13, 1.62, 0], 0.04), BLACK, MAT.PLATE); put('head', cyl([-0.12, 1.6, 0.02], [-0.04, 1.56, 0.1], 0.005), BLACK, MAT.PLATE); }
+  return g;
+}
+
+// ── the room ─────────────────────────────────────────────────────────────────────────────────────
+const L = { world: (u, v, y) => [u, y, v], r: [1, 0, 0], f: [0, 0, 1] };
+function quad(b, a, bb, c, d, n, col, m = MAT.MATTE) { for (const p of [a, bb, c, a, c, d]) vtx(b, p, n, [0, 0], col, m); }
+function floorBatch() {
+  const s = createBatch(256);
+  // dirt circle and chalk box
+  const seg = 48; for (let j = 0; j < seg; j++) { const a0 = (j / seg) * Math.PI * 2, a1 = ((j + 1) / seg) * Math.PI * 2; for (const p of [[0, 0.002, 0], [Math.cos(a1) * 1.5, 0.002, Math.sin(a1) * 1.5], [Math.cos(a0) * 1.5, 0.002, Math.sin(a0) * 1.5]]) vtx(s, p, [0, 1, 0], [0, 0], [0.42, 0.27, 0.16], MAT.GROUND); }
+  quad(s, [-8, 0, -4], [8, 0, -4], [8, 0, 8], [-8, 0, 8], [0, 1, 0], [0.12, 0.2, 0.1], MAT.GROUND);
+  quad(s, [-8, 0, -4], [-8, 4, -4], [8, 4, -4], [8, 0, -4], [0, 0, 1], [0.16, 0.15, 0.14]);
+  for (const x of [-0.7, 0.7]) quad(s, [x - 0.025, 0.004, -0.7], [x + 0.025, 0.004, -0.7], [x + 0.025, 0.004, 0.7], [x - 0.025, 0.004, 0.7], [0, 1, 0], [0.95, 0.93, 0.88]);
+  return s;
+}
+const FLOOR = floorBatch();
+function solidWith(gear, rows) {
+  const s = createBatch(FLOOR.n + 4096);
+  s.data.set(FLOOR.data.subarray(0, FLOOR.data.length)); s.n = FLOOR.n;
+  for (const [bone, tris, col, m] of gear) {
+    const b = BONE[bone]; if (b === undefined) continue; const o = b * 12;
+    const X = (p) => [0, 1, 2].map((r) => rows[o + r * 4] * p[0] + rows[o + r * 4 + 1] * p[1] + rows[o + r * 4 + 2] * p[2] + rows[o + r * 4 + 3]);
+    const N = (n) => norm([0, 1, 2].map((r) => rows[o + r * 4] * n[0] + rows[o + r * 4 + 1] * n[1] + rows[o + r * 4 + 2] * n[2]));
+    for (const [p, n] of tris) vtx(s, X(p), N(n), [0, 0], col, m);
+  }
+  return s;
+}
+
+// ── UI ───────────────────────────────────────────────────────────────────────────────────────────
+for (const c of [...ACTOR_CLIPS, ...ACTOR_ROOM_CLIPS]) if (c.name !== 'walk') $('clip').add(new Option(c.name));
+$('clip').insertBefore(new Option('(their own)', ''), $('clip').firstChild); $('clip').value = '';
+for (const m of MOODS) $('mood').add(new Option(m)); $('mood').value = 'angry';
+let cur = +(new URLSearchParams(location.search).get('p') || 0);
+const DESC = {};
+function list() {
+  $('list').innerHTML = P.map((p, i) => `<button data-i="${i}" class="${i === cur ? 'on' : ''}"><span class="sw" style="background:${ORD[p[2]][1]}"></span>${p[0]}</button>`).join('');
+  $('list').querySelectorAll('button').forEach((b) => (b.onclick = () => { cur = +b.dataset.i; list(); card(); }));
+}
+function card() { const p = P[cur], t = teamOf(cur); $('card').innerHTML = `<h2>${p[0]}</h2><div>"${p[1]}" · ${ORD[p[2]][0]} · ${p[3]}</div><div>${t ? 'Drafted by the ' + t : 'Not drafted this season'}</div>`; }
+$('season').addEventListener('change', () => card());
+list(); card();
+
+const cam = { yaw: Math.PI * 0.82, pitch: -0.04, dist: 4.4, fov: 34, at: [0, 1.08, 0] };
+let drag = null;
+canvas.addEventListener('pointerdown', (e) => { drag = { x: e.clientX, y: e.clientY, yaw: cam.yaw, pitch: cam.pitch }; canvas.setPointerCapture(e.pointerId); });
+canvas.addEventListener('pointermove', (e) => { if (!drag) return; cam.yaw = drag.yaw - (e.clientX - drag.x) * 0.008; cam.pitch = Math.max(-1.2, Math.min(1.2, drag.pitch - (e.clientY - drag.y) * 0.006)); });
+canvas.addEventListener('pointerup', () => { drag = null; });
+canvas.addEventListener('wheel', (e) => { e.preventDefault(); cam.dist = Math.max(0.6, Math.min(9, cam.dist * (e.deltaY > 0 ? 1.08 : 1 / 1.08))); }, { passive: false });
+
+function bodyOf(i) {
+  const p = P[i], c = C[i], k = kitOf(i);
+  const fig = { cut: 'shortsleeve', top: k.top, legs: k.legs, shoes: k.shoes, skin: c.skin, hair: c.hair || [40, 28, 20], build: c.b, ...(c.w != null ? { weight: c.w } : {}), ...(c.b === 'woman' ? { head: 3 } : {}) };
+  return { id: 'fg-' + i, at: [0, 0], yaw: 0, pose: 'stand', sculpt: true, figure: fig, build: c.b, clip: $('clip').value || c.clip,
+    mood: { m: $('mood').value, i: +$('moodI').value }, ...(c.beard ? { facial: c.beard } : {}), ...(c.h ? { height: c.h } : {}), ...(c.w != null ? { weight: c.w } : {}) };
+}
+let last = 0;
+function draw(now) {
+  globalThis.__houseComic = $('comic').checked;
+  const t = now / 1000, dt = Math.min(0.1, t - last); last = t;
+  if ($('orbit').checked && !drag) cam.yaw += dt * 0.25;
+  const c = C[cur], B = [bodyOf(cur)];
+  let recs = figurePeople(L, B, t, { level: 'hd' });
+  recs = recs.map((r) => {
+    const key = { ...r.key, cut: 'shortsleeve', gear: { belt: true }, body: c.body || null };
+    let rows = r.rows;
+    if (c.lift) { rows = rows.slice(); for (let b = 0; b < rows.length; b += 12) rows[b + 7] += c.lift; }
+    const col = r.col.slice(); col.set(rgb(...kitOf(cur).legs), FIG_SLOT.legs * 3);
+    return { ...r, key, rows, col, mut: c.paint || 0 };
+  });
+  R.setFigures(recs);
+  R.setRoom({ solid: solidWith(gearOf(cur, t), recs[0].rows), screen: createBatch(1), glass: createBatch(1), view: createBatch(1), textured: new Map() }, () => null);
+  const cy = Math.cos(cam.pitch), eye = [cam.at[0] - Math.sin(cam.yaw) * cy * cam.dist, cam.at[1] - Math.sin(cam.pitch) * cam.dist, cam.at[2] - Math.cos(cam.yaw) * cy * cam.dist];
+  R.render({ eye, yaw: cam.yaw, pitch: cam.pitch, fov: cam.fov }, { lamp: [0.8, 2.8, 1.6], lampOn: true, day: 0.25, sky: [0.75, 0.82, 0.95], win: { p: [-3.2, 1.5, 1.0], n: [1, 0, 0], a: [0, 0, 1.6], b: [0, 1.3, 0] } });
+}
+window.__fg = { R, cam, draw, show: (i) => { cur = i; list(); card(); }, C };
+function loop(now) { requestAnimationFrame(loop); draw(now); }
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>

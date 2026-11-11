@@ -17,7 +17,7 @@
 // ⚠ THESE ARE IN CONSTANTS, NOT fh AND h. Each type is one plot on the map, and an arm whose awning
 // and cart were sized off a rolled footprint stood them in the road or inside the wall.
 import { faceAway,
-  DETAIL_LIFT, SHAPE_SINK, bakeSignText, clamp, draw3DBoxAt, drawFacetDrum, drawSmoke, emitSurfaceText,
+  DETAIL_LIFT, MESH_SINK, SHAPE_SINK, bakeSignText, clamp, draw3DBoxAt, drawFacetDrum, drawSmoke, emitSurfaceText,
   emitWire, facePals, faceYaw, glowPool, nearOrMesh, rgb,
 } from '../../windshield.js';
 import { flatOut, tubeRun } from './downtown.js';
@@ -88,6 +88,43 @@ function stripedAwning(k, y, x0, x1, z0, z1, out, n, a, b) {
     k.Q([[xa, y, z0], [xb, y, z0], [xb, y + out, z1], [xa, y + out, z1]], [0, 0.6, 0.8], c, { lift: DETAIL_LIFT });
     k.Q([[xa, y + out, z1], [xb, y + out, z1], [xb, y + out, z1 - 0.012], [xa + w * 0.5, y + out, z1 - 0.018], [xa, y + out, z1 - 0.012]], [0, 1, 0], c.map((v) => v * 0.86));
   }
+}
+// A face of curved mass. ⚠ THE SKIN IS MASS IN THE MESH, NOT TRIM, as the Coliseum's shells are: as
+// flats it would stand over the plinth, the tile's only box, which is what `gl:mesh` takes for trim
+// come off its building. So under MESH_SINK it goes in as a roof face in its own shade (`flat`, so
+// nothing lights it twice), and SHAPE_SINK gets boxes round it from the arm instead. The skin sits
+// inside those boxes, so it takes no AO. `pts` are local [x, y, z]; `c` is the local point the face
+// turns away from.
+function wind(q, want) {
+  let nx = 0, ny = 0, nz = 0;
+  for (let i = 0; i < q.length; i++) {
+    const a = q[i], b = q[(i + 1) % q.length];
+    nx += (a[1] - b[1]) * (a[2] + b[2]); ny += (a[2] - b[2]) * (a[0] + b[0]); nz += (a[0] - b[0]) * (a[1] + b[1]);
+  }
+  return nx * want[0] + ny * want[1] + nz * want[2] < 0 ? q.slice().reverse() : q;
+}
+function skinFace(k, F, W3, pts, c, col) {
+  if (SHAPE_SINK || pts.length < 3) return;
+  // The normal off the polygon itself, turned away from the core point.
+  let nx = 0, ny = 0, nz = 0;
+  for (let i = 0; i < pts.length; i++) {
+    const a = pts[i], b = pts[(i + 1) % pts.length];
+    nx += (a[1] - b[1]) * (a[2] + b[2]); ny += (a[2] - b[2]) * (a[0] + b[0]); nz += (a[0] - b[0]) * (a[1] + b[1]);
+  }
+  const m = pts.reduce((s, p) => [s[0] + p[0] / pts.length, s[1] + p[1] / pts.length, s[2] + p[2] / pts.length], [0, 0, 0]);
+  if (nx * (m[0] - c[0]) + ny * (m[1] - c[1]) + nz * (m[2] - c[2]) < 0) { nx = -nx; ny = -ny; nz = -nz; }
+  const nl = Math.hypot(nx, ny, nz) || 1;
+  nx /= nl; ny /= nl; nz /= nl;
+  // The same key light as `drawFacetDrum` and `tubeRun`.
+  const k2 = clamp(0.64 + 0.28 * nz - 0.14 * (nx + ny), 0.32, 1.12);
+  const shade = cl(col.map((v) => v * k2 * k.dusk));
+  if (MESH_SINK) {
+    const [ax, ay] = F(0, 0), [bx, by] = F(nx, ny), wn = [bx - ax, by - ay, nz], wl = Math.hypot(...wn) || 1;
+    const n = wn.map((v) => v / wl);
+    MESH_SINK.push({ kind: 'roof', seed: 0, rgbOverride: shade, alpha: 1, flat: true, noAO: true, p: wind(pts.map((p) => W3(...p)), n), n });
+    return;
+  }
+  k.Q(pts, [nx, ny, nz], shade);
 }
 // Pennants hung along a string at plane y and height z, x0..x1, every `step`, in turn of `cols`.
 function bunting(ctx, cam, W3, k, y, x0, x1, z, step, cols, alpha) {
@@ -164,39 +201,99 @@ export const PARKSIDE_ARMS = {
     }
   },
 
-  frank_stand(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E, name, board, pal, sign, F, W3, frontVis) {   // FITZ'S FRANKS: a white-tiled frank counter by the bleacher gate
-    //                 White tile over a dark base course, a serving hatch under a red-and-white
-    //                 striped awning, the name in red script on a cream fascia, a neon frank in a bun
-    //                 on the roof and a tin chimney with the griddle smoke coming out of it.
+  frank_stand(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E, name, board, pal, sign, F, W3, frontVis) {   // FITZ'S FRANKS: the building is a hot dog
+    //                 A bun the size of the plot lying along Sorrel Way, a frank in it poking out
+    //                 both ends, mustard zigzagged along the top. It's shaped like a hot dog truck:
+    //                 each end of the bun rounds off into a blunt nose whose underside lifts off the
+    //                 ground, and the frank runs on past the noses to rounded ends of its own. The
+    //                 bun's front is a straight wall between the noses, facing the main gate, with the
+    //                 serving hatch under a red-and-white awning, the name in red script on a cream
+    //                 fascia and a door at the east end. A tin chimney comes up through the back of
+    //                 the bun with the griddle smoke.
+    //                 David, 2026-11-09: it was a one-storey counter with a neon frank on the roof,
+    //                 then a bun with flat ends, and he asked for it to curve like a hot dog truck.
     const k = kit(ctx, cam, F, W3, E, seed, night, alpha), { B, FQ, dn, dusk } = k;
-    const Y = 0.30, TILE = pal || 'ty_cod';
-    B(0, -0.04, 0.36, Y + 0.04, 0, 0.17, TILE, true, 1);
-    B(0, -0.04, 0.365, Y + 0.045, 0, 0.03, 'ty_sw_milk_dk', true, 2);
-    B(0, -0.04, 0.37, Y + 0.05, 0.17, 0.18, facePals(E, { side: 'ty_sw_milk_dk', roof: 'ty_sw_milk_dk' }), true, 3);
-    // the fascia and the name
-    signBoard(ctx, cam, F, k, Y + 0.002, 0.35, 0.136, 0.168, CREAM, RED, [[((name || '').trim() || 'Fitz\'s Franks'), 0.139, 0.165, 0.27, 'script', '#b22a22']], night, alpha);
-    // the serving hatch, lit from the counter, with its steel shelf
-    FQ(Y + 0.002, -0.22, 0.10, 0.048, 0.118, [70 * dusk, 72 * dusk, 74 * dusk]);
-    FQ(Y + 0.003, -0.21, 0.09, 0.054, 0.114, k.glass(0.9, [255, 226, 180]));
-    B(-0.06, Y + 0.022, 0.17, 0.022, 0.048, 0.054, STEEL, true, 4);
-    stripedAwning(k, Y, -0.25, 0.13, 0.13, 0.102, 0.085, 8, RED, CREAM);
-    drawEntrance(ctx, cam, F, W3, E, seed + 20, night, alpha, {
-      x: 0.25, y: Y, w: 0.032, top: 0.115, leaves: 1, frameW: 0.008, depth: 0.008,
-      frame: [180, 186, 184], lobby: { day: [66, 70, 72], night: [255, 226, 180] }, frontVis });
-    // The frank on the roof: a bun, the frank in it, mustard down it, on a steel frame.
-    {
-      const fy = 0.04, z = 0.215;
-      if (nearOrMesh()) for (const x of [-0.10, 0.10]) emitWire(ctx, cam, W3(x, fy, 0.18), W3(x, fy, z - 0.02), 1.6, 'rgba(110,114,118,0.95)', alpha, { pull: 0.004 });
-      const loop = (rx, rz, zc) => Array.from({ length: 17 }, (_, i) => { const a = Math.PI * 2 * i / 16; return [Math.cos(a) * rx, fy, zc + Math.sin(a) * rz]; });
-      k.neon(loop(0.14, 0.026, z), '255,190,110', 2.6);          // the bun
-      k.neon(loop(0.16, 0.011, z + 0.004), '255,96,90', 2.4);     // the frank
-      k.neon(Array.from({ length: 9 }, (_, i) => [-0.12 + i * 0.03, fy + 0.001, z + 0.006 + (i % 2 ? 0.007 : 0)]), '255,226,80', 1.8);   // the mustard
+    const BUN = [214, 150, 78], CRUST = [176, 104, 46], FRANK = [170, 58, 40];
+    const YF = 0.20, ZB = 0.03, ZW = 0.16, LR = 0.08, LC = 0.12;   // front wall, base, wall top, lobe radius and centre
+    const LB = 0.30, LE = 0.44, ZN = 0.09, NS = 5;                  // where each nose starts and ends, the height it closes on, its steps
+    const ZF = 0.215, RF = 0.06, XF = 0.41, NC = 4;                 // the frank's axis height and radius, where its round ends start, their steps
+    // The smile: the whole hot dog bends up toward both ends on a parabola, 0.14 at the frank's tips.
+    const up = (x) => 0.14 * (x / (XF + RF)) ** 2;
+    B(0, 0, 0.46, 0.25, 0, ZB, 'ty_sw_milk_dk', true, 2);   // the plinth, a dark base course
+    // The boxes round the skin, for collision, the occluders and the distance LOD.
+    if (SHAPE_SINK) {
+      B(0, 0, LE, YF, ZB, ZW + LR + up(LE), pal || 'ty_cod', true, 1);
+      B(0, 0, XF + RF, RF, ZF - RF, ZF + RF + up(XF + RF), pal || 'ty_cod', true, 3);
     }
-    // the chimney, and the griddle smoke
-    const [cx, cy] = F(0.22, -0.22);
-    drawFacetDrum(ctx, cam, cx, cy, 0.18, 0.27, 0.02, 0.016, 8, alpha, () => rgb([150 * dusk, 152 * dusk, 156 * dusk]), rgb([120 * dusk, 122 * dusk, 126 * dusk]), STEEL);
-    drawSmoke(ctx, cam, cx, cy, 0.28, '210,206,200', alpha * 0.45, now, seed);
-    if (dn > 0.05) { const [gx, gy] = F(-0.06, Y + 0.08); glowPool(ctx, cam, gx, gy, 0.09, '255,214,160', 16, alpha * 0.5 * dn); }
+    // ── The bun: a two-lobed profile in y–z, run along x, each end rounded into a nose ──
+    const arc = (cy, a0, a1, n) => Array.from({ length: n + 1 }, (_, i) => { const a = a0 + (a1 - a0) * i / n; return [cy + Math.cos(a) * LR, ZW + Math.sin(a) * LR]; });
+    // A closed loop from the front foot over both crests to the back foot; its last edge is the underside.
+    const PROF = [[YF - 0.012, ZB], [YF, ZB + 0.014], ...arc(LC, 0, Math.PI * 0.78, 6), [0, ZW + 0.03],
+      ...arc(-LC, Math.PI * 0.22, Math.PI, 6), [-YF, ZB + 0.04], [-YF + 0.012, ZB + 0.01], [-YF + 0.03, ZB]];
+    // A nose is a quarter ellipsoid: past x = ±LB the profile shrinks about [0, ZN] to a point at ±LE,
+    // so its foot curves up off the plinth the way a truck's body does over its bumper.
+    const shrink = (s) => PROF.map(([y, z]) => [y * s, ZN + (z - ZN) * s]);
+    const STATIONS = [];   // [x, s] from the west tip to the east tip
+    for (let i = NS; i >= 0; i--) { const t = Math.PI / 2 * i / NS; STATIONS.push([-(LB + (LE - LB) * Math.sin(t)), Math.cos(t)]); }
+    for (let i = 0; i <= NS; i++) { const t = Math.PI / 2 * i / NS; STATIONS.push([LB + (LE - LB) * Math.sin(t), Math.cos(t)]); }
+    const NP = PROF.length;
+    for (let si = 0; si + 1 < STATIONS.length; si++) {
+      const [xa, sa] = STATIONS[si], [xb, sb] = STATIONS[si + 1], Pa = shrink(sa), Pb = shrink(sb);
+      const body = sa > 0.999 && sb > 0.999, c = [clamp((xa + xb) / 2, -LB, LB), 0, ZN];
+      for (let i = 0; i < NP; i++) {
+        const j = (i + 1) % NP;
+        if (body && j === 0) continue;   // the underside, sitting on the plinth
+        const crust = PROF[i][1] > ZW - 0.01 && PROF[j][1] > ZW - 0.01;
+        const q = [[xa, Pa[i][0], Pa[i][1] + up(xa)], [xb, Pb[i][0], Pb[i][1] + up(xb)], [xb, Pb[j][0], Pb[j][1] + up(xb)], [xa, Pa[j][0], Pa[j][1] + up(xa)]];
+        skinFace(k, F, W3, sa < 1e-6 ? [q[1], q[2], q[3]] : sb < 1e-6 ? [q[0], q[1], q[3]] : q, c, crust ? CRUST : BUN);
+      }
+    }
+    // ── The frank, lying in the bun: a capsule whose round ends stand out past the noses ──
+    {
+      const N = 12, ring = (x, r) => Array.from({ length: N }, (_, i) => { const a = Math.PI * 2 * i / N; return [x, Math.cos(a) * r, ZF + up(x) + Math.sin(a) * r]; });
+      const RX = [];   // [x, r] from the west tip to the east tip
+      for (let i = NC; i >= 1; i--) { const t = Math.PI / 2 * i / NC; RX.push([-(XF + RF * Math.sin(t)), RF * Math.cos(t)]); }
+      RX.push([-XF, RF], [-LB, RF], [LB, RF], [XF, RF]);
+      for (let i = 1; i <= NC; i++) { const t = Math.PI / 2 * i / NC; RX.push([XF + RF * Math.sin(t), RF * Math.cos(t)]); }
+      const RINGS = RX.map(([x, r]) => ring(x, r));
+      for (let s = 0; s + 1 < RINGS.length; s++) {
+        const A = RINGS[s], Bq = RINGS[s + 1], ra = RX[s][1], rb = RX[s + 1][1];
+        const inBun = Math.abs(RX[s][0]) <= LB && Math.abs(RX[s + 1][0]) <= LB, cx = clamp((RX[s][0] + RX[s + 1][0]) / 2, -XF, XF);
+        for (let i = 0; i < N; i++) {
+          const j = (i + 1) % N;
+          if (inBun && A[i][2] < ZW + 0.02 && A[j][2] < ZW + 0.02) continue;   // down inside the bun
+          const q = ra < 1e-6 ? [A[i], Bq[i], Bq[j]] : rb < 1e-6 ? [A[i], Bq[i], A[j]] : [A[i], Bq[i], Bq[j], A[j]];
+          skinFace(k, F, W3, q, [cx, 0, ZF], FRANK);
+        }
+      }
+      // The mustard, zigzagged along the top. Painted yellow by day, lit after dark.
+      const zt = ZF + RF + 0.003, mustard = Array.from({ length: 17 }, (_, i) => [-0.36 + i * 0.045, (i % 2 ? 1 : -1) * 0.028, zt + up(-0.36 + i * 0.045)]);
+      const lit = dn > 0.3;
+      for (let i = 1; i < mustard.length; i++) emitWire(ctx, cam, W3(...mustard[i - 1]), W3(...mustard[i]), 3, lit ? 'rgba(255,226,80,0.95)' : 'rgba(232,192,40,0.95)', alpha, { pull: 0.006, glow: lit ? 6 : 0, glowCss: 'rgb(255,226,80)' });
+      // After dark the frank's top, down over both round ends, and the bun's two crests, down over
+      // both noses, are traced in neon.
+      if (dn > 0.05) {
+        const end = (sx) => Array.from({ length: NC }, (_, i) => { const t = Math.PI / 2 * (i + 1) / NC; return [sx * (XF + (RF + 0.005) * Math.sin(t)), 0, ZF + up(XF) + (RF + 0.005) * Math.cos(t)]; });
+        k.neon([...end(-1).reverse(), ...Array.from({ length: 9 }, (_, i) => { const x = -XF + XF * i / 4; return [x, 0, zt + 0.002 + up(x)]; }), ...end(1)], '255,96,90', 2.4);
+        const crest = STATIONS.filter(([, s]) => s > 0.35);
+        for (const sy of [1, -1]) k.neon(crest.map(([x, s]) => [x, sy * LC * s, ZN + (ZW + LR + 0.002 - ZN) * s + up(x)]), '255,190,110', 2.2);
+      }
+    }
+    // ── The front wall onto Sorrel Way: the hatch, the awning, the name and the door ──
+    const Y = YF;
+    signBoard(ctx, cam, F, k, Y + 0.002, 0.30, 0.124, 0.156, CREAM, RED, [[((name || '').trim() || 'Fitz\'s Franks'), 0.127, 0.153, 0.24, 'script', '#b22a22']], night, alpha);
+    FQ(Y + 0.002, -0.26, 0.06, 0.044, 0.112, [70 * dusk, 72 * dusk, 74 * dusk]);
+    FQ(Y + 0.003, -0.25, 0.05, 0.050, 0.108, k.glass(0.9, [255, 226, 180]));
+    B(-0.10, Y + 0.022, 0.17, 0.022, 0.044, 0.050, STEEL, true, 4);
+    stripedAwning(k, Y, -0.29, 0.09, 0.121, 0.095, 0.08, 8, RED, CREAM);
+    drawEntrance(ctx, cam, F, W3, E, seed + 20, night, alpha, {
+      x: 0.24, y: Y, w: 0.032, top: 0.115, leaves: 1, frameW: 0.008, depth: 0.008,
+      frame: [180, 186, 184], lobby: { day: [66, 70, 72], night: [255, 226, 180] }, frontVis });
+    // the chimney up through the back of the bun, and the griddle smoke
+    const [cx, cy] = F(0.24, -LC);
+    drawFacetDrum(ctx, cam, cx, cy, ZW, 0.30, 0.02, 0.016, 8, alpha, () => rgb([150 * dusk, 152 * dusk, 156 * dusk]), rgb([120 * dusk, 122 * dusk, 126 * dusk]), STEEL);
+    drawSmoke(ctx, cam, cx, cy, 0.31, '210,206,200', alpha * 0.45, now, seed);
+    if (dn > 0.05) { const [gx, gy] = F(-0.10, Y + 0.08); glowPool(ctx, cam, gx, gy, 0.09, '255,214,160', 16, alpha * 0.5 * dn); }
   },
 
   peanut_roaster(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E, name, board, pal, sign, F, W3, frontVis) {   // PRUITT'S PEANUTS & PRETZELS: brick, a copper roaster on the pavement, a pretzel on a bracket

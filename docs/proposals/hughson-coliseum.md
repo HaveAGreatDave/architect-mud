@@ -52,7 +52,7 @@ along the south, the river road and the Curtain on the west, and the trades on x
 park is at x 891 to 895, y 914 to 918, two tiles in from the lot's south and east edges, so home plate
 stands a quarter tile from where TV has it ([coliseum-five-tiles.md](coliseum-five-tiles.md#two-tiles-north)). The rest
 is Hughson Way, which comes down x 892 from Halcyon Boulevard to the park's north wall, down x 896 past
-its east wall to Sorrel Way, and along its south wall on y 919, with a run west on y 915 to GATE D, eleven Halcyon buildings ([hughson-estate.md](hughson-estate.md))
+its east wall to Sorrel Way, and once ran along its south wall on y 919, which is Grandstand Plaza now, in front of Hughson Gardens ([hughson-gardens.md](hughson-gardens.md)), with a run west on y 915 to GATE D, eleven Halcyon buildings ([hughson-estate.md](hughson-estate.md))
 and the Hughson towers on the old car park and green ([hughson-towers.md](hughson-towers.md)). The
 ground is still his. The towers stand on a ground lease, and nothing in the world says he sold any of it. The Deadball row's
 `sports_pools.venue.site.block` names the same 25 tiles and
@@ -226,9 +226,9 @@ gate, east for GATE C, west for GATE D).
     [coliseum-window.js](../../client/game/js/panels/glass/coliseum-window.js), which the map and
     the broadcast both read. The east and west decks run in from the wall under the rails, on
     columns.
-  - Four stepped light towers at the corners: a fluted shaft, two setbacks, a bronze lamp house with
-    its floods turned to the field, a crown and a finial with a red beacon after dark, and a flag on
-    the crown's outer corner.
+  - Four stepped towers at the corners: a fluted shaft, two setbacks, a bronze lamp house, a crown
+    and a finial with a red beacon after dark, and a flag on the crown's outer corner. They carry no lamps.
+  - Ten light poles, five on each deck's roof behind the girder (`POLES` in the plan), on the map    and the broadcast: a steel mast, a catwalk and a bank of floods turned to the field, clear of    the shells' rails. On the broadcast the four end poles carry the venue's casting lights.
   - The main gate on Sorrel Way, a stepped frontispiece between two Guardian pylons: a portal in
     three receding orders round bronze doors and a sunburst fanlight, a narrow grille gate with a
     lantern over it either side, GRANDSTAND on its plate, the gilt rising sun on the setback with a
@@ -256,15 +256,16 @@ gate, east for GATE C, west for GATE D).
 - **The roof is the Hughson Dome**, a clamshell in the SkyDome's manner: three stepped barrel vaults on
   bronze girders, from the east deck to the west. Its numbers are the plan's (`DOME`, `SHELLS`,
   `GIRDER`, `LANTERN` in [coliseum-plan.js](../../client/shared/coliseum-plan.js)), which the broadcast
-  builds from too. The first shell is fixed over the bleachers on the boulevard side; the other two
-  ride the rails north and nest under it, so the roof opens from Sorrel Way and the field and the
-  grandstand get the sky, and the fixed shell keeps the outfield seats dry. Each arch sets back three
+  builds from too. The first shell is fixed over the grandstand on Sorrel Way, behind and above home
+  plate; the other two ride the rails south and nest under it, so the roof opens from the boulevard
+  and the open roof is parked behind the plate, out of the view to the outfield (`FIXED_END`). Each arch sets back three
   times on the way up, a ziggurat end on, with five bronze ribs across each shell and glass over its
   two upper tiers, so more of the roof is glass than copper. The panels are copper gone dark brown, lit as `plain` (as `metal` they mirrored the
   sky and read blue). The girders are bronze bands with a gilt chevron frieze, which runs across the
   boulevard's sill too, and inside them the rails step down and in, one for each level. The two outer
   ends are glass fans behind bronze rays, in a bronze frame round the stepped arch, on a gilt hub.
-  The last shell's fan rides with it, so open it faces the field. The lantern stands on the fixed
+  The last shell's fan rides with it, so open it faces the field. The fans, the sills and the frieze
+  follow `FIXED_END` (`isFan`, `sillZ`). The lantern stands on the fixed
   shell's crown, because nothing can stand over the middle of a roof that slides away: two drums of
   glass in bronze mullions under a fluted gilt cap, and on its stem the main gate's sun with a baseball
   for its disc, facing all four streets, with the red beacon over it after dark.
@@ -276,6 +277,11 @@ gate, east for GATE C, west for GATE D).
   over the roof and through its glass, and that view is what the park is known for. At 1.05 the vault
   shut them out. It's 28 m on the map, under the corner towers' lamp houses. Change `H` or `zs` and
   look from home plate first.
+- ⚠ **The roof parks behind home plate for the skyline.** Home looks north-west over centre field, and
+  the city climbs to the right of that line to the Ascendant Spire ten tiles north. Parked at the
+  boulevard end (as it was until 2026-11-10), the open roof blocked the outfield sky from the horizon
+  up to between 30 and 39 degrees. Parked over Sorrel Way, it leaves the sky over the outfield clear
+  up to between 58 and 72 degrees, and only the grandstand sits under it.
 - ⚠ **The feet stay inside the towers.** `DOME.R0` is 1.22 and the girder ends at 1.26 because a corner
   tower's inner side is 1.265 and the vaults run the bowl's whole length past all four. The leaves'
   ring was 1.33 because a circle only touched the sides.
@@ -313,8 +319,9 @@ plays at the park is on air.
 - The flight derive asks it for a tile with `flags.venue_lights` and puts `vl` on the cell (0 in a
   static bake). A view that's open when it changes is told by a `venue_lit` push, which
   [world-feed.js](../../client/game/js/panels/world-feed.js) keeps by tile.
-- With the roof open, the towers' lamp houses and the floods under the decks burn and each tower
-  throws a pool of light on the field. With it shut, the light comes out through the clerestory all
+- With the roof open, the poles' banks and the floods under the decks burn. A glow sits only on a
+  bank's face: a pool out over the field or behind the wall read from the street as lights hanging
+  in the air. With it shut, the light comes out through the clerestory all
   round, the fan windows and the crown glazing. The concourse windows are lit every night.
 
 Deadball is on KSAB, channel 7, at 18:00 on Monday, Wednesday and Friday, so those are the full
@@ -516,7 +523,7 @@ trades a ballpark street has now, written by
 | 894,922 | Fitz's Franks | `frank_stand` | north, Sorrel Way, at the foot of Grandstand Walk, straight down from the main gate (until 2026-11-02 at 894,911 beside the bleacher gate, then at 896,922) | Fitz Rourke | franks, sausage on a roll, cola, lemon soda, beer |
 | 900,919 | Pruitt's Peanuts & Pretzels | `peanut_roaster` | west, Kettle Lane (until 2026-11-02 at 894,912 on Vetch Mews) | Lorna Pruitt | peanuts, pretzels, popcorn, lemon soda |
 | 898,911 | Mulcahy's Sports Bar | `sports_bar` | north, Halcyon Boulevard | Declan Mulcahy | beer, wings, cream soda, cola; the game on a set on channel 7 |
-| 898,920 | Kimble's Souvenirs & Cards | `souvenir_shop` | south, Sorrel Way (until 2026-11-02 at 894,913) | Odessa Kimble | pennants, caps, foam fingers, scorecards; a card machine |
+| 896,922 | Kimble's Souvenirs & Cards | `souvenir_shop` | north, Sorrel Way, beside Fitz's Franks (until 2026-11-02 at 894,913, then at 898,920 with its door south until 2026-11-09) | Odessa Kimble | pennants, caps, foam fingers, scorecards; a card machine |
 | 898,912 | Cart Yard | ground | | | paved, where the carts park |
 
 - ⚠ **No puns in Halcyon Fields.** The box office is the park's own and says so; the other four
@@ -532,8 +539,11 @@ trades a ballpark street has now, written by
   Okonjo and Ottilie Marchbank. Three of them have new addresses: 2, 9 and 11 Hughson Way
   ([hughson-estate.md](hughson-estate.md)).
 - **The models** are one tile each, in constants, with the park's language at a smaller size: the
-  box office in its limestone and gilt with a brass queue rail, the frank stand white-tiled under a
-  striped awning with a neon frank on the roof, Pruitt's in red brick with a copper roaster on a
+  box office in its limestone and gilt with a brass queue rail, Fitz's Franks a hot dog the size of
+  its plot, shaped like a hot dog truck (a two-lobed bun whose ends round off into noses that lift
+  off the ground, the frank running on past them to rounded ends, mustard along the top, the hatch
+  and its striped awning in the bun's straight front wall facing the main gate; David, 2026-11-09),
+  Pruitt's in red brick with a copper roaster on a
   cart and a pretzel on a bracket, Mulcahy's in dark brick with green neon and pennants under the
   eaves, and Kimble's in cream tile with pennants fanned in the window and a baseball on the
   parapet. Each has a map icon of its own (`bldg_<type>.svg`).

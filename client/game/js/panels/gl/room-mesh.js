@@ -16,14 +16,17 @@
 
 import { roomKit } from './room-kit.js';
 import { createBatch, MAT, STRIDE } from './ballpark-mesh.js';
-import { facing, COUNTER_H } from '../../../../shared/room-layout.js';
+import { facing, COUNTER_H, doorwaysOf, liftButtons, liftPanelAt, hallOf } from '../../../../shared/room-layout.js';
+import { drawDecor, drawDecorForm, liftPortal } from './room-decor.js';
+import { legend, legendWidth } from '../../../../shared/legend-font.js';
 import { drawFitting, baseRun, STONE, FITTED_FORMS } from './room-fittings.js';
 export { FITTED_FORMS };
 
 // How many metres one repeat of each painted material covers (paintRoomTexture). A rug is mapped
 // once across itself, so it has no repeat.
 export const ROOM_TEXTURES = Object.freeze({ roomBoards: 1.8, roomPlaster: 3.6, roomCeiling: 2.4, roomWeave: 0.45, roomSteel: 0.9,
-  roomWood: 1.1, roomConcrete: 1.6, roomTile: 0.9, roomCanvas: 0.8, roomTicking: 0.6, roomOak: 1.15, roomPlasterFine: 3.0, roomStone: 2.0, roomWool: 0.7, roomFacade: 3.4 });
+  roomWood: 1.1, roomConcrete: 1.6, roomTile: 0.9, roomCanvas: 0.8, roomTicking: 0.6, roomOak: 1.15, roomPlasterFine: 3.0, roomStone: 2.0, roomMarble: 2.4, roomWool: 0.7, roomFacade: 3.4,
+  roomLaminate: 0.9, roomButcher: 0.7 });
 export const ROOM_RUG = 'roomRug';
 
 const { GLOSS, METAL, LEATHER, SATIN, CLOTH, MATTE, EMISSIVE } = MAT;
@@ -63,6 +66,8 @@ const sstep = (a, b, x) => { const t = Math.max(0, Math.min(1, (x - a) / (b - a)
 // every piece, and low down on a piece where it stands on the floor. Times the surface's colour.
 function bakeAO(L) {
   const hu = L.w / 2, D = L.d, H = L.h, A = L.annex, ad = L.spec?.annex?.d || 0;
+  // a flat's hall out to its corridor, past the back wall beside the en-suite (room-layout.js hallOf)
+  const halls = L.spec ? doorwaysOf(L.spec).map((o) => hallOf(L.spec, o)).filter(Boolean) : [];
   const boxes = [...L.solid, ...L.climb.map((c) => c.slice(0, 4)), ...L.placed.filter((p) => !(p.arche === 'screen' && p.form !== 'crt')).map((p) => {
     const q = Math.round(((p.turn % 360) + 360) % 360 / 90) % 2, hw = (q ? p.d : p.w) / 2, hd = (q ? p.w : p.d) / 2;
     return [p.u - hw, p.u + hw, p.v - hd, p.v + hd];
@@ -71,14 +76,16 @@ function bakeAO(L) {
     // out on the balcony there's no corner of a room to darken
     if (v < -0.145 || (L.spec?.balcony?.wrap && (Math.abs(u) > hu + 0.145 || v > L.spec.balcony.wrap + 0.005))) return col;
     let ao = 1;
-    // which room this face is in: the en-suite is its own box
-    const [uL, uR, vF, vB] = A && v > D + 0.02 ? [A.u0, A.u1, A.v0, A.v0 + ad] : [-hu, hu, 0, D];
+    // which room this face is in: the en-suite is its own box, and so is a hall
+    const hall = v > D + 0.02 ? halls.find((h) => u > h.a - 0.2 && u < h.b + 0.2) : null;
+    const [uL, uR, vF, vB] = hall ? [hall.a, hall.b, D, hall.v1] : A && v > D + 0.02 ? [A.u0, A.u1, A.v0, A.v0 + ad] : [-hu, hu, 0, D];
     const dw = Math.min(u - uL, uR - u, v - vF, vB - v);
     if (ny > 0.9 && y < 0.03) {
       ao *= 0.66 + 0.34 * sstep(0, 0.55, dw);
       // down in a pit, dark along the foot of the riser you're below
       const q = L.spec?.pit;
-      if (q && y < -0.01) { const e = y < -q.depth * 0.75 ? q.step : 0; ao *= 0.6 + 0.4 * sstep(0, 0.5, Math.min(u - q.u0 - e, q.u1 - e - u, v - q.v0 - e, q.v1 - e - v)); }
+      if (q?.round && y < -0.01) { const e = y < -q.depth * 0.75 ? q.step : 0; ao *= 0.6 + 0.4 * sstep(0, 0.5, q.r - e - Math.hypot(u - q.cu, v - q.cv)); }
+      else if (q && y < -0.01) { const e = y < -q.depth * 0.75 ? q.step : 0; ao *= 0.6 + 0.4 * sstep(0, 0.5, Math.min(u - q.u0 - e, q.u1 - e - u, v - q.v0 - e, q.v1 - e - v)); }
       for (const [a, b, c, e] of boxes) {
         const ou = Math.max(a - u, 0, u - b), ov = Math.max(c - v, 0, v - e);
         ao *= 0.42 + 0.58 * sstep(0, 0.4, Math.hypot(ou, ov));
@@ -100,25 +107,94 @@ function bakeAO(L) {
 // leave and all round you on the balcony), `lamps` (each { p: host point, annex }), `windows` (each
 // { p, n, a, b, k }: where the light comes in) and `screens` (each { id, quad, n, first, count }: where a set's
 // picture goes, for the page room-tv.js bends onto it).
-export function buildRoom(L, { seed = 1, lampOn = true, doorShut = false, turning = null } = {}) {
+// THE ROOM'S KITCHEN GEAR, for the Kitchen Stage when you cook in a room (kitchen-stage.js). It replays
+// the same seeded picks buildRoom and drawPiece make, so the hob, fridge, units and wall it reports are
+// the ones you were standing at. ⚠ Keep the pick order in step with buildRoom (wall), drawKitchen
+// (front) and drawPiece (fabric, wood, enamel, plastic, then a counter's laminate).
+export function roomKitchenKit(L, seed = 1) {
+  const fine = L.spec.finish === 'fine';
+  const look = (p) => { const r = rng(p.seed || 7); pick(r, fine ? FABRIC_FINE : FABRIC); const wood = pick(r, fine ? WOOD_FINE : WOOD), enamel = pick(r, fine ? ENAMEL_FINE : ENAMEL); pick(r, PLASTIC); return { wood, enamel, lam: pick(r, ['#d8d0c0', '#4a5a5a', '#8a6a4a', '#e8e4dc']) }; };
+  const kit = { fine, wall: fine ? '#e4e0d8' : pick(rng(seed), WALLS), top: fine ? '#8a8c8e' : '#b8b4ac', front: null, hob: null, cold: null, sink: null, microwave: false };
+  if (L.spec.plan) kit.front = fine ? '#3b3d41' : pick(rng(seed ^ 0x5bd1), ['#d8d0c0', '#4a5a5a', '#8a6a4a', '#e8e4dc']);
+  for (const p of L.placed) {
+    if (p.annex) continue;
+    const lk = look(p);
+    if (p.arche === 'hob' && p.form === 'microwave') kit.microwave = true;
+    else if (p.arche === 'hob' && !kit.hob) kit.hob = { form: p.form, colour: p.form === 'range' ? lk.enamel : '#ffffff', wood: lk.wood };
+    else if (p.arche === 'cold' && !kit.cold) kit.cold = { form: p.form, colour: p.form === 'double' ? '#c8ccd0' : lk.enamel };
+    else if (p.arche === 'sink' && !kit.sink) kit.sink = { form: p.form };
+    else if (p.arche === 'surface' && p.form === 'counter' && !kit.front) kit.front = lk.lam;
+  }
+  if (!kit.front) kit.front = kit.hob?.wood || '#8a6a4a';
+  return kit;
+}
+
+// The rooms one doorway away (docs/proposals/building-stage.md, step 4), built as shells with their
+// furniture and added to the room's own batches each time it's built: their walls, floors, glass,
+// pieces and screens, never their view box (the room's own is round them all) or their lamps
+// (gl/room-light.js has room for six).
+export function withShells(m, shells) {
+  const add = (dst, src) => {
+    if (!src?.n) return;
+    // a new list, never a push: meshCopy shares the kept mesh's
+    if (src.kit?.length) dst.kit = [...(dst.kit || []), ...src.kit.map(([a, c]) => [a + dst.n, c])];
+    const need = (dst.n + src.n) * STRIDE;
+    if (need > dst.data.length) { const d = new Float32Array(need); d.set(dst.data.subarray(0, dst.n * STRIDE)); dst.data = d; }
+    dst.data.set(src.data.subarray(0, src.n * STRIDE), dst.n * STRIDE);
+    dst.n += src.n;
+  };
+  for (const s of shells || []) {
+    // a set's screen next door goes after the room's own, so the room's sets keep their stretch of the batch
+    add(m.solid, s.solid); add(m.glass, s.glass); add(m.screen, s.screen);
+    for (const [key, b] of s.textured) { if (!m.textured.has(key)) m.textured.set(key, createBatch(b.n)); add(m.textured.get(key), b); }
+  }
+  return m;
+}
+
+// opts.joined: the zones past this room's doorways that are drawn too, so a doorway into one is a
+// threshold rather than a dim passage.
+export function buildRoom(L, { seed = 1, lampOn = true, doorShut = false, turning = null, joined = new Set(), shell = false } = {}) {
   const K = roomKit(L, bakeAO(L), { textures: ROOM_TEXTURES, cell: 0.4, glow: GLOW });
   const { solid, quad, box, lathe, ball, onU, onV, C, nrmOf, TB, E } = K;
-  K.fine = L.spec.finish === 'fine'; K.L = L; K.screens = [];
+  K.fine = L.spec.finish === 'fine'; K.L = L; K.screens = []; K.dials = [];
   const view = createBatch(64);
   const hu = L.w / 2, D = L.d, H = L.h, T = 0.14, spec = L.spec, fine = K.fine;
-  const R = rng(seed), wallC = fine ? '#e4e0d8' : pick(R, WALLS), trim = fine ? '#efece6' : pick(R, ['#ece8de', '#e2dccd', '#d2cab8']);
+  // a club (spec.club) is painted black-red, ceiling and all, and lit by its rig (clubRig)
+  const club = spec.club === 'vip' ? 'vip' : !!spec.club, R = rng(seed), wall0 = fine ? '#e4e0d8' : pick(R, WALLS), trim0 = fine ? '#efece6' : pick(R, ['#ece8de', '#e2dccd', '#d2cab8']);
+  // `spec.tone` paints a room its own way (Solenne's lobby: dark walls, gold): its walls, trim and ceiling,
+  // and `accent`, a metal that runs round it as a band and lines its doorways
+  const tone = spec.tone || {}, accent = tone.accent || null;
+  const wallC = tone.wall || (club ? '#3a2830' : wall0), trim = tone.trim || (club ? '#141216' : trim0);
   const win = spec.window || [-0.8, 0.8, 0.9, 2.2], door = spec.door || [hu - 1.3, hu - 0.4], DH = fine ? Math.min(2.4, H - 0.3) : 2.05;
   const plaster = { t: fine ? 'roomPlasterFine' : 'roomPlaster', c: wallC };
-  const panes = spec.windows?.length ? spec.windows : [{ wall: 'front', a: win[0], b: win[1], y0: win[2], y1: win[3], kind: 'sash' }];
+  // a copy: a door's glass transom is added to it below, and the spec is built from again and again
+  const panes = spec.windowless ? [] : spec.windows?.length ? [...spec.windows] : [{ wall: 'front', a: win[0], b: win[1], y0: win[2], y1: win[3], kind: 'sash' }];
   const annex = spec.annex || null;
 
   // the floor: boards, run from the window to the door, or stone; cut round a pit when there's one
   {
-    const pit = spec.pit, key = spec.ground === 'stone' ? 'roomStone' : fine ? 'roomOak' : 'roomBoards', t = ROOM_TEXTURES[key];
-    const tint = spec.ground === 'stone' ? PALE_STONE : '#ffffff';
-    const lay = K.lay = (u0, u1, v0, v1, y = 0) => { const ps = [[u0, v0, y], [u1, v0, y], [u1, v1, y], [u0, v1, y]]; quad(TB(key), ps, [0, 1, 0], C(tint, spec.ground === 'stone' ? 1.15 : 0.95), fine ? SATIN : E, ps.map((q) => [q[1] / t, q[0] / t])); };
+    const pit = spec.pit, key = spec.ground === 'marble' ? 'roomMarble' : spec.ground === 'stone' || spec.ground === 'rubber' ? 'roomStone' : fine ? 'roomOak' : 'roomBoards', t = ROOM_TEXTURES[key];
+    const tint = spec.ground === 'stone' ? PALE_STONE : spec.ground === 'rubber' ? '#33363a' : '#ffffff', marble = spec.ground === 'marble';
+    const lay = K.lay = (u0, u1, v0, v1, y = 0) => { const ps = [[u0, v0, y], [u1, v0, y], [u1, v1, y], [u0, v1, y]]; quad(TB(key), ps, [0, 1, 0], C(tint, spec.ground === 'stone' ? 1.15 : marble ? 1.05 : 0.95), marble ? GLOSS : fine ? SATIN : E, ps.map((q) => [q[1] / t, q[0] / t])); };
     // the slab under the boards stops short of them, or the two fight over the same pixels
-    if (!pit) { lay(-hu, hu, 0, D); box(-hu - T, hu + T, -T, D + T, -0.2, -0.01, '#2a2622'); } else {
+    if (pit?.round) {
+      // the boards outside the pit's square, then between the square and the circle in wedges, cut
+      // so the square's corners fall on wedge edges
+      lay(-hu, hu, 0, pit.v0); lay(-hu, hu, pit.v1, D); lay(-hu, pit.u0, pit.v0, pit.v1); lay(pit.u1, hu, pit.v0, pit.v1);
+      const N = 64, sq = (a) => pit.r / Math.max(Math.abs(Math.cos(a)), Math.abs(Math.sin(a)));
+      for (let i = 0; i < N; i++) {
+        const a0 = i / N * Math.PI * 2, a1 = (i + 1) / N * Math.PI * 2, at = (a, r) => [pit.cu + Math.cos(a) * r, pit.cv + Math.sin(a) * r, 0];
+        const ps = [at(a0, pit.r), at(a0, sq(a0)), at(a1, sq(a1)), at(a1, pit.r)];
+        quad(TB(key), ps, [0, 1, 0], C(tint, 0.95), fine ? SATIN : E, ps.map((q) => [q[1] / t, q[0] / t]));
+      }
+      box(-hu - T, hu + T, -T, D + T, -pit.depth - 0.2, -pit.depth - 0.02, '#2a2622');
+      // the rail round the rim stops either side of anything raised that runs out over it (a runway)
+      const over = L.placed.filter((p) => p.form === 'runway' || p.form === 'stage').map((p) => {
+        const q = Math.round(((p.turn % 360) + 360) % 360 / 90) % 2, hw = (q ? p.d : p.w) / 2, hd = (q ? p.w : p.d) / 2;
+        return [p.u - hw - 0.15, p.u + hw + 0.15, p.v - hd - 0.15, p.v + hd + 0.15];
+      });
+      drawRoundPit(K, pit, { key, tint, surf: fine ? SATIN : E, over });
+    } else if (!pit) { lay(-hu, hu, 0, D); box(-hu - T, hu + T, -T, D + T, -0.2, -0.01, '#2a2622'); } else {
       const g = 0.06;
       lay(-hu, hu, 0, pit.v0); lay(-hu, hu, pit.v1, D); lay(-hu, pit.u0, pit.v0, pit.v1); lay(pit.u1, hu, pit.v0, pit.v1);
       box(-hu - T, hu + T, -T, pit.v0 - g, -0.2, -0.01, '#2a2622'); box(-hu - T, hu + T, pit.v1 + g, D + T, -0.2, -0.01, '#2a2622');
@@ -126,10 +202,10 @@ export function buildRoom(L, { seed = 1, lampOn = true, doorShut = false, turnin
       drawPit(K, pit, { key, tint, surf: fine ? SATIN : E });
     }
   }
-  // the ceiling, and a slab over it
-  {
+  // the ceiling, and a slab over it. A roof deck (spec.open) has neither: over it is the sky the glass shows
+  if (!spec.open) {
     const key = fine ? 'roomPlasterFine' : 'roomCeiling', ps = [[-hu, D, H], [hu, D, H], [hu, 0, H], [-hu, 0, H]], t = ROOM_TEXTURES[key];
-    quad(TB(key), ps, [0, -1, 0], C('#f2efe8', 1), E, ps.map((q) => [q[0] / t, q[1] / t]));
+    quad(TB(key), ps, [0, -1, 0], C(tone.ceiling || (club ? '#1c181e' : '#f2efe8'), 1), E, ps.map((q) => [q[0] / t, q[1] / t]));
     box(-hu - T, hu + T, -T, D + T, H + 0.01, H + 0.2, '#8a8680');
   }
 
@@ -141,11 +217,30 @@ export function buildRoom(L, { seed = 1, lampOn = true, doorShut = false, turnin
     else if (wall === 'left') box(-hu - T, -hu, a, b, y0, y1, wallC, 1, plaster);
     else box(hu, hu + T, a, b, y0, y1, wallC, 1, plaster);
   };
-  const holes = { front: [], back: [{ a: door[0], b: door[1], y0: 0, y1: DH }], left: [], right: [] };
+  // a building's open doorways (docs/proposals/building-stage.md); one over the flat's own door takes its place
+  const doorways = doorwaysOf(spec);
+  // a lift car has no flat's door: its ways out are its doorways, open or with the doors drawn shut.
+  // ⚠ NOR DOES A ROOM ON A BUILDING'S WALK: its ways in are its doorways. The plain door every room was given
+  // stood beside the lift in the Solenne's lobby and on its landings, a door to nowhere.
+  const overDoor = !!(spec.car || spec.lift) || Array.isArray(spec.openings) || doorways.some((o) => o.wall === 'back' && o.a < door[1] && o.b > door[0]);
+  const holes = { front: [], back: overDoor ? [] : [{ a: door[0], b: door[1], y0: 0, y1: DH }], left: [], right: [] };
   if (annex) holes.back.push({ a: annex.door[0], b: annex.door[1], y0: 0, y1: DH });
   const glassTop = panes.find((q) => q.kind === 'curtain' && q.wall === 'front')?.y1;
   if (spec.balcony) holes.front.push({ a: spec.balcony.door[0], b: spec.balcony.door[1], y0: 0, y1: glassTop || DH });
   for (const q of panes) holes[q.wall].push(q);
+  const cut = doorways;
+  // a pair of automatic glass doors in a glass wall (building-graph.js street_door): the opening runs up to the
+  // glass's head, an operator box over the doors and a glass transom over that, so the wall stays glass
+  const glassHead = (wall) => panes.filter((q) => q.kind === 'curtain' && q.wall === wall).reduce((m, q) => Math.max(m, q.y1), 0);
+  const SLIDE_BOX = 0.24;
+  // a flat's front door on a corridor is at the end of a hall beside its en-suite: the back wall opens on the hall
+  const HALL_H = Math.min(H, DH + 0.22);
+  for (const o of cut) {
+    const hall = hallOf(spec, o);
+    if (hall) { holes.back.push({ a: hall.a, b: hall.b, y0: 0, y1: HALL_H }); continue; }
+    holes[o.wall].push({ a: o.a, b: o.b, y0: 0, y1: o.slide && glassHead(o.wall) > DH + SLIDE_BOX + 0.3 ? glassHead(o.wall) : DH });
+  }
+  for (const o of cut) if (o.slide && glassHead(o.wall) > DH + SLIDE_BOX + 0.3) panes.push({ wall: o.wall, a: o.a, b: o.b, y0: DH + SLIDE_BOX, y1: glassHead(o.wall), kind: 'curtain' });
   const solidRuns = {};
   for (const [wall, lo, hi] of [['front', -hu, hu], ['back', -hu, hu], ['left', -T, D + T], ['right', -T, D + T]]) {
     let s = lo;
@@ -168,6 +263,16 @@ export function buildRoom(L, { seed = 1, lampOn = true, doorShut = false, turnin
     box(u0, u1, v0, v1, 0.11, 0.125, trim, 0.9, null, SATIN);
   }
   if (!fine) for (const [u0, u1, v0, v1] of [[-hu, -hu + 0.05, 0, D], [hu - 0.05, hu, 0, D], [-hu, hu, 0, 0.05], [-hu, hu, D - 0.05, D]]) box(u0, u1, v0, v1, H - 0.07, H, trim, 1);
+  // the accent: a gold skirting cap, a thin band at the door heads and a shadow line and band at the
+  // ceiling, round every solid run. Each stands 1 cm or more proud of the wall, so none fights it
+  // (a room clad in stone or walnut has its own trim, and these would be inside the cladding)
+  if (accent && !spec.decor?.walls) for (const [wall, runs] of Object.entries(solidRuns)) for (const [a, b] of runs) {
+    const band = (y0, y1, p) => { const [u0, u1, v0, v1] = wall === 'front' ? [a, b, 0, p] : wall === 'back' ? [a, b, D - p, D] : wall === 'left' ? [-hu, -hu + p, Math.max(a, 0), Math.min(b, D)] : [hu - p, hu, Math.max(a, 0), Math.min(b, D)]; box(u0, u1, v0, v1, y0, y1, accent, 1.05, null, METAL); };
+    band(0.09, 0.105, 0.022);
+    band(DH + 0.04, DH + 0.065, 0.012);
+    band(H - 0.16, H - 0.12, 0.014);
+  }
+  if (club === true) drawPosters(K, L, solidRuns, { hu, D, H, seed });
 
   const windows = panes.map((q) => drawPane(K, q, { hu, D, H, trim, fine }));
   // the world: a box well clear of the flat, seen wherever the walls don't stop you seeing it
@@ -178,9 +283,40 @@ export function buildRoom(L, { seed = 1, lampOn = true, doorShut = false, turnin
   }
   if (spec.balcony) drawBalcony(K, { hu, H, T, DH, fine, trim, top: glassTop || DH });
 
+  // A DOORWAY TO THE NEXT ROOM. Where that room is drawn (`joined`), a threshold across this room's
+  // wall, and the room beyond lays the other half across its own. Where it isn't, the doorway is lined
+  // through the wall with a short dim passage past it, so the hole doesn't open on the street the
+  // window shows.
+  for (const o of cut) {
+    const P = 0.8, dark = '#1b1b1e', hall = hallOf(spec, o);
+    // the hall to a flat's front door: its floor, ceiling, walls and a light, and the doorway in its far wall
+    if (hall) drawHall(K, { hall, o, D, T, DH, H: HALL_H, fine, trim, accent, wallC, plaster, lampOn, joined: joined.has(o.to) });
+    // [u0, u1, v0, v1] of a slab from depth p0 to p1 past the wall's inner face, across [a, b]; a hall's doorway is
+    // in its far wall
+    const DB = hall ? hall.v1 : D;
+    const span = (a, b, p0, p1) => o.wall === 'front' ? [a, b, -p1, -p0] : o.wall === 'back' ? [a, b, DB + p0, DB + p1] : o.wall === 'left' ? [-hu - p1, -hu - p0, a, b] : [hu + p0, hu + p1, a, b];
+    if (joined.has(o.to)) { box(...span(o.a, o.b, 0, T), -0.02, 0, '#3a3634', 1); continue; }
+    // automatic doors: a dark sill, aluminium jambs, and the operator box across the head, as wide as the leaves
+    // slide; the leaves themselves are drawn apart (slideLeaves) so they can open as you come up to them
+    if (o.kind === 'front' && o.slide) {
+      const w = o.b - o.a, AL = '#9aa0a6';
+      box(...span(o.a, o.b, 0, T), -0.02, 0.004, '#202224', 1, null, METAL);
+      for (const [a, b] of [[o.a - 0.06, o.a], [o.b, o.b + 0.06]]) box(...span(a, b, -0.02, T), 0, DH + SLIDE_BOX, AL, 1.05, null, METAL);
+      box(...span(o.a - w / 2 - 0.08, o.b + w / 2 + 0.08, -0.16, -0.02), DH, DH + SLIDE_BOX, AL, 1.05, null, METAL);
+      box(...span(o.a - w / 2 - 0.08, o.b + w / 2 + 0.08, -0.164, -0.158), DH + 0.03, DH + SLIDE_BOX - 0.03, '#2a2d31', 1, null, METAL);
+      continue;
+    }
+    // the street door: a threshold, and past it the street the window shows
+    if (o.kind === 'front') { box(...span(o.a, o.b, 0, T), -0.02, 0, '#3a3634', 1); for (const [a, b] of [[o.a - 0.05, o.a], [o.b, o.b + 0.05]]) box(...span(a, b, 0, T), 0, DH, '#2a2c30', 1, null, METAL); box(...span(o.a - 0.05, o.b + 0.05, 0, T), DH, DH + 0.06, '#2a2c30', 1, null, METAL); continue; }
+    box(...span(o.a, o.b, 0, T + P), -0.02, 0, '#3a3634', 1);
+    box(...span(o.a, o.b, 0, T + P), DH, DH + 0.02, dark, 1);
+    box(...span(o.a, o.b, T + P, T + P + 0.02), 0, DH, dark, 1);
+    for (const [a, b] of [[o.a - 0.02, o.a], [o.b, o.b + 0.02]]) box(...span(a, b, 0, T + P), 0, DH, accent || trim, accent ? 1.05 : 0.9, null, accent ? METAL : SATIN);
+  }
+
   // THE DOOR in the back wall: a four-panel door shut in its frame, an architrave, a brass knob and a
   // finger plate; a light switch and a socket by it. A fine flat's is one flush oak leaf, floor to head
-  {
+  if (!overDoor) {
     const [d0, d1] = door, dv = D - 0.04, leaf = { t: fine ? 'roomOak' : 'roomWood', c: fine ? '#8a6a4a' : '#9a7a5a' };
     box(d0, d1, dv, D, 0, DH - 0.01, '#6a4a30', 0.92, leaf, SATIN);
     if (!fine) {
@@ -199,16 +335,30 @@ export function buildRoom(L, { seed = 1, lampOn = true, doorShut = false, turnin
       ball(ku, dv - 0.065, 0.99, 0.028, '#c9a24a', 1.05, 12, METAL);
       box(ku - 0.03, ku + 0.03, dv - 0.004, dv, 1.06, 1.3, '#c9a24a', 1, null, METAL);
     }
-    const su = d0 - 0.22;
-    box(su - 0.042, su + 0.042, D - 0.012, D, 1.16, 1.244, '#efece4', 1, null, SATIN);
-    box(su - 0.012, su + 0.012, D - 0.022, D - 0.012, 1.19, 1.214, '#d8d4ca', 1, null, SATIN);
+    // THE LIGHT SWITCH: a plate with a rocker that shows how the lights stand and a dimmer's slot under
+    // it. Its place goes on K.dials as `kind: 'switch'`, and a click on it opens the lights panel in
+    // panels/room-stage.js, the way a fire's dial opens the fire's.
+    const su = d0 - 0.22, sy = 1.2;
+    box(su - 0.045, su + 0.045, D - 0.012, D, sy - 0.07, sy + 0.07, fine ? '#d8cfb8' : '#efece4', 1, null, SATIN);
+    box(su - 0.02, su + 0.02, lampOn ? D - 0.026 : D - 0.018, D - 0.012, sy + 0.008, sy + 0.05, lampOn ? '#fbfaf5' : '#bdb9af', 1, null, GLOSS);
+    box(su - 0.004, su + 0.004, D - 0.014, D - 0.012, sy - 0.055, sy - 0.012, '#2a2c30', 1, null, MATTE);
+    if (!shell) K.dials.push({ id: 'lights', kind: 'switch', at: L.world(su, D - 0.02, sy), r: 0.07 });
     box(su - 0.042, su + 0.042, D - 0.012, D, 0.28, 0.364, '#efece4', 1, null, SATIN);
   }
 
   // THE LIGHT. A plain room has a flex from a ceiling rose to a pleated paper shade over a bulb; a
   // fine one has downlights let into the ceiling, spread to reach a room that size
   const lamps = [];
-  if (fine) {
+  if (club === 'vip') vipRig(K, L, { H, D, hu, lamps, lampOn });
+  else if (club) clubRig(K, L, { H, D, hu, lamps, lampOn });
+  else if (fine && spec.decor?.downlights === false) {
+    // a finished room lit by its own fittings (gl/room-decor.js): its chandeliers are its lamps; with none, its cove
+    // and sconces are, a lamp every four metres or so down its length
+    if (!spec.decor.lights?.length) {
+      const long = L.w >= D, len = long ? L.w : D, n = Math.max(1, Math.min(3, Math.round(len / 4)));
+      for (let i = 0; i < n; i++) { const t = (i + 0.5) / n - 0.5; lamps.push({ p: long ? L.world(t * L.w, D * 0.5, H - 0.4) : L.world(0, (t + 0.5) * D, H - 0.4), annex: false, k: 1.25 }); }
+    }
+  } else if (fine) {
     const nu = Math.max(2, Math.round(L.w / 4)), nv = Math.max(2, Math.round(D / 4));
     for (let i = 0; i < nu; i++) for (let j = 0; j < nv; j++) {
       const u = -hu + (i + 0.5) * L.w / nu, v = (j + 0.5) * D / nv;
@@ -216,7 +366,8 @@ export function buildRoom(L, { seed = 1, lampOn = true, doorShut = false, turnin
       lathe(u, v, [[0, H - 0.0015], [0.05, H - 0.0015]], lampOn ? '#fff0d0' : '#c8c4b8', lampOn ? 2.2 : 0.8, 16, lampOn ? LAMP : undefined);
     }
     // the lights the renderer has for them: one over each part of the room
-    for (const [u, v] of zoneLights(L)) lamps.push({ p: L.world(u, v, H - 0.3), annex: false, k: 1.5 });
+    // (a fine room with no studio plan, a lobby or a lift car, is lit from its middle)
+    for (const [u, v] of spec.plan ? zoneLights(L) : [[0, D * 0.5]]) lamps.push({ p: L.world(u, v, H - 0.3), annex: false, k: 1.5 });
   } else for (const [u, v] of (spec.plan ? zoneLights(L).filter((_, i) => i !== 1) : [[0, D * 0.5]])) {
     const lamp = { u, v, y: H - 0.62 };
     lathe(lamp.u, lamp.v, [[0, H - 0.03], [0.05, H - 0.03], [0.055, H - 0.01], [0.05, H]], '#efece4', 1, 16);
@@ -235,8 +386,8 @@ export function buildRoom(L, { seed = 1, lampOn = true, doorShut = false, turnin
   }
 
   // A RUG on the boards, in front of the sofa if there is one, else in the middle. A fine room's is a
-  // plain wool one, sized to the room
-  {
+  // plain wool one, sized to the room. A club has none
+  if (!club && spec.decor?.rug !== false) {
     const sofa = L.placed.find((p) => p.arche === 'sofa' || p.arche === 'bench'), scr = L.placed.find((p) => p.arche === 'screen');
     const lz = spec.plan?.living;
     let cu = lz ? (lz[0] + lz[1]) / 2 : 0, cv = lz ? (lz[2] + lz[3]) / 2 : D * 0.5;
@@ -256,9 +407,26 @@ export function buildRoom(L, { seed = 1, lampOn = true, doorShut = false, turnin
     K.lift(0);
   }
 
+  const isCar = !!(spec.car || spec.lift);
+  if (isCar) drawCar(K, L, { DH, doorways });
+  if (spec.lift) drawLiftPanel(K, spec);
+  if (spec.sign) drawSign(K, L);
+  // the room's finish (gl/room-decor.js), and the bronze round a lift at its landing
+  if (spec.decor) drawDecor(K, L, { H, D, hu, T, DH, lampOn, lamps, runs: solidRuns, fine, accent, TEX: ROOM_TEXTURES });
+  if (!isCar) for (const o of doorways) if (o.lift) liftPortal(K, L, o, { DH, H, lampOn });
+  if (spec.walls) drawPartitions(K, spec.walls, H);
+  if (spec.stairs) drawStairs(K, spec.stairs);
+  // the furniture's stretch of each batch (`b.kit`, [first, count] in vertices): gl/room.js inks it in the
+  // house line whether or not the room is, as it does the people. The kitchen's units are furniture too.
+  const kitFrom = () => new Map([K.solid, ...K.textured.values()].map((b) => [b, b.n]));
+  const kitTo = (was) => { for (const b of [K.solid, ...K.textured.values()]) { const n0 = was.get(b) ?? 0; if (b.n > n0) (b.kit ||= []).push([n0, b.n - n0]); } };
+  let was = kitFrom();
   if (spec.plan) drawKitchen(K, { H, lampOn, lamps, seed });
+  kitTo(was);
   if (annex) buildAnnex(K, { H, D, T, DH, lampOn, lamps, doorShut });
+  was = kitFrom();
   for (const p of L.placed) { if (p.id === turning?.id) continue; K.lift(p.y0 || 0); drawPiece(K, p); }
+  kitTo(was);
   // a piece on a turntable is drawn apart, by the stage, for as long as it's going round
   const spin = turning && L.placed.find((p) => p.id === turning.id) ? turntable(K, L, L.placed.find((p) => p.id === turning.id), turning) : null;
   K.lift(0);
@@ -270,7 +438,18 @@ export function buildRoom(L, { seed = 1, lampOn = true, doorShut = false, turnin
   const rest = lamps.filter((l) => !l.fire && !l.annex).slice(0, 6 - kept.length - spa.length);
   // each set's stretch of the screen batch, so the one that's on can be drawn with the broadcast
   K.screens.forEach((s, i) => { s.count = (K.screens[i + 1]?.first ?? K.screen.n) - s.first; });
-  return { ...K, view, lamps: [...rest, ...kept, ...spa], windows, spin };
+  // a lift car's doors are drawn apart, by the stage, so they can slide without a rebuild
+  const liftDoors = isCar && doorways.length ? liftLeaves(K, L, { DH, doorways }) : null;
+  // the street's glass doors, and a lift landing's bronze ones
+  const slides = doorways.filter((o) => o.slide && (o.kind === 'front' || o.lift));
+  // ⚠ A ROOM SEEN THROUGH A DOORWAY KEEPS THEM IN ITS BATCHES, DRAWN SHUT: only the room you're in moves them.
+  // They used to be left out of a shell altogether, so a lift landing's bronze doors popped in as you stepped into
+  // the hall.
+  // Never the doorway it's seen through (`joined`): from inside the car that's the landing's own lift doors, and
+  // drawn shut they stood behind the car's open ones, a second pair to walk through.
+  const shown = shell ? slides.filter((o) => !joined.has(o.to)) : slides;
+  const slideDoors = !isCar && shown.length ? slideLeaves(K, L, { DH, ways: shown, keep: shell }) : null;
+  return { ...K, view, lamps: [...rest, ...kept, ...spa], windows, spin, liftDoors, slideDoors: shell ? null : slideDoors };
 }
 
 // A TURNTABLE: both faces of a piece as one set of vertices, `from` showing and `to` on its far side, for
@@ -316,6 +495,187 @@ export function spinBatch(spin, angle) {
 // A SUNKEN FLOOR (client/shared/room-layout.js pitFloorAt): the ledge round it and its floor, laid as the
 // room's floor is, a riser under each edge with a thread of light along its foot, so the steps read
 // from across the room. A riser is a thin box behind the edge, its top just under the floor it holds up.
+// A ROUND ONE: a riser down to a ring of ledge, a riser down to the floor, each with its thread of
+// light, a chrome rail round the rim with a gap for the way in at `gapAt` (radians, round from +u),
+// and the floor lit red from under, so from the door the whole pit reads as one glowing cherry.
+function drawRoundPit(K, q, { key, tint, surf, over = [] }) {
+  const dh = q.depth / 2, ri = q.r - q.step, n = 64, mat = { t: key, c: tint };
+  K.lathe(q.cu, q.cv, [[q.r, 0], [q.r, -dh]], mat, 0.85, n, surf);
+  K.lathe(q.cu, q.cv, [[q.r, -dh], [ri, -dh]], mat, 0.95, n, surf);
+  K.lathe(q.cu, q.cv, [[ri, -dh], [ri, -q.depth]], mat, 0.85, n, surf);
+  K.lathe(q.cu, q.cv, [[ri, -q.depth], [0, -q.depth]], '#5a0c18', 1.2, n);
+  K.lathe(q.cu, q.cv, [[ri * 0.55, -q.depth + 0.004], [0, -q.depth + 0.004]], '#c01830', 1.4, n);
+  for (const [r, y] of [[q.r, -dh], [ri, -q.depth]]) K.lathe(q.cu, q.cv, [[r - 0.012, y + 0.016], [r - 0.012, y + 0.002]], '#ff4a6a', 1.6, n);
+  const gap = Number(q.gapAt ?? Math.PI / 2), half = 0.45, rod = rodOf(K);
+  // the rail: short posts and a top tube, segment by segment, skipping the way in
+  const seg = 40, rr = q.r + 0.12, H = 1.0, P = (a, y) => [q.cu + Math.cos(a) * rr, q.cv + Math.sin(a) * rr, y];
+  const under = (a) => { const [u, v] = P(a, 0); return over.some(([u0, u1, v0, v1]) => u > u0 && u < u1 && v > v0 && v < v1); };
+  const off = (a) => Math.abs(((a - gap + Math.PI * 3) % (Math.PI * 2)) - Math.PI) < half || under(a);
+  const keep = Array.from({ length: seg }, (_, i) => !off(i / seg * Math.PI * 2) && !off((i + 1) / seg * Math.PI * 2));
+  for (let i = 0; i < seg; i++) {
+    if (!keep[i]) continue;
+    const a0 = i / seg * Math.PI * 2, a1 = (i + 1) / seg * Math.PI * 2;
+    rod(P(a0, H), P(a1, H), 0.025, '#c8ccd0', 1.1);
+    // a post every fourth, and one to finish the rail wherever it stops
+    if (i % 4 === 0 || !keep[(i + seg - 1) % seg]) rod(P(a0, 0), P(a0, H), 0.02, '#9aa0a8', 1);
+    if (!keep[(i + 1) % seg]) rod(P(a1, 0), P(a1, H), 0.02, '#9aa0a8', 1);
+  }
+}
+
+// A CLUB'S RIG (spec.club): a square truss under the ceiling over the middle of the room (over the
+// pit when there's one), a moving head at each corner, two strobes, a mirror ball, a spotlight on a
+// pipe over a runway's tip and a strip of neon round the walls. Its lamps carry a `tint` and an `fx`
+// that gl/room.js plays each frame: the strobe in bursts, the heads' colour wandering the floor, a
+// red wash off the stage on the beat. Six lamps at most, the renderer's limit.
+function clubRig(K, L, { H, D, hu, lamps, lampOn }) {
+  const { box, ball, lathe } = K, rod = rodOf(K), spec = L.spec, W = (u, v, y) => L.world(u, v, y);
+  const [cu, cv] = spec.pit ? [spec.pit.cu ?? (spec.pit.u0 + spec.pit.u1) / 2, spec.pit.cv ?? (spec.pit.v0 + spec.pit.v1) / 2] : [0, D / 2];
+  const s = Math.min(2.2, hu - 1, D / 4), y = H - 0.45, steel = '#2a2a2e', glow = lampOn ? 1.8 : 0.5;
+  const c4 = [[cu - s, cv - s], [cu + s, cv - s], [cu + s, cv + s], [cu - s, cv + s]];
+  // the truss: two chords a side with a zigzag between, hung from the ceiling at its corners
+  for (let i = 0; i < 4; i++) {
+    const [a, b] = [c4[i], c4[(i + 1) % 4]], n = 8;
+    for (const dy of [0, 0.3]) rod([a[0], a[1], y + dy], [b[0], b[1], y + dy], 0.025, steel, 1);
+    for (let j = 0; j < n; j++) { const t0 = j / n, t1 = (j + 1) / n, at = (t, dy) => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, y + dy]; rod(at(t0, j % 2 ? 0.3 : 0), at(t1, j % 2 ? 0 : 0.3), 0.01, steel, 1); }
+    rod([a[0], a[1], y + 0.3], [a[0], a[1], H], 0.012, '#5a5a60', 1);
+  }
+  // a moving head under each corner: a yoke and a round head, its lens lit
+  const lens = ['#ff40c0', '#40e0ff', '#ff40c0', '#40e0ff'];
+  c4.forEach(([u, v], i) => {
+    box(u - 0.13, u + 0.13, v - 0.05, v + 0.05, y - 0.08, y, '#141418', 1, null, METAL);
+    for (const du of [-0.12, 0.1]) box(u + du, u + du + 0.02, v - 0.04, v + 0.04, y - 0.3, y - 0.08, '#141418', 1, null, METAL);
+    ball(u, v, y - 0.24, 0.1, '#1c1c20', 1, 12, METAL);
+    ball(u, v, y - 0.33, 0.045, lens[i], glow, 10, GLOW);
+  });
+  // two strobes on the truss's sides, a flat white face turned down
+  for (const [u, v] of [[cu, cv - s], [cu, cv + s]]) {
+    box(u - 0.26, u + 0.26, v - 0.07, v + 0.07, y - 0.16, y, '#18181c', 1, null, METAL);
+    box(u - 0.23, u + 0.23, v - 0.05, v + 0.05, y - 0.17, y - 0.16, '#eef4ff', glow, null, GLOW);
+  }
+  // the mirror ball, off to one side of the middle on its chain
+  const mb = [cu + s * 0.55, cv + s * 0.7];
+  rod([mb[0], mb[1], H], [mb[0], mb[1], H - 0.75], 0.006, '#8a8c90', 1);
+  ball(mb[0], mb[1], H - 0.97, 0.22, '#d8dce4', 1.3, 10, METAL);
+  // a runway's spotlight on a pipe over its tip, or the middle's
+  const rw = L.placed.find((p) => p.form === 'runway');
+  const tip = rw ? (() => { const q = Math.round(((rw.turn % 360) + 360) % 360 / 90) % 2; return q ? [rw.u + rw.d / 2 - 0.35, rw.v] : [rw.u, rw.v + rw.d / 2 - 0.35]; })() : [cu, cv];
+  rod([tip[0] - 0.6, tip[1], H - 0.3], [tip[0] + 0.6, tip[1], H - 0.3], 0.02, steel, 1);
+  lathe(tip[0], tip[1], [[0.09, H - 0.32], [0.12, H - 0.62], [0, H - 0.62]], '#18181c', 1, 14, METAL);
+  lathe(tip[0], tip[1], [[0.11, H - 0.625], [0, H - 0.625]], '#fff4e0', lampOn ? 2.4 : 0.6, 14, LAMP);
+  // neon round the walls, high up
+  const ny = H - 0.4, neon = '#ff3a8a';
+  box(-hu + 0.005, -hu + 0.03, 1.6, D - 0.2, ny, ny + 0.025, neon, glow, null, GLOW);
+  box(hu - 0.03, hu - 0.005, 1.6, D - 0.2, ny, ny + 0.025, neon, glow, null, GLOW);
+  box(-hu + 0.2, hu - 0.2, D - 0.03, D - 0.005, ny, ny + 0.025, neon, glow, null, GLOW);
+  // the lamps (each tint is over the warm lamp colour gl/room.js gives every lamp, 1 : 0.82 : 0.6)
+  const front = L.placed.find((p) => p.form === 'stage'), bar = L.placed.find((p) => p.form === 'bar'), back = L.placed.find((p) => p.form === 'barwall');
+  // glow strips: red LED under the stage's lip and down both sides of the runway, a ring round the pit's
+  // rim, and a warm strip under the back bar's shelves, so the room reads by its edges and not only its lamps
+  const red = '#ff2040', led = lampOn ? 2.2 : 0.6, even = (p) => Math.round(((p.turn % 360) + 360) % 360 / 90) % 2 === 0;
+  if (front && even(front)) { const v = front.v + front.d / 2; box(front.u - front.w / 2, front.u + front.w / 2, v - 0.02, v + 0.005, 0.05, 0.09, red, led, null, GLOW); }
+  if (rw && even(rw)) for (const su of [-1, 1]) { const u = rw.u + su * (rw.w / 2 + 0.005); box(u - 0.012, u + 0.012, rw.v - rw.d / 2, rw.v + rw.d / 2, rw.h - 0.12, rw.h - 0.08, red, led, null, GLOW); }
+  if (spec.pit?.round) {
+    const { cu: pu, cv: pv, r } = spec.pit, n = 48;
+    for (let i = 0; i < n; i++) { const a = (i / n) * Math.PI * 2, u = pu + Math.cos(a) * (r - 0.04), v = pv + Math.sin(a) * (r - 0.04); box(u - 0.035, u + 0.035, v - 0.035, v + 0.035, 0.005, 0.03, '#ff3060', led, null, GLOW); }
+  }
+  if (back) {
+    const [u0, u1, v0, v1] = even(back) ? [back.u - back.w / 2, back.u + back.w / 2, back.v - 0.03, back.v + 0.03] : [back.u - 0.03, back.u + 0.03, back.v - back.w / 2, back.v + back.w / 2];
+    for (const yy of [1.25, 1.75]) box(u0, u1, v0, v1, yy, yy + 0.02, '#ffb060', lampOn ? 1.6 : 0.5, null, GLOW);
+  }
+  // the lamps (each tint is over the warm lamp colour gl/room.js gives every lamp, 1 : 0.82 : 0.6)
+  lamps.push({ p: W(tip[0], tip[1], H - 0.7), annex: false, k: 3.2, tint: [1, 1.02, 1.15] });
+  lamps.push({ p: W(cu, cv - s, y - 0.3), annex: false, k: 12, tint: [0.95, 1.2, 1.65], fx: { kind: 'strobe', every: 13, on: 3.2, rate: 9 } });
+  lamps.push({ p: W(cu - s, cv, 2.0), annex: false, k: 4.4, tint: [1.15, 0.15, 1.5], fx: { kind: 'sweep', c: W(cu - s * 0.5, cv, 2.0), r: [3, 3], speed: 0.55 } });
+  lamps.push({ p: W(cu + s, cv, 2.0), annex: false, k: 4.0, tint: [0.12, 1.0, 1.7], fx: { kind: 'sweep', c: W(cu + s * 0.5, cv, 2.0), r: [3, 3], speed: 0.41, off: Math.PI } });
+  lamps.push({ p: W(front ? front.u : 0, front ? front.v + front.d / 2 + 0.6 : 1, 0.6), annex: false, k: 2.6, tint: [1.3, 0.08, 0.25], fx: { kind: 'beat', bpm: 124 } });
+  if (bar) lamps.push({ p: W(bar.u, bar.v, 2.3), annex: false, k: 1.9, tint: [1, 0.72, 0.55] });
+}
+
+// A VIP ROOM (spec.club 'vip'): the club's back room, smaller and slower. Red neon low and high round
+// the walls, a brass ring of bulbs over the table, a chrome pole off to one side under its own pink
+// spot, and a red lamp low on a wall. No strobe and no truss. Paint it with `tone` on the room's flags.
+function vipRig(K, L, { H, D, hu, lamps, lampOn }) {
+  const { box, ball, lathe } = K, rod = rodOf(K), W = (u, v, y) => L.world(u, v, y), glow = lampOn ? 1.9 : 0.5;
+  const table = L.placed.find((p) => p.arche === 'table'), [tu, tv] = table ? [table.u, table.v] : [0, D / 2];
+  const neon = '#ff2050';
+  for (const ny of [0.32, H - 0.3]) {
+    box(-hu + 0.005, -hu + 0.03, 0.2, D - 0.2, ny, ny + 0.025, neon, glow, null, GLOW);
+    box(hu - 0.03, hu - 0.005, 0.2, D - 0.2, ny, ny + 0.025, neon, glow, null, GLOW);
+    box(-hu + 0.2, hu - 0.2, 0.005, 0.03, ny, ny + 0.025, neon, glow, null, GLOW);
+  }
+  // the ring of bulbs over the table, on three chains
+  const rr = 0.45, ry = H - 0.55;
+  for (let i = 0; i < 3; i++) { const a = (i / 3) * Math.PI * 2; rod([tu + Math.cos(a) * rr, tv + Math.sin(a) * rr, ry], [tu, tv, H], 0.006, '#b08a3a', 1); }
+  for (let i = 0; i < 24; i++) { const a0 = (i / 24) * Math.PI * 2, a1 = ((i + 1) / 24) * Math.PI * 2; rod([tu + Math.cos(a0) * rr, tv + Math.sin(a0) * rr, ry], [tu + Math.cos(a1) * rr, tv + Math.sin(a1) * rr, ry], 0.014, '#c9a24a', 1); }
+  for (let i = 0; i < 12; i++) { const a = (i / 12) * Math.PI * 2; ball(tu + Math.cos(a) * rr, tv + Math.sin(a) * rr, ry - 0.05, 0.035, '#ffd8a0', lampOn ? 2.2 : 0.6, 8, GLOW); }
+  // the pole, off the table's right-hand end, clear of the curtain
+  const pu = Math.min(hu - 0.8, tu + 1.6), pv = Math.min(D - 1.3, tv + 0.9);
+  lathe(pu, pv, [[0.32, 0], [0.32, 0.04], [0.26, 0.06], [0, 0.06]], '#c8ccd2', 1.1, 20, METAL);
+  rod([pu, pv, 0.06], [pu, pv, H], 0.025, '#e0e4ea', 1.2);
+  lathe(pu, pv, [[0.07, H - 0.04], [0.07, H], [0, H]], '#c8ccd2', 1, 12, METAL);
+  lathe(pu, pv, [[0.1, H - 0.08], [0.13, H - 0.3], [0, H - 0.3]], '#18181c', 1, 14, METAL);
+  lathe(pu, pv, [[0.12, H - 0.305], [0, H - 0.305]], '#ffc0e0', lampOn ? 2.2 : 0.5, 14, LAMP);
+  // the lamps: the bulb ring warm over the table, the pole's pink spot, a red lamp low on the left wall,
+  // and a slow magenta wash drifting round the couch
+  lamps.push({ p: W(tu, tv, ry - 0.2), annex: false, k: 1.1, tint: [1.15, 0.7, 0.5] });
+  lamps.push({ p: W(pu, pv, H - 0.5), annex: false, k: 1.5, tint: [1.35, 0.55, 1.0] });
+  lamps.push({ p: W(-hu + 0.4, D * 0.6, 0.7), annex: false, k: 1.0, tint: [1.5, 0.15, 0.2] });
+  lamps.push({ p: W(0, 1.2, 1.6), annex: false, k: 0.9, tint: [1.2, 0.2, 1.2], fx: { kind: 'sweep', c: W(0, 1.4, 1.6), r: [1.4, 0.6], speed: 0.18 } });
+}
+
+// Bills pasted up on a club's walls (spec.club), at head height in ragged runs, stopping short of
+// doorways and of anything tall against the wall. The pictures are a sheet of eight (paintRoomTexture,
+// 'roomPosters'): band nights, two-for-ones, the house's own rules.
+function drawPosters(K, L, runs, { hu, D, H, seed }) {
+  const r = rng(seed ^ 0x9e37), key = 'roomPosters', b = K.TB(key);
+  const tall = L.placed.filter((p) => p.wall && (p.h || 0) + (p.rise || 0) > 1.3);
+  let layer = 0;
+  for (const wall of ['left', 'right', 'back']) for (const [a0, b0] of runs[wall] || []) {
+    // side walls run in v, the back wall in u; keep clear of the corners and the backstage partition
+    const lo = Math.max(a0, wall === 'back' ? -hu : 1.7) + 0.35, hi = Math.min(b0, wall === 'back' ? hu : D) - 0.35;
+    let x = lo + r() * 0.3;
+    while (x < hi - 0.5) {
+      const w = 0.5 + r() * 0.22, h = w * 1.41, at = x + w / 2;
+      if (at + w / 2 > hi) break;
+      const blocked = tall.some((p) => p.wall === wall && Math.abs((wall === 'back' ? p.u : p.v) - at) < (p.w || 1) / 2 + w / 2 + 0.05);
+      if (!blocked && r() > 0.12) {
+        for (const yc of r() < 0.3 ? [1.72, 2.62] : [1.72 + (r() - 0.5) * 0.25]) {
+          const cell = (r() * 8) | 0, th = (r() - 0.5) * 0.09, cs = Math.cos(th), sn = Math.sin(th), off = 0.006 + (layer++ % 5) * 0.0015;
+          const m = 0.012, cu0 = (cell % 4) / 4 + m, cu1 = (cell % 4 + 1) / 4 - m, cv0 = Math.floor(cell / 4) / 2 + m, cv1 = (Math.floor(cell / 4) + 1) / 2 - m;
+          // corners in the wall's plane: along it by `s`, up by `t`, from the poster's middle
+          const pt = (s, t) => {
+            const ss = s * cs - t * sn, tt = s * sn + t * cs;
+            if (wall === 'left') return [-hu + off, at - ss, yc + tt];
+            if (wall === 'right') return [hu - off, at + ss, yc + tt];
+            return [at - ss, D - off, yc + tt];
+          };
+          const n = wall === 'left' ? K.nrmOf(1, 0, 0) : wall === 'right' ? K.nrmOf(-1, 0, 0) : K.nrmOf(0, 0, -1);
+          const ps = [pt(-w / 2, -h / 2), pt(w / 2, -h / 2), pt(w / 2, h / 2), pt(-w / 2, h / 2)];
+          K.quad(b, ps, n, K.C('#ffffff', 0.9 - r() * 0.15), MATTE, [[cu0, cv1], [cu1, cv1], [cu1, cv0], [cu0, cv0]]);
+        }
+      }
+      x += w + (r() < 0.4 ? -0.08 : 0.05 + r() * 0.35);
+    }
+  }
+}
+
+// A partition: a plaster wall standing in the room, full height
+function drawPartitions(K, walls, H) {
+  for (const [u0, u1, v0, v1] of walls) K.box(u0, u1, v0, v1, 0, H, '#16141a', 0.9);
+}
+
+// A stair going down: a dark well with its treads falling away, a lip of light along each and a rail
+// down its open side
+function drawStairs(K, stairs) {
+  for (const st of stairs) {
+    const [u0, u1, v0, v1] = st.box, n = 8;
+    K.box(u0, u1, v0, v1, -0.02, 0.003, '#060608', 0.6);
+    for (let i = 0; i < n; i++) { const a = u0 + 0.1 + i * (u1 - u0 - 0.1) / n; K.box(a, a + 0.03, v0 + 0.05, v1 - 0.05, 0.003, 0.006, '#c8c0b0', 0.5 * (1 - i / n) + 0.15); }
+    K.box(u0, u1, v1 - 0.04, v1, 0, 0.95, '#3a3a40', 1);
+    K.box(u0, u0 + 0.04, v1 - 0.04, v1, 0, 0.95, '#3a3a40', 1);
+  }
+}
+
 function drawPit(K, q, { key, tint, surf }) {
   const dh = q.depth / 2, s = q.step, t = 0.04, mat = { t: key, c: tint };
   K.lay(q.u0, q.u1, q.v0, q.v0 + s, -dh); K.lay(q.u0, q.u1, q.v1 - s, q.v1, -dh);
@@ -341,7 +701,7 @@ function zoneLights(L) {
 function drawKitchen(K, { H, lampOn, lamps, seed }) {
   const L = K.L, fine = K.fine, P = L.spec.plan, hu = L.w / 2, [c0, c1, v0, v1] = P.counter, [rv0, rv1] = [P.run[2], P.run[3]], { box, quad, TB, C, lathe } = K;
   const r = rng(seed ^ 0x5bd1), rod = rodOf(K), T = COUNTER_H, front = fine ? '#3b3d41' : pick(r, ['#d8d0c0', '#4a5a5a', '#8a6a4a', '#e8e4dc']);
-  const top = fine ? STONE : { t: 'roomConcrete', c: '#b8b4ac' }, side = fine ? { t: 'roomOak', c: '#8a6a4a' } : null;
+  const top = fine ? STONE : { t: 'roomButcher', c: '#ffffff' }, side = fine ? { t: 'roomOak', c: '#8a6a4a' } : null;
   const unit = (u, v, fu, fv, w, d) => baseRun({ F: K.frame(u, v, fu, fv), p: { w, d, h: T }, r, fine, rod, front }, T);
   const depth = 0.66, runD = P.run[1] - P.run[0], over = c1 - c0 - depth;
   // its own floor, stopping at the counter
@@ -390,9 +750,10 @@ function drawBalcony(K, { hu, H, T, DH, fine, trim, top }) {
   const key = fine ? 'roomWood' : 'roomConcrete', t = ROOM_TEXTURES[key], deck = [[u0, vO, 0], [u1, vO, 0], [u1, -T, 0], [u0, -T, 0]];
   quad(TB(key), deck, [0, 1, 0], C(fine ? '#8a6a4a' : '#b8b4ac', 0.95), fine ? SATIN : MATTE, deck.map((q) => [q[1] / t, q[0] / t]));
   box(u0, u1, vO, -T, -0.26, -0.01, '#6a6864', 0.9);
-  const wrap = B.wrap, xe = hu + T, vB = wrap ? wrap + B.d : -T;
+  // round three sides (`sides`) the deck stops at the building's back face: the lift and landing are behind it
+  const wrap = B.wrap, xe = hu + T, vB = wrap ? (B.sides ? wrap : wrap + B.d) : -T;
   // the rest of the ring: each strip meets the next edge to edge, with the slab under it to catch a crack
-  if (wrap) for (const [a, b, c, e] of [[xe, u1, -T, wrap], [u0, -xe, -T, wrap], [u0, u1, wrap, vB]]) {
+  if (wrap) for (const [a, b, c, e] of [[xe, u1, -T, wrap], [u0, -xe, -T, wrap], ...(B.sides ? [] : [[u0, u1, wrap, vB]])]) {
     const ps = [[a, c, 0], [b, c, 0], [b, e, 0], [a, e, 0]];
     quad(TB(key), ps, [0, 1, 0], C(fine ? '#8a6a4a' : '#b8b4ac', 0.95), fine ? SATIN : MATTE, ps.map((q) => [q[1] / t, q[0] / t]));
     box(a, b, c, e, -0.26, -0.01, '#6a6864', 0.9);
@@ -410,7 +771,9 @@ function drawBalcony(K, { hu, H, T, DH, fine, trim, top }) {
   if (fine) quad(K.glass, [[d1 + 0.03, -0.1, 0.03], [d1 + 1.45, -0.1, 0.03], [d1 + 1.45, -0.1, top], [d1 + 0.03, -0.1, top]], nrmOf(0, 0, 1), [0.8, 0.86, 0.9], GLOSS, null, true);
   else box(d0 - 0.96, d0 - 0.04, 0.012, 0.05, 0, DH - 0.01, '#6a4a30', 0.92, { t: 'roomWood', c: '#9a7a5a' }, SATIN);
   // the rail round the open sides
-  const RH = 1.12, run = wrap ? [[[u0, vO], [u1, vO]], [[u1, vO], [u1, vB]], [[u1, vB], [u0, vB]], [[u0, vB], [u0, vO]]] : [[[u0, vO], [u1, vO]], [[u0, vO], [u0, -T]], [[u1, vO], [u1, -T]]], metal = fine ? '#17181b' : '#5a5e62';
+  const RH = 1.12, metal = fine ? '#17181b' : '#5a5e62';
+  const run = wrap && B.sides ? [[[u0, vO], [u1, vO]], [[u1, vO], [u1, vB]], [[u1, vB], [xe, vB]], [[-xe, vB], [u0, vB]], [[u0, vB], [u0, vO]]]
+    : wrap ? [[[u0, vO], [u1, vO]], [[u1, vO], [u1, vB]], [[u1, vB], [u0, vB]], [[u0, vB], [u0, vO]]] : [[[u0, vO], [u1, vO]], [[u0, vO], [u0, -T]], [[u1, vO], [u1, -T]]];
   for (const [a, b] of run) {
     rod([a[0], a[1], RH], [b[0], b[1], RH], fine ? 0.02 : 0.024, metal, 1, METAL);
     if (fine) {
@@ -440,8 +803,40 @@ function drawBalcony(K, { hu, H, T, DH, fine, trim, top }) {
       // under and over the glass, the strips that seal the front
       for (const q of panes) for (const [c, e] of [[-0.2, 0.004], [H - 0.01, H + 0.2]]) box(sx > 0 ? xe - 0.02 : -xe - 0.006, sx > 0 ? xe + 0.006 : -xe + 0.02, q.a, q.b, c, e, '#6a6864', 0.9);
     }
-    skin([[x, wrap + 0.01, y0], [-x, wrap + 0.01, y0], [-x, wrap + 0.01, y1], [x, wrap + 0.01, y1]], nrmOf(0, 0, 1), 0);
+    // (round three sides there's no deck behind to see it from, and the landing is there)
+    if (!B.sides) skin([[x, wrap + 0.01, y0], [-x, wrap + 0.01, y0], [-x, wrap + 0.01, y1], [x, wrap + 0.01, y1]], nrmOf(0, 0, 1), 0);
   }
+}
+
+// A FLAT'S HALL OUT TO ITS CORRIDOR (room-layout.js hallOf): past the back wall, beside the en-suite, the room's
+// own floor carried through, a light in its ceiling, and the flat's front door at the far end stood open into it.
+// The doorway in the far wall is lined by buildRoom like any other doorway.
+function drawHall(K, { hall, o, D, T, DH, H, fine, trim, wallC, plaster, lampOn }) {
+  const { box, quad, TB, C } = K, { a, b, v1 } = hall;
+  K.lay(a, b, D, v1);
+  box(a - T, b + T, D, v1 + T, -0.2, -0.01, '#2a2622');
+  {
+    // ⚠ FROM THE BACK WALL'S FAR FACE, NOT ITS NEAR ONE. The hall is lower than the room, so a slab begun at D
+    // had its edge in the same plane as the wall over the opening and flickered through it as a grey band; the
+    // ceiling begun there fought the underside of that wall the same way
+    const ps = [[a, v1, H], [b, v1, H], [b, D + T, H], [a, D + T, H]], t = ROOM_TEXTURES.roomPlasterFine;
+    quad(TB('roomPlasterFine'), ps, [0, -1, 0], C('#f2efe8', 1), E0, ps.map((q) => [q[0] / t, q[1] / t]));
+    box(a - T, b + T, D + T, v1 + T, H + 0.01, H + 0.2, '#8a8680');
+  }
+  // its walls from the back wall's far face, and the far wall round the doorway
+  box(a - T, a, D + T, v1, 0, H, wallC, 1, plaster);
+  box(b, b + T, D + T, v1, 0, H, wallC, 1, plaster);
+  box(a - T, o.a, v1, v1 + T, 0, H, wallC, 1, plaster);
+  box(o.b, b + T, v1, v1 + T, 0, H, wallC, 1, plaster);
+  if (H > DH) box(o.a, o.b, v1, v1 + T, DH, H, wallC, 1, plaster);
+  for (const [u0, u1] of [[a, a + 0.016], [b - 0.016, b]]) box(u0, u1, D + T, v1, 0, 0.09, trim, 0.97, null, SATIN);
+  // a square downlight halfway along
+  const cv = (D + T + v1) / 2, cu = (a + b) / 2;
+  box(cu - 0.08, cu + 0.08, cv - 0.08, cv + 0.08, H - 0.004, H - 0.001, lampOn ? '#fff0d0' : '#c8c4b8', lampOn ? 2 : 0.8);
+  // the front door's frame; its door is the lock's steel leaves (gl/room-lock.js), not a swung timber one
+  const fr = fine ? '#2a2c30' : trim;
+  for (const [p, q] of [[o.a - 0.06, o.a], [o.b, o.b + 0.06]]) box(p, q, v1 - 0.02, v1, 0, DH + 0.06, fr, 0.97, null, SATIN);
+  box(o.a - 0.06, o.b + 0.06, v1 - 0.02, v1, DH, DH + 0.06, fr, 0.97, null, SATIN);
 }
 
 // A PANE in a wall, looking out. In the wall's own frame: x along it, z out into the room, y up. A
@@ -586,7 +981,8 @@ function drawPiece(K, p) {
   const R = (...a) => K.rounded(...a);
   // a stain or a patch on a worn piece: a darker square on a face, a little proud of it
   const stain = (x, y, z, s) => { if (wear > 0.45 && r() < wear) pbox(x - s, x + s, y - s * 0.7, y + s * 0.7, z, z + 0.003, '#2a2018', 0.55 + r() * 0.2, null, MATTE); };
-  // the forms room-fittings.js owns, on the same helpers
+  // a hotel's forms (gl/room-decor.js), then the ones room-fittings.js owns, on the same helpers
+  if (drawDecorForm(K, F, p)) return;
   if (drawFitting({ K, F, p, r, L: K.L, wear, fine, fab, wood, enamel, plastic, steel, tired, stain, lat, rod, R, pick: (list) => pick(r, list) })) return;
   switch (p.form) {
     case 'stool': {
@@ -689,9 +1085,11 @@ function drawPiece(K, p) {
     }
     case 'flat': case 'slab': {
       // a panel on a bracket, its picture on the screen batch; a slab is thinner, with a lit edge
-      const cy = 1.25, ph = h, thick = p.form === 'slab' ? 0.018 : 0.045, z0 = -hd + 0.03;
+      const cy = p.mount || 1.25, ph = h, thick = p.form === 'slab' ? 0.018 : 0.045, z0 = -hd + 0.03;
       pbox(-0.12, 0.12, cy - 0.1, cy + 0.1, -hd, z0, '#1a1b1e', 0.9, null, METAL);
-      pbox(-hw, hw, cy - ph / 2, cy + ph / 2, z0, z0 + thick, plastic, 0.9, null, SATIN);
+      // in a room with an accent metal the bezel is that metal (Solenne's gold)
+      const bezel = K.L.spec.tone?.accent;
+      pbox(-hw, hw, cy - ph / 2, cy + ph / 2, z0, z0 + thick, bezel || plastic, bezel ? 1.05 : 0.9, null, bezel ? METAL : SATIN);
       pbox(-hw + 0.012, hw - 0.012, cy - ph / 2 + 0.012, cy + ph / 2 - 0.012, z0 + thick, z0 + thick + 0.002, '#0a0b0d', 0.9, null, GLOSS);
       noteScreen(K, p, F, hw - 0.016, cy - ph / 2 + 0.016, cy + ph / 2 - 0.016, z0 + thick + 0.004);
       F.front(K.screen, -hw + 0.016, hw - 0.016, cy - ph / 2 + 0.016, cy + ph / 2 - 0.016, z0 + thick + 0.003, [1, 1, 1], E(), [[1, 1], [0, 1], [0, 0], [1, 0]]);
@@ -893,7 +1291,8 @@ function E() { return EMISSIVE; }
 // ── the materials ───────────────────────────────────────────────────────────────────────────────
 // Each a tile that repeats, painted once per room renderer, seeded so it's the same flat every time.
 export function paintRoomTexture(doc, key, seed = 1) {
-  const N = key === ROOM_RUG ? 1024 : 512, c = doc.createElement('canvas');
+  if (key.startsWith('roomSign|')) return paintSign(doc, key);
+  const N = key === ROOM_RUG || key === 'roomPosters' ? 1024 : 512, c = doc.createElement('canvas');
   c.width = c.height = N;
   const g = c.getContext('2d'), r = rng([...key].reduce((h, ch) => Math.imul(h ^ ch.charCodeAt(0), 16777619), 2166136261 ^ seed));
   const specks = (n, size, cols, a) => {
@@ -965,6 +1364,19 @@ export function paintRoomTexture(doc, key, seed = 1) {
     g.fillStyle = '#f2efe9'; g.fillRect(0, 0, N, N);
     specks(12000, 2, ['#ebe7df', '#f8f6f1'], 0.3);
     for (let i = 0; i < 10; i++) blot(r() * N, r() * N, 80 + r() * 120, 'rgba(226,220,208,0.16)');
+  } else if (key === 'roomMarble') {
+    // polished white marble in book-matched slabs: a warm white ground, soft grey clouds, long grey
+    // veins with a gold thread through some, and a hairline joint round each slab
+    g.fillStyle = '#f2eee6'; g.fillRect(0, 0, N, N);
+    specks(20000, 2, ['#ebe6dc', '#f8f6f0', '#e4ded2'], 0.35);
+    for (let i = 0; i < 16; i++) blot(r() * N, r() * N, 80 + r() * 160, `rgba(${r() < 0.6 ? '196,192,186' : '236,226,206'},0.2)`);
+    for (let i = 0; i < 7; i++) {
+      let x = r() * N, y = r() * N; const gold = r() < 0.3;
+      g.strokeStyle = gold ? 'rgba(190,150,80,0.45)' : 'rgba(120,118,116,0.4)'; g.lineWidth = 0.6 + r() * 2.2; g.beginPath(); g.moveTo(x, y);
+      for (let k = 0; k < 60; k++) { x += (r() - 0.25) * 18; y += (r() - 0.5) * 18; g.lineTo(x, y); }
+      g.stroke();
+    }
+    g.strokeStyle = 'rgba(150,144,136,0.5)'; g.lineWidth = 1.5; g.strokeRect(0.75, 0.75, N - 1.5, N - 1.5);
   } else if (key === 'roomStone') {
     // honed grey stone: a fine even grain, slow clouds, the odd pale vein
     g.fillStyle = '#b4b6b8'; g.fillRect(0, 0, N, N);
@@ -1010,6 +1422,31 @@ export function paintRoomTexture(doc, key, seed = 1) {
       g.lineWidth = 0.6 + r() * 2;
       for (const oy of [-N, 0, N]) { g.beginPath(); for (let x = 0; x <= N; x += 8) { const y = oy + y0 + Math.sin(x / N * Math.PI * 4 + ph) * amp; if (x) g.lineTo(x, y); else g.moveTo(x, y); } g.stroke(); }
     }
+  } else if (key === 'roomLaminate') {
+    // a cheap worktop: pale speckled laminate gone yellow, with knife scores, cup rings, a cigarette burn
+    // and a scorch where a pan went down hot. The tint (`c`) colours it; this is its wear
+    g.fillStyle = '#e4ddcc'; g.fillRect(0, 0, N, N);
+    specks(26000, 1.6, ['#b8ae98', '#f2ecdc', '#9a9080', '#c8bca4'], 0.5);
+    for (let i = 0; i < 8; i++) blot(r() * N, r() * N, 40 + r() * 90, 'rgba(170,140,80,0.16)');
+    g.strokeStyle = 'rgba(90,80,64,0.35)';
+    for (let i = 0; i < 70; i++) { const x = r() * N, y = r() * N, a = (r() - 0.5) * 0.6, l = 10 + r() * 50; g.lineWidth = 0.4 + r() * 0.8; g.beginPath(); g.moveTo(x, y); g.lineTo(x + Math.cos(a) * l, y + Math.sin(a) * l); g.stroke(); }
+    for (let i = 0; i < 4; i++) { const x = r() * N, y = r() * N, rad = 18 + r() * 10; g.strokeStyle = `rgba(110,80,50,${0.18 + r() * 0.2})`; g.lineWidth = 2 + r() * 2; g.beginPath(); g.arc(x, y, rad, r() * 2, 5 + r()); g.stroke(); }
+    for (let i = 0; i < 2; i++) { const x = r() * N, y = r() * N; blot(x, y, 9, 'rgba(50,30,14,0.85)'); blot(x, y, 22, 'rgba(120,80,30,0.3)'); }
+    blot(r() * N, r() * N, 60, 'rgba(70,50,30,0.3)');
+  } else if (key === 'roomButcher') {
+    // a butcher-block worktop: narrow staves of beech glued side by side, each its own shade, oiled
+    const n = 12, s = N / n;
+    for (let i = 0; i < n; i++) {
+      const k = 0.82 + r() * 0.3;
+      g.fillStyle = `rgb(${Math.round(196 * k)},${Math.round(150 * k)},${Math.round(100 * k)})`; g.fillRect(i * s, 0, s, N);
+      for (let j = 0; j < 7; j++) {
+        const x = i * s + r() * s, ph = r() * 6.28; g.strokeStyle = `rgba(90,56,26,${0.12 + r() * 0.2})`; g.lineWidth = 0.5 + r();
+        g.beginPath(); for (let y = 0; y <= N; y += 8) { const xx = Math.min(i * s + s - 1, Math.max(i * s + 1, x + Math.sin(y / 60 + ph) * 1.5)); if (y) g.lineTo(xx, y); else g.moveTo(xx, y); } g.stroke();
+      }
+      const j0 = r() * N; g.fillStyle = 'rgba(60,36,16,0.5)'; g.fillRect(i * s, j0, s, 1.5);
+      g.fillStyle = 'rgba(60,36,16,0.45)'; g.fillRect(i * s, 0, 1.2, N);
+    }
+    for (let i = 0; i < 5; i++) blot(r() * N, r() * N, 50 + r() * 80, 'rgba(80,50,20,0.12)');
   } else if (key === 'roomConcrete') {
     g.fillStyle = '#b4b0a8'; g.fillRect(0, 0, N, N);
     specks(40000, 2, ['#9a968e', '#c8c4bc', '#8a867e'], 0.45);
@@ -1025,7 +1462,8 @@ export function paintRoomTexture(doc, key, seed = 1) {
       const grd = g.createLinearGradient(i * s, j * s, i * s + s, j * s + s); grd.addColorStop(0, 'rgba(255,255,255,0.25)'); grd.addColorStop(1, 'rgba(0,0,0,0.05)');
       g.fillStyle = grd; g.fillRect(i * s + 3, j * s + 3, s - 6, s - 6);
     }
-  } else {
+  } else if (key === 'roomPosters') paintPosters(g, N, r);
+  else {
     // a rug: a worn kilim of bands and stepped diamonds, its ends fringed
     const pal = [['#6a2a24', '#c8a050', '#2a3a4a', '#e8dcc0'], ['#2a4a4a', '#c86a3a', '#e8d8b0', '#3a2a24'], ['#4a3a5a', '#d8b060', '#8a2a2a', '#e0d4bc']][seed % 3];
     g.fillStyle = pal[3]; g.fillRect(0, 0, N, N);
@@ -1045,6 +1483,53 @@ export function paintRoomTexture(doc, key, seed = 1) {
     blot(N / 2, N / 2, N * 0.3, 'rgba(255,240,210,0.15)');
   }
   return c;
+}
+
+// A sheet of eight bills, four across and two down, each a 256 x 512 cell (drawPosters maps one onto
+// each poster): a loud ground, one big shape, a block of lettering, a strip of small print, then the
+// wear of a damp wall over the lot.
+const POSTER_WORDS = [['LIVE', 'TONIGHT'], ['2 FOR 1', 'TILL TEN'], ['NO', 'TOUCHING'], ['LADIES', 'NIGHT'], ['BASS', 'HEAVY'], ['CASH', 'ONLY'], ['THE', 'DROP'], ['AMATEUR', 'NIGHT']];
+function paintPosters(g, N, r) {
+  const cw = N / 4, ch = N / 2;
+  const grounds = ['#e8d22a', '#1a1a1e', '#e8317a', '#f2ece0', '#2a40c8', '#d8261e', '#101012', '#ff7a1a'];
+  const inks = ['#141414', '#ff3a6a', '#141414', '#c8102e', '#f2ece0', '#f2ece0', '#3af0ff', '#141414'];
+  g.fillStyle = '#2a2026'; g.fillRect(0, 0, N, N);
+  for (let i = 0; i < 8; i++) {
+    const x0 = (i % 4) * cw, y0 = Math.floor(i / 4) * ch, bg = grounds[i], ink = inks[i], cx = x0 + cw / 2;
+    g.save(); g.beginPath(); g.rect(x0 + 6, y0 + 6, cw - 12, ch - 12); g.clip();
+    g.fillStyle = bg; g.fillRect(x0, y0, cw, ch);
+    // the big shape: a sunburst, a disc, lips, a bolt, a star, rings, a heart, stripes
+    g.fillStyle = ink; g.strokeStyle = ink;
+    const sy = y0 + ch * 0.36, R = cw * 0.34;
+    switch (i) {
+      case 0: for (let k = 0; k < 16; k += 2) { g.beginPath(); g.moveTo(cx, sy); g.arc(cx, sy, R * 1.4, k * Math.PI / 8, (k + 1) * Math.PI / 8); g.fill(); } break;
+      case 1: g.beginPath(); g.arc(cx, sy, R, 0, Math.PI * 2); g.fill(); g.fillStyle = bg; g.beginPath(); g.arc(cx, sy, R * 0.45, 0, Math.PI * 2); g.fill(); break;
+      case 2: g.beginPath(); g.ellipse(cx, sy, R, R * 0.42, 0, 0, Math.PI * 2); g.fill(); g.fillStyle = bg; g.fillRect(cx - R, sy - 3, R * 2, 6); break;
+      case 3: g.beginPath(); g.moveTo(cx + 10, sy - R); g.lineTo(cx - R * 0.5, sy + 8); g.lineTo(cx, sy + 8); g.lineTo(cx - 14, sy + R); g.lineTo(cx + R * 0.55, sy - 10); g.lineTo(cx + 4, sy - 10); g.closePath(); g.fill(); break;
+      case 4: g.beginPath(); for (let k = 0; k < 10; k++) { const a = -Math.PI / 2 + k * Math.PI / 5, rr = k % 2 ? R * 0.45 : R; g.lineTo(cx + Math.cos(a) * rr, sy + Math.sin(a) * rr); } g.closePath(); g.fill(); break;
+      case 5: g.lineWidth = 9; for (let k = 1; k <= 4; k++) { g.beginPath(); g.arc(cx, sy, R * k / 4, 0, Math.PI * 2); g.stroke(); } break;
+      case 6: g.beginPath(); g.moveTo(cx, sy + R * 0.8); g.bezierCurveTo(cx - R * 1.3, sy - R * 0.1, cx - R * 0.6, sy - R, cx, sy - R * 0.35); g.bezierCurveTo(cx + R * 0.6, sy - R, cx + R * 1.3, sy - R * 0.1, cx, sy + R * 0.8); g.fill(); break;
+      default: for (let k = 0; k < 7; k++) g.fillRect(x0, sy - R + k * R * 0.32, cw, R * 0.16);
+    }
+    // the lettering, squeezed to fit the cell
+    const [w1, w2] = POSTER_WORDS[i];
+    g.fillStyle = i === 6 ? '#ff3a8a' : ink; g.textAlign = 'center'; g.textBaseline = 'middle';
+    if (g.fillText) for (const [word, y, size] of [[w1, y0 + ch * 0.7, 54], [w2, y0 + ch * 0.81, 40]]) {
+      g.font = `900 ${size}px Impact, 'Arial Black', sans-serif`;
+      const wm = g.measureText ? g.measureText(word).width : size * word.length * 0.6, k = Math.min(1, (cw - 30) / Math.max(1, wm));
+      g.save(); g.translate(cx, y); g.scale(k, 1); g.fillText(word, 0, 0); g.restore();
+    }
+    // small print: a few grey lines nobody reads
+    g.globalAlpha = 0.6;
+    for (let k = 0; k < 3; k++) g.fillRect(x0 + 30 + r() * 20, y0 + ch * 0.89 + k * 11, cw - 70 - r() * 40, 4);
+    g.globalAlpha = 1;
+    // the wear: a water stain, scuffs, and a corner torn off
+    const grd = g.createRadialGradient ? g.createRadialGradient(x0 + r() * cw, y0 + r() * ch, 0, x0 + r() * cw, y0 + r() * ch, ch * 0.5) : null;
+    if (grd) { grd.addColorStop(0, 'rgba(60,40,20,0.22)'); grd.addColorStop(1, 'rgba(60,40,20,0)'); g.fillStyle = grd; g.fillRect(x0, y0, cw, ch); }
+    g.fillStyle = 'rgba(0,0,0,0.12)'; for (let k = 0; k < 40; k++) g.fillRect(x0 + r() * cw, y0 + r() * ch, 2 + r() * 14, 1 + r() * 2);
+    g.fillStyle = '#2a2026'; g.beginPath(); const tc = r() < 0.5; g.moveTo(tc ? x0 + cw : x0, y0 + ch); g.lineTo(tc ? x0 + cw - 30 - r() * 30 : x0 + 30 + r() * 30, y0 + ch); g.lineTo(tc ? x0 + cw : x0, y0 + ch - 30 - r() * 40); g.fill();
+    g.restore();
+  }
 }
 
 // ── the view and the screen ─────────────────────────────────────────────────────────────────────
@@ -1111,4 +1596,304 @@ export function paintScreen(canvas, on, t = 0, seed = 1) {
   }
   g.putImageData(img, 0, 0);
   return canvas;
+}
+
+// A box laid against the inside face of one wall: `a0..a1` along it (u on the front and back, v on the
+// sides), `d0..d1` out from its face into the room, `y0..y1` up.
+function onWall(K, L, wall, a0, a1, d0, d1, y0, y1, hex, k = 1, tex = null, surf) {
+  const hu = L.w / 2, D = L.d;
+  if (wall === 'front') K.box(a0, a1, d0, d1, y0, y1, hex, k, tex, surf);
+  else if (wall === 'back') K.box(a0, a1, D - d1, D - d0, y0, y1, hex, k, tex, surf);
+  else if (wall === 'left') K.box(-hu + d0, -hu + d1, a0, a1, y0, y1, hex, k, tex, surf);
+  else K.box(hu - d1, hu - d0, a0, a1, y0, y1, hex, k, tex, surf);
+}
+
+const BRONZE = '#8a6a44', BRONZE_DARK = '#3a2c1e', WALNUT = { t: 'roomOak', c: '#5a3a26' }, BRASS = '#c9a24a';
+
+// A LIFT CAR (spec.car, or spec.lift while you ride it): walnut below a brass rail, mirror-bronze above
+// in three panels with dark reveals, a dark bronze skirting, bronze jambs and a header round each
+// doorway, a lit ceiling panel in a bronze frame, and a marble floor with a dark border.
+function drawCar(K, L, { DH, doorways }) {
+  const { box, quad, TB, C, E } = K, hu = L.w / 2, D = L.d, H = L.h;
+  const runs = { front: [[-hu, hu]], back: [[-hu, hu]], left: [[0, D]], right: [[0, D]] };
+  const cutRun = (wall, a, b) => { runs[wall] = runs[wall].flatMap(([x, y]) => [[x, Math.min(y, a)], [Math.max(x, b), y]]).filter(([x, y]) => y - x > 0.02); };
+  const shutWays = (L.spec.openings || []).filter((o) => o.kind === 'shut' && o.wall && Number.isFinite(o.a) && !doorways.some((d) => d.wall === o.wall));
+  for (const o of [...doorways, ...shutWays]) cutRun(o.wall, o.a - 0.07, o.b + 0.07);
+  const mid = 1.0, top = H - 0.14, kick = 0.16;
+  for (const [wall, rs] of Object.entries(runs)) {
+    for (const [a, b] of rs) {
+      // a brushed steel kick plate, a bronze cap over it
+      onWall(K, L, wall, a, b, 0, 0.014, 0, kick, '#9ea3a8', 1.05, null, METAL);
+      onWall(K, L, wall, a, b, 0, 0.018, kick, kick + 0.015, BRONZE_DARK, 1, null, METAL);
+      // walnut in raised panels: a darker frame, and each field standing proud of it inside a moulded edge
+      onWall(K, L, wall, a, b, 0, 0.01, kick + 0.015, mid - 0.02, '#4a2e1e', 1, WALNUT, SATIN);
+      const n = Math.max(1, Math.round((b - a) / 0.75)), w = (b - a) / n;
+      for (let i = 0; i < n; i++) {
+        const p0 = a + i * w, p1 = p0 + w, y0 = kick + 0.07, y1 = mid - 0.08;
+        if (p1 - p0 > 0.2) {
+          onWall(K, L, wall, p0 + 0.05, p1 - 0.05, 0.01, 0.016, y0, y1, '#6a4630', 1.05, WALNUT, SATIN);
+          onWall(K, L, wall, p0 + 0.07, p1 - 0.07, 0.016, 0.022, y0 + 0.02, y1 - 0.02, WALNUT.c, 1.12, WALNUT, SATIN);
+        }
+      }
+      onWall(K, L, wall, a, b, 0, 0.014, mid - 0.02, mid + 0.01, BRASS, 1.05, null, METAL);
+      // mirror-bronze panels, each in a narrow brass frame with a bright bevel inside it, a dark reveal between
+      for (let i = 0; i < n; i++) {
+        const p0 = a + i * w + 0.012, p1 = a + (i + 1) * w - 0.012, y0 = mid + 0.03, y1 = top - 0.03;
+        onWall(K, L, wall, p0, p1, 0, 0.012, y0, y1, BRASS, 1.05, null, METAL);
+        onWall(K, L, wall, p0 + 0.014, p1 - 0.014, 0.012, 0.015, y0 + 0.014, y1 - 0.014, '#e8dccb', 1.3, null, GLOSS);
+        onWall(K, L, wall, p0 + 0.026, p1 - 0.026, 0.015, 0.017, y0 + 0.026, y1 - 0.026, '#c4a77e', 1.22, null, GLOSS);
+      }
+      onWall(K, L, wall, a, b, 0, 0.004, mid + 0.01, top, BRONZE_DARK, 1, null, METAL);
+      onWall(K, L, wall, a, b, 0, 0.016, top, H, BRONZE, 1, null, METAL);
+    }
+  }
+  // a floor the car isn't at: its doors drawn shut where the doorway would be
+  for (const o of shutWays) {
+    const m = (o.a + o.b) / 2;
+    onWall(K, L, o.wall, o.a, o.b, 0, 0.02, 0, DH, '#a07c52', 1.1, null, MATTE);
+    onWall(K, L, o.wall, m - 0.004, m + 0.004, 0.02, 0.024, 0, DH, '#1a1410', 1, null, METAL);
+    onWall(K, L, o.wall, o.a + 0.02, o.b - 0.02, 0.02, 0.024, 0.02, 0.24, '#6a5032', 1, null, METAL);
+  }
+  // the doorways: a bronze jamb either side and a header, and a steel sill in the floor
+  for (const o of [...doorways, ...shutWays]) {
+    onWall(K, L, o.wall, o.a - 0.07, o.a, 0, 0.03, 0, DH + 0.08, BRONZE, 1.1, null, METAL);
+    onWall(K, L, o.wall, o.b, o.b + 0.07, 0, 0.03, 0, DH + 0.08, BRONZE, 1.1, null, METAL);
+    onWall(K, L, o.wall, o.a - 0.07, o.b + 0.07, 0, 0.03, DH, DH + 0.08, BRONZE, 1.1, null, METAL);
+    onWall(K, L, o.wall, o.a - 0.07, o.b + 0.07, 0, 0.008, DH + 0.08, H, '#b08a5e', 1.15, null, GLOSS);
+    onWall(K, L, o.wall, o.a, o.b, -0.14, 0.04, -0.004, 0.006, '#9ea3a8', 1.1, null, METAL);
+    onWall(K, L, o.wall, o.a, o.b, 0.04, 0.06, 0.004, 0.008, '#c8ccd0', 1.2, null, METAL);
+  }
+  // over the open doors, the floor indicator: an amber strip in a dark bezel, an arrow either end
+  for (const o of doorways) {
+    const m = (o.a + o.b) / 2, y0 = DH + 0.12, y1 = Math.min(H - 0.18, DH + 0.24);
+    if (y1 - y0 < 0.06) continue;
+    onWall(K, L, o.wall, m - 0.2, m + 0.2, 0.008, 0.03, y0, y1, '#14100c', 1, null, METAL);
+    onWall(K, L, o.wall, m - 0.08, m + 0.08, 0.03, 0.034, y0 + 0.025, y1 - 0.025, '#ffb040', 1.7, null, GLOW);
+    for (const s of [-1, 1]) {
+      const x = m + s * 0.145, yc = (y0 + y1) / 2;
+      onWall(K, L, o.wall, x - 0.025, x + 0.025, 0.03, 0.034, yc + (s > 0 ? 0.005 : -0.02), yc + (s > 0 ? 0.02 : -0.005), '#ffb040', 1.4, null, GLOW);
+      onWall(K, L, o.wall, x - 0.012, x + 0.012, 0.03, 0.034, yc + (s > 0 ? 0.02 : -0.032), yc + (s > 0 ? 0.032 : -0.02), '#ffb040', 1.4, null, GLOW);
+    }
+  }
+  // a brass handrail on standoffs along each side wall, clear of the button panel
+  const panel = L.spec.lift ? liftButtons(L.spec) : [];
+  const pv = panel.length ? [Math.min(...panel.map((b) => b.v)) - 0.2, Math.max(...panel.map((b) => b.v)) + 0.2] : null;
+  for (const wall of ['left', 'right']) {
+    let rs = [[0.25, D - 0.25]];
+    if (wall === 'right' && pv) rs = rs.flatMap(([x, y]) => [[x, Math.min(y, pv[0])], [Math.max(x, pv[1]), y]]).filter(([x, y]) => y - x > 0.3);
+    for (const [a, b] of rs) {
+      onWall(K, L, wall, a, b, 0.055, 0.085, 0.9, 0.93, BRASS, 1.15, null, METAL);
+      for (const s of [a + 0.06, b - 0.06]) onWall(K, L, wall, s - 0.012, s + 0.012, 0, 0.06, 0.905, 0.925, BRASS, 1, null, METAL);
+    }
+  }
+  // the ceiling: a coffered bronze grid, a round downlight in each coffer, and a vent slot along the back
+  const ins = 0.16, cx0 = -hu + ins, cx1 = hu - ins, cz0 = ins, cz1 = D - ins;
+  box(-hu, hu, 0, D, H - 0.02, H - 0.001, BRONZE_DARK, 1, null, METAL);
+  const nx = Math.max(1, Math.round((cx1 - cx0) / 0.6)), nz = Math.max(1, Math.round((cz1 - cz0) / 0.6)), gx = (cx1 - cx0) / nx, gz = (cz1 - cz0) / nz;
+  for (let i = 0; i <= nx; i++) box(cx0 + i * gx - 0.02, cx0 + i * gx + 0.02, cz0 - 0.02, cz1 + 0.02, H - 0.09, H - 0.02, BRONZE, 1.05, null, METAL);
+  for (let j = 0; j <= nz; j++) box(cx0 - 0.02, cx1 + 0.02, cz0 + j * gz - 0.02, cz0 + j * gz + 0.02, H - 0.09, H - 0.02, BRONZE, 1.05, null, METAL);
+  for (let i = 0; i < nx; i++) for (let j = 0; j < nz; j++) {
+    const ux = cx0 + (i + 0.5) * gx, vz = cz0 + (j + 0.5) * gz;
+    box(ux - gx / 2 + 0.02, ux + gx / 2 - 0.02, vz - gz / 2 + 0.02, vz + gz / 2 - 0.02, H - 0.025, H - 0.02, '#2a2018', 1, null, MATTE);
+    // an octagon of glow, near enough round at this size
+    for (const [rw, rd] of [[0.075, 0.032], [0.032, 0.075], [0.056, 0.056]]) box(ux - rw, ux + rw, vz - rd, vz + rd, H - 0.034, H - 0.026, '#fff4e0', 1.8, null, GLOW);
+    box(ux - 0.09, ux + 0.09, vz - 0.09, vz + 0.09, H - 0.027, H - 0.024, BRASS, 1, null, METAL);
+  }
+  box(-hu + 0.3, hu - 0.3, D - 0.1, D - 0.04, H - 0.03, H - 0.019, '#0c0a08', 1, null, MATTE);
+  for (let x = -hu + 0.34; x < hu - 0.3; x += 0.05) box(x, x + 0.012, D - 0.1, D - 0.04, H - 0.032, H - 0.03, BRONZE, 1, null, METAL);
+  // the floor: a dark border, a brass line inside it, a marble field and a black marble diamond in its middle
+  const y = 0.014, b = 0.12, t = ROOM_TEXTURES.roomMarble;
+  box(-hu, hu, 0, D, 0.001, 0.01, '#1e1a18', 1, null, GLOSS);
+  box(-hu + b - 0.02, hu - b + 0.02, b - 0.02, D - b + 0.02, 0.01, 0.0125, BRASS, 1.1, null, METAL);
+  const ps = [[-hu + b, b, y], [hu - b, b, y], [hu - b, D - b, y], [-hu + b, D - b, y]];
+  quad(TB('roomMarble'), ps, [0, 1, 0], C('#ffffff', 1.05), GLOSS, ps.map((q) => [q[1] / t, q[0] / t]));
+  const r = Math.min(hu - b, (D - 2 * b) / 2) * 0.55, mz = D / 2, y2 = y + 0.0015;
+  const dm = [[0, mz - r - 0.025, y2], [r + 0.025, mz, y2], [0, mz + r + 0.025, y2], [-r - 0.025, mz, y2]];
+  quad(TB('roomMarble'), dm, [0, 1, 0], C(BRASS, 1.1), METAL, dm.map((q) => [q[1] / t, q[0] / t]));
+  const di = [[0, mz - r, y2 + 0.001], [r, mz, y2 + 0.001], [0, mz + r, y2 + 0.001], [-r, mz, y2 + 0.001]];
+  quad(TB('roomMarble'), di, [0, 1, 0], C('#2a2624', 1), GLOSS, di.map((q) => [q[1] / t, q[0] / t]));
+}
+
+// A LIFT CAR'S DOORS: two brushed bronze leaves per open doorway, recessed in the wall, drawn shut and
+// lifted out of the room's batches for liftDoorBatch to slide. Open, each leaf sits inside the wall
+// either side, past the jamb, where nobody sees it.
+function liftLeaves(K, L, { DH, doorways }) {
+  const leaves = [];
+  for (const o of doorways) {
+    const m = (o.a + o.b) / 2, half = (o.b - o.a) / 2;
+    for (const side of [-1, 1]) {
+      const batches = [K.solid, ...K.textured.values()], was = new Map(batches.map((x) => [x, x.n]));
+      const a0 = side < 0 ? o.a - 0.01 : m + 0.002, a1 = side < 0 ? m - 0.002 : o.b + 0.01;
+      onWall(K, L, o.wall, a0, a1, -0.1, -0.06, 0.004, DH, '#a07c52', 1.1, null, MATTE);   // matte: a metal leaf showed the lamps' highlight as a round spot sliding over it
+      // a kick plate, a dark seam at the meeting edge and a thin bright stile
+      onWall(K, L, o.wall, a0 + 0.02, a1 - 0.02, -0.062, -0.058, 0.02, 0.24, '#6a5032', 1, null, METAL);
+      const edge = side < 0 ? a1 : a0;
+      onWall(K, L, o.wall, edge - 0.004, edge + 0.004, -0.062, -0.057, 0.004, DH, '#1a1410', 1, null, METAL);
+      const st = side < 0 ? a1 - 0.05 : a0 + 0.04;
+      onWall(K, L, o.wall, st, st + 0.01, -0.0615, -0.0575, 0.3, DH - 0.06, '#d8b47c', 1.2, null, METAL);
+      const parts = [];
+      for (const x of batches) { const n0 = was.get(x) ?? 0; parts.push(x.data.slice(n0 * STRIDE, x.n * STRIDE)); x.n = n0; }
+      const rest = new Float32Array(parts.reduce((n, p) => n + p.length, 0));
+      let at = 0;
+      for (const p of parts) { rest.set(p, at); at += p.length; }
+      // which way it slides, in the host frame: along the wall, away from the middle
+      const along = (q) => (o.wall === 'front' || o.wall === 'back' ? L.world(q, o.wall === 'front' ? 0 : L.d, 0) : L.world(o.wall === 'left' ? -L.w / 2 : L.w / 2, q, 0));
+      const p0 = along(m), p1 = along(m + side);
+      leaves.push({ rest, out: new Float32Array(rest.length), dir: [p1[0] - p0[0], p1[2] - p0[2]], slide: half + 0.03 });
+    }
+  }
+  return leaves;
+}
+
+// AUTOMATIC GLASS DOORS: two leaves per doorway, each an aluminium frame round clear glass with a push bar and a
+// frosted band at eye height so nobody walks into it, lifted out of the room's batches as a car's doors are. The
+// glass itself isn't drawn: what's past the doorway is the street, and the frame is what reads as a door. Open,
+// each leaf has slid along the wall behind the glass either side. `at` is the doorway's middle in the host
+// frame, for the Stage to open them as somebody comes up to it.
+// A LIFT LANDING'S DOORS (`o.lift`) go the same way: two leaves of brushed bronze, a kick plate, a seam and a
+// bright stile, as the car's own are, and the Stage opens them as you come up to the lift. `way` is which
+// doorway a leaf belongs to, so each doorway opens on its own.
+function slideLeaves(K, L, { DH, ways, keep = false }) {
+  const leaves = [], AL = '#aab0b6';
+  for (const [way, o] of ways.entries()) {
+    const m = (o.a + o.b) / 2, half = (o.b - o.a) / 2, mid = o.wall === 'front' ? L.world(m, 0, 0) : o.wall === 'back' ? L.world(m, L.d, 0) : L.world(o.wall === 'left' ? -L.w / 2 : L.w / 2, m, 0);
+    for (const side of [-1, 1]) {
+      const batches = [K.solid, ...K.textured.values()], was = new Map(batches.map((x) => [x, x.n]));
+      if (o.lift) {
+        const a0 = side < 0 ? o.a - 0.01 : m + 0.002, a1 = side < 0 ? m - 0.002 : o.b + 0.01;
+        onWall(K, L, o.wall, a0, a1, -0.1, -0.06, 0.004, DH, '#a07c52', 1.1, null, METAL);
+        onWall(K, L, o.wall, a0 + 0.02, a1 - 0.02, -0.058, -0.054, 0.02, 0.24, '#6a5032', 1, null, MATTE);
+        const edge = side < 0 ? a1 : a0;
+        onWall(K, L, o.wall, edge - 0.004, edge + 0.004, -0.058, -0.053, 0.004, DH, '#1a1410', 1, null, METAL);
+        const st = side < 0 ? a1 - 0.05 : a0 + 0.04;
+        onWall(K, L, o.wall, st, st + 0.01, -0.0575, -0.0535, 0.3, DH - 0.06, '#d8b47c', 1.2, null, METAL);
+      } else {
+      const a0 = side < 0 ? o.a : m + 0.004, a1 = side < 0 ? m - 0.004 : o.b, d0 = -0.1, d1 = -0.06;
+      const bar = (u0, u1, y0, y1, hex = AL, k = 1.1) => onWall(K, L, o.wall, u0, u1, d0, d1, y0, y1, hex, k, null, METAL);
+      bar(a0, a0 + 0.055, 0.004, DH); bar(a1 - 0.055, a1, 0.004, DH);
+      bar(a0, a1, 0.004, 0.12); bar(a0, a1, DH - 0.06, DH);
+      // the push bar, on the room side, and the frosted band across the glass
+      onWall(K, L, o.wall, a0 + 0.12, a1 - 0.12, d1, d1 + 0.05, 1.02, 1.06, '#c8ccd0', 1.15, null, METAL);
+      onWall(K, L, o.wall, a0 + 0.055, a1 - 0.055, -0.082, -0.078, 1.42, 1.5, '#dfe6ea', 0.9, null, GLOSS);
+      }
+      if (keep) continue;
+      const parts = [];
+      for (const x of batches) { const n0 = was.get(x) ?? 0; parts.push(x.data.slice(n0 * STRIDE, x.n * STRIDE)); x.n = n0; }
+      const rest = new Float32Array(parts.reduce((n, p) => n + p.length, 0));
+      let at = 0;
+      for (const p of parts) { rest.set(p, at); at += p.length; }
+      const along = (q) => (o.wall === 'front' || o.wall === 'back' ? L.world(q, o.wall === 'front' ? 0 : L.d, 0) : L.world(o.wall === 'left' ? -L.w / 2 : L.w / 2, q, 0));
+      const p0 = along(m), p1 = along(m + side);
+      leaves.push({ rest, out: new Float32Array(rest.length), dir: [p1[0] - p0[0], p1[2] - p0[2]], slide: o.lift ? half + 0.03 : half - 0.02, at: [mid[0], mid[2]], way, to: o.to });
+    }
+  }
+  return leaves;
+}
+
+// The car's doors `shut` of the way closed (0 open, 1 shut), as a batch for the renderer's props layer.
+// `shut` may be an array, one for each doorway (a leaf's `way`). `extra` is vertices that ride along unmoved
+// (the lift's read-out).
+export function liftDoorBatch(leaves, shut, extra = null) {
+  const n = leaves.reduce((s, l) => s + l.rest.length, 0) + (extra?.length || 0), out = new Float32Array(n);
+  if (extra) out.set(extra, n - extra.length);
+  let at = 0;
+  for (const l of leaves) {
+    const open = 1 - Math.max(0, Math.min(1, Array.isArray(shut) ? shut[l.way] ?? 1 : shut));
+    const dx = l.dir[0] * l.slide * open, dz = l.dir[1] * l.slide * open;
+    out.set(l.rest, at);
+    for (let i = at; i < at + l.rest.length; i += STRIDE) { out[i] += dx; out[i + 2] += dz; }
+    at += l.rest.length;
+  }
+  return { data: out, n: n / STRIDE };
+}
+
+// LETTERING ON A WALL (spec.sign): the name set in a high-contrast serif in graded gold on a black
+// lacquer plate, the plate standing 4 cm off a backer edged in gold, as a hotel has over its desk.
+// ⚠ THE LETTERS ARE A TEXTURE, NEVER FACES. They were the legend face's plates 4 mm proud of a
+// walnut panel: blocky up close, and the two depths fought each other across the lobby, so the name
+// flickered. Now each depth has one face on it, 2 cm or more from the next, and the letters are
+// painted (paintSign), mipmapped, so they stay smooth at any distance.
+function drawSign(K, L) {
+  const s = L.spec.sign, { quad, box, TB, C, nrmOf } = K, hu = L.w / 2, D = L.d;
+  const { W, H } = signSize(s), across = s.wall === 'back' || s.wall === 'front', span = across ? hu : D / 2;
+  const mid = Math.max(-span + W / 2 + 0.2, Math.min(span - W / 2 - 0.2, across ? s.at : D / 2 + s.at));
+  // the backer: 2 cm deep, 3 cm of gold showing round the plate
+  const e = 0.03;
+  onWall(K, L, s.wall, mid - W / 2 - e, mid + W / 2 + e, 0, 0.02, s.y - H / 2 - e, s.y + H / 2 + e, '#b8913e', 1.05, null, MAT.METAL);
+  // the plate's four edges, black lacquer, from the backer out to its face at 6 cm
+  const d0 = 0.02, d1 = 0.06, a0 = mid - W / 2, a1 = mid + W / 2, y0 = s.y - H / 2, y1 = s.y + H / 2;
+  const at = s.wall === 'back' ? (a, b, d) => [a, D - d, b] : s.wall === 'front' ? (a, b, d) => [a, d, b] : s.wall === 'left' ? (a, b, d) => [-hu + d, a, b] : (a, b, d) => [hu - d, a, b];
+  const out = s.wall === 'back' ? nrmOf(0, 0, -1) : s.wall === 'front' ? nrmOf(0, 0, 1) : s.wall === 'left' ? nrmOf(1, 0, 0) : nrmOf(-1, 0, 0);
+  const lacquer = C('#0d0b09', 1);
+  quad(K.solid, [at(a0, y1, d0), at(a1, y1, d0), at(a1, y1, d1), at(a0, y1, d1)], [0, 1, 0], lacquer, GLOSS);
+  quad(K.solid, [at(a0, y0, d1), at(a1, y0, d1), at(a1, y0, d0), at(a0, y0, d0)], [0, -1, 0], lacquer, GLOSS);
+  for (const a of [a0, a1]) quad(K.solid, [at(a, y0, d0), at(a, y1, d0), at(a, y1, d1), at(a, y0, d1)], out, lacquer, GLOSS, null);
+  // the face. Seen from the room, "along" runs right to left on the back and left walls, so the
+  // picture's left edge goes at the far end there
+  const flip = s.wall === 'back' || s.wall === 'left', L0 = flip ? a1 : a0, L1 = flip ? a0 : a1;
+  quad(TB(signKey(s)), [at(L0, y0, d1), at(L1, y0, d1), at(L1, y1, d1), at(L0, y1, d1)], out, C('#ffffff', 1.12), SATIN, [[0, 1], [1, 1], [1, 0], [0, 0]]);
+}
+// A sign's plate in metres: wide enough for the name in the face paintSign sets it in, with a margin
+// either side of a letter-height and a half, and room under the name for its second line.
+function signSize(s) {
+  const h = s.size, W = Math.max(h * 3, s.text.length * h * 1.02 + h * 1.6), H = h * (s.sub ? 2.15 : 1.75);
+  return { W, H };
+}
+// The texture key carries everything the painter needs, so two signs with the same words share one.
+const signKey = (s) => { const { W, H } = signSize(s); return 'roomSign|' + s.text + '|' + (s.sub || '') + '|' + (W / H).toFixed(3); };
+
+// The sign's picture: the plate edge to edge, black lacquer with a faint sheen, a gold hairline
+// inset round it, the name in a high-contrast serif with wide tracking in a five-stop gold that's
+// light across the middle of the letters, and the second line small under a short gold rule.
+function paintSign(doc, key) {
+  const [, text, sub, ratio] = key.split('|'), cw = 2048, ch = Math.max(128, Math.round(cw / Number(ratio)));
+  const c = doc.createElement('canvas'); c.width = cw; c.height = ch;
+  const g = c.getContext('2d');
+  const bg = g.createLinearGradient(0, 0, 0, ch);
+  bg.addColorStop(0, '#16120e'); bg.addColorStop(0.5, '#0b0907'); bg.addColorStop(1, '#120f0b');
+  g.fillStyle = bg; g.fillRect(0, 0, cw, ch);
+  const sheen = g.createLinearGradient(0, 0, cw, ch);
+  sheen.addColorStop(0, 'rgba(255,240,210,0)'); sheen.addColorStop(0.45, 'rgba(255,240,210,0.05)'); sheen.addColorStop(0.55, 'rgba(255,240,210,0)');
+  g.fillStyle = sheen; g.fillRect(0, 0, cw, ch);
+  const gold = (y0, y1) => {
+    const q = g.createLinearGradient(0, y0, 0, y1);
+    q.addColorStop(0, '#8a6424'); q.addColorStop(0.32, '#e9cf8a'); q.addColorStop(0.5, '#fff1c4'); q.addColorStop(0.68, '#c9a050'); q.addColorStop(1, '#7a5520');
+    return q;
+  };
+  const m = Math.round(ch * 0.07);
+  g.strokeStyle = gold(m, ch - m); g.lineWidth = Math.max(2, ch * 0.008); g.strokeRect(m, m, cw - 2 * m, ch - 2 * m);
+  const serif = '"Didot", "Bodoni 72", "Bodoni MT", "Playfair Display", "Times New Roman", Georgia, serif';
+  const big = Math.round(ch * (sub ? 0.4 : 0.5)), cy = sub ? ch * 0.47 : ch * 0.53;
+  g.textAlign = 'center'; g.textBaseline = 'middle';
+  const track = (t, px, sp, y, fill) => {
+    // set letter by letter so the tracking is the same in every browser, and tightened to fit
+    g.font = `400 ${px}px ${serif}`;
+    const ws = [...t].map((ch1) => g.measureText(ch1).width), ink = ws.reduce((a, b) => a + b, 0), room = cw - 6 * m;
+    if (ink + sp * (t.length - 1) > room) sp = Math.max(0, (room - ink) / Math.max(1, t.length - 1));
+    let x = (cw - ink - sp * (t.length - 1)) / 2;
+    g.fillStyle = fill;
+    for (let i = 0; i < t.length; i++) { g.fillText(t[i], x + ws[i] / 2, y); x += ws[i] + sp; }
+  };
+  g.shadowColor = 'rgba(0,0,0,0.6)'; g.shadowBlur = big * 0.06; g.shadowOffsetY = big * 0.03;
+  track(text, big, big * 0.32, cy, gold(cy - big / 2, cy + big / 2));
+  g.shadowColor = 'transparent';
+  if (sub) {
+    const ry = ch * 0.72, small = Math.round(ch * 0.1);
+    g.fillStyle = gold(ry - 2, ry + 2); g.fillRect(cw / 2 - cw * 0.06, ry - 1.5, cw * 0.12, 3);
+    track(sub, small, small * 0.55, ch * 0.83, gold(ch * 0.83 - small / 2, ch * 0.83 + small / 2));
+  }
+  return c;
+}
+
+// A lift car's panel (room-layout.js liftPanelAt): the reader a door's hololock has (gl/room-lock.js), on the
+// right-hand wall, with an amber lens and the two emitters the hologram hangs between. The buttons and the
+// read-out are on the hologram (room-lift.js), not in the mesh.
+function drawLiftPanel(K, spec) {
+  const at = liftPanelAt(spec);
+  if (!at) return;
+  const { box } = K, { u, v } = at;
+  box(u - 0.035, u, v - 0.075, v + 0.075, 1.14, 1.5, '#1c2026', 1, null, MAT.METAL);
+  box(u - 0.042, u - 0.035, v - 0.06, v + 0.06, 1.2, 1.44, '#4a525e', 1, null, MAT.METAL);
+  box(u - 0.047, u - 0.042, v - 0.035, v + 0.035, 1.3, 1.37, '#ffb040', 1.7, null, GLOW);
+  for (const y of [1.115, 1.5]) box(u - 0.075, u - 0.03, v - 0.085, v + 0.085, y, y + 0.025, '#343a44', 1, null, MAT.METAL);
 }

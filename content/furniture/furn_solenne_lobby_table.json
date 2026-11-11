@@ -7,7 +7,20 @@
     ],
     "look": {
       "arche": "surface",
-      "form": "rail"
+      "dims": [
+        1.5,
+        0.42,
+        0.82
+      ],
+      "dress": "apples",
+      "form": "console"
+    },
+    "spot": {
+      "at": [
+        3.7,
+        5
+      ],
+      "turn": 90
     }
   },
   "hp": null,

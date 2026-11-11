@@ -257,4 +257,20 @@ export default async ({ check }) => {
       } finally { door.is_open = was; }
     }
   }
+  // ── The outside: weather and city beds (soundscape.js) ─────────────────────
+  // Every bed is 'whole', so it starts silent until its loop gain arrives, and a recording in it
+  // has a stand-in. The city never carries a horn.
+  {
+    const { WEATHER_BEDS, CITY_BEDS, CITY_THEMES, cityGainFor } = await import('./soundscape.js');
+    for (const [k, d] of Object.entries({ ...WEATHER_BEDS, ...CITY_BEDS })) {
+      const L = d.config.layers;
+      check(`${k}: whole, so its loop gain moves every layer`, d.config.whole === true);
+      check(`${k}: something always sounds`, L.some((l) => !l.alt && !l.sample));
+      check(`${k}: every gain is a number`, L.every((l) => Number.isFinite(l.gain)) && (d.config.sparkle || []).every((s) => Number.isFinite(s.gain)));
+    }
+    check('no horn in the city', !/horn|honk|siren/i.test(JSON.stringify(CITY_BEDS)));
+    check('the city is a street theme', CITY_THEMES.has('city') && !CITY_THEMES.has('indoors') && !CITY_THEMES.has('wasteland'));
+    check('the city is quieter at night', cityGainFor(3) < cityGainFor(13) && cityGainFor(23) < cityGainFor(13));
+  }
 };
+

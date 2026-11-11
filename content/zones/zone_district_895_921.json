@@ -1,10 +1,10 @@
 {
   "ambient_events": [],
   "ambient_theme": "city",
-  "description": "Sorrel Way, with a strip of garden along the south side. On the north side 7 Sorrel Way comes down to the pavement in planted steps, with a chrome drum at the foot for a door.",
+  "description": "Sorrel Way, with a strip of garden along the south side and a fountain in Hughson Gardens on the north. When the wind is up the spray carries over the pavement.",
   "exits": {
     "east": "zone_district_896_921",
-    "north": "zone_district_897_913",
+    "north": "zone_ballpark_896_913",
     "south": "zone_district_895_922",
     "west": "zone_district_894_921"
   },

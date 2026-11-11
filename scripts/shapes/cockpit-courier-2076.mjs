@@ -25,7 +25,9 @@ const say = (ok, msg) => { if (!ok) problems.push(msg); };
 
 // 1 — routing
 for (const v of ['hauler~e2076', 'hauler+t~e2076', 'hauler+t~e2076~p^rp', 'hauler~e2076~p']) say(shellProfileFor('truck', false, v) === P, v + ' does not get the 2076 cab');
-for (const v of ['hauler', 'hauler+t~p', 'drayman~e2076', 'continental+t~e2076']) say(shellProfileFor('truck', false, v) === STOCK, v + ' should get the stock cab');
+for (const v of ['hauler', 'hauler+t~p', 'hauler~e2099', 'drayman', 'continental+t~p']) say(shellProfileFor('truck', false, v) === STOCK, v + ' should get the stock cab');
+// The other trucks' 2076 bodies have cabs of their own.
+for (const v of ['drayman~e2076', 'continental+t~e2076', 'scrapper~e2076~p']) say(shellProfileFor('truck', false, v) !== P, v + ' should not get the Courier\'s cab');
 
 const cv = readFileSync(new URL('../../client/game/js/panels/cab-view.js', import.meta.url), 'utf8');
 const table = cv.slice(cv.indexOf('const CAB_CTL = ['), cv.indexOf('];', cv.indexOf('const CAB_CTL = [')));
@@ -121,7 +123,9 @@ for (const [k, [a, b]] of Object.entries(STOPS)) say(sig(faces(live({ [k]: a }))
   for (const o of [{}, { trailerPhi: null }, { aim: null, legLeft: null }, { elecOut: true }, { fading: true, lamps: { brake: true, dmg: true, jake: true } }]) faces(live(o));
   KIT_TRACE.mirrored = null; LEGEND_TRACE.label = null;
   say(seen.size > 30, 'the lettering trace saw only ' + seen.size + ' labels, so this check is not looking');
-  for (const k of ['KEY', 'CRUISE', 'GALLEY', 'DOORS', 'KM/H', 'HDG', 'BRAKE', 'OSTREK', 'COURIER 2076']) say(seen.has(k), 'no label ' + k + ' drawn');
+  // KM: legLeft is kilometres (cab-view.js legKm), as the boards are.
+  for (const k of ['KEY', 'CRUISE', 'GALLEY', 'DOORS', 'KM/H', 'HDG', 'KM', 'BRAKE', 'OSTREK', 'COURIER 2076']) say(seen.has(k), 'no label ' + k + ' drawn');
+  say(!seen.has('MI'), 'a label still says MI, but the leg is in kilometres');
   say(!mirrored.length, 'mirrored lettering: ' + mirrored.join(', '));
   for (const [str, m] of seen) {
     say(m >= 20, JSON.stringify(str) + ' is ' + m.toFixed(1) + ' arcmin, under 20');

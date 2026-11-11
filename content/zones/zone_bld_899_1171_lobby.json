@@ -23,6 +23,13 @@
     "is_building": true,
     "is_interior": true,
     "lawless": true,
+    "room": {
+      "w": 12,
+      "d": 9,
+      "h": 3.4,
+      "studio": false,
+      "balcony": false
+    },
     "window": {
       "description": "A full-height pane onto the street, kept just clean enough to trade through. Whatever the weather is doing out there, it's doing it in plain view.",
       "light": 0.85,

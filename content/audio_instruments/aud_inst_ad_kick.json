@@ -1,0 +1,39 @@
+{
+  "category": "commercial",
+  "config": {
+    "layers": [
+      {
+        "adsr": {
+          "a": 0.001,
+          "curve": "exp",
+          "d": 0.32,
+          "r": 0.1,
+          "s": 0
+        },
+        "gain": 0.42,
+        "mods": [
+          {
+            "a": 0.001,
+            "d": 0.05,
+            "id": "kd",
+            "r": 0.05,
+            "s": 0,
+            "to": [
+              {
+                "amount": 1900,
+                "param": "pitch"
+              }
+            ],
+            "type": "env"
+          }
+        ],
+        "waveform": "sine"
+      }
+    ]
+  },
+  "enabled": 1,
+  "id": "aud_inst_ad_kick",
+  "name": "Ad: Kick",
+  "sample_id": null,
+  "waveform": "sine"
+}

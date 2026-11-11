@@ -2021,6 +2021,9 @@ export function cabContext(rig, extra = {}) {
     fits: fitSuffix(rig.cd),
     // The body, as its id: the cab puts it in the variant itself, because a bench preview swaps it.
     edition: editionOf(rig.cd, rig.typeId) || '',
+    // The time left on a hire (rental.js), in ms as of now, or null for a truck you own. The cab
+    // counts it down on its own clock, so server and browser clocks never have to agree.
+    hireLeft: rig.cd?.rental ? Math.max(0, Number(rig.cd.rental.until) - Date.now()) || 0 : null,
     grime: +(rig.grime ?? 0).toFixed(3),
     grimeBand: grimeBand(rig.grime ?? 0).key,
     // The cab clamps its own throttle on both of these for the feel; the server clamps the speed

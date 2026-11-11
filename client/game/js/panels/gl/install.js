@@ -8,8 +8,9 @@
 // This module is that call, and it is the only place that knows both halves: it hands the GL pass
 // the renderer's own mesh capture, its own baked textures and its own palette, so nothing here has
 // an opinion about what a building is made of.
-import { installGLWorld, installGLFaunaInstancing, installGLActorMesh, installGLCloth, installGLClouds, installGLCloudVol, installGLInterior, installGLDispose, installGLSky, captureModelMesh, modelSolid, wallTexMixed, wallMatMixed, wallSurf, roofSurf, roofTex, texEpoch, glPowerForCell, wallPaletteInfo, wallMaterialId, roofMaterialId, wallMaterialTable, glLightState, RENDER_TUNE } from '../windshield.js';
+import { installGLWorld, installGLLite, installGLFaunaInstancing, installGLActorMesh, installGLCloth, installGLClouds, installGLCloudVol, installGLInterior, installGLDispose, installGLSky, captureModelMesh, modelSolid, wallTexMixed, wallMatMixed, wallSurf, roofSurf, roofTex, texEpoch, glPowerForCell, wallPaletteInfo, wallMaterialId, roofMaterialId, wallMaterialTable, glLightState, RENDER_TUNE } from '../windshield.js';
 import { glWorldPass, glCloudPass, glCloudVolPass, glInteriorPass, glDisposeScene, glSkyPass } from './world.js';
+import { liteView, liteFacesFor } from './lite.js';
 import { NEAR, FAR } from './camera.js';
 import { MAX_LIGHTS, MAX_MATERIALS } from './context.js';   // the uniform budgets the light pass and the material table ask for   // the clip range the matrix is built with — see the depth-buffer note in glCapabilities
 
@@ -138,6 +139,7 @@ export function installGL(hostFor) {
   installGLFaunaInstancing(true);   // the real pass draws birds as instances — see gl/fauna.js
   installGLActorMesh(true);         // …and close pavement figures as meshes — see gl/actors.js
   installGLCloth(true);             // …and socks, flags and tents as baked cloth — see gl/cloth.js
+  installGLLite(liteView);          // …and GLASS Lite's baked city, asked only with glassLite on — see gl/lite.js
   installGLWorld((cells, cam, opts) => {
     const host = (hostFor && hostFor()) || opts.host;
     if (!host) return;
@@ -161,6 +163,8 @@ export function installGL(hostFor) {
       // second table here would be a second opinion about what brick is, and the one thing this
       // module is for is not having one.
       wallMaterialId, roofMaterialId, matTable: wallMaterialTable(),
+      // GLASS Lite's baked faces for a tile, or null (gl/lite.js). Asked only when the frame is Lite.
+      bakedFaces: liteFacesFor,
     }, {
       // ⚠ THIS LIST IS AN ALLOWLIST, NOT A SPREAD, so a new option added at the windshield end and
       // not added here is silently dropped one hop before the shader that reads it. Contact
@@ -191,6 +195,8 @@ export function installGL(hostFor) {
       // ⚠ AND WHETHER THE CABIN IS DRAWN HERE OR LATER, ON ITS OWN — see glInteriorPass. Dropped
       // here the world pass draws the room inside the banked blit AND the late pass draws it again.
       interiorLater: opts.interiorLater,
+      // GLASS Lite: a baked building's faces come from the bake (deps.bakedFaces, gl/lite.js).
+      lite: opts.lite,
       // ⚠ AND THE SNOW, WHICH REACHES THREE SHADERS AND WOULD GO QUIET IN ALL THREE. Eleventh
       // entry on the list this file keeps: the depth is integrated in windshield.js, the floor,
       // the ground and the mass each declare a uniform for it and each branch on it — and with
@@ -286,6 +292,8 @@ export function installGL(hostFor) {
       // ...and under the street lamps (gl/lampshadow.js). Dropped here it is off.
       glLampShadow: opts.glLampShadow,
       curtain: opts.curtain, decals: opts.decals, strokes: opts.strokes, scatter: opts.scatter, ground: opts.ground,
+      // the rooms inside the buildings near the eye (gl/interiors.js). Dropped here, no room is ever in the world.
+      interiors: opts.interiors,
       // ⚠ AND THE SHED BESIDE IT. Dropped here it is the gl:opts failure exactly: the sink fills,
       // the tune key exists, the slider moves, and the shed is collected into a list one hop short
       // of the layer that draws it — so the depot simply is not in the frame at all.

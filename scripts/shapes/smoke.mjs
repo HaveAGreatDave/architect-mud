@@ -261,6 +261,9 @@ async function main() {
   for (const f of bay) problems.push(`bay    ${f}`);
 
   // ── TRUCK LAMPS ──
+  // Every truck the bench sells: the four stock bodies and their 2076 editions (docs/proposals/hover-rigs.md).
+  // An edition is a different body on the same frame, so it has its own lamps, nose and door to get wrong.
+  const TRUCKS = ['scrapper', 'hauler', 'drayman', 'continental'].flatMap((t) => [t, t + '~e2076']);
   // Not a building, but the same failure mode the whole file exists for: the only thing that ever
   // looked at a truck's headlamps was a player looking at a truck, and they were invisible twice.
   // See scripts/shapes/truck-lamps.mjs for why this has to render rather than assert on geometry.
@@ -271,7 +274,7 @@ async function main() {
   // deliberately runs the SORT (see truckLampSmoke), so the only way to know the live renderer even
   // reached the buffer is that building it moved this.
   const lotRasterBefore = rasterCount(), lotDepthBefore = a3d.depthPassCount();
-  const lamps = truckLampSmoke(a3d.drawHangarScene);
+  const lamps = truckLampSmoke(a3d.drawHangarScene, TRUCKS);
   lockstep('lamps  the depot floor', lotRasterBefore, lotDepthBefore,
     'It is back on the painter\'s sort, which cannot order nested boxes — see model-raster.js.');
   for (const L of lamps) {
@@ -305,7 +308,7 @@ async function main() {
       'It is back on the mean-depth sort, which cannot order a nacelle against the wing it hangs off — see depthPassBuild.');
   }
   // The same square foot of geometry, one rung more general — see truckNoseSliceSmoke.
-  const slices = truckNoseSliceSmoke();
+  const slices = truckNoseSliceSmoke(TRUCKS);
   for (const b of slices) {
     problems.push(`nose   ${b.variant} → a ${b.role} panel at f=${b.plane.toFixed(3)} cuts through a chrome detail `
       + `spanning ${b.detail[0].toFixed(3)}..${b.detail[1].toFixed(3)}. The painter's sort will eat one side of it.`);
@@ -334,7 +337,7 @@ async function main() {
   // can see it — and it was being drawn through the WORLD projector rather than the model one, so
   // on the bench (the only view that fits the rig to its room) it landed at a quarter size, buried
   // in the chassis. See scripts/shapes/truck-doorart.mjs for why this measures a RATIO.
-  const doorArt = truckDoorArtSmoke(a3d.drawHangarFloorBay);
+  const doorArt = truckDoorArtSmoke(a3d.drawHangarFloorBay, TRUCKS);
   for (const d of doorArt) {
     if (!d.cells) {
       problems.push(`door   ${d.variant} → the door art never reached the canvas. Nothing is painted on the door.`);
@@ -363,7 +366,7 @@ async function main() {
   // A semi is a tractor and a box sharing one point. Splitting the welded mesh into two drawn
   // models has one silent failure — the JOINT — so the gate is a comparison: at φ=0 the two-body
   // rig must occupy the same silhouette as the welded one, and at φ=40 it must not.
-  const artic = truckArticSmoke(ws.paintWindshield, stubCanvas, 'shape-artic');
+  const artic = truckArticSmoke(ws.paintWindshield, stubCanvas, 'shape-artic', TRUCKS);
   for (const a of artic) {
     if (!a.clears) {
       problems.push(`artic  ${a.variant} → the box reaches the back of the cab before ${CLEAR_DEG}° of `

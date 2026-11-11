@@ -1,24 +1,27 @@
 {
-  "ambient_events": [],
-  "ambient_theme": "forest",
-  "color": "#8ba36a",
-  "description": "Grass along the foot of the Curtain, the hard light humming a few feet off. The waste beyond it is red and flat to the hills.",
+  "ambient_events": [
+    "Out past the wall, dust lifts off the red flats and settles again."
+  ],
+  "ambient_theme": "residential",
+  "description": "A man has strung a line of tins along the foot of the Curtain on a fishing line, so he hears anybody coming along it in the dark.",
   "exits": {
     "east": "zone_district_925_923",
     "north": "zone_district_924_922",
     "west": "zone_district_923_923"
   },
   "flags": {
+    "camp": true,
     "curtain": true,
-    "district": "residential",
+    "district": "slum",
     "region_id": "region_coldwater",
-    "terrain": "grass"
+    "scavenging_table_id": "scav_consumer_trash",
+    "terrain": "ash"
   },
   "grid_x": 924,
   "grid_y": 923,
   "grid_z": 0,
   "id": "zone_district_924_923",
   "map_id": "map_world",
-  "name": "Grasslands",
+  "name": "Under the Wall",
   "parent_zone": null
 }

@@ -106,6 +106,10 @@
       "y": 1060,
       "radius": 74,
       "crater": 10,
+      "peakTiers": 16,
+      "solidRadius": 27,
+      "fade": 10,
+      "ledge": { "x": 753, "y": 1049, "r": 3 },
       "plume": {
         "toward": "region_deadwater",
         "length": 190,

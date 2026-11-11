@@ -2,7 +2,9 @@
   "connection_id": "conn_district_914_908_north_0ita",
   "door_type": "basic",
   "exit_dir": "north",
-  "flags": {},
+  "flags": {
+    "slides": true
+  },
   "hololock_difficulty": 5,
   "hp": 1000,
   "hp_max": 1000,

@@ -367,4 +367,28 @@ export const THREADS = {
     { on: ['injury'], turns: ['"That\'s {player} gone, {to}. For weeks, that."', '"Who\'ve we got instead?"', '"Nobody. We\'ve got nobody."'] },
     { on: ['death'], turns: ['"He was a good one, {to}."', '"He was."'] },
   ],
+  // Two people with no stake in it, or not one that matters right now, following the
+  // game together. Either may back anybody; nobody here is arguing.
+  watch: [
+    { on: ['score'], turns: ['"Did you see that, {to}?"', '"I saw it. {team} are getting going."'] },
+    { on: ['score'], turns: ['"What\'s that make it?"', 'squints at the set. "{team} ahead, I think."', '"Good. It needed something."'] },
+    { on: ['score'], turns: ['"{player} again, {to}."', '"He\'s having a night, isn\'t he."', '"Somebody should mark him."'] },
+    { on: ['score'], turns: ['"Where was the defence on that?"', '"Getting a pie, by the look of it."'] },
+    { on: ['score'], turns: ['"{opp} won\'t like that."', '"{opp} don\'t like anything, {to}."'] },
+    { on: ['goal', 'hattrick'], turns: ['"Goalie never saw it."', '"Nobody saw it. Watch the replay."', 'watches the replay. "No, still didn\'t see it."'] },
+    { on: ['homerun', 'grandslam'], turns: ['"That ball\'s in the next district, {to}."', '"Somebody\'s getting a free ball and a broken window."'] },
+    { on: ['hattrick'], turns: ['"That\'s three for {player}."', '"Three? I only saw two."', '"You were at the bar for one."'] },
+    { on: ['walkoff'], turns: ['"That\'s it? That\'s the game?"', '"That\'s the game, {to}. {team} win it."', '"Well, I\'m glad I stayed."'] },
+    { on: ['defence'], turns: ['"Two on one swing. Neat."', '"{opp} were nearly back in that, too."'] },
+    { on: ['tripleplay'], turns: ['"Hang on. Was that three?"', '"That was three, {to}."', '"I\'ve never seen that. I\'ve been watching thirty years."'] },
+    { on: ['blunder'], turns: ['"Oh, he\'s dropped it."', '"He has. He\'ll hear about that."', '"From everybody, {to}. For weeks."'] },
+    { on: ['blunder'], turns: ['winces. "That\'s a gift for {team}."', '"{opp} won\'t be happy with that."'] },
+    { on: ['fight'], turns: ['"Here we go, {to}."', '"Gloves are off."', 'leans in a bit closer to the set.'] },
+    { on: ['fight'], turns: ['"Who\'s winning that?"', '"The one still standing, I\'d say."', '"That narrows it down."'] },
+    { on: ['injury'], turns: ['"He\'s not getting up, {to}."', '"No. They\'re bringing the stretcher."', '"Rough game."'] },
+    { on: ['death'], turns: ['"Is he moving?"', 'shakes their head.', '"Christ."'] },
+    { on: ['final'], turns: ['"That\'s the game, then. {team} take it."', '"Fair enough. They played better."'] },
+    { on: ['final'], turns: ['"Good game, that."', '"Not bad, {to}. Not bad at all."', '"Same again next week?"', '"Same again."'] },
+    { on: ['final'], turns: ['"{opp} will be sick about that one."', '"They had their chances."'] },
+  ],
 };

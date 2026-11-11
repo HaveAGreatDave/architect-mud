@@ -1,7 +1,7 @@
 {
   "ambient_events": [],
   "ambient_theme": "city",
-  "description": "Hughson Way outside the Hughson Coliseum's main gate, a stepped limestone frontispiece with the name in gilt over bronze doors. Cable covers run across the road in yellow rubber, feeding the floods. Grandstand Walk goes off south to Sorrel Way.",
+  "description": "Grandstand Plaza outside the Hughson Coliseum's main gate, a stepped limestone frontispiece with the name in gilt over bronze doors. A bronze sun is set in the paving at the threshold. Grandstand Walk goes off south between the two fountains to Sorrel Way.",
   "exits": {
     "east": "zone_ballpark_895_915",
     "north": "zone_ballpark_896_920",
@@ -10,16 +10,21 @@
   },
   "flags": {
     "district": "halcyon_fields",
+    "park_feature": "forecourt",
+    "park_focus": {
+      "x": 894,
+      "y": 918.5
+    },
     "region_id": "region_coldwater",
     "scavenging_table_id": "scav_roadside_junk",
     "street_life": true,
-    "terrain": "road"
+    "terrain": "park"
   },
   "grid_x": 894,
   "grid_y": 919,
   "grid_z": 0,
   "id": "zone_ballpark_894_915",
   "map_id": "map_world",
-  "name": "Hughson Way",
+  "name": "Grandstand Plaza",
   "parent_zone": null
 }

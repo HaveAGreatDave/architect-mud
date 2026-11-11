@@ -7,7 +7,8 @@
 # v4: fights are harder: more damage a punch, more knockdowns, more of them hurt.
 # v5: open-ice cross-checks, and slashes the referee sees some of.
 # v7: more passing in the rushes, and nine goals in ten assisted.
-@sim 7
+# v8: the penalty box is timed right, so a power play runs while the man is in it.
+@sim 8
 @announcer "Tug Brennan"
 # the colour man beside him: his lines are the colour.* pools at the bottom
 @analyst "Rennie Gault"
@@ -1123,6 +1124,18 @@ Cup final, here at Golden Goose Gardens. Same ice as every other night, and toni
 ::lines cup.matchup
 For the Coldwater Cup: the {away} against the {home}.
 {away} and {home}, for the Cup. Whatever it originally held, it holds champagne tonight.
+::endlines
+
+::lines cup.anthem
+The lights are going down at the Gardens. Please welcome your finalists for the Coldwater Cup: the {away} and the {home}.
+House lights down, everybody. Here come the men playing for the Coldwater Cup.
+They are turning the lights off, which in this building usually means the power. Tonight it means the line-ups.
+::endlines
+
+::lines cup.crown
+And here comes the Cup. They carry it out on a carpet, which is the only time anybody vacuums in here.
+Out comes the Coldwater Cup. The {leader} get it first, and they get to find out what is in it.
+There is the Cup. Hand it to the captain, and somebody get the lid.
 ::endlines
 
 ::lines cup.final

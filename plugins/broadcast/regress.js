@@ -13,7 +13,7 @@ import { dispatchAction } from '../../server/engine/actions.js';
 const tabletTunersClear = (id) => _test.tabletTuners.delete(id);
 import { getCrimeStars, getCrimeWitness } from '../../server/engine/crimes.js';
 import { _audienceTest } from './audience.js';
-import { deskSegment, deskOverlay, deskStaffed, castOnAir, liveShows, withLive, stageSet, guestPerson, personaSex } from './sequences.js';
+import { deskSegment, deskOverlay, deskStaffed, castOnAir, liveShows, withLive, stageSet, roomSet, guestPerson, personaSex, sceneSetFor } from './sequences.js';
 import { factsAt, momentBeat } from './sports/facts.js';
 import { sampleGame } from './sports/sample-game.js';
 import { TANGENT_POOLS, WRANGLE_POOLS, canTangent, tangentRuns, wrangleLines, buildTangent, tangentHoldMs } from './tangents.js';
@@ -525,6 +525,45 @@ export default async function regress({ check, run, getPlayer }) {
     } finally {
       for (const id of [...Object.keys(chans), 'reg-ch-twin']) _test.channelRuntime.delete(id);
     }
+  }
+
+  // ── The slate's handover: the next game airs from its title card ────────────────
+  // The in-game clock moves a whole minute at a time, once a real minute, so a slot is first
+  // seen up to timeScale game-minutes old: 40 real seconds at timeScale 3. Seeking a new game
+  // that far in skipped Deadball's title card and theme when it took over from a hockey game.
+  // A turn this server saw is timed from the moment it saw it.
+  {
+    const T0 = 1_000_000_000;
+    let turn = _test.slotTurnAfter({ slot: null, at: 0, seen: 0, exact: false }, 100, T0);
+    check('handover: a slot first seen at boot is timed by the clock', !turn.exact && _test.slotTurnElapsedSec(turn, T0, 1500) === 1500);
+    turn = _test.slotTurnAfter(turn, 100, T0 + 60_000);
+    turn = _test.slotTurnAfter(turn, 101, T0 + 61_000);
+    check('handover: a slot seen turning over is timed from the turn, not the clock',
+      turn.exact && _test.slotTurnElapsedSec(turn, T0 + 61_000, 40) === 0 && _test.slotTurnElapsedSec(turn, T0 + 61_000 + 30_000, 40) === 30, JSON.stringify(turn));
+    check('handover: the first seconds of a turn air from the top, not a seek',
+      _test.slotTurnElapsedSec(turn, T0 + 61_000 + (_test.SPORTS_TOP_GRACE_S - 1) * 1000, 40) === 0);
+    const late = _test.slotTurnAfter({ slot: 101, at: T0, seen: T0, exact: true }, 102, T0 + _test.SPORTS_TURN_SEEN_MS + 1);
+    check('handover: a turn nobody was watching for falls back on the clock', !late.exact && _test.slotTurnElapsedSec(late, T0 + _test.SPORTS_TURN_SEEN_MS + 1, 900) === 900);
+    // and the top of a game is its title card, so airing from the top is airing the open
+    const pools = JSON.parse(readFileSync(new URL('../../content/media_broadcasts/bc_1783289744953.json', import.meta.url), 'utf8')).sports_pools;
+    const script = { ...pools, _slate: true };
+    let slot = 5000;
+    while (!_test.slateHasGame(script, slot) && slot < 5016) slot++;
+    const g = _test.assembleSportsGraph(script, 'reg-bc-open', slot, null, { slotMs: 3600_000 });
+    const first = g && (g.edges || []).find((e) => e.fromNode === g._start)?.toNode;
+    check('handover: a Deadball game opens on its title card', !!first && g.nodes[first]?.type === 'title_card', first ? g.nodes[first]?.type : 'no graph');
+  }
+
+  // ── The desk's cast know where work is ─────────────────────────────────────────
+  // They're on no playlist row's staff, so CHECK_WORK found no studio and sent them home while
+  // the schedule checker had them on shift: deskStaffed then dropped every desk segment of both
+  // sports. The studio lookup gives them the room their show's set is in.
+  {
+    const { getNpcStudioZone } = await import('../../server/engine/broadcast-bridge.js');
+    const { castOnAir } = await import('./sequences.js');
+    const cast = [...castOnAir(_test.graphicsCache, { type: 'sports' })];
+    const rooms = cast.map((id) => getNpcStudioZone(id));
+    check('desk cast: every one has a studio to go to work in', cast.length > 0 && rooms.every(Boolean), JSON.stringify(Object.fromEntries(cast.map((id, i) => [id, rooms[i]]))));
   }
 
   // ── KSAB5's grounds: the OB decks, the cameras and the lost picture ─────────
@@ -1208,6 +1247,33 @@ export default async function regress({ check, run, getPlayer }) {
           && seq[i + 2]?.[1] === 'GRAHAM2' && seq[i + 2][0] === 'npc_graham_mercer') sawAlternating = true;
     }
     check('banter alternates announcer and host across every turn', sawAlternating, 'three-turn exchange staged correctly');
+  }
+  // Graham's announcement walks him on to the star, he does the monologue there and goes back to his seat
+  // for whatever's next (_block): three cues a night, all his, in that order.
+  {
+    const nights = ['d1', 'd2', 'd3', 'd4'], bad = [];
+    for (const day of nights) {
+      const g = _test.assembleTalkshowGraph(tsScript, 'bc_s', day, persona);
+      let anchorNow = null;
+      const cues = [];
+      for (const n of Object.values(g.nodes)) {
+        if (n.type === 'npc_anchor') anchorNow = n.data?.npc_id;
+        else if (n.type === 'say' && n.data?.blocking) { const b = n.data.blocking; cues.push(`${b.npc || anchorNow}:${b.to || b}`); }
+      }
+      if (cues.join(' ') !== 'npc_john_akerson:walkon npc_john_akerson:standup npc_john_akerson:seat') bad.push(`${day} ${cues.join(' ') || 'none'}`);
+    }
+    check('the host walks on, does the monologue standing and goes back to his seat after it', !bad.length, bad.join('; ') || `${nights.length} nights`);
+    // With a house band (`@band`): it plays him on, buttons one joke in the middle of the monologue, plays
+    // him across to the desk (the walk to his seat rides on that bit), plays the guest on and plays them off.
+    const banded = { ...tsScript, pools: { ...tsScript.pools, monologue: ['J1', 'J2', 'J3', 'J4', 'J5', 'J6'] },
+      band: { walkon: [{ song: 'b_on', text: 'On.' }], sting: [{ song: 'b_st', text: 'Sting.' }], walkover: [{ song: 'b_over', text: 'Over.' }], guest: [{ song: 'b_guest', text: 'Guest.' }], playoff: [{ song: 'b_off', text: 'Off.' }] } };
+    const badBand = [];
+    for (const day of nights) {
+      const g = _test.assembleTalkshowGraph(banded, 'bc_sb', day, persona), seq = [];
+      for (const n of Object.values(g.nodes)) if (n.type === 'say' && (n.data?.song || n.data?.blocking)) seq.push(n.data.song ? `${n.data.song}${n.data.blocking ? '>' + n.data.blocking.to : ''}` : n.data.blocking.to || n.data.blocking);
+      if (seq.join(' ') !== 'walkon b_on standup b_st b_over>seat b_guest b_off') badBand.push(`${day} ${seq.join(' ')}`);
+    }
+    check('the band plays him on, buttons a joke, plays him to the desk, plays the guest on and plays them off', !badBand.length, badBand.join('; ') || `${nights.length} nights`);
   }
   // The runtime already wraps a line as `<name> says, "…"`, so an authored "{sidekick}: " prefix
   // aired Graham's name twice. Nothing in a pool should carry its own speaker.
@@ -3258,6 +3324,7 @@ export default async function regress({ check, run, getPlayer }) {
         abbr: (n) => String(n).slice(0, 3).toUpperCase(), recordOf: () => '8-4-1', lastId: () => null,
         venue: { said: 'Golden Goose Gardens', name: 'Golden Goose Gardens', rev: '' }, xpick: pick, finalPackage,
         vpick: pick, vatBack: opts.vatBack || null, season: opts.season || null, slotsPerDay: 8,
+        ...(opts.desk ? { desk: opts.desk } : {}),
       });
       return game;
     };
@@ -3279,6 +3346,26 @@ export default async function regress({ check, run, getPlayer }) {
     check('hockey: overtime happens and is narratable', sawOt, 'no OT game found in 4000 slots');
     check('hockey: the shootout happens and is narratable', sawSo, 'no shootout found in 4000 slots');
     check('hockey: a man can die on the ice', sawDeath, 'no fatality found in 4000 slots');
+    // The 3-D desk (show_cluster_puck): the pregame before the drop, an intermission after the 1st
+    // and the 2nd, one after the 3rd only when it's tied, none in overtime, and the postgame at the
+    // end. The sequence gate proves the segments render; this proves the narrator asks for them.
+    {
+      const want = { reg: false, tied: false };
+      for (let slot = 0; slot < 4000 && !(want.reg && want.tied); slot++) {
+        const matchup = { away: teams[slot % teams.length], home: teams[(slot * 7 + 5) % teams.length], teams };
+        if (matchup.away === matchup.home) continue;
+        const g = HOCKEY.simGame(matchup, players, sportsRng(sportsHash(slot, 0)));
+        const kind = g.overtime ? 'tied' : 'reg';
+        if (g.dead || want[kind]) continue;
+        want[kind] = true;
+        const calls = [];
+        narrateSlot(slot, { desk: (when, at) => calls.push(when === 'break' ? `break:${at?.section}` : `${when}:${at ?? ''}`) });
+        const expect = ['open:', 'break:1st', 'break:2nd', ...(kind === 'tied' ? ['break:3rd'] : []), 'close:end'];
+        check(`hockey: the desk airs pregame, intermissions and postgame (${kind === 'tied' ? 'overtime' : 'regulation'})`,
+          JSON.stringify(calls) === JSON.stringify(expect), `${calls.join(' ')} want ${expect.join(' ')}`);
+      }
+      check('hockey: a regulation and an overtime game were found for the desk', want.reg && want.tied, JSON.stringify(want));
+    }
     // Rivalry is asserted DIRECTLY rather than hunted: whether this suite's synthetic
     // pairing (home = 7i+5) ever lands on the league's rivalry pairing depends on how many
     // clubs there are, so waiting for one would only test the arithmetic. Build it instead.
@@ -3672,6 +3759,43 @@ export default async function regress({ check, run, getPlayer }) {
       JSON.stringify(g.away.lineup) === JSON.stringify(want.lineup) && g.away.pitcher === want.pitcher);
     check('deadball v3: the rotation turns over each day',
       new Set([0, 1, 2].map(k => B.lineupForDay(R.clubs['Club 0'], day + k).pitcher)).size === 3);
+  }
+  // The First Generation (client/shared/deadball-gen1.js): the draft's rules, and off means off
+  {
+    const B = await import('./sports/baseball.js');
+    const G1 = await import('../../client/shared/deadball-gen1.js');
+    const { sportsRng } = await import('./rng.js');
+    const teams = ['Basin Blue Birds', 'Coldwater Crows', 'Rustpile Red Sox', 'Marquee Mastodons', 'Yards Yellowjackets', 'Westside White Sox', 'Docks District Dolphins', 'Boomtown Bombers'];
+    const pool = Array.from({ length: 112 }, (_, i) => `Man ${i}`);
+    const ord = (n) => G1.gen1Of(n).order;
+    let ok = true, why = '';
+    for (let s = 24360; s < 24384; s++) {
+      const d = G1.gen1Draft(teams, s), names = Object.values(d).flat();
+      const bad = (msg) => { ok = false; why = why || `${s}: ${msg}`; };
+      if (names.length !== 16 || new Set(names).size !== 16) bad('not sixteen different men');
+      for (const t of teams) {
+        const o = d[t].map(ord);
+        if (d[t].length !== 2) bad(`${t} has ${d[t].length}`);
+        if (G1.WEST.includes(t) && o.some((x) => x !== 'asc')) bad(`${t} took a non-Ascendant`);
+        if (t === G1.CROWS && o.some((x) => x !== 'lw')) bad('the Crows took a non-Long Watch');
+        if (!G1.WEST.includes(t) && t !== G1.CROWS && (o.includes('asc') || o[0] === o[1])) bad(`${t} broke the east's rule: ${o}`);
+      }
+    }
+    check('deadball gen1: every club drafts two, by the west, Crows and east rules', ok, why);
+    const s = B.seasonOfDay(Math.floor(Date.UTC(2035, 4, 10) / 86400000));
+    const off = B.clubRosters(teams, pool, s), on = B.clubRosters(teams, pool, s, { firstGen: true });
+    const inSquads = (R) => teams.flatMap(t => [...R.clubs[t].lineup, ...R.clubs[t].rotation, ...R.clubs[t].bench]).map(e => e.name).filter(n => G1.gen1Of(n));
+    check('deadball gen1: off, no First Generation man is on a club', inSquads(off).length === 0);
+    check('deadball gen1: on, the sixteen drafted are on their clubs', new Set(inSquads(on)).size === 16, `${new Set(inSquads(on)).size}`);
+    check('deadball gen1: turning it on leaves the plain rosters as they were', JSON.stringify(B.clubRosters(teams, pool, s)) === JSON.stringify(off));
+    const day = Math.floor(Date.UTC(2035, 4, 10) / 86400000);
+    const opts = { version: 3, seed: 9, day };
+    const a = B.BASEBALL.simGame({ away: teams[0], home: teams[1], teams }, pool, sportsRng(9), opts);
+    const games = [0, 1, 2, 3, 4, 5].map((k) => B.BASEBALL.simGame({ away: teams[k], home: teams[k + 1], teams }, pool, sportsRng(9 + k), { ...opts, day: day + k, firstGen: true }));
+    check('deadball gen1: on, a game names its First Generation fielders by place',
+      games.some((g) => g.gen1) && games.every((g) => !g.gen1 || Object.values(g.gen1).every((m) => Object.values(m).every((n) => G1.gen1Of(n)))));
+    check('deadball gen1: off, a game carries no First Generation fielders', !a.gen1);
+    check('deadball gen1: a man\'s legs are his rating', B.speedOf('Grist Mallow') === 0.99 && B.speedOf('Kasimir Oduya') === 0.1);
   }
   {
     const { SEASON: BB } = await import('./sports/baseball.js');
@@ -5351,6 +5475,51 @@ export default async function regress({ check, run, getPlayer }) {
     check('stage: else the default', stageSet(sets, { type: 'news' })?.id === 's_def');
     sets.set('show_x', doc({ kind: 'show', id: 'show_x', broadcast: 'bc_x', set: 's_def' }));
     check("stage: a show's own entry beats the room", stageSet(sets, { broadcast: 'bc_x', zone: 'zone_r' })?.id === 's_def');
+    // Where a room has a set made for another show, that set is the other show's, whichever the cache lists first.
+    for (const order of [['s_own', 's_room'], ['s_room', 's_own']]) {
+      const shared = new Map([[order[0], doc({ kind: 'set', id: order[0], zone: 'zone_r', ...(order[0] === 's_own' ? { broadcasts: ['bc_own'] } : {}) })], [order[1], doc({ kind: 'set', id: order[1], zone: 'zone_r', ...(order[1] === 's_own' ? { broadcasts: ['bc_own'] } : {}) })]]);
+      check(`stage: another show staged in a room isn't given a set made for one show (${order[0]} listed first)`, stageSet(shared, { broadcast: 'bc_other', zone: 'zone_r', type: 'talkshow' })?.id === 's_room');
+      check(`stage: the show it was made for still gets it (${order[0]} listed first)`, stageSet(shared, { broadcast: 'bc_own', zone: 'zone_r' })?.id === 's_own');
+    }
+    // A skin made for a broadcast beats the room, comes back laid over its template, and a template is
+    // never staged as itself.
+    sets.set('t_tpl', doc({ kind: 'set', id: 't_tpl', template: true, uses: ['gameshow'], brand: { name: 'X' }, palette: { wall: '#111111', floor: '#222222' }, pieces: [{ part: 'desk', type: 'desk_straight', at: [0, 5] }, { part: 'sign', type: 'sign', at: [0, 8] }, { type: 'plant', at: [2, 7] }], marks: { a: { at: [0, 5.5] } } }));
+    sets.set('t_skin', doc({ kind: 'set', id: 't_skin', base: 't_tpl', broadcasts: ['bc_skin'], brand: { name: 'WX9' }, palette: { wall: '#ff0000' }, parts: { desk: { type: 'lectern', text: 'HI' }, sign: null }, marks: { b: { at: [1, 5] } } }));
+    const sk = stageSet(sets, { broadcast: 'bc_skin', zone: 'zone_r' });
+    check('stage: a skin made for the broadcast beats the room', sk?.id === 't_skin');
+    check('stage: the skin is laid over its template', sk?.palette?.wall === '#ff0000' && sk.palette.floor === '#222222' && sk.brand?.name === 'WX9' && !!sk.marks?.a && !!sk.marks?.b,
+      JSON.stringify(sk?.palette));
+    check("stage: a skin's parts swap and take out the template's pieces", sk?.pieces?.map((p) => p.type).join(',') === 'lectern,plant' && sk.pieces[0].text === 'HI');
+    check('stage: a template is never staged as itself', stageSet(sets, { type: 'gameshow' })?.id === 's_def');
+    // A film's SLUG picks a backlot set by its words: the place before the pipe counts double, a tie goes
+    // to the word further along the place, a SLUG naming nothing keeps the set it's on, and a film staged
+    // on its own set with no `scenes` stays there.
+    const lot = new Map([
+      ['b_office', doc({ kind: 'set', id: 'b_office', backlot: true, scenes: { office: 3 } })],
+      ['b_flat', doc({ kind: 'set', id: 'b_flat', backlot: true, scenes: { house: 1, room: 2 } })],
+      ['b_kitchen', doc({ kind: 'set', id: 'b_kitchen', backlot: true, scenes: { kitchen: 3 } })],
+      ['b_street', doc({ kind: 'set', id: 'b_street', backlot: true, scenes: { street: 3 } })],
+    ]);
+    check('scene: a SLUG names its set', sceneSetFor(lot, { broadcast: 'bc_f', slug: 'THE OFFICE | BEFORE DAWN' }) === 'b_office');
+    check('scene: the place beats the time', sceneSetFor(lot, { broadcast: 'bc_f', slug: 'THE OFFICE | night, out on the street' }) === 'b_office');
+    check("scene: the last part of the place is where it is", sceneSetFor(lot, { broadcast: 'bc_f', slug: 'THE PRINE HOUSE, THE KITCHEN | WINTER' }) === 'b_kitchen');
+    check('scene: curly apostrophes read as plain ones', sceneSetFor(lot, { broadcast: 'bc_f', slug: 'DEACON’S ROOM | LATER' }) === 'b_flat');
+    check('scene: a SLUG naming nothing keeps the set', sceneSetFor(lot, { broadcast: 'bc_f', slug: 'THE HUNT | that same night' }) === null);
+    lot.set('own', doc({ kind: 'set', id: 'own', broadcasts: ['bc_own'] }));
+    check("scene: a film on its own set stays on it", sceneSetFor(lot, { broadcast: 'bc_own:film', slug: 'THE OFFICE | LATER' }) === null);
+    check('scene: and another film still uses the backlot', sceneSetFor(lot, { broadcast: 'bc_f', slug: 'THE OFFICE | LATER' }) === 'b_office');
+    // A studio set is a room you can walk into: the set whose zone it is, the default where two share one
+    // room, and nothing for a room no set claims.
+    check('room set: the set whose zone it is', roomSet(sets, 'zone_r')?.id === 's_room');
+    check('room set: none for a room no set claims', roomSet(sets, 'zone_nowhere') === null);
+    sets.set('s_room2', doc({ kind: 'set', id: 's_room2', zone: 'zone_r', uses: ['default'] }));
+    check('room set: where two claim a room, the default', roomSet(sets, 'zone_r')?.id === 's_room2');
+    sets.delete('s_room2');
+    // Sound Stage B is Neil's basement, and his show is staged there
+    {
+      const real = new Map([...(_test.graphicsCache?.entries?.() || [])]);
+      if (real.size) check("room set: KSAB-TV's Sound Stage B is Neil's basement", roomSet(real, 'zone_ksab7_stage_b')?.id === 'set_neil_basement');
+    }
 
     // The TV's answer for a text channel: a set to play it on, whoever's in it, and nothing for a game.
     for (const [id, st] of [..._test.channelRuntime?.entries?.() || []].slice(0, 6)) {
@@ -5359,6 +5528,18 @@ export default async function regress({ check, run, getPlayer }) {
       void st;
     }
     check('stage: a channel nobody runs has nothing', _test.stageFor('ch_none').set === null);
+    // On air a talk show's graph is the night's assembly, `<broadcast>:talkshow:<bucket>`, not the broadcast's
+    // own id: the picture still has to find the playlist item, or it gets no host and seats every line as a stranger.
+    {
+      const CH = 'reg-ch-talk', BC = 'bc_reg_talk';
+      _test.channelRuntime.set(CH, { channelId: CH, playlist: [{ broadcastId: BC, playback_mode: 'talkshow', talkshowScript: { host: 'npc_john_akerson', sidekick: 'npc_graham_mercer' } }],
+        graphBlackboard: { activeBroadcastId: `${BC}:talkshow:20261108`, blocking: { bid: `${BC}:talkshow:20261108`, at: { npc_john_akerson: 'standup' } } } });
+      try {
+        const r = _test.stageFor(CH), john = r.people?.find((p) => p.id === 'npc_john_akerson');
+        check("stage: an assembled talk show's picture has its host, his look and where the show put him",
+          !!john && !!john.figure && john.to === 'standup' && r.people.some((p) => p.id === 'npc_graham_mercer'), JSON.stringify(r.people?.map((p) => [p.id, !!p.figure, p.to])));
+      } finally { _test.channelRuntime.delete(CH); }
+    }
 
     // Tonight's guest: a persona is a person of their own, the same every time they're booked; a
     // townsperson is themselves; the placeholder is nobody.

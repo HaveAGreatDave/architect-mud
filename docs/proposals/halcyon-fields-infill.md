@@ -637,7 +637,7 @@ counts that step down from the twin towers (Halcyon Towers and The Spire stay th
 | Plot | Building | Model | Floors | Height in the park's set |
 |---|---|---|---|---|
 | 892,909 | 1 Halcyon Boulevard | `hf_beacon`: three drums stepping in, a chrome halo on a stem | 56 | about 650 ft |
-| 892,911 | 2 Halcyon Boulevard | `hf_skylink`: two unequal shafts, two glazed links | 45 | about 520 ft |
+| 892,911 | 2 Halcyon Boulevard (887,904 on the River Road since 2026-11-09, [hughson-towers.md](hughson-towers.md#2-halcyon-boulevard)) | `hf_skylink`: two unequal shafts, two glazed links | 45 | about 520 ft |
 | 892,912 | 7 Vetch Mews | `hf_highsite`: clad to halfway, bare plates, a climbing crane | 36 | about 420 ft |
 
 The park's set draws only mass, so each silhouette is in its drums and boxes. 7 Vetch Mews stays

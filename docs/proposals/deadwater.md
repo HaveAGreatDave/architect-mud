@@ -1,4 +1,6 @@
-# Deadwater — the Null's works
+# Deadband, the Null's works (was Deadwater)
+
+> **Renamed 2026-11-10.** The region is **Deadband** and its lake **the Reservoir**: Deadwater read too close to Coldwater. A deadband is the range where a machine gives no response to a signal, which is the Null. Ids (`region_deadwater`, `zone_dw_*`, the road key `deadwater`) and file names are unchanged, so the highways keep their seed. Older text below still says Deadwater.
 
 > **Status: Phases 1–2 BUILT (2026-08-12). Jamming (Phase 3) and the confrontation (Phase 4) are
 > design.** The region, the works, both overland crossings, the freight economy, seven NPCs and the

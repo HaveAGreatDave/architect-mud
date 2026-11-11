@@ -1,24 +1,27 @@
 {
-  "ambient_events": [],
-  "ambient_theme": "forest",
-  "color": "#8ba36a",
-  "description": "A row of pegs crosses the meadow. The string between them has gone, and the pegs lean.",
+  "ambient_events": [
+    "A radio in one of the tents finds a station, loses it, and finds it again.",
+    "A tent flap opens, somebody looks out at the weather, and it closes."
+  ],
+  "ambient_theme": "residential",
+  "description": "The south-east end of Wallside, where the two walls close in. The tents here are the newest in the district and the furthest from anything. Most of them face the corner.",
   "exits": {
     "east": "zone_district_927_922",
-    "north": "zone_district_926_921",
     "south": "zone_district_926_923",
     "west": "zone_district_925_922"
   },
   "flags": {
-    "district": "residential",
+    "camp": true,
+    "district": "slum",
     "region_id": "region_coldwater",
-    "terrain": "grass"
+    "scavenging_table_id": "scav_consumer_trash",
+    "terrain": "ash"
   },
   "grid_x": 926,
   "grid_y": 922,
   "grid_z": 0,
   "id": "zone_district_926_922",
   "map_id": "map_world",
-  "name": "Grasslands",
+  "name": "Wallside",
   "parent_zone": null
 }

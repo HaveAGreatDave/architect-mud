@@ -1,0 +1,34 @@
+{
+  "description": "A low glass table ringed with the marks of a thousand glasses.",
+  "flags": {
+    "interactions": [
+      "look"
+    ],
+    "look": {
+      "arche": "table",
+      "dims": [
+        1.4,
+        0.7,
+        0.42
+      ],
+      "form": "coffee"
+    },
+    "spot": {
+      "at": [
+        0,
+        1.6
+      ],
+      "turn": 0
+    }
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_cherry_vip_table",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "low table",
+  "object_type": "fixture",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_mq_cherry_vip"
+}

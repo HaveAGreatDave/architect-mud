@@ -15,7 +15,14 @@
   },
   "flags": {
     "floor": "boards",
-    "is_interior": true
+    "is_interior": true,
+    "room": {
+      "w": 12,
+      "d": 9,
+      "h": 3.4,
+      "studio": false,
+      "balcony": false
+    }
   },
   "grid_x": 0,
   "grid_y": 1,

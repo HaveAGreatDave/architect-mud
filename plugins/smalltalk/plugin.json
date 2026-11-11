@@ -1,0 +1,8 @@
+{
+  "name": "smalltalk",
+  "version": "1.0.0",
+  "description": "Ask anybody what they're up to. They answer from what they're really doing, as much as they care to tell you.",
+  "commands": ["whatsup"],
+  "hooks": [],
+  "ticks": []
+}

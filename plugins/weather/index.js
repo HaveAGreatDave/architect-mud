@@ -1091,8 +1091,14 @@ function sampleWeatherAt(gx, gy) {
   };
 }
 
-function getWeatherFieldSnapshot() {
+// `gx`/`gy` are optional: with them the snapshot also carries `floorAt`, the cloud floor at that
+// tile, cut by its region's dryness exactly as sampleWeatherAt cuts it. The canopy draws the floor
+// as cloud, so a dry region has to be handed its own.
+function getWeatherFieldSnapshot(gx = null, gy = null) {
+  const floor = Math.max(field.baseCloud, eventCloudFloor());
+  const dry = gx == null || gy == null ? null : regionBiasAt(gx, gy)?.dryness;
   return {
+    floorAt: Math.min(1, floor * (dry ?? 1)),
     bounds: field.bounds,
     baseSeverity: currentBaseSeverity(),
     // ⚠ THE CELLS ARE NOT THE WHOLE SKY. sampleWeatherAt opens at this floor and only then

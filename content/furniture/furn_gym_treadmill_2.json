@@ -1,0 +1,30 @@
+{
+  "description": "A treadmill facing the north glass, so you can run at the city and get no nearer.",
+  "flags": {
+    "aliases": "treadmill,runner",
+    "interactions": [
+      "lean"
+    ],
+    "look": {
+      "arche": "surface",
+      "form": "treadmill"
+    },
+    "spot": {
+      "at": [
+        -0.8,
+        1.6
+      ],
+      "turn": 0
+    }
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_gym_treadmill_2",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "treadmill",
+  "object_type": "furniture",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_solenne_gym"
+}

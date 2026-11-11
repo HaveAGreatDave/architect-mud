@@ -1,0 +1,12 @@
+{
+  "content": "{\n \"brand\": \"JERRY ROSENBERG\",\n \"line\": \"Family Law.\",\n \"small\": \"\\\"DIVORCE ATTORNEY\\\"\",\n \"color\": \"#d0a040\",\n \"accent\": \"#fff0b0\",\n \"face\": \"serif\",\n \"motif\": \"bars\",\n \"weight\": 1\n}",
+  "created_at": "1794182400",
+  "description": "Hologram advert: Jerry Rosenberg, Family Law. Baked to the client by npm run holoads:bake.",
+  "id": "holo_ad_rosenberg",
+  "name": "Holo ad: Jerry Rosenberg, Family Law",
+  "tags": [
+    "holo_ad"
+  ],
+  "type": "holo_ad",
+  "updated_at": "1794182400"
+}

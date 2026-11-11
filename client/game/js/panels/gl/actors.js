@@ -24,7 +24,7 @@
 import { HOUSE } from './house-style.js';
 import { viewProjMatrix, viewMatrix } from './camera.js';
 import { makeVertexStream } from './stream.js';
-import { actorBakeReady, ACTOR_HEAD_BONES } from '../actor3d.js';
+import { actorBakeReady, actorSilhouette, ACTOR_HEAD_BONES } from '../actor3d.js';
 import { headMesh, hairMesh, HEAD_LEVELS, HAIR_STYLES, FACE, HAIRLINE_GLSL } from '../actor-head.js';
 import { faceLeaned } from '../form-normals.js';
 import { FACE_ATLAS, FACE_GLSL } from '../actor-faces.js';
@@ -770,14 +770,16 @@ export function createActorLayer(gl) {
     return t;
   }
   function bonesFor(bk) {
-    if (boneT) return boneT;
-    boneT = texture2D(BONE_UNIT);
+    if (boneT && boneT.bk === bk) return boneT.t;
+    if (boneT) gl.deleteTexture(boneT.t);
+    boneT = { bk, t: null };
+    boneT.t = texture2D(BONE_UNIT);
     gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA32F, ACTOR_HEAD_BONES.texels, bk.frames, 0, gl.RGBA, gl.FLOAT, bk.bones);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
     gl.bindTexture(gl.TEXTURE_2D, null);
     gl.activeTexture(gl.TEXTURE0);
-    return boneT;
+    return boneT.t;
   }
   function faceTex() {
     if (!faceT) {
@@ -816,12 +818,18 @@ export function createActorLayer(gl) {
   let hdata = new Float32Array(HSTRIDE * 64), nh = 0;
   const hb = (r) => Math.max(0, Math.min(HEAD_LEVELS.length - 1, r.hl | 0)) * HAIR_STYLES + ((r.o.face && r.o.face.hairStyle) | 0);
 
-  // Each body's mesh and textures go up once, the first time anybody is drawn with it. Index 0 is the
-  // close-up body and 1 the far one (actor3d.js bk.far); both play through the one program, and both
-  // use units 20 and 21, bound in turn at draw time.
-  const meshes = [null, null];
-  function meshFor(bk, lod) {
-    if (meshes[lod]) return meshes[lod];
+  // Each body's mesh and textures go up once, the first time anybody is drawn with it: the close-up
+  // body and the far one (actor3d.js bk.far) of each silhouette (bk.sils). All play through the one
+  // program and use units 20 and 21, bound in turn at draw time. Kept by the bake's own object, and
+  // thrown away when actor3d.js hands over a new bake (actorBakeReset).
+  const meshes = new Map();
+  let curBake = null;
+  function dropMeshes() {
+    for (const M of meshes.values()) { gl.deleteTexture(M.posT); gl.deleteTexture(M.nrmT); gl.deleteVertexArray(M.vao); }
+    meshes.clear();
+  }
+  function meshFor(bk) {
+    if (meshes.has(bk)) return meshes.get(bk);
     const vao = gl.createVertexArray();
     gl.bindVertexArray(vao);
     const mb = gl.createBuffer();
@@ -873,9 +881,10 @@ export function createActorLayer(gl) {
       gl.activeTexture(gl.TEXTURE0);
       return t;
     };
-    meshes[lod] = { vao, stream, count: bk.idx.length, posT: tex(POS_UNIT, bk.pos), nrmT: tex(NRM_UNIT, bk.nrm), bk,
+    const M = { vao, stream, count: bk.idx.length, posT: tex(POS_UNIT, bk.pos), nrmT: tex(NRM_UNIT, bk.nrm), bk,
       data: new Float32Array(STRIDE * 64), n: 0 };
-    return meshes[lod];
+    meshes.set(bk, M);
+    return M;
   }
 
   let n = 0;
@@ -889,18 +898,22 @@ export function createActorLayer(gl) {
    */
   function upload(recs) {
     n = 0; nh = 0;
-    for (const M of meshes) if (M) M.n = 0;
+    for (const M of meshes.values()) M.n = 0;
     const bake = actorBakeReady();
+    if (bake !== curBake) { dropMeshes(); curBake = bake; }
     if (!bake || !recs || !recs.length) return 0;
     uploadHeads(recs, bake);
-    for (const r of recs) if (r.lod && bake.far) meshFor(bake.far, 1).n++; else meshFor(bake, 0).n++;
-    for (const M of meshes) {
-      if (!M || !M.n) continue;
+    // Which body draws a record: its silhouette's (actor3d.js actorSilhouette, off its cut), near or far.
+    const sils = bake.sils || [bake];
+    const bodyOf = (r) => { const S = sils[Math.min(sils.length - 1, actorSilhouette(r.o.cut))] || bake; return r.lod && S.far ? S.far : S; };
+    for (const r of recs) meshFor(bodyOf(r)).n++;
+    for (const M of meshes.values()) {
+      if (!M.n) continue;
       if (M.data.length < M.n * STRIDE) M.data = new Float32Array(Math.max(M.n * STRIDE, M.data.length * 2));
       M.n = 0;
     }
     for (const r of recs) {
-      const M = r.lod && bake.far ? meshes[1] : meshes[0], bk = M.bk, data = M.data;
+      const M = meshes.get(bodyOf(r)), bk = M.bk, data = M.data;
       const c = (o, rgb) => { data[o] = rgb[0] / 255; data[o + 1] = rgb[1] / 255; data[o + 2] = rgb[2] / 255; };
       const A = bk.clips[r.clip] || bk.clips.idle, Bc = r.clip2 ? bk.clips[r.clip2] : null;
       const o = M.n * STRIDE;
@@ -918,7 +931,7 @@ export function createActorLayer(gl) {
     const r0 = recs[0];
     const kl = Math.hypot(r0.lx || 0, r0.ly || 0, 0.35) || 1;
     key = [(r0.lx || 0) / kl, (r0.ly || 0) / kl, 0.35 / kl];
-    for (const M of meshes) if (M && M.n) M.stream.write(M.data, M.n * STRIDE);
+    for (const M of meshes.values()) if (M.n) M.stream.write(M.data, M.n * STRIDE);
     return n;
   }
 
@@ -1036,8 +1049,8 @@ export function createActorLayer(gl) {
     if (opts.depthOnly) { gl.disable(gl.BLEND); gl.colorMask(false, false, false, false); }
     let tris = 0;
     const bodies = () => {
-      for (const mesh of meshes) {
-        if (!mesh || !mesh.n) continue;
+      for (const mesh of meshes.values()) {
+        if (!mesh.n) continue;
         gl.uniform1i(loc.w, mesh.bk.W);
         gl.uniform1i(loc.rows, mesh.bk.rows);
         gl.uniform1f(loc.top, mesh.bk.top || 1.7);
@@ -1061,13 +1074,13 @@ export function createActorLayer(gl) {
       outlining = true;
       uniforms(loc);
       bodies();
-      if (meshes[0]) drawHeads(meshes[0].bk, uniforms);
+      if (curBake) drawHeads(curBake, uniforms);
       outlining = false;
       gl.useProgram(prog); applyLinOut(gl, prog);
       uniforms(loc);
     }
     bodies();
-    if (meshes[0]) tris += drawHeads(meshes[0].bk, uniforms);
+    if (curBake) tris += drawHeads(curBake, uniforms);
     if (opts.depthOnly) gl.colorMask(true, true, true, true);
     return tris;
   }

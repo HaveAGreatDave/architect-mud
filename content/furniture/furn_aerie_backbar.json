@@ -1,0 +1,24 @@
+{
+  "description": "Glass shelves of bottles lit from behind, floor to ceiling. None of them has a label you could afford to recognise.",
+  "flags": {
+    "aliases": "bottles,shelves,back bar",
+    "look": {
+      "arche": "surface",
+      "form": "barwall"
+    },
+    "spot": {
+      "along": 3.9,
+      "wall": "back"
+    }
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_aerie_backbar",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "back bar",
+  "object_type": "decoration",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_solenne_aerie"
+}

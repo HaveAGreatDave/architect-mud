@@ -260,7 +260,9 @@ export function planBetween({ p, cast, men, by }) {
   off.forEach((j, i) => { j.spot = dugoutSpot(side, off.length - 1 - i); j.via = [j.spot[0], 0, j.spot[2] + 10]; j.face = faceTo(j.spot, [0, 0, 60]); });
   const still = rest.filter((j) => j.stay || flat(j.here, j.spot) < 1.5), going = rest.filter((j) => !still.includes(j));
   going.sort((a, b) => flat(b.here, b.spot) - flat(a.here, a.spot));
-  const gone = [], out = [], standing = [];
+  const gone = [], out = [], standing = [], umps = [];
+  // how many are out, for the infielder who holds his fingers up to say so
+  const outs = (p.outs | 0) === 1 || (p.outs | 0) === 2;
   // the least room a man's way keeps from everyone sent before him, over his way and a beat after
   const roomOf = (T, t0, t1) => {
     let least = Infinity;
@@ -290,7 +292,14 @@ export function planBetween({ p, cast, men, by }) {
     standing.push(j.stay || flat(j.here, j.spot) < 1.5 ? j.here : j.spot);
     out.push({ slot: j.slot, role: j.role, to: j.spot, rest: j.rest || 'stand_idle', end, off: !!j.off, stay: !!j.stay });
     if (j.role === 'catcher' && visitDue(p, end, by) && visit(j.B, end, by, out)) continue;
-    if (!j.off && !j.rest && (j.role === 'fielder' || j.role === 'catcher' || j.stay)) fidget(j.B, end, by, j.role, flat(j.here, j.spot) > FIDGET.blown || (j.stay && j.role === 'runner'));
+    if (j.role === 'ump') { umps.push({ B: j.B, slot: j.slot, end }); continue; }
+    if (!j.off && !j.rest && (j.role === 'fielder' || j.role === 'catcher' || j.stay)) {
+      const infield = j.role === 'fielder' && Math.hypot(j.spot[0], j.spot[2]) < 170;
+      fidget(j.B, end, by, j.stay && j.role !== 'fielder' && j.role !== 'catcher' ? 'runner' : j.role, {
+        blown: flat(j.here, j.spot) > FIDGET.blown || (j.stay && j.role === 'runner'),
+        sign: outs && infield && hashStr(`outs:${j.B.id}|${p.batter}|${p.inning}`) % 3 === 0,
+      });
+    }
   }
   // a batter thrown out at first: now and then the first-base coach has it out with the umpire
   const bat = jobs.find((j) => j.role === 'batter' && j.off && flat(j.here, BAGS[1]) < 15);
@@ -298,6 +307,18 @@ export function planBetween({ p, cast, men, by }) {
   const uB = ump && men.find((m) => m.slot === ump.slot)?.B;
   if (bat && coach && uB && hashStr(`argue:${p.batter}|${p.inning}`) % 3 === 0) argue(coach, uB, ump.end, by, out);
   if (scrumDue(p)) scrum(p, men, by, out);
+  // The umpires and the coaches don't stand like posts through a minute of dead air either: arms
+  // folded, a look round, hands on hips, and a coach claps his man on. Not the umpire being argued
+  // with or the coach arguing, and nobody while the benches are out.
+  const busy = new Set(out.filter((g) => g.argue || g.scrum).map((g) => g.slot));
+  if (!out.some((g) => g.scrum)) {
+    const argued = out.some((g) => g.argue) ? ump?.slot : null;
+    for (const u of umps) if (u.slot !== argued) fidget(u.B, u.end, by, 'ump');
+    for (const m of men) {
+      if (m.role !== 'coach' || busy.has(m.slot) || out.some((g) => g.slot === m.slot)) continue;
+      if (fidget(m.B, m.go, by, 'coach')) out.push({ slot: m.slot, role: 'coach', to: m.B.spotAt(m.go), rest: 'stand_idle', end: m.go, stay: true });
+    }
+  }
   return out;
 }
 
@@ -373,28 +394,49 @@ function argue(coach, uB, end, by, out) {
 }
 
 // THE FIDGETS. A man stood easy at his spot doesn't stand still for a minute and a half: now and
-// then he pounds his glove, tugs his cap, or after a long run bends over with his hands on his knees,
-// and goes back to standing easy. Which and when are dealt from his name and when he got there, so
-// a replay or a stopped clock draws the same. Each is done and he's standing easy again `FIDGET.clear`
-// before `by`, so the next payload's cut never lands in one.
-export const FIDGET = Object.freeze({ first: [1.2, 3.5], gap: [3.5, 8], clear: 0.6, blown: 60 });
-const GLOVED = ['idle_glove_pound', 'idle_cap_tug', 'idle_glove_pound'], BARE = ['idle_cap_tug'];
-function fidget(B, end, by, role, blown) {
-  const r = hashStr(`${B.id}:${end.toFixed(2)}`), rnd = (k, [a, b]) => a + (b - a) * (((r >>> k) & 255) / 255);
-  const pool = role === 'fielder' || role === 'catcher' ? GLOVED : BARE;
-  let t = end + REST_FADE + rnd(0, FIDGET.first), k = 0;
-  if (blown) {
-    const d = CLIPS.idle_hands_knees.duration;
-    if (t + d + FIDGET.clear > by) return;
-    playOnSpot(B, 'idle_hands_knees', t, d);
+// then he pounds his glove, tugs his cap, takes a long look round, puts his hands on his hips, shakes
+// his arms loose, pulls his throwing arm across his chest, or after a long run bends over with his
+// hands on his knees, and goes back to standing easy. An infielder may hold his fingers up first to
+// say how many are out; an umpire folds his arms; a coach claps. Each kind of man has his own pool
+// (`FIDGETS`), dealt from his name and when he got there, so a replay or a stopped clock draws the
+// same, and never the same one twice running. Each is done and he's standing easy again
+// `FIDGET.clear` before `by`, so the next payload's cut never lands in one.
+//
+// These are the live game's: the men in the park do them whether a camera's on them or not, so a
+// seat in the stands sees them through a replay it isn't shown and through all the booth's talk.
+export const FIDGET = Object.freeze({ first: [1.2, 3.5], gap: [3.5, 8], clear: 0.6, blown: 60, most: 12, slow: Object.freeze({ ump: 2.4, coach: 1.7 }) });
+export const FIDGETS = Object.freeze({
+  fielder: Object.freeze(['idle_glove_pound', 'idle_cap_tug', 'idle_look_round', 'idle_shake_out', 'idle_arm_stretch', 'idle_hands_hips']),
+  catcher: Object.freeze(['idle_glove_pound', 'idle_look_round', 'idle_shake_out']),
+  runner: Object.freeze(['idle_cap_tug', 'idle_look_round', 'idle_hands_hips', 'idle_shake_out']),
+  ump: Object.freeze(['idle_arms_folded', 'idle_look_round', 'idle_hands_hips']),
+  coach: Object.freeze(['idle_clap', 'idle_arms_folded', 'idle_look_round', 'idle_hands_hips']),
+});
+// `o.blown`: bent over first, after a long run; `o.sign`: the outs held up first. Returns how many
+// he does.
+function fidget(B, end, by, role, o = {}) {
+  // (an umpire or a coach is a stiller man than a fielder: his come further apart, FIDGET.slow)
+  const slow = FIDGET.slow[role] || 1;
+  const r = hashStr(`${B.id}:${end.toFixed(2)}`), rnd = (k, [a, b]) => (a + (b - a) * (((r >>> (k % 24)) & 255) / 255)) * slow;
+  const pool = FIDGETS[role] || FIDGETS.runner;
+  let t = end + REST_FADE + rnd(0, FIDGET.first), n = 0, last = null;
+  for (const id of [o.blown && 'idle_hands_knees', o.sign && 'idle_outs_sign'].filter(Boolean)) {
+    const d = CLIPS[id].duration;
+    if (t + d + FIDGET.clear > by) return n;
+    playOnSpot(B, id, t, d);
+    n++;
     t += d + rnd(8, FIDGET.gap);
   }
-  for (; k < 6; k++) {
-    const id = pool[((r >>> (k * 3)) + k) % pool.length], d = CLIPS[id].duration;
-    if (t + d + FIDGET.clear > by) return;
+  for (let k = 0; k < FIDGET.most; k++) {
+    let i = (hashStr(`${B.id}:${end.toFixed(2)}:${k}`) >>> 3) % pool.length;
+    if (pool[i] === last && pool.length > 1) i = (i + 1) % pool.length;
+    const id = pool[i], d = CLIPS[id].duration;
+    if (t + d + FIDGET.clear > by) return n;
     playOnSpot(B, id, t, d);
-    t += d + rnd((k * 5 + 16) % 24, FIDGET.gap);
+    n++; last = id;
+    t += d + rnd(k * 5 + 16, FIDGET.gap);
   }
+  return n;
 }
 function playOnSpot(B, id, t, d) {
   const at = B.spotAt(t), frame = { at: [at[0], groundHeight(at[0], at[2]), at[2]], yaw: B.facingAt(t) };

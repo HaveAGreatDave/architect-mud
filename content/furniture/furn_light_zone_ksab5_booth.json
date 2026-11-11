@@ -1,0 +1,14 @@
+{
+  "description": "A grid of studio lamps hung low over the booth.",
+  "flags": {},
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_light_zone_ksab5_booth",
+  "light_type": "overhead",
+  "lumen_output": 2400,
+  "name": "lighting grid",
+  "object_type": "light",
+  "power_draw_kw": 0.05,
+  "price": 0,
+  "zone_id": "zone_ksab5_booth"
+}

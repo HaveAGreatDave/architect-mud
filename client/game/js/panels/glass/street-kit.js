@@ -885,7 +885,8 @@ export function drawStreetKit(o) {
       // where this half's deck ends at the tower on the seam.
       const vL = kitTowerV(P, -1) + tw, vR = kitTowerV(P, 1) - tw, vc = (vL + vR) / 2, dv = (vR - vL) / 2;
       box(ub, vc, hu, dv, DECK_Z0, DECK_Z1, PAL.steelDk, 'metal', LV.deck, 'metal', true);
-      box(ub, vc, M(0.1), dv, DECK_Z0 - M(0.03), DECK_Z0, PAL.cyan, 'lit', PAL.cyan, 'lit', true);
+      // ⚠ The strip's top stops short of the deck's underside: coplanar, the two z-fought and flashed.
+      box(ub, vc, M(0.1), dv, DECK_Z0 - M(0.04), DECK_Z0 - M(0.01), PAL.cyan, 'lit', PAL.cyan, 'lit', true);
       for (const e of [-1, 1]) {
         const ue = ub + e * hu;
         // A glass rail along each edge with a steel top.

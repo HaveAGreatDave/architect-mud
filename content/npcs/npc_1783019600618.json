@@ -140,6 +140,55 @@
       "a chrome-studded bra",
       "a red lace thong"
     ],
+    "figure": {
+      "bottoms": false,
+      "cut": "trench",
+      "fabric_legs": "plain",
+      "fabric_top": "rubber",
+      "gear": false,
+      "hat": false,
+      "legs": [
+        22,
+        22,
+        24
+      ],
+      "print": "plain",
+      "scarf": false,
+      "shirt": [
+        120,
+        20,
+        30
+      ],
+      "shoes": [
+        24,
+        20,
+        22
+      ],
+      "top": [
+        30,
+        28,
+        32
+      ]
+    },
+    "figure_work": {
+      "cut": "stagelace",
+      "fabric_shoes": "rubber",
+      "shirt": [
+        255,
+        190,
+        200
+      ],
+      "shoes": [
+        150,
+        14,
+        28
+      ],
+      "top": [
+        176,
+        18,
+        34
+      ]
+    },
     "mis_requires_zone_flag": "mis_ok",
     "mis_willing": true,
     "personality": "stripper",
@@ -157,46 +206,46 @@
   "vendor_inventory": [],
   "vendor_restock_rate": 1,
   "vendor_schedule": {
-    "fri": [
-      {
-        "from": 19,
-        "to": 24
-      }
-    ],
     "mon": [
       {
         "from": 19,
-        "to": 24
-      }
-    ],
-    "sat": [
-      {
-        "from": 19,
-        "to": 24
-      }
-    ],
-    "sun": [
-      {
-        "from": 19,
-        "to": 24
-      }
-    ],
-    "thu": [
-      {
-        "from": 19,
-        "to": 24
+        "to": 27
       }
     ],
     "tue": [
       {
         "from": 19,
-        "to": 24
+        "to": 27
       }
     ],
     "wed": [
       {
         "from": 19,
-        "to": 24
+        "to": 27
+      }
+    ],
+    "thu": [
+      {
+        "from": 19,
+        "to": 27
+      }
+    ],
+    "fri": [
+      {
+        "from": 19,
+        "to": 27
+      }
+    ],
+    "sat": [
+      {
+        "from": 19,
+        "to": 27
+      }
+    ],
+    "sun": [
+      {
+        "from": 19,
+        "to": 27
       }
     ]
   },

@@ -30,7 +30,8 @@ export const HOUSE = Object.freeze({
   px: Object.freeze([1.8, 4.5]),             // ...held between these many pixels of a 900-wide picture
   rinkLinePx: 1,                             // the rink's screen-pass lines: they lie on top of a man's own line, so they stay thin
   cityPx: 2.5,                               // the city's outline, CSS px (RENDER_TUNE.glInkPx)
-  cityFar: 30,                               // ...and the tiles it holds to (glInkFar)
+  vehiclePx: 1.7,                            // the own ship's outline (vehicleInkOf), a touch under the city's so a plane isn't heavy
+  cityFar: 30,                              // ...and the tiles it holds to (glInkFar)
   shade: Object.freeze([0.62, 0.52, 0.7]),   // a figure's unlit side: a painted warm violet, not a cool grey
   weigh: 1.7,                                // the line on a figure's side away from the light, times its width
   hatchFt: 0.07,                             // a figure's hatching: the gap between strokes, in feet of him
@@ -170,7 +171,7 @@ export function cabinInkOf(w) {
 export function vehicleInkOf(w) {
   if (!comicOn()) return null;
   const k = w / 900;
-  return { sil: Math.max(1, HOUSE.cityPx * k), detail: Math.max(1, HOUSE.cityPx * 0.5 * k), weigh: HOUSE.weigh, col: HOUSE.ink };
+  return { sil: Math.max(1, HOUSE.vehiclePx * k), detail: Math.max(1, HOUSE.vehiclePx * 0.5 * k), weigh: HOUSE.weigh, col: HOUSE.ink };
 }
 
 /** A view's band count, where the view passes it as a uniform. */

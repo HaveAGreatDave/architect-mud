@@ -12,7 +12,7 @@
 // a person seen from the cab has the silhouette they have across a room.
 import { readdirSync, readFileSync } from 'node:fs';
 import { buildFigure, figureSole, FIGURE_CUT_NAMES, FIGURE_BONES, FIG_SLOT, SCULPT_BUILDS, FIGURE_FACIAL } from '../../client/game/js/panels/figure.js';
-import { hairlineAt, headMesh, skullPoint, HAIR_STYLES } from '../../client/game/js/panels/actor-head.js';
+import { hairlineAt, headMesh, skullPoint, HAIR_STYLES, SCULPT_HEADS } from '../../client/game/js/panels/actor-head.js';
 import { ACTOR_IDLES, ACTOR_CLIPS, ACTOR_ROOM_CLIPS, ACTOR_BODIES, ACTOR_ACTS, actorSkinAt, actorSkinMix, actorOutfit } from '../../client/game/js/panels/actor3d.js';
 import { actOfLine, speakerOf, NPC_ACTS } from '../../client/shared/npc-acts.js';
 import { MOUTHS, mouthTrack, textTrack, mouthAt } from '../../client/shared/lip-sync.js';
@@ -58,7 +58,7 @@ for (const file of readdirSync(new URL('../../content/npcs/', import.meta.url)))
   if (!fg) continue;
   if (fg.cut && !FIGURE_CUT_NAMES.includes(fg.cut)) problems.push(`${file}: flags.figure.cut ${fg.cut} isn't a cut`);
   if (fg.build && !SCULPT_BUILDS[fg.build]) problems.push(`${file}: flags.figure.build ${fg.build} isn't a build`);
-  if (fg.head !== undefined && !(fg.head >= 0 && fg.head <= 3)) problems.push(`${file}: flags.figure.head ${fg.head} isn't a head`);
+  if (fg.head !== undefined && !(Number.isInteger(fg.head) && fg.head >= 0 && fg.head < SCULPT_HEADS.length)) problems.push(`${file}: flags.figure.head ${fg.head} isn't a head`);
   if (fg.facial && !FIGURE_FACIAL[fg.facial]) problems.push(`${file}: flags.figure.facial ${fg.facial} isn't a facial hair style`);
 }
 // A beard with a mesh builds sound at both levels and every head, under the figure it revises.
@@ -138,6 +138,18 @@ for (const level of ['crowd', 'far']) {
     ['laughs at something only they heard.', 'laugh'], ['coughs into a fist.', 'cough'], ['shivers and rubs their hands together.', 'shiver'],
     ['sips a coffee.', 'drink'], ['takes a bite of a sandwich.', 'eat'], ['stirs the pot.', 'stir'], ['shrugs.', 'shrug'], ['backs away from the door.', 'cower'],
     ['hums and sways a little.', 'dance'], ['checks their watch.', 'time'], ['waves.', 'wave'], ['picks up the remote and puts the set on.', null],
+    // a show's stage directions (data/scripts/*.bsm): "pound of beef" isn't a slam, "stares at nothing" is still waiting
+    ['slams his fist on the table.', 'slam'], ['opens the freezer and lifts out a pound of ground beef.', 'rummage'], ['trips violently over a chair.', 'stumble'],
+    ['spreads his arms wide, grinning.', 'spread'], ['holds up a rag.', 'holdup'], ['yanks the pan off the heat and throws it into the sink.', 'toss'],
+    ['claps her on the shoulder.', 'reach'], ['seizes Camera 1 and wrenches it toward Nguyen.', 'grab'], ['flexes at the tub of meats.', 'flex'],
+    ['winks.', 'wink'], ['leans in until the lens fogs.', 'leanin'], ['glances at the camera, then away.', 'lens'], ['stares into the middle distance.', 'stare'],
+    ['adjusts her cardigan with enormous dignity.', 'adjust'], ['puts his back against the door, barricading it.', 'brace'], ['enters the frame.', 'enter'],
+    ['points at the board.', 'point'], ['applauds.', 'clap'],
+    // too hot, too cold and at a loose end (plugins/roomstage/npc-life.js): each narrower than the act it would fall to
+    ['fans themselves with a hand.', 'swelter'], ['wipes their forehead on a sleeve.', 'brow'], ['tugs at their collar.', 'tug'], ['blows on their hands.', 'blow'],
+    ['stamps their feet to get the feeling back.', 'shiver'], ['does a few slow squats, counting under their breath.', 'exercise'],
+    ['picks something up off the floor and looks for somewhere to put it.', 'stoop'], ['rubs their eyes with the heel of a hand.', 'rub'],
+    ['cracks their knuckles one hand at a time.', 'knuckles'], ['taps a foot and waits for nothing in particular.', 'tap'], ['pulls on something warmer.', 'adjust'],
   ];
   for (const [line, want] of LINES) { const got = actOfLine(line); if (got !== want) problems.push(`"${line}" acts ${got}, not ${want}`); }
   if (speakerOf('Mary Ann Kerr wipes the bar.', ['Mary', 'Mary Ann Kerr', 'Ann']) !== 'Mary Ann Kerr') problems.push('a line goes to the shorter of two names');

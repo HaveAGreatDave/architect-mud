@@ -4084,7 +4084,9 @@ async function regressBody({ run, check, getPlayer }) {
           check('edition: you can\'t fit what you can\'t pay for', /you have 10/.test(refused?.message || '') && !(await getTruck(noCash.id, player.id))?.custom_data?.edition, (refused?.message || '').slice(0, 80));
           await query('DELETE FROM trucks WHERE id = $1', [noCash.id]).catch(() => {});
           noteGone('truck', noCash.id);
-          check('edition: a type with no second body has no suffix', editionSuffix({ edition: '2076' }, 'drayman') === '' && editionCatalogue({}, 'drayman', TYPES.drayman).length === 0);
+          check('edition: a body no type has wears the stock one', editionSuffix({ edition: '2099' }, 'drayman') === '' && editionSuffix({ edition: '2076' }, 'drayman') === '~e2076');
+          // Every truck the dealer sells has its 2076 body on the bench (hover-rigs.md).
+          check('edition: every truck on the lot has a 2076 body', Object.entries(TYPES).filter(([, t]) => t.ground).every(([id, t]) => editionCatalogue({}, id, t).length === 2 && editionCatalogue({}, id, t)[1].price === Math.round(t.price * 0.6)));
         } finally {
           await query('DELETE FROM trucks WHERE id = $1', [c.id]).catch(() => {});
           noteGone('truck', c.id);
@@ -4211,7 +4213,7 @@ async function regressBody({ run, check, getPlayer }) {
       check("…with the engine OFF, because you haven't turned the key yet", rig?.engineOn === false, rig?.engineOn);
       check('…and the cab is told so, or it seeds itself running', cabContext(rig).engineOn === false);
       // The body rides the same way: cab-view puts it in the variant, and the seat picks the 2076 cab off that.
-      check('the cab is told which body it is', cabContext({ ...rig, typeId: 'hauler', cd: { edition: '2076' } }).edition === '2076' && cabContext({ ...rig, typeId: 'drayman', cd: { edition: '2076' } }).edition === '');
+      check('the cab is told which body it is', cabContext({ ...rig, typeId: 'hauler', cd: { edition: '2076' } }).edition === '2076' && cabContext({ ...rig, typeId: 'drayman', cd: { edition: '2099' } }).edition === '');
 
       // ── THE HORN ───────────────────────────────────────────────────────────
       // The SOUND has no cooldown and must never get one — a horn is meant to be leaned on. The

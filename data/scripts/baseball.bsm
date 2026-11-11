@@ -4,6 +4,9 @@
 @type sports
 @sport baseball
 @sim 3
+# The First Generation: two augmented or mutant players drafted into each club a season
+# (client/shared/deadball-gen1.js). Take the line out, or say off, and the clubs are as they were.
+@firstgen on
 @announcer "Chip Vega"
 # The colour man beside him: a retired pitcher, whose lines air as "Dusty Merriman says" so the
 # TV shows who is talking and the voice seeds off his name (sports/baseball-booth.js).
@@ -1916,11 +1919,33 @@ For the {club}, {star} is the bat to watch, {starSaid}. {next} gets the ball, {n
 Keep an eye on {star} for the {club}, {starSaid}.
 ::endlines
 
+# --- One out away: the half that ends the game, two out, the fielding side ahead. Said
+# --- once, before the pitches. {fielding} is the side in the field, {batting} the side up.
+::lines lastout.up
+Two out in the {inningOrd}. {fielding} are one out from putting this away.
+{batter} is all that stands between the {fielding} and the showers. Two down, {fielding} up {lead}.
+One more out and this is over. {batter} steps in for the {batting}, down to their last.
+::endlines
+
+# --- The last out of the game, called the moment it's made. Beats `final` when the game
+# --- ends on an out in regulation.
+::lines final.out
+And that's the game! Final out, and it's {home} {homeScore}, {away} {awayScore}.
+That's the last out. Ballgame. {leader} take it by {lead}.
+There's the final out, and it's over. {leader} win by {lead}.
+::endlines
+
+# --- The score straight after a walk-off line, which has already said it's over.
+::lines final.walkoff
+Final score: {home} {homeScore}, {away} {awayScore}.
+They'll write that one down. {home} {homeScore}, {away} {awayScore}, and the {home} walk off.
+::endlines
+
 # --- Final ---------------------------------------------------------------------
 ::lines final
 That's the ballgame. Final score: {home} {homeScore}, {away} {awayScore}. {leader} take it by {lead}.
 And it's over after {inningOrd}. {away} {awayScore}, {home} {homeScore}, {leader} on top.
-Ballgame. {leader} win it, {homeScore} to {awayScore}. Somewhere, a bookie is smiling.
+Ballgame. {leader} win it by {lead}. Somewhere, a bookie is smiling.
 Final from the ballpark: {away} {awayScore}, {home} {homeScore}. {leader} get it done.
 ::endlines
 

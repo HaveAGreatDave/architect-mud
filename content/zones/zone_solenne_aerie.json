@@ -7,14 +7,118 @@
   "ambient_theme": "indoors",
   "bg_color": "#1b2733",
   "color": "#e8ddc6",
-  "description": "A members' room glassed on the water side, forty-one floors up, Coldwater bay flat and grey below and weather at eye level. Low leather chairs face outward in ones and twos. A bar along the back wall, no prices. A brass telescope on a stand by the north pane, pointed at the deep water. Step <b>in</b> to the elevator.",
+  "description": "A members' room glassed on the water side, forty-one floors up, Coldwater bay flat and grey below and weather at eye level. Low leather chairs face outward in ones and twos. A bar along the back wall, no prices. A brass telescope on a stand by the north pane, pointed at the deep water. The hall is <b>south</b>.",
   "exits": {
-    "in": "zone_solenne_elevator"
+    "south": "zone_solenne_hall_41"
   },
   "flags": {
     "building_name": "Solenne Residences",
     "floor": "boards",
     "is_interior": true,
+    "room": {
+      "balcony": false,
+      "d": 10,
+      "decor": {
+        "art": [
+          {
+            "at": 2.75,
+            "h": 1.2,
+            "seed": 5,
+            "w": 1.6,
+            "wall": "right",
+            "y": 1.95
+          },
+          {
+            "at": 5.25,
+            "h": 1.2,
+            "seed": 44,
+            "w": 1.6,
+            "wall": "right",
+            "y": 1.95
+          }
+        ],
+        "ceiling": {
+          "band": 0.5,
+          "drop": 0.2,
+          "hex": "#1e262d",
+          "kind": "cove",
+          "trim": "#b8913e"
+        },
+        "downlights": false,
+        "lights": [
+          {
+            "at": [
+              0,
+              5
+            ],
+            "drop": 1.5,
+            "k": 1.6,
+            "r": 0.95,
+            "tiers": 3
+          }
+        ],
+        "plants": [
+          [
+            5.8,
+            0.9,
+            1.05
+          ],
+          [
+            -5.8,
+            9.2,
+            0.95
+          ]
+        ],
+        "sconces": {
+          "points": [
+            [
+              "right",
+              1.5
+            ],
+            [
+              "right",
+              4
+            ],
+            [
+              "right",
+              6.5
+            ],
+            [
+              "back",
+              -4.6
+            ],
+            [
+              "back",
+              -2.2
+            ]
+          ],
+          "y": 1.9
+        },
+        "walls": {
+          "hex": "#4a3324",
+          "kind": "walnut",
+          "on": [
+            "back",
+            "right"
+          ]
+        }
+      },
+      "face": 0,
+      "finish": "fine",
+      "glass": [
+        "front",
+        "left"
+      ],
+      "h": 3.6,
+      "studio": false,
+      "tone": {
+        "accent": "#b8913e",
+        "ceiling": "#1e262d",
+        "trim": "#11161b",
+        "wall": "#27313a"
+      },
+      "w": 13
+    },
     "sanctuary": true
   },
   "grid_x": 0,

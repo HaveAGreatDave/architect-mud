@@ -9,7 +9,12 @@
         0.4,
         1.1
       ],
-      "form": "box"
+      "dress": "orchid",
+      "form": "plinth"
+    },
+    "spot": {
+      "along": -1.85,
+      "wall": "front"
     }
   },
   "hp": null,

@@ -93,7 +93,9 @@ for (const f of seats) {
   if (!rule.test(raw + '\n' + sheets)) {
     fail(`${o.chrome}: no allow-list rule 'body.bigscreen ${o.root} > *:not(…){display:none}' — ${f}'s glass keeps its readouts in big screen`);
   }
-  if (!code.includes('bindBigScreenButton(')) {
+  // seat-ladder.js is the shared way in and out: bindSeatLadder binds ⤢ and ◧, clearSeatRungs leaves
+  // big screen, and releaseSeatLadder does that and gives the sidebar back.
+  if (!code.includes('bindBigScreenButton(') && !code.includes('bindSeatLadder(')) {
     fail(`${o.chrome}: never calls bindBigScreenButton — ${f} has no way into big screen`);
   }
   // ⚠ EVERY CLOSE PATH, NOT "the file mentions it somewhere". cockpit.js has two — the charter
@@ -112,8 +114,8 @@ for (const f of seats) {
   // The two PAGE-level classes are asked of every close in the file, because either seat in a
   // two-seat file can have turned one on: big screen and the sidebar are one state for the whole
   // page rather than one per seat.
-  const owes = [['exitBigScreen(', 'big screen']];
-  if (code.includes('bindSidebarButton(')) owes.push(['setSidebarHidden(', 'the sidebar switch']);
+  const owes = [[['exitBigScreen(', 'clearSeatRungs(', 'releaseSeatLadder('], 'big screen']];
+  if (code.includes('bindSidebarButton(') || code.includes('bindSeatLadder(')) owes.push([['setSidebarHidden(', 'releaseSeatLadder('], 'the sidebar switch']);
 
   const closes = [];
   for (const m of code.matchAll(/^export function (close\w*)\s*\([^)]*\)\s*\{/gm)) {
@@ -122,7 +124,7 @@ for (const f of seats) {
     const body = code.slice(from, end < 0 ? code.length : end);
     closes.push({ name: m[1], body });
     for (const [needs, what] of owes) {
-      if (!body.includes(needs)) fail(`${o.chrome}: ${m[1]}() does not clear ${what} — closing ${f} with it on strands the player`);
+      if (!needs.some((n) => body.includes(n))) fail(`${o.chrome}: ${m[1]}() does not clear ${what} — closing ${f} with it on strands the player`);
     }
   }
 

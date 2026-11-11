@@ -148,6 +148,17 @@
 .fsim-refuel:active{ transform:translateY(1px); }
 .fsim-fuel.can-fuel .fsim-refuel{ display:inline-block; }
 .fsim-fuel.can-fuel.full .fsim-refuel{ opacity:.45; }
+/* engine heat banner: hidden until HOT, with the COOLANT flush button on it (cockpit.js paintHeat) */
+.fsim-heat{ display:none; position:absolute; top:58px; left:50%; transform:translateX(-50%); z-index:7; align-items:center; gap:8px;
+  font:bold 12px/1 monospace; letter-spacing:1.5px; padding:5px 6px 5px 10px; border-radius:5px; background:rgba(8,6,4,.82); border:1px solid #6a4a1a; color:#ffb23e;
+  text-shadow:0 1px 2px rgba(0,0,0,.9); }
+.fsim-heat.on{ display:flex; }
+.fsim-heat-over, .fsim-heat-fire{ color:#ff5b5b; border-color:#8a2a2a; animation:fsimHeatPulse .6s steps(2) infinite; }
+@keyframes fsimHeatPulse{ 50%{ background:rgba(90,10,10,.85); } }
+.fsim-coolbtn{ font:bold 10px/1 monospace; letter-spacing:1px; cursor:pointer; padding:5px 8px; border-radius:4px;
+  background:linear-gradient(180deg,#123a4a,#081a22); border:1px solid #3a9ac0; color:#8fe4ff; }
+.fsim-coolbtn:active{ transform:translateY(1px); }
+.fsim-coolbtn:disabled{ opacity:.4; cursor:default; }
 /* weapons (gunship): master-arm + fire strip, and a centre gun reticle when hot */
 .fsim-weap{ position:absolute; left:8px; bottom:8px; z-index:5; display:none; align-items:center; gap:6px;
   background:rgba(10,8,6,.74); border:1px solid #3a2a12; border-radius:6px; padding:4px 6px; }
@@ -1118,3 +1129,54 @@ body.bigscreen .fsim .ws-label, body.bigscreen .fsim .ws-frame::after{ display:n
 /* The pane has no padding in big screen, so the rounded corner and the inset ring round the
    view are a frame drawn a pixel inside the edge of the screen. */
 body.bigscreen .fsim-view{ border-radius:0; box-shadow:none; }
+
+/* ── THE GLASS CHIPS IN ARCHITECT'S OWN LOOK ───────────────────────────────────────────
+   The DOM readouts over the view match the canvas HUD in windshield.js (drawHud): near-black
+   plates with the top-left and bottom-right corners cut, a coloured spine, letter-spaced
+   captions, and glow only on the text you read. Cyan is the instrument, magenta the pointer,
+   green good, amber and red trouble. The colours are fixed, not --accent, for the reason the
+   toast gives above: a message must not take its legibility from the player's theme. */
+.fsim{ --hud-cy:#28e5ff; --hud-mg:#ff2ec4; --hud-gr:#39ff8f; --hud-am:#ff9a3c; --hud-rd:#ff3b5c;
+  --hud-ink:rgba(5,5,10,.82); --hud-cut:polygon(6px 0,100% 0,100% calc(100% - 6px),calc(100% - 6px) 100%,0 100%,0 6px); }
+.fsim-view{ box-shadow:inset 0 0 0 1px rgba(40,229,255,.22), inset 0 0 28px rgba(0,0,0,.55), 0 0 14px rgba(0,0,0,.6); }
+.fsim-lamp,.fsim-toast,.fsim-viewtag,.fsim-fuel,.fsim-weap,.fsim-dive,.fsim-ckride,.fsim-card,.fsim-tour{
+  border-radius:0; clip-path:var(--hud-cut); }
+.fsim-lamp{ color:var(--hud-rd); background:rgba(30,2,10,.84); border:1px solid var(--hud-rd);
+  padding:4px 12px 4px 14px; font-weight:bold; letter-spacing:3px; text-shadow:0 0 8px var(--hud-rd);
+  box-shadow:inset 3px 0 0 var(--hud-rd); }
+.fsim-toast{ background:var(--hud-ink); border:1px solid rgba(40,229,255,.55); letter-spacing:2px;
+  padding-left:14px; box-shadow:inset 3px 0 0 var(--hud-cy), 0 0 14px rgba(0,0,0,.75); }
+.fsim-viewtag{ background:var(--hud-ink); border:1px solid rgba(255,46,196,.5); color:#ffd6f3;
+  letter-spacing:3px; padding:3px 12px; text-shadow:0 0 6px rgba(255,46,196,.6); }
+.fsim-fuel{ color:var(--hud-gr); background:var(--hud-ink); border:1px solid rgba(150,150,190,.28);
+  padding:4px 8px 4px 10px; letter-spacing:1.5px; box-shadow:inset 2px 0 0 var(--hud-gr); }
+.fsim-fuel-pct{ text-shadow:0 0 6px currentColor; }
+.fsim-fuel.low{ box-shadow:inset 2px 0 0 var(--hud-am); }
+.fsim-fuel.low .fsim-fuel-pct{ color:var(--hud-am); }
+.fsim-fuel.bingo{ box-shadow:inset 2px 0 0 var(--hud-rd); border-color:var(--hud-rd); }
+.fsim-fuel.bingo .fsim-fuel-pct{ color:var(--hud-rd); }
+.fsim-refuel{ border-radius:0; clip-path:var(--hud-cut); background:rgba(57,255,143,.12);
+  border:1px solid var(--hud-gr); color:var(--hud-gr); letter-spacing:1.5px; }
+.fsim-weap{ background:var(--hud-ink); border:1px solid rgba(255,59,92,.35); box-shadow:inset 2px 0 0 var(--hud-rd); padding:4px 7px 4px 9px; }
+.fsim-weap-arm,.fsim-weap-fire{ border-radius:0; clip-path:var(--hud-cut); background:rgba(255,59,92,.06);
+  border:1px solid rgba(255,59,92,.35); color:#ffb3c2; letter-spacing:2px; font-weight:bold; }
+.fsim-weap-arm.hot{ color:#fff; background:rgba(255,59,92,.3); border-color:var(--hud-rd); text-shadow:0 0 6px var(--hud-rd); }
+.fsim-weap-fire.ready{ color:#fff; border-color:var(--hud-rd); text-shadow:0 0 6px var(--hud-rd); }
+.fsim-weap-pips{ color:var(--hud-rd); text-shadow:0 0 6px rgba(255,59,92,.6); }
+.fsim-dive{ background:var(--hud-ink); border:1px solid rgba(255,46,196,.3); letter-spacing:1.5px; box-shadow:inset 2px 0 0 var(--hud-mg); }
+.fsim-dive.near{ border-color:rgba(255,154,60,.6); }
+.fsim-dive.ready{ border-color:var(--hud-mg); box-shadow:inset 2px 0 0 var(--hud-mg), 0 0 12px rgba(255,46,196,.4); }
+.fsim-dive .ok{ color:var(--hud-gr); }
+.fsim-dive .fd-rack{ color:var(--hud-mg); }
+.fsim-ckride,.fsim-tour{ background:rgba(5,5,10,.9); border:1px solid rgba(40,229,255,.35); box-shadow:inset 3px 0 0 var(--hud-cy); }
+.fsim-ckride-hd,.fsim-tour-hd{ color:var(--hud-cy); letter-spacing:2.5px; text-shadow:0 0 8px rgba(40,229,255,.6); }
+.fsim-tour-dot.on{ background:var(--hud-mg); box-shadow:0 0 6px var(--hud-mg); }
+.fsim-tour-btn{ border-radius:0; clip-path:var(--hud-cut); letter-spacing:1.5px; }
+.fsim-tour-next{ background:rgba(255,46,196,.16); border-color:var(--hud-mg); }
+.fsim-card{ background:rgba(5,5,10,.9); border:1px solid rgba(40,229,255,.35); }
+.fsim-card-hd{ color:var(--hud-cy); letter-spacing:4px; }
+.fsim-card.butter .fsim-card-grade{ color:var(--hud-gr); }
+.fsim-card.good .fsim-card-grade{ color:var(--hud-cy); }
+.fsim-card.bad .fsim-card-grade{ color:var(--hud-am); }
+.fsim-card.crash{ border-color:var(--hud-rd); }
+.fsim-card.crash .fsim-card-grade{ color:var(--hud-rd); }

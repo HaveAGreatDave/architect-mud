@@ -72,7 +72,7 @@
     "\"They come for the pantry, mostly. That's what a place like this is for, when it's working.\"",
     "checks the boiler, listens to it, and writes something small in a notebook."
   ],
-  "description": "An old man in a cassock gone shiny at the elbows, with the build of somebody who was once much larger and the stillness of one who has learned it's usually enough. His hands are steady. He watches the door the way people who remember a different city watch doors, which is to say without appearing to.",
+  "description": "An old man in a black cassock of printed weave that sheds rain and never needs ironing, gone shiny at the elbows anyway. The white tab at his throat is a smart collar he keeps switched off. A Guillotines pendant hangs on a chain over his heart, enamel worn at the edges. He watches the door without appearing to.",
   "dialogue_tree": {
     "aboutneil": {
       "options": [
@@ -316,10 +316,70 @@
       "\"There's tea, and there's a chair, and the pair of you have gone very quiet.\""
     ],
     "clothing_layers": [
-      "a black cassock gone shiny at the elbows, buttoned to the throat",
-      "a plain clerical shirt with a collar that has been replaced more than once",
+      "a black cassock in a printed self-cleaning weave, thirty-three cloth-covered buttons to the throat, shiny at the elbows regardless",
+      "a grey clerical shirt with a smart white tab collar, its notification light taped over",
+      "a black fascia sash with a pocket stitched in for a tablet",
+      "a steel chain with a St Garneau Guillotines pendant: a red C round a little guillotine on a white enamel disc rimmed in navy, worn where his thumb finds it",
       "stout black shoes, polished, resoled twice"
     ],
+    "figure": {
+      "age": 0.85,
+      "beard": 0.15,
+      "brow": 0.95,
+      "build": "older",
+      "cut": "cassock",
+      "fabric_legs": "plain",
+      "fabric_shoes": "leather",
+      "fabric_top": "plain",
+      "facial": "clean",
+      "gear": false,
+      "hair": [
+        196,
+        192,
+        184
+      ],
+      "hair_style": 1,
+      "head": 0,
+      "height": 1.72,
+      "iris": [
+        110,
+        120,
+        130
+      ],
+      "legs": [
+        18,
+        18,
+        20
+      ],
+      "mouth": 0.92,
+      "shirt": [
+        24,
+        24,
+        28
+      ],
+      "shoes": [
+        16,
+        14,
+        14
+      ],
+      "skin": [
+        224,
+        186,
+        164
+      ],
+      "smile": 0,
+      "top": [
+        20,
+        20,
+        24
+      ],
+      "trim": [
+        236,
+        236,
+        230
+      ],
+      "weight": 0.35
+    },
     "personality": "preacher",
     "preshow_act": {
       "after": [

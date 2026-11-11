@@ -2024,7 +2024,7 @@ it; the two meanings never overlap because the two views never do.
 
 **Fullscreen buys road, not dash.** The shelf is a flex row and a taller window fed it as readily
 as it fed the glass, which is backwards — the reason to go fullscreen is the view. At
-`body.cab-fullscreen` the controls stop being a shelf and become a HUD absolutely positioned over
+`body.seat-fullscreen` the controls stop being a shelf and become a HUD absolutely positioned over
 the bottom of a windscreen that now runs the full viewport. The renderer's camera is untouched and
 does not need touching: it fills the canvas it is given.
 
@@ -4921,8 +4921,9 @@ remaining plan:
   freight is a Coldwater-only rung. It is content, not code — a `loading_dock` flag on a street tile.
 - **A trailer you can steal.** Ownership is the one place trucking currently says no on grounds
   other than physics; an unattended box at a lawless yard arguably should not be safe.
-- **The hover rigs.** The four trucks draw from mesh files now, and the Courier 2076 is on sale at the
-  bench (`rig edition`). The Continental, Drayman and Barrow are next, in [proposals/hover-rigs.md](proposals/hover-rigs.md).
+- **The hover rigs.** The four trucks draw from mesh files now, and every one has a 2076 body and cab on
+  sale at the bench (`rig edition`). Trailer bodies and retiring `buildTruck` are next, in
+  [proposals/hover-rigs.md](proposals/hover-rigs.md).
 - **The Coldwater checkpoint recipe.** `flags.checkpoint_cfg` on the yard would search the DRIVER on
   foot, complementing the scale that weighs the trailer. It is a content recipe, not a build.
 

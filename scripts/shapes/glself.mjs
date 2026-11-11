@@ -213,7 +213,8 @@ const KNOWN = new Map([
   // `hf_highsite`'s climbing crane are masts and lattice standing inside their own drums, the case
   // the reason below already names. Three models, 373 → 376; nothing else moved.
   // 648 → 658 is `named:1riverroad`, one of the Hughson towers (docs/proposals/hughson-towers.md):
-  // `hf_skylink` a second time on the River Road, so its link rails count twice. Same strokes, same
+  // `hf_skylink` a second time on the River Road, so its link rails count twice (since 2026-11-09
+  // on `named:halcyonheights`, the same model moved up the ridge). Same strokes, same
   // reason, and the rest of the rise had already been paid down since 648 was set.
   ['stroke', { budget: 658, why:
    'masts, fire stairs, catwalk rails and guy wires are authored INSIDE the host they hang off — a '

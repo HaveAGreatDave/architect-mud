@@ -10,6 +10,13 @@
     "floor": "boards",
     "is_building": true,
     "is_interior": true,
+    "room": {
+      "w": 12,
+      "d": 9,
+      "h": 3.4,
+      "studio": false,
+      "balcony": false
+    },
     "window": {
       "description": "The whole perimeter, canted off the grid by the twist, so no window frames a street square-on. The Basin to the north, the Curtain to the south, and between them the quarter with its lights on in the wrong places.",
       "light": 0.95,

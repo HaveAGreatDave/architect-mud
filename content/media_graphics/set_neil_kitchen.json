@@ -1,0 +1,10 @@
+{
+  "content": "{\n \"kind\": \"set\",\n \"format\": 1,\n \"id\": \"set_neil_kitchen\",\n \"name\": \"Neil McManistan Basement Kitchen\",\n \"base\": \"tpl_kitchen\",\n \"brand\": {\n  \"name\": \"COOKING SHIT\",\n  \"colour\": \"#ffe070\"\n },\n \"broadcasts\": [\n  \"bc_cooking_shit_neil\"\n ],\n \"palette\": {\n  \"floor\": \"#2a2a28\",\n  \"wall\": \"#4a4842\",\n  \"trim\": \"#2a2622\",\n  \"desk\": \"#3a3a36\",\n  \"deskTop\": \"#8a8478\",\n  \"outside\": \"#101418\"\n },\n \"parts\": {\n  \"sign\": {\n   \"panel\": \"#7a6040\",\n   \"glow\": 1.1\n  },\n  \"back_wall\": {\n   \"window\": 3.6,\n   \"door\": \"\"\n  },\n  \"plant\": null,\n  \"grid\": null\n },\n \"lamps\": [\n  {\n   \"p\": [\n    0,\n    3.4,\n    5\n   ],\n   \"k\": 2.2\n  },\n  {\n   \"p\": [\n    -3,\n    3.2,\n    6\n   ],\n   \"k\": 1\n  }\n ],\n \"description\": \"Cooking Shit With Neil on the kitchen template: a basement, a bare bulb grid, a cardboard sign.\"\n}",
+  "created_at": "1794108637",
+  "description": "Cooking Shit With Neil on the kitchen template: a basement, a bare bulb grid, a cardboard sign.",
+  "id": "set_neil_kitchen",
+  "name": "Neil McManistan Basement Kitchen",
+  "tags": [],
+  "type": "set",
+  "updated_at": "1794108921"
+}

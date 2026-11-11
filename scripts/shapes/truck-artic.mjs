@@ -94,8 +94,10 @@ export function truckArticSmoke(paintWindshield, stubCanvas, ID, variants = ['sc
     const plain = () => Array.from({ length: N }, () => Array.from({ length: N }, () => ({ kind: 'land', biome: 'freight', flr: 0 })));
     const out = [];
     for (const t of variants) {
+      // `+t` goes straight after the type, ahead of an edition's `~e`: hauler+t~e2076, not hauler~e2076+t.
+      const hitched = t.replace(/^[a-z]+/, (type) => type + '+t');
       const base = { heading: 0, speed: 10, hour: 13, weather: 'clear', cls: 'truck', phase: 'ground',
-        worldBlend: 1, height: 0, resFloor: 1, variant: `${t}+t`, external: true, extYaw: 0.2, extPitch: 0.3,
+        worldBlend: 1, height: 0, resFloor: 1, variant: hitched, external: true, extYaw: 0.2, extPitch: 0.3,
         extZoom: 1.1, map: plain(), mapCenter: { x: 0, y: 0 }, acX: 0, acY: 0, mapOffset: { x: 0, y: 0 },
         livery: { base: '#f2b01e', deck: '#f000f0', trim: '#f2b01e', hw: '#23262b', pattern: 'truck:none', finish: 'satin' } };
       const run = (o) => { const r = recorder(); el.getContext = () => r.ctx; paintWindshield(ID, { ...base, ...o }); return boxOnly(r.polys); };
@@ -120,7 +122,7 @@ export function truckArticSmoke(paintWindshield, stubCanvas, ID, variants = ['sc
       // sleeper at about twelve degrees, which is ordinary steering, and the trailer went through
       // the back of the cab. The clearance is derived from the swing now (`frameBack`), so this
       // asserts the relation rather than a number.
-      const m = truckMeta(`${t}+t:1`);
+      const m = truckMeta(`${hitched}:1`);
       const reach = m ? m.pin + m.boxHalf * Math.sin(CLEAR_DEG * Math.PI / 180) : Infinity;
       out.push({ variant: t, clears: m ? reach <= m.cabBack : false, margin: m ? m.cabBack - reach : 0,
         joint: drift(welded, straight), swing: drift(straight, bent),

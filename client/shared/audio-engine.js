@@ -1516,9 +1516,140 @@
 
   function buildSound(config, destination, time, holdSeconds) {
     const layers = Array.isArray(config.layers) && config.layers.length ? config.layers : [config];
+    if (layers.some((l) => l.sample)) return buildSampled(layers, destination, time, holdSeconds);
     const releases = layers.map(l => buildLayer(l, destination, time, holdSeconds));
     // gainNode (for setLoopGain) is the first layer's only.
     return { release: (t) => releases.forEach(r => r.release(t)), gainNode: releases[0]?.gainNode };
+  }
+
+  // ── Sample layers: a recording inside a cue ───────────────────────────────────────────────────
+  // `{ sample: id, gain, adsr, rate, detune, filter, pan, loop: [a, b], offset, length }`. `sample` is
+  // an audio_samples id (the field recordings are client/shared/field-recordings.js). A layer marked
+  // `alt: true` is the synth stand-in: it plays only while the recording isn't decoded yet (first
+  // use, or no network in a gate), so a cue is never silent. A loop that started on its stand-ins
+  // crossfades to the recording when it arrives. The recording is played as it is: no SNES crush.
+  // see docs/systems-procedural-audio.md#field-recordings
+  const _field = new Map();   // id -> AudioBuffer | Promise | false (failed)
+  function fieldBuffer(id) {
+    const b = _field.get(id);
+    return b instanceof Promise || b === false ? null : (b || null);
+  }
+  function loadField(id) {
+    if (_field.has(id)) { const b = _field.get(id); return b instanceof Promise ? b : Promise.resolve(b || null); }
+    const c = ensureContext();
+    if (!c || typeof fetch !== 'function' || typeof atob !== 'function') { _field.set(id, false); return Promise.resolve(null); }
+    const p = fetch(`/api/audio/samples/${encodeURIComponent(id)}/data`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((j) => {
+        let data = j?.data;
+        if (!data) return null;
+        const comma = data.indexOf(',');
+        if (comma !== -1 && comma < 80) data = data.slice(comma + 1);
+        const bytes = Uint8Array.from(atob(data), (ch) => ch.charCodeAt(0));
+        return c.decodeAudioData(bytes.buffer);
+      })
+      .then((buf) => { _field.set(id, buf || false); return buf || null; })
+      .catch(() => { _field.set(id, false); return null; });
+    _field.set(id, p);
+    return p;
+  }
+  // Fetch and decode ahead of need, so a call isn't a stand-in the first time.
+  function preloadSamples(ids) { return Promise.all((ids || []).map(loadField)); }
+
+  function buildSampleLayer(layer, destination, time, holdSeconds) {
+    const buf = fieldBuffer(layer.sample);
+    if (!buf) return null;
+    if (layer.delay) time += layer.delay;
+    let dest = destination;
+    if (Number.isFinite(layer.pan) && layer.pan !== 0 && ctx.createStereoPanner) {
+      const p = ctx.createStereoPanner();
+      p.pan.value = Math.max(-1, Math.min(1, layer.pan));
+      p.connect(dest);
+      dest = p;
+    }
+    const gain = ctx.createGain();
+    gain.connect(dest);
+    let into = gain;
+    if (layer.filter?.freq) {
+      const f = ctx.createBiquadFilter();
+      f.type = layer.filter.type || 'lowpass';
+      f.frequency.value = layer.filter.freq;
+      f.Q.value = layer.filter.q ?? 0.7;
+      f.connect(gain);
+      into = f;
+      if (_dopSink) _dopSink.push(f.detune);
+    }
+    const src = ctx.createBufferSource();
+    src.buffer = buf;
+    src.playbackRate.value = layer.rate > 0 ? layer.rate : 1;
+    if (layer.detune) src.detune.value = layer.detune;
+    if (_dopSink) _dopSink.push(src.detune);
+    src.connect(into);
+    const adsr = layer.adsr || { a: 0.005, d: 0, s: 1, r: 0.08 };
+    const a = adsr.a ?? 0.005, r = Math.max(0.02, adsr.r ?? 0.08), peak = layer.gain ?? 1;
+    gain.gain.setValueAtTime(0, time);
+    gain.gain.linearRampToValueAtTime(peak, time + a);
+    const lp = Array.isArray(layer.loop) ? layer.loop : null;
+    let offset = Number(layer.offset) || 0, stopAt = null;
+    if (lp) {
+      src.loop = true;
+      src.loopStart = lp[0];
+      src.loopEnd = Math.min(lp[1], buf.duration);
+      // a loop starts somewhere in itself, so two copies never phase
+      if (layer.offset == null) offset = lp[0] + Math.random() * (src.loopEnd - lp[0]);
+    } else {
+      const len = layer.length > 0 ? layer.length : buf.duration - offset;
+      stopAt = time + len / src.playbackRate.value;
+      gain.gain.setValueAtTime(peak, Math.max(time + a, stopAt - r));
+      gain.gain.linearRampToValueAtTime(0, stopAt);
+    }
+    src.start(time, Math.max(0, Math.min(offset, buf.duration - 0.01)));
+    if (stopAt != null) src.stop(stopAt + 0.02);
+    let released = false;
+    function release(at) {
+      if (released) return;
+      released = true;
+      const t = Math.max(at, ctx.currentTime);
+      if (stopAt != null && t >= stopAt) return;
+      gain.gain.cancelScheduledValues(t);
+      gain.gain.setValueAtTime(t <= time + a ? 0 : peak, t);
+      gain.gain.linearRampToValueAtTime(0, t + r);
+      try { src.stop(t + r + 0.02); } catch { /* already stopping */ }
+    }
+    if (holdSeconds != null && lp) release(time + a + (adsr.d ?? 0) + holdSeconds);
+    return { release, gainNode: gain };
+  }
+
+  // A cue with sample layers: the recordings if they're decoded, else the `alt` stand-ins.
+  function buildSampled(layers, destination, time, holdSeconds) {
+    const samples = layers.filter((l) => l.sample);
+    const alts = layers.filter((l) => !l.sample && l.alt);
+    const rest = layers.filter((l) => !l.sample && !l.alt);
+    // one node over all of it, so setLoopGain moves the recording and the stand-ins alike
+    const sum = ctx.createGain();
+    sum.connect(destination);
+    const ready = samples.every((l) => fieldBuffer(l.sample));
+    const live = rest.map((l) => buildLayer(l, sum, time, holdSeconds));
+    let parts = ready ? samples.map((l) => buildSampleLayer(l, sum, time, holdSeconds)) : alts.map((l) => buildLayer(l, sum, time, holdSeconds));
+    let released = false;
+    if (!ready) {
+      const wait = Promise.all(samples.map((l) => loadField(l.sample)));
+      // a loop changes over when the recording arrives; a one-shot is over by then
+      if (holdSeconds == null && !_rendering) {
+        const realCtx = ctx;
+        wait.then(() => {
+          if (released || ctx !== realCtx || !samples.every((l) => fieldBuffer(l.sample))) return;
+          const now = ctx.currentTime;
+          const fresh = samples.map((l) => buildSampleLayer({ ...l, adsr: { ...(l.adsr || {}), a: Math.max(1.5, l.adsr?.a ?? 0) } }, sum, now, null));
+          for (const p of parts) p?.release(now + 0.3);
+          parts = fresh;
+        });
+      }
+    }
+    return {
+      release: (t) => { released = true; for (const p of [...live, ...parts]) p?.release(t); },
+      gainNode: sum,
+    };
   }
 
   // Samples: fetched once, decoded, downsampled to snes_rate, bit-crushed, cached by id.
@@ -2076,10 +2207,10 @@
   }
 
   // Bypasses the voice pool: a sparkle must never steal from its own bed.
-  function _playAmbientOneShot(layers, duration, gainMult, category) {
+  function _playAmbientOneShot(layers, duration, gainMult, category, into = null) {
     const c = ctx;
     if (!c) return;
-    let destination = busFor(category === 'tv' ? 'tv' : 'ambient');
+    let destination = into || busFor(category === 'tv' ? 'tv' : 'ambient');
     if (gainMult != null && gainMult !== 1) {
       const g = c.createGain();
       g.gain.value = gainMult;
@@ -2091,7 +2222,9 @@
 
   // Random one-shots over a bed. spec: { everyMin, everyMax, prob, gain, duration, jitter, layers }.
   // Returns cancel functions.
-  function _startSparkles(sparkles, category) {
+  // `into`: the loop's own `whole` gain node, so the one-shots ride the bed's level (a muffled bed's
+  // drips are muffled too) instead of landing on the bus at full.
+  function _startSparkles(sparkles, category, into = null) {
     const cancels = [];
     for (const spec of sparkles) {
       let timer = null;
@@ -2105,7 +2238,7 @@
           if (!alive) return;
           if (Math.random() < (spec.prob ?? 1)) {
             const g = (spec.gain ?? 1) * (0.7 + Math.random() * 0.6);
-            _playAmbientOneShot(_jitterLayers(spec.layers || [], spec.jitter ?? 0.12), spec.duration, g, category);
+            _playAmbientOneShot(_jitterLayers(spec.layers || [], spec.jitter ?? 0.12), spec.duration, g, category, into);
           }
           schedule();
         }, wait);
@@ -2136,18 +2269,21 @@
     const bus = cueBus(loopCat, def.config?.send);
     const sp = spatialOpen(bus, opts, def.config);
     let into = sp ? sp.input : bus, whole = null;
-    if (opts.whole) {
+    // A def can ask for `whole` itself (`config.whole: true`), for a server-sent bed whose level the
+    // server rides with audio_loop_gain. It starts silent and that first loop gain fades it in.
+    const wholeDef = !!def.config?.whole && !opts.whole;
+    if (opts.whole || wholeDef) {
       whole = c.createGain();
-      whole.gain.setValueAtTime(Math.max(0, Math.min(1, Number.isFinite(opts.gain) ? opts.gain : 1)), time);
+      whole.gain.setValueAtTime(wholeDef ? 0 : Math.max(0, Math.min(1, Number.isFinite(opts.gain) ? opts.gain : 1)), time);
       whole.connect(into);
       into = whole;
     }
     const sound = _buildPositioned(sp, () => buildSound(def.config || {}, into, time, null));
     const baseGain = whole ? 1 : def.config?.gain ?? 1;
     const sparkleCancels = Array.isArray(def.config?.sparkle) && def.config.sparkle.length
-      ? _startSparkles(def.config.sparkle, def.category)
+      ? _startSparkles(def.config.sparkle, def.category, whole)
       : null;
-    const entry = { voiceIdx: idx, release: sound.release, gainNode: whole || sound.gainNode, baseGain, sparkleCancels, sp };
+    const entry = { voiceIdx: idx, release: sound.release, gainNode: whole || sound.gainNode, baseGain, sparkleCancels, sp, fraction: 1 };
     activeLoops.set(id, entry);
     entry.voiceToken = occupyVoice(idx, priority, () => { sound.release(c.currentTime); if (sparkleCancels) sparkleCancels.forEach(fn => fn()); activeLoops.delete(id); _closeLater(sp); });
   }
@@ -2176,9 +2312,10 @@
 
   // fraction 0-1 of the loop's own gain. ⚠ Must cancel scheduled values first,
   // or the loop's attack/decay ramp snaps gain back to sustain.
-  function setLoopGain(id, fraction, rampSeconds = 0.05) {
+  function setLoopGain(id, fraction, rampSeconds = 0.05, _duck = false) {
     const loop = activeLoops.get(id);
     if (!loop?.gainNode) return;
+    if (!_duck) loop.fraction = Math.max(0, Math.min(1, fraction));
     const target = loop.baseGain * Math.max(0, Math.min(1, fraction));
     const now = ctx.currentTime;
     const g = loop.gainNode.gain;
@@ -2566,9 +2703,11 @@
 
   // Dip a loop's gain briefly, then swell back.
   function duckLoop(id, fraction = 0.35, holdSeconds = 0.9, rampSeconds = 0.08) {
-    if (!activeLoops.has(id)) return;
-    setLoopGain(id, fraction, rampSeconds);
-    setTimeout(() => { if (activeLoops.has(id)) setLoopGain(id, 1, 0.4); }, holdSeconds * 1000);
+    const loop = activeLoops.get(id);
+    if (!loop) return;
+    // a duck is a fraction OF the loop's level, and it comes back to that level, not to full
+    setLoopGain(id, fraction * (loop.fraction ?? 1), rampSeconds, true);
+    setTimeout(() => { const l = activeLoops.get(id); if (l) setLoopGain(id, l.fraction ?? 1, 0.4, true); }, holdSeconds * 1000);
   }
 
   // Master-bus echo send (the cannabis high). Wet only; the dry path is untouched.
@@ -2648,6 +2787,14 @@
       ERR:{f:[490,1350,2350],t:'V',d:165},
       // RP GOAT /əʊ/: GA's OW offglide from a central start
       OWR:{f:[500,1400,2350], to:[440,950,2350], t:'V',d:180},
+      // Rural Canadian ('can'), pushed for comedy. AWC/AYC: Canadian raising before a
+      // voiceless consonant, the nucleus lifted to mid and backed, so "about" lands near
+      // "aboot" and "ice" near "uh-ees". OWC/EYC: the Prairie and Valley near-monophthong
+      // GOAT and FACE ("oh" and "eh" held pure).
+      AWC:{f:[470,980,2350], to:[350,820,2250], t:'V',d:175},
+      AYC:{f:[560,1300,2450], to:[400,1950,2600], t:'V',d:170},
+      OWC:{f:[450,820,2400], to:[420,780,2350], t:'V',d:185},
+      EYC:{f:[440,1980,2560], to:[400,2080,2620], t:'V',d:180},
       // ⚠ Offglides stop well short of /i/ or /u/; gliding all the way closes the
       // vowel off like a consonant ("no" heard as "num").
       EY:{f:[530,1840,2480],to:[370,2150,2700],t:'V',d:170},
@@ -2674,6 +2821,8 @@
       T:{t:'S',d:90,nf:4600,vd:0,lf:ALV,asp:65,bq:1.2,bd:12,bg:1.3}, D:{t:'S',d:80,nf:4000,vd:.4,lf:ALV,asp:10,bq:1.2,bd:10,bg:0.8},
       K:{t:'S',d:90,nf:2000,vd:0,lf:VEL,asp:75,bq:3.5,bd:22,bg:1.8}, G:{t:'S',d:80,nf:1800,vd:.4,lf:VEL,asp:14,bq:3.5,bd:18,bg:1.1},
       // Flap: a stop (for the loci) with a voiced tap's timing.
+      // glottalised final /t/ before a consonant ("tha' man"): held, never released
+      TQ:{t:'S',d:60,nf:4600,vd:0,lf:ALV,asp:0,bd:0,bg:0,gq:1},
       DX:{t:'S',d:28,nf:2600,vd:.7,lf:ALV,asp:0,bg:0.15},
       // Pauses. A word gap is barely a gap; each punctuation break has its own
       // length. `term` ends a phrase (re-pitch, declination reset).
@@ -2841,7 +2990,7 @@
     // initialism → lexicon → hand dict → CMU → suffix → compound → letter rules.
     // ⚠ Degemination belongs on the OUTPUT: doubles are made where sequences
     // join (table+land), which g2p never sees. Consonants only.
-    const DEGEM_VOWEL = /^(AA|AE|AH|AO|AW|AY|EH|ER|EY|IH|IY|OW|OY|UH|UW|AX|ERR|OWR)$/;
+    const DEGEM_VOWEL = /^(AA|AE|AH|AO|AW|AY|EH|ER|EY|IH|IY|OW|OY|UH|UW|AX|ERR|OWR|AWC|AYC|OWC|EYC)$/;
     function pronounceWord(w){
       const ph = pronounceWordRaw(w);
       if (!Array.isArray(ph) || ph.length < 2) return ph;
@@ -2853,6 +3002,11 @@
       // Initialisms, first and off the raw token (case is the evidence). ⚠ ALL-CAPS
       // is also a shout, so only an UNKNOWN, short, vowel-poor word is spelled.
       const rawLetters = String(w).replace(/[^A-Za-z]/g, '');
+      // A lone capital is a letter name ("Charles B. Hughson", "Plan B"); A and I are words.
+      if (rawLetters.length === 1 && /[B-HJ-Z]/.test(rawLetters)) {
+        const spelled = spellOut(rawLetters.toLowerCase());
+        if (spelled) return spelled;
+      }
       if (rawLetters.length >= 2 && rawLetters.length <= 5 && rawLetters === rawLetters.toUpperCase()) {
         const low = rawLetters.toLowerCase();
         const vowels = (low.match(/[aeiouy]/g) || []).length;
@@ -3102,12 +3256,88 @@ return out;
     // ER to ERR, OW to OWR, and TRAP-BATH backing.
     // see docs/systems-procedural-audio.md#rp-grew-a-linking-r-and-a-goat
     const RP_BATH_FOLLOW = new Set(['F','TH','S','N','M','NG']);
-    const VOWELS = new Set(['IY','IH','EH','AE','AA','AO','UH','UW','ER','ERR','AH','AX','EY','AY','OW','OY','AW']);
+    const VOWELS = new Set(['IY','IH','EH','AE','AA','AO','UH','UW','ER','ERR','AH','AX','EY','AY','OW','OY','AW','AWC','AYC','OWC','EYC']);
 
     // The next sound, skipping stress markers.
     const nextSound = (phon, k) => { while (isMark(phon[k])) k++; return phon[k]; };
 
+    // 'can': rural Canadian, deliberately overdone (Letterkenny, Trailer Park Boys,
+    // the Ottawa Valley). Rhotic and flapped like GA. On the phonemes:
+    //   raising    AW, AY before a voiceless consonant in the same word: AWC, AYC
+    //   GOAT/FACE  OW, EY held near-pure: OWC, EYC
+    //   cot-caught AO merges into AA (not before R: "north" keeps its vowel)
+    //   bag        AE before G or NG goes to EY ("bayg", "drayg")
+    //   dese/dose  DH starting a word stops to D (Valley and Maritimes)
+    //   g-dropping an unstressed word-final IH NG ends IH N ("fuckin")
+    // Words and the "eh" tag are in CAN_LEX and canText.
+    // see docs/systems-procedural-audio.md#rural-canadian-can
+    const CAN_VOICELESS = new Set(['P','T','K','F','TH','S','SH','CH','HH']);
+    function applyCanadian(phon){
+      const out = [];
+      for (let i = 0; i < phon.length; i++){
+        const p = phon[i];
+        let n = i+1; while (isMark(phon[n])) n++;
+        const next = phon[n];
+        if ((p === 'AW' || p === 'AY') && CAN_VOICELESS.has(next)) { out.push(p === 'AW' ? 'AWC' : 'AYC'); continue; }
+        if (p === 'OW') { out.push('OWC'); continue; }
+        if (p === 'EY') { out.push('EYC'); continue; }
+        if (p === 'AO' && next !== 'R') { out.push('AA'); continue; }
+        if (p === 'AE' && (next === 'G' || next === 'NG')) { out.push('EYC'); continue; }
+        if (p === 'DH') {
+          let b = out.length - 1; while (b >= 0 && isMark(out[b])) b--;
+          if (b < 0 || isGap(out[b])) { out.push('D'); continue; }
+        }
+        if (p === 'NG' && phon[i-1] === 'IH' && !isMark(phon[i-2]) && (next === undefined || isGap(next))) { out.push('N'); continue; }
+        out.push(p);
+      }
+      return out;
+    }
+    // Words the rules can't reach, said the way the shows say them.
+    const CAN_LEX = {
+      sorry:'S * OW R IY', sorries:'S * OW R IY Z', pasta:'P * AE S T AX', process:'P R * OW S EH S',
+      project:'P R * OW JH EH K T', again:'AX G * EY N', against:'AX G * EY N S T', been:'B * IY N',
+      roof:'R * UH F', garage:'G AX R * AA ZH', drama:'D R * AE M AX', mom:'M * AH M',
+      yeah:'Y * AE', yes:'Y * AE S', eh:'* EY', toque:'T * UW K', buddy:'B * AH DX IY',
+      anyways:'* EH N IY W EY Z', you:'Y AX', your:'Y ER', youre:'Y ER', "you're":'Y ER',
+      just:'JH * IH S', because:'K * AH Z', cause:'K * AH Z', liquor:'L * IH K ER',
+      ain:'* EY N', "ain't":'* EY N T', aint:'* EY N T', fuck:'F * AH K', fuckin:'F * AH K IH N',
+      decent:'D * IY S AX N T', frig:'F R * IH G', friggin:'F R * IH G IH N', boys:'B * OY Z', pal:'P * AE L', bud:'B * AH D',
+      // The joke itself: "aboot", "oot". Other raised words keep AWC.
+      about:'AX B * UW T', out:'* UW T', house:'HH * AWC S', couch:'K * AWC CH',
+    };
+    // Text pass: question tags become "eh", and about half the flat statements grow
+    // one. A line with no closing mark ends a statement too (scripts often leave it
+    // off). Which ones is hashed off the sentence, so a line says it the same way
+    // every time.
+    // Rickyisms (Trailer Park Boys) when a line happens to use the real phrase, then
+    // the grammar of every hick: "them boys", "ain't", "gonna", "was" for "were".
+    const CAN_SWAPS = [
+      [/\bworst case scenario\b/gi, 'worst case Ontario'],
+      [/\bkill two birds with one stone\b/gi, 'get two birds stoned at once'],
+      [/\bsupply and demand\b/gi, 'supply and command'],
+      [/\bsurvival of the fittest\b/gi, 'survival of the fitness'],
+      [/\bpast the point of no return\b/gi, 'past the point of no returns'],
+      [/\bfor all intents and purposes\b/gi, 'for all intensive purposes'],
+      [/\bwhat comes around goes around\b/gi, 'what comes around is all around'],
+      [/\bgoing to\b/gi, 'gonna'], [/\bwant to\b/gi, 'wanna'], [/\bgot to\b/gi, 'gotta'],
+      [/\b(?:isn'?t|aren'?t|am not)\b/gi, "ain't"],
+      [/\bthose (?=\w)/gi, 'them '],
+      [/\b(we|you|they) were\b/gi, '$1 was'],
+      [/\bnothing\b/gi, 'nothin'], [/\bsomething\b/gi, 'somethin'],
+    ];
+    function canText(text){
+      let t = String(text);
+      for (const [re, to] of CAN_SWAPS) t = t.replace(re, to);
+      // A third of the commas get a hesitation, hashed off what comes before.
+      t = t.replace(/([^,]{6,}),\s+(?!uh\b)/gi, (m, s) => (hashName(s) % 3 === 0 ? s + ', uh, ' : m));
+      return t
+        .replace(/,?\s*\b(?:right|you know|isn'?t it|don'?t you think|huh|yeah)\s*\?/gi, ', eh?')
+        .replace(/([a-z][^.!?]{12,}?)(\.(?=\s|$)|\s*$)/gi, (m, s, end) =>
+          (/\beh\W*$/i.test(s) || hashName(s) % 2 ? m : s + ', eh' + (end.trim() ? '.' : '')));
+    }
+
     function applyAccent(phon, accent){
+      if (accent === 'can') return applyCanadian(phon);
       if (accent !== 'rp') return phon;
       const out = [];
       for (let i = 0; i < phon.length; i++){
@@ -3277,7 +3507,7 @@ return out;
 
     // Per index: the consonants of a word ahead of a rounded vowel or /w/ ("soup",
     // "stew", "swim"). An unrounded vowel or a word gap stops it.
-    const ROUNDED = new Set(['UW', 'UH', 'OW', 'AO', 'OY', 'OWR', 'W']);
+    const ROUNDED = new Set(['UW', 'UH', 'OW', 'AO', 'OY', 'OWR', 'AWC', 'OWC', 'W']);
     function roundAhead(phon) {
       const out = new Array(phon.length).fill(false);
       let carry = false;
@@ -3300,7 +3530,24 @@ return out;
         if (VELAR.has(out[j])) out[i] = 'NG';
         else if (LABIAL.has(out[j])) out[i] = 'M';
       }
-      return elideTD(coalesceYou(out));
+      return glottalT(elideTD(coalesceYou(out)));
+    }
+
+    // Word-final /t/ after a vowel or sonorant, before a word starting with a
+    // consonant, is held on a glottal catch: "that man", "can't go", "felt bad".
+    // Never before /h/, /j/ or a vowel, and never before a break.
+    const TQ_AFTER = new Set(['N', 'L', 'R']);
+    function glottalT(ph) {
+      const out = ph.slice();
+      for (let i = 0; i < out.length; i++) {
+        if (out[i] !== 'T') continue;
+        const a = skipBefore(out, i); if (a < 0 || !(VOWELS.has(out[a]) || TQ_AFTER.has(out[a]))) continue;
+        const b = nextWordStart(out, i); if (b < 0) continue;
+        const nb = PH[out[b]];
+        if (!nb || nb.t === 'P' || nb.t === 'V' || out[b] === 'HH' || out[b] === 'Y') continue;
+        out[i] = 'TQ';
+      }
+      return out;
     }
 
     // Across a word gap, never a break. Skips stress marks both ways.
@@ -3667,49 +3914,49 @@ return out;
       // shade of booth mic: a faint ring and the least grit, no growl and none
       // of the synthetic characters. He reads "Rats – Kings" as "versus".
       'chip vega': {
-        f0: 108, fshift: 0.96, speed: 1.30, ring: 0.04,
-        oq: 0.60,
-        jitter: 0.007, breath: 0.009,
+        f0: 108, fshift: 0.96, speed: 1.30, ring: 0,
+        oq: 0.52,
+        jitter: 0.003, breath: 0.003,
         lilt: 0.095, decl: 0.125,
-        drive: 0.05, growl: 0, growl2: 0,
+        drive: 0, growl: 0, growl2: 0,
         natural: 1, steps: 0, buzz: 0, rmod: 0, rmodHz: 30, crush: 0,
-        vs: true,
+        mic: 0.75, sell: 0.25, f1: 1.04, bright: 1.15, vs: true,
       },
       // Chip's colour man, an old pitcher: lower and slower than Chip, a soft,
       // open, breathy voice with a smoker's wobble, a narrow lilt (he drawls,
       // he doesn't sing) and a long fall at the end of a thought.
       'dusty merriman': {
-        f0: 96, fshift: 0.93, speed: 1.16, ring: 0.03,
-        oq: 0.72,
-        jitter: 0.012, breath: 0.016,
+        f0: 96, fshift: 0.93, speed: 1.16, ring: 0,
+        oq: 0.64,
+        jitter: 0.006, breath: 0.007,
         lilt: 0.06, decl: 0.15,
-        drive: 0.04, growl: 0.025, growl2: 0,
+        drive: 0, growl: 0.025, growl2: 0,
         natural: 1, steps: 0, buzz: 0, rmod: 0, rmodHz: 30, crush: 0,
-        vs: true,
+        mic: 0.55, sell: 0, f1: 1.02, bright: 1.05, vs: true,
       },
       // Cluster Puck's play-by-play man: a tenor that rides up on a rush, quick
       // and pressed, the most lilt in the booth because hockey never stops; a
       // tight voice with a little edge and no breath to spare.
       'tug brennan': {
         f0: 128, fshift: 1.0, speed: 1.42, ring: 0,
-        oq: 0.54,
-        jitter: 0.006, breath: 0.004,
+        oq: 0.48,
+        jitter: 0.003, breath: 0.002,
         lilt: 0.11, decl: 0.11,
         drive: 0, growl: 0, growl2: 0,
         natural: 1, steps: 0, buzz: 0, rmod: 0, rmodHz: 30, crush: 0,
-        vs: true,
+        mic: 0.8, sell: 0.3, f1: 1.05, bright: 1.2, vs: true,
       },
       // Tug's colour man, a big ex-defenceman who's been through the vat four
       // times: the deepest voice in either booth, a broad chest (long tract),
       // unhurried, flat in pitch, with a little gravel from the sub-harmonic.
       'rennie gault': {
         f0: 88, fshift: 0.9, speed: 1.2, ring: 0,
-        oq: 0.62,
-        jitter: 0.009, breath: 0.01,
+        oq: 0.56,
+        jitter: 0.004, breath: 0.003,
         lilt: 0.05, decl: 0.12,
         drive: 0, growl: 0.05, growl2: 0,
         natural: 1, steps: 0, buzz: 0, rmod: 0, rmodHz: 30, crush: 0,
-        vs: true,
+        mic: 0.6, sell: 0, f1: 1.02, bright: 1.08, vs: true,
       },
       // The Tonight Show's host: a talker, not a reader. A warm light baritone at
       // conversational pace (slower than a rolled voice, which rushes), the widest
@@ -3727,17 +3974,133 @@ return out;
       },
       // His announcer: lower and rounder than John (a longer tract), pressed so it
       // carries, unhurried. Less lilt than John (he announces, he doesn't sell) but a
-      // long, sure fall. The faintest ring of a studio mic and nothing synthetic.
+      // long, sure fall. A close studio mic (`mic`) and nothing synthetic.
       'graham mercer': {
-        f0: 97, fshift: 0.93, speed: 1.2, ring: 0.02,
-        oq: 0.58,
-        jitter: 0.006, breath: 0.007,
+        f0: 97, fshift: 0.93, speed: 1.2, ring: 0,
+        oq: 0.52,
+        jitter: 0.003, breath: 0.002,
         lilt: 0.085, decl: 0.14,
         drive: 0, growl: 0, growl2: 0,
         natural: 1, steps: 0, buzz: 0, rmod: 0, rmodHz: 30, crush: 0,
-        vs: false,
+        mic: 0.9, sell: 0.2, f1: 1.04, bright: 1.15, vs: false,
+      },
+      // Cooking Shit and You're Not Gonna Believe This Shit. Ricky from Trailer
+      // Park Boys crossed with every hick you know, and a bit dopey: a real voice, so
+      // full human variation and no synthetic character (drive and buzz read as a
+      // machine). Slower than a rolled voice (he drawls), an open, slack jaw (`f1`)
+      // and a dull, soft source (`bright` under 1, a high open quotient) with air in
+      // it: a mouth-breather. A sing-song lilt that trails off rather than landing
+      // (a small `decl`), and a touch of fry from the sub-harmonic, not gravel.
+      // The accent ('can') does the rest, Rickyisms and the odd "uh" included. No
+      // mic: it's a laptop on a priest's WiFi.
+      'neil mcmanistan': {
+        f0: 112, fshift: 0.98, speed: 1.12, ring: 0,
+        oq: 0.72,
+        jitter: 0.009, breath: 0.014,
+        lilt: 0.11, decl: 0.07,
+        drive: 0, growl: 0.025, growl2: 0,
+        natural: 1, steps: 0, buzz: 0, rmod: 0, rmodHz: 30, crush: 0,
+        mic: 0, sell: 0, f1: 1.07, bright: 0.9, vs: false,
+        accent: 'can',
+      },
+      // Coldwater A.M.'s anchor. A bright, warm morning-TV woman: high pitch with
+      // the tract shortened to match (fshift), a soft open source with some air
+      // in it, and a wide sing-song lilt that sells every line. A light studio mic.
+      'bijou pace': {
+        f0: 212, fshift: 1.18, speed: 1.2, ring: 0,
+        oq: 0.74,
+        jitter: 0.004, breath: 0.012,
+        lilt: 0.13, decl: 0.1,
+        drive: 0, growl: 0, growl2: 0,
+        natural: 1, steps: 0, buzz: 0, rmod: 0, rmodHz: 30, crush: 0,
+        mic: 0.5, sell: 0.25, f1: 1.03, bright: 1.08, vs: false,
+      },
+      // The other desks get the booth treatment too: authored, so the dice can't hand
+      // a presenter ring mod or grit. No drive, ring or character on any of them.
+      // Raptor News's anchor: a big, pressed, sure baritone that sells outrage on
+      // every line, hot in the mic.
+      'brick hardline': {
+        f0: 100, fshift: 0.94, speed: 1.24, ring: 0,
+        oq: 0.5,
+        jitter: 0.003, breath: 0.002,
+        lilt: 0.1, decl: 0.14,
+        drive: 0, growl: 0.02, growl2: 0,
+        natural: 1, steps: 0, buzz: 0, rmod: 0, rmodHz: 30, crush: 0,
+        mic: 0.9, sell: 0.4, f1: 1.05, bright: 1.2, vs: false,
+      },
+      // His co-anchor: the pretty blonde, a high, bright newsreader voice, pressed and quick.
+      'chastity vale': {
+        f0: 238, fshift: 1.22, speed: 1.24, ring: 0,
+        oq: 0.6,
+        jitter: 0.003, breath: 0.004,
+        lilt: 0.1, decl: 0.12,
+        drive: 0, growl: 0, growl2: 0,
+        natural: 1, steps: 0, buzz: 0, rmod: 0, rmodHz: 30, crush: 0,
+        mic: 0.8, sell: 0.3, f1: 1.03, bright: 1.15, vs: false,
+      },
+      // The network's promo voice: the deepest, slowest read on the channel, all chest.
+      'the voice of raptor': {
+        f0: 82, fshift: 0.88, speed: 1.08, ring: 0,
+        oq: 0.54,
+        jitter: 0.003, breath: 0.002,
+        lilt: 0.07, decl: 0.16,
+        drive: 0, growl: 0.04, growl2: 0,
+        natural: 1, steps: 0, buzz: 0, rmod: 0, rmodHz: 30, crush: 0,
+        mic: 1, sell: 0.35, f1: 1.03, bright: 1.1, vs: false,
+      },
+      // DOOMCAST: a weatherman reading the end of the world in a level voice.
+      'dex rime': {
+        f0: 104, fshift: 0.96, speed: 1.18, ring: 0,
+        oq: 0.56,
+        jitter: 0.004, breath: 0.004,
+        lilt: 0.06, decl: 0.15,
+        drive: 0, growl: 0, growl2: 0,
+        natural: 1, steps: 0, buzz: 0, rmod: 0, rmodHz: 30, crush: 0,
+        mic: 0.7, sell: 0, f1: 1.02, bright: 1.08, vs: false,
+      },
+      // Jackpot Protocol: a warm game-show host who believes in it.
+      'marisa okoye': {
+        f0: 188, fshift: 1.13, speed: 1.24, ring: 0,
+        oq: 0.66,
+        jitter: 0.004, breath: 0.006,
+        lilt: 0.12, decl: 0.11,
+        drive: 0, growl: 0, growl2: 0,
+        natural: 1, steps: 0, buzz: 0, rmod: 0, rmodHz: 30, crush: 0,
+        mic: 0.65, sell: 0.3, f1: 1.03, bright: 1.1, vs: false,
+      },
+      // The Last Lot: a shopping-channel pitchman, quick and bright, always selling.
+      'emory vosk': {
+        f0: 118, fshift: 0.98, speed: 1.32, ring: 0,
+        oq: 0.54,
+        jitter: 0.004, breath: 0.004,
+        lilt: 0.12, decl: 0.1,
+        drive: 0, growl: 0, growl2: 0,
+        natural: 1, steps: 0, buzz: 0, rmod: 0, rmodHz: 30, crush: 0,
+        mic: 0.7, sell: 0.45, f1: 1.04, bright: 1.15, vs: false,
+      },
+      // Coldwater A.M.'s other half: a flat, even reader of numbers.
+      'hal dorn': {
+        f0: 110, fshift: 0.97, speed: 1.18, ring: 0,
+        oq: 0.58,
+        jitter: 0.004, breath: 0.005,
+        lilt: 0.06, decl: 0.13,
+        drive: 0, growl: 0, growl2: 0,
+        natural: 1, steps: 0, buzz: 0, rmod: 0, rmodHz: 30, crush: 0,
+        mic: 0.5, sell: 0, f1: 1.02, bright: 1.05, vs: false,
+      },
+      // The Quiet Hour's CONTROL VOICE: slow, still and close on the mic, no sell.
+      'leland vey': {
+        f0: 94, fshift: 0.92, speed: 1.04, ring: 0,
+        oq: 0.56,
+        jitter: 0.002, breath: 0.004,
+        lilt: 0.04, decl: 0.12,
+        drive: 0, growl: 0, growl2: 0,
+        natural: 1, steps: 0, buzz: 0, rmod: 0, rmodHz: 30, crush: 0,
+        mic: 0.9, sell: 0, f1: 1, bright: 1.02, vs: false,
       },
     };
+    // On air he's billed by his role, so a caption may name him either way.
+    NAMED_VOICES['the control voice'] = NAMED_VOICES['control'] = NAMED_VOICES['leland vey'];
 
     function voiceFromName(name){
       const r = mulberry32(hashName(name)); const pick = arr => arr[Math.floor(r()*arr.length)];
@@ -3767,6 +4130,12 @@ return out;
         // Character: `buzz` impulse-train source, `rmod` ring mod at `rmodHz`,
         // `crush` bit depth and rate.
         natural: 1, steps: 0, buzz: 0, rmod: 0, rmodHz: 30, crush: 0,
+        // Not rolled. `mic` 0-1: a broadcast mic chain (proximity bass, presence,
+        // hard compression). `sell` 0-1: a floor under every line's excitement,
+        // so an announcer announces even an unmarked line.
+        mic: 0, sell: 0,
+        // `f1` and `bright` (1 = none): a projected voice at rest.
+        f1: 1, bright: 1,
       }, named || null);
     }
 
@@ -3869,6 +4238,12 @@ return out;
       if (code === 'L' && VOWELS.has(ctx.prevCode) && !(ctx.nxt && ctx.nxt.t === 'V')) dur *= 1.3;
       // ... and the sonorant itself is clipped before a voiceless obstruent.
       if (SON_CLIP.has(code) && VOWELS.has(ctx.prevCode) && ctx.nxt && (ctx.nxt.t === 'F' || ctx.nxt.t === 'S') && !ctx.nxt.vd) dur *= 0.8;
+      // Klatt rule 10, softened: a consonant in a cluster is shorter ("sprint", "texts").
+      if (p.t !== 'V' && p.t !== 'P') {
+        const isC = q => q && q.t !== 'V' && q.t !== 'P';
+        const n = (isC(PH[ctx.prevCode]) ? 1 : 0) + (isC(ctx.nxt) ? 1 : 0);
+        if (n) dur *= ev(n === 2 ? 0.8 : 0.88);
+      }
       if (p.t === 'V') {
         dur *= ev(ctx.wordScale);
         // AX is already reduced: don't shorten it again.
@@ -3907,7 +4282,7 @@ return out;
     }
 
     function stopTiming(p, ctx) {
-      const unreleased = !!(ctx.nxt && ctx.nxt.t === 'S');
+      const unreleased = !!(p.gq || (ctx.nxt && ctx.nxt.t === 'S'));
       let asp = (p.asp || 0)/1000/ctx.speed;
       if (ctx.prevCode === 'S') asp *= 0.15;                      // unaspirated after /s/
       else if (ctx.nxt && ctx.nxt.t === 'L') asp *= 0.5;          // fricated into a liquid
@@ -4186,9 +4561,25 @@ return out;
       // `opt.voice` overrides the rolled parameters (the Voice Lab auditions with it).
       const V = Object.assign(voiceFromName(opt.seed || text), opt.voice || null);
       if (V.vs) text = readMatchups(text);
+      // A named voice can carry its accent; the caller's wins.
+      const accent = opt.accent || V.accent;
+      if (accent === 'can' && !ui) text = canText(text);
       // Never sold on the accessibility channel.
-      const D = deliveryFor(ui ? 0 : Math.max(-1, Math.min(1, (+opt.excite || 0) * TUNING.excitement)));
-      const F0 = V.f0 * D.pitch, ringAmt = V.ring, fshift = V.fshift;
+      // `sell` lifts the line's floor; a grave cue (negative excite) still wins.
+      const ex0 = (+opt.excite || 0) * TUNING.excitement;
+      const exSold = ex0 < 0 ? ex0 : Math.max(ex0, Math.max(0, Math.min(1, +V.sell || 0)) * TUNING.excitement);
+      const D = deliveryFor(ui ? 0 : Math.max(-1, Math.min(1, exSold)));
+      const micAmt = ui ? 0 : Math.max(0, Math.min(1, +V.mic || 0));
+      // Per-voice effort at rest: `f1` opens the jaw, `bright` lifts the source tilt.
+      D.f1 *= Math.max(0.9, Math.min(1.15, +V.f1 || 1));
+      D.bright *= Math.max(0.8, Math.min(1.4, +V.bright || 1));
+      // Per line: a speaker's register drifts a little from line to line (±0.35
+      // semitone), so consecutive lines don't sit on one pitch. Drawn from the text, so
+      // a line always comes out the same (renders compare track for track). Not on
+      // Read Aloud; `natural` 0 is none.
+      let lh = 0x9e3779b9; for (const ch of String(text)) lh = Math.imul(lh ^ ch.charCodeAt(0), 0x85ebca6b) >>> 0;
+      const lineReg = ui || V.steps ? 1 : 2 ** (((lh >>> 8) / 16777216 - 0.5) * 0.7 * Math.max(0, Math.min(1, V.natural ?? 1)) / 12);
+      const F0 = V.f0 * D.pitch * lineReg, ringAmt = V.ring, fshift = V.fshift;
       // ⚠ No character (drive, growl, buzz, rmod, crush) on the accessibility
       // channel: texture costs intelligibility. `natural` is allowed.
       const driveAmt = ui ? 0 : (V.drive || 0);
@@ -4201,17 +4592,17 @@ return out;
       const buzzAmt = ui ? 0 : clamp01(V.buzz), rmodAmt = ui ? 0 : clamp01(V.rmod), crushAmt = ui ? 0 : clamp01(V.crush);
       const pq = V.steps ? (f => F0 * 2 ** (Math.round(12 * Math.log2(f / F0)) / 12)) : (f => f);
       // Set → convert → clear, all synchronously (see lexLook).
-      _lex = opt.lex || null;
+      _lex = accent === 'can' ? Object.assign({}, CAN_LEX, opt.lex) : (opt.lex || null);
       // Words said on this channel in the last GIVEN_S seconds count as given.
       const nowS = c.currentTime;
       chan.said = (chan.said || []).filter(x => nowS - x.at < GIVEN_S);
       _given = opt.fresh ? null : chan.said.map(x => x.w);
       let phon;
       try {
-        phon = applyAccent(textToPhonemes(text), opt.accent);
+        phon = applyAccent(textToPhonemes(text), accent);
         if (_said) for (const w of _said) chan.said.push({ w, at: nowS });
         phon = applyAssimilation(phon);
-        if (opt.accent !== 'rp') phon = applyFlap(phon);
+        if (accent !== 'rp') phon = applyFlap(phon);
       }
       finally { _lex = null; _given = null; _said = null; }
       if (!phon.length) return;
@@ -4270,13 +4661,28 @@ return out;
       presence.connect(comp);
       // Drive after the compressor (as a transmitter), with buildLayer's curve.
       let voiceTail = comp;
+      // `mic`: the broadcast chain. Proximity bass, an air shelf, a second presence
+      // peak and a fast, hard compressor so every syllable sits at the front. Make-up
+      // gain keeps level and colour separate.
+      if (micAmt > 0) {
+        const prox = c.createBiquadFilter(); prox.type = 'lowshelf'; prox.frequency.value = 180; prox.gain.value = 6 * micAmt;
+        const mud = c.createBiquadFilter(); mud.type = 'peaking'; mud.frequency.value = 450; mud.Q.value = 1.1; mud.gain.value = -3 * micAmt;
+        const pres2 = c.createBiquadFilter(); pres2.type = 'peaking'; pres2.frequency.value = 4500; pres2.Q.value = 1.2; pres2.gain.value = 4 * micAmt;
+        const air = c.createBiquadFilter(); air.type = 'highshelf'; air.frequency.value = 9000; air.gain.value = 2 * micAmt;
+        const bc = c.createDynamicsCompressor();
+        bc.threshold.value = -16 - 10 * micAmt; bc.knee.value = 4; bc.ratio.value = 2 + 6 * micAmt;
+        bc.attack.value = 0.002; bc.release.value = 0.08;
+        const makeup = c.createGain(); makeup.gain.value = 1 + 0.6 * micAmt;
+        comp.connect(prox).connect(mud).connect(pres2).connect(air).connect(bc).connect(makeup);
+        voiceTail = makeup;
+      }
       if (driveAmt > 0) {
         const vs = c.createWaveShaper();
         vs.curve = driveCurve(driveAmt);
         vs.oversample = '4x';
         // clipping sounds louder: trim so grit and level stay separate
         const trim = c.createGain(); trim.gain.value = 1 - driveAmt * 0.35;
-        comp.connect(vs).connect(trim);
+        voiceTail.connect(vs).connect(trim);
         voiceTail = trim;
       }
       // `crush`: the retro stage on the finished voice (1 is 4 bits at 4.2 kHz). Its
@@ -4535,7 +4941,12 @@ return out;
         const hold = mix(BOUNDARY[nextCode] || 1);
         const pk = (phraseK[phraseIx] ?? 1) * (curAside ? ASIDE_K : 1);
         const f = pq(F0 * pk * fall * lift * hold * intrinsicF0(f1) * mix(micro));
-        glot.frequency.setTargetAtTime(f, when, V.steps ? 0.012 : 0.05);
+        // A rising accent peaks late in its vowel, not at the onset: start part way
+        // up and reach the peak a third of the way through. A fall starts high.
+        if (lift > 1 && dur && !fallTo && !V.steps) {
+          glot.frequency.setTargetAtTime(pq(f / (1 + (lift - 1) * 0.55 * nat)), when, 0.04);
+          glot.frequency.setTargetAtTime(f, when + dur * 0.3, 0.05);
+        } else glot.frequency.setTargetAtTime(f, when, V.steps ? 0.012 : 0.05);
         if (fallTo && dur) glot.frequency.setTargetAtTime(pq(F0 * pk * fall * fallTo * hold * intrinsicF0(f1)), when + dur * 0.35, Math.max(0.03, dur * 0.3));
         micro = 1;
         // Tilt tracks effort. On the worklet `tense` does it, so the tilt stays plain.
@@ -4603,6 +5014,9 @@ return out;
               f = f.map((v, k) => v + (loc[k] - v) * blend * TUNING.undershoot);
             }
           }
+          // Effort per syllable (Lombard): a pushed syllable opens the jaw, so F1 rises
+          // with the loudness and pressing the accent already gives it.
+          if (p.t === 'V' && stressed) f = [f[0] * (1 + (stressed === 2 ? (shoutLine ? 0.07 : 0.05) : 0.02)), f[1], f[2]];
           // A glide is defined by its slow RELEASE, set on the following vowel; /l/ snaps.
           const release = p.t === 'V' ? GLIDE_RELEASE[prevCode] : 0;
           const dark = p.df && f === p.df;
@@ -4881,11 +5295,13 @@ return out;
 
     // Voice Lab debug: the phoneme run a line produces. Side-effect free.
     const phonemesFor = (text, opt = {}) => {
-      _lex = opt.lex || null;
+      const accent = opt.accent || (opt.voice && opt.voice.accent) || (opt.seed ? voiceFromName(opt.seed).accent : undefined);
+      _lex = accent === 'can' ? Object.assign({}, CAN_LEX, opt.lex) : (opt.lex || null);
       if (opt.voice && opt.voice.vs) text = readMatchups(text);
+      if (accent === 'can') text = canText(text);
       try {
-        let ph = applyAssimilation(applyAccent(textToPhonemes(text), opt.accent));
-        if (opt.accent !== 'rp') ph = applyFlap(ph);
+        let ph = applyAssimilation(applyAccent(textToPhonemes(text), accent));
+        if (accent !== 'rp') ph = applyFlap(ph);
         if (Math.max(-1, Math.min(1, (+opt.excite || 0) * TUNING.excitement)) >= 0.35) ph = soldNucleus(ph);
         // opt.marks keeps the '+' nucleus marks
         return opt.marks ? ph : ph.filter(p => p !== '+');
@@ -4897,7 +5313,7 @@ return out;
 
   global.AudioEngine = {
     init, onUnlock, applyVolumeSettings, setMonoAudio,
-    playSfx, lastSfxAt, playSample, clearSampleCache,
+    playSfx, lastSfxAt, playSample, clearSampleCache, preloadSamples, sampleReady: (id) => !!fieldBuffer(id),
     renderSfx, renderSong, wavBytes, varyConfig,
     MOD_TARGETS,
     // the drive/fold curves, for the Rack's displays

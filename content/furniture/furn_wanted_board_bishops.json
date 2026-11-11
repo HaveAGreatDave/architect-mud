@@ -1,6 +1,15 @@
 {
   "description": "A Severance 400 bolted to the wall. The amber screen lists bounties, name and price. Feed the coin slot to post one of your own. Down at floor level is a round stainless port: put a head in it and the machine weighs it and pays. PAYABLE ON DELIVERY. DO NOT INSERT LIVING TISSUE.",
   "flags": {
+    "look": {
+      "arche": "prop",
+      "dims": [
+        0.6,
+        0.4,
+        1.6
+      ],
+      "form": "cabinet"
+    },
     "receptacle": {
       "accept": "The port cycles slowly, thinking about it, and takes it. The machine makes the noise it would make for a gas bill.",
       "dark": "The port won't open. The terminal is dead, and Bishop's hasn't noticed.",
@@ -8,6 +17,10 @@
       "empty": "A contract pays on delivery, and the port isn't for your hand.",
       "noun": "the port",
       "room": "{handle} crouches at the terminal by the wall. It thinks for a while, then counts out {amount}, and a man two tables away turns a page."
+    },
+    "spot": {
+      "along": 3.6,
+      "wall": "back"
     },
     "wanted_board": true
   },

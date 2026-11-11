@@ -3,7 +3,7 @@
   "ambient_theme": "urban",
   "bg_color": "#2b1c14",
   "color": "#e7c98e",
-  "description": "A white-tiled frank counter on Sorrel Way across from the Coliseum's main gate, a red-and-white striped awning over a serving hatch and a frank in a bun lit in neon on the roof. The griddle smoke comes out of a tin chimney.",
+  "description": "A hot dog the size of a house, across Sorrel Way from the Coliseum's main gate. The frank sticks out of the bun at both ends, and the mustard along the top lights up after dark. The serving hatch is in the bun's front under a striped awning, and griddle smoke comes out of a chimney at the back.",
   "exits": {
     "north": "zone_district_894_921",
     "south": "zone_fitzfranks_counter"

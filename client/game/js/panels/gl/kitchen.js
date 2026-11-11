@@ -1,84 +1,24 @@
-// GLASS 2 · THE KITCHEN STAGE. A counter in front of the stove, cel-shaded, in its own WebGL2
-// context (docs/proposals/kitchen-stage.md).
+// GLASS 2 · THE KITCHEN STAGE. A counter in front of the stove, drawn by ROOM's renderer
+// (gl/room.js, docs/proposals/kitchen-stage.md).
 //
-// Like the rink (arena.js) this draws one small scene and nothing of the city: its own context, its
-// own camera, its own two programs. Every body is drawn twice, first as ink (gl/ink.js, the rink's
-// outline) and then lit in hard bands (gl/toon.js, the city's cel steps): a cool shadow tone, a
-// hard rim, a hard-edged highlight on glossy food, and halftone dots in the shadow, as a printed
-// cooking manga would have them.
+// The kitchen has no renderer of its own. It builds its set and its moving pieces with kitchen-mesh.js
+// (arena-mesh.js batches, centimetres, z up) and this hands them to 'createRoomRenderer' as the room
+// and its props, in the room's frame (metres, y up), lit by the room's lamps and inked by the room's
+// house style. So the kitchen looks like the room you walked into, and changes when the room's look does.
 //
-// The geometry is kitchen-mesh.js's: the set once into a static layer, everything that moves
-// rebuilt by the panel each frame into a dynamic one. `createKitchenRenderer` returns null when
-// there is no WebGL2 or a shader won't build, and the panel falls back to the workspace HUD.
+// Frame: kitchen (x right, y away, z up, cm) to room (-x, z, y) / 100. That's a proper rotation, so the
+// kitchen's pickers (pickPlane, toScreen) stay in the kitchen's own frame with its own matrices.
 //
-// ⚠ GLOSS RIDES IN THE VERTEX ALPHA. The kitchen draws nothing translucent, so a food's colour
-// carries `1 - gloss / 2` in its alpha (kitchen-mesh.js `foodPiece`) and the shader reads it back.
-// Everything else has alpha 1, which is no gloss.
+// ⚠ GLOSS RIDES IN THE VERTEX ALPHA (kitchen-mesh.js 'foodPiece'): 1 - gloss / 2. It becomes the
+// room's GLOSS material here. The flames are drawn as they are (MAT 40, a light itself), the steel as METAL.
 //
-// ⚠ NO FACE CULLING, for arena.js's reason: the builders don't keep one winding.
+// 'createKitchenRenderer' returns null when there is no WebGL2, and the panel falls back to the HUD.
 
-import { makeVertexStream } from './stream.js';
-import { declareProgram, prewarmPrograms, layerProgram } from './programs.js';
-import { INK_VS, INK_FS } from './ink.js';
-import { TOON_GLSL } from './toon.js';
-import { inkOf, bandsOf } from './house-style.js';
-import { STRIDE } from './kitchen-mesh.js';
+import { createRoomRenderer } from './room.js';
+import { createBatch, MAT, STRIDE as RS } from './ballpark-mesh.js';
+import { STRIDE as KS_STRIDE, COLOURS } from './kitchen-mesh.js';
 
-const LIT_VS = `#version 300 es
-layout(location = 0) in vec3 aPos;
-layout(location = 1) in vec3 aNor;
-layout(location = 2) in vec4 aCol;
-uniform mat4 uVP;
-uniform vec2 uShake;
-out vec3 vPos; out vec3 vNor; out vec4 vCol;
-void main() {
-  vPos = aPos; vNor = aNor; vCol = aCol;
-  vec4 p = uVP * vec4(aPos, 1.0);
-  p.xy += uShake * p.w;
-  gl_Position = p;
-}`;
-const LIT_FS = `#version 300 es
-precision highp float;
-in vec3 vPos; in vec3 vNor; in vec4 vCol;
-uniform vec3 uEye;
-uniform vec3 uKey;
-uniform float uBands;
-uniform float uDotPx;
-uniform float uFlash;
-out vec4 outColor;
-${TOON_GLSL}
-const vec3 SHADE = vec3(0.6, 0.62, 0.8);
-void main() {
-  vec3 rgb = vCol.rgb;
-  float nl = dot(vNor, vNor);
-  if (nl > 0.01) {
-    vec3 n = vNor * inversesqrt(nl);
-    vec3 v = normalize(uEye - vPos);
-    if (dot(n, v) < 0.0) n = -n;
-    float d = max(dot(n, uKey), 0.0);
-    float lit = toonBands(min(d * 1.15, 0.999), uBands);
-    vec3 c = mix(rgb * SHADE, rgb, lit);
-    // halftone in the shadow band: dots on a screen grid, bigger the darker the face
-    vec2 g = fract(gl_FragCoord.xy / uDotPx) - 0.5;
-    float dotR = 0.34 * (1.0 - lit);
-    c *= 1.0 - 0.14 * (1.0 - toonStep(dotR, length(g)));
-    float rim = toonStep(0.68, 1.0 - max(dot(n, v), 0.0)) * toonStep(0.2, d);
-    c += rim * 0.16;
-    float gloss = clamp((1.0 - vCol.a) * 2.0, 0.0, 1.0);
-    float spec = toonStep(0.965 - 0.03 * gloss, max(dot(n, normalize(uKey + v)), 0.0));
-    c = mix(c, vec3(1.0, 0.99, 0.95), spec * gloss * 0.85);
-    rgb = c;
-  }
-  rgb = mix(rgb, vec3(1.0) - rgb, uFlash);
-  outColor = vec4(rgb, 1.0);
-}`;
-declareProgram(LIT_VS, LIT_FS);
-declareProgram(INK_VS, INK_FS);
-
-const ATTRS = [[0, 3, 0], [1, 3, 12], [2, 4, 24]];
-const INK_COL = [0.06, 0.05, 0.07];
 const KEY = norm([-0.45, -0.55, 0.7]);    // from above, left, and towards the cook
-const CLEAR = [0.93, 0.88, 0.8];
 
 // ── the camera, as pure maths (the panel picks with the same matrices) ───────────────────────────
 // `cam` is { eye: [x,y,z], at: [x,y,z], fov (radians, vertical), roll (radians) }.
@@ -123,81 +63,110 @@ export function toScreen(M, p) {
   return [(x / w + 1) / 2, (1 - y / w) / 2];
 }
 
-export function createKitchenRenderer(canvas, { phone = false } = {}) {
-  let gl = null;
-  try { gl = canvas.getContext('webgl2', { antialias: !phone, alpha: false, depth: true, powerPreference: phone ? 'low-power' : 'high-performance' }); } catch { gl = null; }
-  if (!gl) return null;
-  try { return build(); } catch (err) { console.warn('[kitchen] GLASS 2 stage unavailable, using the workspace panel:', err && err.message); return null; }
+// Where the kitchen stands in the room: its origin (the burner, on the worktop), its axes (x along the
+// counter to the cook's right, y away from the cook, z up) as room directions, and how many room units
+// a centimetre is. A proper rotation, so the kitchen's pickers keep working in the kitchen's own frame.
+// FREE is the kitchen on a canvas of its own: metres, y up, the cook looking along +z.
+export const FREE = Object.freeze({ o: [0, 0, 0], x: [-1, 0, 0], y: [0, 0, 1], z: [0, 1, 0], s: 0.01 });
+const at = (F, p) => [F.o[0] + (F.x[0] * p[0] + F.y[0] * p[1] + F.z[0] * p[2]) * F.s, F.o[1] + (F.x[1] * p[0] + F.y[1] * p[1] + F.z[1] * p[2]) * F.s, F.o[2] + (F.x[2] * p[0] + F.y[2] * p[1] + F.z[2] * p[2]) * F.s];
+const dirOf = (F, v) => [F.x[0] * v[0] + F.y[0] * v[1] + F.z[0] * v[2], F.x[1] * v[0] + F.y[1] * v[1] + F.z[1] * v[2], F.x[2] * v[0] + F.y[2] * v[1] + F.z[2] * v[2]];
+const decode = (c) => (c <= 0.04045 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4));
+const same = (c, d, o) => Math.abs(c[0] - d[o]) < 0.004 && Math.abs(c[1] - d[o + 1]) < 0.004 && Math.abs(c[2] - d[o + 2]) < 0.004;
+const METALS = ['steel', 'steelDark', 'grate', 'copper', 'iron', 'blade', 'bladeEdge'].map((k) => COLOURS[k]);
+const FLAMES = [COLOURS.flameIn, COLOURS.flameOut];
 
-  function build() {
-    prewarmPrograms(gl);
-    const prog = (vs, fs, label) => {
-      const p = layerProgram(gl, vs, fs, label), u = {};
-      return { p, u: (n) => (u[n] ??= gl.getUniformLocation(p, n)) };
-    };
-    const LIT = prog(LIT_VS, LIT_FS, 'kitchen lit'), INK = prog(INK_VS, INK_FS, 'kitchen ink');
-    const layer = () => { const vao = gl.createVertexArray(); return { vao, st: makeVertexStream(gl, vao, STRIDE, ATTRS), n: 0 }; };
-    const stat = layer(), dyn = layer();
-    let lost = false;
-    const onLost = (e) => { e.preventDefault(); lost = true; };
-    canvas.addEventListener('webglcontextlost', onLost);
-
-    function upload(L, b) { L.st.write(b.data, b.n * STRIDE); L.n = b.n; }
-    function drawLayers(both) {
-      for (const L of both) {
-        if (L.n <= 0) continue;
-        gl.bindVertexArray(L.vao);
-        gl.drawArrays(gl.TRIANGLES, 0, L.n);
-      }
+// A kitchen batch (arena-mesh.js: pos, nor, rgba, uv, t) as a room batch (ballpark-mesh.js: pos, nor,
+// uv, linear rgb, mat), moved into the room's frame. Appended from `out.n` when `append` is set.
+export function toRoomBatch(src, out, F = FREE, append = false) {
+  const n = src.n, d = src.data, n0 = append ? out.n : 0;
+  if (out.data.length < (n0 + n) * RS) { const g = new Float32Array(Math.max((n0 + n) * RS, out.data.length * 2)); g.set(out.data.subarray(0, n0 * RS)); out.data = g; }
+  const o = out.data, X = F.x, Y = F.y, Z = F.z, O = F.o, k = F.s;
+  for (let i = 0; i < n; i++) {
+    const s = i * KS_STRIDE, t = (n0 + i) * RS, px = d[s], py = d[s + 1], pz = d[s + 2], nx = d[s + 3], ny = d[s + 4], nz = d[s + 5];
+    for (let j = 0; j < 3; j++) {
+      o[t + j] = O[j] + (X[j] * px + Y[j] * py + Z[j] * pz) * k;
+      o[t + 3 + j] = X[j] * nx + Y[j] * ny + Z[j] * nz;
     }
-
-    return {
-      get lost() { return lost; },
-      setStatic(batch) { upload(stat, batch); },
-      // One frame. `batch` is this frame's moving geometry; `fx` is { shake: [x, y], flash 0..1 }.
-      render(cam, batch, fx = {}) {
-        if (lost || gl.isContextLost()) { lost = true; return false; }
-        const dpr = Math.min(phone ? 1.5 : 2, window.devicePixelRatio || 1);
-        const w = Math.max(1, Math.round(canvas.clientWidth * dpr)), h = Math.max(1, Math.round(canvas.clientHeight * dpr));
-        if (canvas.width !== w || canvas.height !== h) { canvas.width = w; canvas.height = h; }
-        upload(dyn, batch);
-        const M = cameraMatrices(cam, w / h), shake = fx.shake || [0, 0], u = h / 900;
-        gl.viewport(0, 0, w, h);
-        gl.clearColor(CLEAR[0], CLEAR[1], CLEAR[2], 1);
-        gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-        gl.enable(gl.DEPTH_TEST);
-        gl.disable(gl.CULL_FACE);
-        gl.disable(gl.BLEND);
-
-        gl.useProgram(INK.p);
-        gl.uniformMatrix4fv(INK.u('uVP'), false, M.vp);
-        gl.uniform2fv(INK.u('uShake'), shake);
-        gl.uniform2f(INK.u('uRes'), w, h);
-        // 0.3 cm of the thing, between 1.4 and 4 px of a 900-tall picture (thinner on a phone); the
-        // house style's line when the comic look is on (gl/house-style.js)
-        const ink = inkOf({ ft: 0.3, px: phone ? [1.0, 2.6] : [1.4, 4.0], col: INK_COL });
-        gl.uniform4f(INK.u('uInk'), ink.ft, ink.px[0] * u, ink.px[1] * u, 0.0004);
-        gl.uniform3fv(INK.u('uCol'), ink.col);
-        drawLayers([stat, dyn]);
-
-        gl.useProgram(LIT.p);
-        gl.uniformMatrix4fv(LIT.u('uVP'), false, M.vp);
-        gl.uniform2fv(LIT.u('uShake'), shake);
-        gl.uniform3fv(LIT.u('uEye'), cam.eye);
-        gl.uniform3fv(LIT.u('uKey'), KEY);
-        gl.uniform1f(LIT.u('uBands'), bandsOf(3));
-        gl.uniform1f(LIT.u('uDotPx'), Math.max(4, 6 * dpr));
-        gl.uniform1f(LIT.u('uFlash'), Math.max(0, Math.min(1, fx.flash || 0)));
-        drawLayers([stat, dyn]);
-        gl.bindVertexArray(null);
-        return M;
-      },
-      dispose() {
-        canvas.removeEventListener('webglcontextlost', onLost);
-        try { gl.getExtension('WEBGL_lose_context')?.loseContext(); } catch { /* already gone */ }
-      },
-    };
+    o[t + 6] = 0; o[t + 7] = 0;
+    o[t + 8] = decode(d[s + 6]); o[t + 9] = decode(d[s + 7]); o[t + 10] = decode(d[s + 8]);
+    let m = MAT.GROUND;
+    if (FLAMES.some((c) => same(c, d, s + 6))) m = 40;
+    else if (METALS.some((c) => same(c, d, s + 6))) m = MAT.METAL;
+    else if (d[s + 9] < 0.9) m = MAT.GLOSS;
+    o[t + 11] = m;
   }
+  out.n = n0 + n;
+  return out;
+}
+
+// The kitchen's camera as the room's: an eye, a yaw and a pitch, and the lens in degrees.
+export function roomCamOf(cam, shake = null, F = FREE) {
+  const f = norm(dirOf(F, norm(sub(cam.at, cam.eye))));
+  return { eye: at(F, cam.eye), yaw: Math.atan2(f[0], f[2]), pitch: Math.asin(Math.max(-1, Math.min(1, f[1]))), fov: (cam.fov || 0.7) * 180 / Math.PI, roll: cam.roll || 0, shake };
+}
+
+// The light on a canvas of its own: a warm key from above left and towards the cook (where the
+// kitchen's always came from), and a cool fill from the right. In a room, the room's own light.
+const LIGHT = {
+  lamps: [
+    { p: at(FREE, mul(KEY, 120)), k: 1.15 },
+    { p: at(FREE, [90, -60, 70]), k: 0.45, tint: [0.62, 0.74, 1.15] },
+  ],
+  wins: [], lampOn: true, lampLevel: 1, day: 0.45, sky: [1, 0.94, 0.84], annex: null,
+};
+
+// `host`: cooking in the Room Stage. Nothing is drawn on `canvas` (it's left clear, for the pointer);
+// the room draws the kitchen into the apartment through its own renderer, from what `host.show`
+// is handed every frame: the camera, and the kitchen's pieces as the room's props. host is
+// { frame (as FREE), canvas (the room's), show({ cam, props } | null) }.
+export function createKitchenRenderer(canvas, { phone = false, host = null } = {}) {
+  if (host) return hosted(canvas, host);
+  const R = createRoomRenderer(canvas, { phone });
+  if (!R) return null;
+  const empty = () => createBatch(4);
+  const dyn = createBatch(1 << 14);
+  return {
+    get lost() { return R.lost; },
+    setStatic(batch) {
+      R.setRoom({ solid: toRoomBatch(batch, createBatch(Math.max(4, batch.n))), screen: empty(), glass: empty(), view: empty(), textured: new Map() }, () => null);
+    },
+    // One frame. 'batch' is this frame's moving geometry; 'fx' is { shake: [x, y], flash 0..1 }.
+    // Returns the kitchen-frame matrices the panel picks with.
+    render(cam, batch, fx = {}) {
+      R.setProps(toRoomBatch(batch, dyn));
+      if (!R.render(roomCamOf(cam, fx.shake), LIGHT)) return null;
+      flashOn(canvas, fx.flash);
+      return cameraMatrices(cam, (canvas.width || 1) / (canvas.height || 1));
+    },
+    dispose() { R.dispose(); },
+  };
+}
+
+function hosted(canvas, host) {
+  const F = host.frame, stat = createBatch(4), props = createBatch(1 << 15);
+  let lost = false;
+  return {
+    get lost() { return lost; },
+    setStatic(batch) { toRoomBatch(batch, stat, F); },
+    render(cam, batch, fx = {}) {
+      copyInto(props, stat);
+      toRoomBatch(batch, props, F, true);
+      if (host.show({ cam: roomCamOf(cam, fx.shake, F), props }) === false) { lost = true; return null; }
+      flashOn(host.canvas, fx.flash);
+      const c = host.canvas;
+      return cameraMatrices(cam, (c.clientWidth || 1) / (c.clientHeight || 1));
+    },
+    dispose() { flashOn(host.canvas, 0); host.show(null); },
+  };
+}
+function copyInto(dst, src) {
+  if (dst.data.length < src.n * RS) dst.data = new Float32Array(Math.max(src.n * RS, dst.data.length * 2));
+  dst.data.set(src.data.subarray(0, src.n * RS));
+  dst.n = src.n;
+}
+function flashOn(canvas, k) {
+  const flash = Math.max(0, Math.min(1, k || 0)), want = flash > 0 ? 'invert(' + flash + ')' : '';
+  if (canvas.style.filter !== want) canvas.style.filter = want;
 }
 
 function sub(a, b) { return [a[0] - b[0], a[1] - b[1], a[2] - b[2]]; }

@@ -1,0 +1,12 @@
+{
+  "content": "{\n \"brand\": \"SCRUBGOD 9000\",\n \"line\": \"Spotless.*\",\n \"small\": \"*STAINS NOT REMOVED. MERELY RELOCATED TO A MOLECULAR LEVEL YOU CAN'T SEE.\",\n \"color\": \"#4aa8ff\",\n \"accent\": \"#ffffff\",\n \"face\": \"block\",\n \"motif\": \"bars\",\n \"weight\": 1\n}",
+  "created_at": "1794182400",
+  "description": "Hologram advert: ScrubGod 9000. Baked to the client by npm run holoads:bake.",
+  "id": "holo_ad_scrubgod",
+  "name": "Holo ad: ScrubGod 9000",
+  "tags": [
+    "holo_ad"
+  ],
+  "type": "holo_ad",
+  "updated_at": "1794182400"
+}

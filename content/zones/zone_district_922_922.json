@@ -1,24 +1,26 @@
 {
-  "ambient_events": [],
-  "ambient_theme": "forest",
-  "color": "#8ba36a",
-  "description": "Open meadow, the grass long and silver-green. Survey stakes stand in it in rows, each one tied with a strip of orange tape.",
+  "ambient_events": [
+    "Sparks go up out of the drum and go out."
+  ],
+  "ambient_theme": "residential",
+  "description": "A clearing in the camp round a cut-down oil drum on four bricks, with chairs, crates and a car seat in a ring about it. The ground is burnt black in a circle. People come here after dark.",
   "exits": {
     "east": "zone_district_923_922",
-    "north": "zone_district_922_921",
     "south": "zone_district_922_923",
     "west": "zone_district_921_922"
   },
   "flags": {
-    "district": "residential",
+    "camp": true,
+    "district": "slum",
     "region_id": "region_coldwater",
-    "terrain": "grass"
+    "scavenging_table_id": "scav_consumer_trash",
+    "terrain": "ash"
   },
   "grid_x": 922,
   "grid_y": 922,
   "grid_z": 0,
   "id": "zone_district_922_922",
   "map_id": "map_world",
-  "name": "Grasslands",
+  "name": "The Drum",
   "parent_zone": null
 }

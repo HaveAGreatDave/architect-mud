@@ -1,0 +1,62 @@
+{
+  "category": "commercial",
+  "config": {
+    "layers": [
+      {
+        "adsr": {
+          "a": 0.01,
+          "curve": "exp",
+          "d": 0.16,
+          "r": 0.06,
+          "s": 0
+        },
+        "filter": {
+          "freq": 520,
+          "q": 3,
+          "type": "bandpass"
+        },
+        "gain": 0.22,
+        "mods": [
+          {
+            "a": 0.001,
+            "d": 0.15,
+            "id": "gd",
+            "r": 0.05,
+            "s": 0,
+            "to": [
+              {
+                "amount": -400,
+                "param": "pitch"
+              }
+            ],
+            "type": "env"
+          }
+        ],
+        "waveform": "sawtooth"
+      },
+      {
+        "adsr": {
+          "a": 0.005,
+          "curve": "exp",
+          "d": 0.1,
+          "r": 0.05,
+          "s": 0
+        },
+        "filter": {
+          "freq": 800,
+          "q": 1.5,
+          "type": "bandpass"
+        },
+        "gain": 0.06,
+        "noiseMix": 1,
+        "noiseSeed": 3,
+        "waveform": "sawtooth"
+      }
+    ]
+  },
+  "enabled": 1,
+  "id": "aud_inst_ad_grunt",
+  "name": "Ad: Grunt",
+  "sample_id": null,
+  "waveform": "sawtooth"
+}

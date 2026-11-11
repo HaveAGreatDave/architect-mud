@@ -765,6 +765,64 @@
       "a plain undershirt gone soft from washing",
       "grey trousers with a clipboard-shaped wear mark on one thigh"
     ],
+    "figure": {
+      "age": 0.3,
+      "beard": 0.1,
+      "brow": 0.9,
+      "build": "average",
+      "cut": "shortsleeve",
+      "fabric_legs": "plain",
+      "fabric_shoes": "leather",
+      "fabric_top": "plain",
+      "facial": "clean",
+      "gear": false,
+      "hair": [
+        74,
+        52,
+        36
+      ],
+      "hair_style": 1,
+      "head": 1,
+      "height": 1.78,
+      "iris": [
+        90,
+        110,
+        140
+      ],
+      "legs": [
+        98,
+        98,
+        104
+      ],
+      "mouth": 0.88,
+      "shirt": [
+        236,
+        236,
+        232
+      ],
+      "shoes": [
+        30,
+        28,
+        26
+      ],
+      "skin": [
+        226,
+        180,
+        150
+      ],
+      "smile": 0,
+      "top": [
+        178,
+        200,
+        224
+      ],
+      "trim": [
+        178,
+        200,
+        224
+      ],
+      "weight": 0.45
+    },
     "personality": "clerk",
     "studio_npc": true,
     "wrangle_lines": {

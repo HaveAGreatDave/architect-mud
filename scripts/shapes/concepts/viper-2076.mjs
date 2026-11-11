@@ -413,13 +413,13 @@ const mwz = groundZ(MW.f) + MW.r;
 const TW = { f: -0.72, r: 0.03 };
 const twz = groundZ(TW.f) + TW.r;
 // The mains fold aft into the sponsons and the wheel comes in a little as it goes. The leg moves over
-// the middle of the channel and the door shuts behind it. The brace telescopes: it swings about its
-// own top and slides up through it, so its foot stays with the leg.
+// the middle of the channel and the door shuts behind it. The drag brace rides the leg up.
+// ⚠ A positive angle about +g swings a leg aft. A negative one left the wheel standing out ahead of the
+// sponson.
 const LEG = { ch: 'gear', span: [0.95, 0.25] };
 const legPivot = [MW.f + 0.03, 0.19, -0.06];
-const mainFold = { ...LEG, pivot: legPivot, axis: [0, 1, 0], ang: [0, -88], slide: [0, -0.03, 0] };
+const mainFold = { ...LEG, pivot: legPivot, axis: [0, 1, 0], ang: [0, 80], slide: [0, -0.03, 0] };
 const braceTop = [-0.05, 0.175, -0.075];
-const braceFold = { ...LEG, pivot: braceTop, axis: [0, 1, 0], ang: [0, -105], slide: [0.13, -0.03, 0.02] };
 const tailFold = { ...LEG, pivot: [TW.f + 0.01, 0, -0.065], axis: [0, 1, 0], ang: [0, 80] };
 const SPON = { f: 0.03, g: 0.175, h: -0.075 };
 const bayDoor = (name, f0, f1, g0, g1, h, sg) => ({ kind: 'poly', name, paint: 'hull',
@@ -436,7 +436,7 @@ const gear = [
       { kind: 'wheel', name: 'main wheel', at: P3([MW.f, MW.g, mwz]), r: MW.r, hw: 0.03, n: 14 },
       tube('brake line', [[MW.f + 0.03, 0.195, -0.07], [MW.f + 0.032, 0.196, mwz + 0.03]], 0.0018, { role: 'gear', paint: 'carbon', sides: 3 }),
     ], { anim: mainFold, ...FINE }),
-    { ...tube('drag brace', [braceTop, [MW.f + 0.02, 0.19, mwz + 0.03]], 0.007, { role: 'gear', paint: 'metal', sh: 0.75, sides: 6, ...FINE }), anim: braceFold },
+    { ...tube('drag brace', [braceTop, [MW.f + 0.02, 0.19, mwz + 0.03]], 0.007, { role: 'gear', paint: 'metal', sh: 0.75, sides: 6, ...FINE }), anim: mainFold },
   ]),
   { kind: 'blade', name: 'ventral strake', role: 'fin', paint: 'hull', t: 0.006, sh: [0.8, 0.62], outline: [[-0.6, 0.05], [-0.665, -0.07], [-0.77, -0.07], [-0.84, 0.07]], ...FINE },
   group('tail leg', [

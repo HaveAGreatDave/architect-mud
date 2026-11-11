@@ -1,0 +1,9 @@
+{
+  "a": "zone_restassured_room_b",
+  "b": "zone_restassured_hall",
+  "blocked": false,
+  "dir": "east",
+  "id": "conn_restassured_room_b_east",
+  "lockable": true,
+  "one_way": false
+}

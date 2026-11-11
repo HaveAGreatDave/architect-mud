@@ -356,16 +356,23 @@ export function setPaneSilent(silent) {
 // `newRoom` scrolls the pane back to the top, where the lists are (describe.js
 // prints them above the prose). Only on a room change: the silent looks that
 // repaint the same room every few hundred ms must leave a scrolled pane alone.
+// ⚠ THE ROOM STAGE LIVES IN THIS PANE, OVER THE ROOM TEXT (room-stage.js). The text under it is still
+// rewritten on every look, so the Stage is lifted out and put back: replacing the pane wholesale took it
+// with it, and a lift's arrival or a look while the Stage was up left the pane blank with the Stage still
+// running on a detached canvas.
 export function setAreaPane(html, direction, newRoom = false) {
   const el = document.getElementById('area-content');
+  // (a box at the ballpark is in the pane the same way: stands.js)
+  const stage = el.querySelector(':scope > :is(#room-stage, #stands-view)');
   el.innerHTML = html;
+  if (stage) el.appendChild(stage);
   if (newRoom) document.getElementById('area-pane').scrollTop = 0;
   applyDescCollapse(el);
   applyBeacons();
   playNameMorphs(el);
   // Only a location change (move) plays the slide transition. Silent refreshes
   // from kills, loot, look, etc. pass no direction and update in place.
-  if (direction && el.animate && document.documentElement.getAttribute('data-motion') !== 'off') {
+  if (direction && !stage && el.animate && document.documentElement.getAttribute('data-motion') !== 'off') {
     const off = AREA_SLIDE[direction] || [0, 1];
     el.animate(
       [{ opacity: 0, transform: `translate(${off[0] * 10}px, ${off[1] * 10}px)` },
@@ -691,6 +698,8 @@ export function updateVitals(p) {
   // row (preference).
   if (p.mis_enabled !== undefined) {
     const misOn = p.mis_enabled === 1 || p.mis_enabled === true;
+    // the close-up figure draws the bare chest whole only for a player in the layer (gl/figure-hd.js uMature)
+    globalThis.__figureMature = misOn;
     const show = misOn && !hiddenKeys('vitals', DEFAULT_HIDDEN_VITALS).has('hor');
     for (const id of ['horny-bar-wrap', 'horny-bar-wrap-m']) {
       const el = document.getElementById(id);

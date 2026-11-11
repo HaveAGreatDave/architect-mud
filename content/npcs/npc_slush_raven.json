@@ -8,7 +8,7 @@
     "He wipes down the blade with a rag.",
     "He hums a Highlanders chant under his breath."
   ],
-  "description": "A lean man in his fifties in a navy ice-crew parka, RAVEN stencilled across the back and a green-and-navy tartan Highlanders scarf tucked in at the collar. A respirator hangs round his neck on a cracked strap. He's wiping down the resurfacer's blade with a rag.",
+  "description": "A broad, grinning man in a navy ice-crew parka, RAVEN stencilled across the back and a green-and-navy tartan Highlanders scarf at the collar. Brown hair swept up at the front, a dark beard going grey at the chin, black rectangular glasses. He's wiping down the resurfacer's blade with a rag.",
   "dialogue_tree": {
     "broadcast": {
       "options": [
@@ -154,7 +154,65 @@
       "a grey hooded sweatshirt",
       "canvas work trousers and cleated rubber boots",
       "grey boxer shorts"
-    ]
+    ],
+    "figure": {
+      "age": 0.15,
+      "beard": 1.4,
+      "brow": 1.05,
+      "build": "average",
+      "cut": "hoodie",
+      "fabric_legs": "denim",
+      "fabric_shoes": "canvas",
+      "fabric_top": "knit",
+      "facial": "trimmed",
+      "gear": false,
+      "hair": [
+        96,
+        62,
+        38
+      ],
+      "hair_style": 4,
+      "head": 0,
+      "iris": [
+        96,
+        128,
+        104
+      ],
+      "layout": 0,
+      "legs": [
+        54,
+        72,
+        104
+      ],
+      "mouth": 1.05,
+      "shirt": [
+        24,
+        30,
+        46
+      ],
+      "shoes": [
+        36,
+        36,
+        40
+      ],
+      "skin": [
+        228,
+        164,
+        128
+      ],
+      "smile": 1,
+      "top": [
+        112,
+        116,
+        122
+      ],
+      "trim": [
+        210,
+        210,
+        210
+      ],
+      "weight": 0.6
+    }
   },
   "home_activities": [],
   "home_zone": "zone_slush_rinkside",

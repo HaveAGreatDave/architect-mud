@@ -12,6 +12,12 @@ Nudity and explicit lines are shown only to players opted into MIS.
 
 - `tip <dancer> <credits>` — debit credits, add to the dancer's shared stage heat.
   Also accepts `tip <credits> <dancer>`.
+- `lapdance <dancer>` (alias `privatedance`): 150₵ for a private dance in the VIP
+  room. Needs the VIP pass. Said on the floor, the dancer leads you through the
+  curtain; said in the VIP, she comes in off the floor. Four beats ten seconds
+  apart, a layer off each until she is bare, then she goes back to the floor and
+  the tick dresses her. Graphic lines are MIS-only. The Room Stage offers it as a
+  **Private dance** button on a dancer.
 
 ## Escalation
 

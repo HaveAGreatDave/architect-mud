@@ -402,6 +402,15 @@ ok(sim.RENDER_TUNE.cockpit3d !== undefined, 'RENDER_TUNE.cockpit3d is gone — t
   ok(deck.length > 0, 'an aircraft seat collected no interior at all');
   ok(tooFar === 0, tooFar + ' flight-deck vertices are more than a quarter tile from the pilot — the room is scaled by altitude');
 }
+// The forward HUD's flight symbols (windshield.js drawRollScale, and the heading tape's turn trend)
+// only draw airborne, and nothing else in the gates paints a seat in the air. Banked, slipping and
+// with the ← → bank hold rolling, so a throw in any of them fails here.
+{
+  const AIR = { ...BASE, cls: 'prop', phase: 'cruise', height: 0.6, eyeH: undefined, external: false, hud: true,
+    heading: 40, airborne: true, hudBank: 22, turnRate: 2.4, gLoad: 1.3, gLimit: 3.8, hudSlip: 0.3,
+    bankHold: { target: 30, lim: 60, rolling: true } };
+  for (const v of [AIR, { ...AIR, hudBank: -75, bankHold: { target: 0, lim: 55, rolling: false } }, { ...AIR, rotor: true, bankHold: null }]) frame(v, 1, 1);
+}
 globalThis.performance = clock;
 console.log('    ' + inSeat.length + ' faces at the windscreen + ' + APERTURE + ' more once the head turns = '
   + turned.length + ' reaching the depth buffer; 0 from the chase, 0 with the flag off');

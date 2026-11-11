@@ -361,6 +361,15 @@ function isSceneryPiece(f, viewer) {
 	return d === firstSentence(d);
 }
 
+// Lean is the only thing it affords, so it's described, not listed. The author
+// overrides win as they do for scenery, and anything that holds things stays.
+function isLeanOnlyPiece(f, viewer) {
+	if (f.flags?.notable || f.object_type === "light") return false;
+	if (f.flags?.container || HOLDS_THINGS.has(f.object_type)) return false;
+	const verbs = furnitureVerbs(f, viewer);
+	return verbs.length === 1 && verbs[0] === "lean" && !!String(f.description || "").trim();
+}
+
 // Identical pieces collapse into one counted entry. The key carries everything
 // a render can SHOW — name, kind, and light state — so a lit lamp never merges
 // with an unlit one and the (on)/(off) tag can't lie. Anything in `soloIds`
@@ -1481,10 +1490,18 @@ export async function describeZone(zone, player, out = {}) {
 	);
 	// SCENERY. Suppressed in the dark, where visibleFurniture is lights only and
 	// a verbless lamp is the one thing you actually need to find.
+	// LEAN-ONLY. A piece whose one verb is `lean` (a railing, a counter, a wall
+	// of lockers) is part of the room, not something to use: its description's
+	// first sentence goes into the prose at the bottom, still clickable, and it
+	// stays off the Furniture list. Same in the dark rule as scenery.
+	const leanPieces = isDark
+		? []
+		: untiered.filter((f) => isLeanOnlyPiece(f, player));
+	const leanIds = new Set(leanPieces.map((f) => f.id));
 	const sceneryPieces = isDark
 		? []
-		: untiered.filter((f) => isSceneryPiece(f, player));
-	const sceneryIds = new Set(sceneryPieces.map((f) => f.id));
+		: untiered.filter((f) => !leanIds.has(f.id) && isSceneryPiece(f, player));
+	const sceneryIds = new Set([...sceneryPieces.map((f) => f.id), ...leanIds]);
 	// STANDING. Clustered by object_type, then alphabetical inside each cluster.
 	// The type itself is never printed — this only stops the line reading as a
 	// random jumble (furniture rows come out of the world cache in DB insertion
@@ -1697,6 +1714,10 @@ export async function describeZone(zone, player, out = {}) {
 				desc += `\n<span style="color:var(--yellow)">${fn(count)}</span>`;
 		}
 	}
+	// Lean-only pieces close the prose: their own description sentence, clickable
+	// so lean and examine still work from the pane and the smart bar.
+	const leanProse = weaveFurniture(leanPieces, player);
+	if (leanProse) desc += `\n<span class="room-furniture">${leanProse}</span>`;
 	const prose = desc;
 	desc = "";
 

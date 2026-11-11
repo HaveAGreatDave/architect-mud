@@ -4,7 +4,8 @@
   "description": "Drainage was an afterthought here and looks it. Water stands along the western kerb in a long shallow strip that never entirely dries.",
   "exits": {
     "north": "zone_district_899_919",
-    "south": "zone_district_899_921"
+    "south": "zone_district_899_921",
+    "west": "zone_district_887_904"
   },
   "flags": {
     "district": "halcyon_fields",

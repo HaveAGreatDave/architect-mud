@@ -2,9 +2,14 @@
   "description": "Nineteen feet of maple lane, arrows and all, sawn out of somewhere that stopped needing it and bolted onto a frame of scaffold pipe. The elbows have worn two pale patches through the varnish and nobody is allowed to sand them out.",
   "flags": {
     "aliases": "bar,counter,lane",
+    "bar_counter": true,
     "interactions": [
       "lean"
-    ]
+    ],
+    "look": {
+      "arche": "surface",
+      "form": "bar"
+    }
   },
   "hp": null,
   "hp_max": null,

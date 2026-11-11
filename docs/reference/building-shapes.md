@@ -539,6 +539,7 @@ are now gap-free at `max = 9`.
 | **Ground shadows** (`drawBuildingShadow`) | live capture | real hull + real roof, not one square |
 | **Collision** (`buildingRoofFtAt`) | live capture | per-POINT roof height in feet |
 | **The cold open** | the **baked** file | must not import windshield on a first login |
+| **GLASS Lite** | its own bake of the GL mesh (`client/game/assets/lite/`) | `npm run lite:bake` after editing an arm; see [glass-notes.md](glass-notes.md#glass-lite-render_tuneglasslite-2026-11-09) |
 
 Collision deliberately reads the **live** capture rather than the bake, so models whose shape varies
 with the tile seed (rooftop clutter) collide as they are actually drawn on that tile.

@@ -1,0 +1,12 @@
+{
+  "content": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 640 360\" font-family=\"'Courier New',monospace\">\n<rect width=\"640\" height=\"360\" fill=\"#7a6a4c\"/>\n<rect x=\"150\" y=\"30\" width=\"340\" height=\"300\" fill=\"#e2d6b4\" stroke=\"#2a2418\" stroke-width=\"3\" transform=\"rotate(-2 320 180)\"/>\n<circle cx=\"170\" cy=\"48\" r=\"5\" fill=\"#8a8c90\" transform=\"rotate(-2 320 180)\"/>\n<circle cx=\"470\" cy=\"48\" r=\"5\" fill=\"#8a8c90\" transform=\"rotate(-2 320 180)\"/>\n<g transform=\"rotate(-2 320 180)\" font-family=\"'Arial Black','Impact',sans-serif\" text-anchor=\"middle\">\n  <text x=\"320\" y=\"150\" font-size=\"76\" fill=\"#2c4a8a\" stroke=\"#1a1410\" stroke-width=\"2\" letter-spacing=\"4\">VOTE</text>\n  <text x=\"320\" y=\"246\" font-size=\"92\" fill=\"#a83a2a\" stroke=\"#1a1410\" stroke-width=\"2\" letter-spacing=\"6\">TEO</text>\n  <line x1=\"200\" y1=\"270\" x2=\"440\" y2=\"266\" stroke=\"#2c4a8a\" stroke-width=\"4\"/>\n  <text x=\"320\" y=\"306\" font-size=\"14\" fill=\"#4a4030\" font-family=\"'Courier New',monospace\" letter-spacing=\"2\">FOR BLOCK STEWARD</text>\n</g>\n</svg>",
+  "created_at": "1794210000",
+  "description": "NORVAL DYNAMO: one of the ninety-one VOTE TEO posters.",
+  "id": "norval_vote_teo",
+  "name": "norval_vote_teo",
+  "tags": [
+    "movie"
+  ],
+  "type": "svg",
+  "updated_at": "1794210000"
+}

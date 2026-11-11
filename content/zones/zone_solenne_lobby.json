@@ -1,12 +1,12 @@
 {
   "ambient_events": [
-    "The concierge murmurs into a discreet headset and nods you through with a practiced half-smile.",
-    "Somewhere above, the elevator settles with a sound like a held breath."
+    "The manager says something quiet into a headset and nods you through.",
+    "Behind the bronze doors the lift settles with a soft thump."
   ],
   "ambient_theme": "indoors",
   "bg_color": "#2a3947",
   "color": "#e6d9c2",
-  "description": "A double-height atrium of pale stone and warm brass, floored in a river of book-matched marble that no one is allowed to scuff. A living wall of ferns breathes along one side; a concierge station of dark walnut anchors the other, always attended. Light pools from hidden coves, and the street noise dies the instant the revolving door seals behind you. A single elevator, its doors a sheet of mirror-bronze, waits at the far end. The way out is <b>south</b>, to the street; step <b>in</b> to the elevator.",
+  "description": "A two-storey hotel lobby floored in white marble, the walls dark and trimmed in gold. Solenne is lettered in gold over the lift, and a big flatscreen hangs over the reception desk, where the manager stands. An oxblood banquette faces a marble console of green apples. Parcel lockers and a Cryocell take deliveries. The lift is in the back wall. The street is <b>south</b>, through sliding glass doors; step <b>in</b> to the lift.",
   "exits": {
     "down": "zone_util_zone_solenne_lobby",
     "in": "zone_solenne_elevator",
@@ -15,14 +15,162 @@
   "flags": {
     "building_name": "Solenne Residences",
     "building_type": "apartment",
-    "floor": "linoleum",
+    "floor": "stone",
     "is_building": true,
     "is_interior": true,
+    "room": {
+      "balcony": false,
+      "d": 10,
+      "decor": {
+        "art": [
+          {
+            "at": 5,
+            "h": 1.25,
+            "seed": 13,
+            "w": 2.4,
+            "wall": "right",
+            "y": 2.15
+          }
+        ],
+        "ceiling": {
+          "band": 0.62,
+          "cell": 2.25,
+          "drop": 0.36,
+          "hex": "#221d1a",
+          "kind": "coffer",
+          "trim": "#b8913e"
+        },
+        "downlights": false,
+        "floor": {
+          "border": "#1a1714",
+          "inset": 0.75,
+          "line": "#c9a14a",
+          "medallion": [
+            0,
+            5,
+            1.55
+          ],
+          "w": 0.3
+        },
+        "lights": [
+          {
+            "at": [
+              0,
+              5
+            ],
+            "drop": 1.85,
+            "k": 1.7,
+            "r": 1.15,
+            "tiers": 3
+          },
+          {
+            "at": [
+              -4.6,
+              5
+            ],
+            "drop": 1.4,
+            "k": 1.1,
+            "r": 0.62,
+            "tiers": 2
+          },
+          {
+            "at": [
+              4.6,
+              5
+            ],
+            "drop": 1.4,
+            "k": 1.1,
+            "r": 0.62,
+            "tiers": 2
+          }
+        ],
+        "plants": [
+          [
+            -1.75,
+            9.2,
+            1.15
+          ],
+          [
+            1.75,
+            9.2,
+            1.15
+          ],
+          [
+            -6.15,
+            0.95,
+            1.05
+          ],
+          [
+            6.15,
+            0.95,
+            1.05
+          ]
+        ],
+        "rug": false,
+        "sconces": {
+          "points": [
+            [
+              "back",
+              -2.7
+            ],
+            [
+              "back",
+              2.7
+            ],
+            [
+              "back",
+              -5.6
+            ],
+            [
+              "back",
+              5.6
+            ]
+          ],
+          "y": 2.15
+        },
+        "walls": {
+          "hex": "#6e5c4c",
+          "kind": "stone",
+          "pitch": 1.25,
+          "y1": 3
+        }
+      },
+      "face": 180,
+      "finish": "fine",
+      "glass": [
+        "front"
+      ],
+      "ground": "marble",
+      "h": 5,
+      "sign": {
+        "at": 0,
+        "size": 0.5,
+        "sub": "RESIDENCES",
+        "text": "SOLENNE",
+        "wall": "back",
+        "y": 3.55
+      },
+      "street_door": {
+        "glass": "#6f8a9c",
+        "kind": "sliding",
+        "monogram": "S",
+        "trim": "#c9a24a",
+        "w": 2
+      },
+      "studio": false,
+      "tone": {
+        "accent": "#c9a14a",
+        "ceiling": "#2a2522",
+        "trim": "#17130f",
+        "wall": "#2e2925"
+      },
+      "w": 14
+    },
     "sanctuary": true,
     "window": {
-      "description": "A full-height pane onto the street, kept just clean enough to trade through. Whatever the weather is doing out there, it's doing it in plain view.",
+      "description": "Two storeys of glass onto the street. Whatever the weather is doing out there, you can watch it from the warm.",
       "light": 0.85,
-      "name": "the shopfront window",
+      "name": "the lobby glass",
       "visibility": 0.9
     },
     "world_exit_zone": "zone_district_914_908"

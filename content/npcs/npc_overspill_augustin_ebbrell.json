@@ -1,0 +1,167 @@
+{
+  "banter": [
+    [
+      "\"Augustin, is there bread?\"",
+      "\"Later.\"",
+      "\"How much later?\"",
+      "\"When the drum's hot.\""
+    ]
+  ],
+  "behaviour_graph": {
+    "_start": "start",
+    "nodes": {
+      "day_home": {
+        "action_type": "GO_HOME",
+        "next": "day_wait",
+        "type": "action"
+      },
+      "day_pick": {
+        "branch_0": "day_home",
+        "branch_1": "day_walk",
+        "branches": [
+          {
+            "weight": 3
+          },
+          {
+            "weight": 2
+          }
+        ],
+        "type": "random"
+      },
+      "day_wait": {
+        "jitter": 180,
+        "next": "start",
+        "seconds": 240,
+        "type": "wait"
+      },
+      "day_walk": {
+        "action_type": "PATROL",
+        "next": "day_wait",
+        "params": {
+          "loop": true,
+          "mode": "walk",
+          "waypoints": [
+            "zone_district_922_920",
+            "zone_district_921_921",
+            "zone_district_922_922"
+          ]
+        },
+        "type": "action"
+      },
+      "fire_0": {
+        "action_type": "EMOTE",
+        "next": "fire_wait",
+        "params": {
+          "message": "bakes flat bread on a sheet of tin over the drum and hands it round."
+        },
+        "type": "action"
+      },
+      "fire_1": {
+        "action_type": "EMOTE",
+        "next": "fire_wait",
+        "params": {
+          "message": "turns the bread on the tin with his fingers."
+        },
+        "type": "action"
+      },
+      "fire_pick": {
+        "branch_0": "fire_0",
+        "branch_1": "fire_1",
+        "branches": [
+          {
+            "weight": 1
+          },
+          {
+            "weight": 1
+          }
+        ],
+        "type": "random"
+      },
+      "fire_wait": {
+        "jitter": 90,
+        "next": "start",
+        "seconds": 150,
+        "type": "wait"
+      },
+      "go_home": {
+        "action_type": "GO_HOME",
+        "next": "sleep",
+        "type": "action"
+      },
+      "is_evening": {
+        "condition_type": "HOUR_RANGE",
+        "ifFalse": "day_pick",
+        "ifTrue": "to_fire",
+        "params": {
+          "from": 19,
+          "to": 1
+        },
+        "type": "condition"
+      },
+      "is_late": {
+        "condition_type": "HOUR_RANGE",
+        "ifFalse": "is_evening",
+        "ifTrue": "go_home",
+        "params": {
+          "from": 1,
+          "to": 5
+        },
+        "type": "condition"
+      },
+      "sleep": {
+        "action_type": "AT_HOME_LIFE",
+        "next": "start",
+        "type": "action"
+      },
+      "start": {
+        "next": "is_late",
+        "type": "start"
+      },
+      "to_fire": {
+        "action_type": "GO_TO_WORK",
+        "next": "fire_pick",
+        "params": {
+          "zone_id": "zone_district_922_922"
+        },
+        "type": "action"
+      }
+    }
+  },
+  "chitchat": [
+    "\"Top floor's fine. You feel the wind, but you feel it everywhere.\"",
+    "brushes flour off his sleeve."
+  ],
+  "description": "A heavy, quiet man in his forties who rents the top floor of the Stack for two tins a week. He used to work the night bakery on Glacier Street. He keeps a sack of flour under his bunk.",
+  "dialogue_tree": {},
+  "faction": null,
+  "flags": {
+    "clothing_layers": [
+      "a white baker's jacket gone grey at the cuffs",
+      "a wool jumper",
+      "baggy trousers and a vest"
+    ],
+    "mis_willing": false,
+    "personality": "stoic"
+  },
+  "home_activities": [
+    "kneads dough in a bowl on his knee.",
+    "climbs the ladder slowly, testing each rung.",
+    "sleeps sitting up."
+  ],
+  "home_zone": "zone_district_922_920",
+  "hp": 20,
+  "hp_max": 20,
+  "id": "npc_overspill_augustin_ebbrell",
+  "name": "Augustin Ebbrell",
+  "npc_type": "npc",
+  "sex": "male",
+  "studio_zone_id": null,
+  "vendor_inventory": [],
+  "vendor_restock_rate": 1,
+  "vendor_schedule": {},
+  "vendor_shop_name": null,
+  "vendor_stock_size": 10,
+  "wander_zones": [],
+  "wanders": 0,
+  "work_zone_id": null
+}

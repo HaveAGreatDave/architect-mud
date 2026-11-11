@@ -1,0 +1,31 @@
+{
+  "description": "A teak lounger with a cream cushion. A folded towel waits at the foot of it.",
+  "flags": {
+    "aliases": "lounger,sunbed",
+    "interactions": [
+      "sit",
+      "lie"
+    ],
+    "look": {
+      "arche": "sofa",
+      "form": "lounger"
+    },
+    "spot": {
+      "at": [
+        -3,
+        5
+      ],
+      "turn": -90
+    }
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_skydeck_lounger_3",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "teak lounger",
+  "object_type": "furniture",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_solenne_skydeck"
+}

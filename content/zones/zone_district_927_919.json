@@ -1,24 +1,27 @@
 {
-  "ambient_events": [],
-  "ambient_theme": "forest",
-  "color": "#8ba36a",
-  "description": "Rough pasture, tussocked and uneven, dotted with the grey bones of dead machinery the green has decided to keep. It smells, improbably, alive. The Architect's Curtain seals the edge here: a floor-to-sky sheet of humming hard light. There's no way through but the South Gate.",
+  "ambient_events": [
+    "A moth batters against the light of the wall and drops."
+  ],
+  "ambient_theme": "residential",
+  "description": "The east wall where the Overspill meets it. One tent is pitched so close to the light that its back panel has gone pale and brittle. Its owner says it keeps the damp off.",
   "exits": {
     "north": "zone_district_927_918",
     "south": "zone_district_927_920",
     "west": "zone_district_926_919"
   },
   "flags": {
+    "camp": true,
     "curtain": true,
-    "district": "residential",
+    "district": "slum",
     "region_id": "region_coldwater",
-    "terrain": "grass"
+    "scavenging_table_id": "scav_consumer_trash",
+    "terrain": "ash"
   },
   "grid_x": 927,
   "grid_y": 919,
   "grid_z": 0,
   "id": "zone_district_927_919",
   "map_id": "map_world",
-  "name": "Grasslands",
+  "name": "The East Wall",
   "parent_zone": null
 }

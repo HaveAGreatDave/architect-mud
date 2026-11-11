@@ -1,9 +1,18 @@
 {
   "description": "A slab of white marble under a cantilevered canopy, backed by a lit wall of bottles that costs more than most people's rent. Unattended, but never quite unstocked.",
   "flags": {
+    "bar_counter": true,
     "interactions": [
       "lean"
-    ]
+    ],
+    "look": {
+      "arche": "surface",
+      "form": "bar"
+    },
+    "spot": {
+      "along": -4.6,
+      "wall": "back"
+    }
   },
   "hp": null,
   "hp_max": null,

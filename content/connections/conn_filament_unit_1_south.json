@@ -1,0 +1,9 @@
+{
+  "a": "zone_filament_unit_1",
+  "b": "zone_filament_stair",
+  "blocked": false,
+  "dir": "south",
+  "id": "conn_filament_unit_1_south",
+  "lockable": true,
+  "one_way": false
+}

@@ -1,0 +1,30 @@
+{
+  "description": "A high-backed chair in oxblood leather. Somebody has left a folded paper on the arm.",
+  "flags": {
+    "aliases": "wing chair,chair",
+    "interactions": [
+      "sit"
+    ],
+    "look": {
+      "arche": "seat",
+      "form": "armchair"
+    },
+    "spot": {
+      "at": [
+        0.7,
+        4.3
+      ],
+      "turn": -90
+    }
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_salon_wing_chair_2",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "wing chair",
+  "object_type": "furniture",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_solenne_salon"
+}

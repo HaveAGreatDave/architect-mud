@@ -17,7 +17,7 @@ import { V, clamp, lerp, rotZ, footFrame } from '../rink/util.js';
 import { rinkFace } from '../rink/faces.js';
 import { headMesh, hairMesh, weightedFace, SCULPT_HEADS, HEAD_FEAT } from '../actor-head.js';
 import { maskColours, OFFICIAL_KIT, MEDIC_KIT, CREW_KIT } from '../rink/hud.js';
-import { FLANK, cupColour, LIVERY_W, LIVERY_H } from '../rink/livery.js';
+import { FLANK, cupColour, kenWave, LIVERY_W, LIVERY_H } from '../rink/livery.js';
 
 export const STRIDE = 13;
 
@@ -948,34 +948,202 @@ export function buildDebris(b, d, K) {
     ellipsoid(b, [d.x, d.y, d.z + 0.05], [1, 0, 0], [0, 1, 0], [0, 0, 1], [0.44, 0.4, 0.3], rgb(K.helmet), 10, 5);
   }
 }
+// THE COLDWATER CUP, stood on its base at s (x, y, z), about three feet tall: a stepped silver
+// barrel banded in black, a gold collar, a short neck and the bowl on top. Nobody knows who made
+// it, so it looks like a trophy and nothing more particular (rink/director.js stageCrown).
+const CUP_SILVER = '#d4d9df', CUP_DARK = '#7c838c', CUP_GOLD = '#d8b24a';
+export function buildCup(b, s) {
+  const at = (z) => [s.x, s.y, s.z + z], up = [0, 0, 1];
+  const ring = (z0, z1, r0, r1, col) => tube(b, at(z0), at(z1), r0, r1, rgb(col), 14);
+  ring(0, 0.18, 0.62, 0.62, CUP_DARK); disc(b, at(0.18), up, 0.62, rgb(CUP_DARK), 14, 0.02);
+  ring(0.18, 0.62, 0.56, 0.56, CUP_SILVER);
+  ring(0.62, 0.68, 0.58, 0.58, CUP_DARK);
+  ring(0.68, 1.12, 0.5, 0.5, CUP_SILVER);
+  ring(1.12, 1.18, 0.52, 0.52, CUP_DARK);
+  ring(1.18, 1.58, 0.44, 0.38, CUP_SILVER);
+  disc(b, at(1.6), up, 0.4, rgb(CUP_SILVER), 14, 0.04);
+  ring(1.6, 1.72, 0.3, 0.3, CUP_GOLD);
+  ring(1.72, 2.2, 0.17, 0.13, CUP_SILVER);
+  ellipsoid(b, at(2.2), [1, 0, 0], [0, 1, 0], up, [0.22, 0.22, 0.1], rgb(CUP_GOLD), 10, 5);
+  ellipsoid(b, at(2.5), [1, 0, 0], [0, 1, 0], up, [0.46, 0.46, 0.26], rgb(CUP_SILVER), 14, 7);
+  ring(2.62, 2.7, 0.47, 0.5, CUP_GOLD);
+}
 export function buildStretcher(b, s) {
   const ch = Math.cos(s.h), sn = Math.sin(s.h), ax = [ch, sn, 0], ay = [-sn, ch, 0];
   boxAxes(b, [s.x, s.y, 1.6], ax, ay, [0, 0, 1], 3.2, 0.9, 0.05, rgb('#e9e5d8'));
   for (const sv of [-1, 1]) tube(b, V.frame([s.x, s.y, 1.6], ax, -3.9, ay, sv * 0.95), V.frame([s.x, s.y, 1.6], ax, 3.9, ay, sv * 0.95), 0.05, 0.05, rgb('#7a7466'), 5);
 }
 
-// The ice resurfacer, box for box the same machine render.js draws. With `cup` (every
-// night now) it's in Ken Raven's colours with his piece on the tank (rink/livery.js).
+// The ice resurfacer: the same footprint render.js draws in 2-D, built here as bevelled panels in
+// the comic manner (a raked nose, a chamfered tank, a roll hoop with a light bar, a hazard-striped
+// conditioner). No two faces share a plane: a stripe stands off its panel, so nothing z-fights.
+// With `cup` (every night now) it's in Ken Raven's colours with his piece on the tank (rink/livery.js).
 // The lettering texture: ICE CREW in a strip at the top, the piece under it.
 export const ZAMBONI_LABEL = { w: LIVERY_W, crew: 128, h: 128 + LIVERY_H };
-const ZB = [
-  { b: [-6.1, -4.6, -3.7, 3.7, 0.12, 1.2], col: '#7d848c', bands: [[0.12, 0.35, '#2a2e34']] },
-  { b: [-4.7, 4.7, -3.45, 3.45, 0.55, 2.7], col: '#eceff2', bands: [[1.45, 1.95, '#1f4fbf'], [0.55, 0.8, '#3a3f46']] },
-  { b: [0.2, 4.75, -3.35, 3.35, 2.7, 5.9], col: '#f4f6f8', bands: [[5.55, 5.9, '#1f4fbf'], [2.7, 2.95, '#c9ced3']] },
-  { b: [-4.05, -1.6, 0.2, 2.8, 2.7, 3.2], col: '#30343b' },
-  { b: [-4.25, -3.85, 0.4, 2.6, 3.2, 4.9], col: '#30343b' },
-  { b: [-3.6, -2.7, 0.95, 2.05, 3.2, 5.2], col: '#2c3a4e' },
-  { b: [-1.0, -0.65, 1.25, 1.55, 2.7, 4.4], col: '#22262c' },
-];
-export function buildZamboni(b, bt, z, t, cup = false) {
+// the everyday colours cupColour swaps (rink/livery.js RECOLOUR), and the fixed ones
+const ZC = { hull: '#eceff2', tank: '#f4f6f8', band: '#1f4fbf', trim: '#c9ced3', steel: '#5d646c', dark: '#2a2e34', tyre: '#16181c', hazard: '#f2c230', hazardK: '#141217' };
+// side views (u forward, w up) of the panels, each convex and anticlockwise
+const Z_HULL = [[-4.75, 0.6], [4.3, 0.6], [4.85, 1.15], [4.85, 2.3], [4.5, 2.7], [-4.75, 2.7]];
+const Z_TANK = [[0.15, 2.65], [4.72, 2.65], [4.72, 5.55], [4.4, 5.95], [0.6, 5.95], [0.15, 5.5]];
+const Z_COND = [[-6.15, 0.14], [-4.6, 0.14], [-4.6, 1.4], [-5.0, 1.75], [-5.85, 1.75], [-6.15, 1.45]];
+const Z_DASH = [[-0.55, 2.65], [0.15, 2.65], [0.15, 4.0], [-0.2, 4.0]];
+// the far driver's seat and wheel column (buildKen); the close-up Ken brings his own
+const Z_SEAT = [[-4.05, -1.6, 0.2, 2.8, 2.7, 3.2], [-4.25, -3.85, 0.4, 2.6, 3.2, 4.9], [-1.0, -0.65, 1.25, 1.55, 2.7, 4.4]];
+// A panel: the side view `prof` pushed across from v0 to v1, its edges bevelled by `bev` all round.
+function zSlab(b, W3, prof, v0, v1, bev, c) {
+  const n = prof.length;
+  const inset = prof.map((p, i) => {
+    const a = prof[(i + n - 1) % n], q = prof[(i + 1) % n];
+    const e0 = V.norm([p[0] - a[0], p[1] - a[1], 0]), e1 = V.norm([q[0] - p[0], q[1] - p[1], 0]);
+    const n0 = [-e0[1], e0[0]], n1 = [-e1[1], e1[0]], k = bev / Math.max(0.3, 1 + n0[0] * n1[0] + n0[1] * n1[1]);
+    return [p[0] + (n0[0] + n1[0]) * k, p[1] + (n0[1] + n1[1]) * k];
+  });
+  const rings = [[inset, v0], [prof, v0 + bev], [prof, v1 - bev], [inset, v1]];
+  for (let r = 0; r < 3; r++) {
+    const [A, va] = rings[r], [B, vb] = rings[r + 1];
+    for (let i = 0; i < n; i++) {
+      const j = (i + 1) % n;
+      quad(b, W3(A[i][0], va, A[i][1]), W3(A[j][0], va, A[j][1]), W3(B[j][0], vb, B[j][1]), W3(B[i][0], vb, B[i][1]), c);
+    }
+  }
+  for (const v of [v0, v1]) {
+    const P = inset.map(([u, w]) => W3(u, v, w)), nn = V.norm(V.cross(V.sub(P[1], P[0]), V.sub(P[2], P[0])));
+    for (let i = 1; i < n - 1; i++) tri(b, P[0], P[i], P[i + 1], nn, nn, nn, c);
+  }
+}
+// Ken Raven at the wheel, drawn from the man himself: brown hair swept up into a short
+// quiff, a dark beard going grey at the chin, black rectangular glasses and a wide grin,
+// in the navy crew parka and the Highlanders tartan scarf. Now and then (3 s in every 39)
+// he lets go with his outside hand and waves to the crowd.
+// Machine frame: u forward, v left, w up; he sits at u -3.2, v 1.5, facing +u.
+const KEN = { skin: '#e2ad8e', skinDk: '#c98d6e', hair: '#5b3b25', hairLt: '#7a5236', beard: '#4a3122', grey: '#8e8274',
+  parka: '#24324a', parkaDk: '#1a2436', trouser: '#2a2f38', boot: '#16181c', tartan: '#2f5d3a', tartanB: '#1c2a4a', frame: '#111214' };
+function buildKen(b, W3, ax, ay, az, t) {
+  const P = (u, v, w) => W3(u, v, w), V0 = 1.5;
+  const el = (u, v, w, r, col, seg = 8, rings = 6) => ellipsoid(b, P(u, v, w), ax, ay, az, r, rgb(col), seg, rings);
+  const tb = (a, c, ra, rb, col, seg = 7) => tube(b, P(...a), P(...c), ra, rb, rgb(col), seg);
+  const bxk = (u, v, w, hx, hy, hz, col) => boxAxes(b, P(u, v, w), ax, ay, az, hx, hy, hz, rgb(col));
+  // legs: thighs along the seat, shins down to the floor plate, boots
+  for (const s of [-1, 1]) {
+    const v = V0 + s * 0.27;
+    tb([-3.35, v, 3.45], [-2.05, v, 3.55], 0.27, 0.22, KEN.trouser);
+    tb([-2.05, v, 3.55], [-1.85, v, 2.85], 0.2, 0.16, KEN.trouser);
+    bxk(-1.65, v, 2.8, 0.3, 0.14, 0.1, KEN.boot);
+  }
+  // the parka: body, a hem, the zip, the tartan scarf at the collar with a tail hanging
+  el(-3.25, V0, 4.25, [0.46, 0.6, 0.85], KEN.parka, 10, 7);
+  el(-3.25, V0, 3.6, [0.5, 0.64, 0.25], KEN.parkaDk, 10, 4);
+  bxk(-2.8, V0, 4.3, 0.02, 0.025, 0.6, '#8a9099');
+  el(-3.2, V0, 5.1, [0.36, 0.42, 0.15], KEN.tartan, 10, 4);
+  el(-3.18, V0, 5.12, [0.37, 0.43, 0.05], KEN.tartanB, 10, 3);
+  bxk(-2.85, V0 - 0.2, 4.8, 0.05, 0.08, 0.3, KEN.tartan);
+  // the wheel: a rim on the column, tipped toward him
+  const hub = [-0.82, 1.4, 4.5], r1 = V.norm([0.6, 0, 0.8]), r2 = [0, 1, 0];
+  const rim = (a) => [0, 1, 2].map((i) => hub[i] + (Math.cos(a) * r1[i] + Math.sin(a) * r2[i]) * 0.42);
+  for (let i = 0; i < 12; i++) tb(rim(i / 12 * Math.PI * 2), rim((i + 1) / 12 * Math.PI * 2), 0.045, 0.045, '#1c1e22', 5);
+  // arms: the inside hand stays on the wheel; the outside one waves when kenWave says so
+  const wv = kenWave(t), sway = Math.sin(t * 8) * 0.28 * wv;
+  for (const s of [-1, 1]) {
+    const sh = [-3.15, V0 + s * 0.55, 4.9], onWheel = [-0.95, 1.4 + s * 0.36, 4.55];
+    let el1 = [-2.15, V0 + s * 0.68, 4.25], hand = onWheel;
+    if (s > 0 && wv > 0) {
+      const up = [-3.0, V0 + 1.15 + sway, 6.15];
+      el1 = [lerp(-2.15, -3.05, wv), V0 + lerp(0.68, 1.05, wv), lerp(4.25, 5.15, wv)];
+      hand = [0, 1, 2].map((i) => lerp(onWheel[i], up[i], wv));
+    }
+    tb(sh, el1, 0.19, 0.16, KEN.parka);
+    tb(el1, hand, 0.16, 0.12, KEN.parka);
+    if (s > 0 && wv > 0.3) {
+      // an open palm to the stands, fingers up, thumb out
+      el(hand[0], hand[1], hand[2] + 0.12, [0.05, 0.13, 0.17], KEN.skin, 7, 5);
+      for (let f = 0; f < 4; f++) tb([hand[0], hand[1] - 0.09 + f * 0.06, hand[2] + 0.22], [hand[0], hand[1] - 0.11 + f * 0.075, hand[2] + 0.38 - Math.abs(f - 1.5) * 0.04], 0.025, 0.02, KEN.skin, 4);
+      tb([hand[0], hand[1] - 0.13, hand[2] + 0.1], [hand[0] + 0.03, hand[1] - 0.24, hand[2] + 0.2], 0.03, 0.025, KEN.skin, 4);
+    } else el(hand[0], hand[1], hand[2], [0.12, 0.1, 0.1], KEN.skin, 6, 5);
+  }
+  // neck and head: a broad, round face
+  tb([-3.2, V0, 5.05], [-3.15, V0, 5.45], 0.15, 0.15, KEN.skin);
+  const hu = -3.12, hw = 5.78;
+  el(hu, V0, hw, [0.37, 0.35, 0.45], KEN.skin, 12, 9);
+  for (const s of [-1, 1]) el(hu - 0.05, V0 + s * 0.35, hw - 0.02, [0.06, 0.05, 0.11], KEN.skinDk, 6, 4);
+  // hair: short at the back and sides, swept up into a quiff, lighter on top
+  el(hu - 0.08, V0, hw + 0.1, [0.36, 0.37, 0.42], KEN.hair, 12, 8);
+  el(hu + 0.08, V0, hw + 0.36, [0.3, 0.3, 0.14], KEN.hairLt, 10, 5);
+  for (let k = 0; k < 5; k++) {
+    const vv = V0 + (k - 2) * 0.11, a = Math.abs(k - 2);
+    tb([hu + 0.24, vv, hw + 0.36], [hu + 0.02 - a * 0.03, vv + (k - 2) * 0.02, hw + 0.52 - a * 0.04], 0.1, 0.03, k % 2 ? KEN.hair : KEN.hairLt, 6);
+  }
+  // brows: thick and dark
+  for (const s of [-1, 1]) bxk(hu + 0.35, V0 + s * 0.14, hw + 0.13, 0.03, 0.09, 0.025, KEN.hair);
+  // eyes behind black rectangular frames, a bridge, arms back to the ears
+  for (const s of [-1, 1]) {
+    const v = V0 + s * 0.14, u = hu + 0.38, w = hw + 0.04;
+    el(u - 0.04, v, w, [0.02, 0.045, 0.03], '#3a5560', 5, 4);
+    bxk(u, v, w + 0.065, 0.015, 0.1, 0.018, KEN.frame);
+    bxk(u, v, w - 0.06, 0.015, 0.1, 0.012, KEN.frame);
+    bxk(u, v - 0.095, w, 0.015, 0.012, 0.07, KEN.frame);
+    bxk(u, v + 0.095, w, 0.015, 0.012, 0.07, KEN.frame);
+    tb([u, V0 + s * 0.24, w + 0.05], [hu - 0.05, V0 + s * 0.35, w + 0.02], 0.014, 0.014, KEN.frame, 4);
+  }
+  bxk(hu + 0.385, V0, hw + 0.05, 0.015, 0.04, 0.012, KEN.frame);
+  // nose, then the beard: full along the jaw, a moustache, grey at the chin
+  el(hu + 0.38, V0, hw - 0.06, [0.06, 0.05, 0.08], KEN.skinDk, 6, 5);
+  el(hu + 0.1, V0, hw - 0.22, [0.3, 0.37, 0.3], KEN.beard, 10, 7);
+  el(hu + 0.33, V0, hw - 0.3, [0.08, 0.15, 0.13], KEN.beard, 7, 5);
+  el(hu + 0.36, V0, hw - 0.38, [0.05, 0.07, 0.06], KEN.grey, 6, 4);
+  el(hu + 0.37, V0, hw - 0.13, [0.04, 0.15, 0.03], KEN.beard, 7, 4);
+  // the grin: a dark mouth and a row of teeth
+  bxk(hu + 0.405, V0, hw - 0.2, 0.012, 0.14, 0.04, '#5a2a24');
+  bxk(hu + 0.415, V0, hw - 0.18, 0.01, 0.12, 0.02, '#f2ecdc');
+}
+// `rig` ({ hub, seat }, gl/arena-ken.js kenRig) is there when the close-up Ken drives: the seat is
+// raised to his hips and the wheel put between his hands, and buildKen, the far driver, is left out.
+export function buildZamboni(b, bt, z, t, cup = false, rig = null) {
   const ch = Math.cos(z.h), sn = Math.sin(z.h), ax = [ch, sn, 0], ay = [-sn, ch, 0], az = [0, 0, 1];
   const W3 = (u, v, w) => [z.x + u * ch - v * sn, z.y + u * sn + v * ch, w];
   const bx = (u0, u1, v0, v1, z0, z1, col) => boxAxes(b, W3((u0 + u1) / 2, (v0 + v1) / 2, (z0 + z1) / 2), ax, ay, az, (u1 - u0) / 2, (v1 - v0) / 2, (z1 - z0) / 2, rgb(col));
-  for (const o of ZB) {
-    const [u0, u1, v0, v1, z0, z1] = o.b;
-    bx(u0, u1, v0, v1, z0, z1, cupColour(o.col, cup));
-    for (const [a0, a1, c] of o.bands || []) bx(u0 - 0.02, u1 + 0.02, v0 - 0.02, v1 + 0.02, a0, a1, cupColour(c, cup));
+  const col = (k) => rgb(cupColour(ZC[k], cup));
+  const flat = (sv, v, pts, c) => { const P = pts.map(([u, w]) => W3(u, sv * v, w)); quad(b, P[0], P[1], P[2], P[3], c); };
+  // the hull, the tank on its nose, the conditioner behind, and the console at the driver's knees
+  zSlab(b, W3, Z_HULL, -3.45, 3.45, 0.28, col('hull'));
+  zSlab(b, W3, Z_TANK, -3.35, 3.35, 0.16, col('tank'));
+  zSlab(b, W3, Z_COND, -3.75, 3.75, 0.14, col('steel'));
+  zSlab(b, W3, Z_DASH, 0.5, 2.5, 0.08, col('dark'));
+  // the squeegee's rubber under the conditioner
+  bx(-6.2, -5.95, -3.6, 3.6, 0.02, 0.13, ZC.tyre);
+  // a raised lid on the tank, a battery pod on the deck's right, a low wall on its left
+  zSlab(b, W3, [[0.8, 5.9], [4.0, 5.9], [3.85, 6.12], [0.95, 6.12]], -2.55, 2.55, 0.06, col('band'));
+  zSlab(b, W3, [[-4.35, 2.65], [-1.25, 2.65], [-1.25, 3.4], [-1.55, 3.65], [-4.35, 3.65]], -3.3, -0.45, 0.12, col('hull'));
+  zSlab(b, W3, [[-4.6, 2.65], [-0.2, 2.65], [-0.2, 3.1], [-0.5, 3.35], [-4.6, 3.35]], 2.95, 3.4, 0.08, col('hull'));
+  for (const sv of [-1, 1]) {
+    // the shoulder stripe along the hull, raked at the nose, and the gold pinstripe under the tank's lid
+    flat(sv, 3.5, [[-4.4, 1.95], [4.1, 1.95], [4.45, 2.3], [-4.4, 2.3]], col('band'));
+    flat(sv, 3.37, [[0.45, 5.58], [4.5, 5.58], [4.42, 5.7], [0.5, 5.7]], col('trim'));
+    // a chevron on the pod and the wall, pointing forward
+    flat(sv, sv > 0 ? 3.45 : 3.35, [[-3.4, 2.9], [-2.6, 2.9], [-2.2, 3.15], [-3.0, 3.15]], col('trim'));
   }
+  // hazard stripes across the conditioner's back
+  {
+    const u = -6.19, h0 = 0.4, h1 = 1.3, s = 0.42, lim = 3.4;
+    quad(b, W3(u, -lim, h0), W3(u, lim, h0), W3(u, lim, h1), W3(u, -lim, h1), rgb(ZC.hazardK));
+    for (let v = -lim - 0.9; v < lim; v += s * 2) {
+      const c0 = Math.max(-lim, v), c1 = Math.min(lim, v + s), d0 = Math.max(-lim, v + 0.9), d1 = Math.min(lim, v + 0.9 + s);
+      if (c1 <= c0 && d1 <= d0) continue;
+      quad(b, W3(u - 0.04, c0, h0), W3(u - 0.04, Math.max(c0, c1), h0), W3(u - 0.04, Math.max(d0, d1), h1), W3(u - 0.04, d0, h1), rgb(ZC.hazard));
+    }
+  }
+  // the nose: a dark grille between two headlamps, the lamps lit from inside
+  quad(b, W3(4.9, -1.5, 1.3), W3(4.9, 1.5, 1.3), W3(4.9, 1.5, 2.0), W3(4.9, -1.5, 2.0), rgb(ZC.dark));
+  for (let k = 0; k < 4; k++) { const w = 1.42 + k * 0.16; quad(b, W3(4.95, -1.35, w), W3(4.95, 1.35, w), W3(4.95, 1.35, w + 0.05), W3(4.95, -1.35, w + 0.05), rgb('#4a5058')); }
+  for (const sv of [-1, 1]) quad(b, W3(4.92, sv * 1.95, 1.45), W3(4.92, sv * 2.85, 1.45), W3(4.92, sv * 2.85, 1.95), W3(4.92, sv * 1.95, 1.95), [1, 0.96, 0.82, 1], null, null);
+  // the roll hoop behind the seat, braced back to the conditioner, with the light bar on top
+  const cage = rgb(ZC.dark);
+  for (const v of [0.15, 2.95]) {
+    tube(b, W3(-4.5, v, 2.7), W3(-4.5, v, 6.25), 0.09, 0.09, cage, 6);
+    tube(b, W3(-4.5, v, 5.0), W3(-5.7, v, 1.75), 0.07, 0.07, cage, 6);
+  }
+  tube(b, W3(-4.5, 0.15, 6.25), W3(-4.5, 2.95, 6.25), 0.09, 0.09, cage, 6);
+  bx(-4.68, -4.32, 0.35, 2.75, 6.34, 6.56, ZC.dark);
+  if (!rig) for (const [u0, u1, v0, v1, z0, z1] of Z_SEAT) bx(u0, u1, v0, v1, z0, z1, '#30343b');
   // the lettering on both flanks of the tank, from the label texture
   const L = ZAMBONI_LABEL;
   if (bt) for (const sv of [-1, 1]) {
@@ -988,13 +1156,28 @@ export function buildZamboni(b, bt, z, t, cup = false) {
     const u0 = sv > 0 ? 4.45 : 0.5, u1 = sv > 0 ? 0.5 : 4.45;
     quad(bt, W3(u0, v, 3.6), W3(u1, v, 3.6), W3(u1, v, 4.6), W3(u0, v, 4.6), [1, 1, 1, 1], [0, 0, 1, L.crew / L.h], V.mul(ay, sv));
   }
-  for (const sv of [-1, 1]) for (const wu of [-3.0, 2.8]) disc(b, W3(wu, sv * 3.5, 0.95), V.mul(ay, sv), 0.95, rgb('#16181c'), 14, 0.5);
-  sphere(b, W3(-3.15, 1.5, 5.75), 0.42, rgb('#d9a27e'), 8, 6);
-  ellipsoid(b, W3(-3.15, 1.5, 5.9), ax, ay, az, [0.45, 0.45, 0.25], rgb(cupColour('#1f4fbf', cup)), 8, 4);
-  // the beacon is lit from inside: an unlit vertex colour
-  const on = Math.sin(t * 7) > 0, bcol = on ? [1, 0.75, 0.25, 1] : [0.55, 0.36, 0.1, 1];
+  for (const sv of [-1, 1]) for (const wu of [-3.0, 2.8]) {
+    disc(b, W3(wu, sv * 3.3, 0.95), V.mul(ay, sv), 0.95, rgb(ZC.tyre), 16, 0.55);
+    disc(b, W3(wu, sv * 3.3, 0.95), V.mul(ay, sv), 0.46, col('trim'), 10, 0.62);
+  }
+  if (!rig) buildKen(b, W3, ax, ay, az, t);
+  else {
+    // a pedestal seat with a cushion and a tall back, and the column up to a three-spoke wheel
+    const st = rig.seat, [hu, hv, hw] = rig.hub, dark = '#30343b', ink = rgb('#1c1e22');
+    bx(-4.05, -2.45, 0.4, 2.6, 2.7, st - 0.25, dark);
+    bx(-4.1, -2.4, 0.35, 2.65, st - 0.25, st, '#3b4049');
+    bx(-4.3, -3.9, 0.45, 2.55, st, st + 1.9, dark);
+    tube(b, W3(hu + 0.75, hv, 2.7), W3(hu + 0.05, hv, hw - 0.05), 0.13, 0.11, rgb('#22262c'), 7);
+    const tip = V.norm([0.55, 0, 0.83]), R = 0.62;
+    const rim = (a) => W3(hu + Math.cos(a) * tip[0] * R, hv + Math.sin(a) * R, hw + Math.cos(a) * tip[2] * R);
+    for (let i = 0; i < 16; i++) tube(b, rim(i / 16 * Math.PI * 2), rim((i + 1) / 16 * Math.PI * 2), 0.06, 0.06, ink, 5);
+    for (const a of [Math.PI / 2, -Math.PI / 2, Math.PI]) tube(b, W3(hu, hv, hw), rim(a), 0.035, 0.035, ink, 4);
+  }
+  // the light bar's two beacons, flashing in turn, lit from inside: an unlit vertex colour
+  const on = Math.sin(t * 7) > 0, hot = [1, 0.75, 0.25, 1], cold = [0.55, 0.36, 0.1, 1];
   const c0 = b.n;
-  boxAxes(b, W3(4.27, 0, 6.1), ax, ay, az, 0.18, 0.25, 0.18, bcol);
+  boxAxes(b, W3(-4.5, 0.6, 6.68), ax, ay, az, 0.16, 0.22, 0.13, on ? hot : cold);
+  boxAxes(b, W3(-4.5, 2.5, 6.68), ax, ay, az, 0.16, 0.22, 0.13, on ? cold : hot);
   for (let i = c0; i < b.n; i++) { const o = i * STRIDE; b.data[o + 3] = b.data[o + 4] = b.data[o + 5] = 0; }
 }
 

@@ -1,0 +1,31 @@
+{
+  "description": "A long black couch that curves along the wall. It's wiped down between customers, mostly.",
+  "flags": {
+    "interactions": [
+      "sit",
+      "lie"
+    ],
+    "look": {
+      "arche": "sofa",
+      "dims": [
+        3.6,
+        0.95,
+        0.85
+      ]
+    },
+    "spot": {
+      "along": 0,
+      "wall": "front"
+    }
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_cherry_vip_couch",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "curved couch",
+  "object_type": "fixture",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_mq_cherry_vip"
+}

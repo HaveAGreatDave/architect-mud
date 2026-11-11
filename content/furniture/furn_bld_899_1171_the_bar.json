@@ -1,6 +1,12 @@
 {
   "description": "A slab of scarred hardwood salvaged from somewhere that still had trees, bottles ranked behind it and a shotgun racked under the till where you're not meant to see it.",
-  "flags": {},
+  "flags": {
+    "bar_counter": true,
+    "look": {
+      "arche": "surface",
+      "form": "bar"
+    }
+  },
   "hp": null,
   "hp_max": null,
   "id": "furn_bld_899_1171_the_bar",

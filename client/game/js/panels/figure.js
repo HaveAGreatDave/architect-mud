@@ -98,6 +98,9 @@ export const FIGURE_XBONES = (() => {
     add('arm2F' + L, 'arm2U' + L, [s * 0.195, 1.1, -0.01], { move: 'copy', src: 'farm' + L });
     add('arm2H' + L, 'arm2F' + L, [s * 0.195, 0.85, -0.01], { move: 'copy', src: 'hand' + L });
   }
+  // what a hand holds upright, a glass: carried to where the hand is but never turned with it, so it doesn't
+  // spill (gl/room-people.js sets it from the hand; propMesh skins the glass to it)
+  for (const L of ['L', 'R']) add('prop' + L, 'hand' + L, [0, 0, 0], { move: 'held' });
   return out;
 })();
 FIGURE_XBONES.forEach((x, i) => { B[x.name] = FIGURE_BONES.length + i; });
@@ -114,7 +117,11 @@ export const FIG_SLOT = { skin: 0, top: 1, legs: 2, shoes: 3, hair: 4, face: 7, 
 // gear, so a sleeve gets a cuff seam and a boot its laces.
 export const FIG_PIECE = { torso: 0, sleeve: 1, boot: 2, belt: 3, strap: 4, pouch: 5, pad: 6, trouser: 7, mantle: 8, hood: 9, teeth: 10, goggles: 11, lens: 12, horn: 13, claw: 14, string: 15, cuff: 16,
   // the mutations' (MUTATION_LOOK)
-  eye3: 17, compound: 18, wing: 19, spider: 20, tentacle: 21, earbig: 22, tail: 23, plate: 24, blade: 25 };
+  eye3: 17, compound: 18, wing: 19, spider: 20, tentacle: 21, earbig: 22, tail: 23, plate: 24, blade: 25,
+  // what a hand holds (propMesh)
+  cig: 26, glass: 27, liquid: 28, ice: 29,
+  // a skirt over the legs, a hat, a scarf (FIGURE_BOTTOMS, FIGURE_HATS, FIGURE_SCARVES)
+  skirt: 30, hat: 31, scarf: 32 };
 // The gear a person can wear, each optional (figureGear picks it off the outfit's rand).
 export const FIGURE_GEAR = ['belt', 'strap', 'pouch', 'pads', 'gloves'];
 
@@ -135,6 +142,42 @@ const FABRIC_TOP = {
   vest: [[F.plain, 3], [F.knit, 2], [F.plaid, 2], [F.cord, 2], [F.leather, 1]],
   tunic: [[F.rag, 5], [F.canvas, 3], [F.knit, 1]],
   suit: [[F.plain, 8], [F.plaid, 1], [F.cord, 1]],
+  crop: [[F.plain, 5], [F.knit, 2], [F.camo, 1]],
+  longsleeve: [[F.plain, 5], [F.knit, 2], [F.plaid, 1]],
+  tank: [[F.plain, 5], [F.knit, 1], [F.rag, 1]],
+  oversized: [[F.plain, 5], [F.knit, 2], [F.rag, 1]],
+  sweater: [[F.knit, 8], [F.cord, 1]],
+  turtleneck: [[F.knit, 6], [F.plain, 2]],
+  cardigan: [[F.knit, 8], [F.plaid, 1]],
+  rolled: [[F.plaid, 4], [F.denim, 3], [F.plain, 3], [F.canvas, 2]],
+  oxford: [[F.plain, 7], [F.plaid, 2]],
+  cropjacket: [[F.denim, 5], [F.leather, 4], [F.cord, 1]],
+  peacoat: [[F.plain, 5], [F.knit, 2], [F.plaid, 1]],
+  parka: [[F.quilt, 5], [F.canvas, 2], [F.camo, 1]],
+  mac: [[F.canvas, 5], [F.plain, 3], [F.leather, 1]],
+  labcoat: [[F.plain, 6], [F.canvas, 2]],
+  blazer: [[F.plain, 5], [F.plaid, 2], [F.cord, 2]],
+  gilet: [[F.quilt, 6], [F.canvas, 1]],
+  coverall: [[F.canvas, 6], [F.denim, 2], [F.camo, 1]],
+  uniform: [[F.plain, 6], [F.canvas, 2], [F.camo, 1]],
+  dress: [[F.plain, 6], [F.plaid, 1], [F.knit, 1]],
+  shift: [[F.plain, 6], [F.knit, 1]],
+  maxi: [[F.plain, 5], [F.rag, 1], [F.knit, 1]],
+  knitdress: [[F.knit, 6], [F.plain, 1]],
+  robe: [[F.plain, 4], [F.knit, 3], [F.plaid, 1]],
+  poncho: [[F.knit, 4], [F.canvas, 3], [F.rag, 2]],
+  briefs: [[F.plain, 4], [F.rubber, 2], [F.knit, 1]],
+  boyshorts: [[F.plain, 4], [F.rubber, 1], [F.knit, 2]],
+  bodysuit: [[F.rubber, 3], [F.plain, 3]],
+  baselayer: [[F.plain, 4], [F.knit, 2], [F.rubber, 1]],
+  strapwrap: [[F.plain, 1]],
+  bikini: [[F.plain, 1]],
+  longline: [[F.plain, 1]],
+  slip: [[F.plain, 3], [F.knit, 1]],
+  cutout: [[F.rubber, 2], [F.plain, 2]],
+  hexsuit: [[F.plain, 1]],
+  stagelace: [[F.plain, 1]], stagehex: [[F.plain, 1]],
+  boxers: [[F.plain, 5], [F.plaid, 2], [F.knit, 1]],
 };
 const FABRIC_LEGS = [[F.denim, 8], [F.canvas, 4], [F.cord, 2], [F.camo, 2], [F.plain, 3], [F.leather, 1], [F.rag, 1], [F.rubber, 0.5]];
 const FABRIC_SHOES = [[F.leather, 7], [F.canvas, 2], [F.rubber, 2]];
@@ -151,7 +194,7 @@ export function figureFabric(r, cut, wild = false) {
   // a Wildblood's mantle is hide or a rag of the order's red, and its tunic homespun
   if (wild) return { top: rollOf([[F.rag, 3], [F.canvas, 2], [F.knit, 1]], r[0]), legs: rollOf([[F.rag, 2], [F.canvas, 1], [F.leather, 1]], r[1]), shoes: F.leather, cloak: rollOf([[F.leather, 3], [F.rag, 2], [F.knit, 1]], r[2]) };
   const top = rollOf(FABRIC_TOP[cut] || FABRIC_TOP.coat, r[0]);
-  return { top, legs: cut === 'suit' ? top : rollOf(FABRIC_LEGS, r[1]), shoes: rollOf(FABRIC_SHOES, r[2]) };
+  return { top, legs: cut === 'suit' || cut === 'coverall' || FIGURE_CUTS[cut]?.legs ? top : rollOf(FABRIC_LEGS, r[1]), shoes: rollOf(FABRIC_SHOES, r[2]) };
 }
 
 // ── Levels ──────────────────────────────────────────────────────────────────────────────────────────
@@ -242,9 +285,356 @@ export const FIGURE_CUTS = {
     collar: { y0: 1.442, y1: 1.472, ease: 0.008, flare: 0.03, open: 0.06 },
     shoulder: 0.016, front: 'open',
   },
+  // a priest's cassock: to the ankle, a low stand collar with the white tab at the throat, and the long row
+  // of small buttons down the front (gl/figure-hd.js, front 'cassock'). Asked for by name
+  cassock: {
+    top: { hem: 0.16, neck: 1.455, ease: 0.016, hug: 0.05, drape: 0.16, flare: 0.05 },
+    sleeve: { cuff: 0.872, ease: 0.01, drape: 0.14, open: 0.006 },
+    collar: { y0: 1.442, y1: 1.488, ease: 0.006, flare: 0, open: 0 },
+    shoulder: 0.016, front: 'cassock',
+  },
+  // a pressed short-sleeve shirt, tucked in, with a collar and a button front: asked for by name
+  shortsleeve: {
+    top: { hem: 0.985, neck: 1.452, ease: 0.006, hug: 0.35, drape: 0.55, flare: 0.002 },
+    sleeve: { cuff: 1.25, ease: 0.007, drape: 0.45, open: 0.008 },
+    collar: { y0: 1.444, y1: 1.474, ease: 0.006, flare: 0.014, open: 0.026 },
+    shoulder: 0.008, front: 'shirt',
+  },
+  // a long overcoat cut full, past the knee to the calf and wide at the hem, so it hangs and swings: asked for by name
+  overcoat: {
+    top: { hem: 0.26, neck: 1.455, ease: 0.02, hug: 0, drape: 0.15, flare: 0.075 },
+    sleeve: { cuff: 0.866, ease: 0.014, drape: 0.12, open: 0.008 },
+    collar: { y0: 1.44, y1: 1.55, ease: 0.014, flare: 0.05, open: 0.045 },
+    shoulder: 0.024, front: 'buttons', vent: true,
+  },
+  // a trench coat worn open: the overcoat's length and swing, the fronts hanging apart over whatever's under it
+  // (gl/figure-hd.js front 'open', `openW` times as wide as a shirt's opening). Asked for by name
+  trench: {
+    top: { hem: 0.3, neck: 1.455, ease: 0.02, hug: 0, drape: 0.15, flare: 0.07 },
+    sleeve: { cuff: 0.866, ease: 0.014, drape: 0.12, open: 0.008 },
+    collar: { y0: 1.44, y1: 1.52, ease: 0.014, flare: 0.05, open: 0.07 },
+    shoulder: 0.026, front: 'open', vent: true, openW: 1.9,
+  },
+  // ── The wardrobe ── appended in order (uCut is the index). Every cut here closes with a front the paint
+  // already knows. A dress or a skirted coat is any top whose hem is under 0.81: it drapes between the legs
+  // and over a seat as the overcoat does. Fit is in the numbers: tight hugs the body (hug), loose and
+  // oversized stand off it (ease) and hang lower. Sleeves: wrist 0.87, rolled 1.08, short 1.26, none null.
+  // a cropped tee, tight, to the ribs
+  crop: {
+    top: { hem: 1.1, neck: 1.452, ease: 0.004, hug: 0.6, drape: 0.7, flare: 0 },
+    sleeve: { cuff: 1.28, ease: 0.006, drape: 0.4, open: 0.006 },
+    collar: { y0: 1.445, y1: 1.456, ease: 0.003, flare: 0, open: 0 },
+    shoulder: 0.006,
+  },
+  // a long-sleeved tee, close
+  longsleeve: {
+    top: { hem: 0.96, neck: 1.452, ease: 0.005, hug: 0.5, drape: 0.6, flare: 0.002 },
+    sleeve: { cuff: 0.878, ease: 0.006, drape: 0.3, open: 0.002 },
+    collar: { y0: 1.445, y1: 1.458, ease: 0.0035, flare: 0, open: 0 },
+    shoulder: 0.006, rib: 0.02,
+  },
+  // a vest top: no sleeves, tight
+  tank: {
+    top: { hem: 0.97, neck: 1.45, ease: 0.004, hug: 0.6, drape: 0.7, flare: 0.002 },
+    sleeve: null, collar: null, shoulder: 0,
+  },
+  // a tee three sizes too big: off the body, to the thigh, sleeves past the elbow
+  oversized: {
+    top: { hem: 0.84, neck: 1.452, ease: 0.024, hug: 0, drape: 0.32, flare: 0.012 },
+    sleeve: { cuff: 1.16, ease: 0.02, drape: 0.25, open: 0.014 },
+    collar: { y0: 1.445, y1: 1.46, ease: 0.006, flare: 0.002, open: 0 },
+    shoulder: 0.02,
+  },
+  // a knitted pullover, ribbed at the waist and cuffs
+  sweater: {
+    top: { hem: 0.93, neck: 1.452, ease: 0.012, hug: 0.2, drape: 0.42, flare: 0 },
+    sleeve: { cuff: 0.88, ease: 0.011, drape: 0.2, open: 0 },
+    collar: { y0: 1.444, y1: 1.47, ease: 0.006, flare: 0, open: 0 },
+    shoulder: 0.01, rib: 0.045,
+  },
+  // the same with a roll neck up the throat
+  turtleneck: {
+    top: { hem: 0.94, neck: 1.452, ease: 0.008, hug: 0.35, drape: 0.5, flare: 0 },
+    sleeve: { cuff: 0.88, ease: 0.008, drape: 0.25, open: 0 },
+    collar: { y0: 1.44, y1: 1.54, ease: 0.008, flare: 0, open: 0 },
+    shoulder: 0.008, rib: 0.03,
+  },
+  // a long loose knit, buttoned, to the hip
+  cardigan: {
+    top: { hem: 0.86, neck: 1.452, ease: 0.016, hug: 0.08, drape: 0.34, flare: 0.01 },
+    sleeve: { cuff: 0.882, ease: 0.014, drape: 0.18, open: 0.004 },
+    collar: { y0: 1.442, y1: 1.468, ease: 0.008, flare: 0.012, open: 0.05 },
+    shoulder: 0.012, rib: 0.03, front: 'buttons',
+  },
+  // a work shirt with the sleeves rolled to the elbow, untucked
+  rolled: {
+    top: { hem: 0.9, neck: 1.452, ease: 0.009, hug: 0.25, drape: 0.45, flare: 0.006 },
+    sleeve: { cuff: 1.08, ease: 0.012, drape: 0.3, open: 0.004 },
+    collar: { y0: 1.444, y1: 1.476, ease: 0.006, flare: 0.016, open: 0.03 },
+    shoulder: 0.01, front: 'shirt',
+  },
+  // a long-sleeved button shirt, tucked
+  oxford: {
+    top: { hem: 0.985, neck: 1.452, ease: 0.006, hug: 0.35, drape: 0.55, flare: 0.002 },
+    sleeve: { cuff: 0.878, ease: 0.006, drape: 0.25, open: 0.003 },
+    collar: { y0: 1.444, y1: 1.476, ease: 0.006, flare: 0.014, open: 0.026 },
+    shoulder: 0.008, front: 'shirt',
+  },
+  // a short jacket to the waist, denim or biker, zipped
+  cropjacket: {
+    top: { hem: 1.0, neck: 1.455, ease: 0.014, hug: 0.05, drape: 0.35, flare: 0 },
+    sleeve: { cuff: 0.878, ease: 0.011, drape: 0.18, open: 0.002 },
+    collar: { y0: 1.442, y1: 1.5, ease: 0.011, flare: 0.03, open: 0.03 },
+    shoulder: 0.018, front: 'zip',
+  },
+  // a wool coat to the top of the thigh, a big collar
+  peacoat: {
+    top: { hem: 0.74, neck: 1.455, ease: 0.016, hug: 0.04, drape: 0.24, flare: 0.02 },
+    sleeve: { cuff: 0.87, ease: 0.012, drape: 0.13, open: 0.004 },
+    collar: { y0: 1.44, y1: 1.55, ease: 0.014, flare: 0.05, open: 0.04 },
+    shoulder: 0.022, front: 'buttons',
+  },
+  // a quilted parka past the hip, zipped, the hood down
+  parka: {
+    top: { hem: 0.7, neck: 1.455, ease: 0.028, hug: 0, drape: 0.22, flare: 0.02 },
+    sleeve: { cuff: 0.872, ease: 0.02, drape: 0.18, open: 0 },
+    collar: { y0: 1.442, y1: 1.52, ease: 0.014, flare: 0.012, open: 0.016 },
+    shoulder: 0.02, rib: 0.03, hood: true, front: 'zip', quilt: true,
+  },
+  // a mac to the knee, buttoned and closed, the vent behind
+  mac: {
+    top: { hem: 0.5, neck: 1.455, ease: 0.016, hug: 0.04, drape: 0.18, flare: 0.045 },
+    sleeve: { cuff: 0.87, ease: 0.012, drape: 0.12, open: 0.006 },
+    collar: { y0: 1.44, y1: 1.54, ease: 0.014, flare: 0.045, open: 0.042 },
+    shoulder: 0.024, front: 'buttons', vent: true,
+  },
+  // a lab or shop coat, thin, to the knee
+  labcoat: {
+    top: { hem: 0.56, neck: 1.455, ease: 0.012, hug: 0.06, drape: 0.22, flare: 0.03 },
+    sleeve: { cuff: 0.874, ease: 0.01, drape: 0.14, open: 0.006 },
+    collar: { y0: 1.442, y1: 1.5, ease: 0.008, flare: 0.04, open: 0.05 },
+    shoulder: 0.012, front: 'buttons',
+  },
+  // a blazer without the suit: the shirt's collar shows
+  blazer: {
+    top: { hem: 0.86, neck: 1.455, ease: 0.01, hug: 0.12, drape: 0.3, flare: 0.004 },
+    sleeve: { cuff: 0.878, ease: 0.008, drape: 0.15, open: 0.003 },
+    collar: { y0: 1.444, y1: 1.475, ease: 0.006, flare: 0.006, open: 0.03, slot: 'shirt' },
+    shoulder: 0.016, front: 'suit',
+  },
+  // a quilted gilet, zipped, the shirt's sleeves out
+  gilet: {
+    top: { hem: 0.93, neck: 1.452, ease: 0.02, hug: 0.05, drape: 0.4, flare: 0 },
+    sleeve: { cuff: 0.878, ease: 0.008, drape: 0.2, open: 0.003, slot: 'shirt' },
+    collar: { y0: 1.444, y1: 1.49, ease: 0.012, flare: 0.006, open: 0.012 },
+    shoulder: 0.014, front: 'zip', quilt: true,
+  },
+  // a boiler suit's top, zipped from the collar; its trousers are its cloth (figureFabric)
+  coverall: {
+    top: { hem: 0.86, neck: 1.452, ease: 0.014, hug: 0.08, drape: 0.38, flare: 0 },
+    sleeve: { cuff: 0.88, ease: 0.012, drape: 0.18, open: 0.003 },
+    collar: { y0: 1.444, y1: 1.49, ease: 0.008, flare: 0.024, open: 0.02 },
+    shoulder: 0.014, front: 'zip',
+  },
+  // a uniform tunic: fitted, buttoned, a stand collar, to the top of the thigh
+  uniform: {
+    top: { hem: 0.82, neck: 1.455, ease: 0.008, hug: 0.18, drape: 0.32, flare: 0.008 },
+    sleeve: { cuff: 0.876, ease: 0.008, drape: 0.16, open: 0.002 },
+    collar: { y0: 1.444, y1: 1.49, ease: 0.006, flare: 0.004, open: 0 },
+    shoulder: 0.018, front: 'buttons',
+  },
+  // a dress to the knee with short sleeves, fitted at the body and full at the hem
+  dress: {
+    top: { hem: 0.54, neck: 1.45, ease: 0.006, hug: 0.4, drape: 0.24, flare: 0.06 },
+    sleeve: { cuff: 1.3, ease: 0.006, drape: 0.4, open: 0.008 },
+    collar: { y0: 1.445, y1: 1.455, ease: 0.003, flare: 0, open: 0 },
+    shoulder: 0.006,
+  },
+  // a short sleeveless shift, above the knee
+  shift: {
+    top: { hem: 0.72, neck: 1.45, ease: 0.006, hug: 0.45, drape: 0.3, flare: 0.03 },
+    sleeve: null, collar: null, shoulder: 0,
+  },
+  // a long sleeveless dress to the ankle
+  maxi: {
+    top: { hem: 0.14, neck: 1.45, ease: 0.008, hug: 0.35, drape: 0.16, flare: 0.07 },
+    sleeve: null, collar: null, shoulder: 0,
+  },
+  // a knitted dress with long sleeves, to mid-calf
+  knitdress: {
+    top: { hem: 0.32, neck: 1.452, ease: 0.008, hug: 0.4, drape: 0.18, flare: 0.05 },
+    sleeve: { cuff: 0.88, ease: 0.007, drape: 0.25, open: 0.002 },
+    collar: { y0: 1.444, y1: 1.47, ease: 0.006, flare: 0, open: 0 },
+    shoulder: 0.006, rib: 0.02,
+  },
+  // a dressing gown worn open over a tee, to the shin
+  robe: {
+    top: { hem: 0.3, neck: 1.455, ease: 0.024, hug: 0, drape: 0.16, flare: 0.05 },
+    sleeve: { cuff: 0.9, ease: 0.024, drape: 0.14, open: 0.02 },
+    collar: { y0: 1.442, y1: 1.49, ease: 0.012, flare: 0.04, open: 0.07 },
+    shoulder: 0.014, front: 'open',
+  },
+  // a poncho to the hip over a long-sleeved top
+  poncho: {
+    top: { hem: 0.94, neck: 1.452, ease: 0.008, hug: 0.3, drape: 0.5, flare: 0 },
+    sleeve: { cuff: 0.88, ease: 0.008, drape: 0.25, open: 0.002 },
+    collar: { y0: 1.444, y1: 1.47, ease: 0.006, flare: 0, open: 0 },
+    shoulder: 0.008, mantle: { top: 1.462, hem: 0.96, ease: 0.03, jag: 0, slot: 'cloak' },
+  },
+  // ── Underwear ── matched sets in a smart fabric, a lit seam picked out in the shirt's colour (front 'seam',
+  // gl/figure-hd.js). `legs` cuts the trousers short as briefs or shorts: `hem` is where the leg ends,
+  // `waist` where the seat starts, and the set's bottoms take the top's colour and cloth (figureFabric,
+  // gl/room-people.js). Not in the street's roll: asked for by name.
+  // a sports bra and high-cut briefs
+  briefs: {
+    top: { hem: 1.2, neck: 1.44, ease: 0.003, hug: 0.75, drape: 0.8, flare: 0 },
+    sleeve: null, collar: null, shoulder: 0, rib: 0.016, front: 'seam',
+    legs: { hem: 0.8, waist: 0.95, ease: 0.003, hug: 0.8 },
+  },
+  // a crop vest and boy shorts to mid-thigh
+  boyshorts: {
+    top: { hem: 1.13, neck: 1.446, ease: 0.003, hug: 0.7, drape: 0.75, flare: 0 },
+    sleeve: null, collar: null, shoulder: 0, rib: 0.02, front: 'seam',
+    legs: { hem: 0.68, waist: 0.98, ease: 0.004, hug: 0.75 },
+  },
+  // a one-piece bodysuit cut high on the hip, sleeveless
+  bodysuit: {
+    top: { hem: 0.86, neck: 1.446, ease: 0.003, hug: 0.8, drape: 0.8, flare: 0 },
+    sleeve: null, collar: null, shoulder: 0, front: 'seam',
+    legs: { hem: 0.81, waist: 0.96, ease: 0.003, hug: 0.8 },
+  },
+  // a long-sleeved base layer and leggings to the ankle, skin-tight
+  baselayer: {
+    top: { hem: 0.97, neck: 1.452, ease: 0.003, hug: 0.75, drape: 0.75, flare: 0 },
+    sleeve: { cuff: 0.872, ease: 0.003, drape: 0.5, open: 0 },
+    collar: { y0: 1.444, y1: 1.49, ease: 0.003, flare: 0, open: 0 },
+    shoulder: 0, rib: 0.012, front: 'seam',
+    legs: { ease: 0.003, hug: 0.8 },
+  },
+  // a strap wrap after the bandage costume in The Fifth Element (docs/reference/bibliography.md): bands of
+  // pale cloth round the chest and hips with skin between them, and braces in the shirt's colour (front 'straps')
+  strapwrap: {
+    top: { hem: 0.95, neck: 1.43, ease: 0.003, hug: 0.8, drape: 0.8, flare: 0 },
+    sleeve: null, collar: null, shoulder: 0, front: 'straps',
+    legs: { hem: 0.79, waist: 0.97, ease: 0.003, hug: 0.8 },
+  },
+  // a loose vest and boxers to above the knee
+  boxers: {
+    top: { hem: 0.97, neck: 1.44, ease: 0.008, hug: 0.4, drape: 0.6, flare: 0 },
+    sleeve: null, collar: null, shoulder: 0, front: 'seam',
+    legs: { hem: 0.6, waist: 1.0, ease: 0.016, hug: 0.15 },
+  },
 };
+// ── Bottoms, hats and scarves ── worn with any cut, each its own choice (`bottoms`, `hat`, `scarf` in the key).
+// Bottoms replace the trousers: `legs` cuts them short as the underwear's does, and a `skirt` hangs from the
+// waist over briefs, its hem draping between the legs and over a seat as a long coat's does (gl/figure-hd.js
+// drape). A cut that sets its own legs (the underwear) or a top past the knee ignores them.
+export const FIGURE_BOTTOMS = {
+  shorts: { legs: { hem: 0.6, ease: 0.012, hug: 0.25 } },
+  cutoffs: { legs: { hem: 0.7, ease: 0.008, hug: 0.4 } },
+  bermudas: { legs: { hem: 0.5, ease: 0.014, hug: 0.2 } },
+  capris: { legs: { hem: 0.3, ease: 0.006, hug: 0.5 } },
+  mini: { legs: { hem: 0.8, waist: 0.97, ease: 0.003, hug: 0.8 }, skirt: { hem: 0.66, waist: 1.0, ease: 0.006, hug: 0.4, drape: 0.4, flare: 0.02 } },
+  pencil: { legs: { hem: 0.8, waist: 0.97, ease: 0.003, hug: 0.8 }, skirt: { hem: 0.5, waist: 1.02, ease: 0.004, hug: 0.6, drape: 0.5, flare: 0 } },
+  aline: { legs: { hem: 0.8, waist: 0.97, ease: 0.003, hug: 0.8 }, skirt: { hem: 0.5, waist: 1.02, ease: 0.008, hug: 0.2, drape: 0.24, flare: 0.06 } },
+  midi: { legs: { hem: 0.8, waist: 0.97, ease: 0.003, hug: 0.8 }, skirt: { hem: 0.32, waist: 1.02, ease: 0.008, hug: 0.25, drape: 0.18, flare: 0.05 } },
+  longskirt: { legs: { hem: 0.8, waist: 0.97, ease: 0.003, hug: 0.8 }, skirt: { hem: 0.12, waist: 1.02, ease: 0.008, hug: 0.2, drape: 0.16, flare: 0.07 } },
+};
+// A hat is two shapes on the head bone: a crown and, for most, a brim. [centre, radii, roundness] in the head's
+// rest space (actor-head.js FACE: the crown at 1.75, the brow at 1.657); the crown's lower half sits inside the head.
+export const FIGURE_HATS = {
+  beanie: { crown: [[0, 1.705, -0.008], [0.1, 0.075, 0.11], 2.2], band: [[0, 1.672, -0.006], [0.104, 0.016, 0.114], 2.4] },
+  cap: { crown: [[0, 1.71, -0.01], [0.097, 0.062, 0.106], 2.2], brim: [[0, 1.682, 0.098], [0.074, 0.006, 0.07], 2.2] },
+  fedora: { crown: [[0, 1.735, -0.008], [0.088, 0.062, 0.098], 3], brim: [[0, 1.686, -0.006], [0.17, 0.007, 0.175], 2.2] },
+  bucket: { crown: [[0, 1.72, -0.008], [0.096, 0.062, 0.104], 3], brim: [[0, 1.666, -0.006], [0.13, 0.012, 0.136], 2.4] },
+  hardhat: { crown: [[0, 1.722, -0.006], [0.106, 0.072, 0.116], 2.2], brim: [[0, 1.682, 0.004], [0.124, 0.006, 0.142], 2.2] },
+  flatcap: { crown: [[0, 1.718, 0.0], [0.1, 0.04, 0.116], 2.4], brim: [[0, 1.69, 0.09], [0.072, 0.006, 0.05], 2.2] },
+};
+// A scarf: a loop round the neck and, unless it's a snood, one tail down the front. `wrap` is how many turns.
+export const FIGURE_SCARVES = { scarf: { r: 0.02, tail: 0.24, wrap: 1 }, chunky: { r: 0.03, tail: 0.18, wrap: 2 }, snood: { r: 0.028, tail: 0, wrap: 2 }, bandana: { r: 0.012, tail: 0.06, wrap: 1 } };
+// The underwear sets, which the roll leaves out
+// Low-cut tops: `neckline` [depth, half-width, 0 a V or 1 a scoop] is painted as skin down the front
+// (gl/figure-hd.js uNeck), over a cloth that hugs the chest; any top can take one from flags.figure.neckline.
+Object.assign(FIGURE_CUTS, {
+  // a scoop-neck tee, close
+  scoop: {
+    top: { hem: 0.96, neck: 1.448, ease: 0.004, hug: 0.6, drape: 0.65, flare: 0.002 },
+    sleeve: { cuff: 1.27, ease: 0.006, drape: 0.4, open: 0.006 },
+    collar: null, shoulder: 0.004, neckline: [0.1, 0.1, 1],
+  },
+  // a plunging V top, sleeveless and fitted
+  plunge: {
+    top: { hem: 0.97, neck: 1.446, ease: 0.003, hug: 0.75, drape: 0.75, flare: 0 },
+    sleeve: null, collar: null, shoulder: 0, neckline: [0.2, 0.075, 0],
+  },
+  // a wrap top crossed low over the chest, long sleeves
+  wrap: {
+    top: { hem: 0.95, neck: 1.448, ease: 0.005, hug: 0.6, drape: 0.6, flare: 0.006 },
+    sleeve: { cuff: 0.876, ease: 0.006, drape: 0.3, open: 0.003 },
+    collar: null, shoulder: 0.004, neckline: [0.16, 0.085, 0],
+  },
+  // a low-backed evening dress to the ankle, a deep V at the front
+  gown: {
+    top: { hem: 0.12, neck: 1.446, ease: 0.006, hug: 0.55, drape: 0.18, flare: 0.07 },
+    sleeve: null, collar: null, shoulder: 0, neckline: [0.17, 0.08, 0],
+  },
+  // a bodice cut straight across low with a scoop, to the hip
+  corset: {
+    top: { hem: 0.94, neck: 1.44, ease: 0.002, hug: 0.85, drape: 0.85, flare: 0 },
+    sleeve: null, collar: null, shoulder: 0, front: 'buttons', neckline: [0.13, 0.13, 1],
+  },
+});
+Object.assign(FIGURE_CUTS, {
+  // a triangle top, a V between the cups, and high-cut bottoms, in a film that shifts colour (front 'holo')
+  bikini: {
+    top: { hem: 1.23, neck: 1.44, ease: 0.002, hug: 0.85, drape: 0.85, flare: 0 },
+    sleeve: null, collar: null, shoulder: 0, front: 'holo', neckline: [0.13, 0.045, 0],
+    legs: { hem: 0.84, waist: 0.9, ease: 0.002, hug: 0.85 },
+  },
+  // a longline bra to the ribs and high-waisted briefs, in a sheer hex mesh with lit edges (front 'hex')
+  longline: {
+    top: { hem: 1.12, neck: 1.444, ease: 0.003, hug: 0.8, drape: 0.8, flare: 0 },
+    sleeve: null, collar: null, shoulder: 0, front: 'hex', neckline: [0.09, 0.08, 1],
+    legs: { hem: 0.8, waist: 1.05, ease: 0.003, hug: 0.8 },
+  },
+  // a slip to mid-thigh with a lace hem and a scooped lace top, briefs under it (front 'lace')
+  slip: {
+    top: { hem: 0.66, neck: 1.444, ease: 0.006, hug: 0.5, drape: 0.3, flare: 0.03 },
+    sleeve: null, collar: null, shoulder: 0, front: 'lace', neckline: [0.11, 0.1, 1],
+    legs: { hem: 0.82, waist: 0.95, ease: 0.003, hug: 0.8 },
+  },
+  // a bodysuit with windows cut at the waist and a plunge, lit at every edge (front 'cutout')
+  cutout: {
+    top: { hem: 0.86, neck: 1.446, ease: 0.003, hug: 0.82, drape: 0.82, flare: 0 },
+    sleeve: null, collar: null, shoulder: 0, front: 'cutout', neckline: [0.15, 0.06, 0],
+    legs: { hem: 0.83, waist: 0.95, ease: 0.003, hug: 0.82 },
+  },
+  // stage wear for a dancer on shift: a lace bra cut to the ribs and a high-cut thong-back brief (front 'lace')
+  stagelace: {
+    top: { hem: 1.25, neck: 1.44, ease: 0.002, hug: 0.88, drape: 0.88, flare: 0 },
+    sleeve: null, collar: null, shoulder: 0, front: 'lace', neckline: [0.15, 0.05, 0],
+    legs: { hem: 0.87, waist: 0.86, ease: 0.002, hug: 0.88 },
+  },
+  // the same two pieces in sheer hex mesh with lit edges (front 'hex')
+  stagehex: {
+    top: { hem: 1.25, neck: 1.44, ease: 0.002, hug: 0.88, drape: 0.88, flare: 0 },
+    sleeve: null, collar: null, shoulder: 0, front: 'hex', neckline: [0.15, 0.05, 0],
+    legs: { hem: 0.87, waist: 0.86, ease: 0.002, hug: 0.88 },
+  },
+  // a sheer hex-mesh catsuit, long sleeves to the ankle (front 'hex')
+  hexsuit: {
+    top: { hem: 0.97, neck: 1.452, ease: 0.003, hug: 0.8, drape: 0.8, flare: 0 },
+    sleeve: { cuff: 0.872, ease: 0.003, drape: 0.5, open: 0 },
+    collar: { y0: 1.444, y1: 1.49, ease: 0.003, flare: 0, open: 0 },
+    shoulder: 0, front: 'hex',
+    legs: { ease: 0.003, hug: 0.82 },
+  },
+});
+export const FIGURE_UNDER_CUTS = ['briefs', 'boyshorts', 'bodysuit', 'baselayer', 'strapwrap', 'boxers', 'bikini', 'longline', 'slip', 'cutout', 'hexsuit', 'stagelace', 'stagehex'];
 // The cuts anybody might wear; the tunic is the Wildblood's dress, not a pick.
-export const FIGURE_CIVIL_CUTS = ['coat', 'jacket', 'tee', 'hoodie', 'bomber', 'duster', 'vest'];
+export const FIGURE_CIVIL_CUTS = ['coat', 'jacket', 'tee', 'hoodie', 'bomber', 'duster', 'vest', 'crop', 'longsleeve', 'tank', 'oversized', 'sweater', 'turtleneck', 'cardigan', 'rolled', 'oxford', 'cropjacket', 'peacoat', 'parka', 'mac', 'labcoat', 'blazer', 'gilet', 'coverall', 'flannel', 'shortsleeve', 'overcoat', 'dress', 'shift', 'maxi', 'knitdress', 'robe', 'poncho', 'scoop', 'wrap'];
+// how often each is rolled (1 when unlisted): street clothes common, workwear and the odd ones rare
+const CUT_WEIGHT = { tee: 3, jacket: 2.5, coat: 2, hoodie: 2, longsleeve: 1.5, sweater: 1.5, rolled: 1.2, labcoat: 0.4, coverall: 0.6, robe: 0.25, maxi: 0.5, poncho: 0.4, blazer: 0.7 };
 export const FIGURE_CUT_NAMES = Object.keys(FIGURE_CUTS);
 // the leg's shape kept through the cloth (hug) and let in toward the knee and ankle (drape), so the
 // thigh and the calf read in silhouette
@@ -623,7 +1013,7 @@ const TORSO_CHAIN = chain([
 function torsoW(x, y) {
   let w = TORSO_CHAIN(y);
   const ax = Math.abs(x), L = x >= 0;
-  w = mixW(w, L ? B.uarmL : B.uarmR, 0.45 * smooth(0.12, 0.19, ax) * smooth(1.3, 1.41, y));
+  w = mixW(w, L ? B.uarmL : B.uarmR, 0.34 * smooth(0.135, 0.195, ax) * smooth(1.33, 1.42, y));
   w = mixW(w, L ? B.thighL : B.thighR, 0.5 * smooth(0.95, 0.83, y) * Math.min(1, ax / 0.04));
   return w;
 }
@@ -631,8 +1021,12 @@ function torsoW(x, y) {
 // line stays with the pelvis, which keeps the two halves joined (actor3d.js's coat).
 function skirtW(x, y) {
   if (y > 0.93) return torsoW(x, y);
-  const k = smooth(0.93, 0.62, y) * 0.92 * Math.min(1, Math.abs(x) / 0.03);
-  return [[B.pelvis, 1 - k], [x >= 0 ? B.thighL : B.thighR, k]];
+  const k = smooth(0.93, 0.62, y) * 0.92 * Math.min(1, Math.abs(x) / 0.03), L = x >= 0;
+  // below the knee a long skirt (a duster, a cassock) goes with the shin, so sitting it hangs from the
+  // knee instead of carrying on out level with the thigh
+  const s = smooth(0.54, 0.42, y);
+  if (s <= 0) return [[B.pelvis, 1 - k], [L ? B.thighL : B.thighR, k]];
+  return [[B.pelvis, 1 - k], [L ? B.thighL : B.thighR, k * (1 - s)], [L ? B.shinL : B.shinR, k * s]];
 }
 const armW = (L) => chain([
   { y: 1.39, a: B.chest, b: B['uarm' + L], h: 0.03 },
@@ -658,6 +1052,9 @@ function ys(top, bot, dy, keys = []) {
 }
 // where the shoulder turns: the torso's corner and the deltoid's round
 const SHOULDER_KEYS = { torso: [1.432, 1.414, 1.392], arm: [1.41, 1.396, 1.375, 1.35] };
+// the sculpted arm's deltoid closes as a dome over its last few centimetres (partsFor), which needs rings there,
+// so only the hd level has it: a lite figure keeps its budget and the old cap
+const DOME_KEYS = [1.428, 1.42, 1.41, 1.396, 1.375, 1.35];
 const _phis = new Map();
 function phisFor(kind, n) {
   const key = kind + n;
@@ -788,7 +1185,7 @@ function bodyPart(part, level, wf, capTop, capBot) {
   const kind = part.name === 'torso' ? 'torso' : part.name.startsWith('arm') ? 'arm' : 'leg';
   const phis = phisFor(kind === 'torso' ? 'torso' : 'limb', level.cols[kind]);
   const M = newPart(part.name, FIG_SLOT.skin);
-  const yy = ys(part.hi, part.lo, level.dy[kind], SHOULDER_KEYS[kind] || []);
+  const yy = ys(part.hi, part.lo, level.dy[kind], (part.cap ? DOME_KEYS : SHOULDER_KEYS[kind]) || []);
   const R = yy.map((y) => phis.map((phi) => { const p = partPoint(part, y, phi); return addV(M, p, wf(p[0], p[1], p[2])); }));
   if (capTop) capFan(M, R[0], addV(M, capTop, wf(...capTop)), true);
   stitchRings(M, R);
@@ -798,7 +1195,10 @@ function bodyPart(part, level, wf, capTop, capBot) {
 }
 // The arm's top is a closed cap, the round of the shoulder: its outer half falls away to the arm
 // (actor3d.js's deltoid), so there's no ring standing on the shoulder.
-function armCapPoint(side) { return [side * (ARM_X - 0.028), 1.421, -0.01]; }
+function armCapPoint(side, part = null) {
+  if (!part?.cap) return [side * (ARM_X - 0.028), 1.421, -0.01];
+  const S = part.at(part.cap); return [S.cx, part.cap, S.cz];
+}
 function deltoidLean(part, k = 0.5) {
   const side = part.side;
   return (p) => [p[0], p[1] - k * smooth(1.383, 1.414, p[1]) * Math.max(0, (p[0] - side * ARM_X) * side), p[2]];
@@ -948,8 +1348,11 @@ function handSculpt(side, level) {
   capFan(M, palm[0], addV(M, [x, 0.873, -0.004], wt), true);
   stitchRings(M, palm);
   capFan(M, palm[palm.length - 1], addV(M, [x, 0.776, 0.002], wt), false);
-  // the fingers: down from their knuckles, each bone bent further toward the palm
-  for (const f of F) {
+  // the fingers: down from their knuckles, each bone bent further toward the palm. Each finger's vertices carry
+  // -(1 + finger + 0.9 t) in aux, t how far along it they are, so the shader can curl it (gl/figure-hd.js curl)
+  const tag = (v0, fi, root, len) => { for (let v = v0; v < M.P.length / 3; v++) { const d = Math.hypot(M.P[v * 3] - root[0], M.P[v * 3 + 1] - root[1], M.P[v * 3 + 2] - root[2]); M.A[v] = -(1 + fi + 0.9 * Math.min(0.999, d / len)); } };
+  F.forEach((f, fi) => {
+    const v0 = M.P.length / 3, root = [x + side * 0.001, knuckleY(f.z) + 0.006, f.z];
     const path = [], radii = [], K = [1, 0.95, 0.97, 0.86, 0.9, 0.78, 0.62];
     let p = [x + side * 0.001, knuckleY(f.z) + 0.006, f.z], ang = 0, i = 0;
     path.push(p.slice()); radii.push(f.r * K[i++]);
@@ -962,8 +1365,9 @@ function handSculpt(side, level) {
       }
     }
     tubeAlong(M, path, radii, cols, wt, [0, 0, 1], 0.92);
+    tag(v0, fi, root, f.ph[0] + f.ph[1] + f.ph[2]);
     (M.tips ||= []).push({ p: path[path.length - 1], d: norm3(path[path.length - 1].map((v, j) => v - path[path.length - 2][j])) });
-  }
+  });
   // the thumb: its muscle on the heel of the palm, then two bones, set forward of the palm and turned in
   ellipsoidInto(M, [x - side * 0.0065, 0.836, 0.0185], [0.0095, 0.026, 0.015], 8, 6, wt);
   {
@@ -973,8 +1377,75 @@ function handSculpt(side, level) {
       const d = norm3([d0[0] * side, d0[1], d0[2]]), n = b === 0 ? 1 : 2;
       for (let h = 0; h < n; h++) { p = p.map((v, j) => v + (d[j] * lens[b]) / n); path.push(p.slice()); radii.push(R[rr[ri++]]); }
     });
+    const v0 = M.P.length / 3;
     tubeAlong(M, path, radii, cols, wt, [1, 0, 0], 0.88);
+    tag(v0, 4, path[0], 0.068);
     (M.tips ||= []).push({ p: path[path.length - 1], d: norm3(path[path.length - 1].map((v, j) => v - path[path.length - 2][j])) });
+  }
+  return M;
+}
+// ── Held props ───────────────────────────────────────────────────────────────────────────────────────
+// Rigid on the hand bone, placed on the hand as handMesh scales it about the wrist but kept at their own size.
+// A settled look names them (flags.figure.props, { L: 'cigarette', R: 'scotch' }), which room-people.js turns
+// into the mesh key's 'L:cigarette;R:scotch'. Each part is on the horn slot with its own FIG_PIECE, and its uv
+// is [round, along], so gl/figure-hd.js propPaint colours it: a cigarette's filter, paper and ember; a tumbler's
+// glass with the whisky seen through it to the fill line, the whisky's surface and the ice.
+export const propsOf = (str) => Object.fromEntries(String(str || '').split(';').filter(Boolean).map((e) => e.split(':')));
+export const propKey = (props) => (props ? Object.keys(props).sort().filter((k) => props[k]).map((k) => k + ':' + props[k]).join(';') : '');
+export const PROPS = {
+  // held between the index and middle fingers below the knuckles, lit end out past the back of the hand
+  cigarette: { at: [-0.022, 0.766, 0.017] },
+  // a short tumbler in the curl of the fingers, on the palm's side
+  scotch: { at: [-0.05, 0.738, 0.012] },
+};
+const SCOTCH = { r0: 0.034, r1: 0.0375, h: 0.085, base: 0.007, fill: 0.052 };
+// a glass stays upright: it rides its own bone (FIGURE_XBONES prop L/R), which follows this point on the hand
+const UPRIGHT = { scotch: true };
+// where a prop sits on its hand in bind space, for a hand scaled by k about the wrist
+export function propBind(name, side, k) {
+  const x0 = side * ARM_X, W = [x0, 0.868, -0.004], a = PROPS[name].at;
+  return [x0 + side * a[0], a[1], a[2]].map((v, j) => W[j] + (v - W[j]) * k);
+}
+// the hand's scale (buildFigure's hk) for a key, so room-people.js can find the prop on it
+export function handScaleOf({ build = 'average', weight = null, body = null } = {}, side = 1) {
+  const BK = buildOf(build), SW = weight !== null && weight !== undefined ? somaOf(weight) : null;
+  return 1.1 * Math.sqrt(BK.arm) * (SW ? SW.hand : 1) * (body?.mighty === (side > 0 ? 'L' : 'R') ? 1.12 : 1);
+}
+export const propUpright = (name) => !!UPRIGHT[name];
+function propMesh(name, side, level, k) {
+  const L = side > 0 ? 'L' : 'R', wt = [[B[(UPRIGHT[name] ? 'prop' : 'hand') + L], 1]], M = newPart('prop' + L, FIG_SLOT.horn), x0 = side * ARM_X;
+  const at = propBind(name, side, k), cols = level.name === 'hd' ? 16 : 8;
+  // a lathe round axis A from point c: prof is [[radius, distance along]], uv [round, distance / len]
+  const lathe = (c, A, prof, len, aux, cap0, cap1) => {
+    const U = norm3(cross(A, Math.abs(A[1]) > 0.9 ? [1, 0, 0] : [0, 1, 0])), V = cross(A, U), rings = [];
+    for (const [r, t] of prof) {
+      const ring = [];
+      for (let j = 0; j < cols; j++) {
+        const th = (j / cols) * TAU, cu = Math.cos(th) * r, sv = Math.sin(th) * r;
+        ring.push(addV(M, [c[0] + A[0] * t + U[0] * cu + V[0] * sv, c[1] + A[1] * t + U[1] * cu + V[1] * sv, c[2] + A[2] * t + U[2] * cu + V[2] * sv], wt, aux, [j / cols, t / len]));
+      }
+      rings.push(ring);
+    }
+    stitchRings(M, rings);
+    const end = (i, top) => { const [, t] = prof[i]; capFan(M, rings[i], addV(M, [c[0] + A[0] * t, c[1] + A[1] * t, c[2] + A[2] * t], wt, aux, [0.5, t / len]), top); };
+    if (cap0) end(0, false);
+    if (cap1) end(prof.length - 1, true);
+  };
+  if (name === 'cigarette') {
+    const A = norm3([side, 0.22, 0.12]), len = 0.082;
+    lathe(at, A, [[0.0045, 0], [0.0045, len * 0.3], [0.0045, len * 0.97], [0.0042, len]], len, FIG_PIECE.cig, true, true);
+  } else if (name === 'scotch') {
+    const S = SCOTCH, up = [0, 1, 0];
+    // the glass: a heavy base, the wall flaring a little to the rim, open at the top
+    lathe(at, up, [[S.r0 - 0.002, 0], [S.r0, 0.003], [S.r0 + 0.0008, S.base], [S.r0 + 0.002, S.fill], [S.r1, S.h]], S.h, FIG_PIECE.glass, true, false);
+    // the whisky's surface, and two cubes of ice in it
+    lathe(at, up, [[S.r0 - 0.0015, S.fill]], S.h, FIG_PIECE.liquid, false, true);
+    for (const [dx, dz, sz, tw] of [[0.011, -0.006, 0.016, 0.5], [-0.012, 0.009, 0.014, -0.3]]) {
+      const cy = at[1] + S.fill + 0.002, cx = at[0] + dx, cz = at[2] + dz, c = Math.cos(tw), s2 = Math.sin(tw), h = sz / 2;
+      const P = (x, y, z) => [cx + c * x - s2 * z, cy + y, cz + s2 * x + c * z];
+      const v = [P(-h, -h, -h), P(h, -h, -h), P(h, h, -h), P(-h, h, -h), P(-h, -h, h), P(h, -h, h), P(h, h, h), P(-h, h, h)].map((q) => addV(M, q, wt, FIG_PIECE.ice, [0, 0]));
+      for (const [i0, i1, i2, i3] of [[0, 1, 2, 3], [5, 4, 7, 6], [4, 0, 3, 7], [1, 5, 6, 2], [3, 2, 6, 7], [4, 5, 1, 0]]) M.I.push(v[i0], v[i1], v[i2], v[i0], v[i2], v[i3]);
+    }
   }
   return M;
 }
@@ -1196,15 +1667,19 @@ function skulletLocks(M, r, hd, cols, wt, fs) {
     }
   });
 }
-function hairLocks(level, style, fs) {
+function hairLocks(level, style, fs, spikes = 0) {
   const M = newPart('locks', FIG_SLOT.hair), r = rng(0x10c5 + style), LS = LOCK_STYLE[style], hd = level.name === 'hd', rows = hd ? 6 : 3, cols = hd ? 6 : 4, wt = [[B.head, 1]];
   if (!LS) return M;
   if (style === 5) { skulletLocks(M, r, hd, cols, wt, fs); return M; }
   for (const [t0, t1q, l0, l1, hw0, up0, lift0] of hd ? LOCK_ROWS : LOCK_ROWS.filter((_, i) => i % 2 === 0)) {
-    const t1 = t0 + (t1q - t0) * LS[3], hw = hw0 * LS[2], up = up0 * LS[0], lift = lift0 * LS[1] * (1 + (r() - 0.5) * (LS[4] - 1));
+    // the front's row, from the parting (t0 25): a settled look's `spikes` (0 to 1) stands it up in short
+    // points whatever the style does behind it, so a neat cut can have a spiky front. At 0 nothing changes.
+    // Over the forehead only: toward the temples they'd fan out like a crown.
+    const sp = t0 === 25 ? spikes * Math.max(0, Math.min(1, (52 - Math.abs(l0)) / 26)) : 0;
+    const t1 = t0 + (t1q - t0) * LS[3] * (1 - 0.35 * sp), hw = hw0 * LS[2] * (1 - 0.2 * sp), up = up0 * LS[0] * (1 + sp), lift = lift0 * (LS[1] + (1.15 - LS[1]) * sp) * (1 + (r() - 0.5) * (LS[4] + sp - 1));
     // each lock has finer ones lying beside it, longer and sharper, so the mass breaks into points
     // (not in neat or long hair, which lies flat: there they only cross it)
-    for (let v = 0; v < (LS[1] < 0.5 ? 0 : hd ? 2 : 1); v++) {
+    for (let v = 0; v < (LS[1] < 0.5 && !sp ? 0 : hd ? 2 : 1); v++) {
       const k = 0.5 + 0.2 * r(), a0 = (t0 + 8 + (r() - 0.5) * 18) * D2R, a1 = (t1 + (r() - 0.5) * 26 * LS[4]) * D2R, b0 = (l0 + (r() - 0.5) * 22) * D2R, b1 = (l1 + (r() - 0.5) * 24 * LS[4]) * D2R, sp = [];
       for (let i = 0; i <= rows; i++) { const t = i / rows; sp.push(lockPoint(a0 + (a1 - a0) * t, b0 + (b1 - b0) * t, 1 + 0.02 + up * 1.1 * Math.sin(Math.PI * Math.min(1, t * 1.15)) ** 0.8 * 0.55 + lift * 1.3 * t * t * t)); }
       blade(sp, hw * k * (hd ? 1 : 1.3), r());
@@ -1404,7 +1879,7 @@ export const SCULPT_BUILDS = {
   hunched: { chest: 0.97, waist: 1, hips: 1, arm: 0.96, leg: 0.97, neck: 0.98, hunch: 0.24 },
   // a beer gut on a man who used to play some sport: the chest and arms still there, the belly well
   // out past them, the neck thick, standing a touch back to carry it
-  dadbod: { chest: 1.02, waist: 1.12, hips: 1.04, belly: 0.05, arm: 1.0, leg: 1.0, neck: 1.08, sh: 0.004, hunch: 0.05, abduct: 0.04 },
+  dadbod: { chest: 1.02, waist: 1.12, hips: 1.04, belly: 0.05, arm: 1.0, leg: 1.0, neck: 1.2, sh: 0.004, hunch: 0.05, abduct: 0.04 },
   woman: { chest: 0.87, waist: 0.8, hips: 1.14, bust: 0.026, arm: 0.88, leg: 0.97, neck: 0.82, sh: -0.02 },
 };
 const buildOf = (name) => SCULPT_BUILDS[name] || SCULPT_BUILDS.average;
@@ -1427,21 +1902,59 @@ export const FIGURE_FACIAL = {
   handlebar: { stubble: 1.1, shape: [0, 0, 1, 0], mesh: 'handlebar' },
   handlebar_patch: { stubble: 1.3, shape: [0, 0, 1, 0], more: [1, 0, 0], mesh: 'handlebar' },
 };
-function partsFor(body, sculpt = false, build = 'average', weight = null) {
+// The seat's shape for `butt`: a dome on each side, round across and up, highest a little below the hip and
+// tucked in hard at the fold under it (y 0.84) so it sits on the thigh instead of hanging over it.
+// The bust for `bust`: a dome each side, apart, each round with a crisp edge so it stands off the chest instead of
+// melting into it, a cleft between them and a fold under each. A bigger one is wider and sits lower; the profile is
+// set out from the middle and fuller on its outer side, so each points a little outward; fuller below the middle than above, as weight puts it: round, the upper half only a little flatter than the lower. `d` is the relief in metres (bustOf).
+// `g` is the weight's bust factor (somaOf: 0.55 thin to 1.5 heavy): a heavier body's is bigger all round, and sits and hangs lower.
+// The bust's frame: its centre, half-widths and how far it hangs, off the relief `d` (bustOf) and the weight's
+// factor `g`. `m` is how much of a melon it is: a big bust on a body that isn't heavy goes round and full on
+// both sides, so the two meet in the middle in a cleavage instead of hanging apart.
+function bustGeo(d, g = 1) {
+  const k = Math.min(1, d / 0.134), sc = Math.sqrt(Math.max(1, g)), sag = Math.max(0, g - 1), m = k * Math.max(0, 1 - 1.6 * sag);
+  const cy = 1.285 - 0.06 * k - 0.07 * sag + 0.02 * m, cx = 0.094 + 0.02 * k + 0.006 * sag - 0.012 * m, w = (0.052 + 0.032 * k) * Math.sqrt(sc) * (1 - 0.2 * sag);
+  return { k, sag, m, cx, cy, w, wo: w * (1.15 - 0.1 * m), wi: w * (0.88 + 0.32 * m), up: (0.056 + 0.034 * k + 0.03 * sag) * sc, lo: (0.05 + 0.028 * k + 0.05 * sag) * sc };
+}
+// Where the nipple sits: forward of the bust's centre, so a little below it and to the outer side, lower as it hangs.
+export function bustApex(bust, weight = null) {
+  // no bust: on the pectoral, at its fullest (torsoRelief's lobe, 1.302), a little outside its middle
+  if (!(bust > 0.05)) return [0.094, 1.3];
+  const g = weight === null ? 1 : somaOf(weight).bust, B = bustGeo(bustOf(bust), g);
+  return [B.cx + 0.3 * B.wo, B.cy - (0.22 + 0.25 * B.sag) * B.lo];
+}
+const bustDome = (ax, y, d, g = 1) => { const B = bustGeo(d, g), up = y > B.cy, u = (ax - B.cx) / (ax > B.cx ? B.wo : B.wi), v = (y - B.cy) / (up ? B.up : B.lo), q = 1 - u * u - v * v; return q > 0 ? Math.pow(q, up ? 0.62 + 0.12 * B.k + 1.1 * B.sag - 0.15 * B.m : 0.5) * smooth(0.004, 0.02 - 0.008 * B.m, ax) : 0; };
+// heavy (`g` past 1), it hangs: the centre drops, the fullness goes to the lower half and the fold under it moves down the thigh
+const seatDome = (ax, y, g = 1) => { const sc = Math.sqrt(g), sag = Math.max(0, g - 1), cy = 0.93 - 0.075 * sag, u = (ax - 0.07 - 0.01 * sag) / (0.088 * sc), v = (y - cy) / ((y < cy ? 0.09 + 0.03 * sag : 0.12 + 0.05 * sag) * sc), q = 1 - u * u - v * v; return q > 0 ? Math.pow(q, y < cy ? 0.5 - 0.15 * sag : 0.5 + 0.4 * sag) * smooth(0.815 - 0.07 * sag, 0.885 - 0.06 * sag, y) * smooth(0.008, 0.042, ax) : 0; };
+// `bust` and `butt` (0 to 1, null for the build's own) size the chest's two lobes and the seat's, on the sculpted body.
+export const bustOf = (v) => 0.004 + 0.13 * v * (0.4 + 0.6 * v), buttOf = (v) => 0.07 * v * (0.45 + 0.55 * v);
+// A man's genitals at rest, for a player in the mature layer only (`groin` 'm'): two rounded forms at the front of
+// the crotch, the upper narrower, as relief on the torso. Static: nothing drives it.
+const groinForm = (x, y) => { const d = (cx, cy, rx, ry) => { const u = x / rx, v = (y - cy) / ry, q = 1 - u * u - v * v; return q > 0 ? Math.sqrt(q) : 0; }; return Math.max(0.02 * d(0, 0.842, 0.019, 0.036), 0.019 * d(0, 0.817, 0.03, 0.022)); };
+function partsFor(body, sculpt = false, build = 'average', weight = null, bust = null, butt = null, groin = '', domed = sculpt) {
   let out = PARTS;
   if (sculpt) {
-    const Bd = buildOf(build), W = weight === null ? null : somaParts(weight), S = W?.S, PS = W?.parts || PARTS;
+    const Bd0 = buildOf(build), Bd = bust === null ? Bd0 : { ...Bd0, bust: bustOf(bust) }, seatK = butt === null ? (Bd0.hips > 1 ? buttOf(0.35) : 0) : buttOf(butt), W = weight === null ? null : somaParts(weight), S = W?.S, PS = W?.parts || PARTS;
     const waistK = 1 + (Bd.waist - 1) * (S ? S.waist : 1), bustK = S ? S.bust : 1;
     const widthK = spline([[0.8, Bd.hips], [0.93, Bd.hips], [1.12, waistK], [1.33, Bd.chest], [1.46, 1 + (Bd.chest - 1) * 0.5]]);
-    // the sculpted figure's proportions, on the same joints: the shoulder and upper arm slimmed, so the
-    // shoulders slope into the arm instead of standing out past it
-    const arm = (P) => ({ ...P, at: (y) => { const S = P.at(y), k = 1 - 0.17 * smooth(1.16, 1.34, y); return { ...S, rx: S.rx * k * Bd.arm, zf: S.zf * (1 - 0.08 * smooth(1.16, 1.34, y)) * Bd.arm, zb: S.zb * (1 - 0.08 * smooth(1.16, 1.34, y)) * Bd.arm, cx: S.cx - P.side * (0.012 - (Bd.sh || 0) - (W?.S.sh || 0)) * smooth(1.2, 1.38, y) }; } });
+    // the sculpted figure's proportions, on the same joints: the upper arm slimmed, but not the deltoid
+    // over it, which comes back to full size above the armpit so it caps the torso's shoulder corner
+    // and is the shoulder's outline, instead of a knob hung under a square shoulder
+    const arm = (P) => ({ ...P, at: (y) => { const S = P.at(y), up = smooth(1.16, 1.34, y) * (1 - 0.85 * smooth(1.33, 1.385, y)), k = 1 - 0.17 * up, kz = 1 - 0.08 * up + 0.06 * gx(y - 1.385, 0.025), dk = gx(y - 1.385, 0.035) * (W ? Math.min(1, 0.35 + 0.4 * W.S.muscle) : 1); return { ...S, cz: S.cz + 0.008 * dk, rx: S.rx * k * Bd.arm, zf: S.zf * (kz + 0.28 * dk) * Bd.arm, zb: S.zb * (kz + 0.14 * dk) * Bd.arm, cx: S.cx - P.side * ((0.012 - (Bd.sh || 0) - (W?.S.sh || 0)) * smooth(1.2, 1.38, y) ) }; } });
+    // the deltoid's round: above the armpit the arm closes as a dome, leaning in over the shoulder joint,
+    // so it caps the torso's corner instead of standing beside it on a flat ring
+    const DELT = 1.388, DTOP = PARTS.armL.hi + 0.016;
+    const dome = (P) => ({ ...P, hi: DELT + (DTOP - DELT) * 0.97, cap: DTOP, at: (y) => {
+      if (y <= DELT) return P.at(y);
+      const S = P.at(DELT), t = (y - DELT) / (DTOP - DELT), f = Math.sqrt(Math.max(0, 1 - t * t));
+      return { ...S, rx: S.rx * f, zf: S.zf * f, zb: S.zb * f, cx: S.cx - P.side * 0.022 * t * t };
+    } });
     const leg = (P) => ({ ...P, at: (y) => { const S = P.at(y), k = 1 + 0.05 * gx(y - 0.37, 0.07) - 0.05 * gx(y - 0.49, 0.03) - 0.04 * gx(y - 0.17, 0.05), q = k * (1 + (Bd.leg - 1) * smooth(0.12, 0.42, y)); return { ...S, rx: S.rx * q, zf: S.zf * q, zb: S.zb * q, cx: S.cx + P.side * (W?.S.thigh || 0) * smooth(0.45, 0.85, y) }; } });
     const torso = { ...PS.torso,
       // only the chest is held in under the arms: an endomorph's belly goes out past them
-      at: (y) => { const S = PS.torso.at(y), k = widthK(y), d = Math.sqrt(k), rx = S.rx * (1 - 0.055 * gx(y - 1.4, 0.05)) * k; return { ...S, rx: y > 1.3 || !W ? Math.min(rx, 0.205) : rx, zf: S.zf * d, zb: S.zb * d }; },
-      relief: (x, y, c, s) => { const F = smooth(0.12, 0.6, s), ax = Math.abs(x); return torsoRelief(x, y, c, s) * (S ? S.muscle : 1) + (S ? somaRelief(S, x, y, c, s) : 0) + F * ((Bd.belly || 0) * gx(x, 0.13) * gx(y - 1.09, 0.1) + (Bd.bust || 0) * bustK * gx(ax - 0.07, 0.05) * gx(y - 1.285, 0.048)); } };
-    out = { ...PARTS, torso, armL: arm(PS.armL), armR: arm(PS.armR), legL: leg(PS.legL), legR: leg(PS.legR) };
+      at: (y) => { const S = PS.torso.at(y), k = widthK(y), d = Math.sqrt(k), rx = S.rx * (1 - 0.055 * gx(y - 1.4, 0.05)) * (1 - 0.2 * smooth(1.385, 1.435, y)) * (1 - 0.09 * gx(y - 1.375, 0.04)) * k; return { ...S, rx: y > 1.3 || !W ? Math.min(rx, 0.205) : rx, zf: S.zf * d, zb: S.zb * d, nf: S.nf - 0.3 * gx(y - 1.39, 0.04), nb: S.nb - 0.25 * gx(y - 1.39, 0.04) }; },
+      relief: (x, y, c, s) => { const F = smooth(0.12, 0.6, s), K = smooth(0.12, 0.6, -s), ax = Math.abs(x); return torsoRelief(x, y, c, s) * (S ? S.muscle : 1) + (S ? somaRelief(S, x, y, c, s) : 0) + F * ((Bd.belly || 0) * gx(x, 0.13) * gx(y - 1.09, 0.1) + (Bd.bust || 0) * Math.max(1, bustK) * bustDome(ax, y, Bd.bust || 0, bustK)) + K * seatK * bustK * seatDome(ax, y, bustK) + (groin === 'm' ? F * groinForm(x, y) : 0); } };
+    out = { ...PARTS, torso, armL: domed ? dome(arm(PS.armL)) : arm(PS.armL), armR: domed ? dome(arm(PS.armR)) : arm(PS.armR), legL: leg(PS.legL), legR: leg(PS.legR) };
   }
   if (!body?.mighty) return out;
   const k = 'arm' + body.mighty, P = out[k];
@@ -1733,19 +2246,22 @@ const _cache = new Map();
 const GEAR_LETTER = { belt: 'b', strap: 's', pouch: 'p', pads: 'k' };
 const gearCode = (g) => Object.entries(GEAR_LETTER).map(([k, c]) => ((k === 'belt' ? g?.belt !== false : !!g?.[k]) ? c : '')).join('');
 // `sculpt` is the revised figure (docs/proposals/sculpted-figure.md), on the close-up levels only.
-export const figureKey = ({ cut = 'coat', style = 0, level = 'hd', wear = null, gear = null, body = null, sculpt = false, head = 0, build = 'average', weight = null, beard = '' } = {}) => `${cut}|${style}|${level}|${wear ? JSON.stringify(wear) : ''}|${gearCode(gear)}|${bodyCode(body)}${sculpt ? '|s' + head + build + (weight === null ? '' : '|w' + weight) + (beard ? '|b' + beard : '') : ''}`;
+export const figureKey = ({ cut = 'coat', style = 0, level = 'hd', wear = null, gear = null, body = null, sculpt = false, head = 0, build = 'average', weight = null, beard = '', prop = '', bust = null, butt = null, groin = '', bottoms = '', hat = '', scarf = '', spikes = 0 } = {}) => `${cut}|${style}|${level}|${wear ? JSON.stringify(wear) : ''}|${gearCode(gear)}|${bodyCode(body)}${sculpt ? '|s' + head + build + (weight === null ? '' : '|w' + weight) + (beard ? '|b' + beard : '') + (prop ? '|p' + prop : '') + (bust === null ? '' : '|B' + bust) + (butt === null ? '' : '|T' + butt) + (groin ? '|g' + groin : '') + (spikes ? '|k' + spikes : '') : ''}${bottoms ? '|o' + bottoms : ''}${hat ? '|h' + hat : ''}${scarf ? '|f' + scarf : ''}`;
 const SCULPT_DY = { hd: { torso: 0.018, arm: 0.02, leg: 0.024, foot: 0.016 }, lite: { torso: 0.023, arm: 0.025, leg: 0.03, foot: 0.024 } };
-export function buildFigure({ cut = 'coat', style = 0, level = 'hd', wear = null, gear = null, body = null, sculpt: sculptAsked = false, head = 0, build = 'average', weight = null, beard = '' } = {}) {
-  const key = figureKey({ cut, style, level, wear, gear, body, sculpt: sculptAsked, head, build, weight, beard });
+export function buildFigure({ cut = 'coat', style = 0, level = 'hd', wear = null, gear = null, body = null, sculpt: sculptAsked = false, head = 0, build = 'average', weight = null, beard = '', prop = '', bust = null, butt = null, groin = '', bottoms = '', hat = '', scarf = '', spikes = 0 } = {}) {
+  const key = figureKey({ cut, style, level, wear, gear, body, sculpt: sculptAsked, head, build, weight, beard, prop, bust, butt, groin, bottoms, hat, scarf, spikes });
   if (_cache.has(key)) return _cache.get(key);
   const sculpt = sculptAsked && FIGURE_LEVELS[level].skin, BK = sculpt ? buildOf(build) : SCULPT_BUILDS.average, SW = sculpt && weight !== null ? somaOf(weight) : null, NKb = BK.neck * (SW ? SW.neck : 1), NK = sculpt ? NECK_SCULPT * NKb : 1, FS = sculpt ? weightedFace(SCULPT_HEADS[head] || 'sculpt', weight) : 'comic';
   const Lv = sculpt ? { ...FIGURE_LEVELS[level], dy: SCULPT_DY[level] } : FIGURE_LEVELS[level];
   const C0 = FIGURE_CUTS[cut] || FIGURE_CUTS.coat, C = sculpt ? sculptCut(C0, SW ? SW.fat : 0) : C0, code = gearCode(gear);
   const G = { belt: code.includes('b'), strap: code.includes('s') && Lv.skin, pouch: code.includes('p') && Lv.skin, pads: code.includes('k') && Lv.skin };
   const on = { top: true, legs: true, shoes: true, ...(wear || {}) };
-  const TR = sculpt ? { ...TROUSERS, hug: 0.6, ease: 0.006, seatDrape: 3, seatFoot: 0.85 } : TROUSERS;
+  const TR0 = sculpt ? { ...TROUSERS, hug: 0.6, ease: 0.006, seatDrape: 3, seatFoot: 0.85 } : TROUSERS;
+  // underwear cuts its trousers short (a cut's `legs`)
+  const BT = !C.legs && C.top.hem >= 0.81 ? FIGURE_BOTTOMS[bottoms] || null : null;
+  const TR = C.legs ? { ...TR0, ...C.legs } : BT ? { ...TR0, ...BT.legs } : TR0, legHem = TR.hem, legWaist = TR.waist;
   // the street's levels have no sculpted head or paint, but they can take its body, for actor3d.js's body offsets
-  const shaped = sculptAsked && !sculpt && weight !== null, PT = partsFor(body, sculpt || shaped, build, weight), BD = Lv.skin ? body || {} : {};
+  const shaped = sculptAsked && !sculpt && weight !== null, PT = partsFor(body, sculpt || shaped, build, weight, sculpt ? bust : null, sculpt ? butt : null, sculpt ? groin : '', sculpt && level === 'hd'), BD = Lv.skin ? body || {} : {};
   const slotOf = (name, dflt) => (name === 'shirt' ? FIG_SLOT.shirt : name === 'cloak' ? FIG_SLOT.cloak : dflt);
   const parts = [];
   const layers = {}, cover = {};
@@ -1759,16 +2275,16 @@ export function buildFigure({ cut = 'coat', style = 0, level = 'hd', wear = null
       const L = s > 0 ? 'L' : 'R', P = PT['leg' + L];
       // a leg's cloth is hidden above a coat's hem, so it starts just above it
       const top = skirt ? Math.min(P.hi, C.top.hem + 0.03) : P.hi;
-      const spec = { name: 'trouser' + L, kind: 'leg', aux: FIG_PIECE.trouser, y0: top, y1: TROUSERS.hem, wraps: () => ['leg' + L], centre: (y) => { const S = P.at(y); return [S.cx, S.cz]; }, ease: () => TR.ease, hug: TR.hug, drape: TR.drape };
+      const spec = { name: 'trouser' + L, kind: 'leg', aux: FIG_PIECE.trouser, y0: top, y1: legHem, wraps: () => ['leg' + L], centre: (y) => { const S = P.at(y); return [S.cx, S.cz]; }, ease: () => TR.ease, hug: TR.hug, drape: TR.drape };
       const rings = clothRings(layers, spec, Lv);
       const part = clothMesh(rings, spec, Lv, (x, y) => legW(L)(y), FIG_SLOT.legs);
       parts.push(part);
       layers['leg' + L].push(clothLayer(rings));
-      cov('leg' + L, TROUSERS.hem + 0.012, 2);
+      cov('leg' + L, legHem + 0.012, 2);
     }
     if (!skirt) {
       // the seat: the torso from the waist down, round both legs' tops
-      const spec = { name: 'seat', kind: 'torso', aux: FIG_PIECE.trouser, y0: TROUSERS.waist, y1: TR.seatFoot || 0.8, wraps: (y) => ['torso', 'legL', 'legR'], centre: (y) => [0, torsoSection(Math.max(T_TORSO.lo, y)).cz], ease: (y) => TR.ease * smooth(0.79, 0.86, y) - (sculpt ? 0.008 * smooth(0.91, 0.85, y) : 0), hug: 0, drape: TR.seatDrape };
+      const spec = { name: 'seat', kind: 'torso', aux: FIG_PIECE.trouser, y0: legWaist, y1: TR.seatFoot || 0.8, wraps: (y) => ['torso', 'legL', 'legR'], centre: (y) => [0, torsoSection(Math.max(T_TORSO.lo, y)).cz], ease: (y) => TR.ease * smooth(0.79, 0.86, y) - (sculpt ? 0.008 * smooth(0.91, 0.85, y) : 0), hug: 0, drape: TR.seatDrape };
       const rings = clothRings(layers, spec, Lv);
       const part = clothMesh(rings, spec, { ...Lv, hem: false }, (x, y) => torsoW(x, y), FIG_SLOT.legs);
       // closed under the crotch
@@ -1776,7 +2292,7 @@ export function buildFigure({ cut = 'coat', style = 0, level = 'hd', wear = null
       capFan(part, R.pts.map((_, k) => last + k), addV(part, [0, R.y - 0.005, R.o[1]], torsoW(0, R.y)), false);
       parts.push(part);
       layers.torso.push(clothLayer(rings));
-      cov('torso', 0, TROUSERS.waist - 0.012);
+      cov('torso', 0, legWaist - 0.012);
     }
   }
   if (on.shoes) {
@@ -1793,11 +2309,23 @@ export function buildFigure({ cut = 'coat', style = 0, level = 'hd', wear = null
       cov('leg' + L, -1, BOOT.top - 0.012);
       // the trousers' cuff rolled up and resting on the boot's top, over the trouser above and the
       // shaft below
-      if (on.legs && !(skirt && C.top.hem < BOOT.top + 0.06)) {
+      if (on.legs && legHem < BOOT.top && !(skirt && C.top.hem < BOOT.top + 0.06)) {
         const cs = { name: 'cuff' + L, kind: 'leg', aux: FIG_PIECE.cuff, y0: BOOT.top + 0.032, y1: BOOT.top - 0.01, wraps: () => ['leg' + L], centre: (y) => { const S = P.at(y); return [S.cx, S.cz]; }, ease: () => 0.007, hug: 0, drape: 9 };
         parts.push(clothMesh(clothRings(layers, cs, Lv), cs, Lv, (x, y) => legW(L)(y), FIG_SLOT.legs));
       }
     }
+  }
+  // a skirt over the briefs, from the waist, round the legs below the crotch as a coat's hem is
+  if (on.legs && BT?.skirt && Lv.skin) {
+    const K = BT.skirt;
+    const sp = { name: 'skirt', kind: 'torso', y0: K.waist, y1: K.hem, aux: FIG_PIECE.skirt,
+      wraps: (y) => (y >= T_TORSO.lo + 0.005 ? (y < 0.95 ? ['torso', 'legL', 'legR'] : ['torso']) : ['legL', 'legR']),
+      centre: (y) => [0, torsoSection(Math.max(T_TORSO.lo, Math.min(T_TORSO.hi, y))).cz],
+      ease: (y) => K.ease + K.flare * smooth(0.86, K.hem, y), hug: K.hug, drape: K.drape };
+    const rings = clothRings(layers, sp, Lv);
+    parts.push(clothMesh(rings, sp, Lv, skirtW, FIG_SLOT.legs));
+    layers.torso.push(clothLayer(rings));
+    cov('torso', K.hem + 0.012, K.waist - 0.006);
   }
   if (on.top) {
     const T = C.top;
@@ -1807,7 +2335,7 @@ export function buildFigure({ cut = 'coat', style = 0, level = 'hd', wear = null
       wraps: (y) => (y >= T_TORSO.lo + 0.005 ? (y < 0.95 ? ['torso', 'legL', 'legR'] : ['torso']) : ['legL', 'legR']),
       centre: (y) => [0, torsoSection(Math.max(T_TORSO.lo, Math.min(T_TORSO.hi, y))).cz],
       // over the trousers' waist the top stands off them, not the skin
-      ease: (y) => T.ease + T.flare * smooth(0.86, T.hem, y) + (on.legs && y < TROUSERS.waist + 0.012 ? 0.002 : 0),
+      ease: (y) => T.ease + T.flare * smooth(0.86, T.hem, y) + (on.legs && y < legWaist + 0.012 ? 0.002 : 0),
       hug: T.hug, drape: T.drape, aux: FIG_PIECE.torso,
       // the shoulders squared off over the deltoids, as a jacket's are
       easeDir: (y, d) => (C.shoulder || 0) * gx(y - 1.39, 0.03) * smooth(0.5, 0.9, Math.abs(d[0])),
@@ -1828,12 +2356,12 @@ export function buildFigure({ cut = 'coat', style = 0, level = 'hd', wear = null
     // the sleeves
     for (const s of (C.sleeve ? [1, -1] : [])) {
       const L = s > 0 ? 'L' : 'R', P = PT['arm' + L], Sl = C.sleeve;
-      const lean = deltoidLean(P, sculpt ? 1.1 : 0.5);
+      const lean = deltoidLean(P, sculpt ? 0.25 : 0.5);
       const sp = {
         name: 'sleeve' + L, kind: 'arm', y0: P.hi - (sculpt ? 0.012 : 0.004), y1: Sl.cuff,
         wraps: () => ['arm' + L], centre: (y) => { const S = P.at(y); return [S.cx, S.cz]; },
         ease: (y) => Sl.ease + Sl.open * smooth(Sl.cuff + 0.06, Sl.cuff, y) + 0.6 * (C.shoulder || 0) * smooth(1.33, 1.4, y), hug: sculpt ? 0.6 : 0.3, drape: Sl.drape, aux: FIG_PIECE.sleeve,
-        capTop: (R0) => { const c = armCapPoint(s); return [c[0], c[1] + Sl.ease - (sculpt ? 0.016 : 0), c[2]]; },
+        capTop: (R0) => { const c = armCapPoint(s, P); return [c[0], c[1] + Sl.ease - (sculpt ? 0.016 : 0), c[2]]; },
         cinch: C.rib ? { top: Sl.cuff + 0.035, foot: Sl.cuff - 0.001, ease: 0.004 } : null,
       };
       const rings = clothRings(layers, sp, Lv);
@@ -1883,6 +2411,28 @@ export function buildFigure({ cut = 'coat', style = 0, level = 'hd', wear = null
       layers.torso.push(clothLayer(mr));
     }
     // a hood down, bunched behind the neck, and its drawstrings down the front
+    // a hat: its crown and brim on the head bone, in the shoes' colour (leather, felt, a hard shell)
+    const HT = Lv.skin && FIGURE_HATS[hat];
+    if (HT) {
+      const M = newPart('hat', FIG_SLOT.shoes), nu = Lv.name === 'hd' ? 24 : 12, nv = Lv.name === 'hd' ? 12 : 6;
+      for (const k of ['crown', 'band', 'brim']) if (HT[k]) blobInto(M, HT[k][0], [1, 0, 0], [0, 1, 0], [0, 0, 1], HT[k][1], nu, nv, HT[k][2], [[B.head, 1]], FIG_PIECE.hat);
+      parts.push(M);
+    }
+    // a scarf: a loop (or two) round the neck over the collar, and a tail down the front, in the shirt's colour
+    const SC = Lv.skin && FIGURE_SCARVES[scarf];
+    if (SC) {
+      const M = newPart('scarf', FIG_SLOT.shirt), n = Lv.name === 'hd' ? 10 : 6;
+      for (let w = 0; w < SC.wrap; w++) {
+        const y = 1.462 - w * 0.03, N = neckAt(y, NK), path = [];
+        for (let i = 0; i <= 16; i++) { const a = (i / 16) * Math.PI * 2; path.push([Math.sin(a) * (N.rx + SC.r * 0.9), y + 0.006 * Math.cos(a * 2), N.cz + Math.cos(a) * (N.rz + SC.r * 0.9)]); }
+        tubeAlong(M, path, path.map(() => SC.r), n, TORSO_CHAIN(1.45), [0, 1, 0], 0.6, FIG_PIECE.scarf);
+      }
+      if (SC.tail) {
+        const path = [0, 0.25, 0.5, 0.75, 1].map((t) => { const y = 1.45 - t * SC.tail, pts = ringOf(layers, 'torso', Math.max(T_TORSO.lo + 0.01, y)), o = [0, torsoSection(Math.max(T_TORSO.lo, y)).cz], d = norm2([0.35, 1]), r = pts ? rayOut(hull2(pts), o, d) : 0.1; return [o[0] + d[0] * (r + SC.r), y, o[1] + d[1] * (r + SC.r)]; });
+        tubeAlong(M, path, path.map((_, i) => SC.r * (1 - 0.15 * i / 4)), n, TORSO_CHAIN(1.3), [1, 0, 0], 0.45, FIG_PIECE.scarf);
+      }
+      parts.push(M);
+    }
     if (C.hood && Lv.skin) {
       const M = newPart('hood', FIG_SLOT.top);
       blobInto(M, [0, 1.425, -0.112], [1, 0, 0], [0, 1, 0], [0, 0, 1], [0.1, 0.07, 0.05], Lv.name === 'hd' ? 18 : 10, Lv.name === 'hd' ? 10 : 6, 2.4, TORSO_CHAIN(1.43), FIG_PIECE.hood);
@@ -1923,8 +2473,12 @@ export function buildFigure({ cut = 'coat', style = 0, level = 'hd', wear = null
   }
   // the hands, always skin; the mighty arm's bigger, and clawed if they're clawed
   for (const s of [1, -1]) {
-    const hand = handMesh(s, Lv, (sculpt ? 1.1 * Math.sqrt(BK.arm) * (SW ? SW.hand : 1) : HAND_K) * (BD.mighty === (s > 0 ? 'L' : 'R') ? 1.12 : 1), sculpt);
+    const hk = (sculpt ? 1.1 * Math.sqrt(BK.arm) * (SW ? SW.hand : 1) : HAND_K) * (BD.mighty === (s > 0 ? 'L' : 'R') ? 1.12 : 1);
+    const hand = handMesh(s, Lv, hk, sculpt);
     parts.push(hand);
+    // what this hand holds (prop is 'L:cigarette;R:scotch'), close up only
+    const held = sculpt && Lv.fingers ? propsOf(prop)[s > 0 ? 'L' : 'R'] : '';
+    if (held && PROPS[held]) parts.push(propMesh(held, s, Lv, hk));
     if (BD.claws && Lv.fingers) parts.push(clawMesh(hand, s, Lv));
   }
   if (BD.thorn) parts.push(thornMesh(PT, Lv));
@@ -1942,7 +2496,7 @@ export function buildFigure({ cut = 'coat', style = 0, level = 'hd', wear = null
     const covered = (name, y) => (cover[name] || []).some(([lo, hi]) => y > lo && y < hi);
     const bodyParts = [
       bodyPart(PT.torso, Lv, (x, y) => torsoW(x, y), [0, T_TORSO.hi + 0.004, -0.022], TORSO_CAP),
-      ...[1, -1].map((s) => { const L = s > 0 ? 'L' : 'R', P = PT['arm' + L], lean = deltoidLean(P); const M = bodyPart(P, Lv, (x, y) => armW(L)(y), armCapPoint(s), null); if (sculpt) M.A.fill(FIG_PIECE.sleeve); for (let i = 0; i < M.P.length; i += 3) { const q = lean([M.P[i], M.P[i + 1], M.P[i + 2]]); M.P[i + 1] = q[1]; } return M; }),
+      ...[1, -1].map((s) => { const L = s > 0 ? 'L' : 'R', P = PT['arm' + L], lean = deltoidLean(P, P.cap ? 0 : 0.5); const M = bodyPart(P, Lv, (x, y) => armW(L)(y), armCapPoint(s, P), null); if (sculpt) M.A.fill(FIG_PIECE.sleeve); for (let i = 0; i < M.P.length; i += 3) { const q = lean([M.P[i], M.P[i + 1], M.P[i + 2]]); M.P[i + 1] = q[1]; } return M; }),
       ...[1, -1].map((s) => { const L = s > 0 ? 'L' : 'R'; return bodyPart(PT['leg' + L], Lv, (x, y) => legW(L)(y), null, null); }),
     ];
     for (const M of bodyParts) {
@@ -1962,13 +2516,13 @@ export function buildFigure({ cut = 'coat', style = 0, level = 'hd', wear = null
   // (FIGURE_XBONES arm2*), which carry them down the ribs and copy the real arms' motion
   if (BD.arms4) for (const s of [1, -1]) {
     const L = s > 0 ? 'L' : 'R', map = { [B['uarm' + L]]: B['arm2U' + L], [B['farm' + L]]: B['arm2F' + L], [B['hand' + L]]: B['arm2H' + L], [B.chest]: B['arm2U' + L], [B.neck]: B['arm2U' + L] };
-    const arm = bodyPart(PT['arm' + L], Lv, (x, y) => armW(L)(y), armCapPoint(s), null), hand = handMesh(s, Lv, (sculpt ? 1.1 * Math.sqrt(BK.arm) * (SW ? SW.hand : 1) : HAND_K) * 0.96, sculpt);
+    const arm = bodyPart(PT['arm' + L], Lv, (x, y) => armW(L)(y), armCapPoint(s, PT['arm' + L]), null), hand = handMesh(s, Lv, (sculpt ? 1.1 * Math.sqrt(BK.arm) * (SW ? SW.hand : 1) : HAND_K) * 0.96, sculpt);
     for (const X of [arm, hand]) parts.push({ ...X, name: X.name + '4', slot: FIG_SLOT.skin, Wt: X.Wt.map((w) => w.map(([b, k]) => [map[b] ?? B['arm2U' + L], k])) });
   }
   for (const p of parts) if (p.name !== 'cards') orient(p);
   if (Lv.head >= 0) {
     parts.push(...headParts(style, Lv.head, sculpt, FS, NKb));
-    if (sculpt) { const l = hairLocks(Lv, style, FS); if (l.I.length) { orient(l); parts.push(l); } }
+    if (sculpt) { const l = hairLocks(Lv, style, FS, spikes); if (l.I.length) { orient(l); parts.push(l); } }
     if (sculpt && beard) { const l = beardLocks(Lv, beard, FS); orient(l); parts.push(l); }
     if (sculpt && Lv.name === 'hd') for (const l of eyeParts(FS)) { orient(l); parts.push(l); }
     if (BD.horns) { const h = hornMesh(Lv); orient(h); parts.push(h); }
@@ -2062,7 +2616,7 @@ function pack(parts, cards) {
 
 // The cut a person wears close up, off the same `rand` the outfit uses (actor3d.js actorOutfit):
 // slot 17, clear of the outfit's, the face's 13-16 and windshield.js's.
-export const figureCut = (rand) => FIGURE_CIVIL_CUTS[Math.min(FIGURE_CIVIL_CUTS.length - 1, Math.floor(rand(17) * FIGURE_CIVIL_CUTS.length))];
+export const figureCut = (rand) => rollOf(FIGURE_CIVIL_CUTS.map((c) => [c, CUT_WEIGHT[c] ?? 1]), rand(17));
 // The gear they wear close up, off the same rand: slots 18 to 22, past the cut's. Most wear a belt;
 // a strap, a pouch, knee pads and gloves each on some.
 export const figureGear = (rand) => ({ belt: rand(18) < 0.8, strap: rand(19) < 0.35, pouch: rand(20) < 0.45, pads: rand(21) < 0.4, gloves: rand(22) < 0.5 });

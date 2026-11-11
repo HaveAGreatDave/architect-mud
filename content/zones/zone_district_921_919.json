@@ -1,8 +1,10 @@
 {
-  "ambient_events": [],
-  "ambient_theme": "forest",
-  "color": "#8ba36a",
-  "description": "Rough pasture, tussocked and uneven, dotted with the grey bones of dead machinery the green has decided to keep. It smells, improbably, alive.",
+  "ambient_events": [
+    "Somebody is snoring in a tent nearby, loudly and evenly.",
+    "Someone shakes out a blanket and hangs it over a guy line."
+  ],
+  "ambient_theme": "residential",
+  "description": "The camp south of the Pitch. The pegs here are new and bright and the guy lines are tight. A man is driving in a peg with half a brick.",
   "exits": {
     "east": "zone_district_922_919",
     "north": "zone_district_921_918",
@@ -10,15 +12,17 @@
     "west": "zone_district_920_919"
   },
   "flags": {
-    "district": "residential",
+    "camp": true,
+    "district": "slum",
     "region_id": "region_coldwater",
-    "terrain": "grass"
+    "scavenging_table_id": "scav_consumer_trash",
+    "terrain": "ash"
   },
   "grid_x": 921,
   "grid_y": 919,
   "grid_z": 0,
   "id": "zone_district_921_919",
   "map_id": "map_world",
-  "name": "Grasslands",
+  "name": "The Overspill",
   "parent_zone": null
 }

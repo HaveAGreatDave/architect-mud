@@ -646,7 +646,20 @@ function skylineFaces(deps, cells) {
   if (!m) { m = new Map(); SKY_FACES.set(cells, m); }
   return (it) => { let f = m.get(it); if (f === undefined) m.set(it, f = tileMesh(deps, it)); return f; };
 }
+// Whether this frame is GLASS Lite's, set by glWorldPass before any tileMesh call it makes.
+let LITE_FRAME = false;
+// The GLASS Lite bake (scripts/lite/bake.mjs) builds a tile's faces with this, the function the pass
+// uses, and stores them with the tile's meshParams so the pass only takes them for the same build.
+export const meshParamsOf = (it) => meshParams(it);
+export function captureTileMesh(deps, it) {
+  const was = LITE_FRAME;
+  LITE_FRAME = false;
+  try { return tileMesh(deps, it); } finally { LITE_FRAME = was; }
+}
 function tileMesh(deps, it) {
+  // GLASS Lite: the bake's faces for this tile, already in the shape this function returns, when the
+  // bake holds the tile built exactly this way (its meshParams). Anything else is captured as usual.
+  if (LITE_FRAME && deps.bakedFaces) { const bf = deps.bakedFaces(it, meshParams(it)); if (bf) return bf; }
   let byParam = meshCache.get(it.m);
   if (!byParam) { byParam = new Map(); meshCache.set(it.m, byParam); }
   const k = meshParams(it);
@@ -853,13 +866,19 @@ export function glWorldPass(id, host, cells, cam, deps, opts = {}) {
   const matOn = opts.glMatPage > 0 && !!deps.wallMatMixed;
   // The surface page (RENDER_TUNE.glSurfPage), the same way.
   const surfOn = opts.glSurfPage > 0 && !!deps.wallSurf;
-  if (key !== g.key || epoch !== g.epoch || matOn !== g.matOn || surfOn !== g.surfOn) {
+  // GLASS Lite takes a baked building's faces from the bake (see tileMesh). The window key doesn't
+  // know which source a tile's faces came from, so turning Lite on or off is a full rebuild.
+  const liteF = opts.lite > 0 && !!deps.bakedFaces;
+  LITE_FRAME = liteF;
+  if (key !== g.key || epoch !== g.epoch || matOn !== g.matOn || surfOn !== g.surfOn || liteF !== !!g.lite) {
     g.matOn = matOn; g.surfOn = surfOn;
+    const liteFlip = liteF !== !!g.lite;
+    g.lite = liteF;
     // ⚠ The placed mesh is never materialised: a tile is its shared faces plus an offset.
     const groups = [];
     const need = new Set();
     let nFaces = 0;
-    let full = !keepM;
+    let full = !keepM || liteFlip;
     if (keepM && (!g.anchor || Math.max(Math.abs(wcx - g.anchor.x), Math.abs(wcy - g.anchor.y)) > MASS_REANCHOR)) { g.anchor = { x: wcx, y: wcy }; full = true; }
     const ax = keepM ? g.anchor.x : 0, ay = keepM ? g.anchor.y : 0;
     for (const it of cells) {
@@ -1188,6 +1207,9 @@ export function glWorldPass(id, host, cells, cam, deps, opts = {}) {
   // The translucent half of the solids (rotor blades, blur disc; `film` in solids.js): no depth
   // write, so after floor, sea and road. The mirror draws the solid range only.
   const film = g.view.drawSolids ? g.view.drawSolids(camAt, cssH, { fog: opts.fogBand, film: true, ...SOLID_WATER }) : 0;
+  // The rooms inside the buildings near the eye (gl/interiors.js), on this depth buffer, so the city and they hide
+  // each other as they stand. After the film, before the lights.
+  if (opts.interiors && g.view.drawInteriors) g.view.drawInteriors(cam, opts.interiors, cssH, { night: opts.night || 0, sun: opts.sun });
   // ⚠ Lights and the layers after them take the plain camera: they're camera-frame, only the cached
   // mesh is map-window. ⚠ Their gain needs the float target (exactly 1 without it), or glows clip white.
   // TAA split (gl/taa.js): everything above was jittered and resolved; everything below draws

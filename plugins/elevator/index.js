@@ -167,6 +167,8 @@ async function arrive(player, ride) {
 
   const car = getZone(ride.carZone);
   player._elevatorAt = { n: floor.n, zone: floor.zone, car: ride.carZone, label: floor.label || target.name };
+  // the Room Stage opens the car's doors on this floor (plugins/roomstage)
+  emit('elevator.parked', { player, car: ride.carZone, zone: floor.zone, n: floor.n });
 
   // Anyone standing on that floor sees the car arrive.
   sendToZone(floor.zone, { type: 'zone_event', message: 'The elevator settles and its doors slide open.' });
@@ -245,6 +247,11 @@ function board(player, floor) {
   ride.timers.push(setTimeout(() => { arrive(player, ride).catch(() => {}); }, dur));
 
   player._elevator = ride;
+  // the Room Stage builds the floor it's going to while it goes (plugins/roomstage)
+  emit('elevator.boarded', { player, car: carZone, zone: floor.zone, n: floor.n });
+  // the Room Stage rides it (client room-stage.js roomRide): the read-out counts the floors, the car sways as it
+  // starts and stops and the shaft hums, for as long as the ride takes. A text client ignores it.
+  sendToPlayer(player.id, { type: 'elevator_ride', car: carZone, from: fromN, to: floor.n, ms: dur });
   return {
     type: 'output',
     message: sys(`The doors glide shut. The car ${rising ? 'rises' : 'descends'} toward <b>Floor ${floor.n}</b>${floor.label ? `: ${floor.label}` : ''}…`),

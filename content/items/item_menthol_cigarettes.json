@@ -1,0 +1,14 @@
+{
+  "description": null,
+  "flags": {},
+  "id": "item_menthol_cigarettes",
+  "name": "menthol cigarettes",
+  "tags": {
+    "description": "A green pack of menthols. The first drag is cold, like breathing in a fridge, and the rest taste of toothpaste and smoke.",
+    "drug": true,
+    "stackable": true
+  },
+  "type": "consumable",
+  "value": 16,
+  "weight": 20
+}

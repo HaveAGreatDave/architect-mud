@@ -17,6 +17,7 @@ import { setPosture, forceStand, getPosture } from './posture.js';
 import { gatherHookSync } from './plugins.js';
 import { npcWashAtHome } from './hygiene.js';
 import { on, emit } from './events.js';
+import { setNpcMood } from './npc-mood.js';
 
 // Flee is a check: skill (flags.flee_skill, else dodge, else 1) plus a 2d8-2d8 swing must clear this bar.
 // Weak enemies usually botch it and stay cornered.
@@ -526,6 +527,8 @@ export function wakeNpc(entity, { mood = null } = {}) {
   ai.homeAwakeSince = now;
   ai.wokenUntil = now + gameMsToReal(WOKEN_GRACE_MINS * 60_000);
   if (mood) ai.wokeMood = { mood, until: ai.wokenUntil };
+  // and their face shows it while it lasts (server/engine/npc-mood.js)
+  if (mood) setNpcMood(entity, mood, { i: 0.8, secs: (ai.wokenUntil - now) / 1000, force: true });
   try { forceStand(entity, 'woken'); } catch { /* posture best-effort */ }
 }
 
@@ -1001,6 +1004,36 @@ export function registerAICondition(type, fn) {
 export function registerAIAction(type, fn) {
   if (!type || typeof fn !== 'function') throw new Error('registerAIAction: type and fn required');
   pluginActions.set(type, fn);
+}
+
+// Life drivers: a plugin that takes an NPC's off-duty time away from its graph for a while
+// (plugins/outings walks friends to a club). fn(entity, { broadcast, query, ai, zoneId }) → true
+// while it holds the NPC this tick, false to let the graph run. SYNC and RAM-only: it runs per NPC
+// per tick. A driver that lets go should clear ai.patrolPath/patrolTarget so the graph re-paths.
+const lifeDrivers = [];
+export function registerLifeDriver(fn) {
+  if (typeof fn !== 'function') throw new Error('registerLifeDriver: fn required');
+  lifeDrivers.push(fn);
+}
+
+// Walk an NPC up to `steps` tiles toward destId on the road graph. Returns 'arrived' | 'moving' | 'stuck'.
+// The same pathing and moveEntity every graph walk uses, so doors, announcements and zone sets all hold.
+export function walkNpcToward(entity, destId, broadcast, query, steps = COMMUTE_STEPS_PER_TICK) {
+  const ai = entity._ai;
+  if (!ai || !destId) return 'stuck';
+  for (let i = 0; i < steps; i++) {
+    const here = entityZone(entity);
+    if (here === destId) { ai.patrolPath = []; ai.patrolTarget = null; return 'arrived'; }
+    if (!ai.patrolPath.length || ai.patrolTarget !== destId) {
+      const path = findPath(here, destId, entity);
+      if (!path || path.length < 2) return 'stuck';
+      ai.patrolPath = path.slice(1);
+      ai.patrolTarget = destId;
+    }
+    const next = ai.patrolPath.shift();
+    if (!next || !moveEntity(entity, next, broadcast, query)) { ai.patrolPath = []; ai.patrolTarget = null; return 'stuck'; }
+  }
+  return entityZone(entity) === destId ? 'arrived' : 'moving';
 }
 
 export function getRegisteredAINodes() {
@@ -2207,6 +2240,14 @@ export async function tickEntityAI(entity, ctx) {
     if (shopper && shopper.current_zone === entityZone(entity)) return;
     if (shopperId) closeShopSession(shopperId);
     ai.shopPaused = false; // also clears a pause with no session behind it at all
+  }
+
+  // A life driver holds this NPC (registerLifeDriver): it walks and voices them itself this tick.
+  if (!isEnemy(entity)) {
+    for (const drive of lifeDrivers) {
+      try { if (drive(entity, { broadcast: ctx?.broadcast, query: ctx?.query, ai, zoneId: entityZone(entity) })) return; }
+      catch (e) { console.error(`[ai] life driver: ${e.message}`); }
+    }
   }
 
   // Passive home life, skipped while homeSleeping. atHomeZone governs washing and the evening clock;

@@ -48,13 +48,24 @@ export const landBy = (p) => Math.max(budgetOf(p), LAST_PITCH + playRoom(p));
 // coming down to his foot on the plate), the welcome there (`welcome`), its replay (`replay`, which
 // is REPLAY.span played at REPLAY.rate in diamond/replay.js, and a beat either side) and the field
 // back (`reset`). A play that earns a replay (a walk-off, a double or triple play, a great catch, a
-// triple, a close call at first): `replay` and `reset`. Anything else: `reset`, the field walking
-// back and the pitcher rubbing up the ball.
+// triple, strike three that ends a threat, a man thrown out stealing): `replay` and `reset`.
+// Anything else: `reset`, the field walking back and the pitcher rubbing up the ball. (A close
+// play at a bag or the plate earns a replay too, but only the staged play knows how close it was,
+// so those take theirs out of whatever the booth's talk leaves.)
 export const AFTER = Object.freeze({ trot: 21.5, welcome: 3.5, replay: 10, reset: 10 });
+// Strike three with something on it: the last out of an inning with a man on base, or of a game
+// within two runs from the ninth on. diamond/replay.js replays these, and no other strikeout.
+export function bigStrikeout(p) {
+  if (!p || p.phase || p.kind !== 'strikeout' || (p.outs | 0) < 3) return false;
+  const on = Array.isArray(p.basesBefore) && p.basesBefore.some(Boolean);
+  return on || ((p.inning | 0) >= 9 && Math.abs((p.awayScore | 0) - (p.homeScore | 0)) <= 2);
+}
+// A man thrown out stealing, which replay.js always shows again.
+export const caughtStealing = (p) => !!p && p.phase === 'run' && (p.kind === 'caughtstealing' || (p.kind === 'doublesteal' && !!p.out));
 export function afterLand(p) {
   if (!p || p.phase === 'half') return 0;
   if (p.kind === 'homerun') return AFTER.trot + AFTER.welcome + AFTER.replay + AFTER.reset;
   const big = p.walkoff || p.kind === 'triple' || p.kind === 'doubleplay' || p.kind === 'tripleplay'
-    || ['diving', 'sliding', 'leaping', 'rail'].includes(p.play?.g);
+    || ['diving', 'sliding', 'leaping', 'rail'].includes(p.play?.g) || bigStrikeout(p) || caughtStealing(p);
   return (big ? AFTER.replay : 0) + AFTER.reset;
 }

@@ -1,11 +1,11 @@
 {
   "ambient_events": [],
   "ambient_theme": "city",
-  "description": "Sorrel Way, where Hughson Way comes down from the Coliseum. On the south side 2 Halcyon Boulevard stands back behind a bare forecourt.",
+  "description": "Sorrel Way, where Hughson Way comes down from the Coliseum. On the south side is Kimble's Souvenirs & Cards, with pennants in the window.",
   "exits": {
     "east": "zone_district_897_921",
     "north": "zone_ballpark_892_920",
-    "south": "zone_district_892_911",
+    "south": "zone_parkside_894_913",
     "west": "zone_district_895_921"
   },
   "flags": {

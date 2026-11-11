@@ -37,9 +37,10 @@
 
 import { DEG, BAGS, MOUND, RUBBER, FOUL_GROUND, DUGOUT, offLine, moundHeight, venueField, fenceDistance, parkOutline, insideOutline, seeded, BOWL, sf, sOf, fromBlock, ftUp } from '../diamond/geo.js';
 import { WIN_OPEN, sunburst, headPanels, wallRects } from '../glass/coliseum-window.js';
+import { actorPoseMesh } from '../actor3d.js';
 import {
-  BACK, BAND, BGATE, DECK, DOME, FIN_AT, GATE, GIRDER, GUARD, LANTERN, OUT, SHELLS, SIDE_GATES, TOWER, UNIT_FT, Z,
-  archOf, rail, shellArch, shellAt, shellProfile, springZ,
+  BACK, BAND, BGATE, DECK, DOME, FIN_AT, GATE, GIRDER, GUARD, LANTERN, OUT, POLES, SHELLS, SIDE_GATES, TOWER, UNIT_FT, Z,
+  FIXED_END, archOf, isFan, rail, shellArch, shellAt, shellProfile, sillZ, springZ,
 } from '../../../../shared/coliseum-plan.js';
 
 export const STRIDE = 12;
@@ -578,10 +579,21 @@ export function buildPark(venue, opts = {}) {
     box(B('plain'), madd(c, n, -2.5), [w + 3, h + 3, 2], yaw, lin('#1d1f22'), MAT.CONCRETE);
     for (const a of [-40, 40]) box(B('plain'), madd(add(add([c[0], 0, c[2]], mul(t, a)), [0, 22.5, 0]), n, -2.5), [2, 22.5, 2], yaw, lin('#55585c'), MAT.METAL);
   }
+  // the videoboard, behind left-centre: a 16:9 screen in its own batch ('jumbo'), which the
+  // renderer draws with the picture the grandstand paints (diamond/jumbo.js), on a frame and legs
+  const jumbo = jumboFrame(field);
+  {
+    const { c, n, t, w, h, yaw } = jumbo;
+    const P = (a, b) => add(add(c, mul(t, a)), [0, b, 0]);
+    quad(B('jumbo'), P(-w, -h), P(w, -h), P(w, h), P(-w, h), n, WHITE, MAT.EMISSIVE, [[0, 1], [1, 1], [1, 0], [0, 0]]);
+    box(B('plain'), madd(c, n, -2.5), [w + 3, h + 3, 2], yaw, lin('#1d1f22'), MAT.CONCRETE);
+    const legH = (c[1] - h) / 2;
+    for (const a of [-34, 34]) box(B('plain'), madd(add(add([c[0], 0, c[2]], mul(t, a)), [0, legH, 0]), n, -2.5), [2, legH, 2], yaw, lin('#55585c'), MAT.METAL);
+  }
   // the bowl round it all, its towers, its gates and its roof
   const deco = buildBowl(B, field, (key) => { let b = translucent.get(key); if (!b) { b = createBatch(); translucent.set(key, b); } return b; });
   return { opaque, translucent, sign: deco.plates, lamps: deco.lamps, roof: deco.roof, crowd: { sit: new Float32Array(crowd.sit), stand: new Float32Array(crowd.stand), cheer: new Float32Array(crowd.cheer) },
-    field, outline, numbers: texts, board };
+    field, outline, numbers: texts, board, jumbo };
 }
 
 // ── the bowl ────────────────────────────────────────────────────────────────
@@ -718,6 +730,7 @@ const COL = Object.freeze({
   flute: lin('#60543f'), red: lin('#aa2822'), plate: lin('#1e1610'), pole: lin('#d9d9d4'), flag: lin('#16264a'),
   floor: lin('#8c8272'), pane: lin('#1c262e'), leaf: lin('#4a3226'),
 });
+const TOWER_CORNERS = [[1, 1], [-1, 1], [1, -1], [-1, -1]];
 const LAMP_LIT = [26, 25, 22], LAMP_DEAD = lin('#1a1b1d');
 // how far a lamp's housing stands off its tower's lamp house, in block units (about 1.7 ft)
 const LAMP_BOX = 0.008;
@@ -889,7 +902,9 @@ function buildBowl(B, field, BT) {
   const decks = field.towers.filter((T) => T.kind === 'deck');
   for (const su of [1, -1]) {
     const lo = (a, b) => (su > 0 ? [a, b] : [-b, -a]);
-    bbox(plain, ...lo(DECK, BACK), -BACK, BACK, Z.cler, Z.corn, COL.trim, MAT.DECO, COL.copper);
+    // its underside a hair (0.1 ft) under Z.cler: the wall's courses end at Z.cler under it, and
+    // nothing is culled, so their tops and the soffit tied in depth and flickered from the stands
+    bbox(plain, ...lo(DECK, BACK), -BACK, BACK, Z.cler - 0.0005, Z.corn, COL.trim, MAT.DECO, COL.copper);
     // ⚠ ON THE FAR SIDE, BEHIND THE BLEACHERS. The map's columns stand at 1.18 either side; on the
     // left-field side that is in the broadcast's bleachers, so they stand at the deck's back there.
     const cu = su > 0 ? 1.18 : -1.33;
@@ -903,11 +918,11 @@ function buildBowl(B, field, BT) {
     }
   }
 
-  // 7) THE FOUR LIGHT TOWERS, one at each corner where the venue's lights have them: a fluted
-  //    limestone shaft, two setbacks, a bronze lamp house with its floods turned to the field, a
-  //    stepped crown, a finial and a red beacon.
-  for (const T of field.towers.filter((t) => t.kind === 'tower')) {
-    const [s3, s1] = sOf(T.base), tu = toBlock(s3), tv = toBlock(s1), su = Math.sign(tu) || 1, sv = Math.sign(tv) || 1, R = TOWER;
+  // 7) THE FOUR TOWERS, one at each corner as on the map: a fluted limestone shaft, two setbacks, a
+  //    bronze lamp house, a stepped crown, a finial and a red beacon. The field's light is on the
+  //    poles (7b).
+  for (const [su, sv] of TOWER_CORNERS) {
+    const tu = su * TOWER.at, tv = sv * TOWER.at, R = TOWER;
     const sq = (r, z0, z1, col, mat, top) => bbox(plain, tu - r, tu + r, tv - r, tv + r, z0, z1, col, mat, top);
     sq(R.r0 + 0.006, 0, Z.plinth, COL.granite, MAT.DECO);
     sq(R.r0, Z.plinth, R.z0, COL.stone, MAT.DECO);
@@ -932,31 +947,30 @@ function buildBowl(B, field, BT) {
         for (const sg of [-1, 1]) bface(plain, [at(0, 0.585), at(sg * 0.018, 0.565), at(sg * 0.018, 0.557), at(0, 0.577)], [nu, nv, 0], COL.gilt, MAT.GILT);
       }
     }
-    // the floods: twelve lamps on each of the lamp house's two faces turned to the field, the working
-    // ones lit (the venue's `live`), on a dark grid; each in its own housing standing off the grid
-    // (LAMP_BOX deep, about 1.7 ft) with a visor over it, its lens at the housing's front
-    [[-su, 0], [0, -sv]].forEach(([nu, nv], f) => {
-      const u = nu ? tu + nu * (R.r2 + 0.0008) : tu, v = nv ? tv + nv * (R.r2 + 0.0008) : tv, w = 0.048;
-      const at = (a, z, d = 0) => (nu ? [u + nu * d, v + a, z] : [u + a, v + nv * d, z]);
-      // a box on this face from `a0` to `a1` across it, `z0` to `z1` up it and `d0` to `d1` out from it
-      const off = (a0, a1, z0, z1, d0, d1, col, mat) => {
-        const n0 = nu ? u + nu * d0 : v + nv * d0, n1 = nu ? u + nu * d1 : v + nv * d1;
-        if (nu) bbox(plain, Math.min(n0, n1), Math.max(n0, n1), v + a0, v + a1, z0, z1, col, mat);
-        else bbox(plain, u + a0, u + a1, Math.min(n0, n1), Math.max(n0, n1), z0, z1, col, mat);
-      };
-      bface(plain, [at(-w, 0.848), at(w, 0.848), at(w, 0.784), at(-w, 0.784)], [nu, nv, 0], lin('#1c1d20'), MAT.METAL);
-      for (let r = 0; r < 3; r++) for (let q = 0; q < 4; q++) {
-        const live = T.live[f * 12 + r * 4 + q], a0 = -w + (2 * w) * q / 4 + 0.003, a1 = -w + (2 * w) * (q + 1) / 4 - 0.003;
-        const z1 = 0.848 - 0.064 * r / 3 - 0.0025, z0 = 0.848 - 0.064 * (r + 1) / 3 + 0.0025;
-        off(a0 - 0.0012, a1 + 0.0012, z0 - 0.0012, z1 + 0.0012, 0, LAMP_BOX, lin('#2a2c30'), MAT.METAL);
-        off(a0 - 0.0016, a1 + 0.0016, z1 + 0.0012, z1 + 0.0024, 0, LAMP_BOX + 0.004, lin('#232428'), MAT.METAL);
-        const d = LAMP_BOX + 0.0004;
-        bface(live ? lamps.tower : plain, [at(a0, z1, d), at(a1, z1, d), at(a1, z0, d), at(a0, z0, d)], [nu, nv, 0], live ? LAMP_LIT : LAMP_DEAD, live ? MAT.EMISSIVE : MAT.METAL);
-      }
-    });
     bdrum(plain, tu, tv, R.z3, R.z3 + 0.07, 0.014, 0.004, COL.bronze, MAT.GILT);
     bbox(lamps.beacon, tu - 0.003, tu + 0.003, tv - 0.003, tv + 0.003, R.z3 + 0.07, R.z3 + 0.078, [9, 1.2, 0.8], MAT.EMISSIVE);
   }
+  // 7b) THE LIGHT POLES, the map's (the plan's POLES): a steel mast on each deck's roof behind the
+  //     girder, a catwalk and a bank of 24 floods turned to the field. Each pole's dead lamps are the
+  //     venue light's on its side and end (the middle ones take the nearer end's), and only the end
+  //     poles' lights cast.
+  {
+    const K = POLES.bank, r = POLES.r, towers = field.towers.filter((t) => t.kind === 'tower');
+    for (const su of [1, -1]) for (const pv of POLES.vs) {
+      const pu = su * POLES.u, f = pu - su * (r + K.d);
+      const T = towers.find((t) => { const [a, b] = sOf(t.lamp); return Math.sign(toBlock(a)) === su && Math.sign(toBlock(b)) === (Math.sign(pv) || 1); });
+      const live = T ? T.live : [];
+      bbox(plain, pu - r, pu + r, pv - r, pv + r, Z.corn, K.z0, COL.steel, MAT.METAL);
+      bbox(plain, Math.min(f, pu + su * r), Math.max(f, pu + su * r), pv - K.hw, pv + K.hw, K.z0, K.z1, COL.steel, MAT.METAL);
+      bbox(plain, Math.min(f - su * 0.012, pu), Math.max(f - su * 0.012, pu), pv - K.hw - 0.004, pv + K.hw + 0.004, K.z0 - 0.007, K.z0 - 0.003, COL.steel, MAT.METAL);
+      const lu = f - su * 0.0004, cw = 2 * K.hw / K.cols, rh = (K.z1 - K.z0) / K.rows;
+      for (let a = 0; a < K.rows; a++) for (let b = 0; b < K.cols; b++) {
+        const on = live[a * K.cols + b], v0 = pv - K.hw + b * cw + 0.002, v1 = v0 + cw - 0.004, z0 = K.z0 + a * rh + 0.002, z1 = z0 + rh - 0.004;
+        bface(on ? lamps.tower : plain, [[lu, v0, z1], [lu, v1, z1], [lu, v1, z0], [lu, v0, z0]], [-su, 0, 0], on ? LAMP_LIT : LAMP_DEAD, on ? MAT.EMISSIVE : MAT.METAL);
+      }
+    }
+  }
+
 
   // 8) THE MAIN GATE on Sorrel Way, and 9) the bleacher gate on Halcyon Boulevard, its smaller twin.
   const plates = createBatch(64);
@@ -994,10 +1008,9 @@ function buildDomeFixed(plain, lamps) {
     for (let k = 1; k < SHELLS.length; k++) { const [ro, ri, top] = rail(k); bbox(plain, ...lo(ri, ro), -BACK, BACK, Z.cler, top, COL.bronze, MAT.GILT); }
     for (let i = 0; i < N; i++) panel([su * (G.u1 + 0.002), -OUT + (2 * i + 1) * OUT / N], [0, 1], [su, 0, 0], OUT / N);
   }
-  const zL = springZ(SHELLS[SHELLS.length - 1].k);
-  bbox(plain, -G.u0, G.u0, -OUT, -BACK, G.z0, DOME.zs, COL.bronze, MAT.GILT);
-  bbox(plain, -G.u0, G.u0, BACK, OUT, G.z0, zL, COL.bronze, MAT.GILT);
-  for (let i = 0; i < N; i++) panel([-G.u1 + (2 * i + 1) * G.u1 / N, -OUT - 0.002], [1, 0], [0, -1, 0], G.u1 / N);
+  bbox(plain, -G.u0, G.u0, -OUT, -BACK, G.z0, sillZ(-1), COL.bronze, MAT.GILT);
+  bbox(plain, -G.u0, G.u0, BACK, OUT, G.z0, sillZ(1), COL.bronze, MAT.GILT);
+  for (let i = 0; i < N; i++) panel([-G.u1 + (2 * i + 1) * G.u1 / N, FIXED_END * (OUT + 0.002)], [1, 0], [0, FIXED_END, 0], G.u1 / N);
   const Lt = LANTERN, Lv = Lt.v, zr = KH / ftUp(1), disc = (r, z, out, col, mat, uv) => bface(plain, Array.from({ length: 24 }, (_, k) => { const a = 2 * Math.PI * k / 24; return [r * Math.cos(a), Lv + r * Math.sin(a), z]; }), out, col, mat, uv);
   bdrum(plain, 0, Lv, Lt.foot.z0, Lt.foot.z1, Lt.foot.r, Lt.foot.r, COL.bronze, MAT.GILT, 24);
   disc(Lt.foot.r, Lt.foot.z1 + 0.001, [0, 0, 1], COL.bronze, MAT.GILT);
@@ -1074,7 +1087,7 @@ function buildShell(S, i) {
     }
   }
   for (const [ve, sg] of [[v0, -1], [v1, 1]]) {
-    const out = [0, sg, 0], fan = (i === 0 && sg < 0) || (i === SHELLS.length - 1 && sg > 0);
+    const out = [0, sg, 0], fan = isFan(i, sg);
     if (!fan) {
       // its outer face, and its inner face a few inches in, each lit from its own side
       for (const [v, o, col, mat] of [[ve, out, COL.leaf, MAT.METAL], [ve - sg * 0.0015, neg(out), COL.shellIn, MAT.CONCRETE]]) {
@@ -1308,6 +1321,15 @@ function boardFrame(field) {
   return { c, n, t: norm(cross([0, 1, 0], n)), w: 62, h: 21, yaw: Math.atan2(n[0], n[2]) / DEG + 180 };
 }
 
+// The videoboard's frame, the scoreboard's shape at 16:9: 96 by 54 ft, standing across centre
+// field from it.
+function jumboFrame(field) {
+  const j = field.jumbo || { bearing: 31, r: 420 };
+  const th = j.bearing * DEG, R = j.r;
+  const c = [Math.sin(th) * R, 72, Math.cos(th) * R], n = norm([-c[0], 0, -c[2]]);
+  return { c, n, t: norm(cross([0, 1, 0], n)), w: 48, h: 27, yaw: Math.atan2(n[0], n[2]) / DEG + 180 };
+}
+
 // ── the crowd's figures ─────────────────────────────────────────────────────
 // One figure a kind, instanced over the crowd's positions: 7 floats a vertex, position (3),
 // normal (3) and the part. `far` is the coarse level for a crowd seen from the broadcast cameras.
@@ -1322,7 +1344,7 @@ function boardFrame(field) {
 // which limb a vertex is on, for the walker (gl/streetlife.js), whose arms and legs swing:
 //   0 face and neck   0.25 a hand   1 the shirt   1.25 a sleeve   1.75 the hips
 //   2.25 a leg        3 hair        3.25 a shoe
-export const CROWD_PART = Object.freeze({ skin: 0, hand: 0.25, shirt: 1, sleeve: 1.25, hips: 1.75, leg: 2.25, hair: 3, shoe: 3.25, towel: 4 });
+export const CROWD_PART = Object.freeze({ skin: 0, hand: 0.25, shirt: 1, sleeve: 1.25, hips: 1.75, leg: 2.25, hair: 3, shoe: 3.25, face: 3.45, towel: 4 });
 const CP = CROWD_PART;
 // Each pose's joints, in feet, the figure facing +z. Every pose is built from the same pieces in
 // the same order, so the three pair up vertex for vertex (crowdMorph).
@@ -1399,6 +1421,7 @@ export const CROWD_VERTEX = 7;
 export const CROWD_MORPH = 19;
 const CROWD_HAND = { sit: CROWD_POSE.sit.hand, stand: CROWD_POSE.stand.hand };
 export function crowdMorph(o = {}) {
+  if (o.street !== false) return streetMorph(o);
   const sit = crowdMesh('sit', { ...o, towels: false }), stand = crowdMesh('stand', { ...o, towels: false }), cheer = crowdMesh('cheer', o);
   const V = CROWD_VERTEX, n = cheer.length / V, body = sit.length / V;
   if (stand.length / V !== body || n < body) throw new Error('the crowd\'s poses no longer pair up');
@@ -1411,6 +1434,168 @@ export function crowdMorph(o = {}) {
     out[at + 18] = cheer[c + 6];
   }
   return out;
+}
+
+// The fan as the street's people are (actor3d.js): the same coat, trousers, shoes, hands and head,
+// posed by the street rig's own `sit`, `idle` and `cheer` clips, so the stands and the pavement are
+// one population. Both levels are the street's far body (612 triangles to the old fan's 260 and 460). Feet, facing +z, in the
+// CROWD_MORPH layout, and its parts are CROWD_PART codes, so the crowd shaders don't change. The
+// towel hangs off the right hand in the cheer and folds into it in the other two. `street: false`
+// on crowdMorph is the old hand-built fan (crowdMesh).
+const FT = 3.28084;
+// the street rig's materials as the crowd's parts: 0 skin, 1 coat, 2 trousers, 3 shoes, 4 hair, 5 eyes, 6 lips
+const STREET_PART = [CP.skin, CP.shirt, CP.leg - 0.25, CP.shoe, CP.hair, CP.hair, CP.skin];
+const _streetMorph = new Map();
+function streetMorph({ far = false, towels = false } = {}) {
+  const key = `${far}|${towels}`;
+  if (_streetMorph.has(key)) return _streetMorph.get(key);
+  // the street's far body for both levels: its close one is 4,800 triangles, which a full house can't pay for
+  const lod = 1;
+  const poses = [actorPoseMesh('sit', 0, lod), actorPoseMesh('idle', 0, lod), actorPoseMesh('cheer', 0.125, lod)];
+  // the right hand (the rig's +X is its left): the highest skin below the shoulders' reach on -X,
+  // which in the cheer is the fist over the head
+  const hand = (m) => { let at = null; for (let k = 0; k < m.mat.length; k++) if (m.mat[k] === 0 && m.p[k * 3] < -0.15 && (!at || m.p[k * 3 + 1] > at[1])) at = [m.p[k * 3], m.p[k * 3 + 1], m.p[k * 3 + 2]]; return (at || [0, 1, 0]).map((v) => v * FT); };
+  const body = poses[0].mat.length, face = FAN_FACE.length, n = body + (towels ? 12 : 0) + face, out = new Float32Array(n * CROWD_MORPH);
+  for (let i = 0; i < body; i++) {
+    const at = i * CROWD_MORPH;
+    for (let k = 0; k < 3; k++) {
+      const m = poses[k], o = at + k * 6;
+      // the rig faces +Z with +X its left; the fan faces +z with +x its left too
+      out[o] = m.p[i * 3] * FT; out[o + 1] = m.p[i * 3 + 1] * FT; out[o + 2] = m.p[i * 3 + 2] * FT;
+      out[o + 3] = m.n[i * 3]; out[o + 4] = m.n[i * 3 + 1]; out[o + 5] = m.n[i * 3 + 2];
+    }
+    out[at + 18] = STREET_PART[poses[2].mat[i]] ?? CP.shirt;
+    // skin out from the neck or under the chin, standing, is a hand: CP.hand, or the crowd shader
+    // (crowd.js `head`) turns it with the head and the sleeve's triangles stretch into shards
+    const sx = poses[1].p[i * 3], sy = poses[1].p[i * 3 + 1];
+    if (poses[2].mat[i] === 0 && (Math.abs(sx) > 0.13 || sy < 1.3)) out[at + 18] = CP.hand;
+  }
+  mittHands(out, body, poses);
+  if (towels) {
+    const [hs, hd, hc] = poses.map(hand);
+    // caught mid-wave out over the shoulder, both faces, as crowdMesh's
+    const a = hc, b = [hc[0] - 0.95, hc[1] + 0.3, hc[2] - 0.12], c2 = [hc[0] - 1.0, hc[1] + 1.3, hc[2] - 0.18], d = [hc[0] + 0.04, hc[1] + 1.05, hc[2] - 0.05];
+    const nn = norm(cross(sub(b, a), sub(d, a))), tri = [[a, b, c2, nn], [a, c2, d, nn], [a, c2, b, mul(nn, -1)], [a, d, c2, mul(nn, -1)]];
+    let i = body;
+    for (const [p, q, r, nm] of tri) for (const v of [p, q, r]) {
+      const at = i++ * CROWD_MORPH;
+      out.set([...hs, 0, 1, 0], at); out.set([...hd, 0, 1, 0], at + 6); out.set([...v, ...nm], at + 12); out[at + 18] = CP.towel;
+    }
+  }
+  fanHead(out, body, poses, n - face);
+  _streetMorph.set(key, out);
+  return out;
+}
+// The far body's head is small on a long neck, with no eyes or mouth (only the close body has
+// them, and a full house can't pay for that one). In every pose the head is made 12% bigger and
+// set down its neck 3.5 cm, so the neck mostly sits inside the collar, and a face is laid on it in
+// a few triangles: eyes, brows and a mouth in CP.face, and a nose in skin that the light shapes.
+// The face is placed in the standing head's frame (metres, +z ahead) and carried into each pose
+// by that pose's own head frame, worked out from the head's vertices.
+const HEAD_GROW = 1.12, NECK_DROP = 0.035;
+const FAN_FACE = (() => {
+  const zAt = (x, y) => 0.118 * Math.sqrt(Math.max(0, 1 - (x / 0.1) ** 2)) - 0.25 * (y - 1.665) ** 2 + 0.006;
+  const tris = [];
+  const quad = (cx, cy, w, h, part, diamond = false) => {
+    const P = (x, y) => [x, y, zAt(x, y)];
+    const a = diamond ? P(cx - w, cy) : P(cx - w, cy - h), b = diamond ? P(cx, cy - h) : P(cx + w, cy - h);
+    const c = diamond ? P(cx + w, cy) : P(cx + w, cy + h), d = diamond ? P(cx, cy + h) : P(cx - w, cy + h);
+    tris.push([a, b, c, part], [a, c, d, part]);
+  };
+  for (const s of [-1, 1]) {
+    quad(s * 0.034, 1.667, 0.012, 0.0065, CP.face, true);             // an eye
+    quad(s * 0.036, 1.687, 0.016, 0.0035, CP.face);                    // its brow
+  }
+  quad(0, 1.603, 0.019, 0.0035, CP.face);                              // the mouth
+  // the nose: a wedge out of the face, its two sides lit differently
+  const tip = [0, 1.632, zAt(0, 1.632) + 0.022], root = [0, 1.668, zAt(0, 1.668)];
+  const l = [-0.013, 1.628, zAt(-0.013, 1.628)], r = [0.013, 1.628, zAt(0.013, 1.628)];
+  tris.push([root, l, tip, CP.skin], [root, tip, r, CP.skin], [l, r, tip, CP.skin]);
+  return tris.flatMap(([a, b, c, part]) => [a, b, c].map((p) => ({ p, part, n: norm(cross(sub(b, a), sub(c, a))) })));
+})();
+function fanHead(out, body, poses, faceAt) {
+  const S = CROWD_MORPH, I = poses[1];
+  // which corners are the head (skin above the chin that isn't a hand, and the hair) and which the
+  // neck, both by where they stand
+  const isHead = new Uint8Array(body), neckT = new Float32Array(body);
+  for (let i = 0; i < body; i++) {
+    const m = I.mat[i], y = I.p[i * 3 + 1], part = out[i * S + 18];
+    if (part === CP.hand) continue;
+    if (m === 4 || m === 5 || m === 6 || (m === 0 && y > 1.55)) isHead[i] = 1;
+    else if (m === 0 && y > 1.44) neckT[i] = Math.min(1, (y - 1.44) / 0.11);
+  }
+  const frameOf = (k) => {
+    const o = k * 6, P = (i) => [out[i * S + o] / FT, out[i * S + o + 1] / FT, out[i * S + o + 2] / FT];
+    let c = [0, 0, 0], top = [0, 0, 0], low = [0, 0, 0], front = [0, 0, 0], nt = 0, nl = 0, nf = 0, nc = 0;
+    for (let i = 0; i < body; i++) if (isHead[i]) {
+      const p = P(i), y = I.p[i * 3 + 1], z = I.p[i * 3 + 2];
+      c = add(c, p); nc++;
+      if (y > 1.71) { top = add(top, p); nt++; }
+      if (y < 1.6) { low = add(low, p); nl++; }
+      if (z > 0.08 && y < 1.7) { front = add(front, p); nf++; }
+    }
+    c = mul(c, 1 / nc);
+    const u = norm(sub(mul(top, 1 / nt), mul(low, 1 / nl)));
+    let f = sub(mul(front, 1 / nf), c); f = norm(sub(f, mul(u, f[0] * u[0] + f[1] * u[1] + f[2] * u[2])));
+    return { c, u, f, x: cross(u, f) };
+  };
+  const F = [0, 1, 2].map(frameOf), F0 = F[1];
+  const local = (p) => { const d = sub(p, F0.c); return [d[0] * F0.x[0] + d[1] * F0.x[1] + d[2] * F0.x[2], d[0] * F0.u[0] + d[1] * F0.u[1] + d[2] * F0.u[2], d[0] * F0.f[0] + d[1] * F0.f[1] + d[2] * F0.f[2]]; };
+  const place = (Fk, l, grow) => add(add(add(Fk.c, mul(Fk.x, l[0] * grow)), add(mul(Fk.u, l[1] * grow), mul(Fk.f, l[2] * grow))), mul(Fk.u, -NECK_DROP));
+  for (let k = 0; k < 3; k++) {
+    const Fk = F[k], o = k * 6;
+    for (let i = 0; i < body; i++) {
+      const at = i * S + o;
+      if (isHead[i]) {
+        const p = [out[at] / FT, out[at + 1] / FT, out[at + 2] / FT];
+        const q = add(add(Fk.c, mul(sub(p, Fk.c), HEAD_GROW)), mul(Fk.u, -NECK_DROP));
+        out[at] = q[0] * FT; out[at + 1] = q[1] * FT; out[at + 2] = q[2] * FT;
+      } else if (neckT[i] > 0) {
+        const t = neckT[i] * NECK_DROP;
+        out[at] -= Fk.u[0] * t * FT; out[at + 1] -= Fk.u[1] * t * FT; out[at + 2] -= Fk.u[2] * t * FT;
+      }
+    }
+    FAN_FACE.forEach((v, j) => {
+      const at = (faceAt + j) * S + o, q = place(Fk, local(v.p), HEAD_GROW), nl = local(add(F0.c, v.n));
+      const nn = norm(add(add(mul(Fk.x, nl[0]), mul(Fk.u, nl[1])), mul(Fk.f, nl[2])));
+      out[at] = q[0] * FT; out[at + 1] = q[1] * FT; out[at + 2] = q[2] * FT;
+      out.set(nn, at + 3);
+      out[at + 18] = v.part;
+    });
+  }
+}
+
+// The far body's fingers are a fan of thin spikes that read as claws a row away, so each hand's
+// triangles become a plain mitt in every pose: an eight-faced lozenge from the wrist (the sleeve's
+// corners nearest the hand) out past the hand's centre, flattened across the palm, and the
+// triangles it doesn't need folded to a point inside it.
+function mittHands(out, body, poses) {
+  const S = CROWD_MORPH, LONG = 0.3, WIDE = 0.15, THICK = 0.08;
+  for (const side of [1, -1]) {
+    const own = [];
+    for (let t = 0; t < body; t += 3) if ([0, 1, 2].every((j) => out[(t + j) * S + 18] === CP.hand) && Math.sign(poses[1].p[t * 3]) === side) own.push(t);
+    if (!own.length) continue;
+    for (let k = 0; k < 3; k++) {
+      const P = (i) => [out[i * S + k * 6], out[i * S + k * 6 + 1], out[i * S + k * 6 + 2]];
+      let c = [0, 0, 0];
+      for (const t of own) for (let j = 0; j < 3; j++) c = add(c, mul(P(t + j), 1 / (own.length * 3)));
+      // the wrist: the sleeve's corners within a hand's length of it
+      let w = [0, 0, 0], nw = 0;
+      for (let i = 0; i < body; i++) if (out[i * S + 18] === CP.shirt && len(sub(P(i), c)) < 0.45) { w = add(w, P(i)); nw++; }
+      const ax = nw ? norm(sub(c, mul(w, 1 / nw))) : [0, -1, 0];
+      const across = norm(Math.abs(ax[1]) > 0.9 ? cross(ax, [1, 0, 0]) : cross(ax, [0, 1, 0])), palm = norm(cross(ax, across));
+      const mid = madd(c, ax, 0.05), tip = madd(mid, ax, LONG), heel = madd(mid, ax, -LONG * 0.6);
+      const ring = [madd(mid, across, WIDE), madd(mid, palm, THICK), madd(mid, across, -WIDE), madd(mid, palm, -THICK)];
+      const faces = [];
+      for (let r = 0; r < 4; r++) { const a = ring[r], b = ring[(r + 1) % 4]; faces.push([tip, a, b], [heel, b, a]); }
+      own.forEach((t, f) => {
+        const tri = faces[f] || [mid, mid, mid];
+        const fn = faces[f] ? norm(cross(sub(tri[1], tri[0]), sub(tri[2], tri[0]))) : ax;
+        const n = dot(fn, sub(tri[0], mid)) < 0 ? mul(fn, -1) : fn;
+        tri.forEach((p, j) => { const o = (t + j) * S + k * 6; out.set(p, o); out.set(n, o + 3); });
+      });
+    }
+  }
 }
 
 // ── a final's dress ─────────────────────────────────────────────────────────
@@ -1448,8 +1633,8 @@ export function buildDress(venue) {
     });
   }
   // a pennant from each light tower's finial
-  for (const T of field.towers.filter((t) => t.kind === 'tower')) {
-    const fwd = norm([T.dir[0], 0, T.dir[2]]), right = norm(cross(fwd, [0, 1, 0])), top = [T.base[0], ftUp(0.975), T.base[2]];
+  for (const [su, sv] of TOWER_CORNERS) {
+    const base = B2T(su * TOWER.at, sv * TOWER.at), fwd = norm([-base[0], 0, -base[2]]), right = norm(cross(fwd, [0, 1, 0])), top = [base[0], ftUp(0.975), base[2]];
     cylinder(B('plain'), top, 12, 0.3, lin('#d9d9d4'), MAT.METAL, 6);
     const head = add(top, [0, 12, 0]);
     quad(B('plain'), head, add(head, [0, -4.4, 0]), add(madd(head, right, 11), [0, -2.2, 0]), add(madd(head, right, 11), [0, -2.2, 0]), fwd, GOLD, MAT.CLOTH);

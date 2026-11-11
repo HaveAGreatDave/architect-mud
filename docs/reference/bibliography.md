@@ -27,6 +27,7 @@ The rule that runs through the list is the one [house-voice.md](house-voice.md) 
 | Work | What Architect takes | Where |
 |---|---|---|
 | South Park | The simple comic faces on the broadcast stage. | [broadcast-3d.md](../proposals/broadcast-3d.md) |
+| The Fifth Element (1997) | The close-up figure's strap-wrap underwear: pale bands round the body with skin between, and bright braces. The idea only, not the costume. | [hd-figure.md](../proposals/hd-figure.md) |
 | Preston Blair, *Cartoon Animation* | The animator's mouth chart: a handful of shapes standing for all the sounds, which is what lip sync's `MOUTHS` are. | [sculpted-figure.md](../proposals/sculpted-figure.md) |
 | The FoxTrax puck | The glowing puck halo and the tail that turns red at speed. | [systems-broadcast.md](../systems-broadcast.md) |
 
@@ -158,6 +159,37 @@ All in [systems-library.md](../systems-library.md) unless noted.
 | von Hippel and Huron, via Shanahan | Melodies regress to the mean. |
 
 The FM list is in [fm-sound-matching.md](fm-sound-matching.md) and the music list in [game-music-craft.md](game-music-craft.md), with the non-academic sources too.
+
+### Field recordings
+
+Every recording the game plays from [field-recordings.js](../../client/shared/field-recordings.js). All are from Freesound under CC0 1.0, checked on each sound's page when [build-field-recordings.mjs](../../scripts/audio/build-field-recordings.mjs) fetched it; CC0 asks for no credit, and they are credited here anyway. Doc: [systems-procedural-audio.md](../systems-procedural-audio.md#field-recordings).
+
+| Recording | By | Used as |
+|---|---|---|
+| [Light Rain](https://freesound.org/people/soundrecorder7/sounds/167034/) | soundrecorder7 | `rain_light`, loop |
+| [Rain heavy 2 (rural)](https://freesound.org/people/jmbphilmes/sounds/200272/) | jmbphilmes | `rain_heavy`, loop |
+| [Rain from Indoors - Perfect loop](https://freesound.org/people/samesamesame/sounds/242889/) | samesamesame | `rain_indoor`, loop |
+| [Rain and Thunder 4](https://freesound.org/people/FlatHill/sounds/237729/) | FlatHill | `rain_thunder`, loop |
+| [Thunder.ogg](https://freesound.org/people/lennyboy/sounds/244053/) | lennyboy | `thunder_a`, one-shot |
+| [thunder](https://freesound.org/people/netaj/sounds/193170/) | netaj | `thunder_b`, one-shot |
+| [wind.wav](https://freesound.org/people/nithala/sounds/525292/) | nithala | `wind`, loop |
+| [Wind__Artic__Cold.wav](https://freesound.org/people/cobratronik/sounds/117136/) | cobratronik | `blizzard`, loop |
+| [hail_rain.wav](https://freesound.org/people/MLaudio/sounds/521375/) | MLaudio | `hail`, loop |
+| [Water wave Beach Field-recording 200815_0036.wav](https://freesound.org/people/szegvari/sounds/530699/) | szegvari | `surf_beach`, loop |
+| [Crashing Waves into Rocks 2](https://freesound.org/people/amholma/sounds/376801/) | amholma | `surf_rocks`, loop |
+| [Water_Lapping_Windy_Day_Gore_Creek_2.wav](https://freesound.org/people/DangerLaef/sounds/692542/) | DangerLaef | `harbour_lap`, loop |
+| [Ocean Waves.wav](https://freesound.org/people/Noted451/sounds/531015/) | Noted451 | `ocean`, loop |
+| [Canada Geese Honks](https://freesound.org/people/Kinoton/sounds/423346/) | Kinoton | `goose`, calls |
+| [Canada Goose Chatter](https://freesound.org/people/qubodup/sounds/859152/) | qubodup | `goose_chatter`, calls |
+| [Seagull single call](https://freesound.org/people/steaq/sounds/263786/) | steaq | `gull_single`, calls |
+| [Gull.wav](https://freesound.org/people/nigelcoop/sounds/73497/) | nigelcoop | `gull`, calls |
+| [Seagull trill and whine.wav](https://freesound.org/people/nigelcoop/sounds/75195/) | nigelcoop | `gull_trill`, calls |
+| [Seagulls_short.wav](https://freesound.org/people/Lydmakeren/sounds/510917/) | Lydmakeren | `gulls`, calls |
+| [Pigeon cooing](https://freesound.org/people/Fsu2001/sounds/795558/) | Fsu2001 | `pigeon`, calls |
+| [House sparrow.wav](https://freesound.org/people/straget/sounds/404663/) | straget | `sparrow`, calls |
+| [robin song](https://freesound.org/people/Andrew.soundscape/sounds/671058/) | Andrew.soundscape | `robin`, calls |
+| [R30-34-Red Tailed Hawk.wav](https://freesound.org/people/craigsmith/sounds/479610/) | craigsmith | `hawk`, calls |
+| [Vulture](https://freesound.org/people/AntumDeluge/sounds/188041/) | AntumDeluge | `vulture`, calls |
 
 ### Flight and physics
 

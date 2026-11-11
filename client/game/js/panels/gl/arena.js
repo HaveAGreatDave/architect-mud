@@ -39,6 +39,7 @@ import * as M from './arena-mesh.js';
 import { crowdMorph, CROWD_MORPH } from './ballpark-mesh.js';
 import { GATE_Y, GATE_HALF } from '../rink/zamboni.js';
 import { paintLivery } from '../rink/livery.js';
+import { goalLights } from '../rink/goal-lights.js';
 import { RINK_CROWD_VS, RINK_CROWD_FS, INST as CROWD_INST, buildBowl, crowdInstances, hideFor, nearR, nearDrop, seesRing, roarOf } from './arena-crowd.js';
 import { paintCrest, paintLayers, settCanvas } from '../club-crest.js';
 import { makeVertexStream } from './stream.js';
@@ -47,6 +48,7 @@ import { declareProgram, prewarmPrograms, takeWarm } from './programs.js';
 import { createMirrorLayer, MIRROR_SCALE } from './mirror.js';
 import { createRinkHeads, HEAD_VS, HEAD_FS, KEY } from './arena-heads.js';
 import { buildXray } from './arena-xray.js';
+import { createArenaKen, kenRig } from './arena-ken.js';
 
 const FACE = '"Saira Condensed", "Arial Narrow", "Roboto Condensed", sans-serif';
 
@@ -223,13 +225,23 @@ precision mediump float;
 uniform vec2 uRes;
 uniform vec4 uWash;
 uniform vec3 uLamp;
+uniform float uDim;
 uniform float uVig;
 uniform float uDark;
+uniform float uShow;
+uniform vec3 uSpots[4];
 out vec4 outColor;
 vec4 over(vec4 top, vec4 under) { return top + under * (1.0 - top.a); }
 void main() {
   vec2 p = gl_FragCoord.xy;
   vec4 acc = vec4(0.0);
+  // Cup night's house lights down: the building dark but for the spotlights, each a soft-edged
+  // pool (xy its middle on the screen, z its radius in pixels), warm where it falls
+  float lit = 0.0;
+  for (int i = 0; i < 4; i++) { if (uSpots[i].z > 0.0) lit = max(lit, smoothstep(uSpots[i].z, uSpots[i].z * 0.55, length(p - uSpots[i].xy))); }
+  if (uShow > 0.0) { acc = over(vec4(vec3(1.0, 0.9, 0.7) * 0.07 * lit * uShow, 0.0), acc); acc = over(vec4(0.0, 0.0, 0.0, uShow * (1.0 - lit)), acc); }
+  // a goal's house lights down (rink/goal-lights.js), under the lamp so the lamp still burns
+  acc = over(vec4(0.0, 0.0, 0.0, uDim), acc);
   if (uLamp.z > 0.0) { float l = max(0.0, 1.0 - length(p - uLamp.xy) / uLamp.z) * 0.95; acc = over(vec4(vec3(1.0, 0.24, 0.2) * l, l), acc); }
   acc = over(uWash, acc);
   float d = length(p - uRes * 0.5);
@@ -315,6 +327,10 @@ export function createArenaRenderer(canvas, overlay, W0, ice) {
     let heads = null;
     try { heads = createRinkHeads(gl, prog, doc); } catch (err) { console.warn('[rink] generator heads unavailable, drawing the old ones:', err && err.message); }
     const headList = [], headsTo = () => (heads ? headList : null);
+    // Ken Raven at the Zamboni's wheel, as the close-up figure (gl/arena-ken.js); without it, the mesh's own driver
+    let ken = null;
+    try { ken = createArenaKen(gl); } catch (err) { console.warn('[rink] the close-up Ken is unavailable, drawing the old one:', err && err.message); }
+    let kenOn = false;
 
     // ── textures ──────────────────────────────────────────────────────────────
     const T2 = gl.TEXTURE_2D;
@@ -391,6 +407,7 @@ export function createArenaRenderer(canvas, overlay, W0, ice) {
     }
     const B = Object.fromEntries(['stat', 'ads', 'glass', 'rows', 'dyn', 'jers', 'masks', 'label', 'tr', 'netm', 'gdec', 'shad'].map((k) => [k, M.createBatch(k === 'dyn' ? 1 << 16 : 1 << 12)]));
     let ptData = new Float32Array(PT_STRIDE * 1024);
+    const spotBuf = new Float32Array(12);
     // the X-ray's two batches, filled only while one is on (gl/arena-xray.js)
     const XB = { glow: M.createBatch(1 << 13), solid: M.createBatch(1 << 15) };
     buildStatic();
@@ -767,7 +784,12 @@ export function createArenaRenderer(canvas, overlay, W0, ice) {
         const o = W.nets && W.nets[side];
         if (!(o && o.out)) M.buildNet(d, B.netm, gx + (o ? o.dx : 0), dir, MID_Y + (o ? o.dy : 0), NET_HALF, NET_DEPTH, NET_H, (W.netBulge[side] || 0) * 0.7);
       }
-      if (W.zamboni) M.buildZamboni(d, B.label, W.zamboni, W.t, !!W0.cup);
+      kenOn = false;
+      if (W.zamboni) {
+        try { kenOn = !!(ken && ken.pose(W.zamboni, W.t)); } catch (err) { console.warn('[rink] Ken:', err && err.message); ken = null; }
+        M.buildZamboni(d, B.label, W.zamboni, W.t, !!W0.cup, kenOn ? kenRig() : null);
+        if (kenOn) { ken.glasses(d, null, M.tube, M.rgb); ken.scarf(d, M.quad, M.tube, M.rgb); }
+      }
       propsN = d.n;
       // the men (and, with the comic look on, where each vertex of theirs is on him, for the hatching)
       const comic = comicOn();
@@ -792,6 +814,8 @@ export function createArenaRenderer(canvas, overlay, W0, ice) {
       for (const x of W.debris) M.buildDebris(d, x, W.kits[x.side] || W.kits.a);
       for (const l of W.limbs) { const o = bodyOpts(W, l.owner || { side: l.side }); if (o.kit) { o.heads = headsTo(); if (o.goalie) { o.maskSlot = maskSlot(o); o.maskBatch = B.masks; } M.buildSevered(d, l, o, B.jers); } }
       if (W.stretcher) M.buildStretcher(d, W.stretcher);
+      // the Coldwater Cup, carried out and lifted on Cup night (rink/director.js stageCrown)
+      if (W.trophy) { M.buildCup(d, W.trophy); if (W.trophy.z < 1) shadow(W.trophy.x, W.trophy.y, 0.9); }
       if (W.zamboni) shadow(W.zamboni.x, W.zamboni.y, 6.5);
       farGlass();
       return particles();
@@ -852,6 +876,9 @@ export function createArenaRenderer(canvas, overlay, W0, ice) {
       const pt = (x, y, z, c, s) => { const o = n * PT_STRIDE; ptData[o] = x; ptData[o + 1] = y; ptData[o + 2] = z; ptData[o + 3] = c[0]; ptData[o + 4] = c[1]; ptData[o + 5] = c[2]; ptData[o + 6] = c[3]; ptData[o + 7] = s; n++; };
       for (const p of W.parts) {
         if (p.type === 'blood') pt(p.x, p.y, p.z, M.rgb(p.col), p.size * 1.6);
+        // the Cup's confetti: each piece turning over as it falls, so it flickers between its
+        // face and its edge
+        else if (p.type === 'confetti') pt(p.x, p.y, p.z, M.rgb(p.col), p.size * (0.45 + 0.55 * Math.abs(Math.sin(p.life * p.spin + p.seed))));
         else pt(p.x, p.y, p.z, PCOL[p.type] || PCOL.shard, p.size * 2);
       }
       if (W.spray) for (const p of W.spray) pt(p.x, p.y, p.z, PCOL.spray, p.size * 2);
@@ -1037,6 +1064,7 @@ export function createArenaRenderer(canvas, overlay, W0, ice) {
       gl.uniform3fv(POST.u('uLamp'), [0, 0, 0]);
       gl.uniform1f(POST.u('uVig'), 0.6 * k);
       gl.uniform1f(POST.u('uDark'), 0);
+      gl.uniform1f(POST.u('uShow'), 0);
       gl.bindVertexArray(postVao); gl.drawArrays(gl.TRIANGLES, 0, 3); st.draws++;
       gl.depthMask(true); gl.clear(gl.DEPTH_BUFFER_BIT);
       gl.enable(gl.DEPTH_TEST);
@@ -1111,6 +1139,7 @@ export function createArenaRenderer(canvas, overlay, W0, ice) {
       useLit(vp, eye, shake, -1e9);
       draw(L.stat); draw(L.ads, texAds);
       drawFigures();
+      if (kenOn) { ken.draw(vp, eye, w, h); useLit(vp, eye, shake, -1e9); }
       celFor(true); draw(L.label, texLabel); celFor(false);
       if (heads) heads.draw(headList, vp, eye, shake, -1e9, W.mourning, st);
 
@@ -1166,18 +1195,29 @@ export function createArenaRenderer(canvas, overlay, W0, ice) {
       gl.disable(gl.DEPTH_TEST);
       gl.useProgram(POST.p);
       gl.uniform2f(POST.u('uRes'), w, h);
-      const lampOn = W.lamp > 0 && W.lampSide;
-      const k = lampOn ? (Math.sin(W.t * 18) > 0 ? 0.1 : 0.035) * Math.min(1, W.lamp) : 0;
+      // a goal: the house lights down and the red lamp strobing (rink/goal-lights.js)
+      const lights = goalLights(W), lampOn = lights.wash > 0;
+      const k = lights.wash;
       gl.uniform4f(POST.u('uWash'), k, 30 / 255 * k, 40 / 255 * k, k);
+      gl.uniform1f(POST.u('uDim'), 0.42 * lights.dim);
       let lamp = [0, 0, 0];
       if (lampOn) {
         const gx = W.lampSide === 'a' ? GOAL_X[0] : GOAL_X[1], dir = W.lampSide === 'a' ? -1 : 1;
         const l = P(gx + dir * (NET_DEPTH + 6), MID_Y, GLASS_H + 1);
-        if (l) lamp = [l.x + sx, h - (l.y + sy), 3 * l.s];
+        if (l) lamp = [l.x + sx, h - (l.y + sy), (lights.on ? 5 : 1.5) * l.s];
       }
       gl.uniform3fv(POST.u('uLamp'), lamp);
       gl.uniform1f(POST.u('uVig'), 0.42 + 0.3 * (W.mourning || 0));
       gl.uniform1f(POST.u('uDark'), 0.22 * (W.mourning || 0));
+      // the spotlights, at chest height on the man they're on (rink/director.js W.show)
+      const show = W.show && W.show.dark > 0.002 ? W.show : null;
+      gl.uniform1f(POST.u('uShow'), show ? show.dark : 0);
+      spotBuf.fill(0);
+      if (show) (show.spots || []).slice(0, 4).forEach((s, i) => {
+        const q = P(s.x, s.y, s.z ?? 3);
+        if (q) { spotBuf[i * 3] = q.x + sx; spotBuf[i * 3 + 1] = h - (q.y + sy); spotBuf[i * 3 + 2] = clamp(s.r * q.s, 8, h * 0.2); }
+      });
+      gl.uniform3fv(POST.u('uSpots[0]'), spotBuf);
       gl.bindVertexArray(postVao); gl.drawArrays(gl.TRIANGLES, 0, 3); st.draws++;
       gl.bindVertexArray(null);
       gl.depthMask(true); gl.enable(gl.DEPTH_TEST);

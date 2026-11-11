@@ -31,7 +31,7 @@ import { skylineAround } from '../../server/engine/skyline.js';
 import { HOCKEY, rivalOf, healSlot, reprintSlots, rosterFor } from './sports/hockey.js';
 import { bindingOf, whereabouts, seasonLine } from './sports/league-npcs.js';
 import { finalPackage, packageText } from './sports/final-package.js';
-import { deskSegment, deskOverlay, deskStaffed, castOnAir, withLive, stageSet, guestPerson } from './sequences.js';
+import { deskSegment, deskOverlay, deskStaffed, castOnAir, castStage, withLive, stageSet, roomSet, guestPerson, breakSetFor, breakStage, sceneSetFor, setOfId } from './sequences.js';
 import { factsAt, watchOf } from './sports/facts.js';
 import {
   gameshowAiring, gameshowDayBucket, getGameshowGraph, gameshowOpenRound, gameshowResolveRound,
@@ -256,13 +256,84 @@ async function sendTvClubs(playerId, sport) {
 on('tv.stage', ({ playerId, channel }) => {
   try { sendToPlayer(playerId, stageFor(channel)); } catch (err) { console.error('[broadcast] stageFor error:', err.message); }
 });
+// A studio set is a room players can walk into (a set's `zone`): the Room Stage asks for it, and gets the set
+// and who's on its floor. While a show is staged there its cast come first, the host on the first mark, as
+// the TV's 3-D view seats them; otherwise whoever's in the room, NPCs then players, in the order they're
+// listed. The lines said there are the client's own (the room text), so a show staged there plays on it.
+on('room.set', ({ playerId, zone }) => {
+  try { sendToPlayer(playerId, roomSetFor(typeof zone === 'string' ? zone : '')); } catch (err) { console.error('[broadcast] roomSetFor error:', err.message); }
+});
+// A line's `blocking` (the talk show's host to the star for the monologue, 'standup', and back, 'seat'): kept
+// for the broadcast on air, so stageFor seats a late viewer's picture to match; the studio floor is sent its
+// set again now, and the 3-D sets get the overlay this returns with the line (sequence-player.js liveBlock).
+function _block(bb, stageZoneId, npcId, to) {
+  const bid = bb.activeBroadcastId || null;
+  bb.blocking = { bid, at: { ...(bb.blocking?.bid === bid ? bb.blocking.at : {}), [npcId]: to } };
+  const floor = stageZoneId ? roomSetFor(stageZoneId) : null;
+  if (floor?.set) for (const pl of getZonePlayers(stageZoneId) || []) if (pl?.id) sendToPlayer(pl.id, floor);
+  return { overlayType: 'blocking', name: world.npcs.get(npcId)?.name || '', to };
+}
+function roomSetFor(zoneId) {
+  const none = { type: 'room_set', zone: zoneId, set: null };
+  let set = roomSet(graphicsCache, zoneId);
+  if (!set) return none;
+  let people = [], programName = '';
+  for (const state of channelRuntime.values()) {
+    const item = _itemOnAir(state);
+    const at = item?.broadcastGraph?._locationZone || state.studioZoneId;
+    if (!item || at !== zoneId) continue;
+    const s = stageFor(state.channelId);
+    if (s?.set) set = s.set;
+    if (s?.people?.length) { people = s.people; programName = s.programName || ''; }
+    break;
+  }
+  const seen = new Set(people.map((p) => p.id));
+  for (const id of world.zones.get(zoneId)?.npcs || []) {
+    const n = world.npcs.get(id);
+    if (!n || n._dead || n.flags?.camera_droid || seen.has(n.id)) continue;
+    seen.add(n.id); people.push({ id: n.id, name: n.name, sex: n.sex, figure: n.flags?.figure || null });
+  }
+  for (const pl of getZonePlayers(zoneId) || []) {
+    if (!pl || seen.has(pl.id)) continue;
+    seen.add(pl.id); people.push({ id: pl.id, name: pl.name, sex: pl.sex || null, figure: null });
+  }
+  return { ...none, set, programName, people: people.slice(0, 12) };
+}
+// The playlist item on air. An assembled programme's graph names itself after its broadcast and the night
+// (`bc_…:talkshow:<bucket>`, assembleTalkshowGraph and the others), so an exact match found no talk show at
+// all: stageFor sent its picture no host, sidekick or guest, and every line was seated as a stranger.
+function _itemOnAir(state) {
+  const bid = state?.graphBlackboard?.activeBroadcastId;
+  const list = state?.playlist || [];
+  // The TV asks for the set the moment the programme's name changes, a tick before its graph marks itself
+  // active, so between the two the item is the one whose name is on air. Without this the stage got the
+  // studio room's default set and stock cast for the whole programme.
+  if (!bid) return (state?.currentProgramName && list.find((i) => i.broadcastId && i.broadcastName === state.currentProgramName)) || null;
+  return list.find((i) => i.broadcastId === bid) || list.find((i) => i.broadcastId && bid.startsWith(i.broadcastId + ':')) || null;
+}
+// The stage again, as an overlay riding a line to every TV on the channel: the set changed mid-show.
+function _stageSwap(channelId) {
+  try { const { type, ...rest } = stageFor(channelId); return { ...rest, overlayType: 'stage' }; } catch { return null; }
+}
 function stageFor(channelId) {
   const state = channelRuntime.get(channelId), none = { type: 'tv_stage', channel: channelId, set: null };
   if (!state) return none;
-  const bid = state.graphBlackboard?.activeBroadcastId || null;
-  const item = (state.playlist || []).find((i) => i.broadcastId === bid) || null;
+  const item = _itemOnAir(state);
+  const bid = state.graphBlackboard?.activeBroadcastId || item?.broadcastId || null;
   // a game has its own picture; and a slate's game isn't a graph the blackboard names, so ask the runner too
   if (item?.playback_mode === 'sports' || state.currentPlaybackMode === 'sports') return none;
+  // an advert inside the show is on its own set, with its own people, until the show comes back
+  const brk = state.graphBlackboard?.breakSet;
+  if (brk && brk.bid === bid) {
+    const b = breakStage(graphicsCache, brk.id, (id) => world.npcs.get(id));
+    if (b) return { ...none, set: b.set, broadcast: bid, programName: item?.broadcastName || '', people: b.people, ad: brk.id };
+  }
+  // a film's scene is on the backlot set its last SLUG named (sceneSetFor), until the next one names another
+  const scene = state.graphBlackboard?.sceneSet;
+  if (scene && scene.bid === bid) {
+    const sset = setOfId(graphicsCache, scene.id);
+    if (sset) return { ...none, set: sset, broadcast: bid, programName: item?.broadcastName || '', people: [] };
+  }
   const graph = item?.broadcastGraph || null, zone = graph?._locationZone || state.studioZoneId || null;
   // A show assembled from pools names its own cast, the host first so they take the first mark. A talk
   // show seats its host and sidekick and leaves the guest's chair for whoever speaks as the guest,
@@ -278,7 +349,9 @@ function stageFor(channelId) {
     if (acted) for (const id of world.zones.get(zone)?.npcs || []) ids.add(id);
   }
   // a camera droid is the crew, never the cast
-  const people = [...ids].map((id) => world.npcs.get(id)).filter((n) => n && !n._dead && !n.flags?.camera_droid).slice(0, 12).map((n) => ({ id: n.id, name: n.name, sex: n.sex, figure: n.flags?.figure || null }));
+  // where the show has put each of them (_block), so a viewer tuning in mid-monologue sees the host on the star
+  const placed = state.graphBlackboard?.blocking?.bid === bid ? state.graphBlackboard.blocking.at : null;
+  const people = [...ids].map((id) => world.npcs.get(id)).filter((n) => n && !n._dead && !n.flags?.camera_droid).slice(0, 12).map((n) => ({ id: n.id, name: n.name, sex: n.sex, figure: n.flags?.figure || null, ...(placed?.[n.id] ? { to: placed[n.id] } : {}) }));
   // a talk show's guest is tonight's: the persona the day draws, or the townsperson who's come in to do it
   if (item?.playback_mode === 'talkshow' && item.talkshowScript) {
     const persona = talkshowPersonaFor(item.talkshowScript, talkshowDayBucket());
@@ -480,8 +553,15 @@ function _feedDeckLive(zoneId, channelId) {
   });
 }
 
+// A stage in the channel's own building (Sound Stage B beside KSAB-TV's main floor) is cabled to the same
+// gallery, so it's wired like the studio itself; only a room elsewhere needs a feed deck carried in.
+function _sameBuilding(a, b) {
+  const za = a && getZone(a), zb = b && getZone(b);
+  return !!(za && zb && za.map_id && za.map_id === zb.map_id && za.map_id !== 'map_world');
+}
 function _uplinkOk(state, stageZoneId) {
   if (!stageZoneId || stageZoneId === state.studioZoneId) return true;   // wired, as ever
+  if (_sameBuilding(stageZoneId, state.studioZoneId)) return true;
   return _feedDeckLive(stageZoneId, state.channelId);
 }
 
@@ -2357,38 +2437,40 @@ function assembleWeatherGraph(pools, hostId, forecast, env, broadcastId, titleId
     worstDay: wxDayLabel(worstIdx, forecast[worstIdx].date),
     hostName: world.npcs?.get(hostId)?.name || (hostId || '').replace(/^npc_/, '').replace(/_/g, ' '),
   };
-  const say = (line, day, i, fallback) => {
+  const say = (line, day, i, fallback, graphic) => {
     const src = line || fallback;
     if (!src) return;
     const text = wxFill(src, wxTokens(day, i, week, env), unknown).trim();
-    if (text) add({ type: 'say', text, style: 'raw' });
+    if (text) add({ type: 'say', text, style: 'raw', ...(graphic ? { graphic } : {}) });
   };
   // Scoped to this one report, so a fresh airing is free to reuse everything.
   const spoken = new Set();
   const pick = (...keys) => wxPick(pools, spoken, ...keys);
 
+  // Every line carries the graphic it's read over (wxCards).
   const today = forecast[0];
-  say(pick(`intro.${wxTimeOfDayKey(env)}`, 'intro'), today, 0);
+  const g = wxCards(forecast, env);
+  say(pick(`intro.${wxTimeOfDayKey(env)}`, 'intro'), today, 0, null, g.today());
   // A hero day is reported as ITSELF — sky.acid / sky.ion — not as whatever
   // ordinary weather happens to be underneath it.
-  say(wxJoinLead(pick('today.lead'), pick(`sky.${wxSkyPool(today)}`) || 'Right now it\'s {weather}, {temp} degrees.'), today, 0);
-  say(pick(`temp.${wxTempBand(today.tempC)}`), today, 0);
+  say(wxJoinLead(pick('today.lead'), pick(`sky.${wxSkyPool(today)}`) || 'Right now it\'s {weather}, {temp} degrees.'), today, 0, null, g.radar());
+  say(pick(`temp.${wxTempBand(today.tempC)}`), today, 0, null, g.today());
   const twBand = wxWindBand(today.windKph);
-  if (['calm', 'windy', 'strong', 'gale'].includes(twBand)) say(pick(`wind.${twBand}`), today, 0);
+  if (['calm', 'windy', 'strong', 'gale'].includes(twBand)) say(pick(`wind.${twBand}`), today, 0, null, g.today());
   const thBand = wxHumidBand(today.humidityPct);
-  if (thBand === 'dry' || thBand === 'oppressive') say(pick(`humid.${thBand}`), today, 0);
-  if (wxIsSevere(today)) say(pick(`warn.${wxSevereChannel(today)}`, 'warn.generic'), today, 0);
+  if (thBand === 'dry' || thBand === 'oppressive') say(pick(`humid.${thBand}`), today, 0, null, g.today());
+  if (wxIsSevere(today)) say(pick(`warn.${wxSevereChannel(today)}`, 'warn.generic'), today, 0, null, g.warn(today, 0));
 
-  say(pick('forecast.lead'), today, 0);
+  say(pick('forecast.lead'), today, 0, null, g.week(-1));
   for (let i = 1; i < forecast.length; i++) {
     const day = forecast[i];
     const lead = pick(`ahead.${wxLeadKey(i)}`, 'ahead.next');
-    say(wxJoinLead(lead, pick(`sky.${wxSkyPool(day)}`) || 'Expect {weather}, around {temp} degrees.'), day, i);
-    if (wxIsSevere(day)) say(pick(`warn.${wxSevereChannel(day)}`, 'warn.generic'), day, i);
+    say(wxJoinLead(lead, pick(`sky.${wxSkyPool(day)}`) || 'Expect {weather}, around {temp} degrees.'), day, i, null, g.week(i));
+    if (wxIsSevere(day)) say(pick(`warn.${wxSevereChannel(day)}`, 'warn.generic'), day, i, null, g.warn(day, i));
   }
 
-  say(pick(`trend.${wxTrendKey(forecast)}`), today, 0);
-  say(pick('outro'), today, 0);
+  say(pick(`trend.${wxTrendKey(forecast)}`), today, 0, null, g.week(-1));
+  say(pick('outro'), today, 0, null, g.radar());
 
   if (unknown.size) console.warn('[broadcast] weather: unknown tokens', [...unknown]);
   // When the chain ends the walker restarts at _start on its own (currentNode → null
@@ -2399,6 +2481,112 @@ function assembleWeatherGraph(pools, hostId, forecast, env, broadcastId, titleId
   graph._broadcastId = `${broadcastId}:wx:${today.date}`;
   graph._requireHost = true;   // weather forecasts are acted live — the weathercaster must be in-studio
   return graph;
+}
+
+// ── Weather graphics ─────────────────────────────────────────────────────────
+// The cards a weather report is read over, shared by the weather show and the news
+// show's weather desk: the today card, the radar (filled as it airs, wxGraphicOnAir),
+// the week strip with the day being read picked out, and a warning banner.
+function wxCards(forecast, env) {
+  const today = forecast[0];
+  const days = forecast.map((d, i) => wxDayChip(d, i));
+  return {
+    today: () => ({ overlayType: 'weather', kind: 'today', day: { ...days[0], feels: env.feelsLikeC != null ? Math.round(env.feelsLikeC) : days[0].temp, wind: today.windKph ?? 0, windLabel: wxWindLabel(today.windKph), humidity: today.humidityPct ?? null }, duration: 16 }),
+    radar: () => ({ overlayType: 'weather', kind: 'radar', duration: 16 }),
+    week: (hl) => ({ overlayType: 'weather', kind: 'week', days, hl, duration: 16 }),
+    warn: (d, i) => ({ overlayType: 'weather', kind: 'warn', channel: wxSevereChannel(d), day: days[i], duration: 12 }),
+  };
+}
+// One day as the week strip and the today card draw it: the label, the sky word (a
+// hero event named as itself), the temperature, the chance of something falling.
+function wxDayChip(d, i) {
+  const ev = d.heroEvent && WX_EVENT_POOL[d.heroEvent];
+  return {
+    label: i === 0 ? 'Today' : i === 1 ? 'Tmrw' : wxDayLabel(i, d.date).slice(0, 3),
+    word: ev ? (ev === 'acid' ? 'acid rain' : 'ion storm') : String(d.weatherType || '').replace(/_/g, ' '),
+    sky: ev || d.weatherType || 'clear',
+    temp: Math.round(d.tempC ?? 0),
+    precip: Math.round((d.precipChance ?? 0) * 100),
+    severe: wxIsSevere(d),
+  };
+}
+
+// The radar is read off the live rain cells as its line airs (they drift, so a radar
+// built with the graph would be stale by the outro). It covers the region of the
+// channel's studio, or the biggest region when the studio is indoors with no tile.
+// The land mask is built once per region from world.zones; the rain is one
+// getPrecipAtGrid per cell, a few hundred calls, sync and query-free, once per line.
+const RADAR_MAX_W = 64;
+const _radarMasks = new Map();   // regionId -> { x0, y0, step, w, h, land, name } | null
+function radarMask(regionId) {
+  if (!regionId) return null;
+  if (_radarMasks.has(regionId)) return _radarMasks.get(regionId);
+  const tiles = [];
+  for (const z of world.zones.values()) {
+    if (z.map_id !== 'map_world' || (z.grid_z ?? 0) !== 0 || z.flags?.region_id !== regionId) continue;
+    if (!Number.isFinite(z.grid_x) || !Number.isFinite(z.grid_y)) continue;
+    tiles.push(z);
+  }
+  if (!tiles.length) { _radarMasks.set(regionId, null); return null; }
+  let x0 = Infinity, x1 = -Infinity, y0 = Infinity, y1 = -Infinity;
+  for (const z of tiles) { x0 = Math.min(x0, z.grid_x); x1 = Math.max(x1, z.grid_x); y0 = Math.min(y0, z.grid_y); y1 = Math.max(y1, z.grid_y); }
+  const step = Math.max(1, Math.ceil((x1 - x0 + 1) / RADAR_MAX_W));
+  const w = Math.ceil((x1 - x0 + 1) / step), h = Math.ceil((y1 - y0 + 1) / step);
+  // per cell: ' ' no tile, '~' water, 'b' built-up (a building or a street), '.' open land
+  const votes = Array.from({ length: w * h }, () => ({ water: 0, built: 0, land: 0 }));
+  for (const z of tiles) {
+    const v = votes[Math.floor((z.grid_y - y0) / step) * w + Math.floor((z.grid_x - x0) / step)];
+    const t = z.flags?.terrain;
+    if (t === 'water') v.water++;
+    else if (z.is_building || t === 'road' || t === 'asphalt' || t === 'concrete' || !t) v.built++;
+    else v.land++;
+  }
+  const land = votes.map(v => {
+    const n = v.water + v.built + v.land;
+    if (!n) return ' ';
+    if (v.water * 2 > n) return '~';
+    return v.built >= v.land ? 'b' : '.';
+  }).join('');
+  const m = { x0, y0, step, w, h, land, name: world.regions.get(regionId)?.name || '' };
+  _radarMasks.set(regionId, m);
+  return m;
+}
+let _radarDefaultRegion;
+function radarRegionFor(studioZoneId) {
+  const own = studioZoneId ? world.zones.get(studioZoneId)?.flags?.region_id : null;
+  if (own) return own;
+  if (_radarDefaultRegion === undefined) {
+    const n = new Map();
+    for (const z of world.zones.values()) {
+      const r = z.map_id === 'map_world' && z.flags?.region_id;
+      if (r) n.set(r, (n.get(r) || 0) + 1);
+    }
+    _radarDefaultRegion = [...n.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] || null;
+  }
+  return _radarDefaultRegion;
+}
+// The rain as one char a cell, '0' dry and '1'..'9' how hard; and what's falling, one
+// char per wet cell in order: r rain, s snow, l sleet, a acid, h hail.
+const RADAR_KIND = { rain: 'r', snow: 's', sleet: 'l', acid: 'a', acid_rain: 'a', hail: 'h' };
+function radarFrame(m) {
+  let rate = '', kind = '';
+  for (let j = 0; j < m.h; j++) for (let i = 0; i < m.w; i++) {
+    if (m.land[j * m.w + i] === ' ') { rate += '0'; continue; }
+    const { precipType, precipRate } = getPrecipAtGrid(m.x0 + i * m.step + m.step / 2, m.y0 + j * m.step + m.step / 2);
+    const lv = precipRate > 0 ? Math.max(1, Math.min(9, Math.round(precipRate * 9))) : 0;
+    rate += lv;
+    if (lv) kind += RADAR_KIND[precipType] || 'r';
+  }
+  return { rate, wet: kind };
+}
+// A say line's graphic as it goes on air. Only the radar needs the moment; every other
+// weather card was finished at assembly.
+function wxGraphicOnAir(gfx, state) {
+  if (gfx?.overlayType !== 'weather' || gfx.kind !== 'radar') return gfx;
+  const m = radarMask(radarRegionFor(state?.studioZoneId));
+  if (!m) return null;
+  const event = getWeatherEvent()?.type;
+  return { ...gfx, region: m.name, w: m.w, h: m.h, land: m.land, ...radarFrame(m), minutes: Math.round(getEnvironmentState()?.minutes ?? 0), ...(event ? { event } : {}) };
 }
 
 // Return the assembled graph for a weather playlist item, (re)building it when the
@@ -2507,7 +2695,33 @@ function sportsSlotMs() {
 }
 // Real seconds already elapsed into the current slot — where the shared game "is" right
 // now, so a viewer tuning in lands mid-game.
-const sportsSegElapsedSec = () => (sportsSlotElapsedMin() / SPORTS_SLOT_GAME_MIN) * sportsSlotMs() / 1000;
+//
+// The in-game clock moves in whole minutes, once a real minute (environment.js tick1m), so the
+// first time a slot is seen it's already up to `timeScale` game-minutes old: 40 real seconds at
+// timeScale 3. Seeking that far into a new game skipped Deadball's title card and its theme, and
+// even a one-second seek parks the walker for the rest of the card's hold, with the last game's
+// final on the glass the whole time. So a slot this server SAW turn over is timed from the
+// moment it did (`_slotTurn`): the game airs from the top on every set, and a set tuned in later
+// seeks from that moment, so they all agree. A slot it didn't see start (a boot mid-game, or
+// nobody watching at the turn) falls back on the clock.
+const SPORTS_TURN_SEEN_MS = 90 * 1000;   // a turn counts as seen if the slot before was seen this recently
+const SPORTS_TOP_GRACE_S = 5;            // under this, a game airs from its first node, not a seek
+let _slotTurn = { slot: null, at: 0, seen: 0, exact: false };
+// Pure, for regress: the turn record after seeing `slot` at `nowMs`, and the seconds into it.
+function _slotTurnAfter(prev, slot, nowMs) {
+  if (slot === prev.slot) return { ...prev, seen: nowMs };
+  return { slot, at: nowMs, seen: nowMs, exact: prev.slot === slot - 1 && nowMs - prev.seen < SPORTS_TURN_SEEN_MS };
+}
+function _slotTurnElapsedSec(turn, nowMs, byClockSec) {
+  const sec = turn.exact ? (nowMs - turn.at) / 1000 : byClockSec;
+  return sec < SPORTS_TOP_GRACE_S ? 0 : sec;
+}
+function _noteSportsSlot(nowMs = Date.now()) {
+  return (_slotTurn = _slotTurnAfter(_slotTurn, sportsSlotIndex(), nowMs));
+}
+function sportsSegElapsedSec(nowMs = Date.now()) {
+  return _slotTurnElapsedSec(_noteSportsSlot(nowMs), nowMs, (sportsSlotElapsedMin() / SPORTS_SLOT_GAME_MIN) * sportsSlotMs() / 1000);
+}
 // Real epoch-ms when the current slot's game ends (betting resolve / airing wrap).
 const sportsSlotEndsAtMs = () => Date.now() + ((SPORTS_SLOT_GAME_MIN - sportsSlotElapsedMin()) / SPORTS_SLOT_GAME_MIN) * sportsSlotMs();
 
@@ -2942,7 +3156,7 @@ function sportsGameForSlot(script, slot, override, unavailable) {
   // plays draw from on a stream of their own.
   const version = simVersionFor(sportOf(script).id, slot);
   // `day` picks a fixed-roster sport's squads for the season (Deadball v3, clubRosters).
-  const game = sportsSimGame(script, matchup, script.players, sportsRng(seed), { ...(unavailable ? { unavailable } : {}), version, seed, day: slotDay(slot), important: !!override?.worldSeries });
+  const game = sportsSimGame(script, matchup, script.players, sportsRng(seed), { ...(unavailable ? { unavailable } : {}), version, seed, day: slotDay(slot), important: !!override?.worldSeries, ...(script.sim?.firstGen ? { firstGen: true } : {}) });
   return { game, seed, matchup, unavailable: unavailable || null };
 }
 
@@ -3945,11 +4159,12 @@ function newsWeatherSegment(say, pools, forecast, env, met, baseTok) {
   const today = forecast[0];
   const week = newsWeatherWeek(forecast, met);
   const tokFor = (day, i) => ({ ...baseTok, meteorologist: met, ...wxTokens(day, i, week, env) });
+  const g = wxCards(forecast, env);
 
   say(baseTok.anchor, newsPick(pools, 'wx.toss'), tokFor(today, 0));
-  say(met, newsPick(pools, 'wx.open'), tokFor(today, 0));
-  say(met, newsPick(pools, `wx.sky.${wxSkyPool(today)}`), tokFor(today, 0), 'Right now: {weather}, {temp} degrees, feels like {feels}.');
-  if (wxIsSevere(today)) say(met, newsPick(pools, `wx.warn.${wxSevereChannel(today)}`, 'wx.warn.generic'), tokFor(today, 0));
+  say(met, newsPick(pools, 'wx.open'), tokFor(today, 0), null, g.today());
+  say(met, newsPick(pools, `wx.sky.${wxSkyPool(today)}`), tokFor(today, 0), 'Right now: {weather}, {temp} degrees, feels like {feels}.', g.radar());
+  if (wxIsSevere(today)) say(met, newsPick(pools, `wx.warn.${wxSevereChannel(today)}`, 'wx.warn.generic'), tokFor(today, 0), null, g.warn(today, 0));
 
   // One day ahead is worth naming: the worst day in the week if there is one, else
   // tomorrow. A whole seven-day walk belongs to DOOMCAST — this is a news hit.
@@ -3957,10 +4172,10 @@ function newsWeatherSegment(say, pools, forecast, env, met, baseTok) {
   const idx = aheadIdx > 0 ? aheadIdx : Math.min(1, forecast.length - 1);
   if (idx > 0) {
     const day = forecast[idx];
-    say(met, newsPick(pools, `wx.sky.${wxSkyPool(day)}`), tokFor(day, idx), '{day}: {weather}, around {temp} degrees.');
-    if (wxIsSevere(day)) say(met, newsPick(pools, `wx.warn.${wxSevereChannel(day)}`, 'wx.warn.generic'), tokFor(day, idx));
+    say(met, newsPick(pools, `wx.sky.${wxSkyPool(day)}`), tokFor(day, idx), '{day}: {weather}, around {temp} degrees.', g.week(idx));
+    if (wxIsSevere(day)) say(met, newsPick(pools, `wx.warn.${wxSevereChannel(day)}`, 'wx.warn.generic'), tokFor(day, idx), null, g.warn(day, idx));
   }
-  say(met, newsPick(pools, `wx.trend.${wxTrendKey(forecast)}`, 'wx.trend'), tokFor(today, 0));
+  say(met, newsPick(pools, `wx.trend.${wxTrendKey(forecast)}`, 'wx.trend'), tokFor(today, 0), null, g.week(-1));
   say(met, newsPick(pools, 'wx.back'), tokFor(today, 0));
   say(baseTok.anchor2, newsPick(pools, 'wx.reaction'), tokFor(today, 0));
 }
@@ -3996,12 +4211,12 @@ function assembleNewsGraph(script, broadcastId, stories, bucket, env = {}) {
   // `Name says, "line"` so the TV client renders a screenplay nameplate (and seeds
   // a distinct procedural voice per host). speaker null ⇒ unattributed narration.
   // src = chosen line, or fallback if the pool is missing/empty; empty ⇒ beat skipped.
-  const say = (speaker, line, tok, fallback) => {
+  const say = (speaker, line, tok, fallback, graphic) => {
     const src = line || fallback;
     if (!src) return;
     const body = newsFill(src, tok).trim();
     if (!body) return;
-    add({ type: 'say', text: speaker ? `${speaker} says, "${body}"` : body, style: 'raw' });
+    add({ type: 'say', text: speaker ? `${speaker} says, "${body}"` : body, style: 'raw', ...(graphic ? { graphic } : {}) });
   };
   const announcer = script.announcer || anchor;
   const baseTok = { anchor, anchor2, announcer };
@@ -4009,12 +4224,15 @@ function assembleNewsGraph(script, broadcastId, stories, bucket, env = {}) {
   // The bulletin's entry in the Broadcast Studio, if it's on air: a sequence at the desk in place
   // of the anchor's intro (`open`, with the lead story's facts) and of the outro (`close`). The
   // anchors here are display names, so a line is attributed by name, as the sports desk does.
-  const desk = (when, data) => {
-    const seg = deskSegment(graphicsCache, { broadcast: broadcastId, when, seed: `${bucket}|${when}`, npcOf: (id) => world.npcs.get(id), data });
+  // `story` plays at the top of each feature story in place of its lead-in, so `n` keeps each
+  // story's seed its own and two stories don't read the same line.
+  const desk = (when, data, n = '') => {
+    const seg = deskSegment(graphicsCache, { broadcast: broadcastId, when, seed: `${bucket}|${when}${n}`, npcOf: (id) => world.npcs.get(id), data });
     if (!seg) return false;
     seg.lines.forEach((l, i) => add({ type: 'say', text: l.name ? `${l.name} says, "${l.text.replace(/"/g, "'")}"` : l.text, style: 'raw', graphic: deskOverlay(seg, l, i) }));
     return true;
   };
+  const storyDesk = desk;
   const leadStory = stories[0] || {};
   say(announcer, newsPick(pools, 'open'), baseTok);
   if (!desk('open', { ...baseTok, headline: leadStory.headline || '', byline: leadStory.byline || '', stories: stories.slice(0, NEWS_FEATURE + NEWS_RUNDOWN).map((s) => ({ headline: s.headline || '' })) })) say(anchor, newsPick(pools, 'anchor.intro'), baseTok);
@@ -4043,7 +4261,10 @@ function assembleNewsGraph(script, broadcastId, stories, bucket, env = {}) {
       // desk to `desk`, so the line is spoken by `other` and addresses `desk`.
       say(other, newsPick(pools, 'anchor.banter'), { ...tok, anchor: other, anchor2: desk });
     }
-    say(desk, newsPick(pools, 'story.lead'), tok, 'Our next story: {headline}.');
+    // The show's `story` sequence, if it has one, reads the lead-in at the desk with the story's
+    // graphics. The anchors keep their seats, so `turn` says whose story it is: role a's or b's.
+    const storyData = { ...baseTok, turn: idx % 2 ? 'b' : 'a', reporter, scene, headline: tok.headline, body: tok.body, byline: tok.byline, n: idx + 1, ...(idx === 0 ? { lead: true } : {}) };
+    if (!storyDesk('story', storyData, idx)) say(desk, newsPick(pools, 'story.lead'), tok, 'Our next story: {headline}.');
     // Field segment: the lead story always goes to a reporter; the rest sometimes do.
     if (idx === 0 || Math.random() < 0.5) {
       say(desk, newsPick(pools, 'handoff.reporter'), tok, 'For more, we go to {reporter} in {scene}.');
@@ -4528,8 +4749,10 @@ function assembleTalkshowGraph(script, broadcastId, bucket, persona) {
   // Switch on-stage speaker only when it actually changes (npc_anchor nodes are the live
   // presence + attribution cue the walker keys off).
   const anchor = (npcId) => { if (npcId !== curAnchor) { add({ type: 'npc_anchor', npc_id: npcId }); curAnchor = npcId; } };
-  const line = (npcId, text) => { if (!text) return; anchor(npcId); add({ type: 'say', text, style: 'raw' }); };
-  const lines = (npcId, arr) => arr.forEach(t => line(npcId, t));
+  // `blocking` moves the speaker before the line: 'standup' to the set's monologue mark, 'seat' back to theirs.
+  // `{ npc, to }` moves somebody else: Graham's announcement walks John on ('walkon').
+  const line = (npcId, text, blocking = null) => { if (!text) return; anchor(npcId); add({ type: 'say', text, style: 'raw', ...(blocking ? { blocking } : {}) }); };
+  const lines = (npcId, arr, blocking = null) => arr.forEach((t, i) => line(npcId, t, i ? null : blocking));
   // Build a detached run of nodes and hand back its ends, so a branch can be wired by hand.
   // `prevId`/`curAnchor` are saved and cleared: a branch must never inherit the trunk's
   // last node (that's the whole point) and must re-state its own anchor, because which
@@ -4578,6 +4801,19 @@ function assembleTalkshowGraph(script, broadcastId, bucket, persona) {
     add({ type: 'say', text, style: 'ambient', holdMs, crowd: true });
   };
   const react = () => { if (reactionDeck.length) ambientBeat(reactionDeck[rIdx++ % reactionDeck.length], 3500); };
+  // The house band (`@band` in the .bsm, script.band): a short bit at a moment, one of the moment's drawn
+  // for the night, played once over a line of its own. `blocking` moves somebody while it plays (the host
+  // to his desk), and `holdMs` is how long before the show goes on over the music's tail. A show with no
+  // band, or none for the moment, plays nothing and draws nothing, so its night is as it was.
+  const band = (moment, holdMs = 1600, blocking = null) => {
+    const list = script.band?.[moment];
+    if (!Array.isArray(list) || !list.length) return false;
+    const b = list.length > 1 ? list[Math.floor(rand() * list.length)] : list[0];
+    if (!b?.song) return false;
+    if (curAnchor !== '') { add({ type: 'npc_anchor', npc_id: '' }); curAnchor = ''; }
+    add({ type: 'say', text: `♪ ${talkshowFill(b.text || 'The band plays.', tok)} ♪`, style: 'ambient', holdMs, song: b.song, ...(blocking ? { blocking } : {}) });
+    return true;
+  };
   // `who` is 'host' | 'guest' | undefined (a swell addressed to nobody in particular).
   const applause = (who) => {
     const key = who || '';
@@ -4608,7 +4844,9 @@ function assembleTalkshowGraph(script, broadcastId, bucket, persona) {
   lines(sidekick, talkshowDraw(pools, 'open', 1, tok, rand));
 
   lines(sidekick, talkshowDraw(pools, 'tease', 1 + Math.floor(rand() * 2), tok, rand));  // 1–2
-  line(sidekick, talkshowFill(sportsPick(pools, rand, 'announce_host') || "Ladies and gentlemen, {host}!", tok));
+  // as Graham says his name, John walks out from behind the curtain to the star (the 3-D picture's walk-on)
+  line(sidekick, talkshowFill(sportsPick(pools, rand, 'announce_host') || "Ladies and gentlemen, {host}!", tok), { npc: host, to: 'walkon' });
+  band('walkon');     // the band plays him on
   applause('host');   // the host walks out to applause
 
   // ── THE HOST GATE ────────────────────────────────────────────────────────────────────
@@ -4650,7 +4888,8 @@ function assembleTalkshowGraph(script, broadcastId, bucket, persona) {
   const show = branch(() => {
     // The first thing John does is talk to Graham. A late-night show opens on the two of them,
     // not on a monologue — the greeting is the moment the audience learns these two have known
-    // each other a long time. Authored host-first, so it reads as John arriving at the desk.
+    // each other a long time. Authored host-first: John has just walked out to the star, and
+    // says it across the stage to Graham on the couch.
     // Some nights (~40%) the room won't settle first, and John has to talk it down: a second
     // swell and one line of his before he can get to Graham.
     if (rand() < 0.40) {
@@ -4677,13 +4916,20 @@ function assembleTalkshowGraph(script, broadcastId, bucket, persona) {
     ], rand);
     const slots = sportsShuffle(jokes.map((_, i) => i).slice(1, -1), rand);
     const asides = wants.slice(0, slots.length).map((kind, i) => ({ at: slots[i], kind }));
+    // He does the monologue standing, on the star in front of the audience, and goes back to the desk for
+    // whatever's next: the desk bit, the list or the guest. Graham heckles from where he sits.
+    let standing = jokes.length > 0;
+    const sitDown = () => (standing ? ((standing = false), 'seat') : null);
+    // the band buttons one joke a night, in the middle of the run (never the first, never the last)
+    const stingAt = jokes.length > 2 && script.band?.sting?.length ? 1 + Math.floor(rand() * (jokes.length - 2)) : -1;
     jokes.forEach((joke, i) => {
-      line(host, joke);
+      line(host, joke, i ? null : 'standup');
       // A reaction after EVERY joke. It used to be a 0.7 roll, and the nights it came up short
       // read as a man reciting a list: two punchlines back to back with nothing between them is
       // not a monologue, it's a page. The crowd IS the timing — it's the only thing on air that
       // can hold a beat — and now that the segment is four or five jokes rather than six or
       // seven there is room for the room to answer all of them.
+      if (i === stingAt) band('sting', 1800);
       react();
       for (const a of asides.filter(x => x.at === i)) {
         // A one-way jab, no reply — Graham needles and John carries on.
@@ -4703,6 +4949,9 @@ function assembleTalkshowGraph(script, broadcastId, bucket, persona) {
       const newsBit = talkshowDraw(pools, 'newsjoke', 1, newsTok, rand);
       if (newsBit.length) { lines(host, newsBit); react(); }
     }
+    // The monologue's over: he walks from the star to his desk while the band plays him across, and
+    // everything after it is from the desk. Held for most of the walk (sequence-player.js startWalk).
+    if (standing && band('walkover', 7000, { npc: host, to: 'seat' })) standing = false;
     // Before the guest, most nights (~70%) the host does a bit, his alone, no reply: either a
     // desk riff or a list. A list is one authored line, `title || entry || entry …`, read entry
     // by entry with the crowd answering each one, so it's the longest bit and the rarer one.
@@ -4710,12 +4959,13 @@ function assembleTalkshowGraph(script, broadcastId, bucket, persona) {
     const list = bitRoll < 0.30 ? talkshowDraw(pools, 'list_bit', 1, tok, rand)[0] : null;
     if (list) {
       const [title, ...entries] = list.split('||').map(s => s.trim()).filter(Boolean);
-      line(host, title);
+      line(host, title, sitDown());
       entries.forEach(e => { line(host, e); react(); });
-    } else if (bitRoll < 0.70) { lines(host, talkshowDraw(pools, 'desk_bit', 1, tok, rand)); react(); }
+    } else if (bitRoll < 0.70) { const bit = talkshowDraw(pools, 'desk_bit', 1, tok, rand); lines(host, bit, bit.length ? sitDown() : null); react(); }
 
     // ── The guest. John introduces, John interviews; Graham is not in this segment at all.
-    line(host, talkshowFill(sportsPick(pools, rand, 'guest_intro') || "My next guest is {title}. Please welcome {guest}!", tok));
+    line(host, talkshowFill(sportsPick(pools, rand, 'guest_intro') || "My next guest is {title}. Please welcome {guest}!", tok), sitDown());
+    band('guest');       // the band plays the guest on
     applause('guest');   // the guest takes the stage
 
     // THE CHAIR GATE. Everything past here depends on somebody actually sitting in it, and that
@@ -4783,6 +5033,7 @@ function assembleTalkshowGraph(script, broadcastId, bucket, persona) {
     // Sign-off — host thanks the guest and says goodnight. ONE line, so the show never says
     // goodnight twice, and it is JOHN'S line: the host closes his own show.
     lines(host, talkshowDraw(pools, 'signoff', 1, { ...tok }, rand));
+    band('playoff', 4000);   // and the band plays them off
 
     // Wire the chair gate now that the tail exists. An empty branch routes straight to the
     // tail, so a missing pool can never strand the walker on a dead port mid-show; and if the
@@ -6417,6 +6668,7 @@ async function broadcastTick() {
   // watchers and no one on a spy feed, so nothing this tick does is observable.
   if (!hasActivePlayers()) return;
   const nowMs = Date.now();
+  _noteSportsSlot(nowMs);   // see the slot turn over on the second it does (sportsSegElapsedSec)
   _pushStudioLive();
   _pushHeadlines(nowMs).catch(() => {});
   // Channels the zone loop below will drive this tick (a tuned zone with players).
@@ -6887,6 +7139,8 @@ function _recordBeat(state, result, programName, scorebugOverlay, gamedayOverlay
   if (scorebugOverlay) { state.lastScorebug = scorebugOverlay; state.lastScorebugAt = nowMs; }
   if (gamedayOverlay)  {
     state.lastGameday  = gamedayOverlay;  state.lastGamedayAt  = nowMs;
+    // its venue stamp too, on its own: a first payload with no table still names the park's city
+    if (gamedayOverlay.venueRev) state.lastVenue = { sport: gamedayOverlay.sport, rev: gamedayOverlay.venueRev };
     // A game's table rides only its first payload, so keep it for whoever tunes in later,
     // with its sport: a hockey game after Deadball on the same channel isn't sent it. The
     // leaders and the season ride with it and are kept the same way.
@@ -6954,7 +7208,8 @@ function sendCatchUp(playerId, channelId) {
     if (!Array.isArray(gd.standings) && table.length) once.standings = table;
     if (!gd.leaders && kept?.leaders) once.leaders = kept.leaders;
     if (!gd.season && kept?.season) once.season = kept.season;
-    if (!gd.venueRev && kept?.venueRev) once.venueRev = kept.venueRev;
+    const venueRev = kept?.venueRev || (state.lastVenue?.sport === gd.sport ? state.lastVenue.rev : null);
+    if (!gd.venueRev && venueRev) once.venueRev = venueRev;
     if (inBreak) once.aired = gdAge / 1000;
     sendToPlayer(playerId, { type: 'tv_overlay', channelId, overlay: Object.keys(once).length ? { ...gd, ...once } : gd });
   }
@@ -7098,6 +7353,8 @@ registerNpcScheduleChecker((npcId) => {
 // scheduling against it (the pre-show ritual in npc-drugs) declines to fire rather
 // than guessing.
 registerNpcNextShiftLookup((npcId) => {
+  // the desk's cast: on now while a slate has a game on (the schedule checker's rule)
+  if ((_deskCast ??= castOnAir(graphicsCache, { type: 'sports' })).has(npcId) && _deskCallOn()) return 0;
   const { minutes, dayOfWeek } = getEnvironmentState();
   const gameSecs = (minutes ?? 0) * 60;
   const DAY_SECS = 24 * 60 * 60;
@@ -7138,6 +7395,10 @@ registerNpcNextShiftLookup((npcId) => {
 // is what keeps a loop/mixed channel, with no wall-clock timetable to count down to, working
 // exactly as it did before.
 registerNpcStudioZoneLookup((npcId) => {
+  // The desk's cast are on no row's staff, so without this CHECK_WORK found no studio and sent
+  // them home while the schedule checker had them on shift: they never reached the desk, and
+  // deskStaffed dropped every segment of both sports. Their work is the room their show's set is in.
+  if ((_deskCast ??= castOnAir(graphicsCache, { type: 'sports' })).has(npcId)) return castStage(graphicsCache, npcId, { type: 'sports' });
   const { minutes, dayOfWeek } = getEnvironmentState();
   const gameSecs = (minutes ?? 0) * 60;
   let anyStaffing = null;
@@ -8425,6 +8686,7 @@ function tickBroadcastGraph(channelId, graph, state, nowMs, segElapsedSec = 0) {
     bb.tangent = null;
     bb.tangentCooldownUntil = 0;
     bb.activeBroadcastId = graph._broadcastId;
+    bb.breakSet = null;
     // Seek to mid-program position if tuning in partway through
     if (segElapsedSec > 0) {
       _seekGraph(graph, bb, segElapsedSec * 1000, nowMs);
@@ -8655,6 +8917,9 @@ function tickBroadcastGraph(channelId, graph, state, nowMs, segElapsedSec = 0) {
           _maybeStartTangent(bb, graph, state, imp, nowMs);
         }
         bb.airedAny = true;   // something has now gone out; see the delay card
+        // A line that moves its speaker first (the talk show's host to the star for the monologue).
+        const bk = node.data?.blocking, bkWho = bk?.npc || bb.npcAnchorId;
+        const blocking = bk && bkWho ? _block(bb, stageZoneId, bkWho, bk.to || bk) : null;
         const key_say = `graph:${channelId}:${nodeId}:${nowMs}`;
         const style_say = node.data?.style || 'raw';
         const isNarration = style_say === 'narration';
@@ -8680,7 +8945,7 @@ function tickBroadcastGraph(channelId, graph, state, nowMs, segElapsedSec = 0) {
           : (!isVerbatim && !isNarration && !isAmbient && bb.npcAnchor ? `${bb.npcAnchor} says, "${raw}"` : raw);
         // Verbatim lines (microreel dialogue) leak as speech without needing an anchor.
         const isSpeech = (!isNarration && !isAmbient && style_say !== 'ticker' && !!bb.npcAnchor) || isVerbatim;
-        return { text: text_say, key: key_say, style: isAmbient ? 'ambient' : 'raw', duration: holdMs_say / 1000, ...(isSpeech ? { speech: true, speechText: text_say } : {}), ...(node.data?.scorebug ? { scorebug: node.data.scorebug } : {}), ...(node.data?.graphic ? { graphic: node.data.graphic } : {}), ...(node.data?.gameday ? { gameday: gamedayOnAir(node.data.gameday, graph) } : {}), ...(node.data?.excite ? { excite: node.data.excite } : {}), ...(node.data?.crowd ? { crowd: true } : {}), ...(node.data?.lex ? { lex: node.data.lex } : {}), ...(node.data?.voice ? { voice: node.data.voice } : {}), ...(node.data?.speaker ? { speaker: node.data.speaker } : {}), ...(node.data?.play ? { play: node.data.play } : {}), ...(node.data?.call ? { call: true } : {}), ...sayMusic(node) };
+        return { text: text_say, key: key_say, style: isAmbient ? 'ambient' : 'raw', duration: holdMs_say / 1000, ...(isSpeech ? { speech: true, speechText: text_say } : {}), ...(node.data?.scorebug ? { scorebug: node.data.scorebug } : {}), ...(node.data?.graphic ? { graphic: wxGraphicOnAir(node.data.graphic, state) } : blocking ? { graphic: blocking } : {}), ...(node.data?.gameday ? { gameday: gamedayOnAir(node.data.gameday, graph) } : {}), ...(node.data?.excite ? { excite: node.data.excite } : {}), ...(node.data?.crowd ? { crowd: true } : {}), ...(node.data?.lex ? { lex: node.data.lex } : {}), ...(node.data?.voice ? { voice: node.data.voice } : {}), ...(node.data?.speaker ? { speaker: node.data.speaker } : {}), ...(node.data?.play ? { play: node.data.play } : {}), ...(node.data?.call ? { call: true } : {}), ...sayMusic(node) };
       }
 
       case 'music': {
@@ -8783,6 +9048,13 @@ function tickBroadcastGraph(channelId, graph, state, nowMs, segElapsedSec = 0) {
         const zoneId = node.data?.zone_id;
         const label = node.data?.label || zoneId;
         bb.currentNode = _resolveEdge(edges, nodeId, 'next');
+        // A script's CAM line names no room ("CAM — 2 — SNAP_TIGHT on Neil"): there's no unit to fire, so it
+        // goes to the sets as a direction, and a 3-D stage cuts to it (tv-stage.js). The text picture ignores it.
+        if (!zoneId) {
+          if (!label) { nodeId = bb.currentNode; bb.currentNode = null; break; }
+          bb.waitUntil = nowMs;
+          return { style: 'overlay', overlay: { overlayType: 'direction', label }, key: `dir:${channelId}:${nodeId}:${nowMs}` };
+        }
         // A camera direction is executed by a physical unit or not at all. Pick a
         // working camera actually registered in the target zone; with none there,
         // the shot has no source. Losing the studio's own feed is a transmission
@@ -8919,7 +9191,11 @@ function tickBroadcastGraph(channelId, graph, state, nowMs, segElapsedSec = 0) {
           if ((themeSong || themeSample) && liveActed && stageZoneId) {
             sendToZone(stageZoneId, themeSong ? { type: 'audio_music', def: themeSong, once: true } : { type: 'audio_sample', def: themeSample });
           }
-          return { text: cardContent + caption, key: `graphic:${channelId}:${gid}:${nowMs}`, style: graphicStyle(graphic), ...(themeSong ? { song: themeSong, songOnce: true } : {}), ...(themeSample ? { sample: themeSample } : {}) };
+          // a card that opens an advert puts the 3-D stage on the advert's set
+          const adSet = breakSetFor(graphicsCache, gid);
+          if (adSet) bb.breakSet = { bid: bb.activeBroadcastId, id: adSet };
+          const swapTo = adSet ? _stageSwap(channelId) : null;
+          return { text: cardContent + caption, key: `graphic:${channelId}:${gid}:${nowMs}`, style: graphicStyle(graphic), ...(swapTo ? { graphic: swapTo } : {}), ...(themeSong ? { song: themeSong, songOnce: true } : {}), ...(themeSample ? { sample: themeSample } : {}) };
         }
         // Graphic missing or empty — log it and skip straight to the next card this
         // tick (no dead 5s hold on a card that can't render).
@@ -8959,6 +9235,15 @@ function tickBroadcastGraph(channelId, graph, state, nowMs, segElapsedSec = 0) {
         };
         bb.currentNode = _resolveEdge(edges, nodeId, 'next');
         bb.waitUntil = nowMs + (overlay.duration * 1000);
+        // a film's SLUG is a lower third: when it names another backlot set, the 3-D stage moves there with it
+        if (overlayType === 'lower_third' && overlay.text && _itemOnAir(state)?.playback_mode === 'film') {
+          const sid = sceneSetFor(graphicsCache, { broadcast: bb.activeBroadcastId, slug: `${overlay.text} | ${overlay.subtext}` });
+          if (sid && !(bb.sceneSet?.bid === bb.activeBroadcastId && bb.sceneSet.id === sid)) {
+            bb.sceneSet = { bid: bb.activeBroadcastId, id: sid };
+            const swap = _stageSwap(channelId);
+            if (swap?.set) overlay.stage = swap;
+          }
+        }
         return { overlay, key: `overlay:${channelId}:${nodeId}:${nowMs}`, style: 'overlay' };
       }
 
@@ -8982,13 +9267,19 @@ function tickBroadcastGraph(channelId, graph, state, nowMs, segElapsedSec = 0) {
           RETURN_FROM_BREAK:'The scene cuts back in from a commercial break.',
         };
         const evText = EVENT_MESSAGES[evType] || `${evType.charAt(0) + evType.slice(1).toLowerCase()} from the crowd.`;
+        // an advert's scene change, and the show coming back from it: the 3-D stage changes set
+        let swap = null;
+        if (bb.breakSet && evType === 'DISSOLVE') {
+          const next = breakStage(graphicsCache, bb.breakSet.id, (id) => world.npcs.get(id))?.dissolve;
+          if (next) { bb.breakSet = { ...bb.breakSet, id: next }; swap = _stageSwap(channelId); }
+        } else if (bb.breakSet && evType === 'RETURN_FROM_BREAK') { bb.breakSet = null; swap = _stageSwap(channelId); }
         bb.currentNode = _resolveEdge(edges, nodeId, 'next');
         bb.waitUntil = nowMs + nodeHoldMs(node);
         // Only relay to room for truly-live channels — never live_relay for recordings
         if (state.channelType === 'live' && stageZoneId) {
           _stageLine(stageZoneId, `<span style="color:var(--text-dim);font-style:italic">${evText}</span>`);
         }
-        return { text: evText, key: `event:${channelId}:${nodeId}:${nowMs}`, style: 'raw' };
+        return { text: evText, key: `event:${channelId}:${nodeId}:${nowMs}`, style: 'raw', ...(swap ? { graphic: swap } : {}) };
       }
 
       case 'tech_difficulties': {
@@ -9191,7 +9482,7 @@ registerAction({
     else if (SPORTS[sport]?.clubRosters) {
       // this season's thirteen a club, each as { name, pos, since } (since: the season he joined)
       const mod = SPORTS[sport];
-      const R = mod.clubRosters(teams, players, mod.seasonOfDay(slotDay(sportsSlotIndex())));
+      const R = mod.clubRosters(teams, players, mod.seasonOfDay(slotDay(sportsSlotIndex())), { firstGen: !!sp.sim?.firstGen });
       if (R) rosters = Object.fromEntries(teams.map(t => [t, [...R.clubs[t].lineup, ...R.clubs[t].rotation, ...R.clubs[t].bench]]));
     }
     return { sport, teams, players, clubs: sp.clubs || {}, rosters };
@@ -11532,7 +11823,9 @@ export const _test = {
   // the sport's script as the venue and club handlers find it
   anySportsScript,
   sportsGameForSlot, sportsMatchupForSlot, roundRobinRounds, sportsSlotIndex,
-  sportsSlotMs, sportsAiring, SPORTS_GAMES_PER_DAY, seasonCalendar, sportsSlateForDay, sportDaySlate, slateSportAt, isCupDay, monthStartDay,
+  sportsSlotMs, sportsAiring, SPORTS_GAMES_PER_DAY, seasonCalendar,
+  // a slot timed from the moment this server saw it turn over (sportsSegElapsedSec)
+  slotTurnAfter: _slotTurnAfter, slotTurnElapsedSec: _slotTurnElapsedSec, SPORTS_TURN_SEEN_MS, SPORTS_TOP_GRACE_S, sportsSlateForDay, sportDaySlate, slateSportAt, isCupDay, monthStartDay,
   assembleNewsGraph, newsFill, newsSceneNames,
   // The weather report had no test seam at all, which is how a two-line handover and a
   // 2am airing greeting you with "Afternoon, survivors" both shipped: the only thing that

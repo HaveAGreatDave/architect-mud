@@ -1,6 +1,11 @@
 {
   "description": "A brass foot rail polished to a bright stripe over about nine feet and dull at both ends, which tells you precisely where people stand and how many of them there usually are.",
   "flags": {
+    "bar_counter": true,
+    "look": {
+      "arche": "surface",
+      "form": "bar"
+    },
     "notable": true
   },
   "hp": null,

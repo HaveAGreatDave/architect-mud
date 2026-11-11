@@ -1,0 +1,62 @@
+{
+  "category": "commercial",
+  "config": {
+    "layers": [
+      {
+        "adsr": {
+          "a": 0.006,
+          "curve": "exp",
+          "d": 0.5,
+          "r": 0.12,
+          "s": 0.25
+        },
+        "filter": {
+          "freq": 700,
+          "q": 0.8,
+          "type": "lowpass"
+        },
+        "gain": 0.26,
+        "mods": [
+          {
+            "a": 0.001,
+            "d": 0.04,
+            "id": "th",
+            "r": 0.05,
+            "s": 0,
+            "to": [
+              {
+                "amount": 25,
+                "param": "pitch"
+              }
+            ],
+            "type": "env"
+          }
+        ],
+        "waveform": "triangle"
+      },
+      {
+        "adsr": {
+          "a": 0.001,
+          "curve": "exp",
+          "d": 0.03,
+          "r": 0.02,
+          "s": 0
+        },
+        "filter": {
+          "freq": 1200,
+          "q": 1,
+          "type": "bandpass"
+        },
+        "gain": 0.03,
+        "noiseMix": 1,
+        "noiseSeed": 5,
+        "waveform": "triangle"
+      }
+    ]
+  },
+  "enabled": 1,
+  "id": "aud_inst_ad_upright",
+  "name": "Ad: Upright bass",
+  "sample_id": null,
+  "waveform": "triangle"
+}

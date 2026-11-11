@@ -32,6 +32,20 @@ enemy's attack is a damage roll, not an item). Nothing new is authored, so a wea
 day it is tagged. `radiation` maps to `null` deliberately; see
 [systems-procedural-audio.md](../../docs/systems-procedural-audio.md#combat).
 
+## The outside: weather and city beds
+
+`soundscape.js` holds the beds a player hears outdoors, or through a door from indoors. Each
+weather bed is a field recording with SIREN layers over it (patter and run-off on rain, gusts and a
+whistle in wind) and one-shots for drips, gurgles, gusts and rattles. The city bed plays on tiles
+whose `ambient_theme` is `city`, `urban`, `residential` or `waterfront`: traffic as a wash, the
+mains, rooftop plant, a distant train, clanks, thumps and a pigeon. It's quieter at night, hisses
+when the street is wet, and has no horns or sirens.
+
+Every bed is `whole` (`config.whole`): one gain node takes the server's `audio_loop_gain` and the
+one-shots go through it too, so a bed heard through a wall drips through the wall as well. A whole
+bed starts silent, so always send the loop gain after the ambience. Levels were set at the master in
+the game's own mix: rain about -32 dBFS at full rate, a storm about -26, the city about -36.
+
 ## The industrial ambient bed — what counts as a power device
 
 A room with a live **generator** gets the power-station roar; one with a live

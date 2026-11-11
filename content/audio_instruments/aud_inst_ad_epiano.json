@@ -1,0 +1,60 @@
+{
+  "category": "commercial",
+  "config": {
+    "layers": [
+      {
+        "adsr": {
+          "a": 0.003,
+          "curve": "exp",
+          "d": 1.4,
+          "r": 0.4,
+          "s": 0.2
+        },
+        "fm": {
+          "index": 1.4,
+          "indexEnd": 0,
+          "ratio": 14,
+          "time": 0.08
+        },
+        "gain": 0.16,
+        "mods": [
+          {
+            "id": "tr",
+            "rate": 4.5,
+            "to": [
+              {
+                "amount": 0.25,
+                "param": "gain"
+              }
+            ],
+            "type": "lfo",
+            "wave": "sine"
+          }
+        ],
+        "waveform": "sine"
+      },
+      {
+        "adsr": {
+          "a": 0.003,
+          "curve": "exp",
+          "d": 1,
+          "r": 0.4,
+          "s": 0.25
+        },
+        "fm": {
+          "index": 0.6,
+          "indexEnd": 0.1,
+          "ratio": 2,
+          "time": 0.5
+        },
+        "gain": 0.1,
+        "waveform": "sine"
+      }
+    ]
+  },
+  "enabled": 1,
+  "id": "aud_inst_ad_epiano",
+  "name": "Ad: Electric piano",
+  "sample_id": null,
+  "waveform": "sine"
+}

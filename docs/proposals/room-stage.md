@@ -41,7 +41,7 @@ One room, described once, drawn by whichever renderer hosts it.
    a `lie`, a fridge gives a station, and a stool pulled up to a desk gives one seat facing it.
    `boothLayout` becomes the suite's spec run through it.
 4. **Walker (client, shared).** `walkSuite` lifted out of `stands.js` into `panels/room-walk.js`
-   with nothing about baseball in it: WASD with `boothStep`'s slide, E to sit, use or get up,
+   with nothing about baseball in it: WASD with `boothStep`'s slide, Q and E to turn, F to sit, use or get up,
    a click to pick a seat or station, standing up into the nearest free floor. It claims the
    keyboard through `seat-keys.js` like every other seat, so the suite gains the readout and the
    capture-phase fix it lacks today.
@@ -120,6 +120,7 @@ The window shows the real city, live. `room_outlook` sends the freelook window r
 - **The panes get wet** (`gl/room-sky.js`). A pane's uv is metres on the glass from 100, which is how `gl/room.js` tells it from a cabinet's. Not from the balcony, looking in.
 - **The only sound is the weather.** Rain on the glass, wind on the building and thunder, set by `windowMix` (`client/shared/room-sfx.js`) from where you stand. It sits well under what's going on in the room. A city bed, the sea, aircraft, horns and sirens were tried and taken out. `scripts/audio/room-sound-smoke.mjs` holds the cues to the critic.
 - **The lights dim.** The bar's slider, or `-` and `=`, sets `lampLevel`, this viewer's, in `localStorage`. It scales the lamps' light and faces (`LAMP`) with no rebuild; only crossing off rebuilds. A fire (`lamp.fire`) isn't on the switch.
+- **A fire's control is the dial on the fire.** `fireDial` (gl/room-fittings.js) draws it and puts its place on `mesh.dials`; a click within reach opens the `.rs-firehud` panel beside it, and `,` and `.` still turn it. Nothing for the fire goes in the bar. The flame, the liner's glow and the coals are sheets of `FIRE` that `fireAt` (gl/room-sky.js) draws in flat colours inside an ink line.
 - **`gl/room-light.js` takes six lamps and an en-suite's has to be the last.** `buildRoom` keeps the fire and the en-suite's and drops a ceiling light if it has to.
 
 ### The studio plan
@@ -161,7 +162,7 @@ What NPCs say comes up in a bubble at the bottom of the screen, in the game as w
 
 ### Room sizes and finishes
 
-`flags.room` takes `{ w, d, h }`, `glass` (the walls that are floor-to-ceiling glass: `front`, `left`, `right`), `finish` (`plain`, `fine`), `ensuite` (`{ w, d, finish }`), `studio` (`false` for no studio plan), `storey`, `storeys` and `face`. A flat without it is 8 × 10 × 2.7 with one sash window. `fine` swaps the boards for oak, the pendant for downlights, the sash for black-framed glass and the tired fabrics for quiet ones, and gives an en-suite stone walls in place of tile. The Solenne Residences are authored in `scripts/content/room-looks.mjs`: 30-B is 12 × 13 × 3 with glass on two sides.
+`flags.room` takes `{ w, d, h }`, `glass` (the walls that are floor-to-ceiling glass: `front`, `left`, `right`), `finish` (`plain`, `fine`), `ensuite` (`{ w, d, finish }`), `studio` (`false` for no studio plan), `storey`, `storeys` and `face`. `tone` (`{ wall, trim, ceiling, accent }`, each a hex) paints a room its own colours, and `accent` runs a metal round it at the skirting, the door heads and the ceiling, lines its doorways and is the bezel of its set: the Solenne lobby is dark with gold. `sign` (`{ text, sub, wall, at, y, size }`) is a name on a wall, painted as one texture (`paintSign` in gl/room-mesh.js), never as faces, so it neither flickers nor looks pieced together; `sub` is a small second line. A wall piece's `flags.spot.y` hangs it with its middle that high, as the lobby set over the reception desk is. A flat without it is 8 × 10 × 2.7 with one sash window. `fine` swaps the boards for oak, the pendant for downlights, the sash for black-framed glass and the tired fabrics for quiet ones, and gives an en-suite stone walls in place of tile. The Solenne Residences are authored in `scripts/content/room-looks.mjs`: 30-B is 12 × 13 × 3 with glass on two sides.
 
 The Room Lab (`/room-lab.html` in the Modelshop) opens any of these off the content files with no server.
 

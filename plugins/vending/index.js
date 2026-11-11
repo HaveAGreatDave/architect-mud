@@ -24,6 +24,9 @@ import { getItem } from '../../server/engine/items-cache.js';
 import { isPluggedIn } from '../appliances/index.js';
 import { adjustCredits } from '../../server/engine/economy.js';
 import { giveItemById } from '../../server/engine/inventory.js';
+import { sendToPlayer } from '../../server/engine/messaging.js';
+import { loggedPanelsSync } from '../../server/engine/presentation.js';
+import { heldAs } from '../stands/index.js';
 
 // playerId:furnitureId -> last-vend timestamp. In-memory: a soft anti-spam guard,
 // not persisted (a restart forgives it, which is fine for grey slurry).
@@ -41,6 +44,12 @@ const FILL_ACTION = 'drinks.serveVended';
 const MAKE_COOLDOWN_S = 60;
 const DROP_COOLDOWN_S = 20;
 
+// A machine that holds more than one thing: flags.vend_menu, [{ item, price }]. It never runs out;
+// the lacquered box in the Solenne Penthouse is the first. `flags.vends` stays its first item, so
+// the VEND action still finds it.
+const menuOf = (f) => (Array.isArray(f?.flags?.vend_menu) ? f.flags.vend_menu : [])
+  .filter(e => e && e.item).map(e => ({ item: String(e.item), price: Math.max(0, Math.round(Number(e.price) || 0)) }));
+
 async function cmdVend(args, raw, player, broadcast) {
   // A ROOM MAY HOLD MORE THAN ONE. This used to take the first machine it found,
   // which was fine while the only dispenser in the game was the lone one in the
@@ -50,8 +59,25 @@ async function cmdVend(args, raw, player, broadcast) {
   const machines = getZoneFurniture(player.current_zone).filter(f => f.flags?.vends != null);
   if (!machines.length) return { type: 'error', message: "There's no dispenser here to vend from." };
 
-  const want = (args || []).join(' ').trim().toLowerCase();
-  let machine;
+  // The Room Stage asks `vend <machine> menu` for the box's menu card (stands.js openStandsMenu), and
+  // its button sends `vend <machine> <item_id>`; the id is only the machine's own item, so it just buys.
+  const words = (args || []).map(String);
+  const last = words[words.length - 1]?.toLowerCase();
+  const asMenu = last === 'menu', byId = last?.startsWith('item_');
+  if (asMenu || byId) words.pop();
+  let want = words.join(' ').trim().toLowerCase();
+  let machine, chosen = byId ? last : null;
+  // a machine with a menu (flags.vend_menu) can be asked for one thing by name: `vend box redline`
+  if (want && !byId && !machines.some(f => String(f.name || '').toLowerCase().includes(want))) {
+    for (const f of machines) {
+      const hit = menuOf(f).find(e => { const it = getItem(e.item); return it && want.includes(String(it.name).toLowerCase()); });
+      if (!hit) continue;
+      const rest = want.replace(String(getItem(hit.item).name).toLowerCase(), '').trim();
+      if (rest && !String(f.name || '').toLowerCase().includes(rest) && !String(f.flags?.aliases || '').toLowerCase().includes(rest)) continue;
+      chosen = hit.item; want = String(f.name).toLowerCase();
+      break;
+    }
+  }
   if (want) {
     const hits = machines.filter(f => String(f.name || '').toLowerCase().includes(want));
     if (!hits.length) return { type: 'error', message: `There's no "${want}" here to vend from.` };
@@ -63,7 +89,30 @@ async function cmdVend(args, raw, player, broadcast) {
     machine = machines[0];
   }
   if (!isPluggedIn(machine)) return { type: 'error', message: `You press the button, but nothing happens. The ${machine.name} must be broken.` };
-  const itemId = machine.flags?.vends;
+  const menu = menuOf(machine);
+  if (menu.length) {
+    if (asMenu && !loggedPanelsSync(player)) {
+      sendToPlayer(player.id, { type: 'stands_menu', target: machine.name, name: machine.name, description: machine.description || '', buy: `vend ${machine.name.toLowerCase()}`, credits: player.credits | 0,
+        items: menu.map(e => ({ it: getItem(e.item), price: e.price })).filter(x => x.it).map(({ it, price }) => ({ id: it.id, name: it.name, description: it.tags?.description || it.description || '', price, kind: heldAs(it), drinkable: !!it.tags?.consumable })) });
+      return { type: 'noop' };
+    }
+    if (!chosen) {
+      const list = menu.map(e => ({ it: getItem(e.item), price: e.price })).filter(x => x.it).map(({ it, price }) => `<span class="item">${it.name}</span> ₵${price}`).join(', ');
+      return { type: 'output', message: `The ${machine.name} holds ${list}. VEND ${machine.name.toUpperCase()} &lt;name&gt; to take one.` };
+    }
+    if (!menu.some(e => String(e.item).toLowerCase() === String(chosen).toLowerCase())) return { type: 'error', message: `The ${machine.name} doesn't hold that.` };
+  }
+  const entry = menu.find(e => String(e.item).toLowerCase() === String(chosen || '').toLowerCase()) || null;
+  const itemId = entry ? entry.item : machine.flags?.vends;
+  if (asMenu) {
+    const it = getItem(itemId);
+    if (!it || loggedPanelsSync(player)) return cmdVend(words, raw, player, broadcast);
+    const held = heldAs(it);
+    sendToPlayer(player.id, { type: 'stands_menu', target: machine.name, name: machine.name, description: machine.description || '', buy: `vend ${machine.name.toLowerCase()}`, credits: player.credits | 0,
+      items: [{ id: it.id, name: it.name, description: it.tags?.description || it.description || '', price: machine.flags?.vend_drink ? 0 : Math.max(0, Math.round(Number(machine.flags?.vend_price) || 0)), kind: held === 'pour' && it.tags?.consumable ? 'drink' : held, drinkable: !!it.tags?.consumable }] });
+    return { type: 'noop' };
+  }
+  if (byId && !entry && last !== String(itemId).toLowerCase()) return { type: 'error', message: `The ${machine.name} doesn't sell that.` };
 
   const defaultCooldown = machine.flags?.vend_drink ? MAKE_COOLDOWN_S : DROP_COOLDOWN_S;
   const cooldownMs = Math.max(0, Number(machine.flags?.vend_cooldown_s ?? defaultCooldown)) * 1000;
@@ -81,7 +130,7 @@ async function cmdVend(args, raw, player, broadcast) {
   // plugin (below), so `vend_price` is read here only when there is no `vend_drink`.
   // The debit is inside the same transaction as the dispense: you pay and get the
   // packet, or neither happens.
-  const price = machine.flags?.vend_drink ? 0 : Math.max(0, Math.round(Number(machine.flags?.vend_price) || 0));
+  const price = machine.flags?.vend_drink ? 0 : Math.max(0, Math.round(Number(entry ? entry.price : machine.flags?.vend_price) || 0));
   let broke = false;
   let invId = null;
   await withTransaction(async (q) => {
@@ -110,10 +159,14 @@ async function cmdVend(args, raw, player, broadcast) {
     }
   }
   lastVend.set(key, now);
+  // What you can hold goes into your hands in first person, as a box's smokes do (stands-hands.js):
+  // the humidor's cigar comes up in front of you to be cut and lit. A filled vessel is the drinks plugin's.
+  const held = filled ? null : heldAs(item), kind = held === 'pour' && item.tags?.consumable ? 'drink' : held;
+  if (kind && !loggedPanelsSync(player)) sendToPlayer(player.id, { type: 'stands_hand', item: { id: item.id, name: item.name, kind, drinkable: !!item.tags?.consumable } });
 
   const flavour = machine.flags?.vend_line || `The ${machine.name} clunks and drops something into the tray.`;
   const got = filled?.name || item.name;
-  broadcast(player.current_zone, { type: 'zone_event', message: `The ${machine.name} clunks and coughs a ${got} into the tray for ${player.handle}.` }, player.id);
+  broadcast(player.current_zone, { type: 'zone_event', message: menu.length ? `${player.handle} lifts the lid of the ${machine.name} and takes out a ${got}.` : `The ${machine.name} clunks and coughs a ${got} into the tray for ${player.handle}.` }, player.id);
   // A FILLED VESSEL REPLACES THE TAIL rather than following it: "you take the
   // paper cup" and then "a flat white" is the same cup described twice, in the
   // wrong order. The machine's own vend_line has already said a cup arrived.

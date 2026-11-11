@@ -178,20 +178,26 @@ window._applyCelShade = (mode) => {
 	window.__houseComic = mode === 'comic' ? 1 : 0;
 	window.__setCelTune?.(t);
 };
-// Renderer (Settings → Renderer): GLASS 2 or GLASS 1, handed over the same way. Only a CHANGE is
-// passed on, because applySettings runs on every pill press: re-sending GLASS 2 then would undo
-// the switch-off GLASS 2 does on itself when it fails.
+// Renderer (Settings → Renderer): 'auto', 'full' (GLASS 2) or 'lite' (GLASS Lite), handed to
+// windshield.js `setGlassMode` the same way. Only a CHANGE is passed on, because applySettings runs
+// on every pill press: re-sending it then would undo the switch-off GLASS 2 does on itself when it
+// fails.
 let glassPicked = null;
-// In the game GLASS 1 is the plain fallback: buildings as boxes, no signs or glows (GLASS1_BASIC in
-// windshield.js). The Modelshop and the gates load windshield.js without this and keep the full painter.
+// GLASS 1 is the last resort, for a lost context or a crash in the GL pass: buildings as boxes, no
+// signs or glows (GLASS1_BASIC in windshield.js). The Modelshop and the gates load windshield.js
+// without this and keep the full painter.
 window.__glass1BasicPending = true;
-window._applyGlass = (on) => {
-	on = !!on;
-	if (on === glassPicked) return;
-	glassPicked = on;
-	window.__glassPending = on;
-	window.__setGlass?.(on);
+window._applyGlass = (mode) => {
+	mode = mode === '2' ? 'auto' : mode === '1' ? 'lite' : (mode === 'full' || mode === 'lite' ? mode : 'auto');
+	if (mode === glassPicked) return;
+	glassPicked = mode;
+	window.__glassModePending = mode;
+	window.__setGlassMode?.(mode);
 };
+// GLASS Lite taking over from a struggling GLASS 2 (windshield.js watchStruggle), said once.
+window.addEventListener("glass:lite", () => {
+	appendHtml(`<div class="system">This device was struggling with the 3-D view, so it has switched to GLASS Lite: the same city, drawn from a baked copy. Tablet → Settings → Renderer changes it.</div>`);
+});
 // Interface Sounds (Settings → Accessibility): the click a button makes. On by default.
 window._applyUiSound = setUiSoundMode;
 initUiSound();

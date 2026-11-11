@@ -3,12 +3,13 @@
 // seats and stations, the `room` verb's gating, the position relay and `arrange`. Every row it makes is in a
 // throwaway zone and removed in the finally.
 import { emit } from '../../server/engine/events.js';
-import { world, setApartmentCache, getZoneFurniture, deleteFurnitureWhere, insertFurniture, deleteFurniture } from '../../server/engine/world.js';
+import { world, setApartmentCache, getZoneFurniture, deleteFurnitureWhere, insertFurniture, deleteFurniture, setDoorCache, deleteDoorCache } from '../../server/engine/world.js';
 import { getBroadcast, setBroadcast } from '../../server/engine/messaging.js';
 import { getItem } from '../../server/engine/items-cache.js';
 import { giveItemById } from '../../server/engine/inventory.js';
 import { query } from '../../server/models/db.js';
-import { layRows, seatsClash, archetypeOf, roomLayout, resolveSpot, dimsOf, roomFree, rowDrawn, formOf, roomSpecOf, FLAT_ROOM } from '../../client/shared/room-layout.js';
+import { layRows, seatsClash, archetypeOf, roomLayout, resolveSpot, dimsOf, roomFree, rowDrawn, formOf, roomSpecOf, FLAT_ROOM, openingCrossed, openingInside } from '../../client/shared/room-layout.js';
+import { registerMoveGate } from '../../server/engine/movement-gates.js';
 import { _test } from './index.js';
 
 // what each kind of sold piece should be drawn as
@@ -31,6 +32,19 @@ async function residents(check) {
     const told = _test.peopleIn(Z, []).find((p) => p.id === N);
     check('the room tells the client an NPC\'s sex and settled figure', told?.sex === 'female' && told?.figure?.head === 3, JSON.stringify(told));
     delete npc.flags.figure;
+    // a mood: the base one from content, a transient one over it, and nothing asleep
+    {
+      const { setNpcMood } = await import('../../server/engine/npc-mood.js');
+      npc.flags.mood = 'sad';
+      check('an NPC\'s resting mood goes to the client', _test.peopleIn(Z, []).find((p) => p.id === N)?.mood?.m === 'sad');
+      setNpcMood(npc, 'angry', { i: 1, secs: 30 });
+      const m = _test.peopleIn(Z, []).find((p) => p.id === N)?.mood;
+      check('a transient mood wins over the resting one, with its time left', m?.m === 'angry' && m.s > 0 && m.s <= 30, JSON.stringify(m));
+      check('a weaker mood does not cut a stronger one short', !setNpcMood(npc, 'happy', { i: 0.3 }));
+      npc._ai = { homeSleeping: true };
+      check('asleep, no mood shows', !_test.peopleIn(Z, []).find((p) => p.id === N)?.mood);
+      delete npc._ai; npc._mood = null; delete npc.flags.mood;
+    }
     // asleep, as the room text tags them: on the bed rather than stood by the door, and the sofa or a chair after it
     {
       const bed = { id: 'p-bed', name: 'a bed', arche: 'bed' }, sofa = { id: 'p-sofa', name: 'a sofa', arche: 'sofa' }, chair = { id: 'p-chair', name: 'a chair', arche: 'seat' };
@@ -48,6 +62,62 @@ async function residents(check) {
       npc.flags.personality = 'bartender';
       check('a barkeep off shift idles as anybody does', !_test.peopleIn(Z, []).find((p) => p.id === N)?.manner);
       delete npc.flags.personality;
+    }
+    // what they're dressed for, and against: the occasion and the temperature band go to the client, unless a look
+    // was authored for it, which goes over their own instead
+    {
+      const d = (asleep, feel, who = npc) => _test.dressedAs(who, Z, asleep, feel);
+      check('a resident awake at home is dressed for home', d(false, 0).wear?.occasion === 'home' && !d(false, 0).wear.feel, JSON.stringify(d(false, 0)));
+      check('asleep at home, for bed', d(true, 0).wear?.occasion === 'sleep');
+      check('a visitor in the morning keeps the clothes they came in', !d(false, 0, guest).wear, JSON.stringify(d(false, 0, guest)));
+      check('a cold room is a band to dress against, and a hot one', d(false, -0.8).wear?.feel === -2 && d(false, 0.2).wear?.feel === 1 && d(false, 0.2, guest).wear?.feel === 1);
+      npc.flags.figure_sleep = { cut: 'slip' }; npc.flags.figure_cold = { cut: 'parka', hat: 'beanie' };
+      const bed = d(true, 0), cold = d(false, -0.8);
+      check('an authored look for bed goes over their own, and the client is told nothing to add', bed.figure?.cut === 'slip' && !bed.wear, JSON.stringify(bed));
+      check('an authored look for the cold does too, and they are still dressed for home', cold.figure?.cut === 'parka' && cold.wear?.occasion === 'home' && !cold.wear.feel, JSON.stringify(cold));
+      delete npc.flags.figure_sleep; delete npc.flags.figure_cold;
+      const p = _test.peopleIn(Z, []).find((q) => q.id === N);
+      check('the room sends what to dress them for', p?.wear?.occasion === 'home', JSON.stringify(p));
+    }
+    // somebody with a habit sits at a table to it (client/shared/table-stash.js): a chair pulled up to one, its
+    // kit on the top in front of them, worked down one at a time; no table, or no habit, and there's no session
+    {
+      const { stashAt, kitOf } = await import('../../client/shared/table-stash.js');
+      const spec = { w: 6, d: 7, h: 2.7 }, free = { seats: new Set(), pieces: new Set() };
+      const rows = [
+        { id: 't', name: 'kitchen table', object_type: 'furniture', flags: { look: { arche: 'table', form: 'dining' }, spot: { at: [0, 3.5], turn: 0 } } },
+        { id: 'c', name: 'chair', object_type: 'furniture', flags: { interactions: ['sit'], look: { arche: 'seat', form: 'chair' }, spot: { at: [0, 4.3], turn: 0 } } },
+      ];
+      const L = roomLayout(spec, layRows(rows, spec).pieces), l = { main: Z, at: [2, 5], L };
+      const habit = { id: '__habit', flags: { booze_habit: 'whisky' } }, none = { id: '__none', flags: {} };
+      const job = _test.life.sessionJob(habit, l, L, free);
+      check('somebody with a habit sits at the table to it', job?.kind === 'session' && job.on === 'c' && job.stash?.k === 'drink' && Math.abs(job.stash.at[2] - 0.76) < 0.01, JSON.stringify(job));
+      check('...somebody without one does not', !_test.life.sessionJob(none, l, L, free));
+      check('...and a room with no table has no session', !_test.life.sessionJob(habit, l, roomLayout(spec, layRows([rows[1]], spec).pieces), free));
+      const s = { k: 'snort', of: 4, beat: kitOf('snort').beat };
+      const first = stashAt(s, 1000), taking = stashAt(s, s.beat * 0.9), next = stashAt(s, s.beat * 1.1), over = stashAt(s, s.beat * 4 + 10);
+      check('the kit goes down one at a time, on the clip that takes it', first.left === 4 && first.clip === 'sitCut' && taking.clip === 'sitLine' && taking.left === 3 && next.left === 3 && over.done && over.left === 0,
+        JSON.stringify({ first, taking, next, over }));
+    }
+    // a meal is cooked at the hob; the camping stove on the floor is for a flat with no hob
+    {
+      const spec = { w: 6, d: 7, h: 2.7 }, row = (id, arche) => ({ id, name: id, object_type: 'furniture', flags: { look: { arche } } }), free = { seats: new Set(), pieces: new Set() };
+      const cooks = (rows) => {
+        const L = roomLayout(spec, layRows(rows, spec).pieces), how = new Set();
+        for (let i = 0; i < 24; i++) {
+          const l = { main: Z, at: [3, 3], L }, who = { id: '__cook_' + i };
+          if (!_test.life.mealJob(who, l, L, free)) { how.add('none'); continue; }
+          l.meal.stage = 'get';
+          how.add(_test.life.mealJob(who, l, L, free)?.clip || 'stuck');
+        }
+        return [...how].join();
+      };
+      check('with a hob in the flat, everybody cooks at it', cooks([row('fridge', 'cold'), row('hob', 'hob')]) === 'stir', cooks([row('fridge', 'cold'), row('hob', 'hob')]));
+      check('with none, they cook on the floor', cooks([row('fridge', 'cold')]) === 'squatStir', cooks([row('fridge', 'cold')]));
+      const L = roomLayout(spec, layRows([row('fridge', 'cold'), row('hob', 'hob')], spec).pieces), kinds = (f, want = null) => _test.life.jobsIn(L, free, want, f).map((j) => j.kind);
+      check('a room at room temperature has nothing to do about it', !kinds(0).some((k) => ['warm', 'heater', 'cool', 'air'].includes(k)));
+      check('a cold room gives them something to do about the cold, and a hot one about the heat', kinds(-0.6).includes('warm') && kinds(0.6).includes('cool') && kinds(0.6).includes('air'));
+      check('sent to warm up, that is all they choose from', kinds(-0.6, 'chill').join() === 'warm', kinds(-0.6, 'chill').join());
     }
     await _test.life.settleIn(Z);
     const stood = _test.life.stageOf(npc, Z);
@@ -221,6 +291,202 @@ export default async function regress({ run, check, getPlayer }) {
         if (made) await deleteFurniture(made.id ?? '__roomstage_test_toilet__').catch(() => {});
         world.zones.get(APT).exits = {};
         world.zones.delete(BATH);
+      }
+    }
+
+    // a building's rooms are one walk (docs/proposals/building-stage.md): a doorway is the ordinary
+    // `move <dir>`, the Stage stays open through it, and a door that won't let you through sends nothing
+    {
+      const MAP = '__roomstage_test_bmap__', T = '__roomstage_test_btile__', H1 = '__roomstage_test_b1__', H2 = '__roomstage_test_b2__', H3 = '__roomstage_test_b3__';
+      const room = { w: 5, d: 4, h: 3, studio: false, balcony: false };
+      const mkb = (id, map, flags, exits) => world.zones.set(id, { id, name: id, description: `Room ${id}.`, map_id: map, flags, exits, players: new Set(), npcs: new Set(), enemies: new Set(), corpses: new Set() });
+      mkb(T, 'map_world', {}, { north: H1 });
+      mkb(H1, MAP, { room }, { south: T, north: H2 });
+      mkb(H2, MAP, { room }, { south: H1, north: H3 });
+      mkb(H3, MAP, { room }, { south: H2 });
+      world.maps.set(MAP, { id: MAP, name: 'Test Block', parent_zone_id: T, entry_zone_id: H1 });
+      const sent = [], was = getBroadcast(), savedZone2 = p.current_zone;
+      let shut = false;
+      registerMoveGate(({ to }) => (shut && to?.id === H3 ? { block: true, message: 'The door to the back is locked.' } : undefined), 'roomstage-regress');
+      setBroadcast((z, msg, ex, to) => { if (to === p.id) sent.push(msg); return was?.(z, msg, ex, to); });
+      const walkTo = async (dir, want) => { await run(dir); for (let i = 0; i < 80 && p.current_zone !== want; i++) await new Promise((res) => setTimeout(res, 50)); };
+      // a piece in the first room and somebody in the last, seen from the middle one
+      const NB = '__roomstage_test_bnpc__', PIECE = '__roomstage_test_bpiece__';
+      world.npcs.set(NB, { id: NB, name: 'Test Neighbour', zone_id: H3, flags: {}, posture: 'standing' });
+      world.zones.get(H3).npcs.add(NB);
+      let made = null;
+      try {
+        made = await insertFurniture({ id: PIECE, zone_id: H1, name: 'test pan next door', description: 'A test pan.', object_type: 'toilet', flags: {} });
+        _test.clearBuildings();
+        const bld = _test.buildingOfRoom(H2);
+        check('a building whose entry has a Stage is one walk', bld?.b.walk.length === 3 && _test.buildingOfRoom(H1) === bld && !bld.plan.problems.length, JSON.stringify(bld?.b.walk));
+        const v2 = await _test.viewPayload(p, H2, _test.specOf(H2));
+        const ops = v2.spec.openings || [];
+        check('a middle room carries both its doorways, each with the way through', ops.filter((o) => o.kind === 'door').map((o) => o.dir).sort().join() === 'north,south' && v2.building?.id === MAP, JSON.stringify(ops));
+        check('a doorway in the window wall takes the window', v2.spec.windowless === true, JSON.stringify(v2.spec.windows));
+        const nb = Object.fromEntries((v2.building?.neighbours || []).map((n) => [n.zone, n.spec]));
+        check('the rooms either side come with it, placed across a wall from it', Object.keys(nb).length === 2 && nb[H1]?.at?.join() === '0,-4.28' && nb[H3]?.at?.join() === '0,4.28' && nb[H1].face === 0 && nb[H1].floor === 0 && nb[H3].openings?.some((o) => o.to === H2), JSON.stringify(v2.building?.neighbours?.map((n) => [n.zone, n.spec.at, n.spec.face])));
+        const nx = Object.fromEntries((v2.building?.neighbours || []).map((n) => [n.zone, n]));
+        check('the room next door comes furnished', nx[H1]?.pieces?.some((x) => x.id === PIECE), JSON.stringify(nx[H1]?.pieces?.map((x) => x.id)));
+        check('and with whoever is in it', nx[H3]?.people?.some((x) => x.id === NB && x.npc), JSON.stringify(nx[H3]?.people));
+        check('a room next door is somebody in the middle one\'s business', _test.nextDoor(H2).sort().join() === [H1, H3].sort().join() && _test.nextDoor(H1).join() === H2);
+        {
+          // a piece laid out by the rules keeps out of a doorway: every rule-placed piece in a room with one
+          const s1 = _test.stageSpec(H1), L1 = roomLayout(s1, await _test.roomPieces(H1, s1));
+          check('stageSpec is the room with its doorways', _test.stageSpec(H2).openings?.length === 2 && !_test.specOf(H2).openings);
+          const door1 = s1.openings.find((o) => o.to === H2);
+          check('nothing in the room next door stands in its doorway', door1?.wall === 'front' && L1.placed.length && L1.placed.every((x) => !(x.v < 1.2 && x.u > door1.a - 0.3 && x.u < door1.b + 0.3)), JSON.stringify({ door1, at: L1.placed.map((x) => [x.u, x.v]) }));
+        }
+        const L = roomLayout(v2.spec, []), north = ops.find((o) => o.dir === 'north'), mid = (north.a + north.b) / 2;
+        const past = north.wall === 'front' ? [mid, -0.3] : north.wall === 'back' ? [mid, v2.spec.d + 0.3] : north.wall === 'left' ? [-v2.spec.w / 2 - 0.3, mid] : [v2.spec.w / 2 + 0.3, mid];
+        check('you can walk into a doorway, and past its wall is through it', roomFree(L, ...past) && openingCrossed(L, past)?.dir === 'north', JSON.stringify({ north, past }));
+        check('just inside the doorway is in the room and not through it', (() => { const s = openingInside(L, north); return roomFree(L, ...s.at) && !openingCrossed(L, s.at); })());
+
+        world.zones.get(p.current_zone)?.players.delete(p.id);
+        p.current_zone = H1; world.zones.get(H1).players.add(p.id);
+        let r = await run('room');
+        check('room opens the Stage in a building\'s entry', r?.type === 'noop' && _test.viewers.get(H1)?.has(p.id), JSON.stringify(r));
+        await new Promise((res) => setTimeout(res, 30));
+        const ahead = sent.find((m) => m.type === 'room_ahead'), a2 = ahead?.rooms?.find((x) => x.zone === H2);
+        const seen2 = sent.find((m) => m.type === 'room_view' && m.zone === H1)?.building?.neighbours?.find((x) => x.zone === H2);
+        sent.length = 0;
+        await walkTo('north', H2);
+        await new Promise((res) => setTimeout(res, 30));
+        const next = sent.find((m) => m.type === 'room_view');
+        // what was sent ahead is what the crossing sends, or the client bakes a room nobody asks for (room-stage.js)
+        {
+          const same = (a, b) => JSON.stringify(a) === JSON.stringify(b), far = (v) => (v || []).find((x) => x.zone === H3), near = (v) => (v || []).find((x) => x.zone === H1);
+          check('the next room is sent ahead of the doorway, after the room itself', ahead?.zone === H1 && ahead.rooms.length === 1 && !!a2, JSON.stringify(ahead)?.slice(0, 300));
+          check('and is the room the crossing then sends: its spec, and the rooms past it with their pieces and people', !!next && same(a2?.spec, next.spec) && same(far(a2?.neighbours), far(next.building?.neighbours)) && same(near(a2?.neighbours)?.spec, near(next.building?.neighbours)?.spec), JSON.stringify([a2?.spec, next?.spec])?.slice(0, 400));
+          check('without the room you are in, which the client has', near(a2?.neighbours) && !near(a2.neighbours).pieces && !near(a2.neighbours).people, JSON.stringify(near(a2?.neighbours))?.slice(0, 200));
+          check('and its own pieces are the ones it had as the room next door', !!seen2 && same(seen2.pieces, next?.pieces), JSON.stringify([seen2?.pieces, next?.pieces])?.slice(0, 300));
+          check('the crossing sends the rooms past the next one in turn', sent.some((m) => m.type === 'room_ahead' && m.zone === H2 && m.rooms.length === 2), JSON.stringify(sent.map((m) => [m.type, m.zone])));
+        }
+        check('walking through the doorway moves you into the next room', p.current_zone === H2, p.current_zone);
+        check('and the Stage stays open there, standing you in the doorway you came through', _test.viewers.get(H2)?.has(p.id) && !_test.viewers.get(H1)?.has(p.id) && next?.zone === H2 && next.via === H1 && !sent.some((m) => m.type === 'room_close'), JSON.stringify(sent.map((m) => [m.type, m.zone, m.via])));
+        shut = true; sent.length = 0;
+        await walkTo('north', H3);
+        check('a door that won\'t open leaves you where you were', p.current_zone === H2, p.current_zone);
+        check('and sends no new room and closes nothing, so the client puts you back', _test.viewers.get(H2)?.has(p.id) && !sent.some((m) => m.type === 'room_view' || m.type === 'room_close'), JSON.stringify(sent.map((m) => m.type)));
+        // from the middle room you see into both: a piece moved next door is sent to you
+        check('somebody next door to a room sees into it', _test.watchersOf(H1).has(p.id) && _test.watchersOf(H3).has(p.id));
+        sent.length = 0;
+        emit('furniture.changed', { zoneId: H1, id: PIECE });
+        for (let i = 0; i < 40 && !sent.some((m) => m.type === 'room_piece'); i++) await new Promise((res) => setTimeout(res, 25));
+        check('a piece changed next door is sent to you, for that room', sent.some((m) => m.type === 'room_piece' && m.zone === H1 && m.piece?.id === PIECE), JSON.stringify(sent.map((m) => [m.type, m.zone])));
+        // a lock on a doorway (docs/proposals/room-hololock.md): the room's view says how it stands for you, a hand
+        // on it is sent at once, and a lock that changed with no event is caught by the sweep
+        {
+          const DOOR = '__roomstage_test_bdoor__', staff = ['admin', 'dev'].includes(p.role);
+          const locksSent = async () => { for (let i = 0; i < 40 && !sent.some((m) => m.type === 'room_locks'); i++) await new Promise((res) => setTimeout(res, 25)); return sent.find((m) => m.type === 'room_locks'); };
+          setDoorCache(DOOR, { id: DOOR, zone_id: H2, exit_dir: 'south', target_zone: H1, name: 'test door', hp: 10, max_hp: 10, is_open: 0, lock_state: 'locked', tags: { 'lock:hololock': { canHack: true, difficulty: 5 } } });
+          try {
+            const lv = await _test.viewPayload(p, H2, _test.specOf(H2)), k = lv.locks?.find((x) => x.to === H1);
+            check('a room view says which doorways are locked, and how each stands for you', lv.locks?.length === 1 && k?.dir === 'south' && k.door === DOOR && k.locked === true && k.open === false && k.lock === true && k.pass === false && k.hack === true && k.yours === staff, JSON.stringify(lv.locks));
+            check('a room sent ahead goes without its locks', !(await _test.viewPayload(p, H2, _test.specOf(H2), { stamp: false, locks: false })).locks);
+            sent.length = 0;
+            world.doors.get(DOOR).lock_state = 'unlocked';
+            emit('door.sfx', { door: world.doors.get(DOOR), zoneId: H2, actorId: p.id, cue: 'unlock' });
+            const gave = await locksSent();
+            check('a lock worked by hand is sent to whoever has the room open', gave?.zone === H2 && gave.locks?.[0]?.locked === false && gave.locks[0].pass === true, JSON.stringify(gave));
+            // a door is shut until somebody opens it, and the Stage is told when one does
+            check('an unlocked door is still shut', gave?.locks?.[0]?.open === false, JSON.stringify(gave));
+            sent.length = 0;
+            world.doors.get(DOOR).is_open = 1;
+            emit('door.sfx', { door: world.doors.get(DOOR), zoneId: H2, actorId: p.id, cue: 'open' });
+            const opened = await locksSent();
+            check('a door somebody opened is sent as standing open', opened?.locks?.[0]?.open === true, JSON.stringify(opened));
+            world.doors.get(DOOR).is_open = 0;
+            {
+              // a door with no lock on it is a door all the same; an archway with no door row isn't in the list
+              const tags = world.doors.get(DOOR).tags;
+              world.doors.get(DOOR).tags = {}; world.doors.get(DOOR).lock_state = 'unlocked';
+              const plain = (await _test.locksOf(p, H2, _test.stageSpec(H2)))[0];
+              check('a door with no lock is sent too, shut, with nothing to unlock', plain?.lock === false && plain.open === false && plain.locked === false && plain.pass === true, JSON.stringify(plain));
+              world.doors.get(DOOR).tags = tags;
+            }
+            sent.length = 0;
+            world.doors.get(DOOR).lock_state = 'locked';
+            _test.lockSweep();
+            const took = await locksSent();
+            check('and one that changed with no hand on it is caught by the sweep', took?.locks?.[0]?.locked === true && took.locks[0].pass === false, JSON.stringify(took));
+            sent.length = 0;
+            _test.lockSweep();
+            await new Promise((res) => setTimeout(res, 80));
+            check('which sends nothing when no lock has changed', !sent.some((m) => m.type === 'room_locks'), JSON.stringify(sent.map((m) => m.type)));
+          } finally { deleteDoorCache(DOOR); }
+        }
+      } finally {
+        shut = false;
+        if (made) await deleteFurniture(made.id ?? PIECE).catch(() => {});
+        world.npcs.delete(NB);
+        setBroadcast(was);
+        for (const id of [H1, H2, H3]) { world.zones.get(id)?.players.delete(p.id); _test.viewers.delete(id); world.zones.delete(id); }
+        world.zones.delete(T); world.maps.delete(MAP); _test.clearBuildings();
+        p.current_zone = savedZone2; world.zones.get(savedZone2)?.players.add(p.id);
+      }
+    }
+
+    // a tower's lift (Solenne Residences, from content): every floor is on the walk, the car is one room
+    // whose doors open on the floor it's parked at, and riding it is the elevator's own `floor <n>`
+    if (world.zones.get('zone_solenne_elevator')?.flags?.room) {
+      const LOBBY = 'zone_solenne_lobby', CAR = 'zone_solenne_elevator', F30 = 'zone_solenne_residences', A30 = 'zone_solenne_apt_a';
+      const sent = [], was = getBroadcast(), saved = p.current_zone;
+      setBroadcast((z, msg, ex, to) => { if (to === p.id) sent.push(msg); return was?.(z, msg, ex, to); });
+      const wait = async (ok, ms = 8000) => { for (let i = 0; i < ms / 50 && !ok(); i++) await new Promise((res) => setTimeout(res, 50)); };
+      try {
+        _test.clearBuildings();
+        const bld = _test.buildingOfRoom(LOBBY);
+        check('Solenne is one walk, lobby to sky pad, with no problems', bld && !bld.plan.problems.length && [CAR, F30, A30, 'zone_solenne_penthouse', 'zone_solenne_helipad'].every((z) => bld.b.walk.includes(z)), JSON.stringify(bld?.plan.problems));
+        const stops = bld?.plan.lifts?.[CAR]?.stops || [];
+        check('the lift stops are stacked bottom to top, each above the last', stops.length === 8 && stops.every((s, i) => !i || s.y > stops[i - 1].y), JSON.stringify(stops.map((s) => [s.n, s.y])));
+        world.zones.get(p.current_zone)?.players.delete(p.id);
+        p.current_zone = LOBBY; world.zones.get(LOBBY).players.add(p.id); p._elevatorAt = null;
+        await run('room');
+        sent.length = 0;
+        await run('in');
+        await wait(() => sent.some((m) => m.type === 'room_view' && m.zone === CAR));
+        const car = sent.find((m) => m.type === 'room_view' && m.zone === CAR);
+        check('walking into the car keeps the Stage open, with its panel of real floors', car?.via === LOBBY && car.lift?.floors.map((f) => f.n).join() === '1,12,18,30,34,40,41,44,45' && car.lift.at === 1, JSON.stringify(car?.lift));
+        check('parked at the lobby, the car is open on the lobby', car?.spec.openings?.some((o) => o.kind === 'door' && o.to === LOBBY && o.dir === 'out') && car.building?.neighbours?.map((n) => n.zone).join() === LOBBY, JSON.stringify(car?.spec.openings));
+        sent.length = 0;
+        await run('floor 30');
+        await wait(() => sent.some((m) => m.type === 'room_view' && m.ride));
+        const up = sent.find((m) => m.type === 'room_view' && m.ride);
+        check('a ride opens the car\'s doors on that floor, the landing drawn level with it', up?.zone === CAR && up.lift?.at === 30 && up.spec.openings.some((o) => o.kind === 'door' && o.to === F30 && o.dir === 'out') && up.building?.neighbours?.[0]?.zone === F30 && up.building.neighbours[0].spec.floor === 0, JSON.stringify(up?.spec?.openings));
+        sent.length = 0;
+        await run('out');
+        await wait(() => p.current_zone === F30 && sent.some((m) => m.type === 'room_view'));
+        const hall = sent.find((m) => m.type === 'room_view' && m.zone === F30);
+        check('stepping out walks onto the thirtieth floor, still in the Stage', p.current_zone === F30 && hall?.via === CAR && hall.building?.neighbours?.some((n) => n.zone === A30) && hall.building.neighbours.some((n) => n.zone === CAR && n.spec.floor === 0), JSON.stringify(hall?.building?.neighbours?.map((n) => [n.zone, n.spec.floor])));
+
+        // the street door (building-stage.md step 5): out onto the pavement in GLASS on foot, and back in
+        const FACADE = 'zone_district_914_908', STREET = 'zone_district_914_909';
+        world.zones.get(p.current_zone)?.players.delete(p.id);
+        p.current_zone = LOBBY; world.zones.get(LOBBY).players.add(p.id); p._elevatorAt = null;
+        await run('room');
+        await wait(() => sent.some((m) => m.type === 'room_view' && m.zone === LOBBY));
+        const lobby = [...sent].reverse().find((m) => m.type === 'room_view' && m.zone === LOBBY);
+        check("the lobby's street door is a doorway onto its facade", lobby?.spec.openings?.some((o) => o.kind === 'front' && o.dir === 'south' && o.to === FACADE), JSON.stringify(lobby?.spec?.openings));
+        sent.length = 0;
+        await run('south');
+        await wait(() => sent.some((m) => m.type === 'freelook_open'));
+        const street = sent.find((m) => m.type === 'freelook_open');
+        check('out of the street door the room holds for the street, not the text', sent.some((m) => m.type === 'room_close' && m.street), JSON.stringify(sent.map((m) => m.type)));
+        check('the street opens on foot in front of the door, facing away from it', p.current_zone === STREET && street?.stand?.foot && street.gx === 914 && street.gy === 909 && street.stand.yaw === 180 && street.stand.y < 0, JSON.stringify([p.current_zone, street?.stand]));
+        check("the street comes with the building's door: its facade's tile, the edge it's on and its width", street?.doors?.some((d) => d.gx === 914 && d.gy === 908 && d.edge === 'south' && d.w > 1 && d.slide), JSON.stringify(street?.doors));
+        sent.length = 0;
+        await run('north');
+        await wait(() => sent.some((m) => m.type === 'room_view' && m.zone === LOBBY));
+        check('walking in tells the client a Stage is coming, so it keeps the street for the walk back out', sent.some((m) => m.type === 'freelook_close' && m.indoors), JSON.stringify(sent.filter((m) => m.type === 'freelook_close')));
+        const back = sent.find((m) => m.type === 'room_view' && m.zone === LOBBY);
+        check('walking back in closes the street and opens the lobby stood in its street door', back?.via === FACADE && sent.some((m) => m.type === 'freelook_close') && !p._onFoot, JSON.stringify(sent.map((m) => m.type)));
+      } finally {
+        setBroadcast(was);
+        for (const id of [LOBBY, CAR, F30, 'zone_district_914_909']) { world.zones.get(id)?.players.delete(p.id); _test.viewers.delete(id); }
+        p._onFoot = false;
+        p._elevatorAt = null; p._elevator = null;
+        p.current_zone = saved; world.zones.get(saved)?.players.add(p.id);
       }
     }
 

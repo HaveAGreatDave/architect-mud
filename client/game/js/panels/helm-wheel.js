@@ -224,6 +224,7 @@ export function createHelmWheel(canvas, opts = {}) {
   // ring you have to be able to grab with a thumb is the primary control in this cab.
   function drawTruck() {
     const box = canvas.getBoundingClientRect();
+    if (box.width < 12 || box.height < 12) return;   // folded away (the bridge hides the console); a negative radius throws
     const dpr = Math.min(2, devicePixelRatio || 1);
     const W = Math.max(2, Math.round(box.width * dpr)), H = Math.max(2, Math.round(box.height * dpr));
     if (canvas.width !== W || canvas.height !== H) { canvas.width = W; canvas.height = H; }
@@ -338,6 +339,7 @@ export function createHelmWheel(canvas, opts = {}) {
   // a fraction of one of those, so the whole wheel scales with the pane on its own.
   function drawF1() {
     const box = canvas.getBoundingClientRect();
+    if (box.width < 12 || box.height < 12) return;   // folded away (the bridge hides the console); a negative radius throws
     const dpr = Math.min(2, devicePixelRatio || 1);
     const W = Math.max(2, Math.round(box.width * dpr)), H = Math.max(2, Math.round(box.height * dpr));
     if (canvas.width !== W || canvas.height !== H) { canvas.width = W; canvas.height = H; }
@@ -494,6 +496,7 @@ export function createHelmWheel(canvas, opts = {}) {
     if (TRUCK_ART) return drawTruck();
     if (F1_ART) return drawF1();
     const box = canvas.getBoundingClientRect();
+    if (box.width < 12 || box.height < 12) return;   // folded away (the bridge hides the console); a negative radius throws
     const dpr = Math.min(2, devicePixelRatio || 1);
     const W = Math.max(2, Math.round(box.width * dpr)), H = Math.max(2, Math.round(box.height * dpr));
     if (canvas.width !== W || canvas.height !== H) { canvas.width = W; canvas.height = H; }

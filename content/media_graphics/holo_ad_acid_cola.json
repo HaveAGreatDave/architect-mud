@@ -1,0 +1,12 @@
+{
+  "content": "{\n \"brand\": \"ACID COLA\",\n \"line\": \"Reality Hurts.\",\n \"small\": \"ACID COLA IS A BEVERAGE. NOT ALL REALITIES ARE COVERED.\",\n \"color\": \"#b8ff3a\",\n \"accent\": \"#e8ffb0\",\n \"face\": \"block\",\n \"motif\": \"burst\",\n \"weight\": 2\n}",
+  "created_at": "1794182400",
+  "description": "Hologram advert: Acid Cola. Baked to the client by npm run holoads:bake.",
+  "id": "holo_ad_acid_cola",
+  "name": "Holo ad: Acid Cola",
+  "tags": [
+    "holo_ad"
+  ],
+  "type": "holo_ad",
+  "updated_at": "1794182400"
+}

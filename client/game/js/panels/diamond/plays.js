@@ -361,6 +361,13 @@ export function planPlay(ctx) {
   balls.sort((a, b) => a.from - b.from);
   balls.forEach((s, i) => { s.to = i + 1 < balls.length ? balls[i + 1].from : Infinity; });
   const track = trackOf(balls);
+  // the field camera on a man stays with him only till he lets it go: the throw's the play then,
+  // and the high camera takes it in
+  if (log.fieldCut) {
+    const th = throwChain.find((x) => x.from === log.fieldCut.n && x.release?.t > log.fieldCut.at);
+    const at = th && th.release.t + 0.1;
+    if (at && !cuts.some((c) => c.at > log.fieldCut.at && c.at <= at + 0.3)) cuts.push({ at, shot: 'high' });
+  }
   let shots = cuts.filter((c) => c.at < land).sort((a, b) => a.at - b.at)
     .map((c) => ({ at: c.at, shot: c.shot === 'high' ? { shot: 'high', track } : typeof c.shot === 'object' ? { track, ...c.shot } : c.shot }));
   // for a viewer who's asked for less motion, the cameras that would follow it hold still

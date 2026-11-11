@@ -6421,9 +6421,9 @@ check('move succeeds when gates pass', r?.type === 'move' && getPlayer().current
   // entrance faces into its own counter, where its keeper works.
   {
     const { zoneAtTile } = await import('../server/engine/world.js');
-    // Fitz's, Pruitt's and Kimble's moved to the new Sorrel Way with the Coliseum at true size (coliseum-resite.mjs), ids and all.
+    // Fitz's, Pruitt's and Kimble's moved to the new Sorrel Way with the Coliseum at true size (coliseum-resite.mjs), ids and all; Kimble's went on to 896,922 with its door turned north (twin-tower-ridge.mjs).
     const TRADES = [[894, 922, 'north', 'zone_fitzfranks_counter', 'npc_fitz_rourke', 'zone_parkside_894_911'], [900, 919, 'west', 'zone_pruitt_shop', 'npc_pruitt_lorna', 'zone_parkside_894_912'],
-      [898, 920, 'south', 'zone_kimble_shop', 'npc_kimble_odessa', 'zone_parkside_894_913'], [898, 911, 'north', 'zone_mulcahy_bar', 'npc_mulcahy_declan', 'zone_parkside_898_911'], [898, 913, 'south', 'zone_hcbox_windows', 'npc_hcbox_okafor', 'zone_parkside_898_913']];
+      [896, 922, 'north', 'zone_kimble_shop', 'npc_kimble_odessa', 'zone_parkside_894_913'], [898, 911, 'north', 'zone_mulcahy_bar', 'npc_mulcahy_declan', 'zone_parkside_898_911'], [898, 913, 'south', 'zone_hcbox_windows', 'npc_hcbox_okafor', 'zone_parkside_898_913']];
     const D = { north: [0, -1], south: [0, 1], east: [1, 0], west: [-1, 0] }, OPP = { north: 'south', south: 'north', east: 'west', west: 'east' };
     const bad = [];
     for (const [x, y, ent, room, npc, id] of TRADES) {

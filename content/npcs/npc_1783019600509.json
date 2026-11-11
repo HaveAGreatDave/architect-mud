@@ -140,6 +140,49 @@
       "a mesh crop top",
       "a black g-string"
     ],
+    "figure": {
+      "bottoms": false,
+      "cut": "bomber",
+      "fabric_legs": "denim",
+      "fabric_top": "leather",
+      "gear": false,
+      "hat": false,
+      "legs": [
+        40,
+        52,
+        78
+      ],
+      "scarf": false,
+      "shoes": [
+        20,
+        20,
+        22
+      ],
+      "top": [
+        34,
+        36,
+        30
+      ]
+    },
+    "figure_work": {
+      "cut": "stagehex",
+      "fabric_shoes": "leather",
+      "shirt": [
+        255,
+        60,
+        110
+      ],
+      "shoes": [
+        14,
+        12,
+        14
+      ],
+      "top": [
+        18,
+        16,
+        20
+      ]
+    },
     "mis_requires_zone_flag": "mis_ok",
     "mis_willing": true,
     "personality": "stripper",
@@ -157,46 +200,46 @@
   "vendor_inventory": [],
   "vendor_restock_rate": 1,
   "vendor_schedule": {
-    "fri": [
-      {
-        "from": 19,
-        "to": 24
-      }
-    ],
     "mon": [
       {
         "from": 19,
-        "to": 24
-      }
-    ],
-    "sat": [
-      {
-        "from": 19,
-        "to": 24
-      }
-    ],
-    "sun": [
-      {
-        "from": 19,
-        "to": 24
-      }
-    ],
-    "thu": [
-      {
-        "from": 19,
-        "to": 24
+        "to": 27
       }
     ],
     "tue": [
       {
         "from": 19,
-        "to": 24
+        "to": 27
       }
     ],
     "wed": [
       {
         "from": 19,
-        "to": 24
+        "to": 27
+      }
+    ],
+    "thu": [
+      {
+        "from": 19,
+        "to": 27
+      }
+    ],
+    "fri": [
+      {
+        "from": 19,
+        "to": 27
+      }
+    ],
+    "sat": [
+      {
+        "from": 19,
+        "to": 27
+      }
+    ],
+    "sun": [
+      {
+        "from": 19,
+        "to": 27
       }
     ]
   },

@@ -6,7 +6,7 @@
   ],
   "ambient_theme": "urban",
   "color": "#8fd08a",
-  "description": "Four young trees on a mulch bed beside 2 Halcyon Boulevard. Two posts from an old Halcyon plot board are still in the ground, with a sticker on one of them.",
+  "description": "Four young trees on a mulch bed beside Kimble's Souvenirs & Cards. Two posts from an old Halcyon plot board are still in the ground, with a sticker on one of them.",
   "exits": {
     "east": "zone_district_898_922",
     "north": "zone_district_897_921",

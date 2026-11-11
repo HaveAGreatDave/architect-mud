@@ -9,6 +9,13 @@
     "look": {
       "arche": "sofa",
       "form": "sofa"
+    },
+    "spot": {
+      "at": [
+        3.9,
+        6.3
+      ],
+      "turn": 90
     }
   },
   "hp": null,

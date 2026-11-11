@@ -106,6 +106,7 @@ class El {
   set textContent(v) { this.children = []; this.text = String(v); }
   get innerHTML() { return this.__html || ''; }
   set innerHTML(html) { this.__html = String(html); this.children = parse(String(html), this); }
+  get firstChild() { return this.children[0] ?? null; }
   appendChild(child) { child.parent = this; this.children.push(child); return child; }
   remove() { if (this.parent) this.parent.children = this.parent.children.filter(c => c !== this); this.parent = null; }
   getBoundingClientRect() { return { x: 0, y: 0, width: this.offsetWidth, height: this.offsetHeight, top: 0, left: 0, right: this.offsetWidth, bottom: this.offsetHeight }; }

@@ -5,7 +5,6 @@
   "description": "Rough meadow with a line of pegs across it. The string between them has gone, and the pegs lean.",
   "exits": {
     "north": "zone_district_887_905",
-    "south": "zone_district_887_907",
     "west": "zone_district_886_906"
   },
   "flags": {

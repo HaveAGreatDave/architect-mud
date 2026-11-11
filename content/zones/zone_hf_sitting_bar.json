@@ -12,6 +12,13 @@
     "floor": "boards",
     "is_building": true,
     "is_interior": true,
+    "room": {
+      "w": 12,
+      "d": 9,
+      "h": 3.4,
+      "studio": false,
+      "balcony": false
+    },
     "window": {
       "description": "The whole outside of the bend, floor to ceiling, looking up Kettle Lane. At night the room is the brightest thing on the street and everyone walking past looks in, which the regulars have long since stopped noticing.",
       "light": 0.6,

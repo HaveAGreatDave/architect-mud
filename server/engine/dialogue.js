@@ -358,10 +358,13 @@ export async function checkDialogueChoice({ npc, player, choice, optionIndex, co
   // Back only, never with an option index: advanceDialogue runs the actions of
   // the option at optionIndex, so {choice:'root', optionIndex:k} used to fire
   // option k's rewards and land back on root, as often as the player liked.
-  if (choice === 'root') {
-    if (optionIndex != null) return { ok: false, message: 'That option is no longer there.' };
-    return { ok: true, prevNode: open.node };
-  }
+  //
+  // An OPTION that leads to root does carry an index, and goes through the same
+  // check as any other below: it is let through only when the option at that
+  // index really does lead to root, so its actions are ones the player clicked.
+  // Refusing every indexed 'root' ended the conversation on each authored "back"
+  // option and on the injected "Anything else?".
+  if (choice === 'root' && optionIndex == null) return { ok: true, prevNode: open.node };
   // The injected Browse option exists only where renderDialogueNode adds it: at
   // root, for a vendor with stock that isn't covert. Anywhere else a shop door is
   // an authored option and goes through the index check below like any other,
@@ -369,9 +372,10 @@ export async function checkDialogueChoice({ npc, player, choice, optionIndex, co
   if (choice === '__shop__' && open.node === 'root' && npc.vendor_inventory?.length && !npc.flags?.covert) {
     return { ok: true, prevNode: open.node };
   }
-  const node = (npc.dialogue_tree || {})[open.node];
-  if (!node || !Number.isInteger(optionIndex)) return { ok: false, message: 'That option is no longer there.' };
-  const shown = await filterDialogueOptions(node.options, npc.dialogue_tree, player, context);
+  if (!Number.isInteger(optionIndex)) return { ok: false, message: 'That option is no longer there.' };
+  // The list as it was SHOWN, injected options included: the index the client
+  // sends counts those too.
+  const shown = await shownOptions(npc, open.node, player, context);
   const opt = shown[optionIndex];
   if (!opt || opt.next !== choice || opt._turninDisabled) return { ok: false, message: 'That option is no longer there.' };
   return { ok: true, prevNode: open.node };
@@ -393,6 +397,8 @@ export async function checkDialogueChoice({ npc, player, choice, optionIndex, co
 //   { type: 'end', message }  — the conversation is over, say this
 //   { type: 'frame', node, text, options, stage, mood }
 export async function advanceDialogue({ npc, player, choice, optionIndex, prevNode, context }) {
+  // the NPC being spoken to, for actions that act on them (SET_MOOD, server/engine/npc-mood.js)
+  context = { ...(context || {}), npc: context?.npc || npc };
   const tree = npc.dialogue_tree || {};
 
   // The implicit "Browse your wares." option (injected by renderDialogueNode).
@@ -412,9 +418,11 @@ export async function advanceDialogue({ npc, player, choice, optionIndex, prevNo
   let appendMessage = '';
   let target = choice;
   if (player && optionIndex != null && prevNode) {
-    const prev = tree[prevNode];
-    if (prev) {
-      const filteredOpts = await filterDialogueOptions(prev.options, tree, player, context);
+    {
+      // shownOptions, not the authored list: an injected option ("Anything else?"
+      // goes in FIRST) shifts every index after it, and the option at the wrong
+      // index is somebody else's actions.
+      const filteredOpts = await shownOptions(npc, prevNode, player, context);
       const clickedOpt = filteredOpts[optionIndex];
       for (const a of clickedOpt?.actions || []) {
         if (!a?.action) continue;
@@ -462,7 +470,23 @@ export async function advanceDialogue({ npc, player, choice, optionIndex, prevNo
 // `grants_item` kept as a legacy GRANT_ITEM shorthand) and gates its options the
 // same way the live handler does. Returns null if the node doesn't exist.
 export async function renderDialogueNode(npc, nodeKey, player, context) {
+  // the NPC being spoken to, for actions that act on them (SET_MOOD, server/engine/npc-mood.js)
+  context = { ...(context || {}), npc: context?.npc || npc };
   const tree = npc.dialogue_tree || {};
+
+  // A topic node isn't in the tree: the topic that owns it writes the line.
+  const topic = topicOf(nodeKey);
+  if (topic) {
+    let said = null;
+    try { said = await topic.render({ npc, player, context }); }
+    catch (e) { console.error(`[dialogue] topic ${topic.id}:`, e.message); }
+    const text = typeof said === 'string' ? said : said?.text;
+    if (!text) return null;
+    const options = await shownOptions(npc, nodeKey, player, context);
+    if (said?.back && options[0]) options[0].label = said.back;
+    return { text, options, stage: said?.stage || '', mood: null };
+  }
+
   const node = tree[nodeKey];
   if (!node) return null;
 
@@ -504,6 +528,113 @@ export async function renderDialogueNode(npc, nodeKey, player, context) {
     }
   }
 
+  const options = await shownOptions(npc, nodeKey, player, context);
+  // `{quest}` in a node's text resolves to the quest name a generic hand-in node is
+  // turning in (context.quest_name, set by Tablet OS) so the NPC can name the job.
+  // A node may carry an ARRAY of interchangeable lines (e.g. an NPC's varied sign-offs);
+  // pick one at random each render so repeated visits don't read from a fixed script.
+  // A warmth-specific line if one is authored for (roughly) this relationship,
+  // otherwise the node's ordinary text — see relationVariant above.
+  const chosen = relationVariant(node, npc, player) ?? node.text;
+  const baseText = Array.isArray(chosen) ? chosen[Math.floor(Math.random() * chosen.length)] : chosen;
+  let text = baseText + appendMessage;
+  const questName = context?.quest_name || resolvedQuestName;
+  if (questName) text = text.replace(/\{quest\}/g, questName);
+
+  // `${dotted.path}` tokens (the same syntax Script graphs use — engine/interp.js)
+  // let ONE authored tree serve many speakers: `${npc.name}`, `${player.handle}`,
+  // `${zone}`. Distinct from the legacy `{quest}` brace above, which stays as-is.
+  // Option labels get the same treatment, or a parameterised tree would render a
+  // greeting with tokens and answers without them.
+  const tokens = dialogueTokens(npc, player);
+  text = interp(text, tokens);
+  for (const o of options) if (o?.label) o.label = interp(o.label, tokens);
+
+  // Mood is read on arrival and whenever a line just moved rep — the two moments
+  // it can have changed. Arrival also carries the posture stage direction, unless
+  // a rep swing already claimed the slot (one stage line at a time).
+  const atRoot = nodeKey === 'root';
+  // Talking to someone is how you come to know them. Deliberately AFTER the text
+  // is chosen, so the conversation that introduces you still reads as a first
+  // meeting — you become familiar by having talked, not while talking. Rate-
+  // limited per (player, NPC) inside the substrate, so re-entering root a dozen
+  // times in one conversation counts once. Synchronous, memory-only, no query.
+  if (atRoot && player && npc?.id) touchRelation(player, npc.id, { reason: 'dialogue' });
+  // …and it's also how a quest knows you went and spoke to someone. Fired on the
+  // ROOT node only, for the same reason touchRelation is: one conversation is one
+  // talk, however many options get clicked inside it. Quests' 'talk' objective is
+  // the consumer; dialogue itself stays ignorant of quests (ADR-0002).
+  if (atRoot && player && npc?.id) emit('npc.talked', { actor: player, npc });
+  const mood = (atRoot || repMoved) ? await speakerMood(npc, player) : null;
+  if (atRoot && !stage) stage = ARRIVAL_STAGE[npc.posture] || '';
+
+  return { text, options, stage, mood };
+}
+
+// ── Topics: things you can ask anybody ───────────────────────────────────────
+//
+// A topic is a question no tree has to author: a plugin registers it once and
+// every NPC with a root node gets the option, the way every vendor gets "Browse
+// your wares." The answer is a node that isn't in the tree, `__topic:<id>`, with
+// one option that goes back to root.
+//
+//   registerDialogueTopic({
+//     id:     'whatsup',
+//     label:  'What are you up to?',            // or (npc, player) => string
+//     when:   (npc, player) => true,            // sync; false keeps the option off this NPC
+//     render: ({ npc, player, context }) =>     // may be async
+//       'Working.' | { text, back?, stage? },   // `back` relabels the way back to root
+//   });
+//
+// An author who wants the question worded their way, or somewhere other than
+// root, writes an option with `next: '__topic:<id>'` anywhere in the tree; the
+// injected one then stays out. Who answers and how is the topic's business.
+const TOPIC_PREFIX = '__topic:';
+const topics = new Map();
+
+export function registerDialogueTopic(topic) {
+  if (!topic?.id || !topic.label || typeof topic.render !== 'function') {
+    throw new Error('registerDialogueTopic needs { id, label, render }');
+  }
+  topics.set(topic.id, topic);
+}
+
+/** The node key an option's `next` takes to reach a topic. */
+export function dialogueTopicNode(id) { return TOPIC_PREFIX + id; }
+
+function topicOf(nodeKey) {
+  return typeof nodeKey === 'string' && nodeKey.startsWith(TOPIC_PREFIX)
+    ? topics.get(nodeKey.slice(TOPIC_PREFIX.length)) || null
+    : null;
+}
+
+function rootTopicOptions(npc, tree, player) {
+  if (!topics.size) return [];
+  const authored = new Set();
+  for (const n of Object.values(tree)) for (const o of n?.options || []) if (o?.next) authored.add(o.next);
+  const out = [];
+  for (const t of topics.values()) {
+    const key = TOPIC_PREFIX + t.id;
+    if (authored.has(key)) continue;
+    let ok = true;
+    try { ok = !t.when || !!t.when(npc, player); }
+    catch (e) { ok = false; console.error(`[dialogue] topic ${t.id}:`, e.message); }
+    if (ok) out.push({ label: typeof t.label === 'function' ? t.label(npc, player) : t.label, next: key });
+  }
+  return out;
+}
+
+// ── The options a node SHOWS ─────────────────────────────────────────────────
+//
+// The authored options that pass their gates, plus the ones the engine adds. One
+// function, because three places need the same list in the same order: the frame
+// that is drawn, the check on what the player clicked (the client sends an index
+// into what it was shown) and the lookup of that option's actions.
+async function shownOptions(npc, nodeKey, player, context) {
+  const tree = npc.dialogue_tree || {};
+  if (topicOf(nodeKey)) return tree.root ? [{ label: 'Right.', next: 'root' }] : [];
+  const node = tree[nodeKey];
+  if (!node) return [];
   const options = await filterDialogueOptions(node.options, tree, player, context);
   // Vendors get an implicit "Browse your wares." entry so any shopkeeper is
   // shoppable even if their dialogue never authored a shop option. Injected in
@@ -549,44 +680,7 @@ export async function renderDialogueNode(npc, nodeKey, player, context) {
     const rootOpts = await filterDialogueOptions(tree.root.options, tree, player, context);
     if (rootOpts.length) options.unshift({ label: 'Anything else?', next: 'root' });
   }
-  // `{quest}` in a node's text resolves to the quest name a generic hand-in node is
-  // turning in (context.quest_name, set by Tablet OS) so the NPC can name the job.
-  // A node may carry an ARRAY of interchangeable lines (e.g. an NPC's varied sign-offs);
-  // pick one at random each render so repeated visits don't read from a fixed script.
-  // A warmth-specific line if one is authored for (roughly) this relationship,
-  // otherwise the node's ordinary text — see relationVariant above.
-  const chosen = relationVariant(node, npc, player) ?? node.text;
-  const baseText = Array.isArray(chosen) ? chosen[Math.floor(Math.random() * chosen.length)] : chosen;
-  let text = baseText + appendMessage;
-  const questName = context?.quest_name || resolvedQuestName;
-  if (questName) text = text.replace(/\{quest\}/g, questName);
-
-  // `${dotted.path}` tokens (the same syntax Script graphs use — engine/interp.js)
-  // let ONE authored tree serve many speakers: `${npc.name}`, `${player.handle}`,
-  // `${zone}`. Distinct from the legacy `{quest}` brace above, which stays as-is.
-  // Option labels get the same treatment, or a parameterised tree would render a
-  // greeting with tokens and answers without them.
-  const tokens = dialogueTokens(npc, player);
-  text = interp(text, tokens);
-  for (const o of options) if (o?.label) o.label = interp(o.label, tokens);
-
-  // Mood is read on arrival and whenever a line just moved rep — the two moments
-  // it can have changed. Arrival also carries the posture stage direction, unless
-  // a rep swing already claimed the slot (one stage line at a time).
-  const atRoot = nodeKey === 'root';
-  // Talking to someone is how you come to know them. Deliberately AFTER the text
-  // is chosen, so the conversation that introduces you still reads as a first
-  // meeting — you become familiar by having talked, not while talking. Rate-
-  // limited per (player, NPC) inside the substrate, so re-entering root a dozen
-  // times in one conversation counts once. Synchronous, memory-only, no query.
-  if (atRoot && player && npc?.id) touchRelation(player, npc.id, { reason: 'dialogue' });
-  // …and it's also how a quest knows you went and spoke to someone. Fired on the
-  // ROOT node only, for the same reason touchRelation is: one conversation is one
-  // talk, however many options get clicked inside it. Quests' 'talk' objective is
-  // the consumer; dialogue itself stays ignorant of quests (ADR-0002).
-  if (atRoot && player && npc?.id) emit('npc.talked', { actor: player, npc });
-  const mood = (atRoot || repMoved) ? await speakerMood(npc, player) : null;
-  if (atRoot && !stage) stage = ARRIVAL_STAGE[npc.posture] || '';
-
-  return { text, options, stage, mood };
+  // Topics go last at root, after the shop door: small talk, not business.
+  if (nodeKey === 'root') options.push(...rootTopicOptions(npc, tree, player));
+  return options;
 }

@@ -1,0 +1,10 @@
+{
+  "content": "{\n \"kind\": \"set\",\n \"format\": 1,\n \"id\": \"set_ad_halcyon_reyou\",\n \"name\": \"Halcyon Re-You Advert\",\n \"base\": \"tpl_pitch\",\n \"brand\": {\n  \"name\": \"HALCYON RE-YOU\",\n  \"colour\": \"#40d0c0\"\n },\n \"broadcasts\": [\n  \"bc_1785281085895\"\n ],\n \"palette\": {},\n \"parts\": {\n  \"counter\": {\n   \"text\": \"RE-YOU\"\n  }\n },\n \"description\": \"The Halcyon Re-You advert: clinical white, the Halcyon teal.\"\n}",
+  "created_at": "1794108637",
+  "description": "The Halcyon Re-You advert: clinical white, the Halcyon teal.",
+  "id": "set_ad_halcyon_reyou",
+  "name": "Halcyon Re-You Advert",
+  "tags": [],
+  "type": "set",
+  "updated_at": "1794108921"
+}

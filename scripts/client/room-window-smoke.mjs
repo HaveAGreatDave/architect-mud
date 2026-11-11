@@ -75,7 +75,9 @@ const outlook = read('client/game/js/panels/room-view.js'), ws = read('client/ga
 check('the view is taken with view.still', /still: true/.test(outlook));
 check('the frame painters ask for it', (ws.match(/!still/g) || []).length >= 6, String((ws.match(/!still/g) || []).length));
 const lazy = read('client/game/js/panels/room-outlook.js'), wk = read('client/game/js/panels/room-outlook-worker.js');
-check('the view paints in a worker, with a fallback', lazy.includes('transferFromImageBitmap') && wk.includes('paintWindshield') && lazy.includes('function here()'));
+check('the view paints in a worker, with a fallback', lazy.includes('takeWarm()') && wk.includes('paintWindshield') && lazy.includes('function here()'));
+// the city is four fixed faces looked up by direction, never a picture repainted or slid to follow the head
+check('the city is placed in the world, not drawn to the camera', lazy.includes('onPano') && !lazy.includes('turnWarp') && /uMode == 5/.test(room) && /setPano/.test(room) && /at: \[0, 0\]/.test(lazy));
 check('the page is set up before the renderer loads', wk.indexOf('aPage(main)') < wk.indexOf("await import('./windshield.js')") && !/^import .*windshield/m.test(wk));
 check('a pane is a hole with a view under it', /see \? 0 : 1/.test(room) && /!see && view/.test(room));
 check('a see-through room clears to nothing, or its grey is added through every pane', room.includes('gl.clearColor(see ? 0 : 0.02, see ? 0 : 0.02, see ? 0 : 0.025, see ? 0 : 1)'));

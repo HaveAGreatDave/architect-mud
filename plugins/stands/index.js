@@ -211,7 +211,7 @@ async function cmdStands(args, raw, player, broadcast) {
 // `take <item> from <thing>` would. Everything in a box is on the house.
 // How the suite's hands hold a thing off the menu (client stands-hands.js): a glass you keep, a drug
 // you smoke, a mixer or spirit you pour into the glass, a drink, something to eat. Null is no ritual.
-function heldAs(it) {
+export function heldAs(it) {
   const t = it.tags || {};
   if (t.drinkware) return 'glass';
   if (t.drug) return 'smoke';
@@ -251,31 +251,45 @@ async function fetchInSuite(player, what, broadcast) {
   return handleCommand(`take ${it.name} from ${want}`, player, broadcast);
 }
 
-// `stands order [item]`: the hawker working your section, which the seat's cupholder calls over.
-// The room's stands carry what he sells (`flags.stands.menu`, [{ item, price }]). Bare, it answers
-// with the menu (`stands_menu`, target 'order'); with an item id, it pays and hands it over. A box
-// has its own bar and buffet, so the hawker doesn't come up there.
+// `stands order [item]`: the concessions, ordered from the cupholder on your armrest. The room's
+// stands carry the menu (`flags.stands.menu`, [{ item, price, group? }]). Bare, it answers with the
+// whole menu (`stands_menu`, target 'order'), each item filed under food, drinks, cigarettes or
+// cigars; with an item id, it pays and a runner brings it. A box has its own bar and buffet, so the
+// concessions don't come up there.
+export const CONCESSION_GROUPS = ['food', 'drinks', 'cigarettes', 'cigars'];
+export function concessionGroup(it, given) {
+  if (CONCESSION_GROUPS.includes(given)) return given;
+  if (it.tags?.drug) return /cigar(?!ette)/i.test(it.name || '') ? 'cigars' : 'cigarettes';
+  return it.tags?.restore_hunger && !it.tags?.hydrating ? 'food' : 'drinks';
+}
+// how a seat holds what it buys: as a box holds it, but a drinkable mixer (a can of cola) is just drunk
+const seatKind = (it) => { const held = heldAs(it); return held === 'pour' && it.tags?.consumable ? 'drink' : held; };
 async function orderAtSeat(player, itemId) {
   const s = seated.get(player.id);
   if (!s || s.suite) return { type: 'error', message: s ? "Help yourself. It's all on the house up here." : "You aren't in a seat." };
-  const menu = (standsOf(getZone(s.zoneId))?.menu || []).map((m) => ({ ...m, it: getItem(m.item) })).filter((m) => m.it);
-  if (!menu.length) return { type: 'error', message: 'Nobody is selling anything in this section.' };
+  const menu = (standsOf(getZone(s.zoneId))?.menu || []).map((m) => ({ ...m, it: getItem(m.item) })).filter((m) => m.it)
+    .map((m) => ({ ...m, group: concessionGroup(m.it, m.group) }));
+  if (!menu.length) return { type: 'error', message: 'Nothing is for sale in this section.' };
   if (!itemId) {
-    const line = menu.map((m) => `${esc(m.it.name)} ₵${m.price | 0}`).join(', ');
-    if (loggedPanelsSync(player)) return { type: 'output', message: `The hawker has ${line}. ${teachVerb('stands order')} and the item's id buys one.` };
-    sendToPlayer(player.id, { type: 'stands_menu', target: 'order', name: 'The hawker', description: 'He works the rows with a tray round his neck. Pay him and pass it down.',
-      items: menu.map((m) => ({ id: m.item, name: m.it.name, description: m.it.tags?.description || '', price: m.price | 0, kind: null })) });
+    if (loggedPanelsSync(player)) {
+      const line = CONCESSION_GROUPS.map((g) => [g, menu.filter((m) => m.group === g)]).filter(([, l]) => l.length)
+        .map(([g, l]) => `${g[0].toUpperCase()}${g.slice(1)}: ${l.map((m) => `${esc(m.it.name)} ₵${m.price | 0}`).join(', ')}.`).join(' ');
+      return { type: 'output', message: `${line} ${teachVerb('stands order')} and the item's id buys one.` };
+    }
+    sendToPlayer(player.id, { type: 'stands_menu', target: 'order', name: 'Concessions', description: 'Order from your seat and a runner brings it up.',
+      groups: CONCESSION_GROUPS, credits: player.credits | 0,
+      items: menu.map((m) => ({ id: m.item, name: m.it.name, description: m.it.tags?.description || '', price: m.price | 0, group: m.group, kind: seatKind(m.it), drinkable: !!m.it.tags?.consumable })) });
     return { type: 'noop' };
   }
   const m = menu.find((x) => x.item === String(itemId));
-  if (!m) return { type: 'error', message: "He isn't selling that." };
+  if (!m) return { type: 'error', message: "That isn't on the menu." };
   const price = m.price | 0;
   if (price > 0 && !(await adjustCredits(player, -price, undefined, 'stands'))) return { type: 'error', message: `That's ₵${price}. You have ₵${player.credits | 0}.` };
   await giveItemById(player.id, m.item, 1, { stack: isStackable(m.it) });
   // and into your hands in the seat's view, held as a box's bar stock is
-  const held = heldAs(m.it), kind = held === 'pour' && m.it.tags?.consumable ? 'drink' : held;
+  const kind = seatKind(m.it);
   if (kind && !loggedPanelsSync(player)) sendToPlayer(player.id, { type: 'stands_hand', item: { id: m.item, name: m.it.name, kind, drinkable: !!m.it.tags?.consumable } });
-  return { type: 'output', message: `<span class="msg-system">You pass ₵${price} down the row and the ${esc(m.it.name)} comes back the other way.</span>` };
+  return { type: 'output', message: `<span class="msg-system">You pay ₵${price}, and a runner comes up the steps with your ${esc(m.it.name)}.</span>` };
 }
 
 // A pass into the ticketed box `boxId`, sold at its section's price.

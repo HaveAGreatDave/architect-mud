@@ -2315,35 +2315,58 @@
         "kind": "mirror",
         "name": "main gear",
         "parts": [
-          { "kind": "strut", "name": "main leg", "at": [0.3, 0.13], "top": -0.17, "bot": -0.225, "r": 0.011 },
-          { "kind": "wheel", "name": "main wheel", "at": [0.3, 0.108, -0.24], "r": 0.045, "hw": 0.016, "n": 10 },
-          { "kind": "wheel", "name": "main wheel", "at": [0.3, 0.152, -0.24], "r": 0.045, "hw": 0.016, "n": 10 },
-          { "kind": "strut", "name": "main leg", "at": [0.155, 0.13], "top": -0.17, "bot": -0.225, "r": 0.011 },
-          { "kind": "wheel", "name": "main wheel", "at": [0.155, 0.108, -0.24], "r": 0.045, "hw": 0.016, "n": 10 },
-          { "kind": "wheel", "name": "main wheel", "at": [0.155, 0.152, -0.24], "r": 0.045, "hw": 0.016, "n": 10 },
-          { "kind": "strut", "name": "main leg", "at": [0.01, 0.13], "top": -0.17, "bot": -0.225, "r": 0.011 },
-          { "kind": "wheel", "name": "main wheel", "at": [0.01, 0.108, -0.24], "r": 0.045, "hw": 0.016, "n": 10 },
-          { "kind": "wheel", "name": "main wheel", "at": [0.01, 0.152, -0.24], "r": 0.045, "hw": 0.016, "n": 10 },
-          { "kind": "strut", "name": "main leg", "at": [-0.135, 0.13], "top": -0.17, "bot": -0.225, "r": 0.011 },
-          { "kind": "wheel", "name": "main wheel", "at": [-0.135, 0.108, -0.24], "r": 0.045, "hw": 0.016, "n": 10 },
-          { "kind": "wheel", "name": "main wheel", "at": [-0.135, 0.152, -0.24], "r": 0.045, "hw": 0.016, "n": 10 },
-          { "kind": "strut", "name": "main leg", "at": [-0.28, 0.13], "top": -0.17, "bot": -0.225, "r": 0.011 },
-          { "kind": "wheel", "name": "main wheel", "at": [-0.28, 0.108, -0.24], "r": 0.045, "hw": 0.016, "n": 10 },
-          { "kind": "wheel", "name": "main wheel", "at": [-0.28, 0.152, -0.24], "r": 0.045, "hw": 0.016, "n": 10 }
+          {
+            "kind": "group",
+            "name": "main bogies",
+            "note": "The five legs ride up and a little inboard into the sponson and the belly as the gear comes up, the An-124 way.",
+            "parts": [
+              { "kind": "strut", "name": "main leg", "at": [0.3, 0.13], "top": -0.17, "bot": -0.225, "r": 0.011 },
+              { "kind": "wheel", "name": "main wheel", "at": [0.3, 0.108, -0.24], "r": 0.045, "hw": 0.016, "n": 10 },
+              { "kind": "wheel", "name": "main wheel", "at": [0.3, 0.152, -0.24], "r": 0.045, "hw": 0.016, "n": 10 },
+              { "kind": "strut", "name": "main leg", "at": [0.155, 0.13], "top": -0.17, "bot": -0.225, "r": 0.011 },
+              { "kind": "wheel", "name": "main wheel", "at": [0.155, 0.108, -0.24], "r": 0.045, "hw": 0.016, "n": 10 },
+              { "kind": "wheel", "name": "main wheel", "at": [0.155, 0.152, -0.24], "r": 0.045, "hw": 0.016, "n": 10 },
+              { "kind": "strut", "name": "main leg", "at": [0.01, 0.13], "top": -0.17, "bot": -0.225, "r": 0.011 },
+              { "kind": "wheel", "name": "main wheel", "at": [0.01, 0.108, -0.24], "r": 0.045, "hw": 0.016, "n": 10 },
+              { "kind": "wheel", "name": "main wheel", "at": [0.01, 0.152, -0.24], "r": 0.045, "hw": 0.016, "n": 10 },
+              { "kind": "strut", "name": "main leg", "at": [-0.135, 0.13], "top": -0.17, "bot": -0.225, "r": 0.011 },
+              { "kind": "wheel", "name": "main wheel", "at": [-0.135, 0.108, -0.24], "r": 0.045, "hw": 0.016, "n": 10 },
+              { "kind": "wheel", "name": "main wheel", "at": [-0.135, 0.152, -0.24], "r": 0.045, "hw": 0.016, "n": 10 },
+              { "kind": "strut", "name": "main leg", "at": [-0.28, 0.13], "top": -0.17, "bot": -0.225, "r": 0.011 },
+              { "kind": "wheel", "name": "main wheel", "at": [-0.28, 0.108, -0.24], "r": 0.045, "hw": 0.016, "n": 10 },
+              { "kind": "wheel", "name": "main wheel", "at": [-0.28, 0.152, -0.24], "r": 0.045, "hw": 0.016, "n": 10 }
+            ],
+            "anim": { "ch": "gear", "slide": [0, -0.045, 0.075], "span": [1, 0] }
+          }
         ]
       },
       {
         "kind": "group",
         "name": "nose gear",
+        "note": "Each leg swings aft into the belly about its own top.",
         "parts": [
-          { "kind": "strut", "name": "nose leg", "at": [0.47, 0], "top": -0.17, "bot": -0.225, "r": 0.011 },
-          { "kind": "tube", "name": "nose axle", "pts": [[0.47, -0.045, -0.24], [0.47, 0.045, -0.24]], "r": 0.007, "role": "gear" },
-          { "kind": "wheel", "name": "nose wheel", "at": [0.47, 0.028, -0.24], "r": 0.045, "hw": 0.014, "n": 10 },
-          { "kind": "wheel", "name": "nose wheel", "at": [0.47, -0.028, -0.24], "r": 0.045, "hw": 0.014, "n": 10 },
-          { "kind": "strut", "name": "nose leg", "at": [0.39, 0], "top": -0.17, "bot": -0.225, "r": 0.011 },
-          { "kind": "tube", "name": "nose axle", "pts": [[0.39, -0.045, -0.24], [0.39, 0.045, -0.24]], "r": 0.007, "role": "gear" },
-          { "kind": "wheel", "name": "nose wheel", "at": [0.39, 0.028, -0.24], "r": 0.045, "hw": 0.014, "n": 10 },
-          { "kind": "wheel", "name": "nose wheel", "at": [0.39, -0.028, -0.24], "r": 0.045, "hw": 0.014, "n": 10 }
+          {
+            "kind": "group",
+            "name": "fore nose leg",
+            "parts": [
+              { "kind": "strut", "name": "nose leg", "at": [0.47, 0], "top": -0.17, "bot": -0.225, "r": 0.011 },
+              { "kind": "tube", "name": "nose axle", "pts": [[0.47, -0.045, -0.24], [0.47, 0.045, -0.24]], "r": 0.007, "role": "gear" },
+              { "kind": "wheel", "name": "nose wheel", "at": [0.47, 0.028, -0.24], "r": 0.045, "hw": 0.014, "n": 10 },
+              { "kind": "wheel", "name": "nose wheel", "at": [0.47, -0.028, -0.24], "r": 0.045, "hw": 0.014, "n": 10 }
+            ],
+            "anim": { "ang": [90, 0], "axis": [0, 1, 0], "ch": "gear", "pivot": [0.47, 0, -0.17] }
+          },
+          {
+            "kind": "group",
+            "name": "aft nose leg",
+            "parts": [
+              { "kind": "strut", "name": "nose leg", "at": [0.39, 0], "top": -0.17, "bot": -0.225, "r": 0.011 },
+              { "kind": "tube", "name": "nose axle", "pts": [[0.39, -0.045, -0.24], [0.39, 0.045, -0.24]], "r": 0.007, "role": "gear" },
+              { "kind": "wheel", "name": "nose wheel", "at": [0.39, 0.028, -0.24], "r": 0.045, "hw": 0.014, "n": 10 },
+              { "kind": "wheel", "name": "nose wheel", "at": [0.39, -0.028, -0.24], "r": 0.045, "hw": 0.014, "n": 10 }
+            ],
+            "anim": { "ang": [90, 0], "axis": [0, 1, 0], "ch": "gear", "pivot": [0.39, 0, -0.17] }
+          }
         ]
       },
       {

@@ -8,7 +8,15 @@
   },
   "flags": {
     "floor": "concrete",
-    "is_interior": true
+    "is_interior": true,
+    "room": {
+      "balcony": false,
+      "d": 4,
+      "h": 2.4,
+      "studio": false,
+      "w": 4,
+      "windowless": true
+    }
   },
   "grid_x": 0,
   "grid_y": -1,

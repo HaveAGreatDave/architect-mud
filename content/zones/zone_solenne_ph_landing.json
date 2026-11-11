@@ -13,13 +13,57 @@
   },
   "flags": {
     "building_name": "Solenne Residences",
-    "floor": "carpet",
+    "floor": "stone",
     "is_interior": true,
-    "window": {
-      "description": "A window with a bad seal, letting in a draught and a slice of whatever the weather is doing.",
-      "light": 0.75,
-      "name": "the window",
-      "visibility": 0.8
+    "room": {
+      "balcony": false,
+      "d": 3.2,
+      "decor": {
+        "ceiling": {
+          "band": 0.42,
+          "drop": 0.16,
+          "hex": "#efeae0",
+          "kind": "cove",
+          "trim": "#b8913e"
+        },
+        "downlights": false,
+        "plaques": {
+          "zone_solenne_penthouse": "J. AKERSON"
+        },
+        "rug": false,
+        "walls": [
+          {
+            "hex": "#ece6da",
+            "kind": "limestone",
+            "on": [
+              "back",
+              "left",
+              "right"
+            ]
+          },
+          {
+            "hex": "#8a6a44",
+            "kind": "bronze",
+            "on": [
+              "front"
+            ],
+            "pitch": 1.3
+          }
+        ]
+      },
+      "face": 0,
+      "finish": "fine",
+      "ground": "stone",
+      "h": 3.2,
+      "studio": false,
+      "tone": {
+        "accent": "#b8913e",
+        "ceiling": "#efeae0",
+        "trim": "#17130f",
+        "wall": "#d8d2c6"
+      },
+      "w": 5.2,
+      "windowless": true
     }
   },
   "grid_x": 0,

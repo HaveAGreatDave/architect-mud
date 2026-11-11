@@ -32,20 +32,45 @@ function aPage(canvas) {
   };
 }
 
-let G = null, msg = null, base = null, main = null;
+let G = null, msg = null, base = null, main = null, warming = null;
+
+// ⚠ THE RENDERER LOADS BEFORE THE ROOM SAYS WHERE IT IS. Loading windshield.js and GL is most of the seconds a view
+// takes to start, and none of it needs `room_outlook`, so room-outlook.js `warmOutlook` sends `warm` as the room opens.
+function warm() {
+  if (warming) return warming;
+  main = asElement(new OffscreenCanvas(1, 1));
+  aPage(main);
+  warming = (async () => {
+    G = await import('./windshield.js');
+    await (await import('./gl/install.js')).installGL?.();
+  })();
+  return warming;
+}
 
 async function start(m) {
-  main = asElement(new OffscreenCanvas(1, 1));
   msg = m.msg;
-  aPage(main);
-  G = await import('./windshield.js');
-  await (await import('./gl/install.js')).installGL?.();
+  await warm();
   base = eyeBase(msg, G.modelTopZAt);
   self.postMessage({ type: 'ready', eye: base.z, eyeX: base.x, eyeY: base.y, fxK: G.viewLatFocal(1000, null) / 500, vfK: G.viewFocal(1000, 1) / 1000 });
 }
 
+// ⚠ GLASS 2 COMES BACK HERE ON ITS OWN. A lost context (a GPU reset, the machine waking from sleep) makes GLASS switch
+// itself to GLASS 1 basic, and on a page `visibilitychange` revives it. This page's `document` is a stub that never
+// fires, so the view out of the window stayed flat boxes for as long as the building's view lived. So a frame finds
+// GL off, says so once, and turns it back on after a wait that doubles each time, a few times at most.
+const REVIVE_MS = 1500, REVIVE_MAX = 6;
+let glWas = true, revives = 0, reviveAt = 0;
+function keepGlass() {
+  const on = !!G.RENDER_TUNE.gl, now = performance.now();
+  if (on !== glWas) { glWas = on; self.postMessage({ type: 'gl', on, why: on ? null : G.glLastError?.()?.message || null, revives }); }
+  if (on) return;
+  if (!reviveAt) { reviveAt = now + REVIVE_MS * 2 ** revives; return; }
+  if (now >= reviveAt && revives < REVIVE_MAX) { revives++; reviveAt = 0; G.setGlass(true); }
+}
+
 async function frame(m) {
   if (main.width !== m.W || main.height !== m.H) { main.width = m.W; main.height = m.H; }
+  keepGlass();
   G.paintWindshield(ID, viewOf(msg, base, m));
   const bitmap = await createImageBitmap(main);
   self.postMessage({ type: 'painted', bitmap }, [bitmap]);
@@ -54,10 +79,16 @@ async function frame(m) {
 self.onmessage = (e) => {
   const m = e.data;
   try {
-    if (m.type === 'start') start(m).catch((err) => self.postMessage({ type: 'failed', why: String(err?.message || err) }));
+    if (m.type === 'warm') warm().catch(() => { /* `start` meets the same error and reports it */ });
+    else if (m.type === 'start') start(m).catch((err) => self.postMessage({ type: 'failed', why: String(err?.message || err) }));
     else if (m.type === 'sky') msg.sky = { ...(msg.sky || {}), ...m.sky };
+    // the next room of the same building: the eye moves, the map stays (room-outlook.js `place`)
+    else if (m.type === 'place') {
+      msg = { ...msg, ...m.msg };
+      if (G) { base = eyeBase(msg, G.modelTopZAt); self.postMessage({ type: 'placed', eye: base.z, eyeX: base.x, eyeY: base.y }); }
+    }
     else if (m.type === 'frame' && G && base) frame(m).catch((err) => self.postMessage({ type: 'failed', why: String(err?.message || err) }));
     // for a harness: what the worker last painted, whether or not the page is presenting frames
-    else if (m.type === 'peek') main.convertToBlob({ type: 'image/jpeg', quality: 0.9 }).then((blob) => self.postMessage({ type: 'peeked', blob }));
+    else if (m.type === 'peek') (main ? main.convertToBlob({ type: 'image/jpeg', quality: 0.9 }) : Promise.resolve(null)).then((blob) => self.postMessage({ type: 'peeked', blob }));
   } catch (err) { self.postMessage({ type: 'failed', why: String(err?.message || err) }); }
 };

@@ -38,6 +38,8 @@ import { acuityFor, perceptionBand, perceive, acuityNote, wouldOverload, EXTREME
 import { creatureFilthSmells, bodyOdourSelf } from '../hygiene.js';
 import { getMutations } from '../mutations.js';
 import { cap, withArticle } from '../util.js';
+import { npcMoodOf } from '../npc-mood.js';
+import { moodTell } from '../../../client/shared/expressions.js';
 import { isAnimal } from './social.js';
 
 // Naked body descriptions shown when every clothing layer is peeled. Split by sex
@@ -1015,6 +1017,9 @@ async function cmdExamine(targetStr, player, broadcast) {
           : seen.description;
         return { type:'examine', message:`${c.name}\n${look || seen.description}\n<span class="text-dim">Actions:</span> ${talkLink}  ${attackLink}` };
       }
+      // their mood, as their face shows it (server/engine/npc-mood.js)
+      const md = npcMoodOf(c), moodLine = md ? moodTell(md.m, md.i) : '';
+      if (moodLine) postureLine += `\n<span class="text-dim">${c.name} ${moodLine}</span>`;
       return { type:'examine', message:`${c.name}\n${c.description}${postureLine}${npcClothingLine(c, player)}\n<span class="text-dim">Actions:</span> ${talkLink}  ${attackLink}` };
     }
     if (c._examType === 'player') {

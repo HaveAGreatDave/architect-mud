@@ -1,24 +1,30 @@
 {
-  "ambient_events": [],
-  "ambient_theme": "forest",
-  "color": "#8ba36a",
-  "description": "A row of pegs crosses the meadow. The string between them has gone, and the pegs lean.",
+  "ambient_events": [
+    "Two men carry a door between them, arguing about which way is level.",
+    "A handcart goes by loaded with bricks, one wheel squealing."
+  ],
+  "ambient_theme": "city",
+  "description": "Tenter Lane starts at the edge of the meadow as two cart ruts, filled with gravel for ten yards by somebody who then stopped. It runs east between the tents and the old houses. Everything on its south side was outside the wall until this month.",
   "exits": {
     "east": "zone_district_920_920",
     "north": "zone_district_919_919",
-    "south": "zone_district_919_921",
     "west": "zone_district_918_920"
   },
   "flags": {
-    "district": "residential",
+    "artery": [
+      "Tenter Lane"
+    ],
+    "district": "slum",
     "region_id": "region_coldwater",
-    "terrain": "grass"
+    "scavenging_table_id": "scav_roadside_junk",
+    "street_life": true,
+    "terrain": "dirt"
   },
   "grid_x": 919,
   "grid_y": 920,
   "grid_z": 0,
   "id": "zone_district_919_920",
   "map_id": "map_world",
-  "name": "Grasslands",
+  "name": "Tenter Lane",
   "parent_zone": null
 }

@@ -14,6 +14,13 @@
     "floor": "boards",
     "is_building": true,
     "is_interior": true,
+    "room": {
+      "w": 12,
+      "d": 9,
+      "h": 3.4,
+      "studio": false,
+      "balcony": false
+    },
     "window": {
       "description": "There is no window. There is a red bulb over the door and a two-inch gap under it, and between them you can tell whether it is night, raining, or both, which is as much weather as this room has ever wanted.",
       "light": 0.85,

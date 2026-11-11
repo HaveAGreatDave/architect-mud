@@ -227,6 +227,9 @@ export function createFreeCam() {
       // having stopped working.
       const dx = x - st.ax, dy = y - st.ay, d = Math.hypot(dx, dy);
       if (st.leash > 0 && d > st.leash) { const k = st.leash / d; x = st.ax + dx * k; y = st.ay + dy * k; }
+      // what's in the way of somebody on foot (setWalkBlock): the panel answers with where the step ends
+      if (st.walkBlock && st.placed) { const p = st.walkBlock(st.x, st.y, x, y); if (p) { x = p[0]; y = p[1]; } }
+      st.placed = true;
       st.x = x; st.y = y; st.z = st.eye;
       return;
     }
@@ -342,11 +345,15 @@ export function createFreeCam() {
       // ⚠ THE CONSTRAINTS BEFORE THE POSITION, because `place` reads them. Seeded the other way
       // round the first frame is spent at an unleashed height and the shot drops into itself.
       st.stand = !!seed.stand;
+      // a person's own pace, { walk: tiles/s, run: Shift's multiplier }: on foot in the street it's the
+      // Room Stage's (freelook-view.js FOOT_PACE). Unset, a vantage keeps STAND_WALK's ladder
+      st.pace = st.stand && seed.pace && Number.isFinite(seed.pace.walk) ? { walk: seed.pace.walk, run: Number(seed.pace.run) || 1.9 } : null;
       st.eye = seed.eye != null ? seed.eye : STAND_EYE;
       st.leash = st.stand ? (seed.leash != null ? seed.leash : STAND_LEASH) : 0;
       // The anchor the leash is measured from IS where the camera was put down, which is what makes
       // `stand` mean "here" rather than "within half a tile of the middle of this tile".
       st.ax = seed.x || 0; st.ay = seed.y || 0;
+      st.placed = false;   // being put down isn't a step, so nothing blocks it (walkBlock)
       place(seed.x || 0, seed.y || 0, seed.z != null ? seed.z : 0.45);
       // The lens comes back to the seat's own, for the reason the roll does: the shot you were
       // handed is the one the panel can honestly describe, and it cannot describe a zoom it has
@@ -454,6 +461,8 @@ export function createFreeCam() {
     // clear, up to `max`, in the same offset tiles as `view()`. Anything not finite means all of it.
     // One per camera, set by the panel that has the map; without one nothing is ever in the way.
     setTrackReach(fn) { st.reach = typeof fn === 'function' ? fn : null; },
+    // what's held now, for whatever takes the keyboard next (lobby-still.js noteCarry)
+    heldKeys() { return [...st.keys]; },
     releaseAll() { st.keys.clear(); st.btn.clear(); stopPush(); stopStick(); },
 
     // ── THE THUMBSTICK ────────────────────────────────────────────────────────
@@ -702,7 +711,11 @@ export function createFreeCam() {
       // move the walk, the sprint and the crawl together. See SPEED_STEP.
       // On foot it is a walk, not a flight: a ship's deck is a fraction of a tile and the flying
       // BASE crosses it in a tenth of a second. STAND_WALK scales the whole ladder down together.
-      const sp = (held('shift') ? FAST : held('control') ? SLOW : BASE) * st.speed * d * (st.stand ? STAND_WALK : 1);
+      // With a pace of its own (somebody on foot in the street) the walk is the room's walk: the same
+      // feet a second and the same Shift, so going out the front door doesn't change how you move.
+      const sp = st.stand && st.pace
+        ? st.pace.walk * (held('shift') ? st.pace.run : held('control') ? 0.5 : 1) * st.speed * d
+        : (held('shift') ? FAST : held('control') ? SLOW : BASE) * st.speed * d * (st.stand ? STAND_WALK : 1);
       // The view axes, in the frame `makeCam` reads: forward is (sin, −cos) and right is (cos, sin)
       // — the same two expressions the projection is built from, so "forward" here and "into the
       // screen" there cannot drift apart. Forward carries the pitch, because a camera you can only
@@ -731,7 +744,7 @@ export function createFreeCam() {
       if (held('f') || st.btn.has('down')) go(0, 0, -sp);
       // The touch stick: the walk rate at the ring, rising to the sprint as the thumb goes past it.
       if (st.sx || st.sy) {
-        const k = (BASE + (FAST - BASE) * st.run) / BASE;
+        const k = st.stand && st.pace ? 1 + (st.pace.run - 1) * st.run : (BASE + (FAST - BASE) * st.run) / BASE;
         go(sp * k * st.sy, sp * k * st.sx, 0);
       }
     },
@@ -765,6 +778,12 @@ export function createFreeCam() {
     // and may go on owning it: a deck on a swell is a floor whose height is a function of the
     // clock, and this is how that reaches the shot. A no-op flying, where z is the camera's own.
     setEye(z) { if (!st.on || !st.stand || !Number.isFinite(z)) return false; st.eye = z; st.z = z; return true; },
+    // `fn(x0, y0, x1, y1)`: a standing camera stepping from one spot to another, in `view()`'s offset tiles;
+    // it answers [x, y], where the step ends (the wall it slid along), or nothing to let it through. A rebase
+    // isn't a step. One per camera, set by the panel that has the map.
+    setWalkBlock(fn) { st.walkBlock = typeof fn === 'function' ? fn : null; },
+    // The pace of somebody on foot, changed while they walk (a crouch, freelook-view.js): `open`'s own `pace`.
+    setPace(p) { if (!st.on || !st.stand || !p || !Number.isFinite(p.walk)) return false; st.pace = { walk: p.walk, run: Number(p.run) || 1.9 }; return true; },
     // The ground or seabed under the camera, from the view: it may not sink through it. Keeps the
     // camera's own state honest, so pushing down into the floor does not bank height you then have
     // to climb back out of before anything on screen moves.
@@ -774,6 +793,11 @@ export function createFreeCam() {
       if (!st.on || st.stand || !Number.isFinite(min) || !(st.z < min)) return;
       st.z = min;
       if (st.trk) faceTo(...trkAt());
+    },
+    // The roof, for a camera flown inside something (under-view.js keeps it in the tunnels).
+    clampCeil(max) {
+      if (!st.on || st.stand || !Number.isFinite(max) || !(st.z > max)) return;
+      st.z = max;
     },
 
     // ── PUTTING YOUR FEET DOWN WITHOUT LOSING THE SHOT ──────────────────────

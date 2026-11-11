@@ -13,7 +13,22 @@
   "flags": {
     "floor": "boards",
     "is_interior": true,
-    "mis_ok": true
+    "mis_ok": true,
+    "room": {
+      "balcony": false,
+      "d": 4,
+      "h": 2.8,
+      "studio": false,
+      "w": 5,
+      "windowless": true,
+      "club": "vip",
+      "tone": {
+        "wall": "#4a1420",
+        "trim": "#1a0c10",
+        "ceiling": "#140a0e",
+        "accent": "#c9a24a"
+      }
+    }
   },
   "grid_x": 0,
   "grid_y": -1,

@@ -58,13 +58,46 @@ function gradientOf(g, src, x, y, w, h) {
 // What an inline SVG's rules give its shapes, written onto a copy, since the sheets don't reach an
 // SVG drawn as an image.
 const SVG_PROPS = ['fill', 'stroke', 'stroke-width', 'opacity', 'font-size', 'font-family', 'font-weight'];
-function svgMarkup(el, w, h) {
+// ⚠ AN ANIMATED SVG IS FROZEN WHERE IT IS. A title card that animates itself in (the CPhL's open wipes its
+// wordmark in by a clip rect that starts at no width) is an image at time nought once it's copied, and an
+// image's clock never runs on a canvas: the set on the wall showed the bare backdrop for the whole theme.
+// So `still` writes what each shape is animated to right now onto the copy and turns its animations off,
+// and the painter takes a new copy while anything's moving.
+const SVG_MOVING = ['x', 'y', 'width', 'height', 'cx', 'cy', 'r', 'rx', 'ry', 'transform', 'transform-origin', 'transform-box',
+  'fill-opacity', 'stroke-opacity', 'stroke-dasharray', 'stroke-dashoffset', 'clip-path', 'visibility', 'display', 'letter-spacing'];
+// ⚠ NOR DOES AN IMAGE LOAD ANYTHING, so a font the SVG names by URL is written into the copy as data. Each
+// is fetched once; `fontRev` moves when one lands, and the copy made without it is made again.
+const fonts = new Map();
+let fontRev = 0;
+function withFonts(markup) {
+  return markup.replace(/url\((["']?)(\/[^)"']+?\.woff2?)\1\)/g, (all, q, url) => {
+    const have = fonts.get(url);
+    if (have) return `url(${have})`;
+    if (have === undefined) {
+      fonts.set(url, null);
+      fetch(url).then((r) => (r.ok ? r.blob() : null))
+        .then((b) => b && new Promise((done) => { const fr = new FileReader(); fr.onload = () => done(fr.result); fr.onerror = () => done(null); fr.readAsDataURL(b); }))
+        .then((data) => { if (data) { fonts.set(url, data); fontRev++; } })
+        .catch(() => { /* the fallback face */ });
+    }
+    return all;
+  });
+}
+function svgMarkup(el, w, h, still) {
   const copy = el.cloneNode(true), from = el.querySelectorAll('*'), to = copy.querySelectorAll('*');
-  from.forEach((n, i) => { const cs = getComputedStyle(n); for (const p of SVG_PROPS) to[i].setAttribute(p, cs.getPropertyValue(p)); });
+  from.forEach((n, i) => {
+    const cs = getComputedStyle(n);
+    for (const p of SVG_PROPS) to[i].setAttribute(p, cs.getPropertyValue(p));
+    if (!still || !to[i].style) return;
+    // inline, since the copy's own sheet outranks an attribute
+    for (const p of [...SVG_PROPS, ...SVG_MOVING]) to[i].style.setProperty(p, cs.getPropertyValue(p));
+    to[i].style.setProperty('animation', 'none');
+  });
   copy.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
   copy.setAttribute('width', w); copy.setAttribute('height', h);
-  return new XMLSerializer().serializeToString(copy);
+  return withFonts(new XMLSerializer().serializeToString(copy));
 }
+const SVG_MS = 100;   // how often a moving SVG is copied again
 
 // `root` is the element, `canvas` where it goes. `special(el, cs, g, box)` may draw an element itself
 // and return true.
@@ -74,6 +107,7 @@ export function createPagePaint(root, canvas, { special = null } = {}) {
   // A canvas's last frame, for one whose buffer is gone by the time a paint comes round: a WebGL
   // picture only lasts until the task that drew it ends.
   const grabbed = new WeakMap();
+  const moving = new WeakMap();   // an animated SVG's copies: { im, next, at, was, key }
   let o = null;
 
   function imageOf(key, url) {
@@ -123,9 +157,26 @@ export function createPagePaint(root, canvas, { special = null } = {}) {
     if (tag === 'canvas') { if (el.width && el.height) g.drawImage(grabbed.get(el) || el, x, y, w, h); return true; }
     if (tag === 'img') { if (el.complete && el.naturalWidth) g.drawImage(el, x, y, w, h); return true; }
     if (tag === 'svg') {
-      const key = el.outerHTML + w + 'x' + h;
-      const im = images.get(key) || imageOf(key, 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svgMarkup(el, w, h)));
-      if (im.complete && im.naturalWidth) g.drawImage(im, x, y, w, h);
+      const anims = el.getAnimations?.({ subtree: true }) || [];
+      if (!anims.length) {
+        const key = el.outerHTML + w + 'x' + h + '|' + fontRev;
+        const im = images.get(key) || imageOf(key, 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svgMarkup(el, w, h, false)));
+        if (im.complete && im.naturalWidth) g.drawImage(im, x, y, w, h);
+        return true;
+      }
+      // one that animates: the last copy that loaded is drawn while the next one does, and one more is
+      // taken after the last thing stops, which is the picture it rests on
+      let s = moving.get(el);
+      if (!s) moving.set(el, s = { im: null, next: null, at: 0, was: true, key: '' });
+      const now = performance.now(), run = anims.some((a) => a.playState === 'running'), key = `${w}x${h}|${fontRev}`;
+      if (!s.next && (key !== s.key || ((run || s.was) && now - s.at >= SVG_MS))) {
+        s.key = key; s.at = now; s.was = run;
+        const im = s.next = new Image();
+        im.onload = () => { s.im = im; s.next = null; };
+        im.onerror = () => { s.next = null; };
+        im.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svgMarkup(el, w, h, true));
+      }
+      if (s.im) g.drawImage(s.im, x, y, w, h);
       return true;
     }
     return false;

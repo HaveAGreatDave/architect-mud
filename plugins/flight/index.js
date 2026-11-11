@@ -1104,6 +1104,10 @@ async function retrieveOffField(live, player, { abort = false } = {}) {
 }
 
 async function cmdFlightEvent(args, raw, player, broadcast) {
+  // A `land` carries the aircraft id (args[5]). If the server lost the seat mid-flight (a restart
+  // the login resume missed), take it back here, or the landing is dropped as "not aboard" and the
+  // pilot is left in the room they boarded from with a dead cockpit on screen.
+  if (!player.aircraftId && String(args[0] || '').toLowerCase() === 'land' && args[5]) await cmdFlightResume([args[5]], '', player);
   const live = player.aircraftId ? liveAircraft.get(player.aircraftId) : null;
   if (!live || player.seat !== 'pilot' || !isContinuous(live)) return { type: 'noop' };
   const ev = (args[0] || '').toLowerCase();

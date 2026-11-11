@@ -3,16 +3,16 @@
 //   node scripts/shapes/concepts/reaper-2076.mjs
 //   then: npm run vehicles:bake
 //
-// The Reaper fifty years on. The ancestor is the A-10 Thunderbolt II (the stock mesh); the bridge is
-// the Boeing MQ-28 Ghost Bat, the loyal wingman that flies beside a crewed aircraft and takes the
-// risks it is told to. The 2076 aircraft is still the gun with a plane round it: a seven-barrel
-// rotary cannon hangs in the open under a chined nose and runs back into the belly to a drum the size
-// of a car, and everything else is armour, engines high out of the dust, and a straight thick wing
-// that can take hits. It keeps the A-10's bubble on an armoured tub, its gear standing half out of
-// leading-edge pods, its turbofans high on the rear fuselage between twin fins (now canted out), and
-// stores on pylons. And it carries two uncrewed wingmen after the Ghost Bat, docked conformal on the
-// top of the outer wing panels, which lift off and fly in formation off each wingtip while the
-// weapons are armed (the `wingmen` channel; see the wingmen below).
+// The Reaper fifty years on. The ancestor is the A-10 Thunderbolt II (the stock mesh). The 2076
+// aircraft is still the gun with a plane round it: a seven-barrel rotary cannon hangs in the open
+// under a chined nose and runs back into the belly to a drum the size of a car. Everything round it
+// has moved on. The bubble is one frameless gold-tinted piece on the armoured tub. Aft of the cockpit
+// the body flares into a broad flat engine deck with both turbofans buried in it, still high out of
+// the dust: each breathes through a dorsal intake on the deck's shoulder and blows out of a flat slot
+// nozzle over a beavertail. Two fins stand canted hard out on the deck's edges ahead of the nozzles,
+// over a swept tailplane. The wing keeps its thickness and its gear pods but is swept, raked at the
+// tips and run into the body by strakes. Light lines trace the chines, the deck's edges, the intakes'
+// lips and every leading edge.
 //
 // A variant of the gunship mesh (mesh_gunship.json `variants`, written by fw-meshes/reaper.mjs), worn
 // as the REAPER 2076 factory edition. Same frame and scale as the stock body: the gun's muzzles at
@@ -22,22 +22,29 @@
 // ⚠ THIS OVERWRITES THE JSON. Edit this file, not the mesh in the Modelshop.
 //
 // ⚠ THE GUN'S BARRELS ARE THE ONLY FACES PAINTED `gun`. The renderer finds the muzzles as the
-// forward-most `gun` faces each side of the centreline (windshield.js gunMuzzles), so a clamp, a
-// shroud or a wingman painted `gun` would move where the tracers start.
+// forward-most `gun` faces each side of the centreline (windshield.js gunMuzzles), so a clamp or a
+// shroud painted `gun` would move where the tracers start.
+//
+// ⚠ THE EXHAUST HAZE IS DRAWN AT THE NOZZLES' EXITS (windshield.js, the gunship's 2076 arm), which are
+// rpEngineAxis(RP_ENGINES.tailF). Move the engines and that table moves with them by hand.
+//
+// ⚠ EVERYTHING STAYS BETWEEN f -1.08 AND 1.0. interior-reaper-2076.js scales the cockpit by the
+// compiled model's length, so a part past either end shrinks the room.
 //
 // Two bodies in one file. Everything fine is `minDetail: 1`; a coarse body with `maxDetail: 0` stands
 // in at range. The wing and tail come from lib.mjs's `foil`, which carries its own far body.
 //
 // Frame: f fore, g right, h up. Angles on a section are lib.mjs's: 0 = right waterline, +90 = crown.
 import { writeFileSync } from 'node:fs';
-import { R, P3, loft, pod, foil, ctrlOn, tube, mirror, group, poly as rawPoly, quad, cone, wheel, faired, DEG, foilPt, lerpSt } from '../fw-meshes/lib.mjs';
+import { R, P3, loft, pod, foil, ctrlOn, tube, mirror, group, poly as rawPoly, quad, wheel, faired, DEG, foilPt, lerpSt, skin } from '../fw-meshes/lib.mjs';
 const { formatMesh, validateMesh, compileMesh } = await import('../../../client/shared/vehicle-mesh.js');
-const { RP_STATIONS, RP_APEX_FORE, RP_APEX_AFT, RP_GLASS, RP_CANOPY, RP_ENGINES, RP_GUN, RP_WINGMEN, rpPoint } = await import('../../../client/shared/cabin-reaper-2076.js');
+const { RP_STATIONS, RP_APEX_FORE, RP_APEX_AFT, RP_GLASS, RP_CANOPY, RP_ENGINES, RP_GUN, RP_WING, RP_STRAKE, RP_TAIL, RP_STORES, rpPoint, rpEngineAxis } = await import('../../../client/shared/cabin-reaper-2076.js');
 
 const FINE = { minDetail: 1 }, COARSE = { maxDetail: 0 };
 // Every poly face needs a role; trim and fittings are 'nacelle' unless they say otherwise.
 const poly = (name, faces, extra) => rawPoly(name, faces.map((f) => ({ role: 'nacelle', ...f })), extra);
-const GLASS = [52, 78, 92];
+// The canopy's gold flash: a metallised coat in the glass, so from outside it reads as a warm dark gold.
+const GLASS = [112, 92, 52];
 const lerp = (a, b, t) => a + (b - a) * t;
 const range = (a, b, n) => Array.from({ length: n + 1 }, (_, i) => lerp(a, b, i / n));
 const at = (f, a, o = 0) => rpPoint(f, a, o);
@@ -110,22 +117,25 @@ const glassFar = poly('glass (far)', [
   ...patch([G.bubble.f[1], 0.45, G.bubble.f[0]], range(G.bubble.a[0], G.bubble.a[1], 4), { role: 'glass', tint: GLASS }, 0.003),
 ], COARSE);
 
-// Frames: the windscreen's heavy armoured bow and posts, the canopy bow, the sill rails, the aft
-// hoop, a black seal along every edge, and the canopy's hinge and jettison line at the back.
+// Frames: thin ones. The windscreen has no posts; a slim arch at its fore edge, a slim bow where it
+// meets the bubble, the sill rails and the aft hoop, a black seal along every edge, and the canopy's
+// hinge and jettison line at the back.
 const FR = (name, pts, r = 0.004) => tube(name, pts, r, { role: 'nacelle', paint: 'frame', sh: 0.5, sides: 6, ...FINE });
 const SEAL = (name, pts) => tube(name, pts, 0.0018, { role: 'nacelle', paint: 'rubber', sh: 0.35, sides: 4, ...FINE });
 const frames = [
-  FR('windscreen arch', roundF(G.windscreen.f[1] + 0.002, range(G.windscreen.a[0] - 4, G.windscreen.a[1] + 4, 20)), 0.0055),
-  FR('canopy bow', roundF(RP_CANOPY.bowF, range(G.bubble.a[0] - 3, G.bubble.a[1] + 3, 24)), 0.0065),
-  FR('aft hoop', roundF(RP_CANOPY.hoopF, range(G.bubble.a[0] - 3, G.bubble.a[1] + 3, 24)), 0.0055),
+  FR('windscreen arch', roundF(G.windscreen.f[1] + 0.002, range(G.windscreen.a[0] - 4, G.windscreen.a[1] + 4, 20)), 0.0035),
+  FR('canopy bow', roundF(RP_CANOPY.bowF, range(G.bubble.a[0] - 3, G.bubble.a[1] + 3, 24)), 0.0035),
+  FR('aft hoop', roundF(RP_CANOPY.hoopF, range(G.bubble.a[0] - 3, G.bubble.a[1] + 3, 24)), 0.004),
   SEAL('windscreen seal', roundF(G.windscreen.f[1] - 0.004, range(G.windscreen.a[0], G.windscreen.a[1], 20), 0.0025)),
   SEAL('bubble fore seal', roundF(G.bubble.f[1] - 0.004, range(G.bubble.a[0], G.bubble.a[1], 24), 0.0025)),
   ...G.windscreen.posts.map((a) => FR('windscreen post', alongF(WS_F, a, 0.0035), 0.0045)),
   ...[0, 1].flatMap((s) => {
     const A = (a) => (s ? L(a) : a), side = s ? 'left' : 'right';
     return [
-      FR('windscreen sill (' + side + ')', alongF(WS_F, A(G.windscreen.a[0] - 1.5)), 0.0045),
-      FR('canopy rail (' + side + ')', alongF(range(RP_CANOPY.bowF, RP_CANOPY.hoopF - 0.01, 12), A(RP_CANOPY.sillA)), 0.005),
+      FR('windscreen sill (' + side + ')', alongF(WS_F, A(G.windscreen.a[0] - 1.5)), 0.003),
+      FR('canopy rail (' + side + ')', alongF(range(RP_CANOPY.bowF, RP_CANOPY.hoopF - 0.01, 12), A(RP_CANOPY.sillA)), 0.0035),
+      // A light line down the sill under the glass, where the rail meets the tub.
+      tube('canopy sill light (' + side + ')', alongF(range(RP_CANOPY.bowF + 0.07, RP_CANOPY.hoopF, 12), A(RP_CANOPY.sillA - 3), 0.0035), 0.0015, { role: 'nacelle', paint: 'led', sh: 1, sides: 4, ...FINE }),
       SEAL('rail seal (' + side + ')', alongF(BB_F, A(G.bubble.a[0] + 1), 0.0025)),
       // The canopy's external jettison handle, behind a striped door low on the rail.
       poly('jettison door (' + side + ')', patch([0.37, 0.345], s ? [L(14), L(6)] : [6, 14], { paint: 'hazard', sh: 0.65 }, 0.003), FINE),
@@ -134,8 +144,6 @@ const frames = [
   // The hinge at the back of the bubble: two lugs and the actuator fairing on the spine.
   poly('canopy hinge', [...boxAt(at(0.31, 90, 0.004), [0.024, 0.03, 0.01], { paint: 'frame' })], FINE),
   ...[1, -1].map((s) => tube('canopy hinge lug', [at(0.322, s > 0 ? 70 : 110, 0.003), at(0.304, s > 0 ? 74 : 106, 0.009)], 0.003, { role: 'nacelle', paint: 'metal', sides: 5, ...FINE })),
-  // A rear-view mirror bump and a blade on top of the bow, as an A-10's has.
-  tube('bow mirror', [at(RP_CANOPY.bowF, 90, 0.004), at(RP_CANOPY.bowF - 0.006, 90, 0.012)], 0.0035, { role: 'nacelle', paint: 'frame', sides: 6, caps: 1, ...FINE }),
 ];
 
 // ── The armoured tub ────────────────────────────────────────────────────────────
@@ -267,59 +275,72 @@ const drum = [
 ];
 
 // ── The engines ─────────────────────────────────────────────────────────────────
-// Two turbofans where the TF34s were, high on the rear fuselage out of the dust a gun throws up. The
-// pods are longer and sharper-lipped; behind each fan, a mixed exhaust through a serrated nozzle
-// inside an IR-suppressing shroud that splays the plume flat between the fins.
-const E = RP_ENGINES, eF = E.fanF + 0.01, eA = E.tailF, eR = E.r, eG = E.g, eH = E.h;
-const pyF = -0.3, pyA = -0.52, pyIn = 0.06, pyOut = eG - eR * 0.75;
-const fanBlades = [];
-for (let k = 0; k < 18; k++) {
-  const a0 = k / 18 * 2 * Math.PI, a1 = a0 + 0.22, tw = 0.24;
-  const P = (a, r, df) => [eF - 0.026 + df, Math.cos(a) * r, Math.sin(a) * r];
-  fanBlades.push(quad(P(a0, eR * 0.3, 0), P(a0 + tw, eR * 0.84, -0.004), P(a1 + tw, eR * 0.84, -0.01), P(a1, eR * 0.3, -0.006), { paint: 'fan', sh: 0.45 + 0.35 * ((k % 2)) }));
-}
-const engine = [
-  pod('engine pod', 0, 0, [[eF, eR * 0.86], [eF - 0.006, eR * 0.97], [eF - 0.02, eR * 1.02], [eF - 0.08, eR * 1.05], [eF - 0.26, eR * 1.01], [eA + 0.09, eR * 0.86], [eA + 0.02, eR * 0.74], [eA, eR * 0.7]], { sides: 20, paint: 'hull', shade: { base: 0.6, amp: 0.34 } }),
-  // The inlet lip: a bare metal ring, and the fan face behind it: blades round a spinner.
-  tube('inlet lip', ringF(eF + 0.001, 0, 0, eR * 0.9, 20), 0.0055, { role: 'nacelle', paint: 'metal', sh: 0.8, sides: 6 }),
-  poly('inlet duct', range(0, 19, 19).map((k) => { const a0 = k / 20 * 2 * Math.PI, a1 = (k + 1) / 20 * 2 * Math.PI, r = eR * 0.86, r2 = eR * 0.84;
-    return quad([eF, Math.cos(a0) * r, Math.sin(a0) * r], [eF, Math.cos(a1) * r, Math.sin(a1) * r], [eF - 0.026, Math.cos(a1) * r2, Math.sin(a1) * r2], [eF - 0.026, Math.cos(a0) * r2, Math.sin(a0) * r2], { paint: 'intake', sh: 0.2 }); })),
-  poly('fan face', [discF(eF - 0.03, 0, 0, eR * 0.85, 20, { paint: 'intake', sh: 0.12 })]),
-  poly('fan blades', fanBlades),
-  cone('fan spinner', eF - 0.028, 0, 0, eR * 0.3, [eF - 0.002, 0, 0], { paint: 'metal', n: 12 }),
-  poly('spinner swirl', [quad([eF - 0.012, 0, eR * 0.17], [eF - 0.004, 0, eR * 0.06], [eF - 0.004, 0.002, eR * 0.06], [eF - 0.012, 0.002, eR * 0.17], { paint: 'label', sh: 0.9 })]),
-  // Cowl seams, the access door, a vent grille on top and the oil filler.
-  ...[eF - 0.06, eF - 0.17, eF - 0.3].map((f) => tube('cowl seam', ringF(f, 0, 0, eR * 1.045, 20), 0.0011, { role: 'nacelle', paint: 'seam', sides: 3 })),
-  poly('cowl vent', range(eF - 0.19, eF - 0.27, 6).map((f) => { const r = eR * 1.03 + 0.0012; return quad([f, -0.016, r], [f, 0.016, r], [f - 0.006, 0.016, r - 0.001], [f - 0.006, -0.016, r - 0.001], { paint: 'intake', sh: 0.2 }); })),
-  // The nozzle: a serrated mixer in a shroud, dark inside, the hot core deep in it.
-  poly('nozzle chevrons', range(0, 11, 11).map((k) => { const a0 = k / 12 * 2 * Math.PI, a1 = (k + 1) / 12 * 2 * Math.PI, am = (a0 + a1) / 2, r = eR * 0.7, r2 = eR * 0.62;
-    return { p: [[eA + 0.002, Math.cos(a0) * r, Math.sin(a0) * r], [eA - 0.03, Math.cos(am) * r2, Math.sin(am) * r2], [eA + 0.002, Math.cos(a1) * r, Math.sin(a1) * r]], paint: 'exhaust', sh: 0.5 + 0.2 * (k % 2) }; })),
-  poly('nozzle core', [discF(eA + 0.03, 0, 0, eR * 0.6, 12, { paint: 'intake', sh: 0.2 }), discF(eA + 0.025, 0, 0, eR * 0.44, 12, { paint: 'heat', sh: 0.7 })].map((d) => ({ ...d, p: d.p.slice().reverse() }))),
-  cone('exhaust plug', eA + 0.02, 0, 0, eR * 0.34, [eA - 0.045, 0, 0], { paint: 'exhaust', n: 12 }),
+// Two turbofans buried in the engine deck (cabin-reaper-2076.js RP_ENGINES). Each shows as a long low
+// hump on the deck: a dorsal intake on the shoulder, its mouth a dark letterbox with a lit lip and no
+// fan in sight (the duct bends down to it); a row of bypass vents and two seams down the hump, a light
+// line along its outboard shoulder; and at the back a flat slot nozzle over the beavertail, dark inside
+// with the hot core glowing between three vanes, and a scorched trench on the deck behind it.
+// Built on the right engine's axis at g 0 and moved and toed in by the group, as rpEngineAxis says.
+const E = RP_ENGINES, TOE = Math.sin(E.toe * DEG), eF = E.fanF, eA = E.tailF, eR = E.r, eH = E.h;
+const HUMP = [
+  { f: eF, rg: eR * 0.92, rvT: eR * 0.62, rvB: eR * 0.62, cz: eH + 0.004, boxy: 0.92 },
+  { f: eF - 0.05, rg: eR, rvT: eR * 0.8, rvB: eR * 0.8, cz: eH, boxy: 0.86 },
+  { f: -0.25, rg: eR * 1.02, rvT: eR * 0.86, rvB: eR * 0.86, cz: eH, boxy: 0.84 },
+  { f: -0.55, rg: eR * 0.98, rvT: eR * 0.76, rvB: eR * 0.8, cz: eH - 0.002, boxy: 0.86 },
+  { f: eA + 0.06, rg: eR * 0.96, rvT: eR * 0.5, rvB: eR * 0.6, cz: eH - 0.004, boxy: 0.94 },
+  { f: eA, rg: eR * 0.94, rvT: eR * 0.34, rvB: eR * 0.4, cz: eH - 0.002, boxy: 0.96 },
 ];
+// A point on the hump's skin at station f, angle a (degrees, lib.mjs's), `o` proud of it.
+const hp = (f, a, o = 0) => skin(HUMP, f, a * DEG, o);
+const humpPatch = (fs, as, extra, o = 0.0014) => {
+  const out = [];
+  for (let i = 0; i < fs.length - 1; i++) for (let j = 0; j < as.length - 1; j++) {
+    out.push(quad(hp(fs[i + 1], as[j], o), hp(fs[i], as[j], o), hp(fs[i], as[j + 1], o), hp(fs[i + 1], as[j + 1], o), extra));
+  }
+  return out;
+};
+const VISOR_A = range(18, 162, 9);
+// An aft-facing rectangle in the plane f, from g0 to g1 and h0 to h1.
+const aftRect = (f, g0, g1, h0, h1, extra) => ({ p: [[f, g1, h0], [f, g1, h1], [f, g0, h1], [f, g0, h0]], ...extra });
+const slot = HUMP[HUMP.length - 1], slotW = slot.rg * 0.82;
+const engine = [
+  loft('engine hump', 20, HUMP, { role: 'nacelle', paint: 'hull', capFore: { kind: 'flat', paint: 'intake', sh: 0.1 }, capAft: { kind: 'flat', paint: 'intake', sh: 0.12 }, shade: { base: 0.6, amp: 0.34 } }),
+  // The intake's lit lip round the upper half of the mouth, and a visor raked forward over it, which
+  // is what makes the mouth a sharp letterbox from the side rather than a hole in a hump.
+  tube('intake lip', range(-12, 192, 17).map((a) => hp(eF + 0.0015, a, 0.0012)), 0.0018, { role: 'nacelle', paint: 'led', sh: 1, sides: 4 }),
+  poly('intake visor', VISOR_A.slice(0, -1).flatMap((a, i) => {
+    const p = hp(eF, a, 0.0012), q = hp(eF, VISOR_A[i + 1], 0.0012), fw = (v) => [v[0] + 0.022, v[1], v[2] + 0.002];
+    return [{ p: [p, fw(p), fw(q), q], paint: 'hull', sh: 0.82 }, { p: [q, fw(q), fw(p), p], paint: 'glare', sh: 0.35 }];
+  })),
+  // Seams round the hump, a vent row on its back, and the light line down its outboard shoulder.
+  ...[eF - 0.16, -0.46].map((f) => tube('hump seam', range(-20, 200, 11).map((a) => hp(f, a, 0.0011)), 0.0011, { role: 'nacelle', paint: 'seam', sides: 3 })),
+  poly('bypass vents', range(-0.36, -0.56, 7).flatMap((f) => humpPatch([f + 0.007, f - 0.007], [72, 108], { paint: 'intake', sh: 0.18 }, 0.0013))),
+  tube('hump light', range(eF - 0.06, eA + 0.08, 8).map((f) => hp(f, 32, 0.0014)), 0.0016, { role: 'nacelle', paint: 'led', sh: 1, sides: 4 }),
+  // The nozzle: three vanes across the slot, the hot core glowing between them, and a lit rim.
+  poly('nozzle core', [aftRect(eA - 0.0006, -slotW, slotW, slot.cz - slot.rvB * 0.6, slot.cz + slot.rvT * 0.6, { paint: 'heat', sh: 0.85 })]),
+  poly('nozzle vanes', [-0.5, 0, 0.5].map((k) => aftRect(eA - 0.0012, k * slotW - 0.0016, k * slotW + 0.0016, slot.cz - slot.rvB * 0.75, slot.cz + slot.rvT * 0.75, { paint: 'exhaust', sh: 0.5 }))),
+  tube('nozzle rim', range(0, 180, 12).map((a) => hp(eA - 0.001, a, 0.0008)), 0.0014, { role: 'nacelle', paint: 'exhaust', sides: 4 }),
+];
+const engineXf = { t: [0, R(E.g - eF * TOE), 0], r: [0, 0, E.toe] };
+// The trench aft of each nozzle, on the beavertail: soot, where the exhaust lies along the deck.
+const trenchG = rpEngineAxis(eA)[0];
 const engines = mirror('engines', [
-  group('engine', engine, { xf: { t: [0, eG, eH] }, ...FINE }),
-  // The pylon: thick, short, as the A-10's. Explicit shades: a mirror keeps the vertex order.
-  poly('engine pylon', [
-    { role: 'nacelle', paint: 'hull', sh: 0.82, p: [[pyF, pyIn, 0.105], [pyF, pyOut, eH - 0.01], [pyA, pyOut, eH - 0.01], [pyA, pyIn, 0.095]] },
-    { role: 'nacelle', paint: 'hull', sh: 0.55, p: [[pyA, pyIn, 0.07], [pyA, pyOut, eH - 0.045], [pyF, pyOut, eH - 0.045], [pyF, pyIn, 0.08]] },
-    { role: 'nacelle', paint: 'hull', sh: 0.7, p: [[pyF, pyIn, 0.08], [pyF, pyOut, eH - 0.045], [pyF, pyOut, eH - 0.01], [pyF, pyIn, 0.105]] },
-  ]),
-  tube('pylon fire line', [[pyF - 0.01, pyOut - 0.004, eH - 0.012], [pyA + 0.01, pyOut - 0.004, eH - 0.012]], 0.0014, { role: 'nacelle', paint: 'warn', sh: 1, sides: 3, ...FINE }),
-  // The IR shroud: two flat plates splaying the exhaust out and up between the tailplane and the fin.
-  poly('IR shroud', [
-    quad([eA + 0.06, eG + eR * 0.78, eH + 0.03], [eA - 0.06, eG + eR * 1.05, eH + 0.04], [eA - 0.06, eG + eR * 1.05, eH - 0.035], [eA + 0.06, eG + eR * 0.78, eH - 0.03], { paint: 'exhaust', sh: 0.7 }),
-    quad([eA + 0.06, eG - eR * 0.78, eH - 0.03], [eA - 0.06, eG - eR * 1.05, eH - 0.035], [eA - 0.06, eG - eR * 1.05, eH + 0.04], [eA + 0.06, eG - eR * 0.78, eH + 0.03], { paint: 'exhaust', sh: 0.55 }),
-  ], FINE),
+  group('engine', engine, { xf: engineXf, ...FINE }),
+  poly('exhaust trench', range(eA - 0.004, -0.98, 6).slice(0, -1).map((f, i, a) => {
+    const f2 = i + 1 < a.length ? a[i + 1] : -0.98, w = slotW * (1 - 0.35 * (eA - f) / (eA + 0.98));
+    const g = trenchG + (f - eA) * TOE, g2 = trenchG + (f2 - eA) * TOE, w2 = slotW * (1 - 0.35 * (eA - f2) / (eA + 0.98));
+    const top = (ff, gg) => { const s = rpPoint(ff, 90); let hi = s[2]; for (const a2 of range(90, 20, 14)) { const q = rpPoint(ff, a2); if (q[1] >= gg) { hi = q[2]; break; } } return hi + 0.0016; };
+    return quad([f2, g2 + w2, top(f2, g2 + w2)], [f, g + w, top(f, g + w)], [f, g - w, top(f, g - w)], [f2, g2 - w2, top(f2, g2 - w2)], { paint: 'exhaust', sh: 0.45 });
+  }), FINE),
 ]);
-const enginesFar = mirror('engines (far)', [pod('engine pod (far)', eG, eH, [[eF, eR * 0.9], [eF - 0.08, eR * 1.05], [eA, eR * 0.7]], { sides: 8, paint: 'hull' })].map((p) => ({ ...p, ...COARSE })));
+const enginesFar = mirror('engines (far)', [group('engine (far)', [loft('engine hump (far)', 8, [HUMP[0], HUMP[2], HUMP[HUMP.length - 1]], { role: 'nacelle', paint: 'hull', capFore: { kind: 'flat', paint: 'intake', sh: 0.1 }, capAft: { kind: 'flat', paint: 'intake', sh: 0.12 } })], { xf: engineXf, ...COARSE })]);
 
 // ── The spine ───────────────────────────────────────────────────────────────────
-// Behind the canopy: the wingmen's datalink array (a long dark conformal strip of tiles), a satcom
-// dome, the APU's exhaust, blades, and the beacon.
+// Behind the canopy, up to the intakes: a warning-receiver array (a dark conformal strip of tiles);
+// then between the engine humps a satcom dome, the APU's exhaust, blades, and the beacon.
 const spine = [
-  poly('datalink array', patch(range(0.26, -0.12, 10), range(78, 102, 4), { paint: 'carbon', sh: 0.5 }, 0.0024), FINE),
-  ...range(0.26, -0.12, 5).map((f) => poly('datalink tile seam', patch([f + 0.0012, f - 0.0012], range(78, 102, 4), { paint: 'seam', sh: 0.3 }, 0.003), FINE)),
+  poly('sensor array', patch(range(0.26, 0.04, 6), range(82, 98, 4), { paint: 'carbon', sh: 0.5 }, 0.0024), FINE),
+  ...range(0.26, 0.04, 3).map((f) => poly('sensor tile seam', patch([f + 0.0012, f - 0.0012], range(82, 98, 4), { paint: 'seam', sh: 0.3 }, 0.003), FINE)),
   { kind: 'drum', name: 'satcom dome base', f: -0.22, r: 0.03, n: 14, z: [at(-0.22, 90)[2] - 0.004, at(-0.22, 90)[2] + 0.006], role: 'nacelle', paint: 'glare', sh: { base: 0.6 }, top: { sh: 0.8 }, ...FINE },
   group('satcom dome', [pod('dome', 0, 0, [[0.028, 0.004], [0.02, 0.014], [0, 0.018], [-0.02, 0.014], [-0.028, 0.004]], { sides: 12, paint: 'radome', shade: { base: 0.75, amp: 0.2 } })], { xf: { t: [-0.22, 0, at(-0.22, 90)[2] + 0.006] }, ...FINE }),
   { kind: 'blade', name: 'UHF blade', role: 'fin', paint: 'glare', t: 0.0025, sh: [0.7, 0.55], outline: [[-0.32, at(-0.32, 90)[2] - 0.002], [-0.35, at(-0.32, 90)[2] + 0.04], [-0.365, at(-0.32, 90)[2] + 0.04], [-0.375, at(-0.375, 90)[2] - 0.002]], ...FINE },
@@ -343,49 +364,48 @@ const spine = [
 ];
 
 // ── The wing, its surfaces, the pods ────────────────────────────────────────────
-// The stock planform: a flat centre section to the gear pods, the outer panels up at 7 degrees, and
-// drooped Hoerner tips.
-const W = [
-  { g: 0, le: 0.142, te: -0.233, h: -0.034, t: 1.3 },
-  { g: 0.34, le: 0.14, te: -0.23, h: -0.034, t: 1.2 },
-  { g: 1.04, le: 0.09, te: -0.2, h: 0.052, t: 0.9 },
-  { g: 1.1, le: 0.075, te: -0.19, h: 0.036, t: 0.55 },
-];
+// cabin-reaper-2076.js RP_WING: a thick flat centre section to the gear pods, the outer panels swept
+// and up 7 degrees, and raked tips; and a strake each side from the tub's flank into the leading edge.
+const W = RP_WING, TIP_G = W[W.length - 1].g;
 const onWing = (g) => { const i = g <= W[1].g ? 0 : g <= W[2].g ? 1 : 2; return lerpSt(W[i], W[i + 1], (g - W[i].g) / (W[i + 1].g - W[i].g)); };
 const wingTop = (g, x, o = 0) => { const q = foilPt(onWing(g), x, 1); return [q[0], g, q[2] + o]; };
-const wingBot = (g, x, o = 0) => { const q = foilPt(onWing(g), x, 0); return [q[0], g, q[2] - o]; };
 const wing = foil('wing', W, { nx: 15, paint: 'hull', lowerSh: 0.55, lodNx: 4, bands: [{ x0: 0, x1: 0.05, paint: 'trim' }] });
 const flaps = ctrlOn('flap', W[0], W[1], 0.28, 1, 0.24);
 const flapsOut = ctrlOn('flap', W[1], W[2], 0, 0.3, 0.24);
 const ailerons = ctrlOn('aileron', W[1], W[2], 0.36, 0.98, 0.28);   // the split decelerons
-// The deceleron split line, a dark seam along each aileron's trailing edge.
-const tipBands = mirror('wingtip bands', [foil('tip band', [{ ...onWing(1.0), t: 0.93 }, { ...W[2], t: 0.92 }], { paint: 'trim', nx: 7, tip: false, sides: 1, lodNx: 3 })]);
+// The raked tip in the trim colour, a hair proud of the wing, from where the sweep starts to rake.
+const tipBands = mirror('wingtip bands', [foil('tip band', [{ ...onWing(0.92), t: onWing(0.92).t + 0.012 }, { ...W[2], t: W[2].t + 0.012 }, { ...W[3], t: W[3].t + 0.012 }], { paint: 'trim', nx: 7, sides: 1, lodNx: 3 })]);
+// The strakes: thin plates from the tub's flank, behind the armour, into the inner leading edge.
+const strakes = foil('strake', RP_STRAKE, { paint: 'hull', nx: 7, lodNx: 3, lowerSh: 0.5 });
 const wingDetail = mirror('wing detail', [
-  // Walkways at the root, dark non-slip, edged.
-  poly('wing walk', [quad(wingTop(0.13, 0.15, 0.0018), wingTop(0.3, 0.15, 0.0018), wingTop(0.3, 0.62, 0.0018), wingTop(0.13, 0.62, 0.0018), { paint: 'glare', sh: 0.5 })], FINE),
-  tube('wing walk edge', [wingTop(0.13, 0.15, 0.0024), wingTop(0.3, 0.15, 0.0024), wingTop(0.3, 0.62, 0.0024), wingTop(0.13, 0.62, 0.0024), wingTop(0.13, 0.15, 0.0024)], 0.0011, { role: 'nacelle', paint: 'hazard', sides: 3, ...FINE }),
-  // The LED line along the leading edge, and rib and spar seams.
-  tube('leading edge light', range(0.4, 1.02, 8).map((g) => { const q = foilPt(onWing(g), 0.0, 1); return [q[0] + 0.003, g, q[2]]; }), 0.002, { role: 'nacelle', paint: 'led', sh: 1, sides: 4, ...FINE }),
-  ...[0.2, 0.46, 0.58, 0.86, 0.98].map((g) => tube('wing rib seam', range(0.06, 0.7, 5).map((x) => wingTop(g, x, 0.0012)), 0.0011, { role: 'nacelle', paint: 'seam', sides: 3, ...FINE })),
-  tube('wing spar seam', [0.36, 0.5, 0.9, 1.03].map((g) => wingTop(g, 0.2, 0.0012)), 0.0011, { role: 'nacelle', paint: 'seam', sides: 3, ...FINE }),
-  tube('wing spar seam', [0.0, 0.33].map((g) => wingTop(g, 0.2, 0.0012)), 0.0011, { role: 'nacelle', paint: 'seam', sides: 3, ...FINE }),
-  // A fuel filler and a vortex generator row on the outer panel.
+  // Walkways at the root, outboard of the engine deck, dark non-slip, edged.
+  poly('wing walk', [quad(wingTop(0.19, 0.18, 0.0018), wingTop(0.31, 0.18, 0.0018), wingTop(0.31, 0.62, 0.0018), wingTop(0.19, 0.62, 0.0018), { paint: 'glare', sh: 0.5 })], FINE),
+  tube('wing walk edge', [wingTop(0.19, 0.18, 0.0024), wingTop(0.31, 0.18, 0.0024), wingTop(0.31, 0.62, 0.0024), wingTop(0.19, 0.62, 0.0024), wingTop(0.19, 0.18, 0.0024)], 0.0011, { role: 'nacelle', paint: 'hazard', sides: 3, ...FINE }),
+  // The light line along the leading edge from the strake to the tip, and rib and spar seams.
+  tube('leading edge light', range(0.39, TIP_G - 0.004, 9).map((g) => { const q = foilPt(onWing(g), 0.0, 1); return [q[0] + 0.003, g, q[2]]; }), 0.002, { role: 'nacelle', paint: 'led', sh: 1, sides: 4, ...FINE }),
+  tube('strake light', range(0, 1, 4).map((t) => { const q = foilPt(lerpSt(RP_STRAKE[0], RP_STRAKE[1], 0.08 + 0.92 * t), 0.0, 1); return [q[0] + 0.002, q[1], q[2]]; }), 0.0016, { role: 'nacelle', paint: 'led', sh: 1, sides: 4, ...FINE }),
+  ...[0.24, 0.46, 0.58, 0.76, 0.9].map((g) => tube('wing rib seam', range(0.06, 0.7, 5).map((x) => wingTop(g, x, 0.0012)), 0.0011, { role: 'nacelle', paint: 'seam', sides: 3, ...FINE })),
+  tube('wing spar seam', [0.36, 0.5, 0.9, 0.98].map((g) => wingTop(g, 0.2, 0.0012)), 0.0011, { role: 'nacelle', paint: 'seam', sides: 3, ...FINE }),
+  tube('wing spar seam', [0.18, 0.33].map((g) => wingTop(g, 0.2, 0.0012)), 0.0011, { role: 'nacelle', paint: 'seam', sides: 3, ...FINE }),
+  // A fuel filler on the outer panel.
   D('wing filler', wingTop(0.44, 0.35)[0], 0.44, 0.006, wingTop(0.44, 0.35)[2] - 0.001, wingTop(0.44, 0.35)[2] + 0.0025, 'metal', { n: 8, top: { sh: 0.85 } }),
-  poly('vortex generators', range(0.38, 0.54, 4).concat(range(0.88, 1.0, 3)).map((g) => { const q = wingTop(g, 0.09); return quad([q[0] + 0.006, g, q[2]], [q[0] - 0.006, g, q[2]], [q[0] - 0.006, g, q[2] + 0.006], [q[0] + 0.004, g, q[2] + 0.002], { paint: 'metal', sh: 0.8 }); }), FINE),
-  // The wing's root fillet into the body, forward of the spar.
-  faired('root fillet', [[0.2, 0.09, -0.02], [0.08, 0.1, -0.02], [-0.12, 0.1, -0.022]], 0.04, 0.012, { role: 'body', paint: 'hull', sh: 0.66, ...FINE }),
-  // The landing lamp in the leading edge, inboard of the gear pod.
-  poly('landing lamp', [(() => { const s = onWing(0.25), q = foilPt(s, 0.004, 1), l = foilPt(s, 0.004, 0); return quad([q[0] + 0.002, 0.23, q[2]], [q[0] + 0.002, 0.27, q[2]], [l[0] + 0.002, 0.27, l[2]], [l[0] + 0.002, 0.23, l[2]], { role: 'window', tint: [250, 246, 220], sh: 1 }); })()], FINE),
-  // The wingtip countermeasure pod in the drooped tip, as the A-10's has.
-  poly('tip dispenser', [quad(wingBot(1.07, 0.3, 0.001), wingBot(1.07, 0.7, 0.001), wingBot(1.095, 0.7, 0.001), wingBot(1.095, 0.3, 0.001), { paint: 'carbon', sh: 0.4 })].map((f) => ({ ...f, p: f.p.slice().reverse() })), FINE),
+  // The landing lamp in the leading edge, outboard of the gear pod.
+  poly('landing lamp', [(() => { const s = onWing(0.44), q = foilPt(s, 0.004, 1), l = foilPt(s, 0.004, 0); return quad([q[0] + 0.002, 0.42, q[2]], [q[0] + 0.002, 0.46, q[2]], [l[0] + 0.002, 0.46, l[2]], [l[0] + 0.002, 0.42, l[2]], { role: 'window', tint: [250, 246, 220], sh: 1 }); })()], FINE),
 ]);
 
-// Main gear pods on the leading edge, the wheels standing half out of them even when up. The leg,
-// the axle and brake, a torque link and the pod's door seam.
+// Main gear pods on the leading edge. The leg, the axle and brake, a torque link and the pod's door
+// seam.
+// The gear channel runs 1 (down) to 0 (up). Each leg swings aft about its top and up a little, the
+// mains into their pods and the nose leg into the belly beside the gun; the legs move over the
+// middle of the channel and the nose doors shut behind theirs.
+// ⚠ A positive angle about +g swings a leg aft.
+const LEG = { ch: 'gear', span: [0.9, 0.2] };
+const MAIN_FOLD = { ...LEG, pivot: [0.25, 0.34, -0.1], axis: [0, 1, 0], ang: [0, 85], slide: [0, 0, 0.012] };
 const gearPods = group('gear pods', [mirror('gear pods', [
   pod('gear pod', 0.34, -0.085, [[0.35, 0.006], [0.33, 0.026], [0.3, 0.038], [0.25, 0.047], [0.08, 0.047], [-0.06, 0.035], [-0.15, 0.008]], { paint: 'hull', sides: 16, shade: { base: 0.6, amp: 0.32 } }),
   tube('gear pod seam', [[0.3, 0.34 + 0.04, -0.085], [0.1, 0.34 + 0.048, -0.085]], 0.0011, { role: 'nacelle', paint: 'seam', sides: 3, ...FINE }),
   tube('gear pod seam', [[0.3, 0.34 - 0.04, -0.085], [0.1, 0.34 - 0.048, -0.085]], 0.0011, { role: 'nacelle', paint: 'seam', sides: 3, ...FINE }),
+  group('main leg', [
   faired('main leg', [[0.25, 0.34, -0.1], [0.24, 0.34, -0.2]], 0.04, 0.012, { role: 'gear' }),
   wheel('main wheel', [0.24, 0.34, -0.238], 0.041, 0.018, 16),
   D('brake disc', 0.24, 0.322, 0.026, -0.2395, -0.2365, 'metal', { n: 12, role: 'gear' }),
@@ -393,9 +413,16 @@ const gearPods = group('gear pods', [mirror('gear pods', [
   tube('torque link', [[0.27, 0.334, -0.14], [0.285, 0.334, -0.17], [0.258, 0.334, -0.2]], 0.003, { role: 'gear', paint: 'metal', sides: 5, ...FINE }),
   tube('brake caliper', [[0.262, 0.322, -0.222], [0.27, 0.322, -0.228]], 0.006, { role: 'gear', paint: 'hazard', sides: 5, caps: 1, ...FINE }),
   tube('brake line', [[0.252, 0.33, -0.11], [0.255, 0.328, -0.2], [0.265, 0.322, -0.222]], 0.0016, { role: 'gear', paint: 'glare', sides: 4, ...FINE }),
+  ], { anim: MAIN_FOLD }),
 ])], FINE);
 const NG = 0.072;   // the nose gear's g: right of the gun, as the A-10's is
+const NOSE_TOP = R(at(0.725, -60)[2] + 0.004);
+const NOSE_FOLD = { ...LEG, pivot: [0.725, NG, NOSE_TOP], axis: [0, 1, 0], ang: [0, 85], slide: [0, 0, 0.02] };
+// A door hangs from its top edge, which follows the belly, and folds in under the well.
+const DOOR_F = [0.765, 0.685], DOOR_H = DOOR_F.map((f) => R(at(f, -70)[2] + 0.002));
+const doorShut = (s) => ({ ch: 'gear', span: [0.2, 0], pivot: [DOOR_F[0], R(NG + s * 0.024), DOOR_H[0]], axis: [DOOR_F[0] - DOOR_F[1], 0, R(DOOR_H[0] - DOOR_H[1])], ang: [0, -s * 86] });
 const noseGear = group('nose gear', [
+  group('nose leg', [
   faired('nose leg', [[0.725, NG, at(0.725, -60)[2] + 0.004], [0.72, NG, -0.215]], 0.022, 0.012, { role: 'gear', paint: 'gearLeg', sh: 0.62 }),
   wheel('nose wheel', [0.72, NG, -0.24], 0.039, 0.014, 16),
   tube('nose fork', [[0.72, NG - 0.017, -0.215], [0.72, NG - 0.017, -0.24]], 0.0035, { role: 'gear', paint: 'metal', sides: 5, ...FINE }),
@@ -403,8 +430,9 @@ const noseGear = group('nose gear', [
   tube('nose axle', [[0.72, NG - 0.02, -0.24], [0.72, NG + 0.02, -0.24]], 0.004, { role: 'gear', paint: 'metal', sides: 6, caps: 1, ...FINE }),
   tube('nose torque link', [[0.73, NG, -0.15], [0.745, NG, -0.18], [0.728, NG, -0.208]], 0.0028, { role: 'gear', paint: 'metal', sides: 5, ...FINE }),
   poly('taxi lamp', [discF(0.735, NG, -0.2, 0.007, 8, { role: 'window', tint: [250, 246, 220], sh: 1 })], FINE),
+  ], { anim: NOSE_FOLD }),
   // The gear well's doors, standing open either side of the leg.
-  ...[1, -1].map((s) => poly('nose gear door', [quad([0.765, NG + s * 0.024, at(0.765, -70)[2] + 0.002], [0.685, NG + s * 0.024, at(0.685, -70)[2] + 0.002], [0.685, NG + s * 0.027, at(0.685, -70)[2] - 0.032], [0.765, NG + s * 0.027, at(0.765, -70)[2] - 0.032], { role: 'gear', paint: 'belly', sh: s > 0 ? 0.6 : 0.5 })].map((f) => (s > 0 ? f : { ...f, p: f.p.slice().reverse() })), FINE)),
+  ...[1, -1].map((s) => poly('nose gear door', [quad([0.765, NG + s * 0.024, at(0.765, -70)[2] + 0.002], [0.685, NG + s * 0.024, at(0.685, -70)[2] + 0.002], [0.685, NG + s * 0.027, at(0.685, -70)[2] - 0.032], [0.765, NG + s * 0.027, at(0.765, -70)[2] - 0.032], { role: 'gear', paint: 'belly', sh: s > 0 ? 0.6 : 0.5 })].map((f) => (s > 0 ? f : { ...f, p: f.p.slice().reverse() })), { ...FINE, anim: doorShut(s) })),
 ], FINE);
 
 // ── Stores: a missile rail outboard, a glide bomb, the targeting pod ─────────────
@@ -414,171 +442,58 @@ const pylon = (g, f0, f1, drop) => { const z = zAt(g); return poly('pylon', [
   { role: 'strut', paint: 'hull', sh: 0.6, p: [[f0 - 0.02, g - 0.007, z - drop], [f1 + 0.02, g - 0.007, z - drop], [f1, g - 0.007, z], [f0, g - 0.007, z]] },
   { role: 'strut', paint: 'glare', sh: 0.45, p: [[f0 - 0.02, g + 0.007, z - drop], [f1 + 0.02, g + 0.007, z - drop], [f1 + 0.02, g - 0.007, z - drop], [f0 - 0.02, g - 0.007, z - drop]] },
 ], FINE); };
+// Where each hangs is RP_STORES, which the cockpit's stores page draws from.
+const SM = RP_STORES.missile, SB = RP_STORES.bomb, SP = RP_STORES.pod;
 const stores = group('stores', [mirror('stores', [
-  pylon(0.9, 0.05, -0.11, 0.03),
-  { kind: 'missile', name: 'missile', f: [-0.13, 0.05], g: 0.9, z: R(zAt(0.9) - 0.05), ...FINE },
-  tube('missile rail', [[0.04, 0.9, zAt(0.9) - 0.032], [-0.12, 0.9, zAt(0.9) - 0.032]], 0.0035, { role: 'strut', paint: 'metal', sides: 4, ...FINE }),
-  pylon(0.62, 0.06, -0.14, 0.03),
-  pod('glide bomb', 0.62, zAt(0.62) - 0.06, [[0.1, 0.006], [0.07, 0.024], [-0.02, 0.028], [-0.12, 0.024], [-0.16, 0.012]], { paint: 'store', sides: 12 }),
-  poly('glide bomb wings', [quad([0.02, 0.62, zAt(0.62) - 0.06], [-0.08, 0.62, zAt(0.62) - 0.06], [-0.07, 0.68, zAt(0.62) - 0.062], [-0.04, 0.68, zAt(0.62) - 0.062], { paint: 'store', sh: 0.7 }), quad([-0.04, 0.56, zAt(0.62) - 0.062], [-0.07, 0.56, zAt(0.62) - 0.062], [-0.08, 0.62, zAt(0.62) - 0.06], [0.02, 0.62, zAt(0.62) - 0.06], { paint: 'store', sh: 0.7 })], FINE),
-  tube('bomb fins', [[-0.15, 0.62, zAt(0.62) - 0.095], [-0.15, 0.62, zAt(0.62) - 0.025]], 0.003, { role: 'strut', paint: 'store', ...FINE }),
-  tube('bomb band', ringF(0.06, 0.62, zAt(0.62) - 0.06, 0.0255, 12), 0.0016, { role: 'nacelle', paint: 'warn', sides: 3, ...FINE }),
-  pylon(0.48, 0.06, -0.12, 0.028),
-  pod('targeting pod', 0.48, zAt(0.48) - 0.055, [[0.09, 0.004], [0.075, 0.017], [0.05, 0.021], [-0.12, 0.021], [-0.15, 0.008]], { paint: 'glare', sides: 12, regions: [{ at: [0.09, 0.075], k: 'all', role: 'glass', tint: [30, 40, 60] }] }),
+  pylon(SM, 0.05, -0.11, 0.03),
+  { kind: 'missile', name: 'missile', f: [-0.13, 0.05], g: SM, z: R(zAt(SM) - 0.05), ...FINE },
+  tube('missile rail', [[0.04, SM, zAt(SM) - 0.032], [-0.12, SM, zAt(SM) - 0.032]], 0.0035, { role: 'strut', paint: 'metal', sides: 4, ...FINE }),
+  pylon(SB, 0.06, -0.14, 0.03),
+  pod('glide bomb', SB, zAt(SB) - 0.06, [[0.1, 0.006], [0.07, 0.024], [-0.02, 0.028], [-0.12, 0.024], [-0.16, 0.012]], { paint: 'store', sides: 12 }),
+  poly('glide bomb wings', [quad([0.02, SB, zAt(SB) - 0.06], [-0.08, SB, zAt(SB) - 0.06], [-0.07, SB + 0.06, zAt(SB) - 0.062], [-0.04, SB + 0.06, zAt(SB) - 0.062], { paint: 'store', sh: 0.7 }), quad([-0.04, SB - 0.06, zAt(SB) - 0.062], [-0.07, SB - 0.06, zAt(SB) - 0.062], [-0.08, SB, zAt(SB) - 0.06], [0.02, SB, zAt(SB) - 0.06], { paint: 'store', sh: 0.7 })], FINE),
+  tube('bomb fins', [[-0.15, SB, zAt(SB) - 0.095], [-0.15, SB, zAt(SB) - 0.025]], 0.003, { role: 'strut', paint: 'store', ...FINE }),
+  tube('bomb band', ringF(0.06, SB, zAt(SB) - 0.06, 0.0255, 12), 0.0016, { role: 'nacelle', paint: 'warn', sides: 3, ...FINE }),
+  pylon(SP, 0.06, -0.12, 0.028),
+  pod('targeting pod', SP, zAt(SP) - 0.055, [[0.09, 0.004], [0.075, 0.017], [0.05, 0.021], [-0.12, 0.021], [-0.15, 0.008]], { paint: 'glare', sides: 12, regions: [{ at: [0.09, 0.075], k: 'all', role: 'glass', tint: [30, 40, 60] }] }),
 ])], FINE);
 
-// ── Tail: a straight tailplane, two fins canted out ─────────────────────────────
-const T = [
-  { g: 0, le: -0.79, te: -1.01, h: 0.052, t: 0.9 },
-  { g: 0.36, le: -0.84, te: -1.03, h: 0.052, t: 0.8 },
-];
+// ── Tail: two fins canted hard out on the deck's edges, a swept tailplane ───────
+// cabin-reaper-2076.js RP_TAIL. Each fin is built about its own root (lib.mjs's foil on axis 'g', the
+// span up h) and placed by its group's roll, pitch and translate, which rpFinXf repeats for the
+// hologram. The tailplane runs out of the beavertail's flanks under the nozzles.
+const T = RP_TAIL.stab, FIN = RP_TAIL.fin, FIN_H = FIN[1].g;
 const tailplane = foil('tailplane', T, { role: 'stab', paint: 'hull', nx: 10, lodNx: 4 });
 const elevators = ctrlOn('elevator', T[0], T[1], 0.04, 0.9, 0.34);
-// The fins, built about their own root on the tailplane's tip and canted out 9 degrees.
-const CANT = 9;
-const F = [
-  { g: -0.088, le: -0.765, te: -1.015, h: 0, t: 0.95 },
-  { g: 0.275, le: -0.8, te: -0.99, h: 0, t: 0.8 },
-];
-const finTop = foilPt(F[1], 0.5, 1);
+const stabLights = mirror('tailplane lights', [tube('tailplane leading edge light', range(0.15, 1, 4).map((t) => { const q = foilPt(lerpSt(T[0], T[1], t), 0, 1); return [q[0] + 0.002, q[1], q[2]]; }), 0.0016, { role: 'nacelle', paint: 'led', sh: 1, sides: 4, ...FINE })]);
+// A point on the fin in its own frame: `span` up from the root, `x` along the chord, on the outboard
+// (+g) or inboard face, `o` proud of it.
+const finAt = (span, x, up = 1, o = 0) => { const q = foilPt(lerpSt(FIN[0], FIN[1], span / FIN_H), x, up); return [q[0], q[2] + (up ? o : -o), q[1]]; };
 const fins = mirror('fins', [group('fin', [
-  foil('fin', F, { axis: 'g', role: 'fin', paint: 'hull', nx: 10, lodNx: 4 }),
-  ctrlOn('rudder', F[0], F[1], 0.12, 0.95, 0.34, { axis: 'g', sh: 0.72 }),
-  // The fin's trim band and cap, a formation light strip and the strobe on its top.
-  poly('fin band', [0, 1].map((s) => ({ role: 'fin', paint: 'trim', sh: s ? 0.64 : 0.84, p: (s ? [[-0.79, -0.0105, 0.2], [-0.95, -0.0085, 0.2], [-0.952, -0.0085, 0.24], [-0.795, -0.0105, 0.24]] : [[-0.795, 0.0105, 0.24], [-0.952, 0.0085, 0.24], [-0.95, 0.0085, 0.2], [-0.79, 0.0105, 0.2]]) })), FINE),
-  tube('fin formation light', [[-0.79, 0.011, 0.12], [-0.8, 0.011, 0.25]], 0.0018, { role: 'nacelle', paint: 'led', sh: 1, sides: 4, ...FINE }),
-  tube('fin formation light', [[-0.79, -0.011, 0.12], [-0.8, -0.011, 0.25]], 0.0018, { role: 'nacelle', paint: 'led', sh: 1, sides: 4, ...FINE }),
-  tube('fin cap', [[-0.8, 0, finTop[2] + 0.001], [-0.99, 0, finTop[2] + 0.001]], 0.004, { role: 'nacelle', paint: 'glare', sides: 6, caps: 1, ...FINE }),
-  tube('fin leading edge', [[-0.765, 0, -0.08], [-0.8, 0, 0.27]], 0.0035, { role: 'nacelle', paint: 'metal', sides: 5, ...FINE }),
-], { xf: { t: [0, 0.355, 0.052], r: [-CANT, 0, 0] } })]);
-
-// ── The wingmen ─────────────────────────────────────────────────────────────────
-// Two loyal wingmen after the Boeing MQ-28 Ghost Bat: a chined body with a sharp nose and a sensor
-// window in it, a dorsal intake flush with the spine, a small swept wing, a V-tail canted out, a flat
-// exhaust, lit edges. Each docks conformal on the top of an outer wing panel in a cradle: a dark
-// saddle with a lit rim, four clamps and an umbilical, and a lamp lit while its wingman is out. Built
-// at the origin, the belly at h 0, nose to +f, and moved onto the wing.
-//
-// ⚠ THE WINGMEN FLY ON THE `wingmen` CHANNEL (cockpit.js eases it up while the weapons are armed).
-// Each wingman is a group whose anim lifts it clear of the cradle, rolls it level and flies it out
-// to RP_WINGMEN's station off the wingtip. Both sides are written out, not mirrored: a mirror flips
-// a part's anim but not the second stage of a chained one. A contact, the hangar and a card pass no
-// channels, so there the wingmen are docked.
-const WM = RP_WINGMEN, WL = WM.len, WS = WM.span / 2;
-const WMS = [
-  { f: 0.5 * WL, rg: 0.002, rvT: 0.002, rvB: 0.002, cz: 0.012, boxy: 0.3 },
-  { f: 0.42 * WL, rg: 0.009, rvT: 0.007, rvB: 0.006, cz: 0.012, boxy: 0.6 },
-  { f: 0.3 * WL, rg: 0.016, rvT: 0.012, rvB: 0.009, cz: 0.012, boxy: 0.8 },
-  { f: 0.12 * WL, rg: 0.022, rvT: 0.018, rvB: 0.011, cz: 0.012, boxy: 0.85 },
-  { f: -0.1 * WL, rg: 0.024, rvT: 0.019, rvB: 0.011, cz: 0.012, boxy: 0.88 },
-  { f: -0.32 * WL, rg: 0.021, rvT: 0.014, rvB: 0.01, cz: 0.013, boxy: 0.88 },
-  { f: -0.46 * WL, rg: 0.015, rvT: 0.008, rvB: 0.008, cz: 0.014, boxy: 0.9 },
-  { f: -0.5 * WL, rg: 0.012, rvT: 0.006, rvB: 0.006, cz: 0.014, boxy: 0.9 },
-];
-const wmPt = (f, a, o = 0) => {
-  let s = WMS[WMS.length - 1];
-  for (let i = 0; i < WMS.length - 1; i++) if (f <= WMS[i].f && f >= WMS[i + 1].f) { const A = WMS[i], B = WMS[i + 1], t = (A.f - f) / (A.f - B.f); s = { rg: lerp(A.rg, B.rg, t), rvT: lerp(A.rvT, B.rvT, t), rvB: lerp(A.rvB, B.rvB, t), cz: lerp(A.cz, B.cz, t), boxy: lerp(A.boxy, B.boxy, t) }; break; }
-  const e = 1 - s.boxy * 0.55, c = Math.cos(a * DEG), sn = Math.sin(a * DEG);
-  return [f, Math.sign(c) * Math.abs(c) ** e * (s.rg + o), s.cz + (sn >= 0 ? sn ** e * (s.rvT + o) : -((-sn) ** e) * (s.rvB + o))];
-};
-const WMW = [
-  { g: 0.016, le: 0.04, te: -0.075, h: 0.012, t: 0.7 },
-  { g: WS, le: -0.045, te: -0.085, h: 0.014, t: 0.55 },
-];
-function wingmanBody(name) {
-  const tailRoot = -0.33 * WL, tailTip = -0.5 * WL, vh = 0.042, vSpan = 0.05, cant = 50 * DEG;
-  // A V-tail half: a thin swept plate leaning out by `cant` from the vertical, both faces.
-  const vtail = (s) => {
-    const base = [[tailRoot, s * 0.012, 0.024], [tailTip + 0.002, s * 0.01, 0.022]];
-    const up = [Math.sin(cant) * s, Math.cos(cant)];
-    const tip = [[tailRoot - 0.03, s * 0.012 + up[0] * vSpan, 0.024 + up[1] * vSpan], [tailTip - 0.012, s * 0.01 + up[0] * vSpan, 0.022 + up[1] * vSpan]];
-    const n = [0.0012 * Math.cos(cant) * s, -0.0012 * Math.sin(cant)];
-    const off = (p, k) => [p[0], p[1] + n[0] * k, p[2] + n[1] * k];
-    const q = [base[0], base[1], tip[1], tip[0]];
-    const A = q.map((p) => off(p, -1)), B = q.map((p) => off(p, 1)).reverse();
-    return [{ p: s > 0 ? A : A.slice().reverse(), paint: 'wingman', sh: 0.78 }, { p: s > 0 ? B : B.slice().reverse(), paint: 'wingman', sh: 0.55 },
-      { p: [tip[0], tip[1], off(tip[1], 1), off(tip[0], 1)], paint: 'led', sh: 1 }];
-  };
-  return [
-    loft(name + ' body', 16, WMS, { role: 'nacelle', paint: 'wingman', capFore: { kind: 'apex', at: [0.5 * WL + 0.008, 0, 0.012] }, capAft: { kind: 'flat', paint: 'exhaust', sh: 0.3 }, shade: { base: 0.6, amp: 0.34 } }),
-    // The chine down each side, from the nose to the wing.
-    poly(name + ' chines', [1, -1].flatMap((s) => range(0.48 * WL, 0.05 * WL, 4).slice(0, -1).map((f, i, a) => {
-      const f2 = i + 1 < a.length ? a[i + 1] : 0.05 * WL, p = wmPt(f, 0), q = wmPt(f2, 0), w = (ff) => 0.006 * Math.min(1, (0.5 * WL - ff) / (0.15 * WL));
-      const P = [[p[0], s * p[1], p[2]], [q[0], s * q[1], q[2]], [q[0], s * (q[1] + w(f2)), q[2]], [p[0], s * (p[1] + w(f)), p[2]]];
-      return { p: s > 0 ? P : P.slice().reverse(), paint: 'wingman', sh: 0.85 };
-    }))),
-    // The wing: small and swept, mid-mounted.
-    rawPoly(name + ' wing', foilFacesLite(WMW), {}),
-    poly(name + ' wingtip lights', [1, -1].map((s) => ({ p: [[WMW[1].le - 0.004, s * (WS + 0.0005), 0.012], [WMW[1].te + 0.004, s * (WS + 0.0005), 0.012], [WMW[1].te + 0.004, s * (WS + 0.0005), 0.017], [WMW[1].le - 0.004, s * (WS + 0.0005), 0.017]].map((p, i, A) => (s > 0 ? p : A[3 - i])), role: 'window', tint: s > 0 ? [46, 190, 78] : [200, 52, 48], sh: 1 }))),
-    poly(name + ' V-tail', [...vtail(1), ...vtail(-1)]),
-    // The dorsal intake: a dark mouth flush with the spine, a lip, and a boundary-layer splitter.
-    poly(name + ' intake', [quad(wmPt(0.06 * WL, 72, 0.001), wmPt(0.06 * WL, 108, 0.001), wmPt(-0.06 * WL, 104, 0.0012), wmPt(-0.06 * WL, 76, 0.0012), { paint: 'intake', sh: 0.12 })]),
-    tube(name + ' intake lip', [wmPt(0.06 * WL, 70, 0.0016), wmPt(0.06 * WL, 90, 0.0028), wmPt(0.06 * WL, 110, 0.0016)], 0.0012, { role: 'nacelle', paint: 'metal', sides: 3 }),
-    // The nose sensor window and an edge light down the spine.
-    poly(name + ' sensor window', [quad(wmPt(0.45 * WL, -30, 0.0008), wmPt(0.38 * WL, -40, 0.0008), wmPt(0.38 * WL, -140, 0.0008), wmPt(0.45 * WL, -150, 0.0008), { role: 'glass', tint: [26, 34, 48] })]),
-    tube(name + ' spine light', [wmPt(-0.1 * WL, 90, 0.0012), wmPt(-0.44 * WL, 90, 0.0012)], 0.0012, { role: 'nacelle', paint: 'led', sh: 1, sides: 3 }),
-    // The exhaust: a flat slot glowing at the tail, and the tail's trim band.
-    poly(name + ' exhaust', [quad([-0.5 * WL - 0.0006, -0.008, 0.012], [-0.5 * WL - 0.0006, 0.008, 0.012], [-0.5 * WL - 0.0006, 0.008, 0.016], [-0.5 * WL - 0.0006, -0.008, 0.016], { paint: 'heat', sh: 1 })]),
-    poly(name + ' band', range(0, 7, 7).map((k) => { const a0 = -30 + k * 30, a1 = a0 + 30; return quad(wmPt(0.22 * WL, a0, 0.0008), wmPt(0.19 * WL, a0, 0.0008), wmPt(0.19 * WL, a1, 0.0008), wmPt(0.22 * WL, a1, 0.0008), { paint: 'wingmanTrim', sh: 0.8 }); })),
-    poly(name + ' panel seams', [0.3, 0.0, -0.25].flatMap((ff) => range(0, 11, 11).map((k) => { const a0 = k * 30, a1 = a0 + 30, f = ff * WL; return quad(wmPt(f + 0.001, a0, 0.0007), wmPt(f - 0.001, a0, 0.0007), wmPt(f - 0.001, a1, 0.0007), wmPt(f + 0.001, a1, 0.0007), { paint: 'seam', sh: 0.35 }); }))),
-  ];
-}
-// A thin wing's faces from two stations, both sides of the centreline: the wingman's.
-function foilFacesLite(st) {
-  const xs = [0, 0.15, 0.4, 0.7, 1], out = [];
-  for (const s of [1, -1]) for (let j = 0; j < xs.length - 1; j++) {
-    const P = (k, x, up) => { const q = foilPt(st[k], x, up); return [q[0], s * q[1], q[2]]; };
-    const U = [P(0, xs[j], 1), P(1, xs[j], 1), P(1, xs[j + 1], 1), P(0, xs[j + 1], 1)];
-    const B = [P(0, xs[j + 1], 0), P(1, xs[j + 1], 0), P(1, xs[j], 0), P(0, xs[j], 0)];
-    out.push({ role: 'nacelle', paint: 'wingman', sh: 0.8, p: (s > 0 ? U : U.slice().reverse()).map(P3) });
-    out.push({ role: 'nacelle', paint: 'wingman', sh: 0.5, p: (s > 0 ? B : B.slice().reverse()).map(P3) });
-  }
-  return out;
-}
-function cradle(name) {
-  const hw = WM.span * 0.32, hl = WM.len * 0.36;
-  return [
-    poly(name + ' saddle', boxAt([0, 0, 0.0018], [2 * hl, 2 * hw, 0.0036], { paint: 'cradle' }), FINE),
-    tube(name + ' rim light', [[hl, hw, 0.004], [-hl, hw, 0.004], [-hl, -hw, 0.004], [hl, -hw, 0.004], [hl, hw, 0.004]], 0.0014, { role: 'nacelle', paint: 'led', sh: 1, sides: 4, ...FINE }),
-    ...[[1, 1], [1, -1], [-1, 1], [-1, -1]].map(([a, b]) => poly(name + ' clamp', boxAt([a * hl * 0.6, b * 0.016, 0.006], [0.01, 0.006, 0.008], { paint: 'metal' }), FINE)),
-    tube(name + ' umbilical', [[-hl * 0.2, 0, 0.0036], [-hl * 0.2, 0, 0.008]], 0.003, { role: 'nacelle', paint: 'hazard', sides: 6, caps: 1, ...FINE }),
-    poly(name + ' away lamp', boxAt([hl - 0.004, 0, 0.0045], [0.004, 2 * hw - 0.01, 0.0018], { paint: 'warn' }), { ...FINE, when: 'wingmen' }),
-  ];
-}
-// The chained anim for one side (s = 1 right, -1 left), in the group's own frame. The group is rolled
-// to the panel's dihedral, so the slides are rolled back by the same amount to land where RP_WINGMEN
-// says in the aircraft's frame.
-function wingmanAnim(s) {
-  const r = -s * WM.roll * DEG;   // undo the group's roll on a world vector
-  const loc = ([f, g, h]) => [f, g * Math.cos(r) - h * Math.sin(r), g * Math.sin(r) + h * Math.cos(r)];
-  const lift = loc([0, 0, WM.lift]), out = loc([WM.out[0], s * WM.out[1], WM.out[2]]);
-  return { ch: 'wingmen', slide: P3(lift), span: WM.liftSpan, def: 0,
-    then: { ch: 'wingmen', pivot: P3(lift), axis: [1, 0, 0], ang: [0, -s * WM.roll], slide: P3(out), span: WM.flySpan, def: 0 } };
-}
-const wingmen = [1, -1].flatMap((s) => {
-  const side = s > 0 ? 'right' : 'left', xf = { t: P3([WM.dock[0], s * WM.dock[1], WM.dock[2]]), r: [s * WM.roll, 0, 0] };
-  return [
-    group('wingman cradle (' + side + ')', cradle('cradle'), { xf: { t: P3([WM.dock[0], s * WM.dock[1], WM.dock[2] - 0.002]), r: [s * WM.roll, 0, 0] }, ...FINE }),
-    group('wingman (' + side + ')', wingmanBody('wingman'), { xf, anim: wingmanAnim(s), ...FINE }),
-    group('wingman (' + side + ', far)', [poly('wingman (far)', [...boxAt([0, 0, 0.012], [WL * 0.9, 0.044, 0.02], { paint: 'wingman' }), ...boxAt([-0.03, 0, 0.012], [0.07, WM.span * 0.9, 0.004], { paint: 'wingman' })])], { xf, anim: wingmanAnim(s), ...COARSE }),
-  ];
-});
+  foil('fin', FIN, { axis: 'g', role: 'fin', paint: 'hull', nx: 10, lodNx: 4 }),
+  ctrlOn('rudder', FIN[0], FIN[1], 0.12, 0.95, 0.3, { axis: 'g', sh: 0.72 }),
+  // The top fifth in the trim colour, both faces, over the fin's own skin.
+  foil('fin tip', [{ ...lerpSt(FIN[0], FIN[1], 0.8), t: lerpSt(FIN[0], FIN[1], 0.8).t + 0.04 }, { ...FIN[1], t: FIN[1].t + 0.04 }], { axis: 'g', role: 'fin', paint: 'trim', nx: 8, lodNx: 3, lowerSh: 0.62 }),
+  // A light line up the leading edge, a formation strip low on each face, and a dark cap on the top.
+  tube('fin leading edge light', range(0.01, FIN_H - 0.004, 5).map((s) => { const q = finAt(s, 0); return [q[0] + 0.002, q[1], q[2]]; }), 0.0018, { role: 'nacelle', paint: 'led', sh: 1, sides: 4, ...FINE }),
+  ...[1, 0].map((up) => tube('fin formation light', [finAt(0.05, 0.22, up, 0.0016), finAt(0.13, 0.3, up, 0.0016)], 0.0016, { role: 'nacelle', paint: 'led', sh: 1, sides: 4, ...FINE })),
+  tube('fin cap', [finAt(FIN_H, 0.03, 1, -0.003), finAt(FIN_H, 0.95, 1, -0.003)], 0.003, { role: 'nacelle', paint: 'glare', sides: 6, caps: 1, ...FINE }),
+], { xf: { t: RP_TAIL.at, r: [-RP_TAIL.cant, RP_TAIL.pitch, 0] } })]);
 
 // ── Lamps and lenses ────────────────────────────────────────────────────────────
 const tip = foilPt(W[3], 0.5, 1);
 const lenses = [
-  poly('starboard tip lamp', [{ role: 'window', sh: 1, tint: [46, 190, 78], p: [[tip[0] + 0.04, 1.103, tip[2] - 0.012], [tip[0] - 0.04, 1.103, tip[2] - 0.012], [tip[0] - 0.04, 1.103, tip[2] + 0.004], [tip[0] + 0.04, 1.103, tip[2] + 0.004]] }]),
-  poly('port tip lamp', [{ role: 'window', sh: 1, tint: [200, 52, 48], p: [[tip[0] + 0.04, -1.103, tip[2] + 0.004], [tip[0] - 0.04, -1.103, tip[2] + 0.004], [tip[0] - 0.04, -1.103, tip[2] - 0.012], [tip[0] + 0.04, -1.103, tip[2] - 0.012]] }]),
-  mirror('tip strobes', [poly('tip strobe', boxAt([tip[0] - 0.07, 1.104, tip[2] - 0.004], [0.014, 0.004, 0.008], { paint: 'strobe' }), FINE)]),
+  poly('starboard tip lamp', [{ role: 'window', sh: 1, tint: [46, 190, 78], p: [[tip[0] + 0.045, TIP_G + 0.003, tip[2] - 0.012], [tip[0] - 0.025, TIP_G + 0.003, tip[2] - 0.012], [tip[0] - 0.025, TIP_G + 0.003, tip[2] + 0.004], [tip[0] + 0.045, TIP_G + 0.003, tip[2] + 0.004]] }]),
+  poly('port tip lamp', [{ role: 'window', sh: 1, tint: [200, 52, 48], p: [[tip[0] + 0.045, -TIP_G - 0.003, tip[2] + 0.004], [tip[0] - 0.025, -TIP_G - 0.003, tip[2] + 0.004], [tip[0] - 0.025, -TIP_G - 0.003, tip[2] - 0.012], [tip[0] + 0.045, -TIP_G - 0.003, tip[2] - 0.012]] }]),
+  mirror('tip strobes', [poly('tip strobe', boxAt([tip[0] - 0.042, TIP_G + 0.004, tip[2] - 0.004], [0.014, 0.004, 0.008], { paint: 'strobe' }), FINE)]),
   D('belly beacon', -0.4, 0, 0.01, at(-0.4, -90)[2] - 0.012, at(-0.4, -90)[2] + 0.002, 'beacon', { bottom: { sh: 1 } }),
   D('spine beacon', -0.5, 0, 0.01, at(-0.5, 90)[2] - 0.002, at(-0.5, 90)[2] + 0.012, 'beacon', { top: { sh: 1 } }),
   tube('tail strobe', [[-1.06, 0, 0.064], [-1.079, 0, 0.064]], 0.006, { role: 'nacelle', paint: 'strobe', sh: 1, sides: 6, caps: 1, ...FINE }),
 ];
 const lamps = [
-  { at: P3([tip[0], -1.11, tip[2]]), n: [0, -1, 0], rgb: '255,55,55', kind: 'steady' },
-  { at: P3([tip[0], 1.11, tip[2]]), n: [0, 1, 0], rgb: '60,255,95', kind: 'steady' },
-  { at: P3([tip[0] - 0.07, -1.11, tip[2]]), n: [0, -1, 0], rgb: '255,255,255', kind: 'strobe' },
-  { at: P3([tip[0] - 0.07, 1.11, tip[2]]), n: [0, 1, 0], rgb: '255,255,255', kind: 'strobe' },
+  { at: P3([tip[0], -TIP_G - 0.01, tip[2]]), n: [0, -1, 0], rgb: '255,55,55', kind: 'steady' },
+  { at: P3([tip[0], TIP_G + 0.01, tip[2]]), n: [0, 1, 0], rgb: '60,255,95', kind: 'steady' },
+  { at: P3([tip[0] - 0.042, -TIP_G - 0.01, tip[2]]), n: [0, -1, 0], rgb: '255,255,255', kind: 'strobe' },
+  { at: P3([tip[0] - 0.042, TIP_G + 0.01, tip[2]]), n: [0, 1, 0], rgb: '255,255,255', kind: 'strobe' },
   { at: [-1.085, 0, 0.064], n: [-1, 0, 0], rgb: '255,255,255', kind: 'strobe' },
   { at: P3([-0.5, 0, at(-0.5, 90)[2] + 0.014]), n: [0, 0, 1], rgb: '255,90,70', kind: 'beacon' },
   { at: P3([-0.4, 0, at(-0.4, -90)[2] - 0.014]), n: [0, 0, -1], rgb: '255,90,70', kind: 'beacon' },
@@ -589,7 +504,9 @@ const accents = mirror('body light lines', [
   tube('chine light', alongF(range(0.94, 0.64, 5), 0, 0.006), 0.0018, { role: 'nacelle', paint: 'led', sh: 1, sides: 4, ...FINE }),
   tube('formation light', alongF([0.26, 0.06], 30, 0.004), 0.0022, { role: 'nacelle', paint: 'led', sh: 1, sides: 4, ...FINE }),
   tube('formation light', alongF([-0.62, -0.82], 20, 0.004), 0.0022, { role: 'nacelle', paint: 'led', sh: 1, sides: 4, ...FINE }),
-  poly('trim stripe', patch([0.32, 0.2, 0.06, -0.08, -0.24, -0.45, -0.7, -0.9], [-6, 3], { paint: 'trim', sh: 0.8 }, 0.0018), FINE),
+  // The deck's chine: a trim band along its edge from the tub to the beavertail, a light line in it.
+  poly('trim stripe', patch([0.32, 0.2, 0.06, -0.08, -0.24, -0.45, -0.7, -0.9, -0.98], [-4, 4], { paint: 'trim', sh: 0.8 }, 0.0018), FINE),
+  tube('deck edge light', alongF(range(0.08, -0.96, 13), 0, 0.0032), 0.0016, { role: 'nacelle', paint: 'led', sh: 1, sides: 4, ...FINE }),
   // A red band round the gun's end of the nose: the danger area, painted.
   poly('muzzle danger band', patch([0.94, 0.925], range(-80, 0, 6), { paint: 'hazard', sh: 0.7 }, 0.0022), FINE),
 ]);
@@ -599,8 +516,8 @@ const coarse = [
   fuselageFar, glassFar, enginesFar,
   tube('gun (far)', [[0.6, 0, GH], [1.0, 0, GH]], GR + BR, { role: 'nacelle', paint: 'gunmetal', sides: 6, ...COARSE }),
   mirror('gear pods (far)', [pod('gear pod (far)', 0.34, -0.085, [[0.35, 0.006], [0.25, 0.047], [-0.06, 0.035], [-0.15, 0.008]], { paint: 'hull', sides: 6 })].map((p) => ({ ...p, ...COARSE }))),
-  group('wheels (far)', [mirror('main wheels (far)', [wheel('main wheel (far)', [0.24, 0.34, -0.238], 0.041, 0.018, 8), tube('main leg (far)', [[0.25, 0.34, -0.1], [0.24, 0.34, -0.21]], 0.008, { role: 'gear', sides: 4 })]),
-    wheel('nose wheel (far)', [0.72, NG, -0.24], 0.039, 0.014, 8), tube('nose leg (far)', [[0.725, NG, -0.11], [0.72, NG, -0.22]], 0.006, { role: 'gear', sides: 4 })], COARSE),
+  group('wheels (far)', [mirror('main wheels (far)', [group('main leg (far)', [wheel('main wheel (far)', [0.24, 0.34, -0.238], 0.041, 0.018, 8), tube('main leg (far)', [[0.25, 0.34, -0.1], [0.24, 0.34, -0.21]], 0.008, { role: 'gear', sides: 4 })], { anim: MAIN_FOLD })]),
+    group('nose leg (far)', [wheel('nose wheel (far)', [0.72, NG, -0.24], 0.039, 0.014, 8), tube('nose leg (far)', [[0.725, NG, -0.11], [0.72, NG, -0.22]], 0.006, { role: 'gear', sides: 4 })], { anim: NOSE_FOLD })], COARSE),
   group('drum (far)', [pod('drum (far)', 0, 0, [[0.5, 0.006, 0, 0.012], [0.4, 0.024, 0, 0.068], [0.12, 0.018, 0, 0.056], [0.06, 0.004, 0, 0.012]], { sides: 6, paint: 'belly' })], { xf: { t: [0, 0, DRUM_Z + 0.004] }, ...COARSE }),
 ];
 
@@ -609,10 +526,10 @@ const doc = {
   kind: 'mesh',
   params: {
     name: 'REAPER 2076',
-    note: 'CONCEPT, generated by scripts/shapes/concepts/reaper-2076.mjs (edit that, not this). The Reaper fifty years on, after the Boeing MQ-28 Ghost Bat: still the gun with a plane round it. A seven-barrel rotary cannon in the open under a chined nose, clamped, with a ribbed and slotted breech housing, gas diverters and a feed chute back to a drum fairing with a lit rounds strip; a bubble on an armoured tub bolted down both flanks; a targeting turret, a refuelling receptacle, aperture windows; turbofans high on the rear fuselage with serrated nozzles and IR shrouds; the straight thick wing with its gear standing half out of leading-edge pods; twin fins canted out; a missile, a glide bomb and a targeting pod on pylons; a datalink array and satcom dome on the spine. Two loyal wingmen ride conformal in lit cradles on the outer wing panels and fly in formation off each wingtip while the weapons are armed (the wingmen channel). A variant of the gunship mesh, worn as the REAPER 2076 factory edition.',
+    note: 'CONCEPT, generated by scripts/shapes/concepts/reaper-2076.mjs (edit that, not this). The Reaper fifty years on: still the gun with a plane round it. A seven-barrel rotary cannon in the open under a chined nose, clamped, with a ribbed and slotted breech housing, gas diverters and a feed chute back to a drum fairing with a lit rounds strip; a frameless gold-tinted bubble on an armoured tub bolted down both flanks; a targeting turret, a refuelling receptacle, aperture windows; aft of the cockpit a broad flat engine deck with both turbofans buried in it, each breathing through a dorsal intake under a raked visor and blowing out of a flat slot nozzle over a beavertail; two fins canted hard out on the deck edges over a swept tailplane; a swept wing with raked tips, strakes, and the gear standing half out of leading-edge pods; a missile, a glide bomb and a targeting pod on pylons; light lines on the chines, the deck edges, the intakes and every leading edge. A variant of the gunship mesh, worn as the REAPER 2076 factory edition.',
     groundPitch: 0,
     hull: 'fuselage',
-    navLamps: P3([tip[0], 1.1, tip[2]]),
+    navLamps: P3([tip[0], TIP_G + 0.006, tip[2]]),
     lamps,
     finish: 'matte',
     paints: {
@@ -621,7 +538,7 @@ const doc = {
       belly: { rgb: [112, 118, 120], livery: 'fixed', mat: 'matte' },
       glare: { rgb: [30, 32, 34], livery: 'fixed', mat: 'matte' },
       armour: { rgb: [84, 88, 86], livery: 'fixed', mat: 'satin' },
-      frame: { rgb: [34, 36, 38], livery: 'fixed', mat: 'satin' },
+      frame: { rgb: [24, 26, 28], livery: 'fixed', mat: 'gloss' },
       seam: { rgb: [36, 40, 34], livery: 'fixed', mat: 'matte' },
       carbon: { rgb: [32, 35, 38], livery: 'fixed', mat: 'satin' },
       gun: { rgb: [44, 44, 46], livery: 'fixed', mat: 'blued' },
@@ -629,29 +546,24 @@ const doc = {
       metal: { rgb: [150, 154, 160], livery: 'fixed', mat: 'bare' },
       gearLeg: { rgb: [60, 64, 66], livery: 'fixed', mat: 'satin' },
       rubber: { rgb: [24, 24, 26], livery: 'fixed', mat: 'rubber' },
-      fan: { rgb: [70, 74, 80], livery: 'fixed', mat: 'steel' },
       intake: { rgb: [12, 13, 14], livery: 'fixed', mat: 'matte' },
       exhaust: { rgb: [70, 64, 60], livery: 'fixed', mat: 'exhaust' },
       heat: { rgb: [196, 92, 44], livery: 'fixed', mat: 'matte' },
       hazard: { rgb: [150, 36, 30], livery: 'fixed', mat: 'satin' },
       warn: { rgb: [255, 150, 40], livery: 'fixed', mat: 'matte' },
-      label: { rgb: [226, 226, 218], livery: 'fixed', mat: 'satin' },
       radome: { rgb: [88, 92, 90], livery: 'fixed', mat: 'satin' },
       store: { rgb: [74, 84, 64], livery: 'fixed' },
       led: { rgb: [120, 255, 200], livery: 'fixed', mat: 'matte' },
       beacon: { rgb: [235, 70, 56], livery: 'fixed', mat: 'gloss' },
       strobe: { rgb: [240, 244, 248], livery: 'fixed', mat: 'gloss' },
-      wingman: { rgb: [96, 102, 100], livery: 'fixed', mat: 'satin' },
-      wingmanTrim: { rgb: [62, 68, 58], livery: 'base' },
-      cradle: { rgb: [22, 24, 26], livery: 'fixed', mat: 'rubber' },
       interior: { rgb: [38, 42, 44], livery: 'fixed', mat: 'matte' },
       seat: { rgb: [62, 66, 60], livery: 'fixed', mat: 'satin' },
       screen: { rgb: [60, 200, 170], livery: 'fixed', mat: 'gloss' },
     },
     parts: [
       fuselage, windscreen, bubble, ...frames, ...tub, ...interior, chines, ...nose, gun, gunTrough, gasDiverters, ...drum,
-      engines, ...spine, wing, flaps, flapsOut, ailerons, tipBands, wingDetail, gearPods, noseGear, stores,
-      tailplane, elevators, fins, ...wingmen, ...lenses, accents,
+      engines, ...spine, wing, strakes, flaps, flapsOut, ailerons, tipBands, wingDetail, gearPods, noseGear, stores,
+      tailplane, elevators, stabLights, fins, ...lenses, accents,
       ...coarse,
     ],
   },

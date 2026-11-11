@@ -36,3 +36,6 @@ push*.log
 scratch_*.mjs
 tmp-*.mjs
 sound-match-out/
+
+# Field-recording originals (scripts/audio/build-field-recordings.mjs --fetch)
+.cache/field-recordings/

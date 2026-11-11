@@ -752,6 +752,9 @@ export function simGame(matchup, players, rand = Math.random, opts = {}) {
   // v7 passes more in the rushes (synthPossession) and assists nine goals in ten, which is the
   // NHL's rate; before it, 72%.
   const v7 = Number(opts.version) >= 7;
+  // v8 times the penalty box right. The period clock counts down, and before v8 a man counted
+  // as serving only once his time was up, so a power play started when the penalty ended.
+  const v8 = Number(opts.version) >= 8;
   // A final is the game that matters most; the caller says so (sportsGameForSlot).
   const important = !!opts.important;
   let brawled = false;
@@ -774,7 +777,7 @@ export function simGame(matchup, players, rand = Math.random, opts = {}) {
       profile: clubProfile(name, matchup?.clubs?.[name] || null),
       skaters: POSITIONS.map((pos, k) => ({ name: roster[k], pos, goals: 0, assists: 0, out: false, dead: false, callup: !!dressed[k].callup, replacing: dressed[k].replacing || '' })),
       goalie: roster[POSITIONS.length],
-      box: [],            // [{ name, until }] — penalties currently being served
+      box: [],            // [{ name, until }]: penalties being served; until is elapsed game seconds
       pulled: false,
     };
   };
@@ -787,10 +790,15 @@ export function simGame(matchup, players, rand = Math.random, opts = {}) {
 
   const beats = [];
   let period = 0, clock = 0, gameOver = false, deadPlayer = null;
+  // game seconds before this period began: the period clock counts down and resets, so a
+  // penalty ends at a point in the whole game, not on one period's clock
+  let played = 0, periodLen = 0;
+  const elapsed = (at) => played + periodLen - at;
 
   const live = (t) => t.skaters.filter(s => !s.out);
   const anyone = (t) => { const l = live(t); return l.length ? l[Math.floor(rand() * l.length)] : null; };
-  const serving = (t, at) => t.box.filter(p => p.until > at).length;
+  const serving = (t, at) => t.box.filter(p => (v8 ? p.until > elapsed(at) : p.until > at)).length;
+  const boxUntil = (at, mins) => (v8 ? elapsed(at) + mins * 60 : at - mins * 60);
 
   // Strength from the two boxes, plus an empty net if anyone has pulled.
   function strengthOf(att, def, at) {
@@ -855,7 +863,7 @@ export function simGame(matchup, players, rand = Math.random, opts = {}) {
   function penalise(team, at, forced, who) {
     const s = who || anyone(team); if (!s) return null;
     const [infraction, mins] = forced || pick(INFRACTIONS, rand);
-    team.box.push({ name: s.name, until: at - mins * 60 });
+    team.box.push({ name: s.name, until: boxUntil(at, mins) });
     push({ type: 'penalty', teamName: team.name, player: s.name, infraction, penaltyMin: mins,
       strength: '', section: ordinal(period) });
     return s;
@@ -872,7 +880,7 @@ export function simGame(matchup, players, rand = Math.random, opts = {}) {
     const loserTeam = aWins ? def : att;
     const fseed = Math.floor(rand() * 1e9);
     const exchange = synthFightExchange(fseed, winner.name, loser.name);
-    loserTeam.box.push({ name: loser.name, until: at - 5 * 60 });
+    loserTeam.box.push({ name: loser.name, until: boxUntil(at, 5) });
     push({ type: 'fight', fighters: [a.name, b.name], winner: winner.name, loser: loser.name,
       loserTeam: loserTeam.name, winnerTeam: (aWins ? att : def).name, exchange,
       ...fightEnding(fseed, exchange.length),
@@ -902,8 +910,8 @@ export function simGame(matchup, players, rand = Math.random, opts = {}) {
     const winnerTeam = winner === a ? att : def, loserTeam = winner === a ? def : att;
     // a man the fight hurt goes to the room, not the box; a draw boxes both
     if (f.slotsOut) { loser.out = true; loser.slotsOut = f.slotsOut; }
-    else loserTeam.box.push({ name: loser.name, until: at - 5 * 60 });
-    if (f.draw) winnerTeam.box.push({ name: winner.name, until: at - 5 * 60 });
+    else loserTeam.box.push({ name: loser.name, until: boxUntil(at, 5) });
+    if (f.draw) winnerTeam.box.push({ name: winner.name, until: boxUntil(at, 5) });
     push({ type: 'fight', fighters: [a.name, b.name], winner: winner.name, loser: loser.name,
       loserTeam: loserTeam.name, winnerTeam: winnerTeam.name, exchange: f.exchange,
       ending: f.ending, pullAt: f.pullAt, draw: f.draw, loserWound: f.loserWound, winnerWound: f.winnerWound,
@@ -935,7 +943,7 @@ export function simGame(matchup, players, rand = Math.random, opts = {}) {
       for (const m of [a, b]) {
         const team = la.includes(m) ? att : def;
         if (f.slotsOut && m.name === f.loser) { m.out = true; m.slotsOut = f.slotsOut; hurt.push({ m, team, f }); }
-        else team.box.push({ name: m.name, until: at - 5 * 60 });
+        else team.box.push({ name: m.name, until: boxUntil(at, 5) });
       }
     }
     // (the skaters' fights are cut short, all going at once; the goalies' is the main event
@@ -1035,6 +1043,7 @@ export function simGame(matchup, players, rand = Math.random, opts = {}) {
 
   // ── a period ───────────────────────────────────────────────────────────────
   function playPeriod(secs, sudden) {
+    played += periodLen; periodLen = secs;
     clock = secs;
     push({ type: 'period_start', section: ordinal(period), sudden: !!sudden,
       strength: strengthOf(away, home, clock) });
@@ -1347,7 +1356,7 @@ export const HOCKEY = {
   // v2 reprints a dead man (reprintSlots); broadcast records the slot it plays from.
   // v3 plays fights by the fighters and the game's momentum (simFightV3); v4 fights harder;
   // v5 has open-ice cross-checks and slashes.
-  simVersions: [1, 2, 3, 4, 5, 6, 7],
+  simVersions: [1, 2, 3, 4, 5, 6, 7, 8],
   section: 'period',
   sectionPlural: 'periods',
   simGame,

@@ -686,6 +686,12 @@ simply belongs to its residents.
 
 Lock type definitions live in the doors plugin ([plugins/doors/index.js](../plugins/doors/index.js)); the lock registry in `locks.js` is the extensibility seam, not the implementation.
 
+### Every flat's front door has a hololock (as built)
+
+A front door is the step from an `is_apartment` zone to a room that isn't part of the flat (a landing, a hall, a stair). Each one carries a `doors` row with `lock:hololock`, so a tenant inside can `close door <dir>` and `lock door <dir>`, and the Room Stage hangs the hologram on both sides of it. `content:lint` fails a flat without one; [fit-apartment-hololocks.mjs](../scripts/content/fit-apartment-hololocks.mjs) fits the door, and the connection file where the step came from the grid alone. A step to another flat or to one of the flat's own rooms (its id starts with the flat's) isn't a front door.
+
+On a flat nobody rents the lock is vestigial (`doorGuardsOnlyUnownedApartment`): the door opens and closes, and nobody can lock it.
+
 ### A resident is never locked out of their own home (as built)
 
 **`checkLockAuth`** ([commands/doors.js](../server/engine/commands/doors.js)) — the single funnel used by

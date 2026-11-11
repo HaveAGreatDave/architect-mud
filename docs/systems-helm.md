@@ -38,12 +38,18 @@ Every verb gates on the `echelon_bridge` zone flag.
   `SAIL_MS_PER_TILE_COURSE = 5000`.
 - **Console shell:** `client/game/js/panels/helm-mode.js` (`openHelm()`, brass/glass
   dash, telegraph, NAV scope; `isHelmActive()` gates room renders like
-  `isFlightSimActive()`). Carries the same chrome pair as the flight sim: **⊟** collapses
-  just the scrollback log, **⛶** fullscreens (log + command bar hidden); mutually exclusive.
+  `isFlightSimActive()`). Carries the shared seat ladder (`seat-ladder.js`): **⊟** collapses
+  just the scrollback log, **⛶** fullscreens (log + command bar hidden), **⤢** is big screen.
+  The console, chips and placard stay hidden while the loading screen is up (`helm-loading`).
+  **⌖** puts the eye on her bridge (`helm-bridge`): the wheelhouse is drawn round you
+  (interior-shell's `bridge`), her own hull is skipped (`ownHull`), the console and readout
+  chips hide, and A/D steer, W makes way, S is all stop.
 - **Chase render:** `client/game/js/panels/helm-view.js` (`openHelmChase()` — the
   flight-renderer-reuse controller: wake/wash/knots, orbit cam, `sailT`, boat audio). The
   chase-cam pitch follows the dolly zoom (`pitchForZoom`): side-on near the water, tilting
-  top-down as the camera pulls back.
+  top-down as the camera pulls back. `CHASE_K` brings the camera in by about her
+  `YACHT_SCALE` shrink, which the chase distance had never been retuned for. It also loads
+  GLASS 2 itself (`windshield-lazy.js`), since the bridge's wheelhouse only exists on the GPU.
 - **Wheel:** `client/game/js/panels/helm-wheel.js`.
 - **Renderer (shared with flight):** `windshield.js` (`paintWindshield`,
   `drawYacht`, `YACHT_SCALE`).

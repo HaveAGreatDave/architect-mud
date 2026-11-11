@@ -1604,7 +1604,7 @@
           "y": 7760
         },
         "duration": 2,
-        "next": "bsm_242",
+        "next": "sbx_cam_242",
         "type": "wait"
       },
       "bsm_242": {
@@ -1625,7 +1625,7 @@
           "x": 740,
           "y": 7760
         },
-        "next": "bsm_244",
+        "next": "sbx_open",
         "song": "before_the_light",
         "text": "♪ A crowd, a buzzer, and the specific roar of people who paid too little to expect much. ♪",
         "type": "music"
@@ -1635,7 +1635,7 @@
           "x": 960,
           "y": 7760
         },
-        "next": "bsm_245",
+        "next": "sbx_lt_blurt",
         "style": "narration",
         "text": "The Open. A neon arena. And, in a broadcast booth built for two and a budget for less, the voice of Sub-Channel 2½.",
         "type": "say"
@@ -1645,7 +1645,17 @@
           "x": 80,
           "y": 7920
         },
-        "next": "bsm_246",
+        "next": "sbx_lt_cass",
+        "scorebug": {
+          "away": "The Sump",
+          "awayAbbr": "SUMP",
+          "awayScore": 6,
+          "home": "APEX Warm-Up",
+          "homeAbbr": "APX",
+          "homeScore": 6,
+          "sport": "slagball",
+          "status": "ROUND 1"
+        },
         "style": "verbatim",
         "text": "Blurt says, \"Welcome, welcome, to the Coldwater Slagball Open, live on Sub-Channel Two and a Half, the ONLY channel that could afford us!\"",
         "type": "say"
@@ -1665,7 +1675,7 @@
           "x": 520,
           "y": 7920
         },
-        "next": "bsm_248",
+        "next": "sbx_cam_248",
         "style": "verbatim",
         "text": "Blurt says, \"That’s the spirit, Cass! First up: the plucky no-names from the Sump versus a team of sentient gym equipment!\"",
         "type": "say"
@@ -1685,7 +1695,7 @@
           "x": 960,
           "y": 7920
         },
-        "next": "bsm_250",
+        "next": "sbx_cam_250",
         "style": "verbatim",
         "text": "The Ref says, \"Both teams to the line. Slags in the middle. On my whistle. And please, please, nobody dies. I have to write the report.\"",
         "type": "say"
@@ -1706,6 +1716,16 @@
           "y": 8080
         },
         "next": "bsm_251",
+        "scorebug": {
+          "away": "The Sump",
+          "awayAbbr": "SUMP",
+          "awayScore": 6,
+          "home": "APEX Warm-Up",
+          "homeAbbr": "APX",
+          "homeScore": 5,
+          "sport": "slagball",
+          "status": "ROUND 1"
+        },
         "style": "narration",
         "text": "The whistle. Chaos. Bash bellows a sea-shanty and hurls a slag hard enough to change a man’s religion.",
         "type": "say"
@@ -1725,7 +1745,7 @@
           "x": 520,
           "y": 8080
         },
-        "next": "bsm_253",
+        "next": "sbx_cam_253",
         "style": "verbatim",
         "text": "Cass says, \"He knocked one out cold and there’s no water anywhere near here. I’ve stopped asking. It’s healthier.\"",
         "type": "say"
@@ -1736,6 +1756,16 @@
           "y": 8080
         },
         "next": "bsm_254",
+        "scorebug": {
+          "away": "The Sump",
+          "awayAbbr": "SUMP",
+          "awayScore": 6,
+          "home": "APEX Warm-Up",
+          "homeAbbr": "APX",
+          "homeScore": 1,
+          "sport": "slagball",
+          "status": "ROUND 1"
+        },
         "style": "narration",
         "text": "Pip, terrified, closes his eyes and throws blind. It hits the last APEX clone square between his optimized eyes.",
         "type": "say"
@@ -1755,7 +1785,7 @@
           "x": 80,
           "y": 8240
         },
-        "next": "bsm_256",
+        "next": "sbx_cam_256",
         "style": "verbatim",
         "text": "Coach Rusk says, \"It’s good, kid. For once the two are the same thing. Open your eyes. We won a round.\"",
         "type": "say"
@@ -1766,6 +1796,16 @@
           "y": 8240
         },
         "next": "bsm_257",
+        "scorebug": {
+          "away": "The Sump",
+          "awayAbbr": "SUMP",
+          "awayScore": 6,
+          "home": "APEX Warm-Up",
+          "homeAbbr": "APX",
+          "homeScore": 0,
+          "sport": "slagball",
+          "status": "R1 FINAL"
+        },
         "style": "verbatim",
         "text": "Blurt says, \"UPSET! The Sump takes round one! Somewhere an accountant is confused and a pirate is very, very happy!\"",
         "type": "say"
@@ -1785,7 +1825,7 @@
           "x": 740,
           "y": 8240
         },
-        "next": "bsm_259",
+        "next": "sbx_cam_259",
         "style": "verbatim",
         "text": "Blurt says, \"It’s the Coldwater way, Cass! You don’t beat the odds, you just annoy them until they leave!\"",
         "type": "say"
@@ -1796,6 +1836,16 @@
           "y": 8240
         },
         "next": "bsm_260",
+        "scorebug": {
+          "away": "The Sump",
+          "awayAbbr": "SUMP",
+          "awayScore": 6,
+          "home": "Debt Collectors",
+          "homeAbbr": "DBT",
+          "homeScore": 6,
+          "sport": "slagball",
+          "status": "ROUND 2"
+        },
         "style": "narration",
         "text": "Round two. The Sump draws a team of retired debt collectors, men who throw for a living and enjoy it too much.",
         "type": "say"
@@ -1815,7 +1865,7 @@
           "x": 80,
           "y": 8400
         },
-        "next": "bsm_261",
+        "next": "sbx_cam_261",
         "style": "verbatim",
         "text": "Lottie says, \"Oh, I know these boys. They repossessed my mother’s teeth. This one’s personal and I’m going to enjoy it.\"",
         "type": "say"
@@ -1825,7 +1875,17 @@
           "x": 300,
           "y": 8400
         },
-        "next": "bsm_262",
+        "next": "sbx_cam_262",
+        "scorebug": {
+          "away": "The Sump",
+          "awayAbbr": "SUMP",
+          "awayScore": 6,
+          "home": "Debt Collectors",
+          "homeAbbr": "DBT",
+          "homeScore": 3,
+          "sport": "slagball",
+          "status": "ROUND 2"
+        },
         "style": "narration",
         "text": "Lottie clears three of them before they set their feet. It's less a sporting performance than a settling of accounts.",
         "type": "say"
@@ -1845,7 +1905,7 @@
           "x": 740,
           "y": 8400
         },
-        "next": "bsm_264",
+        "next": "sbx_cam_264",
         "style": "verbatim",
         "text": "Cass says, \"I’m told she’s never received a tip commensurate with that arm and honestly that’s the real crime on display tonight.\"",
         "type": "say"
@@ -1856,6 +1916,16 @@
           "y": 8400
         },
         "next": "bsm_265",
+        "scorebug": {
+          "away": "The Sump",
+          "awayAbbr": "SUMP",
+          "awayScore": 5,
+          "home": "Round Three",
+          "homeAbbr": "R3",
+          "homeScore": 6,
+          "sport": "slagball",
+          "status": "ROUND 3"
+        },
         "style": "narration",
         "text": "Round three. Giles is eliminated in four seconds by a slag that ricochets off the ceiling, a wall, and his own teammate before finding him. Even the ref looks impressed.",
         "type": "say"
@@ -1875,7 +1945,7 @@
           "x": 300,
           "y": 8560
         },
-        "next": "bsm_267",
+        "next": "sbx_cam_267",
         "style": "verbatim",
         "text": "The Ref says, \"Kid, in twenty years of officiating I have never seen the game itself hold a grudge against one player. You should see someone. Or an astronomer.\"",
         "type": "say"
@@ -1886,6 +1956,16 @@
           "y": 8560
         },
         "next": "bsm_268",
+        "scorebug": {
+          "away": "The Sump",
+          "awayAbbr": "SUMP",
+          "awayScore": 6,
+          "home": "APEX Juniors",
+          "homeAbbr": "APJ",
+          "homeScore": 6,
+          "sport": "slagball",
+          "status": "SEMIFINAL"
+        },
         "style": "narration",
         "text": "The semifinal. The Sump versus a corporate development squad in matching APEX warmups, all named some variety of \"Chad\" for optimization purposes.",
         "type": "say"
@@ -1905,7 +1985,7 @@
           "x": 960,
           "y": 8560
         },
-        "next": "bsm_270",
+        "next": "sbx_cam_270",
         "style": "verbatim",
         "text": "Cass says, \"They move as one, Blurt. It’s beautiful and it’s deeply upsetting, like a school of fish that files taxes.\"",
         "type": "say"
@@ -1925,7 +2005,17 @@
           "x": 80,
           "y": 8720
         },
-        "next": "bsm_271",
+        "next": "sbx_cam_271",
+        "scorebug": {
+          "away": "The Sump",
+          "awayAbbr": "SUMP",
+          "awayScore": 6,
+          "home": "APEX Juniors",
+          "homeAbbr": "APJ",
+          "homeScore": 3,
+          "sport": "slagball",
+          "status": "SEMIFINAL"
+        },
         "style": "narration",
         "text": "Merv steps to the line alone against all six. He doesn't throw. He simply catches everything they send, and sends it back, and the juniors sit down in perfect synchronized disappointment.",
         "type": "say"
@@ -1936,6 +2026,16 @@
           "y": 8720
         },
         "next": "bsm_272",
+        "scorebug": {
+          "away": "The Sump",
+          "awayAbbr": "SUMP",
+          "awayScore": 6,
+          "home": "APEX Juniors",
+          "homeAbbr": "APJ",
+          "homeScore": 0,
+          "sport": "slagball",
+          "status": "SEMIFINAL"
+        },
         "style": "verbatim",
         "text": "Blurt says, \"THE MOUNTAIN CATCHES EVERYTHING! Six optimized Chads, one silent man, and the man is winning, Cass!\"",
         "type": "say"
@@ -1965,7 +2065,7 @@
           "x": 960,
           "y": 8720
         },
-        "next": "bsm_275",
+        "next": "sbx_cam_275",
         "style": "verbatim",
         "text": "Coach Rusk says, \"THAT’S my mountain! Aim him at the final, Dutch, that’s all I ever have to do. Point Merv at the problem and get out of the splash zone!\"",
         "type": "say"
@@ -1976,6 +2076,16 @@
           "y": 8880
         },
         "next": "bsm_276",
+        "scorebug": {
+          "away": "The Sump",
+          "awayAbbr": "SUMP",
+          "awayScore": 6,
+          "home": "APEX Juniors",
+          "homeAbbr": "APJ",
+          "homeScore": 0,
+          "sport": "slagball",
+          "status": "SF FINAL"
+        },
         "style": "narration",
         "text": "The Sump takes the semifinal. In the tunnel, the six of them stand together, filthy and bruised and one win from the impossible, and none of them say anything for a long moment.",
         "type": "say"
@@ -1986,6 +2096,9 @@
           "y": 8880
         },
         "next": "bsm_277",
+        "scorebug": {
+          "off": true
+        },
         "style": "verbatim",
         "text": "Dutch says, \"One more. One more match and the Sump is ours forever.\"",
         "type": "say"
@@ -2628,7 +2741,7 @@
           "x": 740,
           "y": 10640
         },
-        "next": "bsm_334",
+        "next": "sbx_cam_334",
         "song": "before_the_light",
         "text": "♪ Full arena. The cheap anthem, but louder, believing in itself harder than ever, the way a cheap anthem does when the seats are full. ♪",
         "type": "music"
@@ -2648,7 +2761,7 @@
           "x": 80,
           "y": 10800
         },
-        "next": "bsm_336",
+        "next": "sbx_cam_336",
         "style": "narration",
         "text": "On the other: a bankrupt bar, a fainting boy, a pirate, a silent giant, a waitress, a heartbroken man, and a lawyer who forgot which side she was on and never went back.",
         "type": "say"
@@ -2659,6 +2772,16 @@
           "y": 10800
         },
         "next": "bsm_337",
+        "scorebug": {
+          "away": "The Sump",
+          "awayAbbr": "SUMP",
+          "awayScore": 6,
+          "home": "APEX Prime",
+          "homeAbbr": "PRM",
+          "homeScore": 6,
+          "sport": "slagball",
+          "status": "FINAL"
+        },
         "style": "verbatim",
         "text": "Blurt says, \"This is IT, Cass! The final! The corporate juggernaut versus the little pit that wouldn’t quit! I have goosebumps and one of them is on my eye!\"",
         "type": "say"
@@ -2678,7 +2801,7 @@
           "x": 740,
           "y": 10800
         },
-        "next": "bsm_339",
+        "next": "sbx_cam_339",
         "style": "verbatim",
         "text": "Blurt says, \"Cass, that’s beautiful. We're contractually eleven minutes from the ad break. Hold that thought and your bladder.\"",
         "type": "say"
@@ -2839,7 +2962,7 @@
           "y": 11280
         },
         "duration": 2,
-        "next": "bsm_353",
+        "next": "sbx_cam_353",
         "type": "wait"
       },
       "bsm_353": {
@@ -2858,6 +2981,16 @@
           "y": 11280
         },
         "next": "bsm_355",
+        "scorebug": {
+          "away": "The Sump",
+          "awayAbbr": "SUMP",
+          "awayScore": 4,
+          "home": "APEX Prime",
+          "homeAbbr": "PRM",
+          "homeScore": 6,
+          "sport": "slagball",
+          "status": "FINAL"
+        },
         "style": "narration",
         "text": "One by one the Sump goes down. Bash, hurling shanties, is caught mid-boast. Giles is hit by a slag from his own side, somehow, again.",
         "type": "say"
@@ -2887,7 +3020,17 @@
           "x": 520,
           "y": 11440
         },
-        "next": "bsm_358",
+        "next": "sbx_cam_358",
+        "scorebug": {
+          "away": "The Sump",
+          "awayAbbr": "SUMP",
+          "awayScore": 2,
+          "home": "APEX Prime",
+          "homeAbbr": "PRM",
+          "homeScore": 6,
+          "sport": "slagball",
+          "status": "FINAL"
+        },
         "style": "narration",
         "text": "Pip faints from nerves. Merv is triple-teamed and buried under slags, going down like a demolished tower, slowly and with dignity.",
         "type": "say"
@@ -3036,7 +3179,7 @@
           "x": 80,
           "y": 11920
         },
-        "next": "bsm_371",
+        "next": "sbx_cam_371",
         "style": "verbatim",
         "text": "Coach Rusk says, \"Then the math is finally simple enough for you to understand! Every throw you make has to count and every throw they make they’ll take for granted! Make them spend! Make them SPEND, Dutch!\"",
         "type": "say"
@@ -3047,6 +3190,16 @@
           "y": 11920
         },
         "next": "bsm_372",
+        "scorebug": {
+          "away": "The Sump",
+          "awayAbbr": "SUMP",
+          "awayScore": 2,
+          "home": "APEX Prime",
+          "homeAbbr": "PRM",
+          "homeScore": 5,
+          "sport": "slagball",
+          "status": "FINAL"
+        },
         "style": "narration",
         "text": "Dutch catches a lazy, arrogant throw one-handed, a throw APEX PRIME made because they assumed the round was over, and the thrower sits down, stunned, optimized right out of the game.",
         "type": "say"
@@ -3066,7 +3219,7 @@
           "x": 740,
           "y": 11920
         },
-        "next": "bsm_374",
+        "next": "sbx_cam_374",
         "style": "verbatim",
         "text": "Cass says, \"The rich team just learned that \"taking it for granted\" is a move you can lose to. I’m going to cry again. Renew my contract.\"",
         "type": "say"
@@ -3077,6 +3230,16 @@
           "y": 11920
         },
         "next": "bsm_375",
+        "scorebug": {
+          "away": "The Sump",
+          "awayAbbr": "SUMP",
+          "awayScore": 2,
+          "home": "APEX Prime",
+          "homeAbbr": "PRM",
+          "homeScore": 3,
+          "sport": "slagball",
+          "status": "FINAL"
+        },
         "style": "narration",
         "text": "Five on two becomes four on two becomes three on two. The Sump spends every throw like it’s the last credit in the till, because it is.",
         "type": "say"
@@ -3116,7 +3279,7 @@
           "x": 740,
           "y": 12080
         },
-        "next": "bsm_379",
+        "next": "sbx_cam_379",
         "style": "verbatim",
         "text": "Barnacle Bash says, \"I have been giving good advice for YEARS, captain, ye simply keep bein’ on land when I say it!\"",
         "type": "say"
@@ -3127,6 +3290,16 @@
           "y": 12080
         },
         "next": "bsm_380",
+        "scorebug": {
+          "away": "The Sump",
+          "awayAbbr": "SUMP",
+          "awayScore": 2,
+          "home": "APEX Prime",
+          "homeAbbr": "PRM",
+          "homeScore": 2,
+          "sport": "slagball",
+          "status": "FINAL"
+        },
         "style": "narration",
         "text": "Vess, who has never thrown a slag in her life, catches one purely by refusing to move, an accident of stubbornness that eliminates an APEX Prime striker.",
         "type": "say"
@@ -3180,7 +3353,7 @@
           "y": 12240
         },
         "duration": 2,
-        "next": "bsm_384",
+        "next": "sbx_dark",
         "type": "wait"
       },
       "bsm_384": {
@@ -3201,7 +3374,7 @@
           "x": 80,
           "y": 12400
         },
-        "next": "bsm_386",
+        "next": "sbx_cam_386",
         "song": "before_the_light",
         "text": "♪ Everything drops out but a single held heartbeat of bass. The whole arena leans in. ♪",
         "type": "music"
@@ -3212,6 +3385,17 @@
           "y": 12400
         },
         "next": "bsm_387",
+        "scorebug": {
+          "away": "The Sump",
+          "awayAbbr": "SUMP",
+          "awayScore": 2,
+          "home": "APEX Prime",
+          "homeAbbr": "PRM",
+          "homeScore": 2,
+          "lights": 0.12,
+          "sport": "slagball",
+          "status": "SUDDEN DARK"
+        },
         "style": "narration",
         "text": "The score locks. By ancient Slagball law, a deadlock at the final invokes SUDDEN DARK: the arena lights cut, and the last players throw by sound alone.",
         "type": "say"
@@ -3221,7 +3405,7 @@
           "x": 520,
           "y": 12400
         },
-        "next": "bsm_388",
+        "next": "sbx_fade_out",
         "style": "verbatim",
         "text": "The Ref says, \"Sudden Dark! House lights down! One throw each! Last team standing takes the Open! And may whatever’s left of your gods have mercy!\"",
         "type": "say"
@@ -3321,7 +3505,7 @@
           "x": 300,
           "y": 12720
         },
-        "next": "bsm_397",
+        "next": "sbx_cam_397",
         "style": "narration",
         "text": "In the black, an APEX striker throws at a sound and hits his own captain. A second throws at that sound and hits the first. Certainty, in the dark, eats itself.",
         "type": "say"
@@ -3381,6 +3565,17 @@
           "y": 12880
         },
         "next": "bsm_401",
+        "scorebug": {
+          "away": "The Sump",
+          "awayAbbr": "SUMP",
+          "awayScore": 2,
+          "home": "APEX Prime",
+          "homeAbbr": "PRM",
+          "homeScore": 1,
+          "lights": 0.12,
+          "sport": "slagball",
+          "status": "SUDDEN DARK"
+        },
         "style": "narration",
         "text": "A sound. Contact. A body sitting down hard in the dark. Then another. Then, impossibly, a chain of them, as APEX PRIME, unable to see, panics and catches its own friendly fire.",
         "type": "say"
@@ -3400,7 +3595,7 @@
           "x": 520,
           "y": 12880
         },
-        "next": "bsm_403",
+        "next": "sbx_cam_403",
         "style": "verbatim",
         "text": "Cass says, \"Blurt I’m crying in the dark and I don’t care who hears it, put it in my contract, I’m crying!\"",
         "type": "say"
@@ -3420,7 +3615,18 @@
           "x": 960,
           "y": 12880
         },
-        "next": "bsm_405",
+        "next": "sbx_cam_405",
+        "scorebug": {
+          "away": "The Sump",
+          "awayAbbr": "SUMP",
+          "awayScore": 2,
+          "home": "APEX Prime",
+          "homeAbbr": "PRM",
+          "homeScore": 0,
+          "lights": 1,
+          "sport": "slagball",
+          "status": "FINAL"
+        },
         "style": "narration",
         "text": "APEX PRIME: all six, seated, blinking, betrayed by their own certainty. The Sump: Dutch, standing. And Vess, standing beside him, holding a slag she never had to throw.",
         "type": "say"
@@ -3430,7 +3636,7 @@
           "x": 80,
           "y": 13040
         },
-        "next": "bsm_406",
+        "next": "sbx_champs",
         "style": "verbatim",
         "text": "The Ref says, \"The Sump, the SUMP, wins the Coldwater Open!\"",
         "type": "say"
@@ -4840,6 +5046,320 @@
         "subtext": "",
         "text": "A film by Rikki Doonan",
         "type": "overlay"
+      },
+      "sbx_cam_242": {
+        "_vine": {
+          "x": 410,
+          "y": 7820
+        },
+        "label": "CAM - 5 - CRANE",
+        "next": "bsm_242",
+        "type": "camera_cut"
+      },
+      "sbx_cam_245": {
+        "_vine": {
+          "x": -30,
+          "y": 7980
+        },
+        "label": "CAM - 2 - MEDIUM on Blurt",
+        "next": "bsm_245",
+        "type": "camera_cut"
+      },
+      "sbx_cam_248": {
+        "_vine": {
+          "x": 630,
+          "y": 7980
+        },
+        "label": "CAM - 1 - WIDE",
+        "next": "bsm_248",
+        "type": "camera_cut"
+      },
+      "sbx_cam_250": {
+        "_vine": {
+          "x": -30,
+          "y": 8140
+        },
+        "label": "CAM - 3 - SNAP",
+        "next": "bsm_250",
+        "type": "camera_cut"
+      },
+      "sbx_cam_253": {
+        "_vine": {
+          "x": 630,
+          "y": 8140
+        },
+        "label": "CAM - 4 - PUSH_IN",
+        "next": "bsm_253",
+        "type": "camera_cut"
+      },
+      "sbx_cam_256": {
+        "_vine": {
+          "x": 190,
+          "y": 8300
+        },
+        "label": "CAM - 2 - MEDIUM on Blurt",
+        "next": "bsm_256",
+        "type": "camera_cut"
+      },
+      "sbx_cam_259": {
+        "_vine": {
+          "x": 850,
+          "y": 8300
+        },
+        "label": "CAM - 1 - ESTABLISHING",
+        "next": "bsm_259",
+        "type": "camera_cut"
+      },
+      "sbx_cam_261": {
+        "_vine": {
+          "x": 190,
+          "y": 8460
+        },
+        "label": "CAM - 3 - HANDHELD",
+        "next": "bsm_261",
+        "type": "camera_cut"
+      },
+      "sbx_cam_262": {
+        "_vine": {
+          "x": 410,
+          "y": 8460
+        },
+        "label": "CAM - 2 - MEDIUM on Blurt",
+        "next": "bsm_262",
+        "type": "camera_cut"
+      },
+      "sbx_cam_264": {
+        "_vine": {
+          "x": 850,
+          "y": 8460
+        },
+        "label": "CAM - 4 - SNAP",
+        "next": "bsm_264",
+        "type": "camera_cut"
+      },
+      "sbx_cam_267": {
+        "_vine": {
+          "x": 410,
+          "y": 8620
+        },
+        "label": "CAM - 5 - CRANE",
+        "next": "bsm_267",
+        "type": "camera_cut"
+      },
+      "sbx_cam_270": {
+        "_vine": {
+          "x": -30,
+          "y": 8780
+        },
+        "label": "CAM - 4 - SIDE_PROFILE",
+        "next": "bsm_270",
+        "type": "camera_cut"
+      },
+      "sbx_cam_271": {
+        "_vine": {
+          "x": 190,
+          "y": 8780
+        },
+        "label": "CAM - 2 - SNAP on Blurt",
+        "next": "bsm_271",
+        "type": "camera_cut"
+      },
+      "sbx_cam_275": {
+        "_vine": {
+          "x": -30,
+          "y": 8940
+        },
+        "label": "CAM - 1 - PULL_BACK",
+        "next": "bsm_275",
+        "type": "camera_cut"
+      },
+      "sbx_cam_334": {
+        "_vine": {
+          "x": 850,
+          "y": 10700
+        },
+        "label": "CAM - 5 - CRANE",
+        "next": "bsm_334",
+        "type": "camera_cut"
+      },
+      "sbx_cam_336": {
+        "_vine": {
+          "x": 190,
+          "y": 10860
+        },
+        "label": "CAM - 2 - MEDIUM on Blurt",
+        "next": "bsm_336",
+        "type": "camera_cut"
+      },
+      "sbx_cam_339": {
+        "_vine": {
+          "x": 850,
+          "y": 10860
+        },
+        "label": "CAM - 1 - PUSH_IN",
+        "next": "bsm_339",
+        "type": "camera_cut"
+      },
+      "sbx_cam_353": {
+        "_vine": {
+          "x": 630,
+          "y": 11340
+        },
+        "label": "CAM - 3 - HANDHELD",
+        "next": "bsm_353",
+        "type": "camera_cut"
+      },
+      "sbx_cam_358": {
+        "_vine": {
+          "x": 630,
+          "y": 11500
+        },
+        "label": "CAM - 2 - SNAP_TIGHT on Blurt",
+        "next": "bsm_358",
+        "type": "camera_cut"
+      },
+      "sbx_cam_371": {
+        "_vine": {
+          "x": 190,
+          "y": 11980
+        },
+        "label": "CAM - 3 - SNAP",
+        "next": "bsm_371",
+        "type": "camera_cut"
+      },
+      "sbx_cam_374": {
+        "_vine": {
+          "x": 850,
+          "y": 11980
+        },
+        "label": "CAM - 4 - TRACK",
+        "next": "bsm_374",
+        "type": "camera_cut"
+      },
+      "sbx_cam_379": {
+        "_vine": {
+          "x": 850,
+          "y": 12140
+        },
+        "label": "CAM - 3 - PUSH_IN",
+        "next": "bsm_379",
+        "type": "camera_cut"
+      },
+      "sbx_cam_386": {
+        "_vine": {
+          "x": 190,
+          "y": 12460
+        },
+        "label": "CAM - 5 - PULL_BACK",
+        "next": "bsm_386",
+        "type": "camera_cut"
+      },
+      "sbx_cam_397": {
+        "_vine": {
+          "x": 410,
+          "y": 12780
+        },
+        "label": "CAM - 2 - TIGHT on Blurt",
+        "next": "bsm_397",
+        "type": "camera_cut"
+      },
+      "sbx_cam_403": {
+        "_vine": {
+          "x": 630,
+          "y": 12940
+        },
+        "label": "CAM - 1 - WIDE",
+        "next": "bsm_403",
+        "type": "camera_cut"
+      },
+      "sbx_cam_405": {
+        "_vine": {
+          "x": -30,
+          "y": 13100
+        },
+        "label": "CAM - 5 - CRANE",
+        "next": "bsm_405",
+        "type": "camera_cut"
+      },
+      "sbx_champs": {
+        "_vine": {
+          "x": 190,
+          "y": 13100
+        },
+        "duration": 7,
+        "graphic_id": "slagball_champions",
+        "next": "bsm_406",
+        "type": "title_card"
+      },
+      "sbx_dark": {
+        "_vine": {
+          "x": 850,
+          "y": 12300
+        },
+        "duration": 6,
+        "graphic_id": "slagball_sudden_dark",
+        "next": "bsm_384",
+        "type": "title_card"
+      },
+      "sbx_fade_in": {
+        "_vine": {
+          "x": 630,
+          "y": 12460
+        },
+        "duration_s": 1.5,
+        "fade": "in",
+        "graphic_id": "",
+        "next": "bsm_388",
+        "overlayType": "fade",
+        "type": "overlay"
+      },
+      "sbx_fade_out": {
+        "_vine": {
+          "x": 630,
+          "y": 12460
+        },
+        "duration_s": 2.5,
+        "fade": "out",
+        "graphic_id": "",
+        "next": "sbx_fade_in",
+        "overlayType": "fade",
+        "type": "overlay"
+      },
+      "sbx_lt_blurt": {
+        "_vine": {
+          "x": -30,
+          "y": 7980
+        },
+        "duration_s": 6,
+        "graphic_id": "",
+        "next": "sbx_cam_245",
+        "overlayType": "lower_third",
+        "subtext": "Play-by-play · Sub-Channel 2½",
+        "text": "BLURT",
+        "type": "overlay"
+      },
+      "sbx_lt_cass": {
+        "_vine": {
+          "x": 190,
+          "y": 7980
+        },
+        "duration_s": 6,
+        "graphic_id": "",
+        "next": "bsm_246",
+        "overlayType": "lower_third",
+        "subtext": "Colour · contract under review",
+        "text": "CASS",
+        "type": "overlay"
+      },
+      "sbx_open": {
+        "_vine": {
+          "x": 850,
+          "y": 7820
+        },
+        "duration": 6,
+        "graphic_id": "slagball_open_card",
+        "next": "bsm_244",
+        "type": "title_card"
       }
     }
   },

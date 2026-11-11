@@ -1,0 +1,10 @@
+{
+  "content": "{\n \"kind\": \"set\",\n \"format\": 1,\n \"id\": \"set_last_lot\",\n \"name\": \"The Last Lot Floor\",\n \"base\": \"tpl_pitch\",\n \"brand\": {\n  \"name\": \"THE LAST LOT\",\n  \"colour\": \"#40e080\"\n },\n \"broadcasts\": [\n  \"bc_the_last_lot\"\n ],\n \"palette\": {\n  \"floor\": \"#0e1a14\",\n  \"wall\": \"#12201a\",\n  \"trim\": \"#1a3024\",\n  \"accent\": \"#40e080\",\n  \"desk\": \"#14281e\",\n  \"deskTop\": \"#d0e8dc\",\n  \"riser\": \"#102018\"\n },\n \"parts\": {\n  \"counter\": {\n   \"text\": \"BID NOW\"\n  },\n  \"backdrop\": {\n   \"type\": \"video_wall\",\n   \"at\": [\n    0,\n    7.85\n   ],\n   \"w\": 9,\n   \"h\": 2.6,\n   \"y\": 0.4\n  },\n  \"sign\": {\n   \"y\": 3.3\n  }\n },\n \"description\": \"The Last Lot on the pitch template: a shopping channel, the lot on the plinth and the count on the counter.\"\n}",
+  "created_at": "1794108637",
+  "description": "The Last Lot on the pitch template: a shopping channel, the lot on the plinth and the count on the counter.",
+  "id": "set_last_lot",
+  "name": "The Last Lot Floor",
+  "tags": [],
+  "type": "set",
+  "updated_at": "1794108921"
+}

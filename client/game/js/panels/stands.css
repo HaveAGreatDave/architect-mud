@@ -45,6 +45,18 @@
 	position: fixed; inset: 0; z-index: 8900;
 	display: flex; flex-direction: column; background: #05070a;
 }
+/* A box (stands.js `pane`) sits in the game pane over the room text, as the Room Stage does
+   (room-stage.css); the pane's size is the seat ladder's (seat-ladder.js, styles.css). */
+body.stands-pane-on #area-content > :not(#stands-view) { display: none !important; }
+/* the room text's bare text nodes take no room at size 0; stands.js gives the box the pane's size back */
+body.stands-pane-on #area-content { font-size: 0; }
+#stands-view.st-pane { position: relative; inset: auto; z-index: auto; flex: 1 1 auto; width: 100%; min-height: 320px; }
+#stands-view .st-ladder { display: inline-flex; gap: 4px; }
+#stands-view .st-bar .st-chip { padding: 6px 8px; min-width: 32px; }
+#stands-view .st-bar .st-chip.on { color: #e3a72f; border-color: #e3a72f; }
+/* big screen: the picture and nothing else; Esc comes back */
+body.bigscreen #stands-view.st-pane .st-bar, body.bigscreen #stands-view.st-pane .st-tip { display: none; }
+@media (max-width: 600px) { #stands-view.st-pane .st-tip { display: none; } }
 #stands-view .st-bar {
 	display: flex; flex-wrap: wrap; align-items: center; gap: 8px;
 	padding: 8px 12px; background: #0d1218; color: #dfe6ee; border-bottom: 1px solid #22303f;
@@ -65,6 +77,9 @@
 #stands-view .st-host:active { cursor: grabbing; }
 /* the TV sub-screen's own camera buttons mean nothing from a seat */
 #stands-view .gdr-cam, #stands-view .gds-cam { display: none !important; }
+/* so the Commentary toggle (Booth in the Stands) moves up into the camera's place at the park */
+#stands-view .gds-park .view-voice { right: 42px; }
+#stands-view .gds-park:not(:has(.view-fs)) .view-voice { right: 8px; }
 #stands-view .st-tip {
 	position: absolute; left: 50%; bottom: 10px; transform: translateX(-50%);
 	padding: 3px 10px; border-radius: 10px; background: rgba(0, 0, 0, 0.5); color: #c8d2dc;
@@ -96,27 +111,27 @@ body.dfx-on.dfx-melt #stands-view .st-host {
 :root[data-motion="off"] body.dfx-on #stands-view .st-host { animation: none; transform: none; }
 
 /* The bar's, buffet's or smokes' menu in a box (openStandsMenu): a card over the picture. */
-#stands-view .st-menu {
+:is(#stands-view, #room-stage) .st-menu {
 	position: absolute; right: 16px; top: 56px; z-index: 3; width: min(340px, calc(100% - 32px));
 	max-height: calc(100% - 80px); overflow: auto;
 	background: rgba(14, 18, 24, 0.94); color: #e8e2d4; border: 1px solid #b8913f; border-radius: 8px;
 	box-shadow: 0 10px 40px rgba(0, 0, 0, 0.6); padding: 12px 14px;
 	font: 14px/1.35 var(--font-ui, system-ui, sans-serif);
 }
-#stands-view .st-menu-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; text-transform: capitalize; }
-#stands-view .st-menu-head b { color: #e3c27a; font-size: 15px; }
-#stands-view .st-menu-x { background: none; border: 0; color: #c8d2dc; font-size: 16px; cursor: pointer; padding: 2px 6px; }
-#stands-view .st-menu-desc { margin: 6px 0 10px; color: #b7b0a2; font-size: 13px; }
-#stands-view .st-menu ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
-#stands-view .st-menu li button {
+:is(#stands-view, #room-stage) .st-menu-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; text-transform: capitalize; }
+:is(#stands-view, #room-stage) .st-menu-head b { color: #e3c27a; font-size: 15px; }
+:is(#stands-view, #room-stage) .st-menu-x { background: none; border: 0; color: #c8d2dc; font-size: 16px; cursor: pointer; padding: 2px 6px; }
+:is(#stands-view, #room-stage) .st-menu-desc { margin: 6px 0 10px; color: #b7b0a2; font-size: 13px; }
+:is(#stands-view, #room-stage) .st-menu ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+:is(#stands-view, #room-stage) .st-menu li button {
 	width: 100%; display: grid; grid-template-columns: 1fr auto; gap: 2px 10px; text-align: left; cursor: pointer;
 	background: #1a2029; color: inherit; border: 1px solid #2f3a48; border-radius: 6px; padding: 8px 10px; font: inherit;
 }
-#stands-view .st-menu li button:hover, #stands-view .st-menu li button:focus-visible { border-color: #b8913f; background: #222a35; outline: none; }
-#stands-view .st-menu li b { text-transform: capitalize; }
-#stands-view .st-menu li span { grid-column: 1; color: #9aa3ad; font-size: 12px; }
-#stands-view .st-menu li i { grid-column: 2; grid-row: 1 / span 2; align-self: center; font-style: normal; color: #e3a72f; font-size: 12px; font-weight: 700; }
-#stands-view .st-menu-foot { margin: 10px 0 0; color: #8794a3; font-size: 12px; font-style: italic; }
+:is(#stands-view, #room-stage) .st-menu li button:hover, :is(#stands-view, #room-stage) .st-menu li button:focus-visible { border-color: #b8913f; background: #222a35; outline: none; }
+:is(#stands-view, #room-stage) .st-menu li b { text-transform: capitalize; }
+:is(#stands-view, #room-stage) .st-menu li span { grid-column: 1; color: #9aa3ad; font-size: 12px; }
+:is(#stands-view, #room-stage) .st-menu li i { grid-column: 2; grid-row: 1 / span 2; align-self: center; font-style: normal; color: #e3a72f; font-size: 12px; font-weight: 700; }
+:is(#stands-view, #room-stage) .st-menu-foot { margin: 10px 0 0; color: #8794a3; font-size: 12px; font-style: italic; }
 
 /* Drunk in a box (stands-drunk.js): the bloom over the picture and the warm, closing edges. The
    picture's own blur and lean are inline on .st-host. Both sit under the bar and the menus. */
@@ -152,16 +167,40 @@ body.dfx-on.dfx-melt #stands-view .st-host {
 #stands-view .st-flash.on { opacity: 1; transform: translate(-50%, 0); }
 #stands-view .st-flash.st-flash-no { border-color: rgba(200, 90, 70, 0.7); }
 
-/* the cupholder on a seat's armrest: a click calls the hawker */
-#stands-view .st-cup {
-  position: absolute; right: 16px; bottom: 16px; z-index: 5; width: 130px; padding: 0;
-  background: none; border: 0; cursor: pointer; transition: transform 0.12s, filter 0.12s;
+/* the cupholder on a seat's armrest (stands-cupholder.js): a 3-D model on its own canvas under the
+   hands', and a clear button laid over where it's drawn, which lights the rim on hover and opens the
+   concessions. With no WebGL the button is all there is, in the same corner. */
+#stands-view .st-cupholder { position: absolute; left: 0; z-index: 1; pointer-events: none; }
+#stands-view .st-cupholder-btn {
+	position: absolute; z-index: 1; padding: 0; cursor: pointer;
+	background: transparent; border: 0; border-radius: 50%;
 }
-#stands-view .st-cup svg { display: block; width: 100%; height: auto; filter: drop-shadow(0 2px 6px rgba(0, 0, 0, 0.7)); }
-#stands-view .st-cup span {
-  position: absolute; left: 50%; top: -18px; transform: translateX(-50%);
-  font-size: 12px; color: #f3e7c8; background: rgba(10, 12, 16, 0.85); padding: 2px 8px; border-radius: 4px;
-  border: 1px solid rgba(214, 178, 94, 0.6); white-space: nowrap;
+#stands-view .st-cupholder-btn:focus-visible { outline: 2px solid rgba(214, 178, 94, 0.8); outline-offset: 2px; }
+#stands-view .st-cupholder-btn.st-cupholder-flat {
+	right: 16px; bottom: 16px; left: auto; top: auto; width: auto; height: auto; border-radius: 6px; padding: 8px 14px;
+	background: rgba(10, 12, 16, 0.85); color: #f3e7c8; border: 1px solid rgba(214, 178, 94, 0.6); font: 13px system-ui, sans-serif;
 }
-#stands-view .st-cup:hover, #stands-view .st-cup:focus-visible { transform: translateY(-2px); filter: brightness(1.35); }
-#stands-view .st-cup:active { transform: translateY(1px); }
+/* the concessions are a long menu: wider, filed under headings, with tabs that jump to each */
+#stands-view .st-menu.st-menu-wide { width: min(560px, calc(100% - 32px)); }
+#stands-view .st-menu-tabs { display: flex; flex-wrap: wrap; gap: 6px; margin: 0 0 8px; }
+#stands-view .st-menu-tabs button {
+	background: #1a2029; color: #e3c27a; border: 1px solid #2f3a48; border-radius: 12px; padding: 3px 10px; font: inherit; font-size: 12px; cursor: pointer;
+}
+#stands-view .st-menu-tabs button:hover, #stands-view .st-menu-tabs button:focus-visible { border-color: #b8913f; outline: none; }
+#stands-view .st-menu-groups section + section { margin-top: 12px; }
+#stands-view .st-menu-groups h3 {
+	margin: 0 0 6px; font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; color: #b8913f;
+	border-bottom: 1px solid #2f3a48; padding-bottom: 3px;
+}
+#stands-view .st-menu-wide li span { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+@media (min-width: 720px) { #stands-view .st-menu-wide ul { grid-template-columns: 1fr 1fr; } }
+.st-menu-no, :is(#stands-view, #room-stage) .st-menu-foot.st-menu-no { color: #e07a5f; font-style: normal; }
+
+/* Over the Room Stage the menu wears the text game's theme, like the rest of the room's chrome. */
+#room-stage .st-menu { background: var(--rs-panel); color: var(--text); border-color: var(--accent); font-family: var(--rs-font); backdrop-filter: blur(6px); }
+#room-stage .st-menu-head b, #room-stage .st-menu li i { color: var(--accent); }
+#room-stage .st-menu-x { color: var(--text-dim); }
+#room-stage .st-menu-desc, #room-stage .st-menu li span, #room-stage .st-menu-foot { color: var(--text-dim); }
+#room-stage .st-menu li button { background: var(--rs-btn); border-color: var(--border); }
+#room-stage .st-menu li button:hover, #room-stage .st-menu li button:focus-visible { background: var(--rs-btn-hover); border-color: var(--accent); }
+#room-stage .st-menu-foot.st-menu-no { color: var(--red); }

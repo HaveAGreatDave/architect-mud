@@ -152,6 +152,16 @@ strikeout at 0.4 or more gets the air horn.
 and an envelope inside the patch's `vary`, and the noise from another place. The mixer seeds a take
 from the event and the world's time, so a replayed game sounds the same.
 
+## Chants and the videoboard
+
+The park starts three chants (`db-chant-letsgo`, `db-chant-defense`, `db-chant-charge` in `client/shared/deadball-sfx.js`) and a noise meter (the stamping, then a cheer). Each chant syllable is `vowel()` noise twice, the second copy 4% higher and 25 ms late, so it sounds like a crowd and not one voice. `hype()` in `diamond/sound.js` starts them and plays one at a time:
+
+- A home run or walk-off by the home side: the air horn and drum as before, then LET'S GO 4.4 s later.
+- A great play by the home side in the field (a leaping or rail catch, a double or triple play): a roar, and DE-FENSE if the inning isn't over.
+- A new batter: CHARGE (or the drum) for the home side with men on and the game tight, LET'S GO when it matters a little, DE-FENSE for a visitor, and the noise meter late in a close game.
+
+Each one calls `onHype(kind)`, and the grandstand puts the words on the videoboard (`diamond/jumbo.js`), the 16:9 screen behind left-centre across from the scoreboard. The words land on the chant's beat (`BEAT` in jumbo.js matches the patches). The board also shows the score between plays, and replays: on the broadcast it takes frames off the replay as it plays, comic overlay included; in the stands, where the game shows no replay, the grandstand stages one just for the board and renders it every third frame from the replay's camera. With the comic look on, each frame is printed with `printPanel` and the play's sound word is lettered over the loop.
+
 ## The beds
 
 `crowdBed()` is hockey's crowd bed on a continuous level instead of named states: a rumble, two

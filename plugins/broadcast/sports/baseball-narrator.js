@@ -168,8 +168,16 @@ export function narrateBaseball(c) {
   const regHalves = halves.filter(h => h.start.inning <= 9);
   const extraHalves = halves.filter(h => h.start.inning >= 10);
 
+  // A line that names a club (its full name, or the name less its place: "Blue Birds") only
+  // airs when that club is playing; the booth talks about the two teams on the field.
+  const benched = bbLeague.filter((t) => t !== home.name && t !== away.name)
+    .flatMap((t) => [t, t.split(/\s+/).slice(1).join(' ')]).filter(Boolean)
+    .map((n) => new RegExp(`\\b${n.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`));
+  const boothPools = benched.length
+    ? Object.fromEntries(Object.entries(pools || {}).map(([k, L]) => [k, Array.isArray(L) ? L.filter((l) => typeof l !== 'string' || !benched.some((re) => re.test(l))) : L]))
+    : pools;
   const talkers = makeBooth({
-    pools, rand: sportsRng(sportsHash(gs.seed, 0xb007)), announcer, analyst: script.analyst || '', game,
+    pools: boothPools, rand: sportsRng(sportsHash(gs.seed, 0xb007)), announcer, analyst: script.analyst || '', game,
     leaders: gdLeaders, recordOf: (team) => recordOf(team), ledger,
   });
   const brng = sportsRng(sportsHash(gs.seed, 0xb008));
@@ -183,6 +191,46 @@ export function narrateBaseball(c) {
   const talk = (lines, sb) => { for (const l of lines) say(l.text, {}, sb, null, null, { opt: l.opt }); return lines.reduce((a, l) => a + l.secs, 0); };
   let bank = 0;   // the booth's seconds in hand
 
+  const finalTok = {
+    announcer, away: away.name, home: home.name, awayScore, homeScore,
+    leader: winner(), lead: Math.abs(homeScore - awayScore),
+    inning: game.innings, inningOrd: sportsOrdinal(game.innings),
+  };
+  const finalBug = bug('FINAL', awayScore, homeScore);   // game over: no outs or bases, just the score
+  const winName = winner();
+  const winGraphic = {
+    overlayType: 'sportsfx', kind: ws ? 'champion' : 'gamewin',
+    ...(ws ? { label: `${sportMod.season?.finalName || 'Final'} Champions` } : {}),
+    winner: winName,
+    loser: winName === away.name ? home.name : away.name,
+    winScore: winName === away.name ? awayScore : homeScore,
+    loseScore: winName === away.name ? homeScore : awayScore,
+    away: away.name, home: home.name, awayScore, homeScore,
+    extras: game.innings > 9, inningOrd: sportsOrdinal(game.innings),
+    duration: ws ? 5.4 : 4.4,
+  };
+  // The final, said once, the moment the game ends: straight off the last out's call (`final.out`)
+  // or the walk-off's (`final.walkoff`), with nothing in between. If neither said it, it's said below.
+  let finalSaid = false;
+  const sayFinal = (...lead) => {
+    if (finalSaid) return;
+    finalSaid = true;
+    say(pick(...lead, ...(ws ? ['worldseries.final', 'final'] : ['final'])), finalTok, finalBug, winGraphic, null, winName ? { play: {
+      sport: 'baseball', kind: 'final', for: winName, against: winName === away.name ? home.name : away.name,
+      away: away.name, home: home.name, awayScore, homeScore, champion: !!ws,
+    } } : null);
+  };
+  // The game's last play is known up front: the last beat of the last half. In regulation the booth
+  // sees it coming (one out away) and calls it as the end; extras are cut to the drama below.
+  const endsInRegulation = !extraHalves.length;
+  const lastHalf = regHalves[regHalves.length - 1];
+  const lastBeat = endsInRegulation ? lastHalf?.atbats[lastHalf.atbats.length - 1] : null;
+  // The score and outs before beat i of half h.
+  const before = (h, i) => {
+    const p = h.atbats.slice(0, i).reverse().find((x) => x.awayScore != null) || h.start;
+    return { a: p.awayScore, h: p.homeScore, outs: i ? (h.atbats[i - 1].outs ?? 0) : 0 };
+  };
+
   for (const h of regHalves) {
     // the stretch is the game's one break: the desk has it before the bottom of the seventh
     if (h.start.inning === 7 && h.start.half === 'bottom') c.desk?.('break', h.start, beatBug(h.start));
@@ -190,6 +238,7 @@ export function narrateBaseball(c) {
     bank += 1.5 * share - 6;
     bank -= talk(talkers.changeover(h.start, { ...halfGameday(h.start), pl: beatGameday(h.atbats.find((x) => x.type === 'atbat'))?.pl }, bank * 0.6), beatBug(h.start));
     let walkoffHalf = false;
+    let oneAwaySaid = false;
 
     for (const b of h.atbats) {
       const tok = beatTok(b), sb = beatBug(b);
@@ -207,6 +256,7 @@ export function narrateBaseball(c) {
         if (scored) say(scoreUpdate(b), tok, sb, null, null, runMeta(b));
         if (b.walkoff) { say(pick('walkoff'), tok, sb, walkoffGraphic(b)); walkoffHalf = true; }
         talkers.trackRun(b, gd);
+        if (walkoffHalf || b === lastBeat) { curExcite = 0; sayFinal(walkoffHalf ? 'final.walkoff' : 'final.out'); break; }
         continue;
       }
       // The batter coming up. The booth talks over the pitches: the at-bat's payload rides the first
@@ -215,6 +265,16 @@ export function narrateBaseball(c) {
       // by then; the pacer makes sure of it. With nothing to say, the payload rides the call.
       bank += share - callSecs(b);
       curExcite = exciteFor(b, home.name, 'before', gd?.basesBefore);
+      // One out from the end with the fielding side ahead, in the half that ends the game: the booth
+      // says so before the pitches, once a half.
+      if (endsInRegulation && h === lastHalf && h.start.inning >= 9 && !oneAwaySaid) {
+        const i = h.atbats.indexOf(b), s = before(h, i);
+        const top = h.start.half === 'top';
+        if (s.outs === 2 && (top ? s.h > s.a : s.a > s.h)) {
+          oneAwaySaid = true;
+          say(pick('lastout.up'), { ...tok, fielding: top ? home.name : away.name, batting: top ? away.name : home.name, lead: Math.abs(s.h - s.a) }, beatBug(h.atbats[i - 1] || h.start));
+        }
+      }
       const pre = talkers.before(b, gd, Math.max(0, landSecs(b) - 2));
       const preBug = beatBug(h.atbats[h.atbats.indexOf(b) - 1] || h.start);
       pre.forEach((l, i) => say(l.text, {}, preBug, null, i === 0 ? { ...gd, lead: true } : null, i === 0 ? null : { opt: l.opt }));
@@ -265,6 +325,8 @@ export function narrateBaseball(c) {
         say(pickPlay(b, `atbat.${b.kind}`, 'atbat.single'), tok, sb, null, G, CM());
       }
       talkers.track(b, gd);
+      // The game's over on this play: the booth says so now, not after a word from the analyst.
+      if (walkoffHalf || b === lastBeat) { curExcite = 0; sayFinal(walkoffHalf ? 'final.walkoff' : 'final.out'); break; }
       // and what the play earns, never over a walk-off or the third out's changeover
       // (a home run's trot and replay is time the park takes anyway, so the booth talks over it)
       curExcite = exciteFor(b, home.name, 'after', gd?.basesBefore);
@@ -274,15 +336,9 @@ export function narrateBaseball(c) {
 
     curExcite = 0;
     // Sparse score checkpoints — end of every third full inning.
-    if (h.start.half === 'bottom' && h.start.inning % 3 === 0) say(pick('recap.half'), beatTok(h.end), beatBug(h.end));
+    if (!finalSaid && h.start.half === 'bottom' && h.start.inning % 3 === 0) say(pick('recap.half'), beatTok(h.end), beatBug(h.end));
   }
 
-  const finalTok = {
-    announcer, away: away.name, home: home.name, awayScore, homeScore,
-    leader: winner(), lead: Math.abs(homeScore - awayScore),
-    inning: game.innings, inningOrd: sportsOrdinal(game.innings),
-  };
-  const finalBug = bug('FINAL', awayScore, homeScore);   // game over — no outs/bases, just the score
 
   // ── Extra innings: cut to the drama. Only the decisive at-bats get called — the
   // go-ahead run (top or bottom) or a walk-off — because in extras the offense is
@@ -301,7 +357,7 @@ export function narrateBaseball(c) {
       else if (b.kind === 'productout') say(pickPlay(b, 'atbat.productout', 'atbat.groundout'), tok, sb, null, gd);
       else say(pickPlay(b, 'rbi'), tok, sb, null, gd);
       say(scoreUpdate(b), tok, sb, null, null, b.kind === 'homerun' ? null : runMeta(b));
-      if (b.walkoff) say(pick('walkoff'), tok, sb, walkoffGraphic(b));
+      if (b.walkoff) { say(pick('walkoff'), tok, sb, walkoffGraphic(b)); sayFinal('final.walkoff'); }
     };
     say(pick('extras.intro'), gameTok, beatBug(extraHalves[0].start),
       { overlayType: 'sportsfx', kind: 'extras', inningOrd: sportsOrdinal(extraHalves[0].start.inning), duration: 3.2 });
@@ -321,25 +377,10 @@ export function narrateBaseball(c) {
       else if (!trailingHome) say(pick('extras.hold'), beatTok(h.end), beatBug(h.end));
     }
     // A go-ahead run in the top that the home side couldn't answer = a road win in extras.
-    if (winner() === away.name) say(pick('winning.top'), finalTok, finalBug);
+    if (!finalSaid && winner() === away.name) say(pick('winning.top'), finalTok, finalBug);
   }
 
-  const winName = winner();
-  const winGraphic = {
-    overlayType: 'sportsfx', kind: ws ? 'champion' : 'gamewin',
-    ...(ws ? { label: `${sportMod.season?.finalName || 'Final'} Champions` } : {}),
-    winner: winName,
-    loser: winName === away.name ? home.name : away.name,
-    winScore: winName === away.name ? awayScore : homeScore,
-    loseScore: winName === away.name ? homeScore : awayScore,
-    away: away.name, home: home.name, awayScore, homeScore,
-    extras: game.innings > 9, inningOrd: sportsOrdinal(game.innings),
-    duration: ws ? 5.4 : 4.4,
-  };
-  say(pick(...(ws ? ['worldseries.final', 'final'] : ['final'])), finalTok, finalBug, winGraphic, null, winName ? { play: {
-    sport: 'baseball', kind: 'final', for: winName, against: winName === away.name ? home.name : away.name,
-    away: away.name, home: home.name, awayScore, homeScore, champion: !!ws,
-  } } : null);
+  sayFinal();
   c.desk?.('close', 'end', finalBug);
   const outroId = c.lastId();
   say(pick(...(ws ? ['worldseries.outro', 'outro'] : ['outro'])), finalTok, finalBug);

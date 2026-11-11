@@ -1,0 +1,30 @@
+{
+  "description": "A low walnut table between the wing chairs, ringed where cups have stood on it.",
+  "flags": {
+    "aliases": "table",
+    "interactions": [
+      "lean"
+    ],
+    "look": {
+      "arche": "table",
+      "form": "coffee"
+    },
+    "spot": {
+      "at": [
+        -0.5,
+        4.3
+      ],
+      "turn": 90
+    }
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_salon_low_table",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "low table",
+  "object_type": "furniture",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_solenne_salon"
+}

@@ -1,10 +1,11 @@
 {
   "ambient_events": [],
   "ambient_theme": "city",
-  "description": "The south end of Hughson Way, coming out on Sorrel Way between 7 Sorrel Way and 27 Hughson Way.",
+  "description": "The south end of Hughson Way, coming out on Sorrel Way between Hughson Gardens and 27 Hughson Way.",
   "exits": {
     "north": "zone_ballpark_892_919",
-    "south": "zone_district_896_921"
+    "south": "zone_district_896_921",
+    "west": "zone_ballpark_896_913"
   },
   "flags": {
     "district": "halcyon_fields",

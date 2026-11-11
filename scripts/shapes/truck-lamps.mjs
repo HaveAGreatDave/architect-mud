@@ -22,7 +22,9 @@ import { _setBlitEnabled } from '../../client/game/js/panels/model-raster.js';
 // The lens tints, straight off the mesh (`buildTruck`'s headlamp block). Matching by colour rather
 // than by walking the face list is deliberate: it tests what reached the CANVAS, which is the
 // thing that was wrong both times.
-const LENS_TINTS = [[242, 234, 196], [238, 228, 182]];
+// The last is the Drayman 2076's cool white LED (concepts/drayman-2076.mjs), the one edition whose
+// headlamps aren't warm; the Courier's and the Barrow's 2076 lamps match the first within TOL.
+const LENS_TINTS = [[242, 234, 196], [238, 228, 182], [236, 244, 250]];
 const TOL = 0.05;
 
 function recorder() {

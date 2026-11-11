@@ -1,0 +1,34 @@
+{
+  "description": "A dented grey metal desk facing the stairs, so whoever sits behind it sees who's coming down first.",
+  "flags": {
+    "interactions": [
+      "look"
+    ],
+    "look": {
+      "arche": "surface",
+      "dims": [
+        1.4,
+        0.7,
+        0.76
+      ],
+      "form": "desk"
+    },
+    "spot": {
+      "at": [
+        0.6,
+        2.8
+      ],
+      "turn": 180
+    }
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_cherry_office_desk",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "metal desk",
+  "object_type": "fixture",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_mq_cherry_office"
+}

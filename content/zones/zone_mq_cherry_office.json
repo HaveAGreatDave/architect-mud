@@ -13,7 +13,22 @@
   },
   "flags": {
     "floor": "carpet",
-    "is_interior": true
+    "is_interior": true,
+    "room": {
+      "balcony": false,
+      "d": 5,
+      "doors": {
+        "north": 1.8,
+        "up": [
+          -2.3,
+          0.5
+        ]
+      },
+      "h": 2.4,
+      "studio": false,
+      "w": 6,
+      "windowless": true
+    }
   },
   "grid_x": 0,
   "grid_y": 0,

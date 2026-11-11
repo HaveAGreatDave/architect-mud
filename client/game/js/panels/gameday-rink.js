@@ -20,6 +20,7 @@
 
 import { cphlMark, cphlLockup } from './cphl-brand.js';
 import { addFullscreenButton, leaveFullscreen } from './view-fullscreen.js';
+import { addCommentaryButton } from './commentary-button.js';
 import { crestSvg, clubOf, onClubs } from './club-crest.js';
 import { venueOf, onVenue } from './venue.js';
 import { GEO, DOTS } from './rink/geo.js';
@@ -57,10 +58,12 @@ const SEAT_NEAR = 35, SEAT_LIFT = 1.4;
 // own WINNER banner names both men.
 const CARD = {
   hockeydeath: (fx) => ({ title: 'SUDDEN DEATH', sub: fx.player || '', cls: 'dead' }),
-  hockeycup: (fx) => ({ title: 'COLDWATER CUP', sub: (fx.away && fx.home) ? `${fx.away} vs ${fx.home}` : '', cls: 'hot' }),
+  hockeycup: (fx) => ({ title: 'COLDWATER CUP', sub: (fx.away && fx.home) ? `${fx.away} vs ${fx.home}` : '', cls: 'hot cup' }),
   matchup: (fx) => ({ title: 'CLUSTER PUCK', sub: (fx.away && fx.home) ? `${fx.away} vs ${fx.home}` : '', cls: '' }),
   gamewin: (fx) => ({ title: 'FINAL', sub: fx.winner ? `${fx.winner} ${fx.winScore}–${fx.loseScore}` : '', cls: 'final', club: fx.winner }),
-  champion: (fx) => ({ title: '🏆 CHAMPIONS', sub: fx.winner || '', cls: 'hot', club: fx.winner }),
+  champion: (fx) => ({ title: '🏆 CHAMPIONS', sub: fx.winner || '', cls: 'hot cup', club: fx.winner }),
+  // the Cup handed over (ceremony below): the champions, the final's name and the score
+  cupchamps: (fx) => ({ title: 'CHAMPIONS!', sub: [fx.winner, fx.final, fx.score].filter(Boolean).join(' · '), cls: 'hot cup', club: fx.winner }),
 };
 
 // THE GLOWING PUCK is a viewer's own setting, kept in this browser: a blue halo round the
@@ -94,6 +97,7 @@ export function createRinkView(host, opts = {}) {
   let camView = opts.camera || camSaved(win);
   let gore = GORES.includes(opts.gore) ? opts.gore : goreSaved(win);
   let caption = '', pendingCaption = null, pendingCard = null, cardTimer = null, holdTimer = null;
+  let syncVoice = () => {};
   // Who the caption's tag names: a "Name says, ..." line is the colour man's, his name on the
   // tag and his words in the bar; anything else is the play-by-play man's, whom the broadcast
   // names with each line (tv.js passes it as 'who').
@@ -171,7 +175,7 @@ export function createRinkView(host, opts = {}) {
         const near = opts.seat ? fromSeat(key, o) : null;
         const go = () => AE.playSfx(H.variant(def, seed, 1, pick.intensity), under * (near ? near.gain : 1), pan ? { pan } : {});
         if (near && near.ms > 15) setTimeout(go, near.ms); else go();
-        if (key === 'horn') loudUntil = W.t + 2;
+        if (key === 'horn') loudUntil = W.t + (o && o.long ? 3.8 : 2);
         else if (key === 'whistle') loudUntil = Math.max(loudUntil, W.t + (o && o.long ? 0.5 : 0.25));
       }
     }
@@ -443,6 +447,8 @@ export function createRinkView(host, opts = {}) {
     mounted = true;
     host.innerHTML = shell();
     addFullscreenButton(host.querySelector('.gdr-rink'), host);
+    // spoken commentary on or off, when the host has a switch for it (commentary-button.js)
+    syncVoice = addCommentaryButton(host.querySelector('.gdr-rink'), opts.commentary, doc);
     canvas = host.querySelector('.gdr-canvas');
     host.querySelector('.gdr-glow')?.addEventListener('click', () => { setGlow(!glow); glowSave(win, glow); });
     host.querySelector('.gdr-ink')?.addEventListener('click', () => { setInk(!ink); inkSave(win, ink); });
@@ -462,6 +468,8 @@ export function createRinkView(host, opts = {}) {
       emit: (name, data) => { if (name === 'sfx') _sfx(data.key, data); },
       zamboniLapse: opts.zamboniLapse,
       zamboniReal: !!opts.seat,
+      // Cup night: the man the spotlight is on as the public address reads him (null: done)
+      onIntro: (c) => introCard(c),
     });
     // the scorer's stat line goes up with his goal's replay and comes down with it (and the
     // frame loop checks again, for a replay that runs out on its own)
@@ -479,6 +487,45 @@ export function createRinkView(host, opts = {}) {
     if (holdTimer) { clearTimeout(holdTimer); holdTimer = null; }
     if (pendingCaption) { const p = pendingCaption; pendingCaption = null; showCaption(p.text); p.speak?.(); }
     if (pendingCard) { const c = pendingCard; pendingCard = null; renderCard(c); }
+  }
+
+  // ── Cup night ─────────────────────────────────────────────────────────────
+  // The line-ups and the Cup: the director stages both (rink/director.js stageAnthem and
+  // stageCrown); the view puts the graphics over them and steers the crowd.
+  function ceremony(p) {
+    stopFly();
+    landed = true;
+    head({ ...p, section: p.type === 'anthem' ? 'PRE-GAME' : 'FINAL', clock: '' });
+    board(null); hideL3(); clearCard();
+    host.querySelector('.gdr-arrive')?.remove();
+    const c = crowdOn();
+    if (c) {
+      if (crowdBack) { clearTimeout(crowdBack); crowdBack = null; }
+      c.setState(p.type === 'anthem' ? 'quiet' : 'goal');
+      if (p.type === 'crown') c.celebrate?.();
+    }
+    if (Number.isFinite(p.sync)) W.reseed(p.sync);
+    D.stage(p);
+    reveal();
+    if (p.type === 'crown' && !opts.seat) {
+      const side = p.winner === p.homeTeam ? 'home' : 'away';
+      const score = `${p.awayAbbr || p.awayTeam} ${p.awayScore | 0}, ${p.homeAbbr || p.homeTeam} ${p.homeScore | 0}`;
+      renderCard({ kind: 'cupchamps', winner: p.winner, final: p.final, score, duration: 7 });
+      if (p.mvp) setTimeout(() => { if (last === p) showL3(mvpCard(p, side), 9, 'mvp'); }, 7500);
+    }
+  }
+  // the man under the spotlight: his number, his name, where he plays and for whom
+  const POS_SAID = { C: 'Centre', LW: 'Left wing', RW: 'Right wing', D: 'Defence', G: 'Goaltender' };
+  function introCard(c) {
+    if (!c) { if (l3Up === 'intro') hideL3(); return; }
+    showL3(`<div class="gdr-l3-id">${_crest(c.team, 30) || ''}${c.num ? `<span class="num">${c.num | 0}</span>` : ''}<span class="nm">${_esc(String(c.name).toUpperCase())}</span>` +
+      `<span class="tm">${_esc(c.team || '')} · ${_esc(POS_SAID[c.pos] || c.pos || '')}</span></div>` +
+      `<div class="gdr-l3-row"><span class="lbl">Coldwater Cup Final</span><span class="tag">${c.side === 'a' ? 'Visitors' : 'Home'}</span></div>`, 0, 'intro');
+  }
+  function mvpCard(p, side) {
+    const m = p.mvp, b = bodyOf({ name: m.name, team: p.winner });
+    return `<div class="gdr-l3-id">${_crest(p.winner, 30) || ''}${b?.num ? `<span class="num">${b.num | 0}</span>` : ''}<span class="nm">${_esc(String(m.name).toUpperCase())}</span><span class="tm">${_esc(p.winner)}</span></div>` +
+      `<div class="gdr-l3-row"><span class="lbl">Player of the final</span><span><i>G</i>${m.goals | 0}</span><span><i>A</i>${m.assists | 0}</span><span class="tag">${side === 'home' ? 'Home' : 'Visitors'}</span></div>`;
   }
 
   // ── live from the Gardens ─────────────────────────────────────────────────
@@ -559,7 +606,10 @@ export function createRinkView(host, opts = {}) {
       if (last !== p) return;
       mount();
       host.querySelector('.gdr-idle')?.remove();
+      // Cup night dresses the graphics in gold (styles.css .gdr-wrap.cup)
+      host.querySelector('.gdr-wrap')?.classList.toggle('cup', !!p.cup);
       if (p.type === 'arrive') { arrive(p); return; }
+      if (p.type === 'anthem' || p.type === 'crown') { ceremony(p); return; }
       stopFly();
       landed = false;
       head(p);
@@ -676,6 +726,8 @@ export function createRinkView(host, opts = {}) {
     if (fx.kind === 'gamewin' && W) _sfx('periodHorn');
     // a seat in the stands sees the game, not the broadcast's graphics
     if (opts.seat) return;
+    // the line-ups have their own lower third under the spotlights
+    if (last && last.type === 'anthem' && fx.kind === 'hockeycup') return;
     if (D && D.busy() && pendingCaption) pendingCard = fx; else renderCard(fx);
   }
   function clearCard() { if (cardTimer) { clearTimeout(cardTimer); cardTimer = null; } host?.querySelector('.gdr-jumbo')?.remove(); }
@@ -699,6 +751,18 @@ export function createRinkView(host, opts = {}) {
     if (mods) go(); else loadMods().then(go).catch((err) => console.error('[rink] failed to load:', err));
   }
 
+  // Put aside while the other sport is on (see gameday-grandstand.js rest): the renderer stays, the
+  // loop and the crowd stop. The crowd bed comes back on the next play (crowdOn).
+  function rest() {
+    stop(); clearCard(); stopFly();
+    if (crowdBack) { clearTimeout(crowdBack); crowdBack = null; }
+    if (crowd) crowd.stop();
+    crowd = null;
+    if (holdTimer) { clearTimeout(holdTimer); holdTimer = null; }
+    leaveFullscreen(host);
+  }
+  function wake() { if (R) start(); }
+
   function clear() {
     era++;
     stop(); clearCard(); stopFly();
@@ -715,7 +779,9 @@ export function createRinkView(host, opts = {}) {
   }
 
   return {
-    apply, clear, setCaption, showIdle, showCard,
+    apply, clear, rest, wake, setCaption, showIdle, showCard,
+    // repaint the Commentary button after the host's own switch moved
+    syncCommentary: () => syncVoice(),
     // for the demo page and the smoke gate
     get world() { return W; }, get director() { return D; }, get renderer() { return R; }, get crowd() { return crowd || null; },
     busy: () => !!(D && D.busy()),

@@ -5,7 +5,18 @@
     "interactions": [
       "sit"
     ],
-    "seat_idx": 0
+    "look": {
+      "arche": "seat",
+      "form": "armchair"
+    },
+    "seat_idx": 0,
+    "spot": {
+      "at": [
+        3.9,
+        2
+      ],
+      "turn": 180
+    }
   },
   "hp": null,
   "hp_max": null,

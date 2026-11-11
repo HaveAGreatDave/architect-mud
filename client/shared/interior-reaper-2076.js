@@ -1,9 +1,8 @@
 // THE REAPER 2076'S COCKPIT: the inside of the concept gunship, as geometry.
 //
 // The Reaper 2076 is the gunship class's concept body (mesh_gunship_2076.json): the A-10 fifty years
-// on, after the Boeing MQ-28 Ghost Bat. She is still the gun with a plane round it, and she carries
-// two uncrewed wingmen docked on her wing that fly in formation off her tips while her weapons are
-// armed. She can fly herself. Halcyon's Warm Hands Rider voids the hull cover on any flight logged
+// on. She is still the gun with a plane round it, with her engines buried in a flat deck behind the
+// cockpit and her fins canted hard out over a beavertail. She can fly herself. Halcyon's Warm Hands Rider voids the hull cover on any flight logged
 // without a living pilot at the controls, so the controls are there, they work, and the panel says
 // politely that they are advisory.
 //
@@ -11,22 +10,21 @@
 // console on the left with the flap lever at its forward end, a centre stick ahead of the pilot on the
 // right, and ahead a sculpted deck from wall to wall under the windscreen with one curved band of
 // glass across it carrying every page, key and lamp: the gun, the engines, the flight page in front
-// of the pilot, the wingmen and the map. The flight symbology is projected into the windscreen, and a
-// hologram of the aircraft and her two wingmen stands on the deck's shelf.
+// of the pilot, the stores and the map. The flight symbology is projected into the windscreen, and a
+// hologram of the aircraft stands on the deck's shelf.
 //
 // Sources read for this file:
 //   https://en.wikipedia.org/wiki/Fairchild_Republic_A-10_Thunderbolt_II
 //     (16.26 m long; one seat in a titanium tub; 1,174 rounds in the GAU-8's drum)
-//   https://en.wikipedia.org/wiki/Boeing_MQ-28_Ghost_Bat (the loyal wingman that flies beside a crewed jet)
 //   The cockpit fit-out here is the game's fiction; nothing above is a source for a dimension inside.
 //
 // ── ⚠ THE ROOM IS THE EXTERIOR'S FUSELAGE ───────────────────────────────────
 //
-// client/shared/cabin-reaper-2076.js states the hull's stations, where the canopy is and where the
-// wingmen dock and fly; the exterior generator builds the shell, the glass and the wingmen from the
-// same file. The wall here is the hull's own section pushed in by a wall's thickness, the canopy is
-// the absence of wall where the layout says glass, and the hologram's wingmen fly where the real
-// ones do.
+// client/shared/cabin-reaper-2076.js states the hull's stations, where the canopy is, the engines, the
+// wing, the tail and where the stores hang; the exterior generator builds the shell, the glass, the
+// wing and the tail from the same file. The wall here is the hull's own section pushed in by a wall's
+// thickness, the canopy is the absence of wall where the layout says glass, and the hologram and the
+// stores page draw the aircraft the exterior is.
 //
 // ── ⚠ ONE SCALE: THE A-10'S LENGTH OVER THE MODEL'S ─────────────────────────
 //
@@ -46,8 +44,7 @@
 // ── ⚠ ANIMATION IS LIVE STATE, NEVER A CLOCK ────────────────────────────────
 //
 // The fans on the engine page and in the hologram turn on `live.phase`; the attitude and the tapes
-// on the flight state; the wingmen leave the wing on the exterior's own `wingmen` channel when the
-// view sends it, and otherwise ease toward `weaponsArmed`. Decoration alone moves on wall time: the
+// on the flight state; the stores page on what is left on each pylon. Decoration alone moves on wall time: the
 // keys and the hand glow ease through the kit's `eased`, the pages boot on `live.powerAge`, and a
 // warning's light lines breathe. Every readout is still a function of the live state.
 //
@@ -59,7 +56,7 @@ import { contactShadow, hotspotHalo, panelGps, gpsHotspot, lensLamp, facingPanel
   HOLO, HOLO_LINE, HOLO_AMBER, HOLO_RED, HUD_LINE, HUD_DIM, HUD_AMBER, HUD_RED, stickColumn } from './interior-cockpit-kit.js';
 import { MESH_ROWS } from './vehicle-meshes.js';
 import { compileMesh } from './vehicle-mesh.js';
-import { RP_APEX_AFT, RP_GLASS, RP_CANOPY, RP_INSIDE, RP_ENGINES, RP_WINGMEN, A10_LENGTH_M, rpSection, rpPoint, rpWingmanAt } from './cabin-reaper-2076.js';
+import { RP_APEX_AFT, RP_GLASS, RP_CANOPY, RP_INSIDE, RP_ENGINES, RP_WING, RP_STRAKE, RP_TAIL, RP_STORES, A10_LENGTH_M, rpSection, rpPoint, rpEngineAxis, rpFinXf } from './cabin-reaper-2076.js';
 
 const TAU = Math.PI * 2, DEG = Math.PI / 180;
 const num = (v, d = 0) => (Number.isFinite(+v) ? +v : d);
@@ -392,9 +389,6 @@ const readings = (live) => {
 };
 const night = (R) => R.hour < 6.5 || R.hour > 19.5;
 const panelOn = (R) => R.powered && (R.L.panelLight != null ? !!R.L.panelLight : night(R));
-// How far out the wingmen are: the exterior's own `wingmen` channel when the view sends it (so the
-// hologram and the page fly them exactly as the airframe does), otherwise eased toward the master arm.
-const wingmenOut = (live, R) => (Number.isFinite(+live?.wingmen) && live.wingmen != null ? clamp(+live.wingmen, 0, 1) : eased('r76:wingmen', R.armed && R.powered ? 1 : 0, 2));
 
 // ── WHERE THE CONTROLS ARE ───────────────────────────────────────────────────
 // One place says where each thing you can grab or click is; the drawing and the hotspots both read it.
@@ -436,13 +430,13 @@ const sOf = (x) => (x - DASH.xL) / (DASH.xR - DASH.xL);
 const bandPanel = (K, x, v, lift = 0.005) => bandFrame(dashCurve(), DASH.lean).at(K, sOf(x), v, lift);
 
 // ── THE PAGES on the band, booting in turn: the gun and the engines on the left, the flight page in
-// front of the pilot, the wingmen and the map on the right. A flat page on the curved sheet is lifted
+// front of the pilot, the stores and the map on the right. A flat page on the curved sheet is lifted
 // clear of it at its ends.
 const SCREENS = [
   { id: 'gun', x: -0.34, title: 'GUN', boot: 0.3 },
   { id: 'eng', x: -0.17, title: 'ENGINES', boot: 0.15 },
   { id: 'pfd', x: 0.0, title: 'FLIGHT', boot: 0 },
-  { id: 'wingmen', x: 0.17, title: 'WINGMEN', boot: 0.45 },
+  { id: 'stores', x: 0.17, title: 'STORES', boot: 0.45 },
   { id: 'map', x: 0.34, title: 'NAV', boot: 0.6 },
 ];
 const SW = 0.08, SH = 0.064, PAGE_V = 0.13;
@@ -540,7 +534,6 @@ export function r76Fit(P, live, push) {
   const al = alertLight(caution, warn, T.line), lineK = (k) => (lit ? k * al.k : 0.05);
   // How near the hand is to a control: eased up while the pointer is over it or pressing it.
   const near = (key, ids) => eased('r76:near:' + key, live && ids.some((id) => live.hover === id || live.press === id) ? 1 : 0, 12);
-  const out = wingmenOut(live, R);
 
   // ── THE DECK: a wing swept along the band's curve, its shelf falling forward under the windscreen ──
   const curve = dashCurve();
@@ -600,7 +593,7 @@ export function r76Fit(P, live, push) {
     if (sc.id === 'pfd') pfd(Pn, R);
     else if (sc.id === 'gun') gunPage(Pn, R);
     else if (sc.id === 'eng') enginePage(Pn, R);
-    else if (sc.id === 'wingmen') wingmenPage(Pn, R, out);
+    else if (sc.id === 'stores') storesPage(Pn, R);
     else if (sc.id === 'map') mapPage(Pn, R, live);
   }
   // The status lamps along the top of the band: what the aircraft thinks of you.
@@ -648,20 +641,18 @@ export function r76Fit(P, live, push) {
       const count = R.weapon === 'gun' ? (R.ammo == null ? '' : String(R.ammo)) : String(R.weapon === 'msl' ? R.missiles : R.bombs);
       Hp.text(wname + ' ' + count, wx, wy, 0.0095, R.armed ? col : HUD_DIM, 1, 0.001);
       Hp.text(R.armed ? 'ARM' : 'SAFE', wx, wy - 0.014, 0.0095, R.armed ? HUD_AMBER : HUD_DIM, 1, 0.001);
-      // The wingmen, two ticks either side of the weapon box: lit and spread while they fly.
-      for (const s of [-1, 1]) Hp.rect(wx + s * (0.026 + 0.01 * out) - 0.003, wy + 0.013, wx + s * (0.026 + 0.01 * out) + 0.003, wy + 0.016, out > 0.5 ? col : HUD_DIM, 1, 0.001);
     }
   }
 
-  // ── THE HOLOGRAM over the deck's shelf: the Reaper and her wingmen, flying as she flies ──
+  // ── THE HOLOGRAM over the deck's shelf: the Reaper, flying as she flies ──
   // Pitched and banked with her, her fans turning on the phase and ringed at each engine's spool, the
-  // wingmen on the wing or out in formation, standing on a projector whose arc is the rounds left.
+  // stores lit on their pylons while they hang, standing on a projector whose arc is the rounds left.
   {
     const c0 = curve(sOf(HOLO_AT.x));
     const base = add(add(c0.p, mul(c0.f, HOLO_AT.out)), [0, 0, gt[1] + 0.02]);
     const frac = R.ammo == null ? 0 : clamp(R.ammo / GUN_CAP, 0, 1);
     holoProjector(K, base, HOLO_AT.rise, 0.045, lit ? frac : 0, frac < 0.1 ? HOLO_RED : frac < 0.25 ? HOLO_AMBER : HOLO_LINE);
-    if (lit && reveal(boot, 0.7) > 0) holoReaper(K, add(base, [0, 0, HOLO_AT.rise + 0.02]), R, out);
+    if (lit && reveal(boot, 0.7) > 0) holoReaper(K, add(base, [0, 0, HOLO_AT.rise + 0.02]), R);
   }
 
   // ── THE SIDE CONSOLES: swept, the two thrust levers on the left, an armrest on the right ──
@@ -806,14 +797,28 @@ function hudFlaps(Hp, R, col) {
   Hp.text(['UP', '1', '2', 'F'][R.flap], fx - 0.002, -0.07, 0.01, col, 1, 0.001);
 }
 
+// Which stores still hang, pylon by pylon: the missiles leave the right rail first and then the left,
+// and the bombs the same, so a count is a picture. The stores page and the hologram both read this.
+function storesOn(R) {
+  const out = [];
+  for (const [kind, g, n] of [['msl', RP_STORES.missile, R.missiles], ['bomb', RP_STORES.bomb, R.bombs]]) {
+    out.push({ kind, g, side: 1, on: n >= 2 }, { kind, g, side: -1, on: n >= 1 });
+  }
+  return out;
+}
+// The wing's mean height at span g, for hanging a store under it.
+function wingH(g) {
+  const W = RP_WING;
+  for (let i = 0; i + 1 < W.length; i++) if (g <= W[i + 1].g) return lerp(W[i].h, W[i + 1].h, (g - W[i].g) / (W[i + 1].g - W[i].g));
+  return W[W.length - 1].h;
+}
 // ── THE HOLOGRAM: the Reaper in miniature, 14 cm long ──
 // Her hull as section rings and lines off the hull's own stations (cabin-reaper-2076.js), the bubble
-// lit, the gun a long bar under the chin, the straight wing with its flaps down to the notch, the two
-// engine pods with their fans turning on the phase and each ringed at its own spool, the twin canted
-// fins, and the two wingmen: on the wing, or out in formation off each tip where RP_WINGMEN says the
-// real ones fly. The frame is her pitch and bank.
-const HW = [{ g: 0, le: 0.142, te: -0.233, h: -0.034 }, { g: 0.34, le: 0.14, te: -0.23, h: -0.034 }, { g: 1.04, le: 0.09, te: -0.2, h: 0.052 }, { g: 1.1, le: 0.075, te: -0.19, h: 0.036 }];
-function holoReaper(K, c, R, out) {
+// lit, the gun a long bar under the chin, the wing and its strakes off RP_WING with the flaps drawn
+// down to the notch, the two buried engines along their toed axes with their fans turning on the
+// phase and each ringed at its own spool, the tailplane and the canted fins off RP_TAIL, and a bar on
+// each pylon, lit while its store hangs. The frame is her pitch and bank.
+function holoReaper(K, c, R) {
   const H = holoFrame(K, c, R.pitch, R.bank);
   const sc = HOLO_AT.scale;
   const M = (f, g, h) => [g * sc, f * sc, h * sc];
@@ -835,57 +840,59 @@ function holoReaper(K, c, R, out) {
   }
   // The gun: a bar under the chin to the muzzle, amber while the weapons are armed.
   H.line(M(0.5, 0, -0.064), M(1.0, 0, -0.064), 0.0012, R.armed ? HOLO_AMBER : HOLO_LINE);
-  // The wing, each side a plate with its edges lined; the flaps drawn down to the notch.
-  const fd = R.flap / 3 * 0.05;
+  // The wing, each side a plate with its edges lined, and the strake ahead of its root; the flaps
+  // drawn down to the notch.
+  const fd = R.flap / 3 * 0.05, WG = RP_WING, SK = RP_STRAKE;
   for (const s of [1, -1]) {
-    const le = HW.map((w) => M(w.le, s * w.g, w.h)), te = HW.map((w) => M(w.te, s * w.g, w.h));
+    const le = WG.map((w) => M(w.le, s * w.g, w.h)), te = WG.map((w) => M(w.te, s * w.g, w.h));
     for (let i = 0; i + 1 < le.length; i++) {
       H.plate([le[i], le[i + 1], te[i + 1], te[i]], HOLO, 0.4);
       H.line(le[i], le[i + 1], 0.0007); H.line(te[i], te[i + 1], 0.0006);
     }
     H.line(le[le.length - 1], te[te.length - 1], 0.0006);
-    H.line(M(-0.2 - fd, s * 0.1, -0.04 - fd), M(-0.2 - fd, s * 0.55, -0.04 - fd), 0.0006, R.flap ? HOLO_LINE : HOLO);
+    const sk = [M(SK[0].le, s * SK[0].g, SK[0].h), M(SK[1].le, s * SK[1].g, SK[1].h), M(SK[1].te, s * SK[1].g, SK[1].h), M(SK[0].te, s * SK[0].g, SK[0].h)];
+    H.plate(sk, HOLO, 0.3);
+    H.line(sk[0], sk[1], 0.0006);
+    H.line(M(WG[1].te + 0.03 - fd, s * 0.18, WG[1].h - fd), M(WG[1].te + 0.03 - fd, s * 0.55, WG[1].h + 0.012 - fd), 0.0006, R.flap ? HOLO_LINE : HOLO);
   }
-  // The engines: a pod each side, its fan turning on the phase, ringed at its own spool.
+  // The engines: each buried duct as three rings and four lines along its toed axis, its fan at the
+  // intake turning on the phase and ringed at its own spool.
   const E = RP_ENGINES;
   [0, 1].forEach((e) => {
-    const s = e === 0 ? -1 : 1, g = s * E.g;
+    const s = e === 0 ? -1 : 1, ax = (f) => { const a = rpEngineAxis(f); return [s * a[0], a[1]]; };
+    const rv = (f) => (f === E.tailF ? 0.35 : 0.8) * E.r;
     for (const f of [E.fanF, -0.42, E.tailF]) {
-      const r = (f === E.tailF ? 0.7 : 1) * E.r;
+      const [g, h] = ax(f);
       let prev = null;
-      for (let i = 0; i <= 10; i++) { const t = i / 10 * TAU, q = M(f, g + Math.cos(t) * r, E.h + Math.sin(t) * r); if (prev) H.line(prev, q, 0.0004); prev = q; }
+      for (let i = 0; i <= 10; i++) { const t = i / 10 * TAU, q = M(f, g + Math.cos(t) * E.r, h + Math.sin(t) * rv(f)); if (prev) H.line(prev, q, 0.0004); prev = q; }
     }
-    for (const t of [0, Math.PI / 2, Math.PI, 1.5 * Math.PI]) H.line(M(E.fanF, g + Math.cos(t) * E.r, E.h + Math.sin(t) * E.r), M(E.tailF, g + Math.cos(t) * E.r * 0.7, E.h + Math.sin(t) * E.r * 0.7), 0.0004);
-    const hub = M(E.fanF + 0.005, g, E.h), rr = E.r * 0.85 * sc, frac = clamp(R.rpms[e] / 1.05, 0, 1);
+    for (const t of [0, Math.PI / 2, Math.PI, 1.5 * Math.PI]) {
+      const [g0, h0] = ax(E.fanF), [g1, h1] = ax(E.tailF);
+      H.line(M(E.fanF, g0 + Math.cos(t) * E.r, h0 + Math.sin(t) * rv(E.fanF)), M(E.tailF, g1 + Math.cos(t) * E.r, h1 + Math.sin(t) * rv(E.tailF)), 0.0004);
+    }
+    const [gh, hh] = ax(E.fanF - 0.005);
+    const hub = M(E.fanF - 0.005, gh, hh), rr = E.r * 0.85 * sc, frac = clamp(R.rpms[e] / 1.05, 0, 1);
     if (frac > 0.01) H.ring(hub, [1, 0, 0], [0, 0, 1], rr * 1.15, Math.max(2, Math.round(14 * frac)), frac > 0.85 ? HOLO_LINE : HOLO_AMBER, R.on[e] ? 1 : 0.4, Math.PI / 2, Math.PI / 2 - frac * TAU);
     for (let b = 0; b < 6; b++) {
       const t = (R.on[e] ? R.phase * 1.6 : 0) + b * TAU / 6;
       H.line(hub, add(hub, [Math.cos(t) * rr, 0, Math.sin(t) * rr]), 0.0005, HOLO_LINE, R.on[e] ? 1 : 0.5);
     }
   });
-  // The tail: the tailplane and the twin fins, canted out.
+  // The tail: the tailplane each side and the two fins, canted out, where rpFinXf puts them.
+  const TS = RP_TAIL.stab, TF = RP_TAIL.fin, FH = TF[1].g;
   for (const s of [1, -1]) {
-    const tp = [M(-0.79, 0, 0.052), M(-0.84, s * 0.36, 0.052), M(-1.03, s * 0.36, 0.052), M(-1.01, 0, 0.052)];
+    const tp = [M(TS[0].le, s * TS[0].g, TS[0].h), M(TS[1].le, s * TS[1].g, TS[1].h), M(TS[1].te, s * TS[1].g, TS[1].h), M(TS[0].te, s * TS[0].g, TS[0].h)];
     H.plate(tp, HOLO, 0.4);
     H.line(tp[0], tp[1], 0.0006); H.line(tp[1], tp[2], 0.0006); H.line(tp[2], tp[3], 0.0006);
-    const cant = 9 * DEG, gx = (z) => s * (0.355 + Math.sin(cant) * (z - 0.052));
-    const fin = [M(-0.765, gx(-0.04), -0.04), M(-1.015, gx(-0.04), -0.04), M(-0.99, gx(0.33), 0.33), M(-0.8, gx(0.33), 0.33)];
+    const F = (f, span) => { const q = rpFinXf([f, 0, span]); return M(q[0], s * q[1], q[2]); };
+    const fin = [F(TF[0].le, 0), F(TF[0].te, 0), F(TF[1].te, FH), F(TF[1].le, FH)];
     H.plate(fin, HOLO, 0.4);
     for (let i = 0; i < 4; i++) H.line(fin[i], fin[(i + 1) % 4], 0.0006);
   }
-  // The wingmen: a dart each with a V-tail, on the wing or out in formation where they fly.
-  const k = smooth01(out), W = RP_WINGMEN;
-  for (const s of [1, -1]) {
-    const p = rpWingmanAt(out), cc = M(p[0], s * p[1], p[2]);
-    const col = k > 0.5 ? HOLO_LINE : HOLO, L = W.len * sc / 2, Sp = W.span * sc / 2;
-    const nose = add(cc, [0, L, 0]), tail = add(cc, [0, -L, 0]);
-    H.line(tail, nose, 0.0007, col);
-    H.line(add(cc, [-Sp, -L * 0.3, 0]), add(cc, [0, L * 0.25, 0]), 0.0006, col);
-    H.line(add(cc, [Sp, -L * 0.3, 0]), add(cc, [0, L * 0.25, 0]), 0.0006, col);
-    H.line(add(cc, [-Sp, -L * 0.3, 0]), add(cc, [Sp, -L * 0.3, 0]), 0.0005, col);
-    for (const t of [-1, 1]) H.line(add(tail, [0, L * 0.3, 0.0005]), add(tail, [t * Sp * 0.45, 0, Sp * 0.45]), 0.0005, col);
-    // While they fly, a faint line back to her wingtip: the link.
-    if (k > 0.05) H.line(M(-0.05, s * 1.1, 0.04), cc, 0.0003, HOLO, k * 0.6);
+  // The stores: a bar under each pylon, lit while its store hangs.
+  for (const st of storesOn(R)) {
+    const z = wingH(st.g) - 0.05, g = st.side * st.g;
+    H.line(M(0.04, g, z), M(-0.12, g, z), 0.0011, st.on ? (R.armed && R.weapon === st.kind ? HOLO_AMBER : HOLO_LINE) : HOLO, st.on ? 1 : 0.3);
   }
 }
 
@@ -989,35 +996,48 @@ function enginePage(Pn, R) {
   Pn.digits(0.03, -0.056, 0.01, R.endur == null ? '---' : String(R.endur).padStart(3, ' '), R.endur == null ? T.dim : T.white, false);
 }
 
-// ── THE WINGMEN PAGE: her plan from above, the two cradles, and the wingmen in them or out in
-// formation off her tips; the link and what they are doing ──
-function wingmenPage(Pn, R, out) {
-  const k = smooth01(out), sx = 0.026, vy = 0.004;
+// ── THE STORES PAGE: her plan from above, a box on each pylon lit while its store hangs, the
+// selected weapon ringed (amber while armed), what is left in numbers, and the master arm ──
+function storesPage(Pn, R) {
+  const sx = 0.026, vy = 0.008;
   const pt = (f, g) => [g * sx, vy + f * sx];
   const ln = (a, b, rgb = [70, 120, 112], e = 0.6) => {
     const dx = b[0] - a[0], dy = b[1] - a[1], L = Math.hypot(dx, dy) || 1;
     Pn.spoke(a[0], a[1], Math.atan2(dy, dx), 0, L, 0.0006, rgb, e, 0.003);
   };
-  // Her plan: hull, wing, tailplane and the engine pods, faint.
-  ln(pt(1.0, 0), pt(-1.05, 0));
-  ln(pt(0.12, -1.1), pt(0.12, 1.1)); ln(pt(-0.22, -1.1), pt(-0.22, 1.1));
-  ln(pt(-0.8, -0.36), pt(-0.8, 0.36));
-  for (const s of [-1, 1]) ln(pt(-0.2, s * 0.205), pt(-0.62, s * 0.205), [70, 120, 112], 0.4);
+  // Her plan, faint: the hull, the wing and its strakes, the deck's edges and the tailplane.
+  const WG = RP_WING, TS = RP_TAIL.stab, SK = RP_STRAKE, faint = [70, 120, 112];
+  ln(pt(0.985, 0), pt(RP_APEX_AFT[0], 0));
   for (const s of [-1, 1]) {
-    // The cradle, an empty amber outline while its wingman is away.
-    const c = pt(RP_WINGMEN.dock[0], s * RP_WINGMEN.dock[1]);
-    Pn.rect(c[0] - 0.004, c[1] - 0.004, c[0] + 0.004, c[1] + 0.004, k > 0.5 ? T.amber : [30, 44, 44], k > 0.5 ? 0.5 : 0.3, 0.003);
-    // The wingman, a dart where it is: at the cradle or out off the tip.
-    const p = rpWingmanAt(out), d = pt(p[0], s * p[1]), col = k > 0.5 ? T.white : T.glow;
-    Pn.spoke(d[0], d[1], Math.PI / 2, -0.0045, 0.0045, 0.0007, col, 0.95, 0.0045);
-    Pn.spoke(d[0], d[1] - 0.001, 0, -0.0035, 0.0035, 0.0006, col, 0.95, 0.0045);
-    if (k > 0.05) ln([s * 1.1 * sx, vy - 0.002], d, T.glow, 0.3 * k);
+    for (let i = 0; i + 1 < WG.length; i++) {
+      ln(pt(WG[i].le, s * WG[i].g), pt(WG[i + 1].le, s * WG[i + 1].g));
+      ln(pt(WG[i].te, s * WG[i].g), pt(WG[i + 1].te, s * WG[i + 1].g));
+    }
+    const tip = WG[WG.length - 1];
+    ln(pt(tip.le, s * tip.g), pt(tip.te, s * tip.g));
+    ln(pt(SK[0].le, s * SK[0].g), pt(SK[1].le, s * SK[1].g), faint, 0.4);
+    ln(pt(TS[0].le, s * TS[0].g), pt(TS[1].le, s * TS[1].g), faint, 0.4);
+    ln(pt(TS[1].le, s * TS[1].g), pt(TS[1].te, s * TS[1].g), faint, 0.4);
+    let prev = pt(0.22, s * rpSection(0.22).rg);
+    for (const f of [-0.05, -0.35, -0.65, -0.92, -1.05]) { const q = pt(f, s * rpSection(f).rg); ln(prev, q, faint, 0.4); prev = q; }
   }
-  // What they are doing, in words; and the link, lit with the power.
-  const state = out > 0.98 ? 'FORMATION' : out > 0.02 ? (R.armed ? 'LAUNCH' : 'RECOVER') : 'DOCKED';
-  Pn.fitText(state, -0.024, -0.042, 0.07, 0.009, k > 0.5 ? T.white : T.glow, 0.9, 0.003);
-  Pn.text('LINK', 0.038, -0.04, 0.008, R.powered ? T.glow : T.dim, R.powered ? 0.8 : 0.3, 0.003);
-  Pn.text(R.armed ? 'WPN FREE' : 'WPN SAFE', 0.0, -0.056, 0.008, R.armed ? T.amber : T.dim, 0.8, 0.003);
+  // The gun on the nose, lit while it is the selection.
+  const gunSel = R.weapon === 'gun';
+  ln(pt(1.0, 0), pt(0.6, 0), gunSel ? (R.armed ? T.amber : T.white) : faint, gunSel ? 0.95 : 0.4);
+  // Each pylon: a box, filled while its store hangs; the selected weapon's boxes ringed.
+  for (const st of storesOn(R)) {
+    const c = pt(-0.04, st.side * st.g), sel = R.weapon === st.kind;
+    Pn.rect(c[0] - 0.0045, c[1] - 0.006, c[0] + 0.0045, c[1] + 0.006, sel ? (R.armed ? T.amber : T.white) : [30, 44, 44], sel ? 0.9 : 0.4, 0.003);
+    Pn.rect(c[0] - 0.003, c[1] - 0.0045, c[0] + 0.003, c[1] + 0.0045, st.on ? (sel && R.armed ? T.amber : T.glow) : T.screen, st.on ? 0.95 : 0.3, 0.0035);
+  }
+  // The targeting pods inboard, lit with the power.
+  for (const s of [-1, 1]) { const c = pt(-0.02, s * RP_STORES.pod); Pn.disc(c[0], c[1], 0.0022, R.powered ? T.glow : T.dim, 0.8, 0.0035, 8); }
+  // What is left, and the master arm.
+  Pn.text('MSL', -0.052, -0.041, 0.008, LBL, 0.5, 0.003);
+  Pn.digits(-0.04, -0.046, 0.01, String(Math.min(99, R.missiles)).padStart(2, ' '), R.missiles ? T.white : T.dim, false);
+  Pn.text('BMB', 0.016, -0.041, 0.008, LBL, 0.5, 0.003);
+  Pn.digits(0.028, -0.046, 0.01, String(Math.min(99, R.bombs)).padStart(2, ' '), R.bombs ? T.white : T.dim, false);
+  Pn.text(R.armed ? 'WPN FREE' : 'WPN SAFE', 0.0, -0.058, 0.008, R.armed ? T.amber : T.dim, 0.8, 0.003);
 }
 
 // ── THE MAP: the kit's moving map, the distance to go, the heading ──

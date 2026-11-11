@@ -1,0 +1,315 @@
+{
+  "banter": [],
+  "behaviour_graph": {
+    "_start": "start",
+    "nodes": {
+      "day_home": {
+        "action_type": "GO_HOME",
+        "next": "day_wait",
+        "type": "action"
+      },
+      "day_pick": {
+        "branch_0": "day_home",
+        "branch_1": "day_walk",
+        "branches": [
+          {
+            "weight": 3
+          },
+          {
+            "weight": 2
+          }
+        ],
+        "type": "random"
+      },
+      "day_wait": {
+        "jitter": 180,
+        "next": "start",
+        "seconds": 240,
+        "type": "wait"
+      },
+      "day_walk": {
+        "action_type": "PATROL",
+        "next": "day_wait",
+        "params": {
+          "loop": true,
+          "mode": "walk",
+          "waypoints": [
+            "zone_district_921_921",
+            "zone_district_922_922",
+            "zone_district_921_919"
+          ]
+        },
+        "type": "action"
+      },
+      "fire_0": {
+        "action_type": "EMOTE",
+        "next": "fire_wait",
+        "params": {
+          "message": "brings the end of the stockpot to the drum and shares it out."
+        },
+        "type": "action"
+      },
+      "fire_1": {
+        "action_type": "EMOTE",
+        "next": "fire_wait",
+        "params": {
+          "message": "tells the drum about her mother's cooking, at length."
+        },
+        "type": "action"
+      },
+      "fire_pick": {
+        "branch_0": "fire_0",
+        "branch_1": "fire_1",
+        "branches": [
+          {
+            "weight": 1
+          },
+          {
+            "weight": 1
+          }
+        ],
+        "type": "random"
+      },
+      "fire_wait": {
+        "jitter": 90,
+        "next": "start",
+        "seconds": 150,
+        "type": "wait"
+      },
+      "go_home": {
+        "action_type": "GO_HOME",
+        "next": "sleep",
+        "type": "action"
+      },
+      "is_evening": {
+        "condition_type": "HOUR_RANGE",
+        "ifFalse": "is_work",
+        "ifTrue": "to_fire",
+        "params": {
+          "from": 19,
+          "to": 1
+        },
+        "type": "condition"
+      },
+      "is_late": {
+        "condition_type": "HOUR_RANGE",
+        "ifFalse": "is_evening",
+        "ifTrue": "go_home",
+        "params": {
+          "from": 1,
+          "to": 5
+        },
+        "type": "condition"
+      },
+      "is_work": {
+        "condition_type": "HOUR_RANGE",
+        "ifFalse": "day_pick",
+        "ifTrue": "to_work",
+        "params": {
+          "from": 7,
+          "to": 19
+        },
+        "type": "condition"
+      },
+      "sleep": {
+        "action_type": "AT_HOME_LIFE",
+        "next": "start",
+        "type": "action"
+      },
+      "start": {
+        "next": "is_late",
+        "type": "start"
+      },
+      "to_fire": {
+        "action_type": "GO_TO_WORK",
+        "next": "fire_pick",
+        "params": {
+          "zone_id": "zone_district_922_922"
+        },
+        "type": "action"
+      },
+      "to_work": {
+        "action_type": "GO_TO_WORK",
+        "next": "work_check",
+        "params": {
+          "zone_id": "zone_district_921_921"
+        },
+        "type": "action"
+      },
+      "work_0": {
+        "action_type": "EMOTE",
+        "next": "work_wait",
+        "params": {
+          "message": "stirs the stockpot slowly."
+        },
+        "type": "action"
+      },
+      "work_1": {
+        "action_type": "EMOTE",
+        "next": "work_wait",
+        "params": {
+          "message": "ladles a bowl and hands it over the trestle."
+        },
+        "type": "action"
+      },
+      "work_2": {
+        "action_type": "EMOTE",
+        "next": "work_wait",
+        "params": {
+          "message": "\"Hot! Broth is hot! Bowls back, please!\""
+        },
+        "type": "action"
+      },
+      "work_3": {
+        "action_type": "EMOTE",
+        "next": "work_wait",
+        "params": {
+          "message": "turns the stove down and the pot stops spitting."
+        },
+        "type": "action"
+      },
+      "work_chat": {
+        "action_type": "VENDOR_CHITCHAT",
+        "next": "work_wait",
+        "type": "action"
+      },
+      "work_check": {
+        "condition_type": "PLAYER_IN_ZONE",
+        "ifFalse": "work_pick",
+        "ifTrue": "work_chat",
+        "type": "condition"
+      },
+      "work_pick": {
+        "branch_0": "work_0",
+        "branch_1": "work_1",
+        "branch_2": "work_2",
+        "branch_3": "work_3",
+        "branches": [
+          {
+            "weight": 1
+          },
+          {
+            "weight": 1
+          },
+          {
+            "weight": 1
+          },
+          {
+            "weight": 1
+          }
+        ],
+        "type": "random"
+      },
+      "work_wait": {
+        "jitter": 60,
+        "next": "start",
+        "seconds": 90,
+        "type": "wait"
+      }
+    }
+  },
+  "chitchat": [
+    "\"Broth, bread, whatever you've got. Bring the bowl back.\"",
+    "tastes the broth off the ladle and adds salt."
+  ],
+  "description": "A tall woman with a stockpot on a camping stove and a stack of tin bowls, ladling broth for whatever you have. She is the only stall in the Swap with a queue.",
+  "dialogue_tree": {},
+  "faction": null,
+  "flags": {
+    "clothing_layers": [
+      "a striped apron over a quilted coat",
+      "a bright wax-print headwrap and a polo neck",
+      "warm leggings and a vest"
+    ],
+    "mis_willing": false,
+    "personality": "chatty"
+  },
+  "home_activities": [
+    "scrubs tin bowls in a bucket.",
+    "chops onions on a board on her knee."
+  ],
+  "home_zone": "zone_district_921_922",
+  "hp": 20,
+  "hp_max": 20,
+  "id": "npc_overspill_ama_boateng",
+  "name": "Ama Boateng",
+  "npc_type": "npc",
+  "sex": "female",
+  "studio_zone_id": null,
+  "vendor_inventory": [
+    {
+      "item_id": "item_bone_broth",
+      "price": 6
+    },
+    {
+      "item_id": "item_flat_bread",
+      "price": 4
+    },
+    {
+      "item_id": "item_dripping_bread",
+      "price": 5
+    },
+    {
+      "item_id": "item_ramen_noodles",
+      "price": 7
+    },
+    {
+      "item_id": "item_potato",
+      "price": 3
+    },
+    {
+      "item_id": "item_ration_hardtack",
+      "price": 5
+    }
+  ],
+  "vendor_restock_rate": 1,
+  "vendor_schedule": {
+    "fri": [
+      {
+        "from": 7,
+        "to": 19
+      }
+    ],
+    "mon": [
+      {
+        "from": 7,
+        "to": 19
+      }
+    ],
+    "sat": [
+      {
+        "from": 7,
+        "to": 19
+      }
+    ],
+    "sun": [
+      {
+        "from": 7,
+        "to": 19
+      }
+    ],
+    "thu": [
+      {
+        "from": 7,
+        "to": 19
+      }
+    ],
+    "tue": [
+      {
+        "from": 7,
+        "to": 19
+      }
+    ],
+    "wed": [
+      {
+        "from": 7,
+        "to": 19
+      }
+    ]
+  },
+  "vendor_shop_name": "Ama's pot",
+  "vendor_stock_size": 10,
+  "wander_zones": [],
+  "wanders": 0,
+  "work_zone_id": "zone_district_921_921"
+}

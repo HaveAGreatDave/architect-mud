@@ -19,7 +19,7 @@
     "rest_multiplier": 2,
     "room": {
       "balcony": {
-        "wrap": "all"
+        "wrap": "sides"
       },
       "d": 18,
       "ensuite": {

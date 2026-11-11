@@ -1,18 +1,36 @@
 {
-  "description": "A lacquered box on the console by the bed, black and seamless, the kind of thing sold as a humidor to people who don't smoke. The lid is warm. Inside, laid out in foam cut to fit, is everything a man needs to be brilliant on schedule: dosed, labelled, and replaced faster than it is used.",
+  "description": "A black lacquered box on the bar, sold as a humidor to people who don't smoke. The lid lifts on a hinge you can't see. Inside, in foam cut to fit, is everything a man needs to be brilliant on schedule, each slot priced on a card in the lid. Take one and the foam is full again next time you look.",
   "flags": {
-    "aliases": "box,stash,lacquer box,lacquered box,humidor,console box",
-    "container": 20000,
+    "aliases": "box,stash,lacquer box,lacquered box,stash box",
     "look": {
       "arche": "small",
-      "form": "box"
+      "form": "lacquer"
     },
-    "restock_items": [
-      "item_overclock",
-      "item_redline",
-      "item_static",
-      "item_lull"
-    ]
+    "spot": {
+      "on": "furn_penthouse_bar",
+      "x": 1.15
+    },
+    "vends": "item_overclock",
+    "vend_menu": [
+      {
+        "item": "item_overclock",
+        "price": 420
+      },
+      {
+        "item": "item_redline",
+        "price": 150
+      },
+      {
+        "item": "item_static",
+        "price": 110
+      },
+      {
+        "item": "item_lull",
+        "price": 90
+      }
+    ],
+    "vend_line": "The lid lifts with a sigh of cool air and the card slot takes its due. You pick the vial out of its foam.",
+    "vend_cooldown_s": 30
   },
   "hp": null,
   "hp_max": null,
@@ -20,7 +38,7 @@
   "light_type": null,
   "lumen_output": null,
   "name": "lacquered box",
-  "object_type": "container",
+  "object_type": "fixture",
   "power_draw_kw": null,
   "price": 0,
   "zone_id": "zone_solenne_penthouse"

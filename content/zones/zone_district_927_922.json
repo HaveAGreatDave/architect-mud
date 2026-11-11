@@ -1,24 +1,27 @@
 {
-  "ambient_events": [],
-  "ambient_theme": "forest",
-  "color": "#8ba36a",
-  "description": "The Curtain runs north and south here, close enough to feel in your teeth.",
+  "ambient_events": [
+    "A moth batters against the light of the wall and drops."
+  ],
+  "ambient_theme": "residential",
+  "description": "The east wall near the corner. Somebody has stacked bricks from the old houses into a knee-high wall along the foot of the Curtain.",
   "exits": {
     "north": "zone_district_927_921",
     "south": "zone_district_927_923",
     "west": "zone_district_926_922"
   },
   "flags": {
+    "camp": true,
     "curtain": true,
-    "district": "residential",
+    "district": "slum",
     "region_id": "region_coldwater",
-    "terrain": "grass"
+    "scavenging_table_id": "scav_consumer_trash",
+    "terrain": "ash"
   },
   "grid_x": 927,
   "grid_y": 922,
   "grid_z": 0,
   "id": "zone_district_927_922",
   "map_id": "map_world",
-  "name": "Grasslands",
+  "name": "The East Wall",
   "parent_zone": null
 }

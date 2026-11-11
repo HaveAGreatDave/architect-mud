@@ -2,6 +2,24 @@
   "version": "0.0.1",
   "configurations": [
     {
+      "name": "hdview",
+      "runtimeExecutable": "node",
+      "runtimeArgs": [
+        "C:/Users/david/AppData/Local/Temp/claude/416e3c1bb348781b/80c76643-cda4-45f2-9944-a5d15c8d7cc7/scratchpad/hdview/serve.mjs",
+        "5241"
+      ],
+      "port": 5241
+    },
+    {
+      "name": "fg3d",
+      "runtimeExecutable": "node",
+      "runtimeArgs": [
+        "C:/Users/david/AppData/Local/Temp/claude/14e6b470064f3d0d/fa1144a7-999d-4c11-b853-09483946c2d1/scratchpad/fg3d/serve.mjs",
+        "5233"
+      ],
+      "port": 5233
+    },
+    {
       "name": "dev",
       "runtimeExecutable": "npm",
       "runtimeArgs": [
@@ -149,6 +167,46 @@
         "5610"
       ],
       "port": 5610
+    },
+    {
+      "name": "broadcast-studio-5191",
+      "runtimeExecutable": "node",
+      "runtimeArgs": [
+        "tools/broadcast-studio/serve.mjs",
+        "5191"
+      ],
+      "port": 5191
+    },
+    {
+      "name": "broadcast-studio-5193",
+      "runtimeExecutable": "node",
+      "runtimeArgs": [
+        "tools/broadcast-studio/serve.mjs",
+        "5193"
+      ],
+      "port": 5193,
+      "autoPort": false
+    },
+    {
+      "name": "broadcast-studio-5194",
+      "runtimeExecutable": "node",
+      "runtimeArgs": [
+        "tools/broadcast-studio/serve.mjs",
+        "5194"
+      ],
+      "port": 5194,
+      "autoPort": false
+    },
+    {
+      "name": "game-3100",
+      "runtimeExecutable": "node",
+      "runtimeArgs": [
+        "server/index.js"
+      ],
+      "env": {
+        "PORT": "3100"
+      },
+      "port": 3100
     }
   ]
 }

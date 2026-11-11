@@ -19,6 +19,13 @@
     "intro_lore": "The Embassy was a hotel before the Handoff, and it never got the memo that its guests aren't coming back. Now it's the basin's most sought-after slum: floors of hollowed rooms behind locks that still, miraculously, lock. Lowry keeps the bar running on spite and a working tap, which is more stability than most of Coldwater can claim. If you can afford a room here, you've already won more of this life than the Strip regulars outside.",
     "is_building": true,
     "is_interior": true,
+    "room": {
+      "w": 12,
+      "d": 9,
+      "h": 3.4,
+      "studio": false,
+      "balcony": false
+    },
     "window": {
       "description": "A window.",
       "light": 0.8,

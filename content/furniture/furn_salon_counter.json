@@ -1,0 +1,32 @@
+{
+  "description": "A short counter in white marble with a walnut front. The espresso rig stands on it, and there is nowhere on it to put a price list.",
+  "flags": {
+    "aliases": "counter,bar",
+    "interactions": [
+      "lean"
+    ],
+    "look": {
+      "arche": "surface",
+      "dims": [
+        3,
+        0.75,
+        1.1
+      ],
+      "form": "bar"
+    },
+    "spot": {
+      "along": 3.6,
+      "wall": "left"
+    }
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_salon_counter",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "marble counter",
+  "object_type": "furniture",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_solenne_salon"
+}

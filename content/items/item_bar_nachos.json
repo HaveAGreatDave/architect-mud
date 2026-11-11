@@ -1,0 +1,15 @@
+{
+  "description": null,
+  "flags": {},
+  "id": "item_bar_nachos",
+  "name": "basket of nachos",
+  "tags": {
+    "consumable": true,
+    "description": "Corn chips under a sheet of orange cheese sauce and a few jalapeño rings, in a plastic basket. The cheese sets the moment it leaves the oven.",
+    "restore_hunger": 30,
+    "stackable": true
+  },
+  "type": "consumable",
+  "value": 8,
+  "weight": 350
+}

@@ -20,6 +20,8 @@
 // Pure: no DOM, no GL. The client, the server (plugins/broadcast/sequences.js), the Studio and the
 // gate (scripts/shapes/sequence.mjs) all run it.
 
+import { actOfLine } from './npc-acts.js';
+
 export const SEQ_FORMAT = 1;
 
 // A framing is how much of a subject fits top to bottom, in metres. `null` covers the whole set.
@@ -43,6 +45,13 @@ export const MOVES = Object.freeze({
   crane: { label: 'Crane down' },
   orbit: { label: 'Orbit' },
   handheld: { label: 'Handheld' },
+  // what a script's camera words ask for (parseCamLabel, directionOf): fast at the head of the beat, then held
+  whip: { label: 'Whip pan' },
+  snap: { label: 'Snap zoom' },
+  side: { label: 'Side profile' },
+  drop: { label: 'Camera drops' },
+  floor: { label: 'On the floor' },
+  jolt: { label: 'Jolt' },
 });
 
 export const CUTS = Object.freeze({
@@ -55,7 +64,11 @@ export const CUTS = Object.freeze({
 // What a person does in a beat. `auto` is talking when it's their line and listening when it isn't.
 export const ACTS = Object.freeze({
   auto: 'Automatic', sitRest: 'Sit, hands resting', sitClasp: 'Sit, hands clasped', sitLean: 'Sit, leaning in',
-  sitBack: 'Sit back', idle: 'Stand', talk: 'Stand and talk', listen: 'Stand and listen', wave: 'Wave', cheer: 'Cheer',
+  sitBack: 'Sit back', sitSprawl: 'Sit, sprawled', idle: 'Stand', talk: 'Stand and talk', listen: 'Stand and listen', wave: 'Wave', cheer: 'Cheer',
+  // acts (client/shared/npc-acts.js): the player picks the clip for whether they're sitting or standing
+  point: 'Point', spread: 'Arms wide', slam: 'Slam the table', holdup: 'Hold something up', clap: 'Clap', reach: 'Reach out',
+  stare: 'Stare', wink: 'Wink', leanin: 'Lean in', toss: 'Toss', adjust: 'Straighten up', stumble: 'Stumble', flex: 'Flex',
+  smoke: 'Smoke', drink: 'Drink', laugh: 'Laugh', shrug: 'Shrug', nod: 'Nod',
 });
 
 // Where a person looks: 'camera', a role, or nothing for their own idle glance.
@@ -75,6 +88,11 @@ export const GFX = Object.freeze({
   score: { label: 'Score panel', icon: '#', fields: [{ k: 'title', label: 'Above', type: 'text' }, { k: 'left', label: 'Left name', type: 'text' }, { k: 'leftScore', label: 'Left score', type: 'text' }, { k: 'right', label: 'Right name', type: 'text' }, { k: 'rightScore', label: 'Right score', type: 'text' }, { k: 'sub', label: 'Below', type: 'text' }, ...TIMED], make: { title: '{status}', left: '{away}', leftScore: '{awayScore}', right: '{home}', rightScore: '{homeScore}', sub: '{venue}', at: 0, for: 0 } },
   table: { label: 'Table', icon: '☰', fields: [{ k: 'title', label: 'Heading', type: 'text' }, { k: 'list', label: 'One row for each', type: 'list' }, { k: 'row', label: 'Each row (left: right)', type: 'text' }, { k: 'limit', label: 'At most', type: 'number' }, { k: 'rows', label: 'Or fixed rows (left: right)', type: 'rows' }, SIDE, ...TIMED], make: { title: 'Tonight', rows: ['{away}: {awayRecord}', '{home}: {homeRecord}'], side: 'right', at: 0.3, for: 0 } },
   full: { label: 'Full-screen card', icon: '■', fields: [{ k: 'title', label: 'Title', type: 'text' }, { k: 'sub', label: 'Under it', type: 'text' }, ...TIMED], make: { title: '{show}', sub: '', at: 0, for: 0 } },
+  // a news desk's own: the story's headline across the bottom, the card over the anchor's shoulder, and
+  // the network's mark in a corner. `colour` is the network's, so one show can be red and the next blue.
+  strap: { label: 'Headline strap', icon: '▬', fields: [{ k: 'tag', label: 'Tag', type: 'text' }, { k: 'text', label: 'Headline', type: 'text' }, { k: 'sub', label: 'Under it', type: 'text' }, { k: 'colour', label: 'Colour', type: 'text' }, ...TIMED], make: { tag: 'Breaking', text: '{headline}', sub: '', colour: '', at: 0.3, for: 0 } },
+  story: { label: 'Story card', icon: '▤', fields: [{ k: 'tag', label: 'Tag', type: 'text' }, { k: 'title', label: 'Big word', type: 'text' }, { k: 'text', label: 'Headline', type: 'text' }, { k: 'colour', label: 'Colour', type: 'text' }, SIDE, ...TIMED], make: { tag: 'Story {n}', title: '', text: '{headline}', colour: '', side: 'right', at: 0.2, for: 0 } },
+  bug: { label: 'Network bug', icon: '◩', fields: [{ k: 'text', label: 'Name', type: 'text' }, { k: 'sub', label: 'Under it', type: 'text' }, { k: 'colour', label: 'Colour', type: 'text' }, CORNER, ...TIMED], make: { text: '{show}', sub: 'Live', colour: '', corner: 'top-left', at: 0, for: 0 } },
   ticker: { label: 'Ticker', icon: '»', fields: [{ k: 'text', label: 'Text', type: 'text' }, ...TIMED], make: { text: '', at: 0, for: 0 } },
 });
 
@@ -195,6 +213,53 @@ export function gfxAt(tl, t) {
   return out;
 }
 
+// ── Templates and skins ────────────────────────────────────────────────────────────────────────
+// A set can be built on another: `base` names it, and the set is a skin over it. A template is a
+// set with `template: true`, a room for a kind of show (a talk show, a news desk, a game show) whose
+// swappable pieces carry a `part` name. A skin changes only what it says:
+//   palette, brand   merged over the base's, key by key. `brand` is { name, tagline, colour, glow },
+//                    and a piece's text reads it as `{brand.name}`
+//   parts            part name → fields laid over that piece (`type` swaps it for another piece),
+//                    or null to take it out
+//   pieces           added after the base's
+//   marks, cameras   merged by name; null takes one out
+// Everything else (room, lamps, focus, ambient) is the skin's if it has it, else the base's.
+// `template`, `uses` and `broadcasts` are never inherited: a skin stands in for its own shows.
+const OWN = new Set(['template', 'uses', 'broadcasts', 'base', 'parts', 'pieces', 'palette', 'brand', 'marks', 'cameras', 'id', 'name', 'description', 'zone']);
+const mergeNamed = (a = {}, b = {}) => { const o = { ...a }; for (const [k, v] of Object.entries(b || {})) { if (v === null) delete o[k]; else o[k] = { ...(a[k] || {}), ...v }; } return o; };
+export function resolveSet(set, byId, seen = new Set()) {
+  if (!set?.base) return set || null;
+  if (seen.has(set.id)) return set;
+  seen.add(set.id);
+  const base = resolveSet(byId(set.base), byId, seen);
+  if (!base) return set;
+  const out = { ...set };
+  for (const [k, v] of Object.entries(base)) if (!OWN.has(k) && out[k] === undefined) out[k] = v;
+  out.palette = { ...(base.palette || {}), ...(set.palette || {}) };
+  out.brand = { ...(base.brand || {}), ...(set.brand || {}) };
+  out.marks = mergeNamed(base.marks, set.marks);
+  out.cameras = mergeNamed(base.cameras, set.cameras);
+  const parts = set.parts || {};
+  out.pieces = [...(base.pieces || []).flatMap((p) => (!p.part || !(p.part in parts) ? [p] : parts[p.part] === null ? [] : [{ ...p, ...parts[p.part] }])), ...(set.pieces || [])];
+  delete out.parts;
+  delete out.template;
+  out.base = set.base;
+  return out;
+}
+// The swappable parts of a set (a template's, or a skin's base's), for the Studio's skin editor.
+export const partsOf = (set) => (set?.pieces || []).filter((p) => p.part).map((p) => p.part);
+
+// What's wrong with a set as a skin, as sentences.
+export function checkSkin(set, byId) {
+  const out = [];
+  if (!set?.base) return out;
+  const base = byId(set.base);
+  if (!base) return [`${set.id}: built on ${set.base}, which doesn't exist`];
+  const named = new Set(partsOf(resolveSet(base, byId)));
+  for (const k of Object.keys(set.parts || {})) if (!named.has(k)) out.push(`${set.id}: changes part ${k}, which ${set.base} hasn't got`);
+  return out;
+}
+
 // ── The set's geometry ─────────────────────────────────────────────────────────────────────────
 // A set is in metres: u across, v back from the camera side, y up, as room-layout.js's frame.
 export const eyeHeight = (pose) => (pose === 'sit' ? 1.2 : 1.6);
@@ -203,10 +268,10 @@ export function roleMark(set, seq, role) {
   const name = seq?.roles?.[role]?.mark || role;
   return set?.marks?.[name] || null;
 }
-// A place a shot can aim at: a role, or a mark by name.
+// A place a shot can aim at: a role, or a mark by name. A mark on a deck or a stool (`lift`) has its eyes that much higher.
 function subjectPoint(set, seq, on) {
   const m = roleMark(set, seq, on) || set?.marks?.[on];
-  return m ? [m.at[0], eyeHeight(m.pose), m.at[1]] : null;
+  return m ? [m.at[0], eyeHeight(m.pose) + (+m.lift || 0), m.at[1]] : null;
 }
 
 const ease = (k) => k * k * (3 - 2 * k);
@@ -216,7 +281,15 @@ const FOV_MIN = 4, FOV_MAX = 62;
 // The camera for a shot at `k` (0 to 1 through the beat): { eye, yaw, pitch, fov }, as gl/room.js
 // takes it. `seconds` is the beat's own clock, which the handheld wobble runs on.
 export function shotCamera(set, seq, shot = {}, k = 0, seconds = 0) {
-  const c = set?.cameras?.[shot.cam] || Object.values(set?.cameras || {})[0] || { at: [0, 1], h: 1.5 };
+  let c = set?.cameras?.[shot.cam] || Object.values(set?.cameras || {})[0] || { at: [0, 1], h: 1.5 };
+  // a shot on one person from a camera that sees them side-on or from behind (often past somebody else
+  // and through the desk) takes the camera that faces them best instead
+  const one = Array.isArray(shot.on) ? (shot.on.length === 1 ? shot.on[0] : '') : shot.on || '';
+  const oneMark = one && shot.frame !== 'full' && shot.frame !== 'wide' ? roleMark(set, seq, one) || set?.marks?.[one] : null;
+  if (oneMark && set?.cameras) {
+    const ranked = camerasFacing(set, oneMark), mine = ranked.find((r) => set.cameras[r.id] === c);
+    if (ranked[0] && (!mine || (mine.score < 0.6 && ranked[0].score > mine.score + 0.2))) c = set.cameras[ranked[0].id];
+  }
   const ons = (Array.isArray(shot.on) ? shot.on : shot.on ? [shot.on] : []).map((o) => subjectPoint(set, seq, o)).filter(Boolean);
   const frame = FRAMES[shot.frame] || FRAMES.medium;
   const focus = set?.focus || [0, 1.1, (set?.room?.d || 8) / 2];
@@ -244,10 +317,23 @@ export function shotCamera(set, seq, shot = {}, k = 0, seconds = 0) {
       eye = [target[0] - (dx * ca - dz * sa), eye[1], target[2] - (dx * sa + dz * ca)];
     }
   } else if (move === 'crane') eye = [eye[0], eye[1] + lerp(0.9, 0, e) * amt, eye[2]];
+  else if (move === 'snap') cover *= lerp(2.4, 1, ease(Math.min(1, k * 6)));
+  else if (move === 'whip') dyaw = lerp(0.75, 0, ease(Math.min(1, k * 5))) * amt;
+  else if (move === 'side') {
+    // round the subject a quarter turn, on the side the camera's already on
+    const dx = target[0] - eye[0], dz = target[2] - eye[2], a = 1.15 * amt * Math.sign(c.at[0] - target[0] || 1), ca = Math.cos(a), sa = Math.sin(a);
+    eye = [target[0] - (dx * ca - dz * sa), eye[1], target[2] - (dx * sa + dz * ca)];
+  } else if (move === 'drop' || move === 'floor') {
+    // the camera falls to the floor and lies there looking up; `floor` is where it ends up
+    const f = move === 'floor' ? 1 : ease(Math.min(1, k * 4));
+    eye = [eye[0] + (target[0] - eye[0]) * 0.15 * f, lerp(eye[1], 0.12, f), eye[2] + (target[2] - eye[2]) * 0.15 * f];
+    cover *= lerp(1, 1.6, f);
+  }
 
   const dx = target[0] - eye[0], dy = target[1] - eye[1], dz = target[2] - eye[2], flat = Math.hypot(dx, dz) || 0.001;
   const dist = Math.hypot(flat, dy) || dist0;
   let yaw = Math.atan2(dx, dz) + dyaw, pitch = Math.atan2(dy, flat);
+  if (move === 'jolt') { const j = Math.max(0, 1 - k * 4); yaw += Math.sin(seconds * 23) * 0.03 * j * amt; pitch += (0.06 * j + Math.sin(seconds * 19) * 0.02 * j) * amt; }
   if (move === 'handheld') { yaw += Math.sin(seconds * 1.7) * 0.004 * amt + Math.sin(seconds * 3.1) * 0.002; pitch += Math.sin(seconds * 2.3) * 0.003 * amt; }
   const fov = Math.max(FOV_MIN, Math.min(FOV_MAX, 2 * Math.atan(cover / 2 / dist) * 180 / Math.PI));
   return { eye, yaw, pitch, fov };
@@ -289,13 +375,40 @@ export function autoShot(set, seq, role, { prev = null, prevRole = '', said = 0,
 // ── Reading a .bsm into beats ──────────────────────────────────────────────────────────────────
 // A linear script is already a shot list: a CAM line, then who speaks. `CAM — 2 — SNAP_TIGHT on Neil`
 // is what the compiler keeps on a camera_cut node.
-const CAM_WORDS = { WIDE: ['wide', 'none'], CLOSEUP: ['close', 'none'], MEDIUM: ['medium', 'none'], SNAP_TIGHT: ['tight', 'none'], TIGHT: ['tight', 'none'], PAN: ['medium', 'pan'], FOLLOW: ['medium', 'truck'], TRACK: ['medium', 'truck'], TRACKING: ['medium', 'truck'], HANDHELD: ['medium', 'handheld'], PULL_BACK: ['wide', 'pull'], PUSH: ['medium', 'push'], STATIC: ['medium', 'none'] };
+// The words the scripts use (data/scripts/*.bsm), each a framing and a move. The first word that's one of
+// these wins, so "CONTROLLED DETONATION TEST" falls through to a medium and "SNAPS_BACK to Neil" whips back.
+const CAM_WORDS = {
+  WIDE: ['wide', 'none'], ESTABLISHING: ['wide', 'drift'], MEDIUM: ['medium', 'none'], CLOSEUP: ['close', 'none'], CLOSE: ['close', 'none'], CU: ['close', 'none'],
+  TIGHT: ['tight', 'none'], SNAP_TIGHT: ['tight', 'snap'], SNAP: ['close', 'snap'], SNAPS: ['close', 'snap'], SNAPS_BACK: ['close', 'whip'], BACK: ['medium', 'none'],
+  ZOOM: ['close', 'snap'], PUSH: ['medium', 'push'], PUSH_IN: ['close', 'push'], PULL_BACK: ['wide', 'pull'], PULL_OUT: ['wide', 'pull'],
+  PAN: ['medium', 'pan'], SWING: ['medium', 'whip'], WHIP: ['medium', 'whip'], WHIP_PAN: ['medium', 'whip'],
+  FOLLOW: ['medium', 'truck'], TRACK: ['medium', 'truck'], TRACKING: ['medium', 'truck'], DOLLY: ['medium', 'truck'], ORBIT: ['medium', 'orbit'],
+  HANDHELD: ['medium', 'handheld'], SIDE_PROFILE: ['medium', 'side'], PROFILE: ['medium', 'side'], OVERHEAD: ['wide', 'crane'], CRANE: ['wide', 'crane'],
+  STATIC: ['medium', 'none'], LOCKED: ['medium', 'none'],
+};
 export function parseCamLabel(label) {
   const m = /^CAM\s*[—-]\s*(\d+)\s*(?:[—-]\s*(.*))?$/.exec(String(label || '').trim());
   if (!m) return null;
-  const words = (m[2] || '').trim().split(/\s+/), [frame, move] = CAM_WORDS[(words[0] || '').toUpperCase()] || ['medium', 'none'];
+  const words = (m[2] || '').trim().split(/\s+/), [frame, move] = words.map((w) => CAM_WORDS[w.toUpperCase()]).find(Boolean) || ['medium', 'none'];
   const on = /\b(?:on|to)\s+(?:the\s+)?(.+)$/i.exec(m[2] || '');
   return { cam: `cam${m[1]}`, frame, move, on: on ? on[1].trim() : '' };
+}
+
+// A stage direction ("slams his fist on the table. The camera jerks up and snaps into Neil's face.") as what the
+// body does (an act, client/shared/npc-acts.js) and, when the words say so, what the camera does about it.
+// `toward` is a name the shot swings to. A null shot means the mixer carries on as it was.
+export function directionOf(text) {
+  const t = String(text || ''), l = t.toLowerCase(), act = actOfLine(t);
+  const toward = /\b(?:toward|towards|at|to)\s+([A-Z][a-z]+)\b/.exec(t)?.[1] || '';
+  let shot = null;
+  if (/\bcamera\b[^.]*\b(drops?|falls?|hits the floor)\b|\blets go of (the |a )?camera/.test(l)) shot = { frame: 'wide', move: 'drop' };
+  else if (/\b(grabs?|seiz\w*|wrench\w*|yanks?|hauls?|swings?)\b[^.]*\bcamera\b/.test(l)) shot = { frame: 'medium', move: 'whip', toward };
+  else if (/\bcamera (jerks?|jolts?|shakes?)\b|\bsnaps? (directly )?into\b/.test(l)) shot = { frame: 'tight', move: 'jolt' };
+  else if (act === 'slam' || act === 'stumble') shot = { frame: 'medium', move: 'jolt' };
+  else if (act === 'lens' || act === 'leanin' || act === 'wink' || act === 'stare') shot = { frame: 'close', move: 'push' };
+  else if (act === 'holdup' || act === 'flex' || act === 'spread') shot = { frame: 'medium', move: 'push' };
+  else if (act === 'enter') shot = { frame: 'medium', move: 'drift' };
+  return { act, shot };
 }
 
 // A compiled .bsm (compileBsm) as a sequence: each spoken line a beat, on the last CAM line's shot.
@@ -308,7 +421,9 @@ export function sequenceFromBsm(compiled, { id = 'seq_new', set = '' } = {}) {
     return names[npc];
   };
   let shot = { cam: 'cam1', frame: 'wide', move: 'none' }, speaker = '', pending = [], n = 0, cut = 'cut';
-  const push = (b) => { beats.push({ id: `b${++n}`, shot: { ...shot, cut }, gfx: pending, ...b }); pending = []; cut = 'cut'; };
+  // a snap or a whip happens once, on the beat after its CAM line; the lines after it hold the shot still
+  const SETTLE = { snap: 'none', whip: 'none', jolt: 'none', drop: 'floor' };
+  const push = (b) => { beats.push({ id: `b${++n}`, shot: { ...shot, cut }, gfx: pending, ...b }); pending = []; cut = 'cut'; if (SETTLE[shot.move]) shot = { ...shot, move: SETTLE[shot.move] }; };
   for (let id = compiled?.broadcastGraph?._start, seen = new Set(); id && !seen.has(id); id = nodes[id]?.next) {
     seen.add(id);
     const nd = nodes[id];
@@ -317,6 +432,16 @@ export function sequenceFromBsm(compiled, { id = 'seq_new', set = '' } = {}) {
       const c = parseCamLabel(nd.label);
       if (c) { const r = Object.entries(names).find(([npc]) => npc.includes(c.on.toLowerCase().split(' ')[0])); shot = { cam: c.cam, frame: c.frame, move: c.move, on: r ? r[1] : '' }; }
     } else if (nd.type === 'npc_anchor') speaker = roleOf(nd.npc_id);
+    else if (nd.type === 'npc_action' && nd.message) {
+      // a stage direction: the body does it for a few seconds, and the camera does what the words say
+      const { act, shot: dir } = directionOf(nd.message);
+      if (act || dir) {
+        const r = dir?.toward ? Object.entries(names).find(([npc]) => npc.includes(dir.toward.toLowerCase()))?.[1] : '';
+        push({ hold: 3, ...(act && speaker ? { act: { [speaker]: act } } : {}), shot: dir ? { cam: shot.cam, frame: dir.frame, move: dir.move, on: r || speaker, cut } : { ...shot, on: shot.on || speaker, cut } });
+        // a camera that's been dropped stays on the floor until the next CAM line picks it up
+        if (dir?.move === 'drop') shot = { cam: shot.cam, frame: 'wide', move: 'floor', on: r || speaker };
+      }
+    }
     else if (nd.type === 'overlay' && nd.overlayType === 'lower_third') pending.push({ kind: 'lower', text: nd.text || '', sub: nd.subtext || '', at: 0.4, for: 5 });
     else if (nd.type === 'title_card') pending.push({ kind: 'full', title: nd.graphic_id || '', sub: '', at: 0, for: 0 });
     else if (nd.type === 'wait') push({ hold: nd.duration || 3 });
@@ -376,9 +501,9 @@ export const SHOW_KINDS = Object.freeze({
   },
   news: {
     label: 'News',
-    moments: [{ when: 'open', label: 'The intro, onto the lead story' }, { when: 'close', label: 'The outro' }],
+    moments: [{ when: 'open', label: 'The intro, onto the lead story' }, { when: 'story', label: 'Into each story' }, { when: 'close', label: 'The outro' }],
     roles: { a: 'Anchor', b: 'Co-anchor' }, stage: 'news', castTokens: ['anchor', 'anchor2', 'announcer'],
-    sample: { anchor: 'Brick Hardline', anchor2: 'Chastity Vale', announcer: 'The Voice of Raptor', headline: 'Power cut on the east shore', byline: 'our newsroom', stories: [{ headline: 'Power cut on the east shore' }, { headline: 'Ferry fares up again' }, { headline: 'Crows drop a third straight' }] },
+    sample: { anchor: 'Brick Hardline', anchor2: 'Chastity Vale', announcer: 'The Voice of Raptor', headline: 'Power cut on the east shore', body: 'Half the east shore went dark at six and stayed that way.', byline: 'our newsroom', reporter: 'Ronnie Vasquez', scene: 'the east shore', n: 1, lead: true, turn: 'a', stories: [{ headline: 'Power cut on the east shore' }, { headline: 'Ferry fares up again' }, { headline: 'Crows drop a third straight' }] },
   },
   morning: {
     label: 'Morning show',

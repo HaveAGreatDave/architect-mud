@@ -8,6 +8,7 @@
 // engine-facing seam the whole plugin shares.
 
 import { query } from '../../server/models/db.js';
+import { landformTile, landformTier } from '../../client/shared/wildlands.js';
 import { world, getZone, getAllZones, getLivePlayer, getMinimapData, buildingEntranceDir, getRegion, addPlayerToZone, removePlayerFromZone, airfieldOf, getZoneFurniture, isTransientZone } from '../../server/engine/world.js';
 import { OPPOSITE } from '../../server/engine/directions.js';
 
@@ -1300,6 +1301,13 @@ function curtainInward(cell, cur, x, y, at) {
 let _lockdown = false;
 on('esp.changed', ({ active } = {}) => { _lockdown = !!active; });
 export function _setLockdown(v) { _lockdown = !!v; }
+// A formal park's focus (`flags.park_focus`, a world point such as the door a plaza fronts), sent
+// from the tile's centre in tiles so the client never needs the tile's address (glass/park-formal.js).
+function parkFocus(cell, x, y) {
+  const f = cell.flags?.park_focus;
+  if (!cell.flags?.park_feature || !f || !Number.isFinite(+f.x) || !Number.isFinite(+f.y)) return undefined;
+  return [Math.round((+f.x - x) * 100) / 100, Math.round((+f.y - y) * 100) / 100];
+}
 export function deriveSurfaceCell(cell, x, y, at = surfaceAt, live = true) {
   // Each surface cell carries its derived biome, whether a road runs through it, and its
   // danger tier — the windshield renders the real world. A tile counts as road if it's a
@@ -1849,8 +1857,50 @@ export function deriveSurfaceCell(cell, x, y, at = surfaceAt, live = true) {
   const besideLock = mark === 'bay' && !cell.flags?.aircraft_hangar
     && [[-1, 0], [1, 0]].some(([ox, oy]) => { const c = at(x + ox, y + oy); return !!(c?.flags?.gate_lock && typeof c.flags.gate_lock === 'object'); });
   const bk = cell.flags?.aircraft_hangar && cell.flags?.heavy_hangar ? 'heavy' : cell.flags?.aircraft_hangar ? 'air' : besideLock ? 'lock' : undefined;
+  // `ha` / `hr`: this building carries a hologram advert. `ha` is the wall its screen hangs off
+  // ('n', 'e', 's', 'w', always one with a road in front of it) and `hr` is 1 for a slab on the roof.
+  // The region says how many per district (`regions.holo_ads`, see `holoAdsFor`); a region
+  // with no plan sends neither, and has no holograms.
+  const holo = bt ? holoAdsFor(cell, x, y, at, ent) : null;
   // A runway is not a street (see `rwy` above): no kerbs, no steam vents, no pedestrians on it.
-  return { prp, kind, biome, road: rwy ? 0 : road, danger: cell.danger, pad, bt, bn, trd, ent, flr, mark, bk, strip, rwy, twy, hp, rd, rdeg, rt, rw, rl, wr, rc, sc, nfb, wake, sub, heading, cur, cld, ci, ft, hi, cf, pf: cell.flags?.park_feature, pw, em, og, sl, sgn, plz, lk, ml, bf, bq, aa, vl, vr, brd: brd && brd.length ? brd : undefined, gft: gft && gft.length ? gft : undefined };
+  return { prp, kind, biome, road: rwy ? 0 : road, danger: cell.danger, pad, bt, bn, trd, ent, flr, mark, bk, strip, rwy, twy, hp, rd, rdeg, rt, rw, rl, wr, rc, sc, nfb, wake, sub, heading, cur, cld, ci, ft, hi, cf, pf: cell.flags?.park_feature, pfo: parkFocus(cell, x, y), pw, em, og, sl, sgn, plz, lk, ml, bf, bq, aa, vl, vr, brd: brd && brd.length ? brd : undefined, gft: gft && gft.length ? gft : undefined, ha: holo?.ha, hr: holo?.hr };
+}
+
+// Which buildings carry a hologram advert, from the region's plan:
+//
+//   regions.holo_ads = {
+//     districts: { commercial: 0.6, … },   share of a district's buildings with a facade screen
+//     roof: 0.5,                            a roof slab, as a multiple of the district's share
+//     no_types: ['police', 'ballpark*'],    building types that never carry one ('*' = prefix)
+//     east: 902,                            the last column that carries any (optional)
+//   }
+//
+// A district the plan doesn't name gets none, and `flags.no_holo_ad` on a tile opts it out. The roll
+// is a hash of the tile, so a screen stays on its building. Sync and query-free: this runs for
+// every building of a ~73×73 window.
+const HOLO_SIDES = [['n', 0, -1, 'north'], ['e', 1, 0, 'east'], ['s', 0, 1, 'south'], ['w', -1, 0, 'west']];
+function holoRoll(x, y, salt) {
+  let h = (Math.imul(x | 0, 0x9E3779B1) ^ Math.imul(y | 0, 0x85EBCA6B) ^ Math.imul(salt, 0xC2B2AE35)) >>> 0;
+  h ^= h >>> 15; h = Math.imul(h, 0x2C1B3C6D) >>> 0; h ^= h >>> 12;
+  return (h >>> 0) / 4294967296;
+}
+export function holoAdsFor(cell, x, y, at, door) {
+  const f = cell.flags;
+  if (!f || f.no_holo_ad) return null;
+  const plan = getRegion(f.region_id)?.holo_ads;
+  const share = plan?.districts?.[f.district];
+  if (!(share > 0) || (Number.isFinite(plan.east) && x > plan.east)) return null;
+  const bt = f.building_type;
+  if (Array.isArray(plan.no_types) && plan.no_types.some((t) => (t.endsWith('*') ? bt.startsWith(t.slice(0, -1)) : t === bt))) return null;
+  let ha, hr;
+  if (holoRoll(x, y, 1) < share) {
+    // The door's own street first, so the screen is over the pavement people use; else any street.
+    const sides = HOLO_SIDES.filter(([, ox, oy]) => { const nb = at(x + ox, y + oy); return nb && isRoadCell(nb); });
+    const pick = sides.find((s) => s[3] === door) || sides[Math.floor(holoRoll(x, y, 2) * sides.length)];
+    if (pick) ha = pick[0];
+  }
+  if (holoRoll(x, y, 3) < share * (plan.roof ?? 0.5)) hr = 1;
+  return ha || hr ? { ha, hr } : null;
 }
 
 // The flight window's half-width, named so the things that have to AGREE with it can say so
@@ -1895,6 +1945,23 @@ export function skylineNear(x, y, radius = FLIGHT_RADIUS) {
   return out;
 }
 
+// A SOLID LANDFORM where nothing is placed: Mount Cinder's cone, as the same stacked bands of high
+// ground a mesa is drawn in (`hi` the band, `cf` the sides it continues on). The height comes
+// from client/shared/wildlands.js `landformTile`, which the cockpit also floors the aircraft on, so
+// the rock you see is the rock you hit. A placed neighbour counts as flat.
+function coneCell(x, y, at, self) {
+  const t = landformTile(x, y);
+  if (!t) return null;
+  const tierOf = (nx, ny) => (at(nx, ny) ? 0 : landformTier(nx, ny));
+  let cf = '';
+  if (tierOf(x, y - 1) >= t.tier) cf += 'n';
+  if (tierOf(x + 1, y) >= t.tier) cf += 'e';
+  if (tierOf(x, y + 1) >= t.tier) cf += 's';
+  if (tierOf(x - 1, y) >= t.tier) cf += 'w';
+  const biome = t.part === 'crater' || t.part === 'lava' ? 'lava' : t.tier > 6 ? 'basalt' : 'ash';
+  return { kind: 'land', biome, flr: 0, hi: t.tier, cf, lf: t.part, self };
+}
+
 export function mapWindow(a, radius = FLIGHT_RADIUS, at = surfaceAt) {
   const rows = [];
   for (let dy = -radius; dy <= radius; dy++) {
@@ -1907,7 +1974,7 @@ export function mapWindow(a, radius = FLIGHT_RADIUS, at = surfaceAt) {
       const self = dx === 0 && dy === 0 ? 1 : undefined;
       const x = a.grid_x + dx, y = a.grid_y + dy;
       const cell = at(x, y);
-      if (!cell) { row.push({ kind: 'air', self }); continue; }
+      if (!cell) { row.push(coneCell(x, y, at, self) || { kind: 'air', self }); continue; }
       row.push({ ...deriveSurfaceCell(cell, x, y, at), self });
     }
     rows.push(row);
@@ -2055,7 +2122,9 @@ export function gaugePayload(live) {
   let warn = null;
   if (a.fuel <= 0) warn = 'STARVATION';
   else if (live.hazard) warn = live.hazard.type;
+  else if (a.engine_temp >= 145) warn = 'OVERHEAT';
   else if (a.fuel <= cap * BINGO_FRAC) warn = 'BINGO';
+  else if (a.engine_temp >= 130) warn = 'HOT';
 
   // Per-engine gauges (fall back to a single synthetic engine when cold/never run).
   const engines = (live.engines?.length ? live.engines : Array.from({ length: engineCount(live) }, () => ({ temp: a.engine_temp, stable: false })))
@@ -2069,7 +2138,7 @@ export function gaugePayload(live) {
     heading: degToCardinal(deg), headingDeg: deg,
     throttle: a.throttle, spd: a.airborne ? Math.round(eff.cruise * (a.throttle / 100) * 84) : 0,
     fuel: Math.round(a.fuel), fuelPct, fuelCap: Math.round(cap),
-    temp: Math.round(a.engine_temp), tempMax: 160,
+    temp: Math.round(a.engine_temp), tempMax: 160, coolant: live.coolant ?? 2,
     engines, enginesStable: enginesAllStable(live), engineOn: !!a.engine_on, runup: !!live.runup,
     hullPct: Math.max(0, Math.round((1 - a.damage) * 100)),
     x: a.grid_x, y: a.grid_y, fx: live.fx, fy: live.fy,
@@ -2189,7 +2258,7 @@ function skyWeatherToken(env) {
 // outside the range takes its overhead half of the sky with it.
 const CLIENT_CELL_RANGE = 78;   // 70 (dome-sprite cull) + 8 tiles of drift margin
 function weatherFieldForClient(env, cx = null, cy = null) {
-  const snap = getWeatherFieldSnapshot();
+  const snap = getWeatherFieldSnapshot(cx, cy);
   if (!snap || !snap.bounds || !snap.systems?.length) return null;
   const falling = env.currentPrecip && env.currentPrecip !== 'none';
   // Prevailing wind as the compass bearing the cells drift TOWARD (renderer convention: 0 = -y
@@ -2202,7 +2271,8 @@ function weatherFieldForClient(env, cx = null, cy = null) {
   return {
     tick: 30,   // advectField() steps once per 30s environment tick; vx/vy are grid units per tick
     bounds: snap.bounds, wind,
-    baseCloud: snap.baseCloud || 0,
+    // The viewer's own floor (the region's dryness applied), which the canopy draws as cloud.
+    baseCloud: +(snap.floorAt ?? snap.baseCloud ?? 0).toFixed(3),
     falling: !!falling,
     precipScale: snap.precipScale ?? 1,
     // Rounded on the way out: a full float is 17 digits of a tile position the renderer reads at
@@ -2434,7 +2504,11 @@ export function contextPayload(live) {
     onYacht: !!yachtFieldNear(a.grid_x, a.grid_y),   // a VTOL set down alongside the Echelon → auto-land on her helipad
     cargo: a.custom_data?.cargoWeight || 0,     // current hold weight (drives the cockpit jettison bind)
     engines: live.type.engines || 1, seats: live.type.seats || 1, occupants: seatList(live),   // gauge count + cabin readout
-    warn: a.fuel <= 0 ? 'STARVATION' : (a.fuel <= cap * BINGO_FRAC ? 'BINGO' : null),
+    // The server's own engine state, so the panel's temp gauge and overheat lamp read what the
+    // fire hazard reads (hazards.js), not a figure the client made up from rpm.
+    warn: a.fuel <= 0 ? 'STARVATION' : live.hazard ? live.hazard.type : a.engine_temp >= 145 ? 'OVERHEAT'
+      : a.fuel <= cap * BINGO_FRAC ? 'BINGO' : a.engine_temp >= 130 ? 'HOT' : null,
+    temp: Math.round(a.engine_temp), coolant: live.coolant ?? 2,
     aa: live.aaThreat || null,                  // AA engagement-envelope telegraph (set by combat.tickCombat)
     hull: Math.max(0, Math.round((1 - (a.damage || 0)) * 100)),   // for the cockpit hull readout / battle damage
     feetGone: !!a.custom_data?.feetGone,        // the Drake's feet snapped off on the water (drake-water.js); cleared by repair

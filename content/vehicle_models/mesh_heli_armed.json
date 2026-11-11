@@ -407,13 +407,29 @@
         "name": "main gear",
         "note": "The mains hang lower than the tailwheel by (tail f - main f) x tan(groundPitch), so all three wheels touch one floor at her 7-degree sit.",
         "parts": [
-          { "kind": "strut", "name": "trailing leg", "at": [0.06, 0.155], "top": -0.02, "bot": -0.23215163455707888, "r": 0.016 },
-          { "kind": "strut", "name": "drag brace", "at": [-0.07, 0.175], "top": -0.01, "bot": -0.23215163455707888, "r": 0.011 },
-          { "kind": "wheel", "name": "main wheel", "at": [0.06, 0.225, -0.23215163455707888], "r": 0.058, "hw": 0.03, "n": 10 }
+          {
+            "kind": "group",
+            "name": "main leg",
+            "note": "Swings forward and up into the belly about a hinge above the leg, tilted so the wheel comes inboard as it rises.",
+            "parts": [
+              { "kind": "strut", "name": "trailing leg", "at": [0.06, 0.155], "top": -0.02, "bot": -0.23215163455707888, "r": 0.016 },
+              { "kind": "strut", "name": "drag brace", "at": [-0.07, 0.175], "top": -0.01, "bot": -0.23215163455707888, "r": 0.011 },
+              { "kind": "wheel", "name": "main wheel", "at": [0.06, 0.225, -0.23215163455707888], "r": 0.058, "hw": 0.03, "n": 10 }
+            ],
+            "anim": { "ang": [90, 0], "axis": [-0.402, -0.908, -0.114], "ch": "gear", "pivot": [0.06, 0.155, 0.08] }
+          }
         ]
       },
-      { "kind": "strut", "name": "tailwheel leg", "at": [-0.98, 0], "top": 0.095, "bot": -0.126, "r": 0.011 },
-      { "kind": "wheel", "name": "tailwheel", "at": [-1, 0, -0.126], "r": 0.034, "hw": 0.021, "n": 8 }
+      {
+        "kind": "group",
+        "name": "tail leg",
+        "note": "Folds forward along the underside of the boom.",
+        "parts": [
+          { "kind": "strut", "name": "tailwheel leg", "at": [-0.98, 0], "top": 0.095, "bot": -0.126, "r": 0.011 },
+          { "kind": "wheel", "name": "tailwheel", "at": [-1, 0, -0.126], "r": 0.034, "hw": 0.021, "n": 8 }
+        ],
+        "anim": { "ang": [-90, 0], "axis": [0, 1, 0], "ch": "gear", "pivot": [-0.98, 0, 0.11] }
+      }
     ]
   }
 }

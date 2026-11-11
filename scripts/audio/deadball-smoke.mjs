@@ -66,6 +66,9 @@ const FAMILY = [
   [/^db-organ-dirge$/, [9000, 13000]],
   [/^db-organ-rally$/, [1000, 2000]],
   [/^db-organ-anthem$/, [11000, 17000]],
+  // the chants: two bars of let's go, three of DE-FENSE, and the organ's charge with its shout
+  [/^db-chant-(letsgo|defense)$/, [5000, 7000]],
+  [/^db-chant-charge$/, [2800, 4200]],
 ];
 const M = new Map();
 check('the bank has about fifty patches', B.BUILTINS.length >= 50, String(B.BUILTINS.length));

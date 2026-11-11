@@ -1,0 +1,78 @@
+{
+  "addiction_chance": 0.4,
+  "description": "A green pack of menthols. The first drag is cold, like breathing in a fridge, and the rest taste of toothpaste and smoke.",
+  "duration_seconds": 300,
+  "effects": {
+    "fx": {
+      "none": true
+    },
+    "instant": {
+      "sanity": 3
+    },
+    "overdose": {
+      "message": "Your head goes light and grey at the edges and your mouth tastes of pennies.",
+      "mods": {
+        "hp": -5,
+        "sanity": -8
+      }
+    },
+    "phases": {
+      "comedown_mods": {
+        "stat_cool": -1
+      },
+      "comedown_scale": 1,
+      "comedown_seconds": 40,
+      "comeup_message": "<span class=\"msg-system\">You light up and draw deep. Your shoulders drop; the edge comes off your hunger.</span>",
+      "comeup_scale": 0.6,
+      "comeup_seconds": 4,
+      "end_message": [
+        "<span class=\"msg-system\">Down to the filter. You think about the next one.</span>",
+        "<span class=\"msg-system\">It's finished. Only the taste is left.</span>",
+        "<span class=\"msg-system\">Gone. You already know how long it is until the next one.</span>"
+      ],
+      "peak_message": [
+        "<span class=\"msg-system\">The nicotine hits and you relax a little.</span>",
+        "<span class=\"msg-system\">The first drag hits, and the craving stops.</span>",
+        "<span class=\"msg-system\">Your hands are busy and your head goes quiet.</span>"
+      ],
+      "peak_mods": {
+        "stamina_max": -15,
+        "stat_cool": 2
+      },
+      "peak_seconds": 90
+    },
+    "take_line": "You light a menthol and draw on it. It is cold all the way down.",
+    "tolerance": {
+      "gain_per_dose": 0.1,
+      "max_reduction": 0.5
+    },
+    "withdrawal": {
+      "message": "Your hands keep going to a pocket that has nothing in it, and going again a minute later.",
+      "mods": {
+        "stamina_max": -10,
+        "stat_cool": -2
+      },
+      "onset_seconds": 600,
+      "stages": {
+        "easing": "Your hands find other things to do, badly.",
+        "onset": "Your hand reaches for a cigarette that isn't there.",
+        "peak": "You've reached for the empty pocket eleven times in the last hour, and you're doing it again.",
+        "rising": "It keeps happening: pocket, mouth, pocket, before you remember.",
+        "tail": "You've mostly stopped reaching. Once an afternoon, your hand still goes to your pocket."
+      }
+    }
+  },
+  "flags": {
+    "appetite_suppress_seconds": 900,
+    "drug_family": "stimulant",
+    "legal": true,
+    "skin_permeability": 0.85,
+    "smokeable": true,
+    "taken": "smoke"
+  },
+  "id": "drug_menthol_cigarettes",
+  "item_id": "item_menthol_cigarettes",
+  "name": "menthol cigarettes",
+  "overdose_threshold": 12,
+  "withdrawal_effects": {}
+}

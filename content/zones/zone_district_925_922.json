@@ -1,8 +1,10 @@
 {
-  "ambient_events": [],
-  "ambient_theme": "forest",
-  "color": "#8ba36a",
-  "description": "Rough ground the Curtain took in when it moved south. Red dirt still shows through the new grass in patches.",
+  "ambient_events": [
+    "A man walks between the tents counting pegs under his breath.",
+    "A kettle starts to whistle and is taken off quickly."
+  ],
+  "ambient_theme": "residential",
+  "description": "The Snicket comes out here among the tents. A water butt made from a blue chemical drum stands on the corner, full, with a tin cup on a string.",
   "exits": {
     "east": "zone_district_926_922",
     "north": "zone_district_925_921",
@@ -10,15 +12,17 @@
     "west": "zone_district_924_922"
   },
   "flags": {
-    "district": "residential",
+    "camp": true,
+    "district": "slum",
     "region_id": "region_coldwater",
-    "terrain": "grass"
+    "scavenging_table_id": "scav_consumer_trash",
+    "terrain": "ash"
   },
   "grid_x": 925,
   "grid_y": 922,
   "grid_z": 0,
   "id": "zone_district_925_922",
   "map_id": "map_world",
-  "name": "Grasslands",
+  "name": "Wallside",
   "parent_zone": null
 }

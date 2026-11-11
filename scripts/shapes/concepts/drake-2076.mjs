@@ -179,8 +179,9 @@ const head = [
   tube('chin sensor neck', [[0.752, 0, 0.226], [0.752, 0, 0.246]], 0.012, { role: 'nacelle', paint: 'ti', sides: 8, ...FINE }),
   // Air-data probes either side of the bill root.
   mirror('bill probes', [
-    tube('pitot', [[0.79, 0.052, 0.29], [0.84, 0.068, 0.288], [0.9, 0.07, 0.288]], 0.0032, { role: 'gear', paint: 'ti', sh: 0.9, sides: 5, ...FINE }),
-    tube('pitot tip', [[0.9, 0.07, 0.288], [0.915, 0.07, 0.288]], 0.0022, { role: 'gear', paint: 'seamDk', sides: 5, ...FINE }),
+    // Role 'strut', not 'gear': a gear face is hidden while the gear is up.
+    tube('pitot', [[0.79, 0.052, 0.29], [0.84, 0.068, 0.288], [0.9, 0.07, 0.288]], 0.0032, { role: 'strut', paint: 'ti', sh: 0.9, sides: 5, ...FINE }),
+    tube('pitot tip', [[0.9, 0.07, 0.288], [0.915, 0.07, 0.288]], 0.0022, { role: 'strut', paint: 'seamDk', sides: 5, ...FINE }),
   ]),
 ];
 void HEAD;

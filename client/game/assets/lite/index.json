@@ -1,0 +1,76 @@
+{
+ "v": 1,
+ "chunk": 32,
+ "bounds": {
+  "minx": 726,
+  "maxx": 1239,
+  "miny": 896,
+  "maxy": 1051
+ },
+ "chunks": [
+  {
+   "file": "c_23_30.bin",
+   "cx": 23,
+   "cy": 30,
+   "tiles": 10,
+   "bytes": 62560,
+   "hash": "9099ccbb21a28933"
+  },
+  {
+   "file": "c_24_30.bin",
+   "cx": 24,
+   "cy": 30,
+   "tiles": 17,
+   "bytes": 179188,
+   "hash": "86a64829d9d5ac96"
+  },
+  {
+   "file": "c_27_28.bin",
+   "cx": 27,
+   "cy": 28,
+   "tiles": 92,
+   "bytes": 2767348,
+   "hash": "4fe24942d90e1556"
+  },
+  {
+   "file": "c_28_28.bin",
+   "cx": 28,
+   "cy": 28,
+   "tiles": 204,
+   "bytes": 5130736,
+   "hash": "98b88f1c67792d87"
+  },
+  {
+   "file": "c_28_32.bin",
+   "cx": 28,
+   "cy": 32,
+   "tiles": 8,
+   "bytes": 313272,
+   "hash": "3636ffe490378f4f"
+  },
+  {
+   "file": "c_32_30.bin",
+   "cx": 32,
+   "cy": 30,
+   "tiles": 77,
+   "bytes": 404808,
+   "hash": "0ef7b5e0e1c43f37"
+  },
+  {
+   "file": "c_37_29.bin",
+   "cx": 37,
+   "cy": 29,
+   "tiles": 29,
+   "bytes": 124748,
+   "hash": "5e5e3cb04c522962"
+  },
+  {
+   "file": "c_38_29.bin",
+   "cx": 38,
+   "cy": 29,
+   "tiles": 62,
+   "bytes": 396548,
+   "hash": "0591979732765838"
+  }
+ ]
+}

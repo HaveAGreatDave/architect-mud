@@ -125,7 +125,12 @@ export function reopensPhrase(npc) {
 // The building's own name, not the shopkeeper's: it is on the sign the player is
 // looking at and it is what they will call the place. Nothing is authored for it,
 // because getBuildingName already walks the parent chain to the building root.
+// A shop that isn't its building's front room is a tenant inside somebody else's building (Bishop's Blend on
+// the Solenne's eighteenth floor): its own name is the sign over its door, and the building's would say
+// "Thea Wrenn opens Solenne Residences again".
 export const shopPlaceName = (zone) => {
+  const entry = zone?.map_id ? world.maps.get(zone.map_id)?.entry_zone_id : null;
+  if (entry && entry !== zone.id && zone.name) return zone.name;
   const name = getBuildingName(zone);
   return name && name !== zone?.name ? name : null;
 };

@@ -1,7 +1,7 @@
 {
   "ambient_events": [],
   "ambient_theme": "city",
-  "description": "Hughson Way's junction, at the Coliseum's south-east corner: north along the east wall, west along the south wall to the main gate, and south to Sorrel Way. A chrome slab stands on the far kerb, its windows on this side tinted dark.",
+  "description": "Hughson Way's junction, at the Coliseum's south-east corner: north along the east wall and south to Sorrel Way. To the west the road stops and Grandstand Plaza begins. A chrome slab stands on the far kerb, its windows on this side tinted dark.",
   "exits": {
     "north": "zone_ballpark_892_918",
     "south": "zone_ballpark_892_920",

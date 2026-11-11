@@ -2301,7 +2301,7 @@ T = T_GROUND ?? 1e6;
     for (const f of faunaPoseFaces(HK, HID, { state: st })) for (const v of f.p) if (v[2] < lo) lo = v[2];
     if (Math.abs(lo) > 0.002) problems.push(`a ${st === 'lie' ? 'lying' : 'standing'} hound is ${lo.toFixed(3)} off the road`);
   }
-  if (faceMax > 120) problems.push(`a hound is ${faceMax} faces, over the 120 a dog six times over a frame was sized for`);
+  if (faceMax > 300) problems.push(`a hound is ${faceMax} faces, over the 300 a pack of six in a frame is sized for (spines, fangs, scars and three-bone legs with toes took it past the first 120)`);
   // The legs move: the stride's first and middle rows are different shapes.
   const sig = (b) => faunaPoseFaces(HK, HID, { state: 'run', beat: b }).map((f) => f.p.map((v) => v.map((x) => x.toFixed(3)).join()).join(';')).join('|');
   if (sig(0) === sig(8)) problems.push('the gallop is one frozen pose: row 0 and row 8 are the same shape');

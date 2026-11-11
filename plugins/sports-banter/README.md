@@ -56,6 +56,10 @@ Two fans on opposite sides of a play can have a short exchange ([lines.js](lines
 | `brag` | A's club did it in front of a fan of its rival |
 | `together_up` / `together_down` | two fans of the same club |
 
+When no fan pair takes it, any two people in the room can follow the play together (`watch`):
+70% of the time in a room where nobody has a stake, 35% where somebody does. They talk it
+over plainly, whoever they back. A room with no stake reacts at 0.85 of the kind's chance.
+
 A rivalry is the point, so `feud` and `needle` are the likeliest to start. A thread lists the
 kinds or groups it fits in `on`, because a line written for a goal reads wrong over a man
 carried off on a stretcher.
@@ -77,7 +81,7 @@ it is skipped.
 | --- | --- |
 | A player in the room | always; a camera feed is somebody watching the room, not the set |
 | One reaction per room | 40 s, or 12 s for a walk-off, grand slam, hat trick, triple play, death, overtime goal or final |
-| Chance by kind | from 35% for a run to 95% for a triple play or a death; × 0.4 when nobody in the room has a stake |
+| Chance by kind | from 35% for a run to 95% for a triple play or a death; × 0.85 when nobody in the room has a stake |
 | Somebody who just spoke | quiet for 25 s (10 s for the big moments), shared `_ai.lastSay` |
 | A room mid-exchange | finishes it, unless the game ends under them |
 

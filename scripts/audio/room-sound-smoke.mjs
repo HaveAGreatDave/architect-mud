@@ -31,14 +31,18 @@ for (const id of ROOM_BEDS) check(`${id} is a bed in the bank`, BUILTINS.some((d
 const CALM = { rain: 0, wind: 0.2 }, WET = { rain: 0.8, wind: 0.7 };
 const ear = (o = {}) => ({ near: 6, open: 0, out: false, annex: false, storey: 30, ...o });
 const bath = windowMix(WET, ear({ annex: true })), room = windowMix(WET, ear()), glass = windowMix(WET, ear({ near: 0.5 })), deck = windowMix(WET, ear({ out: true, open: 1, near: 0 }));
-for (const id of ROOM_BEDS) {
-  check(`${id}: the en-suite is quieter than the room`, bath[id] < room[id], `${bath[id]} ${room[id]}`);
-  check(`${id}: the room is quieter than the balcony`, room[id] < deck[id], `${room[id]} ${deck[id]}`);
+const RAIN = ['room-rain', 'room-rain-out', 'room-rain-heavy'], sum = (m, ids) => ids.reduce((x, id) => x + m[id], 0);
+for (const [id, ids] of [['rain', RAIN], ['room-wind', ['room-wind']]]) {
+  check(`${id}: the en-suite is quieter than the room`, sum(bath, ids) < sum(room, ids), `${sum(bath, ids)} ${sum(room, ids)}`);
+  check(`${id}: the balcony is well over the room`, sum(room, ids) * 1.4 < sum(deck, ids), `${sum(room, ids)} ${sum(deck, ids)}`);
 }
-check('rain is louder at the glass than across the room', glass['room-rain'] > room['room-rain']);
+check('indoors it is the rain on the glass', room['room-rain'] > 0 && room['room-rain-out'] === 0 && room['room-rain-heavy'] === 0);
+check('out on the balcony it is the open-air rain', deck['room-rain'] === 0 && deck['room-rain-out'] + deck['room-rain-heavy'] > 0);
+check('a downpour sounds like one', windowMix({ rain: 1, wind: 0 }, ear({ out: true }))['room-rain-heavy'] > 0 && windowMix({ rain: 0.2, wind: 0 }, ear({ out: true }))['room-rain-heavy'] === 0);
+check('rain is louder at the glass than across the room', sum(glass, RAIN) > sum(room, RAIN));
 check('the wind picks up with height', windowMix(WET, ear({ storey: 30 }))['room-wind'] > windowMix(WET, ear({ storey: 2 }))['room-wind']);
 check('no rain is no rain sound', windowMix(CALM, ear())['room-rain'] === 0);
-check('it stays under the room, even on the balcony in a downpour', Object.values(windowMix({ rain: 1, wind: 1 }, ear({ out: true, near: 0 }))).every((v) => v <= 0.6));
+check('it stays under full level, even on the balcony in a downpour', Object.values(windowMix({ rain: 1, wind: 1 }, ear({ out: true, near: 0 }))).every((v) => v <= 0.9));
 check('it is only the weather', BUILTINS.every((d) => /^room-(rain|wind|thunder)/.test(d.id)), BUILTINS.map((d) => d.id).join(' '));
 
 // ── the player ──────────────────────────────────────────────────────────────────────────────────

@@ -10,13 +10,15 @@
     "entrance": "north",
     "floors": 10,
     "is_building": true,
-    "region_id": "region_coldwater"
+    "region_id": "region_coldwater",
+    "set_aside": true,
+    "set_aside_from": "891,920"
   },
-  "grid_x": 891,
-  "grid_y": 920,
+  "grid_x": 1,
+  "grid_y": 23,
   "grid_z": 0,
   "id": "zone_ballpark_891_914",
-  "map_id": "map_world",
+  "map_id": "map_set_aside",
   "marker": "U4",
   "name": "19 Hughson Way",
   "parent_zone": null

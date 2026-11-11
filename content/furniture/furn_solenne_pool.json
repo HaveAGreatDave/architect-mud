@@ -3,7 +3,23 @@
   "flags": {
     "interactions": [
       "lean"
-    ]
+    ],
+    "look": {
+      "arche": "surface",
+      "dims": [
+        12,
+        2.6,
+        0.5
+      ],
+      "form": "pool"
+    },
+    "spot": {
+      "at": [
+        -1.2,
+        1.6
+      ],
+      "turn": 180
+    }
   },
   "hp": null,
   "hp_max": null,

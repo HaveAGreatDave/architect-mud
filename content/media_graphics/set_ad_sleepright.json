@@ -1,0 +1,10 @@
+{
+  "content": "{\n \"kind\": \"set\",\n \"format\": 1,\n \"id\": \"set_ad_sleepright\",\n \"name\": \"SleepRight Advert\",\n \"base\": \"tpl_pitch\",\n \"brand\": {\n  \"name\": \"SLEEPRIGHT\",\n  \"colour\": \"#a0c8ff\"\n },\n \"broadcasts\": [\n  \"bc_1782872054777\"\n ],\n \"palette\": {\n  \"floor\": \"#d8e0ec\",\n  \"wall\": \"#e8eef6\",\n  \"trim\": \"#b8c4d4\",\n  \"desk\": \"#f4f8fc\",\n  \"deskTop\": \"#ffffff\"\n },\n \"parts\": {\n  \"counter\": {\n   \"type\": \"sofa\",\n   \"w\": 2.4,\n   \"colour\": \"#c8d8ec\"\n  },\n  \"product\": null\n },\n \"description\": \"The SleepRight advert: pale blue, a sofa in place of the counter.\"\n}",
+  "created_at": "1794108637",
+  "description": "The SleepRight advert: pale blue, a sofa in place of the counter.",
+  "id": "set_ad_sleepright",
+  "name": "SleepRight Advert",
+  "tags": [],
+  "type": "set",
+  "updated_at": "1794108921"
+}

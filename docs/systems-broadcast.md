@@ -768,6 +768,7 @@ Six `playback_mode`s store a **line library** (`::lines` pools) instead of a bak
 There is **no show-type registry** — a type is a `playback_mode` string branched on in ~9 places (`scanChannelDay`, `broadcastDuration`, the `loadChannelRuntimes` SELECT + item mapping, the `npcStaff` exemption, both `getCurrentMessage` branches, `_scriptedTokens`, the walker switch, `recalculateNpcSchedules`). Adding a type means touching each; mirror the nearest existing one.
 
 - **`weather`** reads the live 7-day forecast; **`sports`** simulates a fresh game; **`news`** pulls from the news generator, which assembles **live → wire → tabloid**: live event-sourced stories, then date-seeded canonical-lore "wire" stories (the Long Watch framed as terrorists, the Ascendants as establishment, the Architect as "the Machine"; fixed outlet bylines like Coldwater Sentinel / Basin Civic Wire), padded with tabloid filler. Their announcers/anchors are **name strings** — no NPC is spawned.
+- **Weather graphics.** Every line of a weather report carries a `graphic` with `overlayType: 'weather'` (`wxCards` in [plugins/broadcast/index.js](../plugins/broadcast/index.js)), and the TV draws it in the full-screen graphics host, leaving the bottom third to the line (`_applyWeather` in [tv.js](../client/game/js/panels/tv.js)). Four kinds: `today` (the sky, temperature, feels-like, wind, humidity, precip) on the intro and the today lines, `radar` on today's sky line and the outro, `week` (seven days, `hl` picking out the one being read) through the forecast, and `warn` on a warning line, named for its channel (acid, ion, blizzard, storm, cold, heat, wind). The radar is the only card filled as it airs (`wxGraphicOnAir`): it samples `getPrecipAtGrid` over the studio's region, or the biggest region when the studio has no tile, about 1,200 cells a frame, and sends a land mask built once per region from `world.zones`. Sync and query-free. The news show's weather desk uses the same cards. On the `textgames` rung each card is drawn in characters.
 - **The news type has a weather desk.** A `news` script that authors `wx.*` pools gets a weather segment between the rundown and the kicker, read by `@meteorologist`, off the SAME live 7-day forecast `weather` reads. It uses the weather type's own pool suffixes (`wx.sky.*`/`wx.warn.*`/`wx.trend.*`) so a hero event — acid rain, ion storm — is named as itself rather than as the ordinary weather underneath it. It reports today and the first severe day ahead, not the whole week: the week belongs to DOOMCAST. A file with no `wx.*` pools airs no segment at all.
 - **Title-card / theme sync**: when a `news`/`talkshow`/`morning`/`sports` script declares both `@titlecard` and `@theme`, the assembler folds the theme onto the `title_card` node (`{ type: 'title_card', theme }`) instead of emitting a separate `music` node after it. The intro song then starts as the card appears and the card holds for the theme's length, so the first anchor/cold-open line doesn't step on the intro. With a theme but no title card, it still plays as a standalone `music` node. **A card's theme plays once**: the walker's result carries `songOnce`, the `audio_music` message carries `once`, and the client plays the song through a single time (`playMusic(def, { once: true })`). Before 2026-10-18 it looped like any song, so every theme went round and round under the anchor until the set was switched off. A `music` node still loops.
 - **`sports`** is keyed to an absolute airing time-window so a re-simmed same-slot game produces the same `gameId`. While a game airs, the plugin **emits a `sports.game` event every 60s** with payload `{ channelId, gameId, sport, away, home, awayScore, homeScore, winner, endsAtMs }` — consumed by the **sportsbet**, **sportsleague**, and **gossip** plugins (they read `winner`; there is no `result` field). Score-bug and standings overlays ride `tv_overlay`; a postseason takeover pulls standings back through the `sportsleague.getStandings`/`getSeason` actions. **Each channel simulates its own game** and the `gameId` is keyed to the broadcast as well as the slot — with two sports sharing a channel, one result broadcast to every channel would settle a hockey wager against a ballgame's score. See [Sports — two codes, one pipeline](#sports--two-codes-one-pipeline).
@@ -818,6 +819,16 @@ in-game month, and its last day is Cup day: each sport plays only its final, in 
   refuses both). On Cup day a second relay row at 21:00 (`conditions.calendar: 'month_end'`,
   priority 1) carries the other final. At equal priority the narrower day mask wins, so
   Saturday's 18:00 show still beats the every-day relay.
+- **The handover airs the next game from its title card.** The in-game clock moves a whole
+  minute at a time, once a real minute, so a slot is first seen up to `timeScale` game-minutes
+  old (40 real seconds at timeScale 3). Seeking that far into the new game skipped Deadball's
+  title card and theme when it took over from a hockey game. So a slot the server saw turn
+  over (`_noteSportsSlot`, every broadcast tick) is timed from the moment it turned
+  (`sportsSegElapsedSec`): every set airs the game from the top, and a set tuned in later
+  seeks from that moment. A slot it didn't see start (a boot mid-game, nobody watching at the
+  turn) is timed by the clock. On the TV, a change of programme drops the last game's
+  sub-screen and score bug (`setProgramName` in tv.js), or the rink held the hockey final
+  over the ballgame's title card.
 - `sports.game` fires once per game however many channels carry it, keyed by broadcast and
   slot. A park's lights follow the game being played there, not the channel.
 - **The grounds' picture** (phase 4a). The game is played whether or not it's filmed; what
@@ -1464,6 +1475,37 @@ venue's `finalOpen.key`). The first play, or the matchup line's card, takes it d
 `textgames` rung draws it in characters and the `log` rung gets it written out (`packageLines`).
 The package draws from the venue line's stream, so the game's own lines are the ones they were.
 
+### The Coldwater Cup on the night (as built)
+
+The Cup final gets what the Curtain Call has, on the rink's own terms.
+
+- **Gold.** Every Cup payload carries `cup: true`, and the rink puts `cup` on `.gdr-wrap`
+  ([styles.css](../client/game/styles.css)): the header, strip, caption and lower third in gold leaf,
+  "CPhL · COLDWATER CUP" on the badge, and the Cup's cards in a gold frame with a sheen across them.
+- **The line-ups** (`type: 'anthem'`). After the matchup, the booth's `cup.anthem` line carries both
+  clubs' five skaters and goalie. [rink/director.js](../client/game/js/panels/rink/director.js)
+  `stageAnthem` stands each club on its own blue line facing the other, the officials at centre
+  with the puck, and takes the house lights down (`W.show`, drawn in the arena's post pass in
+  [gl/arena.js](../client/game/js/panels/gl/arena.js) as darkness with up to four soft spotlights).
+  A spot finds each man in turn, visitors first; he takes two strides out, the camera goes in on
+  him, and the view puts his number, name, position and club up in a lower third (`onIntro`). The
+  readings share the line's hold (0.6 s to 2.4 s a man). The line has a 15 s `hockeycup` card so it
+  holds long enough, and a set without the rink shows that card; the rink keeps it off its picture.
+  The lights come back up as the next beat begins. Music: `ksab7_cup_anthem`.
+- **The Cup** (`type: 'crown'`). After `cup.final`, the `cup.crown` line names the winner, the
+  captain (the centre) and the player of the final (goals, then assists, on the winning side).
+  `stageCrown` sends the losers to their bench and the goalie into a slump, piles the champions up
+  at centre, has the referee carry the Cup out at 4 s, hands it to the captain at 9.5 s, who lifts
+  it under the first fall of confetti in the club's colours (`W.confetti`, fluttering in
+  [rink/sim.js](../client/game/js/panels/rink/sim.js)), and from 15.5 s skates it round the sheet
+  with his club strung out behind him. It runs until the next picture, through the outro. The view
+  puts up a CHAMPIONS! card and then the player of the final's lower third. The trophy is
+  `buildCup` in [gl/arena-mesh.js](../client/game/js/panels/gl/arena-mesh.js). Music:
+  `ksab7_cup_champions` on `cup.final`, then `ksab7_cup_close` under the outro, all three scored in
+  [build-final-opens.mjs](../scripts/content/build-final-opens.mjs).
+- Only the GLASS 2 rink (gl/arena.js) draws the spotlights, the Cup and the confetti; the old 2-D
+  `rink/render.js` stages the men but doesn't draw them.
+
 `tools/sandbox/hockey-rink-test.html` opens on the Gardens' fly-in, and `view.holdFly(t)` holds it
 on a moment; `deadball-park-test.html?park=3d` takes an `arrive` payload through `view.apply`.
 `cityscape-smoke` flies both: the eye over the set and clear of every roof it passes, and the top
@@ -1548,9 +1590,24 @@ of 1 or 0.5 in either, and every timeline in each open against its theme's lengt
 
 ### The desk and the stage (as built)
 
-Two people at KSAB5's desk open a game, take its break and close it, as 3-D sequences made in the [Broadcast Studio](../tools/broadcast-studio/README.md). A show's entry (a `media_graphics` row of type `show`) names its cast and which sequence plays at which moment, and the narrators call `ctx.desk(moment, facts, bug)` at `open`, `break` and `close`. Both leagues' entries are on air, and a segment plays as part of the game on the visual rung. Any text show can also be watched on its set behind the TV's **3D** button (`tv_stage`, client `tv-stage.js`). See [proposals/broadcast-3d.md](proposals/broadcast-3d.md#0-the-first-version-as-built).
+Two people at KSAB5's desk open a game, take its break and close it, as 3-D sequences made in the [Broadcast Studio](../tools/broadcast-studio/README.md). A show's entry (a `media_graphics` row of type `show`) names its cast and which sequence plays at which moment, and the narrators call `ctx.desk(moment, facts, bug)` at `open`, `break` and `close`. Both leagues' entries are on air, and a segment plays as part of the game on the visual rung. Any text show can also be watched on its set behind the TV's **3D** button (`tv_stage`, client `tv-stage.js`), the same button that opens a game's 3-D view while one is on. See [proposals/broadcast-3d.md](proposals/broadcast-3d.md#0-the-first-version-as-built).
 
 ⚠ A desk line carries its `desk` overlay as a `graphic`, never a `gameday` payload. A gameday payload ends the hockey pacer's break run and restarts its cues.
+
+A segment is performed: its lines go out only while everybody cast is standing in the set's room (`deskStaffed`), and otherwise none of them airs, text included. The desk's cast are on no playlist row's staff, so the studio lookup answers for them from their show (`castStage` in sequences.js: the room of the set their show's sequences use), and the next-shift lookup has them on while a slate has a game on. Without that, `CHECK_WORK` found no studio and sent them home while the schedule checker had them on shift, and no desk segment of either sport ever aired.
+
+### An advert inside a show (as built)
+
+A script can write its own adverts between `COMMERCIAL_BREAK` and `RETURN_FROM_BREAK`, as You're Not Gonna Believe This Shit does. On the TV's 3-D stage such an advert plays on its own set:
+
+- **The logo card opens it.** A set whose `cards` lists a title card's `graphic_id` takes over when that card airs (`breakSetFor` in [sequences.js](../plugins/broadcast/sequences.js)). The server keeps it on the blackboard as `breakSet` and sends every viewer the new stage as a `stage` overlay riding the card's line.
+- **A `DISSOLVE` moves it on.** The set's `dissolve` names the next scene. The Just Meats advert goes kitchen, dream, kitchen cleaned up (`set_neil_ad_meats_*`).
+- **`RETURN_FROM_BREAK` brings the show back** to its own set and cast. A new programme clears `breakSet` too.
+- **The advert has its own people.** The set's `extras` are an NPC by id, with `figure` laid over his own look, or a name, sex and figure. They fill every mark, so the show's own cast talking over the advert are heard and not seen.
+
+The pieces a set "on location" uses (sky, sea and hills, trees and palms, the swings, the Harley, the roadster, the coast road, the beach, the kitchen) are in [gl/set-location.js](../client/game/js/panels/gl/set-location.js).
+
+The stage asks for its set when the programme's name changes, a tick before the graph marks itself active, so `stageFor` finds the item on air by its name until then. Before that fix the stage drew the studio room's default set for the whole programme.
 
 ### Sim v2
 
@@ -1937,6 +1994,16 @@ everything else comes from the league, so nothing about a game is stored on him.
   `from` and counts it in his toll (`foldStreetDeath`), and a chain or graph already built
   past `from` is dropped. Records are loaded at startup with the sim switches and kept until
   4,000 slots after they heal. A death by another NPC's hand counts the same.
+
+### The First Generation (as built)
+
+Deadball's first augmented and mutant players: 32 of them, eight from each of the Ascendants, the Long Watch, the Wildblood and the Null, in `client/shared/deadball-gen1.js`. `@firstgen on` in `baseball.bsm` (`sports_pools.sim.firstGen`) turns them on. Off, nothing reads the file.
+
+- **The draft.** Each club takes two a season, off the season's number (`gen1Draft`), so sixteen play and sixteen sit out. The Westside White Sox and the Docks District Dolphins take Ascendants only. The Crows take two Long Watch and pick first. Every other club takes two from the Long Watch, the Wildblood and the Null, from two different orders. No club gets two men for the same place in the field.
+- **The rosters.** `clubRosters(teams, players, season, { firstGen })` plays the draft into the plain rosters (`gen1Rosters`). A fielder takes the place he plays, a pitcher a turn in the rotation, and whoever he displaces sits the season out. The plain rosters are still walked forward without them, so turning it on or off moves nobody else.
+- **The play.** A Gen 1 man's legs, arm and quickness come off his ratings instead of his name's hash (`gen1Trait`), and his hand off his row (`gen1Hand`). A Wildblood leaper steals, and an Ascendant arm throws runners out.
+- **The TV.** A payload names the batter and the pitcher. A game with Gen 1 fielders also carries `gen1`, the fielding side's men by place, and `diamond/cast.js` puts them there. `gl/ballplayer-mesh.js` `gen1Gear` fits each man's gear over his club's kit in his order's colours: Ascendant white plate and clinical blue light, Long Watch cloth and feather in earth tones, Wildblood red hide, horn and bone, Null gunmetal to black with white light. Every one also wears his order's band on the left arm, a lit ring at each ankle, war paint, and eyes in his order's light. `gl/ballpark.js` `gen1Fx` adds lights round each one on the field, off the world's clock: turning motes and a scan line for an Ascendant, drifting motes and ground ripples for the Long Watch, embers and a speed streak for the Wildblood, blinking shards for the Null.
+- **The lab.** `tools/modelshop/first-gen-lab.html` draws all 32 in the Room Stage's figure, in the club kit the draft gives them.
 
 ### Deadball's clubs (as built)
 
@@ -2784,9 +2851,10 @@ the teams back out. The 1st period has lines of its own (`section.first`, and
 Zamboni; `section.start` and `pbp.period.out` are for coming back from an intermission.
 
 Branding lives in [cphl-brand.js](../client/game/js/panels/cphl-brand.js): one mark, drawn
-by the score bug, the full-screen graphics, the rink header, the idle screen and the
-Gameday toggle itself, which wears a puck on a hockey night and a baseball otherwise
-(`_brandGamedayBtn` in tv.js).
+by the score bug, the full-screen graphics, the rink header and the idle screen. The TV has
+one way into a 3-D picture, the **3D** button: during a game it opens that sport's view (the
+rink or the park), and otherwise it puts the show on its set (`_paintStageBtn` in tv.js). The
+old sport-marked Gameday toggle is still in the markup but is never shown.
 
 [scripts/shapes/rink-smoke.mjs](../scripts/shapes/rink-smoke.mjs) runs in `pretest:regress`, as two gates, one game each (`rink-smoke.mjs 37`, at sim v1, and `rink-smoke.mjs 289`, at v5), side by side; run bare, it plays both.
 It plays two real games (the sim and the narrator, slots 37 and 914, which between them
@@ -2857,6 +2925,26 @@ recompiles it into the broadcast and graphic rows under `content/`, so the file 
 the shipped row can't drift. It writes no playlist row: airing is KSAB5's slate row.
 
 ---
+
+## Studio Sets Are Rooms
+
+A studio set with a `zone` is that room, for anyone standing in it. When the Room Stage opens in a room a set claims, the client asks `room_set` and the broadcast plugin answers with the set and the people on its floor ([roomSet](../plugins/broadcast/sequences.js) and `roomSetFor` in the plugin). [room-studio.js](../client/game/js/panels/room-studio.js) lays the TV's live stage ([tv-stage.js](../client/game/js/panels/tv-stage.js)) over the room: the set, everyone in the room on its marks, and a cut to whoever speaks. The client asks again when somebody comes or goes, so the cast walking in for a show take their marks.
+
+- **A show staged there is performed there.** Its lines are said in the room (the script's `@location`), the bubbles voice them, and the set cuts to the speaker, moves their mouth and acts out an emote line. While a show is on, its cast come first and its host takes the first mark, as on the TV.
+- **Where two sets claim one room**, the room shows the set of whatever is airing there, else the one whose `uses` has `default`. KSAB-TV's main floor is the morning couch, the talk set and the Tonight Show's own set, and shows the talk set between shows.
+- **A set made for a show is that show's.** `stageSet` matches a room only among the sets with no `broadcasts` (then by `uses`: this kind of show, then `default`), so another talk show staged on the main floor gets the talk set, never the Tonight Show's. The graphics cache has no order, so before this the first set claiming the room won by chance.
+- **Other episodes use it too.** Any broadcast whose script says `@location <the room>` gets the room's set on the TV's 3D view (`stageSet` matches the zone) and is performed on it.
+- **A stage in the channel's own building is wired.** `_uplinkOk` treats a room on the studio's interior map as cabled to the gallery, so it needs no portable deck. It still needs cameras in the room (`media_cameras` rows and their `broadcast_camera` furniture).
+
+**Sound Stage B** (`zone_ksab7_stage_b`) is the first: west of KSAB-TV's main stage, dressed as Neil McManistan's basement (`set_neil_basement`), with three cameras, its own power row and a light. *You're Not Gonna Believe This Shit* is staged there.
+
+**The Tonight Show** has its own set on the main floor (`set_tonight`, `broadcasts` its broadcast), drawn while it airs on the TV's 3D view and in the room. A walnut-panelled wall frames a picture window onto Coldwater at night: the Glasshouse in cyan on the left, the Meridian's verdigris crown in the middle, the works and two quay cranes on the right, and the Basin in front with the pier and The Beacon. The host's desk, a wing chair, a side table and a tufted couch stand on a parquet deck; a swagged blue curtain and a brass star are the monologue mark; the band is on a riser to the left. Its pieces are in [gl/set-tonight.js](../client/game/js/panels/gl/set-tonight.js). Its marks stand on the deck with `lift: 0.3`, and a shot aims at a lifted mark's eyes (`subjectPoint` in sequence.js adds the lift).
+
+The host walks on when the announcer says his name, does the greeting and the monologue standing on the star, and goes back to the desk after it. The announcement carries `blocking: { npc: host, to: 'walkon' }`: the 3-D picture cuts to a camera facing the star and he walks out from behind the curtain along the stand-up mark's `from` path, on a mark of his own that moves (`stepWalk` in sequence-player.js), so the shot follows him, with his own lower third in place of the announcer's. Tuning in late, or on a set with no `from`, he's just on the star. The talk show's first joke carries `blocking: 'standup'`. When the monologue's over, the band's `walkover` bit carries `blocking: { npc: host, to: 'seat' }`, and he walks from the star to the desk by the route on the desk mark's `via` (keyed by the mark he's leaving: along the front of the deck, up its step, between the guest chair and the side table and round behind the desk, the points' third number their height), so he introduces the guest from his seat. A show with no band sends him back on the first host line after the monologue instead. The house band (`@band` in the .bsm, [bsm-format.md](bsm-format.md)) also plays him on, buttons one joke and plays the guest on and the show off. The walker records it on the blackboard (`_block`), sends the studio floor its set again, and airs it to the 3-D views as a `blocking` overlay with the line; `stageFor` passes it on as each person's `to`, so a viewer tuning in mid-monologue sees him on the star. On the client, `liveBlock` in sequence-player.js moves the role to the set's mark with `standup` (the star, mark `e`), or back to the seat it was given, and redoes the shot of the line he's saying. A `standup` mark is never handed out as a seat. The Broadcast Studio's mark panel sets it.
+
+A line under one word ("John", "AKERSON") is whoever's cast under that first name or surname. Before, `seat` matched full names only, so a short name took a free mark as a stranger with a rolled face and the wrong lower third.
+
+The TV asks for the cast once a programme, and a request made between shows, before the graph names the new broadcast, gets none back, so every speaker was seated as a stranger with a rolled face under their own name. Now a line from somebody the stage wasn't given (`liveKnows`) makes the TV ask again (`onStranger` in tv-stage.js), once a name a programme.
 
 ## Studio Audience Door
 

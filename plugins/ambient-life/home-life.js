@@ -31,7 +31,8 @@ import { world, getZonePlayers, getZone, getZoneFurniture } from '../../server/e
 import { isDwellingZone } from '../../server/engine/zone-tags.js';
 import { sendToZone, getBroadcast } from '../../server/engine/messaging.js';
 import { isNpcScheduledNow } from '../../server/engine/broadcast-bridge.js';
-import { getEnvironmentState } from '../../server/engine/environment.js';
+import { getEnvironmentState, getZoneTemperature } from '../../server/engine/environment.js';
+import { feelOf } from '../../client/shared/comfort.js';
 import { moveEntity } from '../../server/engine/ai-behaviour.js';
 import { npcWashAtHome } from '../../server/engine/hygiene.js';
 import { query } from '../../server/models/db.js';
@@ -115,6 +116,35 @@ const TIDY = [
   [`{npc} washes every cup in the place and lines them up on the drainer.`,
    `{npc} counts the cups, frowns, and goes looking for the missing one.`],
 ];
+
+// A flat past room temperature (client/shared/comfort.js). The further past it is, the more of the
+// evening is about it. The supply is on, or homebodiesIn would have started nothing: this is a cold snap
+// the heating can't keep up with, or a heatwave, not a blackout.
+const CHILL = [
+  [`{npc} rubs their arms and looks around for the draught.`,
+   `{npc} pulls a blanket off the bed and wears it round their shoulders.`],
+  [`{npc} blows on their hands.`,
+   `{npc} puts a second jumper on over the first.`],
+  [`{npc} checks the radiator with the back of a hand. It's barely warm.`,
+   `{npc} stamps their feet and keeps their coat on.`],
+  [`{npc} fills the kettle to have something warm to hold.`,
+   `{npc} stands with both hands round the mug and doesn't drink it.`],
+  [`{npc} shivers and shuts a window that was already shut.`,
+   `{npc} pushes a rolled towel along the bottom of the door.`],
+];
+const HEAT = [
+  [`{npc} opens the window as far as it goes. It doesn't help.`,
+   `{npc} fans themselves with a takeaway menu.`],
+  [`{npc} wipes their face on a sleeve.`,
+   `{npc} runs the cold tap over their wrists for a while.`],
+  [`{npc} peels their shirt away from their back.`,
+   `{npc} stands in front of the open fridge until it starts to beep.`],
+  [`{npc} drinks a glass of water in one go and fills it again.`,
+   `{npc} holds the cold glass against their neck.`],
+  [`{npc} tugs at their collar and looks at the window.`,
+   `{npc} takes a layer off and leaves it on a chair.`],
+];
+const TEMP_CHANCE = [0.25, 0.75];   // of a scene being about the temperature: just past the edge, and at its worst
 
 // ── The bathroom ─────────────────────────────────────────────────────────────
 // The one domestic routine that is NOT pure narration, because it can't be: an
@@ -329,7 +359,9 @@ export function homeLifeTick() {
     }
 
     let beats, kind;
-    if (mealtime && roll < 0.45) { beats = rand(MEAL).map(l => l.replace('{thing}', pickMeal())); kind = 'meal'; }
+    const feel = feelOf(getZoneTemperature(zoneId));
+    if (feel && Math.random() < TEMP_CHANCE[0] + (TEMP_CHANCE[1] - TEMP_CHANCE[0]) * Math.abs(feel)) { beats = rand(feel < 0 ? CHILL : HEAT); kind = feel < 0 ? 'chill' : 'heat'; }
+    else if (mealtime && roll < 0.45) { beats = rand(MEAL).map(l => l.replace('{thing}', pickMeal())); kind = 'meal'; }
     else if (roll < 0.8) { beats = rand(DRINK).map(l => l.replace('{thing}', pickDrink(timePhase))); kind = 'drink'; }
     else { beats = rand(TIDY); kind = 'tidy'; }
     // a Room Stage open on this flat walks them to the cooker for it (plugins/roomstage/npc-life.js)
@@ -341,6 +373,6 @@ export function homeLifeTick() {
 
 // Test seam — regress asserts the catalogues actually yield nouns.
 export const _internals = {
-  pickMeal, pickDrink, MEAL, DRINK, TIDY, isBusyBeingUnconscious,
+  pickMeal, pickDrink, MEAL, DRINK, TIDY, CHILL, HEAT, isBusyBeingUnconscious,
   bathroomFor, bathroomOf, BATHROOM_GOING, BATHROOM_BACK,
 };

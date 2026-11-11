@@ -86,3 +86,38 @@ export function layerProgram(gl, vs, fs, label, bind = null) {
   if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) throw new Error(label + ' link: ' + gl.getProgramInfoLog(prog));
   return prog;
 }
+
+// A layer's program that never makes the caller wait. `ready()` is false while the driver is still
+// compiling (KHR_parallel_shader_compile's COMPLETION_STATUS), then true once linked, after which `p` is
+// the program; a failed link logs once and stays not ready. Without the extension it links as
+// layerProgram does, at the first `ready()`.
+// ⚠ FOR A HUGE SHADER. The close-up figure's fragment shader is ~114k characters: asking LINK_STATUS at
+// once froze the page 2.4 s on every Room Stage open, and over a minute the first time after it changed
+// (an empty driver cache), which players saw as the room crashing.
+export function layerProgramAsync(gl, vs, fs, label, bind = null) {
+  const ext = gl.getExtension('KHR_parallel_shader_compile');
+  let prog = takeWarm(gl, vs, fs, bind), state = 0;   // 0 compiling, 1 ready, -1 failed
+  if (!prog) {
+    prog = gl.createProgram();
+    for (const [type, src] of [[gl.VERTEX_SHADER, vs], [gl.FRAGMENT_SHADER, fs]]) {
+      const sh = gl.createShader(type);
+      gl.shaderSource(sh, src);
+      gl.compileShader(sh);
+      gl.attachShader(prog, sh);
+      gl.deleteShader(sh);
+    }
+    if (bind) for (const [i, name] of bind) gl.bindAttribLocation(prog, i, name);
+    gl.linkProgram(prog);
+  }
+  return {
+    get p() { return prog; },
+    ready() {
+      if (state) return state > 0;
+      if (ext && !gl.getProgramParameter(prog, ext.COMPLETION_STATUS_KHR)) return false;
+      if (gl.getProgramParameter(prog, gl.LINK_STATUS)) { state = 1; return true; }
+      if (!gl.isContextLost()) console.warn('[gl] ' + label + ' link:', gl.getProgramInfoLog(prog));
+      state = -1;
+      return false;
+    },
+  };
+}

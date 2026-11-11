@@ -1,24 +1,27 @@
 {
-  "ambient_events": [],
-  "ambient_theme": "forest",
-  "color": "#8ba36a",
-  "description": "The Curtain runs dead straight along the south edge. Something moves out on the flats and stops.",
+  "ambient_events": [
+    "A moth batters against the light of the wall and drops."
+  ],
+  "ambient_theme": "residential",
+  "description": "Tents pitched close against the south wall with their backs to the light. The waste beyond is red and flat to the hills, and the road out from the gate shows from here.",
   "exits": {
     "east": "zone_district_921_923",
     "north": "zone_district_920_922",
     "west": "zone_district_919_923"
   },
   "flags": {
+    "camp": true,
     "curtain": true,
-    "district": "residential",
+    "district": "slum",
     "region_id": "region_coldwater",
-    "terrain": "grass"
+    "scavenging_table_id": "scav_consumer_trash",
+    "terrain": "ash"
   },
   "grid_x": 920,
   "grid_y": 923,
   "grid_z": 0,
   "id": "zone_district_920_923",
   "map_id": "map_world",
-  "name": "Grasslands",
+  "name": "Under the Wall",
   "parent_zone": null
 }

@@ -1,0 +1,10 @@
+{
+  "content": "{\n \"kind\": \"set\",\n \"format\": 1,\n \"id\": \"set_wx9_doomcast\",\n \"name\": \"DOOMCAST Booth\",\n \"base\": \"tpl_booth\",\n \"brand\": {\n  \"name\": \"DOOMCAST\",\n  \"colour\": \"#ff3a20\"\n },\n \"uses\": [\n  \"weather\"\n ],\n \"broadcasts\": [\n  \"bc_1783061127685\"\n ],\n \"palette\": {\n  \"floor\": \"#0c0808\",\n  \"wall\": \"#140a0a\",\n  \"trim\": \"#2a0e0c\",\n  \"accent\": \"#ff3a20\",\n  \"desk\": \"#200c0a\",\n  \"deskTop\": \"#3a3434\",\n  \"riser\": \"#1a0a08\"\n },\n \"screens\": {\n  \"main\": \"weather\",\n  \"left\": \"logo\",\n  \"right\": \"temps\",\n  \"header\": \"brand\",\n  \"ticker\": \"ticker\"\n },\n \"ticker\": \"DOOMCAST  ·  SEVEN-DAY OUTLOOK  ·  {sky}  ·  {tempC}°\",\n \"description\": \"DOOMCAST in the booth: the forecaster in front of a weather map of the Basin, the temperature on the right and the logo on the left.\"\n}",
+  "created_at": "1794108637",
+  "description": "DOOMCAST in the booth: the forecaster in front of a weather map of the Basin, the temperature on the right and the logo on the left.",
+  "id": "set_wx9_doomcast",
+  "name": "DOOMCAST Booth",
+  "tags": [],
+  "type": "set",
+  "updated_at": "1794172284"
+}

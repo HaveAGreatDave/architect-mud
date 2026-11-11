@@ -7,8 +7,8 @@
 // about as long as it takes to hear: a short floor, then 95 ms a character, which is the
 // read-aloud voice's own pace (see `nodeHoldMs` in index.js), and long enough for any card
 // riding it. The whole game is then scaled to fill its share of the slot, within limits,
-// so the play-by-play neither crawls nor rushes. At the tightest scale (0.8) a line still
-// holds about 76 ms a character, slower than a screen reader's default pace.
+// so the play-by-play neither crawls nor rushes. A line is never squeezed below its
+// natural hold (optional lines are cut first), so the rink isn't left chasing the words.
 //
 // A slot too short for the game at the tightest scale loses lines marked optional, colour
 // first (`_opt: 'colour'`, the old sentence-length calls), then the optional calls of the
@@ -30,8 +30,8 @@
 // The time comes out of the slot's spare tail first (`spareMs`), then out of the play. A
 // short slot gets a shorter break, and the rink speeds the machine up to fit it.
 
-export const HOLD_MIN_MS = 2400, HOLD_MAX_MS = 16000;
-const MS_PER_CHAR = 95, HOLD_BASE_MS = 900;
+export const HOLD_MIN_MS = 3000, HOLD_MAX_MS = 16000;
+const MS_PER_CHAR = 95, HOLD_BASE_MS = 1300;
 // A drawn-out word ("SCOOOOORES") holds its sound about a sixth of a second a letter, more
 // than the 95 ms the letter itself buys, so each held letter after the first earns this.
 const MS_PER_HELD = 60;
@@ -68,7 +68,7 @@ export function holdFor(text, graphic) {
 // `lines` are the game's say nodes in air order. Returns { holds: Map(node → ms), gaps:
 // Map(node → ms), dropped: Set(node) } and writes `cues` onto every gameday payload among
 // the kept lines.
-export function paceCalls(lines, fullMs, tickMs, { minScale = 0.8, maxScale = 1.5, spareMs = 0 } = {}) {
+export function paceCalls(lines, fullMs, tickMs, { minScale = 1, maxScale = 1.5, spareMs = 0 } = {}) {
   const nat = new Map(lines.map((n) => [n, holdFor(n.text, n.graphic)]));
   const sum = (list) => list.reduce((a, n) => a + nat.get(n), 0);
   const dropped = new Set();

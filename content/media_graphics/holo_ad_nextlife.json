@@ -1,0 +1,12 @@
+{
+  "content": "{\n \"brand\": \"NEXTLIFE\",\n \"line\": \"Because dying isn't an excuse to stop paying.\",\n \"small\": \"RESURRECTION ASSURANCE. PREMIUMS CONTINUE POSTHUMOUSLY.\",\n \"color\": \"#0affc0\",\n \"accent\": \"#d8fff4\",\n \"face\": \"mono\",\n \"motif\": \"grid\",\n \"weight\": 1\n}",
+  "created_at": "1794182400",
+  "description": "Hologram advert: NextLife. Baked to the client by npm run holoads:bake.",
+  "id": "holo_ad_nextlife",
+  "name": "Holo ad: NextLife",
+  "tags": [
+    "holo_ad"
+  ],
+  "type": "holo_ad",
+  "updated_at": "1794182400"
+}

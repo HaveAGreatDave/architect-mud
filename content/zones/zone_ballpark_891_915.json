@@ -1,22 +1,28 @@
 {
   "ambient_events": [],
   "ambient_theme": "city",
-  "description": "The west end of this stretch of Hughson Way, stopped by the side of 14 Yarrow Lane. The Coliseum's corner tower stands on the north side and 19 Hughson Way on the south.",
+  "description": "The west end of Grandstand Plaza, stopped by the side of 14 Yarrow Lane. The Coliseum's corner tower stands over the north side, and a pergola runs off south through Hughson Gardens to Sorrel Way.",
   "exits": {
-    "east": "zone_ballpark_892_915"
+    "east": "zone_ballpark_892_915",
+    "south": "zone_ballpark_893_912"
   },
   "flags": {
     "district": "halcyon_fields",
+    "park_feature": "forecourt",
+    "park_focus": {
+      "x": 894,
+      "y": 918.5
+    },
     "region_id": "region_coldwater",
     "scavenging_table_id": "scav_roadside_junk",
     "street_life": true,
-    "terrain": "road"
+    "terrain": "park"
   },
   "grid_x": 891,
   "grid_y": 919,
   "grid_z": 0,
   "id": "zone_ballpark_891_915",
   "map_id": "map_world",
-  "name": "Hughson Way",
+  "name": "Grandstand Plaza",
   "parent_zone": null
 }

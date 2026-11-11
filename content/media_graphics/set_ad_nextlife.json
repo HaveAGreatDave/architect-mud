@@ -1,0 +1,10 @@
+{
+  "content": "{\n \"kind\": \"set\",\n \"format\": 1,\n \"id\": \"set_ad_nextlife\",\n \"name\": \"NextLife Advert\",\n \"base\": \"tpl_pitch\",\n \"brand\": {\n  \"name\": \"NEXTLIFE\",\n  \"colour\": \"#ffe0a0\"\n },\n \"broadcasts\": [\n  \"bc_commercial_nextlife\"\n ],\n \"palette\": {\n  \"floor\": \"#f0ece0\",\n  \"wall\": \"#fbf8f0\",\n  \"trim\": \"#e0d8c0\",\n  \"deskTop\": \"#fffaf0\"\n },\n \"parts\": {\n  \"product\": null\n },\n \"description\": \"The NextLife advert: a soft gold heaven of white.\"\n}",
+  "created_at": "1794108637",
+  "description": "The NextLife advert: a soft gold heaven of white.",
+  "id": "set_ad_nextlife",
+  "name": "NextLife Advert",
+  "tags": [],
+  "type": "set",
+  "updated_at": "1794108921"
+}

@@ -1,9 +1,14 @@
 {
   "description": "A scarred wooden counter beneath the brass THE EMBASSY LOUNGE sign. Lowry keeps it spotless out of sheer habit.",
   "flags": {
+    "bar_counter": true,
     "interactions": [
       "lean"
-    ]
+    ],
+    "look": {
+      "arche": "surface",
+      "form": "bar"
+    }
   },
   "hp": null,
   "hp_max": null,

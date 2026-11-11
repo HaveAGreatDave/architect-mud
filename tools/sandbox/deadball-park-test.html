@@ -102,7 +102,7 @@
   <script src="../../client/shared/formant-cmudict.js"></script>
   <script src="../../client/shared/audio-engine.js"></script>
   <script type="module">
-    import { simGame, simGameV2, playTokens, playTags, contactCall, SEASON } from '../../plugins/broadcast/sports/baseball.js';
+    import { simGame, simGameV2, playTokens, playTags, contactCall, SEASON, BASEBALL } from '../../plugins/broadcast/sports/baseball.js';
     import { gamedayPayloads, gamedayLeaders, gameMvp } from '../../plugins/broadcast/sports/baseball-gameday.js';
     import { sportsRng, sportsHash, sportsPickTagged, sportsFill } from '../../plugins/broadcast/rng.js';
     import { createGamedayView } from '../../client/game/js/panels/gameday.js';
@@ -258,7 +258,10 @@
       let home = t[(slot * 7 + 5) % t.length];
       if (home === away) home = t[(t.indexOf(away) + 1) % t.length];
       const seed = sportsHash(slot >>> 0, 0x00);   // the broadcast's seed for a slot
-      const game = simV === 2 ? simGameV2({ away, home }, script.players, sportsRng(seed), { seed }) : simGame({ away, home }, script.players, sportsRng(seed));
+      // ?gen1=1: the league's fixed squads (sim v3) with the First Generation drafted in (client/shared/deadball-gen1.js)
+      const gen1 = Q.get('gen1') === '1', day = 23500 + slot;
+      const game = gen1 ? BASEBALL.simGame({ away, home, teams: t }, script.players, sportsRng(seed), { version: 3, seed, day, firstGen: true })
+        : simV === 2 ? simGameV2({ away, home }, script.players, sportsRng(seed), { seed }) : simGame({ away, home }, script.players, sportsRng(seed));
       const x = seasonOf(t, script.players);
       const { order } = gamedayPayloads(game, seed, { abbr, ordinal, ledger: x.ledger });
       if (order[0]) order[0] = { ...order[0], standings: tableFor(t) };

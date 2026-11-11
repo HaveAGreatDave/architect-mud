@@ -9,9 +9,14 @@
       "stool",
       "stools"
     ],
+    "bar_counter": true,
     "interactions": [
       "sit"
-    ]
+    ],
+    "look": {
+      "arche": "surface",
+      "form": "bar"
+    }
   },
   "id": "furn_mulcahy_counter",
   "name": "the bar",

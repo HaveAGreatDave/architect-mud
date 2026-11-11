@@ -123,6 +123,36 @@ ck('closes clean', fl.isFreelookActive() === false);
 ck('…and cancels its frame', pending() === null);
 ck('…and a second close is harmless', (() => { try { fl.closeFreelook(); return true; } catch { return false; } })());
 
+// ── PART 1b: the street outside a lobby, warmed ahead and woken by walking out ──
+// docs/proposals/building-stage.md step 5. A `prewarm` open builds the view hidden so its first paints (the
+// shader compiles, the city) are done before anyone walks out; it must not count as the view on screen, must
+// paint, and the real open of the same doorstep must wake that view rather than build a second one.
+console.log('— the street warmed ahead —');
+{
+  const foot = { foot: true, x: 0, y: 0.36, yaw: 180, leash: 0, label: 'STREET', step: { gx: 914, gy: 909 } };
+  try { fl.openFreelook({ holder: fakeEl(), gx: 914, gy: 909, map, sky, stand: foot, prewarm: true, onExit: () => {} }); } catch (e) { ck('a warm open does not throw', false, e.message); }
+  ck('a warm street is not the view on screen', fl.isFreelookActive() === false);
+  ck('…but it paints, to build its city', step(2000) === null && String(ws.lastViewState()?.id).startsWith('freelook-'), logged || String(ws.lastViewState()?.id));
+  const warmId = ws.lastViewState()?.id, minted = [...canvases.keys()].filter((k) => k.startsWith('freelook-')).length;
+  let woke = null;
+  try { woke = fl.openFreelook({ mount, gx: 914, gy: 909, map, sky, stand: foot, onExit: () => {} }); } catch (e) { ck('walking out does not throw', false, e.message); }
+  ck('walking out wakes it', !!woke && fl.isFreelookActive() === true);
+  ck('…rather than building another', [...canvases.keys()].filter((k) => k.startsWith('freelook-')).length === minted, `${minted} → ${[...canvases.keys()].filter((k) => k.startsWith('freelook-')).length}`);
+  const stepped = step(2016);
+  ck('…and it paints on the canvas it warmed', stepped === null && ws.lastViewState()?.id === warmId, `stepped=${stepped} warm=${warmId} now=${ws.lastViewState()?.id} pending=${typeof pending()}`);
+  fl.closeFreelook();
+  ck('…and it comes down', fl.isFreelookActive() === false);
+  // the Stage closing any other way drops it; a view somebody is using is never replaced by a warm one
+  fl.openFreelook({ holder: fakeEl(), gx: 914, gy: 909, map, sky, stand: foot, prewarm: true });
+  fl.dropWarmFreelook();
+  ck('a warm street nobody walked into is dropped', fl.isFreelookActive() === false && pending() === null);
+  const live = fl.openFreelook({ mount, gx: 900, gy: 900, map, sky, onExit: () => {} });
+  fl.openFreelook({ holder: fakeEl(), gx: 914, gy: 909, map, sky, stand: foot, prewarm: true });
+  step(2032);
+  ck('a warm open leaves a view in use alone', !!live && fl.isFreelookActive() === true && ws.lastViewState()?.mapCenter?.x === 900, JSON.stringify(ws.lastViewState()?.mapCenter));
+  fl.closeFreelook();
+}
+
 // ⚠ A FRESH CANVAS ID PER OPEN is the helm's own leak trap (see disposeWindshield): it is what
 // makes forgetting to dispose unbounded rather than merely wasteful, so it is worth pinning that
 // this panel really does mint one and really does come back up after a close.

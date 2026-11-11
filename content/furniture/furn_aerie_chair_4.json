@@ -1,0 +1,30 @@
+{
+  "description": "A low armchair in tan leather, turned to the glass. The leather has gone soft where the arms are.",
+  "flags": {
+    "aliases": "armchair,chair",
+    "interactions": [
+      "sit"
+    ],
+    "look": {
+      "arche": "seat",
+      "form": "armchair"
+    },
+    "spot": {
+      "at": [
+        -4.3,
+        4.5
+      ],
+      "turn": -90
+    }
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_aerie_chair_4",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "leather armchair",
+  "object_type": "furniture",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_solenne_aerie"
+}

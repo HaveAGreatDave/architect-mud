@@ -1,8 +1,9 @@
 # Old Coldwater — the slums in the south-east corner
 
 **Status: BUILT.** The ground, the district, the five buildings and their interiors, the six
-GLASS arms, the tent mark and the five map icons all ship. What is deliberately absent is listed
-under *What this deliberately does not do*.
+GLASS arms, the tent mark and the five map icons all ship, and so does the Overspill (the ground
+south of the Pitch, at the end of this doc). What is deliberately absent is listed under *What
+this deliberately does not do*.
 
 Coldwater has 119 enterable facades and not one of them is poor. The cheapest bed in the city is
 a room at Board Stiff, the cheapest meal is a plate at Loafing Around, and both of them take
@@ -445,3 +446,77 @@ drawn in the game. It now picks its tier off the same radial ladder the building
 (`TUNE.detailNear`). Switching the tier on would have put the slogans on the tarps for the first
 time, as words, so they came out instead.
 
+
+---
+
+## The Overspill (2026-11-09)
+
+When the south wall moved from y919 to y923 (`curtain-square.mjs`, 2026-11-04), the Shingles got
+32 tiles of meadow behind the Pitch. The camp spread onto it within the week. The fiction: the
+ground was outside the wall for years, the old houses on it stood empty and fell in, and the people
+moving onto it are building shacks out of what came off them. Built by
+`scripts/content/old-coldwater-overspill.mjs`, which is idempotent.
+
+| Row | Tiles | What it is |
+|---|---|---|
+| y919 | 919–926 | **The Overspill**, camp on the old line of the wall. A strip of dead grass marks where it stood. |
+| y920 | 919–926 | **Tenter Lane**, the old town's south lane, `dirt`, `street_life`, an artery. Dead-ends at the east wall. |
+| y921 | 919–926 | The south frontage: five shacks, two ruins, **the Swap** (the market yard, 921) and **the Snicket** (the lane through to Wallside, 925). |
+| y922 | 919–926 | **Wallside**, camp under the south wall, with **the Drum** (the fire, 922). 919 is the Tin Hut. |
+| y923 | 919–926 | **Under the Wall**: Curtain tiles, camp on their inland side, except 919 at the meadow end. |
+| x927 | y919–923 | **The East Wall** continues south with camp; 927,923 is **The Far Corner**, the new inside angle. |
+
+The Pitch's south edge now opens onto the Overspill, so Peg Lane is no longer the only way into
+the camp. That was true from the day the wall moved; this pass only gave the ground a name.
+
+### The buildings
+
+| Tile | Name | `building_type` | Variant |
+|---|---|---|---|
+| 919,921 | **The Bus** | `shack` | `bus`: a single-decker on bricks, a tarp over the roof, a stovepipe out of a window |
+| 920,921 | **The Gable End** | `ruin` | the terrace |
+| 922,921 | **The Stack** | `shack` | `stack`: three shacks high (`flags.floors: 3`), the top one overhanging the lane, a ladder, a rope to the school |
+| 923,921 | **The Old School** | `ruin` | the terrace with a bell frame (`bell`) |
+| 924,921 | **The Pallet House** | `shack` | `pallet`: pallet slats, a tarp roof under tyres, a car door for a window |
+| 926,921 | **The Box** | `shack` | `box`: a container with a door cut in it and a tarp porch |
+| 919,922 | **The Tin Hut** | `shack` | `tin`: corrugated tin, a pent roof under tyres and a slab, a stovepipe with a can on it |
+
+⚠ **A shack is a ruin for every purpose but its shape.** `is_building`, no `facade`, no
+`entrance`, no interior, no keeper and no map icon (`buildingIconSvg` is gated on `facade`). It's
+somebody's house and nobody is asking you in. Its front is `faceVec`'s default (south), so Tenter
+Lane sees its back, and the arm puts the door, the porch and the ladder there.
+
+⚠ **The variant is the name's, never the seed's.** `shack` is one arm in old-coldwater.js and the
+variant is authored on each named row in model-registry.js (`shack: 'bus'`), as the numbered units
+author `unit`. Mass may not depend on the seed (`shapeIsSeedVariant`); each named row is its own
+model key, so each captures its own shape. The `type:shack` row (a tin hut) is the fallback.
+`noKit`, and `shack` is in `SLUM_DECLINE`, `UNSIGNED_TRADE` and `NO_AD_TRADE`. `TYPE_FLOORS.shack`
+is 2, which makes a hut about one storey.
+
+⚠ **Before building on the plot it was checked for the drain's trap**: nothing under it exits `up`,
+no NPC, spawn or quest named any of its tiles, and with the shacks in, Wallside is still reached by
+the Swap, the Snicket, the meadow at x918 and the wall row, so none of them is a cut vertex.
+`mint-connections.mjs --write` sealed the 24 edges round them.
+
+### The people
+
+Eighteen, all `npc_overspill_*`, on the Pitch's graph: home in the small hours, the Drum after
+dark, and the day spent at home, on a walk round the lanes, or at work. Each has clothing layers,
+chitchat, home activities and fire emotes; most have a banter thread with their housemate, and
+five have a short dialogue.
+
+- **Households**: the Prentices in the Bus (she drove the 14), the Pocklingtons and their lodger
+  in the Stack, Gideon Kesterton and Hettie Nwosu in the Pallet House (he builds shacks for food,
+  she hands out what medicine she has), Jinny Rennard and Ned Sallow in the Box, and Petronella
+  Swales in the Tin Hut, who lived out in the waste the whole time and had the wall move to her.
+- **The Swap**: three stallholders from seven to seven: Bettany Coyle (second-hand clothes), Caradoc
+  Umber (batteries, tape, gas, torches) and Ama Boateng (broth and bread). Every item is an
+  existing row and the script refuses a missing one.
+- **The Drum**: Lyle Hebden cuts hair there by day, Dorrie Quarrie plays the fiddle there by night.
+- **About**: Merle Moberly runs messages, Tariq Darrow arrived this morning and wants a pitch, and
+  Eamon Craddock strips the old houses on Tenter Lane and sells what he pulls out.
+
+Every new tile carries three ambient lines from its kind (lane, camp, market, drum, wall).
+
+**Still deliberately absent:** no verb, no interior and no quest. The Old School is the obvious
+place for one (Dupree Onwuachi taught school in Coldwater), and it's left for whoever wants it.

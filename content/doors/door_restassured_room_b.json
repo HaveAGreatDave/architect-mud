@@ -1,0 +1,22 @@
+{
+  "connection_id": "conn_restassured_room_b_east",
+  "door_type": "basic",
+  "exit_dir": "east",
+  "flags": {},
+  "hololock_difficulty": 5,
+  "hp": 1000,
+  "hp_max": 1000,
+  "id": "door_restassured_room_b",
+  "is_locked": 0,
+  "is_open": 0,
+  "lock_state": "locked",
+  "name": "Room 4 door",
+  "tags": {
+    "lock:hololock": {
+      "canHack": true,
+      "difficulty": 5
+    }
+  },
+  "target_zone": "zone_restassured_hall",
+  "zone_id": "zone_restassured_room_b"
+}

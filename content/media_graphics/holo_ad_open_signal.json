@@ -1,0 +1,12 @@
+{
+  "content": "{\n \"brand\": \"THE OPEN SIGNAL\",\n \"line\": \"Eight years nobody owned the air.\",\n \"small\": \"A MERIDIAN RECLAMATION PICTURE\",\n \"color\": \"#e0803a\",\n \"accent\": \"#f6e4c2\",\n \"face\": \"serif\",\n \"motif\": \"none\",\n \"weight\": 1\n}",
+  "created_at": "1794182400",
+  "description": "Hologram advert: The Open Signal. Baked to the client by npm run holoads:bake.",
+  "id": "holo_ad_open_signal",
+  "name": "Holo ad: The Open Signal",
+  "tags": [
+    "holo_ad"
+  ],
+  "type": "holo_ad",
+  "updated_at": "1794182400"
+}

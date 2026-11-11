@@ -8,9 +8,9 @@
   "ambient_theme": "urban",
   "bg_color": "#1c242c",
   "color": "#cfd8e0",
-  "description": "The crown of the tower: a circle of non-slip deck ringed in recessed landing lights, cantilevered past the parapet over four hundred feet of air. A lit windsock at the northern rail. Two glass-doored bays behind the pad, each big enough for a light rotorcraft. A refuelling point under a brass cover in the deck. Step <b>in</b> to the elevator.",
+  "description": "The crown of the tower: a circle of non-slip deck ringed in recessed landing lights, cantilevered past the parapet over four hundred feet of air. A lit windsock at the northern rail. Two glass-doored bays behind the pad, each big enough for a light rotorcraft. A refuelling point under a brass cover in the deck. The hall is <b>south</b>.",
   "exits": {
-    "in": "zone_solenne_elevator"
+    "south": "zone_solenne_hall_45"
   },
   "flags": {
     "always_lit": true,
@@ -23,6 +23,53 @@
     "open_sky": true,
     "residents_only": "Solenne Residences",
     "residents_only_deny": "The panel by the pad door reads your hand, finds no residence attached to it, and stays shut. Somewhere below, a concierge is already deciding not to mention it.",
+    "room": {
+      "balcony": false,
+      "d": 18,
+      "decor": {
+        "doors": [
+          {
+            "at": -5.5,
+            "finish": "steel",
+            "label": "Bay 1",
+            "w": 2.4,
+            "wall": "back"
+          },
+          {
+            "at": 5.5,
+            "finish": "steel",
+            "label": "Bay 2",
+            "w": 2.4,
+            "wall": "back"
+          }
+        ],
+        "downlights": false,
+        "pad": {
+          "at": [
+            0,
+            8
+          ],
+          "r": 6
+        },
+        "rug": false
+      },
+      "face": 0,
+      "finish": "fine",
+      "glass": [
+        "front",
+        "left",
+        "right"
+      ],
+      "ground": "stone",
+      "h": 3,
+      "open": true,
+      "studio": false,
+      "tone": {
+        "trim": "#1c1f23",
+        "wall": "#3a3f45"
+      },
+      "w": 18
+    },
     "sanctuary": true,
     "window": {
       "description": "A window with a bad seal, letting in a draught and a slice of whatever the weather is doing.",

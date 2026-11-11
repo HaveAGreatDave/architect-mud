@@ -33,8 +33,25 @@ which starts it for you the way the Map Studio link does. Both links share one l
 | <kbd>O</kbd> / <kbd>T</kbd> | the model browser · show or hide the tool palette |
 | <kbd>F</kbd> | re-frame |
 
-**Its other pages** open from the toolbar in their own tab. **Actor Lab ↗** is always there, and
-the Actor Lab's header goes on to the **Pose Lab**. **Cab interior ↗** shows on a truck's page only
+**Its other pages** open from the toolbar in their own tab. **Figure Lab ↗** (`/figure-lab.html`)
+is everybody drawn as a person, in either of the game's renderers, picked at the top of the page:
+
+- **Room · close-up** is the close-up figure (`figure.js`) in the Room Stage's own renderer
+  (`gl/room.js`, `gl/figure-hd.js`), which the rooms, the TV and Broadcast Studio sequences draw.
+  The second row picks the figure (`sculpted`, the default; `current`, what the Room Stage draws
+  today; `before / after`, one person both ways) and who: lab people off a seed, any NPC with a
+  settled look (`flags.figure`, listed by `/api/npc-figures` and read by `/api/npc-figure`), or any
+  NPC id typed in. The panel on the left holds the rest: body, head, clothes, what they're doing,
+  and the view (level, crowd body beside, comic look, lamp, turntable). `window.__fig.draw(now)`
+  renders one frame on demand.
+- **Street · crowd** is the street's baked crowd body with the street heads L0 to L2, dressed by
+  district, the shipping shader beside a proposed one (`crowd-lab.js`, loaded the first time it's
+  picked). The second row picks the shot (street, portraits, faces, head, gala, gait) and `as
+  built`. `window.__actorLab` holds its crowds and the matrices the heads ride.
+
+The URL carries the top rows (`?renderer=street&shot=gala`, `?fig=both&npc=npc_john_akerson`), and
+the old `/actor-lab.html` redirects to the Street renderer. The Figure Lab's header goes on to the
+**Pose Lab**. **Cab interior ↗** shows on a truck's page only
 and opens `/cabtrinkets.html?truck=<id>`, that truck's cab with the driver's things hung in it: a
 truck is the one vehicle with a cab anything hangs in (`client/shared/cab-trinkets.js`). The cab
 is GLASS 2 geometry, so the page installs the GL pass the way the game does; without it the glass
@@ -1808,7 +1825,7 @@ view of a whole terrace; `off` is where you stand *inside* the centre tile, beca
 fractional `y` would miss every cell and paint an empty world.
 
 ⚠ **The cells are the baked snapshot, not a second derivation.**
-The Room Lab (`/room-lab.html`) opens the Room Stage on any flat in `content/` with no server: it reads the rows off the files, lays them out with the same `layRows` the plugin calls, and draws the view out of the window from the baked world below. `?zone=`, `?hour=` and `?glass=0` set what it opens, and `__snap(name, { at, yaw, pitch, fov })` writes a frame through `/api/shot` from anywhere in the room, including with the pane hidden, when a screenshot times out.
+The Room Lab (`/room-lab.html`) opens the Room Stage on any flat in `content/` with no server: it reads the rows off the files, lays them out with the same `layRows` the plugin calls, and draws the view out of the window from the baked world below. `?zone=`, `?hour=` and `?glass=0` set what it opens, and `__snap(name, { at, yaw, pitch, fov })` writes a frame through `/api/shot` from anywhere in the room, including with the pane hidden, when a screenshot times out. A room on a building's walk comes with its doorways and the rooms past them, from the same `buildingView` the roomstage plugin sends (docs/proposals/building-stage.md), and `__labVia(zone)` steps through a doorway as the server would. The zones are read once, on the first such room, so restart the Modelshop to see an edited building.
 
 `client/game/flightsim-world.json` is written by `buildFlightSnapshot`, which calls the same
 `deriveSurfaceCell` a live flight streams to the cockpit — and that sharing exists precisely

@@ -3,7 +3,7 @@
   "ambient_theme": "urban",
   "bg_color": "#2a1d18",
   "color": "#d8c9a8",
-  "description": "The main gate of the Charles B. Hughson Coliseum: a stepped limestone frontispiece on Hughson Way between two fluted pylons, the name in raised gilt on a bronze plate over bronze doors and a sunburst fanlight. The bowl wall runs away either side of it.",
+  "description": "The main gate of the Charles B. Hughson Coliseum: a stepped limestone frontispiece on Grandstand Plaza between two fluted pylons, the name in raised gilt on a bronze plate over bronze doors and a sunburst fanlight. The bowl wall runs away either side of it.",
   "exits": {
     "north": "zone_hughson_rotunda",
     "south": "zone_ballpark_894_915"

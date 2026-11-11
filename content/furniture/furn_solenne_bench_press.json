@@ -4,7 +4,15 @@
     "interactions": [
       "lie",
       "lift"
-    ]
+    ],
+    "look": {
+      "arche": "bed",
+      "form": "pressbench"
+    },
+    "spot": {
+      "along": 2.6,
+      "wall": "left"
+    }
   },
   "hp": null,
   "hp_max": null,

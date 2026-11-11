@@ -8,7 +8,14 @@
     ],
     "look": {
       "arche": "sofa",
-      "form": "cot"
+      "form": "lounger"
+    },
+    "spot": {
+      "at": [
+        -5.4,
+        5
+      ],
+      "turn": -90
     }
   },
   "hp": null,

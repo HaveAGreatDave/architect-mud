@@ -1,24 +1,30 @@
 {
-  "ambient_events": [],
-  "ambient_theme": "forest",
-  "color": "#8ba36a",
-  "description": "Rough ground the Curtain took in when it moved south. Red dirt still shows through the new grass in patches.",
+  "ambient_events": [
+    "Somebody shouts a price across the lane and somebody else laughs at it.",
+    "Hammering starts up somewhere south of the lane, stops, and starts again."
+  ],
+  "ambient_theme": "city",
+  "description": "The old school stands on the south side with its roof gone and its bell frame still up. A row of coat pegs runs along the porch wall at knee height. Tenter Lane carries on east.",
   "exits": {
     "east": "zone_district_924_920",
     "north": "zone_district_923_919",
-    "south": "zone_district_923_921",
     "west": "zone_district_922_920"
   },
   "flags": {
-    "district": "residential",
+    "artery": [
+      "Tenter Lane"
+    ],
+    "district": "slum",
     "region_id": "region_coldwater",
-    "terrain": "grass"
+    "scavenging_table_id": "scav_roadside_junk",
+    "street_life": true,
+    "terrain": "dirt"
   },
   "grid_x": 923,
   "grid_y": 920,
   "grid_z": 0,
   "id": "zone_district_923_920",
   "map_id": "map_world",
-  "name": "Grasslands",
+  "name": "Tenter Lane",
   "parent_zone": null
 }

@@ -190,7 +190,9 @@ export function createWorld(ice, seedKey) {
 
   // ── cast ────────────────────────────────────────────────────────────────────
   for (const side of ['a', 'h']) {
-    for (let i = 0; i < 6; i++) { const b = makeBody('skater', side, i, hash(`${side}${i}${seedKey}`)); b.active = i < 5; W.team[side].push(b); }
+    // (six for the ice, five on and one for a pulled goalie, and two more bodies for the
+    // penalty box: a man sat there keeps slot 6 or 7, director.js `sitInBox`)
+    for (let i = 0; i < 8; i++) { const b = makeBody('skater', side, i, hash(`${side}${i}${seedKey}`)); b.active = i < 5; W.team[side].push(b); }
     const g = makeBody('goalie', side, 9, hash(`${side}g${seedKey}`));
     g.x = (side === 'a' ? GOAL_X[0] : GOAL_X[1]) + attackDir(side) * 3; g.y = MID_Y; g.h = side === 'a' ? 0 : Math.PI; g.stick = true;
     W.goalie[side] = g;
@@ -201,7 +203,8 @@ export function createWorld(ice, seedKey) {
   const bodies = () => [...skaters(), W.goalie.a, W.goalie.h, ...W.officials, ...W.extras].filter((b) => b && b.active);
   W.skaters = skaters;
   W.bodies = bodies;
-  W.mates = (side) => W.team[side].filter((b) => b.active);
+  // (a man sat in the penalty box is drawn but isn't one of the men on the ice: director.js)
+  W.mates = (side) => W.team[side].filter((b) => b.active && !b.boxed);
 
   // ── scheduling ──────────────────────────────────────────────────────────────
   W.schedule = (dt, fn) => { W.ev.push({ t: W.t + dt, fn }); W.ev.sort((a, b) => a.t - b.t); };
@@ -604,6 +607,14 @@ export function createWorld(ice, seedKey) {
     }
     if (W.parts.length > 800) W.parts.splice(0, W.parts.length - 800);
   };
+  // the Cup's confetti, let go from the rafters over centre ice, where the champions are, in the given colours
+  W.confetti = (n, cols) => {
+    for (let i = 0; i < n; i++) {
+      W.parts.push({ type: 'confetti', x: RL / 2 + (fxRand() - 0.5) * 90, y: MID_Y + (fxRand() - 0.5) * 60, z: 10 + fxRand() * 22, vx: (fxRand() - 0.5) * 2, vy: (fxRand() - 0.5) * 2, vz: 0,
+        life: 0, max: 22 + fxRand() * 8, size: 0.4 + fxRand() * 0.3, col: cols[i % cols.length], spin: 4 + fxRand() * 8, seed: fxRand() * 6.3 });
+    }
+    if (W.parts.length > 800) W.parts.splice(0, W.parts.length - 800);
+  };
   // snow off a skate: thrown out along the slide, low and fast, and gone when it lands
   W.snow = (x, y, n, vx, vy) => {
     for (let i = 0; i < n; i++) {
@@ -626,6 +637,12 @@ export function createWorld(ice, seedKey) {
     const kill = (i) => { const last = W.parts.pop(); if (i < W.parts.length) W.parts[i] = last; };
     for (let i = W.parts.length - 1; i >= 0; i--) {
       const p = W.parts[i]; p.life += dt;
+      // confetti flutters down slowly, swaying, and lies where it lands till it's gone
+      if (p.type === 'confetti') {
+        if (p.z > 0) { p.x += (p.vx + Math.sin(p.life * 2.3 + p.seed) * 1.4) * dt; p.y += (p.vy + Math.cos(p.life * 1.9 + p.seed) * 1.4) * dt; p.z = Math.max(0, p.z - (2.2 + Math.sin(p.life * p.spin) * 0.8) * dt); }
+        if (p.life > p.max) kill(i);
+        continue;
+      }
       const g = p.type === 'spray' ? 10 : G;
       if (p.type === 'spray') { p.vx *= 0.94; p.vy *= 0.94; }
       p.vz -= g * dt; p.x += p.vx * dt; p.y += p.vy * dt; p.z += p.vz * dt;

@@ -257,6 +257,8 @@
     // H — the goal horn: short, and long (one sustained blast, not repeats)
     def('hk-goal-horn-short', 'Goal horn — short', 10, horn(), { hold: 0.55, vary: STEADY }),
     def('hk-goal-horn', 'Goal horn', 10, horn(), { hold: 1.45, vary: STEADY }),
+    // the horn for a goal in live play: the full blast an arena gives its own team's goal
+    def('hk-goal-horn-long', 'Goal horn — live goal', 10, horn(), { hold: 3.4, vary: STEADY }),
     // I — the end of a period
     def('hk-period-horn', 'Period end', 10, buzzer(), { hold: 1.3, vary: STEADY }),
     // K — the crowd's one-shots (the bed is crowdBed())
@@ -499,7 +501,7 @@
     post: 'hk-post', net: 'hk-net', wide: null,
     drop: 'hk-faceoff-drop',
     whistle: (o) => [o.long ? 'hk-whistle' : 'hk-whistle-short', 1],
-    horn: (o) => [o.short ? 'hk-goal-horn-short' : 'hk-goal-horn', 1],
+    horn: (o) => [o.short ? 'hk-goal-horn-short' : o.long ? 'hk-goal-horn-long' : 'hk-goal-horn', 1],
     periodHorn: 'hk-period-horn',
     signal: 'hk-signal', alert: 'hk-signal-two', box: 'hk-box-knock',
     stop: ['hk-skate-stop', 0.65], turn: ['hk-skate-turn', 0.7], scrape: ['hk-skate-scrape', 0.7],

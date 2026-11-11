@@ -501,6 +501,21 @@ export function narrate(ctx) {
     },
   );
   colour(ws ? ['colour.cup', 'colour.matchup'] : rivalry ? ['colour.rivalry', 'colour.matchup'] : 'colour.matchup', gameTok, null, preBug);
+  // Cup night: the house lights go down and the public address reads both line-ups, a man at a
+  // time under a spotlight, to the Cup's anthem. The rink stages it from the payload's line-ups
+  // (rink/director.js stageAnthem) for as long as the line holds.
+  if (ws) {
+    const side = (t) => ({ team: t.name, goalie: t.goalie || '', skaters: (t.skaters || []).map((s) => ({ name: s.name, pos: s.pos })) });
+    // (its Cup card holds the line long enough to read twelve men, and is what a set without the
+    // rink shows; the rink keeps it off its own picture)
+    say(pick('cup.anthem'), gameTok, preBug,
+      { overlayType: 'sportsfx', kind: 'hockeycup', brand: 'cphl', show: 'CLUSTER PUCK', away: away.name, home: home.name, awayRecord, homeRecord, duration: 15 },
+      { sport: 'hockey', type: 'anthem', cup: true, final: ctx.sport?.season?.finalName || 'Coldwater Cup',
+        awayTeam: away.name, homeTeam: home.name, awayAbbr, homeAbbr, clubsRev,
+        awayColours: away.profile?.colours || null, homeColours: home.profile?.colours || null,
+        lineups: { away: side(away), home: side(home) } },
+      { song: 'ksab7_cup_anthem' });
+  }
   ctx.desk?.('open', null, preBug);
 
   // The injury report, read between the matchup and the opening face-off. Counted
@@ -1185,11 +1200,26 @@ export function narrate(ctx) {
     away: away.name, home: home.name, awayScore, homeScore,
     label: ws ? 'Coldwater Cup Champions' : '',
     duration: ws ? 5.4 : 4.4,
-  }, null, winName ? playMeta({ awayScore, homeScore }, 'final', winName, { champion: !!ws }) : null);
+  }, null, winName ? { ...playMeta({ awayScore, homeScore }, 'final', winName, { champion: !!ws }), ...(ws ? { song: 'ksab7_cup_champions' } : {}) } : null);
+  // Cup night: the Cup comes out to the champions, the captain lifts it and they skate it round
+  // (rink/director.js stageCrown). Its payload names the captain (the centre) and the night's
+  // best man on the winning side, by goals and then assists.
+  if (ws && winName) {
+    const W0 = winName === away.name ? away : home;
+    const sk = W0.skaters || [];
+    const best = [...sk].sort((x, y) => (y.goals * 2 + y.assists) - (x.goals * 2 + x.assists))[0];
+    say(pick('cup.crown'), finalTok, finalBug, null,
+      { sport: 'hockey', type: 'crown', cup: true, final: ctx.sport?.season?.finalName || 'Coldwater Cup',
+        awayTeam: away.name, homeTeam: home.name, awayAbbr, homeAbbr, clubsRev, awayScore, homeScore,
+        awayColours: away.profile?.colours || null, homeColours: home.profile?.colours || null,
+        winner: winName, captain: (sk.find((s) => s.pos === 'C') || sk[0] || {}).name || '',
+        mvp: best && (best.goals || best.assists) ? { name: best.name, goals: best.goals, assists: best.assists } : null,
+        skaters: sk.map((s) => s.name), goalie: W0.goalie || '' });
+  }
   colour('colour.final', finalTok, null, finalBug);
   ctx.desk?.('close', 'end', finalBug);
   const outroId = ctx.lastId();
-  say(pick(...(ws ? ['cup.outro', 'outro'] : ['outro'])), finalTok, finalBug);
+  say(pick(...(ws ? ['cup.outro', 'outro'] : ['outro'])), finalTok, finalBug, null, null, ws ? { song: 'ksab7_cup_close' } : null);
   return { outroId, lines: said + colourLines };
 }
 

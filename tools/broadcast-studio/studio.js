@@ -3,7 +3,7 @@
 // live preview through the player the TV uses. The forms come off sequence.js's tables and
 // SET_PIECES, so a new graphic or piece needs nothing here. See tools/broadcast-studio/README.md.
 
-import { GFX, FRAMES, MOVES, CUTS, ACTS, OPS, SEQ_FORMAT, timeline, timelineLength, checkSequence, checkShow, tokenPaths, listPaths, peoplePaths, passes, sequenceFromBsm, shotCamera, SHOW_KINDS, kindOf, showSkeleton, castToken, fill } from '/client/shared/sequence.js';
+import { GFX, FRAMES, MOVES, CUTS, ACTS, OPS, SEQ_FORMAT, timeline, timelineLength, checkSequence, checkShow, tokenPaths, listPaths, peoplePaths, passes, sequenceFromBsm, shotCamera, SHOW_KINDS, kindOf, showSkeleton, castToken, fill, resolveSet, partsOf } from '/client/shared/sequence.js';
 import { SET_PIECES } from '/client/game/js/panels/gl/set-mesh.js';
 import { createSequencePlayer } from '/client/game/js/panels/sequence-player.js';
 
@@ -25,7 +25,33 @@ const h = (tag, props = {}, ...kids) => {
 };
 const docsOf = (kind) => [...S.docs.values()].filter((d) => d.kind === kind).sort((a, b) => String(a.name).localeCompare(String(b.name)));
 const seqNow = () => S.docs.get(S.seq);
-const setNow = () => S.docs.get(S.set) || S.docs.get(seqNow()?.set);
+// The set as stored, and as drawn: a skin laid over its template. Everything that only reads takes
+// setNow(); an edit goes through editable() so a skin's change lands in the skin, never the template.
+const rawSet = () => S.docs.get(S.set) || S.docs.get(seqNow()?.set);
+const viewSet = (set) => resolveSet(set, (id) => S.docs.get(id));
+const setNow = () => viewSet(rawSet());
+// What the inspector and the plan write to: the piece, mark or camera itself on a set of its own; on a
+// skin, an override of it. A template's piece with no part name is fixed, so it's null.
+function editable(kind, id) {
+  const raw = rawSet(), view = setNow();
+  if (!raw) return null;
+  if (!raw.base) return kind === 'piece' ? raw.pieces?.[id] : kind === 'mark' ? raw.marks?.[id] : raw.cameras?.[id];
+  if (kind === 'piece') {
+    const own = raw.pieces || [], nBase = view.pieces.length - own.length;
+    if (id >= nBase) return own[id - nBase];
+    const vp = view.pieces[id];
+    return vp?.part ? overlay(vp, () => ((raw.parts ||= {})[vp.part] ||= {})) : null;
+  }
+  const coll = kind === 'mark' ? 'marks' : 'cameras', vo = view[coll]?.[id];
+  return vo ? overlay(vo, () => ((raw[coll] ||= {})[id] ||= {})) : null;
+}
+// Reads the drawn value, writes the override (made on the first write).
+const overlay = (shown, ov) => new Proxy({}, {
+  get: (t, k) => { const o = ov(); return k in o ? o[k] : shown[k]; },
+  set: (t, k, v) => { ov()[k] = v; return true; },
+  deleteProperty: (t, k) => { delete ov()[k]; return true; },
+  has: (t, k) => k in shown || k in ov(),
+});
 const showNow = () => S.docs.get(S.show);
 const touch = (doc) => { S.dirty.add(doc.id); status(); };
 function status(text, cls = '') {
@@ -209,7 +235,13 @@ function renderRail() {
   for (const f of S.scripts) from.add(new Option(f, f));
   rail.append(from);
   rail.append(h('h3', {}, 'Sets', h('button', { title: 'New set', onclick: newSet }, '+')));
-  for (const set of docsOf('set')) rail.append(h('button', { class: `item${S.tab === 'set' && S.set === set.id ? ' on' : ''}`, onclick: () => openSet(set.id) }, set.name));
+  // templates first, then the sets: a skin says what it's built on
+  const sets = docsOf('set'), tpls = sets.filter((d) => d.template);
+  for (const set of [...tpls, ...sets.filter((d) => !d.template)]) rail.append(h('button', { class: `item${set.template ? ' tpl' : ''}${S.tab === 'set' && S.set === set.id ? ' on' : ''}`, title: set.base ? `A skin on ${set.base}` : set.template ? 'A template' : '', onclick: () => openSet(set.id) }, set.template ? `◇ ${set.name.replace(/^Template:s*/, '')}` : set.name));
+  const skin = h('select', { title: 'A new set built on a template', onchange: (e) => { if (e.target.value) newSkin(e.target.value); e.target.value = ''; } });
+  skin.add(new Option('New skin of…', ''));
+  for (const t of tpls) skin.add(new Option(t.name.replace(/^Template:s*/, ''), t.id));
+  rail.append(skin);
 }
 
 function goTab(tab) {
@@ -271,6 +303,13 @@ function newSet() {
   const name = prompt('The set\'s name?');
   if (!name) return;
   const doc = addDoc({ kind: 'set', format: SEQ_FORMAT, id: freshId('set', name), name, room: { w: 10, d: 8, h: 4 }, focus: [0, 1.1, 5], palette: {}, pieces: [], marks: { a: { at: [-0.8, 5], yaw: 180, pose: 'sit', label: 'Left' }, b: { at: [0.8, 5], yaw: 180, pose: 'sit', label: 'Right' } }, cameras: { cam1: { label: 'Centre', at: [0, 0.6], h: 1.5 } }, lamps: [{ p: [0, 3.4, 3.4], k: 1 }] });
+  openSet(doc.id);
+}
+// A skin: a name and a template, and the template's sign reads the name.
+function newSkin(base) {
+  const name = prompt("The skin's name (the show or network it's for)?");
+  if (!name) return;
+  const doc = addDoc({ kind: 'set', format: SEQ_FORMAT, id: freshId('set', name), name, base, brand: { name: name.toUpperCase() }, palette: {} });
   openSet(doc.id);
 }
 async function fromScript(file) {
@@ -482,7 +521,8 @@ function drawPlan() {
   const on = (kind, id) => S.pick?.kind === kind && S.pick.id === id;
   (set.pieces || []).forEach((p, i) => {
     const [pw, pd] = (PIECE_DRAW_SIZE[p.type] || (() => [0.6, 0.6]))(p);
-    g.fillStyle = on('piece', i) ? 'rgba(232,192,112,0.35)' : 'rgba(120,140,170,0.22)';
+    const fixed = set.base && !p.part && i < set.pieces.length - (rawSet().pieces || []).length;
+    g.fillStyle = on('piece', i) ? 'rgba(232,192,112,0.35)' : fixed ? 'rgba(120,140,170,0.08)' : 'rgba(120,140,170,0.22)';
     g.strokeStyle = on('piece', i) ? '#e8c070' : '#5a6478';
     g.fillRect(f.x(p.at[0] + pw / 2), f.y(p.at[1] + pd / 2), pw * f.k, pd * f.k);
     g.strokeRect(f.x(p.at[0] + pw / 2), f.y(p.at[1] + pd / 2), pw * f.k, pd * f.k);
@@ -507,12 +547,12 @@ function drawPlan() {
 }
 function hitPlan(set, x, y) {
   const f = planFrame(set), near = (u, v, r) => Math.hypot(f.x(u) - x, f.y(v) - y) < r;
-  for (const [id, c] of Object.entries(set.cameras || {})) if (near(c.at[0], c.at[1], 12)) return { kind: 'camera', id, ref: c };
-  for (const [id, m] of Object.entries(set.marks || {})) if (near(m.at[0], m.at[1], 11)) return { kind: 'mark', id, ref: m };
+  for (const [id, c] of Object.entries(set.cameras || {})) if (near(c.at[0], c.at[1], 12)) return { kind: 'camera', id, ref: editable('camera', id) };
+  for (const [id, m] of Object.entries(set.marks || {})) if (near(m.at[0], m.at[1], 11)) return { kind: 'mark', id, ref: editable('mark', id) };
   const list = set.pieces || [];
   for (let i = list.length - 1; i >= 0; i--) {
     const p = list[i], [pw, pd] = (PIECE_DRAW_SIZE[p.type] || (() => [0.6, 0.6]))(p), u = f.u(x), v = f.v(y);
-    if (Math.abs(u - p.at[0]) < pw / 2 && Math.abs(v - p.at[1]) < pd / 2) return { kind: 'piece', id: i, ref: p };
+    if (Math.abs(u - p.at[0]) < pw / 2 && Math.abs(v - p.at[1]) < pd / 2) return { kind: 'piece', id: i, ref: editable('piece', i) };
   }
   return null;
 }
@@ -526,7 +566,8 @@ function planEvents() {
     const [x, y] = point(e), hit = hitPlan(set, x, y);
     S.pick = hit ? { kind: hit.kind, id: hit.id } : null;
     drag = hit;
-    if (hit) c.setPointerCapture(e.pointerId);
+    if (!hit?.ref) drag = null;
+    if (drag) c.setPointerCapture(e.pointerId);
     drawPlan(); renderSetInspector();
     if (hit?.kind === 'camera') refresh({ now: true });
   });
@@ -534,53 +575,88 @@ function planEvents() {
     if (!drag) return;
     const set = setNow(), f = planFrame(set), [x, y] = point(e), snap = (n) => Math.round(n * 20) / 20;
     drag.ref.at = [snap(f.u(x)), snap(f.v(y))];
-    touch(set); drawPlan(); refresh();
+    touch(rawSet()); drawPlan(); refresh();
   });
   c.addEventListener('pointerup', () => { drag = null; renderSetInspector(); });
 }
 function renderSetInspector() {
-  const set = setNow(), box = $('inspector');
+  const set = rawSet(), view = setNow(), box = $('inspector');
   box.replaceChildren();
   if (!set) return;
   const after = () => { drawPlan(); refresh(); };
-  const pick = S.pick;
+  const redo = () => { touch(set); renderSetInspector(); after(); };
+  const skin = !!set.base, pick = S.pick;
   if (pick) {
-    const g = h('div', { class: 'group' });
+    const g = h('div', { class: 'group' }), obj = editable(pick.kind, pick.id);
     if (pick.kind === 'piece') {
-      const p = set.pieces[pick.id], row = SET_PIECES[p?.type];
-      if (p) {
-        g.append(h('h4', {}, row?.label || p.type, h('button', { onclick: () => { set.pieces.splice(pick.id, 1); S.pick = null; touch(set); renderSetInspector(); after(); } }, '✕')));
-        for (const f of row?.fields || []) g.append(f.type === 'number' ? field(f.label, numberInput(p, f.k, after, set)) : field(f.label, textInput(p, f.k, after, set)));
+      const vp = view.pieces[pick.id], row = SET_PIECES[vp?.type], nBase = view.pieces.length - (set.pieces || []).length, own = !skin || pick.id >= nBase;
+      if (vp) {
+        // a skin's part: swap it for another piece, take it out, or put the template's back
+        const kill = own ? () => { set.pieces.splice(skin ? pick.id - nBase : pick.id, 1); S.pick = null; redo(); } : vp.part ? () => { (set.parts ||= {})[vp.part] = null; S.pick = null; redo(); } : null;
+        g.append(h('h4', {}, `${row?.label || vp.type}${vp.part ? ` · ${vp.part}` : ''}`, kill ? h('button', { title: 'Take it out', onclick: kill }, '✕') : null));
+        if (!obj) g.append(h('p', { class: 'hint' }, `Fixed by ${set.base}. Change it there, or give it a part name there so a skin can.`));
+        else {
+          if (skin && vp.part && !own) {
+            const swap = h('select', { onchange: (e) => { const k = e.target.value; if (k === vp.type) return; const o = ((set.parts ||= {})[vp.part] ||= {}); o.type = k; for (const [f, v] of Object.entries(SET_PIECES[k].make)) if (f !== 'at' && !(f in o)) o[f] = structuredClone(v); redo(); } });
+            for (const [k, r] of Object.entries(SET_PIECES)) swap.add(new Option(r.label, k, false, k === vp.type));
+            g.append(field('This part is a', swap), h('div', { class: 'row-actions' }, h('button', { onclick: () => { delete set.parts[vp.part]; if (!Object.keys(set.parts).length) delete set.parts; redo(); } }, 'Back to the template\'s')));
+          } else if (set.template) g.append(field('Part name (what a skin calls it; blank keeps it fixed)', textInput(obj, 'part', null, set)));
+          for (const f of row?.fields || []) g.append(f.type === 'number' ? field(f.label, numberInput(obj, f.k, after, set)) : field(f.label, textInput(obj, f.k, after, set)));
+        }
       }
-    } else if (pick.kind === 'mark') {
-      const m = set.marks[pick.id];
-      g.append(h('h4', {}, `Mark ${pick.id}`, h('button', { onclick: () => { delete set.marks[pick.id]; S.pick = null; touch(set); renderSetInspector(); after(); } }, '✕')),
-        field('Label', textInput(m, 'label', after, set)), h('div', { class: 'two' }, field('Facing (°)', numberInput(m, 'yaw', after, set, 5)), field('Pose', selectInput(m, 'pose', [['sit', 'Sitting'], ['stand', 'Standing']], after, set))));
-    } else {
-      const c = set.cameras[pick.id];
-      g.append(h('h4', {}, `Camera ${pick.id}`, h('button', { onclick: () => { delete set.cameras[pick.id]; S.pick = null; touch(set); renderSetInspector(); after(); } }, '✕')),
-        field('Label', textInput(c, 'label', after, set)), field('Height (m)', numberInput(c, 'h', after, set)));
+    } else if (pick.kind === 'mark' && obj) {
+      g.append(h('h4', {}, `Mark ${pick.id}`, h('button', { onclick: () => { if (skin) (set.marks ||= {})[pick.id] = null; else delete set.marks[pick.id]; S.pick = null; redo(); } }, '✕')),
+        field('Label', textInput(obj, 'label', after, set)), h('div', { class: 'two' }, field('Facing (°)', numberInput(obj, 'yaw', after, set, 5)), field('Pose', selectInput(obj, 'pose', [['sit', 'Sitting'], ['stand', 'Standing']], after, set))),
+        // a talk show's host walks here for the monologue and back to his seat after it (sequence-player.js liveBlock)
+        h('label', { class: 'field' }, h('input', { type: 'checkbox', checked: !!obj.standup, onchange: (e) => { if (e.target.checked) obj.standup = true; else delete obj.standup; touch(set); after(); } }), ' Stand-up spot: the host does the monologue here, not a seat'));
+    } else if (obj) {
+      g.append(h('h4', {}, `Camera ${pick.id}`, h('button', { onclick: () => { if (skin) (set.cameras ||= {})[pick.id] = null; else delete set.cameras[pick.id]; S.pick = null; redo(); } }, '✕')),
+        field('Label', textInput(obj, 'label', after, set)), field('Height (m)', numberInput(obj, 'h', after, set)));
     }
     box.append(g);
   }
-  const add = h('select', { onchange: (e) => { const k = e.target.value; e.target.value = ''; if (!k) return; (set.pieces = set.pieces || []).push({ type: k, ...structuredClone(SET_PIECES[k].make), at: [0, (set.room?.d || 8) / 2] }); S.pick = { kind: 'piece', id: set.pieces.length - 1 }; touch(set); renderSetInspector(); after(); } });
+  const add = h('select', { onchange: (e) => { const k = e.target.value; e.target.value = ''; if (!k) return; (set.pieces = set.pieces || []).push({ type: k, ...structuredClone(SET_PIECES[k].make), at: [0, (view.room?.d || 8) / 2] }); S.pick = { kind: 'piece', id: setNow().pieces.length - 1 }; redo(); } });
   add.add(new Option('Add a piece…', ''));
   for (const [k, row] of Object.entries(SET_PIECES)) add.add(new Option(row.label, k));
   const letter = (obj, stem) => { let n = 1; while (obj[`${stem}${n}`]) n++; return `${stem}${n}`; };
   box.append(h('div', { class: 'group' }, h('h4', {}, 'Add'), add, h('div', { class: 'row-actions', style: 'margin-top:6px' },
-    h('button', { onclick: () => { const id = letter(set.marks = set.marks || {}, 'm'); set.marks[id] = { at: [0, (set.room?.d || 8) / 2], yaw: 180, pose: 'stand', label: id }; S.pick = { kind: 'mark', id }; touch(set); renderSetInspector(); after(); } }, '+ Mark'),
-    h('button', { onclick: () => { const id = letter(set.cameras = set.cameras || {}, 'cam'); set.cameras[id] = { at: [0, 0.6], h: 1.5, label: id }; S.pick = { kind: 'camera', id }; touch(set); renderSetInspector(); after(); } }, '+ Camera'))));
-  set.room = set.room || {}; set.palette = set.palette || {};
+    h('button', { onclick: () => { const id = letter(view.marks || {}, 'm'); (set.marks ||= {})[id] = { at: [0, (view.room?.d || 8) / 2], yaw: 180, pose: 'stand', label: id }; S.pick = { kind: 'mark', id }; redo(); } }, '+ Mark'),
+    h('button', { onclick: () => { const id = letter(view.cameras || {}, 'cam'); (set.cameras ||= {})[id] = { at: [0, 0.6], h: 1.5, label: id }; S.pick = { kind: 'camera', id }; redo(); } }, '+ Camera'))));
+
+  // what it's built on, and the network on it
+  const templates = docsOf('set').filter((d) => d.template && d.id !== set.id);
+  const base = h('select', { onchange: (e) => {
+    if (e.target.value) set.base = e.target.value;
+    else { const v = setNow(); Object.assign(set, structuredClone({ room: v.room, focus: v.focus, pieces: v.pieces, marks: v.marks, cameras: v.cameras, lamps: v.lamps, ambient: v.ambient, palette: v.palette, brand: v.brand })); delete set.base; delete set.parts; }
+    S.pick = null; redo();
+  } });
+  base.add(new Option(skin ? 'Nothing: make it a room of its own' : 'Nothing: a room of its own', '', false, !skin));
+  for (const t of templates) base.add(new Option(t.name, t.id, false, set.base === t.id));
+  set.brand ||= {};
+  const brandColour = h('input', { type: 'color', value: /^#[0-9a-f]{6}$/i.test(view.brand?.colour || '') ? view.brand.colour : '#39a0ff', oninput: (e) => { set.brand.colour = e.target.value; touch(set); refresh(); } });
+  const hidden = Object.entries(set.parts || {}).filter(([, v]) => v === null).map(([k]) => k);
+  box.append(h('div', { class: 'group' }, h('h4', {}, set.template ? 'Template' : 'Built on'),
+    set.template ? h('p', { class: 'hint' }, `A room other sets are built on, never staged itself. Its parts: ${partsOf(view).join(', ') || 'none yet'}.`) : field('Template (a skin changes only what it says)', base),
+    field('Network or show name, for {brand.name}', textInput(set.brand, 'name', after, set)),
+    h('label', { class: 'field' }, h('span', {}, 'Its colour'), brandColour),
+    hidden.length ? h('div', {}, h('p', { class: 'hint' }, 'Taken out:'), hidden.map((k) => h('button', { onclick: () => { delete set.parts[k]; redo(); } }, `+ ${k}`))) : null));
+
   const uses = h('input', { type: 'text', value: (set.uses || []).join(', '), placeholder: 'talkshow, news, default', oninput: (e) => { set.uses = e.target.value.split(',').map((s) => s.trim()).filter(Boolean); touch(set); } });
-  box.append(h('div', { class: 'group' }, h('h4', {}, 'Room'), field('Name', textInput(set, 'name', renderRail, set)),
-    field('Stage for (a text show of these kinds plays here; default is the rest)', uses),
-    field('The room it is (a zone id)', textInput(set, 'zone', null, set)),
-    h('div', { class: 'two' }, field('Width', numberInput(set.room, 'w', after, set)), field('Depth', numberInput(set.room, 'd', after, set)), field('Height', numberInput(set.room, 'h', after, set)))));
-  const colour = (k, label) => h('label', {}, h('input', { type: 'color', value: /^#[0-9a-f]{6}$/i.test(set.palette[k] || '') ? set.palette[k] : '#222222', oninput: (e) => { set.palette[k] = e.target.value; touch(set); refresh(); } }), label);
-  box.append(h('div', { class: 'group' }, h('h4', {}, 'Colours'), h('div', { class: 'swatches' }, [['floor', 'Floor'], ['wall', 'Walls'], ['trim', 'Trim'], ['accent', 'Light strips'], ['desk', 'Desk'], ['deskTop', 'Desk top'], ['chair', 'Chairs'], ['line', 'Floor line']].map(([k, l]) => colour(k, l)))));
-  box.append(h('div', { class: 'group' }, h('h4', {}, 'Lamps'), h('p', { class: 'hint' }, 'Up to six. Across, up, back, then brightness.'), (set.lamps || []).map((l, i) => h('div', { class: 'two', style: 'grid-template-columns:1fr 1fr 1fr 1fr 22px' },
-    ...[0, 1, 2].map((n) => numberInput(l.p, n, after, set)), numberInput(l, 'k', after, set), h('button', { onclick: () => { set.lamps.splice(i, 1); touch(set); renderSetInspector(); after(); } }, '✕'))),
-    h('button', { onclick: () => { (set.lamps = set.lamps || []).push({ p: [0, (set.room.h || 4) - 0.5, (set.room.d || 8) / 2], k: 1 }); touch(set); renderSetInspector(); after(); } }, '+ Lamp')));
+  const bcs = h('input', { type: 'text', value: (set.broadcasts || []).join(', '), placeholder: 'bc_the_calm_eye', oninput: (e) => { set.broadcasts = e.target.value.split(',').map((s) => s.trim()).filter(Boolean); if (!set.broadcasts.length) delete set.broadcasts; touch(set); } });
+  const room = h('div', { class: 'group' }, h('h4', {}, 'Room'), field('Name', textInput(set, 'name', renderRail, set)));
+  if (!set.template) room.append(field('Made for these broadcasts (ids; beats the room and the kind)', bcs), field('Stage for (a text show of these kinds plays here; default is the rest)', uses), field('The room it is (a zone id)', textInput(set, 'zone', null, set)));
+  if (skin) room.append(h('p', { class: 'hint' }, `${view.room?.w} × ${view.room?.d} × ${view.room?.h} m, from ${set.base}.`));
+  else { set.room ||= {}; room.append(h('div', { class: 'two' }, field('Width', numberInput(set.room, 'w', after, set)), field('Depth', numberInput(set.room, 'd', after, set)), field('Height', numberInput(set.room, 'h', after, set)))); }
+  box.append(room);
+  set.palette ||= {};
+  const colour = (k, label) => h('label', {}, h('input', { type: 'color', value: /^#[0-9a-f]{6}$/i.test(view.palette?.[k] || '') ? view.palette[k] : '#222222', oninput: (e) => { set.palette[k] = e.target.value; touch(set); refresh(); } }), label);
+  box.append(h('div', { class: 'group' }, h('h4', {}, 'Colours'), h('div', { class: 'swatches' }, [['floor', 'Floor'], ['wall', 'Walls'], ['trim', 'Trim'], ['accent', 'Light strips'], ['desk', 'Desk'], ['deskTop', 'Desk top'], ['chair', 'Chairs'], ['sofa', 'Sofa'], ['door', 'Door'], ['outside', 'Outside the window'], ['line', 'Floor line']].map(([k, l]) => colour(k, l)))));
+  const lamps = h('div', { class: 'group' }, h('h4', {}, 'Lamps'));
+  if (skin && !set.lamps) lamps.append(h('p', { class: 'hint' }, `Lit as ${set.base} is.`), h('button', { onclick: () => { set.lamps = structuredClone(view.lamps || []); redo(); } }, 'Light it differently'));
+  else lamps.append(h('p', { class: 'hint' }, 'Up to six. Across, up, back, then brightness.'), ...(set.lamps || []).map((l, i) => h('div', { class: 'two', style: 'grid-template-columns:1fr 1fr 1fr 1fr 22px' },
+    ...[0, 1, 2].map((n) => numberInput(l.p, n, after, set)), numberInput(l, 'k', after, set), h('button', { onclick: () => { set.lamps.splice(i, 1); redo(); } }, '✕'))),
+  h('button', { onclick: () => { (set.lamps = set.lamps || []).push({ p: [0, (view.room?.h || 4) - 0.5, (view.room?.d || 8) / 2], k: 1 }); redo(); } }, '+ Lamp'));
+  box.append(lamps);
 }
 
 // ── Files ──────────────────────────────────────────────────────────────────────────────────────
@@ -593,11 +669,12 @@ async function save() {
   }
   status();
 }
-// A show takes its sequences and their sets with it, so the file stands on its own.
+// A show takes its sequences and their sets with it, and a skin its template, so the file stands on its own.
+function withBase(docs, set) { for (let s = set, n = 0; s && n < 4; s = S.docs.get(s.base), n++) docs.set(s.id, s); }
 function bundle() {
-  const docs = new Map(), addSeq = (id) => { const q = S.docs.get(id); if (!q) return; docs.set(q.id, q); const st = S.docs.get(q.set); if (st) docs.set(st.id, st); };
+  const docs = new Map(), addSeq = (id) => { const q = S.docs.get(id); if (!q) return; docs.set(q.id, q); withBase(docs, S.docs.get(q.set)); };
   if (S.tab === 'show' && showNow()) { const s = showNow(); docs.set(s.id, s); for (const x of s.slots || []) addSeq(x.sequence); return { name: s.id, docs }; }
-  if (S.tab === 'set' && setNow()) { docs.set(setNow().id, setNow()); return { name: setNow().id, docs }; }
+  if (S.tab === 'set' && setNow()) { withBase(docs, rawSet()); return { name: rawSet().id, docs }; }
   if (seqNow()) { addSeq(seqNow().id); return { name: seqNow().id, docs }; }
   return null;
 }

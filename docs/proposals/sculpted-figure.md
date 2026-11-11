@@ -1,8 +1,8 @@
 # The sculpted figure
 
-**Status: stage 5 of 6, in review.** The revised close-up figure exists behind a `sculpt` switch that only the Figure Lab turns on. Nobody in the game wears it yet. Stage 6 waits for approval of John Akerson.
+**Status: on in the rooms since 2026-11-09; the street's body types are still off.** The revised close-up figure is behind a `sculpt` switch. The Room Stage passes it for everybody (room-stage.js), as the Figure Lab and the Broadcast Studio do. `ACTOR_BODIES.on` is still false.
 
-To see it, open `/figure-lab.html` in the Modelshop, put `npc_john_akerson` in `id`, press Tab so the Lab reads his file, and tick `before / after`. Restart the Modelshop first if it was running before the `/api/npc-figure` route went in. For the weights, tick `sculpted` and `weight` and move the slider.
+To see it, open `/figure-lab.html` in the Modelshop: it opens on the Room renderer with `figure: sculpted`. Pick John Akerson from `who` (every NPC with a settled look is listed) and click `before / after`, or open `/figure-lab.html?fig=both&npc=npc_john_akerson`. Restart the Modelshop first if it was running before the `/api/npc-figures` route went in. For the weights, tick `weight` under Body and move the slider.
 
 ## Why
 
@@ -35,7 +35,7 @@ An art brief (2026-11-06) asked for people who look like a graphic-novel drawing
 
 ## Stage 6
 
-Turning it on means passing `sculpt: true` from `figurePeople`'s callers and setting `ACTOR_BODIES.on`. Before that: a full regress.
+Turning it on means passing `sculpt: true` from `figurePeople`'s callers, which the Room Stage now does, and setting `ACTOR_BODIES.on`, which is still to do: `scripts/shapes/figure.mjs` asserts it's off and needs changing with it. The street's bodies already come from the sculpted figure (`ACTOR_BAKE.hd`, below).
 
 ## Eyes and skin
 
@@ -67,7 +67,9 @@ Age still draws its lines on top. `uFaceV.w` is the switch, so every one of thes
 
 An NPC's `flags.figure` (docs/flags-keys.md) settles their look in content: it beats every roll, and whatever it leaves out still rolls. The room sends it with the NPC, and nothing but the sculpted figure reads it. A build, cut or head it names that doesn't exist fails the `figure` gate.
 
-John's comes from the Tonight Show title card (`content/media_graphics/tonight_show_logo.json`): chestnut swept hair, blue eyes, stubble, the grin, tan skin and the black suit with blue piping. He keeps the base body, because his look gives no `weight`.
+John's comes from the Tonight Show title card (`content/media_graphics/tonight_show_logo.json`; the face is the poster JPEG inside it): dark brown hair in a regular short cut (`hair_style: 1`) with the front stood up in points (`spikes: 0.8`), blue eyes, stubble, a slight smile (`smile: 0.35`, `mouth: 0.9`), orange-tan skin and the black suit with blue piping over a black shirt and tie. He's meant to be handsome, not a caricature of the card: the first version's full grin, wide jaw and big square chin were too much. He takes `sculptChin` (`head: 4`), the plain sculpted head with a firmer jaw and a broad, rounded chin, at `weight: 0.5`. `chinFlat` squares the face's cross-section a little below the mouth.
+
+`spikes` (0 to 1) stands up the front row of locks, the one from the parting, in short points over the forehead, so a neat cut can have a spiky front. It fades out toward the temples, where the points would fan out like a crown. It's part of the mesh's key, and at 0 the hair is built as before. Nobody rolls head 4; the rolls stop at 3. His hat, scarf and bottoms are `false`, so no roll can put anything over the suit. The card's eyes are narrowed by the grin and his aren't: a settled `smile` moves only the mouth.
 
 Two things exist for him and anyone like him. The `suit` cut is a jacket over a shirt, with the lapels, tie and button painted; nobody rolls it. `smile` paints a grin over the mouth and redraws the lines round it, and because the atlas's lines don't move with it, they go. It's a look, not an expression, so he grins whatever he's doing.
 
@@ -120,6 +122,19 @@ Nobody in the sample got heavier at the close-up level, and 3 of the 80 did on a
 A street body comes off the street token, like the rest of the outfit, never off the NPC: their real build or sex would be a tracker readable from a street away. So somebody's street body needn't match the one they have in a room. Facial hair isn't on the street, whose heads are the old ones.
 
 `ACTOR_BODIES.on` is false, so the live street doesn't change until the sculpted figure goes on with it.
+
+### The street cut down from `hd` (built, on)
+
+`crowd` and `far` are sampled coarsely, so none of the sculpting reaches the street. With `ACTOR_BAKE.hd` on (actor3d.js, on since 2026-11-08, ahead of the rooms), the street's bodies come from the sculpted `hd` figure instead, cut down to the same budgets (3,600 triangles near, 430 far) by [mesh-simplify.js](../../client/game/js/panels/mesh-simplify.js), and baked into the same pose textures. The simplifier collapses each edge onto one of its own ends rather than onto a new point, so every vertex left is one of the figure's. The bone weights, the material and the four body-type offsets come across by index, and the offsets are measured on the `hd` figure, where every weight has the same points.
+
+- **Four silhouettes, not one coat.** Coat, jacket, tee and long (a trench) each get their own near and far bake, and `actorSilhouette` picks one from a person's cut by its hem and sleeve: to the ankle is long, to the thigh or knee is the coat, and to the waist is the jacket with sleeves or the tee with bare arms. That's 37 MB of pose textures against about 9 MB now.
+- **The head stays the street's.** The figure's head, neck, hair and eyes are left out (`HD_DROP`), and actor-head.js's head rides the bones as before. Every silhouette's near body stands on the first one's ground, so the one set of head bones fits them all.
+- **It bakes in a worker.** Building the figure and cutting it down is about 5 seconds for all four, and one figure is a single block too long to slice, so in a browser it goes to [actor-bake-worker.js](../../client/game/js/panels/actor-bake-worker.js) and the street draws the billboard until it's back. Node, the gate and the Modelshop bake it in place.
+- **The far bodies** are crumpled when blown up, because 21,000 triangles is a long way down to 430, but at the few pixels they're drawn at they read as cleanly as the coarse ones.
+
+`scripts/shapes/actors-hd.mjs` gates it: every silhouette on budget, finite, on the one ground, its body types moving it, and every street cut landing on a silhouette. To compare with the coarse coat, set `ACTOR_BAKE.hd = false` and call `actorBakeReset()`; gl/actors.js uploads the new bake on its next frame. The body types still wait on `ACTOR_BODIES.on`.
+
+A room's own bake (`actorBake({ head: true })`, which gl/room-people.js and the stadium's fans take) builds the coat from the `hd` figure on the main thread when the Room Stage first opens: about a second where the coarse body took a few hundred milliseconds.
 
 ## Deadball
 

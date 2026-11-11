@@ -12,6 +12,13 @@
     "is_building": true,
     "is_interior": true,
     "open_all_hours": true,
+    "room": {
+      "w": 12,
+      "d": 9,
+      "h": 3.4,
+      "studio": false,
+      "balcony": false
+    },
     "ticketed": "zone_hughson_platinum_box",
     "world_exit_zone": "zone_ballpark_896_920"
   },

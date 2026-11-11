@@ -73,6 +73,30 @@
 .sq-ticker span { display: inline-block; animation: sq-crawl 22s linear infinite; }
 @keyframes sq-crawl { from { transform: translateX(100cqw); } to { transform: translateX(-100%); } }
 
+/* news: the headline strap, the story card over the shoulder, the network's bug */
+.sq-strap { left: 4cqw; right: 4cqw; bottom: 6cqw; display: flex; align-items: stretch; transform: translateY(2cqw); border: 0.14cqw solid var(--sq-ink); }
+.sq-strap em { font: 800 1.9cqw/1 'K7 Shoulders', Impact, sans-serif; font-style: normal; text-transform: uppercase; letter-spacing: 0.08em; background: var(--sq-accent); color: #fff; padding: 0 1.6cqw; display: flex; align-items: center; }
+.sq-strap > div { flex: 1; min-width: 0; background: rgba(248, 248, 250, 0.96); color: var(--sq-ink); padding: 0.7cqw 1.6cqw; display: flex; flex-direction: column; gap: 0.2cqw; border-top: 0.4cqw solid var(--sq-accent); }
+.sq-strap b { font-size: 3cqw; text-transform: uppercase; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.sq-strap i { font-size: 1.2cqw; letter-spacing: 0.12em; text-transform: uppercase; color: #4a5260; }
+
+.sq-story { top: 7cqw; width: 34cqw; transform: scale(0.94); background: var(--sq-panel); border: 0.24cqw solid var(--sq-ink); outline: 0.14cqw solid var(--sq-accent); }
+.sq-story.left { left: 5cqw; }
+.sq-story.right { right: 5cqw; }
+.sq-story em { position: absolute; top: -1.4cqw; left: 1.2cqw; font: 800 1.4cqw/1 'K7 Shoulders', Impact, sans-serif; font-style: normal; text-transform: uppercase; letter-spacing: 0.1em; background: var(--sq-accent); color: #fff; padding: 0.4cqw 0.9cqw; }
+.sq-story-face { aspect-ratio: 16 / 9; display: grid; place-items: center; overflow: hidden;
+  background: repeating-linear-gradient(135deg, rgba(255, 255, 255, 0.05) 0 0.6cqw, transparent 0.6cqw 1.8cqw), radial-gradient(circle at 30% 30%, var(--sq-accent), #07080c 78%); }
+.sq-story-face b { font-size: 6.4cqw; text-transform: uppercase; text-align: center; padding: 0 2cqw; text-shadow: 0 0.3cqw 0 rgba(0, 0, 0, 0.6); }
+.sq-story > i { display: block; padding: 0.7cqw 1.1cqw 0.8cqw; font-size: 1.55cqw; line-height: 1.25; text-transform: uppercase; letter-spacing: 0.04em; border-top: 0.35cqw solid var(--sq-accent); }
+
+.sq-bug { display: flex; flex-direction: column; align-items: flex-start; gap: 0.2cqw; transform: scale(0.9); }
+.sq-bug.top-left { left: 3cqw; top: 3cqw; }
+.sq-bug.top-right { right: 3cqw; top: 3cqw; align-items: flex-end; }
+.sq-bug.bottom-left { left: 3cqw; bottom: 3cqw; }
+.sq-bug.bottom-right { right: 3cqw; bottom: 3cqw; align-items: flex-end; }
+.sq-bug b { font-size: 2.1cqw; text-transform: uppercase; background: var(--sq-panel); border-left: 0.5cqw solid var(--sq-accent); padding: 0.4cqw 1cqw; opacity: 0.92; }
+.sq-bug i { font: 800 1.05cqw/1 'K7 Shoulders', Impact, sans-serif; letter-spacing: 0.16em; text-transform: uppercase; background: var(--sq-accent); padding: 0.3cqw 0.7cqw; }
+
 @media (prefers-reduced-motion: reduce) {
   .sq-g { transition: opacity 0.2s; transform: none; }
   .sq-ticker span { animation: none; }

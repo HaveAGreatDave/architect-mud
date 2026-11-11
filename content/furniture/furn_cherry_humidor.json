@@ -1,0 +1,41 @@
+{
+  "description": "A glass-fronted humidor on the wall by the bar, its cedar shelves stacked with cherry cigarillos in red paper. The hygrometer in the corner has said 70 for years and nobody believes it. A card slot by the latch.",
+  "flags": {
+    "aliases": [
+      "humidor",
+      "cigarillos",
+      "cigarillo",
+      "cigar case"
+    ],
+    "interactions": [
+      "lean"
+    ],
+    "look": {
+      "arche": "cabinet",
+      "dims": [
+        0.7,
+        0.42,
+        1.45
+      ],
+      "form": "humidor"
+    },
+    "spot": {
+      "along": 8,
+      "wall": "left"
+    },
+    "vend_cooldown_s": 5,
+    "vend_line": "The slot takes your card and the latch clicks. You take a cigarillo off the stack, and the red paper smells of cherry and something cheaper underneath.",
+    "vend_price": 14,
+    "vends": "item_cherry_cigarillo"
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_cherry_humidor",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "cigarillo humidor",
+  "object_type": "fixture",
+  "power_draw_kw": 0.05,
+  "price": 0,
+  "zone_id": "zone_mq_cherry_floor"
+}

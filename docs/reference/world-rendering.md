@@ -267,6 +267,30 @@ upright so they stay legible at any attitude. Those keep their `fillText`. The t
 belong to a **surface in the world** (→ `drawSurfaceText`) or to the **instrument panel over the
 world** (→ screen-space `fillText`)?
 
+### Hologram adverts (as built)
+
+Holo panes on buildings run adverts, day and night: a 16:9 screen hung off a facade a storey or two
+up (`drawHoloScreen`) and the slab on a roof (`drawHoloAd`). `RENDER_TUNE.holoAds` 0 puts back the
+blank rooftop slabs, at night only.
+
+- **Which buildings.** The region says: `regions.holo_ads` is `{ districts: { id: share }, roof,
+  no_types, east }`, and `holoAdsFor` in `plugins/flight/state.js` rolls each building off a hash of its
+  tile. The cell carries `ha` (the wall, always one with a street in front of it) and `hr` (a roof
+  slab). A district the plan leaves out gets none, and so does any column past `east`. Coldwater's
+  plan names Halcyon Fields, the Glasshouse and the Filaments and stops at column 902, so the
+  screens are in the high-tech west and nowhere else. Also, `flags.no_holo_ad` opts one tile out. A region with no plan has no holograms. The renderer also declines a host in `NO_AD_TRADE`.
+- **What they show.** `client/shared/holo-ads.js` picks a spot from the screen's seed and the clock,
+  so every client sees the same advert and nothing is sent for it. A spot is three cards held 3.2 s
+  each. Authored spots are `media_graphics` rows of type `holo_ad`; edit one, then run
+  `npm run holoads:bake`, which writes `client/shared/holo-ad-spots.js` (the gate fails a stale
+  bake). Shop spots are made from the named buildings within 12 tiles that put their name up: the
+  name, the trade word, and the walk there ("3 NORTH 2 EAST").
+- **How they're drawn.** A card is a 320×180 canvas baked once per spot and card, laid on the pane
+  with `emitSurfaceText`, so it's one texture however many screens show it. Never repaint a card
+  per frame: that's a texture upload per screen per frame. Past `holoCardFar` (9 tiles) the pane is
+  the spot's colour only.
+- **Power.** A hologram has no unlit state. With the building's power out it draws nothing.
+
 ### Palettes
 `WALL_COL` maps palette keys → base RGB. Named-building keys are prefixed `ty_` (`ty_lux`,
 `ty_atc`, `ty_halcyon`, `ty_office`, `ty_door`, …). `wallTex(key,night)` bakes a windowed wall
@@ -868,7 +892,7 @@ the birds.
   wrapped key, sky over warm ground, fake occlusion, a rim off the camera and a little sheen on
   skin, tuned to average the old brightness so the LOD switch doesn't pop. The pattern's seed is the
   outfit colour, so it adds nothing a watcher could track. `ACTOR_LOOK.on = 0` brings back the flat
-  shading; `tools/modelshop/actor-lab.html` compares the two.
+  shading; the Figure Lab's Street renderer (`tools/modelshop/crowd-lab.js`) compares the two.
 - **Materials.** Coat, trousers and shoes each have a material as well as a colour: cloth, satin,
   leather, vinyl or metal (`ACTOR_MATERIAL`), picked by weight from `ACTOR_MATERIALS` off the
   token like the colours, with most of the street in cloth. `gl/actors.js` packs the three codes
@@ -876,7 +900,7 @@ the birds.
   bright horizon, the key as a soft box, and at night a band of city light), with a bump for the
   weave that fades out before it's smaller than a pixel. Metal takes its colour from the
   reflection and has almost no diffuse, which is what makes a gold coat read as gold rather than
-  yellow. `ACTOR_LOOK.mat = 0` lights everything as cloth. The Actor Lab's `gala` shot is the A/B.
+  yellow. `ACTOR_LOOK.mat = 0` lights everything as cloth. The Figure Lab's Street `gala` shot is the A/B.
 - **The hips cover the thighs.** The coat's hip stations are wider than the tops of the thighs.
   At 0.175 m the thighs poked through the coat's front corners and read as trouser-coloured
   patches, like pockets.
@@ -936,8 +960,8 @@ everybody alone does more than one thing and somebody strolls with feet that kee
 leaves the pair sets off from their spot in the ring, on a road three tiles wide everybody
 stands on its outer pavement, and on a Curtain tile nobody stands, strolls or walks past the wall,
 with street life on or off. The pixels are checked in the Modelshop with `__glActors()`, which
-renders the street with the mesh on and off, from the cab or the standing camera; the Actor Lab
-plays each clip.
+renders the street with the mesh on and off, from the cab or the standing camera; the Figure Lab's
+Street renderer plays each clip.
 
 ## Street furniture — pavement, crossings, lamps, signals (as built)
 

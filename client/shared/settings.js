@@ -6,7 +6,7 @@ export const DEFAULT_AUDIO_SETTINGS = { enabled: true, music: true, sfx: true, t
 // default look of the product; keep it in step with the inline boot script in
 // client/game/index.html, which sets the same value before any module loads so the
 // first paint isn't a different colour from the second.
-const DEFAULT_SETTINGS = { theme: 'iron', fontSize: '16', density: 'comfortable', sidebarPosition: 'left', motion: 'on', weatherFx: 'on', tempUnit: 'C', contrast: 0, dpadSize: 'small', pokerFelt: 'green', pokerFeltColor: '#1a4a1a', extraLore: 'off', mapOverlay: 'labels', mapColor: 'off', minimapRender: 'smooth', celShade: 'comic', comicDefault: 1, glass: '2', uiFont: 'mono', statusGlyphs: 'off', monoAudio: 'off', uiSound: 'on', dictation: 'off', logVoice: 'off', logVoiceRate: '1', playByPlay: 'on', ballGlow: 'on', standsBooth: 'off', boxAnnouncer: 'on', audio: DEFAULT_AUDIO_SETTINGS };
+const DEFAULT_SETTINGS = { theme: 'iron', fontSize: '16', density: 'comfortable', sidebarPosition: 'left', motion: 'on', weatherFx: 'on', tempUnit: 'C', contrast: 0, dpadSize: 'small', pokerFelt: 'green', pokerFeltColor: '#1a4a1a', extraLore: 'off', mapOverlay: 'labels', mapColor: 'off', minimapRender: 'smooth', celShade: 'comic', comicDefault: 1, glass: 'auto', uiFont: 'mono', statusGlyphs: 'off', monoAudio: 'off', uiSound: 'on', dictation: 'off', logVoice: 'off', logVoiceRate: '1', playByPlay: 'on', ballGlow: 'on', standsBooth: 'off', boxAnnouncer: 'on', audio: DEFAULT_AUDIO_SETTINGS };
 
 // ── The accessibility surface, declared once ─────────────────────────────────
 //
@@ -383,6 +383,11 @@ export function loadSettings() {
     // goes into the next save, so turning it off afterwards sticks. 'on' was always a choice.
     if (stored.comicDefault == null && merged.celShade === 'off') merged.celShade = 'comic';
     merged.comicDefault = 1;
+    // The Renderer setting's values changed with GLASS Lite (2026-11-09). Every save holds '2', the
+    // old default, which wasn't a choice, so it reads as 'auto'; '1' (GLASS 1, no longer offered) as
+    // 'lite', the lighter renderer that player asked for.
+    if (merged.glass === '2') merged.glass = 'auto';
+    else if (merged.glass === '1') merged.glass = 'lite';
     return merged;
   } catch {
     return { ...DEFAULT_SETTINGS, audio: { ...DEFAULT_AUDIO_SETTINGS } };
@@ -625,10 +630,10 @@ export function applySettings(settings) {
   // style, gl/house-style.js). Comic by default. Same hook pattern.
   window._applyCelShade?.(['on', 'comic'].includes(settings.celShade) ? settings.celShade : 'off');
 
-  // Which renderer draws the 3-D views: GLASS 2 (the GPU, the default) or GLASS 1 (the 2-D
-  // painter). A real setting for the same reason Minimap is: GLASS 1 is the fallback for a
-  // machine GLASS 2 is too much for. Same hook pattern.
-  window._applyGlass?.((settings.glass || '2') !== '1');
+  // Which renderer draws the 3-D views: 'auto' (GLASS Lite on a phone, GLASS 2 elsewhere), 'full'
+  // (GLASS 2) or 'lite' (GLASS Lite). Stored values from before Lite: '2' reads as 'auto', '1' (GLASS
+  // 1, the 2-D painter, no longer offered) as 'lite'. Same hook pattern.
+  window._applyGlass?.(settings.glass || 'auto');
 
   const audio = settings.audio || DEFAULT_AUDIO_SETTINGS;
   window.AudioEngine?.applyVolumeSettings(audio);

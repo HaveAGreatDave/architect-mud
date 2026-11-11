@@ -11,11 +11,12 @@ import { on, emit } from '../../server/engine/events.js';
 import { registerDamageObserver } from '../../server/engine/damage-events.js';
 import { getFlag, setFlag } from '../../server/engine/flags.js';
 import { propagateAudio, getWeatherLeakGain, getWeatherLeakSource, setRoomSpaceResolver } from '../../server/engine/sounds.js';
-import { getZonePrecip, getWindKph, getZoneWindKph, getZonePowerStatus, activeWeatherEvent, isIndoorZone } from '../../server/engine/environment.js';
+import { getZonePrecip, getWindKph, getZoneWindKph, getZonePowerStatus, activeWeatherEvent, isIndoorZone, getGameHour } from '../../server/engine/environment.js';
 // The game's one step clock. Borrowed, never re-derived — a cadence of our own
 // would drift the moment movement speed is tuned, and the symptom would be feet
 // that no longer match the walk. `plugins/pinch` borrows it for the same reason.
 import { stepCadenceMs } from '../pacing/index.js';
+import { WEATHER_BEDS, CITY_BEDS, CITY_THEMES, cityGainFor } from './soundscape.js';
 
 // ── In-memory library cache (loaded from DB at boot, refreshed after CRUD) ──
 
@@ -1264,64 +1265,55 @@ const WEATHER_AMBIENT_EVENTS = {
   wind:         'weather.ambient.wind',
 };
 
-// Synthesized fallbacks — filtered noise beds. Overridden by any matching
-// event route with an ambient_id. Keyed by normalized ambience kind.
-const WEATHER_AMBIENT_FALLBACK = {
-  rain: { id: 'wx_amb_rain', name: 'wx_amb_rain', category: 'ambient', priority: 2, config: { gain: 0.5, layers: [
-    { waveform: 'noise', noiseMix: 1, filter: { type: 'lowpass',  freq: 4200, q: 0.6 }, adsr: { a: 1.5, d: 0, s: 1,   r: 1.5 }, gain: 0.55 },
-    { waveform: 'noise', noiseMix: 1, filter: { type: 'highpass', freq: 600,  q: 0.5 }, adsr: { a: 1.5, d: 0, s: 0.5, r: 1.5 }, gain: 0.18 },
-  ] } },
-  sleet: { id: 'wx_amb_sleet', name: 'wx_amb_sleet', category: 'ambient', priority: 2, config: { gain: 0.5, layers: [
-    { waveform: 'noise', noiseMix: 1, filter: { type: 'bandpass', freq: 5200, q: 0.8 }, adsr: { a: 1, d: 0, s: 1,   r: 1 }, gain: 0.5 },
-    { waveform: 'noise', noiseMix: 1, filter: { type: 'highpass', freq: 3000, q: 0.6 }, adsr: { a: 1, d: 0, s: 0.6, r: 1 }, gain: 0.22 },
-  ] } },
-  snow: { id: 'wx_amb_snow', name: 'wx_amb_snow', category: 'ambient', priority: 2, config: { gain: 0.3, layers: [
-    { waveform: 'noise', noiseMix: 1, filter: { type: 'lowpass', freq: 1200, q: 0.5 }, adsr: { a: 2, d: 0, s: 1, r: 2 }, gain: 0.3 },
-  ] } },
-  blizzard: { id: 'wx_amb_blizzard', name: 'wx_amb_blizzard', category: 'ambient', priority: 2, config: { gain: 0.6, layers: [
-    { waveform: 'noise', noiseMix: 1, filter: { type: 'lowpass',  freq: 1800, q: 0.8 }, adsr: { a: 2, d: 0, s: 1,   r: 2 }, gain: 0.6 },
-    { waveform: 'noise', noiseMix: 1, filter: { type: 'bandpass', freq: 750,  q: 1.5 }, adsr: { a: 2, d: 0, s: 0.7, r: 2 }, gain: 0.3 },
-  ] } },
-  // Gusting wind: band-limited noise with a slow tremolo swell for the howl.
-  wind: { id: 'wx_amb_wind', name: 'wx_amb_wind', category: 'ambient', priority: 2, config: { gain: 0.5, layers: [
-    { waveform: 'noise', noiseMix: 1, filter: { type: 'bandpass', freq: 500,  q: 1.2 }, tremolo: { rate: 0.25, depth: 0.5 }, adsr: { a: 2.5, d: 0, s: 1,   r: 2.5 }, gain: 0.5 },
-    { waveform: 'noise', noiseMix: 1, filter: { type: 'lowpass',  freq: 1500, q: 0.4 }, adsr: { a: 2.5, d: 0, s: 0.5, r: 2.5 }, gain: 0.2 },
-  ] } },
-};
+// The built-in beds, keyed by normalized ambience kind: soundscape.js, a recording each with SIREN
+// layers and one-shots over it. Overridden by any matching event route with an ambient_id.
+const WEATHER_AMBIENT_FALLBACK = WEATHER_BEDS;
+// A shower turns into a downpour at HEAVY_ON and back under HEAVY_OFF, so a rate sitting on the line
+// doesn't swap beds every tick.
+const HEAVY_ON = 0.55, HEAVY_OFF = 0.4;
 
-// Collapse the precip taxonomy onto the ambience beds.
-function weatherAmbientKind(kind) {
-  if (kind === 'thunderstorm' || kind === 'drizzle' || kind === 'acid') return 'rain';
-  if (kind === 'storm') return 'blizzard';
+// Collapse the precip taxonomy onto the ambience beds. `rate` is the tile's precipRate and `prevId`
+// the bed it's playing now (for the shower/downpour hysteresis).
+function weatherAmbientKind(kind, rate = 0, prevId = null) {
+  if (kind === 'thunderstorm') return 'rain_heavy';
+  if (kind === 'drizzle' || kind === 'acid') return 'rain';
+  if (kind === 'rain') {
+    const heavy = prevId === WEATHER_AMBIENT_FALLBACK.rain_heavy.id ? rate > HEAVY_OFF : rate >= HEAVY_ON;
+    return heavy ? 'rain_heavy' : 'rain';
+  }
   return kind;
 }
 
 // Resolve the ambient def for an ambience kind ('rain'|'sleet'|'snow'|'blizzard'
 // |'wind' or any precip taxonomy value): event-route override if present, else
 // the synthesized fallback. Returns null for 'none'/unknown.
-function weatherAmbientDef(kind) {
+function weatherAmbientDef(kind, rate = 0, prevId = null) {
   if (!kind || kind === 'none') return null;
   const routes = eventRoutes.get(WEATHER_AMBIENT_EVENTS[kind]);
   const routed = routes?.find(r => r.ambient_id);
   if (routed) { const d = ambient.get(routed.ambient_id); if (d) return d; }
-  return WEATHER_AMBIENT_FALLBACK[weatherAmbientKind(kind)] || null;
+  return WEATHER_AMBIENT_FALLBACK[weatherAmbientKind(kind, rate, prevId)] || null;
 }
 
 // Every ambient id we might have started, so a player-scoped reset can stop
 // whichever beds are playing without touching non-weather ambience.
 function knownWeatherAmbientIds() {
   const ids = new Set();
-  for (const t of ['rain', 'sleet', 'snow', 'blizzard', 'wind']) {
+  for (const t of ['rain', 'thunderstorm', 'sleet', 'snow', 'blizzard', 'storm', 'wind']) {
     const d = weatherAmbientDef(t);
     if (d?.id) ids.add(d.id);
   }
+  if (!eventRoutes.get(WEATHER_AMBIENT_EVENTS.rain)?.some((r) => r.ambient_id)) ids.add(WEATHER_AMBIENT_FALLBACK.rain_heavy.id);
+  for (const d of Object.values(CITY_BEDS)) ids.add(d.id);
   return ids;
 }
 
 // Master cut so weather ambience sits under gameplay sound rather than
 // competing with it; indoor zones are muffled by getWeatherLeakGain (room
 // depth + closed doors) instead of a flat mult.
-const WEATHER_GAIN = 0.6;
+// ⚠ It was 0.6 on a def gain of 0.5, under the ambient slider and the master: rain came out near
+// -50 dBFS and nobody heard it. The beds are levelled in soundscape.js now; this is the trim.
+const WEATHER_GAIN = 1;
 const MUFFLE_GAIN_MULT = 0.5; // per-hop cut for an outdoor tile hearing a neighboring storm cell's rain, not its own — 1 tile away = 0.5, 2 tiles = 0.25, so it spreads out
 
 // This used to be a hand-copied version of the engine's rule, kept local because
@@ -1336,21 +1328,31 @@ function indoorZoneId(zoneId) {
 }
 
 // Intensity → loop gain fraction (multiplies the def's base gain client-side).
-function precipGainFor(rate) { return WEATHER_GAIN * Math.max(0.3,  Math.min(1, 0.35 + (rate || 0) * 0.75)); }
+function precipGainFor(rate) { return WEATHER_GAIN * Math.max(0.45, Math.min(1, 0.5 + (rate || 0) * 0.6)); }
 function windGainFor(kph)    { return WEATHER_GAIN * Math.max(0.35, Math.min(1, (kph - WIND_MIN_KPH) / 45 + 0.4)); }
 function gainBucket(g)       { return Math.round(g * 100) / 100; } // avoid re-sending sub-0.01 gain nudges
 
+// The city bed for the street a zone hears outdoors (its own tile, or the one its weather leaks in
+// from), wet when it's raining there, quieter at night. null off the city's streets.
+const CITY_GAIN = 0.85;
+function cityBedFor(outdoorZoneId, wet) {
+  const z = outdoorZoneId ? getZone(outdoorZoneId) : null;
+  if (!z || !CITY_THEMES.has(z.ambient_theme)) return null;
+  return { def: wet ? CITY_BEDS.city_wet : CITY_BEDS.city, gain: CITY_GAIN * cityGainFor(getGameHour()) };
+}
+
 // The beds a given tile should be running, as { def, gain } per slot (or null).
-function desiredBedsFor({ precipType, active, precipRate, windKph }) {
-  const precipDef = active ? weatherAmbientDef(precipType) : null;
+function desiredBedsFor({ zoneId, precipType, active, precipRate, windKph }, prevPrecipId = null, cityZoneId = zoneId) {
+  const precipDef = active ? weatherAmbientDef(precipType, precipRate, prevPrecipId) : null;
   const windDef   = (windKph >= WIND_MIN_KPH) ? weatherAmbientDef('wind') : null;
   return {
     precip: precipDef ? { def: precipDef, gain: precipGainFor(precipRate) } : null,
     wind:   windDef   ? { def: windDef,   gain: windGainFor(windKph) }     : null,
+    city:   cityBedFor(cityZoneId, active && precipRate > 0.15),
   };
 }
 
-const zoneBeds = new Map(); // outdoor zoneId -> { precip: {id,gain}|null, wind: {id,gain}|null }
+const zoneBeds = new Map(); // zoneId -> { precip, wind, city: {id,gain}|null }
 
 // Reconcile one slot for a zone: start / stop / ride-gain only on a real change.
 function reconcileZoneSlot(zoneId, trackers, slot, desired) {
@@ -1371,18 +1373,22 @@ function reconcileZoneSlot(zoneId, trackers, slot, desired) {
 
 on('weather.zoneAmbience', (payload) => {
   const zoneId = payload.zoneId;
-  const trackers = zoneBeds.get(zoneId) || { precip: null, wind: null };
-  const desired = desiredBedsFor(payload);
-  if (indoorZoneId(zoneId)) {
+  const trackers = zoneBeds.get(zoneId) || { precip: null, wind: null, city: null };
+  const indoor = indoorZoneId(zoneId);
+  const desired = desiredBedsFor(payload, trackers.precip?.id, indoor ? getWeatherLeakSource(zoneId).outdoorZoneId : zoneId);
+  if (indoor) {
     const leak = getWeatherLeakGain(zoneId);
     if (desired.precip) desired.precip.gain *= leak;
     if (desired.wind)   desired.wind.gain   *= leak;
+    if (desired.city)   desired.city.gain   *= leak;
+    if (desired.city && desired.city.gain < 0.02) desired.city = null;
   } else if (payload.muffled && desired.precip) {
     desired.precip.gain *= Math.pow(MUFFLE_GAIN_MULT, payload.muffleHops || 1);
   }
   reconcileZoneSlot(zoneId, trackers, 'precip', desired.precip);
   reconcileZoneSlot(zoneId, trackers, 'wind',   desired.wind);
-  if (trackers.precip || trackers.wind) zoneBeds.set(zoneId, trackers); else zoneBeds.delete(zoneId);
+  reconcileZoneSlot(zoneId, trackers, 'city',   desired.city);
+  if (trackers.precip || trackers.wind || trackers.city) zoneBeds.set(zoneId, trackers); else zoneBeds.delete(zoneId);
 });
 
 // Sidechain: when a thunderclap fires, briefly duck the weather beds playing in
@@ -1483,7 +1489,7 @@ function reconcilePlayerWeatherAmbient(playerId, zoneId) {
   const desired = [];
   const { precipType, precipRate } = outdoorZoneId ? getZonePrecip(outdoorZoneId) : { precipType: 'none', precipRate: 0 };
   if (precipRate && precipType !== 'none') {
-    const d = weatherAmbientDef(precipType);
+    const d = weatherAmbientDef(precipType, precipRate);
     if (d) desired.push({ def: d, gain: precipGainFor(precipRate) * mult });
   }
   // The wind at the tile the weather leaks in from, so a squall overhead is heard as one.
@@ -1492,6 +1498,9 @@ function reconcilePlayerWeatherAmbient(playerId, zoneId) {
     const d = weatherAmbientDef('wind');
     if (d) desired.push({ def: d, gain: windGainFor(kph) * mult });
   }
+  // the city's streets, heard from where the weather is
+  const city = cityBedFor(outdoorZoneId, precipType !== 'none' && precipRate > 0.15);
+  if (city && city.gain * mult >= 0.02) desired.push({ def: city.def, gain: city.gain * mult });
   const desiredIds = new Set(desired.map(x => x.def.id));
   for (const id of knownWeatherAmbientIds()) {
     if (!desiredIds.has(id)) sendToPlayer(playerId, { type: 'audio_stop', scope: 'ambience', id });

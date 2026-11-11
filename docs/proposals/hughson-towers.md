@@ -5,7 +5,8 @@ tiles were 41 sealed buildings and three new streets. When the park moved two ti
 ([coliseum-five-tiles.md](coliseum-five-tiles.md#two-tiles-west)) four towers went to x 897 and 12 Yarrow
 Lane came down, and when it moved two tiles north ([coliseum-five-tiles.md](coliseum-five-tiles.md#two-tiles-north))
 19 Hughson Way went to 891,920 and 17 Hughson Way and 9 Hughson Court came down for the gates' streets. There
-are 38 now, and none of them has a door yet.
+are 38 now, and none of them has a door yet. 19 Hughson Way went to the holding map on 2026-11-09 for Hughson
+Gardens ([hughson-gardens.md](hughson-gardens.md)), which leaves 37 on the map.
 [scripts/content/hughson-towers.mjs](../../scripts/content/hughson-towers.mjs) wrote the content and
 refuses to run twice.
 
@@ -21,7 +22,7 @@ make the ground part of the skyline.
 ```
         887 888 889 890 891 892 893 894 895 896 897
  y 909  ===== Halcyon Boulevard ==================
- y 910  50  30   Y  36  18   R  6HB 8HB INS LND  r
+ y 910  10  30   Y  36  18   R  6HB 8HB INS LND  r
  y 911  42  24   Y  28  12   R   7   6   8  9HW  r
  y 912   B   B   +   B   B   R  2HW  6   8   7   r
  y 913  38  26   Y  30   a   R  SS   6   6 11HW  r
@@ -40,8 +41,10 @@ and `w` Grandstand Walk. `R` and `r` are Hughson Way, and `a` its short cut to t
 
 ## The heights
 
-- **The ridge is the River Road**, x 887, from 32 to 50 storeys. It joins the towers already on x 887
+- **The ridge is the River Road**, x 887, from 32 to 46 storeys. It joins the towers already on x 887
   and x 888 north of the boulevard, and 1 Halcyon Boulevard at 56 stays the tallest in the group.
+- **1 River Road is ten storeys.** It was the ridge's fifty-storey head, two glass shafts over the
+  left-field corner, until David moved them up the ridge (2026-11-09, below).
 - **Each column falls toward the park.** The towers left on x 891 and the four on x 897 are 8 to 18
   storeys, so the Coliseum isn't walled in from Hughson Way.
 - **Hughson Court stays at 8 storeys or fewer.** The eight courtyard tiles stand between home plate and
@@ -53,7 +56,7 @@ and `w` Grandstand Walk. `R` and `r` are Hughson Way, and `a` its short cut to t
 - **Every id stays.** A tile keeps `zone_ballpark_<x>_<y>` and takes a new role, as in
   [coliseum-five-tiles.md](coliseum-five-tiles.md). Each is an address, so x 887 is the River Road, x 888
   and x 890 Yarrow Lane, x 891 and x 897 the odd side of Hughson Way and the courtyard Hughson Court.
-- **25 of the 38 count as skyline** (14 storeys or more, [skyline-tall.js](../../client/shared/skyline-tall.js)).
+- **24 of the 38 count as skyline** (14 storeys or more, [skyline-tall.js](../../client/shared/skyline-tall.js)).
 - **Ten are bound to an estate silhouette by name** in `NAMED_MODELS`, at new heights. The other 28
   draw by type. A second copy of a silhouette reads as the same architect, and the quarter's palette is
   narrow on purpose ([building-styles.md](../reference/building-styles.md)).
@@ -80,6 +83,28 @@ Kettle Lane, the steamer chairs, one of Nadia Ferreira's idle lines and Lavinia 
 ⚠ **These towers aren't in the broadcast.** The set is composed round the whole lot (`site.set`, 887 to
 897 by 910 to 920), which the true-size park fills, so `composeSet` skips every building on it. The city
 past the wall on TV comes from the rest of the skyline and the quarter's own `towers` filler.
+
+## Halcyon Heights
+
+On 2026-11-09 the two shafts (`hf_skylink`, 50 storeys) left 1 River Road for 887,907, the staked
+meadow north of the boulevard between 1 Halcyon Boulevard and 7 Vetch Mews, where the tall buildings
+already are. The tile is Halcyon Heights, sealed and walled the same way as the towers here, and it
+took the map code Q1. 1 River Road kept its id and address and dropped to ten storeys of
+`cascade_block`, drawn as `hf_sawtooth` by name. [scripts/content/halcyon-heights.mjs](../../scripts/content/halcyon-heights.mjs)
+did it and refuses to run twice.
+
+## 2 Halcyon Boulevard
+
+Also on 2026-11-09, 2 Halcyon Boulevard (`hf_skylink` by name, 45 storeys, `B2`) left 896,922 on Sorrel
+Way for 887,904 on the River Road, north of the boulevard beside 1 Sorrel Way. Its door turned from north
+to west onto the River Road. It keeps its id, rooms, Velia Tarn and its name, though the address isn't on
+the boulevard. It's the same silhouette as Halcyon Heights three tiles south.
+
+Kimble's Souvenirs & Cards took 896,922 beside Fitz's Franks, with its door turned from south to north and
+its stock room moved to the far side. 887,904's meadow tile went to 898,920 as the second tile of Windrow
+Corner, walled from 27 Hughson Way. The connection ids kept their names, so `conn_hf_parkside_894_913_north`
+now runs south and its `_south` twin north. [scripts/content/twin-tower-ridge.mjs](../../scripts/content/twin-tower-ridge.mjs)
+did it and refuses to run twice.
 
 ## After the deploy
 

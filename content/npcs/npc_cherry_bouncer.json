@@ -259,41 +259,46 @@
   "vendor_inventory": [],
   "vendor_restock_rate": 1,
   "vendor_schedule": {
-    "fri": [
-      {
-        "from": 9,
-        "to": 18
-      }
-    ],
     "mon": [
       {
-        "from": 9,
-        "to": 18
+        "from": 19,
+        "to": 27
       }
     ],
-    "sat": [
-      {
-        "from": 9,
-        "to": 18
-      }
-    ],
-    "sun": [
-      {
-        "from": 9,
-        "to": 18
-      }
-    ],
-    "thu": [],
     "tue": [
       {
-        "from": 9,
-        "to": 18
+        "from": 19,
+        "to": 27
       }
     ],
     "wed": [
       {
-        "from": 9,
-        "to": 18
+        "from": 19,
+        "to": 27
+      }
+    ],
+    "thu": [
+      {
+        "from": 19,
+        "to": 27
+      }
+    ],
+    "fri": [
+      {
+        "from": 19,
+        "to": 27
+      }
+    ],
+    "sat": [
+      {
+        "from": 19,
+        "to": 27
+      }
+    ],
+    "sun": [
+      {
+        "from": 19,
+        "to": 27
       }
     ]
   },

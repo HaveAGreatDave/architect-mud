@@ -842,6 +842,12 @@ export function animFacePoints(face, anim) {
     return [P[0] + R[0] * d0 + R[1] * d1 + R[2] * d2, P[1] + R[3] * d0 + R[4] * d1 + R[5] * d2, P[2] + R[6] * d0 + R[7] * d1 + R[8] * d2];
   }));
 }
+// Whether a face's motion rides the landing-gear channel anywhere in its chain: a leg authored to
+// retract itself. The renderer leaves such a leg solid and doesn't apply its generic tuck on top.
+export function ridesGear(a) {
+  for (; a; a = a.then) if (a.ch === 'gear') return true;
+  return false;
+}
 // The channels a mesh moves, with their defaults: what the Modelshop draws a slider for.
 export function meshChannels(params) {
   const out = {};

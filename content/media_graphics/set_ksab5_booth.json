@@ -1,0 +1,10 @@
+{
+  "content": "{\n \"kind\": \"set\",\n \"format\": 1,\n \"id\": \"set_ksab5_booth\",\n \"name\": \"KSAB5 Booth\",\n \"base\": \"tpl_booth\",\n \"zone\": \"zone_ksab5_booth\",\n \"brand\": {\n  \"name\": \"KSAB5\",\n  \"colour\": \"#39a0ff\"\n },\n \"palette\": {\n  \"floor\": \"#0b1320\",\n  \"accent\": \"#39a0ff\"\n },\n \"description\": \"KSAB5's booth, its own room east of the studio: the wall of screens for anything that wants one.\"\n}",
+  "created_at": "1794169645",
+  "description": "KSAB5's booth, its own room east of the studio: the wall of screens for anything that wants one.",
+  "id": "set_ksab5_booth",
+  "name": "KSAB5 Booth",
+  "tags": [],
+  "type": "set",
+  "updated_at": "1794172284"
+}

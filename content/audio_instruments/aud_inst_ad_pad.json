@@ -1,0 +1,54 @@
+{
+  "category": "commercial",
+  "config": {
+    "layers": [
+      {
+        "adsr": {
+          "a": 0.6,
+          "d": 0.5,
+          "r": 1.2,
+          "s": 0.8
+        },
+        "detune": -9,
+        "filter": {
+          "freq": 900,
+          "q": 0.6,
+          "type": "lowpass"
+        },
+        "gain": 0.07,
+        "waveform": "sawtooth"
+      },
+      {
+        "adsr": {
+          "a": 0.7,
+          "d": 0.5,
+          "r": 1.2,
+          "s": 0.8
+        },
+        "detune": 9,
+        "filter": {
+          "freq": 1000,
+          "q": 0.6,
+          "type": "lowpass"
+        },
+        "gain": 0.07,
+        "waveform": "sawtooth"
+      },
+      {
+        "adsr": {
+          "a": 0.5,
+          "d": 0.4,
+          "r": 1,
+          "s": 0.9
+        },
+        "gain": 0.06,
+        "waveform": "triangle"
+      }
+    ]
+  },
+  "enabled": 1,
+  "id": "aud_inst_ad_pad",
+  "name": "Ad: Soft pad",
+  "sample_id": null,
+  "waveform": "sawtooth"
+}

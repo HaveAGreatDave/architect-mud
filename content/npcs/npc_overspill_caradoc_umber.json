@@ -1,0 +1,323 @@
+{
+  "banter": [],
+  "behaviour_graph": {
+    "_start": "start",
+    "nodes": {
+      "day_home": {
+        "action_type": "GO_HOME",
+        "next": "day_wait",
+        "type": "action"
+      },
+      "day_pick": {
+        "branch_0": "day_home",
+        "branch_1": "day_walk",
+        "branches": [
+          {
+            "weight": 3
+          },
+          {
+            "weight": 2
+          }
+        ],
+        "type": "random"
+      },
+      "day_wait": {
+        "jitter": 180,
+        "next": "start",
+        "seconds": 240,
+        "type": "wait"
+      },
+      "day_walk": {
+        "action_type": "PATROL",
+        "next": "day_wait",
+        "params": {
+          "loop": true,
+          "mode": "walk",
+          "waypoints": [
+            "zone_district_921_921",
+            "zone_district_921_920",
+            "zone_district_919_920"
+          ]
+        },
+        "type": "action"
+      },
+      "fire_0": {
+        "action_type": "EMOTE",
+        "next": "fire_wait",
+        "params": {
+          "message": "sells a lighter at the drum and lights the buyer's cigarette with it as proof."
+        },
+        "type": "action"
+      },
+      "fire_1": {
+        "action_type": "EMOTE",
+        "next": "fire_wait",
+        "params": {
+          "message": "keeps one hand on his cash tin."
+        },
+        "type": "action"
+      },
+      "fire_pick": {
+        "branch_0": "fire_0",
+        "branch_1": "fire_1",
+        "branches": [
+          {
+            "weight": 1
+          },
+          {
+            "weight": 1
+          }
+        ],
+        "type": "random"
+      },
+      "fire_wait": {
+        "jitter": 90,
+        "next": "start",
+        "seconds": 150,
+        "type": "wait"
+      },
+      "go_home": {
+        "action_type": "GO_HOME",
+        "next": "sleep",
+        "type": "action"
+      },
+      "is_evening": {
+        "condition_type": "HOUR_RANGE",
+        "ifFalse": "is_work",
+        "ifTrue": "to_fire",
+        "params": {
+          "from": 19,
+          "to": 1
+        },
+        "type": "condition"
+      },
+      "is_late": {
+        "condition_type": "HOUR_RANGE",
+        "ifFalse": "is_evening",
+        "ifTrue": "go_home",
+        "params": {
+          "from": 1,
+          "to": 5
+        },
+        "type": "condition"
+      },
+      "is_work": {
+        "condition_type": "HOUR_RANGE",
+        "ifFalse": "day_pick",
+        "ifTrue": "to_work",
+        "params": {
+          "from": 7,
+          "to": 19
+        },
+        "type": "condition"
+      },
+      "sleep": {
+        "action_type": "AT_HOME_LIFE",
+        "next": "start",
+        "type": "action"
+      },
+      "start": {
+        "next": "is_late",
+        "type": "start"
+      },
+      "to_fire": {
+        "action_type": "GO_TO_WORK",
+        "next": "fire_pick",
+        "params": {
+          "zone_id": "zone_district_922_922"
+        },
+        "type": "action"
+      },
+      "to_work": {
+        "action_type": "GO_TO_WORK",
+        "next": "work_check",
+        "params": {
+          "zone_id": "zone_district_921_921"
+        },
+        "type": "action"
+      },
+      "work_0": {
+        "action_type": "EMOTE",
+        "next": "work_wait",
+        "params": {
+          "message": "licks a battery, winces, and puts it in the good pile."
+        },
+        "type": "action"
+      },
+      "work_1": {
+        "action_type": "EMOTE",
+        "next": "work_wait",
+        "params": {
+          "message": "\"Gas! Tape! Wire! Torches that work!\""
+        },
+        "type": "action"
+      },
+      "work_2": {
+        "action_type": "EMOTE",
+        "next": "work_wait",
+        "params": {
+          "message": "rearranges the trestle so the best stuff is at the front."
+        },
+        "type": "action"
+      },
+      "work_3": {
+        "action_type": "EMOTE",
+        "next": "work_wait",
+        "params": {
+          "message": "counts the canisters twice."
+        },
+        "type": "action"
+      },
+      "work_chat": {
+        "action_type": "VENDOR_CHITCHAT",
+        "next": "work_wait",
+        "type": "action"
+      },
+      "work_check": {
+        "condition_type": "PLAYER_IN_ZONE",
+        "ifFalse": "work_pick",
+        "ifTrue": "work_chat",
+        "type": "condition"
+      },
+      "work_pick": {
+        "branch_0": "work_0",
+        "branch_1": "work_1",
+        "branch_2": "work_2",
+        "branch_3": "work_3",
+        "branches": [
+          {
+            "weight": 1
+          },
+          {
+            "weight": 1
+          },
+          {
+            "weight": 1
+          },
+          {
+            "weight": 1
+          }
+        ],
+        "type": "random"
+      },
+      "work_wait": {
+        "jitter": 60,
+        "next": "start",
+        "seconds": 90,
+        "type": "wait"
+      }
+    }
+  },
+  "chitchat": [
+    "\"Tested. Watch.\" He licks a battery and nods.",
+    "straightens a row of butane canisters so the labels face out."
+  ],
+  "description": "A sharp-faced man in a fingerless-glove-and-flat-cap combination, with a trestle of batteries, tape, wire and gas canisters laid out in rows. He tests every battery on his tongue in front of you.",
+  "dialogue_tree": {},
+  "faction": null,
+  "flags": {
+    "clothing_layers": [
+      "a tweed jacket with the lining torn out",
+      "a waistcoat with no buttons left",
+      "corduroy trousers and a vest"
+    ],
+    "mis_willing": false,
+    "personality": "lowlife"
+  },
+  "home_activities": [
+    "sorts batteries into dead, nearly dead and fine.",
+    "winds loose wire onto a cardboard spool."
+  ],
+  "home_zone": "zone_district_921_922",
+  "hp": 20,
+  "hp_max": 20,
+  "id": "npc_overspill_caradoc_umber",
+  "name": "Caradoc Umber",
+  "npc_type": "npc",
+  "sex": "male",
+  "studio_zone_id": null,
+  "vendor_inventory": [
+    {
+      "item_id": "item_battery",
+      "price": 12
+    },
+    {
+      "item_id": "item_duct_tape",
+      "price": 13
+    },
+    {
+      "item_id": "item_butane_canister",
+      "price": 15
+    },
+    {
+      "item_id": "item_salvaged_wiring",
+      "price": 6
+    },
+    {
+      "item_id": "item_sewing_kit",
+      "price": 14
+    },
+    {
+      "item_id": "item_flashlight",
+      "price": 30
+    },
+    {
+      "item_id": "item_scrap_torch",
+      "price": 11
+    },
+    {
+      "item_id": "item_hand_warmers",
+      "price": 8
+    }
+  ],
+  "vendor_restock_rate": 1,
+  "vendor_schedule": {
+    "fri": [
+      {
+        "from": 7,
+        "to": 19
+      }
+    ],
+    "mon": [
+      {
+        "from": 7,
+        "to": 19
+      }
+    ],
+    "sat": [
+      {
+        "from": 7,
+        "to": 19
+      }
+    ],
+    "sun": [
+      {
+        "from": 7,
+        "to": 19
+      }
+    ],
+    "thu": [
+      {
+        "from": 7,
+        "to": 19
+      }
+    ],
+    "tue": [
+      {
+        "from": 7,
+        "to": 19
+      }
+    ],
+    "wed": [
+      {
+        "from": 7,
+        "to": 19
+      }
+    ]
+  },
+  "vendor_shop_name": "Umber's trestle",
+  "vendor_stock_size": 10,
+  "wander_zones": [],
+  "wanders": 0,
+  "work_zone_id": "zone_district_921_921"
+}

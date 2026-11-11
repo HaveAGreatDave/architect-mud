@@ -2,13 +2,14 @@
   "ambient_events": [],
   "ambient_theme": "indoors",
   "bg_color": "#6d3fb5",
-  "description": "The soundstage floor: a black-painted expanse ribbed with taped cable runs and pocked with camera marks, hemmed by a horseshoe of studio lamps hanging cold on their grid. A vacant anchor desk waits under a KSAB eyecatch, and the cyclorama behind it can be any skyline in the world, though right now it's none, just seamless grey. The air is hot dust and gaffer tape. A tally light on the lead camera pulses red: the deck upstairs is always listening.",
+  "description": "The soundstage floor: a black-painted expanse ribbed with taped cable runs and pocked with camera marks, hemmed by a horseshoe of studio lamps hanging cold on their grid. A vacant anchor desk waits under a KSAB eyecatch, and the cyclorama behind it can be any skyline in the world, though right now it's none, just seamless grey. The air is hot dust and gaffer tape. A tally light on the lead camera pulses red: the deck upstairs is always listening. Sound Stage B is through the west door.",
   "exits": {
     "down": "zone_util_1782953094650",
     "east": "zone_district_912_911",
     "north": "zone_ksab7_writers",
     "south": "zone_ksab7_green",
-    "up": "zone_prod_1782953094650"
+    "up": "zone_prod_1782953094650",
+    "west": "zone_ksab7_stage_b"
   },
   "flags": {
     "building_type": "studio",

@@ -30,6 +30,68 @@
       "\"You want to just do it? Just us? I'll do it. I've got things to say.\""
     ],
     "drug_habit": "buzz",
+    "figure": {
+      "age": 0.75,
+      "beard": 0.3,
+      "brow": 1,
+      "build": "older",
+      "cut": "trench",
+      "fabric_legs": "denim",
+      "fabric_shoes": "leather",
+      "fabric_top": "canvas",
+      "facial": "moustache",
+      "gear": false,
+      "hair": [
+        128,
+        124,
+        118
+      ],
+      "hair_style": 0,
+      "head": 0,
+      "height": 1.63,
+      "iris": [
+        60,
+        45,
+        35
+      ],
+      "legs": [
+        62,
+        84,
+        116
+      ],
+      "mouth": 1.05,
+      "print": "redstar",
+      "props": {
+        "L": "cigarette"
+      },
+      "shirt": [
+        234,
+        228,
+        212
+      ],
+      "shoes": [
+        52,
+        40,
+        30
+      ],
+      "skin": [
+        208,
+        160,
+        118
+      ],
+      "smile": 1,
+      "top": [
+        156,
+        128,
+        86
+      ],
+      "trim": [
+        156,
+        128,
+        86
+      ],
+      "weight": 0.1
+    },
     "studio_npc": true,
     "uses_drugs": true,
     "wrangle_lines": {

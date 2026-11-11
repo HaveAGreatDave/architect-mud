@@ -17,6 +17,22 @@
     "stands": {
       "menu": [
         {
+          "item": "item_ballpark_frank",
+          "price": 7
+        },
+        {
+          "item": "item_pruitt_pretzel",
+          "price": 4
+        },
+        {
+          "item": "item_pruitt_popcorn",
+          "price": 3
+        },
+        {
+          "item": "item_pruitt_peanuts",
+          "price": 3
+        },
+        {
           "item": "item_ballpark_lager",
           "price": 8
         },
@@ -25,12 +41,40 @@
           "price": 5
         },
         {
-          "item": "item_ballpark_frank",
-          "price": 7
+          "item": "item_lemon_soda",
+          "price": 5
+        },
+        {
+          "item": "item_iced_tea_carton",
+          "price": 6
         },
         {
           "item": "item_water_bottle",
           "price": 4
+        },
+        {
+          "item": "item_cigarettes",
+          "price": 15
+        },
+        {
+          "item": "item_menthol_cigarettes",
+          "price": 16
+        },
+        {
+          "item": "item_unfiltered_cigarettes",
+          "price": 14
+        },
+        {
+          "item": "item_cherry_cigarillo",
+          "price": 9
+        },
+        {
+          "item": "item_house_cigar",
+          "price": 18
+        },
+        {
+          "item": "item_reserve_cigar",
+          "price": 40
         }
       ],
       "sections": [
@@ -88,8 +132,8 @@
         {
           "eye": [
             0,
-            78,
-            -120
+            61.7,
+            -131
           ],
           "id": "upper",
           "name": "Upper Deck",
@@ -99,7 +143,7 @@
         {
           "eye": [
             -144,
-            78,
+            61.7,
             -3
           ],
           "id": "upperfirst",
@@ -110,7 +154,7 @@
         {
           "eye": [
             144,
-            78,
+            61.7,
             -3
           ],
           "id": "upperthird",

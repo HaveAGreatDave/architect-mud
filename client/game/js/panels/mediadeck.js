@@ -292,6 +292,8 @@ export function updateMediaDeckBroadcast(msg) {
 // panels/tv.js) but scaled into the small preview window. Music is deliberately
 // NOT mirrored here — only visual overlays. A null overlay clears (clear_overlay).
 export function applyMediaDeckOverlay(overlay) {
+  // a script's CAM line is for the 3-D stage's cameras; it must not clear the card that's up
+  if (overlay?.overlayType === 'direction') return;
   _clearOverlay();
   const container = document.getElementById('mediadeck-overlay-container');
   if (!container || !overlay) return;

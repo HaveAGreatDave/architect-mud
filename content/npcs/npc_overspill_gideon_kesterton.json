@@ -1,0 +1,194 @@
+{
+  "banter": [],
+  "behaviour_graph": {
+    "_start": "start",
+    "nodes": {
+      "day_home": {
+        "action_type": "GO_HOME",
+        "next": "day_wait",
+        "type": "action"
+      },
+      "day_pick": {
+        "branch_0": "day_home",
+        "branch_1": "day_walk",
+        "branches": [
+          {
+            "weight": 3
+          },
+          {
+            "weight": 2
+          }
+        ],
+        "type": "random"
+      },
+      "day_wait": {
+        "jitter": 180,
+        "next": "start",
+        "seconds": 240,
+        "type": "wait"
+      },
+      "day_walk": {
+        "action_type": "PATROL",
+        "next": "day_wait",
+        "params": {
+          "loop": true,
+          "mode": "walk",
+          "waypoints": [
+            "zone_district_924_920",
+            "zone_district_925_920",
+            "zone_district_925_921",
+            "zone_district_924_922",
+            "zone_district_926_922"
+          ]
+        },
+        "type": "action"
+      },
+      "fire_0": {
+        "action_type": "EMOTE",
+        "next": "fire_wait",
+        "params": {
+          "message": "draws a floor plan in the dirt by the drum with a stick."
+        },
+        "type": "action"
+      },
+      "fire_1": {
+        "action_type": "EMOTE",
+        "next": "fire_wait",
+        "params": {
+          "message": "tells the drum his knee says rain."
+        },
+        "type": "action"
+      },
+      "fire_pick": {
+        "branch_0": "fire_0",
+        "branch_1": "fire_1",
+        "branches": [
+          {
+            "weight": 1
+          },
+          {
+            "weight": 1
+          }
+        ],
+        "type": "random"
+      },
+      "fire_wait": {
+        "jitter": 90,
+        "next": "start",
+        "seconds": 150,
+        "type": "wait"
+      },
+      "go_home": {
+        "action_type": "GO_HOME",
+        "next": "sleep",
+        "type": "action"
+      },
+      "is_evening": {
+        "condition_type": "HOUR_RANGE",
+        "ifFalse": "day_pick",
+        "ifTrue": "to_fire",
+        "params": {
+          "from": 19,
+          "to": 1
+        },
+        "type": "condition"
+      },
+      "is_late": {
+        "condition_type": "HOUR_RANGE",
+        "ifFalse": "is_evening",
+        "ifTrue": "go_home",
+        "params": {
+          "from": 1,
+          "to": 5
+        },
+        "type": "condition"
+      },
+      "sleep": {
+        "action_type": "AT_HOME_LIFE",
+        "next": "start",
+        "type": "action"
+      },
+      "start": {
+        "next": "is_late",
+        "type": "start"
+      },
+      "to_fire": {
+        "action_type": "GO_TO_WORK",
+        "next": "fire_pick",
+        "params": {
+          "zone_id": "zone_district_922_922"
+        },
+        "type": "action"
+      }
+    }
+  },
+  "chitchat": [
+    "\"Two days. Pallets, wire, a tarp and a car door. You want one, it's a week's wait.\"",
+    "rubs his knee and swears at it."
+  ],
+  "description": "A bald man with a carpenter's pencil and a bad knee, who built the Pallet House in two days and will tell you so. He builds for other people now, for food or tobacco, and he is booked up.",
+  "dialogue_tree": {
+    "ask": {
+      "options": [
+        {
+          "label": "Right.",
+          "next": "root"
+        }
+      ],
+      "text": "\"I can. A week, for food. You bring the pallets or I charge for them. The car door was a one-off.\""
+    },
+    "bye": {
+      "options": [],
+      "text": "Gideon goes back to the pallet he's wiring."
+    },
+    "root": {
+      "options": [
+        {
+          "label": "Can you build me one?",
+          "next": "ask"
+        },
+        {
+          "label": "Bye.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"You again,\" says Gideon.",
+      "text_by_relation": {
+        "familiar": "\"Pass me that wire, would you.\"",
+        "first": "The bald man doesn't stop working.\n\n\"Gideon. I built that. Two days. If you're asking, it's a week's wait.\"",
+        "known": "\"Pass me that wire, would you.\""
+      }
+    }
+  },
+  "faction": null,
+  "flags": {
+    "clothing_layers": [
+      "a sleeveless quilted vest over a sweatshirt",
+      "a grey sweatshirt with the hood torn off",
+      "cargo trousers and thermals"
+    ],
+    "mis_willing": false,
+    "personality": "gruff"
+  },
+  "home_activities": [
+    "wires a pallet to the frame and tests it with his shoulder.",
+    "stuffs rags into a gap and stands back to look.",
+    "sharpens a pencil with a knife."
+  ],
+  "home_zone": "zone_district_924_920",
+  "hp": 20,
+  "hp_max": 20,
+  "id": "npc_overspill_gideon_kesterton",
+  "name": "Gideon Kesterton",
+  "npc_type": "npc",
+  "sex": "male",
+  "studio_zone_id": null,
+  "vendor_inventory": [],
+  "vendor_restock_rate": 1,
+  "vendor_schedule": {},
+  "vendor_shop_name": null,
+  "vendor_stock_size": 10,
+  "wander_zones": [],
+  "wanders": 0,
+  "work_zone_id": null
+}

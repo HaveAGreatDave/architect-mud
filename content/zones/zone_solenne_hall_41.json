@@ -1,0 +1,102 @@
+{
+  "ambient_events": [
+    "A laugh comes through the members' door, low, and stops."
+  ],
+  "ambient_theme": "indoors",
+  "bg_color": "#1b2733",
+  "color": "#e8ddc6",
+  "description": "A dim hall in walnut and stone. THE AERIE is lettered in gold over the members' door to the <b>north</b>. A fire door marked STAIRS at the west end is locked. The elevator is <b>in</b> behind you.",
+  "exits": {
+    "in": "zone_solenne_elevator",
+    "north": "zone_solenne_aerie"
+  },
+  "flags": {
+    "building_name": "Solenne Residences",
+    "floor": "stone",
+    "is_interior": true,
+    "room": {
+      "balcony": false,
+      "d": 3,
+      "decor": {
+        "ceiling": {
+          "band": 0.4,
+          "drop": 0.16,
+          "hex": "#ece6da",
+          "kind": "cove",
+          "trim": "#b8913e"
+        },
+        "doors": [
+          {
+            "at": 1.5,
+            "finish": "steel",
+            "label": "Stairs",
+            "w": 0.95,
+            "wall": "left"
+          }
+        ],
+        "downlights": false,
+        "plants": [
+          [
+            2.35,
+            0.65,
+            0.85
+          ]
+        ],
+        "rug": false,
+        "sconces": {
+          "points": [
+            [
+              "front",
+              -1.55
+            ],
+            [
+              "front",
+              1.55
+            ],
+            [
+              "back",
+              -1.7
+            ],
+            [
+              "back",
+              1.7
+            ]
+          ],
+          "y": 1.8
+        },
+        "walls": {
+          "hex": "#cfc4b2",
+          "kind": "limestone",
+          "y1": 2.5
+        }
+      },
+      "face": 0,
+      "finish": "fine",
+      "ground": "stone",
+      "h": 3.2,
+      "sign": {
+        "size": 0.2,
+        "text": "THE AERIE",
+        "wall": "front",
+        "y": 2.78
+      },
+      "studio": false,
+      "tone": {
+        "accent": "#b8913e",
+        "ceiling": "#ece6da",
+        "trim": "#17130f",
+        "wall": "#2e2925"
+      },
+      "w": 6,
+      "windowless": true
+    },
+    "sanctuary": true
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": 8,
+  "id": "zone_solenne_hall_41",
+  "map_id": "map_int_solenne",
+  "name": "The Forty-First Floor",
+  "parent_zone": "zone_district_914_908"
+}

@@ -1,0 +1,12 @@
+{
+  "content": "{\n \"brand\": \"EVERLAST\",\n \"line\": \"A diamond is forever. Now, so is she.\",\n \"small\": \"BIOMETRIC PAIR-LOCK. NOT REMOVABLE WITHOUT BOTH CARDIAC SIGNATURES.\",\n \"color\": \"#9a4dff\",\n \"accent\": \"#fff3c4\",\n \"face\": \"serif\",\n \"motif\": \"rings\",\n \"weight\": 1\n}",
+  "created_at": "1794182400",
+  "description": "Hologram advert: Everlast Augments. Baked to the client by npm run holoads:bake.",
+  "id": "holo_ad_everlast",
+  "name": "Holo ad: Everlast Augments",
+  "tags": [
+    "holo_ad"
+  ],
+  "type": "holo_ad",
+  "updated_at": "1794182400"
+}

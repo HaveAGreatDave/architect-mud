@@ -1,0 +1,104 @@
+{
+  "ambient_events": [
+    "The pad's landing lights pulse red through the door glass."
+  ],
+  "ambient_theme": "indoors",
+  "bg_color": "#1c242c",
+  "color": "#cfd8e0",
+  "description": "The top of the lift shaft: a bare stone hall with a palm reader by the door to the <b>north</b>, and the pad's lights flicking past it. A fire door marked STAIRS at the west end is locked. The elevator is <b>in</b> behind you.",
+  "exits": {
+    "in": "zone_solenne_elevator",
+    "north": "zone_solenne_helipad"
+  },
+  "flags": {
+    "building_name": "Solenne Residences",
+    "floor": "stone",
+    "is_interior": true,
+    "residents_only": "Solenne Residences",
+    "residents_only_deny": "The panel by the pad door reads your hand, finds no residence attached to it, and stays shut. Somewhere below, a concierge is already deciding not to mention it.",
+    "room": {
+      "balcony": false,
+      "d": 3,
+      "decor": {
+        "ceiling": {
+          "band": 0.4,
+          "drop": 0.16,
+          "hex": "#ece6da",
+          "kind": "cove",
+          "trim": "#b8913e"
+        },
+        "doors": [
+          {
+            "at": 1.5,
+            "finish": "steel",
+            "label": "Stairs",
+            "w": 0.95,
+            "wall": "left"
+          }
+        ],
+        "downlights": false,
+        "plants": [
+          [
+            2.35,
+            0.65,
+            0.85
+          ]
+        ],
+        "rug": false,
+        "sconces": {
+          "points": [
+            [
+              "front",
+              -1.55
+            ],
+            [
+              "front",
+              1.55
+            ],
+            [
+              "back",
+              -1.7
+            ],
+            [
+              "back",
+              1.7
+            ]
+          ],
+          "y": 1.8
+        },
+        "walls": {
+          "hex": "#dcdad4",
+          "kind": "limestone",
+          "y1": 2.5
+        }
+      },
+      "face": 0,
+      "finish": "fine",
+      "ground": "stone",
+      "h": 3.2,
+      "sign": {
+        "size": 0.2,
+        "text": "SKY PAD",
+        "wall": "front",
+        "y": 2.78
+      },
+      "studio": false,
+      "tone": {
+        "accent": "#b8913e",
+        "ceiling": "#ece6da",
+        "trim": "#17130f",
+        "wall": "#2e2925"
+      },
+      "w": 6,
+      "windowless": true
+    },
+    "sanctuary": true
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": 7,
+  "id": "zone_solenne_hall_45",
+  "map_id": "map_int_solenne",
+  "name": "The Forty-Fifth Floor",
+  "parent_zone": "zone_district_914_908"
+}

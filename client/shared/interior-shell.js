@@ -123,6 +123,9 @@ import { BOAT_ROWS } from './vehicle-models.js';
 import { boatGeom, HELM } from './boat-house.js';
 // What is IN each room — dials, wheels, levers, pedals, mirrors, clutter. See interior-fit.js.
 import { courier2076Profile } from './interior-courier-2076.js';
+import { continental2076Profile } from './interior-continental-2076.js';
+import { drayman2076Profile } from './interior-drayman-2076.js';
+import { barrow2076Profile } from './interior-barrow-2076.js';
 import { truckRoom, truckFit, truckHotspots, planeFit, heliFit, boatFit, bridgeFit, bubbleRoom, grainRoomPush } from './interior-fit.js';
 import { makeKit, C as KC } from './interior-kit.js';
 import { HY, hydroHotspots } from './interior-hydro.js';
@@ -308,6 +311,10 @@ export const SHELL_PROFILES = {
   // The 2076 concept body's pod: a different airframe on the same class, picked by its edition.
   get dragonfly2076() { return craftProfile('dragonfly2076', dragonfly2076Profile); },
   get courier2076() { return craftProfile('courier2076', () => courier2076Profile(SHELL_PROFILES.truck)); },
+  // The other three trucks' 2076 cabs, refits on the same stock room, picked by type and edition.
+  get continental2076() { return craftProfile('continental2076', () => continental2076Profile(SHELL_PROFILES.truck)); },
+  get drayman2076() { return craftProfile('drayman2076', () => drayman2076Profile(SHELL_PROFILES.truck)); },
+  get barrow2076() { return craftProfile('barrow2076', () => barrow2076Profile(SHELL_PROFILES.truck)); },
   // The Mule 2076 concept body's flight deck, picked by its edition like the Dragonfly's.
   get mule2076() { return craftProfile('mule2076', mule2076Profile); },
   // The Mayfly 2076 concept body's pod, picked by its edition like the Dragonfly's.
@@ -430,6 +437,9 @@ for (const k of ['bubble']) {
 // everything that is not a truck gets the tub — and it would put an enclosed cabin around a Mayfly,
 // which is an open ultralight you can see your own legs hanging out of, and around a helicopter,
 // whose cabin is a glass bubble glazed below the floor line and is the opposite shape to this.
+// A truck's 2076 cab by its TYPES id. The edition rides in the variant string after the type and any +t.
+export const TRUCK_2076_CAB = { hauler: 'courier2076', continental: 'continental2076', drayman: 'drayman2076', scrapper: 'barrow2076' };
+
 // Exported for scripts/shapes/cockpit-controls.mjs, which checks every seat a class can sit in.
 export const SHELL_CLASS = {
   truck: 'truck',
@@ -461,7 +471,10 @@ export function shellProfileFor(cls, armed = false, trim = null) {
   if (cls === 'heli' && trim === '2076') return SHELL_PROFILES.dragonfly2076;
   if (cls === 'prop' && trim === '2076') return SHELL_PROFILES.mule2076;
   // A truck's `trim` is its variant string; an edition rides in it after the type and any +t.
-  if (cls === 'truck' && /^hauler(\+t)?~e2076/.test(String(trim || ''))) return SHELL_PROFILES.courier2076;
+  if (cls === 'truck') {
+    const m = /^([a-z]+)(\+t)?~e2076/.exec(String(trim || ''));
+    if (m && TRUCK_2076_CAB[m[1]]) return SHELL_PROFILES[TRUCK_2076_CAB[m[1]]];
+  }
   if (cls === 'ultralight' && trim === '2076') return SHELL_PROFILES.mayfly2076;
   if (cls === 'grasshopper' && trim === '2076') return SHELL_PROFILES.grasshopper2076;
   if (cls === 'locust' && trim === '2076') return SHELL_PROFILES.locust2076;

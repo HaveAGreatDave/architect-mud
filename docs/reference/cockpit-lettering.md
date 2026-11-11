@@ -11,7 +11,10 @@ craft) is real, readable lettering. This is the standard for all cockpits, set 2
 2. **Small text is the legend face.** [client/shared/legend-font.js](../../client/shared/legend-font.js)
    draws every letter in one thick stroke weight, so the whole letter survives at the one or two
    centimetres a label is from the seat. The Drake's serif (`GLYPH` in interior-drake.js) has hairline
-   bars and serifs that vanish below about 15 mm; that is how QUACK read as "GCK".
+   bars and serifs that vanish below about 15 mm; that is how QUACK read as "GCK". In the comic
+   look it's hand-lettered (`LEGEND_HAND`): a forward lean, each letter bobbed and turned a little
+   by a seed from its text, strokes heavier where they start, and an ink drop under every label.
+   Off, it draws as before.
 3. **Display lettering can keep a display face.** Nameplates and badges at `LEGEND_MAX_H` (14.5 mm)
    and above keep the seat's own face (the Drake's serif, the hydro's OFFSHORE badge). Below it,
    the Drake's `engraveText` / `plated_` / `hudText_` hand off to the legend face automatically.

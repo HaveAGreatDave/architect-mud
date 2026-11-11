@@ -384,6 +384,62 @@ shot back; the diamond smoke caught a throw there that would have stopped the gr
   (tools/sandbox/deadball-park-test.html?park=3d&play=hr) going through its beats in the real
   grandstand. Software GL draws the park at a frame or two a second, too slow to watch the freeze
   move, so look at one on a real GPU.
+**More of them, and better drawn** (2026-11-10):
+
+- **Five more plays earn a replay** (replay.js `replayOf`): a play at the plate (`plate`), a close
+  one at second or third as well as first (`close`), a catch at the wall or over the rail as its
+  own kind (`robbed`), a man thrown out stealing and a steal the tag missed by under 0.16 s
+  (`caught`, `steal`), and strike three that ends an inning with a man on, or a close game from
+  the ninth (`strikeout`, from the side the hitter faces, through the umpire's call). A strikeout
+  and a steal have no bat on the ball, so a replay's times count from `anchorOf`: contact, or the
+  pitch in the mitt. The server leaves a big strikeout and a man caught stealing the replay's 10 s
+  (timing.js `bigStrikeout`, `caughtStealing`); a close play takes its room from the booth's talk,
+  because only the staged play knows how close it was.
+- **Inks by kind** (`comicInksOf`): off the bat the word and the burst are yellow, orange and red;
+  into a glove they're white and blue; in the dirt at a bag, cream and tan. Every kind has its own
+  words, captions and headline (`ROBBED!`, `PLAY AT THE PLATE!`; a grand slam says so).
+- **The run** has speed lines in from the edges, drawn afresh eight times a second, and a box at
+  its foot saying where the game is (`BOTTOM OF THE 7TH`).
+- **The page** turns the other way round on alternate plays (`pageLayout(w, h, flip)`) and has a
+  masthead top right, `DEADBALL COMICS No. 7`, numbered by the inning.
+- **The print** is taken at up to 960 px wide, and its dot screen scales with the frame, so it
+  holds up on a big screen.
+
+**The videoboard** (diamond/jumbo.js, behind left-centre) shows the replay as it's taken and twice
+more after. Four things were wrong with it, and are fixed:
+
+- It took a frame every other screen frame and kept 160, so at 60 Hz the reel was full after five
+  seconds and the board sat on one frame for the rest of a thirteen-second comic replay. It takes
+  12 a second by the clock now, and a reel that fills is thinned to every other frame and carries
+  on, so the whole replay is always there.
+- A prompt (`HOME RUN!`) that was up when the replay ended ran the replay's two loops out behind
+  it. The loops start when the board first shows them.
+- The comic replay's freeze and page were printed a second time on the board, which inked the
+  lettering and the dots again. A frame that's a print already goes up as it is, and the board
+  letters no second word over a comic replay.
+- The score never repainted when the clubs' colours came in, so it kept the house colours.
+
+**From a seat in the stands** the game shows no replay, so the board stages its own. With Comic on
+that one's a comic too: the worm's-eye run, the moment frozen and printed with its burst and its
+word for 1.4 s, and what follows (no page; the board's small). In a suite, the box's own screen
+carries the board's picture while a replay's on it, and the director's shot again after.
+
+**Dead air.** More replays mean more time when the men on the field have nothing to do, and a
+seat in the stands watches all of it. Seven new idle clips (a long look round, hands on hips, arms
+folded, shaking the arms loose, the throwing arm pulled across the chest, a coach's claps, and an
+infielder holding up the outs) and a pool for each kind of man (between.js `FIDGETS`): fielders,
+the catcher, a man on a bag, and now the umpires and the base coaches, who stood like posts. They
+are the live game's own (`planBetween` puts them in the live world), not a cutaway's, so they're
+there whether a camera's on them or not. The aim is for most of the idle business to live there.
+
+- **Gate:** scripts/shapes/jumbo-smoke.mjs plays a home run to the real grandstand from a seat:
+  the board takes its replay and plays it again, the comic one runs, freezes and runs on with its
+  world still through the freeze, the live clock never stops, and a suite's screen gets the board's
+  picture at 640 by 360. comic-replay.mjs also checks the new kinds' words and inks, the flipped
+  page, which strikeouts and steals earn a replay, and the board's reel.
+- **Not seen on a GPU yet.** The painters and the board were looked at over a drawn stand-in
+  picture; the Browser pane had no WebGL2 on the day, so the park itself, the new clips on a body
+  and the suite's screen have only been through the gates.
 - **Gate:** scripts/shapes/comic-replay.mjs checks the length and the step-down, the camera
   (low, on the field, aimed at the moment, out in front at the plate), the panel times, the
   words, the page layout at three shapes, and that the painters draw at every beat. The diamond smoke plays a third replayed home run with Comic on through the real grandstand: run,

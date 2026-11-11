@@ -497,7 +497,7 @@ play in progress restarts in 2-D. The 2-D view stays maintained, and Phase 0 giv
   1,840 triangles, for the close cameras). The face is a layout from the baked atlas
   ([actor-faces.js](../../client/game/js/panels/actor-faces.js)) tinted with the player's own skin,
   hair, lips and eyes by `FACE_GLSL`, the scalp painted to the hairline by `HAIRLINE_GLSL`, as the
-  Actor Lab draws them. Under a cap brim at broadcast distance a face is mostly shadow, so the close
+  Figure Lab's Street renderer draws them. Under a cap brim at broadcast distance a face is mostly shadow, so the close
   cameras are where faces have to hold up, and the matchup card can carry a live portrait of each
   face. For a ballplayer:
   - the pick comes from the player's name, so a player's face is the same all season, with no makeup
@@ -1484,7 +1484,7 @@ Phase 3, or with sim v2 if that comes later.
   fixed kit slot so a new batter rebuilds only the batter; `diamond/kits.js`, the kit atlas, the
   monograms and the leather, wood and mask textures. A lefty batter or pitcher is his pose in a
   mirror. Fewer players have long hair than the look-dev gave them, and no umpire does. The
-  players cast the towers' shadows, and the faces shade as the Actor Lab's do. Their colours stay
+  players cast the towers' shadows, and the faces shade as the Figure Lab's street faces do. Their colours stay
   placeholders (cream and navy at home, grey and rust away) for a club without an identity; a
   club with one wears its own (Phase 5).
 - **1d built:** `diamond/hud.js`, the arcade package as a canvas over the picture, a pure layout
@@ -1843,7 +1843,8 @@ Phase 3, or with sim v2 if that comes later.
   on-deck hitter swings in his circle through every at-bat. The cameras go round the park: wide
   as the field resets, the on-deck circle for a swing, the pitcher rubbing up the ball, a stand
   of fans, and wide again, after any replay. Four new clips: a walk, standing easy, a practice
-  swing and the rub. Not after a third out or a walk-off, and nothing for a payload that doesn't
+  swing and the rub. Since 2026-11-10 more plays earn a replay and the men fidget more through the
+  dead air, the umpires and coaches too ([comic-ink.md](comic-ink.md#comic-replays)). Not after a third out or a walk-off, and nothing for a payload that doesn't
   say how long it holds. `diamond-smoke` plays the dead time after every at-bat at the long hold:
   everyone at rest a beat before the next payload's due and where he was sent, nobody jumping,
   nobody within 2 ft of anybody (or nearer than the two started), the walks and rests inside

@@ -19,7 +19,7 @@
 // players who have opted into MIS (the maturity slider); everyone else sees the
 // tamer version of the same beat.
 
-import { getZone, getZoneNpcs, getZonePlayers, getMinimapData, world, streetExitFrom, isStreetLanding } from '../../server/engine/world.js';
+import { getZone, getZoneNpcs, getZonePlayers, getMinimapData, world, streetExitFrom, isStreetLanding, moveNpcToZone } from '../../server/engine/world.js';
 import { sendToPlayer, sendToZone, getBroadcast } from '../../server/engine/messaging.js';
 import { isMisActive } from '../../server/engine/mis.js';
 import { adjustCredits } from '../../server/engine/economy.js';
@@ -31,6 +31,7 @@ import { on } from '../../server/engine/events.js';
 import { dispatchAction } from '../../server/engine/actions.js';
 import { describeZone } from '../../server/engine/commands/describe.js';
 import { pick } from '../../server/engine/util.js';
+import { peopleChanged } from '../roomstage/index.js';
 
 // ── Tunables ──────────────────────────────────────────────────────────────────
 const NAKED_AT       = 500;              // heat at which every layer is off + graphic
@@ -157,6 +158,7 @@ async function cmdTip(args, raw, player, broadcast) {
         `${npc.name} peels ${g} off slow, eyes locked on the money, and lets it drop.`);
     }
     npc._clothingPeeled = after;
+    peopleChanged(zoneId);   // the Room Stage dances her hotter (plugins/roomstage peopleIn)
     if (after >= layers.length && layers.length) {
       tieredZoneLine(zoneId,
         `${npc.name} is down to nothing now, dancing bold as brass.`,
@@ -234,6 +236,7 @@ function stripperTick() {
         const newPeeled = peeledNow - 1;
         heat.set(npc.id, Math.floor((NAKED_AT * newPeeled) / n)); // keep the dance tier coherent with the cover-up
         npc._clothingPeeled = newPeeled;
+        peopleChanged(zoneId);
         if (newPeeled === 0) {
           sendToZone(zoneId, { type: 'zone_event', message: `${npc.name} pulls their outfit back together. A shift's a shift.` });
         } else {
@@ -355,4 +358,100 @@ on('mis.npc_act', async ({ player, npc, zoneId }) => {
 // floor is a clean slate, so one warning always precedes a toss.
 on('zone.entered', ({ actor }) => { if (actor?.id) bouncerStrikes.delete(actor.id); });
 
-export const commands = { tip: cmdTip };
+// ── Private dance ────────────────────────────────────────────────────────────
+// lapdance <dancer>: a dance for one, in the VIP room. Needs the pass the rail earns. Said on the
+// floor, the dancer takes you through the curtain; said in the VIP, she comes in off the floor next
+// door. Four beats ten seconds apart, a layer off each beat until she's bare, then she goes back to
+// work and the tick dresses her as it dresses anybody (REDRESS_GRACE). Graphic lines are MIS-only.
+const LAP_PRICE = 150;
+const LAP_BEAT_MS = 10_000;
+const lapBusy = new Map(); // npcId -> playerId while a private dance runs
+
+const LAP_BEATS = [
+  [(n) => `${n} pushes you down onto the couch by the shoulder and steps back to look at you.`,
+   (n) => `${n} pushes you down onto the couch and stands between your knees, taking her time.`],
+  [(n) => `${n} dances close, a hand on the back of the couch either side of your head.`,
+   (n) => `${n} straddles you and rolls slowly against you to the bass coming through the wall.`],
+  [(n) => `${n} turns round and sways, close enough that you can smell her perfume.`,
+   (n) => `${n} grinds back into your lap, bare skin under the red light, and laughs when you hold your breath.`],
+  [(n) => `${n} finishes with a slow turn and a wink. "That's your song, sweetheart."`,
+   (n) => `${n} finishes pressed against you, then gets up slowly. "That's your song, sweetheart. Come back soon."`],
+];
+
+const vipNextTo = (zoneId) => {
+  const z = getZone(zoneId);
+  if (z?.flags?.mis_ok) return zoneId;
+  return Object.values(z?.exits || {}).find((id) => getZone(id)?.flags?.mis_ok) || null;
+};
+
+async function cmdLapdance(args, raw, player, broadcast) {
+  const nameStr = raw.replace(/^\S+\s*/, '').trim();
+  const here = player.current_zone, vip = vipNextTo(here);
+  if (!vip) return { type: 'error', message: "There's no private room here." };
+  // the dancers in reach: this room's, and in the VIP the floor's next door
+  const zones = here === vip ? [here, ...Object.values(getZone(here)?.exits || {})] : [here];
+  const dancers = zones.flatMap((z) => getZoneNpcs(z)).filter(isStripper).filter((n) => !lapBusy.has(n.id));
+  if (!dancers.length) return { type: 'error', message: 'Nobody is free for a private dance right now.' };
+  let npc = dancers.length === 1 && !nameStr ? dancers[0] : null;
+  if (!npc) {
+    if (!nameStr) return { type: 'error', message: 'A private dance from whom? Try: lapdance <dancer>.' };
+    const r = siftResolve(nameStr, dancers);
+    if (r.type === 'none') return { type: 'error', message: `There's no "${nameStr}" free to dance.` };
+    if (r.type === 'ambiguous') return { type: 'error', message: 'Which dancer? Be more specific.' };
+    npc = r.candidate;
+  }
+  const until = Number(await getFlag('player', VIP_FLAG, player)) || 0;
+  if (until < Date.now()) return { type: 'error', message: `${npc.name} shakes her head. "Private dances are in the red room, and the red room is for regulars. Tip your way in."` };
+  if (!(await adjustCredits(player, -LAP_PRICE, undefined, 'strippers:lapdance'))) {
+    return { type: 'error', message: `A private dance is ${LAP_PRICE}₵. You can't cover it.` };
+  }
+  lapBusy.set(npc.id, player.id);
+  const bc = broadcast || getBroadcast(), home = npc.zone_id;
+
+  // into the VIP, the dancer first
+  if (npc.zone_id !== vip) { bc?.(npc.zone_id, { type: 'zone_event', message: `${npc.name} slips through the curtain into the VIP room.` }); moveNpcToZone(npc.id, vip); peopleChanged(home); }
+  if (here !== vip) {
+    bc?.(here, { type: 'zone_event', message: `${npc.name} takes ${player.handle} by the wrist and leads them through the curtain.` }, player.id);
+    await dispatchAction({ type: 'TELEPORT', actor: player, params: { zone_id: vip }, context: { broadcast: bc } });
+    const zone = getZone(vip);
+    if (zone) sendToPlayer(player.id, { type: 'move', message: await describeZone(zone, player), zone: vip, minimap: getMinimapData(vip, 8, player) });
+  }
+  peopleChanged(vip);
+
+  const layers = layersOf(npc);
+  let beat = 0;
+  const step = () => {
+    const live = world.npcs.get(npc.id);
+    // over if either of you left the room, or she was hurt
+    if (!live || live._dead || live.zone_id !== vip || player.current_zone !== vip || live._combatTargetId) { lapBusy.delete(npc.id); return; }
+    const [tame, graphic] = LAP_BEATS[beat];
+    // a layer off each beat, the last one gone by the third
+    const want = layers.length ? Math.min(layers.length, Math.ceil(((beat + 1) * layers.length) / 3)) : 0;
+    if (want > (live._clothingPeeled || 0)) {
+      const g = layers[want - 1];
+      tieredZoneLine(vip, `${live.name} drops ${g} on the table.`, `${live.name} peels off ${g} and drops it in your lap.`);
+      live._clothingPeeled = want;
+      heat.set(live.id, Math.max(heat.get(live.id) || 0, Math.floor((NAKED_AT * want) / Math.max(1, layers.length))));
+    }
+    idleTicks.set(live.id, 0);
+    tieredZoneLine(vip, tame(live.name), graphic(live.name));
+    peopleChanged(vip);
+    beat++;
+    if (beat < LAP_BEATS.length) { setTimeout(step, LAP_BEAT_MS); return; }
+    // done: back to the floor she came from (or the floor next door), and the tick dresses her
+    setTimeout(() => {
+      lapBusy.delete(npc.id);
+      const n2 = world.npcs.get(npc.id);
+      if (!n2 || n2._dead || n2.zone_id !== vip) return;
+      const back = home !== vip ? home : (n2.work_zone_id || null);
+      if (!back || back === vip) return;
+      sendToZone(vip, { type: 'zone_event', message: `${n2.name} gathers up her things and goes back out to the floor.` });
+      moveNpcToZone(n2.id, back);
+      peopleChanged(vip); peopleChanged(back);
+    }, LAP_BEAT_MS);
+  };
+  setTimeout(step, 1500);
+  return { type: 'output', message: `You pay ${LAP_PRICE}₵ for a private dance. ${npc.name} smiles and points you at the couch.` };
+}
+
+export const commands = { tip: cmdTip, lapdance: cmdLapdance, privatedance: cmdLapdance };

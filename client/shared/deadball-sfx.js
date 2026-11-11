@@ -187,6 +187,30 @@ const ANTHEM = [
   [[59, 43], 1], [[57], 1], [[55, 47], 1], [[57], 1], [[62, 50, 57, 66], 4],
 ];
 
+// ═══ THE CHANTS ═════════════════════════════════════════════════════════════════
+// The whole park on one vowel at a time: each syllable is vowel()'s formants over pink noise, twice,
+// the second a few percent higher and 25 ms late, so it's thousands of voices not quite together.
+// A pattern is [beat, what]: a vowel's name, 'clap' or 'stomp'. The videoboard (diamond/jumbo.js
+// BEAT) shows the words on the same beat.
+const VOWELS = { eh: [530, 1840, 2480], oh: [470, 880, 2400], ee: [300, 2250, 2950], ah: [720, 1220, 2600] };
+const claps = (at) => Array.from({ length: 8 }, (_, i) => noise({
+  hz: 1300 + (i % 4) * 260, q: 0.9, d: 0.018, r: 0.01, gain: 0.14, delay: +(at + i * 0.0045 + (i % 3) * 0.003).toFixed(4), pan: ((i % 5) - 2) * 0.3,
+}));
+const stomp = (at) => [noise({ type: 'lowpass', hz: 380, q: 0.6, a: 0.003, d: 0.07, r: 0.03, gain: 0.22, colour: 'brown', width: 0.9, delay: at })];
+function chant(pattern, beat, o = {}) {
+  const len = o.len ?? beat * 0.7;
+  return pattern.flatMap(([b, what, k = 1]) => {
+    const at = +(b * beat).toFixed(4);
+    if (what === 'clap') return claps(at);
+    if (what === 'stomp') return stomp(at);
+    const f = VOWELS[what], held = { a: 0.035, d: len * k, s: 0.45, r: 0.12, gain: 0.3, tremolo: { rate: 5.3, depth: 0.15 } };
+    return [vowel(f, { ...held, delay: at }), vowel(f.map((hz) => hz * 1.04), { ...held, gain: 0.22, delay: +(at + 0.025).toFixed(4) })];
+  });
+}
+// let's go (team), clap clap clap, twice; DE-FENSE and two stamps, three times
+const LETSGO = [0, 8].flatMap((o) => [[o, 'eh', 0.5], [o + 1, 'oh'], [o + 2, 'ah', 1.4], [o + 4, 'clap'], [o + 5, 'clap'], [o + 6, 'clap']]);
+const DEFENSE = [0, 4, 8].flatMap((o) => [[o, 'ee'], [o + 1, 'eh', 1.2], [o + 2, 'stomp'], [o + 3, 'stomp']]);
+
 // ═══ THE PATCHES ═══════════════════════════════════════════════════════════════
 export const BUILTINS = [
   // contact
@@ -375,6 +399,16 @@ export const BUILTINS = [
     type: 'lowpass', hz: 380, q: 0.6, a: 0.003, d: 0.06, r: 0.03, gain: +(0.16 + i * 0.012).toFixed(4), colour: 'brown', width: 0.9, delay: at,
   })), { vary: STEP }),
 
+  // the chants (THE CHANTS above), started by the park sound and shown on the videoboard
+  def('db-chant-letsgo', "Chant: let's go, three claps, twice", 3, chant(LETSGO, 0.375), { vary: STEP }),
+  def('db-chant-defense', 'Chant: DE-FENSE and the stamps', 3, chant(DEFENSE, 0.5), { vary: STEP }),
+  // the organ's call to charge, and the park answering it
+  def('db-chant-charge', 'Chant: the organ calls, the park shouts CHARGE', 3, [
+    ...organ([[[67], 1], [[72], 1], [[76], 1], [[79, 67], 2], [[76], 1], [[79, 64, 72], 3]], 240, 0.08),
+    ...chant([[9.4, 'ah', 1.6]], 0.25, { len: 0.55 }),
+    noise({ type: 'lowpass', hz: 500, q: 0.5, a: 0.08, d: 1, s: 0.4, r: 0.8, gain: 0.1, colour: 'brown', width: 0.8, delay: 2.35 }),
+  ], { hold: 0.02, vary: STEADY }),
+
   // the graphics
   def('db-sting-homer', 'Graphics: home run fanfare', 6, [
     brass(N(67), 0, 0.11, 0.1), brass(N(72), 0.1, 0.11, 0.11), brass(N(76), 0.2, 0.11, 0.11),
@@ -510,6 +544,7 @@ export const EVENTS = {
   swell: (o) => ['db-crowd-swell', Math.min(1, 0.45 + Math.max(0, (+o.ev || 85) - 80) / 40 + (o.t === 'fb' ? 0.15 : 0))],
   murmur: 'db-crowd-murmur', whistle: 'db-crowd-whistle',
   airhorn: 'db-airhorn', boom: 'db-hype-boom', drum: 'db-drum-chant', stomp: 'db-stomp',
+  letsgo: 'db-chant-letsgo', defense: 'db-chant-defense', charge: 'db-chant-charge',
   cheer: 'db-crowd-cheer', roar: 'db-crowd-roar', groan: 'db-crowd-groan', boo: 'db-crowd-boo',
   gasp: 'db-crowd-gasp', ooh: 'db-crowd-ooh', clap: ['db-clap', 0.8], towels: 'db-towels',
   // the graphics
@@ -543,10 +578,10 @@ export const MIX = Object.freeze({
   fx: { db: -9, duck: -6 },         // the ball, running, the graphics' stings
   music: { db: -12, duck: -6 },     // the organ
   crowd: { db: -14, duck: -4 },     // the crowd and the park's air
-  hype: { db: -11, duck: -6 },      // the air horn, the videoboard, the bleachers' drum and stamping
+  hype: { db: -11, duck: -6 },      // the air horn, the videoboard, the bleachers' drum and stamping, the chants
 });
 // which layer of the mix a patch sits in
-export const layerOf = (id) => (/^db-organ/.test(id) ? 'music' : /^db-(airhorn|hype|drum|stomp)/.test(id) ? 'hype' : /^db-crowd|^db-clap|^db-towels|^db-horn|^db-foghorn|^db-lamp/.test(id) ? 'crowd'
+export const layerOf = (id) => (/^db-organ/.test(id) ? 'music' : /^db-(airhorn|hype|drum|stomp|chant)/.test(id) ? 'hype' : /^db-crowd|^db-clap|^db-towels|^db-horn|^db-foghorn|^db-lamp/.test(id) ? 'crowd'
   : /^db-(crack|bunt|bat-break|foul-tip|mitt|glove|stretch|pickoff)/.test(id) ? 'impact' : 'fx');
 // How much plays at each Sound Detail (client/shared/settings.js sfxDetail): off keeps the
 // calls, limited adds what happens, full adds the beds, the organ, the public address, the

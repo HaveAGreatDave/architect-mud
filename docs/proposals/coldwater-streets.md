@@ -44,7 +44,8 @@ dirt of Old Coldwater, and four bridges stack over the street by class.
 - **The Clone Facility's frontage stays in view** (David, 2026-11-05). `flags.no_footbridge` on a road tile
   refuses the block's footbridge, and the block goes without one. Ironside Street's 919,902 and 919,903
   carry it, in front of Second Helpings and the facility; the crossing on 919,902 stays.
-  919,908 carries it too, in front of the Meridian's door.
+  919,908 carries it too, in front of the Meridian's door, and so does Sorrel Way's 893,921, beside the
+  foot of Grandstand Walk, so the Coliseum's main gate stays in view from the street (David, 2026-11-09).
 - **No ride signs** (David, 2026-11-05). The ₵1 A RIDE lettering over the belts is gone at every level.
   The gate posts and comb plates stay, and `belt` still charges ₵1 if `STREET_SYSTEMS` goes on.
 - **Prices are whole credits.** ₵1 a strip ride. Never "CR".

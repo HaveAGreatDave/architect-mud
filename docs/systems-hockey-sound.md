@@ -113,7 +113,7 @@ is what a phone speaker plays of it, and a band of breath at 560 Hz. On the rele
 most of a fifth (668 cents) as it dies: each reed is pitched a fifth low and an envelope mod
 (`GRUNT`) holds it up to the note, so the release takes the pitch down with the level. A late
 layer for the grunt held its voice a second past the sound. 16 ms to half its peak, 420 ms releases
-on the reeds, no reverb tail and no crowd in it. `hk-goal-horn-short` 1.1 s, `hk-goal-horn` 2.0 s;
+on the reeds, no reverb tail and no crowd in it. `hk-goal-horn-short` 1.1 s, `hk-goal-horn` 2.0 s, and `hk-goal-horn-long` about 4 s for a goal in live play (the director sends `long`);
 one blast, never repeats. Priority 10, 0.57 peak, the loudest sustained sound in the bank (RMS 0.16),
 centroid about 230 Hz with 42% of it under 150 Hz.
 
@@ -173,7 +173,7 @@ The rink names what happened and `HockeySfx.eventFor(key, data)` says which patc
 | `glass` | the puck `hk-puck-glass`; a man `hk-glass` |
 | `check` | soft `hk-check-light`; into the glass `hk-glass`; from behind `hk-check-boards`; otherwise `hk-check` |
 | `whistle` | `hk-whistle` when long (a penalty, a man down), otherwise `hk-whistle-short` |
-| `horn`, `periodHorn` | `hk-goal-horn`, `hk-period-horn` |
+| `horn`, `periodHorn` | `hk-goal-horn` (`hk-goal-horn-long` with `long`, `-short` with `short`), `hk-period-horn` |
 | `wide` | nothing: a wide shot is heard when it hits the boards |
 | `xrayIn`, `boneCrack`, `boneWet` | the X-ray replay: `hk-xray-in` (an air sweep and a heartbeat), `hk-bone-crack`, and at full gore `hk-bone-wet`; the crowd ducks under the first and gasps at the second |
 | `fightTurtle`, `fightDraw` | nothing of their own: the crowd cheers the sweater over a head and boos a fight nobody won |

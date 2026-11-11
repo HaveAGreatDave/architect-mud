@@ -13,6 +13,7 @@ import { createFreeCam, freeCamHint, bindFreeCamPointer, bindFreeCamIdle } from 
 import { internMap } from './map-intern.js';
 import { bindTouchGestures } from './touch-gestures.js';
 import { tweenOrbit } from './camera-tween.js';
+import { bindSeatRungs, clearSeatRungs } from './seat-ladder.js';
 import { bindBigScreenButton, exitBigScreen, BIGSCREEN_GLYPH, BIGSCREEN_TITLE } from './bigscreen.js';
 import { claimSeatKeyboard, endSeatKeyboard, grabSeatKeys, panelTakesKey } from './seat-keys.js';
 import { updateBoatContacts, stopBoatContacts } from './boat-audio.js';
@@ -29,7 +30,7 @@ import { cbRadioHTML, wireCbRadio, cbTabKey } from './cb-radio.js';
 import { makeDraggable } from './confirm.js';
 // Hunger and thirst are already on the live player object, so reading them costs no request.
 import { state as gameState } from '../state.js';
-import { seatHidePanel, TOUCH_MQ, isTouchView } from '../../../shared/compact-view.js';
+import { TOUCH_MQ, isTouchView } from '../../../shared/compact-view.js';
 import { makeContactTrack } from './world-feed.js';
 import { loadCss } from '../../../shared/dom.js';
 
@@ -2018,24 +2019,12 @@ export function openCab(ctx = {}) {
   }
 
   // ── THE VIEW CHROME ────────────────────────────────────────────────────────
-  // Fullscreen and hide-panel are body classes, as in the flight sim; fullscreen supersedes hide-panel.
   const fsBtn = container.querySelector('.cab-fsbtn');
   const hideBtn = container.querySelector('.cab-hidebtn');
   const viewBtn = container.querySelector('.cab-viewbtn');
-  fsBtn.addEventListener('click', () => {
-    const on = document.body.classList.toggle('cab-fullscreen');
-    fsBtn.classList.toggle('on', on);
-    if (on) { document.body.classList.remove('cab-hidepanel'); hideBtn.classList.remove('on'); }
-  });
-  hideBtn.addEventListener('click', () => {
-    const on = document.body.classList.toggle('cab-hidepanel');
-    hideBtn.classList.toggle('on', on);
-    if (on) { document.body.classList.remove('cab-fullscreen'); fsBtn.classList.remove('on'); }
-  });
   // Big screen is a separate layer, so ⛶ and ⊟ keep their state; bigscreen.js keeps its lit state.
   bindBigScreenButton(container.querySelector('.cab-bigbtn'));
-  // On a phone the panel starts hidden; the rules are in compact-view.js.
-  seatHidePanel('cab-hidepanel', hideBtn);
+  bindSeatRungs({ hide: hideBtn, fs: fsBtn });   // ⊟ and ⛶, opening on ⊟ (seat-ladder.js)
   window.dispatchEvent(new Event('pane:claimed'));   // a phone keeps #area-pane collapsed until told
   // The external view is the renderer's existing chase camera. ⚠ The rig must never become a world
   // object (the collision probe would hit it); it's the renderer's own-ship.
@@ -2476,6 +2465,8 @@ export function cabContext(ctx) {
   if (ctx.grime != null) st.grime = ctx.grime;
   if (ctx.fits !== undefined) FITS = ctx.fits || '';
   if (ctx.edition !== undefined) EDITION = ctx.edition || '';
+  // A hire's time left, turned into a deadline on this clock (the Drayman 2076's HUD reads it).
+  if (ctx.hireLeft !== undefined) st.hireUntil = ctx.hireLeft == null ? null : Date.now() + ctx.hireLeft;
   // Stamped on arrival, which gives contactsFor an age.
   if (ctx.contacts) {
     st.contacts = ctx.contacts.map(c => ({ ...c, t: performance.now() }));
@@ -3289,6 +3280,7 @@ function frame(now) {
       // 'aim' is the server's destKey. ⚠ Kilometres through legKm, so the dash matches the boards.
       aim: st.aim || null,
       legLeft: st.L ? legKm() : null,
+      hireLeft: st.hireUntil == null ? null : Math.max(0, st.hireUntil - Date.now()),
       brakeTemp: r.brakeTemp, fading: r.fading, brakeGauge: kit.brakeTemp,
       lamps: {
         fuel: st.dry || (st.fuel ?? 1) < 0.15,
@@ -3378,8 +3370,7 @@ export function closeCab() {
   if (!st) return;
   PAINT_PREVIEW = null; TRIM_PREVIEW = null; FITS_PREVIEW = null;
   // The immersive layouts are the page's; nothing else takes them down.
-  document.body.classList.remove('cab-fullscreen', 'cab-hidepanel');
-  exitBigScreen();
+  clearSeatRungs();
   window.dispatchEvent(new Event('pane:released'));
   // The camera holds a key set; a dismount mid-key would latch it for the next drive.
   freeCam.close();

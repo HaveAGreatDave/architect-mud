@@ -319,6 +319,42 @@ per-voice panel beside the global tuning knobs and prints only what differs from
 in the shape a `NAMED_VOICES` entry takes. Ranges there are deliberately wider than the
 roll, because the point is to hear the edges.
 
+### Rural Canadian (`can`)
+
+A third accent, overdone on purpose for comedy, after Letterkenny, Trailer Park Boys and
+the Ottawa Valley. Neil McManistan speaks it: his named voice carries `accent: 'can'`, and
+`speak` and `phonemesFor` now take a voice's `accent` when the caller passes none.
+
+It's rhotic and flapped like GA. `applyCanadian` changes the phonemes:
+
+| Feature | Rule | Example |
+|---|---|---|
+| Canadian raising | `AW`/`AY` before a voiceless consonant become `AWC`/`AYC` | house, ice, like |
+| GOAT and FACE | `OW`/`EY` become near-pure `OWC`/`EYC` | boat, say |
+| cot-caught merger | `AO` becomes `AA`, except before `R` | caught, talk |
+| "bag" raising | `AE` before `G`/`NG` becomes `EYC` | bag, drag |
+| TH-stopping | a word-initial `DH` becomes `D` | dat, dere, dese |
+| g-dropping | unstressed word-final `IH NG` becomes `IH N` | doin, fuckin |
+
+The model is Ricky from Trailer Park Boys crossed with every hick you know. `CAN_SWAPS`
+rewrites the text first: Rickyisms when a line uses the real phrase ("worst case Ontario",
+"get two birds stoned at once", "supply and command") and hick grammar ("them boys" for
+"those boys", "ain't", "gonna", "you was"). After TH-stopping, "them boys" comes out "dem
+boys". A third of commas get an "uh". Neil's voice is tuned natural and a bit dopey: full
+human variation and no synthetic character, a slow drawl, a slack jaw (`f1` 1.07), a soft
+breathy source (`bright` 0.9, `oq` 0.72), a sing-song lilt that trails off (`decl` 0.07)
+and a touch of fry from `growl`.
+
+`CAN_LEX` holds the words the rules can't reach, plus "ya" and "yer": "aboot" and "oot" (the stereotype, not
+the real raised vowel), "sore-y", "pass-ta", "proh-cess", "agane", "bean" for been, "ruff"
+for roof. `canText` turns question tags ("right?", "you know?", "huh?") into "eh?", and adds
+", eh" to about a third of statements, picked by a hash of the sentence so a line always
+comes out the same. The `ui` channel (Read Aloud) gets the phonemes but never the added
+words.
+
+A new vowel goes in five places or it misbehaves: `PH`, `VOWELS`, `DEGEM_VOWEL`, `ROUNDED`
+(if rounded) and the viseme table in `client/shared/lip-sync.js`.
+
 ### RP grew a linking-r and a GOAT
 
 Non-rhotic RP drops the /r/ of "far" — but not in "far away", where the next word begins
@@ -997,6 +1033,55 @@ that could not get any softer; regress pins it.
 rung a lock that opens and a lock that turns you away must not be the same sound,
 or the player is reading the log to find out whether the door in front of them just
 worked. It is the one cue in this tier deliberately mixed **above** the others.
+
+## Field recordings
+
+**Status: built.** The weather, the shore and the birds play real recordings: 26 CC0 recordings from
+Freesound, credited in [bibliography.md](reference/bibliography.md#field-recordings). Each is a row in
+`content/audio_samples` (`smp_field_<key>`), a mono 22,050 Hz 48 kbps MP3, and the table cues read is
+[field-recordings.js](../client/shared/field-recordings.js).
+
+**Building them.** [build-field-recordings.mjs](../scripts/audio/build-field-recordings.mjs) owns the
+list. `--fetch` downloads Freesound's HQ previews into `.cache/field-recordings/` (not in git) and
+refuses any sound whose page isn't CC0; a bare run writes the rows and the table. Never edit either by
+hand. A bed is the steadiest stretch of its recording, crossfaded end into start and padded with its
+own end before and its own start after, so the loop stays seamless however much delay a browser's MP3
+decoder adds. A call recording is cut into its separate calls (`slices`), and a slice more than 10 LU
+under the loudest is dropped. Loop points, slices and each one's loudness are measured on the decoded
+MP3, so they're in the time and level the browser hears.
+
+**The `sample` layer.** A layer `{ sample: id, loop: [a, b] | offset + length, gain, adsr, rate,
+detune, filter, pan }` plays a recording inside an ordinary cue, so it takes `position`, doppler,
+`setLoopGain` and the buses like any other layer. A layer marked `alt: true` is its stand-in: the
+synth plays until the recording has been fetched and decoded on that client (the first time, or in
+Node, where the gates hear only the stand-ins), and a loop that started on its stand-ins crossfades to
+the recording when it arrives. `fieldBed(key, lufs)` and `fieldCall(key, seed, lufs)` build the layer,
+levelled to a target from the measured loudness; `AudioEngine.preloadSamples(ids)` fetches ahead.
+Recordings are played as they are: the SNES crush in `loadSample` doesn't touch them.
+
+**Where they play.**
+
+| Where | What | Code |
+|---|---|---|
+| The zone weather beds | rain (light, and heavy at precipRate 0.55, back under 0.4), thunderstorm (heavy rain), storm (rain with distant thunder), sleet (hail), blizzard, wind. Snow keeps its noise bed | `WEATHER_FIELD` in [plugins/audio](../plugins/audio/index.js) |
+| A GLASS view, free look included | the nearest shore within 7 tiles, positioned on the water: a quay laps, open shore breaks harder as the wind rises; each bird call is a recorded call of its species at the flock's tile | [field-audio.js](../client/game/js/panels/field-audio.js) |
+| A seat's thunder | two recorded claps added to the three it already had | [engine-audio.js](../client/game/js/panels/engine-audio.js) |
+| The Room Stage | rain recorded from indoors, wind and thunder, placed at the nearest window or balcony door, with the listener turned with the camera; the birds and the surf round the building, just outside that opening and leaning toward where they are | [room-sfx.js](../client/shared/room-sfx.js), [room-sound.js](../client/game/js/panels/room-sound.js), [room-outdoors.js](../client/game/js/panels/room-outdoors.js) |
+
+The peregrine has no CC0 recording and keeps its FM call.
+
+**The Room Stage's birds and sea.** [room-outdoors.js](../client/game/js/panels/room-outdoors.js) reads
+the map `room_outlook` already sends and finds what GLASS would: the flocks within 13 tiles by
+windshield.js's habitat rules, calling on birds.js's clock (`callsIn`), and the nearest shore within 9
+tiles. Birds keep GLASS's one-burst-then-20-seconds rule, sleep by species (`birdDaylight`) and go quiet
+in the wet. `outsideMix` in room-sfx.js sets how much gets through: less across the room, almost none in
+the en-suite, and less the higher the storey. A bare GLASS view (the window's outlook, a seat's mirror)
+no longer voices birds itself, so they aren't heard twice. Traffic, aircraft and sirens stay out, as
+room-sfx.js's note says.
+
+[field-smoke.mjs](../scripts/audio/field-smoke.mjs) checks the rows, the licences, the loop seams on
+the shipped MP3, the slices, every key a caller names, and that a sampled cue plays the recording or
+its stand-ins and changes over.
 
 ## History
 

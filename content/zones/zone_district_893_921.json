@@ -1,15 +1,16 @@
 {
   "ambient_events": [],
   "ambient_theme": "city",
-  "description": "Sorrel Way, with the gardens along the south side. On the north side 5 Sorrel Way is a glass drum set back behind four tables, with a chalkboard against the glass. Ticket stubs collect in the gutter.",
+  "description": "Sorrel Way, with the gardens along the south side. On the north side a fountain plays in Hughson Gardens. Ticket stubs collect in the gutter.",
   "exits": {
     "east": "zone_district_894_921",
-    "north": "zone_district_896_913",
+    "north": "zone_ballpark_896_911",
     "south": "zone_district_893_922",
     "west": "zone_district_892_921"
   },
   "flags": {
     "district": "halcyon_fields",
+    "no_footbridge": true,
     "region_id": "region_coldwater",
     "scavenging_table_id": "scav_roadside_junk",
     "street_life": true,

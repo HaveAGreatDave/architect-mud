@@ -57,6 +57,13 @@ function bubble(name, text, seconds) {
   setTimeout(() => { b.classList.add('out'); setTimeout(() => b.remove(), 300); }, seconds * 1000);
 }
 
+// A line off the set on the wall (room-tv.js): the picture is a few feet away and too small to read, so
+// what's said on it goes along the bottom with the room's own. The TV has already voiced it.
+export function tvLine(name, text) {
+  const t = String(text || '').trim();
+  if (t) bubble(name, t, Math.max(MIN_S, t.length * PER_CHAR_S));
+}
+
 // A third of the city talks RP, off the same name, so the accent is theirs too.
 // The voice's own timing goes out with the line, so a figure on the Stage can move its mouth to it.
 const say = (name, text, queue) => {

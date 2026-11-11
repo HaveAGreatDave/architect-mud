@@ -2,12 +2,20 @@
   "description": "A bar along the back wall in dark wood and brass, with a hundred bottles on lit glass shelves and no prices on any of them. Members sign. Nobody's ever seen the bill.",
   "flags": {
     "aliases": "bar",
+    "bar_counter": true,
     "interactions": [
       "lean"
     ],
     "look": {
       "arche": "surface",
       "form": "bar"
+    },
+    "spot": {
+      "at": [
+        3.9,
+        8.2
+      ],
+      "turn": 0
     }
   },
   "hp": null,

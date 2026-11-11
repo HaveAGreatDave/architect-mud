@@ -4,65 +4,266 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Figure Lab</title>
+<!--
+  Everybody drawn as a person, in either of the game's two figure renderers:
+
+    Room    the close-up figure (client/game/js/panels/figure.js) in the Room Stage's own renderer
+            (gl/room.js, gl/figure-hd.js): the Room Stage, the TV and Broadcast Studio sequences.
+            The script at the bottom of this page.
+    Street  the street's baked crowd body (actor3d.js, gl/actors.js) with the street heads L0 to
+            L2, dressed by district: what a player sees out on the map. crowd-lab.js, loaded the
+            first time Street is picked.
+
+  The top rows are the choices that change what you're looking at (the renderer, then the figure
+  and who for Room, the shot for Street); the panel down the left holds the rest. The URL carries
+  the top rows (?renderer=street&shot=gala, ?fig=both&npc=npc_john_akerson), so a link opens on
+  the same view. /actor-lab.html redirects here with ?renderer=street.
+-->
 <style>
-  :root { --bg: #0b0d14; --fg: #d8d4c8; --dim: #8a8678; --line: #23263a; }
-  html, body { margin: 0; background: var(--bg); color: var(--fg); font: 13px/1.4 ui-monospace, Menlo, Consolas, monospace; }
-  header { padding: 8px 12px; border-bottom: 1px solid var(--line); display: flex; flex-wrap: wrap; gap: 6px 16px; align-items: center; }
-  header b { color: #e8c070; letter-spacing: 0.2em; }
-  label { color: var(--dim); white-space: nowrap; }
+  :root { --bg: #0b0d14; --panel: #10131c; --fg: #d8d4c8; --dim: #8a8678; --line: #23263a; --on: #e8c070; }
+  html, body { margin: 0; height: 100%; background: var(--bg); color: var(--fg); font: 13px/1.4 ui-monospace, Menlo, Consolas, monospace; }
+  body { display: flex; flex-direction: column; }
+  a { color: inherit; }
+  header { border-bottom: 1px solid var(--line); padding: 6px 12px; display: flex; flex-direction: column; gap: 6px; }
+  header .row { display: flex; flex-wrap: wrap; gap: 6px 12px; align-items: center; }
+  header b { color: var(--on); letter-spacing: 0.2em; }
+  .spacer { flex: 1; }
+  .k { color: var(--dim); }
+  .note { color: var(--dim); font-size: 12px; }
+  /* a row of radio buttons drawn as one segmented control */
+  .seg { display: inline-flex; border: 1px solid var(--line); border-radius: 4px; overflow: hidden; }
+  .seg label { cursor: pointer; position: relative; }
+  .seg input { position: absolute; opacity: 0; pointer-events: none; }
+  .seg span { display: block; padding: 3px 10px; color: var(--dim); border-left: 1px solid var(--line); }
+  .seg label:first-child span { border-left: 0; }
+  .seg input:checked + span { background: var(--on); color: #14120f; }
+  .seg input:focus-visible + span { outline: 1px solid var(--on); outline-offset: -2px; }
+  .seg.big span { padding: 4px 14px; }
+  main { flex: 1; min-height: 0; display: flex; }
+  aside { width: 250px; flex: none; overflow-y: auto; background: var(--panel); border-right: 1px solid var(--line); padding: 4px 10px 10px; box-sizing: border-box; }
+  fieldset { border: 0; border-top: 1px solid var(--line); margin: 6px 0 0; padding: 4px 0 0; }
+  legend { color: var(--on); font-size: 11px; letter-spacing: 0.18em; text-transform: uppercase; padding: 0 4px 0 0; }
+  aside label { display: flex; justify-content: space-between; align-items: center; gap: 8px; color: var(--dim); padding: 2px 0; white-space: nowrap; }
+  aside label.tick { justify-content: flex-start; }
+  aside select, aside input[type=number], aside input[type=text], aside input:not([type]) { max-width: 140px; }
+  aside input[type=range] { width: 90px; }
   label input, label select { vertical-align: middle; }
-  #view { position: relative; }
-  #view canvas { width: 100%; height: calc(100vh - 92px); display: block; cursor: grab; }
+  #stage { flex: 1; min-width: 0; position: relative; }
+  #view, #views { position: absolute; inset: 0; }
+  #view canvas { width: 100%; height: 100%; display: block; cursor: grab; }
   #stats { position: absolute; left: 12px; bottom: 10px; font-size: 12px; color: var(--dim); text-shadow: 0 0 4px #000; }
+  #views { display: grid; grid-template-columns: 1fr 1fr; gap: 2px; }
+  .view { position: relative; min-height: 0; }
+  .view canvas { width: 100%; height: 100%; display: block; }
+  .view span { position: absolute; left: 12px; top: 10px; font-size: 12px; letter-spacing: 0.25em; text-shadow: 0 0 4px #000; }
+  #st-w span { color: #8fb4ff; }
+  #st-e span { color: #f0a848; }
+  #street-msg { position: absolute; left: 12px; bottom: 10px; color: var(--dim); }
+  /* only the chosen renderer's rows, panel and view */
+  body[data-renderer="room"] [data-for="street"], body[data-renderer="street"] [data-for="room"] { display: none !important; }
+  @media (max-width: 800px) {
+    main { flex-direction: column; }
+    aside { width: auto; max-height: 34vh; border-right: 0; border-bottom: 1px solid var(--line); }
+    #stage { min-height: 56vh; }
+    #views { grid-template-columns: 1fr; }
+  }
 </style>
 </head>
-<body>
+<body data-renderer="room">
 <header>
-  <a href="/" style="color:inherit;opacity:.7">← Modelshop</a>
-  <b>FIGURE LAB</b>
-  <a href="/actor-lab.html" style="color:inherit" title="The street figures">Actor Lab →</a>
-  <label>dress <select id="dress"><option value="">the city's</option><option value="wildblood">Wildblood</option></select></label>
-  <label>changes <select id="muts"><option value="">by person</option><option value="all">all of them</option><option value="none">none</option></select></label>
-  <label>cut <select id="cut"><option value="">by person</option><option value="each">one of each</option><option>coat</option><option>jacket</option><option>tee</option><option>hoodie</option><option>bomber</option><option>duster</option><option>vest</option><option>tunic</option><option>suit</option></select></label>
-  <label>hair <select id="hair"><option value="">by person</option><option value="0">cropped</option><option value="1">neat</option><option value="2">tousled</option><option value="3">long</option><option value="4">quiff</option></select></label>
-  <label>level <select id="level"><option>hd</option><option>lite</option></select></label>
-  <label>wear <select id="wear"><option value="all">dressed</option><option value="body">body only</option><option value="legs">trousers and shoes</option></select></label>
-  <label>gear <select id="gear"><option value="">by person</option><option value="none">none</option><option value="all">all</option></select></label>
-  <label>pose <select id="pose"><option>stand</option><option>sit</option><option value="lie">lie</option></select></label>
-  <label>state <select id="rest"><option value="">awake</option><option value="sleep">asleep</option><option value="out">out cold</option></select></label>
-  <label>work <select id="manner"><option value="">none</option><option>bar</option><option>shop</option><option>guard</option><option>rough</option></select></label>
-  <label>doing <select id="doing"><option value="">idling</option></select></label>
-  <label>id <input id="who" placeholder="lab people" style="width:11em"></label>
-  <label>say <input id="say" placeholder="a line, then Enter" style="width:13em"></label>
-  <label>facial hair <select id="facial"><option value="">by person</option><option>clean</option><option>stubble</option><option>shadow</option><option>moustache</option><option>goatee</option><option>vandyke</option><option>soulpatch</option><option>chinstrap</option><option>sideburns</option><option>trimmed</option><option>full</option><option>long</option></select></label>
-  <label>mouth <select id="shape"><option value="">by what they say</option></select></label>
-  <label><input type="checkbox" id="sculpt"> sculpted</label>
-  <label>build <select id="build"><option value="">by person</option><option>average</option><option>older</option><option>hunched</option><option>woman</option></select></label>
-  <label><input type="checkbox" id="useW"> weight <input type="range" id="weight" min="0" max="1" step="0.1" value="0.5" title="ectomorph, mesomorph, endomorph"></label>
-  <label><input type="checkbox" id="both"> before / after</label>
-  <label><input type="checkbox" id="crowd"> crowd body beside</label>
-  <label><input type="checkbox" id="comic"> comic look</label>
-  <label><input type="checkbox" id="lamp" checked> lamp</label>
-  <label>day <input type="range" id="day" min="0" max="1" step="0.01" value="0.55"></label>
-  <label><input type="checkbox" id="spin"> turntable</label>
-  <label>people <input type="number" id="n" value="4" min="1" max="8" style="width:3em"></label>
-  <label>seed <input type="number" id="seed" value="7" style="width:4em"></label>
+  <div class="row">
+    <a href="/" style="opacity:.7">← Modelshop</a>
+    <b>FIGURE LAB</b>
+    <span class="seg big" role="radiogroup" aria-label="renderer">
+      <label title="The close-up figure in the Room Stage's renderer: rooms, the TV, Broadcast Studio sequences"><input type="radio" name="renderer" value="room" checked><span>Room · close-up</span></label>
+      <label title="The street's baked crowd body and street heads, dressed by district"><input type="radio" name="renderer" value="street"><span>Street · crowd</span></label>
+    </span>
+    <span class="spacer"></span>
+    <a href="/pose-lab.html" title="Deadball's clips keyed on the real rig and played in the 3-D park">Pose Lab →</a>
+  </div>
+  <div class="row" data-for="room">
+    <span class="k">figure</span>
+    <span class="seg" role="radiogroup" aria-label="figure">
+      <label title="The revised figure (docs/proposals/sculpted-figure.md): on for the TV and Broadcast Studio sequences"><input type="radio" name="fig" value="sculpt" checked><span>sculpted</span></label>
+      <label title="The figure the Room Stage draws today"><input type="radio" name="fig" value="current"><span>current</span></label>
+      <label title="One person twice under the same light: current on the left, sculpted on the right"><input type="radio" name="fig" value="both"><span>before / after</span></label>
+    </span>
+    <span class="k">who</span>
+    <select id="npc" title="Lab people roll off a seed; an NPC with a settled look (flags.figure) is drawn as their content file has them"><option value="">lab people</option></select>
+    <label class="k">id <input id="who" placeholder="any npc_… id, Enter" style="width:13em"></label>
+    <span id="whoNote" class="note"></span>
+  </div>
+  <div class="row" data-for="street">
+    <span class="k">shot</span>
+    <span class="seg" role="radiogroup" aria-label="shot">
+      <label title="Seven people on each side's street"><input type="radio" name="st-shot" value="street" checked><span>street</span></label>
+      <label title="Four people lined up at head height"><input type="radio" name="st-shot" value="portraits"><span>portraits</span></label>
+      <label title="Two faces close"><input type="radio" name="st-shot" value="faces"><span>faces</span></label>
+      <label title="One head close up, at the head level chosen on the left"><input type="radio" name="st-shot" value="head"><span>head</span></label>
+      <label title="Materials A/B: evening dress lit as metal, satin and leather on the left, as cloth on the right"><input type="radio" name="st-shot" value="gala"><span>gala</span></label>
+      <label title="A walk from the side, to see a planted foot stay planted"><input type="radio" name="st-shot" value="gait"><span>gait</span></label>
+    </span>
+    <label class="k" title="The look that ships, with none of this page's proposals on it"><input type="checkbox" id="st-built"> as built</label>
+  </div>
 </header>
-<div id="view"><canvas id="c"></canvas><div id="stats"></div></div>
+<main>
+  <aside data-for="room">
+    <fieldset><legend>Body</legend>
+      <label>sex <select id="sex"><option value="">by person</option><option>female</option><option>male</option></select></label>
+      <label>build <select id="build"><option value="">by person</option><option>average</option><option>older</option><option>hunched</option><option>woman</option></select></label>
+      <label title="ectomorph, mesomorph, endomorph"><span><input type="checkbox" id="useW"> weight</span> <input type="range" id="weight" min="0" max="1" step="0.1" value="0.5"></label>
+      <label><span><input type="checkbox" id="useB"> bust</span> <input type="range" id="bust" min="0" max="1" step="0.1" value="0.5"></label>
+      <label><span><input type="checkbox" id="useT"> butt</span> <input type="range" id="butt" min="0" max="1" step="0.1" value="0.5"></label>
+      <label>changes <select id="muts"><option value="">by person</option><option value="all">all of them</option><option value="none">none</option></select></label>
+    </fieldset>
+    <fieldset><legend>Head</legend>
+      <label>hair <select id="hair"><option value="">by person</option><option value="0">cropped</option><option value="1">neat</option><option value="2">tousled</option><option value="3">long</option><option value="4">quiff</option></select></label>
+      <label>facial hair <select id="facial"><option value="">by person</option><option>clean</option><option>stubble</option><option>shadow</option><option>moustache</option><option>goatee</option><option>vandyke</option><option>soulpatch</option><option>chinstrap</option><option>sideburns</option><option>trimmed</option><option>full</option><option>long</option></select></label>
+      <label>mood <select id="mood"><option value="">none</option></select></label>
+      <label>strength <input id="moodI" type="range" min="0" max="1" step="0.05" value="1"></label>
+      <label>say <input id="say" placeholder="a line, then Enter" style="width:12em"></label>
+      <label>mouth <select id="shape"><option value="">by what they say</option></select></label>
+    </fieldset>
+    <fieldset><legend>Clothes</legend>
+      <label>dress <select id="dress"><option value="">the city's</option><option value="wildblood">Wildblood</option></select></label>
+      <label>cut <select id="cut"><option value="">by person</option><option value="each">one of each</option></select></label>
+      <label>wear <select id="wear"><option value="all">dressed</option><option value="body">body only</option><option value="legs">trousers and shoes</option></select></label>
+      <label>bottoms <select id="bottoms"><option value="">by person</option><option value="none">trousers</option></select></label>
+      <label>hat <select id="hat"><option value="">by person</option><option value="none">none</option></select></label>
+      <label>scarf <select id="scarf"><option value="">by person</option><option value="none">none</option></select></label>
+      <label>gear <select id="gear"><option value="">by person</option><option value="none">none</option><option value="all">all</option></select></label>
+    </fieldset>
+    <fieldset><legend>Doing</legend>
+      <label>pose <select id="pose"><option>stand</option><option>sit</option><option value="lie">lie</option></select></label>
+      <label>state <select id="rest"><option value="">awake</option><option value="sleep">asleep</option><option value="out">out cold</option></select></label>
+      <label>work <select id="manner"><option value="">none</option><option>bar</option><option>shop</option><option>guard</option><option>rough</option></select></label>
+      <label>doing <select id="doing"><option value="">idling</option></select></label>
+    </fieldset>
+    <fieldset><legend>View</legend>
+      <label>level <select id="level"><option>hd</option><option>lite</option></select></label>
+      <label>people <input type="number" id="n" value="4" min="1" max="8" style="width:4em"></label>
+      <label>seed <input type="number" id="seed" value="7" style="width:5em"></label>
+      <label class="tick" title="The street's bake (the same clothes sampled coarsely) beside each person, to judge that the two read as one figure"><input type="checkbox" id="crowd"> crowd body beside</label>
+      <label class="tick"><input type="checkbox" id="comic"> comic look</label>
+      <label class="tick" title="as a player in the mature layer sees them (docs/systems-mis.md)"><input type="checkbox" id="mature" onchange="globalThis.__figureMature = this.checked"> mature</label>
+      <label class="tick"><input type="checkbox" id="lamp" checked> lamp</label>
+      <label>day <input type="range" id="day" min="0" max="1" step="0.01" value="0.55"></label>
+      <label class="tick"><input type="checkbox" id="spin"> turntable</label>
+    </fieldset>
+  </aside>
+  <aside data-for="street">
+    <fieldset><legend>Look</legend>
+      <label>faces <select id="st-facesrc"><option value="atlas">atlas</option><option value="painted">painted</option></select></label>
+      <label>head <select id="st-lod"><option value="0">L0</option><option value="1">L1</option><option value="2">L2</option></select></label>
+      <label class="tick" title="Light each garment as what it's made of (envAt in gl/actors.js)"><input type="checkbox" id="st-mats" checked> materials</label>
+    </fieldset>
+    <fieldset><legend>Scene</legend>
+      <label>weather <select id="st-weather"><option>clear</option><option selected>rain</option><option>cold</option></select></label>
+      <label class="tick"><input type="checkbox" id="st-night" checked> night</label>
+      <label class="tick"><input type="checkbox" id="st-shadows" checked> contact shadows</label>
+    </fieldset>
+    <fieldset><legend>Motion</legend>
+      <label>clip <select id="st-clip"><option>mixed</option><option>walk</option><option>idle</option><option>talk</option><option>listen</option><option>wait</option><option>phone</option><option>smoke</option></select></label>
+      <label class="tick"><input type="checkbox" id="st-spin"> turntable</label>
+    </fieldset>
+    <fieldset><legend>View</legend>
+      <label>zoom <input type="range" id="st-zoom" min="2" max="9" step="0.1" value="5.4"></label>
+      <label>seed <input type="number" id="st-seed" value="7" style="width:5em"></label>
+    </fieldset>
+  </aside>
+  <section id="stage">
+    <div id="view" data-for="room"><canvas id="c"></canvas><div id="stats"></div></div>
+    <div id="views" data-for="street">
+      <div class="view" id="st-w"><canvas id="st-a"></canvas><span>WEST · ASCENDANT QUARTER</span></div>
+      <div class="view" id="st-e"><canvas id="st-b"></canvas><span>EAST · LONG WATCH GROUND</span></div>
+      <div id="street-msg"></div>
+    </div>
+  </section>
+</main>
 <script src="/client/shared/audio-engine.js"></script>
 <script type="module">
-// The close-up figure (client/game/js/panels/figure.js), drawn by the Room Stage's own renderer
-// (gl/room.js) in an empty room: the same light, the same ink and the same skinning a flat's
-// visitors get, so what this page shows is what ships. "crowd body beside" stands the street's
-// bake (actor3d.js, which is the same clothes sampled coarsely) next to each person, to judge that
-// the two read as one figure. Drag to orbit, wheel to zoom.
+// The page's shell: which renderer is showing, and the URL that says so. The street's module is
+// loaded the first time it's picked (it bakes the crowd and opens two WebGL contexts). Each
+// renderer's animation loop draws nothing while the other is showing.
+const q = new URLSearchParams(location.search);
+const radio = (name, v) => { const r = document.querySelector(`input[name="${name}"][value="${v}"]`); if (r) r.checked = true; };
+let streetLoaded = null;
+function setRenderer(r) {
+  document.body.dataset.renderer = r;
+  radio('renderer', r);
+  if (r === 'street' && !streetLoaded) {
+    const msg = document.getElementById('street-msg');
+    msg.textContent = 'baking the street…';
+    streetLoaded = import('/crowd-lab.js').then(() => { msg.textContent = ''; }, (e) => { msg.textContent = 'the street lab failed to load: ' + e.message; console.error(e); });
+  }
+}
+// The top rows, written back to the URL as they change.
+function writeUrl() {
+  const u = new URLSearchParams();
+  const v = (name) => document.querySelector(`input[name="${name}"]:checked`)?.value;
+  if (v('renderer') === 'street') { u.set('renderer', 'street'); if (v('st-shot') !== 'street') u.set('shot', v('st-shot')); }
+  else {
+    if (v('fig') !== 'sculpt') u.set('fig', v('fig'));
+    const who = document.getElementById('who').value.trim();
+    if (who) u.set('npc', who);
+  }
+  history.replaceState(null, '', location.pathname + (u.toString() ? '?' + u : ''));
+}
+globalThis.__labWriteUrl = writeUrl;
+if (q.get('shot')) radio('st-shot', q.get('shot'));
+if (q.get('fig')) radio('fig', q.get('fig'));
+if (q.get('npc') || q.get('id')) document.getElementById('who').value = q.get('npc') || q.get('id');
+for (const r of document.querySelectorAll('input[name="renderer"]')) r.addEventListener('change', () => { setRenderer(r.value); writeUrl(); });
+for (const r of document.querySelectorAll('input[name="st-shot"], input[name="fig"]')) r.addEventListener('change', writeUrl);
+setRenderer(q.get('renderer') === 'street' ? 'street' : 'room');
+</script>
+<script type="module">
+// The Room renderer: the close-up figure (client/game/js/panels/figure.js), drawn by the Room
+// Stage's own renderer (gl/room.js) in an empty room: the same light, the same ink and the same
+// skinning a flat's visitors get, so what this shows is what ships. "crowd body beside" stands the
+// street's bake (actor3d.js, which is the same clothes sampled coarsely) next to each person, to
+// judge that the two read as one figure. Drag to orbit, wheel to zoom.
+//
+// "who" draws an NPC as their content file has them: their sex and settled figure (flags.figure)
+// through the Modelshop's /api/npc-figure. The list is every NPC with a settled look
+// (/api/npc-figures); the id box takes anyone, settled or not.
 import { createRoomRenderer } from '/client/game/js/panels/gl/room.js';
 import { figurePeople, peopleBatch, preparePeople } from '/client/game/js/panels/gl/room-people.js';
 import { createBatch, vtx, MAT } from '/client/game/js/panels/gl/ballpark-mesh.js';
 import { MOUTHS, mouthTrack, textTrack, mouthAt } from '/client/shared/lip-sync.js';
 import { ACTOR_CLIPS, ACTOR_ROOM_CLIPS } from '/client/game/js/panels/actor3d.js';
+import { MOODS } from '/client/shared/expressions.js';
+import { FIGURE_CUT_NAMES, FIGURE_BOTTOMS, FIGURE_HATS, FIGURE_SCARVES } from '/client/game/js/panels/figure.js';
+for (const [id, T] of [['bottoms', FIGURE_BOTTOMS], ['hat', FIGURE_HATS], ['scarf', FIGURE_SCARVES]]) for (const n of Object.keys(T)) document.getElementById(id).add(new Option(n));
+// every cut by name, in the wardrobe's order
+for (const n of FIGURE_CUT_NAMES) { const o = document.createElement('option'); o.textContent = n; document.getElementById('cut').append(o); }
 
 const $ = (id) => document.getElementById(id);
+const figMode = () => document.querySelector('input[name="fig"]:checked')?.value || 'sculpt';
+
+// Who: lab people, or an NPC. Picking from the list or entering an id reads their file at once.
+let settled = {};
+const npcSel = $('npc');
+const syncNpc = () => { const id = $('who').value.trim(); npcSel.value = [...npcSel.options].some((o) => o.value === id) ? id : ''; };
+async function readSettled() {
+  const id = $('who').value.trim();
+  syncNpc();
+  globalThis.__labWriteUrl?.();
+  if (!id) { settled = {}; $('whoNote').textContent = ''; return; }
+  const r = await fetch('/api/npc-figure?id=' + encodeURIComponent(id)).catch(() => null);
+  const body = r?.ok ? await r.json() : null;
+  if (id !== $('who').value.trim()) return;
+  settled = body || {};
+  $('whoNote').textContent = !body ? 'no such NPC: rolled off the id' : body.figure ? 'settled look' : 'no settled look: rolled off the id';
+}
+npcSel.addEventListener('change', () => { $('who').value = npcSel.value; readSettled(); });
+$('who').addEventListener('change', readSettled);
+fetch('/api/npc-figures').then((r) => (r.ok ? r.json() : [])).then((list) => {
+  for (const n of list) npcSel.add(new Option(n.name || n.id, n.id));
+  syncNpc();
+}).catch(() => {});
+if ($('who').value.trim()) readSettled();
+
 const canvas = $('c');
 const R = createRoomRenderer(canvas, {});
 if (!R) { $('stats').textContent = 'no WebGL2 here'; throw new Error('no WebGL2'); }
@@ -87,6 +288,9 @@ let line = null;
 for (const k of Object.keys(MOUTHS)) $('shape').add(new Option(k));
 // every clip a person in a room can play, to look at one by one; a clip that plays once starts again every few seconds
 for (const c of [...ACTOR_CLIPS, ...ACTOR_ROOM_CLIPS]) if (c.name !== 'walk') $('doing').add(new Option(c.name));
+// a mood for everybody, as the server sends one (docs/systems-expressions.md)
+for (const m of MOODS) if (m !== 'neutral') $('mood').add(new Option(m));
+const moodNow = () => ($('mood').value ? { mood: { m: $('mood').value, i: +$('moodI').value } } : {});
 const onceOf = (name) => ACTOR_ROOM_CLIPS.find((c) => c.name === name && c.once)?.dur || 0;
 $('say').addEventListener('keydown', (e) => {
   if (e.key !== 'Enter') return;
@@ -95,18 +299,14 @@ $('say').addEventListener('keydown', (e) => {
 });
 const mouthNow = () => ($('shape').value ? MOUTHS[$('shape').value] : line ? mouthAt(line.track, (performance.now() - line.t0) / 1000) || undefined : undefined);
 const WEAR = { all: null, body: { top: false, legs: false, shoes: false }, legs: { top: false } };
-// an NPC's own sex and settled figure, off their content file, when `id` names one
-let settled = {};
-async function readSettled() { const id = $('who').value.trim(); settled = id ? await fetch('/api/npc-figure?id=' + encodeURIComponent(id)).then((r) => (r.ok ? r.json() : {})).catch(() => ({})) : {}; }
-$('who').addEventListener('change', readSettled);
 function bodies() {
-  const n = Math.max(1, Math.min(8, +$('n').value || 1)), seed = +$('seed').value || 0, out = [], who = $('who').value.trim();
+  const n = Math.max(1, Math.min(8, +$('n').value || 1)), seed = +$('seed').value || 0, out = [], who = $('who').value.trim(), mode = figMode();
   // one person, the current figure and the sculpted one side by side under the same light
-  if ($('both').checked) return [false, true].map((sculpt, i) => ({ id: who || `lab-${seed}-0`, at: [(i - 0.5) * 1.0, 0], yaw: 0, pose: $('pose').value, dress: $('dress').value, sculpt, ...(who ? settled : {}) }));
+  if (mode === 'both') return [false, true].map((sculpt, i) => ({ id: who || `lab-${seed}-0`, at: [(i - 0.5) * 1.0, 0], yaw: 0, pose: $('pose').value, dress: $('dress').value, sculpt, ...(who ? settled : {}) }));
   // lying, a row of them on the floor, heads to the right
   const lie = $('pose').value === 'lie', doing = $('doing').value, once = onceOf(doing), m = who ? 1 : n;
   const act = { ...(doing ? { clip: doing } : {}), ...(doing && once ? { phase: Math.min(0.999, ((performance.now() / 1000) % (once + 1.5)) / once) } : {}), ...($('rest').value ? { rest: $('rest').value } : {}), ...($('manner').value ? { manner: $('manner').value } : {}) };
-  for (let i = 0; i < m; i++) out.push({ id: who || `lab-${seed}-${i}`, ...act, ...(lie ? { at: [0.8, (i - (m - 1) / 2) * 0.9], head: [1, 0], top: 0 } : { at: [(i - (m - 1) / 2) * 0.85, 0] }), yaw: 0, pose: $('pose').value, dress: $('dress').value, sculpt: $('sculpt').checked, build: $('build').value, mouth: mouthNow(), facial: $('facial').value, ...(who ? settled : {}), ...($('useW').checked ? { weight: +$('weight').value } : {}) });
+  for (let i = 0; i < m; i++) out.push({ id: who || `lab-${seed}-${i}`, ...act, ...(lie ? { at: [0.8, (i - (m - 1) / 2) * 0.9], head: [1, 0], top: 0 } : { at: [(i - (m - 1) / 2) * 0.85, 0] }), yaw: 0, pose: $('pose').value, dress: $('dress').value, sculpt: mode === 'sculpt', build: $('build').value, mouth: mouthNow(), facial: $('facial').value, ...moodNow(), ...(who ? settled : {}), ...($('useW').checked ? { weight: +$('weight').value } : {}), ...($('sex').value ? { sex: $('sex').value } : {}), ...($('useB').checked ? { bust: +$('bust').value } : {}), ...($('useT').checked ? { butt: +$('butt').value } : {}), ...Object.fromEntries(['bottoms', 'hat', 'scarf'].filter((k) => $(k).value).map((k) => [k, $(k).value === 'none' ? '' : $(k).value])) });
   return out;
 }
 let crowdReady = false;
@@ -116,7 +316,7 @@ function draw(now) {
   if ($('spin').checked) spin += 0.006;
   const B = bodies(), level = $('level').value, cut = $('cut').value, hair = $('hair').value, wear = WEAR[$('wear').value];
   let recs = figurePeople(L, B, t, { level });
-  const EACH = ['coat', 'jacket', 'tee', 'hoodie', 'bomber', 'duster', 'vest', 'tunic'];
+  const EACH = FIGURE_CUT_NAMES;
   recs = recs.map((r, i) => {
     const g = $('gear').value, gear = g === 'none' ? { belt: false } : g === 'all' ? { belt: true, strap: true, pouch: true, pads: true, gloves: true } : r.key.gear;
     const mu = $('muts').value, body = mu === 'all' ? { mighty: 'R', thorn: true, horns: true, claws: true, teeth: true, goggles: true } : mu === 'none' ? null : r.key.body;
@@ -146,11 +346,12 @@ function draw(now) {
     lamp: [0.4, 2.5, 1.2], lampOn: $('lamp').checked, day, sky: [0.75, 0.82, 0.95],
     win: { p: [-3.2, 1.5, 1.0], n: [1, 0, 0], a: [0, 0, 1.6], b: [0, 1.3, 0] },
   });
-  $('stats').textContent = `${recs.length} people · ${R.figureTris.toLocaleString()} triangles`;
+  const mode = figMode();
+  $('stats').textContent = `${recs.length} ${recs.length === 1 ? 'person' : 'people'} · ${mode === 'both' ? 'current | sculpted' : mode === 'sculpt' ? 'sculpted' : 'current'} · ${R.figureTris.toLocaleString()} triangles`;
 }
 // draw(now) renders one frame on demand: a hidden Browser pane runs no animation frames
 window.__fig = { R, cam, bodies, draw };
-function loop(now) { requestAnimationFrame(loop); draw(now); }
+function loop(now) { requestAnimationFrame(loop); if (document.body.dataset.renderer === 'room') draw(now); }
 requestAnimationFrame(loop);
 </script>
 </body>

@@ -1,8 +1,8 @@
 {
   "a": "zone_parkside_894_913",
-  "b": "zone_district_898_921",
+  "b": "zone_district_896_921",
   "blocked": false,
-  "dir": "south",
+  "dir": "north",
   "id": "conn_hf_parkside_894_913_south",
   "lockable": false,
   "one_way": false

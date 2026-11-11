@@ -1061,7 +1061,7 @@ body.bigscreen .cab-wrap .ws-label{display:none}
 .cab-cbtn.on{background:var(--cab-glow,#e8c07a);color:#0a0c0f;border-color:var(--cab-glow,#e8c07a)}
 .cab-cbtn:focus-visible{outline:2px solid #e8c07a;outline-offset:2px}
 /* Fullscreen / hide-panel. Body classes, because what they change is the PAGE
-   and not the cab — the same seam `fsim-fullscreen` uses. */
+   and not the cab — the same seam `seat-fullscreen` uses. */
 /* ⚠ THESE ARE THE FLIGHT SIM'S RULES, COPIED, and they have to be — the cab had invented its own
    and got both halves wrong. It hid `#sidebar` and `#input-row`; the elements are `#output`,
    `#look-resize-handle` and `#bottom-input-wrap`, so two of the three selectors matched nothing
@@ -1100,18 +1100,8 @@ body.bigscreen .cab-wrap .ws-label{display:none}
    ⚠ AND :has() RATHER THAN A BODY CLASS, so it cannot be left switched on by an exit path that
    forgot to clear it. */
 #area-pane:has(.cab-wrap){max-height:var(--pane-cap,65%)}
-body.cab-fullscreen #area-pane,
-body.cab-hidepanel #area-pane{max-height:none !important;height:auto !important;flex:1 1 auto}
-body.cab-fullscreen #area-pane{padding:0}   /* reach every edge — the inset is stolen road */
-body.cab-fullscreen #area-content,
-body.cab-hidepanel #area-content{flex:1 1 auto;display:flex;min-height:0}
-body.cab-fullscreen .cab-wrap,
-body.cab-hidepanel .cab-wrap{flex:1 1 auto;min-height:0;height:auto}
-body.cab-fullscreen #output,
-body.cab-fullscreen #look-resize-handle,
-body.cab-fullscreen #bottom-input-wrap{display:none}
-body.cab-hidepanel #output,
-body.cab-hidepanel #look-resize-handle{display:none}
+body.seat-fullscreen .cab-wrap,
+body.seat-hidepanel .cab-wrap{flex:1 1 auto;min-height:0;height:auto}
 /* ── ⚠ FULLSCREEN IS A BIGGER WINDOW, NOT A HUD ────────────────────────────
    The shelf used to STOP being a shelf at fullscreen: absolutely positioned over the bottom of
    the glass on a gradient, with the windscreen running the full height of the screen behind it.
@@ -1128,7 +1118,7 @@ body.cab-hidepanel #look-resize-handle{display:none}
    far more road than the windowed pane ever gave it, and the canvas being shorter isn't lost
    dash — the painted dash is a FRACTION of the canvas, so it shrinks with it and stays whole.
    The only thing fullscreen gives up is the last inch of sky. */
-body.cab-fullscreen .cab-wrap > .ws-wrap{border-radius:0}
+body.seat-fullscreen .cab-wrap > .ws-wrap{border-radius:0}
 
 /* ── THE DAMAGE HUD ────────────────────────────────────────────────────────
    Bottom-left of the glass, opposite the view chrome. Small enough to ignore

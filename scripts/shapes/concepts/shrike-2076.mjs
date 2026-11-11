@@ -148,9 +148,10 @@ const eo = [
   group('laser lens', [pod('laser', 0, 0, [[0.004, 0.001], [0, 0.005]], { sides: 8, role: 'glass', paint: 'lensRed' })],
     { xf: { t: [1.0, 0.016, -0.083], r: [0, 28, 0] }, ...FINE }),
 ];
+// The pitot comes out of the beak's tip, and the beak droops: the tip ring is at h -0.068.
 const probes = [
-  tube('pitot probe', [[1.196, 0, -0.044], [1.25, 0, -0.046], [1.29, 0, -0.047]], 0.0026, { role: 'nacelle', paint: 'metal', sh: 0.85, sides: 6, ...FINE }),
-  tube('pitot heater', [[1.24, 0, -0.046], [1.255, 0, -0.046]], 0.0036, { role: 'nacelle', paint: 'carbon', sides: 6, ...FINE }),
+  tube('pitot probe', [[1.192, 0, -0.0665], [1.25, 0, -0.069], [1.29, 0, -0.07]], 0.0026, { role: 'nacelle', paint: 'metal', sh: 0.85, sides: 6, ...FINE }),
+  tube('pitot heater', [[1.24, 0, -0.0686], [1.255, 0, -0.0692]], 0.0036, { role: 'nacelle', paint: 'carbon', sides: 6, ...FINE }),
   mirror('angle-of-attack vanes', [tube('AoA vane', [at(1.04, 9, 0.002), [1.03, 0.042, -0.012]], 0.002, { role: 'nacelle', paint: 'metal', sides: 4, ...FINE })]),
 ];
 // Distributed-aperture sensors: dark hexagonal windows round the nose and the spine, so she sees all

@@ -318,36 +318,67 @@ export function lookOf(comp) {
 
 // ── the set ──────────────────────────────────────────────────────────────────────────────────────
 // What never moves: the counter, the wall, the noren, the board and the hob for this stove.
-// `hob` is 'camp', 'domestic' or 'range', from the stove's tier.
-export function buildSet(b, { hob = 'domestic' } = {}) {
-  slab(b, [-95, -FRONT, -14], [95, 34, 0], C.counter, 0.8);
-  slab(b, [-95, -FRONT - 0.6, -14], [95, -FRONT + 0.4, 0.4], C.counterEdge, 0.3);
-  slab(b, [-120, 34, -14], [120, 38, 110], C.wall, 0.2);
-  // the noren: four panels hanging from a rod above the pass-through
-  M.tube(b, [-70, 32, 92], [70, 32, 92], 1.1, 1.1, C.rod, 8);
-  for (let i = 0; i < 4; i++) {
-    const x0 = -66 + i * 33;
-    slab(b, [x0, 31, 46], [x0 + 31, 31.6, 91], C.noren, 0.1);
-    slab(b, [x0, 30.8, 50], [x0 + 31, 31.0, 56], C.norenBand, 0.05);
-  }
+// `hob` is 'camp', 'domestic' or 'range', from the stove's tier, or 'room' for the room's own cooktop.
+// `room` is the kitchen of the room you're cooking in (roomKitchenKit in gl/room-mesh.js, its colours
+// already rgb): its worktop, its unit fronts, its wall with a tiled splashback, its sink and its stove's
+// enamel stand in for the show set's counter and noren.
+// `bare`: the kitchen drawn into the apartment (gl/kitchen.js host), whose own worktop, wall, units and
+// sink are already there, so only the board, the pass and the hob are added.
+export function buildSet(b, { hob = 'domestic', room = null, bare = false } = {}) {
+  const top = room?.top || C.counter, edge = room?.front || C.counterEdge, wall = room?.wall || C.wall;
+  if (!bare) setDressing(b, room, top, edge, wall);
   // the board
   const bx = STATIONS.board;
   slab(b, [bx - BOARD.w / 2, -BOARD.d / 2, 0], [bx + BOARD.w / 2, BOARD.d / 2, BOARD.h], C.board, 0.6);
   slab(b, [bx - BOARD.w / 2 + 2, -BOARD.d / 2 - 0.2, 0.4], [bx + BOARD.w / 2 - 2, -BOARD.d / 2 + 0.2, BOARD.h - 0.4], C.boardEdge, 0.1);
   // the pass: a slate the plate is dressed on
   slab(b, [STATIONS.pass - 20, -16, 0], [STATIONS.pass + 20, 16, 1.2], C.slate, 0.4);
-  hobSet(b, hob);
+  hobSet(b, hob, room?.hob?.colour);
+}
+
+// The counter, the wall behind it and what's on that wall.
+function setDressing(b, room, top, edge, wall) {
+  slab(b, [-95, -FRONT, -14], [95, 34, 0], top, 0.8);
+  slab(b, [-95, -FRONT - 0.6, -14], [95, -FRONT + 0.4, 0.4], edge, 0.3);
+  slab(b, [-120, 34, -14], [120, 38, 110], wall, 0.2);
+  if (room) {
+    // the splashback: a run of tiles up the wall behind the worktop
+    for (let i = 0; i < 12; i++) for (let j = 0; j < 4; j++) {
+      const x0 = -94 + i * 15.7, z0 = 1 + j * 13;
+      slab(b, [x0, 33.4, z0], [x0 + 15.2, 34, z0 + 12.5], (i + j) % 2 ? C.plate : M.rgb('#e4e2dc'), 0.1);
+    }
+    // the units under the worktop, door by door
+    for (let i = 0; i < 6; i++) slab(b, [-94 + i * 31.5, -FRONT - 1.4, -14], [-94 + i * 31.5 + 30.5, -FRONT - 0.6, -1], edge, 0.2);
+    // the sink, set into the worktop at the far left
+    if (room.sink) {
+      slab(b, [-94, 2, -0.2], [-77, 30, 0.3], C.steel, 0.3);
+      slab(b, [-92, 4, -0.1], [-79, 28, 0.35], C.steelDark, 0.2);
+      M.tube(b, [-85.5, 30, 0.3], [-85.5, 30, 16], 0.9, 0.9, C.steel, 8);
+      M.tube(b, [-85.5, 30, 16], [-85.5, 20, 16], 0.8, 0.8, C.steel, 8);
+    }
+  } else {
+    // the noren: four panels hanging from a rod above the pass-through
+    M.tube(b, [-70, 32, 92], [70, 32, 92], 1.1, 1.1, C.rod, 8);
+    for (let i = 0; i < 4; i++) {
+      const x0 = -66 + i * 33;
+      slab(b, [x0, 31, 46], [x0 + 31, 31.6, 91], C.noren, 0.1);
+      slab(b, [x0, 30.8, 50], [x0 + 31, 31.0, 56], C.norenBand, 0.05);
+    }
+  }
 }
 
 // Where the pan sits, and the knob that runs its ring.
 export const BURNER = [STATIONS.hob, 0, 0];
 export const KNOB = [STATIONS.hob + 19, -15, 2.5];   // on the hob top, front right of the live ring
 // What the knob stands on: the hob's top, or the counter beside a camp burner.
-export const knobBase = (hob) => (hob === 'camp' ? 0.5 : 3.0);
+// 'room' is the room's own hob, already drawn: the burner is on its top, so the knob is too.
+export const knobBase = (hob) => (hob === 'camp' || hob === 'room' ? 0.5 : 3.0);
 
-function hobSet(b, kind) {
+function hobSet(b, kind, body = null) {
   const x = STATIONS.hob;
-  if (kind === 'camp') {
+  if (kind === 'room') {
+    // the room's cooktop is the hob: nothing over it but the knob's boss
+  } else if (kind === 'camp') {
     // a single ring on three legs, standing on the counter
     slab(b, [x - 12, -12, 0], [x + 12, 12, 1], C.steelDark, 0.3);
     for (let i = 0; i < 3; i++) {
@@ -358,7 +389,7 @@ function hobSet(b, kind) {
   } else {
     // the live ring in front and the middle, two spare rings behind it
     const w = kind === 'range' ? 34 : 28;
-    slab(b, [x - w, -22, 0], [x + w, 30, 2.5], kind === 'range' ? C.steelDark : C.steel, 0.5);
+    slab(b, [x - w, -22, 0], [x + w, 30, 2.5], body || (kind === 'range' ? C.steelDark : C.steel), 0.5);
     for (const ox of [-w / 2 - 2, w / 2 + 2]) ring(b, [x + ox, 20, 2.8], 4.5, 0.7, C.grate, 14);
     // grates over the live ring
     for (let i = 0; i < 4; i++) {

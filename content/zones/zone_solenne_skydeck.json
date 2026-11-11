@@ -6,15 +6,57 @@
   "ambient_theme": "urban",
   "bg_color": "#33414d",
   "color": "#d9e6f2",
-  "description": "The rooftop deck, open to a sky the colour of cold pewter. A lap pool runs the length of the parapet, its infinity edge spilling into the drop so the water seems to pour off the roof and into the city itself. Teak loungers, a low fire-trough, and a marble cocktail bar under a cantilevered canopy. The wind up here is clean and constant, and the whole of Coldwater is spread out beneath you like something you might, one day, afford. Step <b>in</b> to the elevator.",
+  "description": "The rooftop deck, open to a sky the colour of cold pewter. A lap pool runs the length of the parapet, its infinity edge spilling into the drop so the water seems to pour off the roof and into the city itself. Teak loungers, a low fire-trough, and a marble cocktail bar under a cantilevered canopy. The wind up here is clean and constant, and the whole of Coldwater is spread out beneath you like something you might, one day, afford. The hall is <b>south</b>.",
   "exits": {
-    "in": "zone_solenne_elevator"
+    "south": "zone_solenne_hall_40"
   },
   "flags": {
     "building_name": "Solenne Residences",
     "floor": "metal",
     "is_interior": true,
     "open_sky": true,
+    "room": {
+      "balcony": false,
+      "d": 11,
+      "decor": {
+        "downlights": false,
+        "plants": [
+          [
+            7.2,
+            10.2,
+            1.1
+          ],
+          [
+            -7.2,
+            10.2,
+            1.1
+          ],
+          [
+            7.2,
+            3.8,
+            0.9
+          ]
+        ],
+        "rug": false
+      },
+      "face": 0,
+      "finish": "fine",
+      "glass": [
+        "front",
+        "left",
+        "right"
+      ],
+      "ground": "stone",
+      "h": 3,
+      "open": true,
+      "studio": false,
+      "tone": {
+        "accent": "#b8913e",
+        "trim": "#1c1f23",
+        "wall": "#3a3f45"
+      },
+      "w": 16
+    },
     "sanctuary": true
   },
   "grid_x": 0,

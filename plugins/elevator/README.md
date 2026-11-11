@@ -21,8 +21,10 @@ An elevator car zone carries:
 step obeys. `cmdFloor` runs the move-gate chain (`runMoveGates`) against the destination
 before the doors seal, marked `bypassEncumbrance` so the walking laws (pacing cadence,
 carry weight) stay out of it. A blocking gate refuses at the panel — that's how a
-`flags.residents_only` amenity floor (the Solenne sky pad) is private by lift as well as
-by door, with nothing to author here.
+`flags.residents_only` amenity floor is private by lift as well as by door, with nothing to
+author here. The Solenne's stop for its sky pad is the hall in front of it
+(`zone_solenne_hall_45`), which carries the pad's own `residents_only`, so the panel still
+refuses a non-resident.
 
 `n` is the number shown on the panel and typed by the player (`floor 54`); it is **independent** of the destination zone's `grid_z`. The content is still responsible for wiring real exits (an `up` multi-exit to every floor, each floor's `in` back to the car, and an `out` to the lobby) so NPC pathfinding and the zone-connectivity validator stay happy — this plugin only adds the numbered, teleporting convenience layer on top.
 
@@ -77,6 +79,12 @@ A human rider sees none of this; `elevator_doors` renders nothing.
 
 ## Events emitted
 
+- `elevator.parked` `{ player, car, zone, n }`: a ride has settled with the doors open on a floor. The Room Stage (plugins/roomstage) sends the rider the car again, open on that floor.
+
+## Messages sent
+
+- `elevator_ride` `{ car, from, to, ms }`, to the rider as the doors seal: how long the ride takes and between which floors. The Room Stage counts its read-out through the floors, sways the eye as the car starts and stops and plays the shaft (client `room-stage.js` `roomRide`, docs/proposals/building-stage.md "The ride"). A text client ignores it.
+- `elevator_doors` (above), for the GPS walker.
 - `zone.entered` — when you step `out` onto a floor (via `cmdMove`, or emitted directly on the teleport fallback), so movement-reactive systems (ambience, weather, quests) treat it like any other move. The ride itself moves nobody and emits nothing.
 
 ## Data schema

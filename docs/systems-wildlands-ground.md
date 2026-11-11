@@ -42,7 +42,7 @@ The answer carries a `blend` (biome weights, for colour) and a `terrain` (a real
 
 ## Rules worth knowing
 
-⚠ **Render and prose only. Never `surfaceAt`, never collision.** "No placed tile here" is how `regionGates` and voidwalking find the edge of the world. Mount Cinder is in the hillshade (`reliefShade` via `landformHeight`) and cannot be flown into.
+⚠ **Render and prose only. Never `surfaceAt`, never collision.** "No placed tile here" is how `regionGates` and voidwalking find the edge of the world. The one exception is Mount Cinder's solid cone (below), which you can fly into.
 
 ⚠ **A verge is flat.** The highway maps `cliff`/`plateau` to `redrock` and `water` to `sand` (`ROAD_TERRAIN`), so a region's cliff line carrying on past its rim cannot raise a massif on the shoulder. Void rooms map `cliff` to `plateau` (`WALK_TERRAIN`), because `cliff` is the one impassable terrain.
 
@@ -53,6 +53,16 @@ The answer carries a `blend` (biome weights, for colour) and a `terrain` (a real
 ⚠ **The GL floor samples a texture, not the function.** `wildTexture()` in `windshield.js` builds a 2-tile-per-texel RGBA image once (rgb colour, a = sea) and `gl/floor.js` samples it on unit 7 past the map window. The waterness it gives overrides the clamped boundary tile's guess, which is what makes the far coast run the right way.
 
 ⚠ **Move a region, re-bake.** The field is derived from placed tiles. `gl:wildlands` (in `pretest:regress` and `shapes:smoke`) fails if it is stale.
+
+## Mount Cinder is solid (2026-11-10)
+
+The one exception to render-only. A volcano with `peakTiers` in `wildlands.json` stands up inside `solidRadius` as a steep cone (`coneAt`, `landformBands` and `landformTile` in `client/shared/wildlands.js`):
+
+- **The server** fills the map window's empty cells over it with banded high ground (`coneCell` in plugins/flight/state.js: `hi`, `cf`, and `lf` for the part). GLASS 1 draws those as terraces.
+- **GLASS 2** draws the whole cone as one smooth ground-mesh surface (`drawConeMesh` in windshield.js), with lava glowing and smoking in the crater. Past the map window, `drawFarLandforms` paints its outline on the horizon out to 380 tiles, at the same heights.
+- **The cockpit** floors the aircraft on it (`landformFloorFt`) and crashes her on contact anywhere but the `ledge`, a flat bench on the north-east flank that lands like a field.
+- ⚠ The peak is 16 bands, about 6.7 tiles. The eye tops out about seven tiles up, so a taller cone could never be flown over: the height is capped by the climb curve.
+- ⚠ Within `fade` tiles of any placed tile the cone comes down to nothing. A placed tile on the mountain would hole it, so rooms on the rim need an exemption first.
 
 ## The relief
 

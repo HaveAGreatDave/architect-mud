@@ -1,0 +1,12 @@
+{
+  "content": "{\n \"brand\": \"SLEEPRIGHT\",\n \"line\": \"Wake Better.\",\n \"small\": \"POD LEASE ONLY. DREAMS REMAIN THE PROPERTY OF SLEEPRIGHT HOLDINGS.\",\n \"color\": \"#7a8cff\",\n \"accent\": \"#fff4d0\",\n \"face\": \"serif\",\n \"motif\": \"rings\",\n \"weight\": 1\n}",
+  "created_at": "1794182400",
+  "description": "Hologram advert: SleepRight. Baked to the client by npm run holoads:bake.",
+  "id": "holo_ad_sleepright",
+  "name": "Holo ad: SleepRight",
+  "tags": [
+    "holo_ad"
+  ],
+  "type": "holo_ad",
+  "updated_at": "1794182400"
+}

@@ -22,6 +22,8 @@
 // rAF) the watchdog lets every voice go and resets the pose.
 
 import { TILE_M, FT_M } from '../../../shared/world-scale.js';
+// read at call time only: engine-audio.js imports this file back
+import { flybyClass, flybyCue, FLYBY_LOUD, FLYBY_FAR_REFS } from './engine-audio.js';
 
 const AE = () => (typeof window !== 'undefined' ? window.AudioEngine : null);
 
@@ -137,8 +139,12 @@ export function seatAudioFrame(id, vw, now = performance.now()) {
   const near = [];
   for (const c of list) {
     if (!c || c.id == null) continue;
-    const r = Number.isFinite(c.rng) ? c.rng : Math.hypot(+c.dx || 0, +c.dy || 0);
-    if (r <= CONTACT_RANGE) near.push([r, c]);
+    // an aircraft is heard as far as its class is loud, and its height counts: a heavy straight
+    // overhead is nearer than a prop a kilometre off along the ground
+    const ac = flybyClass(c.cls), p = contactPos(c);
+    const r = ac ? Math.hypot(p[0], p[1], p[2]) : Number.isFinite(c.rng) ? c.rng : Math.hypot(p[0], p[1]);
+    const range = ac ? FLYBY_LOUD[ac].hear : CONTACT_RANGE;
+    if (r <= range) near.push([r / range, c]);
   }
   near.sort((a, b) => a[0] - b[0]);
   for (const [, c] of near.slice(0, CONTACT_MAX)) want.set('seat-ct-' + c.id, c);
@@ -146,14 +152,18 @@ export function seatAudioFrame(id, vw, now = performance.now()) {
   for (const id2 of [...S.voices.keys()]) if (!want.has(id2)) stopVoice(id2);
   for (const [lid, c] of want) {
     const pos = contactPos(c);
-    const kind = voiceOf(c);
+    // a far aircraft has lost its highs to the air: a different kind, so crossing the line swaps the loop
+    const ac = flybyClass(c.cls), far = ac && Math.hypot(pos[0], pos[1], pos[2]) > FLYBY_LOUD[ac].ref * FLYBY_FAR_REFS;
+    const kind = ac ? 'ac:' + ac + (far ? ':far' : '') : voiceOf(c);
     const had = S.voices.get(lid);
     // a different kind, or a loop the pool stole: start it again
     if (had && (had !== kind || !ae.loopState?.(lid))) stopVoice(lid);
     if (!S.voices.has(lid)) {
       try {
-        ae.loopSound({ id: lid, category: 'ambient', priority: 1, config: { gain: 1, layers: VOICES[kind] } },
-          { position: pos, ref: 1.5, rolloff: 1, maxDistance: CONTACT_RANGE * 2 });
+        // an aircraft is the flight sim's own engine for its class, as loud as that class is
+        const L = ac ? FLYBY_LOUD[ac] : null;
+        ae.loopSound({ id: lid, category: 'ambient', priority: 1, config: { gain: 1, layers: ac ? flybyCue(ac, { muffled: far }) : VOICES[kind] } },
+          { position: pos, ref: L ? L.ref : 1.5, rolloff: 1, maxDistance: L ? L.hear * 2 : CONTACT_RANGE * 2 });
         // a full pool drops it; it's asked for again next frame
         if (ae.loopState?.(lid)) S.voices.set(lid, kind);
       } catch { /* no audio */ }

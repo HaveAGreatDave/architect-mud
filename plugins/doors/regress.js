@@ -224,6 +224,41 @@ export default async function regress({ run, check, getPlayer }) {
     if (saved) setApartmentCache(aptZone, saved); else setApartmentCache(aptZone, null);
   }
 
+  // A flat's front door from the inside: the tenant opens it, closes it and locks it behind them. A visitor
+  // stood in the same room can close it and can't work the lock.
+  {
+    const aptZone = p.current_zone;
+    const saved = getApartment(aptZone);
+    const frontId = 'door_regress_front_' + p.id;
+    const front = () => world.doors.get(frontId);
+    setDoorCache(frontId, {
+      id: frontId, zone_id: aptZone, exit_dir: dir, target_zone: null,
+      is_open: 0, hp: 100, hp_max: 100, lock_state: 'unlocked',
+      tags: { 'lock:hololock': { canHack: true, difficulty: 5, messages: { denied: 'not recognized' } } },
+    });
+
+    setApartmentCache(aptZone, { zone_id: aptZone, owner_id: p.id, is_locked: 0 });
+    await run(`open door ${dir}`);
+    check('a tenant opens their front door from inside', front().is_open === 1);
+    await run(`close door ${dir}`);
+    check('and closes it', front().is_open === 0);
+    await run(`open door ${dir}`);
+    r = await run(`lock door ${dir}`);
+    check('locking it standing open shuts it first', front().is_open === 0 && front().lock_state === 'locked', JSON.stringify(r)?.slice(0, 100));
+    await run(`unlock door ${dir}`);
+    check('and the tenant unlocks it again', front().lock_state === 'unlocked');
+
+    setApartmentCache(aptZone, { zone_id: aptZone, owner_id: 'someone_else_' + p.id, is_locked: 0 });
+    await run(`open door ${dir}`);
+    await run(`close door ${dir}`);
+    check('a visitor inside can close the door', front().is_open === 0);
+    r = await run(`lock door ${dir}`);
+    check("but can't lock a flat that isn't theirs", front().lock_state === 'unlocked' && /not recognized/.test(r?.message || ''), JSON.stringify(r)?.slice(0, 100));
+
+    deleteDoorCache(frontId);
+    if (saved) setApartmentCache(aptZone, saved); else setApartmentCache(aptZone, null);
+  }
+
   p.role = savedRole;
 
   // ── The drawn half of the door-lock gate ──────────────────────────────────

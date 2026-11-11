@@ -25,14 +25,23 @@
 // downloads and parses the whole 3-D stack before they can type `look`. The facade has the same
 // export names, so nothing below this line changed; what changed is that the bytes arrive when the
 // seat is opened. See scripts/client/bake-lazy-view.mjs.
-import { loadWindshield, isLoaded as windshieldLoaded, paintWindshield, windshieldHTML, ensureWindshieldStyles, disposeWindshield, normalizeWx, navMarks, raptorsNow, yachtScopeMount, yachtDeckEye, modelTopZAt, curtainTopZAt, ROAD_RIG_MUL } from './windshield-lazy.js';
+import { loadWindshield, isLoaded as windshieldLoaded, paintWindshield, windshieldHTML, ensureWindshieldStyles, disposeWindshield, normalizeWx, navMarks, raptorsNow, yachtScopeMount, yachtDeckEye, modelTopZAt, curtainTopZAt, groundObstructionAt, ROAD_RIG_MUL } from './windshield-lazy.js';
 export { loadWindshield };
 import { createFreeCam, freeCamHint, freeCamTouchUI, bindFreeCamPointer, bindFreeCamIdle } from './freecam.js';
 import { makeContactTrack } from './world-feed.js';
 import { internMap } from './map-intern.js';
-import { bindBigScreenButton, exitBigScreen, setSidebarHidden, bindSidebarButton, BIGSCREEN_GLYPH, BIGSCREEN_TITLE, SIDEBAR_GLYPH, SIDEBAR_TITLE } from './bigscreen.js';
+import { seatLadderHTML, bindSeatLadder, releaseSeatLadder, keepSeatRung } from './seat-ladder.js';
 import { claimSeatKeyboard, endSeatKeyboard } from './seat-keys.js';
 import { floorZAt } from './seabed-scene.js';
+import { interiorRoomsOf } from './room-interiors.js';
+import { noteDoor, noteCarry } from './lobby-still.js';
+import { roomFree, openingCrossed, openingInside } from '../../../shared/room-layout.js';   // a building's rooms, drawn in the city (docs/proposals/one-world-interiors.md)
+// The rooms the server sent for the buildings near you on foot, kept for the view (each building once, by its tile)
+function keepInteriors(s, list) {
+  const by = new Map((s.interiors || []).map((r) => [r.key, r]));
+  for (const b of list) for (const r of interiorRoomsOf(b)) by.set(r.key, r);
+  s.interiors = [...by.values()];
+}
 import { suppressWeatherFx } from './weather-fx.js';   // the 2-D overlay would paint its rain and rainbow over the 3-D scene   // the ground or seabed under the camera (plugins/submersible)
 
 // Live world clock/weather through the shared env system — loaded OPTIONALLY, exactly as helm-view
@@ -154,7 +163,133 @@ function reachFrom(s, x, y, z, ux, uy, uz, max) {
 
 let st = null;
 
-export function isFreelookActive() { return !!st; }
+// A warm street view (`prewarm`, openFreelook) is built and painted but not on screen: it isn't the active view.
+export function isFreelookActive() { return !!st && !st.warm; }
+// Drop a warm street view nobody walked out into (room-stage.js, when the Stage closes another way).
+export function dropWarmFreelook() { if (st?.warm) closeFreelook(); }
+// A warm view that has finished its first paints and gone to rest: walking out onto it shows it at once.
+export function warmFreelookReady() { return !!st && st.warm && !st.raf; }
+// ⚠ A WARM VIEW IS PAINTED WHERE IT CAN'T BE SEEN. A GL canvas that's display:none has no size and draws nothing,
+// and its first paints are the whole point (they compile the shaders and build the city), so it stands over the
+// game pane at full size, see-through and behind everything.
+function warmHolder() {
+  const r = document.getElementById('area-content')?.getBoundingClientRect(), el = document.createElement('div');
+  el.className = 'fl-warm'; el.setAttribute('aria-hidden', 'true');
+  Object.assign(el.style, { position: 'fixed', left: `${r?.left || 0}px`, top: `${r?.top || 0}px`, width: `${r?.width || globalThis.innerWidth || 1280}px`, height: `${r?.height || globalThis.innerHeight || 720}px`, opacity: '0', pointerEvents: 'none', zIndex: '-1', overflow: 'hidden' });
+  document.body.appendChild(el);
+  return el;
+}
+// The real open of the doorstep a warm view was built for: it goes into the pane as it is, already painted, takes
+// the server's own window and sky, and wakes (the keyboard, the seat ladder, the frames).
+function wakeWarm(ctx) {
+  const s = st, mount = ctx.mount || document.getElementById('area-content');
+  if (!mount) { closeFreelook(); return null; }
+  s.warm = false;
+  mount.innerHTML = '';
+  mount.appendChild(s.root);
+  s.holder?.remove(); s.holder = null; s.mount = mount;
+  reseat(s, ctx);
+  if (ctx.onExit) s.onExit = ctx.onExit;
+  s.onRecenter = ctx.onRecenter || null;
+  if (s.foot && ctx.onMove) s.foot.onMove = ctx.onMove;
+  s.wake();
+  return s.api;
+}
+// A street view that's already built, given the window the server has just sent and stood on the doorstep in it.
+// The view may have been built for this doorstep (`prewarm`) or left by somebody who walked in somewhere else
+// (parkFreelook), so the window moves to the new centre and the camera goes to the door, facing out.
+function reseat(s, ctx) {
+  const gx = ctx.gx ?? s.gx, gy = ctx.gy ?? s.gy;
+  if (ctx.map) s.map = s.map ? internMap(s.map, s.gx, s.gy, ctx.map, gx, gy) : ctx.map;
+  s.gx = gx; s.gy = gy; s.want = null;
+  if (ctx.skyline) s.skyline = ctx.skyline;
+  if (ctx.roads !== undefined) s.roads = ctx.roads || null;
+  if (ctx.regions) s.regions = ctx.regions;
+  freelookSetSky(ctx.sky); freelookSetActors(ctx.actors); freelookSetContacts(ctx.contacts);
+  if (ctx.stand?.foot) s.stand = ctx.stand;
+  if (s.foot) {
+    s.foot.tile = { gx: ctx.stand?.step?.gx ?? gx, gy: ctx.stand?.step?.gy ?? gy };
+    s.foot.pending = null; s.foot.crouched = false; s.foot.eyeK = 1; s.foot.spin.clear();
+    s.foot.doors = ctx.doors || s.foot.doors || [];
+    if (ctx.interiors) keepInteriors(s, ctx.interiors);
+  }
+  s.seat();
+}
+
+// IN OFF THE STREET (dispatch.js `freelook_close` with `indoors`): the Room Stage is about to take the pane. The
+// street view isn't thrown away, because the next thing most people do in a lobby is walk back out of it: it's put
+// to sleep where a warm one waits (warmHolder), and walking out wakes it. Its last frame is left over the pane
+// until the room has drawn one of its own (room-stage.js fades `.fl-cover`), so there's no frame of neither.
+const COVER_MS = 420, FADE_MS = 260;
+export function parkFreelook() {
+  const s = st;
+  if (!s || s.warm || !s.foot || !s.woke) { closeFreelook(); return; }
+  // the keys held go through the door with you (room-stage.js takes them for its walker)
+  noteCarry(s.freeCam.heldKeys?.(), false);
+  // the cover went up at the door (enterCover); a frame taken now would be from inside the model's shell
+  if (!document.querySelector('.fl-cover[data-entry]')) coverPane(s);
+  keepSeatRung();
+  s.sleep();
+  s.warm = true; s.warmT0 = 0;
+  s.holder = warmHolder();
+  s.holder.appendChild(s.root);
+  if (s.mount) s.mount.innerHTML = '';
+  s.mount = s.holder;
+  s.foot.pending = null;
+  // no room came for the pane: give the page back, and the view goes
+  setTimeout(() => {
+    if (document.getElementById('room-stage')) return;
+    releaseSeatLadder();
+    uncoverPane();
+    if (st === s && s.warm) closeFreelook();
+  }, 3000);
+}
+// ⚠ AT THE DOOR, NOT AT THE ANSWER. The step through a door is sent the moment the eye crosses into the
+// building's tile, and the server's answer takes a round trip; walking on in that time put the camera inside the
+// model's shell, and you saw out through the back of its walls. So the cover (and the lobby still) go up as the
+// step is sent, from the last frame still outside, and a refused step takes them down again (watchFoot).
+function enterCover(s) {
+  coverPane(s);
+  for (const el of document.querySelectorAll('.fl-cover')) el.dataset.entry = '1';
+}
+function coverPane(s) {
+  try {
+    const wrap = s.root.querySelector('.ws-wrap') || s.root, r = wrap.getBoundingClientRect();
+    if (!r.width || !r.height) return;
+    // a GL canvas keeps nothing after its frame, so it's painted and copied in the same task
+    s.paint?.(performance.now());
+    const k = Math.min(2, globalThis.devicePixelRatio || 1), snap = document.createElement('canvas');
+    snap.width = Math.round(r.width * k); snap.height = Math.round(r.height * k);
+    const g = snap.getContext('2d');
+    for (const cv of wrap.querySelectorAll('canvas')) {
+      const b = cv.getBoundingClientRect();
+      if (!cv.width || !b.width || getComputedStyle(cv).display === 'none') continue;
+      g.drawImage(cv, (b.left - r.left) * k, (b.top - r.top) * k, b.width * k, b.height * k);
+    }
+    snap.className = 'fl-cover'; snap.setAttribute('aria-hidden', 'true');
+    Object.assign(snap.style, { position: 'fixed', left: r.left + 'px', top: r.top + 'px', width: r.width + 'px', height: r.height + 'px', zIndex: '9000', pointerEvents: 'none', opacity: '1', transition: `opacity ${COVER_MS}ms ease-out` });
+    uncoverPane(true);
+    document.body.appendChild(snap);
+    // through the door: the street fades to black with a loading ring on it, and the room fades in out of the
+    // black when it's drawn (room-stage.js arrive). The doors stay plain glass from outside; no picture of the lobby.
+    const dark = document.createElement('div');
+    dark.className = 'fl-cover'; dark.setAttribute('aria-hidden', 'true');
+    Object.assign(dark.style, { position: 'fixed', left: r.left + 'px', top: r.top + 'px', width: r.width + 'px', height: r.height + 'px', zIndex: '9001', pointerEvents: 'none', background: '#000', opacity: '0', transition: `opacity ${FADE_MS}ms ease-in`, display: 'flex', alignItems: 'center', justifyContent: 'center' });
+    dark.dataset.t = String(performance.now() + FADE_MS);
+    dark.innerHTML = '<div class="fl-loading"></div>';
+    document.body.appendChild(dark);
+    requestAnimationFrame(() => requestAnimationFrame(() => { dark.style.opacity = '1'; }));
+    setTimeout(() => uncoverPane(), 4000);
+  } catch { /* a cut, as it was */ }
+}
+// The street's last frame fades off whatever took the pane (the Room Stage calls this by its class name).
+export function uncoverPane(now = false) {
+  for (const el of document.querySelectorAll('.fl-cover')) {
+    if (now) { el.remove(); continue; }
+    el.style.opacity = '0';
+    setTimeout(() => el.remove(), COVER_MS + 100);
+  }
+}
 // `__freeLook()` in the console: the live view state, so a shot can be framed exactly
 // (`__freeLook().freeCam.open({ z, pitch, yaw })`) where the mouse would take a minute of nudging.
 if (typeof window !== 'undefined') window.__freeLook = () => st;
@@ -183,13 +318,27 @@ export function freelookSetSky(sky) {
 
 export function openFreelook(ctx = {}) {
   const mount = ctx.mount || document.getElementById('area-content');
-  if (!mount) return null;
+  // (a warm view is built in a holder of its own, so it needs no pane)
+  if (!mount && !ctx.prewarm) return null;
   // ⚠ THE FIRST OPEN FETCHES THE RENDERER AND SO RETURNS null, WHICH IS A CHANGE OF CONTRACT AND
   // IS SAID HERE BECAUSE NOTHING ELSE WOULD SAY IT. The seat re-enters itself once the module is
   // in and opens exactly as before; every open after that is synchronous, because the facade
   // caches. `dispatch.js` ignores the return, which is what makes this safe there — a caller that
   // needs the api on a cold open awaits `loadWindshield()` first, as the smoke does.
   if (!windshieldLoaded()) { loadWindshield().then(() => openFreelook(ctx)).catch(() => {}); return null; }
+  // ⚠ THE STREET OUTSIDE A LOBBY, WARMED (`prewarm`, plugins/freelook): built hidden so walking out through the doors
+  // shows it at once, no loading screen. It takes nothing (keyboard, seat ladder, weather) until the real open of the
+  // same doorstep wakes it, and a view somebody is using always wins.
+  if (ctx.prewarm) {
+    if (st && !st.warm) return null;
+    if (st?.warm && st.gx === ctx.gx && st.gy === ctx.gy) return null;
+    // a view left asleep by somebody who walked in at another door: the window moves, and a paint builds what's new
+    if (st?.warm && st.foot && ctx.stand?.foot) { reseat(st, ctx); st.warmT0 = performance.now(); if (!st.raf) st.raf = requestAnimationFrame(st.frame); return null; }
+    if (st?.warm) closeFreelook();
+  } else if (st?.warm) {
+    if (ctx.stand?.foot && !ctx.recentre && st.foot) return wakeWarm(ctx);
+    closeFreelook();
+  }
   // Re-centring is an OPEN with a new window, not a second view: the server sends the same
   // `freelook_open` either way. Swap the ground under the camera and leave the camera where it is,
   // so `freelook 918 903` from an open view moves the world and not the shot.
@@ -208,26 +357,29 @@ export function openFreelook(ctx = {}) {
     // keeps the shot while the world slides under it, and the drift follow above is moving the
     // origin out from under a camera that has not moved at all. Matching the tile this view
     // requested is what tells them apart — anything else is somebody else's re-centre.
-    if (st.want && st.want.x === st.gx && st.want.y === st.gy) st.freeCam.rebase(ogx - st.gx, ogy - st.gy);
+    if ((st.want && st.want.x === st.gx && st.want.y === st.gy) || (ctx.recentre && st.foot)) st.freeCam.rebase(ogx - st.gx, ogy - st.gy);
     st.want = null;
     freelookSetSky(ctx.sky);
     freelookSetActors(ctx.actors);
     if (ctx.roads !== undefined) st.roads = ctx.roads || null;
     if (ctx.regions) st.regions = ctx.regions;
+    if (st.foot && ctx.doors) st.foot.doors = ctx.doors;
+    if (st.foot && ctx.interiors) keepInteriors(st, ctx.interiors);
     freelookSetContacts(ctx.contacts);
     return st.api;
   }
   closeFreelook();
   ensureWindshieldStyles();
   ensureFreelookStyles();
-  window.dispatchEvent(new Event('pane:claimed'));   // a phone keeps #area-pane collapsed until an app says it owns it
 
   const id = 'freelook-' + Math.random().toString(36).slice(2, 8);
+  // (`holder` is where a warm view is built; a harness hands its own in, as `mount` for an open one)
+  const warm = !!ctx.prewarm, holder = warm ? ctx.holder || warmHolder() : null, into = holder || mount;
   // A vantage names itself, because "FREE LOOK" over a telescope is the tool's name rather than the
   // thing the player is holding — and this corner label is the only place the view says what it is.
   const stand = ctx.stand || null;
   const label = (stand?.label || 'FREE LOOK').toUpperCase().slice(0, 18);
-  mount.innerHTML = `<div class="fl-root">`
+  into.innerHTML = `<div class="fl-root">`
     + `<div class="fl-view">${windshieldHTML(id, label)}</div>`
     // ── THE SYSTEM CORNER ──────────────────────────────────────────────────
     // What every other seat puts in its top right and nothing else: how big the picture is, which
@@ -242,10 +394,7 @@ export function openFreelook(ctx = {}) {
     // ⚠ A VANTAGE DOES NOT GET THIS ONE. It is already standing, on a mount that re-asserts its eye
     // height every frame, and the whole of what a telescope is is that you cannot walk off with it.
     + (stand ? '' : `<button class="fl-chip fl-fps" type="button"></button>`)
-    + `<button class="fl-chip fl-side" type="button" title="${SIDEBAR_TITLE}">${SIDEBAR_GLYPH}</button>`
-    + `<button class="fl-chip fl-hide" type="button" title="hide the text panel, more picture">⊟</button>`
-    + `<button class="fl-chip fl-fs" type="button" title="fullscreen, the log and the command box too">⛶</button>`
-    + `<button class="fl-chip fl-big" type="button" title="${BIGSCREEN_TITLE}">${BIGSCREEN_GLYPH}</button>`
+    + seatLadderHTML('fl-chip')
     + `<button class="fl-chip fl-x" type="button" title="close the camera (O)">✕</button>`
     + `</div>`
     + `<div class="fl-hint"></div>`
@@ -253,13 +402,12 @@ export function openFreelook(ctx = {}) {
     // looks, a left thumbstick moves, pinch zooms, ▲ ▼ climb. It replaced a nine-key pad here.
     + `</div>`;
 
-  const root = mount.querySelector('.fl-root');
+  const root = into.querySelector('.fl-root');
   const freeCam = createFreeCam();
   freeCam.setTrackReach((x, y, z, ux, uy, uz, max) => reachFrom(st, x, y, z, ux, uy, uz, max));
 
-  suppressWeatherFx(true, 'freelook');   // this view draws its own sky; the room-pane overlay's bow lay flat across the towers
   st = {
-    id, mount, root, freeCam,
+    id, mount: into, root, freeCam, warm, holder, woke: false, warmT0: performance.now(),
     gx: ctx.gx ?? 0, gy: ctx.gy ?? 0,
     map: ctx.map || null,
     skyline: ctx.skyline || null,     // the tall towers outside the window (windshield.js noteSkyline)
@@ -273,24 +421,36 @@ export function openFreelook(ctx = {}) {
     hour: 12, weather: 'clear', moon: undefined, field: null, ground: null, event: null,
     alive: true, raf: 0, last: performance.now(),
     onExit: ctx.onExit || (() => {}),
+    // ON FOOT (building-stage.md step 5): the tile the server has you on, and the move sent and not
+    // yet answered
+    // (`crouched`, `eyeK` and `spin` are the room's crouch and its Q and E, see footKey; `doors` is the way into
+    // each building round you, see footBlock)
+    foot: stand?.foot ? { tile: { gx: stand.step?.gx ?? ctx.gx, gy: stand.step?.gy ?? ctx.gy }, pending: null, onMove: ctx.onMove || (() => {}),
+      crouched: false, eyeK: 1, spin: new Set(), doors: ctx.doors || [] } : null,
     api: null,
   };
   freelookSetSky(ctx.sky);
   freelookSetContacts(ctx.contacts);
+  if (st.foot) freeCam.setWalkBlock((x0, y0, x1, y1) => footBlock(st, x0, y0, x1, y1));
 
   // ⚠ OPEN ALREADY DETACHED. There is no mount to be on, so the "stowed" state of the camera is not
   // a state this view has — a stowed camera here would be a frozen frame with no controls at all.
   //
   // Standing, the seed is where the vantage IS: the mount answers with a world-tile offset from the
   // tile the window is centred on, which is exactly the vocabulary the camera's own x/y are in.
-  const spot = stand ? standSpot(st, performance.now()) : null;
   // ⚠ THE MOUNT'S OWN BEARING OUTRANKS THE AUTHORED ONE. An instrument on a ship points where the
   // ship is pointing plus its own train angle, and a world yaw written into a content file would be
   // right on the day it was authored and wrong the first time she was sailed anywhere. A vantage on
   // ground that does not move has no mount and keeps its authored yaw.
-  freeCam.open(spot
-    ? { stand: true, yaw: spot.yaw != null ? spot.yaw : (stand.yaw || 0), x: spot.x, y: spot.y, z: spot.z, eye: spot.z, leash: stand.leash }
-    : { yaw: 0, z: OPEN_Z });
+  // (a function, because a street view kept for the next walk out is stood on its doorstep again: `reseat`)
+  const self = st;
+  self.seat = () => {
+    const sd = self.stand, spot = sd ? standSpot(self, performance.now()) : null;
+    freeCam.open(spot
+      ? { stand: true, yaw: spot.yaw != null ? spot.yaw : (sd.yaw || 0), x: spot.x, y: spot.y, z: spot.z, eye: spot.z, leash: sd.leash, ...(sd.foot ? { pace: FOOT_PACE } : {}) }
+      : { yaw: 0, z: OPEN_Z });
+  };
+  self.seat();
 
   const hintEl = root.querySelector('.fl-hint');
   // The raptor being followed ({ id, sp, n, of, lostAt }), and the order ← → walk. See findRaptor.
@@ -311,9 +471,11 @@ export function openFreelook(ctx = {}) {
     }
     // A phone gets the touch line, which has no keys in it to replace.
     if (freeCamTouchUI()) { hintEl.textContent = freeCamHint(freeCam.standing); return; }
-    hintEl.textContent = freeCam.standing
+    // on foot out of a building, the room's own line (room-stage.js), less what the street doesn't have
+    if (stand?.foot) { hintEl.textContent = 'WASD to walk, Shift to run, C to crouch · drag to look, Q and E to turn · wheel zooms · F at a door goes in · O or ✕ steps back'; return; }
+    hintEl.textContent = (freeCam.standing
       ? freeCamHint(true).replace('O steps back', stand ? 'O or ✕ steps back' : 'O or ✕ closes')
-      : freeCamHint(false).replace('O exit', 'H follow raptor · O close');
+      : freeCamHint(false).replace('O exit', 'H follow raptor · O close'));
   }
   paintHint();
 
@@ -322,12 +484,20 @@ export function openFreelook(ctx = {}) {
 
   function frame(now) {
     if (!st || !st.alive) return;
-    const dt = Math.min(0.05, (now - st.last) / 1000); st.last = now;
+    paint(now);
+    // warm, it rests as soon as its loading veil has gone (the builds are done) or after 15 s, until it's woken. Every
+    // paint here is main-thread GLASS under somebody's room: it used to keep going for 1.5 s, a dozen paints of 70 to 150 ms.
+    if (st.warm && (!document.getElementById(st.id + '-veil') || now - st.warmT0 > 15000)) { st.raf = 0; return; }
+    st.raf = requestAnimationFrame(frame);
+  }
+  function paint(now) {
+    const dt = Math.max(0, Math.min(0.05, (now - st.last) / 1000)); st.last = now;
     // The whole body is guarded for the reason helm-view's is: this loop reschedules itself at the
     // END and paintWindshield has no try/catch of its own, so one throw would freeze the view for
     // good while everything around it carried on.
     try {
       if (follow) followStep();
+      if (st.foot) footTurn(st, dt);
       freeCam.step(dt);
       const env = liveEnv();
       const hour = env ? env.hour : st.hour;
@@ -339,7 +509,8 @@ export function openFreelook(ctx = {}) {
       // frame — and a camera pinned to a number taken when the view opened would hang in the air
       // while the ship rose and fell under it. One call, every frame, to the function that puts
       // her own geometry there.
-      if (st.stand) { const s = standSpot(st, now); if (s) freeCam.setEye(s.z); }
+      if (st.stand) { const s = standSpot(st, now); if (s) freeCam.setEye(s.z * footEye(st, dt)); }
+      if (st.foot) watchFoot(st, now, flash);
       // A camera put on its feet with FPS has no mount, but on the Echelon the floor is her deck,
       // not the sea — at the default eye it stood inside her hull and the deck vanished. Asked every
       // frame, because she rides the swell and you walk between her decks.
@@ -376,6 +547,9 @@ export function openFreelook(ctx = {}) {
         // flying away from it is the renderer's business (freeCam), exactly as for the helm.
         contacts: st.contacts.size ? st.contacts.frame(st.gx, st.gy, { roadRig: ROAD_RIG_MUL }) : null,
         roads: st.roads, regions: st.regions,
+        streetDoors: st.foot ? doorLeaves(st, now, dt) : null,
+        // the rooms of the buildings near you, drawn in the city (gl/interiors.js); null off foot
+        interiorRooms: st.foot && st.interiors?.length ? st.interiors : null,
       });
 
       // ⚠ WHERE THE CAMERA IS, NOT WHERE THE WINDOW IS CENTRED. This read `st.gx,st.gy`, which is
@@ -386,13 +560,11 @@ export function openFreelook(ctx = {}) {
     } catch (e) {
       if (!st._errLogged) { console.error('[freelook] frame render error (view kept alive — report this stack):', e); st._errLogged = true; }
     }
-    st.raf = requestAnimationFrame(frame);
   }
+  st.frame = frame; st.paint = paint;
   st.raf = requestAnimationFrame(frame);
 
-  const freeIdle = bindFreeCamIdle(freeCam);
-  freeIdle.wake();
-  const unbindPointer = bindFreeCamPointer(root.querySelector('.ws-wrap') || root, freeCam);
+  let freeIdle = null, unbindPointer = null;
 
   function onKey(e) {
     const k = (e.key || '').toLowerCase();
@@ -405,13 +577,17 @@ export function openFreelook(ctx = {}) {
     // 62°/s for the rest of the session with nothing held down and nothing on screen to say why.
     // Same rule, and the same reason, as cab-view.js's own HOLD_KEYS record.
     if (/^(INPUT|TEXTAREA)$/.test(e.target?.tagName) || e.target?.isContentEditable) {
-      if (!down) freeCam.onKey(k, false);
+      if (!down) { freeCam.onKey(k, false); st.foot?.spin.delete(k); }
       return;
     }
     // ⚠ O CLOSES THE VIEW, NOT THE CAMERA. In a seat the camera goes back on its mount and the
     // vehicle is still there; here there is nothing to go back to, so the same key has to mean the
     // same thing to the player — "put this away" — and what it puts away is the whole view.
     if (k === 'o' && down && !e.repeat) { e.preventDefault(); st.onExit(); return; }
+    // ON FOOT THE KEYS ARE THE ROOM'S (room-walk.js), so the street door doesn't change what your hands do: WASD,
+    // Shift to run, C or Ctrl to crouch, Q and E to turn. Nothing else of the camera's is bound: no speed ladder,
+    // no lift, no roll, no pointer key.
+    if (st.foot) { if (footKey(st, e, k, down)) e.preventDefault(); return; }
     // The nav-mark switch is bound here too, even though this view suppresses the marks whatever it
     // is set to (a detached camera always does — see NAV_MARKS in windshield.js). It is the same
     // module flag the seats throw, so a builder who turns it off out here has turned it off in the
@@ -496,18 +672,14 @@ export function openFreelook(ctx = {}) {
     clearTimeout(flashT);
     flashT = setTimeout(paintHint, 2500);
   }
-  window.addEventListener('keydown', onKey);
-  window.addEventListener('keyup', onKey);
   // ⚠ AND ALT-TAB IS THE ONE THE LENIENCY ABOVE CANNOT CATCH. The keyup for whatever was held goes
   // to whatever you switched to and this window never hears it at all, so there is no release to be
   // lenient about — the camera simply flies on, over a city nobody is looking at, until somebody
   // comes back and presses the key again to let go of it. The cab binds both hooks for the same
   // failure and for the same reason: `blur` is "this window is no longer taking keys" and
   // `visibilitychange` is "this tab is not on screen", and either can happen without the other.
-  const onLetGo = () => freeCam.releaseAll();
-  const onHidden = () => { if (document.hidden) freeCam.releaseAll(); };
-  window.addEventListener('blur', onLetGo);
-  document.addEventListener('visibilitychange', onHidden);
+  const onLetGo = () => { freeCam.releaseAll(); self.foot?.spin.clear(); };
+  const onHidden = () => { if (document.hidden) onLetGo(); };
   root.querySelector('.fl-x')?.addEventListener('click', () => st?.onExit());
   // ⤢ big screen — the whole window with nothing on it, which is what this view was always
   // reaching for: no sidebar, no log, no chips, no hint, no pane border. It is the only seat with
@@ -516,31 +688,6 @@ export function openFreelook(ctx = {}) {
   // ⚠ ESC LEAVES BIG SCREEN AND O STILL CLOSES THE VIEW. Two ways out of two different things, and
   // the second one goes on working in here — which is why this button is safe to let fade with the
   // rest of the chrome.
-  bindBigScreenButton(root.querySelector('.fl-big'));
-  bindSidebarButton(root.querySelector('.fl-side'));
-
-  // ⊟ and ⛶ — the column ladder, the same two body classes every other seat carries and the same
-  // precedence: fullscreen supersedes hide-panel, so a player who learned it in a cab does not have
-  // to learn it again out here. Both are cleared when the view closes, because they are the PAGE's
-  // and nothing else takes them down.
-  const hideBtn = root.querySelector('.fl-hide');
-  const fsBtn = root.querySelector('.fl-fs');
-  hideBtn?.addEventListener('click', () => {
-    const lit = document.body.classList.toggle('fl-hidepanel');
-    hideBtn.classList.toggle('on', lit);
-    if (lit) { document.body.classList.remove('fl-fullscreen'); fsBtn?.classList.remove('on'); }
-  });
-  fsBtn?.addEventListener('click', () => {
-    const lit = document.body.classList.toggle('fl-fullscreen');
-    fsBtn.classList.toggle('on', lit);
-    if (lit) { document.body.classList.remove('fl-hidepanel'); hideBtn?.classList.remove('on'); }
-  });
-  // The view opens on ⊟: the whole column is picture and the command box stays, so O, chat and
-  // every verb still work without a click on the ladder first. ⊟ again gives the log back.
-  document.body.classList.remove('fl-fullscreen');
-  document.body.classList.add('fl-hidepanel');
-  hideBtn?.classList.add('on');
-  fsBtn?.classList.remove('on');
 
   // ── FPS: THE CAMERA PUTS ITS FEET DOWN ──────────────────────────────────────
   //
@@ -581,16 +728,51 @@ export function openFreelook(ctx = {}) {
   // below the picture: a player who has clicked it once is flying nothing and typing "wasd" into
   // the chat box. The cab and the flight sim have taken the keyboard on mount for a long time and
   // this seat never did, which is why it is the one the complaint was about. See seat-keys.js.
-  claimSeatKeyboard(root, { label: stand ? 'VIEW' : 'CAMERA' });
+  // What a view on screen takes: the page's weather overlay off, the idle timer, the pointer, the keys, the seat
+  // ladder (◧ ⊟ ⛶ ⤢, opening on ⊟, seat-ladder.js) and the keyboard. A warm view takes them when it's woken.
+  let ladderBound = false;
+  self.wake = () => {
+    if (self.woke) return;
+    self.woke = true;
+    suppressWeatherFx(true, 'freelook');   // this view draws its own sky; the room-pane overlay's bow lay flat across the towers
+    freeIdle = bindFreeCamIdle(freeCam);
+    freeIdle.wake();
+    // on foot with a mouse it's the room's drag, not the camera's held pointer; a phone keeps the camera's touch layer
+    const glass = root.querySelector('.ws-wrap') || root;
+    unbindPointer = self.foot && !freeCamTouchUI() ? bindFootPointer(glass, freeCam) : bindFreeCamPointer(glass, freeCam);
+    window.addEventListener('keydown', onKey);
+    window.addEventListener('keyup', onKey);
+    window.addEventListener('blur', onLetGo);
+    document.addEventListener('visibilitychange', onHidden);
+    // a view woken a second time (parkFreelook) gets fresh buttons: binding the same ones twice makes each click two
+    if (ladderBound) for (const b of root.querySelectorAll('.seat-side, .seat-hide, .seat-fs, .seat-big')) b.replaceWith(b.cloneNode(true));
+    ladderBound = true;
+    bindSeatLadder(root);
+    claimSeatKeyboard(root, { label: self.foot ? 'STREET' : stand ? 'VIEW' : 'CAMERA' });
+    self.last = performance.now();
+    if (!self.raf) self.raf = requestAnimationFrame(frame);
+  };
+  if (!warm) self.wake();
 
   st.teardown = () => {
+    if (!self.woke) return;
     endSeatKeyboard(root);
     window.removeEventListener('keydown', onKey);
     window.removeEventListener('keyup', onKey);
     window.removeEventListener('blur', onLetGo);
     document.removeEventListener('visibilitychange', onHidden);
     unbindPointer?.();
-    freeIdle.unbind();
+    freeIdle?.unbind();
+  };
+  // Asleep (parkFreelook): everything `wake` took is given back but the page's layout, which the Room Stage coming
+  // into the pane keeps (keepSeatRung), and the frames stop.
+  self.sleep = () => {
+    if (!self.woke) return;
+    self.teardown();
+    self.woke = false;
+    freeCam.releaseAll(); self.foot?.spin.clear();
+    suppressWeatherFx(false, 'freelook');
+    cancelAnimationFrame(self.raf); self.raf = 0;
   };
   st.api = {
     setSky: freelookSetSky,
@@ -603,7 +785,7 @@ export function closeFreelook() {
   if (!st) return;
   const s = st; st = null;
   s.alive = false;
-  suppressWeatherFx(false, 'freelook');
+  if (s.woke) suppressWeatherFx(false, 'freelook');
   cancelAnimationFrame(s.raf);
   try { s.teardown?.(); } catch { /* a half-built view still has to come down */ }
   // ⚠ THE GL SCENE GOES WITH IT. This view mints a fresh canvas id per open (the helm's own trap,
@@ -615,11 +797,9 @@ export function closeFreelook() {
   // The page-level layout this view turned on. All three are the PAGE's rather than the pane's, so
   // nothing else takes them down — and a player who closed the camera at ⛶ with the sidebar hidden
   // would be handed a room description with no panels, no log and no command box.
-  exitBigScreen();
-  setSidebarHidden(false);
-  document.body.classList.remove('fl-fullscreen', 'fl-hidepanel');
-  window.dispatchEvent(new Event('pane:released'));
+  if (s.woke) releaseSeatLadder();
   if (s.mount) s.mount.innerHTML = '';
+  s.holder?.remove();
 }
 
 // Where the vantage is, in the vocabulary the camera's own x/y are in: a world-tile offset from the
@@ -630,6 +810,9 @@ export function closeFreelook() {
 // the flying camera rather than putting the eye somewhere invented.
 // A standing eye, 1.6 m against a 3.5 m storey (windshield.js ACTOR_S). It was 0.12, about 2.2 m.
 const FPS_EYE = 0.09;
+// On foot, the Room Stage's pace (room-walk.js: 5.5 ft a second, Shift 1.9 times that), in tiles: FPS_EYE
+// is 1.6 m, so a metre is FPS_EYE / 1.6 tiles. Out of the front door you walk as you did in the lobby.
+const FOOT_PACE = { walk: 5.5 * 0.3048 * FPS_EYE / 1.6, run: 1.9 };
 function deckEyeAt(s, fv, now) {
   if (!s.map || !fv) return null;
   const R = (s.map.length - 1) / 2, c = s.map?.[R]?.[R];
@@ -645,7 +828,362 @@ function standSpot(s, now) {
     const m = MOUNTS[stand.mount](s.map, R, now);
     if (m) return m;
   }
+  if (stand.foot) return { x: stand.x || 0, y: stand.y || 0, z: FPS_EYE };
   return stand.eye != null ? { x: stand.x || 0, y: stand.y || 0, z: stand.eye } : null;
+}
+
+// ── ON FOOT: EVERY TILE EDGE IS A MOVE ───────────────────────────────────────
+//
+// Walking the street after the street door (plugins/freelook openOnFoot). The camera walks freely;
+// crossing into another tile sends the ordinary 'move <dir>', one at a time, and the server's
+// 'freelook_step' says where you are. No answer in 1.8 s means it wouldn't let you: you're put back
+// just inside the tile you're on. Walking into a building's tile is walking in: the engine passes you
+// through its facade, and the Room Stage or the room text takes the pane.
+const FOOT_WAIT_MS = 1800, DOOR_ENTER_AT = 0.11;
+function watchFoot(s, now, flash) {
+  const f = s.foot, fv = s.freeCam.view();
+  if (!fv || s.inside) return;   // inside, a doorway sends the move (insideBlock)
+  const ax = s.gx + fv.x, ay = s.gy + fv.y, cx = Math.round(ax), cy = Math.round(ay), T = f.tile;
+  const back = (bx, by) => s.freeCam.rebase(bx - ax, by - ay);
+  if (f.pending) {
+    if (now - f.pending.t < FOOT_WAIT_MS) return;
+    const b = f.pending.back;
+    f.pending = null;
+    uncoverPane();   // a door that wouldn't let you in: the street again
+    back(b[0], b[1]);
+    flash("You can't go that way.");
+    return;
+  }
+  // inside a tile, a little in from its edge, on the side you were walking to
+  const inside = (px, py) => [px + Math.max(-0.42, Math.min(0.42, ax - px)), py + Math.max(-0.42, Math.min(0.42, ay - py))];
+  // ⚠ IN AT THE GLASS, NOT AT THE TILE'S EDGE. The doors stand 0.014 of a tile short of the edge, and the camera's
+  // near plane cuts them away from about 0.07 out, so walking up to the edge showed the inside of the model's shell,
+  // and that was the frame the cover was taken from. Measured at the Solenne: 0.11 from the glass the doorway (and the
+  // lobby in it) fills the view, 0.06 is grey. So the step through a door goes from here, in the doorway's width.
+  for (const d of f.doors) {
+    const E = EDGE_VEC[d.edge];
+    if (!E || T.gx !== d.gx + E[0] || T.gy !== d.gy + E[1]) continue;
+    const g = doorway(s, d);
+    if (!g) continue;
+    const off = (ax - d.gx) * E[0] + (ay - d.gy) * E[1] - g.plane, along = E[0] ? ay - d.gy : ax - d.gx;
+    if (off > DOOR_ENTER_AT || off < -0.3 || Math.abs(along) > g.half) continue;
+    if ((g.leaves || !d.slide) && (d.open || 0) < 0.65) continue;   // shut: it holds you, as footBlock does
+    // a slow frame can carry the eye well past the mark in one step; the cover's frame is taken from the mark itself,
+    // and nobody sees the eye go back, since the cover is over it from here on
+    if (off < DOOR_ENTER_AT) s.freeCam.rebase(E[0] * (DOOR_ENTER_AT - off), E[1] * (DOOR_ENTER_AT - off));
+    f.back = inside(T.gx, T.gy);
+    f.pending = { t: now, back: f.back };
+    noteDoor(d); enterCover(s);
+    f.onMove(`footstep ${d.gx} ${d.gy}`);
+    return;
+  }
+  if (cx === T.gx && cy === T.gy) return;
+  // ⚠ THE VIEW IS THE AUTHORITY ON FOOT. It reports the tile it walked into (`footstep`, plugins/freelook) and walks
+  // on without waiting: the server follows. It used to send `move <dir>` and wait for the answer, and the pacing
+  // queue held a quick step silently for longer than the wait, so you were pulled back with "You can't go that way"
+  // and then moved anyway a moment later. Only a real refusal (a gate) puts you back now (freelookStep `refused`).
+  // (onMove sends any command line silently, so it carries this one too.)
+  const d = doorAt(s, cx, cy);
+  f.back = inside(T.gx, T.gy);
+  if (d) {
+    // a building: the room has to come, so this one waits for it, behind the cover (enterCover)
+    f.pending = { t: now, back: f.back };
+    noteDoor(d); enterCover(s);
+  } else {
+    f.tile = { gx: cx, gy: cy };
+  }
+  f.onMove(`footstep ${cx} ${cy}`);
+}
+
+// ── ON FOOT: THE ROOM'S CONTROLS ─────────────────────────────────────────────
+//
+// The numbers are room-walk.js's and room-stage.js's, so walking out of a street door changes the picture and
+// nothing about how you move: Q and E turn at TURN_RATE, a drag turns the head by TURN a pixel, C or Ctrl
+// crouches to the same eye and the same half pace, and the wheel is the room's 6% a notch.
+const FOOT_TURN = 2 * 180 / Math.PI;   // degrees a second on Q and E (room-walk.js TURN_RATE)
+const FOOT_DRAG = 0.0045;              // radians a pixel of drag (room-stage.js TURN)
+const FOOT_CROUCH = 3.3 / 5.4;         // a crouched eye over a standing one (room-walk.js CROUCH / STAND)
+const FOOT_KEYS = new Set(['w', 'a', 's', 'd', 'arrowleft', 'arrowright', 'arrowup', 'arrowdown']);
+function footKey(s, e, k, down) {
+  const f = s.foot, cam = s.freeCam;
+  // Shift off the event, as the room reads it: held before the door, it's still held after it
+  cam.onKey('shift', !!e.shiftKey && !(k === 'shift' && !down));
+  if (k === 'shift') return true;
+  // ⚠ A TOGGLE, NOT A HOLD, for the room's reason: Ctrl+W shuts the browser tab and no page can stop it
+  if (k === 'control' || (k === 'c' && !e.ctrlKey && !e.metaKey)) {
+    if (down && !e.repeat) { f.crouched = !f.crouched; cam.setPace(f.crouched ? { walk: FOOT_PACE.walk * 0.5, run: 1 } : FOOT_PACE); }
+    return true;
+  }
+  if (k === 'f' && !e.ctrlKey && !e.metaKey) { if (down && !e.repeat) footDoor(s); return true; }
+  if ((k === 'q' || k === 'e') && !e.ctrlKey && !e.metaKey) { if (down) f.spin.add(k); else f.spin.delete(k); return true; }
+  if (FOOT_KEYS.has(k)) return cam.onKey(k, down);
+  return false;
+}
+function footTurn(s, dt) {
+  const sp = s.foot.spin, turn = (sp.has('e') ? 1 : 0) - (sp.has('q') ? 1 : 0), v = turn ? s.freeCam.view() : null;
+  if (v) s.freeCam.aimAt(v.yaw + turn * FOOT_TURN * dt, v.pitch);
+}
+// How much of a standing eye is left, eased as the room eases a crouch. 1 for anything that isn't on foot.
+function footEye(s, dt) {
+  const f = s.foot;
+  if (!f) return 1;
+  const want = f.crouched ? FOOT_CROUCH : 1;
+  f.eyeK += (want - f.eyeK) * (1 - Math.exp(-dt * 12));
+  if (Math.abs(f.eyeK - want) < 0.002) f.eyeK = want;
+  return f.eyeK;
+}
+// A drag looks and the wheel zooms, as in the room. The cursor stays a cursor, so the buttons in the corner are
+// one click away and nothing has to be pressed to free the mouse.
+function bindFootPointer(el, cam) {
+  let drag = null;
+  const down = (e) => {
+    if (e.target.closest?.('button')) return;
+    // a click on the world takes the keyboard back from the command line
+    if (!e.target.closest?.('input, textarea, select, [contenteditable]')) {
+      const f = document.activeElement; if (f?.matches?.('input, textarea, [contenteditable]')) f.blur();
+    }
+    if (e.button === 1) e.preventDefault();
+    drag = { x: e.clientX, y: e.clientY, id: e.pointerId };
+    try { el.setPointerCapture(e.pointerId); } catch { /* not capturable */ }
+  };
+  const move = (e) => {
+    if (!drag || e.pointerId !== drag.id) return;
+    const dx = e.clientX - drag.x, dy = e.clientY - drag.y, v = cam.view();
+    drag.x = e.clientX; drag.y = e.clientY;
+    if (v && (dx || dy)) cam.aimAt(v.yaw + dx * FOOT_DRAG * 180 / Math.PI, v.pitch - dy * FOOT_DRAG);
+  };
+  const up = () => { drag = null; };
+  const wheel = (e) => { e.preventDefault(); cam.zoomBy(e.deltaY > 0 ? 1 / 1.06 : 1.06); };
+  el.addEventListener('pointerdown', down);
+  el.addEventListener('pointermove', move);
+  el.addEventListener('pointerup', up);
+  el.addEventListener('pointercancel', up);
+  el.addEventListener('wheel', wheel, { passive: false });
+  return () => {
+    el.removeEventListener('pointerdown', down);
+    el.removeEventListener('pointermove', move);
+    el.removeEventListener('pointerup', up);
+    el.removeEventListener('pointercancel', up);
+    el.removeEventListener('wheel', wheel);
+  };
+}
+
+// ── ON FOOT: WALLS ARE WALLS, AND A BUILDING HAS A DOOR ──────────────────────
+//
+// Everything a truck can't drive through, somebody on foot can't walk through: the same captured mass
+// (groundObstructionAt), asked at the eye's height so a canopy is walked under, with a body's width round the
+// eye so the lens never reaches a wall. A step that ends in something slides along it.
+//
+// A building with a Stage (`doors`, plugins/roomstage streetDoorsNear) is entered at its door and nowhere else:
+// its tile takes a step only from its doorstep, inside the doorway, with the doors apart. The move is still the
+// tile edge's (watchFoot), and the wall behind the doors holds you the moment it takes the server to answer.
+//
+// ⚠ THE DOORWAY IS READ OFF THE MODEL, NOT WRITTEN DOWN TWICE. Where the front wall stands, how wide the gap
+// between the jambs is and how high the lintel hangs are asked of the building's own mass, so the leaves fit
+// whatever arm draws it. An arm with no jambs or lintel gets a doorway from the room's own width.
+const METRE = FPS_EYE / 1.6;   // a metre in tiles: FPS_EYE is 1.6 m
+const FOOT_BODY = 0.016, FOOT_STEP = 0.011, DOOR_NEAR = 2.6 * METRE, DOOR_HOLD_MS = 1400, DOOR_OPEN_S = 0.55, DOOR_SHUT_S = 0.9;
+const EDGE_VEC = { north: [0, -1], south: [0, 1], east: [1, 0], west: [-1, 0] };
+const cellOf = (s, wx, wy) => { const R = (s.map.length - 1) / 2; return s.map[wy - s.gy + R]?.[wx - s.gx + R] || null; };
+const doorAt = (s, wx, wy) => s.foot.doors.find((d) => d.gx === wx && d.gy === wy) || null;
+function solidAt(s, ax, ay, z) {
+  for (const [ox, oy] of [[0, 0], [FOOT_BODY, 0], [-FOOT_BODY, 0], [0, FOOT_BODY], [0, -FOOT_BODY]]) {
+    const px = ax + ox, py = ay + oy, wx = Math.round(px), wy = Math.round(py), c = cellOf(s, wx, wy);
+    if (c && groundObstructionAt(wx, wy, c, px, py, z, FOOT_STEP) > 0) return true;
+  }
+  return false;
+}
+// The doorway of a building, in its model's own frame (y out of the front, x along it), from its mass.
+function doorway(s, d) {
+  if (d.g !== undefined) return d.g;
+  const c = cellOf(s, d.gx, d.gy), E = EDGE_VEC[d.edge];
+  if (!c || !E || !windshieldLoaded()) return null;   // (not kept: the window or the renderer isn't in yet)
+  const at = (lx, ly) => [d.gx + lx * E[1] + ly * E[0], d.gy - lx * E[0] + ly * E[1]];
+  const hit = (lx, ly, z) => { const [px, py] = at(lx, ly); return groundObstructionAt(d.gx, d.gy, c, px, py, z, 0) > 0; };
+  const wide = Math.max(0.05, (d.w || 2) * METRE / 2);
+  let wall = null;
+  for (let ly = 0.5; ly >= 0.2 && wall == null; ly -= 0.005) if (hit(0, ly, 0.02)) wall = ly;
+  if (wall == null) return (d.g = { E, at, wall: 0.44, plane: 0, half: wide, top: 0, leaves: false });
+  let half = null, top = null;
+  for (let lx = 0.01; lx <= 0.4 && half == null; lx += 0.004) if (hit(lx, wall + 0.02, 0.02) || hit(-lx, wall + 0.02, 0.02)) half = lx;
+  // (a tower's doorway is drawn to the tower's scale, far over a person's head, so the lintel is looked for high)
+  for (let z = 0.03; z <= 3 && top == null; z += 0.01) if (hit(0, wall + 0.02, z)) top = z;
+  // the leaves stand a hair proud of the jambs' own front, so whatever the arm drew in the doorway is behind them
+  let front = wall;
+  if (half != null) for (let ly = 0.5; ly > wall; ly -= 0.004) if (hit(half + 0.012, ly, 0.02) || hit(-half - 0.012, ly, 0.02)) { front = ly; break; }
+  return (d.g = { E, at, wall, plane: Math.min(0.498, front + 0.01), half: half ?? Math.min(0.2, wide * 2), top: top ?? 0.13, leaves: true });
+}
+// ── ON FOOT, INSIDE: ONE WORLD (docs/proposals/one-world-interiors.md) ──────────
+//
+// With ONE_WORLD on, walking in at a street door keeps you in GLASS: the building's rooms are already drawn in the
+// city (gl/interiors.js), so the server's `room_view` is taken here (freelookTakeRoom) instead of opening the Room
+// Stage. Its own model comes off the map, the rooms' walls and furniture hold you (room-layout.js roomFree, the
+// Stage's own rule), and walking through a doorway sends that doorway's move, as the Stage does.
+// ⚠ OFF BY DEFAULT: the Stage's verbs, people, lights and lift aren't here yet. `__oneWorld(true)` in the console.
+export const ONE_WORLD = { on: false };
+if (typeof window !== 'undefined') window.__oneWorld = (on = true) => (ONE_WORLD.on = !!on);
+// Where a point (tiles about the window's centre) is in a room's own frame: [u, v], by its matrix's inverse.
+function roomUV(s, r, x, y) {
+  const M = r.M, tx = s.gx + x - r.gx - M[12], ty = s.gy + y - r.gy - M[13], det = M[0] * M[9] - M[8] * M[1];
+  if (!det) return null;
+  const px = (tx * M[9] - M[8] * ty) / det, pz = (M[0] * ty - M[1] * tx) / det;
+  const l = r.L.local([px, r.L.floor, pz]);
+  return [l[0], l[1]];
+}
+// The room of the building you're in that's free at a point, if any.
+function roomAt(s, x, y) {
+  const I = s.inside;
+  for (const r of s.interiors || []) {
+    if (r.gx !== I.gx || r.gy !== I.gy || r.L.floor !== I.room.L.floor) continue;
+    const p = roomUV(s, r, x, y);
+    if (p && roomFree(r.L, p[0], p[1])) return r;
+  }
+  return null;
+}
+// A step inside: into free floor of any room on this floor, or out through a doorway of the room you're in. A
+// doorway to another room sends its move; the street door sends its own, and the server's window takes you out.
+function insideBlock(s, x0, y0, x1, y1) {
+  const I = s.inside;
+  const ok = (x, y) => {
+    const r = roomAt(s, x, y);
+    if (r) {
+      if (r !== I.room) {
+        const o = (I.room.L.spec.openings || []).find((q) => q.to === r.zone && q.dir);
+        if (!o) return false;
+        I.room = r; I.zone = r.zone; s.foot.onMove?.(o.dir);
+      }
+      return true;
+    }
+    const p = roomUV(s, I.room, x, y), o = p && openingCrossed(I.room.L, p);
+    if (o && o.dir && !(s.interiors || []).some((q) => q.zone === o.to)) {
+      // out: the server's window takes it from here, and the tile edge mustn't send a second move meanwhile
+      s.inside = null; s.foot.pending = { t: performance.now(), back: [s.gx + x0, s.gy + y0] }; s.foot.onMove?.(o.dir);
+      return true;
+    }
+    return false;
+  };
+  if (ok(x1, y1)) return null;
+  if (ok(x1, y0)) return [x1, y0];
+  if (ok(x0, y1)) return [x0, y1];
+  return [x0, y0];
+}
+// `room_view` for a room this view has drawn: stay in GLASS. True when it's taken; the Stage opens otherwise.
+// whether you're walking round inside a building in GLASS, so the server's indoor close doesn't park the view
+export function freelookInside() { return !!st?.inside; }
+export function freelookTakeRoom(msg) {
+  const s = st;
+  if (!ONE_WORLD.on || !s || !s.foot) return false;
+  const room = (s.interiors || []).find((r) => r.zone === msg.zone);
+  if (!room) return false;
+  if (s.warm) {
+    const mount = document.getElementById('area-content');
+    if (!mount) return false;
+    s.warm = false; mount.innerHTML = ''; mount.appendChild(s.root);
+    s.holder?.remove(); s.holder = null; s.mount = mount;
+    s.wake(); uncoverPane();
+  }
+  // its own model off the map, ground only, as the window view does it (room-view.js withoutOwnTower)
+  const R = (s.map.length - 1) / 2, row = s.map[room.gy - s.gy + R], c = row?.[room.gx - s.gx + R];
+  if (c && c.bt) row[room.gx - s.gx + R] = { kind: 'land', biome: c.biome, flr: c.flr, self: 1 };
+  const from = s.inside;
+  s.inside = { zone: msg.zone, room, gx: room.gx, gy: room.gy };
+  s.foot.pending = null;
+  // in from the street: stood just inside its door, as the Stage stands you (openingInside), since the doorway itself
+  // is no room's floor
+  const o = !from && (room.L.spec.openings || []).find((q) => q.dir && !(s.interiors || []).some((r) => r.zone === q.to));
+  const v = o && s.freeCam.view();
+  if (v) {
+    const at = openingInside(room.L, o).at, P = room.L.world(at[0], at[1], 0), M = room.M;
+    s.freeCam.rebase(room.gx + M[0] * P[0] + M[8] * P[2] + M[12] - (s.gx + v.x), room.gy + M[1] * P[0] + M[9] * P[2] + M[13] - (s.gy + v.y));
+  }
+  return true;
+}
+function footBlock(s, x0, y0, x1, y1) {
+  const f = s.foot;
+  if (!f || !s.map) return null;
+  if (s.inside) return insideBlock(s, x0, y0, x1, y1);
+  const z = s.freeCam.view()?.z ?? FPS_EYE, a0x = s.gx + x0, a0y = s.gy + y0;
+  // stood in something already (put down there, or the window changed): walking out of it is allowed
+  if (solidAt(s, a0x, a0y, z)) return null;
+  const ok = (x, y) => {
+    const ax = s.gx + x, ay = s.gy + y, wx = Math.round(ax), wy = Math.round(ay);
+    const d = (wx !== Math.round(a0x) || wy !== Math.round(a0y)) ? doorAt(s, wx, wy) : null;
+    if (d) {
+      const g = doorway(s, d), E = EDGE_VEC[d.edge];
+      if (!g || Math.round(a0x) !== d.gx + E[0] || Math.round(a0y) !== d.gy + E[1]) return false;
+      const along = Math.abs(E[0] ? ay - d.gy : ax - d.gx);
+      if (along > g.half - FOOT_BODY || ((g.leaves || !d.slide) && (d.open || 0) < 0.65)) return false;
+    }
+    return !solidAt(s, ax, ay, z);
+  };
+  if (ok(x1, y1)) return null;
+  if (ok(x1, y0)) return [x1, y0];
+  if (ok(x0, y1)) return [x0, y1];
+  return [x0, y0];
+}
+// The doors near you: how far apart each pair is now, and what the renderer draws (glass/street-doors.js). They
+// part as you come up to them and shut a beat after you've gone, at the lobby's own distances and speeds.
+function doorLeaves(s, now, dt) {
+  const f = s.foot, fv = s.freeCam.view();
+  if (!fv || !f.doors.length || !s.map) return null;
+  const ax = s.gx + fv.x, ay = s.gy + fv.y, out = [];
+  for (const d of f.doors) {
+    if (Math.abs(d.gx - ax) > 6 || Math.abs(d.gy - ay) > 6) continue;
+    const g = doorway(s, d);
+    if (!g) continue;
+    const [px, py] = g.at(0, g.wall);
+    const near = Math.hypot(px - ax, py - ay) < DOOR_NEAR + (0.5 - g.wall);
+    // only automatic glass doors (`slide`, flags.room.street_door) part as you come up; a plain door waits for F (footDoor)
+    if (near && d.slide) d.hold = now + DOOR_HOLD_MS;
+    if (d.open === undefined) d.open = near && d.slide ? 1 : 0;   // come out of them, they're apart behind you
+    const want = (d.hold || 0) > now ? 1 : 0, k = d.open || 0, step = dt / (want > k ? DOOR_OPEN_S : DOOR_SHUT_S);
+    d.open = Math.abs(want - k) <= step ? want : k + Math.sign(want - k) * step;
+    // the glass is drawn only for a building that has it; any other door is the arm's own (the Cherry Pit's bars)
+    // and behind any door, the lobby as it was last seen from it (lobby-still.js), so the street looks into it
+    const glass = !!(g.leaves && d.slide), card = null;
+    if (glass || card) out.push({ x: d.gx, y: d.gy, E: g.E, plane: g.plane, wall: g.wall, half: g.half, top: g.top, open: d.open * d.open * (3 - 2 * d.open), glass, card, look: d.look || null });
+  }
+  return out.length ? out : null;
+}
+
+// F AT A DOOR: open it and go in. Stood on a building's doorstep within reach of its doorway, the door is held
+// open and the step through it is the ordinary 'move <dir>' (watchFoot's), so the Room Stage takes the pane as it
+// does for somebody who walks in.
+function footDoor(s) {
+  const f = s.foot, fv = s.freeCam.view();
+  if (!f || !fv || !s.map || f.pending) return;
+  const ax = s.gx + fv.x, ay = s.gy + fv.y, T = f.tile;
+  for (const d of f.doors) {
+    const E = EDGE_VEC[d.edge];
+    if (!E || T.gx !== d.gx + E[0] || T.gy !== d.gy + E[1]) continue;
+    const g = doorway(s, d);
+    if (!g) continue;
+    const [px, py] = g.at(0, g.wall);
+    if (Math.hypot(px - ax, py - ay) > DOOR_NEAR + (0.5 - g.wall)) continue;
+    const now = performance.now();
+    d.hold = now + DOOR_HOLD_MS; d.open = 1;
+    f.pending = { t: now, back: [ax, ay] };
+    noteDoor(d); enterCover(s);
+    f.onMove(`footstep ${d.gx} ${d.gy}`);
+    return;
+  }
+}
+
+// Where the server put you after a step on foot.
+// The view leads on foot (watchFoot), so an ordinary answer only confirms a tile it's already left behind; a refused
+// step (a gate said no) is the one that moves the view: back inside the tile the server has you on.
+export function freelookStep(msg) {
+  const s = st, f = s?.foot;
+  if (!f) return;
+  if (!msg.refused) { f.pending = null; return; }
+  f.tile = { gx: msg.gx, gy: msg.gy };
+  f.pending = null;
+  uncoverPane();
+  const fv = s.freeCam.view();
+  if (!fv) return;
+  const ax = s.gx + fv.x, ay = s.gy + fv.y;
+  const bx = msg.gx + Math.max(-0.42, Math.min(0.42, ax - msg.gx)), by = msg.gy + Math.max(-0.42, Math.min(0.42, ay - msg.gy));
+  s.freeCam.rebase(bx - ax, by - ay);
 }
 
 function ensureFreelookStyles() {

@@ -6,12 +6,16 @@
 // next payload); the worm's-eye camera is down on the grass, on the field and looking at the
 // moment; the panels are taken in order inside the replay's window; every kind of replay has its
 // word, the same each time for the same play; the page's panels sit inside the picture without
-// overlapping; and the painters draw something at every beat without throwing.
+// overlapping; and the painters draw something at every beat without throwing. Also here: which
+// plays earn a replay without a staged play to ask (a big strikeout, a steal), and the videoboard's
+// reel (diamond/jumbo.js): taken by the clock, never cut off, and not played out behind a prompt.
 //
 // No DOM, no GL, no files written.
 
-import { COMIC, COMIC_WORDS, comicWordOf, comicLength, comicFit, wormShot, followShot, freezeLayout, tellsMore, panelAt, pageLayout, paintFreeze, paintPage } from '../../client/game/js/panels/diamond/comic.js';
-import { REPLAY } from '../../client/game/js/panels/diamond/replay.js';
+import { COMIC, COMIC_WORDS, COMIC_CAPTIONS, COMIC_INKS, comicWordOf, comicCaptionsOf, comicHeadlineOf, comicInksOf, comicLength, comicFit, wormShot, followShot, freezeLayout, tellsMore, panelAt, pageLayout, paintFreeze, paintPage, paintRun } from '../../client/game/js/panels/diamond/comic.js';
+import { REPLAY, replayOf, anchorOf } from '../../client/game/js/panels/diamond/replay.js';
+import { afterLand, AFTER, bigStrikeout } from '../../client/game/js/panels/diamond/timing.js';
+import { createJumbo, JUMBO } from '../../client/game/js/panels/diamond/jumbo.js';
 import { onField } from '../../client/game/js/panels/diamond/play.js';
 import { project } from '../../client/game/js/panels/diamond/camera.js';
 
@@ -87,7 +91,15 @@ check(tellsMore('Cardenas launches it into the dark', 'HOME RUN!'), 'a real line
 check(panelAt(spec, 0) > spec.from && panelAt(spec, 0) < spec.key && panelAt(spec, 1) === spec.key && panelAt(spec, 2) > spec.key && panelAt(spec, 2) < spec.to, 'panels in order inside the replay, the second on its moment');
 
 // the words
-for (const kind of ['homerun', 'walkoff', 'catch', 'doubleplay', 'tripleplay', 'triple', 'close']) {
+const KINDS = ['homerun', 'walkoff', 'catch', 'robbed', 'doubleplay', 'tripleplay', 'triple', 'close', 'plate', 'caught', 'steal', 'strikeout'];
+for (const kind of KINDS) {
+  check(Array.isArray(COMIC_CAPTIONS[kind]) && comicCaptionsOf(kind).length === 2, `${kind} has its two captions`);
+  const inks = comicInksOf(kind);
+  check(Array.isArray(inks) && inks.length === 4 && inks.every((c) => /^#[0-9a-f]{6}$/.test(c)), `${kind} has its four inks`);
+}
+check(comicInksOf('homerun') === COMIC_INKS.hot && comicInksOf('catch') === COMIC_INKS.cold && comicInksOf('plate') === COMIC_INKS.dust && comicInksOf('nonsense') === COMIC_INKS.hot, 'off the bat is hot, into the glove cold, at a bag dust');
+check(comicHeadlineOf('robbed') === 'ROBBED!' && comicHeadlineOf('homerun') === null && comicHeadlineOf('homerun', { kind: 'homerun', rbi: 4 }) === 'GRAND SLAM!', 'the page\'s headline: the comic\'s own, the HUD\'s where it has one, and a grand slam says so');
+for (const kind of KINDS) {
   const w = comicWordOf(kind, 'Boothe parks one');
   check(COMIC_WORDS[kind].includes(w), `${kind} has its word`, w);
   check(w === comicWordOf(kind, 'Boothe parks one'), `${kind}: the same play gets the same word`);
@@ -135,6 +147,86 @@ for (const t of [0, 0.05, 0.3, COMIC.freeze]) {
     check(!threw && n.fill > 0, `the page at ${t}s paints`, threw || JSON.stringify(n));
     if (t >= COMIC.page) check(n.image === 2 && n.text >= 2, 'the finished page has both shots, a blank, the word and the caption', JSON.stringify(n));
   }
+}
+
+// the page the other way round: still inside the picture, the moment on the right
+for (const [w, h] of [[420, 288], [1800, 1230]]) {
+  const P = pageLayout(w, h, true).panels, Q = pageLayout(w, h).panels;
+  check(P.every((p) => p.x >= 0 && p.y >= 0 && p.x + p.w <= w && p.y + p.h <= h), `page ${w}×${h} flipped: the panels are inside the picture`);
+  check(P[1].x > P[0].x && Q[1].x < Q[0].x, `page ${w}×${h}: flipped puts the moment on the right`);
+}
+// the run's frame: its lines, its tag and its note
+{
+  const { g, n } = ctx();
+  let threw = null;
+  try { paintRun(g, 900, 600, 0.5, 0, { note: 'Bottom of the 7th' }); paintRun(g, 900, 600, 0.5, 1); } catch (e) { threw = e.message; }
+  check(!threw && n.fill > 40 && n.text >= 3, 'the run paints its speed lines, its tag and its note', threw || JSON.stringify(n));
+}
+// a page in a kind's inks, flipped, with its masthead
+{
+  const { g, n } = ctx();
+  let threw = null;
+  try { paintPage(g, 900, 600, [{ width: 720, height: 480 }, { width: 720, height: 480 }, null], 'THWAP!', 'ROBBED!', COMIC.page, { inks: comicInksOf('robbed'), flip: true, issue: 7, at: [0.5, 0.5] }); } catch (e) { threw = e.message; }
+  check(!threw && n.text >= 4, 'a flipped page in the cold inks paints its word, its headline and its masthead', threw || JSON.stringify(n));
+}
+
+// ── which plays earn one (replay.js replayOf), for the kinds that need no staged play ──
+{
+  const K = { kind: 'strikeout', outs: 3, basesBefore: [false, true, false], inning: 4, bats: 'L', awayScore: 0, homeScore: 5 };
+  const log = [{ catch: { t: 12 }, call: { t: 12.6 } }];
+  const spec = replayOf(K, null, log);
+  check(spec && spec.kind === 'strikeout' && spec.shot === 'sideL' && spec.bare && spec.from < 0 && spec.key === 0 && spec.to > 1 && spec.to - spec.from <= REPLAY.span, 'strike three to end an inning with a man on earns a replay, through the call, from the side he faces', JSON.stringify(spec));
+  check(replayOf({ ...K, outs: 2 }, null, log) === null && replayOf({ ...K, basesBefore: [false, false, false] }, null, log) === null, 'an ordinary strikeout earns none');
+  check(replayOf({ ...K, basesBefore: [], inning: 9, awayScore: 4 }, null, log)?.kind === 'strikeout', 'nor does it need a man on in a close game\'s ninth');
+  check(anchorOf({ contact: { t: 3 }, catch: { t: 9 } }) === 3 && anchorOf({ catch: { t: 9 } }) === 9 && Number.isNaN(anchorOf({})), 'a replay\'s times count from the bat, or with no contact from the mitt');
+  // the server leaves these the replay's room (timing.js), and no other strikeout
+  check(bigStrikeout(K) && afterLand(K) === AFTER.replay + AFTER.reset && afterLand({ ...K, outs: 2 }) === AFTER.reset, 'the server leaves a big strikeout room for its replay');
+  check(afterLand({ phase: 'run', kind: 'caughtstealing' }) === AFTER.replay + AFTER.reset && afterLand({ phase: 'run', kind: 'steal' }) === AFTER.reset, 'and a man thrown out stealing');
+  // on the bases: thrown out always, safe only when the tag nearly had him
+  const plan = (touch) => ({ log: { throw: { catch: { t: 14 } }, tag: { t: 14.1 }, runners: [{ touch }] } });
+  const run = { phase: 'run', kind: 'caughtstealing', base: 2 }, rl = [{ catch: { t: 12 } }];
+  const c = replayOf(run, plan(14.2), rl);
+  check(c && c.kind === 'caught' && c.shot === 'bag' && Math.abs(c.key - 2) < 1e-9, 'a man thrown out stealing earns one at his bag, on the throw arriving', JSON.stringify(c));
+  check(replayOf({ ...run, kind: 'steal' }, plan(14.0), rl)?.kind === 'steal' && replayOf({ ...run, kind: 'steal' }, plan(13.8), rl) === null, 'a steal earns one only when the tag nearly had him');
+  check(replayOf({ ...run, kind: 'steal', base: 3 }, plan(14.0), rl)?.shot === 'third' && replayOf({ phase: 'run', kind: 'wildpitch' }, plan(14), rl) === null, 'at third from third\'s camera, and nothing else on the bases');
+}
+
+// ── the videoboard (diamond/jumbo.js) ──
+{
+  const canvasOf = () => { const c = { width: 0, height: 0 }; const x = ctx().g; x.canvas = c; c.getContext = () => x; return c; };
+  const doc = { createElement: () => canvasOf() };
+  let ups = 0;
+  const J = createJumbo({ doc, upload: () => { ups++; } });
+  const src = { width: 1280, height: 720 };
+  // a thirteen-second replay at 60 frames a second: all of it kept, never more than maxFrames
+  J.recordStart('homerun', 'KRAKK!');
+  let took = 0;
+  for (let i = 0; i <= 13 * 60; i++) { const was = J.due(i / 60); J.record(src, null, i / 60); if (was) took++; J.tick(i / 60, {}); }
+  check(J.recording && J.showing === 'replay', 'the board shows a replay while it\'s taken');
+  check(took >= 13 * JUMBO.take * 0.9 && took <= JUMBO.maxFrames, 'a replay is taken by the clock: about JUMBO.take a second through all thirteen seconds, however fast the screen', `${took} frames`);
+  // a longer one is thinned, never cut off
+  J.recordStart('homerun', '');
+  for (let i = 0; i <= 40 * 30; i++) J.record(src, null, 100 + i / 30);
+  let last = 0;
+  for (let t = 138; t < 140.5; t += 1 / 60) { if (J.due(t)) last = t; J.record(src, null, t); }
+  check(last > 139.5, 'a replay longer than the reel is thinned and taken on, not stopped', `last frame wanted at ${last.toFixed(2)} s`);
+  // it plays again after a prompt that was up when it ended: the prompt doesn't run its loops out
+  J.prompt('homerun', 141, 4);
+  J.recordEnd();
+  for (let t = 141; t < 145; t += 1 / 30) J.tick(t, {});
+  check(J.showing === 'prompt' || J.showing === 'replay', 'a prompt goes over the replay');
+  J.tick(145.1, {});
+  let shown = 0;
+  for (let t = 145.2; t < 150; t += 1 / 30) { J.tick(t, {}); if (J.showing === 'replay') shown++; }
+  check(shown > 60, 'the replay plays again once the prompt\'s done, not behind it', `${shown} ticks`);
+  for (let t = 150; t < 400; t += 1 / 10) J.tick(t, {});
+  check(J.showing === 'score' && ups > 10, 'and the score comes back after its loops');
+  // the score repaints when the clubs\' colours come in
+  const before = ups;
+  J.tick(401, { S: { away: 'RAT', home: 'KNG' }, colours: { home: ['#111111', '#222222'], away: ['#333333', '#444444'] } });
+  J.tick(402, { S: { away: 'RAT', home: 'KNG' }, colours: { home: ['#111111', '#222222'], away: ['#333333', '#444444'] } });
+  J.tick(403, { S: { away: 'RAT', home: 'KNG' }, colours: { home: ['#aa1111', '#222222'], away: ['#333333', '#444444'] } });
+  check(ups === before + 2, 'the score repaints when the clubs\' colours change, and not otherwise', `${ups - before} uploads`);
 }
 
 if (fails) { console.error(`comic-replay: ${fails} failed`); process.exit(1); }

@@ -5,6 +5,7 @@
     "name": "Krell Barrow",
     "note": "Ported from buildTruck by scripts/shapes/truck-meshes.mjs. Laid out from the nose anchor at f 0.40; aircraft3d.js centres it per variant. Channels: trailer (+t), parked (~p), fit_<code> (^code).",
     "portedFrom": "buildTruck:scrapper",
+    "variants": { "2076": "truck_scrapper_2076" },
     "partIds": true,
     "truck": {
       "w": 0.14,

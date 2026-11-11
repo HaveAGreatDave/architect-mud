@@ -1,0 +1,10 @@
+{
+  "content": "{\n \"kind\": \"set\",\n \"format\": 1,\n \"id\": \"set_pa11_neil\",\n \"name\": \"Public Access 11 Talk Set\",\n \"base\": \"tpl_talk\",\n \"brand\": {\n  \"name\": \"PUBLIC ACCESS 11\",\n  \"colour\": \"#f0e0a0\"\n },\n \"broadcasts\": [],\n \"palette\": {\n  \"floor\": \"#2a2620\",\n  \"wall\": \"#3a3428\",\n  \"trim\": \"#4a4030\",\n  \"accent\": \"#c0a060\",\n  \"desk\": \"#5a4a34\",\n  \"deskTop\": \"#7a6a4a\",\n  \"sofa\": \"#6a6040\",\n  \"chair\": \"#3a3020\",\n  \"riser\": \"#2a2620\"\n },\n \"parts\": {\n  \"backdrop\": {\n   \"type\": \"flat\",\n   \"at\": [\n    0,\n    8.8\n   ],\n   \"w\": 10,\n   \"h\": 3.6,\n   \"colour\": \"#4a3a5a\"\n  },\n  \"sign\": {\n   \"panel\": \"#6a5a3a\",\n   \"h\": 0.34,\n   \"y\": 2.9,\n   \"glow\": 1.2\n  },\n  \"desk\": {\n   \"text\": \"NEIL\",\n   \"colour\": \"#ffd040\"\n  },\n  \"grid\": null,\n  \"plant_right\": null,\n  \"riser\": null,\n  \"curtain_left\": null,\n  \"curtain_right\": null,\n  \"rug\": null,\n  \"desk_lamp\": null\n },\n \"lamps\": [\n  {\n   \"p\": [\n    0,\n    3.8,\n    4\n   ],\n   \"k\": 2.4\n  },\n  {\n   \"p\": [\n    3,\n    3.6,\n    5\n   ],\n   \"k\": 1.4\n  }\n ],\n \"description\": \"Neil's show on the talk template, done on no money: a painted flat for a backdrop, a cardboard sign, one plant.\"\n}",
+  "created_at": "1794108637",
+  "description": "Neil's show on the talk template, done on no money: a painted flat for a backdrop, a cardboard sign, one plant.",
+  "id": "set_pa11_neil",
+  "name": "Public Access 11 Talk Set",
+  "tags": [],
+  "type": "set",
+  "updated_at": "1794108921"
+}

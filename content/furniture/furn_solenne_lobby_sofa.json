@@ -8,6 +8,13 @@
     "look": {
       "arche": "bench",
       "form": "booth"
+    },
+    "spot": {
+      "at": [
+        6.2,
+        5
+      ],
+      "turn": -90
     }
   },
   "hp": null,

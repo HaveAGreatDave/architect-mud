@@ -1,0 +1,78 @@
+{
+  "category": "commercial",
+  "config": {
+    "layers": [
+      {
+        "adsr": {
+          "a": 0.04,
+          "d": 0.2,
+          "r": 0.18,
+          "s": 0.75
+        },
+        "echo": {
+          "delay": 0.22,
+          "feedback": 0.3,
+          "mix": 0.18
+        },
+        "filter": {
+          "freq": 1100,
+          "q": 1.4,
+          "type": "bandpass"
+        },
+        "gain": 0.13,
+        "mods": [
+          {
+            "fade": 0.35,
+            "id": "vb",
+            "rate": 5,
+            "to": [
+              {
+                "amount": 18,
+                "param": "pitch"
+              }
+            ],
+            "type": "lfo",
+            "wave": "sine"
+          },
+          {
+            "a": 0.001,
+            "d": 0.08,
+            "id": "sc",
+            "r": 0.05,
+            "s": 0,
+            "to": [
+              {
+                "amount": -60,
+                "param": "pitch"
+              }
+            ],
+            "type": "env"
+          }
+        ],
+        "waveform": "sawtooth"
+      },
+      {
+        "adsr": {
+          "a": 0.03,
+          "d": 0.2,
+          "r": 0.15,
+          "s": 0.5
+        },
+        "filter": {
+          "freq": 2600,
+          "q": 2,
+          "type": "bandpass"
+        },
+        "gain": 0.025,
+        "noiseMix": 1,
+        "noiseSeed": 41,
+        "waveform": "sawtooth"
+      }
+    ]
+  },
+  "enabled": 1,
+  "id": "aud_inst_ad_sax",
+  "name": "Ad: Lounge sax",
+  "sample_id": null,
+  "waveform": "sawtooth"
+}

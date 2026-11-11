@@ -194,6 +194,8 @@
     const q0 = new URLSearchParams(location.search);
     if (q0.get('slot')) slot = +q0.get('slot');
     beats = buildGame();
+    // for a bench: jump to a beat by type (`__showType('anthem')`, `__showType('crown')`)
+    window.__showType = (type) => { const i = beats.findIndex((b) => b.gd.type === type); document.getElementById('filter').value = ''; if (i >= 0) show(i); return i; };
     if (q0.get('beat')) document.getElementById('filter').value = q0.get('beat');
     show(+(q0.get('i') || 0));
   </script>

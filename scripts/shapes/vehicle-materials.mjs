@@ -30,6 +30,9 @@ const NO_FINISH = {
   truck_drayman: 'a truck takes its finish from the paint booth, not the file',
   truck_continental: 'a truck takes its finish from the paint booth, not the file',
   truck_hauler_2076: 'a truck takes its finish from the paint booth, not the file',
+  truck_continental_2076: 'a truck takes its finish from the paint booth, not the file',
+  truck_drayman_2076: 'a truck takes its finish from the paint booth, not the file',
+  truck_scrapper_2076: 'a truck takes its finish from the paint booth, not the file',
 };
 const LIVERIES = [
   null, {},

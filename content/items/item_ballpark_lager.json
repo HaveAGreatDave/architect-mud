@@ -5,7 +5,7 @@
   "name": "cup of ballpark lager",
   "tags": {
     "consumable": true,
-    "description": "A tall plastic cup of pale lager, poured from a can by a man with a tray round his neck. Half of it is foam and it costs what a bottle would.",
+    "description": "A tall plastic cup of pale lager, poured from a can at the stand and carried up to your seat. Half of it is foam and it costs what a bottle would.",
     "food_noun": "beer",
     "food_profile": "liquid",
     "hydrating": true,

@@ -1,0 +1,33 @@
+{
+  "description": "The dining chair across the table, in the same walnut and suede, pushed square under the slab. The suede has never been sat on.",
+  "flags": {
+    "aliases": [
+      "chair",
+      "dining chair"
+    ],
+    "interactions": [
+      "sit"
+    ],
+    "look": {
+      "arche": "seat",
+      "form": "chair"
+    },
+    "spot": {
+      "at": [
+        -3.3,
+        6
+      ],
+      "turn": 180
+    }
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_penthouse_dining_chair_guest",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "guest chair",
+  "object_type": "furniture",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_solenne_penthouse"
+}

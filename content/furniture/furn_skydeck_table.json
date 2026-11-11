@@ -5,6 +5,12 @@
     "look": {
       "arche": "table",
       "form": "coffee"
+    },
+    "spot": {
+      "at": [
+        3.6,
+        6.7
+      ]
     }
   },
   "hp": null,

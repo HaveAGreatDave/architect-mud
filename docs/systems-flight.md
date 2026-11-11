@@ -871,8 +871,9 @@ throttle, yoke, pedals, flap detent lever, trim):
   Elevation is also clamped to −6°, sun azimuth is linear in time (a constant 15°/h,
   where the real thing loiters at the horizons and sweeps through noon), and the two
   peak elevations (sun 62°, moon 55°) are authored rather than derived.
-- **PFD** (`paintPFD`, cockpit.js:4186): a canvas primary flight display — banking/
-  pitching attitude ball with a ±30° pitch ladder, **airspeed and altitude tapes**
+- **PFD** (`paintPFD`, cockpit.js): a canvas primary flight display — banking/
+  pitching attitude ball with a ±30° pitch ladder and a roll scale carrying the bank hold's bug
+  (see [the HUD's flight symbols](#the-huds-flight-symbols-as-built-2026-11-09)), **airspeed and altitude tapes**
   flanking it (airspeed marked with Vr/Vne/Vs0), a VSI bar, a digital heading box, a
   slip/skid ball, and a fuel percentage. **MFD** (`paintMFD`) is the moving map off
   the server's `map` window. **`paintGauges`** draws the engine cluster (one dial per
@@ -901,6 +902,68 @@ off still releases; sets `F.pedalKey`), and the `fsimFrame` loop (drives the til
 via CSS var `--d`, toggles `.act` past ±0.04). Physics: `flight-model.js` `step`
 feeds `pedal * rudderYaw * auth` into the heading integrator; a sheared rudder
 zeroes pedal authority.
+
+### ← → : a bank she holds *(as built, 2026-11-09)*
+In the air the arrow keys set a bank and the aircraft holds it when you let go. A tap moves the
+target 5°, holding a key rolls it on at 30° a second after a 0.3 s pause, and a released key leaves
+it snapped to the nearest 5°. Rolling back through level stops at level (the detent), so holding ←
+to flatten out of a right turn can't carry her into a left one; a fresh press goes on through. With
+the target at level, no key down and the wings flat, the hold ends and the stick is yours again. On
+the wheels or the water the same keys steer instead: the nosewheel, or the Drake's helm as a boat.
+
+The controller is [bank-hold.js](../client/game/js/panels/bank-hold.js), pure and DOM-free like
+the flight model it flies:
+
+- **The aileron is a roll rate, not an angle** (§4 of the model), and `rollStable` levels the wings
+  the moment the stick is centred, so a held bank needs a standing deflection. The feed-forward
+  solves it from the model's own equation; a proportional term, damping scaled by the type's own
+  `rollTau`, and a small integral that runs only within 4° of the target fly the rest. Run without
+  that band, the integral wound up on every roll-in and overshot 5° to 10°.
+- **The bank costs lift**, so fixed wings get back-pressure (`pull`) that keeps the vertical speed
+  the hold found her at. It's learned as a gain on the turn's excess load, `1/cos φ − 1`, so it
+  fades to nothing as the wings come level (learned as a plain deflection, the Leviathan
+  ballooned 435 fpm on every roll-out), damped on the pitch rate, never a push, and backed off
+  ahead of the stall and 85% of `gLimit`. A rotor's lift doesn't fall with bank in the model, so
+  helicopters get no pull. The pull rides on top of the pilot's elevator in the `step` call; it's
+  never written into `input.elevator`, where the yoke's spring would compound it.
+- **The limit is per type** (`bankLimit`): 60° for a wing, less where 1/cos φ would come within
+  reach of `gLimit` (the Leviathan stops at 55°); for a rotor, what full cyclic can hold against
+  its self-levelling, `0.92 × rollRate / rollStable` (18° for the Drake, 24° for the Dragonfly).
+- **A hand takes her back.** A yoke or pad drag ends the hold, and so does the mouse stick moving
+  sideways: the hold writes the armed stick's x every frame, so any difference is the mouse and the
+  stick carries on from where the hold left it. Moving the mouse stick up and down doesn't end it;
+  the pull re-takes its reference from whatever the pilot leaves her doing. A stall ends it too,
+  since aileron into a dropping wing drives the departure deeper (§6c). A key whose keyup never
+  arrives (the window loses focus, the free camera takes the arrows) is released for it, or the
+  target would roll on to the limit with nobody touching anything.
+
+`node scripts/bank-hold-tune.mjs` flies every airframe through a held → to 30°, a step to its
+limit and a held ← back to level, and prints rise, overshoot, height held, nose bob, peak g,
+detent and hand-back time. With `--check` it's a gate in the `client` group, with thresholds a
+little outside what it was tuned to.
+
+### The HUD's flight symbols *(as built, 2026-11-09)*
+The forward HUD (`drawHud` in windshield.js) draws these only while airborne:
+
+- **A roll scale** over the boresight (`drawRollScale`): an arc whose ticks at 10, 20, 30, 45 and
+  60 each side turn with the horizon, a hollow level mark, and a fixed cyan index at the top that
+  reads the bank off them, the way the heading tape's caret reads the tape. Under the index, a slip
+  brick that slides toward the low wing in a forward slip, and the bank as `R 30°`.
+- **The bank hold's bug**, magenta on the scale at the held bank, so → moves the bug right and the
+  aircraft rolls until it sits on the index: hollow while she's rolling to it, filled once she's
+  there. Its plate reads `HOLD R 30°`, with `MAX` at the type's limit.
+- **A turn trend** on the heading tape: a magenta bar from the caret to where the nose will point in
+  six seconds at the current rate of turn, between two marks for a standard-rate (3°/s) turn.
+- **Load factor** at the arc's right end, amber from 80% of `gLimit` and red past it. Not on
+  rotors, whose g is always 1 in the model.
+
+The cockpit feeds them as `airborne`, `hudBank` (the smoothed bank without the Drake's sea roll),
+`turnRate` (off the raw heading), `gLoad`, `gLimit`, `hudSlip`, `rotor` and `bankHold`. Every
+stroke is laid over a dark band, because thin cyan alone disappears against a sunlit cloud deck.
+The glass PFD has the same roll scale on its ball and the hold's bug as a magenta tick; its fixed
+roll index, which had always sat under the heading box, now sits inside the scale where it can be
+seen. `scripts/shapes/shell.mjs` paints an airborne seat with a hold rolling, so a throw in any of
+this fails a gate.
 
 ### Crash break-up death-cam
 A severe write-off — **CFIT** (into a building), **ditch** (into water), or a
@@ -942,7 +1005,9 @@ streaking.
 **Hazards** (`hazards.js`). The tick loop calls
 `rollHazards()`: **STALL** (high + slow → buffet → stall → spin → crash, cleared by
 `recover` after powering up) and **ENGINE FIRE** (overheat → fire, cleared by
-`extinguish`/`cut fuel`) are persistent escalating ladders; **WEATHER buffeting**
+`extinguish`/`cut fuel`; HOT from 130°, OVERHEAT from 145°, and it lights after three ticks in
+the red; `coolant` dumps 45° and you get two per flight; the cockpit's temp gauge and the HUD heat
+banner with its COOLANT button read the server's temp, not one derived from rpm) are persistent escalating ladders; **WEATHER buffeting**
 (hooked to `getZoneSeverity`, amplified by altitude) and **BIRD STRIKE** (low/slow)
 are one-shot per-tick events. Utility verbs: `preflight`, `hover` (VTOL), `spot`
 (aerial spotting → wrecks/AA on the ground), `chart` (dead-reckoning + nearest
@@ -1721,7 +1786,9 @@ ammeter, no prop governor, no mixture and no airframe ice in this flight model:
   equipment may be present without pretending to read anything. What it may not do is animate a value
   nothing computes.
 
-Gear retracts on the Reaper, Leviathan, Drake and Viper (`gearRetracts` in `plugins/flight/state.js`; the Viper by `data.retract_gear`, since it shares `heli` with the skidded Dragonfly). The Mule's is fixed. The Viper 2076's mains fold aft into its sponsons on the mesh's `gear` channel, and a role `gear` face stows with the legs, so a pitot or grab handle is role `strut`.
+Gear retracts on the Reaper, Leviathan, Drake and Viper (`gearRetracts` in `plugins/flight/state.js`; the Viper by `data.retract_gear`, since it shares `heli` with the skidded Dragonfly). The Mule's is fixed. A role `gear` face stows with the legs, so a pitot or grab handle is role `strut`.
+
+Each retracting mesh carries its own motion on the `gear` channel (`anim` with `ch: 'gear'`; 1 is down, 0 is up): the Reaper's mains swing aft into their pods and the nose leg into the belly, the Leviathan's bogies ride up into the sponsons and her nose legs swing aft, the Viper's mains swing forward and up into the belly and the tailwheel folds along the boom, the Viper 2076's mains fold aft into its sponsons, and the Drake's feet fold into their bay. A leg with its own motion stays solid while it moves (`ridesGear` in `client/shared/vehicle-mesh.js`). A leg without one gets the renderer's fallback, which squashes it inward and fades it out, so a new retracting craft needs its legs authored. The Reaper 2076 has none yet and still takes the fallback. `modelLowestH` measures a moving leg where the draw puts it, so a craft that raises her gear on the ground settles onto her belly as the legs fold. ⚠ A positive angle about +g swings a leg aft.
 
 ⚠ **A fixed-gear aeroplane gets no gear lever**, and the flap gate takes the whole block. A handle for
 a leg that cannot retract is a control with nothing behind it.

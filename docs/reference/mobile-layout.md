@@ -63,7 +63,7 @@ The set is a fixed overlay over all of the above; on a phone (720px and under) i
 
 ## 3-D on a phone
 
-See [Phones](glass-notes.md#phones-2026-09-28) in the GLASS notes: the reduced GL tier, the retry after a backgrounded tab, and the one-time offer of text views when a device can't keep up.
+See [Phones](glass-notes.md#phones-2026-09-28) in the GLASS notes: the reduced GL tier, the retry after a backgrounded tab, and the one-time offer of text views when a device can't keep up. A phone draws the city with [GLASS Lite](glass-notes.md#glass-lite-render_tuneglasslite-2026-11-09), the buildings from a bake rather than their arms.
 
 ## Testing it
 

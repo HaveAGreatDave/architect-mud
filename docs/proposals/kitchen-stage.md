@@ -53,11 +53,24 @@ see. A character knife board is a possible follow-up.
 
 ## The look
 
-- **Toon light.** Three hard bands and a hard rim, from `toonBands`/`toonStep`
-  in `gl/context.js`. Oily and wet food gets a hard-edged highlight.
-- **Ink.** The inverted-hull outline the rink uses, moved into `gl/ink.js` so
-  the rink and the kitchen share one copy.
-- **Manga accents.** Halftone dots in the shadow band. Speed lines and a
+- **ROOM's renderer.** Since 2026-11-10 the kitchen has no renderer of its own.
+  `gl/kitchen.js` turns kitchen-mesh.js's batches (cm, z up) into ROOM's frame
+  (metres, y up) and draws them with `createRoomRenderer`: the set as the room,
+  the moving pieces as its props, under a warm key lamp and a cool fill. The
+  light, the gloss, the metal and the ink are the room's, so the comic look
+  (Settings → Cel Shading) inks it as it inks the room. The kitchen's own
+  toon bands and halftone went with the old renderer. Picking is unchanged:
+  the panel still picks with the kitchen-frame matrices, which match ROOM's
+  camera exactly, roll and shake included.
+- **In the apartment.** Cooking in a Room Stage with a hob (not a
+  microwave), the kitchen draws nothing of its own. The room hands it a host
+  (`kitchen:open` `detail.host`, from `cookFrame` in room-stage.js) placed on
+  the hob's top, facing the wall. The room keeps drawing the whole flat from the
+  kitchen's camera, with the board, the slate, the hob and the food as its props
+  (`buildSet` with `bare`, since the worktop, wall and units are the room's).
+  The look drag turns your head where you stand instead of orbiting the pan.
+  With no hob in the room, it draws the show set as before.
+- **Manga accents.** Speed lines and a
   two-frame flash on a clean cut or a good flip, on a 2-D overlay. Steam as
   outlined cel puffs.
 - **Set.** A pale wood counter, a noren behind, warm key light from above left,

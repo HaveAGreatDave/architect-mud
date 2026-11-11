@@ -1,4 +1,4 @@
-// The Room Stage gate (docs/proposals/room-stage.md). Nine checks, no DOM, no GL:
+// The Room Stage gate (docs/proposals/room-stage.md). Ten checks, no DOM, no GL:
 //
 //   1. The Platinum Box suite is the Room Stage's first room. Its layout (seats with their eyes and
 //      facings, stations, the boxes a walker can't stand in or climbs over, the floor heights) comes
@@ -22,13 +22,17 @@
 //      the ground floor; every set says where its picture goes and which of the screen batch is its own.
 //   9. Somebody else can cross every flat: a way from the door to every seat and thing you can use,
 //      on free floor the whole way.
+//  10. A building's doorways: every open one cut, walked through from just inside it, the one in the
+//      window wall taking the window, and a shut one left as wall.
 //
 // `node scripts/shapes/room-stage.mjs [--update]`
 import { readFileSync, writeFileSync, readdirSync } from 'fs';
 import { createHash } from 'crypto';
 import { boothLayout } from '../../client/game/js/panels/gl/booth-mesh.js';
-import { buildRoom } from '../../client/game/js/panels/gl/room-mesh.js';
-import { roomLayout, roomSpecOf, placeSpot, archetypeOf, dimsOf, formOf, ARCHETYPES, FORMS, withAnnex, annexFrame, roomFree, roomStep, inAnnex, onBalcony, layRows, rowDrawn, roomPath, roomNearFree, pathLength } from '../../client/shared/room-layout.js';
+import { buildRoom, withShells } from '../../client/game/js/panels/gl/room-mesh.js';
+import { STRIDE } from '../../client/game/js/panels/gl/ballpark-mesh.js';
+import { buildingGraph, buildingLayout, roomOpenings, placeFrom, ROOM_GAP } from '../../client/shared/building-graph.js';
+import { roomLayout, roomSpecOf, placeSpot, archetypeOf, dimsOf, formOf, ARCHETYPES, FORMS, withAnnex, annexFrame, roomFree, roomStep, inAnnex, onBalcony, layRows, rowDrawn, roomPath, roomNearFree, pathLength, withDoorways, doorwaysOf, openingCrossed, openingInside } from '../../client/shared/room-layout.js';
 
 const FIXTURE = new URL('./booth-layout.fixture.json', import.meta.url);
 const fails = [];
@@ -160,7 +164,7 @@ const flatLayouts = [];
     for (const r of [...here, ...there]) {
       if ((r.flags?.concealed || r.flags?.compartment_of) && pieces.some((p) => p.id === r.id)) fail(`${z.id}: ${r.id} is concealed or a shelf, and it's in the payload`);
     }
-    const L = roomLayout(spec, pieces), A = L.annex, floor = L.placed.filter((p) => !p.on && !(p.arche === 'screen' && !p.crt) && !(p.arche === 'cabinet' && p.form !== 'vitrine')), box = floor.map(fp);
+    const L = roomLayout(spec, pieces), A = L.annex, floor = L.placed.filter((p) => !p.on && !(p.arche === 'screen' && !p.crt) && !(p.arche === 'cabinet' && p.form !== 'vitrine' && p.form !== 'humidor')), box = floor.map(fp);
     if (spec.plan) flatLayouts.push({ id: z.id, L });
     // 7: walk it from the door
     if (spec.plan) {
@@ -198,7 +202,9 @@ const flatLayouts = [];
     floor.forEach((p, i) => {
       const [u0, u1, v0, v1] = box[i], [a, b, c, e] = p.annex ? [A.u0, A.u1, A.v0, A.v0 + spec.annex.d] : [-L.w / 2, L.w / 2, 0, L.d];
       if (u0 < a - 0.01 || u1 > b + 0.01 || v0 < c - 0.01 || v1 > e + 0.01) fail(`${z.id}: ${p.id} stands outside its room`);
-      for (let j = i + 1; j < floor.length; j++) { const q = box[j]; if (u0 < q[1] - 0.01 && u1 > q[0] + 0.01 && v0 < q[3] - 0.01 && v1 > q[2] + 0.01) fail(`${z.id}: ${p.id} stands in ${floor[j].id}`); }
+      // a pit's banquette is a ring round its wall, so a runway passes over its middle on purpose
+      const ring = (x) => x.form === 'banquette';
+      for (let j = i + 1; j < floor.length; j++) { const q = box[j]; if (ring(p) || ring(floor[j])) continue; if (u0 < q[1] - 0.01 && u1 > q[0] + 0.01 && v0 < q[3] - 0.01 && v1 > q[2] + 0.01) fail(`${z.id}: ${p.id} stands in ${floor[j].id}`); }
     });
   }
 }
@@ -276,6 +282,161 @@ const flatLayouts = [];
         for (let k = 1; k < n; k++) if (!roomFree(L, a[0] + (b[0] - a[0]) * k / n, a[1] + (b[1] - a[1]) * k / n)) { fail(`${id}: the way to ${g.piece} goes through something`); k = n; i = path.length; }
       }
     }
+  }
+}
+
+// ── 10. a building's doorways (docs/proposals/building-stage.md) ──────────────────────────────────
+// A doorway on every wall: each one cut, walked through and come back from, the one on the window wall
+// taking the window, one over the flat's own door taking that, and a shut one left as wall.
+{
+  const base = roomSpecOf({ room: { w: 6, d: 5, h: 3, studio: false, balcony: false } }, false);
+  const ops = [
+    { wall: 'front', a: -0.45, b: 0.45, kind: 'door', dir: 'north', to: 'n' },
+    { wall: 'back', a: base.door[0], b: base.door[1], kind: 'door', dir: 'south', to: 's' },
+    { wall: 'left', a: 2, b: 2.9, kind: 'door', dir: 'west', to: 'w' },
+    { wall: 'right', a: 2, b: 2.9, kind: 'shut', dir: 'east', to: 'e' },
+  ];
+  const spec = withDoorways(base, ops), L = roomLayout(spec, []);
+  if (!spec.windowless) fail('a doorway in the window wall left the window standing');
+  if (doorwaysOf(spec).length !== 3) fail(`${doorwaysOf(spec).length} doorways, not the three open ones`);
+  for (const o of doorwaysOf(spec)) {
+    const inside = openingInside(L, o);
+    if (!roomFree(L, ...inside.at) || openingCrossed(L, inside.at)) fail(`${o.wall}: just inside the doorway isn't in the room`);
+    const step = o.wall === 'front' ? [0, -0.05] : o.wall === 'back' ? [0, 0.05] : [-0.05, 0];
+    let p = inside.at.slice();
+    for (let i = 0; i < 60 && !openingCrossed(L, p); i++) p = roomStep(L, p, ...step);
+    if (openingCrossed(L, p)?.dir !== o.dir) fail(`${o.wall}: walking at the doorway never went through it (stopped at ${p.map((x) => x.toFixed(2))})`);
+  }
+  if (roomFree(L, base.w / 2 + 0.2, 2.45)) fail('a shut door can be walked through');
+  let m = null;
+  try { m = buildRoom(L, { seed: 4, lampOn: true }); } catch (e) { fail(`a room with doorways threw ${e.message}`); }
+  if (m && m.windows.length) fail(`a windowless room drew ${m.windows.length} panes`);
+}
+
+// ── 10b. furniture keeps out of a doorway ───────────────────────────────────────────────────────────
+// The four-doorway room above, furnished as far as placeSpot will go: no piece on the floor reaches into
+// the way through a doorway, half a metre in, so nobody walks into a sofa coming through.
+{
+  const base = roomSpecOf({ room: { w: 6, d: 5, h: 3, studio: false, balcony: false } }, false);
+  const spec = withDoorways(base, [
+    { wall: 'front', a: -0.45, b: 0.45, kind: 'door', dir: 'north', to: 'n' },
+    { wall: 'back', a: -1.45, b: -0.55, kind: 'door', dir: 'south', to: 's' },
+    { wall: 'left', a: 2, b: 2.9, kind: 'door', dir: 'west', to: 'w' },
+    { wall: 'right', a: 2, b: 2.9, kind: 'door', dir: 'east', to: 'e' },
+  ]);
+  const sold = [[{ interactions: ['sit', 'lie'] }, 20000], [{ interactions: ['lie'] }, 60000], [{ container: 15000 }, 22000], [{ interactions: ['sit'] }, 3000],
+    [{ interactions: ['lean'] }, 80000], [{ interactions: ['sit'] }, 12000], [{ interactions: [] }, 18000], [{ interactions: ['sit'] }, 8000]];
+  const pieces = [];
+  for (const [i, [flags, g]] of sold.entries()) {
+    const arche = archetypeOf(flags, g), dims = dimsOf(arche, g, flags), spot = placeSpot(spec, pieces, arche, dims);
+    if (spot) pieces.push({ id: `d${i}`, arche, dims, spot });
+  }
+  if (pieces.length < 4) fail(`only ${pieces.length} pieces fitted round four doorways`);
+  const hu = spec.w / 2, D = spec.d, k = 0.5;
+  const ways = doorwaysOf(spec).map((o) => o.wall === 'front' ? [o.a, o.b, 0, k] : o.wall === 'back' ? [o.a, o.b, D - k, D] : o.wall === 'left' ? [-hu, -hu + k, o.a, o.b] : [hu - k, hu, o.a, o.b]);
+  for (const p of roomLayout(spec, pieces).placed) {
+    if (p.arche === 'screen' && !p.crt) continue;
+    const q = Math.round(((p.turn % 360) + 360) % 360 / 90) % 2, hw = (q ? p.d : p.w) / 2, hd = (q ? p.w : p.d) / 2;
+    for (const w of ways) if (p.u - hw < w[1] && p.u + hw > w[0] && p.v - hd < w[3] && p.v + hd > w[2]) fail(`a ${p.arche} stands in a doorway (${[p.u, p.v].map((x) => x.toFixed(2))})`);
+  }
+}
+
+// ── 11. the rooms one doorway away (docs/proposals/building-stage.md, step 4) ───────────────────────
+// A landing with six doorways, two each on its north and south walls and one east and west, run through
+// the real pipeline: graph, plan, openings, placeFrom. Every doorway meets its room's across the
+// wall between, every room comes back through it, no wall of the rooms beyond stands inside the landing,
+// the shells add to the landing's batches whole, and building all seven stays cheap.
+{
+  const room = (w, d, extra = {}) => ({ room: { w, d, h: 3, studio: false, balcony: false, face: 0, ...extra } });
+  const zones = [
+    { id: 'st', map_id: 'map_world', flags: {}, exits: { up: 'L' } },
+    { id: 'L', map_id: 'm', flags: room(8, 6, { doors: { north: -1.5, out: 1.5, south: -1.5, in: 1.5 } }), exits: { north: 'n1', out: 'n2', south: 's1', in: 's2', east: 'e', west: 'w', down: 'st' } },
+    { id: 'n1', map_id: 'm', flags: room(2.5, 4), exits: { south: 'L' } }, { id: 'n2', map_id: 'm', flags: room(2.5, 4), exits: { in: 'L' } },
+    { id: 's1', map_id: 'm', flags: room(2.5, 4), exits: { north: 'L' } }, { id: 's2', map_id: 'm', flags: room(2.5, 4), exits: { out: 'L' } },
+    { id: 'e', map_id: 'm', flags: room(4, 4), exits: { west: 'L' } }, { id: 'w', map_id: 'm', flags: room(4, 4), exits: { east: 'L' } },
+  ];
+  const Z = new Map(zones.map((q) => [q.id, q])), specOf = (q) => roomSpecOf(q.flags, false);
+  const b = buildingGraph({ zones, maps: [{ id: 'm', parent_zone_id: 'st', entry_zone_id: 'L' }], specOf }).get('m');
+  const plan = buildingLayout(b, { zones, specOf });
+  if (plan.problems.length) fail(`the landing's plan: ${plan.problems.map((p) => p.kind).join(', ')}`);
+  const here = withDoorways(specOf(Z.get('L')), roomOpenings(b, plan, 'L')), Lh = roomLayout(here, []), doors = doorwaysOf(here);
+  if (doors.length !== 6) fail(`the landing has ${doors.length} doorways, not six`);
+  const nextSpec = (id) => ({ ...withDoorways(specOf(Z.get(id)), roomOpenings(b, plan, id)), ...placeFrom(plan, 'L', id) });
+  const mid = (L, q) => { const c = (q.a + q.b) / 2, S = L.spec; return q.wall === 'front' ? L.world(c, 0, 0) : q.wall === 'back' ? L.world(c, S.d, 0) : L.world((q.wall === 'right' ? 1 : -1) * S.w / 2, c, 0); };
+  for (const o of doors) {
+    const Ln = roomLayout(nextSpec(o.to), []), back = doorwaysOf(Ln.spec).find((q) => q.to === 'L');
+    if (!back) { fail(`${o.to}: no doorway back to the landing`); continue; }
+    const [p, q] = [mid(Lh, o), mid(Ln, back)], gap = Math.hypot(p[0] - q[0], p[1] - q[1], p[2] - q[2]);
+    if (Math.abs(gap - ROOM_GAP) > 0.01) fail(`${o.to}: its doorway is ${gap.toFixed(3)} m from the landing's, not across one wall (${ROOM_GAP})`);
+  }
+  const t0 = process.cpuUsage();
+  const shells = doors.map((o) => buildRoom(roomLayout(nextSpec(o.to), []), { seed: 7, lampOn: true, joined: new Set(['L']) }));
+  const own = buildRoom(Lh, { seed: 7, lampOn: true, joined: new Set(doors.map((o) => o.to)) }), ownN = own.solid.n;
+  const all = withShells(own, shells), ms = (() => { const u = process.cpuUsage(t0); return (u.user + u.system) / 1000; })();
+  if (all.solid.n !== ownN + shells.reduce((s, m) => s + m.solid.n, 0)) fail('the shells did not add to the landing whole');
+  // the landing is at the origin facing 0, so its floor is x in [-4, 4] and z in [-6, 0]
+  let inside = 0, bad = 0;
+  for (const m of shells) for (let i = 0; i < m.solid.n; i++) {
+    const o = i * STRIDE, x = m.solid.data[o], y = m.solid.data[o + 1], zz = m.solid.data[o + 2];
+    if (![x, y, zz].every(Number.isFinite)) bad++;
+    else if (x > -3.99 && x < 3.99 && zz > -5.99 && zz < -0.01 && y > 0.01 && y < 2.99) inside++;
+  }
+  if (bad) fail(`${bad} shell vertices aren't numbers`);
+  if (inside) fail(`${inside} vertices of the rooms beyond stand inside the landing`);
+  if (ms > 2000) fail(`building the landing and its six shells took ${ms.toFixed(0)} ms of CPU`);
+}
+
+// ── 12. a locked doorway's door and hololock (docs/proposals/room-hololock.md) ──────────────────────────
+// A lock on every wall: two leaves a doorway that close it and slide clear of it, a reader on the wall,
+// and a card and a board for the hologram that hang inside the room, in front of the wall they're on.
+{
+  const { buildLocks } = await import('../../client/game/js/panels/gl/room-lock.js');
+  const { liftDoorBatch } = await import('../../client/game/js/panels/gl/room-mesh.js');
+  const { quadMatrix, lockActs } = await import('../../client/game/js/panels/room-lock.js');
+  const openings = [
+    { wall: 'front', a: -0.45, b: 0.45, kind: 'door', dir: 'north', to: 'n' }, { wall: 'back', a: 0.6, b: 1.5, kind: 'door', dir: 'south', to: 's' },
+    { wall: 'left', a: 1.2, b: 2.1, kind: 'door', dir: 'west', to: 'w' }, { wall: 'right', a: 1.2, b: 2.1, kind: 'door', dir: 'east', to: 'e' },
+  ];
+  const spec = withDoorways({ w: 6, d: 5, h: 3, windowless: true }, openings), L = roomLayout(spec, []);
+  const ways = doorwaysOf(spec), locks = ways.map((o) => ({ to: o.to, dir: o.dir, door: 'd_' + o.to, locked: true, pass: false, yours: false, hack: true }));
+  const G = buildLocks(L, ways, locks);
+  if (ways.length !== 4) fail(`the lock room has ${ways.length} doorways, not 4`);
+  if (G.leaves.length !== 8) fail(`${G.leaves.length} door leaves for 4 locked doorways`);
+  if (G.panels.some((p) => !p)) fail('a locked doorway has no hologram');
+  const nums = (a) => Array.from(a).every(Number.isFinite);
+  if (!nums(G.fixed) || G.leaves.some((l) => !nums(l.rest))) fail('a lock\'s vertices aren\'t numbers');
+  // shut, the two leaves fill the doorway; open, nothing of them is left in it
+  const inWay = (batch, o) => {
+    let n = 0;
+    for (let i = 0; i < batch.n; i++) {
+      const q = L.local([batch.data[i * STRIDE], batch.data[i * STRIDE + 1], batch.data[i * STRIDE + 2]]), along = o.wall === 'front' || o.wall === 'back' ? q[0] : q[1];
+      if (along > o.a + 0.06 && along < o.b - 0.06) n++;
+    }
+    return n;
+  };
+  ways.forEach((o, i) => {
+    const mine = G.leaves.filter((l) => l.way === i);
+    const shut = liftDoorBatch(mine, 1), open = liftDoorBatch(mine, 0);
+    if (!inWay(shut, o)) fail(`the ${o.dir} door shut leaves its doorway empty`);
+    if (inWay(open, o)) fail(`the ${o.dir} door open still stands in its doorway`);
+    const p = G.panels[i];
+    for (const [name, quad] of [['card', p.card], ['board', p.board]]) for (const c of quad) {
+      const q = L.local(c);
+      if (!(q[0] > -3 && q[0] < 3 && q[1] > 0 && q[1] < 5)) fail(`the ${o.dir} lock's ${name} hangs outside the room at ${q.map((v) => v.toFixed(2))}`);
+    }
+    if (!roomFree(L, ...p.at)) fail(`nobody can stand at the ${o.dir} lock`);
+  });
+  {
+    // a page laid over its own rectangle is the identity, moved
+    const m = quadMatrix(300, 400, [[10, 20], [310, 20], [310, 420], [10, 420]]);
+    if (m !== 'matrix3d(1,0,0,0,0,1,0,0,0,0,1,0,10,20,0,1)') fail(`quadMatrix of a page's own rectangle is ${m}`);
+    const verbs = (k) => lockActs({ dir: 'east', ...k }).map((a) => a.cmd).join('|');
+    if (verbs({ locked: true, hack: true, yours: false }) !== 'unlock door east|hack door east') fail('a locked door you have no key to offers ' + verbs({ locked: true, hack: true, yours: false }));
+    if (verbs({ locked: true, hack: true, yours: true }) !== 'unlock door east') fail('your own locked door offers ' + verbs({ locked: true, hack: true, yours: true }));
+    if (verbs({ locked: true, pass: true, yours: true }) !== 'unlock door east' || lockActs({ dir: 'east', locked: true, pass: true })[0].then !== 'open door east') fail('a locked door that knows you doesn\'t unlock and then open');
+    if (verbs({ locked: false }) !== 'open door east|lock door east') fail('a shut, unlocked door offers ' + verbs({ locked: false }));
+    if (verbs({ locked: false, lock: false }) !== 'open door east') fail('a shut door with no lock offers ' + verbs({ locked: false, lock: false }));
+    if (verbs({ locked: false, open: true }) !== 'close door east') fail('a door standing open offers ' + verbs({ locked: false, open: true }));
   }
 }
 

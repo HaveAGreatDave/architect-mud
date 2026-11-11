@@ -1,0 +1,47 @@
+{
+  "category": "commercial",
+  "config": {
+    "layers": [
+      {
+        "adsr": {
+          "a": 0.001,
+          "curve": "exp",
+          "d": 0.05,
+          "r": 0.03,
+          "s": 0
+        },
+        "filter": {
+          "freq": 2500,
+          "q": 1.2,
+          "type": "bandpass"
+        },
+        "gain": 0.22,
+        "noiseMix": 1,
+        "noiseSeed": 61,
+        "waveform": "square"
+      },
+      {
+        "adsr": {
+          "a": 0.02,
+          "d": 1.4,
+          "r": 0.4,
+          "s": 0
+        },
+        "filter": {
+          "freq": 5000,
+          "q": 0.7,
+          "type": "highpass"
+        },
+        "gain": 0.1,
+        "noiseMix": 1,
+        "noiseSeed": 67,
+        "waveform": "square"
+      }
+    ]
+  },
+  "enabled": 1,
+  "id": "aud_inst_ad_fizz",
+  "name": "Ad: Can fizz",
+  "sample_id": null,
+  "waveform": "square"
+}

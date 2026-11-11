@@ -55,9 +55,9 @@ export const Z = Object.freeze({ plinth: 0.04, wall: 0.34, frieze: 0.37, cler: 0
 
 // ── THE HUGHSON DOME ─────────────────────────────────────────────────────────────────────────
 // Three shells on rails, a clamshell the way the SkyDome is: stepped barrel vaults from the east deck
-// to the west, each smaller and lower than the one before. The first is fixed over the bleachers on
-// the boulevard side; the other two ride the rails north and nest under it, so the roof opens from
-// Sorrel Way and the field and the grandstand have the sky. Each vault steps: its arch sets back three
+// to the west, each smaller and lower than the one before. The first is fixed over the grandstand on
+// Sorrel Way, behind and above home plate; the other two ride the rails south and nest under it, so
+// the roof opens from the boulevard and home plate looks out over the outfield at the skyline. Each vault steps: its arch sets back three
 // times on the way up (`steps`, a riser each), so it's a ziggurat end on, and bronze ribs follow it.
 //
 // ⚠ A SHELL NESTS BY ITS LEVEL `k`. Shell k is the top shell's arch taken `dr` in and set `g` lower:
@@ -69,6 +69,10 @@ export const Z = Object.freeze({ plinth: 0.04, wall: 0.34, frieze: 0.37, cler: 0
 // ⚠ THE CROWN STANDS AT 0.85 FOR THE SKYLINE. From the field the Halcyon and Ascendant towers stand over
 // the roof and through its glass, and they're the picture this park is known for. At 1.05 the vault
 // shut them out. Raise H or zs and look from home plate before anything else.
+// ⚠ THE ROOF PARKS BEHIND HOME PLATE (FIXED_END). Home looks north-west over centre field, and the
+// city climbs to the right of that line, up to the Ascendant Spire ten tiles north. Parked at the
+// boulevard end, the open roof stood in exactly that view; parked over Sorrel Way, it's behind and
+// over the plate, and from home the skyline is clear from the foul poles up.
 // `shut` and `open` are where a shell's north end stands, `len` how long it is. Shut they overlap by
 // 0.05, and open they lie 0.02 apart.
 const DEG = Math.PI / 180;
@@ -83,14 +87,21 @@ export const DOME = Object.freeze({
   ribs: Object.freeze([0.03, 0.265, 0.5, 0.735, 0.97]),
 });
 export const SHELLS = Object.freeze([
-  { key: 'a', k: 0, shut: -1.47, open: -1.47, len: 1.00 },
-  { key: 'b', k: 1, shut: -0.52, open: -1.45, len: 1.00 },
-  { key: 'c', k: 2, shut: 0.43, open: -1.43, len: 1.04 },
+  { key: 'a', k: 0, shut: 0.47, open: 0.47, len: 1.00 },
+  { key: 'b', k: 1, shut: -0.48, open: 0.45, len: 1.00 },
+  { key: 'c', k: 2, shut: -1.47, open: 0.39, len: 1.04 },
 ].map((S) => Object.freeze(S)));
+// The end the fixed shell stands at: 1 Sorrel Way (south), -1 the boulevard. The last shell's outer
+// end is the other one.
+export const FIXED_END = 1;
+// Whether shell i's end on side sg (1 south, -1 north) is one of the roof's two outer ends, a glass fan.
+export const isFan = (i, sg) => (i === 0 && sg === FIXED_END) || (i === SHELLS.length - 1 && sg === -FIXED_END);
 // Where shell `i`'s north end stands at `p` (0 open, 1 shut).
 export const shellAt = (i, p) => { const S = SHELLS[i], k = Math.min(1, Math.max(0, +p || 0)); return S.open + (S.shut - S.open) * k; };
 // Where shell level k springs from.
 export const springZ = (k) => DOME.zs - k * DOME.g;
+// How high the sill across end sg stands: as high as the shell whose fan is over it springs.
+export const sillZ = (sg) => springZ(sg === FIXED_END ? 0 : SHELLS[SHELLS.length - 1].k);
 // The top shell's height at r from the ridge: a quarter ellipse from the spring, plus a riser for every
 // step the point is inside.
 export function domeZ(r) {
@@ -129,7 +140,7 @@ export const rail = (k) => [DOME.R0 - (k - 1) * DOME.dr, DOME.R0 - k * DOME.dr -
 // mullions, a fluted gilt cap, and the finial, a gilt sun with a baseball for its disc and the red
 // beacon over it.
 export const LANTERN = Object.freeze({
-  v: -0.97,
+  v: 0.97,
   foot: Object.freeze({ r: 0.19, z0: 0.83, z1: 0.86 }),
   glass: Object.freeze([Object.freeze({ r: 0.16, z0: 0.86, z1: 0.91 }), Object.freeze({ r: 0.12, z0: 0.918, z1: 0.948 })]),
   ledge: 0.008, mullions: 12,
@@ -140,6 +151,11 @@ export const LANTERN = Object.freeze({
 });
 export const FIN_AT = Object.freeze(Array.from({ length: 11 }, (_, k) => -1.225 + k * 0.245));
 export const TOWER = Object.freeze({ at: 1.37, r0: 0.105, z0: 0.62, r1: 0.08, z1: 0.76, r2: 0.062, z2: 0.86, r3: 0.045, z3: 0.905 });
+// The light poles: a steel mast on each deck's roof at `u` either side, one at each `v`, with a bank of
+// floods on top turned to the field, `d` deep from the mast's face. They stand behind the girder (the
+// shells' rails end at 1.26), so the roof slides under nothing, and the corner towers keep no lamps.
+export const POLES = Object.freeze({ u: 1.325, r: 0.007, vs: Object.freeze([-1.1, -0.55, 0, 0.55, 1.1]),
+  bank: Object.freeze({ hw: 0.10, z0: 0.79, z1: 0.84, d: 0.014, rows: 3, cols: 8 }) });
 export const GUARD = Object.freeze({ hw: 0.055, top: 0.60 });
 export const BAND = Object.freeze({ z0: 0.268, z1: Z.wall, d: 0.026 });
 

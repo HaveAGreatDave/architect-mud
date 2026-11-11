@@ -1,0 +1,10 @@
+{
+  "content": "{\n \"kind\": \"set\",\n \"format\": 1,\n \"id\": \"set_ad_widowmaker\",\n \"name\": \"Ironclad Motors Advert\",\n \"base\": \"tpl_pitch\",\n \"brand\": {\n  \"name\": \"IRONCLAD MOTORS\",\n  \"colour\": \"#ffa020\"\n },\n \"broadcasts\": [\n  \"bc_commercial_widowmaker\"\n ],\n \"palette\": {\n  \"floor\": \"#2a2a2c\",\n  \"wall\": \"#38383c\",\n  \"trim\": \"#1a1a1c\",\n  \"desk\": \"#28282c\",\n  \"deskTop\": \"#a0a0a8\",\n  \"riser\": \"#202022\"\n },\n \"parts\": {\n  \"counter\": {\n   \"text\": \"NO MONEY DOWN\"\n  },\n  \"product\": null,\n  \"plant\": null\n },\n \"description\": \"The Widowmaker advert: a dealership showroom in grey and orange.\"\n}",
+  "created_at": "1794108637",
+  "description": "The Widowmaker advert: a dealership showroom in grey and orange.",
+  "id": "set_ad_widowmaker",
+  "name": "Ironclad Motors Advert",
+  "tags": [],
+  "type": "set",
+  "updated_at": "1794108921"
+}

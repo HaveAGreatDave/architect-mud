@@ -1,0 +1,10 @@
+{
+  "content": "{\n \"kind\": \"set\",\n \"format\": 1,\n \"id\": \"set_chrome_living\",\n \"name\": \"Chrome & Circumstance Apartment\",\n \"base\": \"tpl_living\",\n \"broadcasts\": [\n  \"bc_chrome_circumstance\"\n ],\n \"palette\": {\n  \"floor\": \"#1a1c24\",\n  \"wall\": \"#2a2e3a\",\n  \"trim\": \"#4a5060\",\n  \"accent\": \"#40e0ff\",\n  \"sofa\": \"#3a3e4a\",\n  \"chair\": \"#2a2e3a\",\n  \"door\": \"#5a6070\",\n  \"desk\": \"#3a3e4a\",\n  \"deskTop\": \"#9aa0aa\",\n  \"outside\": \"#c040ff\"\n },\n \"parts\": {\n  \"shelf\": null,\n  \"side_counter\": {\n   \"colour\": \"#c8ccd4\"\n  },\n  \"plant\": {\n   \"type\": \"column\",\n   \"h\": 3.2\n  }\n },\n \"description\": \"Chrome & Circumstance on the sitcom template: a tiny flat twenty storeys up, neon outside, everything humming.\"\n}",
+  "created_at": "1794108637",
+  "description": "Chrome & Circumstance on the sitcom template: a tiny flat twenty storeys up, neon outside, everything humming.",
+  "id": "set_chrome_living",
+  "name": "Chrome & Circumstance Apartment",
+  "tags": [],
+  "type": "set",
+  "updated_at": "1794108921"
+}

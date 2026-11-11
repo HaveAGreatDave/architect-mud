@@ -7,9 +7,14 @@
       "rail",
       "foot rail"
     ],
+    "bar_counter": true,
     "interactions": [
       "lean"
-    ]
+    ],
+    "look": {
+      "arche": "surface",
+      "form": "bar"
+    }
   },
   "id": "furn_palais_east_counter",
   "name": "the bar",

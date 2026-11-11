@@ -945,7 +945,43 @@
     },
     "sidekick": "npc_graham_mercer",
     "theme": "tonight_theme_late",
-    "title": "tonight_show_logo"
+    "title": "tonight_show_logo",
+    "band": {
+      "walkon": [
+        {
+          "song": "tonight_band_walkon",
+          "text": "The band plays him on."
+        }
+      ],
+      "sting": [
+        {
+          "song": "tonight_band_sting_a",
+          "text": "The horns hit the punchline."
+        },
+        {
+          "song": "tonight_band_sting_b",
+          "text": "A rimshot from the band."
+        }
+      ],
+      "walkover": [
+        {
+          "song": "tonight_band_walkover",
+          "text": "The band vamps while {host_first} crosses to the desk."
+        }
+      ],
+      "guest": [
+        {
+          "song": "tonight_band_guest",
+          "text": "The band plays {guest_first} on."
+        }
+      ],
+      "playoff": [
+        {
+          "song": "tonight_band_playoff",
+          "text": "The band plays them off."
+        }
+      ]
+    }
   },
   "updated_at": "1783897506",
   "weather_pools": null

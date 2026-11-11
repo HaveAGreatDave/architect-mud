@@ -1,5 +1,5 @@
 {
-  "description": "A wall of walnut doors behind the concierge, one per residence, each with a brass number and no handle. Deliveries go in. Residents never come down for them; somebody takes them up.",
+  "description": "A bank of walnut parcel lockers, one per residence, each with a brass number and no handle. Deliveries go in. Residents don't come down for them; staff take them up.",
   "flags": {
     "aliases": "parcels,lockers,parcel lockers",
     "container": 60000,

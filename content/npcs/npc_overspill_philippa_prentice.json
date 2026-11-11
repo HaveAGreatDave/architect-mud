@@ -1,0 +1,200 @@
+{
+  "banter": [
+    [
+      "\"Did you get the pipe through the window?\"",
+      "\"It's through. It smokes.\"",
+      "\"It's a stove. It's meant to smoke.\"",
+      "\"Inside, Philippa.\""
+    ]
+  ],
+  "behaviour_graph": {
+    "_start": "start",
+    "nodes": {
+      "day_home": {
+        "action_type": "GO_HOME",
+        "next": "day_wait",
+        "type": "action"
+      },
+      "day_pick": {
+        "branch_0": "day_home",
+        "branch_1": "day_walk",
+        "branches": [
+          {
+            "weight": 3
+          },
+          {
+            "weight": 2
+          }
+        ],
+        "type": "random"
+      },
+      "day_wait": {
+        "jitter": 180,
+        "next": "start",
+        "seconds": 240,
+        "type": "wait"
+      },
+      "day_walk": {
+        "action_type": "PATROL",
+        "next": "day_wait",
+        "params": {
+          "loop": true,
+          "mode": "walk",
+          "waypoints": [
+            "zone_district_919_920",
+            "zone_district_921_920",
+            "zone_district_923_920",
+            "zone_district_921_921"
+          ]
+        },
+        "type": "action"
+      },
+      "fire_0": {
+        "action_type": "EMOTE",
+        "next": "fire_wait",
+        "params": {
+          "message": "tells the ring at the drum which stop is which on the old route, all of them, in order."
+        },
+        "type": "action"
+      },
+      "fire_1": {
+        "action_type": "EMOTE",
+        "next": "fire_wait",
+        "params": {
+          "message": "warms her hands and says it was colder on the night shift."
+        },
+        "type": "action"
+      },
+      "fire_pick": {
+        "branch_0": "fire_0",
+        "branch_1": "fire_1",
+        "branches": [
+          {
+            "weight": 1
+          },
+          {
+            "weight": 1
+          }
+        ],
+        "type": "random"
+      },
+      "fire_wait": {
+        "jitter": 90,
+        "next": "start",
+        "seconds": 150,
+        "type": "wait"
+      },
+      "go_home": {
+        "action_type": "GO_HOME",
+        "next": "sleep",
+        "type": "action"
+      },
+      "is_evening": {
+        "condition_type": "HOUR_RANGE",
+        "ifFalse": "day_pick",
+        "ifTrue": "to_fire",
+        "params": {
+          "from": 19,
+          "to": 1
+        },
+        "type": "condition"
+      },
+      "is_late": {
+        "condition_type": "HOUR_RANGE",
+        "ifFalse": "is_evening",
+        "ifTrue": "go_home",
+        "params": {
+          "from": 1,
+          "to": 5
+        },
+        "type": "condition"
+      },
+      "sleep": {
+        "action_type": "AT_HOME_LIFE",
+        "next": "start",
+        "type": "action"
+      },
+      "start": {
+        "next": "is_late",
+        "type": "start"
+      },
+      "to_fire": {
+        "action_type": "GO_TO_WORK",
+        "next": "fire_pick",
+        "params": {
+          "zone_id": "zone_district_922_922"
+        },
+        "type": "action"
+      }
+    }
+  },
+  "chitchat": [
+    "\"It was the 14. Halcyon to the South Gate and back. Forty minutes, or an hour in snow.\"",
+    "wipes the bus windscreen with her sleeve, out of habit."
+  ],
+  "description": "A broad woman in her sixties in a transit company fleece with the badge still on. She drove buses for the city until the routes were cut, and found this one in the waste the week the wall moved.",
+  "dialogue_tree": {
+    "ask": {
+      "options": [
+        {
+          "label": "Right.",
+          "next": "root"
+        }
+      ],
+      "text": "\"It was sat out in the waste a hundred yards off with no wheels. When the wall moved, we rolled it on pipes. Took twelve of us a day.\""
+    },
+    "bye": {
+      "options": [],
+      "text": "Philippa goes back to her tea."
+    },
+    "root": {
+      "options": [
+        {
+          "label": "How did you get it here?",
+          "next": "ask"
+        },
+        {
+          "label": "Bye.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Morning,\" says Philippa, from the step.",
+      "text_by_relation": {
+        "familiar": "\"Come and sit on the step if you want. Mind the stove.\"",
+        "first": "The woman on the bus step looks you over and nods.\n\n\"Philippa. This is my bus. Well. It's nobody's bus, so it's mine.\"",
+        "known": "\"Come and sit on the step if you want. Mind the stove.\""
+      }
+    }
+  },
+  "faction": null,
+  "flags": {
+    "clothing_layers": [
+      "a navy transit fleece with the company badge still sewn on",
+      "a thick roll-neck jumper",
+      "thermal leggings and a vest"
+    ],
+    "mis_willing": false,
+    "personality": "unemployed"
+  },
+  "home_activities": [
+    "sits in the driver's seat with the door open and a mug of tea.",
+    "checks the bricks under the axles, one at a time.",
+    "\"Haskell, the stove.\""
+  ],
+  "home_zone": "zone_district_919_920",
+  "hp": 20,
+  "hp_max": 20,
+  "id": "npc_overspill_philippa_prentice",
+  "name": "Philippa Prentice",
+  "npc_type": "npc",
+  "sex": "female",
+  "studio_zone_id": null,
+  "vendor_inventory": [],
+  "vendor_restock_rate": 1,
+  "vendor_schedule": {},
+  "vendor_shop_name": null,
+  "vendor_stock_size": 10,
+  "wander_zones": [],
+  "wanders": 0,
+  "work_zone_id": null
+}

@@ -89,6 +89,7 @@ import { planBetween, planPile, deckPlan, shotsBetween, BETWEEN } from './betwee
 import { planCrew, crewShots } from './crew.js';
 import { budgetOf } from './timing.js';
 import { BAGS } from './geo.js';
+import { SHOTS } from './camera.js';
 
 const clamp = (x, a, b) => Math.max(a, Math.min(b, x));
 const add = (a, b) => [a[0] + b[0], a[1] + b[1], a[2] + b[2]];
@@ -389,7 +390,30 @@ function stagePlan(W, plan, tIn, h) {
     const fn = b.path || ((t) => { const Q = W.pose(b.hold.slot, t, { look: false }); return Q ? toPark(Q, handPoint(Q, b.hold.hand, b.hold.kind, Q.scale)) : b.at; });
     W.at(b.from, () => W.setBall(fn));
   }
-  for (const c of plan.cuts) h.cut(c.at, c.shot);
+  // every camera on a live play keeps the ball in its frame (camera.js shotAt `ball`), the fixed
+  // ones too: the first-base camera cut in for the throw has the fielder throwing it. Not the
+  // home-run camera, which rides with it, nor a viewer's still cameras (reduced motion).
+  const ball = h.ball && plan.track;
+  const keep = (s) => (!ball || (s && typeof s === 'object' && s.shot === 'homer') ? s
+    : typeof s === 'string' ? { shot: s, track: () => null, ball } : s && typeof s === 'object' ? { ...s, ball } : s);
+  // A fixed camera whose back is to the ball for a quarter of its time on air (a runner coming in on
+  // the plate's while the throw comes in from right behind it) isn't cut to: the shot before it,
+  // which keeps the ball, stays on.
+  const order = [...plan.cuts].sort((a, b) => a.at - b.at);
+  const away = (c, i) => {
+    const S = typeof c.shot === 'string' && c.shot !== 'high' && SHOTS[c.shot];
+    if (!ball || !S) return false;
+    const end = Math.min(order[i + 1]?.at ?? Infinity, plan.landAt);
+    let n = 0, back = 0;
+    for (let t = c.at; t < end; t += 0.1) {
+      const b = ball(t);
+      if (!b) continue;
+      n++;
+      if ((b[0] - S.eye[0]) * (S.at[0] - S.eye[0]) + (b[1] - S.eye[1]) * (S.at[1] - S.eye[1]) + (b[2] - S.eye[2]) * (S.at[2] - S.eye[2]) <= 0) back++;
+    }
+    return n > 0 && back > 0.25 * n;
+  };
+  order.forEach((c, i) => { if (!away(c, i)) h.cut(c.at, keep(c.shot)); });
   for (const x of plan.sounds) h.sound(x.at, x.cue);
   if (h.mark) for (const m of scarsOf(plan.bodies, h.salt)) h.mark(m);
 }
@@ -400,7 +424,7 @@ function stageBodiesOf(W, bodies, tIn, play) {
     if (B.place) W.at(tIn, () => { W.place(B.slot, { id: B.id, role: B.role, at: B.base.at, yaw: B.base.yaw, scale: B.scale, mirror: B.mirror }); W.clearLayers(B.slot); });
     for (const e of B.clips) {
       if (e.prior) continue;
-      play({ slot: B.slot, role: B.role }, e.clip, e.issue ?? e.from ?? e.start, e.start, { speed: e.speed, fade: e.fade, frame: e.given ? e.F : undefined, from: e.from, carry: e.carry });
+      play({ slot: B.slot, role: B.role }, e.clip, e.issue ?? e.from ?? e.start, e.start, { speed: e.speed, fade: e.fade, frame: e.given ? e.F : undefined, from: e.from, carry: e.carry, toss: e.toss });
     }
   }
 }
@@ -662,7 +686,7 @@ export function createDirector(W, opts = {}) {
     if (welcome) until = Math.max(until, trotShots(D.play.log.batter?.bags || {}, welcome, TL.landAt, cut));
     D.until = until;
 
-    function stagePlay(plan, T) { D.play = plan; stagePlan(W, plan, T.tIn, { play, cut, sound, mark, salt }); }
+    function stagePlay(plan, T) { D.play = plan; stagePlan(W, plan, T.tIn, { play, cut, sound, mark, salt, ball: motion !== false }); }
     function stageBodies(bodies, T) { stageBodiesOf(W, bodies, T.tIn, play); }
   };
 
@@ -813,7 +837,7 @@ export function createDirector(W, opts = {}) {
     const plan = planTakeField({ p, cast }, { t0, infield: crew ? crew.off + 0.5 : undefined });
     for (const B of [...plan.bodies, ...(crew?.bodies || [])]) {
       W.place(B.slot, { id: B.id, role: B.role, at: B.base.at, yaw: B.base.yaw, scale: B.scale, mirror: B.mirror });
-      for (const e of B.clips) play(B.slot, B.role, e.clip, e.issue ?? e.from ?? e.start, e.start, { speed: e.speed, fade: e.fade, frame: e.given ? e.F : undefined, from: e.from, carry: e.carry });
+      for (const e of B.clips) play(B.slot, B.role, e.clip, e.issue ?? e.from ?? e.start, e.start, { speed: e.speed, fade: e.fade, frame: e.given ? e.F : undefined, from: e.from, carry: e.carry, toss: e.toss });
     }
     if (crew) {
       const cam = crewShots(crew, { motion: o.motion });
@@ -953,7 +977,7 @@ export function createDirector(W, opts = {}) {
       for (const e of B.clips.slice(m.done)) {
         if (e.prior) continue;
         until = Math.max(until, e.start + CLIPS[e.clip].duration / e.speed);
-        W.at(e.issue ?? e.from ?? e.start, () => W.play(slot, e.clip, { at: e.start, speed: e.speed, fade: e.fade, frame: e.given ? e.F : undefined, from: e.from, carry: e.carry }));
+        W.at(e.issue ?? e.from ?? e.start, () => W.play(slot, e.clip, { at: e.start, speed: e.speed, fade: e.fade, frame: e.given ? e.F : undefined, from: e.from, carry: e.carry, toss: e.toss }));
       }
     }
     D.until = until;
@@ -1084,7 +1108,7 @@ export function createDirector(W, opts = {}) {
       if (m.still) W.at(from, () => W.place(m.slot, { id: m.c.id, role: m.role, at: m.c.at, yaw: m.c.yaw, scale: m.c.scale, mirror: m.c.mirror }));
       for (const e of m.B.clips.slice(m.done)) {
         if (e.prior) continue;
-        W.at(e.issue ?? e.from ?? e.start, () => { W.play(m.slot, e.clip, { at: e.start, speed: e.speed, fade: e.fade, frame: e.given ? e.F : undefined, from: e.from, carry: e.carry }); D.played.push({ t: e.start, role: m.role, slot: m.slot, clip: e.clip, start: e.start }); });
+        W.at(e.issue ?? e.from ?? e.start, () => { W.play(m.slot, e.clip, { at: e.start, speed: e.speed, fade: e.fade, frame: e.given ? e.F : undefined, from: e.from, carry: e.carry, toss: e.toss }); D.played.push({ t: e.start, role: m.role, slot: m.slot, clip: e.clip, start: e.start }); });
       }
     }
   }

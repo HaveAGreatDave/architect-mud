@@ -1,23 +1,29 @@
 {
   "ambient_events": [],
   "ambient_theme": "city",
-  "description": "Hughson Way, under the Coliseum's south wall: limestone fins and lit windows along the north side. On the south a glass disc stands on six legs with its back to the road.",
+  "description": "Grandstand Plaza, granite flags under the Coliseum's south wall, with a bronze lamp standard every few steps and benches facing the wall. The parterre in Hughson Gardens is on the south side.",
   "exits": {
     "east": "zone_ballpark_893_915",
+    "south": "zone_ballpark_893_913",
     "west": "zone_ballpark_891_915"
   },
   "flags": {
     "district": "halcyon_fields",
+    "park_feature": "forecourt",
+    "park_focus": {
+      "x": 894,
+      "y": 918.5
+    },
     "region_id": "region_coldwater",
     "scavenging_table_id": "scav_roadside_junk",
     "street_life": true,
-    "terrain": "road"
+    "terrain": "park"
   },
   "grid_x": 892,
   "grid_y": 919,
   "grid_z": 0,
   "id": "zone_ballpark_892_915",
   "map_id": "map_world",
-  "name": "Hughson Way",
+  "name": "Grandstand Plaza",
   "parent_zone": null
 }

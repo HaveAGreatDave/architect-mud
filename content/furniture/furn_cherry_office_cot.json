@@ -1,0 +1,32 @@
+{
+  "description": "A camp cot with a grey blanket that hasn't been folded in a while.",
+  "flags": {
+    "interactions": [
+      "sit",
+      "lie"
+    ],
+    "look": {
+      "arche": "sofa",
+      "dims": [
+        1.9,
+        0.75,
+        0.5
+      ],
+      "form": "cot"
+    },
+    "spot": {
+      "along": 1.6,
+      "wall": "right"
+    }
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_cherry_office_cot",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "cot",
+  "object_type": "fixture",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_mq_cherry_office"
+}

@@ -63,8 +63,11 @@ void main() {
   vec3 A = aA, B = aB;
   if (aPull > 0.0) {
     float fa = (uViewProj * vec4(aA, 1.0)).w, fb = (uViewProj * vec4(aB, 1.0)).w;
-    A = uEye + (aA - uEye) * (max(0.06, fa - aPull) / fa);
-    B = uEye + (aB - uEye) * (max(0.06, fb - aPull) / fb);
+    // An end BEHIND the eye (f <= 0) is left where it is. The scale max(0.06, f - pull) / f turns
+    // negative there and mirrors the point in front of the camera: looking straight up, the streets
+    // behind and below were drawn as lane-and-wire grids in the sky. Left alone, the hardware clips it.
+    if (fa > 0.06) A = uEye + (aA - uEye) * (max(0.06, fa - aPull) / fa);
+    if (fb > 0.06) B = uEye + (aB - uEye) * (max(0.06, fb - aPull) / fb);
   }
   vec4 ca = uViewProj * vec4(A, 1.0);
   vec4 cb = uViewProj * vec4(B, 1.0);

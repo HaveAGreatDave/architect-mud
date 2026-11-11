@@ -74,6 +74,7 @@ export const GROUPS = [
       'scripts/client/maintbay-smoke.mjs',   // the bay controller's rules, and all four depots' bays walked job by job
       'scripts/client/boatfish-smoke.mjs',   // the boat reel: cast, twitch, the take, the fight and the net, against boatfish-rules.js
       'scripts/client/console-escape-smoke.mjs',   // player text in the pirate/emergency consoles renders inert
+      'scripts/bank-hold-tune.mjs --check',   // the ← → bank hold settles, holds height and lets go, on every airframe
     ],
   },
   {
@@ -101,6 +102,9 @@ export const GROUPS = [
       'scripts/content/build-tonight-theme.mjs --check',   // the Tonight Show's theme matches its score
       'scripts/content/build-tonight-theme-2.mjs --check',   // and its second take, the late-night band
       'scripts/content/build-tonight-card.mjs --check',   // and its title card is timed to it
+      'scripts/content/build-tonight-band.mjs --check',   // and the house band's bits match their score
+      'scripts/content/build-holo-ads.mjs --check',   // the hologram adverts baked for the client match their media_graphics rows
+      'scripts/content/building-stage.mjs',   // every building whose entry has a Room Stage spec can be walked from its front door (docs/proposals/building-stage.md)
     ],
   },
   {
@@ -145,7 +149,9 @@ export const GROUPS = [
       'scripts/shapes/vehicle-materials.mjs',
       'scripts/shapes/liveries.mjs',
       'scripts/shapes/actors.mjs',
+      'scripts/shapes/actors-hd.mjs',    // the street cut down from the close-up figure (ACTOR_BAKE.hd, off until stage 6): four silhouettes on budget and on one ground
       'scripts/client/room-window-smoke.mjs', // flights and lightning are pure functions of the clock; the shot masks find sky, sea and open ground
+      'scripts/client/interiors-smoke.mjs', // a room placed in GLASS where the window's eye says it is; near rooms whole, further ones boxes, far ones nothing
       'scripts/shapes/sequence.mjs',     // every set, sequence and show in media_graphics, built and checked
       'scripts/shapes/room-stage.mjs',   // the suite's layout as frozen, every room form builds, placeSpot never stacks pieces
       'scripts/shapes/actor-head.mjs',
@@ -170,6 +176,7 @@ export const GROUPS = [
       'scripts/shapes/vehicle-ink.mjs',   // the own ship's comic lines: the edge classifier, and every vehicle builds a list
       'scripts/shapes/face-atlas-feed.mjs',   // the street, park and rink get the right face atlas when the comic look flips
       'scripts/shapes/comic-replay.mjs',   // the comic replay's length, camera, panels, words, page and painters
+      'scripts/shapes/jumbo-smoke.mjs',    // the videoboard from a seat: its own replay, the comic freeze on it, the suite's screen
       'scripts/shapes/elevation.mjs',
       'scripts/shapes/cliffrelief.mjs',
       'scripts/shapes/glmat.mjs',
@@ -266,6 +273,9 @@ export const GROUPS = [
       'scripts/shapes/cockpit-carcass-2076.mjs',
       'scripts/shapes/cockpit-drake-2076.mjs',
       'scripts/shapes/cockpit-courier-2076.mjs',
+      'scripts/shapes/cockpit-drayman-2076.mjs',
+      'scripts/shapes/cockpit-barrow-2076.mjs',
+      'scripts/shapes/cockpit-continental-2076.mjs',
       'scripts/shapes/landing-feel.mjs',       // ground effect from the deck, and the shadow height gauge
       'scripts/shapes/engine-split.mjs',       // a throttle per engine: the model and the cockpits
       'scripts/shapes/cockpit-viper.mjs',
@@ -289,6 +299,7 @@ export const GROUPS = [
       'scripts/shapes/parkclock-smoke.mjs',  // Deadball's park clock: four seasons as they air, every pitch timed in its line's hold, the fit measured on both pitch draws
       'scripts/shapes/ballpark-smoke.mjs',   // Deadball's 3-D park: the park from venue data, the shots' matrices against the pinhole, the board, the 2-D fallback
       'scripts/shapes/cityscape-smoke.mjs',  // the city round it: the set composed from the content tree's skyline, every building placed and shaped, the streets from their arms
+      'scripts/lite/smoke.mjs',              // GLASS Lite: the baked city (client/game/assets/lite/) is what the arms draw now; re-run npm run lite:bake after editing an arm
       'scripts/shapes/anim-smoke.mjs',       // Deadball's players skinned: the rig's frames, four weights a vertex, every pose on the posed build's surface, the hands on the bat
       // Deadball staged in 3-D: each pitch at its spot, every clip on the ball, every ball in play's gloves, throws and call at first, the line held to the landing (one game each, side by side)
       { run: 'scripts/shapes/diamond-smoke.mjs 16', budget: 90, why: '33 s of main-thread CPU alone (2026-11-05), past the 30 s that survives the slowest runner seen. The time is the animation solver (diamond/anim.js, rig.js) posing every body at each of 476,000 checks, which is what the gate tests, and the poses read world state that moves between checks, so they cannot be shared' },
@@ -377,6 +388,7 @@ export const GROUPS = [
       'scripts/audio/modes-smoke.mjs',     // struck surfaces: metal rings longer than wood, peaks at the modes, as loud as the old path
       'scripts/audio/sfx-smoke.mjs',       // every preset and bed passes the critic; vary and rand density work
       'scripts/audio/room-sound-smoke.mjs',  // the view out of a room's cues pass the critic at their level; the bath is quieter than the balcony; stop stops
+      'scripts/audio/field-smoke.mjs',     // the CC0 field recordings: rows, licences, seamless loops, slices; a sample layer plays the recording or its stand-ins
       'scripts/audio/kitchen-sound-smoke.mjs', // the Kitchen Stage's cues pass the critic; the hob's state follows the pan and dial, never a clock
       'scripts/audio/sound-match-smoke.mjs', // the matcher reads a bell's carrier and ratio and fits it; the composed loops pass the critic
     ],

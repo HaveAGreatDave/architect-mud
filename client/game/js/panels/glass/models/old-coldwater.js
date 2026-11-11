@@ -114,6 +114,12 @@ export const OLD_COLDWATER_ARMS = {
     }
     // The chimney stack on the party wall, taller than either half.
     { const [cx, cy] = F(0, -fh * 0.22); draw3DBoxAt(ctx, cam, cx, cy, fh * 0.11, 0, stack, 'ty_oc_brick_dk', seed + 2, night, alpha, true); }
+    // The Old School's bell frame on the standing half's ridge: two posts and a head. Authored on
+    // the registry row (`m.bell`), so it is mass of that one named model and never of a terrace.
+    if (m.bell) {
+      for (const s of [-1, 1]) { const [px, py] = F(hiX + s * HW * 0.22, 0); draw3DBoxAt(ctx, cam, px, py, fh * 0.025, gable, gable + h * 0.16, 'ty_oc_board_dk', seed + 60, night, alpha, true); }
+      { const [bx, by] = F(hiX, 0); draw3DBoxAt(ctx, cam, bx, by, HW * 0.27, gable + h * 0.16, gable + h * 0.19, 'ty_oc_board_dk', seed + 62, night, alpha, true, faceYaw(E), fh * 0.04); }
+    }
     // The rubble wall, then the spill over the lane.
     { const [bx, by] = F(0, fh * 0.92); draw3DBoxAt(ctx, cam, bx, by, fh * 0.86, 0, h * 0.10, 'ty_oc_brick_dk', seed + 3, night, alpha, true, faceYaw(E), fh * 0.08); }
     for (let i = 0; i < 3; i++) {
@@ -192,6 +198,231 @@ export const OLD_COLDWATER_ARMS = {
         const x = x0 + (x1 - x0) * i / 4;
         emitWire(ctx, cam, W3(x, fy + FACE_EPS, top), W3(x, ft + FACE_EPS, fz), 1, 'rgba(40,40,36,0.7)', alpha, { lift: DECO_LIFT * 0.1, pull: SLUM_PULL });
       }
+    }
+  },
+  shack(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E, name, board, pal, sign, F, W3, frontVis) {   // The Overspill's self-built houses. No `facade` tag, so no door.
+    // Five houses put up in the weeks after the south wall moved, out of what came off the old
+    // houses on Tenter Lane (docs/proposals/old-coldwater.md, "The Overspill").
+    // ⚠ THE VARIANT IS AUTHORED ON THE REGISTRY ROW (`m.shack`), NEVER ROLLED OFF THE SEED. The seed
+    // is the tile's and mass must not depend on it (shapeIsSeedVariant); each named row is its own
+    // model key, so each one captures its own shape. Painted detail may roll; mass may not.
+    // ⚠ Like a ruin, a shack has no entrance, so its front is `faceVec`'s default (south) and Tenter
+    // Lane sees the BACK (-v). The door, the porch and the ladder go on the back.
+    const kind = m.shack || 'tin';
+    const yaw = faceYaw(E);
+    const nightF = night ? clamp(night, 0, 1) : 0;
+    const warm = nightF > 0.3 ? 0.55 : 0;
+    const near = ADORN_TIER >= ADORN_NEAR;
+    const box = (u, v, hw, hd, z0, z1, p, k, roof = true) => {
+      const [x, y] = F(u, v); draw3DBoxAt(ctx, cam, x, y, hw, z0, z1, p, seed + k, night, alpha, roof, yaw, hd);
+    };
+    // A face mapper for `slumOpening` / `slumScrawl`, a few FACE_EPS proud of the wall it sits on.
+    // ⚠ Clamped at 0.44 the way draw3DBoxAt clamps the box, or a decal floats off a wide wall.
+    const faceP = (nx, ny, off) => {
+      const o0 = Math.min(off, 0.44) + FACE_EPS * 2;
+      return nx ? (u, z, o) => [nx * (o0 + o), u, z] : (u, z, o) => [u, ny * (o0 + o), z];
+    };
+    const vis = (nx, ny, off) => slumFaceVis(cam, dx, dy, E, nx, ny, Math.min(off, 0.44));
+    const roll = (k) => frac(seed * 31 + k * 13);
+    const ti = Math.floor(frac(seed * 61) * TARPS.length) % TARPS.length;
+    const tarp = TARPS[ti], patch = TARPS[(ti + 3) % TARPS.length];
+    // A door: a black hole with a sheet hung over most of it.
+    const door = (D, u, z1, w) => {
+      const P = faceP(0, -1, D), y = -(Math.min(D, 0.44) + FACE_EPS * 3);
+      slumOpening(ctx, cam, W3, P, u, z1 / 2, w, z1 / 2, 1, seed + 5, nightF, alpha);
+      slumCurtain(ctx, cam, W3, [u - w * 0.9, y], [u + w * 0.9, y], z1, z1 * 0.92, 3, TARPS[(ti + 5) % TARPS.length], seed + 7, nightF, alpha, warm);
+    };
+    // Tyres holding a roof down, as squat dark boxes. Mass: a tyre on a roof is part of the roofline.
+    const tyres = (pts, z) => pts.forEach(([u, v], i) => box(u, v, fh * 0.05, fh * 0.05, z, z + h * 0.035, 'ty_oc_brick_dk', 40 + i));
+    const stove = (u, v, z0, z1) => {
+      box(u, v, fh * 0.022, fh * 0.022, z0, z1, 'ty_oc_tin', 50, true);
+      const [sx, sy] = F(u, v);
+      drawSmoke(ctx, cam, sx, sy, z1 + h * 0.02, '150,146,140', alpha * 0.45, now, seed + 3);
+    };
+    const glow = (u, v, z, a) => {
+      if (!night) return;
+      const [gx, gy] = F(u, v); glowPool(ctx, cam, gx, gy, z, '255,196,120', 7, alpha * a * nightF);
+    };
+
+    if (kind === 'tin') {   // The Tin Hut: corrugated tin on a timber frame, pent roof, tyres and slabs on it.
+      const W = fh * 0.46, D = fh * 0.38, wall = h * 0.36;
+      box(0, 0, W, D, 0, wall, 'ty_oc_tin', 0);
+      for (const [su, sv] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) box(su * (W + fh * 0.02), sv * (D + fh * 0.02), fh * 0.025, fh * 0.025, 0, wall + h * 0.02, 'ty_oc_board_dk', 2 + su + sv * 2);
+      // The roof sheet oversails the walls; a pent is a sheet, since boxes can't slope.
+      box(0, 0, W + fh * 0.06, D + fh * 0.07, wall, wall + h * 0.025, 'ty_oc_tin', 8);
+      tyres([[-W * 0.5, -D * 0.4], [W * 0.1, D * 0.3], [W * 0.62, -D * 0.2]], wall + h * 0.025);
+      box(-W * 0.05, -D * 0.55, fh * 0.10, fh * 0.07, wall + h * 0.025, wall + h * 0.045, 'ty_oc_brick', 12);   // a paving slab
+      stove(W * 0.45, D * 0.35, wall, wall + h * 0.32);
+      box(W * 0.45, D * 0.35, fh * 0.034, fh * 0.034, wall + h * 0.32, wall + h * 0.35, 'ty_oc_tank', 14);   // the can over the pipe
+      // A woodpile against the west flank.
+      box(-W - fh * 0.10, D * 0.2, fh * 0.08, fh * 0.18, 0, h * 0.12, 'ty_oc_board_dk', 16);
+      if (vis(0, -1, D)) {
+        door(D, -W * 0.35, wall * 0.82, W * 0.17);
+        slumOpening(ctx, cam, W3, faceP(0, -1, D), W * 0.42, wall * 0.58, W * 0.16, wall * 0.13, 2, seed + 9, nightF, alpha);
+      }
+      if (vis(0, 1, D)) {
+        const P = faceP(0, 1, D);
+        slumOpening(ctx, cam, W3, P, -W * 0.30, wall * 0.58, W * 0.15, wall * 0.13, roll(1) < 0.5 ? 0 : 2, seed + 10, nightF, alpha);
+        slumScrawl(ctx, cam, W3, P, W * 0.35, wall * 0.42, W * 0.28, wall * 0.06, seed + 11, nightF, alpha);
+      }
+      if (vis(1, 0, W)) {
+        const P = faceP(1, 0, W);
+        slumSheet(ctx, cam, W3, [P(-D * 0.5, wall * 0.9, 0), P(D * 0.3, wall * 0.9, 0), P(D * 0.3, wall * 0.15, 0), P(-D * 0.5, wall * 0.15, 0)], SLUM_RUST, nightF, alpha * 0.6, 0, null);
+      }
+      glow(-W * 0.35, -D - fh * 0.12, wall * 0.4, 0.24);
+      return;
+    }
+
+    if (kind === 'bus') {   // The Bus: a single-decker on bricks, wheels gone, a tarp where the skylights were.
+      const L = fh * 0.84, B = fh * 0.27, z0 = h * 0.08, top = h * 0.42;
+      [[-0.72, -1], [0.72, -1], [-0.72, 1], [0.72, 1], [0, -1], [0, 1]].forEach(([su, sv], i) => box(su * L, sv * B * 0.6, fh * 0.07, fh * 0.07, 0, z0, 'ty_oc_brick_dk', 20 + i));
+      box(0, 0, L, B, z0, top, 'ty_cont_r', 26);
+      // The roof sits a hair inside the body, the way a bus roof curves in.
+      box(0, 0, L * 0.98, B * 0.88, top, top + h * 0.025, 'ty_oc_tin', 27);
+      // Stovepipe out of a rear side window, up past the roof.
+      box(-L * 0.35, -B - fh * 0.035, fh * 0.02, fh * 0.02, top * 0.72, top + h * 0.24, 'ty_oc_tin', 28);
+      { const [sx, sy] = F(-L * 0.35, -B - fh * 0.035); drawSmoke(ctx, cam, sx, sy, top + h * 0.26, '150,146,140', alpha * 0.45, now, seed + 3); }
+      // The tarp over the back half of the roof, tied down the sides.
+      slumDrape(ctx, cam, W3, [-L * 0.92, -B * 0.92, top + h * 0.03], [-L * 0.92, B * 0.92, top + h * 0.03],
+        [L * 0.05, B * 0.92, top + h * 0.03], [L * 0.05, -B * 0.92, top + h * 0.03], h * 0.012, tarp, nightF, alpha, 0, patch);
+      for (const s of [-1, 1]) {
+        slumRope(ctx, cam, W3, [-L * 0.6, s * B, top + h * 0.03], [-L * 0.6, s * (B + fh * 0.04), z0], alpha);
+        slumRope(ctx, cam, W3, [-L * 0.1, s * B, top + h * 0.03], [-L * 0.1, s * (B + fh * 0.04), z0], alpha);
+      }
+      // The window band down both sides: lived in, dead, or boarded, rolled per window.
+      for (const s of [-1, 1]) {
+        if (!vis(0, s, B)) continue;
+        const P = faceP(0, s, B);
+        for (let i = 0; i < 6; i++) {
+          const u = -L * 0.80 + i * L * 0.30;
+          const r = roll(i + (s > 0 ? 7 : 0));
+          slumOpening(ctx, cam, W3, P, u, z0 + (top - z0) * 0.70, L * 0.11, (top - z0) * 0.16, r < 0.35 ? 2 : r < 0.75 ? 1 : 0, seed + i, nightF, alpha);
+        }
+        // Rust up from the sills.
+        slumSheet(ctx, cam, W3, [P(-L, z0 + h * 0.07, 0), P(L, z0 + h * 0.07, 0), P(L, z0, 0), P(-L, z0, 0)], SLUM_RUST, nightF, alpha * 0.8, 0, null);
+        slumScrawl(ctx, cam, W3, P, L * 0.20, z0 + (top - z0) * 0.30, L * 0.30, (top - z0) * 0.08, seed + 13 + s, nightF, alpha);
+      }
+      // The windscreen and the blank destination blind over it.
+      if (vis(1, 0, L)) {
+        const P = faceP(1, 0, L);
+        slumOpening(ctx, cam, W3, P, 0, z0 + (top - z0) * 0.62, B * 0.80, (top - z0) * 0.22, 1, seed + 15, nightF, alpha);
+        slumOpening(ctx, cam, W3, P, 0, z0 + (top - z0) * 0.92, B * 0.50, (top - z0) * 0.04, 1, seed + 16, nightF, alpha);
+      }
+      // The door is the bus's own, at the front on the lane side, with a blanket in it.
+      if (vis(0, -1, B)) door(B, L * 0.62, top * 0.92, L * 0.09);
+      glow(L * 0.62, -B - fh * 0.14, z0 + h * 0.06, 0.24);
+      return;
+    }
+
+    if (kind === 'stack') {   // The Stack: three shacks on top of one another, each smaller, the top one leaning north.
+      const W1 = fh * 0.48, D1 = fh * 0.40, z1 = h * 0.34;
+      const W2 = fh * 0.40, D2 = fh * 0.34, u2 = -fh * 0.05, z2 = h * 0.62;
+      const W3s = fh * 0.28, D3 = fh * 0.26, u3 = fh * 0.06, v3 = -fh * 0.10, z3 = h * 0.84;
+      box(0, 0, W1, D1, 0, z1, 'ty_oc_board', 30);
+      box(u2, 0, W2, D2, z1, z2, 'ty_oc_tin', 31);
+      // ⚠ The lean is an overhang: boxes can't tilt, so the top box sits north of the one under it.
+      box(u3, v3, W3s, D3, z2, z3, 'ty_oc_board_dk', 32);
+      // Props under the overhang on the lane side.
+      box(u3 - W3s * 0.7, v3 - D3 + fh * 0.02, fh * 0.018, fh * 0.018, z1, z2, 'ty_oc_board_dk', 33, false);
+      // The ladder up the lane face of the bottom two.
+      for (const s of [-1, 1]) box(W1 * 0.55 + s * fh * 0.06, -D1 - fh * 0.03, fh * 0.012, fh * 0.012, 0, z2 + h * 0.04, 'ty_oc_board_dk', 34 + s, false);
+      if (near) for (let i = 1; i < 9; i++) {
+        const z = (z2 + h * 0.02) * i / 9;
+        emitWire(ctx, cam, W3(W1 * 0.55 - fh * 0.06, -D1 - fh * 0.03, z), W3(W1 * 0.55 + fh * 0.06, -D1 - fh * 0.03, z), 2, 'rgb(60,50,38)', alpha, { lift: DECO_LIFT * 0.1, pull: SLUM_PULL });
+      }
+      stove(u2 - W2 * 0.55, D2 * 0.4, z2, z3 + h * 0.10);
+      // Tarps on the two lower roofs where the box above doesn't cover them.
+      slumSheet(ctx, cam, W3, [[W2 + u2 + FACE_EPS, -D1, z1 + FACE_EPS * 2], [W1, -D1, z1 + FACE_EPS * 2], [W1, D1, z1 + FACE_EPS * 2], [W2 + u2 + FACE_EPS, D1, z1 + FACE_EPS * 2]], tarp, nightF, alpha, warm);
+      slumSheet(ctx, cam, W3, [[u3 - W3s, -D3 * 0.2, z3 + FACE_EPS * 2], [u3 + W3s, -D3 * 0.2, z3 + FACE_EPS * 2], [u3 + W3s, v3 + D3, z3 + FACE_EPS * 2], [u3 - W3s, v3 + D3, z3 + FACE_EPS * 2]], patch, nightF, alpha, 0);
+      tyres([[u3 - W3s * 0.4, v3 - D3 * 0.3], [u3 + W3s * 0.5, v3 + D3 * 0.2]], z3);
+      // The rope that ties the top floor back to the old school, east.
+      slumRope(ctx, cam, W3, [u3 + W3s, v3, z3 - h * 0.03], [fh * 0.99, v3 * 0.5, z1 + h * 0.20], alpha);
+      slumRope(ctx, cam, W3, [u3 + W3s, v3 + D3 * 0.6, z3 - h * 0.03], [fh * 0.99, D1 * 0.4, z1 + h * 0.16], alpha);
+      // Openings on every floor, both faces.
+      const floors = [[0, W1, D1, 0, z1], [u2, W2, D2, z1, z2], [u3, W3s, D3, z2, z3]];
+      for (const s of [-1, 1]) floors.forEach(([uc, W, D, za, zb], f) => {
+        const off = (f === 2 ? (s < 0 ? -v3 : v3) : 0) + D;
+        if (!vis(0, s, off)) return;
+        const P = faceP(0, s, off);
+        const r = roll(f * 3 + (s > 0 ? 1 : 0));
+        slumOpening(ctx, cam, W3, P, uc + W * (f === 0 ? 0.40 : -0.25) * s, (za + zb) / 2 + (zb - za) * 0.08, W * 0.20, (zb - za) * 0.20, r < 0.5 ? 2 : r < 0.8 ? 1 : 0, seed + f * 4 + s, nightF, alpha);
+      });
+      if (vis(0, -1, D1)) door(D1, -W1 * 0.30, z1 * 0.84, W1 * 0.17);
+      if (vis(0, 1, D1)) slumScrawl(ctx, cam, W3, faceP(0, 1, D1), W1 * 0.25, z1 * 0.40, W1 * 0.35, z1 * 0.06, seed + 19, nightF, alpha);
+      glow(-W1 * 0.30, -D1 - fh * 0.14, z1 * 0.4, 0.22);
+      glow(u3, v3 - D3 - fh * 0.06, z2 + h * 0.05, 0.12);
+      return;
+    }
+
+    if (kind === 'pallet') {   // The Pallet House: pallets wired together, a tarp roof under tyres, a car door for a window.
+      const W = fh * 0.46, D = fh * 0.40, wall = h * 0.34;
+      box(0, 0, W, D, 0, wall, 'ty_oc_board', 60);
+      // A cross-brace of pallets standing proud at each corner, where the walls are wired together.
+      for (const [su, sv] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) box(su * W, sv * D, fh * 0.04, fh * 0.04, 0, wall, 'ty_oc_board_dk', 61 + su + sv * 2, true);
+      // The tarp roof, sagging between the walls, with tyres on it.
+      box(0, 0, W * 0.98, D * 0.98, wall, wall + h * 0.012, 'ty_oc_board_dk', 66);
+      slumDrape(ctx, cam, W3, [-W - fh * 0.04, -D - fh * 0.05, wall + h * 0.02], [-W - fh * 0.04, D + fh * 0.05, wall + h * 0.02],
+        [W + fh * 0.04, D + fh * 0.05, wall + h * 0.02], [W + fh * 0.04, -D - fh * 0.05, wall + h * 0.02], h * 0.03, tarp, nightF, alpha, warm, patch);
+      tyres([[-W * 0.45, -D * 0.4], [W * 0.4, -D * 0.35], [-W * 0.3, D * 0.45], [W * 0.5, D * 0.4]], wall + h * 0.012);
+      // Pallet slats, near tier: a dark line between every board and the blocks between pallets.
+      if (near) for (const [nx, ny, off, span] of [[0, -1, D, W], [0, 1, D, W], [1, 0, W, D], [-1, 0, W, D]]) {
+        if (!vis(nx, ny, off)) continue;
+        const P = faceP(nx, ny, off);
+        const seg = (a, b) => { const pa = P(a[0], a[1], 0), pb = P(b[0], b[1], 0); emitWire(ctx, cam, W3(pa[0], pa[1], pa[2]), W3(pb[0], pb[1], pb[2]), 1, 'rgba(40,33,25,0.75)', alpha, { lift: DECO_LIFT * 0.1, pull: SLUM_PULL }); };
+        for (let i = 1; i < 8; i++) seg([-span, wall * i / 8], [span, wall * i / 8]);
+        for (const k of [-0.5, 0, 0.5]) seg([span * k, 0], [span * k, wall]);
+      }
+      if (vis(0, -1, D)) {
+        const P = faceP(0, -1, D);
+        door(D, -W * 0.40, wall * 0.84, W * 0.16);
+        // The car door: a red panel round the window, with its glass still in.
+        const u = W * 0.35, z = wall * 0.55;
+        slumSheet(ctx, cam, W3, [P(u - W * 0.24, z + wall * 0.22, 0), P(u + W * 0.24, z + wall * 0.22, 0), P(u + W * 0.24, z - wall * 0.30, 0), P(u - W * 0.24, z - wall * 0.30, 0)], [118, 52, 44], nightF, alpha, 0, null);
+        slumOpening(ctx, cam, W3, (uu, zz, o) => P(uu, zz, o + FACE_EPS), u, z + wall * 0.05, W * 0.18, wall * 0.13, 2, seed + 67, nightF, alpha);
+      }
+      if (vis(0, 1, D)) slumScrawl(ctx, cam, W3, faceP(0, 1, D), 0, wall * 0.45, W * 0.40, wall * 0.06, seed + 68, nightF, alpha);
+      // Rags stuffed into the gaps, a few hand-sized bits of cloth on the flank.
+      if (near && vis(1, 0, W)) {
+        const P = faceP(1, 0, W);
+        for (let i = 0; i < 3; i++) {
+          const u = (roll(i + 20) - 0.5) * D * 1.4, z = wall * (0.2 + roll(i + 24) * 0.6), r = fh * 0.03;
+          slumSheet(ctx, cam, W3, [P(u - r, z + r * 0.6, 0), P(u + r, z + r * 0.6, 0), P(u + r, z - r * 0.6, 0), P(u - r, z - r * 0.6, 0)], TARPS[(ti + i) % TARPS.length], nightF, alpha, 0, null);
+        }
+      }
+      glow(-W * 0.40, -D - fh * 0.12, wall * 0.4, 0.22);
+      return;
+    }
+
+    // 'box' — The Box: a shipping container with a door cut in it, a tarp porch, rust in a tide line.
+    {
+      const L = fh * 0.80, B = fh * 0.30, top = h * 0.34;
+      box(0, 0, L, B, 0, top, 'ty_cont_b', 70);
+      // The porch: two posts and a tarp off the roof edge on the lane side.
+      for (const s of [-1, 1]) box(-L * 0.30 + s * L * 0.28, -B - fh * 0.30, fh * 0.015, fh * 0.015, 0, top * 0.82, 'ty_oc_board_dk', 71 + s, false);
+      slumDrape(ctx, cam, W3, [-L * 0.62, -B - FACE_EPS, top - h * 0.01], [L * 0.02, -B - FACE_EPS, top - h * 0.01],
+        [L * 0.02, -B - fh * 0.32, top * 0.82], [-L * 0.62, -B - fh * 0.32, top * 0.82], h * 0.02, tarp, nightF, alpha, warm, patch);
+      for (const s of [-1, 1]) slumRope(ctx, cam, W3, [-L * 0.30 + s * L * 0.30, -B - fh * 0.32, top * 0.82], [-L * 0.30 + s * L * 0.38, -B - fh * 0.48, 0], alpha);
+      for (const s of [-1, 1]) {
+        if (!vis(0, s, B)) continue;
+        const P = faceP(0, s, B);
+        // Corrugation, near tier, and the rust tide line along the foot.
+        if (near) for (let i = 1; i < 16; i++) {
+          const u = -L + 2 * L * i / 16, a = P(u, top * 0.96, 0), b = P(u, top * 0.04, 0);
+          emitWire(ctx, cam, W3(a[0], a[1], a[2]), W3(b[0], b[1], b[2]), 1, 'rgba(26,38,56,0.55)', alpha, { lift: DECO_LIFT * 0.1, pull: SLUM_PULL });
+        }
+        slumSheet(ctx, cam, W3, [P(-L, top * 0.20, 0), P(L, top * 0.16, 0), P(L, 0, 0), P(-L, 0, 0)], SLUM_RUST, nightF, alpha * 0.85, 0, null);
+        if (s > 0) slumScrawl(ctx, cam, W3, P, L * 0.15, top * 0.52, L * 0.45, top * 0.07, seed + 75, nightF, alpha);
+      }
+      if (vis(0, -1, B)) {
+        door(B, -L * 0.30, top * 0.80, L * 0.11);
+        slumOpening(ctx, cam, W3, faceP(0, -1, B), L * 0.40, top * 0.58, L * 0.10, top * 0.12, 2, seed + 76, nightF, alpha);
+      }
+      // The end doors, chained shut.
+      if (vis(-1, 0, L) && near) {
+        const P = faceP(-1, 0, L);
+        for (const u of [-B * 0.02, B * 0.02]) { const a = P(u, top * 0.95, 0), b = P(u, top * 0.05, 0); emitWire(ctx, cam, W3(a[0], a[1], a[2]), W3(b[0], b[1], b[2]), 1, 'rgba(20,28,40,0.8)', alpha, { lift: DECO_LIFT * 0.1, pull: SLUM_PULL }); }
+      }
+      glow(-L * 0.30, -B - fh * 0.16, top * 0.4, 0.24);
     }
   },
   water_seller(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E, name, board, pal, sign, F, W3, frontVis) {   // Mains Squeeze: a header tank on a trestle over a hut.

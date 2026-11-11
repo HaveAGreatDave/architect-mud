@@ -9,7 +9,7 @@ import { getRegisteredSpecializedActions } from '../../server/engine/specialized
 import { QUALITY_BANDS as ENGINE_BANDS } from '../../server/engine/quality-bands.js';
 import { QUALITY_BANDS as COOKING_BANDS } from '../cooking/profiles.js';
 import { CONFIG as CONSUME_CONFIG } from '../consume/index.js';
-import { getItem } from '../../server/engine/items-cache.js';
+import { getItem, getItemCache } from '../../server/engine/items-cache.js';
 import { query } from '../../server/models/db.js';
 import {
   DRINKS, UNKNOWN_DRINK, GENERIC_MIXED, DRINKWARE_KINDS,
@@ -21,6 +21,7 @@ import { derivePotency, servingPotency, ethanolMl, abvOf } from './alcohol.js';
 import { hotMultiplier, capacityOf, isDrinkware, drinkwareKind, makeDrink } from './vessel.js';
 import { deriveCaffeine, caffeineFromTemplate, servingCaffeine, MIN_MG } from './caffeine.js';
 import { hooks } from './index.js';
+import { barStock, measureName, measurePrice, isBarZone } from './bar.js';
 import { getDrugCache } from '../../server/engine/drugs.js';
 import { POUR_ML, STANDARD_UNIT_ML, POTENCY_MIN, POTENCY_MAX, HOT_PEAK_MS, HOT_COLD_MS, HOT_COLD_PENALTY, BREW_TIERS, VEND_BANDS, VEND_CHARGE } from './config.js';
 
@@ -468,4 +469,43 @@ export default async function regress({ run, check, getPlayer }) {
       hook({ id: 'z', flags: { vends: 'item_paper_cup', vend_drink: 'cortado' } }) === undefined);
   }
 
+
+  // ── The bar: every bar stocks everything, and a measure is one pour ───────
+  {
+    const { freezer, rack } = barStock();
+    const profiled = [...getItemCache().values()].filter((i) => i.tags?.drink_profile && DRINK_PROFILES[i.tags.drink_profile]).length;
+    check('drinks: the bar freezer holds every drink ingredient', freezer.length === profiled && profiled > 0, `${freezer.length}/${profiled}`);
+    check('drinks: the rack has glasses', rack.some((r) => r.item.tags?.drinkware_kind === 'tumbler'), rack.map((r) => r.name).join());
+    check('drinks: a bottle pours as its contents', measureName({ name: 'bottle of dark rum' }) === 'dark rum');
+    check('drinks: a measure is one pour, not the bottle', poursOf({ tags: { pour_units: 14 }, custom_data: { pours: 1 }, quantity: 1 }) === 1);
+    check('drinks: a measure always costs something', freezer.every((s) => measurePrice(s.item) >= 1));
+    check('drinks: every authored bar counter is a bar', isBarZone('zone_jolenes_bar'));
+    const acts = hooks['furniture.acts']({ flags: { bar_counter: true } });
+    check('drinks: a bar counter offers the bar HUD', acts?.[0]?.verb === 'workspace' && acts[0].bare);
+
+    // End to end at a real bar: a glass off the rack, two measures out of the freezer, mixed.
+    const player = getPlayer(), was = player.current_zone;
+    try {
+      await query(`INSERT INTO players (id, username, password_hash, handle, credits) VALUES ($1,$2,'x',$3,200)
+                   ON CONFLICT (id) DO UPDATE SET credits=200`, [player.id, `bartest_${player.id}`, player.handle || 'Regressor']);
+      player.credits = 200;
+      await query('DELETE FROM player_inventory WHERE player_id=$1', [player.id]);
+      player.current_zone = 'zone_jolenes_bar';
+      const glass = await run('measure tumbler');
+      check('drinks: the rack sells a tumbler', glass?.type === 'use' && player.credits === 200 - Math.max(1, getItem('item_tumbler').value), `${JSON.stringify(glass)?.slice(0, 160)} credits=${player.credits}`);
+      const prep = await run('prepare tumbler with dark rum, can of arcline cola');
+      check('drinks: prepare pays for and pours each measure', /✓ mix/.test(prep?.message || '') && !/✗/.test(prep?.message || ''), (prep?.message || '').slice(0, 400));
+      const mixed = await run('mix tumbler');
+      const { rows } = await query(`SELECT pi.custom_data FROM player_inventory pi WHERE pi.player_id=$1 AND pi.item_id='item_tumbler'`, [player.id]);
+      const drink = rows[0]?.custom_data?.drink;
+      check('drinks: the bar build mixes into a real drink with alcohol in it', !!drink && drink.potency > 0 && drink.potency < 3, `${(mixed?.message || '').slice(0, 160)} ${JSON.stringify(drink)}`);
+      const broke = (await query('UPDATE players SET credits=0 WHERE id=$1', [player.id]), player.credits = 0, await run('measure dark rum'));
+      check('drinks: no money, no measure', broke?.type === 'error' && /₵/.test(broke.message || ''), JSON.stringify(broke)?.slice(0, 160));
+    } finally {
+      await query('DELETE FROM player_inventory WHERE player_id=$1', [player.id]).catch(() => {});
+      await query('DELETE FROM players WHERE id=$1', [player.id]).catch(() => {});
+      player.credits = 0;
+      player.current_zone = was;
+    }
+  }
 }

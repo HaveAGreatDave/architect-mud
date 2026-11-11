@@ -33,16 +33,46 @@ export function batRelease(clip) {
   return null;
 }
 
-export function launch(a, b, dt) {
+// How a hitter lets the bat go after a home run he knows is gone, each his own all season
+// (bases.js picks it off his id). The clip's hands give the throw; a style bends it: `up` adds to
+// its rise (ft/s), `y` sets the rise outright, `fwd` scales its carry (negative sends it back
+// over his shoulder), `spin` scales its turn, `flat` spins it about the upright like a rotor.
+//   flip      the clip's own, end over end out in front
+//   skyward   a lob straight up that he doesn't watch come down
+//   rotor     a helicopter spin, flat, out in front
+//   spike     slammed down into the dirt at his feet
+//   shoulder  tossed back over his shoulder without a look
+//   sidearm   skimmed low and hard along the ground, spinning
+export const TOSSES = Object.freeze({
+  flip: {},
+  skyward: { up: 26, fwd: 0.35, spin: 1.4 },
+  rotor: { y: 9, fwd: 1.1, flat: 2.6 },
+  spike: { y: -14, fwd: 0.25, spin: 0.5 },
+  shoulder: { up: 12, fwd: -0.8, spin: 1.2 },
+  sidearm: { y: 3, fwd: 1.7, spin: 2.2 },
+});
+export const TOSS_NAMES = Object.freeze(Object.keys(TOSSES));
+
+export function launch(a, b, dt, style = null) {
   const mid = (q) => add(q.knob, mul(q.dir, LOOSE.mid));
   const c0 = mid(b);
   let v = mul(sub(c0, mid(a)), 1 / dt);
-  const sp = Math.hypot(v[0], v[1], v[2]);
+  let sp = Math.hypot(v[0], v[1], v[2]);
   if (sp > LOOSE.top) v = mul(v, LOOSE.top / sp);
   // the turn it had: about the axis across its two directions, at the rate they turned
   const ax = cross(a.dir, b.dir), s = Math.hypot(ax[0], ax[1], ax[2]);
-  const axis = s > 1e-5 ? mul(ax, 1 / s) : norm(cross(b.dir, [0, 1, 0]));
-  const w = Math.min(LOOSE.spin * 2 * Math.PI, Math.asin(Math.min(1, s)) / dt);
+  let axis = s > 1e-5 ? mul(ax, 1 / s) : norm(cross(b.dir, [0, 1, 0]));
+  let w = Math.min(LOOSE.spin * 2 * Math.PI, Math.asin(Math.min(1, s)) / dt);
+  const S = style && TOSSES[style];
+  if (S) {
+    const f = S.fwd ?? 1;
+    v = [v[0] * f, S.y ?? v[1] + (S.up || 0), v[2] * f];
+    // a style that sends it where the hands didn't still needs some carry to read
+    if (Math.hypot(v[0], v[2]) < 2) { const d = norm([b.dir[0], 0, b.dir[2]]), k = 4 * Math.sign(f || 1); v[0] += d[0] * k; v[2] += d[2] * k; }
+    sp = Math.hypot(v[0], v[1], v[2]);
+    if (sp > LOOSE.top * 1.2) v = mul(v, LOOSE.top * 1.2 / sp);
+    if (S.flat) { axis = [0, 1, 0]; w = S.flat * 2 * Math.PI; } else w = Math.min(LOOSE.spin * 2.4 * 2 * Math.PI, w * (S.spin ?? 1));
+  }
   // when its middle's down to lying height: c0.y + v.y t - g t²/2 = ground + lie
   const g0 = groundHeight(c0[0], c0[2]) + LOOSE.lie, h = Math.max(0, c0[1] - g0);
   const tLand = (v[1] + Math.sqrt(v[1] * v[1] + 2 * LOOSE.g * h)) / LOOSE.g;

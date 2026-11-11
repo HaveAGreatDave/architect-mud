@@ -6,6 +6,14 @@
     "interactions": [
       "examine"
     ],
+    "look": {
+      "arche": "top",
+      "form": "press"
+    },
+    "spot": {
+      "on": "furn_salon_counter",
+      "x": -0.8
+    },
     "vend_drink": "espresso",
     "vend_line": "You push the brass tube and a demitasse comes off the stack, already warm from the boiler.",
     "vends": "item_demitasse_cup"

@@ -4,7 +4,17 @@
     "game_table_id": "gametable_solenne_chess",
     "interactions": [
       "examine"
-    ]
+    ],
+    "look": {
+      "arche": "table",
+      "form": "games"
+    },
+    "spot": {
+      "at": [
+        3.9,
+        3
+      ]
+    }
   },
   "hp": null,
   "hp_max": null,

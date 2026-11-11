@@ -13,7 +13,68 @@
     "is_building": true,
     "is_interior": true,
     "stands": {
-      "sport": "hockey",
+      "menu": [
+        {
+          "item": "item_rink_frank",
+          "price": 6
+        },
+        {
+          "item": "item_chips",
+          "price": 6
+        },
+        {
+          "item": "item_pruitt_pretzel",
+          "price": 4
+        },
+        {
+          "item": "item_pruitt_popcorn",
+          "price": 3
+        },
+        {
+          "item": "item_ballpark_lager",
+          "price": 8
+        },
+        {
+          "item": "item_arcline_cola",
+          "price": 5
+        },
+        {
+          "item": "item_ginger_soda",
+          "price": 5
+        },
+        {
+          "item": "item_cream_soda",
+          "price": 6
+        },
+        {
+          "item": "item_water_bottle",
+          "price": 4
+        },
+        {
+          "item": "item_cigarettes",
+          "price": 15
+        },
+        {
+          "item": "item_menthol_cigarettes",
+          "price": 16
+        },
+        {
+          "item": "item_unfiltered_cigarettes",
+          "price": 14
+        },
+        {
+          "item": "item_cherry_cigarillo",
+          "price": 9
+        },
+        {
+          "item": "item_house_cigar",
+          "price": 18
+        },
+        {
+          "item": "item_reserve_cigar",
+          "price": 40
+        }
+      ],
       "sections": [
         {
           "id": "glass",
@@ -125,7 +186,8 @@
           ],
           "note": "back row of the upper tier, under the roof"
         }
-      ]
+      ],
+      "sport": "hockey"
     },
     "window": {
       "description": "A great arched window in the north end wall, glazed in a steel grid, three panes of it patched with board. Glacier Street shows through it as a grey band.",

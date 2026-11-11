@@ -4649,6 +4649,16 @@
         "Big stop. That one changes the period if it goes in.",
         "Ask the shooter how that stayed out. He doesn't know either."
       ],
+      "cup.anthem": [
+        "The lights are going down at the Gardens. Please welcome your finalists for the Coldwater Cup: the {away} and the {home}.",
+        "House lights down, everybody. Here come the men playing for the Coldwater Cup.",
+        "They are turning the lights off, which in this building usually means the power. Tonight it means the line-ups."
+      ],
+      "cup.crown": [
+        "And here comes the Cup. They carry it out on a carpet, which is the only time anybody vacuums in here.",
+        "Out comes the Coldwater Cup. The {leader} get it first, and they get to find out what is in it.",
+        "There is the Cup. Hand it to the captain, and somebody get the lid."
+      ],
       "cup.final": [
         "THE {leader} HAVE WON THE COLDWATER CUP. {home} {homeScore}, {away} {awayScore}. They'll drink out of it, because that's the tradition, and we'll see who's still here next season.",
         "IT'S OVER. The {leader} are your Coldwater Cup champions. Carve it into whatever's still standing."
@@ -5950,7 +5960,7 @@
       "zephariah": "Z EH F ER * AY AX"
     },
     "sim": {
-      "version": 7
+      "version": 8
     },
     "sport": "hockey",
     "teams": [

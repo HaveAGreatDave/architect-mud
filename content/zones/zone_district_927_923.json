@@ -1,23 +1,25 @@
 {
-  "ambient_events": [],
-  "ambient_theme": "forest",
-  "color": "#8ba36a",
-  "description": "The inside angle of the Curtain, where the south wall and the east wall meet and the hum of the two of them beats against each other slightly out of time. Nobody has brought a bench out here yet.",
+  "ambient_events": [
+    "Out past the wall, dust lifts off the red flats and settles again."
+  ],
+  "ambient_theme": "residential",
+  "description": "The inside angle of the Curtain, where the south wall and the east wall meet and their hum beats slightly out of time. Somebody has brought a bench out: a plank on two crates.",
   "exits": {
     "north": "zone_district_927_922",
     "west": "zone_district_926_923"
   },
   "flags": {
     "curtain": true,
-    "district": "residential",
+    "district": "slum",
     "region_id": "region_coldwater",
-    "terrain": "grass"
+    "scavenging_table_id": "scav_consumer_trash",
+    "terrain": "ash"
   },
   "grid_x": 927,
   "grid_y": 923,
   "grid_z": 0,
   "id": "zone_district_927_923",
   "map_id": "map_world",
-  "name": "Grasslands",
+  "name": "The Far Corner",
   "parent_zone": null
 }

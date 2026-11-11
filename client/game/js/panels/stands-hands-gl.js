@@ -184,14 +184,15 @@ export function createGl(canvas) {
     meshes.set(key, m);
     return m;
   };
-  const FOV_T = Math.tan((50 / 2) * Math.PI / 180);
-  let W = 1, H = 1, queue = [];
+  // the vertical half-angle's tangent; a caller drawing into another camera's picture passes its own to begin()
+  const FOV_T0 = Math.tan((50 / 2) * Math.PI / 180);
+  let FOV_T = FOV_T0, W = 1, H = 1, queue = [];
   const hex = (c) => { const v = parseInt(c.slice(1), 16); return [((v >> 16) & 255) / 255, ((v >> 8) & 255) / 255, (v & 255) / 255]; };
   return {
-    FOV_T,
+    FOV_T: FOV_T0,
     mesh,
-    begin(w, h) {
-      W = w; H = h; queue = [];
+    begin(w, h, fovT = FOV_T0) {
+      W = w; H = h; queue = []; FOV_T = fovT;
     },
     // material: { color, alpha, metal, spec, noise, brush, stripe, clipY, floorY, band, cutX, emit, glass }
     draw(m, mat, o = {}) { queue.push({ m, mat, o, z: apply(mat, [0, 0, 0])[2] }); },

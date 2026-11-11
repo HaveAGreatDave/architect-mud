@@ -1,0 +1,31 @@
+{
+  "description": "A red vinyl booth against the wall, far enough from the stage that nobody watches you watching. The table's sticky and the seat sighs when you sit.",
+  "flags": {
+    "interactions": [
+      "sit"
+    ],
+    "look": {
+      "arche": "bench",
+      "dims": [
+        1.5,
+        0.7,
+        1.15
+      ],
+      "form": "booth"
+    },
+    "spot": {
+      "along": 7,
+      "wall": "right"
+    }
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_cherry_booth_1",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "booth",
+  "object_type": "fixture",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_mq_cherry_floor"
+}

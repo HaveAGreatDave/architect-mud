@@ -11,12 +11,36 @@
 // and `p.form` the row's flags; nothing here knows a wardrobe is called "Polaris".
 
 import { MAT } from './ballpark-mesh.js';
-import { HUNG_AT } from '../../../../shared/room-layout.js';
+import { HUNG_AT, LACQUER_BODY } from '../../../../shared/room-layout.js';
 
 const { GLOSS, METAL, LEATHER, SATIN, CLOTH, MATTE } = MAT;
 // A sheet of flame: gl/room.js burns it and it's on no switch. No MAT code is 43.
 const FIRE = 43;
 const pick = (r, list) => list[Math.floor(r() * list.length) % list.length];
+
+// A fire's dial, on a face that looks out along the piece's z: a black plate with a chamfered edge
+// and a blue hairline, a raised collar, and the face itself, which gl/room-sky.js paints from the dial
+// (FIRE, sheet 9): a ring of lit segments up to where it's set and a knurled knob whose lit pointer
+// turns with it. So the knob moves the moment the setting does, with no rebuild. Its place goes on
+// K.dials, in the world, which is what panels/room-stage.js reads to know a click or a scroll was on it.
+// (x, y) is its middle on the face at z, and s its size, 1 for a plate 20 cm across.
+export function fireDial(K, F, id, x, y, z, s = 1) {
+  const { P, N, pbox } = F, pl = 0.1 * s, kr = 0.068 * s, z1 = z + 0.01, z2 = z1 + 0.022 * s;
+  pbox(x - pl, x + pl, y - pl, y + pl, z, z1 - 0.003, '#141518', 1, null, METAL);
+  pbox(x - pl + 0.006, x + pl - 0.006, y - pl + 0.006, y + pl - 0.006, z1 - 0.003, z1, '#1c1e22', 1, null, SATIN);
+  // the hairline round the plate, lit by the fire's own colour
+  for (const q of [[-1, 1, -1, -0.97], [-1, 1, 0.97, 1], [-1, -0.97, -1, 1], [0.97, 1, -1, 1]]) pbox(x + q[0] * (pl - 0.01), x + q[1] * (pl - 0.01), y + q[2] * (pl - 0.01), y + q[3] * (pl - 0.01), z1, z1 + 0.0015, '#3a8cff', 1, null, MATTE);
+  // the collar: 24 sides, a step out to the bezel and up to the face
+  const n = 24, at = (i, r, zz) => P(x + Math.cos(i * 2 * Math.PI / n) * r, y + Math.sin(i * 2 * Math.PI / n) * r, zz);
+  for (let i = 0; i < n; i++) {
+    const am = (i + 0.5) * 2 * Math.PI / n, nn = N(Math.cos(am), Math.sin(am), 0);
+    K.quad(K.solid, [at(i, kr * 1.08, z1), at(i + 1, kr * 1.08, z1), at(i + 1, kr * 1.08, z2 - 0.004 * s), at(i, kr * 1.08, z2 - 0.004 * s)], nn, K.C('#1e2024', 1), METAL);
+    K.quad(K.solid, [at(i, kr * 1.08, z2 - 0.004 * s), at(i + 1, kr * 1.08, z2 - 0.004 * s), at(i + 1, kr, z2), at(i, kr, z2)], N(Math.cos(am) * 0.6, Math.sin(am) * 0.6, 0.8), K.C('#3a3d43', 1), METAL);
+  }
+  // the face, painted by the shader
+  K.quad(K.glass, [P(x - kr, y - kr, z2), P(x + kr, y - kr, z2), P(x + kr, y + kr, z2), P(x - kr, y + kr, z2)], N(0, 0, 1), [1, 1, 1], FIRE, [[18, 0], [19, 0], [19, 1], [18, 1]], true);
+  (K.dials ||= []).push({ id, at: K.L.world(...P(x, y, z2)), r: pl });
+}
 
 // the stone a fine flat's worktops and bathrooms are cut from
 export const STONE = { t: 'roomStone', c: '#9a9c9e' };
@@ -44,31 +68,136 @@ function tap(c, x, y, z, reach = 0.16, hex = '#c8ccd0') {
   c.rod(P(x, y + 0.09, z), P(x + 0.07, y + 0.13, z - 0.01), 0.007, hex, 1.05);
 }
 
-// Base units along a run with a worktop: a plinth, door fronts, a slab. `doors` is how many fronts;
-// a fine kitchen's are handleless with a shadow gap, a plain one's have a bar pull. Returns the top.
+// How good a kitchen is, 0 to 3: a fine flat's is 3; otherwise the piece's wear, which comes from
+// what it cost, sets it. 0 is a slum flat's: doors hanging off, one gone, the laminate peeling. 1 is a
+// cheap let's flat doors and plastic knobs; 2 a decent one's framed doors, drawers and a wooden top.
+export const kitchenGrade = (c) => c.fine ? 3 : (c.wear ?? 0.3) >= 0.6 ? 0 : (c.wear ?? 0.3) >= 0.35 ? 1 : 2;
+// the ink the fittings draw their own edges in: the line round a door, under a worktop's lip, round a
+// sink. A run against a wall has no silhouette for the hull ink (gl/ink.js) to find, so it draws its own.
+const INK = '#0c0b0d';
+
+// Base units along a run with a worktop: a plinth, door fronts, a slab, each the kitchen's grade.
+// `doors` is how many fronts; `hole` ([x0, x1, z0, z1]) is cut out of the worktop for a sink, and the
+// carcass stops short under it so the bowl can go down. Returns the top.
 export function baseRun(c, y1, opts = {}) {
-  const { F, p, r } = c, { pbox } = F, hw = p.w / 2, hd = p.d / 2, n = opts.doors || Math.max(1, Math.round(p.w / 0.6));
-  const front = opts.front || c.front || (c.fine ? '#3b3d41' : pick(r, ['#d8d0c0', '#4a5a5a', '#8a6a4a', '#e8e4dc']));
-  pbox(-hw, hw, 0, 0.1, -hd, hd - 0.06, '#141414', 0.9);
-  pbox(-hw, hw, 0.1, y1 - 0.04, -hd, hd - 0.03, front, 0.86, null, SATIN);
+  const { F, p, r } = c, { pbox } = F, hw = p.w / 2, hd = p.d / 2, g = opts.grade ?? kitchenGrade(c);
+  const n = opts.doors || Math.max(1, Math.round(p.w / (g === 0 ? 0.5 : 0.6)));
+  const front = opts.front || c.front || (g === 3 ? '#3b3d41' : pick(r, g === 0 ? ['#cfc6a8', '#b8b098', '#d8ccb0', '#a89c80']
+    : g === 1 ? ['#e2dccc', '#e8e4dc', '#c4ccc4', '#d8d0c0'] : ['#4a5a5a', '#2f4a5a', '#e8e4dc', '#5a6a4a', '#8a6a4a']));
+  const hole = opts.hole, tt = [0.028, 0.03, 0.038, 0.04][g], yc = hole ? y1 - 0.22 : y1 - tt, zf = hd - 0.03;
+  const chip = '#9a7a4a';
+  // the carcass, and its sides up to the worktop where the sink takes its top
+  pbox(-hw, hw, 0.1, yc, -hd, zf, front, 0.8, null, SATIN);
+  if (hole) for (const x of [-hw, hw - 0.018]) pbox(x, x + 0.018, yc, y1 - tt, -hd, zf, front, 0.8, null, SATIN);
+  // the plinth: a slum's units stand on their bare legs, half the kick board long gone
+  if (g === 0) {
+    for (const x of [-hw + 0.05, hw - 0.05]) for (const z of [-hd + 0.05, zf - 0.05]) c.rod(F.P(x, 0, z), F.P(x, 0.1, z), 0.014, '#3a3a3a', 0.9);
+    if (r() < 0.6) pbox(-hw, r() < 0.5 ? 0 : hw, 0, 0.095, zf - 0.07, zf - 0.055, '#5a5448', 0.8, null, MATTE);
+  } else pbox(-hw, hw, 0, 0.1, -hd, hd - (g === 3 ? 0.09 : 0.06), '#141414', 0.9);
+  // the fronts: drawers along the top on a decent kitchen, doors under them
+  const top = y1 - tt - 0.012, dr = g >= 2 ? top - 0.15 : top;
+  const face = (x0, x1, ya, yb, door, i) => {
+    // the ink behind every front shows in the gaps round it: its outline
+    pbox(x0 - 0.005, x1 + 0.005, ya - 0.005, yb + 0.005, zf, zf + 0.012, INK, 1);
+    if (g === 0) {
+      // gone: the inside, a shelf and whatever's on it
+      if (door && n > 1 && r() < 0.28) {
+        pbox(x0, x1, ya, yb, zf - 0.005, zf + 0.001, '#2a241c', 0.6, null, MATTE);
+        pbox(x0, x1, (ya + yb) / 2, (ya + yb) / 2 + 0.016, -hd + 0.02, zf + 0.002, '#b8a888', 0.7, null, MATTE);
+        c.lat((x0 + x1) / 2, -0.05, [[0, ya], [0.05, ya], [0.05, ya + 0.12], [0, ya + 0.12]], pick(r, ['#3a6aa8', '#c83a2a', '#d8c84a']), 0.8, 8, GLOSS);
+        return;
+      }
+      // hanging off its top hinge, a replacement in the wrong colour, chipped at a corner, a knob or nothing
+      const sag = door && r() < 0.4 ? 0.012 + r() * 0.015 : 0, col = r() < 0.2 ? pick(r, ['#8a6a4a', '#e8e4dc', '#4a5a5a']) : front;
+      pbox(x0 + sag * 0.5, x1 + sag * 0.5, ya - sag, yb - sag, zf + 0.002, zf + 0.018, col, 0.78 + r() * 0.12, null, MATTE);
+      if (r() < 0.6) { const cx = r() < 0.5 ? x0 : x1 - 0.05; pbox(cx, cx + 0.05, yb - sag - 0.04, yb - sag, zf + 0.0185, zf + 0.019, chip, 0.9, null, MATTE); }
+      if (r() < 0.7) { const kx = i % 2 ? x0 + 0.05 : x1 - 0.05; pbox(kx - 0.012, kx + 0.012, yb - sag - 0.1, yb - sag - 0.076, zf + 0.018, zf + 0.034, '#d8d0b8', 0.9, null, GLOSS); }
+      return;
+    }
+    if (g === 1) {
+      pbox(x0, x1, ya, yb, zf + 0.002, zf + 0.02, front, 0.92, null, SATIN);
+      const kx = i % 2 ? x0 + 0.05 : x1 - 0.05, ky = door ? yb - 0.08 : (ya + yb) / 2;
+      c.rod(F.P(kx, ky - 0.04, zf + 0.034), F.P(kx, ky + 0.04, zf + 0.034), 0.008, '#c8c4bc', 1, GLOSS);
+      for (const y of [ky - 0.04, ky + 0.04]) c.rod(F.P(kx, y, zf + 0.02), F.P(kx, y, zf + 0.034), 0.006, '#c8c4bc', 1, GLOSS);
+      return;
+    }
+    if (g === 2) {
+      // a framed (shaker) front: stiles and rails round a sunk panel, a fine ink line where they meet
+      const s = Math.min(0.055, (x1 - x0) * 0.18, (yb - ya) * 0.3);
+      pbox(x0, x1, ya, yb, zf + 0.002, zf + 0.012, front, 0.88, null, SATIN);
+      pbox(x0 + s - 0.003, x1 - s + 0.003, ya + s - 0.003, yb - s + 0.003, zf + 0.012, zf + 0.0135, INK, 1);
+      for (const [a, b, c0, d] of [[x0, x0 + s, ya, yb], [x1 - s, x1, ya, yb], [x0 + s, x1 - s, ya, ya + s], [x0 + s, x1 - s, yb - s, yb]]) pbox(a, b, c0, d, zf + 0.012, zf + 0.022, front, 0.98, null, SATIN);
+      pbox(x0 + s, x1 - s, ya + s, yb - s, zf + 0.012, zf + 0.014, front, 0.93, null, SATIN);
+      const hx = door ? (i % 2 ? x0 + s / 2 + 0.01 : x1 - s / 2 - 0.01) : (x0 + x1) / 2;
+      if (door) c.rod(F.P(hx, yb - 0.2, zf + 0.04), F.P(hx, yb - 0.06, zf + 0.04), 0.007, '#b8a070', 1.05);
+      else c.rod(F.P(hx - 0.06, (ya + yb) / 2, zf + 0.04), F.P(hx + 0.06, (ya + yb) / 2, zf + 0.04), 0.007, '#b8a070', 1.05);
+      return;
+    }
+    // fine: flush, handleless, a hairline gap; a dark rail under the worktop to pull them by
+    pbox(x0, x1, ya, yb - 0.035, zf + 0.002, zf + 0.022, front, 0.97, null, SATIN);
+    pbox(x0, x1, yb - 0.035, yb, zf - 0.01, zf + 0.004, '#1c1d20', 0.9, null, METAL);
+  };
   for (let i = 0; i < n; i++) {
-    const x0 = -hw + 0.004 + i * p.w / n, x1 = x0 + p.w / n - 0.008;
-    pbox(x0, x1, 0.11, y1 - 0.055, hd - 0.03, hd - 0.008, front, 0.97, null, SATIN);
-    if (i < n - 1) pbox(x1, x1 + 0.008, 0.11, y1 - 0.055, hd - 0.03, hd - 0.012, '#141414', 0.9); // the dark gap between two doors
-    if (!c.fine) { const x = i % 2 ? x0 + 0.05 : x1 - 0.05; c.rod(F.P(x, y1 - 0.22, hd + 0.012), F.P(x, y1 - 0.12, hd + 0.012), 0.007, '#c8ccd0', 1.05); }
+    const x0 = -hw + 0.005 + i * p.w / n, x1 = x0 + p.w / n - 0.01;
+    face(x0, x1, 0.11, dr - (dr < top ? 0.01 : 0), true, i);
+    if (dr < top) face(x0, x1, dr, top, false, i);
   }
-  const slab = c.fine ? STONE : { t: 'roomConcrete', c: '#b8b4ac' };
-  pbox(-hw, hw, y1 - 0.04, y1, -hd, hd + 0.015, '#a8a49c', 1, slab, c.fine ? SATIN : MATTE);
+  // the worktop: worn laminate, cleaner laminate on an aluminium edge, oiled beech, stone
+  const slab = g === 3 ? STONE : g === 2 ? { t: 'roomButcher', c: '#ffffff' } : { t: 'roomLaminate', c: g === 0 ? '#e0d4b8' : '#ffffff' };
+  const k = g === 0 ? 0.86 : 1, surf = g === 3 ? SATIN : g === 2 ? SATIN : MATTE, zo = hd + 0.02;
+  const slabBox = (a, b, z0, z1) => { if (b - a > 0.001 && z1 - z0 > 0.001) pbox(a, b, y1 - tt, y1, z0, z1, '#a8a49c', k, slab, surf); };
+  if (hole) {
+    const [hx0, hx1, hz0, hz1] = hole;
+    slabBox(-hw, hx0, -hd, zo); slabBox(hx1, hw, -hd, zo); slabBox(hx0, hx1, -hd, hz0); slabBox(hx0, hx1, hz1, zo);
+  } else slabBox(-hw, hw, -hd, zo);
+  // the ink line under the lip, and the edge: chipboard where the band's peeled, aluminium, a lighter arris on stone
+  pbox(-hw, hw, y1 - tt - 0.004, y1 - tt, zf, zo + 0.002, INK, 1);
+  if (g === 0) { const a = -hw + r() * p.w * 0.5, b = Math.min(hw, a + 0.15 + r() * 0.35); pbox(a, b, y1 - tt + 0.002, y1 - 0.002, zo, zo + 0.002, chip, 0.95, null, MATTE); }
+  else if (g === 1) pbox(-hw, hw, y1 - tt, y1, zo, zo + 0.004, '#a8acb0', 1, null, METAL);
+  else if (g === 3) pbox(-hw, hw, y1 - 0.004, y1, zo - 0.004, zo + 0.001, '#c8cacc', 1, null, SATIN);
+  // an upstand along the wall on a let flat's; a black line where a slum's worktop has come off the wall
+  if (g === 1 || g === 2) pbox(-hw, hw, y1, y1 + 0.05, -hd, -hd + 0.015, '#a8a49c', k, slab, surf);
+  else if (g === 0) pbox(-hw, hw, y1, y1 + 0.003, -hd, -hd + 0.01, INK, 1);
   return y1;
 }
 
-// A sealed kitchen or bathroom bowl let into a surface at `y`.
-function bowl(c, x, z, bw, bd, y, depth, hex = '#8e9298') {
-  const { pbox } = c.F;
-  pbox(x - bw / 2 - 0.012, x + bw / 2 + 0.012, y, y + 0.004, z - bd / 2 - 0.012, z + bd / 2 + 0.012, '#c8ccd0', 1, null, METAL);
-  pbox(x - bw / 2, x + bw / 2, y + 0.004, y + 0.0055, z - bd / 2, z + bd / 2, hex, 0.42, null, METAL);
-  pbox(x - 0.03, x + 0.03, y + 0.0055, y + 0.006, z - 0.03, z + 0.03, '#2a2c30', 0.8, null, METAL);
-  void depth;
+// A sink let into a worktop at `y`, through the hole baseRun cut at (x, z), bw by bd, of the kitchen's grade:
+// chipped enamel with old pillar taps; steel with a drainer; deeper steel; a black undermounted bowl.
+function sinkIn(c, g, x, z, bw, bd, y) {
+  const { pbox } = c.F, x0 = x - bw / 2, x1 = x + bw / 2, z0 = z - bd / 2, z1 = z + bd / 2, depth = [0.15, 0.16, 0.19, 0.2][g];
+  const body = ['#e2dccc', '#b8bcc0', '#c0c4c8', '#26282c'][g], inner = ['#a89e88', '#8e9298', '#9a9ea4', '#1c1d20'][g], surf = g === 0 ? GLOSS : g === 3 ? SATIN : METAL;
+  hollow(c, x0, x1, z0, z1, y, y - depth, 0.014, body, inner, g === 0 ? 0.88 : 1, surf);
+  // the drain, and a slum sink's rust ring round it and the stain down from the tap
+  pbox(x - 0.03, x + 0.03, y - depth + 0.001, y - depth + 0.003, z - 0.03, z + 0.03, g === 3 ? '#8a8c8e' : '#2a2c30', 0.9, null, METAL);
+  if (g === 0) {
+    pbox(x - 0.06, x + 0.06, y - depth + 0.0005, y - depth + 0.0012, z - 0.06, z + 0.06, '#7a4a22', 0.7, null, MATTE);
+    pbox(x - 0.012, x + 0.012, y - depth + 0.02, y - 0.01, z0 + 0.0142, z0 + 0.0146, '#8a5a2a', 0.7, null, MATTE);
+  }
+  // the rim over the cut, all but the undermounted bowl: a rolled enamel edge or a steel lip
+  if (g < 3) for (const [a, b, c0, d] of [[x0 - 0.02, x1 + 0.02, z0 - 0.02, z0], [x0 - 0.02, x1 + 0.02, z1, z1 + 0.02], [x0 - 0.02, x0, z0, z1], [x1, x1 + 0.02, z0, z1]]) pbox(a, b, y, y + 0.006, c0, d, body, 1, null, surf);
+  // the ink round it
+  const e = g < 3 ? 0.02 : 0, o = 0.004;
+  for (const [a, b, c0, d] of [[x0 - e - o, x1 + e + o, z0 - e - o, z0 - e], [x0 - e - o, x1 + e + o, z1 + e, z1 + e + o], [x0 - e - o, x0 - e, z0 - e, z1 + e], [x1 + e, x1 + e + o, z0 - e, z1 + e]]) pbox(a, b, y, y + 0.0015, c0, d, INK, 1);
+  // a drainer to the right on the steel ones: a plate with grooves running into the bowl
+  if (g === 1 || g === 2) {
+    const d0 = x1 + 0.02, d1 = Math.min(x1 + 0.4, c.p.w / 2 - 0.05);
+    if (d1 - d0 > 0.15) {
+      pbox(d0, d1, y, y + 0.005, z0 - 0.02, z1 + 0.02, body, 1, null, METAL);
+      for (let i = 1; i < 7; i++) { const zz = z0 + i * bd / 7; pbox(d0 + 0.02, d1 - 0.03, y + 0.005, y + 0.0058, zz - 0.003, zz + 0.003, '#6a6e74', 0.9, null, METAL); }
+      pbox(d0, d1 + 0.004, y, y + 0.0015, z1 + 0.02, z1 + 0.024, INK, 1);
+    }
+  }
+}
+
+// a slum sink's taps: two pillars with cross heads, one dripping
+function pillarTaps(c, x, y, z) {
+  const { F } = c;
+  for (const dx of [-0.08, 0.08]) {
+    c.lat(x + dx, z, [[0.02, y], [0.016, y + 0.01], [0.012, y + 0.1], [0, y + 0.1]], '#b8b4a8', 0.95, 8, METAL);
+    c.rod(F.P(x + dx, y + 0.08, z), F.P(x + dx, y + 0.07, z + 0.07), 0.009, '#b8b4a8', 0.95);
+    c.rod(F.P(x + dx - 0.03, y + 0.11, z), F.P(x + dx + 0.03, y + 0.11, z), 0.006, '#d8d4c8', 1);
+    c.rod(F.P(x + dx, y + 0.11, z - 0.03), F.P(x + dx, y + 0.11, z + 0.03), 0.006, '#d8d4c8', 1);
+  }
 }
 
 // Bottles in a row on a shelf at `y`, from x0 to x1, each its own height and glass.
@@ -216,6 +345,41 @@ const FORMS = {
     c.K.quad(c.K.glass, [P(-hw + 0.03, 0.1, hd - 0.012), P(hw - 0.03, 0.1, hd - 0.012), P(hw - 0.03, h - 0.05, hd - 0.012), P(-hw + 0.03, h - 0.05, hd - 0.012)], N(0, 0, 1), [0.8, 0.86, 0.9], GLOSS, null, true);
     c.rod(P(-0.04, 1.0, hd + 0.01), P(-0.04, 1.22, hd + 0.01), 0.006, '#c9a24a', 1.05);
   },
+  humidor(c) {
+    // a climate case: graphite frame, cedar inside, smoked glass, racks of cigars lying
+    // nose-out under cool light strips, a lit hygrometer readout and a card slot by the handle
+    const { F, p, r } = c, { pbox, N, P } = F, hw = p.w / 2, hd = p.d / 2, h = p.h;
+    const frame = '#1e2024', cedar = '#9a5a34', slat = '#b06a3e';
+    pbox(-hw, hw, 0, 0.12, -hd, hd, frame, 0.85, null, METAL);
+    pbox(-hw, hw, h - 0.07, h, -hd, hd, frame, 0.9, null, METAL);
+    pbox(-hw, -hw + 0.035, 0.12, h - 0.07, -hd, hd, frame, 0.9, null, METAL);
+    pbox(hw - 0.035, hw, 0.12, h - 0.07, -hd, hd, frame, 0.9, null, METAL);
+    pbox(-hw + 0.035, hw - 0.035, 0.12, h - 0.07, -hd, -hd + 0.02, cedar, 0.85, null, SATIN);
+    pbox(-hw + 0.035, -hw + 0.05, 0.12, h - 0.07, -hd + 0.02, hd - 0.03, cedar, 0.85, null, SATIN);
+    pbox(hw - 0.05, hw - 0.035, 0.12, h - 0.07, -hd + 0.02, hd - 0.03, cedar, 0.85, null, SATIN);
+    const racks = 5, x0 = -hw + 0.07, x1 = hw - 0.07;
+    for (let i = 0; i < racks; i++) {
+      const y = 0.2 + i * (h - 0.36) / racks;
+      pbox(-hw + 0.05, hw - 0.05, y - 0.012, y, -hd + 0.02, hd - 0.04, slat, 0.95, null, SATIN);
+      pbox(-hw + 0.05, hw - 0.05, y + 0.17, y + 0.174, -hd + 0.03, hd - 0.05, '#cfe8ff', 1.7);
+      const n = Math.max(6, Math.round((x1 - x0) / 0.032));
+      for (let row = 0; row < 2; row++) {
+        const cy = y + 0.012 + row * 0.022;
+        for (let k = 0; k < n; k++) {
+          if (r() < 0.08) continue;
+          const x = x0 + (k + 0.5 + row * 0.5) * (x1 - x0) / (n + 0.5), col = pick(r, ['#4a2a18', '#5a3420', '#3a2014', '#6a3e22']);
+          c.rod(P(x, cy, -hd + 0.06), P(x, cy, hd - 0.08), 0.0105, col, 1, MATTE, 6);
+          c.rod(P(x, cy, hd - 0.14), P(x, cy, hd - 0.12), 0.0112, i % 2 ? '#c9a24a' : '#18181a', 1.05, METAL, 6);
+        }
+      }
+    }
+    c.K.quad(c.K.glass, [P(-hw + 0.035, 0.12, hd - 0.012), P(hw - 0.035, 0.12, hd - 0.012), P(hw - 0.035, h - 0.07, hd - 0.012), P(-hw + 0.035, h - 0.07, hd - 0.012)], N(0, 0, 1), [0.42, 0.46, 0.5], GLOSS, null, true);
+    c.rod(P(hw - 0.08, 0.7, hd + 0.012), P(hw - 0.08, 1.12, hd + 0.012), 0.007, '#c8ccd0', 1.05, METAL);
+    pbox(-hw + 0.1, -hw + 0.3, h - 0.06, h - 0.02, hd - 0.004, hd + 0.004, '#0a0c10', 1, null, GLOSS);
+    pbox(-hw + 0.12, -hw + 0.22, h - 0.05, h - 0.03, hd + 0.004, hd + 0.006, '#7ad8ff', 1.9);
+    pbox(hw - 0.06, hw - 0.01, 0.5, 0.62, hd - 0.004, hd + 0.01, '#101216', 1, null, METAL);
+    pbox(hw - 0.05, hw - 0.02, 0.6, 0.605, hd + 0.01, hd + 0.012, '#5aff9a', 1.8);
+  },
   rack(c) {
     // a wire plate rack on the wall: two rails of bars with plates stood in it
     const { F, p, r } = c, hw = p.w / 2, hd = p.d / 2, y0 = HUNG_AT, y1 = y0 + p.h;
@@ -282,9 +446,11 @@ const FORMS = {
   // ── kitchen ───────────────────────────────────────────────────────────────────────────────────
   kitchen(c) {
     // a sink in a run of base units: a bowl at the left, a tap behind it, the worktop clear to the right
-    const { p } = c, hw = p.w / 2, top = baseRun(c, p.h), x = -hw + 0.34;
-    bowl(c, x, 0.03, 0.42, 0.36, top, 0.16);
-    tap(c, x, top, -p.d / 2 + 0.1, 0.17);
+    const { p } = c, hw = p.w / 2, g = kitchenGrade(c), x = -hw + 0.34, bw = 0.42, bd = 0.36, z = 0.03;
+    const top = baseRun(c, p.h, { grade: g, hole: [x - bw / 2, x + bw / 2, z - bd / 2, z + bd / 2] });
+    sinkIn(c, g, x, z, bw, bd, top);
+    if (g === 0) pillarTaps(c, x, top, -p.d / 2 + 0.06);
+    else tap(c, x, top, -p.d / 2 + 0.07, g === 3 ? 0.22 : 0.17, g === 3 ? '#2a2c30' : '#c8ccd0');
     if (!c.fine) {
       // a cloth over the tap's neck and a bottle of washing-up liquid
       c.lat(x + 0.3, -p.d / 2 + 0.12, [[0, top], [0.03, top], [0.03, top + 0.15], [0.012, top + 0.19], [0, top + 0.19]], c.pick(['#3aa84a', '#d8a83a', '#2a6ad8']), 0.95, 10, GLOSS);
@@ -348,14 +514,17 @@ const FORMS = {
   bar(c) {
     // a bar you stand at: a reeded oak front under a slab that comes down both ends to the floor, a
     // brass rail for your foot, a line of light under the lip. Its front faces whoever's drinking
-    const { F, p, r } = c, { pbox, P } = F, hw = p.w / 2, hd = p.d / 2, h = p.h, oak = { t: 'roomOak', c: '#6a4a30' }, slab = c.fine ? { t: 'roomStone', c: '#e0dcd2' } : { t: 'roomConcrete', c: '#b8b4ac' }, brass = '#b8923e';
+    // In a club (spec.club) it's chipped black laminate with red light under the lip and a chrome rail
+    const { F, p, r } = c, { pbox, P } = F, hw = p.w / 2, hd = p.d / 2, h = p.h, club = !!c.L?.spec?.club;
+    const oak = club ? null : { t: 'roomOak', c: '#6a4a30' }, front = club ? '#141216' : '#4a3020', slab = club ? null : c.fine ? { t: 'roomStone', c: '#e0dcd2' } : { t: 'roomConcrete', c: '#b8b4ac' }, slabC = club ? '#1c1a1e' : '#ffffff', brass = club ? '#c8ccd0' : '#b8923e';
     pbox(-hw + 0.08, hw - 0.08, 0, 0.1, -hd + 0.04, hd - 0.14, '#101012', 0.9);
-    pbox(-hw + 0.06, hw - 0.06, 0.1, h - 0.05, -hd + 0.04, hd - 0.1, '#4a3020', 0.9, oak, SATIN);
+    pbox(-hw + 0.06, hw - 0.06, 0.1, h - 0.05, -hd + 0.04, hd - 0.1, front, 0.9, oak, SATIN);
     const n = Math.round((p.w - 0.12) / 0.075);
-    for (let i = 0; i < n; i++) { const x0 = -hw + 0.06 + i * (p.w - 0.12) / n, x1 = x0 + (p.w - 0.12) / n - 0.012; pbox(x0, x1, 0.1, h - 0.05, hd - 0.1, hd - 0.075, '#4a3020', 1, oak, SATIN); }
-    for (const x of [-hw, hw - 0.06]) pbox(x, x + 0.06, 0, h - 0.05, -hd, hd, '#ffffff', 1, slab, SATIN);
-    pbox(-hw, hw, h - 0.05, h, -hd, hd, '#ffffff', 1, slab, SATIN);
-    pbox(-hw + 0.08, hw - 0.08, h - 0.072, h - 0.056, hd - 0.075, hd - 0.05, '#ffd9a0', 1.5);
+    for (let i = 0; i < n; i++) { const x0 = -hw + 0.06 + i * (p.w - 0.12) / n, x1 = x0 + (p.w - 0.12) / n - 0.012; pbox(x0, x1, 0.1, h - 0.05, hd - 0.1, hd - 0.075, front, 1, oak, club ? GLOSS : SATIN); }
+    for (const x of [-hw, hw - 0.06]) pbox(x, x + 0.06, 0, h - 0.05, -hd, hd, slabC, 1, slab, SATIN);
+    pbox(-hw, hw, h - 0.05, h, -hd, hd, slabC, 1, slab, club ? GLOSS : SATIN);
+    pbox(-hw + 0.08, hw - 0.08, h - 0.072, h - 0.056, hd - 0.075, hd - 0.05, club ? '#ff2a4a' : '#ffd9a0', club ? 1.8 : 1.5);
+    if (club) for (let i = 0; i < 5; i++) { const x = -hw + 0.2 + r() * (p.w - 0.4); pbox(x - 0.06, x + 0.06, h - 0.04, h + 0.001, hd - 0.01, hd + 0.001, '#5a5660', 0.9, null, MATTE); }
     c.rod(P(-hw + 0.1, 0.2, hd - 0.03), P(hw - 0.1, 0.2, hd - 0.03), 0.015, brass, 1.05);
     for (const x of [-hw + 0.3, 0, hw - 0.3]) c.rod(P(x, 0.2, hd - 0.03), P(x, 0.2, hd - 0.09), 0.01, brass, 1.05);
     // a decanter of something amber and two tumblers
@@ -363,6 +532,51 @@ const FORMS = {
     c.lat(dx, 0.02, [[0, h], [0.075, h], [0.085, h + 0.06], [0.07, h + 0.15], [0.026, h + 0.19], [0.024, h + 0.25], [0.032, h + 0.26], [0, h + 0.27]], '#a8641a', 1, 12, GLOSS);
     c.lat(dx, 0.02, [[0, h + 0.27], [0.024, h + 0.27], [0.024, h + 0.3], [0, h + 0.31]], '#dfe6e8', 1, 8, GLOSS);
     for (const [x, z] of [[dx + 0.26, 0.1], [dx + 0.44, -0.04]]) c.lat(x, z, [[0, h], [0.04, h], [0.044, h + 0.09], [0.04, h + 0.09], [0.036, h + 0.016], [0, h + 0.016]], '#dfe6e8', 1, 12, GLOSS);
+  },
+  // ── a club ─────────────────────────────────────────────────────────────────────────────────────
+  stage(c) {
+    // a dancer's stage: a block of scuffed acrylic lit red from inside, a black lip round its top, a
+    // line of light along its front foot and one chrome pole at the middle of its front half
+    const { F, p } = c, { pbox, P } = F, hw = p.w / 2, hd = p.d / 2, h = p.h;
+    pbox(-hw, hw, 0, h - 0.05, -hd, hd, '#7a1022', 1.25, null, GLOSS);
+    pbox(-hw, hw, h - 0.05, h, -hd, hd, '#c02038', 1.35, null, GLOSS);
+    pbox(-hw, hw, h - 0.02, h + 0.01, hd - 0.05, hd, '#101012', 0.9, null, GLOSS);
+    pbox(-hw, hw, 0, 0.03, hd, hd + 0.01, '#ff3a5a', 1.6);
+    for (let i = 0; i < 9; i++) { const x = -hw + 0.3 + c.r() * (p.w - 0.6), z = -hd + 0.2 + c.r() * (p.d - 0.4); pbox(x - 0.25, x + 0.25, h + 0.001, h + 0.003, z - 0.004, z + 0.004, '#e8c8d0', 0.8, null, MATTE); }
+    c.rod(P(0, h, hd * 0.2), P(0, h + 3.1, hd * 0.2), 0.024, '#dfe2e6', 1.2, METAL, 10);
+  },
+  runway(c) {
+    // the stage carried on out into the room: where the floor's under it, a block like the stage;
+    // where a pit's under it, a slab on chrome legs, so whoever's down there sits under the dancer.
+    // A pole at its tip
+    const { F, p } = c, { pbox, P } = F, hw = p.w / 2, hd = p.d / 2, h = p.h, S = c.L?.spec, t = 0.14;
+    const below = (z) => { const [u, v] = P(0, 0, z), q = S?.pit; if (!q?.round) return 0; const d = Math.hypot(u - q.cu, v - q.cv); return d >= q.r ? 0 : d < q.r - q.step ? -q.depth : -q.depth / 2; };
+    const n = Math.max(2, Math.round(p.d / 0.25));
+    for (let i = 0; i < n; i++) {
+      const z0 = -hd + i * p.d / n, z1 = z0 + p.d / n, y = below((z0 + z1) / 2);
+      if (y === 0) pbox(-hw, hw, 0, h - t, z0, z1, '#7a1022', 1.25, null, GLOSS);
+      else if (i % 3 === 0) for (const x of [-hw + 0.1, hw - 0.1]) c.rod(P(x, y, (z0 + z1) / 2), P(x, h - t, (z0 + z1) / 2), 0.035, '#dfe2e6', 1.15, METAL, 8);
+    }
+    pbox(-hw, hw, h - t, h, -hd, hd, '#c02038', 1.35, null, GLOSS);
+    pbox(-hw - 0.01, hw + 0.01, h - t - 0.02, h - t, -hd, hd, '#ff3a5a', 1.6);
+    c.rod(P(0, h, hd - 0.35), P(0, h + 3.1, hd - 0.35), 0.024, '#dfe2e6', 1.2, METAL, 10);
+  },
+  banquette(c) {
+    // a ring of red vinyl round the wall of a round pit, its back against the riser, open at the
+    // front for the way in. Drawn round the piece's middle in short straight runs
+    const { F, p, r } = c, { P, N } = F, R = p.w / 2, gap = 50 * Math.PI / 180, n = 48, seatD = 0.6, sy = 0.44, back = 0.95;
+    const vinyl = pick(r, ['#8a1424', '#7a1a2a']);
+    for (let i = 0; i < n; i++) {
+      const a0 = gap / 2 + i * (2 * Math.PI - gap) / n, a1 = gap / 2 + (i + 1) * (2 * Math.PI - gap) / n;
+      const ring = (rad, y, a) => P(Math.sin(a) * rad, y, Math.cos(a) * rad);
+      const am = (a0 + a1) / 2, inward = N(-Math.sin(am), 0, -Math.cos(am)), lean = N(-Math.sin(am) * 0.95, 0.3, -Math.cos(am) * 0.95);
+      const ps = (r0, r1, y) => [ring(r0, y, a0), ring(r0, y, a1), ring(r1, y, a1), ring(r1, y, a0)];
+      // the seat's top, its front, and the back's face toward the pit
+      c.K.quad(c.K.solid, ps(R - seatD, R, sy), N(0, 1, 0), c.K.C(vinyl, c.tired(1)), LEATHER);
+      c.K.quad(c.K.solid, [ring(R - seatD, 0, a0), ring(R - seatD, 0, a1), ring(R - seatD, sy, a1), ring(R - seatD, sy, a0)], inward, c.K.C('#3a0a12', 0.9), LEATHER);
+      c.K.quad(c.K.solid, [ring(R - 0.18, sy, a0), ring(R - 0.18, sy, a1), ring(R - 0.18, back, a1), ring(R - 0.18, back, a0)], lean, c.K.C(vinyl, c.tired(0.92)), LEATHER);
+      if (i % 6 === 3 && c.wear > 0.3) c.K.quad(c.K.solid, ps(R - 0.42, R - 0.3, sy + 0.003), N(0, 1, 0), c.K.C('#c8b890', 0.9), CLOTH);
+    }
   },
   hearth(c) {
     // a fireplace: a chimney breast of honed black stone up to the height of the piece, standing on its
@@ -374,34 +588,63 @@ const FORMS = {
     pbox(ox, hw, kerb, y1, -hd, zf, '#ffffff', 1, rock, SATIN);
     pbox(-ox, ox, kerb, y0, -hd, zf, '#ffffff', 1, rock, SATIN);
     pbox(-hw, hw, y1, h, -hd, zf, '#ffffff', 1, rock, SATIN);
+    // a gas firebox: black ribbed liner, a steel burner trough, a bed of coals with three logs on it
     pbox(-ox, ox, y0, y1, -hd, back, '#0c0c0e', 0.9, null, MATTE);
     pbox(-ox, ox, y1 - 0.02, y1, back, zf - 0.02, '#141416', 0.9, null, MATTE);
-    // a bed of stones, and the embers showing through them
-    pbox(-ox + 0.03, ox - 0.03, y0, y0 + 0.03, back, zf - 0.04, '#1c1c1e', 0.9, null, MATTE);
-    pbox(-ox + 0.08, ox - 0.08, y0 + 0.03, y0 + 0.04, back + 0.08, zf - 0.1, '#ff5a1a', 1.5);
-    // two sheets of flame, one behind the other, so it has some depth as you walk past. Their uv is 0..1 up
-    // and across, plus a whole number for which sheet it is, so the two don't burn alike
-    const { P, N } = F, base = y0 + 0.03, top = y1 - 0.03;
-    [[(back + zf) / 2 - 0.08, 0], [(back + zf) / 2 + 0.06, 2]].forEach(([z, i]) => {
-      c.K.quad(c.K.glass, [P(-ox + 0.04, base, z), P(ox - 0.04, base, z), P(ox - 0.04, top, z), P(-ox + 0.04, top, z)], N(0, 0, 1), [1, 1, 1], FIRE, [[i, 0], [i + 1, 0], [i + 1, 1], [i, 1]], true);
-    });
+    for (let i = 1; i < 6; i++) { const y = y0 + (y1 - y0) * i / 6; pbox(-ox + 0.01, ox - 0.01, y - 0.006, y + 0.006, back, back + 0.008, '#1a1a1d', 0.9, null, SATIN); }
+    pbox(-ox + 0.01, ox - 0.01, y0, y0 + 0.05, back, zf - 0.02, '#16161a', 0.9, null, METAL);
+    const mid = (back + zf) / 2;
+    pbox(-ox + 0.06, ox - 0.06, y0 + 0.05, y0 + 0.062, mid - 0.025, mid + 0.025, '#5a5c60', 1, null, METAL);
+    // the coals: one flat sheet the renderer heats with the dial (FIRE, sheet 8), and no stones
+    const { P, N } = F, bed = y0 + 0.05;
+    c.K.quad(c.K.glass, [P(-ox + 0.05, bed + 0.014, mid + 0.13), P(ox - 0.05, bed + 0.014, mid + 0.13), P(ox - 0.05, bed + 0.014, mid - 0.13), P(-ox + 0.05, bed + 0.014, mid - 0.13)], N(0, 1, 0), [1, 1, 1], FIRE, [[8, 0], [9, 0], [9, 1], [8, 1]], true);
+    // three charred logs, two along the burner and a shorter one across the top of them, each with
+    // paler sawn ends and a split or two burnt red
+    const CHAR = '#1c1410', END = '#4a3222', SPLIT = '#8a200a';
+    for (const [x0, x1, ya, yb, z0, z1] of [[-ox + 0.08, ox - 0.12, bed + 0.014, bed + 0.1, mid - 0.115, mid - 0.03], [-ox + 0.13, ox - 0.07, bed + 0.014, bed + 0.09, mid + 0.04, mid + 0.115], [-ox + 0.2, ox - 0.24, bed + 0.092, bed + 0.165, mid - 0.05, mid + 0.03]]) {
+      pbox(x0, x1, ya, yb, z0, z1, CHAR, 1, null, MATTE);
+      pbox(x0 - 0.004, x0, ya + 0.008, yb - 0.008, z0 + 0.008, z1 - 0.008, END, 1, null, MATTE);
+      pbox(x1, x1 + 0.004, ya + 0.008, yb - 0.008, z0 + 0.008, z1 - 0.008, END, 1, null, MATTE);
+      for (let i = 0; i < 3; i++) { const x = x0 + (x1 - x0) * (0.15 + 0.3 * i + r() * 0.1), y = ya + (yb - ya) * (0.3 + r() * 0.4); pbox(x, x + 0.05 + r() * 0.06, y, y + 0.008, z1, z1 + 0.002, SPLIT, 1, null, MATTE); }
+    }
+    // a pilot hood at the left of the burner
+    pbox(-ox + 0.04, -ox + 0.1, bed, bed + 0.035, mid - 0.02, mid + 0.02, '#8a8c90', 1, null, METAL);
+    // the sheets of flame (FIRE), and a glow sheet on the liner behind them. Their uv is 0..1 up and
+    // across plus twice the sheet: 4 is the glow; 0, 2 and 10 to 16 are flames (gl/room-sky.js). Six
+    // flames at different depths, two of them crossed on the slant, so the fire has a body you can walk
+    // round and the cels slide past each other as your head moves. Drawn back to front, since glass
+    // writes no depth
+    const base = bed + 0.01, top = y1 - 0.03, sheet = (pts, i) => c.K.quad(c.K.glass, pts, N(0, 0, 1), [1, 1, 1], FIRE, [[i, 0], [i + 1, 0], [i + 1, 1], [i, 1]], true);
+    const flat = (z, i, b, xa = -ox + 0.04, xb = ox - 0.04) => sheet([P(xa, b, z), P(xb, b, z), P(xb, top, z), P(xa, top, z)], i);
+    flat(back + 0.012, 4, base - 0.05);
+    flat(mid - 0.1, 10, base, -ox + 0.06, ox - 0.06);
+    sheet([P(-ox + 0.06, base, mid + 0.07), P(0.04, base, mid - 0.08), P(0.04, top, mid - 0.08), P(-ox + 0.06, top, mid + 0.07)], 12);
+    sheet([P(-0.04, base, mid - 0.08), P(ox - 0.06, base, mid + 0.07), P(ox - 0.06, top, mid + 0.07), P(-0.04, top, mid - 0.08)], 14);
+    flat(mid - 0.03, 0, base);
+    flat(mid + 0.035, 2, base);
+    flat(mid + 0.1, 16, base, -ox + 0.1, ox - 0.1);
+    // the glass front, a faint pane in the reveal
+    c.K.quad(c.K.glass, [P(-ox, y0, zf - 0.004), P(ox, y0, zf - 0.004), P(ox, y1, zf - 0.004), P(-ox, y1, zf - 0.004)], N(0, 0, 1), [0.06, 0.06, 0.07], FIRE, [[6, 0], [7, 0], [7, 1], [6, 1]], true);
     // a thin bronze reveal round the opening
     for (const q of [[-ox - 0.012, -ox, y0, y1], [ox, ox + 0.012, y0, y1], [-ox, ox, y1 - 0.012, y1], [-ox, ox, y0, y0 + 0.012]]) pbox(q[0], q[1], q[2], q[3], zf, zf + 0.006, '#8a6a3e', 1, null, METAL);
+    // its dial, on the stone to the right of the opening
+    fireDial(c.K, F, p.id, (ox + hw) / 2, Math.min(y1 - 0.14, 0.95), zf, Math.min(1.25, (hw - ox) / 0.24));
   },
   barwall(c) {
     // a bar wall: a walnut cabinet to the worktop, then glass shelves of bottles lit from behind.
     // What it hides is nobody's business here: a concealed piece isn't in the payload until it's found
-    const { F, p, r } = c, { pbox } = F, hw = p.w / 2, hd = p.d / 2, h = p.h, wal = { t: 'roomOak', c: '#6a4a30' };
+    // In a club (spec.club) the cabinet's black, and the shelves are lit red from behind
+    const { F, p, r } = c, { pbox } = F, hw = p.w / 2, hd = p.d / 2, h = p.h, club = !!c.L?.spec?.club, wal = club ? null : { t: 'roomOak', c: '#6a4a30' }, cab = club ? '#16141a' : '#4a3020';
     pbox(-hw, hw, 0, 0.08, -hd, hd - 0.06, '#101012', 0.9);
-    pbox(-hw, hw, 0.08, 0.92, -hd, hd - 0.02, '#4a3020', 0.9, wal, SATIN);
+    pbox(-hw, hw, 0.08, 0.92, -hd, hd - 0.02, cab, 0.9, wal, SATIN);
     const n = Math.max(2, Math.round(p.w / 0.55));
-    for (let i = 0; i < n; i++) { const x0 = -hw + 0.006 + i * p.w / n, x1 = x0 + p.w / n - 0.012; pbox(x0, x1, 0.09, 0.91, hd - 0.02, hd - 0.004, '#4a3020', 1, wal, SATIN); }
-    pbox(-hw - 0.01, hw + 0.01, 0.92, 0.96, -hd, hd + 0.01, '#8a8c8e', 1, STONE, GLOSS);
-    pbox(-hw, hw, 0.96, h, -hd, -hd + 0.03, '#2a2018', 0.9, null, SATIN);
-    pbox(-hw + 0.05, hw - 0.05, 1.0, h - 0.1, -hd + 0.03, -hd + 0.034, '#e8b070', 1.5);
-    pbox(-hw, -hw + 0.04, 0.96, h, -hd, hd - 0.1, '#4a3020', 1, wal, SATIN);
-    pbox(hw - 0.04, hw, 0.96, h, -hd, hd - 0.1, '#4a3020', 1, wal, SATIN);
-    pbox(-hw, hw, h - 0.06, h, -hd, hd - 0.1, '#4a3020', 1, wal, SATIN);
+    for (let i = 0; i < n; i++) { const x0 = -hw + 0.006 + i * p.w / n, x1 = x0 + p.w / n - 0.012; pbox(x0, x1, 0.09, 0.91, hd - 0.02, hd - 0.004, cab, 1, wal, SATIN); }
+    pbox(-hw - 0.01, hw + 0.01, 0.92, 0.96, -hd, hd + 0.01, club ? '#2a282c' : '#8a8c8e', 1, club ? null : STONE, GLOSS);
+    pbox(-hw, hw, 0.96, h, -hd, -hd + 0.03, club ? '#1a0a10' : '#2a2018', 0.9, null, SATIN);
+    pbox(-hw + 0.05, hw - 0.05, 1.0, h - 0.1, -hd + 0.03, -hd + 0.034, club ? '#ff3050' : '#e8b070', 1.5);
+    pbox(-hw, -hw + 0.04, 0.96, h, -hd, hd - 0.1, cab, 1, wal, SATIN);
+    pbox(hw - 0.04, hw, 0.96, h, -hd, hd - 0.1, cab, 1, wal, SATIN);
+    pbox(-hw, hw, h - 0.06, h, -hd, hd - 0.1, cab, 1, wal, SATIN);
     for (const y of [1.22, 1.56, 1.9]) {
       pbox(-hw + 0.04, hw - 0.04, y - 0.01, y, -hd + 0.03, hd - 0.12, '#dfe6e8', 0.85, null, GLOSS);
       bottles(c, -hw + 0.1, hw - 0.1, y, -0.02, Math.round(p.w / 0.16 + r() * 3));
@@ -553,6 +796,29 @@ const FORMS = {
     if (c.wear > 0.3) for (let i = 0; i < 3; i++) { const x = (r() - 0.5) * p.w * 0.7, z = (r() - 0.5) * p.d * 0.6; c.lat(x, z, [[0.035, h + 0.0006], [0.042, h + 0.0006]], '#2a2018', 0.7, 16, MATTE); }
     // a couple of books
     pbox(-hw * 0.5, -hw * 0.5 + 0.22, h, h + 0.03, -0.06, 0.1, c.pick(['#7a2a24', '#2a3a4a', '#c8b48a']), 0.95, null, MATTE);
+  },
+  lacquer(c) {
+    // a lacquered stash box: a black gloss body with a brass line round its waist, grey foam inside cut
+    // to four slots, and what's in them. The lid is gl/room-stash.js's, hinged at the back, so it can open.
+    const y = c.p.rise || 0, { F, p } = c, { pbox, P } = F, hw = p.w / 2, hd = p.d / 2, h = p.h * LACQUER_BODY;
+    const black = '#0c0b0d', wall = 0.012;
+    pbox(-hw, hw, y, y + 0.006, -hd, hd, black, 1, null, GLOSS);
+    pbox(-hw, hw, y + 0.006, y + h, -hd, -hd + wall, black, 1, null, GLOSS);
+    pbox(-hw, hw, y + 0.006, y + h, hd - wall, hd, black, 1, null, GLOSS);
+    pbox(-hw, -hw + wall, y + 0.006, y + h, -hd + wall, hd - wall, black, 1, null, GLOSS);
+    pbox(hw - wall, hw, y + 0.006, y + h, -hd + wall, hd - wall, black, 1, null, GLOSS);
+    pbox(-hw - 0.0008, hw + 0.0008, y + h * 0.5, y + h * 0.5 + 0.003, -hd - 0.0008, hd + 0.0008, '#b8924a', 1.05, null, METAL);
+    // the foam, a little below the rim, and its four slots each with its own thing in
+    const fy = y + h - 0.016;
+    pbox(-hw + wall, hw - wall, y + 0.006, fy, -hd + wall, hd - wall, '#2e2f33', 0.9, null, MATTE);
+    const slots = [['#e8e4f0', '#5a2a8a'], ['#d82a2a', '#2a2a2e'], ['#c8d8e0', '#2a8a9a'], ['#3a6ad8', '#e8e8f0']];
+    slots.forEach(([glass, cap], i) => {
+      const x = -hw + wall + (i + 0.5) * (p.w - 2 * wall) / 4;
+      pbox(x - 0.03, x + 0.03, fy - 0.012, fy - 0.011, -hd + 0.03, hd - 0.03, '#141416', 1, null, MATTE);
+      if (i === 3) { for (let k = 0; k < 5; k++) c.lat(x - 0.012 + (k % 2) * 0.024, -0.06 + k * 0.03, [[0, fy - 0.011], [0.008, fy - 0.011], [0.008, fy - 0.006], [0, fy - 0.005]], glass, 1.1, 10, GLOSS); return; }
+      c.rod(P(x, fy - 0.004, -hd + 0.045), P(x, fy - 0.004, hd - 0.075), 0.011, glass, 1.15, GLOSS, 10);
+      c.rod(P(x, fy - 0.004, hd - 0.075), P(x, fy - 0.004, hd - 0.045), 0.012, cap, 1, METAL, 10);
+    });
   },
   dining(c) {
     // a table to eat at: a heavy top on two trestle ends

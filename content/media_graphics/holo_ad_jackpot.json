@@ -1,0 +1,12 @@
+{
+  "content": "{\n \"brand\": \"JACKPOT PROTOCOL\",\n \"line\": \"The city's biggest night.\",\n \"small\": \"LIVE ON KSAB\",\n \"color\": \"#ffd23f\",\n \"accent\": \"#fff3b0\",\n \"face\": \"block\",\n \"motif\": \"burst\",\n \"weight\": 1\n}",
+  "created_at": "1794182400",
+  "description": "Hologram advert: Jackpot Protocol. Baked to the client by npm run holoads:bake.",
+  "id": "holo_ad_jackpot",
+  "name": "Holo ad: Jackpot Protocol",
+  "tags": [
+    "holo_ad"
+  ],
+  "type": "holo_ad",
+  "updated_at": "1794182400"
+}

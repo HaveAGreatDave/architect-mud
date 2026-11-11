@@ -2,8 +2,9 @@
   "ambient_events": [],
   "ambient_theme": "indoors",
   "bg_color": "#221e2c",
-  "description": "KSAB5's live stage: a curved sports desk in front of a screen the width of the room, three cameras on pedestals and a lighting grid hung low. The floor is green vinyl painted with a centre line. Two chairs behind the desk, and a third the guest gets, which is shorter. Stairs go up to production.",
+  "description": "KSAB5's live stage: a curved sports desk in front of a screen the width of the room, three cameras on pedestals and a lighting grid hung low. The floor is green vinyl painted with a centre line. Two chairs behind the desk, and a third the guest gets, which is shorter. Stairs go up to production. The booth is through the east door.",
   "exits": {
+    "east": "zone_ksab5_booth",
     "up": "zone_ksab5_prod",
     "west": "zone_ksab_lobby"
   },

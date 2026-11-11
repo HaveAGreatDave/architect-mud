@@ -142,4 +142,19 @@ export default async function regress({ run, check, getPlayer }) {
   check('freelook: the open carries a contact list', Array.isArray(pay.contacts), JSON.stringify(Object.keys(pay)));
   check('freelook: …and the region list the colour grade reads', Array.isArray(pay.regions) && pay.regions.length > 0);
   check('freelook: …and the highway past the window, null or not, but present', 'roads' in pay);
+
+  // ── The Under ──
+  // GLASS draws nothing below the street, so `freelook under` ships the tile graph instead. An
+  // empty list would open a black pane with nothing on it.
+  const under = _test.underTiles();
+  check('freelook under: the sewer layer has tiles', under.length > 0, String(under.length));
+  check('freelook under: …each with coordinates and an exit string',
+    under.every((t) => Number.isFinite(t.x) && Number.isFinite(t.y) && typeof t.e === 'string'));
+  // The Long Watch's base hangs off the Watch Threshold's east exit. It comes along as an annex,
+  // and that exit must not ALSO read as a sewer tunnel to the Drain Sump that shares the next square.
+  const annexes = _test.underAnnexes();
+  const lw = annexes.find((x) => x.rooms.some((r) => r.id === 'zone_lw_entry'));
+  check('freelook under: the Long Watch base comes as an annex', !!lw, JSON.stringify(annexes.map((x) => x.map)));
+  const thresh = under.find((t) => t.id === 'zone_under_watchthresh');
+  if (thresh) check('freelook under: …and its door is not a sewer tunnel', !thresh.e.includes('E'), thresh.e);
 }

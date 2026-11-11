@@ -114,7 +114,7 @@
         },
         "duration_s": 6,
         "graphic_id": "",
-        "next": "bsm_108",
+        "next": "ndx_cam_107",
         "overlayType": "lower_third",
         "subtext": "DAY",
         "text": "THE ASHWAY, CIVIC HALL",
@@ -227,7 +227,7 @@
         },
         "duration_s": 6,
         "graphic_id": "",
-        "next": "bsm_118",
+        "next": "ndx_cam_117",
         "overlayType": "lower_third",
         "subtext": "NIGHT",
         "text": "THE ASHWAY, DYNAMO HOUSE, NORVAL'S ROOM",
@@ -238,7 +238,7 @@
           "x": 740,
           "y": 3760
         },
-        "next": "bsm_119",
+        "next": "ndx_vote_teo",
         "style": "narration",
         "text": "Norval, on the floor, with a tin of paint and a stack of salvaged card, making posters. Each one says VOTE TEO in careful hand-drawn letters. He has done nineteen of them. He isn't tired.",
         "type": "say"
@@ -270,7 +270,7 @@
         },
         "duration_s": 6,
         "graphic_id": "",
-        "next": "bsm_121",
+        "next": "ndx_cam_120",
         "overlayType": "lower_third",
         "subtext": "DAY",
         "text": "THE ASHWAY, BLOCK ROAD",
@@ -337,7 +337,7 @@
         },
         "duration_s": 6,
         "graphic_id": "",
-        "next": "bsm_127",
+        "next": "ndx_cam_126",
         "overlayType": "lower_third",
         "subtext": "DAY",
         "text": "THE ASHWAY, CIVIC HALL",
@@ -460,7 +460,7 @@
         },
         "duration_s": 6,
         "graphic_id": "",
-        "next": "bsm_138",
+        "next": "ndx_cam_137",
         "overlayType": "lower_third",
         "subtext": "CONTINUOUS",
         "text": "THE ASHWAY, CIVIC HALL",
@@ -501,7 +501,7 @@
           "x": 80,
           "y": 4560
         },
-        "next": "bsm_141",
+        "next": "ndx_cam_dance",
         "style": "narration",
         "text": "Norval walks to the middle of the stage and stands there long enough that two people start to leave.",
         "type": "say"
@@ -587,7 +587,7 @@
         },
         "duration_s": 6,
         "graphic_id": "",
-        "next": "bsm_149",
+        "next": "ndx_cam_148",
         "overlayType": "lower_third",
         "subtext": "NEXT DAY",
         "text": "THE ASHWAY, CIVIC HALL, NOTICEBOARD",
@@ -598,7 +598,7 @@
           "x": 960,
           "y": 4720
         },
-        "next": "bsm_150",
+        "next": "ndx_result",
         "style": "narration",
         "text": "The result sheet. TEO SANDOVAL, 88. SUMMER OSTRAND, 31.",
         "type": "say"
@@ -660,7 +660,7 @@
         },
         "duration_s": 6,
         "graphic_id": "",
-        "next": "bsm_155",
+        "next": "ndx_cam_154",
         "overlayType": "lower_third",
         "subtext": "DAY",
         "text": "DYNAMO HOUSE, YARD",
@@ -723,7 +723,7 @@
         },
         "duration_s": 6,
         "graphic_id": "",
-        "next": "bsm_17",
+        "next": "ndx_cam_16",
         "overlayType": "lower_third",
         "subtext": "LATER",
         "text": "THE ASHWAY, DYNAMO HOUSE",
@@ -786,7 +786,7 @@
         },
         "duration_s": 6,
         "graphic_id": "",
-        "next": "bsm_166",
+        "next": "ndx_cam_165",
         "overlayType": "lower_third",
         "subtext": "LATE AFTERNOON",
         "text": "THE ASHWAY, POLE-BALL POST",
@@ -1038,7 +1038,7 @@
         },
         "duration_s": 6,
         "graphic_id": "",
-        "next": "bsm_28",
+        "next": "ndx_cam_27",
         "overlayType": "lower_third",
         "subtext": "AFTERNOON",
         "text": "THE ASHWAY, CIVIC HALL, CLASSROOM 2",
@@ -1245,7 +1245,7 @@
         },
         "duration_s": 6,
         "graphic_id": "",
-        "next": "bsm_46",
+        "next": "ndx_cam_45",
         "overlayType": "lower_third",
         "subtext": "DUSK",
         "text": "THE ASHWAY, TAILINGS ROAD",
@@ -1278,7 +1278,7 @@
         },
         "duration_s": 6,
         "graphic_id": "",
-        "next": "bsm_49",
+        "next": "ndx_cam_48",
         "overlayType": "lower_third",
         "subtext": "MORNING",
         "text": "DYNAMO HOUSE, YARD",
@@ -1393,7 +1393,7 @@
         },
         "duration_s": 6,
         "graphic_id": "",
-        "next": "bsm_59",
+        "next": "ndx_cam_58",
         "overlayType": "lower_third",
         "subtext": "LATER",
         "text": "DYNAMO HOUSE, YARD",
@@ -1528,7 +1528,7 @@
         },
         "duration_s": 6,
         "graphic_id": "",
-        "next": "bsm_8",
+        "next": "ndx_cam_7",
         "overlayType": "lower_third",
         "subtext": "MORNING",
         "text": "THE ASHWAY, RATION LINE 4",
@@ -1541,7 +1541,7 @@
         },
         "duration_s": 6,
         "graphic_id": "",
-        "next": "bsm_71",
+        "next": "ndx_cam_70",
         "overlayType": "lower_third",
         "subtext": "DAY",
         "text": "THE ASHWAY, BLOCK ROAD",
@@ -1698,7 +1698,7 @@
         },
         "duration_s": 6,
         "graphic_id": "",
-        "next": "bsm_85",
+        "next": "ndx_cam_84",
         "overlayType": "lower_third",
         "subtext": "EVENING",
         "text": "THE ASHWAY, CONTAINER 9",
@@ -1811,7 +1811,7 @@
         },
         "duration_s": 6,
         "graphic_id": "",
-        "next": "bsm_95",
+        "next": "ndx_cam_94",
         "overlayType": "lower_third",
         "subtext": "NIGHT",
         "text": "DYNAMO HOUSE, KITCHEN",
@@ -1902,6 +1902,188 @@
         "subtext": "",
         "text": "A film by Merl Prewitt",
         "type": "overlay"
+      },
+      "ndx_cam_107": {
+        "_vine": {
+          "x": 630,
+          "y": 3500
+        },
+        "label": "CAM - 1 - WIDE",
+        "next": "bsm_108",
+        "type": "camera_cut"
+      },
+      "ndx_cam_117": {
+        "_vine": {
+          "x": 630,
+          "y": 3820
+        },
+        "label": "CAM - 1 - WIDE",
+        "next": "bsm_118",
+        "type": "camera_cut"
+      },
+      "ndx_cam_120": {
+        "_vine": {
+          "x": 190,
+          "y": 3980
+        },
+        "label": "CAM - 1 - WIDE",
+        "next": "bsm_121",
+        "type": "camera_cut"
+      },
+      "ndx_cam_126": {
+        "_vine": {
+          "x": 410,
+          "y": 4140
+        },
+        "label": "CAM - 1 - WIDE",
+        "next": "bsm_127",
+        "type": "camera_cut"
+      },
+      "ndx_cam_137": {
+        "_vine": {
+          "x": 630,
+          "y": 4460
+        },
+        "label": "CAM - 1 - WIDE",
+        "next": "bsm_138",
+        "type": "camera_cut"
+      },
+      "ndx_cam_148": {
+        "_vine": {
+          "x": 850,
+          "y": 4780
+        },
+        "label": "CAM - 1 - WIDE",
+        "next": "bsm_149",
+        "type": "camera_cut"
+      },
+      "ndx_cam_154": {
+        "_vine": {
+          "x": -30,
+          "y": 5100
+        },
+        "label": "CAM - 1 - WIDE",
+        "next": "bsm_155",
+        "type": "camera_cut"
+      },
+      "ndx_cam_16": {
+        "_vine": {
+          "x": 410,
+          "y": 620
+        },
+        "label": "CAM - 1 - WIDE",
+        "next": "bsm_17",
+        "type": "camera_cut"
+      },
+      "ndx_cam_165": {
+        "_vine": {
+          "x": 190,
+          "y": 5420
+        },
+        "label": "CAM - 1 - WIDE",
+        "next": "bsm_166",
+        "type": "camera_cut"
+      },
+      "ndx_cam_27": {
+        "_vine": {
+          "x": 630,
+          "y": 940
+        },
+        "label": "CAM - 1 - WIDE",
+        "next": "bsm_28",
+        "type": "camera_cut"
+      },
+      "ndx_cam_45": {
+        "_vine": {
+          "x": 190,
+          "y": 1580
+        },
+        "label": "CAM - 1 - WIDE",
+        "next": "bsm_46",
+        "type": "camera_cut"
+      },
+      "ndx_cam_48": {
+        "_vine": {
+          "x": 850,
+          "y": 1580
+        },
+        "label": "CAM - 1 - WIDE",
+        "next": "bsm_49",
+        "type": "camera_cut"
+      },
+      "ndx_cam_58": {
+        "_vine": {
+          "x": 850,
+          "y": 1900
+        },
+        "label": "CAM - 1 - WIDE",
+        "next": "bsm_59",
+        "type": "camera_cut"
+      },
+      "ndx_cam_7": {
+        "_vine": {
+          "x": 630,
+          "y": 300
+        },
+        "label": "CAM - 1 - WIDE",
+        "next": "bsm_8",
+        "type": "camera_cut"
+      },
+      "ndx_cam_70": {
+        "_vine": {
+          "x": 190,
+          "y": 2380
+        },
+        "label": "CAM - 1 - WIDE",
+        "next": "bsm_71",
+        "type": "camera_cut"
+      },
+      "ndx_cam_84": {
+        "_vine": {
+          "x": -30,
+          "y": 2860
+        },
+        "label": "CAM - 1 - WIDE",
+        "next": "bsm_85",
+        "type": "camera_cut"
+      },
+      "ndx_cam_94": {
+        "_vine": {
+          "x": -30,
+          "y": 3180
+        },
+        "label": "CAM - 1 - WIDE",
+        "next": "bsm_95",
+        "type": "camera_cut"
+      },
+      "ndx_cam_dance": {
+        "_vine": {
+          "x": 190,
+          "y": 4620
+        },
+        "label": "CAM - 1 - LOCKED",
+        "next": "bsm_141",
+        "type": "camera_cut"
+      },
+      "ndx_result": {
+        "_vine": {
+          "x": -30,
+          "y": 4940
+        },
+        "duration": 6,
+        "graphic_id": "norval_result",
+        "next": "bsm_150",
+        "type": "title_card"
+      },
+      "ndx_vote_teo": {
+        "_vine": {
+          "x": 850,
+          "y": 3820
+        },
+        "duration": 5,
+        "graphic_id": "norval_vote_teo",
+        "next": "bsm_119",
+        "type": "title_card"
       }
     }
   },

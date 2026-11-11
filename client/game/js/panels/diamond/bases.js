@@ -35,6 +35,7 @@
 // Pure: no DOM and no GL.
 
 import { CLIPS } from './clips.js';
+import { TOSS_NAMES } from './loose-bat.js';
 import { rootAt, sampleClip } from './anim.js';
 import { solvePose } from './rig.js';
 import { toPark } from './world.js';
@@ -273,9 +274,11 @@ export function planBases(ctx, o) {
   // same ones all season), then sets off on his trot from where he stood
   const flips = o.isHR && !!ctx.batter && hashStr('flip:' + ctx.batter.id) % 3 !== 0;
   const outId = flips ? 'bat_flip' : p.bats === 'L' ? 'bat_run_out_lefty' : 'bat_run_out', tOut = tBat + 0.15;
+  // and how he lets it go is his own too (loose-bat.js TOSSES)
+  const toss = flips ? TOSS_NAMES[hashStr('toss:' + ctx.batter.id) % TOSS_NAMES.length] : null;
   let tCyc = tOut, here = null;
   if (H) {
-    H.play(outId, tOut, { fade: 0.1 });
+    H.play(outId, tOut, { fade: 0.1, toss });
     tCyc = tOut + CLIPS[outId].duration - 0.12;
     here = H.frameAt(tCyc);
   }

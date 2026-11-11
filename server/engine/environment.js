@@ -2247,8 +2247,8 @@ export function registerWeatherFieldAdvance(fn)   { advanceWeatherField = fn; }
 // for callers that project it themselves — e.g. the flight sim renders these cells
 // as the actual clouds/rain out the canopy and advects them client-side. Empty when
 // the field plugin isn't wired.
-export function getWeatherFieldSnapshot() {
-  return weatherFieldSnapshot ? weatherFieldSnapshot() : { bounds: null, systems: [] };
+export function getWeatherFieldSnapshot(gx = null, gy = null) {
+  return weatherFieldSnapshot ? weatherFieldSnapshot(gx, gy) : { bounds: null, systems: [] };
 }
 
 // Named-event lifecycle (step 7): the weather plugin owns the events; the engine

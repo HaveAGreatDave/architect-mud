@@ -1,0 +1,9 @@
+{
+  "a": "zone_mq_chrome_101",
+  "b": "zone_mq_chrome_f1",
+  "blocked": false,
+  "dir": "south",
+  "id": "conn_mq_chrome_101_south",
+  "lockable": true,
+  "one_way": false
+}

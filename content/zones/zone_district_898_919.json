@@ -6,10 +6,11 @@
   ],
   "ambient_theme": "urban",
   "color": "#8fd08a",
-  "description": "A kept corner where Windrow Lane meets Kettle Lane, behind Kimble's: a stone-kerbed flowerbed, a clipped hedge and an urn. The back of 25 Hughson Way stands over it.",
+  "description": "A kept corner where Windrow Lane meets Kettle Lane: a stone-kerbed flowerbed, a clipped hedge and an urn. The back of 25 Hughson Way stands over it.",
   "exits": {
     "east": "zone_district_899_919",
-    "north": "zone_district_898_918"
+    "north": "zone_district_898_918",
+    "south": "zone_district_887_904"
   },
   "flags": {
     "district": "halcyon_fields",

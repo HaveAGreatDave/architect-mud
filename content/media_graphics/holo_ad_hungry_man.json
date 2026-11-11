@@ -1,0 +1,12 @@
+{
+  "content": "{\n \"brand\": \"HUNGRY MAN\",\n \"line\": \"Just The Meats.\",\n \"small\": \"SHE CAN'T CONTROL YOU ANYMORE, KING.\",\n \"color\": \"#ff9000\",\n \"accent\": \"#ffe060\",\n \"face\": \"block\",\n \"motif\": \"burst\",\n \"weight\": 2\n}",
+  "created_at": "1794182400",
+  "description": "Hologram advert: Hungry Man Just The Meats. Baked to the client by npm run holoads:bake.",
+  "id": "holo_ad_hungry_man",
+  "name": "Holo ad: Hungry Man Just The Meats",
+  "tags": [
+    "holo_ad"
+  ],
+  "type": "holo_ad",
+  "updated_at": "1794182400"
+}

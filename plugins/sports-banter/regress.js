@@ -134,6 +134,8 @@ export default async function regress({ check, getPlayer }) {
       check('room: a room doesn\'t hear the same exchange twice running', !!again?.key && again.key !== plan?.key, `${plan?.key} then ${again?.key}`);
       const needle = _test.planReaction(zone.id, play('goal', C, B), Date.now(), zero);
       check('room: a rival fan needles the fan whose club conceded', needle?.pairType === 'needle', needle?.pairType || needle?.type);
+      const watch = _test.planReaction(zone.id, play('goal', C, D), Date.now(), zero);
+      check('room: two people with no stake follow the play together', watch?.pairType === 'watch' && watch.turns.length >= 2, watch?.pairType || watch?.type);
       // Whatever the play, the room can always say something about it.
       const silent = [];
       for (const kind of Object.keys(GROUP_OF)) {

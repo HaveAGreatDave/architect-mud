@@ -41,7 +41,7 @@ import { tweenOrbit, SHOTS } from './camera-tween.js';
 import { startBoatEngine, updateBoatEngine, stopBoatEngine, isBoatEngineRunning, updateBoatContacts, stopBoatContacts, updateBoatWater, stopBoatWater, boatLandThump } from './boat-audio.js';
 import { claimSeatKeyboard, endSeatKeyboard, panelTakesKey } from './seat-keys.js';
 import { makeContactTrack } from './world-feed.js';
-import { seatHidePanel } from '../../../shared/compact-view.js';
+import { bindSeatRungs, clearSeatRungs } from './seat-ladder.js';
 import { bindBigScreenButton, exitBigScreen, BIGSCREEN_GLYPH, BIGSCREEN_TITLE } from './bigscreen.js';
 import { boatGeom } from '../../../shared/boat-house.js';
 import { BOAT_ROWS } from '../../../shared/vehicle-models.js';
@@ -528,8 +528,7 @@ export function openBoat(ctx = {}) {
   bindBigScreenButton(root.querySelector?.('.boat-big'));
   // ⊟: the log folds away and the command bar stays. The seat opens that way, like every vehicle.
   const hideBtn = root.querySelector?.('.boat-hidebtn');
-  hideBtn?.addEventListener('click', () => { hideBtn.classList.toggle('on', document.body.classList.toggle('boat-hidepanel')); });
-  seatHidePanel('boat-hidepanel', hideBtn);
+  bindSeatRungs({ hide: hideBtn });   // ⊟, opening folded (seat-ladder.js)
   root.querySelector?.('.boat-x')?.addEventListener('click', () => toggleOut());
   root.querySelectorAll?.('.boat-hold')?.forEach?.((b) => {
     const k = b.dataset.key;
@@ -597,8 +596,7 @@ export function closeBoat() {
   // ⚠ THE MODE OWNS THE PAGE, so nothing else takes it down with the view — climbing out in big
   // screen would otherwise strand the player with no sidebar, no log and no command box, and the
   // one key that would fix it is bound only while the mode thinks it is on.
-  exitBigScreen();
-  document.body.classList.remove('boat-hidepanel');
+  clearSeatRungs();
   disposeWindshield(ID);
   suppressWeatherFx(false, 'boat');
   endSeatKeyboard(st.pane);

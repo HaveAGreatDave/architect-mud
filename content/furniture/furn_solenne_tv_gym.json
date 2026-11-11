@@ -6,6 +6,10 @@
     "interactions": [
       "watch"
     ],
+    "spot": {
+      "along": -3.6,
+      "wall": "back"
+    },
     "tv": true,
     "tv_dial_freq": 7,
     "tv_skin": "flatscreen"

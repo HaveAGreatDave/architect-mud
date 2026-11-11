@@ -1,0 +1,12 @@
+{
+  "content": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 640 360\" font-family=\"'Arial Black','Impact',sans-serif\">\n<defs>\n  <pattern id=\"ht\" width=\"8\" height=\"8\" patternUnits=\"userSpaceOnUse\"><circle cx=\"4\" cy=\"4\" r=\"1.6\" fill=\"#ffffff\" opacity=\"0.07\"/></pattern>\n  <pattern id=\"hatch\" width=\"7\" height=\"7\" patternUnits=\"userSpaceOnUse\" patternTransform=\"rotate(35)\"><line x1=\"0\" y1=\"0\" x2=\"0\" y2=\"7\" stroke=\"#0a0608\" stroke-width=\"2.2\"/></pattern>\n</defs>\n<rect width=\"640\" height=\"360\" fill=\"#10161e\"/>\n<rect width=\"640\" height=\"360\" fill=\"url(#ht)\"/>\n<rect x=\"0\" y=\"0\" width=\"320\" height=\"360\" fill=\"#3a1c18\" opacity=\"0.55\"/>\n<rect x=\"320\" y=\"0\" width=\"320\" height=\"360\" fill=\"#16263a\" opacity=\"0.55\"/>\n<rect x=\"314\" y=\"0\" width=\"12\" height=\"360\" fill=\"#ff5a3c\" stroke=\"#0a0608\" stroke-width=\"3\"/>\n<rect x=\"60\" y=\"92\" width=\"520\" height=\"150\" fill=\"#0a0608\" transform=\"translate(6 6)\"/>\n<rect x=\"60\" y=\"92\" width=\"520\" height=\"150\" fill=\"#1c1218\" stroke=\"#0a0608\" stroke-width=\"5\"/>\n<rect x=\"60\" y=\"92\" width=\"520\" height=\"34\" fill=\"#ff5a3c\" stroke=\"#0a0608\" stroke-width=\"5\"/>\n<text x=\"320\" y=\"117\" text-anchor=\"middle\" fill=\"#0a0608\" font-size=\"18\" letter-spacing=\"8\">THE COLDWATER</text>\n<text x=\"325\" y=\"202\" text-anchor=\"middle\" font-size=\"60\" letter-spacing=\"3\" fill=\"#0a0608\">SLAGBALL OPEN</text>\n<text x=\"320\" y=\"196\" text-anchor=\"middle\" font-size=\"60\" letter-spacing=\"3\" fill=\"#ffd23f\" stroke=\"#0a0608\" stroke-width=\"4.285714285714286\" paint-order=\"stroke\">SLAGBALL OPEN</text>\n<text x=\"320\" y=\"228\" text-anchor=\"middle\" fill=\"#f2efe6\" font-size=\"14\" letter-spacing=\"5\">ONE BRACKET · SIX A SIDE · NO REFUNDS</text>\n<rect x=\"250\" y=\"268\" width=\"140\" height=\"34\" fill=\"#d0202a\" stroke=\"#0a0608\" stroke-width=\"4\"/>\n<circle cx=\"272\" cy=\"285\" r=\"7\" fill=\"#f2efe6\"/>\n<text x=\"330\" y=\"293\" text-anchor=\"middle\" fill=\"#f2efe6\" font-size=\"20\" letter-spacing=\"4\">LIVE</text>\n</svg>",
+  "created_at": "1794200000",
+  "description": "SLAGBALL: the Coldwater Slagball Open, live. Shown as the tournament opens.",
+  "id": "slagball_open_card",
+  "name": "slagball_open_card",
+  "tags": [
+    "movie"
+  ],
+  "type": "svg",
+  "updated_at": "1794200000"
+}

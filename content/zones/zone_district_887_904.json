@@ -1,23 +1,25 @@
 {
   "ambient_events": [],
-  "ambient_theme": "forest",
+  "ambient_theme": "urban",
   "color": "#8ba36a",
-  "description": "Grass to the knee and a smell of cut hay from somewhere. Somebody has walked a path through it to the road and back.",
+  "description": "The rest of Windrow Corner, on Sorrel Way where Kimble's stood: a gravel path, two benches and a bed of low shrubs. 27 Hughson Way's blank side wall closes it on the west.",
   "exits": {
-    "north": "zone_district_887_903",
-    "south": "zone_district_887_905",
-    "west": "zone_district_886_904"
+    "east": "zone_district_899_920",
+    "north": "zone_district_898_919",
+    "south": "zone_district_898_921"
   },
   "flags": {
     "district": "halcyon_fields",
+    "park_feature": "benches",
     "region_id": "region_coldwater",
-    "terrain": "grass"
+    "street_life": true,
+    "terrain": "park"
   },
-  "grid_x": 887,
-  "grid_y": 904,
+  "grid_x": 898,
+  "grid_y": 920,
   "grid_z": 0,
   "id": "zone_district_887_904",
   "map_id": "map_world",
-  "name": "Grasslands",
+  "name": "Windrow Corner",
   "parent_zone": null
 }

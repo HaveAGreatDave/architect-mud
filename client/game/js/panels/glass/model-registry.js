@@ -240,11 +240,11 @@ export const NAMED_MODELS = {
   // Ten of these tiles were bare gravel until now: the region's entire settlement was invisible
   // from the air. The Dam and The Turbine Hall had models that could never resolve, because both
   // tiles carried a zone `name` and no `building_name`, which is not what modelFor reads.
-  theschoolroom:                  { type: 'dw_school',   pal: 'ty_dw_timber' },
-  thesleepers:                    { type: 'dw_sleepers', pal: 'ty_dw_timber' },
+  theschoolroom:                  { type: 'dw_school',   pal: 'ty_dw_depot' },
+  thesleepers:                    { type: 'dw_sleepers', pal: 'ty_dw_turbine' },
   thereckoning:                   { type: 'dw_reckoning', pal: 'ty_dw_stone' },
   theforge:                       { type: 'dw_forge',    pal: 'ty_dw_forge' },
-  thewindingshop:                 { type: 'dw_winding',  pal: 'ty_dw_timber' },
+  thewindingshop:                 { type: 'dw_winding',  pal: 'ty_dw_iron' },
   thetally:                       { type: 'dw_tally',    pal: 'ty_dw_slate' },
   thestandpipe:                   { type: 'dw_standpipe', pal: 'ty_dw_iron' },
   thestores:                      { type: 'dw_stores',   pal: 'ty_dw_iron' },
@@ -323,7 +323,10 @@ export const NAMED_MODELS = {
   '2halcyonboulevard':            { type: 'hf_skylink',   pal: 'ty_hft_glass', neon: '#bfe8ff' },
   // The Hughson towers (docs/proposals/hughson-towers.md): the estate's silhouettes at new heights
   // on the old car park and lawn, the ridge on the River Road and the rest falling toward the park.
-  '1riverroad':                   { type: 'hf_skylink',   pal: 'ty_hft_glass', neon: '#bfe8ff' },
+  // The two shafts stood on 1 River Road until 2026-11-09, over the left-field corner; they moved up
+  // the ridge to Halcyon Heights, and 1 River Road dropped to ten storeys (scripts/content/halcyon-heights.mjs).
+  halcyonheights:                 { type: 'hf_skylink',   pal: 'ty_hft_glass', neon: '#bfe8ff' },
+  '1riverroad':                   { type: 'hf_sawtooth',  pal: 'ty_hft_glass', neon: '#8ce4c0' },
   '3riverroad':                   { type: 'hf_fluted',    pal: 'ty_hft_glass', neon: '#9fe0ff' },
   '5riverroad':                   { type: 'hf_stepdrum',  pal: 'ty_hft_glass', neon: '#7fd8ff' },
   '9riverroad':                   { type: 'hf_spindle',   pal: 'ty_hft_glass', neon: '#9fe0ff' },
@@ -354,6 +357,14 @@ export const NAMED_MODELS = {
   // and `police` arms stay as they are for the plazas on the void highway and Precinct 9.
   theglacisweigh:                 { type: 'glacis_booth', pal: 'ty_hf_mirror' },
   thegatepost:                    { type: 'gate_post',    pal: 'ty_hf_mirror' },
+  // The Overspill's five shacks (old-coldwater.js `shack`). `shack` is the house each prose names.
+  thetinhut:                      { type: 'shack', pal: 'ty_oc_tin',   shack: 'tin',    noKit: true },
+  thebus:                         { type: 'shack', pal: 'ty_cont_r',   shack: 'bus',    noKit: true },
+  thestack:                       { type: 'shack', pal: 'ty_oc_board', shack: 'stack',  noKit: true },
+  thepallethouse:                 { type: 'shack', pal: 'ty_oc_board', shack: 'pallet', noKit: true },
+  thebox:                         { type: 'shack', pal: 'ty_cont_b',   shack: 'box',    noKit: true },
+  // The Old School is the terrace ruin with its bell frame still up (`bell`).
+  theoldschool:                   { type: 'ruin',  pal: 'ty_oc_brick', bell: true },
 };
 export function namedModel(name) { return NAMED_MODELS[bldgSlug(name)] || null; }
 // Whether a building type roofs a berth (`berthRoof`: the marinas' covered docks), so its arm takes
@@ -615,6 +626,11 @@ export const TYPE_MODEL = {
   soup_kitchen:      { type: 'soup_kitchen',      pal: 'ty_oc_brick' },
   bonesetter:        { type: 'bonesetter',        pal: 'ty_oc_brick' },
   shebeen:           { type: 'shebeen',           pal: 'ty_oc_board' },
+  // The Overspill (2026-11-09): five houses built out of salvage on the ground the south wall gave
+  // back. One arm, and the VARIANT IS THE NAME'S, authored here like the numbered units' `unit`,
+  // because each one's prose already says what it is made of. `noKit`: a shack has no landlord,
+  // and every kit section would be one. The type row is the fallback for an unnamed shack.
+  shack:             { type: 'shack',             pal: 'ty_oc_tin',   shack: 'tin', noKit: true },
   // ── THE SOUTH GATE INSPECTION STATION ──────────────────────────────────────
   // The booth inside the wall and the lot a seized rig is taken to. Neither names a neon, for Old
   // Coldwater's reason rather than a new one: a weighbridge and a pound are municipal, and the only

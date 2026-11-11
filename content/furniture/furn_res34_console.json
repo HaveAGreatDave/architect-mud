@@ -1,5 +1,5 @@
 {
-  "description": "A walnut console with an arrangement of dried thistle and something blue. It's changed weekly by a woman who comes up only for this and never speaks.",
+  "description": "A walnut console facing the elevator, with dried thistle and something blue. A woman comes up once a week to change it.",
   "flags": {
     "aliases": "console,table,flowers",
     "interactions": [
@@ -7,7 +7,12 @@
     ],
     "look": {
       "arche": "surface",
-      "form": "rail"
+      "dress": "thistle",
+      "form": "console"
+    },
+    "spot": {
+      "along": 0,
+      "wall": "front"
     }
   },
   "hp": null,

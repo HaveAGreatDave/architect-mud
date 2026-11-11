@@ -30,6 +30,7 @@ import { isPluggedIn } from '../appliances/index.js';
 import { applyWarmth, WARM_DRINK_C, WARM_DRINK_MIN } from '../../server/engine/warmth.js';
 import { registerFluidResolver } from '../../server/engine/topical.js';
 import { adjustCredits } from '../../server/engine/economy.js';
+import { cmdMeasure, barProvider } from './bar.js';
 
 import {
   DRINKS, UNKNOWN_DRINK, signature, matchDrink, drinkName, composeBand,
@@ -646,6 +647,9 @@ async function cmdRecipes(args, raw, player) {
 // The price is DERIVED here by the same function that charges it, so the board
 // can never quote one number and the till take another.
 export const hooks = {
+  // A bar (furniture flags.bar_counter) is a workspace: the freezer, the rack and the glass in your hand.
+  'workspace.provider': (player) => barProvider(player),
+  'furniture.acts': (f) => (f?.flags?.bar_counter ? [{ verb: 'workspace', bare: true }] : undefined),
   'item.describeVessel': ({ item }) => {
     if (!isDrinkware(item)) return undefined;
     const drink = drinkOf(item);
@@ -682,6 +686,7 @@ export const commands = {
   brew:  (args, raw, player, broadcast) => cmdBrew(args, raw, player, broadcast),
   rinse: (args, raw, player)            => cmdRinse(args, raw, player),
   recipes: (args, raw, player)          => cmdRecipes(args, raw, player),
+  measure: (args, raw, player)          => cmdMeasure(args, raw, player),
 };
 
 export const specializedActions = [
@@ -692,6 +697,8 @@ export const specializedActions = [
   // (furniture flags are normalised to tags by loadContainerById, so a furniture
   // capability is declared with requiredTag exactly like an item one.)
   { verb: 'brew',  requiredTag: 'brew_tier', handler: null },
+  // Declaration-only: a bar counter advertises the bar HUD on examine (bar.js).
+  { verb: 'workspace', requiredFlag: 'bar_counter', handler: null },
 ];
 
 console.log('[drinks] Plugin loaded.');

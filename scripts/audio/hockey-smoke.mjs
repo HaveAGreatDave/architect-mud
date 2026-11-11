@@ -47,6 +47,7 @@ const KIND = [
   [/^hk-signal/, [80, 300], 6],
   [/^hk-goal-horn-short$/, [600, 1400], 40],
   [/^hk-goal-horn$/, [1500, 2400], 40],
+  [/^hk-goal-horn-long$/, [3400, 4600], 40],
   [/^hk-period-horn$/, [800, 2500], 40],
   [/^hk-crowd-gasp$/, [150, 500], 60],
   [/^hk-crowd-cheer$/, [500, 1500], 200],

@@ -5,7 +5,15 @@
     "interactions": [
       "examine",
       "play"
-    ]
+    ],
+    "look": {
+      "arche": "prop",
+      "form": "piano"
+    },
+    "spot": {
+      "along": -1.6,
+      "wall": "front"
+    }
   },
   "hp": null,
   "hp_max": null,

@@ -1,0 +1,12 @@
+{
+  "content": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 640 360\" font-family=\"'Courier New',monospace\">\n<rect width=\"640\" height=\"360\" fill=\"#6a5a40\"/>\n<rect x=\"130\" y=\"24\" width=\"380\" height=\"312\" fill=\"#efe8d4\" stroke=\"#3a3020\" stroke-width=\"2\" transform=\"rotate(1 320 180)\"/>\n<g transform=\"rotate(1 320 180)\" fill=\"#2a2418\">\n  <text x=\"320\" y=\"78\" text-anchor=\"middle\" font-size=\"20\" letter-spacing=\"3\">BLOCK STEWARD</text>\n  <text x=\"320\" y=\"104\" text-anchor=\"middle\" font-size=\"14\" letter-spacing=\"2\">RESULT OF THE VOTE</text>\n  <line x1=\"170\" y1=\"122\" x2=\"470\" y2=\"122\" stroke=\"#2a2418\" stroke-width=\"1.5\"/>\n  <text x=\"180\" y=\"180\" font-size=\"24\">TEO SANDOVAL</text><text x=\"460\" y=\"180\" text-anchor=\"end\" font-size=\"24\">88</text>\n  <text x=\"180\" y=\"226\" font-size=\"24\">SUMMER OSTRAND</text><text x=\"460\" y=\"226\" text-anchor=\"end\" font-size=\"24\">31</text>\n  <text x=\"180\" y=\"300\" font-size=\"12\">Posted by W. Peale. Do not remove.</text>\n</g>\n</svg>",
+  "created_at": "1794210000",
+  "description": "NORVAL DYNAMO: the Block Steward result sheet.",
+  "id": "norval_result",
+  "name": "norval_result",
+  "tags": [
+    "movie"
+  ],
+  "type": "svg",
+  "updated_at": "1794210000"
+}

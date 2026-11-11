@@ -1,23 +1,23 @@
 {
   "ambient_events": [],
-  "ambient_theme": "forest",
-  "color": "#8ba36a",
-  "description": "Open meadow at the edge of the estate, the grass long and silver-green. Survey stakes stand in it in rows, each one tied with a strip of orange tape.",
-  "exits": {
-    "east": "zone_district_888_907",
-    "north": "zone_district_887_906",
-    "west": "zone_district_886_907"
-  },
+  "ambient_theme": "urban",
+  "description": "Two unequal glass shafts off one podium, tied together by glazed links high up, fifty storeys in all. The upper link is a residents' lounge, and from the River Road you can see one person in it.",
+  "exits": {},
   "flags": {
+    "building_name": "Halcyon Heights",
+    "building_type": "sky_court",
     "district": "halcyon_fields",
-    "region_id": "region_coldwater",
-    "terrain": "grass"
+    "entrance": "west",
+    "floors": 50,
+    "is_building": true,
+    "region_id": "region_coldwater"
   },
   "grid_x": 887,
   "grid_y": 907,
   "grid_z": 0,
   "id": "zone_district_887_907",
   "map_id": "map_world",
-  "name": "Grasslands",
+  "marker": "Q1",
+  "name": "Halcyon Heights",
   "parent_zone": null
 }

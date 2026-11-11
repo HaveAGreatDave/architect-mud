@@ -155,7 +155,7 @@ export const closeHangarBay = ifLoaded(hangar, 'closeHangarBay');
 export const openHangarBay = call(hangar, 'openHangarBay');
 export const openCharterScreen = call(hangar, 'openCharterScreen');
 
-// kitchen-stage.js, cooking's 3-D rung. It has its own small WebGL2 context (gl/kitchen.js) and
+// kitchen-stage.js, cooking's 3-D rung. It draws with ROOM's renderer on its own canvas (gl/kitchen.js) and
 // never touches windshield.js, so it stays unwired like the hangar.
 const kitchen = lazy('kitchen-stage', () => import('./kitchen-stage.js'), { glass: false });
 export const isKitchenStageActive = ifLoaded(kitchen, 'isKitchenStageActive', false);
@@ -219,11 +219,23 @@ export function noteQuestLog(msg) {
 // Smaller views that core files used to import statically. None of them has
 // GLASS in its static graph, so none wires it.
 const freelook = lazy('freelook-view', () => import('./freelook-view.js'), { glass: false });
-export const isFreelookActive = ifLoaded(freelook, 'isFreelookActive', false);
+const _freelookActive = ifLoaded(freelook, 'isFreelookActive', false);
+// The Under fly-through owns the pane the same way, so it answers the same question.
+const underLook = lazy('under-view', () => import('./under-view.js'), { glass: false });
+const _underActive = ifLoaded(underLook, 'isUnderLookActive', false);
+export const isFreelookActive = () => _freelookActive() || _underActive();
+export const closeUnderLook = ifLoaded(underLook, 'closeUnderLook');
+export const openUnderLook = call(underLook, 'openUnderLook');
 export const closeFreelook = ifLoaded(freelook, 'closeFreelook');
+export const parkFreelook = ifLoaded(freelook, 'parkFreelook');
+export const warmFreelookReady = ifLoaded(freelook, 'warmFreelookReady', false);
 export const freelookSetSky = ifLoaded(freelook, 'freelookSetSky');
 export const freelookSetActors = ifLoaded(freelook, 'freelookSetActors');
 export const freelookSetContacts = ifLoaded(freelook, 'freelookSetContacts');
+export const freelookStep = ifLoaded(freelook, 'freelookStep');
+// one world (docs/proposals/one-world-interiors.md): a room the street view has drawn stays in GLASS
+export const freelookTakeRoom = ifLoaded(freelook, 'freelookTakeRoom', false);
+export const freelookInside = ifLoaded(freelook, 'freelookInside', false);
 export const openFreelook = call(freelook, 'openFreelook');
 
 const chess3d = lazy('chess3d', () => import('./chess3d.js'), { glass: false });

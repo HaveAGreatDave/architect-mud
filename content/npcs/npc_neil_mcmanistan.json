@@ -61,6 +61,10 @@
         112
       ],
       "mouth": 0.95,
+      "print": "wolves",
+      "props": {
+        "R": "scotch"
+      },
       "shirt": [
         26,
         26,

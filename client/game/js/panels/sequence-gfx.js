@@ -20,6 +20,9 @@ function ensureStyles() {
 const OUT_MS = 240;
 const rowOf = (s) => { const i = String(s).lastIndexOf(':'); return i < 0 ? [String(s), ''] : [String(s).slice(0, i).trim(), String(s).slice(i + 1).trim()]; };
 
+// a news graphic's `colour` is its accent, the network's colour
+const tint = (el, g, d) => { const c = fill(g.colour || '', d).trim(); if (/^#[0-9a-f]{3,8}$|^[a-z]+$/i.test(c)) el.style.setProperty('--sq-accent', c); };
+
 const DRAW = {
   lower(el, g, d) {
     el.innerHTML = `<b>${esc(fill(g.text, d))}</b>${g.sub ? `<i>${esc(fill(g.sub, d))}</i>` : ''}`;
@@ -48,6 +51,22 @@ const DRAW = {
   },
   full(el, g, d) {
     el.innerHTML = `<b>${esc(fill(g.title, d))}</b><i>${esc(fill(g.sub, d))}</i>`;
+  },
+  strap(el, g, d) {
+    tint(el, g, d);
+    const tag = fill(g.tag || '', d);
+    el.innerHTML = `${tag ? `<em>${esc(tag)}</em>` : ''}<div><b>${esc(fill(g.text, d))}</b>${g.sub ? `<i>${esc(fill(g.sub, d))}</i>` : ''}</div>`;
+  },
+  story(el, g, d) {
+    tint(el, g, d);
+    el.classList.add(g.side === 'left' ? 'left' : 'right');
+    const tag = fill(g.tag || '', d), title = fill(g.title || '', d);
+    el.innerHTML = `${tag ? `<em>${esc(tag)}</em>` : ''}<div class="sq-story-face">${title ? `<b>${esc(title)}</b>` : ''}</div><i>${esc(fill(g.text, d))}</i>`;
+  },
+  bug(el, g, d) {
+    tint(el, g, d);
+    el.classList.add(g.corner || 'top-left');
+    el.innerHTML = `<b>${esc(fill(g.text, d))}</b>${g.sub ? `<i>${esc(fill(g.sub, d))}</i>` : ''}`;
   },
   ticker(el, g, d) {
     el.innerHTML = `<span>${esc(fill(g.text, d))}</span>`;

@@ -977,6 +977,59 @@ function yellowjacketsCrest() {
   };
 }
 
+// ── the cap ─────────────────────────────────────────────────────────────────────
+// What a club wears on the front of its cap and the side of its batting helmet: one letter or a
+// small mark with no field behind it, since the cap is the field. It's embroidered there
+// (diamond/kits.js paintLogos), so it's drawn as a cap's embroidery is: the face, then an edge or
+// two in other threads round it. `crest.cap`, beside `layers` and `small`.
+//
+// A run filled, with each edge round it: `edges` is [[colour, width], ...], outermost first, each
+// width measured out from the letter's own edge.
+function edged(R, fill, edges) {
+  const out = [];
+  for (const [col, e] of edges) {
+    if (R.stems.length) out.push(L(segsD(R.stems), 'none', { stroke: col, sw: +n2(R.W + 2 * e) }));
+    if (R.bars.length) out.push(L(segsD(R.bars), 'none', { stroke: col, sw: +n2(R.B + 2 * e) }));
+    if (R.polys.length) out.push(L(R.polys.map(poly).join(''), col, { stroke: col, sw: +n2(2 * e) }));
+  }
+  return [...out, ...inked(R, fill)];
+}
+// Letters centred in the box, `h` tall, in the crests' Tuscan.
+const capText = (str, fill, edges, o = {}) => {
+  const h = o.h ?? 64;
+  return edged(text(str, 50, 50 + h / 2, h, { stem: 0.2, thin: 0.62, serif: true, spur: true, wide: 0.78, track: 0.06, ...o }), fill, edges);
+};
+// A drawing's points scaled about their middle to fill `size` of the box, and centred in it.
+function fitTo(groups, size = 82) {
+  const all = groups.flat();
+  const xs = all.map((p) => p[0]), ys = all.map((p) => p[1]);
+  const x0 = Math.min(...xs), x1 = Math.max(...xs), y0 = Math.min(...ys), y1 = Math.max(...ys);
+  const k = size / Math.max(x1 - x0, y1 - y0), cx = (x0 + x1) / 2, cy = (y0 + y1) / 2;
+  return (x, y) => [50 + (x - cx) * k, 50 + (y - cy) * k];
+}
+const CAPS = {
+  // the red bird on the black cap, keylined in bone, its wing and hackles picked out in black
+  crows() {
+    const at = fitTo([CROW, CROW_UPPER, CROW_LOWER, CROW_WING, ...CROW_TALONS], 84), mv = (pts) => pts.map(([x, y, c]) => (c ? [...at(x, y), c] : at(x, y)));
+    const crow = [CROW, CROW_UPPER, CROW_LOWER, CROW_WING].map((p) => curve(mv(p))).join('');
+    const feet = segsD(CROW_LEGS.map(([a, b, c, d]) => [...at(a, b), ...at(c, d)])) + CROW_TALONS.map((t) => curve(mv(t), false)).join('');
+    const coverts = [[[45, 31], [51, 28.6], [58, 30.4], [64, 33.6], [68, 36]], [[47, 34.4], [54, 34], [60, 36.8]]].map((p) => curve(mv(p), false)).join('');
+    const eye = curve(mv([[32.8, 28.6, 1], [37, 26.2, 1], [37.4, 27.2], [33.4, 29.2]]));
+    return [keyline(crow + feet, CR.bone, 5), L(crow, CR.red), keyline(feet, CR.red, 2.4), keyline(coverts, CR.ink, 1.1), L(eye, CR.ink)];
+  },
+  blueBirds: () => capText('B', BB.royal, [[BB.red, 5], [BB.white, 2.4]]),
+  // the jersey's script B, larger, white edged in red
+  bombers() {
+    const B = xformD(SCRIPT_B, (x, y) => [50 + (x - 48.5) * 1.65, 50 + (y - 57) * 1.65]);
+    return [keyline(B, BO.red, 13), keyline(B, BO.white, 8)];
+  },
+  whiteSox: () => capText('SOX', WS.white, [[WS.silver, 3]], { h: 40, wide: 0.5, track: 0.04 }),
+  redSox: () => capText('R', RS.red, [[RS.white, 4]]),
+  mastodons: () => capText('M', MM.ivory, [[MM.grey, 3.6]], { h: 60, wide: 0.66 }),
+  dolphins: () => capText('D', DD.white, [[DD.navy, 5.4], [DD.orange, 3.2]]),
+  yellowjackets: () => capText('Y', YJ.yellow, [[YJ.white, 3.6]]),
+};
+
 // ── the clubs ───────────────────────────────────────────────────────────────────
 // `kit` uses the names gl/ballplayer-mesh.js's KITS already reads (base, ink, trim, cap,
 // under, helmet, belt), so a club's kit can be dropped in where a side's is now, plus the
@@ -988,7 +1041,7 @@ const CLUBS = {
     home: 'Old Coldwater, by the Meridian',
     founded: 2019,
     colours: [BB.royal, BB.pitch, BB.red],
-    crest: blueBirdsCrest(),
+    crest: { ...blueBirdsCrest(), cap: CAPS.blueBirds() },
     kit: {
       // home: the night-blue jersey, royal letters edged in red
       home: {
@@ -1008,7 +1061,7 @@ const CLUBS = {
     home: 'the Charles B. Hughson Coliseum',
     founded: 2022,
     colours: [CR.red, CR.ink, CR.bone],
-    crest: crowsCrest(),
+    crest: { ...crowsCrest(), cap: CAPS.crows() },
     kit: {
       // home: bone flannel, black and red trim, a black cap with the red bird on it
       home: {
@@ -1028,7 +1081,7 @@ const CLUBS = {
     district: 'the Rust Quarter',
     home: 'Boomtown',
     colours: [BO.navy, BO.white, BO.grey],
-    crest: bombersCrest(),
+    crest: { ...bombersCrest(), cap: CAPS.bombers() },
     kit: {
       home: {
         base: BO.white, ink: BO.navy, trim: BO.navy, stripe: BO.navy, cap: BO.navy, bill: BO.navy, under: BO.navy, helmet: BO.navy, belt: BO.navy,
@@ -1045,7 +1098,7 @@ const CLUBS = {
     district: 'the Glasshouse',
     home: 'the Westside',
     colours: [WS.black, WS.silver, WS.white],
-    crest: whiteSoxCrest(),
+    crest: { ...whiteSoxCrest(), cap: CAPS.whiteSox() },
     kit: {
       home: {
         base: WS.white, ink: WS.black, trim: WS.silver, stripe: WS.black, cap: WS.black, bill: WS.black, under: WS.black, helmet: WS.black, belt: WS.black,
@@ -1063,7 +1116,7 @@ const CLUBS = {
     district: 'the Rust Quarter',
     home: 'Rustpile, in the Rust Quarter',
     colours: [RS.red, RS.navy, RS.white],
-    crest: redSoxCrest(),
+    crest: { ...redSoxCrest(), cap: CAPS.redSox() },
     kit: {
       home: {
         base: RS.white, ink: RS.red, trim: RS.navy, cap: RS.navy, bill: RS.navy, under: RS.navy, helmet: RS.navy, belt: RS.navy,
@@ -1080,7 +1133,7 @@ const CLUBS = {
     district: 'the Marquee',
     home: 'the Marquee',
     colours: [MM.maroon, MM.grey, MM.ivory],
-    crest: mastodonsCrest(),
+    crest: { ...mastodonsCrest(), cap: CAPS.mastodons() },
     kit: {
       home: {
         base: '#f4f4f0', ink: MM.maroon, trim: MM.grey, cap: MM.maroon, bill: MM.maroon, under: MM.maroon, helmet: MM.maroon, belt: MM.maroon,
@@ -1097,7 +1150,7 @@ const CLUBS = {
     district: 'the Docks',
     home: 'the Docks',
     colours: [DD.aqua, DD.orange, DD.navy],
-    crest: dolphinsCrest(),
+    crest: { ...dolphinsCrest(), cap: CAPS.dolphins() },
     kit: {
       home: {
         base: DD.white, ink: DD.aqua, trim: DD.orange, cap: DD.aqua, bill: DD.orange, under: DD.navy, helmet: DD.aqua, belt: DD.navy,
@@ -1114,7 +1167,7 @@ const CLUBS = {
     district: 'the Yards',
     home: 'the Yards',
     colours: [YJ.yellow, YJ.black, YJ.white],
-    crest: yellowjacketsCrest(),
+    crest: { ...yellowjacketsCrest(), cap: CAPS.yellowjackets() },
     kit: {
       home: {
         base: YJ.yellow, ink: YJ.black, trim: YJ.white, cap: YJ.black, bill: YJ.yellow, under: YJ.black, helmet: YJ.black, belt: YJ.black,

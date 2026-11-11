@@ -8,7 +8,7 @@ import { readdirSync, readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 import { buildSet, SET_PIECES } from '../../client/game/js/panels/gl/set-mesh.js';
-import { autoShot, roleMark as markOfRole, GFX, FRAMES, MOVES, checkSequence, checkShow, shotCamera, timeline, parseCamLabel, sequenceFromBsm, fill, passes, slotFor, tableRows, profileOf, castToken } from '../../client/shared/sequence.js';
+import { autoShot, roleMark as markOfRole, GFX, FRAMES, MOVES, checkSequence, checkShow, shotCamera, timeline, parseCamLabel, sequenceFromBsm, fill, passes, slotFor, tableRows, profileOf, castToken, resolveSet, checkSkin } from '../../client/shared/sequence.js';
 import { sampleGame } from '../../plugins/broadcast/sports/sample-game.js';
 import { factsAt, momentBeat } from '../../plugins/broadcast/sports/facts.js';
 
@@ -19,8 +19,23 @@ for (const f of readdirSync(dir)) {
   const row = JSON.parse(readFileSync(join(dir, f), 'utf8'));
   if (row.type === 'set' || row.type === 'sequence' || row.type === 'show') docs[row.id] = JSON.parse(row.content);
 }
-const all = Object.values(docs), of = (k) => all.filter((d) => d.kind === k);
 const bad = [];
+// a skin is checked against its template, then everything below sees it resolved, as the game does
+const rawSets = Object.fromEntries(Object.entries(docs).filter(([, d]) => d.kind === 'set'));
+for (const s of Object.values(rawSets)) {
+  bad.push(...checkSkin(s, (id) => rawSets[id]));
+  docs[s.id] = resolveSet(s, (id) => rawSets[id]);
+  if (s.base && !rawSets[s.base]?.template) bad.push(`${s.id}: built on ${s.base}, which isn't a template`);
+  if (s.template && (s.uses?.length || s.broadcasts?.length)) bad.push(`${s.id}: a template stands in for no show; give a skin the uses and broadcasts`);
+  for (const b of s.broadcasts || []) { try { readFileSync(join(ROOT, 'content', 'media_broadcasts', b + '.json')); } catch { bad.push(`${s.id}: made for ${b}, which isn't a broadcast`); } }
+}
+// two skins for one broadcast: only the first would ever be staged
+const forBc = {};
+for (const s of Object.values(rawSets)) for (const b of s.broadcasts || []) (forBc[b] ||= []).push(s.id);
+for (const [b, ids] of Object.entries(forBc)) if (ids.length > 1) bad.push(`${b} has two sets: ${ids.join(', ')}`);
+// a part a skin swaps for another piece still has to be a piece
+for (const s of Object.values(docs)) if (s.kind === 'set') for (const p of s.pieces || []) if (p.type && !SET_PIECES[p.type]) bad.push(`${s.id}: part ${p.part || p.type} is a ${p.type}, which isn't a piece`);
+const all = Object.values(docs), of = (k) => all.filter((d) => d.kind === k);
 
 for (const [k, row] of Object.entries(SET_PIECES)) {
   try {

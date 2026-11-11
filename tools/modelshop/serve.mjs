@@ -46,6 +46,9 @@ import { readClipFiles, planSave, CLIP_DIR, CLIP_MODULE } from '../../scripts/sh
 // ARRAY ORDER IS PRESERVED — which matters here, because a segment list is a paint order.
 import { canonicalJson } from '../../scripts/content/lib.mjs';
 import { floorsFor } from '../../client/shared/skyline-scale.js';
+// The Room Lab's building: the same plans and payload the roomstage plugin sends (docs/proposals/building-stage.md).
+import { walkPlans, buildingView, zoneSpecOf, placeFrom } from '../../client/shared/building-graph.js';
+import { roomSpecOf } from '../../client/shared/room-layout.js';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(HERE, '..', '..');
@@ -198,7 +201,7 @@ function bindables() {
 
 // What the Room Lab opens. Zones and furniture are read once per request off content/: it's a tool,
 // and a room you've just edited should open as it now is.
-function roomLab(zoneId) {
+function roomLab(zoneId, parked = null) {
   const zdir = join(ROOT, 'content', 'zones'), fdir = join(ROOT, 'content', 'furniture');
   const read = (dir, f) => { try { return JSON.parse(readFileSync(join(dir, f), 'utf8')); } catch { return null; } };
   if (!zoneId) {
@@ -213,15 +216,68 @@ function roomLab(zoneId) {
   if (!zone) return { error: 'no such zone' };
   const inner = zone.exits?.in ? read(zdir, zone.exits.in + '.json') : null;
   const annex = inner && inner.exits?.out === zone.id && inner.parent_zone === zone.id ? inner : null;
+  // a room on a building's walk: its doorways and the rooms past them, as the plugin sends them, with
+  // each one's furniture rows (`nextRows`) for the page to lay out as the plugin does
+  const plans = labPlans(), bld = plans.zones && plans.map.get(zone.id);
+  const building = bld ? buildingView(bld, zone.id, zoneSpecOf(plans.zones, zone), { specOf: labSpecOf, nameOf: (id) => plans.zones.get(id)?.name || '', parked }) : null;
+  // a lift car: its panel, the floors it stops at with the lobby as 1, lit where it's parked
+  const fl = zone.flags?.elevator && Array.isArray(zone.flags.elevator_floors) ? zone.flags.elevator_floors : null;
+  const lift = fl ? { floors: [{ n: 1, label: 'Lobby' }, ...fl.map((f) => ({ n: Number(f.n), label: f.label }))].sort((a, b) => a.n - b.n), at: Number(fl.find((f) => f.zone === parked)?.n) || 1 } : null;
+  const next = new Set((building?.building.neighbours || []).map((n) => n.zone)), nextRows = {};
+  // a room next door's en-suite is furnished too, as the plugin's roomPieces does it (`nextAnnexRows`, by the room)
+  const nextAnnex = new Map((building?.building.neighbours || []).filter((n) => n.spec.annex?.zone).map((n) => [n.spec.annex.zone, n.zone])), nextAnnexRows = {};
+  // and is laid out from its own spec, the plugin's stageSpec, not from how it stands as seen from here: the same
+  // pieces it has once you're in it, which is what lets the Stage keep a room it built ahead (room-stage.js bakedMesh)
+  const nextSpecs = Object.fromEntries((building?.building.neighbours || []).map((n) => [n.zone, buildingView(bld, n.zone, labSpecOf(n.zone), { specOf: labSpecOf }).spec]));
   const rows = [], annexRows = [];
   for (const f of readdirSync(fdir)) {
     const r = f.endsWith('.json') ? read(fdir, f) : null;
     if (r?.zone_id === zone.id) rows.push(r);
     else if (annex && r?.zone_id === annex.id) annexRows.push(r);
+    else if (r && next.has(r.zone_id)) (nextRows[r.zone_id] ||= []).push(r);
+    else if (r && nextAnnex.has(r.zone_id)) (nextAnnexRows[nextAnnex.get(r.zone_id)] ||= []).push(r);
   }
   let t = zone;
   for (let hop = 0; hop < 4 && t && t.map_id !== 'map_world'; hop++) t = t.parent_zone ? read(zdir, t.parent_zone + '.json') : null;
-  return { zone, annex, rows, annexRows, tile: t ? { x: t.grid_x, y: t.grid_y } : null };
+  return { zone, annex, rows, annexRows, tile: t ? { x: t.grid_x, y: t.grid_y } : null, building, nextRows, nextAnnexRows, nextSpecs, lift };
+}
+// Every room of the building a zone is on, for GLASS's one-world interiors (docs/proposals/one-world-interiors.md):
+// each room's spec as the plugin builds it, its furniture rows, and its frame (where it stands, as plugins/roomstage
+// frameOf works it out), with the building's tile. Null rooms when the zone isn't on a building's walk.
+const LAB_BEARING = { north: 0, northeast: 45, east: 90, southeast: 135, south: 180, southwest: 225, west: 270, northwest: 315 };
+function buildingRooms(zoneId) {
+  const plans = labPlans(), bld = plans.zones && plans.map.get(zoneId);
+  if (!bld) return { rooms: null };
+  const ids = Object.keys(bld.plan.rooms), want = new Set(ids), rows = {};
+  const fdir = join(ROOT, 'content', 'furniture');
+  for (const f of readdirSync(fdir)) {
+    if (!f.endsWith('.json')) continue;
+    let r = null; try { r = JSON.parse(readFileSync(join(fdir, f), 'utf8')); } catch { continue; }
+    if (r && want.has(r.zone_id)) (rows[r.zone_id] ||= []).push(r);
+  }
+  let t = plans.zones.get(bld.b.entry);
+  for (let hop = 0; hop < 4 && t && t.map_id !== 'map_world'; hop++) t = t.parent_zone ? plans.zones.get(t.parent_zone) : null;
+  if (!t) return { rooms: null };
+  const side = LAB_BEARING[String(t.flags?.entrance || '').toLowerCase()] ?? bld.plan.rooms[bld.b.entry]?.face ?? 0;
+  const rooms = [];
+  for (const id of ids) {
+    const R = bld.plan.rooms[id], entry = placeFrom(bld.plan, id, bld.b.entry), spec = buildingView(bld, id, labSpecOf(id), { specOf: labSpecOf }).spec;
+    if (!entry || !spec || bld.plan.lifts?.[id]) continue;
+    rooms.push({ zone: id, name: plans.zones.get(id)?.name || id, spec, rows: rows[id] || [], frame: { entry: entry.at, front: bld.plan.rooms[bld.b.entry].face, side, floor: R.floor, face: R.face } });
+  }
+  return { tile: { x: t.grid_x, y: t.grid_y }, rooms };
+}
+// Every zone and map in content/, read once (17,000 files, a few seconds) the first time a room on a
+// building is asked for. Restart the Modelshop to see an edited building.
+let labCache = null;
+// with its en-suite, as the roomstage plugin builds it, so the lab draws the plan the game does
+const labSpecOf = (id) => { const z = labCache?.zones.get(id); return z ? zoneSpecOf(labCache.zones, z) : null; };
+function labPlans() {
+  if (labCache) return labCache;
+  const read = (dir) => readdirSync(dir).filter((f) => f.endsWith('.json')).map((f) => { try { return JSON.parse(readFileSync(join(dir, f), 'utf8')); } catch { return null; } }).filter(Boolean);
+  const zones = new Map(read(join(ROOT, 'content', 'zones')).map((z) => [z.id, z]));
+  labCache = { zones, map: walkPlans({ zones, maps: read(join(ROOT, 'content', 'maps')), specOf: (z) => zoneSpecOf(zones, z) }) };
+  return labCache;
 }
 
 const server = createServer(async (req, res) => {
@@ -242,13 +298,14 @@ const server = createServer(async (req, res) => {
     if (req.method === 'GET' && path === '/pose-lab.html') {
       return send(res, 200, await readFile(join(HERE, 'pose-lab.html')), 'text/html; charset=utf-8');
     }
-    // Street figures, the shipping shader beside a proposed one, for judging the look by eye.
-    // scripts/shapes/actors.mjs is what gates the bake; this is only a picture.
+    // The Actor Lab is the Figure Lab's Street renderer now (crowd-lab.js); old links land there.
     if (req.method === 'GET' && path === '/actor-lab.html') {
-      return send(res, 200, await readFile(join(HERE, 'actor-lab.html')), 'text/html; charset=utf-8');
+      res.writeHead(302, { Location: '/figure-lab.html?renderer=street' });
+      return res.end();
     }
-    // The close-up figure (figure.js) in the Room Stage's own renderer; scripts/shapes/figure.mjs
-    // gates the meshes.
+    // Everybody drawn as a person, in either renderer: the close-up figure (figure.js) in the Room
+    // Stage's own, and the street's crowd body and heads (crowd-lab.js, the shipping shader beside
+    // a proposed one). scripts/shapes/figure.mjs and actors.mjs gate the meshes; this is a picture.
     if (req.method === 'GET' && path === '/figure-lab.html') {
       return send(res, 200, await readFile(join(HERE, 'figure-lab.html')), 'text/html; charset=utf-8');
     }
@@ -258,8 +315,11 @@ const server = createServer(async (req, res) => {
     if (req.method === 'GET' && path === '/room-lab.html') {
       return send(res, 200, await readFile(join(HERE, 'room-lab.html')), 'text/html; charset=utf-8');
     }
+    if (req.method === 'GET' && path === '/api/building-rooms') {
+      return json(res, 200, buildingRooms(url.searchParams.get('zone')));
+    }
     if (req.method === 'GET' && path === '/api/room-lab') {
-      return json(res, 200, roomLab(url.searchParams.get('zone')));
+      return json(res, 200, roomLab(url.searchParams.get('zone'), url.searchParams.get('parked')));
     }
     // The tool's own modules. Name-restricted and joined onto this directory, so it cannot climb
     // out of it — the same shape as the client allowlist below, and the reason it is a pattern
@@ -484,6 +544,16 @@ const server = createServer(async (req, res) => {
         const npc = JSON.parse(await readFile(join(ROOT, 'content', 'npcs', id + '.json'), 'utf8'));
         return json(res, 200, { sex: npc.sex, figure: npc.flags?.figure });
       } catch { return json(res, 404, { error: 'no such npc' }); }
+    }
+    // Every NPC with a settled figure, for the Figure Lab's `who` list. Read off the files each
+    // time, so a look settled a minute ago is on it.
+    if (req.method === 'GET' && path === '/api/npc-figures') {
+      const dir = join(ROOT, 'content', 'npcs'), out = [];
+      for (const f of readdirSync(dir)) {
+        if (!f.endsWith('.json')) continue;
+        try { const npc = JSON.parse(readFileSync(join(dir, f), 'utf8')); if (npc.flags?.figure) out.push({ id: npc.id, name: npc.name }); } catch { /* not ours to judge */ }
+      }
+      return json(res, 200, out.sort((a, b) => String(a.name).localeCompare(String(b.name))));
     }
 
     if (req.method === 'GET' && path.startsWith('/client/')) {

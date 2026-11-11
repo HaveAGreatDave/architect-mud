@@ -4,7 +4,6 @@
   "color": "#8ba36a",
   "description": "Grass to the knee over ground that was outside the wall not long ago. Old tyre ruts run through it and stop.",
   "exits": {
-    "east": "zone_district_919_922",
     "north": "zone_district_918_921",
     "south": "zone_district_918_923",
     "west": "zone_district_917_922"

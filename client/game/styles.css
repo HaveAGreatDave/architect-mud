@@ -772,42 +772,19 @@ html[data-density="compact"] #auth-title {
    with the flex rules applying correctly the whole time and losing to a style attribute.
    Beaten rather than cleared: that height is the player's saved preference for ordinary
    rooms, and an immersive mode is temporary. */
-body.fsim-fullscreen #area-pane { max-height: none !important; height: auto !important; flex: 1 1 auto; }
-body.fsim-fullscreen #area-content { flex: 1 1 auto; display: flex; min-height: 0; }
-body.fsim-fullscreen .fsim { flex: 1 1 auto; min-height: 0; }
-body.fsim-fullscreen .fsim-view { height: auto; flex: 1 1 auto; min-height: 0; }
-body.fsim-fullscreen #output,
-body.fsim-fullscreen #look-resize-handle,
-body.fsim-fullscreen #bottom-input-wrap { display: none; }
+body.seat-fullscreen .fsim { flex: 1 1 auto; min-height: 0; }
+body.seat-fullscreen .fsim-view { height: auto; flex: 1 1 auto; min-height: 0; }
 
 /* Flight-sim hide-panel: a lighter twin of fullscreen — the sim grows to fill the column
    (more outside view; the glass + control rows keep their fixed heights so the cockpit stays
    the same size) but the COMMAND BOX stays put so you can still type. Only the scrollback log
    + its resize handle are folded away. Toggled from the ⊟ button; cleared when the sim closes. */
-body.fsim-hidepanel #area-pane { max-height: none !important; height: auto !important; flex: 1 1 auto; }
-body.fsim-hidepanel #area-content { flex: 1 1 auto; display: flex; min-height: 0; }
-body.fsim-hidepanel .fsim { flex: 1 1 auto; min-height: 0; }
-body.fsim-hidepanel .fsim-view { height: auto; flex: 1 1 auto; min-height: 0; }
-body.fsim-hidepanel #output,
-body.fsim-hidepanel #look-resize-handle { display: none; }
+body.seat-hidepanel .fsim { flex: 1 1 auto; min-height: 0; }
+body.seat-hidepanel .fsim-view { height: auto; flex: 1 1 auto; min-height: 0; }
 
-/* Echelon helm — the SAME fullscreen / hide-panel mechanism as the flight sim, so the helm
-   console grows to fill the output column (not an OS-fullscreen overlay). Cleared when the helm
-   closes. ⛶ folds the command box too; ⊟ keeps it so you can still type. */
-body.helm-fullscreen #area-pane,
-body.helm-hidepanel #area-pane { max-height: none !important; height: auto !important; flex: 1 1 auto; }
-/* Drop the pane's 12px inset in fullscreen so the helm reaches every edge — otherwise the bottom
-   padding leaves a gap under the console and steals vertical room from the ship above it. */
-body.helm-fullscreen #area-pane { padding: 0; }
-body.helm-fullscreen #area-content,
-body.helm-hidepanel #area-content { flex: 1 1 auto; display: flex; min-height: 0; }
-body.helm-fullscreen .helm-root,
-body.helm-hidepanel .helm-root { flex: 1 1 auto; min-height: 0; height: auto; }
-body.helm-fullscreen #output,
-body.helm-fullscreen #look-resize-handle,
-body.helm-fullscreen #bottom-input-wrap { display: none; }
-body.helm-hidepanel #output,
-body.helm-hidepanel #look-resize-handle { display: none; }
+/* Echelon helm: the seat ladder's ⊟ and ⛶ (seat-ladder.js); the helm console fills what they give. */
+body.seat-fullscreen .helm-root,
+body.seat-hidepanel .helm-root { flex: 1 1 auto; min-height: 0; height: auto; }
 
 /* Depot fullscreen / hide-panel (panels/depot-shell.js): the truck depot, the marina and the hangar
    mount their counter in #area-pane like the flight sim, so they get the same two immersive layouts:
@@ -823,20 +800,6 @@ body.ds-fullscreen #look-resize-handle,
 body.ds-fullscreen #bottom-input-wrap,
 body.ds-hidepanel #output,
 body.ds-hidepanel #look-resize-handle { display: none; }
-
-/* Charter cabin (passenger glass HUD, #ck-hud-root) fullscreen / hide-panel — the same two
-   immersive layouts as the flight sim + hangar. The HUD already flexes to fill #area-content
-   (height:100%), so only the pane/log rules are needed. ⛶ fullscreen folds the log + command
-   box away; ⊟ hide-panel folds only the log. Both classes are cleared when the cabin closes. */
-body.ck-fullscreen #area-pane,
-body.ck-hidepanel #area-pane { max-height: none; flex: 1 1 auto; }
-body.ck-fullscreen #area-content,
-body.ck-hidepanel #area-content { flex: 1 1 auto; display: flex; min-height: 0; }
-body.ck-fullscreen #output,
-body.ck-fullscreen #look-resize-handle,
-body.ck-fullscreen #bottom-input-wrap,
-body.ck-hidepanel #output,
-body.ck-hidepanel #look-resize-handle { display: none; }
 
 /* Flight-sim external chase view: the world fills the whole column so the cockpit controls
    can float over it (see cockpit.js). Grows the pane like hide-panel; the command box stays. */
@@ -911,7 +874,7 @@ body.nosidebar #sidebar { display: none; }
 body.nosidebar #main { grid-template-columns: 1fr; }
 body.nosidebar #output-container { grid-column: 1; border-left: none; border-right: none; }
 
-/* ─── FREE LOOK: THE SAME TWO RUNGS EVERY OTHER SEAT HAS ────────────────────
+/* ─── THE SEAT LADDER (js/panels/seat-ladder.js): every seat in #area-pane ──────
    Free look shipped without them, on the reasoning that "the pane was already all picture" — which
    is true of the pane's CONTENTS (there is no cockpit out here to make room for) and says nothing
    about its SIZE. #area-pane is capped at min(65%, --pane-cap) of the output column, so the camera
@@ -919,20 +882,20 @@ body.nosidebar #output-container { grid-column: 1; border-left: none; border-rig
    is the PAGE giving the pane more room, not the seat giving the picture more room inside it, and
    free look wants it for exactly the reason the other four do.
    ⊟ folds the scrollback and keeps the command box; ⛶ folds both. Cleared when the view closes. */
-body.fl-fullscreen #area-pane,
-body.fl-hidepanel #area-pane {
+body.seat-fullscreen #area-pane,
+body.seat-hidepanel #area-pane {
 	max-height: none !important;
 	height: auto !important;
 	flex: 1 1 auto;
 	padding: 0;            /* the 12px inset is stolen picture, and there is no cab trim to inset */
 }
-body.fl-fullscreen #area-content,
-body.fl-hidepanel #area-content { flex: 1 1 auto; display: flex; min-height: 0; }
-body.fl-fullscreen #output,
-body.fl-fullscreen #look-resize-handle,
-body.fl-fullscreen #bottom-input-wrap,
-body.fl-hidepanel #output,
-body.fl-hidepanel #look-resize-handle { display: none; }
+body.seat-fullscreen #area-content,
+body.seat-hidepanel #area-content { flex: 1 1 auto; display: flex; min-height: 0; }
+body.seat-fullscreen #output,
+body.seat-fullscreen #look-resize-handle,
+body.seat-fullscreen #bottom-input-wrap,
+body.seat-hidepanel #output,
+body.seat-hidepanel #look-resize-handle { display: none; }
 
 /* Mobile-only hidden state — overrides any inline height styles */
 .mob-pane-hidden {
@@ -8234,14 +8197,10 @@ html[data-density="compact"] #bottom-bar { display: none; }
    pane in every mode, and a walking compass over it is the state a player reads as "broken". */
 body.fsim-active #mob-dpad,
 body.fsim-active #mob-hud-env,
-body.fsim-fullscreen #mob-dpad,
-body.helm-fullscreen #mob-dpad,
+body.seat-fullscreen #mob-dpad,
 body.ds-fullscreen #mob-dpad,
-body.ck-fullscreen #mob-dpad,
-body.fsim-fullscreen #mob-hud-env,
-body.helm-fullscreen #mob-hud-env,
-body.ds-fullscreen #mob-hud-env,
-body.ck-fullscreen #mob-hud-env {
+body.seat-fullscreen #mob-hud-env,
+body.ds-fullscreen #mob-hud-env {
 	display: none !important;
 }
 
@@ -12614,7 +12573,7 @@ html[data-density="compact"] .corner-grip, html.tv-popped .corner-grip { display
 /* The comic replay's slow motion graded like ink on newsprint: punchier contrast and colour on the
    moving picture, with no pixel work (the freeze and the page are printed for real). */
 .gds-park .gds-canvas { transition: transform 0.35s cubic-bezier(0.2, 0.8, 0.2, 1), filter 0.3s ease; }
-.gds-park.gds-print .gds-canvas { filter: contrast(1.22) saturate(1.55) brightness(1.06); }
+.gds-park.gds-print .gds-canvas { filter: contrast(1.1) saturate(1.45) brightness(1.1); }
 @media (prefers-reduced-motion: reduce) { .gds-park .gds-canvas, .gds-park .gds-comic { transition: none; } }
 .gds-cap {
 	flex: 0 0 auto; display: flex; align-items: center; gap: 9px; min-height: 44px; padding: 5px 10px 5px 6px;
@@ -12744,9 +12703,12 @@ html[data-density="compact"] .corner-grip, html.tv-popped .corner-grip { display
 	border-radius: 4px; border: 1px solid rgba(160,190,220,0.35); background: rgba(6,10,16,0.62); color: #9fb0c0;
 	opacity: 0.35; transition: opacity 0.2s;
 }
-.gds-park:hover .view-fs, .gdr-rink:hover .view-fs, #tv-gameday:hover > .view-fs, .view-fs:focus-visible { opacity: 1; }
+.gds-park:hover .view-fs, .gdr-rink:hover .view-fs, #tv-gameday:hover > .view-fs, #tv-gameday:hover > div > .view-fs, .view-fs:focus-visible { opacity: 1; }
 .view-fs:hover, .view-fs:focus-visible { border-color: rgba(159,228,255,0.8); color: #dff4ff; }
 @media (hover: none) { .view-fs { opacity: 0.8; } }
+/* The view's host while it's full screen. The TV's is a 'display: contents' wrapper (inline), which
+   draws nothing full screen, so it's given a box for the view's absolute layout to fill. */
+.view-fs-host:fullscreen { display: block !important; position: relative; width: 100%; height: 100%; background: #000; }
 /* Deadball's pitch camera (gameday-grandstand.js addCamButton): behind the batter or behind the
    pitcher, beside the fullscreen button and as faint till the picture's hovered */
 .gds-cam {
@@ -12760,6 +12722,23 @@ html[data-density="compact"] .corner-grip, html.tv-popped .corner-grip { display
 .gds-cam:hover, .gds-cam:focus-visible { border-color: rgba(159,228,255,0.8); color: #dff4ff; }
 .gds-cam[aria-pressed="true"] { color: #7fd6b0; border-color: rgba(127,214,176,0.75); }
 @media (hover: none) { .gds-cam { opacity: 0.8; } }
+/* The Commentary toggle (commentary-button.js): the booth read aloud or not, a labelled pill at the
+   end of the picture's row of buttons. Lit while the booth is speaking; dim, never hidden, when off. */
+.view-voice {
+	position: absolute; right: 42px; bottom: 8px; z-index: 9; height: 28px; padding: 0 9px 0 7px;
+	display: flex; align-items: center; gap: 5px; cursor: pointer; white-space: nowrap;
+	font: 600 11px/1 inherit; letter-spacing: 0.04em;
+	border-radius: 14px; border: 1px solid rgba(160,190,220,0.35); background: rgba(6,10,16,0.62); color: #9fb0c0;
+	opacity: 0.7; transition: opacity 0.2s;
+}
+.view-voice:hover, .view-voice:focus-visible { opacity: 1; border-color: rgba(159,228,255,0.8); color: #dff4ff; }
+.view-voice[aria-pressed="true"] { opacity: 1; color: #ffd27a; border-color: rgba(232,184,74,0.8); box-shadow: 0 0 8px rgba(232,184,74,0.4); }
+/* Deadball: left of the pitch camera, which sits left of the fullscreen button when there is one */
+.gds-park .view-voice { right: 76px; }
+.gds-park:not(:has(.view-fs)) .view-voice { right: 42px; }
+/* Cluster Puck: left of the glow, camera, outline and gore buttons */
+.gdr-rink .view-voice { right: 144px; }
+.gdr-rink:has(.view-fs) .view-voice { right: 178px; }
 .gdr-head:empty, .gdr-strip:empty { display: none; }
 /* the card sits high on the ice, clear of the play under it */
 .gdr-rink .gdr-jumbo { top: 40%; }
@@ -12819,6 +12798,27 @@ html[data-density="compact"] .corner-grip, html.tv-popped .corner-grip { display
 .gdr-jumbo.dead { border-color: rgba(200,215,230,0.5); box-shadow: none; }
 .gdr-jumbo.dead .gdr-jumbo-title { color: #dfe9f2; text-shadow: none; letter-spacing: 7px; }
 .gdr-jumbo.final .gdr-jumbo-title { color: #fff; }
+
+/* CUP NIGHT (gameday-rink.js, `cup` on every payload of the Coldwater Cup final): the graphics go
+   gold, as Deadball's do for the Curtain Call. The header, strip and caption trade the league's
+   ice blue for gold leaf; the lower third gets a gold edge; the cards a gold frame and a sheen. */
+.gdr-wrap.cup .gdr-head { border-color: rgba(255, 210, 62, 0.55); background: linear-gradient(90deg, rgba(40, 28, 4, 0.7), rgba(0, 0, 0, 0.5)); }
+.gdr-wrap.cup .gdr-head-badge { color: #ffd23e; text-shadow: 0 0 10px rgba(255, 210, 62, 0.6); }
+.gdr-wrap.cup .gdr-head-badge i::after { content: " · COLDWATER CUP"; letter-spacing: 2px; }
+.gdr-wrap.cup .gdr-head-clock, .gdr-wrap.cup .gdr-strip-desc { color: #ffe08a; }
+.gdr-wrap.cup .gdr-strip { border-color: rgba(255, 210, 62, 0.35); }
+.gdr-wrap.cup .gdr-cap { border-left-color: #ffd23e; }
+.gdr-wrap.cup .gdr-cap-tag { background: #ffd23e; color: #1a1202; }
+.gdr-wrap.cup .gdr-l3 { border-left-color: #ffd23e; background: linear-gradient(90deg, rgba(26, 18, 2, 0.95), rgba(8, 10, 14, 0.84)); }
+.gdr-wrap.cup .gdr-l3-id .num { color: #1a1202; background: #ffd23e; }
+.gdr-wrap.cup .gdr-l3-row .tag { background: rgba(255, 210, 62, 0.2); color: #ffe08a; }
+.gdr-jumbo.cup { background: linear-gradient(180deg, rgba(36, 25, 3, 0.94), rgba(6, 6, 8, 0.9)); border: 2px solid #ffd23e; box-shadow: 0 0 34px rgba(255, 210, 62, 0.55), inset 0 0 18px rgba(255, 210, 62, 0.18); overflow: hidden; }
+.gdr-jumbo.cup .gdr-jumbo-title { color: #ffe08a; text-shadow: 0 0 16px rgba(255, 190, 40, 0.9); }
+.gdr-jumbo.cup .gdr-jumbo-sub { color: rgba(255, 236, 190, 0.85); }
+.gdr-jumbo.cup::after { content: ""; position: absolute; inset: 0; pointer-events: none; background: linear-gradient(105deg, transparent 35%, rgba(255, 240, 200, 0.35) 50%, transparent 65%); transform: translateX(-120%); }
+.gdr-jumbo.cup.in::after { animation: gdr-cup-sheen 1.6s 0.4s ease-out; }
+@keyframes gdr-cup-sheen { to { transform: translateX(120%); } }
+@media (prefers-reduced-motion: reduce) { .gdr-jumbo.cup.in::after { animation: none; } }
 
 /* The lockup sits OVER live ice now rather than replacing it — the sub-screen's
    whole claim is that there's a game on, so a warmup under a scrim says it and a
@@ -12894,6 +12894,70 @@ html[data-density="compact"] .corner-grip, html.tv-popped .corner-grip { display
 	display: none;
 }
 .tv-fx-host.on { display: block; }
+
+/* ── Weather graphics (the weather show's cards) ───────────────────────────────
+   Today, radar, week, warning. They take the top of the screen and leave the
+   bottom third to the presenter's line, as a weather set does. */
+.fx-wx > div { position: absolute; left: 4cqw; right: 4cqw; top: 3cqh; bottom: 30cqh; display: flex; flex-direction: column; animation: tv-wx-in 0.4s cubic-bezier(.16, .9, .3, 1) both; }
+@keyframes tv-wx-in { from { opacity: 0; transform: translateY(-6%); } to { opacity: 1; transform: none; } }
+.tv-wx-head { font: 700 clamp(10px, 3.4cqh, 18px)/1 var(--font-display, sans-serif); letter-spacing: 0.18em; text-transform: uppercase; color: #9fd7ff; background: linear-gradient(90deg, #0f4c81, #0b2740 80%, transparent); padding: 0.45em 0.8em; align-self: flex-start; }
+.tv-wx-icon { font-family: "Segoe UI Emoji", "Apple Color Emoji", "Noto Color Emoji", sans-serif; }
+.tv-wx-today, .tv-wx-week { background: linear-gradient(160deg, rgba(10, 40, 70, 0.92), rgba(4, 14, 26, 0.92)); border: 1px solid rgba(120, 190, 255, 0.35); box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.6), 0 8px 30px rgba(0, 0, 0, 0.5); }
+.tv-wx-now { display: flex; align-items: center; justify-content: center; gap: 4cqw; flex: 1; min-height: 0; }
+.tv-wx-now .tv-wx-icon { font-size: clamp(28px, 22cqh, 120px); line-height: 1; filter: drop-shadow(0 4px 10px rgba(0, 0, 0, 0.6)); }
+.tv-wx-temp { font: 800 clamp(30px, 24cqh, 140px)/1 var(--font-display, sans-serif); color: #fff; text-shadow: 0 3px 0 #0f4c81, 0 6px 14px rgba(0, 0, 0, 0.6); }
+.tv-wx-word { text-align: center; font: 700 clamp(11px, 4.4cqh, 26px)/1.1 var(--font-display, sans-serif); text-transform: uppercase; letter-spacing: 0.1em; color: #ffe082; margin-bottom: 1.5cqh; }
+.tv-wx-today.severe .tv-wx-word { color: #ff6b5a; }
+.tv-wx-facts { display: flex; justify-content: center; flex-wrap: wrap; border-top: 1px solid rgba(120, 190, 255, 0.25); }
+.tv-wx-facts > div { padding: 1.2cqh 2.5cqw; text-align: center; }
+.tv-wx-facts i { display: block; font: normal 600 clamp(8px, 2.4cqh, 13px)/1.2 sans-serif; text-transform: uppercase; letter-spacing: 0.12em; color: #7fa8c9; }
+.tv-wx-facts b { font: 700 clamp(10px, 3.6cqh, 20px)/1.2 sans-serif; color: #fff; }
+.tv-wx-today.sky-acid { border-color: #a4ff00; box-shadow: 0 0 24px rgba(164, 255, 0, 0.35); }
+.tv-wx-today.sky-ion { border-color: #b388ff; box-shadow: 0 0 24px rgba(179, 136, 255, 0.45); }
+
+.tv-wx-days { display: flex; flex: 1; min-height: 0; gap: 0.6cqw; padding: 1.5cqh 1cqw; }
+.tv-wx-day { flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: center; justify-content: space-between; padding: 1.2cqh 0; background: rgba(255, 255, 255, 0.04); border: 1px solid transparent; transition: background 0.25s, border-color 0.25s, transform 0.25s; animation: tv-wx-day-in 0.35s calc(var(--i) * 60ms) both; }
+@keyframes tv-wx-day-in { from { opacity: 0; transform: translateY(12%); } to { opacity: 1; transform: none; } }
+.tv-wx-day.hl { background: rgba(80, 160, 255, 0.22); border-color: #9fd7ff; transform: scale(1.06); }
+.tv-wx-day.severe { box-shadow: inset 0 -4px 0 #ff4136; }
+.tv-wx-dl { font: 700 clamp(9px, 3cqh, 16px)/1 sans-serif; text-transform: uppercase; letter-spacing: 0.08em; color: #9fd7ff; }
+.tv-wx-di { font-size: clamp(16px, 9cqh, 52px); line-height: 1; font-family: "Segoe UI Emoji", "Apple Color Emoji", "Noto Color Emoji", sans-serif; }
+.tv-wx-dt { font: 800 clamp(12px, 5.5cqh, 30px)/1 var(--font-display, sans-serif); color: #fff; }
+.tv-wx-dp { font: 600 clamp(8px, 2.4cqh, 13px)/1 sans-serif; color: #6fc3ff; }
+.tv-wx-dw { font: 600 clamp(7px, 2cqh, 11px)/1.1 sans-serif; text-transform: uppercase; color: #b9c9d6; text-align: center; padding: 0 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%; }
+
+.tv-wx-warn { background: #1a0606; border: 2px solid #ff4136; box-shadow: 0 0 30px rgba(255, 65, 54, 0.4); overflow: hidden; }
+.tv-wx-warn-bar { background: repeating-linear-gradient(-45deg, #d6002a 0 14px, #a8001f 14px 28px); color: #fff; font: 800 clamp(12px, 5cqh, 30px)/1 var(--font-display, sans-serif); letter-spacing: 0.1em; padding: 0.5em 0.7em; animation: tv-wx-blink 1s steps(2) infinite; }
+@keyframes tv-wx-blink { 50% { filter: brightness(1.35); } }
+.tv-wx-warn-body { flex: 1; display: flex; align-items: center; gap: 3cqw; padding: 0 4cqw; min-height: 0; }
+.tv-wx-warn-body .tv-wx-icon { font-size: clamp(26px, 18cqh, 100px); }
+.tv-wx-warn-when { font: 700 clamp(11px, 4.6cqh, 26px)/1.15 sans-serif; color: #fff; text-transform: uppercase; }
+.tv-wx-warn-sub { font: 500 clamp(9px, 3.4cqh, 18px)/1.3 sans-serif; color: #ffb3a8; margin-top: 0.4em; }
+.tv-wx-warn-crawl { background: #000; color: #ffdc00; font: 700 clamp(8px, 2.8cqh, 15px)/1 monospace; white-space: nowrap; overflow: hidden; padding: 0.5em 0; }
+.tv-wx-warn-crawl span { display: inline-block; padding-left: 100%; animation: tv-wx-crawl 16s linear infinite; }
+@keyframes tv-wx-crawl { to { transform: translateX(-100%); } }
+.tv-wx-warn.ch-acid { border-color: #a4ff00; }
+.tv-wx-warn.ch-acid .tv-wx-warn-bar { background: repeating-linear-gradient(-45deg, #5c8f00 0 14px, #3d6000 14px 28px); }
+.tv-wx-warn.ch-ion { border-color: #b388ff; }
+.tv-wx-warn.ch-ion .tv-wx-warn-bar { background: repeating-linear-gradient(-45deg, #6a1b9a 0 14px, #4a148c 14px 28px); }
+
+.fx-wx-radar > div { align-items: center; justify-content: center; }
+.tv-wx-radar-frame { position: absolute; inset: 0; border: 1px solid rgba(90, 220, 120, 0.5); box-shadow: 0 0 0 1px #000, 0 8px 30px rgba(0, 0, 0, 0.6); overflow: hidden; background: #050b08; }
+.tv-wx-radar canvas { display: block; width: 100%; height: 100%; object-fit: contain; }
+.tv-wx-radar-sweep { position: absolute; left: 50%; top: 50%; width: 220%; aspect-ratio: 1; translate: -50% -50%; border-radius: 50%; background: conic-gradient(from 0deg, rgba(90, 255, 140, 0.35), rgba(90, 255, 140, 0) 50deg, transparent 360deg); mix-blend-mode: screen; animation: tv-wx-sweep 3.2s linear infinite; pointer-events: none; }
+@keyframes tv-wx-sweep { to { rotate: 360deg; } }
+.tv-wx-radar-frame::after { content: ''; position: absolute; inset: 0; background: radial-gradient(circle at 50% 50%, transparent 0 24%, rgba(90, 255, 140, 0.18) 24.3% 24.7%, transparent 25% 49%, rgba(90, 255, 140, 0.14) 49.3% 49.7%, transparent 50%); pointer-events: none; }
+.tv-wx-radar-tag { position: absolute; top: 6px; left: 6px; z-index: 2; font: 600 clamp(8px, 2.6cqh, 14px)/1 sans-serif; color: #fff; background: rgba(0, 0, 0, 0.6); padding: 0.35em 0.6em; text-transform: uppercase; letter-spacing: 0.08em; }
+.tv-wx-radar-tag b { color: #5aff8c; margin-right: 0.3em; }
+.tv-wx-radar-time { position: absolute; top: 6px; right: 6px; z-index: 2; font: 700 clamp(8px, 2.6cqh, 14px)/1 monospace; color: #5aff8c; background: rgba(0, 0, 0, 0.6); padding: 0.35em 0.6em; }
+.tv-wx-radar-key { position: absolute; bottom: 6px; right: 6px; z-index: 2; display: flex; align-items: center; gap: 2px; font: 600 clamp(7px, 2cqh, 11px)/1 sans-serif; color: #ccc; background: rgba(0, 0, 0, 0.6); padding: 0.35em 0.5em; }
+.tv-wx-radar-key i { width: 12px; height: 8px; }
+.tv-wx-radar-key .r1 { background: #2ecc40; } .tv-wx-radar-key .r2 { background: #ffdc00; } .tv-wx-radar-key .r3 { background: #ff851b; } .tv-wx-radar-key .r4 { background: #ff4136; }
+.tv-wx-radar-key span { margin-left: 4px; }
+.tv-wx-radar-key .acid { color: #a4ff00; }
+.tv-wx-radar.ev-ion_storm .tv-wx-radar-frame { animation: tv-wx-ion 2.6s steps(1) infinite; }
+@keyframes tv-wx-ion { 0%, 100% { filter: none; } 47% { filter: hue-rotate(200deg) brightness(1.6); } 49% { filter: none; } 83% { filter: hue-rotate(200deg) brightness(1.3); } 84% { filter: none; } }
+.fx-wx-txt > pre.tv-wx-text { position: absolute; left: 2cqw; right: 2cqw; top: 2cqh; bottom: 30cqh; margin: 0; overflow: hidden; font: clamp(7px, 2.6cqh, 13px)/1.15 monospace; color: #9fe8b4; background: rgba(0, 0, 0, 0.85); padding: 0.6em; white-space: pre; }
 
 /* Home run: a ball arcs from the plate into the stands, then the call slams in. */
 .tv-fx-hr { position: absolute; inset: 0; }
@@ -20028,3 +20092,7 @@ body.shop-alarm #minimap-grid-mob {
    than through a browser alert (settings.js, the theme editor's name). */
 input[aria-invalid="true"] { outline: 1px solid var(--red); outline-offset: 1px; }
 input[aria-invalid="true"]::placeholder { color: var(--red); opacity: 0.8; }
+
+/* going in off the street: the ring on the black while the room loads (freelook-view.js coverPane) */
+.fl-loading { width: 34px; height: 34px; border-radius: 50%; border: 3px solid rgba(255,255,255,0.18); border-top-color: rgba(255,255,255,0.85); animation: fl-spin 0.8s linear infinite; }
+@keyframes fl-spin { to { transform: rotate(360deg); } }

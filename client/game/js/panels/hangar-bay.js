@@ -242,7 +242,9 @@ function floorScreen() {
   const d = B.data, craft = (d.craft || []).filter(c => !c.wreck);
   const pilot = d.pilot || { present: false };
   const pumps = d.fuelStocks || [];
-  const seated = d.cockpitBench && (d.licensed || d.isAdmin);
+  // One maintenance bay: the bench docked on the cockpit. Boarding to work on her needs no licence
+  // (boardIntoHangar checks only that she's yours and parked here), so everyone gets it.
+  const seated = !!d.cockpitBench;
   const cards = craft.map(c => {
     const style = cardStyleFor(c.id);
     const badge = c.rental ? '<span class="vc-badge hired">RENTAL</span>'
@@ -1045,7 +1047,7 @@ function benchScreen() {
         ${!c.wreck ? tbtn('✈', 'Fly', `data-act="embark" data-id="${esc(c.id)}" data-tail="${esc(c.tail)}"`, 'hb-accent hb-go') : ''}
         ${tbtn('◉', 'Walk round', 'data-act="inspect"')}
       </div>
-      <div class="hb-tb-group hb-tb-right">${tbtn('‹', 'Back', 'data-act="back"')}</div>
+      <div class="hb-tb-group hb-tb-right">${tbtn('‹', 'Back', 'data-act="back"')}${tbtn('⏏', B.data?.inHangar ? 'Leave hangar' : 'Leave', 'data-act="leave"')}</div>
     </div>`;
 }
 
@@ -1334,6 +1336,8 @@ function wire() {
     const act = e.currentTarget.getAttribute('data-act');
     // (Close, back in the head and the two view toggles are the shell's: onShellClick.)
     if (act === 'back') { go('floor'); return; }
+    // Leave from the bench: walk out of the walk-in hangar, or put the counter away on the ramp.
+    if (act === 'leave') { if (B.data?.inHangar) sendCmdSilent(B.data.exitDir || 'out'); else { closeHangarBay(); sendCmdSilent('look'); } return; }
     if (act === 'buyrent') { go('buyrent'); return; }
     const idOf = () => e.currentTarget.getAttribute('data-id') || B.selId;
     if (act === 'bench') {

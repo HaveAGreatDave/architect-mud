@@ -2,8 +2,8 @@
 //
 // Lifted out of the Platinum Box suite (stands.js walkSuite) with nothing about baseball left in it,
 // so the suite and a flat walk the same way: WASD walks where you're looking, sliding along what you
-// meet; Shift runs; Ctrl or C crouches; E sits in the nearest seat, uses the nearest station or gets
-// you up; a click on a seat or a station does the same. The layout is client/shared/room-layout.js's,
+// meet; Shift runs; Ctrl or C crouches; Q and E turn you while held; F sits in the nearest seat, uses
+// the nearest station or gets you up; a click on a seat or a station does the same. The layout is client/shared/room-layout.js's,
 // in whatever unit the room is in (`L.ft` is a foot in it), so the paces below are in feet.
 //
 // It moves an eye. The host owns the picture: `seat` is the object its view reads every frame
@@ -30,15 +30,16 @@ const CROUCH_PACE = 0.5;   // and how much slower
 //   project    (point, w, h) => { x, y } | null, a point in the host's frame on the picture
 //   setMode    (mode) => void: 'free' on your feet, the seat's own mode when sat
 //   redraw     () => void
-//   onStation  (station) => void: what E or a click on a station does
+//   onStation  (station) => void: what F or a click on a station does
 //   onSit      (seat) => void, after you sit; onStand () => void, after you get up
 //   seatMode   (seat) => mode a seat puts the view in ('free' by default)
 //   canSit     (seat) => true unless somebody else is in it
 //   onSettle   ([u, v], yaw) => void, when you stop walking (where you stand now)
 //   onUse      () => true if the host took the use key itself
 //   aimable    (pieceId) => true if the piece is on your side of any wall
-//   turnKeys   true: Q and E turn you while held, and F is the use key
 //   start      a seat to start in, or { at: [u, v], yaw } to start on your feet
+//   carry     another walker's `keys()`: what was held when the host swapped walkers (a new room, a piece moved),
+//              so somebody holding W through a doorway keeps walking instead of stopping until the key repeats
 // how fast Q and E turn you, in radians a second
 const TURN_RATE = 2;
 
@@ -49,8 +50,7 @@ export function createRoomWalk(opts) {
   const setMode = (m) => opts.setMode?.(m);
   let at = null, sat = null, raf = 0, last = 0, walked = false;
   const held = new Set();
-  // Q and E held, for a host that sets `turnKeys`. Apart from `held`, because turning in a seat doesn't
-  // get you up. E is the use key without it, and F with it.
+  // Q and E held. Apart from `held`, because turning in a seat doesn't get you up.
   const spin = new Set();
   // Shift sprints while it's held. Ctrl (or C) is a toggle, not a hold: Ctrl+W closes the browser
   // tab and no page can stop it, so crouch-walking forward with Ctrl held would shut the game.
@@ -98,7 +98,8 @@ export function createRoomWalk(opts) {
     const wantH = (crouched ? CROUCH : STAND) * ft, settling = !sat && Math.abs(eyeH - wantH) > 0.01 * ft;
     if (settling) { eyeH += (wantH - eyeH) * (1 - Math.exp(-dt * 12)); if (Math.abs(eyeH - wantH) <= 0.01 * ft) eyeH = wantH; }
     const turning = (spin.has('q') ? 1 : 0) - (spin.has('e') ? 1 : 0);
-    if (turning) { seat.yaw = (seat.yaw || 0) + turning * TURN_RATE * dt; redraw(); }
+    // turning lets go of whatever a seat had your eyes on (the play, the big screen), as a drag does
+    if (turning) { if (seat.mode !== 'free') setMode('free'); seat.yaw = (seat.yaw || 0) + turning * TURN_RATE * dt; redraw(); }
     if (!held.size) {
       if (walked) { walked = false; opts.onSettle?.(at, seat.yaw || 0); }
       if (settling) place();
@@ -135,7 +136,15 @@ export function createRoomWalk(opts) {
     if (Number.isFinite(start?.yaw)) seat.yaw = start.yaw;
     seat.pitch = seat.pitch ?? 0;
     setMode('free');
+    const c = opts.carry;
+    if (c) {
+      for (const k of c.held || []) if (MOVES[k]) held.add(k);
+      for (const k of c.spin || []) spin.add(k);
+      sprint = !!c.sprint; crouched = !!c.crouched;
+      if (crouched) eyeH = CROUCH * ft;
+    }
     place();
+    if (held.size || spin.size) raf = requestAnimationFrame(tick);
   }
   if (opts.pane) claimSeatKeyboard(opts.pane, { label: opts.label || 'ROOM' });
   // a key let go in another window never comes up here, and you'd turn on the spot until you came back
@@ -159,12 +168,12 @@ export function createRoomWalk(opts) {
         if (down) { held.add(k); if (!raf) raf = requestAnimationFrame(tick); } else held.delete(k);
         return true;
       }
-      if (opts.turnKeys && (k === 'q' || k === 'e') && !e.ctrlKey && !e.metaKey) {
+      if ((k === 'q' || k === 'e') && !e.ctrlKey && !e.metaKey) {
         if (down) { spin.add(k); if (!raf) raf = requestAnimationFrame(tick); } else spin.delete(k);
         return true;
       }
       if (!down) return false;
-      if (k === (opts.turnKeys ? 'f' : 'e')) { if (!e.repeat && !opts.onUse?.()) toggleSit(); return true; }
+      if (k === 'f') { if (!e.repeat && !opts.onUse?.()) toggleSit(); return true; }
       return false;
     },
     // the piece you're facing and within reach of, or the one you're on: what the card talks about
@@ -220,7 +229,7 @@ export function createRoomWalk(opts) {
     },
     sit, standUp, toggleSit,
     // a Sit button: up if you're down, else into the nearest free seat within `reach` feet, never a
-    // station (that's E's and a click's)
+    // station (that's F's and a click's)
     sitOrStand(reach = 12) {
       if (sat) { standUp(); return true; }
       const free = L.seats.filter((s) => !opts.canSit || opts.canSit(s));
@@ -233,6 +242,8 @@ export function createRoomWalk(opts) {
     get sat() { return sat; },
     get at() { return at; },
     walking: () => !sat && held.size > 0,
+    // what's held now, for the walker that takes over from this one (`carry`)
+    keys: () => ({ held: [...held], spin: [...spin], sprint, crouched }),
     stop() {
       if (raf) cancelAnimationFrame(raf);
       raf = 0; held.clear(); spin.clear();

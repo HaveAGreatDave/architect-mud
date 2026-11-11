@@ -192,7 +192,17 @@ function refreshThemeColors() {
 // a gradient per drop per frame costs far more than a drawImage.
 let dropSprite = null;
 let curDpr = 1;
-let splashes = [];  // { x, y, t, r, a } — where a near drop met the floor
+let splashes = [];  // { x, y, t, r, a, z } — where a drop met the ground
+// ── THE RAIN HAS A GROUND, SO IT IS IN A PLACE ──────────────────────────────
+// A sheet of streaks that all run off the bottom edge reads as a filter on the
+// glass. What puts it out in the world is the floor: every drop lands at the
+// height its depth puts it on a ground seen in perspective, the far ones up near
+// RAIN_HORIZON and the near ones at the foot of the pane, and its splash is small
+// and flattened out there and wide and round down here. Over that, a few broad
+// curtains of heavier rain drift across with the wind, and the ground breathes a
+// low mist, so there is air between you and the far drops.
+const RAIN_HORIZON = 0.42;   // fraction of the pane height where the ground meets the distance
+let curtains = [];           // { x, w, a, v } — drifting sheets of denser rain
 function getDropSprite() {
   if (dropSprite) return dropSprite;
   const c = document.createElement('canvas');
@@ -318,8 +328,9 @@ function spawnParticle(S, fromTop) {
       vy,
       vx: (120 + 300 * wind) * (0.5 + 0.5 * z) + rand(-25, 25),
       a: (0.32 + 0.55 * z) * rand(0.8, 1.1),
-      // Only the near drops land in view; far ones fall past the floor.
-      land: z > 0.55 ? h * rand(0.8, 1.0) : h + 1,
+      // Every drop lands on the ground at the depth it falls at: far ones near
+      // the horizon, near ones at the foot of the pane.
+      land: h * (RAIN_HORIZON + (1 - RAIN_HORIZON) * Math.min(1, 0.04 + z * rand(0.9, 1.05))),
     };
   }
   if (S.active === 'snow') {
@@ -459,6 +470,7 @@ function reseed(S) {
   refreshThemeColors();
   S.particles = [];
   splashes = [];
+  curtains = [];
   S.fogBlobs = [];
   S.strands = [];
   if (S.active === 'fog') {
@@ -509,6 +521,46 @@ function reseed(S) {
 
   const n = targetCount(S);
   for (let i = 0; i < n; i++) S.particles.push(spawnParticle(S, false));
+}
+
+// The air the rain falls through: a low mist off the wet ground, brightest just
+// under the horizon where the most rain is seen edge-on, and a few broad curtains
+// of heavier rain drifting across with the wind at different distances.
+function drawRainAir(S, dt, w, h, gust) {
+  const I = S.dispIntensity, P = S.presence;
+  if (!ctx.createLinearGradient) return;
+  const hy = h * RAIN_HORIZON;
+  const mist = ctx.createLinearGradient(0, hy - h * 0.08, 0, h);
+  const ma = (0.05 + 0.1 * I) * P;
+  mist.addColorStop(0, `rgba(${rainRGB},0)`);
+  mist.addColorStop(0.12, `rgba(${rainRGB},${ma.toFixed(3)})`);
+  mist.addColorStop(0.5, `rgba(${rainRGB},${(ma * 0.4).toFixed(3)})`);
+  mist.addColorStop(1, `rgba(${rainRGB},${(ma * 0.15).toFixed(3)})`);
+  ctx.globalAlpha = 1;
+  ctx.fillStyle = mist;
+  ctx.fillRect(0, hy - h * 0.08, w, h - hy + h * 0.08);
+
+  const want = Math.round(2 + 3 * I);
+  const wind = S.cur.windKph / 60;
+  while (curtains.length < want) {
+    const z = Math.random();
+    curtains.push({ x: rand(-0.4 * w, w), w: w * rand(0.15, 0.4), a: rand(0.025, 0.06), z,
+      v: (10 + 50 * wind) * (0.4 + z) });
+  }
+  if (curtains.length > want) curtains.length = want;
+  for (const c of curtains) {
+    c.x += c.v * gust * dt;
+    if (c.x > w + 20) { c.x = -c.w - rand(0, w * 0.3); c.w = w * rand(0.15, 0.4); }
+    // a curtain stands on the ground at its own depth, so a near one reaches lower
+    const foot = h * (RAIN_HORIZON + (1 - RAIN_HORIZON) * c.z);
+    const g = ctx.createLinearGradient(c.x, 0, c.x + c.w, 0);
+    const a = c.a * (0.5 + I) * P;
+    g.addColorStop(0, `rgba(${rainRGB},0)`);
+    g.addColorStop(0.5, `rgba(${rainRGB},${a.toFixed(3)})`);
+    g.addColorStop(1, `rgba(${rainRGB},0)`);
+    ctx.fillStyle = g;
+    ctx.fillRect(c.x, 0, c.w, foot);
+  }
 }
 
 function drawBase(S, dt, w, h) {
@@ -703,12 +755,13 @@ function drawBase(S, dt, w, h) {
     const d = curDpr;
     // Gusts lean the whole sheet a little, slowly.
     const gust = 1 + 0.25 * Math.sin(fxClock * 0.7) * Math.sin(fxClock * 0.23 + 1.3);
+    drawRainAir(S, dt, w, h, gust);
     for (const p of S.particles) {
       const vx = p.vx * gust;
       p.x += vx * dt; p.y += p.vy * dt;
       if (p.y >= p.land) {
-        if (p.land <= h && splashes.length < 90) {
-          splashes.push({ x: p.x, y: p.land, t: 0, r: 2 + 5 * p.z, a: p.a });
+        if (splashes.length < 220 && (p.z > 0.12 || Math.random() < 0.35)) {
+          splashes.push({ x: p.x, y: p.land, t: 0, r: 0.8 + 6 * p.z, a: p.a, z: p.z });
         }
         Object.assign(p, spawnParticle(S, true)); continue;
       }
@@ -725,24 +778,40 @@ function drawBase(S, dt, w, h) {
       }
     }
     ctx.setTransform(d, 0, 0, d, 0, 0);
-    // Splashes: a ring flattened by perspective and two flecks thrown up.
+    // Splashes: a crown of flecks thrown up, then a ripple spreading on the
+    // ground. Both are flattened by how far off the drop landed, so a ring at
+    // the horizon is a dash and one at your feet is nearly round.
     ctx.strokeStyle = `rgb(${rainRGB})`;
     ctx.fillStyle = `rgb(${rainRGB})`;
-    ctx.lineWidth = 0.8;
     for (let i = splashes.length - 1; i >= 0; i--) {
       const s = splashes[i];
       s.t += dt;
-      const k = s.t / 0.28;
+      const life = 0.25 + 0.45 * s.z;
+      const k = s.t / life;
       if (k >= 1) { splashes[i] = splashes[splashes.length - 1]; splashes.pop(); continue; }
       const fade = (1 - k) * s.a * S.presence;
-      ctx.globalAlpha = fade * 0.8;
+      const flat = 0.1 + 0.28 * s.z;
+      const rr = s.r * (0.3 + 1.4 * Math.sqrt(k));
+      ctx.lineWidth = 0.5 + 0.7 * s.z;
+      ctx.globalAlpha = fade * 0.7;
       ctx.beginPath();
-      ctx.ellipse(s.x, s.y, s.r * (0.4 + k), s.r * 0.3 * (0.4 + k), 0, 0, Math.PI * 2);
+      ctx.ellipse(s.x, s.y, rr, rr * flat, 0, 0, Math.PI * 2);
       ctx.stroke();
-      ctx.globalAlpha = fade;
-      const up = s.r * 2.2 * k * (1 - k);
-      ctx.fillRect(s.x - s.r * k * 1.1, s.y - up, 1, 1);
-      ctx.fillRect(s.x + s.r * k * 0.9, s.y - up * 0.8, 1, 1);
+      if (s.z > 0.45 && k > 0.3) {   // a second, inner ring on the near ones
+        ctx.globalAlpha = fade * 0.35;
+        ctx.beginPath();
+        ctx.ellipse(s.x, s.y, rr * 0.55, rr * 0.55 * flat, 0, 0, Math.PI * 2);
+        ctx.stroke();
+      }
+      if (k < 0.45) {
+        const kk = k / 0.45;
+        const up = s.r * 2.4 * kk * (1 - kk) * (0.3 + s.z);
+        const fl = Math.max(1, 1.6 * s.z);
+        ctx.globalAlpha = fade;
+        ctx.fillRect(s.x - s.r * kk * 1.1, s.y - up, fl, fl);
+        ctx.fillRect(s.x + s.r * kk * 0.9, s.y - up * 0.8, fl, fl);
+        if (s.z > 0.5) ctx.fillRect(s.x + s.r * kk * 0.1, s.y - up * 1.3, fl, fl);
+      }
     }
     ctx.globalAlpha = 1;
     return;

@@ -14,11 +14,32 @@
 // under scripts/shapes/concepts/.
 
 // Pearl and gold, the concept's own. A truck nobody has painted wears this with the body on.
-const PEARL = { base: '#ece6da', trim: '#c9a23a', hw: '#2b303a', deck: '#d9d3c6', bright: '#d4af37', glow: '#3ad1c6', glass: '#22384c', chrome: 0.85, flash: 'none', finish: 'pearl' };
+// The gold is `trim`, a paint (concepts/courier-2076.mjs `gilt`); `bright` is the brightwork, drawn as
+// chrome, so it stays a neutral chrome or the sky in it turns olive.
+const PEARL = { base: '#ece6da', trim: '#c9a23a', hw: '#2b303a', deck: '#d9d3c6', bright: '#e2e8f0', glow: '#3ad1c6', glass: '#22384c', chrome: 0.85, flash: 'none', finish: 'pearl' };
+// Gunmetal and hazard orange, after the Bulwark HX.
+const BULWARK = { base: '#4a4f57', trim: '#e8731c', hw: '#1e2126', deck: '#3a3e45', bright: '#c8ccd2', glow: '#ff9a2e', glass: '#1c2630', chrome: 0.45, flash: 'none', finish: 'satin' };
+// Navy and teal, after the Strand.
+const STRAND = { base: '#1b2a44', trim: '#2ab7b0', hw: '#11161f', deck: '#243248', bright: '#3ce0d4', glow: '#3ce0d4', glass: '#0e1a26', chrome: 0.35, flash: 'none', finish: 'metallic' };
+// Rust and primer, after the Mule. Matte, not weathered: weathering greys every panel alike, and the
+// salvaged door and the primer have to read as different panels.
+const MULE = { base: '#8a4a2a', trim: '#8f8e86', hw: '#2a2622', deck: '#5a4636', bright: '#b4b0a6', glow: '#ffae42', glass: '#2a3236', chrome: 0.12, flash: 'rust', finish: 'matte' };
 export const EDITIONS = {
   hauler: {
     2076: { name: 'Courier 2076', mul: 0.6, paint: PEARL,
       desc: "A pearl body and a glass cabin on the same chassis. It's no faster and it carries no more, but the dash knows what the trailer is doing." },
+  },
+  continental: {
+    2076: { name: 'Continental 2076', mul: 0.6, paint: BULWARK,
+      desc: 'A slab cab with grille slats, a light bar and twin horns on the roof, on heavy pads under a deep skirt. Same sleeper, same deck, and a dash that shows the whole rig.' },
+  },
+  drayman: {
+    2076: { name: 'Drayman 2076', mul: 0.6, paint: STRAND,
+      desc: "Dark and smooth, with a lit visor over the screen and sensor masts on the roof. It looks like it drives itself. It doesn't." },
+  },
+  scrapper: {
+    2076: { name: 'Barrow 2076', mul: 0.6, paint: MULE,
+      desc: 'A secondhand 2076 body cut down to fit a Barrow, with two stacks, a pod cradle on the roof and somebody else\'s fleet number. Half the dash works.' },
   },
 };
 const STOCK_DESC = 'The cab the truck left the factory with.';

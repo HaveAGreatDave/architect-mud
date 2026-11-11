@@ -23,7 +23,7 @@
 // two floats a paint, nothing allocated. `glassSummary()` reads it at send time.
 
 import { setPaintTap } from './panels/glass-veil.js';
-import { GL_TIER, isLoaded, lastViewState } from './panels/windshield-lazy.js';
+import { GL_TIER, isLoaded, lastViewState, glLastError } from './panels/windshield-lazy.js';
 
 const KEY = 'F3';
 const STORE = 'thomas.fpsMeter';
@@ -110,8 +110,15 @@ function dials() {
     if (lv && lv.id === seatId && lv.resStep != null) resStep = r1(lv.resStep);
   } catch { /* diagnostic only */ }
   const pace = window.__wsPace;
+  // Why GLASS 2 last switched itself off, if it has: a report that says `glass: 1` and not why
+  // can't be followed up.
+  let glErr = null;
+  try { const e = isLoaded() ? glLastError() : null; if (e) glErr = { where: e.where, message: String(e.message || '').slice(0, 160), ageS: Math.round((Date.now() - e.at) / 1000) }; } catch { /* diagnostic only */ }
   return {
     glass: tune ? (tune.gl ? 2 : 1) : null,
+    // GLASS Lite (windshield.js glassLite): the buildings drawn from the bake.
+    lite: tune ? (tune.gl && tune.glassLite > 0 ? 1 : 0) : null,
+    glErr,
     tier: GL_TIER || null,
     resStep,
     gov: window.__wsGov != null ? Math.round(window.__wsGov * 1000) / 1000 : null,

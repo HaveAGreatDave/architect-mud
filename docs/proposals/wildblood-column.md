@@ -78,7 +78,7 @@ Deadleg yard to the Slake and up to the North Gate. It came from the 2 November 
 1. **Bracken's hounds**: built (see above). Still to do: a bark off the same clock, a lie-down that
    moves instead of changing pose in one frame, and a night tint for the fauna layer so the pack can
    run after dark.
-2. **Rider figures**, with order dress moved out of `tools/modelshop/actor-lab.html` into content.
+2. **Rider figures**, with order dress moved out of `tools/modelshop/crowd-lab.js` (the Figure Lab's Street renderer) into content.
 3. **Shadowing:** the hound-runner keeps pace with a truck on the corridor for miles and never
    closes.
 4. **A raid**, which waits on `quest_wild_hunt` and the order build sequence.
