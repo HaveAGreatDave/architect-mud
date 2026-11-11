@@ -178,8 +178,15 @@ export const songs = SONGS.map((s) => {
 const used = new Set(songs.flatMap((r) => r.instrument_ids));
 export const instruments = Object.entries(INSTRUMENTS).filter(([k]) => used.has(INST_ID(k))).map(([key, def]) => ({
   id: INST_ID(key), name: def.name, category: 'commercial', waveform: def.waveform, enabled: 1, sample_id: null,
-  config: { layers: def.layers.map((l) => ({ waveform: def.waveform, ...l })) },
+  config: configOf(def),
 }));
+// A single layer on the row's own waveform is stored flat, the shape the Audio tab's rack saves back.
+function configOf(def) {
+  const layers = def.layers.map((l) => ({ waveform: def.waveform, ...l }));
+  if (layers.length !== 1 || layers[0].waveform !== def.waveform) return { layers };
+  const { waveform, ...flat } = layers[0];
+  return flat;
+}
 
 // ── write ───────────────────────────────────────────────────────────────────
 const isMain = process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url);

@@ -101,6 +101,51 @@ export function buildAtlas(tiles, maxSize = Infinity) {
       || (Math.max(lay.W, lay.H) === Math.max(best.W, best.H) && lay.W * lay.H >= best.W * best.H));
     if (!worse) best = lay;
   }
+  // ⚠ AND COLUMNS UNDER THE SHELVES WHEN NO SHELF LAYOUT FITS. A shelf wastes the gap under every
+  // short tile that rides a taller one, and with one pixel of padding round each tile two 48px roofs
+  // (100) never fit under one 96px wall (98). At texRes 3 the city, eleven Thornwarren palettes
+  // later, is 94% of a 2048 page with padding and its shelves came out 2074 tall. So: the tallest
+  // groups on shelves as above, and the rest stacked DOWN columns in what is left, each column
+  // starting under whatever is already above it, which wastes less than a tile at each column's
+  // foot. Only tried when no shelf layout fits, so every page that packed before packs exactly as
+  // it did. `used` is the whole page, so growAtlas finds no room and the caller rebuilds instead.
+  if (!best && Number.isFinite(maxSize)) {
+    const W = Math.min(CAP, maxSize), H = W;
+    for (let s = bands.length - 1; s >= 0 && !best; s--) {
+      const at = [], top = new Int32Array(W);
+      let x = 0, y = 0, shelf = 0, ok = true;
+      for (const g of bands.slice(0, s)) {
+        const cw = g[0].canvas.width + PAD * 2, ch = g[0].canvas.height + PAD * 2;
+        for (const t of g) {
+          if (x + cw > W) { y += shelf; x = 0; shelf = 0; }
+          if (!shelf) shelf = ch;
+          at.push([t, x, y]);
+          for (let i = x; i < x + cw; i++) top[i] = y + shelf;
+          x += cw;
+        }
+      }
+      // The current shelf's height reaches everything already on it.
+      for (let i = 0; i < W; i++) if (top[i] > y) top[i] = y + shelf;
+      const rest = bands.slice(s).sort((p, q) => (q[0].canvas.width - p[0].canvas.width) || (q[0].canvas.height - p[0].canvas.height));
+      let cx = 0, cy = -1, col = 0;
+      for (const g of rest) {
+        const cw = g[0].canvas.width + PAD * 2, ch = g[0].canvas.height + PAD * 2;
+        for (const t of g) {
+          if (cy < 0 || cy + ch > H) {
+            if (cy >= 0) cx += col;
+            col = cw;
+            if (cx + cw > W) { ok = false; break; }
+            cy = 0; for (let i = cx; i < cx + cw; i++) if (top[i] > cy) cy = top[i];
+            if (cy + ch > H) { ok = false; break; }
+          }
+          at.push([t, cx, cy]);
+          cy += ch;
+        }
+        if (!ok) break;
+      }
+      if (ok && Math.max(...top) <= H) best = { W, H, at, used: H };
+    }
+  }
   if (!best) return null;
   const { W, H } = best;
 

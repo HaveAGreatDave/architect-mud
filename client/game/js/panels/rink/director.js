@@ -1446,13 +1446,16 @@ export function createDirector(W, opts = {}) {
       if (!leg) return;
       leg.t += dt;
       // The shot is called as he lets it go, never before: he winds up ahead of the shot
-      // line, so the puck is off his stick as the line airs.
-      const rel = W.t - B.t0, callCue = cueOf(p, 'shot');
-      const shotCue = callCue != null ? Math.max(0, callCue - releaseAt(type)) : null;
+      // line, so the puck is off his stick as the line airs. A shot line held longer than the
+      // flight (the pacer never squeezes a line below its natural hold) has him let it go
+      // later in it, so the puck still arrives as the outcome is called (a goal sooner: one off a
+      // wrap or a scramble takes seconds to go in, and the goal call can wait on it, not run ahead).
+      const rel = W.t - B.t0, callCue = cueOf(p, 'shot'), outCue = cueOf(p, 'out');
+      const shotCue = callCue != null ? Math.max(0, callCue - releaseAt(type), outCue != null ? outCue - releaseAt(type) - (p.type === 'goal' ? 2 : 0.35) : 0) : null;
       // Running behind the booth: the rush catches up rather than letting the words get
       // ahead of the picture. Short of the wind-up, it goes straight to the shot; past the
       // next touch's line, the touch in progress finishes now.
-      if (shotCue != null && rel >= shotCue - 0.4 &&!['approach', 'shooting', 'wrapIn', 'feed'].includes(leg.kind)) {
+      if (shotCue != null && rel >= shotCue - 0.4 && !['approach', 'shooting', 'wrapIn', 'feed'].includes(leg.kind)) {
         if (leg.foe) leg.foe.scripted = false;
         for (const o of [leg.from, leg.rival]) if (o && o !== cur) { o.scripted = false; o.protect = 0; }
         cur.face = null; cur.protect = 0;

@@ -141,6 +141,8 @@ const { legsOf, fenceAt, sprayOf } = await import(P + 'diamond/play.js');
 const { HARD, KINDS: FX, particleAt, trailAt, endOf: fxEnd, splashOf, cheerOf } = await import(P + 'diamond/spectacle.js');
 const { createRoar, ROAR } = await import(P + 'gl/crowd.js');
 const { replayOf, stageReplay, REPLAY } = await import(P + 'diamond/replay.js');
+// a home run seen from centre field runs REPLAY.toss past contact so the bat toss lands (replay.js), 1.1 s before it
+const replayMost = (spec) => (spec.kind === 'homerun' || spec.kind === 'walkoff') && spec.shot === 'cf' ? Math.max(REPLAY.span, 1.1 + REPLAY.toss) : REPLAY.span;
 const { COMIC } = await import(P + 'diamond/comic.js');
 const { HUD_THEME } = await import(P + 'diamond/hud.js');
 const { dugoutSpot, dugoutOf } = await import(P + 'diamond/bases.js');
@@ -411,7 +413,7 @@ for (const hold of [undefined, 45000]) {
     if (spec) {
       seen.replay++;
       const R = stageReplay(p, spec, { cast }), tBat = D.log[N - 1].contact.t, ballOf = (pl, t) => { let b = null; for (const x of pl.balls) if (x.from <= t) b = x; return b ? (b.path ? b.path(t) : b.at) : null; };
-      check('a replay: its window holds its moment, and no more than REPLAY.span', spec.from <= spec.key && spec.key <= spec.to && spec.to - spec.from <= REPLAY.span + 1e-9, `${label}: ${spec.kind} ${spec.from.toFixed(2)}..${spec.to.toFixed(2)}`);
+      check('a replay: its window holds its moment, and no more than REPLAY.span (for a home run, 1.1 s plus REPLAY.toss)', spec.from <= spec.key && spec.key <= spec.to && spec.to - spec.from <= replayMost(spec) + 1e-9, `${label}: ${spec.kind} ${spec.from.toFixed(2)}..${spec.to.toFixed(2)}`);
       check('a replay: its camera is a camera', isShot(spec.shot), `${label}: ${JSON.stringify(spec.shot)}`);
       if (R) {
         const t2 = R.key - spec.key;
@@ -1132,7 +1134,7 @@ for (const { p, seed } of runs) {
       let worst = 0;
       for (let k = -5; k <= 30; k++) { const a = ballOf(D.play, tBat + k * 0.1), b = ballOf(R.D.play, R.key - spec.key + k * 0.1); if (a && b) worst = Math.max(worst, dist(a, b)); }
       check('a replay: staged again it\'s the same play (the ball within a micron of the live one)', worst < 1e-6, `${label}: ${worst.toExponential(2)} ft`);
-      check('a replay: its window holds its moment, and no more than REPLAY.span', spec.from <= spec.key && spec.key <= spec.to && spec.to - spec.from <= REPLAY.span + 1e-9, `${label}: ${spec.from.toFixed(2)}..${spec.to.toFixed(2)}`);
+      check('a replay: its window holds its moment, and no more than REPLAY.span (for a home run, 1.1 s plus REPLAY.toss)', spec.from <= spec.key && spec.key <= spec.to && spec.to - spec.from <= replayMost(spec) + 1e-9, `${label}: ${spec.from.toFixed(2)}..${spec.to.toFixed(2)}`);
       check('a replay: its camera is a camera', isShot(spec.shot), `${label}: ${JSON.stringify(spec.shot)}`);
       // the man sliding in at its moment: the batter into third, or the winning run home
       const L = R.D.play.log, man = kind === 'triple' ? L.batter : kind === 'walkoff' ? (L.runners || []).filter((r) => Number.isFinite(r.bags?.[4])).sort((a, b) => b.bags[4] - a.bags[4])[0] : null;

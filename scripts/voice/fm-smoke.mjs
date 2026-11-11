@@ -553,7 +553,8 @@ function driveCurveOf(d) {
     // today and false the moment the builder reorders.
     const glottalMods = (voice) => {
       nodes = [];
-      A.speak('hello there', { seed: 'lab', voice });
+      // natural: 0 holds the per-line register drift (lineReg) off, so F0 is the seed's.
+      A.speak('hello there', { seed: 'lab', voice: { natural: 0, ...voice } });
       const oscs = nodes.filter(n => n.kind === 'osc');
       const glot = oscs.find(o => o.frequency.log.length > 3) || oscs[0];
       return nodes.filter(n => n.kind === 'gain')

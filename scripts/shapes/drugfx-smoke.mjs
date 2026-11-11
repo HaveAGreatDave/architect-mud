@@ -116,7 +116,9 @@ export function drugFxSmoke() {
   // Not every drug should have a look — loose leaf and the splice carrier
   // deliberately do not, and a phantom deliriant must not. But most should, and
   // a collapse to nothing is the silent failure this file is here for.
-  ok('most drugs resolve to a look', withFx >= drugs.length - 6, `${withFx} of ${drugs.length}`);
+  // A row with `fx: { none: true }` (tobacco) opts out on purpose and isn't the collapse.
+  const optedOut = drugs.filter(d => d.effects?.fx?.none).length;
+  ok('most drugs resolve to a look', withFx >= drugs.length - optedOut - 6, `${withFx} of ${drugs.length}`);
   ok('the per-row exceptions are still authored', authored > 0, `${authored} rows carry an fx block`);
 
   // ⚠ A `phantom` hallucination must stay invisible. The whole illusion is that

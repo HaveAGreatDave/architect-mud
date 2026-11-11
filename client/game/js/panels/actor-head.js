@@ -440,9 +440,9 @@ export const NECK = [
   [1.6, 0.043, 0.046, -0.01],
 ];
 export const NECK_SCULPT = 1.13;
-// The sculpted neck (`k` not 1) is modelled: twice as fine, the two sternomastoids standing out as ridges from
+// The sculpted neck (`k` not 1) with `fineNeck` (the close-up figure only) is modelled: twice as fine, the two sternomastoids standing out as ridges from
 // behind each ear down to the notch at the base of the throat, the column drawn in a little above them and its
-// back thicker than its front. The street figure's stays a tube.
+// back thicker than its front. The rink and park players keep the plain tube and their triangle budget; so does the street figure.
 // `ph` runs round from the left side (+x) through the throat (+z) at a quarter turn.
 const SCM_TOP = 1.575, SCM_FOOT = 1.438;
 function scmRidge(ph, y) {
@@ -456,9 +456,9 @@ function scmRidge(ph, y) {
   }
   return best * env;
 }
-function addNeck(M, n, rows, k = 1) {
+function addNeck(M, n, rows, k = 1, fineNeck = false) {
   // the extra rings and columns only at the close-up level (12 round), where the ridges can be seen
-  const sculpt = k !== 1, fine = sculpt && n >= 12, N = fine ? n * 2 : n, R = fine ? Math.round(rows * 1.75) : rows;
+  const sculpt = k !== 1, fine = sculpt && fineNeck && n >= 12, N = fine ? n * 2 : n, R = fine ? Math.round(rows * 1.75) : rows;
   const rings = [], f = [1, 2, 3].map((k) => spline(NECK.map((r) => [r[0], r[k]])));
   for (let i = 0; i < R; i++) {
     const y = NECK_TOP - ((NECK_TOP - NECK_FOOT) * i) / (R - 1);
@@ -484,8 +484,8 @@ function addNeck(M, n, rows, k = 1) {
 const _head = {};
 // Skin at level `lv` (0, 1 or 2): the skull, both ears and the neck, one indexed mesh. `style` is
 // a FACE_STYLES name; the hair shells (hairMesh) fit either, since they stop above the face.
-export function headMesh(lv = 0, style = 'real') {
-  const hk = lv + style;
+export function headMesh(lv = 0, style = 'real', fineNeck = false) {
+  const hk = lv + style + (fineNeck ? '+neck' : '');
   if (_head[hk]) return _head[hk];
   const L = HEAD_LEVELS[lv], G = grid(lv, style), M = builder(), n = G.n;
   const ti = M.v(G.top, 7), rings = G.pts.map((r) => r.map((p) => M.v(p, 7))), bi = M.v(G.bot, 7);
@@ -495,7 +495,7 @@ export function headMesh(lv = 0, style = 'real') {
   for (let k = 0; k < n; k++) M.t(R[k], R[(k + 1) % n], bi);
   const sculpt = style.startsWith('sculpt');
   addEar(M, 1, ...L.ear, sculpt); addEar(M, -1, ...L.ear, sculpt);
-  addNeck(M, ...L.neck, sculpt ? NECK_SCULPT : 1);
+  addNeck(M, ...L.neck, sculpt ? NECK_SCULPT : 1, fineNeck);
   _head[hk] = done(M);
   return _head[hk];
 }

@@ -30,7 +30,7 @@ import { formNormals, faceDesigned } from './form-normals.js';
 
 const TAU = Math.PI * 2;
 const clamp01 = (x) => Math.max(0, Math.min(1, x));
-const smooth = (e0, e1, x) => { const t = clamp01((x - e0) / (e1 - e0)); return t * t * (3 - 2 * t); };
+const smooth = (e0, e1, x) => { if (e1 === e0) return x < e0 ? 0 : 1; const t = clamp01((x - e0) / (e1 - e0)); return t * t * (3 - 2 * t); };
 const se = (v, n) => Math.sign(v) * Math.abs(v) ** (2 / n);
 const gx = (d, s) => Math.exp(-((d / s) ** 2));
 const norm3 = (a) => { const l = Math.hypot(a[0], a[1], a[2]) || 1; return [a[0] / l, a[1] / l, a[2] / l]; };
@@ -1668,7 +1668,7 @@ function skulletLocks(M, r, hd, cols, wt, fs) {
   });
 }
 function hairLocks(level, style, fs, spikes = 0) {
-  const M = newPart('locks', FIG_SLOT.hair), r = rng(0x10c5 + style), LS = LOCK_STYLE[style], hd = level.name === 'hd', rows = hd ? 6 : 3, cols = hd ? 6 : 4, wt = [[B.head, 1]];
+  const M = newPart('locks', FIG_SLOT.hair), r = rng(0x10c5 + style), LS = LOCK_STYLE[style], hd = level.name === 'hd', rows = hd ? 6 : 3, cols = hd ? 6 : 3, wt = [[B.head, 1]];
   if (!LS) return M;
   if (style === 5) { skulletLocks(M, r, hd, cols, wt, fs); return M; }
   for (const [t0, t1q, l0, l1, hw0, up0, lift0] of hd ? LOCK_ROWS : LOCK_ROWS.filter((_, i) => i % 2 === 0)) {
@@ -1820,7 +1820,7 @@ function eyeParts(fs) {
 // ── The head (close-up only): actor-head.js's skin and shell, riding the head and neck bones ───────
 function headParts(style, lv, sculpt = false, fs = 'comic', neckK = 1) {
   const out = [];
-  const H = headMesh(lv, fs), Hs = newPart('head', FIG_SLOT.face);
+  const H = headMesh(lv, fs, true), Hs = newPart('head', FIG_SLOT.face);
   for (let i = 0; i < H.P.length / 3; i++) {
     const f = H.F[i], slot = f === 8 ? FIG_SLOT.ear : f === 12 ? FIG_SLOT.neck : FIG_SLOT.face, w = H.W[i];
     // a build's neck, round the neck's own axis
@@ -2543,7 +2543,7 @@ export function buildFigure({ cut = 'coat', style = 0, level = 'hd', wear = null
   if (Lv.skin) out.NF = formNormals(out, Lv.name === 'hd' ? 40 : 16, { at: Lv.name === 'hd' ? 10 : 5, mask: (v) => out.S[v] === FIG_SLOT.face || out.S[v] === FIG_SLOT.ear || out.S[v] === FIG_SLOT.neck });
   // the face lights on its designed planes (form-normals.js faceDesigned), not its smoothed form
   const hp = out.parts.find((p) => p.name === 'head');
-  if (out.NF && hp) out.NF.set(faceDesigned(headMesh(Lv.head, FS)), hp.v0 * 3);
+  if (out.NF && hp) out.NF.set(faceDesigned(headMesh(Lv.head, FS, true)), hp.v0 * 3);
   // the seat lights as the hips' round, not down into its cap, or the line where it dips into the
   // trousers shows as a jagged shadow
   const seat = sculpt && out.NF && out.parts.find((p) => p.name === 'seat');

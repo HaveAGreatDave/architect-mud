@@ -28,10 +28,10 @@ import { GUT, flatOut, gutPhase, slugLine, tubeRun } from './downtown.js';
 // foot and an ink strap across it. `tilt` leans it, because nothing salvaged hangs square.
 function swPlate(ctx, cam, F, lx, ly, w, z0, z1, yaw, seed, night, alpha, tilt = 0) {
   const [px, py] = F(lx, ly);
-  draw3DBoxAt(ctx, cam, px, py, w, z0, z1, (seed & 1) ? 'ty_sw_rust' : 'ty_sw_iron', seed, night, alpha, false, yaw + tilt, w * 0.08);
-  draw3DBoxAt(ctx, cam, px, py, w * 1.02, z0, z0 + (z1 - z0) * 0.22, 'ty_sw_rust', seed + 1, night, alpha, false, yaw + tilt, w * 0.10);
+  draw3DBoxAt(ctx, cam, px, py, w, z0, z1, (seed & 1) ? 'ty_sw_rust' : 'ty_sw_iron', seed, night, alpha, true, yaw + tilt, w * 0.08);
+  draw3DBoxAt(ctx, cam, px, py, w * 1.02, z0, z0 + (z1 - z0) * 0.22, 'ty_sw_rust', seed + 1, night, alpha, true, yaw + tilt, w * 0.10);
   const s = z0 + (z1 - z0) * 0.66;
-  draw3DBoxAt(ctx, cam, px, py, w * 1.06, s, s + (z1 - z0) * 0.07, 'ty_sw_ink', seed + 2, night, alpha, false, yaw + tilt, w * 0.12);
+  draw3DBoxAt(ctx, cam, px, py, w * 1.06, s, s + (z1 - z0) * 0.07, 'ty_sw_ink', seed + 2, night, alpha, true, yaw + tilt, w * 0.12);
 }
 
 // A spike: a fat dark shank and a bone point. Few and big, so it reads at range as a wedge.
@@ -143,7 +143,9 @@ function nlTally(ctx, cam, F, lx, ly, w, z0, z1, yaw, fh, seed, night, alpha, ro
   const [x, y] = F(lx, ly), dz = (z1 - z0) / (rows + 2);
   draw3DBoxAt(ctx, cam, x, y, w, z0, z1, 'ty_dw_slate', seed, night, alpha, false, yaw, fh * 0.014);
   for (let i = 0; i < rows; i++) {
-    const len = w * (0.30 + frac(seed * 3 + i) * 0.50), z = z1 - dz * (i + 1.4);
+    // Row lengths key on the row count, never the seed: a ported model (thetally, thestores) is
+    // captured at one seed and diffed at others, so a seeded layout can never match its file.
+    const len = w * (0.30 + frac(rows * 3 + i) * 0.50), z = z1 - dz * (i + 1.4);
     const [rx, ry] = F(lx - w * 0.86 + len, ly);
     draw3DBoxAt(ctx, cam, rx, ry, len, z, z + dz * 0.30, 'ty_dw_paint', seed + 1 + i, night, alpha, false, yaw, fh * 0.018);
   }
@@ -1110,7 +1112,7 @@ export const OUTPOST_ARMS = {
     // ⚠ The rail across the front of the ring is a BAR between those two posts, and with no `fd`
     //   it was a square box: half a tile of solid timber lying across the yard, lidless. It takes
     //   the posts' own thickness. See `scripts/shapes/lidless.mjs`.
-    { const [gx, gy] = F(0, fh * 1.18); draw3DBoxAt(ctx, cam, gx, gy, fh * 0.96, h * 0.18, h * 0.22, 'ty_sw_gate_dk', seed + 24, night, alpha, true, 0, fh * 0.04); }
+    { const [gx, gy] = F(0, fh * 1.18); draw3DBoxAt(ctx, cam, gx, gy, fh * 0.96, h * 0.18, h * 0.22, 'ty_sw_gate_dk', seed + 24, night, alpha, true, faceYaw(E), fh * 0.04); }
     { const [tx, ty] = F(fh * 0.50, fh * 0.62); draw3DBoxAt(ctx, cam, tx, ty, fh * 0.18, 0, h * 0.12, 'ty_sw_water', seed + 26, night, alpha, true); }
     // 4) THE FEED STORE — the one lockable thing on the tile, because meat is worth more than dogs.
     { const [sx, sy] = F(fh * 0.92, -fh * 0.30);

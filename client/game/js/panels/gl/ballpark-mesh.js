@@ -36,6 +36,7 @@
 // ⚠ NO FACE CULLING, as in arena.js: the builders don't keep one winding.
 
 import { DEG, BAGS, MOUND, RUBBER, FOUL_GROUND, DUGOUT, offLine, moundHeight, venueField, fenceDistance, parkOutline, insideOutline, seeded, BOWL, sf, sOf, fromBlock, ftUp } from '../diamond/geo.js';
+import { FT_M } from '../../../../shared/world-scale.js';
 import { WIN_OPEN, sunburst, headPanels, wallRects } from '../glass/coliseum-window.js';
 import { actorPoseMesh } from '../actor3d.js';
 import {
@@ -1442,7 +1443,7 @@ export function crowdMorph(o = {}) {
 // CROWD_MORPH layout, and its parts are CROWD_PART codes, so the crowd shaders don't change. The
 // towel hangs off the right hand in the cheer and folds into it in the other two. `street: false`
 // on crowdMorph is the old hand-built fan (crowdMesh).
-const FT = 3.28084;
+const FT = 1 / FT_M;
 // the street rig's materials as the crowd's parts: 0 skin, 1 coat, 2 trousers, 3 shoes, 4 hair, 5 eyes, 6 lips
 const STREET_PART = [CP.skin, CP.shirt, CP.leg - 0.25, CP.shoe, CP.hair, CP.hair, CP.skin];
 const _streetMorph = new Map();

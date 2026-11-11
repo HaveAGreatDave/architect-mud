@@ -16563,8 +16563,9 @@ function drawMode7Floor(ctx, W, H, horizonY, depth0, v, sky, gTop, now, sun, cha
   // `TUNE.gl` term it would go on returning early for ever on a machine that cannot draw the
   // replacement: not a degraded floor, NO floor, permanently, on exactly the hardware that has no
   // way to tell you why. Harmless while glFloor defaulted to 0 and load-bearing the moment it did
-  // not.
-  if (TUNE.gl && TUNE.glFloor && GL_HOOK && LUT) {
+  // not. `!GL_FAILS` is the same fail-safe for the frames before that: a pass that drew nothing
+  // isn't switched off until GL_FAIL_MAX in a row, and the frames in between still need a ground.
+  if (TUNE.gl && TUNE.glFloor && GL_HOOK && LUT && !GL_FAILS) {
     perfBegin('floor:bytes');
     const lutBytes = floorLutBytes(LUT, mh, windFromView(v).dx, windFromView(v).dy, v.mapCenter);
     perfEnd();

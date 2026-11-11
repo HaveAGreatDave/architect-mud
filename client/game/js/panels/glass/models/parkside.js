@@ -223,7 +223,11 @@ export const PARKSIDE_ARMS = {
     // The boxes round the skin, for collision, the occluders and the distance LOD.
     if (SHAPE_SINK) {
       B(0, 0, LE, YF, ZB, ZW + LR + up(LE), pal || 'ty_cod', true, 1);
-      B(0, 0, XF + RF, RF, ZF - RF, ZF + RF + up(XF + RF), pal || 'ty_cod', true, 3);
+      // Its top is the highest point of the frank's own end rings, where the smile lifts it, so
+      // the box stands exactly as tall as the mesh (glmesh holds the two together).
+      let zTop = 0;
+      for (let i = 0; i <= NC; i++) { const t = Math.PI / 2 * i / NC; zTop = Math.max(zTop, ZF + up(XF + RF * Math.sin(t)) + RF * Math.cos(t)); }
+      B(0, 0, XF + RF, RF, ZF - RF, zTop, pal || 'ty_cod', true, 3);
     }
     // ── The bun: a two-lobed profile in y–z, run along x, each end rounded into a nose ──
     const arc = (cy, a0, a1, n) => Array.from({ length: n + 1 }, (_, i) => { const a = a0 + (a1 - a0) * i / n; return [cy + Math.cos(a) * LR, ZW + Math.sin(a) * LR]; });

@@ -36,6 +36,7 @@ import { floorZAt } from './seabed-scene.js';
 import { interiorRoomsOf } from './room-interiors.js';
 import { noteDoor, noteCarry } from './lobby-still.js';
 import { roomFree, openingCrossed, openingInside } from '../../../shared/room-layout.js';   // a building's rooms, drawn in the city (docs/proposals/one-world-interiors.md)
+import { FT_M } from '../../../shared/world-scale.js';
 // The rooms the server sent for the buildings near you on foot, kept for the view (each building once, by its tile)
 function keepInteriors(s, list) {
   const by = new Map((s.interiors || []).map((r) => [r.key, r]));
@@ -812,7 +813,7 @@ export function closeFreelook() {
 const FPS_EYE = 0.09;
 // On foot, the Room Stage's pace (room-walk.js: 5.5 ft a second, Shift 1.9 times that), in tiles: FPS_EYE
 // is 1.6 m, so a metre is FPS_EYE / 1.6 tiles. Out of the front door you walk as you did in the lobby.
-const FOOT_PACE = { walk: 5.5 * 0.3048 * FPS_EYE / 1.6, run: 1.9 };
+const FOOT_PACE = { walk: 5.5 * FT_M * FPS_EYE / 1.6, run: 1.9 };
 function deckEyeAt(s, fv, now) {
   if (!s.map || !fv) return null;
   const R = (s.map.length - 1) / 2, c = s.map?.[R]?.[R];

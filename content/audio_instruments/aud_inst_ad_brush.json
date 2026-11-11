@@ -1,25 +1,20 @@
 {
   "category": "commercial",
   "config": {
-    "layers": [
-      {
-        "adsr": {
-          "a": 0.01,
-          "d": 0.14,
-          "r": 0.08,
-          "s": 0
-        },
-        "filter": {
-          "freq": 4200,
-          "q": 0.6,
-          "type": "bandpass"
-        },
-        "gain": 0.08,
-        "noiseMix": 1,
-        "noiseSeed": 31,
-        "waveform": "square"
-      }
-    ]
+    "adsr": {
+      "a": 0.01,
+      "d": 0.14,
+      "r": 0.08,
+      "s": 0
+    },
+    "filter": {
+      "freq": 4200,
+      "q": 0.6,
+      "type": "bandpass"
+    },
+    "gain": 0.08,
+    "noiseMix": 1,
+    "noiseSeed": 31
   },
   "enabled": 1,
   "id": "aud_inst_ad_brush",

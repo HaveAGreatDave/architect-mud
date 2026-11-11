@@ -84,7 +84,7 @@ check(vehicleInkOf(1800) === null, 'off: no vehicle lines');
 globalThis.__houseComic = 1;
 {
   const k = vehicleInkOf(1800);
-  check(k && k.sil === HOUSE.cityPx * 2 && k.detail === HOUSE.cityPx && k.weigh === HOUSE.weigh, 'comic: the city outline width, half for detail, the figures\' weight');
+  check(k && k.sil === HOUSE.vehiclePx * 2 && k.detail === HOUSE.vehiclePx && k.weigh === HOUSE.weigh, "comic: the vehicle outline width (a touch under the city's), half for detail, the figures' weight");
   check(vehicleInkOf(100).sil === 1 && vehicleInkOf(100).detail === 1, 'comic: never under a pixel');
 }
 delete globalThis.__houseComic;

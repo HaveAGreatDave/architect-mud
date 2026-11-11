@@ -165,7 +165,7 @@ export function cabinInkOf(w) {
 
 /**
  * The own ship's edge lines (gl/vehicle-ink.js, V2) for a target `w` device pixels wide: null unless
- * the comic look is on. The outline at the city's width, the creases and part lines at half, never
+ * the comic look is on. The outline at HOUSE.vehiclePx (a touch under the city's), the creases and part lines at half, never
  * under a pixel, and the figures' weight on the side away from the sun.
  */
 export function vehicleInkOf(w) {

@@ -1,5 +1,5 @@
 {
-  "repeatedSentences": 157,
+  "repeatedSentences": 152,
   "files": {
     "CLAUDE.md": {
       "jargon-metaphor": 2
@@ -72,7 +72,7 @@
       "constructed-irony": 7,
       "staged-reveal": 1,
       "aphoristic-closer": 2,
-      "caps-run": 120,
+      "caps-run": 121,
       "em-dash": 1,
       "over-length": 369
     },
@@ -111,7 +111,7 @@
       "epigram-reframe": 9,
       "staged-reveal": 2,
       "aphoristic-closer": 5,
-      "caps-run": 19,
+      "caps-run": 20,
       "em-dash": 1,
       "over-length": 65
     },
@@ -133,8 +133,8 @@
       "aphoristic-closer": 4,
       "fiction-cliche": 34,
       "caps-run": 116,
-      "em-dash": 286,
-      "over-length": 709
+      "em-dash": 285,
+      "over-length": 708
     },
     "docs/adr/0001-action-canonical-mutation-path.md": {
       "em-dash": 4
@@ -315,7 +315,7 @@
       "em-dash": 49
     },
     "docs/proposals/deadwater.md": {
-      "em-dash": 30
+      "em-dash": 29
     },
     "docs/proposals/district-repair.md": {
       "negative-parallelism": 1,
@@ -500,7 +500,7 @@
       "jargon-metaphor": 1,
       "negative-parallelism": 1,
       "caps-run": 27,
-      "em-dash": 111
+      "em-dash": 110
     },
     "docs/reference/cockpit-lettering.md": {
       "constructed-irony": 1,
@@ -588,7 +588,7 @@
       "constructed-irony": 1,
       "aphoristic-closer": 2,
       "caps-run": 2,
-      "em-dash": 243
+      "em-dash": 242
     },
     "docs/systems-casino.md": {
       "em-dash": 30
@@ -648,7 +648,7 @@
       "jargon-metaphor": 1,
       "negative-parallelism": 1,
       "caps-run": 96,
-      "em-dash": 103
+      "em-dash": 101
     },
     "docs/systems-fishing.md": {
       "jargon-metaphor": 4,
@@ -725,9 +725,9 @@
       "jargon-metaphor": 4,
       "negative-parallelism": 2,
       "constructed-irony": 2,
-      "aphoristic-closer": 2,
-      "caps-run": 38,
-      "em-dash": 265
+      "aphoristic-closer": 1,
+      "caps-run": 34,
+      "em-dash": 261
     },
     "docs/systems-posture.md": {
       "em-dash": 16
@@ -803,7 +803,7 @@
       "negative-parallelism": 1,
       "constructed-irony": 1,
       "aphoristic-closer": 1,
-      "em-dash": 103
+      "em-dash": 102
     },
     "docs/systems-wildlands-ground.md": {
       "caps-run": 1
@@ -1319,7 +1319,7 @@
       "constructed-irony": 5,
       "aphoristic-closer": 1,
       "caps-run": 43,
-      "em-dash": 333
+      "em-dash": 330
     },
     "tools/studio/README.md": {
       "jargon-metaphor": 1,

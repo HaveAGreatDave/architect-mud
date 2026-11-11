@@ -1,26 +1,21 @@
 {
   "category": "commercial",
   "config": {
-    "layers": [
-      {
-        "adsr": {
-          "a": 0.0005,
-          "curve": "exp",
-          "d": 0.04,
-          "r": 0.03,
-          "s": 0
-        },
-        "filter": {
-          "freq": 7000,
-          "q": 0.8,
-          "type": "highpass"
-        },
-        "gain": 0.09,
-        "noiseMix": 1,
-        "noiseSeed": 29,
-        "waveform": "square"
-      }
-    ]
+    "adsr": {
+      "a": 0.0005,
+      "curve": "exp",
+      "d": 0.04,
+      "r": 0.03,
+      "s": 0
+    },
+    "filter": {
+      "freq": 7000,
+      "q": 0.8,
+      "type": "highpass"
+    },
+    "gain": 0.09,
+    "noiseMix": 1,
+    "noiseSeed": 29
   },
   "enabled": 1,
   "id": "aud_inst_ad_hat",
