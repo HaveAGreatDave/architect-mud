@@ -34,14 +34,15 @@
 // not "does it fly", it is "does it want what this family gives you".
 import { validateMesh } from './vehicle-mesh.js';
 
-export const VEHICLE_KINDS = ['fw', 'truck', 'boat', 'mesh'];
+// ⚠ THERE IS NO `truck` KIND. The trucks were proportion rows (`truck_<type>.json`) until they were
+// ported to mesh files (`mesh_truck_<type>.json`) and the builder that read the rows was retired
+// (docs/proposals/hover-rigs.md). A truck file is a `mesh` now, with a `truck` block.
+export const VEHICLE_KINDS = ['fw', 'boat', 'mesh'];
 
-// Which classes, truck types, hulls and meshes a file may claim. A row for anything else is a file
-// the renderer would never read, so it fails the build rather than sitting there looking
-// authoritative.
+// Which classes, hulls and meshes a file may claim. A row for anything else is a file the renderer
+// would never read, so it fails the build rather than sitting there looking authoritative.
 export const VEHICLE_IDS = {
   fw: ['prop', 'gunship', 'heavy', 'locust', 'divebomber'],
-  truck: ['scrapper', 'hauler', 'drayman', 'continental'],
   boat: ['hydro', 'spur', 'gamecock', 'skiff'],
   mesh: ['heli', 'heli_armed', 'heli_2076', 'heli_armed_2076', 'ultralight', 'ultralight_2076', 'grasshopper', 'grasshopper_2076', 'wreck', 'wreck_2076', 'drake', 'drake_2076', 'prop', 'prop_2076', 'heavy', 'heavy_2076', 'gunship', 'gunship_2076', 'divebomber', 'divebomber_2076', 'locust', 'locust_2076', 'podracer', 'podracer_skitter', 'podracer_sledge', 'column', 'column_runner', 'column_cart', 'truck_scrapper', 'truck_hauler', 'truck_drayman', 'truck_continental', 'truck_hauler_2076', 'truck_continental_2076', 'truck_drayman_2076', 'truck_scrapper_2076'],
 };

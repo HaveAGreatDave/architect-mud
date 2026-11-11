@@ -1,8 +1,8 @@
 // VEHICLE MESH — the authored format for a vehicle that is drawn by hand, and the one compiler for it.
 //
 // A vehicle in GLASS is a face list in its own frame (f = fore+, g = right+, h = up+), each face
-// `{ role, sh, p: [[f,g,h], …] }` plus a few optional fields. Most classes are GENERATED from a row
-// of numbers (`fw_*`, `truck_*`, `boat_*` in content/vehicle_models/). The rest were drawn in code,
+// `{ role, sh, p: [[f,g,h], …] }` plus a few optional fields. Some classes are GENERATED from a row
+// of numbers (`fw_*`, `boat_*` in content/vehicle_models/). The rest were drawn in code,
 // which meant nobody could change one without writing JavaScript. This file is what lets them be
 // authored as data instead: a mesh file is a list of PARTS, each part is a primitive with plain
 // parameters, and `compileMesh` turns the list into faces.
@@ -320,6 +320,14 @@ const _src = new WeakMap();
 // For a compiled face list, the part path each face came from ('parts[3]', 'parts[5].parts[1]~L').
 // Kept beside the faces rather than on them, so no field the renderer never reads rides every face.
 export function meshSource(faces) { return _src.get(faces) || null; }
+// For a list made from a compiled one (filtered or spliced, as a truck's state is), the source of each
+// face it kept, by identity, so the Modelshop can still name the part a click lands on.
+export function carryMeshSource(from, to) {
+  const src = _src.get(from);
+  if (!src) return;
+  const at = new Map(from.map((f, i) => [f, src[i]]));
+  _src.set(to, to.map((f) => at.get(f) ?? null));
+}
 
 const shadeK = (S, k, n) => {
   let v = S.base + S.amp * (0.5 + 0.5 * Math.sin((k + 0.5) / n * Math.PI * 2));
@@ -487,7 +495,7 @@ function emitWing(p, faces, detail) {
 }
 
 // Six quads with shades baked top-lit, sharing corner points and one centre (`cen`, for the cull and
-// the sun normal). The same box buildTruck drew, quad for quad, so a ported truck compiles to it.
+// the sun normal). The truck builder's box, quad for quad, which is what the trucks were ported to.
 function emitBox(p, faces) {
   const [f0, f1] = p.f, [z0, z1] = p.z, w = p.w, gc = p.g ?? 0, role = p.role || 'body';
   const gl = gc - w, gr = gc + w;
@@ -673,8 +681,8 @@ function emitPart(p, faces, cx, path, srcs) {
     }
     default: throw new Error('unknown part kind ' + JSON.stringify(p.kind) + ' at ' + path);
   }
-  // `partIds`: every part that draws is one id for the painter's part sort, in the order drawn, as
-  // buildTruck numbered its boxes. A group or mirror is not a part; what's inside it is.
+  // `partIds`: every part that draws is one id for the painter's part sort, in the order drawn (a
+  // truck file sets it). A group or mirror is not a part; what's inside it is.
   if (cx.partIds && p.kind !== 'group' && p.kind !== 'mirror') {
     const id = ++cx.seq;
     for (let i = from; i < faces.length; i++) if (faces[i].part == null) faces[i].part = id;
@@ -984,6 +992,7 @@ export function validateMesh(params, file = '<mesh>') {
       for (const k of ['w', 'hi', 'sleeper', 'deck', 'lamps', 'boxHalf']) if (!isNum(t[k])) errors.push(at('truck.' + k + ' must be a number'));
       if (!isVec(t.pin, 2)) errors.push(at('truck.pin must be [aft, fore]: the fifth wheel\'s plate'));
       if (t.beacon != null && !isVec(t.beacon, 2)) errors.push(at('truck.beacon must be [f, h]: where the Amber Beacon fitting\'s lamp is'));
+      if (t.stacks != null && !(Array.isArray(t.stacks) && t.stacks.every(isNum))) errors.push(at('truck.stacks must be a list of g: where the exhaust stacks stand, for the stack fittings'));
       if (!isPlain(t.geom) || !Object.values(t.geom).every(isNum)) errors.push(at('truck.geom must be an object of numbers (the lamp stations)'));
       if (!Array.isArray(t.pods) || !t.pods.every((q) => Array.isArray(q) && q.length === 5 && isNum(q[0]) && isNum(q[1]) && isNum(q[2]) && typeof q[3] === 'boolean' && isNum(q[4])))
         errors.push(at('truck.pods must be a list of [f, g, halfLength, onTrailer, halfWidth]'));
@@ -1066,7 +1075,7 @@ export function meshStats(faces) {
 const KEY_ORDER = {
   doc: ['id', 'kind', 'params'],
   params: ['name', 'note', 'portedFrom', 'armedMesh', 'variants', 'scale', 'classFacts', 'groundPitch', 'navLamps', 'lamps', 'hull', 'cabin', 'rotors', 'finish', 'paints', 'schemes', 'partIds', 'truck', 'parts'],
-  truck: ['w', 'hi', 'sleeper', 'deck', 'lamps', 'boxHalf', 'pin', 'beacon', 'geom', 'pods'],
+  truck: ['w', 'hi', 'sleeper', 'deck', 'lamps', 'stacks', 'boxHalf', 'pin', 'beacon', 'geom', 'pods'],
   cabin: ['note', 'mPerUnit', 'head', 'eye', 'pilotEye', 'floor', 'back', 'wall'],
   station: ['f', 'rg', 'rv', 'rvT', 'rvB', 'cz', 'keel', 'boxy', 'upper', 'u', 'minDetail', 'note'],
   face: ['role', 'sh', 'p'],

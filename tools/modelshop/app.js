@@ -637,8 +637,8 @@ function drawScales() {
 }
 
 // ── THE VEHICLE TUNER ────────────────────────────────────────────
-// Five airframes and four trucks are generated from a row of plain numbers, so those nine can be
-// reshaped here. The rest — the Mayfly, the Cub, both helis, the wreck — are hand-authored
+// Five airframes and the hulls are generated from a row of plain numbers, so those can be reshaped
+// here. The trucks were rows too until their builder retired; they're mesh files in the mesh editor. The rest — the Mayfly, the Cub, both helis, the wreck — are hand-authored
 // meshes with no row, and the panel says so rather than showing an empty form.
 //
 // A change is live at once and SAVED on request. setVehicleParams writes into the running module
@@ -657,8 +657,7 @@ const vehPatch = new Map();          // '<kind>/<id>' -> the fields changed from
 // What the last save said. It is state rather than a line appended to the panel because saving
 // redraws the panel, and a message appended to the old one is gone before it can be read.
 let vehSaveMsg = '';
-const vehRowOf = (v) => (VEHICLE_PARAM_TABLE[v.cls] ? { kind: VEHICLE_PARAM_TABLE[v.cls], id: v.cls }
-  : v.cls === 'truck' ? { kind: 'truck', id: v.variant } : null);
+const vehRowOf = (v) => (VEHICLE_PARAM_TABLE[v.cls] ? { kind: VEHICLE_PARAM_TABLE[v.cls], id: v.cls } : null);
 
 function applyVehPatch(ref) {
   const key = ref.kind + '/' + ref.id;
@@ -708,7 +707,7 @@ function drawVehicleTuner(host, v) {
   const ref = vehRowOf(v);
   const note = document.createElement('div'); note.className = 'dim';
   if (!ref) {
-    note.textContent = 'This mesh is hand-authored in aircraft3d.js rather than generated from a parameter row, so there is nothing here to tune. The five fixed-wing classes and the four trucks are.';
+    note.textContent = 'This mesh is hand-authored in aircraft3d.js rather than generated from a parameter row, so there is nothing here to tune. The five fixed-wing classes and the hulls are.';
     host.append(note); return;
   }
   const base = vehicleParamBase(ref.kind, ref.id) || {};

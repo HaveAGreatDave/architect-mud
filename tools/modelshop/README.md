@@ -1672,7 +1672,7 @@ the way `modelFor` does, named model first.
 `renderVehiclePreview`. There is no capture for it and no geometry to author, but the mesh is
 *generated* from a row of plain numbers, so the row is what the tool edits.
 
-The four trucks have one. The five fixed-wing classes (`prop`, `gunship`, `heavy`, `locust`,
+The four trucks had one until their builder was retired (2026-11-11). They are mesh files now (`mesh_truck_<type>.json`), and a truck subject opens its file in the mesh editor, or its edition's file for a `~e2076` subject. After saving a stock truck, run `node scripts/shapes/meshes.mjs --fingerprint`, or the gate goes red on the change. The five fixed-wing classes (`prop`, `gunship`, `heavy`, `locust`,
 `divebomber`) still have their `fw_*` rows, but since 2026-09-24 they are DRAWN from mesh files
 (`mesh_<id>.json`, which `aircraftFaces` answers before the fixed-wing builder), so editing a row
 no longer changes the exterior. The rows stay because every fixed-wing interior

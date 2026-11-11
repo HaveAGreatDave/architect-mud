@@ -6111,7 +6111,7 @@ function paintWindshieldFrame(id, view) {
       // ⚠ ONE DRAW, NOT TWO (the physics already has the hinge angle, `s.phi`). Each
       // `drawAircraftModel` runs its own depth pass and blit, so a second call for the box hid the
       // first ("the trailer is not spawned with me"). The mesh marks box faces (`face.deck`,
-      // buildTruck) and this loop already transforms per face; the hinge is one more.
+      // finishTruck) and this loop already transforms per face; the hinge is one more.
       // ⚠ THE PIN COMES FROM THE MESH (`TRUCK_META.pin`; plate stations −0.041 to +0.064 across four
       // rigs). A guessed offset hinges three of the four about mid-air.
       // ⚠ WITH THE HULL IN THE DEPTH BUFFER, PAINT ONLY WHAT THE GPU CAN'T: canopy art, glass sheen,
@@ -36924,7 +36924,7 @@ const LOCK_REACH = 3;
 // ── THE HOVER ────────────────────────────────────────────────────────────────
 //
 // The fleet has been hover hardware since it was modelled — lifter pods with shrouds, a cyan
-// emitter band, and a patch of lit road under each, all of which `buildTruck` already gates on the
+// emitter band, and a patch of lit road under each, all of which the truck file already gates on the
 // rig NOT being parked. The one thing missing was that the truck never actually left the ground, so
 // all that hardware read as decoration on a vehicle sitting in the road.
 //
@@ -38408,7 +38408,7 @@ function ownShipModelOpts(v) {
   // A semi is a tractor and a box that share one point, and the physics has modelled the angle
   // between them since phase 1 (`s.phi`) while the picture welded the two together — so a jackknife
   // was on the gauge, in the mirror, and invisible out of the window. The mesh already knows which
-  // faces are the box (`face.deck`, stamped in buildTruck), so the hinge is one more per-face
+  // faces are the box (`face.deck`, stamped in finishTruck), so the hinge is one more per-face
   // transform in the model loop rather than a second draw.
   //
   // ⚠ THE PIN COMES FROM THE MESH. Four rigs are four lengths, each laid out from its nose and slid
@@ -38897,7 +38897,7 @@ function drawAircraftModel(ctx, cam, c, baseWz, sun, now) {
     // Tuck the gear legs up into the belly (+z) and fold them inward (g·ga) as gearAnim → 0.
     // Hinged control surfaces (own-ship only — `c.ctrl` set) swing about their hinge from the
     // live pilot input: ailerons roll, flaps drop, elevators pitch. Contacts pass no ctrl → neutral.
-    // THE HINGE. `face.deck` marks the trailer half of a rig (buildTruck stamps it), so an
+    // THE HINGE. `face.deck` marks the trailer half of a rig (finishTruck stamps it), so an
     // articulated draw is a rotation of those faces about the kingpin in the model's own f/g
     // plane — and every downstream pass (depth, shadow, occlusion, the blit) inherits it for free
     // because there is still only one model. A point one unit ahead of the pin in the TRAILER's
@@ -39490,7 +39490,7 @@ function drawAircraftModel(ctx, cam, c, baseWz, sun, now) {
     // Not port-red / starboard-green / anti-collision strobe, which is the grammar of something
     // that has to be identified at two miles in the dark by an aircraft. A truck has headlamps at
     // the front, tail lamps at the back and markers on the roof, and it has them where the mesh
-    // actually built them (vehicleLamps, aircraft3d — the same constants buildTruck lays out from).
+    // actually built them (vehicleLamps, aircraft3d — the truck file's own `truck.geom`).
     //
     // THE SIZE IS MEASURED, NOT TUNED, and that is the fix for a halo bigger than the vehicle. The
     // aeroplane lamp above is `clamp(3.2 / q.f, …)` — a screen radius keyed to DEPTH alone, which
@@ -53535,7 +53535,7 @@ function drawAuthoredModel(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, 
 // ⚠ A VEHICLE IS TUNED AS PARAMETERS, NEVER CAPTURED AS MASS — the split is structural.
 // A building can be authored as data because `SHAPE_SINK` gives a lossless mass capture and
 // the schema round-trips it. A vehicle has no capture at all: its mesh is built by code in
-// aircraft3d.js off two tables of plain numbers (FW_PARAMS, TRUCK_SHAPES), so what an editor
+// aircraft3d.js off two tables of plain numbers (FW_PARAMS, the boat rows); a truck is a mesh file, so what an editor
 // can change is the NUMBERS and not the shapes. `setVehicleParams` is that seam, re-exported
 // here so the Modelshop reaches one module. The hand-authored meshes (buildCessna, buildCub,
 // the Viper) have no row and are look-only, which is the honest answer for a mesh nobody

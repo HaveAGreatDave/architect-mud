@@ -3,8 +3,7 @@
   "kind": "mesh",
   "params": {
     "name": "Orlov Continental",
-    "note": "Ported from buildTruck by scripts/shapes/truck-meshes.mjs. Laid out from the nose anchor at f 0.40; aircraft3d.js centres it per variant. Channels: trailer (+t), parked (~p), fit_<code> (^code).",
-    "portedFrom": "buildTruck:continental",
+    "note": "The stock Orlov Continental. Ported from the proportion builder, which is retired (docs/proposals/hover-rigs.md), so this file is the truck. Laid out from the nose anchor at f 0.40; aircraft3d.js centres it per variant. Channels: trailer (+t), parked (~p), fit_<code> (^code). The fittings group is scripts/shapes/truck-fittings.mjs off the truck block, and scripts/shapes/meshes.mjs holds it there.",
     "variants": { "2076": "truck_continental_2076" },
     "partIds": true,
     "truck": {
@@ -13,6 +12,7 @@
       "sleeper": 0.055,
       "deck": 0.76,
       "lamps": 1,
+      "stacks": [-0.16731999999999997, 0.16731999999999997],
       "boxHalf": 0.12709199999999998,
       "pin": [-0.17615579999999995, -0.03615579999999993],
       "geom": {

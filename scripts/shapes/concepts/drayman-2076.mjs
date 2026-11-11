@@ -29,10 +29,7 @@
 // (`cen`), which the truck renderers cull and light by.
 import { readFileSync, writeFileSync } from 'node:fs';
 import { truckFittingParts, vintageAnchors } from '../truck-fittings.mjs';
-import { TRUCK_ROWS } from '../../../client/shared/vehicle-models.js';
 const { formatMesh, validateMesh, compileMesh } = await import('../../../client/shared/vehicle-mesh.js');
-// The stock Drayman's proportion row: the fittings' anchors start from it.
-const ROW = TRUCK_ROWS.drayman;
 
 const BASE_URL = new URL('../../../content/vehicle_models/mesh_truck_drayman.json', import.meta.url);
 const BASE_DOC = JSON.parse(readFileSync(BASE_URL, 'utf8'));
@@ -212,7 +209,7 @@ const nose = [
 // ── The masts ── Where the stacks stood (the stack fittings wrap them): tapering posts up the cab's
 // back corners and clear of the roof, each with a lit band and a red tip. Nothing goes aft of
 // cab0 - 0.009, inside the swing's allowance for a stack.
-const MAST_G = ROW.w * 0.94, MAST_Z0 = 0.090, MAST_TOP = 0.360;
+const MAST_G = W * 0.94, MAST_Z0 = 0.090, MAST_TOP = 0.360;
 const masts = LR.flatMap((s) => {
   const sq = (h, r) => [[CAB0 - r, s * MAST_G - r, h], [CAB0 + r, s * MAST_G - r, h], [CAB0 + r, s * MAST_G + r, h], [CAB0 - r, s * MAST_G + r, h]];
   return [
@@ -340,7 +337,7 @@ const SN = (() => { const df = scrF(SCR_TOP) - SCR0, dh = SCR_TOP - BELT, l = Ma
 const SD = 0.010;
 const BEACON_F = 0.200;
 const A = {
-  ...vintageAnchors(ROW, []),
+  ...vintageAnchors(T, []),
   roofZ: ROOF,
   scrW: 1,
   scrP: (t, gf) => [SCR0 + (scrF(SCR_TOP) - SCR0) * t + SN[0] * SD, gf * (W - C), BELT + (SCR_TOP - BELT) * t + SN[1] * SD],
@@ -371,7 +368,7 @@ const doc = {
       gunmetal: { rgb: [52, 58, 68], livery: 'fixed', mat: 'steel', tex: 'cast', note: 'the lift pads' },
     },
     partIds: true,
-    truck: { ...T, geom: { ...L, markF: MARK_F, markZ: MARK_Z }, beacon: [BEACON_F, ROOF + 0.034],
+    truck: { ...T, stacks: A.stacks, geom: { ...L, markF: MARK_F, markZ: MARK_Z }, beacon: [BEACON_F, ROOF + 0.034],
       pods: [...padRows, ...T.pods.filter((q) => q[3])] },
     parts: [
       { kind: 'group', name: 'tractor', parts: tractor },

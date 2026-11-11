@@ -1,8 +1,8 @@
 # The hover rigs
 
-**Status: phase 0 steps 1 to 3 and phases 1 to 5 built (2026-11-09): the four trucks draw from
-mesh files with `buildTruck` kept as the A/B, and all four have a 2076 body and cab on sale at the
-bench. Phase 0 step 4 and phase 6 are design.** The brief for bringing the Hover Rig Expo concept
+**Status: phases 0 to 5 built (phase 0 finished 2026-11-11): the four trucks are mesh files and
+`buildTruck` is retired, and all four have a 2076 body and cab on sale at the bench. Phase 6 is
+design.** The brief for bringing the Hover Rig Expo concept
 into the truck fleet, the way [fleet-2076.md](fleet-2076.md) brought the 2076 bodies to the
 aircraft. It covers what the concept is, what in it the game can't use, moving the trucks onto mesh
 files first, the standard, and the plan truck by truck.
@@ -45,7 +45,7 @@ adornments and a grime slider.
 
 ## Canon
 
-The trucks already hover. `buildTruck` hangs every rig on lifter pods that fire along the direction
+The trucks already hover. Every stock rig hangs on lifter pods that fire along the direction
 of travel and settle when it's parked ([systems-trucking.md](../systems-trucking.md#the-thrust-reads-as-thrust-2026-08-18)),
 and the 12 August pass made the four of them a 1957 idea of a truck in 2100: chrome teeth, fins,
 bullet noses. So the concept isn't a new kind of vehicle. It's what the same lift-class haulers look
@@ -135,9 +135,14 @@ The renderer turns the variant string into channels (`+t` to `trailer`, `~p` to 
    answers for `setLegacyMeshes(true)`, for a row the Modelshop's sliders are overriding, and for a
    type with a row and no file. The gate nudges one number in each file and checks the drawn truck
    moves, so the renderer is reading it.
-4. **Retire the builder.** Once the A/B has had a week of play, delete `buildTruck`, `TRUCK_SHAPES`
-   and the four `truck_<id>.json` rows, and the Modelshop's truck sliders give way to its mesh
-   editor. Import before committing the deletion, or the deletion guard blocks it.
+4. **Retire the builder.** ✅ *Built 2026-11-11, after the week of A/B.* `buildTruck`,
+   `TRUCK_SHAPES`, the four `truck_<id>.json` rows, the `truck` kind in the vehicle schema and the
+   port script `truck-meshes.mjs` are gone, and `setLegacyMeshes` no longer reaches trucks. Section 6
+   of `meshes.mjs` holds each stock file to a fixed fingerprint (`scripts/shapes/truck-fingerprint.json`)
+   in all 87 states at both details: an unchanged file that draws differently is red, and an edited
+   file asks for `node scripts/shapes/meshes.mjs --fingerprint` once it's been looked at. A truck
+   subject in the Modelshop opens its file (or its edition's) in the mesh editor; the sliders are gone.
+   The fittings' anchors come off the file's `truck` block, which carries `stacks` for the stack kit.
 
 The fittings stay what they are: no fitting moves a pod, a lamp, the door or the pin. Porting them as
 gated groups keeps that true and keeps them out of a dropped box, which is why they can't be
@@ -148,8 +153,8 @@ composed onto the mesh afterwards.
 The 38 fittings were drawn inside `buildTruck` off its proportion row. They're in
 [scripts/shapes/truck-fittings.mjs](../../scripts/shapes/truck-fittings.mjs) now, placed off a body's
 anchors: roof height, the screen's plane, where the mascot stands, the light bar, cage, parapet,
-totem, beacon and aerial stations, the stack's top, the pods. `vintageAnchors(row, pods)` gives a stock
-truck's, and `meshes.mjs` holds that to each ported file's fittings part for part. An edition
+totem, beacon and aerial stations, the stack's top, the pods. `vintageAnchors(truck, pods)` gives a stock
+truck's off its file's `truck` block, and `meshes.mjs` holds that to each ported file's fittings part for part. An edition
 overrides the anchors its body moves and gets every fitting fitted to it; one slot holds one fitting,
 so the roof kit only has to clear the body, not each other. A body that moves the beacon says where in
 `truck.beacon`, which `vehicleLamps` reads for the lamp.
@@ -220,7 +225,7 @@ full gate run and `tests/regress.js`.
 
 | Phase | Truck | 2076 body | Cab notes |
 | --- | --- | --- | --- |
-| 0 | All four | The port above: four mesh files held to `buildTruck`, the renderer swapped, the builder retired. No new look. | None. |
+| 0 | All four | ✅ *Built 2026-11-11.* The port above: four mesh files held to `buildTruck`, the renderer swapped, the builder retired. No new look. | None. |
 | 1 | Ostrek Courier, after the Aria GT | ✅ *Built 2026-11-03* ([concepts/courier-2076.mjs](../../scripts/shapes/concepts/courier-2076.mjs), `mesh_truck_hauler_2076.json`). A pearl lower body with a dark rocker, a glass cabin on a screen raked about 45 degrees, a trim band at the waist, tail fins on the roof's back corners, a heat mast where the stack stood, a winged badge on the nose tip, LED bars at the lamp stations, a rocker light line, three lift pads a side with emitter rings, twin thrusters under the fifth wheel, camera pods for mirrors, and a streamlined pod on a bobtail's deck. The gold (pinstripes, fin edges, waist band, badge) is the `gilt` slot, painted the booth's trim colour. Brightwork (`pk: 'bright'`) is drawn as chrome, a mirror tinted by its colour, and gold over a blue sky came out olive, so the factory's `bright` is a neutral chrome. Asked for as `~e2076` after the type and any `+t` (the Modelshop lists it as truck/hauler~e2076); nothing in the game asks for it yet, which is phase 5. Surfaces are paint slots: a flake pearl that still takes the booth's colour and flash, carbon, brushed titanium and cast gunmetal. Adornments: a solar panel in the roof, a slatted nose intake, flank louvres, carbon A-pillars, a tail light line, pad fairings. | ✅ *Built 2026-11-03* ([interior-courier-2076.js](../../client/shared/interior-courier-2076.js), gate `cockpit-courier-2076.mjs`). A refit on the stock room (`P.refit`, as the Drake 2076's): the wheel, gate, pedals, doors, overhead and trinkets stay, and the room takes hide, cloth and carpet (`refit.mats`). A leather wing door to door; one band of glass with drive, route, rig and systems pages; thirteen glass keys whose ids are `CAB_CTL` keys; a HUD with the Jake and clutch mirrored; a hologram of the rig that bends at the pin with `trailerPhi`, on a projector whose arc is the fuel; light lines to the doors and sills in the colourway's glow, amber then red on an alert; a boot on the key (`powered`, `powerAge`); keys that light for the hand (`hover`, `press`); a clock and a brass plaque at the passenger's end. Cream is `EDITION_TRIM` in `cab-trim.js`, under whatever the bench sets. |
 | 2 | Orlov Continental, after the Bulwark HX | ✅ *Built 2026-11-09* ([concepts/continental-2076.mjs](../../scripts/shapes/concepts/continental-2076.mjs), `mesh_truck_continental_2076.json`). A tall slab cab-over with the sleeper inside it, so nothing of the tractor stands aft of the cab in the box's swing. Cut front corners, glass at one height all round, and a hazard-orange visor carrying the marker lamps. A light bar and twin air horns on the roof, twin stacks at the back corners, a slatted grille in a hazard surround, a chevron bumper, and four heavy lift pads a side under a deep skirt, all inside the stock Continental's size. The orange is the `hazard` slot, painted the booth's trim colour. The bull bar is still the Ram Plate fitting. | ✅ *Built 2026-11-09* ([interior-continental-2076.js](../../client/shared/interior-continental-2076.js), gate `cockpit-continental-2076.mjs`). A refit with a rubber-topped dash, a band of glass in a bolted steel frame and rubber keys. A hitch page with the jackknife zone striped off and the brakes' fade point on it, a white HUD that adds the trailer angle, a long hologram of the rig that turns amber or red with the brakes, grab handles, and a steel ORLOV / CONTINENTAL 2076 plate. |
 | 3 | Vachon Drayman, after the Strand | ✅ *Built 2026-11-09* ([concepts/drayman-2076.mjs](../../scripts/shapes/concepts/drayman-2076.mjs), `mesh_truck_drayman_2076.json`). A dark, smooth cab-over with a lit teal visor over a raked windscreen, sensor domes and a lidar on the roof, and two tapering masts with red tips where the stacks stood, which carry the stack fittings. UNIT 12 on the sleeper, LED bars and a sensor face on the nose, three tucked lift pads a side, and a sealed pod on a bobtail's deck. | ✅ *Built 2026-11-09* ([interior-drayman-2076.js](../../client/shared/interior-drayman-2076.js), gate `cockpit-drayman-2076.mjs`). Navy satin, a near-upright glass band with five pages and thirteen keys, and a status strip with NO COVER lit with the power and HIRED on a rental. The HUD's corner reads the hire time left (`hireLeft`, from `cabContext`). A stick right of the wheel with no hotspot, and a hologram of the cab-over bending at the pin. Hire trucks can't take an edition, so HIRED never shows until the hire desk puts Draymans out in this body. |

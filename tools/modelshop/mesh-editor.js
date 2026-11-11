@@ -18,6 +18,7 @@
 // never backticks. Everything here is built through the DOM, and there are no template literals.
 import {
   meshIdFor, meshParams, setMeshOverride, aircraftFaces, legacyMeshFaces, setLegacyMeshes, legacyMeshesOn, bodyVariantFor,
+  truckMeshIdFor,
 } from '/client/game/js/panels/aircraft3d.js';
 import {
   PART_KINDS, KNOWN_ROLES, validateMesh, compileMesh, meshStats, meshSource, formatMesh, canon, meshChannels,
@@ -84,7 +85,8 @@ function setPath(obj, path, value) {
 // ── The mesh on screen ───────────────────────────────────────────────────────
 // Which mesh file the current subject draws from, or null for a vehicle that is not a mesh.
 // A body variant (a 2076 edition, a podracer's type) is its own file; a paint scheme isn't.
-export function meshIdOfSubject(v) { return v ? (v.variant && bodyVariantFor(v.cls, v.variant, !!v.armed)) || meshIdFor(v.cls, !!v.armed) || (legacyMeshesOn() && legacyIdFor(v)) || null : null; }
+// A truck is always a file (its type's, or the edition `~e<name>` names), opened by the renderer's own rule.
+export function meshIdOfSubject(v) { return v ? (v.cls === 'truck' ? truckMeshIdFor(v.variant || 'hauler') : null) || (v.variant && bodyVariantFor(v.cls, v.variant, !!v.armed)) || meshIdFor(v.cls, !!v.armed) || (legacyMeshesOn() && legacyIdFor(v)) || null : null; }
 const legacyIdFor = (v) => (v.cls === 'heli' ? (v.armed ? 'heli_armed' : 'heli') : ['ultralight', 'grasshopper', 'wreck'].includes(v.cls) ? v.cls : null);
 function curId() { const e = APP?.entry(); return e?.vehicle ? meshIdOfSubject(e.vehicle) : null; }
 function workOf(id) {

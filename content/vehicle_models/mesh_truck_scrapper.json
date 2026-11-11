@@ -3,8 +3,7 @@
   "kind": "mesh",
   "params": {
     "name": "Krell Barrow",
-    "note": "Ported from buildTruck by scripts/shapes/truck-meshes.mjs. Laid out from the nose anchor at f 0.40; aircraft3d.js centres it per variant. Channels: trailer (+t), parked (~p), fit_<code> (^code).",
-    "portedFrom": "buildTruck:scrapper",
+    "note": "The stock Krell Barrow. Ported from the proportion builder, which is retired (docs/proposals/hover-rigs.md), so this file is the truck. Laid out from the nose anchor at f 0.40; aircraft3d.js centres it per variant. Channels: trailer (+t), parked (~p), fit_<code> (^code). The fittings group is scripts/shapes/truck-fittings.mjs off the truck block, and scripts/shapes/meshes.mjs holds it there.",
     "variants": { "2076": "truck_scrapper_2076" },
     "partIds": true,
     "truck": {
@@ -13,6 +12,7 @@
       "sleeper": 0,
       "deck": 0.38,
       "lamps": 0.25,
+      "stacks": [],
       "boxHalf": 0.09996000000000001,
       "pin": [-0.0049539999999999775, 0.13504600000000003],
       "geom": {
