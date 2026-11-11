@@ -1676,6 +1676,17 @@ standing in a yard (`trailersNear`), towed by you (`cabContext`), towed past som
 (`truckContactsNear`) and on the depot floor. Repainting is guarded on the **owner** — a box
 standing in a public yard is somebody's, and a spray gun is not a claim on it.
 
+#### …and so is its body *(2026-11-11)*
+
+A box can wear a 2076 body ([hover-rigs.md](proposals/hover-rigs.md) phase 6): a container flatbed
+on a dry box, a pod train on a reefer, a cryo tanker on a tanker. It's fitted at the yard with
+`yard body <box> [<body>|stock]`, for 60% of the box's list, and stored on the row as
+`trailers.body`, for the paint's reason: a box looks the same whoever pulls it. It rides the same
+four views as the colour, as `~t<id>` after `+t` in the variant (`plugins/trucking/trailer-bodies.js`
+writes it), and the renderer hangs `mesh_trailer_<id>.json` on whichever tractor's pin. A body changes
+no number: kg, rating, resale and the scale house are the box's. Going back to stock is free and the
+yard keeps nothing.
+
 #### The shed stopped being a shed when you looked at it from above *(2026-08-18)*
 
 `drawVehicleBay` had a **cutaway**: with your rig inside and the camera up over the eaves, the roof

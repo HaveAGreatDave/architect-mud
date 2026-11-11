@@ -366,7 +366,10 @@ async function main() {
   // A semi is a tractor and a box sharing one point. Splitting the welded mesh into two drawn
   // models has one silent failure — the JOINT — so the gate is a comparison: at φ=0 the two-body
   // rig must occupy the same silhouette as the welded one, and at φ=40 it must not.
-  const artic = truckArticSmoke(ws.paintWindshield, stubCanvas, 'shape-artic', TRUCKS);
+  // …and each trailer body (mesh_trailer_<id>.json, hover-rigs.md phase 6), hung on the Barrow, whose
+  // cab back is the tightest; meshes.mjs holds the bodies behind all eight tractors by the numbers.
+  const artic = truckArticSmoke(ws.paintWindshield, stubCanvas, 'shape-artic',
+    [...TRUCKS, 'scrapper~tcontainer', 'scrapper~e2076~tpodtrain', 'continental~tcryo']);
   for (const a of artic) {
     if (!a.clears) {
       problems.push(`artic  ${a.variant} → the box reaches the back of the cab before ${CLEAR_DEG}° of `

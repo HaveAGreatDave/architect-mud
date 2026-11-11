@@ -62,6 +62,9 @@ const VEHICLES = [
   // A truck's editions (mesh_truck_<type>.json `variants`), drawn hitched: `~e<name>` on the variant.
   ...TRUCK_VARIANTS.flatMap((v) => Object.keys(MESH_ROWS['truck_' + v]?.variants || {})
     .map((e) => ({ key: 'vehicle:truck/' + v + '~e' + e, vehicle: { cls: 'truck', variant: v + '+t~e' + e }, m: { type: 'truck ' + v + ' ' + e } }))),
+  // The trailer bodies (mesh_trailer_<id>.json): keyed on the trailer, drawn here behind the Drayman.
+  ...Object.keys(MESH_ROWS).filter((id) => MESH_ROWS[id]?.trailer).map((id) => id.replace(/^trailer_/, ''))
+    .map((b) => ({ key: 'vehicle:trailer/' + b, vehicle: { cls: 'truck', variant: 'drayman+t~t' + b }, m: { type: 'trailer ' + b } })),
   // ⚠ THE VIPER IS NOT A CLASS. `aircraftFaces` takes `armed` as a channel of its own, so the
   // attack helicopter is 'heli' with a flag rather than a tenth entry in VEHICLE_CLASSES — and
   // it was missing from this list entirely, which is how the one airframe with a bespoke mesh

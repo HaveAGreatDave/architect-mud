@@ -33,6 +33,10 @@ const NO_FINISH = {
   truck_continental_2076: 'a truck takes its finish from the paint booth, not the file',
   truck_drayman_2076: 'a truck takes its finish from the paint booth, not the file',
   truck_scrapper_2076: 'a truck takes its finish from the paint booth, not the file',
+  // A trailer body is compiled with finish off, as the truck it hangs on is (truckMeshFaces).
+  trailer_container: 'a trailer body is drawn with its tractor, finish off',
+  trailer_podtrain: 'a trailer body is drawn with its tractor, finish off',
+  trailer_cryo: 'a trailer body is drawn with its tractor, finish off',
 };
 const LIVERIES = [
   null, {},

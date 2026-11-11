@@ -897,7 +897,7 @@ export function resolveRotors(params) {
 const isPlain = (v) => v !== null && typeof v === 'object' && !Array.isArray(v);
 const isNum = (v) => typeof v === 'number' && Number.isFinite(v);
 const isVec = (v, n) => Array.isArray(v) && v.length === n && v.every(isNum);
-const PARAM_KEYS = new Set(['name', 'note', 'portedFrom', 'armedMesh', 'variants', 'scale', 'classFacts', 'groundPitch', 'navLamps', 'lamps', 'hull', 'cabin', 'rotors', 'finish', 'paints', 'schemes', 'partIds', 'truck', 'parts']);
+const PARAM_KEYS = new Set(['name', 'note', 'portedFrom', 'armedMesh', 'variants', 'scale', 'classFacts', 'groundPitch', 'navLamps', 'lamps', 'hull', 'cabin', 'rotors', 'finish', 'paints', 'schemes', 'partIds', 'truck', 'trailer', 'parts']);
 const MAT_HINT = 'a number from -1 to 1 or one of ' + Object.keys(VEHICLE_MATS).join(', ');
 
 function checkPart(p, path, errors, warnings, inMirror) {
@@ -989,6 +989,18 @@ export function validateMesh(params, file = '<mesh>') {
         errors.push(at('truck.pods must be a list of [f, g, halfLength, onTrailer, halfWidth]'));
     }
   }
+  // A trailer body (docs/proposals/hover-rigs.md phase 6): drawn behind any tractor, in its own frame,
+  // f 0 at the kingpin and aft negative. The renderer hangs it on the tractor's pin.
+  if (params.trailer != null) {
+    const t = params.trailer;
+    if (!isPlain(t)) errors.push(at('trailer must be an object'));
+    else {
+      for (const k of ['len', 'w', 'hi', 'boxHalf']) if (!isNum(t[k])) errors.push(at('trailer.' + k + ' must be a number'));
+      if (!isVec(t.tail, 3)) errors.push(at('trailer.tail must be [f, g, h]: the right-hand tail lamp'));
+      if (!Array.isArray(t.pods) || !t.pods.every((q) => Array.isArray(q) && q.length === 5 && isNum(q[0]) && isNum(q[1]) && isNum(q[2]) && q[3] === true && isNum(q[4])))
+        errors.push(at('trailer.pods must be a list of [f, g, halfLength, true, halfWidth]'));
+    }
+  }
   if (params.rotors != null) {
     if (!Array.isArray(params.rotors)) errors.push(at('rotors must be a list'));
     else params.rotors.forEach((r, i) => {
@@ -1065,8 +1077,9 @@ export function meshStats(faces) {
 // `canonicalJson` would put `kind` after `faces`, which is the first thing you look for.
 const KEY_ORDER = {
   doc: ['id', 'kind', 'params'],
-  params: ['name', 'note', 'portedFrom', 'armedMesh', 'variants', 'scale', 'classFacts', 'groundPitch', 'navLamps', 'lamps', 'hull', 'cabin', 'rotors', 'finish', 'paints', 'schemes', 'partIds', 'truck', 'parts'],
+  params: ['name', 'note', 'portedFrom', 'armedMesh', 'variants', 'scale', 'classFacts', 'groundPitch', 'navLamps', 'lamps', 'hull', 'cabin', 'rotors', 'finish', 'paints', 'schemes', 'partIds', 'truck', 'trailer', 'parts'],
   truck: ['w', 'hi', 'sleeper', 'deck', 'lamps', 'boxHalf', 'pin', 'beacon', 'geom', 'pods'],
+  trailer: ['len', 'w', 'hi', 'boxHalf', 'tail', 'pods'],
   cabin: ['note', 'mPerUnit', 'head', 'eye', 'pilotEye', 'floor', 'back', 'wall'],
   station: ['f', 'rg', 'rv', 'rvT', 'rvB', 'cz', 'keel', 'boxy', 'upper', 'u', 'minDetail', 'note'],
   face: ['role', 'sh', 'p'],
@@ -1077,7 +1090,7 @@ const KEY_ORDER = {
   paint: ['rgb', 'alt', 'livery', 'mat', 'tex', 'ramp', 'note'],
 };
 const ARRAY_OF = { parts: 'part', stations: 'station', faces: 'face', rotors: 'rotor', regions: 'region' };
-const OBJ_CTX = { params: 'params', cabin: 'cabin', truck: 'truck', capFore: 'cap', capAft: 'cap', shade: 'shade', sh: 'shade' };
+const OBJ_CTX = { params: 'params', cabin: 'cabin', truck: 'truck', trailer: 'trailer', capFore: 'cap', capAft: 'cap', shade: 'shade', sh: 'shade' };
 function orderedKeys(o, ctx) {
   let pref;
   if (ctx === 'part' && o.kind && PART_KINDS[o.kind]) pref = ['kind', 'name', 'note', ...Object.keys(PART_KINDS[o.kind].fields), 'paint', 'minDetail', 'maxDetail', 'lod0', 'left'];

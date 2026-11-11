@@ -3198,7 +3198,7 @@ function frame(now) {
       tune: CAB_VIEW_TUNE,
       // The one string that decides the shape. '~p' is the parked pose for a dead engine.
       // ⚠ The fitting suffix goes last: the mesh strips from the first '~' or '^', which would eat '+t'.
-      variant: TYPE_ID + (r.hitched ? '+t' : '') + ((EDITION_PREVIEW ?? EDITION) ? '~e' + (EDITION_PREVIEW ?? EDITION) : '') + (r.stalled ? '~p' : '') + (FITS_PREVIEW ?? FITS),
+      variant: TYPE_ID + (r.hitched ? '+t' + (st.trailer?.body ? '~t' + st.trailer.body : '') : '') + ((EDITION_PREVIEW ?? EDITION) ? '~e' + (EDITION_PREVIEW ?? EDITION) : '') + (r.stalled ? '~p' : '') + (FITS_PREVIEW ?? FITS),
       // Lifter wash from rpm, anchored at idle so a running idle rig is already bright.
       // ⚠ IDLE comes from the model; never restate it.
       power: r.stalled ? 0
