@@ -15,6 +15,7 @@
   "grid_z": 0,
   "id": "zone_district_926_921",
   "map_id": "map_world",
+  "marker": "B4",
   "name": "The Box",
   "parent_zone": null
 }

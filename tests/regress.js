@@ -6443,8 +6443,7 @@ check('move succeeds when gates pass', r?.type === 'move' && getPlayer().current
     const ESTATE = [[893, 910, 'north', 'zone_district_894_911', '6 Halcyon Boulevard', 'zone_vested_hall'], [894, 910, 'north', 'zone_district_895_911', '8 Halcyon Boulevard', 'zone_going_saleroom'],
       [895, 910, 'north', 'zone_district_896_911', 'The Halcyon Institute', 'zone_course_theatre'], [896, 910, 'north', 'zone_district_897_911', 'Halcyon Land Office', 'zone_plot_office'],
       [893, 912, 'west', 'zone_district_894_912', '2 Hughson Way', 'zone_hf_terms_hall'], [893, 913, 'west', 'zone_district_894_913', 'Halcyon Sales Suite', 'zone_hf_impression_suite'],
-      [892, 920, 'south', 'zone_district_895_913', '3 Sorrel Way', 'zone_hf_assets_hang'], [893, 920, 'south', 'zone_district_896_913', '5 Sorrel Way', 'zone_hf_grounds_room'],
-      [895, 920, 'south', 'zone_district_897_913', '7 Sorrel Way', 'zone_hf_fit_floor'], [896, 911, 'east', 'zone_district_898_911', '9 Hughson Way', 'zone_hf_salad_pack'],
+      [896, 911, 'east', 'zone_district_898_911', '9 Hughson Way', 'zone_hf_salad_pack'],
       [896, 913, 'east', 'zone_district_898_913', '11 Hughson Way', 'zone_wind_day']];
     const D = { north: [0, -1], south: [0, 1], east: [1, 0], west: [-1, 0] }, OPP = { north: 'south', south: 'north', east: 'west', west: 'east' };
     const bad = [];
@@ -6456,14 +6455,17 @@ check('move succeeds when gates pass', r?.type === 'move' && getPlayer().current
       if (street?.exits?.[OPP[ent]] !== id || f.exits?.[ent] !== street?.id) bad.push(`${id}: street link`);
       if (f.exits?.[OPP[ent]] !== room || world.zones.get(room)?.parent_zone !== id) bad.push(`${id}: into ${f.exits?.[OPP[ent]]}`);
     }
-    check('Hughson estate: eleven doors off their streets, each into its own room', !bad.length, bad.join(' | '));
+    check('Hughson estate: eight doors off their streets, each into its own room', !bad.length, bad.join(' | '));
+    // 3, 5 and 7 Sorrel Way went back to the holding map for Hughson Gardens (docs/proposals/hughson-gardens.md).
+    const gardened = ['zone_district_895_913', 'zone_district_896_913', 'zone_district_897_913'].filter((id) => world.zones.get(id)?.map_id !== 'map_set_aside' || !world.zones.get(id)?.flags?.set_aside);
+    check('Hughson Gardens: 3, 5 and 7 Sorrel Way are on the holding map', !gardened.length, gardened.join());
     const keepers = [['npc_vested_fewtrell', 'zone_district_894_911'], ['npc_going_crake', 'zone_district_895_911'], ['npc_course_quainton', 'zone_district_896_911'], ['npc_plot_follet', 'zone_district_897_911'],
-      ['npc_hf_marchetti', 'zone_district_894_913'], ['npc_hf_ferreira', 'zone_district_896_913'], ['npc_hf_salad_okonjo', 'zone_district_898_911'], ['npc_wind_marchbank', 'zone_district_898_913']];
+      ['npc_hf_marchetti', 'zone_district_894_913'], ['npc_hf_salad_okonjo', 'zone_district_898_911'], ['npc_wind_marchbank', 'zone_district_898_913']];
     const away = keepers.filter(([id, door]) => {
       const n = world.npcs.get(id);
       return !n || n.flags?.set_aside || world.zones.get(n.work_zone_id)?.parent_zone !== door || world.zones.get(n.home_zone)?.parent_zone !== door;
     });
-    check('Hughson estate: the eight keepers are back at work, none set aside', !away.length, away.map(([id]) => id).join());
+    check('Hughson estate: the seven keepers are back at work, none set aside', !away.length, away.map(([id]) => id).join());
     const lot = [...world.zones.values()].filter((z) => z.map_id === 'map_world' && (z.grid_z ?? 0) === 0 && z.grid_x >= 887 && z.grid_x <= 896 && z.grid_y >= 910 && z.grid_y <= 914);
     check('Hughson estate: the lot north of the park is ten doors, 22 sealed buildings, 15 tiles of road and three slices of the park, no bare grass', lot.length === 50 && lot.filter((z) => z.flags?.facade).length === 10
       && lot.filter((z) => z.flags?.is_building && !z.flags?.facade).length === 22 && lot.filter((z) => z.flags?.terrain === 'road').length === 15, lot.length);
@@ -6472,7 +6474,8 @@ check('move succeeds when gates pass', r?.type === 'move' && getPlayer().current
     const onLot = (z) => z.map_id === 'map_world' && (z.grid_z ?? 0) === 0 && z.grid_y >= 910 && z.grid_y <= 920 && ((z.grid_x >= 887 && z.grid_x <= 891 && z.grid_y !== 915) || (z.grid_x >= 893 && z.grid_x <= 896 && z.grid_y <= 914) || (z.grid_x === 897 && z.grid_y >= 917));
     const towers = [...world.zones.values()].filter((z) => onLot(z) && z.flags?.is_building && !z.flags?.facade);
     const towerIds = new Set(towers.map((z) => z.id));
-    check('Hughson towers: 38 sealed buildings, each with a floor count, a map code and no way in', towers.length === 38 && towers.every((z) => z.flags?.floors > 0 && z.marker && !Object.keys(z.exits || {}).length), towers.length);
+    // 19 Hughson Way (891,920) went to the holding map for Hughson Gardens, leaving 37.
+    check('Hughson towers: 37 sealed buildings, each with a floor count, a map code and no way in', towers.length === 37 && towers.every((z) => z.flags?.floors > 0 && z.marker && !Object.keys(z.exits || {}).length), towers.length);
     const inward = [...world.zones.values()].filter((z) => Object.values(z.exits || {}).flat().some((t) => towerIds.has(t))).map((z) => z.id);
     check('Hughson towers: no exit anywhere leads into one', !inward.length, inward.join());
     check('Hughson towers: nothing stands taller than 1 Halcyon Boulevard', towers.every((z) => z.flags.floors < 56), Math.max(...towers.map((z) => z.flags.floors)));
@@ -6482,8 +6485,10 @@ check('move succeeds when gates pass', r?.type === 'move' && getPlayer().current
     const round = (z) => z.map_id === 'map_world' && (z.grid_z ?? 0) === 0 && z.grid_x >= 886 && z.grid_x <= 899 && z.grid_y >= 909 && z.grid_y <= 921 && z.flags?.terrain === 'road';
     const seen = new Set(['zone_ballpark_889_915']), todo = ['zone_ballpark_889_915'];
     while (todo.length) for (const t of Object.values(world.zones.get(todo.pop())?.exits || {}).flat()) if (round(world.zones.get(t) || {}) && !seen.has(t)) { seen.add(t); todo.push(t); }
-    check('Hughson towers: all 21 lane tiles are one piece on foot from Hughson Way', lanes.length === 21 && lanes.every((z) => seen.has(z.id)), lanes.filter((z) => !seen.has(z.id)).map((z) => z.id).join());
-    const plots = ['zone_ballpark_893_910', 'zone_ballpark_896_913'].map((id) => world.zones.get(id));
+    // 891,919 is Grandstand Plaza now, park not road, leaving 20.
+    check('Hughson towers: all 20 lane tiles are one piece on foot from Hughson Way', lanes.length === 20 && lanes.every((z) => seen.has(z.id)), lanes.filter((z) => !seen.has(z.id)).map((z) => z.id).join());
+    // 896_913 came back as a Hughson Gardens fountain (hughson-gardens.md); 893_910 still waits.
+    const plots = ['zone_ballpark_893_910'].map((id) => world.zones.get(id));
     check('Hughson estate: the green tiles the buildings displaced are on the holding map', plots.every((z) => z?.map_id === 'map_set_aside' && z.flags?.set_aside), plots.map((z) => `${z?.id}:${z?.map_id}`).join());
   }
 

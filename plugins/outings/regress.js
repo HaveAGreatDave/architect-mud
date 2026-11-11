@@ -28,7 +28,9 @@ export default async function ({ check }) {
   const saved = new Map();
   const people = [caller, ...friendsOf(caller.id).map(id => world.npcs.get(id))].filter(Boolean);
   for (const n of people) saved.set(n.id, { sched: n.vendor_schedule, zone: n.zone_id });
-  for (const n of people) n.vendor_schedule = null; // free all night
+  // Free all night. An empty schedule, not null: a vendor_schedule is one of the things that makes
+  // an NPC social (isSocialNpc), so nulling it dropped the caller out of the network altogether.
+  for (const n of people) n.vendor_schedule = {};
   try {
     const o = callOuting(caller.id, { env, force: true });
     check('outings: a free NPC with free friends calls a night out', !!o && o.members.size >= 2, o ? `${o.members.size} going to ${o.venueName}` : 'none');

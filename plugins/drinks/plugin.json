@@ -84,6 +84,11 @@
       "verb": "workspace",
       "requiredFlag": "bar_counter",
       "note": "Declaration-only. A bar counter advertises the bar HUD (bar.js barProvider)."
+    },
+    {
+      "verb": "measure",
+      "requiredFlag": "bar_counter",
+      "note": "Declaration-only. A bar counter advertises MEASURE on examine."
     }
   ]
 }

@@ -15,6 +15,7 @@
   "grid_z": 0,
   "id": "zone_district_919_921",
   "map_id": "map_world",
+  "marker": "B3",
   "name": "The Bus",
   "parent_zone": null
 }

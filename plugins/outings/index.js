@@ -24,6 +24,7 @@ import { gameMsToReal } from '../../server/engine/gametime.js';
 
 // ── Tunables ────────────────────────────────────────────────────────────────
 export const MAX_FRIENDS      = 6;      // per NPC; the circle is trimmed by tie strength
+export const MAX_CIRCLE       = 12;     // hard cap once other people's picks are added in
 export const VENUE_TYPES      = new Set(['bar', 'pub', 'club', 'nightclub', 'honkytonk']);
 const EVENING_FROM            = 18;     // game hour a night out can be called
 const EVENING_TO              = 1;      // ...and the last hour one can (wraps midnight)
@@ -123,6 +124,14 @@ export function buildNetwork(npcs = [...world.npcs.values()]) {
       (friends.get(id) || friends.set(id, new Set()).get(id)).add(other);
       (friends.get(other) || friends.set(other, new Set()).get(other)).add(id);
     }
+  }
+  // A tie kept by the other side can push a popular NPC past its own picks, so cap every circle at
+  // MAX_CIRCLE, dropping the weakest ties from both ends so friendship stays mutual.
+  const scoreOf = (a, b) => { const k = a < b ? `${a}|${b}` : `${b}|${a}`; return weight.get(k) + (hash(k) % 1000) / 1000; };
+  for (const [id, set] of friends) {
+    if (set.size <= MAX_CIRCLE) continue;
+    const weakest = [...set].sort((x, y) => scoreOf(id, y) - scoreOf(id, x)).slice(MAX_CIRCLE);
+    for (const other of weakest) { set.delete(other); friends.get(other)?.delete(id); }
   }
   return friends;
 }

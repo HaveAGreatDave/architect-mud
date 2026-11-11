@@ -699,6 +699,8 @@ export const specializedActions = [
   { verb: 'brew',  requiredTag: 'brew_tier', handler: null },
   // Declaration-only: a bar counter advertises the bar HUD on examine (bar.js).
   { verb: 'workspace', requiredFlag: 'bar_counter', handler: null },
+  // Declaration-only: a bar counter advertises MEASURE too (plugin.json says it's discoverable there).
+  { verb: 'measure', requiredFlag: 'bar_counter', handler: null },
 ];
 
 console.log('[drinks] Plugin loaded.');

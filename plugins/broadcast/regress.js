@@ -3070,7 +3070,9 @@ export default async function regress({ check, run, getPlayer }) {
       check('hockey: the colour man fills every token', colourLines.every(l => !/\{\w+\}/.test(l)), colourLines.filter(l => /\{\w+\}/.test(l)).slice(0, 2).join(' | '));
       check('hockey: a line naming a ::say word carries its pronunciation, and only what it uses', withLex > 0 && wrong.length === 0, `${withLex} with lex; wrong: ${wrong.slice(0, 2).join(' | ')}`);
       const { holdFor } = await import('./sports/hockey-pacing.js');
-      check('hockey: a drawn-out call holds longer on air', holdFor('He SCOOOOOOORES!!!') >= holdFor('He SCORES!') + 500, `${holdFor('He SCOOOOOOORES!!!')} vs ${holdFor('He SCORES!')}`);
+      // both lines clear the 3000 ms floor, or the floor swallows the difference
+      const drawn = 'And Draganov SCOOOOOOORES on the backhand!!!', plain = 'And Draganov SCORES on the backhand!';
+      check('hockey: a drawn-out call holds longer on air', holdFor(drawn) >= holdFor(plain) + 500, `${holdFor(drawn)} vs ${holdFor(plain)}`);
     }
 
     // ── rosters: a man belongs to ONE club ────────────────────────────────────
@@ -5056,8 +5058,8 @@ export default async function regress({ check, run, getPlayer }) {
     const studioShow = JSON.parse(readFileSync('content/media_broadcasts/bc_1783047001982.json', 'utf8'));
     check('acted: the cookery show is performed', bc.acted === true, String(bc.acted));
     check('acted: ...and so is the studio show', studioShow.acted === true, String(studioShow.acted));
-    check('acted: the studio show names no location, so it plays in the channel studio',
-      !studioShow.location_zone_id, String(studioShow.location_zone_id));
+    check('acted: the studio show is staged on Sound Stage B, its own set at KSAB',
+      studioShow.location_zone_id === 'zone_ksab7_stage_b', String(studioShow.location_zone_id));
     // Which is precisely what makes Neil a two-building employee: same channel, same
     // host, two different stages. If these ever resolve to one zone this whole block
     // stops testing anything.
@@ -5423,7 +5425,7 @@ export default async function regress({ check, run, getPlayer }) {
     check('desk: a live show gives its spoken lines, in order', seg?.lines.length === 2 && seg.lines[0].text === 'Home tonight.' && seg.lines[0].name === 'Ann');
     check("desk: a line with a fact it can't fill loses its beat, and never airs a hole", !seg?.lines.some((l) => /{|Watch/.test(l.text)));
     check('desk: {b.name} is the cast', seg?.lines[1].text === 'Good night, Bob.');
-    check('desk: each line names the NPC who speaks it, so a talk show can anchor them', seg?.lines[0].npc === 'npc_a' && seg?.lines[1].npc === 'npc_b');
+    check('desk: each line names the NPC who speaks it, so a talk show can anchor them', seg?.lines[0].npc === 'npc_a' && seg?.lines[1].npc === 'npc_a' && seg?.lines.every((l) => l.npc));
     check('desk: beats keep their index in the sequence, for the client', seg?.lines[0].i === 1 && seg?.lines[1].i === 3);
     const first = deskOverlay(seg, seg.lines[0], 0), last = deskOverlay(seg, seg.lines[1], 1);
     check('desk: only the first line carries the documents, and the last says so', !!first.pack && !last.pack && last.last === true && !first.last);

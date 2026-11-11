@@ -15,6 +15,7 @@
   "grid_z": 0,
   "id": "zone_district_924_921",
   "map_id": "map_world",
+  "marker": "P3",
   "name": "The Pallet House",
   "parent_zone": null
 }

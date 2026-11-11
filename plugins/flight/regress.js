@@ -2114,7 +2114,9 @@ async function regressBody({ run, check, getPlayer }) {
     // THE DIRT IS THE SLUM'S (docs/proposals/coldwater-streets.md). Condition falls by column, but
     // the far east of the city stops at unmaintained: Ironside and Kessler aren't Old Coldwater.
     check('Ironside Street, at the east end of the gradient, is unmaintained and not dirt', der(919, 905)?.sc === 3, der(919, 905)?.sc);
-    check('Kessler Street, at the east end of the gradient, is unmaintained and not dirt', der(925, 913)?.sc === 3, der(925, 913)?.sc);
+    // 925,913 runs beside the slum and is flagged street_dirt (coldwater-streets.md), so test the stretch up by the yards.
+    check('Kessler Street, at the east end of the gradient, is unmaintained and not dirt', der(925, 908)?.sc === 3, der(925, 908)?.sc);
+    check('Kessler Street beside the slum is dirt by its street_dirt flag', der(925, 913)?.sc === 4, der(925, 913)?.sc);
     const slumRoad = { flags: { terrain: 'road', region_id: 'region_coldwater', district: 'slum' } };
     check('a road painted into the slum is dirt', deriveSurfaceCell(slumRoad, 923, 916, surfaceAt).sc === 4);
 
