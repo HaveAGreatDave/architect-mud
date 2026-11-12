@@ -273,7 +273,7 @@ const FURNITURE_FACETS = [
   ['Plumbing', (f, fl) => ['toilet', 'shower', 'sink'].includes(f.object_type) || fl.water_source],
   ['Terminals', (f, fl) => f.object_type === 'terminal'
     || fl.atm || fl.job_board || fl.slot_machine || fl.vends || fl.vends_packs
-    || fl.teleporter || fl.chargen || fl.checkout || fl.lending_terminal],
+    || fl.teleporter || fl.chargen || fl.checkout || fl.lending_terminal || fl.envctl],
   // Expected to stay EMPTY, and kept anyway. describe.js sends every light to the
   // room prose instead of this list ("the ceiling wash is lit"), so a light only
   // gets here when it's flagged `notable` — or in the dark, where the list is

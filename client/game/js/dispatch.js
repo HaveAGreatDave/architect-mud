@@ -419,6 +419,8 @@ function relookNow() {
   sendCmdSilent('look');
 }
 
+// whether the control-panel screen has been loaded (see `envctl` below)
+let envctlLoaded = false;
 const handlers = {
   // The build this page was loaded against is the first one a socket reports. A later
   // `connected` from a different build means a deploy landed while the tab stayed open:
@@ -938,6 +940,12 @@ const handlers = {
     document.getElementById('skills-panel').classList.add('active');
   },
 
+  // a flat's control panel (plugins/envcontrol): the answer to every one of its verbs carries its
+  // state, and the screen (panels/envctl.js) loads the first time one asks it to open
+  envctl: (msg) => {
+    if (msg.message) appendMsg(msg.message, 'system');
+    if (msg.open || msg.close || envctlLoaded) { envctlLoaded = true; import('./panels/envctl.js').then((m) => m.onEnvctl(msg)).catch((e) => console.error('[envctl]', e)); }
+  },
   panel_data: (msg) => onPanelData(msg),
   panel_feed: (msg) => onPanelFeed(msg),
   panel_catalog: (msg) => onPanelCatalog(msg),

@@ -20,6 +20,7 @@ import { facing, COUNTER_H, doorwaysOf, liftButtons, liftPanelAt, hallOf } from 
 import { drawDecor, drawDecorForm, liftPortal } from './room-decor.js';
 import { legend, legendWidth } from '../../../../shared/legend-font.js';
 import { drawFitting, baseRun, STONE, FITTED_FORMS } from './room-fittings.js';
+import { drawEnvPanel } from './room-envctl.js';
 export { FITTED_FORMS };
 
 // How many metres one repeat of each painted material covers (paintRoomTexture). A rug is mapped
@@ -982,6 +983,8 @@ function drawPiece(K, p) {
   // a stain or a patch on a worn piece: a darker square on a face, a little proud of it
   const stain = (x, y, z, s) => { if (wear > 0.45 && r() < wear) pbox(x - s, x + s, y - s * 0.7, y + s * 0.7, z, z + 0.003, '#2a2018', 0.55 + r() * 0.2, null, MATTE); };
   // a hotel's forms (gl/room-decor.js), then the ones room-fittings.js owns, on the same helpers
+  // a flat's control panel (plugins/envcontrol) lays out as a hung cabinet and is drawn as itself
+  if (p.dress === 'envctl' && drawEnvPanel(K, F, p)) return;
   if (drawDecorForm(K, F, p)) return;
   if (drawFitting({ K, F, p, r, L: K.L, wear, fine, fab, wood, enamel, plastic, steel, tired, stain, lat, rod, R, pick: (list) => pick(r, list) })) return;
   switch (p.form) {
