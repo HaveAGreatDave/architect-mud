@@ -96,8 +96,15 @@
     }
   },
   "flags": {
+    "color": "#e8f0f0",
     "drug_class": "depressant",
     "drug_family": "dissociative",
+    "form": "liquid",
+    "matter": {
+      "clarity": 1,
+      "fume": "#e4ecec",
+      "viscosity": 0.02
+    },
     "skin_permeability": 0.9,
     "taken": "huff"
   },

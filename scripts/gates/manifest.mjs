@@ -154,6 +154,7 @@ export const GROUPS = [
       'scripts/client/interiors-smoke.mjs', // a room placed in GLASS where the window's eye says it is; near rooms whole, further ones boxes, far ones nothing
       'scripts/shapes/sequence.mjs',     // every set, sequence and show in media_graphics, built and checked
       'scripts/shapes/room-stage.mjs',   // the suite's layout as frozen, every room form builds, placeSpot never stacks pieces
+      'scripts/shapes/chem-stage-smoke.mjs', // the Chem Stage: every stage scores a good hand well and a bad one badly; heap, slosh and each stage's pieces build
       'scripts/shapes/actor-head.mjs',
       'scripts/shapes/figure.mjs',   // the close-up figure: every cut and hair style sound, the crowd's coat its coat
       'scripts/shapes/actor-faces.mjs',   // without --write it only reads files

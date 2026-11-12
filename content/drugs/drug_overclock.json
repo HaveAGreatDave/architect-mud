@@ -60,9 +60,16 @@
     }
   },
   "flags": {
+    "color": "#e04060",
     "drug_class": "stimulant",
     "drug_family": "stimulant",
+    "form": "crystal",
     "injectable": true,
+    "matter": {
+      "clarity": 0.6,
+      "fume": "#e07080",
+      "habit": "needle"
+    },
     "taken": "snort"
   },
   "id": "drug_overclock",

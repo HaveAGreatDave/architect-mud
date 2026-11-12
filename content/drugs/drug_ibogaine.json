@@ -110,7 +110,12 @@
     }
   },
   "flags": {
+    "color": "#c8a040",
     "drug_family": "psychedelic",
+    "form": "leaf",
+    "matter": {
+      "smoke": 0.3
+    },
     "taken": "swallow"
   },
   "id": "drug_ibogaine",

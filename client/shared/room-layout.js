@@ -105,6 +105,8 @@ export function archetypeOf(flags = {}, grams = 0, type = '') {
   if (type === 'shower') return 'shower';
   if (type === 'sink' || flags.water_source) return 'sink';
   if (type === 'media_deck' || flags.media_deck || flags.beta_player) return 'deck';
+  // a chem lab is a bench and its hood, though its row is a container (it's the lab's vault)
+  if (flags.crafting_station === 'chem_lab') return 'surface';
   if (type === 'bed' || flags.bed) return 'bed';
   if (flags.tv || ix.includes('watch')) return 'screen';
   if (flags.wardrobe) return 'wardrobe';
@@ -142,7 +144,7 @@ export function formOf(arche, flags = {}, grams = 0, { annex = false } = {}) {
     // a freezer that pairs with a fridge stands beside it as a tall column; alone it's a chest
     case 'cold': return flags.preserves === 'frozen' ? (flags.paired_container ? 'column' : 'chest') : Number(flags.container) >= 100000 ? 'double' : 'fridge';
     case 'hob': return flags.microwave ? 'microwave' : flags.stove_tier === 'mid' || flags.stove_tier === 'high' ? 'range' : 'cooktop';
-    case 'surface': return flags.conceal_brand ? 'barwall' : grams && grams < 8000 ? 'rail' : grams && grams < 30000 ? 'desk' : 'counter';
+    case 'surface': return flags.crafting_station === 'chem_lab' ? 'chemwall' : flags.conceal_brand ? 'barwall' : grams && grams < 8000 ? 'rail' : grams && grams < 30000 ? 'desk' : 'counter';
     case 'wardrobe': return Number(flags.container) >= 100000 ? 'valet' : 'wardrobe';
     case 'cabinet': return 'cupboard';
     case 'store': return Number(flags.container) >= 60000 ? 'shelves' : Number(flags.container) >= 15000 ? 'locker' : 'crate';
@@ -163,7 +165,7 @@ export const LACQUER_BODY = 0.72;
 // what a form's footprint is when it isn't its archetype's, [w, d, h] at the reference weight
 const FORM_DIMS = { chest: [1.3, 0.72, 0.88], double: [1.3, 0.75, 2.0], range: [0.76, 0.66, 0.92], cooktop: [0.6, 0.52, 0.86],
   desk: [1.2, 0.6, 0.76], rail: [1.2, 0.12, 1.0], cot: [1.9, 0.75, 0.5], pod: [1.1, 2.15, 1.1], stool: [0.42, 0.42, 0.74], booth: [1.5, 0.7, 1.15],
-  column: [0.62, 0.68, 2.0], seam: [1.2, 0.62, 0.92], barwall: [2.2, 0.46, 2.3], armchair: [0.82, 0.84, 0.92], platform: [2.6, 2.25, 0.62], mattress: [1.0, 2.0, 0.26],
+  column: [0.62, 0.68, 2.0], seam: [1.2, 0.62, 0.92], barwall: [2.2, 0.46, 2.3], chemwall: [2.4, 0.72, 2.3], armchair: [0.82, 0.84, 0.92], platform: [2.6, 2.25, 0.62], mattress: [1.0, 2.0, 0.26],
   valet: [2.2, 0.64, 2.3], vitrine: [1.0, 0.36, 1.9], humidor: [0.8, 0.48, 1.45], rack: [0.7, 0.3, 0.5], shelves: [1.2, 0.42, 1.9], locker: [0.6, 0.52, 1.8], crate: [0.72, 0.5, 0.44],
   basin: [0.62, 0.46, 0.88], trough: [1.4, 0.5, 0.86], hung: [0.38, 0.56, 0.82], wetroom: [1.3, 1.1, 2.2], bath: [0.8, 1.75, 0.6], soak: [1.0, 2.0, 0.66],
   portable: [0.5, 0.36, 0.2], dining: [1.6, 0.86, 0.76], press: [0.3, 0.36, 0.4], bar: [3.2, 0.8, 1.12],
@@ -295,6 +297,13 @@ function contribute(spec, p) {
         const [ku, kv] = pt(p.w / 2 - 0.2 * k, p.d / 2 + 0.05 * k), keypad = { target: p.name, piece: p.id, verb: 'keypad', u: ku, v: kv, y: 1.15 * k, reach: 1.2 * k, at: [p.u, p.v] };
         if (p.turned) { const [wu, wv] = pt(-0.3 * k, p.d / 2 + 0.05 * k); out.stations.push({ target: p.turned, piece: p.id, verb: 'workspace', u: wu, v: wv, y: 1.0 * k, reach: 1.3 * k, at: [p.u, p.v] }); }
         out.stations.push(keypad);
+        break;
+      }
+      // a chem lab standing on its own: its bench opens the workspace, as a turned Cachet's does
+      if (p.lab) {
+        out.solid.push(fp);
+        const [wu, wv] = pt(-0.3 * k, p.d / 2 + 0.05 * k);
+        out.stations.push({ target: p.name, piece: p.id, verb: 'workspace', u: wu, v: wv, y: 1.0 * k, reach: 1.3 * k, at: [p.u, p.v] });
         break;
       }
       if (p.rise) { station((p.rise / k) + 0.15, 1.3); break; }
@@ -1037,8 +1046,13 @@ export function rowLook(f, item = null, { annex = false, finish = 'plain' } = {}
   const wear = Number.isFinite(flags.look?.wear) ? flags.look.wear : finish === 'fine' && !item ? 0 : price <= 60 ? 0.7 : price <= 200 ? 0.4 : price <= 600 ? 0.15 : 0;
   // `look.dress` is what stands on a console or a plinth (gl/room-decor.js): lilies, apples, thistle, an orchid
   const dress = typeof flags.look?.dress === 'string' ? { dress: flags.look.dress } : {};
-  return { arche, form: formOf(arche, flags, grams, { annex }), dims: dimsOf(arche, grams, flags, { annex }), crt: flags.tv_skin === 'crt', wear, seed: rowSeed(flags.item_id || f.name || f.id), ...dress };
+  const lab = flags.crafting_station === 'chem_lab' ? { lab: labGrade(flags) } : {};
+  return { arche, form: formOf(arche, flags, grams, { annex }), dims: dimsOf(arche, grams, flags, { annex }), crt: flags.tv_skin === 'crt', wear, seed: rowSeed(flags.item_id || f.name || f.id), ...dress, ...lab };
 }
+// A chem lab's grade, from its station's quality (plugins/synthesis reads the same key for its
+// bonus): what gl/lab-mesh.js draws it as.
+export const LAB_GRADES = Object.freeze(['standard', 'refined', 'pristine']);
+export const labGrade = (flags = {}) => (LAB_GRADES.includes(flags.station_quality) ? flags.station_quality : 'standard');
 function rowSeed(s) { let h = 2166136261; for (const ch of String(s)) h = Math.imul(h ^ ch.charCodeAt(0), 16777619); return h >>> 0; }
 
 // A room's rows laid out: what each is drawn as and where it stands. Authored rows first, by what
@@ -1053,7 +1067,7 @@ export function layRows(rows, spec, { annex = false, finish = 'plain', itemOf = 
   const player = drawn.filter((f) => f.origin === 'player').sort((a, b) => String(a.created_at || a.id).localeCompare(String(b.created_at || b.id)));
   const pieces = [], stamps = [];
   // A turned Cachet shows what it hid. Sealed, the payload says nothing about what's behind it.
-  const turned = (f) => { const h = f.flags?.conceal_hides && rows.find((x) => x.id === f.flags.conceal_hides); return h && !h.flags?.concealed ? { form: 'chemwall', turned: h.name } : {}; };
+  const turned = (f) => { const h = f.flags?.conceal_hides && rows.find((x) => x.id === f.flags.conceal_hides); return h && !h.flags?.concealed ? { form: 'chemwall', turned: h.name, lab: labGrade(h.flags) } : {}; };
   const add = (f, spot) => pieces.push({ id: f.id, name: f.name, ...look(f), ...turned(f), ...(f.flags?.conceal_hides ? { keypad: true } : {}), spot, verbs: Array.isArray(f.flags?.interactions) ? f.flags.interactions : [], container: f.object_type === 'container', ...(annex ? { annex: true } : {}) });
   const fresh = (f, bases) => { const L = look(f); return placeSpot(spec, pieces, L.arche, L.dims, { crt: L.crt, form: L.form, bases }) || { at: [0, +(spec.d / 2).toFixed(2)], turn: 0 }; };
   for (const { f } of authored.filter((x) => x.f.flags?.spot)) add(f, f.flags.spot);

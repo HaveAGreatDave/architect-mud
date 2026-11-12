@@ -46,7 +46,12 @@
     }
   },
   "flags": {
+    "color": "#5fd0e0",
     "drug_family": "nootropic",
+    "form": "gas",
+    "matter": {
+      "fume": "#8fe4f0"
+    },
     "taken": "huff"
   },
   "id": "drug_static",

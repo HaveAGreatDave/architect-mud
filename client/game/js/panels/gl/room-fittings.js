@@ -12,6 +12,7 @@
 
 import { MAT } from './ballpark-mesh.js';
 import { HUNG_AT, LACQUER_BODY } from '../../../../shared/room-layout.js';
+import { drawLab } from './lab-mesh.js';
 
 const { GLOSS, METAL, LEATHER, SATIN, CLOTH, MATTE } = MAT;
 // A sheet of flame: gl/room.js burns it and it's on no switch. No MAT code is 43.
@@ -655,26 +656,9 @@ const FORMS = {
   },
 
   chemwall(c) {
-    // the back of a Cachet's turntable: a steel bench, a hood over it and a rack of reagents
-    const { F, p } = c, { pbox } = F, hw = p.w / 2, hd = p.d / 2, h = p.h;
-    pbox(-hw, hw, 0, 0.08, -hd, hd - 0.06, '#101012', 0.9);
-    pbox(-hw, hw, 0.08, 0.9, -hd, hd - 0.02, '#2a2c30', 0.9, null, SATIN);
-    pbox(-hw - 0.01, hw + 0.01, 0.9, 0.94, -hd, hd + 0.01, '#b8bcc0', 1, null, METAL);
-    pbox(-hw, hw, 0.94, h, -hd, -hd + 0.03, '#1c2024', 0.9, null, SATIN);
-    pbox(-hw, -hw + 0.04, 0.94, h, -hd, hd - 0.1, '#2a2c30', 1, null, SATIN);
-    pbox(hw - 0.04, hw, 0.94, h, -hd, hd - 0.1, '#2a2c30', 1, null, SATIN);
-    pbox(-hw, hw, h - 0.34, h, -hd, hd - 0.04, '#34383c', 0.95, null, METAL);
-    pbox(-hw + 0.08, hw - 0.08, h - 0.36, h - 0.34, -hd + 0.06, hd - 0.1, '#cfe8e0', 1.6);
-    // the rack on the back wall, and the bottles on it
-    pbox(-hw + 0.06, hw - 0.06, 1.5, 1.51, -hd + 0.03, -hd + 0.16, '#b8bcc0', 1, null, METAL);
-    bottles(c, -hw + 0.12, hw - 0.12, 1.51, -hd + 0.09, Math.round(p.w / 0.18));
-    // on the bench: flasks, a ring stand holding a condenser, a burner with its flame
-    for (const [x, col] of [[-0.62, '#3a8a5a'], [-0.42, '#c8a050'], [0.46, '#7a3a8a']]) c.lat(x, 0.02, [[0, 0.94], [0.07, 0.94], [0.075, 0.97], [0.02, 1.08], [0.018, 1.16], [0.024, 1.17], [0, 1.17]], col, 1, 14, GLOSS);
-    c.lat(0, -0.02, [[0, 0.94], [0.1, 0.94], [0.1, 0.955], [0.012, 0.96], [0.012, 1.5], [0, 1.5]], '#8a8e92', 1, 10, METAL);
-    c.rod(F.P(0, 1.34, -0.02), F.P(0.34, 1.16, 0.04), 0.022, '#dfe6e8', 1, GLOSS);
-    c.rod(F.P(0, 1.3, -0.02), F.P(0, 1.3, 0.1), 0.006, '#8a8e92', 1);
-    c.lat(0.14, 0.06, [[0, 0.94], [0.04, 0.94], [0.015, 0.98], [0.015, 1.04], [0, 1.04]], '#8a8e92', 1, 10, METAL);
-    c.lat(0.14, 0.06, [[0, 1.04], [0.012, 1.06], [0, 1.1]], '#6aa8ff', 1.8, 8);
+    // a chem lab: the back of a Cachet's turntable, or a lab standing on its own. Its grade is the
+    // station's (`p.lab`); the bench, the hood and the glassware are gl/lab-mesh.js's
+    drawLab(c, c.p.lab || 'standard');
   },
 
   // ── bathroom ──────────────────────────────────────────────────────────────────────────────────

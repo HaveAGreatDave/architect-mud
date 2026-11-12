@@ -115,7 +115,12 @@
     }
   },
   "flags": {
+    "color": "#f0d040",
     "drug_family": "psychedelic",
+    "form": "pill",
+    "matter": {
+      "grain": "fine"
+    },
     "taken": "swallow"
   },
   "id": "drug_laughers",

@@ -47,8 +47,13 @@
     }
   },
   "flags": {
+    "color": "#4f7ae0",
     "drug_class": "depressant",
     "drug_family": "depressant",
+    "form": "pill",
+    "matter": {
+      "grain": "fine"
+    },
     "taken": "swallow"
   },
   "id": "drug_lull",

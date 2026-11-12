@@ -54,9 +54,16 @@
     }
   },
   "flags": {
+    "color": "#2a1a10",
     "drug_class": "depressant",
     "drug_family": "opioid",
+    "form": "paste",
     "injectable": true,
+    "matter": {
+      "fume": "#4a3a2a",
+      "smoke": 0.6,
+      "viscosity": 0.95
+    },
     "taken": "inject"
   },
   "id": "drug_blacktar",

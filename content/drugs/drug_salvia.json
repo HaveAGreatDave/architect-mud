@@ -96,7 +96,12 @@
     }
   },
   "flags": {
+    "color": "#5a8a50",
     "drug_family": "psychedelic",
+    "form": "leaf",
+    "matter": {
+      "smoke": 0.8
+    },
     "taken": "smoke"
   },
   "id": "drug_salvia",

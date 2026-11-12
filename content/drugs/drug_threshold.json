@@ -62,7 +62,12 @@
     }
   },
   "flags": {
+    "color": "#e05cc0",
     "drug_family": "psychedelic",
+    "form": "gas",
+    "matter": {
+      "fume": "#e88ad4"
+    },
     "taken": "huff"
   },
   "id": "drug_threshold",

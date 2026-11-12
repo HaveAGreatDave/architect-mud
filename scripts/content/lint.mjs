@@ -18,6 +18,7 @@ import { contentEntries } from '../../server/models/content-registry.js';
 import { SCHEMA_SQL } from '../../server/models/schema.js';
 import { validateTags, validateZoneColumns, TAG_CATALOG as CATALOG, ZONE_COLUMN_PREFIX } from '../../server/engine/tags.js';
 import { matterProblems } from '../../client/shared/kitchen-matter.js';
+import { drugMatterProblems } from '../../client/shared/chem-matter.js';
 import { readContentTree, fileNameForRow, schemaColumnsOf as columnsOf, readPalette, assetRefIds } from './lib.mjs';
 import { assignBuildingMarkers, projectEdges, OPPOSITE, CARDINAL, deriveMapName, PROP_DEFAULTS } from './derive.mjs';
 import { anchorViolations } from './map-anchor.mjs';
@@ -551,6 +552,16 @@ export function lintContentTree(baseDir, { tree: preRead = null } = {}) {
     for (const f of mapFiles) {
       if (deriveMapName(f.data, zoneById)) continue;
       errors.push(`maps/${f.name}: no "name" and none derivable — parent_zone_id "${f.data.parent_zone_id ?? ''}" names no zone carrying a building_name. Author a name, or fix the anchor.`);
+    }
+  }
+  // A drug's bench look (docs/proposals/chem-stage.md). Any drug's form, colour and matter must
+  // be well formed; a drug a chemistry recipe cooks must also author them, or it cooks as a
+  // liquid in the default colour and the Chem Stage draws every one of them the same.
+  {
+    const cookedItems = new Set((entries.find(e => e.entry.table === 'recipes')?.files || [])
+      .filter(f => f.data.skill_id === 'chemistry' && f.data.base_output?.item_id).map(f => f.data.base_output.item_id));
+    for (const f of entries.find(e => e.entry.table === 'drugs')?.files || []) {
+      for (const s of drugMatterProblems(f.data.flags, { cookable: cookedItems.has(f.data.item_id) })) errors.push(`drugs/${f.name}: ${s}`);
     }
   }
   // Playlist rows that aren't one broadcast in one slot (docs/proposals/daily-slate.md).

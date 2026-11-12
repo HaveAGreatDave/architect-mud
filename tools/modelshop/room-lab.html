@@ -50,6 +50,10 @@ const BEARING = { north: 0, northeast: 45, east: 90, southeast: 135, south: 180,
 async function open(_, via = null) {
   const id = $('zone').value, hour = Number($('hour').value);
   const d = await (await fetch('/api/room-lab?zone=' + encodeURIComponent(id) + (window.__labParked ? '&parked=' + encodeURIComponent(window.__labParked) : ''))).json();
+  // ?turned=1 opens every Cachet in the room, so what it hides stands on its turntable (a chem lab)
+  if (q.get('turned') === '1') for (const f of d.rows || []) if (f.flags?.conceal_hidden_by) f.flags = { ...f.flags, concealed: false };
+  // ?lab=standard|refined|pristine draws every chem lab in the room at that grade
+  if (q.get('lab')) for (const f of d.rows || []) if (f.flags?.crafting_station === 'chem_lab') f.flags = { ...f.flags, station_quality: q.get('lab') };
   const mark = parseInt(d.zone.marker, 10);
   // a room on a building's walk comes with its doorways and the rooms past them (building-stage.md)
   let spec = d.building ? d.building.spec : roomSpecOf(d.zone.flags, true, { storey: mark > 0 ? mark : null });
@@ -126,6 +130,23 @@ window.__labSky = (sky) => roomSky({ zone: $('zone').value, contacts: [], ...sky
 // A frame to disk, from anywhere in the room: 'at' is [u, v] in the room's frame, 'yaw' and 'pitch'
 // radians. It draws the frame itself and reads it in the same task, since a GL canvas keeps nothing
 // after that and a hidden pane may not be running frames at all.
+// The Chem Stage with no server (docs/proposals/chem-stage.md): __labChem('pill', 'pristine', { difficulty, color, auto }).
+// Any form, or 'splice'; __chem.chemOutcome({ outcome: 'fire' }) plays what the server would say while the card's up.
+// Its score lands on window.__labChemScore instead of going to synthresolve.
+window.__labChem = async (form = 'liquid', grade = 'refined', o = {}) => {
+  const m = await import('/client/game/js/panels/chem-stage.js');
+  window.__chem = m;
+  window.__labChemScore = null;
+  return m.openChemStage({ family: form === 'splice' ? 'splice' : ['liquid', 'gel', 'paste'].includes(form) ? 'wet' : form === 'gas' ? 'gas' : ['leaf', 'blotter'].includes(form) ? 'botanical' : 'solids', form: form === 'splice' ? null : form, auto: o.auto, difficulty: o.difficulty ?? 8, recipeName: o.name || 'Test cook', workspace: 'the lab', grade, color: o.color || '#e04060', seed: o.seed ?? 5, onResult: ({ score }) => { window.__labChemScore = score; } });
+};
+// A frame of the Chem Stage to disk (%TEMP%/architect-shots/<name>.png), drawn and read in one task.
+window.__chemSnap = async (name) => {
+  const url = window.__chem?._chemTest.shot();
+  if (!url) return null;
+  return (await fetch('/api/shot?name=' + name, { method: 'POST', body: await (await fetch(url)).blob() })).json();
+};
+// Where each piece stands, to aim __snap at one: [{ id, form, u, v, turn, w, d, h }]
+window.__labPieces = () => _test().S.L.placed.map((p) => ({ id: p.id, form: p.form, lab: p.lab, u: p.u, v: p.v, turn: p.turn, w: p.w, d: p.d, h: p.h }));
 window.__snap = async (name, { at, y = 1.6, yaw, pitch, fov } = {}) => {
   const t = _test(), L = t.S.L;
   if (at) t.seat.eye = L.world(at[0], at[1], y);

@@ -53,6 +53,11 @@ uniform float uPanoTilt;    // the down and up faces' pitch (room-outlook.js TIL
 out vec4 outColor;
 ${ROOM_LIGHT_GLSL}
 uniform float uLampDim;      // how far down the dimmer has a lamp's own face
+// A stage's glows (setGlows): up to eight coloured points that light what's round them, a flame on a bench or
+// a reaction's light. xyz is where, w how far it reaches; none in an ordinary room, so the loop never runs.
+uniform vec4 uStageGlowP[8];
+uniform vec3 uStageGlowC[8];
+uniform int uStageGlowN;
 // A direction as east and north.
 vec2 compass(vec3 d) {
   float fw = dot(d, uFront), rt = dot(d, uRight), s = sin(uBearing), c = cos(uBearing);
@@ -104,6 +109,20 @@ void main() {
   if (dot(n, v) < 0.0) n = -n;
   vec3 diff, spec;
   roomLight(vPos, n, v, vMat, diff, spec);
+  for (int g = 0; g < 8; g++) {
+    if (g >= uStageGlowN) break;
+    vec3 L = uStageGlowP[g].xyz - vPos; float dl = max(length(L), 1e-4), r = uStageGlowP[g].w;
+    float fall = clamp(1.0 - dl / r, 0.0, 1.0); fall *= fall;
+    vec3 Ld = L / dl;
+    diff += uStageGlowC[g] * fall * max(0.0, dot(n, Ld) * 0.8 + 0.2);
+    spec += uStageGlowC[g] * fall * pow(max(dot(n, normalize(Ld + v)), 0.0), 40.0) * 0.5;
+  }
+  // a liquid (material 44, a stage's props glass): its own colour, lit, and see-through, more so face on
+  if (uMode == 3 && vMat == 44.0) {
+    float fr = fresnelOf(n, v);
+    outColor = vec4(finish(base * (uAmb * 1.4 + diff * 0.85) + spec * 1.3 + base * 0.08), 0.62 + 0.3 * fr);
+    return;
+  }
   if (uMode == 3) {
     vec4 g = roomGlass(spec, fresnelOf(n, v));
     // a pane to the weather (its uv is metres on the glass, from 100): what's on it bends the view
@@ -213,6 +232,10 @@ export function createRoomRenderer(canvas, { phone = false, see = false } = {}) 
     const people = layer(), fig = createFigureLayer(gl, { half: phone });
     // what people are handling, posed each frame: a pan on the hob, a camping stove on the floor, a plate in a hand (gl/room-meals.js)
     const props = layer();
+    // a stage's own see-through props (liquids, gl/lab-matter.js) and its own halos, for the room's glass and halo passes
+    const propsGlass = layer(), stageHalos = layer();
+    const stageGlowP = new Float32Array(32), stageGlowC = new Float32Array(24);
+    let stageGlowN = 0;
     // a locked doorway's door and the reader beside it (gl/room-lock.js), slid by the stage as the lock gives
     const locks = layer();
     function setRoom(m, paint) {
@@ -250,6 +273,14 @@ export function createRoomRenderer(canvas, { phone = false, see = false } = {}) 
     }
     function setPeople(b) { upload(people, b); }
     function setProps(b) { upload(props, b); }
+    function setPropsGlass(b) { upload(propsGlass, b || { data: new Float32Array(0), n: 0 }); }
+    function setStageHalos(b) { upload(stageHalos, b || { data: new Float32Array(0), n: 0 }); }
+    // up to eight { p: [x, y, z], c: [r, g, b], r } lighting the room this frame
+    function setGlows(list) {
+      const ls = (list || []).slice(0, 8);
+      stageGlowN = ls.length; stageGlowP.fill(0); stageGlowC.fill(0);
+      ls.forEach((g, i) => { stageGlowP.set([g.p[0], g.p[1], g.p[2], g.r], i * 4); stageGlowC.set(g.c, i * 3); });
+    }
     function setLocks(b) { upload(locks, b); }
     function setFigures(recs) { figures = recs || []; }
 
@@ -264,7 +295,7 @@ export function createRoomRenderer(canvas, { phone = false, see = false } = {}) 
       get res() { return res; },
       setRes(k) { res = Math.max(0.5, Math.min(1, k)); },
       get lost() { return lost; },
-      setRoom, setView, setPano, setScreen, setLive, setPeople, setProps, setLocks, setFigures,
+      setRoom, setView, setPano, setScreen, setLive, setPeople, setProps, setLocks, setFigures, setPropsGlass, setStageHalos, setGlows,
       get figureTris() { return fig.tris; },
       prepareFigure: (key) => fig.prepare(key),
       // a material painted and uploaded before a room that wears it is set (room-stage.js bakes the rooms past the
@@ -413,6 +444,8 @@ export function createRoomRenderer(canvas, { phone = false, see = false } = {}) 
           gl.uniform1f(P.u('uExpo'), 1.15);
           gl.uniform1f(P.u('uComic'), comic ? 1 : 0);
           gl.uniform2f(P.u('uRes'), w, h);
+          gl.uniform1i(P.u('uStageGlowN'), stageGlowN);
+          if (stageGlowN) { gl.uniform4fv(P.u('uStageGlowP'), stageGlowP); gl.uniform3fv(P.u('uStageGlowC'), stageGlowC); }
         };
         fig.draw(vp, figures, setLight);
         // the opaque room's depth, then everything lit on it shades only what's in front
@@ -461,6 +494,8 @@ export function createRoomRenderer(canvas, { phone = false, see = false } = {}) 
         // the glass last, blended over what's behind it, writing no depth
         gl.enable(gl.BLEND); gl.blendFuncSeparate(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA, gl.ONE, gl.ONE_MINUS_SRC_ALPHA); gl.depthMask(false);
         gl.uniform1i(LIT.u('uMode'), 3);
+        // a stage's liquids first, so the glass round them puts its highlights on top
+        draw(propsGlass);
         draw(room.glass);
         gl.depthMask(true); gl.disable(gl.BLEND); gl.depthFunc(gl.LESS);
         gl.bindVertexArray(null);

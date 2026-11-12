@@ -82,7 +82,13 @@
     }
   },
   "flags": {
+    "color": "#e8a050",
     "drug_family": "psychedelic",
+    "form": "paste",
+    "matter": {
+      "smoke": 0.7,
+      "viscosity": 0.8
+    },
     "taken": "smoke"
   },
   "id": "drug_dmt",

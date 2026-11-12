@@ -40,7 +40,7 @@
 
 ## A Cachet in a room
 
-A disguise (`flags.conceal_hides`) is a piece with `keypad`, and what it hides never is one: it's the back of the same turntable, form `chemwall`, with `turned` naming it once it's open. The payload says nothing about it while sealed. `keypad` on `room_view` says this viewer gets the advert (concealment's rule); anyone else's click examines it. The code goes through the ordinary keypad overlay. Opening or sealing emits `furniture.changed`, and the client turns the piece half round on the moving layer (`spinBatch`), then rebuilds. The bench's station sends `workspace`, whose panel comes up over the room.
+A disguise (`flags.conceal_hides`) is a piece with `keypad`, and what it hides never is one: it's the back of the same turntable, form `chemwall`, with `turned` naming it once it's open. The payload says nothing about it while sealed. `keypad` on `room_view` says this viewer gets the advert (concealment's rule); anyone else's click examines it. The code goes through the ordinary keypad overlay. Opening or sealing emits `furniture.changed`, and the client turns the piece half round on the moving layer (`spinBatch`), then rebuilds. The bench's station sends `workspace`, whose panel comes up over the room. A chem lab that isn't behind a Cachet is the same `chemwall` piece with the same `workspace` station, and either one is drawn at its `station_quality` grade (`lab` on the piece, `gl/lab-mesh.js`; docs/proposals/chem-stage.md).
 
 ## People at home
 

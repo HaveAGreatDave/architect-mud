@@ -81,7 +81,12 @@
     }
   },
   "flags": {
+    "color": "#8a8478",
     "drug_family": "psychedelic",
+    "form": "leaf",
+    "matter": {
+      "smoke": 0.2
+    },
     "taken": "swallow"
   },
   "id": "drug_psilocybin",

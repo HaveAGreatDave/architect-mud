@@ -1,0 +1,53 @@
+/* The Chem Stage (chem-stage.js): the bench in 3D, full window, with a thin HUD over it. */
+.cs-root { position: fixed; inset: 0; z-index: 9996; background: #050606; font-family: var(--font-mono, monospace); color: #e8ecea; user-select: none; }
+.cs-canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; cursor: crosshair; }
+.cs-top { position: absolute; top: 0; left: 0; right: 0; display: flex; align-items: baseline; gap: 12px; padding: 10px 14px; background: linear-gradient(180deg, rgba(0, 0, 0, .7), rgba(0, 0, 0, 0)); pointer-events: none; }
+.cs-name { font-size: 15px; letter-spacing: 1px; font-weight: bold; }
+.cs-where { font-size: 12px; opacity: .7; }
+.cs-x { margin-left: auto; pointer-events: auto; background: rgba(0, 0, 0, .5); color: inherit; border: 1px solid rgba(255, 255, 255, .25); border-radius: 4px; font-size: 16px; line-height: 1; padding: 6px 10px; cursor: pointer; }
+.cs-x:focus-visible { outline: 2px solid #4fe08a; }
+.cs-pips { position: absolute; top: 44px; left: 14px; margin: 0; padding: 0; list-style: none; display: flex; gap: 6px; pointer-events: none; }
+.cs-pips li { font-size: 11px; padding: 3px 8px; border-radius: 10px; background: rgba(0, 0, 0, .45); border: 1px solid rgba(255, 255, 255, .15); opacity: .55; }
+.cs-pips li.now { opacity: 1; border-color: #4fe08a; color: #4fe08a; }
+.cs-pips li.done { opacity: .8; }
+.cs-pips li.done::before { content: '\2713  '; }
+.cs-hint { position: absolute; left: 50%; bottom: 22px; transform: translateX(-50%); max-width: min(560px, calc(100vw - 32px)); padding: 8px 14px; border-radius: 6px; background: rgba(0, 0, 0, .6); font-size: 13px; text-align: center; pointer-events: none; }
+.cs-hint:empty { display: none; }
+.cs-read { position: absolute; transform: translate(-50%, -100%); padding: 4px 8px; border-radius: 4px; background: #0a1a10; border: 1px solid #2a6a40; color: #48ff8a; font-size: 13px; text-align: center; pointer-events: none; }
+.cs-read b { display: block; font-size: 16px; }
+.cs-read small { opacity: .75; }
+.cs-verdict { position: absolute; left: 50%; top: 38%; transform: translate(-50%, -50%); font-size: 28px; letter-spacing: 2px; text-shadow: 0 2px 10px rgba(0, 0, 0, .8); pointer-events: none; }
+.cs-verdict.good { color: #6af0a0; }
+.cs-verdict.bad { color: #ff7a6a; }
+.cs-card { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); width: min(360px, calc(100vw - 32px)); padding: 16px 18px; border-radius: 8px; background: rgba(8, 12, 10, .92); border: 1px solid rgba(79, 224, 138, .4); }
+.cs-card h3 { margin: 0 0 10px; font-size: 15px; }
+.cs-card ul { margin: 0; padding: 0; list-style: none; }
+.cs-card li { display: grid; grid-template-columns: 90px 1fr; align-items: center; gap: 10px; margin: 6px 0; font-size: 12px; }
+.cs-card i { display: block; height: 8px; border-radius: 4px; background: linear-gradient(90deg, #4fe08a var(--w), rgba(255, 255, 255, .1) var(--w)); }
+.cs-card p { margin: 12px 0 0; font-size: 12px; opacity: .8; }
+@media (prefers-reduced-motion: reduce) { .cs-verdict { transition: none; } }
+/* What the server said happened (chem-stage.js startOutcome): a wash over the bench, and its line on the card. */
+.cs-fx { position: absolute; inset: 0; pointer-events: none; mix-blend-mode: screen; }
+.cs-fx.fire { background: radial-gradient(ellipse at 50% 60%, rgba(255, 150, 40, .55), rgba(255, 60, 10, .15) 55%, transparent 75%); animation: cs-flicker .18s steps(2) infinite alternate, cs-fade 3.2s ease-in forwards; }
+.cs-fx.burst { background: rgba(255, 255, 255, .9); animation: cs-fade .6s ease-out forwards; }
+.cs-fx.flash { background: #fff; animation: cs-flash 3.2s ease-out forwards; }
+.cs-fx.fumes { mix-blend-mode: normal; background: linear-gradient(0deg, rgba(110, 170, 40, .55), rgba(110, 170, 40, .2) 60%, transparent); animation: cs-rise 3.2s ease-in forwards; }
+.cs-fx.spoiled, .cs-fx.ok { display: none; }
+.cs-outcome { margin-top: 10px; padding-top: 10px; border-top: 1px solid rgba(255, 255, 255, .15); font-size: 13px; opacity: 1; }
+.cs-outcome.fire, .cs-outcome.burst, .cs-outcome.flash, .cs-outcome.fumes { color: #ff9a6a; }
+.cs-outcome.ok { color: #6af0a0; }
+@keyframes cs-flicker { from { opacity: .75; } to { opacity: 1; } }
+@keyframes cs-fade { to { opacity: 0; } }
+@keyframes cs-flash { 0% { opacity: 1; } 15% { opacity: .9; background: #fff; } 40% { background: rgba(255, 140, 40, .5); } 100% { opacity: 0; background: rgba(255, 90, 20, 0); } }
+@keyframes cs-rise { 0% { opacity: 0; transform: translateY(30%); } 40% { opacity: 1; } 100% { opacity: .85; transform: translateY(-10%); } }
+@media (prefers-reduced-motion: reduce) { .cs-fx { animation: cs-fade 1.5s ease-out forwards; } .cs-fx.flash, .cs-fx.burst { background: rgba(255, 255, 255, .35); } }
+
+/* The frame: a vignette always, and bars that slide in for the opening shot and the result (.cs-cine). */
+.cs-vig { position: absolute; inset: 0; pointer-events: none; background: radial-gradient(ellipse at 50% 46%, transparent 52%, rgba(0, 0, 0, .55) 100%); }
+.cs-bar { position: absolute; left: 0; right: 0; height: 9vh; background: #000; pointer-events: none; transition: transform .7s cubic-bezier(.2, .7, .2, 1); }
+.cs-bar.top { top: 0; transform: translateY(-100%); }
+.cs-bar.bottom { bottom: 0; transform: translateY(100%); }
+.cs-cine .cs-bar { transform: translateY(0); }
+.cs-cine .cs-pips, .cs-cine .cs-hint { opacity: 0; transition: opacity .4s; }
+.cs-pips, .cs-hint { transition: opacity .4s; }
+@media (prefers-reduced-motion: reduce) { .cs-bar { transition: none; } }

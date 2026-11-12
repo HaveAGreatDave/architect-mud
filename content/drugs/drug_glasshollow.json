@@ -105,7 +105,13 @@
     }
   },
   "flags": {
+    "color": "#c8e8f0",
     "drug_family": "deliriant",
+    "form": "crystal",
+    "matter": {
+      "clarity": 0.95,
+      "habit": "shard"
+    },
     "taken": "swallow"
   },
   "id": "drug_glasshollow",

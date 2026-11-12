@@ -89,7 +89,12 @@
     }
   },
   "flags": {
+    "color": "#e0644f",
     "drug_family": "deliriant",
+    "form": "pill",
+    "matter": {
+      "grain": "granular"
+    },
     "taken": "swallow"
   },
   "id": "drug_screamers",

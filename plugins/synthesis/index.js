@@ -38,6 +38,18 @@ const SYNTH_SKILL = 'chemistry';
 const PENDING_TTL_MS = 180000;
 const pendingSynth = new Map(); // playerId -> { recipeId, contextBonus, mode, tier, family, difficulty, ts }
 
+// What the Chem Stage plays when a cook comes back (docs/proposals/chem-stage.md, phase 3): the kind of
+// accident a family has, by what's in the glass. It's the picture only: what an accident costs is
+// decided below as it always was. The room sees the bench go up, in a line.
+const ACCIDENT = { wet: 'fire', solids: 'burst', gas: 'burst', botanical: 'fumes', splice: 'flash' };
+const ROOM_SEES = { fire: 'catches fire', burst: 'bursts, and glass goes everywhere', fumes: 'pours out green fumes', flash: 'goes up in a white flash' };
+function tellOutcome(broadcast, player, outcome) {
+  if (typeof broadcast !== 'function') return;
+  broadcast(null, { type: 'chem_outcome', outcome }, null, player.id);
+  const who = String(player.name || 'Someone').replace(/[<>&"]/g, '');
+  if (ROOM_SEES[outcome] && player.current_zone) broadcast(player.current_zone, { type: 'output', message: `<span class="msg-system">${who}'s bench ${ROOM_SEES[outcome]}.</span>` }, player.id);
+}
+
 // Cook families: each material FORM maps to one of four single-stage minigames.
 const COOK_FAMILY = { powder: 'solids', pill: 'solids', crystal: 'solids', liquid: 'wet', gel: 'wet', paste: 'wet', gas: 'gas', leaf: 'botanical', blotter: 'botanical' };
 const TIER_PRICE = [0, 15, 40, 90, 180, 350]; // display estimate; real value is on the item
@@ -99,7 +111,8 @@ async function findWorkspace(recipe, player) {
     // labId = the chem-lab furniture itself, which doubles as the shared
     // per-lab storage vault (object_type='container'). Finished product is
     // deposited under container_id=labId (see depositToVault).
-    return { mode: 'lab', contextBonus: bonus, label: 'the lab', labId: rows[0].id };
+    // grade: how the Chem Stage draws the bench (docs/proposals/chem-stage.md), from the same key as the bonus
+    return { mode: 'lab', contextBonus: bonus, label: 'the lab', labId: rows[0].id, grade: q === 'pristine' || q === 'refined' ? q : 'standard' };
   }
   return null;
 }
@@ -175,6 +188,8 @@ async function cmdCook(args, raw, player, broadcast) {
     recipeName: drug?.name || recipe.name,
     family, form: drug?.flags?.form || null, tier, difficulty,
     workspace: ws.label,
+    // for the Chem Stage's picture only: the bench's grade and the product's own colour (flags.color)
+    grade: ws.grade || 'standard', color: drug?.flags?.color || null,
     resultWords: { won: ['You hold the reaction steady to the end.', 'Clean batch.'], lost: ['The reaction runs away from you.', 'Spoiled.'] },
   }, { skill: SYNTH_SKILL });
 }
@@ -211,6 +226,7 @@ async function cmdSynthResolve(args, raw, player, broadcast) {
 
   if (catastrophic) {
     await withTransaction(consume);
+    tellOutcome(broadcast, player, ACCIDENT[pending.family] || 'fire');
     // Toxic byproduct — a flash of heat and acrid smoke. Nastier for higher-tier drugs.
     const dmg = 6 + tier * 4; // tier3=18 … tier5=26
     const hp = Math.max(0, (player.hp || 0) - dmg);
@@ -229,6 +245,7 @@ async function cmdSynthResolve(args, raw, player, broadcast) {
 
   if (!success) {
     await withTransaction(consume); // a failed cook still burns the materials — no free infinite retries
+    tellOutcome(broadcast, player, 'spoiled');
     return { type: 'error', message: `The cook doesn't take. The mixture goes inert and cloudy: a wasted run, and the materials are spent. (margin ${finalMargin})` };
   }
 
@@ -254,6 +271,7 @@ async function cmdSynthResolve(args, raw, player, broadcast) {
   });
 
   await awardSkillUse(player.id, SYNTH_SKILL, skillResult.margin);
+  tellOutcome(broadcast, player, 'ok');
 
   const pct = Math.round(potency * 100);
   const landing = toVault
@@ -785,7 +803,7 @@ async function cmdSpliceBegin(args, raw, player, broadcast) {
   return textRender(player, {
     type: 'synth_minigame', kind: 'splice', token,
     recipeName: name || `${inputs[0].name} splice`,
-    difficulty: comp.difficulty, hard: true, instability: comp.instability, workspace: ws.label,
+    difficulty: comp.difficulty, hard: true, instability: comp.instability, workspace: ws.label, grade: ws.grade || 'standard',
     automated, autoScore,
     resultWords: { won: ['You hold the splice together while it takes.', 'It took.'], lost: ['The splice comes apart in your hands.', 'Failed.'] },
   }, { skill: SYNTH_SKILL });
@@ -834,6 +852,7 @@ async function cmdSpliceResolve(args, raw, player, broadcast) {
 
   // Lethal blowback — bigger than a normal cook botch, scales with instability.
   if (catastrophic) {
+    tellOutcome(broadcast, player, 'flash');
     await withTransaction(consume);
     const dmg = 25 + Math.round(p.comp.instability * 30);
     const hp = Math.max(0, (player.hp || 0) - dmg);
@@ -865,6 +884,7 @@ async function cmdSpliceResolve(args, raw, player, broadcast) {
 
   // Bad batch (grade F) — you still bottle the batch, but it's degraded and nasty.
   if (!grade) {
+    tellOutcome(broadcast, player, 'spoiled');
     const cd = { synthesized: true, spliced: true, potency: 0.4, name: `unstable ${p.name}`, effects: badBatch(p.comp.effects), overdose_threshold: Math.max(2, p.comp.odThreshold - 1), dose_weight: p.comp.doseWeight, duration_seconds: 300, form: p.comp.form, color: p.comp.color, packaged: true, grade: 'F', sources: p.sources };
     await withTransaction(async (q) => { await consume(q); await insertCompound(q, cd, batch); });
     broadcast?.(null, { type: 'output', message: `<span class="msg-system">The splice curdles into something wrong: cloudy, and it smells of solvent and regret. The lab seals ${batch > 1 ? `${batch}× ` : ''}<span class="item">unstable ${p.name}</span> into a crate anyway and logs it to the chem-lab vault. <span class="text-dim">(<span class="action-link" data-raw-cmd="open chem lab">open the vault</span> to withdraw, then unseal to use)</span></span>` }, null, player.id);
@@ -878,6 +898,7 @@ async function cmdSpliceResolve(args, raw, player, broadcast) {
   const cd = { synthesized: true, spliced: true, potency, name: p.name, effects: p.comp.effects, overdose_threshold: p.comp.odThreshold, dose_weight: p.comp.doseWeight, duration_seconds: 300, form: p.comp.form, color: p.comp.color, packaged: true, grade: grade.letter, sources: p.sources };
   await withTransaction(async (q) => { await consume(q); await insertCompound(q, cd, batch); });
   await awardSkillUse(player.id, SYNTH_SKILL, skillResult.margin);
+  tellOutcome(broadcast, player, 'ok');
   // A clean splice logs toward the 3-way (splice-2 slot) unlock.
   await setFlag('player', 'splice_count', (parseInt(await getFlag('player', 'splice_count', player), 10) || 0) + 1, player);
 

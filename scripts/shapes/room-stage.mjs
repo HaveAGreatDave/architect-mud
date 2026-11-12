@@ -440,4 +440,50 @@ const flatLayouts = [];
   }
 }
 
+// ── 13. a chem lab, at each grade (docs/proposals/chem-stage.md, phase 1) ───────────────────────────
+// A lab row is drawn as a lab whatever its object_type, at its station's grade; a Cachet that's turned
+// carries what it hid's grade; every grade builds, puts glass in the room and keeps inside the footprint
+// the walker collides with. Measured against the same room built without it, so the walls don't count.
+{
+  const { labGrade, LAB_GRADES } = await import('../../client/shared/room-layout.js');
+  const lab = { id: 'lab', name: 'chem lab', object_type: 'container', flags: { crafting_station: 'chem_lab', station_quality: 'pristine' } };
+  const L0 = layRows([lab], roomSpecOf({ room: [6, 6, 2.6] }, true)).pieces[0];
+  if (!L0 || L0.form !== 'chemwall' || L0.lab !== 'pristine') fail(`a pristine lab row lays out as ${L0 ? `${L0.arche}/${L0.form}/${L0.lab}` : 'nothing'}, not surface/chemwall/pristine`);
+  else {
+    const at = roomLayout(roomSpecOf({ room: [6, 6, 2.6] }, true), [L0]).stations.map((s) => `${s.verb}:${s.target}`).join();
+    if (at !== 'workspace:chem lab') fail(`a lab standing on its own offers ${at || 'nothing'}, not its workspace`);
+  }
+  if (labGrade({}) !== 'standard' || labGrade({ station_quality: 'gold' }) !== 'standard') fail('a lab with no known grade isn\'t standard');
+  const cab = { id: 'cab', name: 'cabinet', object_type: 'furniture', flags: { conceal_brand: 'X', conceal_hides: 'lab', interactions: ['lean'] } };
+  const hid = { ...lab, flags: { ...lab.flags, station_quality: 'refined', conceal_hidden_by: 'cab' } };
+  const sealed = layRows([cab, { ...hid, flags: { ...hid.flags, concealed: true } }], roomSpecOf({ room: [6, 6, 2.6] }, true)).pieces;
+  const open = layRows([cab, hid], roomSpecOf({ room: [6, 6, 2.6] }, true)).pieces;
+  if (sealed.length !== 1 || sealed[0].form !== 'barwall') fail(`a sealed Cachet lays out as ${sealed.map((p) => p.form).join(', ')}, not one barwall`);
+  if (open.length !== 1 || open[0].form !== 'chemwall' || open[0].lab !== 'refined') fail(`a turned Cachet lays out as ${open.map((p) => `${p.form}/${p.lab}`).join(', ')}, not one refined chemwall`);
+  const spec = roomSpecOf({ room: [6, 6, 2.6] }, true);
+  const tally = (m, L, p) => {
+    const q = Math.round(((p.turn % 360) + 360) % 360 / 90) % 2, hw = (q ? p.d : p.w) / 2 + 0.02, hd = (q ? p.w : p.d) / 2 + 0.02;
+    let out = 0, glass = m.glass.n;
+    for (const b of [m.solid, m.screen, m.glass, ...m.textured.values()]) for (let i = 0; i < b.n; i++) {
+      const s = L.local([b.data[i * STRIDE], b.data[i * STRIDE + 1], b.data[i * STRIDE + 2]]);
+      if (s[0] < p.u - hw || s[0] > p.u + hw || s[1] < p.v - hd || s[1] > p.v + hd || s[2] > p.h + 0.02) out++;
+    }
+    return { out, glass };
+  };
+  for (const [form, dims] of [['chemwall', dimsOf('surface', 40000, { crafting_station: 'chem_lab' })], ['chemwall', [2.2, 0.46, 2.3]]]) for (const grade of LAB_GRADES) {
+    const spot = placeSpot(spec, [], 'surface', dims, { form });
+    if (!spot) { fail(`a ${grade} lab ${dims.join('×')} finds no spot in a 6 m room`); continue; }
+    const piece = { id: 'p', name: 'lab', arche: 'surface', form, dims, spot, lab: grade, wear: 0.5, seed: 777 };
+    const L = roomLayout(spec, [piece]), E = roomLayout(spec, []);
+    let m, e;
+    try { m = buildRoom(L, { seed: 3, lampOn: true }); e = buildRoom(E, { seed: 3, lampOn: true }); } catch (x) { fail(`a ${grade} lab: buildRoom threw ${x.message}`); continue; }
+    const p = L.placed.find((x) => x.id === 'p'), a = tally(m, L, p), b = tally(e, E, p);
+    let bad = 0;
+    for (const bt of [m.solid, m.glass, ...m.textured.values()]) for (let i = 0; i < bt.n * STRIDE; i++) if (!Number.isFinite(bt.data[i])) bad++;
+    if (bad) fail(`a ${grade} lab: ${bad} vertex values aren't numbers`);
+    if (a.glass - b.glass < 200) fail(`a ${grade} lab put ${a.glass - b.glass} vertices of glass in the room: its glassware isn't there`);
+    if (a.out - b.out > 0) fail(`a ${grade} lab ${dims.map((x) => x.toFixed(2)).join('×')}: ${a.out - b.out} vertices outside its footprint`);
+  }
+}
+
 if (fails.length) { console.error(`room-stage: ${fails.length} failed\n  ${fails.join('\n  ')}`); process.exit(1); }

@@ -86,7 +86,12 @@
     }
   },
   "flags": {
+    "color": "#b8c4cc",
     "drug_family": "dissociative",
+    "form": "powder",
+    "matter": {
+      "grain": "granular"
+    },
     "taken": "snort"
   },
   "id": "drug_deadair",

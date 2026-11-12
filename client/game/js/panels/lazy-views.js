@@ -168,6 +168,18 @@ export const kitchenTaste = ifLoaded(kitchen, 'kitchenTaste'); // the face for a
 export const kitchenSays = ifLoaded(kitchen, 'kitchenSays', false); // the log's lines, shown in the Stage instead
 export const kitchenStock = ifLoaded(kitchen, 'kitchenStock'); // the stock-up catalogue the Stage asked for
 
+// chem-stage.js, the cook's 3-D rung at a chem lab (docs/proposals/chem-stage.md). ROOM's renderer on its
+// own canvas, like the kitchen, so it stays unwired from GLASS.
+const chem = lazy('chem-stage', () => import('./chem-stage.js'), { glass: false });
+export const isChemStageActive = ifLoaded(chem, 'isChemStageActive', false);
+export const closeChemStage = ifLoaded(chem, 'closeChemStage');
+export const chemOutcome = ifLoaded(chem, 'chemOutcome');   // what the server said happened; a no-op with no Stage up
+// Opens the Stage, or runs `fallback` (the 2-D bench) when it can't: no chain for the form, no WebGL2, or
+// the module didn't load. The answer is only known once it's loaded, which is why this isn't a `call`.
+export function openChemStageOr(opts, fallback) {
+  chem.load().then((m) => { if (!m.openChemStage(opts)) fallback(); }).catch(() => fallback());
+}
+
 // helm-mode.js (the Echelon chase view, via helm-view.js). Every helmSet* is a
 // no-op until a helm is open, so they only run once the module is loaded.
 const helm = lazy('helm-mode', () => import('./helm-mode.js'));

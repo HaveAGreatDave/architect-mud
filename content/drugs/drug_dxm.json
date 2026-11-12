@@ -85,7 +85,13 @@
     }
   },
   "flags": {
+    "color": "#8a2040",
     "drug_family": "dissociative",
+    "form": "liquid",
+    "matter": {
+      "clarity": 0.6,
+      "viscosity": 0.55
+    },
     "taken": "drink"
   },
   "id": "drug_dxm",

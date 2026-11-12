@@ -69,7 +69,14 @@
     }
   },
   "flags": {
+    "color": "#e8e0a0",
     "drug_family": "stimulant",
+    "form": "liquid",
+    "matter": {
+      "clarity": 0.9,
+      "fume": "#f0ecc8",
+      "viscosity": 0.05
+    },
     "taken": "huff"
   },
   "id": "drug_amyls",

@@ -82,7 +82,12 @@
     }
   },
   "flags": {
+    "color": "#a89060",
     "drug_family": "psychedelic",
+    "form": "pill",
+    "matter": {
+      "grain": "coarse"
+    },
     "taken": "swallow"
   },
   "id": "drug_mescaline",

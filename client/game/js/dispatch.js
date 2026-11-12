@@ -86,6 +86,8 @@ import { openConcealSearch } from './panels/conceal.js';
 import { updateTrade, closeTrade } from './panels/trade.js';
 import { openHangarBay, openCharterScreen, closeHangarBay, isHangarBayActive } from './panels/lazy-views.js';
 import { openKitchenStage, closeKitchenStage, isKitchenStageActive, kitchenBeat, kitchenKnife, kitchenDress, kitchenStock, kitchenSays, kitchenTaste } from './panels/lazy-views.js';
+import { openChemStageOr, chemOutcome } from './panels/lazy-views.js';
+import { chainFor, SPLICE_RIG } from '../../shared/chem-chain.js';
 import { openAdminPanel } from './panels/admin.js';
 import { renderMarkup } from './markup.js';
 import { onPanelData, onPanelFeed, onPanelCatalog, syncPanels, refreshCustomPanels } from './panels/custom/manager.js';
@@ -1999,14 +2001,23 @@ const handlers = {
       : `synthresolve ${msg.recipeId} ${score} ${msg.nonce || ''}`.trim()))) return;
     if (msg.kind === 'splice') {
       // the master-tier orchestra (mix→pour→stir→stabilize→set)
-      openSpliceStages({
+      const spliceArgs = {
         difficulty: msg.difficulty ?? 8,
         instability: msg.instability ?? 0,
         recipeName: msg.recipeName || 'COMPOUND',
         automated: msg.automated || [],
         autoScore: msg.autoScore ?? 70,
         onResult: ({ score }) => sendCmdSilent(`spliceresolve ${msg.token} ${score}`),
-      });
+      };
+      // the visual rung plays it at the Chem Stage (docs/proposals/chem-stage.md): instability makes it
+      // harder, and a stage an automation rig carries is done for you at the rig's score
+      if (msg.render !== 'text') {
+        const auto = {};
+        for (const k of spliceArgs.automated) if (SPLICE_RIG[k]) auto[SPLICE_RIG[k]] = spliceArgs.autoScore;
+        openChemStageOr({ family: 'splice', form: null, difficulty: spliceArgs.difficulty + spliceArgs.instability * 4, recipeName: spliceArgs.recipeName, workspace: msg.workspace, grade: msg.grade, color: msg.color, auto, onResult: spliceArgs.onResult }, () => openSpliceStages(spliceArgs));
+        return;
+      }
+      openSpliceStages(spliceArgs);
     } else {
       // the cook game — family (from the drug's form) picks the single-stage minigame
       const args = {
@@ -2022,9 +2033,15 @@ const handlers = {
         },
       };
       if (msg.render === 'text' && openTextSynth(args)) return;
+      // the visual rung plays a form with a chain at the Chem Stage (docs/proposals/chem-stage.md); the
+      // rest, the dev feel-test and a client with no WebGL2 get the 2-D bench
+      if (msg.kind !== 'test' && chainFor(args.family, args.form)) { openChemStageOr({ ...args, grade: msg.grade, color: msg.color }, () => openSynthMinigame(args)); return; }
       openSynthMinigame(args);
     }
   },
+
+  // what the server said a cook or splice came to, for the Chem Stage to play (plugins/synthesis tellOutcome)
+  chem_outcome: (msg) => { chemOutcome(msg); },
 
   cook_menu: (msg) => { openCookMenu(msg); },
 

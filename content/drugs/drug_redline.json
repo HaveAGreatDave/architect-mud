@@ -64,9 +64,15 @@
     }
   },
   "flags": {
+    "color": "#d0302a",
     "drug_class": "stimulant",
     "drug_family": "stimulant",
+    "form": "liquid",
     "injectable": true,
+    "matter": {
+      "clarity": 0.85,
+      "viscosity": 0.1
+    },
     "taken": "inject"
   },
   "id": "drug_redline",

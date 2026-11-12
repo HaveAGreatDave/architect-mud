@@ -32,5 +32,11 @@ A successful lab cook or splice **deposits its product into the chem lab's share
 ## Hooks
 - `furniture.describe` — the chem-lab hub, which is also where `splice` is surfaced as an action-link, **only once your Chemistry is high enough to splice**.
 
+## The Chem Stage
+On the visual rung, every cook and every splice opens the 3D Chem Stage instead of the 2D game: a short chain of stages at the bench, whose mean score comes back as the same `synthresolve <recipe> <score> <nonce>` or `spliceresolve <token> <score>`. So the odds here don't change for it. `synth_minigame` carries `grade` and `color` for its picture. After a resolve, `tellOutcome` sends the cook `chem_outcome` (`fire`, `burst`, `fumes`, `flash`, `spoiled` or `ok`) for the Stage to play, and on a catastrophe tells the room the bench went up. That's picture and prose only: the damage and the product are decided as they always were. See [docs/proposals/chem-stage.md](../../docs/proposals/chem-stage.md).
+
+## What a drug looks like on the bench
+`flags.form` picks the cook game (`COOK_FAMILY`) and the splice package, and `flags.color` its colour. `flags.matter` says how that form behaves for the Chem Stage; the keys and defaults are in `client/shared/chem-matter.js`. `content:lint` fails a cooked drug that lacks any of them. See [docs/proposals/chem-stage.md](../../docs/proposals/chem-stage.md).
+
 ## `cook` vs `synthesize`
 `cook` is owned by **plugins/cooking** and routes here via the `synthesis.cook` Action when the room or the argument points at a chem lab. `synthesize` is the escape hatch that always means drugs. The furniture hub surfaces `cook` only.

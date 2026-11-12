@@ -81,7 +81,12 @@
     }
   },
   "flags": {
+    "color": "#d0d8e0",
     "drug_family": "dissociative",
+    "form": "gas",
+    "matter": {
+      "fume": "#e8eef4"
+    },
     "taken": "huff"
   },
   "id": "drug_nitrous",

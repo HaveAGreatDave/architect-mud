@@ -54,8 +54,14 @@
     }
   },
   "flags": {
+    "color": "#8a8c90",
     "drug_class": "depressant",
     "drug_family": "opioid",
+    "form": "gel",
+    "matter": {
+      "clarity": 0.3,
+      "viscosity": 0.7
+    },
     "taken": "swallow"
   },
   "id": "drug_grey",

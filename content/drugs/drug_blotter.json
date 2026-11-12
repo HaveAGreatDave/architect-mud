@@ -93,7 +93,9 @@
     }
   },
   "flags": {
+    "color": "#f2ece0",
     "drug_family": "psychedelic",
+    "form": "blotter",
     "taken": "swallow"
   },
   "id": "drug_blotter",

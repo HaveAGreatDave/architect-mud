@@ -61,8 +61,13 @@
     }
   },
   "flags": {
+    "color": "#f0f0ea",
     "drug_class": "stimulant",
     "drug_family": "stimulant",
+    "form": "powder",
+    "matter": {
+      "grain": "fine"
+    },
     "taken": "snort"
   },
   "id": "drug_buzz",

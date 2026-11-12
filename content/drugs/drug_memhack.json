@@ -45,7 +45,13 @@
     }
   },
   "flags": {
+    "color": "#9a5ce0",
     "drug_family": "nootropic",
+    "form": "liquid",
+    "matter": {
+      "clarity": 0.7,
+      "viscosity": 0.2
+    },
     "taken": "swallow"
   },
   "id": "drug_memhack",

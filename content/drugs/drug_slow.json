@@ -60,8 +60,13 @@
     }
   },
   "flags": {
+    "color": "#c9c9d6",
     "drug_class": "depressant",
     "drug_family": "depressant",
+    "form": "pill",
+    "matter": {
+      "grain": "fine"
+    },
     "taken": "swallow"
   },
   "id": "drug_slow",

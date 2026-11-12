@@ -61,9 +61,15 @@
     }
   },
   "flags": {
+    "color": "#5fb8e8",
     "drug_class": "stimulant",
     "drug_family": "stimulant",
+    "form": "liquid",
     "injectable": true,
+    "matter": {
+      "clarity": 0.9,
+      "viscosity": 0.15
+    },
     "taken": "inject"
   },
   "id": "drug_coldfire",

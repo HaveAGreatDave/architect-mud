@@ -102,7 +102,12 @@
     }
   },
   "flags": {
+    "color": "#6a9a40",
     "drug_family": "psychedelic",
+    "form": "leaf",
+    "matter": {
+      "smoke": 0.6
+    },
     "taken": "smoke"
   },
   "id": "drug_dreamsmoke",

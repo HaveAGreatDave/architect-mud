@@ -84,7 +84,13 @@
     }
   },
   "flags": {
+    "color": "#e8eaf0",
     "drug_family": "dissociative",
+    "form": "crystal",
+    "matter": {
+      "clarity": 0.8,
+      "habit": "plate"
+    },
     "taken": "snort"
   },
   "id": "drug_khole",
