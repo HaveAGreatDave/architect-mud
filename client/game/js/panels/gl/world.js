@@ -1076,13 +1076,23 @@ export function glWorldPass(id, host, cells, cam, deps, opts = {}) {
   // ⚠ 'glShip 0' removes it at collection; gating the upload still pays the transform.
   // ⚠ The room is split out here (inside the near plane, own clip range); splitting it in windshield.js
   // needs an 'installGL' allowlist key ('gl:opts').
-  const room = (opts.ship || []).filter((f) => f.interior);
-  const rig = room.length ? (opts.ship || []).filter((f) => !f.interior) : opts.ship;
   // Own-ship faces in their own frame (`mp`, `shipModel`) go to their own layer; called every frame
   // so a frame with no ship clears it.
-  const shipModel = opts.ship && opts.ship.shipModel;
-  const own = shipModel && rig ? rig.filter((f) => f.mp) : null;
-  const rest = own && own.length ? rig.filter((f) => !f.mp) : rig;
+  // One pass over the sink: it was four filters, and a cockpit's room is five thousand records a frame.
+  // The same arrays in the same order, and the sink itself where nothing was taken out of it.
+  const ship = opts.ship, shipModel = ship && ship.shipModel;
+  const room = [];
+  let own = null, rest = ship;
+  if (ship && ship.length) {
+    const rig = [], mp = [], flat = [];
+    for (let i = 0; i < ship.length; i++) {
+      const f = ship[i];
+      if (f.interior) room.push(f);
+      else { rig.push(f); (f.mp ? mp : flat).push(f); }
+    }
+    own = shipModel ? mp : null;
+    rest = own && own.length ? flat : room.length ? rig : ship;
+  }
   if (g.view.uploadShip) g.view.uploadShip(own || [], shipModel || null, (opts.ship && opts.ship.shipState) || null);
   if (g.view.uploadSolids) g.view.uploadSolids([rest, opts.bay, opts.fauna]);
   if (g.view.uploadInterior) g.view.uploadInterior(room, (opts.ship && opts.ship.interiorModel) || null, (opts.ship && opts.ship.interiorLight) || null, (opts.ship && opts.ship.interiorAtt) || null);

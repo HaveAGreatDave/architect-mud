@@ -128,8 +128,14 @@ export function createFlora(F, W) {
   // ⚠ CACHED BY TILE, because the renderer asks every visible wild tile every frame and the relief
   // reading under it is about ten microseconds. Bounded, and cleared whole: the window only ever
   // holds a few thousand tiles, so a clear costs one rebuilt window.
+  // ⚠ THE KEY STAYS A SMALL INTEGER. The 2^37 range below made every key a heap number, so every
+  // lookup of every wild tile every frame boxed one and hashed it as a double: about half a
+  // millisecond of a cockpit frame. Within 2048 tiles of the origin, which is the whole Basin and
+  // its wilds, the key is under 2^29; anything further keeps the old key, negated so the two can't meet.
   const CACHE = new Map(), CACHE_MAX = 60000;
-  const key = (x, y, mode) => (((x + 32768) * 65536 + (y + 32768)) * 32) + mode;
+  const key = (x, y, mode) => (x >= -2048 && x < 2048 && y >= -2048 && y < 2048
+    ? ((x + 2048) * 4096 + (y + 2048)) * 32 + mode
+    : -1 - ((((x + 32768) * 65536 + (y + 32768)) * 32) + mode));
   function cached(x, y, mode, make) {
     const k = key(x, y, mode);
     let v = CACHE.get(k);
