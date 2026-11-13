@@ -627,7 +627,7 @@ function renderSetInspector() {
   const templates = docsOf('set').filter((d) => d.template && d.id !== set.id);
   const base = h('select', { onchange: (e) => {
     if (e.target.value) set.base = e.target.value;
-    else { const v = setNow(); Object.assign(set, structuredClone({ room: v.room, focus: v.focus, pieces: v.pieces, marks: v.marks, cameras: v.cameras, lamps: v.lamps, ambient: v.ambient, palette: v.palette, brand: v.brand })); delete set.base; delete set.parts; }
+    else { const v = setNow(); Object.assign(set, structuredClone({ room: v.room, focus: v.focus, pieces: v.pieces, marks: v.marks, cameras: v.cameras, lamps: v.lamps, ambient: v.ambient, palette: v.palette, brand: v.brand, ...(v.picture ? { picture: v.picture } : {}) })); delete set.base; delete set.parts; }
     S.pick = null; redo();
   } });
   base.add(new Option(skin ? 'Nothing: make it a room of its own' : 'Nothing: a room of its own', '', false, !skin));
@@ -650,7 +650,8 @@ function renderSetInspector() {
   box.append(room);
   set.palette ||= {};
   const colour = (k, label) => h('label', {}, h('input', { type: 'color', value: /^#[0-9a-f]{6}$/i.test(view.palette?.[k] || '') ? view.palette[k] : '#222222', oninput: (e) => { set.palette[k] = e.target.value; touch(set); refresh(); } }), label);
-  box.append(h('div', { class: 'group' }, h('h4', {}, 'Colours'), h('div', { class: 'swatches' }, [['floor', 'Floor'], ['wall', 'Walls'], ['trim', 'Trim'], ['accent', 'Light strips'], ['desk', 'Desk'], ['deskTop', 'Desk top'], ['chair', 'Chairs'], ['sofa', 'Sofa'], ['door', 'Door'], ['outside', 'Outside the window'], ['line', 'Floor line']].map(([k, l]) => colour(k, l)))));
+  box.append(h('div', { class: 'group' }, h('h4', {}, 'Colours'), h('div', { class: 'swatches' }, [['floor', 'Floor'], ['wall', 'Walls'], ['trim', 'Trim'], ['accent', 'Light strips'], ['desk', 'Desk'], ['deskTop', 'Desk top'], ['chair', 'Chairs'], ['sofa', 'Sofa'], ['door', 'Door'], ['outside', 'Outside the window'], ['line', 'Floor line']].map(([k, l]) => colour(k, l))),
+    h('label', {}, h('input', { type: 'checkbox', checked: view.picture === 'mono', onchange: (e) => { if (e.target.checked) set.picture = 'mono'; else if (skin && view.picture === 'mono' && set.picture !== 'mono') set.picture = 'colour'; else delete set.picture; touch(set); redo(); } }), ' Shot in black and white')));
   const lamps = h('div', { class: 'group' }, h('h4', {}, 'Lamps'));
   if (skin && !set.lamps) lamps.append(h('p', { class: 'hint' }, `Lit as ${set.base} is.`), h('button', { onclick: () => { set.lamps = structuredClone(view.lamps || []); redo(); } }, 'Light it differently'));
   else lamps.append(h('p', { class: 'hint' }, 'Up to six. Across, up, back, then brightness.'), ...(set.lamps || []).map((l, i) => h('div', { class: 'two', style: 'grid-template-columns:1fr 1fr 1fr 1fr 22px' },

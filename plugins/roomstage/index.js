@@ -57,7 +57,7 @@ import { npcMoodOf, onNpcMoodChange } from '../../server/engine/npc-mood.js';
 import { resolve as siftResolve } from '../../server/engine/sift.js';
 import { sendToPlayer } from '../../server/engine/messaging.js';
 import { loggedPanelsSync } from '../../server/engine/presentation.js';
-import { getBirdClock, getZoneTemperature, getEnvironmentState } from '../../server/engine/environment.js';
+import { getBirdClock, getZoneTemperature, getEnvironmentState, getZonePowerStatus, getZoneEmergencyLighting } from '../../server/engine/environment.js';
 import { isDwellingZone } from '../../server/engine/zone-tags.js';
 import { feelOf, feelBand } from '../../client/shared/comfort.js';
 import { playerControlsApt, doorGuardsOnlyUnownedApartment, isApartmentZone, getNpcResidence } from '../../server/engine/apartments.js';
@@ -669,6 +669,7 @@ async function viewPayload(player, zoneId, spec, { stamp = true, locks = true } 
       n.people = peopleIn(n.zone, n.pieces);
       // a lift car next door carries its panel too, so it's on the car's wall before you step in
       if (bld.plan.lifts?.[n.zone] && !n.lift) n.lift = liftOf(player, n.zone);
+      n.power = powerOf(n.zone);
     }));
   }
   const pieces = await roomPieces(zoneId, spec, { stamp });
@@ -681,6 +682,8 @@ async function viewPayload(player, zoneId, spec, { stamp = true, locks = true } 
   if (lockable) lockSeen.set(zoneId, lockSig(zoneId, spec));
   return { type: 'room_view', zone: zoneId, here: player.current_zone, name: zone?.name || '', spec, ...(building ? { building } : {}), ...(lift ? { lift: { floors: lift.floors, at: lift.at } } : {}), hasView: !!place, ...(place ? { place } : {}), mine: !!controls(player, zoneId), you: player.id,
     pieces, people: peopleIn(zoneId, pieces), beasts: beastsIn(zoneId), tv: life.tvOf(zoneId), clock: getBirdClock(), ...(ways.length ? { locks: ways } : {}),
+    // whether the mains are on (powerOf); the switch by the door is the viewer's own, kept per room on the client
+    power: powerOf(zoneId),
     // what's over the glass (glassOf): a control panel's shutters and the scene on them (plugins/envcontrol)
     ...(glassOf(zoneId) ? { glass: glassOf(zoneId) } : {}),
     // water that moves (plumbingOf): a running shower, a toilet's bowl, a stream into it (plugins/bodily)
@@ -708,8 +711,8 @@ async function aheadPayload(player, view) {
     const v = await viewPayload(player, n.zone, spec, { stamp: false, locks: false });
     // where its window looks out from, so a windowless hall can turn the view to it before you go in
     const place = outlookOf(n.zone, player);
-    return { zone: n.zone, spec: v.spec, ...(v.lift ? { lift: v.lift } : {}), ...(place ? { place } : {}),
-      neighbours: (v.building?.neighbours || []).map((x) => (x.zone === view.zone ? { zone: x.zone, name: x.name, spec: x.spec } : x)) };
+    return { zone: n.zone, spec: v.spec, power: v.power, ...(v.lift ? { lift: v.lift } : {}), ...(place ? { place } : {}),
+      neighbours: (v.building?.neighbours || []).map((x) => (x.zone === view.zone ? { zone: x.zone, name: x.name, spec: x.spec, power: powerOf(x.zone) } : x)) };
   }))).filter(Boolean);
   return rooms.length ? { type: 'room_ahead', zone: view.zone, rooms } : null;
 }
@@ -906,6 +909,24 @@ const glassOf = (zoneId) => gatherHookSync('room.glass', zoneId)[0] || null;
 on('room.glassChanged', ({ zoneId, glass }) => {
   const main = mainOf(zoneId);
   for (const pid of viewersOf(main)) sendToPlayer(pid, { type: 'room_glass', zone: main, glass });
+});
+
+// ⚠ THE LIGHTS GO WITH THE MAINS (server/engine/environment.js). A room's lights are on unless its zone is on the grid and
+// the grid is down ('offline'): then 'low' if it keeps emergency lighting, else 'off'. 'powered' and 'overloaded' are on,
+// and so is a room with no power_zones row (getZonePowerStatus answers 'unpowered' for it) or one the sim hasn't reached
+// yet: a room nobody wired is lit as it always was. Two Map reads, so it's safe on every view. A change is sent to
+// whoever has a room of that building open, since the rooms next door are drawn lit or dark too.
+function powerOf(zoneId) {
+  if (getZonePowerStatus(zoneId) !== 'offline') return 'on';
+  return getZoneEmergencyLighting(zoneId) ? 'low' : 'off';
+}
+on('zone.power.changed', ({ zoneId, prevStatus, status }) => {
+  if ((prevStatus === 'offline') === (status === 'offline') || !viewers.size) return;
+  const bld = buildingOfRoom(zoneId), power = powerOf(zoneId);
+  for (const [z, set] of viewers) {
+    if (z !== zoneId && (!bld || buildingOfRoom(z) !== bld)) continue;
+    for (const pid of set) sendToPlayer(pid, { type: 'room_power', zone: zoneId, power });
+  }
 });
 
 // ⚠ WATER THAT MOVES: a running shower, a toilet's bowl and a stream into it (plugins/bodily `room.plumbing`, a sync
@@ -1121,4 +1142,4 @@ on('room.pockets', ({ playerId }) => {
 
 export const commands = { room: cmdRoom, arrange: cmdArrange };
 
-export const _test = { acts, occasionOf, dressedAs, wearSweep, buildingOfRoom, clearBuildings, stageSpec, nextDoor, watchersOf, tellAvail, told, life, watching, viewers, where, roomPieces, specOf, viewPayload, aheadPayload, locksOf, lockSweep, peopleIn, beastsIn, resolveSpot, parseArrange, annexOf, mainOf, outlookOf, outlookPayload, skyTick };
+export const _test = { acts, powerOf, occasionOf, dressedAs, wearSweep, buildingOfRoom, clearBuildings, stageSpec, nextDoor, watchersOf, tellAvail, told, life, watching, viewers, where, roomPieces, specOf, viewPayload, aheadPayload, locksOf, lockSweep, peopleIn, beastsIn, resolveSpot, parseArrange, annexOf, mainOf, outlookOf, outlookPayload, skyTick };

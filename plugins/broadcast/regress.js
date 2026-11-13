@@ -5585,6 +5585,17 @@ export default async function regress({ check, run, getPlayer }) {
           !!john && !!john.figure && john.to === 'standup' && r.people.some((p) => p.id === 'npc_graham_mercer'), JSON.stringify(r.people?.map((p) => [p.id, !!p.figure, p.to])));
       } finally { _test.channelRuntime.delete(CH); }
     }
+    // A billed actor's lines air under the billing ("THE CONTROL VOICE says"), so the picture is told it, or it
+    // seats a stranger under that name to say them while the actor sits silent on his mark.
+    {
+      const CH = 'reg-ch-billed', BC = 'bc_reg_billed';
+      const graph = { _start: 'a', nodes: { a: { type: 'npc_anchor', data: { npc_id: 'npc_leland_vey', display: 'THE CONTROL VOICE' } } } };
+      _test.channelRuntime.set(CH, { channelId: CH, playlist: [{ broadcastId: BC, playback_mode: 'scripted', broadcastGraph: graph }], graphBlackboard: { activeBroadcastId: BC } });
+      try {
+        const vey = _test.stageFor(CH).people?.find((p) => p.id === 'npc_leland_vey');
+        check('stage: a billed actor reaches the picture with his billing', !!vey && vey.billed === 'THE CONTROL VOICE', JSON.stringify(vey));
+      } finally { _test.channelRuntime.delete(CH); }
+    }
 
     // Tonight's guest: a persona is a person of their own, the same every time they're booked; a
     // townsperson is themselves; the placeholder is nobody.

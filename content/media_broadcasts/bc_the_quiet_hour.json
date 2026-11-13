@@ -23,13 +23,19 @@
         "text": "Apologies. That wasn't us.",
         "type": "say"
       },
+      "qh_apolog_by_ingrid": {
+        "display": "THE HORIZONTAL",
+        "next": "qh_apolog",
+        "npc_id": "npc_ingrid_sterne",
+        "type": "npc_anchor"
+      },
       "qh_aside": {
         "_vine": {
           "x": 480,
           "y": 1400
         },
         "branch_0": "qh_aside_wx",
-        "branch_1": "qh_aside_temp",
+        "branch_1": "qh_aside_temp_by_ingrid",
         "branch_2": "qh_aside_room",
         "branches": [
           {
@@ -64,12 +70,18 @@
         "text": "It is {tempc} degrees where you're sitting. We keep it a little cooler in here. It helps you stay still.",
         "type": "say"
       },
+      "qh_aside_temp_by_ingrid": {
+        "display": "THE HORIZONTAL",
+        "next": "qh_aside_temp",
+        "npc_id": "npc_ingrid_sterne",
+        "type": "npc_anchor"
+      },
       "qh_aside_wx": {
         "_vine": {
           "x": 680,
           "y": 1400
         },
-        "next": "qh_aside_wx2",
+        "next": "qh_aside_wx2_by_lorne",
         "style": "narration",
         "text": "A caption crawls along the bottom of the picture, then fades: conditions outside, {weather}.",
         "type": "say"
@@ -83,6 +95,12 @@
         "style": "raw",
         "text": "We have a camera on the sky. We have a camera on most things.",
         "type": "say"
+      },
+      "qh_aside_wx2_by_lorne": {
+        "display": "THE VERTICAL",
+        "next": "qh_aside_wx2",
+        "npc_id": "npc_lorne_prentiss",
+        "type": "npc_anchor"
       },
       "qh_br1": {
         "_vine": {
@@ -124,6 +142,12 @@
         "text": "Better. Your heart rate came down two points.",
         "type": "say"
       },
+      "qh_br_better_by_vey": {
+        "display": "THE CONTROL VOICE",
+        "next": "qh_br_better",
+        "npc_id": "npc_leland_vey",
+        "type": "npc_anchor"
+      },
       "qh_br_see": {
         "_vine": {
           "x": 880,
@@ -133,6 +157,12 @@
         "style": "raw",
         "text": "We can see that from here.",
         "type": "say"
+      },
+      "qh_br_see_by_lorne": {
+        "display": "THE VERTICAL",
+        "next": "qh_br_see",
+        "npc_id": "npc_lorne_prentiss",
+        "type": "npc_anchor"
       },
       "qh_cam1": {
         "_vine": {
@@ -149,7 +179,7 @@
           "y": 1480
         },
         "graphic_id": "quiet_hour_testcard",
-        "next": "qh_signoff",
+        "next": "qh_signoff_by_vey",
         "type": "title_card"
       },
       "qh_card1": {
@@ -167,7 +197,7 @@
           "y": 1240
         },
         "graphic_id": "quiet_hour_testcard",
-        "next": "qh_apolog",
+        "next": "qh_apolog_by_ingrid",
         "type": "title_card"
       },
       "qh_card_count_a": {
@@ -185,7 +215,7 @@
           "y": 880
         },
         "graphic_id": "quiet_hour_count",
-        "next": "qh_count_b1",
+        "next": "qh_count_b1_by_vey",
         "type": "title_card"
       },
       "qh_checked": {
@@ -198,12 +228,18 @@
         "text": "We checked.",
         "type": "say"
       },
+      "qh_checked_by_lorne": {
+        "display": "THE VERTICAL",
+        "next": "qh_checked",
+        "npc_id": "npc_lorne_prentiss",
+        "type": "npc_anchor"
+      },
       "qh_count_a1": {
         "_vine": {
           "x": 480,
           "y": 800
         },
-        "next": "qh_count_a2",
+        "next": "qh_count_a2_by_vey",
         "style": "narration",
         "text": "The number on the screen only ticks down as the hour goes on. It doesn't tick up.",
         "type": "say"
@@ -213,60 +249,96 @@
           "x": 680,
           "y": 800
         },
-        "next": "qh_vats",
+        "next": "qh_vats_by_vey",
         "style": "raw",
         "text": "{viewers} people are awake and watching this with you.",
         "type": "say"
+      },
+      "qh_count_a2_by_vey": {
+        "display": "THE CONTROL VOICE",
+        "next": "qh_count_a2",
+        "npc_id": "npc_leland_vey",
+        "type": "npc_anchor"
       },
       "qh_count_alone": {
         "_vine": {
           "x": 180,
           "y": 800
         },
-        "next": "qh_vats",
+        "next": "qh_vats_by_vey",
         "style": "raw",
         "text": "No one else is watching this with you tonight. Just you, and us. We don't mind. We prefer it, actually.",
         "type": "say"
+      },
+      "qh_count_alone_by_vey": {
+        "display": "THE CONTROL VOICE",
+        "next": "qh_count_alone",
+        "npc_id": "npc_leland_vey",
+        "type": "npc_anchor"
       },
       "qh_count_b1": {
         "_vine": {
           "x": 480,
           "y": 880
         },
-        "next": "qh_count_b2",
+        "next": "qh_count_b2_by_lorne",
         "style": "raw",
         "text": "The count on the screen reads {viewers}. It read more an hour ago. It always reads more an hour ago.",
         "type": "say"
+      },
+      "qh_count_b1_by_vey": {
+        "display": "THE CONTROL VOICE",
+        "next": "qh_count_b1",
+        "npc_id": "npc_leland_vey",
+        "type": "npc_anchor"
       },
       "qh_count_b2": {
         "_vine": {
           "x": 680,
           "y": 880
         },
-        "next": "qh_vats",
+        "next": "qh_vats_by_vey",
         "style": "raw",
         "text": "We have stopped asking why it only ever falls.",
         "type": "say"
+      },
+      "qh_count_b2_by_lorne": {
+        "display": "THE VERTICAL",
+        "next": "qh_count_b2",
+        "npc_id": "npc_lorne_prentiss",
+        "type": "npc_anchor"
       },
       "qh_count_c1": {
         "_vine": {
           "x": 280,
           "y": 960
         },
-        "next": "qh_count_c2",
+        "next": "qh_count_c2_by_ingrid",
         "style": "raw",
         "text": "We aren't going to show you the numbers tonight.",
         "type": "say"
+      },
+      "qh_count_c1_by_vey": {
+        "display": "THE CONTROL VOICE",
+        "next": "qh_count_c1",
+        "npc_id": "npc_leland_vey",
+        "type": "npc_anchor"
       },
       "qh_count_c2": {
         "_vine": {
           "x": 480,
           "y": 960
         },
-        "next": "qh_vats",
+        "next": "qh_vats_by_vey",
         "style": "raw",
         "text": "They upset some of you last time. You counted yourselves in them.",
         "type": "say"
+      },
+      "qh_count_c2_by_ingrid": {
+        "display": "THE HORIZONTAL",
+        "next": "qh_count_c2",
+        "npc_id": "npc_ingrid_sterne",
+        "type": "npc_anchor"
       },
       "qh_count_check": {
         "_vine": {
@@ -274,7 +346,7 @@
           "y": 760
         },
         "condition_type": "OTHER_VIEWERS_PRESENT",
-        "ifFalse": "qh_count_alone",
+        "ifFalse": "qh_count_alone_by_vey",
         "ifTrue": "qh_count_gate",
         "type": "condition"
       },
@@ -285,7 +357,7 @@
         },
         "branch_0": "qh_card_count_a",
         "branch_1": "qh_card_count_b",
-        "branch_2": "qh_count_c1",
+        "branch_2": "qh_count_c1_by_vey",
         "branches": [
           {
             "weight": 2
@@ -305,7 +377,7 @@
           "y": 1560
         },
         "duration": 8,
-        "text": "THE QUIET HOUR\nPresented by THE CONTROL VOICE.\nTonight, {viewers} of you were still awake.\nBroadcast nightly since before the record begins.",
+        "text": "THE QUIET HOUR\nPresented by THE CONTROL VOICE.\nWith THE HORIZONTAL and THE VERTICAL.\nTonight, {viewers} of you were still awake.\nBroadcast nightly since before the record begins.",
         "type": "credits"
       },
       "qh_ctl1": {
@@ -323,10 +395,46 @@
           "x": 880,
           "y": 200
         },
-        "next": "qh_ctl3",
+        "next": "qh_ctl2_roll",
         "style": "raw",
-        "text": "We can make it roll. We can make it so bright you look away, or so dim you lean in. We can make that line do anything we like.",
+        "text": "We can make it roll.",
         "type": "say"
+      },
+      "qh_ctl2_by_lorne": {
+        "display": "THE VERTICAL",
+        "next": "qh_ctl2",
+        "npc_id": "npc_lorne_prentiss",
+        "type": "npc_anchor"
+      },
+      "qh_ctl2_h": {
+        "next": "qh_ctl2_v_by_lorne",
+        "style": "raw",
+        "text": "We can make it slip sideways. We can make it so bright you look away, or so dim you lean in.",
+        "type": "say"
+      },
+      "qh_ctl2_h_by_ingrid": {
+        "display": "THE HORIZONTAL",
+        "next": "qh_ctl2_h",
+        "npc_id": "npc_ingrid_sterne",
+        "type": "npc_anchor"
+      },
+      "qh_ctl2_roll": {
+        "next": "qh_ctl2_h_by_ingrid",
+        "style": "narration",
+        "text": "The picture rolls once, top to bottom, and settles.",
+        "type": "say"
+      },
+      "qh_ctl2_v": {
+        "next": "qh_ctl3_by_vey",
+        "style": "raw",
+        "text": "We can make that line do anything we like.",
+        "type": "say"
+      },
+      "qh_ctl2_v_by_lorne": {
+        "display": "THE VERTICAL",
+        "next": "qh_ctl2_v",
+        "npc_id": "npc_lorne_prentiss",
+        "type": "npc_anchor"
       },
       "qh_ctl3": {
         "_vine": {
@@ -338,12 +446,18 @@
         "text": "For the next hour we decide what you see and what you hear. Sit back. We'll tell you when it's yours again.",
         "type": "say"
       },
+      "qh_ctl3_by_vey": {
+        "display": "THE CONTROL VOICE",
+        "next": "qh_ctl3",
+        "npc_id": "npc_leland_vey",
+        "type": "npc_anchor"
+      },
       "qh_ctl_end": {
         "_vine": {
           "x": 680,
           "y": 1560
         },
-        "next": "qh_ctl_end2",
+        "next": "qh_ctl_end2_by_lorne",
         "style": "raw",
         "text": "That's the hour. We give you back your set.",
         "type": "say"
@@ -357,6 +471,18 @@
         "style": "raw",
         "text": "Same time tomorrow. You'll know it's us when the picture starts to roll.",
         "type": "say"
+      },
+      "qh_ctl_end2_by_lorne": {
+        "display": "THE VERTICAL",
+        "next": "qh_ctl_end2",
+        "npc_id": "npc_lorne_prentiss",
+        "type": "npc_anchor"
+      },
+      "qh_ctl_end_by_vey": {
+        "display": "THE CONTROL VOICE",
+        "next": "qh_ctl_end",
+        "npc_id": "npc_leland_vey",
+        "type": "npc_anchor"
       },
       "qh_daycheck": {
         "_vine": {
@@ -444,7 +570,7 @@
           "y": 40
         },
         "event_type": "FADE_IN",
-        "next": "qh_card1",
+        "next": "qh_teaser",
         "type": "event"
       },
       "qh_glitch_check": {
@@ -453,7 +579,7 @@
           "y": 1240
         },
         "condition_type": "RANDOM_CHANCE",
-        "ifFalse": "qh_makers",
+        "ifFalse": "qh_story_1_by_vey",
         "ifTrue": "qh_techdiff",
         "params": {
           "chance": 0.5
@@ -503,6 +629,12 @@
         "style": "raw",
         "text": "It's made for you. It's made every night. It has been made every night for a very long time, and it'll be made tomorrow, whether or not you're here to receive it.",
         "type": "say"
+      },
+      "qh_makers_by_vey": {
+        "display": "THE CONTROL VOICE",
+        "next": "qh_makers",
+        "npc_id": "npc_leland_vey",
+        "type": "npc_anchor"
       },
       "qh_open_day": {
         "_vine": {
@@ -611,13 +743,19 @@
         "text": "If you're awake because you can't sleep, try this with us.",
         "type": "say"
       },
+      "qh_reason_by_ingrid": {
+        "display": "THE HORIZONTAL",
+        "next": "qh_reason",
+        "npc_id": "npc_ingrid_sterne",
+        "type": "npc_anchor"
+      },
       "qh_relax": {
         "_vine": {
           "x": 280,
           "y": 1140
         },
-        "branch_0": "qh_relax_a",
-        "branch_1": "qh_relax_b",
+        "branch_0": "qh_relax_a_by_ingrid",
+        "branch_1": "qh_relax_b_by_ingrid",
         "branches": [
           {
             "weight": 1
@@ -638,6 +776,12 @@
         "text": "You aren't one of them. You can relax.",
         "type": "say"
       },
+      "qh_relax_a_by_ingrid": {
+        "display": "THE HORIZONTAL",
+        "next": "qh_relax_a",
+        "npc_id": "npc_ingrid_sterne",
+        "type": "npc_anchor"
+      },
       "qh_relax_b": {
         "_vine": {
           "x": 680,
@@ -647,6 +791,12 @@
         "style": "raw",
         "text": "You aren't on the list tonight. We checked it twice, against the warm sets. Yours is warm.",
         "type": "say"
+      },
+      "qh_relax_b_by_ingrid": {
+        "display": "THE HORIZONTAL",
+        "next": "qh_relax_b",
+        "npc_id": "npc_ingrid_sterne",
+        "type": "npc_anchor"
       },
       "qh_roll": {
         "_vine": {
@@ -678,6 +828,12 @@
         "text": "The Quiet Hour will continue until the morning service begins at four. That is {until_four} from now.",
         "type": "say"
       },
+      "qh_signoff_by_vey": {
+        "display": "THE CONTROL VOICE",
+        "next": "qh_signoff",
+        "npc_id": "npc_leland_vey",
+        "type": "npc_anchor"
+      },
       "qh_start": {
         "_vine": {
           "x": 80,
@@ -691,18 +847,42 @@
           "x": 480,
           "y": 1480
         },
+        "next": "qh_stay_h_by_ingrid",
+        "style": "raw",
+        "text": "Until then: stay in.",
+        "type": "say"
+      },
+      "qh_stay_h": {
+        "next": "qh_stay_v_by_lorne",
+        "style": "raw",
+        "text": "Stay warm.",
+        "type": "say"
+      },
+      "qh_stay_h_by_ingrid": {
+        "display": "THE HORIZONTAL",
+        "next": "qh_stay_h",
+        "npc_id": "npc_ingrid_sterne",
+        "type": "npc_anchor"
+      },
+      "qh_stay_v": {
         "next": "qh_wait_i",
         "style": "raw",
-        "text": "Until then: stay in. Stay warm. Stay still.",
+        "text": "Stay still.",
         "type": "say"
+      },
+      "qh_stay_v_by_lorne": {
+        "display": "THE VERTICAL",
+        "next": "qh_stay_v",
+        "npc_id": "npc_lorne_prentiss",
+        "type": "npc_anchor"
       },
       "qh_still": {
         "_vine": {
           "x": 880,
           "y": 1480
         },
-        "branch_0": "qh_still_a",
-        "branch_1": "qh_still_b",
+        "branch_0": "qh_still_a_by_vey",
+        "branch_1": "qh_still_b_by_ingrid",
         "branches": [
           {
             "weight": 1
@@ -723,6 +903,12 @@
         "text": "We like it when you're still.",
         "type": "say"
       },
+      "qh_still_a_by_vey": {
+        "display": "THE CONTROL VOICE",
+        "next": "qh_still_a",
+        "npc_id": "npc_leland_vey",
+        "type": "npc_anchor"
+      },
       "qh_still_b": {
         "_vine": {
           "x": 280,
@@ -732,6 +918,160 @@
         "style": "raw",
         "text": "You're very still right now. Thank you. It makes the counting easier.",
         "type": "say"
+      },
+      "qh_still_b_by_ingrid": {
+        "display": "THE HORIZONTAL",
+        "next": "qh_still_b",
+        "npc_id": "npc_ingrid_sterne",
+        "type": "npc_anchor"
+      },
+      "qh_story_1": {
+        "next": "qh_story_2",
+        "style": "raw",
+        "text": "Tonight's story is about a woman on Lever Lane.",
+        "type": "say"
+      },
+      "qh_story_10": {
+        "duration": 4,
+        "next": "qh_story_11_by_ingrid",
+        "type": "wait"
+      },
+      "qh_story_11": {
+        "next": "qh_story_12",
+        "style": "raw",
+        "text": "She was standing right in front of it. It's a small kitchen.",
+        "type": "say"
+      },
+      "qh_story_11_by_ingrid": {
+        "display": "THE HORIZONTAL",
+        "next": "qh_story_11",
+        "npc_id": "npc_ingrid_sterne",
+        "type": "npc_anchor"
+      },
+      "qh_story_12": {
+        "duration": 2,
+        "next": "qh_story_13_by_vey",
+        "type": "wait"
+      },
+      "qh_story_13": {
+        "next": "qh_story_14",
+        "style": "raw",
+        "text": "She has watched every night since, and so has the thing in the chair. They get on. It doesn't want anything. It likes the company, and she says that's more than she could say for her husband.",
+        "type": "say"
+      },
+      "qh_story_13_by_vey": {
+        "display": "THE CONTROL VOICE",
+        "next": "qh_story_13",
+        "npc_id": "npc_leland_vey",
+        "type": "npc_anchor"
+      },
+      "qh_story_14": {
+        "duration": 3,
+        "next": "qh_story_15",
+        "type": "wait"
+      },
+      "qh_story_15": {
+        "next": "qh_story_16",
+        "style": "raw",
+        "text": "Be careful what you let into the house, and be kind to it once it's in. It may be watching the same programme you are.",
+        "type": "say"
+      },
+      "qh_story_16": {
+        "duration": 2,
+        "next": "qh_story_17_by_lorne",
+        "type": "wait"
+      },
+      "qh_story_17": {
+        "next": "qh_story_18",
+        "style": "raw",
+        "text": "It is, as it happens.",
+        "type": "say"
+      },
+      "qh_story_17_by_lorne": {
+        "display": "THE VERTICAL",
+        "next": "qh_story_17",
+        "npc_id": "npc_lorne_prentiss",
+        "type": "npc_anchor"
+      },
+      "qh_story_18": {
+        "duration": 2,
+        "next": "qh_makers_by_vey",
+        "type": "wait"
+      },
+      "qh_story_1_by_vey": {
+        "display": "THE CONTROL VOICE",
+        "next": "qh_story_1",
+        "npc_id": "npc_leland_vey",
+        "type": "npc_anchor"
+      },
+      "qh_story_2": {
+        "next": "qh_story_3",
+        "style": "raw",
+        "text": "She watches this programme. Most nights she falls asleep in front of it, which we don't mind.",
+        "type": "say"
+      },
+      "qh_story_3": {
+        "next": "qh_story_4",
+        "style": "narration",
+        "text": "The kitchen again. The woman sits at the table with a mug she has stopped drinking. On the screen in the corner, her kitchen, and on the screen she lifts her mug a second before she does.",
+        "type": "say"
+      },
+      "qh_story_4": {
+        "duration": 3,
+        "next": "qh_story_5_by_ingrid",
+        "type": "wait"
+      },
+      "qh_story_5": {
+        "next": "qh_story_6",
+        "style": "raw",
+        "text": "She thought it was a camera. She turned the set to face the wall.",
+        "type": "say"
+      },
+      "qh_story_5_by_ingrid": {
+        "display": "THE HORIZONTAL",
+        "next": "qh_story_5",
+        "npc_id": "npc_ingrid_sterne",
+        "type": "npc_anchor"
+      },
+      "qh_story_6": {
+        "next": "qh_story_7_by_lorne",
+        "style": "narration",
+        "text": "The back of the set, its vents glowing orange. On the wall behind it, faint as a reflection, the kitchen.",
+        "type": "say"
+      },
+      "qh_story_7": {
+        "next": "qh_story_8",
+        "style": "raw",
+        "text": "Then she unplugged it. People do.",
+        "type": "say"
+      },
+      "qh_story_7_by_lorne": {
+        "display": "THE VERTICAL",
+        "next": "qh_story_7",
+        "npc_id": "npc_lorne_prentiss",
+        "type": "npc_anchor"
+      },
+      "qh_story_8": {
+        "duration": 2,
+        "next": "qh_story_9",
+        "type": "wait"
+      },
+      "qh_story_9": {
+        "next": "qh_story_10",
+        "style": "narration",
+        "text": "The screen is dark. Then it isn't. The kitchen from the corner, the chair pulled out, and something long and grey folded into it, all knees, its head on one side the way you hold your head to listen to a radio. The woman isn't in the picture.",
+        "type": "say"
+      },
+      "qh_teaser": {
+        "next": "qh_teaser_w",
+        "style": "narration",
+        "text": "A small kitchen at night, lit only by a television in the corner. On the screen is the same kitchen, from the corner, and a woman sitting at the table. The chair at the table is empty.",
+        "type": "say"
+      },
+      "qh_teaser_w": {
+        "duration": 3,
+        "next": "qh_card1",
+        "type": "wait"
       },
       "qh_techdiff": {
         "_vine": {
@@ -747,7 +1087,7 @@
           "x": 480,
           "y": 1560
         },
-        "next": "qh_ctl_end",
+        "next": "qh_ctl_end_by_vey",
         "text": "THE QUIET HOUR · Overnight service · This broadcast contains no advertising and requires no subscription · Viewing figures are collected passively and aren't stored, except where they are · Persons experiencing distress should remain seated until it passes · The morning service begins at 04:00 · Thank you for watching · Thank you for watching · Thank you for watching",
         "type": "ticker"
       },
@@ -760,6 +1100,12 @@
         "style": "raw",
         "text": "Some of those still awake are in the vats, and don't know they're watching.",
         "type": "say"
+      },
+      "qh_vats_by_vey": {
+        "display": "THE CONTROL VOICE",
+        "next": "qh_vats",
+        "npc_id": "npc_leland_vey",
+        "type": "npc_anchor"
       },
       "qh_viewer_check": {
         "_vine": {
@@ -804,7 +1150,7 @@
           "y": 200
         },
         "duration": 2,
-        "next": "qh_ctl2",
+        "next": "qh_ctl2_by_lorne",
         "type": "wait"
       },
       "qh_wait_ctl3": {
@@ -831,7 +1177,7 @@
           "y": 1140
         },
         "duration": 2,
-        "next": "qh_checked",
+        "next": "qh_checked_by_lorne",
         "type": "wait"
       },
       "qh_wait_f": {
@@ -840,7 +1186,7 @@
           "y": 1320
         },
         "duration": 2,
-        "next": "qh_where",
+        "next": "qh_where_by_lorne",
         "type": "wait"
       },
       "qh_wait_g": {
@@ -875,7 +1221,7 @@
           "x": 680,
           "y": 440
         },
-        "next": "qh_reason",
+        "next": "qh_reason_by_ingrid",
         "style": "raw",
         "text": "No one is watching tonight. The signal goes out anyway. It would be rude to stop just because the room is empty.",
         "type": "say"
@@ -895,7 +1241,7 @@
           "x": 480,
           "y": 440
         },
-        "next": "qh_reason",
+        "next": "qh_reason_by_ingrid",
         "style": "raw",
         "text": "The number of warm sets we can see in the Basin tonight is {watching}. Yours is one of them. Hello.",
         "type": "say"
@@ -924,7 +1270,7 @@
           "y": 700
         },
         "duration": 6,
-        "next": "qh_br_better",
+        "next": "qh_br_better_by_vey",
         "type": "wait"
       },
       "qh_wbr4": {
@@ -933,7 +1279,7 @@
           "y": 700
         },
         "duration": 3,
-        "next": "qh_br_see",
+        "next": "qh_br_see_by_lorne",
         "type": "wait"
       },
       "qh_where": {
@@ -941,10 +1287,16 @@
           "x": 280,
           "y": 1320
         },
-        "next": "qh_makers",
+        "next": "qh_story_1_by_vey",
         "style": "raw",
         "text": "Where were we.",
         "type": "say"
+      },
+      "qh_where_by_lorne": {
+        "display": "THE VERTICAL",
+        "next": "qh_where",
+        "npc_id": "npc_lorne_prentiss",
+        "type": "npc_anchor"
       }
     }
   },
@@ -1082,6 +1434,39 @@
     },
     {
       "text": "We have checked it against three others. It's the Quiet Hour regardless. Please draw whatever you have that closes."
+    },
+    {
+      "text": "Tonight's story is about a woman on Lever Lane."
+    },
+    {
+      "text": "She watches this programme. Most nights she falls asleep in front of it, which we don't mind."
+    },
+    {
+      "text": "The kitchen again. The woman sits at the table with a mug she has stopped drinking. On the screen in the corner, her kitchen, and on the screen she lifts her mug a second before she does."
+    },
+    {
+      "text": "She thought it was a camera. She turned the set to face the wall."
+    },
+    {
+      "text": "The back of the set, its vents glowing orange. On the wall behind it, faint as a reflection, the kitchen."
+    },
+    {
+      "text": "Then she unplugged it. People do."
+    },
+    {
+      "text": "The screen is dark. Then it isn't. The kitchen from the corner, the chair pulled out, and something long and grey folded into it, all knees, its head on one side the way you hold your head to listen to a radio. The woman isn't in the picture."
+    },
+    {
+      "text": "She was standing right in front of it. It's a small kitchen."
+    },
+    {
+      "text": "She has watched every night since, and so has the thing in the chair. They get on. It doesn't want anything. It likes the company, and she says that's more than she could say for her husband."
+    },
+    {
+      "text": "Be careful what you let into the house, and be kind to it once it's in. It may be watching the same programme you are."
+    },
+    {
+      "text": "It is, as it happens."
     }
   ],
   "morning_pools": null,

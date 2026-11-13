@@ -32,7 +32,9 @@ export function createCaption(host) {
 // `onFrame(host)` hears each frame drawn, for a set that copies its page (room-tv.js). `onStranger(name)`
 // hears a line from somebody the cast it was given doesn't hold: the cast was asked for between shows, or
 // before they came on, and the TV asks again rather than drawing them as a stranger.
-export function createTvStage(parent, { phone = false, feed = null, inset = null, onFrame = null, onStranger = null } = {}) {
+// `onAir` false is the stage laid over a studio you're standing in (room-studio.js): the room as it is, not
+// as the camera takes it, so a set shot in black and white stays in colour.
+export function createTvStage(parent, { phone = false, feed = null, inset = null, onFrame = null, onStranger = null, onAir = true } = {}) {
   let host = null, player = null, loading = null, key = '', caption = null, facts = {};
   // A title card (a script's TITLE: a test card, a logo) fills the picture when it airs, and the line
   // straight after it is read over it if nobody on the set says it. The next line takes it down, and
@@ -84,7 +86,7 @@ export function createTvStage(parent, { phone = false, feed = null, inset = null
       host.className = 'tv-stage';
       host.style.cssText = `position:absolute;inset:${inset || 'var(--tv-head-h,45px) 0 var(--tv-foot-h,72px) 0'};z-index:47;background:#000;overflow:hidden`;
       parent.appendChild(host);
-      player = createSequencePlayer(host, { mode: 'cued', phone, feed, onFrame: onFrame && (() => onFrame(host)) });
+      player = createSequencePlayer(host, { mode: 'cued', phone, feed, onAir, onFrame: onFrame && (() => onFrame(host)) });
       if (!player) { host.remove(); host = null; } else caption = createCaption(host);
       return player;
     }).catch((err) => { console.error('[tv] the stage failed to load:', err); loading = null; return null; });

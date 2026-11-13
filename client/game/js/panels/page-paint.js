@@ -226,7 +226,8 @@ export function createPagePaint(root, canvas, { special = null } = {}) {
         let k = grabbed.get(c);
         if (!k || k.width !== c.width || k.height !== c.height) { k = document.createElement('canvas'); k.width = c.width; k.height = c.height; grabbed.set(c, k); }
         // (cleared first: a HUD canvas is see-through, so a copy laid on the last one keeps every old frame)
-        const kg = k.getContext('2d'); kg.clearRect(0, 0, k.width, k.height); kg.drawImage(c, 0, 0);
+        // and with the canvas's own CSS filter (a set shot in black and white), so the copy looks as it does
+        const kg = k.getContext('2d'); kg.clearRect(0, 0, k.width, k.height); kg.filter = c.style.filter || 'none'; kg.drawImage(c, 0, 0); kg.filter = 'none';
       }
     },
   };

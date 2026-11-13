@@ -141,7 +141,7 @@ precision highp float;
 in vec2 vQ; in float vA; out vec4 o;
 void main() { float d = length(vQ); if (d > 1.0) discard; float a = vA * (1.0 - smoothstep(0.5, 1.0, d)); o = vec4(vec3(0.004, 0.004, 0.005) * a, a); }`;
 
-for (const [vs, fs] of [[GULL_VS, GULL_FS], [STAR_VS, STAR_FS]]) declareProgram(vs, fs);
+for (const [vs, fs] of [[GULL_VS, GULL_FS], [STAR_VS, STAR_FS]]) declareProgram(vs, fs, null, { scenes: ['park'] });
 
 // The gull, 5 floats a vertex: position (across, up, along, 4.2 across the wings, scaled to GULLS.span;
 // wings mirrored by `side`), part (0 the body, 1 a wing's inner panel, 2 its outer) and side.

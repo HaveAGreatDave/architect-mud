@@ -137,7 +137,7 @@ void main() {
   o = vec4(c * vGlow * core * end, 1.0);
 }`;
 
-for (const [vs, fs] of [[PART_VS, PART_FS], [TRAIL_VS, TRAIL_FS]]) declareProgram(vs, fs);
+for (const [vs, fs] of [[PART_VS, PART_FS], [TRAIL_VS, TRAIL_FS]]) declareProgram(vs, fs, null, { scenes: ['park'] });
 
 // `prog(vs, fs)` is the ballpark's own builder (a prewarmed program, or one built and checked),
 // returning { p, u(name) }. Draw inside the frame's added light, depth-tested and not written.

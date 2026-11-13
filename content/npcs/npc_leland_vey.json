@@ -47,6 +47,35 @@
       "a white shirt buttoned to the collar",
       "a thin black tie"
     ],
+    "figure": {
+      "cut": "suit",
+      "fabric_shoes": "leather",
+      "facial": "clean",
+      "gear": false,
+      "grit": 0,
+      "hat": false,
+      "scarf": false,
+      "shirt": [
+        234,
+        232,
+        226
+      ],
+      "shoes": [
+        14,
+        14,
+        16
+      ],
+      "top": [
+        16,
+        16,
+        18
+      ],
+      "trim": [
+        44,
+        44,
+        46
+      ]
+    },
     "personality": "tv_host",
     "studio_npc": true
   },

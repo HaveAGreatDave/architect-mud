@@ -515,6 +515,12 @@ says" on screen for two men with perfectly good names. A billing is the opposite
 refusal to use the name — and before it existed the only way to get one was to *name the NPC*
 "PRODUCER", which then follows him into room descriptions, examine, SIFT and his own front door.
 
+The 3-D stage has to know the billing too. A line reaches it as `THE CONTROL VOICE says, "…"`, and until
+2026-11-13 the stage knew him only as Leland Vey, so it seated a stranger under the billing to say every
+line while Vey sat silent at the console. `stageFor` sends each person's `billed` name from the airing
+graph (`_anchorDisplayFor`), and the sequence player seats a billed line on that person and gives their
+lower third the billing.
+
 **3d. Two people on the floor, and only one of them is helping.** `_tangentCohosts` returns *every*
 present cast member, and `buildTangent` picks the wrangler **from the run's topic**: whoever has a
 topical answer, then whoever has any authored voice, then anyone. This is not an optimisation — with
@@ -1545,6 +1551,22 @@ behind). Long notes use a step's `len` and the instruments are layered
 ksab7_deadball_theme --wav theme.wav` renders it to listen to. The card holds for the theme and
 the sports pacer counts the card for that long (`holdOf` reads `nodeHoldMs`), so the game still
 fills its slot.
+
+**From the open to the park.** The 3-D park's lit shader is about 66k characters, and through
+Chrome's Direct3D compiler it takes about 35 seconds with a cold shader cache. Until 2026-11-13 the
+park asked for its link status as it was built, on the first line after the card, so the page froze
+for that long and the theme's tracker, which schedules a tenth of a second ahead on the main thread,
+stalled with it. Three things fix it. A sports title card carries `warm` (the sport), and the walker
+sends it to watchers as a `warm` overlay that draws nothing; on the visual rung tv.js loads the
+game's views and calls `warmGrandstand`, which compiles the park's programs in a throwaway context
+and bakes the fans' figure in a worker (`gl/crowd-morph-worker.js`) while the theme plays. The view
+itself never builds on a cold compile: it puts its shell up, starts the programs on its own canvas
+(`prepareBallpark`) and builds the park only once they've finished, polling meanwhile, with
+"Waiting for the first pitch" over the picture. And each renderer prewarms only its own scene's
+programs (`declareProgram(..., { scenes })` in `gl/programs.js`), so the park no longer compiles
+the room's figure or the rink's shaders. Measured on Direct3D 11 with the cache cleared: the page
+used to freeze 30 to 34 seconds at the hand-off; now the page never stops during the theme, and
+the park is up about 3 seconds after the card, with one block of about a second as it's built.
 
 **The hockey theme.** Cluster Puck opens to the network's theme for the CPhL (`@theme
 ksab7_cphl_theme`), 25.6 seconds at 150 bpm, so a row is a tenth of a second. It's FM, like the

@@ -1,0 +1,137 @@
+{
+  "banter": [],
+  "behaviour_graph": {
+    "_start": "n_start",
+    "nodes": {
+      "n_atwork": {
+        "action_type": "AT_WORK",
+        "next": "n_check",
+        "type": "action"
+      },
+      "n_check": {
+        "action_type": "CHECK_WORK",
+        "goToWork": "n_work",
+        "haveLife": "n_life",
+        "type": "action"
+      },
+      "n_life": {
+        "action_type": "HAVE_LIFE",
+        "next": "n_check",
+        "type": "action"
+      },
+      "n_start": {
+        "next": "n_check",
+        "type": "start"
+      },
+      "n_work": {
+        "action_type": "GO_TO_WORK",
+        "next": "n_atwork",
+        "params": {
+          "zone_id": "zone_studio_1782953094650"
+        },
+        "type": "action"
+      }
+    }
+  },
+  "chitchat": [],
+  "description": "She stands at the console's left on The Quiet Hour and is billed as THE HORIZONTAL, the one who makes the picture slip sideways. Black dress, black shoes, hair pinned flat. Off air she's warm and talks too fast, as if to make up for it.",
+  "dialogue_tree": {},
+  "faction": null,
+  "flags": {
+    "absent_lines": [
+      "\"{missing} isn't in yet. We'll hold the picture.\"",
+      "stands perfectly still beside the console and waits."
+    ],
+    "clothing_layers": [
+      "a black sheath dress to the knee, short sleeves, high at the neck",
+      "sheer black tights and black court shoes",
+      "plain underthings"
+    ],
+    "figure": {
+      "bottoms": false,
+      "cut": "dress",
+      "fabric_shoes": "leather",
+      "gear": false,
+      "grit": 0,
+      "hat": false,
+      "legs": [
+        22,
+        22,
+        24
+      ],
+      "scarf": false,
+      "shoes": [
+        12,
+        12,
+        14
+      ],
+      "top": [
+        16,
+        16,
+        18
+      ]
+    },
+    "personality": "tv_host",
+    "studio_npc": true
+  },
+  "home_activities": [],
+  "home_zone": "zone_solenne_apt_c",
+  "hp": 20,
+  "hp_max": 20,
+  "id": "npc_ingrid_sterne",
+  "name": "Ingrid Sterne",
+  "npc_type": "npc",
+  "sex": "female",
+  "studio_zone_id": "zone_studio_1782953094650",
+  "vendor_inventory": [],
+  "vendor_restock_rate": 1,
+  "vendor_schedule": {
+    "fri": [
+      {
+        "from": 1,
+        "to": 4
+      }
+    ],
+    "mon": [
+      {
+        "from": 1,
+        "to": 4
+      }
+    ],
+    "sat": [
+      {
+        "from": 1,
+        "to": 4
+      }
+    ],
+    "sun": [
+      {
+        "from": 1,
+        "to": 4
+      }
+    ],
+    "thu": [
+      {
+        "from": 1,
+        "to": 4
+      }
+    ],
+    "tue": [
+      {
+        "from": 1,
+        "to": 4
+      }
+    ],
+    "wed": [
+      {
+        "from": 1,
+        "to": 4
+      }
+    ]
+  },
+  "vendor_shop_name": null,
+  "vendor_stock_size": 10,
+  "wander_zones": [],
+  "wanders": 0,
+  "work_zone_id": "zone_studio_1782953094650"
+}

@@ -688,6 +688,6 @@ export function createDepthSSAO(gl) {
 
 // The tap count stamped once, so the prewarm and the layer hand over the same source.
 const AO_FRAG_TAPS = AO_FRAG.split('SSAO_TAPS').join(String(SSAO_TAPS));
-declareProgram(FULL_VERT, AO_FRAG_TAPS);
-declareProgram(FULL_VERT, BLUR_FRAG);
-declareProgram(FULL_VERT, INK_FRAG);
+declareProgram(FULL_VERT, AO_FRAG_TAPS, null, { scenes: ['glass', 'park', 'rink'] });
+declareProgram(FULL_VERT, BLUR_FRAG, null, { scenes: ['glass', 'park', 'rink'] });
+declareProgram(FULL_VERT, INK_FRAG, null, { scenes: ['glass', 'park', 'rink'] });

@@ -63,6 +63,9 @@ for (const [bearing, side, face, entry, floor] of [[0, 180, 0, [0, 0], 0], [90, 
   const f = interiorsFrame(p, -3, 2);
   check('a frame entry is keyed by its level', f.some((x) => x.key === 'mid#box') && f.some((x) => x.key === 'in#mesh'));
   check('a frame entry is moved to the map window', near(f[0].M[12], 3) && near(f[0].M[13], -2));
+  // a whole room whose mesh is still building in the worker (room-interiors.js meshReady) is its box meanwhile
+  const wait = interiorsFrame(p.map((x) => (x.room.key === 'in' ? { ...x, room: { ...x.room, meshReady: () => false } } : x)), -3, 2);
+  check('a room still building is drawn as its box', wait.some((x) => x.key === 'in#box' && x.lod === 1) && !wait.some((x) => x.key === 'in#mesh'));
   const L = roomLayout({ w: 4, d: 6, h: 2.6 }), b = roomBounds(L, roomToGlass(L, [0, 0], 0, 0), 10, 20);
   check('a room\'s bounds are in absolute tiles', b[0] < 10 && b[2] > 10 && b[1] >= 20 - 1e-9 && b[3] > 20 && near(b[4], 0));
 }

@@ -29,7 +29,7 @@ import { createTvStage, stageWanted, rememberStage } from './tv-stage.js';
 let _gamedayViews = null;
 function loadGamedayViews() {
   return (_gamedayViews ??= Promise.all([import('./gameday-grandstand.js'), import('./gameday-rink.js')])
-    .then(([g, r]) => ({ createGrandstandView: g.createGrandstandView, createRinkView: r.createRinkView }))
+    .then(([g, r]) => ({ createGrandstandView: g.createGrandstandView, createRinkView: r.createRinkView, warmGrandstand: g.warmGrandstand }))
     .catch((err) => { _gamedayViews = null; throw err; }));   // a failed fetch retries next time
 }
 
@@ -866,6 +866,14 @@ export function createTvView(root, opts = {}) {
     if (overlay && overlay.overlayType === 'desk') { _handleDesk(overlay); return; }
     // the final's package gives way to the game: its first play, or the card on the matchup line
     const packageUp = () => el('fx')?.classList.contains('fx-package');
+    // A game's open (its title card) says which sport follows: the views load and the park's shaders
+    // compile while the theme plays, so the game comes up when it ends (gameday-grandstand.js
+    // warmGrandstand). Only on the visual rung, where the game opens by itself.
+    if (overlay && overlay.overlayType === 'warm') {
+      const rung = state.player?.displayRung;
+      if (!rung || rung === 'visual') loadGamedayViews().then((v) => (overlay.sport === 'hockey' ? null : v.warmGrandstand?.(window))).catch(() => { /* the game loads them itself */ });
+      return;
+    }
     if (overlay && overlay.overlayType === 'gameday') { if (overlay.phase !== 'arrive' && packageUp()) _clearSportsFx(); _handleGameday(overlay); return; }
     if (overlay && overlay.overlayType === 'standings') { _applyStandingsBug(overlay); return; }
     // The weather show's graphics: the today card, the radar, the week strip, a warning.

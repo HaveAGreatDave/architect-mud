@@ -1882,10 +1882,12 @@ void main() {
   roomLight(vPos, key, v, uSurf[s], dFull, sFull);
   outColor = vec4(finish(comicTone(base, nf, n, v, key, dFull, uAmb, uShade, lit)), 1.0);
 }`;
-// the stand-in first, so a new context's prewarm (programs.js) starts it ahead of the lit one
-declareProgram(VS, QUICK_FS);
-declareProgram(VS, FS);
-declareProgram(INK_VS, INK_FS);
+// the stand-in first, so a new context's prewarm (programs.js) starts it ahead of the lit one, and the lit
+// one late, after the rest of the room's or the rink's programs, which are waited on where it never is
+const FIGURE_SCENES = ['room', 'rink'];
+declareProgram(VS, QUICK_FS, null, { scenes: FIGURE_SCENES });
+declareProgram(VS, FS, null, { scenes: FIGURE_SCENES, late: true });
+declareProgram(INK_VS, INK_FS, null, { scenes: FIGURE_SCENES });
 
 // THE WARM-UP: the figure's programs compiled once in a throwaway context, soon after the game loads, so the
 // first room or TV finds them in the browser's shader cache. Measured on Direct3D 11 (Chrome's ANGLE runs the

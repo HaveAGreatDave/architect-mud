@@ -230,11 +230,11 @@ const DEPTH_FS = `#version 300 es
 precision mediump float;
 out vec4 outColor;
 void main() { outColor = vec4(0.0); }`;
-declareProgram(VS, FS);
-declareProgram(INK_VS, INK_FS);
-declareProgram(DEPTH_VS, DEPTH_FS);
-declareProgram(BEAST_VS, BEAST_FS);
-declareProgram(HALO_VS, HALO_FS);
+declareProgram(VS, FS, null, { scenes: ['room'] });
+declareProgram(INK_VS, INK_FS, null, { scenes: ['room'] });
+declareProgram(DEPTH_VS, DEPTH_FS, null, { scenes: ['room'] });
+declareProgram(BEAST_VS, BEAST_FS, null, { scenes: ['room'] });
+declareProgram(HALO_VS, HALO_FS, null, { scenes: ['room'] });
 
 const ATTRS = [[0, 3, 0], [1, 3, 12], [2, 2, 24], [3, 3, 32], [4, 1, 44]];
 const INK_COL = [0.05, 0.045, 0.06];
@@ -281,7 +281,7 @@ export function createRoomRenderer(canvas, { phone = false, see = false } = {}) 
   try { return build(); } catch (err) { console.warn('[room] the 3-D room is unavailable:', err && err.message); return null; }
 
   function build() {
-    prewarmPrograms(gl);
+    prewarmPrograms(gl, 'room');
     const prog = (vs, fs, label) => { const p = layerProgram(gl, vs, fs, label), u = {}; return { p, u: (n) => (u[n] ??= gl.getUniformLocation(p, n)) }; };
     const LIT = prog(VS, FS, 'room lit'), INK = prog(INK_VS, INK_FS, 'room ink'), DEPTH = prog(DEPTH_VS, DEPTH_FS, 'room depth');
     // the beasts' own light and the halos round what glows on them (gl/beast-light.js)

@@ -48,8 +48,11 @@ export function roomBounds(L, M, gx, gy) {
 
 // What the layer is handed: each pick as { key (per lod, so the box and the mesh are held apart), M about the map
 // window's centre (ox, oy absolute), parts, lamp }.
+// A room near enough to be whole whose mesh isn't built yet (room-interiors.js `meshReady`, which asks for it) is its
+// box until it is, so coming near a building never builds a room on the frame.
 export function interiorsFrame(picks, ox, oy) {
-  return picks.map(({ room, lod }) => {
+  return picks.map(({ room, lod: want }) => {
+    const lod = want === 0 && room.meshReady && !room.meshReady() ? 1 : want;
     const M = room.M.slice(); M[12] += room.gx - ox; M[13] += room.gy - oy;
     return { key: room.key + (lod ? '#box' : '#mesh'), M, lod, lamp: room.lamp || null, parts: () => room.parts(lod) };
   });

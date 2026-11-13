@@ -339,6 +339,36 @@ for (const f of ['cab-view.js', 'cockpit.js', 'freelook-view.js', 'boat-view.js'
   if (!/\bactors:\s*(st|F)\.actors\b/.test(readFileSync(new URL(`../../client/game/js/panels/${f}`, import.meta.url), 'utf8'))) problems.push(`${f} never hands the renderer its street actors`);
 }
 
+// ── 4b. Walking up to somebody ──────────────────────────────────────────────────────────────────────
+// On foot (freelook-view.js) a tile is about 18 m, so the billboard's 0.12-tile floor was 2.1 m and the sweep's
+// VISIBLE_NEAR_F 0.9 m: people vanished as you walked up to them. A mesh is clipped by the GPU's near plane, which
+// on foot is the view's `nearMax` (a third of a metre), so the sweep has to keep handing them over that close.
+{
+  const one = [{ t: 'q7k2m1a', x: 100, y: 99 }];
+  const METRE = 0.09 / 1.6;   // freelook-view.js: FPS_EYE is 1.6 m
+  let seen = null, nearMax = null;
+  const c = globalThis.document.createElement('canvas');
+  c.width = Wc; c.height = Hc;
+  ws.installGLWorld((cells, cam, o) => { seen = (o.fauna || []).filter((q) => q.actor); nearMax = cam.nearMax; return { faces: 1, canvas: c }; });
+  const foot = (x, y) => ({ hour: 13, weather: 'clear', map, mapCenter: C, mapOffset: { x: 0, y: 0 }, heading: 0, worldBlend: 1,
+    external: true, hideOwnShip: true, phase: 'cruise', height: 0, speed: 0, actors: one, nearMax: 0.3 * METRE,
+    freeCam: { x, y, z: 0.09, yaw: 0, roll: 0, pitch: 0 } });
+  // where they stand, from a few paces back
+  ws.paintWindshield('__ac', foot(0, 0.3)); T += 1000; ws.paintWindshield('__ac', foot(0, 0.3)); T += 16;
+  const at = seen && seen[0];
+  if (!at) problems.push('on foot, nobody a few paces off was handed to the mesh pass');
+  else {
+    if (!(Math.abs(nearMax - 0.3 * METRE) < 1e-9)) problems.push(`on foot the camera carries nearMax ${nearMax}, not the view's ${0.3 * METRE}; the GPU would cut people off at a metre`);
+    for (const m of [1.4, 0.5]) {
+      ws.paintWindshield('__ac', foot(at.x, at.y + m * METRE)); T += 16;
+      // the same person, by where they stand (whoever the parts above left may still be fading out)
+      const them = (seen || []).filter((r) => Math.hypot(r.x - at.x, r.y - at.y) < 0.02);
+      report(`on foot, ${m} m from somebody: ${them.length ? 'drawn' : 'gone'}`);
+      if (!them.length) problems.push(`on foot, somebody ${m} m in front of you isn't drawn`);
+    }
+  }
+}
+
 // ── 5. Street life ──────────────────────────────────────────────────────────────────────────────────
 // What people standing on the pavement do. A record carries nothing that names anybody, so each
 // figure is followed from frame to frame by nearest position: people in a ring stand 0.06 tiles

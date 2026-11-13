@@ -84,7 +84,7 @@ void main() { gl_Position = uVP * vec4(aPos, 1.0); }`;
 const FRAG = `#version 300 es
 precision mediump float;
 void main() { }`;
-declareProgram(VERT, FRAG);
+declareProgram(VERT, FRAG, null, { scenes: ['park'] });
 
 export function createSpotShadows(gl, { size = SPOT_SHADOW_SIZE, count = SPOT_SHADOW_MAX } = {}) {
   let prog = takeWarm(gl, VERT, FRAG);

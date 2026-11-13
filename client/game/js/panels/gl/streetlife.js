@@ -140,7 +140,7 @@ void main() {
   o = vec4(mix(shade(alb, normalize(vN)), uFogCol, hazeTo(vPos)), 1.0);
 }`;
 
-for (const [vs, fs] of [[CAR_VS, CAR_FS], [LAMP_VS, LAMP_FS], [WALK_VS, WALK_FS]]) declareProgram(vs, fs);
+for (const [vs, fs] of [[CAR_VS, CAR_FS], [LAMP_VS, LAMP_FS], [WALK_VS, WALK_FS]]) declareProgram(vs, fs, null, { scenes: ['park'] });
 
 // The car, 7 floats a vertex: position (ft: across, up, along from its middle), normal, part (0 the
 // paint, 1 the glass, 2 the tyres, 3 a headlamp, 4 a tail lamp).

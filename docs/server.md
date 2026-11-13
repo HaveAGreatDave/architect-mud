@@ -232,12 +232,20 @@ once, and held in memory keyed by mtime:
   it. Concurrent requests for a file being filled share the one fill.
 - **The boot set is warmed after `listen`** (`warmBootAssets`): the shell, its script and link tags
   and the static module graph, four at a time, so the first visitor after a deploy doesn't wait.
-- **JS is minified as it's served** (`minifyJs`, esbuild's `transform`, which runs in its own
-  process). The repo keeps its no-build rule; the wire and the phone's parser get the minified
-  bytes. It runs inside the fill, once per file version, before compression. Each file gets an
-  external source map, held in the same cache entry and served at `<file>.js.map`; browsers fetch
-  it only with DevTools open. No `format` is set, so a classic script's top-level names stay
-  globals. A file esbuild can't parse goes out as written, with a `[minify]` line in the log.
+- **JS and CSS are minified as they're served** (`minifyAsset`, esbuild's `transform`, which runs
+  in its own process; CSS through its `css` loader). The repo keeps its no-build rule; the wire and
+  the phone's parser get the minified bytes. It runs inside the fill, once per file version, before
+  compression. Each file gets an external source map, held in the same cache entry and served at
+  `<file>.js.map` or `<file>.css.map`; browsers fetch it only with DevTools open. No `format` is
+  set, so a classic script's top-level names stay globals. A file esbuild can't parse goes out as
+  written, with a `[minify]` line in the log. `styles.css` goes from 171 KB to 78 KB on the wire,
+  which was a third of the boot download. Nothing reads a sheet's text back except to inject it
+  (`loadCss`), so esbuild's rewrites (`.6` for `0.6`, dropped `0%`/`100%` gradient stops, merged
+  duplicate rules) are safe; the computed styles of every element in the shell match.
+- **HTML comments are stripped as it's served** (`stripHtmlComments`), after the modulepreload
+  marker is replaced. Only the comments go: whitespace stays, because some elements are
+  `white-space: pre`. The bodies of `<script>`, `<style>`, `<textarea>` and `<title>` are raw text
+  and pass through untouched. The game shell goes from 102 KB to 91 KB.
 - **Only text types**, and only files ≥ 1 KB. Running deflate over a `.png`/`.ico` burns CPU to make
   it marginally bigger.
 - **`Vary: Accept-Encoding` on anything compressible**, not just what was actually compressed —

@@ -1,10 +1,26 @@
 {
-  "description": "A low waiting bench upholstered in oxblood vinyl, split along every seam and weeping yellow foam. It faces a bank of elevators with out-of-order cards gone yellow in the slots. It still holds weight, if you don't mind the crunch.",
+  "description": "A slatted waiting bench on cast-iron legs, facing the two dead lifts. The varnish is worn through where people sit, and someone has carved a tally of days into the end of it. It still takes your weight.",
   "flags": {
     "interactions": [
       "sit",
       "lean"
-    ]
+    ],
+    "look": {
+      "arche": "bench",
+      "dims": [
+        1.8,
+        0.6,
+        0.85
+      ],
+      "form": "bench"
+    },
+    "spot": {
+      "at": [
+        1.6,
+        7.3
+      ],
+      "turn": 180
+    }
   },
   "hp": null,
   "hp_max": null,

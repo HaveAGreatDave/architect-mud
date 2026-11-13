@@ -2,7 +2,7 @@
   "ambient_events": [],
   "ambient_theme": "indoors",
   "bg_color": "#8f9a7e",
-  "description": "Floor 6 of The Meridian. A narrow corridor stretches between four unit doors, numbers 601, 602, 603, 604, stamped in adhesive metal letters, most of which have survived. The walls are poured concrete behind a skim of paint that went off-white long ago, old marker tags bleeding through where the building manager gave up trying to buff them out. Synthetic carpet the color of old claret muffles every footfall. Sodium-orange emergency strips trace the baseboards. The recycled air carries the mingled residue of a dozen private lives: synthetic tobacco, mystery cooking, and the faint ionised bite of an ageing HVAC system.",
+  "description": "The top landing, right under the roof. Concrete has been poured where the terrazzo broke up, in grey patches with boot prints set in them. The ceiling is stained black in one corner. Doors 601 to 604. The fire door to the stairs carries on up to the roof hatch.",
   "exits": {
     "down": "zone_meridian_floor_5",
     "east": "zone_meridian_unit_602",
@@ -12,8 +12,116 @@
     "west": "zone_meridian_unit_604"
   },
   "flags": {
-    "floor": "linoleum",
+    "floor": "concrete",
     "is_interior": true,
+    "room": {
+      "balcony": false,
+      "d": 3.2,
+      "decor": {
+        "ceiling": {
+          "band": 0.35,
+          "drop": 0.14,
+          "hex": "#cfc6b4",
+          "kind": "cove",
+          "trim": "#6f8064"
+        },
+        "doors": [
+          {
+            "at": -5,
+            "finish": "steel",
+            "label": "Stairs",
+            "w": 1,
+            "wall": "front"
+          },
+          {
+            "at": 3,
+            "dial": 60,
+            "finish": "bronze",
+            "pair": true,
+            "trim": "#6f8064",
+            "w": 1,
+            "wall": "back"
+          },
+          {
+            "at": 5.4,
+            "dial": 0,
+            "finish": "bronze",
+            "pair": true,
+            "trim": "#6f8064",
+            "w": 1,
+            "wall": "back"
+          }
+        ],
+        "downlights": false,
+        "frieze": {
+          "h": 0.22,
+          "hex": "#1e1c1a",
+          "line": "#6f8064",
+          "y": 2.8
+        },
+        "pilasters": {
+          "hex": "#cfc6b4",
+          "points": [
+            [
+              "back",
+              2.26
+            ],
+            [
+              "back",
+              4.2
+            ],
+            [
+              "back",
+              6.7
+            ]
+          ],
+          "trim": "#6f8064",
+          "w": 0.3,
+          "y1": 3.04
+        },
+        "plaques": {
+          "zone_meridian_unit_601": "601",
+          "zone_meridian_unit_602": "602",
+          "zone_meridian_unit_603": "603",
+          "zone_meridian_unit_604": "604"
+        },
+        "rug": false,
+        "sconces": {
+          "kind": "fan",
+          "points": [
+            [
+              "front",
+              -6.8
+            ],
+            [
+              "back",
+              1.8
+            ]
+          ],
+          "y": 1.9
+        },
+        "walls": {
+          "hex": "#211e1c",
+          "kind": "stone",
+          "pitch": 1,
+          "trim": "#6f8064",
+          "y1": 1
+        }
+      },
+      "face": 0,
+      "finish": "plain",
+      "ground": "concrete",
+      "h": 3.2,
+      "studio": false,
+      "tone": {
+        "accent": "#6f8064",
+        "ceiling": "#cfc6b4",
+        "trim": "#2a2622",
+        "wall": "#c9bea6"
+      },
+      "w": 16,
+      "windowless": true
+    },
     "terrain": "grass"
   },
   "grid_x": 0,
@@ -21,6 +129,6 @@
   "grid_z": 6,
   "id": "zone_meridian_floor_6",
   "map_id": "map_int_meridian",
-  "name": "The Meridian — Floor 6 Hallway",
+  "name": "The Meridian - Floor 6 Hallway",
   "parent_zone": "zone_district_918_908"
 }

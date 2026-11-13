@@ -31,7 +31,7 @@ export { FITTED_FORMS };
 // How many metres one repeat of each painted material covers (paintRoomTexture). A rug is mapped
 // once across itself, so it has no repeat.
 export const ROOM_TEXTURES = Object.freeze({ roomBoards: 1.8, roomPlaster: 3.6, roomCeiling: 2.4, roomWeave: 0.45, roomSteel: 0.9,
-  roomWood: 1.1, roomConcrete: 1.6, roomTile: 0.9, roomCanvas: 0.8, roomTicking: 0.6, roomOak: 1.15, roomPlasterFine: 3.0, roomStone: 2.0, roomMarble: 2.4, roomWool: 0.7, roomFacade: 3.4,
+  roomWood: 1.1, roomConcrete: 1.6, roomTile: 0.9, roomCanvas: 0.8, roomTicking: 0.6, roomOak: 1.15, roomPlasterFine: 3.0, roomStone: 2.0, roomMarble: 2.4, roomTerrazzo: 1.4, roomWool: 0.7, roomFacade: 3.4,
   roomLaminate: 0.9, roomButcher: 0.7, roomEpoxy: 0.8, roomSubway: 0.6, roomBrushed: 0.5, roomPowder: 0.7 });
 export const ROOM_RUG = 'roomRug';
 
@@ -181,8 +181,8 @@ export function buildRoom(L, { seed = 1, lampOn = true, doorShut = false, turnin
 
   // the floor: boards, run from the window to the door, or stone; cut round a pit when there's one
   {
-    const pit = spec.pit, key = spec.ground === 'marble' ? 'roomMarble' : spec.ground === 'tile' ? 'roomTile' : spec.ground === 'concrete' ? 'roomConcrete' : spec.ground === 'stone' || spec.ground === 'rubber' ? 'roomStone' : fine ? 'roomOak' : 'roomBoards', t = ROOM_TEXTURES[key];
-    const tint = spec.ground === 'stone' ? PALE_STONE : spec.ground === 'rubber' ? '#33363a' : spec.ground === 'concrete' ? '#8a8c8a' : spec.ground === 'tile' ? '#eef0ee' : '#ffffff', marble = spec.ground === 'marble';
+    const pit = spec.pit, key = spec.ground === 'marble' ? 'roomMarble' : spec.ground === 'terrazzo' ? 'roomTerrazzo' : spec.ground === 'tile' ? 'roomTile' : spec.ground === 'concrete' ? 'roomConcrete' : spec.ground === 'stone' || spec.ground === 'rubber' ? 'roomStone' : fine ? 'roomOak' : 'roomBoards', t = ROOM_TEXTURES[key];
+    const tint = spec.ground === 'stone' ? PALE_STONE : spec.ground === 'rubber' ? '#33363a' : spec.ground === 'concrete' ? '#8a8c8a' : spec.ground === 'tile' ? '#eef0ee' : '#ffffff', marble = spec.ground === 'marble' || spec.ground === 'terrazzo';
     const lay = K.lay = (u0, u1, v0, v1, y = 0) => { const ps = [[u0, v0, y], [u1, v0, y], [u1, v1, y], [u0, v1, y]]; quad(TB(key), ps, [0, 1, 0], C(tint, spec.ground === 'stone' ? 1.15 : marble ? 1.05 : 0.95), marble ? GLOSS : fine ? SATIN : E, ps.map((q) => [q[1] / t, q[0] / t])); };
     // the slab under the boards stops short of them, or the two fight over the same pixels
     if (pit?.round) {
@@ -1899,6 +1899,14 @@ export function paintRoomTexture(doc, key, seed = 1) {
       g.fillStyle = 'rgba(60,36,16,0.45)'; g.fillRect(i * s, 0, 1.2, N);
     }
     for (let i = 0; i < 5; i++) blot(r() * N, r() * N, 50 + r() * 80, 'rgba(80,50,20,0.12)');
+  } else if (key === 'roomTerrazzo') {
+    // terrazzo, ground and polished: a warm cream binder full of marble chips, black, rust, ochre, grey and
+    // white, a few of them big, and the faint cloud a floor gets from being mopped in the same arcs for years
+    g.fillStyle = '#e4d9c6'; g.fillRect(0, 0, N, N);
+    specks(26000, 1.6, ['#d6cab4', '#efe7d8', '#cfc2aa'], 0.5);
+    specks(5200, 4, ['#2a2622', '#8a3e2c', '#c49a52', '#86847e', '#f6f1e8', '#5a6452'], 0.85);
+    specks(700, 9, ['#2a2622', '#a8503a', '#d2ae6a', '#9a978f', '#faf6ee'], 0.9);
+    for (let i = 0; i < 12; i++) blot(r() * N, r() * N, 70 + r() * 140, `rgba(${r() < 0.5 ? '170,156,132' : '246,240,228'},0.16)`);
   } else if (key === 'roomConcrete') {
     g.fillStyle = '#b4b0a8'; g.fillRect(0, 0, N, N);
     specks(40000, 2, ['#9a968e', '#c8c4bc', '#8a867e'], 0.45);

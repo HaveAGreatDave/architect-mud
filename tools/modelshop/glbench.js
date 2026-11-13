@@ -6603,7 +6603,8 @@ if (typeof window !== 'undefined') window.__glMurmurCpu = runMurmurCpu;
 // way down the pavement, which is where somebody is close enough to be looked at.
 // `walk: true` sends everybody a tile north after they have settled, and paints them mid-stride.
 // `fov` is the standing camera's focal length (2 is twice as close), for looking at a face; `pitch` tilts it.
-export function runActors({ W = 960, H = 540, hour = 13, thresh = 12, shot = false, stand = false, yaw = 0, cx = 0.36, cy = 0.35, cz = 0.12, walk = false, fov = 1, pitch = 0 } = {}) {
+// `nearMax` is the walker's near plane (freelook-view.js FOOT_NEAR, about 0.017), for somebody right up close.
+export function runActors({ W = 960, H = 540, hour = 13, thresh = 12, shot = false, stand = false, yaw = 0, cx = 0.36, cy = 0.35, cz = 0.12, walk = false, fov = 1, pitch = 0, nearMax = 0 } = {}) {
   const holder = document.createElement('div');
   holder.style.cssText = 'position:fixed;left:-10000px;top:0';
   const el = document.createElement('canvas');
@@ -6633,7 +6634,7 @@ export function runActors({ W = 960, H = 540, hour = 13, thresh = 12, shot = fal
       map, heading: 0, mapCenter: { ...C }, actors, roadside: { x: C.x + 0.55, y: C.y - 1.6, t: 'hk4x9s2' } };
     const view = stand
       ? { ...common, external: true, hideOwnShip: true, phase: 'cruise', mapOffset: { x: 0, y: 0 }, acX: C.x, acY: C.y, airport: 'default',
-          freeCam: { x: cx, y: cy, z: cz, yaw, pitch, roll: 0, fov } }
+          freeCam: { x: cx, y: cy, z: cz, yaw, pitch, roll: 0, fov }, nearMax }
       : { ...common, cls: 'truck', variant: 'hauler', phase: 'ground', eyeH: 0.12, fovMul: 1.22, mapOffset: { x: 0.18, y: 0.2 } };
     let T = 1e6;
     performance.now = () => T; Date.now = () => T;

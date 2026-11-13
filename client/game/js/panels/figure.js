@@ -2396,6 +2396,12 @@ const _cache = new Map();
 // The key a built figure is kept under, for a renderer that keeps meshes per figure too.
 // `gear` is which of FIGURE_GEAR they wear; the belt is on unless it says otherwise, and the gloves are
 // paint, so they aren't in the mesh's key.
+// Whether a figure has been built (here, or handed in by figure-ahead.js), without building it.
+export const figureBuilt = (k) => _cache.has(figureKey(k));
+// A figure built in figure-worker.js, kept as if it had been built here; the one already here wins.
+export function figureAdopt(k, F) { const key = figureKey(k); if (!_cache.has(key)) _cache.set(key, F); return _cache.get(key); }
+// The worker's own copy, let go once it's been posted to the page, so the worker doesn't keep a second city of people.
+export function figureForget(k) { _cache.delete(figureKey(k)); }
 const GEAR_LETTER = { belt: 'b', strap: 's', pouch: 'p', pads: 'k' };
 const gearCode = (g) => Object.entries(GEAR_LETTER).map(([k, c]) => ((k === 'belt' ? g?.belt !== false : !!g?.[k]) ? c : '')).join('');
 // `sculpt` is the revised figure (docs/proposals/sculpted-figure.md), on the close-up levels only.

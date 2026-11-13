@@ -2892,7 +2892,7 @@ function _bcLiveAppend(text, style) {
 function _bcLiveApplyOverlay(overlay) {
   const container = document.getElementById('bcpv-overlay');
   if (!container) return;
-  if (overlay?.overlayType === 'direction') return;
+  if (overlay?.overlayType === 'direction' || overlay?.overlayType === 'warm') return;
   if (!overlay) { container.innerHTML = ''; return; }
 
   container.innerHTML = '';

@@ -24,8 +24,9 @@
 // whoever this draws (gl/actors.js uHideHD) once this layer's program has linked. Until then the crowd
 // draws them, so nobody blinks out while the 114k-character shader compiles.
 
-import { figurePeople } from './room-people.js';
+import { figurePeople, figureLooks } from './room-people.js';
 import { FIGURE_CROWN } from '../figure.js';
+import { figureAhead } from '../figure-ahead.js';
 import { viewProjMatrix, multiply, eyePos } from './camera.js';
 import { HOUSE } from './house-style.js';
 import { LIN, linRgb } from './colour.js';
@@ -52,6 +53,8 @@ globalThis.__streetHD = { tune: STREET_HD, stats: streetHdStats };
 const FRAME = { world: (a, b, h) => [a, h, b], r: [1, 0, 0], f: [0, 0, 1], baseAt: () => 0 };
 const SUN_M = 200;       // how far off the sun's lamp stands, in metres: far enough that it's a direction
 const LAMPS = 14;
+// setLight's uniforms, filled again every draw (uniform*fv copies them, so one set does every context)
+const LP = new Float32Array(LAMPS * 3), LK = new Float32Array(LAMPS), TINT = new Float32Array(LAMPS * 3), NO_ROOM = new Float32Array(LAMPS);
 
 // ⚠ LOADED THE FIRST TIME SOMEBODY IS CLOSE ENOUGH, NOT WITH GLASS. figure-hd.js declares its programs for every
 // new context's prewarm (programs.js), and its lit shader is ~114k characters: imported here statically, every
@@ -88,9 +91,27 @@ export function createStreetHD(gl) {
     streetHdStats.tallest = Math.round(top);
     cand.sort((a, b) => b.px - a.px);
     held.clear();
-    for (let i = 0; i < cand.length && i < STREET_HD.max; i++) { cand[i].close = 1; held.add(cand[i].o.hd.id); chosen.push(cand[i]); }
-    if (chosen.length) layer();
+    // only somebody whose figure is built: anybody else is asked for (figure-ahead.js) and stays in the crowd meanwhile
+    if (cand.length) layer();
+    for (let i = 0; i < cand.length && chosen.length < STREET_HD.max; i++) {
+      if (!lookReady(cand[i].o.hd)) continue;
+      cand[i].close = 1; held.add(cand[i].o.hd.id); chosen.push(cand[i]);
+    }
+    streetHdStats.waiting = cand.length - chosen.length;
     return chosen.length;
+  }
+  // Both levels a person is drawn at (gl/room-people.js figureLooks), asked for together, so dropping to the lite
+  // level a few metres off doesn't build on the page either. Kept per id: a look is fixed by the id and the feed's
+  // `s` and `g`, and a changed `g` is a new object, so it's asked again.
+  const readyFor = new Map();
+  function lookReady(L) {
+    const was = readyFor.get(L.id);
+    if (was && was.L === L && was.ok) return true;
+    const keys = figureLooks({ id: L.id, sex: L.sex, figure: L.figure, sculpt: true });
+    let ok = true;
+    for (const k of keys) if (!figureAhead(k)) ok = false;
+    readyFor.set(L.id, { L, ok });
+    return ok;
   }
   const ready = () => !!(fig && fig.ready);
 
@@ -127,7 +148,7 @@ export function createStreetHD(gl) {
   function setLight(P, lights, cssW, cssH) {
     const { A, s, key, night, eye } = env;
     gl.uniform3fv(P.u('uEye'), eye);
-    const lp = new Float32Array(LAMPS * 3), lk = new Float32Array(LAMPS), tint = new Float32Array(LAMPS * 3).fill(1);
+    const lp = LP.fill(0), lk = LK.fill(0), tint = TINT.fill(1);
     // the sun by day, the moon and the sky's glow by night: one far lamp along the key light
     const sunK = (1 - night) * 0.95 + night * 0.22;
     lp.set([eye[0] + key[0] * SUN_M, eye[1] + key[1] * SUN_M, eye[2] + key[2] * SUN_M], 0);
@@ -154,7 +175,7 @@ export function createStreetHD(gl) {
     }
     gl.uniform3fv(P.u('uLampP'), lp);
     gl.uniform1fv(P.u('uLampK'), lk);
-    gl.uniform1fv(P.u('uLampRoom'), new Float32Array(LAMPS));
+    gl.uniform1fv(P.u('uLampRoom'), NO_ROOM);
     gl.uniform1i(P.u('uLampN'), n);
     gl.uniform1i(P.u('uLampHome'), n);
     gl.uniform1i(P.u('uNextN'), 0);

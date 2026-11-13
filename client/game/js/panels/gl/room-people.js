@@ -228,6 +228,8 @@ export const clipHold = (name) => clipOnce(name) || Math.min(14, Math.max(8, 2 *
 // Seconds a clip's cycle takes.
 export const clipDur = (name) => CLIP_DUR[name] || 6;
 const NBONE = FIGURE_BONE_COUNT;
+// figurePeople's bone scaled to somebody's height, one at a time
+const HK_32 = new Float32Array(16), HK_64 = new Float64Array(16);
 // The grown bones (figure.js FIGURE_XBONES), posed off their parents after the clip and the stance:
 // each is its parent's skin matrix, then to its joint, turned, scaled, and back from where it was modelled.
 const XPARENT = FIGURE_XBONES.map((x) => FIGURE_BONE[x.parent]);
@@ -419,6 +421,10 @@ function levelAt(L, body, asked, eye) {
   lodOf.set(body.id, lv);
   return lv;
 }
+// The figure keys (figure.js buildFigure) a body is drawn with by figurePeople, close up and past FIGURE_LOD.near, so a
+// caller can have them built before it draws them (figure-ahead.js, for the street's close-up level). Only a body
+// that sets none of the Lab's own picks (build, bottoms, weight…): those change the key after the look.
+export const figureLooks = (body) => ['hd', 'lite'].map((lv) => lookOf(body.id, lv, body.dress || '', !!body.sculpt, body.sex || '', body.figure || null, body.wear || null).key);
 // `bodies` as peopleBatch takes them, each with a `dress` (dressOf); `level` is figure.js's (`lite`
 // on a phone). Returns
 // [{ key, rows, col, surf, face, lip, lipstick, iris }] for gl/figure-hd.js.
@@ -522,7 +528,11 @@ export function figurePeople(L, bodies, t = 0, { level: asked = 'hd', eye = null
     // each bone's 3×4, bind space into the room: placed (O + AX x + AY (y - drop) + AZ z) after its skin matrix
     const rows = new Float32Array(NBONE * 12);
     for (let b = 0; b < Math.min(NBONE, SP.length); b++) {
-      const m0 = SP[b] || S[b], m = hk === 1 ? m0 : m0.map((v, i) => (i === 12 || i === 13 || i === 14 ? hk * v + (1 - hk) * piv[i - 12] : i % 4 === 3 ? v : hk * v));
+      // scaled about the pivot into a scratch matrix, not a fresh one a bone (every street body has a height)
+      const m0 = SP[b] || S[b];
+      let m = m0;
+      // (of the same kind as the bone's own: `.map` on a Float32Array rounded to float32, and a turned bone is one)
+      if (hk !== 1) { m = m0 instanceof Float32Array ? HK_32 : HK_64; for (let i = 0; i < 16; i++) m[i] = i === 12 || i === 13 || i === 14 ? hk * m0[i] + (1 - hk) * piv[i - 12] : i % 4 === 3 ? m0[i] : hk * m0[i]; }
       for (let r = 0; r < 3; r++) {
         const o4 = b * 12 + r * 4;
         for (let c = 0; c < 4; c++) rows[o4 + c] = AX[r] * m[c * 4] + AY[r] * m[c * 4 + 1] + AZ[r] * m[c * 4 + 2];

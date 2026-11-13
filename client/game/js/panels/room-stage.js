@@ -154,6 +154,35 @@ let bakedBytes = 0;
 const roomKey = (spec, pieces) => JSON.stringify([spec, pieces]);
 const bakeKey = (room, o) => room + '|' + JSON.stringify([o.seed, !!o.lampOn, !!o.doorShut, o.turning ?? null, o.swinging ?? null,[...(o.joined || [])].sort(), !!o.shell]);
 const meshBytes = (m) => { let n = 0; for (const b of [m.solid, m.glass, m.screen, m.view, ...m.textured.values()]) n += b?.data?.byteLength || 0; return n; };
+
+// ⚠ THE LIGHT SWITCH IS KEPT PER ROOM. It used to be one setting ('roomLamp', 'roomLampLevel') for every room, so lights
+// switched off in one flat, or by its control panel, stayed off in the lobby and every room after. Now 'roomLights' is
+// { zone: { off?: 1, level? } }, holding only the rooms that differ from on at full, the latest last and the oldest
+// dropped past LIGHTS_KEPT. The old keys are cleared, so a viewer stuck dark gets their lights back.
+const LIGHTS_KEY = 'roomLights', LIGHTS_KEPT = 300;
+try { localStorage.removeItem('roomLamp'); localStorage.removeItem('roomLampLevel'); } catch { /* private window */ }
+function lightsSaved() {
+  try { const o = JSON.parse(localStorage.getItem(LIGHTS_KEY) || '{}'); return o && typeof o === 'object' && !Array.isArray(o) ? o : {}; } catch { return {}; }
+}
+function switchOf(zone) {
+  const r = lightsSaved()[zone] || {};
+  return { on: !r.off, level: Math.max(0.1, Math.min(1, Number(r.level) || 1)) };
+}
+function saveSwitch(zone, on, level) {
+  try {
+    const o = lightsSaved();
+    delete o[zone];
+    if (!on || level < 0.995) o[zone] = { ...(on ? {} : { off: 1 }), ...(level < 0.995 ? { level: Math.round(level * 100) / 100 } : {}) };
+    const ks = Object.keys(o);
+    for (const k of ks.slice(0, Math.max(0, ks.length - LIGHTS_KEPT))) delete o[k];
+    localStorage.setItem(LIGHTS_KEY, JSON.stringify(o));
+  } catch { /* private window */ }
+}
+// what a room is drawn as: its switch, and its mains ('on', 'low' or 'off', plugins/roomstage powerOf). On 'low' the
+// grid is down and the room's emergency lighting is all there is, so its lamps burn at this share of the dimmer.
+const EMERGENCY_K = 0.3;
+const litOf = (zone, power) => switchOf(zone).on && (power || 'on') !== 'off';
+
 function bakedMesh(room, L, opts) {
   const key = bakeKey(room, opts);
   let e = baked.get(key);
@@ -298,7 +327,8 @@ function openStage(msg) {
   // (`room_piece` for that room); the people in them are drawn with this room's (bodiesNow)
   const neighboursOf = (m) => (m.building?.neighbours || []).map((n) => ({ ...n, pieces: n.pieces || [], people: n.people || [], L: null }));
   let nextDoor = neighboursOf(msg), joined = new Set(nextDoor.map((n) => n.zone));
-  let shells = [];
+  // shells and the bake keys they were built under, in order; reshell() sets both, so both are declared before it runs
+  let shells = [], shellKeys = [];
   // ⚠ A ROOM NEXT DOOR IS LIT BY ITS OWN LAMPS (gl/room-light.js). It used to be lit by this room's, through the
   // wall, so it was dim from the doorway and jumped to its own light as you stepped in. Each shell gives its box
   // on the ground and its two strongest lamps, turned up to stand for all of them; the renderer has room for
@@ -317,8 +347,8 @@ function openStage(msg) {
     shells = nextDoor.map((n) => {
       try {
         n.L = roomLayout(n.spec, n.pieces);
-        const rk = roomKey(n.spec, n.pieces), so = { seed: hashOf(n.zone), lampOn: true, joined: new Set([msg.zone]), shell: true };
-        const m = bakedMesh(rk, n.L, so), lit = nextLightOf(n.L, m);
+        const rk = roomKey(n.spec, n.pieces), so = { seed: hashOf(n.zone), lampOn: litOf(n.zone, n.power), joined: new Set([msg.zone]), shell: true };
+        const m = bakedMesh(rk, n.L, so), lit = so.lampOn ? nextLightOf(n.L, m) : null;
         if (lit) nextLight.push(lit);
         keys.push(bakeKey(rk, so));
         return m;
@@ -342,7 +372,6 @@ function openStage(msg) {
   // A key that doesn't match (a piece moved, the shells came in another order) composes here as before.
   const composed = new Map();
   const composeKey = (key, shellKeys) => key + '#' + shellKeys.join('#');
-  let shellKeys = [];
   const roomMesh = (L, opts) => {
     const o = { ...opts, joined }, ck = composeKey(bakeKey(S.key, o), shellKeys);
     const c = shells.length ? composed.get(ck) : null;
@@ -352,10 +381,12 @@ function openStage(msg) {
   };
   const textures = new Map();
   const paint = (key) => { let c = textures.get(key); if (!c) { c = paintRoomTexture(document, key, key === ROOM_RUG ? seed : 1); textures.set(key, c); } return c; };
-  let lampOn = true;
-  // the dimmer: this viewer's, like the switch
-  let lampLevel = 1;
-  try { lampOn = localStorage.getItem('roomLamp') !== 'off'; lampLevel = Math.max(0.1, Math.min(1, Number(localStorage.getItem('roomLampLevel')) || 1)); } catch { /* private window */ }
+  // ⚠ THE LIGHTS ARE ON UNLESS THE ROOM HAS NO POWER OR THEY'VE BEEN SWITCHED OFF IN IT. The switch and the dimmer are
+  // this viewer's, kept per room (switchOf); `power` is the mains, from the server (plugins/roomstage powerOf).
+  // `lampOn` is what's drawn: the switch and the mains together.
+  let { on: switchOn, level: lampLevel } = switchOf(msg.zone);
+  let power = msg.power || 'on';
+  let lampOn = switchOn && power !== 'off';
 
   // the GLASS loading screen, up until the room is drawn and the view out of it is in
   // (not when you've just walked in from the next room of the building: that's a step, not a load)
@@ -1190,29 +1221,47 @@ function openStage(msg) {
   // bar: a click on it opens this panel beside it, as a fire's dial opens the fire's
   const lightHud = root.querySelector('.rs-lighthud'), rocker = root.querySelector('.rs-lightrocker'), lightLbl = root.querySelector('.rs-light-lbl');
   const dimEl = root.querySelector('.rs-dim');
-  const showLamp = () => { rocker.textContent = lampOn ? 'On' : 'Off'; rocker.setAttribute('aria-pressed', String(lampOn)); rocker.classList.toggle('on', lampOn); dimEl.value = String(Math.round(lampLevel * 100)); lightLbl.textContent = lampOn ? `${Math.round(lampLevel * 100)}%` : 'Off'; };
+  // how the lights stand, in words: the switch's own, or that there's nothing to switch
+  const lightWord = () => (power === 'off' ? 'No power' : !switchOn ? 'Off' : power === 'low' ? 'Emergency' : `${Math.round(lampLevel * 100)}%`);
+  // the rocker shows where the switch is, whatever the mains are doing
+  const showLamp = () => { rocker.textContent = switchOn ? 'On' : 'Off'; rocker.setAttribute('aria-pressed', String(switchOn)); rocker.classList.toggle('on', switchOn); dimEl.value = String(Math.round(lampLevel * 100)); lightLbl.textContent = lightWord(); };
+  // the switch and the mains together; the mesh changes only when that does (the lamps' faces are lit or not)
+  const relight = () => {
+    const was = lampOn;
+    lampOn = switchOn && power !== 'off';
+    showLamp();
+    if (lampOn !== was) rebuild();
+  };
   // dimming needs no rebuild, only the lamps' own light: turning it up from off does
   const setLevel = (k) => {
     lampLevel = Math.max(0.1, Math.min(1, k));
-    try { localStorage.setItem('roomLampLevel', String(lampLevel)); } catch { /* private window */ }
-    if (!lampOn) toggleLamp(); else showLamp();
+    if (!switchOn) toggleLamp(); else { saveSwitch(msg.zone, switchOn, lampLevel); showLamp(); }
   };
   dimEl.addEventListener('input', () => setLevel(Number(dimEl.value) / 100));
   // the slider gives the keyboard back, or WASD stops walking
   dimEl.addEventListener('change', () => dimEl.blur());
   dimEl.addEventListener('pointerup', () => dimEl.blur());
   const toggleLamp = () => {
-    lampOn = !lampOn; showLamp();
-    try { localStorage.setItem('roomLamp', lampOn ? 'on' : 'off'); } catch { /* private window */ }
-    rebuild();
+    switchOn = !switchOn;
+    saveSwitch(msg.zone, switchOn, lampLevel);
+    relight();
   };
   showLamp();
+  // the mains in this room or one next door (`room_power`, plugins/roomstage powerOf): this room's lamps follow,
+  // and a room next door is drawn again lit or dark, with its light through the doorway
+  S.setPower = (m) => {
+    if (m.zone === msg.zone) { power = m.power || 'on'; relight(); return; }
+    const n = nextDoor.find((x) => x.zone === m.zone);
+    if (!n || n.power === m.power) return;
+    n.power = m.power;
+    reshell(); rebuild();
+  };
   // a flat's control panel (envctl.js) dims this room's lights: the room follows, live as its bar is dragged
   const onPanelLight = (e) => {
     const d = e.detail;
     if (!d || d.zone !== msg.zone) return;
-    if (d.on) { lampLevel = Math.max(0.1, Math.min(1, d.level)); try { localStorage.setItem('roomLampLevel', String(lampLevel)); } catch { /* private window */ } }
-    if (d.on !== lampOn) toggleLamp(); else showLamp();
+    if (d.on) lampLevel = Math.max(0.1, Math.min(1, d.level));
+    if (d.on !== switchOn) toggleLamp(); else { saveSwitch(msg.zone, switchOn, lampLevel); showLamp(); }
   };
   window.addEventListener('envctl:light', onPanelLight);
 
@@ -1422,7 +1471,7 @@ function openStage(msg) {
         const up = e.deltaY < 0;
         if (d.kind === 'switch') setLevel(lampLevel + (up ? 0.05 : -0.05)); else setFlame(flame + (up ? 0.05 : -0.05));
         hoverEl.hidden = false;
-        hoverEl.textContent = d.kind === 'switch' ? `Lights ${lampOn ? Math.round(lampLevel * 100) + '%' : 'off'}` : `Fire ${flame < 0.02 ? 'pilot' : Math.round(flame * 100) + '%'}`;
+        hoverEl.textContent = d.kind === 'switch' ? `Lights ${lightWord().toLowerCase()}` : `Fire ${flame < 0.02 ? 'pilot' : Math.round(flame * 100) + '%'}`;
         hoverEl.style.left = (x + 16) + 'px'; hoverEl.style.top = (y + 12) + 'px';
         return;
       }
@@ -1807,7 +1856,7 @@ function openStage(msg) {
       const carSpec = a.lift ? { ...a.spec, lift: a.lift } : a.spec, near = new Set(ahead.map((x) => x.zone));
       rooms.push(room(carSpec, S.pieces, { seed: hashOf(msg.zone), lampOn, doorShut: false, joined: near }));
       for (const x of ahead) {
-        rooms.push(room(x.spec, x.pieces, { seed: hashOf(x.zone), lampOn: true, joined: new Set([msg.zone]), shell: true }));
+        rooms.push(room(x.spec, x.pieces, { seed: hashOf(x.zone), lampOn: litOf(x.zone, x.power), joined: new Set([msg.zone]), shell: true }));
         for (const p of x.people) if (p.id !== S.you && !p.annex && !drawn.has(p.id)) { drawn.add(p.id); figures.push(figure(p, figLevel)); if (figLevel === 'hd') lite.push(figure(p, 'lite')); }
       }
     }
@@ -1817,10 +1866,10 @@ function openStage(msg) {
       if (!n) continue;
       // as ui.cross and reshell will ask for them, or the crossing builds them again
       const spec = r.lift ? { ...r.spec, lift: r.lift } : r.spec, around = r.neighbours || [];
-      const own = { seed: hashOf(r.zone), lampOn, doorShut: false, turning: null, swinging: null, joined: new Set(around.map((x) => x.zone)) }, parts = [];
+      const own = { seed: hashOf(r.zone), lampOn: litOf(r.zone, r.power), doorShut: false, turning: null, swinging: null, joined: new Set(around.map((x) => x.zone)) }, parts = [];
       rooms.push(room(spec, n.pieces, own));
       for (const x of around) {
-        const pieces = x.pieces || (x.zone === msg.zone ? S.pieces : []), so = { seed: hashOf(x.zone), lampOn: true, joined: new Set([r.zone]), shell: true };
+        const pieces = x.pieces || (x.zone === msg.zone ? S.pieces : []), so = { seed: hashOf(x.zone), lampOn: litOf(x.zone, x.power), joined: new Set([r.zone]), shell: true };
         parts.push({ spec: x.spec, pieces, opts: so });
         rooms.push(room(x.spec, pieces, so));
         for (const p of x.people || []) {
@@ -2289,7 +2338,7 @@ function openStage(msg) {
     // the shutters as they stand this frame; a phone's scene is a still picture
     const shf = S.shutters.frame(now);
     const shut = shf ? { ...shf, ...(S.shutAt?.mesh === S.mesh ? S.shutAt : (S.shutAt = { mesh: S.mesh, ...shutterFrame(Lr, S.mesh.windows) })), t: phone ? 41 : now / 1000, door: balconyGap() } : null;
-    R.render(cook?.cam || seat, { lamps: S.mesh.lamps, next: nextLit(Lr, seat.eye), lampOn, lampLevel, fire, flame,day: Math.min(1, dayOf(h) * outside.dimOf() + out.flash * 0.5), sky, wins: S.mesh.windows, annex, outZ: S.spec.balcony ? 0.145 : undefined, outRing: S.spec.balcony?.wrap ? [-S.spec.w / 2 - 0.145, S.spec.w / 2 + 0.145, S.spec.balcony.sides ? -1e6 : -S.spec.balcony.wrap - 0.005] : undefined, front: Lr.f, right: Lr.r, bearing: S.bearing, outside: out, lens: S.seeLens, tvOn: tvNow(now), shut, focusSharp: streetSharp(), ...pokerFocus() });
+    R.render(cook?.cam || seat, { lamps: S.mesh.lamps, next: nextLit(Lr, seat.eye), lampOn, lampLevel: power === 'low' ? lampLevel * EMERGENCY_K : lampLevel, fire, flame,day: Math.min(1, dayOf(h) * outside.dimOf() + out.flash * 0.5), sky, wins: S.mesh.windows, annex, outZ: S.spec.balcony ? 0.145 : undefined, outRing: S.spec.balcony?.wrap ? [-S.spec.w / 2 - 0.145, S.spec.w / 2 + 0.145, S.spec.balcony.sides ? -1e6 : -S.spec.balcony.wrap - 0.005] : undefined, front: Lr.f, right: Lr.r, bearing: S.bearing, outside: out, lens: S.seeLens, tvOn: tvNow(now), shut, focusSharp: streetSharp(), ...pokerFocus() });
     if (bob) seat.eye[1] -= bob;
     if (lockUi.count) lockUi.draw(host.clientWidth, host.clientHeight, seat.eye, S.walk?.at);
     if (envUi.on) envUi.draw(host.clientWidth, host.clientHeight, seat.eye, S.walk?.at);
@@ -2508,6 +2557,8 @@ function openStage(msg) {
     S.spec = msg.lift ? { ...msg.spec, lift: msg.lift } : msg.spec;
     S.pieces = msg.pieces || []; S.people = msg.people || []; S.here = msg.here || msg.zone; S.locks = msg.locks || [];
     S.glass = msg.glass || null; S.shutters.set(S.glass, { snap: true });
+    // this room's own switch and mains, before it's built (rebuild, below)
+    ({ on: switchOn, level: lampLevel } = switchOf(msg.zone)); power = msg.power || 'on'; lampOn = switchOn && power !== 'off'; showLamp();
     S.plumb = msg.plumbing || null; S.inShower = null;
     S.tags = msg.tags || []; S.sprayLive = null;
     // what was being baked was for the doorways of the room you've left; this room's `room_ahead` is on its way
@@ -2738,6 +2789,11 @@ export function roomVehicles(msg) {
 }
 
 // The shutters over the room's glass and the scene on them, changed from its control panel (plugins/envcontrol).
+// The mains in this room or one next door, as they change (plugins/roomstage `room_power`).
+export function roomPower(msg) {
+  ui?.S?.setPower?.(msg);
+}
+
 export function roomGlass(msg) {
   const S = ui?.S;
   if (!S?.shutters || msg.zone !== S.msg.zone) return;

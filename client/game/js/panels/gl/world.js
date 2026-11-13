@@ -829,7 +829,8 @@ export function glWorldPass(id, host, cells, cam, deps, opts = {}) {
   // ⚠ No waterline shading with the eye underwater: it painted the hull one teal silhouette. The band
   // fog does the distance; she gets the water tint and caustics (uUnder).
   const SOLID_WATER = SUB ? { under: Math.min(1, SUB / 0.14), underD: SUB * 7 } : { water: opts.ownWater };
-  if (cam) cam.near = nearFor(cam, cssH, opts.nearFit == null ? 1 : opts.nearFit);
+  // A view may bring the plane in further (cam.nearMax, makeCam): a walker's eye meets people at arm's length.
+  if (cam) { cam.near = nearFor(cam, cssH, opts.nearFit == null ? 1 : opts.nearFit); if (cam.nearMax > 0) cam.near = Math.min(cam.near, cam.nearMax); }
   setJitter(0, 0);
   if (!W || !H) return null;
   const g = sceneGL(id, W, H, opts.msaa == null ? 1 : opts.msaa, opts.glTransfer > 0);

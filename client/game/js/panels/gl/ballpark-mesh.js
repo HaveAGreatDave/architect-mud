@@ -1452,9 +1452,15 @@ export function crowdMorph(o = {}) {
 const FT = 1 / FT_M;
 // the street rig's materials as the crowd's parts: 0 skin, 1 coat, 2 trousers, 3 shoes, 4 hair, 5 eyes, 6 lips
 const STREET_PART = [CP.skin, CP.shirt, CP.leg - 0.25, CP.shoe, CP.hair, CP.hair, CP.skin];
+// Kept by `towels` alone: both levels are the one body (`lod` below), so `far` doesn't change it, and
+// building it twice was half a second of the park's build. The park's warm-up bakes it in a worker
+// (crowd-morph-worker.js) and hands it over with seedCrowdMorph, so the build finds it made.
 const _streetMorph = new Map();
-function streetMorph({ far = false, towels = false } = {}) {
-  const key = `${far}|${towels}`;
+export function seedCrowdMorph(towels, out) {
+  if (out instanceof Float32Array && out.length % CROWD_MORPH === 0 && !_streetMorph.has(`${!!towels}`)) _streetMorph.set(`${!!towels}`, out);
+}
+function streetMorph({ towels = false } = {}) {
+  const key = `${!!towels}`;
   if (_streetMorph.has(key)) return _streetMorph.get(key);
   // the street's far body for both levels: its close one is 4,800 triangles, which a full house can't pay for
   const lod = 1;

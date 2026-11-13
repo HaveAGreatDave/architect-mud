@@ -168,7 +168,7 @@ void main() {
   o = vec4(vCol * a, a);
 }`;
 
-for (const [vs, fs] of [[POINT_VS, POINT_FS], [SEG_VS, SEG_FS], [BEAM_VS, BEAM_FS], [PLUME_VS, PLUME_FS]]) declareProgram(vs, fs);
+for (const [vs, fs] of [[POINT_VS, POINT_FS], [SEG_VS, SEG_FS], [BEAM_VS, BEAM_FS], [PLUME_VS, PLUME_FS]]) declareProgram(vs, fs, null, { scenes: ['park'] });
 
 // `prog(vs, fs)` is the ballpark's own builder. set(lights) takes buildCityscape's `lights` (or null
 // for none); draw after the city, before the spectacle.

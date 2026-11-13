@@ -2,7 +2,8 @@
 // (client/shared/room-layout.js `spec.decor`, from a zone's `flags.room.decor`): stone or walnut on the
 // walls, a coffered or slotted ceiling, a border and a medallion let into the floor, a runner down a
 // hall, chandeliers and sconces, columns, planted trees, pictures, the doors that don't go anywhere you
-// can, and the numbers on the ones that do. Plus the few forms a hotel's furniture needs (`drawDecorForm`):
+// can, and the numbers on the ones that do; and the deco ones (a sunburst in the floor, a chevron frieze, fluted
+// pilasters, fan sconces, tiered pendants, a dead lift's floor dial). Plus the few forms a hotel's furniture needs (`drawDecorForm`):
 // a reception desk, a console table, a plinth, a stone bench. Pure: batches, no GL.
 //
 // ⚠ IT'S ALL DATA. A room says what it has; nothing here knows which room it is, so a second game on
@@ -149,6 +150,7 @@ function floorInlay(K, L, c, { TEX }) {
         K.quad(K.solid, [P(a0, r1), P(a1, r1), P(a1, r0), P(a0, r0)], [0, 1, 0], K.C(col, k), surf);
       }
     };
+    if (c.star === 'sunburst') { sunburst(K, cu, cv, R, c, y); return; }
     ring(R - 0.06, R, hex6(c.line, GOLD), 1.05, METAL, y + 0.001);
     ring(R * 0.62, R - 0.06, dark, 1, GLOSS, y + 0.0006);
     ring(R * 0.58, R * 0.62, hex6(c.line, GOLD), 1.05, METAL, y + 0.001);
@@ -162,11 +164,14 @@ function floorInlay(K, L, c, { TEX }) {
   }
 }
 
-// A runner down a hall's length: wool, a dark binding, two gold bands just in from its edges.
+// A runner down a hall's length: wool, a dark binding, two gold bands just in from its edges. `span` [from, to] lays
+// it over only that stretch of the hall's length (u on a long room, v on a deep one), as a runner cut off partway.
 function runner(K, L, c, { TEX }) {
   const hu = L.w / 2, D = L.d, long = c.along ? c.along === 'u' : L.w >= L.d, w = num(c.w, Math.min(1.2, (long ? D : L.w) * 0.5), 0.4, 4), end = num(c.end, 0.35, 0, 3);
   const hex = hex6(c.hex, '#1e2a3a'), band = hex6(c.border, '#a8823a'), t = TEX.roomWool, y = 0.012;
-  const [u0, u1, v0, v1] = long ? [-hu + end, hu - end, D / 2 - w / 2, D / 2 + w / 2] : [-w / 2, w / 2, end, D - end];
+  const sp = Array.isArray(c.span) && c.span.length === 2 && c.span.every(Number.isFinite) ? [Math.min(...c.span), Math.max(...c.span)] : null;
+  const [u0, u1, v0, v1] = long ? [sp ? Math.max(-hu + end, sp[0]) : -hu + end, sp ? Math.min(hu - end, sp[1]) : hu - end, D / 2 - w / 2, D / 2 + w / 2] : [-w / 2, w / 2, sp ? Math.max(end, sp[0]) : end, sp ? Math.min(D - end, sp[1]) : D - end];
+  if (u1 - u0 < 0.2 || v1 - v0 < 0.2) return;
   const lay = (a0, a1, b0, b1, col, k, yy) => { const ps = [[a0, b0, yy], [a1, b0, yy], [a1, b1, yy], [a0, b1, yy]]; K.quad(K.TB('roomWool'), ps, [0, 1, 0], K.C(col, k), CLOTH, ps.map((q) => [q[0] / t, q[1] / t])); };
   lay(u0, u1, v0, v1, hex, 1, y);
   const e = 0.035, b = 0.03, g = 0.1;
@@ -195,6 +200,7 @@ const torus = (K, u, v, R, r, y, hex, k = 1) => K.lathe(u, v, Array.from({ lengt
 // A CHANDELIER: a canopy, a stem, tiers of bronze rings each hung with cut-glass drops and set with
 // candle bulbs, and a cascade under the lowest. It lights the room as one of its six lamps.
 function chandelier(K, L, c, { H, lampOn, lamps }) {
+  if (c.kind === 'tiers') return tieredPendant(K, L, c, { H, lampOn, lamps });
   const [u, v] = c.at, R = num(c.r, 0.8, 0.3, 2), drop = num(c.drop, 1.5, 0.6, H - 1.9), tiers = Math.round(num(c.tiers, 3, 1, 4));
   const bulb = lampOn ? '#fff1d6' : '#d8d2c4', bk = lampOn ? 2.4 : 0.9, dk = lampOn ? 1.05 : 0.7;
   K.lathe(u, v, [[0, H - 0.07], [0.18, H - 0.07], [0.2, H - 0.04], [0.14, H], [0, H]], BRONZE, 1.05, 24, METAL);
@@ -221,7 +227,8 @@ function chandelier(K, L, c, { H, lampOn, lamps }) {
 }
 
 // A SCONCE on a wall: a bronze backplate, a short arm and an alabaster shade lit from inside.
-function sconce(K, L, wall, a, y, { lampOn, hex }) {
+function sconce(K, L, wall, a, y, { lampOn, hex, kind }) {
+  if (kind === 'fan') return fanSconce(K, L, wall, a, y, { lampOn, hex });
   onWall(K, L, wall, a - 0.045, a + 0.045, 0.016, 0.03, y - 0.17, y + 0.13, hex, 1.05, null, METAL);
   onWall(K, L, wall, a - 0.012, a + 0.012, 0.03, 0.1, y - 0.06, y - 0.03, hex, 1.05, null, METAL);
   const [su, sv] = wallPt(L, wall, a, 0.115);
@@ -231,9 +238,9 @@ function sconce(K, L, wall, a, y, { lampOn, hex }) {
 // Sconces along every solid run long enough for one, `gap` apart, clear of the run's ends.
 // `points` ([[wall, a], ...]) puts them exactly where they go instead.
 function sconces(K, L, runs, c, ctx) {
-  const y = num(c.y, 1.75, 1, ctx.H - 0.3), gap = num(c.gap, 2.4, 0.8, 8), hex = hex6(c.hex, BRONZE);
+  const y = num(c.y, 1.75, 1, ctx.H - 0.3), gap = num(c.gap, 2.4, 0.8, 8), hex = hex6(c.hex, BRONZE), kind = c.kind;
   if (Array.isArray(c.points)) {
-    for (const [wall, a] of c.points) if (['front', 'back', 'left', 'right'].includes(wall) && Number.isFinite(a)) sconce(K, L, wall, a, y, { lampOn: ctx.lampOn, hex });
+    for (const [wall, a] of c.points) if (['front', 'back', 'left', 'right'].includes(wall) && Number.isFinite(a)) sconce(K, L, wall, a, y, { lampOn: ctx.lampOn, hex, kind });
     return;
   }
   for (const [wall, rs] of Object.entries(runs)) {
@@ -243,7 +250,7 @@ function sconces(K, L, runs, c, ctx) {
       const len = b - a - 0.5;
       if (len < 0.4) continue;
       const n = Math.max(1, Math.floor(len / gap) + 1), step = n > 1 ? len / (n - 1) : 0;
-      for (let i = 0; i < n; i++) sconce(K, L, wall, n > 1 ? a + 0.25 + i * step : (a + b) / 2, y, { lampOn: ctx.lampOn, hex });
+      for (let i = 0; i < n; i++) sconce(K, L, wall, n > 1 ? a + 0.25 + i * step : (a + b) / 2, y, { lampOn: ctx.lampOn, hex, kind });
     }
   }
 }
@@ -365,13 +372,21 @@ function landingPad(K, L, c, { lampOn }) {
 // beside it lettered with what's behind it (STAIRS, SERVICE). The room text says it's there and locked.
 function shutDoor(K, L, c, { DH }) {
   const wall = ['front', 'back', 'left', 'right'].includes(c.wall) ? c.wall : 'back', a = num(c.at, 0), w = num(c.w, 0.95, 0.6, 2.4), a0 = a - w / 2, a1 = a + w / 2;
-  const leaf = c.finish === 'steel' ? { hex: '#4a4e52', tex: null, surf: METAL } : { hex: '#5a3a26', tex: WALNUT, surf: SATIN };
+  const leaf = c.finish === 'steel' ? { hex: '#4a4e52', tex: null, surf: METAL } : c.finish === 'bronze' ? { hex: '#6e5236', tex: null, surf: METAL } : { hex: '#5a3a26', tex: WALNUT, surf: SATIN };
   for (const [p0, p1, q0, q1] of [[a0 - 0.06, a0, 0, DH + 0.06], [a1, a1 + 0.06, 0, DH + 0.06], [a0 - 0.06, a1 + 0.06, DH, DH + 0.06]]) onWall(K, L, wall, p0, p1, 0.02, 0.07, q0, q1, BRONZE, 1.05, null, METAL);
   onWall(K, L, wall, a0, a1, 0.02, 0.05, 0.004, DH, leaf.hex, 1, leaf.tex, leaf.surf);
-  // a push plate and a kick plate, on the side away from the hinge
-  const s = toward(wall), pa = a + s * (w / 2 - 0.12);
-  onWall(K, L, wall, pa - 0.04, pa + 0.04, 0.05, 0.056, 0.95, 1.35, BRASS, 1.08, null, METAL);
+  const s = toward(wall);
+  if (c.pair) {
+    // a lift's two leaves: a dark seam down the middle, each leaf with a chevron of gilt at eye height and nothing to push
+    onWall(K, L, wall, a - 0.006, a + 0.006, 0.05, 0.056, 0.004, DH, '#120e0a', 1, null, METAL);
+    for (const sg of [-1, 1]) chevron(K, L, wall, a + sg * w / 4, 1.55, Math.min(0.32, w / 2 - 0.12), 0.16, 0.057, hex6(c.trim, GOLD));
+  } else {
+    // a push plate and a kick plate, on the side away from the hinge
+    const pa = a + s * (w / 2 - 0.12);
+    onWall(K, L, wall, pa - 0.04, pa + 0.04, 0.05, 0.056, 0.95, 1.35, BRASS, 1.08, null, METAL);
+  }
   onWall(K, L, wall, a0 + 0.03, a1 - 0.03, 0.05, 0.054, 0.02, 0.22, BRONZE, 1.02, null, METAL);
+  if (c.dial !== undefined && c.dial !== false) liftDial(K, L, wall, a, DH + 0.1, Math.min(0.24, w * 0.2), Number.isFinite(c.dial) ? c.dial : 140);
   if (c.label) {
     const txt = String(c.label).toUpperCase().slice(0, 14), h = 0.04, pw = legendWidth(txt, h) + 0.08, la = a + s * (w / 2 + 0.12 + pw / 2);
     onWall(K, L, wall, la - pw / 2, la + pw / 2, 0.02, 0.032, 1.5, 1.62, BRONZE, 1.05, null, METAL);
@@ -420,6 +435,156 @@ export function liftPortal(K, L, o, { DH, H, lampOn }) {
   }
 }
 
+// ── art deco ──────────────────────────────────────────────────────────────────────────────────────
+// The pieces an old deco building finishes its lobby and halls with. Each is data like the rest:
+//   floor.star 'sunburst'   the medallion as rays of two stones in a brass ring, `rays`, `ray`, `field`,
+//                           and `half` (a wall) to fan it out from that wall instead of a full turn
+//   frieze   { y, h, hex, line, on }               a dark band round the room with a gilt zigzag along it
+//   pilasters { points: [[wall, a]], w, hex, y1 }   fluted, on a dark plinth, under a stepped capital
+//   sconces.kind 'fan'                              a half shell of frosted glass on a stepped plate, lit up the wall
+//   lights[].kind 'tiers'                           a pendant of opal glass in tiers, widest at the top
+//   doors[].finish 'bronze', .pair, .dial           a lift's two bronze leaves and the floor dial over them
+// The along axis and the way out of a wall, in the room's frame, as [u, v].
+const alongOf = (wall) => (wall === 'front' || wall === 'back' ? [1, 0] : [0, 1]);
+const outVec = (wall) => (wall === 'front' ? [0, 1] : wall === 'back' ? [0, -1] : wall === 'left' ? [1, 0] : [-1, 0]);
+// A flat face on a wall, `d` out from it, its corners given as [a along, y up].
+function onFace(K, L, wall, d, pts, col, mat, raw = false) {
+  K.quad(K.solid, pts.map(([a, y]) => [...wallPt(L, wall, a, d), y]), outOf(K, wall), col, mat, null, raw);
+}
+// Two chevrons, one over the other, pointing up: the mark on a lift's leaf.
+function chevron(K, L, wall, a, y, w, h, d, hex) {
+  const t = Math.max(0.018, h * 0.22), col = K.C(hex, 1.08);
+  for (const dy of [0, -t * 1.9]) for (const sg of [-1, 1]) {
+    const x0 = a + sg * w / 2, y0 = y - h / 2 + dy, y1 = y + h / 2 + dy;
+    onFace(K, L, wall, d, [[x0, y0], [a, y1], [a, y1 + t], [x0, y0 + t]], col, METAL);
+  }
+}
+// The angles a floor fan spans: a full turn, or the half facing into the room from `wall`.
+function halfOf(wall) {
+  const P = Math.PI;
+  return wall === 'front' ? [0, P] : wall === 'back' ? [P, 2 * P] : wall === 'left' ? [-P / 2, P / 2] : wall === 'right' ? [P / 2, 1.5 * P] : [0, 2 * P];
+}
+// A SUNBURST let into the floor at [cu, cv]: rays of a warm stone between rays of a pale one, a brass strip
+// between each pair, a black hub with a brass ring, a black ring round the whole and a brass line round that.
+// A full one gets a square border of black and brass outside it, as a lobby floor sets its centrepiece.
+function sunburst(K, cu, cv, R, c, y) {
+  const n = Math.round(num(c.rays, 16, 4, 48)) * 2, A = hex6(c.ray, '#c49a52'), B = hex6(c.field, '#efe6d4'), dark = hex6(c.border, '#1c1916'), gold = hex6(c.line, GOLD);
+  const [a0, a1] = halfOf(c.half), full = !c.half, P = (a, r, yy) => [cu + Math.cos(a) * r, cv + Math.sin(a) * r, yy], up = [0, 1, 0];
+  const core = R * 0.16, arcN = Math.max(16, Math.round(64 * (a1 - a0) / (2 * Math.PI)));
+  const arc = (r0, r1, col, k, surf, yy) => { for (let i = 0; i < arcN; i++) { const t0 = a0 + (a1 - a0) * i / arcN, t1 = a0 + (a1 - a0) * (i + 1) / arcN; K.quad(K.solid, [P(t0, r1, yy), P(t1, r1, yy), P(t1, r0, yy), P(t0, r0, yy)], up, K.C(col, k), surf); } };
+  for (let i = 0; i < n; i++) {
+    const t0 = a0 + (a1 - a0) * i / n, t1 = a0 + (a1 - a0) * (i + 1) / n, ray = i % 2 === 0;
+    K.quad(K.solid, [P(t0, core, y + 0.0008), P(t0, R, y + 0.0008), P(t1, R, y + 0.0008), P(t1, core, y + 0.0008)], up, K.C(ray ? A : B, ray ? 1.02 : 1), GLOSS);
+  }
+  // the brass strips the terrazzo was poured between
+  for (let i = 0; i <= n; i++) {
+    if (full && i === n) break;
+    const t = a0 + (a1 - a0) * i / n, s = [-Math.sin(t) * 0.007, Math.cos(t) * 0.007], p = P(t, core, 0), q = P(t, R, 0), yy = y + 0.0014;
+    K.quad(K.solid, [[p[0] - s[0], p[1] - s[1], yy], [q[0] - s[0], q[1] - s[1], yy], [q[0] + s[0], q[1] + s[1], yy], [p[0] + s[0], p[1] + s[1], yy]], up, K.C(gold, 1.05), METAL);
+  }
+  arc(0, core, dark, 1, GLOSS, y + 0.001);
+  arc(core - 0.018, core, gold, 1.05, METAL, y + 0.0016);
+  arc(R, R + 0.14, dark, 1, GLOSS, y + 0.001);
+  arc(R + 0.14, R + 0.16, gold, 1.05, METAL, y + 0.0016);
+  if (!full) return;
+  // the square round it: a black band and a brass line inside it, its corners stepped in twice
+  const S = R + 0.42, b = 0.12, lay = (u0, u1, v0, v1, col, k, surf, yy) => K.quad(K.solid, [[u0, v0, yy], [u1, v0, yy], [u1, v1, yy], [u0, v1, yy]], up, K.C(col, k), surf);
+  for (const [u0, u1, v0, v1] of [[-S, S, -S, -S + b], [-S, S, S - b, S], [-S, -S + b, -S + b, S - b], [S - b, S, -S + b, S - b]]) lay(cu + u0, cu + u1, cv + v0, cv + v1, dark, 1, GLOSS, y + 0.001);
+  for (const [sx, sy] of [[-1, -1], [1, -1], [1, 1], [-1, 1]]) for (const k of [1, 2]) {
+    const e = S - b - k * 0.14, f = e - 0.1;
+    lay(cu + Math.min(sx * e, sx * f), cu + Math.max(sx * e, sx * f), cv + Math.min(sy * e, sy * f), cv + Math.max(sy * e, sy * f), k === 1 ? dark : gold, k === 1 ? 1 : 1.05, k === 1 ? GLOSS : METAL, y + 0.0012);
+  }
+}
+
+// A FRIEZE round the room under the ceiling: a band of black glass on every solid run, a gilt line along its top
+// and bottom, and a gilt zigzag between them.
+function frieze(K, L, runs, c, { H, accent }) {
+  const h = num(c.h, 0.24, 0.1, 0.8), y = num(c.y, H - 0.6, 0.5, H - h), band = hex6(c.hex, '#1e1c1a'), line = hex6(c.line, accent || GOLD);
+  const t = Math.max(0.014, h * 0.12), m = h * 0.22, p = h * 1.25, col = K.C(line, 1.06);
+  for (const [wall, rs] of Object.entries(runs)) {
+    if (c.on && !c.on.includes(wall)) continue;
+    for (let [a, b] of rs) {
+      if (wall === 'left' || wall === 'right') { a = Math.max(a, 0); b = Math.min(b, L.d); }
+      if (b - a < 0.3) continue;
+      onWall(K, L, wall, a, b, 0.018, 0.03, y, y + h, band, 1, null, GLOSS);
+      for (const y0 of [y, y + h - 0.016]) onWall(K, L, wall, a, b, 0.03, 0.034, y0, y0 + 0.016, line, 1.06, null, METAL);
+      const n = Math.floor((b - a - 0.1) / (p / 2));
+      if (n < 2) continue;
+      const a0 = a + (b - a - n * p / 2) / 2;
+      for (let i = 0; i < n; i++) {
+        const x0 = a0 + i * p / 2, x1 = x0 + p / 2, lo = i % 2 === 0, y0 = lo ? y + m : y + h - m - t, y1 = lo ? y + h - m - t : y + m;
+        onFace(K, L, wall, 0.031, [[x0, y0], [x1, y1], [x1, y1 + t], [x0, y0 + t]], col, METAL);
+      }
+    }
+  }
+}
+
+// PILASTERS on the walls: a black plinth, a shaft with four flutes standing proud, and a capital of three steps,
+// each wider and further out than the one under it.
+function pilasters(K, L, c, { H }) {
+  const w = num(c.w, 0.34, 0.15, 1), hex = hex6(c.hex, '#e8dfcc'), trim = hex6(c.trim, GOLD), top = num(c.y1, H - 0.3, 1.5, H) - 0.2, stone = { t: 'roomPlasterFine', c: hex };
+  for (const pt of c.points || []) {
+    if (!Array.isArray(pt) || !['front', 'back', 'left', 'right'].includes(pt[0]) || !Number.isFinite(pt[1])) continue;
+    const [wall, a] = pt, hw = w / 2;
+    onWall(K, L, wall, a - hw - 0.03, a + hw + 0.03, 0.016, 0.1, 0, 0.18, '#16120f', 1, null, GLOSS);
+    onWall(K, L, wall, a - hw, a + hw, 0.016, 0.07, 0.18, top, hex, 1, stone, SATIN);
+    const fw = w / 9;
+    for (let i = 0; i < 4; i++) { const f0 = a - hw + fw * (1 + 2 * i); onWall(K, L, wall, f0, f0 + fw, 0.07, 0.085, 0.32, top - 0.14, hex, 1.07, stone, SATIN); }
+    onWall(K, L, wall, a - hw - 0.01, a + hw + 0.01, 0.07, 0.074, top - 0.02, top, trim, 1.08, null, METAL);
+    for (let i = 0; i < 3; i++) onWall(K, L, wall, a - hw - 0.025 * (i + 1), a + hw + 0.025 * (i + 1), 0.016, 0.085 + 0.015 * (i + 1), top + i * 0.065, top + (i + 1) * 0.065, hex, 1.03 + i * 0.02, stone, SATIN);
+  }
+}
+
+// A FAN SCONCE: a stepped bronze plate, a half shell of frosted glass opening up the wall with three bronze ribs
+// and a bronze lip, and the lamp showing through its open top.
+function fanSconce(K, L, wall, a, y, { lampOn, hex }) {
+  for (const [hw, y0, y1, d] of [[0.075, y - 0.2, y + 0.02, 0.026], [0.05, y + 0.02, y + 0.09, 0.024], [0.026, y + 0.09, y + 0.14, 0.022]]) onWall(K, L, wall, a - hw, a + hw, 0.014, d, y0, y1, hex, 1.05, null, METAL);
+  const [au, av] = alongOf(wall), [ou, ov] = outVec(wall), N = 10, yb = y - 0.13, yt = y + 0.07, rb = 0.035, rt = 0.17, d0 = 0.026;
+  const glow = lampOn ? '#ffe7c4' : '#d8cfc0', gk = lampOn ? 1.55 : 0.85;
+  const P = (t, r, yy) => [...wallPt(L, wall, a + Math.cos(t) * r, d0 + Math.sin(t) * r), yy];
+  for (let i = 0; i < N; i++) {
+    const t0 = i / N * Math.PI, t1 = (i + 1) / N * Math.PI, tm = (t0 + t1) / 2, nu = au * Math.cos(tm) + ou * Math.sin(tm), nv = av * Math.cos(tm) + ov * Math.sin(tm);
+    K.quad(K.solid, [P(t0, rb, yb), P(t1, rb, yb), P(t1, rt, yt), P(t0, rt, yt)], K.nrmOf(nu * 0.8, -0.6, nv * 0.8), K.C(glow, gk), lampOn ? LAMP : SATIN, null, lampOn);
+    rod(K, P(t0, rt + 0.004, yt), P(t1, rt + 0.004, yt), 0.006, hex, 1.05);
+    K.quad(K.solid, [P(t0, 0, yt - 0.01), P(t0, rt * 0.94, yt - 0.01), P(t1, rt * 0.94, yt - 0.01), P(t1, 0, yt - 0.01)], [0, 1, 0], K.C(lampOn ? '#fff1d6' : '#b8b0a2', lampOn ? 2.2 : 0.8), lampOn ? LAMP : SATIN, null, lampOn);
+  }
+  for (const t of [Math.PI / 4, Math.PI / 2, 3 * Math.PI / 4]) rod(K, P(t, rb + 0.004, yb), P(t, rt + 0.004, yt), 0.005, hex, 1.05);
+}
+
+// A TIERED PENDANT: a stepped canopy, a stem, and tiers of opal glass under bronze bands, the smallest lowest,
+// a ziggurat hung upside down. It lights the room as one of its lamps, as a chandelier does.
+function tieredPendant(K, L, c, { H, lampOn, lamps }) {
+  const [u, v] = c.at, R = num(c.r, 0.45, 0.2, 1.2), drop = num(c.drop, 1.1, 0.5, H - 1.9), n = Math.round(num(c.tiers, 3, 2, 4));
+  const glass = lampOn ? '#ffe9c8' : '#d8d0c0', gk = lampOn ? 1.6 : 0.85, gm = lampOn ? LAMP : undefined, hex = hex6(c.hex, BRONZE);
+  K.lathe(u, v, [[0, H - 0.1], [0.08, H - 0.1], [0.08, H - 0.07], [0.12, H - 0.07], [0.12, H - 0.04], [0.16, H - 0.04], [0.16, H], [0, H]], hex, 1.05, 24, METAL);
+  const yb = H - drop, th = 0.13, gap = 0.035, top = yb + n * (th + gap);
+  K.lathe(u, v, [[0.014, top], [0.014, H - 0.1]], hex, 1.05, 8, METAL);
+  for (let i = 0; i < n; i++) {
+    const r = R * (0.45 + 0.55 * i / Math.max(1, n - 1)), y0 = yb + i * (th + gap), y1 = y0 + th;
+    K.lathe(u, v, [[0, y0], [r * 0.9, y0], [r, y1], [0, y1]], glass, gk, 28, gm);
+    K.lathe(u, v, [[r + 0.012, y1], [r + 0.012, y1 + gap], [0, y1 + gap]], hex, 1.05, 28, METAL);
+  }
+  K.ball(u, v, yb - 0.03, 0.03, hex, 1.05, 10, METAL);
+  lamps.push({ p: L.world(u, v, yb + (top - yb) * 0.5), annex: false, k: num(c.k, 1.3, 0.3, 3) });
+}
+
+// A LIFT'S FLOOR DIAL over its doors: a half disc of bronze with a black face, gilt marks for the floors and a
+// needle at `deg` (0 is the right-hand end as you look at it, 180 the left), wherever the car last was.
+function liftDial(K, L, wall, a, y, r, deg) {
+  const s = toward(wall), N = 18, half = (rr, d, col, mat) => { for (let i = 0; i < N; i++) { const t0 = i / N * Math.PI, t1 = (i + 1) / N * Math.PI; onFace(K, L, wall, d, [[a, y], [a + s * Math.cos(t0) * rr, y + Math.sin(t0) * rr], [a + s * Math.cos(t1) * rr, y + Math.sin(t1) * rr], [a + s * Math.cos(t1) * rr, y + Math.sin(t1) * rr]], col, mat); } };
+  onWall(K, L, wall, a - r - 0.05, a + r + 0.05, 0.016, 0.03, y - 0.03, y, BRONZE, 1.05, null, METAL);
+  half(r + 0.04, 0.03, K.C(BRONZE, 1.05), METAL);
+  half(r, 0.031, K.C('#0e0c0a', 1), GLOSS);
+  const gilt = K.C(GOLD, 1.1);
+  for (let k = 0; k <= 6; k++) {
+    const t = k / 6 * Math.PI, c = s * Math.cos(t), q = Math.sin(t), w = 0.006;
+    onFace(K, L, wall, 0.032, [[a + c * r * 0.72 - q * w * s, y + q * r * 0.72 + c * w * s], [a + c * r * 0.92 - q * w * s, y + q * r * 0.92 + c * w * s], [a + c * r * 0.92 + q * w * s, y + q * r * 0.92 - c * w * s], [a + c * r * 0.72 + q * w * s, y + q * r * 0.72 - c * w * s]], gilt, METAL);
+  }
+  const t = Math.max(0, Math.min(180, deg)) * Math.PI / 180, c = s * Math.cos(t), q = Math.sin(t), w = 0.005;
+  onFace(K, L, wall, 0.033, [[a - q * w * s, y + c * w * s], [a + c * r * 0.86, y + q * r * 0.86], [a + c * r * 0.86, y + q * r * 0.86], [a + q * w * s, y - c * w * s]], gilt, METAL);
+  onWall(K, L, wall, a - 0.018, a + 0.018, 0.031, 0.036, y - 0.004, y + 0.03, BRONZE, 1.1, null, METAL);
+}
+
 // ── a tower flat's balcony (room-layout.js balconyDressOf) ────────────────────────────────────────
 // A long charcoal planter of grasses and clipped box balls, a slatted oak bench on two black steel
 // frames, and a fig in an urn past it.
@@ -465,6 +630,8 @@ export function drawDecor(K, L, ctx) {
   if (dc.runner && typeof dc.runner === 'object') runner(K, L, dc.runner, ctx);
   for (const c of dc.lights || []) if (Array.isArray(c?.at) && c.at.length === 2 && c.at.every(Number.isFinite)) chandelier(K, L, c, ctx);
   if (dc.sconces && typeof dc.sconces === 'object') sconces(K, L, ctx.runs, dc.sconces, ctx);
+  if (dc.frieze && typeof dc.frieze === 'object') frieze(K, L, ctx.runs, dc.frieze, ctx);
+  if (dc.pilasters && typeof dc.pilasters === 'object') pilasters(K, L, dc.pilasters, ctx);
   for (const c of dc.columns || []) if (Array.isArray(c) && c.length >= 2) column(K, c[0], c[1], c[2] || 0.3, { H: ctx.H, hex: hex6(dc.columnHex, '#f2ece2') });
   (dc.plants || []).forEach((c, i) => { if (Array.isArray(c) && c.length >= 2) plant(K, c[0], c[1], c[2] || 1, 0x51ed + i * 977); });
   (dc.art || []).forEach((c, i) => { if (c && typeof c === 'object') picture(K, L, c, i); });

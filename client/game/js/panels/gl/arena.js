@@ -263,14 +263,14 @@ void main() {
   outColor = vec4(uCol * a, a);
 }`;
 
-declareProgram(LIT_VS, LIT_FS);
-declareProgram(POST_VS, LINES_FS);
-declareProgram(INK_VS, INK_FS);
-declareProgram(RINK_CROWD_VS, RINK_CROWD_FS);
-declareProgram(ICE_VS, ICE_FS);
-declareProgram(PT_VS, PT_FS);
-declareProgram(POST_VS, POST_FS);
-declareProgram(HEAD_VS, HEAD_FS);
+declareProgram(LIT_VS, LIT_FS, null, { scenes: ['rink'] });
+declareProgram(POST_VS, LINES_FS, null, { scenes: ['rink'] });
+declareProgram(INK_VS, INK_FS, null, { scenes: ['rink'] });
+declareProgram(RINK_CROWD_VS, RINK_CROWD_FS, null, { scenes: ['rink'] });
+declareProgram(ICE_VS, ICE_FS, null, { scenes: ['rink'] });
+declareProgram(PT_VS, PT_FS, null, { scenes: ['rink'] });
+declareProgram(POST_VS, POST_FS, null, { scenes: ['rink'] });
+declareProgram(HEAD_VS, HEAD_FS, null, { scenes: ['rink'] });
 
 // The quality rungs the view's frame-time governor steps through (gameday-rink.js).
 // (`crowd` is the share of the night's fans drawn: a device that can't keep up loses the upper
@@ -303,7 +303,7 @@ export function createArenaRenderer(canvas, overlay, W0, ice) {
   try { return build(); } catch (err) { console.warn('[rink] GLASS 2 arena unavailable, drawing in 2-D:', err && err.message); return null; }
 
   function build() {
-    prewarmPrograms(gl);
+    prewarmPrograms(gl, 'rink');
     const prog = (vs, fs) => {
       let p = takeWarm(gl, vs, fs);
       if (!p) {

@@ -20,17 +20,6 @@ import { gaitClips } from './actor-gait.js';
 
 // ── Matrices: column-major 4×4, element (row r, col c) at m[c * 4 + r] ─────────────────────────────
 function m4() { const m = new Float64Array(16); m[0] = m[5] = m[10] = m[15] = 1; return m; }
-function mul(a, b) {
-  const o = new Float64Array(16);
-  for (let c = 0; c < 4; c++) for (let r = 0; r < 4; r++) {
-    o[c * 4 + r] = a[r] * b[c * 4] + a[4 + r] * b[c * 4 + 1] + a[8 + r] * b[c * 4 + 2] + a[12 + r] * b[c * 4 + 3];
-  }
-  return o;
-}
-function trans(x, y, z) { const m = m4(); m[12] = x; m[13] = y; m[14] = z; return m; }
-function rotX(a) { const m = m4(), c = Math.cos(a), s = Math.sin(a); m[5] = c; m[6] = s; m[9] = -s; m[10] = c; return m; }
-function rotY(a) { const m = m4(), c = Math.cos(a), s = Math.sin(a); m[0] = c; m[2] = -s; m[8] = s; m[10] = c; return m; }
-function rotZ(a) { const m = m4(), c = Math.cos(a), s = Math.sin(a); m[0] = c; m[1] = s; m[4] = -s; m[5] = c; return m; }
 const DEG = Math.PI / 180;
 const TAU = Math.PI * 2;
 const clamp01 = (x) => Math.max(0, Math.min(1, x));
@@ -50,17 +39,35 @@ function setR(P, bone, x, y, z) { const i = B[bone] * 3; P.r[i] += x; P.r[i + 1]
 function zeroR(P, bone) { const i = B[bone] * 3; P.r[i] = P.r[i + 1] = P.r[i + 2] = 0; }
 
 // Local rotation is Rz·Rx·Ry: flexion about X, abduction about Z, twist about Y.
+// ⚠ NO NEW MATRICES BUT THE ONES IT RETURNS. fk runs for every close-up person every frame (gl/room-people.js
+// figurePeople, in a room and on the street), and a walk runs it twice. Built from mul/rotX/trans it made eleven
+// Float64Arrays a bone, and those allocations were two-thirds of the posing. The scratch versions below do the same
+// sums in the same order, so the matrices come out bit for bit as before (the bake included).
+const _rx = m4(), _ry = m4(), _rz = m4(), _t = m4(), _xy = m4(), _r = m4(), _pt = m4();
+function mulTo(o, a, b) {
+  for (let c = 0; c < 4; c++) for (let r = 0; r < 4; r++) {
+    o[c * 4 + r] = a[r] * b[c * 4] + a[4 + r] * b[c * 4 + 1] + a[8 + r] * b[c * 4 + 2] + a[12 + r] * b[c * 4 + 3];
+  }
+  return o;
+}
+function transTo(m, x, y, z) { m.fill(0); m[0] = m[5] = m[10] = m[15] = 1; m[12] = x; m[13] = y; m[14] = z; return m; }
 function fk(P) {
-  const W = [];
+  const W = new Array(BONES.length);
   for (let i = 0; i < BONES.length; i++) {
     const [, p, o] = BONES[i];
-    const R = mul(rotZ(P.r[i * 3 + 2]), mul(rotX(P.r[i * 3]), rotY(P.r[i * 3 + 1])));
-    const T = p < 0 ? trans(o[0] + P.root[0], o[1] + P.root[1], o[2] + P.root[2]) : mul(W[p], trans(o[0], o[1], o[2]));
-    W[i] = mul(T, R);
+    let c = Math.cos(P.r[i * 3]), s = Math.sin(P.r[i * 3]);
+    _rx[5] = c; _rx[6] = s; _rx[9] = -s; _rx[10] = c;
+    c = Math.cos(P.r[i * 3 + 1]); s = Math.sin(P.r[i * 3 + 1]);
+    _ry[0] = c; _ry[2] = -s; _ry[8] = s; _ry[10] = c;
+    c = Math.cos(P.r[i * 3 + 2]); s = Math.sin(P.r[i * 3 + 2]);
+    _rz[0] = c; _rz[1] = s; _rz[4] = -s; _rz[5] = c;
+    const R = mulTo(_r, _rz, mulTo(_xy, _rx, _ry));
+    const T = p < 0 ? transTo(_pt, o[0] + P.root[0], o[1] + P.root[1], o[2] + P.root[2]) : mulTo(_pt, W[p], transTo(_t, o[0], o[1], o[2]));
+    W[i] = mulTo(new Float64Array(16), T, R);
   }
   return W;
 }
-const skinMats = (W) => W.map((w, i) => mul(w, trans(-REST[i][0], -REST[i][1], -REST[i][2])));
+const skinMats = (W) => W.map((w, i) => mulTo(new Float64Array(16), w, transTo(_t, -REST[i][0], -REST[i][1], -REST[i][2])));
 
 // ── The mesh ───────────────────────────────────────────────────────────────────────────────────────
 // Each vertex carries two bones and the weight of the first, plus a material slot the shader colours

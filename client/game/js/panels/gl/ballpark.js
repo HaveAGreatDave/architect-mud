@@ -22,7 +22,7 @@
 // 'createBallparkRenderer' returns null with no WebGL2, float target or shader, and the view falls
 // back to the 2-D Gameday. ⚠ NO FACE CULLING, as in arena.js: builders don't keep one winding.
 
-import { buildPark, buildDress, crowdMorph, createBatch, vtx, dragMat, lin, STRIDE, CROWD_STRIDE, CROWD_MORPH, MAT, BAY, BAND_RUNS, BAND_STONE, BAND_UV, MAIN_PLATE, PLATE_ATLAS, roofLights, roofTrack, shellShift } from './ballpark-mesh.js';
+import { buildPark, buildDress, crowdMorph, seedCrowdMorph, createBatch, vtx, dragMat, lin, STRIDE, CROWD_STRIDE, CROWD_MORPH, MAT, BAY, BAND_RUNS, BAND_STONE, BAND_UV, MAIN_PLATE, PLATE_ATLAS, roofLights, roofTrack, shellShift } from './ballpark-mesh.js';
 import { insideOutline, ftUp } from '../diamond/geo.js';
 import { WIN, WIN_OPEN, RAYS, SUN, rayReach } from '../glass/coliseum-window.js';
 import { breathe } from '../diamond/anim.js';
@@ -37,7 +37,7 @@ import { createSpotShadows, SPOT_SHADOW_GLSL } from './spotshadow.js';
 import { createDepthSSAO, ssaoConstants } from './ssao.js';
 import { createBroadcastPass } from './broadcast.js';
 import { makeVertexStream } from './stream.js';
-import { declareProgram, prewarmPrograms, takeWarm } from './programs.js';
+import { declareProgram, prewarmPrograms, prewarmDone, takeWarm } from './programs.js';
 import { createPlayerSet, buildBody, POSES, mirrorPose, lookOf, faceFor, kitCell, SKIN_STRIDE, PLAYER_LODS, rigBuildOf, hex as hexLin } from './ballplayer-mesh.js';
 import { gen1Of, GEN1_ORDERS } from '../../../../shared/deadball-gen1.js';
 import { solvePose, boneFrames, bindFrames, skinRows, BONES, FRAME_FLOATS, scalePose } from '../diamond/rig.js';
@@ -931,7 +931,7 @@ uniform mat4 uVP;
 out vec2 vUV; out float vAlpha; out float vRed;
 void main() { vUV = aUV; vAlpha = aAlpha; vRed = aRed; gl_Position = uVP * vec4(aPos, 1.0); }`;
 
-for (const [vs, fs] of [[LIT_VS, LIT_FS], [SKIN_VS, LIT_FS], [SKIN_DEPTH_VS, DEPTH_FS], [STATIC_DEPTH_VS, DEPTH_FS], [CROWD_VS, CROWD_FS], [CARD_VS, CARD_FS], [FULL_VS, SKY_FS], [FULL_VS, FINAL_FS], [FULL_VS, OVERLAY_FS], [CURTAIN_VS, CURTAIN_FRAG], [SKIN_INK_VS, INK_FS]]) declareProgram(vs, fs);
+for (const [vs, fs] of [[LIT_VS, LIT_FS], [SKIN_VS, LIT_FS], [SKIN_DEPTH_VS, DEPTH_FS], [STATIC_DEPTH_VS, DEPTH_FS], [CROWD_VS, CROWD_FS], [CARD_VS, CARD_FS], [FULL_VS, SKY_FS], [FULL_VS, FINAL_FS], [FULL_VS, OVERLAY_FS], [CURTAIN_VS, CURTAIN_FRAG], [SKIN_INK_VS, INK_FS]]) declareProgram(vs, fs, null, { scenes: ['park'] });
 
 // The textures whose clear texels are holes: the wall's distances, the monograms, the masks' bars.
 const ALPHA_TEST = new Set(['nums', 'logo', 'mask', 'finalLogo']);
@@ -1153,18 +1153,72 @@ function parkFor(venue) {
   return p;
 }
 
+// The park's context on a canvas: the same one every call, so the programs prepareBallpark starts are
+// the ones createBallparkRenderer takes.
+function contextOf(canvas, opts = {}) {
+  try {
+    return canvas.getContext('webgl2', { antialias: false, alpha: false, depth: false, stencil: false, premultipliedAlpha: true,
+      powerPreference: 'high-performance', preserveDrawingBuffer: !!opts.preserve }) || null;
+  } catch { return null; }
+}
+
+// ⚠ NEVER BUILD THE PARK ON A COLD COMPILE. The lit shader (LIT_FS) is ~66k characters, and Chrome's
+// ANGLE runs it through Direct3D's compiler: about 35 s with an empty shader cache, which the first
+// LINK_STATUS query in build() waited out with the page frozen, the theme's tracker with it, at the
+// end of Deadball's open. So the view calls this on its canvas first, which starts the park's programs
+// compiling (programs.js, with KHR_parallel_shader_compile) and returns `done()`, polled until true,
+// and only then createBallparkRenderer. True at once without the extension, as there's nothing to poll.
+export function prepareBallpark(canvas, opts = {}) {
+  const gl = contextOf(canvas, opts);
+  if (!gl) return () => true;   // createBallparkRenderer finds none either, and the view draws in 2-D
+  prewarmPrograms(gl, 'park');
+  return () => prewarmDone(gl);
+}
+
+// THE WARM-UP: the park's programs compiled in a throwaway context while the game's open is still on
+// (tv.js, off the title card's `warm` overlay), so the view's own context finds them in the browser's
+// shader cache when the game starts, and the fans' figure baked in a worker (crowd-morph-worker.js).
+// Once per page; nothing waits on it. Resolves true once the programs have compiled, false without
+// the extension.
+const WARM_POLL_MS = 500, WARM_GIVE_UP_MS = 5 * 60 * 1000;
+let warming = null;
+function bakeFans() {
+  if (typeof Worker !== 'function') return;
+  try {
+    const w = new Worker(new URL('./crowd-morph-worker.js', import.meta.url), { type: 'module' });
+    w.onmessage = (e) => { seedCrowdMorph(e.data?.towels, e.data?.out); w.terminate(); };
+    w.onerror = () => w.terminate();   // the build makes it itself
+    w.postMessage({ towels: false });
+  } catch { /* the build makes it itself */ }
+}
+export function warmBallpark(doc = globalThis.document) {
+  if (!warming) bakeFans();
+  return (warming ??= new Promise((done) => {
+    const canvas = doc?.createElement?.('canvas');
+    if (!canvas) { done(false); return; }
+    canvas.width = canvas.height = 1;
+    const gl = contextOf(canvas);
+    if (!gl || !prewarmPrograms(gl, 'park')) { done(false); return; }
+    const t0 = performance.now();
+    const finish = (ok) => { gl.getExtension('WEBGL_lose_context')?.loseContext(); done(ok); };
+    const poll = () => {
+      if (gl.isContextLost()) { done(false); return; }
+      if (prewarmDone(gl)) { finish(true); return; }
+      if (performance.now() - t0 > WARM_GIVE_UP_MS) { finish(false); return; }
+      setTimeout(poll, WARM_POLL_MS);
+    };
+    setTimeout(poll, WARM_POLL_MS);
+  }));
+}
+
 export function createBallparkRenderer(canvas, opts = {}) {
   const doc = canvas.ownerDocument;
-  let gl = null;
-  try {
-    gl = canvas.getContext('webgl2', { antialias: false, alpha: false, depth: false, stencil: false, premultipliedAlpha: true,
-      powerPreference: 'high-performance', preserveDrawingBuffer: !!opts.preserve });
-  } catch { gl = null; }
+  const gl = contextOf(canvas, opts);
   if (!gl) return null;
   try { return build(); } catch (err) { console.warn('[ballpark] GLASS 2 park unavailable, drawing in 2-D:', err && err.message); return null; }
 
   function build() {
-    prewarmPrograms(gl);
+    prewarmPrograms(gl, 'park');
     const hdr = createHDRLayer(gl);
     if (!hdr) return null;
     // ⚠ THE SHADOW MAPS ARE NOT OPTIONAL. The lit shader declares four shadow samplers, and WebGL2

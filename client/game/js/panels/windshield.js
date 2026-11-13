@@ -22190,7 +22190,10 @@ export function makeCam(W, horizonY, depth0, v, chase) {
   // focal lengths are FL (lateral) and depth (vertical) and whose principal point is (W/2, horizonY).
   // A second renderer cannot reproduce the picture without them, and deriving them again elsewhere
   // is how two cameras start disagreeing by a pixel that nobody can trace.
-  return { R, sinh, cosh, ox, oy, proj, projFL, worldFL, unproj, rawF, EH, EHbase, ownFt, back, FL, fx, fy, ex, ey, fwdOff, pitch, W, horizonY, depth };   // EH/EHbase/FL exposed so traffic, the own-ship and the volumetric clouds can be placed + sized relative to the world camera
+  // `nearMax`: a view's ceiling on GLASS 2's near plane (gl/world.js), in tiles; 0 leaves it to nearFor. On foot it's
+  // a third of a metre (freelook-view.js FOOT_NEAR), so somebody you walk up to isn't sliced off a metre short.
+  const nearMax = v.nearMax > 0 ? v.nearMax : 0;
+  return { R, sinh, cosh, ox, oy, proj, projFL, worldFL, unproj, rawF, EH, EHbase, ownFt, back, FL, fx, fy, ex, ey, fwdOff, pitch, W, horizonY, depth, nearMax };   // EH/EHbase/FL exposed so traffic, the own-ship and the volumetric clouds can be placed + sized relative to the world camera
 }
 
 // ── Depth-sorted face queue (painter's order without a z-buffer) ─────────────────────────────
@@ -30851,9 +30854,13 @@ const ACTOR_S = 34;
 const ACTOR_TOP = 0.62 + 0.16 * 1.62;
 function drawActorFigure(ctx, cam, dx, dy, alpha, t, phase, moving, night, opts = {}) {
   const p = cam.proj(dx, dy, 0);
-  if (!p || p.f <= 0.12) return;
+  if (!p) return;
   const z = opts.z || 0;   // the kerb top on a raised pavement, else the road
+  // ⚠ THE MESH BEFORE THE 0.12 TEST. That test is the billboard's: under it a card blows up past the frame. A mesh is
+  // depth-tested and the GPU's near plane clips it, so it needs no such floor, and on foot 0.12 tiles is 2.1 m:
+  // everybody you walked up to vanished a couple of paces off.
   if (opts.pose && pushActorMesh(cam, dx, dy, z, alpha, night, opts.pose, p)) return;
+  if (p.f <= 0.12) return;
   if (SCATTER_SINK) {
     // With an outfit the bucket comes from the coat, so somebody keeps roughly their brightness when
     // they cross between the mesh and the billboard.
@@ -31102,6 +31109,8 @@ function drawRoadside(ctx, cam, v, wcx, wcy, night, now, FAR) {
   });
 }
 
+// A street figure's half-width in tiles, about 0.3 m: a mesh whose centre is this far behind the eye can't reach the frame.
+const ACTOR_BODY_R = 0.017;
 function drawStreetActors(ctx, cam, v, map, R, wcx, wcy, night, now, FAR) {
   const winKey = map ? `${wcx},${wcy}` : null;
   syncStreetActors(v.actors, now, winKey != null && winKey === _actorWinKey);
@@ -31109,6 +31118,10 @@ function drawStreetActors(ctx, cam, v, map, R, wcx, wcy, night, now, FAR) {
   if (!ACTORS.size || !map) return;
   // Meshes once the bake is done; until then a couple of milliseconds of it a frame, and billboards.
   const mesh = actorMeshOn() && !!(actorBakeReady() || actorBakeStep(2));
+  // How close in front of the eye somebody is still drawn. A billboard needs VISIBLE_NEAR_F; a mesh is clipped by the
+  // GPU's own near plane, so it goes only once its centre is a body's half-width behind the eye. On foot VISIBLE_NEAR_F
+  // is 0.9 m, and it took people away as you walked up to them.
+  const nearF = mesh ? -ACTOR_BODY_R : VISIBLE_NEAR_F;
   // Street life: who is standing with whom, and what everybody standing is doing. It runs for every
   // figure, on screen or not, so somebody is where they should be when you turn round.
   const win = RENDER_TUNE.actorLife > 0 ? { map, R, wcx, wcy } : null;
@@ -31155,7 +31168,7 @@ function drawStreetActors(ctx, cam, v, map, R, wcx, wcy, night, now, FAR) {
       if (!scell) continue;
       const dx = (fx - wcx) - cam.ox, dy = (fy - wcy) - cam.oy;
       const f = dx * cam.sinh - dy * cam.cosh;
-      if (f + (cam.fwdOff || 0) <= VISIBLE_NEAR_F || f > FAR) continue;
+      if (f + (cam.fwdOff || 0) <= nearF || f > FAR) continue;
       const a = al * smoothstep((FAR - f) / 5) * (v.worldBlend ?? 1);
       if (a <= 0.03) continue;
       const phase = now * 0.011 + actorHash(t, 5) * 7;
@@ -31217,7 +31230,7 @@ function drawStreetActors(ctx, cam, v, map, R, wcx, wcy, night, now, FAR) {
     }
     const dx = (px + ox - wcx) - cam.ox, dy = (py + oy - wcy) - cam.oy;
     const f = dx * cam.sinh - dy * cam.cosh;
-    if (f + (cam.fwdOff || 0) <= VISIBLE_NEAR_F || f > FAR) continue;   // camera-relative near clip — see the ⚠ in drawStreetLamps
+    if (f + (cam.fwdOff || 0) <= nearF || f > FAR) continue;   // camera-relative near clip (see the ⚠ in drawStreetLamps), nearF above
     // Same thin far-edge dissolve the buildings use, so a figure ghosts up out of the haze with
     // the street it is standing in rather than popping in crisp against a fogged block.
     const a = fade * smoothstep((FAR - f) / 5) * (v.worldBlend ?? 1);

@@ -11,7 +11,7 @@
 import { createTvStage } from './tv-stage.js';
 
 export function createStudioFloor(host, { phone = false } = {}) {
-  const stage = createTvStage(host, { phone, inset: '0' });
+  const stage = createTvStage(host, { phone, inset: '0', onAir: false });
   let names = '';
   const onSpeaking = (e) => { const d = e.detail; if (d?.name && d.text) stage.player?.liveLine(d.name, d.text); };
   const onLine = (e) => { const t = e.detail?.text; if (t) stage.player?.liveAct(t); };

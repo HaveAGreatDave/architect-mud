@@ -30,12 +30,13 @@ A set can be built on another. A **template** (`template: true`, shown as ◇ in
 - `parts` changes a piece by its part name: fields laid over it, a different `type` to swap it for another piece, or `null` to take it out.
 - `pieces` are added after the template's. `marks` and `cameras` merge by name, and `null` takes one out.
 - Room, lamps, focus and ambient come from the template unless the skin has its own.
+- `picture: 'mono'` shoots the set in black and white (the Colours panel's checkbox): a CSS filter on the stage's canvas, so it costs the renderer nothing, and a copy of the frame for a TV in a room (page-paint.js) takes it too. Standing in a set that's a room (`zone`), you see it in colour. A skin inherits it, and `picture: 'colour'` on a skin turns it off.
 - `zone` makes a set a room players can walk into: standing there, the Room Stage shows the set ([Studio sets are rooms](../../docs/systems-broadcast.md#studio-sets-are-rooms)). Neil's basement is KSAB-TV's Sound Stage B.
 - `broadcasts` lists the broadcast ids a skin was made for. It beats the room and the kind, so a show gets its own skin wherever it's staged. A template is never staged as itself, and `uses` and `broadcasts` are never inherited.
 
 The templates: talk show, news desk, morning couch, weather wall, game show (a host's lectern and three lettered podiums), product pitch (a counter and a lit plinth, for adverts and shopping shows), pulpit, kitchen, sitcom living room, and booth. Every studio show that has a broadcast row has a skin. Films and the ride-along don't, because they aren't studio shows.
 
-**The Quiet Hour** (`set_quiet_hour`) is a transmitter's control room in the dark, a set of its own. Its pieces are in [gl/set-control.js](../../client/game/js/panels/gl/set-control.js): `starfield` (a night sky with a galaxy in it), `oscilloscope`, `tape_deck`, `control_desk` and `signal_rings`.
+**The Quiet Hour** (`set_quiet_hour`) is a transmitter's control room in the dark, a set of its own, shot in black and white after The Outer Limits. The Control Voice sits at the console with the Horizontal and the Vertical standing either side of it, each on a mark kept `for` them. Its pieces are in [gl/set-control.js](../../client/game/js/panels/gl/set-control.js): `starfield` (a night sky with a galaxy in it), `oscilloscope`, `tape_deck`, `control_desk` and `signal_rings`.
 
 **A title card fills the picture.** When a script's `TITLE` airs while a show is on its set, the card (an SVG or ASCII graphic) covers the 3-D picture. The line straight after it is read over it if nobody on the set says it, which is how a `SHOT` that describes the card is heard. The next line takes the card down, and from then on the set's video wall shows a still of it that rolls now and then (`card` in tv-stage.js, `liveCard` in sequence-player.js). A set with a bank of screens keeps its own pictures.
 

@@ -2,7 +2,7 @@
   "ambient_events": [],
   "ambient_theme": "indoors",
   "bg_color": "#8f9a7e",
-  "description": "The ground-floor lobby of The Meridian, a residential tower that survived the Collapse the same way most things survived it: through sheer institutional inertia. Cracked terrazzo floors carry the ghost of a geometric inlay, ground to near-invisibility by foot traffic. A bank of tenant mailboxes lines the east wall, most of them pried open decades ago, doors hanging at odd angles, contents long gone. The security desk sits unmanned, its terminal cycling a screensaver of rolling static. Emergency lighting casts everything in pale amber. Stairs ascend through a fire door to the upper floors.",
+  "description": "Terrazzo floor with a brass sunburst in the middle, cracked straight through. Black glass to shoulder height, cream plaster above, a gilt zigzag under the ceiling. Two bronze lift doors on the south wall, both out of order. The security desk faces the street door with nobody behind it. Pried-open mailboxes by the door. A fire door to the stairs.",
   "exits": {
     "down": "zone_util_zone_meridian_lobby",
     "east": "zone_district_918_908",
@@ -10,14 +10,204 @@
   },
   "flags": {
     "building_type": "apartment",
-    "floor": "linoleum",
+    "floor": "stone",
     "is_building": true,
     "is_interior": true,
+    "room": {
+      "balcony": false,
+      "d": 9,
+      "decor": {
+        "art": [
+          {
+            "at": 4.5,
+            "h": 0.9,
+            "seed": 31,
+            "w": 1.4,
+            "wall": "left",
+            "y": 2.6
+          }
+        ],
+        "ceiling": {
+          "band": 0.6,
+          "cell": 2.2,
+          "drop": 0.32,
+          "hex": "#ece3cf",
+          "kind": "coffer",
+          "trim": "#c49a52"
+        },
+        "doors": [
+          {
+            "at": -1.4,
+            "dial": 60,
+            "finish": "bronze",
+            "label": "Out of order",
+            "pair": true,
+            "w": 1.1,
+            "wall": "back"
+          },
+          {
+            "at": 1.4,
+            "dial": 0,
+            "finish": "bronze",
+            "label": "Out of order",
+            "pair": true,
+            "w": 1.1,
+            "wall": "back"
+          },
+          {
+            "at": -4,
+            "finish": "steel",
+            "label": "Stairs",
+            "w": 1,
+            "wall": "front"
+          },
+          {
+            "at": 7.6,
+            "finish": "steel",
+            "label": "Service",
+            "w": 1,
+            "wall": "left"
+          }
+        ],
+        "downlights": false,
+        "floor": {
+          "border": "#1c1916",
+          "field": "#e9dfcb",
+          "inset": 0.5,
+          "line": "#c49a52",
+          "medallion": [
+            0,
+            4.5,
+            1.7
+          ],
+          "ray": "#b98a4a",
+          "rays": 16,
+          "star": "sunburst",
+          "w": 0.26
+        },
+        "frieze": {
+          "h": 0.24,
+          "hex": "#1e1c1a",
+          "line": "#c49a52",
+          "y": 3.6
+        },
+        "lights": [
+          {
+            "at": [
+              0,
+              4.5
+            ],
+            "drop": 1.5,
+            "k": 1.7,
+            "kind": "tiers",
+            "r": 0.6,
+            "tiers": 4
+          }
+        ],
+        "pilasters": {
+          "hex": "#e8dfcc",
+          "points": [
+            [
+              "back",
+              -3
+            ],
+            [
+              "back",
+              0
+            ],
+            [
+              "back",
+              3
+            ],
+            [
+              "front",
+              -1.4
+            ],
+            [
+              "front",
+              1.4
+            ]
+          ],
+          "trim": "#c49a52",
+          "w": 0.34,
+          "y1": 4.05
+        },
+        "rug": false,
+        "sconces": {
+          "kind": "fan",
+          "points": [
+            [
+              "front",
+              -2.2
+            ],
+            [
+              "front",
+              2.2
+            ],
+            [
+              "front",
+              4.4
+            ],
+            [
+              "back",
+              -4.2
+            ],
+            [
+              "back",
+              4.2
+            ],
+            [
+              "left",
+              2.4
+            ],
+            [
+              "left",
+              6
+            ],
+            [
+              "right",
+              3.05
+            ],
+            [
+              "right",
+              6.6
+            ]
+          ],
+          "y": 2.2
+        },
+        "walls": {
+          "hex": "#211e1c",
+          "kind": "stone",
+          "pitch": 1,
+          "trim": "#c49a52",
+          "y1": 1.3
+        }
+      },
+      "face": 0,
+      "finish": "fine",
+      "ground": "terrazzo",
+      "h": 4.4,
+      "street_door": {
+        "glass": "#7f97a0",
+        "kind": "swing",
+        "monogram": "M",
+        "trim": "#5a4430",
+        "w": 2
+      },
+      "studio": false,
+      "tone": {
+        "accent": "#c49a52",
+        "ceiling": "#ece3cf",
+        "trim": "#1e1c1a",
+        "wall": "#e6dcc8"
+      },
+      "w": 12
+    },
     "terrain": "grass",
     "window": {
-      "description": "A full-height pane onto the street, kept just clean enough to trade through. Whatever the weather is doing out there, it's doing it in plain view.",
+      "description": "A tall steel-framed window with a border of chevrons etched into the glass. Somebody keeps a patch clean at eye height.",
       "light": 0.85,
-      "name": "the shopfront window",
+      "name": "the lobby window",
       "visibility": 0.9
     },
     "world_exit_zone": "zone_district_918_908"

@@ -1438,6 +1438,7 @@ const handlers = {
   room_locks: (msg) => { roomMod?.then((m) => m.roomLocks(msg)).catch(() => {}); },
   // the shutters over a room's glass and the scene on them, changed from its control panel (plugins/envcontrol)
   room_glass: (msg) => { roomMod?.then((m) => m.roomGlass(msg)).catch(() => {}); },
+  room_power: (msg) => { roomMod?.then((m) => m.roomPower(msg)).catch(() => {}); },
   room_plumbing: (msg) => { roomMod?.then((m) => m.roomPlumbing(msg)).catch(() => {}); },
   // a tag sprayed on a room's wall or cleaned off it (plugins/roomstage, plugins/graffiti)
   room_tags: (msg) => { roomMod?.then((m) => m.roomTags(msg)).catch(() => {}); },

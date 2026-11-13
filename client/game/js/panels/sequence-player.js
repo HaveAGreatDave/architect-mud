@@ -27,13 +27,15 @@ import { mouthTrack, textTrack, mouthAt } from '../../../shared/lip-sync.js';
 const PIP_MS = 80;       // a second camera, twelve times a second
 const WALL_MS = 66;      // the live feed on the wall
 const TURN_K = 0.1;      // how fast a body turns to whoever's talking, a frame
+const MONO = 'grayscale(1) contrast(1.18) brightness(1.06)';   // a set's `picture: 'mono'`
 const NO_WIN = { p: [0, -40, 0], n: [0, 1, 0], a: [0.01, 0, 0], b: [0, 0, 0.01], k: 0 };
 
 const wrapAngle = (a) => Math.atan2(Math.sin(a), Math.cos(a));
 
 // `onFrame` is called straight after each frame is drawn, while its picture is still in the buffer: a
 // set in the Room Stage copies it from there (room-tv.js), since a WebGL picture is gone after the task.
-export function createSequencePlayer(host, { mode = 'clock', phone = false, feed = null, photo = null, speak = null, onBeat = null, onEnd = null, onFrame = null } = {}) {
+// `onAir` false draws a set as the room it is, never in black and white (the studio floor, room-studio.js).
+export function createSequencePlayer(host, { mode = 'clock', phone = false, feed = null, photo = null, speak = null, onBeat = null, onEnd = null, onFrame = null, onAir = true } = {}) {
   const canvas = document.createElement('canvas');
   canvas.className = 'sq-canvas';
   canvas.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;display:block';
@@ -58,7 +60,8 @@ export function createSequencePlayer(host, { mode = 'clock', phone = false, feed
   const WALK_MS = 1.45;   // a host's brisk pace across his own stage, metres a second (startWalk, stepWalk)
   function liveStart({ set, people = [], data = {} }) {
     load({ seq: { id: 'live', roles: {}, beats: [] }, set, cast: {}, data, seed: 'live' });
-    S.live = { looks: new Map(people.map((p) => [p.name, p])), said: new Map(), prev: null, prevRole: '', n: 0, k: 0, home: new Map() };
+    // `billed` is the name a line airs under ("THE CONTROL VOICE says"), and it's the same person as `name`
+    S.live = { looks: new Map(people.map((p) => [p.name, p])), billed: new Map(people.filter((p) => p.billed).map((p) => [String(p.billed).toLowerCase(), p.name])), said: new Map(), prev: null, prevRole: '', n: 0, k: 0, home: new Map() };
     for (const p of people) seat(p.name);
     // a mark kept `for` somebody is filled before they speak, so the desk is never empty at the open
     for (const m of Object.values(S.set.marks || {})) for (const name of [].concat(m.for || [])) seat(name);
@@ -74,6 +77,7 @@ export function createSequencePlayer(host, { mode = 'clock', phone = false, feed
   }
   // somebody's seat: the next free mark, or none, and then they're heard and not seen
   function seat(name) {
+    name = S.live.billed?.get(String(name).toLowerCase()) || name;
     const L = S.live, have = Object.keys(S.cast).find((r) => S.cast[r].name === name);
     if (have) return have;
     // a line under one word, "John" or "AKERSON", is whoever's cast under that first name or surname,
@@ -157,7 +161,7 @@ export function createSequencePlayer(host, { mode = 'clock', phone = false, feed
     const shot = dir ? { ...dir, on: dir.on.length || dir.frame === 'full' ? dir.on : role ? [role] : [] }
       : hold ? { ...L.prev, move: 'none', cut: 'cut' } : autoShot(S.set, S.seq, role, { prev: L.prev, prevRole: L.prevRole, said, n: L.n++ });
     const first = role && !said;
-    const beat = { id: `l${++L.k}`, shot, ...(role ? { say: { role, lines: [text] } } : {}), gfx: first ? [{ kind: 'lower', text: '{speaker.name}', sub: S.cast[role]?.title || S.data.show || '', at: 0.4, for: 4.5 }] : [] };
+    const beat = { id: `l${++L.k}`, shot, ...(role ? { say: { role, lines: [text] } } : {}), gfx: first ? [{ kind: 'lower', text: S.cast[role]?.billed || '{speaker.name}', sub: S.cast[role]?.title || S.data.show || '', at: 0.4, for: 4.5 }] : [] };
     pushLive(beat, { role, text, dur: lineSeconds(text), name });
     if (role) { L.said.set(role, said + 1); lips.set(role, { track: textTrack(text), t0: performance.now() }); }
     L.prevRole = role || L.prevRole;
@@ -188,6 +192,7 @@ export function createSequencePlayer(host, { mode = 'clock', phone = false, feed
   // stranger with a rolled face, so the TV asks for the cast again (tv-stage.js onStranger).
   function liveKnows(name) {
     if (!S?.live || !name) return true;
+    name = S.live.billed?.get(String(name).toLowerCase()) || name;
     if (S.live.looks.has(name)) return true;
     const r = Object.keys(S.cast).find((k) => S.cast[k].name === name) || (!/\s/.test(String(name).trim()) && roleNamed(name));
     return !!r && !String(S.cast[r]?.id || '').startsWith('viewer:');
@@ -331,6 +336,10 @@ export function createSequencePlayer(host, { mode = 'clock', phone = false, feed
 
   function load({ seq, set, cast = {}, data = {}, seed = '' }) {
     const m = buildSet(set);
+    // a set shot in black and white (`picture: 'mono'`): the whole frame, the dissolve under it included.
+    // A filter on the canvas, so it costs the renderer nothing, and a copy of the frame (page-paint.js grab)
+    // takes the canvas's filter with it.
+    canvas.style.filter = veil.style.filter = onAir && set?.picture === 'mono' ? MONO : '';
     R.setRoom(m.room, () => blank);
     R.setScreen(blank);
     S = { seq, set, cast, data, seed, lamps: m.lamps, wall: m.wall, tl: timeline(seq, data, { cast, seed }) };

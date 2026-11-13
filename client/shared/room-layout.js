@@ -1047,7 +1047,7 @@ function keepClear(S) {
 //   doors    `up`/`down` as [u, v]: where the stair is, in the room's own frame. A `down` stair
 //            is a well 1 m across running `run` metres (default 2.2) toward the left-hand wall
 //            from its head at [u, v]; building-graph.js stacks the room below so its `up` meets it
-//   ground   'stone' for a stone floor instead of the finish's boards
+//   ground   'stone' for a stone floor instead of the finish's boards; also 'marble', 'terrazzo', 'tile', 'concrete', 'rubber'
 //   windowless  true for a room with no window
 //   club     true for a club: dark paint, bills on the walls, a truss of moving lights and strobes
 // A lift car's panel (docs/proposals/building-stage.md): `spec.lift` is { floors: [{ n, label }], at },
@@ -1091,8 +1091,8 @@ export function roomSpecOf(flags, isFlat, { storey = null } = {}) {
   out.windows = glass.length ? glass.map(pane) : [{ wall: 'front', a: window[0], b: window[1], y0: window[2], y1: window[3], kind: 'sash' }];
   if (glass.includes('front')) out.window = [-hu + 0.12, hu - 0.12, 0.05, h - 0.1];
   if (base.ensuite && typeof base.ensuite === 'object') out.ensuite = base.ensuite;
-  // `tile` is a clinic's white tile, `concrete` a plant room's slab (gl/room-mesh.js)
-  if (['stone', 'marble', 'rubber', 'tile', 'concrete'].includes(base.ground)) out.ground = base.ground;
+  // `tile` is a clinic's white tile, `concrete` a plant room's slab, `terrazzo` an old lobby's chips in cream (gl/room-mesh.js)
+  if (['stone', 'marble', 'terrazzo', 'rubber', 'tile', 'concrete'].includes(base.ground)) out.ground = base.ground;
   // a lift car: clad as one (gl/room-mesh.js drawCar), whether you're in it or seeing it from a landing
   if (base.car === true) out.car = true;
   // lettering on a wall, as a hotel puts its name behind the desk: { text, sub, wall, y, size, at }.

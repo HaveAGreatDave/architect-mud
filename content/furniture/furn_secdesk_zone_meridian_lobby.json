@@ -1,9 +1,25 @@
 {
-  "description": "A curved reception desk in scuffed laminate, built to be manned around the clock. The chair behind it is long gone. A dead terminal cycles rolling static, throwing a faint grey flicker across the underside of the counter. A coffee ring older than most of the tenants has fossilised on it.",
+  "description": "A security desk with a fluted bronze front and a marble top. The chair behind it is gone. A brass lamp at one end, a bell at the other, and a terminal on the worktop behind cycling static. A coffee ring has fossilised by the bell.",
   "flags": {
     "interactions": [
       "lean"
-    ]
+    ],
+    "look": {
+      "arche": "surface",
+      "dims": [
+        2.6,
+        0.7,
+        1.05
+      ],
+      "form": "reception"
+    },
+    "spot": {
+      "at": [
+        -3,
+        4.5
+      ],
+      "turn": 90
+    }
   },
   "hp": null,
   "hp_max": null,

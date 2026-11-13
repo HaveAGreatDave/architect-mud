@@ -558,6 +558,8 @@ export function openFreelook(ctx = {}) {
         streetDoors: st.foot ? doorLeaves(st, now, dt) : null,
         // the rooms of the buildings near you, drawn in the city (gl/interiors.js); null off foot
         interiorRooms: st.foot && st.interiors?.length ? st.interiors : null,
+        // on foot the near plane comes in to a third of a metre, so people stay whole as you walk up to them
+        nearMax: st.foot ? FOOT_NEAR : 0,
       });
 
       // ⚠ WHERE THE CAMERA IS, NOT WHERE THE WINDOW IS CENTRED. This read `st.gx,st.gy`, which is
@@ -1011,6 +1013,9 @@ function bindFootPointer(el, cam) {
 // between the jambs is and how high the lintel hangs are asked of the building's own mass, so the leaves fit
 // whatever arm draws it. An arm with no jambs or lintel gets a doorway from the room's own width.
 const METRE = FPS_EYE / 1.6;   // a metre in tiles: FPS_EYE is 1.6 m
+// GLASS 2's near plane on foot (makeCam nearMax). The fixed 0.06 tiles is 1.07 m, which cut away anybody you walked up
+// to. 0.3 m is about NEAR_MIN (gl/camera.js), the plane a camera flat on the road already ships with.
+const FOOT_NEAR = 0.3 * METRE;
 const FOOT_BODY = 0.016, FOOT_STEP = 0.011, DOOR_NEAR = 2.6 * METRE, DOOR_HOLD_MS = 1400, DOOR_OPEN_S = 0.55, DOOR_SHUT_S = 0.9;
 const EDGE_VEC = { north: [0, -1], south: [0, 1], east: [1, 0], west: [-1, 0] };
 const cellOf = (s, wx, wy) => { const R = (s.map.length - 1) / 2; return s.map[wy - s.gy + R]?.[wx - s.gx + R] || null; };

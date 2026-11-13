@@ -161,8 +161,8 @@ void main() {
   o = vec4(clamp(c, 0.0, 1.0), 1.0);
 }`;
 
-declareProgram(FULL_VS, LENS_FS);
-declareProgram(FULL_VS, SCREEN_FS);
+declareProgram(FULL_VS, LENS_FS, null, { scenes: ['park'] });
+declareProgram(FULL_VS, SCREEN_FS, null, { scenes: ['park'] });
 
 export function createBroadcastPass(gl) {
   const link = (fs) => {

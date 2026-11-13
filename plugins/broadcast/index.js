@@ -351,7 +351,12 @@ function stageFor(channelId) {
   // a camera droid is the crew, never the cast
   // where the show has put each of them (_block), so a viewer tuning in mid-monologue sees the host on the star
   const placed = state.graphBlackboard?.blocking?.bid === bid ? state.graphBlackboard.blocking.at : null;
-  const people = [...ids].map((id) => world.npcs.get(id)).filter((n) => n && !n._dead && !n.flags?.camera_droid).slice(0, 12).map((n) => ({ id: n.id, name: n.name, sex: n.sex, figure: n.flags?.figure || null, ...(placed?.[n.id] ? { to: placed[n.id] } : {}) }));
+  // A billed actor's lines air as "THE CONTROL VOICE says", so the stage is told the billing too, or it
+  // seats a stranger under that name to say them while the actor sits silent on his mark.
+  const people = [...ids].map((id) => world.npcs.get(id)).filter((n) => n && !n._dead && !n.flags?.camera_droid).slice(0, 12).map((n) => {
+    const billed = _anchorDisplayFor(graph, n.id);
+    return { id: n.id, name: n.name, sex: n.sex, figure: n.flags?.figure || null, ...(billed && billed !== n.name ? { billed } : {}), ...(placed?.[n.id] ? { to: placed[n.id] } : {}) };
+  });
   // a talk show's guest is tonight's: the persona the day draws, or the townsperson who's come in to do it
   if (item?.playback_mode === 'talkshow' && item.talkshowScript) {
     const persona = talkshowPersonaFor(item.talkshowScript, talkshowDayBucket());
@@ -3260,8 +3265,9 @@ function assembleSportsGraph(script, broadcastId, slot, override, opts = {}) {
   };
   add({ type: 'start' });
   // A `@theme` rides the card as it does on the news: the network's open starts with the
-  // card, plays through once, and the card holds until it ends.
-  if (script.title) add({ type: 'title_card', graphic_id: script.title, theme: script.theme || null });
+  // card, plays through once, and the card holds until it ends. It names the sport that follows
+  // (`warm`), so a set can get the game's 3-D view ready while the open plays.
+  if (script.title) add({ type: 'title_card', graphic_id: script.title, theme: script.theme || null, warm: sportOf(script).id });
 
   const winner = () => (homeScore === awayScore ? '' : (homeScore > awayScore ? home.name : away.name));
 
@@ -9261,7 +9267,10 @@ function tickBroadcastGraph(channelId, graph, state, nowMs, segElapsedSec = 0) {
           const adSet = breakSetFor(graphicsCache, gid);
           if (adSet) bb.breakSet = { bid: bb.activeBroadcastId, id: adSet };
           const swapTo = adSet ? _stageSwap(channelId) : null;
-          return { text: cardContent + caption, key: `graphic:${channelId}:${gid}:${nowMs}`, style: graphicStyle(graphic), ...(swapTo ? { graphic: swapTo } : {}), ...(themeSong ? { song: themeSong, songOnce: true } : {}), ...(themeSample ? { sample: themeSample } : {}) };
+          // a game's open tells the set which sport follows, so its 3-D view compiles its shaders while
+          // the theme plays (tv.js, the `warm` overlay); it draws nothing
+          const warm = !swapTo && node.data?.warm ? { overlayType: 'warm', sport: node.data.warm } : null;
+          return { text: cardContent + caption, key: `graphic:${channelId}:${gid}:${nowMs}`, style: graphicStyle(graphic), ...(swapTo ? { graphic: swapTo } : warm ? { graphic: warm } : {}), ...(themeSong ? { song: themeSong, songOnce: true } : {}), ...(themeSample ? { sample: themeSample } : {}) };
         }
         // Graphic missing or empty — log it and skip straight to the next card this
         // tick (no dead 5s hold on a card that can't render).

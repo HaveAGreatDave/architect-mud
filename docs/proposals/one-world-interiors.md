@@ -20,6 +20,8 @@ Rooms load only when you're near them, and further off they're drawn more simply
 
 A room is built the first frame the layer wants it, `INTERIOR_TUNE.budget` (1) a frame, and let go about four seconds after it drops out of range. At most `maxNear` (8) rooms are whole at once.
 
+A whole room's mesh and its materials' pictures are built in a worker (room-mesh-worker.js, the one the Room Stage bakes ahead in), not on the frame: `meshReady` in room-interiors.js asks for it, and until it's back `interiorsFrame` draws the room as its box. Built on the page it was 40 to 60 ms a room warm and about 200 ms cold, so walking up to a building with a few Stage rooms was a run of long frames. Measured in Chrome on 2026-11-13: the Solenne's 21 rooms took about 14 s of cold worker time between them, and then handed the layer their parts in under a millisecond. The meshes are kept by room and lamp (32 of them), since a push makes the room objects again. With no worker (Node, the gates) a room is built on the spot as before.
+
 ## How it fits together (step 1, built)
 
 - `room-view.js` `roomToGlass(L, origin, bearing, floorM)`: the 4×4 from a room's own frame to GLASS tiles about its building's tile, and `roomOrigin(frame, bearing)` for where its front wall stands. These are the window view's own sums (`viewOf`, `inBuilding`), and `scripts/client/interiors-smoke.mjs` holds them to each other.

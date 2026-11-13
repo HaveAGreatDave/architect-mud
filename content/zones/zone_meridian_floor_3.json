@@ -2,7 +2,7 @@
   "ambient_events": [],
   "ambient_theme": "indoors",
   "bg_color": "#8f9a7e",
-  "description": "Floor 3 of The Meridian. A narrow corridor stretches between four unit doors, numbers 301, 302, 303, 304, stamped in adhesive metal letters, most of which have survived. The walls are poured concrete behind a skim of paint that went off-white long ago, old marker tags bleeding through where the building manager gave up trying to buff them out. Synthetic carpet the color of old claret muffles every footfall. Sodium-orange emergency strips trace the baseboards. The recycled air carries the mingled residue of a dozen private lives: synthetic tobacco, mystery cooking, and the faint ionised bite of an ageing HVAC system.",
+  "description": "The runner is worn through to the backing in a path from the stairs to 302. Half the shell lamps have lost their glass and burn bare. The black glass on the walls is cracked in three places and taped in one. Doors 301 to 304. A child's bike leans on the lift doors.",
   "exits": {
     "down": "zone_meridian_floor_2",
     "east": "zone_meridian_unit_302",
@@ -12,8 +12,129 @@
     "west": "zone_meridian_unit_304"
   },
   "flags": {
-    "floor": "linoleum",
+    "floor": "carpet",
     "is_interior": true,
+    "room": {
+      "balcony": false,
+      "d": 3.2,
+      "decor": {
+        "ceiling": {
+          "band": 0.35,
+          "drop": 0.14,
+          "hex": "#ece3cf",
+          "kind": "cove",
+          "trim": "#c49a52"
+        },
+        "doors": [
+          {
+            "at": -5,
+            "finish": "steel",
+            "label": "Stairs",
+            "w": 1,
+            "wall": "front"
+          },
+          {
+            "at": 3,
+            "dial": 60,
+            "finish": "bronze",
+            "pair": true,
+            "w": 1,
+            "wall": "back"
+          },
+          {
+            "at": 5.4,
+            "dial": 0,
+            "finish": "bronze",
+            "pair": true,
+            "w": 1,
+            "wall": "back"
+          }
+        ],
+        "downlights": false,
+        "frieze": {
+          "h": 0.22,
+          "hex": "#1e1c1a",
+          "line": "#c49a52",
+          "y": 2.8
+        },
+        "pilasters": {
+          "hex": "#e8dfcc",
+          "points": [
+            [
+              "back",
+              2.26
+            ],
+            [
+              "back",
+              4.2
+            ],
+            [
+              "back",
+              6.7
+            ]
+          ],
+          "trim": "#c49a52",
+          "w": 0.3,
+          "y1": 3.04
+        },
+        "plaques": {
+          "zone_meridian_unit_301": "301",
+          "zone_meridian_unit_302": "302",
+          "zone_meridian_unit_303": "303",
+          "zone_meridian_unit_304": "304"
+        },
+        "rug": false,
+        "runner": {
+          "along": "u",
+          "border": "#7a6038",
+          "end": 0.6,
+          "hex": "#4a1a20",
+          "w": 1.3
+        },
+        "sconces": {
+          "kind": "fan",
+          "points": [
+            [
+              "front",
+              -2.6
+            ],
+            [
+              "front",
+              6
+            ],
+            [
+              "back",
+              -6
+            ],
+            [
+              "back",
+              1.8
+            ]
+          ],
+          "y": 1.9
+        },
+        "walls": {
+          "hex": "#211e1c",
+          "kind": "stone",
+          "pitch": 1,
+          "trim": "#c49a52",
+          "y1": 1
+        }
+      },
+      "face": 0,
+      "finish": "fine",
+      "ground": "terrazzo",
+      "h": 3.2,
+      "studio": false,
+      "tone": {
+        "accent": "#c49a52",
+        "ceiling": "#ece3cf",
+        "trim": "#1e1c1a",
+        "wall": "#e6dcc8"
+      },
+      "w": 16,
+      "windowless": true
+    },
     "terrain": "grass"
   },
   "grid_x": 0,
@@ -21,6 +142,6 @@
   "grid_z": 3,
   "id": "zone_meridian_floor_3",
   "map_id": "map_int_meridian",
-  "name": "The Meridian — Floor 3 Hallway",
+  "name": "The Meridian - Floor 3 Hallway",
   "parent_zone": "zone_district_918_908"
 }

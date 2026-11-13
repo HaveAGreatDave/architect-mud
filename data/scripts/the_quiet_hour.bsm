@@ -1,3 +1,8 @@
+# ⚠ THE SHOW HAS MOVED PAST THIS FILE. content/media_broadcasts/bc_the_quiet_hour.json is the
+# source: its graph was edited in VINE (openings by the hour, the viewer checks, the real-news
+# eleven, the asides), and it has three voices now (THE HORIZONTAL, npc_ingrid_sterne, and THE
+# VERTICAL, npc_lorne_prentiss) and tonight's story. Recompiling this file would throw all of
+# that away. Edit the graph.
 @broadcast "The Quiet Hour"
 @category overnight
 @length 300

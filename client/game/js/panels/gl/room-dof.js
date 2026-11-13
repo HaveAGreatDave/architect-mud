@@ -94,8 +94,8 @@ void main() {
   o = vec4(c.a > 1e-4 ? c.rgb / c.a : vec3(0.0), c.a);
 }`;
 
-declareProgram(FULL_VS, FOCUS_FS);
-declareProgram(FULL_VS, LENS_FS);
+declareProgram(FULL_VS, FOCUS_FS, null, { scenes: ['room'] });
+declareProgram(FULL_VS, LENS_FS, null, { scenes: ['room'] });
 
 // Is the lens wanted: the setting (main.js leaves it on window), on unless it's been turned off. The Room Lab
 // and the gates have no settings, and get it.

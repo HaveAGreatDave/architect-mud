@@ -607,4 +607,4 @@ export function createHDRLayer(gl) {
     get drawFbo() { return bound ? (splitDone ? post.fbo : msFbo) : null; } };
 }
 
-for (const f of [BRIGHT_FRAG, BLUR_FRAG, DOWN_FRAG, COMPOSITE_FRAG, FXAA_FRAG]) declareProgram(FULL_VERT, f);
+for (const f of [BRIGHT_FRAG, BLUR_FRAG, DOWN_FRAG, COMPOSITE_FRAG, FXAA_FRAG]) declareProgram(FULL_VERT, f, null, { scenes: ['glass', 'park'] });

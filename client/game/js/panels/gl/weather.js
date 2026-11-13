@@ -99,7 +99,7 @@ in float vSide; in float vGlow; out vec4 o;
 uniform vec3 uCol;
 void main() { o = vec4(uCol * vGlow * exp(-2.5 * vSide * vSide), 1.0); }`;
 
-for (const [vs, fs] of [[FALL_VS, FALL_FS], [BOLT_VS, BOLT_FS]]) declareProgram(vs, fs);
+for (const [vs, fs] of [[FALL_VS, FALL_FS], [BOLT_VS, BOLT_FS]]) declareProgram(vs, fs, null, { scenes: ['park'] });
 
 // Seeds for the most anything falls, the same for every park.
 function seeds(n) {

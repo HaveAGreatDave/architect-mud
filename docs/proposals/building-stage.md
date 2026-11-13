@@ -204,6 +204,16 @@ stands behind it and still idles at the bar's work: pouring, shaking, pulling a 
 light, sending a glass down the bar (actor3d.js, the props in gl/figure-reach.js). The Embassy's lounge is
 dressed this way by `scripts/content/embassy-rooms.mjs`.
 
+For an art deco building (gl/room-decor.js, all data): `floor.star: 'sunburst'` makes the medallion rays of two
+stones between brass strips, in a square border, or fanned out from a wall with `half`; `frieze` is a black band
+under the ceiling with a gilt zigzag; `pilasters` are fluted under stepped capitals; `sconces.kind: 'fan'` is a
+frosted half shell on a stepped plate; `lights[].kind: 'tiers'` is a pendant of opal glass in tiers; and a shut door
+can be `finish: 'bronze'` with `pair` (a lift's two leaves, a chevron on each) and `dial` (the floor dial over it,
+its needle at that many degrees). `ground: 'terrazzo'` is marble chips in a cream binder, and a runner's `span` lays
+it over part of a hall. The Meridian's lobby and six landings are finished this way by
+`scripts/content/meridian-rooms.mjs`: kept on the first two floors, worse each floor up, and patched with concrete
+under the roof. The stairs and the two lifts are shut doors, as the text says they are.
+
 The Solenne's five amenity floors are finished this way by `scripts/content/solenne-amenities.mjs`, which writes
 each room's `flags.room` and every row's `look` and `spot`: Bishop's Blend, Sweat Equity, The Aerie, the Sky
 Deck and the Sky Pad. Edit the script and run it again, not the JSON.

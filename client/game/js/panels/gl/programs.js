@@ -5,9 +5,11 @@
 // inside the first frame, and that frame took seconds. With KHR_parallel_shader_compile the driver
 // compiles on worker threads, and nothing waits until a status is asked for. So:
 //
-//   1. A layer declares its sources at module load: `declareProgram(VERT, FRAG)`.
-//   2. `createGLView` calls `prewarmPrograms(gl)` on a new context, which compiles and links every
-//      declared program and asks nothing.
+//   1. A layer declares its sources at module load: `declareProgram(VERT, FRAG)`, with the scenes
+//      that draw it (`{ scenes: ['park'] }`; GLASS's own, 'glass', when it names none).
+//   2. A scene's renderer calls `prewarmPrograms(gl, scene)` on a new context (`createGLView` for
+//      'glass', and the park, the rink and the room for theirs), which compiles and links every
+//      program declared for that scene and asks nothing.
 //   3. The layer's builder calls `takeWarm(gl, VERT, FRAG)` first. It gets the prewarmed program
 //      (done by then, or nearly) and asks LINK_STATUS as it always did. No warm program, it builds
 //      its own exactly as before.
@@ -15,24 +17,35 @@
 // ⚠ ONLY WITH THE EXTENSION. Without it the compiles run in submission order in the GPU process,
 // and prewarming programs this frame doesn't use would queue them AHEAD of the ones it does.
 //
+// ⚠ ONLY THE SCENE'S OWN. Every module that's loaded declares into the one list, so before scenes
+// the park, opened after a room or with the rink loaded beside it, compiled the room's figure (a
+// 114k-character shader, over a minute through Direct3D's compiler with a cold cache) in a context
+// that never draws it. A program two scenes draw names both.
+//
 // ⚠ A PROGRAM THAT BINDS ATTRIBUTE LOCATIONS before linking declares them in `bind`, because they
 // are part of the link. One whose binding is only known at runtime (the shadow and SSAO depth
 // programs take the main program's `aPos`) isn't declared and builds cold.
 
-const DECLARED = new Map();          // key → { vs, fs, bind }
+const DECLARED = new Map();          // key → { vs, fs, bind, scenes: Set, late }
 const WARM = new WeakMap();          // gl → Map(key → WebGLProgram)
 
 const keyOf = (vs, fs, bind) => vs + '\u0000' + fs + '\u0000' + (bind ? JSON.stringify(bind) : '');
 
-export function declareProgram(vs, fs, bind = null) {
-  DECLARED.set(keyOf(vs, fs, bind), { vs, fs, bind });
+// `scenes` are the scenes that draw it. `late` puts it after the scene's other programs, for a huge
+// one that's polled rather than waited on (layerProgramAsync), so it never holds up one that is.
+// The same sources declared by two modules are prewarmed in both modules' scenes.
+export function declareProgram(vs, fs, bind = null, { scenes = ['glass'], late = false } = {}) {
+  const key = keyOf(vs, fs, bind), had = DECLARED.get(key);
+  if (had) { for (const s of scenes) had.scenes.add(s); had.late = had.late && late; return; }
+  DECLARED.set(key, { vs, fs, bind, scenes: new Set(scenes), late });
 }
 
-export function prewarmPrograms(gl) {
+export function prewarmPrograms(gl, scene = 'glass') {
   if (!gl || WARM.has(gl) || !gl.getExtension('KHR_parallel_shader_compile')) return 0;
   const warm = new Map();
   WARM.set(gl, warm);
-  for (const [key, { vs, fs, bind }] of DECLARED) {
+  const mine = [...DECLARED].filter(([, d]) => d.scenes.has(scene));
+  for (const [key, { vs, fs, bind }] of [...mine.filter(([, d]) => !d.late), ...mine.filter(([, d]) => d.late)]) {
     const prog = gl.createProgram();
     for (const [type, src] of [[gl.VERTEX_SHADER, vs], [gl.FRAGMENT_SHADER, fs]]) {
       const sh = gl.createShader(type);
@@ -46,6 +59,16 @@ export function prewarmPrograms(gl) {
     warm.set(key, prog);
   }
   return warm.size;
+}
+
+// True once every program prewarmed on `gl` and not yet taken has finished compiling, so a scene can
+// build without its first LINK_STATUS query holding the page; true at once without the extension or
+// with nothing prewarmed, where there's nothing to wait for.
+export function prewarmDone(gl) {
+  const warm = WARM.get(gl), ext = warm && gl.getExtension('KHR_parallel_shader_compile');
+  if (!ext || gl.isContextLost()) return true;
+  for (const prog of warm.values()) if (!gl.getProgramParameter(prog, ext.COMPLETION_STATUS_KHR)) return false;
+  return true;
 }
 
 // The prewarmed program for these sources, once. Null when there isn't one.

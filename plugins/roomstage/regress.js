@@ -249,6 +249,8 @@ export default async function regress({ run, check, getPlayer }) {
 
     const view = await _test.viewPayload(p, APT, spec);
     check('room_view carries the spec, the pieces and the people', view.type === 'room_view' && view.pieces.length === 4 && view.people.some((x) => x.id === p.id), JSON.stringify(view).slice(0, 300));
+    // the lights are on unless the grid is down there: a room with no power_zones row is lit as it always was
+    check('room_view says the mains are on in a room nobody wired', view.power === 'on' && _test.powerOf(APT) === 'on', String(view.power));
     const again = await _test.viewPayload(p, APT, spec);
     check('a piece stays where it was stamped', JSON.stringify(again.pieces.map((x) => x.spot)) === JSON.stringify(view.pieces.map((x) => x.spot)));
     const tv = view.pieces.find((x) => x.arche === 'screen'), sofa = view.pieces.find((x) => x.arche === 'sofa');

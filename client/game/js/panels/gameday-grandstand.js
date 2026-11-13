@@ -99,6 +99,16 @@ const SMOOTH_S = 0.35;
 const RACES = ['hr', 'avg', 'sb', 'k'];
 // How many lines the live text keeps (gameday.js keeps as many).
 const LIVE_KEEP = 12;
+// how often the view looks to see whether the park's programs have compiled (prepare)
+const PREPARE_POLL_MS = 100;
+
+// The park's programs compiled ahead of the game, while its open is on (tv.js, off the title card's
+// `warm` overlay): the GL module loaded and its shaders put through the driver in a throwaway context,
+// so the view's own finds them in the browser's cache (gl/ballpark.js warmBallpark). Nothing waits on it.
+export function warmGrandstand(win = globalThis) {
+  if (!grandstandOn(win)) return Promise.resolve(false);
+  return import('./gl/ballpark.js').then((m) => m.warmBallpark(win.document)).catch(() => false);
+}
 const STEALS = new Set(['steal', 'caughtstealing', 'doublesteal']);
 
 export function createGrandstandView(host, opts = {}) {
@@ -113,6 +123,9 @@ export function createGrandstandView(host, opts = {}) {
   let tvHud = null, tvCanvas = null, tvWas = null;
   let era = 0;   // counts clears, so work waiting on a load can tell it has been cleared
   let R = null, hud = null, canvas = null, mounted = false, modsP = null, mods = null, ro = null, raf = 0, unVenue = null, unClubs = null, dressed = null;
+  // the park's programs compiling on the shell's canvas (gl/ballpark.js prepareBallpark): resolves once
+  // they're done, and only then is the park built, so a cold compile never freezes the page
+  let parkP = null;
   // where the venue's roof is going (1 shut, 0 open) as the seat last heard it, for a renderer built after
   let roofWant = null;
   // the picture's quality (diamond/quality.js): the tier the screen starts on, and the governor that
@@ -215,7 +228,7 @@ export function createGrandstandView(host, opts = {}) {
     try { R?.dispose(); } catch { /* already gone */ }
     hud?.dispose(); tvHud?.dispose(); tvHud = null; tvCanvas = null; tvWas = null;
     snd?.dispose(); snd = null; jumbo = null;
-    R = null; hud = null; canvas = null; mounted = false;
+    R = null; hud = null; canvas = null; mounted = false; parkP = null;
     ro?.disconnect(); ro = null;
     host.innerHTML = '';
     flat = createGamedayView(host, opts);
@@ -249,8 +262,10 @@ export function createGrandstandView(host, opts = {}) {
       colourOf: (team) => (team && team === S.homeTeam ? sideColours('home', team) : team && team === S.awayTeam ? sideColours('away', team) : null),
     };
   }
-  function mount() {
-    if (mounted || flat) return !flat;
+  // The page round the picture, up before the park is built: the caption, the buttons and the canvas
+  // the park's programs compile on.
+  function shellUp() {
+    if (canvas) return;
     host.innerHTML = shell();
     addFullscreenButton(host.querySelector('.gds-park'), host);
     addCamButton(host.querySelector('.gds-park'));
@@ -259,6 +274,43 @@ export function createGrandstandView(host, opts = {}) {
     canvas = host.querySelector('.gds-canvas');
     comicCanvas = host.querySelector('.gds-comic');
     size();
+  }
+  // The modules, then the park's programs compiled on the shell's canvas in the background, polled
+  // (gl/ballpark.js prepareBallpark). Meanwhile the view is the shell, the captions and the word that
+  // the game's on its way, and the page runs on: the theme and the card before it play out.
+  // True when the park can be built now, or a promise that resolves when it can.
+  function prepare() {
+    if (mounted || flat || parkP === true) return true;
+    if (parkP) return parkP;
+    shellUp();
+    // `opts.renderer` stands in for the GL park (the gates' recording renderer)
+    const done = opts.renderer || !mods.prepareBallpark ? () => true : mods.prepareBallpark(canvas, { preserve: !!opts.preserve });
+    if (done()) return (parkP = true);
+    idleVeil();
+    const mine = era;
+    return (parkP = new Promise((resolve) => {
+      const poll = () => { if (mine !== era || done()) resolve(); else (win || globalThis).setTimeout(poll, PREPARE_POLL_MS); };
+      (win || globalThis).setTimeout(poll, PREPARE_POLL_MS);
+    }));
+  }
+  // Run `go` once the park can be built without waiting on the driver: at once when it can be.
+  function whenReady(go) {
+    const fail = (err) => fallback(err && err.message);
+    if (!mods) { loadMods().then(() => whenReady(go)).catch(fail); return; }
+    const r = prepare();
+    if (r === true) go(); else r.then(go).catch(fail);
+  }
+  function idleVeil() {
+    // in a box's suite nobody needs telling: the room is the thing to look at till the game starts
+    if (opts.room || host.querySelector('.gds-idle')) return;
+    const veil = doc.createElement('div');
+    veil.className = 'gds-idle';
+    veil.innerHTML = `<div class="gds-idle-title">DEADBALL</div><div class="gds-idle-sub">Waiting for the first pitch…</div>`;
+    host.querySelector('.gds-park')?.appendChild(veil);
+  }
+  function mount() {
+    if (mounted || flat) return !flat;
+    shellUp();
     // `opts.renderer` stands in for the GL park (the gates' recording renderer)
     R = (opts.renderer || mods.createBallparkRenderer)(canvas, { ads: opts.ads || ADS, preserve: !!opts.preserve, crowd: opts.crowd, grade: opts.grade, tube: opts.tube, onAsset: () => draw() });
     seatFrom = null;   // a new renderer has nobody moved out of a seat yet
@@ -1210,7 +1262,7 @@ export function createGrandstandView(host, opts = {}) {
       R?.setEmpty?.(false);
       stage(p);
     };
-    if (mods) go(); else loadMods().then(go).catch((err) => fallback(err && err.message));
+    whenReady(go);
   }
   // The booth's line. Not held, it goes up and is spoken at once (talk between plays, and talk over
   // the pitches). Held, it's a play's call and waits for the play to land: either it comes just
@@ -1255,14 +1307,9 @@ export function createGrandstandView(host, opts = {}) {
     const go = () => {
       if (mine !== era || flat || !mount()) return;
       if (!last) { R?.setEmpty?.(true); shot = opts.shot || 'high'; paint(); }
-      // in a box's suite nobody needs telling: the room is the thing to look at till the game starts
-      if (opts.room || host.querySelector('.gds-idle')) return;
-      const veil = doc.createElement('div');
-      veil.className = 'gds-idle';
-      veil.innerHTML = `<div class="gds-idle-title">DEADBALL</div><div class="gds-idle-sub">Waiting for the first pitch…</div>`;
-      host.querySelector('.gds-park')?.appendChild(veil);
+      idleVeil();
     };
-    if (mods) go(); else loadMods().then(go).catch((err) => fallback(err && err.message));
+    whenReady(go);
   }
   function makeSound() {
     snd = opts.mute ? null : mods.createParkSound({ win, state: () => ({ p: cur?.p || last, S }), seat: opts.seat || null, announcer: opts.announcer || null, onHype: (k) => jumbo?.prompt(k, pageS(), k === 'homerun' || k === 'walkoff' ? 4.2 : k === 'play' ? 2.4 : undefined) });
@@ -1292,7 +1339,7 @@ export function createGrandstandView(host, opts = {}) {
     snd?.dispose(); snd = null;
     leaveFullscreen(host);
     if (host) host.innerHTML = '';
-    R = null; hud = null; canvas = null; mounted = false; W = null; D = null; jumbo = null; boardRep = null; boardDue = null; boardOver = null; tvReplay = null;
+    R = null; hud = null; canvas = null; mounted = false; parkP = null; W = null; D = null; jumbo = null; boardRep = null; boardDue = null; boardOver = null; tvReplay = null;
     last = null; caption = ''; pendingCaption = null; pendingCard = null; playing = false; shown = null; marks = []; dirtGame = null;
   }
 

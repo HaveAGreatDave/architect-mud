@@ -388,36 +388,57 @@ function modulePreloadBlock() {
 	return _preloadBlock;
 }
 
-// ── JS minified on serve ──────────────────────────────────────────────────────
+// ── JS and CSS minified on serve ──────────────────────────────────────────────
 // The client source is heavily commented (windshield.js is 4.4 MB), and brotli only
 // claws back part of that while the phone still parses every byte. esbuild's transform
 // runs in its own process, so it costs the loop nothing, and it runs once per file
 // version, inside the cache fill, like the compression.
 //
-// Every file gets an external source map, served at "<file>.js.map" from the same
-// cache entry, so DevTools shows the real source. Browsers fetch it only with DevTools
-// open. Same behaviour locally and in prod, for the reason STAT_TTL_MS gives.
+// CSS goes through the same transform with the css loader. styles.css was a third of
+// the boot download (171 KB of 530 KB brotli'd) and is 78 KB minified. Nothing reads a
+// sheet's text back except to inject it (loadCss), so the rewrite is safe.
+//
+// Every file gets an external source map, served at "<file>.map" from the same cache
+// entry, so DevTools shows the real source. Browsers fetch it only with DevTools open.
+// Same behaviour locally and in prod, for the reason STAT_TTL_MS gives.
 //
 // Top-level names in a classic (non-module) script are globals, and esbuild leaves
 // those alone without a format set. A file esbuild can't parse goes out as written.
 let _esbuild = null;
-async function minifyJs(raw, filePath) {
+async function minifyAsset(raw, filePath, ext) {
 	try {
 		_esbuild ??= await import("esbuild");
 		const name = filePath.split(/[\\/]/).pop();
+		const css = ext === ".css";
 		const out = await _esbuild.transform(raw.toString("utf8"), {
+			...(css ? { loader: "css" } : {}),
 			minify: true,
 			charset: "utf8",      // keep ₵ ⚙ ☢ as themselves, not \u escapes
 			legalComments: "none",
 			sourcemap: "external",
 			sourcefile: name,
+			logLevel: "silent",
 		});
-		const code = `${out.code}//# sourceMappingURL=${encodeURIComponent(name)}.map\n`;
+		const ref = `sourceMappingURL=${encodeURIComponent(name)}.map`;
+		const code = css ? `${out.code}/*# ${ref} */\n` : `${out.code}//# ${ref}\n`;
 		return { raw: Buffer.from(code, "utf8"), map: Buffer.from(out.map, "utf8") };
 	} catch (err) {
 		console.error(`[minify] serving ${filePath} unminified: ${String(err.message).split("\n")[0]}`);
 		return { raw, map: null };
 	}
+}
+
+// ── HTML comments stripped on serve ───────────────────────────────────────────
+// The game shell is 102 KB, and 20 KB of that is comments written for whoever edits it.
+// Only the comments go: whitespace stays, because some elements are white-space: pre and
+// the indentation inside them would show. The bodies of <script>, <style>, <textarea>
+// and <title> are raw text, where "<!--" isn't a comment, so they're passed over whole.
+// Runs after the modulepreload marker is replaced, so the marker is never the one lost.
+const HTML_RAW_TEXT = /(<(script|style|textarea|title)\b[^>]*>[\s\S]*?<\/\2\s*>)|<!--[\s\S]*?-->/gi;
+function stripHtmlComments(raw) {
+	const src = raw.toString("utf8");
+	const out = src.replace(HTML_RAW_TEXT, (m, rawText) => rawText ?? "");
+	return out.length === src.length ? raw : Buffer.from(out, "utf8");
 }
 
 async function getAsset(filePath) {
@@ -449,10 +470,11 @@ async function fillAsset(filePath, hit, now) {
 		);
 	}
 
-	// Minify JS as it's served, so the repo keeps its no-build rule while the wire and
-	// the browser's parser get a fraction of the bytes. See minifyJs.
+	// Minify JS and CSS as they're served, so the repo keeps its no-build rule while the
+	// wire and the browser's parser get a fraction of the bytes. See minifyAsset.
 	let map = null;
-	if (ext === ".js") ({ raw, map } = await minifyJs(raw, filePath));
+	if (ext === ".js" || ext === ".css") ({ raw, map } = await minifyAsset(raw, filePath, ext));
+	else if (ext === ".html") raw = stripHtmlComments(raw);
 
 	const compress = COMPRESSIBLE.has(ext) && raw.length >= COMPRESS_MIN_BYTES;
 	// Quality 5 (not the default 11): 11 is for build-time asset pipelines and can
@@ -732,8 +754,8 @@ const httpServer = createServer(async (req, res) => {
 	if (rel.startsWith("..") || isAbsolute(rel)) {
 		res.writeHead(404); res.end("Not found"); return;
 	}
-	// A source map for a minified script lives in that script's cache entry (minifyJs).
-	if (filePath.endsWith(".js.map") && !existsSync(filePath) && existsSync(filePath.slice(0, -4))) {
+	// A source map for a minified script or sheet lives in its cache entry (minifyAsset).
+	if (/\.(js|css)\.map$/.test(filePath) && !existsSync(filePath) && existsSync(filePath.slice(0, -4))) {
 		const asset = await getAsset(filePath.slice(0, -4)).catch(() => null);
 		if (asset?.map) {
 			res.writeHead(200, { "Content-Type": "application/json", "Cache-Control": "no-cache", ...STATIC_SECURITY_HEADERS });
