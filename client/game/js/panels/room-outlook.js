@@ -18,9 +18,10 @@
 // as the room, so there's no lag to cover; never paint to the camera a frame late again.
 // ⚠ NO GLASS IN VIEW, NO REFRESH. Facing a wall or in the en-suite, `tick` is told so and the city costs nothing.
 // ⚠ THE BUILDING ITSELF ISN'T DRAWN. eyeBase in room-view.js takes it off the centre tile. `self` alone doesn't
-// do it: a tile with a building on it is drawn under you, so a roof can be landed on.
+// do it: a tile with a building on it is drawn under you, so a roof can be landed on. A room with a balcony is the
+// exception (`msg.cut`): it keeps the building, and GLASS 2 leaves out only the room's own spot in it (roomCut).
 
-import { loadWindshield, paintWindshield, disposeWindshield, ensureWindshieldStyles, modelTopZAt, viewFocal, viewLatFocal } from './windshield-lazy.js';
+import { loadWindshield, paintWindshield, disposeWindshield, ensureWindshieldStyles, modelTopZAt, viewFocal, viewLatFocal, RENDER_TUNE } from './windshield-lazy.js';
 import { eyeBase, lensOf, viewOf } from './room-view.js';
 
 const FACE_PX = 1024;      // a face's height in pixels: 90° over the room's screen height, so 512 showed soft
@@ -166,7 +167,7 @@ export function createOutlook(msg, { host, onEye, onFail, onPano, feed, live = f
     // on its way to giving up (slowN), no faster than LIVE_SLOW_EVERY_MS, so the room keeps its rate while the faces come
     if (!warming && slowN > 0 && cost > LIVE_SLOW_MS && t0 - lastPaint < LIVE_SLOW_EVERY_MS) return lens;
     lastPose = pose; lastPaint = t0;
-    try { paintWindshield(id, viewOf(msg, base, { hour, wx, look, fed: feed?.(), k })); painted++; } catch (e) { fail(e?.message); return lens; }
+    try { paintWindshield(id, viewOf(msg, base, { hour, wx, look, fed: feed?.(), k, gl: !!RENDER_TUNE?.gl })); painted++; } catch (e) { fail(e?.message); return lens; }
     cost += (performance.now() - t0 - cost) * 0.15;
     // a paint dear on the main thread is too slow here; a smaller canvas wouldn't change it
     if (!warming && painted > 20) slowN = cost > LIVE_GIVE_UP_MS ? slowN + 1 : Math.max(0, slowN - 1);
@@ -230,7 +231,7 @@ export function createOutlook(msg, { host, onEye, onFail, onPano, feed, live = f
       }
       if (el.width !== F.fw || el.height !== F.fh) { el.width = F.fw; el.height = F.fh; }
       postedAt = t; next = (i + 1) % FACES; nPaint++;
-      try { paintWindshield(id, viewOf(msg, base, { hour, wx, look: pose, fed: feed?.(), k: F.k })); painted++; give(i, el); } catch (e) { fail(e?.message); }
+      try { paintWindshield(id, viewOf(msg, base, { hour, wx, look: pose, fed: feed?.(), k: F.k, gl: !!RENDER_TUNE?.gl })); painted++; give(i, el); } catch (e) { fail(e?.message); }
       return null;
     },
     // the tile this view was started on: a room on another tile needs a view of its own
@@ -245,11 +246,12 @@ export function createOutlook(msg, { host, onEye, onFail, onPano, feed, live = f
     // a new room of the same building: where it stands, the way it faces, how high. All four faces again.
     place(m) {
       // the same storey facing the same way keeps its faces until they're repainted; anything else starts again
-      const same = m.bearing === msg.bearing && m.storey === msg.storey;
-      msg = { ...msg, storey: m.storey, storeys: m.storeys, bearing: m.bearing, frame: m.frame || null, sky: { ...(msg.sky || {}), ...(m.sky || {}) } };
+      // (and the same balcony or none: a room with one keeps its own building in view, room-view.js roomCut)
+      const same = m.bearing === msg.bearing && m.storey === msg.storey && !!m.cut === !!msg.cut;
+      msg = { ...msg, storey: m.storey, storeys: m.storeys, bearing: m.bearing, frame: m.frame || null, cut: m.cut || null, sky: { ...(msg.sky || {}), ...(m.sky || {}) } };
       if (!same) { filled = 0; lastAt.fill(0); }
       next = 0;
-      if (worker) { worker.postMessage({ type: 'place', msg: { storey: msg.storey, storeys: msg.storeys, bearing: msg.bearing, frame: msg.frame } }); return; }
+      if (worker) { worker.postMessage({ type: 'place', msg: { storey: msg.storey, storeys: msg.storeys, bearing: msg.bearing, frame: msg.frame, cut: msg.cut } }); return; }
       if (base) { base = eyeBase(msg, modelTopZAt); onEye?.({ eye: base.z, eyeX: base.x, eyeY: base.y }); }
     },
     // the weather's moved on

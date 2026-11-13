@@ -13,9 +13,11 @@
 //
 // A leaf slides into the wall beside it: its inner edge moves out and its outer edge stays, so open
 // it is a sliver against the jamb.
-import { emitDecoFill } from '../windshield.js';
+import { emitDecoFill, RENDER_TUNE } from '../windshield.js';
 
 const CARD_IN = 0.006, CARD_PULL = 0.02, LIFT = 0.03, GAP = 0.004, SILL = 0.04, HEAD = 0.94, STILE = 0.06;
+// a fanlight takes the doorway's head from FAN_AT up; a runner lies RUNNER_Z off the pavement, RUNNER_OUT (tiles) out
+const FAN_AT = 0.78, RUNNER_Z = 0.0025, RUNNER_OUT = 0.13;
 
 export function drawStreetDoors(ctx, cam, v, now, night) {
   const doors = v.streetDoors;
@@ -42,14 +44,25 @@ export function drawStreetDoors(ctx, cam, v, now, night) {
       const back = -CARD_IN, w = half, Q = (lx, z) => { const p = P(lx, z); return [p[0] + back * E[0], p[1] + back * E[1], z]; };
       emitDecoFill(ctx, cam, [Q(-w, z1), Q(w, z1), Q(w, 0), Q(-w, 0)], night ? 'rgb(70,64,52)' : 'rgb(96,88,74)', 1, CARD_PULL, 'lobbycard', true, null, d.card);
     }
-    if (d.bars) { barredLeaf(ctx, cam, d, P, open, top, night); continue; }
+    // a runner out of the door across the pavement (flags.room.street_door.runner, a colour), from the doorway's foot
+    // to a couple of metres out, with a gilt edge either side
+    if (d.look?.runner) {
+      const G = (lx, ly) => [d.x - ox + lx * E[1] + ly * E[0], d.y - oy - lx * E[0] + ly * E[1], RUNNER_Z];
+      const w = half * 0.7, y0 = d.plane - 0.004, y1 = d.plane + RUNNER_OUT, cloth = shade(d.look.runner, night ? 0.7 : 1), gilt = night ? 'rgb(150,118,60)' : 'rgb(196,158,82)';
+      emitDecoFill(ctx, cam, [G(-w, y1), G(w, y1), G(w, y0), G(-w, y0)], cloth, 1, LIFT, 'streetdoor', true);
+      for (const s of [-1, 1]) emitDecoFill(ctx, cam, [G(s * w * 0.88, y1), G(s * w * 0.94, y1), G(s * w * 0.94, y0), G(s * w * 0.88, y0)], gilt, 1, LIFT * 1.5, 'streetdoor', true);
+    }
+    // on the GPU the building's rooms are drawn through its doorway (gl/interiors.js portals), so an opened door shows
+    // them rather than the dark the 2-D painter fills it with
+    const lobby = !!RENDER_TUNE.gl && !v.interiorInside && !!v.interiorRooms?.some((r) => r.gx === d.x && r.gy === d.y);
+    if (d.bars) { barredLeaf(ctx, cam, d, P, open, top, night, lobby); continue; }
     if (d.glass === false) continue;
     // a building can dress its doors (flags.room.street_door, via plugins/roomstage): the glass's tint, a metal trim
     // round each leaf and a monogram on the pull handle. Without, the plain glass and bronze stile.
     const L = d.look, tint = L?.glass ? shade(L.glass, night ? 1.25 : 1) : null;
     const pane = tint ? [shade(tint, 1.35), tint] : glass, trim = L?.trim ? shade(L.trim, night ? 0.85 : 1) : rail;
     // hinged hotel doors (flags.room.street_door kind 'swing'): each leaf turns in about its outer jamb
-    if (d.swing) { swingPair(ctx, cam, d, P, pane, trim, L, open, z0, z1); continue; }
+    if (d.swing) { swingPair(ctx, cam, d, P, pane, trim, L, open, z0, L?.fanlight ? top * FAN_AT : z1, night); continue; }
     for (const s of [-1, 1]) {
       const inner = GAP + (half - GAP) * open * 0.92, outer = half;
       if (outer - inner < 0.002) continue;
@@ -84,16 +97,33 @@ export function drawStreetDoors(ctx, cam, v, now, night) {
 
 // A pair of hinged leaves, each a bronze-framed pane with a middle rail and a kick plate, turned in about its outer
 // jamb by up to 80 degrees. P(lx, z) is the doorway's plane; a point `back` behind it is P moved in along -E.
-function swingPair(ctx, cam, d, P, pane, trim, L, open, z0, z1) {
+function swingPair(ctx, cam, d, P, pane, trim, L, open, z0, z1, night) {
   const E = d.E, half = d.half, t = open * 1.4, Q = (lx, back, z) => { const p = P(lx, z); return [p[0] - back * E[0], p[1] - back * E[1], z]; };
   const metal = L?.trim ? trim : 'rgb(138,106,68)';
+  // ⚠ SEE-THROUGH GLASS. The lobby is drawn behind the doorway (gl/interiors.js portals), and an opaque leaf hid it
+  // until you'd opened the door; it's a glass door, so the room shows through it, a little darkened
+  const seen = night ? 0.24 : 0.34;
+  // the fanlight over the leaves: a transom rail, the frame, and glazing bars fanned from the middle of the rail
+  if (L?.fanlight) {
+    const top = d.top, zt = z1 + top * 0.025, bar = top * 0.022;
+    emitDecoFill(ctx, cam, [P(-half, zt), P(half, zt), P(half, z1), P(-half, z1)], metal, 1, LIFT * 1.5, 'streetdoor', true);
+    emitDecoFill(ctx, cam, [P(-half, top), P(half, top), P(half, zt), P(-half, zt)], pane[1], seen, LIFT, 'streetdoor', true, pane);
+    emitDecoFill(ctx, cam, [P(-half, top), P(half, top), P(half, top - bar), P(-half, top - bar)], metal, 1, LIFT * 1.5, 'streetdoor', true);
+    for (let i = 0; i < 7; i++) {
+      // a bar from the rail's middle out to the head and the jambs, thin at the hub and wider where it lands
+      const a = Math.PI * (i + 1) / 8, ex = -Math.cos(a), ez = Math.sin(a), span = top - zt;
+      const rx = Math.min(half / Math.max(Math.abs(ex), 1e-3), span / Math.max(ez, 1e-3));
+      const x1 = ex * rx, zz = zt + ez * rx, w0 = half * 0.008, w1 = half * 0.022, nx = ez, nz = -ex;
+      emitDecoFill(ctx, cam, [P(-nx * w0, zt - nz * w0), P(nx * w0, zt + nz * w0), P(x1 + nx * w1, zz + nz * w1), P(x1 - nx * w1, zz - nz * w1)], metal, 1, LIFT * 1.5, 'streetdoor', true);
+    }
+  }
   for (const s of [-1, 1]) {
     const hx = s * half, len = half - GAP;
     // a point `f` of the way from hinge to free edge, at height z
     const at = (f, z) => Q(hx - s * len * f * Math.cos(t), len * f * Math.sin(t), z);
-    const quad = (f0, f1, za, zb, col, lift, shades) => emitDecoFill(ctx, cam, [at(f0, zb), at(f1, zb), at(f1, za), at(f0, za)], col, 1, lift, 'streetdoor', true, shades);
+    const quad = (f0, f1, za, zb, col, lift, shades, a = 1) => emitDecoFill(ctx, cam, [at(f0, zb), at(f1, zb), at(f1, za), at(f0, za)], col, a, lift, 'streetdoor', true, shades);
     const h = z1 - z0, stile = 0.12;
-    quad(0, 1, z0, z1, pane[1], LIFT, pane);
+    quad(0, 1, z0, z1, pane[1], LIFT, pane, seen);
     quad(0, stile, z0, z1, metal, LIFT * 1.5); quad(1 - stile, 1, z0, z1, metal, LIFT * 1.5);
     quad(0, 1, z1 - h * 0.05, z1, metal, LIFT * 1.5); quad(0, 1, z0, z0 + h * 0.16, metal, LIFT * 1.5);
     quad(0, 1, z0 + h * 0.46, z0 + h * 0.49, metal, LIFT * 1.5);
@@ -106,10 +136,10 @@ function swingPair(ctx, cam, d, P, pane, trim, L, open, z0, z1) {
 // A PLAIN DOOR: one leaf, behind a steel grille if the building asks for bars (the Cherry Pit), hinged at one jamb and swung in by up to
 // about 85 degrees. Whatever the arm baked into the doorway is fixed mass and can't move, so while the leaf is open
 // the opening behind it is filled dark, pulled in front of the baked door, and the doorway reads as open.
-function barredLeaf(ctx, cam, d, P, open, top, night) {
+function barredLeaf(ctx, cam, d, P, open, top, night, lobby) {
   const E = d.E, half = d.half, z0 = 0, z1 = top * HEAD, h = z1 - z0;
   const Q = (lx, back, z) => { const p = P(lx, z); return [p[0] - back * E[0], p[1] - back * E[1], z]; };
-  if (open > 0.02) {
+  if (open > 0.02 && !lobby) {
     const w = half, back = CARD_IN;
     emitDecoFill(ctx, cam, [Q(-w, back, z1), Q(w, back, z1), Q(w, back, z0), Q(-w, back, z0)], night ? 'rgb(34,10,16)' : 'rgb(22,12,14)', 1, CARD_PULL, 'streetdoor', true);
   }

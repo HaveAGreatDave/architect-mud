@@ -215,6 +215,29 @@ function solesOf(key) {
   soles.set(s, out);
   return out;
 }
+// Every so many of a figure's mesh points, with their bones: enough to find the lowest of a body laid on a bed
+// (figurePeople), a few centimetres apart over the whole skin.
+const hulls = new Map();
+function hullOf(key) {
+  const s = figureKey(key);
+  if (hulls.has(s)) return hulls.get(s);
+  const F = buildFigure(key), out = [], step = Math.max(1, Math.floor(F.nv / 900));
+  for (let v = 0; v < F.nv; v += step) out.push({ p: [F.P[v * 3], F.P[v * 3 + 1], F.P[v * 3 + 2]], b: [...F.B.subarray(v * 4, v * 4 + 4)], w: [...F.W.subarray(v * 4, v * 4 + 4)] });
+  hulls.set(s, out);
+  return out;
+}
+// How far a laid body's lowest skin is below its front-to-back zero once posed (placeOf: the bed's top is
+// LIE_BACK under it), scaled about `piv` by `hk`.
+const LIE_BACK = 0.12;
+function lowestBack(key, S, piv, hk) {
+  let lo = Infinity;
+  for (const v of hullOf(key)) {
+    let z = 0;
+    for (let k = 0; k < 4; k++) { if (!v.w[k]) continue; const m = S[v.b[k]]; if (!m) continue; z += v.w[k] * (m[2] * v.p[0] + m[6] * v.p[1] + m[10] * v.p[2] + m[14]); }
+    if (z < lo) lo = z;
+  }
+  return Number.isFinite(lo) ? piv[2] + hk * (lo - piv[2]) : -LIE_BACK;
+}
 const widen = (c) => (c && CLIP_DUR[c + 'Wide'] ? c + 'Wide' : c);
 const CLIP_DUR = Object.fromEntries([...ACTOR_CLIPS, ...ACTOR_ROOM_CLIPS].map((c) => [c.name, c.dur]));
 // How long a clip that plays once takes, in seconds; 0 for one that loops.
@@ -505,6 +528,9 @@ export function figurePeople(L, bodies, t = 0, { level: asked = 'hd', eye = null
     // the floor under it, or about the pelvis when they're sat or lying, so a tall man still sits on the chair
     const hm = o.key.sculpt ? +(body.height || body.figure?.height || 0) : 0, hk = hm > 1 ? hm / FIGURE_CROWN : 1;
     const piv = seated ? [S[0][12], S[0][13], S[0][14]] : [0, drop, 0];
+    // laid down, the lowest of the skin rests on the bed's top, whatever the pose has done (on the side the hips
+    // and shoulder are wider than the back is deep, and a knee drawn up mustn't go through the mattress)
+    if (lying) { const lift = 0.01 - LIE_BACK - lowestBack(o.key, S, piv, hk); for (let r = 0; r < 3; r++) O[r] += AZ[r] * lift; }
     // the table in front of them and anything else beside them (onSurfaces)
     const tests = [];
     if (body.table?.h) { const tb = body.table, fl = drop - (body.lift || 0); tests.push((q, cl) => (q[2] < (tb.near ?? 0.15) || q[2] > (tb.far ?? 1) ? null : { dy: fl + tb.h + cl - q[1], edge: q[2] - (tb.near ?? 0.15), thick: tb.thick ?? 0.09 })); }
@@ -654,7 +680,7 @@ function placeOf(L, body) {
     const hd = body.head || [0, -1], AY = [L.r[0] * hd[0] - L.f[0] * hd[1], 0, L.r[2] * hd[0] - L.f[2] * hd[1]];
     const feet = [body.at[0] - hd[0] * 1.55, body.at[1] - hd[1] * 1.55];
     const AZ = [0, 1, 0];
-    return { O: L.world(feet[0], feet[1], (body.top || 0.4) + 0.12), AY, AZ, AX: [AY[1] * AZ[2] - AY[2] * AZ[1], AY[2] * AZ[0] - AY[0] * AZ[2], AY[0] * AZ[1] - AY[1] * AZ[0]] };
+    return { O: L.world(feet[0], feet[1], (body.top || 0.4) + LIE_BACK), AY, AZ, AX: [AY[1] * AZ[2] - AY[2] * AZ[1], AY[2] * AZ[0] - AY[0] * AZ[2], AY[0] * AZ[1] - AY[1] * AZ[0]] };
   }
   return { O: L.world(body.at[0], body.at[1], (L.baseAt?.(body.at[0], body.at[1]) || 0) + (body.lift || 0)), AX: [Math.cos(yaw), 0, -Math.sin(yaw)], AY: [0, 1, 0], AZ: [Math.sin(yaw), 0, Math.cos(yaw)] };
 }

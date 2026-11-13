@@ -427,8 +427,10 @@ body:has(#dialogue-panel.active) #room-stage :is(.rs-card, .rs-tip) { display: n
 #room-stage .pkt-mid { flex-direction: row; gap: 0.5em; }
 #room-stage .pkt-muck { translate: calc(-100% - var(--stem)) -50%; }
 #room-stage .pkt-muck::after { left: auto; right: calc(-1 * var(--stem)); bottom: 50%; width: var(--stem); height: 1px; background: linear-gradient(90deg, var(--pk-a), transparent); }
-/* your cards: a viewfinder laid over them that you hold to peek, the hand read off them above it */
-#room-stage .pkt-cards { translate: -50% calc(-100% + 2.2em); cursor: pointer; touch-action: none; user-select: none; }
+/* your cards: a viewfinder laid over them that you click to turn them up, the hand read off them under it, on the
+   rail, clear of the board. It hangs from its top, and pokerPlace sizes the viewfinder to the cards each frame
+   (--hw, --hh) */
+#room-stage .pkt-cards { translate: -50% 0; flex-direction: column-reverse; cursor: pointer; touch-action: none; user-select: none; }
 #room-stage .pkt-cards::after { display: none; }
 #room-stage .pkt-read {
 	display: flex; flex-direction: column; align-items: center; gap: 0.1em; padding: 0.35em 0.8em; white-space: nowrap;
@@ -439,7 +441,7 @@ body:has(#dialogue-panel.active) #room-stage :is(.rs-card, .rs-tip) { display: n
 #room-stage .pkt-read em { font-style: normal; color: var(--pk-go); font-size: 0.8em; }
 #room-stage .pkt-cards:not(.up) .pkt-read i { display: none; }
 #room-stage .pkt-hit {
-	--c: 1em; width: 7.5em; height: 4.2em; display: flex; align-items: flex-end; justify-content: center; box-sizing: border-box;
+	--c: 1em; width: var(--hw, 7.5em); height: var(--hh, 4.2em); display: flex; align-items: flex-end; justify-content: center; box-sizing: border-box;
 	background:
 		linear-gradient(var(--pk-a), var(--pk-a)) left top / var(--c) 2px, linear-gradient(var(--pk-a), var(--pk-a)) left top / 2px var(--c),
 		linear-gradient(var(--pk-a), var(--pk-a)) right top / var(--c) 2px, linear-gradient(var(--pk-a), var(--pk-a)) right top / 2px var(--c),
@@ -447,7 +449,7 @@ body:has(#dialogue-panel.active) #room-stage :is(.rs-card, .rs-tip) { display: n
 		linear-gradient(var(--pk-a), var(--pk-a)) right bottom / var(--c) 2px, linear-gradient(var(--pk-a), var(--pk-a)) right bottom / 2px var(--c);
 	background-repeat: no-repeat; opacity: 0.6; transition: opacity 0.15s, --c 0.15s;
 }
-#room-stage .pkt-hit span { font-size: 0.65em; letter-spacing: 0.2em; color: var(--pk-a); opacity: 0; transition: opacity 0.15s; }
+#room-stage .pkt-hit span { font-size: 0.7em; letter-spacing: 0.2em; color: var(--pk-a); opacity: 0.75; transition: opacity 0.15s; text-shadow: 0 0 0.4em var(--pk-bg), 0 0 0.2em var(--pk-bg); }
 #room-stage .pkt-cards:hover .pkt-hit { opacity: 1; --c: 1.4em; }
 #room-stage .pkt-cards:hover .pkt-hit span { opacity: 1; }
 /* the buttons: tabs in the theme's colours */

@@ -286,9 +286,11 @@
         "y": 3.7
       },
       "street_door": {
+        "fanlight": true,
         "glass": "#7f97a0",
         "kind": "swing",
         "monogram": "E",
+        "runner": "#7a1e2a",
         "trim": "#8a6a44",
         "w": 2
       },

@@ -46,7 +46,7 @@
 import { furnitureActs } from '../../server/engine/furnitureActions.js';
 import { gatherHookSync } from '../../server/engine/plugins.js';
 import { world, getZone, facadeStreetTile, getZoneFurniture, getZonePlayers, getZoneNpcs, getZoneEnemies, getApartment, updateFurniture, getLivePlayer, doorOnLink, frontDoorOf } from '../../server/engine/world.js';
-import { walkPlans, buildingView, placeFrom } from '../../client/shared/building-graph.js';
+import { walkPlans, buildingView, placeFrom, streetDoorAt } from '../../client/shared/building-graph.js';
 import { getItem } from '../../server/engine/items-cache.js';
 import { primaryExits } from '../../server/engine/exits.js';
 import { on, emit } from '../../server/engine/events.js';
@@ -157,8 +157,9 @@ export function streetDoorsNear(gx, gy, r) {
       if (!o) continue;
       // the building rides along unsent (not enumerable), for buildingRoomsNear
       // how the glass doors look from the street, if the building says (flags.room.street_door: glass, trim, monogram)
-      // (a plain door's leaf: `leaf` its colour and `bars` a steel grille over it, as the Cherry Pit's)
-      const sd = getZone(entry)?.flags?.room?.street_door, look = sd && (sd.glass || sd.trim || sd.monogram || sd.kind === 'swing' || sd.leaf || sd.bars) ? { glass: sd.glass || null, trim: sd.trim || null, monogram: sd.monogram ? String(sd.monogram).slice(0, 2) : null, ...(sd.handle === 's' ? { handle: 's' } : {}), ...(sd.leaf ? { leaf: String(sd.leaf) } : {}), ...(sd.bars ? { bars: true } : {}) } : null;
+      // (a plain door's leaf: `leaf` its colour and `bars` a steel grille over it, as the Cherry Pit's; `fanlight` a
+      // glazed fan over a swing pair, and `runner` a carpet's colour out across the pavement, as the Embassy's)
+      const sd = getZone(entry)?.flags?.room?.street_door, look = sd && (sd.glass || sd.trim || sd.monogram || sd.kind === 'swing' || sd.leaf || sd.bars) ? { glass: sd.glass || null, trim: sd.trim || null, monogram: sd.monogram ? String(sd.monogram).slice(0, 2) : null, ...(sd.handle === 's' ? { handle: 's' } : {}), ...(sd.leaf ? { leaf: String(sd.leaf) } : {}), ...(sd.bars ? { bars: true } : {}), ...(sd.fanlight ? { fanlight: true } : {}), ...(/^#[0-9a-f]{6}$/i.test(sd.runner || '') ? { runner: sd.runner } : {}) } : null;
       doorList.push(Object.defineProperty({ gx: f.grid_x, gy: f.grid_y, edge, w: +Math.abs(o.b - o.a).toFixed(2), slide: !!o.slide, ...(o.swing ? { swing: true } : {}), ...(look ? { look } : {}) }, 'bld', { value: bld }));
     }
   }
@@ -201,11 +202,12 @@ function stageSpec(zoneId) {
   const spec = specOf(zoneId), bld = spec && buildingOfRoom(zoneId);
   return bld ? buildingView(bld, zoneId, spec, { specOf }).spec : spec;
 }
-// The rooms one doorway away on a building's walk. Somebody with one of them open sees into this
+// The rooms one doorway (or one flight of stairs) away on a building's walk. Somebody with one of them open sees into this
 // room, so they're sent its people and pieces as they change.
 function nextDoor(zoneId) {
   const bld = buildingOfRoom(zoneId), out = new Set();
-  if (bld) for (const d of bld.plan.doors) if (d.kind === 'door' && d.to) { if (d.from === zoneId) out.add(d.to); else if (d.to === zoneId) out.add(d.from); }
+  // (and a floor up or down a flight: you see up and down the well)
+  if (bld) for (const d of bld.plan.doors) if ((d.kind === 'door' || (d.kind === 'stairs' && d.flight)) && d.to) { if (d.from === zoneId) out.add(d.to); else if (d.to === zoneId) out.add(d.from); }
   return [...out];
 }
 // Everybody who sees into a room: those with it open and those next door to it.
@@ -273,7 +275,7 @@ function frameOf(zoneId, tile, player) {
   const car = bld.plan.lifts?.[zoneId];
   if (car) { const parked = liftOf(player, zoneId).parked, stop = parked && car.stops.find((s) => s.zone === parked); if (stop) floor = stop.y; }
   const side = BEARING[String(tile.flags?.entrance || '').toLowerCase()] ?? bld.plan.rooms[bld.b.entry]?.face ?? 0;
-  return { entry: entry.at, front: bld.plan.rooms[bld.b.entry].face, side, floor, face: R.face };
+  return { entry: entry.at, front: bld.plan.rooms[bld.b.entry].face, side, floor, face: R.face, door: streetDoorAt(bld.plan, bld.b.entry) };
 }
 
 // The world round the building, for GLASS to draw out of the window.

@@ -407,9 +407,15 @@ export async function interiors(opts = {}) {
   if (!data.rooms?.length) { console.warn('__interiors: ' + zone + ' is not on a building walk'); return null; }
   const rooms = interiorRoomsOf(data), r = rooms.find((x) => x.zone === zone) || rooms[0];
   const gx = data.tile.x, gy = data.tile.y, view = { ...(opts.view || {}), interiorRooms: rooms };
-  // outside: a tile out from its street door, facing it
+  // outside: a tile out from its street door, facing it, with the door drawn as the street view on foot draws it
+  // (the leaves, and the rooms through it: gl/interiors.js portals). `open` 0..1 parts the leaves.
   const side = data.rooms[0].frame?.side ?? 180, rad = side * Math.PI / 180;
-  if (opts.outside) return street({ x: gx + Math.round(Math.sin(rad)), y: gy - Math.round(Math.cos(rad)), heading: (side + 180) % 360, eyeH: 0.1, ...opts, seat: 'free', view });
+  if (opts.outside) {
+    const at = { x: gx + Math.round(Math.sin(rad)), y: gy - Math.round(Math.cos(rad)), heading: (side + 180) % 360, eyeH: 0.1, ...opts, seat: 'free', view };
+    const doors = await streetDoorOf(data, gx, gy, side, opts);
+    if (!doors) return street(at);
+    return street({ ...at, view: { ...view, streetDoors: doors, interiorInside: false } });
+  }
   // the eye in that room, carried to the tile by the room's own matrix
   const [u, v] = opts.at || [0, Math.min(r.L.d - 0.5, 1.2)], P = r.L.world(u, v, 1.6), M = r.M;
   const ex = M[0] * P[0] + M[4] * P[1] + M[8] * P[2] + M[12], ey = M[1] * P[0] + M[5] * P[1] + M[9] * P[2] + M[13];
@@ -419,6 +425,29 @@ export async function interiors(opts = {}) {
   // its own building off the map, as the window view does it (room-view.js withoutOwnTower)
   const cells = { [gx + ',' + gy]: { kind: 'land', bt: null, bn: null, pad: 0, self: 1 }, ...(opts.cells || {}) };
   return street({ ...opts, x: gx, y: gy, seat: 'free', off: { x: ex, y: ey }, eyeH: ez, heading, cells, view });
+}
+
+// The building's street door as freelook-view.js hands it to the renderer: read off the model's mass
+// (glass/doorway-measure.js), dressed as the entry room's flags.room.street_door says.
+async function streetDoorOf(data, gx, gy, side, opts) {
+  const { groundObstructionAt } = await import('/client/game/js/panels/windshield.js');
+  const { measureDoorway } = await import('/client/game/js/panels/glass/doorway-measure.js');
+  const E = { 0: [0, -1], 90: [1, 0], 180: [0, 1], 270: [-1, 0] }[side];
+  const entry = data.rooms.find((r) => (r.spec.openings || []).some((o) => o.kind === 'front'));
+  const o = entry && entry.spec.openings.find((q) => q.kind === 'front');
+  const cell = (await world()).cells[gx + ',' + gy];
+  if (!E || !o || !cell) return null;
+  // the mass is read off the captured model, which the first paint makes
+  if (!_canvas) await street({ x: gx, y: gy, seat: 'free', show: false });
+  const g = measureDoorway(gx, gy, cell, E, Math.abs(o.b - o.a) || 2, groundObstructionAt, 0.09 / 1.6);
+  if (!g.leaves) return null;
+  // `door` dresses it here, as flags.room.street_door would: { kind, fanlight, runner, glass, trim, leaf, bars }
+  const sd = { kind: 'swing', ...(entry.spec.street_door || {}), ...(opts.door || {}) }, glass = sd.kind === 'swing' || sd.kind === 'sliding';
+  const look = { glass: sd.glass || null, trim: sd.trim || null, monogram: sd.monogram || null, ...(sd.fanlight ? { fanlight: true } : {}), ...(sd.runner ? { runner: sd.runner } : {}),
+    ...(sd.leaf ? { leaf: sd.leaf } : {}), ...(sd.bars ? { bars: true } : {}) };
+  console.log('__interiors door', JSON.stringify({ wall: g.wall, plane: g.plane, half: g.half, top: g.top }));
+  return [{ x: gx, y: gy, E, plane: g.plane, wall: g.wall, half: g.half, top: g.top, open: opts.open ?? 0, glass,
+    ...(sd.kind === 'swing' ? { swing: true } : {}), ...(glass ? {} : { bars: true }), look }];
 }
 
 if (typeof window !== 'undefined') {

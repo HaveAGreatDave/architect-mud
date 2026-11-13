@@ -71,7 +71,7 @@ function keepGlass() {
 async function frame(m) {
   if (main.width !== m.W || main.height !== m.H) { main.width = m.W; main.height = m.H; }
   keepGlass();
-  G.paintWindshield(ID, viewOf(msg, base, m));
+  G.paintWindshield(ID, viewOf(msg, base, { ...m, gl: !!G.RENDER_TUNE.gl }));
   const bitmap = await createImageBitmap(main);
   self.postMessage({ type: 'painted', bitmap }, [bitmap]);
 }

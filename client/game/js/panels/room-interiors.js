@@ -6,7 +6,8 @@
 // built here: `parts(lod)` builds a room the first frame the layer wants it, and only then.
 import { roomLayout, layRows } from '../../../shared/room-layout.js';
 import { buildRoom, paintRoomTexture, ROOM_RUG } from './gl/room-mesh.js';
-import { roomBox, meanColour } from './gl/interiors.js';
+import { roomBox, meanColour, linearHex } from './gl/interiors.js';
+import { bakedStill } from './lobby-still.js';
 import { roomToGlass, roomOrigin } from './room-view.js';
 import { roomBounds } from './glass/interiors-near.js';
 
@@ -83,8 +84,10 @@ export function interiorRoomsOf(data, { lampOn = () => true, itemOf } = {}) {
           .finally(() => waiting.delete(bk));
         return false;
       },
+      // the room as seen from its street door, if it has one and there's a picture of it (lobby-still.js)
+      still: () => bakedStill(r.zone),
       parts(lod) {
-        if (lod) return [{ batch: roomBox(L) }];
+        if (lod) return [{ batch: roomBox(L, linearHex(r.spec.tone?.wall) || undefined) }];
         let m = built.get(bk);
         if (!m) keep(bk, (m = buildRoom(L, opts)));
         return [{ batch: m.solid }, { batch: m.screen }, ...[...m.textured].map(([key, b]) => ({ batch: b, tint: tintOf(key, seed) }))];

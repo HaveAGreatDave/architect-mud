@@ -51,6 +51,7 @@
     "voice:smoke": "node scripts/gates/run.mjs voice",
     "shapes:bake": "node scripts/shapes/bake.mjs",
     "lite:bake": "node scripts/lite/bake.mjs",
+    "lobby:bake": "node scripts/lobby/bake.mjs",
     "lite:smoke": "node scripts/lite/smoke.mjs",
     "shapes:framecost": "node scripts/shapes/framecost.mjs",
     "gl:parity": "node scripts/shapes/glparity.mjs",

@@ -18,7 +18,7 @@ import { lightAt } from '../../../../shared/sky-keys.js';
 import { roomKit } from './room-kit.js';
 import { createBatch, MAT, STRIDE } from './ballpark-mesh.js';
 import { cachetWing, cachetInner } from '../../../../shared/room-layout.js';
-import { facing, COUNTER_H, doorwaysOf, liftButtons, liftPanelAt, hallOf } from '../../../../shared/room-layout.js';
+import { facing, COUNTER_H, doorwaysOf, liftButtons, liftPanelAt, hallOf, stairsOf, wellBox, STAIR } from '../../../../shared/room-layout.js';
 import { drawDecor, drawDecorForm, liftPortal, drawBalconyDress } from './room-decor.js';
 import { legend, legendWidth } from '../../../../shared/legend-font.js';
 import { drawFitting, baseRun, STONE, FITTED_FORMS } from './room-fittings.js';
@@ -202,7 +202,14 @@ export function buildRoom(L, { seed = 1, lampOn = true, doorShut = false, turnin
         return [p.u - hw - 0.15, p.u + hw + 0.15, p.v - hd - 0.15, p.v + hd + 0.15];
       });
       drawRoundPit(K, pit, { key, tint, surf: fine ? SATIN : E, over });
-    } else if (!pit) { lay(-hu, hu, 0, D); box(-hu - T, hu + T, -T, D + T, -0.2, -0.01, '#2a2622'); } else {
+    } else if (!pit) {
+      // cut round the well of a flight coming up from the floor below (stairsOf, `wall: 'floor'`)
+      // ⚠ AND WITH NO SLAB UNDER IT. The two rooms of a flight are drawn together, flush, and the slab hung 20 cm into
+      // the room below as a black beam right across its ceiling. The room below edges the well instead (drawFlight).
+      const wells = stairsOf(spec).filter((o) => o.wall === 'floor').map(wellBox);
+      for (const q of cutRects([-hu, hu, 0, D], wells)) lay(...q);
+      if (!wells.length) box(-hu - T, hu + T, -T, D + T, -0.2, -0.01, '#2a2622');
+    } else {
       const g = 0.06;
       lay(-hu, hu, 0, pit.v0); lay(-hu, hu, pit.v1, D); lay(-hu, pit.u0, pit.v0, pit.v1); lay(pit.u1, hu, pit.v0, pit.v1);
       box(-hu - T, hu + T, -T, pit.v0 - g, -0.2, -0.01, '#2a2622'); box(-hu - T, hu + T, pit.v1 + g, D + T, -0.2, -0.01, '#2a2622');
@@ -211,10 +218,15 @@ export function buildRoom(L, { seed = 1, lampOn = true, doorShut = false, turnin
     }
   }
   // the ceiling, and a slab over it. A roof deck (spec.open) has neither: over it is the sky the glass shows
+  // A flight up out of this room goes through it, so it's cut round the flight's well (stairsOf, `wall: 'ceiling'`).
   if (!spec.open) {
-    const key = fine ? 'roomPlasterFine' : 'roomCeiling', ps = [[-hu, D, H], [hu, D, H], [hu, 0, H], [-hu, 0, H]], t = ROOM_TEXTURES[key];
-    quad(TB(key), ps, [0, -1, 0], C(tone.ceiling || (club ? '#1c181e' : '#f2efe8'), 1), E, ps.map((q) => [q[0] / t, q[1] / t]));
-    box(-hu - T, hu + T, -T, D + T, H + 0.01, H + 0.2, '#8a8680');
+    const key = fine ? 'roomPlasterFine' : 'roomCeiling', t = ROOM_TEXTURES[key], wells = stairsOf(spec).filter((o) => o.wall === 'ceiling').map(wellBox);
+    for (const [u0, u1, v0, v1] of cutRects([-hu, hu, 0, D], wells)) {
+      const ps = [[u0, v1, H], [u1, v1, H], [u1, v0, H], [u0, v0, H]];
+      quad(TB(key), ps, [0, -1, 0], C(tone.ceiling || (club ? '#1c181e' : '#f2efe8'), 1), E, ps.map((q) => [q[0] / t, q[1] / t]));
+    }
+    // (and none over it with a floor above it: it would stand up through that floor)
+    if (!wells.length) box(-hu - T, hu + T, -T, D + T, H + 0.01, H + 0.2, '#8a8680');
   }
 
   // THE WALLS, each cut round what's in it: a wall is its length less its openings, with the wall
@@ -462,6 +474,8 @@ export function buildRoom(L, { seed = 1, lampOn = true, doorShut = false, turnin
   if (!isCar) for (const o of doorways) if (o.lift) liftPortal(K, L, o, { DH, H, lampOn });
   if (spec.walls) drawPartitions(K, spec.walls, H);
   if (spec.stairs) drawStairs(K, spec.stairs);
+  // a flight to the next floor: drawn by the room it stands in, and the balustrade round its well by the room above
+  for (const o of stairsOf(spec)) { if (o.wall === 'ceiling') drawFlight(K, o, { H, hu, D, fine, club, trim, plaster }); else drawWell(K, o, { hu, D, fine, club, trim }); }
   // the furniture's stretch of each batch (`b.kit`, [first, count] in vertices): gl/room.js inks it in the
   // house line whether or not the room is, as it does the people. The kitchen's units are furniture too.
   const kitFrom = () => new Map([K.solid, ...K.textured.values()].map((b) => [b, b.n]));
@@ -969,6 +983,117 @@ function drawStairs(K, stairs) {
     K.box(u0, u1, v1 - 0.04, v1, 0, 0.95, '#3a3a40', 1);
     K.box(u0, u0 + 0.04, v1 - 0.04, v1, 0, 0.95, '#3a3a40', 1);
   }
+}
+
+// [u0, u1, v0, v1] less each hole in it, as rectangles: the strips either side of a hole, then the pieces before
+// and after it between them. A floor and a ceiling are laid this way round a stair's well.
+function cutRects(r, holes) {
+  let out = [r];
+  for (const h of holes) {
+    const next = [];
+    for (const q of out) {
+      if (h[0] >= q[1] || h[1] <= q[0] || h[2] >= q[3] || h[3] <= q[2]) { next.push(q); continue; }
+      const a = Math.max(q[0], h[0]), b = Math.min(q[1], h[1]);
+      if (a > q[0]) next.push([q[0], a, q[2], q[3]]);
+      if (b < q[1]) next.push([b, q[1], q[2], q[3]]);
+      if (h[2] > q[2]) next.push([a, b, q[2], h[2]]);
+      if (h[3] < q[3]) next.push([a, b, h[3], q[3]]);
+    }
+    out = next;
+  }
+  return out.filter((q) => q[1] - q[0] > 1e-3 && q[3] - q[2] > 1e-3);
+}
+
+// A board in a stair's frame (K.frame) that slopes: x0..x1 across, z0..z1 along it, its bottom rising from b0 to b1
+// and its top from t0 to t1. A stringer, or the soffit under a flight.
+function slopeBoard(K, F, x0, x1, z0, z1, b0, t0, b1, t1, hex, k = 1) {
+  const c = K.C(hex, k), a = Math.atan2(t1 - t0, z1 - z0), ab = Math.atan2(b1 - b0, z1 - z0);
+  const f = (ps, n, s = 1) => K.quad(K.solid, ps.map(([x, y, z]) => F.P(x, y, z)), F.N(...n), s === 1 ? c : K.C(hex, k * s));
+  f([[x0, b0, z0], [x0, t0, z0], [x0, t1, z1], [x0, b1, z1]], [-1, 0, 0], 0.92);
+  f([[x1, b1, z1], [x1, t1, z1], [x1, t0, z0], [x1, b0, z0]], [1, 0, 0], 0.92);
+  f([[x0, t0, z0], [x1, t0, z0], [x1, t1, z1], [x0, t1, z1]], [0, Math.cos(a), -Math.sin(a)]);
+  f([[x0, b0, z0], [x0, b1, z1], [x1, b1, z1], [x1, b0, z0]], [0, -Math.cos(ab), Math.sin(ab)], 0.85);
+  f([[x1, b0, z0], [x1, t0, z0], [x0, t0, z0], [x0, b0, z0]], [0, 0, -1]);
+  f([[x0, b1, z1], [x0, t1, z1], [x1, t1, z1], [x1, b1, z1]], [0, 0, 1]);
+}
+// Whether the line x = X along a stair's frame, from z0 to z1, runs along one of the room's walls
+function alongWall(F, X, z0, z1, hu, D, k = 0.3) {
+  const a = F.P(X, 0, z0), b = F.P(X, 0, z1);
+  return (Math.abs(a[0]) > hu - k && Math.abs(b[0]) > hu - k && a[0] * b[0] > 0) || (a[1] < k && b[1] < k) || (a[1] > D - k && b[1] > D - k);
+}
+
+// A FLIGHT UP TO THE NEXT FLOOR (client/shared/room-layout.js stairsOf), drawn by the room it stands in: treads
+// with a nose over painted risers, between two stringers, closed underneath by a soffit, with a handrail on
+// newels and a baluster a step down each open side. A side along a wall has a rail on brackets instead. Its top
+// runs up through the well in the ceiling, and the floor above is its last step.
+function drawFlight(K, o, { hu, D, fine, club, trim }) {
+  const F = K.frame(o.foot[0], o.foot[1], o.climb[0], o.climb[1]), { pbox } = F, rod = rodOf(K);
+  const hw = o.w / 2, riser = o.rise / o.n, g = o.going, len = o.len, rise = o.rise, st = 0.045;
+  const wood = fine ? { t: 'roomOak', c: '#b89068' } : { t: 'roomBoards', c: '#a08060' }, paint = club ? '#1a161a' : trim;
+  const iron = fine || club ? '#1e1c1c' : paint, railC = fine ? '#5a3a24' : club ? '#2a2226' : '#6a4a30';
+  for (let i = 0; i < o.n - 1; i++) {
+    const y = (i + 1) * riser, z0 = i * g;
+    pbox(-hw, hw, y - 0.04, y, z0 - 0.025, z0 + g, '#ffffff', 1, wood);
+    pbox(-hw + 0.01, hw - 0.01, y - riser, y - 0.04, z0, z0 + 0.02, paint, 0.95);
+  }
+  // the last riser, up to the floor above, and the trimmer under its edge
+  pbox(-hw + 0.01, hw - 0.01, rise - riser, rise, len, len + 0.02, paint, 0.95);
+  pbox(-hw - st, hw + st, rise - 0.3, rise - riser, len, len + 0.06, '#8a8680');
+  // the nose line, and the stringers either side of it, from the floor to the floor above
+  const nose = (z) => riser + (rise - riser) * Math.max(0, Math.min(1, z / len));
+  const top0 = riser + 0.07, top1 = rise, bot1 = rise - 0.34;
+  for (const s of [-1, 1]) slopeBoard(K, F, s < 0 ? -hw - st : hw, s < 0 ? -hw : hw + st, 0, len + 0.06, 0, top0, bot1, top1, paint, 0.9);
+  // the soffit: plastered, under the treads from stringer to stringer
+  slopeBoard(K, F, -hw, hw, 0, len, 0, 0.02, bot1, bot1 + 0.02, '#e8e4dc', 0.85);
+  // the well's edge in the ceiling, cased in the trim: down each side and across the end the flight comes up from
+  const wx = hw + STAIR.gap, cw = 0.06, ch = 0.14;
+  for (const s of [-1, 1]) if (!alongWall(F, s * wx, o.hole, len, hu, D)) pbox(s < 0 ? -wx - cw : wx, s < 0 ? -wx : wx + cw, rise - ch, rise, o.hole - cw, len + 0.06, paint, 0.95);
+  pbox(-wx - cw, wx + cw, rise - ch, rise, o.hole - cw, o.hole, paint, 0.95);
+  for (const s of [-1, 1]) {
+    const X = s * (hw + st / 2);
+    if (alongWall(F, X, 0, len, hu, D)) {
+      // a rail on brackets screwed to the wall, a hand's width off it
+      const x = s * (hw - 0.07), y = (z) => nose(z) + 0.88;
+      rod(F.P(x, y(0.1), 0.1), F.P(x, y(len), len), 0.022, railC, 1, SATIN);
+      for (let z = 0.3; z < len; z += 1.2) pbox(x - (s < 0 ? 0.07 : 0), x + (s > 0 ? 0.07 : 0), y(z) - 0.06, y(z) - 0.03, z - 0.012, z + 0.012, '#8a8478');
+      continue;
+    }
+    // a newel at the foot and the top, a baluster on every step, the rail along their heads
+    const rail = (z) => nose(z) + 0.9;
+    pbox(X - 0.045, X + 0.045, 0, rail(0) + 0.12, -0.02, 0.07, paint, 1);
+    pbox(X - 0.045, X + 0.045, bot1, rise + 1.0, len - 0.05, len + 0.04, paint, 1);
+    for (let i = 0; i < o.n - 1; i++) { const z = i * g + g / 2, y0 = nose(z) + 0.07; pbox(X - 0.015, X + 0.015, y0, rail(z), z - 0.015, z + 0.015, iron, 0.95); }
+    rod(F.P(X, rail(0) + 0.03, 0.02), F.P(X, rail(len) + 0.03, len - 0.04), 0.028, railC, 1, SATIN);
+  }
+}
+
+// THE WELL A FLIGHT COMES UP THROUGH, drawn by the room above: a balustrade round it on the floor's edge, its long
+// sides stopping where the flight's own rail has come up through the floor high enough to take over, and across
+// the end the flight goes down from. A side along a wall has none.
+function drawWell(K, o, { hu, D, fine, club, trim }) {
+  const F = K.frame(o.foot[0], o.foot[1], o.climb[0], o.climb[1]), { pbox } = F;
+  const riser = o.rise / o.n, X = o.w / 2 + STAIR.gap + 0.03, z0 = o.hole - 0.03;
+  // where the flight's rail (drawFlight) stands half a metre over this floor
+  const zk = Math.min(o.len, Math.max(z0 + 0.4, (o.rise - 0.4 - riser) * o.len / (o.rise - riser)));
+  const post = club ? '#1a161a' : trim, iron = fine || club ? '#1e1c1c' : trim, railC = fine ? '#5a3a24' : club ? '#2a2226' : '#6a4a30';
+  const run = (x0, x1, za, zb, alongZ) => {
+    pbox(x0 - 0.04, x0 + 0.04, 0, 1.0, za - 0.04, za + 0.04, post);
+    if (alongZ) {
+      pbox(x0 - 0.04, x0 + 0.04, 0, 1.0, zb - 0.04, zb + 0.04, post);
+      pbox(x0 - 0.035, x0 + 0.035, 0.92, 0.98, za, zb, '#ffffff', 1, { t: fine ? 'roomOak' : 'roomBoards', c: railC });
+      pbox(x0 - 0.02, x0 + 0.02, 0.05, 0.09, za, zb, iron);
+      for (let z = za + 0.12; z < zb - 0.06; z += 0.13) pbox(x0 - 0.014, x0 + 0.014, 0.09, 0.92, z - 0.014, z + 0.014, iron, 0.95);
+    } else {
+      pbox(x1 - 0.04, x1 + 0.04, 0, 1.0, za - 0.04, za + 0.04, post);
+      pbox(x0, x1, 0.92, 0.98, za - 0.035, za + 0.035, '#ffffff', 1, { t: fine ? 'roomOak' : 'roomBoards', c: railC });
+      pbox(x0, x1, 0.05, 0.09, za - 0.02, za + 0.02, iron);
+      for (let x = x0 + 0.12; x < x1 - 0.06; x += 0.13) pbox(x - 0.014, x + 0.014, 0.09, 0.92, za - 0.014, za + 0.014, iron, 0.95);
+    }
+  };
+  const wallL = alongWall(F, -X, z0, o.len, hu, D), wallR = alongWall(F, X, z0, o.len, hu, D);
+  if (!wallL) run(-X, 0, z0, zk, true);
+  if (!wallR) run(X, 0, z0, zk, true);
+  if (!alongWall(F, -X, z0, z0, hu, D, 0.15) || !alongWall(F, X, z0, z0, hu, D, 0.15)) run(-X, X, z0, z0, false);
 }
 
 function drawPit(K, q, { key, tint, surf }) {

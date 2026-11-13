@@ -95,7 +95,7 @@ export function glCapabilities() {
   // would want 247 and put every floor-spec device off the GL path entirely — which is now a clean
   // refusal and a 2-D fallback rather than a link error, because `ok` finally reads this.
   out.needs = { attribs: 12, varyingComponents: 22,
-    fragUniformVectors: 3 * MAX_LIGHTS + 1 + 2 * MAX_MATERIALS + 6 };
+    fragUniformVectors: 3 * MAX_LIGHTS + 1 + 2 * MAX_MATERIALS + 6 + 3 };   // + 3: a balcony's cut (uCutA, uCutB, uCutTile)
   out.ok = out.maxAttribs >= out.needs.attribs && out.maxVarying >= out.needs.varyingComponents
     && (!out.maxFragUniform || out.maxFragUniform >= out.needs.fragUniformVectors);
   out.atlasWorstCase = out.maxTexture >= 4096
@@ -294,6 +294,8 @@ export function installGL(hostFor) {
       curtain: opts.curtain, decals: opts.decals, strokes: opts.strokes, scatter: opts.scatter, ground: opts.ground,
       // the rooms inside the buildings near the eye (gl/interiors.js). Dropped here, no room is ever in the world.
       interiors: opts.interiors,
+      // a balcony room's spot in its own building (room-view.js roomCut). Dropped here, the facade fills the balcony.
+      cut: opts.cut,
       // ⚠ AND THE SHED BESIDE IT. Dropped here it is the gl:opts failure exactly: the sink fills,
       // the tune key exists, the slider moves, and the shed is collected into a list one hop short
       // of the layer that draws it — so the depot simply is not in the frame at all.

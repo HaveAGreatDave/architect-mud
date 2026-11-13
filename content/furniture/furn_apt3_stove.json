@@ -1,0 +1,27 @@
+{
+  "description": "A narrow enamel cooker with two rings and a grill pan, left over from when these rooms were suites. The knobs have lost their numbers, so you turn them till it smells right.",
+  "flags": {
+    "aliases": [
+      "stove",
+      "cooker",
+      "hob",
+      "rings",
+      "hotplate",
+      "oven"
+    ],
+    "interactions": [
+      "lean"
+    ],
+    "stove_tier": "low"
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_apt3_stove",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "enamel cooker",
+  "object_type": "fixture",
+  "power_draw_kw": 0.3,
+  "price": 0,
+  "zone_id": "zone_apt_3"
+}

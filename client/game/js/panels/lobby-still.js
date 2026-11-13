@@ -87,6 +87,35 @@ export function stillCard(key, aspect) {
   return c;
 }
 
+// ── the baked stills: a lobby seen from its street door before anybody's been in ─────────
+// scripts/lobby/bake.mjs opens each Stage building's entry room in the Room Lab, stood in its street door as the
+// server stands you there, and keeps the picture with the camera that took it (`vp`, the room renderer's view and
+// projection, in the room's own frame). gl/interiors.js paints the room's walls with it, projected from that camera,
+// so a street door shows the room as it is before the room itself has loaded, with the parallax of the real walls.
+// ⚠ A PICTURE, NOT THE ROOM: re-bake (`npm run lobby:bake`) after changing an entry room's look. A missing or stale
+// one costs nothing worse than the plain box it's painted on.
+const BAKED = new URL('../../assets/lobby/', import.meta.url);
+let bakedIndex = null;
+const bakedRooms = new Map();
+// { img, vp } once it's loaded, null meanwhile and for a room with no picture; asking starts the load
+export function bakedStill(zone) {
+  if (!zone || typeof Image === 'undefined' || typeof fetch !== 'function') return null;
+  const got = bakedRooms.get(zone);
+  if (got !== undefined) return got && got.img.complete && got.img.naturalWidth ? got : null;
+  if (!bakedIndex) {
+    bakedIndex = fetch(new URL('index.json', BAKED)).then((r) => (r.ok ? r.json() : null)).catch(() => null)
+      .then((ix) => { bakedIndex = ix || { rooms: {} }; return bakedIndex; });
+  }
+  if (typeof bakedIndex.then === 'function') return null;   // the index is still on its way
+  const e = bakedIndex.rooms?.[zone];
+  if (!e || !Array.isArray(e.vp) || e.vp.length !== 16) { bakedRooms.set(zone, null); return null; }
+  const img = new Image();
+  img.decoding = 'async';
+  img.src = new URL(e.file, BAKED).href;
+  bakedRooms.set(zone, { img, vp: new Float32Array(e.vp) });
+  return null;
+}
+
 // ── the keys through the door ────────────────────────────────────────────────
 const WALK = new Set(['w', 'a', 's', 'd']);
 let carry = null, carryT = 0;

@@ -1,0 +1,26 @@
+{
+  "description": "Two electric rings in a dented steel box, screwed to the wall at waist height. One heats fast. The other heats eventually.",
+  "flags": {
+    "aliases": [
+      "stove",
+      "cooker",
+      "hob",
+      "rings",
+      "hotplate"
+    ],
+    "interactions": [
+      "lean"
+    ],
+    "stove_tier": "low"
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_apt12_stove",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "wall rings",
+  "object_type": "fixture",
+  "power_draw_kw": 0.3,
+  "price": 0,
+  "zone_id": "zone_apt_12"
+}

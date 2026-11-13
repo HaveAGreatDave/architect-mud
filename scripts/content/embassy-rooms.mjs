@@ -30,7 +30,7 @@ const ZONE = {
       ...base, w: 14, d: 10, h: 4.6, finish: 'fine', ground: 'marble',
       tone: { accent: GOLD, ceiling: '#e9d6cf', trim: '#2a1a14', wall: ROSE },
       // the street door: a pair of hinged bronze-and-glass leaves under a fanlight, swinging in
-      street_door: { kind: 'swing', w: 2, trim: '#8a6a44', glass: '#7f97a0', monogram: 'E' },
+      street_door: { kind: 'swing', w: 2, trim: '#8a6a44', glass: '#7f97a0', monogram: 'E', fanlight: true, runner: '#7a1e2a' },
       sign: { text: 'EMBASSY', sub: 'RECEPTION', wall: 'back', at: -1.5, y: 3.7, size: 0.42 },
       decor: {
         walls: { kind: 'walnut', hex: '#5a3a26', y1: 1.25, rail: 1.0 },

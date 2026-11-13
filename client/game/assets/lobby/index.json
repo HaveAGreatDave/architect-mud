@@ -1,0 +1,101 @@
+{
+  "rooms": {
+    "zone_meridian_lobby": {
+      "file": "zone_meridian_lobby.jpg",
+      "w": 960,
+      "h": 512,
+      "hour": 13,
+      "vp": [
+        0,
+        0,
+        1.000667,
+        1,
+        0,
+        1.376382,
+        0,
+        0,
+        0.73407,
+        0,
+        0,
+        0,
+        3.303317,
+        -2.265442,
+        5.349268,
+        5.425677
+      ]
+    },
+    "zone_mq_cherry_floor": {
+      "file": "zone_mq_cherry_floor.jpg",
+      "w": 960,
+      "h": 512,
+      "hour": 13,
+      "vp": [
+        -0.73407,
+        0,
+        0,
+        0,
+        0,
+        1.376382,
+        0,
+        0,
+        0,
+        0,
+        1.000667,
+        1,
+        0,
+        -2.265442,
+        13.354604,
+        13.425676
+      ]
+    },
+    "zone_residential_lobby": {
+      "file": "zone_residential_lobby.jpg",
+      "w": 960,
+      "h": 512,
+      "hour": 13,
+      "vp": [
+        0,
+        0,
+        -1.000667,
+        -1,
+        0,
+        1.376382,
+        0,
+        0,
+        -0.73407,
+        0,
+        0,
+        0,
+        -3.670352,
+        -2.265442,
+        6.349935,
+        6.425677
+      ]
+    },
+    "zone_solenne_lobby": {
+      "file": "zone_solenne_lobby.jpg",
+      "w": 960,
+      "h": 512,
+      "hour": 13,
+      "vp": [
+        0.73407,
+        0,
+        0,
+        0,
+        0,
+        1.376382,
+        0,
+        0,
+        0,
+        0,
+        -1.000667,
+        -1,
+        0,
+        -2.265442,
+        -0.654733,
+        -0.574323
+      ]
+    }
+  },
+  "note": "Written by scripts/lobby/bake.mjs (npm run lobby:bake): each entry room from its street door, and the camera that took it. Read by client/game/js/panels/lobby-still.js."
+}

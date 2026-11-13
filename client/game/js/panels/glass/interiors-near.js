@@ -54,6 +54,9 @@ export function interiorsFrame(picks, ox, oy) {
   return picks.map(({ room, lod: want }) => {
     const lod = want === 0 && room.meshReady && !room.meshReady() ? 1 : want;
     const M = room.M.slice(); M[12] += room.gx - ox; M[13] += room.gy - oy;
-    return { key: room.key + (lod ? '#box' : '#mesh'), M, lod, lamp: room.lamp || null, parts: () => room.parts(lod) };
+    // `tile` ties a room to its building's street door (gl/interiors.js drawPortals); `still` is the picture its
+    // walls are painted with seen through that door (lobby-still.js), once there is one
+    return { key: room.key + (lod ? '#box' : '#mesh'), M, lod, lamp: room.lamp || null, parts: () => room.parts(lod),
+      tile: room.gx + ',' + room.gy, still: room.still ? room.still() : null };
   });
 }

@@ -21,7 +21,7 @@
 // through specced rooms, and a building is 'ready' when its entry has a spec, 'partial' when some
 // other room does, and 'none' otherwise.
 
-import { withDoorways, roomSpecOf, withAnnex, WALL_T } from './room-layout.js';
+import { withDoorways, roomSpecOf, withAnnex, WALL_T, flightOf, flightBox, STAIR } from './room-layout.js';
 
 export const OPPOSITE = {
   north: 'south', south: 'north', east: 'west', west: 'east',
@@ -191,7 +191,8 @@ export function faceOf(zone) {
 // One room's openings, for its spec (roomLayout cuts and walks them): { wall, a, b, kind, dir, to }
 // on the room's own walls. `dir` is the exit this room takes through it, so walking through sends
 // `move <dir>`; a one-way door seen from the side it doesn't open from has none, and stays shut.
-// Stairs have no wall and aren't here yet.
+// A stair with a flight (`flags.room.stair` on the room below) is `kind: 'stair'` on both rooms, the flight in
+// each one's own frame (room-layout.js stairsOf); one without a flight has no opening, and stays text.
 //
 // A lift car (`plan.lifts`) has one doorway per stop, all on the wall the upper floors meet it by.
 // Its openings depend on where the car is standing (`parked`, the stop's zone; the ground floor when
@@ -203,6 +204,14 @@ export function roomOpenings(b, plan, zoneId, parked = null) {
   let rear = false;
   for (const d of plan.doors) {
     const side = d.sides[zoneId];
+    if (side && d.kind === 'stairs' && d.flight) {
+      // the same flight in this room's frame: standing on its floor below, falling away from it above
+      const R = plan.rooms[zoneId], F = d.flight, low = side.wall === 'ceiling', other = d.from === zoneId ? d.to : d.from;
+      const dir = d.from === zoneId ? d.dir : (b.doors.find((x) => x.from === zoneId && x.to === other)?.dir ?? null);
+      const { foot, head, ...rest } = F;
+      out.push({ kind: 'stair', wall: side.wall, dir, to: other, ...rest, foot: toRoom(R, foot), climb: toRoom(R, F.climb, true), y0: low ? 0 : -F.rise });
+      continue;
+    }
     if (!side || side.wall === 'floor' || side.wall === 'ceiling') continue;
     if (d.kind === 'lift') {
       // the landing's own doors: shut until you come up to them, as the street's glass doors are (`slide`),
@@ -226,6 +235,17 @@ export function roomOpenings(b, plan, zoneId, parked = null) {
   return out;
 }
 
+// Where the street door is in the entry room `id`'s own frame, [u, v] (u to the right, v back from the front wall), for
+// the room's `frame.door`: the client stands THE DOOR on the street edge, not the entry room's front wall. The two are
+// the same place only when the door is in the middle of the front wall. The Embassy's is in its lobby's left wall,
+// and the whole building stood seven metres out in the street. Null with no street door: the front wall stands there.
+export function streetDoorAt(plan, id) {
+  const R = plan.rooms[id], d = plan.doors?.find((x) => x.kind === 'front' && x.from === id), s = d?.sides?.[id];
+  if (!R || !s || !Number.isFinite(s.a) || !Number.isFinite(s.b)) return null;
+  const c = (s.a + s.b) / 2;
+  return s.wall === 'front' ? [c, 0] : s.wall === 'back' ? [c, R.d] : s.wall === 'left' ? [-R.w / 2, c] : [R.w / 2, c];
+}
+
 // Where room `toId` stands as seen from room `fromId`, as the `at`, `face` and `floor` of its spec. The
 // Stage draws the room you're in at the origin facing 0, so the next room's walls, laid out by
 // roomLayout with these, come out in the same frame as yours (docs/proposals/building-stage.md, step 4).
@@ -241,6 +261,19 @@ export function placeFrom(plan, fromId, toId) {
   // hall, 30-B (east, the text says) was through the west wall. So: turn, then mirror x, and the facing runs back.
   const x = dx * Math.cos(f) - dz * Math.sin(f), z = dx * Math.sin(f) + dz * Math.cos(f);
   return { at: [r2(-x), r2(z)], face: norm(A.face - B.face), floor: lifted ? 0 : r2(B.floor - A.floor) };
+}
+
+// A point on the plan, [x, z], in placed room R's own frame, [u, v], as onWalls measures it; with `dir`, a direction.
+function toRoom(R, p, dir = false) {
+  const f = R.face * Math.PI / 180, fv = [Math.sin(f), Math.cos(f)], rv = [Math.cos(f), -Math.sin(f)];
+  const q = dir ? p : [p[0] - R.at[0], p[1] - R.at[1]];
+  return [r2(q[0] * rv[0] + q[1] * rv[1]) + 0, r2(-(q[0] * fv[0] + q[1] * fv[1])) + 0];
+}
+// and back: a point (or with `dir` a direction) in room R's frame on the plan
+function toPlan(R, [u, v], dir = false) {
+  const f = R.face * Math.PI / 180, fv = [Math.sin(f), Math.cos(f)], rv = [Math.cos(f), -Math.sin(f)];
+  const x = rv[0] * u - fv[0] * v, z = rv[1] * u - fv[1] * v;
+  return dir ? [r2(x) + 0, r2(z) + 0] : [r2(R.at[0] + x), r2(R.at[1] + z)];
 }
 
 // Every ready building with more than one room to walk and a plan with no problems, keyed by each of its
@@ -267,7 +300,8 @@ export function walkPlans({ zones, maps, specOf }) {
 export function buildingView(bld, zoneId, spec, { specOf, nameOf = () => '', parked = null }) {
   const own = withDoorways(spec, roomOpenings(bld.b, bld.plan, zoneId, parked)), neighbours = [];
   for (const o of own.openings) {
-    if (o.kind !== 'door' || !bld.plan.rooms[o.to] || neighbours.some((n) => n.zone === o.to)) continue;
+    // (a flight's other floor is drawn too: you see up the well, and down it)
+    if ((o.kind !== 'door' && o.kind !== 'stair') || !bld.plan.rooms[o.to] || neighbours.some((n) => n.zone === o.to)) continue;
     const s = specOf(o.to), at = placeFrom(bld.plan, zoneId, o.to);
     if (!s || !at) continue;
     neighbours.push({ zone: o.to, name: nameOf(o.to), spec: { ...withDoorways(s, roomOpenings(bld.b, bld.plan, o.to, zoneId)), ...at } });
@@ -280,8 +314,27 @@ export function buildingLayout(b, { zones, specOf }) {
   const rooms = {}, doors = [], problems = [], walk = new Set(b.walk || []);
   if (!walk.size) return { rooms, doors, problems };
 
-  // a stair's place in a room's own frame, [u, v], from `flags.room.doors.up`/`down`, or null
-  const stairOf = (id, dir) => { const v = Z.get(id)?.flags?.room?.doors?.[dir]; return Array.isArray(v) && v.length === 2 && v.every(Number.isFinite) ? v : null; };
+  // a stair's place in a room's own frame, [u, v], from `flags.room.doors.up`/`down`, or null. A room with a flight
+  // up (`flags.room.stair`) has it at the flight's top, so the room above stands with its `down` there
+  const stairOf = (id, dir) => {
+    const st = dir === 'up' ? specOf(Z.get(id))?.stair : null;
+    if (st) return flightOf(st, specOf(Z.get(id)).h).head;
+    const v = Z.get(id)?.flags?.room?.doors?.[dir]; return Array.isArray(v) && v.length === 2 && v.every(Number.isFinite) ? v : null;
+  };
+  // The flight between placed rooms `lower` and `upper`, on the plan: its bottom step's middle and the way it
+  // climbs as [x, z], and its numbers (flightOf). Null when the room below has none. It has to stand in the room
+  // below and its well in the floor of the room above, with floor past its top to step onto.
+  const flightIn = (lower, upper) => {
+    const st = specOf(Z.get(lower))?.stair;
+    if (!st) return null;
+    const A = rooms[lower], B = rooms[upper], g = flightOf(st, A.h), hw = g.w / 2 + STAIR.rail;
+    const inside = (R, box) => box[0] >= -R.w / 2 - EPS && box[1] <= R.w / 2 + EPS && box[2] >= -EPS && box[3] <= R.d + EPS;
+    if (!inside(A, flightBox(g, 0, g.len, -hw, hw))) problems.push({ kind: 'stair_off_room', zone: lower, to: upper });
+    const fl = { ...g, foot: toPlan(A, g.foot), climb: toPlan(A, g.climb, true), head: toPlan(A, g.head), y: A.floor };
+    const mine = { ...g, foot: toRoom(B, fl.foot), climb: toRoom(B, fl.climb, true) };
+    if (!inside(B, flightBox(mine, g.hole - STAIR.rail, g.len + 0.6, -g.w / 2 - STAIR.gap, g.w / 2 + STAIR.gap))) problems.push({ kind: 'stair_off_floor', zone: upper, to: lower });
+    return fl;
+  };
   // a point in a placed room's own frame (u across, v back from the front wall) as [x, z] from its middle
   const fromMid = (face, d, [u, v]) => { const f = face * Math.PI / 180, fx = Math.sin(f), fz = Math.cos(f), rx = Math.cos(f), rz = -Math.sin(f); return [fx * (d / 2 - v) + rx * u, fz * (d / 2 - v) + rz * u]; };
   // `flags.room.street_door`: { kind: 'sliding', w } is a pair of automatic glass doors in place of a plain one;
@@ -387,7 +440,8 @@ export function buildingLayout(b, { zones, specOf }) {
       const at = [r2(cx), dir === 'up' ? r2(A.floor + A.h) : A.floor, r2(cz)];
       const sides = { [from]: { wall: dir === 'up' ? 'ceiling' : 'floor' } };
       if (rooms[to]) sides[to] = { wall: dir === 'up' ? 'floor' : 'ceiling' };
-      doors.push({ kind: kind === 'door' ? 'stairs' : kind, from, dir, to, at, sides });
+      const flight = kind === 'door' && rooms[to] ? (dir === 'up' ? flightIn(from, to) : flightIn(to, from)) : null;
+      doors.push({ kind: kind === 'door' ? 'stairs' : kind, from, dir, to, at, sides, ...(flight ? { flight } : {}) });
       return;
     }
     const side = sideOf(A, dir);

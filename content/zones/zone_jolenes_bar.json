@@ -24,11 +24,22 @@
     "is_building": true,
     "is_interior": true,
     "room": {
-      "w": 12,
+      "balcony": false,
       "d": 9,
+      "doors": {
+        "west": -3.55
+      },
       "h": 3.4,
+      "stair": {
+        "at": [
+          5.4,
+          6.2
+        ],
+        "climb": "front",
+        "w": 1
+      },
       "studio": false,
-      "balcony": false
+      "w": 12
     },
     "window": {
       "description": "A wide pane onto Meltwater Row with a neon boot hung in it, kicking on a two-second cycle. Whatever the weather is doing out there, it's doing it in plain view of everyone at the bar.",

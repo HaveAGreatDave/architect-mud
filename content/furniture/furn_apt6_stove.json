@@ -1,0 +1,27 @@
+{
+  "description": "A two-ring electric cooker on stubby legs, the enamel chipped to black at every corner. The oven door is held shut with a bent fork.",
+  "flags": {
+    "aliases": [
+      "stove",
+      "cooker",
+      "hob",
+      "rings",
+      "hotplate",
+      "oven"
+    ],
+    "interactions": [
+      "lean"
+    ],
+    "stove_tier": "low"
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_apt6_stove",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "chipped cooker",
+  "object_type": "fixture",
+  "power_draw_kw": 0.3,
+  "price": 0,
+  "zone_id": "zone_apt_6"
+}

@@ -489,6 +489,49 @@ export default async function regress({ run, check, getPlayer }) {
       }
     }
 
+    // a flight of stairs between two floors (docs/proposals/building-stage.md "Stairs"): both rooms get it, each sees
+    // the other through the well, and going up it is the ordinary `up`, with the Stage kept open
+    {
+      const MAP = '__roomstage_test_smap__', T = '__roomstage_test_stile__', S1 = '__roomstage_test_s1__', S2 = '__roomstage_test_s2__';
+      const mks = (id, map, flags, exits) => world.zones.set(id, { id, name: id, description: `Room ${id}.`, map_id: map, flags, exits, players: new Set(), npcs: new Set(), enemies: new Set(), corpses: new Set() });
+      mks(T, 'map_world', {}, { north: S1 });
+      mks(S1, MAP, { room: { w: 6, d: 8, h: 3, face: 0, studio: false, balcony: false, stair: { at: [-2, 7.4], climb: 'front', w: 1 } } }, { south: T, up: S2 });
+      mks(S2, MAP, { room: { w: 6, d: 8, h: 2.6, studio: false, balcony: false, doors: { down: [-2, 2.4] } } }, { down: S1 });
+      world.maps.set(MAP, { id: MAP, name: 'Test Stairs', parent_zone_id: T, entry_zone_id: S1 });
+      const sent = [], was = getBroadcast(), saved = p.current_zone;
+      setBroadcast((z, msg, ex, to) => { if (to === p.id) sent.push(msg); return was?.(z, msg, ex, to); });
+      try {
+        _test.clearBuildings();
+        const bld = _test.buildingOfRoom(S1);
+        check('two floors joined by a flight are one walk, planned clean', bld?.b.walk.length === 2 && !bld.plan.problems.length && bld.plan.doors.some((d) => d.flight), JSON.stringify(bld?.plan.problems));
+        const v1 = await _test.viewPayload(p, S1, _test.specOf(S1)), up = (v1.spec.openings || []).find((o) => o.kind === 'stair');
+        check('the room below carries the flight up, standing on its floor', up?.dir === 'up' && up.to === S2 && up.wall === 'ceiling' && up.y0 === 0, JSON.stringify(up));
+        const above = (v1.building?.neighbours || []).find((n) => n.zone === S2);
+        check('and the room above comes with it, on its ceiling, its well cut', above?.spec.floor === 3 && above.spec.openings?.some((o) => o.kind === 'stair' && o.wall === 'floor' && o.dir === 'down' && o.y0 === -3), JSON.stringify(above?.spec));
+        check('the floor above is somebody below\'s business, and back', _test.nextDoor(S1).includes(S2) && _test.nextDoor(S2).includes(S1));
+        const L = roomLayout(v1.spec, []), at = (s) => [up.foot[0] + up.climb[0] * s, up.foot[1] + up.climb[1] * s];
+        check('the flight climbs: its ground rises step by step to the floor above', L.groundAt(...at(0.1)) < 0.2 && Math.abs(L.groundAt(...at(up.len)) - 3) < 1e-6 && L.baseAt(...at(up.len / 2)) > 1, JSON.stringify([L.groundAt(...at(0.1)), L.groundAt(...at(up.len)), L.baseAt(...at(up.len / 2))]));
+        check('you can walk onto it from its foot but not step off its side', roomFree(L, ...at(0.3)) && !roomFree(L, at(2)[0] + 0.75, at(2)[1]) && !roomFree(L, at(2)[0] - 0.75, at(2)[1]));
+        check('and past halfway up it you have gone up', openingCrossed(L, at(up.cross + 0.1))?.dir === 'up' && !openingCrossed(L, at(up.cross - 0.1)));
+        world.zones.get(p.current_zone)?.players.delete(p.id);
+        p.current_zone = S1; world.zones.get(S1).players.add(p.id);
+        await run('room');
+        sent.length = 0;
+        await run('up');
+        for (let i = 0; i < 80 && p.current_zone !== S2; i++) await new Promise((res) => setTimeout(res, 50));
+        await new Promise((res) => setTimeout(res, 30));
+        const next = sent.find((m) => m.type === 'room_view');
+        check('going up the stairs moves you up, the Stage open on the floor above, come up by the flight', p.current_zone === S2 && next?.zone === S2 && next.via === S1 && !sent.some((m) => m.type === 'room_close'), JSON.stringify(sent.map((m) => [m.type, m.zone, m.via])));
+        const Lh = roomLayout(next.spec, []), dn = next.spec.openings.find((o) => o.kind === 'stair'), arrive = openingInside(Lh, dn);
+        check('typed, you arrive off its top step, facing on', roomFree(Lh, ...arrive.at) && !openingCrossed(Lh, arrive.at) && Lh.groundAt(...arrive.at) === 0, JSON.stringify(arrive));
+      } finally {
+        setBroadcast(was);
+        for (const id of [S1, S2]) { world.zones.get(id)?.players.delete(p.id); _test.viewers.delete(id); world.zones.delete(id); }
+        world.zones.delete(T); world.maps.delete(MAP); _test.clearBuildings();
+        p.current_zone = saved; world.zones.get(saved)?.players.add(p.id);
+      }
+    }
+
     // a tower's lift (Solenne Residences, from content): every floor is on the walk, the car is one room
     // whose doors open on the floor it's parked at, and riding it is the elevator's own `floor <n>`
     if (world.zones.get('zone_solenne_elevator')?.flags?.room) {

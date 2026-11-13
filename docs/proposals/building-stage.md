@@ -430,6 +430,17 @@ frame (`v.streetDoors`, glass/street-doors.js), which part at the lobby's 2.6 m 
 one pane for the lobby seen through it, with no leaves of its own. The Solenne is the first. After editing
 the arm, `npm run lite:bake`.
 
+An authored model does it the same way; the Embassy's (content/building_models/embassyhotelbar.json) is the
+example. The door comes down to the pavement between two cream jambs standing proud of the plinth, under a
+lintel, with a marble step and the runner on it, and a `windowBay` door for a cab driving past. ⚠ The parts
+are in absolute tiles (`scale: 'abs'`): the wall they stand on is clamped at 0.44 whatever the tile's
+footprint, so parts scaled by `fh` stood in front of it with a gap behind, and a door scaled by `h` is a
+fraction of the building's height, not a person's. A step lower than a kerb (0.011) is stood on, not
+measured (glass/doorway-measure.js). On foot the lobby shows through the doorway (one-world-interiors.md,
+the street door as a portal), painted from its baked picture until its mesh is in, so run
+`npm run lobby:bake` after changing how the lobby looks. A swing pair can have `fanlight` (a glazed fan over
+the leaves) and `runner` (a carpet's colour, laid from the threshold out across the pavement).
+
 ### The view out, placed in the world: built
 
 A room on a walk looks out from where the building puts it. `room_outlook` (and `room_view`'s `place`) carries

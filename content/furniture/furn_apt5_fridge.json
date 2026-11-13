@@ -1,0 +1,25 @@
+{
+  "description": "A secondhand fridge, white once, with a dent in the door about the size of a knee. It rattles every time the compressor kicks in.",
+  "flags": {
+    "aliases": [
+      "fridge",
+      "refrigerator"
+    ],
+    "appliance_grade": "consumer",
+    "container": 40000,
+    "interactions": [
+      "lean"
+    ],
+    "preserves": "refrigerated"
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_apt5_fridge",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "dented fridge",
+  "object_type": "container",
+  "power_draw_kw": 0.1,
+  "price": 0,
+  "zone_id": "zone_apt_5"
+}

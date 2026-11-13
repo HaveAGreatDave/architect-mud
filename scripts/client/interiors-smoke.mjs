@@ -38,6 +38,17 @@ for (const [bearing, side, face, entry, floor] of [[0, 180, 0, [0, 0], 0], [90, 
   }
   check(`bearing ${bearing}: the origin is inBuilding's`, near(roomOrigin(frame, bearing)[0], base.x) && near(roomOrigin(frame, bearing)[1], base.y));
 }
+// a street door in a side or back wall (frame.door): the DOOR is stood on the street edge, not the front wall, and the
+// room runs back into the building from it. The Embassy's lobby faces north with its door in the west wall; the Cherry
+// Pit faces west with its door in its back wall, on the east street.
+for (const [name, front, side, w, d, door] of [['a west door in the left wall', 0, 270, 14, 10, [-7, 5]], ['an east door in the back wall', 270, 90, 11, 14, [0, 14]], ['a south door mid-front', 180, 180, 14, 10, [0, 0]]]) {
+  const frame = { entry: [0, 0], front, side, floor: 0, face: front, door };
+  const L = roomLayout({ w, d, h: 4, face: front }), M = roomToGlass(L, roomOrigin(frame, front), front, 0);
+  const at = apply(M, L.world(door[0], door[1], 0)), s = side * Math.PI / 180, edge = [Math.sin(s) * 0.47, -Math.cos(s) * 0.47];
+  check(`${name}: the door is on the street edge`, near(at[0], edge[0]) && near(at[1], edge[1]), `door at ${at[0].toFixed(3)},${at[1].toFixed(3)}`);
+  const mid = apply(M, L.world(0, d / 2, 0));
+  check(`${name}: the room is behind it, in the building`, Math.hypot(mid[0], mid[1]) < Math.hypot(edge[0], edge[1]), `middle at ${mid[0].toFixed(3)},${mid[1].toFixed(3)}`);
+}
 // a room facing north: its back wall is south of its front (+y south), its right is east
 {
   const L = roomLayout({ w: 4, d: 6, h: 2.6, face: 0 }), M = roomToGlass(L, [0, 0], 0, 0);

@@ -107,8 +107,29 @@ function interiorUpload(v, cam) {
   if (!rooms || !rooms.length || !v.mapCenter) return null;
   const ox = v.mapCenter.x + ((v.mapOffset && v.mapOffset.x) || 0), oy = v.mapCenter.y + ((v.mapOffset && v.mapOffset.y) || 0);
   const back = cam.back || 0, eye = [ox + (cam.fx || 0) - back * cam.sinh, oy + (cam.fy || 0) + back * cam.cosh, cam.EH];
-  return interiorsFrame(pickInteriors(rooms, eye), ox, oy);
-}   // the sliding doors of a building you can walk into, on foot
+  const list = interiorsFrame(pickInteriors(rooms, eye), ox, oy);
+  // the street doors of these buildings, as windows onto their rooms (gl/interiors.js drawPortals): the opening
+  // glass/street-doors.js stands its leaves in, at the back of its reveal, about the same centre as the rooms
+  if (!v.interiorInside && v.streetDoors) list.portals = streetPortals(v.streetDoors, list, ox, oy);
+  // the eye about the same centre, for the portal's pull toward it
+  if (list.portals) list.portals.eye = [eye[0] - ox, eye[1] - oy, eye[2]];
+  return list;
+}
+function streetPortals(doors, list, ox, oy) {
+  const out = [];
+  for (const d of doors) {
+    const E = d.E, tile = d.x + ',' + d.y;
+    if (!E || !(d.half > 0.01) || !(d.top > 0.01) || !list.some((r) => r.tile === tile)) continue;
+    const ly = d.wall + PORTAL_IN, P = (lx, z) => [d.x - ox + lx * E[1] + ly * E[0], d.y - oy - lx * E[0] + ly * E[1], z];
+    const p0 = P(0, 0);
+    out.push({ tile, quad: [P(-d.half, d.top), P(d.half, d.top), P(d.half, 0), P(-d.half, 0)],
+      // what's kept of the rooms: past the doorway's own plane by PORTAL_CLIP, so the room's street wall goes
+      clip: [-E[0], -E[1], -(E[0] * p0[0] + E[1] * p0[1]) + PORTAL_CLIP] });
+  }
+  return out.length ? out : null;
+}
+// the portal stands a hair in front of what the model put in its doorway; the room behind it is cut this far in
+const PORTAL_IN = 0.004, PORTAL_CLIP = 0.03;   // the sliding doors of a building you can walk into, on foot
 import { drawRodRig } from './glass/rod-rig.js';   // a boat seat's rod mode: the angler, the rod, the line, the lure and the ring
 import { stepWeatherCells, stepFloorCells, floorSheet } from '../../../shared/wx-cells.js';   // the weather cells drifted between server snapshots, shared with the ballpark's sky
 
@@ -17593,6 +17614,8 @@ const WALL_COL = { uptown: [46, 64, 92], civic: [72, 68, 60], citycore: [52, 56,
   // CREAM joins STUCCO_WALL, because trim is rendered, not glazed, and a window grid on a cornice
   // band would be a grid of windows in a cornice.
   ty_embassy_rose: [208, 140, 146], ty_embassy_cream: [228, 214, 190],
+  // the runner up the front step, the hotel's one extravagance on the street (PLAIN_WALL: it's cloth, not a wall)
+  ty_embassy_runner: [122, 30, 42],
   // Coldwater Clone Facility — clinical off-white shell + dark glowing vat glass.
   // ⚠ `ty_clone_wall` IS `ty_clone` WITHOUT THE WINDOWS, AND IT EXISTS FOR ONE BOX. Second
   // Helpings’ party wall is drawn in the facility’s palette so it reads as the plant’s wall and
@@ -18814,6 +18837,7 @@ const PLAIN_WALL = new Set([ 'ty_ae_navy', 'ty_ae_cream', 'ty_bd_blue_dk', 'ty_b
   // in BRICK_WALL and read as a tidy brick hall; STUCCO's GPU relief reads as brick from the
   // street too. Flat paint, and the model's grime parts do the weathering.
   'ty_cherry', 'ty_cherry_dk',
+  'ty_embassy_runner',   // the Embassy's front-step runner
 
   'ty_hfv_tray',
   // The control tower's painted concrete and its dark steel. Its drums carried the airfield's
@@ -56904,7 +56928,10 @@ function drawWorldObjects(ctx, cam, v, sky, now, sun) {
         lite: LITE ? 1 : 0,
         // The rooms inside the buildings near the eye, picked here (glass/interiors-near.js) and drawn in this
         // scene by gl/interiors.js. Null when the view has none, which is every view but one on foot.
-        interiors: interiorUpload(v, cam) });
+        interiors: interiorUpload(v, cam),
+        // A balcony room's spot in its own building (room-view.js roomCut): the view out of that room keeps the
+        // building and leaves this box out of it. Null for every other view.
+        cut: v.roomCut || null });
       // ⚠ AND A PASS THAT DID NOT DRAW HANDS THE WORLD BACK. The mass was suppressed on the strength
       // of this pass existing, so "it returned nothing" is not a quiet outcome — it is a city of
       // floating lights standing on no buildings. A machine with no WebGL2 and a driver that took

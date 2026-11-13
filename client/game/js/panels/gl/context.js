@@ -178,6 +178,14 @@ uniform float uHazeFar;
 // Which part of the far dissolve this draw owns: 0 all of it (the mirror, a preview), 1 only what
 // is fully opaque, 2 only what is dissolving. See drawFade.
 uniform float uFadePass;
+// A BALCONY ROOM'S OWN SPOT IN ITS BUILDING (room-view.js roomCut). The view out of a room with a balcony keeps
+// the building it's in, less this box, so the facade stands beside, over and under the balcony and never round the
+// eye. In the window's tiles: uCutA is the room's front wall middle [x, y], its bearing in radians and its half
+// width; uCutB how far back from the front wall it runs, its floor and ceiling (z) and 1 when on; uCutTile the
+// building's tile centre. It runs forward to the tile's edge, wherever the model's facade happens to stand.
+uniform vec4 uCutA;
+uniform vec4 uCutB;
+uniform vec2 uCutTile;
 // The ground-to-air crossfade. The 2-D pass multiplies every world object by it and drops the
 // object entirely below 0.02, which is how the Mode-7 city gives way to the flat airport scene
 // as you settle onto the deck. The mass had no idea it existed and drew the real city at full
@@ -496,6 +504,11 @@ void massLight(vec3 P, vec3 raw, vec3 C, float R, float LR, vec3 n, vec3 Vw, flo
   }
 }
 void main() {
+  if (uCutB.w > 0.5) {
+    vec2 q = vWorld.xy - uCutA.xy, t = abs(vWorld.xy - uCutTile);
+    float s = sin(uCutA.z), c = cos(uCutA.z), u = c * q.x + s * q.y, v = c * q.y - s * q.x;
+    if (abs(u) < uCutA.w && v < uCutB.x && vWorld.z > uCutB.y && vWorld.z < uCutB.z && t.x < 0.5 && t.y < 0.5) discard;
+  }
   // ⚠ THE FAR DISSOLVE IS SPLIT ACROSS TWO DRAWS, because the floor and the roads are drawn AFTER
   // this pass and test against its depth. A building at 20% opacity in the haze band still wrote
   // its whole silhouette into the depth buffer, so the ground behind it was rejected and what
@@ -1284,6 +1297,9 @@ export function createGLView(canvas, opts = {}) {
     colorN: gl.getAttribLocation(prog, 'aColorN'),
     viewProj: gl.getUniformLocation(prog, 'uViewProj'),
     massShift: gl.getUniformLocation(prog, 'uMassShift'),
+    cutA: gl.getUniformLocation(prog, 'uCutA'),
+    cutB: gl.getUniformLocation(prog, 'uCutB'),
+    cutTile: gl.getUniformLocation(prog, 'uCutTile'),
     nb: gl.getUniformLocation(prog, 'uNB'),
     atlasN: gl.getUniformLocation(prog, 'uAtlasN'),
     atlasNOn: gl.getUniformLocation(prog, 'uAtlasNOn'),
@@ -1956,6 +1972,11 @@ const lightRaw = new Float32Array(MAX_LIGHTS * 3);
     const vpA = viewProjMatrix(cam, opts.cssH || H);
     gl.uniformMatrix4fv(loc.viewProj, false, mat4f(vpA));
     gl.uniform2f(loc.massShift, massShift[0], massShift[1]);
+    // a balcony room's spot in its own building (uCutA): `cut` is room-view.js roomCut's, null for every other view
+    const cut = opts.cut;
+    gl.uniform4f(loc.cutA, cut ? cut.x : 0, cut ? cut.y : 0, cut ? cut.rad : 0, cut ? cut.half : 0);
+    gl.uniform4f(loc.cutB, cut ? cut.back : 0, cut ? cut.z0 : 0, cut ? cut.z1 : 0, cut ? 1 : 0);
+    gl.uniform2f(loc.cutTile, cut ? cut.tx : 0, cut ? cut.ty : 0);
     const k = opts.keyDir || [-0.7, 0.35, -0.7];
     gl.uniform3f(loc.keyDir, k[0], k[1], k[2]);
     // ⚠ `shadow` is the vertex-light base colour and `sunShadow` is the sun. An object in `shadow`
@@ -2341,7 +2362,7 @@ const lightRaw = new Float32Array(MAX_LIGHTS * 3);
     L.sync(list, INTERIOR_TUNE.budget);
     const day = 1 - Math.max(0, Math.min(1, light.night || 0)), sd = light.sun && light.sun.dir;
     const el = (light.sun && light.sun.elev) || 0.5, sun = sd ? [sd[0] * day, sd[1] * day, Math.max(0, el) * day] : [0, 0, day];   // dir is flat [x, y]; elev lifts it
-    return L.draw(w.cam, cssH, w.ox, w.oy, { amb: [0.08 + 0.5 * day, 0.08 + 0.52 * day, 0.1 + 0.55 * day], sun });
+    return L.draw(w.cam, cssH, w.ox, w.oy, { amb: [0.08 + 0.5 * day, 0.08 + 0.52 * day, 0.1 + 0.55 * day], sun }, list && list.portals);
   }
 
   // Ground scatter, on the same depth buffer. Lazy like the others.

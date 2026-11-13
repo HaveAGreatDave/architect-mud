@@ -25,6 +25,9 @@ const STRIPE = C('#f2efe6'), BUTTON = C('#f4f0e2'), GOLD = [2.2, 1.5, 0.4], WIN 
 // a card, half its width and length, drawn a size up on life so it reads from across the room
 const CW = 0.048, CD = 0.067, CT = 0.0014;
 const DEAL_GAP = 0.13, FLY = 0.42, FLIP = 0.22;
+// your own two: how much bigger than everybody's, where the baize starts in from the table's edge (gl/room-decor.js
+// lays it 0.215 in), and turned up: how far in from the edge they stand, how far they lean back off the felt, how high
+const MINE_K = 1.45, BAIZE = 0.215, UP_INSET = 0.03, UP_LEAN = 0.8, UP_RISE = 0.03;
 // which way a propped card and a peeked card turn; a bench may change these to compare (tools/modelshop room-lab)
 export const POKER_TUNE = { boardYaw: 0, lean: 1, peek: 1, peekYaw: Math.PI, bend: 1.45, bendFrom: 0.42, peekEnd: 1 };
 // how many strips a bent card is drawn in along its length: enough that the curl reads as a curl
@@ -254,6 +257,29 @@ function drawFelt(b, L, p, st, mine, t, eye) {
     x = Math.max(-(hw - 0.36), Math.min(hw - 0.36, x)); z = Math.max(-(hd - 0.32), Math.min(hd - 0.32, z));
     return { x, z, dx, dz, yaw: Math.atan2(dx, dz) };
   };
+  // Your own two lie right at the edge of the baize on your side, a size bigger again than everybody's, so they're
+  // the nearest thing on the table. `inset` is from the table's edge; the line runs from the middle to your chair
+  // and stops where the felt does (a racetrack: straight sides, round ends of radius hd).
+  const edgeAt = (q, inset) => {
+    const L0 = Math.max(0, hw - hd), inside = (x, z) => (Math.abs(x) <= L0 ? Math.abs(z) : Math.hypot(Math.abs(x) - L0, z)) <= hd - inset;
+    let lo = 0, hi = hw;
+    for (let i = 0; i < 18; i++) { const mid = (lo + hi) / 2; if (inside(q.dx * mid, q.dz * mid)) lo = mid; else hi = mid; }
+    return [q.dx * lo, q.dz * lo];
+  };
+  // around `c`, `k` times life: a card scaled about its own middle
+  const scaled = (k, c) => (k === 1 ? W : (x, y, z) => W(c[0] + (x - c[0]) * k, c[1] + (y - c[1]) * k, c[2] + (z - c[2]) * k));
+  // one of yours, `c` 0 or 1: where it lies (`rest`) and, turned up, where it stands (`lift` of the way up)
+  const minePose = (q, c, lift) => {
+    const K = MINE_K, [rx, rz] = edgeAt(q, BAIZE + CD * K + 0.006), across = [Math.cos(q.yaw), -Math.sin(q.yaw)], off = (0.5 - c) * CW * 2.3 * K;
+    const rest = [rx + across[0] * off, 0.0012 + c * 0.0025, rz + across[1] * off], restYaw = q.yaw + (0.5 - c) * 0.12;
+    if (lift <= 0) return { pos: rest, yaw: restYaw, flip: 0, tilt: 0 };
+    // up: drawn in to the rail, stood on its near edge and turned over toward your eye, fanned, the way a hand is held
+    const [ux, uz] = edgeAt(q, UP_INSET), lean = UP_LEAN * lift, hz = CD * K * (1 - Math.cos(lean)), hy = CD * K * Math.sin(lean) + UP_RISE * lift;
+    const yaw = vYaw + (0.5 - c) * 0.16, uoff = (0.5 - c) * CW * 2.15 * K;
+    let dy = yaw - restYaw; dy = Math.atan2(Math.sin(dy), Math.cos(dy));
+    const cx = rest[0] + (ux + vAcross[0] * uoff - rest[0]) * lift, cz = rest[2] + (uz + vAcross[1] * uoff - rest[2]) * lift, y2 = restYaw + dy * lift;
+    return { pos: [cx - hz * Math.sin(y2), rest[1] + hy, cz + hz * Math.cos(y2)], yaw: y2, flip: Math.PI * lift, tilt: -lean };
+  };
   const deck = [-0.2, 0.04, -hd + 0.4];
   // what started when, this table: the hand's deal, and each board card's arrival
   let m = memo.get(p.id);
@@ -275,9 +301,10 @@ function drawFelt(b, L, p, st, mine, t, eye) {
     (st.seats || []).forEach((s, i) => { if (!s) { const q = spot(i); anchors.open.push(W(q.x, 0.05, q.z)); } });
     const mi = mine ? (st.seats || []).findIndex((s) => s && s.id === mine.id) : -1;
     if (mi >= 0) {
-      const q = spot(mi), across = [Math.cos(q.yaw), -Math.sin(q.yaw)];
+      const q = spot(mi), across = [Math.cos(q.yaw), -Math.sin(q.yaw)], [cx, cz] = edgeAt(q, BAIZE + CD * MINE_K);
       anchors.me = {
-        cards: W(q.x, 0.02, q.z),
+        // `box` is filled with the corners of your two as they're drawn this frame, so the hotspot covers them
+        cards: W(cx, 0.02, cz), box: [],
         stack: W(q.x + across[0] * 0.13 - q.dx * 0.02, 0.05, q.z + across[1] * 0.13 - q.dz * 0.02),
         bet: W(q.x - q.dx * 0.24, 0.02, q.z - q.dz * 0.24),
         muck: W(q.x - across[0] * 0.17, 0.02, q.z - across[1] * 0.17),
@@ -310,13 +337,24 @@ function drawFelt(b, L, p, st, mine, t, eye) {
     for (let c = 0; c < n; c++) {
       const start = m.dealt + (c * order.length + k) * DEAL_GAP, u = (t - start) / FLY;
       if (u < 0) continue;
-      const rest = [q.x + (c - 0.5) * CW * 1.5 * Math.cos(q.yaw), 0.0012 + c * 0.0025, q.z - (c - 0.5) * CW * 1.5 * Math.sin(q.yaw)];
-      const face = me ? mine.cards?.[c] : s.shown?.[c];
-      if (me && c === 0) mineAt = W(rest[0], rest[1] + 0.03 * (mine.peek || 0), rest[2]);
+      const rest = me ? minePose(q, c, 0).pos : [q.x + (c - 0.5) * CW * 1.5 * Math.cos(q.yaw), 0.0012 + c * 0.0025, q.z - (c - 0.5) * CW * 1.5 * Math.sin(q.yaw)];
+      const face = me ? mine.cards?.[c] || s.shown?.[c] : s.shown?.[c];
       if (u < 1) {
         const e = u * u * (3 - 2 * u), arc = Math.sin(Math.PI * u) * 0.12;
         const pos = [deck[0] + (rest[0] - deck[0]) * e, deck[1] + (rest[1] - deck[1]) * e + arc, deck[2] + (rest[2] - deck[2]) * e];
-        drawCard(b, W, null, pos, q.yaw + (1 - e) * TAU * 1.5, 0, 0.3 * Math.sin(Math.PI * u));
+        drawCard(b, me ? scaled(1 + (MINE_K - 1) * e, pos) : W, null, pos, q.yaw + (1 - e) * TAU * 1.5, 0, 0.3 * Math.sin(Math.PI * u));
+        continue;
+      }
+      // yours: big, at your edge of the felt, face down until you turn them up; then each comes in to the rail and
+      // stands up turned over toward you, the second a beat after the first. A showdown turns them up the same way.
+      if (me) {
+        const pk = face ? (s.shown?.[c] ? 1 : Math.max(0, Math.min(1, mine.peek || 0))) : 0;
+        const kc = Math.max(0, Math.min(1, pk * 1.25 - c * 0.25)), e = kc * kc * (3 - 2 * kc);
+        const P = minePose(q, c, e), Wk = scaled(MINE_K, P.pos);
+        drawCard(b, Wk, e > 0.001 ? face : null, P.pos, P.yaw, P.flip, P.tilt, won ? 1 : null);
+        const fr = cardFrame(Wk, P.pos, P.yaw, P.flip, P.tilt);
+        for (const [x, z] of [[-CW, -CD], [CW, -CD], [CW, CD], [-CW, CD]]) anchors?.me?.box.push(fr.at(x, 0, z));
+        if (c === 0) mineAt = fr.at(0, 0, 0);
         continue;
       }
       // a shown hand turns over and stands up toward you, so you can read it from any seat
@@ -326,23 +364,14 @@ function drawFelt(b, L, p, st, mine, t, eye) {
         propped(shown, rest[0], rest[2], vYaw + (c - 0.5) * 0.12, 0.55 * e, Math.PI * e, won ? 1 : null);
         continue;
       }
-      // yours, face down until you peek: then, as a player does, the near end of each is thumbed up off the baize
-      // and curls back toward you, its far end still on the felt, so you see the index in its corner and the rest
-      // of the table sees a card back. The second lifts a beat after the first.
-      const pk = me ? Math.max(0, Math.min(1, mine.peek || 0)) : 0;
-      const yaw = q.yaw + (c - 0.5) * 0.18;
-      if (pk > 0.001 && face) {
-        const kc = Math.max(0, Math.min(1, pk * 1.25 - c * 0.25)), e = kc * kc * (3 - 2 * kc);
-        // which end is yours: the card's +z or its −z, whichever points at your chair
-        const sgn = -Math.sin(yaw) * q.dx + Math.cos(yaw) * q.dz >= 0 ? 1 : -1;
-        drawCard(b, W, face, rest, yaw, 0, 0, null, { s: sgn * POKER_TUNE.peekEnd, k: e * POKER_TUNE.peek });
-      } else drawCard(b, W, null, rest, yaw, 0, 0, won ? 1 : null);
+      // anybody else's, face down in front of them
+      drawCard(b, W, null, rest, q.yaw + (c - 0.5) * 0.18, 0, 0, won ? 1 : null);
     }
   });
 
   // the board down the middle, from the dealer's side, each card flying out and turning over
   (st.board || []).forEach((card, j) => {
-    const off = (j - 2) * CW * 2.35, rest = [off * vAcross[0], 0.0012, 0.02 + off * vAcross[1]], start = m.board[j] ?? -1e9, u = (t - start) / FLY;
+    const off = (2 - j) * CW * 2.35, rest = [off * vAcross[0], 0.0012, 0.02 + off * vAcross[1]], start = m.board[j] ?? -1e9, u = (t - start) / FLY;
     if (u < 0) return;
     if (u < 1) {
       const e = u * u * (3 - 2 * u), pos = [deck[0] + (rest[0] - deck[0]) * e, deck[1] + (rest[1] - deck[1]) * e + Math.sin(Math.PI * u) * 0.1, deck[2] + (rest[2] - deck[2]) * e];

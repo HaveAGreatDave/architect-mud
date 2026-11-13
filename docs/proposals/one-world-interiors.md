@@ -1,6 +1,6 @@
 # One world: rooms inside GLASS
 
-> **Status: step 1 built (the layer, the placement, the streaming and a Modelshop prototype, `__interiors`) and step 4's first cut built behind a switch (`__oneWorld(true)`); steps 2, 3 and 5 are design.** It replaces the two-renderer split the [Building Stage](building-stage.md) has today.
+> **Status: step 1 built (the layer, the placement, the streaming and a Modelshop prototype, `__interiors`), the street door as a portal built (the lobby seen through it from the street, painted from a baked picture until its mesh is in), and step 4's first cut built behind a switch (`__oneWorld(true)`); steps 2, 3 and 5 are design.** It replaces the two-renderer split the [Building Stage](building-stage.md) has today.
 
 ## The problem
 
@@ -30,6 +30,26 @@ A whole room's mesh and its materials' pictures are built in a worker (room-mesh
 - `gl/interiors.js`: the GLASS 2 layer. Uploads by key, draws on the scene's depth buffer after the solids, lit by the frame's day and sun and each room's lamp.
 - The wiring: `v.interiorRooms` on a view → `interiorUpload` in `windshield.js` → `opts.interiors` through `gl/install.js` → `drawInteriors` in `gl/world.js` and `gl/context.js`.
 - The prototype: `__interiors({ zone })` on the Modelshop's street tool (`tools/modelshop/street.js`), fed by `/api/building-rooms`. It stands you in a room with its own building taken off the map, or outside its door with `outside: true`.
+
+## The street door as a portal (built)
+
+From the street a building's model is solid, its doorway included, so the rooms drawn on the scene's depth buffer are hidden behind it. So the rooms behind a street door are drawn a second time, into a target of their own from the same camera, and the doorway is filled from that picture (`drawPortals` in gl/interiors.js). The fill is a quad on the scene's own depth buffer, so a lamp post in front of the door still stands in front of it, and the door's leaves (glass/street-doors.js, decals, drawn after) stand in front of both. The lobby moves with true parallax as you walk past.
+
+- **Which doors.** Every street door the view on foot draws (`v.streetDoors`, its opening read off the model's mass by glass/doorway-measure.js) whose building has rooms in the frame. windshield.js `streetPortals` makes each one's quad at the back of the doorway's reveal and a clip plane a little inside it, so the room's own street wall, which stands on the street edge in front of the facade, is cut away. A room behind a door is drawn only through it; inside a building (`interiorInside`, ONE_WORLD) it's drawn whole as before.
+- **⚠ Pulled along the line of sight.** What a model draws in its doorway is mesh lifted toward the eye (`DETAIL_LIFT`), and a quad set a few millimetres off the wall lost to it. The portal's corners move `PORTAL_PULL` (0.03 tiles) toward the eye instead: the same place on the screen, its depth brought forward.
+- **⚠ Gamma in the target.** The room's shader writes display colour with `uGlassLinOut` off, and the quad converts as the scene wants, so a linear frame and a plain one get the same room.
+- **The closed box.** A room's lod-1 box now has its front wall too: a room whose street door is in a side wall (the Embassy's) is seen across its front wall from the door, and the clip opens the side you look in from.
+- **The glass leaves are see-through** (0.34 by day, 0.24 at night), or the lobby was hidden until the door opened.
+
+### The baked picture: the room before it loads
+
+A room's whole mesh is built in a worker and arrives a moment after you come near; until then it's its box. So each entry room with a dressed street door is photographed ahead of time: `npm run lobby:bake` (scripts/lobby/bake.mjs) opens it in the Room Lab through its street door, where the server stands you walking in, and keeps the frame and the camera that took it (`vp`, the room renderer's view and projection in the room's own frame) in `client/game/assets/lobby/`. lobby-still.js `bakedStill` loads them, and the portal pass paints the room with it, projected from that camera: the box's walls, then the mesh's, take the picture's colours wherever the picture saw them, and their own colours past its edges. Through the door the box already looks like the lobby, and when the mesh comes in the furniture takes its true depth without the picture changing.
+
+It needs Chrome (headless, SwiftShader) and the Modelshop, and is a picture of content, not a gate: re-bake after changing how an entry room looks. A room with no picture is its plain box, in its wall's tone (`flags.room.tone.wall`).
+
+### The door on the street edge
+
+`frame.door` (building-graph.js `streetDoorAt`) is where the street door is in the entry room, and room-view.js `anchorOf` stands that point on the street edge, not the entry room's front wall. They were the same only for a door in the middle of the front wall (the Solenne). The Embassy's lobby has its door in its left wall, so the whole building was stood seven metres out in the street; the Meridian's is in its right wall and the Cherry Pit's in its back, which had its rooms fourteen metres outside the tile. The window view (`inBuilding`) and the matrix (`roomOrigin`) share it, and interiors-smoke checks a door in a side wall and one in a back wall lands on the edge.
 
 ## The live view (built, the default on a desktop)
 

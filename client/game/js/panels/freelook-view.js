@@ -38,6 +38,7 @@ import { interiorRoomsOf } from './room-interiors.js';
 import { noteDoor, noteCarry } from './lobby-still.js';
 import { roomFree, openingCrossed, openingInside } from '../../../shared/room-layout.js';   // a building's rooms, drawn in the city (docs/proposals/one-world-interiors.md)
 import { FT_M } from '../../../shared/world-scale.js';
+import { measureDoorway } from './glass/doorway-measure.js';   // a street door's opening, read off its building's mass
 // The rooms the server sent for the buildings near you on foot, kept for the view (each building once, by its tile)
 function keepInteriors(s, list) {
   const by = new Map((s.interiors || []).map((r) => [r.key, r]));
@@ -558,6 +559,8 @@ export function openFreelook(ctx = {}) {
         streetDoors: st.foot ? doorLeaves(st, now, dt) : null,
         // the rooms of the buildings near you, drawn in the city (gl/interiors.js); null off foot
         interiorRooms: st.foot && st.interiors?.length ? st.interiors : null,
+        // inside a building (ONE_WORLD), its rooms are drawn whole; outside, a street door's rooms only through it
+        interiorInside: !!st.inside,
         // on foot the near plane comes in to a third of a metre, so people stay whole as you walk up to them
         nearMax: st.foot ? FOOT_NEAR : 0,
       });
@@ -1043,19 +1046,7 @@ function doorway(s, d) {
     const D = bayDims(c);
     return (d.g = { E, at, wall: D.HL, plane: D.HL, half: D.DOOR_W, top: D.DOOR_H, leaves: false, bay: true });
   }
-  const hit = (lx, ly, z) => { const [px, py] = at(lx, ly); return groundObstructionAt(d.gx, d.gy, c, px, py, z, 0) > 0; };
-  const wide = Math.max(0.05, (d.w || 2) * METRE / 2);
-  let wall = null;
-  for (let ly = 0.5; ly >= 0.2 && wall == null; ly -= 0.005) if (hit(0, ly, 0.02)) wall = ly;
-  if (wall == null) return (d.g = { E, at, wall: 0.44, plane: 0, half: wide, top: 0, leaves: false });
-  let half = null, top = null;
-  for (let lx = 0.01; lx <= 0.4 && half == null; lx += 0.004) if (hit(lx, wall + 0.02, 0.02) || hit(-lx, wall + 0.02, 0.02)) half = lx;
-  // (a tower's doorway is drawn to the tower's scale, far over a person's head, so the lintel is looked for high)
-  for (let z = 0.03; z <= 3 && top == null; z += 0.01) if (hit(0, wall + 0.02, z)) top = z;
-  // the leaves stand a hair proud of the jambs' own front, so whatever the arm drew in the doorway is behind them
-  let front = wall;
-  if (half != null) for (let ly = 0.5; ly > wall; ly -= 0.004) if (hit(half + 0.012, ly, 0.02) || hit(-half - 0.012, ly, 0.02)) { front = ly; break; }
-  return (d.g = { E, at, wall, plane: Math.min(0.498, front + 0.01), half: half ?? Math.min(0.2, wide * 2), top: top ?? 0.13, leaves: true });
+  return (d.g = measureDoorway(d.gx, d.gy, c, E, d.w, groundObstructionAt, METRE));
 }
 // ── ON FOOT, INSIDE: ONE WORLD (docs/proposals/one-world-interiors.md) ──────────
 //

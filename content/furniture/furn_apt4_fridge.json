@@ -1,0 +1,25 @@
+{
+  "description": "A squat cream fridge from the hotel days, its chrome handle worn down to the brass. The seal sighs when it opens. It still keeps things cold.",
+  "flags": {
+    "aliases": [
+      "fridge",
+      "refrigerator"
+    ],
+    "appliance_grade": "consumer",
+    "container": 40000,
+    "interactions": [
+      "lean"
+    ],
+    "preserves": "refrigerated"
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_apt4_fridge",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "cream fridge",
+  "object_type": "container",
+  "power_draw_kw": 0.1,
+  "price": 0,
+  "zone_id": "zone_apt_4"
+}

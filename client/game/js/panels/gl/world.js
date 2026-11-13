@@ -1069,7 +1069,9 @@ export function glWorldPass(id, host, cells, cam, deps, opts = {}) {
     // the step wallTexMixed would have baked (q / 64). 0 on the old path, where both are baked in.
     nb: duskGPU ? (opts.nb || 0) : 0,
     nbTex: duskGPU ? Math.round(Math.min(1, Math.max(0, opts.nb || 0)) * DUSK_STEPS) / DUSK_STEPS : 0,
-    mat: deps.matTable || null };
+    mat: deps.matTable || null,
+    // a balcony room's spot in its own building, left out of the mass (context.js uCutA)
+    cut: opts.cut || null };
   // Mirror prepass first: the road draws before any neon exists. ⚠ Plain camera, not 'camAt': lights
   // are camera-frame, road quads map-window; they agree on screen, where the ground looks it up.
   // The rig, in map-window tiles (shares camAt), uploaded before both passes and before the mirror.

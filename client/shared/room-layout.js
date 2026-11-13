@@ -399,6 +399,67 @@ export function pitFloorAt(S, u, v) {
   return u > q.u0 + q.step && u < q.u1 - q.step && v > q.v0 + q.step && v < q.v1 - q.step ? -q.depth : -q.depth / 2;
 }
 
+// ── a stair between two floors ──────────────────────────────────────────────────────────────────
+// docs/proposals/building-stage.md "Stairs". A flight is authored on the room it goes up from, as
+// `flags.room.stair` { at: [u, v], climb, w }: `at` is the middle of its bottom step in that room's frame,
+// `climb` the wall you face going up ('left', 'right', 'front' or 'back') and `w` its width in metres. It rises
+// the room's own height, to the floor of the room the `up` exit reaches, which building-graph.js stacks on it.
+// Both rooms get it as an opening (roomOpenings), `kind: 'stair'`, in their own frame: the room below with
+// `wall: 'ceiling'` and the flight standing on its floor, the room above with `wall: 'floor'` and the flight
+// falling away from its floor through a well (`y0` is where the bottom step is, -rise up there).
+//
+// On the flight `s` is metres along it from the bottom step and `x` metres across it. The bottom step is
+// s 0..going; the last riser is at `len` and the floor above is the top step. `hole` is where the floor above is
+// cut from, so nobody climbing hits their head; `cross` is where you go from one room to the other, as your eye
+// passes through the floor above.
+export const STAIR = Object.freeze({ riser: 0.19, going: 0.27, w: 1.1, rail: 0.05, headroom: 2.05, eye: 1.65, gap: 0.1 });
+const CLIMB = Object.freeze({ right: [1, 0], left: [-1, 0], back: [0, 1], front: [0, -1] });
+const r3 = (n) => Math.round(n * 1000) / 1000;
+export function stairSpecOf(v) {
+  if (!v || typeof v !== 'object' || !Array.isArray(v.at) || v.at.length !== 2 || !v.at.every(Number.isFinite) || !CLIMB[v.climb]) return null;
+  return { at: [v.at[0], v.at[1]], climb: v.climb, w: clampN(v.w, 0.8, 3, STAIR.w), going: clampN(v.going, 0.22, 0.35, STAIR.going) };
+}
+// A flight's numbers for a rise: as many risers as keep each under STAIR.riser
+export function flightOf(st, rise) {
+  const n = Math.max(2, Math.ceil(rise / STAIR.riser - 1e-6)), going = st.going || STAIR.going, len = r3((n - 1) * going), [du, dv] = CLIMB[st.climb];
+  const hole = r3(Math.max(0, Math.min(len - 1, (Math.ceil((rise - STAIR.headroom) / (rise / n)) - 1) * going)));
+  const cross = r3(Math.min(len - 0.4, Math.max(hole + 0.6, len * (rise - STAIR.eye) / rise)));
+  return { foot: [st.at[0], st.at[1]], climb: [du, dv], w: st.w, rise: r3(rise), n, going, len, hole, cross, head: [r3(st.at[0] + du * len), r3(st.at[1] + dv * len)] };
+}
+// a room's stairs: its building's stair openings (roomOpenings)
+export const stairsOf = (S) => (S?.openings || []).filter((o) => o.kind === 'stair' && Array.isArray(o.foot) && Array.isArray(o.climb));
+// [s, x] of a point [u, v] on flight `o`; x runs as the room kit's frame() turns it (gl/room-kit.js)
+export function flightLocal(o, u, v) {
+  const du = u - o.foot[0], dv = v - o.foot[1], [cu, cv] = o.climb;
+  return [du * cu + dv * cv, -du * cv + dv * cu];
+}
+// [u0, u1, v0, v1] covering s0..s1 along the flight and x0..x1 across it
+export function flightBox(o, s0, s1, x0, x1) {
+  const [cu, cv] = o.climb, P = (s, x) => [o.foot[0] + cu * s - cv * x, o.foot[1] + cv * s + cu * x];
+  const ps = [P(s0, x0), P(s1, x0), P(s1, x1), P(s0, x1)];
+  return [Math.min(...ps.map((p) => p[0])), Math.max(...ps.map((p) => p[0])), Math.min(...ps.map((p) => p[1])), Math.max(...ps.map((p) => p[1]))].map(r3);
+}
+// the well cut in the floor above: over the flight from `hole` to the top, and STAIR.gap past its sides
+export const wellBox = (o) => flightBox(o, o.hole, o.len, -o.w / 2 - STAIR.gap, o.w / 2 + STAIR.gap);
+// The height of the flight's going at `s`, in its room's frame: each step's tread (`stepped`), or the line up
+// their noses that an eye walks, so climbing doesn't jolt. Null off the flight.
+export function flightY(o, s, stepped = false) {
+  if (s < -1e-3 || s > o.len + 1e-3) return null;
+  const riser = o.rise / o.n;
+  const y = stepped ? (s >= o.len ? o.rise : (Math.floor(s / o.going) + 1) * riser) : o.rise * Math.max(0, Math.min(1, s / o.len));
+  return o.y0 + y;
+}
+// how much of the flight is walked in this room: from the bottom step below, from the foot of the well above
+const flightSpan = (o) => (o.wall === 'ceiling' ? [0, o.len] : [o.hole, o.len]);
+// The ground on a flight under [u, v], or null when it's not on one
+function stairGround(S, u, v, stepped) {
+  for (const o of stairsOf(S)) {
+    const [s, x] = flightLocal(o, u, v), [a, b] = flightSpan(o);
+    if (Math.abs(x) <= o.w / 2 && s >= a - 1e-3 && s <= b + 1e-3) return flightY(o, s, stepped);
+  }
+  return null;
+}
+
 // ── the layout ──────────────────────────────────────────────────────────────────────────────────
 // Where a body can stand and sit, and what's in the way. Returns what booth-mesh.js's boothLayout
 // always has: seats (each with its eye in the host's frame, a yaw and a pitch), stations, `solid`
@@ -416,6 +477,15 @@ export function roomLayout(spec, pieces = []) {
   // a partition is a wall standing in the room, and a stairwell is a hole nobody walks into
   for (const q of S.walls || []) solid.push(q.slice(0, 4));
   for (const st of S.stairs || []) solid.push(st.box);
+  // A flight to the next floor (stairsOf): a rail down each side and the end you can't step off, the top below
+  // and the foot of the well above, so the flight is a lane you walk into from one end. One you can't take
+  // (a one-way stair seen from the end it doesn't go from) is solid.
+  for (const o of stairsOf(S)) {
+    const hw = o.w / 2, rt = STAIR.rail, [a, b] = flightSpan(o);
+    if (!o.dir) { solid.push(flightBox(o, a, b, -hw - rt, hw + rt)); continue; }
+    solid.push(flightBox(o, a, b, hw, hw + rt), flightBox(o, a, b, -hw - rt, -hw));
+    solid.push(o.wall === 'ceiling' ? flightBox(o, b, b + rt, -hw - rt, hw + rt) : flightBox(o, a - rt, a, -hw - rt, hw + rt));
+  }
   // a column or a planter the room's finish stands on the floor (gl/room-decor.js)
   for (const q of decorSolids(S)) solid.push(q);
   // what's built in: nobody walks through the kitchen's units
@@ -459,9 +529,10 @@ export function roomLayout(spec, pieces = []) {
   // the floor under a walker: the top of whatever they've climbed onto, felt a little past its edge,
   // and otherwise the room's floor or the pit let into it (`baseAt`, where a figure's feet go)
   const ft = unitsPerFt(S), edge = 0.3 * ft;
-  const baseAt = (u, v) => pitFloorAt(S, u, v);
+  // (on a stair, the tread under a figure's feet, and the line up the treads under a walker's eye)
+  const baseAt = (u, v) => stairGround(S, u, v, true) ?? pitFloorAt(S, u, v);
   const groundAt = (u, v) => {
-    let y = baseAt(u, v);
+    let y = stairGround(S, u, v, false) ?? pitFloorAt(S, u, v);
     for (const [a, b, c, e, t] of climb) if (u > a - edge && u < b + edge && v > c - edge && v < e + edge) y = Math.max(y, t);
     return y;
   };
@@ -491,6 +562,8 @@ export function roomLayout(spec, pieces = []) {
     if (hall) rects.push([hall.a + m, hall.b - m, d - m - 0.02, hall.v1 - m + 0.02]);
     rects.push(openingStrip(S, o, m, radius));
   }
+  // a flight's lane, walkable to the room's wall where it stands against one, and on to the floor past its open end
+  for (const o of stairsOf(S)) if (o.dir) { const [a, b] = flightSpan(o), e = 0.02; rects.push(flightBox(o, a - (o.wall === 'ceiling' ? e : 0), b + (o.wall === 'floor' ? e : 0), -o.w / 2, o.w / 2)); }
   // (a lift car's buttons aren't stations: they're on the hologram off its panel, room-lift.js)
   const outer = rects.reduce((o, q) => [Math.min(o[0], q[0]), Math.max(o[1], q[1]), Math.min(o[2], q[2]), Math.max(o[3], q[3])], bounds);
   return { spec: S, w, d, h, floor, f, r, at, yaw, world, local, seats, stations, solid, climb, placed,
@@ -528,6 +601,8 @@ export function withDoorways(S, openings) {
   }
   const out = { ...S, openings, windows: keep };
   if (!keep.length) out.windowless = true;
+  // a real flight down from this floor takes the place of the dark well `doors.down` draws on its own
+  if (out.stairs && openings.some((o) => o.kind === 'stair' && o.wall === 'floor')) delete out.stairs;
   return out;
 }
 // The doorways the room really has: open doors that don't run into a window, the en-suite's door,
@@ -606,12 +681,46 @@ export function openingCrossed(L, at) {
     if ((o.wall === 'front' && at[1] < -past) || (o.wall === 'back' && at[1] > S.d + (o.deep || 0) + past)
       || (o.wall === 'left' && at[0] < -hu - past) || (o.wall === 'right' && at[0] > hu + past)) return o;
   }
+  // a stair: on its flight, past the line where your eye goes through the floor above (up) or below it (down)
+  for (const o of stairsOf(S)) {
+    if (!o.dir) continue;
+    const [s, x] = flightLocal(o, at[0], at[1]), [a, b] = flightSpan(o);
+    if (Math.abs(x) > o.w / 2 || s < a - 0.3 || s > b + 0.3) continue;
+    if (o.wall === 'ceiling' ? s > o.cross : s < o.cross) return o;
+  }
   return null;
+}
+// How far past the line that takes you through an opening a spot is, toward the room beyond: past a doorway's
+// wall face, or along a flight past `cross`. Negative short of it.
+export function openingPast(L, o, at) {
+  if (o.kind === 'stair') { const s = flightLocal(o, at[0], at[1])[0]; return o.wall === 'ceiling' ? s - o.cross : o.cross - s; }
+  const S = L.spec;
+  return o.wall === 'front' ? -at[1] : o.wall === 'back' ? at[1] - S.d - (o.deep || 0) : o.wall === 'left' ? -S.w / 2 - at[0] : at[0] - S.w / 2;
+}
+// A spot that went through an opening brought back to just short of it: a doorway's wall, the same distance along
+// it, or a flight's crossing line, the same distance across it.
+export function heldShort(L, o, at) {
+  if (o.kind === 'stair') {
+    const s = flightLocal(o, at[0], at[1])[0], d = (o.wall === 'ceiling' ? o.cross - 0.05 : o.cross + 0.05) - s;
+    return [at[0] + o.climb[0] * d, at[1] + o.climb[1] * d];
+  }
+  const hu = L.spec.w / 2, lim = WALL_T / 2 - 0.02;
+  if (o.wall === 'front') return [at[0], Math.max(at[1], -lim)];
+  if (o.wall === 'back') return [at[0], Math.min(at[1], L.spec.d + (o.deep || 0) + lim)];
+  if (o.wall === 'left') return [Math.max(at[0], -hu - lim), at[1]];
+  return [Math.min(at[0], hu + lim), at[1]];
 }
 // Where you stand just inside a doorway, and the yaw that faces into the room from it: where you
 // arrive through it, and where a door that didn't let you through puts you back. A flat's front door on
 // a corridor is at the end of its hall, so that's where you stand.
 export function openingInside(L, o) {
+  if (o.kind === 'stair') {
+    // come down it, you're stood off its bottom step facing away from it; come up it, off its top, facing on
+    const low = o.wall === 'ceiling', s = low ? -0.5 : o.len + 0.5, k = low ? -1 : 1, want = [o.foot[0] + o.climb[0] * s, o.foot[1] + o.climb[1] * s];
+    const at = roomFree(L, want[0], want[1]) ? want : roomNearFree(L, want[0], want[1], 1.5) || want;
+    const p = L.world(at[0], at[1], 0), q = L.world(at[0] + o.climb[0] * k, at[1] + o.climb[1] * k, 0);
+    return { at, yaw: Math.atan2(q[0] - p[0], q[2] - p[2]) };
+  }
   const [u0, u1, v0, v1] = L.bounds, c = (o.a + o.b) / 2, k = 0.3, hall = hallOf(L.spec, o);
   const at = hall ? [c, hall.v1 - (L.spec.d - v1) - 0.05] : o.wall === 'front' ? [c, v0 + k] : o.wall === 'back' ? [c, v1 - k] : o.wall === 'left' ? [u0 + k, c] : [u1 - k, c];
   const step = o.wall === 'front' ? [0, 1] : o.wall === 'back' ? [0, -1] : o.wall === 'left' ? [1, 0] : [-1, 0];
@@ -708,10 +817,13 @@ export function roomSeatNear(L, u, v, reach = 3) {
 // you can step up on it; but an NPC routed or stood by roomFree walked through the chairs and stood in them.
 // Everything below plans on `onFoot(L)`, where what you'd climb is in the way too.
 const footed = new WeakMap();
+// ⚠ NOR DOES SOMEBODY ELSE WANDER UP A FLIGHT. A resident is drawn where the server says, never across a room's
+// floors, so one routed up a stair stood in the air over the well. A flight's lane is in the way here too.
 export function onFoot(L) {
-  if (!L.climb?.length) return L;
+  const lanes = stairsOf(L.spec).map((o) => { const [a, b] = flightSpan(o); return flightBox(o, a, b, -o.w / 2, o.w / 2); });
+  if (!L.climb?.length && !lanes.length) return L;
   let F = footed.get(L);
-  if (!F) { F = { ...L, solid: [...L.solid, ...L.climb.map((c) => c.slice(0, 4))] }; footed.set(L, F); }
+  if (!F) { F = { ...L, solid: [...L.solid, ...(L.climb || []).map((c) => c.slice(0, 4)), ...lanes] }; footed.set(L, F); }
   return F;
 }
 // The nearest place a body can stand to (u, v), out to `reach`, kept inside `within` when it's given:
@@ -1015,6 +1127,12 @@ function keepClear(S) {
   if (S.pit) out.push([S.pit.u0, S.pit.u1, S.pit.v0, S.pit.v1, false]);
   for (const q of S.walls || []) out.push([q[0] - 0.3, q[1] + 0.3, q[2] - 0.3, q[3] + 0.3, false]);
   for (const st of S.stairs || []) out.push([st.box[0] - 0.4, st.box[1] + 0.4, st.box[2] - 0.4, st.box[3] + 0.4, false]);
+  // a flight and its well, and a clear landing off the end you step on from (the bottom below, the top above)
+  for (const o of stairsOf(S)) {
+    const hw = o.w / 2 + 0.3, [a, b] = flightSpan(o);
+    out.push([...flightBox(o, a - 0.3, b + 0.3, -hw, hw), false]);
+    out.push([...(o.wall === 'ceiling' ? flightBox(o, -1.3 * k, 0, -hw, hw) : flightBox(o, o.len, o.len + 1.3 * k, -hw, hw)), false]);
+  }
   for (const q of decorSolids(S)) out.push([q[0] - 0.2, q[1] + 0.2, q[2] - 0.2, q[3] + 0.2, false]);
   // a building's doorways (docs/proposals/building-stage.md): the way through each, a metre into the room
   for (const o of doorwaysOf(S)) {
@@ -1060,7 +1178,10 @@ function keepClear(S) {
 //   walls    [[u0, u1, v0, v1], ...], partitions standing full height in the room
 //   doors    `up`/`down` as [u, v]: where the stair is, in the room's own frame. A `down` stair
 //            is a well 1 m across running `run` metres (default 2.2) toward the left-hand wall
-//            from its head at [u, v]; building-graph.js stacks the room below so its `up` meets it
+//            from its head at [u, v]; building-graph.js stacks the room below so its `up` meets it.
+//            With a real flight up to it (`stair` on the room below), `down` is where its top lands
+//   stair    { at: [u, v], climb, w }: a flight up to the floor above, from its bottom step at [u, v],
+//            climbing toward the `climb` wall (stairSpecOf; docs/proposals/building-stage.md "Stairs")
 //   ground   'stone' for a stone floor instead of the finish's boards; also 'marble', 'terrazzo', 'tile', 'concrete', 'rubber'
 //   windowless  true for a room with no window
 //   club     true for a club: dark paint, bills on the walls, a truss of moving lights and strobes
@@ -1139,6 +1260,9 @@ export function roomSpecOf(flags, isFlat, { storey = null } = {}) {
     const run = clampN(base.doors.run, 1, 5, 2.2);
     out.stairs = [{ dir: 'down', u: dn[0], v: dn[1], run, box: [dn[0] - run, dn[0] + 0.1, dn[1] - 0.5, dn[1] + 0.5] }];
   }
+  // a flight up to the floor above (stairSpecOf): building-graph.js plans it, and both rooms get it as an opening
+  const stair = stairSpecOf(base.stair);
+  if (stair) out.stair = stair;
   const pit = !rp && Array.isArray(base.pit?.at) && base.pit.at.length === 4 && base.pit.at.every(Number.isFinite) ? base.pit : null;
   if (pit) out.pit = { u0: pit.at[0], u1: pit.at[1], v0: pit.at[2], v1: pit.at[3], depth: clampN(pit.depth, 0.1, 1, 0.42), step: clampN(pit.step, 0.25, 1, 0.42) };
   if (plan && base.balcony !== false && (Number(base.storey) || storey) !== 1) {

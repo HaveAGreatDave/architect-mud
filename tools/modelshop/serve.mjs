@@ -50,7 +50,7 @@ import { readClipFiles, planSave, CLIP_DIR, CLIP_MODULE } from '../../scripts/sh
 import { canonicalJson } from '../../scripts/content/lib.mjs';
 import { floorsFor } from '../../client/shared/skyline-scale.js';
 // The Room Lab's building: the same plans and payload the roomstage plugin sends (docs/proposals/building-stage.md).
-import { walkPlans, buildingView, zoneSpecOf, placeFrom } from '../../client/shared/building-graph.js';
+import { walkPlans, buildingView, zoneSpecOf, placeFrom, streetDoorAt } from '../../client/shared/building-graph.js';
 import { roomSpecOf } from '../../client/shared/room-layout.js';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -272,7 +272,7 @@ function buildingRooms(zoneId) {
   for (const id of ids) {
     const R = bld.plan.rooms[id], entry = placeFrom(bld.plan, id, bld.b.entry), spec = buildingView(bld, id, labSpecOf(id), { specOf: labSpecOf }).spec;
     if (!entry || !spec || bld.plan.lifts?.[id]) continue;
-    rooms.push({ zone: id, name: plans.zones.get(id)?.name || id, spec, rows: rows[id] || [], frame: { entry: entry.at, front: bld.plan.rooms[bld.b.entry].face, side, floor: R.floor, face: R.face } });
+    rooms.push({ zone: id, name: plans.zones.get(id)?.name || id, spec, rows: rows[id] || [], frame: { entry: entry.at, front: bld.plan.rooms[bld.b.entry].face, side, floor: R.floor, face: R.face, door: streetDoorAt(bld.plan, bld.b.entry) } });
   }
   return { tile: { x: t.grid_x, y: t.grid_y }, rooms };
 }

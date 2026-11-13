@@ -37,12 +37,48 @@ function withoutOwnTower(map) {
 
 // Where the eye starts, from `room_outlook` and the renderer's modelTopZAt, and the map GLASS is given.
 // The eye's height is read off the building first, since the map it's painted from no longer has one.
+// ⚠ A ROOM WITH A BALCONY KEEPS ITS BUILDING (`msg.cut`, room-stage.js balconyCut): out on the deck you see the
+// facade either side of you and the storeys over and under, so the tower stays on its tile and GLASS 2 leaves out
+// only the room's own spot in it (roomCut, gl/context.js uCutA). GLASS 1 knows no cut, so it still loses the tower.
 export function eyeBase(msg, modelTopZAt) {
   const R = (msg.map.length - 1) / 2, cell = msg.map[R]?.[R] || null, rad = (msg.bearing || 0) * Math.PI / 180;
   const top = cell ? modelTopZAt(msg.gx, msg.gy, cell, msg.gx, msg.gy) || 0 : 0;
   const placed = msg.frame ? inBuilding(msg.frame, rad, top) : null;
-  if (placed) return { ...placed, rad, map: withoutOwnTower(msg.map) };
-  return { x: Math.sin(rad) * EYE_OUT, y: -Math.cos(rad) * EYE_OUT, z: eyeZ(top, msg.storey || 1, msg.storeys), rad, map: withoutOwnTower(msg.map) };
+  const map = withoutOwnTower(msg.map), keep = msg.cut ? msg.map : null;
+  if (placed) return { ...placed, rad, map, keep };
+  const z = eyeZ(top, msg.storey || 1, msg.storeys);
+  const out = keep && cell ? facadeOut(msg, cell, rad, z - m2t(1.6), modelTopZAt) : EYE_OUT;
+  return { x: Math.sin(rad) * out, y: -Math.cos(rad) * out, z, rad, map, keep };
+}
+
+// ⚠ A BALCONY HANGS OFF THE MODEL'S OWN FACE. With the building kept in view, a front wall at EYE_OUT stood inside
+// most models, so past the cut you looked down into the inside of the tower's walls. So the front wall goes where
+// the model's face is at this floor: out along the bearing from the tile's middle, the last point where the model
+// still stands a storey over the floor (modelTopZAt, the same per-point roof the sim collides with). EYE_OUT when the
+// model doesn't stand there at all.
+function facadeOut(msg, cell, rad, floorZ, modelTopZAt) {
+  const s = Math.sin(rad), c = -Math.cos(rad), need = floorZ + m2t(2.4);
+  let out = null;
+  for (let t = 0; t <= 0.5; t += 0.01) if ((modelTopZAt(msg.gx, msg.gy, cell, msg.gx + s * t, msg.gy + c * t) || 0) >= need) out = t;
+  return out == null ? EYE_OUT : Math.min(EYE_OUT + 0.05, out + 0.005);
+}
+
+// The box a balcony room takes out of its own building, in the window's tiles (the window is centred on the
+// building's tile, so the tile's middle is 0, 0): the room's width and the deck's, from a little behind its back
+// wall forward to the tile's edge, and from just under its floor to just over its ceiling. `msg.cut` is
+// { w, d, h, deck, wrap } in metres; `fit` squeezes a room that isn't placed in its building as viewOf's walk is.
+// Null when there's no cut, or when GLASS 1 is painting (`gl` false: it has no cut, so it gets the map without the tower).
+const CUT_SIDE = 0.4, CUT_BACK = 0.5, CUT_SLAB = 0.15;
+function roomCut(msg, base, cam, fit, gl) {
+  const c = msg.cut;
+  if (!c || !base.keep || !gl) return null;
+  const w = Number(c.w) || 4, d = Number(c.d) || 4, h = Number(c.h) || 2.7, deck = Number(c.deck) || 0;
+  let half = m2t(w / 2) * fit(w) + m2t(CUT_SIDE), back = m2t(d) * fit(d) + m2t(CUT_BACK);
+  // a deck round the sides (and the back, for 'all') takes its own depth out past each wall
+  if (c.wrap) half += m2t(deck + CUT_SIDE);
+  if (c.wrap === 'all') back += m2t(deck + CUT_SIDE);
+  const floor = base.placed ? m2t(base.floor) : cam.z - m2t(1.6);
+  return { x: base.x, y: base.y, rad: base.rad, half, back, z0: floor - m2t(CUT_SLAB), z1: floor + m2t(h + CUT_SLAB), tx: 0, ty: 0 };
 }
 
 // ⚠ A ROOM ON A BUILDING'S WALK STANDS WHERE THE BUILDING PUTS IT (docs/proposals/building-stage.md). The plan has
@@ -51,17 +87,26 @@ export function eyeBase(msg, modelTopZAt) {
 // city moves past the glass as you cross a room, and two rooms' windows look out from where they really are.
 // `frame` is the roomstage plugin's: `entry`, the entry room's front wall middle as [x, z] in this room's frame
 // (the Stage's host frame, this room at the origin facing 0), `front` that room's facing on the compass, `side` the
-// tile edge its door is on, and `floor` this room's floor in metres above the street.
+// tile edge its door is on, `floor` this room's floor in metres above the street, and `door` where the street door is
+// in the entry room, [u, v] (building-graph.js streetDoorAt).
 const EDGE = 0.47;   // how far from the tile's middle the street front stands, in tiles (inside, or it's the pavement)
+// The entry room's front wall middle, in tiles from the tile's middle: the street DOOR on the street edge, and the room
+// round it. ⚠ NOT THE FRONT WALL ON THE EDGE: that's the same place only for a door in the middle of the front wall,
+// and the Embassy's, in its lobby's left wall, had the building stood seven metres out in the street.
+function anchorOf(fr) {
+  const side = fr.side * Math.PI / 180, d = Array.isArray(fr.door) ? fr.door : [0, 0];
+  const f = (Number(fr.front) || 0) * Math.PI / 180, s = Math.sin(f), c = Math.cos(f);
+  return [Math.sin(side) * EDGE - (c * m2t(d[0]) - s * m2t(d[1])), -Math.cos(side) * EDGE - (s * m2t(d[0]) + c * m2t(d[1]))];
+}
 function inBuilding(fr, rad, top) {
   if (!Array.isArray(fr.entry) || !Number.isFinite(fr.side)) return null;
   // the entry room's front middle in this room's own metres: the host frame has x = -u, z = -v
   const u0 = -fr.entry[0], v0 = -fr.entry[1], s = Math.sin(rad), c = Math.cos(rad);
   // this room's origin (its front wall middle) from the anchor, in tiles: GLASS has +x east and +y south
   const ox = -(c * m2t(u0) - s * m2t(v0)), oy = -(s * m2t(u0) + c * m2t(v0));
-  const side = fr.side * Math.PI / 180;
+  const [ax, ay] = anchorOf(fr);
   const z = Math.min(top > 0 ? top * 0.97 : Infinity, m2t((Number(fr.floor) || 0) + 1.6));
-  return { x: Math.sin(side) * EDGE + ox, y: -Math.cos(side) * EDGE + oy, z: Math.max(0.03, z), placed: true, floor: Number(fr.floor) || 0, top };
+  return { x: ax + ox, y: ay + oy, z: Math.max(0.03, z), placed: true, floor: Number(fr.floor) || 0, top };
 }
 
 // The multiplier on GLASS's lens that gives the seat's vertical field of view, and the room's lens to match.
@@ -76,7 +121,7 @@ export function lensOf(fxK, vfK, W, H, fov) {
 // ⚠ THE EYE NEVER LEAVES ITS OWN TILE. Only that tile's building is hidden (`self`), and a tile is 17.9 m, so an
 // eye moved by the true metres walks out of the back of a big flat and into the building next door. The walk
 // is scaled to fit the tile, which keeps a pane's view shifting as you pass and nothing else.
-export function viewOf(msg, base, { hour, wx, look, fed, k }) {
+export function viewOf(msg, base, { hour, wx, look, fed, k, gl = true }) {
   const [rw, rd] = look?.room || [1, 1], fit = (m) => (base.placed ? 1 : Math.min(1, 2 * EYE_OUT / m2t(m)));
   // ⚠ THE EYE STANDS WHERE YOU STAND. Pinned to the middle of the room, a ground floor kept the street a room's
   // depth off however close you walked to the glass, a gap where the pavement should be. So `look.at` moves it, in
@@ -91,10 +136,13 @@ export function viewOf(msg, base, { hour, wx, look, fed, k }) {
   const cam = base.placed
     ? { x: keep(base.x - s * m2t(v) + c * m2t(u)), y: keep(base.y + c * m2t(v) + s * m2t(u)), z: Math.min(base.top > 0 ? base.top * 0.97 : Infinity, Math.max(0.03, m2t(base.floor + 1.6))) }
     : { x: base.x - s * m2t(v) + c * m2t(u), y: base.y + c * m2t(v) + s * m2t(u), z: base.z };
+  const roomCutNow = roomCut(msg, base, cam, fit, gl);
   return {
+    // a balcony room's spot in its own building: the tower kept, less the room (gl/context.js uCutA)
+    roomCut: roomCutNow,
     external: true, hideOwnShip: true, bare: true, noWxBadge: true, still: true, phase: 'cruise', worldBlend: 1, resFloor: 1,
     heading: 0, height: 0, speed: 0, hour: Math.floor(hour * 20) / 20, moon: wx?.moon ?? sky.moon, weather: wx?.weather || sky.weather, wxField: sky.field, wxGround: sky.ground, event: sky.event || null,
-    map: base.map, skyline: msg.skyline, mapCenter: { x: msg.gx, y: msg.gy }, mapOffset: { x: 0, y: 0 },
+    map: roomCutNow ? base.keep : base.map, skyline: msg.skyline, mapCenter: { x: msg.gx, y: msg.gy }, mapOffset: { x: 0, y: 0 },
     acX: msg.gx, acY: msg.gy, airport: 'default', tune: TUNE, actors: fed?.actors || [], contacts: fed?.contacts || null, roads: msg.roads, regions: msg.regions,
     // the front wall is at v 0, and the room runs back from it; u is along it, to the right
     freeCam: { x: cam.x, y: cam.y, z: cam.z, yaw: look?.yaw ?? 0, pitch: look?.pitch ?? 0, roll: 0, fov: k },
@@ -128,6 +176,6 @@ export function roomToGlass(L, origin, bearing, floorM = 0) {
 export function roomOrigin(fr, bearing) {
   if (!fr || !Array.isArray(fr.entry) || !Number.isFinite(fr.side)) return null;
   const rad = (bearing || 0) * Math.PI / 180, s = Math.sin(rad), c = Math.cos(rad);
-  const u0 = -fr.entry[0], v0 = -fr.entry[1], side = fr.side * Math.PI / 180;
-  return [Math.sin(side) * EDGE - (c * m2t(u0) - s * m2t(v0)), -Math.cos(side) * EDGE - (s * m2t(u0) + c * m2t(v0))];
+  const u0 = -fr.entry[0], v0 = -fr.entry[1], [ax, ay] = anchorOf(fr);
+  return [ax - (c * m2t(u0) - s * m2t(v0)), ay - (s * m2t(u0) + c * m2t(v0))];
 }

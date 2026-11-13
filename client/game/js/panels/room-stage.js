@@ -33,7 +33,7 @@ import { closeDialogue } from './dialogue.js';
 import { loadCss } from '../../../shared/dom.js';
 import { LIFT_STOREY } from '../../../shared/building-graph.js';
 import { cachetInner } from '../../../shared/room-layout.js';
-import { roomLayout, inAnnex, onBalcony, pathAt, pathLength, roomYaw, seatsClash, openingCrossed, openingInside, roomFree, roomSees, WALL_T, facing, FT_PER_M, pieceBoxes } from '../../../shared/room-layout.js';
+import { roomLayout, inAnnex, onBalcony, pathAt, pathLength, roomYaw, seatsClash, openingCrossed, openingInside, roomFree, roomSees, facing, FT_PER_M, pieceBoxes, heldShort, openingPast, flightLocal } from '../../../shared/room-layout.js';
 import { pieceActs } from '../../../shared/room-acts.js';
 import { createRoomWalk } from './room-walk.js';
 import { createOutlook, warmOutlook } from './room-outlook.js';
@@ -399,6 +399,9 @@ function openStage(msg) {
   // it is built and placed under the veil, not popped in at the first window. 10 s caps that.
   const opened = performance.now(), VEIL_MS = msg.hasView && !phone ? 10000 : 4000;
   const glassy = (s) => !!(s && !s.windowless && (s.windows?.length || s.balcony));
+  // A balcony room keeps its own building in the view out, less its own spot in it (room-view.js roomCut). Rides
+  // every place the view is moved to, so a room without one takes the tower off its tile as before.
+  const balconyCut = (s) => (s?.balcony ? { w: s.w, d: s.d, h: s.h, deck: s.balcony.d || 0, wrap: s.balcony.wrap ? (s.balcony.sides ? 'sides' : 'all') : null } : null);
   // The veil also covers the rooms past the doorways being built (`bake`, below), so the loading is done once, here,
   // and not at each door. VEIL_MS caps that too; whatever is left is built between frames once the room is up.
   let veiled = !msg.via;
@@ -572,24 +575,19 @@ function openStage(msg) {
   // verb `move <dir>`, sent once. The server answers with the next room's `room_view`, which reopens
   // the Stage there; with no answer the door didn't let you through, and you're put back inside it.
   // A spot in a doorway brought back to just short of where it counts as through, the same distance along the wall.
-  function heldAtDoor(L, o, at) {
-    const hu = L.spec.w / 2, lim = WALL_T / 2 - 0.02;
-    if (o.wall === 'front') return [at[0], Math.max(at[1], -lim)];
-    if (o.wall === 'back') return [at[0], Math.min(at[1], L.spec.d + (o.deep || 0) + lim)];
-    if (o.wall === 'left') return [Math.max(at[0], -hu - lim), at[1]];
-    return [Math.min(at[0], hu + lim), at[1]];
-  }
-  // how far past a doorway's wall face a spot is, out of the room
-  const pastDoor = (L, o, at) => (o.wall === 'front' ? -at[1] : o.wall === 'back' ? at[1] - L.spec.d - (o.deep || 0) : o.wall === 'left' ? -L.spec.w / 2 - at[0] : at[0] - L.spec.w / 2);
+  // (a stair's is just short of the line on its flight where you'd have gone up or down: room-layout.js heldShort)
+  const heldAtDoor = heldShort;
+  // how far past a doorway's wall face a spot is, out of the room, or along a flight past where it takes you
+  const pastDoor = openingPast;
   function watchDoorways(now) {
     const L = S.L, w = S.walk;
     if (!L?.spec.openings || !w?.at || w.sat || S.leaving) return;
     if (S.going) {
       if (now - S.going.t < 1800) return;
-      const back = heldAtDoor(L, S.going.o, w.at);
+      const o = S.going.o, back = heldAtDoor(L, o, w.at);
       S.going = null;
       w.moveTo(back);
-      flash("The door won't let you through.", false);
+      flash(o.kind === 'stair' ? `You can't get ${o.dir} the stairs.` : "The door won't let you through.", false);
       return;
     }
     const o = openingCrossed(L, w.at);
@@ -1972,7 +1970,7 @@ function openStage(msg) {
     R.setBeasts(b);
   }
   // The card table's controls are on the table: small holograms pinned to the felt (gl/room-poker.js pokerAnchors),
-  // not a bar over the picture. Your cards are the peek (hold them to look, tap to leave them up) with the hand's
+  // not a bar over the picture. Your cards are the peek (click them to turn them up, again to put them down) with the hand's
   // name over them; your stack is check/call, the bet (the wheel over it sizes it), raise and all in; a fold chip
   // sits by your cards to muck them; the pot reads the street and the pot; an empty seat says Sit; the middle of the
   // felt between hands has the dealer and the bots. Each button is the verb typed (plugins/gametable), so the table
@@ -2028,7 +2026,7 @@ function openStage(msg) {
           e.preventDefault(); e.stopPropagation();
           sizeBet(e.deltaY < 0 ? 'up' : 'dn');
         }, { passive: false });
-        // your cards: hold to lift them toward you, or tap to leave them up until you tap again
+        // your cards: click to turn them up until you click again, or hold to look and let go to put them down
         let downAt = 0;
         barEl.addEventListener('pointerdown', (e) => {
           if (e.target.closest('.pkt')) e.stopPropagation();
@@ -2039,7 +2037,8 @@ function openStage(msg) {
         });
         const up = () => {
           if (!downAt) return;
-          const tap = performance.now() - downAt < 250;
+          // anything short of a deliberate hold is a click, so an unhurried click still turns them up
+          const tap = performance.now() - downAt < 450;
           downAt = 0;
           S.peek.on = tap ? !S.peek.held : false;
           pokerBar();
@@ -2060,14 +2059,14 @@ function openStage(msg) {
         const two = mine ? mine.map((c) => (up && c ? face(c) : '<i class="pkh-c back"></i>')).join('') : '<i class="pkh-c empty"></i><i class="pkh-c empty"></i>';
         parts.push(`<div class="pkt pkt-hud" data-dock="cards">
           <div class="pkh-grp"><span>${esc(board.length >= 5 ? 'RIVER' : board.length === 4 ? 'TURN' : board.length === 3 ? 'FLOP' : 'BOARD')}</span><div class="pkh-row">${slots}</div></div>
-          <div class="pkh-grp pkh-mine" data-peek title="Hold to look at your cards; tap to leave them up"><span>${up ? 'YOUR HAND' : 'HOLD TO PEEK'}</span><div class="pkh-row">${two}</div></div>
+          <div class="pkh-grp pkh-mine" data-peek title="Click to turn your cards up; click again to put them down"><span>${up ? 'YOUR HAND' : 'CLICK TO LOOK'}</span><div class="pkh-row">${two}</div></div>
           ${up && hand ? `<div class="pkh-grp"><span>READS</span><div class="pkh-hand">${esc(hand.name)}</div></div>` : ''}</div>`);
       }
       parts.push(`<div class="pkt pkt-pot" data-at="pot"><span>${esc(street)}</span><b>₵${(st.pot || 0).toLocaleString()}</b></div>`);
       {
-        parts.push(`<div class="pkt pkt-cards${S.peek?.on ? ' up' : ''}" data-at="cards" data-peek title="Hold to look at your cards; tap to leave them up">
+        parts.push(`<div class="pkt pkt-cards${S.peek?.on ? ' up' : ''}" data-at="cards" data-peek title="Click to turn your cards up; click again to put them down">
           <div class="pkt-read">${handLine}${draws.length ? `<em>${esc(draws.join(' · '))}</em>` : ''}</div>
-          <div class="pkt-hit"><span>${S.peek?.on ? 'TAP TO HIDE' : 'HOLD TO PEEK'}</span></div></div>`);
+          <div class="pkt-hit"><span>${S.peek?.on ? 'CLICK TO HIDE' : 'CLICK TO LOOK'}</span></div></div>`);
         // the betting panel is docked at the side of the picture, not pinned over the felt in front of you, so the
         // middle of the screen stays the table; Fold is in it, at the foot, away from Call
         // up from the table: the seat is held and checks or folds for you until you sit back down
@@ -2103,6 +2102,21 @@ function openStage(msg) {
       // a docked panel stays where the sheet puts it, at the side
       if (el.dataset.dock !== undefined) continue;
       const k = el.dataset.at, p = k?.startsWith('open') ? A.open[+k.slice(4)] : A[k] || A.me?.[k];
+      // your cards: the hotspot is the cards themselves, the box round their corners as drawn this frame (lying
+      // down or turned up), padded and never smaller than a thumb; it hangs from its top, the hand's name under it on
+      // the rail, so it never sits over the board
+      if (k === 'cards' && A.me?.box?.length) {
+        const pts = A.me.box.map((w) => R.project(w, b.width, b.height)).filter(Boolean);
+        if (pts.length) {
+          const xs = pts.map((s) => s.x), ys = pts.map((s) => s.y), pad = 10;
+          const w = Math.max(96, Math.max(...xs) - Math.min(...xs) + pad * 2), h = Math.max(64, Math.max(...ys) - Math.min(...ys) + pad * 2);
+          const cx = (Math.max(...xs) + Math.min(...xs)) / 2, top = (Math.max(...ys) + Math.min(...ys)) / 2 - h / 2;
+          const vis = cx > -40 && cx < b.width + 40 && top > -h && top < b.height + 40;
+          el.style.display = vis ? '' : 'none';
+          if (vis) { el.style.setProperty('--hw', `${w.toFixed(0)}px`); el.style.setProperty('--hh', `${h.toFixed(0)}px`); el.style.transform = `translate(${cx.toFixed(0)}px, ${top.toFixed(0)}px)`; }
+          continue;
+        }
+      }
       const q = p && R.project(p, b.width, b.height);
       const vis = !!q && q.x > -40 && q.x < b.width + 40 && q.y > -40 && q.y < b.height + 40;
       el.style.display = vis ? '' : 'none';
@@ -2273,7 +2287,7 @@ function openStage(msg) {
     }
     if (!best || placedFor === best.zone) return;
     placedFor = best.zone;
-    S.outlook.place(best.place);
+    S.outlook.place({ ...best.place, cut: balconyCut(best.spec) });
   }
 
   function frame(now) {
@@ -2505,6 +2519,7 @@ function openStage(msg) {
   // the world round the building has arrived: start shooting the view out of the window. A phone
   // keeps the painted street, since a second renderer is more than it should be asked for
   ui_outlook = (o) => {
+    o = { ...o, cut: balconyCut(S.spec) };
     S.bearing = o.bearing || 0;
     S.place = { storey: o.storey, storeys: o.storeys };
     outside.setPlace({ gx: o.gx, gy: o.gy, eyeX: 0, eyeY: 0, eyeZ: 1 + (o.storey || 1) * 0.3, fields: o.fields || [] });
@@ -2533,7 +2548,7 @@ function openStage(msg) {
   // this room's `room_outlook` comes
   const kept = msg.hasView && !phone ? takeParked(msg.building?.id) : null;
   if (msg.place) { S.bearing = msg.place.bearing || 0; S.lastPlace = msg.place; }
-  if (kept) { S.outlook = kept; if (msg.place) kept.place(msg.place); kept.adopt(S.viewHooks = { host, onEye: () => {}, onFail: () => { S.noView = true; }, onPano: (i, pic, lens) => R.setPano(i, pic, lens), feed: () => ({ actors: S.actors || [], contacts: [] }) }); }
+  if (kept) { S.outlook = kept; if (msg.place) kept.place({ ...msg.place, cut: balconyCut(S.spec) }); kept.adopt(S.viewHooks = { host, onEye: () => {}, onFail: () => { S.noView = true; }, onPano: (i, pic, lens) => R.setPano(i, pic, lens), feed: () => ({ actors: S.actors || [], contacts: [] }) }); }
   S.onSky = (m) => {
     if (m.weather !== undefined) { outside.weather(m); S.skyWord = String(m.weather || '').toLowerCase() || S.skyWord; S.outlook?.setSky({ weather: m.weather, wind: m.wind, here: m.here, event: m.event, ...(m.field ? { field: m.field } : {}) }); }
     if (m.contacts) pilots.update(m.contacts);
@@ -2592,7 +2607,9 @@ function openStage(msg) {
       const a = n.L.local(p), b = n.L.local(q), at = [a[0], a[1]];
       // (still in that room's own wall is fine, and isn't the step back: watchDoorways `S.came`)
       const inside = openingInside(Ln, o), out = openingCrossed(Ln, at);
-      if (!at.every(Number.isFinite) || Math.hypot(at[0] - inside.at[0], at[1] - inside.at[1]) > 1.5 || (out && out.to !== o.to) || !roomFree(Ln, at[0], at[1])) return null;
+      // (a stair is crossed halfway up its flight, nowhere near where you'd stand off it: on the flight is near enough)
+      const near = o.kind === 'stair' ? Math.abs(flightLocal(o, at[0], at[1])[1]) <= o.w / 2 : Math.hypot(at[0] - inside.at[0], at[1] - inside.at[1]) <= 1.5;
+      if (!at.every(Number.isFinite) || !near || (out && out.to !== o.to) || !roomFree(Ln, at[0], at[1])) return null;
       const w0 = Ln.world(at[0], at[1], 0), w1 = Ln.world(at[0] + b[0] - a[0], at[1] + b[1] - a[1], 0);
       return { at, yaw: Math.atan2(w1[0] - w0[0], w1[2] - w0[2]) };
     } catch { return null; }
@@ -2621,7 +2638,7 @@ function openStage(msg) {
     doorsAt(); slidesAt();
     lastHour = -1; shown.clear(); acting.clear(); onceFrom.clear();
     root.querySelector('.rs-where').innerHTML = `<b>${esc(msg.name)}</b>${msg.mine ? '' : ' · visiting'}`;
-    if (msg.place) { S.bearing = msg.place.bearing || 0; S.outlook?.place(msg.place); S.lastPlace = msg.place; }
+    if (msg.place) { S.bearing = msg.place.bearing || 0; S.outlook?.place({ ...msg.place, cut: balconyCut(S.spec) }); S.lastPlace = msg.place; }
     S.warmTo = null; S.warmPlaced = null;
     // off a ride it's the same car, so you stay where you stood in it (it used to put you in its doorway, facing in)
     const hold = next.ride && was === next.zone && heldAt ? heldAt : null;

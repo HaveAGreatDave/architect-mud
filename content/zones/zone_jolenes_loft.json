@@ -18,6 +18,19 @@
     "is_building": true,
     "is_dwelling": true,
     "is_interior": true,
+    "room": {
+      "balcony": false,
+      "d": 7.5,
+      "doors": {
+        "down": [
+          -2.5,
+          1.61
+        ]
+      },
+      "h": 2.4,
+      "studio": false,
+      "w": 6.2
+    },
     "window": {
       "description": "A window the size of a spread hand, painted shut, looking down the length of Meltwater Row at the studio mast with the red light on it.",
       "light": 0.35,

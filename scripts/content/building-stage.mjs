@@ -4,7 +4,8 @@
 // the ready ones, whose entry room has a Room Stage spec, as one floor plan. A ready building fails
 // when its walk has a bent door or no way out to the street, or when its plan can't be drawn: a room
 // that isn't square to the compass, a diagonal door, a door offset past the end of its wall, a room
-// reached two ways landing in two places, or two rooms on the same floor space. The plan must also come
+// reached two ways landing in two places, two rooms on the same floor space, or a flight of stairs that doesn't
+// fit in its room or whose well isn't in the floor above. The plan must also come
 // out the same whatever order the content is read in.
 //
 // A building that isn't ready is reported, never failed: most of the city is text, and that's fine.
@@ -14,7 +15,7 @@
 //   node scripts/content/building-stage.mjs <map id>     one building's graph and plan, with the plan drawn
 import fs from 'node:fs';
 import path from 'node:path';
-import { buildingGraph, buildingDefects, buildingLayout, placeFrom, zoneSpecOf } from '../../client/shared/building-graph.js';
+import { buildingGraph, buildingDefects, buildingLayout, placeFrom, roomOpenings, zoneSpecOf } from '../../client/shared/building-graph.js';
 
 const C = path.resolve(process.cwd(), 'content');
 const read = (dir) => {
@@ -85,6 +86,23 @@ const rule = (ok, why) => { if (!ok) fails.push(why); };
   rule(has(crowd, 'overlap'), 'two rooms on the same floor space overlap');
   const off = plan([z('st', { south: 'a' }), z('a', { south: 'st', north: 'n' }, 4, 4, { doors: { north: 1.9 } }), z('n', { south: 'a' })]);
   rule(has(off, 'door_off_wall'), 'a door moved past the end of its wall is caught');
+  // stairs: a flight up the left of a 6 x 8 room, climbing to its front wall, into the room above, whose `down`
+  // says where the top of it lands
+  const flight = { at: [-2, 7.5], climb: 'front', w: 1 };
+  const stairs = (lower, upper) => {
+    const zs = [z('st', { south: 'a' }), z('a', { south: 'st', up: 'b' }, 6, 8, lower), z('b', { down: 'a' }, 6, 8, upper)];
+    const b = buildingGraph({ zones: zs, maps: [{ id: 'm', parent_zone_id: 'st', entry_zone_id: 'a' }], specOf: (r) => r.flags.room || null }).get('m');
+    return { L: buildingLayout(b, { zones: zs, specOf: (r) => r.flags.room || null }), b };
+  };
+  const ok = stairs({ stair: flight }, { doors: { down: [-2, 2.4] } }), F = ok.L.doors.find((d) => d.kind === 'stairs')?.flight;
+  rule(!ok.L.problems.length && F?.n === 16 && F.len === 4.05 && F.hole < F.cross && F.cross < F.len, `a flight up is planned with its risers, its well and where it crosses (got ${JSON.stringify({ p: ok.L.problems, F })})`);
+  rule(ok.L.rooms.b?.floor === 3 && Math.abs(ok.L.rooms.b.box[4] - ok.L.rooms.a.box[4] + 1.05) < 1e-9, `the room above stands with its down over the top of the flight (got ${JSON.stringify([ok.L.rooms.a, ok.L.rooms.b])})`);
+  const lo = roomOpenings(ok.b, ok.L, 'a').find((o) => o.kind === 'stair'), hi = roomOpenings(ok.b, ok.L, 'b').find((o) => o.kind === 'stair');
+  rule(lo?.wall === 'ceiling' && lo.dir === 'up' && lo.y0 === 0 && lo.foot.join() === '-2,7.5' && hi?.wall === 'floor' && hi.dir === 'down' && hi.y0 === -3 && hi.foot.join() === hi.climb.map((c, i) => +([-2, 2.4][i] - c * F.len).toFixed(3)).join(),
+    `both rooms get the flight, each in its own frame (got ${JSON.stringify({ lo, hi })})`);
+  rule(has(stairs({ stair: { ...flight, at: [-2, 2] } }, {}).L, 'stair_off_room'), 'a flight running out through its own wall is caught');
+  rule(has(stairs({ stair: flight }, { doors: { down: [2.5, 2.4] } }).L, 'stair_off_floor'), 'a well past the edge of the floor above is caught');
+  rule(!stairs({}, {}).L.doors.some((d) => d.flight), 'a stair with no flight stays text');
 }
 if (fails.length) { for (const why of fails) console.error(`✗ building-stage rule: ${why}`); process.exit(1); }
 

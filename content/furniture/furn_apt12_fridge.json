@@ -1,0 +1,25 @@
+{
+  "description": "A small grey fridge standing on a milk crate, its ice box furred solid. Somebody wrote the date of the last defrost on the door. It was a long time ago.",
+  "flags": {
+    "aliases": [
+      "fridge",
+      "refrigerator"
+    ],
+    "appliance_grade": "consumer",
+    "container": 40000,
+    "interactions": [
+      "lean"
+    ],
+    "preserves": "refrigerated"
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_apt12_fridge",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "small grey fridge",
+  "object_type": "container",
+  "power_draw_kw": 0.1,
+  "price": 0,
+  "zone_id": "zone_apt_12"
+}

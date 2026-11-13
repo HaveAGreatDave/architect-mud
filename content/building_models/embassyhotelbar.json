@@ -54,6 +54,32 @@
       "rgb": "255,214,160",
       "s": 12,
       "z": 0.957
+    },
+    {
+      "cx": -0.0731,
+      "cy": 0.48,
+      "kind": "glowPool",
+      "rgb": "255,214,160",
+      "s": 6,
+      "scale": {
+        "cx": "abs",
+        "cy": "abs",
+        "z": "abs"
+      },
+      "z": 0.1294
+    },
+    {
+      "cx": 0.0731,
+      "cy": 0.48,
+      "kind": "glowPool",
+      "rgb": "255,214,160",
+      "s": 6,
+      "scale": {
+        "cx": "abs",
+        "cy": "abs",
+        "z": "abs"
+      },
+      "z": 0.1294
     }
   ],
   "basis": {
@@ -96,19 +122,27 @@
       "z": 0.138
     },
     {
-      "bars": 2,
+      "bars": 0,
       "cx": 0,
-      "cy": 0.425,
-      "depth": 0.019,
+      "cy": 0.44,
+      "depth": 0.004,
       "door": 2,
-      "glass": "#231a1e",
-      "glow": "#2b2026",
-      "half": 0.098,
-      "hh": 0.066,
+      "glass": "#2a1c1a",
+      "glow": "#f2c98a",
+      "half": 0.05625,
+      "hh": 0.0773,
       "kind": "windowBay",
       "pal": "ty_dw_brass",
-      "transom": 0.58,
-      "z": 0.124
+      "scale": {
+        "cx": "abs",
+        "cy": "abs",
+        "depth": "abs",
+        "half": "abs",
+        "hh": "abs",
+        "z": "abs"
+      },
+      "transom": 0.2,
+      "z": 0.0773
     },
     {
       "cx": 0,
@@ -660,6 +694,139 @@
       "roof": true,
       "z0": 1.322,
       "z1": 1.386
+    },
+    {
+      "cx": -0.0731,
+      "cy": 0.457,
+      "fd": 0.022,
+      "hw": 0.0169,
+      "kind": "box",
+      "pal": "ty_embassy_cream",
+      "roof": true,
+      "scale": {
+        "cx": "abs",
+        "cy": "abs",
+        "fd": "abs",
+        "hw": "abs",
+        "z0": "abs",
+        "z1": "abs"
+      },
+      "z0": 0,
+      "z1": 0.1659
+    },
+    {
+      "cx": 0.0731,
+      "cy": 0.457,
+      "fd": 0.022,
+      "hw": 0.0169,
+      "kind": "box",
+      "pal": "ty_embassy_cream",
+      "roof": true,
+      "scale": {
+        "cx": "abs",
+        "cy": "abs",
+        "fd": "abs",
+        "hw": "abs",
+        "z0": "abs",
+        "z1": "abs"
+      },
+      "z0": 0,
+      "z1": 0.1659
+    },
+    {
+      "cx": -0.0746,
+      "cy": 0.459,
+      "fd": 0.024,
+      "hw": 0.0184,
+      "kind": "box",
+      "pal": "ty_marble_col",
+      "roof": true,
+      "scale": {
+        "cx": "abs",
+        "cy": "abs",
+        "fd": "abs",
+        "hw": "abs",
+        "z0": "abs",
+        "z1": "abs"
+      },
+      "z0": 0,
+      "z1": 0.0253
+    },
+    {
+      "cx": 0.0746,
+      "cy": 0.459,
+      "fd": 0.024,
+      "hw": 0.0184,
+      "kind": "box",
+      "pal": "ty_marble_col",
+      "roof": true,
+      "scale": {
+        "cx": "abs",
+        "cy": "abs",
+        "fd": "abs",
+        "hw": "abs",
+        "z0": "abs",
+        "z1": "abs"
+      },
+      "z0": 0,
+      "z1": 0.0253
+    },
+    {
+      "cx": 0,
+      "cy": 0.457,
+      "fd": 0.022,
+      "hw": 0.09,
+      "kind": "box",
+      "pal": "ty_embassy_cream",
+      "roof": true,
+      "scale": {
+        "cx": "abs",
+        "cy": "abs",
+        "fd": "abs",
+        "hw": "abs",
+        "z0": "abs",
+        "z1": "abs"
+      },
+      "z0": 0.1547,
+      "z1": 0.1659
+    },
+    {
+      "cx": 0,
+      "cy": 0.47,
+      "fd": 0.03,
+      "hw": 0.096,
+      "kind": "box",
+      "pal": "ty_marble",
+      "roof": true,
+      "scale": {
+        "cx": "abs",
+        "cy": "abs",
+        "fd": "abs",
+        "hw": "abs",
+        "z0": "abs",
+        "z1": "abs"
+      },
+      "z0": 0,
+      "z1": 0.006
+    },
+    {
+      "cx": 0,
+      "cy": 0.47,
+      "fd": 0.0302,
+      "hw": 0.0394,
+      "kind": "box",
+      "pal": "ty_embassy_runner",
+      "roof": true,
+      "scale": {
+        "cx": "abs",
+        "cy": "abs",
+        "fd": "abs",
+        "hw": "abs",
+        "z0": "abs",
+        "z1": "abs"
+      },
+      "z0": 0.006,
+      "z1": 0.0066
     }
   ]
 }

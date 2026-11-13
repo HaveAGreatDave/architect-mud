@@ -1049,7 +1049,14 @@ function lying(p, breaths = 2) {
 }
 // Rolled onto the side, the left side up: a quarter turn of the whole body about its length, and the middle a
 // little higher off the bed. In the pose, not in the placing, so turning over blends like any other move.
-function onSide(P) { setR(P, 'pelvis', 0, -Math.PI / 2, 0); P.root[2] += 0.06; return P; }
+// The top leg comes down onto the bottom one, knee on knee and ankle on ankle: `drop` degrees in at the hip and
+// `turn` degrees of twist to bring the foot back up (more bent knees need more of both; measured, each pose's
+// own). The bottom leg loses lying's splay, so it lies along the bed.
+function onSide(P, drop = 18, turn = 18) {
+  setR(P, 'pelvis', 0, -Math.PI / 2, 0); P.root[2] += 0.06;
+  setR(P, 'thighL', 0, -turn * DEG, -drop * DEG); setR(P, 'thighR', 0, 0, 3 * DEG);
+  return P;
+}
 // Awake on the back, hands on the belly, a knee coming up now and then, looking about.
 function lieBackPose(p) {
   const P = lying(p), k = held(p, 0.2, 0.6), look = Math.sin(TAU * p);
@@ -1089,7 +1096,7 @@ function sleepSidePose(p) {
   setR(P, 'spine', 16 * DEG, 0, 0); setR(P, 'chest', 6 * DEG, 0, 0);
   arm(P, 'R', -84, 40, 0.02, -126, -16); arm(P, 'L', -70, -40, -0.06, -118, -12);
   setR(P, 'head', 2 * DEG, 0, 0);
-  return onSide(P);
+  return onSide(P, 27, 18);
 }
 // Asleep on the back, the head turned on the pillow and the mouth open.
 function sleepBackPose(p) {
