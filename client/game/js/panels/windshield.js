@@ -25436,14 +25436,19 @@ function emitDecoFill(ctx, cam, W, css, alpha, lift = DECO_LIFT, tag = '', solid
   // uniform scale about the eye, done here from the depths alone (campFillFast is the same thing for
   // a camp's records, and was checked against this function to 1e-15). Every case the old path would
   // treat differently falls through to it: a corner near the eye, or one the unproject would clamp.
+  // ⚠ ON FOOT THE CUT IS THE EYE, NOT A TENTH OF A TILE. 0.1 tiles is a cab's bonnet and a walker's 1.8 m, so a
+  // street door's leaves went whole the moment a corner came that close (walking up to the Embassy, the doors went
+  // a couple of strides out). A walker's near plane is a third of a metre (cam.nearMax, freelook-view.js
+  // FOOT_NEAR), and the GPU clips a quad against it, so on foot anything in front of the eye is sent.
+  const foot = cam.nearMax > 0, NEAR_F = foot ? 1e-3 : 0.1, PULLED_F = foot ? 1e-3 : 0.06;
   if (DECAL_SINK && !SHAPE_SINK && cam.unproj && cam.rawF && TUNE.glDeco && RENDER_TUNE.signSquare && W.length >= 3 && RENDER_TUNE.decoFast !== 0) {
     const n = W.length;
     let sum = 0, fmin = Infinity;
-    for (let i = 0; i < n; i++) { const p = W[i], f = cam.rawF(p[0], p[1], p[2]); if (!(f > 0.1)) { fmin = -1; break; } sum += f; if (f < fmin) fmin = f; }
+    for (let i = 0; i < n; i++) { const p = W[i], f = cam.rawF(p[0], p[1], p[2]); if (!(f > NEAR_F)) { fmin = -1; break; } sum += f; if (f < fmin) fmin = f; }
     if (fmin > 0) {
       const pull = PULL_OFF ? 0 : Math.min(lift, DECO_PULL);
       const k = pull > 0 ? 1 - Math.min(0.5, pull / (sum / n)) : 1;
-      if (fmin * k > 0.06) {
+      if (fmin * k > PULLED_F) {
         const ex = cam.fx - cam.back * cam.sinh, ey = cam.fy + cam.back * cam.cosh, ez = cam.EH;
         const w = new Array(n);
         for (let i = 0; i < n; i++) { const p = W[i]; w[i] = [ex + (p[0] - ex) * k, ey + (p[1] - ey) * k, ez + (p[2] - ez) * k]; }
@@ -25471,7 +25476,8 @@ function emitDecoFill(ctx, cam, W, css, alpha, lift = DECO_LIFT, tag = '', solid
     }
   }
   const pr = W.map((q) => cam.proj(q[0], q[1], q[2]));
-  if (pr.some((q) => q.f <= 0.1)) return;
+  // (here `proj` floors f at 0.06, so on foot this path keeps to just past that)
+  if (pr.some((q) => q.f <= (foot ? 0.065 : 0.1))) return;
   const paint = () => {
     ctx.globalAlpha = alpha; ctx.fillStyle = css;
     if (ramp) {
