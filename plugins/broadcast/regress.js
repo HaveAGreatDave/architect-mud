@@ -4336,7 +4336,8 @@ export default async function regress({ check, run, getPlayer }) {
         for (const n of Object.values(g.nodes)) {
           const d = n.data || {};
           if (d.gameday?.phase === 'run') aired++;
-          if (/[{}]|\s[.,!?]|\s{2}|out in front by 0/.test(d.text || '')) badLines.push(`slot ${slot}: "${d.text}"`);
+          // (a space before a point is a batting average, "He's at .247", when a digit follows it)
+          if (/[{}]|\s[,!?]|\s\.(?!\d)|\s{2}|out in front by 0/.test(d.text || '')) badLines.push(`slot ${slot}: "${d.text}"`);
         }
       }
       check('deadball v2: plays on the bases air with their calls, every token filled, no leader in a tie', aired > 0 && !badLines.length, `${aired} aired; ${badLines.slice(0, 3).join(' | ')}`);

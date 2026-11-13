@@ -511,7 +511,9 @@ export default async function regress({ run, check, getPlayer }) {
         check('the floor above is somebody below\'s business, and back', _test.nextDoor(S1).includes(S2) && _test.nextDoor(S2).includes(S1));
         const L = roomLayout(v1.spec, []), at = (s) => [up.foot[0] + up.climb[0] * s, up.foot[1] + up.climb[1] * s];
         check('the flight climbs: its ground rises step by step to the floor above', L.groundAt(...at(0.1)) < 0.2 && Math.abs(L.groundAt(...at(up.len)) - 3) < 1e-6 && L.baseAt(...at(up.len / 2)) > 1, JSON.stringify([L.groundAt(...at(0.1)), L.groundAt(...at(up.len)), L.baseAt(...at(up.len / 2))]));
-        check('you can walk onto it from its foot but not step off its side', roomFree(L, ...at(0.3)) && !roomFree(L, at(2)[0] + 0.75, at(2)[1]) && !roomFree(L, at(2)[0] - 0.75, at(2)[1]));
+        // a body's width past the flight's edge is into the rail; further out is the floor beside it, free on the open side
+        const off = up.w / 2 + 0.15;
+        check('you can walk onto it from its foot but not step off its side', roomFree(L, ...at(0.3)) && !roomFree(L, at(2)[0] + off, at(2)[1]) && !roomFree(L, at(2)[0] - off, at(2)[1]), JSON.stringify(up));
         check('and past halfway up it you have gone up', openingCrossed(L, at(up.cross + 0.1))?.dir === 'up' && !openingCrossed(L, at(up.cross - 0.1)));
         world.zones.get(p.current_zone)?.players.delete(p.id);
         p.current_zone = S1; world.zones.get(S1).players.add(p.id);
