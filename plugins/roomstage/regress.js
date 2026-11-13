@@ -8,7 +8,7 @@ import { getBroadcast, setBroadcast } from '../../server/engine/messaging.js';
 import { getItem } from '../../server/engine/items-cache.js';
 import { giveItemById } from '../../server/engine/inventory.js';
 import { query } from '../../server/models/db.js';
-import { layRows, seatsClash, archetypeOf, roomLayout, resolveSpot, dimsOf, roomFree, rowDrawn, formOf, roomSpecOf, FLAT_ROOM, openingCrossed, openingInside } from '../../client/shared/room-layout.js';
+import { layRows, seatsClash, archetypeOf, roomLayout, resolveSpot, dimsOf, roomFree, onFoot, roomNearFree, roomPath, seatApproach, rowDrawn, formOf, roomSpecOf, FLAT_ROOM, openingCrossed, openingInside } from '../../client/shared/room-layout.js';
 import { registerMoveGate } from '../../server/engine/movement-gates.js';
 import { _test } from './index.js';
 import { ritualOf, actOfDrug } from './acts.js';
@@ -102,6 +102,25 @@ async function residents(check) {
         check(`a ${form} you ${open ? 'can' : "can't"} stand in`, !!p && roomFree(L, p.u, p.v) === open, p ? [p.u, p.v, p.form] : 'not placed');
         if (open) check('...with its station under the head', L.stations.some((s) => s.piece === p.id && Math.hypot(s.u - p.u, s.v - p.v) < 0.01));
       }
+    }
+    // you can climb on a chair or a bed, but nobody else walks through one or stands in it (room-layout.js onFoot)
+    {
+      const spec = { w: 5, d: 6, h: 2.6 };
+      const rows = [
+        { id: 'ch', name: 'chair', object_type: 'furniture', flags: { interactions: ['sit'], look: { arche: 'seat', form: 'chair' }, spot: { at: [0, 3], turn: 0 } } },
+        { id: 'bd', name: 'bed', object_type: 'furniture', flags: { interactions: ['lie'], look: { arche: 'bed' }, spot: { wall: 'back', along: 0.3 } } },
+      ];
+      const L = roomLayout(spec, layRows(rows, spec).pieces), F = onFoot(L);
+      const inside = (p) => L.climb.some(([a, b, c, e]) => p[0] > a && p[0] < b && p[1] > c && p[1] < e);
+      const ch = L.placed.find((p) => p.id === 'ch'), bd = L.placed.find((p) => p.id === 'bd');
+      check('you can still step up on a chair', !!ch && roomFree(L, ch.u, ch.v) && !roomFree(F, ch.u, ch.v), JSON.stringify(ch && [ch.u, ch.v]));
+      const near = [ch, bd].filter(Boolean).map((p) => roomNearFree(L, p.u, p.v, 1.8));
+      check('a spot asked for on a chair or a bed is on the floor beside it', near.length === 2 && near.every((p) => p && !inside(p)), JSON.stringify(near));
+      const seat = L.seats.find((s) => s.piece === 'ch'), go = seat && seatApproach(L, seat, 1.8);
+      check('the spot to sit down from is off the chair', !!go && !inside(go), JSON.stringify(go));
+      const path = ch && roomPath(L, [ch.u - 1.2, ch.v], [ch.u + 1.2, ch.v]), on = [];
+      for (let i = 1; path && i < path.length; i++) for (let k = 0; k <= 20; k++) { const a = path[i - 1], b = path[i], p = [a[0] + (b[0] - a[0]) * k / 20, a[1] + (b[1] - a[1]) * k / 20]; if (inside(p)) on.push(p); }
+      check('a way past a chair goes round it, not over it', !!path && !on.length, JSON.stringify({ path, on: on.slice(0, 3) }));
     }
     // somebody with a habit sits at a table to it (client/shared/table-stash.js): a chair pulled up to one, its
     // kit on the top in front of them, worked down one at a time; no table, or no habit, and there's no session

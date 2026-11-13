@@ -704,11 +704,22 @@ export function roomSeatNear(L, u, v, reach = 3) {
 // How somebody other than you crosses the room (plugins/roomstage/npc-life.js walks them), over the
 // same rects and boxes the walker and the gate use.
 //
+// ⚠ SOMEBODY ELSE DOESN'T CLIMB THE FURNITURE. A chair, a sofa or a bed is a `climb` box, not a `solid` one, so
+// you can step up on it; but an NPC routed or stood by roomFree walked through the chairs and stood in them.
+// Everything below plans on `onFoot(L)`, where what you'd climb is in the way too.
+const footed = new WeakMap();
+export function onFoot(L) {
+  if (!L.climb?.length) return L;
+  let F = footed.get(L);
+  if (!F) { F = { ...L, solid: [...L.solid, ...L.climb.map((c) => c.slice(0, 4))] }; footed.set(L, F); }
+  return F;
+}
 // The nearest place a body can stand to (u, v), out to `reach`, kept inside `within` when it's given:
 // a seat's spot is inside its piece, so this is where you walk to before you sit, and the far side of
 // the wall behind it can be closer than the near side.
 export function roomNearFree(L, u, v, reach = 1.8, within = null) {
-  const ok = (a, b) => roomFree(L, a, b) && (!within || (a >= within[0] && a <= within[1] && b >= within[2] && b <= within[3]));
+  const F = onFoot(L);
+  const ok = (a, b) => roomFree(F, a, b) && (!within || (a >= within[0] && a <= within[1] && b >= within[2] && b <= within[3]));
   if (ok(u, v)) return [u, v];
   for (let r = 0.1; r <= reach; r += 0.1) for (let i = 0; i < 16; i++) {
     const a = i / 8 * Math.PI, p = [u + Math.cos(a) * r, v + Math.sin(a) * r];
@@ -721,7 +732,8 @@ export function roomNearFree(L, u, v, reach = 1.8, within = null) {
 // nothing on the front half.
 export function seatApproach(L, s, reach = 1.8, within = null) {
   if (s.lie || !s.dir) return roomNearFree(L, s.u, s.v, reach, within);
-  const ok = (a, b) => roomFree(L, a, b) && (!within || (a >= within[0] && a <= within[1] && b >= within[2] && b <= within[3]));
+  const F = onFoot(L);
+  const ok = (a, b) => roomFree(F, a, b) && (!within || (a >= within[0] && a <= within[1] && b >= within[2] && b <= within[3]));
   const [fu, fv] = s.dir;
   for (let r = 0.45; r <= reach; r += 0.1) for (const a of [0, 0.35, -0.35, 0.7, -0.7, 1.05, -1.05, 1.4, -1.4]) {
     const c = Math.cos(a), sn = Math.sin(a), du = fu * c - fv * sn, dv = fv * c + fu * sn;
@@ -731,9 +743,11 @@ export function seatApproach(L, s, reach = 1.8, within = null) {
 }
 // A way from `a` to `b`, each [u, v]: a breadth-first search over a grid `step` across, pulled tight
 // into a few straight legs. Null when there's no way through. It keeps further off the furniture than
-// a walker has to wherever the room allows it, since a body's shoulders are wider than its radius.
+// a walker has to wherever the room allows it, since a body's shoulders are wider than its radius, and
+// round the chairs and beds (onFoot). Only a room the furniture shuts off entirely is crossed over it.
 export function roomPath(L, a, b, step = 0.2) {
-  return pathOver({ ...L, radius: L.radius + 0.08 }, a, b, step) || pathOver(L, a, b, step);
+  const F = onFoot(L);
+  return pathOver({ ...F, radius: F.radius + 0.08 }, a, b, step) || pathOver(F, a, b, step) || (F !== L ? pathOver(L, a, b, step) : null);
 }
 function pathOver(L, a, b, step) {
   const [u0, u1, v0, v1] = L.outer, W = Math.ceil((u1 - u0) / step) + 1, H = Math.ceil((v1 - v0) / step) + 1;
