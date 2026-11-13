@@ -1,7 +1,45 @@
 # GLASS frame headroom
 
-**Status: Stage 1 started (the bench fixed, per-frame GL state queries removed); the 2026-10-01 record caches built (below); Stage 1b built; Stage 3 phases 1-5 built, phase 6 started, kept-arm follow-ups built (2026-10-06 and 07, below); kept arms made to work for a moving camera (2026-10-19, below); flat decal fills batched (2026-10-19, below); the caches keyed on the map window made to survive a recentre (2026-10-19, below); Stage 2 superseded by Stage 3; a still camera keeps (2026-10-24, below); armChunk measured and not built (2026-10-24, below); the live arms and marks profiled, two exact cuts built (2026-10-24, below); buildings in the haze band keep (`armFade`, 2026-10-24, below); the lock, AA, media lot and statue shaded on the GPU and kept (`marksGPU`, built 2026-10-24, on since 2026-10-25, below); why `world:gl` rose with it found and fixed (2026-10-25, below); kept strokes that cross the eye plane run live (`armNearWire`, 2026-10-25, below); `cssRgb`'s double lookup measured and left (2026-10-25, below); the GL canvas hands each pass over, which took the ~1 ms off the cabin's copy (`glTransfer`, 2026-10-26, below); the occlusion pass skipped from the air on GL while nothing on the canvas asks for it (`occAir`, built and off, 2026-10-26, below); the ~1 ms at the sky strip traced to the frame boundary (2026-10-26, below); the 2-D frame drawn off the page and handed to it as a bitmap (`wsHandover`, on since 2026-10-26, below); the scatter, cliffs and plateaus off the side of the canvas skipped (`sideCull`, built 2026-10-26, on since 2026-10-26, below), and the order-dependent scatter card fixed for it (`bakeTileFree`, on).** The vertex-animated layers it follows from are built (actors,
+**Status: Stage 1 started (the bench fixed, per-frame GL state queries removed); the 2026-10-01 record caches built (below); Stage 1b built; Stage 3 phases 1-5 built, phase 6 started, kept-arm follow-ups built (2026-10-06 and 07, below); kept arms made to work for a moving camera (2026-10-19, below); flat decal fills batched (2026-10-19, below); the caches keyed on the map window made to survive a recentre (2026-10-19, below); Stage 2 superseded by Stage 3; a still camera keeps (2026-10-24, below); armChunk measured and not built (2026-10-24, below); the live arms and marks profiled, two exact cuts built (2026-10-24, below); buildings in the haze band keep (`armFade`, 2026-10-24, below); the lock, AA, media lot and statue shaded on the GPU and kept (`marksGPU`, built 2026-10-24, on since 2026-10-25, below); why `world:gl` rose with it found and fixed (2026-10-25, below); kept strokes that cross the eye plane run live (`armNearWire`, 2026-10-25, below); `cssRgb`'s double lookup measured and left (2026-10-25, below); the GL canvas hands each pass over, which took the ~1 ms off the cabin's copy (`glTransfer`, 2026-10-26, below); the occlusion pass skipped from the air on GL while nothing on the canvas asks for it (`occAir`, built and off, 2026-10-26, below); the ~1 ms at the sky strip traced to the frame boundary (2026-10-26, below); the 2-D frame drawn off the page and handed to it as a bitmap (`wsHandover`, on since 2026-10-26, below); the scatter, cliffs and plateaus off the side of the canvas skipped (`sideCull`, built 2026-10-26, on since 2026-10-26, below), and the order-dependent scatter card fixed for it (`bakeTileFree`, on); a resend's rebuild keeps only the live groups, and five smaller cuts (2026-11-13, below).** The vertex-animated layers it follows from are built (actors,
 birds, cloth; see [glass-notes.md](../reference/glass-notes.md#vertex-animated-layers-actors-birds-cloth)).
+
+## Built 2026-11-13: a resend writes the live set once, and five smaller cuts
+
+Measured headless with `perf:move --gl --lite`. Lite is what every device runs since 2026-11-10, and the bench
+didn't run it until `--lite` was added. Steady frames in Node: Marrow cab about 4 ms with the profiler off,
+Halcyon cockpit about 13.
+
+- **A resend rewrote the retained buffer with its dead groups.** A recentre hands every retained group back as
+  a new array (armReplay slices `ba`, and the sprite, stroke and decal keys carry the window), so the last 120
+  frames' groups can never be asked for again. A full buffer's rebuild kept them anyway, beside the new set, and
+  grew the buffer to fit both. gl/retain.js and gl/solids.js now keep only this frame's groups when fewer than a
+  quarter of them were found (`STALE_HIT`). Halcyon cockpit, map resent every 180 frames and recentred: the first
+  resend 14.1M floats to 6.2M, the second 5.2M to 3.8M, those frames about 150 to 100 ms in Node. Only this frame's
+  groups are ever drawn, so the picture can't change; `retain-check` and `lite-retain` pass.
+- **Bay groups cast as kept sets.** `buildPropCasters` walked every bayGroup record (hoodoos, parks, a replayed
+  arm's solids) as a loose record each frame. `bayCasterSplit` hands them to the prop and lamp maps beside the
+  kit's sets, so their triangles are built once per array and kept in the arena.
+- **The birds' lap tables were rebuilt every frame.** `lapTable` memoises on the clearance array, and
+  `flockClearance` made a new one per call. A profile equal to the last one for that flock now comes back as the
+  same array.
+- **flora.js boxed every key.** Its tile key ran to 2^37. Under 2^29 within 2048 tiles of the origin: 201 to 22 ms
+  over 900 cockpit frames with inlining off.
+- **The ship sink took four filters a frame** in `glWorldPass`. One pass now.
+- **The sea's slope texture** was baked for every new GL context, 218 ms here. Once a page now.
+
+**Still open, measured and not built:**
+
+- The rest of a resend: 4.9M floats of street kit and bay groups that really do move, because their records are in
+  the map window's frame. Keeping them would need the retained buffer drawn with an origin uniform, and every
+  `bayGroup` producer keyed on something a recentre doesn't change. That also covers most of the "full rewrite"
+  noted under 2026-11-05.
+- The tile sweep in `drawWorldObjects` is about 3 ms of a cockpit frame, most of it reading map cells of many
+  hidden classes (they arrive as JSON).
+- `emitWire`, `emitDecoFill` and `signalHead` are the top allocators in the cab (`perf:alloc --detail`). With
+  `glSizeGPU` on, a pulled wire's `a`/`b` are worked out by `cam.unproj` and then only its raw ends are drawn, but
+  other readers of the stroke may use them, so it wasn't changed.
+- `collectWakes` scans the whole window for yachts twice a frame. Caching the positions per map array isn't safe,
+  because helm-view.js sets a cell's `mark` in place, and there's no frame counter to key a per-frame memo on.
 
 ## Built 2026-11-05, on: the street kit's casters kept, and its haze band in the shader (`kitFadeGPU`)
 
