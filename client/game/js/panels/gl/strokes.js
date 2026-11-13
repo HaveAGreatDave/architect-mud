@@ -186,11 +186,14 @@ export function createStrokeLayer(gl) {
   // `add` IS A STROKE THAT IS LIGHT AND NOTHING ELSE: no core laid over the scene, only the
   // additive pass. The rainbow is the one caller. A bow is sunlight bent back out of the rain,
   // so it brightens whatever stands behind the shower and can never darken it.
+  // `solid` strokes join the neon cores in the depth prepass: a signal mast or a lamp column is a
+  // body, and with no depth of its own the cloud deck drew over it wherever it stood against the sky
+  // (RENDER_TUNE.glSteelDepth). Everything else stays paint-only, for the reason on depthMask below.
   const sort = (list, deepOn, lit, core, halo) => {
     for (const st of list) {
       if (!st || !st.a || !st.b) continue;
       if (st.add) { halo.push(st); continue; }
-      if (deepOn && st.glow > 0) lit.push(st); else core.push(st);
+      if (deepOn && (st.glow > 0 || st.solid)) lit.push(st); else core.push(st);
       if (st.glow > 0) halo.push(st);
     }
   };
@@ -223,7 +226,7 @@ export function createStrokeLayer(gl) {
     arenaLit.retain(gLit); arenaCore.retain(gCore); arenaHalo.retain(gHalo);
     const core = [], halo = [], lit = [];
     sort(list || [], deepOn, lit, core, halo);
-    // Glowing cores go FIRST so the depth-only prepass is one contiguous range.
+    // Glowing and solid cores go FIRST so the depth-only prepass is one contiguous range.
     deep = lit.length * 6;
     core.unshift(...lit);
     split = core.length * 6;

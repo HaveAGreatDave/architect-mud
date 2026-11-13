@@ -1245,6 +1245,13 @@ export const RENDER_TUNE = {
   // cloud well behind it drew straight over the neon. Same depth-only prepass the boards use, cut at
   // half alpha so only the letterforms write, never the halo.
   glSignDepth: 1,
+  // ⚠ AND SO DO THE SIGNAL MASTS AND STREET LAMPS (0 puts them back to paint-only). Their steel is
+  // strokes and their heads are decals, and neither layer wrote depth, so wherever a mast stood
+  // against the sky the cloud deck drew over the pole, the boom and the housings and left the lenses
+  // hanging in the air. Reported as parts of traffic lights disappearing. The steel goes through the
+  // stroke layer's depth-only prepass (the one neon cores use) and the solid plates through the
+  // decal layer's, both only while the part is at least half opaque.
+  glSteelDepth: 1,
   // ── THE ADORNMENTS, ON THE DEPTH BUFFER ─────────────────────────────────────
   //
   // Everything a building wears that is not mass, not a light and not a sign: masts, lattice
@@ -24901,9 +24908,10 @@ function steelInkK(cam, P) {
   return RENDER_TUNE.glInk * (1 - t * t * (3 - 2 * t));
 }
 function steelInkPx() { return Math.max(1, (RENDER_TUNE.glInkPx > 0 ? RENDER_TUNE.glInkPx : 1.5) * (window.devicePixelRatio || 1)); }
+// Both write depth (`solid`), because the steel they outline does: see RENDER_TUNE.glSteelDepth.
 function inkWire(ctx, cam, A, B, wPx, alpha, lift) {
   const k = steelInkK(cam, A);
-  if (k > 0) emitWire(ctx, cam, A, B, wPx + 2 * steelInkPx(), STEEL_INK_CSS, alpha * k, { lift: lift * 0.5 });
+  if (k > 0) emitWire(ctx, cam, A, B, wPx + 2 * steelInkPx(), STEEL_INK_CSS, alpha * k, { lift: lift * 0.5, solid: true });
 }
 // A flat plate's keyline: the polygon grown about its own centre by the ink width at its depth.
 function inkFill(ctx, cam, W, alpha, lift) {
@@ -24916,8 +24924,11 @@ function inkFill(ctx, cam, W, alpha, lift) {
     const d = [p[0] - c[0], p[1] - c[1], p[2] - c[2]], L = Math.hypot(d[0], d[1], d[2]) || 1;
     return [p[0] + d[0] / L * grow, p[1] + d[1] / L * grow, p[2] + d[2] / L * grow];
   });
-  emitDecoFill(ctx, cam, G, STEEL_INK_CSS, alpha * k, lift * 0.5);
+  emitDecoFill(ctx, cam, G, STEEL_INK_CSS, alpha * k, lift * 0.5, '', steelSolid(alpha * k));
 }
+// Whether a piece of street steel at this alpha writes depth. Half opaque, the decal layer's own
+// DEPTH_CUT, so a mast fading out at the edge of the draw distance stops hiding the clouds with it.
+function steelSolid(alpha) { return TUNE.glSteelDepth !== 0 && (alpha == null || alpha >= 0.5); }
 function emitWire(ctx, cam, A, B, wPx, css, alpha, opts = {}) {
   // ⚠ A SEGMENT THAT CROSSES THE EYE PLANE IS CLIPPED, NEVER DROPPED. `cam.proj` floors `f` at
   // 0.06 so a point behind the eye projects to nonsense, which is why this refused any segment with
@@ -24978,6 +24989,9 @@ function emitWire(ctx, cam, A, B, wPx, css, alpha, opts = {}) {
       if (pull && A2 !== A && B2 !== B && STROKE_SINK.length > n0 && RENDER_TUNE.glSizeGPU !== 0) {
         const st = STROKE_SINK[n0]; st.ra = A; st.rb = B; st.pl = pull;
       }
+      // `solid`: a member with a body (a mast, a lamp column) rather than a wire. It goes through
+      // the stroke layer's depth prepass so the cloud deck can't draw over it; see glSteelDepth.
+      if (opts.solid && STROKE_SINK.length > n0 && steelSolid(STROKE_SINK[n0].alpha)) STROKE_SINK[n0].solid = true;
       return;
     }
   }
@@ -34801,6 +34815,10 @@ function drawSignalMast(ctx, cam, dx, dy, arm, lamp, alpha, night, lit) {
       dy * m0 + (dy + arm[1] * MAST_REACH * 0.5) * m1 + tipY * m2,
       MAST_H * m0 + (MAST_H - 0.004) * m1 + (MAST_H - 0.012) * m2];
   };
+  // Every part of the steel writes depth (glSteelDepth). The collar, the band, the sensor pod and the
+  // drop bracket wrap or meet the pole and the boom at the same depth, so they are pulled a hair
+  // nearer than the member under them; at an equal pull the two z-fight into a stipple.
+  const ON = { lift: LIFT, solid: true }, OVER = { lift: LIFT + 0.006, solid: true };
   if (onGPU) {
     // The cel look's keyline (inkWire), under the pole and the boom it outlines.
     inkWire(ctx, cam, [dx, dy, 0], [dx, dy, MAST_H], wPx(POLE_R0 * 1.6, POLE_R1, base.f), alpha, LIFT);
@@ -34808,20 +34826,20 @@ function drawSignalMast(ctx, cam, dx, dy, arm, lamp, alpha, night, lit) {
       const t0 = i / 5, t1 = (i + 1) / 5;
       inkWire(ctx, cam, BZ(t0), BZ(t1), wPx(BOOM_R0 + (BOOM_R1 - BOOM_R0) * t0, BOOM_R0 + (BOOM_R1 - BOOM_R0) * t1, top.f + (tip.f - top.f) * t0), alpha, LIFT);
     }
-    emitWire(ctx, cam, [dx, dy, 0], [dx, dy, 0.02], wPx(POLE_R0 * 1.6, POLE_R0 * 1.35, base.f), 'rgba(40,44,52,0.96)', alpha, { lift: LIFT });
-    emitWire(ctx, cam, [dx, dy, 0], [dx, dy, MAST_H], wPx(POLE_R0, POLE_R1, base.f), STEEL_FILL, alpha, { lift: LIFT });
+    emitWire(ctx, cam, [dx, dy, 0], [dx, dy, 0.02], wPx(POLE_R0 * 1.6, POLE_R0 * 1.35, base.f), 'rgba(40,44,52,0.96)', alpha, OVER);
+    emitWire(ctx, cam, [dx, dy, 0], [dx, dy, MAST_H], wPx(POLE_R0, POLE_R1, base.f), STEEL_FILL, alpha, ON);
     // The accent band: a lit strip at head height on the mast, in the phase colour, so the junction
     // reads from the pavement too. Dim when the mast is dead.
     const bc = SIGNAL_COL[lamp] || SIGNAL_COL.r;
     emitWire(ctx, cam, [dx, dy, 0.15], [dx, dy, 0.168], wPx(POLE_R0 * 1.1, POLE_R0 * 1.1, base.f),
-      lamp ? `rgba(${bc[0]},${bc[1]},${bc[2]},${0.55 + night * 0.4})` : 'rgba(58,64,74,0.94)', alpha, { lift: LIFT });
+      lamp ? `rgba(${bc[0]},${bc[1]},${bc[2]},${0.55 + night * 0.4})` : 'rgba(58,64,74,0.94)', alpha, OVER);
     // A sensor pod at the boom tip: the junction watches the traffic it is directing.
-    emitWire(ctx, cam, [tipX, tipY, MAST_H - 0.012], [tipX, tipY, MAST_H - 0.026], wPx(0.006, 0.006, tip.f), 'rgba(30,33,40,0.96)', alpha, { lift: LIFT });
+    emitWire(ctx, cam, [tipX, tipY, MAST_H - 0.012], [tipX, tipY, MAST_H - 0.026], wPx(0.006, 0.006, tip.f), 'rgba(30,33,40,0.96)', alpha, OVER);
     for (let i = 0; i < 5; i++) {
       const t0 = i / 5, t1 = (i + 1) / 5;
       emitWire(ctx, cam, BZ(t0), BZ(t1),
         wPx(BOOM_R0 + (BOOM_R1 - BOOM_R0) * t0, BOOM_R0 + (BOOM_R1 - BOOM_R0) * t1, top.f + (tip.f - top.f) * t0),
-        STEEL_FILL, alpha, { lift: LIFT });
+        STEEL_FILL, alpha, ON);
     }
   } else {
     drawSteel(ctx, [px(base, POLE_R0), px(top, POLE_R1)]);                                 // the pole
@@ -34856,7 +34874,7 @@ function drawSignalMast(ctx, cam, dx, dy, arm, lamp, alpha, night, lit) {
     if (b0.f <= 0.1) continue;
     if (onGPU) {
       inkWire(ctx, cam, [h.hx, h.hy, hangZ], [h.hx, h.hy, hangZ - BRACKET_H], wPx(0.004, 0.0035, b0.f), alpha, LIFT);
-      emitWire(ctx, cam, [h.hx, h.hy, hangZ], [h.hx, h.hy, hangZ - BRACKET_H], wPx(0.004, 0.0035, b0.f), STEEL_FILL, alpha, { lift: LIFT });
+      emitWire(ctx, cam, [h.hx, h.hy, hangZ], [h.hx, h.hy, hangZ - BRACKET_H], wPx(0.004, 0.0035, b0.f), STEEL_FILL, alpha, OVER);
     }
     else drawSteel(ctx, [px(b0, 0.004), px(b1, 0.0035)], STEEL_FILL, false);               // the drop bracket
     signalHead(ctx, cam, h.hx, h.hy, hangZ - BRACKET_H, arm, face, lamp, s, night, onGPU ? { alpha, lift: LIFT } : null);
@@ -34868,7 +34886,7 @@ function drawSignalMast(ctx, cam, dx, dy, arm, lamp, alpha, night, lit) {
   if (cobra.f > 0.1) {
     if (onGPU) {
       inkWire(ctx, cam, [dx, dy, MAST_H], [cbx, cby, MAST_H + 0.01], wPx(0.005, 0.0035, top.f), alpha, LIFT);
-      emitWire(ctx, cam, [dx, dy, MAST_H], [cbx, cby, MAST_H + 0.01], wPx(0.005, 0.0035, top.f), STEEL_FILL, alpha, { lift: LIFT });
+      emitWire(ctx, cam, [dx, dy, MAST_H], [cbx, cby, MAST_H + 0.01], wPx(0.005, 0.0035, top.f), STEEL_FILL, alpha, ON);
     }
     else drawSteel(ctx, [px(top, 0.005), px(cobra, 0.0035)], STEEL_FILL, false);
     // The luminaire is a HORIZONTAL plate, so it is laid out in a frame with no vertical extent at
@@ -34886,7 +34904,7 @@ function drawSignalMast(ctx, cam, dx, dy, arm, lamp, alpha, night, lit) {
     const glassQ = [[-0.012, -0.003, -0.006], [0.012, -0.003, -0.006], [0.014, -0.003, 0.006], [-0.014, -0.003, 0.006]];
     if (onGPU) {
       inkFill(ctx, cam, plate.map((p) => LW(p[0], p[1], p[2])), alpha, LIFT);
-      emitDecoFill(ctx, cam, plate.map((p) => LW(p[0], p[1], p[2])), 'rgba(70,74,82,0.95)', alpha, LIFT);
+      emitDecoFill(ctx, cam, plate.map((p) => LW(p[0], p[1], p[2])), 'rgba(70,74,82,0.95)', alpha, LIFT, '', steelSolid(alpha));
       emitDecoFill(ctx, cam, glassQ.map((p) => LW(p[0], p[1], p[2])), litCss, alpha, LIFT);
     } else if (LB) {
       fillPoly(ctx, plate.map((p) => bp(LB, p[0], p[1], p[2])), 'rgba(70,74,82,0.95)');
@@ -34939,8 +34957,11 @@ function signalHead(ctx, cam, x, y, z, u, face, lamp, s, night, gpu) {
   // change. Every plate on this head goes through `quad`, which is what stops the canvas version and
   // the depth-buffer version drifting into two different shapes.
   const W = (a, b, c) => [x + u[0] * a + face[0] * c, y + u[1] * a + face[1] * c, z + b];
-  const quad = (pts, css) => gpu
-    ? emitDecoFill(ctx, cam, pts.map((p) => W(p[0], p[1], p[2])), css, gpu.alpha, gpu.lift)
+  // `sol` makes the plate write depth (glSteelDepth), so the cloud deck can't draw over the housing.
+  // `back` pulls it that much less: the lens face is solid too, and the lenses, the status strip and
+  // the visors sit under a thousandth of a tile in front of it, close enough to z-fight at range.
+  const quad = (pts, css, sol = false, back = 0) => gpu
+    ? emitDecoFill(ctx, cam, pts.map((p) => W(p[0], p[1], p[2])), css, gpu.alpha, gpu.lift - back, '', sol && steelSolid(gpu.alpha))
     : fillPoly(ctx, pts.map((p) => bp(B, p[0], p[1], p[2])), css);
   // Which way round are we looking at it? df/d(face) falls straight out of the camera — depth is
   // bx*sinh − by*cosh, so a unit step along a horizontal vector changes it by exactly this — and a
@@ -34959,9 +34980,9 @@ function signalHead(ctx, cam, x, y, z, u, face, lamp, s, night, gpu) {
   const W2 = HEAD_W / 2;
   // The cel look's keyline round the housing (inkFill), behind the far face so the box sits in it.
   if (gpu) inkFill(ctx, cam, [[-W2, 0, -cF], [W2, 0, -cF], [W2, -HEAD_H, -cF], [-W2, -HEAD_H, -cF]].map((p) => W(p[0], p[1], p[2])), gpu.alpha, gpu.lift);
-  quad([[-W2, 0, -cF], [W2, 0, -cF], [W2, -HEAD_H, -cF], [-W2, -HEAD_H, -cF]], 'rgba(18,20,25,0.94)');   // the far face, so the box is solid edge-on
-  if (s > 2.4) quad([[aS, 0, -cF], [aS, 0, cF], [aS, -HEAD_H, cF], [aS, -HEAD_H, -cF]], 'rgba(23,26,32,0.94)');   // the flank
-  quad([[-W2, 0, cF], [W2, 0, cF], [W2, -HEAD_H, cF], [-W2, -HEAD_H, cF]], 'rgba(31,35,42,0.95)');               // the lens face
+  quad([[-W2, 0, -cF], [W2, 0, -cF], [W2, -HEAD_H, -cF], [-W2, -HEAD_H, -cF]], 'rgba(18,20,25,0.94)', true);   // the far face, so the box is solid edge-on
+  if (s > 2.4) quad([[aS, 0, -cF], [aS, 0, cF], [aS, -HEAD_H, cF], [aS, -HEAD_H, -cF]], 'rgba(23,26,32,0.94)', true);   // the flank
+  quad([[-W2, 0, cF], [W2, 0, cF], [W2, -HEAD_H, cF], [-W2, -HEAD_H, cF]], 'rgba(31,35,42,0.95)', true, 0.004);  // the lens face
   const lensC = cF * 1.08, hoodC = cF + (cF > 0 ? 0.007 : -0.007);
   // A thin status strip along the top of the lens face in the live phase colour — the head's own
   // countdown bar, which is what a signal fifty years on would add before anything else.
@@ -35354,6 +35375,9 @@ function drawStreetLamp(ctx, cam, dx, dy, inward, lit, alpha, night, seed, tone 
     // which is WORSE than the all-or-nothing probe it replaced. Anything standing on the ground in
     // its own right wants FACE_EPS, not DECO_LIFT.
     const LIFT = 0.02;
+    // Every part writes depth (glSteelDepth), the foot and the band a hair nearer than the column
+    // they wrap, or the two z-fight; see the same note in drawSignalMast.
+    const ON = { lift: LIFT, solid: true }, OVER = { lift: LIFT + 0.006, solid: true };
     // A standard fifty years on: a composite column on a squat foot, an accent band that glows when
     // the lamp is on, and a swept arm ending in a long thin LED blade rather than a cobra pan.
     // The cel look's keyline (inkWire, inkFill) goes under the column, the arm and the blade first.
@@ -35364,21 +35388,21 @@ function drawStreetLamp(ctx, cam, dx, dy, inward, lit, alpha, night, seed, tone 
       const Fi = (a, c) => [ax + inward[0] * a + inward[1] * c, ay + inward[1] * a - inward[0] * c, 0.33];
       inkFill(ctx, cam, [Fi(-0.034, -0.0065), Fi(0.020, -0.0065), Fi(0.024, 0.0065), Fi(-0.030, 0.0065)], alpha, LIFT);
     }
-    emitWire(ctx, cam, [dx, dy, 0], [dx, dy, 0.022], wPx(LAMP_R0 * 1.7, LAMP_R0 * 1.4, base.f), 'rgba(40,44,52,0.96)', alpha, { lift: LIFT });
-    emitWire(ctx, cam, [dx, dy, 0], [dx, dy, 0.34], wPx(LAMP_R0, LAMP_R1, base.f), 'rgba(52,57,66,0.94)', alpha, { lift: LIFT });
+    emitWire(ctx, cam, [dx, dy, 0], [dx, dy, 0.022], wPx(LAMP_R0 * 1.7, LAMP_R0 * 1.4, base.f), 'rgba(40,44,52,0.96)', alpha, OVER);
+    emitWire(ctx, cam, [dx, dy, 0], [dx, dy, 0.34], wPx(LAMP_R0, LAMP_R1, base.f), 'rgba(52,57,66,0.94)', alpha, ON);
     const bandCss = lit ? `rgba(120,224,255,${0.70 + night * 0.30})` : 'rgba(58,72,84,0.94)';
     const bandF = cam.proj(dx, dy, 0.21).f;
-    emitWire(ctx, cam, [dx, dy, 0.205], [dx, dy, 0.222], wPx(LAMP_R1 * 1.15, LAMP_R1 * 1.15, bandF), bandCss, alpha, { lift: LIFT });
+    emitWire(ctx, cam, [dx, dy, 0.205], [dx, dy, 0.222], wPx(LAMP_R1 * 1.15, LAMP_R1 * 1.15, bandF), bandCss, alpha, OVER);
     const sx_ = dx + inward[0] * 0.07, sy_ = dy + inward[1] * 0.07;
-    emitWire(ctx, cam, [dx, dy, 0.34], [sx_, sy_, 0.346], wPx(LAMP_R1, LAMP_R1 * 0.8, top.f), 'rgba(66,72,82,0.94)', alpha, { lift: LIFT });
-    emitWire(ctx, cam, [sx_, sy_, 0.346], [ax, ay, 0.333], wPx(LAMP_R1 * 0.8, LAMP_R1 * 0.6, top.f), 'rgba(66,72,82,0.94)', alpha, { lift: LIFT });
+    emitWire(ctx, cam, [dx, dy, 0.34], [sx_, sy_, 0.346], wPx(LAMP_R1, LAMP_R1 * 0.8, top.f), 'rgba(66,72,82,0.94)', alpha, ON);
+    emitWire(ctx, cam, [sx_, sy_, 0.346], [ax, ay, 0.333], wPx(LAMP_R1 * 0.8, LAMP_R1 * 0.6, top.f), 'rgba(66,72,82,0.94)', alpha, ON);
     // The luminaire, as its own world rectangle rather than through `planeBasis` — the basis
     // returns SCREEN points and a decal wants world ones, and the four corners are the same four
     // numbers either way. A dark blade, and the lit strip inset along it.
     const F = (a, c) => [ax + inward[0] * a + inward[1] * c, ay + inward[1] * a - inward[0] * c, 0.33];
     const Fl = (a, c) => [ax + inward[0] * a + inward[1] * c, ay + inward[1] * a - inward[0] * c, 0.327];
     emitDecoFill(ctx, cam, [F(-0.034, -0.0065), F(0.020, -0.0065), F(0.024, 0.0065), F(-0.030, 0.0065)],
-      'rgba(38,42,50,0.95)', alpha, LIFT);
+      'rgba(38,42,50,0.95)', alpha, LIFT, '', steelSolid(alpha));
     emitDecoFill(ctx, cam, [Fl(-0.028, -0.0035), Fl(0.016, -0.0035), Fl(0.018, 0.0035), Fl(-0.026, 0.0035)],
       lit ? litCss : 'rgba(54,60,70,0.92)', alpha, LIFT);
     if (lit) {
