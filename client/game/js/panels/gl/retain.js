@@ -84,5 +84,7 @@ export function createArena(gl, stride, attrs, floor = 1 << 15) {
   }
   // `spans` is this frame's ranges one group each, unmerged, with the group that asked for it: a layer
   // whose groups need their own state per draw (a decal's texture) draws these instead of `runs`.
-  return { vao, retain, get runs() { return runs; }, get verts() { return verts; }, get spans() { return spans; } };
+  // Everything placed is forgotten (the kept casters' new anchor): the next retain writes this frame's groups afresh.
+  const reset = () => { map.clear(); used = 0; };
+  return { vao, retain, reset, get runs() { return runs; }, get verts() { return verts; }, get spans() { return spans; } };
 }

@@ -2488,11 +2488,12 @@ const lightRaw = new Float32Array(MAX_LIGHTS * 3);
     clothRecs.length = 0;
     cloudList.length = 0;
     const clouds = [], groups = [];
-    let kitFade = null;
+    let kitFade = null, wc = null;
     // Whole arrays that never went through the list: the street kit's tiles (BAY_SINK.sets), and the
     // copies of the ones in the haze band (.fades), whose alpha changes and so go down the stream.
     for (const l of lists) if (l && (l.sets || l.fades)) {
       if (l.menv) all.menv = l.menv;
+      if (l.wc) wc = l.wc;
       if (l.sets) for (const s of l.sets) groups.push(s);
       if (l.kitFade) kitFade = { n: groups.length, v: l.kitFade };
       if (l.fades) for (let i = 0; i < l.fades.length; i++) all.push(l.fades[i]);
@@ -2500,6 +2501,8 @@ const lightRaw = new Float32Array(MAX_LIGHTS * 3);
     for (const l of lists) if (l && l.length) {
       // The marks' frame (marksGPU) rides on the list, once, for the solids layer's uniforms.
       if (l.menv) all.menv = l.menv;
+      // And the window's centre the retained groups are kept about (retainWorld).
+      if (l.wc) wc = l.wc;
       // A retained group (bayGroup) goes over whole; see splitGroups.
       const G = l.groups;
       let gi = 0;
@@ -2525,7 +2528,7 @@ const lightRaw = new Float32Array(MAX_LIGHTS * 3);
       }
     }
     if (mg && clouds.length) mg.sweep(clouds[0].now);
-    solidQuads = all.length || groups.length || shp ? solidsLayer().upload(all, null, null, null, null, groups, kitFade) : 0;
+    solidQuads = all.length || groups.length || shp ? solidsLayer().upload(all, null, null, null, null, groups, kitFade, wc) : 0;
     faunaInst = (instRecs.length || fnl) ? faunaLayer().upload(instRecs) : 0;
     // who's drawn close up is marked (r.hd) before the crowd uploads, so it can leave them out
     if (actorRecs.length || shd) streetHD().pick(actorRecs);

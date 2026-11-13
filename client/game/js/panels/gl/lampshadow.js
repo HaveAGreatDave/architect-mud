@@ -15,7 +15,7 @@
 // ⚠ ONE CASTER BUFFER FOR EVERY LAMP. buildPropCasters is run once with no light direction, so each
 // slab is an X and casts from any side; the maps differ only in their matrices.
 import { perspective, lookAt, mul4 } from '../diamond/camera.js';
-import { buildPropCasters, keptArena, keptGroupsIn, PROP_SHADOW_TUNE } from './propshadow.js';
+import { buildPropCasters, keptArena, keptGroupsIn, keptAnchor, keptMatrix, PROP_SHADOW_TUNE } from './propshadow.js';
 import { compileShader } from './programs.js';
 
 // ⚠ Four, and the shader's if-chain below has exactly four arms: a sampler array can only be indexed
@@ -216,7 +216,7 @@ export function createLampShadowLayer(gl, size = LAMP_SHADOW_SIZE) {
   const P = new Float32Array(3 * LAMP_SHADOW_MAX), C = new Float32Array(3 * LAMP_SHADOW_MAX), Wt = new Float32Array(LAMP_SHADOW_MAX);
   const texs = maps.map((m) => m.tex);
   // The street kit's casters stay on the GPU, as in propshadow.js (keptGroupsIn).
-  const arena = keptArena(gl);
+  const arena = keptArena(gl), anchor = {}, vpK = new Float32Array(16);
   let last = null;
 
   // Builds the casters once and draws one map per lamp. `lamps` is pickShadowLamps' answer, `k` the
@@ -229,7 +229,8 @@ export function createLampShadowLayer(gl, size = LAMP_SHADOW_SIZE) {
     const box = lampBox(lamps.slice(0, n));
     const keep = PROP_SHADOW_TUNE.keep >= 2;
     const built = buildPropCasters(buf, box, { ...casters, kept: keep ? null : casters.kept, travel: null });
-    const runs = keep ? arena.retain(keptGroupsIn(casters.kept, box)) : null;
+    if (keep) keptAnchor(arena, anchor, casters.wc);
+    const runs = keep ? arena.retain(keptGroupsIn(casters.kept, box, PROP_SHADOW_TUNE, casters.wc, anchor)) : null;
     const kv = runs ? arena.verts : 0;
     last = { ...built, kept: kv, lamps: n, box };
     if (!built.verts && !kv) return null;
@@ -254,8 +255,11 @@ export function createLampShadowLayer(gl, size = LAMP_SHADOW_SIZE) {
       const l = lamps[i], m = lampMatrix(l.p);
       gl.bindFramebuffer(gl.FRAMEBUFFER, maps[i].fbo);
       gl.clear(gl.DEPTH_BUFFER_BIT);
+      if (kv) {
+        gl.uniformMatrix4fv(uLightVP, false, keptMatrix(m, anchor, vpK));
+        gl.bindVertexArray(arena.vao); for (const r of runs) gl.drawArrays(gl.TRIANGLES, r[0], r[1]);
+      }
       gl.uniformMatrix4fv(uLightVP, false, m);
-      if (kv) { gl.bindVertexArray(arena.vao); for (const r of runs) gl.drawArrays(gl.TRIANGLES, r[0], r[1]); }
       if (built.verts) { gl.bindVertexArray(vao); gl.drawArrays(gl.TRIANGLES, 0, built.verts); }
       VP.set(m, i * 16);
       P[i * 3] = l.p[0]; P[i * 3 + 1] = l.p[1]; P[i * 3 + 2] = l.p[2];

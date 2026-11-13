@@ -1002,6 +1002,7 @@ export const RENDER_TUNE = {
   occCache: 1,   // a building's occluder geometry (hull, roof, solid boxes) kept per cell in its own frame and only moved and projected each frame (OCC_GEOM); 0 rebuilds it every frame
   glSizeGPU: 1,  // a light pushed through pushLightSized carries its size spec and the sprite shader sizes it from depth; 0 sends the CPU radius only
   glRetain: 1,   // record arrays that come back unchanged (a shed's shell, a hoodoo tile) stay on the GPU (bayGroup); 0 sends them every frame
+  retainWorld: 1, // the solids' retained groups are kept in world tiles and drawn with a shift, and the street kit and a replayed arm move their points in place on a recentre and keep the array, so a recentre rewrites none of them (retain in gl/solids.js); 0 hands back a new array and writes them all again
   glDecalTint: 1, // a flat or ramp decal fill carries its colour on the vertex (cssTint) and every one draws off one white texel in one batch; 0 gives each colour its own texture, draw and bind
   glDecalAtlas: 1, // decal artwork (sign pages, flags, banners, cloth pages) is copied onto shared 2048-texel pages, so records on one page share draws (gl/decals.js, the ⚠ on PAGE); 0 gives each artwork its own texture, draw and bind
   hoodooStable: 1,   // hoodoo solids carry no CPU fog (the shader fogs them once) and send every facet, so their records never change; 0 is the old double fog
@@ -35959,17 +35960,29 @@ const kitRun = (part, place, lx, ly, s0, seed, near, far, night, now, alpha) => 
 function kitGlows(ctx, cam, G, alpha) {
   for (let i = 0; i < G.length; i += 6) glowPool(ctx, cam, G[i] - cam.ox, G[i + 1] - cam.oy, G[i + 2], G[i + 3], G[i + 4], G[i + 5] * alpha);
 }
-// The map window moved under a tile that's still in it. New arrays, because the layers retain a group
-// by the identity of its array and would draw the old place (armReplay does the same).
+// The map window moved under a tile that's still in it. New arrays for the ink and the lettering,
+// because those layers retain a group by the identity of its array and would draw the old place
+// (armReplay does the same). The faces keep theirs with retainWorld: the solids hold them in world
+// tiles and check each group's first point against the world, so the same array is the same place.
 function kitRecentre(set, bx, by) {
-  const seen = new Set();
-  const move = (p) => { if (!seen.has(p)) { seen.add(p); p[0] += bx; p[1] += by; } };
-  for (const q of set.faces) q.p.forEach(move);
-  for (const q of set.film) q.p.forEach(move);
-  for (const t of set.text) t.q.forEach(move);
-  set.lines.forEach(move);
-  set.faces = set.faces.slice(); set.rec.st = set.rec.st.slice(); set.rec.de = set.rec.de.slice();
+  const U = set.uniq || (set.uniq = kitUniq(set));
+  for (let i = 0; i < U.length; i++) { const p = U[i]; p[0] += bx; p[1] += by; }
+  if (RENDER_TUNE.retainWorld === 0) set.faces = set.faces.slice();
+  set.rec.st = set.rec.st.slice(); set.rec.de = set.rec.de.slice();
   set.lx += bx; set.ly += by; set.dyn = null;
+}
+// Every point of a set once: its faces, film, lettering and ink share points, and each must move once.
+// Listed when the set is built, so a recentre is one pass. Found through a Set on every recentre, it
+// was 12 ms of a Halcyon cockpit's resend frame (95 sets). A sign kept as a decal leaves set.text but
+// its quad stays listed, which moves points nothing reads any more.
+function kitUniq(set) {
+  const seen = new Set(), out = [];
+  const add = (p) => { if (!seen.has(p)) { seen.add(p); out.push(p); } };
+  for (const q of set.faces) q.p.forEach(add);
+  for (const q of set.film) q.p.forEach(add);
+  for (const t of set.text) t.q.forEach(add);
+  set.lines.forEach(add);
+  return out;
 }
 // The ink as stroke records, in the camera's frame. What emitWire leaves in the sink, less the near
 // clip, which is asked of each stroke as it's sent (kitInk).
@@ -36038,10 +36051,11 @@ function kitSetFor(c, place, lx, ly, dx, dy, s0, seed, near, far) {
   const tier = near ? 0 : far ? 2 : 1;
   let set = KIT_SETS.get(c);
   if (!set || set.tier !== tier || set.tune !== ARM_TUNE) {
-    set = { tier, tune: ARM_TUNE, lx, ly, dx, dy, faces: [], film: [], lines: [], text: [], rec: { st: [], de: [] }, pts: [], k: -1, ink: 1, dpr: 0, fade: null, dyn: null };
+    set = { tier, tune: ARM_TUNE, lx, ly, dx, dy, faces: [], film: [], lines: [], text: [], rec: { st: [], de: [] }, pts: [], k: -1, ink: 1, dpr: 0, fade: null, dyn: null, uniq: null };
     KIT_TO = set;
     kitRun('static', place, lx, ly, s0, seed, near, far, 0, 0, 1);
     KIT_TO = null;
+    set.uniq = kitUniq(set);
     KIT_SETS.set(c, set);
   } else if (set.lx !== lx || set.ly !== ly) kitRecentre(set, lx - set.lx, ly - set.ly);
   return set;
@@ -55065,13 +55079,15 @@ function armReplay(e, ox, oy, cam, census, ctx, now, retain = true, cx = 0, cy =
     e.ox = ox; e.oy = oy;
   }
   // ⚠ THE BAY RECORDS ARE IN THE WINDOW'S FRAME, NOT THE CAMERA'S, so they move only when the window
-  // does (a recentre, with armWorld), by the change in its centre. A new array, because the solids
-  // retain a bay group by the identity of its array (bayGroup) and would draw the old place.
+  // does (a recentre, with armWorld), by the change in its centre. With retainWorld the same array goes
+  // back: the solids keep it in world tiles (retain in gl/solids.js). At 0 a new array, because the
+  // solids then retain a bay group by the identity of its array and would draw the old place.
   const bx = (e.cx || 0) - cx, by = (e.cy || 0) - cy;
   if (bx || by) {
     const seen = new Set();
     for (const q of e.rec.ba) for (const p of q.p) if (!seen.has(p)) { seen.add(p); p[0] += bx; p[1] += by; }
-    e.rec.ba = e.rec.ba.slice(); e.rec.baSplit = null; e.cx = cx; e.cy = cy;
+    if (RENDER_TUNE.retainWorld === 0) { e.rec.ba = e.rec.ba.slice(); e.rec.baSplit = null; }
+    e.cx = cx; e.cy = cy;
   }
   if (fade !== 1) { armFadePut(e, fade, census, cam); armKeepStats.replayed++; return true; }
   const retainOn = TUNE.glRetain !== 0 && retain;
@@ -55541,6 +55557,8 @@ function drawWorldObjects(ctx, cam, v, sky, now, sun) {
   SCATTER_SINK = glOn ? [] : null;
   OWNSHIP_SINK = glOn ? [] : null;
   BAY_SINK = glOn ? [] : null;
+  // The window's centre, for the solids' retained groups (retainWorld).
+  if (BAY_SINK && RENDER_TUNE.retainWorld !== 0) BAY_SINK.wc = [wcx, wcy];
   FAUNA_SINK = glOn ? [] : null;
   // ⚠ AFTER THE ASSIGNMENT, not beside the shadow’s drain a few lines up. SCATTER_SINK is set
   // LAST of the sinks, so draining into it any earlier reads the null left by the previous

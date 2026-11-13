@@ -91,6 +91,11 @@ if (flyArg >= 0) {
   // A triangle here includes its vertices' alpha, and at kitFadeGPU 1 the haze band's is in the shader.
   // At 0 a fading tile's faces are the same tiles with the alpha written in, so that's what's compared.
   scene.ws.RENDER_TUNE.kitFadeGPU = 0;
+  // And the solids' retained groups in the window's frame: with retainWorld they're in world tiles less
+  // an anchor and the shader shifts them back (uRetShift), which this fake doesn't do, and which costs
+  // a float32 rounding the 1e-5 comparison here can't take. scripts/perf/retain-world-check.mjs proves
+  // the shift; the records are the same either way, only whether a recentre hands back a new array differs.
+  scene.ws.RENDER_TUNE.retainWorld = 0;
   // TUNEALL=k=v,... on both flights: a switch whose kept draw has to match its own live draw (marksGPU).
   if (process.env.TUNEALL) for (const kv of process.env.TUNEALL.split(',')) { const [k, v] = kv.split('='); scene.ws.RENDER_TUNE[k] = Number(v); }
   // STEP=33 flies at an apparent 30 fps, where the scene governor steps the tune down.

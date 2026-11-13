@@ -462,7 +462,7 @@ function propShadowFor(cam, camAt, cssH, dpr, opts) {
 // The bay's retained groups go with the street kit's sets as kept arrays (bayCasterSplit).
 const propCasters = (cam, camAt, cssH, dpr, opts, bay = bayCasterSplit(opts.bay)) => ({
   solids: [bay.loose, opts.fauna, (opts.bay && opts.bay.fades) || null],
-  kept: bay.kept,
+  kept: bay.kept, wc: bay.wc,
   strokes: cam.FL > 0 ? { runs: strokeRuns(opts.strokes, cam.ox || 0, cam.oy || 0), vp: viewProjMatrix(camAt, cssH), FL: cam.FL * (dpr || 1) } : null,
 });
 

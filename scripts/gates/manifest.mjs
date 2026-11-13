@@ -307,6 +307,7 @@ export const GROUPS = [
       'scripts/shapes/cityscape-smoke.mjs',  // the city round it: the set composed from the content tree's skyline, every building placed and shaped, the streets from their arms
       'scripts/lite/smoke.mjs',              // GLASS Lite: the baked city (client/game/assets/lite/) is what the arms draw now; re-run npm run lite:bake after editing an arm
       'scripts/perf/lite-retain.mjs',        // GLASS Lite's signs, lights and masts kept on the GPU draw what the same records draw sent plain, and keep emitTile's two promises
+      'scripts/perf/retain-world-check.mjs', // a recentre leaves the solids' retained groups and the kept casters where their records are (retainWorld)
       'scripts/shapes/anim-smoke.mjs',       // Deadball's players skinned: the rig's frames, four weights a vertex, every pose on the posed build's surface, the hands on the bat
       // Deadball staged in 3-D: each pitch at its spot, every clip on the ball, every ball in play's gloves, throws and call at first, the line held to the landing (one game each, side by side)
       { run: 'scripts/shapes/diamond-smoke.mjs 16', budget: 90, why: '33 s of main-thread CPU alone (2026-11-05), past the 30 s that survives the slowest runner seen. The time is the animation solver (diamond/anim.js, rig.js) posing every body at each of 476,000 checks, which is what the gate tests, and the poses read world state that moves between checks, so they cannot be shared' },

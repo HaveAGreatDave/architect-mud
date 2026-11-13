@@ -1,7 +1,68 @@
 # GLASS frame headroom
 
-**Status: Stage 1 started (the bench fixed, per-frame GL state queries removed); the 2026-10-01 record caches built (below); Stage 1b built; Stage 3 phases 1-5 built, phase 6 started, kept-arm follow-ups built (2026-10-06 and 07, below); kept arms made to work for a moving camera (2026-10-19, below); flat decal fills batched (2026-10-19, below); the caches keyed on the map window made to survive a recentre (2026-10-19, below); Stage 2 superseded by Stage 3; a still camera keeps (2026-10-24, below); armChunk measured and not built (2026-10-24, below); the live arms and marks profiled, two exact cuts built (2026-10-24, below); buildings in the haze band keep (`armFade`, 2026-10-24, below); the lock, AA, media lot and statue shaded on the GPU and kept (`marksGPU`, built 2026-10-24, on since 2026-10-25, below); why `world:gl` rose with it found and fixed (2026-10-25, below); kept strokes that cross the eye plane run live (`armNearWire`, 2026-10-25, below); `cssRgb`'s double lookup measured and left (2026-10-25, below); the GL canvas hands each pass over, which took the ~1 ms off the cabin's copy (`glTransfer`, 2026-10-26, below); the occlusion pass skipped from the air on GL while nothing on the canvas asks for it (`occAir`, built and off, 2026-10-26, below); the ~1 ms at the sky strip traced to the frame boundary (2026-10-26, below); the 2-D frame drawn off the page and handed to it as a bitmap (`wsHandover`, on since 2026-10-26, below); the scatter, cliffs and plateaus off the side of the canvas skipped (`sideCull`, built 2026-10-26, on since 2026-10-26, below), and the order-dependent scatter card fixed for it (`bakeTileFree`, on); a resend's rebuild keeps only the live groups, and five smaller cuts (2026-11-13, below).** The vertex-animated layers it follows from are built (actors,
+**Status: Stage 1 started (the bench fixed, per-frame GL state queries removed); the 2026-10-01 record caches built (below); Stage 1b built; Stage 3 phases 1-5 built, phase 6 started, kept-arm follow-ups built (2026-10-06 and 07, below); kept arms made to work for a moving camera (2026-10-19, below); flat decal fills batched (2026-10-19, below); the caches keyed on the map window made to survive a recentre (2026-10-19, below); Stage 2 superseded by Stage 3; a still camera keeps (2026-10-24, below); armChunk measured and not built (2026-10-24, below); the live arms and marks profiled, two exact cuts built (2026-10-24, below); buildings in the haze band keep (`armFade`, 2026-10-24, below); the lock, AA, media lot and statue shaded on the GPU and kept (`marksGPU`, built 2026-10-24, on since 2026-10-25, below); why `world:gl` rose with it found and fixed (2026-10-25, below); kept strokes that cross the eye plane run live (`armNearWire`, 2026-10-25, below); `cssRgb`'s double lookup measured and left (2026-10-25, below); the GL canvas hands each pass over, which took the ~1 ms off the cabin's copy (`glTransfer`, 2026-10-26, below); the occlusion pass skipped from the air on GL while nothing on the canvas asks for it (`occAir`, built and off, 2026-10-26, below); the ~1 ms at the sky strip traced to the frame boundary (2026-10-26, below); the 2-D frame drawn off the page and handed to it as a bitmap (`wsHandover`, on since 2026-10-26, below); the scatter, cliffs and plateaus off the side of the canvas skipped (`sideCull`, built 2026-10-26, on since 2026-10-26, below), and the order-dependent scatter card fixed for it (`bakeTileFree`, on); a resend's rebuild keeps only the live groups, and five smaller cuts (2026-11-13, below); a recentre keeps the solids' retained groups and the kept casters (`retainWorld`, 2026-11-13, below).** The vertex-animated layers it follows from are built (actors,
 birds, cloth; see [glass-notes.md](../reference/glass-notes.md#vertex-animated-layers-actors-birds-cloth)).
+
+## Built 2026-11-13, on: a recentre keeps the retained solids (`retainWorld`)
+
+The rest of a resend, left open by the pass below. Its retained groups were in the map window's frame,
+so a recentre handed every one back as a new array: `kitRecentre` sliced a street kit set's faces and
+`armReplay` sliced a replayed arm's bays, after moving their points in place, and the solids wrote them
+all again. On the first resend of a Halcyon cockpit run that was 4.6M floats of kit and 0.2M of arms.
+
+- **The solids keep their retained groups in world tiles less an anchor.** `retain` in gl/solids.js
+  writes a group as its points plus the window's centre at the time, less the anchor (`PUT_X`, `PUT_Y`
+  in `putVertex`), and draws the retained runs with `uRetShift`, the anchor less this window's centre.
+  The anchor moves at a full rebuild, and a window 48 tiles from it rebuilds (`RETAIN_REANCHOR`), so
+  float32 stays near the tiles. The window's centre rides on the bay list (`BAY_SINK.wc`).
+- **The kit and `armReplay` keep their arrays.** They still move their points in place, by the change
+  in centre, and hand back the same array, so the group is found. The kit's ink and lettering still
+  slice: those layers retain by the window.
+- ⚠ **A hit is checked against the world.** Each entry keeps its first point and the centre it was
+  written in, and a group whose first point is no longer the same point at the same place in the world
+  is written again. Nothing today needs it: interning reuses a cell only at the same world tile, and
+  removing the check passes every test. It's there for the next producer that keeps an array and moves
+  it some other way.
+- **The kept casters do the same** (gl/propshadow.js). `keptCasters` keeps an entry whose points moved by
+  exactly the change in centre, with the shift (`sx`, `sy`) for its bounds; the prop and lamp maps'
+  arena writes it about its own anchor (`keptAnchor`), and the shift goes into the light matrix for
+  the arena's draw (`keptMatrix`), so no shader changed. The copy into the frame's buffer (`keep` 1)
+  still builds again on any move, which keeps it the walk's to the float.
+- **`kitRecentre` is one pass.** It found each set's shared points through a `Set` on every recentre,
+  12 ms of the first resend frame (95 sets) and 7 of the second. `kitUniq` lists them when the set is
+  built: 2.6 and 1.3 ms.
+
+0 is the old path: new arrays, and no centre on the bay list, which makes every shift 0.
+
+**Numbers**, headless, `movecost.mjs <place> <seat> --gl --lite --frames 400 --resend 180 --recentre
+--intern --rows`, paired against a detached worktree at HEAD, runs alternated, medians of 3 pairs
+(phases from 2 more with `--prof`):
+
+| | resend frame 180 | resend frame 360 | steady frame |
+|---|---|---|---|
+| Halcyon cockpit, before | 6.23M floats, 88 ms | 3.82M, 59 ms | 0.44M, 15.2 ms |
+| Halcyon cockpit, after | 0.89M, 56 ms | 0.63M, 39 ms | 0.44M, 15.4 ms |
+| Marrow cab, before | 2.19M, 50 ms | 1.62M, 28 ms | 0.25M, 7.9 ms |
+| Marrow cab, after | 0.55M, 40 ms | 0.48M, 20 ms | 0.25M, 7.9 ms |
+
+At Halcyon's first resend `world:gl` went from 35 to 13 ms and `world:street` from 13 to 4. What a
+resend still writes is the frame's own stream and the groups that really are new.
+
+**Proved** by `node scripts/perf/retain-world-check.mjs` (new, in `shapes:smoke`): it flies the
+`movecost` route with resends, recentres and interning at Halcyon and Marrow, hands each frame's bay
+list to two views under a fake WebGL2, one streaming everything and one retaining, moves each retained
+draw's points by the `uRetShift` it was drawn with, and compares the triangles to 1e-4 of a tile. It
+also compares the kept casters, as the arena writes them and shifted by `keptMatrix`, with a walk of
+the same faces. Mutation-tested: no shift, no write offset, and the casters' arena with no offset, no
+matrix shift or any move accepted each fail it. `recentre-exact retainWorld` (Halcyon, 9
+recentres; Marrow cab, 4) finds every list the GL hook is handed the same with the switch off and on.
+`retain-check`, `lite-retain`, `street-kit`, `gl:lampshadow` and `shapes:smoke` pass.
+⚠ `armkeep-check` now pins `retainWorld` 0: its fake ignores uniforms, and its comparison is exact to
+1e-5, which no shift added on the GPU can meet (it rounds float32 twice, as `massKeep` does). The
+records are the same either way; only whether a recentre hands back a new array differs.
+
+Not measured on a real GPU. The picture can only differ by that second float32 rounding, about 1e-5 of
+a tile.
 
 ## Built 2026-11-13: a resend writes the live set once, and five smaller cuts
 
@@ -29,10 +90,8 @@ Halcyon cockpit about 13.
 
 **Still open, measured and not built:**
 
-- The rest of a resend: 4.9M floats of street kit and bay groups that really do move, because their records are in
-  the map window's frame. Keeping them would need the retained buffer drawn with an origin uniform, and every
-  `bayGroup` producer keyed on something a recentre doesn't change. That also covers most of the "full rewrite"
-  noted under 2026-11-05.
+- ~~The rest of a resend: 4.9M floats of street kit and bay groups.~~ Built: `retainWorld`, above. The hoodoo and
+  park caches still key on the window's position and write again on a recentre; at Halcyon that's 28K floats.
 - The tile sweep in `drawWorldObjects` is about 3 ms of a cockpit frame, most of it reading map cells of many
   hidden classes (they arrive as JSON).
 - `emitWire`, `emitDecoFill` and `signalHead` are the top allocators in the cab (`perf:alloc --detail`). With

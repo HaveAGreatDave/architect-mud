@@ -125,9 +125,21 @@ const offGround = (P, T) => {
 // `tri` is the same floats the walk would write, in the same order. A tile wholly in the box goes in
 // as one copy; only a tile across its edge asks face by face, so the buffer is the walk's to the byte.
 const KEPT_CASTERS = new WeakMap();
-function keptCasters(L, T) {
+// ⚠ A SET'S POINTS CAN MOVE IN PLACE (retainWorld): on a recentre the street kit and a replayed arm
+// shift them by the change in the window's centre and keep the array. What's here stays in the window
+// it was built in (`cx`, `cy`, the centre `wc` then), and `sx`, `sy` say how far that window is from
+// this one: the first caster's first point must have moved by exactly the change in centre, or the
+// entry is built again. With no centre (retainWorld 0) any move builds it again, as before. `exact`
+// builds again on any move too, for the copy into the frame's buffer, which is the walk's to the float.
+function keptCasters(L, T, wc = null, exact = false) {
+  const cx = wc ? wc[0] : 0, cy = wc ? wc[1] : 0;
   let e = KEPT_CASTERS.get(L);
-  if (e && e.flat === T.flat) return e;
+  if (e && e.flat === T.flat) {
+    if (!e.n) return e;
+    const sx = e.p0[0] - e.px[0], sy = e.p0[1] - e.py[0];
+    if (!sx && !sy && (exact || (cx === e.cx && cy === e.cy))) { e.sx = 0; e.sy = 0; return e; }
+    if (!exact && Math.abs(sx - (e.cx - cx)) < 1e-6 && Math.abs(sy - (e.cy - cy)) < 1e-6) { e.sx = sx; e.sy = sy; return e; }
+  }
   const faces = [];
   let floats = 0;
   for (let i = 0; i < L.length; i++) {
@@ -153,7 +165,7 @@ function keptCasters(L, T) {
     }
   }
   off[n] = o;
-  e = { flat: T.flat, n, tri, off, px, py, x0, x1, y0, y1 };
+  e = { flat: T.flat, n, tri, off, px, py, x0, x1, y0, y1, p0: n ? faces[0][0] : null, cx, cy, sx: 0, sy: 0 };
   KEPT_CASTERS.set(L, e);
   return e;
 }
@@ -166,14 +178,45 @@ function keptCasters(L, T) {
 // box's edge goes in whole rather than face by face, which only adds casters the light matrix clips
 // or that genuinely shade into the box from just outside it. The lamp maps (gl/lampshadow.js) use both.
 // On with T.keep 2; below that, buildPropCasters puts the sets in the frame's buffer as before.
+//
+// ⚠ AND IN WORLD TILES LESS THE ARENA'S ANCHOR, as the solids' retained groups are (retainWorld): a set
+// is written about the centre it was built in less the anchor, so a recentre that moved its points in
+// place keeps its range, and the draw adds the anchor less this window's centre to the light matrix
+// (keptAnchor, keptMatrix). With no centre all of it is 0 and this is the old arena.
 export const keptArena = (gl) => createArena(gl, 3, [[0, 3, 0]]);
-export function keptGroupsIn(kept, box, T = PROP_SHADOW_TUNE) {
+const KEPT_REANCHOR = 48;
+// The arena's anchor for this frame, moved (and the arena cleared) when the window is too far from it
+// for float32. `A` is the caller's own { x, y }, one per arena.
+export function keptAnchor(arena, A, wc) {
+  const cx = wc ? wc[0] : 0, cy = wc ? wc[1] : 0;
+  if (Math.max(Math.abs(cx - A.x), Math.abs(cy - A.y)) > KEPT_REANCHOR || A.cx === undefined) { A.x = cx; A.y = cy; arena.reset(); }
+  A.cx = cx; A.cy = cy;
+  return A;
+}
+// `vp` with the arena's shift in front of it: M times a translation by (A.x - A.cx, A.y - A.cy). `vp` itself when there's none.
+export function keptMatrix(vp, A, out) {
+  const sx = A.x - A.cx, sy = A.y - A.cy;
+  if (!sx && !sy) return vp;
+  for (let i = 0; i < 12; i++) out[i] = vp[i];
+  for (let r = 0; r < 4; r++) out[12 + r] = vp[r] * sx + vp[4 + r] * sy + vp[12 + r];
+  return out;
+}
+// What a group writes from: the anchor of the arena being filled, set by keptGroupsIn. Read only
+// inside that arena's retain, which runs straight after; a rebuild there re-writes kept groups with it.
+let KEPT_AX = 0, KEPT_AY = 0;
+export function keptGroupsIn(kept, box, T = PROP_SHADOW_TUNE, wc = null, A = null) {
+  KEPT_AX = A ? A.x : 0; KEPT_AY = A ? A.y : 0;
   const out = [];
   for (const L of kept || []) {
     if (!L) continue;
-    const e = keptCasters(L, T);
-    if (!e.tri.length || e.x1 < box.x0 - 1 || e.x0 > box.x1 + 1 || e.y1 < box.y0 - 1 || e.y0 > box.y1 + 1) continue;
-    out.push(e.g || (e.g = { key: e, floats: e.tri.length, write: (d, o) => { d.set(e.tri, o); return o + e.tri.length; } }));
+    const e = keptCasters(L, T, wc);
+    if (!e.tri.length || e.x1 + e.sx < box.x0 - 1 || e.x0 + e.sx > box.x1 + 1 || e.y1 + e.sy < box.y0 - 1 || e.y0 + e.sy > box.y1 + 1) continue;
+    out.push(e.g || (e.g = { key: e, floats: e.tri.length, write: (d, o) => {
+      const t = e.tri, ox = e.cx - KEPT_AX, oy = e.cy - KEPT_AY;
+      if (!ox && !oy) { d.set(t, o); return o + t.length; }
+      for (let k = 0; k < t.length; k += 3) { d[o + k] = t[k] + ox; d[o + k + 1] = t[k + 1] + oy; d[o + k + 2] = t[k + 2]; }
+      return o + t.length;
+    } }));
   }
   return out;
 }
@@ -190,7 +233,8 @@ const BAY_SPLIT = new WeakMap();
 export function bayCasterSplit(bay) {
   const sets = (bay && bay.sets) || null;
   const G = bay && bay.groups;
-  if (!bay || !G || !G.length) return { loose: bay || null, kept: sets };
+  const wc = (bay && bay.wc) || null;
+  if (!bay || !G || !G.length) return { loose: bay || null, kept: sets, wc };
   let s = BAY_SPLIT.get(bay);
   if (s && s.n === bay.length && s.g === G.length) return s;
   const loose = [], kept = sets ? sets.slice() : [];
@@ -203,7 +247,7 @@ export function bayCasterSplit(bay) {
     }
     loose.push(bay[i]);
   }
-  s = { loose, kept, n: bay.length, g: G.length };
+  s = { loose, kept, wc, n: bay.length, g: G.length };
   BAY_SPLIT.set(bay, s);
   return s;
 }
@@ -287,7 +331,7 @@ export function buildPropCasters(buf, box, { solids, kept, strokes, travel }, T 
     }
   };
   for (const L of solids || []) if (L) walk(L);
-  for (const L of kept || []) if (L) { if (T.keep) copy(keptCasters(L, T)); else walk(L); }
+  for (const L of kept || []) if (L) { if (T.keep) copy(keptCasters(L, T, null, true)); else walk(L); }
   const S = strokes;
   if (S && S.runs && S.vp && S.FL > 0) {
     // `vp` is the WINDOW camera's (windowFrame in context.js), the frame every run is shifted into.
@@ -385,7 +429,7 @@ export function createPropShadowLayer(gl, size = PROP_SHADOW_SIZE) {
   let cap = 0;
   const buf = { data: new Float32Array(1 << 14) };
   const vp32 = new Float32Array(16);
-  const arena = keptArena(gl);
+  const arena = keptArena(gl), anchor = {}, vpK = new Float32Array(16);
   let last = null;
 
   // Builds and draws the map. Returns what the readers need, or null when nothing in the box casts
@@ -400,7 +444,8 @@ export function createPropShadowLayer(gl, size = PROP_SHADOW_SIZE) {
     // The kept sets from the arena (keptGroupsIn), the rest built and sent as before.
     const keep = PROP_SHADOW_TUNE.keep >= 2;
     const n = buildPropCasters(buf, box, { ...casters, kept: keep ? null : casters.kept, travel });
-    const runs = keep ? arena.retain(keptGroupsIn(casters.kept, box)) : null;
+    if (keep) keptAnchor(arena, anchor, casters.wc);
+    const runs = keep ? arena.retain(keptGroupsIn(casters.kept, box, PROP_SHADOW_TUNE, casters.wc, anchor)) : null;
     const kv = runs ? arena.verts : 0;
     last = { ...n, kept: kv, box };
     if (!n.verts && !kv) return null;
@@ -424,7 +469,12 @@ export function createPropShadowLayer(gl, size = PROP_SHADOW_SIZE) {
     gl.clear(gl.DEPTH_BUFFER_BIT);
     gl.useProgram(prog);
     gl.uniformMatrix4fv(uLightVP, false, vp);
-    if (kv) { gl.bindVertexArray(arena.vao); for (const r of runs) gl.drawArrays(gl.TRIANGLES, r[0], r[1]); }
+    if (kv) {
+      const m = keptMatrix(vp, anchor, vpK);
+      if (m !== vp) gl.uniformMatrix4fv(uLightVP, false, m);
+      gl.bindVertexArray(arena.vao); for (const r of runs) gl.drawArrays(gl.TRIANGLES, r[0], r[1]);
+      if (m !== vp) gl.uniformMatrix4fv(uLightVP, false, vp);
+    }
     if (n.verts) { gl.bindVertexArray(vao); gl.drawArrays(gl.TRIANGLES, 0, n.verts); }
     gl.bindVertexArray(null);
     gl.disable(gl.POLYGON_OFFSET_FILL);
