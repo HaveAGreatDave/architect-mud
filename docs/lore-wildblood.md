@@ -60,6 +60,11 @@ A Refusal is not a failure. All three outcomes are meaningful, and a mutation
 that leaves the initiate *weaker* may be celebrated more than one that does not,
 because deliberately choosing the unknown is the greatest proof a person is free.
 
+That table is the old way: blood drunk in the dark with nothing but the body to
+decide. It's still how the tribes in the Under do it. In the Thornwarren the
+machines under the Fleshery decide instead, and a ritual there gives the change
+that was asked for (see [The machines](#the-machines)).
+
 ## The ritual
 
 It begins with fasting — a day or more without ordinary food. The initiate is
@@ -83,6 +88,44 @@ or the Under. The initiate is left alone for hours, sometimes days.
 When they return, the tribe examines them. Not for beauty and not for health.
 For **change**. A new tooth is celebrated. A second pupil is celebrated. A
 useless deformity is celebrated.
+
+## The machines
+
+⚠ **Under the Fleshery the Wildblood keep computers and clone vats.** The bale,
+clay and fire above are how they choose to live. They aren't all they have.
+
+The machines came out of the Under, from the laboratories and hospitals the
+city forgot, and were carried east piece by piece when the Thornwarren was
+built. They run off a rotgas generator below ground, and nothing of them shows
+in the town: no screen, no lamp, no cable above the floor. Fire is still the
+only light anybody outside sees.
+
+What they do:
+
+- **They make the choosing real.** The machines read the initiate's body, and
+  the vats grow the change that was asked for and set it in. In the Thornwarren,
+  "taken into the dark" means down the stair under the Fleshery. A ritual there
+  ends in a Gift.
+- **They keep a body's changes on record.** Every member's shape is held, so a
+  change made once is kept. The same machines can grow a phase further on a
+  change somebody already carries.
+- **They're mended by hand.** Every part has been opened, rebuilt and labelled
+  by the person who looks after it. That's the difference they'd point to between
+  their vats and the city's, which nobody can open.
+
+This doesn't contradict what they believe. The First Shape is a mistake because
+it needs machines to stay alive. A machine used to leave the First Shape is a
+tool. They won't use one for anything a body can be made to do instead, and they
+see no reason to explain that to anyone.
+
+⚠ **Outsiders never see the machines, and nobody inside mentions them.** It's
+the same rule as the choosing: the part outsiders don't know. Initiates go down
+the stair and come back up changed, and the town treats that as ordinary.
+Nothing in the city, the CODEX or a non-Wildblood's dialogue may describe them.
+
+Some of the old ones go into the dark the old way anyway, with a flask and no
+machine, because a Lesson is the braver story. The Kept is full of the ones it
+went wrong for, from before the machines worked and since.
 
 ## The flesh rites
 

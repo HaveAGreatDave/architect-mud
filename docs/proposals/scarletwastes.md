@@ -187,7 +187,9 @@ The parts are one kit at the top of `client/game/js/panels/glass/models/outposts
 - **Fire is the only light, and the bake proves it.** Every light the sixteen buildings put in
   `client/shared/building-lights.js` is a fire colour; the greys there are smoke and steam. Three
   were not until this pass: the Fleshery's green vats (now coals under them), and cold blue pools at
-  the Sweetwater and the Bathhouse (water doesn't glow).
+  the Sweetwater and the Bathhouse (water doesn't glow). The lore now puts computers and clone vats
+  under the Fleshery ([lore-wildblood.md](../lore-wildblood.md#the-machines)). They're below ground
+  and unbuilt, and when they're built none of their light reaches a building above.
 - **The derived kit stays out.** All sixteen `sw_*` types are on `NO_KIT` in
   `client/game/js/panels/glass/derived-kit.js`. Before that the kit gave the Deadleg and the Foundry
   a blue-white street lamp, a neon run and window glows, and could have hung a name board on any of

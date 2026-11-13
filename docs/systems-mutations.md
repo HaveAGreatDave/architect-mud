@@ -488,7 +488,11 @@ Two rules shape it:
 
 ## Deferred
 
-**Nothing.** Every registered effect key has a reader, and regress asserts the unconsumed list is
+The next design, mutations that grow in phases, chosen in Wildblood rituals up to a capped mutation
+level, is in
+[proposals/mutation-phases.md](proposals/mutation-phases.md).
+
+**Nothing else.** Every registered effect key has a reader, and regress asserts the unconsumed list is
 **empty**. Adding a key without one requires a comment in `mutation-effects.js` saying why, and the
 cap raised deliberately in the same commit. That friction is the whole discipline keeping this system
 out of the inert-JSONB state it started in.

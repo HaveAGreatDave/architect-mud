@@ -216,7 +216,9 @@ No airfield.
 
 **The Scarletwastes and the Thornwarren (the Wildblood).** Red rock, all of it, on purpose. A wall
 of thorn that closes when you cut it. Inside: bale, lashed timber, mud render, fired clay. Fire is
-the only light. No lettering at all.
+the only light. No lettering at all. The machines under the Fleshery
+([lore-wildblood.md](../lore-wildblood.md#the-machines)) are never drawn from outside; a piece set
+below ground there is the one place a screen glows past the Curtain.
 
 **Terminus (the Exodus).** A walled compound with one gate. At its centre, The Ascension: a poured
 concrete pad, four lattice masts, and on gantries between them the beginnings of something that's
@@ -264,6 +266,8 @@ off and watched. Plain and precise, never improvised.
 worn proudly. The terror is on the approach (the trophy road, the masked gate) and the inside is
 domestic: mended, swept, a town somebody's grandmother lives in. The masks are quilt-lined so they
 don't chafe on a long shift. That's the tone: frightening from outside, cared for from inside.
+Under the town they keep computers and clone vats, salvaged and mended by hand, which is how a
+ritual gives the change that was asked for. Above ground there's no sign of them.
 
 **The Exodus.** The only order whose goal is to leave, and the only one that won't say where. No
 symbol anywhere. Their meaning is in repetition: sixty identical beds, a forty-foot table with no
@@ -293,6 +297,46 @@ section 2 in four places, and the table wins:
   palette, so this kit belongs in the Under only.
 
 The Ascendant suits and lab coats match the brief as drawn.
+
+### Wildblood bestiary sheet
+
+[concept-art/wildblood-bestiary.webp](concept-art/wildblood-bestiary.webp) is fifteen Wildblood
+figures, each a type named for its mutation, drawn full length in the same inked style as the
+clothing sheet. It's here to draw mutant NPCs and the Bleed's people from later. Nothing is built
+from it yet.
+
+Take the bodies from it: each figure is a person with one mutation pushed far, which is the
+bestiary's rule of a human with one break ([bestiary-art-direction.md](../proposals/bestiary-art-direction.md)).
+Most of them already have a mutation behind them in `content/mutations/`:
+
+| on the sheet | nearest mutation |
+|---|---|
+| the Razor | `mut_wb_bone_blades` |
+| the Shift | `mut_wb_tentacles`, `mut_wb_metamorphic` |
+| the Spire | `mut_thornhide`, `mut_bone_spurs` |
+| the Widow | `mut_wb_spider_limbs` |
+| the Tank | `mut_wb_bio_armor`, `mut_dermal_thickening` |
+| the Echo | `mut_wb_compound_eyes`, `mut_extra_eye` |
+| the Marrow | `mut_ossified_joints`, `mut_bone_spurs` |
+| the Shroud | `mut_wb_chameleon` |
+| the Siren | `mut_wb_sonic_organ` |
+| the Bog | `mut_wb_gills` |
+
+The Grower, the Hollow, the Blur, the Vine and the Burst have none yet.
+
+Where it disagrees with the canon, the canon wins:
+
+- **The red is wrong again.** The title and accents are red; the order's colour is green
+  (`#6AB04C`), on dye, paint and hide.
+- **The clothes are city surplus.** Cargo trousers, webbing and holsters are scavenged gear. The
+  Thornwarren dresses in hide, quilted rag and dye, mended and kept clean
+  ([lore-wildblood.md](../lore-wildblood.md)). The cuts can stay for tunnel Wildblood; the
+  materials change past the wall.
+- **The tagline is the right tone.** "Not monsters" and "different isn't dead" are what the order
+  says about itself. A city NPC wouldn't put it that way.
+- **"The Siren"** is a fine name for a person and a bad one for a content id, since SIREN is the
+  audio synth and "siren" already matches two dozen unrelated hits. Give it another id if it's
+  built.
 
 **The four gated orders** (Prometheans, Synthesis, Pioneers, Lucid) have no ground and no mechanics
 yet. Don't draw them until they do; a faction with art and nothing to play reads as abandoned.
