@@ -71,14 +71,19 @@ export function bakeSeaDetail() {
 }
 
 const cache = new WeakMap();
+// The bake itself is the same bytes for every context, so it's done once a page: about a tenth of a
+// second of 320 waves over 65,536 texels, which every new GL context (a seat, a view, the mirror) paid
+// again on its first frame over water. The gate calls bakeSeaDetail for a fresh copy.
+let baked = null;
 export function seaDetailTexture(gl) {
   let t = cache.get(gl);
   if (t) return t;
+  if (!baked) baked = bakeSeaDetail();
   t = gl.createTexture();
   gl.activeTexture(gl.TEXTURE0 + SEA_DETAIL_UNIT);
   gl.bindTexture(gl.TEXTURE_2D, t);
   gl.pixelStorei(gl.UNPACK_ALIGNMENT, 1);
-  gl.texImage2D(gl.TEXTURE_2D, 0, gl.RG8, N, N, 0, gl.RG, gl.UNSIGNED_BYTE, bakeSeaDetail());
+  gl.texImage2D(gl.TEXTURE_2D, 0, gl.RG8, N, N, 0, gl.RG, gl.UNSIGNED_BYTE, baked);
   gl.pixelStorei(gl.UNPACK_ALIGNMENT, 4);
   gl.generateMipmap(gl.TEXTURE_2D);
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR);
