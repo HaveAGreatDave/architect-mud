@@ -837,6 +837,12 @@ export function roomNearFree(L, u, v, reach = 1.8, within = null) {
     const a = i / 8 * Math.PI, p = [u + Math.cos(a) * r, v + Math.sin(a) * r];
     if (ok(p[0], p[1])) return p;
   }
+  // the middle of a bed bigger than `reach` across (the Solenne penthouse's) has no floor that near: get on it
+  // as before onFoot, as roomPath crosses a room the furniture shuts off
+  if (F !== L) {
+    const onIt = (a, b) => roomFree(L, a, b) && (!within || (a >= within[0] && a <= within[1] && b >= within[2] && b <= within[3]));
+    if (onIt(u, v)) return [u, v];
+  }
   return null;
 }
 // Where somebody stands to sit in seat `s`: in front of it, or beside it where a table is in front, never
@@ -859,20 +865,52 @@ export function seatApproach(L, s, reach = 1.8, within = null) {
 // round the chairs and beds (onFoot). Only a room the furniture shuts off entirely is crossed over it.
 export function roomPath(L, a, b, step = 0.2) {
   const F = onFoot(L);
-  return pathOver({ ...F, radius: F.radius + 0.08 }, a, b, step) || pathOver(F, a, b, step) || (F !== L ? pathOver(L, a, b, step) : null);
+  // ⚠ The wide pass snaps its ends with the wider body, which can't stand where a body can: the cell it found
+  // can be the far side of a side table from the end. It's taken only when every leg between free ends is clear.
+  const wide = pathOver({ ...F, radius: F.radius + 0.08 }, a, b, step, L);
+  if (wide && wide.every((q, i) => !i || !roomFree(F, ...wide[i - 1]) || !roomFree(F, ...q) || lineFree(F, wide[i - 1], q, 0.02))) return wide;
+  return pathOver(F, a, b, step, L) || (F !== L ? pathOver(L, a, b, step) : null);
 }
-function pathOver(L, a, b, step) {
+// The floor is sampled every `by`; the furniture is met exactly, since sampling missed a leg that clipped a
+// table's corner by a centimetre. A box either end is already in (a seat's spot is inside its piece) is left
+// to the samples.
+const lineFree = (L, p, q, by = 0.08) => {
+  const du = q[0] - p[0], dv = q[1] - p[1], r = L.radius;
+  for (const [a, b, c, e] of L.solid) {
+    const A = a - r, B = b + r, C = c - r, E = e + r, inside = (x) => x[0] > A && x[0] < B && x[1] > C && x[1] < E;
+    if (inside(p) || inside(q)) continue;
+    let t0 = 0, t1 = 1;
+    for (const [o, d, lo, hi] of [[p[0], du, A, B], [p[1], dv, C, E]]) {
+      if (Math.abs(d) < 1e-12) { if (o <= lo || o >= hi) { t0 = 1; break; } continue; }
+      const ta = (lo - o) / d, tb = (hi - o) / d;
+      t0 = Math.max(t0, Math.min(ta, tb)); t1 = Math.min(t1, Math.max(ta, tb));
+    }
+    if (t0 < t1) return false;
+  }
+  const n = Math.ceil(Math.hypot(du, dv) / by);
+  for (let i = 1; i < n; i++) if (!roomFree(L, p[0] + du * i / n, p[1] + dv * i / n)) return false;
+  return true;
+};
+// `base` is the room before onFoot, where a body can be on the furniture
+function pathOver(L, a, b, step, base = L) {
   const [u0, u1, v0, v1] = L.outer, W = Math.ceil((u1 - u0) / step) + 1, H = Math.ceil((v1 - v0) / step) + 1;
   const spot = (i) => [u0 + (i % W) * step, v0 + Math.floor(i / W) * step];
-  // the open cell nearest a point: the point itself can be a seat's, inside its piece
-  const snap = ([u, v]) => {
-    const x = Math.round((u - u0) / step), y = Math.round((v - v0) / step);
-    for (let r = 0; r <= 4; r++) for (let dy = -r; dy <= r; dy++) for (let dx = -r; dx <= r; dx++) {
-      if (Math.max(Math.abs(dx), Math.abs(dy)) !== r || x + dx < 0 || y + dy < 0 || x + dx >= W || y + dy >= H) continue;
+  const clear = (p, q) => lineFree(L, p, q);
+  // The open cell nearest a point. The cell must see the point, or the last leg cuts through what's between
+  // them: across the floor when a body stands there, across the furniture when the point is on it (a bed's
+  // middle), and there's no cell when nothing near does (never one through the wall behind the bed). A point
+  // inside something solid (a station in its counter) takes the nearest cell.
+  const snap = (pt) => {
+    const [u, v] = pt, x = Math.round((u - u0) / step), y = Math.round((v - v0) / step), near = [];
+    const sees = roomFree(L, u, v) ? L : roomFree(base, u, v) ? base : null;
+    for (let dy = -4; dy <= 4; dy++) for (let dx = -4; dx <= 4; dx++) {
+      if (x + dx < 0 || y + dy < 0 || x + dx >= W || y + dy >= H) continue;
       const i = (y + dy) * W + x + dx, p = spot(i);
-      if (roomFree(L, p[0], p[1])) return i;
+      if (roomFree(L, p[0], p[1])) near.push([Math.hypot(p[0] - u, p[1] - v), i, p]);
     }
-    return -1;
+    near.sort((m, n) => m[0] - n[0]);
+    const pick = sees ? near.find((m) => lineFree(sees, m[2], pt, 0.02)) : near[0];
+    return pick ? pick[1] : -1;
   };
   const s = snap(a), e = snap(b);
   if (s < 0 || e < 0) return null;
@@ -892,11 +930,6 @@ function pathOver(L, a, b, step) {
   for (let i = e; i !== s; i = from[i]) pts.push(spot(i));
   pts.push(spot(s), a);
   pts.reverse();
-  const clear = (p, q) => {
-    const n = Math.ceil(Math.hypot(q[0] - p[0], q[1] - p[1]) / 0.08);
-    for (let i = 1; i < n; i++) if (!roomFree(L, p[0] + (q[0] - p[0]) * i / n, p[1] + (q[1] - p[1]) * i / n)) return false;
-    return true;
-  };
   const out = [pts[0]];
   for (let i = 0; i < pts.length - 1;) {
     let j = pts.length - 1;
