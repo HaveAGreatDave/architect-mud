@@ -3,7 +3,7 @@
 // seats and stations, the `room` verb's gating, the position relay and `arrange`. Every row it makes is in a
 // throwaway zone and removed in the finally.
 import { emit } from '../../server/engine/events.js';
-import { world, setApartmentCache, getZoneFurniture, deleteFurnitureWhere, insertFurniture, deleteFurniture, setDoorCache, deleteDoorCache } from '../../server/engine/world.js';
+import { world, setApartmentCache, getZoneFurniture, deleteFurnitureWhere, insertFurniture, deleteFurniture, setDoorCache, deleteDoorCache, doorOnLink } from '../../server/engine/world.js';
 import { getBroadcast, setBroadcast } from '../../server/engine/messaging.js';
 import { getItem } from '../../server/engine/items-cache.js';
 import { giveItemById } from '../../server/engine/inventory.js';
@@ -714,7 +714,10 @@ export default async function regress({ run, check, getPlayer }) {
   {
     const FLAT = 'zone_solenne_apt_b', EN = 'zone_solenne_apt_b_bath', spec = world.zones.get(FLAT) && _test.stageSpec(FLAT);
     if (spec?.annex) {
-      const was = p.current_zone;
+      // the bolt as the content file has it, open: a fresh database had it shot, and from inside a shot bolt you
+      // slide it back before you go, so `pass` is false
+      const was = p.current_zone, bolt = doorOnLink(EN, 'out', FLAT), shot = bolt?.lock_state;
+      if (bolt) bolt.lock_state = 'unlocked';
       try {
         p.current_zone = FLAT;
         const out = (await _test.locksOf(p, FLAT, spec)).find((k) => k.annex);
@@ -723,7 +726,7 @@ export default async function regress({ run, check, getPlayer }) {
         const inn = (await _test.locksOf(p, FLAT, spec)).find((k) => k.annex);
         check('and `out` from inside the en-suite', inn?.to === FLAT && inn.dir === 'out' && inn.inside === true && inn.pass === true, JSON.stringify(inn));
         check('a flat with an en-suite carries its locks with no building plan needed', !!(await _test.viewPayload(p, FLAT, spec)).locks?.some((k) => k.annex));
-      } finally { p.current_zone = was; }
+      } finally { p.current_zone = was; if (bolt) bolt.lock_state = shot; }
     }
   }
 }
