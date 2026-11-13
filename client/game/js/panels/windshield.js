@@ -4072,7 +4072,10 @@ export function windshieldContext(id) {
   if (!h && RENDER_TUNE.wsHandover > 0 && cv && cv.isConnected) return null;
   return cv && cv.getContext ? cv.getContext('2d') : null;
 }
+// One number a painted frame, for a memo that holds for this paint and no longer (collectWakes).
+let PAINT_SEQ = 0;
 function paintWindshieldFrame(id, view) {
+  PAINT_SEQ++;
   // The Drake crossing the surface (plugins/submersible), for drawGlass, which is not handed the view.
   if (!(view.subHull > 0) && !view.freeCam) { SUB_FX.wl = 0; if (SUB_FX.under) { SUB_FX.under = false; SUB_FX.breachT = performance.now(); } }
   const cv = document.getElementById(id); if (!cv || !cv.getContext) return;
@@ -22482,18 +22485,30 @@ function collectWakes(v, ax, ay, R) {
     ownPush(v.speed, 0.20);
   }
   // And every ship the window is carrying. A cell's index maps to the window frame as (x - R).
-  const N = R * 2 + 1;
-  for (let y = 0; y < N && out.length < 6; y++) {
-    const row = v.map[y];
-    if (!row) continue;
-    for (let x = 0; x < N && out.length < 6; x++) {
-      const c = row[x];
-      if (!c || c.mark !== 'yacht' || !c.wake) continue;
-      push(x - R, y - R, c.heading ?? c.markHdg ?? 0, c.wake.spd || 0, 0.35);
+  // ⚠ SCANNED ONCE A PAINT. The floor and the hulls both ask, and the scan reads every cell of the
+  // window, about 5,300 from a cockpit. The ships are the same for both, so the second takes the first's
+  // list (the first six moving ones, in scan order); only the own ship above is worked out again.
+  // ⚠ NOT ACROSS FRAMES: helm-view.js sets a cell's `mark` and `wake` in place.
+  let ships = WAKE_SHIPS.seq === PAINT_SEQ && WAKE_SHIPS.map === v.map && WAKE_SHIPS.R === R ? WAKE_SHIPS.list : null;
+  if (!ships) {
+    ships = [];
+    const N = R * 2 + 1;
+    for (let y = 0; y < N && ships.length < 6; y++) {
+      const row = v.map[y];
+      if (!row) continue;
+      for (let x = 0; x < N && ships.length < 6; x++) {
+        const c = row[x];
+        if (!c || c.mark !== 'yacht' || !c.wake) continue;
+        const spd = c.wake.spd || 0;
+        if (spd > 0.02) ships.push([x - R, y - R, c.heading ?? c.markHdg ?? 0, spd]);
+      }
     }
+    WAKE_SHIPS = { seq: PAINT_SEQ, map: v.map, R, list: ships };
   }
+  for (let i = 0; i < ships.length && out.length < 6; i++) { const s = ships[i]; push(s[0], s[1], s[2], s[3], 0.35); }
   return out.length ? out : null;
 }
+let WAKE_SHIPS = { seq: -1, map: null, R: 0, list: null };
 
 
 // ── GREEN WATER OVER THE DECK ────────────────────────────────────────────────────────────────
@@ -40881,6 +40896,20 @@ function drawHighwayRibbons(ctx, cam, v, R, wcx, wcy, baseAlpha, FAR) {
   ctx.globalAlpha = baseAlpha;
   return (rx, ry) => g.covers(wcx + (rx - R), wcy + (ry - R));
 }
+// The ground pass's surface kind per window position, and the cell it was read from (see kindAt).
+// Packed arrays, so a position nobody has asked yet reads as the empty cell it is.
+const GROUND_KINDS = new WeakMap();
+function groundKindsOf(map) {
+  let K = GROUND_KINDS.get(map);
+  if (K) return K;
+  let w = 0;
+  for (const row of map) if (row && row.length > w) w = row.length;
+  const cell = [], kind = [];
+  for (let i = 0, n = w * map.length; i < n; i++) { cell.push(undefined); kind.push(null); }
+  K = { w, cell, kind };
+  GROUND_KINDS.set(map, K);
+  return K;
+}
 function drawGroundSurfaces(ctx, cam, v, sky = null, now = 0) {  _walkGen++; const map = v.map; if (!map || !map.length) return; const R = cam.R;
   GULLY_ALL = [];   // the kerb gullies, refilled below — see the ⚠ on the two stores
   const baseAlpha = ctx.globalAlpha;   // = worldBlend (set by the caller); the far fade rides on top of it
@@ -40905,6 +40934,18 @@ function drawGroundSurfaces(ctx, cam, v, sky = null, now = 0) {  _walkGen++; con
   const _wv = windFromView(v), windKt = _wv.kt, windDeg = _wv.dir;
   const at = (rx, ry) => (ry >= 0 && ry < map.length && rx >= 0 && rx < map[ry].length) ? map[ry][rx] : null;
   const kindOf = (c) => !c ? null : c.kind === 'field' || c.rwy ? 'field' : c.road ? 'road' : null;   // an airfield tile, or any paved runway/taxiway/apron tile (`rwy`), paints as airfield even if it also carries a road icon
+  // ⚠ KEPT PER MAP WINDOW, BY POSITION. Every cell of the window is asked once a frame and a drawn tile
+  // asks its four neighbours again, and each ask read three properties off cells of many shapes: about
+  // 2% of a cockpit frame. The answer is kept beside the cell it came from and used only while that
+  // same cell object is still at that position, so a row edited in place (map-intern.js, helm-view.js)
+  // is asked again. Nothing in the client writes a cell's `kind`, `rwy` or `road` after it arrives.
+  const KC = groundKindsOf(map);
+  const kindAt = (rx, ry) => {
+    if (!(ry >= 0 && ry < map.length && rx >= 0 && rx < map[ry].length)) return null;
+    const c = map[ry][rx], i = ry * KC.w + rx;
+    if (KC.cell[i] !== c) { KC.cell[i] = c; KC.kind[i] = kindOf(c); }
+    return KC.kind[i];
+  };
   // The ground-tile cache (see GROUND_TILE): a tile that touches the canvas is dynamic, so the canvas
   // calls are counted while the loop runs, on this context only, and put back after it.
   const gcOn = !!(GROUND_FULL && GROUND_MESH && RENDER_TUNE.groundCache !== 0);
@@ -40996,8 +41037,8 @@ function drawGroundSurfaces(ctx, cam, v, sky = null, now = 0) {  _walkGen++; con
       ctx.beginPath(); ctx.moveTo(P0.sx, P0.sy); ctx.lineTo(P1.sx, P1.sy); ctx.lineTo(P2.sx, P2.sy); ctx.lineTo(P3.sx, P3.sy); ctx.closePath(); ctx.fill();
     }
     // Hard kerb edge: stroke each boundary that faces a non-matching surface.
-    const nN = kindOf(at(rx, ry - 1)) === surf, nS = kindOf(at(rx, ry + 1)) === surf;
-    const nW = kindOf(at(rx - 1, ry)) === surf, nE = kindOf(at(rx + 1, ry)) === surf;
+    const nN = kindAt(rx, ry - 1) === surf, nS = kindAt(rx, ry + 1) === surf;
+    const nW = kindAt(rx - 1, ry) === surf, nE = kindAt(rx + 1, ry) === surf;
     ctx.strokeStyle = dust ? 'rgba(150,124,74,0.55)' : surf === 'field' ? 'rgba(224,228,234,0.8)' : 'rgba(198,203,209,0.7)';
     ctx.lineWidth = 1.5; ctx.lineJoin = 'round';
     // A 1.5 px stroke is a SCREEN width and a quad is a WORLD one, so the half-width is solved for
@@ -41674,7 +41715,7 @@ function drawGroundSurfaces(ctx, cam, v, sky = null, now = 0) {  _walkGen++; con
   };
   for (let ry = 0; ry < map.length; ry++) for (let rx = 0; rx < map[ry].length; rx++) {
     // …and a ROOFTOP pad (a field tile carrying a building) keeps its street: the pad is up on the roof, not painted on the block.
-    const c = map[ry][rx], surf = kindOf(c); if (!surf || c.mark === 'yacht' || (surf === 'field' && c.bt)) continue;   // the yacht's own deck is drawn as a 3D model over open water — no runway concrete
+    const c = map[ry][rx], surf = kindAt(rx, ry); if (!surf || c.mark === 'yacht' || (surf === 'field' && c.bt)) continue;   // the yacht's own deck is drawn as a 3D model over open water — no runway concrete
     // A corridor cell under a ribbon is the ribbon's. That includes a plaza's apron, which the
     // server ships as a ribbon of its own; the plaza's structures are marks and still draw.
     if (ribbon && c.rdeg != null && ribbon(rx, ry)) continue;
