@@ -1,12 +1,21 @@
 {
-  "description": "A wide, low armchair, upholstery worn smooth at the arms. Something lumpy is stuffed into the left cushion.",
+  "description": "A wide, low armchair in rust velvet, reupholstered. Whatever was stuffed in the left cushion has been taken out.",
   "flags": {
     "interactions": [
       "sit"
     ],
     "look": {
       "arche": "seat",
-      "form": "armchair"
+      "fabric": "#7a3b2e",
+      "form": "armchair",
+      "wear": 0.08
+    },
+    "spot": {
+      "at": [
+        -1.6,
+        5
+      ],
+      "turn": -90
     }
   },
   "hp": null,
@@ -14,7 +23,7 @@
   "id": "furniture_apt4_armchair",
   "light_type": "lamp",
   "lumen_output": null,
-  "name": "salvaged armchair",
+  "name": "velvet armchair",
   "object_type": "furniture",
   "power_draw_kw": null,
   "price": 110,

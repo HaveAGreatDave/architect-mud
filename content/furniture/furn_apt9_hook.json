@@ -1,7 +1,10 @@
 {
-  "description": "A steel hook screwed into a joist, once home to a fan, now to nothing. It turns a slow quarter-circle in the draft, as if weighing its options.",
+  "description": "A steel hook in a joist that once held a fan. A paper lantern hangs from it, turning slowly in the draught.",
   "flags": {
-    "interactions": []
+    "interactions": [],
+    "look": {
+      "wear": 0.08
+    }
   },
   "hp": null,
   "hp_max": null,

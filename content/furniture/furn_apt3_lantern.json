@@ -1,0 +1,34 @@
+{
+  "description": "A tall rice-paper lantern on black feet, lit from inside. It makes the teal walls look like deep water.",
+  "flags": {
+    "aliases": [
+      "lantern",
+      "lamp"
+    ],
+    "interactions": [
+      "examine"
+    ],
+    "look": {
+      "arche": "prop",
+      "form": "lantern",
+      "wear": 0.08
+    },
+    "spot": {
+      "at": [
+        -3.5,
+        4.1
+      ],
+      "turn": 0
+    }
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_apt3_lantern",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "paper lantern",
+  "object_type": "furniture",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_apt_3"
+}

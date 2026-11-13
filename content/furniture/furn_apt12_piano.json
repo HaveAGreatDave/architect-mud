@@ -1,0 +1,32 @@
+{
+  "description": "An upright piano in walnut, tuned, with a metronome on top and manuscript paper on the stool. A pencil is behind the music desk where it fell.",
+  "flags": {
+    "aliases": [
+      "piano"
+    ],
+    "instrument": "piano",
+    "interactions": [
+      "examine",
+      "play"
+    ],
+    "look": {
+      "arche": "prop",
+      "form": "piano",
+      "wear": 0.08
+    },
+    "spot": {
+      "along": 4.5,
+      "wall": "left"
+    }
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_apt12_piano",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "upright piano",
+  "object_type": "furniture",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_apt_12"
+}

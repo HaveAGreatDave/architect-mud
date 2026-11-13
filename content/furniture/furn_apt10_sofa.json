@@ -1,0 +1,33 @@
+{
+  "description": "A deep sofa in plum velvet under the framed sign, with a fern in a bucket at one end.",
+  "flags": {
+    "aliases": [
+      "sofa",
+      "couch"
+    ],
+    "interactions": [
+      "sit",
+      "lie"
+    ],
+    "look": {
+      "arche": "sofa",
+      "fabric": "#5a2a4a",
+      "form": "sofa",
+      "wear": 0.08
+    },
+    "spot": {
+      "along": 3,
+      "wall": "left"
+    }
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_apt10_sofa",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "plum sofa",
+  "object_type": "furniture",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_apt_10"
+}

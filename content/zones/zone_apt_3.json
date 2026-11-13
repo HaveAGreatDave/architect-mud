@@ -1,10 +1,8 @@
 {
-  "ambient_events": [
-    "The shelves are bolted to the wall, every one perfectly level."
-  ],
+  "ambient_events": [],
   "ambient_theme": "indoors",
   "bg_color": "#c9a884",
-  "description": "A narrow unit, mostly bed and shelving. Whoever lived here last was tidy, methodical, and is conspicuously not here anymore.",
+  "description": "Unit 2C. Teal walls, white trim, and a terrazzo worktop in an L, with open cubbies on the lounge side full of other people's books. Two bookcases take the left wall and a reading chair sits beside them under a paper lantern. Everything is where the last tenant left it, which is also how the hotel keeps it.",
   "exits": {
     "in": "zone_apt_3_bath",
     "west": "zone_embassy_floor_2nd"
@@ -12,11 +10,85 @@
   "flags": {
     "floor": "boards",
     "is_apartment": true,
+    "room": {
+      "d": 10,
+      "decor": {
+        "art": [
+          {
+            "at": 0.6,
+            "h": 1,
+            "seed": 23,
+            "w": 0.8,
+            "wall": "back",
+            "y": 1.65
+          },
+          {
+            "at": 2.7,
+            "h": 1,
+            "seed": 37,
+            "w": 0.8,
+            "wall": "front",
+            "y": 1.6
+          }
+        ],
+        "ceiling": {
+          "band": 0.3,
+          "drop": 0.12,
+          "hex": "#eee8dc",
+          "kind": "cove",
+          "trim": "#c9a24a"
+        },
+        "plants": [
+          [
+            -3.55,
+            0.45,
+            1.1
+          ]
+        ],
+        "rug": {
+          "at": [
+            -2,
+            2.6
+          ],
+          "d": 2.2,
+          "w": 2.6
+        },
+        "sconces": {
+          "hex": "#c9a24a",
+          "points": [
+            [
+              "left",
+              0.9
+            ],
+            [
+              "left",
+              4.3
+            ]
+          ],
+          "y": 1.8
+        }
+      },
+      "h": 3.1,
+      "kitchen": {
+        "face": "shelves",
+        "front": "#2f4a5a",
+        "grade": 2,
+        "top": "terrazzo",
+        "uppers": "cabinets"
+      },
+      "tone": {
+        "accent": "#c9a24a",
+        "ceiling": "#eee8dc",
+        "trim": "#ece6d8",
+        "wall": "#3e5e60"
+      },
+      "w": 8
+    },
     "window": {
-      "description": "One small window with a bad seal, letting in a draught and a slice of whatever the weather is doing.",
-      "light": 0.7,
+      "description": "A tall sash window, reglazed, that opens and shuts and keeps the weather where it belongs.",
+      "light": 0.85,
       "name": "the window",
-      "visibility": 0.7
+      "visibility": 0.85
     }
   },
   "grid_x": 1,

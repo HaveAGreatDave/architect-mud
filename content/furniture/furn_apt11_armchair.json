@@ -1,0 +1,35 @@
+{
+  "description": "A low cane armchair with a sheepskin over it.",
+  "flags": {
+    "aliases": [
+      "armchair",
+      "chair"
+    ],
+    "interactions": [
+      "sit"
+    ],
+    "look": {
+      "arche": "seat",
+      "fabric": "#d8c8a8",
+      "form": "armchair",
+      "wear": 0.08
+    },
+    "spot": {
+      "at": [
+        -1.6,
+        3.1
+      ],
+      "turn": 180
+    }
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_apt11_armchair",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "cane chair",
+  "object_type": "furniture",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_apt_11"
+}

@@ -146,7 +146,8 @@ export function baseRun(c, y1, opts = {}) {
     if (dr < top) face(x0, x1, dr, top, false, i);
   }
   // the worktop: worn laminate, cleaner laminate on an aluminium edge, oiled beech, stone
-  const slab = g === 3 ? STONE : g === 2 ? { t: 'roomButcher', c: '#ffffff' } : { t: 'roomLaminate', c: g === 0 ? '#e0d4b8' : '#ffffff' };
+  // `c.slab` is the worktop the flat's kitchen says it has (room-layout.js kitchenOf), over the grade's own
+  const slab = c.slab || (g === 3 ? STONE : g === 2 ? { t: 'roomButcher', c: '#ffffff' } : { t: 'roomLaminate', c: g === 0 ? '#e0d4b8' : '#ffffff' });
   const k = g === 0 ? 0.86 : 1, surf = g === 3 ? SATIN : g === 2 ? SATIN : MATTE, zo = hd + 0.02;
   const slabBox = (a, b, z0, z1) => { if (b - a > 0.001 && z1 - z0 > 0.001) pbox(a, b, y1 - tt, y1, z0, z1, '#a8a49c', k, slab, surf); };
   if (hole) {
@@ -411,6 +412,40 @@ const FORMS = {
         const w = 0.1 + r() * 0.2, t = 0.1 + r() * 0.22;
         if (r() < 0.8) pbox(x, x + w, y, y + t, -hd + 0.05, hd - 0.06, pick(r, ['#8a7a5a', '#6a5a4a', '#3a4a5a', '#c8c0a8', '#5a6a5a']), 0.95, null, MATTE);
         x += w + 0.02;
+      }
+    }
+  },
+  bookcase(c) {
+    // a timber bookcase: sides, a top with a moulding, a plinth, a back, and shelves of books standing and lying,
+    // with the odd pot or picture frame between them
+    const { F, p, r } = c, { pbox } = F, hw = p.w / 2, hd = p.d / 2, h = p.h, t = 0.022, n = Math.max(4, Math.round((h - 0.12) / 0.36));
+    const wood = c.wood || { t: 'roomOak', c: '#8a6a4a' }, wc = wood.c, inner = '#2a1e16';
+    pbox(-hw + t, hw - t, 0.1, h - t, -hd, -hd + 0.012, inner, 0.85, null, MATTE);
+    for (const x of [-hw, hw - t]) pbox(x, x + t, 0, h, -hd, hd, wc, 1, wood, SATIN);
+    pbox(-hw - 0.015, hw + 0.015, h - t, h + 0.012, -hd, hd + 0.02, wc, 1.05, wood, SATIN);
+    pbox(-hw + t, hw - t, 0, 0.1, -hd + 0.02, hd - 0.015, wc, 0.85, wood, SATIN);
+    const BOOKS = ['#7a1f1a', '#1f3346', '#2a4a2a', '#c8a46a', '#3a2a1e', '#d8cdb8', '#4a1e2e', '#1a1a1a', '#5a6a7a', '#8a4a2a'];
+    for (let i = 0; i < n; i++) {
+      const y = 0.1 + i * (h - 0.1 - t) / n, top = 0.1 + (i + 1) * (h - 0.1 - t) / n - t;
+      pbox(-hw + t, hw - t, y, y + t, -hd + 0.012, hd - 0.005, wc, 0.98, wood, SATIN);
+      const fy = y + t, room = top - fy - 0.015;
+      for (let x = -hw + t + 0.01; x < hw - t - 0.04;) {
+        const k = r();
+        if (k < 0.08 && x < hw - t - 0.16) {
+          // a turned pot
+          c.lat(x + 0.06, 0, [[0, fy], [0.04, fy], [0.055, fy + room * 0.4], [0.03, fy + room * 0.75], [0, fy + room * 0.75]], pick(r, ['#c46a2a', '#e8e2d6', '#2c4a72', '#6a7a5a']), 1, 14, GLOSS);
+          x += 0.13;
+        } else if (k < 0.16 && x < hw - t - 0.22) {
+          // a stack lying flat
+          let yy = fy;
+          for (let j = 0; j < 2 + Math.floor(r() * 3); j++) { const bh = 0.025 + r() * 0.02; pbox(x, x + 0.18 + r() * 0.03, yy, yy + bh, -hd + 0.04, hd - 0.04 - r() * 0.04, pick(r, BOOKS), 0.9 + r() * 0.15, null, SATIN); yy += bh; }
+          x += 0.24;
+        } else if (k < 0.22) x += 0.04 + r() * 0.08;
+        else {
+          const bw = 0.02 + r() * 0.03, bh = Math.min(room, room * (0.62 + r() * 0.36));
+          pbox(x, x + bw, fy, fy + bh, -hd + 0.03 + r() * 0.03, hd - 0.03, pick(r, BOOKS), 0.85 + r() * 0.2, null, SATIN);
+          x += bw + 0.002;
+        }
       }
     }
   },

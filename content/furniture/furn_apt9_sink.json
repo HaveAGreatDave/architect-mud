@@ -1,10 +1,13 @@
 {
-  "description": "A shallow basin bolted to the wall beside the hotplate, its enamel worn through to grey metal in a ring the size of a fist. The tap knocks twice before it gives you anything, and what it gives you is cold.",
+  "description": "A deep white sink with brushes drying in a jar beside it and a ring of cadmium red the scrubbing won't shift.",
   "flags": {
     "aliases": "kitchen sink,sink,basin,tap",
     "interactions": [
       "lean"
     ],
+    "look": {
+      "wear": 0.08
+    },
     "water_source": true
   },
   "hp": null,
@@ -12,7 +15,7 @@
   "id": "furn_apt9_sink",
   "light_type": null,
   "lumen_output": null,
-  "name": "chipped basin",
+  "name": "deep ceramic sink",
   "object_type": "sink",
   "power_draw_kw": null,
   "price": 120,

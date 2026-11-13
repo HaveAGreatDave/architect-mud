@@ -1,0 +1,27 @@
+{
+  "description": "A steel stool with a leather seat at the terrazzo island.",
+  "flags": {
+    "aliases": [
+      "stool"
+    ],
+    "interactions": [
+      "sit"
+    ],
+    "look": {
+      "arche": "seat",
+      "fabric": "#3a2a1e",
+      "form": "stool",
+      "wear": 0.08
+    }
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_apt6_stool_2",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "counter stool",
+  "object_type": "furniture",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_apt_6"
+}

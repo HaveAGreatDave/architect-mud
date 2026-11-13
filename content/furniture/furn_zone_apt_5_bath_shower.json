@@ -1,6 +1,10 @@
 {
-  "description": "A rusted head over a cracked tile drain, curtain hanging off half its rings. The hot side is theoretical. Get in, get it over with.",
-  "flags": {},
+  "description": "A tiled shower behind a glass door, with a wide brass head that runs hot within a minute.",
+  "flags": {
+    "look": {
+      "wear": 0.08
+    }
+  },
   "hp": null,
   "hp_max": null,
   "id": "furn_zone_apt_5_bath_shower",

@@ -1,6 +1,9 @@
 {
-  "description": "A dented white box with the door handle snapped off, opened by hooking a finger into the gap. The turntable is long gone; things sit still and cook unevenly. Two of the buttons work. It hums at a pitch that gets into your teeth.",
+  "description": "A brushed steel microwave on the terrazzo, every button working.",
   "flags": {
+    "look": {
+      "wear": 0.08
+    },
     "microwave": true
   },
   "hp": 20,
@@ -8,7 +11,7 @@
   "id": "furn_apt3_microwave",
   "light_type": "lamp",
   "lumen_output": null,
-  "name": "battered microwave",
+  "name": "steel microwave",
   "object_type": "fixture",
   "power_draw_kw": 1.1,
   "price": 25,

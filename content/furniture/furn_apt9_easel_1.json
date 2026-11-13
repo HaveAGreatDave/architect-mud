@@ -1,0 +1,35 @@
+{
+  "description": "An oak studio easel by the window with a canvas half done on it. The paint is still wet at one corner.",
+  "flags": {
+    "aliases": [
+      "easel",
+      "canvas",
+      "painting"
+    ],
+    "interactions": [
+      "examine"
+    ],
+    "look": {
+      "arche": "prop",
+      "form": "easel",
+      "wear": 0.08
+    },
+    "spot": {
+      "at": [
+        -2.9,
+        2.1
+      ],
+      "turn": 150
+    }
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_apt9_easel_1",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "studio easel",
+  "object_type": "furniture",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_apt_9"
+}

@@ -1,16 +1,26 @@
 {
-  "description": "A slab of desk bolted flush to the wall so nobody can carry it off. Someone did their thinking here: the surface is ringed with coffee and scored with crossed-out sums.",
+  "description": "A wide plan chest against the wall, its shallow drawers full of drawings. The top is ringed with coffee and scored with crossed-out measurements.",
   "flags": {
     "interactions": [
       "lean"
-    ]
+    ],
+    "look": {
+      "arche": "surface",
+      "form": "desk",
+      "wear": 0.08,
+      "wood": "#a07c52"
+    },
+    "spot": {
+      "along": 2.9,
+      "wall": "left"
+    }
   },
   "hp": null,
   "hp_max": null,
   "id": "furn_apt9_desk",
   "light_type": null,
   "lumen_output": null,
-  "name": "wall-bolted desk",
+  "name": "plan chest",
   "object_type": "fixture",
   "power_draw_kw": null,
   "price": 70,

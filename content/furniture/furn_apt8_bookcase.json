@@ -1,0 +1,33 @@
+{
+  "description": "Shelves of notebooks, all the same black, numbered on the spines in white ink up to 211.",
+  "flags": {
+    "aliases": [
+      "bookcase",
+      "notebooks",
+      "shelves"
+    ],
+    "interactions": [
+      "examine"
+    ],
+    "look": {
+      "arche": "store",
+      "form": "bookcase",
+      "wear": 0.08,
+      "wood": "#3e2a1c"
+    },
+    "spot": {
+      "along": 5,
+      "wall": "left"
+    }
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_apt8_bookcase",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "bookcase",
+  "object_type": "furniture",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_apt_8"
+}

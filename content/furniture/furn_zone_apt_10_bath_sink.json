@@ -1,6 +1,9 @@
 {
-  "description": "A chipped basin bolted to the wall. One tap, cold only, and a mineral crust down the back of it. The water runs clear if you let it go a while.",
+  "description": "A basin under a mirrored cabinet, the taps nickel and the plug on a chain.",
   "flags": {
+    "look": {
+      "wear": 0.08
+    },
     "water_source": true
   },
   "hp": null,

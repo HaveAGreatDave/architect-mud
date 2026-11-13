@@ -1,5 +1,5 @@
 {
-  "description": "A bare bulb on a pull-chain. Functional, nothing more.",
+  "description": "A ribbed glass shade on a cord, enough to read by.",
   "flags": {
     "interactions": [
       "switch"
@@ -10,7 +10,7 @@
   "id": "furniture_apt3_overhead",
   "light_type": "overhead",
   "lumen_output": 1200,
-  "name": "overhead light",
+  "name": "glass pendant",
   "object_type": "light",
   "power_draw_kw": 20,
   "price": 40,

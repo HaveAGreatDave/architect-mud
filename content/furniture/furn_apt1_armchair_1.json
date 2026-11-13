@@ -1,0 +1,35 @@
+{
+  "description": "A deep armchair in green velvet, worn pale on the arms, facing the window.",
+  "flags": {
+    "aliases": [
+      "armchair",
+      "chair"
+    ],
+    "interactions": [
+      "sit"
+    ],
+    "look": {
+      "arche": "seat",
+      "fabric": "#3f5a3a",
+      "form": "armchair",
+      "wear": 0.08
+    },
+    "spot": {
+      "at": [
+        -2.5,
+        3.1
+      ],
+      "turn": 10
+    }
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_apt1_armchair_1",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "green velvet armchair",
+  "object_type": "furniture",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_apt_1"
+}

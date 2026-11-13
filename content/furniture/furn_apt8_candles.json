@@ -1,7 +1,10 @@
 {
-  "description": "A circle of melted candle stubs on the floorboards, wax pooled and hardened. Ritual, blackout, or just cheaper than the meter: no way to tell now.",
+  "description": "A circle of old candle stubs on the floorboards, sealed under three coats of varnish when the floor was done. Walk over it and it's a floor. Look down and it's a ring.",
   "flags": {
-    "interactions": []
+    "interactions": [],
+    "look": {
+      "wear": 0.08
+    }
   },
   "hp": null,
   "hp_max": null,

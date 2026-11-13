@@ -1,14 +1,17 @@
 {
-  "description": "A hole in the plaster covered by a bent STOP sign screwed over the gap. When it rains you can hear the drip land behind it before it finds the bucket.",
+  "description": "A bent STOP sign that once covered a hole in the plaster. The hole is fixed. The sign is framed in gilt over the sofa.",
   "flags": {
-    "interactions": []
+    "interactions": [],
+    "look": {
+      "wear": 0.08
+    }
   },
   "hp": null,
   "hp_max": null,
   "id": "furn_apt10_patch",
   "light_type": null,
   "lumen_output": null,
-  "name": "road-sign patch",
+  "name": "framed STOP sign",
   "object_type": "fixture",
   "power_draw_kw": null,
   "price": 0,

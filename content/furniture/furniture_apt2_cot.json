@@ -1,13 +1,15 @@
 {
-  "description": "A narrow army-surplus cot with a thin mattress and a wool blanket folded at the foot. Functional, if not comfortable.",
+  "description": "A wide bed made up in grey linen, with a headboard upholstered in the same pink as the walls.",
   "flags": {
     "interactions": [
       "sit",
       "lie"
     ],
     "look": {
-      "arche": "sofa",
-      "form": "cot"
+      "arche": "bed",
+      "fabric": "#c9a0a0",
+      "form": "bed",
+      "wear": 0.08
     }
   },
   "hp": null,
@@ -15,7 +17,7 @@
   "id": "furniture_apt2_cot",
   "light_type": "lamp",
   "lumen_output": null,
-  "name": "metal-framed cot",
+  "name": "linen bed",
   "object_type": "furniture",
   "power_draw_kw": null,
   "price": 70,

@@ -1,0 +1,35 @@
+{
+  "description": "A bentwood chair at the desk, the cane seat replaced with a cushion.",
+  "flags": {
+    "aliases": [
+      "chair"
+    ],
+    "interactions": [
+      "sit"
+    ],
+    "look": {
+      "arche": "seat",
+      "fabric": "#3f5a4a",
+      "form": "chair",
+      "wear": 0.08,
+      "wood": "#5a3a26"
+    },
+    "spot": {
+      "at": [
+        2.6,
+        1.15
+      ],
+      "turn": 0
+    }
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_apt2_chair",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "desk chair",
+  "object_type": "furniture",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_apt_2"
+}

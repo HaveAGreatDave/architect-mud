@@ -1,9 +1,12 @@
 {
-  "description": "A battered work lamp on the floor, doing the job of the fixtures stripped out of the ceiling. Its shade throws a warm cone up the wall and leaves the corners to themselves.",
+  "description": "A brass work lamp on the floor with a green shade, doing the job of the fixtures stripped out of the ceiling. It throws a warm cone up the wall and leaves the corners to themselves.",
   "flags": {
     "interactions": [
       "switch"
-    ]
+    ],
+    "look": {
+      "wear": 0.08
+    }
   },
   "hp": null,
   "hp_max": null,

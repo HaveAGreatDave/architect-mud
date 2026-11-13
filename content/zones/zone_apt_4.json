@@ -1,10 +1,8 @@
 {
-  "ambient_events": [
-    "The graffiti on the door is in a careful, practiced hand. Not a first attempt at writing it."
-  ],
+  "ambient_events": [],
   "ambient_theme": "indoors",
   "bg_color": "#c9a884",
-  "description": "A larger unit, big enough to actually pace in. The previous tenant left graffiti on the inside of the door: COUNT YOUR DAYS.",
+  "description": "Unit 2D, the big one on this floor. Ochre walls, a long butcher-block island with stools along it, and shelves of jars over the run behind. A dining table stands under a small chandelier. Someone painted over COUNT YOUR DAYS on the inside of the door with a garden of tall flowers, and you can still read the words through the stems if you look.",
   "exits": {
     "east": "zone_embassy_floor_2nd",
     "in": "zone_apt_4_bath"
@@ -13,11 +11,112 @@
     "floor": "boards",
     "is_apartment": true,
     "is_interior": true,
+    "room": {
+      "d": 11,
+      "decor": {
+        "art": [
+          {
+            "at": 5,
+            "h": 1.2,
+            "seed": 71,
+            "w": 1.8,
+            "wall": "left",
+            "y": 1.95
+          },
+          {
+            "at": 0.9,
+            "h": 1.2,
+            "seed": 8,
+            "w": 1,
+            "wall": "back",
+            "y": 1.7
+          },
+          {
+            "at": 2.4,
+            "h": 1,
+            "seed": 19,
+            "w": 0.8,
+            "wall": "left",
+            "y": 1.7
+          }
+        ],
+        "ceiling": {
+          "band": 0.3,
+          "drop": 0.12,
+          "hex": "#f2eee4",
+          "kind": "cove",
+          "trim": "#b8924a"
+        },
+        "lights": [
+          {
+            "at": [
+              -2.2,
+              2.6
+            ],
+            "drop": 0.9,
+            "r": 0.45,
+            "tiers": 2
+          }
+        ],
+        "plants": [
+          [
+            -4.05,
+            0.45,
+            1.2
+          ],
+          [
+            1.8,
+            0.45,
+            0.9
+          ]
+        ],
+        "rug": {
+          "at": [
+            -2.7,
+            5
+          ],
+          "d": 2.6,
+          "style": "persian",
+          "w": 2.6
+        },
+        "sconces": {
+          "hex": "#b8924a",
+          "points": [
+            [
+              "left",
+              3.7
+            ],
+            [
+              "left",
+              6.3
+            ]
+          ],
+          "y": 1.8
+        }
+      },
+      "h": 3.2,
+      "kitchen": {
+        "face": "shelves",
+        "front": "#8a6a4a",
+        "grade": 2,
+        "island": true,
+        "pendants": "globe",
+        "top": "butcher",
+        "uppers": "shelves"
+      },
+      "tone": {
+        "accent": "#b8924a",
+        "ceiling": "#f2eee4",
+        "trim": "#f0eadc",
+        "wall": "#c9a46a"
+      },
+      "w": 9
+    },
     "window": {
-      "description": "One small window with a bad seal, letting in a draught and a slice of whatever the weather is doing.",
-      "light": 0.7,
+      "description": "A tall sash window, reglazed, that opens and shuts and keeps the weather where it belongs.",
+      "light": 0.85,
       "name": "the window",
-      "visibility": 0.7
+      "visibility": 0.85
     }
   },
   "grid_x": -1,

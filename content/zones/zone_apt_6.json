@@ -1,10 +1,8 @@
 {
-  "ambient_events": [
-    "The radiator bangs twice and falls silent."
-  ],
+  "ambient_events": [],
   "ambient_theme": "indoors",
   "bg_color": "#c9a884",
-  "description": "Unit 3B, tucked at the back over the alley. It smells of the dumpsters three floors down and whatever the last tenant fried. A single bulb on a string, a closet with its door removed to serve as a shelf, and a radiator that either roars or freezes, never anything between. Cheap in every visible way, but the door bolts from the inside.",
+  "description": "Unit 3B, at the back over the alley. Slate-blue walls, a terrazzo island, open shelves, and a cast-iron radiator painted the colour of the walls. Two low sofas face each other across a chess table. The alley smell stops at the window, which shuts properly now.",
   "exits": {
     "in": "zone_apt_6_bath",
     "north": "zone_embassy_floor2"
@@ -14,11 +12,93 @@
     "is_apartment": true,
     "is_interior": true,
     "rent_cost": 50,
+    "room": {
+      "d": 10,
+      "decor": {
+        "art": [
+          {
+            "at": 3,
+            "h": 1,
+            "seed": 11,
+            "w": 1.5,
+            "wall": "left",
+            "y": 1.85
+          },
+          {
+            "at": 0.6,
+            "h": 1,
+            "seed": 23,
+            "w": 0.8,
+            "wall": "back",
+            "y": 1.65
+          },
+          {
+            "at": 2.7,
+            "h": 1,
+            "seed": 37,
+            "w": 0.8,
+            "wall": "front",
+            "y": 1.6
+          }
+        ],
+        "ceiling": {
+          "band": 0.3,
+          "drop": 0.12,
+          "hex": "#f0f0ea",
+          "kind": "cove",
+          "trim": "#a8a49c"
+        },
+        "plants": [
+          [
+            -3.55,
+            0.45,
+            1.1
+          ]
+        ],
+        "rug": {
+          "at": [
+            -1.7,
+            2.8
+          ],
+          "d": 2.2,
+          "w": 3
+        },
+        "sconces": {
+          "hex": "#a8a49c",
+          "points": [
+            [
+              "left",
+              1.6
+            ],
+            [
+              "left",
+              4.4
+            ]
+          ],
+          "y": 1.8
+        }
+      },
+      "h": 3.1,
+      "kitchen": {
+        "front": "#d8d0c0",
+        "grade": 2,
+        "island": true,
+        "top": "terrazzo",
+        "uppers": "shelves"
+      },
+      "tone": {
+        "accent": "#a8a49c",
+        "ceiling": "#f0f0ea",
+        "trim": "#eef0ec",
+        "wall": "#6a7e94"
+      },
+      "w": 8
+    },
     "window": {
-      "description": "One small window with a bad seal, letting in a draught and a slice of whatever the weather is doing.",
-      "light": 0.7,
+      "description": "A tall sash window, reglazed, that opens and shuts and keeps the weather where it belongs.",
+      "light": 0.85,
       "name": "the window",
-      "visibility": 0.7
+      "visibility": 0.85
     }
   },
   "grid_x": 0,

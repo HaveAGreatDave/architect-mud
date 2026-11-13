@@ -1,0 +1,33 @@
+{
+  "description": "A daybed under the street window, made up with a spare pillow. The second man in the unit sleeps here and says he prefers it.",
+  "flags": {
+    "aliases": [
+      "daybed",
+      "cot"
+    ],
+    "interactions": [
+      "sit",
+      "lie"
+    ],
+    "look": {
+      "arche": "sofa",
+      "fabric": "#6e2a2a",
+      "form": "cot",
+      "wear": 0.08
+    },
+    "spot": {
+      "along": 0,
+      "wall": "front"
+    }
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_apt5_daybed",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "daybed",
+  "object_type": "furniture",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_apt_5"
+}

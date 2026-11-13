@@ -1,0 +1,35 @@
+{
+  "description": "A worn leather armchair turned toward the piano, for listening from.",
+  "flags": {
+    "aliases": [
+      "armchair",
+      "chair"
+    ],
+    "interactions": [
+      "sit"
+    ],
+    "look": {
+      "arche": "seat",
+      "fabric": "#5a3a26",
+      "form": "armchair",
+      "wear": 0.08
+    },
+    "spot": {
+      "at": [
+        -1.6,
+        3.4
+      ],
+      "turn": -125
+    }
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_apt12_armchair",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "listening chair",
+  "object_type": "furniture",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_apt_12"
+}

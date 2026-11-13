@@ -1,0 +1,36 @@
+{
+  "description": "A low sofa in blue wool, facing its twin across the table.",
+  "flags": {
+    "aliases": [
+      "sofa",
+      "couch"
+    ],
+    "interactions": [
+      "sit",
+      "lie"
+    ],
+    "look": {
+      "arche": "sofa",
+      "fabric": "#3b4a6b",
+      "form": "sofa",
+      "wear": 0.08
+    },
+    "spot": {
+      "at": [
+        -3.15,
+        2.8
+      ],
+      "turn": 90
+    }
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_apt6_sofa_1",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "blue sofa",
+  "object_type": "furniture",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_apt_6"
+}

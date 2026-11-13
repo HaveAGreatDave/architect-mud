@@ -1,0 +1,35 @@
+{
+  "description": "The green chair's partner in rust velvet. They don't match and they look right together.",
+  "flags": {
+    "aliases": [
+      "armchair",
+      "chair"
+    ],
+    "interactions": [
+      "sit"
+    ],
+    "look": {
+      "arche": "seat",
+      "fabric": "#8a4a2a",
+      "form": "armchair",
+      "wear": 0.08
+    },
+    "spot": {
+      "at": [
+        -0.9,
+        3.1
+      ],
+      "turn": -10
+    }
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_apt1_armchair_2",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "rust velvet armchair",
+  "object_type": "furniture",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_apt_1"
+}

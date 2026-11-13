@@ -1,0 +1,33 @@
+{
+  "description": "Open shelves of bowls, cups and jugs, glazed in greens and rusts. A card on the top shelf gives prices in pencil.",
+  "flags": {
+    "aliases": [
+      "shelves",
+      "bowls",
+      "pottery"
+    ],
+    "interactions": [
+      "examine"
+    ],
+    "look": {
+      "arche": "store",
+      "form": "bookcase",
+      "wear": 0.08,
+      "wood": "#a07c52"
+    },
+    "spot": {
+      "along": 1.5,
+      "wall": "left"
+    }
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_apt11_shelves",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "pottery shelves",
+  "object_type": "furniture",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_apt_11"
+}

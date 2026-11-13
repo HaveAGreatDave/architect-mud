@@ -1,13 +1,21 @@
 {
-  "description": "A salvaged shipping crate pressed into service as a side table and spare seat. FRAGILE is stenciled on the side, which stopped being relevant some time ago.",
+  "description": "A low oak table on the rug between the chairs and the window, with a ring from every cup set on it since the Handoff.",
   "flags": {
     "interactions": [
       "sit",
       "lean"
     ],
     "look": {
-      "arche": "store",
-      "form": "crate"
+      "arche": "table",
+      "form": "coffee",
+      "wear": 0.08
+    },
+    "spot": {
+      "at": [
+        -1.7,
+        1.9
+      ],
+      "turn": 90
     }
   },
   "hp": null,
@@ -15,7 +23,7 @@
   "id": "furniture_apt1_crate",
   "light_type": "lamp",
   "lumen_output": null,
-  "name": "wooden crate",
+  "name": "low oak table",
   "object_type": "furniture",
   "power_draw_kw": null,
   "price": 20,

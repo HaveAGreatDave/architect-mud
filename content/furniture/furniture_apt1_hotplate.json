@@ -1,5 +1,5 @@
 {
-  "description": "A two-burner electric hot plate plugged into the wall near the door. One burner glows red when switched on. The other has been dead for a while.",
+  "description": "A cream enamel range with two rings, a grill and a brass rail along the front for the tea towel.",
   "flags": {
     "aliases": [
       "stove",
@@ -13,7 +13,8 @@
     ],
     "look": {
       "arche": "hob",
-      "form": "cooktop"
+      "form": "range",
+      "wear": 0.08
     },
     "stove_tier": "low"
   },
@@ -22,7 +23,7 @@
   "id": "furniture_apt1_hotplate",
   "light_type": "lamp",
   "lumen_output": null,
-  "name": "hot plate",
+  "name": "enamel range",
   "object_type": "fixture",
   "power_draw_kw": 1,
   "price": 45,

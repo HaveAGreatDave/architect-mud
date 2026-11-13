@@ -1,0 +1,33 @@
+{
+  "description": "A narrow hall table under the picture by the door, with lilies on it changed every second day by somebody who used to do it for a living.",
+  "flags": {
+    "aliases": [
+      "table",
+      "flowers",
+      "lilies"
+    ],
+    "interactions": [
+      "lean"
+    ],
+    "look": {
+      "arche": "surface",
+      "dress": "lilies",
+      "form": "console",
+      "wear": 0.08
+    },
+    "spot": {
+      "along": 0.6,
+      "wall": "back"
+    }
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_apt7_console",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "hall table",
+  "object_type": "furniture",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_apt_7"
+}

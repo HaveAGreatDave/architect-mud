@@ -1,0 +1,35 @@
+{
+  "description": "A linen armchair with paint on the arms, set back from the easels at looking distance.",
+  "flags": {
+    "aliases": [
+      "armchair",
+      "chair"
+    ],
+    "interactions": [
+      "sit"
+    ],
+    "look": {
+      "arche": "seat",
+      "fabric": "#d8cdb8",
+      "form": "armchair",
+      "wear": 0.08
+    },
+    "spot": {
+      "at": [
+        -1.6,
+        4
+      ],
+      "turn": 0
+    }
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_apt9_armchair",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "paint-flecked armchair",
+  "object_type": "furniture",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_apt_9"
+}

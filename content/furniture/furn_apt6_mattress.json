@@ -1,5 +1,5 @@
 {
-  "description": "A mattress on the bare floor, the stains mapped across it like continents. You don't ask. You just don't lie face-down.",
+  "description": "A double bed with a padded headboard in blue linen, made tight enough to bounce a coin off.",
   "flags": {
     "interactions": [
       "sit",
@@ -7,7 +7,9 @@
     ],
     "look": {
       "arche": "bed",
-      "form": "mattress"
+      "fabric": "#6a7e94",
+      "form": "bed",
+      "wear": 0.08
     }
   },
   "hp": null,
@@ -15,7 +17,7 @@
   "id": "furn_apt6_mattress",
   "light_type": null,
   "lumen_output": null,
-  "name": "stained mattress",
+  "name": "double bed",
   "object_type": "furniture",
   "power_draw_kw": null,
   "price": 30,

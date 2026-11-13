@@ -1,0 +1,33 @@
+{
+  "description": "A long low sofa in mustard corduroy, with room for three and usually one asleep.",
+  "flags": {
+    "aliases": [
+      "sofa",
+      "couch"
+    ],
+    "interactions": [
+      "sit",
+      "lie"
+    ],
+    "look": {
+      "arche": "sofa",
+      "fabric": "#b8923a",
+      "form": "sofa",
+      "wear": 0.08
+    },
+    "spot": {
+      "along": 5,
+      "wall": "left"
+    }
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_apt4_sofa",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "long sofa",
+  "object_type": "furniture",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_apt_4"
+}

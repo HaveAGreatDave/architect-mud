@@ -1,5 +1,5 @@
 {
-  "description": "A strip of counter with two working burners and a scorched gap where a third used to be. The yellow paint above it has cooked to brown.",
+  "description": "A two-ring enamel range set into the counter, the scorched gap where a third ring was now covered by a brass plate.",
   "flags": {
     "aliases": [
       "stove",
@@ -11,6 +11,11 @@
     "interactions": [
       "lean"
     ],
+    "look": {
+      "arche": "hob",
+      "form": "range",
+      "wear": 0.08
+    },
     "stove_tier": "low"
   },
   "hp": null,
@@ -18,7 +23,7 @@
   "id": "furn_apt7_kitchenette",
   "light_type": null,
   "lumen_output": null,
-  "name": "two-burner kitchenette",
+  "name": "enamel range",
   "object_type": "fixture",
   "power_draw_kw": 1,
   "price": 60,

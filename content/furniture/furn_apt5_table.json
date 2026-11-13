@@ -1,0 +1,30 @@
+{
+  "description": "A low walnut table with a tin of skate wax and two coasters on it.",
+  "flags": {
+    "aliases": [
+      "table"
+    ],
+    "look": {
+      "arche": "table",
+      "form": "coffee",
+      "wear": 0.08
+    },
+    "spot": {
+      "at": [
+        -2.4,
+        2.8
+      ],
+      "turn": 90
+    }
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_apt5_table",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "low table",
+  "object_type": "furniture",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_apt_5"
+}

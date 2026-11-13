@@ -1,12 +1,20 @@
 {
-  "description": "A low table, every inch of the surface covered in scratches, gouges, and initials. Someone used it as a workbench. Someone else used it as a target.",
+  "description": "A low table, every inch of the top scratched with initials, waxed until the scratches shine. Somebody decided it was history.",
   "flags": {
     "interactions": [
       "lean"
     ],
     "look": {
       "arche": "table",
-      "form": "coffee"
+      "form": "coffee",
+      "wear": 0.08
+    },
+    "spot": {
+      "at": [
+        -2.8,
+        5
+      ],
+      "turn": 90
     }
   },
   "hp": null,
@@ -14,7 +22,7 @@
   "id": "furniture_apt4_table",
   "light_type": "lamp",
   "lumen_output": null,
-  "name": "scratched coffee table",
+  "name": "low table",
   "object_type": "furniture",
   "power_draw_kw": null,
   "price": 60,

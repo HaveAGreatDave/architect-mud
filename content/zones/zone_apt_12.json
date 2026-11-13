@@ -1,10 +1,8 @@
 {
-  "ambient_events": [
-    "The black-edged wardrobe mirror catches a movement that isn't there."
-  ],
+  "ambient_events": [],
   "ambient_theme": "indoors",
   "bg_color": "#c9a884",
-  "description": "Number 3D, last door on the top floor. Half the light fixtures are gone, wires capped and hanging, but a portable lamp does the job. A wide bed under the window, a wardrobe with a mirror gone black at the edges, and a strange, welcome quiet: you're as far from the bar as the building gets.",
+  "description": "Unit 4D, the last door on the top floor and as far from the bar as the building gets. Navy walls, gold trim, a black-fronted kitchen with a marble top, and an upright piano against the long wall. The ceiling fixtures are gone, so a lamp on the floor lights the room. It's quiet enough up here to hear the piano's strings settle at night.",
   "exits": {
     "east": "zone_embassy_floor3",
     "in": "zone_apt_12_bath"
@@ -12,11 +10,94 @@
   "flags": {
     "floor": "boards",
     "is_apartment": true,
+    "room": {
+      "d": 10,
+      "decor": {
+        "art": [
+          {
+            "at": 3,
+            "h": 1,
+            "seed": 11,
+            "w": 1.5,
+            "wall": "left",
+            "y": 1.85
+          },
+          {
+            "at": 0.6,
+            "h": 1,
+            "seed": 23,
+            "w": 0.8,
+            "wall": "back",
+            "y": 1.65
+          },
+          {
+            "at": 2.7,
+            "h": 1,
+            "seed": 37,
+            "w": 0.8,
+            "wall": "front",
+            "y": 1.6
+          }
+        ],
+        "ceiling": {
+          "band": 0.3,
+          "drop": 0.12,
+          "hex": "#ece4d0",
+          "kind": "cove",
+          "trim": "#c9a14a"
+        },
+        "plants": [
+          [
+            1.5,
+            0.45,
+            1
+          ]
+        ],
+        "rug": {
+          "at": [
+            -2.3,
+            2.4
+          ],
+          "d": 2.4,
+          "style": "persian",
+          "w": 3
+        },
+        "sconces": {
+          "hex": "#c9a14a",
+          "points": [
+            [
+              "left",
+              1.6
+            ],
+            [
+              "left",
+              4.4
+            ]
+          ],
+          "y": 1.8
+        }
+      },
+      "h": 3.1,
+      "kitchen": {
+        "face": "fluted",
+        "front": "#1f2a3a",
+        "grade": 2,
+        "top": "marble",
+        "uppers": "cabinets"
+      },
+      "tone": {
+        "accent": "#c9a14a",
+        "ceiling": "#ece4d0",
+        "trim": "#e8e0cc",
+        "wall": "#2e3a52"
+      },
+      "w": 8
+    },
     "window": {
-      "description": "One small window with a bad seal, letting in a draught and a slice of whatever the weather is doing.",
-      "light": 0.7,
+      "description": "A tall sash window, reglazed, that opens and shuts and keeps the weather where it belongs.",
+      "light": 0.85,
       "name": "the window",
-      "visibility": 0.7
+      "visibility": 0.85
     }
   },
   "grid_x": -1,

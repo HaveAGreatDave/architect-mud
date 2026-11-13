@@ -1,0 +1,31 @@
+{
+  "description": "A low table with a chessboard inlaid in the top. The game on it has been going a fortnight.",
+  "flags": {
+    "aliases": [
+      "table",
+      "chessboard"
+    ],
+    "look": {
+      "arche": "table",
+      "form": "coffee",
+      "wear": 0.08
+    },
+    "spot": {
+      "at": [
+        -1.7,
+        2.8
+      ],
+      "turn": 90
+    }
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_apt6_table",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "chess table",
+  "object_type": "furniture",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_apt_6"
+}

@@ -1,6 +1,10 @@
 {
-  "description": "A stained porcelain toilet with no lid and a cistern that never stops trickling. It flushes on the second try.",
-  "flags": {},
+  "description": "A white toilet with a fern on the cistern lid, doing well.",
+  "flags": {
+    "look": {
+      "wear": 0.08
+    }
+  },
   "hp": null,
   "hp_max": null,
   "id": "furn_zone_apt_6_bath_toilet",

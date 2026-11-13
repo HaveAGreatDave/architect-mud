@@ -1,14 +1,17 @@
 {
-  "description": "Scratched directly into the inside of the door, deep enough that it can't be painted over. COUNT YOUR DAYS. Below it, someone has scratched a smaller reply: I DID. STILL HERE.",
+  "description": "The inside of the door is a garden: foxgloves, hollyhocks, a sunflower taller than you. Through the stems, cut too deep to paint out, it still says COUNT YOUR DAYS.",
   "flags": {
-    "interactions": []
+    "interactions": [],
+    "look": {
+      "wear": 0.08
+    }
   },
   "hp": null,
   "hp_max": null,
   "id": "furniture_apt4_graffiti",
   "light_type": "lamp",
   "lumen_output": null,
-  "name": "graffiti: COUNT YOUR DAYS",
+  "name": "painted door",
   "object_type": "fixture",
   "power_draw_kw": null,
   "price": 0,

@@ -1,5 +1,5 @@
 {
-  "description": "A mattress sagging into a bent steel bedframe, the springs long since given up in the middle. It holds a body. That's the review.",
+  "description": "A black iron bed with brass knobs on the posts, made up in white. It's long enough for a hockey player, which wasn't true of the last one.",
   "flags": {
     "interactions": [
       "sit",
@@ -7,7 +7,9 @@
     ],
     "look": {
       "arche": "bed",
-      "form": "mattress"
+      "fabric": "#e8e2d4",
+      "form": "bed",
+      "wear": 0.08
     }
   },
   "hp": null,
@@ -15,7 +17,7 @@
   "id": "furn_apt5_bed",
   "light_type": null,
   "lumen_output": null,
-  "name": "steel-frame mattress",
+  "name": "iron bed",
   "object_type": "furniture",
   "power_draw_kw": null,
   "price": 40,

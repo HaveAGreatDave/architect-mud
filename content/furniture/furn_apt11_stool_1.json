@@ -1,0 +1,27 @@
+{
+  "description": "A low stool at the island, spattered with slip.",
+  "flags": {
+    "aliases": [
+      "stool"
+    ],
+    "interactions": [
+      "sit"
+    ],
+    "look": {
+      "arche": "seat",
+      "fabric": "#a07c52",
+      "form": "stool",
+      "wear": 0.08
+    }
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_apt11_stool_1",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "counter stool",
+  "object_type": "furniture",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_apt_11"
+}

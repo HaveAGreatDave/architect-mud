@@ -1,0 +1,35 @@
+{
+  "description": "A buttoned armchair in mustard, angled at the sofa for talking.",
+  "flags": {
+    "aliases": [
+      "armchair",
+      "chair"
+    ],
+    "interactions": [
+      "sit"
+    ],
+    "look": {
+      "arche": "seat",
+      "fabric": "#b8923a",
+      "form": "armchair",
+      "wear": 0.08
+    },
+    "spot": {
+      "at": [
+        -1,
+        2.4
+      ],
+      "turn": -110
+    }
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_apt10_armchair",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "button chair",
+  "object_type": "furniture",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_apt_10"
+}

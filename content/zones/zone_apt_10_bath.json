@@ -2,7 +2,7 @@
   "ambient_events": [],
   "ambient_theme": "indoors",
   "bg_color": "#c9a884",
-  "description": "A closet with plumbing. The toilet runs constantly, the sink has one tap and it only ever runs cold, and the shower is a rusted head over a cracked tile drain with a curtain that doesn't quite reach. The extractor fan died before you got here. It locks, though.",
+  "description": "The en-suite. Green tile with a black border, a mirror cabinet over the basin, and a shower that runs hot. Someone has left a fern on the cistern, and it's thriving on the steam.",
   "exits": {
     "out": "zone_apt_10"
   },

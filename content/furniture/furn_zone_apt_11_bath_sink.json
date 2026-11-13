@@ -1,6 +1,9 @@
 {
-  "description": "A chipped basin bolted to the wall. One tap, cold only, and a mineral crust down the back of it. The water runs clear if you let it go a while.",
+  "description": "A white pedestal basin with two brass taps, hot and cold, as labelled.",
   "flags": {
+    "look": {
+      "wear": 0.08
+    },
     "water_source": true
   },
   "hp": null,

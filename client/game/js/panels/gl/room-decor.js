@@ -1266,6 +1266,40 @@ export function drawDecorForm(K, F, p) {
       }
       return true;
     }
+    case 'easel': {
+      // a studio easel: two splayed front legs and a back leg, a mast with a sliding clamp, a ledge, and a canvas
+      // on it facing the room, painted in a few fields off the piece's seed, a palette and a jar of brushes below
+      const W = (x, y, z) => { const q = P(x, 0, z); return [q[0], q[1], y]; }, oak = { t: 'roomOak', c: '#9a7a52' }, r = rng(p.seed || 7);
+      const ledge = 0.78, cw = Math.min(0.72, w * 0.88), ch = 0.62 + r() * 0.34, cz = 0.04;
+      for (const s of [-1, 1]) rod(K, W(s * hw * 0.8, 0, hd * 0.55), W(s * 0.05, h, cz - 0.02), 0.016, '#9a7a52', 1, SATIN);
+      rod(K, W(0, 0, -hd * 0.9), W(0, h * 0.8, cz - 0.03), 0.014, '#9a7a52', 1, SATIN);
+      rod(K, W(0, 0.25, cz - 0.02), W(0, h, cz - 0.02), 0.018, '#9a7a52', 1, SATIN);
+      pbox(-hw * 0.62, hw * 0.62, ledge - 0.03, ledge, cz - 0.02, cz + 0.08, '#9a7a52', 1, oak, SATIN);
+      pbox(-hw * 0.62, hw * 0.62, ledge, ledge + 0.025, cz + 0.06, cz + 0.08, '#9a7a52', 1, oak, SATIN);
+      // the canvas: a stretcher's depth of primed cloth, then the picture on its face
+      const cy0 = ledge, cy1 = Math.min(h - 0.06, ledge + ch);
+      pbox(-cw / 2, cw / 2, cy0, cy1, cz, cz + 0.025, '#e8e2d2', 1, { t: 'roomCanvas', c: '#e8e2d2' }, MATTE);
+      const PAL = [['#c46a2a', '#2a4a6a', '#e8c86a', '#1a1414'], ['#3a5a3a', '#a8c0a0', '#d8cdb8', '#6a2a2a'], ['#7a1f4a', '#e89a6a', '#2a1a3a', '#f0e0c8'], ['#1f3346', '#6a8aa0', '#c8a46a', '#e8dcc4'], ['#a8382a', '#f0c84a', '#2a6a8a', '#141414']][Math.floor(r() * 5)];
+      const m = 0.03, ground = cy0 + m + (cy1 - cy0 - 2 * m) * (0.3 + r() * 0.3);
+      pbox(-cw / 2 + m, cw / 2 - m, ground, cy1 - m, cz + 0.025, cz + 0.027, PAL[1], 1, { t: 'roomCanvas', c: PAL[1] }, MATTE);
+      pbox(-cw / 2 + m, cw / 2 - m, cy0 + m, ground, cz + 0.025, cz + 0.027, PAL[0], 1, { t: 'roomCanvas', c: PAL[0] }, MATTE);
+      // a few strokes and a shape over the fields, unfinished at one corner where the primer still shows
+      for (let i = 0; i < 7; i++) {
+        const x = (r() - 0.5) * (cw - 0.16), y = cy0 + m + r() * (cy1 - cy0 - 2 * m - 0.06), sw = 0.03 + r() * 0.14, sh = 0.012 + r() * 0.05;
+        pbox(x - sw / 2, x + sw / 2, y, y + sh, cz + 0.027, cz + 0.029, PAL[2 + (i % 2)], 0.95 + r() * 0.15, { t: 'roomCanvas', c: PAL[2 + (i % 2)] }, MATTE);
+      }
+      pbox(cw / 2 - m - 0.16, cw / 2 - m, cy1 - m - 0.12, cy1 - m, cz + 0.0275, cz + 0.0295, '#e8e2d2', 1, { t: 'roomCanvas', c: '#e8e2d2' }, MATTE);
+      // the clamp down on its top edge
+      pbox(-0.05, 0.05, cy1, cy1 + 0.04, cz - 0.03, cz + 0.04, '#9a7a52', 1, oak, SATIN);
+      // a palette on the ledge, crusted with colour, and a jar of brushes by the back leg
+      const [pu, pv] = P(-hw * 0.32, 0, cz + 0.05);
+      K.lathe(pu, pv, [[0, ledge + 0.025], [0.09, ledge + 0.025], [0.09, ledge + 0.03], [0, ledge + 0.03]], '#c8a878', 1, 16, SATIN);
+      for (let i = 0; i < 5; i++) { const a = i * 1.1; K.ball(pu + Math.cos(a) * 0.06, pv + Math.sin(a) * 0.06, ledge + 0.034, 0.012, PAL[i % 4], 1.05, 6, GLOSS); }
+      const [ju, jv] = P(hw * 0.25, 0, -hd * 0.5);
+      K.lathe(ju, jv, [[0, 0], [0.045, 0], [0.045, 0.13], [0, 0.13]], '#cfe0e4', 1.05, 12, GLOSS);
+      for (let i = 0; i < 5; i++) { const a = i * 1.3, l = 0.22 + r() * 0.08; rod(K, [ju + Math.cos(a) * 0.015, jv + Math.sin(a) * 0.015, 0.02], [ju + Math.cos(a) * 0.05, jv + Math.sin(a) * 0.05, l], 0.004, i % 2 ? '#c83a2a' : '#1a1a1a', 1, SATIN); }
+      return true;
+    }
     default: return false;
   }
 }

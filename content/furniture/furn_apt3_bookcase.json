@@ -1,0 +1,32 @@
+{
+  "description": "More books, these sorted by nobody. Paperbacks, a field guide to birds that no longer fly here, three copies of the same novel.",
+  "flags": {
+    "aliases": [
+      "bookcase",
+      "books"
+    ],
+    "interactions": [
+      "examine"
+    ],
+    "look": {
+      "arche": "store",
+      "form": "bookcase",
+      "wear": 0.08,
+      "wood": "#8a6a4a"
+    },
+    "spot": {
+      "along": 3.1,
+      "wall": "left"
+    }
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_apt3_bookcase",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "second bookcase",
+  "object_type": "furniture",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_apt_3"
+}

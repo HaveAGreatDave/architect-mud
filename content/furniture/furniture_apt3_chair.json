@@ -1,16 +1,29 @@
 {
-  "description": "A plain metal folding chair, closed and leaning against the shelving. It unfolds to a serviceable seat.",
+  "description": "A high-backed reading chair in faded tartan, with a dent in the cushion where you lean into the lamplight.",
   "flags": {
     "interactions": [
       "sit"
-    ]
+    ],
+    "look": {
+      "arche": "seat",
+      "fabric": "#6a5a3a",
+      "form": "armchair",
+      "wear": 0.08
+    },
+    "spot": {
+      "at": [
+        -2.5,
+        3.1
+      ],
+      "turn": -60
+    }
   },
   "hp": null,
   "hp_max": null,
   "id": "furniture_apt3_chair",
   "light_type": "lamp",
   "lumen_output": null,
-  "name": "folding chair",
+  "name": "reading chair",
   "object_type": "furniture",
   "power_draw_kw": null,
   "price": 25,

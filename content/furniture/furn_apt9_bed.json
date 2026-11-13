@@ -1,5 +1,5 @@
 {
-  "description": "An actual bed with an actual headboard, tucked under the window that opens. Clean sheets. The single most civilised object in the Embassy.",
+  "description": "An actual bed with a carved headboard, set back from the window. White sheets, with paint on one corner of the pillowcase.",
   "flags": {
     "interactions": [
       "sit",
@@ -7,7 +7,9 @@
     ],
     "look": {
       "arche": "bed",
-      "form": "bed"
+      "fabric": "#e8e2d4",
+      "form": "bed",
+      "wear": 0.08
     }
   },
   "hp": null,

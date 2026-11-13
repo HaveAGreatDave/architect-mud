@@ -1,0 +1,31 @@
+{
+  "description": "A walnut writing desk with a green leather top and a drawer that sticks. Somebody's letters are stacked on it, face down.",
+  "flags": {
+    "aliases": [
+      "desk"
+    ],
+    "interactions": [
+      "lean"
+    ],
+    "look": {
+      "arche": "surface",
+      "form": "desk",
+      "wear": 0.08,
+      "wood": "#5a3a26"
+    },
+    "spot": {
+      "along": 2.6,
+      "wall": "front"
+    }
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_apt2_desk",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "writing desk",
+  "object_type": "furniture",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_apt_2"
+}

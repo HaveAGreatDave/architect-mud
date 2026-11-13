@@ -1,10 +1,8 @@
 {
-  "ambient_events": [
-    "The overturned chair settles with a faint creak."
-  ],
+  "ambient_events": [],
   "ambient_theme": "indoors",
   "bg_color": "#c9a884",
-  "description": "Unit 3D, narrow as a coffin and about as bright. The previous tenant left in a hurry: a chair on its side, a ring of candle stubs on the floor, initials keyed into the doorframe. There's a real bed, though, and a deadbolt, and the walls are thick enough that the neighbours' business stays theirs.",
+  "description": "Unit 3D. Bottle-green walls, a marble island with a reeded front and glazed cupboards behind it, and brass sconces either side of a long mirror. A ring of old candle stubs has been sealed into the floorboards under varnish, and nobody's sure whether that's art. The walls are thick enough that the neighbours' business stays theirs.",
   "exits": {
     "east": "zone_embassy_floor2",
     "in": "zone_apt_8_bath"
@@ -13,11 +11,96 @@
     "floor": "boards",
     "is_apartment": true,
     "is_interior": true,
+    "room": {
+      "d": 10,
+      "decor": {
+        "art": [
+          {
+            "at": 0.5,
+            "h": 1,
+            "seed": 61,
+            "w": 0.8,
+            "wall": "back",
+            "y": 1.65
+          },
+          {
+            "at": -2.9,
+            "h": 0.9,
+            "seed": 13,
+            "w": 0.7,
+            "wall": "front",
+            "y": 1.6
+          }
+        ],
+        "ceiling": {
+          "band": 0.3,
+          "drop": 0.12,
+          "hex": "#eee8dc",
+          "kind": "cove",
+          "trim": "#c9a24a"
+        },
+        "mirrors": [
+          {
+            "at": 3,
+            "w": 1.5,
+            "wall": "left",
+            "y0": 1.2,
+            "y1": 2.5
+          }
+        ],
+        "plants": [
+          [
+            0.95,
+            0.45,
+            0.9
+          ]
+        ],
+        "rug": {
+          "at": [
+            -2.4,
+            3
+          ],
+          "d": 2.2,
+          "w": 2.4
+        },
+        "sconces": {
+          "hex": "#c9a24a",
+          "points": [
+            [
+              "left",
+              2
+            ],
+            [
+              "left",
+              4
+            ]
+          ],
+          "y": 1.8
+        }
+      },
+      "h": 3.1,
+      "kitchen": {
+        "face": "fluted",
+        "front": "#3e5a44",
+        "grade": 2,
+        "island": true,
+        "pendants": "globe",
+        "top": "marble",
+        "uppers": "cabinets"
+      },
+      "tone": {
+        "accent": "#c9a24a",
+        "ceiling": "#eee8dc",
+        "trim": "#ece6d8",
+        "wall": "#3e5a44"
+      },
+      "w": 7.4
+    },
     "window": {
-      "description": "One small window with a bad seal, letting in a draught and a slice of whatever the weather is doing.",
-      "light": 0.7,
+      "description": "A tall sash window, reglazed, that opens and shuts and keeps the weather where it belongs.",
+      "light": 0.85,
       "name": "the window",
-      "visibility": 0.7
+      "visibility": 0.85
     }
   },
   "grid_x": -1,

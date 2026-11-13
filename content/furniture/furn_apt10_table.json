@@ -1,0 +1,31 @@
+{
+  "description": "A low table with a hammered brass tray for a top, holding a teapot and two glasses.",
+  "flags": {
+    "aliases": [
+      "table",
+      "tray"
+    ],
+    "look": {
+      "arche": "table",
+      "form": "coffee",
+      "wear": 0.08
+    },
+    "spot": {
+      "at": [
+        -2.3,
+        3
+      ],
+      "turn": 90
+    }
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_apt10_table",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "brass tray table",
+  "object_type": "furniture",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_apt_10"
+}

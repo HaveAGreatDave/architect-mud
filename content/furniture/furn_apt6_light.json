@@ -1,16 +1,19 @@
 {
-  "description": "A single bulb hangs on its own flex from the ceiling, swaying whenever the radiator kicks. It throws more shadow than light.",
+  "description": "A ribbed glass shade on a cord in the middle of the room. It doesn't swing any more.",
   "flags": {
     "interactions": [
       "switch"
-    ]
+    ],
+    "look": {
+      "wear": 0.08
+    }
   },
   "hp": null,
   "hp_max": null,
   "id": "furn_apt6_light",
   "light_type": "overhead",
   "lumen_output": 800,
-  "name": "bulb on a string",
+  "name": "glass pendant",
   "object_type": "light",
   "power_draw_kw": 10,
   "price": 30,

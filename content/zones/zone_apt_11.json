@@ -1,10 +1,8 @@
 {
-  "ambient_events": [
-    "Behind the curtain, the sink drips rust-brown, then stops."
-  ],
+  "ambient_events": [],
   "ambient_theme": "indoors",
   "bg_color": "#c9a884",
-  "description": "Unit 4C. The realtor, or the corkboard downstairs really, calls this one 'cozy.' It's small. A single room with a curtained-off toilet, a sink that runs rust for a minute before it runs clear, and a window painted shut and then painted again. But the lock is new, the floor is solid, and nobody up here asks questions.",
+  "description": "Unit 4C, which the corkboard downstairs calls cozy. It's small, but it's terracotta and white, with a terrazzo island, open shelves, and the window that was painted shut scraped free again. Bowls from somebody's wheel sit on every flat surface, most of them for sale.",
   "exits": {
     "in": "zone_apt_11_bath",
     "west": "zone_embassy_floor3"
@@ -12,11 +10,80 @@
   "flags": {
     "floor": "boards",
     "is_apartment": true,
+    "room": {
+      "d": 8.6,
+      "decor": {
+        "art": [
+          {
+            "at": 3.6,
+            "h": 0.8,
+            "seed": 111,
+            "w": 1,
+            "wall": "left",
+            "y": 1.7
+          },
+          {
+            "at": 0.3,
+            "h": 0.8,
+            "seed": 112,
+            "w": 0.6,
+            "wall": "back",
+            "y": 1.6
+          }
+        ],
+        "ceiling": {
+          "band": 0.3,
+          "drop": 0.12,
+          "hex": "#f4eee4",
+          "kind": "cove",
+          "trim": "#a07c52"
+        },
+        "plants": [],
+        "rug": {
+          "at": [
+            -1.6,
+            2.4
+          ],
+          "d": 1.8,
+          "w": 2.2
+        },
+        "sconces": {
+          "hex": "#a07c52",
+          "points": [
+            [
+              "left",
+              2.6
+            ],
+            [
+              "left",
+              4.6
+            ]
+          ],
+          "y": 1.8
+        }
+      },
+      "h": 2.9,
+      "kitchen": {
+        "face": "shelves",
+        "front": "#b8704e",
+        "grade": 2,
+        "island": true,
+        "top": "terrazzo",
+        "uppers": "shelves"
+      },
+      "tone": {
+        "accent": "#a07c52",
+        "ceiling": "#f4eee4",
+        "trim": "#f2ebe0",
+        "wall": "#b8704e"
+      },
+      "w": 7
+    },
     "window": {
-      "description": "One small window with a bad seal, letting in a draught and a slice of whatever the weather is doing.",
-      "light": 0.7,
+      "description": "A tall sash window, reglazed, that opens and shuts and keeps the weather where it belongs.",
+      "light": 0.85,
       "name": "the window",
-      "visibility": 0.7
+      "visibility": 0.85
     }
   },
   "grid_x": 1,

@@ -1,5 +1,5 @@
 {
-  "description": "A secondhand fridge, white once, with a dent in the door about the size of a knee. It rattles every time the compressor kicks in.",
+  "description": "A cream fridge with a chrome handle, its door covered in game schedules held up with Bulldogs magnets.",
   "flags": {
     "aliases": [
       "fridge",
@@ -10,6 +10,9 @@
     "interactions": [
       "lean"
     ],
+    "look": {
+      "wear": 0.08
+    },
     "preserves": "refrigerated"
   },
   "hp": null,
@@ -17,7 +20,7 @@
   "id": "furn_apt5_fridge",
   "light_type": null,
   "lumen_output": null,
-  "name": "dented fridge",
+  "name": "cream fridge",
   "object_type": "container",
   "power_draw_kw": 0.1,
   "price": 0,

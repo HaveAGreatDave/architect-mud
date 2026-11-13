@@ -1,12 +1,14 @@
 {
-  "description": "A freestanding wardrobe with a full-length mirror gone black and blistered at the edges. Your reflection stands in the clear middle, hemmed in by the dark.",
+  "description": "A walnut wardrobe with a full-length mirror, resilvered last year. Your reflection is the whole of you now, edge to edge.",
   "flags": {
     "interactions": [
       "lean"
     ],
     "look": {
       "arche": "wardrobe",
-      "form": "wardrobe"
+      "form": "wardrobe",
+      "wear": 0.08,
+      "wood": "#5a3a26"
     }
   },
   "hp": null,

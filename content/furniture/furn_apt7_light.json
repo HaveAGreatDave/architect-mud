@@ -1,16 +1,19 @@
 {
-  "description": "A bare bulb on a pull-chain. Functional, nothing more.",
+  "description": "A glass globe on a brass rod, the yellow walls turning its light gold.",
   "flags": {
     "interactions": [
       "switch"
-    ]
+    ],
+    "look": {
+      "wear": 0.08
+    }
   },
   "hp": null,
   "hp_max": null,
   "id": "furn_apt7_light",
   "light_type": "overhead",
   "lumen_output": 1200,
-  "name": "overhead bulb",
+  "name": "opal pendant",
   "object_type": "light",
   "power_draw_kw": 20,
   "price": 40,

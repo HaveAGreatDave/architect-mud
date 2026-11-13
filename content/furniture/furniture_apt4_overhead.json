@@ -1,5 +1,5 @@
 {
-  "description": "A bare bulb on a pull-chain. Functional, nothing more.",
+  "description": "A small brass chandelier over the dining table, two tiers of drops, one bulb out.",
   "flags": {
     "interactions": [
       "switch"
@@ -10,7 +10,7 @@
   "id": "furniture_apt4_overhead",
   "light_type": "overhead",
   "lumen_output": 1200,
-  "name": "overhead light",
+  "name": "small chandelier",
   "object_type": "light",
   "power_draw_kw": 20,
   "price": 40,

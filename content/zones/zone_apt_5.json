@@ -1,10 +1,8 @@
 {
-  "ambient_events": [
-    "Neon light through the grimy window pulses, dims, holds."
-  ],
+  "ambient_events": [],
   "ambient_theme": "indoors",
   "bg_color": "#c9a884",
-  "description": "A corner unit, Number 2A, riding the front of the building. Two windows face the street, one boarded, one still glassed and grimy enough to filter the neon into a permanent bruise-purple. A mattress on a bent steel frame, a hotplate wired straight into the wall, and a water stain on the ceiling shaped uncannily like a hanged man. The lock, at least, is real.",
+  "description": "Unit 3A, riding the front of the building. Oxblood walls, a black kitchen with a marble top and a reeded front, and opal globes over the counter. The street window has been reglazed, and the neon outside now comes through it pink instead of purple. The water stain on the ceiling has been painted round and given a gilt frame.",
   "exits": {
     "in": "zone_apt_5_bath",
     "south": "zone_embassy_floor2"
@@ -14,11 +12,95 @@
     "is_apartment": true,
     "is_interior": true,
     "rent_cost": 50,
+    "room": {
+      "d": 10,
+      "decor": {
+        "art": [
+          {
+            "at": 3,
+            "h": 1,
+            "seed": 11,
+            "w": 1.5,
+            "wall": "left",
+            "y": 1.85
+          },
+          {
+            "at": 0.6,
+            "h": 1,
+            "seed": 23,
+            "w": 0.8,
+            "wall": "back",
+            "y": 1.65
+          },
+          {
+            "at": 2.7,
+            "h": 1,
+            "seed": 37,
+            "w": 0.8,
+            "wall": "front",
+            "y": 1.6
+          }
+        ],
+        "ceiling": {
+          "band": 0.3,
+          "drop": 0.12,
+          "hex": "#efe6d6",
+          "kind": "cove",
+          "trim": "#c9a14a"
+        },
+        "plants": [
+          [
+            -3.55,
+            0.45,
+            1.1
+          ]
+        ],
+        "rug": {
+          "at": [
+            -2.2,
+            2.8
+          ],
+          "d": 2.4,
+          "style": "persian",
+          "w": 3
+        },
+        "sconces": {
+          "hex": "#c9a14a",
+          "points": [
+            [
+              "left",
+              1.6
+            ],
+            [
+              "left",
+              4.4
+            ]
+          ],
+          "y": 1.8
+        }
+      },
+      "h": 3.1,
+      "kitchen": {
+        "face": "fluted",
+        "front": "#2a2a2c",
+        "grade": 2,
+        "pendants": "globe",
+        "top": "marble",
+        "uppers": "cabinets"
+      },
+      "tone": {
+        "accent": "#c9a14a",
+        "ceiling": "#efe6d6",
+        "trim": "#e8dcc8",
+        "wall": "#6e2a2a"
+      },
+      "w": 8
+    },
     "window": {
-      "description": "One small window with a bad seal, letting in a draught and a slice of whatever the weather is doing.",
-      "light": 0.7,
+      "description": "A tall sash window, reglazed, that opens and shuts and keeps the weather where it belongs.",
+      "light": 0.85,
       "name": "the window",
-      "visibility": 0.7
+      "visibility": 0.85
     }
   },
   "grid_x": 0,

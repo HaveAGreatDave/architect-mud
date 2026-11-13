@@ -1,10 +1,8 @@
 {
-  "ambient_events": [
-    "The boarded windows let in thin lines of light that move slowly across the floor."
-  ],
+  "ambient_events": [],
   "ambient_theme": "indoors",
   "bg_color": "#c9a884",
-  "description": "A corner unit with two windows, both boarded. Someone before you left a faded poster on the wall: a beach, somewhere, once.",
+  "description": "Unit 2B, the back corner. Dusty pink walls, a marble island with a reeded oak front, and glass-fronted cupboards with the hotel's crest on the plates. A chesterfield takes the long wall and a writing desk the window end. The faded beach poster a tenant left behind has been framed, and now looks like it was meant to be there.",
   "exits": {
     "in": "zone_apt_2_bath",
     "north": "zone_embassy_floor_2nd"
@@ -12,11 +10,95 @@
   "flags": {
     "floor": "boards",
     "is_apartment": true,
+    "room": {
+      "d": 10,
+      "decor": {
+        "art": [
+          {
+            "at": 2.8,
+            "h": 0.8,
+            "seed": 2,
+            "w": 1.1,
+            "wall": "left",
+            "y": 1.8
+          },
+          {
+            "at": 0.6,
+            "h": 1.2,
+            "seed": 44,
+            "w": 0.9,
+            "wall": "back",
+            "y": 1.65
+          },
+          {
+            "at": -3.2,
+            "h": 0.9,
+            "seed": 5,
+            "w": 0.7,
+            "wall": "front",
+            "y": 1.6
+          }
+        ],
+        "ceiling": {
+          "band": 0.3,
+          "drop": 0.12,
+          "hex": "#f2eee4",
+          "kind": "cove",
+          "trim": "#b8924a"
+        },
+        "plants": [
+          [
+            -3.55,
+            0.45,
+            1
+          ]
+        ],
+        "rug": {
+          "at": [
+            -2.4,
+            2.8
+          ],
+          "d": 2.2,
+          "w": 2.6
+        },
+        "sconces": {
+          "hex": "#b8924a",
+          "points": [
+            [
+              "left",
+              1.6
+            ],
+            [
+              "left",
+              4.4
+            ]
+          ],
+          "y": 1.8
+        }
+      },
+      "h": 3.1,
+      "kitchen": {
+        "face": "fluted",
+        "front": "#e8e2d4",
+        "grade": 2,
+        "island": true,
+        "pendants": "globe",
+        "top": "marble",
+        "uppers": "cabinets"
+      },
+      "tone": {
+        "accent": "#b8924a",
+        "ceiling": "#f2eee4",
+        "trim": "#f2ece2",
+        "wall": "#c9a0a0"
+      },
+      "w": 8
+    },
     "window": {
-      "description": "One small window with a bad seal, letting in a draught and a slice of whatever the weather is doing.",
-      "light": 0.7,
+      "description": "A tall sash window, reglazed, that opens and shuts and keeps the weather where it belongs.",
+      "light": 0.85,
       "name": "the window",
-      "visibility": 0.7
+      "visibility": 0.85
     }
   },
   "grid_x": 0,

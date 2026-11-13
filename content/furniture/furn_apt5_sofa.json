@@ -1,0 +1,33 @@
+{
+  "description": "A long brown leather sofa with a dent at each end the shape of a tired defenceman.",
+  "flags": {
+    "aliases": [
+      "sofa",
+      "couch"
+    ],
+    "interactions": [
+      "sit",
+      "lie"
+    ],
+    "look": {
+      "arche": "sofa",
+      "fabric": "#3a2a1e",
+      "form": "sofa",
+      "wear": 0.08
+    },
+    "spot": {
+      "along": 2.8,
+      "wall": "left"
+    }
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_apt5_sofa",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "leather sofa",
+  "object_type": "furniture",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_apt_5"
+}

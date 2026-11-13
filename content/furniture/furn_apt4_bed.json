@@ -1,0 +1,28 @@
+{
+  "description": "A dark carved bed the hotel kept in storage for a better guest. It got you.",
+  "flags": {
+    "aliases": [
+      "bed"
+    ],
+    "interactions": [
+      "sit",
+      "lie"
+    ],
+    "look": {
+      "arche": "bed",
+      "fabric": "#c9a46a",
+      "form": "bed",
+      "wear": 0.08
+    }
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_apt4_bed",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "carved bed",
+  "object_type": "furniture",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_apt_4"
+}

@@ -1,5 +1,5 @@
 {
-  "description": "A bare bulb on a pull-chain. Functional, nothing more.",
+  "description": "A glass globe on a brass rod in the middle of the ceiling, warm and even.",
   "flags": {
     "interactions": [
       "switch"
@@ -10,7 +10,7 @@
   "id": "furniture_apt1_overhead",
   "light_type": "overhead",
   "lumen_output": 1200,
-  "name": "overhead light",
+  "name": "opal pendant",
   "object_type": "light",
   "power_draw_kw": 20,
   "price": 40,

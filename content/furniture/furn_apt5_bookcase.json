@@ -1,0 +1,33 @@
+{
+  "description": "A walnut bookcase, half books and half trophies. The trophies are mostly for second place.",
+  "flags": {
+    "aliases": [
+      "bookcase",
+      "trophies",
+      "shelves"
+    ],
+    "interactions": [
+      "examine"
+    ],
+    "look": {
+      "arche": "store",
+      "form": "bookcase",
+      "wear": 0.08,
+      "wood": "#5a3a26"
+    },
+    "spot": {
+      "along": 4.9,
+      "wall": "left"
+    }
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_apt5_bookcase",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "bookcase",
+  "object_type": "furniture",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_apt_5"
+}

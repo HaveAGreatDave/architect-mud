@@ -1,0 +1,32 @@
+{
+  "description": "A dark bookcase of law books, case notes and one thick volume on chess openings, its spine broken at the same page.",
+  "flags": {
+    "aliases": [
+      "bookcase",
+      "books"
+    ],
+    "interactions": [
+      "examine"
+    ],
+    "look": {
+      "arche": "store",
+      "form": "bookcase",
+      "wear": 0.08,
+      "wood": "#3e2a1c"
+    },
+    "spot": {
+      "along": 4.9,
+      "wall": "left"
+    }
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_apt6_bookcase",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "bookcase",
+  "object_type": "furniture",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_apt_6"
+}

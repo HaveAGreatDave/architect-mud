@@ -55,15 +55,44 @@ export const FLAT_ROOM = Object.freeze({ w: 8, d: 10, h: 2.7 });
 //
 // A room too small for it (under 6.5 × 7.5, or `flags.room.studio: false`) has no plan and is
 // furnished wall by wall.
+//
+// With `island` (flags.room.kitchen.island) the long side stands free: no return, a way round its front
+// end ISLAND_GAP wide into the aisle, and the units along the wall run the kitchen's whole length. `ret`
+// is then null.
 const STUDIO = Object.freeze({ lobby: 2.2, kitchen: 2.75, counter: 0.95, run: 0.7, sleep: 4.4, top: 0.92 });
 export const COUNTER_H = STUDIO.top;
-export function studioPlan(w, d, door) {
+export const ISLAND_GAP = 1.0;
+export function studioPlan(w, d, door, { island = false } = {}) {
   if (w < 6.5 || d < 7.5) return null;
   const hu = w / 2, v1 = d - STUDIO.lobby, v0 = Math.max(2.6, v1 - Math.min(6.5, Math.max(4, d * 0.48)));
   const u0 = hu - STUDIO.kitchen, u1 = u0 + STUDIO.counter, sv = d - Math.min(STUDIO.sleep, d * 0.42), lu = door[0] - 0.6;
   const r = (q) => q.map((x) => +x.toFixed(2));
-  return { counter: r([u0, u1, v0, v1]), ret: r([u1, hu, v0, v0 + STUDIO.run]), run: r([hu - STUDIO.run, hu, v0 + STUDIO.run, v1]), kitchen: r([u0, hu, v0, v1]),
-    lobby: r([lu, hu, v1, d]), living: r([-hu, u0, 0, sv]), sleep: r([-hu, lu, sv, d]) };
+  const room = { kitchen: r([u0, hu, v0, v1]), lobby: r([lu, hu, v1, d]), living: r([-hu, u0, 0, sv]), sleep: r([-hu, lu, sv, d]) };
+  if (island) return { counter: r([u0, u1, v0 + ISLAND_GAP, v1]), ret: null, run: r([hu - STUDIO.run, hu, v0, v1]), island: true, ...room };
+  return { counter: r([u0, u1, v0, v1]), ret: r([u1, hu, v0, v0 + STUDIO.run]), run: r([hu - STUDIO.run, hu, v0 + STUDIO.run, v1]), ...room };
+}
+
+// How a studio's kitchen is fitted out, from `flags.room.kitchen` (every key optional; gl/room-mesh.js
+// drawKitchen builds it). The counter is units of a module each, so a flat says which modules, not a shape:
+//   island   true: the long side stands free (studioPlan)
+//   grade    0..3, the units' make (room-fittings.js kitchenGrade); a fine flat's is always 3
+//   front    '#rrggbb', the unit fronts
+//   top      the worktop: 'butcher', 'stone', 'marble', 'terrazzo' or 'laminate'
+//   uppers   over the wall's units: 'cabinets' (glazed wall cupboards) or 'shelves' (open oak shelves)
+//   face     the counter's side to the lounge: 'panel' (the default), 'shelves' (open cubbies) or 'fluted'
+//   pendants the lights over the counter: 'dome' (the default) or 'globe' (opal globes on brass)
+export const KITCHEN_TOPS = Object.freeze(['butcher', 'stone', 'marble', 'terrazzo', 'laminate']);
+export function kitchenOf(k) {
+  if (!k || typeof k !== 'object' || Array.isArray(k)) return null;
+  const out = {};
+  if (k.island === true) out.island = true;
+  if (Number.isInteger(k.grade) && k.grade >= 0 && k.grade <= 3) out.grade = k.grade;
+  if (/^#[0-9a-f]{6}$/i.test(k.front || '')) out.front = k.front;
+  if (KITCHEN_TOPS.includes(k.top)) out.top = k.top;
+  if (k.uppers === 'cabinets' || k.uppers === 'shelves') out.uppers = k.uppers;
+  if (k.face === 'shelves' || k.face === 'fluted') out.face = k.face;
+  if (k.pendants === 'globe') out.pendants = 'globe';
+  return Object.keys(out).length ? out : null;
 }
 
 // ── archetypes ──────────────────────────────────────────────────────────────────────────────────
@@ -128,8 +157,8 @@ export function archetypeOf(flags = {}, grams = 0, type = '') {
 export const FORMS = Object.freeze({
   seat: ['stool', 'chair', 'armchair', 'office', 'stools'], bench: ['bench', 'booth', 'banquette', 'slab'], sofa: ['sofa', 'cot', 'lounger'], bed: ['bed', 'pod', 'platform', 'mattress', 'pressbench'],
   screen: ['flat', 'crt', 'slab'], cold: ['fridge', 'double', 'chest', 'column'], hob: ['cooktop', 'range', 'microwave', 'seam'],
-  surface: ['counter', 'desk', 'rail', 'barwall', 'chemwall', 'bar', 'stage', 'runway', 'reception', 'console', 'treadmill', 'pool', 'pcdesk'], small: ['heater', 'box', 'plinth', 'telescope', 'lacquer', 'boombox', 'smoketable'], prop: ['cabinet', 'piano', 'fountain', 'catstatue', 'lantern', 'bonsai', 'vat', 'tank', 'morphex', 'jukebox'], fireplace: ['hearth', 'firetrough'],
-  wardrobe: ['wardrobe', 'valet'], cabinet: ['cupboard', 'vitrine', 'humidor', 'rack'], store: ['shelves', 'locker', 'crate', 'weights'],
+  surface: ['counter', 'desk', 'rail', 'barwall', 'chemwall', 'bar', 'stage', 'runway', 'reception', 'console', 'treadmill', 'pool', 'pcdesk'], small: ['heater', 'box', 'plinth', 'telescope', 'lacquer', 'boombox', 'smoketable'], prop: ['cabinet', 'piano', 'fountain', 'catstatue', 'lantern', 'bonsai', 'vat', 'tank', 'morphex', 'jukebox', 'easel'], fireplace: ['hearth', 'firetrough'],
+  wardrobe: ['wardrobe', 'valet'], cabinet: ['cupboard', 'vitrine', 'humidor', 'rack'], store: ['shelves', 'locker', 'crate', 'weights', 'bookcase'],
   sink: ['kitchen', 'basin', 'trough'], toilet: ['pan', 'hung'], shower: ['stall', 'wetroom', 'bath', 'soak'],
   deck: ['console', 'portable'], table: ['coffee', 'dining', 'games', 'poker'], top: ['kettle', 'press'],
 });
@@ -180,6 +209,8 @@ const FORM_DIMS = { chest: [1.3, 0.72, 0.88], double: [1.3, 0.75, 2.0], range: [
   piano: [1.5, 0.65, 1.25], weights: [1.6, 0.6, 0.95], games: [0.8, 0.8, 0.74], poker: [2.5, 1.45, 0.78], firetrough: [2, 0.6, 0.45],
   // a calm flat's (gl/room-decor.js): a slate wall fountain, a paper floor lantern, a bonsai on its stand
   fountain: [0.8, 0.36, 1.15], catstatue: [0.62, 0.5, 1.25], lantern: [0.42, 0.42, 1.4], bonsai: [0.62, 0.42, 0.95],
+  // a painter's (gl/room-decor.js): a studio easel with a canvas on its ledge; a timber bookcase (gl/room-fittings.js)
+  easel: [0.8, 0.7, 1.9], bookcase: [1.0, 0.36, 2.0],
   // a clone facility's (gl/room-decor.js): a print vat with somebody in it, a squat dogged tank, and the MORPHEX pod
   vat: [1.1, 1.1, 2.4], tank: [1.2, 1.2, 1.3], morphex: [1.5, 1.4, 2.55],
   // an old bar's (gl/room-saloon.js): a run of stools along it, a seat every STOOL_PITCH, and a jukebox
@@ -489,7 +520,7 @@ export function roomLayout(spec, pieces = []) {
   // a column or a planter the room's finish stands on the floor (gl/room-decor.js)
   for (const q of decorSolids(S)) solid.push(q);
   // what's built in: nobody walks through the kitchen's units
-  if (S.plan) solid.push(S.plan.counter, S.plan.ret, S.plan.run);
+  if (S.plan) for (const q of [S.plan.counter, S.plan.ret, S.plan.run]) if (q) solid.push(q);
   // what stands on the floor first, so a kettle has its worktop to go on
   for (const pc of [...pieces].sort((a, b) => (a.spot?.on ? 1 : 0) - (b.spot?.on ? 1 : 0))) {
     if (pc.seats || pc.stations || pc.solid || pc.climb) {
@@ -991,7 +1022,7 @@ export function placeSpot(spec, pieces, arche, dims, { crt = false, wall = null,
       const hits = (r) => fp[0] < r[1] && fp[1] > r[0] && fp[2] < r[3] && fp[3] > r[2];
       // nothing stands in the counter, and only the kitchen's own pieces stand in the kitchen: along
       // its wall, so its aisle stays clear, and a cabinet hung over them
-      if (!hangs && (hits(P.counter) || hits(P.ret))) return false;
+      if (!hangs && (hits(P.counter) || (P.ret && hits(P.ret)))) return false;
       if (hits(P.kitchen)) {
         if (!cooks) return false;
         if (!hangs && (fp[0] < P.run[0] - 0.15 || q.wall !== 'right')) return false;
@@ -1178,6 +1209,8 @@ function keepClear(S) {
     const { lobby, counter, living } = S.plan;
     out.push([...lobby, false]);
     out.push([counter[0] - 1.0, counter[0], Math.min(counter[2], living[3]), lobby[2] + 0.5, false, 'bar']);
+    // round an island's front end into the aisle, and the floor in front of that
+    if (S.plan.island) out.push([counter[0] - 0.3, S.plan.run[0], Math.max(0, S.plan.kitchen[2] - 0.8), counter[2], false]);
     if (S.annex) {
       out.push([S.annex.door[0] - 0.3, S.annex.door[1] + 0.3, D - 1.6, D, false]);
       out.push([S.annex.door[0] - 0.3, lobby[0], D - 1.7, D - 0.8, false]);
@@ -1248,14 +1281,16 @@ export function roomSpecOf(flags, isFlat, { storey = null } = {}) {
   const hu = w / 2, window = [-Math.min(0.9, w / 4), Math.min(0.9, w / 4), 0.9, Math.min(h - 0.35, 2.2)];
   const out = { w, d, h, unit: 'm', door: [hu - 1.3, hu - 0.4].map((x) => Math.max(-hu + 0.2, x)), window, finish: FINISHES.includes(base.finish) ? base.finish : 'plain' };
   const glass = (Array.isArray(base.glass) ? base.glass : []).filter((x) => ['front', 'left', 'right'].includes(x));
-  const plan = base.studio === false ? null : studioPlan(w, d, out.door);
+  const kitchen = kitchenOf(base.kitchen);
+  const plan = base.studio === false ? null : studioPlan(w, d, out.door, { island: !!kitchen?.island });
+  if (plan && kitchen) out.kitchen = kitchen;
   // a roof deck (`open`): no ceiling, so the sky is over it, and its glass is a screen right round to the back wall
   const open = base.open === true && !plan;
   if (open) out.open = true;
   if (plan) out.plan = plan;
   // floor-to-ceiling glass stops short of a corner by its frame, of the room's back quarter on the
   // left, where the bed goes, and of the kitchen on the right
-  const pane = (wall) => ({ wall, a: wall === 'front' ? -hu + 0.12 : 0.12, b: wall === 'front' ? hu - 0.12 : wall === 'right' && plan ? plan.counter[2] - 0.15 : open ? d - 0.12 : d * 0.72, y0: 0.05, y1: open ? h - 0.04 : h - 0.1, kind: 'curtain' });
+  const pane = (wall) => ({ wall, a: wall === 'front' ? -hu + 0.12 : 0.12, b: wall === 'front' ? hu - 0.12 : wall === 'right' && plan ? plan.kitchen[2] - 0.15 : open ? d - 0.12 : d * 0.72, y0: 0.05, y1: open ? h - 0.04 : h - 0.1, kind: 'curtain' });
   out.windows = glass.length ? glass.map(pane) : [{ wall: 'front', a: window[0], b: window[1], y0: window[2], y1: window[3], kind: 'sash' }];
   if (glass.includes('front')) out.window = [-hu + 0.12, hu - 0.12, 0.05, h - 0.1];
   if (base.ensuite && typeof base.ensuite === 'object') out.ensuite = base.ensuite;
@@ -1365,6 +1400,8 @@ export function rowLook(f, item = null, { annex = false, finish = 'plain' } = {}
   if (typeof flags.look?.boot === 'string' && flags.look.boot.trim()) dress.boot = flags.look.boot.trim().slice(0, 24);
   // `look.tag` letters a piece's own plate (a vat's number), `look.state` a state it's drawn in (a vat 'drained')
   if (flags.look?.tone === 'black') dress.tone = 'black';
+  // `look.fabric` and `look.wood` ('#rrggbb') are what it's upholstered in and made of, over the seed's pick
+  for (const k of ['fabric', 'wood']) if (/^#[0-9a-f]{6}$/i.test(flags.look?.[k] || '')) dress[k] = flags.look[k];
   if (typeof flags.look?.tag === 'string') dress.tag = flags.look.tag.slice(0, 12);
   if (typeof flags.look?.state === 'string') dress.state = flags.look.state.slice(0, 16);
   // `look.trade` is the trade a back bar letters on its frieze (gl/room-saloon.js); never the building's name

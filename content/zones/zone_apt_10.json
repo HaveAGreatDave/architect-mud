@@ -1,10 +1,8 @@
 {
-  "ambient_events": [
-    "A single drip finds the bucket with a flat metallic tap."
-  ],
+  "ambient_events": [],
   "ambient_theme": "indoors",
   "bg_color": "#c9a884",
-  "description": "Number 3B, back corner under the roof. The ceiling slopes low enough to crack your skull if you sit up wrong. A camp bed, a footlocker, and a hole in the plaster patched with a road sign. A bucket sits under the leak.",
+  "description": "Unit 4B, the back corner under the roof. Plum walls under a low ceiling, and a stone-topped kitchen with glass-fronted cupboards. The hole in the plaster was patched with a STOP sign, and the sign is still there, framed, over the sofa. A bucket stands under the old leak, planted with a fern.",
   "exits": {
     "in": "zone_apt_10_bath",
     "north": "zone_embassy_floor3"
@@ -12,11 +10,94 @@
   "flags": {
     "floor": "boards",
     "is_apartment": true,
+    "room": {
+      "d": 10,
+      "decor": {
+        "art": [
+          {
+            "at": 3,
+            "h": 0.9,
+            "seed": 101,
+            "w": 0.9,
+            "wall": "left",
+            "y": 1.75
+          },
+          {
+            "at": 0.6,
+            "h": 1,
+            "seed": 23,
+            "w": 0.8,
+            "wall": "back",
+            "y": 1.6
+          },
+          {
+            "at": 2.7,
+            "h": 1,
+            "seed": 37,
+            "w": 0.8,
+            "wall": "front",
+            "y": 1.55
+          }
+        ],
+        "ceiling": {
+          "band": 0.3,
+          "drop": 0.12,
+          "hex": "#f0e8e2",
+          "kind": "cove",
+          "trim": "#b8924a"
+        },
+        "plants": [
+          [
+            -3.55,
+            0.45,
+            1.1
+          ]
+        ],
+        "rug": {
+          "at": [
+            -2.2,
+            3
+          ],
+          "d": 2.4,
+          "style": "persian",
+          "w": 2.8
+        },
+        "sconces": {
+          "hex": "#b8924a",
+          "points": [
+            [
+              "left",
+              1.8
+            ],
+            [
+              "left",
+              4.2
+            ]
+          ],
+          "y": 1.8
+        }
+      },
+      "h": 2.75,
+      "kitchen": {
+        "face": "fluted",
+        "front": "#4a3a4a",
+        "grade": 2,
+        "top": "stone",
+        "uppers": "cabinets"
+      },
+      "tone": {
+        "accent": "#b8924a",
+        "ceiling": "#f0e8e2",
+        "trim": "#efe6e0",
+        "wall": "#6a4a62"
+      },
+      "w": 8
+    },
     "window": {
-      "description": "One small window with a bad seal, letting in a draught and a slice of whatever the weather is doing.",
-      "light": 0.7,
+      "description": "A tall sash window, reglazed, that opens and shuts and keeps the weather where it belongs.",
+      "light": 0.85,
       "name": "the window",
-      "visibility": 0.7
+      "visibility": 0.85
     }
   },
   "grid_x": 0,

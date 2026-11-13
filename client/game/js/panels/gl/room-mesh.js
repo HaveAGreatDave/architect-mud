@@ -123,7 +123,8 @@ export function roomKitchenKit(L, seed = 1) {
   const fine = L.spec.finish === 'fine';
   const look = (p) => { const r = rng(p.seed || 7); pick(r, fine ? FABRIC_FINE : FABRIC); const wood = pick(r, fine ? WOOD_FINE : WOOD), enamel = pick(r, fine ? ENAMEL_FINE : ENAMEL); pick(r, PLASTIC); return { wood, enamel, lam: pick(r, ['#d8d0c0', '#4a5a5a', '#8a6a4a', '#e8e4dc']) }; };
   const kit = { fine, wall: fine ? '#e4e0d8' : pick(rng(seed), WALLS), top: fine ? '#8a8c8e' : '#b8b4ac', front: null, hob: null, cold: null, sink: null, microwave: false };
-  if (L.spec.plan) kit.front = fine ? '#3b3d41' : pick(rng(seed ^ 0x5bd1), ['#d8d0c0', '#4a5a5a', '#8a6a4a', '#e8e4dc']);
+  if (L.spec.plan) kit.front = fine ? '#3b3d41' : L.spec.kitchen?.front || pick(rng(seed ^ 0x5bd1), ['#d8d0c0', '#4a5a5a', '#8a6a4a', '#e8e4dc']);
+  if (KITCHEN_TOP_HEX[L.spec.kitchen?.top]) kit.top = KITCHEN_TOP_HEX[L.spec.kitchen.top];
   for (const p of L.placed) {
     if (p.annex) continue;
     const lk = look(p);
@@ -1115,29 +1116,41 @@ function zoneLights(L) {
   return [[(a[0] + a[1]) / 2, (a[2] + a[3]) / 2], [(b[0] + b[1]) / 2, (b[2] + b[3]) / 2], [(c[0] + c[1]) / 2, (c[2] + c[3]) / 2]];
 }
 
+// The worktop a flat's kitchen says it has (room-layout.js kitchenOf `top`), or its finish's own.
+const KITCHEN_SLABS = { butcher: { t: 'roomButcher', c: '#ffffff' }, stone: STONE, marble: { t: 'roomMarble', c: '#f2eee6' }, terrazzo: { t: 'roomTerrazzo', c: '#ffffff' }, laminate: { t: 'roomLaminate', c: '#ffffff' } };
+const KITCHEN_TOP_HEX = { butcher: '#b8875a', stone: '#8a8c8e', marble: '#ece6dc', terrazzo: '#d8d0c0', laminate: '#d8d4cc' };
+export const kitchenSlab = (spec) => KITCHEN_SLABS[spec?.kitchen?.top] || null;
+
 // THE KITCHEN of a studio (client/shared/room-layout.js studioPlan), built in whatever's been put in
-// it: the L of counter with a breakfast overhang on the lounge's side, units along the wall in every
-// gap the appliances leave, a splashback, its own floor, and lights hung over the counter.
+// it: the L of counter (or an island) with a breakfast overhang on the lounge's side, units along the
+// wall in every gap the appliances leave, a splashback, its own floor, and lights hung over the counter.
+// `spec.kitchen` (room-layout.js kitchenOf) picks the modules: the units' make, fronts and worktop, wall
+// cupboards or open shelves over the run, and what the counter shows the lounge.
 function drawKitchen(K, { H, lampOn, lamps, seed }) {
-  const L = K.L, fine = K.fine, P = L.spec.plan, hu = L.w / 2, [c0, c1, v0, v1] = P.counter, [rv0, rv1] = [P.run[2], P.run[3]], { box, quad, TB, C, lathe } = K;
-  const r = rng(seed ^ 0x5bd1), rod = rodOf(K), T = COUNTER_H, front = fine ? '#3b3d41' : pick(r, ['#d8d0c0', '#4a5a5a', '#8a6a4a', '#e8e4dc']);
-  const top = fine ? STONE : { t: 'roomButcher', c: '#ffffff' }, side = fine ? { t: 'roomOak', c: '#8a6a4a' } : null;
-  const unit = (u, v, fu, fv, w, d) => baseRun({ F: K.frame(u, v, fu, fv), p: { w, d, h: T }, r, fine, rod, front }, T);
-  const depth = 0.66, runD = P.run[1] - P.run[0], over = c1 - c0 - depth;
+  const L = K.L, fine = K.fine, P = L.spec.plan, KO = L.spec.kitchen || {}, hu = L.w / 2, [c0, c1, v0, v1] = P.counter, [rv0, rv1] = [P.run[2], P.run[3]], { box, quad, TB, C, lathe } = K;
+  const r = rng(seed ^ 0x5bd1), rod = rodOf(K), T = COUNTER_H, front = fine ? '#3b3d41' : KO.front || pick(r, ['#d8d0c0', '#4a5a5a', '#8a6a4a', '#e8e4dc']);
+  const top = kitchenSlab(L.spec) || (fine ? STONE : { t: 'roomButcher', c: '#ffffff' }), side = fine || KO.face === 'fluted' ? { t: 'roomOak', c: '#8a6a4a' } : null;
+  const topSurf = fine || KO.top === 'marble' || KO.top === 'terrazzo' ? SATIN : MATTE, slab = kitchenSlab(L.spec);
+  const grade = fine ? 3 : KO.grade;
+  const unit = (u, v, fu, fv, w, d) => baseRun({ F: K.frame(u, v, fu, fv), p: { w, d, h: T }, r, fine, rod, front, slab }, T, grade === undefined ? {} : { grade });
+  const depth = 0.66, runD = P.run[1] - P.run[0], over = c1 - c0 - depth, kv0 = P.kitchen[2];
   // its own floor, stopping at the counter
   {
-    const key = fine ? 'roomStone' : 'roomTile', t = ROOM_TEXTURES[key], y = 0.004, ps = [[c0 + over, v0, y], [hu, v0, y], [hu, v1, y], [c0 + over, v1, y]];
+    const key = fine ? 'roomStone' : 'roomTile', t = ROOM_TEXTURES[key], y = 0.004, ps = [[c0 + over, kv0, y], [hu, kv0, y], [hu, v1, y], [c0 + over, v1, y]];
     quad(TB(key), ps, [0, 1, 0], C(fine ? '#b0b2b2' : '#c8ccc4', 0.95), SATIN, ps.map((q) => [q[0] / t, q[1] / t]));
   }
   // the long side: units on the kitchen's side, a panel and the overhang on the lounge's, and the slab
-  // running down the end to the floor
+  // running down the end to the floor (both ends on an island)
   unit(c1 - depth / 2, (v0 + v1) / 2, 1, 0, v1 - v0, depth);
-  box(c0, c1, v0, v1, T - 0.04, T, '#a8a49c', 1, top, fine ? SATIN : MATTE);
-  box(c0 + over - 0.03, c0 + over, v0, v1, 0.02, T - 0.04, front, 0.9, side, SATIN);
-  box(c0, c1, v1, v1 + 0.04, 0, T, '#a8a49c', 0.97, top, fine ? SATIN : MATTE);
-  // the return to the wall, closing the front of the kitchen
-  unit((c1 + hu) / 2, v0 + runD / 2 + 0.02, 0, 1, hu - c1, runD - 0.04);
-  box(c0, hu, v0 - 0.04, v0, 0, T, '#a8a49c', 0.97, top, fine ? SATIN : MATTE);
+  box(c0, c1, v0, v1, T - 0.04, T, '#a8a49c', 1, top, topSurf);
+  counterFace(K, { c0, over, v0, v1, T, front, side, seed, face: KO.face });
+  box(c0, c1, v1, v1 + 0.04, 0, T, '#a8a49c', 0.97, top, topSurf);
+  if (P.island) box(c0, c1, v0 - 0.04, v0, 0, T, '#a8a49c', 0.97, top, topSurf);
+  else {
+    // the return to the wall, closing the front of the kitchen
+    unit((c1 + hu) / 2, v0 + runD / 2 + 0.02, 0, 1, hu - c1, runD - 0.04);
+    box(c0, hu, v0 - 0.04, v0, 0, T, '#a8a49c', 0.97, top, topSurf);
+  }
   // the units along the wall, in the gaps the appliances leave
   const taken = L.placed.filter((p) => p.wall === 'right' && !p.annex && p.v > rv0 - 0.5 && p.v < rv1 + 0.5 && !(p.arche === 'cabinet' || p.arche === 'screen')).map((p) => [p.v - p.w / 2, p.v + p.w / 2]).sort((a, b) => a[0] - b[0]);
   let s = rv0;
@@ -1148,16 +1161,123 @@ function drawKitchen(K, { H, lampOn, lamps, seed }) {
   // the splashback up the wall behind them
   const tall = L.placed.filter((p) => p.wall === 'right' && !p.annex && p.h > 1.2 && p.v > rv0).map((p) => p.v - p.w / 2);
   box(hu - 0.012, hu, rv0, Math.min(rv1, ...tall), T, T + 0.55, '#ffffff', 0.95, fine ? STONE : { t: 'roomTile', c: '#d8dcd8' }, fine ? SATIN : GLOSS);
-  // the lights over the counter, on long flexes
-  const n = Math.max(2, Math.min(4, Math.round((v1 - v0) / 1.6))), um = (c0 + c1) / 2, y = T + 1.0;
+  // what hangs over the run: wall cupboards or open shelves, in the gaps between what stands tall or hangs there
+  if (KO.uppers) {
+    const busy = L.placed.filter((p) => p.wall === 'right' && !p.annex && p.v > rv0 - 1 && p.v < rv1 + 1 && (p.h > 1.3 || p.arche === 'cabinet' || p.arche === 'screen'))
+      .map((p) => [p.v - p.w / 2 - 0.04, p.v + p.w / 2 + 0.04]).sort((a, b) => a[0] - b[0]);
+    let s2 = rv0 + 0.02;
+    for (const [a, b] of [...busy, [rv1 - 0.02, rv1]]) {
+      if (a - s2 > 0.35) (KO.uppers === 'shelves' ? openShelves : wallCupboards)(K, { hu, a: s2, b: a, H, front, seed: seed ^ Math.round(s2 * 97) });
+      s2 = Math.max(s2, b);
+    }
+  }
+  // the lights over the counter: industrial domes on long flexes, or opal globes on brass rods
+  const n = Math.max(2, Math.min(4, Math.round((v1 - v0) / 1.6))), um = (c0 + c1) / 2, y = T + 1.0, globe = KO.pendants === 'globe' && !fine;
   for (let i = 0; i < n; i++) {
-    const v = v0 + (i + 0.5) * (v1 - v0) / n, hang = fine ? '#17181b' : '#3a3a3a';
-    lathe(um, v, [[0, H - 0.015], [0.04, H - 0.015], [0.045, H], [0, H]], hang, 1, 12);
+    const v = v0 + (i + 0.5) * (v1 - v0) / n, hang = globe ? '#b8924a' : fine ? '#17181b' : '#3a3a3a';
+    lathe(um, v, [[0, H - 0.015], [0.04, H - 0.015], [0.045, H], [0, H]], hang, 1, 12, globe ? METAL : undefined);
+    if (globe) {
+      lathe(um, v, [[0.007, y + 0.3], [0.007, H - 0.015]], hang, 1.05, 6, METAL);
+      lathe(um, v, [[0.03, y + 0.27], [0.032, y + 0.31], [0, y + 0.31]], hang, 1.05, 12, METAL);
+      K.ball(um, v, y + 0.15, 0.13, lampOn ? '#fff4e0' : '#e8e2d6', lampOn ? 1.9 : 0.95, 18, lampOn ? LAMP : SATIN);
+      continue;
+    }
     lathe(um, v, [[0.004, y + 0.16], [0.004, H - 0.015]], hang, 0.9, 6);
     lathe(um, v, [[0.13, y], [0.11, y + 0.05], [0.04, y + 0.14], [0.02, y + 0.17], [0, y + 0.17]], fine ? '#1c1d20' : '#5a6a5a', 0.95, 16, fine ? METAL : GLOSS);
     lathe(um, v, [[0, y + 0.005], [0.12, y + 0.005]], lampOn ? '#fff0d0' : '#c8c4b8', lampOn ? 2 : 0.8, 14, lampOn ? LAMP : undefined);
   }
   if (!fine) lamps.push({ p: L.world(um, (v0 + v1) / 2, y), annex: false, k: 0.9 });
+}
+
+// The counter's side to the lounge, under its overhang (u from c0 to c0 + over): a plain panel, reeded
+// oak, or open cubbies a module wide with books and pots in them.
+function counterFace(K, { c0, over, v0, v1, T, front, side, seed, face }) {
+  const { box } = K, back = c0 + over;
+  if (face === 'fluted') {
+    // reeds 4 cm apart, every other one standing a centimetre prouder, on a dark ground
+    box(back - 0.03, back, v0, v1, 0.02, T - 0.04, '#2a1e16', 1, null, SATIN);
+    const n = Math.max(4, Math.round((v1 - v0) / 0.04)), pw = (v1 - v0) / n;
+    for (let i = 0; i < n; i++) box(back - 0.03 - (i % 2 ? 0.012 : 0.02), back - 0.03, v0 + i * pw + 0.003, v0 + (i + 1) * pw - 0.003, 0.06, T - 0.06, '#8a6a4a', i % 2 ? 0.9 : 1.05, side, SATIN);
+    box(back - 0.06, back, v0, v1, 0.02, 0.06, '#141414', 1, null, SATIN);
+    return;
+  }
+  if (face !== 'shelves') { box(back - 0.03, back, v0, v1, 0.02, T - 0.04, front, 0.9, side, SATIN); return; }
+  // cubbies: a back, a floor, a middle shelf and a divider every module, the counter's own colour
+  const r = rng(seed ^ 0x77c1), y0 = 0.02, y1 = T - 0.04, ym = (y0 + y1) / 2, a = c0 + 0.02, t = 0.018;
+  box(back - 0.02, back, v0, v1, y0, y1, front, 0.75, null, SATIN);
+  for (const y of [y0, ym - t / 2]) box(a, back, v0, v1, y, y + t, front, 0.95, null, SATIN);
+  const n = Math.max(2, Math.round((v1 - v0) / 0.5)), mw = (v1 - v0) / n;
+  for (let i = 0; i <= n; i++) { const v = v0 + i * mw; box(a, back, Math.max(v0, v - t / 2), Math.min(v1, v + t / 2), y0, y1, front, 0.95, null, SATIN); }
+  const BOOKS = ['#7a1f1a', '#1f3346', '#2a4a2a', '#c8a46a', '#3a2a1e', '#d8cdb8', '#4a1e2e', '#1a1a1a'], POTS = ['#c46a2a', '#e8e2d6', '#2c4a72', '#6a7a5a', '#1a1a1c'];
+  for (let i = 0; i < n; i++) for (const [fy, cy] of [[y0 + t, ym - t / 2], [ym + t / 2, y1]]) {
+    const s0 = v0 + i * mw + t, s1 = v0 + (i + 1) * mw - t, k = r();
+    if (k < 0.55) {
+      // a row of books, leaning at the end if it doesn't fill the cubby
+      let v = s0 + 0.01;
+      while (v < s1 - 0.05 && r() > 0.06) {
+        const bw = 0.022 + r() * 0.03, bh = Math.min(cy - fy - 0.01, 0.17 + r() * 0.12);
+        box(a + 0.03 + r() * 0.02, back - 0.03, v, v + bw, fy, fy + bh, pick(r, BOOKS), 0.9 + r() * 0.15, null, SATIN);
+        v += bw + 0.002;
+      }
+    } else if (k < 0.85) {
+      // a pot or a jug, turned
+      const cu = (a + back) / 2, cv = (s0 + s1) / 2, ph = Math.min(cy - fy - 0.02, 0.14 + r() * 0.12), pr = 0.05 + r() * 0.04;
+      K.lathe(cu, cv, [[0, fy], [pr * 0.7, fy], [pr, fy + ph * 0.45], [pr * 0.6, fy + ph * 0.9], [pr * 0.65, fy + ph], [0, fy + ph - 0.01]], pick(r, POTS), 1, 18, GLOSS);
+    }
+  }
+}
+
+// WALL CUPBOARDS over a run, `a` to `b` along the right-hand wall: a carcass 34 cm deep, framed doors a
+// module wide in the kitchen's front with a glazed panel, plates and glasses behind it, and a light under.
+function wallCupboards(K, { hu, a, b, H, front, seed }) {
+  const { box } = K, r = rng(seed), y0 = 1.5, y1 = Math.min(H - 0.12, 2.3), dd = 0.34, u0 = hu - dd, n = Math.max(1, Math.round((b - a) / 0.55)), mw = (b - a) / n, t = 0.018;
+  // the carcass as a shell, dark inside: a back, a floor and a roof, the ends and a divider between doors
+  box(hu - 0.03, hu - 0.012, a, b, y0, y1, '#2a2420', 1, null, MATTE);
+  box(u0, hu - 0.012, a, b, y0, y0 + t, front, 0.9, null, SATIN);
+  box(u0, hu - 0.012, a, b, y1 - t, y1, front, 0.9, null, SATIN);
+  box(u0 - 0.006, hu - 0.012, a - 0.01, b + 0.01, y1, y1 + 0.03, front, 0.95, null, SATIN);
+  for (let i = 0; i <= n; i++) { const v = a + i * mw; box(u0, hu - 0.012, Math.max(a, v - t / 2), Math.min(b, v + t / 2), y0, y1, front, 0.9, null, SATIN); }
+  const ym = (y0 + y1) / 2;
+  box(u0 + 0.02, hu - 0.03, a, b, ym - 0.009, ym + 0.009, front, 0.85, null, SATIN);
+  // a strip light under them, onto the worktop
+  box(u0 + 0.02, hu - 0.03, a + 0.02, b - 0.02, y0 - 0.012, y0, '#fff0d0', 1.4, null, GLOW);
+  for (let i = 0; i < n; i++) {
+    const p0 = a + i * mw + 0.006, p1 = p0 + mw - 0.012, s = 0.05, cv = (p0 + p1) / 2;
+    // behind the glass: a stack of plates below the shelf, a few glasses on it
+    for (let j = 0; j < 5; j++) K.lathe(u0 + 0.17, cv - 0.04, [[0, y0 + t + j * 0.018], [0.1, y0 + t + j * 0.018], [0.1, y0 + t + 0.012 + j * 0.018], [0, y0 + t + 0.012 + j * 0.018]], '#f4f0e8', 1.05, 16, GLOSS);
+    const ng = 2 + Math.floor(r() * 2);
+    for (let j = 0; j < ng; j++) K.lathe(u0 + 0.17, cv - 0.08 + j * 0.08, [[0, ym + 0.01], [0.028, ym + 0.01], [0.034, ym + 0.13], [0, ym + 0.13]], '#cfe0e4', 1.1, 10, GLOSS);
+    // the door: a frame round a pane of glass, and a brass pull
+    for (const [q0, q1, z0, z1] of [[p0, p0 + s, y0, y1], [p1 - s, p1, y0, y1], [p0, p1, y0, y0 + s], [p0, p1, y1 - s, y1]]) box(u0 - 0.02, u0, q0, q1, z0, z1, front, 1, null, SATIN);
+    const gp = [[u0 - 0.01, p1 - s, y0 + s], [u0 - 0.01, p0 + s, y0 + s], [u0 - 0.01, p0 + s, y1 - s], [u0 - 0.01, p1 - s, y1 - s]];
+    K.quad(K.glass, gp, K.nrmOf(-1, 0, 0), [0.8, 0.86, 0.9], GLOSS, null, true);
+    const hv = i % 2 ? p0 + s / 2 : p1 - s / 2;
+    box(u0 - 0.035, u0 - 0.02, hv - 0.006, hv + 0.006, y0 + 0.04, y0 + 0.16, '#b8a070', 1.05, null, METAL);
+  }
+}
+
+// OPEN SHELVES over a run: two or three oak boards on black brackets, with the kitchen's things on them
+// (stacked plates, jars with lids, bowls, a jug, a plant trailing over the edge).
+function openShelves(K, { hu, a, b, H, seed }) {
+  const { box } = K, r = rng(seed), sd = 0.26, u0 = hu - sd, ys = [1.5, 1.88, 2.26].filter((y) => y < H - 0.3);
+  const JARS = ['#e8e2d6', '#c46a2a', '#2c4a72', '#6a7a5a', '#d8c08a'];
+  for (const y of ys) {
+    box(u0, hu - 0.004, a, b, y - 0.035, y, '#8a6a4a', 1, { t: 'roomOak', c: '#a07c52' }, SATIN);
+    for (const v of [a + 0.15, b - 0.15]) box(hu - 0.2, hu - 0.004, v - 0.012, v + 0.012, y - 0.16, y - 0.035, '#141414', 1, null, METAL);
+    let v = a + 0.06;
+    while (v < b - 0.14) {
+      const k = r(), cu = u0 + sd / 2;
+      if (k < 0.3) { const np = 4 + Math.floor(r() * 4); for (let j = 0; j < np; j++) K.lathe(cu, v + 0.1, [[0, y + j * 0.016], [0.1, y + j * 0.016], [0.1, y + 0.012 + j * 0.016], [0, y + 0.012 + j * 0.016]], '#f4f0e8', 1.05, 16, GLOSS); v += 0.24; }
+      else if (k < 0.65) { const jh = 0.12 + r() * 0.1, c = pick(r, JARS); K.lathe(cu, v + 0.05, [[0, y], [0.045, y], [0.045, y + jh], [0.03, y + jh + 0.01], [0, y + jh + 0.01]], c, 1, 14, GLOSS); K.lathe(cu, v + 0.05, [[0, y + jh + 0.01], [0.034, y + jh + 0.01], [0.034, y + jh + 0.03], [0, y + jh + 0.03]], '#8a6a4a', 1, 14, SATIN); v += 0.12; }
+      else if (k < 0.82) { K.lathe(cu, v + 0.09, [[0, y], [0.05, y], [0.09, y + 0.07], [0, y + 0.06]], pick(r, JARS), 1, 18, GLOSS); v += 0.2; }
+      else if (k < 0.92) {
+        // a pothos in a pot, trailing a few leaves over the front
+        K.lathe(cu, v + 0.07, [[0, y], [0.05, y], [0.065, y + 0.11], [0, y + 0.11]], '#c46a2a', 1, 14, MATTE);
+        for (let j = 0; j < 9; j++) K.ball(cu - 0.06 - r() * 0.08, v + 0.02 + r() * 0.1, y + 0.11 - r() * 0.3, 0.03 + r() * 0.015, j % 2 ? '#3a6a30' : '#4e7a36', 1, 7, SATIN);
+        v += 0.16;
+      } else v += 0.1 + r() * 0.15;
+    }
+  }
 }
 
 // THE BALCONY past the front wall: the door out, a deck, a rail, and the face of the building round it,
@@ -1525,7 +1645,9 @@ function drawPiece(K, p) {
   // worn things are darker and duller; a colour picked off the seed, tired by the wear
   const tired = (k) => k * (1 - wear * 0.22);
   const fine = !!K.fine;
-  const fab = { t: 'roomWeave', c: pick(r, fine ? FABRIC_FINE : FABRIC) }, wood = { t: fine ? 'roomOak' : 'roomWood', c: pick(r, fine ? WOOD_FINE : WOOD) }, enamel = pick(r, fine ? ENAMEL_FINE : ENAMEL), plastic = pick(r, PLASTIC);
+  // the seed's picks are always made, so a piece's own `fabric` or `wood` (rowLook) doesn't move the ones after them
+  const own = (c, x) => c || x;
+  const fab = { t: 'roomWeave', c: own(p.fabric, pick(r, fine ? FABRIC_FINE : FABRIC)) }, wood = { t: fine ? 'roomOak' : 'roomWood', c: own(p.wood, pick(r, fine ? WOOD_FINE : WOOD)) }, enamel = pick(r, fine ? ENAMEL_FINE : ENAMEL), plastic = pick(r, PLASTIC);
   const steel = { t: 'roomSteel', c: '#c8ccd0' };
   const lat = (x, z, prof, mat, k = 1, n = 14, surf = E()) => { const [u, v] = P(x, 0, z); K.lathe(u, v, prof, mat, k, n, surf); };
   const R = (...a) => K.rounded(...a);
@@ -1535,7 +1657,9 @@ function drawPiece(K, p) {
   // a flat's control panel (plugins/envcontrol) lays out as a hung cabinet and is drawn as itself
   if (p.dress === 'envctl' && drawEnvPanel(K, F, p)) return;
   if (drawDecorForm(K, F, p)) return;
-  if (drawFitting({ K, F, p, r, L: K.L, coldInside: (...a) => coldInside(K, F, p, ...a), wear, fine, fab, wood, enamel, plastic, steel, tired, stain, lat, rod, R, pick: (list) => pick(r, list) })) return;
+  // what stands in a studio's kitchen takes its fronts and worktop from the kitchen (spec.kitchen)
+  const kit = !p.annex && K.L.spec.kitchen ? { front: K.L.spec.kitchen.front, slab: kitchenSlab(K.L.spec) } : null;
+  if (drawFitting({ K, F, p, r, L: K.L, ...(kit?.front ? { front: kit.front } : {}), ...(kit?.slab ? { slab: kit.slab } : {}), coldInside: (...a) => coldInside(K, F, p, ...a), wear, fine, fab, wood, enamel, plastic, steel, tired, stain, lat, rod, R, pick: (list) => pick(r, list) })) return;
   switch (p.form) {
     case 'stool': {
       lat(0, 0, [[0, 0], [0.19, 0], [0.19, 0.012], [0.14, 0.03], [0.03, 0.05], [0.022, 0.1], [0.022, 0.64], [0.05, 0.67], [0.05, 0.69], [0, 0.69]], '#9aa0a8', 1, 18, METAL);

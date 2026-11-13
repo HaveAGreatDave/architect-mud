@@ -1,14 +1,17 @@
 {
-  "description": "A glossy travel poster, sun-bleached to pastel. A beach. Palm trees. A slogan that has faded to illegibility. Whoever left it here was thinking of somewhere else.",
+  "description": "A travel poster bleached to pastel: a beach, palm trees, a slogan faded past reading. It's in a gilt frame now, behind glass, and it looks expensive.",
   "flags": {
-    "interactions": []
+    "interactions": [],
+    "look": {
+      "wear": 0.08
+    }
   },
   "hp": null,
   "hp_max": null,
   "id": "furniture_apt2_poster",
   "light_type": "lamp",
   "lumen_output": null,
-  "name": "faded travel poster",
+  "name": "framed beach poster",
   "object_type": "fixture",
   "power_draw_kw": null,
   "price": 15,

@@ -1,13 +1,19 @@
 {
-  "description": "A heavy-duty plastic crate, the kind you find in a demolished warehouse, doing duty as a bedside table. A candle stub sits on top of it.",
+  "description": "A white orchid in a pot on a slim plinth by the bed, watered on a schedule written inside the plinth's lid.",
   "flags": {
     "interactions": [
       "sit",
       "lean"
     ],
     "look": {
-      "arche": "store",
-      "form": "crate"
+      "arche": "small",
+      "dress": "orchid",
+      "form": "plinth",
+      "wear": 0.08
+    },
+    "spot": {
+      "along": 4.6,
+      "wall": "left"
     }
   },
   "hp": null,
@@ -15,7 +21,7 @@
   "id": "furniture_apt2_crate",
   "light_type": "lamp",
   "lumen_output": null,
-  "name": "plastic storage crate",
+  "name": "orchid on a plinth",
   "object_type": "furniture",
   "power_draw_kw": null,
   "price": 25,

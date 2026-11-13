@@ -1,5 +1,5 @@
 {
-  "description": "A clawfoot tub marooned in the middle of the room. People have slept in worse. People have slept in this.",
+  "description": "A cast-iron clawfoot tub by the window, painted dark green outside and white in. A rack across it holds soap, a sponge and a book with a damp cover.",
   "flags": {
     "interactions": [
       "sit",
@@ -7,7 +7,15 @@
     ],
     "look": {
       "arche": "shower",
-      "form": "bath"
+      "form": "bath",
+      "wear": 0.08
+    },
+    "spot": {
+      "at": [
+        -3.15,
+        1.9
+      ],
+      "turn": 0
     }
   },
   "hp": null,
@@ -15,7 +23,7 @@
   "id": "furn_apt7_tub",
   "light_type": null,
   "lumen_output": null,
-  "name": "cast-iron bathtub",
+  "name": "clawfoot tub",
   "object_type": "furniture",
   "power_draw_kw": null,
   "price": 80,

@@ -1,12 +1,13 @@
 {
-  "description": "Wire, rusting at every joint, draining into a tray that hasn't been emptied. Everything in it is dry and has been for days.",
+  "description": "An oak plate rack on the wall, everything in it washed, dry and put away by colour.",
   "flags": {
     "aliases": "rack,dish rack,draining board",
     "container": 30000,
     "dish_cabinet": true,
     "look": {
       "arche": "cabinet",
-      "form": "rack"
+      "form": "rack",
+      "wear": 0.08
     }
   },
   "hp": null,
@@ -14,7 +15,7 @@
   "id": "furn_apt9_dishrack",
   "light_type": null,
   "lumen_output": null,
-  "name": "dish rack",
+  "name": "plate rack",
   "object_type": "container",
   "power_draw_kw": null,
   "price": 0,

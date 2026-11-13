@@ -1,0 +1,36 @@
+{
+  "description": "A wing chair in faded chintz with a pair of reading glasses on the arm.",
+  "flags": {
+    "aliases": [
+      "armchair",
+      "chair",
+      "wing chair"
+    ],
+    "interactions": [
+      "sit"
+    ],
+    "look": {
+      "arche": "seat",
+      "fabric": "#a87a6a",
+      "form": "armchair",
+      "wear": 0.08
+    },
+    "spot": {
+      "at": [
+        -0.6,
+        2
+      ],
+      "turn": -120
+    }
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_apt7_armchair",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "wing chair",
+  "object_type": "furniture",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_apt_7"
+}

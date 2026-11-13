@@ -1,10 +1,8 @@
 {
-  "ambient_events": [
-    "A tongue of old paint peels a little further from the wall."
-  ],
+  "ambient_events": [],
   "ambient_theme": "indoors",
   "bg_color": "#c9a884",
-  "description": "Number 2C. Someone painted this one, once: a hopeful yellow now gone the colour of a smoker's teeth, peeling in long tongues off the plaster. A kitchenette with two working burners, a fold-down table, and a bathtub in the main room because the plumbing never reached the back. The window looks onto a brick wall an arm's length away.",
+  "description": "Unit 3C. The yellow has been repainted and holds this time, warm against white trim and a pale butcher-block kitchen with crockery on open shelves. The clawfoot tub still stands in the main room, now on purpose, by the window with plants round it. The view is still a brick wall an arm's length away, but someone has painted a window on the wall.",
   "exits": {
     "in": "zone_apt_7_bath",
     "west": "zone_embassy_floor2"
@@ -14,11 +12,96 @@
     "is_apartment": true,
     "is_interior": true,
     "rent_cost": 50,
+    "room": {
+      "d": 10,
+      "decor": {
+        "art": [
+          {
+            "at": 5,
+            "h": 0.9,
+            "seed": 71,
+            "w": 1.2,
+            "wall": "left",
+            "y": 1.8
+          },
+          {
+            "at": 0.6,
+            "h": 1,
+            "seed": 23,
+            "w": 0.8,
+            "wall": "back",
+            "y": 1.75
+          },
+          {
+            "at": 2.7,
+            "h": 1,
+            "seed": 37,
+            "w": 0.8,
+            "wall": "front",
+            "y": 1.6
+          }
+        ],
+        "ceiling": {
+          "band": 0.3,
+          "drop": 0.12,
+          "hex": "#f2eee4",
+          "kind": "cove",
+          "trim": "#b8924a"
+        },
+        "plants": [
+          [
+            -3.55,
+            0.45,
+            1.1
+          ],
+          [
+            -3.55,
+            3.3,
+            0.8
+          ],
+          [
+            1.6,
+            0.45,
+            1
+          ]
+        ],
+        "sconces": {
+          "hex": "#b8924a",
+          "points": [
+            [
+              "left",
+              4.2
+            ],
+            [
+              "left",
+              5.8
+            ]
+          ],
+          "y": 1.8
+        }
+      },
+      "h": 3.1,
+      "kitchen": {
+        "face": "shelves",
+        "front": "#e8dcb0",
+        "grade": 2,
+        "pendants": "globe",
+        "top": "butcher",
+        "uppers": "shelves"
+      },
+      "tone": {
+        "accent": "#b8924a",
+        "ceiling": "#f2eee4",
+        "trim": "#f4efe4",
+        "wall": "#d8b860"
+      },
+      "w": 8
+    },
     "window": {
-      "description": "One small window with a bad seal, letting in a draught and a slice of whatever the weather is doing.",
-      "light": 0.7,
+      "description": "A tall sash window, reglazed, that opens and shuts and keeps the weather where it belongs.",
+      "light": 0.85,
       "name": "the window",
-      "visibility": 0.7
+      "visibility": 0.85
     }
   },
   "grid_x": 1,

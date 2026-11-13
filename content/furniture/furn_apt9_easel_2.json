@@ -1,0 +1,34 @@
+{
+  "description": "A smaller easel turned to catch the afternoon, a canvas on it blocked in and left.",
+  "flags": {
+    "aliases": [
+      "easel",
+      "canvas"
+    ],
+    "interactions": [
+      "examine"
+    ],
+    "look": {
+      "arche": "prop",
+      "form": "easel",
+      "wear": 0.08
+    },
+    "spot": {
+      "at": [
+        -0.4,
+        2
+      ],
+      "turn": -150
+    }
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_apt9_easel_2",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "second easel",
+  "object_type": "furniture",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_apt_9"
+}

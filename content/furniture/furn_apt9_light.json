@@ -1,16 +1,19 @@
 {
-  "description": "A bare bulb on a pull-chain, brighter than most. Someone up here changed it recently.",
+  "description": "A big daylight lamp on an arm over the easels, for after the sun's gone. It's brighter than the sun was.",
   "flags": {
     "interactions": [
       "switch"
-    ]
+    ],
+    "look": {
+      "wear": 0.08
+    }
   },
   "hp": null,
   "hp_max": null,
   "id": "furn_apt9_light",
   "light_type": "overhead",
   "lumen_output": 1200,
-  "name": "overhead bulb",
+  "name": "daylight lamp",
   "object_type": "light",
   "power_draw_kw": 20,
   "price": 40,

@@ -1,16 +1,29 @@
 {
-  "description": "A wooden chair left on its side by whoever cleared out in a hurry. Set it upright and it's a seat; leave it and it's a warning.",
+  "description": "A wooden chair at the desk, back on its feet and glued at every joint.",
   "flags": {
     "interactions": [
       "sit"
-    ]
+    ],
+    "look": {
+      "arche": "seat",
+      "fabric": "#3e5a44",
+      "form": "chair",
+      "wear": 0.08
+    },
+    "spot": {
+      "at": [
+        2.3,
+        1.15
+      ],
+      "turn": 0
+    }
   },
   "hp": null,
   "hp_max": null,
   "id": "furn_apt8_chair",
   "light_type": null,
   "lumen_output": null,
-  "name": "overturned chair",
+  "name": "writing chair",
   "object_type": "furniture",
   "power_draw_kw": null,
   "price": 25,

@@ -2,7 +2,7 @@
   "ambient_events": [],
   "ambient_theme": "indoors",
   "bg_color": "#c9a884",
-  "description": "A closet with plumbing. The toilet runs constantly, the sink has one tap and it only ever runs cold, and the shower is a rusted head over a cracked tile drain with a curtain that doesn't quite reach. The extractor fan died before you got here. It locks, though.",
+  "description": "The en-suite. White tile to shoulder height and the hotel's monogram worked into the floor mosaic in black. A pedestal basin with two taps that both run, a toilet with a wooden seat, and a shower behind a glass door. The fan works.",
   "exits": {
     "out": "zone_apt_11"
   },
