@@ -1,0 +1,75 @@
+{
+  "description": "A low black drum table by the lounger with a silver cigarette box open on it, a cedar humidor and a heavy glass ashtray. Both are kept full. Help yourself.",
+  "flags": {
+    "aliases": [
+      "smokes",
+      "ashtray",
+      "cigarettes",
+      "cigarette box",
+      "cigars",
+      "humidor",
+      "side table",
+      "box",
+      "silver box"
+    ],
+    "container": 60000,
+    "look": {
+      "arche": "small",
+      "dims": [
+        0.56,
+        0.56,
+        0.5
+      ],
+      "form": "smoketable"
+    },
+    "restock_items": [
+      "item_cigarettes",
+      "item_platinum_cigar"
+    ],
+    "spot": {
+      "at": [
+        -3.95,
+        -0.78
+      ]
+    },
+    "vends": "item_cigarettes",
+    "vend_menu": [
+      {
+        "item": "item_cigarettes",
+        "price": 0
+      },
+      {
+        "item": "item_menthol_cigarettes",
+        "price": 0
+      },
+      {
+        "item": "item_unfiltered_cigarettes",
+        "price": 0
+      },
+      {
+        "item": "item_platinum_cigar",
+        "price": 0
+      },
+      {
+        "item": "item_house_cigar",
+        "price": 0
+      },
+      {
+        "item": "item_reserve_cigar",
+        "price": 0
+      }
+    ],
+    "vend_line": "You lift one out of the box.",
+    "vend_cooldown_s": 0
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_solenne_apt_b_smokes",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "cigarette box",
+  "object_type": "container",
+  "power_draw_kw": 0,
+  "price": 0,
+  "zone_id": "zone_solenne_apt_b"
+}

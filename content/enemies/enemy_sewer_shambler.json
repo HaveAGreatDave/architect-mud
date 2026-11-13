@@ -1,0 +1,141 @@
+{
+  "behavior": "aggressive",
+  "behaviour_graph": {
+    "_start": "start",
+    "nodes": {
+      "start": {
+        "type": "start",
+        "next": "has_target"
+      },
+      "has_target": {
+        "type": "condition",
+        "condition_type": "HAS_TARGET",
+        "ifTrue": "attack",
+        "ifFalse": "idle"
+      },
+      "attack": {
+        "type": "action",
+        "action_type": "ATTACK",
+        "next": "loop"
+      },
+      "idle": {
+        "type": "action",
+        "action_type": "IDLE",
+        "next": "loop"
+      },
+      "loop": {
+        "type": "loop",
+        "next": "start"
+      }
+    }
+  },
+  "body_parts": [
+    {
+      "part": "head",
+      "soak": {
+        "kinetic": 1
+      },
+      "weight": 10
+    },
+    {
+      "part": "torso",
+      "soak": {
+        "kinetic": 2
+      },
+      "weight": 40
+    },
+    {
+      "part": "left_arm",
+      "role": "attack",
+      "soak": {
+        "kinetic": 1
+      },
+      "weight": 12
+    },
+    {
+      "part": "right_arm",
+      "role": "attack",
+      "soak": {
+        "kinetic": 1
+      },
+      "weight": 12
+    },
+    {
+      "part": "left_leg",
+      "soak": {
+        "kinetic": 1
+      },
+      "weight": 13
+    },
+    {
+      "part": "right_leg",
+      "soak": {
+        "kinetic": 1
+      },
+      "weight": 13
+    }
+  ],
+  "butcher_difficulty": 3,
+  "butcher_table": [],
+  "death_message": "The sewer shambler falls forward like a tree and the fungus on him puffs once.",
+  "description": "A big man gone soft and rotten, with orange fungus growing out of his shoulder. He's slow. He doesn't stop, and he doesn't care what you hit him with. Anything he scratches gets sick.",
+  "dodge": 0,
+  "faction": null,
+  "flags": {
+    "attacks_npcs": true,
+    "battle_cries": [
+      "$enemy groans and plods toward $player.",
+      "$enemy reaches for $player with a hand that smells awful."
+    ],
+    "first_strike_delay_ms": 8000,
+    "on_hit_status": {
+      "sick": 0.25
+    }
+  },
+  "hit": 3,
+  "hp_max": 60,
+  "id": "enemy_sewer_shambler",
+  "loot_table": [
+    {
+      "item": "item_scrap_metal",
+      "qty": [
+        1,
+        2
+      ],
+      "weight": 20
+    },
+    {
+      "item": "item_credit_chip",
+      "credits": [
+        25,
+        65
+      ],
+      "qty": [
+        1,
+        1
+      ],
+      "weight": 18
+    },
+    {
+      "item": "item_credit_chip",
+      "credits": [
+        75,
+        195
+      ],
+      "qty": [
+        1,
+        1
+      ],
+      "super": true,
+      "weight": 3
+    }
+  ],
+  "name": "sewer shambler",
+  "weapon": [
+    {
+      "type": "kinetic",
+      "min": 3,
+      "max": 7
+    }
+  ]
+}

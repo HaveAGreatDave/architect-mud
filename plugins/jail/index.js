@@ -477,6 +477,9 @@ async function armConceal(player, open) {
 async function cmdConcealResolve(args, raw, player) {
   const pend = pendingConceal.get(player.id);
   if (!pend || args[0] !== pend.nonce) return { type: 'noop' };   // stale / not armed
+  // Claim it before any await: the timeout (or a second resolve) could otherwise
+  // book the player too, or book them before their palmed items were flagged.
+  clearConceal(player.id);
   const inSet = (csv) => (csv || '').split(',').filter(Boolean).filter(id => pend.items.has(id));
   const palmed = inSet(args[1]).slice(0, pend.maxPalm);           // server caps how many you can hold
   const botched = inSet(args[2]);
@@ -486,7 +489,6 @@ async function cmdConcealResolve(args, raw, player) {
     await dispatchAction({ type: 'CHARGE_CRIME', actor: player, params: { key: 'contraband_possession' } }).catch(() => {});
     sendToPlayer(player.id, { type: 'system', message: `<span class="text-red">A hand clamps your wrist mid-reach: "What've you got there?" It goes on the sheet.</span>` });
   }
-  clearConceal(player.id);
   await finishArrest(player.id);
   return { type: 'noop' };
 }
@@ -500,7 +502,20 @@ async function finishArrest(playerId) {
   await bookIntoCell(player, { teleport: true });
 }
 
-on('player.logout', ({ id }) => clearConceal(id));
+// Logging out mid-search used to cancel the arrest outright: the timer was the
+// only path to finishArrest. The booking is now owed and paid at the next login,
+// with nothing palmed (the search never resolved). RAM-only, so a restart in
+// between forgives it, which is the same as the old behaviour, not worse.
+const owedBooking = new Set();
+on('player.logout', ({ id }) => {
+  if (pendingConceal.has(id)) owedBooking.add(id);
+  clearConceal(id);
+});
+on('player.login', ({ id }) => {
+  if (!owedBooking.delete(id)) return;
+  const player = getLivePlayer(id);
+  if (player) bookIntoCell(player, { teleport: true }).catch(e => console.error('[jail] owed booking:', e.message));
+});
 
 // TAKEN ALIVE at 4-5 stars. The manhunt unit beat them unconscious rather than
 // killing them (gameLoop, via enemy._takesAlive), so no player.death fires and

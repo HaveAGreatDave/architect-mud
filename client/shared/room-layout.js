@@ -126,12 +126,12 @@ export function archetypeOf(flags = {}, grams = 0, type = '') {
 // The shape within an archetype, from the same flags and weight: a deep-freeze is a chest, a heavy
 // lie-only piece is a pod, a light sit-and-lie piece is a cot. `flags.look.form` overrides.
 export const FORMS = Object.freeze({
-  seat: ['stool', 'chair', 'armchair'], bench: ['bench', 'booth', 'banquette', 'slab'], sofa: ['sofa', 'cot', 'lounger'], bed: ['bed', 'pod', 'platform', 'mattress', 'pressbench'],
+  seat: ['stool', 'chair', 'armchair', 'office', 'stools'], bench: ['bench', 'booth', 'banquette', 'slab'], sofa: ['sofa', 'cot', 'lounger'], bed: ['bed', 'pod', 'platform', 'mattress', 'pressbench'],
   screen: ['flat', 'crt', 'slab'], cold: ['fridge', 'double', 'chest', 'column'], hob: ['cooktop', 'range', 'microwave', 'seam'],
-  surface: ['counter', 'desk', 'rail', 'barwall', 'chemwall', 'bar', 'stage', 'runway', 'reception', 'console', 'treadmill', 'pool'], small: ['heater', 'box', 'plinth', 'telescope', 'lacquer'], prop: ['cabinet', 'piano'], fireplace: ['hearth', 'firetrough'],
+  surface: ['counter', 'desk', 'rail', 'barwall', 'chemwall', 'bar', 'stage', 'runway', 'reception', 'console', 'treadmill', 'pool', 'pcdesk'], small: ['heater', 'box', 'plinth', 'telescope', 'lacquer', 'boombox', 'smoketable'], prop: ['cabinet', 'piano', 'fountain', 'catstatue', 'lantern', 'bonsai', 'vat', 'tank', 'morphex', 'jukebox'], fireplace: ['hearth', 'firetrough'],
   wardrobe: ['wardrobe', 'valet'], cabinet: ['cupboard', 'vitrine', 'humidor', 'rack'], store: ['shelves', 'locker', 'crate', 'weights'],
   sink: ['kitchen', 'basin', 'trough'], toilet: ['pan', 'hung'], shower: ['stall', 'wetroom', 'bath', 'soak'],
-  deck: ['console', 'portable'], table: ['coffee', 'dining', 'games'], top: ['kettle', 'press'],
+  deck: ['console', 'portable'], table: ['coffee', 'dining', 'games', 'poker'], top: ['kettle', 'press'],
 });
 export function formOf(arche, flags = {}, grams = 0, { annex = false } = {}) {
   if (flags.look?.form && FORMS[arche]?.includes(flags.look.form)) return flags.look.form;
@@ -165,17 +165,28 @@ export const LACQUER_BODY = 0.72;
 // what a form's footprint is when it isn't its archetype's, [w, d, h] at the reference weight
 const FORM_DIMS = { chest: [1.3, 0.72, 0.88], double: [1.3, 0.75, 2.0], range: [0.76, 0.66, 0.92], cooktop: [0.6, 0.52, 0.86],
   desk: [1.2, 0.6, 0.76], rail: [1.2, 0.12, 1.0], cot: [1.9, 0.75, 0.5], pod: [1.1, 2.15, 1.1], stool: [0.42, 0.42, 0.74], booth: [1.5, 0.7, 1.15],
-  column: [0.62, 0.68, 2.0], seam: [1.2, 0.62, 0.92], barwall: [2.2, 0.46, 2.3], chemwall: [2.4, 0.72, 2.3], armchair: [0.82, 0.84, 0.92], platform: [2.6, 2.25, 0.62], mattress: [1.0, 2.0, 0.26],
+  column: [0.62, 0.68, 2.0], seam: [1.2, 0.62, 0.92], barwall: [2.2, 0.46, 2.3], chemwall: [2.4, 0.72, 2.3], armchair: [0.82, 0.84, 0.92], office: [0.68, 0.68, 1.24], pcdesk: [1.9, 1.9, 0.75], platform: [2.6, 2.25, 0.62], mattress: [1.0, 2.0, 0.26],
   valet: [2.2, 0.64, 2.3], vitrine: [1.0, 0.36, 1.9], humidor: [0.8, 0.48, 1.45], rack: [0.7, 0.3, 0.5], shelves: [1.2, 0.42, 1.9], locker: [0.6, 0.52, 1.8], crate: [0.72, 0.5, 0.44],
   basin: [0.62, 0.46, 0.88], trough: [1.4, 0.5, 0.86], hung: [0.38, 0.56, 0.82], wetroom: [1.3, 1.1, 2.2], bath: [0.8, 1.75, 0.6], soak: [1.0, 2.0, 0.66],
   portable: [0.5, 0.36, 0.2], dining: [1.6, 0.86, 0.76], press: [0.3, 0.36, 0.4], bar: [3.2, 0.8, 1.12],
   reception: [3.4, 0.85, 1.1], console: [1.3, 0.38, 0.82], plinth: [0.4, 0.4, 1.1], slab: [1.6, 0.5, 0.45],
   // a lacquered stash box on a bar top (gl/room-fittings.js; its lid is gl/room-stash.js's)
   lacquer: [0.36, 0.24, 0.12],
+  // a balcony's (gl/room-decor.js): a boombox that opens the AMP player, and a drum table of smokes
+  boombox: [0.66, 0.2, 0.36], smoketable: [0.56, 0.56, 0.5],
   // a club's, a gym's and a roof deck's (gl/room-decor.js): a sun lounger, a bench press, a treadmill, a raised pool,
   // a telescope on its tripod, an upright piano, a dumbbell rack, a chess table and a fire trough
   lounger: [1.95, 0.72, 0.75], pressbench: [1.3, 1.75, 1.2], treadmill: [0.85, 1.9, 1.4], pool: [3, 2, 0.5], telescope: [0.6, 0.6, 1.55],
-  piano: [1.5, 0.65, 1.25], weights: [1.6, 0.6, 0.95], games: [0.8, 0.8, 0.74], firetrough: [2, 0.6, 0.45] };
+  piano: [1.5, 0.65, 1.25], weights: [1.6, 0.6, 0.95], games: [0.8, 0.8, 0.74], poker: [2.5, 1.45, 0.78], firetrough: [2, 0.6, 0.45],
+  // a calm flat's (gl/room-decor.js): a slate wall fountain, a paper floor lantern, a bonsai on its stand
+  fountain: [0.8, 0.36, 1.15], catstatue: [0.62, 0.5, 1.25], lantern: [0.42, 0.42, 1.4], bonsai: [0.62, 0.42, 0.95],
+  // a clone facility's (gl/room-decor.js): a print vat with somebody in it, a squat dogged tank, and the MORPHEX pod
+  vat: [1.1, 1.1, 2.4], tank: [1.2, 1.2, 1.3], morphex: [1.5, 1.4, 2.55],
+  // an old bar's (gl/room-saloon.js): a run of stools along it, a seat every STOOL_PITCH, and a jukebox
+  stools: [3.2, 0.45, 0.76], jukebox: [0.95, 0.62, 1.55] };
+// How far apart the stools in a run stand, and how many a run of width w (metres) has (gl/room-saloon.js draws them)
+export const STOOL_PITCH = 0.8;
+export const stoolsAlong = (w) => Math.max(1, Math.round(w / STOOL_PITCH));
 
 // A piece's [w, d, h] in metres: its form's or archetype's, scaled by its weight, or `flags.look.dims`.
 export function dimsOf(arche, grams = 0, flags = {}, ctx = {}) {
@@ -230,6 +241,21 @@ function footprint(p) {
   return [p.u - hw, p.u + hw, p.v - hd, p.v + hd];
 }
 
+// A corner desk's two runs in its own frame, [x0, x1, z0, z1]: one along its back, one down its +x
+// side, each `PCDESK_RUN` deep. Shared with the drawing (gl/room-office.js), so the walker meets what's drawn.
+export const PCDESK_RUN = 0.7;
+export function pcdeskRuns(p, k = 1) {
+  const hw = p.w / 2, hd = p.d / 2, D = PCDESK_RUN * k;
+  return [[-hw, hw, -hd, -hd + D], [hw - D, hw, -hd + D, hd]];
+}
+// What a placed piece takes up on the floor, as [u0, u1, v0, v1] boxes: its footprint, or a corner
+// desk's two runs (so the chair in the square they hold stands clear of it).
+export function pieceBoxes(p, k = 1) {
+  if (p.form !== 'pcdesk') return [footprint(p)];
+  const [fu, fv] = facing(p.turn), su = -fv, sv = fu, pt = (x, z) => [p.u + su * x + fu * z, p.v + sv * x + fv * z];
+  return pcdeskRuns(p, k).map((q) => { const a = pt(q[0], q[2]), b = pt(q[1], q[3]); return [Math.min(a[0], b[0]), Math.max(a[0], b[0]), Math.min(a[1], b[1]), Math.max(a[1], b[1])]; });
+}
+
 // ── what each archetype gives the room ──────────────────────────────────────────────────────────
 // Seats with their eyes, stations with a reach, and what a walker can't stand in or climbs over.
 // `x` across the piece (the sitter's right as they face out of it) and `z` out of its front.
@@ -240,7 +266,7 @@ function contribute(spec, p) {
   const fp = footprint(p), seatY = 0.46 * k, eye = 1.18 * k;
   const seat = (kind, x, z, o = {}) => {
     const [u, v] = pt(x, z);
-    out.seats.push({ kind, u, v, y: o.y ?? eye, dir: o.dir || [fu, fv], pitch: o.pitch ?? -0.08, piece: p.id, verb: o.verb || 'sit', ...(o.lie ? { lie: true, head: o.head, top: o.top } : {}), ...(o.back != null ? { back: o.back } : {}) });
+    out.seats.push({ kind, u, v, y: o.y ?? eye, dir: o.dir || [fu, fv], pitch: o.pitch ?? -0.08, piece: p.id, verb: o.verb || 'sit', ...(o.lie ? { lie: true, head: o.head, top: o.top } : {}), ...(o.back != null ? { back: o.back } : {}), ...(o.lift ? { lift: o.lift } : {}) });
   };
   // How far out of a deep piece a sitter's hips come. The sit clip's knees are a thigh (0.43 m) ahead
   // of them and its shins drop straight down, so the knees have to clear the front or the shins go
@@ -249,6 +275,14 @@ function contribute(spec, p) {
   const station = (y, reach = 0.95) => { const [u, v] = pt(0, p.d / 2 + 0.05 * k); out.stations.push({ target: p.name, piece: p.id, verb: p.verb, u, v, y: y * k, reach: reach * k, at: [p.u, p.v] }); };
   switch (p.arche) {
     case 'seat':
+      // a stool's top is well over a chair's, so the sitter is raised by the difference (metres, the body's lift)
+      if (p.form === 'stool') { const lift = Math.max(0, p.h / k - 0.46); seat('chair', 0, 0, { lift, y: eye + lift * k }); out.climb.push([...fp, p.h]); break; }
+      // a run of stools: a raised seat on each, along the piece
+      if (p.form === 'stools') {
+        const lift = Math.max(0, p.h / k - 0.46), n = stoolsAlong(p.w / k);
+        for (let i = 0; i < n; i++) seat('chair', (i - (n - 1) / 2) * p.w / n, 0, { lift, y: eye + lift * k });
+        out.climb.push([...fp, p.h]); break;
+      }
       seat('chair', 0, clearKnees(-0.04 * k)); out.climb.push([...fp, seatY]); break;
     case 'bench': {
       if (p.form === 'banquette') {
@@ -267,6 +301,11 @@ function contribute(spec, p) {
       out.climb.push([...fp, seatY]); break;
     }
     case 'sofa': {
+      // a sun lounger is for lying on: no seats across it, just the one along it, the head up the raised back
+      if (p.form === 'lounger') {
+        seat('lie', -p.w / 2 + 0.4 * k, 0, { y: 0.62 * k, lie: true, verb: 'lie', pitch: 0.1, head: [fv, -fu], top: 0.4 * k });
+        out.climb.push([...fp, 0.4 * k]); break;
+      }
       const n = Math.max(2, Math.min(3, Math.round(p.w / (0.62 * k))));
       // `back`: metres from the seat spot back to the back cushions' face (gl/room-mesh.js sofa: -hd + 0.33),
       // so a sitter who leans back rests on them rather than through them (gl/room-people.js)
@@ -287,10 +326,34 @@ function contribute(spec, p) {
       station(p.crt ? 0.8 : p.mount ? p.mount / k : 1.25, 2.2); break;
     }
     case 'small': out.solid.push(fp); station(0.3, 0.9); break;
+    // a shower stall or a wet room is somewhere you walk into: only its tiled back is solid, and its station is
+    // where you stand under the head (gl/room-plumbing.js draws the water there). A bath stays a thing you walk round.
+    case 'shower': {
+      if (p.form === 'bath' || p.form === 'soak') { out.solid.push(fp); station(Math.min(p.h / k, 1.1) * 0.9, 1.1); break; }
+      const [a, b2] = [pt(-p.w / 2, -p.d / 2), pt(p.w / 2, -p.d / 2 + 0.06 * k)];
+      out.solid.push([Math.min(a[0], b2[0]), Math.max(a[0], b2[0]), Math.min(a[1], b2[1]), Math.max(a[1], b2[1])]);
+      const [u, v] = pt(0, 0);
+      out.stations.push({ target: p.name, piece: p.id, verb: p.verb, u, v, y: 1.1 * k, reach: 0.9 * k, at: [p.u, p.v] });
+      break;
+    }
+    // a toilet: solid, a station for pee and flush, and a seat over the bowl, which is where `poop` puts
+    // you (the server sits you on it by name). Hips just ahead of the cistern; the knees clear the front
+    case 'toilet':
+      out.solid.push(fp); station(0.5, 1.0);
+      seat('toilet', 0, clearKnees(-p.d / 2 + (p.form === 'hung' ? 0.3 : 0.36) * k), { verb: 'poop', y: eye - 0.04 * k });
+      break;
     // a thing on a worktop stands in its base's footprint; a hung cabinet has the floor free under it
     case 'top': station(((p.rise || 0) / k) + 0.12, 1.3); if (!p.rise) out.solid.push(fp); break;
     case 'cabinet': if (hungOf(p.arche, p.form)) station(HUNG_AT + 0.3, 1.5); else { out.solid.push(fp); station(1.1, 1.1); } break;
     case 'hob': case 'surface':
+      // a corner desk is an L round the corner it stands in (gl/room-office.js): its two runs are solid
+      // and the square they hold is free, for the chair; you work at it from that square
+      if (p.form === 'pcdesk') {
+        out.solid.push(...pieceBoxes(p, k));
+        const [u, v] = pt(-0.05 * k, 0.05 * k);
+        out.stations.push({ target: p.name, piece: p.id, verb: p.verb, u, v, y: 0.9 * k, reach: 1.3 * k, at: [p.u, p.v] });
+        break;
+      }
       // a Cachet: its keypad, and once it's turned the bench, with the keypad at its end to shut it
       if (p.keypad) {
         out.solid.push(fp);
@@ -495,6 +558,37 @@ function openingStrip(S, o, m, radius) {
 // back wall opens on a short hall beside the en-suite, out to the corridor: { a, b } across, from v0 (the back
 // wall) to v1 (the hall's far wall, where the door to the corridor is). Null for any other doorway.
 export const HALL_W = 1.5;
+// The en-suite's doorway as a lock's doorway (gl/room-lock.js): in the flat's back wall, seen from the flat, or
+// in the en-suite's front wall, seen from inside it (`inside`). `to` is the room past it. Null with no en-suite.
+export function annexWay(S, inside = false, to = null) {
+  if (!S?.annex) return null;
+  const [a, b] = S.annex.door;
+  return { kind: 'door', annex: true, inside: !!inside, wall: inside ? 'annex' : 'back', a, b, dir: inside ? 'out' : 'in', to: to || S.annex.zone };
+}
+
+// Where a locked doorway's reader goes along its wall (gl/room-lock.js), its wall running lo..hi: { c, pad }.
+// The right of the door as you face it from the room first. The full card wants 0.54 m of clear wall past the
+// jamb; where that isn't there, or something tall stands in front of it (`busy(a0, a1)`), a wall keypad (`pad`)
+// wants 0.23 m. Only with neither on the right does it go left. Here so the furniture can keep clear of it
+// (keepClear), which can't import the renderer.
+export const READER = Object.freeze({ off: 0.3, half: 0.24, padOff: 0.14, padHalf: 0.09 });
+// which way `along` runs on each wall, seen from the room: +1 when it runs to your right
+export const WALL_RIGHT = Object.freeze({ front: 1, back: -1, left: -1, right: 1, annex: 1 });
+export function readerSpot(o, lo, hi, busy = () => false) {
+  const R = READER, e = 1e-6, sd = WALL_RIGHT[o.wall] ?? 1;
+  const at = (side, off, half) => {
+    const c = side > 0 ? o.b + off : o.a - off;
+    return c - half >= lo - e && c + half <= hi + e && !busy(c - half, c + half) ? c : null;
+  };
+  for (const side of [sd, -sd]) {
+    const c = at(side, R.off, R.half);
+    if (c !== null) return { c, pad: false };
+    const p = at(side, R.padOff, R.padHalf);
+    if (p !== null) return { c: p, pad: true };
+  }
+  return { c: sd > 0 ? o.b + R.padOff : o.a - R.padOff, pad: true };
+}
+
 export function hallOf(S, o) {
   if (!o?.deep || o.wall !== 'back') return null;
   const hu = S.w / 2, c = (o.a + o.b) / 2;
@@ -622,6 +716,19 @@ export function roomNearFree(L, u, v, reach = 1.8, within = null) {
   }
   return null;
 }
+// Where somebody stands to sit in seat `s`: in front of it, or beside it where a table is in front, never
+// behind it, so a walker going to a chair doesn't come through its back. The nearest free spot when there's
+// nothing on the front half.
+export function seatApproach(L, s, reach = 1.8, within = null) {
+  if (s.lie || !s.dir) return roomNearFree(L, s.u, s.v, reach, within);
+  const ok = (a, b) => roomFree(L, a, b) && (!within || (a >= within[0] && a <= within[1] && b >= within[2] && b <= within[3]));
+  const [fu, fv] = s.dir;
+  for (let r = 0.45; r <= reach; r += 0.1) for (const a of [0, 0.35, -0.35, 0.7, -0.7, 1.05, -1.05, 1.4, -1.4]) {
+    const c = Math.cos(a), sn = Math.sin(a), du = fu * c - fv * sn, dv = fv * c + fu * sn;
+    if (ok(s.u + du * r, s.v + dv * r)) return [s.u + du * r, s.v + dv * r];
+  }
+  return roomNearFree(L, s.u, s.v, reach, within);
+}
 // A way from `a` to `b`, each [u, v]: a breadth-first search over a grid `step` across, pulled tight
 // into a few straight legs. Null when there's no way through. It keeps further off the furniture than
 // a walker has to wherever the room allows it, since a body's shoulders are wider than its radius.
@@ -715,7 +822,8 @@ export function placeSpot(spec, pieces, arche, dims, { crt = false, wall = null,
   // a flat screen or a wall cabinet hangs over whatever's below it, so it only meets other hung things
   const hung = (a, c, f) => (a === 'screen' && !c) || hungOf(a, f);
   const fits = (spot) => {
-    const q = resolveSpot(S, spot, dims), fp = footprint(q), gap = 0.05 * k;
+    // a dining table keeps room round it for its chairs, so it never butts up against the set or a console
+    const q = resolveSpot(S, spot, dims), fp = footprint(q), gap = (form === 'dining' || form === 'poker' ? 0.6 : 0.05) * k;
     if (fp[0] < -S.w / 2 - 1e-6 || fp[1] > S.w / 2 + 1e-6 || fp[2] < -1e-6 || fp[3] > S.d + 1e-6) return false;
     const tall = q.h > 1.0 * k;
     // a hung screen clears the floor, but not the doorway on the back wall or the glass on the front
@@ -845,7 +953,34 @@ export function decorSolids(S) {
   const out = [], ok = (q) => Array.isArray(q) && q.length >= 2 && q.slice(0, 3).every((x) => x === undefined || Number.isFinite(x));
   for (const c of S?.decor?.columns || []) if (ok(c)) { const r = c[2] || 0.3; out.push([c[0] - r, c[0] + r, c[1] - r, c[1] + r]); }
   for (const c of S?.decor?.plants || []) if (ok(c)) { const r = 0.34 * (c[2] || 1); out.push([c[0] - r, c[0] + r, c[1] - r, c[1] + r]); }
+  const bd = balconyDressOf(S);
+  if (bd) {
+    out.push(...bd.troughs);
+    if (bd.bench) out.push(bd.bench);
+    if (bd.urn) { const r = 0.34 * bd.urn[2]; out.push([bd.urn[0] - r, bd.urn[0] + r, bd.urn[1] - r, bd.urn[1] + r]); }
+  }
   return out;
+}
+
+// A tower flat's balcony, dressed (gl/room-decor.js drawBalconyDress): a long planter of grasses against the
+// rail at each end of the front deck, and on the wider side of the door a bench against the building with a
+// potted tree past it. Each is [u0, u1, v0, v1] in the room's frame; the urn is [u, v, s]. Null for a plain
+// balcony, or none.
+export function balconyDressOf(S) {
+  const B = S?.balcony;
+  if (!B || S.finish !== 'fine' || !Array.isArray(B.u) || !Array.isArray(B.door)) return null;
+  const r = (x) => +x.toFixed(2), [u0, u1] = B.u, [d0, d1] = B.door, vO = -WALL_T - B.d, vI = -WALL_T;
+  const len = Math.min(1.6, (u1 - u0) * 0.2);
+  const troughs = [[r(u0 + 0.12), r(u0 + 0.12 + len), r(vO + 0.08), r(vO + 0.46)], [r(u1 - 0.12 - len), r(u1 - 0.12), r(vO + 0.08), r(vO + 0.46)]];
+  const left = d0 - u0, right = u1 - d1, side = right >= left ? 1 : -1, room = Math.max(left, right);
+  let bench = null, urn = null;
+  if (room >= 2.6) {
+    const bl = Math.min(1.8, room - 1.3), a = side > 0 ? d1 + 0.5 : d0 - 0.5 - bl;
+    bench = [r(a), r(a + bl), r(vI - 0.5), r(vI - 0.08)];
+    const uu = side > 0 ? a + bl + 0.45 : a - 0.45;
+    if (uu > u0 + 0.4 && uu < u1 - 0.4) urn = [r(uu), r(vI - 0.5), 0.95];
+  }
+  return { troughs, bench, urn };
 }
 
 // What a new piece may not stand in: the way in from the door, and (for anything over a metre) the
@@ -854,7 +989,13 @@ function keepClear(S) {
   const k = unitsPerM(S), hu = S.w / 2, D = S.d;
   const door = S.door || [hu - 1.3 * k, hu - 0.4 * k], win = S.window || [-0.8 * k, 0.8 * k];
   const out = [S.doorWall === 'front' ? [door[0] - 0.1 * k, door[1] + 0.1 * k, 0, 1.0 * k, false] : [door[0] - 0.1 * k, door[1] + 0.1 * k, D - 1.0 * k, D, false]];
-  if (S.annex) out.push([S.annex.door[0] - 0.1 * k, S.annex.door[1] + 0.1 * k, D - 1.0 * k, D, false]);
+  if (S.annex) {
+    out.push([S.annex.door[0] - 0.1 * k, S.annex.door[1] + 0.1 * k, D - 1.0 * k, D, false]);
+    // the wall the en-suite door's reader hangs on: nothing tall in front of it, or its card cut through a
+    // wardrobe (the card is a page over the picture, so nothing hides it)
+    const [a, b] = S.annex.door, r = readerSpot({ a, b, wall: 'back' }, -hu, hu), half = r.pad ? READER.padHalf : READER.half;
+    out.push([r.c - half - 0.05, r.c + half + 0.05, D - 0.6 * k, D, true]);
+  }
   if (S.balcony) out.push([S.balcony.door[0] - 0.3, S.balcony.door[1] + 0.3, 0, 1.6, false]);
   // nothing is set down in a pit by the rules: what's in one was put there on purpose
   if (S.pit) out.push([S.pit.u0, S.pit.u1, S.pit.v0, S.pit.v1, false]);
@@ -950,7 +1091,8 @@ export function roomSpecOf(flags, isFlat, { storey = null } = {}) {
   out.windows = glass.length ? glass.map(pane) : [{ wall: 'front', a: window[0], b: window[1], y0: window[2], y1: window[3], kind: 'sash' }];
   if (glass.includes('front')) out.window = [-hu + 0.12, hu - 0.12, 0.05, h - 0.1];
   if (base.ensuite && typeof base.ensuite === 'object') out.ensuite = base.ensuite;
-  if (base.ground === 'stone' || base.ground === 'marble' || base.ground === 'rubber') out.ground = base.ground;
+  // `tile` is a clinic's white tile, `concrete` a plant room's slab (gl/room-mesh.js)
+  if (['stone', 'marble', 'rubber', 'tile', 'concrete'].includes(base.ground)) out.ground = base.ground;
   // a lift car: clad as one (gl/room-mesh.js drawCar), whether you're in it or seeing it from a landing
   if (base.car === true) out.car = true;
   // lettering on a wall, as a hotel puts its name behind the desk: { text, sub, wall, y, size, at }.
@@ -1046,9 +1188,36 @@ export function rowLook(f, item = null, { annex = false, finish = 'plain' } = {}
   const wear = Number.isFinite(flags.look?.wear) ? flags.look.wear : finish === 'fine' && !item ? 0 : price <= 60 ? 0.7 : price <= 200 ? 0.4 : price <= 600 ? 0.15 : 0;
   // `look.dress` is what stands on a console or a plinth (gl/room-decor.js): lilies, apples, thistle, an orchid
   const dress = typeof flags.look?.dress === 'string' ? { dress: flags.look.dress } : {};
+  // `look.screen` is what a computer's monitor shows (gl/room-office.js, gl/room-mesh.js paintDesktop)
+  if (typeof flags.look?.screen === 'string') dress.screen = flags.look.screen;
+  // `look.boot` is the wordmark a set shows as it comes on (panels/room-tv.js paintBoot)
+  if (typeof flags.look?.boot === 'string' && flags.look.boot.trim()) dress.boot = flags.look.boot.trim().slice(0, 24);
+  // `look.tag` letters a piece's own plate (a vat's number), `look.state` a state it's drawn in (a vat 'drained')
+  if (flags.look?.tone === 'black') dress.tone = 'black';
+  if (typeof flags.look?.tag === 'string') dress.tag = flags.look.tag.slice(0, 12);
+  if (typeof flags.look?.state === 'string') dress.state = flags.look.state.slice(0, 16);
+  // `look.trade` is the trade a back bar letters on its frieze (gl/room-saloon.js); never the building's name
+  if (typeof flags.look?.trade === 'string') dress.trade = flags.look.trade.slice(0, 24);
+  // `stove`: a hob the cooking plugin heats (`stove_tier`), not one that's only drawn as one; the
+  // Kitchen Stage stands you at a real one first (room-stage.js cookFrame)
+  const stove = flags.stove_tier ? { stove: true } : {};
   const lab = flags.crafting_station === 'chem_lab' ? { lab: labGrade(flags) } : {};
-  return { arche, form: formOf(arche, flags, grams, { annex }), dims: dimsOf(arche, grams, flags, { annex }), crt: flags.tv_skin === 'crt', wear, seed: rowSeed(flags.item_id || f.name || f.id), ...dress, ...lab };
+  // `look.open`: how wide a Cachet's turntable is, when it stands in a false wall wider than the default (cachetWing)
+  const open = Number(flags.look?.open) > 0 ? { open: Number(flags.look.open) } : {};
+  // `look.pod`: a MORPHEX pod you step into on the Stage (panels/room-morphex.js); without it the pod is only looked at
+  if (flags.look?.pod && flags.cosmetic_machine) open.pod = true;
+  return { arche, form: formOf(arche, flags, grams, { annex }), dims: dimsOf(arche, grams, flags, { annex }), crt: flags.tv_skin === 'crt', wear, seed: rowSeed(flags.item_id || f.name || f.id), ...dress, ...stove, ...lab, ...open };
 }
+// A CACHET IN A FALSE WALL. The turntable (the cabinet one side, what it hides the other) is CACHET_OPEN wide, or
+// `look.open` (the piece's `open`).
+// A disguise piece authored wider than that (flags.look.dims) stands in a false wall: plaster wings either side
+// of the opening, a header to the ceiling, and a dark alcove as deep as the piece behind, which is where what
+// it hides waits until the turntable brings it round (gl/room-mesh.js cachetFrame).
+export const CACHET_OPEN = 2.2;
+export const cachetWing = (p) => (p.keypad ? Math.max(0, (p.w - (p.open || CACHET_OPEN)) / 2) : 0);
+// The turntable's own piece: the opening's width, the same place, depth and height.
+export const cachetInner = (p) => (cachetWing(p) > 0 ? { ...p, w: p.w - 2 * cachetWing(p) } : p);
+
 // A chem lab's grade, from its station's quality (plugins/synthesis reads the same key for its
 // bonus): what gl/lab-mesh.js draws it as.
 export const LAB_GRADES = Object.freeze(['standard', 'refined', 'pristine']);

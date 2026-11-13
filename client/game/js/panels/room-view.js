@@ -7,7 +7,13 @@ import { m2t } from '../../../shared/world-scale.js';
 // how far along the front wall's bearing the eye sits from the tile's middle, in tiles
 const EYE_OUT = 0.42;
 // what's drawn in full and how far: from a flat almost all of the city is far off, and through a pane it's small
-const TUNE = { lodNear: 8, lodFar: 14, decoFar: 8, glowFar: 11, shadowFar: 6, signFar: 6 };
+// farMax: the city past 16 tiles is the skyline backdrop. Through a pane the far towers are a few pixels, and the
+// 34-tile sweep was a quarter of a live paint (room-outlook.js); 16 is GLASS1_BASIC's cap too
+// ⚠ perfDS 0 STANDS GLASS'S GOVERNOR DOWN (and the floor's load downscale). Both judge load by the time between
+// paints, and a still head is painted every other frame on purpose (room-outlook.js livePaint): 33 ms read as a
+// machine at half rate, and within two seconds the governor had cut every detail ring to 40%, so the city out of
+// the window looked a step softer than the room. The view keeps its own cost in hand (half rate, then the faces).
+const TUNE = { farMax: 16, lodNear: 8, lodFar: 14, decoFar: 8, glowFar: 11, shadowFar: 6, signFar: 6, perfDS: 0 };
 
 // How high the eye is, in the renderer's units: the same fraction of the building's height as the
 // flat's storey is of its storeys. A building that doesn't say how many it has is taken to stop two
@@ -92,6 +98,10 @@ export function viewOf(msg, base, { hour, wx, look, fed, k }) {
     acX: msg.gx, acY: msg.gy, airport: 'default', tune: TUNE, actors: fed?.actors || [], contacts: fed?.contacts || null, roads: msg.roads, regions: msg.regions,
     // the front wall is at v 0, and the room runs back from it; u is along it, to the right
     freeCam: { x: cam.x, y: cam.y, z: cam.z, yaw: look?.yaw ?? 0, pitch: look?.pitch ?? 0, roll: 0, fov: k },
+    // the strip of the canvas the panes show (room-stage.js lookOut, live only): nothing off it is built
+    cullX: look?.cull || null,
+    // the block round the eye kept at a still pose (windshield.js ARM_NEAR_STILL): the eye is in the next building
+    nearStill: true,
   };
 }
 

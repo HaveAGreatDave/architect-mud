@@ -62,14 +62,69 @@ see. A character knife board is a possible follow-up.
   toon bands and halftone went with the old renderer. Picking is unchanged:
   the panel still picks with the kitchen-frame matrices, which match ROOM's
   camera exactly, roll and shake included.
-- **In the apartment.** Cooking in a Room Stage with a hob (not a
-  microwave), the kitchen draws nothing of its own. The room hands it a host
-  (`kitchen:open` `detail.host`, from `cookFrame` in room-stage.js) placed on
-  the hob's top, facing the wall. The room keeps drawing the whole flat from the
-  kitchen's camera, with the board, the slate, the hob and the food as its props
-  (`buildSet` with `bare`, since the worktop, wall and units are the room's).
-  The look drag turns your head where you stand instead of orbiting the pan.
-  With no hob in the room, it draws the show set as before.
+- **In the apartment.** Cooking in a Room Stage never leaves the room. The
+  room hands the kitchen a host (`kitchen:open` `detail.host`, from `cookFrame`
+  in room-stage.js) and keeps drawing the whole flat, with the board, the slate,
+  the hob and the food as its props (`buildSet` with `bare`, since the worktop,
+  wall and units are the room's). The kitchen stands at the piece you clicked to
+  cook at (`S.cookAt`, kept 20 seconds for the server's answer), so the
+  microwave you clicked is the one you get in a flat with a range too. With
+  nothing clicked (a typed `workspace`) it's the first of these the room has: a
+  hob that cooks (a piece with `stove`, from `flags.stove_tier`), the microwave,
+  a hob that's only drawn, then a counter, table, desk or kitchen sink (`bench`:
+  no hob and no knob). Only a room with none of them gets the show set.
+- **On your feet.** Cooking opens with you standing in front of that piece,
+  looking at it (the frame's `stand`). You keep your feet: WASD walks and a drag
+  on anything that isn't the kitchen's looks round, drawn from your own eye, and
+  the kitchen picks with that eye (`host.view`, `kitchenCamOf` in gl/kitchen.js,
+  the exact inverse of `roomCamOf`). There are no stations or tabs. The kitchen
+  takes the camera only for a close-up (a cut on the board, dressing the plate,
+  an open fridge, the microwave's START) and eases back to your eye after; WASD
+  waits while it has it. Walk 1.6 m off and the kitchen shuts
+  (`kitchen:walkaway`). The keys that were the kitchen's stay its own (Q and E
+  the utensil, O the fridge, F flip, digits the dial or the keypad, Escape
+  done); S no longer stirs while you can walk.
+- **The cook menu.** On your feet, one menu at the left replaces the tabs, the
+  rack, the tray, the beat line and the key line (`paintCook`): what the pan is
+  doing, Heat (off, low, medium, high), what the pan offers (stir, flip, plate),
+  what's on the board and what it offers (Cut it), what's on you (onto the
+  board), then List and Done (the fridges, cupboards and Stock up are on the appliance strip). At the
+  microwave its keypad panel is the menu, with the same foot. Hovering a thing
+  in the picture names it and shows a hand.
+- **At the microwave.** The frame's `oven` stands on what the microwave is set
+  down on, under its middle. The room takes its own microwave out of its mesh
+  (`host.hide` always includes it) and the kitchen draws it in the same place
+  (`ovenSet`, `ovenLive` in gl/kitchen-mesh.js): a cavity behind a door on the
+  side away from the keypad, a turntable, a lit inside (`ovenLit`, drawn unlit
+  like a flame), and a keypad laid out in the kitchen's frame so it reads left
+  to right either way round (`ovenPanel`: 1 to 9, +30, 0, C and a green START,
+  labelled and timed in a seven-segment font, `segText`). On a trolley the
+  board and the pass get a steel leaf each. The tab reads Microwave.
+- **Working the microwave.** You use it as you'd use the real one. Click the
+  door to open it, put something in (a button on the keypad panel, or drag it
+  off the board), type a time on its keys or on the panel (or the keyboard:
+  digits, Backspace, Enter), and press START. Digits go in from the right, so
+  1, 3, 0 is 1:30, and 90 is ninety seconds (kitchen-microwave.js `padPress`).
+  What you put in is yours alone until START; what could go in is what the
+  payload offers with role `microwave` (a prefix, `microwave <it> `).
+- **The START sequence.** START plays a comic-book beat, a pure function of
+  time (kitchen-microwave.js `seqAt`). The door slams shut (SLAM!, an impact
+  frame and a shake), the camera cuts in on START at a hard dutch angle with
+  a narrator's box announcing that the moment has come, a finger creeps in shaking, and
+  jabs (BEEP!). The jab sends `microwave <it> <seconds>`, the verb anybody can
+  type, once. Then it cuts back to the microwave, lit and humming. With the
+  door already shut it starts at the cut. Reduced motion keeps the cuts and the
+  lettering and drops the shake and the inverted frames.
+- **Cooking and the result.** It runs for exactly the time you set; the display
+  counts that down (the payload's `cook.timer`, which is the microwave's own
+  timer, not the food's window, so it gives nothing away). At 0:00 it asks
+  for the payload until the cook has ended. Then DING!, the display blinks
+  End, and the door stays shut on what's inside. Open it and you see how the
+  time worked out, from the item's `done` (cook.js stamps `end_state`): a burst
+  over the microwave saying still cold, done, overdone or burnt (`VERDICT`),
+  black smoke out of the door for burnt, and the food drawn at that beat. Take it out and it goes on the counter. If the
+  server never starts it (no power, say), the Stage gives up after 4 seconds
+  with a ?! and leaves it in; the reason is in the log.
 - **Manga accents.** Speed lines and a
   two-frame flash on a clean cut or a good flip, on a 2-D overlay. Steam as
   outlined cel puffs.
@@ -155,7 +210,8 @@ The Stage fills the screen and is played with the mouse. Clicking any object ope
 - **Pans and utensils.** The rack down the right lists every pan out in the kitchen; picking one (or `[`/`]`) makes it the pan food goes into and the hob gestures work on, ringed in red. The other pans wait on the spare rings with their contents still. Dropping food on a pan stows it in that pan. The utensil in hand (Q/E) is drawn at the pointer: the hand infers the gesture, the spoon only stirs, the spatula flips on a click or flick, the knife cuts food on the board. A utensil you don't have is greyed out.
 - **Heat.** The wheel turns the knob; the picture moves at once and the setting is sent when you stop. The ring glows dull red to yellow-white with the dial.
 - **No log.** While the Stage is open, `output` lines show as a caption over the kitchen (`kitchenSays`) instead of in the log, and the Stage's own commands aren't echoed.
-- **Stocking up.** `kitchenstock` sends the catalogue (`kitchen_stock`); `kitchenorder <item> [qty]` buys and delivers to you ([stock.js](../../plugins/cooking/stock.js)). It sells only what some vendor deals in (`vendor_inventory`), at half as much again as the item's value, and only beside a stove.
+- **Stocking up.** `kitchenstock` sends the catalogue (`kitchen_stock`); `kitchenorder <item> [qty]` buys and delivers to you ([stock.js](../../plugins/cooking/stock.js)). It sells only what some vendor deals in (`vendor_inventory`), at 5% over the item's value so a trip out to the shops still pays, from any kitchen appliance (a stove, a microwave, a fridge or a freezer).
+- **The appliance strip.** One row along the top of the Stage lists every fridge, freezer, cupboard and cooker in the kitchen, with Stock up on the end, at every appliance and on your feet. A box pans the camera to it and opens; another cooker shuts the Stage and opens it again standing at that one (the room host's `cookers` and `switchTo`). `,` and `.` step along it.
 - **Kitchen boxes only, contents only.** The Stage lists a box only when it's a fridge or freezer (`preserves`), a `dish_cabinet` cupboard or shelf, or a bin; a wardrobe or a shop's shelving doesn't show. An open box shows only what's in it: the door rack is off (`SHOW_DOOR_RACK`), and the bar's **Put it all away** button sends `kitchenstow` for everything on you that box takes (perishables for a cold box; food, pans and tools for a cupboard).
 - **The counter starts bare.** Opening the Stage shows nothing on the counter. Food stands along its back only once you set it out: taken from a box, laid on the board, or picked from the On you tray, which lists what's still in your bag. It's client state only and resets each time the Stage opens.
 - **Stoves start off.** An untouched ring reads 0. `cook` still lights a ring at zero at the stove's resting tier.

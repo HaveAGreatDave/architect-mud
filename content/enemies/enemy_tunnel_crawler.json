@@ -3,29 +3,29 @@
   "behaviour_graph": {
     "_start": "start",
     "nodes": {
-      "attack": {
-        "action_type": "ATTACK",
-        "next": "loop",
-        "type": "action"
+      "start": {
+        "type": "start",
+        "next": "has_target"
       },
       "has_target": {
+        "type": "condition",
         "condition_type": "HAS_TARGET",
-        "ifFalse": "idle",
         "ifTrue": "attack",
-        "type": "condition"
+        "ifFalse": "idle"
+      },
+      "attack": {
+        "type": "action",
+        "action_type": "ATTACK",
+        "next": "loop"
       },
       "idle": {
+        "type": "action",
         "action_type": "IDLE",
-        "next": "loop",
-        "type": "action"
+        "next": "loop"
       },
       "loop": {
-        "next": "start",
-        "type": "loop"
-      },
-      "start": {
-        "next": "has_target",
-        "type": "start"
+        "type": "loop",
+        "next": "start"
       }
     }
   },
@@ -35,7 +35,7 @@
       "soak": {
         "kinetic": 0
       },
-      "weight": 12
+      "weight": 10
     },
     {
       "part": "torso",
@@ -65,33 +65,33 @@
       "soak": {
         "kinetic": 0
       },
-      "weight": 12
+      "weight": 13
     },
     {
       "part": "right_leg",
       "soak": {
         "kinetic": 0
       },
-      "weight": 12
+      "weight": 13
     }
   ],
   "butcher_difficulty": 3,
   "butcher_table": [],
-  "death_message": "The weeping mutant sits down in its own puddle and doesn't get up.",
-  "description": "A stooped thing that won't stop leaking. Clear fluid runs from its eyes, its ears and a dozen splits along its arms, and it goes where the sound is because it stopped being able to see some time ago. It isn't fast and it isn't strong. There are always more of them.",
-  "dodge": 1,
+  "death_message": "The tunnel crawler skids to a stop on its face and stays there.",
+  "description": "It goes on all fours with its arms too long and its face wrapped in rag because it has no use for eyes. It lives in the crawlways and comes out of them fast and low. Once it has your sound it doesn't let go.",
+  "dodge": 3,
   "faction": null,
   "flags": {
     "attacks_npcs": true,
     "battle_cries": [
-      "$enemy turns its wet face toward the noise $player is making.",
-      "$enemy reaches for $player with both dripping hands."
+      "$enemy comes out of a culvert low and fast at $player.",
+      "$enemy's wrapped head snaps round to $player's breathing."
     ],
-    "first_strike_delay_ms": 6000
+    "first_strike_delay_ms": 2000
   },
-  "hit": 2,
-  "hp_max": 20,
-  "id": "enemy_weeper_mutant",
+  "hit": 5,
+  "hp_max": 30,
+  "id": "enemy_tunnel_crawler",
   "loot_table": [
     {
       "item": "item_rag_bandage",
@@ -99,34 +99,26 @@
         1,
         1
       ],
-      "weight": 14
-    },
-    {
-      "item": "item_scrap_metal",
-      "qty": [
-        1,
-        1
-      ],
       "weight": 12
     },
     {
-      "credits": [
-        15,
-        40
-      ],
       "item": "item_credit_chip",
+      "credits": [
+        20,
+        55
+      ],
       "qty": [
         1,
         1
       ],
-      "weight": 20
+      "weight": 18
     },
     {
-      "credits": [
-        45,
-        120
-      ],
       "item": "item_credit_chip",
+      "credits": [
+        60,
+        165
+      ],
       "qty": [
         1,
         1
@@ -135,12 +127,12 @@
       "weight": 3
     }
   ],
-  "name": "weeping mutant",
+  "name": "tunnel crawler",
   "weapon": [
     {
-      "max": 3,
-      "min": 1,
-      "type": "kinetic"
+      "type": "edged",
+      "min": 2,
+      "max": 6
     }
   ]
 }

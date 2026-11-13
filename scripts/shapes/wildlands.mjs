@@ -9,7 +9,8 @@
 //   4. each region's halo biome is what you find just outside it;
 //   5. every landform's cone falls away from its crater;
 //   6. it is a pure function: the same tile asked twice gives the same answer;
-//   9. the carved relief shipped, flat under every placed tile, with the volcano still a mountain.
+//   9. the carved relief shipped, flat under every placed tile, with the volcano still a mountain;
+//  10. the flora shipped, every species is drawable and found somewhere, and the plants are pure.
 import { execFileSync } from 'child_process';
 import { readFileSync } from 'fs';
 import { BIOME_GROUND } from '../../client/shared/ground-palette.js';
@@ -113,5 +114,65 @@ if (reliefOk) {
   check('reliefAt is a pure function', p1 === p2);
 }
 
+// 11. the ground out there (wildGroundAt): the one answer the floor's colour, the corridor's verge and
+//     the walked void share. Every ground it names is in the palette, every terrain it gives is real
+//     and passable (a verge or a walker on a cliff is stranded), and it is pure.
+{
+  const { wildGroundAt, groundColour } = await import('../../client/shared/wildlands.js');
+  const impassable = new Set(Object.entries(JSON.parse(readFileSync('content/map/terrain.json', 'utf8')).terrains)
+    .filter(([, t]) => t.props && t.props.passable === false).map(([k]) => k));
+  const noPalette = new Set(), unreal = new Set(), blocked = new Set();
+  for (let y = r.y0; y <= r.y1; y += 3) for (let x = r.x0; x <= r.x1; x += 3) {
+    const g = wildGroundAt(x, y);
+    if (g.ground && !BIOME_GROUND[g.ground]) noPalette.add(g.ground);
+    if (!terrains.has(g.terrain)) unreal.add(g.terrain);
+    if (!wildlandsAt(x, y).sea && impassable.has(g.terrain)) blocked.add(g.terrain);
+  }
+  check('every wild ground is in the ground palette', !noPalette.size, [...noPalette].join(', '));
+  check('every wild ground terrain is a real terrain', !unreal.size, [...unreal].join(', '));
+  check('no wild ground is impassable', !blocked.size, [...blocked].join(', '));
+  check('wildGroundAt is a pure function', JSON.stringify(wildGroundAt(1009, 928)) === JSON.stringify(wildGroundAt(1009, 928)));
+  const c = groundColour(1009, 928, BIOME_GROUND);
+  check('groundColour is a colour', c.length === 3 && c.every((v) => v >= 0 && v <= 255), String(c));
+}
+
+// 10. the flora (client/shared/flora.js, content/map/flora.json): it shipped in the field; every
+//     species names a growth form the renderer draws and grows only on ground the habitat rules can
+//     answer; every species is found somewhere (a habitat no tile satisfies is a species nobody will
+//     ever see, and nothing else would say so); each line is one plain sentence with no em dash; the
+//     plants are a pure function of the tile, at most three to a tile and inside it.
+const FLORA = F.flora;
+check('the flora is in the field', !!FLORA?.species);
+if (FLORA?.species) {
+  const { FLORA_FORMS, floraAt, floraLine, floraSpecies } = await import('../../client/shared/flora.js');
+  const { FLORA_DRAWN_FORMS } = await import('../../client/game/js/panels/glass/flora-draw.js');
+  const { RELIEF_BIOMES } = await import('../../client/shared/relief-rules.js');
+  const grounds = new Set([...RELIEF_BIOMES.filter(Boolean), 'plateau']);
+  for (const f of FLORA_FORMS) check(`growth form ${f} has a drawer`, FLORA_DRAWN_FORMS.includes(f));
+  for (const k of Object.keys(FLORA.density)) check(`flora density ground ${k} is a habitat`, grounds.has(k));
+  for (const [id, s] of Object.entries(FLORA.species)) {
+    check(`${id}: form ${s.form} is a growth form`, FLORA_FORMS.includes(s.form));
+    for (const g of Object.keys(s.where || {})) check(`${id}: grows on ${g}, which no tile is`, grounds.has(g) && g in FLORA.density);
+    check(`${id}: has a line`, typeof s.line === 'string' && s.line.length > 0 && s.line.length <= 120 && !s.line.includes('—'), s.line);
+    check(`${id}: rgb is a colour`, Array.isArray(s.rgb) && s.rgb.length === 3);
+  }
+  const seen = new Set();
+  let over = 0, outside = 0;
+  for (let y = r.y0; y <= r.y1; y += 2) for (let x = r.x0; x <= r.x1; x += 2) {
+    for (const top of [false, true]) {
+      const p = floraAt(x, y, top);
+      if (p.length > 3) over++;
+      for (const q of p) { seen.add(q.id); if (Math.abs(q.ox) > 0.5 || Math.abs(q.oy) > 0.5) outside++; }
+    }
+  }
+  const unseen = floraSpecies().map((s) => s.id).filter((id) => !seen.has(id));
+  check('every species grows somewhere', !unseen.length, unseen.join(', '));
+  check('at most three plants a tile', !over, `${over} tiles`);
+  check('every plant stands inside its tile', !outside, `${outside} plants`);
+  const f1 = JSON.stringify(floraAt(1009, 928)), f2 = JSON.stringify(floraAt(1009, 928));
+  check('floraAt is a pure function', f1 === f2);
+  check('a planted flat has a line for the walker', typeof floraLine(1009, 928) === 'string');
+}
+
 if (fails.length) { console.error('✗ wildlands:\n  ' + fails.join('\n  ')); process.exit(1); }
-console.log(`✓ wildlands: fresh field, ${Object.keys(F.halo).length} halos, ${landforms().length} landform(s), a continuous coast, and a closed vocabulary.`);
+console.log(`✓ wildlands: fresh field, ${Object.keys(F.halo).length} halos, ${landforms().length} landform(s), a continuous coast, a closed vocabulary, and ${Object.keys(F.flora?.species || {}).length} species of flora.`);

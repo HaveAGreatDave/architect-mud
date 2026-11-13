@@ -2356,10 +2356,14 @@ const TOS_OPT_GROUPS = [
     { v: 'off', t: 'Off: the city as it is lit now', g: '◐' },
     { v: 'on', t: 'On: flat light and ink outlines', g: '✎' },
     { v: 'comic', t: 'Comic: two tones and heavy ink, everywhere', g: '✒' } ] },
+  // Depth of field in the walk-round rooms (gl/room-dof.js): focuses on what's in the middle of the view.
+  { key: 'roomDof', label: 'Depth of Field', opts: [
+    { v: 'on', t: 'On: rooms focus on what you look at', g: '◉' },
+    { v: 'off', t: 'Off: everything sharp', g: '○' } ] },
   // Which renderer draws the 3-D views (main.js _applyGlass, windshield.js setGlassMode). Automatic
-  // is GLASS Lite on a phone and GLASS 2 elsewhere. A stored '2' reads as auto and '1' as Lite.
+  // is GLASS Lite on every device (people and birds left out on a phone). A stored '2' reads as auto and '1' as Lite.
   { key: 'glass', label: 'Renderer', opts: [
-    { v: 'auto', t: 'Automatic: GLASS Lite on a phone, GLASS 2 elsewhere', g: 'A', s: 'font-size:0.6875rem;letter-spacing:1px' },
+    { v: 'auto', t: 'Automatic: GLASS Lite, the baked city', g: 'A', s: 'font-size:0.6875rem;letter-spacing:1px' },
     { v: 'full', t: 'GLASS 2: the full GPU renderer, lit and shadowed', g: 'G2', s: 'font-size:0.6875rem;letter-spacing:1px' },
     { v: 'lite', t: 'GLASS Lite: the same city from a baked copy, easy on the CPU', g: 'GL', s: 'font-size:0.6875rem;letter-spacing:1px' } ] },
   { key: 'dpadSize', label: 'D-Pad Size', mobileOnly: true, opts: [
@@ -3622,6 +3626,83 @@ function renderBinderCard(d) {
     </div>`;
 }
 
+// ── Sports: the league desk ──────────────────────────────────────────────────
+// plugins/tablet/sports-app.js sends the data; this lays it out. A club wears its
+// authored colours where it has them, and the final's date and hour sit at the top.
+function tosClubChip(abbr, colours, big) {
+  const c = Array.isArray(colours) && colours.length ? colours : ['#3d4a5c', '#dfe6ee'];
+  return `<span class="tos-sp-chip${big ? ' big' : ''}" style="--a:${esc(c[0])};--b:${esc(c[1] || '#fff')}">${esc(abbr || '')}</span>`;
+}
+
+function tosSportsFinal(f) {
+  if (!f) return '';
+  const away = f.daysAway;
+  const count = f.state === 'live' ? 'ON AIR NOW'
+    : f.state === 'played' ? 'PLAYED'
+    : away <= 0 ? 'TONIGHT' : away === 1 ? 'TOMORROW' : `IN ${away} DAYS`;
+  const teams = f.teams
+    ? `<div class="tos-sp-fin-teams"><span>${esc(f.teams[0])}</span><i>v</i><span>${esc(f.teams[1])}</span></div>`
+    : '<div class="tos-sp-fin-teams tbd">The top two at the end of the month</div>';
+  return `<div class="tos-sp-final ${esc(f.state)}">
+    <div class="tos-sp-fin-top"><span class="tos-sp-fin-name">🏆 ${esc(f.title)}</span><span class="tos-sp-fin-count">${count}</span></div>
+    ${teams}
+    <div class="tos-sp-fin-when"><span class="d">${esc(f.dateLabel)}</span><span class="t">${esc(f.time)}</span></div>
+  </div>`;
+}
+
+function renderSports(d) {
+  const head = `<div class="tos-sp-hero tos-sp-${esc(d.sport)}">
+    <div class="tos-sp-hero-icon">${esc(d.icon || '')}</div>
+    <div><div class="tos-sp-league">${esc(d.league)}</div>
+      <div class="tos-sp-season">${d.seasonNo ? `Season ${esc(String(d.seasonNo))}` : 'Pre-season'}${d.day ? ` &middot; day ${d.day.of} of ${d.day.days}` : ''}</div></div>
+  </div>`;
+
+  const cols = d.cols || [];
+  const nums = (cells) => cells.map((c, k) => `<span class="tos-sp-num${k === cells.length - 1 ? ' last' : ''}">${esc(c)}</span>`).join('');
+  const rows = (d.table || []).map(r => {
+    const mine = d.follow === r.team;
+    return `<button type="button" class="tos-sp-row${r.pos <= 2 ? ' top' : ''}${mine ? ' mine' : ''}" data-open-item="${esc(r.team)}">
+      <span class="tos-sp-pos">${r.pos}</span>${tosClubChip(r.abbr, r.colours)}
+      <span class="tos-sp-team">${esc(r.team)}${mine ? ' <b>★</b>' : ''}</span>${nums(r.cells)}</button>`;
+  }).join('');
+  const thead = `<div class="tos-sp-row tos-sp-thead"><span class="tos-sp-pos">#</span><span class="tos-sp-chip ghost"></span><span class="tos-sp-team">Club</span>${nums(cols)}</div>`;
+  const table = (d.table || []).length
+    ? `<div class="tos-sp-table" style="--n:${cols.length}">${thead}${rows}</div>`
+    : `<div class="tos-sp-empty">${esc(d.empty || 'No games yet.')}</div>`;
+
+  const races = (d.races || []).map(r => `<div class="tos-sp-race"><div class="tos-sp-race-h">${esc(r.title)}</div>
+    ${r.lines.map((l, i) => `<div class="tos-sp-race-l${i === 0 ? ' lead' : ''}"><span>${esc(l.name)}</span><span class="v">${esc(l.stat)}</span></div>`).join('')}</div>`).join('');
+  const notes = (d.notes || []).map(n => `<div class="tos-sp-note">${esc(n)}</div>`).join('');
+
+  return head + tosSportsFinal(d.final) + table
+    + (races ? `<div class="tos-sp-sec">Leaders</div><div class="tos-sp-races">${races}</div>` : '')
+    + notes
+    + `<div class="tos-sp-note">Home card: ${esc(d.homeCard || '')}</div>`;
+}
+
+function renderSportsTeam(d) {
+  const c = Array.isArray(d.colours) && d.colours.length ? d.colours : ['#3d4a5c', '#dfe6ee'];
+  const hero = `<div class="tos-sp-club" style="--a:${esc(c[0])};--b:${esc(c[1] || '#fff')}">
+    ${tosClubChip(d.abbr, d.colours, true)}
+    <div><div class="tos-sp-club-name">${esc(d.team)}${d.following ? ' <b>★</b>' : ''}</div>
+      <div class="tos-sp-club-sub">${esc(d.icon || '')} ${esc(d.league)}${d.pos ? ` &middot; ${d.pos} of ${d.of}` : ''}</div></div>
+  </div>`;
+  const stats = d.cells
+    ? `<div class="tos-sp-stats">${d.cols.map((k, i) => `<div><b>${esc(d.cells[i])}</b><span>${esc(k)}</span></div>`).join('')}</div>`
+    : '<div class="tos-sp-empty">Hasn\'t played yet this season.</div>';
+  const form = (d.form || []).length
+    ? `<div class="tos-sp-sec">Form${d.streak ? ` <span>${esc(d.streak)}</span>` : ''}</div><div class="tos-sp-form">
+      ${d.form.map(f => `<div class="tos-sp-game ${f.won ? 'w' : 'l'}"><span class="r">${f.won ? 'W' : 'L'}</span>
+        <span class="s">${f.us}–${f.them}${f.overtime ? ' OT' : ''}</span><span class="o">${f.home ? 'vs' : 'at'} ${esc(f.opponent)}</span></div>`).join('')}</div>`
+    : '';
+  const n = d.next;
+  const next = '<div class="tos-sp-sec">Next game</div>' + (n
+    ? `<div class="tos-sp-next${n.live ? ' live' : ''}">${tosClubChip(n.oppAbbr || '', n.oppColours)}
+        <span class="o">${n.home ? 'vs' : 'at'} ${esc(n.opponent)}</span><span class="w">${esc(n.when)}</span></div>`
+    : '<div class="tos-sp-note">Nothing scheduled in the current window.</div>');
+  return hero + tosSportsFinal(d.final) + stats + form + next;
+}
+
 // ── Binder: the league pages ─────────────────────────────────────────────────
 // A checklist by club, names and all (plugins/cards/sports-verbs.js says why a league page
 // names its gaps and the Draft page doesn't), then the special editions on their own shelf.
@@ -3924,7 +4005,7 @@ function renderIdeology(d, crumb) {
 
 // Off the grid the Map app becomes a survey terminal: the shared trail chart
 // (crossingInnerHtml) blown up, with dead-signal instruments. Payload is just 'nodes'.
-const JOURNEY_SUBSTRATE = { scrub: 'SCRUBLAND', ash: 'ASH FLATS', redrock: 'RED ROCK', marsh: 'DEAD MARSH', road: 'OLD ROADBED', dirt_road: 'DIRT TRACK', hardpan: 'CRACKED HARDPAN', alkali: 'ALKALI FLAT', cliff: 'CLIFF FACE', plateau: 'CAPROCK PLATEAU' };
+const JOURNEY_SUBSTRATE = { scrub: 'SCRUBLAND', ash: 'ASH FLATS', redrock: 'RED ROCK', marsh: 'DEAD MARSH', road: 'OLD ROADBED', dirt_road: 'DIRT TRACK', hardpan: 'CRACKED HARDPAN', alkali: 'ALKALI FLAT', cliff: 'CLIFF FACE', plateau: 'CAPROCK PLATEAU', grass: 'DRY GRASS', gravel: 'GRAVEL WASH', sand: 'SAND', basalt: 'BASALT FIELD' };
 function journeyAhead(nodes, cur) {
   if (cur.void_detour) return 'dead';
   const sId = cur.exits?.south;
@@ -6003,6 +6084,10 @@ function renderBody() {
   }
   if (d.view === 'calendar') {
     return `<div class="tos-body">${hdr}${summary}${renderBreadcrumb(d.appId, d.breadcrumb || [d.appName])}${renderCalendar(d)}${renderList(d.items)}${renderActions(d.appId, d.actions, '')}</div>`;
+  }
+  if (d.view === 'sports' || d.view === 'sports_team') {
+    const body = d.view === 'sports' ? renderSports(d) : renderSportsTeam(d);
+    return `<div class="tos-body tos-sp">${hdr}${summary}${renderBreadcrumb(d.appId, d.breadcrumb || [d.appName])}${renderTosTabs(d)}${body}${renderActions(d.appId, d.actions, d.team || '')}</div>`;
   }
   if (d.view === 'list') {
     const pageNav = d.page ? renderPageNav(d.appId, d.breadcrumb, d.page) : '';

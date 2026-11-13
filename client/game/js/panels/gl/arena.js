@@ -1091,6 +1091,8 @@ export function createArenaRenderer(canvas, overlay, W0, ice) {
       // (what the live picture shows, for the director: a hit it misses is replayed later)
       W0.view = { P: live.P, w, h, t: W0.t };
       const { C, P } = rp ? (rcam ??= createRinkCamera(rp.source, { snap: true })).update(w, h, now) : live;
+      // (where the replay's camera is, for a comic replay on a goalie: rink/replay.js clearView)
+      if (rp) rp.source.eye = [C.x, C.y, C.z];
       api.lastP = P;
       const sh = W.shake * 5 * u, sx = sh * (Math.sin(W.t * 47) + 0.5 * Math.sin(W.t * 83 + 1)) / 1.5, sy = sh * (Math.sin(W.t * 59 + 2) + 0.5 * Math.sin(W.t * 97)) / 1.5;
       const shake = [2 * sx / w, -2 * sy / h];
@@ -1228,7 +1230,8 @@ export function createArenaRenderer(canvas, overlay, W0, ice) {
         if (on || hudShown) {
           const o = overlay.getContext('2d');
           o.setTransform(1, 0, 0, 1, 0, 0); o.clearRect(0, 0, w, h);
-          if (on) drawHud(o, W, w, h, u, W0);
+          // (a comic replay takes its panels off the GL canvas here, in the frame's own task)
+          if (on) drawHud(o, W, w, h, u, W0, { P, picture: canvas });
           hudShown = on;
         }
       }

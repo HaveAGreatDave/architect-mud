@@ -1,0 +1,163 @@
+{
+  "behavior": "aggressive",
+  "behaviour_graph": {
+    "_start": "start",
+    "nodes": {
+      "start": {
+        "type": "start",
+        "next": "has_target"
+      },
+      "has_target": {
+        "type": "condition",
+        "condition_type": "HAS_TARGET",
+        "ifTrue": "low_hp",
+        "ifFalse": "idle"
+      },
+      "attack": {
+        "type": "action",
+        "action_type": "ATTACK",
+        "next": "loop"
+      },
+      "idle": {
+        "type": "action",
+        "action_type": "IDLE",
+        "next": "loop"
+      },
+      "loop": {
+        "type": "loop",
+        "next": "start"
+      },
+      "low_hp": {
+        "type": "condition",
+        "condition_type": "HP_BELOW",
+        "params": {
+          "pct": 30
+        },
+        "ifTrue": "flee",
+        "ifFalse": "attack"
+      },
+      "flee": {
+        "type": "action",
+        "action_type": "FLEE",
+        "next": "loop"
+      }
+    }
+  },
+  "body_parts": [
+    {
+      "part": "head",
+      "soak": {
+        "kinetic": 0
+      },
+      "weight": 10,
+      "grants": {
+        "component": 1
+      }
+    },
+    {
+      "part": "torso",
+      "soak": {
+        "kinetic": 1
+      },
+      "weight": 40
+    },
+    {
+      "part": "left_arm",
+      "role": "attack",
+      "soak": {
+        "kinetic": 0
+      },
+      "weight": 12
+    },
+    {
+      "part": "right_arm",
+      "role": "attack",
+      "soak": {
+        "kinetic": 0
+      },
+      "weight": 12
+    },
+    {
+      "part": "left_leg",
+      "soak": {
+        "kinetic": 0
+      },
+      "weight": 13
+    },
+    {
+      "part": "right_leg",
+      "soak": {
+        "kinetic": 0
+      },
+      "weight": 13
+    }
+  ],
+  "butcher_difficulty": 3,
+  "butcher_table": [],
+  "death_message": "The pipe spitter folds over its hose and leaks green onto the brick.",
+  "description": "A thin grey mutant in a rubber mask with a hose run into its own chest. It drinks from the chem lines and spits what comes back up. The spit keeps burning after it lands. Wreck the mask and it can't spit.",
+  "dodge": 2,
+  "faction": null,
+  "flags": {
+    "attacks_npcs": true,
+    "battle_cries": [
+      "$enemy hawks something up through its mask at $player.",
+      "$enemy's hose gurgles as it turns toward $player."
+    ],
+    "first_strike_delay_ms": 6000,
+    "on_hit_status": {
+      "corroding": 0.35
+    }
+  },
+  "hit": 4,
+  "hp_max": 26,
+  "id": "enemy_pipe_spitter",
+  "loot_table": [
+    {
+      "item": "item_scrap_metal",
+      "qty": [
+        1,
+        2
+      ],
+      "weight": 20
+    },
+    {
+      "item": "item_credit_chip",
+      "credits": [
+        20,
+        60
+      ],
+      "qty": [
+        1,
+        1
+      ],
+      "weight": 18
+    },
+    {
+      "item": "item_credit_chip",
+      "credits": [
+        60,
+        180
+      ],
+      "qty": [
+        1,
+        1
+      ],
+      "super": true,
+      "weight": 3
+    }
+  ],
+  "name": "pipe spitter",
+  "weapon": [
+    {
+      "type": "kinetic",
+      "min": 1,
+      "max": 3
+    },
+    {
+      "type": "chemical",
+      "min": 3,
+      "max": 6
+    }
+  ]
+}

@@ -22,6 +22,105 @@
     "floor": "linoleum",
     "is_building": true,
     "is_interior": true,
+    "room": {
+      "balcony": false,
+      "d": 10,
+      "decor": {
+        "ceiling": {
+          "band": 0.5,
+          "drop": 0.2,
+          "hex": "#141414",
+          "kind": "cove",
+          "trim": "#9aa3ab"
+        },
+        "downlights": false,
+        "floor": {
+          "border": "#2b2b2b",
+          "medallion": {
+            "hex": "#c9c4bb",
+            "r": 1.6
+          }
+        },
+        "lights": [
+          {
+            "at": [
+              0,
+              5
+            ],
+            "drop": 2.2,
+            "k": 2,
+            "r": 1.1,
+            "tiers": 3
+          }
+        ],
+        "plants": [
+          [
+            3.7,
+            9.1,
+            1.1
+          ],
+          [
+            -3.7,
+            9.1,
+            1.1
+          ]
+        ],
+        "rug": false,
+        "sconces": {
+          "points": [
+            [
+              "left",
+              2
+            ],
+            [
+              "left",
+              8
+            ],
+            [
+              "right",
+              2
+            ],
+            [
+              "right",
+              8
+            ]
+          ],
+          "y": 2.4
+        },
+        "walls": {
+          "hex": "#161616",
+          "kind": "stone",
+          "on": [
+            "left",
+            "back",
+            "right"
+          ]
+        }
+      },
+      "doors": {
+        "down": [
+          0,
+          5
+        ],
+        "up": [
+          0,
+          5
+        ]
+      },
+      "face": 90,
+      "finish": "fine",
+      "ground": "marble",
+      "h": 6.2,
+      "studio": false,
+      "tone": {
+        "accent": "#9aa3ab",
+        "ceiling": "#141414",
+        "trim": "#0b0b0b",
+        "wall": "#1d1d1f"
+      },
+      "w": 9,
+      "windowless": true
+    },
     "window": {
       "description": "A full-height pane onto the street, kept just clean enough to trade through. Whatever the weather is doing out there, it's doing it in plain view.",
       "light": 0.85,

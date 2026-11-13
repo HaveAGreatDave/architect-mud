@@ -6,6 +6,23 @@ import { setFlag } from '../../server/engine/flags.js';
 import { on, off } from '../../server/engine/events.js';
 
 export default async function regress({ run, check, getPlayer }) {
+  // ── The catalog and the figure agree (client/shared/morphex-catalog.js, player-figure.js) ─────────
+  // Every style the machine sells is a cut the sculpted figure can draw, and a look turns into the
+  // figure's keys: a face part, the tattoo mask and its ink.
+  {
+    const { HAIR_STYLES, FACE, TATTOO_PLACES, TATTOO_ORDER, tattooCode } = await import('../../client/shared/morphex-catalog.js');
+    const { playerFigure } = await import('../../client/shared/player-figure.js');
+    const cuts = Object.values(HAIR_STYLES).map((h) => h.cut);
+    check('every hair style is a figure cut, 0 to 20', cuts.every((c) => Number.isInteger(c) && c >= 0 && c <= 20), cuts.join(','));
+    check('every new cut 6..20 is sold', [...Array(15)].every((_, i) => cuts.includes(i + 6)));
+    check('every tattoo place has a slot in the mask', Object.keys(TATTOO_PLACES).every((p) => TATTOO_ORDER.includes(p)) && TATTOO_ORDER.length * 3 <= 31);
+    check('a tattoo code packs three bits a place', tattooCode({ cheek: 'teardrop', chest: 'script' }) === (1 | (3 << 18)), String(tattooCode({ cheek: 'teardrop', chest: 'script' })));
+    const fg = playerFigure({ hair_style: 'afro', hair_length: 'short', hair_color: 'black', face: { shape: 'lean', skin: 'tan', facial: 'goatee' }, tattoos: { neck: 'band' }, ink: 'red' });
+    check('a look maps to the figure: cut, head, skin, facial', fg.hair_style === 10 && fg.head === 2 && Array.isArray(fg.skin) && fg.facial === 'goatee', JSON.stringify(fg));
+    check('…and its tattoos and ink', fg.tat === 2 << 6 && fg.tat_ink?.length === 3, JSON.stringify(fg));
+    check('every face option has values', Object.values(FACE).every((F) => F.values.length >= 3));
+  }
+
   let r = await run('morphex');
   check('morphex verb routed', r === null || r?.type === 'morphex_panel', `type=${r?.type ?? 'null'}`);
 
@@ -54,6 +71,7 @@ export default async function regress({ run, check, getPlayer }) {
     check('…and every command that changes it', ['sex', 'hair color', 'hair length', 'hair style', 'eye color', 'height', 'weight']
       .every((c) => sheet.message.includes(`morphex ${c}`)), sheet.message?.slice(0, 120));
     check('…and chargen quotes no price', !/₵/.test(sheet.message), sheet.message?.slice(0, 120));
+    check('…and the face, tattoo and ink commands', ['face shape', 'face facial', 'tattoo', 'ink'].every((c) => sheet.message.includes(`morphex ${c}`)), sheet.message?.slice(-200));
   } finally {
     // Restore NEVER-CHOSEN as never-chosen. `setDisplayRung(player, undefined)`
     // coerces to `visual`, which is a different state — it would leak an explicit

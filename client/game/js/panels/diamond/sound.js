@@ -130,7 +130,7 @@ export function createParkSound({ win = globalThis, state = () => ({}), detail =
   let lastCatchCue = -9, lastCrackT = -9, cracks = 0;
   const stepAt = new Map();
   let stepWindow = { t: -9, n: 0 };
-  const seen = { pitch: null, splash: null, table: null, replay: false, roarA: 0, roarH: 0, batter: null };
+  const seen = { pitch: null, splash: null, table: null, replay: false, roarA: 0, roarH: 0, batter: null, pitcher: null, half: null };
   let crowd = null, park = null, timers = [];
   const log = [];       // what's played, for the gates: [key, id] and ['say', who, text]
   const later = (ms, fn) => { timers.push(setTimeout(fn, Math.max(0, ms))); };
@@ -343,6 +343,13 @@ export function createParkSound({ win = globalThis, state = () => ({}), detail =
         if (twoOut && x >= 0.45) later(250, () => play('stomp', {}, 'bed', t + 0.25));
         else for (let k = 0; k < 3; k++) later(300 + 450 * k, () => play('clap', {}, 'bed', t + k));
       }
+      // the organist between pitches, while the booth's quiet: up the keys on a full count, down
+      // them now and then after a foul
+      if (tierAllows(tier, 'music')) {
+        const q = S.pitch, hp = hashStr(`${p.inning}|${p.half}|${p.batter}|${q.balls}|${q.strikes}|${q.result}`);
+        if ((q.balls | 0) === 3 && (q.strikes | 0) === 2 && q.result !== 'inplay') later(600, () => { if (booth() < 0.3) play('climb', {}, 'music', t + 0.6); });
+        else if (q.result === 'foul' && hp % 3 === 0) later(500, () => { if (booth() < 0.3) play('foulbit', {}, 'music', t + 0.5); });
+      }
       if (x >= 0.6) later(400, () => play('murmur', { gain: Math.min(1, x + 0.1) }, 'event', t + 0.4));
     }
     seen.pitch = S.pitch || null;
@@ -424,6 +431,10 @@ export function createParkSound({ win = globalThis, state = () => ({}), detail =
         later(1400, () => { if (booth() < 0.5) play('dirge', {}, 'music', t + 1.4); });
       } else if (p.batter && p.batter !== seen.batter) {
         seen.batter = p.batter;
+        // a new man on the mound in the same half: the organist vamps him in
+        const half = `${p.inning}|${p.half}`, change = p.pitcher && seen.pitcher && p.pitcher !== seen.pitcher && seen.half === half;
+        seen.pitcher = p.pitcher || seen.pitcher; seen.half = half;
+        if (change && tierAllows(tier, 'music')) later(1200, () => { if (booth() < 0.5) play('vamp', {}, 'music', t + 1.2); });
         // the home side up with men on and the game to win: the bleachers' drum
         const bags = Array.isArray(p.basesBefore) ? p.basesBefore : [];
         const x = tension(p, state()?.S);
@@ -432,6 +443,12 @@ export function createParkSound({ win = globalThis, state = () => ({}), detail =
         } else if (p.half === 'bottom' && x >= 0.25 && h % 3 === 0) hype('letsgo', 2600);
         else if (p.half === 'top' && x >= 0.35 && h % 3 === 1) hype('defense', 2600);
         else if (x >= 0.55 && h % 4 === 2) hype('noise', 2000);
+        // otherwise, now and then for a home batter, the riff, and the park claps the rest
+        else if (p.half === 'bottom' && h % 4 === 1 && tierAllows(tier, 'music')) later(1800, () => {
+          if (booth() >= 0.4) return;
+          play('riff', {}, 'music', t + 1.8);
+          for (const k of [2.5, 2.68, 2.86, 3.04]) later(k * 1000, () => play('clap', {}, 'bed', t + 1.8 + k));
+        });
         later(700, () => {
           if (booth() > 0.1 || scene() > 0.1) return;
           const num = state()?.S?.matchup?.bNum;
@@ -472,6 +489,7 @@ export function createParkSound({ win = globalThis, state = () => ({}), detail =
         if (!p.end) hype('letsgo', 4400);
       } else if (!homeFielding && (p.runs > 0 || p.rbi > 0)) later(500, () => play('whistle', {}, 'event', t + 0.5));
       else if (homeFielding && (['doubleplay', 'tripleplay'].includes(p.kind) || (p.kind === 'strikeout' && h % 2 === 0))) later(350, () => play('whistle', {}, 'event', t + 0.35));
+      if (homeFielding && p.kind === 'strikeout' && h % 2 === 1 && tierAllows(tier, 'music')) later(700, () => { if (booth() < 0.4) play('sayonara', {}, 'music', t + 0.7); });
       if (homeFielding && p.kind === 'strikeout' && (p.outs | 0) >= 3 && tension(p, s.S) >= 0.4) later(200, () => play('airhorn', {}, 'event', t + 0.2));
       // a great play by the home side in the field: the board says so, and the park roars it
       if (homeFielding && p.out && (['leaping', 'rail'].includes(p.play?.g) || ['doubleplay', 'tripleplay'].includes(p.kind))) {

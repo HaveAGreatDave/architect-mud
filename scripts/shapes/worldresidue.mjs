@@ -114,7 +114,7 @@ globalThis.performance = { ...clock, now: () => T };
 const glWas = ws.RENDER_TUNE.gl, floorWas = ws.RENDER_TUNE.glFloor, shipWas = ws.RENDER_TUNE.shipForce;
 // The berth, pinned mid-load. Left to the clock it is empty for a third of every cycle, and a
 // census whose ship happened not to be there would report a clean canvas for the wrong reason.
-ws.RENDER_TUNE.shipForce = 0.55;
+ws.RENDER_TUNE.shipForce = (ws.SHIP_PLAN.load0 + ws.SHIP_PLAN.load1) / 2;
 
 let sinks = null;
 function tally(glOn) {

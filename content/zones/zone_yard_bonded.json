@@ -15,6 +15,14 @@
     "floor": "concrete",
     "is_building": true,
     "is_interior": true,
+    "room": {
+      "d": 24,
+      "ground": "stone",
+      "h": 7.5,
+      "studio": false,
+      "w": 16,
+      "windowless": true
+    },
     "truck_depot": {
       "name": "Kessler Street Yard",
       "yard": "zone_district_922_908"

@@ -1049,14 +1049,17 @@ export default async function regress({ run, check, getPlayer }) {
   {
     r = await run('tabletnav sports');
     check('sports app routes', r?.type === 'tablet_panel' && !r?.error, JSON.stringify(r)?.slice(0, 140));
-    check('sports opens on a league table', r?.view === 'list' && Array.isArray(r?.items), JSON.stringify(r)?.slice(0, 140));
-    // Never an empty screen: an unplayed league still says so on a row.
-    check('an unplayed league still renders a row', (r?.items || []).length > 0, String((r?.items || []).length));
+    check('sports opens on a league table', r?.view === 'sports' && Array.isArray(r?.table), JSON.stringify(r)?.slice(0, 140));
+    // Never an empty screen: an unplayed league still says so.
+    check('an unplayed league still says so', (r?.table || []).length > 0 || !!r?.empty, String((r?.table || []).length));
+    // The final is named with its in-game date and hour, seeded or not.
+    check('the league names its final with a date and time',
+      !r?.final || (/^\d{4}-\d{2}-\d{2}$/.test(r.final.date) && /^\d{2}:00$/.test(r.final.time) && !!r.final.title), JSON.stringify(r?.final));
     check('both codes are offered as tabs', (r?.tabs || []).length === 2, JSON.stringify(r?.tabs));
 
     r = await run('tabletnav sports cluster_puck');
     check('the hockey tab routes', r?.type === 'tablet_panel' && !r?.error, JSON.stringify(r)?.slice(0, 140));
-    check('the hockey tab is the hockey league', /CPhL/.test(r?.boardName || ''), r?.boardName);
+    check('the hockey tab is the hockey league', /CPhL/.test(r?.league || ''), r?.league);
     // Cluster Puck reported as "missing" — the cause was the client swallowing
     // tabs on a list view, but assert the DATA side too so a genuinely empty
     // hockey league is distinguishable from an unreachable one next time.
@@ -1068,18 +1071,18 @@ export default async function regress({ run, check, getPlayer }) {
     // An unknown tab must fall back to a league, not blank the screen — the same
     // rule the health app follows.
     r = await run('tabletnav sports nonsense');
-    check('an unknown code falls back to a league', r?.view === 'list' && !r?.error, JSON.stringify(r)?.slice(0, 120));
+    check('an unknown code falls back to a league', r?.view === 'sports' && !r?.error, JSON.stringify(r)?.slice(0, 120));
 
     // A team card for a club that has never played must still answer.
     r = await run('tabletnav sports deadball Nobody');
-    check('a team card renders for an unknown club', r?.view === 'detail' && !r?.error, JSON.stringify(r)?.slice(0, 140));
+    check('a team card renders for an unknown club', r?.view === 'sports_team' && !r?.error, JSON.stringify(r)?.slice(0, 140));
     // THE SPOILER RULE. A future fixture is computable — every game is a pure
     // function of its slot — so the card must never print a score for a game that
     // has not aired. This asserts the card carries no score field at all for the
     // upcoming game, which is the only way to be sure one can't leak into the UI.
-    const nextRow = (r?.detail?.rows || []).find(x => x.label === 'Next game');
+    const nx = r?.next;
     check('an upcoming fixture never shows a score',
-      !nextRow || !/\d+\s*[–-]\s*\d+/.test(String(nextRow.value)), JSON.stringify(nextRow));
+      !nx || (!('us' in nx) && !('them' in nx) && !/\d+\s*[–-]\s*\d+/.test(String(nx.when))), JSON.stringify(nx));
   }
 
   // ── News: the blotter replaced the standings box ───────────────────────────

@@ -5353,13 +5353,18 @@
         "Quick touch to {to}."
       ],
       "pbp.pass.back": [
-        "{player} drops it back to {to}.",
         "Back to {to} {where}.",
         "{player} works it back to {to}.",
-        "{player} leaves it for {to}.",
         "{to} drops back for it.",
         "Back out to {to} {where}.",
-        "Drop pass, {to}."
+        "{player} sends it back to {to}."
+      ],
+      "pbp.pass.backhand": [
+        "{player} backhands it to {to}.",
+        "Backhand pass, {to} {where}.",
+        "{player} feeds {to} off the backhand.",
+        "{player} gets it across on the backhand to {to}.",
+        "{player} flips a backhand over to {to}."
       ],
       "pbp.pass.cross": [
         "Across to {to} {where}.",
@@ -5368,6 +5373,14 @@
         "{player} switches sides to {to}.",
         "{player} finds {to} on the far side.",
         "{player} sends it across to {to}."
+      ],
+      "pbp.pass.drop": [
+        "Drop pass, {to}.",
+        "{player} drops it for {to}.",
+        "{player} leaves it for {to}.",
+        "{player} drops it back to {to}.",
+        "{player} leaves it behind for {to}.",
+        "Left for {to}, coming late."
       ],
       "pbp.pass.give": [
         "Right back to {to}.",
@@ -5381,6 +5394,14 @@
         "{player} floats a saucer to {to}.",
         "Saucer pass, {to} {where}.",
         "{player} lifts it over a stick to {to}."
+      ],
+      "pbp.pass.slot": [
+        "{player} finds {to} in front.",
+        "Into the slot, {to}!",
+        "{player} feeds {to} out front.",
+        "{player} slips it into the slot for {to}.",
+        "Out front to {to}.",
+        "{player} centres it to {to}."
       ],
       "pbp.pass.stretch": [
         "{player} stretches it to {to}.",
@@ -5524,11 +5545,21 @@
         "It comes back up top to {shooter}.",
         "They drop it back, and nobody steps out."
       ],
+      "pbp.replay.pass.backhand": [
+        "Watch the backhand pass. No look, right on the tape.",
+        "Off the backhand, and right to {shooter}.",
+        "Look at that backhand feed to {shooter}."
+      ],
       "pbp.replay.pass.cross": [
         "Watch the pass go all the way across.",
         "Look at it cross the ice to {shooter}.",
         "Right across the slot, and they're all caught.",
         "It goes across, and the whole box turns."
+      ],
+      "pbp.replay.pass.drop": [
+        "Watch the drop pass. He leaves it, and {shooter} skates onto it.",
+        "He drops it, takes his man with him, and {shooter} has room.",
+        "Look at the drop. Nobody picks up {shooter}."
       ],
       "pbp.replay.pass.give": [
         "The give-and-go. Gives it, goes, gets it back.",
@@ -5541,6 +5572,12 @@
         "Look at it float over the stick.",
         "Up over the stick, down on the tape.",
         "A saucer, right over the defender."
+      ],
+      "pbp.replay.pass.slot": [
+        "Watch the pass into the slot. Right on his tape.",
+        "It comes out front, and {shooter} is waiting.",
+        "Into the slot, and the goalie has no time to set.",
+        "Look at {shooter} in front when it gets there."
       ],
       "pbp.replay.pass.stretch": [
         "Look at the stretch pass. Tape to tape.",

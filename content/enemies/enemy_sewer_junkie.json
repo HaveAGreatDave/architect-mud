@@ -1,0 +1,161 @@
+{
+  "behavior": "aggressive",
+  "behaviour_graph": {
+    "_start": "start",
+    "nodes": {
+      "start": {
+        "type": "start",
+        "next": "has_target"
+      },
+      "has_target": {
+        "type": "condition",
+        "condition_type": "HAS_TARGET",
+        "ifTrue": "low_hp",
+        "ifFalse": "idle"
+      },
+      "attack": {
+        "type": "action",
+        "action_type": "ATTACK",
+        "next": "loop"
+      },
+      "idle": {
+        "type": "action",
+        "action_type": "IDLE",
+        "next": "loop"
+      },
+      "loop": {
+        "type": "loop",
+        "next": "start"
+      },
+      "low_hp": {
+        "type": "condition",
+        "condition_type": "HP_BELOW",
+        "params": {
+          "pct": 25
+        },
+        "ifTrue": "flee",
+        "ifFalse": "attack"
+      },
+      "flee": {
+        "type": "action",
+        "action_type": "FLEE",
+        "next": "loop"
+      }
+    }
+  },
+  "body_parts": [
+    {
+      "part": "head",
+      "soak": {
+        "kinetic": 0
+      },
+      "weight": 10
+    },
+    {
+      "part": "torso",
+      "soak": {
+        "kinetic": 1
+      },
+      "weight": 40
+    },
+    {
+      "part": "left_arm",
+      "role": "attack",
+      "soak": {
+        "kinetic": 0
+      },
+      "weight": 12
+    },
+    {
+      "part": "right_arm",
+      "role": "attack",
+      "soak": {
+        "kinetic": 0
+      },
+      "weight": 12
+    },
+    {
+      "part": "left_leg",
+      "soak": {
+        "kinetic": 0
+      },
+      "weight": 13
+    },
+    {
+      "part": "right_leg",
+      "soak": {
+        "kinetic": 0
+      },
+      "weight": 13
+    }
+  ],
+  "butcher_difficulty": 3,
+  "butcher_table": [],
+  "death_message": "The sewer junkie sits down hard against the wall, still grinning, and stops.",
+  "description": "Somebody who came down to use and found it was cheaper to stay. Goggles on his forehead, a hooked pipe in one hand, and a grin with too few teeth. He throws whatever's nearest and he doesn't always know why he's fighting.",
+  "dodge": 2,
+  "faction": null,
+  "flags": {
+    "attacks_npcs": true,
+    "battle_cries": [
+      "$enemy laughs at nothing and swings the pipe at $player.",
+      "$enemy flings a bottle at $player, then a shoe.",
+      "$enemy wants whatever $player has got. He says so."
+    ],
+    "first_strike_delay_ms": 6000
+  },
+  "hit": 3,
+  "hp_max": 22,
+  "id": "enemy_sewer_junkie",
+  "loot_table": [
+    {
+      "item": "item_rag_bandage",
+      "qty": [
+        1,
+        1
+      ],
+      "weight": 15
+    },
+    {
+      "item": "item_scrap_metal",
+      "qty": [
+        1,
+        2
+      ],
+      "weight": 20
+    },
+    {
+      "item": "item_credit_chip",
+      "credits": [
+        10,
+        35
+      ],
+      "qty": [
+        1,
+        1
+      ],
+      "weight": 18
+    },
+    {
+      "item": "item_credit_chip",
+      "credits": [
+        30,
+        105
+      ],
+      "qty": [
+        1,
+        1
+      ],
+      "super": true,
+      "weight": 3
+    }
+  ],
+  "name": "sewer junkie",
+  "weapon": [
+    {
+      "type": "kinetic",
+      "min": 2,
+      "max": 5
+    }
+  ]
+}

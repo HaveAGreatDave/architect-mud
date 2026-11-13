@@ -132,6 +132,7 @@ out float vWake;         // how much of that height a hull put there, for the fo
 out float vShelter;      // 0 against a beach, 1 in open water — land upwind takes the sea away
 out float vDepthM;       // the seabed's depth here, in metres (client/shared/seabed.js)
 out vec2  vShoal;        // how far the sampling position was warped, so the fragment agrees
+out float vJ;            // the breaker fold's Jacobian: 1 unfolded, near 0 at a breaking lip
 
 ${SEA_GLSL}
 
@@ -285,7 +286,15 @@ void main() {
   }
 
   vH = h;
-  gl_Position = uViewProj * vec4(w, h, 1.0);
+  // ── AND THE BREAKER FOLDS ───────────────────────────────────────────────────────────────────
+  // A height field can't stand a face up, so in the surf zone the vertex also slides along the
+  // swell (seaBreakFold): water bunches under the crest and the top runs ahead of its base. Only
+  // the drawn position moves; vWorld stays the point the sea was sampled at, so the fragment reads
+  // the same wave and corrects its slope by the Jacobian.
+  float zoneV = seaSurfZone(hM, H0) * smoothstep(0.0, 0.5, deep) * uSurf * vRim;
+  vec2 fold = seaBreakFold(swR, uT, zoneV);
+  vJ = fold.y;
+  gl_Position = uViewProj * vec4(w + normalize(kdir) * fold.x, h, 1.0);
 }`;
 
 const FRAG = linearOut(`#version 300 es
@@ -298,6 +307,7 @@ in float vWake;
 in float vShelter;
 in vec2  vShoal;
 in float vDepthM;
+in float vJ;
 
 uniform vec2  uSeaRot;   // the same heading the vertex shader sampled in
 uniform float uT;
@@ -401,6 +411,12 @@ void main() {
   if (zone > 0.0) dd += seaSurfLeanD(spR, uT, uRoll * gate * vShelter) * zone;
   dd += seaDetail(spR, uT, uAmp) * smoothstep(0.0, 0.5, deep);   // gl/sea-detail.js: the fine surface
   dd = seaUnframe(dd, uSeaRot);   // the slope back out into world axes, where N is built
+  // The breaker fold squeezed this stretch of surface by vJ along the swell, so its slope that way
+  // is steeper by 1/vJ. One Jacobian for the mesh and the light, or the face is lit as a gentle one.
+  if (vJ < 0.999) {
+    vec2 kd = normalize(seaUnturn(vec2(0.8529, 0.5224), uSeaRot));
+    dd += kd * dot(dd, kd) * (1.0 / max(vJ, 0.12) - 1.0);
+  }
   vec3 N = normalize(vec3(-dd.x, -dd.y, 1.0));
 
   vec3 toEye = uEye - vec3(vWorld, vH);
@@ -700,7 +716,28 @@ void main() {
     float froth = clamp(0.5 + 0.8 * wvF, 0.0, 1.0);
     // A glass day has little surf and a gale has a lot of it.
     float seaK = clamp(uState * 1.4 + 0.25, 0.0, 1.0);
-    cap = max(cap, zone * seaK * (onCrest * (0.65 + 0.35 * froth) + 0.30 * froth * froth));
+    // ⚠ THE FOAM SITS WHERE A BREAKER PUTS IT, NOT SYMMETRIC ON THE CREST. 'fp' is the phase on the
+    // swell carrier: 0 the crest, negative the front face. Three pieces, all tied to that phase so
+    // they ride in with the wave:
+    //  - the LIP: a narrow, bright band just ahead of the crest, where the top is pitching over;
+    //  - the WHITEWATER: once the wave has broken (zone near 1), the bore down its front face;
+    //  - the TRAIL: spent froth behind the crest, thinning with distance until only lace is left.
+    // The froth field breaks every edge up so none of it reads as a painted stripe.
+    float fp = seaSurfPhase(spR, uT);
+    float lift = sA > 1e-5 ? smoothstep(0.05, 0.45, vH / sA) : 0.0;
+    float edge = 0.18 + 0.22 * froth;
+    float lip = exp(-pow((fp + 0.22) / edge, 2.0)) * lift;
+    float broken = smoothstep(0.75, 1.0, zone);
+    float face = smoothstep(-1.5, -0.35, fp) * (1.0 - smoothstep(-0.05, 0.15, fp)) * broken;
+    float behind = fp > 0.0 ? exp(-fp * 1.1) : 0.0;
+    float lace = smoothstep(0.35 + 0.45 * (1.0 - behind), 1.0, froth + 0.35 * behind);
+    float surfFoam = max(lip * (0.80 + 0.20 * froth), max(face * (0.55 + 0.45 * froth), lace * 0.70));
+    // The old crest band stays under it, so a wave with no clear phase (sidebands, the far rim) still foams.
+    surfFoam = max(surfFoam, onCrest * 0.45 + 0.20 * froth * froth);
+    // Where the fold has squeezed the surface toward nothing, the lip is going over: solid white,
+    // torn at its edge by the froth so it isn't a ruled line.
+    surfFoam = max(surfFoam, smoothstep(0.62, 0.22, vJ + 0.12 * (froth - 0.5)));
+    cap = max(cap, zone * seaK * surfFoam);
   }
 
   // ── STAGE A AND STAGE B (Monahan & Lu 1990) ─────────────────────────────────────────────────

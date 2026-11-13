@@ -98,6 +98,7 @@ tag model and the rationale behind it.
 |---|---|---|
 | `description` | text | Shown on examine / look. Always present in the editor. 300 characters or fewer (see below). |
 | `quest_item` | flag | Cannot be dropped or sold. |
+| `lighter` | object | A collectable lighter: the look the first-person hands' zippo takes when you light a smoke (`lighterStyle` in client/game/js/panels/stands-hands.js). `case`, `trim`, `trim_dark` (hex), `case_metal`, `finish` (`gloss` or `brush`), `inlay` (`deco` or none) and `rank`: the highest-ranked one you carry is the one you use (`lighterOf` in plugins/stands). Only a look; nothing needs a lighter to smoke. |
 | `unique` | flag | Prevents stacking. Items merge into one quantity row by default; tag Unique to keep each as its own row. |
 | `weapon` | flag | Marks the combat weapon. The equipped item with this tag is used when you attack. |
 | `consumable` | flag | Gates the consumable path (restores, payouts, the timed-consume hand-off). **Not a statement that the item is edible** — bandages, hand warmers and credit chips carry it too. Which of `eat`/`drink`/`use` actually takes it is derived from the item's other tags by `consumeVerb()` in [itemActions.js](../server/engine/itemActions.js); see [plugins/food/README.md](../plugins/food/README.md). |
@@ -112,7 +113,7 @@ tag model and the rationale behind it.
 | `weapon_skill` | enum | `fists`·`blades`·`clubs`·`firearms`·`science` — the combat skill this weapon trains and routes attack XP to. |
 | `damage_type` | enum | `kinetic`·`edged`·`energy`·`fire`·`radiation` — the weapon's damage type, matched against the defender's typed soak. |
 | `status_chance` | statmap | On-hit status, e.g. `{ "stunned": 0.3 }`. |
-| `restore_hp` / `restore_hunger` / `restore_thirst` / `restore_radiation` / `restore_sanity` | int | Consumable stat changes (can be negative). |
+| `restore_hp` / `restore_hunger` / `restore_thirst` / `restore_radiation` / `restore_sanity` / `restore_stamina` | int | Consumable stat changes (can be negative). |
 | `grants_credits` | int | Credits granted on use (credit chips). |
 | `heal_over_time` | hot | Gradual heal `{ amount, duration_seconds }`, ticks once/min, stacks. |
 | `use_message` | text | Flavour line shown in place of the default `You use X.` when a plain consumable is eaten/drunk. Also makes a non-consumable `use`-able. |

@@ -175,6 +175,23 @@ cook's narration timers also send `kitchen_beat`, and the Stage re-asks for the
 view at once instead of waiting for the five-second refresh. None of the four is a
 player verb.
 
+### The microwave
+
+`microwave <food> <time>` cooks in the room's microwave for exactly the time you
+set: seconds (`40`, `40s`) or minutes and seconds (`1:30`), held to 1 to 600
+(`microwaveSecs` in index.js). With no time it runs as long as the food needs. A
+microwave stops itself and doesn't burn on past its timer, so the time you set is
+the skill: when it stops, `finishMicrowave` (cook.js) grades the food at that
+instant, stamps `end_state` on it (`raw`, `peak`, `over` or `burnt`, from
+quality.js) and says how it came out.
+
+The workspace payload carries what the Stage needs to play it: loose raw food and
+a loaded pan get a `microwave <name> ` action (role `microwave`, a prefix the
+time finishes), a microwave cook's `cook` block has `timer` (ms left on the time
+the player set, which is the microwave's clock, not the food's), and a finished
+item has `done` (its `end_state`). The Stage's keypad, START sequence and verdicts
+are in [docs/proposals/kitchen-stage.md](../../docs/proposals/kitchen-stage.md).
+
 ## The two tiers
 
 **Plain food** (`tags.needs_cooking`, no profile) works exactly as it always

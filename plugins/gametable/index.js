@@ -15,11 +15,13 @@ import { renderHandASCII } from './cards.js';
 import { resolve as siftResolve, createSelectionState, formatSelectionPage } from '../../server/engine/sift.js';
 import { registerAction } from '../../server/engine/actions.js';
 import { on } from '../../server/engine/events.js';
+import { setPosture } from '../../server/engine/posture.js';
 import { prefersTextMinigames, setDisplayRung, displayRung } from '../../server/engine/presentation.js';
 import { textModePlayers, isTextMode } from './text-mode.js';
 import { isVendorWorkTime } from '../../server/engine/ai-behaviour.js';
 import { getEnvironmentState } from '../../server/engine/environment.js';
 import { escAttr } from '../../server/engine/text.js';
+import { practiceTick, boardOf } from './chess-practice.js';
 
 // ── Boot ───────────────────────────────────────────────────────────────────────
 
@@ -45,6 +47,18 @@ on('player.death', ({ player }) => {
     if (t.seatedIndex(player.id) >= 0 || t.spectators.has(player.id)) {
       t.leaveTable(player.id).catch(e => console.error('[gametable] death-leave:', e.message));
     }
+  }
+});
+
+// Getting up from a poker seat (ROOM's "Get up" sends `stand`) holds the seat
+// while you walk about; sitting back down returns you to it. A text player who
+// never sat is never marked away: only a real sitting → standing counts.
+on('posture.changed', ({ player, from, to }) => {
+  if (!player?.id) return;
+  for (const t of activeTables.values()) {
+    if (typeof t.setAway !== 'function' || t.seatedIndex(player.id) < 0) continue;
+    if (from === 'sitting' && to !== 'sitting') t.setAway(player.id, true);
+    else if (to === 'sitting') t.setAway(player.id, false);
   }
 });
 
@@ -184,7 +198,7 @@ async function cmdSeat(args, raw, player) {
   const t = tableForPlayer(player) || tableInZone(player.current_zone);
   if (!t) return { type: 'error', message: noTableMsg(player.current_zone) };
 
-  const maxSeats = t.constructor.MAX_SEATS;
+  const maxSeats = t.seats.length;
   const cur = t.seatedIndex(player.id);
 
   // Resolve which seat. With no number given, default to the first open seat
@@ -331,9 +345,29 @@ registerAction({
 registerAction({
   type: 'gametable.take_seat',
   handler: async ({ actor, params }) => {
-    const seatIdx = params?.seatIdx;
+    const seatIdx = params?.seatIdx, chair = params?.chair || null;
+    const t = tableForPlayer(actor) || tableInZone(actor.current_zone);
+    const cur = t ? t.seatedIndex(actor.id) : -1;
+    // ⚠ ALREADY IN THE POKER GAME, THE CHAIR YOU SIT ON IS YOUR SEAT: your own chair back after getting up, or any
+    // empty one, mid-hand too, and your cards, chips and bet go with you (roomState finds the hand by playerId).
+    // `seat <n>` refused both, so a player up from the table could only sit where they'd never been.
+    if (t && cur >= 0 && Number.isInteger(seatIdx) && !isChess(t)) {
+      if (seatIdx !== cur) {
+        if (t.seats[seatIdx]) return { type: 'error', message: `Seat ${seatIdx + 1} is taken.` };
+        // the same seat object, moved: a timer acting for an away seat holds it
+        const s = t.seats[cur];
+        s.seatIdx = seatIdx; t.seats[seatIdx] = s; t.seats[cur] = null;
+      }
+      setPosture(actor, 'sitting', { sittingOn: chair });
+      t.setAway?.(actor.id, false);
+      t.pushPaneAll();
+      return paneOrLook(t, actor);
+    }
     const args = Number.isInteger(seatIdx) ? [String(seatIdx + 1)] : [];
-    return cmdSeat(args, 'seat', actor);
+    const r = await cmdSeat(args, 'seat', actor);
+    // sat down in the chair to buy in: you're sitting in it, so getting up later holds the seat
+    if (chair && t && Number.isInteger(seatIdx) && t.seatedIndex(actor.id) === seatIdx) setPosture(actor, 'sitting', { sittingOn: chair });
+    return r;
   },
 });
 
@@ -525,6 +559,26 @@ async function cmdCallDealer(args, raw, player) {
   const t = tableForPlayer(player) || tableInZone(player.current_zone);
   if (!t) return { type: 'error', message: noTableMsg(player.current_zone) };
   if (isChess(t)) return { type: 'error', message: 'Nobody deals at a chess board.' };
+  // A self-dealt table (a private flat's) has no dealer of its own: `calldealer` sends for one, who walks over,
+  // comes in at the door (knocking while it's locked), stands at the deck end and deals and calls the hands.
+  // Calling again sends her home, or calls her off on the way. RAM only, like the hand itself.
+  if (!findAssignedDealer(t)) {
+    if (t._hiredComing) {
+      const name = t._hiredComing.name;
+      t._hiredComing = null;
+      return { type: 'output', message: `<span style="color:var(--yellow)">You call ${name} back and tell her not to bother.</span>` };
+    }
+    if (t.hiredDealer) {
+      const name = t.hiredDealer.name;
+      t._dealerSay('That\'s me done. Tip your dealer.');
+      t.hiredDealer = null;
+      t.pushPaneAll();
+      return { type: 'output', message: `<span style="color:var(--yellow)">${name} squares the deck, pockets her tips and goes. You're dealing your own again.</span>` };
+    }
+    const name = t.config.dealerName || 'Mags Ruddock';
+    t.sendForHiredDealer(name);
+    return { type: 'output', message: `<span style="color:var(--yellow)">You call a dealer up. ${name} says she's on her way. Leave the door open, or listen for her knock.</span>` };
+  }
   if (t.hasDealer()) return { type: 'error', message: `${t.dealerName()} is already at the table.` };
 
   const npc = findAssignedDealer(t);
@@ -691,7 +745,7 @@ async function cmdTable(args, raw, player) {
   if (isChess(t)) {
     const lines = [
       `<b>${t.name}</b>: ${t.phase}`,
-      `Seats: ${t.seatedCount()} / ${t.constructor.MAX_SEATS}`,
+      `Seats: ${t.seatedCount()} / ${t.seats.length}`,
       t.minBet ? `Minimum bet: ₵ ${t.minBet.toLocaleString()} a side` : 'Minimum bet: none, a free game',
       `Move clock: ${t.config.moveTimerSecs || 120}s`,
     ];
@@ -699,7 +753,7 @@ async function cmdTable(args, raw, player) {
   }
   const lines = [
     `<b>${t.name}</b>: ${t.phase}`,
-    `Seats: ${t.seatedCount()} / ${t.constructor.MAX_SEATS}`,
+    `Seats: ${t.seatedCount()} / ${t.seats.length}`,
     `Blinds: ₵ ${t.config.smallBlind || 10} / ₵ ${t.config.bigBlind || 20}`,
     `Buy-in: ₵ ${t.config.buyIn || t.config.minBuyIn || 100}`,
   ];
@@ -993,7 +1047,7 @@ function renderTablePanel(t, furniture) {
   // The chairs list is collapsed by default — a <details> the player can open.
   return `<span class="furniture-label">Poker:</span> <span class="furniture-link">${tableName}</span>${dealerBit}`
     + `   ·   ${actions.join('   ')}`
-    + `<details class="poker-chairs"><summary>Chairs <span class="text-dim">(${t.seatedCount()}/${MAX_SEATS})</span></summary>`
+    + `<details class="poker-chairs"><summary>Chairs <span class="text-dim">(${t.seatedCount()}/${t.seats.length})</span></summary>`
     + `<span class="poker-chairs-list">${seatBits.join(', ')}</span></details>`;
 }
 
@@ -1026,6 +1080,7 @@ async function tableTick() {
       // work is the persist above plus the occasional line from the host.
       if (isChess(table)) {
         table.stepIncomingBots();
+        practiceTick(table);
         if (table.phase === 'InProgress' && table.seatedCount() > 0) {
           const now = Date.now();
           if (!table._lastDealerSay || now - table._lastDealerSay > 180_000) {
@@ -1171,8 +1226,49 @@ export async function routeHandler(path, method, body, auth) {
 
 // ── Exports ────────────────────────────────────────────────────────────────────
 
+// The board on each chess table in a room, for the Room Stage to draw on the table's piece
+// (plugins/roomstage). Sync and RAM: { [furnitureId]: { board, turn, last, practice } }.
+function roomBoards(zoneId) {
+  const t = tableInZone(zoneId);
+  if (!t) return undefined;
+  const piece = getZoneFurniture(zoneId).find(f => f.flags?.game_table_id === t.id && f.flags?.seat_idx == null);
+  if (!piece) return undefined;
+  // a poker felt carries its public state (GameTable.roomState), which gl/room-poker.js draws
+  if (!isChess(t)) return typeof t.roomState === 'function' ? { [piece.id]: t.roomState() } : undefined;
+  return { [piece.id]: boardOf(t) };
+}
+
+// Who's at a card table, for the Room Stage (plugins/roomstage `room.tablePeople`): each seat on its own chair,
+// and the dealer standing at the table's deck end. A summoned gambler at a self-dealt table is seated without
+// walking over, so isn't in the room's NPCs; this draws them there. Sync and RAM.
+function roomTablePeople(zoneId) {
+  const t = tableInZone(zoneId);
+  if (!t || isChess(t)) return undefined;
+  const furn = getZoneFurniture(zoneId), piece = furn.find(f => f.flags?.game_table_id === t.id && f.flags?.seat_idx == null);
+  if (!piece) return undefined;
+  const chairOf = new Map(furn.filter(f => f.flags?.game_table_id === t.id && f.flags?.seat_idx != null).map(f => [Number(f.flags.seat_idx), f.id]));
+  const out = [];
+  t.seats.forEach((seat, i) => {
+    if (!seat || !chairOf.has(i) || seat.away) return; // away: they're up and about the room, the chair's empty
+    // a player seated by `join` without sitting (or stood by anything that doesn't fire posture.changed) is on
+    // their feet: drawn in the chair, the Stage would sit them back down every time the room's people came in
+    const lp = seat.isBot ? null : getLivePlayer(seat.playerId);
+    if (lp && lp.current_zone === zoneId && (lp.posture || 'standing') !== 'sitting') return;
+    const npc = seat.isBot ? world.npcs.get(seat.npcId) : null;
+    const entered = seat.isBot ? t.walkInOf(seat.npcId) : null;
+    out.push({ id: seat.isBot ? seat.npcId : seat.playerId, name: seat.handle, npc: !!seat.isBot, posture: 'sitting', on: chairOf.get(i), ...(entered ? { entered } : {}),
+      ...(npc ? { sex: npc.sex, ...(typeof npc.faction === 'string' && npc.faction.startsWith('ideology_') ? { order: npc.faction } : {}) } : {}) });
+  });
+  const d = t._dealerNpc();
+  const dIn = d && t.walkInOf(d.id);
+  if (d) out.push({ id: d.id, name: d.name, npc: true, posture: 'standing', sex: d.sex, dealerAt: piece.id, ...(d.hired ? { hired: true } : {}), ...(dIn ? { entered: dIn } : {}) });
+  return out;
+}
+
 export const hooks = {
   'zone.furniturePanel': furniturePanel,
+  'room.boards': roomBoards,
+  'room.tablePeople': roomTablePeople,
 };
 
 export const commands = {

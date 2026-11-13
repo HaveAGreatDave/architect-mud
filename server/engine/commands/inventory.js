@@ -845,6 +845,8 @@ export async function applyItemUse(player, item, broadcast, opts = {}) {
     turning = fresh?.state === 'spoiling';
   }
   const sick = undercooked || spoiled;
+  // Set in the eaten-and-kept-down branch below and read again at the commit.
+  let creditGrant = 0;
 
   if (sick) {
     messages[0] = undercooked
@@ -900,11 +902,17 @@ export async function applyItemUse(player, item, broadcast, opts = {}) {
     // Same reasoning as the hunger line above: where you ended up, not what you poured.
     messages.push(`${slakeLine(player)}${portionLine('thirst', (player.thirst || 0) - before, t.restore_thirst)}`);
   }
+  if (t.restore_stamina) {
+    const max = player.stamina_max ?? 100;
+    const before = player.stamina ?? max;
+    player.stamina = Math.min(max, before + Number(t.restore_stamina));
+    if (player.stamina > before) messages.push(`+${player.stamina - before} Stamina.`);
+  }
   if (t.restore_radiation) { player.radiation = Math.max(0, player.radiation+t.restore_radiation); messages.push(`${t.restore_radiation} Radiation.`); }
   if (t.restore_sanity) { const d = adjustSanity(player, t.restore_sanity, 'item'); messages.push(`${d>0?'+':''}${d} Sanity.`); }
   // Credit chips pay out a per-instance amount (custom_data.credits, variable from
   // a loot roll or a dropped corpse) and fall back to a fixed item-type value.
-  const creditGrant = cd?.credits ?? t.grants_credits;
+  creditGrant = cd?.credits ?? t.grants_credits;
   if (creditGrant) { player.credits = (player.credits||0)+creditGrant; messages.push(`+${creditGrant} credits.`); }
   if (t.heal_over_time) {
     const { amount, duration_seconds } = t.heal_over_time;
@@ -1033,12 +1041,25 @@ export async function applyItemUse(player, item, broadcast, opts = {}) {
   }
   // Apply the item's effects and consume it as one atomic unit, so a failure
   // between the two can't grant the effect (incl. credits) without spending the item.
-  await withTransaction(async (q) => {
-    await q('UPDATE players SET hp=$1,hunger=$2,thirst=$3,radiation=$4,sanity=$5,credits=$6,digestive_load=$7,hydration_load=$8 WHERE id=$9',
-      [player.hp,player.hunger,player.thirst,player.radiation,player.sanity,player.credits,player.digestive_load||0,player.hydration_load||0,player.id]);
-    if (item.quantity > 1) await q('UPDATE player_inventory SET quantity=quantity-1 WHERE id=$1', [item.id]);
-    else await q('DELETE FROM player_inventory WHERE id=$1', [item.id]);
-  });
+  // The item is spent FIRST and the spend is checked, so a second use of the same
+  // row (a released queue, a second socket) grants nothing. Credits are written as
+  // a delta: an absolute balance from RAM overwrote any payment that committed in
+  // between (pay, trade, dealing).
+  const grant = Number(creditGrant) || 0;
+  try {
+    await withTransaction(async (q) => {
+      const spent = item.quantity > 1
+        ? await q('UPDATE player_inventory SET quantity=quantity-1 WHERE id=$1 AND player_id=$2 AND quantity>1', [item.id, player.id])
+        : await q('DELETE FROM player_inventory WHERE id=$1 AND player_id=$2', [item.id, player.id]);
+      if (!spent.rowCount) throw new Error('consume:gone');
+      await q('UPDATE players SET hp=$1,hunger=$2,thirst=$3,radiation=$4,sanity=$5,credits=credits+$6,digestive_load=$7,hydration_load=$8,stamina=$10 WHERE id=$9',
+        [player.hp,player.hunger,player.thirst,player.radiation,player.sanity,grant,player.digestive_load||0,player.hydration_load||0,player.id,Math.round(player.stamina ?? player.stamina_max ?? 100)]);
+    });
+  } catch (e) {
+    if (e.message !== 'consume:gone') throw e;
+    if (grant) player.credits = (player.credits||0) - grant;
+    return { type:'error', message:"It's already gone." };
+  }
 
   // Laced consumable: a drink or food that carries a drug (`tags.laced_drug`,
   // optional `tags.laced_potency`). The item's own restores are already applied
@@ -1061,7 +1082,7 @@ export async function applyItemUse(player, item, broadcast, opts = {}) {
     if (laced?.message) messages.push(laced.message);
   }
 
-  return { type:'use', message:messages.join('\n'), player_update:{hp:player.hp,hunger:player.hunger,thirst:player.thirst,radiation:player.radiation,sanity:player.sanity,credits:player.credits} };
+  return { type:'use', message:messages.join('\n'), player_update:{hp:player.hp,hunger:player.hunger,thirst:player.thirst,radiation:player.radiation,sanity:player.sanity,credits:player.credits,stamina:player.stamina} };
 }
 
 // Re-resolve a non-drug consumable row by id and apply it now. The consume
@@ -1839,7 +1860,12 @@ async function cmdPullById(idStr, qtyStr, player, broadcast) {
   // Shop stock keeps its own row (never merges into what you already carry) so the
   // unpaid mark survives the trip to the counter — see vendorStockOwner.
   const vendorId = vendorStockOwner(container);
+  // Every path below claims the source row first, guarded on it still sitting in
+  // this container, and only then credits the puller. Two players pulling the same
+  // stack at once otherwise both got it (read, merge, then an unchecked DELETE).
   if (takeQty && isStackable(item) && rowIsMergeable(item)) {
+    const took = await query('UPDATE player_inventory SET quantity=quantity-$1 WHERE id=$2 AND container_id=$3 AND quantity>$1', [takeQty, item.id, containerId]);
+    if (!took.rowCount) return { type:'container_error', message:'Someone got there first.' };
     const { rows: exPull } = vendorId ? { rows: [] }
       : await query(`SELECT id FROM player_inventory WHERE player_id=$1 AND item_id=$2 AND container_id IS NULL AND is_equipped=0 AND ${MERGEABLE_SQL} LIMIT 1`, [player.id, item.item_id]);
     if (exPull.length) {
@@ -1848,7 +1874,6 @@ async function cmdPullById(idStr, qtyStr, player, broadcast) {
       await query('INSERT INTO player_inventory (id,player_id,item_id,quantity,condition,custom_data) VALUES ($1,$2,$3,$4,1.0,$5)',
         [randomUUID(), player.id, item.item_id, takeQty, JSON.stringify(vendorId ? { unpaid: vendorId } : {})]);
     }
-    await query('UPDATE player_inventory SET quantity=quantity-$1 WHERE id=$2', [takeQty, item.id]);
     emitPulled(player, item);
     const pePart = throttledContainerBroadcast(player, broadcast, container.name);
     const pvPart = await buildContainerView(containerId, player);
@@ -1860,8 +1885,9 @@ async function cmdPullById(idStr, qtyStr, player, broadcast) {
   if (!vendorId && isStackable(item) && rowIsMergeable(item)) {
     const { rows: existing } = await query(`SELECT id FROM player_inventory WHERE player_id=$1 AND item_id=$2 AND container_id IS NULL AND is_equipped=0 AND ${MERGEABLE_SQL} LIMIT 1`, [player.id, item.item_id]);
     if (existing.length) {
-      await query('UPDATE player_inventory SET quantity=quantity+$1 WHERE id=$2', [item.quantity, existing[0].id]);
-      await query('DELETE FROM player_inventory WHERE id=$1', [item.id]);
+      const gone = await query('DELETE FROM player_inventory WHERE id=$1 AND container_id=$2 RETURNING quantity', [item.id, containerId]);
+      if (!gone.rowCount) return { type:'container_error', message:'Someone got there first.' };
+      await query('UPDATE player_inventory SET quantity=quantity+$1 WHERE id=$2', [gone.rows[0].quantity, existing[0].id]);
       emitPulled(player, item);
       const pe1 = throttledContainerBroadcast(player, broadcast, container.name);
       const pv1 = await buildContainerView(containerId, player);
@@ -1869,8 +1895,9 @@ async function cmdPullById(idStr, qtyStr, player, broadcast) {
       return containerReply(pv1, player, `You take ${item.name} from ${container.name}.`);
     }
   }
-  await query(`UPDATE player_inventory SET container_id=NULL, player_id=$1${vendorId ? UNPAID_SET_SQL : ''} WHERE id=$2`,
-    vendorId ? [player.id, item.id, vendorId] : [player.id, item.id]);
+  const moved = await query(`UPDATE player_inventory SET container_id=NULL, player_id=$1${vendorId ? UNPAID_SET_SQL : ''} WHERE id=$2 AND container_id=$${vendorId ? 4 : 3}`,
+    vendorId ? [player.id, item.id, vendorId, containerId] : [player.id, item.id, containerId]);
+  if (!moved.rowCount) return { type:'container_error', message:'Someone got there first.' };
   emitPulled(player, item);
   const pe2 = throttledContainerBroadcast(player, broadcast, container.name);
   const pv2 = await buildContainerView(containerId, player);

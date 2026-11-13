@@ -86,19 +86,19 @@ export function veilHTML(id) {
 
 // No backticks inside this string: it's a template literal (CLAUDE.md, client:smoke).
 export const VEIL_CSS = `
-    .ws-veil { --vc:#00f0ff; --vm:#ff2bd6; --vy:#f5e663;
+    .ws-veil { --vc:var(--cyan, #00f0ff); --vm:var(--accent, #ff2bd6); --vy:#f5e663;
       position:absolute; inset:0; z-index:5; overflow:hidden; display:flex; align-items:center; justify-content:center;
       container-type:size; pointer-events:none; transition:opacity .35s ease;
       font-family:ui-monospace, 'Cascadia Mono', Consolas, monospace;
-      background:radial-gradient(ellipse 70% 50% at 50% 62%, rgba(255,43,214,.16), rgba(255,43,214,0) 70%),
-        radial-gradient(ellipse 60% 45% at 50% 30%, rgba(0,240,255,.10), rgba(0,240,255,0) 70%),
-        linear-gradient(180deg, #05020c 0%, #0b0418 58%, #12031a 100%); }
+      background:radial-gradient(ellipse 70% 50% at 50% 62%, color-mix(in srgb, var(--vm) 16%, transparent), color-mix(in srgb, var(--vm) 0%, transparent) 70%),
+        radial-gradient(ellipse 60% 45% at 50% 30%, color-mix(in srgb, var(--vc) 10%, transparent), color-mix(in srgb, var(--vc) 0%, transparent) 70%),
+        linear-gradient(180deg, color-mix(in srgb, var(--bg, #05050a) 80%, #000) 0%, var(--bg, #05050a) 58%, color-mix(in srgb, var(--vm) 6%, var(--bg, #05050a)) 100%); }
     .ws-veil.ws-veil-out { opacity:0; transition-delay:.22s; }
 
     /* The horizon: a hard magenta line where the floor meets the sky, and its bloom. */
     .ws-veil-horizon { position:absolute; left:0; right:0; top:62%; height:1px;
-      background:linear-gradient(90deg, rgba(255,43,214,0), var(--vm) 20%, #ffd0f4 50%, var(--vm) 80%, rgba(255,43,214,0));
-      box-shadow:0 0 18px 3px rgba(255,43,214,.55), 0 0 60px 10px rgba(255,43,214,.18); }
+      background:linear-gradient(90deg, color-mix(in srgb, var(--vm) 0%, transparent), var(--vm) 20%, color-mix(in srgb, var(--vm) 30%, #fff) 50%, var(--vm) 80%, color-mix(in srgb, var(--vm) 0%, transparent));
+      box-shadow:0 0 18px 3px color-mix(in srgb, var(--vm) 55%, transparent), 0 0 60px 10px color-mix(in srgb, var(--vm) 18%, transparent); }
 
     /* The floor: a grid on a plane tipped back in perspective. The plane itself never moves; a tall
        sheet inside it slides one cell toward the viewer and loops, which is a transform, so the
@@ -107,19 +107,19 @@ export const VEIL_CSS = `
       overflow:hidden; -webkit-mask-image:linear-gradient(180deg, transparent 0%, #000 35%); mask-image:linear-gradient(180deg, transparent 0%, #000 35%); }
     .ws-veil-plane { position:absolute; left:0; right:0; top:0; height:300%; transform-origin:50% 0; transform:rotateX(68deg); overflow:hidden; }
     .ws-veil-floor { position:absolute; left:0; right:0; top:-40px; bottom:0; will-change:transform;
-      background:repeating-linear-gradient(90deg, rgba(255,43,214,.75) 0 2px, transparent 2px 40px),
-        repeating-linear-gradient(0deg, rgba(255,43,214,.75) 0 2px, transparent 2px 40px);
+      background:repeating-linear-gradient(90deg, color-mix(in srgb, var(--vm) 75%, transparent) 0 2px, transparent 2px 40px),
+        repeating-linear-gradient(0deg, color-mix(in srgb, var(--vm) 75%, transparent) 0 2px, transparent 2px 40px);
       animation:ws-veil-drive 0.9s linear infinite; }
     @keyframes ws-veil-drive { to { transform:translateY(40px); } }
 
     /* Hex rails: a fixed byte dump scrolling up each side, half the height per loop. */
     .ws-veil-rail { position:absolute; top:0; bottom:0; margin:0; overflow:hidden; font-size:9px; line-height:13px;
-      color:rgba(0,240,255,.28); white-space:pre; letter-spacing:1px;
+      color:color-mix(in srgb, var(--vc) 28%, transparent); white-space:pre; letter-spacing:1px;
       -webkit-mask-image:linear-gradient(180deg, transparent, #000 15%, #000 85%, transparent);
       mask-image:linear-gradient(180deg, transparent, #000 15%, #000 85%, transparent); }
     .ws-veil-rail span { display:block; will-change:transform; animation:ws-veil-rise 14s linear infinite; }
     .ws-veil-rail-l { left:14px; }
-    .ws-veil-rail-r { right:14px; text-align:right; color:rgba(255,43,214,.24); }
+    .ws-veil-rail-r { right:14px; text-align:right; color:color-mix(in srgb, var(--vm) 24%, transparent); }
     .ws-veil-rail-r span { animation-duration:19s; animation-direction:reverse; }
     @keyframes ws-veil-rise { to { transform:translateY(-50%); } }
 
@@ -127,13 +127,13 @@ export const VEIL_CSS = `
     .ws-veil-core { position:relative; width:min(440px, 78cqw); padding:18px 22px 16px;
       display:flex; flex-direction:column; gap:10px;
       background:linear-gradient(180deg, rgba(8,4,20,.72), rgba(8,4,20,.55));
-      box-shadow:0 0 0 1px rgba(0,240,255,.12), 0 0 40px rgba(0,240,255,.08), inset 0 0 30px rgba(255,43,214,.06); }
+      box-shadow:0 0 0 1px color-mix(in srgb, var(--vc) 12%, transparent), 0 0 40px color-mix(in srgb, var(--vc) 8%, transparent), inset 0 0 30px color-mix(in srgb, var(--vm) 6%, transparent); }
     .ws-veil-core::before, .ws-veil-core::after { content:''; position:absolute; width:18px; height:18px; border:2px solid var(--vc);
-      filter:drop-shadow(0 0 4px rgba(0,240,255,.8)); }
+      filter:drop-shadow(0 0 4px color-mix(in srgb, var(--vc) 80%, transparent)); }
     .ws-veil-core::before { top:-3px; left:-3px; border-right:0; border-bottom:0; }
     .ws-veil-core::after { bottom:-3px; right:-3px; border-left:0; border-top:0; }
 
-    .ws-veil-tag { display:flex; justify-content:space-between; gap:12px; font-size:9px; letter-spacing:2px; color:rgba(0,240,255,.6); }
+    .ws-veil-tag { display:flex; justify-content:space-between; gap:12px; font-size:9px; letter-spacing:2px; color:color-mix(in srgb, var(--vc) 60%, transparent); }
     .ws-veil-tag span:last-child { color:var(--vy); }
     .ws-veil-blink { display:inline-block; width:6px; height:9px; margin-left:4px; vertical-align:-1px; background:var(--vy);
       animation:ws-veil-blink 1s steps(1) infinite; }
@@ -142,8 +142,8 @@ export const VEIL_CSS = `
     /* The wordmark, with a magenta and a cyan copy behind it that jump out of register now and then.
        Both are translated, never clipped, so the glitch is compositor work too. */
     .ws-veil-mark { position:relative; align-self:center; padding-left:.32em; font-weight:800; font-style:italic;
-      font-size:clamp(16px, 8cqw, 40px); line-height:1.1; letter-spacing:.32em; color:#eafcff;
-      text-shadow:0 0 10px rgba(0,240,255,.75), 0 0 28px rgba(0,240,255,.35); }
+      font-size:clamp(16px, 8cqw, 40px); line-height:1.1; letter-spacing:.32em; color:color-mix(in srgb, var(--vc) 12%, #fff);
+      text-shadow:0 0 10px color-mix(in srgb, var(--vc) 75%, transparent), 0 0 28px color-mix(in srgb, var(--vc) 35%, transparent); }
     .ws-veil-mark::before, .ws-veil-mark::after { content:attr(data-text); position:absolute; left:0; top:0; padding-left:.32em;
       opacity:.8; mix-blend-mode:screen; text-shadow:none; will-change:transform; }
     .ws-veil-mark::before { color:var(--vm); animation:ws-veil-glitch-a 3.1s steps(1) infinite; }
@@ -155,10 +155,10 @@ export const VEIL_CSS = `
 
     /* The sync bar: a cyan-to-magenta fill scaled from the left, cut into segments by the gaps laid
        over it, with a white shine running across it on the compositor. */
-    .ws-veil-bar { position:relative; height:12px; overflow:hidden; background:rgba(0,240,255,.07);
-      box-shadow:0 0 0 1px rgba(0,240,255,.35), 0 0 12px rgba(0,240,255,.15); }
+    .ws-veil-bar { position:relative; height:12px; overflow:hidden; background:color-mix(in srgb, var(--vc) 7%, transparent);
+      box-shadow:0 0 0 1px color-mix(in srgb, var(--vc) 35%, transparent), 0 0 12px color-mix(in srgb, var(--vc) 15%, transparent); }
     .ws-veil-fill { position:absolute; inset:0; transform-origin:0 50%; transform:scaleX(0);
-      background:linear-gradient(90deg, var(--vc), var(--vm)); box-shadow:0 0 12px rgba(255,43,214,.6);
+      background:linear-gradient(90deg, var(--vc), var(--vm)); box-shadow:0 0 12px color-mix(in srgb, var(--vm) 60%, transparent);
       transition:transform .35s ease-out; }
     .ws-veil-bar::after { content:''; position:absolute; inset:0;
       background:repeating-linear-gradient(90deg, transparent 0 9px, #08041a 9px 12px); }
@@ -174,7 +174,7 @@ export const VEIL_CSS = `
 
     /* A bright band rolling down the screen, then fixed scanlines and a vignette over everything. */
     .ws-veil-scan { position:absolute; left:0; right:0; top:0; height:18%; will-change:transform;
-      background:linear-gradient(180deg, rgba(0,240,255,0), rgba(0,240,255,.06) 80%, rgba(0,240,255,.14));
+      background:linear-gradient(180deg, color-mix(in srgb, var(--vc) 0%, transparent), color-mix(in srgb, var(--vc) 6%, transparent) 80%, color-mix(in srgb, var(--vc) 14%, transparent));
       animation:ws-veil-roll 3.8s linear infinite; }
     @keyframes ws-veil-roll { from { transform:translateY(-100%); } to { transform:translateY(560%); } }
     .ws-veil-lines { position:absolute; inset:0;

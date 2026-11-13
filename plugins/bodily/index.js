@@ -30,6 +30,7 @@ import { sendToPlayer, sendToZone, teachVerb } from '../../server/engine/messagi
 import { coolSweat, coolSewerGrime, markWashed, checkFilthy } from '../../server/engine/hygiene.js';
 import { adjustRelation } from '../../server/engine/relations.js';
 import { pick } from '../../server/engine/util.js';
+import { applyTopical } from '../../server/engine/topical.js';
 
 // What counts as a toilet. Historically this only checked object_type==='toilet'
 // or a flags.toilet key, but most toilet furniture in content is typed 'furniture'
@@ -92,8 +93,10 @@ const showerSessions = new Map(); // playerId -> { zoneId, timers } — the time
 // coping. `zoneId` is optional only so the regress suite can foul a bare id; a
 // real deposit always knows its room, and the nightly sweep needs it.
 export function foulToilet(id, mode, zoneId = null) {
-  const s = stateOf(id) || { zoneId, poop: 0, peed: false, residue: false };
+  const s = stateOf(id) || { zoneId, poop: 0, peed: false, residue: false, pees: 0 };
   if (zoneId) s.zoneId = zoneId;
+  // what the Room Stage draws as the water's level and colour (plumbingOf): every deposit adds to it
+  s.pees = (s.pees || 0) + 1;
   if (mode === 'poop') {
     s.poop += 1;
     // Nobody sits down and does only the one thing. A bowl somebody shat in has
@@ -163,6 +166,7 @@ on('player.logout', ({ id }) => {
   const session = toiletSessions.get(id);
   if (!session) return;
   toiletSessions.delete(id);
+  if (session.target?.kind === 'toilet') plumbingChanged(session.zoneId);
   for (const t of session.timers) clearTimeout(t);
   for (const it of session.droppedLegs || []) {
     query(`UPDATE player_inventory SET is_equipped=1, slot='legs', layer=$1 WHERE id=$2`, [it.layer, it.id]).catch(() => {});
@@ -177,6 +181,16 @@ on('player.logout', ({ id }) => endShower(id));
 // meters run 0..110 before an involuntary release, so this is simply "how badly
 // did you need that". A full bladder is a hard, high, splattering jet; an almost
 // empty one is a loose dribble that barely reaches.
+// BODILY NEEDS. Off (the default) means nobody ever HAS to go: no urges, no
+// involuntary farts, no accidents, and the fart gamble is never lost. The
+// verbs still work whenever you like, for roleplay, and play as a comfortable
+// middling load. On restores the full pressure simulation. No player toggle yet.
+export const BODILY_NEEDS = false;
+const ROLEPLAY_LOAD = 70;
+// The load the routines read: the real meter with needs on, never below a
+// comfortable middling load with them off, so a roleplay pee isn't a dribble.
+const loadOf = (v) => BODILY_NEEDS ? (Number(v) || 0) : Math.max(ROLEPLAY_LOAD, Number(v) || 0);
+
 const pressureOf = (v) => Math.max(0, Math.min(1, (Number(v) || 0) / 110));
 
 // ── Pressure simulation (was engine tickBodily, on gameLoop's minute tick) ───
@@ -237,6 +251,7 @@ async function involuntaryBladderRelease(player) {
 // as the old engine tick, which skipped them).
 async function tickBodily(player) {
   const messages = [];
+  if (!BODILY_NEEDS) return messages;
   let digestive  = player.digestive_load  || 0;
   let hydration  = player.hydration_load  || 0;
   let changed = false;
@@ -321,7 +336,7 @@ schedule('1m', async () => {
 // target: optional { type: 'toilet'|'ground'|'player'|'furniture', name, target: playerObj }
 
 async function relieveBladder(player, hasFacility, broadcast, target = null) {
-  if ((player.thirst || 0) === 0) {
+  if (BODILY_NEEDS && (player.thirst || 0) === 0) {
     return { ok: false, message: `You're too dehydrated. There's nothing to release.` };
   }
 
@@ -389,7 +404,7 @@ async function relieveBladder(player, hasFacility, broadcast, target = null) {
 }
 
 async function relieveBowels(player, hasFacility, broadcast, target = null) {
-  if ((player.hunger || 0) === 0 && !(player.statuses || []).some(s => s.name === 'food_poisoning')) {
+  if (BODILY_NEEDS && (player.hunger || 0) === 0 && !(player.statuses || []).some(s => s.name === 'food_poisoning')) {
     return { ok: false, message: `You haven't eaten enough to produce anything.` };
   }
 
@@ -485,7 +500,7 @@ function tickFart(player, session, chance) {
       : FART_LINES);
     sendToPlayer(player.id, { type: 'output', message: `<span class="text-dim">${f.self}</span>` });
     sendToZone(session.zoneId, { type: 'ambient', message: `<span class="msg-ambient">${f.zone}</span>` }, player.id);
-    emit('bodily.sfx', { zoneId: session.zoneId, playerId: player.id, cue: 'fart', intensity: pressureOf(player.digestive_load) });
+    emit('bodily.sfx', { zoneId: session.zoneId, playerId: player.id, cue: 'fart', intensity: pressureOf(loadOf(player.digestive_load)) });
     // And it HANGS. A fart isn't a stain — there's nothing on the floor — so it
     // goes in the air channel and fades on its own in about a minute. Anyone who
     // walks in during that window and types `smell` finds out.
@@ -539,7 +554,7 @@ const STREAM_SURFACE = { toilet: 'water', ground: 'concrete', furniture: 'soft',
 // routine one. (digestive_load only drops at the finish, so this reads once at
 // the start — which is exactly the "how full were you" signal we want.)
 function poopFartChance(player) {
-  const load = player.digestive_load || 0;
+  const load = loadOf(player.digestive_load);
   return 0.5 * (0.5 + Math.min(1, load / 90) * 0.8); // ~0.29 near-empty → ~0.65 very full
 }
 
@@ -552,9 +567,9 @@ async function startRelief(player, mode, target, broadcast) {
 
   // 1. Anything to release? Food poisoning always has something.
   const sickRun = isPoop && (player.statuses || []).some(s => s.name === 'food_poisoning');
-  if (isPoop && !sickRun && (player.hunger || 0) === 0)
+  if (BODILY_NEEDS && isPoop && !sickRun && (player.hunger || 0) === 0)
     return { type: 'error', message: `You haven't eaten enough to produce anything.` };
-  if (!isPoop && (player.thirst || 0) === 0)
+  if (BODILY_NEEDS && !isPoop && (player.thirst || 0) === 0)
     return { type: 'error', message: `You're too dehydrated. There's nothing to release.` };
   // 2. Already mid-business?
   if (toiletSessions.has(player.id))
@@ -612,7 +627,7 @@ async function startRelief(player, mode, target, broadcast) {
   // Snapshot the pressure at the start. The load is zeroed the moment relief
   // finishes, so reading it live would make the stream change character
   // mid-flow and the final dribble come out at zero intensity.
-  const pressure = pressureOf(mode === 'poop' ? player.digestive_load : player.hydration_load);
+  const pressure = pressureOf(loadOf(mode === 'poop' ? player.digestive_load : player.hydration_load));
   const session = { mode, target, zoneId: player.current_zone, seated, sitOn, droppedLegs, streamSurface, pressure, timers: [], broadcast };
   toiletSessions.set(player.id, session);
   // Squatting before a food-poisoning episode lands spends it on your terms.
@@ -622,7 +637,7 @@ async function startRelief(player, mode, target, broadcast) {
     // Duration scales with how full the bowel is: a full one (load ≥100) takes the
     // full 20–40s, a barely-full one tapers down toward an ~8s floor (poop stays a
     // commitment — never instant).
-    const scale = Math.min(1, (player.digestive_load || 0) / 100);
+    const scale = Math.min(1, loadOf(player.digestive_load) / 100);
     const duration = 8000 + Math.round(12000 * scale) + Math.floor(Math.random() * Math.round(20000 * scale));
     const fartChance = poopFartChance(player);
     session.timers.push(setTimeout(() => tickFart(player, session, fartChance), 4000));
@@ -632,13 +647,17 @@ async function startRelief(player, mode, target, broadcast) {
     // Duration scales with how full the bladder is: a full one (load ≥100) takes
     // the full 10s, a barely-full one tapers down toward a ~3.5s floor (never
     // instant — the onset + swell-in alone is ~1.2s).
-    const load = player.hydration_load || 0;
+    const load = loadOf(player.hydration_load);
     const duration = 3500 + Math.round(6500 * Math.min(1, load / 100));
     // Onset first (the pressure release / swell-in), then the steady stream once
     // the jet has found its footing (~1s in).
     session.timers.push(setTimeout(() => {
-      if (toiletSessions.has(player.id) && stillInPosition(player, session))
+      if (toiletSessions.has(player.id) && stillInPosition(player, session)) {
         emit('bodily.sfx', { zoneId: session.zoneId, playerId: player.id, cue: 'stream_start', surface: session.streamSurface, intensity: session.pressure });
+        // the Room Stage draws the stream from here until it ends (plumbingOf)
+        session.flowing = true;
+        if (target.kind === 'toilet') plumbingChanged(session.zoneId);
+      }
     }, 300));
     session.timers.push(setTimeout(() => tickStream(player, session), 1200));
     session.timers.push(setTimeout(() => tickFart(player, session, 0.12), Math.min(5000, duration * 0.5)));
@@ -676,6 +695,10 @@ function openingLine(mode, target, seated) {
 async function finishRelief(player, session) {
   toiletSessions.delete(player.id);
   for (const t of session.timers) clearTimeout(t);
+  try { return await finishReliefInner(player, session); }
+  finally { if (session.target?.kind === 'toilet') plumbingChanged(session.zoneId); }
+}
+async function finishReliefInner(player, session) {
   if (!stillInPosition(player, session)) return; // interrupted — nothing lands
 
   const { mode, target, broadcast } = session;
@@ -703,7 +726,7 @@ async function finishRelief(player, session) {
 
   // Sometimes cap a poop with a big fart + plop.
   if (isPoop && Math.random() < 0.55)
-    emit('bodily.sfx', { zoneId: session.zoneId, playerId: player.id, cue: 'finale', intensity: pressureOf(player.digestive_load) });
+    emit('bodily.sfx', { zoneId: session.zoneId, playerId: player.id, cue: 'finale', intensity: pressureOf(loadOf(player.digestive_load)) });
 
   // Cap a pee with a few isolated residual drips at irregular intervals (the
   // spec's "final drips" — the stream never just cuts off). Fire-and-forget:
@@ -882,8 +905,9 @@ async function cmdFlush(args, player) {
   // water is the one thing only a flush does.
   const wasDirty = rows.some(r => isFouled(r.id) || isPeed(r.id) || isResidue(r.id));
   const wasOverflowing = rows.some(r => isOverflowing(r.id));
-  for (const r of rows) clearToiletFilth(r.id);
+  for (const r of rows) { clearToiletFilth(r.id); flushedAt.set(r.id, Date.now()); }
   emit('bodily.sfx', { zoneId: player.current_zone, cue: 'flush' });
+  plumbingChanged(player.current_zone);
   return {
     type: 'output',
     message: wasOverflowing
@@ -936,6 +960,7 @@ async function cmdTakeFilth(args, player) {
   if (!ok) return { type: 'error', message: `You can't bring yourself to do it after all.` };
   // NOT a flush. You removed the mass; the water is exactly as foul as it was.
   scoopToilet(fouled.id);
+  plumbingChanged(player.current_zone);
 
   const { rows: gloves } = await query(
     `SELECT i.name FROM player_inventory pi JOIN items i ON i.id=pi.item_id
@@ -1080,58 +1105,134 @@ registerStatusEffect({ name: 'refreshed', label: 'Refreshed', onTick() {} });
 // stains bodily itself produces (clothing_contamination + bare-skin soiled_state)
 // as well as the dried fluid and blood — and leave you briefly Refreshed. Gated on
 // a shower fixture in the zone (object_type='shower' / flags.shower / named).
-const SHOWER_OPEN = `You twist the valve and step in. The water comes through hot and heavy, drumming across your shoulders, and steam climbs the glass until the room beyond it blurs to gold.`;
+const SHOWER_OPEN = `You twist the valve and step in. The water comes through hot and heavy, drumming across your shoulders, and steam climbs the glass until the room beyond it blurs.`;
 const SHOWER_MID = [
-  `You tip your head back and let it sheet over your face, through your hair, down the length of your spine. The day begins, grudgingly, to let go of you.`,
-  `Heat works its way into muscle you didn't know was clenched. Lather, steam, a long exhale: you lose track of where the water stops and you begin.`,
+  `You tip your head back and let it run over your face, through your hair, down your back. The day starts to come off you.`,
+  `The heat gets into your shoulders and they finally drop. Lather, steam, a long breath out.`,
 ];
-const SHOWER_DONE_DIRTY = `One last turn toward cold, then off. You step out wreathed in steam and pull a towel thick as a rug around yourself. Every trace of the day has gone down the drain: you feel entirely, luxuriously human again.`;
-const SHOWER_DONE_CLEAN = `One last turn toward cold, then off. Nothing needed scrubbing, but the heat alone was worth the water bill. You step out into the steam, towel down, and feel refreshed to the bone.`;
-const SHOWER_BROKEN = `You step out of the water half-rinsed, the ritual broken.`;
+const SHOWER_STILL_ON = ` <span class="text-dim">(The water's still running: <span class="action-link" data-action="shower off" data-target="">shower off</span> when you're done.)</span>`;
+const SHOWER_DONE_DIRTY = `Every trace of the day has gone down the drain. You feel human again.` + SHOWER_STILL_ON;
+const SHOWER_DONE_CLEAN = `Nothing needed scrubbing, but the heat alone was worth the water bill.` + SHOWER_STILL_ON;
+const SHOWER_BROKEN = `You step out of the water half-rinsed.`;
+const SHOWER_OFF = `You turn the water off and step out, dripping on the floor.`;
+const SHOWER_COLD = `The hot water runs out. It goes cold fast enough to make the decision for you, and you shut it off.`;
 
-// Forget a shower session and cancel its remaining beats. Keyed by player id so
-// the logout hook can call it without a live player object.
-function endShower(id) {
+// The running water, as a loop for everybody in the room. Its id is the fixture's, so two showers side by side in a
+// changing room are two voices and stopping one doesn't stop the other.
+const SHOWER_BEAT_MS = 5000, SHOWER_CLEAN_BEATS = 3, SHOWER_MAX_BEATS = 24;   // clean at 15 s, hot water out at 2 min
+const showerLoop = (fid) => ({
+  id: `sfx_shower_run_${fid}`, name: 'sfx_shower_run', category: 'sfx', priority: 2,
+  config: { gain: 0.55, layers: [
+    { noiseMix: 1, filter: { type: 'bandpass', freq: 2600, q: 0.6 }, adsr: { a: 0.4, d: 0.2, s: 0.9, r: 0.8 }, gain: 0.22 },
+    { noiseMix: 1, filter: { type: 'lowpass', freq: 700, q: 0.7 }, tremolo: { rate: 3.1, depth: 0.25 }, adsr: { a: 0.5, d: 0.2, s: 0.85, r: 0.9 }, gain: 0.16 },
+    { noiseMix: 1, filter: { type: 'highpass', freq: 6000, q: 0.5 }, tremolo: { rate: 11, depth: 0.4 }, adsr: { a: 0.3, d: 0.2, s: 0.8, r: 0.6 }, gain: 0.05 },
+  ] },
+});
+// furniture id -> { zoneId, by }: which showers are running. RAM only; a restart turns every tap off.
+const showerRunning = new Map();
+
+// Turn a player's shower off and forget the session. Keyed by player id so the logout hook can call it without a
+// live player object. `why` picks the line that goes with it, returned (and sent, unless `quiet`).
+function endShower(id, why = null, { quiet = false } = {}) {
   const s = showerSessions.get(id);
-  if (!s) return;
+  if (!s) return null;
   showerSessions.delete(id);
   for (const t of s.timers) clearTimeout(t);
+  clearInterval(s.iv);
+  showerRunning.delete(s.furnId);
+  sendToZone(s.zoneId, { type: 'audio_stop', scope: 'ambience', id: showerLoop(s.furnId).id });
+  plumbingChanged(s.zoneId);
+  const line = why === 'off' ? (s.cleaned ? SHOWER_OFF : SHOWER_BROKEN) : why === 'cold' ? SHOWER_COLD : why === 'left' ? (s.cleaned ? null : SHOWER_BROKEN) : null;
+  if (line && !quiet) sendToPlayer(id, { type: 'output', private: true, message: line });
+  return line;
 }
 
-// A staged beat only proceeds while THIS session is still live and the player is
-// still standing under the water; stepping away (or disconnecting) aborts the rest
-// of the ritual with no clean and no Refreshed.
-function showerStage(player, session, fn) {
-  return () => {
-    if (showerSessions.get(player.id) !== session) return; // cancelled / superseded
-    if (player.current_zone !== session.zoneId || player.offline_sleeping) {
-      endShower(player.id);
-      sendToPlayer(player.id, { type:'output', private:true, message: SHOWER_BROKEN });
-      return;
-    }
-    fn();
-  };
+// Each beat under the water: it soaks you (the topical substrate's wetting pass, so clothes left on get wet too),
+// the ritual's lines go by, and after SHOWER_CLEAN_BEATS you're clean. The water runs until you turn it off, walk
+// off, or the hot water runs out.
+function showerBeat(player, session) {
+  if (showerSessions.get(player.id) !== session) return;
+  if (player.current_zone !== session.zoneId || player.offline_sleeping) { endShower(player.id, 'left'); return; }
+  session.beats++;
+  applyTopical(player, { fluid: 'water', potency: 0.45, source: 'The shower' }).catch(logErr);
+  if (session.beats <= SHOWER_MID.length) sendToPlayer(player.id, { type: 'output', private: true, message: SHOWER_MID[session.beats - 1] });
+  if (session.beats === SHOWER_CLEAN_BEATS) finishShower(player, session).catch(logErr);
+  if (session.beats >= SHOWER_MAX_BEATS) endShower(player.id, 'cold');
 }
 
-async function cmdShower(player) {
-  if (!getZoneFurniture(player.current_zone).some(isShower)) return { type:'error', message:`There's no shower here.` };
+async function cmdShower(player, args = []) {
+  const word = String(args[0] || '').toLowerCase();
+  const here = getZoneFurniture(player.current_zone).filter(isShower);
+  if (word === 'off' || word === 'stop') {
+    if (showerSessions.has(player.id)) return { type: 'output', private: true, message: endShower(player.id, 'off', { quiet: true }) };
+    // somebody else's: you can reach in and shut it off on them
+    const theirs = here.map((f) => showerRunning.get(f.id)).find(Boolean);
+    if (!theirs) return { type: 'error', message: here.length ? `The shower isn't on.` : `There's no shower here.` };
+    endShower(theirs.by);
+    sendToPlayer(theirs.by, { type: 'output', private: true, message: `${player.handle} reaches in and turns your water off.` });
+    return { type: 'output', message: `You reach in and turn the water off on them.` };
+  }
+  if (!here.length) return { type:'error', message:`There's no shower here.` };
   if (showerSessions.has(player.id)) return { type:'error', message:`You're already under the water.` };
+  const f = here.find((x) => !showerRunning.has(x.id));
+  if (!f) return { type: 'error', message: `Somebody's already in it.` };
 
-  const session = { zoneId: player.current_zone, timers: [] };
+  const session = { zoneId: player.current_zone, furnId: f.id, timers: [], beats: 0, cleaned: false, iv: null };
   showerSessions.set(player.id, session);
+  showerRunning.set(f.id, { zoneId: session.zoneId, by: player.id });
+  sendToZone(session.zoneId, { type: 'audio_ambience', def: showerLoop(f.id) });
   emit('bodily.sfx', { zoneId: player.current_zone, playerId: player.id, cue: 'shower' });
-
-  const step = (delay, fn) => session.timers.push(setTimeout(showerStage(player, session, fn), delay));
-  step(5000,  () => sendToPlayer(player.id, { type:'output', private:true, message: SHOWER_MID[0] }));
-  step(10000, () => sendToPlayer(player.id, { type:'output', private:true, message: SHOWER_MID[1] }));
-  step(15000, () => finishShower(player, session).catch(logErr));
-
+  plumbingChanged(session.zoneId);
+  session.iv = setInterval(() => showerBeat(player, session), SHOWER_BEAT_MS);
+  applyTopical(player, { fluid: 'water', potency: 0.45, source: 'The shower' }).catch(logErr);
+  sendToZone(session.zoneId, { type: 'zone_event', message: `${player.handle} turns the shower on.` }, player.id);
   return { type:'output', private:true, message: SHOWER_OPEN };
 }
 
+// Somebody came into a room with a shower running, or left one: start or stop its water for them.
+on('zone.entered', ({ actor, zone, from }) => {
+  if (!actor?.id) return;
+  for (const [fid, r] of showerRunning) {
+    if (r.zoneId === zone) sendToPlayer(actor.id, { type: 'audio_ambience', def: showerLoop(fid) });
+    else if (r.zoneId === from) sendToPlayer(actor.id, { type: 'audio_stop', scope: 'ambience', id: showerLoop(fid).id });
+  }
+  // and walking out from under your own water turns it off
+  const mine = showerSessions.get(actor.id);
+  if (mine && mine.zoneId !== zone) endShower(actor.id, 'left');
+});
+
+// ── What ROOM draws (plugins/roomstage `room.plumbing`) ──────────────────────
+// Per furniture id in a zone: a shower that's running, and a toilet's water (how high and how yellow, anything
+// solid in it), a stream going into it, and when it was last flushed. RAM only, from the maps above.
+const flushedAt = new Map();
+const FLUSH_SHOWN_MS = 4000;
+export function plumbingOf(zoneId) {
+  const out = {};
+  for (const f of getZoneFurniture(zoneId)) {
+    if (isShower(f) && showerRunning.has(f.id)) out[f.id] = { shower: true, by: showerRunning.get(f.id).by };
+    if (!isToilet(f)) continue;
+    const st = stateOf(f.id), fl = flushedAt.get(f.id);
+    if (fl && Date.now() - fl > FLUSH_SHOWN_MS) flushedAt.delete(f.id);
+    const o = {};
+    if (st) {
+      const n = (st.pees || 0) + (st.poop || 0);
+      o.level = Math.min(1, n / TOILET_CAPACITY);
+      o.tint = st.peed ? Math.min(1, 0.35 + 0.15 * (st.pees || 0)) : 0;
+      if (st.poop) o.poop = st.poop;
+    }
+    if (flushedAt.has(f.id)) o.flushed = flushedAt.get(f.id);
+    for (const [pid, se] of toiletSessions) {
+      if (se.flowing && se.target?.kind === 'toilet' && se.target.furniture?.id === f.id) o.stream = { by: pid, seated: !!se.seated, strength: se.pressure };
+    }
+    if (Object.keys(o).length) out[f.id] = o;
+  }
+  return out;
+}
+function plumbingChanged(zoneId) { if (zoneId) emit('room.plumbingChanged', { zoneId }); }
+
 // The pay-off, applied only if the player stayed under the water the whole ritual.
 async function finishShower(player, session) {
-  endShower(player.id);
+  session.cleaned = true;
 
   let cleaned = false;
 
@@ -1171,6 +1272,7 @@ async function finishShower(player, session) {
 // An unflushed toilet reads that way on a look, until someone flushes it.
 export const hooks = {
   // What the Room Stage's card offers. A shower and a toilet are matched by name too, so no flag gates these.
+  'room.plumbing': (zoneId) => plumbingOf(zoneId),
   'furniture.acts': (f) => (isShower(f) ? [{ verb: 'shower', bare: true }] : isToilet(f) ? [{ verb: 'pee' }, { verb: 'poop' }, { verb: 'flush' }] : undefined),
   // An unflushed toilet has no floor stain — the mess is in the bowl — so
   // nothing else would ever report it. It's also the single most useful thing
@@ -1446,12 +1548,12 @@ async function cmdFart(args, player, broadcast) {
     return { type: 'error', message: `You've nothing left in the tank. Give it ${mins} minute${mins === 1 ? '' : 's'}.` };
   }
 
-  const pressure = pressureOf(player.digestive_load);
+  const pressure = pressureOf(loadOf(player.digestive_load));
   lastFart.set(player.id, now);
 
   // THE GAMBLE. On a gut this full the muscle you are relying on is already
   // failing, and it does not always distinguish between the two jobs.
-  const risk = fartRisk(pressure);
+  const risk = BODILY_NEEDS ? fartRisk(pressure) : 0;
   if (risk > 0 && Math.random() < risk) {
     // Reuse the overflow path wholesale — same staining, same public shame, same
     // zeroed meter. A deliberate accident and an involuntary one are the same
@@ -1555,7 +1657,7 @@ export const commands = {
   defecate: (args, raw, player, broadcast) => cmdPoop(args, player, broadcast),
   shit:     (args, raw, player, broadcast) => cmdPoop(args, player, broadcast),
   flush:    (args, raw, player)            => cmdFlush(args, player),
-  shower:   (args, raw, player)            => cmdShower(player),
+  shower:   (args, raw, player)            => cmdShower(player, args),
 };
 
 const TOILET_PEE_MSGS = [

@@ -1,10 +1,21 @@
 {
-  "description": "A round table in smoked oak for six, with a bowl of lemons as a centrepiece. Two of the chairs have been sat in. The other four have their cushions plumped.",
+  "description": "A racetrack card table for six in walnut and green baize, with a padded oxblood rail and a brass line let into the wood, on two carved pedestals. A deck sits squared at one end, red backs up, beside a box of chips.",
   "flags": {
-    "aliases": "table",
+    "aliases": "table,poker table,card table,dining table",
+    "game_table_id": "gametable_solenne_30b",
+    "interactions": [
+      "examine"
+    ],
     "look": {
       "arche": "table",
-      "form": "dining"
+      "form": "poker"
+    },
+    "spot": {
+      "at": [
+        -0.6,
+        4.2
+      ],
+      "turn": 0
     }
   },
   "hp": null,
@@ -12,9 +23,9 @@
   "id": "furn_solenne_apt_b_dining",
   "light_type": null,
   "lumen_output": null,
-  "name": "dining table",
+  "name": "card table",
   "object_type": "furniture",
   "power_draw_kw": null,
-  "price": 0,
+  "price": 6400,
   "zone_id": "zone_solenne_apt_b"
 }

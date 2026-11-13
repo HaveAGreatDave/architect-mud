@@ -177,6 +177,9 @@ uniform vec3 uLmL;      // the ship's own light: shade-side floor, sun share, wr
 uniform vec3 uMarkL; uniform vec3 uMarkL2; uniform vec4 uMarkP;
 uniform vec3 uMarkHor; uniform vec3 uMarkTop; uniform vec3 uMarkG;
 uniform vec2 uMarkN;      // the share of a mark's ambient the night leaves it, and its lamp pool's gain
+// The street kit's wet look (RENDER_TUNE.kitWet): the map window's centre in world tiles, so a puddle
+// stays on its bit of lane as the window recentres, and the gain (0 is the kit as it was).
+uniform vec4 uMarkW;
 // The city's own lights, the same list the mass shader takes (world.js pickLights), and the night
 // outside them. Off (0 lights, dim 1) on every draw that does not hand them over.
 uniform int uWLN;
@@ -717,6 +720,31 @@ void main() {
       }
       float nb = night * 0.32;
       c = clamp(c * k * (1.0 - nb) + vec3(30.0, 38.0, 58.0) / 255.0 * nb + spec, 0.0, 1.0);
+      // ── THE STREET KIT IN THE RAIN (uMarkW.z) ──
+      // Chrome mirrors the sky, more so wet; standing water collects on the low faces (the lane) in a
+      // world-fixed field and mirrors the sky with a hard sun glint. Up-facing faces only.
+      if (uMarkW.z > 0.0 && vTex != -4 && n.z > 0.8) {
+        float wet = uMarkP.y, nv = max(0.0, dot(n, v));
+        vec3 R = reflect(-v, n);
+        vec3 env = mix(uMarkHor, uMarkTop, clamp(R.z * 1.6, 0.0, 1.0)) * (1.0 - 0.75 * night);
+        float fres = pow(1.0 - nv, 4.0);
+        if (vTex == -3) {
+          float mx = max(max(c.r, c.g), max(c.b, 1.0 / 255.0));
+          float r = clamp((0.30 + 0.45 * fres) * (1.0 + 0.9 * wet) * uMarkW.z, 0.0, 0.88);
+          c = mix(c, env * (0.55 + 0.45 * c / mx), r);
+          c += pow(max(0.0, dot(R, uMarkL)), 60.0 + 200.0 * wet) * (0.5 + 0.9 * wet) * uMarkP.z;
+        }
+        if (wet > 0.02 && vPos.z < 0.006) {
+          vec2 pw = (vPos.xy + uMarkW.xy) * 4.0;
+          float f = vnoise(pw) * 0.62 + vnoise(pw * 2.7 + 17.0) * 0.38;
+          float level = mix(0.80, 0.42, wet), band = max(0.03, fwidth(f) * 1.5);
+          float pud = smoothstep(level, level + band, f) * min(1.0, uMarkW.z);
+          float wr = clamp(0.10 + 0.85 * fres, 0.0, 0.9);
+          vec3 water = mix(c * 0.45, env, wr) + pow(max(0.0, dot(R, uMarkL)), 300.0) * 1.2 * uMarkP.z;
+          c = mix(c * (1.0 - 0.25 * wet), water, pud);
+        }
+        c = clamp(c, vec3(0.0), vec3(1.0));
+      }
     } else if (vTex >= -6) {
       float wet = vTex == -6 ? 0.0 : uMarkP.y;
       float nvd = dot(n, v), nv = max(0.0, nvd), nl = max(0.0, dot(n, uMarkL2));
@@ -1136,6 +1164,7 @@ export function createSolidsLayer(gl, opt = {}) {
     markL: gl.getUniformLocation(prog, 'uMarkL'), markL2: gl.getUniformLocation(prog, 'uMarkL2'), markP: gl.getUniformLocation(prog, 'uMarkP'),
     markHor: gl.getUniformLocation(prog, 'uMarkHor'), markTop: gl.getUniformLocation(prog, 'uMarkTop'), markG: gl.getUniformLocation(prog, 'uMarkG'),
     markN: gl.getUniformLocation(prog, 'uMarkN'),
+    markW: gl.getUniformLocation(prog, 'uMarkW'),
   };
   const wlP = new Float32Array(36), wlC = new Float32Array(36), wlR = new Float32Array(12);
 
@@ -1597,9 +1626,10 @@ export function createSolidsLayer(gl, opt = {}) {
       gl.uniform3f(loc.markL, M.L[0], M.L[1], M.L[2]); gl.uniform3f(loc.markL2, M.L2[0], M.L2[1], M.L2[2]);
       gl.uniform4f(loc.markP, M.p[0], M.p[1], M.p[2], M.p[3]);
       gl.uniform2f(loc.markN, M.n[0], M.n[1]);
+      gl.uniform4f(loc.markW, M.w ? M.w[0] : 0, M.w ? M.w[1] : 0, M.w ? M.w[2] : 0, 0);
       gl.uniform3f(loc.markHor, M.hor[0], M.hor[1], M.hor[2]); gl.uniform3f(loc.markTop, M.top[0], M.top[1], M.top[2]); gl.uniform3f(loc.markG, M.g1[0], M.g1[1], M.g1[2]);
     } else {
-      gl.uniform3f(loc.markL, 0, 0, 1); gl.uniform3f(loc.markL2, 0, 0, 1); gl.uniform4f(loc.markP, 0, 0, 0, 0); gl.uniform2f(loc.markN, 1, 0);
+      gl.uniform3f(loc.markL, 0, 0, 1); gl.uniform3f(loc.markL2, 0, 0, 1); gl.uniform4f(loc.markP, 0, 0, 0, 0); gl.uniform2f(loc.markN, 1, 0); gl.uniform4f(loc.markW, 0, 0, 0, 0);
       gl.uniform3f(loc.markHor, 0, 0, 0); gl.uniform3f(loc.markTop, 0, 0, 0); gl.uniform3f(loc.markG, 0, 0, 0);
     }
     gl.uniform1f(loc.waterZ, opts.water != null ? opts.water : -1e9);

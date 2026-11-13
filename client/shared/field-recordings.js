@@ -70,6 +70,132 @@ export const FIELD = {
   "loop": [ 0.3, 14.3 ],
   "lufs": -21.4
  },
+ "wind_breeze": {
+  "id": "smp_field_wind_breeze",
+  "kind": "bed",
+  "dur": 20.558,
+  "loop": [ 0.3, 20.3 ],
+  "lufs": -36.5
+ },
+ "leaves": {
+  "id": "smp_field_leaves",
+  "kind": "bed",
+  "dur": 20.558,
+  "loop": [ 0.3, 20.3 ],
+  "lufs": -25.9
+ },
+ "wind_gusty": {
+  "id": "smp_field_wind_gusty",
+  "kind": "bed",
+  "dur": 24.555,
+  "loop": [ 0.3, 24.3 ],
+  "lufs": -27.8
+ },
+ "wind_strong": {
+  "id": "smp_field_wind_strong",
+  "kind": "bed",
+  "dur": 24.555,
+  "loop": [ 0.3, 24.3 ],
+  "lufs": -25.8
+ },
+ "wind_gale": {
+  "id": "smp_field_wind_gale",
+  "kind": "bed",
+  "dur": 24.555,
+  "loop": [ 0.3, 24.3 ],
+  "lufs": -19.2
+ },
+ "gusts": {
+  "id": "smp_field_gusts",
+  "kind": "calls",
+  "dur": 8.699,
+  "slices": [
+   [ 0.3, 1.97,
+    -19.9 ],
+   [ 2.52, 0.8,
+    -19.4 ],
+   [ 3.57, 0.8,
+    -19.5 ],
+   [ 4.62, 3.81,
+    -15.8 ] ]
+ },
+ "rain_drizzle": {
+  "id": "smp_field_rain_drizzle",
+  "kind": "bed",
+  "dur": 20.558,
+  "loop": [ 0.3, 20.3 ],
+  "lufs": -27.7
+ },
+ "rain_street": {
+  "id": "smp_field_rain_street",
+  "kind": "bed",
+  "dur": 20.558,
+  "loop": [ 0.3, 20.3 ],
+  "lufs": -23.8
+ },
+ "rain_awning": {
+  "id": "smp_field_rain_awning",
+  "kind": "bed",
+  "dur": 18.573,
+  "loop": [ 0.3, 18.3 ],
+  "lufs": -22.3
+ },
+ "rain_yards": {
+  "id": "smp_field_rain_yards",
+  "kind": "bed",
+  "dur": 22.57,
+  "loop": [ 0.3, 22.3 ],
+  "lufs": -22.7
+ },
+ "rain_windy": {
+  "id": "smp_field_rain_windy",
+  "kind": "bed",
+  "dur": 24.555,
+  "loop": [ 0.3, 24.3 ],
+  "lufs": -21.3
+ },
+ "wet_traffic": {
+  "id": "smp_field_wet_traffic",
+  "kind": "bed",
+  "dur": 24.555,
+  "loop": [ 0.3, 24.3 ],
+  "lufs": -27.3
+ },
+ "street_quiet": {
+  "id": "smp_field_street_quiet",
+  "kind": "bed",
+  "dur": 24.555,
+  "loop": [ 0.3, 24.3 ],
+  "lufs": -31
+ },
+ "street_people": {
+  "id": "smp_field_street_people",
+  "kind": "bed",
+  "dur": 24.555,
+  "loop": [ 0.3, 24.3 ],
+  "lufs": -26.6
+ },
+ "city_day": {
+  "id": "smp_field_city_day",
+  "kind": "bed",
+  "dur": 26.567,
+  "loop": [ 0.3, 26.3 ],
+  "lufs": -26
+ },
+ "city_night": {
+  "id": "smp_field_city_night",
+  "kind": "bed",
+  "dur": 26.567,
+  "loop": [ 0.3, 26.3 ],
+  "lufs": -27.8
+ },
+ "city_roof": {
+  "id": "smp_field_city_roof",
+  "kind": "bed",
+  "dur": 26.567,
+  "loop": [ 0.3, 26.3 ],
+  "lufs": -28.1
+ },
  "surf_beach": {
   "id": "smp_field_surf_beach",
   "kind": "bed",

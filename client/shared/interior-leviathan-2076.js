@@ -52,6 +52,7 @@
 // `live.powerAge` (absent means long booted), and a warning's light lines breathe.
 //
 // Pure apart from that easing: no camera, no DOM. `live` arrives as an argument.
+import { nightAt } from './sky-keys.js';
 import { brandTrim } from './interior-brands.js';
 import { makeKit, C, clamp, lerp, SHINY, TEXTURE } from './interior-kit.js';
 import { contactShadow, hotspotHalo, panelGps, gpsHotspot, lensLamp, facingPanel, eased, pressPulse, HALO,
@@ -412,7 +413,7 @@ const readings = (live) => {
   R.baulk = R.visor > 0.02;
   return R;
 };
-const night = (R) => R.hour < 6.5 || R.hour > 19.5;
+const night = (R) => nightAt(R.hour);
 const panelOn = (R) => R.powered && (R.L.panelLight != null ? !!R.L.panelLight : night(R));
 
 // ── WHERE THE CONTROLS ARE ───────────────────────────────────────────────────

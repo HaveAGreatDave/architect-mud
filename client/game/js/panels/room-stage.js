@@ -25,12 +25,15 @@
 // and the seat ladder (seat-ladder.js) takes the log, the command box or the whole page away. The
 // log is folded by default, so what the server answers a line with comes up on the card (`roomSays`).
 
+import { lightAt } from '../../../shared/sky-keys.js';
+import { FT_M } from '../../../shared/world-scale.js';
 import { sendCmd, sendCmdSilent, sendRaw } from '../net.js';
 import { createHands } from './stands-hands.js';
 import { closeDialogue } from './dialogue.js';
 import { loadCss } from '../../../shared/dom.js';
 import { LIFT_STOREY } from '../../../shared/building-graph.js';
-import { roomLayout, inAnnex, onBalcony, pathAt, pathLength, roomYaw, seatsClash, openingCrossed, openingInside, roomFree, roomSees, WALL_T, facing, FT_PER_M } from '../../../shared/room-layout.js';
+import { cachetInner } from '../../../shared/room-layout.js';
+import { roomLayout, inAnnex, onBalcony, pathAt, pathLength, roomYaw, seatsClash, openingCrossed, openingInside, roomFree, roomSees, WALL_T, facing, FT_PER_M, pieceBoxes } from '../../../shared/room-layout.js';
 import { pieceActs } from '../../../shared/room-acts.js';
 import { createRoomWalk } from './room-walk.js';
 import { createOutlook, warmOutlook } from './room-outlook.js';
@@ -39,20 +42,48 @@ import { makeContactTrack } from './world-feed.js';
 import { createRoomSound } from './room-sound.js';
 import { createRoomOutdoors } from './room-outdoors.js';
 import { takeDoor, keepStill, stillFor, takeCarry } from './lobby-still.js';
-import { createWallTv } from './room-tv.js';
+import { createWallTv, paintBoot, BOOT_S } from './room-tv.js';
 import { createRoomLocks } from './room-lock.js';
+import { createRoomEnvctl } from './room-envctl.js';
+import { setScreenHour } from './gl/room-screens.js';
 import { createRoomLift } from './room-lift.js';
+import { createMorphex } from './room-morphex.js';
+import { aimWall, tagDecals, tagQuad, bakeRoomTag, tagVariant } from './room-tags.js';
+import { setSprayStage, clearSprayStage } from './spray-aim.js';
+import { playerFigure, lookOfPlayer } from '../../../shared/player-figure.js';
+// A person's settled look: an NPC's `figure`, or a player's from their MORPHEX columns (`look`), one object per look
+// so the figure's key stays put between sends
+const figs = new Map();
+function figOf(p) {
+  if (p.figure || !p.look) return p.figure;
+  const k = JSON.stringify(p.look);
+  let f = figs.get(k);
+  if (!f) { if (figs.size > 64) figs.clear(); f = playerFigure(p.look); figs.set(k, f); }
+  return f;
+}
 import { coverWithVeil } from './glass-veil.js';
 import { STRIDE } from './gl/ballpark-mesh.js';
 import { seatLadderHTML, bindSeatLadder, releaseSeatLadder, keepSeatRung } from './seat-ladder.js';
 import { createRoomRenderer } from './gl/room.js';
-import { buildRoom, withShells, roomKitchenKit, spinBatch, liftDoorBatch, paintRoomTexture, paintView, paintScreen, ROOM_RUG } from './gl/room-mesh.js';
+import { assembleBatch } from './gl/room-mesh.js';
+import { buildRoom, withShells, roomKitchenKit, spinBatch, swingBatch, liftDoorBatch, paintRoomTexture, paintView, paintScreen, ROOM_RUG } from './gl/room-mesh.js';
 import { figurePeople, dressOf, clipOnce, actClip, clipHold, clipDur } from './gl/room-people.js';
 import { mealProps } from './gl/room-meals.js';
+import { plumbingProps, plumbingLive } from './gl/room-plumbing.js';
+import { beastsBatch, hasCats, onlyCats, catSettle, catsVersion } from './gl/room-beasts.js';
+import { createRoomHoist } from './room-hoist.js';
 import { stashProps } from './gl/room-stash.js';
+import { createShutters, shutterFrame } from './gl/room-shutters.js';
+import { heldProps } from './gl/room-held.js';
+import { pokerProps, pokerLive, pokerMineAt, pokerAnchors } from './gl/room-poker.js';
+import { handOf, drawsOf, inHand, SUIT_GLYPH } from '../../../shared/poker-hand.js';
 import { stashAt } from '../../../shared/table-stash.js';
 import { mouthTrack, textTrack, mouthAt } from '../../../shared/lip-sync.js';
 import { actOfLine, speakerOf } from '../../../shared/npc-acts.js';
+
+// the pane strip the live window view builds (lookOut): the margin each side, as a fraction of the width, for pitch
+// and a tall building leaning in from off the strip
+const CULL_PAD = 0.08;
 
 const CSS = await loadCss(new URL('./room-stage.css', import.meta.url));
 function ensureStyles() {
@@ -60,12 +91,20 @@ function ensureStyles() {
   const s = document.createElement('style');
   s.id = 'room-stage-css'; s.textContent = CSS;
   document.head.appendChild(s);
+  // the HUD's lettering (the cyber skin in room-stage.css), off the game's own font folder
+  if (typeof FontFace === 'function' && document.fonts) {
+    for (const [fam, file] of [['RS Orbitron', 'orbitron.woff2'], ['RS Audiowide', 'audiowide.woff2']]) {
+      const f = new FontFace(fam, `url(${new URL(`../../../shared/fonts/${file}`, import.meta.url)})`, { display: 'swap' });
+      document.fonts.add(f); f.load().catch(() => {});
+    }
+  }
 }
 const esc = (s) => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 
 // how far a pixel of drag turns the head, radians
 const TURN = 0.0045;
 const SPIN_MS = 3000;   // a Cachet's turntable, half a turn
+const ASSEMBLE_MS = 8500;   // a Cachet in a false wall: the bar turning away and the lab coming up out of its recess
 const hashOf = (s) => { let h = 2166136261; for (const ch of String(s)) h = Math.imul(h ^ ch.charCodeAt(0), 16777619); return h >>> 0; };
 
 let ui = null;
@@ -113,18 +152,72 @@ const BAKE_BYTES = matchMedia('(pointer: coarse)').matches ? 48e6 : 192e6;
 const baked = new Map();
 let bakedBytes = 0;
 const roomKey = (spec, pieces) => JSON.stringify([spec, pieces]);
-const bakeKey = (room, o) => room + '|' + JSON.stringify([o.seed, !!o.lampOn, !!o.doorShut, o.turning ?? null, [...(o.joined || [])].sort(), !!o.shell]);
+const bakeKey = (room, o) => room + '|' + JSON.stringify([o.seed, !!o.lampOn, !!o.doorShut, o.turning ?? null, o.swinging ?? null,[...(o.joined || [])].sort(), !!o.shell]);
 const meshBytes = (m) => { let n = 0; for (const b of [m.solid, m.glass, m.screen, m.view, ...m.textured.values()]) n += b?.data?.byteLength || 0; return n; };
 function bakedMesh(room, L, opts) {
   const key = bakeKey(room, opts);
   let e = baked.get(key);
   if (e) { baked.delete(key); baked.set(key, e); return e.mesh; }
-  e = { mesh: buildRoom(L, opts) };
-  for (const b of [e.mesh.solid, e.mesh.glass, e.mesh.screen, e.mesh.view, ...e.mesh.textured.values()]) if (b?.data && b.data.length > b.n * STRIDE) b.data = b.data.slice(0, b.n * STRIDE);
-  e.bytes = meshBytes(e.mesh);
+  return keepMesh(key, buildRoom(L, opts));
+}
+function keepMesh(key, mesh) {
+  const e = { mesh };
+  for (const b of [mesh.solid, mesh.glass, mesh.screen, mesh.view, ...mesh.textured.values()]) if (b?.data && b.data.length > b.n * STRIDE) b.data = b.data.slice(0, b.n * STRIDE);
+  e.bytes = meshBytes(mesh);
   baked.set(key, e); bakedBytes += e.bytes;
   for (const [k, old] of baked) { if (bakedBytes <= BAKE_BYTES || k === key) break; baked.delete(k); bakedBytes -= old.bytes; }
-  return e.mesh;
+  return mesh;
+}
+// ⚠ BAKED AHEAD OFF THE MAIN THREAD (room-mesh-worker.js). A room baked ahead was 40 to 240 ms of one frame, run every
+// 60 ms as you walked into a room: the stutter after every doorway. The worker builds it and the reply goes into the
+// same cache, so the crossing finds it as before. A room asked for before its reply is built here, as a miss always
+// was, and the late reply is dropped. Null when there's no worker, and the caller builds it here.
+// ⚠ MESH_FIELDS IS EVERYTHING THE STAGE READS OFF A MESH; the rest of buildRoom's return can't be posted.
+const MESH_FIELDS = ['solid', 'glass', 'screen', 'textured', 'view', 'mats', 'screens', 'lamps', 'windows', 'spin', 'slideDoors', 'liftDoors', 'dials'];
+let meshWorker = null, meshAsked = 0;
+const meshWaits = new Map(), meshPending = new Map();
+function bakeOffThread(spec, pieces, opts) {
+  const key = bakeKey(roomKey(spec, pieces), opts);
+  const have = baked.get(key);
+  if (have) return Promise.resolve(have.mesh);
+  if (meshPending.has(key)) return meshPending.get(key);
+  if (!meshWorkerUp()) return null;
+  const id = ++meshAsked;
+  const p = new Promise((done) => meshWaits.set(id, (mesh, error) => {
+    meshPending.delete(key);
+    if (error && error !== 'worker') console.warn('[room] baking off the thread:', error);
+    done(mesh ? (baked.get(key)?.mesh || keepMesh(key, mesh)) : null);
+  }));
+  meshPending.set(key, p);
+  meshWorker.postMessage({ id, spec, pieces, opts, fields: MESH_FIELDS });
+  return p;
+}
+function meshWorkerUp() {
+  if (meshWorker === false) return false;
+  if (meshWorker) return true;
+  try {
+    meshWorker = new Worker(new URL('./room-mesh-worker.js', import.meta.url), { type: 'module' });
+    meshWorker.onmessage = ({ data: { id, mesh, bitmap, error } }) => { const w = meshWaits.get(id); if (w) { meshWaits.delete(id); w(error ? null : mesh || bitmap, error); } };
+    // a worker that won't load: everything waiting is built here, and nothing is sent to it for a minute. Then it's
+    // tried again: a server restarting under --watch refuses the worker's fetch for a few seconds, and giving up for
+    // good left every room after it baked on the main thread until a reload
+    meshWorker.onerror = (e) => { console.warn('[room] mesh worker:', e.message || e); meshWorker.terminate(); meshWorker = false; setTimeout(() => { if (meshWorker === false) meshWorker = null; }, 60000); for (const w of meshWaits.values()) w(null, 'worker'); meshWaits.clear(); };
+    return true;
+  } catch { meshWorker = false; return false; }
+}
+// ⚠ A MATERIAL BAKED AHEAD IS PAINTED IN THE SAME WORKER (room-mesh-worker.js), as an ImageBitmap for the renderer to
+// upload. Painted here it was 5 to 35 ms of one frame, run every 60 ms whether or not you were turning: the hitches
+// while you looked round a room you'd just walked into. A sign is still painted here, since its lettering may be in
+// a font the page loaded and a worker hasn't. Null when there's no worker, or for a sign; the bitmap or null after.
+function paintOffThread(key, seed) {
+  if (key.startsWith('roomSign|') || typeof OffscreenCanvas !== 'function' || !meshWorkerUp()) return null;
+  const id = ++meshAsked;
+  const p = new Promise((done) => meshWaits.set(id, (bitmap, error) => {
+    if (error && error !== 'worker') console.warn('[room] painting off the thread:', error);
+    done(bitmap || null);
+  }));
+  meshWorker.postMessage({ id, texture: key, seed });
+  return p;
 }
 // a mesh of its own to add the shells to, the kept one left as it was built
 const meshCopy = (m) => { const cp = (b) => ({ ...b, data: b.data.slice() }); return { ...m, solid: cp(m.solid), glass: cp(m.glass), screen: cp(m.screen), textured: new Map([...m.textured].map(([k, b]) => [k, cp(b)])) }; };
@@ -152,10 +245,9 @@ function openStage(msg) {
   root.innerHTML = `<div class="rs-bar">
       <span class="rs-where"><b>${esc(msg.name)}</b>${msg.mine ? '' : ' · visiting'}</span>
       <span class="rs-tvbar" hidden>
-        <button type="button" class="rs-tv-off" title="Stop watching">Off</button>
       </span>
       <span class="rs-ladder">${seatLadderHTML('rs-chip')}</span>
-      <button type="button" class="rs-leave" title="Back to the room text (Esc)">▣ Close</button>
+      <button type="button" class="rs-leave" title="Back to the room text">▣ Close</button>
     </div>
     <div class="rs-host"><canvas class="rs-canvas"></canvas><div class="rs-tags"></div>
       <div class="rs-hover" hidden></div><div class="rs-flash"></div>
@@ -175,7 +267,9 @@ function openStage(msg) {
         <span class="rs-fire-lbl rs-light-lbl">100%</span>
       </div>
       <button type="button" class="rs-tablet" title="Open your tablet (T)" aria-label="Open your tablet"><svg class="rs-tablet-ico" viewBox="0 0 24 32" aria-hidden="true"><rect x="1.5" y="1.5" width="21" height="29" rx="3" fill="none" stroke="currentColor" stroke-width="2"/><rect x="4.5" y="5" width="15" height="20" rx="1" fill="currentColor" opacity="0.35"/><rect x="7" y="8" width="4" height="4" rx="1" fill="currentColor"/><rect x="13" y="8" width="4" height="4" rx="1" fill="currentColor"/><rect x="7" y="14" width="4" height="4" rx="1" fill="currentColor"/><rect x="13" y="14" width="4" height="4" rx="1" fill="currentColor"/><circle cx="12" cy="27.8" r="1.3" fill="currentColor"/></svg></button>
-      <div class="rs-tip">WASD to walk, Shift to run, C to crouch · drag to look, Q and E to turn · face something or click it to see what you can do: F or a number picks · the switch by the door has the lights: L, - and = · click a fire's dial to set it, or , and . · [ and ] change the channel · T for your tablet</div>
+      <button type="button" class="rs-pockets" title="What you've got on you to eat, drink or take (P)" aria-label="Your pockets" aria-expanded="false">Pockets</button>
+      <div class="rs-pocketlist" hidden role="dialog" aria-label="Your pockets"><b>On you</b><div class="rs-pocket-items"></div></div>
+      <div class="rs-tip">WASD to walk, Shift to run, C to crouch · drag to look, Q and E to turn · face something or click it to see what you can do: F or a number picks · the switch by the door has the lights: L, - and = · click a fire's dial to set it, or , and . · F on a set you're looking at turns it on or off, and [ and ] or the wheel on its picture change the channel · P for your pockets · G to tag the wall you're facing, with a can on you · T for your tablet</div>
     </div>`;
   // into the game pane, over the room text, which stays underneath for when the Stage closes
   const pane = document.getElementById('area-content');
@@ -219,14 +313,18 @@ function openStage(msg) {
   };
   const reshell = () => {
     nextLight = [];
+    const keys = [];
     shells = nextDoor.map((n) => {
       try {
         n.L = roomLayout(n.spec, n.pieces);
-        const m = bakedMesh(roomKey(n.spec, n.pieces), n.L, { seed: hashOf(n.zone), lampOn: true, joined: new Set([msg.zone]), shell: true }), lit = nextLightOf(n.L, m);
+        const rk = roomKey(n.spec, n.pieces), so = { seed: hashOf(n.zone), lampOn: true, joined: new Set([msg.zone]), shell: true };
+        const m = bakedMesh(rk, n.L, so), lit = nextLightOf(n.L, m);
         if (lit) nextLight.push(lit);
+        keys.push(bakeKey(rk, so));
         return m;
       } catch (e) { console.error('[room] the next room', n.zone, e); return null; }
     }).filter(Boolean);
+    shellKeys = keys;
   };
   // The four lit rooms nearest the eye, leaving out any whose box lies over this room's own (a lift car inside a
   // lobby's rectangle), which this room's lamps light as before.
@@ -238,7 +336,20 @@ function openStage(msg) {
   };
   reshell();
   // `S.key` is the room `S.L` was laid out from (rebuild), so a mesh is never kept under pieces it wasn't built with
-  const roomMesh = (L, opts) => { const m = bakedMesh(S.key, L, { ...opts, joined }); return shells.length ? withShells(meshCopy(m), shells) : m; };
+  // ⚠ A ROOM AHEAD IS COMPOSED AND UPLOADED BEFORE THE DOORWAY (S.ahead, compose). Copying the kept mesh, adding its
+  // shells and uploading it were the 15 to 45 ms a crossing still cost; the composed mesh is kept here under its own
+  // key and the shells' keys in order, and the renderer holds its upload (R.prepareRoom), so the crossing only swaps.
+  // A key that doesn't match (a piece moved, the shells came in another order) composes here as before.
+  const composed = new Map();
+  const composeKey = (key, shellKeys) => key + '#' + shellKeys.join('#');
+  let shellKeys = [];
+  const roomMesh = (L, opts) => {
+    const o = { ...opts, joined }, ck = composeKey(bakeKey(S.key, o), shellKeys);
+    const c = shells.length ? composed.get(ck) : null;
+    if (c) return c;
+    const m = bakedMesh(S.key, L, o);
+    return shells.length ? withShells(meshCopy(m), shells) : m;
+  };
   const textures = new Map();
   const paint = (key) => { let c = textures.get(key); if (!c) { c = paintRoomTexture(document, key, key === ROOM_RUG ? seed : 1); textures.set(key, c); } return c; };
   let lampOn = true;
@@ -272,8 +383,19 @@ function openStage(msg) {
   const pilots = makeContactTrack(), flights = makeContactTrack();
   // what's really flying is heard as well as drawn, phone included (frame(0, 0) keeps absolute tiles)
   outside.hearPilots(() => pilots.frame(0, 0));
-  const S = { msg, spec: msg.lift ? { ...msg.spec, lift: msg.lift } : msg.spec, pieces: msg.pieces || [], people: msg.people || [], next: nextDoor, reshell, L: null, mesh: null, walk: null, screenOn: new Set(), you: msg.you,
+  const S = { msg, spec: msg.lift ? { ...msg.spec, lift: msg.lift } : msg.spec, pieces: msg.pieces || [], people: msg.people || [], beasts: msg.beasts || [], next: nextDoor, reshell, L: null, mesh: null, walk: null, screenOn: new Set(), you: msg.you,
     here: msg.here || msg.zone, moving: null, outlook: null, lens: null, bearing: 0, phone };
+  // THE SHUTTERS OVER THE GLASS (gl/room-shutters.js, plugins/envcontrol): as they are when the room opens, and they
+  // move when `room_glass` says so
+  S.glass = msg.glass || null;
+  // water that moves (gl/room-plumbing.js, plugins/bodily): a running shower, a toilet's bowl, a stream into it
+  S.plumb = msg.plumbing || null;
+  // PAINT ON THE WALLS (room-tags.js, plugins/graffiti `room.tags`): what's sprayed here, and while the spray session is
+  // up, the piece going on as it goes (`sprayLive`: { spot, src, fresh })
+  S.tags = msg.tags || [];
+  S.sprayLive = null;
+  S.shutters = createShutters();
+  S.shutters.set(S.glass, { snap: true });
   const seat = { eye: [0, 1.6, 0], yaw: Math.PI, pitch: 0, fov: 72, mode: 'free' };
   // THE LOCKS ON THIS ROOM'S DOORWAYS (room-lock.js, docs/proposals/room-hololock.md): a door in each, shut to
   // whoever the lock doesn't know, and a hologram off its reader that offers Unlock and Hack. The server says how
@@ -283,6 +405,11 @@ function openStage(msg) {
     send: (cmd) => { S.listenUntil = performance.now() + 2500; sendCmd(cmd); } });
   // a lift car's panel: the same kind of hologram, with a button for each floor (room-lift.js)
   const liftUi = createRoomLift({ host, project: (p, w, h) => R.project(p, w, h), press: (n) => pressFloor(n) });
+  // a depot shed's lift and the truck on it (room-hoist.js); nothing in any other room
+  // a flat's control panel: its OS laid on the panel's own glass, worked from where you stand (room-envctl.js)
+  const envUi = createRoomEnvctl({ host, project: (p, w, h) => R.project(p, w, h) });
+  const hoistUi = createRoomHoist({ host, send: (cmd) => sendCmd(cmd), walker: () => S.walk?.at || null });
+  hoistUi.load(null, msg.vehicles || null);
   // the car's doors: { from, to, t0 } between 0 (open) and 1 (shut). Arriving off a ride, they start
   // shut and part a beat after the room is drawn
   const doorsAt = () => {
@@ -298,7 +425,8 @@ function openStage(msg) {
 
   // the room's light from the server's clock: the hour now, and how much day comes through the glass
   const hourNow = () => { const c = msg.clock; if (!c) return 13; return ((c.hour + (Date.now() - c.hourMs) / 3.6e6 * (c.rate || 1)) % 24 + 24) % 24; };
-  const dayOf = (h) => Math.max(0, Math.min(1, (Math.sin((h - 6) / 12 * Math.PI) + 0.15) / 0.75));
+  setScreenHour(hourNow());
+  const dayOf = lightAt;   // the shared sky (sky-keys.js)
   const skyOf = (h) => {
     const d = dayOf(h), dusk = Math.exp(-(((h - 19) / 1.2) ** 2)) + Math.exp(-(((h - 6.3) / 1.0) ** 2));
     return [0.55 + 0.4 * d + 0.4 * dusk, 0.6 + 0.35 * d + 0.1 * dusk, 0.85 + 0.15 * d - 0.2 * dusk];
@@ -312,38 +440,66 @@ function openStage(msg) {
     const via = !was && msg.via ? (S.spec.openings || []).find((o) => o.to === msg.via) : null;
     const arrive = via ? openingInside(L, via) : null;
     S.L = L; S.key = roomKey(S.spec, S.pieces);
-    S.mesh = roomMesh(L, { seed, lampOn, doorShut: S.doorShut, turning: S.spin?.turning });
+    hoistUi.load(L);
+    envUi.load(L);
+    S.mesh =roomMesh(L, { seed, lampOn, doorShut: S.doorShut, turning: S.spin?.turning, swinging: S.fridge?.id });
     R.setRoom(S.mesh, paint);
+    paintTags();
+    if (S.fridge) S.fridge.swing = S.mesh.swing || null;
     S.doorsDirty = true;
     // (a new room starts its doors shut, but for the one you came through; the same room keeps them where they are)
     lockUi.load(L, S.locks, { fresh: !keepPlace, via: msg.via || null });
-    liftUi.load(L);
+    // in a car, its own panel; on a landing, the panel of the car next door, so it's there before you step in
+    const car = S.spec.lift ? null : nextDoor.find((n) => n.lift && n.L);
+    if (car) liftUi.load(car.L, { ...car.spec, lift: car.lift }, true); else liftUi.load(L);
     if (S.spin) S.spin.mesh = S.mesh.spin;
     // the keys held go to the new walker, or walking stops dead each time the room is built again
     // (in off the street, the keys held on the street: lobby-still.js)
     const carry = keys || S.walk?.keys?.() || (!S.walk ? takeCarry() : null);
     S.walk?.stop();
+    // ⚠ SAT, YOU STAY SAT. A rebuild (a piece on the table changing, a card dealt) used to start the new walker on its
+    // feet at the chair's spot, so you stood in your seat until something sat you again. The same seat in the new
+    // layout: the same piece, nearest where it was.
+    const reseat = keepPlace && !hold && was?.sat
+      ? L.seats.filter((s) => s.piece === was.sat.piece && !!s.lie === !!was.sat.lie).sort((a, b) => Math.hypot(a.u - was.sat.u, a.v - was.sat.v) - Math.hypot(b.u - was.sat.u, b.v - was.sat.v))[0] || null
+      : null;
     // a set in the room takes the TV's calls for as long as the room's open
     if (!S.tv && S.mesh.screens.length) S.tv = createWallTv(host, { onChange: showChannel });
-    S.walk = createRoomWalk({
+    // seated again quietly: the server already has you in that chair, so no `sit` goes out
+    syncing = !!reseat;
+    try { S.walk = createRoomWalk({
       L, seat, pane: root, label: 'ROOM', carry,
       project: (p, w, h) => R.project(p, w, h),
       setMode: (m) => { seat.mode = m; },
       onStation: useStation,
       onUse: () => { const a = S.card?.acts[0]; if (a) runAct(a); return !!a; },
       aimable: (id) => reachable(S.pieces.find((p) => p.id === id)),
+      // a piece's tag only when the eye can see it: the point is drawn half a foot toward the eye, so a piece
+      // hung on a wall (its station in the plaster) isn't hidden by the wall it's on
+      sees: (u, v) => {
+        const e = seat.eye ? L.local(seat.eye) : S.walk?.at;
+        if (!e) return true;
+        const du = e[0] - u, dv = e[1] - v, n = Math.hypot(du, dv), k = n > 1e-6 ? Math.min(n, 0.5 * (L.ft || 1)) / n : 0;
+        return roomSees(L, e, [u + du * k, v + dv * k]);
+      },
       canSit: (s) => !takenBy(s),
+      // the balcony's glass door slides open as you come up to it, shutters down or not, so nothing fences it
       onSit: (s) => {
         if (syncing) return;
         const piece = S.pieces.find((p) => p.id === s.piece);
-        if (piece) sendCmd(`${s.lie ? 'lie' : 'sit'} ${piece.name}`);
+        // a seat with its own verb sends that (a toilet's is 'poop'), so the Stage never asks the server to `sit` on it
+        // a card table's chairs all share a name, so one of those is named by its id, or the server seats you in
+        // the first and your cards stay there (plugins/interactions maybeSitAtPoker)
+        const gameChair = S.pieces.some((q) => q.board?.chairs && Object.values(q.board.chairs).includes(s.piece));
+        if (piece && gameChair && !s.lie) sendCmdSilent(`sit ${piece.id}`);
+        else if (piece) sendCmd(`${s.lie ? 'lie' : s.verb || 'sit'} ${piece.name}`);
         sendRaw({ type: 'room_pos', at: [s.u, s.v], yaw: s.yaw, seat: L.seats.indexOf(s) });
       },
       onStand: () => { if (!syncing) sendCmd('stand'); },
       onSettle: (at, yaw) => sendRaw({ type: 'room_pos', at, yaw, seat: S.walk?.sat ? L.seats.indexOf(S.walk.sat) : null }),
       // in by the door, facing into the room
-      start: hold ? hold : keepPlace && was?.at ? { at: was.at, yaw: seat.yaw } : arrive ? arrive : S.here !== msg.zone && L.annex ? { at: annexStand(L), yaw: Math.atan2(-L.f[0], -L.f[2]) } : { at: [((S.spec.door?.[0] ?? 0.7) + (S.spec.door?.[1] ?? 1.6)) / 2, S.spec.d - 0.6], yaw: Math.atan2(L.f[0], L.f[2]) },
-    });
+      start: hold ? hold : reseat ? reseat : keepPlace && was?.at ? { at: was.at, yaw: seat.yaw } : arrive ? arrive : S.here !== msg.zone && L.annex ? { at: annexStand(L), yaw: Math.atan2(-L.f[0], -L.f[2]) } : { at: [((S.spec.door?.[0] ?? 0.7) + (S.spec.door?.[1] ?? 1.6)) / 2, S.spec.d - 0.6], yaw: Math.atan2(L.f[0], L.f[2]) },
+    }); } finally { syncing = false; }
     followSelf();
   }
 
@@ -372,6 +528,10 @@ function openStage(msg) {
     const A = L.annex, inSpan = !Number.isFinite(A.u0) || (w.at[0] > A.u0 - 0.15 && w.at[0] < A.u1 + 0.15);
     const want = !inAnnex(L, w.at[1], w.at[0]) ? msg.zone : inSpan ? S.spec.annex.zone : S.here;
     if (want === S.here) return;
+    // the en-suite's privacy door (room-lock.js): bolted against you, you're put back; shut, it slides first
+    const gate = lockUi.enter(want);
+    if (gate === 'no') { w.moveTo(want === msg.zone ? annexStand(L) : roomStand(L)); return; }
+    if (gate === 'wait') return;
     S.moving = { to: want, t: now };
     sendCmd(want === msg.zone ? 'out' : 'in');
   }
@@ -428,10 +588,11 @@ function openStage(msg) {
     const L = S.L, at = S.walk?.at, door = S.spec.annex?.door;
     if (!L?.annex || !door) return;
     const near = at && Math.hypot(at[0] - (door[0] + door[1]) / 2, at[1] - L.annex.v0) < 1.3;
-    const shut = !near && S.people.some((p) => p.npc && p.shut);
+    // a privacy door drawn as a lock (room-lock.js) is the door; the plain leaf is for an en-suite without one
+    const shut = !near && !S.locks?.some((k) => k.annex) && S.people.some((p) => p.npc && p.shut);
     if (shut === !!S.doorShut) return;
     S.doorShut = shut;
-    S.mesh = roomMesh(L, { seed, lampOn, doorShut: shut, turning: S.spin?.turning });
+    S.mesh = roomMesh(L, { seed, lampOn, doorShut: shut, turning: S.spin?.turning, swinging: S.fridge?.id });
     R.setRoom(S.mesh, paint);
     if (S.spin) S.spin.mesh = S.mesh.spin;
   }
@@ -439,16 +600,111 @@ function openStage(msg) {
   // A Cachet going round: lifted out of the room and turned on the people's layer, then put back as
   // whatever's facing out now.
   S.turn = (piece, was) => { S.spin = { turning: { id: piece.id, from: was, to: piece.form }, t0: performance.now(), mesh: null }; };
+  // a heavy part seating home: a low thump, a short knock of metal, a little grit
+  function chunk(i) {
+    const f = 1 + ((i * 37) % 7 - 3) * 0.04;
+    try {
+      window.AudioEngine?.playSfx({ id: 'sfx_cachet_chunk', name: 'sfx_cachet_chunk', category: 'sfx', priority: 3, config: { duration: 0.35, layers: [
+        { waveform: 'sine', freq: 70 * f, pitchBend: { to: 44 * f, time: 0.12 }, adsr: { a: 0.002, d: 0.16, s: 0, r: 0.08 }, gain: 0.45 },
+        { waveform: 'square', freq: 210 * f, filter: { type: 'lowpass', freq: 900, q: 1.2 }, adsr: { a: 0.001, d: 0.05, s: 0, r: 0.04 }, gain: 0.08 },
+        { waveform: 'noise', noiseMix: 1, filter: { type: 'bandpass', freq: 1400 * f, q: 1.6 }, adsr: { a: 0.001, d: 0.06, s: 0, r: 0.04 }, gain: 0.07 },
+      ] } }, 0.5);
+    } catch { /* silent is still a reveal */ }
+  }
+  // the mechanism's own noises: the latch letting go and dropping home, and the motor under it
+  function cachetSfx(id, duration, layers, vol = 0.5) {
+    try { window.AudioEngine?.playSfx({ id, name: id, category: 'sfx', priority: 3, config: { duration, layers } }, vol); } catch { /* silent is still a reveal */ }
+  }
+  const latch = (home) => cachetSfx(home ? 'sfx_cachet_lock' : 'sfx_cachet_unlatch', 0.3, [
+    { waveform: 'square', freq: home ? 1800 : 2400, filter: { type: 'bandpass', freq: home ? 2200 : 3000, q: 4 }, adsr: { a: 0.001, d: 0.025, s: 0, r: 0.02 }, gain: 0.12 },
+    { waveform: 'noise', noiseMix: 1, filter: { type: 'highpass', freq: 3500, q: 0.8 }, adsr: { a: 0.001, d: 0.03, s: 0, r: 0.02 }, gain: 0.08 },
+    { waveform: 'sine', freq: home ? 90 : 140, pitchBend: { to: home ? 52 : 110, time: 0.1 }, adsr: { a: 0.002, d: 0.14, s: 0, r: 0.06 }, gain: home ? 0.5 : 0.22 },
+  ]);
+  const motor = (ms) => cachetSfx('sfx_cachet_motor', ms / 1000, [
+    { waveform: 'sawtooth', freq: 62, pitchBend: { to: 78, time: ms / 2000 }, filter: { type: 'lowpass', freq: 420, q: 2 }, adsr: { a: 0.35, d: 0.2, s: 0.7, r: 0.5 }, gain: 0.07 },
+    { waveform: 'sine', freq: 124, adsr: { a: 0.4, d: 0.2, s: 0.6, r: 0.5 }, gain: 0.05 },
+    { waveform: 'noise', noiseMix: 1, filter: { type: 'bandpass', freq: 700, q: 1.4 }, adsr: { a: 0.5, d: 0.2, s: 0.5, r: 0.5 }, gain: 0.03 },
+  ], 0.4);
+  // A turntable's half turn, from 0 to 1 over the move: a little kick back as the latch lets go, a slow
+  // start for the weight of it, a run, then past home by a few degrees and back as it drops on the latch
+  function turnProfile(k) {
+    const KICK = 0.08, RUN = 0.86;
+    if (k < KICK) return -0.012 * Math.sin(Math.PI * k / KICK);
+    if (k < RUN) { const x = (k - KICK) / (RUN - KICK); return 1.025 * (x * x * x * (x * (x * 6 - 15) + 10)); }
+    const x = (k - RUN) / (1 - RUN);
+    return 1 + 0.025 * Math.cos(1.5 * Math.PI * x) * (1 - x);
+  }
   function watchSpin(now) {
     const sp = S.spin;
     if (!sp?.mesh) return;
-    const k = Math.min(1, (now - sp.t0) / SPIN_MS), eased = k * k * (3 - 2 * k);
-    R.setPeople(spinBatch(sp.mesh, eased * Math.PI));
+    const ms = sp.mesh.asm ? ASSEMBLE_MS : SPIN_MS, k = Math.min(1, (now - sp.t0) / ms);
+    if (!sp.started) { sp.started = true; latch(false); motor(ms * (sp.mesh.asm ? 0.9 : 0.82)); }
+    if (!sp.mesh.asm && !sp.locked && k >= 0.86) { sp.locked = true; latch(true); }
+    if (sp.mesh.asm) { const b = assembleBatch(sp.mesh, k); R.setPeople(b); R.setPropsGlass(b.glass); }
+    else R.setPeople(spinBatch(sp.mesh, turnProfile(k) * Math.PI));
+    // each part that arrives lands with a chunk; parts that land together chunk once
+    if (sp.mesh.asm) {
+      sp.landed ||= new Set();
+      for (const m of sp.mesh.moves) {
+        const at = m.land, key = at?.toFixed(2);   // the k each unit locks home at (gl/room-mesh.js assembly)
+        if (at == null || k < at || sp.landed.has(key)) continue;
+        sp.landed.add(key);
+        chunk(sp.landed.size);
+      }
+    }
     if (k < 1) return;
+    if (sp.mesh.asm) R.setPropsGlass(null);
     S.spin = null;
     R.setPeople({ data: new Float32Array(0), n: 0 });
-    S.mesh = roomMesh(S.L, { seed, lampOn, doorShut: S.doorShut });
+    S.mesh = roomMesh(S.L, { seed, lampOn, doorShut: S.doorShut, swinging: S.fridge?.id });
     R.setRoom(S.mesh, paint);
+  }
+
+  // AN OPEN FRIDGE (or freezer, or chest freezer): clicked open, the room is baked once without its doors and
+  // they swing out on the props layer (gl/room-mesh.js swingBatch) while its panel is up, then swing shut and
+  // go back into the room's mesh. Typing `open fridge` opens the panel as ever; only the click swings it.
+  const SWINGS = new Set(['fridge', 'double', 'chest', 'column']);
+  function openFridge(piece) {
+    if (!piece || piece.arche !== 'cold' || !SWINGS.has(piece.form) || !S.L) return;
+    const now = performance.now();
+    if (S.fridge && String(S.fridge.id) === String(piece.id)) { S.fridge.want = 1; S.fridge.t0 = now; S.fridge.seen = false; S.fridge.by = null; return; }
+    if (S.fridge) shutFridgeNow();
+    S.fridge = { id: piece.id, k: 0, want: 1, t0: now, seen: false, swing: null };
+    S.mesh = roomMesh(S.L, { seed, lampOn, doorShut: S.doorShut, turning: S.spin?.turning, swinging: piece.id });
+    R.setRoom(S.mesh, paint);
+    S.fridge.swing = S.mesh.swing || null;
+    if (!S.fridge.swing) shutFridgeNow();
+  }
+  function shutFridgeNow() {
+    S.fridge = null;
+    if (!S.L) return;
+    S.mesh = roomMesh(S.L, { seed, lampOn, doorShut: S.doorShut, turning: S.spin?.turning });
+    R.setRoom(S.mesh, paint);
+  }
+  // open while the container panel is up; shut once it's gone, or if it never came (refused, locked, too far)
+  // A resident at the fridge (plugins/roomstage npc-life.js USE_STEPS sends `open` with the piece's id): the same
+  // doors swing, open for as long as they stand at it. Yours wins: theirs never shuts a fridge you opened.
+  function npcFridge() {
+    const p = (S.people || []).find((x) => x.open != null);
+    if (!p || S.fridge) return;
+    const piece = (S.pieces || []).find((q) => String(q.id) === String(p.open));
+    if (!piece) return;
+    openFridge(piece);
+    if (S.fridge) S.fridge.by = p.id;
+  }
+  function watchFridge(now) {
+    const f = S.fridge;
+    if (!f) return;
+    if (f.by != null) f.want = (S.people || []).some((x) => x.id === f.by && String(x.open) === String(f.id)) ? 1 : 0;
+    const up = !f.by && !!document.getElementById('container-panel')?.classList.contains('active');
+    if (up) f.seen = true;
+    if (!f.by && ((f.seen && !up) || (!f.seen && now - f.t0 > 2500))) f.want = 0;
+    const dt = Math.max(0, Math.min(0.1, (now - (f.last ?? now)) / 1000));
+    f.last = now;
+    // out briskly, back a little slower, as a door is pushed shut
+    const step = dt / (f.want ? 0.55 : 0.7);
+    f.k = Math.abs(f.want - f.k) <= step ? f.want : f.k + Math.sign(f.want - f.k) * step;
+    if (!f.want && f.k <= 0) shutFridgeNow();
   }
 
   // THE CAR'S DOORS: how shut they are now, eased; drawn on the props layer every frame they move, so
@@ -470,6 +726,14 @@ function openStage(msg) {
   slidesAt();
   const SLIDE_NEAR = 2.6, SLIDE_HOLD_MS = 1400, SLIDE_OPEN_S = 0.55, SLIDE_SHUT_S = 0.9;
   const LIFT_OPEN_S = 1.1, LIFT_SHUT_S = 1.3;
+  // how far the balcony door stands open, eased as its leaf is, and half the doorway's width: the shutters'
+  // pane over the doorway opens from the right as the one leaf slides left (gl/room-shutters.js uShutDoor)
+  const balconyGap = () => {
+    const d = S.spec?.balcony?.door;
+    if (!d) return null;
+    const k = S.slideShut?.balcony ?? 1, e = k * k * (3 - 2 * k);
+    return [1 - e, (d[1] - d[0]) / 2];
+  };
   function watchSlideDoors(now) {
     const leaves = S.mesh?.slideDoors;
     if (!leaves) return;
@@ -599,7 +863,15 @@ function openStage(msg) {
       // a clip the server gave them in the seat: eating, mostly (plugins/roomstage/npc-life.js)
       // at the table with a habit (client/shared/table-stash.js): the clip and its phase off the session's clock
       const ss = p.stash && !p.clip && !pick.lie ? stashNow(p.stash) : null;
-      if (pick) return { seat: pick, at: [pick.u, pick.v], yaw: pick.yaw, pose: pick.lie ? 'lie' : 'sit', head: pick.head, top: pick.top, ...(pick.back != null && !pick.lie ? { back: pick.back } : {}),...(p.clip && !pick.lie ? { clip: p.clip } : {}), ...(ss ? { clip: ss.clip, phase: ss.phase } : {}) };
+      if (pick) return { seat: pick, at: [pick.u, pick.v], yaw: pick.yaw, pose: pick.lie ? 'lie' : 'sit', head: pick.head, top: pick.top, ...(pick.back != null && !pick.lie ? { back: pick.back } : {}), ...(pick.lift && !pick.lie ? { lift: pick.lift } : {}),...(p.clip && !pick.lie ? { clip: p.clip } : {}), ...(ss ? { clip: ss.clip, phase: ss.phase } : {}) };
+    }
+    // the dealer at a card table (plugins/gametable `room.tablePeople`): stood at its deck end, facing down it
+    if (p.dealerAt) {
+      const q = L.placed.find((x) => x.id === p.dealerAt);
+      if (q) {
+        const [fu, fv] = facing(q.turn), back = q.d / 2 + 0.42;
+        return { at: [q.u - fu * back, q.v - fv * back], yaw: roomYaw(L, fu, fv), pose: 'stand' };
+      }
     }
     // a post the server gave them: a dancer at her pole, `face` the way she looks in the room's u and v, and
     // `lift` how far up she stands (the stage's top)
@@ -621,6 +893,22 @@ function openStage(msg) {
     } finally { syncing = false; }
   }
 
+  // A MORPHEX pod (room-morphex.js). Nothing here decides anything: buying is the `morphex` verbs.
+  function startMorph(piece) {
+    if (S.morph?.on || S.cooking) return;
+    const q = S.L.placed.find((x) => x.id === piece.id), mine = S.people.find((p) => p.id === S.you);
+    if (!q) return;
+    // nobody in the people list (the Room Lab) still gets a body: the columns' defaults
+    S.morph = createMorphex({ L: S.L, piece: q, mount: root, me: { id: S.you, sex: mine?.sex, look: { ...(mine?.look || lookOfPlayer({})) } }, send: (c) => sendCmdSilent(c),
+      done: ({ at }) => {
+        S.morph = null; root.classList.remove('rs-morph');
+        R.setProps({ data: new Float32Array(0), n: 0 }); R.setPropsGlass(null); R.setGlows([]);
+        // you're stood where you stepped out, looking back into the room
+        S.walk?.moveTo?.(at);
+      } });
+    root.classList.add('rs-morph');
+  }
+
   // a station: the verb the piece answers to. Watching a set brings the broadcast up on it, and the
   // server's answer to `watch` goes to the set on the wall (room-tv.js); again, and you stop watching.
   // a button on the lift's hologram: the car goes where the panel says (plugins/elevator)
@@ -634,29 +922,80 @@ function openStage(msg) {
   function useStation(st) {
     const piece = S.pieces.find((p) => p.id === st.piece);
     if (!piece) return;
+    // a MORPHEX pod you can step into (`look.pod`): its sequence, and the sales screen over it
+    if (piece.pod) { startMorph(piece); return; }
     // the bench's HUD comes up over the room, and only the room's owner is told there's a keypad
-    if (st.verb === 'workspace') { sendCmd('workspace'); return; }
+    // which piece it was is remembered for a little while, so the kitchen opens standing you at it (cookFrame)
+    if (st.verb === 'workspace') { if (!piece.lab) S.cookAt = { id: piece.id, t: performance.now() }; sendCmd(piece.lab ? 'workspace chembench' : 'workspace'); return; }
     // a piece whose card offers the workspace (a bar counter, a range) opens it, rather than being looked at
-    if (st.verb === 'examine' && piece.acts?.some((a) => a.verb === 'workspace')) { sendCmd('workspace'); return; }
+    if (st.verb === 'examine' && piece.acts?.some((a) => a.verb === 'workspace')) { S.cookAt = { id: piece.id, t: performance.now() }; sendCmd('workspace'); return; }
     // a box that sells (the lacquered box's `vend`): the click opens it and brings its card up
     if (st.verb === 'examine' && piece.acts?.some((a) => a.verb === 'vend')) { S.lidFor = piece.id; sendCmdSilent(`${piece.acts.find((a) => a.verb === 'vend').cmd} menu`); return; }
     if (st.verb === 'keypad') { sendCmd(msg.keypad ? `keypad ${piece.name}` : `examine ${piece.name}`); return; }
     // a cabinet that doesn't open but sells (the humidor's `vend`): the click does what the card's first line does
     if (st.verb === 'open' && piece.acts && !piece.acts.some((a) => a.verb === 'open')) { const a = actsOf(piece)[0]; if (a && a.verb !== 'examine') { runAct(a); return; } }
     if (st.verb === 'watch') {
-      if (S.tv?.on && S.tvPiece === piece.id) { S.tv.off(); return; }
+      if (tvOnHere(piece)) { S.tv.off(); flash(`You turn off the ${piece.name}.`, true); return; }
       S.tvPiece = piece.id;
     }
-    flash(st.verb === 'open' ? `You open the ${piece.name}.` : st.verb === 'watch' ? `You turn to the ${piece.name}.` : `You look at the ${piece.name}.`, true);
+    if (st.verb === 'open') openFridge(piece);
+    flash(st.verb === 'open' ? `You open the ${piece.name}.` : st.verb === 'watch' ? `You turn on the ${piece.name}.` : `You look at the ${piece.name}.`, true);
     sendCmd(`${st.verb} ${piece.name}`);
   }
 
   // The card. A piece in the en-suite answers from the en-suite, because the verb runs where you are.
   const reachable = (p) => !!p && !!p.annex === (S.here !== msg.zone);
+  { // the help line goes away on a click or after 30 seconds
+    const tipEl = root.querySelector('.rs-tip');
+    const hideTip = () => tipEl?.classList.add('rs-tip-gone');
+    tipEl?.addEventListener('click', hideTip, { once: true });
+    setTimeout(hideTip, 30000);
+  }
   const cardEl = root.querySelector('.rs-card'), cardName = root.querySelector('.rs-card-name'), cardActs = root.querySelector('.rs-card-acts'), cardSay = root.querySelector('.rs-card-say');
   function actsOf(piece) {
-    const acts = pieceActs(piece, S.L.seats.filter((s) => s.piece === piece.id));
-    return S.walk?.sat?.piece === piece.id ? [{ verb: 'stand', label: 'Get up' }, ...acts.filter((a) => a.verb !== 'sit' && a.verb !== 'lie')] : acts;
+    // a card table you sit at: F deals you in (plugins/gametable `join`); once you are, its controls are on the felt
+    const pk = piece.board?.poker && S.walk?.sat && !piece.board.seats?.some((s) => s && s.id === S.you);
+    if (pk) return [{ verb: 'join', label: 'Join the game' }, { verb: 'stand', label: 'Get up' }];
+    // in the game: Get up holds your seat (you check or fold while away); Leave the game cashes you out
+    const inGame = (piece.board?.poker ? piece.board : S.pieces.find((q) => q.board?.poker && q.board.chairs && Object.values(q.board.chairs).includes(piece.id))?.board)?.seats?.find((s) => s && s.id === S.you);
+    const leaveAct = { verb: 'leave', label: 'Leave the game' };
+    if (inGame && S.walk?.sat) return [{ verb: 'stand', label: 'Get up (keep seat)' }, leaveAct];
+    // stood at the card table itself: F takes a chair and deals you in (or back to your held seat), so the HUD comes up
+    if (piece.board?.poker && !S.walk?.sat) {
+      const rest = pieceActs(piece, S.L.seats.filter((s) => s.piece === piece.id));
+      return [{ verb: 'pokerplay', label: inGame ? 'Back to the game' : 'Play poker' }, ...(inGame ? [leaveAct] : []), ...rest];
+    }
+    if (inGame) return [...pieceActs(piece, S.L.seats.filter((s) => s.piece === piece.id)), leaveAct];
+    let acts = pieceActs(piece, S.L.seats.filter((s) => s.piece === piece.id));
+    // a set's Watch is its power switch (useStation): it says which way it'll go
+    if (S.mesh.screens.some((s) => s.id === piece.id)) acts = acts.map((a) => (a.verb === 'watch' ? { ...a, label: tvOnHere(piece) ? 'Turn it off' : 'Turn it on' } : a));
+    if (S.walk?.sat?.piece === piece.id) return [{ verb: 'stand', label: 'Get up' }, ...acts.filter((a) => a.verb !== 'sit' && a.verb !== 'lie')];
+    // looked at from a seat, the set across the room: getting up stays on the card
+    return S.walk?.sat ? [...acts, { verb: 'stand', label: 'Get up' }] : acts;
+  }
+  // whether this set is the one that's on (one turned on by typing `watch` never said which piece it was)
+  const tvOnHere = (piece) => !!S.tv?.on && (S.tvPiece ?? piece.id) === piece.id;
+  // The set you're looking at, from anywhere in the room: a set is watched from across it, further off than a
+  // piece's card reaches. `square` when the middle of the view is on its screen, which beats a piece in reach.
+  const TV_LOOK = 0.2, TV_FAR = 12;
+  function tvAimed() {
+    const w = host.clientWidth, h = host.clientHeight;
+    if (!S.tv || !w || !h) return null;
+    let best = null;
+    for (const sc of S.mesh.screens) {
+      const piece = S.pieces.find((p) => p.id === sc.id);
+      if (!piece || !reachable(piece)) continue;
+      const Q = sc.quad, mid = [0, 1, 2].map((i) => (Q[0][i] + Q[1][i] + Q[2][i] + Q[3][i]) / 4);
+      if (Math.hypot(mid[0] - seat.eye[0], mid[2] - seat.eye[2]) > TV_FAR) continue;
+      const m = R.project(mid, w, h);
+      if (!m) continue;
+      const off = Math.hypot(m.x / w - 0.5, m.y / h - 0.5);
+      if (off >= TV_LOOK || (best && off >= best.off)) continue;
+      const q = Q.map((p) => R.project(p, w, h)), cx = w / 2, cy = h / 2;
+      const side = q.every(Boolean) && q.map((p, i) => { const n = q[(i + 1) % 4]; return Math.sign((n.x - p.x) * (cy - p.y) - (n.y - p.y) * (cx - p.x)); });
+      best = { piece, off, square: !!side && (side.every((s) => s >= 0) || side.every((s) => s <= 0)) };
+    }
+    return best;
   }
   // Somebody you can talk to: the verb runs where you are, so they have to be on your side of the door.
   const talkable = (p) => !!p?.npc && !!p.annex === (S.here !== msg.zone);
@@ -707,7 +1046,7 @@ function openStage(msg) {
     for (const p of S.people) {
       const pl = talkable(p) && placeOf(p);
       if (!pl) continue;
-      const base = S.L.baseAt(pl.at[0], pl.at[1]), top = pl.pose === 'lie' ? (pl.top || 0.4) + 0.5 : (pl.pose === 'sit' ? 1.45 : 1.95) + base;
+      const base = S.L.baseAt(pl.at[0], pl.at[1]), top = pl.pose === 'lie' ? (pl.top || 0.4) + 0.5 : (pl.pose === 'sit' ? 1.45 + (pl.lift || 0) : 1.95) + base;
       const a = R.project(S.L.world(pl.at[0], pl.at[1], top), w, h), b = R.project(S.L.world(pl.at[0], pl.at[1], base), w, h);
       if (a && b && y >= a.y && y <= b.y && Math.abs(x - (a.x + b.x) / 2) <= Math.max(24, (b.y - a.y) * 0.3)) return p;
     }
@@ -715,27 +1054,34 @@ function openStage(msg) {
   }
   function showCard(piece, who) {
     const holo = !!(piece?.lock || piece?.lift);
-    const acts = who ? personActs(who) : piece?.lock ? piece.lockActs : piece?.lift ? piece.liftActs : piece ? actsOf(piece) : [], on = who || piece, key = on ? on.id + acts.map((a) => a.verb).join() : '';
+    const acts = who ? personActs(who) : piece?.lock ? piece.lockActs : piece?.lift ? piece.liftActs : piece ? actsOf(piece) : [], on = who || piece, key = on ? on.id + acts.map((a) => a.verb + a.label).join() : '';
     if (key === (S.cardKey || '')) return;
     S.cardKey = key;
     S.card = on ? { piece, who, acts } : null;
     // a lock's card, or a lift's, is the hologram on the wall, so only its keys are taken from here
-    cardEl.hidden = (!on || holo) && cardSay.hidden;
+    cardEl.hidden = ((!on || holo) && cardSay.hidden) || S.cardGone === key;
     cardName.textContent = holo ? '' : on?.name || '';
     root.classList.toggle('rs-lock-on', holo);
     cardActs.innerHTML = (holo ? [] : acts).slice(0, 9).map((a, i) => `<button type="button" data-i="${i}"><kbd>${i ? i + 1 : 'F'}</kbd>${esc(a.label)}</button>`).join('');
   }
+  // a click on the card off its buttons puts it away until you face something else
+  cardEl.addEventListener('click', (e) => { if (e.target.closest('button')) return; S.cardGone = S.cardKey || ''; cardEl.hidden = true; cardSay.hidden = true; });
   cardActs.addEventListener('click', (e) => { const b = e.target.closest('button'), a = b && S.card?.acts[Number(b.dataset.i)]; if (a) runAct(a); });
   function watchCard() {
     const w = S.walk;
     if (!w?.at) return;
+    // cooking, the kitchen's menu is the card
+    if (S.cooking && !S.chemming) { if (S.card) showCard(null, null); return; }
     // held on a piece by a click until you walk away from where you clicked
     if (S.held && Math.hypot(w.at[0] - S.held.at[0], w.at[1] - S.held.at[1]) > 0.4) S.held = null;
     const heldWho = S.held?.who && S.people.find((p) => p.id === S.held.who);
     if (S.held?.who && !talkable(heldWho)) S.held = null;
     const who = heldWho || (S.held ? null : personAimed());
     const id = who ? null : S.held?.piece ?? w.aim();
-    const piece = S.pieces.find((p) => p.id === id) || null;
+    let piece = S.pieces.find((p) => p.id === id) || null;
+    // the set you're looking at is the card over the seat you're on, and over a piece in reach once you're
+    // looking straight at its screen, so F works it from the sofa
+    if (!who && !S.held) { const tv = tvAimed(); if (tv && (!piece || piece.id === w.sat?.piece || tv.square)) piece = tv.piece; }
     // nothing nearer to hand: the lock you're stood at
     showCard(piece || (who || S.held ? null : lockUi.aim(w.at, seat.eye, seat.yaw) || liftUi.aim()), who);
   }
@@ -746,7 +1092,7 @@ function openStage(msg) {
     cardSay.textContent = cardSay.hidden ? text : `${cardSay.textContent} ${text}`;
     cardSay.hidden = false; cardEl.hidden = false;
     clearTimeout(sayT);
-    sayT = setTimeout(() => { cardSay.hidden = true; cardEl.hidden = !S.card; }, 7000);
+    sayT = setTimeout(() => { cardSay.hidden = true; cardEl.hidden = !S.card || S.cardGone === S.cardKey; }, 7000);
   };
   function runAct(a) {
     // a lacquered box lifts its lid while its card is up (gl/room-stash.js)
@@ -757,8 +1103,22 @@ function openStage(msg) {
     if (piece?.lift) { pressFloor(a.n); return; }
     S.held = null;
     if (a.verb === 'stand') { w.standUp(); return; }
+    if (a.verb === 'join') { sendCmd('join'); return; }
+    if (a.verb === 'pokerplay') {
+      // your held chair if you have one, else the first free chair round the table; then join if you aren't in
+      const st = piece?.board, i = st?.seats?.findIndex((s) => s && s.id === S.you) ?? -1;
+      const ids = Object.entries(st?.chairs || {}).filter(([k]) => (i >= 0 ? +k === i : !st.seats?.[+k])).map(([, id]) => id);
+      const seat = ids.flatMap((id) => S.L.seats.filter((s) => s.piece === id && !s.lie)).find((s) => !takenBy(s));
+      if (!seat) { flash('No free chair at the table.', false); return; }
+      w.sit(seat);
+      if (i < 0) sendCmd('join');
+      return;
+    }
+    if (a.verb === 'leave') { sendCmd('leave'); return; }
     if (a.verb === 'sit' || a.verb === 'lie') {
-      const mine = S.L.seats.filter((s) => s.piece === piece.id && !!s.lie === (a.verb === 'lie')), s = mine.find((x) => !takenBy(x));
+      // a piece with only a place to lie (a sun lounger) takes a sit as a lie
+      const all = S.L.seats.filter((s) => s.piece === piece.id), want = a.verb === 'lie' || all.every((s) => s.lie);
+      const mine = all.filter((s) => !!s.lie === want), s = mine.find((x) => !takenBy(x));
       if (s) { w.sit(s); return; }
       if (mine.length) { flash(`${takenBy(mine[0]).name} is there.`, false); return; }
     }
@@ -766,13 +1126,16 @@ function openStage(msg) {
     cardSay.hidden = true;
     if (a.verb === 'watch') { useStation({ piece: piece.id, verb: 'watch' }); return; }
     if (a.verb === 'tip') throwCash(S.card.who, a.n);
+    if (a.verb === 'workspace' && piece && !piece.lab) S.cookAt = { id: piece.id, t: performance.now() };
+    if (a.verb === 'open') openFridge(piece);
+    // a boombox's Music opens the AMP player, which is the client's own; the server never hears `music`
+    if (a.verb === 'music') { import('./lazy-views.js').then((m) => m.openMusicPlayerPanel()); return; }
     sendCmd(a.cmd);
   }
 
   // the dial in the bar, while a set's on
   const tvBar = root.querySelector('.rs-tvbar');
   function showChannel() { tvBar.hidden = !S.tv?.on; }
-  root.querySelector('.rs-tv-off').addEventListener('click', () => S.tv?.off());
 
   // Where the pointer is on the set's picture, { u, v } from its top left, or null off it. The corners
   // are projected and the square they came from solved for, which keeps the perspective right.
@@ -794,9 +1157,13 @@ function openStage(msg) {
   }
   // the stretch of the screen batch showing the broadcast, and a new picture for it when there is one
   function tvNow(now) {
-    if (!S.tv?.on) return null;
+    if (!S.tv?.on) { S.tvBootAt = null; return null; }
     const sc = S.mesh.screens.find((s) => s.id === S.tvPiece) || S.mesh.screens[0];
     if (!sc) return null;
+    // a set with a `boot` plays it each time it comes on (room-tv.js paintBoot), the broadcast opening out of it
+    const boot = S.pieces.find((p) => p.id === sc.id)?.boot;
+    if (boot && S.tvBootAt == null) S.tvBootAt = now;
+    const bt = boot ? (now - S.tvBootAt) / 1000 : Infinity;
     // a set behind you isn't worth painting: the sound goes on, and it's the same picture when you turn
     const fx = Math.sin(seat.yaw), fz = Math.cos(seat.yaw);
     const seen = sc.quad.some((q) => (q[0] - seat.eye[0]) * fx + (q[2] - seat.eye[2]) * fz > 0);
@@ -804,7 +1171,18 @@ function openStage(msg) {
     const Q = sc.quad, d3 = (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1], a[2] - b[2]);
     const mid = [0, 1, 2].map((i) => (Q[0][i] + Q[1][i] + Q[2][i] + Q[3][i]) / 4);
     const size = Math.max(d3(Q[0], Q[1]), d3(Q[1], Q[2])) / Math.max(0.3, d3(mid, seat.eye));
-    if (seen && S.tv.paint(now, size)) R.setLive(S.tv.canvas);
+    if (bt < BOOT_S) {
+      if (seen) {
+        S.tv.paint(now, size);
+        const c = S.bootCanvas || (S.bootCanvas = document.createElement('canvas'));
+        if (c.width !== S.tv.canvas.width) { c.width = S.tv.canvas.width; c.height = S.tv.canvas.height; }
+        paintBoot(c, S.tv.canvas, bt, boot);
+        R.setLive(c);
+      }
+      S.tvBooted = false;
+      return sc;
+    }
+    if (seen && (S.tv.paint(now, size) || (boot && !S.tvBooted))) { R.setLive(S.tv.canvas); if (boot) S.tvBooted = true; }
     return sc;
   }
 
@@ -829,6 +1207,14 @@ function openStage(msg) {
     rebuild();
   };
   showLamp();
+  // a flat's control panel (envctl.js) dims this room's lights: the room follows, live as its bar is dragged
+  const onPanelLight = (e) => {
+    const d = e.detail;
+    if (!d || d.zone !== msg.zone) return;
+    if (d.on) { lampLevel = Math.max(0.1, Math.min(1, d.level)); try { localStorage.setItem('roomLampLevel', String(lampLevel)); } catch { /* private window */ } }
+    if (d.on !== lampOn) toggleLamp(); else showLamp();
+  };
+  window.addEventListener('envctl:light', onPanelLight);
 
   // the gas fire's dial: this viewer's, like the lights. 0 is the pilot alone. The dial is on the fire
   // itself (gl/room-fittings.js fireDial); a click on it opens this panel beside it, and nothing in the
@@ -901,6 +1287,62 @@ function openStage(msg) {
   const openTablet = () => sendCmd('tablet');
   root.querySelector('.rs-tablet').addEventListener('click', (e) => { e.currentTarget.blur(); openTablet(); });
   root.querySelector('.rs-tablet').addEventListener('pointerdown', (e) => e.stopPropagation());
+  // POCKETS: what you carry that you can eat, drink or take here, in first person (roomPockets fills it)
+  const pocketBtn = root.querySelector('.rs-pockets'), pocketList = root.querySelector('.rs-pocketlist');
+  const togglePockets = (open = pocketList.hidden) => {
+    pocketList.hidden = !open; pocketBtn.setAttribute('aria-expanded', String(open));
+    if (open) { pocketList.querySelector('.rs-pocket-items').innerHTML = '<i>Going through your pockets...</i>'; sendRaw({ type: 'room_pockets' }); }
+  };
+  pocketBtn.addEventListener('click', (e) => { e.currentTarget.blur(); togglePockets(); });
+  for (const el of [pocketBtn, pocketList]) el.addEventListener('pointerdown', (e) => e.stopPropagation());
+  pocketList.addEventListener('click', (e) => {
+    const b = e.target.closest('button[data-i]');
+    if (!b) return;
+    const it = S.pockets?.[+b.dataset.i];
+    // a can of paint isn't taken, it's used on the wall you're facing (G does the same)
+    if (it?.act === 'spray') { togglePockets(false); openCan(); return; }
+    if (it && takeInHand({ id: it.id, name: it.name, kind: it.act, verb: it.verb, hold: it.hold })) togglePockets(false);
+  });
+  S.togglePockets = togglePockets;
+
+  // ── THE SPRAY CAN (room-tags.js, spray-session.js) ──
+  // G, or the can in Pockets, opens the can on the room's wall: `spraycan` is the ordinary verb, and the server says
+  // whether there's a can on you. Over the Stage the dialog's SPRAY IT runs the spray session (spray-aim.js), the paint
+  // goes on the wall you were facing when you pressed it, and the session's piece is shown there as it fills in.
+  function paintTags() {
+    if (!S.L) return;
+    const list = tagDecals(S.L, S.tags);
+    const lv = S.sprayLive;
+    if (lv?.src && lv.src.width > 1) {
+      const q = tagQuad(S.L, lv.spot, lv.src.width / Math.max(1, lv.src.height), lv.len);
+      list.push({ key: 'spray:live', src: lv.src, fresh: lv.fresh, ...q });
+      lv.fresh = false;
+    }
+    try { R.setDecals(list); } catch (err) { console.warn('[room] paint:', err?.message); }
+  }
+  S.paintTags = paintTags;
+  function openCan() { sendCmdSilent('spraycan'); }
+  const sprayHost = {
+    label: 'the wall in here', ground: 'plaster',
+    aim: () => (S.L && S.walk?.at ? aimWall(S.L, seat.eye, seat.yaw || 0, seat.pitch || 0) : null),
+    // the piece as this room's wall will have it, so what goes on in the session is what stays up
+    bake: (text, runs, face) => bakeRoomTag({ t: text, r: runs, f: face, v: tagVariant(S.here || S.msg.zone) }),
+    preview(src, fresh, len = 12) {
+      if (!src) { S.sprayLive = null; paintTags(); return; }
+      if (!S.sprayLive) {
+        // the spot is fixed once, at the first paint: turning your head mid-piece doesn't move it
+        let spot = null;
+        try { spot = sprayHost.aim(); } catch { spot = null; }
+        S.sprayLive = { spot, src, fresh: true, len };
+      }
+      S.sprayLive.src = src; S.sprayLive.fresh = S.sprayLive.fresh || !!fresh;
+      paintTags();
+    },
+    // sent: the live piece stays up until the server's `room_tags` puts the real one there, or a few seconds pass
+    done() { const lv = S.sprayLive; setTimeout(() => { if (ui?.S === S && S.sprayLive === lv) { S.sprayLive = null; paintTags(); } }, 5000); },
+  };
+  S.sprayHost = sprayHost;
+  setSprayStage(sprayHost);
   root.querySelector('.rs-leave').addEventListener('click', () => closeRoomStage());
 
   // looking round: a drag turns the head the way the mouse moves, held where you leave it
@@ -923,6 +1365,7 @@ function openStage(msg) {
     if (hit.who) return `Talk to ${hit.who.name}`;
     if (hit.station?.verb === 'workspace') return `Work at the ${hit.station.target}`;
     if (hit.station?.verb === 'examine' && S.pieces.find((x) => x.id === hit.station.piece)?.acts?.some((a) => a.verb === 'workspace')) return `Work at the ${hit.station.target}`;
+    if (hit.station && S.pieces.find((x) => x.id === hit.station.piece)?.pod) return 'Step into the MORPHEX';
     if (hit.station?.verb === 'keypad' && msg.keypad) return 'Use the keypad';
     if (hit.station) { const p = S.pieces.find((x) => x.id === hit.station.piece); return p ? `${hit.station.verb === 'open' ? 'Open' : hit.station.verb === 'watch' ? 'Watch' : 'Look at'} the ${p.name}` : ''; }
     const p = S.pieces.find((x) => x.id === hit.seat.piece), who = takenBy(hit.seat);
@@ -930,12 +1373,13 @@ function openStage(msg) {
   };
   host.addEventListener('pointermove', (e) => {
     const b = host.getBoundingClientRect();
-    if (!drag && S.walk) {
+    // cooking, what's under the pointer is the kitchen's to say (kitchen-stage.js hoverAt)
+    if (!drag && S.walk && !S.cooking) {
       const x = e.clientX - b.left, y = e.clientY - b.top, who = personAt(x, y, b.width, b.height);
       const on = tvPoint(x, y, b.width, b.height), btn = on && S.tv.buttonAt(on.u, on.v);
       S.tv?.touching(on);
       const dial = !btn && !who && dialAt(x, y, b.width, b.height);
-      const t = btn ? btn.title || btn.getAttribute('aria-label') || 'Press' : dial ? (dial.kind === 'switch' ? 'The light switch' : `Turn the fire: ${flame < 0.02 ? 'pilot' : Math.round(flame * 100) + '%'} (scroll)`) : label(who ? { who } : S.walk.hit(x, y, b.width, b.height));
+      const t = btn ? btn.title || btn.getAttribute('aria-label') || 'Press' : on && !who ? 'Scroll to change the channel' : dial ? (dial.kind === 'switch' ? 'The light switch' : `Turn the fire: ${flame < 0.02 ? 'pilot' : Math.round(flame * 100) + '%'} (scroll)`) : label(who ? { who } : S.walk.hit(x, y, b.width, b.height));
       host.style.cursor = t ? 'pointer' : '';
       hoverEl.hidden = !t;
       if (t) { hoverEl.textContent = t; hoverEl.style.left = (e.clientX - b.left + 16) + 'px'; hoverEl.style.top = (e.clientY - b.top + 12) + 'px'; }
@@ -965,6 +1409,10 @@ function openStage(msg) {
   });
   host.addEventListener('pointercancel', () => { drag = null; });
   host.addEventListener('pointerleave', () => { hoverEl.hidden = true; host.style.cursor = ''; S.tv?.touching(false); });
+  // the wheel on the set: how far it turns for a station (a mouse's notch is 100), the least time between two,
+  // and how long a pause starts the count again
+  const TV_WHEEL_NOTCH = 50, TV_WHEEL_GAP = 220, TV_WHEEL_IDLE = 400;
+  const tvWheel = { sum: 0, at: 0, stepped: 0 };
   host.addEventListener('wheel', (e) => {
     e.preventDefault();
     // over a dial or the switch, the wheel turns it, and the knob on the fire turns with it (gl/room-sky.js dialFace)
@@ -978,6 +1426,23 @@ function openStage(msg) {
         hoverEl.style.left = (x + 16) + 'px'; hoverEl.style.top = (y + 12) + 'px';
         return;
       }
+      // over the set's picture the wheel changes the channel, a notch a station however fine the wheel turns
+      if (tvPoint(x, y, b.width, b.height)) {
+        const now = performance.now();
+        if (now - tvWheel.at > TV_WHEEL_IDLE) tvWheel.sum = 0;
+        tvWheel.at = now;
+        tvWheel.sum += e.deltaMode === 1 ? e.deltaY * 33 : e.deltaY;
+        if (Math.abs(tvWheel.sum) >= TV_WHEEL_NOTCH && now - tvWheel.stepped > TV_WHEEL_GAP) {
+          const next = S.tv.step(tvWheel.sum < 0 ? 1 : -1);
+          tvWheel.sum = 0; tvWheel.stepped = now;
+          if (next) {
+            hoverEl.hidden = false;
+            hoverEl.textContent = `${next.number ? `Channel ${next.number}` : 'Tape'} · ${next.name}`;
+            hoverEl.style.left = (x + 16) + 'px'; hoverEl.style.top = (y + 12) + 'px';
+          }
+        }
+        return;
+      }
     }
     seat.fov = Math.max(30, Math.min(95, seat.fov * (e.deltaY > 0 ? 1.06 : 1 / 1.06))); }, { passive: false });
   let flashT = 0;
@@ -988,13 +1453,27 @@ function openStage(msg) {
   }
 
   const onKey = (e) => {
-    if (S.cooking) return;   // the Kitchen Stage over the room has the keys
+    // the Chem Stage has the keys, and so does the kitchen while it's showing you something close up
+    if (S.cooking && (S.chemming || S.cookView?.cam)) return;
     // a field over the room (a container's count) keeps its keys, and the tablet has them when it's up
     const field = e.target.closest?.('input, textarea, [contenteditable]');
     if (field && field.closest('#room-stage, #container-panel')) return;
     if (document.getElementById('tablet-os-overlay')) return;
     if (field) return;
+    // the spray can's dialog and its session are over the room, and the room behind mustn't walk off
+    if (document.getElementById('spray-overlay') || document.getElementById('spray-session')) return;
     const k = String(e.key || '');
+    // cooking, you still walk and look: WASD (and Shift) and the arrows. Everything else is the kitchen's
+    // (kitchen-stage.js onKey): Q and E are its utensils, F its flip, digits its dial and its keypad, Escape its close
+    if (S.cooking) {
+      if (e.ctrlKey || e.metaKey || e.altKey) return;
+      if (/^[wasd]$/i.test(k) || k === 'Shift') { if (S.walk?.key(e, true)) e.preventDefault(); }
+      else if (k === 'ArrowLeft') { turn(-26, 0); e.preventDefault(); }
+      else if (k === 'ArrowRight') { turn(26, 0); e.preventDefault(); }
+      else if (k === 'ArrowUp') { turn(0, -20); e.preventDefault(); }
+      else if (k === 'ArrowDown') { turn(0, 20); e.preventDefault(); }
+      return;
+    }
     // a conversation has the keys. dialogue.js closes a talk on Escape but leaves a shop's to its host
     const talk = document.getElementById('dialogue-panel');
     if (talk?.classList.contains('active')) {
@@ -1008,9 +1487,12 @@ function openStage(msg) {
     if (k === 'Escape' && (!fireHud.hidden || !lightHud.hidden)) { closeFire(); e.preventDefault(); return; }
     if (/^[1-9]$/.test(k) && S.card?.acts[k - 1]) { if (!e.repeat) runAct(S.card.acts[k - 1]); e.preventDefault(); return; }
     if (S.walk?.key(e, true)) { e.preventDefault(); return; }
-    if (k === 'Escape' && S.held) { S.held = null; e.preventDefault(); }
-    else if (k === 'Escape') { closeRoomStage(); e.preventDefault(); }
-    else if ((k === 't' || k === 'T') && !e.ctrlKey && !e.metaKey && !e.altKey) { if (!e.repeat) openTablet(); e.preventDefault(); }
+    if (k === 'Escape' && !pocketList.hidden) { togglePockets(false); e.preventDefault(); }
+    else if (k === 'Escape' && S.held) { S.held = null; e.preventDefault(); }
+    // Escape never closes the stage: the toolbar's Close button does (David, 2026-11-12)
+    if ((k === 't' || k === 'T') && !e.ctrlKey && !e.metaKey && !e.altKey) { if (!e.repeat) openTablet(); e.preventDefault(); }
+    else if ((k === 'p' || k === 'P') && !e.ctrlKey && !e.metaKey && !e.altKey) { if (!e.repeat) togglePockets(); e.preventDefault(); }
+    else if ((k === 'g' || k === 'G') && !e.ctrlKey && !e.metaKey && !e.altKey) { if (!e.repeat) openCan(); e.preventDefault(); }
     else if (k === 'l' || k === 'L') { toggleLamp(); e.preventDefault(); }
     else if (k === '-' || k === '_') { setLevel(lampLevel - 0.1); e.preventDefault(); }
     else if (k === '=' || k === '+') { setLevel(lampLevel + 0.1); e.preventDefault(); }
@@ -1031,17 +1513,29 @@ function openStage(msg) {
   const onCook = (e) => {
     // the kitchen asks what this room cooks with, and builds its set from the answer
     if (e?.detail && S.L) { try { e.detail.kit = roomKitchenKit(S.L, seed); } catch (err) { console.warn('[room] kitchen kit', err); } }
-    // with a hob in the room the kitchen is drawn here, into the flat, at the hob (gl/kitchen.js host):
+    // the kitchen is drawn here, into the flat, at the hob, the microwave or a worktop (gl/kitchen.js host):
     // the room keeps drawing, from the kitchen's camera, with the kitchen's pieces as its props
-    const frame = e?.detail && S.L ? cookFrame(S.L) : null;
+    // at the piece you clicked, if it was a moment ago; else what the room cooks with
+    const want = S.cookAt && performance.now() - S.cookAt.t < 20000 ? S.cookAt.id : null;
+    S.cookAt = null;
+    const frame = e?.detail && S.L ? cookFrame(S.L, want) : null;
     if (frame) {
       e.detail.host = {
+        // `show` hands the room the kitchen's pieces every frame, with a camera when the kitchen is showing you
+        // something close up (a cut, the plate, the fridge, the microwave's START) and none while you're on
+        // your own feet; `view` is your own eye, which the kitchen picks with then
         frame, canvas, show: (v) => { if (!v) { S.cookView = null; R.setProps({ data: new Float32Array(0), n: 0 }); return true; } S.cookView = v; return !R.lost; },
+        view: () => (S.walk ? seat : null),
         // the room's own fridges, which the kitchen opens; `hide` takes the ones it draws itself (with their doors
-        // and shelves) out of the room's mesh until the kitchen closes, so there's one of each and not two
+        // and shelves) out of the room's mesh until the kitchen closes, so there's one of each and not two.
+        // The microwave the kitchen cooks in is always one of them: it draws it with its door and its light.
         cold: coldIn(S.L, frame),
+        // every cooker in the room (hobs, ranges, microwaves), which the kitchen's appliance strip pans
+        // between; `switchTo` stands you at another one, by the same road a click on it takes (S.cookAt)
+        cookers: cookersIn(S.L, frame.stand?.piece),
+        switchTo: (id) => { S.cookAt = { id, t: performance.now() }; sendCmdSilent('workspace'); },
         hide: (ids) => {
-          const gone = new Set((ids || []).map(String));
+          const gone = new Set([...(ids || []), ...(frame.oven ? [frame.oven.id] : [])].map(String));
           if (!gone.size || !S.L) return;
           const Lc = { ...S.L, placed: S.L.placed.filter((p) => !gone.has(String(p.id))) };
           const m = bakedMesh(S.key + '|cook|' + [...gone].sort().join(','), Lc, { seed, lampOn, doorShut: S.doorShut, turning: S.spin?.turning, joined });
@@ -1049,13 +1543,23 @@ function openStage(msg) {
           S.cookHid = true;
         },
       };
+      if (frame.oven) e.detail.host.hide([]);
+      // on your feet in front of it, looking at it. Walk off and the kitchen shuts (watchCookStand)
+      const w = S.walk, st = frame.stand;
+      if (w && st) {
+        if (w.sat) w.standUp();
+        w.moveTo(st.at);
+        seat.yaw = st.yaw; seat.pitch = Math.max(-1.1, Math.min(0.3, st.pitch));
+        S.cookStand = st;
+      }
     }
     S.cooking = true; root.classList.add('rs-cooking');
+    hoverEl.hidden = true;
     if (!frame) { cancelAnimationFrame(raf); raf = 0; }
   };
   const onCooked = () => {
     if (!S.cooking) return;
-    S.cooking = false;
+    S.cooking = false; S.cookStand = null;
     if (S.cookView) { S.cookView = null; R.setProps({ data: new Float32Array(0), n: 0 }); }
     // the fridges the kitchen drew go back into the room
     if (S.cookHid) { S.cookHid = false; R.setRoom(S.mesh, paint); }
@@ -1064,6 +1568,45 @@ function openStage(msg) {
   };
   window.addEventListener('kitchen:open', onCook);
   window.addEventListener('kitchen:close', onCooked);
+  // walked off from where you were cooking: the kitchen shuts, as you'd stop cooking (kitchen-stage.js
+  // listens). Not while it's showing you something close up, when you aren't the one moving.
+  function watchCookStand() {
+    const st = S.cookStand, w = S.walk;
+    if (!S.cooking || S.chemming || !st || !w?.at || S.cookView?.cam) return;
+    if (Math.hypot(w.at[0] - st.at[0], w.at[1] - st.at[1]) > st.leave) { S.cookStand = null; window.dispatchEvent(new Event('kitchen:walkaway')); }
+  }
+
+  // A CHEM LAB HERE (chem-stage.js, docs/proposals/chem-stage.md): the bench and its cook are played at this
+  // room's own lab, drawn by this room's renderer from the Stage's camera. The lab is rebuilt with the stage's
+  // tools out on it (`working`), and what moves, the liquids, the soft glows and the coloured light are this
+  // room's props, props glass, halos and glows. Only a lab that's out: a sealed Cachet has none to give.
+  const onChem = (e) => {
+    const lab = S.L && (S.L.placed || []).find((q) => q.lab && !q.annex);
+    if (!lab || !e?.detail) return;
+    const inner = cachetInner(lab);
+    e.detail.host = {
+      L: S.L, p: inner, canvas, mount: root,
+      project: (pt, w, h) => R.project(pt, w, h),
+      // the room with the bench at work on `stage` (a stage's name, or true for its open bench cleared), or as it was
+      work: (stage) => {
+        if (!stage) { R.setRoom(S.mesh, paint); return; }
+        const Lc = { ...S.L, placed: S.L.placed.map((q) => (q.id === lab.id ? { ...q, working: stage } : q)) };
+        const m = bakedMesh(S.key + '|chem|' + stage, Lc, { seed, lampOn, doorShut: S.doorShut, joined });
+        R.setRoom(shells.length ? withShells(meshCopy(m), shells) : m, paint);
+      },
+      show: (v) => { S.chemView = v || null; return !R.lost; },
+    };
+    S.chemming = true; S.cooking = true; root.classList.add('rs-cooking');
+  };
+  const onChemDone = () => {
+    if (!S.chemming) return;
+    S.chemming = false; S.cooking = false; S.chemView = null;
+    R.setProps({ data: new Float32Array(0), n: 0 }); R.setPropsGlass(null); R.setStageHalos(null); R.setGlows([]);
+    R.setRoom(S.mesh, paint);
+    root.classList.remove('rs-cooking');
+  };
+  window.addEventListener('chem:open', onChem);
+  window.addEventListener('chem:close', onChemDone);
 
   // the people, as the close-up figure (gl/figure-hd.js), a phone's at the lighter level. Their
   // meshes are built a beat after the room is up, so the room shows first; somebody who walks in
@@ -1102,6 +1645,7 @@ function openStage(msg) {
     if (!m && performance.now() > l.t0) lips.delete(name);
     return m || undefined;
   };
+  const SIT_DOWN = 1100, SIT_UP = 700;
   function eased(p, pl) {
     const now = performance.now(), k = 1 - Math.exp(-Math.min(0.1, (now - easedAt) / 1000) * 9), e = shown.get(p.id);
     const out = { ...pl };
@@ -1117,24 +1661,44 @@ function openStage(msg) {
     const once = clipOnce(out.clip);
     if (!once) onceFrom.delete(p.id);
     else {
-      if (onceFrom.get(p.id)?.clip !== out.clip) onceFrom.set(p.id, { clip: out.clip, t0: now });
+      // and again from the top on each beat of an act (a sip, a bite, a dose), which the server counts
+      const k = out.clip + '|' + (p.beat || 0);
+      if (onceFrom.get(p.id)?.clip !== k) onceFrom.set(p.id, { clip: k, t0: now });
       out.phase = Math.min(0.999, (now - onceFrom.get(p.id).t0) / 1000 / once);
     }
     if (pl.pose === 'lie') return out;
-    if (!e || Math.hypot(e.at[0] - pl.at[0], e.at[1] - pl.at[1]) > 2) { shown.set(p.id, { at: [...pl.at], yaw: pl.yaw }); return out; }
+    if (!e || Math.hypot(e.at[0] - pl.at[0], e.at[1] - pl.at[1]) > 2) { shown.set(p.id, { at: [...pl.at], yaw: pl.yaw, pose: pl.pose }); return out; }
+    // sitting down and getting up: from on their feet to the seat's clip over SIT_DOWN, turning to face out first
+    // and then lowering, the lift (a stool's) coming up with the hips; getting up is the same backwards, quicker
+    if (e.pose !== pl.pose && (pl.pose === 'sit' || e.pose === 'sit')) e.sit = { down: pl.pose === 'sit', t0: now, clip: pl.pose === 'sit' ? out.clip || 'sitRest' : e.clip || 'sitRest' };
+    e.pose = pl.pose;
+    if (pl.pose === 'sit') e.clip = out.clip || 'sitRest';
+    if (e.sit) {
+      const span = e.sit.down ? SIT_DOWN : SIT_UP, q = Math.min(1, (now - e.sit.t0) / span);
+      if (q >= 1) e.sit = null;
+      else {
+        const r = e.sit.down ? Math.max(0, (q - 0.3) / 0.7) : q, s = r * r * (3 - 2 * r), k2 = e.sit.down ? s : 1 - s;
+        out.mix = { a: 'idle', pa: 0, b: e.sit.clip, pb: 0, k: k2 };
+        if (pl.lift && pl.pose === 'sit') out.lift = pl.lift * k2;
+      }
+    }
     if (pl.clip === 'walk') e.at = [...pl.at];
     else { e.at[0] += (pl.at[0] - e.at[0]) * k; e.at[1] += (pl.at[1] - e.at[1]) * k; }
     e.yaw += ((((pl.yaw - e.yaw + Math.PI) % (2 * Math.PI)) + 2 * Math.PI) % (2 * Math.PI) - Math.PI) * k;
     out.at = [...e.at]; out.yaw = e.yaw;
     return out;
   }
+  // a player eating, drinking or taking something (plugins/roomstage acts.js): the clip for it, standing or sat, and
+  // what's in their right hand (gl/figure-reach.js HELD)
+  const ACT_CLIP = { eat: ['eat', 'sitEat'], drink: ['drink', 'sitDrink'], smoke: ['smoke', 'sitSmoke'], swallow: ['swallow', 'sitPill'], inject: ['inject', 'sitTie'], snort: ['snort', 'sitLine'], huff: ['huff', 'sitHuff'] };
+  const acted = (p, pl) => (!p.act || !ACT_CLIP[p.act] || !pl || pl.pose === 'lie' || pl.clip === 'walk' ? pl : { ...pl, clip: ACT_CLIP[p.act][pl.pose === 'sit' ? 1 : 0] });
   const bodiesNow = () => {
     const bodies = [];
     for (const p of S.people) {
       if (p.id === S.you) continue;
-      const pl = placeOf(p);
+      const pl = acted(p, placeOf(p));
       // `rest` and `manner` pick what they idle at: asleep, out cold, or at work behind a bar (plugins/roomstage)
-      if (pl) bodies.push({ id: p.id, ...eased(p, pl), dress: dressOf(p.order), sculpt: true, sex: p.sex, figure: p.figure, wear: p.wear, feel: p.feel,mouth: mouthOf(p.name), rest: p.asleep ? 'sleep' : p.out ? 'out' : undefined, manner: p.manner, mood: p.mood, meal: p.meal, ...(p.stash && pl.seat ? { stash: p.stash, stashAt: stashNow(p.stash) } : {}) });
+      if (pl) bodies.push({ id: p.id, ...eased(p, pl), dress: dressOf(p.order), sculpt: true, sex: p.sex, figure: figOf(p), wear: p.wear, feel: p.feel, ...(p.gait ? { gait: p.gait } : {}), mouth: mouthOf(p.name), rest: p.asleep ? 'sleep' : p.out ? 'out' : undefined, manner: p.manner, mood: p.mood, meal: p.meal, ...(p.stash && pl.seat ? { stash: p.stash, stashAt: stashNow(p.stash) } : {}), ...(p.act && p.hold ? { holds: { R: p.hold } } : {}) });
     }
     // and whoever's next door, seen through the doorway: drawn, tagged, never spoken to from here (`next`)
     for (const n of S.next) {
@@ -1142,9 +1706,11 @@ function openStage(msg) {
       n.people.forEach((p, i) => {
         if (p.id === S.you || p.annex) return;
         const pl = placeNext(n, p, i);
-        bodies.push({ id: p.id, ...eased(p, pl), next: true, dress: dressOf(p.order), sculpt: true, sex: p.sex, figure: p.figure, wear: p.wear, feel: p.feel,rest: p.asleep ? 'sleep' : p.out ? 'out' : undefined, manner: p.manner, mood: p.mood });
+        bodies.push({ id: p.id, ...eased(p, pl), next: true, dress: dressOf(p.order), sculpt: true, sex: p.sex, figure: figOf(p), wear: p.wear, feel: p.feel, ...(p.gait ? { gait: p.gait } : {}), rest: p.asleep ? 'sleep' : p.out ? 'out' : undefined, manner: p.manner, mood: p.mood });
       });
     }
+    // you, while the MORPHEX pod has you (room-morphex.js): walking in, standing in it, walking out
+    if (S.morph?.on) { const me = S.morph.self(performance.now()); if (me) bodies.push(me); }
     easedAt = performance.now();
     return bodies;
   };
@@ -1158,7 +1724,7 @@ function openStage(msg) {
     let pl = null;
     if ((p.posture === 'sitting' || p.posture === 'lying') && p.on) {
       const want = p.posture === 'lying', s = Ln.seats.find((x) => x.piece === p.on && !!x.lie === want) || Ln.seats.find((x) => x.piece === p.on);
-      if (s) pl = { at: [s.u, s.v], yaw: s.yaw, pose: s.lie ? 'lie' : 'sit', head: s.head, top: s.top };
+      if (s) pl = { at: [s.u, s.v], yaw: s.yaw, pose: s.lie ? 'lie' : 'sit', head: s.head, top: s.top, ...(s.back != null && !s.lie ? { back: s.back } : {}), ...(s.lift && !s.lie ? { lift: s.lift } : {}) };
     }
     if (!pl && p.at) pl = { at: p.at, yaw: (p.yaw || 0) + (n.spec.face || 0) * Math.PI / 180, pose: 'stand' };
     if (!pl) pl = { at: [((i % 3) - 1) * 0.6, n.spec.d / 2 + Math.floor(i / 3) * 0.6], yaw: Math.atan2(Ln.f[0], Ln.f[2]), pose: 'stand' };
@@ -1182,23 +1748,66 @@ function openStage(msg) {
   // crossing there's no veil, so a job runs when you've stood still a moment, and slowly while you walk: a figure
   // is 180 ms, which is a hitch mid-stride and nothing while you're looking at a shelf.
   const BAKE_STILL_MS = 250, BAKE_GAP_MS = 60, BAKE_WALKING_MS = 300;
-  const bake = S.bake = { jobs: [], waiting: !!nextDoor.length && !msg.relost, owed: () => bake.waiting || bake.jobs.length > 0 };
+  const bake = S.bake = { jobs: [], pending: 0, waiting: !!nextDoor.length && !msg.relost, owed: () => bake.waiting || bake.jobs.length > 0 || bake.pending > 0 };
   S.ahead = (a) => {
     bake.waiting = false; bake.jobs.length = 0;
+    composed.clear(); R.dropPrepared();
+    const gen = bake.gen = (bake.gen || 0) + 1;
+    const composes = [];
+    // the room as the crossing will ask for it (roomMesh): its own kept mesh with its shells added, uploaded now. Its
+    // parts come back from the worker in their own time, so it waits for them, a few tries, and then leaves it
+    const compose = (spec, pieces, opts, parts) => {
+      let tries = 0;
+      const job = Object.assign(() => {
+        if (ui?.S !== S || bake.gen !== gen) return;
+        const key = bakeKey(roomKey(spec, pieces), opts), m = baked.get(key)?.mesh;
+        const sh = parts.map((p) => baked.get(bakeKey(roomKey(p.spec, p.pieces), p.opts))?.mesh);
+        if (!m || sh.some((x) => !x)) { if (++tries < 40) setTimeout(() => { if (ui?.S === S && bake.gen === gen) bake.jobs.push(job); }, 100); return; }
+        if (!sh.length) return;
+        const ck = composeKey(key, parts.map((p) => bakeKey(roomKey(p.spec, p.pieces), p.opts)));
+        if (composed.has(ck)) return;
+        const c = withShells(meshCopy(m), sh);
+        composed.set(ck, c);
+        R.prepareRoom(c, paint);
+      }, { quick: true });
+      return job;
+    };
     const rooms = [], figures = [], lite = [], drawn = new Set([...S.people, ...nextDoor.flatMap((n) => n.people)].map((p) => p.id));
-    // a room's materials go straight after it: each new one is painted and uploaded as a job of its own
+    // a room's materials go straight after it: each new one is painted in the worker and uploaded as a job of its own
     const worn = new Set();
     // a room is a quick job, so it is tagged to keep going while you walk (runBake); a figure waits for you to stop
-    const room = (make) => Object.assign(() => { for (const key of make().textured.keys()) if (!worn.has(key)) { worn.add(key); bake.jobs.unshift(Object.assign(() => R.prepareTexture(key, paint), { quick: true })); } }, { quick: true });
-    const figure = (p, level) => () => { for (const r of figurePeople(S.L, [{ id: p.id, at: [0, S.spec.d / 2], yaw: 0, pose: 'stand', dress: dressOf(p.order), sculpt: true, sex: p.sex, figure: p.figure, wear: p.wear, feel: p.feel,mood: p.mood }], 0, { level })) R.prepareFigure(r.key); };
+    // the mesh is built by the worker (bakeOffThread); its materials are painted here when it comes back
+    const room = (spec, pieces, opts) => Object.assign(() => {
+      // painted in the worker where it can be (paintOffThread), and only the upload is a job here
+      const wear = (m) => {
+        for (const key of m.textured.keys()) {
+          if (worn.has(key)) continue;
+          worn.add(key);
+          const p = paintOffThread(key, key === ROOM_RUG ? seed : 1);
+          if (!p) { bake.jobs.unshift(Object.assign(() => R.prepareTexture(key, paint), { quick: true })); continue; }
+          bake.pending++;
+          p.then((bm) => {
+            bake.pending--;
+            if (ui?.S !== S) { bm?.close(); return; }
+            bake.jobs.unshift(Object.assign(() => { if (bm) { R.prepareTexture(key, () => bm); bm.close(); } else R.prepareTexture(key, paint); }, { quick: true }));
+          });
+        }
+      };
+      const here = () => bakedMesh(roomKey(spec, pieces), roomLayout(spec, pieces), opts);
+      const p = bakeOffThread(spec, pieces, opts);
+      if (!p) { wear(here()); return; }
+      bake.pending++;
+      p.then((m) => { bake.pending--; if (ui?.S === S) wear(m || here()); }).catch((err) => { bake.pending--; console.warn('[room] baking ahead:', err); });
+    }, { quick: true });
+    const figure = (p, level) => () => { for (const r of figurePeople(S.L, [{ id: p.id, at: [0, S.spec.d / 2], yaw: 0, pose: 'stand', dress: dressOf(p.order), sculpt: true, sex: p.sex, figure: figOf(p), wear: p.wear, feel: p.feel,mood: p.mood }], 0, { level })) R.prepareFigure(r.key); };
     // a ride (plugins/roomstage `elevator.boarded`): the car as it will stand open on the floor it's going to, and
     // that floor's landing as its shell, keyed as ui.cross and reshell will ask for them when the doors open
     const ahead = a.ride ? (a.next || []).map((x) => ({ ...x, pieces: x.pieces || [], people: x.people || [] })) : nextDoor;
     if (a.ride) {
       const carSpec = a.lift ? { ...a.spec, lift: a.lift } : a.spec, near = new Set(ahead.map((x) => x.zone));
-      rooms.push(room(() => bakedMesh(roomKey(carSpec, S.pieces), roomLayout(carSpec, S.pieces), { seed: hashOf(msg.zone), lampOn, doorShut: false, joined: near })));
+      rooms.push(room(carSpec, S.pieces, { seed: hashOf(msg.zone), lampOn, doorShut: false, joined: near }));
       for (const x of ahead) {
-        rooms.push(room(() => bakedMesh(roomKey(x.spec, x.pieces), roomLayout(x.spec, x.pieces), { seed: hashOf(x.zone), lampOn: true, joined: new Set([msg.zone]), shell: true })));
+        rooms.push(room(x.spec, x.pieces, { seed: hashOf(x.zone), lampOn: true, joined: new Set([msg.zone]), shell: true }));
         for (const p of x.people) if (p.id !== S.you && !p.annex && !drawn.has(p.id)) { drawn.add(p.id); figures.push(figure(p, figLevel)); if (figLevel === 'hd') lite.push(figure(p, 'lite')); }
       }
     }
@@ -1208,10 +1817,12 @@ function openStage(msg) {
       if (!n) continue;
       // as ui.cross and reshell will ask for them, or the crossing builds them again
       const spec = r.lift ? { ...r.spec, lift: r.lift } : r.spec, around = r.neighbours || [];
-      rooms.push(room(() => bakedMesh(roomKey(spec, n.pieces), roomLayout(spec, n.pieces), { seed: hashOf(r.zone), lampOn, doorShut: false, joined: new Set(around.map((x) => x.zone)) })));
+      const own = { seed: hashOf(r.zone), lampOn, doorShut: false, turning: null, swinging: null, joined: new Set(around.map((x) => x.zone)) }, parts = [];
+      rooms.push(room(spec, n.pieces, own));
       for (const x of around) {
-        const pieces = x.pieces || (x.zone === msg.zone ? S.pieces : []);
-        rooms.push(room(() => bakedMesh(roomKey(x.spec, pieces), roomLayout(x.spec, pieces), { seed: hashOf(x.zone), lampOn: true, joined: new Set([r.zone]), shell: true })));
+        const pieces = x.pieces || (x.zone === msg.zone ? S.pieces : []), so = { seed: hashOf(x.zone), lampOn: true, joined: new Set([r.zone]), shell: true };
+        parts.push({ spec: x.spec, pieces, opts: so });
+        rooms.push(room(x.spec, pieces, so));
         for (const p of x.people || []) {
           if (p.id === S.you || p.annex || drawn.has(p.id)) continue;
           drawn.add(p.id);
@@ -1219,8 +1830,9 @@ function openStage(msg) {
           if (figLevel === 'hd') lite.push(figure(p, 'lite'));
         }
       }
+      composes.push(compose(spec, n.pieces, own, parts));
     }
-    bake.jobs.push(...rooms, ...figures, ...lite);
+    bake.jobs.push(...rooms, ...composes, ...figures, ...lite);
   };
   let bakeAt = 0, movedAt = 0, lastAt = null, lastYaw = 0;
   function runBake(now) {
@@ -1237,23 +1849,265 @@ function openStage(msg) {
     bakeAt = performance.now();
   }
 
+  // id → person, here and next door, rebuilt only when S.people or S.next is replaced (both are, never mutated).
+  // drawPeople ran a find per body a frame, and a flatMap over next door for each body there.
+  let whoHere = null, whoThere = null, whoPeople = null, whoNext = null, boxFor = null, boxHas = false;
+  function personOf(id, next) {
+    if (whoPeople !== S.people || whoNext !== S.next) {
+      whoPeople = S.people; whoNext = S.next; whoHere = new Map(); whoThere = new Map();
+      for (const x of S.people || []) if (!whoHere.has(x.id)) whoHere.set(x.id, x);   // first wins, as find did
+      for (const n of S.next || []) for (const x of n.people || []) if (!whoThere.has(x.id)) whoThere.set(x.id, x);
+    }
+    return whoHere.get(id) || (next ? whoThere.get(id) : null) || null;
+  }
+  // the animals on the floor (gl/room-beasts.js), built again only when they change or you've moved half a metre,
+  // since each one turns to face you
+  // The shed's lift rides in the same batch (room-hoist.js), built every frame while it moves and once after.
+  // A cat (a pet) settles somewhere new every few minutes, so with one in the room they're built again when it does,
+  // and when a pose's carve lands. A cat doesn't turn to face you, so a room of only cats isn't rebuilt as you walk.
+  let beastsFor = null, beastsEye = null, beastsL = null, hoistVer = -1, hoistWas = false, catWas = -1, catVer = -1;
+  function drawBeasts() {
+    const eye = S.walk?.at || null, moved = !onlyCats(S.beasts) && (!beastsEye !== !eye || (eye && Math.hypot(eye[0] - beastsEye[0], eye[1] - beastsEye[1]) > 0.5));
+    const lifting = hoistUi.moving(), lift = lifting || hoistWas || hoistVer !== hoistUi.ver;
+    const cats = hasCats(S.beasts), beat = cats ? catSettle() : -1, cv = catsVersion();
+    if (beastsFor === S.beasts && beastsL === S.L && !moved && !lift && beat === catWas && cv === catVer) return;
+    catWas = beat; catVer = cv;
+    beastsFor = S.beasts; beastsL = S.L; beastsEye = eye ? [eye[0], eye[1]] : null;
+    hoistWas = lifting; hoistVer = hoistUi.ver;
+    const b = beastsBatch(S.L, S.beasts, { eye });
+    hoistUi.into(b);
+    R.setBeasts(b);
+  }
+  // The card table's controls are on the table: small holograms pinned to the felt (gl/room-poker.js pokerAnchors),
+  // not a bar over the picture. Your cards are the peek (hold them to look, tap to leave them up) with the hand's
+  // name over them; your stack is check/call, the bet (the wheel over it sizes it), raise and all in; a fold chip
+  // sits by your cards to muck them; the pot reads the street and the pot; an empty seat says Sit; the middle of the
+  // felt between hands has the dealer and the bots. Each button is the verb typed (plugins/gametable), so the table
+  // decides everything; the hand's name is only read off the cards (client/shared/poker-hand.js). The markup is
+  // built again only when what it shows changes; the places move every frame.
+  let barEl = null, barSig = '', betAmt = 0;
+  const cardTxt = (c) => (c ? `${String(c.rank).replace('T', '10')}${SUIT_GLYPH[c.suit] || ''}` : '');
+  // how big a bet the sizer offers: the least it may be and the most (all you have)
+  function betRange(st, me) {
+    const most = (me.chips || 0) + (me.bet || 0), bb = st.bb || 10;
+    const least = st.toMatch > 0 ? st.toMatch + Math.max(st.minRaise || 0, bb) : bb;
+    return { least: Math.min(least, most), most };
+  }
+  function sizeBet(how) {
+    const st2 = S.pieces.find((q) => q.board?.poker)?.board, me2 = st2?.seats?.find((s) => s && s.id === S.you);
+    if (!me2) return;
+    const r = betRange(st2, me2), step = Math.max(1, st2.bb || 10), pot = st2.pot || 0;
+    const to = { dn: betAmt - step, up: betAmt + step, half: (st2.toMatch || 0) + Math.round(pot / 2), pot: (st2.toMatch || 0) + pot }[how];
+    betAmt = Math.max(r.least, Math.min(r.most, to));
+    pokerBar();
+  }
+  function pokerBar(off = false) {
+    const st = !off && S.pieces.find((q) => q.board?.poker)?.board;
+    if (!st) { if (barEl) barEl.hidden = true; barSig = ''; return; }
+    const me = st.seats?.find((s) => s && s.id === S.you), live = st.phase === 'InProgress';
+    // nothing over the picture until you're in the game: F on the table from your chair deals you in (actsOf)
+    // and nothing while you're up from the table either: the HUD is only for someone sitting at it
+    if (!me || me.away || !S.walk?.sat) { if (barEl) barEl.hidden = true; barSig = ''; return; }
+    const open = st.seats?.some((s) => !s), bots = st.seats?.filter((s) => s?.bot).length || 0;
+    const mine = me && S.pokerMine, board = st.board || [];
+    const hand = mine ? handOf([...mine, ...board]) : null, draws = mine ? drawsOf(mine, board) : [];
+    const acting = !!(live && me?.acting), owe = acting ? Math.max(0, (st.toMatch || 0) - (me.bet || 0)) : 0;
+    const R = acting ? betRange(st, me) : null;
+    if (R) betAmt = Math.max(R.least, Math.min(R.most, betAmt || R.least));
+    const verb = (st.toMatch || 0) > 0 ? 'raise' : 'bet';
+    const B = (label, cmd, cls = '') => `<button type="button" class="pkt-b ${cls}" data-cmd="${esc(cmd)}">${label}</button>`;
+    const street = st.street ? st.street.toUpperCase() : st.phase === 'HandComplete' ? 'SHOWDOWN' : 'WAITING';
+    const nOpen = st.seats?.filter((s) => !s).length || 0;
+    const sig = [street, !!me?.away, st.pot, me?.chips, me?.bet, acting, owe, JSON.stringify(mine), JSON.stringify(board), open, nOpen, bots, !!st.dealer, !!me, R?.least, R?.most, betAmt, S.peek?.on].join('|');
+    if (sig !== barSig) {
+      barSig = sig;
+      if (!barEl) {
+        barEl = document.createElement('div');
+        barEl.className = 'rs-pkt';
+        barEl.addEventListener('click', (e) => {
+          const btn = e.target.closest('[data-cmd],[data-size]');
+          if (!btn) return;
+          if (btn.dataset.cmd) sendCmd(btn.dataset.cmd); else sizeBet(btn.dataset.size);
+        });
+        // the wheel over your stack sizes the bet, a big blind a notch
+        barEl.addEventListener('wheel', (e) => {
+          if (!e.target.closest('.pkt-stack')) return;
+          e.preventDefault(); e.stopPropagation();
+          sizeBet(e.deltaY < 0 ? 'up' : 'dn');
+        }, { passive: false });
+        // your cards: hold to lift them toward you, or tap to leave them up until you tap again
+        let downAt = 0;
+        barEl.addEventListener('pointerdown', (e) => {
+          if (e.target.closest('.pkt')) e.stopPropagation();
+          if (!e.target.closest('[data-peek]')) return;
+          e.stopPropagation();
+          downAt = performance.now();
+          S.peek = { held: !!S.peek?.on, on: true };
+        });
+        const up = () => {
+          if (!downAt) return;
+          const tap = performance.now() - downAt < 250;
+          downAt = 0;
+          S.peek.on = tap ? !S.peek.held : false;
+          pokerBar();
+        };
+        barEl.addEventListener('pointerup', up);
+        barEl.addEventListener('pointerleave', up, true);
+        host.append(barEl);
+      }
+      const made = (c) => !!mine && inHand(hand, c) && (hand.rank > 0 || mine.includes(c));
+      const handLine = hand ? `<b>${esc(hand.name)}</b>${mine ? `<i>${mine.map(cardTxt).join(' ')}${board.some(made) ? ' + ' + board.filter(made).map(cardTxt).join(' ') : ''}</i>` : ''}`
+        : `<b>${live ? 'Your cards' : 'Waiting for the deal'}</b>`;
+      const parts = [];
+      // the cards strip: the board as it's dealt (flop, turn, river), and your two, face down until you peek
+      {
+        const face = (c, cls = '') => `<i class="pkh-c${c.suit === 'h' || c.suit === 'd' ? ' red' : ''}${made(c) ? ' won' : ''} ${cls}">${esc(cardTxt(c))}</i>`;
+        const slots = [0, 1, 2, 3, 4].map((i) => (board[i] ? face(board[i]) : '<i class="pkh-c empty"></i>')).join('');
+        const up = !!S.peek?.on && !!mine;
+        const two = mine ? mine.map((c) => (up && c ? face(c) : '<i class="pkh-c back"></i>')).join('') : '<i class="pkh-c empty"></i><i class="pkh-c empty"></i>';
+        parts.push(`<div class="pkt pkt-hud" data-dock="cards">
+          <div class="pkh-grp"><span>${esc(board.length >= 5 ? 'RIVER' : board.length === 4 ? 'TURN' : board.length === 3 ? 'FLOP' : 'BOARD')}</span><div class="pkh-row">${slots}</div></div>
+          <div class="pkh-grp pkh-mine" data-peek title="Hold to look at your cards; tap to leave them up"><span>${up ? 'YOUR HAND' : 'HOLD TO PEEK'}</span><div class="pkh-row">${two}</div></div>
+          ${up && hand ? `<div class="pkh-grp"><span>READS</span><div class="pkh-hand">${esc(hand.name)}</div></div>` : ''}</div>`);
+      }
+      parts.push(`<div class="pkt pkt-pot" data-at="pot"><span>${esc(street)}</span><b>₵${(st.pot || 0).toLocaleString()}</b></div>`);
+      {
+        parts.push(`<div class="pkt pkt-cards${S.peek?.on ? ' up' : ''}" data-at="cards" data-peek title="Hold to look at your cards; tap to leave them up">
+          <div class="pkt-read">${handLine}${draws.length ? `<em>${esc(draws.join(' · '))}</em>` : ''}</div>
+          <div class="pkt-hit"><span>${S.peek?.on ? 'TAP TO HIDE' : 'HOLD TO PEEK'}</span></div></div>`);
+        // the betting panel is docked at the side of the picture, not pinned over the felt in front of you, so the
+        // middle of the screen stays the table; Fold is in it, at the foot, away from Call
+        // up from the table: the seat is held and checks or folds for you until you sit back down
+        if (acting) {
+          parts.push(`<div class="pkt pkt-stack" data-dock title="Wheel to size the bet">
+            <span class="pkt-k">STACK ₵${(me.chips || 0).toLocaleString()}</span>
+            ${owe ? B(`Call ₵${owe.toLocaleString()}`, 'call', 'go') : B('Check', 'check', 'go')}
+            <span class="pkt-size"><button type="button" data-size="dn">−</button><b>₵${betAmt.toLocaleString()}</b><button type="button" data-size="up">+</button></span>
+            <span class="pkt-size"><button type="button" data-size="half">½ pot</button><button type="button" data-size="pot">Pot</button></span>
+            ${B(`${verb === 'raise' ? 'Raise to' : 'Bet'} ₵${betAmt.toLocaleString()}`, `${verb} ${betAmt}`, 'gold')}${B('All in', 'allin', 'hot')}<span class="pkt-gap"></span>${B('Fold', 'fold', 'cold')}</div>`);
+        } else {
+          // 'leave' cashes you out but keeps you in the chair, so "Just sit" is the way to sit here without playing;
+          // F on the table deals you back in
+          parts.push(`<div class="pkt pkt-stack idle" data-dock><span class="pkt-k">STACK ₵${(me.chips || 0).toLocaleString()}</span>${B(live ? 'Leave the game' : 'Just sit, no cards', 'leave', 'cold')}</div>`);
+        }
+      }
+      if (!live) {
+        const host2 = `${open ? B('Deal in AI', 'summon', 'gold') : ''}${bots ? B('Bot out', 'evict') : ''}${B(st.dealer ? 'Send dealer off' : 'Call dealer', 'calldealer')}`;
+        parts.push(`<div class="pkt pkt-mid" data-dock="top">${host2}</div>`);
+      }
+      barEl.innerHTML = parts.join('');
+      barEl.classList.toggle('acting', acting);
+    }
+    barEl.hidden = false;
+    pokerPlace();
+  }
+  // Each hologram to its place on the felt this frame; one that's behind you or off the picture is hidden.
+  function pokerPlace() {
+    const A = pokerAnchors();
+    if (!barEl || !A) return;
+    const b = host.getBoundingClientRect();
+    for (const el of barEl.children) {
+      // a docked panel stays where the sheet puts it, at the side
+      if (el.dataset.dock !== undefined) continue;
+      const k = el.dataset.at, p = k?.startsWith('open') ? A.open[+k.slice(4)] : A[k] || A.me?.[k];
+      const q = p && R.project(p, b.width, b.height);
+      const vis = !!q && q.x > -40 && q.x < b.width + 40 && q.y > -40 && q.y < b.height + 40;
+      el.style.display = vis ? '' : 'none';
+      if (vis) el.style.transform = `translate(${q.x.toFixed(0)}px, ${q.y.toFixed(0)}px)`;
+    }
+  }
+  // How far your cards are lifted toward you, 0 down to 1 up, eased toward what the Peek button says.
+  let peekK = 0, peekT = 0;
+  function peekNow(t) {
+    const dt = Math.max(0, Math.min(0.1, t - (peekT || t)));
+    peekT = t;
+    peekK += ((S.peek?.on ? 1 : 0) - peekK) * Math.min(1, dt * 7);
+    return peekK < 0.002 ? 0 : peekK;
+  }
+  // Looking out on the street (a window or a balcony), the lens keeps the room and what's just outside it sharp and
+  // blurs only the buildings further off: the room's diagonal and six metres more (gl/room-dof.js `sharp`).
+  function streetSharp() {
+    const sp = S.spec;
+    if (!sp || !(S.mesh?.windows?.length || sp.balcony)) return 0;
+    const k = sp.unit === 'ft' ? FT_PER_M : 1;
+    return Math.hypot(sp.w || 0, sp.d || 0) / k + 6;
+  }
+  // While you hold cards at a table, the lens is pinned at them (gl/room-dof.js), so they're never what's blurred.
+  function pokerFocus() {
+    const at = S.pokerMine && pokerMineAt(), eye = seat.eye;
+    const out = at && eye ? { focus: Math.max(0.3, Math.hypot(at[0] - eye[0], at[1] - eye[1], at[2] - eye[2])) } : {};
+    const band = tableBand();
+    if (band) out.focusBand = band;
+    return out;
+  }
+  // Sat at a table, the lens holds a band sharp from the table's near edge to past the chairs across it, so the
+  // table, its chairs and everybody round it are in focus wherever you look; the room beyond still falls off.
+  function tableBand() {
+    const L = S.L, s = S.walk?.sat, eye = seat.eye;
+    if (!L || !s || s.lie || !eye) return null;
+    const k = S.spec.unit === 'ft' ? FT_PER_M : 1;
+    let t = null, bd = 1.2 * k;
+    for (const q of L.placed) {
+      if (q.arche !== 'table') continue;
+      const dd = Math.max(0, Math.hypot(q.u - s.u, q.v - s.v) - Math.max(q.w, q.d) / 2);
+      if (dd < bd) { bd = dd; t = q; }
+    }
+    if (!t) return null;
+    // the table's corners pushed out by a chair and a body (0.9 m), as world points
+    const [fu, fv] = facing(t.turn), su = -fv, sv = fu, m = 0.9 * k, hw = t.w / 2 + m, hd = t.d / 2 + m;
+    let hi = 0;
+    for (const [a, b] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) {
+      const p = L.world(t.u + su * a * hw + fu * b * hd, t.v + sv * a * hw + fv * b * hd, 0);
+      hi = Math.max(hi, Math.hypot(p[0] - eye[0], p[1] - eye[1], p[2] - eye[2]));
+    }
+    // the near edge: your own side of the table, a little short of it so your hands on it are sharp too
+    const c = L.world(t.u, t.v, 0), near = Math.hypot(c[0] - eye[0], c[2] - eye[2]) - Math.min(t.w, t.d) / 2 - 0.35 * k;
+    return [Math.max(0.3 * k, near), hi];
+  }
+  // Your own shower running: once you've stood in it, walking back out of the stall turns it off, as the log's
+  // `shower off` does. Typing `shower` from across the room doesn't, since you never went in.
+  function showerStepOut() {
+    const at = S.walk?.at;
+    const fid = Object.keys(S.plumb || {}).find((id) => S.plumb[id]?.shower && S.plumb[id].by === S.you);
+    const p = fid ? S.L.placed.find((q) => String(q.id) === fid) : null;
+    if (!p || !at || S.walk?.sat) { if (!fid) S.inShower = null; return; }
+    const [u0, u1, v0, v1] = pieceBoxes(p)[0], m = 0.1 * (S.L.ft ? S.L.ft / FT_M : 1);
+    const inside = at[0] > u0 - m && at[0] < u1 + m && at[1] > v0 - m && at[1] < v1 + m;
+    if (inside) S.inShower = fid;
+    else if (S.inShower === fid) { S.inShower = null; sendCmd('shower off'); }
+  }
   function drawPeople(t) {
     const bodies = bodiesNow();
     const recs = figurePeople(S.L, bodies, t, { level: figLevel, eye: seat.eye });
     R.setFigures(recs);
+    drawBeasts();
     // a pan, a stove, a plate: what anybody cooking or eating has (gl/room-meals.js), and nothing once nobody is
     // and the kit on a table (gl/room-stash.js), and the lid of a lacquered box, open while its card is up
-    const box = S.L.placed.some((q) => q.form === 'lacquer'), using = bodies.some((bd) => bd.stash);
+    if (boxFor !== S.L) { boxFor = S.L; boxHas = S.L.placed.some((q) => q.form === 'lacquer'); }   // per layout, not per frame
+    const box = boxHas, using = bodies.some((bd) => bd.stash);
     const lidTo = S.lidFor && root.querySelector('.st-menu') ? 1 : 0;
     const dt = Math.max(0, Math.min(0.1, t - (S.lidT ?? t)));
     S.lidK = (S.lidK || 0) + (lidTo - (S.lidK || 0)) * Math.min(1, dt * 5);
     S.lidT = t;
     if (!lidTo && S.lidK < 0.002) { S.lidK = 0; S.lidFor = null; }
-    const eating = bodies.some((bd) => bd.meal);
-    if (eating || using || box || S.propsOn) {
+    // and what's in a hand that nothing else draws: a bottle, a pill, a rig (gl/room-held.js)
+    const eating = bodies.some((bd) => bd.meal), holding = recs.some((r) => r.hold?.L || r.hold?.R);
+    const fridge = S.fridge?.swing ? S.fridge : null;
+    // and a hand of hold'em on a card table (gl/room-poker.js): the cards, the chips, the deal
+    const poker = pokerLive(S.pieces);
+    if (!poker && barEl && !barEl.hidden) pokerBar(true);
+    // a shower running, a stream, a bowl that isn't clean (gl/room-plumbing.js)
+    const plumb = plumbingLive(S.plumb);
+    if (plumb) showerStepOut();
+    if (eating || using || box || holding || S.propsOn || fridge || poker || plumb) {
       const b = mealProps(S.L, bodies, recs, t);
       stashProps(b, S.L, bodies, recs, t, { id: S.lidFor, k: S.lidK || 0 });
-      R.setProps(b); S.propsOn = eating || using || box;
+      heldProps(b, bodies, recs);
+      if (poker) { pokerProps(b, S.L, S.pieces, { id: S.you, cards: S.pokerMine, peek: peekNow(t) }, t, S.walk?.at || null); pokerBar(); }
+      if (fridge) swingBatch(b, fridge.swing, fridge.k);
+      if (plumb) plumbingProps(b, S.L, S.plumb, bodies, S.walk?.at ? { id: S.you, at: S.walk.at, yaw: seat.yaw } : null, t);
+      // (an open fridge keeps it on a frame longer, so its doors leave the props layer once they're back in the room)
+      R.setProps(b); S.propsOn = eating || using || box || holding || !!fridge || poker || plumb;
     }
     // a name over each head
     const b = host.getBoundingClientRect();
@@ -1264,11 +2118,33 @@ function openStage(msg) {
     const eye = seat.eye ? S.L.local(seat.eye) : S.walk?.at;
     // ⚠ WRITTEN ONLY WHEN IT CHANGES. Setting innerHTML every frame reparsed the tags and forced a layout for the
     // next frame's getBoundingClientRect, with nobody moving
-    const html = bodies.map((bd) => {
-      if (eye && !roomSees(S.L, eye, bd.at)) return '';
-      const p = S.people.find((x) => x.id === bd.id) || (bd.next ? S.next.flatMap((n) => n.people).find((x) => x.id === bd.id) : null), y = bd.pose === 'lie' ? (bd.top || 0.4) + 0.5 : bd.pose === 'sit' ? 1.45 : 1.95;
+    const shown = [];
+    for (const bd of bodies) {
+      if (bd.id === S.you || (eye && !roomSees(S.L, eye, bd.at))) continue;
+      const p = personOf(bd.id, bd.next), y = bd.pose === 'lie' ? (bd.top || 0.4) + 0.5 : bd.pose === 'sit' ? 1.45 + (bd.lift || 0) : 1.95;
       const q = R.project(S.L.world(bd.at[0], bd.at[1], bd.pose === 'lie' ? y : y + S.L.baseAt(bd.at[0], bd.at[1])), b.width, b.height);
-      if (!q || q.x <= -50 || q.x >= b.width + 50 || q.y <= -20 || q.y >= b.height) return '';
+      if (!q || q.x <= -50 || q.x >= b.width + 50 || q.y <= -20 || q.y >= b.height) continue;
+      shown.push({ bd, p, q, w: String(p?.name || '').length * 7 + 14 });
+    }
+    // two names in the same place are stacked: each tag, nearest the bottom first, goes up past any tag it
+    // would overlap. Eased per person, so a tag slides rather than jumping as people cross.
+    const TAG_H = 18, placed = [], dtTag = Math.min(0.1, Math.max(0, t - (tagLift.t ?? t)));
+    tagLift.t = t;
+    shown.sort((m, n) => n.q.y - m.q.y || m.q.x - n.q.x);
+    for (const s of shown) {
+      let y = s.q.y;
+      for (let moved = true, k = 0; moved && k < 12; k++) {
+        moved = false;
+        for (const o of placed) if (Math.abs(o.x - s.q.x) < (o.w + s.w) / 2 && Math.abs(o.y - y) < TAG_H) { y = o.y - TAG_H; moved = true; }
+      }
+      placed.push({ x: s.q.x, y, w: s.w });
+      const want = y - s.q.y, was = tagLift.get(s.bd.id) ?? want;
+      const off = was + (want - was) * Math.min(1, dtTag * 10);
+      tagLift.set(s.bd.id, off);
+      s.q = { x: s.q.x, y: s.q.y + off };
+    }
+    for (const id of tagLift.keys()) if (id !== 't' && !shown.some((s) => s.bd.id === id)) tagLift.delete(id);
+    const html = shown.map(({ bd, p, q }) => {
       const tag = `<span class="rs-tag${p?.npc ? ' npc' : ''}" style="left:${q.x.toFixed(0)}px;top:${q.y.toFixed(0)}px">${esc(p?.name)}</span>`;
       if (!p || bd.next || !!p.annex !== mineAnnex || q.x < 0 || q.x > b.width) return tag;
       inView.add(p.name);
@@ -1281,6 +2157,7 @@ function openStage(msg) {
     if (html !== tagsHtml) { tagsHtml = html; tagsEl.innerHTML = html; }
   }
   let tagsHtml = '';
+  const tagLift = new Map();   // each name tag's eased lift off its head, in pixels, and `t` the frame it was last set
 
   // ⚠ THE VIEW OUT IS TURNED FOR THE NEXT ROOM BEFORE YOU'RE IN IT. In a room with no glass (a hall) nobody sees it,
   // so it's placed where the nearest room with windows past a doorway looks out from (`place`, from room_ahead):
@@ -1360,7 +2237,7 @@ function openStage(msg) {
     const tries = (msg.relost || 0) + 1;
     console.warn('[room] the 3-D context was lost; opening the room again (' + tries + ')');
     if (tries > 3) { host.innerHTML = '<p class="rs-none">The 3-D room stopped drawing. Close it and open it again, or use the room text.</p>'; return; }
-    const again = { ...msg, pieces: S.pieces, people: S.people, here: S.here, locks: S.locks, relost: tries };
+    const again = { ...msg, pieces: S.pieces, people: S.people, here: S.here, locks: S.locks, glass: S.glass, relost: tries };
     const o = lastOutlook?.zone === msg.zone ? lastOutlook : null;
     setTimeout(() => { if (ui?.S !== S) return; openRoomStage(again); if (o) roomOutlook(o); }, 250);
   }
@@ -1371,7 +2248,9 @@ function openStage(msg) {
     if (Math.abs(h - lastHour) > 0.08) { lastHour = h; R.setView(paintView(document, h, seed)); }
     // the glass under the broadcast's page: dark, on or off
     if (!S.screenPainted) { paintScreen(screenCanvas, false, 0, seed); R.setScreen(screenCanvas); S.screenPainted = true; }
+    watchFridge(now);
     if (peopleOn) drawPeople(now / 1000);
+    hoistUi.frame(now);
     watchDoor(now);
     watchDoorways(now);
     watchAnnexDoor();
@@ -1380,7 +2259,9 @@ function openStage(msg) {
     watchLiftDoors(now);
     watchSlideDoors(now);
     lockUi.slide(now);
-    S.seeLens = S.outlook?.tick(h, liveWx(), lookOut()) || S.seeLens;
+    // with every pane under a lit scene there's nothing out there to paint
+    // the view out isn't painted under lit shutters, unless a balcony door can open through them onto it
+    S.seeLens = S.outlook?.tick(h, liveWx(), S.shutters.covered && !S.spec?.balcony ? null : lookOut()) || S.seeLens;
     toFaces(h);
     warmView(now, h);
     const Lr = S.L, A = Lr.annex;
@@ -1398,11 +2279,20 @@ function openStage(msg) {
     const bob = S.ride ? rideBob(now) : 0;
     if (bob) seat.eye[1] += bob;
     // cooking: the kitchen's camera, and its board, pans and food standing on this room's hob
-    const cook = S.cooking ? S.cookView : null;
-    if (cook) R.setProps(cook.props);
-    R.render(cook ? cook.cam : seat, { lamps: S.mesh.lamps, next: nextLit(Lr, seat.eye), lampOn, lampLevel, fire, flame,day: Math.min(1, dayOf(h) * outside.dimOf() + out.flash * 0.5), sky, wins: S.mesh.windows, annex, outZ: S.spec.balcony ? 0.145 : undefined, outRing: S.spec.balcony?.wrap ? [-S.spec.w / 2 - 0.145, S.spec.w / 2 + 0.145, S.spec.balcony.sides ? -1e6 : -S.spec.balcony.wrap - 0.005] : undefined, front: Lr.f, right: Lr.r, bearing: S.bearing, outside: out, lens: S.seeLens, tvOn: tvNow(now) });
+    const mx = S.morph?.on ? S.morph.frame(now) : null;
+    if (mx) { R.setProps(mx.props); R.setPropsGlass(mx.glass); R.setGlows(mx.glows); }
+    const cook = mx ? { cam: mx.cam } : S.cooking ? (S.chemming ? S.chemView : S.cookView) : null;
+    if (cook?.props) R.setProps(cook.props);
+    watchCookStand();
+    // the Chem Stage's liquids, glows and light on this room's bench
+    if (cook && S.chemming) { R.setPropsGlass(cook.glass); R.setStageHalos(cook.halos); R.setGlows(cook.glows); }
+    // the shutters as they stand this frame; a phone's scene is a still picture
+    const shf = S.shutters.frame(now);
+    const shut = shf ? { ...shf, ...(S.shutAt?.mesh === S.mesh ? S.shutAt : (S.shutAt = { mesh: S.mesh, ...shutterFrame(Lr, S.mesh.windows) })), t: phone ? 41 : now / 1000, door: balconyGap() } : null;
+    R.render(cook?.cam || seat, { lamps: S.mesh.lamps, next: nextLit(Lr, seat.eye), lampOn, lampLevel, fire, flame,day: Math.min(1, dayOf(h) * outside.dimOf() + out.flash * 0.5), sky, wins: S.mesh.windows, annex, outZ: S.spec.balcony ? 0.145 : undefined, outRing: S.spec.balcony?.wrap ? [-S.spec.w / 2 - 0.145, S.spec.w / 2 + 0.145, S.spec.balcony.sides ? -1e6 : -S.spec.balcony.wrap - 0.005] : undefined, front: Lr.f, right: Lr.r, bearing: S.bearing, outside: out, lens: S.seeLens, tvOn: tvNow(now), shut, focusSharp: streetSharp(), ...pokerFocus() });
     if (bob) seat.eye[1] -= bob;
     if (lockUi.count) lockUi.draw(host.clientWidth, host.clientHeight, seat.eye, S.walk?.at);
+    if (envUi.on) envUi.draw(host.clientWidth, host.clientHeight, seat.eye, S.walk?.at);
     if (liftUi.on) liftUi.draw(host.clientWidth, host.clientHeight, readoutNow(now), S.ride && rideK(now)?.k < 1 ? S.ride : null);
     hearing.tick(outside.hear, placeOfEar(h, now), outdoors);
   }
@@ -1451,9 +2341,30 @@ function openStage(msg) {
       seen = Math.abs(fix(Math.atan2(at[0] - u, at[1] - v) - look)) < half + 0.35;
     }
     if (!seen) return null;
+    // ⚠ LIVE, ONLY THE PANES' STRIP IS BUILT (windshield.js v.cullX). The room's canvas covers the city but for its
+    // panes, so a building that's off every pane's strip on screen is skipped as one off the side of the canvas is.
+    // The strip is each pane's ends seen from the eye, with a margin for pitch and a tower leaning in; a pane edge
+    // beside you or behind you, a balcony or a lift's landing, and it's the whole width.
+    let cull = null;
+    if (S.outlook?.live && !onBalcony(spec, at) && !spec.car && !spec.lift) {
+      // the room camera's own axes, pitch and all (gl/room.js roomMatrices), and each pane's four corners: a level
+      // projection was a strip a third too narrow looking down from a penthouse, and cut the Coliseum's slices out
+      const y = seat.yaw || 0, p = seat.pitch || 0, cp = Math.cos(p), sp = Math.sin(p);
+      const f = [Math.sin(y) * cp, sp, Math.cos(y) * cp], r = [-Math.cos(y), 0, Math.sin(y)], e = seat.eye, tf = Math.tan(half);
+      let lo = Infinity, hi = -Infinity;
+      for (const q of spec.windows || []) for (const m of [q.a, q.b]) for (const h of [q.y0 ?? 0, q.y1 ?? 3]) {
+        const u = q.wall === 'front' ? m : (q.wall === 'left' ? -1 : 1) * spec.w / 2, v = q.wall === 'front' ? 0 : m;
+        const P = L.world(u, v, h), d = [P[0] - e[0], P[1] - e[1], P[2] - e[2]], ahead = d[0] * f[0] + d[1] * f[1] + d[2] * f[2];
+        if (ahead < 0.3) { lo = -Infinity; break; }
+        const x = 0.5 + (d[0] * r[0] + d[2] * r[2]) / ahead / (2 * tf);
+        if (x < lo) lo = x;
+        if (x > hi) hi = x;
+      }
+      if (lo > -Infinity && hi > lo) cull = [Math.max(0, lo - CULL_PAD), Math.min(1, hi + CULL_PAD)];
+    }
     // ⚠ LIVE, THE CITY'S EYE IS YOURS: it's painted every frame from where you stand (room-outlook.js `live`). For the
     // six faces it's fixed at the middle of the front glass, since they're painted once from one place.
-    return { yaw: (S.bearing || 0) - look * 180 / Math.PI, pitch: seat.pitch, fov: seat.fov, at: S.outlook?.live ? at : [0, 0], room: [spec.w, spec.d] };
+    return { yaw: (S.bearing || 0) - look * 180 / Math.PI, pitch: seat.pitch, fov: seat.fov, at: S.outlook?.live ? at : [0, 0], room: [spec.w, spec.d], cull };
   }
   S.lookOut = lookOut;
 
@@ -1533,7 +2444,7 @@ function openStage(msg) {
   if (pendingOutlook?.zone === msg.zone) ui_outlook(pendingOutlook);
   pendingOutlook = null;
 
-  ui = { root, S, seat, outside, stop() {
+  ui = { root, S, seat, outside, startMorph, openFridge, npcFridge, stop() {
     cancelAnimationFrame(raf);
     S.outlook?.stop();
     S.facesNext?.stop(); S.facesNext = null;
@@ -1548,11 +2459,16 @@ function openStage(msg) {
     document.removeEventListener('keyup', onKeyUp);
     window.removeEventListener('kitchen:open', onCook);
     window.removeEventListener('kitchen:close', onCooked);
+    S.morph?.close(); S.morph = null;
+    window.removeEventListener('chem:open', onChem);
+    window.removeEventListener('chem:close', onChemDone);
     clearTimeout(flashT);
     clearTimeout(sayT);
     S.studio?.dispose();
     lockUi.stop();
     liftUi.stop();
+    envUi.stop();
+    window.removeEventListener('envctl:light', onPanelLight);
     R.dispose();
   } };
   // ⚠ THE NEXT ROOM OF THE SAME BUILDING IS THE SAME STAGE (docs/proposals/building-stage.md). A doorway or a lift
@@ -1591,10 +2507,13 @@ function openStage(msg) {
     seed = hashOf(msg.zone);
     S.spec = msg.lift ? { ...msg.spec, lift: msg.lift } : msg.spec;
     S.pieces = msg.pieces || []; S.people = msg.people || []; S.here = msg.here || msg.zone; S.locks = msg.locks || [];
+    S.glass = msg.glass || null; S.shutters.set(S.glass, { snap: true });
+    S.plumb = msg.plumbing || null; S.inShower = null;
+    S.tags = msg.tags || []; S.sprayLive = null;
     // what was being baked was for the doorways of the room you've left; this room's `room_ahead` is on its way
-    bake.jobs.length = 0; bake.waiting = false; placedFor = null;
+    bake.jobs.length = 0; bake.waiting = false; bake.gen = (bake.gen || 0) + 1; placedFor = null;
     nextDoor = neighboursOf(msg); joined = new Set(nextDoor.map((n) => n.zone)); S.next = nextDoor; reshell();
-    S.moving = null; S.going = null; S.held = null; S.doorShut = false; S.spin = null; S.cardKey = null; showCard(null, null);
+    S.moving = null; S.going = null; S.held = null; S.doorShut = false; S.spin = null; S.fridge = null; S.cardKey = null; showCard(null, null);
     // a set, a studio floor and whatever was on the props layer belonged to the last room
     S.tv?.stop(); S.tv = null; tvBar.hidden = true; S.npcTv = false; S.tvFromNpc = false; S.screenPainted = false;
     S.studio?.dispose(); S.studio = null;
@@ -1660,6 +2579,7 @@ function openStage(msg) {
     setTimeout(() => { if (ui?.S === S && S.ride && !streetWarm()) sendRaw({ type: 'room_street' }); }, afterMs);
   };
   ui.lockUi = lockUi;
+  ui.hoistUi = hoistUi;
   ui.R = R; ui.draw = draw; ui.rebuild = rebuild; ui.followSelf = followSelf; ui.annexStand = annexStand; ui.roomStand = roomStand;
   rebuild(false);
   S.syncTv(msg.tv);
@@ -1697,14 +2617,40 @@ function fadeOver(u) {
 }
 
 // For the gate and a harness: the eye and the room's state while it's open.
-export const _test = () => (ui?.S ? { seat: ui.seat, S: ui.S, R: ui.R, draw: ui.draw, tv: ui.S.tv, outside: ui.outside, outlookMsg: lastOutlook, baked: { n: baked.size, bytes: bakedBytes } } : null);
+export const _test = () => (ui?.S ? { seat: ui.seat, S: ui.S, R: ui.R, draw: ui.draw, tv: ui.S.tv, outside: ui.outside, outlookMsg: lastOutlook, morph: (id) => ui.startMorph(ui.S.pieces.find((p) => p.id === id)), fridge: (id) => ui.openFridge(ui.S.pieces.find((p) => p.id === id)), baked: { n: baked.size, bytes: bakedBytes } } : null);
 
+// Your hands in first person (stands-hands.js), made the first time and kept till the room closes. Each beat of a
+// ritual (a bite, a sip, a drag, a dose) goes to the server as room_act, so everybody else in the room sees your
+// figure do it (plugins/roomstage acts.js, gl/figure-reach.js).
+function takeInHand(item) {
+  if (!ui?.root || !item) return false;
+  ui.hands ??= createHands(ui.root, ui.root.querySelector('.rs-host'), { send: sendCmd, onAct: (act, hold) => sendRaw({ type: 'room_act', act, hold }) });
+  return ui.hands.take(item) !== false;
+}
 // What a machine in the room handed you (stands_hand, plugins/vending): held in first person, as a
-// box's smokes are. The hands are made the first time and kept till the room closes.
+// box's smokes are.
 export function roomHand(msg) {
-  if (!ui?.root || !msg?.item) return;
-  ui.hands ??= createHands(ui.root, ui.root.querySelector('.rs-host'), { send: sendCmd });
-  ui.hands.take(msg.item);
+  if (msg?.item) takeInHand(msg.item);
+}
+// The Pockets list (plugins/roomstage acts.js pocketsOf): what you carry that you can take here, by how it's taken.
+const POCKET_VERB = { eat: 'Eat', drink: 'Drink', smoke: 'Smoke', swallow: 'Take', snort: 'Do a line of', inject: 'Inject', huff: 'Huff', spray: 'Tag the wall with' };
+
+// What's sprayed on this room's walls now (plugins/roomstage `room_tags`): a tag went up or was cleaned off. The real
+// one takes the place of the spray session's piece.
+export function roomTags(msg) {
+  const S = ui?.S;
+  if (!S || msg.zone !== S.msg.zone) return;
+  S.tags = msg.tags || [];
+  S.sprayLive = null;
+  S.paintTags?.();
+}
+export function roomPockets(msg) {
+  const S = ui?.S, box = ui?.root?.querySelector('.rs-pocket-items');
+  if (!S || !box) return;
+  S.pockets = msg.items || [];
+  box.innerHTML = S.pockets.length
+    ? S.pockets.map((it, i) => `<button type="button" data-i="${i}">${POCKET_VERB[it.act] || 'Use'} <b>${esc(it.name)}</b>${it.qty > 1 ? ` <span>×${it.qty}</span>` : ''}</button>`).join('')
+    : '<i>Nothing on you to eat, drink or take.</i>';
 }
 
 // A piece placed or taken while the room is open (or, with `pieces`, the whole room after a move-out).
@@ -1732,9 +2678,45 @@ export function roomPiece(msg) {
   ui.rebuild();
 }
 
+// A move on a chess table (plugins/gametable through plugins/roomstage): the position on that piece, and the room
+// built again with it, as a piece that moved is.
+export function roomBoard(msg) {
+  const S = ui?.S;
+  if (!S) return;
+  const n = S.next?.find((x) => x.zone === msg.zone);
+  const list = n ? n.pieces : msg.zone === S.msg.zone ? S.pieces : null;
+  const p = list?.find((x) => x.id === msg.piece);
+  // a poker felt is drawn every frame off the piece's state (gl/room-poker.js): nothing to rebuild
+  if (p && msg.board?.poker) { p.board = msg.board; return; }
+  if (!p || p.board?.board === msg.board?.board) return;
+  p.board = msg.board;
+  if (n) S.reshell();
+  ui.rebuild();
+}
+
+// Your own hole cards at a card table, out of the felt the server just sent you (plugins/gametable render-pane.js
+// `data-p3d`): the room's state on the table carries nobody's, so gl/room-poker.js turns yours face up from these.
+export function roomPokerPane(html) {
+  const S = ui?.S;
+  if (!S) return;
+  const m = /data-p3d="([^"]*)"/.exec(String(html || ''));
+  let st = null;
+  try { st = m ? JSON.parse(m[1].replace(/&quot;/g, '"').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&')) : null; } catch { st = null; }
+  const cards = st?.seats?.find((s) => s?.me)?.cards;
+  S.pokerMine = Array.isArray(cards) && cards.some(Boolean) ? cards : null;
+}
+
 // The rooms past the next doorways, to build before you reach one (`bake` in openStage).
 export function roomAhead(msg) {
   if (ui?.S?.ahead && msg?.zone === ui.S.msg.zone) ui.S.ahead(msg);
+}
+
+// The water in this room as it changed (plugins/roomstage `room_plumbing`): a shower turned on or off, a bowl
+// filling, a stream starting or stopping, a flush.
+export function roomPlumbing(msg) {
+  const S = ui?.S;
+  if (!S || msg.zone !== S.msg.zone) return;
+  S.plumb = msg.plumbing || null;
 }
 
 // How the locks on this room's doorways stand now (plugins/roomstage `room_locks`): somebody locked one, or one gave.
@@ -1742,11 +2724,26 @@ export function roomLocks(msg) {
   const S = ui?.S;
   if (!S?.L || msg.zone !== S.msg.zone) return;
   S.locks = msg.locks || [];
-  ui.lockUi?.load(S.L, S.locks, { fresh: false });
+  ui.lockUi?.load(S.L, S.locks, { fresh: false, override: msg.override || null });
+  if (msg.fx) ui.lockUi?.play?.(msg.fx);
 }
 // A `hololock_game` for a door of the room you're in: the bypass is played on its hologram. False when this room
 // has no such door (a lock hacked from the log somewhere else), and the caller opens the ordinary board.
 export const roomLockHack = (msg, args) => !!ui?.lockUi?.hack(msg, args);
+
+// What stands on a depot shed's lift, changed by `hoist` or a drive off it (plugins/trucking hoist.js).
+export function roomVehicles(msg) {
+  if (!ui?.hoistUi || msg.zone !== ui.S?.msg.zone) return;
+  ui.hoistUi.load(null, msg.vehicles || null);
+}
+
+// The shutters over the room's glass and the scene on them, changed from its control panel (plugins/envcontrol).
+export function roomGlass(msg) {
+  const S = ui?.S;
+  if (!S?.shutters || msg.zone !== S.msg.zone) return;
+  S.glass = msg.glass || null;
+  S.shutters.set(S.glass);
+}
 
 // The world round the building, for the view out of the window.
 export function roomOutlook(msg) {
@@ -1808,6 +2805,8 @@ export function roomPeople(msg) {
   // on a studio floor, somebody coming or going changes who's on the set's marks
   if (ui.S.studio && (msg.people || []).map((p) => p.id).sort().join('|') !== (ui.S.people || []).map((p) => p.id).sort().join('|')) sendRaw({ type: 'room_set', zone: msg.zone });
   ui.S.people = msg.people || [];
+  ui.npcFridge?.();
+  ui.S.beasts = msg.beasts || [];
   ui.S.noteRoutes();
   ui.followSelf();
   ui.S.syncTv(msg.tv);
@@ -1832,6 +2831,7 @@ export function closeRoomStage(quiet = false, handover = null, { fade = false } 
   const view = u.S?.outlook;
   if (view && handover && u.S.msg.building?.id === handover) { u.S.outlook = null; parkView(view, handover); }
   else if (!handover) dropParked();
+  clearSprayStage(u.S?.sprayHost);
   u.stop();
   u.root.remove();
   document.body.classList.remove('room-stage-on');
@@ -1842,22 +2842,69 @@ export function closeRoomStage(quiet = false, handover = null, { fade = false } 
 
 // Where the Kitchen Stage stands in this room (gl/kitchen.js host frame): its burner on the hob's top,
 // its y away from the cook into the hob, its x to the cook's right, z up, and room units per centimetre.
-// Null with no hob to cook at (a microwave isn't one), and the kitchen draws on a set of its own.
-function cookFrame(L) {
-  const p = (L.placed || []).find((q) => q.arche === 'hob' && q.form !== 'microwave' && !q.annex);
+// Cooking never leaves the room, so it stands at what the room has, in this order: a hob that cooks,
+// the microwave, a hob that's only drawn, then a worktop or a table. A microwave's frame stands on
+// what it's set down on, under its middle, and carries `oven` (the kitchen draws it, and the room
+// hides its own while it does); a worktop's carries `bench` (no hob at all). Null only in a room with
+// none of them, where the kitchen draws on a set of its own. `want` is the piece you clicked to cook
+// at (S.cookAt): that one wins, so the microwave you clicked is the microwave you stand at even in a
+// flat with a range. Each frame also carries `stand`, where you stand to use it, facing it.
+const BENCHES = [['surface', 'counter'], ['table', null], ['surface', null], ['sink', null]];
+const cookable = (q) => q.arche === 'hob' || BENCHES.some(([a, f]) => q.arche === a && (!f || q.form === f) && q.form !== 'basin');
+function cookFrame(L, want = null) {
+  const all = (L.placed || []).filter((q) => !q.annex && !q.on), mw = (q) => q.arche === 'hob' && q.form === 'microwave';
+  const picked = want != null ? (L.placed || []).find((q) => String(q.id) === String(want) && !q.annex && cookable(q)) : null;
+  const oven = picked && mw(picked) ? picked : all.concat((L.placed || []).filter((q) => !q.annex && q.on)).find(mw);
+  const p = picked || all.find((q) => q.arche === 'hob' && !mw(q) && q.stove) || oven || all.find((q) => q.arche === 'hob' && !mw(q))
+    || BENCHES.map(([a, f]) => all.find((q) => q.arche === a && (!f || q.form === f) && q.form !== 'basin')).find(Boolean);
   if (!p) return null;
+  const F = cookFrameOf(L, p, p === oven);
+  return F && { ...F, stand: cookStand(L, p) };
+}
+// Where you stand to use a piece: in front of it, clear of what's there, facing what's on its top.
+// What it stands on (a worktop) is as deep as the piece's base, so the step out is from that.
+function cookStand(L, p) {
+  const k = L.spec?.unit === 'ft' ? FT_PER_M : 1, [fu, fv] = facing(p.turn);
+  const base = p.on ? (L.placed || []).find((q) => q.id === p.on) : null, half = Math.max(p.d || 0.5 * k, base?.d || (p.on ? 0.65 * k : 0)) / 2;
+  let at = null;
+  for (let r = half + 0.45 * k; r <= half + 1.3 * k && !at; r += 0.1 * k) { const u = p.u + fu * r, v = p.v + fv * r; if (roomFree(L, u, v)) at = [u, v]; }
+  at ||= [p.u + fu * (half + 0.55 * k), p.v + fv * (half + 0.55 * k)];
+  // what you look at: a microwave's middle (on its stand, or its trolley's 0.55, as room-mesh.js draws it), else the top
+  const y = p.form === 'microwave' ? (p.y0 || 0) + (p.rise || 0.55) + 0.15 : (p.y0 || 0) + (p.rise || 0) + (p.h || 0.9 * k);
+  const eye = L.world(at[0], at[1], 1.6 * k), top = L.world(p.u, p.v, y);
+  const dx = top[0] - eye[0], dy = top[1] - eye[1], dz = top[2] - eye[2];
+  return { at, yaw: Math.atan2(dx, dz), pitch: Math.atan2(dy, Math.hypot(dx, dz)), piece: p.id, leave: 1.6 * k };
+}
+function cookFrameOf(L, p, isOven) {
   const k = L.spec?.unit === 'ft' ? FT_PER_M : 1, [fu, fv] = facing(p.turn);
   const a0 = L.world(p.u, p.v, 0), a1 = L.world(p.u + fu, p.v + fv, 0);
   let y = [a0[0] - a1[0], 0, a0[2] - a1[2]];
   const n = Math.hypot(y[0], y[2]) || 1;
   y = [y[0] / n, 0, y[2] / n];
   const z = [0, 1, 0], x = [y[1] * z[2] - y[2] * z[1], y[2] * z[0] - y[0] * z[2], y[0] * z[1] - y[1] * z[0]];
-  return { o: L.world(p.u, p.v, (p.y0 || 0) + (p.rise || 0) + (p.h || 0.92 * k)), x, y, z, s: k / 100 };
+  const s = k / 100;
+  if (isOven) {
+    // gl/room-mesh.js draws it as a 0.3-high box on its stand's top (`rise`), or on a trolley 0.55 high
+    const stand = p.rise || 0.55, o = L.world(p.u, p.v, (p.y0 || 0) + stand);
+    // which way its own x runs: the keypad is on its +x side, and that's the cook's right unless it isn't
+    const q = L.world(p.u - fv, p.v + fu, (p.y0 || 0) + stand), flip = (q[0] - o[0]) * x[0] + (q[2] - o[2]) * x[2] < 0;
+    return { o, x, y, z, s, oven: { id: p.id, w: p.w / s, d: p.d / s, h: 0.3 / s, stand: p.rise ? 0 : stand / s, flip } };
+  }
+  const top = (p.y0 || 0) + (p.rise || 0) + (p.h || 0.92 * k);
+  return { o: L.world(p.u, p.v, top), x, y, z, s, ...(p.arche === 'hob' ? {} : { bench: true }) };
 }
 
 // The room's fridges and freezers in the kitchen's frame (cm): each one's id, the middle of its front at
 // the floor, the way its front faces (x, y), and its width and height. The kitchen opens these, not a
 // fridge of its own (kitchen-stage.js roomBoxes).
+// The room's cookers, for the kitchen's appliance strip: the one you're at marked `here`.
+function cookersIn(L, here) {
+  const n = { microwave: 'Microwave' };
+  return (L.placed || []).filter((q) => q.arche === 'hob' && !q.annex).map((q) => ({
+    id: q.id, here: String(q.id) === String(here),
+    label: n[q.form] || (q.stove || q.form === 'range' ? 'Stove' : 'Hob'),
+  }));
+}
 function coldIn(L, F) {
   const k = L.spec?.unit === 'ft' ? FT_PER_M : 1;
   const into = (P) => { const d = [P[0] - F.o[0], P[1] - F.o[1], P[2] - F.o[2]]; return [0, 1, 2].map((a) => (d[0] * F[['x', 'y', 'z'][a]][0] + d[1] * F[['x', 'y', 'z'][a]][1] + d[2] * F[['x', 'y', 'z'][a]][2]) / F.s); };

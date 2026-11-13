@@ -489,6 +489,16 @@ export function lightStage(L, p, stage, view, o = {}, halos = null) {
       break;
     }
     case 'weigh': halo(hb, F, [B.scale.x, B.top + 0.026, B.scale.z + 0.082], 0.035, [0.2, 1, 0.5], 0.35); break;
+    case 'menu': {
+      // the bench projecting its panel (chem-stage.js): the hood's status light lit up where the beam leaves,
+      // and a scan of light running the length of the worktop, there and back
+      glowAt([B.split - 0.02, B.top + 0.66, B.hd + 0.05], [0.25, 0.8, 1.1], 0.6);
+      halo(hb, F, [B.split - 0.02, B.top + 0.66, B.hd + 0.01], 0.03, [0.35, 0.9, 1], 0.7);
+      const sx = -B.hw + 0.1 + (0.5 - 0.5 * Math.cos(t * 0.9)) * (2 * B.hw - 0.2);
+      glowAt([sx, B.top + 0.12, 0], [0.15, 0.55, 0.8], 0.45);
+      for (let i = 0; i < 7; i++) halo(hb, F, [sx, B.top + 0.02 + i * 0.05, B.hd * 0.4], [0.006, 0.03, 0.006], [0.3, 0.85, 1], 0.22);
+      break;
+    }
     case 'filter': halo(hb, F, [B.filt.x + 0.207, B.top + 0.055, B.filt.z - 0.02], 0.012, [0.2, 1, 0.5], 0.8); break;
     case 'rhythm': {
       // the reaction lights the bench in its own colour, hardest on the beat

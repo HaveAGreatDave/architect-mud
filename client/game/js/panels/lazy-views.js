@@ -179,6 +179,10 @@ export const chemOutcome = ifLoaded(chem, 'chemOutcome');   // what the server s
 export function openChemStageOr(opts, fallback) {
   chem.load().then((m) => { if (!m.openChemStage(opts)) fallback(); }).catch(() => fallback());
 }
+// The bench at a lab in the Room Stage (F at the lab), or `fallback` (the HUD) when there's no lab out here.
+export function openChemBenchOr(msg, fallback) {
+  chem.load().then((m) => { if (!m.openChemBench(msg)) fallback(); }).catch(() => fallback());
+}
 
 // helm-mode.js (the Echelon chase view, via helm-view.js). Every helmSet* is a
 // no-op until a helm is open, so they only run once the module is loaded.
@@ -252,6 +256,10 @@ export const openFreelook = call(freelook, 'openFreelook');
 
 const chess3d = lazy('chess3d', () => import('./chess3d.js'), { glass: false });
 export const mountChess3D = call(chess3d, 'mountChess3D');
+
+// a felt whose table asks for it (config.view3d) is drawn in 3D over the flat pane (poker3d.js)
+const poker3d = lazy('poker3d', () => import('./poker3d.js'), { glass: false });
+export const mountPoker3D = call(poker3d, 'mountPoker3D');
 
 const intro = lazy('intro-cinematic', () => import('./intro-cinematic.js'), { glass: false });
 export const playIntroCinematic = call(intro, 'playIntroCinematic');

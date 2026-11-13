@@ -1,0 +1,68 @@
+/* The MORPHEX pod's sales screen over the Room Stage (room-morphex.js): a hologram off the glass, all chrome, pink
+   and promises. Laid on the right so the pod stays in view on the left. */
+.rmx { position: absolute; inset: 0; pointer-events: none; z-index: 30; font-family: 'Segoe UI', system-ui, sans-serif; }
+.rmx-panel {
+  position: absolute; right: 3%; top: 50%; transform: translate(24px, -50%) scale(0.97); opacity: 0;
+  width: min(420px, 46vw); max-height: 88%; display: flex; flex-direction: column;
+  background: linear-gradient(160deg, rgba(20, 12, 32, 0.86), rgba(8, 18, 30, 0.86));
+  border: 1px solid rgba(255, 99, 224, 0.55); border-radius: 14px;
+  box-shadow: 0 0 0 1px rgba(155, 231, 255, 0.15) inset, 0 0 40px rgba(255, 79, 216, 0.25);
+  color: #eaf6ff; backdrop-filter: blur(6px); transition: opacity 0.35s, transform 0.35s; pointer-events: none;
+}
+.rmx.up .rmx-panel { opacity: 1; transform: translate(0, -50%) scale(1); pointer-events: auto; }
+.rmx-head { padding: 14px 16px 6px; display: flex; flex-direction: column; gap: 2px; }
+.rmx-logo { font-weight: 800; letter-spacing: 0.18em; font-size: 22px; background: linear-gradient(90deg, #ff63e0, #9be7ff); -webkit-background-clip: text; background-clip: text; color: transparent; }
+.rmx-logo i { font-style: normal; font-size: 12px; margin-left: 6px; letter-spacing: 0.1em; color: #9be7ff; -webkit-text-fill-color: #9be7ff; }
+.rmx-tag { font-size: 11px; letter-spacing: 0.12em; color: #c7b6d8; }
+.rmx-tiers { display: flex; gap: 6px; padding: 6px 16px 10px; }
+.rmx-tier { flex: 1; font: inherit; font-size: 11px; font-weight: 700; letter-spacing: 0.08em; padding: 6px 4px; border-radius: 6px; border: 1px solid rgba(155, 231, 255, 0.35); background: rgba(155, 231, 255, 0.06); color: #cfefff; cursor: pointer; }
+.rmx-tier.on { background: linear-gradient(90deg, #ff4fd8, #a35bff); color: #fff; border-color: transparent; }
+.rmx-tier:disabled { opacity: 0.4; cursor: not-allowed; }
+.rmx-body { overflow-y: auto; padding: 0 16px; display: flex; flex-direction: column; gap: 10px; }
+.rmx-row header { display: flex; justify-content: space-between; align-items: baseline; font-size: 13px; margin-bottom: 5px; }
+.rmx-p { font-size: 12px; color: #ffb3ef; }
+.rmx-p s { color: #7f8a96; margin-right: 4px; }
+.rmx-opts { display: flex; flex-wrap: wrap; gap: 5px; align-items: center; }
+.rmx-chip { font: inherit; font-size: 11px; padding: 4px 8px; border-radius: 999px; border: 1px solid rgba(255, 255, 255, 0.18); background: rgba(255, 255, 255, 0.05); color: #dfe9f2; cursor: pointer; text-transform: capitalize; }
+.rmx-chip:hover { border-color: #9be7ff; }
+.rmx-chip.on { border-color: #ff63e0; box-shadow: 0 0 10px rgba(255, 99, 224, 0.6); color: #fff; }
+.rmx-chip.sw { width: 22px; height: 22px; padding: 0; background: var(--sw); }
+.rmx-opts input[type=range] { flex: 1; accent-color: #ff4fd8; }
+.rmx-opts output { font-size: 12px; min-width: 56px; text-align: right; color: #9be7ff; }
+.rmx-up { font-size: 12px; color: #dfe9f2; display: flex; gap: 6px; align-items: baseline; padding: 4px 0 8px; }
+.rmx-up small { color: #8f9aa6; }
+.rmx-foot { padding: 10px 16px 12px; border-top: 1px solid rgba(255, 99, 224, 0.25); display: grid; grid-template-columns: 1fr auto; gap: 8px; align-items: center; }
+.rmx-total { grid-column: 1 / -1; font-size: 13px; }
+.rmx-total small { color: #8f9aa6; margin-left: 6px; }
+.rmx-cancel { font: inherit; font-size: 11px; background: none; border: none; color: #8f9aa6; text-decoration: underline; cursor: pointer; text-align: left; padding: 0; }
+.rmx-buy { font: inherit; font-weight: 800; letter-spacing: 0.16em; padding: 10px 22px; border-radius: 8px; border: none; color: #fff; cursor: pointer; background: linear-gradient(90deg, #ff4fd8, #a35bff); box-shadow: 0 0 18px rgba(255, 79, 216, 0.5); }
+.rmx-buy:disabled { opacity: 0.35; cursor: not-allowed; box-shadow: none; }
+.rmx-ticker { overflow: hidden; white-space: nowrap; font-size: 11px; color: #ffb3ef; background: rgba(255, 79, 216, 0.08); border-radius: 0 0 14px 14px; padding: 5px 0; }
+.rmx-ticker span { display: inline-block; padding-left: 100%; animation: rmx-tick 9s linear infinite; }
+@keyframes rmx-tick { to { transform: translateX(-100%); } }
+@media (max-width: 700px) {
+  .rmx-panel { right: 8px; left: 8px; width: auto; top: auto; bottom: 8px; transform: translateY(16px); max-height: 62%; }
+  .rmx.up .rmx-panel { transform: none; }
+}
+.rmx-tabs { display: flex; gap: 2px; padding: 0 16px 8px; }
+.rmx-tab { flex: 1; font: inherit; font-size: 11px; font-weight: 700; letter-spacing: 0.14em; padding: 6px 0; border: none; border-bottom: 2px solid rgba(155, 231, 255, 0.18); background: none; color: #8fb6c8; cursor: pointer; }
+.rmx-tab.on { color: #fff; border-bottom-color: #ff63e0; }
+.rmx-row header small { font-weight: 400; color: #8f9aa6; margin-left: 4px; }
+
+/* theme colours from the text game ([data-theme], client/shared/themes.css) */
+.rmx { font-family: var(--font-mono); }
+.rmx-panel { background: color-mix(in srgb, var(--bg) 88%, transparent); border-color: var(--border); border-radius: 6px; box-shadow: none; color: var(--text); }
+.rmx-logo { background: none; color: var(--accent); -webkit-text-fill-color: var(--accent); font-size: 16px; }
+.rmx-logo i { color: var(--text-dim); -webkit-text-fill-color: var(--text-dim); }
+.rmx-tag, .rmx-up small, .rmx-total small, .rmx-cancel, .rmx-row header small, .rmx-p s { color: var(--text-dim); }
+.rmx-tier, .rmx-chip { border-color: var(--border); background: var(--bg2); color: var(--text); }
+.rmx-tier.on, .rmx-buy { background: var(--accent); color: var(--accent-ink, var(--bg)); box-shadow: none; }
+.rmx-chip:hover { border-color: var(--accent); }
+.rmx-chip.on { border-color: var(--accent); box-shadow: none; color: var(--accent); }
+.rmx-p, .rmx-ticker, .rmx-opts output { color: var(--accent); }
+.rmx-opts input[type=range] { accent-color: var(--accent); }
+.rmx-up { color: var(--text); }
+.rmx-foot { border-top-color: var(--border); }
+.rmx-ticker { background: var(--bg2); border-radius: 0 0 6px 6px; }
+.rmx-tab { color: var(--text-dim); border-bottom-color: var(--border); }
+.rmx-tab.on { color: var(--text-bright); border-bottom-color: var(--accent); }

@@ -55,11 +55,18 @@ function loadHidden(key, defaults = []) {
 }
 function saveHidden(key, arr) {
   localStorage.setItem(HIDDEN_PREFIX + key, JSON.stringify(arr));
+  hiddenCache.delete(key);
 }
 // What a scope is hiding right now, for anything outside this module that has to match it
 // (the mobile vitals bars are not list-reorder rows but must hide in step with the sidebar).
+// Kept parsed: updateVitals asks on every player update, and it was a storage read and a JSON.parse each time.
+// Dropped when this tab saves and when another tab writes storage. ⚠ Shared: callers read it, never change it.
+const hiddenCache = new Map();
+window.addEventListener('storage', () => hiddenCache.clear());
 export function hiddenKeys(key, defaults = []) {
-  return new Set(loadHidden(key, defaults));
+  let s = hiddenCache.get(key);
+  if (!s) hiddenCache.set(key, s = new Set(loadHidden(key, defaults)));
+  return s;
 }
 
 function rowsOf(container, sel) {

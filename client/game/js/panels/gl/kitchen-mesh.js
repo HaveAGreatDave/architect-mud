@@ -32,6 +32,11 @@ const C = {
   flameIn: [0.55, 0.75, 1.0, 1], flameOut: [0.25, 0.4, 0.95, 0.85],
   steam: M.rgb('#f6f6f2'), bubble: M.rgb('#fff8e8'),
   guide: M.rgb('#c8323a'), marker: M.rgb('#2b3a63'),
+  // the microwave: its body (the room's enamel stands in), the inside off and lit, the turntable, the
+  // keypad and its display. `ovenLit` and `ovenLed` are drawn unlit (gl/kitchen.js GLOWS).
+  ovenBody: M.rgb('#e8e6e0'), ovenIn: M.rgb('#6a6c70'), ovenLit: M.rgb('#ffe2a0'), ovenTable: M.rgb('#dfe6e6'),
+  ovenPanel: M.rgb('#121416'), ovenLed: M.rgb('#48ff8a'), ovenKey: M.rgb('#d8d4c8'), ovenRim: M.rgb('#2a2e34'),
+  ovenGlass: M.rgb('#0c2016'), ovenStart: M.rgb('#3fae5a'), skin: M.rgb('#e3b08a'), nail: M.rgb('#f4dccc'),
 };
 export const COLOURS = C;
 
@@ -324,9 +329,12 @@ export function lookOf(comp) {
 // enamel stand in for the show set's counter and noren.
 // `bare`: the kitchen drawn into the apartment (gl/kitchen.js host), whose own worktop, wall, units and
 // sink are already there, so only the board, the pass and the hob are added.
-export function buildSet(b, { hob = 'domestic', room = null, bare = false } = {}) {
+// `hob` 'microwave' is the room's microwave, which the kitchen draws in its place (`oven`, room-stage.js
+// cookFrame); 'bench' is a worktop with nothing to heat on it, so no hob and no knob.
+export function buildSet(b, { hob = 'domestic', room = null, bare = false, oven = null } = {}) {
   const top = room?.top || C.counter, edge = room?.front || C.counterEdge, wall = room?.wall || C.wall;
   if (!bare) setDressing(b, room, top, edge, wall);
+  if (hob === 'microwave' && oven) ovenSet(b, oven);
   // the board
   const bx = STATIONS.board;
   slab(b, [bx - BOARD.w / 2, -BOARD.d / 2, 0], [bx + BOARD.w / 2, BOARD.d / 2, BOARD.h], C.board, 0.6);
@@ -376,6 +384,7 @@ export const knobBase = (hob) => (hob === 'camp' || hob === 'room' ? 0.5 : 3.0);
 
 function hobSet(b, kind, body = null) {
   const x = STATIONS.hob;
+  if (kind === 'microwave' || kind === 'bench') return;
   if (kind === 'room') {
     // the room's cooktop is the hob: nothing over it but the knob's boss
   } else if (kind === 'camp') {
@@ -400,6 +409,170 @@ function hobSet(b, kind, body = null) {
   }
   // the knob's boss
   M.disc(b, [KNOB[0], KNOB[1], knobBase(kind) - 0.5], [0, 0, 1], 3.8, C.steelDark, 18, 0.4);
+}
+
+// ── the microwave ────────────────────────────────────────────────────────────────────────────────
+// The room's microwave in the kitchen's frame (room-stage.js cookFrame `oven`: { w, d, h, stand,
+// flip } in cm, and `colour`), drawn as gl/room-mesh.js draws it: a box standing on z = 0 (the top of
+// what it's set down on) round x = 0, y = 0, its front at y = -d/2, the cavity behind a door on its
+// own -x side and the keypad on its +x side. `flip` is the keypad on the cook's left. On a trolley
+// (`stand`, its height) the board and the pass get a steel leaf each, at the trolley's height. The
+// shell and the keypad never move (ovenSet); the door, the light and the turntable do (ovenLive).
+export function ovenCavity(o) {
+  const hw = o.w / 2, hd = o.d / 2, sx = o.flip ? -1 : 1, xs = [(-hw + 3) * sx, (hw * 0.38 - 1.5) * sx].sort((p, q) => p - q);
+  return { x0: xs[0], x1: xs[1], y0: -hd + 1.4, y1: hd - 3, z0: 3, z1: o.h - 4, cx: (xs[0] + xs[1]) / 2, cy: (hd - 3 - hd + 1.4) / 2 };
+}
+const ovenSlab = (b, o) => (x0, x1, y0, y1, z0, z1, c, bev = 0.3) => {
+  const sx = o.flip ? -1 : 1, a = x0 * sx, e = x1 * sx;
+  slab(b, [Math.min(a, e), y0, z0], [Math.max(a, e), y1, z1], c, bev);
+};
+function ovenSet(b, o) {
+  const hw = o.w / 2, hd = o.d / 2, h = o.h, body = o.colour || C.ovenBody, xb = ovenSlab(b, o), c = hw * 0.38 - 1.5;
+  xb(-hw, hw, -hd, hd, 0, 3, body, 0.8);
+  xb(-hw, hw, -hd, hd, h - 4, h, body, 0.8);
+  xb(-hw, hw, hd - 3, hd, 3, h - 4, body, 0.2);
+  xb(-hw, -hw + 3, -hd, hd - 3, 3, h - 4, body, 0.2);
+  xb(c, hw, -hd, hd - 3, 3, h - 4, body, 0.2);
+  // the keypad: a dark panel, the display's glass at its top; the keys move, so ovenLive draws them
+  const K = ovenPanel(o);
+  slab(b, [K.x0, K.face, K.z0], [K.x1, -hd + 0.2, K.z1], C.ovenPanel, 0.2);
+  slab(b, [K.disp.x0, K.face - 0.15, K.disp.z0], [K.disp.x1, K.face + 0.05, K.disp.z1], C.ovenGlass, 0.05);
+  if (!(o.stand > 0)) return;
+  // the trolley: its top shelf, a shelf near the floor and four legs; and a leaf either side for the
+  // board and the pass, on legs of their own
+  const fl = -o.stand, back = Math.max(18, hd);
+  xb(-hw, hw, -hd, hd, -2, 0, C.steel, 0.3);
+  xb(-hw, hw, -hd, hd, fl + 12, fl + 14, C.steel, 0.3);
+  for (const [x, y] of [[-hw + 2, -hd + 2], [hw - 2, -hd + 2], [-hw + 2, hd - 2], [hw - 2, hd - 2]]) M.tube(b, [x, y, fl + 1], [x, y, 0], 0.9, 0.9, C.steel, 8);
+  for (const s of [-1, 1]) {
+    const x0 = s < 0 ? STATIONS.board - 24 : hw + 1, x1 = s < 0 ? -hw - 1 : STATIONS.pass + 24;
+    slab(b, [x0, -18, -2], [x1, back, 0], C.steel, 0.3);
+    const xo = s < 0 ? x0 + 2 : x1 - 2;
+    for (const y of [-16, back - 2]) M.tube(b, [xo, y, fl + 1], [xo, y, -2], 0.8, 0.8, C.steel, 8);
+  }
+}
+// The keypad, in the kitchen's frame rather than the microwave's own, so it reads left to right whichever
+// way round the microwave is: the panel's edges, `face` (the front of the panel, y), the display, and
+// each key with its edges and `c`, the middle of its face (what the panel picks and the finger aims at).
+// Twelve keys in four rows (1 to 9, then +30, 0 and C) and a wide START under them.
+export const OVEN_KEYS = [['1', '2', '3'], ['4', '5', '6'], ['7', '8', '9'], ['+30', '0', 'C']];
+export function ovenPanel(o) {
+  const hw = o.w / 2, hd = o.d / 2, h = o.h, sx = o.flip ? -1 : 1;
+  const [x0, x1] = [hw * 0.45 * sx, (hw - 3) * sx].sort((p, q) => p - q), W = x1 - x0, m = W * 0.07, face = -hd - 0.6;
+  const gap = W * 0.06, kw = (W - 2 * m - 2 * gap) / 3, kh = h * 0.075, rg = h * 0.018;
+  const keys = [];
+  OVEN_KEYS.forEach((row, i) => row.forEach((key, j) => {
+    const k0 = x0 + m + j * (kw + gap), z1 = h * 0.6 - i * (kh + rg);
+    keys.push({ key, x0: k0, x1: k0 + kw, z0: z1 - kh, z1, c: [k0 + kw / 2, face - 0.9, z1 - kh / 2] });
+  }));
+  const s0 = h * 0.08, s1 = h * 0.18;
+  keys.push({ key: 'start', x0: x0 + m, x1: x1 - m, z0: s0, z1: s1, c: [(x0 + x1) / 2, face - 0.9, (s0 + s1) / 2] });
+  return { x0, x1, z0: h * 0.05, z1: h * 0.86, face, disp: { x0: x0 + m, x1: x1 - m, z0: h * 0.66, z1: h * 0.82 }, keys };
+}
+
+// A seven-segment font: what each character lights, a top, b top right, c bottom right, d bottom,
+// e bottom left, f top left, g the middle. '+' and ':' are drawn as themselves.
+const SEG = { 0: 'abcdef', 1: 'bc', 2: 'abged', 3: 'abgcd', 4: 'fgbc', 5: 'afgcd', 6: 'afgedc', 7: 'abc', 8: 'abcdefg', 9: 'abcdfg',
+  '-': 'g', E: 'adefg', n: 'ceg', d: 'bcdeg', C: 'adef', ' ': '' };
+export const segGlyphs = (text) => [...String(text)].every((ch) => ch === ':' || ch === '+' || SEG[ch] != null);
+// `text` lit on the plane y = yf (the segments stand 0.12 proud of it, toward the cook) in the box
+// [x0, x1] × [z0, z1], to the right, the middle or the left of it (`align`).
+export function segText(b, text, x0, x1, z0, z1, yf, c, align = 'right') {
+  const chars = [...String(text)];
+  let H = z1 - z0, cw = H * 0.55, T = H * 0.12, gap = cw * 0.32;
+  const widthOf = (ch) => (ch === ':' ? T * 2.6 : cw);
+  let total = chars.reduce((s, ch) => s + widthOf(ch), 0) + gap * Math.max(0, chars.length - 1);
+  if (total > x1 - x0) { const k = (x1 - x0) / total; H *= k; cw *= k; T *= k; gap *= k; total *= k; }
+  let x = align === 'right' ? x1 - total : align === 'left' ? x0 : (x0 + x1 - total) / 2;
+  const zb = (z0 + z1) / 2 - H / 2, y0 = yf - 0.12, y1 = yf + 0.01;
+  const bar = (a, e, za, zb2) => slab(b, [a, y0, za], [e, y1, zb2], c, 0);
+  for (const ch of chars) {
+    if (ch === ':') {
+      for (const z of [zb + H * 0.3, zb + H * 0.7]) bar(x + T * 0.8, x + T * 1.8, z - T / 2, z + T / 2);
+    } else if (ch === '+') {
+      bar(x + T, x + cw - T, zb + H / 2 - T / 2, zb + H / 2 + T / 2);
+      bar(x + cw / 2 - T / 2, x + cw / 2 + T / 2, zb + H * 0.25, zb + H * 0.75);
+    } else {
+      const s = SEG[ch] || '', m = zb + H / 2;
+      if (s.includes('a')) bar(x + T, x + cw - T, zb + H - T, zb + H);
+      if (s.includes('g')) bar(x + T, x + cw - T, m - T / 2, m + T / 2);
+      if (s.includes('d')) bar(x + T, x + cw - T, zb, zb + T);
+      if (s.includes('f')) bar(x, x + T, m, zb + H - T * 0.5);
+      if (s.includes('b')) bar(x + cw - T, x + cw, m, zb + H - T * 0.5);
+      if (s.includes('e')) bar(x, x + T, zb + T * 0.5, m);
+      if (s.includes('c')) bar(x + cw - T, x + cw, zb + T * 0.5, m);
+    }
+    x += widthOf(ch) + gap;
+  }
+}
+
+// The keys, with the one being pressed (`pressed`, a key from OVEN_KEYS or 'start') sunk by `press`
+// (0 up, 1 home), and the display reading `display` (a time, 'End', or nothing).
+function ovenKeys(b, o, display, pressed, press) {
+  const K = ovenPanel(o);
+  for (const k of K.keys) {
+    const sink = k.key === pressed ? 0.7 * Math.max(0, Math.min(1, press)) : 0, front = K.face - 0.9 + sink;
+    slab(b, [k.x0, front, k.z0], [k.x1, K.face, k.z1], k.key === 'start' ? C.ovenStart : C.ovenKey, 0.25);
+    if (k.key === 'start') {
+      // a play mark, pointing the way it reads
+      const zc = (k.z0 + k.z1) / 2, hz = (k.z1 - k.z0) * 0.3, xc = (k.x0 + k.x1) / 2;
+      prism(b, [[-hz * 0.8, -hz], [-hz * 0.8, hz], [hz, 0]], 0.15, 0.02, C.ovenRim, pose([xc, front, zc], 0, Math.PI / 2));
+    } else {
+      const pz = (k.z1 - k.z0) * 0.2, px = (k.x1 - k.x0) * 0.18;
+      segText(b, k.key, k.x0 + px, k.x1 - px, k.z0 + pz, k.z1 - pz, front, C.ovenRim, 'middle');
+    }
+  }
+  if (display) segText(b, display, K.disp.x0 + 0.3, K.disp.x1 - 0.3, K.disp.z0 + 0.3, K.disp.z1 - 0.3, K.face - 0.15, C.ovenLed, 'right');
+}
+
+// A finger on its way to START, `ext` 0 (well back) to 1 (on the key), shaking a little when `tremble`
+// (the time `t` drives the shake). A tube with a nail, out of a hand.
+export function ovenFinger(b, o, ext, { tremble = false, t = 0 } = {}) {
+  if (!(ext > 0)) return;
+  const key = ovenPanel(o).keys.find((k) => k.key === 'start').c;
+  // in from the cook's right, a little above and a little in front, across the panel's face
+  const v = norm3([-0.85, 0.42, -0.3]), up = norm3(cross3(norm3(cross3(v, [0, 0, 1])), v)), side = norm3(cross3(v, up));
+  const shake = tremble ? [Math.sin(t * 71) * 0.15, 0, Math.cos(t * 63) * 0.15] : [0, 0, 0];
+  const back = (1 - Math.min(1, ext)) * 16 + 0.1;
+  const tip = [key[0] - v[0] * back + shake[0], key[1] - v[1] * back, key[2] - v[2] * back + shake[2]];
+  const at = (s) => [tip[0] - v[0] * s, tip[1] - v[1] * s, tip[2] - v[2] * s];
+  M.tube(b, at(0.9), at(8), 0.85, 0.95, C.skin, 10);
+  M.ellipsoid(b, at(0.9), v, side, up, [0.9, 0.85, 0.85], C.skin, 10, 6);
+  const nail = at(1.6);
+  M.ellipsoid(b, [nail[0] + up[0] * 0.65, nail[1] + up[1] * 0.65, nail[2] + up[2] * 0.65], v, side, up, [0.75, 0.6, 0.2], C.nail, 8, 4);
+  M.tube(b, at(4.2), [at(4.2)[0] + up[0] * 0.2, at(4.2)[1] + up[1] * 0.2, at(4.2)[2] + up[2] * 0.2], 1.0, 1.0, C.skin, 10);
+  M.ellipsoid(b, at(11.5), v, side, up, [4.2, 3.6, 2.2], C.skin, 12, 8);
+}
+function cross3(a, q) { return [a[1] * q[2] - a[2] * q[1], a[2] * q[0] - a[0] * q[2], a[0] * q[1] - a[1] * q[0]]; }
+
+// `open` 0 shut to 1 wide; `lit` while it runs; `spin` the turntable's angle; `display` what its display
+// reads; `pressed` the key going down and `press` how far.
+export function ovenLive(b, o, { open = 0, lit = false, spin = 0, display = '', pressed = null, press = 0 } = {}) {
+  ovenKeys(b, o, display, pressed, press);
+  const hw = o.w / 2, hd = o.d / 2, h = o.h, sx = o.flip ? -1 : 1, K = ovenCavity(o), lin = lit ? C.ovenLit : C.ovenIn;
+  // the inside, lined in what it is now: grey, or the light
+  slab(b, [K.x0, K.y0, K.z0 - 0.1], [K.x1, K.y1, K.z0 + 0.1], lin, 0);
+  slab(b, [K.x0, K.y1 - 0.2, K.z0], [K.x1, K.y1, K.z1], lin, 0);
+  slab(b, [K.x0, K.y0, K.z1 - 0.2], [K.x1, K.y1, K.z1], lin, 0);
+  slab(b, [K.x0, K.y0, K.z0], [K.x0 + 0.2, K.y1, K.z1], lin, 0);
+  slab(b, [K.x1 - 0.2, K.y0, K.z0], [K.x1, K.y1, K.z1], lin, 0);
+  // the turntable, and a rib on it so it can be seen to turn
+  const r = Math.min(K.x1 - K.x0, K.y1 - K.y0) / 2 - 1.5;
+  M.disc(b, [K.cx, K.cy, K.z0 + 0.2], [0, 0, 1], r, C.ovenTable, 24, 0.3);
+  M.tube(b, [K.cx + Math.cos(spin) * r * 0.25, K.cy + Math.sin(spin) * r * 0.25, K.z0 + 0.55], [K.cx + Math.cos(spin) * r * 0.85, K.cy + Math.sin(spin) * r * 0.85, K.z0 + 0.55], 0.25, 0.25, C.ovenRim, 5);
+  // the door, hung on the outside edge and swinging toward the cook: a frame round the window (open
+  // through, so what's inside shows), a dark rim inside it, and the handle on its free edge
+  const W = hw + hw * 0.38, a = Math.max(0, Math.min(1, open)) * 1.75, yl = sx > 0 ? [-2, 0] : [0, 2];
+  const P = pose([-hw * sx, -hd, 0], sx > 0 ? -a : Math.PI + a);
+  const bar = (x0, x1, z0, z1, c, y = yl) => prism(b, [[x0, y[0]], [x1, y[0]], [x1, y[1]], [x0, y[1]]], z1 - z0, 0.3, c, { p: (v) => P.p([v[0], v[1], v[2] + z0]), n: P.n });
+  const body = o.colour || C.ovenBody, rim = [yl[0] + 0.5, yl[1] - 0.5];
+  bar(0.2, 5, 0.5, h - 0.5, body); bar(W - 5, W - 0.2, 0.5, h - 0.5, body);
+  bar(5, W - 5, 0.5, 5, body); bar(5, W - 5, h - 6, h - 0.5, body);
+  bar(5, 6, 5, h - 6, C.ovenRim, rim); bar(W - 6, W - 5, 5, h - 6, C.ovenRim, rim);
+  bar(6, W - 6, 5, 6, C.ovenRim, rim); bar(6, W - 6, h - 7, h - 6, C.ovenRim, rim);
+  const out = sx > 0 ? yl[0] - 2.2 : yl[1] + 2.2, mid = sx > 0 ? yl[0] : yl[1];
+  M.tube(b, P.p([W - 2.5, out, h * 0.28]), P.p([W - 2.5, out, h * 0.72]), 0.7, 0.7, C.ovenRim, 8);
+  for (const z of [h * 0.3, h * 0.7]) M.tube(b, P.p([W - 2.5, mid, z]), P.p([W - 2.5, out, z]), 0.5, 0.5, C.ovenRim, 6);
 }
 
 // Where food sits in a vessel, and how big a footprint fits.

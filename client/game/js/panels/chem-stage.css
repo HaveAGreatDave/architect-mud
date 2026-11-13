@@ -2,29 +2,29 @@
 .cs-root { position: fixed; inset: 0; z-index: 9996; background: #050606; font-family: var(--font-mono, monospace); color: #e8ecea; user-select: none; }
 .cs-canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; cursor: crosshair; }
 .cs-top { position: absolute; top: 0; left: 0; right: 0; display: flex; align-items: baseline; gap: 12px; padding: 10px 14px; background: linear-gradient(180deg, rgba(0, 0, 0, .7), rgba(0, 0, 0, 0)); pointer-events: none; }
-.cs-name { font-size: 15px; letter-spacing: 1px; font-weight: bold; }
-.cs-where { font-size: 12px; opacity: .7; }
-.cs-x { margin-left: auto; pointer-events: auto; background: rgba(0, 0, 0, .5); color: inherit; border: 1px solid rgba(255, 255, 255, .25); border-radius: 4px; font-size: 16px; line-height: 1; padding: 6px 10px; cursor: pointer; }
+.cs-name { font-size: 0.9375rem; letter-spacing: 1px; font-weight: bold; }
+.cs-where { font-size: 0.75rem; opacity: .7; }
+.cs-x { margin-left: auto; pointer-events: auto; background: rgba(0, 0, 0, .5); color: inherit; border: 1px solid rgba(255, 255, 255, .25); border-radius: 4px; font-size: 1rem; line-height: 1; padding: 6px 10px; cursor: pointer; }
 .cs-x:focus-visible { outline: 2px solid #4fe08a; }
 .cs-pips { position: absolute; top: 44px; left: 14px; margin: 0; padding: 0; list-style: none; display: flex; gap: 6px; pointer-events: none; }
-.cs-pips li { font-size: 11px; padding: 3px 8px; border-radius: 10px; background: rgba(0, 0, 0, .45); border: 1px solid rgba(255, 255, 255, .15); opacity: .55; }
+.cs-pips li { font-size: 0.75rem; padding: 3px 8px; border-radius: 10px; background: rgba(0, 0, 0, .45); border: 1px solid rgba(255, 255, 255, .15); opacity: .55; }
 .cs-pips li.now { opacity: 1; border-color: #4fe08a; color: #4fe08a; }
 .cs-pips li.done { opacity: .8; }
 .cs-pips li.done::before { content: '\2713  '; }
-.cs-hint { position: absolute; left: 50%; bottom: 22px; transform: translateX(-50%); max-width: min(560px, calc(100vw - 32px)); padding: 8px 14px; border-radius: 6px; background: rgba(0, 0, 0, .6); font-size: 13px; text-align: center; pointer-events: none; }
+.cs-hint { position: absolute; left: 50%; bottom: 22px; transform: translateX(-50%); max-width: min(560px, calc(100vw - 32px)); padding: 8px 14px; border-radius: 6px; background: rgba(0, 0, 0, .6); font-size: 0.8125rem; text-align: center; pointer-events: none; }
 .cs-hint:empty { display: none; }
-.cs-read { position: absolute; transform: translate(-50%, -100%); padding: 4px 8px; border-radius: 4px; background: #0a1a10; border: 1px solid #2a6a40; color: #48ff8a; font-size: 13px; text-align: center; pointer-events: none; }
-.cs-read b { display: block; font-size: 16px; }
+.cs-read { position: absolute; transform: translate(-50%, -100%); padding: 4px 8px; border-radius: 4px; background: #0a1a10; border: 1px solid #2a6a40; color: #48ff8a; font-size: 0.8125rem; text-align: center; pointer-events: none; }
+.cs-read b { display: block; font-size: 1rem; }
 .cs-read small { opacity: .75; }
-.cs-verdict { position: absolute; left: 50%; top: 38%; transform: translate(-50%, -50%); font-size: 28px; letter-spacing: 2px; text-shadow: 0 2px 10px rgba(0, 0, 0, .8); pointer-events: none; }
+.cs-verdict { position: absolute; left: 50%; top: 38%; transform: translate(-50%, -50%); font-size: 1.75rem; letter-spacing: 2px; text-shadow: 0 2px 10px rgba(0, 0, 0, .8); pointer-events: none; }
 .cs-verdict.good { color: #6af0a0; }
 .cs-verdict.bad { color: #ff7a6a; }
 .cs-card { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); width: min(360px, calc(100vw - 32px)); padding: 16px 18px; border-radius: 8px; background: rgba(8, 12, 10, .92); border: 1px solid rgba(79, 224, 138, .4); }
-.cs-card h3 { margin: 0 0 10px; font-size: 15px; }
+.cs-card h3 { margin: 0 0 10px; font-size: 0.9375rem; }
 .cs-card ul { margin: 0; padding: 0; list-style: none; }
-.cs-card li { display: grid; grid-template-columns: 90px 1fr; align-items: center; gap: 10px; margin: 6px 0; font-size: 12px; }
+.cs-card li { display: grid; grid-template-columns: 90px 1fr; align-items: center; gap: 10px; margin: 6px 0; font-size: 0.75rem; }
 .cs-card i { display: block; height: 8px; border-radius: 4px; background: linear-gradient(90deg, #4fe08a var(--w), rgba(255, 255, 255, .1) var(--w)); }
-.cs-card p { margin: 12px 0 0; font-size: 12px; opacity: .8; }
+.cs-card p { margin: 12px 0 0; font-size: 0.75rem; opacity: .8; }
 @media (prefers-reduced-motion: reduce) { .cs-verdict { transition: none; } }
 /* What the server said happened (chem-stage.js startOutcome): a wash over the bench, and its line on the card. */
 .cs-fx { position: absolute; inset: 0; pointer-events: none; mix-blend-mode: screen; }
@@ -33,7 +33,7 @@
 .cs-fx.flash { background: #fff; animation: cs-flash 3.2s ease-out forwards; }
 .cs-fx.fumes { mix-blend-mode: normal; background: linear-gradient(0deg, rgba(110, 170, 40, .55), rgba(110, 170, 40, .2) 60%, transparent); animation: cs-rise 3.2s ease-in forwards; }
 .cs-fx.spoiled, .cs-fx.ok { display: none; }
-.cs-outcome { margin-top: 10px; padding-top: 10px; border-top: 1px solid rgba(255, 255, 255, .15); font-size: 13px; opacity: 1; }
+.cs-outcome { margin-top: 10px; padding-top: 10px; border-top: 1px solid rgba(255, 255, 255, .15); font-size: 0.8125rem; opacity: 1; }
 .cs-outcome.fire, .cs-outcome.burst, .cs-outcome.flash, .cs-outcome.fumes { color: #ff9a6a; }
 .cs-outcome.ok { color: #6af0a0; }
 @keyframes cs-flicker { from { opacity: .75; } to { opacity: 1; } }
@@ -51,3 +51,62 @@
 .cs-cine .cs-pips, .cs-cine .cs-hint { opacity: 0; transition: opacity .4s; }
 .cs-pips, .cs-hint { transition: opacity .4s; }
 @media (prefers-reduced-motion: reduce) { .cs-bar { transition: none; } }
+
+/* Hosted in the Room Stage (chem-stage.js hostView): no canvas of our own, laid over the room's, and the
+   pointer layer under the HUD so a drag at the bench reaches the stage. */
+.cs-root.cs-hosted { position: absolute; z-index: 40; background: transparent; }
+.cs-surface { position: absolute; inset: 0; touch-action: none; cursor: crosshair; }
+.cs-benching .cs-surface { cursor: default; }
+.cs-benching .cs-vig { background: radial-gradient(ellipse at 34% 52%, transparent 45%, rgba(0, 4, 8, .62) 100%); }
+
+/* The bench's panel (renderMenu): projected off the hood's status light, cyan glass, a scanline sweeping it. */
+.cs-menu { --cy: 90, 230, 255; position: absolute; top: 5%; right: 3%; bottom: 5%; width: min(400px, 44%); display: flex; flex-direction: column; overflow: hidden;
+  background: linear-gradient(170deg, rgba(8, 26, 34, .82), rgba(3, 10, 16, .9)); border: 1px solid rgba(var(--cy), .38); border-radius: 4px;
+  box-shadow: 0 0 28px rgba(var(--cy), .16), inset 0 0 36px rgba(var(--cy), .05); backdrop-filter: blur(7px);
+  clip-path: polygon(0 14px, 14px 0, 100% 0, 100% calc(100% - 14px), calc(100% - 14px) 100%, 0 100%); transform-origin: 0% 35%; }
+.cs-menu.cs-on { animation: cs-holo-in .55s cubic-bezier(.2, .8, .2, 1) both; }
+.cs-scan { position: absolute; inset: 0; pointer-events: none; background: repeating-linear-gradient(0deg, rgba(var(--cy), .045) 0 1px, transparent 1px 3px); }
+.cs-scan::after { content: ''; position: absolute; left: 0; right: 0; height: 80px; background: linear-gradient(180deg, transparent, rgba(var(--cy), .09), transparent); animation: cs-sweep 4.5s linear infinite; }
+.cs-menu header { display: flex; align-items: center; gap: 12px; padding: 14px 16px 10px; border-bottom: 1px solid rgba(var(--cy), .2); }
+.cs-glyph { font-size: 1.375rem; color: rgb(var(--cy)); text-shadow: 0 0 10px rgba(var(--cy), .8); }
+.cs-menu header b { display: block; font-size: 0.875rem; letter-spacing: 1.5px; text-transform: uppercase; color: #e8fbff; }
+.cs-menu header small { font-size: 0.75rem; opacity: .65; }
+.cs-leave { margin-left: auto; background: transparent; color: inherit; border: 1px solid rgba(var(--cy), .3); border-radius: 3px; padding: 4px 9px; cursor: pointer; }
+.cs-status { display: flex; flex-wrap: wrap; gap: 6px; margin: 0; padding: 10px 16px; list-style: none; }
+.cs-status li { display: flex; gap: 6px; align-items: baseline; padding: 3px 8px; border: 1px solid rgba(var(--cy), .22); border-radius: 2px; font-size: 0.75rem; background: rgba(var(--cy), .05); }
+.cs-status li span { opacity: .6; text-transform: uppercase; letter-spacing: .8px; }
+.cs-status li.ok b { color: #7ff0b8; } .cs-status li.warn b { color: #ffc46a; } .cs-status li.off b { color: #ff7a6a; }
+.cs-list { flex: 1; overflow-y: auto; padding: 0 16px 12px; scrollbar-width: thin; scrollbar-color: rgba(var(--cy), .3) transparent; }
+.cs-list h4 { margin: 14px 0 6px; font-size: 0.75rem; letter-spacing: 2px; text-transform: uppercase; color: rgba(var(--cy), .75); font-weight: normal; }
+.cs-recipe { --c: 127, 240, 184; position: relative; display: grid; grid-template-columns: 1fr auto; gap: 2px 10px; width: 100%; margin: 0 0 6px; padding: 9px 11px 10px; text-align: left; font: inherit; color: inherit; cursor: pointer;
+  background: linear-gradient(90deg, rgba(var(--c), .1), rgba(var(--c), .02)); border: 1px solid rgba(var(--c), .3); border-left: 3px solid rgba(var(--c), .85); border-radius: 2px;
+  animation: cs-card-in .45s cubic-bezier(.2, .8, .2, 1) both; animation-delay: calc(var(--i) * 45ms + .2s); transition: background .15s, box-shadow .15s, transform .15s; }
+.cs-recipe.short { --c: 255, 196, 106; } .cs-recipe.close { --c: 160, 200, 255; } .cs-recipe.locked { --c: 150, 160, 170; }
+.cs-recipe:not(:disabled):hover, .cs-recipe:not(:disabled):focus-visible { background: linear-gradient(90deg, rgba(var(--c), .2), rgba(var(--c), .05)); box-shadow: 0 0 16px rgba(var(--c), .25); transform: translateX(-3px); outline: none; }
+.cs-recipe:disabled { cursor: not-allowed; opacity: .62; }
+.cs-recipe .nm { font-size: 0.8125rem; color: #f0fbff; letter-spacing: .5px; }
+.cs-recipe .tr { font-size: 0.75rem; opacity: .65; align-self: center; }
+.cs-recipe i { grid-column: 1 / -1; height: 3px; margin: 4px 0 2px; background: linear-gradient(90deg, rgba(var(--c), .9) var(--w), rgba(255, 255, 255, .08) var(--w)); }
+.cs-recipe small { grid-column: 1 / -1; font-size: 0.75rem; opacity: .7; }
+.cs-recipe.cs-sent, .cs-splice.cs-sent { animation: cs-sent .6s ease-out both; }
+.cs-vault { margin: 0; padding: 0; list-style: none; }
+.cs-vault li { display: flex; align-items: center; gap: 8px; padding: 5px 0; border-bottom: 1px dashed rgba(var(--cy), .14); font-size: 0.75rem; }
+.cs-vault li span { flex: 1; } .cs-vault em { opacity: .6; font-style: normal; }
+.cs-vault button, .cs-menu footer button { font: inherit; font-size: 0.75rem; color: #e8fbff; background: rgba(var(--cy), .08); border: 1px solid rgba(var(--cy), .35); border-radius: 2px; padding: 5px 10px; cursor: pointer; }
+.cs-vault button:hover, .cs-menu footer button:not(:disabled):hover { background: rgba(var(--cy), .2); box-shadow: 0 0 12px rgba(var(--cy), .3); }
+.cs-menu footer { display: flex; gap: 8px; padding: 10px 16px; border-top: 1px solid rgba(var(--cy), .2); }
+.cs-menu footer .cs-splice { --cy: 224, 92, 192; flex: 1; }
+.cs-menu footer button:disabled { opacity: .45; cursor: not-allowed; }
+.cs-menu footer small { opacity: .7; }
+.cs-empty, .cs-note { font-size: 0.75rem; opacity: .6; margin: 6px 0; }
+.cs-note { padding: 0 16px 12px; }
+.cs-beam { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; overflow: visible; }
+.cs-beam line { stroke: rgba(90, 230, 255, .22); stroke-width: 6; stroke-linecap: round; filter: blur(2px); }
+.cs-beam line.core { stroke: rgba(170, 245, 255, .75); stroke-width: 1; filter: none; stroke-dasharray: 3 5; animation: cs-flow .8s linear infinite; }
+@keyframes cs-holo-in { 0% { opacity: 0; transform: scale(.02, .9); filter: brightness(3); } 35% { opacity: .9; transform: scale(1.02, .03); } 55% { transform: scale(1, 1); opacity: .4; } 62% { opacity: 1; } 70% { opacity: .7; } 100% { opacity: 1; filter: none; } }
+@keyframes cs-card-in { from { opacity: 0; transform: translateX(18px); } to { opacity: 1; transform: none; } }
+@keyframes cs-sweep { from { top: -80px; } to { top: 100%; } }
+@keyframes cs-sent { 0% { box-shadow: 0 0 0 rgba(var(--c, 90, 230, 255), 0); } 30% { box-shadow: 0 0 30px rgba(var(--c, 90, 230, 255), .7); filter: brightness(1.6); } 100% { box-shadow: 0 0 0 rgba(var(--c, 90, 230, 255), 0); } }
+@keyframes cs-flow { to { stroke-dashoffset: -16; } }
+@media (prefers-reduced-motion: reduce) { .cs-menu.cs-on, .cs-recipe, .cs-scan::after, .cs-beam line.core { animation: none; } }
+@media (max-width: 700px) { .cs-menu { left: 3%; width: auto; top: 30%; } .cs-beam { display: none; } }

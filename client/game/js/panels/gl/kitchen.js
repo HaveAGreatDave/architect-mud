@@ -74,6 +74,8 @@ const decode = (c) => (c <= 0.04045 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 
 const same = (c, d, o) => Math.abs(c[0] - d[o]) < 0.004 && Math.abs(c[1] - d[o + 1]) < 0.004 && Math.abs(c[2] - d[o + 2]) < 0.004;
 const METALS = ['steel', 'steelDark', 'grate', 'copper', 'iron', 'blade', 'bladeEdge'].map((k) => COLOURS[k]);
 const FLAMES = [COLOURS.flameIn, COLOURS.flameOut];
+// what gives off its own light: a microwave's inside while it runs, and its display
+const GLOWS = [COLOURS.ovenLit, COLOURS.ovenLed];
 
 // A kitchen batch (arena-mesh.js: pos, nor, rgba, uv, t) as a room batch (ballpark-mesh.js: pos, nor,
 // uv, linear rgb, mat), moved into the room's frame. Appended from `out.n` when `append` is set.
@@ -90,7 +92,7 @@ export function toRoomBatch(src, out, F = FREE, append = false) {
     o[t + 6] = 0; o[t + 7] = 0;
     o[t + 8] = decode(d[s + 6]); o[t + 9] = decode(d[s + 7]); o[t + 10] = decode(d[s + 8]);
     let m = MAT.GROUND;
-    if (FLAMES.some((c) => same(c, d, s + 6))) m = 40;
+    if (FLAMES.some((c) => same(c, d, s + 6)) || GLOWS.some((c) => same(c, d, s + 6))) m = 40;
     else if (METALS.some((c) => same(c, d, s + 6))) m = MAT.METAL;
     else if (d[s + 9] < 0.9) m = MAT.GLOSS;
     o[t + 11] = m;
@@ -103,6 +105,16 @@ export function toRoomBatch(src, out, F = FREE, append = false) {
 export function roomCamOf(cam, shake = null, F = FREE) {
   const f = norm(dirOf(F, norm(sub(cam.at, cam.eye))));
   return { eye: at(F, cam.eye), yaw: Math.atan2(f[0], f[2]), pitch: Math.asin(Math.max(-1, Math.min(1, f[1]))), fov: (cam.fov || 0.7) * 180 / Math.PI, roll: cam.roll || 0, shake };
+}
+
+// The other way: the room's own eye ({ eye, yaw, pitch, fov in degrees }) as a kitchen camera, so the
+// kitchen can pick with the picture the room draws while you walk about it (room-stage.js host.view).
+// The exact inverse of roomCamOf, roll and shake aside.
+export function kitchenCamOf(view, F = FREE) {
+  const cp = Math.cos(view.pitch || 0), f = [Math.sin(view.yaw || 0) * cp, Math.sin(view.pitch || 0), Math.cos(view.yaw || 0) * cp];
+  const d = sub(view.eye, F.o), eye = [dot(d, F.x) / F.s, dot(d, F.y) / F.s, dot(d, F.z) / F.s];
+  const fk = [dot(f, F.x), dot(f, F.y), dot(f, F.z)];
+  return { eye, at: add(eye, mul(fk, 100)), fov: ((view.fov || 72) * Math.PI) / 180, roll: 0 };
 }
 
 // The light on a canvas of its own: a warm key from above left and towards the cook (where the
@@ -148,10 +160,12 @@ function hosted(canvas, host) {
   return {
     get lost() { return lost; },
     setStatic(batch) { toRoomBatch(batch, stat, F); },
+    // `fx.free`: you're on your own feet, so the room draws from your own eye (no camera handed over)
+    // and `cam` is that eye already, for picking
     render(cam, batch, fx = {}) {
       copyInto(props, stat);
       toRoomBatch(batch, props, F, true);
-      if (host.show({ cam: roomCamOf(cam, fx.shake, F), props }) === false) { lost = true; return null; }
+      if (host.show({ cam: fx.free ? null : roomCamOf(cam, fx.shake, F), props }) === false) { lost = true; return null; }
       flashOn(host.canvas, fx.flash);
       const c = host.canvas;
       return cameraMatrices(cam, (c.clientWidth || 1) / (c.clientHeight || 1));

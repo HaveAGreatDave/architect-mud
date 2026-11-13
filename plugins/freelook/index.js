@@ -439,6 +439,21 @@ on('zone.entered', ({ actor, zone }) => {
   });
 });
 
+// PAINT ON A WALL YOU CAN SEE. A tag going up on a building or being scrubbed off it (plugins/graffiti) is drawn
+// from the window's cells (`gft`, deriveSurfaceCell), so whoever's on foot within reach of that building is sent
+// the window again, as a re-centre on the middle it already has: the cells nothing changed in are interned and kept
+// (map-intern.js), and the one wall repaints. Once per act of spraying or cleaning, never on a tick.
+function paintChanged({ zoneId, targetZoneId }) {
+  const b = getZone(targetZoneId || zoneId);
+  if (b?.map_id !== 'map_world' || b.grid_x == null || b.grid_y == null) return;
+  for (const [pid, v] of viewers) {
+    if (!v?.foot || Math.max(Math.abs(b.grid_x - v.gx), Math.abs(b.grid_y - v.gy)) > RADIUS) continue;
+    sendToPlayer(pid, { ...viewPayload(v.gx, v.gy, { foot: true }, pid), recentre: true });
+  }
+}
+on('graffiti.tagged', paintChanged);
+on('graffiti.removed', paintChanged);
+
 // THE 3-D VIEW IS THE AUTHORITY ON FOOT. `footstep <gx> <gy>`, sent silently by the street view when the eye crosses
 // into a neighbouring tile: the server follows it there. The view's own collision (the buildings' walls, the doors) is
 // what says where you can walk, so the grid's exits don't, and the pace is the camera's, so pacing doesn't queue it
@@ -452,12 +467,13 @@ async function cmdFootstep(args, raw, player) {
   if (!Number.isInteger(gx) || !Number.isInteger(gy) || !at) return null;
   const dx = gx - at.gx, dy = gy - at.gy;
   if (!dx && !dy) return null;
-  const back = () => sendToPlayer(player.id, { type: 'freelook_step', gx: at.gx, gy: at.gy, zone: here.id, refused: true });
+  // the gate's own words go with the refusal, so the view can say why rather than just putting you back
+  const back = (message) => sendToPlayer(player.id, { type: 'freelook_step', gx: at.gx, gy: at.gy, zone: here.id, refused: true, ...(message ? { message } : {}) });
   const to = Math.max(Math.abs(dx), Math.abs(dy)) === 1 ? zoneAtTile('map_world', gx, gy) : null;
   if (!to) { back(); return null; }
   const dir = Math.abs(dx) >= Math.abs(dy) ? (dx > 0 ? 'east' : 'west') : (dy > 0 ? 'south' : 'north');
   const r = await cmdMove(dir, player, getBroadcast(), { footTo: to.id, targetZoneId: to.id });
-  if (!r || r.type === 'error' || player.current_zone === here.id) back();
+  if (!r || r.type === 'error' || player.current_zone === here.id) back(r?.type === 'error' ? r.message : null);
   return r;
 }
 

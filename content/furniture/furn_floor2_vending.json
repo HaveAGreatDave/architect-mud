@@ -1,7 +1,11 @@
 {
   "description": "A snack machine hulks in the corner, glass front spider-cracked, the rows behind it fossilised. The coin slot has been jammed with a screwdriver that's still in it.",
   "flags": {
-    "interactions": []
+    "interactions": [],
+    "spot": {
+      "along": -6.6,
+      "wall": "back"
+    }
   },
   "hp": null,
   "hp_max": null,

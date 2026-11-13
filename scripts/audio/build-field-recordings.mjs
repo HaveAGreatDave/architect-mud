@@ -44,6 +44,26 @@ export const SOURCES = [
   { key: 'wind',         user: 'nithala', id: 525292, title: 'wind.wav', kind: 'bed', len: 22, rms: -23 },
   { key: 'blizzard',     user: 'cobratronik', id: 117136, title: 'Wind__Artic__Cold.wav', kind: 'bed', len: 24, rms: -21 },
   { key: 'hail',         user: 'MLaudio', id: 521375, title: 'hail_rain.wav', kind: 'bed', len: 14, rms: -22 },
+  // wind by strength: a breeze, the gusts, a hard wind and a gale, and the gusts as one-shots
+  { key: 'wind_breeze', user: 'FunWithSound', id: 390740, title: 'Wind 2.mp3', kind: 'bed', len: 20, rms: -26 },
+  { key: 'leaves', user: 'Anya_Media', id: 523389, title: 'Forest, close up of trees rustling in the wind.wav', kind: 'bed', len: 20, rms: -26 },
+  { key: 'wind_gusty', user: 'BudJillett', id: 109485, title: 'Wind-Gusts-late-autumn.wav', kind: 'bed', len: 24, rms: -23, steady: false },
+  { key: 'wind_strong', user: 'DBlover', id: 405601, title: 'Howling Wind Ambience', kind: 'bed', len: 24, rms: -21 },
+  { key: 'wind_gale', user: 'LanDub', id: 181935, title: 'Gale Wind.wav', kind: 'bed', len: 24, rms: -19, steady: false },
+  { key: 'gusts', user: 'SamsterBirdies', id: 565140, title: 'Heavy gusts of wind', kind: 'calls', n: 4, max: 4, gap: 0.4 },
+  // more rain
+  { key: 'rain_drizzle', user: 'FenrirFangs', id: 231687, title: 'rain 1.wav', kind: 'bed', len: 20, rms: -26 },
+  { key: 'rain_street', user: 'BonnyOrbit', id: 380651, title: 'Light rain on street.wav', kind: 'bed', len: 20, rms: -24 },
+  { key: 'rain_awning', user: '1888software', id: 554577, title: 'rain-on-canvas-awning.wav', kind: 'bed', len: 18, rms: -24 },
+  { key: 'rain_yards', user: 'conleec', id: 149240, title: 'AMB_Ext_Rain_Residential_002.wav', kind: 'bed', len: 22, rms: -22 },
+  { key: 'rain_windy', user: 'Syphon64', id: 135162, title: 'Hard Rain Strong Winds', kind: 'bed', len: 24, rms: -20, steady: false },
+  { key: 'wet_traffic', user: 'Pfannkuchn', id: 258163, title: 'Passing cars on wet cobblestone street, light rain, city', kind: 'bed', len: 24, rms: -25, steady: false },
+  // the streets and the city
+  { key: 'street_quiet', user: 'Oper8', id: 241135, title: 'Small quiet street ambience', kind: 'bed', len: 24, rms: -27 },
+  { key: 'street_people', user: 'WhiteNoiseSleeper', id: 725605, title: 'People Ambience In The Old Town', kind: 'bed', len: 24, rms: -26 },
+  { key: 'city_day', user: 'davidco80', id: 164213, title: 'Morning Ambience city', kind: 'bed', len: 26, rms: -25 },
+  { key: 'city_night', user: 'Soundkrampf', id: 237329, title: 'Night city atmosphere', kind: 'bed', len: 26, rms: -27 },
+  { key: 'city_roof', user: 'Dr. Macak', id: 252690, title: 'NightCity-1.wav', kind: 'bed', len: 26, rms: -26 },
   // the sea
   { key: 'surf_beach',   user: 'szegvari', id: 530699, title: 'Water wave Beach Field-recording 200815_0036.wav', kind: 'bed', len: 18, rms: -21, steady: false },
   { key: 'surf_rocks',   user: 'amholma', id: 376801, title: 'Crashing Waves into Rocks 2', kind: 'bed', len: 28, rms: -20, steady: false },

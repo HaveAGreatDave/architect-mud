@@ -6,7 +6,7 @@ The game's close-up figures ([actor3d.js](../../client/game/js/panels/actor3d.js
 
 ## What doesn't change
 
-- **One figure per person, appearance from the token.** Hair, face and colours come off the actor token the way `ACTOR_OUTFITS` does, never off the NPC. A face drawn from the NPC's real description is an identity readable from a street away, which is what the token exists to prevent ([world-rendering.md](../reference/world-rendering.md)).
+- **One figure per person, appearance from the token.** Hair, face and colours come off the actor token. *Superseded 2026-11-12:* the token is now the id's hash and a figure wears the person's own look, the one the Room Stage and the TV draw ([street-people-ladder.md](street-people-ladder.md)).
 - **GLASS 2 only.** The canvas billboard and the far body (1.5 to 8 px) keep their heads. Nobody can see a face at that size.
 - **No new CPU work per figure per frame** beyond a few more floats in the instance record. CPU record building is where the frame goes ([glass-headroom.md](glass-headroom.md)).
 

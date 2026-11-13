@@ -5,7 +5,7 @@
   ],
   "ambient_theme": "indoors",
   "bg_color": "#c9a884",
-  "description": "A converted hotel lobby, marble floors gone dull under a permanent film of dust, repurposed into the basin's closest thing to real estate. A corkboard by the door is covered in handwritten unit listings. Along one wall, a bar still operates under a brass sign reading THE EMBASSY LOUNGE, with a half-dozen cracked vinyl stools lined up at the counter. Lowry stands behind it, polishing a glass that was already clean. The building still has working locks upstairs, which around here makes it valuable.",
+  "description": "Pink marble underfoot, dulled to the colour of old soap. Lowry's bar runs along the north wall under COCKTAILS in pink neon, peanut shells round its stools. A card table sits under a green lamp by the jukebox. Behind the reception desk, a key on every hook. Everything is dusted. Nothing is fixed.",
   "exits": {
     "down": "zone_residential_lobby_z-1_1782105292491",
     "east": "zone_embassy_lobby_bathroom",
@@ -15,16 +15,291 @@
   "flags": {
     "building_name": "Embassy Hotel & Bar",
     "building_type": "hotel",
-    "floor": "linoleum",
-    "intro_lore": "The Embassy was a hotel before the Handoff, and it never got the memo that its guests aren't coming back. Now it's the basin's most sought-after slum: floors of hollowed rooms behind locks that still, miraculously, lock. Lowry keeps the bar running on spite and a working tap, which is more stability than most of Coldwater can claim. If you can afford a room here, you've already won more of this life than the Strip regulars outside.",
+    "floor": "stone",
+    "intro_lore": "The Embassy was a hotel before the Handoff, and the staff never got the memo. Lowry still sets out the good glasses, still says \"sir\", still keeps a key for every room in the pigeonholes, though half the doors upstairs have been rekeyed by tenants. The basin's most sought-after slum keeps hotel hours.",
     "is_building": true,
     "is_interior": true,
     "room": {
-      "w": 12,
-      "d": 9,
-      "h": 3.4,
+      "balcony": false,
+      "d": 10,
+      "decor": {
+        "art": [
+          {
+            "at": 4,
+            "h": 1.1,
+            "seed": 27,
+            "w": 1.6,
+            "wall": "front",
+            "y": 2.9
+          }
+        ],
+        "ceiling": {
+          "band": 0.6,
+          "cell": 2.3,
+          "drop": 0.32,
+          "hex": "#e9d6cf",
+          "kind": "coffer",
+          "trim": "#b8913e"
+        },
+        "chalk": [
+          {
+            "at": 2.2,
+            "h": 1,
+            "title": "Tonight",
+            "w": 0.8,
+            "wall": "left",
+            "y": 1.75
+          }
+        ],
+        "darts": [
+          {
+            "at": -5.1,
+            "wall": "back",
+            "y": 1.73
+          }
+        ],
+        "doors": [
+          {
+            "at": 3.2,
+            "label": "Out of order",
+            "w": 1.1,
+            "wall": "back"
+          }
+        ],
+        "downlights": false,
+        "fans": [
+          [
+            3.4,
+            2.9,
+            0.7
+          ],
+          [
+            -3.9,
+            6.2,
+            0.7
+          ]
+        ],
+        "floor": {
+          "border": "#7a3e44",
+          "inset": 0.7,
+          "line": "#c9a14a",
+          "medallion": [
+            0,
+            5,
+            1.6
+          ],
+          "w": 0.28
+        },
+        "hatstand": [
+          [
+            -6.6,
+            6.5
+          ]
+        ],
+        "lights": [
+          {
+            "at": [
+              0,
+              5
+            ],
+            "drop": 1.9,
+            "k": 1.6,
+            "r": 1.1,
+            "tiers": 3
+          }
+        ],
+        "litter": [
+          {
+            "at": [
+              -3.9,
+              2.75
+            ],
+            "n": 80,
+            "r": [
+              2.7,
+              0.45
+            ],
+            "seed": 3
+          },
+          {
+            "at": [
+              3.4,
+              6.2
+            ],
+            "n": 20,
+            "r": [
+              1.6,
+              1.1
+            ],
+            "seed": 5
+          }
+        ],
+        "neon": [
+          {
+            "at": -3.9,
+            "h": 0.34,
+            "hex": "#ff4f8a",
+            "lamp": 0.35,
+            "text": "COCKTAILS",
+            "wall": "front",
+            "y": 3.6
+          }
+        ],
+        "payphone": [
+          {
+            "at": 6.8,
+            "wall": "back",
+            "y": 1.4
+          }
+        ],
+        "pendants": [
+          {
+            "at": [
+              3.4,
+              6.2
+            ],
+            "k": 1.1,
+            "kind": "card",
+            "len": 1.4,
+            "tint": [
+              0.95,
+              1.12,
+              0.85
+            ],
+            "y": 1.72
+          },
+          {
+            "at": [
+              -5.7,
+              1.6
+            ],
+            "kind": "school",
+            "y": 2.35
+          },
+          {
+            "at": [
+              -3.9,
+              1.6
+            ],
+            "k": 0.9,
+            "kind": "school",
+            "tint": [
+              1.12,
+              0.96,
+              0.78
+            ],
+            "y": 2.35
+          },
+          {
+            "at": [
+              -2.1,
+              1.6
+            ],
+            "kind": "school",
+            "y": 2.35
+          }
+        ],
+        "plants": [
+          [
+            -6.3,
+            9.2,
+            1.15
+          ],
+          [
+            6.3,
+            0.8,
+            1.05
+          ]
+        ],
+        "rug": false,
+        "salon": [
+          {
+            "at": 2.9,
+            "h": 1.15,
+            "seed": 4,
+            "w": 1.7,
+            "wall": "right",
+            "y": 2.35
+          }
+        ],
+        "sconces": {
+          "points": [
+            [
+              "front",
+              2.2
+            ],
+            [
+              "front",
+              5.6
+            ],
+            [
+              "back",
+              -4.6
+            ],
+            [
+              "back",
+              1.4
+            ],
+            [
+              "right",
+              1.4
+            ],
+            [
+              "right",
+              8.6
+            ],
+            [
+              "left",
+              2
+            ],
+            [
+              "left",
+              8.2
+            ]
+          ],
+          "y": 2.3
+        },
+        "trophy": [
+          {
+            "at": 5,
+            "wall": "right",
+            "y": 3.15
+          }
+        ],
+        "walls": {
+          "hex": "#5a3a26",
+          "kind": "walnut",
+          "rail": 1,
+          "y1": 1.25
+        }
+      },
+      "face": 0,
+      "finish": "fine",
+      "ground": "marble",
+      "h": 4.6,
+      "sign": {
+        "at": -1.5,
+        "size": 0.42,
+        "sub": "RECEPTION",
+        "text": "EMBASSY",
+        "wall": "back",
+        "y": 3.7
+      },
+      "street_door": {
+        "glass": "#7f97a0",
+        "kind": "swing",
+        "monogram": "E",
+        "trim": "#8a6a44",
+        "w": 2
+      },
       "studio": false,
-      "balcony": false
+      "tone": {
+        "accent": "#b8913e",
+        "ceiling": "#e9d6cf",
+        "trim": "#2a1a14",
+        "wall": "#d39aa2"
+      },
+      "w": 14
     },
     "window": {
       "description": "A window.",

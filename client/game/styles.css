@@ -12573,7 +12573,7 @@ html[data-density="compact"] .corner-grip, html.tv-popped .corner-grip { display
 /* The comic replay's slow motion graded like ink on newsprint: punchier contrast and colour on the
    moving picture, with no pixel work (the freeze and the page are printed for real). */
 .gds-park .gds-canvas { transition: transform 0.35s cubic-bezier(0.2, 0.8, 0.2, 1), filter 0.3s ease; }
-.gds-park.gds-print .gds-canvas { filter: contrast(1.1) saturate(1.45) brightness(1.1); }
+.gds-park.gds-print .gds-canvas { filter: contrast(1.03) saturate(1.08) brightness(1.02); }
 @media (prefers-reduced-motion: reduce) { .gds-park .gds-canvas, .gds-park .gds-comic { transition: none; } }
 .gds-cap {
 	flex: 0 0 auto; display: flex; align-items: center; gap: 9px; min-height: 44px; padding: 5px 10px 5px 6px;
@@ -15037,6 +15037,24 @@ body.esp-active #output {
 .bet-south { bottom: 84px; left: 50%; transform: translateX(-50%); }
 .bet-east  { right: 116px; top: 50%;  transform: translateY(-50%); }
 .bet-west  { left: 116px;  top: 50%;  transform: translateY(-50%); }
+/* the 3D felt (panels/poker3d.js) covers the flat one; the command bar below stays */
+.poker-table-wrap.poker-3d { background: #0c0a09; overflow: hidden; }
+.poker-table-wrap.poker-3d > :not(.poker-canvas) { display: none; }
+.poker-canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; }
+/* five- and six-seat felts (render-pane.js SPOTS): the four corners */
+.seat-se { right: 10px; bottom: 70px; }
+.seat-ne { right: 10px; top: 52px; }
+.seat-nw { left: 10px;  top: 52px; }
+.seat-sw { left: 10px;  bottom: 70px; }
+.seat-ne .poker-bubble, .seat-se .poker-bubble { right: -4px; top: -18px; }
+.seat-nw .poker-bubble, .seat-sw .poker-bubble { left: -4px; top: -18px; }
+.seat-ne .poker-chat, .seat-se .poker-chat { right: calc(100% + 8px); top: 50%; transform: translateY(-50%); }
+.seat-nw .poker-chat, .seat-sw .poker-chat { left: calc(100% + 8px); top: 50%; transform: translateY(-50%); }
+.bet-se { right: 130px; bottom: 120px; }
+.bet-ne { right: 130px; top: 110px; }
+.bet-nw { left: 130px;  top: 110px; }
+.bet-sw { left: 130px;  bottom: 120px; }
+.poker-seats-6 .seat-north { top: 8px; }
 
 /* Center pot as a spread of bills */
 .poker-pot {
@@ -18894,6 +18912,170 @@ label.wsp-name:hover { color: var(--cyan); }
 .wsp-tray-acts { display: flex; gap: 4px; flex-wrap: wrap; }
 .wsp-tray-acts .wsp-act { opacity: 1; }
 
+/* ── The kitchen's dress: lacquer, washi and a red seal ─────────────────────
+   One skin over the prep workspace and the recipes panel, laid on top of the
+   rules above so the layout underneath is untouched. Sumi-black lacquer with a
+   faint paper grain, hairline rules, vermilion where the panel used cyan, and
+   gold leaf for what you already hold. The state colours (green ok, yellow
+   warn, red off, orange burner) keep their meanings. */
+#workspace-box, #recipes-box {
+	--wa-ink: #e9e1d0;
+	--wa-dim: #9a8f7c;
+	--wa-red: #c8402e;
+	--wa-gold: #c9a24a;
+	--wa-line: rgba(233, 225, 208, 0.16);
+	--wa-lacq: #141010;
+	background:
+		repeating-linear-gradient(90deg, rgba(255, 245, 225, 0.018) 0 1px, transparent 1px 7px),
+		repeating-linear-gradient(0deg, rgba(255, 245, 225, 0.012) 0 1px, transparent 1px 11px),
+		radial-gradient(120% 90% at 50% 0%, #1d1716 0%, var(--wa-lacq) 70%);
+	border: 1px solid var(--wa-line);
+	border-top: 3px solid var(--wa-red);
+	border-radius: 3px;
+	box-shadow: 0 0 0 1px #000, 0 18px 50px rgba(0, 0, 0, 0.6), inset 0 1px 0 rgba(255, 240, 210, 0.05);
+	color: var(--wa-ink);
+}
+#workspace-box { padding: 20px 24px; }
+#recipes-box { padding: 22px 24px; }
+
+/* Titles: wide-tracked, with a hanko seal stamped to the left. */
+#workspace-header h2, #recipes-header h2 {
+	color: var(--wa-ink);
+	letter-spacing: 5px;
+	font-weight: normal;
+	display: inline-flex;
+	align-items: center;
+	gap: 10px;
+}
+#workspace-header h2::before, #recipes-header h2::before {
+	content: "";
+	width: 14px;
+	height: 14px;
+	flex: 0 0 auto;
+	background: var(--wa-red);
+	border-radius: 2px;
+	box-shadow: inset 0 0 0 2px rgba(20, 16, 16, 0.55), inset 0 0 0 3px var(--wa-red);
+	transform: rotate(-4deg);
+}
+#workspace-header { border-bottom: 1px solid var(--wa-line); padding-bottom: 10px; }
+#recipes-header { border-bottom: 1px solid var(--wa-line); padding-bottom: 10px; }
+#workspace-provider { color: var(--wa-dim); letter-spacing: 2px; }
+#workspace-close:hover, #recipes-close:hover { color: var(--wa-red); border-color: var(--wa-red); }
+#recipes-close { border-color: var(--wa-line); border-radius: 50%; }
+
+/* Hairlines in place of the double rules. */
+#workspace-box .wsp-rule { border-top: 1px solid var(--wa-line); padding-top: 6px; }
+#workspace-footer, #workspace-feed { border-top: 1px solid var(--wa-line); }
+#workspace-status:not(:empty), #workspace-dials:not(:empty), #workspace-stages:not(:empty) {
+	border-bottom: 1px solid var(--wa-line);
+}
+#workspace-box .wsp-section { margin-bottom: 18px; }
+#workspace-box .wsp-label, #workspace-box .wsp-dialrow-name {
+	color: var(--wa-red);
+	letter-spacing: 4px;
+}
+#workspace-box .wsp-name { color: var(--wa-ink); }
+#workspace-box .wsp-qty, #workspace-box .wsp-state, #workspace-box .wsp-stat-label { color: var(--wa-dim); }
+#workspace-box .wsp-recipe.wsp-open .wsp-name { color: var(--wa-red); }
+#workspace-box .wsp-kit-held .wsp-kit-mark { color: var(--wa-gold); }
+#workspace-box .wsp-bar { color: var(--wa-gold); }
+#workspace-box .wsp-stage-done { color: var(--wa-gold); }
+#workspace-box .wsp-stage-sep { color: var(--wa-line); }
+#workspace-box .wsp-dialrow-live {
+	background: linear-gradient(90deg, rgba(200, 64, 46, 0.12), transparent 75%);
+	border-left: 2px solid var(--wa-red);
+	padding-left: 8px;
+}
+#workspace-box .wsp-dial-track { stroke: rgba(233, 225, 208, 0.12); }
+#workspace-box .wsp-dial-hub { fill: var(--wa-lacq); stroke: var(--wa-gold); }
+#workspace-box .wsp-dial:focus-visible { filter: drop-shadow(0 0 3px var(--wa-red)); }
+#workspace-feed .msg-echo { color: var(--wa-gold); }
+#workspace-feedhint { color: var(--wa-dim); }
+
+/* Buttons: paper tags with a vermilion fill on hover. */
+#workspace-box .wsp-act, #workspace-box .wsp-hdr-btn, #workspace-box .loot-btn {
+	border-color: var(--wa-line);
+	color: var(--wa-ink);
+	border-radius: 2px;
+	transition: background 140ms ease, color 140ms ease, border-color 140ms ease;
+}
+#workspace-box .wsp-act:hover, #workspace-box .wsp-hdr-btn:hover, #workspace-box .loot-btn:hover {
+	background: var(--wa-red);
+	border-color: var(--wa-red);
+	color: #fff4ea;
+}
+#workspace-box .wsp-act:focus-visible { outline-color: var(--wa-red); }
+#workspace-box .wsp-run:hover { border-left-color: var(--wa-red); background: rgba(200, 64, 46, 0.07); }
+#workspace-grip {
+	background:
+		linear-gradient(135deg, transparent 50%, var(--wa-red) 50%, var(--wa-red) 60%, transparent 60%,
+		transparent 70%, var(--wa-red) 70%, var(--wa-red) 80%, transparent 80%);
+	opacity: 0.6;
+}
+
+/* Recipes: noren tabs hanging from a rail, cards as shikishi boards. */
+#recipes-tabs {
+	gap: 3px;
+	border-bottom: 1px solid var(--wa-line);
+	margin-bottom: 16px;
+}
+#recipes-box .recipe-tab {
+	border: 1px solid var(--wa-line);
+	border-bottom: none;
+	border-radius: 0 0 3px 3px;
+	padding: 6px 14px 8px;
+	color: var(--wa-dim);
+	letter-spacing: 3px;
+	background: linear-gradient(180deg, rgba(255, 240, 210, 0.04), transparent);
+	position: relative;
+}
+#recipes-box .recipe-tab:hover { color: var(--wa-ink); border-color: var(--wa-dim); }
+#recipes-box .recipe-tab.active {
+	background: var(--wa-red);
+	border-color: var(--wa-red);
+	color: #fff4ea;
+}
+/* the slit up the middle of a noren curtain */
+#recipes-box .recipe-tab.active::after {
+	content: "";
+	position: absolute;
+	left: 50%;
+	bottom: 0;
+	width: 1px;
+	height: 40%;
+	background: rgba(20, 16, 16, 0.45);
+}
+#recipes-box .recipe-card {
+	background: rgba(255, 240, 210, 0.025);
+	border: 1px solid var(--wa-line);
+	border-left: 2px solid var(--wa-gold);
+	border-radius: 2px;
+	padding: 12px 16px;
+	margin-bottom: 10px;
+}
+#recipes-box .recipe-name { color: var(--wa-ink); letter-spacing: 1px; font-weight: normal; font-size: 0.875rem; }
+#recipes-box .recipe-desc { color: var(--wa-dim); line-height: 1.5; }
+#recipes-box .recipe-output { color: var(--wa-gold); }
+#recipes-box .recipe-station { color: var(--wa-dim); letter-spacing: 1px; }
+#recipes-box .recipe-ing {
+	border: 1px solid var(--wa-line);
+	border-radius: 2px;
+	padding: 1px 6px;
+}
+#recipes-box .recipe-ing.ok { color: var(--wa-gold); border-color: rgba(201, 162, 74, 0.45); }
+#recipes-box .recipe-ing.missing { color: var(--red); border-color: rgba(200, 64, 46, 0.5); }
+#recipes-box .recipe-craft-btn, #recipes-box .recipe-page-btn {
+	border-color: var(--wa-red);
+	color: var(--wa-red);
+	letter-spacing: 2px;
+}
+#recipes-box .recipe-page-btn { border-color: var(--wa-line); color: var(--wa-dim); }
+#recipes-box .recipe-craft-btn:hover:not(:disabled), #recipes-box .recipe-page-btn:hover:not(:disabled) {
+	background: var(--wa-red);
+	border-color: var(--wa-red);
+	color: #fff4ea;
+}
+
 /* Shop stock that's on your shopping list and still outstanding (set server-side
    by the shop.stock hook). Marked in the gutter, not recoloured wholesale — a
    shelf of forty things should read as a list with three picked out of it. */
@@ -20094,5 +20276,5 @@ input[aria-invalid="true"] { outline: 1px solid var(--red); outline-offset: 1px;
 input[aria-invalid="true"]::placeholder { color: var(--red); opacity: 0.8; }
 
 /* going in off the street: the ring on the black while the room loads (freelook-view.js coverPane) */
-.fl-loading { width: 34px; height: 34px; border-radius: 50%; border: 3px solid rgba(255,255,255,0.18); border-top-color: rgba(255,255,255,0.85); animation: fl-spin 0.8s linear infinite; }
+.fl-loading { width: 34px; height: 34px; border-radius: 50%; border: 3px solid color-mix(in srgb, var(--accent) 18%, transparent); border-top-color: var(--accent); animation: fl-spin 0.8s linear infinite; }
 @keyframes fl-spin { to { transform: rotate(360deg); } }

@@ -471,6 +471,7 @@ position stays up for `rematchDelaySecs` before the board resets.
 | Lift button + both connection files | `zone_solenne_elevator.json`, `content/connections/conn_solenne_*_salon*.json` |
 | Table + two club chairs (`flags.game_table_id`, `flags.seat_idx`) | `content/furniture/furn_solenne_chess_*.json` |
 | Lamps + power | `furn_light_zone_solenne_salon.json`, `content/power_zones/zone_solenne_salon.json` |
+| Akerson's table + chairs in the penthouse | `content/furniture/furn_penthouse_chess_*.json`, row from `scripts/seed-akerson-chess.mjs` |
 | The `game_tables` row | `scripts/seed-solenne-chess.mjs` — **runtime-classed, so NOT carried by `content:import`** |
 
 The room is a residents' games salon off the Solenne's elevator, panelled in walnut and lit
@@ -480,6 +481,33 @@ joke at once.
 
 The board plays for **₵ 100 a side** (`config.minBet`), which is also what any board that
 says nothing asks for. Set it to 0 for a free game.
+
+### A table with a regular (`chess-practice.js`)
+
+A table's config can name a regular: `practice: { npc, chair, tier }`. John Akerson's board in
+the Solenne penthouse is the one that does (`scripts/seed-akerson-chess.mjs`, `minBet: 0`).
+
+- **Alone, they play themselves.** While nobody is seated and the regular is in the room, awake
+  and off shift, they sit in `chair` (a furniture id) and play both sides, a move every 9 to 22
+  seconds, at hustler strength with fewer blunders. That game is RAM only: never persisted,
+  never staked, never the table's `game`. A finished one stays up 45 seconds, then they set up again.
+- **They talk about it.** Every couple of minutes, with somebody in the room, they say a line from
+  their own `flags.chess_lore`. Akerson's are real chess history (Morphy, the Immortal Game,
+  Capablanca, Reykjavik, Deep Blue), told the way he'd tell it.
+- **They play you if they like you.** Sit opposite and they sweep their own game and take the real
+  seat (`seatBot`) if they know you at least as well as `tier` (a relations tier, `known` when
+  unset). Otherwise they say no once and carry on. `flags.chess_lines.accept` and `.refuse` hold
+  the words. The regular isn't a `chess_player`, so `summon` can't fetch them from elsewhere.
+- **The Room Stage draws the board.** `room.boards` (a sync gather) puts `{ board, turn, last,
+  practice }` on the table's piece in `room_view`; every move is sent as `room_board`, and the
+  client builds the room again with it. `gl/room-chess.js` lays the position out in Staunton
+  pieces on the `games` form: turned profiles in a tournament set's proportions, the knight's
+  head cut from a side profile. White sits at the table's front, a1 is dark, and the queen starts
+  on her own colour. The Room Lab draws the opening on any such table, or `?board=` (64
+  characters, rank 8 first).
+
+Rebuilding the room on each move is the simple way and costs a frame; at one move every
+ten seconds or so that's fine. A board that moved faster would want its own batch.
 
 ---
 

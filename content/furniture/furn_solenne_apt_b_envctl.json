@@ -1,26 +1,35 @@
 {
-  "description": "A pane of black glass set flush into the wall by the door, no bigger than a paperback. It wakes when you look at it: the lights, the temperature, and a picture of the hall outside your door.",
+  "description": "A pane of black glass flush in the wall by the door, no bigger than a paperback. It wakes when you look at it: the lights, the heat, the shutters over the glass, and the camera in the hall outside.",
   "flags": {
     "aliases": "panel",
     "envctl": {
       "camera": "secdev_solenne_30b_door",
       "max_c": 28,
       "min_c": 16,
+      "scenes": [
+        "space",
+        "underwater",
+        "storm",
+        "desert",
+        "aurora",
+        "matte",
+        "blinds"
+      ],
       "target_c": 21
     },
     "look": {
       "arche": "cabinet",
       "dims": [
-        0.34,
+        0.46,
         0.04,
-        0.24
+        0.6
       ],
       "dress": "envctl",
       "form": "cupboard"
     },
     "spot": {
-      "along": 11.6,
-      "wall": "right"
+      "along": 3.4,
+      "wall": "back"
     }
   },
   "hp": null,

@@ -66,6 +66,10 @@ const FAMILY = [
   [/^db-organ-dirge$/, [9000, 13000]],
   [/^db-organ-rally$/, [1000, 2000]],
   [/^db-organ-anthem$/, [11000, 17000]],
+  // the organist's between-play bits
+  [/^db-organ-(foul|sayonara)$/, [1000, 2200]],
+  [/^db-organ-(climb|riff)$/, [2500, 4500]],
+  [/^db-organ-vamp$/, [6000, 8000]],
   // the chants: two bars of let's go, three of DE-FENSE, and the organ's charge with its shout
   [/^db-chant-(letsgo|defense)$/, [5000, 7000]],
   [/^db-chant-charge$/, [2800, 4200]],

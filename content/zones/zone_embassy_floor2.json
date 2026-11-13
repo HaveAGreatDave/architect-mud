@@ -5,7 +5,7 @@
   ],
   "ambient_theme": "indoors",
   "bg_color": "#c9a884",
-  "description": "The third-floor landing, where the carpet runner gives out onto bare concrete worn pale to the doors. Four units, 2A through 2D, brass numbers hanging by single screws. The iron stair rail is sticky. A dead vending machine in the corner, glass spider-cracked, snacks fossilised. The bar murmurs up through the floor.",
+  "description": "The runner stops short of the doors as if it lost its nerve. The rose paper has been painted over in a pink that doesn't match. Units 3A to 3D, numbers hanging by single screws. A dead vending machine stands where the luggage trolley was, glass cracked, snacks fossilised. A print of the hotel's own front hangs crooked.",
   "exits": {
     "down": "zone_embassy_floor_2nd",
     "east": "zone_apt_7",
@@ -15,9 +15,70 @@
     "west": "zone_apt_8"
   },
   "flags": {
-    "floor": "linoleum",
-    "intro_lore": "Two flights up from Lowry's bar, the hotel starts telling the truth about itself: carpet gone, numbers hanging by one screw, a vending machine that died guarding snacks nobody will ever eat. Four doors, four locks, four small victories against everything on the other side of them.",
-    "is_interior": true
+    "floor": "boards",
+    "intro_lore": "Two flights up from Lowry's bar, the hotel starts telling the truth about itself: the runner gone short, the paper painted over, a vending machine that died guarding snacks nobody will ever eat. Four doors, four locks, four small victories against everything on the other side of them.",
+    "is_interior": true,
+    "room": {
+      "balcony": false,
+      "d": 3.2,
+      "decor": {
+        "art": [
+          {
+            "at": -3.4,
+            "h": 0.6,
+            "seed": 52,
+            "w": 0.8,
+            "wall": "back",
+            "y": 1.7
+          }
+        ],
+        "ceiling": {
+          "band": 0.3,
+          "drop": 0.12,
+          "hex": "#d9c9bd",
+          "kind": "cove",
+          "trim": "#8a6a44"
+        },
+        "plaques": {
+          "zone_apt_5": "3A",
+          "zone_apt_6": "3B",
+          "zone_apt_7": "3C",
+          "zone_apt_8": "3D"
+        },
+        "rug": false,
+        "runner": {
+          "along": "u",
+          "border": "#7a6038",
+          "end": 4.2,
+          "hex": "#4a1a20",
+          "w": 1.2
+        },
+        "sconces": {
+          "points": [
+            [
+              "front",
+              -5.5
+            ],
+            [
+              "back",
+              5.5
+            ]
+          ],
+          "y": 1.85
+        }
+      },
+      "face": 0,
+      "h": 3,
+      "studio": false,
+      "tone": {
+        "accent": "#8a6a44",
+        "ceiling": "#d9c9bd",
+        "trim": "#2a1e18",
+        "wall": "#c99aa0"
+      },
+      "w": 16,
+      "windowless": true
+    }
   },
   "grid_x": 0,
   "grid_y": 0,

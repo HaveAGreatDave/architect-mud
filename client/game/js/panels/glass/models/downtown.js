@@ -2177,9 +2177,11 @@ export const DOWNTOWN_ARMS = {
         }
       }
       if (dn > 0) {
-        const [gx, gy] = k.at(0, PAL.mFront - 0.02);
-        glowPool(ctx, cam, gx, gy, PAL.mZ0 - 0.01, '255,232,190', 18, alpha * 0.45 * dn);                   // the soffit lamps, on the pavement
-        glowPool(ctx, cam, gx, gy, (PAL.mZ0 + PAL.mZ1) / 2, '255,240,208', 20, alpha * 0.30 * dn, { air: true });   // the panel's own halo
+        // ⚠ Both discs stand clear of the box. A glow is a depth-tested billboard, so one inside the
+        // marquee or a hair under its soffit is sliced by the faces and the cut shimmers as you move.
+        const [gx, gy] = k.at(0, PAL.mFront - 0.06), [hx, hy] = k.at(0, PAL.mFront + 0.07);
+        glowPool(ctx, cam, gx, gy, PAL.mZ0 - 0.07, '255,232,190', 18, alpha * 0.45 * dn);                   // the soffit lamps, on the pavement
+        glowPool(ctx, cam, hx, hy, (PAL.mZ0 + PAL.mZ1) / 2, '255,240,208', 20, alpha * 0.30 * dn, { air: true });   // the panel's own halo, out in front
       } }
     for (const X of [-0.31, 0.31]) palaisPoster(k, X, PAL.front + 0.004, 0.05, 0.035, 0.175);
     palaisPoster(k, 0, PAL.fFront + 0.004, 0.06, 0.035, 0.18);

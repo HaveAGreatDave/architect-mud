@@ -1,0 +1,36 @@
+{
+  "description": "The chair across the chess board from Akerson's. It gets less use than his.",
+  "flags": {
+    "aliases": [
+      "chair",
+      "chess chair",
+      "guest chair"
+    ],
+    "game_table_id": "gametable_akerson_chess",
+    "interactions": [
+      "sit"
+    ],
+    "look": {
+      "arche": "seat",
+      "form": "chair"
+    },
+    "seat_idx": 0,
+    "spot": {
+      "at": [
+        3.65,
+        1.5
+      ],
+      "turn": 90
+    }
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_penthouse_chess_chair_guest",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "chess chair",
+  "object_type": "furniture",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_solenne_penthouse"
+}

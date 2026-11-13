@@ -346,6 +346,86 @@ The Stage is meant to look like the best thing in the game. What it takes, beyon
   nearly closed, the cake nearly dry); shake on a botched stage and on an accident; a pull-back on the
   card. Letterbox bars for the opening and the result, and a vignette.
 
+### The bench in the room
+
+F at a lab in the Room Stage brings the bench up in 3D, at that room's own lab, instead of the flat HUD.
+
+- **How it gets there.** The lab's station sends `workspace chembench` (room-stage.js `useStation`). A bare
+  `workspace` let a room's stove outrank its lab, so F at the lab in 30-B used to open the kitchen. On the
+  visual rung inside the Room Stage, the bench's `workspace_view` goes to `openChemBench` (via
+  `openChemBenchOr` in lazy-views.js), which asks the room for a host (`chem:open`). With no lab out, the
+  HUD opens as before.
+- **Hosted, like the kitchen.** The room answers with its layout, the lab piece (a Cachet's turntable,
+  `cachetInner`), a hook that rebuilds the room with the bench `working` on a stage, and a hook that takes
+  each frame's camera, props, liquids, halos and glows. The room keeps drawing with its own lamps, from the
+  Stage's camera, and ignores your keys while the bench has them (`S.chemming`, sharing the kitchen's
+  `S.cooking`).
+- **The panel.** The bench projects a panel: cyan glass, a scanline sweep, a flicker in, a beam from the
+  hood's status light to its edge. It shows the bench's name and grade, the status (power, rank, splice,
+  station bonus), what it can cook grouped by readiness with what each still needs, the vault with take
+  buttons, Splice and Leave. Every button sends the command the HUD would (`synthesize <recipe>`,
+  `pullid`, `splice`); nothing in the panel decides anything. While it's up, a scan of light runs the length
+  of the worktop (`lightStage` `menu`).
+- **One session.** When the server arms the cook (`synth_minigame`), the open bench turns into the chain in
+  place, on the same bench in the same room. After the outcome it goes back to the bench and asks for it
+  again, so the vault shows the new batch. A splice's 2D designer still comes up over the room; its stages
+  then play on the bench too.
+
+### The finish pass (2026-11-12)
+
+- **Chrome reflects the room** (it's been steel since the Cachet pass; see below). Any room with material 45 in it gets a cube probe (gl/room.js `placeProbe`,
+  `bakeProbe`): 192 px a face (64 on a phone), between the chrome and the room's middle at 1.1 to 1.7 m,
+  looked up box-projected onto the room's bounds (floor y 0, four metres up, six metres round). All six faces
+  bake when the room is set; after that, off a phone, one face a frame every 1.5 s. A brushed face (chrome
+  with a texture) reads a blurred mip and less of the room. The bake doesn't draw glass or figures. With no
+  chrome in the room there's no probe and no cost; `R.probe` reports where it stands.
+- **Textures.** `roomEpoxy` (the worktop, pale so a dark tint reads as charcoal), `roomSubway` (the refined and
+  pristine walls), `roomBrushed` (the chrome liner, shelves and splashback) and `roomPowder` (the casework).
+- **More on the bench.** Chrome hood, sash, duct, door pulls, stands, clamps and shelves on the good benches;
+  a steel liner in every hood; a vacuum manifold with glass taps, a gauge and a cold trap in its Dewar
+  (refined and up); a tray of capped vials under the hood; wash bottles at the end of the open bench.
+
+### The Cachet's false wall
+
+A Cachet authored wider than its turntable (`flags.look.dims` wider than `CACHET_OPEN`, 2.2 m) stands in
+a false wall (`cachetFrame` in gl/room-mesh.js): plaster wings in the room's own wall finish either side of
+the opening, a header to the ceiling, a hairline shadow gap round the opening, and behind the turntable a
+dark alcove as deep as the piece, with a strip light that's on while the lab is out. The wall is drawn
+apart and never turns; only the opening's width goes round on the turntable. A Cachet as wide as its
+turntable has no wings, as before. The opening is 2.2 m unless `flags.look.open` says wider. Solenne 30-B's
+is 3.5 × 1.3 × 2.65 m with a 3.0 m opening, from the corner to just short of the en-suite door.
+
+**It doesn't turn: it unfolds out of a bay behind the wall.** A Cachet in a false wall changes over in 8.5
+seconds (`assembly` and `assembleBatch` in gl/room-mesh.js, played on the room's moving layer by
+room-stage.js, its glass on the props glass layer). The bar turns back a quarter turn on its back right corner
+and slides sideways into a pocket off the recess. Behind it is the bay (`cachetRecess`): a carbon-fibre tunnel
+ribbed in steel, a steel deck with four rails let flush into it, a gantry down the hood's side, strip lights and a
+bulkhead at the far end. The lab waits in there in three units, behind everywhere the bar's corner reaches
+(`cachetPlan`), and comes up the tunnel in order:
+
+- the base (casework, worktop, the gas and the bench tools) rolls up the rails into the opening;
+- the hood, with its rig inside, hangs off a trolley under the gantry: it lifts 12 cm clear of the worktop's
+  upstand, runs forward over the base and drops onto the worktop;
+- the wall (back panel, splashback, shelves and bottles) comes last on its own legs and closes up behind the hood.
+
+Shutting plays the same move backwards. Nothing is hidden or shown during the move: every part is in sight in
+the bay the whole time, and the order is what keeps them clear of each other (`OPEN` in gl/room-mesh.js). The
+trolley and legs move with their units and finish inside the header and behind the wall. While it's going
+round, the slot through the false wall is lined like the bay, carbon with a steel deck, and the rails run on to
+the front.
+
+**Carbon fibre and steel.** A Cachet's lab is carbon fibre and steel at every grade: carbon casework, doors and
+back panel, a steel worktop, hood, shelves and trim. Carbon is material 46, a 2x2 twill drawn in gl/room.js's
+shader off the face's own metres (`pbox` gives a material-46 face uvs with no texture), so it keeps its weave
+on the moving layer. Nothing on a Cachet's lab is painted with a texture, because the moving layer draws none
+and a texture would pop on as it landed. Material 45 is now steel in every room: the probe read off blurred
+mips, half its colour taken out, with a share of the room's light under it, not a mirror.
+
+Section 13 of `scripts/shapes/room-stage.mjs` checks the wall keeps to its footprint and stays put, and, both
+ways, that the lab moves in three units with its glass and the bar in one, that the lab is all in the bay
+before it opens, home when it's open with the bar in its pocket, and that the bar's box never meets a waiting
+unit's at any of 51 moments.
+
 ## Open questions
 
 - College teaching lab or pharmacy back room for the licensed lab.

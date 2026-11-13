@@ -1366,6 +1366,8 @@ function handSculpt(side, level) {
     }
     tubeAlong(M, path, radii, cols, wt, [0, 0, 1], 0.92);
     tag(v0, fi, root, f.ph[0] + f.ph[1] + f.ph[2]);
+    // its knuckle and its two finger joints, which gl/figure-hd.js folds it at
+    (M.joints ||= []).push({ root, j: [path[0], path[2], path[4]], len: f.ph[0] + f.ph[1] + f.ph[2] });
     (M.tips ||= []).push({ p: path[path.length - 1], d: norm3(path[path.length - 1].map((v, j) => v - path[path.length - 2][j])) });
   });
   // the thumb: its muscle on the heel of the palm, then two bones, set forward of the palm and turned in
@@ -1405,6 +1407,22 @@ const UPRIGHT = { scotch: true };
 export function propBind(name, side, k) {
   const x0 = side * ARM_X, W = [x0, 0.868, -0.004], a = PROPS[name].at;
   return [x0 + side * a[0], a[1], a[2]].map((v, j) => W[j] + (v - W[j]) * k);
+}
+// The sculpted hand's fingertips in bind space as modelled, for a hand scaled by k about the wrist: the index,
+// middle, ring and little fingers, then the thumb. gl/figure-hands.js bends them as the shader bends the
+// fingers, so a pinch is found where the fingers really close.
+const TIPS = {}, HANDS = {};
+const handOnce = (s) => (HANDS[s] ??= handSculpt(s, FIGURE_LEVELS.hd));
+export function fingerTipsOf(side, k) {
+  const s = side > 0 ? 1 : -1, W = [s * ARM_X, 0.868, -0.004];
+  TIPS[s] ??= handOnce(s).tips.map((t) => t.p);
+  return TIPS[s].map((p) => p.map((v, j) => W[j] + (v - W[j]) * k));
+}
+// Each finger's joints on the left hand in bind space, scaled by k about the wrist: the knuckle, the middle joint
+// and the last one, and where along the finger (0 to 1, as handSculpt tags it) the two finger joints fall.
+export function fingerJointsOf(k = 1) {
+  const W = [ARM_X, 0.868, -0.004], sc = (p) => p.map((v, j) => W[j] + (v - W[j]) * k);
+  return handOnce(1).joints.map(({ root, j, len }) => ({ j: j.map(sc), t: [1, 2].map((i) => Math.min(0.999, Math.hypot(j[i][0] - root[0], j[i][1] - root[1], j[i][2] - root[2]) / len)) }));
 }
 // the hand's scale (buildFigure's hk) for a key, so room-people.js can find the prop on it
 export function handScaleOf({ build = 'average', weight = null, body = null } = {}, side = 1) {
@@ -1667,8 +1685,136 @@ function skulletLocks(M, r, hd, cols, wt, fs) {
     }
   });
 }
+// ── The cuts past the street's six (the MORPHEX's, client/shared/morphex-catalog.js) ────────────────
+// Only the sculpted figure draws them, from the same blades as the six; anything else draws a cut as its
+// `base`. `paint` is what the shader paints on the scalp under it (gl/figure-hd.js uFace.z): 0 a crop's
+// stubble, which is what shaved sides are, 1 the hair's own colour.
+export const HAIR_CUTS = {
+  6: { name: 'bob', base: 3, paint: 1 }, 7: { name: 'ponytail', base: 1, paint: 1 }, 8: { name: 'bun', base: 1, paint: 1 },
+  9: { name: 'mohawk', base: 0, paint: 0 }, 10: { name: 'afro', base: 2, paint: 1 }, 11: { name: 'dreadlocks', base: 3, paint: 1 },
+  12: { name: 'cornrows', base: 0, paint: 1 }, 13: { name: 'undercut', base: 4, paint: 0 }, 14: { name: 'pompadour', base: 4, paint: 1 },
+  15: { name: 'pixie', base: 2, paint: 1 }, 16: { name: 'braided', base: 3, paint: 1 }, 17: { name: 'top knot', base: 0, paint: 0 },
+  18: { name: 'mullet', base: 5, paint: 1 }, 19: { name: 'wolf cut', base: 2, paint: 1 }, 20: { name: 'buns', base: 1, paint: 1 },
+};
+// what the shader's paint takes for a style, and the street's own style for one it can't draw
+export const cutPaint = (style) => (HAIR_CUTS[style] ? HAIR_CUTS[style].paint : style);
+export const cutBase = (style) => (HAIR_CUTS[style] ? HAIR_CUTS[style].base : style);
+function cutLocks(M, style, r, hd, rows, cols, wt) {
+  const rad = (d) => d * D2R, step = (a, b) => (hd ? a : b);
+  const blade = (sp, w) => lockBlade(M, sp, w * (hd ? 1 : 1.3), r(), cols, wt);
+  // a lock over the scalp from (th0, la0) to (th1, la1) in degrees: `up` off it at its fullest, `lift` at the tip
+  const over = (th0, th1, la0, la1, up, lift, n = rows) => {
+    const sp = [];
+    for (let i = 0; i <= n; i++) { const t = i / n; sp.push(lockPoint(rad(th0 + (th1 - th0) * t), rad(la0 + (la1 - la0) * t), 1.012 + up * Math.sin(Math.PI * Math.min(1, t * 1.15)) ** 0.8 * 0.55 + lift * t * t * t)); }
+    return sp;
+  };
+  // then let it fall from where it ended to y1, full in the middle and a little out at the ends
+  const hang = (sp, y1, n = hd ? 5 : 3, flare = 0.1) => {
+    const e = sp[sp.length - 1];
+    for (let i = 1; i <= n; i++) { const t = i / n, k = 1 + flare * Math.sin(Math.PI * Math.min(1, t * 1.3)) + 0.12 * t; sp.push([e[0] * k, e[1] + (y1 - e[1]) * t, ZC - 0.012 + (e[2] - ZC + 0.012) * k]); }
+    return sp;
+  };
+  // a knot of curled loops round c, R across: a bun
+  const knot = (c, R, n) => {
+    for (let j = 0; j < n; j++) {
+      const a = r() * TAU, b = Math.acos(2 * r() - 1), u = [Math.sin(b) * Math.cos(a), Math.cos(b), Math.sin(b) * Math.sin(a)];
+      const v = norm3(cross(u, Math.abs(u[1]) < 0.9 ? [0, 1, 0] : [1, 0, 0])), a0 = r() * TAU, sp = [];
+      for (let i = 0; i <= 4; i++) { const q = a0 + i * 0.55; sp.push([c[0] + R * (Math.cos(q) * u[0] + Math.sin(q) * v[0]), c[1] + R * (Math.cos(q) * u[1] + Math.sin(q) * v[1]), c[2] + R * (Math.cos(q) * u[2] + Math.sin(q) * v[2])]); }
+      lockBlade(M, sp, R * 0.75, r(), cols, wt);
+    }
+  };
+  // a rope straight down from root to y1, swinging back off the head and a little to `side`
+  const rope = (root, y1, side = 0, w = 0.014, n = hd ? 8 : 4, plait = false) => {
+    const sp = [root];
+    for (let i = 1; i <= n; i++) {
+      const t = i / n, zig = plait ? (i % 2 ? 0.006 : -0.006) : 0;
+      sp.push([root[0] * (1 - 0.3 * t) + side * 0.03 * t + zig, root[1] - (root[1] - y1) * t, root[2] - 0.035 * Math.sin(Math.PI * Math.min(1, t * 1.6)) - 0.012 * t]);
+    }
+    if (!plait) { blade(sp, w); return; }
+    // a plait: short fat blades one after another, crossing
+    for (let i = 0; i < n; i++) lockBlade(M, [sp[i], [(sp[i][0] + sp[i + 1][0]) / 2 - (i % 2 ? 0.004 : -0.004), (sp[i][1] + sp[i + 1][1]) / 2, (sp[i][2] + sp[i + 1][2]) / 2 + 0.003], sp[i + 1]], w * (1 - 0.35 * i / n), r(), cols, wt);
+  };
+  // hair laid flat and drawn back to thEnd, gathered toward the middle by `pull`
+  const flatBack = (thEnd, pull) => { for (let la = -72; la <= 72; la += step(12, 24)) blade(over(26 + Math.abs(la) * 0.4, thEnd, la, la * pull, 0.035, 0), 0.026); };
+  switch (style) {
+    case 6:   // a bob: over from the crown and down to the jaw all round, a straight fringe
+      for (let a = -104; a <= 104; a += step(13, 34)) { const side = Math.abs(a) / 104; blade(hang(over(70 + 20 * r(), 168 - 34 * side, a * 0.72, a * 0.75, 0.05, 0.02, hd ? 4 : 2), 1.552 + 0.008 * r(), hd ? 4 : 2, 0.16), 0.03); }
+      for (let la = -44; la <= 44; la += step(8, 22)) blade(over(78, 24, la, la * 1.04, 0.05, 0.01), 0.022);
+      break;
+    case 7:   // a ponytail: flat back to a tie at the crown's back and a tail to the shoulder blades
+      flatBack(152, 0.2);
+      for (let k = -3; k <= 3; k += step(1, 3)) rope(lockPoint(rad(152), rad(k * 4), 1.05), 1.36 + 0.03 * r(), 0, 0.015);
+      break;
+    case 8:   // a bun at the back of the crown
+      flatBack(130, 0.15);
+      knot(lockPoint(rad(128), 0, 1.16), 0.034, step(16, 6));
+      break;
+    case 9:   // a mohawk: a crest of stiff points from the forehead to the nape, the sides shaved
+      for (let th = 22; th <= 186; th += step(8, 20)) for (const la of hd ? [-5, 5] : [0]) {
+        const tall = 0.28 + 0.24 * Math.sin(Math.PI * (th - 22) / 164);
+        blade(over(th, th + 12, la, la * 0.5, 0, tall), 0.02);
+      }
+      break;
+    case 10: {  // an afro: a round mass, wide locks lying on a sphere well off the head, more standing out to fill it
+      const ball = (th, la) => 1.0 + 0.36 * Math.min(1, Math.max(0, (205 - th) / 40)) * Math.min(1, Math.max(0, (110 - Math.abs(la)) / 30));
+      for (let th = 16; th <= 200; th += step(11, 26)) for (let la = -100; la <= 100; la += step(13, 32)) {
+        if (th < 36 && Math.abs(la) < 58) continue;   // the hairline stays where it is
+        const sp = [];
+        for (let i = 0; i <= 3; i++) { const t2 = th + i * 7, l2 = la + (r() - 0.5) * 6; sp.push(lockPoint(rad(t2), rad(l2), ball(t2, l2) + 0.02 * (r() - 0.5))); }
+        blade(sp, 0.05);
+        if (hd && r() < 0.5) blade(over(th, th + 4, la, la, 0, ball(th, la) - 1.0), 0.03);
+      }
+      break;
+    }
+    case 11:  // dreadlocks: ropes from all over the scalp, falling to the shoulders, the front ones off the face
+      for (let th = 40; th <= 172; th += step(22, 44)) for (let la = -80; la <= 80; la += step(20, 40)) {
+        const front = th < 80, la1 = front ? Math.sign(la || 1) * Math.max(Math.abs(la), 58) : la * 1.1;
+        const sp = over(th, Math.min(th + 70, 178), la, la1, 0.02, 0.03, hd ? 3 : 2);
+        blade(hang(sp, 1.4 + 0.05 * r() + 0.04 * (Math.abs(la) / 80), hd ? 5 : 3, 0.06), 0.0105);
+      }
+      break;
+    case 12:  // cornrows: close rows from the hairline to the nape
+      for (let la = -64; la <= 64; la += step(10, 20)) blade(over(24 + Math.abs(la) * 0.3, 206, la, la * 0.85, 0.012, 0, hd ? 10 : 5), 0.0095);
+      break;
+    case 13:  // an undercut: long on top and swept to one side, the sides shaved
+      for (let la = -40; la <= 40; la += step(9, 20)) blade(over(24, 112, la, 64 + la * 0.3, 0.16, 0.05), 0.027);
+      break;
+    case 14:  // a pompadour: the front swept up high and back, the rest flat behind it
+      for (let la = -46; la <= 46; la += step(9, 23)) blade(over(18, 104, la, la * 0.9, 0.34, 0.06), 0.027);
+      for (let la = -64; la <= 64; la += step(14, 32)) blade(over(100, 192, la, la * 0.8, 0.05, 0), 0.026);
+      break;
+    case 15:  // a pixie: short and choppy, the points lying forward, a fringe to one side
+      for (let th = 40; th <= 150; th += step(22, 44)) for (let la = -72; la <= 72; la += step(14, 36)) blade(over(th + 30, th - 8, la, la * 1.08 + 10, 0.07, 0.04, hd ? 4 : 2), 0.02);
+      for (let la = -30; la <= 30; la += step(10, 30)) blade(over(76, 26, la, la + 30, 0.06, 0.01), 0.02);
+      break;
+    case 16:  // braided: flat back and two plaits down behind the shoulders
+      flatBack(168, 0.5);
+      for (const s of [1, -1]) rope(lockPoint(rad(166), rad(s * 34), 1.04), 1.24, s, 0.019, hd ? 12 : 6, true);
+      break;
+    case 17:  // a top knot: the sides shaved, the top drawn up into a knot
+      for (let la = -54; la <= 54; la += step(14, 36)) blade(over(36 + Math.abs(la) * 0.3, 92, la, la * 0.1, 0.04, 0), 0.024);
+      knot(lockPoint(rad(96), 0, 1.17), 0.028, step(12, 5));
+      break;
+    case 18:  // a mullet: short on top and at the sides, long at the back
+      for (let la = -58; la <= 58; la += step(14, 29)) blade(over(26, 122, la, la, 0.1, 0.05), 0.026);
+      for (let a = -72; a <= 72; a += step(12, 36)) blade(hang(over(124, 176, a, a * 0.8, 0.03, 0, hd ? 3 : 2), 1.43 + 0.03 * r(), hd ? 5 : 3, 0.08), 0.028);
+      break;
+    case 19:  // a wolf cut: shaggy layers, longest at the back, a choppy fringe
+      for (let th = 40; th <= 150; th += step(22, 44)) for (let la = -84; la <= 84; la += step(17, 42)) {
+        const sp = over(th, th + 46, la, la * 1.18, 0.13, 0.08, hd ? 4 : 2);
+        blade(th > 90 || Math.abs(la) > 50 ? hang(sp, 1.5 + 0.05 * r(), hd ? 3 : 2, 0.18) : sp, 0.025);
+      }
+      for (let la = -36; la <= 36; la += step(9, 36)) blade(over(74, 24, la, la * 1.1, 0.07, 0.02), 0.02);
+      break;
+    case 20:  // two buns high on the head
+      flatBack(100, 0.4);
+      for (const s of [1, -1]) knot(lockPoint(rad(82), rad(s * 44), 1.14), 0.027, step(12, 5));
+      break;
+  }
+}
 function hairLocks(level, style, fs, spikes = 0) {
   const M = newPart('locks', FIG_SLOT.hair), r = rng(0x10c5 + style), LS = LOCK_STYLE[style], hd = level.name === 'hd', rows = hd ? 6 : 3, cols = hd ? 6 : 3, wt = [[B.head, 1]];
+  if (HAIR_CUTS[style]) { cutLocks(M, style, r, hd, rows, cols, wt); return M; }
   if (!LS) return M;
   if (style === 5) { skulletLocks(M, r, hd, cols, wt, fs); return M; }
   for (const [t0, t1q, l0, l1, hw0, up0, lift0] of hd ? LOCK_ROWS : LOCK_ROWS.filter((_, i) => i % 2 === 0)) {
@@ -1831,7 +1977,7 @@ function headParts(style, lv, sculpt = false, fs = 'comic', neckK = 1) {
   Hs.I = Array.from(H.I);
   Hs.N = []; for (let i = 0; i < H.N.length / 3; i++) Hs.N.push([H.N[i * 3], H.N[i * 3 + 1], H.N[i * 3 + 2]]);
   out.push(Hs);
-  const Y = hairMesh(style, lv, sculpt), Ys = newPart('hair', FIG_SLOT.hair);
+  const Y = hairMesh(cutBase(style), lv, sculpt), Ys = newPart('hair', FIG_SLOT.hair);
   for (let i = 0; i < Y.P.length / 3; i++) { const w = Y.W[i]; addV(Ys, [Y.P[i * 3], Y.P[i * 3 + 1], Y.P[i * 3 + 2]], w >= 1 ? [[B.head, 1]] : [[B.head, w], [B.neck, 1 - w]]); }
   Ys.I = Array.from(Y.I);
   Ys.N = []; for (let i = 0; i < Y.N.length / 3; i++) Ys.N.push([Y.N[i * 3], Y.N[i * 3 + 1], Y.N[i * 3 + 2]]);
@@ -1924,8 +2070,15 @@ export function bustApex(bust, weight = null) {
   return [B.cx + 0.3 * B.wo, B.cy - (0.22 + 0.25 * B.sag) * B.lo];
 }
 const bustDome = (ax, y, d, g = 1) => { const B = bustGeo(d, g), up = y > B.cy, u = (ax - B.cx) / (ax > B.cx ? B.wo : B.wi), v = (y - B.cy) / (up ? B.up : B.lo), q = 1 - u * u - v * v; return q > 0 ? Math.pow(q, up ? 0.62 + 0.12 * B.k + 1.1 * B.sag - 0.15 * B.m : 0.5) * smooth(0.004, 0.02 - 0.008 * B.m, ax) : 0; };
-// heavy (`g` past 1), it hangs: the centre drops, the fullness goes to the lower half and the fold under it moves down the thigh
-const seatDome = (ax, y, g = 1) => { const sc = Math.sqrt(g), sag = Math.max(0, g - 1), cy = 0.93 - 0.075 * sag, u = (ax - 0.07 - 0.01 * sag) / (0.088 * sc), v = (y - cy) / ((y < cy ? 0.09 + 0.03 * sag : 0.12 + 0.05 * sag) * sc), q = 1 - u * u - v * v; return q > 0 ? Math.pow(q, y < cy ? 0.5 - 0.15 * sag : 0.5 + 0.4 * sag) * smooth(0.815 - 0.07 * sag, 0.885 - 0.06 * sag, y) * smooth(0.008, 0.042, ax) : 0; };
+// The seat: a round cheek each side, fullest a hand under the top of the hips and full right down to a crisp fold
+// under it, not a teardrop hanging to the fold; and the small of the back curved in over it, so the curve reads from
+// the side. Heavy (`g` past 1) it widens and sits a little lower, and stays round.
+const seatDome = (ax, y, g = 1) => {
+  const sc = Math.sqrt(g), sag = Math.max(0, g - 1), cy = 0.905 - 0.04 * sag;
+  const u = (ax - 0.07 - 0.01 * sag) / (0.09 * sc), v = (y - cy) / ((y < cy ? 0.082 + 0.02 * sag : 0.098 + 0.03 * sag) * sc), q = 1 - u * u - v * v;
+  const dome = q > 0 ? Math.pow(q, y < cy ? 0.42 : 0.5) * smooth(0.798 - 0.04 * sag, 0.832 - 0.035 * sag, y) * smooth(0.008, 0.042, ax) : 0;
+  return dome - 0.2 * gx(y - 1.035, 0.035) * gx(ax, 0.075);
+};
 // `bust` and `butt` (0 to 1, null for the build's own) size the chest's two lobes and the seat's, on the sculpted body.
 export const bustOf = (v) => 0.004 + 0.13 * v * (0.4 + 0.6 * v), buttOf = (v) => 0.07 * v * (0.45 + 0.55 * v);
 // A man's genitals at rest, for a player in the mature layer only (`groin` 'm'): two rounded forms at the front of
@@ -2251,6 +2404,8 @@ const SCULPT_DY = { hd: { torso: 0.018, arm: 0.02, leg: 0.024, foot: 0.016 }, li
 export function buildFigure({ cut = 'coat', style = 0, level = 'hd', wear = null, gear = null, body = null, sculpt: sculptAsked = false, head = 0, build = 'average', weight = null, beard = '', prop = '', bust = null, butt = null, groin = '', bottoms = '', hat = '', scarf = '', spikes = 0 } = {}) {
   const key = figureKey({ cut, style, level, wear, gear, body, sculpt: sculptAsked, head, build, weight, beard, prop, bust, butt, groin, bottoms, hat, scarf, spikes });
   if (_cache.has(key)) return _cache.get(key);
+  // a MORPHEX cut is drawn by the sculpted figure only; any other level draws the street style it's nearest
+  if (HAIR_CUTS[style] && !(sculptAsked && FIGURE_LEVELS[level].skin)) style = cutBase(style);
   const sculpt = sculptAsked && FIGURE_LEVELS[level].skin, BK = sculpt ? buildOf(build) : SCULPT_BUILDS.average, SW = sculpt && weight !== null ? somaOf(weight) : null, NKb = BK.neck * (SW ? SW.neck : 1), NK = sculpt ? NECK_SCULPT * NKb : 1, FS = sculpt ? weightedFace(SCULPT_HEADS[head] || 'sculpt', weight) : 'comic';
   const Lv = sculpt ? { ...FIGURE_LEVELS[level], dy: SCULPT_DY[level] } : FIGURE_LEVELS[level];
   const C0 = FIGURE_CUTS[cut] || FIGURE_CUTS.coat, C = sculpt ? sculptCut(C0, SW ? SW.fat : 0) : C0, code = gearCode(gear);

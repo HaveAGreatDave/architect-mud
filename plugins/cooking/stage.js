@@ -9,7 +9,7 @@
 // RAM only. A restart forgets who had the Stage open; the client says so again on its next open.
 import { sendToPlayer } from '../../server/engine/messaging.js';
 import { query } from '../../server/models/db.js';
-import { prefersTextMinigamesOrDefault } from '../../server/engine/presentation.js';
+
 
 const watching = new Set();
 
@@ -22,11 +22,12 @@ export function pokeStage(playerId, invId) {
   if (watching.has(String(playerId))) sendToPlayer(playerId, { type: 'kitchen_beat', row: invId });
 }
 
-// The `workspace.view` hook: offer the Stage on a kitchen payload at `visual` only. Below it the HUD
-// is the kitchen, and the client still falls back to the HUD when WebGL2 won't start.
+// The `workspace.view` hook: offer the Stage on every kitchen payload, at every Display Mode rung.
+// ⚠ THE TEXT KITCHEN IS OFF until the 3D one is settled; a text kitchen will be made from the Stage then. Until
+// it is, the HUD is only the fallback when WebGL2 won't start (kitchen-stage.js), and the typed verbs still work.
 export async function offerStage({ view, player }) {
   if (view?.provider !== 'kitchen' || !player) return;
-  view.stage = { offered: !(await prefersTextMinigamesOrDefault(player)) };
+  view.stage = { offered: true };
 }
 
 // `kitchenstow <row> <box>`: put a thing you carry into one of the room's boxes, from the Stage's

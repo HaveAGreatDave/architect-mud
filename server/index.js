@@ -388,6 +388,38 @@ function modulePreloadBlock() {
 	return _preloadBlock;
 }
 
+// ── JS minified on serve ──────────────────────────────────────────────────────
+// The client source is heavily commented (windshield.js is 4.4 MB), and brotli only
+// claws back part of that while the phone still parses every byte. esbuild's transform
+// runs in its own process, so it costs the loop nothing, and it runs once per file
+// version, inside the cache fill, like the compression.
+//
+// Every file gets an external source map, served at "<file>.js.map" from the same
+// cache entry, so DevTools shows the real source. Browsers fetch it only with DevTools
+// open. Same behaviour locally and in prod, for the reason STAT_TTL_MS gives.
+//
+// Top-level names in a classic (non-module) script are globals, and esbuild leaves
+// those alone without a format set. A file esbuild can't parse goes out as written.
+let _esbuild = null;
+async function minifyJs(raw, filePath) {
+	try {
+		_esbuild ??= await import("esbuild");
+		const name = filePath.split(/[\\/]/).pop();
+		const out = await _esbuild.transform(raw.toString("utf8"), {
+			minify: true,
+			charset: "utf8",      // keep ₵ ⚙ ☢ as themselves, not \u escapes
+			legalComments: "none",
+			sourcemap: "external",
+			sourcefile: name,
+		});
+		const code = `${out.code}//# sourceMappingURL=${encodeURIComponent(name)}.map\n`;
+		return { raw: Buffer.from(code, "utf8"), map: Buffer.from(out.map, "utf8") };
+	} catch (err) {
+		console.error(`[minify] serving ${filePath} unminified: ${String(err.message).split("\n")[0]}`);
+		return { raw, map: null };
+	}
+}
+
 async function getAsset(filePath) {
 	const hit = assetCache.get(filePath);
 	const now = Date.now();
@@ -416,6 +448,11 @@ async function fillAsset(filePath, hit, now) {
 			"utf8",
 		);
 	}
+
+	// Minify JS as it's served, so the repo keeps its no-build rule while the wire and
+	// the browser's parser get a fraction of the bytes. See minifyJs.
+	let map = null;
+	if (ext === ".js") ({ raw, map } = await minifyJs(raw, filePath));
 
 	const compress = COMPRESSIBLE.has(ext) && raw.length >= COMPRESS_MIN_BYTES;
 	// Quality 5 (not the default 11): 11 is for build-time asset pipelines and can
@@ -448,6 +485,7 @@ async function fillAsset(filePath, hit, now) {
 		raw,
 		br,
 		gzip: gz,
+		map,
 	};
 	assetCache.set(filePath, entry);
 	return entry;
@@ -694,6 +732,15 @@ const httpServer = createServer(async (req, res) => {
 	if (rel.startsWith("..") || isAbsolute(rel)) {
 		res.writeHead(404); res.end("Not found"); return;
 	}
+	// A source map for a minified script lives in that script's cache entry (minifyJs).
+	if (filePath.endsWith(".js.map") && !existsSync(filePath) && existsSync(filePath.slice(0, -4))) {
+		const asset = await getAsset(filePath.slice(0, -4)).catch(() => null);
+		if (asset?.map) {
+			res.writeHead(200, { "Content-Type": "application/json", "Cache-Control": "no-cache", ...STATIC_SECURITY_HEADERS });
+			res.end(asset.map);
+			return;
+		}
+	}
 	if (!existsSync(filePath)) {
 		// Only fall back to the SPA shell for extension-less paths (real navigation
 		// requests). A missing .js/.css file is a module-wiring bug — return a real
@@ -909,13 +956,13 @@ wss.on("connection", (ws, req) => {
 		// stack, pour a drink, pay out), and two copies of one command sent in the
 		// same packet used to interleave: both read before either wrote, and items
 		// were paid out twice. Queued, the second sees what the first did.
-		if (msg.type === "command") return inOrder(session, () => handleGameCommand(ws, session, msg));
-		if (msg.type === "dialogue") return inOrder(session, () => handleDialogue(ws, session, msg));
+		if (msg.type === "command") return inOrder(session, ws, () => handleGameCommand(ws, session, msg));
+		if (msg.type === "dialogue") return inOrder(session, ws, () => handleDialogue(ws, session, msg));
 		if (msg.type === "shop_close") { if (session.playerId) closeShopSession(session.playerId); return; }
-		if (msg.type === "buy_npc") return inOrder(session, () => handleBuyFromNpc(ws, session, msg));
-		if (msg.type === "buy_many_npc") return inOrder(session, () => handleBuyManyFromNpc(ws, session, msg));
-		if (msg.type === "sell_npc") return inOrder(session, () => handleSellToNpc(ws, session, msg));
-		if (msg.type === "sell_all_npc") return inOrder(session, () => handleSellAllToNpc(ws, session, msg));
+		if (msg.type === "buy_npc") return inOrder(session, ws, () => handleBuyFromNpc(ws, session, msg));
+		if (msg.type === "buy_many_npc") return inOrder(session, ws, () => handleBuyManyFromNpc(ws, session, msg));
+		if (msg.type === "sell_npc") return inOrder(session, ws, () => handleSellToNpc(ws, session, msg));
+		if (msg.type === "sell_all_npc") return inOrder(session, ws, () => handleSellAllToNpc(ws, session, msg));
 		if (msg.type === "auth_ghost") return handleGhostAuth(ws, session, msg);
 		if (msg.type === "ghost_command") return handleGhostCommand(ws, session, msg);
 		if (msg.type === "ghost_jump") return handleGhostJump(ws, session, msg);
@@ -947,6 +994,15 @@ wss.on("connection", (ws, req) => {
 		// The Room Stage: where a player settled in the room they're walking round (plugins/roomstage).
 		if (msg.type === "room_pos") {
 			if (session.playerId) emit("room.pos", { playerId: session.playerId, at: msg.at, yaw: msg.yaw, seat: msg.seat });
+			return;
+		}
+		// What they're doing with their hands, as their first-person ritual goes, and their Pockets list (plugins/roomstage acts.js).
+		if (msg.type === "room_act") {
+			if (session.playerId) emit("room.act", { playerId: session.playerId, act: typeof msg.act === "string" ? msg.act : null, hold: typeof msg.hold === "string" ? msg.hold : null });
+			return;
+		}
+		if (msg.type === "room_pockets") {
+			if (session.playerId) emit("room.pockets", { playerId: session.playerId });
 			return;
 		}
 		if (msg.type === "panel_watch" || msg.type === "panel_unwatch") {
@@ -2101,15 +2157,33 @@ const INORDER_TIMEOUT_MS = 30_000;
 // without a cap a flooding client grew it without bound behind one slow
 // handler (a closure and a timer per message).
 const INORDER_MAX_DEPTH = 32;
-function inOrder(session, fn) {
+// Releasing the queue used to let the next command run BESIDE the hung one on the
+// same live player, and every read-modify-write money handler assumes it runs
+// alone (a double sell, a chip used twice). Now, while a released handler is still
+// running, queued commands are refused with a notice instead of run. Past
+// INORDER_HUNG_MS the handler is taken as dead and the gate lifts.
+const INORDER_HUNG_MS = 5 * 60_000;
+function inOrder(session, ws, fn) {
 	if ((session.queueDepth || 0) >= INORDER_MAX_DEPTH) return Promise.resolve();
 	session.queueDepth = (session.queueDepth || 0) + 1;
 	const run = () => new Promise((resolve) => {
+		if (session.hungSince && Date.now() - session.hungSince < INORDER_HUNG_MS) {
+			try { ws?.send(JSON.stringify({ type: "system", message: "Still working on your last command. Give it a moment." })); } catch {}
+			return resolve();
+		}
+		session.hungSince = 0;
+		let released = false;
 		const t = setTimeout(() => {
 			console.warn(`⚠ a handler has run ${INORDER_TIMEOUT_MS / 1000}s; releasing the queue for`, session.playerId || "(no player)");
+			released = true;
+			session.hungSince = Date.now();
 			resolve();
 		}, INORDER_TIMEOUT_MS);
-		Promise.resolve().then(fn).catch((e) => console.error("⚠ handler failed:", e)).finally(() => { clearTimeout(t); resolve(); });
+		Promise.resolve().then(fn).catch((e) => console.error("⚠ handler failed:", e)).finally(() => {
+			clearTimeout(t);
+			if (released) session.hungSince = 0;
+			resolve();
+		});
 	}).finally(() => { session.queueDepth--; });
 	const next = (session.queue || Promise.resolve()).then(run);
 	session.queue = next;

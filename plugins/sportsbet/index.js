@@ -218,6 +218,12 @@ async function settleBet(row) {
   }
   // else: tie game, or both nailed the same exact score → push.
 
+  // Close the row BEFORE paying, guarded on it still being locked: an overlapping
+  // sweep, or a failed close after the payout, used to pay the same pot again.
+  // A failure here throws, the row stays locked, and the next sweep retries it.
+  const closed = await query(`UPDATE sports_bets SET status='settled' WHERE id=$1 AND status='locked'`, [row.id]);
+  if (!closed.rowCount) return;
+
   // Pay out. A live player's in-memory balance is updated; an offline one is a
   // pure DB write (they see the balance on return).
   const credit = async (pid, amount) => {
@@ -231,7 +237,6 @@ async function settleBet(row) {
     await credit(row.proposer_id, row.amount);   // push — hand each their stake back
     await credit(row.acceptor_id, row.amount);
   }
-  await query(`UPDATE sports_bets SET status='settled' WHERE id=$1`, [row.id]).catch(() => {});
 
   // Notify both with the game result + the bet's outcome.
   const winLabel = row.winner_team ? `${row.winner_team} take it` : 'it ends in a tie';

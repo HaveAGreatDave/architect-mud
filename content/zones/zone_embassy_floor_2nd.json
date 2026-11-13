@@ -5,7 +5,7 @@
   ],
   "ambient_theme": "indoors",
   "bg_color": "#c9a884",
-  "description": "The second-floor landing, one flight up from the bar's warmth and racket. The hotel's carpet runner still holds on up here: threadbare, cigarette-burned, but present, the last floor before it gives out to bare concrete above. Four doors open off the stairwell, brass numbers screwed to each: 2A through 2D. The iron railing is cold under your hand, and the smell of Lowry's grill rises through the boards with the low murmur of the bar.",
+  "description": "The corridor still behaves like a hotel. A burgundy runner worn to the weft, and rose wallpaper with a little gold crest, lifting at the seams. Four doors, 2A to 2D, brass numbers square, brass paper slots that haven't seen a paper since the Handoff. A sconce every second door. Every second sconce works.",
   "exits": {
     "down": "zone_residential_lobby",
     "east": "zone_apt_3",
@@ -15,9 +15,86 @@
     "west": "zone_apt_4"
   },
   "flags": {
-    "floor": "linoleum",
-    "intro_lore": "One flight up from Lowry's, the Embassy still pretends to be a hotel: carpet underfoot, numbers square in their screws, a landing that hasn't quite given up. Four doors, four locks, four small holdouts against the basin outside.",
-    "is_interior": true
+    "floor": "carpet",
+    "intro_lore": "One flight up from Lowry's, the Embassy still pretends to be a hotel: a runner underfoot, numbers square in their screws, a landing that hasn't quite given up. Four doors, four locks, four small holdouts against the basin outside.",
+    "is_interior": true,
+    "room": {
+      "balcony": false,
+      "d": 3.2,
+      "decor": {
+        "art": [
+          {
+            "at": -2.6,
+            "h": 1.1,
+            "seed": 11,
+            "w": 0.9,
+            "wall": "front",
+            "y": 1.8
+          }
+        ],
+        "ceiling": {
+          "band": 0.35,
+          "drop": 0.14,
+          "hex": "#ead9cf",
+          "kind": "cove",
+          "trim": "#b8913e"
+        },
+        "downlights": false,
+        "plaques": {
+          "zone_apt_1": "2A",
+          "zone_apt_2": "2B",
+          "zone_apt_3": "2C",
+          "zone_apt_4": "2D"
+        },
+        "rug": false,
+        "runner": {
+          "along": "u",
+          "border": "#a8823a",
+          "end": 0.6,
+          "hex": "#5a1a22",
+          "w": 1.3
+        },
+        "sconces": {
+          "points": [
+            [
+              "front",
+              -5.5
+            ],
+            [
+              "front",
+              5.5
+            ],
+            [
+              "back",
+              -5.5
+            ],
+            [
+              "back",
+              5.5
+            ]
+          ],
+          "y": 1.85
+        },
+        "walls": {
+          "hex": "#5a3a26",
+          "kind": "walnut",
+          "rail": 0.85,
+          "y1": 1
+        }
+      },
+      "face": 0,
+      "finish": "fine",
+      "h": 3,
+      "studio": false,
+      "tone": {
+        "accent": "#b8913e",
+        "ceiling": "#ead9cf",
+        "trim": "#2a1a14",
+        "wall": "#d39aa2"
+      },
+      "w": 16,
+      "windowless": true
+    }
   },
   "grid_x": 0,
   "grid_y": 0,

@@ -27,7 +27,7 @@
 // baked flight world. Every verb the Stage sends goes nowhere here, so an en-suite is walked into by
 // answering its door. scripts/shapes/room-stage.mjs is what gates the meshes; this is a picture.
 import { roomSpecOf, withAnnex, annexFrame, layRows } from '/client/shared/room-layout.js';
-import { openRoomStage, closeRoomStage, roomOutlook, roomHere, roomSky, roomAhead, roomLocks, roomLockHack, _test } from '/client/game/js/panels/room-stage.js';
+import { openRoomStage, closeRoomStage, roomOutlook, roomHere, roomSky, roomAhead, roomLocks, roomLockHack, roomGlass, roomPlumbing, _test } from '/client/game/js/panels/room-stage.js';
 
 const q = new URLSearchParams(location.search);
 const $ = (id) => document.getElementById(id);
@@ -60,6 +60,10 @@ async function open(_, via = null) {
   if (d.annex) spec = withAnnex(spec, d.annex.id, d.annex.name);
   const pieces = layRows(d.rows, spec, { finish: spec.finish }).pieces;
   if (d.annex) pieces.push(...layRows(d.annexRows, annexFrame(spec).spec, { annex: true, finish: spec.annex.finish }).pieces);
+  // a chess table carries a position, as plugins/gametable's `room.boards` puts one on it: ?board= is 64
+  // characters, rank 8 to rank 1, '.' for an empty square; unset, the opening position
+  const BOARD = /^[pnbrqkPNBRQK.]{64}$/.test(q.get('board') || '') ? q.get('board') : 'rnbqkbnrpppppppp' + '.'.repeat(32) + 'PPPPPPPPRNBQKBNR';
+  for (const p of pieces) if ((d.rows || []).find((f) => f.id === p.id)?.flags?.game_table_id && p.form === 'games') p.board = { board: BOARD, turn: 'w', last: null, practice: true };
   // the rooms next door, furnished the way the plugin furnishes them; nobody's in them here unless
   // __labNext puts somebody there: __labNext = { zone_voltage_vip: [{ id: 'a', name: 'Ann', npc: true, posture: 'standing', at: [1, 3] }] }
   for (const n of d.building?.building.neighbours || []) {
@@ -125,6 +129,12 @@ window.__labHere = (here) => roomHere({ zone: $('zone').value, here });
 // What the server does when you walk through a building's doorway: the next room, stood in the doorway
 // you came through. __labVia('zone_voltage_vip')
 window.__labVia = async (to) => { const from = $('zone').value; if (![...$('zone').options].some((o) => o.value === to)) $('zone').append(new Option(to, to)); $('zone').value = to; await open(null, from); };
+// What the control panel sends when the shutters move (plugins/envcontrol `room_glass`). The scenes are server data
+// (plugins/envcontrol/scenes.js), so pass one's paint: __labGlass({ down: true, paint: { kind: 'stars', a: '#020309', b: '#4a2470', c: '#ffd9a0', glow: '#3c3a66' } })
+window.__labGlass = (glass) => roomGlass({ zone: $('zone').value, glass });
+// What plugins/bodily sends as the water moves (`room_plumbing`): __labPlumb({ <furnitureId>: { shower: true, by: 'lab' } }) or
+// { level: 0.6, tint: 0.8, stream: { by: 'lab' } } on a toilet; `flushed: Date.now()` plays a flush
+window.__labPlumb = (plumbing) => roomPlumbing({ zone: $('zone').value, plumbing });
 // What the server would say: __labSky({ weather: 'thunderstorm', wind: 60, here: { precipType: 'rain', precipRate: 0.9 } })
 window.__labSky = (sky) => roomSky({ zone: $('zone').value, contacts: [], ...sky });
 // A frame to disk, from anywhere in the room: 'at' is [u, v] in the room's frame, 'yaw' and 'pitch'

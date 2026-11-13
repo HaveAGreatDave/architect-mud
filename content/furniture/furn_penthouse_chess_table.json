@@ -1,0 +1,41 @@
+{
+  "description": "A walnut pedestal table with an ebony and holly board let into the top and a boxwood and ebony Staunton set on it. There's usually a game going. Akerson plays both sides and will tell you which one he wants to win.",
+  "flags": {
+    "aliases": [
+      "chess table",
+      "chessboard",
+      "board",
+      "chess"
+    ],
+    "game_table_id": "gametable_akerson_chess",
+    "interactions": [
+      "examine"
+    ],
+    "look": {
+      "arche": "table",
+      "dims": [
+        0.9,
+        0.9,
+        0.74
+      ],
+      "form": "games"
+    },
+    "spot": {
+      "at": [
+        4.4,
+        1.5
+      ],
+      "turn": 90
+    }
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_penthouse_chess_table",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "chess table",
+  "object_type": "furniture",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_solenne_penthouse"
+}

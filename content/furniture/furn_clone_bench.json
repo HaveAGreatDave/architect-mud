@@ -1,0 +1,34 @@
+{
+  "description": "A steel bench bolted to the floor, worn shiny where the newly printed sit to wait for their legs to start working. Somebody has scratched a tally into one end and given up at forty.",
+  "flags": {
+    "interactions": [
+      "sit"
+    ],
+    "look": {
+      "arche": "bench",
+      "dims": [
+        2.2,
+        0.5,
+        0.46
+      ],
+      "form": "bench"
+    },
+    "spot": {
+      "at": [
+        1.2,
+        7.4
+      ],
+      "turn": 0
+    }
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_clone_bench",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "steel bench",
+  "object_type": "furniture",
+  "power_draw_kw": null,
+  "price": null,
+  "zone_id": "zone_start"
+}

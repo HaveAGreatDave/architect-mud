@@ -13,6 +13,8 @@ import { boatGeom } from '../../../shared/boat-house.js';
 import { rasterFaces, blitRaster, depthAt, maskRaster, depthWinAt } from './model-raster.js';
 import { boltBright } from '../../../shared/lightning.js';
 import { paintBolt } from '../../../shared/lightning-draw.js';
+import { skyAt } from '../../../shared/sky-keys.js';
+import { paintRain2D, paintSnow2D, paintFogBand, paintFlash2D, precipKind } from '../../../shared/precip-look.js';
 // The same primitives compile the authored meshes (content/vehicle_models/mesh_*.json).
 import {
   cross3, norm3, lerp3 as _lerp3, addTube, addStrut, pushWheel, addSpat, addFaired, pushPanel,
@@ -5410,37 +5412,19 @@ function drawInspectBayDoor(ctx, proj, sky, fWall, F0) {
   // 5) The ATC tower.
   drawATCTower(ctx, proj, fillModel, pal, night);
   // 6) Live weather (precip only with fx.motion).
+  // The look is shared/precip-look.js, the same as the room overlay and the windscreen.
+  const light = 1 - (night || 0);
   if (fx.motion && /rain|storm/.test(wx)) {
-    const slant = 3 + Math.min(8, (sky?.wind || 0) / 6);
-    ctx.strokeStyle = rgbStr([192, 212, 236], wx === 'storm' ? 0.55 : 0.42); ctx.lineWidth = 1.2;
-    for (let i = 0; i < 30; i++) {
-      const px = x0 + (hash01(i * 1.3) * dw + now * 90) % dw;
-      const py = yTop + (hash01(i * 2.7) * dh + now * 560) % dh;
-      ctx.beginPath(); ctx.moveTo(px, py); ctx.lineTo(px - slant, py + 12); ctx.stroke();
-    }
+    paintRain2D(ctx, { x: x0, y: yTop, w: dw, h: dh, t: now, rate: wx === 'storm' ? 0.9 : 0.55, windKph: sky?.wind || 0, light, scale: dh / 600 * 2 });
   } else if (fx.motion && wx === 'snow') {
-    // Snow intensity from wind: the server sends only 'snow'.
-    const bliz = Math.min(1, (sky?.wind || 0) / 45);
-    ctx.fillStyle = rgbStr([236, 242, 250], 0.08 + bliz * 0.42);
-    ctx.fillRect(x0, yTop, dw, dh);
-    // Snow falls on a normalised time track mapped into the door, so walking only parallax-scales it.
-    const slant = 2 + bliz * 16, fall = 0.5 + bliz * 0.8;
-    ctx.fillStyle = rgbStr([240, 246, 253], 0.85);
-    const count = 26 + Math.round(bliz * 34);
-    for (let i = 0; i < count; i++) {
-      const ny = (hash01(i * 3.1) + now * fall) % 1;
-      const px = x0 + (hash01(i * 1.7) * dw + ny * slant) % dw;
-      const py = yTop + ny * dh;
-      ctx.beginPath(); ctx.arc(px, py, 1.3, 0, 7); ctx.fill();
-    }
+    // The server sends only 'snow', so the wind sets how hard.
+    paintSnow2D(ctx, { x: x0, y: yTop, w: dw, h: dh, t: now, rate: 0.5, windKph: sky?.wind || 0, light, scale: dh / 400 });
   }
   if (wx === 'fog' || wx === 'cloudy') {   // low haze rolling across the apron (static, always)
-    const fH = dh * 0.42, fg = ctx.createLinearGradient(0, yBot - fH, 0, yBot);
-    fg.addColorStop(0, 'rgba(198,204,212,0)'); fg.addColorStop(1, `rgba(198,204,212,${wx === 'fog' ? 0.4 : 0.22})`);
-    ctx.fillStyle = fg; ctx.fillRect(x0 - 6, yBot - fH, dw + 12, fH);
+    paintFogBand(ctx, { x: x0 - 6, w: dw + 12, yBot, h: dh * 0.42, amount: wx === 'fog' ? 0.4 : 0.22, light });
   }
   // 7) Lightning: the flash, then the bolt.
-  if (fx.flash > 0.01) { ctx.fillStyle = `rgba(222,232,255,${Math.min(0.72, fx.flash * 0.72)})`; ctx.fillRect(x0 - 6, yTop - dh, dw + 12, dh * 2 + 6); }
+  paintFlash2D(ctx, { x: x0 - 6, y: yTop - dh, w: dw + 12, h: dh * 2 + 6, flash: fx.flash });
   // The door's bolt reader (client/shared/lightning-draw.js): offsets scale by the drop span, not the width.
   // Uses the shared `boltBright` envelope, as the canopy does.
   if (fx.bolt && fx.bolt.branches) {
@@ -5598,9 +5582,7 @@ function drawHelipadRoom(ctx, proj, sky, w, h) {
   // 8) Live precip (only with fx.motion).
   const fx = sky?.fx || {};
   if (fx.motion && /rain|storm/.test(wx)) {
-    const now = performance.now() / 1000, slant = 3 + Math.min(8, (sky?.wind || 0) / 6);
-    ctx.strokeStyle = rgbStr([192, 212, 236], wx === 'storm' ? 0.5 : 0.36); ctx.lineWidth = 1.1;
-    for (let i = 0; i < 34; i++) { const px = (hash01(i * 1.3) * w + now * 90) % w, py = (hash01(i * 2.7) * h + now * 560) % h; ctx.beginPath(); ctx.moveTo(px, py); ctx.lineTo(px - slant, py + 12); ctx.stroke(); }
+    paintRain2D(ctx, { w, h, t: performance.now() / 1000, rate: wx === 'storm' ? 0.85 : 0.5, windKph: sky?.wind || 0, light: 1 - (night || 0), scale: h / 600 });
   }
 }
 
@@ -6004,7 +5986,7 @@ const WEATHER_SKY = {
 function skyPalette(sky) {
   const wx = WEATHER_SKY[sky?.weather] || WEATHER_SKY.clear;
   const hour = ((sky?.hour ?? 12) % 24 + 24) % 24;
-  const night = clampN(hour < 6 ? (6 - hour) / 3 : hour > 19 ? (hour - 19) / 3 : 0, 0, 1);
+  const night = skyAt(hour).night;   // the shared sky (sky-keys.js), so the hangar darkens with the cockpit
   const nightTint = [10, 14, 28];
   return {
     top: mix3(wx.top, nightTint, night * 0.82),
@@ -6038,40 +6020,17 @@ function drawOutsideWorld(ctx, x0, yTop, x1, yBot, sky) {
   // Weather. Rain animates per streak from a stable index plus the clock; the pane's own weather overlay is off
   // while a panel owns the pane. ⚠ Rain only if it's falling on this field (`sky.here`, hangars.js), not just today.
   const here = sky?.here;
-  const raining = here ? (here.precipRate > 0 && here.precipType !== 'snow')
+  const raining = here ? (here.precipRate > 0 && precipKind(here.precipType) === 'rain')
     : (pal.weather === 'rain' || pal.weather === 'storm');
+  // The look is shared/precip-look.js, the same as the room overlay and the windscreen.
+  const light = 1 - (pal.night || 0), t = performance.now() / 1000, spanY = groundY - yTop;
   if (raining) {
-    const heavy = pal.weather === 'storm' || (here?.precipRate || 0) > 0.6;
-    const t = performance.now() / 1000, spanY = groundY - yTop, spanX = x1 - x0;
-    ctx.lineWidth = 1;
-    for (let i = 0; i < (heavy ? 46 : 30); i++) {
-      const rx = x0 + ((i * 53) % 100) / 100 * spanX;
-      const speed = 0.9 + ((i * 29) % 100) / 140;                    // fall rates differ, or it reads as a curtain
-      const ry = yTop + ((t * speed + ((i * 71) % 100) / 100) % 1) * spanY;
-      const len = (heavy ? 13 : 10) * speed;
-      ctx.strokeStyle = rgbStr([190, 210, 230], 0.16 + 0.26 * ((i * 17) % 10) / 10);
-      ctx.beginPath(); ctx.moveTo(rx, ry); ctx.lineTo(rx - len * 0.3, ry + len); ctx.stroke();
-    }
-    // Splash rings.
-    ctx.strokeStyle = rgbStr([200, 218, 236], 0.22);
-    for (let i = 0; i < (heavy ? 9 : 6); i++) {
-      const px = x0 + ((i * 37) % 100) / 100 * spanX;
-      const py = groundY + ((i * 61) % 100) / 100 * (yBot - groundY) * 0.8;
-      const k = (t * 1.7 + i * 0.37) % 1;
-      ctx.globalAlpha = 1 - k;
-      ctx.beginPath(); ctx.ellipse(px, py, 1 + k * 5, (1 + k * 5) * 0.34, 0, 0, 7); ctx.stroke();
-    }
-    ctx.globalAlpha = 1;
-  } else if (pal.weather === 'snow') {
-    ctx.fillStyle = 'rgba(255,255,255,0.8)';
-    for (let i = 0; i < 16; i++) {
-      const sx2 = x0 + ((i * 47) % 100) / 100 * (x1 - x0), sy2 = yTop + ((i * 83) % 100) / 100 * (groundY - yTop);
-      ctx.beginPath(); ctx.arc(sx2, sy2, 1.2, 0, 7); ctx.fill();
-    }
+    const rate = here ? here.precipRate : (pal.weather === 'storm' ? 0.85 : 0.5);
+    paintRain2D(ctx, { x: x0, y: yTop, w: x1 - x0, h: spanY, t, rate, windKph: sky?.wind || 0, light, ground: groundY, groundBot: yBot, scale: spanY / 600 * 2 });
+  } else if (pal.weather === 'snow' || precipKind(here?.precipType) === 'snow') {
+    paintSnow2D(ctx, { x: x0, y: yTop, w: x1 - x0, h: spanY, t, rate: here?.precipRate ?? 0.5, windKph: sky?.wind || 0, light, veil: false, scale: spanY / 400 });
   } else if (pal.weather === 'fog' || pal.weather === 'cloudy') {
-    const fg = ctx.createLinearGradient(0, groundY - (groundY - yTop) * 0.3, 0, groundY);
-    fg.addColorStop(0, 'rgba(200,206,212,0)'); fg.addColorStop(1, 'rgba(200,206,212,0.35)');
-    ctx.fillStyle = fg; ctx.fillRect(x0, groundY - (groundY - yTop) * 0.3, x1 - x0, (groundY - yTop) * 0.3);
+    paintFogBand(ctx, { x: x0, w: x1 - x0, yBot: groundY, h: spanY * 0.3, amount: 0.35, light });
   }
 }
 const rgbStr = (c, a) => a == null ? `rgb(${c[0] | 0},${c[1] | 0},${c[2] | 0})` : `rgba(${c[0] | 0},${c[1] | 0},${c[2] | 0},${a})`;

@@ -210,11 +210,19 @@ async function postBounty(player, targetName, amount, note, broadcast) {
     status: 'open', posted_at: now, expires_at: now + DURATION_MS,
     claimed_by: null, claimed_handle: null, claimed_at: null, unmasked_by: [],
   };
-  await query(
-    `INSERT INTO bounties (id,target_id,target_handle,backer_id,backer_handle,amount,fee,note,status,posted_at,expires_at,unmasked_by)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,'open',$9,$10,'[]'::jsonb)`,
-    [row.id, row.target_id, row.target_handle, row.backer_id, row.backer_handle,
-     row.amount, row.fee, row.note, row.posted_at, row.expires_at]);
+  // The debit above is already committed; if the contract doesn't land, the
+  // poster gets every credit back rather than paying for a sheet that never printed.
+  try {
+    await query(
+      `INSERT INTO bounties (id,target_id,target_handle,backer_id,backer_handle,amount,fee,note,status,posted_at,expires_at,unmasked_by)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,'open',$9,$10,'[]'::jsonb)`,
+      [row.id, row.target_id, row.target_handle, row.backer_id, row.backer_handle,
+       row.amount, row.fee, row.note, row.posted_at, row.expires_at]);
+  } catch (e) {
+    console.error('[bounty] post failed, refunding:', e.message);
+    await adjustCredits(player, amount, undefined, 'bounty:refund').catch(err => console.error('[bounty] REFUND FAILED', player.id, amount, err.message));
+    return { type: 'error', message: `The board jams and spits your credits back out. Try again.` };
+  }
   index(row);
 
   const poster = buildPoster(row, { viewer: player.id });

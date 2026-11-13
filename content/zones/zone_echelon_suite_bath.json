@@ -11,6 +11,23 @@
     "floor": "boards",
     "is_interior": true,
     "mis_ok": true,
+    "room": {
+      "balcony": false,
+      "d": 2.4,
+      "face": 0,
+      "finish": "fine",
+      "ground": "marble",
+      "h": 3,
+      "studio": false,
+      "tone": {
+        "accent": "#b8913e",
+        "ceiling": "#141414",
+        "trim": "#0b0b0b",
+        "wall": "#1d1d1f"
+      },
+      "w": 3,
+      "windowless": true
+    },
     "yacht": true
   },
   "grid_x": 0,

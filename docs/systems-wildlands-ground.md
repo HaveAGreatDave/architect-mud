@@ -1,6 +1,6 @@
 # The wildlands: the ground between regions
 
-**Status: built** (2026-09-27). The shared function, the bake, the flight/cab floor (2-D and GL), the highway verges, the walked void rooms and the World Map app all read it.
+**Status: built** (2026-09-27). The shared function, the bake, the flight/cab floor (2-D and GL), the highway verges, the walked void rooms and the World Map app all read it. The relief's high ground stands everywhere in the window and the flora is an ecology off the relief (both 2026-11-11).
 
 ## What it is
 
@@ -44,11 +44,11 @@ The answer carries a `blend` (biome weights, for colour) and a `terrain` (a real
 
 ⚠ **Render and prose only. Never `surfaceAt`, never collision.** "No placed tile here" is how `regionGates` and voidwalking find the edge of the world. The one exception is Mount Cinder's solid cone (below), which you can fly into.
 
-⚠ **A verge is flat.** The highway maps `cliff`/`plateau` to `redrock` and `water` to `sand` (`ROAD_TERRAIN`), so a region's cliff line carrying on past its rim cannot raise a massif on the shoulder. Void rooms map `cliff` to `plateau` (`WALK_TERRAIN`), because `cliff` is the one impassable terrain.
+⚠ **A verge is flat.** `wildGroundAt` only ever answers a passable terrain: a region's cliff line carrying on past its rim, a ramp and a plateau top all read as `redrock`, scree as `gravel` and water as `sand` (`EDGE_FLAT` and `WILD_GROUND` in wildlands.js), so nothing raises a massif on the shoulder or strands a walker. `gl:wildlands` fails on an impassable answer.
 
-⚠ **The legacy local-frame road keeps its roll.** An unanchored corridor has no real coordinates, so `terrainAt` only reads the wildlands when `route.anchored`; every pinned regress road is unchanged.
+⚠ **The legacy local-frame road keeps its roll.** An unanchored corridor has no real coordinates, so `terrainAt` reads the wildlands only when `route.anchored`; every pinned regress road is unchanged. (Until 2026-11-11 the anchored branch was described here and not in the code: every highway rolled its verge.)
 
-⚠ **Void rooms still draw the roll** before overriding it, so the RNG stream under the name and description does not move.
+⚠ **Void rooms still draw the roll** before overriding it, so the RNG stream under the name and description does not move. A room with a position then stands on `wildGroundAt`'s terrain, folded onto ground with prose (`WALK_TERRAIN` in plugins/voidwalking/flavour.js); `grass` and `basalt` are walked grounds the roll never makes. voidwalking's regress fails if any ground the wildlands can answer has no prose.
 
 ⚠ **The GL floor samples a texture, not the function.** `wildTexture()` in `windshield.js` builds a 2-tile-per-texel RGBA image once (rgb colour, a = sea) and `gl/floor.js` samples it on unit 7 past the map window. The waterness it gives overrides the clamped boundary tile's guess, which is what makes the far coast run the right way.
 
@@ -92,6 +92,60 @@ The bake (`relief` in `wildlands.json`, run by `relief-core.mjs` from `bake-wild
 
 **What it costs.** The field went from 17 KB to 67 KB over the wire (brotli; 617 KB raw). The planes are stored as residuals from the gradient predictor at the precision the rules need (height to 1/1000 of a tier, drainage only above 2^6), which is what brought them down from 101 KB. The bake adds about 2 s to the 7 s it spends reading the zone files.
 
+## High ground past the corridor (2026-11-11)
+
+The server raises the relief's tiers into massifs only on the void corridor's own cells, within 24 tiles of a road and past `HIGH_OFF`. Past that band a window cell is `air`, so from a cockpit the raised country stopped in a straight line either side of the highway. Now the windshield raises an `air` cell itself when `groundTierAt` says it stands on a tier (`reliefCellAt` in `windshield.js`): the same cell the corridor would have sent, `hi` the tier and `cf` the sides it continues on. About a third of the wildlands is on tier 1 or higher, so this is most of the visible change in elevation.
+
+- ⚠ **A neighbour the server sent answers for itself.** Across the corridor's edge, a verge cell inside `HIGH_OFF` is flat whatever the relief says, and the raised cell walls toward it. Only another `air` cell, or the window's edge, is asked of the field.
+- ⚠ **Render only, and never written back into the map.** The radar, the boat view and the street life read the window as the server sent it. No cell crosses the wire, so it costs no egress.
+- **A far inside tile is one quad** (`drawFlatCap`): past `RENDER_TUNE.reliefCapNear` (9 tiles) a raised tile with no open side draws as one quad between its four warped corners, lit by the same key, tone and mottle as the full cap fan. Corners are cached by world corner. Phones and the GLASS 1 fallback use the quad at every distance (`PHONE_TIER`, `GLASS1_BASIC`). Rims always take the full massif.
+- `RENDER_TUNE.reliefMassif = 0` leaves the far country flat, as before.
+
+## Flora (2026-11-11)
+
+What grows in the wildlands is one ecology, shared by the windshield and the walked void.
+
+| File | Role |
+|---|---|
+| `content/map/flora.json` | The species: a name, a growth form, colours, a size range, the ground it grows on (`where`, relief biomes with weights), the moisture and slope it tolerates, how tightly it grows in stands (`patch`), an optional halo it needs (`halo`), and the line a walker reads. Plants per tile by ground (`density`). Baked into the field by `npm run wildlands:bake`. |
+| `client/shared/flora.js` | The ecology. `floraAt(x, y, top)` is the plants on a tile (or on a massif's cap), at most three, each with a tile-local offset and a seed; `floraPlaced` is the same for a region's own scrub or red rock, which has no relief under it; `floraLine` is the commonest species over a 5×5 patch, as its line; `floraGround` is the habitat's name for the ground. A pure function of the tile, cached by tile. |
+| `client/game/js/panels/glass/flora-draw.js` | One painter per growth form (`shrub`, `columnar`, `paddle`, `cholla`, `barrel`, `rosette`, `yucca`, `joshua`, `ocotillo`, `juniper`, `broadtree`, `feathery`, `grass`, `flowers`, `snag`, `thorn`), sized in metres. It knows no species. |
+
+The rules: a species' fitness on a tile is its weight times its liking for the ground, the moisture and the slope (best mid-range, thinning to the edges, nothing outside). A slow noise of its own makes it grow in stands. A coverage noise opens clearings, and moisture sets how many plants the ground carries. So a wash has mesquite, tamarisk and rabbitbrush, a wet flat bunchgrass and wildflowers, scree agave and barrel cactus, a dry flat creosote and bursage, a tableland top juniper and sagebrush, and the Scarletwastes halo the Wildblood's wildthorn.
+
+- **Drawing.** A species has three variants, each a card baked once per light at its own size (`drawPlantBB`), mirrored per plant off its seed. The card is held on the species, so a plant on screen costs no key and no closure. On the GPU path a tile that carries only plants is drawn straight from the sweep and never becomes an item.
+- **The stone follows the ground too.** `wildGeo` picks a wild tile's rock, spires and bone by the relief's ground, so mesa stubs no longer stand on grass. With the flora on, the scrub's own rock share is thinned to one tile in six, and the saguaro and brush tuft it used to roll are the ecology's.
+- **Plateau tops** out in the wildlands carry plants on the cap, at its height.
+- **The walker.** A void room's description ends with `floraLine` for its position, except on ground the prose calls ash or salt. It reads the position, never the room's stream, so no name or description moved.
+- `RENDER_TUNE.flora = 0` is the old scatter exactly.
+- **The floor under the plants is the relief's ground too** (see below), so a grass flat reads gold rather than red rock.
+- ⚠ **Render and prose only.** A plant is never collision, cover or a resource.
+
+## The ground out there: one answer for floor, verge and walker (2026-11-11)
+
+Three things used to say what the ground between regions was, and none agreed. The floor painted the halo blend, an anchored highway's verge rolled scrub, ash, red rock or marsh every 18 tiles, and a void room rolled again. From the air every highway ran through a 48-tile stripe of unrelated ground, and a walker on the Coldwater grass plain was told about drifting ash.
+
+`wildGroundAt(x, y)` in `client/shared/wildlands.js` is now the one answer, read off the carved relief: `{ ground, terrain, tint, out }`.
+
+- **`ground`** is a ground-palette key: `prairie` (dry grass), `wash` (pale sand and gravel), `scree`, `hardpan`, `alkali`, `scrub`, `badlands` or `redrock`. The first three are new in `client/shared/ground-palette.js`. Null for the volcano and a region's edge band, which keep the halo blend.
+- **`terrain`** is a real, passable, flat terrain: `grass`, `gravel`, `scrub`, `redrock`, `hardpan`, `alkali`, `ash`, `basalt` or `sand`.
+- **`tint`** is how far the floor's colour moves from the halo blend toward the ground's own. It fades to nothing across the 6-tile band at a region's rim, so a region's halo is untouched where it meets the region.
+- **`out`** is true at least a tile clear of anything placed.
+- Cached by whole tile, because the corridor asks it for every cell of a push and the truck's surface check every tick.
+
+Its readers:
+
+| Reader | What it takes |
+|---|---|
+| The floor (`groundColour`) | The near LUT (`fillOffMap`), the 2-D far field (`farGround`) and the GL far field (`wildTexture`) all colour through `wildCol` in windshield.js. `RENDER_TUNE.reliefGround = 0` is the blend alone. |
+| The anchored corridor | `terrainAt` gives the verge `terrain`. Every cell `out` in the country carries `wild_verge`, and `wild_ground` when there is one; `districtBiome` makes `wild_ground` the cell's biome, and `deriveSurfaceCell` ships `wv`. `groundLUT` colours a `wv` cell exactly as the floor beside it, so the band has no edge. |
+| The walked void | `walkTerrain` gives a positioned room `terrain`, after the roll is drawn. |
+| Heat, birds, the journey readout | `GROUND_HEAT` (thermals.js), two hawk habitats (birds.js) and `JOURNEY_SUBSTRATE` (tablet-os.js) know the new grounds. |
+
+- ⚠ **A grass verge is never parkland.** `grass` maps to the city's `parkland` biome through `TERRAIN_BIOME`, which plants trees and lays turf; `wild_ground` outranks it, so a grass verge is dry `prairie` from the air.
+- ⚠ **A gravel verge grips as a shoulder** (`surfaceUnder`), so a truck off the road in a dry wash has the shoulder's grip rather than the open verge's. That is what a wash floor is.
+- ⚠ **wildTexture is built once a page**, so a live `reliefGround` toggle reaches the far field only after a reload.
+
 ## The World Map
 
 Tablet app `worldmap` and verb `worldmap`. The server sends the placed tiles (one character per tile, by biome) and this week's road polylines with route numbers; the client draws the wildlands itself from the shared field, so there is no egress for it and the map cannot disagree with the ground. The tablet imports the renderer lazily, so the 172 KB field is only fetched by someone who opens the app. Everything is visible (no fog of war). Between the regions it draws the relief: a hillshade off `groundZ`, a contour every quarter of a cliff band, cliff faces in the rim's dark rock, scree, and dry washes in pale sand; hovering a cliff or a wash names it. Building the map's ground costs about 0.4 s in Node for the whole rect, once, when the app opens. The verb prints a character map and the route list, so it reaches the log at every Display Mode rung.
@@ -100,7 +154,7 @@ The dev copy at `tools/worldmap/` (`node scripts/map/world-map-dump.mjs`, then o
 
 ## Gate
 
-`node scripts/shapes/wildlands.mjs` (`npm run gl:wildlands`): the field is fresh; every biome is in the palette and every terrain is real; the sea runs the whole way along the coast; each region's halo biome is what you find just outside it; each cone falls away from its crater; the function is pure.
+`node scripts/shapes/wildlands.mjs` (`npm run gl:wildlands`): the field is fresh; every biome is in the palette and every terrain is real; the sea runs the whole way along the coast; each region's halo biome is what you find just outside it; each cone falls away from its crater; the function is pure. For the flora: every growth form has a drawer, every species grows on real ground and is found somewhere, every line is one sentence with no em dash, and the plants are pure, at most three to a tile and inside it.
 
 ## The road network
 

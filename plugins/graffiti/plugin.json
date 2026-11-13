@@ -11,13 +11,14 @@
   ],
   "hooks": [
     "zone.describeRoom",
-    "wall.tags"
+    "wall.tags",
+    "room.tags"
   ],
   "objectGatedCommands": {
     "sprayapply": {
       "discoverVia": "spraycan",
       "exposed": false,
-      "note": "Client transport only — the spray-can dialog's SPRAY IT, carrying a base64 {text, runs} payload. Sent silently so a blob never lands in the log. Everything in it is re-validated server-side; the dialog decides nothing."
+      "note": "Client transport only — the spray-can dialog's SPRAY IT, carrying a base64 {text, runs} payload, and from ROOM the spot on the room's wall it was aimed at. Over a 3-D view it's sent at the end of the spray session (spray-session.js), which is the picture's and decides nothing. Sent silently so a blob never lands in the log. Everything in it is re-validated server-side; the dialog decides nothing."
     },
     "spraysave": {
       "discoverVia": "spraycan",
@@ -33,6 +34,8 @@
   "extensionPoints": [
     "items.tags.spray_paint",
     "events.graffiti.tagged",
-    "hooks.wall.tags"
+    "events.graffiti.removed",
+    "hooks.wall.tags",
+    "hooks.room.tags"
   ]
 }

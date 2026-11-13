@@ -1,0 +1,29 @@
+{
+  "description": "A wall of walnut pigeonholes behind the desk, one for every room, each with a numbered key on a brass fob. A few hooks are empty. Lowry knows which ones, and won't say.",
+  "flags": {
+    "aliases": "pigeonholes,keys,key wall,fobs",
+    "look": {
+      "arche": "store",
+      "dims": [
+        3,
+        0.35,
+        2.3
+      ],
+      "form": "cabinet"
+    },
+    "spot": {
+      "along": -1.5,
+      "wall": "back"
+    }
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_embassy_key_wall",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "key pigeonholes",
+  "object_type": "decoration",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_residential_lobby"
+}

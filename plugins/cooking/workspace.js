@@ -116,6 +116,9 @@ function component(row, kind, actions = []) {
     // twice and ignoring it is a decision, being surprised by it is a punishment.
     if (c) cook = { phase: c.phase || null, stage: c.stage || null, stages: c.stages || null,
                     water: c.water || null, dry: c.dry || null };
+    // A microwave's own timer, the one the player set: what its display reads. It says when the
+    // MICROWAVE stops, not when the food is ready, so it gives away nothing the time you typed didn't.
+    if (cook && cd.cooking.microwave && cd.cooking.stopAt) cook.timer = Math.max(0, cd.cooking.stopAt - Date.now());
   }
   else if (cd.dish) state = 'a finished dish';
   else if (cd.cooked) state = 'cooked';
@@ -132,6 +135,9 @@ function component(row, kind, actions = []) {
     // A cook in progress is the one thing on this panel that is moving, and the
     // client dims everything that isn't. Derived, never stored.
     live: !!cd.cooking,
+    // How a finished microwave cook came out (raw, peak, over, burnt: cook.js finishMicrowave), so
+    // the Stage draws what you open the door on
+    ...(cd.cooked && cd.end_state ? { done: cd.end_state } : {}),
     // What the Kitchen Stage draws it as (client/shared/kitchen-matter.js): the
     // class and the item's own corrections. The HUD ignores it.
     look: lookOf(row, kind),
@@ -284,6 +290,9 @@ function foodActions(row, ctx, { inVessel = false } = {}) {
       }
     }
     if (ctx.stoves.length) out.push(act('cook', `cook ${name}`, 'bare on the heat: a vessel cooks it better', { role: 'start' }));
+    // In the microwave, for as long as you say. A prefix: the time is yours to type (the Kitchen
+    // Stage's keypad types it for you).
+    if (ctx.microwaves?.length && !inVessel) out.push(act('microwave', `microwave ${name} `, 'add the time: 40, or 1:30', { role: 'microwave' }));
   }
   return out;
 }
@@ -357,6 +366,9 @@ function vesselActions(v, contents, ctx, heat = null) {
       out.push(act(key, `${key} ${name}`, null, { role: 'method' }));
     }
     out.push(act('cook', `cook ${name}`, null, { role: 'start' }));
+  }
+  if (ctx.microwaves?.length && contents.length && !anyCooking && !onHeat) {
+    out.push(act('microwave', `microwave ${name} `, 'add the time: 40, or 1:30', { role: 'microwave' }));
   }
   if (anyCooking) {
     out.push(act('plate', `plate ${name}`, 'ends it and decides the quality', { role: 'finish' }));
@@ -1062,6 +1074,7 @@ export async function buildKitchen(player) {
   const has = (tag, list = reachable) => list.some(r => hasTag(r, tag));
   const ctx = {
     stoves,
+    microwaves,
     taps,
     appliances,
     blade: has('can_chop') || has('butchering'),

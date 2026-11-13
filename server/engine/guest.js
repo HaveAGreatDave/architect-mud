@@ -40,6 +40,7 @@ export const GUEST_DENIED_VERBS = new Map([
   ['pay', 'pay anyone'],
   ['acceptpay', 'take payment'],
   ['trade', 'trade'], ['tradeoffer', 'trade'], ['tradeready', 'trade'],
+  ['peddle', 'deal to other players'], ['acceptdeal', 'buy from other players'],
   ['corp', 'join a corp'], ['org', 'join a corp'], ['shakedown', 'run a racket'],
   ['buyshop', 'own a shop'], ['stock', 'sell from a shop'], ['buyware', 'buy from a player shop'],
   ['buyorder', 'post buy orders'], ['supply', 'fill buy orders'],

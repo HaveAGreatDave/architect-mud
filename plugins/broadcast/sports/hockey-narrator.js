@@ -70,7 +70,7 @@ const EXCITE = {
   'pbp.breakout': 0.3, 'pbp.retrieve': 0.25, 'pbp.pass': 0.35, 'pbp.won': 0.35, 'pbp.battle': 0.35, 'pbp.cycle': 0.3,
   'pbp.forecheck': 0.35, 'pbp.takeaway': 0.5,
   'pbp.dump': 0.3, 'pbp.chase': 0.3, 'pbp.entry': 0.4, 'pbp.deke': 0.55, 'pbp.shot': 0.6, 'pbp.rebound': 0.55,
-  'pbp.pass.stretch': 0.45, 'pbp.pass.saucer': 0.4, 'pbp.pass.give': 0.4, 'pbp.shot.onetimer': 0.7, 'pbp.shot.tip': 0.65,
+  'pbp.pass.stretch': 0.45, 'pbp.pass.saucer': 0.4, 'pbp.pass.give': 0.4, 'pbp.pass.slot': 0.5, 'pbp.pass.drop': 0.35, 'pbp.shot.onetimer': 0.7, 'pbp.shot.tip': 0.65,
   'pbp.pressure': 0.7, 'pbp.pressure.relief': 0.35,
   'pbp.out': 0.5, 'pbp.out.post': 0.75, 'pbp.out.wide': 0.35, 'pbp.after': 0.35, 'pbp.after.post': 0.5, 'pbp.freeze': 0.2,
   'shot': 0.25, 'shot.post': 0.4, 'pbp.replay': 0.35,
@@ -695,19 +695,23 @@ export function narrate(ctx) {
     // Where each touch is, off the keyframe the rink plays it at: `{where}` in a line.
     const plus = b.teamName === away.name;
     const where = (n) => (mod && mod.rinkSpot ? mod.rinkSpot(n.p, plus).at : '') || 'up the ice';
-    // WHAT KIND OF PASS. Off the two keyframes, in feet, the way his side attacks: back toward
-    // his own end (a drop pass, or back out to the point), long up the ice, across it, or
+    // WHAT KIND OF PASS. Off the two keyframes, in feet, the way his side attacks: a drop
+    // (a few strides back, left for the man trailing him), back out to the point (farther
+    // back), long up the ice (a stretch), into the slot from outside it, across the ice, or
     // straight back to the man who'd just given it to him once he's gone on up the ice (a
     // give-and-go; the men are dealt at random, so a return as such is common and is mostly
-    // just called a pass). A long one or one across is sometimes lifted over a stick. The
-    // kind rides on the line's cue, so the rink plays the pass the booth called (a saucer is
-    // lifted there only when it was called one).
+    // just called a pass). A long one or one across is sometimes lifted over a stick, and one
+    // across is sometimes played off the backhand. The kind rides on the line's cue, so the
+    // rink plays the pass the booth called (see passPlay in client/game/js/panels/rink/sim.js;
+    // a saucer is lifted there only when it was called one).
+    const inSlot = (n) => / slot$/.test(where(n));
     const passKind = (from, to, back) => {
       const dx = (to.p[0] - from.p[0]) * 200 * (plus ? 1 : -1), dy = Math.abs(to.p[1] - from.p[1]) * 85;
       if (back && dx > 10 && nrng() < 0.5) return 'give';
-      if (dx < -6) return 'back';
+      if (dx < -6) return dx > -25 && dy < 15 ? 'drop' : 'back';
       if (dx > 55) return nrng() < 0.2 ? 'saucer' : 'stretch';
-      if (dy > 32) return nrng() < 0.15 ? 'saucer' : 'cross';
+      if (inSlot(to) && !inSlot(from)) return 'slot';
+      if (dy > 32) { const u = nrng(); return u < 0.15 ? 'saucer' : u < 0.4 ? 'backhand' : 'cross'; }
       return 'short';
     };
     const hasPool = (key) => (Array.isArray(key) ? key.some((k) => pools[k]) : !!pools[key]);

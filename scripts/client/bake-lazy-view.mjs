@@ -172,6 +172,9 @@ for (const job of JOBS) {
   if (job.after) L.push(job.after);
   L.push('    return m;');
   L.push('  })();');
+  L.push('  // ⚠ A FAILED LOAD IS FORGOTTEN, so the next call fetches again. Kept, one refused fetch (the');
+  L.push('  // dev server restarting under --watch) left every view that needs this module dead until a reload.');
+  L.push('  _pending.catch(() => { _pending = null; });');
   L.push('  return _pending;');
   L.push('}');
   L.push('');

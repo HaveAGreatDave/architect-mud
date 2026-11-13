@@ -1,0 +1,146 @@
+{
+  "_comment": [
+    "What grows in the wildlands (docs/systems-wildlands-ground.md#flora). Baked into client/shared/wildlands-field.js by npm run wildlands:bake and read by client/shared/flora.js.",
+    "`form` is a growth form the renderer knows how to draw (FLORA_FORMS in client/shared/flora.js). `where` is the ground a species grows on, as relief biomes, each with a weight.",
+    "`wet` and `slope` are the moisture (0..1) and step (tier units per tile) it tolerates; it does best in the middle of each range. `patch` is how tightly it grows in stands (0 is evenly spread).",
+    "`density` is plants per tile on each kind of ground before moisture. `line` is what a walker reads; keep it to one plain sentence."
+  ],
+  "density": {
+    "prairie": 2.4, "scrub": 1.5, "badlands": 1.0, "redrock": 0.85, "wash": 1.9, "scree": 0.75,
+    "ramp": 0.9, "cliff": 0.35, "hardpan": 0.3, "alkali": 0.1, "ash": 0.4, "basalt": 0.3, "plateau": 1.0
+  },
+  "species": {
+    "creosote": {
+      "name": "creosote", "form": "shrub", "rgb": [86, 100, 52], "accent": [214, 188, 64],
+      "size": [0.8, 1.4], "where": { "badlands": 1, "scrub": 0.9, "redrock": 0.35, "hardpan": 0.3, "ramp": 0.3 },
+      "wet": [0.02, 0.5], "slope": [0, 0.22], "weight": 4, "patch": 0,
+      "line": "Creosote grows out here at even spacing, each bush keeping its distance from the next."
+    },
+    "bursage": {
+      "name": "bursage", "form": "shrub", "rgb": [146, 140, 112], "size": [0.45, 0.7],
+      "where": { "badlands": 1, "scrub": 0.8, "hardpan": 0.4 },
+      "wet": [0.02, 0.45], "slope": [0, 0.2], "weight": 3, "patch": 0.05,
+      "line": "Low grey bursage covers the ground between the bigger bushes."
+    },
+    "sagebrush": {
+      "name": "sagebrush", "form": "shrub", "rgb": [132, 146, 126], "size": [0.7, 1.1],
+      "where": { "prairie": 0.7, "scrub": 1, "ramp": 0.8, "plateau": 1 },
+      "wet": [0.3, 0.8], "slope": [0, 0.3], "weight": 3, "patch": 0.04,
+      "line": "Silver sagebrush, and the smell of it when the wind turns."
+    },
+    "rabbitbrush": {
+      "name": "rabbitbrush", "form": "shrub", "rgb": [118, 128, 88], "accent": [232, 196, 52],
+      "size": [0.6, 1.0], "where": { "wash": 1, "scrub": 0.4, "badlands": 0.3, "ash": 0.5 },
+      "wet": [0.15, 0.7], "slope": [0, 0.18], "weight": 2, "patch": 0.06,
+      "line": "Rabbitbrush along the dry channel, yellow on top."
+    },
+    "saltbush": {
+      "name": "saltbush", "form": "shrub", "rgb": [150, 162, 158], "size": [0.6, 1.0],
+      "where": { "hardpan": 1, "alkali": 1, "wash": 0.3 },
+      "wet": [0, 0.5], "slope": [0, 0.1], "weight": 3, "patch": 0.07,
+      "line": "Saltbush on the edge of the flat. Nothing else wants the ground."
+    },
+    "saguaro": {
+      "name": "saguaro", "form": "columnar", "rgb": [70, 104, 60], "accent": [236, 230, 210],
+      "size": [0.7, 1.3], "where": { "scrub": 1, "badlands": 0.7, "ramp": 0.8, "scree": 0.5 },
+      "wet": [0.08, 0.5], "slope": [0.02, 0.3], "weight": 2.2, "patch": 0.035,
+      "line": "Saguaros stand on the slope. Most of them are older than the war."
+    },
+    "prickly_pear": {
+      "name": "prickly pear", "form": "paddle", "rgb": [92, 130, 70], "accent": [176, 40, 84],
+      "size": [0.6, 1.1], "where": { "scrub": 1, "badlands": 0.8, "redrock": 0.4, "scree": 0.5 },
+      "wet": [0.05, 0.55], "slope": [0, 0.3], "weight": 2, "patch": 0.06,
+      "line": "Prickly pear in clumps, the fruit gone purple."
+    },
+    "cholla": {
+      "name": "cholla", "form": "cholla", "rgb": [196, 190, 150], "size": [0.6, 1.0],
+      "where": { "badlands": 1, "scrub": 0.6, "redrock": 0.5, "scree": 0.6 },
+      "wet": [0, 0.4], "slope": [0, 0.3], "weight": 1.6, "patch": 0.08,
+      "line": "A cholla stand. The joints break off at a touch and ride along in your boot."
+    },
+    "barrel": {
+      "name": "barrel cactus", "form": "barrel", "rgb": [96, 120, 62], "accent": [232, 172, 40],
+      "size": [0.6, 1.0], "where": { "scree": 1, "ramp": 0.8, "redrock": 0.5, "cliff": 0.7 },
+      "wet": [0, 0.45], "slope": [0.04, 0.4], "weight": 1.6, "patch": 0.05,
+      "line": "Barrel cactus wedged between the rocks, leaning south."
+    },
+    "agave": {
+      "name": "agave", "form": "rosette", "rgb": [104, 132, 120], "size": [0.6, 1.0],
+      "where": { "scree": 1, "ramp": 1, "cliff": 0.8, "redrock": 0.3 },
+      "wet": [0.05, 0.5], "slope": [0.06, 0.45], "weight": 2, "patch": 0.06,
+      "line": "Agave on the broken ground, every leaf ending in a spike."
+    },
+    "yucca": {
+      "name": "yucca", "form": "yucca", "rgb": [98, 126, 74], "accent": [236, 232, 204],
+      "size": [0.7, 1.1], "where": { "prairie": 0.6, "scrub": 1, "plateau": 0.7, "ramp": 0.4 },
+      "wet": [0.2, 0.7], "slope": [0, 0.2], "weight": 1.4, "patch": 0.05,
+      "line": "Yucca stalks stand over the grass, white flowers at the top."
+    },
+    "joshua": {
+      "name": "Joshua tree", "form": "joshua", "rgb": [88, 110, 62], "accent": [120, 98, 72],
+      "size": [0.7, 1.2], "where": { "scrub": 0.8, "badlands": 1, "plateau": 0.9 },
+      "wet": [0.1, 0.5], "slope": [0, 0.15], "weight": 1, "patch": 0.03, "h": [0.7, 9],
+      "line": "Joshua trees out on the flat, every one of them pointing a different way."
+    },
+    "ocotillo": {
+      "name": "ocotillo", "form": "ocotillo", "rgb": [94, 86, 66], "accent": [222, 64, 38],
+      "size": [0.7, 1.2], "where": { "ramp": 1, "scree": 0.8, "badlands": 0.5, "redrock": 0.4 },
+      "wet": [0, 0.45], "slope": [0.05, 0.4], "weight": 1.2, "patch": 0.06,
+      "line": "Ocotillo canes on the hillside, red at the tips."
+    },
+    "juniper": {
+      "name": "juniper", "form": "juniper", "rgb": [52, 76, 52], "accent": [104, 84, 62],
+      "size": [0.7, 1.2], "where": { "ramp": 1, "plateau": 1, "scree": 0.7, "prairie": 0.4, "cliff": 0.6 },
+      "wet": [0.25, 0.85], "slope": [0, 0.4], "weight": 1.6, "patch": 0.045,
+      "line": "Twisted junipers, half of each one dead and the other half not bothered."
+    },
+    "mesquite": {
+      "name": "mesquite", "form": "broadtree", "rgb": [74, 98, 50], "accent": [70, 54, 40],
+      "size": [0.6, 0.95], "where": { "wash": 1, "scrub": 0.25 },
+      "wet": [0.2, 0.8], "slope": [0, 0.15], "weight": 1.4, "patch": 0.07,
+      "line": "Mesquite along the wash, where the roots can reach whatever water is left."
+    },
+    "cottonwood": {
+      "name": "cottonwood", "form": "broadtree", "rgb": [86, 124, 58], "accent": [90, 80, 66],
+      "size": [1.1, 1.5], "where": { "wash": 1, "prairie": 0.3 },
+      "wet": [0.5, 1], "slope": [0, 0.1], "weight": 0.5, "patch": 0.09,
+      "line": "A cottonwood in the wash. There's water under here somewhere."
+    },
+    "tamarisk": {
+      "name": "tamarisk", "form": "feathery", "rgb": [124, 132, 108], "accent": [206, 150, 170],
+      "size": [0.7, 1.1], "where": { "wash": 1, "hardpan": 0.5, "alkali": 0.2 },
+      "wet": [0.25, 0.9], "slope": [0, 0.1], "weight": 1.2, "patch": 0.08,
+      "line": "Tamarisk thickets in the channel, pink and drinking everything."
+    },
+    "bunchgrass": {
+      "name": "bunchgrass", "form": "grass", "rgb": [168, 156, 98], "size": [0.7, 1.2],
+      "where": { "prairie": 1, "scrub": 0.6, "plateau": 0.8, "ramp": 0.4, "badlands": 0.25 },
+      "wet": [0.3, 1], "slope": [0, 0.25], "weight": 4, "patch": 0.03,
+      "line": "Bunchgrass, knee high, moving in the wind."
+    },
+    "wildflowers": {
+      "name": "wildflowers", "form": "flowers", "rgb": [104, 124, 70], "accent": [236, 160, 48],
+      "size": [0.8, 1.2], "where": { "prairie": 1, "wash": 0.4, "scrub": 0.3 },
+      "wet": [0.45, 1], "slope": [0, 0.15], "weight": 1, "patch": 0.12,
+      "line": "Wildflowers in the grass, orange and purple, nobody's idea."
+    },
+    "snag": {
+      "name": "dead tree", "form": "snag", "rgb": [70, 62, 56], "size": [0.7, 1.1],
+      "where": { "ash": 1, "hardpan": 0.5, "wash": 0.3, "basalt": 0.6 },
+      "wet": [0, 0.6], "slope": [0, 0.3], "weight": 1, "patch": 0.06,
+      "line": "A dead tree, still standing because nothing out here rots."
+    },
+    "wildthorn": {
+      "name": "wildthorn", "form": "thorn", "rgb": [62, 68, 66], "accent": [196, 48, 40],
+      "size": [0.8, 1.3], "where": { "wash": 1, "redrock": 0.7, "scrub": 1, "ramp": 0.6 },
+      "wet": [0.05, 0.7], "slope": [0, 0.3], "weight": 3, "patch": 0.05, "halo": "scarlet",
+      "line": "Grey-green thorn, taller than you, grown on purpose. Somebody waters it."
+    },
+    "wirethorn": {
+      "name": "wirethorn", "form": "cholla", "rgb": [118, 150, 132], "accent": [214, 132, 68],
+      "size": [0.8, 1.2], "where": { "badlands": 1, "redrock": 0.6 },
+      "wet": [0, 0.35], "slope": [0, 0.25], "weight": 0.25, "patch": 0.11,
+      "line": "A wirethorn, cholla gone green and copper from eating the old cable runs."
+    }
+  }
+}

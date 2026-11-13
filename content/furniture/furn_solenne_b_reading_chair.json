@@ -1,19 +1,19 @@
 {
-  "description": "A deep chair in grey wool, turned a little off square so it faces the corner of the glass and not the room.",
+  "description": "A desk chair in black mesh on five castors, with a headrest, a lumbar pad and more levers under the seat than anyone has worked out. It's turned to face the monitor.",
   "flags": {
     "interactions": [
       "sit"
     ],
     "look": {
       "arche": "seat",
-      "form": "armchair"
+      "form": "office"
     },
     "spot": {
       "at": [
-        -4.4,
-        1.7
+        -4.85,
+        1.15
       ],
-      "turn": -38
+      "turn": -45
     }
   },
   "hp": null,
@@ -21,7 +21,7 @@
   "id": "furn_solenne_b_reading_chair",
   "light_type": null,
   "lumen_output": null,
-  "name": "reading chair",
+  "name": "desk chair",
   "object_type": "furniture",
   "power_draw_kw": null,
   "price": 0,

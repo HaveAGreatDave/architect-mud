@@ -1,9 +1,12 @@
-// Stocking the kitchen: food and kit delivered to whoever is standing at a stove.
+// Stocking the kitchen: food and kit delivered to whoever is standing in one.
 //
 // `kitchenstock` sends the catalogue the Kitchen Stage's stock-up screen draws ('kitchen_stock');
 // `kitchenorder <item> [qty]` buys and delivers. The catalogue is only what some vendor in town
-// deals in (stockists.js), and a delivery costs half as much again as the item's value, so walking
-// to the shop is still the cheap way.
+// deals in (stockists.js), and a delivery costs 5% over the item's value, so walking out to a
+// shop, or further for a deal, is still the cheap way.
+//
+// Any kitchen appliance counts: a stove, a microwave, a fridge or a freezer. The microwave in a
+// flat with no hob is still a kitchen, and the sheet opens the same from each of them.
 import { withTransaction } from '../../server/models/db.js';
 import { getZoneFurniture, getZone } from '../../server/engine/world.js';
 import { getItemCache } from '../../server/engine/items-cache.js';
@@ -12,11 +15,12 @@ import { giveItemById } from '../../server/engine/inventory.js';
 import { stockedItemIds } from './stockists.js';
 import { gearKeysOf, GEAR } from './gear.js';
 
-const DELIVERY = 1.5;
+export const DELIVERY = 1.05;
 const MAX_QTY = 20;
 
+const kitchenKit = (f) => f.flags?.stove_tier || f.flags?.microwave || f.flags?.preserves;
 const inKitchen = (player) =>
-  getZoneFurniture(player.current_zone).some(f => f.flags?.stove_tier) || !!getZone(player.current_zone)?.flags?.stove_tier;
+  getZoneFurniture(player.current_zone).some(kitchenKit) || !!getZone(player.current_zone)?.flags?.stove_tier;
 
 // 'food', 'kit' or null for an item the screen doesn't sell.
 function shelfOf(item) {
@@ -41,7 +45,7 @@ export async function catalogue() {
 
 export async function cmdKitchenStock(args, raw, player) {
   if (!inKitchen(player)) return { type: 'error', message: `You need to be in a kitchen to have things delivered.` };
-  return { type: 'kitchen_stock', items: await catalogue(), credits: player.credits ?? 0 };
+  return { type: 'kitchen_stock', items: await catalogue(), credits: player.credits ?? 0, markup: Math.round((DELIVERY - 1) * 100) };
 }
 
 export async function cmdKitchenOrder(args, raw, player) {

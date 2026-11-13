@@ -9,6 +9,7 @@ import { getRegisteredLockedProviders } from '../../server/engine/movement-gates
 import { on, off, emit } from '../../server/engine/events.js';
 import { lockTypePassesWhileLocked, resolveLockAuth, getLockType } from '../../server/engine/locks.js';
 import { query } from '../../server/models/db.js';
+import { npcLivesIn } from '../../server/engine/apartments.js';
 
 export default async function regress({ run, check, getPlayer }) {
   const p = getPlayer();
@@ -118,11 +119,11 @@ export default async function regress({ run, check, getPlayer }) {
 
   mkPrivacy(p.current_zone, 'locked');
   r = await run(`unlock ${dir}`);
-  check('privacy lock: unlocks from the correct side', /bolt open|disengage/i.test(r?.message || ''), JSON.stringify(r)?.slice(0, 90));
+  check('privacy lock: unlocks from the bathroom side', /bolt open|disengage/i.test(r?.message || ''), JSON.stringify(r)?.slice(0, 90));
 
   mkPrivacy('__regress_other_side_' + p.id, 'unlocked');
   r = await run(`lock ${dir}`);
-  check('privacy lock: denied from the wrong side', /other side/i.test(r?.message || ''), JSON.stringify(r)?.slice(0, 90));
+  check('privacy lock: locks from the far side too', /bolt shut/i.test(r?.message || ''), JSON.stringify(r)?.slice(0, 90));
 
   // A privacy bolt is manual: the door won't open while it's shut, so nobody
   // (not even the person on privacySide) walks through it locked — that's what
@@ -305,7 +306,8 @@ export default async function regress({ run, check, getPlayer }) {
     // The vestigial-lock exemption, which is most of the locked doors in the world:
     // an unrented unit's lock holds nobody out, so the corridor outside must not
     // draw a wall of red doors that all open when you push them.
-    const aptZone = [...world.zones.values()].find(z => z.flags?.is_apartment);
+    // A flat nobody lives in: an NPC's home has a real lock (apartments.js npcLivesIn), so it isn't vestigial.
+    const aptZone = [...world.zones.values()].find(z => z.flags?.is_apartment && !npcLivesIn(z.id));
     if (aptZone) {
       const aptRoom = { ...room, exits: { ...room.exits, north: aptZone.id } };
       const prior = getApartment(aptZone.id);

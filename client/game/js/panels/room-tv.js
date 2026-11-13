@@ -29,6 +29,74 @@ const SMALL_SIZE = 0.35, SMALL_SLOW = 3, WANT_MS = 250;
 // room is a small target
 const BUTTON_REACH = 14;
 
+// A SET THAT SAYS ITS NAME AS IT COMES ON (a piece's `boot`, from flags.look.boot): black, a line of light
+// across the middle that opens into a dark field with two slow glows, the wordmark closing up as it fades in
+// and a glint across it, a ring filling under it, then the picture opening out from the middle.
+export const BOOT_S = 3.2;
+const ease = (x) => { x = Math.max(0, Math.min(1, x)); return x * x * (3 - 2 * x); };
+export function paintBoot(dst, src, t, mark) {
+  const g = dst.getContext('2d'), W = dst.width, H = dst.height, cx = W / 2, cy = H / 2;
+  g.save();
+  g.fillStyle = '#000'; g.fillRect(0, 0, W, H);
+  // the line, then the field opening from it
+  const line = ease((t - 0.3) / 0.35), open = ease((t - 0.65) / 0.35);
+  if (t >= 0.3) {
+    const hh = Math.max(1.5, open * H / 2);
+    g.beginPath(); g.rect(0, cy - hh, W, hh * 2); g.clip();
+    const bg = g.createLinearGradient(0, 0, 0, H);
+    bg.addColorStop(0, '#05070d'); bg.addColorStop(1, '#0b0a12');
+    g.fillStyle = bg; g.fillRect(0, 0, W, H);
+    // two glows drifting, gold and teal
+    for (const [hue, ox, oy, sp] of [['255,190,110', -0.22, -0.1, 0.35], ['70,200,220', 0.24, 0.14, -0.28]]) {
+      const x = cx + W * (ox + 0.08 * Math.sin(t * sp * 2)), y = cy + H * (oy + 0.06 * Math.cos(t * sp * 3)), r = W * 0.42;
+      const rg = g.createRadialGradient(x, y, 0, x, y, r);
+      rg.addColorStop(0, `rgba(${hue},${0.32 * open})`); rg.addColorStop(1, `rgba(${hue},0)`);
+      g.fillStyle = rg; g.fillRect(0, 0, W, H);
+    }
+    if (open < 1) {
+      const lw = W * line * (1 - open * 0.6), lg = g.createLinearGradient(cx - lw / 2, 0, cx + lw / 2, 0);
+      lg.addColorStop(0, 'rgba(255,236,200,0)'); lg.addColorStop(0.5, `rgba(255,246,228,${1 - open})`); lg.addColorStop(1, 'rgba(255,236,200,0)');
+      g.fillStyle = lg; g.fillRect(cx - lw / 2, cy - 2 - open * 6, lw, 4 + open * 12);
+    }
+    // the wordmark, its letters closing up as it fades in, and a glint going across it
+    const mIn = ease((t - 0.9) / 0.7), mOut = 1 - ease((t - 2.5) / 0.45);
+    if (mIn > 0 && mOut > 0) {
+      const size = Math.round(H * 0.11), track = size * (0.9 - 0.6 * mIn);
+      g.font = `300 ${size}px "Helvetica Neue", Helvetica, Arial, sans-serif`;
+      g.textBaseline = 'middle';
+      const chars = [...mark.toUpperCase()], widths = chars.map((c) => g.measureText(c).width);
+      const total = widths.reduce((a, b) => a + b, 0) + track * (chars.length - 1);
+      let x = cx - total / 2;
+      g.fillStyle = `rgba(244,232,210,${mIn * mOut})`;
+      chars.forEach((c, i) => { g.fillText(c, x, cy - H * 0.02); x += widths[i] + track; });
+      const gt = (t - 1.5) / 0.6;
+      if (gt > 0 && gt < 1) {
+        const gx = cx - total / 2 - 60 + (total + 120) * gt, gl = g.createLinearGradient(gx - 50, 0, gx + 50, 0);
+        gl.addColorStop(0, 'rgba(255,255,255,0)'); gl.addColorStop(0.5, `rgba(255,250,235,${0.85 * mOut})`); gl.addColorStop(1, 'rgba(255,255,255,0)');
+        // the letters again in the glint's light, so only they catch it
+        g.fillStyle = gl; x = cx - total / 2;
+        chars.forEach((c, i) => { g.fillText(c, x, cy - H * 0.02); x += widths[i] + track; });
+      }
+      // the ring under it
+      const ring = ease((t - 1.4) / 1.0), ry = cy + H * 0.12, rr = H * 0.022;
+      g.lineWidth = 2; g.strokeStyle = `rgba(244,232,210,${0.18 * mIn * mOut})`;
+      g.beginPath(); g.arc(cx, ry, rr, 0, Math.PI * 2); g.stroke();
+      g.strokeStyle = `rgba(255,206,120,${0.9 * mIn * mOut})`;
+      g.beginPath(); g.arc(cx, ry, rr, -Math.PI / 2, -Math.PI / 2 + ring * Math.PI * 2); g.stroke();
+    }
+    // the picture, opening out from the middle in a soft ellipse
+    const pic = ease((t - 2.45) / 0.7);
+    if (pic > 0 && src) {
+      g.save();
+      g.beginPath(); g.ellipse(cx, cy, W * 0.75 * pic, H * 0.75 * pic, 0, 0, Math.PI * 2); g.clip();
+      g.globalAlpha = Math.min(1, pic * 1.4);
+      g.drawImage(src, 0, 0, W, H);
+      g.restore();
+    }
+  }
+  g.restore();
+}
+
 // `onChange(info)` hears the channel change: { on, number, station, list }.
 export function createWallTv(host, { onChange }) {
   const el = document.createElement('div');
@@ -132,13 +200,14 @@ export function createWallTv(host, { onChange }) {
     open: surface.open,
     view,
     tune(n) { dialled = true; sendCmdSilent(`tune ${n}`); },
-    // the next station up or down the dial, round the end of it
+    // the next station up or down the dial, round the end of it: which, for the room to say
     step(dir) {
       const { list, number } = info;
-      if (!list.length) return;
+      if (!list.length) return null;
       dialled = true;
       const at = list.findIndex((c) => c.number === number), next = list[((at < 0 ? 0 : at + dir) + list.length) % list.length];
       sendCmdSilent(`tune ${next.number}`);
+      return next;
     },
     off() { surface.close(); },
     // The page is off the side of the window, so a click on the picture never reaches it. `u` and `v` run

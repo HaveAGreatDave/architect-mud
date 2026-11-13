@@ -39,6 +39,7 @@
 // The fuel flow is the engine's at this throttle and rpm (a 55 kW biofuel twin burns about 17 litres
 // an hour flat out). The recorder's page is the live channels themselves. The flicker, the dead page's
 // static and the hologram's glitch are decoration on wall time; no readout moves except on a live value.
+import { nightAt } from './sky-keys.js';
 import { brandTrim } from './interior-brands.js';
 import { makeKit, C, clamp, lerp, SHINY, PANE, TEXTURE } from './interior-kit.js';
 import { contactShadow, hotspotHalo, panelGps, gpsHotspot, lensLamp, eased, pressPulse, HALO, wallSec,
@@ -357,7 +358,7 @@ const readings = (live) => {
     phase: num(L.phase), stall: !!L.stall,
   };
 };
-const night = (R) => R.hour < 6.5 || R.hour > 19.5;
+const night = (R) => nightAt(R.hour);
 const panelOn = (R) => R.powered && (R.L.panelLight != null ? !!R.L.panelLight : night(R));
 // The biofuel twin's burn: about 17 litres an hour at full throttle and rpm, 2 at idle.
 export const BURN_LPH = 17;

@@ -16,7 +16,7 @@ import { getZonePrecip, getWindKph, getZoneWindKph, getZonePowerStatus, activeWe
 // would drift the moment movement speed is tuned, and the symptom would be feet
 // that no longer match the walk. `plugins/pinch` borrows it for the same reason.
 import { stepCadenceMs } from '../pacing/index.js';
-import { WEATHER_BEDS, CITY_BEDS, CITY_THEMES, cityGainFor } from './soundscape.js';
+import { WEATHER_BEDS, CITY_BEDS, CITY_THEMES, cityGainFor, isCityNight, windTierFor } from './soundscape.js';
 
 // ── In-memory library cache (loaded from DB at boot, refreshed after CRUD) ──
 
@@ -135,7 +135,8 @@ export function getInstrumentDef(id) { return id ? instruments.get(id) || null :
 // configured SFX / ambient / song to the appropriate target. Returns true if
 // a route was found (so callers can skip their hardcoded fallback).
 
-function triggerEventRoute(eventName, zoneId, playerId) {
+// `music` is extra fields for a routed song's message (once, only3d).
+function triggerEventRoute(eventName, zoneId, playerId, music = null) {
   const routes = eventRoutes.get(eventName);
   if (!routes?.length) return false;
   const route = routes[Math.floor(Math.random() * routes.length)];
@@ -157,7 +158,7 @@ function triggerEventRoute(eventName, zoneId, playerId) {
   }
   if (route.song_id) {
     const song = songs.get(route.song_id);
-    if (song) send(target, { type: 'audio_music', def: resolveSongInstruments(song) });
+    if (song) send(target, { type: 'audio_music', def: resolveSongInstruments(song), ...music });
   }
   return true;
 }
@@ -195,6 +196,13 @@ on('player.login', ({ id }) => {
     themePlaying.set(id, song.id);
     sendToPlayer(id, { type: 'audio_music', def: resolveSongInstruments(song) });
   }
+});
+
+// The first wake in the clone vat, once per character (plugins/prologue). Whatever the
+// `prologue.woke` route names plays through once, and only where the Room Stage is drawing
+// (the client drops it otherwise): it's scored for the 3D room.
+on('prologue.woke', ({ actor }) => {
+  if (actor?.id) triggerEventRoute('prologue.woke', null, actor.id, { once: true, only3d: true });
 });
 
 on('player.logout', ({ id }) => {
@@ -1190,6 +1198,14 @@ on('door.sfx', ({ door, zoneId, actorId, cue }) => {
   sendToZone(zoneId, msg, actorId || null);
 });
 
+// A knock on a locked door (plugins/gametable, somebody on their way in): heard on both sides, a bit louder inside,
+// since the whole job of it is that whoever's in there notices. The leaf's own door_type colours it.
+on('door.knock', ({ door, outside, inside }) => {
+  const params = { action: 'knock', surface: door?.door_type || 'basic', intensity: 0.7, seed: (Math.random() * 0xffffffff) >>> 0 };
+  if (inside) sendToZone(inside, { type: 'audio_sfx_proc', tier: FULL, gain: 0.9, params });
+  if (outside) sendToZone(outside, { type: 'audio_sfx_proc', tier: FULL, gain: 0.7, params: { ...params, seed: params.seed ^ 1 } });
+});
+
 // Pissing and farting are PUBLIC. Both used to be hand-authored — the stream was
 // one fixed sound whatever the pressure behind it, and went only to the person
 // doing it, so a man relieving himself in a crowded bar was silent to the bar.
@@ -1276,7 +1292,7 @@ const HEAVY_ON = 0.55, HEAVY_OFF = 0.4;
 // the bed it's playing now (for the shower/downpour hysteresis).
 function weatherAmbientKind(kind, rate = 0, prevId = null) {
   if (kind === 'thunderstorm') return 'rain_heavy';
-  if (kind === 'drizzle' || kind === 'acid') return 'rain';
+  if (kind === 'drizzle' || kind === 'acid') return 'drizzle';
   if (kind === 'rain') {
     const heavy = prevId === WEATHER_AMBIENT_FALLBACK.rain_heavy.id ? rate > HEAVY_OFF : rate >= HEAVY_ON;
     return heavy ? 'rain_heavy' : 'rain';
@@ -1289,6 +1305,11 @@ function weatherAmbientKind(kind, rate = 0, prevId = null) {
 // the synthesized fallback. Returns null for 'none'/unknown.
 function weatherAmbientDef(kind, rate = 0, prevId = null) {
   if (!kind || kind === 'none') return null;
+  // For the wind, `rate` is its kph, which picks a breeze, a wind, a hard wind or a gale.
+  if (kind === 'wind' && !eventRoutes.get(WEATHER_AMBIENT_EVENTS.wind)?.some((r) => r.ambient_id)) {
+    const tier = windTierFor(rate, prevId);
+    return tier ? WEATHER_AMBIENT_FALLBACK[tier] : null;
+  }
   const routes = eventRoutes.get(WEATHER_AMBIENT_EVENTS[kind]);
   const routed = routes?.find(r => r.ambient_id);
   if (routed) { const d = ambient.get(routed.ambient_id); if (d) return d; }
@@ -1303,7 +1324,8 @@ function knownWeatherAmbientIds() {
     const d = weatherAmbientDef(t);
     if (d?.id) ids.add(d.id);
   }
-  if (!eventRoutes.get(WEATHER_AMBIENT_EVENTS.rain)?.some((r) => r.ambient_id)) ids.add(WEATHER_AMBIENT_FALLBACK.rain_heavy.id);
+  if (!eventRoutes.get(WEATHER_AMBIENT_EVENTS.rain)?.some((r) => r.ambient_id)) for (const k of ['drizzle', 'rain', 'rain_heavy']) ids.add(WEATHER_AMBIENT_FALLBACK[k].id);
+  for (const k of ['wind_breeze', 'wind', 'wind_strong', 'wind_gale']) ids.add(WEATHER_AMBIENT_FALLBACK[k].id);
   for (const d of Object.values(CITY_BEDS)) ids.add(d.id);
   return ids;
 }
@@ -1338,13 +1360,14 @@ const CITY_GAIN = 0.85;
 function cityBedFor(outdoorZoneId, wet) {
   const z = outdoorZoneId ? getZone(outdoorZoneId) : null;
   if (!z || !CITY_THEMES.has(z.ambient_theme)) return null;
-  return { def: wet ? CITY_BEDS.city_wet : CITY_BEDS.city, gain: CITY_GAIN * cityGainFor(getGameHour()) };
+  const hour = getGameHour();
+  return { def: wet ? CITY_BEDS.city_wet : isCityNight(hour) ? CITY_BEDS.city_night : CITY_BEDS.city, gain: CITY_GAIN * cityGainFor(hour) };
 }
 
 // The beds a given tile should be running, as { def, gain } per slot (or null).
-function desiredBedsFor({ zoneId, precipType, active, precipRate, windKph }, prevPrecipId = null, cityZoneId = zoneId) {
+function desiredBedsFor({ zoneId, precipType, active, precipRate, windKph }, prevPrecipId = null, cityZoneId = zoneId, prevWindId = null) {
   const precipDef = active ? weatherAmbientDef(precipType, precipRate, prevPrecipId) : null;
-  const windDef   = (windKph >= WIND_MIN_KPH) ? weatherAmbientDef('wind') : null;
+  const windDef   = (windKph >= WIND_MIN_KPH - 4) ? weatherAmbientDef('wind', windKph, prevWindId) : null;
   return {
     precip: precipDef ? { def: precipDef, gain: precipGainFor(precipRate) } : null,
     wind:   windDef   ? { def: windDef,   gain: windGainFor(windKph) }     : null,
@@ -1375,7 +1398,7 @@ on('weather.zoneAmbience', (payload) => {
   const zoneId = payload.zoneId;
   const trackers = zoneBeds.get(zoneId) || { precip: null, wind: null, city: null };
   const indoor = indoorZoneId(zoneId);
-  const desired = desiredBedsFor(payload, trackers.precip?.id, indoor ? getWeatherLeakSource(zoneId).outdoorZoneId : zoneId);
+  const desired = desiredBedsFor(payload, trackers.precip?.id, indoor ? getWeatherLeakSource(zoneId).outdoorZoneId : zoneId, trackers.wind?.id);
   if (indoor) {
     const leak = getWeatherLeakGain(zoneId);
     if (desired.precip) desired.precip.gain *= leak;
@@ -1495,7 +1518,7 @@ function reconcilePlayerWeatherAmbient(playerId, zoneId) {
   // The wind at the tile the weather leaks in from, so a squall overhead is heard as one.
   const kph = outdoorZoneId ? getZoneWindKph(outdoorZoneId) : getWindKph();
   if (kph >= WIND_MIN_KPH) {
-    const d = weatherAmbientDef('wind');
+    const d = weatherAmbientDef('wind', kph);
     if (d) desired.push({ def: d, gain: windGainFor(kph) * mult });
   }
   // the city's streets, heard from where the weather is

@@ -100,7 +100,8 @@ export function handleClientCommand(cmd, { saveOrigin, notify } = {}) {
     if (lower === 'n' || lower === 'no') { answerAutoWalkPrompt(false); return true; }
     answerAutoWalkPrompt(false);
   }
-  if (lower === 'music') { openMusicPlayerPanel(); return true; }
+  // `music boombox` is what a boombox's link in the room text sends; the player's the same either way
+  if (lower === 'music' || lower.startsWith('music ')) { openMusicPlayerPanel(); return true; }
   // `discord` — the invite, as a line in the log. Client-side for the same reason
   // `accessibility` is: it is a link to somewhere outside the game, so the server
   // has nothing to say about it and a round trip would only add a way to fail. The

@@ -1296,6 +1296,25 @@ an idling truck at a depot doesn't drain its tank while you read the board (the 
 durability system uses for wear). A full tank is ~1400 tiles: a bit under two crossings, so a
 one-way run never strands you but the return leg is a decision.
 
+### The lift in the shed *(2026-11-11)*
+
+Every depot's shed has a Room Stage (`flags.room`: 16 × 24 m, 7.5 m high, no window), and in its floor a lift
+down to the garage where the trucks are kept. `hoist <truck>` brings one of yours up; `hoist down` sends it
+back; `drive <id>` from beside it seats you, as the counter's Deploy does. On the Stage the lift has a panel
+(top right) with the same verbs, the truck comes up through the floor over nine seconds with beacons going,
+you walk round it once it's up, and **Climb into the …** comes up when you stand beside your own.
+
+- **RAM only** ([hoist.js](../plugins/trucking/hoist.js)). The row's `depot_zone` never changes: the lift is
+  a picture of where the truck already is. A restart puts everything back downstairs, and a truck left up
+  goes down on its own after half an hour. Driving it off empties the lift at once.
+- **One truck at a time per shed.** Anyone in the shed sees it; only its owner can send it down or climb in.
+- **The Stage reads it through `room.vehicles`**, a sync gather, and is told of a change by
+  `room.vehiclesChanged` (docs/server.md). The panel's list of your trucks is the hand the counter last
+  dealt you there (`noteHand`), so a hook on the Stage costs no query.
+- **The truck is GLASS's mesh** (`aircraftFaces('truck', …)` and `faceBaseRgb` with its paint), scaled to
+  3.9 m tall and drawn in the beasts batch ([room-hoist.js](../client/game/js/panels/room-hoist.js)). It
+  stands nose to the front wall, and its footprint is pushed into the layout's `solid` so you walk round it.
+
 ---
 
 ## The bench — condition, tuning, kits, paint *(2026-08-11)*
@@ -1518,7 +1537,7 @@ With the contacts finally reaching the glass, the boxes turned up **a seventh of
 the apron**. Two separate things, and the first is not the one it looks like.
 
 ⚠ **The exaggeration is per-VIEW, not per-object.** `CONTACT_SIZE.truck` is 0.030 and honest — from
-an aircraft a rig SHOULD be a detail on the road — and the hero model multiplies it by **7** through
+an aircraft a rig SHOULD be a detail on the road — and the hero model multiplies it by **9** (7 until 2026-11-12) through
 `ownExtMul`, because 0.030 of a tile is too small to frame against a four-lane road whose lane
 markings are metres across. That argument is about the **road**, so it is just as true of a trailer
 standing on it. Only the hero model got the multiplier, so a box parked beside your own cab drew at
@@ -3901,6 +3920,23 @@ the eye is above its eaves, the roof is not drawn and anything nearer than the t
 with it. ⚠ Both halves are needed: cutting only the roof leaves the back wall, and a wall occludes a
 truck exactly as well as a roof does.
 
+**The rig comes up on a lift.** *(2026-11-12.)* Every truck shed stands over a basement the size of the
+shed, where the yard keeps its stock, and a rig called out with `drive` rides up through a well in
+the floor on a scissor lift (`BAY_LIFT` in windshield.js). The server doesn't know: cab-view.js sees
+`fromBay` on the mount, holds the brakes, steps out to a close 3/4 shot over the well and hands the
+renderer `bayLift` (0 on the deck, 1 flush) for about six seconds, then gives back the seat and the
+chase camera you had. The throttle hurries it. While it runs the shed opens up as it does for the
+service bay, the well is cut out of the ground (gl/floor.js `uHole`), the rig stands `ownLiftZ()`
+below the floor, and the bollards at the well's corners flash amber. Flush, the platform is a
+chequer plate in the floor and none of the basement is drawn. ⚠ GLASS 2 only: the 2-D painter can't
+show a hole, so there the rig is simply on the plate.
+
+**On foot, the shed is a building.** A truck has never been stopped by these walls, but somebody
+walking the street is (freelook-view.js `solidAt` → `bayFootSolid`): the four walls and the roller
+door until it's up past your head. The door rolls up as you walk to it (`bayWalk`), the street view
+hands how far up it is to the renderer as `bayDoors`, so the door you see is the door that stops you,
+and the step in is taken just under it (`BAY_ENTER_AT`), into the yard's room.
+
 **The door measures the DOORWAY, not the tile.** `open` came off the distance to the tile centre,
 which is ~0 on the frame you mount — so the door was already up and you were already outdoors, in a
 building you never saw. It is the distance to the aperture now, with a tight sensor from inside
@@ -4921,8 +4957,10 @@ remaining plan:
   freight is a Coldwater-only rung. It is content, not code — a `loading_dock` flag on a street tile.
 - **A trailer you can steal.** Ownership is the one place trucking currently says no on grounds
   other than physics; an unattended box at a lawless yard arguably should not be safe.
-- **The hover rigs.** The four trucks draw from mesh files now, and every one has a 2076 body and cab on
-  sale at the bench (`rig edition`). Trailer bodies and retiring `buildTruck` are next, in
+- **The hover rigs.** The four trucks draw from mesh files now, and since 2026-11-12 the dealer sells
+  each one only in its 2076 body and cab, at the list price. The stock bodies are semi-retired: the hire
+  line and the driving school still run them, and an owner can swap back at the bench (`rig edition`).
+  Trailer bodies and retiring `buildTruck` are next, in
   [proposals/hover-rigs.md](proposals/hover-rigs.md).
 - **The Coldwater checkpoint recipe.** `flags.checkpoint_cfg` on the yard would search the DRIVER on
   foot, complementing the scale that weighs the trailer. It is a content recipe, not a build.

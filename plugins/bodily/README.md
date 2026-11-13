@@ -5,6 +5,8 @@
 The **stains and the digestion loads stay in the engine** (`server/engine/bodily.js` substrate); this plugin owns the verbs, the routines and the reactions.
 
 ## Commands
+**Needs are off by default** (`BODILY_NEEDS = false` in `index.js`): no urges, no accidents, no lost fart gamble; the verbs below are optional roleplay. There is no player toggle yet.
+
 **Relief:** `pee` / `urinate` / `piss` · `poop` / `defecate` / `shit` · `fart` · `flush` · `take shit` (scoop a fouled toilet) · `throw <filth> at <someone>`
 **Washing:** `shower` · `soap` / `scrub`
 

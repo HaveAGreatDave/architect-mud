@@ -1,7 +1,11 @@
 {
-  "description": "Bolted over what used to be the concierge desk. Handwritten unit listings cover every inch, half of them crossed out and re-listed at a worse price.",
+  "description": "Pinned to the panelling by the street door. Handwritten unit listings cover every inch, half of them crossed out and re-listed at a worse price.",
   "flags": {
-    "interactions": []
+    "interactions": [],
+    "spot": {
+      "along": 7.4,
+      "wall": "left"
+    }
   },
   "hp": null,
   "hp_max": null,

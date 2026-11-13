@@ -1,0 +1,18 @@
+{
+  "description": null,
+  "flags": {},
+  "id": "item_drink_surge",
+  "name": "can of Thirst Mutilator",
+  "tags": {
+    "consumable": true,
+    "description": "A green can that feels heavier than it should. The side says IT'S GOT ELECTROLYTES. The back says the same thing in smaller print, then lists them: electrolytes. A cartoon cornstalk on the front gives you a thumbs up.",
+    "hydrating": true,
+    "restore_stamina": 40,
+    "restore_thirst": 35,
+    "stackable": true,
+    "use_message": "You crack it open and drink. It's sweet, salty and faintly like lawn fertilizer. Your legs feel better straight away."
+  },
+  "type": "consumable",
+  "value": 6,
+  "weight": 350
+}

@@ -12,6 +12,15 @@ import { getItem } from '../../server/engine/items-cache.js';
 import { emit } from '../../server/engine/events.js';
 
 export default async function regress({ run, check, getPlayer }) {
+  // a collectable lighter is only a look for the hands' zippo (stands-hands.js lighterStyle): it needs a case and a trim
+  for (const id of ['item_zippo_chrome', 'item_zippo_black_gold']) {
+    const L = getItem(id)?.tags?.lighter;
+    check(`stands: ${id} is a lighter with a case and trim`, !!L && /^#[0-9a-f]{6}$/i.test(L.case) && /^#[0-9a-f]{6}$/i.test(L.trim), JSON.stringify(L));
+  }
+  // the 30-B cigarette box hands out every smoke it holds for nothing, into your hands
+  const smokes30b = getZoneFurniture('zone_solenne_apt_b').find((f) => f.id === 'furn_solenne_apt_b_smokes');
+  const menu = smokes30b?.flags?.vend_menu || [];
+  check('stands: the 30-B cigarette box is a free vend menu of smokes', menu.length >= 3 && menu.every((m) => m.price === 0 && heldAs(getItem(m.item) || {}) === 'smoke'), JSON.stringify(menu));
   for (const [id, sport] of [['zone_slush_stands', 'hockey'], ['zone_hughson_stands', 'baseball']]) {
     const s = standsOf(getZone(id));
     check(`stands: ${id} sells ${sport} seats`, s?.sport === sport && s.sections.length >= 3, JSON.stringify(s?.sections?.length));

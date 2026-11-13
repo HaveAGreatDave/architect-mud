@@ -1,0 +1,29 @@
+{
+  "description": "A walnut jukebox with its tubes lit red through blue. Most of the title strips have faded blank, and the coin slot takes a coin nobody has carried in years.",
+  "flags": {
+    "aliases": "juke,jukebox,records",
+    "look": {
+      "arche": "prop",
+      "dims": [
+        0.95,
+        0.62,
+        1.55
+      ],
+      "form": "jukebox"
+    },
+    "spot": {
+      "along": 3.3,
+      "wall": "front"
+    }
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_embassy_jukebox",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "jukebox",
+  "object_type": "decoration",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_residential_lobby"
+}

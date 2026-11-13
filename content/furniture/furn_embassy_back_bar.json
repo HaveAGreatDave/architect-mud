@@ -1,0 +1,31 @@
+{
+  "description": "Three mahogany arches over a smoked mirror, two lit shelves of bottles in each, and LOUNGE in brass along the top. A brass till sits at one end and a wireless at the other. The clock over the middle stopped at ten past nine.",
+  "flags": {
+    "aliases": "back bar,mirror,bottles,shelves,till,register,wireless,radio,clock",
+    "look": {
+      "arche": "surface",
+      "dims": [
+        5.4,
+        0.5,
+        3
+      ],
+      "dress": "saloon",
+      "form": "barwall",
+      "trade": "Lounge"
+    },
+    "spot": {
+      "along": -3.9,
+      "wall": "front"
+    }
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_embassy_back_bar",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "back bar",
+  "object_type": "fixture",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_residential_lobby"
+}

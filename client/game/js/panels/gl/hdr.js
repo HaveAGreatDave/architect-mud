@@ -283,6 +283,8 @@ export function createHDRLayer(gl) {
   // The temporal resolve (gl/taa.js) and what the layers after it draw into: the resolved colour
   // with a single-sample depth texture the multisampled depth is blitted into. See `split`.
   let taa = null, taaTried = false, post = null, splitDone = false;
+  // A copy of the scene's depth the lights can read (see `depthCopy`). Built on first use.
+  let soft = null;
 
   function dispose() {
     if (msFbo) gl.deleteFramebuffer(msFbo);
@@ -292,7 +294,8 @@ export function createHDRLayer(gl) {
       if (t) { gl.deleteFramebuffer(t.fbo); gl.deleteTexture(t.tex); }
     }
     if (post) { gl.deleteFramebuffer(post.fbo); gl.deleteTexture(post.depth); }
-    msFbo = msColor = msDepth = resolved = ldr = post = null; chain = []; W = H = 0;
+    if (soft) { gl.deleteFramebuffer(soft.fbo); gl.deleteTexture(soft.tex); }
+    msFbo = msColor = msDepth = resolved = ldr = post = soft = null; chain = []; W = H = 0;
   }
 
   function resize(w, h, cap = 4) {
@@ -402,6 +405,43 @@ export function createHDRLayer(gl) {
     gl.enable(gl.DEPTH_TEST);
     splitDone = true;
     return true;
+  }
+
+  // ── THE DEPTH THE LIGHTS READ (gl/sprites.js) ──────────────────────────────────────────────
+  //
+  // A glow is a flat disc facing the eye, so where it passes through a wall or a soffit the depth
+  // test cuts it on a hard line, and that line crawls as the camera moves: the shimmer under a
+  // marquee. The sprite shader fades a glow out as it nears the surface instead, which needs the
+  // scene's depth as a texture. The depth attached to the bound framebuffer can't be sampled while
+  // it's attached, so this blits a copy. Returns null when the target isn't bound.
+  function depthCopy() {
+    if (!bound) return null;
+    const src = splitDone && post ? post.fbo : msFbo;
+    if (!soft || soft.w !== W || soft.h !== H) {
+      if (soft) { gl.deleteFramebuffer(soft.fbo); gl.deleteTexture(soft.tex); soft = null; }
+      const tex = gl.createTexture();
+      gl.bindTexture(gl.TEXTURE_2D, tex);
+      gl.texStorage2D(gl.TEXTURE_2D, 1, gl.DEPTH_COMPONENT24, W, H);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+      gl.bindTexture(gl.TEXTURE_2D, null);
+      const fbo = gl.createFramebuffer();
+      gl.bindFramebuffer(gl.FRAMEBUFFER, fbo);
+      gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.DEPTH_ATTACHMENT, gl.TEXTURE_2D, tex, 0);
+      const ok = gl.checkFramebufferStatus(gl.FRAMEBUFFER) === gl.FRAMEBUFFER_COMPLETE;
+      gl.bindFramebuffer(gl.FRAMEBUFFER, src);
+      if (!ok) { gl.deleteFramebuffer(fbo); gl.deleteTexture(tex); return null; }
+      soft = { fbo, tex, w: W, h: H };
+    }
+    gl.bindFramebuffer(gl.READ_FRAMEBUFFER, src);
+    gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER, soft.fbo);
+    gl.blitFramebuffer(0, 0, W, H, 0, 0, W, H, gl.DEPTH_BUFFER_BIT, gl.NEAREST);
+    gl.bindFramebuffer(gl.READ_FRAMEBUFFER, null);
+    gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER, null);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, src);
+    return soft.tex;
   }
 
   const fullscreen = () => gl.drawArrays(gl.TRIANGLES, 0, 3);
@@ -560,7 +600,7 @@ export function createHDRLayer(gl) {
       overOnePct: +(over / (W * H) * 100).toFixed(2) };
   }
 
-  return { bind, split, composite, resolve, peak, dispose, get size() { return [W, H]; }, get samples() { return samples; },
+  return { bind, split, depthCopy, composite, resolve, peak, dispose, get size() { return [W, H]; }, get samples() { return samples; },
     // The framebuffer the scene is drawing into while bound, so a pass that has to rebind it after
     // drawing somewhere else can say so without asking the driver (see cloudvol.js). After a TAA
     // split that is the single-sample one the late layers draw into.

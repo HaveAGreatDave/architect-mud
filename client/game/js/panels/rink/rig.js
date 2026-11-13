@@ -169,10 +169,61 @@ function clearChest(p, T, pad) {
   const out = r < 0.05 ? b : f2;
   return V.add(p, V.add(V.mul(T.S, s2 - side), V.mul(T.F, out - fwd)));
 }
+// THE TOP HAND STAYS IN FRONT OF HIM. With the blade on the ice the knob is somewhere on a circle
+// round it, a stick's length off, at whatever height the glove is. Keeping the shaft's heading (the
+// first fit) put the knob behind him whenever the blade came in close: taking a pass, stickhandling
+// in tight, a back pass, a lift. Both gloves ended up in the small of his back, 10% of the time he
+// carried the puck. So the knob is chosen round that circle and up and down a little: as near the
+// pose's hand as it can be, within the arm's reach, outside the sweater, on the top hand's side,
+// and in front of his hips. A coarse ring, then refined, so the grip moves smoothly with the pose.
+// `T` is his torso (torsoOf); every cost is in feet squared.
+const GRIP_RING = 32;
+// (a blade lifted as high as a lift or a saucer takes it is fitted the same way; above that, a
+// wind-up's or a slash's, the hand goes straight along the shaft to the grip the action asks for)
+const GRIP_HIGH = 1.6;
+function gripCost(p, R0, shR, T, blade) {
+  const d = V.sub(p, T.pel), side = V.dot(d, T.S), fwd = V.dot(d, T.F);
+  let c = V.dot(V.sub(p, R0), V.sub(p, R0));
+  const r = V.len(V.sub(p, shR));
+  // ⚠ Out of reach is out. A grip past it has fitStick bring the blade in to the hand, and the sim
+  // carries the puck in the drawn blade's pocket (sim.js pocketOf), so a stretch here moves the puck.
+  if (r > ARM) c += 1e3 + 40 * (r - ARM) * (r - ARM);
+  // folded right up, the elbow juts out behind him
+  if (r < 0.95) c += 6 * (0.95 - r) * (0.95 - r);
+  const e = hyp(side / (CHEST.rs + 0.3), fwd / (CHEST.rf + 0.3));
+  if (e < 1) c += 30 * (1 - e) * (1 - e);
+  // behind his hips: the further in toward his spine, the worse
+  const inward = clamp(1.25 - Math.abs(side), 0, 1);
+  if (fwd < 0.15) c += (3 + 14 * inward) * (0.15 - fwd) * (0.15 - fwd);
+  // the top hand on its own side (his right: S points to his left)
+  if (side > -0.15) c += 3 * (side + 0.15) * (side + 0.15);
+  // and the shaft lying the way a stick lies, not stood up beside him like a flagpole
+  const rise = p[2] - blade[2] - 0.84 * STICK;
+  if (rise > 0) c += 5 * rise * rise;
+  return c;
+}
+function gripOnIce(R0, blade0, shR, T) {
+  const at = (a, z) => { const dz = z - blade0[2], h = Math.sqrt(Math.max(0.04, STICK * STICK - dz * dz)); return [blade0[0] + h * Math.cos(a), blade0[1] + h * Math.sin(a), z]; };
+  const a0 = Math.atan2(R0[1] - blade0[1], R0[0] - blade0[0]);
+  let best = Infinity, ba = a0, bz = R0[2];
+  for (const dz of [-0.9, -0.6, -0.3, 0, 0.3]) for (let i = 0; i < GRIP_RING; i++) {
+    const a = a0 + (i / GRIP_RING) * TAU, z = R0[2] + dz, c = gripCost(at(a, z), R0, shR, T, blade0);
+    if (c < best) { best = c; ba = a; bz = z; }
+  }
+  // refined by halving steps round the best, in angle and height together
+  let sa = TAU / GRIP_RING, sz = 0.15;
+  for (let it = 0; it < 6; it++) {
+    for (const [da, dz] of [[sa, 0], [-sa, 0], [0, sz], [0, -sz]]) {
+      const z = clamp(bz + dz, R0[2] - 1.0, R0[2] + 0.4), c = gripCost(at(ba + da, z), R0, shR, T, blade0);
+      if (c < best) { best = c; ba += da; bz = z; }
+    }
+    sa *= 0.5; sz *= 0.5;
+  }
+  return at(ba, bz);
+}
 function fitStick(R0, blade0, shR, shL, wantT, oneHand, T) {
-  // a stick's length from the blade: with the blade on the ice the hand keeps its height and the
-  // stick swings round the blade, so a blade in close sends the hands out to the side of him and
-  // not up to his chin; off the ice, straight along the shaft
+  // a stick's length from the blade: on the ice, the grip round the blade that keeps him whole
+  // (gripOnIce, as is a blade up to GRIP_HIGH); higher, straight along the shaft
   const onStick = (p) => {
     if (blade0[2] < 0.3) {
       const dz = p[2] - blade0[2], du = p[0] - blade0[0], dv = p[1] - blade0[1], k = Math.sqrt(Math.max(0.04, STICK * STICK - dz * dz)) / (hyp(du, dv) || 1);
@@ -181,7 +232,7 @@ function fitStick(R0, blade0, shR, shL, wantT, oneHand, T) {
     const b = V.sub(p, blade0);
     return V.add(blade0, V.mul(b, STICK / (V.len(b) || 1)));
   };
-  let hand = onStick(R0);
+  let hand = blade0[2] < GRIP_HIGH ? gripOnIce(R0, blade0, shR, T) : onStick(R0);
   // look for a grip that keeps the blade where it is, the hand within reach and out of his chest:
   // alternate between the constraints, which settles on a point they all allow whenever one exists
   for (let i = 0; i < 8; i++) {
@@ -216,6 +267,15 @@ function fitStick(R0, blade0, shR, shL, wantT, oneHand, T) {
     }
   }
   return { R: hand, blade, L, dir };
+}
+// A hand at chest or belly height kept off his back: straight behind him it comes round to his
+// front, and out at his side it may sit a little behind his hip, as an arm hangs. Above his head
+// (a celebration) or down by his knees it goes where it was sent.
+function handFront(p, T) {
+  const d = V.sub(p, T.pel), up = V.dot(d, T.U) / T.len;
+  if (up < -0.3 || up > 1.15) return p;
+  const side = V.dot(d, T.S), fwd = V.dot(d, T.F), most = lerp(-0.35, 0.3, clamp((1.2 - Math.abs(side)) / 0.5, 0, 1));
+  return fwd >= most ? p : V.add(p, V.mul(T.F, most - fwd));
 }
 // keep a hand within a fraction of full arm reach, so elbows stay bent
 const reach = (sh, h, frac) => { const d = V.sub(h, sh), l = V.len(d), max = 2.25 * frac; return l > max ? V.add(sh, V.mul(d, max / l)) : h; };
@@ -481,7 +541,10 @@ function standRig(s, T, feet) {
         bBlade = [clamp(pl[0] - pl[0] * k, 0.7, 3.9), clamp(pl[1] - pl[1] * k, -2.2, 2.2), 0.06];
       }
     }
-    let bR = [1.1 + 0.16 * stridePush, -0.4 + 0.16 * stridePush, zp + 0.95];
+    // (the top hand is out in front of his belt, which is where the belt is as he leans: at his
+    // hip once he's bent well over, not up by his chest)
+    const fT = [Math.cos(lean), 0, -Math.sin(lean)];
+    let bR = V.add(pelvis, [lsd[0] * 1.15 + fT[0] * 0.72 + 0.16 * stridePush, -0.4 + 0.16 * stridePush, lsd[2] * 1.15 + fT[2] * 0.72]);
     let bL = null;
     const fast = sp > 21 && !carrying ? true : (carrying && sp > 21 && !s.protect);
     if (s.defend && !carrying) {
@@ -491,7 +554,9 @@ function standRig(s, T, feet) {
     if (carrying && s.protect) { bR = [0.7, -s.protect * 0.25, zp + 0.55]; bL = [0.6, s.protect * 1.6, zp + 1.3]; }
     if (fast || (s.defend && !carrying)) {
       // one hand on the stick, the other arm swinging across the body with the stride
-      if (fast) bR = [0.95, -0.25, zp + 0.55];
+      // (the stick hand out ahead of him, the arm long, as far down his lean as his belt: held at
+      // his hip under a shoulder that far forward, the arm folded and the elbow stood out flat)
+      if (fast) bR = V.add(pelvis, [lsd[0] * 1.0 + fT[0] * 1.25, -0.35, lsd[2] * 1.0 + fT[2] * 1.25]);
       bL = [0.5 + 0.55 * stridePush, 0.95 - 0.6 * Math.max(0, stridePush), zp + 0.3 + 0.35 * Math.abs(stridePush)];
     }
     // (in a battle for it, the free hand is on the man)
@@ -633,11 +698,17 @@ function standRig(s, T, feet) {
       if (stickFit.oneHand) oneHanded = true;
       [R, L] = easeStick(s, T, R, L, blade, handRate, m);
     }
+    // A free hand is kept in front of him too (the top hand on a stick already is: gripOnIce). A
+    // hand sent to a man beside or behind him, a shove or a hold, went round his back to get there.
+    {
+      const Tb = torsoOf(rPel, rNeck, rShL, rShR);
+      if (!(blade && stickFit)) { L = handFront(L, Tb); R = handFront(R, Tb); } else if (oneHanded) L = handFront(L, Tb);
+    }
     // ⚠ AN ELBOW ONLY FOLDS ONE WAY. The pole sits behind him and turns with his shoulders: one
     // with any forward in it, or left facing up the ice while he winds up, puts the elbow in
     // front of the arm whenever a hand drops behind the shoulder, and the forearm bends back.
-    [rElL, rHL] = ik(rShL, L, 1.12, 1.05, roll(rotZ([-0.45, 0.85, -0.9], twist), tilt));
-    [rElR, rHR] = ik(rShR, R, 1.12, 1.05, roll(rotZ([-0.45, -0.85, -0.9], twist), tilt));
+    [rElL, rHL] = ik(rShL, L, 1.12, 1.05, roll(rotZ([-0.5, 0.6, -0.95], twist), tilt));
+    [rElR, rHR] = ik(rShR, R, 1.12, 1.05, roll(rotZ([-0.5, -0.6, -0.95], twist), tilt));
   }
 
   // ── legs: the blended stride, then whatever the action wants of them ─────

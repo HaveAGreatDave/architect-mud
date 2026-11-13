@@ -811,12 +811,14 @@ anywhere, and we never ship a count of who is in a building — which would be a
 on any premises in the city, from a street away, and is SPECTER's job
 ([systems-surveillance.md](../systems-surveillance.md)).
 
-**⚠ The token is a correlator, not an identity.** NPCs move on a 15 s tick, one whole tile per
-step, so the raw feed teleports; the client interpolates that into a walk, and to do it at all it
-must know the figure at A is the figure at B. Ship the npc id and you have instead built a live
-position tracker on every named NPC in the city, readable with no camera and no skill check. `t` is
-a truncated hash under a boot-minted salt — stable within a session, meaningless across a restart,
-and it never resolves back to a name. Regress asserts no token is ever an entity id.
+**⚠ The token is the person's look, and that's a tracker on purpose.** NPCs move on a 15 s tick,
+one whole tile per step, so the raw feed teleports; the client interpolates that into a walk, and to
+do it it must know the figure at A is the figure at B. `t` is the FNV-1a hash of the id in base 36,
+the seed the Room Stage and the TV dress a person from, so somebody you saw on the news walks down
+the street in the same clothes ([street-people-ladder.md](../proposals/street-people-ladder.md)).
+Until 2026-11-12 it was salted per boot so no figure could be followed back to a name; David chose
+recognition over that. The id itself still never goes on the wire, and regress asserts no token is
+an entity id, but anyone who hashes a name can find that person from the air.
 
 **⚠ A pedestrian is drawn and is never geometry.** Nothing in this layer reaches
 `groundObstructionAt`, the CFIT sweep or `SHAPE_SINK`, and it must stay that way: the trucking model
@@ -881,11 +883,12 @@ the birds.
 - **Motion.** A walker's gait phase is the distance covered over the stride, so the feet match the
   ground at any pace. Walkers turn toward the way they're going at 4 rad/s, and starting or
   stopping blends walk and idle over 350 ms. The hitcher plays the wave and faces the camera.
-- **Outfits come from the token, never the NPC.** Coat, trousers, skin, hair and shoes are picked
-  by weight from `ACTOR_OUTFITS` off `actorHash(t, …)`. Dressing a figure in the NPC's real clothes
-  would make the coat an identity you could read from a street away, which is the tracker the
-  opaque token exists to prevent. With an outfit, the billboard's tone bucket comes from the coat's
-  lightness, so a figure keeps its brightness across the LOD switch.
+- **Outfits are the person's own.** `streetLook` (gl/room-people.js) dresses a figure from the
+  close-up look the Room Stage and the TV draw the same person in: the token is their id's hash, `s`
+  says she's a woman and `g` carries a settled look (an NPC's `flags.figure`, a player's MORPHEX
+  figure). Coat, trousers, skin, hair, shoes, cut and face all come from it, in the crowd's sRGB.
+  The billboard's tone bucket comes from the coat's lightness, so a figure keeps its brightness
+  across the LOD switch. Before 2026-11-12 outfits came off an anonymous token by `actorOutfit`.
 - **Seams, grime and the fuller light.** The fragment shader in `gl/actors.js` paints coat seams,
   pockets and buttons, the odd check or stripe, knee wear, hem grime and boot soles, all hung on
   the rest shape (`aRest`, the idle clip's first frame) so they ride the cloth. Its light is a
@@ -1179,11 +1182,25 @@ panel nobody plays on.
 ## Ships that work the quay — the berth (as built)
 
 `flags.berth` on a water tile beside a quay. `deriveSurfaceCell` turns it into `mark: 'berth'`,
-and `drawFreighter` (windshield.js) brings a coaster up the fairway, lies her against the wall
-while the gantries load her, and sends her off again. Three hulls take it in turn, so the basin
-reads as a small fleet rather than one ship on a loop — which is the whole of what "two or three
-of them, out of view" needs to be, because the only place any of them is ever visible is the
-berth and the water either side of it.
+and `drawFreighter` (windshield.js) brings a coaster in from 60 tiles out, lies her against the
+wall while the gantries load her, and sends her off again. Three hulls take it in turn, so the
+basin reads as a small fleet rather than one ship on a loop.
+
+She comes in bow first down a lane off the quay, swings through a half circle toward the quay
+(her heading is the tangent of her track, and she heels a little to the outside), stops, and
+backs the last 6.5 tiles astern onto the fenders, so she lies bow up the fairway as the stow and
+the cranes expect. She leaves ahead, straight up the fairway. A call is ten minutes, about four
+of them with the berth empty; the loading window is still 80 seconds. The programme is
+`SHIP_SECS`, and `SHIP_PLAN` turns it into cycle fractions for `berthPhase` and the gates
+(`scripts/shapes/moving.mjs` checks the manoeuvre, `worldresidue.mjs` pins her mid-load). Her
+track is sized to Basin Quay: open water five rows north and a dozen columns east of 911,902.
+She fades at the end of her track and against the city's own far haze.
+
+Her look is a modern feeder: an inverted bow, an accent sheer line and plate-to-plate tone on
+the topsides, a glazed deckhouse with a raked bridge and a swept fin stack, and after dark lit
+cabin windows, a dim bridge and a light strip along the deck edge in her accent colour. A face
+can name the centre of the solid it belongs to (`o`), so the front of a deckhouse aft of her
+middle and the ends of a container light the right way round.
 
 Authored on one tile: Basin Quay, 911,902, `{ "fair": "north", "quay": "west" }`.
 

@@ -67,6 +67,13 @@ const send = (res, code, body, type = 'application/json') => {
   res.end(body);
 };
 const json = (res, code, obj) => send(res, code, JSON.stringify(obj));
+const LOCAL_HOSTS = new Set(['localhost', '127.0.0.1', '[::1]']);
+function foreignOrigin(req) {
+  if (req.headers['sec-fetch-site'] === 'cross-site') return true;
+  const o = req.headers.origin;
+  if (!o || o === 'null') return !!o;
+  try { return !LOCAL_HOSTS.has(new URL(o).hostname); } catch { return true; }
+}
 const readBody = (req) => new Promise((resolve, reject) => {
   let b = ''; req.on('data', (c) => (b += c)); req.on('end', () => resolve(b)); req.on('error', reject);
 });
@@ -1232,6 +1239,9 @@ const server = createServer(async (req, res) => {
   try {
     const url = new URL(req.url, `http://localhost:${PORT}`);
     const path = url.pathname;
+    // A write from another site's page (a no-cors text/plain POST needs no
+    // preflight) would rewrite content/ under the dev's nose.
+    if (req.method !== 'GET' && req.method !== 'HEAD' && foreignOrigin(req)) return json(res, 403, { error: 'cross-origin write refused' });
 
     if (req.method === 'GET' && (path === '/' || path === '/index.html')) {
       return send(res, 200, await readFile(join(HERE, 'index.html')), 'text/html; charset=utf-8');
@@ -1635,7 +1645,9 @@ const server = createServer(async (req, res) => {
   }
 });
 
-server.listen(PORT, () => {
+// Loopback only: the Studio writes content/ with no login. STUDIO_HOST=0.0.0.0
+// opens it to the LAN on purpose.
+server.listen(PORT, process.env.STUDIO_HOST || '127.0.0.1', () => {
   console.log(`Studio → http://localhost:${PORT}`);
   console.log(`Editing files under ${CONTENT_DIR} — no database in this process.`);
 });

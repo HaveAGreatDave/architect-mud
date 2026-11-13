@@ -54,6 +54,7 @@
 //
 // Pure, like the rest of the interior: no clock, no camera, no DOM, apart from the eased switch
 // throw that interior-cockpit-kit.js keeps for every cockpit. `live` arrives as an argument.
+import { nightAt } from './sky-keys.js';
 import { makeKit, C, clamp, lerp, pedal, SHINY, PANE, TEXTURE } from './interior-kit.js';
 import { eased, pressPulse, hotspotHalo, contactShadow, panelGps, gpsHotspot, lensLamp } from './interior-cockpit-kit.js';
 import { MESH_ROWS } from './vehicle-meshes.js';
@@ -641,7 +642,7 @@ export function viperFit(P, live, push) {
   const armed = !!(L.armed || L.weaponsArmed || L.gunsArmed);
   const missiles = clamp(Math.round(num(L.missiles, 16)), 0, 16);
   const hour = num(L.hour, 12);
-  const night = hour < 6.5 || hour > 19.5 ? 1 : (hour < 7.5 ? 7.5 - hour : hour > 18.5 ? hour - 18.5 : 0);
+  const night = nightAt(hour) ? 1 : (hour < 7.5 ? 7.5 - hour : hour > 18.5 ? hour - 18.5 : 0);
   // The edge-lit lettering is the PANEL switch (cockpit.js 'ck:panel'); a view that sends no switch
   // state, a seat shot, lights it after dark.
   const panelOn = powered && (L.panelLight != null ? !!L.panelLight : night > 0.5);

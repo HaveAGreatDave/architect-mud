@@ -1422,6 +1422,17 @@ export async function enemyAttackPlayer(enemy, player) {
     player._resDirty = true;
   }
 
+  // `flags.on_hit_status` ({ effect: chance }) leaves a player effect behind a
+  // landed blow: acid that keeps eating, spores in the eyes, a dirty bite. It
+  // reuses the weapon reader, minus `stunned`: a mob never takes your turn.
+  let statusTag = '';
+  const onHit = enemy.flags?.on_hit_status;
+  if (onHit && typeof onHit === 'object') {
+    const { stunned: _s, ...table } = onHit;
+    const got = rollWeaponStatus({ status_chance: table }, player, null);
+    if (got) statusTag = ` <span class="dmg-type">(${String(got).replace(/_/g, ' ')})</span>`;
+  }
+
   const part = impacts[0].part;
   const partLabel = impacts.length > 1
     ? impacts.map(i => partLabelOf(i.part)).filter((v, i, a) => a.indexOf(v) === i).join(' and ')
@@ -1439,8 +1450,8 @@ export async function enemyAttackPlayer(enemy, player) {
     damage,
     critical,
     message: critical
-      ? `${cry}<span class="crit-tag-in">CRITICAL!</span> ${enemy.name} hits your <span class="hit-part">${partLabel}</span> for <span class="dmg-taken">${damage}</span> <span class="dmg-type">${damageTypes}</span>!${dodged ? DODGE_BROKEN : ''}${radTag}${selfHp}`
-      : `${cry}${enemy.name} hits your <span class="hit-part">${partLabel}</span> for <span class="dmg-taken">${damage}</span> <span class="dmg-type">${damageTypes}</span>.${dodged ? DODGE_BROKEN : ''}${radTag}${selfHp}${swingLines(swing)}`,
+      ? `${cry}<span class="crit-tag-in">CRITICAL!</span> ${enemy.name} hits your <span class="hit-part">${partLabel}</span> for <span class="dmg-taken">${damage}</span> <span class="dmg-type">${damageTypes}</span>!${dodged ? DODGE_BROKEN : ''}${radTag}${statusTag}${selfHp}`
+      : `${cry}${enemy.name} hits your <span class="hit-part">${partLabel}</span> for <span class="dmg-taken">${damage}</span> <span class="dmg-type">${damageTypes}</span>.${dodged ? DODGE_BROKEN : ''}${radTag}${statusTag}${selfHp}${swingLines(swing)}`,
   };
 }
 

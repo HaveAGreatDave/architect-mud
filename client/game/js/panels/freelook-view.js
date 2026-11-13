@@ -25,13 +25,14 @@
 // downloads and parses the whole 3-D stack before they can type `look`. The facade has the same
 // export names, so nothing below this line changed; what changed is that the bytes arrive when the
 // seat is opened. See scripts/client/bake-lazy-view.mjs.
-import { loadWindshield, isLoaded as windshieldLoaded, paintWindshield, windshieldHTML, ensureWindshieldStyles, disposeWindshield, normalizeWx, navMarks, raptorsNow, yachtScopeMount, yachtDeckEye, modelTopZAt, curtainTopZAt, groundObstructionAt, ROAD_RIG_MUL } from './windshield-lazy.js';
+import { loadWindshield, isLoaded as windshieldLoaded, paintWindshield, windshieldHTML, ensureWindshieldStyles, disposeWindshield, normalizeWx, navMarks, raptorsNow, yachtScopeMount, yachtDeckEye, modelTopZAt, curtainTopZAt, groundObstructionAt, bayFootSolid, bayDims, ROAD_RIG_MUL } from './windshield-lazy.js';
 export { loadWindshield };
 import { createFreeCam, freeCamHint, freeCamTouchUI, bindFreeCamPointer, bindFreeCamIdle } from './freecam.js';
 import { makeContactTrack } from './world-feed.js';
 import { internMap } from './map-intern.js';
 import { seatLadderHTML, bindSeatLadder, releaseSeatLadder, keepSeatRung } from './seat-ladder.js';
 import { claimSeatKeyboard, endSeatKeyboard } from './seat-keys.js';
+import { setSprayStage, clearSprayStage } from './spray-aim.js';
 import { floorZAt } from './seabed-scene.js';
 import { interiorRoomsOf } from './room-interiors.js';
 import { noteDoor, noteCarry } from './lobby-still.js';
@@ -237,13 +238,18 @@ export function parkFreelook() {
   if (s.mount) s.mount.innerHTML = '';
   s.mount = s.holder;
   s.foot.pending = null;
-  // no room came for the pane: give the page back, and the view goes
-  setTimeout(() => {
+  // ⚠ THE BLACK HOLDS UNTIL THE ROOM IS IN. The Stage loads lazily and can take well over 3 s on a cold cache or a
+  // phone, and lifting the cover then showed the street again before the lobby came. So it waits for the room
+  // (room-stage.js arrive fades it) and gives the page back only if nothing has come in 20 s.
+  const t0 = performance.now();
+  const wait = () => {
     if (document.getElementById('room-stage')) return;
+    if (performance.now() - t0 < 20000) { setTimeout(wait, 250); return; }
     releaseSeatLadder();
     uncoverPane();
     if (st === s && s.warm) closeFreelook();
-  }, 3000);
+  };
+  setTimeout(wait, 250);
 }
 // ⚠ AT THE DOOR, NOT AT THE ANSWER. The step through a door is sent the moment the eye crosses into the
 // building's tile, and the server's answer takes a round trip; walking on in that time put the camera inside the
@@ -275,7 +281,7 @@ function coverPane(s) {
     // black when it's drawn (room-stage.js arrive). The doors stay plain glass from outside; no picture of the lobby.
     const dark = document.createElement('div');
     dark.className = 'fl-cover'; dark.setAttribute('aria-hidden', 'true');
-    Object.assign(dark.style, { position: 'fixed', left: r.left + 'px', top: r.top + 'px', width: r.width + 'px', height: r.height + 'px', zIndex: '9001', pointerEvents: 'none', background: '#000', opacity: '0', transition: `opacity ${FADE_MS}ms ease-in`, display: 'flex', alignItems: 'center', justifyContent: 'center' });
+    Object.assign(dark.style, { position: 'fixed', left: r.left + 'px', top: r.top + 'px', width: r.width + 'px', height: r.height + 'px', zIndex: '9001', pointerEvents: 'none', background: 'var(--bg, #000)', opacity: '0', transition: `opacity ${FADE_MS}ms ease-in`, display: 'flex', alignItems: 'center', justifyContent: 'center' });
     dark.dataset.t = String(performance.now() + FADE_MS);
     dark.innerHTML = '<div class="fl-loading"></div>';
     document.body.appendChild(dark);
@@ -473,7 +479,7 @@ export function openFreelook(ctx = {}) {
     // A phone gets the touch line, which has no keys in it to replace.
     if (freeCamTouchUI()) { hintEl.textContent = freeCamHint(freeCam.standing); return; }
     // on foot out of a building, the room's own line (room-stage.js), less what the street doesn't have
-    if (stand?.foot) { hintEl.textContent = 'WASD to walk, Shift to run, C to crouch · drag to look, Q and E to turn · wheel zooms · F at a door goes in · O or ✕ steps back'; return; }
+    if (stand?.foot) { hintEl.textContent = 'WASD to walk, Shift to run, C to crouch · drag to look, Q and E to turn · wheel zooms · F at a door goes in · G tags the wall you face · O or ✕ steps back'; return; }
     hintEl.textContent = (freeCam.standing
       ? freeCamHint(true).replace('O steps back', stand ? 'O or ✕ steps back' : 'O or ✕ closes')
       : freeCamHint(false).replace('O exit', 'H follow raptor · O close'));
@@ -536,7 +542,7 @@ export function openFreelook(ctx = {}) {
       }
 
       paintWindshield(st.id, {
-        external: true, hideOwnShip: true, phase: 'cruise', worldBlend: 1,
+        external: true, hideOwnShip: true, phase: 'cruise', worldBlend: 1, deckOverhead: true,   // the weather stays over a climbing camera (DECK_FLOOR)
         heading: 0, height: 0, speed: 0,
         hour, moon, weather, wxField: st.field, wxGround: st.ground, event: st.event,
         map: st.map, skyline: st.skyline, mapCenter: { x: st.gx, y: st.gy }, mapOffset: { x: 0, y: 0 },
@@ -548,6 +554,7 @@ export function openFreelook(ctx = {}) {
         // flying away from it is the renderer's business (freeCam), exactly as for the helm.
         contacts: st.contacts.size ? st.contacts.frame(st.gx, st.gy, { roadRig: ROAD_RIG_MUL }) : null,
         roads: st.roads, regions: st.regions,
+        bayDoors: st.foot ? bayWalk(st, now, dt) : null,   // a depot's roller door, up for you as you walk to it
         streetDoors: st.foot ? doorLeaves(st, now, dt) : null,
         // the rooms of the buildings near you, drawn in the city (gl/interiors.js); null off foot
         interiorRooms: st.foot && st.interiors?.length ? st.interiors : null,
@@ -581,6 +588,8 @@ export function openFreelook(ctx = {}) {
       if (!down) { freeCam.onKey(k, false); st.foot?.spin.delete(k); }
       return;
     }
+    // the spray can's dialog is over the street: a press is the dialog's (a release still lets go here)
+    if (down && document.getElementById('spray-overlay')) return;
     // ⚠ O CLOSES THE VIEW, NOT THE CAMERA. In a seat the camera goes back on its mount and the
     // vehicle is still there; here there is nothing to go back to, so the same key has to mean the
     // same thing to the player — "put this away" — and what it puts away is the whole view.
@@ -668,10 +677,10 @@ export function openFreelook(ctx = {}) {
     }
   }
   let flashT = null;
-  function flash(msg) {
+  function flash(msg, ms = 2500) {
     hintEl.textContent = msg;
     clearTimeout(flashT);
-    flashT = setTimeout(paintHint, 2500);
+    flashT = setTimeout(paintHint, ms);
   }
   // ⚠ AND ALT-TAB IS THE ONE THE LENIENCY ABOVE CANNOT CATCH. The keyup for whatever was held goes
   // to whatever you switched to and this window never hears it at all, so there is no release to be
@@ -750,6 +759,7 @@ export function openFreelook(ctx = {}) {
     ladderBound = true;
     bindSeatLadder(root);
     claimSeatKeyboard(root, { label: self.foot ? 'STREET' : stand ? 'VIEW' : 'CAMERA' });
+    if (self.foot) setSprayStage(FOOT_SPRAY);
     self.last = performance.now();
     if (!self.raf) self.raf = requestAnimationFrame(frame);
   };
@@ -757,6 +767,7 @@ export function openFreelook(ctx = {}) {
 
   st.teardown = () => {
     if (!self.woke) return;
+    clearSprayStage(FOOT_SPRAY);
     endSeatKeyboard(root);
     window.removeEventListener('keydown', onKey);
     window.removeEventListener('keyup', onKey);
@@ -840,8 +851,9 @@ function standSpot(s, now) {
 // 'freelook_step' says where you are. No answer in 1.8 s means it wouldn't let you: you're put back
 // just inside the tile you're on. Walking into a building's tile is walking in: the engine passes you
 // through its facade, and the Room Stage or the room text takes the pane.
-const FOOT_WAIT_MS = 1800, DOOR_ENTER_AT = 0.11;
+const FOOT_WAIT_MS = 8000, DOOR_ENTER_AT = 0.11;
 function watchFoot(s, now, flash) {
+  s.flash = flash;   // freelookStep's refusal reason
   const f = s.foot, fv = s.freeCam.view();
   if (!fv || s.inside) return;   // inside, a doorway sends the move (insideBlock)
   const ax = s.gx + fv.x, ay = s.gy + fv.y, cx = Math.round(ax), cy = Math.round(ay), T = f.tile;
@@ -867,11 +879,12 @@ function watchFoot(s, now, flash) {
     const g = doorway(s, d);
     if (!g) continue;
     const off = (ax - d.gx) * E[0] + (ay - d.gy) * E[1] - g.plane, along = E[0] ? ay - d.gy : ax - d.gx;
-    if (off > DOOR_ENTER_AT || off < -0.3 || Math.abs(along) > g.half) continue;
+    const mark = g.bay ? BAY_ENTER_AT : DOOR_ENTER_AT;
+    if (off > mark || off < -0.3 || Math.abs(along) > g.half) continue;
     if ((g.leaves || !d.slide) && (d.open || 0) < 0.65) continue;   // shut: it holds you, as footBlock does
     // a slow frame can carry the eye well past the mark in one step; the cover's frame is taken from the mark itself,
     // and nobody sees the eye go back, since the cover is over it from here on
-    if (off < DOOR_ENTER_AT) s.freeCam.rebase(E[0] * (DOOR_ENTER_AT - off), E[1] * (DOOR_ENTER_AT - off));
+    if (off < mark) s.freeCam.rebase(E[0] * (mark - off), E[1] * (mark - off));
     f.back = inside(T.gx, T.gy);
     f.pending = { t: now, back: f.back };
     noteDoor(d); enterCover(s);
@@ -916,10 +929,25 @@ function footKey(s, e, k, down) {
     return true;
   }
   if (k === 'f' && !e.ctrlKey && !e.metaKey) { if (down && !e.repeat) footDoor(s); return true; }
+  // G opens the can on the building you're facing (plugins/graffiti `spraycan <dir>`; the server says what's there and
+  // whether you've a can), and the dialog's SPRAY IT then runs the spray session over the street (spray-aim.js)
+  if (k === 'g' && !e.ctrlKey && !e.metaKey && !e.altKey) { if (down && !e.repeat) footCan(s); return true; }
   if ((k === 'q' || k === 'e') && !e.ctrlKey && !e.metaKey) { if (down) f.spin.add(k); else f.spin.delete(k); return true; }
   if (FOOT_KEYS.has(k)) return cam.onKey(k, down);
   return false;
 }
+// The compass point you're facing, off the camera's yaw (0 north, growing clockwise: freecam.js), and the can opened
+// on that wall.
+const FACING = ['north', 'east', 'south', 'west'];
+function footCan(s) {
+  const v = s.freeCam.view();
+  const dir = v ? FACING[Math.round((((v.yaw % 360) + 360) % 360) / 90) % 4] : '';
+  s.foot.onMove(`spraycan ${dir}`.trim());
+}
+// What the spray session needs of the street: a name for the wall, and brick for its close-up. Where on the facade the
+// paint goes is GLASS's to solve (windshield.js drawWallTags), so there's no aim and no live paint: the window is sent
+// again when the tag's up (plugins/freelook), and the wall has it.
+const FOOT_SPRAY = Object.freeze({ label: 'the street', ground: 'brick' });
 function footTurn(s, dt) {
   const sp = s.foot.spin, turn = (sp.has('e') ? 1 : 0) - (sp.has('q') ? 1 : 0), v = turn ? s.freeCam.view() : null;
   if (v) s.freeCam.aimAt(v.yaw + turn * FOOT_TURN * dt, v.pitch);
@@ -990,7 +1018,11 @@ const doorAt = (s, wx, wy) => s.foot.doors.find((d) => d.gx === wx && d.gy === w
 function solidAt(s, ax, ay, z) {
   for (const [ox, oy] of [[0, 0], [FOOT_BODY, 0], [-FOOT_BODY, 0], [0, FOOT_BODY], [0, -FOOT_BODY]]) {
     const px = ax + ox, py = ay + oy, wx = Math.round(px), wy = Math.round(py), c = cellOf(s, wx, wy);
-    if (c && groundObstructionAt(wx, wy, c, px, py, z, FOOT_STEP) > 0) return true;
+    if (!c) continue;
+    // a depot's shed: its walls, and its roller door until it's up (bayWalk). A truck's rule for the shed (the
+    // doorway only, opening for whatever comes at it) isn't a walker's.
+    if (c.mark === 'bay') { if (bayFootSolid(wx, wy, c, px, py, z, s.foot?.bays?.get(`${wx},${wy}`)?.open || 0)) return true; continue; }
+    if (groundObstructionAt(wx, wy, c, px, py, z, FOOT_STEP) > 0) return true;
   }
   return false;
 }
@@ -1000,6 +1032,12 @@ function doorway(s, d) {
   const c = cellOf(s, d.gx, d.gy), E = EDGE_VEC[d.edge];
   if (!c || !E || !windshieldLoaded()) return null;   // (not kept: the window or the renderer isn't in yet)
   const at = (lx, ly) => [d.gx + lx * E[1] + ly * E[0], d.gy - lx * E[0] + ly * E[1]];
+  // a depot's shed has no mass to read (it's a mark, drawn by drawVehicleBay): its doorway is the roller door's
+  // opening, in the shed's own front wall, and the door is bayWalk's
+  if (c.mark === 'bay') {
+    const D = bayDims(c);
+    return (d.g = { E, at, wall: D.HL, plane: D.HL, half: D.DOOR_W, top: D.DOOR_H, leaves: false, bay: true });
+  }
   const hit = (lx, ly, z) => { const [px, py] = at(lx, ly); return groundObstructionAt(d.gx, d.gy, c, px, py, z, 0) > 0; };
   const wide = Math.max(0.05, (d.w || 2) * METRE / 2);
   let wall = null;
@@ -1131,7 +1169,7 @@ function doorLeaves(s, now, dt) {
   for (const d of f.doors) {
     if (Math.abs(d.gx - ax) > 6 || Math.abs(d.gy - ay) > 6) continue;
     const g = doorway(s, d);
-    if (!g) continue;
+    if (!g || g.bay) continue;   // a depot's roller door is bayWalk's, and the shed draws it
     const [px, py] = g.at(0, g.wall);
     const near = Math.hypot(px - ax, py - ay) < DOOR_NEAR + (0.5 - g.wall);
     // only automatic glass doors (`slide`, flags.room.street_door) part as you come up; a plain door waits for F (footDoor)
@@ -1141,9 +1179,46 @@ function doorLeaves(s, now, dt) {
     d.open = Math.abs(want - k) <= step ? want : k + Math.sign(want - k) * step;
     // the glass is drawn only for a building that has it; any other door is the arm's own (the Cherry Pit's bars)
     // and behind any door, the lobby as it was last seen from it (lobby-still.js), so the street looks into it
-    const glass = !!(g.leaves && d.slide), card = null;
-    if (glass || card) out.push({ x: d.gx, y: d.gy, E: g.E, plane: g.plane, wall: g.wall, half: g.half, top: g.top, open: d.open * d.open * (3 - 2 * d.open), glass, card, look: d.look || null });
+    // a plain door (not automatic glass) is drawn here too, as one barred leaf that swings in when F opens it, over
+    // whatever the arm baked into its doorway (glass/street-doors.js barredLeaf)
+    const glass = !!(g.leaves && d.slide), card = null, bars = !!(g.leaves && !d.slide);
+    if (glass || card || bars) out.push({ x: d.gx, y: d.gy, E: g.E, plane: g.plane, wall: g.wall, half: g.half, top: g.top, open: d.open * d.open * (3 - 2 * d.open), glass, card, look: d.look || null, ...(d.swing ? { swing: true } : {}), ...(bars ? { bars: true } : {}) });
   }
+  return out.length ? out : null;
+}
+
+// ── ON FOOT: A DEPOT'S ROLLER DOOR ───────────────────────────────────────────
+// A shed's door (windshield.js drawVehicleBay) goes up for somebody walking to it, as it does for a truck rolling at
+// it, at a walker's distances: it starts up as you come within BAY_WALK_NEAR of the opening, and comes down a beat
+// after you've gone. A roller is slower than a glass pair, so a brisk walk meets it still rising, and it holds you
+// (bayFootSolid) until its bottom edge is over your head. How far up each one is goes to the renderer as
+// `bayDoors`, so the door you see is the door that stops you, and onto the building's door record (`d.open`), so the
+// step in (watchFoot) waits for it too. Every shed round you, whether or not it has a Stage behind it.
+const BAY_WALK_NEAR = 5 * METRE, BAY_UP_S = 1.4, BAY_DOWN_S = 2.2, BAY_HOLD_MS = 1500;
+const BAY_ENTER_AT = -0.03;   // the step in is taken just under the door, inside the threshold, not out on the apron
+function bayWalk(s, now, dt) {
+  const f = s.foot, fv = s.freeCam.view();
+  if (!f || !fv || !s.map || !windshieldLoaded()) return null;
+  const ax = s.gx + fv.x, ay = s.gy + fv.y, cx = Math.round(ax), cy = Math.round(ay);
+  const bays = f.bays || (f.bays = new Map()), out = [];
+  for (const [k, b] of bays) if (now - b.seen > 1000) bays.delete(k);   // a shed you've walked away from
+  for (let wy = cy - 3; wy <= cy + 3; wy++) for (let wx = cx - 3; wx <= cx + 3; wx++) {
+    const c = cellOf(s, wx, wy);
+    if (c?.mark !== 'bay') continue;
+    const key = `${wx},${wy}`, D = bayDims(c), E = EDGE_VEC[c.ent] || EDGE_VEC.south;
+    // the walker in the shed's own frame: x along its front, y out through the door
+    const ox = ax - wx, oy = ay - wy, lx = ox * E[1] - oy * E[0], ly = ox * E[0] + oy * E[1];
+    const inside = Math.abs(lx) < D.HW && Math.abs(ly) < D.HL;
+    const near = inside || (ly > D.HL - 0.05 && Math.hypot(Math.max(0, Math.abs(lx) - D.DOOR_W), ly - D.HL) < BAY_WALK_NEAR);
+    let b = bays.get(key);
+    if (!b) bays.set(key, (b = { open: near ? 1 : 0, hold: 0 }));   // come out of it, it's up behind you
+    b.seen = now;
+    if (near) b.hold = Math.max(b.hold, now + BAY_HOLD_MS);
+    const want = b.hold > now ? 1 : 0, step = dt / (want > b.open ? BAY_UP_S : BAY_DOWN_S);
+    b.open = Math.abs(want - b.open) <= step ? want : b.open + Math.sign(want - b.open) * step;
+    out.push({ x: wx, y: wy, open: b.open });
+  }
+  for (const d of f.doors) { const b = bays.get(`${d.gx},${d.gy}`); if (b) d.open = b.open; }
   return out.length ? out : null;
 }
 
@@ -1162,10 +1237,23 @@ function footDoor(s) {
     const [px, py] = g.at(0, g.wall);
     if (Math.hypot(px - ax, py - ay) > DOOR_NEAR + (0.5 - g.wall)) continue;
     const now = performance.now();
-    d.hold = now + DOOR_HOLD_MS; d.open = 1;
-    f.pending = { t: now, back: [ax, ay] };
-    noteDoor(d); enterCover(s);
-    f.onMove(`footstep ${d.gx} ${d.gy}`);
+    // a plain door (the Cherry Pit's bars) swings open first, and only then does the street go dark; an automatic
+    // glass pair is already apart by the time you're close enough to press F
+    // (a depot's roller door goes up at its own pace, bayWalk's, and you go in under it once it's up)
+    const bay = g.bay ? f.bays?.get(`${d.gx},${d.gy}`) : null;
+    if (g.bay && !bay) return;
+    const wait = d.slide ? 0 : Math.round((bay ? BAY_UP_S : DOOR_OPEN_S) * 1000 * (1 - (d.open || 0)));
+    if (bay) bay.hold = now + wait + BAY_HOLD_MS;
+    else d.hold = now + wait + DOOR_HOLD_MS;
+    if (d.slide) d.open = 1;
+    f.pending = { t: now + wait, back: [ax, ay] };
+    const go = () => {
+      if (st !== s || f.pending?.back?.[0] !== ax) return;
+      f.pending.t = performance.now();
+      noteDoor(d); enterCover(s);
+      f.onMove(`footstep ${d.gx} ${d.gy}`);
+    };
+    if (wait) setTimeout(go, wait); else go();
     return;
   }
 }
@@ -1180,6 +1268,8 @@ export function freelookStep(msg) {
   f.tile = { gx: msg.gx, gy: msg.gy };
   f.pending = null;
   uncoverPane();
+  // why it wouldn't let you (a shut club, a locked door), on the view rather than only in the log behind it
+  if (msg.message) s.flash?.(String(msg.message).replace(/<[^>]*>/g, ''), 6000);
   const fv = s.freeCam.view();
   if (!fv) return;
   const ax = s.gx + fv.x, ay = s.gy + fv.y;

@@ -2,7 +2,21 @@
   "description": "A grey steel junction cabinet of breakers and humming busbars, feeding the building. A small sealed hacking port sits below the latch.",
   "flags": {
     "destructible": true,
-    "generator_id": "gen_zone_start_z-1_1782276270002_1782276285855"
+    "generator_id": "gen_zone_start_z-1_1782276270002_1782276285855",
+    "look": {
+      "arche": "prop",
+      "dims": [
+        0.7,
+        0.28,
+        0.9
+      ],
+      "form": "cabinet"
+    },
+    "spot": {
+      "along": -4.2,
+      "wall": "front",
+      "y": 1.4
+    }
   },
   "hp": 1200,
   "hp_max": 1200,

@@ -82,6 +82,11 @@ the game that just aired.
 
 - **Deadball** — W/L/PCT/RDIF, plus batting average, home runs and RBI.
 - **Cluster Puck** — W/L/OTL/PTS/GD, plus the scoring race and the season casualty count.
+- **The league screen** is its own view (`view: 'sports'`), not a list: the table with each
+  club's abbreviation and colours (`broadcast.getClubLook`), the day of the season's month
+  (`broadcast.getSeasonCalendar`), the races and notes, and the season's final (the Curtain
+  Call or the Coldwater Cup) with its date and hour (`broadcast.slotWhen`) and, once the
+  league seeds it, its two clubs.
 - **Tap a club** for its card: league position, current streak, last five results, and
   the next time they are on.
 

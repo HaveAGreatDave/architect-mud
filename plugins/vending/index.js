@@ -26,7 +26,7 @@ import { adjustCredits } from '../../server/engine/economy.js';
 import { giveItemById } from '../../server/engine/inventory.js';
 import { sendToPlayer } from '../../server/engine/messaging.js';
 import { loggedPanelsSync } from '../../server/engine/presentation.js';
-import { heldAs } from '../stands/index.js';
+import { heldAs, lighterOf } from '../stands/index.js';
 
 // playerId:furnitureId -> last-vend timestamp. In-memory: a soft anti-spam guard,
 // not persisted (a restart forgives it, which is fine for grey slurry).
@@ -162,7 +162,7 @@ async function cmdVend(args, raw, player, broadcast) {
   // What you can hold goes into your hands in first person, as a box's smokes do (stands-hands.js):
   // the humidor's cigar comes up in front of you to be cut and lit. A filled vessel is the drinks plugin's.
   const held = filled ? null : heldAs(item), kind = held === 'pour' && item.tags?.consumable ? 'drink' : held;
-  if (kind && !loggedPanelsSync(player)) sendToPlayer(player.id, { type: 'stands_hand', item: { id: item.id, name: item.name, kind, drinkable: !!item.tags?.consumable } });
+  if (kind && !loggedPanelsSync(player)) sendToPlayer(player.id, { type: 'stands_hand', item: { id: item.id, name: item.name, kind, drinkable: !!item.tags?.consumable, ...(kind === 'smoke' ? { lighter: await lighterOf(player.id) } : {}) } });
 
   const flavour = machine.flags?.vend_line || `The ${machine.name} clunks and drops something into the tray.`;
   const got = filled?.name || item.name;

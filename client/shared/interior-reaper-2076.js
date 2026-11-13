@@ -49,6 +49,7 @@
 // warning's light lines breathe. Every readout is still a function of the live state.
 //
 // Pure apart from that easing: no camera, no DOM. `live` arrives as an argument.
+import { nightAt } from './sky-keys.js';
 import { brandTrim } from './interior-brands.js';
 import { makeKit, C, clamp, lerp, SHINY, TEXTURE } from './interior-kit.js';
 import { contactShadow, hotspotHalo, panelGps, gpsHotspot, lensLamp, facingPanel, eased, pressPulse, HALO,
@@ -387,7 +388,7 @@ const readings = (live) => {
   R.handsOn = R.powered && (Math.abs(R.ail) > 0.03 || Math.abs(R.elev) > 0.03 || Math.abs(R.rud) > 0.03);
   return R;
 };
-const night = (R) => R.hour < 6.5 || R.hour > 19.5;
+const night = (R) => nightAt(R.hour);
 const panelOn = (R) => R.powered && (R.L.panelLight != null ? !!R.L.panelLight : night(R));
 
 // ── WHERE THE CONTROLS ARE ───────────────────────────────────────────────────

@@ -47,10 +47,14 @@ uniform vec3 uAmb;
 uniform float uExpo;
 uniform float uComic;
 uniform vec2 uRes;
+// 0 in a room. On the street (gl/street-hd.js) the figure is one layer of GLASS's frame, which has its own
+// vignette: 1 leaves the room's out, and 2 also hands back linear light, for GLASS's float target.
+uniform float uStreet;
 // shininess and strength of the highlight by MAT code (ballpark-mesh.js MAT)
 vec2 specOf(float m) {
   if (m == 4.0) return vec2(90.0, 0.55);   // GLOSS
   if (m == 6.0) return vec2(42.0, 0.6);    // METAL
+  if (m == 45.0) return vec2(160.0, 1.4);  // CHROME (room.js mirrors the room in it)
   if (m == 3.0) return vec2(24.0, 0.2);    // LEATHER
   if (m == 5.0) return vec2(30.0, 0.12);   // SATIN
   if (m == 1.0) return vec2(4.0, 0.02);    // CLOTH
@@ -63,7 +67,9 @@ float gCurve = 1.0;
 vec3 aces(vec3 x) { return clamp(x * (2.51 * x + 0.03) / (x * (2.43 * x + 0.59) + 0.14), 0.0, 1.0); }
 vec3 finish(vec3 c) {
   c = aces(c * uExpo);
+  if (uStreet > 1.5) return c;
   c = pow(c, vec3(1.0 / 2.2));
+  if (uStreet > 0.5) return c;
   vec2 q = gl_FragCoord.xy / uRes - 0.5;
   return c * (1.0 - 0.32 * dot(q, q) * 1.6);
 }

@@ -9,7 +9,8 @@ import { query } from '../../server/models/db.js';
 import { getItem } from '../../server/engine/items-cache.js';
 import { VOIDS, _test, commands, crossingChain } from './index.js';
 import { _test as traces } from './traces.js';
-import { VOID_TERRAINS, CUT_TERRAINS, GROUND, FEATURES, featureFor, _test as _flavour } from './flavour.js';
+import { VOID_TERRAINS, CUT_TERRAINS, WALK_ONLY_TERRAINS, WALK_TERRAIN, GROUND, FEATURES, featureFor, _test as _flavour } from './flavour.js';
+import { wildGroundAt, wildlandsRect } from '../../client/shared/wildlands.js';
 
 // A local deterministic generator for the flavour probes below. Deliberately NOT the plugin's own
 // mulberry32: these cases test the tables, not the seeding, and reaching into index.js internals to
@@ -37,12 +38,21 @@ export default async function regress({ run, check, getPlayer }) {
   // These cost nothing to run and catch the three ways this file breaks silently: ground with no
   // words written for it, a feature whose `kind` nothing will ever read, and the em dash.
   {
-    for (const t of VOID_TERRAINS.concat(CUT_TERRAINS)) {
+    for (const t of VOID_TERRAINS.concat(CUT_TERRAINS, WALK_ONLY_TERRAINS)) {
       const g = GROUND[t];
       check(`void ground "${t}" has names and descriptions`,
         !!g && g.names?.length >= 3 && g.descs?.length >= 3,
         `names=${g?.names?.length} descs=${g?.descs?.length}`);
     }
+    // A room with a position stands on the ground that is really there (wildGroundAt). Every ground
+    // the wildlands can answer must fold onto one with words, or a walker there quietly gets the
+    // roll instead, which is the bug the position was meant to fix.
+    const r = wildlandsRect(), mute = new Set();
+    for (let y = r.y0; y <= r.y1; y += 5) for (let x = r.x0; x <= r.x1; x += 5) {
+      const t0 = wildGroundAt(x, y).terrain, t = WALK_TERRAIN[t0] || t0;
+      if (!GROUND[t]) mute.add(t0);
+    }
+    check('every wildlands ground has void prose', !mute.size, [...mute].join(', '));
     const ids = FEATURES.map(f => f.id);
     check('every void highlight is well formed',
       FEATURES.every(f => f.id && f.name && f.desc && _flavour.KINDS.includes(f.kind)),

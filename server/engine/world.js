@@ -1111,6 +1111,9 @@ async function loadDoors() {
     setDoorCache(door.id, { ...door, flags: door.flags || {}, tags, is_open: door.is_open ?? 0 });
   }
   await restoreInstalledLocks();
+  // an NPC's flat starts locked (apartments.js; imported late, as it imports this file)
+  const { lockNpcHomeDoors } = await import('./apartments.js');
+  lockNpcHomeDoors();
 }
 
 // ⚠ DOORS RESET ON REBOOT, BUT A PLAYER-INSTALLED LOCK MUST NOT. Door state is runtime

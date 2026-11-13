@@ -1,0 +1,29 @@
+{
+  "description": "A glass tube of lit green fluid on a steel plinth, a hose from its crown to the wall. Somebody stands asleep inside it, head bowed, a line into the mask over their face. The plate on the plinth gives them a number.",
+  "flags": {
+    "look": {
+      "arche": "prop",
+      "dims": [
+        1.1,
+        1.1,
+        2.6
+      ],
+      "form": "vat",
+      "tag": "V-05"
+    },
+    "spot": {
+      "along": 4.8,
+      "wall": "right"
+    }
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_clone_vat_5",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "print vat",
+  "object_type": "decoration",
+  "power_draw_kw": null,
+  "price": null,
+  "zone_id": "zone_start"
+}

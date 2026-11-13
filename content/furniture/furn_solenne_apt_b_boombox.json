@@ -1,0 +1,35 @@
+{
+  "description": "A twin-deck boombox the size of a carry-on, done over in brushed titanium with a strip of blue level lights. Under the tape doors there's a slot for MOD tapes. Nobody makes cassettes any more.",
+  "flags": {
+    "aliases": "boombox,stereo,ghetto blaster,radio",
+    "interactions": [
+      "music"
+    ],
+    "look": {
+      "arche": "small",
+      "dims": [
+        0.66,
+        0.2,
+        0.36
+      ],
+      "form": "boombox"
+    },
+    "spot": {
+      "at": [
+        -3.8,
+        -2.15
+      ],
+      "turn": 180
+    }
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_solenne_apt_b_boombox",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "boombox",
+  "object_type": "furniture",
+  "power_draw_kw": 0.02,
+  "price": 0,
+  "zone_id": "zone_solenne_apt_b"
+}

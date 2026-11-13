@@ -4,9 +4,13 @@
 // chess shares. Everything below here is Texas Hold'em and nothing else.
 
 import { query } from '../../server/models/db.js';
-import { sendToPlayer } from '../../server/engine/messaging.js';
+import { sendToPlayer, sendToZone } from '../../server/engine/messaging.js';
 import { emit } from '../../server/engine/events.js';
-import { getZonePlayers, getZoneNpcs } from '../../server/engine/world.js';
+import { getZonePlayers, getZoneNpcs, getZoneFurniture } from '../../server/engine/world.js';
+import { setPosture } from '../../server/engine/posture.js';
+
+// how long the bots hang on at a table after the last player leaves it, ms
+const LONELY_LEAVE_MS = 20_000;
 import { syncLiveCredits } from './table-base.js';
 import { TableBase, activeTables } from './table-base.js';
 import { HoldemGame } from './games/holdem.js';
@@ -15,6 +19,7 @@ import { botId, isBotId, decideBotAction, botChatter, botOutcomeLine } from './b
 import { narrateDeal, narrateStreet, narrateShowdown, narrateTurn, isTextMode } from './text-mode.js';
 
 export const MAX_SEATS = 4;
+const MAX_MISSED = 5; // hands away from the table in a row before the seat is cashed out
 const AUTO_START_DELAY_MS = 15_000; // wait this long after 2nd player joins before starting
 
 // Dealer flavor lines by moment. Spoken quips (shown in the dealer's speech
@@ -124,6 +129,7 @@ export { activeTables };
 
 export class GameTable extends TableBase {
   static MAX_SEATS = MAX_SEATS;
+  static MAX_SEATS_LIMIT = 6; // config.seats may raise a felt to six
 
   constructor(row) {
     super(row);
@@ -169,6 +175,8 @@ export class GameTable extends TableBase {
   isSyntheticSeat(playerId) { return isBotId(playerId); }
 
   afterPush() {
+    // the felt as ROOM draws it (plugins/roomstage `room.boardChanged`), to whoever has the room open
+    emit('room.boardChanged', { zoneId: this.zoneId, tableId: this.id });
     // Clear one-render animation flags after first push (_shuffleAnim is NOT
     // one-shot — it spans the whole countdown, see _startShuffleLoop/_stopShuffleLoop)
     if (this.game) this.game.dealPhase = false;
@@ -199,6 +207,8 @@ export class GameTable extends TableBase {
 
     this.seats[seatIdx] = { playerId: id, npcId: npc.id, handle: npc.name, chips: buyIn, seatIdx, isBot: true, persona };
     if (npc._ai) npc._ai.waitUntil = Date.now() + 3_600_000; // freeze his AI so he stays seated
+    this._botPosture(npc, seatIdx, true);
+    clearTimeout(this._lonelyTimer); this._lonelyTimer = null;
     await this._saveBotBankroll(npc, bankroll - buyIn);
 
     this._checkAutoStart();
@@ -265,6 +275,7 @@ export class GameTable extends TableBase {
         const bankroll = (npc?.flags?.poker_bankroll ?? 0) + chips;
         await this._saveBotBankroll(npc || seat.npcId, bankroll);
       }
+      if (npc) this._botPosture(npc, seat.seatIdx, false);
       if (npc?._ai) npc._ai.waitUntil = null; // resume his world life — he wanders off
     } else if (chips > 0) {
       await query('UPDATE players SET credits = credits + $1 WHERE id = $2', [chips, playerId]);
@@ -296,7 +307,7 @@ export class GameTable extends TableBase {
 
   startHand() {
     if (this.phase === 'InProgress') return;
-    if (!this._dealerNpc()) { this._stopShuffleLoop(); this.phase = 'WaitingForDealer'; this.pushPaneAll(); return; }
+    if (!this.hasDealer()) { this._stopShuffleLoop(); this.phase = 'WaitingForDealer'; this.pushPaneAll(); return; }
     const active = this.seats
       .filter(Boolean)
       .map(s => ({ seatIdx: s.seatIdx, playerId: s.playerId, handle: s.handle, chips: s.chips }));
@@ -304,8 +315,17 @@ export class GameTable extends TableBase {
 
     // Tilt cools off over a few hands (Phase 3).
     for (const s of this.seats) if (s?.isBot && s.tilt) s.tilt = Math.max(0, s.tilt - 0.34);
+    // the bots stay put for as long as the game runs: their freeze is renewed each hand, and they're sat in their chairs
+    for (const s of this.seats) {
+      if (!s?.isBot) continue;
+      const npc = getZoneNpcs(this.zoneId).find((n) => n.id === s.npcId);
+      if (!npc) continue;
+      if (npc._ai) npc._ai.waitUntil = Date.now() + 3_600_000;
+      this._botPosture(npc, s.seatIdx, true);
+    }
 
     this.game = new HoldemGame(this.config);
+    this.handNo = (this.handNo || 0) + 1;
     const prevDealerSeatIdx = this._nextDealerSeatIdx();
     const info = this.game.startHand(active, prevDealerSeatIdx);
     this.phase = 'InProgress';
@@ -320,6 +340,8 @@ export class GameTable extends TableBase {
     this._dealerSay(this._quip('newHand'));
 
     this._stopShuffleLoop(); // shuffle's been running through the countdown — cut it the instant we deal
+    if (this.selfDealt()) this._gesture(`${info.sbHandle} posts ₵ ${this.game.smallBlind}, ${info.bbHandle} ₵ ${this.game.bigBlind}.`);
+    this._gesture(`${this._dealerNpc()?.name || dealerName} deals them round, two each.`);
     this._pushSfx('deal');
     this.pushPaneAll();
     narrateDeal(this); // text-mode players get their hole cards in the log
@@ -348,6 +370,18 @@ export class GameTable extends TableBase {
       this._betAnimPlayer = playerId;
     }
 
+    // what their hands do, said to the room, which the Room Stage acts out (client/shared/npc-acts.js)
+    const who = this.seats.find(s => s && s.playerId === playerId)?.handle;
+    const GESTURE = {
+      check: `${who} raps the felt twice with a knuckle.`,
+      fold: `${who} mucks the cards face down.`,
+      call: `${who} slides chips in to call.`,
+      bet: `${who} pushes a stack of chips out.`,
+      raise: `${who} pushes a stack of chips out.`,
+      allin: `${who} shoves the whole stack in. All in.`,
+    };
+    if (who) this._gesture(GESTURE[action]);
+
     // Action sound cue: call = chips in; bet/raise = bigger chips in; all-in gets
     // its own dramatic shove; check = knock; fold = the sad sigh.
     const sfxMap = { fold: 'fold', check: 'check', call: 'call', bet: 'raise', raise: 'raise', allin: 'allin' };
@@ -375,6 +409,10 @@ export class GameTable extends TableBase {
   _onPhaseResult(pr) {
     if (pr.phase === 'flop' || pr.phase === 'turn' || pr.phase === 'river') {
       this._dealerSay(this._quip(pr.phase));
+      if (this.selfDealt()) {
+        const by = this.game?.getDealerSeat()?.handle;
+        if (by) this._gesture(`${by} burns one and turns the ${pr.phase === 'flop' ? 'flop' : pr.phase}.`);
+      }
       this._sweepAnim = true; // bets were just reset — animate the sweep to the pot
       this._pushSfx('deal');  // community cards hit the felt
       this.pushPaneAll();
@@ -413,6 +451,17 @@ export class GameTable extends TableBase {
           seat.tilt = Math.min(1, (seat.tilt || 0) + (strong ? 0.7 : 0.2));
           const l = botOutcomeLine(seat, strong ? 'badbeat' : 'lost', name);
           if (l) this.botSay(seat, l);
+        }
+      }
+      // A hand played while away counts toward the cash-out.
+      for (const s of this.seats) {
+        if (!s || s.isBot || !s.away || s.chips === 0) continue;
+        s.missed = (s.missed || 0) + 1;
+        if (s.missed >= MAX_MISSED) {
+          sendToPlayer(s.playerId, { type: 'output', message: `You were away for ${MAX_MISSED} hands in a row. The dealer cashes you out.` });
+          this.leaveTable(s.playerId);
+        } else if (s.missed === MAX_MISSED - 1) {
+          sendToPlayer(s.playerId, { type: 'output', message: '⚠ One more hand away and you lose your seat. Sit back down.' });
         }
       }
       // Remove broke players (and busted bots)
@@ -468,6 +517,7 @@ export class GameTable extends TableBase {
     // instead of a fold timer, and skip the private "your turn" cue.
     const seat = this.seats.find(s => s && s.playerId === actor.playerId);
     if (seat?.isBot) { this._scheduleBotMove(seat); return; }
+    if (seat?.away) { this._scheduleAwayMove(seat); return; }
 
     const timerSecs = this.config.turnTimerSecs || 30;
     const pid = actor.playerId;
@@ -506,6 +556,40 @@ export class GameTable extends TableBase {
     }
   }
 
+  // ── Away from the table ────────────────────────────────────────────────────
+  // Getting up (posture sitting → standing, which is ROOM's "Get up") keeps the
+  // seat and the chips. While away the seat is still dealt in and posts its
+  // blinds, checks when it can and folds to any bet. Sitting back down ends it.
+  // MAX_MISSED hands away in a row cashes the seat out.
+
+  setAway(playerId, on) {
+    const seat = this.seats.find(s => s && s.playerId === playerId);
+    if (!seat || seat.isBot || !!seat.away === !!on) return false;
+    seat.away = !!on;
+    if (on) {
+      sendToPlayer(playerId, { type: 'output', message: `You get up from the table. Your seat's held: you'll post blinds, check, and fold to any bet. Sit back down to play. Miss ${MAX_MISSED} hands and you're cashed out.` });
+      const actor = this.phase === 'InProgress' ? this.game?.getCurrentActor() : null;
+      if (actor?.playerId === playerId) this._startTurnTimer(); // act for them now, not in 30 s
+    } else {
+      seat.missed = 0;
+      seat.autoFolds = 0;
+      sendToPlayer(playerId, { type: 'output', message: "You're back at the table." });
+    }
+    this.pushPaneAll();
+    return true;
+  }
+
+  _scheduleAwayMove(seat) {
+    clearTimeout(this._botMoveTimer);
+    this._botMoveTimer = setTimeout(() => {
+      if (!this.game || this.phase !== 'InProgress') return;
+      if (this.game.getCurrentActor()?.playerId !== seat.playerId) return;
+      const action = this.game.canCheck(seat.playerId) ? 'check' : 'fold';
+      this._turnExpired = true; // not a manual action
+      this.processAction(seat.playerId, action, 0);
+    }, 700);
+  }
+
   // Drive a bot seat's action after a short "thinking" pause, so it reads like a
   // deliberating opponent rather than an instant reflex.
   _scheduleBotMove(seat) {
@@ -528,6 +612,45 @@ export class GameTable extends TableBase {
       const line = botChatter(seat, tag, this._anyHumanName());
       if (line) this.botSay(seat, line);
     }, delay);
+  }
+
+  // A line of what somebody at the felt does with their hands, to the room's log. Not speech: the Room Stage
+  // reads it for the act (client/shared/npc-acts.js: rap, muck, chips, deal) on whoever's name it starts with.
+  _gesture(text) {
+    if (text) sendToZone(this.zoneId, { type: 'output', message: `<span class="poker-gesture">${text}</span>` });
+  }
+
+  // The felt as the Room Stage draws it on the table's piece (plugins/roomstage `room.boards`, gl/room-poker.js).
+  // Public only: nobody's hole cards but at a showdown; a seated player's own come with their pane (data-p3d).
+  // `chairs` is each seat's chair by furniture id, so a body and its cards go to the same place.
+  roomState() {
+    const g = this.game, live = !!g && (this.phase === 'InProgress' || this.phase === 'HandComplete');
+    const showdown = this.phase === 'HandComplete';
+    const chairs = {};
+    for (const f of getZoneFurniture(this.zoneId)) if (f.flags?.game_table_id === this.id && f.flags?.seat_idx != null) chairs[f.flags.seat_idx] = f.id;
+    const seats = this.seats.map((seat, i) => {
+      if (!seat) return null;
+      const gs = live ? g.seats.find(x => x && x.playerId === seat.playerId) : null;
+      return {
+        i, id: seat.playerId, npc: seat.npcId || null, name: seat.handle, bot: !!seat.isBot,
+        chips: gs ? gs.chips : seat.chips, bet: gs?.bet || 0,
+        folded: !!gs?.folded, allIn: !!gs?.allIn, away: !!seat.away,
+        holding: gs && !gs.folded ? (gs.hand || []).length : 0,
+        shown: showdown && gs && !gs.folded ? (gs.hand || []).map(c => ({ rank: c.rank, suit: c.suit })) : null,
+        won: !!this.lastWinners?.includes(seat.playerId),
+        acting: !!(this.phase === 'InProgress' && live && g.actionIdx >= 0 && g.seats[g.actionIdx]?.playerId === seat.playerId),
+        button: !!(live && g.seats[g.dealerIdx]?.playerId === seat.playerId),
+      };
+    });
+    return {
+      poker: true, hand: this.handNo || 0, phase: this.phase, street: live ? g.phase : null,
+      board: live ? (g.community || []).map(c => ({ rank: c.rank, suit: c.suit })) : [],
+      // (the game's pot already holds this street's bets)
+      pot: live ? g.pot || 0 : 0,
+      seats, chairs, dealer: this._dealerNpc()?.name || null, shuffling: !!this._shuffleAnim,
+      // what the bar sizes a bet by: the bet to match, the least a raise may add, the big blind
+      toMatch: live ? g.currentBet || 0 : 0, minRaise: live ? g.minRaise || 0 : 0, bb: (live && g.bigBlind) || this.config.bigBlind || 10,
+    };
   }
 
   _quip(kind) {
@@ -574,8 +697,9 @@ export class GameTable extends TableBase {
   _nextDealerSeatIdx() {
     // Rotate dealer each hand. Find first filled seat after current dealer.
     const current = this.game?.getDealerSeat()?.seatIdx ?? -1;
-    for (let i = 1; i <= MAX_SEATS; i++) {
-      const idx = (current + i) % MAX_SEATS;
+    const n = this.seats.length;
+    for (let i = 1; i <= n; i++) {
+      const idx = (current + i) % n;
       if (this.seats[idx]) return idx;
     }
     return 0;
@@ -603,7 +727,7 @@ export class GameTable extends TableBase {
     if (this.phase === 'InProgress') return;
     const n = this.seatedCount();
     if (n < 2) { this._stopShuffleLoop(); this.phase = 'WaitingForPlayers'; this.pushPaneAll(); return; }
-    if (!this._dealerNpc()) {
+    if (!this.hasDealer()) {
       const wasWaiting = this.phase === 'WaitingForDealer';
       this._stopShuffleLoop();
       this.phase = 'WaitingForDealer';
@@ -617,6 +741,11 @@ export class GameTable extends TableBase {
     }
     this.phase = 'Ready';
     const delay = (this.config.autoStartDelaySecs || 5) * 1000;
+    // dealt by the players: whoever takes the button next gathers the cards and shuffles
+    if (this.selfDealt()) {
+      const next = this.seats[this._nextDealerSeatIdx()];
+      if (next) this._gesture(`${next.handle} gathers the cards and shuffles${this.seatedCount() > 2 ? ', and offers the cut' : ''}.`);
+    }
     this._startShuffleLoop();
     this.pushPaneAll();
     this._autoStartTimer = setTimeout(() => this.startHand(), delay);
@@ -646,9 +775,29 @@ export class GameTable extends TableBase {
   }
 
   // Bots don't play each other — if no humans are left seated, any bots cash out.
+  // The last player gone, the bots finish their drinks and go: a little while after, so it isn't a stampede for the
+  // door the instant you cash out. A player sitting back in before then keeps them.
   _removeLonelyBots() {
     if (this.seats.some(s => s && !s.isBot)) return;
-    for (const s of this.seats.filter(s => s && s.isBot)) this.leaveTable(s.playerId);
+    if (!this.seats.some(s => s && s.isBot) || this._lonelyTimer) return;
+    this._lonelyTimer = setTimeout(() => {
+      this._lonelyTimer = null;
+      if (this.seats.some(s => s && !s.isBot)) return;
+      const bots = this.seats.filter(s => s && s.isBot);
+      if (!bots.length) return;
+      sendToZone(this.zoneId, { type: 'zone_event', message: `${bots.map(s => s.handle).join(' and ')} ${bots.length > 1 ? 'rack their chips and get up' : 'racks their chips and gets up'}.` });
+      for (const s of bots) this.leaveTable(s.playerId).catch(e => console.error('[gametable] bot leave:', e.message));
+    }, LONELY_LEAVE_MS);
+    this._lonelyTimer.unref?.();
+  }
+
+  // A bot's posture follows its seat: sat on its own chair while it's in the game, so nothing else in the room
+  // (a flat's residents, plugins/roomstage npc-life.js) takes it for somebody free to wander, and up when it goes.
+  _botPosture(npc, seatIdx, seated) {
+    const chair = getZoneFurniture(this.zoneId).find(f => f.flags?.game_table_id === this.id && Number(f.flags?.seat_idx) === Number(seatIdx));
+    if (seated) {
+      if (chair && (npc.posture !== 'sitting' || npc.sittingOn !== chair.name)) setPosture(npc, 'sitting', { sittingOn: chair.name });
+    } else if (npc.posture === 'sitting' && (!chair || npc.sittingOn === chair.name)) setPosture(npc, 'standing');
   }
 
 }

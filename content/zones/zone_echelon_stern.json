@@ -21,6 +21,42 @@
     "is_building": true,
     "is_interior": true,
     "naval_ambience": true,
+    "room": {
+      "balcony": false,
+      "d": 6,
+      "decor": {
+        "ceiling": {
+          "band": 0.4,
+          "drop": 0.15,
+          "hex": "#1a1714",
+          "kind": "cove",
+          "trim": "#e0902e"
+        },
+        "walls": {
+          "hex": "#3b2a1e",
+          "kind": "walnut",
+          "on": [
+            "back"
+          ]
+        }
+      },
+      "face": 180,
+      "finish": "fine",
+      "glass": [
+        "front",
+        "left",
+        "right"
+      ],
+      "h": 3.2,
+      "studio": false,
+      "tone": {
+        "accent": "#e0902e",
+        "ceiling": "#141414",
+        "trim": "#0b0b0b",
+        "wall": "#2a2420"
+      },
+      "w": 10
+    },
     "world_exit_zone": "zone_echelon_exterior",
     "yacht": true
   },

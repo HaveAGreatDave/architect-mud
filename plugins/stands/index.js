@@ -39,6 +39,7 @@ import { getWeatherFieldSnapshot } from '../../server/engine/environment.js';
 import { registerMoveGate } from '../../server/engine/movement-gates.js';
 import { cmdMove } from '../../server/engine/commands/movement.js';
 import { getItem } from '../../server/engine/items-cache.js';
+import { query } from '../../server/models/db.js';
 import { isStaff } from '../admin/index.js';
 import { isStackable } from '../../server/engine/tags.js';
 import { giveItemById } from '../../server/engine/inventory.js';
@@ -220,6 +221,19 @@ export function heldAs(it) {
   if (t.restore_hunger) return 'eat';
   return null;
 }
+// The lighter you light a smoke with in first person (stands-hands.js lighterStyle): the look off the
+// best lighter you carry (item tags.lighter, highest `rank` first), or null for the plain chrome
+// zippo everybody has. Lighters are collectable; a lighter is only ever a look, it never gates a smoke.
+// One query, asked only when something is handed to you, never per beat.
+export async function lighterOf(playerId) {
+  const { rows } = await query(`SELECT item_id FROM player_inventory WHERE player_id=$1`, [playerId]).catch(() => ({ rows: [] }));
+  let best = null;
+  for (const r of rows) {
+    const L = getItem(r.item_id)?.tags?.lighter;
+    if (L && typeof L === 'object' && (!best || (L.rank | 0) > (best.rank | 0))) best = L;
+  }
+  return best;
+}
 const sameBox = (a, b) => !!a?.flags?.ticketed && a.flags.ticketed === b?.flags?.ticketed;
 const furnitureCalled = (zoneId, want) => getZoneFurniture(zoneId).find((f) => String(f.name || '').toLowerCase().includes(want) || (f.flags?.aliases || []).some((a) => String(a).toLowerCase() === want));
 async function fetchInSuite(player, what, broadcast) {
@@ -241,8 +255,9 @@ async function fetchInSuite(player, what, broadcast) {
       const { handleCommand } = await import('../../server/engine/commands/index.js');
       return handleCommand(`open ${want}`, player, broadcast);
     }
+    const lighter = stock.some(([, it]) => heldAs(it) === 'smoke') ? await lighterOf(player.id) : null;
     sendToPlayer(player.id, { type: 'stands_menu', target: want, name: thing.name, description: thing.description || '',
-      items: stock.map(([id, it]) => ({ id, name: it.name, description: it.tags?.description || it.description || '', kind: heldAs(it), drinkable: !!it.tags?.consumable })) });
+      items: stock.map(([id, it]) => ({ id, name: it.name, description: it.tags?.description || it.description || '', kind: heldAs(it), drinkable: !!it.tags?.consumable, ...(lighter && heldAs(it) === 'smoke' ? { lighter } : {}) })) });
     return { type: 'noop' };
   }
   const it = stock.find(([id]) => id === itemId)?.[1];
@@ -288,7 +303,7 @@ async function orderAtSeat(player, itemId) {
   await giveItemById(player.id, m.item, 1, { stack: isStackable(m.it) });
   // and into your hands in the seat's view, held as a box's bar stock is
   const kind = seatKind(m.it);
-  if (kind && !loggedPanelsSync(player)) sendToPlayer(player.id, { type: 'stands_hand', item: { id: m.item, name: m.it.name, kind, drinkable: !!m.it.tags?.consumable } });
+  if (kind && !loggedPanelsSync(player)) sendToPlayer(player.id, { type: 'stands_hand', item: { id: m.item, name: m.it.name, kind, drinkable: !!m.it.tags?.consumable, ...(kind === 'smoke' ? { lighter: await lighterOf(player.id) } : {}) } });
   return { type: 'output', message: `<span class="msg-system">You pay ₵${price}, and a runner comes up the steps with your ${esc(m.it.name)}.</span>` };
 }
 

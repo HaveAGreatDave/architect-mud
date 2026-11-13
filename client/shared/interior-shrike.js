@@ -46,6 +46,7 @@
 // panel, the seats and the controls have nothing on the outside to measure and are metres.
 //
 // Pure: no clock, no camera, no DOM. `live` arrives as an argument.
+import { nightAt } from './sky-keys.js';
 import { makeKit, C, clamp, lerp, pedal, SHINY, PANE, TEXTURE } from './interior-kit.js';
 import { contactShadow, hotspotHalo, facingPanel, panelGps, gpsHotspot } from './interior-cockpit-kit.js';
 import { readings } from './interior-fit-craft.js';
@@ -660,7 +661,7 @@ export function shrikeFit(P, live, push) {
   const R = readings(live), L = R.L;
   const on = R.powered;
   const hour = num(L.hour, 12);
-  const night = hour < 6.5 || hour > 19.5;
+  const night = nightAt(hour);
   // The UV floods are the PANEL switch (cockpit.js 'ck:panel'); a view that sends no switch state, a
   // seat shot, has them on after dark. The luminous paint on every numeral glows under them in the dark.
   const uv = on && (L.panelLight != null ? !!L.panelLight : night);

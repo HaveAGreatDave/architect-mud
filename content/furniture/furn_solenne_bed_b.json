@@ -1,5 +1,5 @@
 {
-  "description": "A wide platform bed angled to the corner glass, so you wake to the whole city turning past the windows.",
+  "description": "A wide platform bed standing out in the room on a Persian rug, its head to the side glass and the TV across from its foot, so you wake to the whole city turning past.",
   "flags": {
     "interactions": [
       "lie",
@@ -8,6 +8,13 @@
     "look": {
       "arche": "bed",
       "form": "platform"
+    },
+    "spot": {
+      "at": [
+        -3.4,
+        7.6
+      ],
+      "turn": 90
     }
   },
   "hp": null,

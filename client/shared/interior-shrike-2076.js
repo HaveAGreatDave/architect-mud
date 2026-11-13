@@ -38,6 +38,7 @@
 // floor. The gate (scripts/shapes/cockpit-shrike-2076.mjs) reads the server's numbers back out of
 // its source and fails if these drift. Decoration may move on wall time (the alert breathing, the
 // boot, the alert's rings); every readout moves only on live values.
+import { nightAt } from './sky-keys.js';
 import { brandTrim } from './interior-brands.js';
 import { makeKit, C, clamp, lerp, SHINY, PANE, TEXTURE } from './interior-kit.js';
 import { contactShadow, hotspotHalo, panelGps, gpsHotspot, lensLamp, eased, pressPulse, HALO,
@@ -387,7 +388,7 @@ const readings = (live) => {
     phase: num(L.phase), stall: !!L.stall,
   };
 };
-const night = (R) => R.hour < 6.5 || R.hour > 19.5;
+const night = (R) => nightAt(R.hour);
 const panelOn = (R) => R.powered && (R.L.panelLight != null ? !!R.L.panelLight : night(R));
 const RACK = 4;                     // the rack's stations, as the type carries them (aircraft_types: bombs 4)
 

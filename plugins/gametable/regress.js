@@ -5,6 +5,7 @@
 import { query } from '../../server/models/db.js';
 import { world } from '../../server/engine/world.js';
 import { commands, _test } from './index.js';
+import * as practice from './chess-practice.js';
 import { textModePlayers, isTextMode, narrateTurn, narrateStreet, narrateDeal } from './text-mode.js';
 import { getEnvironmentState } from '../../server/engine/environment.js';
 
@@ -465,4 +466,45 @@ async function chessRegress(check) {
 
   activeTables.delete(free.id);
   activeTables.delete(staked.id);
+
+  // ── a table with a regular (chess-practice.js) ──────────────────────────────
+  // Alone, the regular plays both sides in RAM; somebody who sits opposite gets a
+  // game only if the regular knows them; the Room Stage reads the board off it.
+  const ZONE = `zone_chess_practice_${process.pid}`;
+  const reg = { id: `npc_chess_regular_${process.pid}`, name: 'Regress Regular', hp: 10, flags: { chess_strength: 'patzer', chess_lore: ['A line.'] } };
+  world.npcs.set(reg.id, reg);
+  world.zones.set(ZONE, { id: ZONE, name: 'Practice Room', npcs: new Set([reg.id]), players: new Set(), flags: {} });
+  const prac = new ChessTable({ id: `chess_regress_${process.pid}_practice`, zone_id: ZONE, name: 'Practice Board',
+    game_type: 'chess', config: { minBet: 0, practice: { npc: reg.id, tier: 'known' } }, state: '{}', phase: 'WaitingForPlayers' });
+  check('practice: the opening position is the start board', practice._test.START_BOARD === 'rnbqkbnrpppppppp' + '.'.repeat(32) + 'PPPPPPPPRNBQKBNR', practice._test.START_BOARD);
+  practice.practiceTick(prac);
+  check('practice: alone at the board, the regular sets up a game of their own', !!prac._practice?.game && !prac.game);
+  prac._practice.nextMove = 0;
+  practice.practiceTick(prac);
+  check('practice: the regular makes a move against themselves', prac._practice.game.history.length === 1, String(prac._practice.game.history.length));
+  const bv = practice.boardOf(prac);
+  check('practice: the Room Stage board is the practice game', bv.practice === true && bv.board !== practice._test.START_BOARD && bv.last?.length === 2, JSON.stringify(bv));
+  check('practice: the practice game is never the real one, so nothing is staked or persisted', prac.phase === 'WaitingForPlayers');
+
+  const stranger = { id: `chess_stranger_${process.pid}`, handle: 'Stranger', current_zone: ZONE, _relations: new Map() };
+  world.players.set(stranger.id, stranger);
+  prac.seats[0] = { playerId: stranger.id, handle: 'Stranger', isBot: false, seatIdx: 0, chips: 0, buyIn: 0 };
+  practice.practiceTick(prac);
+  await new Promise((r) => setTimeout(r, 0));
+  check("practice: the regular won't play somebody they don't know", prac.seatedIndex(`chessbot:${reg.id}`) < 0 && !!prac._practice.game);
+  prac.seats[0] = null;
+  practice.practiceTick(prac);
+
+  const friend = { id: `chess_friend_${process.pid}`, handle: 'Friend', current_zone: ZONE, _relations: new Map([[reg.id, { familiarity: 5, warmth: 10 }]]) };
+  world.players.set(friend.id, friend);
+  prac.seats[0] = { playerId: friend.id, handle: 'Friend', isBot: false, seatIdx: 0, chips: 0, buyIn: 0 };
+  practice.practiceTick(prac);
+  await new Promise((r) => setTimeout(r, 0));
+  check('practice: the regular plays somebody they know, in the real seat', prac.seatedIndex(`chessbot:${reg.id}`) >= 0);
+  check('practice: and their own game is swept off the board', !prac._practice.game);
+
+  clearTimeout(prac._startTimer); clearTimeout(prac._botMoveTimer); prac._clearTurnTimer?.();
+  activeTables.delete(prac.id);
+  world.players.delete(stranger.id); world.players.delete(friend.id);
+  world.npcs.delete(reg.id); world.zones.delete(ZONE);
 }

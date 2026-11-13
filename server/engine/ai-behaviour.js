@@ -17,6 +17,7 @@ import { setPosture, forceStand, getPosture } from './posture.js';
 import { gatherHookSync } from './plugins.js';
 import { npcWashAtHome } from './hygiene.js';
 import { on, emit } from './events.js';
+import { npcFlatOf } from './apartments.js';
 import { setNpcMood } from './npc-mood.js';
 
 // Flee is a check: skill (flags.flee_skill, else dodge, else 1) plus a 2d8-2d8 swing must clear this bar.
@@ -780,6 +781,8 @@ export function moveEntity(entity, newZoneId, broadcast, query, opts = {}) {
   let doorWasClosed = false;
   // Set once the home or shop lock steps take the door, so the generic close step leaves it alone.
   let doorHandled = false;
+  // A resident's own locked flat door they keyed through while watched, relocked once they're through.
+  let npcPassedLock = null;
   if (departDir) {
     // One link, one fixture, one lookup (spec §6.3).
     const door = doorOnLink(oldZoneId, departDir, newZoneId);
@@ -807,6 +810,13 @@ export function moveEntity(entity, newZoneId, broadcast, query, opts = {}) {
         };
         const residentOfThisBuilding = !isEnemy(entity) &&
           (belongsTo(oldZoneId) || belongsTo(newZoneId));
+        // A resident keys through their own flat's lock and locks it again behind them. The lock never gives in
+        // RAM; it's only played (narration, click, the ROOM hologram) to a player in either room.
+        if (ownsThisDoor && npcFlatOf(door) && (getZonePlayers(oldZoneId).length || getZonePlayers(newZoneId).length)) {
+          broadcast(oldZoneId, { type: 'zone_event', message: `${entity.name} keys the lock open.` });
+          emit('door.sfx', { door, zoneId: oldZoneId, actorId: entity.id, cue: 'unlock', npcPass: true });
+          npcPassedLock = door;
+        }
 
         if (!ownsThisDoor && !leavingOwnDwelling && !residentOfThisBuilding) return false; // blocked — entity can't pass
       }
@@ -920,6 +930,25 @@ export function moveEntity(entity, newZoneId, broadcast, query, opts = {}) {
         }
       }
     }
+  }
+
+  // Leaving home, an NPC locks up behind them if somebody left it unlocked (a staff override, a hack). The state
+  // changes whether or not anyone sees; the narration and click reach only whoever is there.
+  if (!isEnemy(entity) && entity.home_zone && oldZoneId === entity.home_zone && departDir
+      && getZone(newZoneId)?.parent_zone !== entity.home_zone) {
+    const d = doorOnLink(oldZoneId, departDir, newZoneId);
+    if (d && d.hp > 0 && d.lock_state !== 'locked' && npcFlatOf(d) && npcAutoLockable(d)) {
+      d.is_open = 0; d.lock_state = 'locked';
+      markAutoLock(d, oldZoneId);
+      setDoorCache(d.id, d);
+      broadcast(newZoneId, { type: 'zone_event', message: `${entity.name} locks the door behind them.`, refresh: true });
+      if (getZonePlayers(oldZoneId).length || getZonePlayers(newZoneId).length) emit('door.sfx', { door: d, zoneId: newZoneId, actorId: entity.id, cue: 'lock' });
+      doorHandled = true; npcPassedLock = null;
+    }
+  }
+  if (npcPassedLock) {
+    broadcast(newZoneId, { type: 'zone_event', message: `${entity.name} locks the door behind them.` });
+    emit('door.sfx', { door: npcPassedLock, zoneId: newZoneId, actorId: entity.id, cue: 'lock', npcPass: true });
   }
 
   // Close the door behind them, unless the home or shop steps already took charge of it.

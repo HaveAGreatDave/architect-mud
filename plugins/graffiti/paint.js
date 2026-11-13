@@ -148,6 +148,26 @@ export function decodePayload(b64) {
     const text = String(obj.t ?? '').replace(/[\x00-\x1f\x7f]/g, ' ').trim();
     if (!text) return null;
     const name = String(obj.n ?? '').replace(/[\x00-\x1f\x7f]/g, '').trim().slice(0, 24);
-    return { text, runs: Array.isArray(obj.r) ? obj.r : [], name, face: safeFace(obj.f) };
+    return { text, runs: Array.isArray(obj.r) ? obj.r : [], name, face: safeFace(obj.f), spot: safeSpot(obj.s) };
   } catch { return null; }
+}
+
+// Which way a room wall faces into the room: its inward normal along the Stage's u or v axis.
+export const SPOT_NORMALS = Object.freeze(['u+', 'u-', 'v+', 'v-']);
+const SPOT_REACH = 60;   // metres either way: bigger than any room, so a real spot is never clipped
+
+/**
+ * Where on a room's wall a tag sprayed in ROOM goes, as the Stage aimed it: `{ u, v, y, n }`,
+ * metres in the room's own frame, `n` the wall's inward normal. Null for anything else.
+ *
+ * ⚠ ONLY WHERE, NEVER WHETHER. The client picks the spot because the client is where the eye is;
+ * the server still decides there's a wall here and a can in your hand. A spot that's nonsense
+ * (off the room, inside a wardrobe) is a tag drawn somewhere odd on your own screen and the
+ * next viewer's, never a tag that wasn't allowed, so this only keeps it to numbers and a name.
+ */
+export function safeSpot(s) {
+  if (!s || typeof s !== 'object' || !SPOT_NORMALS.includes(s.n)) return null;
+  const num = (x, lo, hi) => (Number.isFinite(Number(x)) ? Math.max(lo, Math.min(hi, Math.round(Number(x) * 100) / 100)) : null);
+  const u = num(s.u, -SPOT_REACH, SPOT_REACH), v = num(s.v, -SPOT_REACH, SPOT_REACH), y = num(s.y, 0, 12);
+  return u == null || v == null || y == null ? null : { u, v, y, n: s.n };
 }

@@ -23,7 +23,9 @@
       "roomstage.street",
       "roomstage.streetwarm",
       "roomstage.indoors",
-      "roomstage.onfoot"
+      "roomstage.onfoot",
+      "graffiti.tagged",
+      "graffiti.removed"
     ]
   },
   "dependencies": [

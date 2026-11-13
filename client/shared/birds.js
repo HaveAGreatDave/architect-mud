@@ -1138,7 +1138,7 @@ export const SPECIES = {
     takeoff: { run: 0, beat: 1.3, hop: 0 },
     habitat: {
       // ⚠ Not green ground: a territorial claim on a park tile takes it from the geese and songbirds.
-      redrock: 'walk', scrub: 'walk', hardpan: 'walk',
+      redrock: 'walk', scrub: 'walk', hardpan: 'walk', wash: 'walk', scree: 'walk',
       badlands: 'walk', cliff: 'walk', plateau: 'walk', deadwood: 'walk', basalt: 'walk', alkali: 'walk',
       // ⚠ The terrains that map to the 'badlands' biome, so the room text agrees with the window.
       dirt: 'walk', sand: 'walk', gravel: 'walk', marsh: 'walk',
@@ -1202,7 +1202,7 @@ export const SPECIES = {
       // The wastes only, never green ground or the city. `scrub` covers the Reach and the void
       // corridor's verge.
       scrub: 'walk', ash: 'walk', deadwood: 'walk', basalt: 'walk', sinter: 'walk',
-      redrock: 'walk', hardpan: 'walk', gravel: 'walk', plateau: 'walk', dirt: 'walk',
+      redrock: 'walk', hardpan: 'walk', gravel: 'walk', plateau: 'walk', dirt: 'walk', wash: 'walk', scree: 'walk',
     },
     // Rare, but a flock is several birds.
     dense: 0.006, sparse: 0.002, areaBias: 0.45,

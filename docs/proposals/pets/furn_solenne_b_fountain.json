@@ -1,0 +1,28 @@
+{
+  "description": "A fat cat in white and black marble on a black marble pedestal, eyes shut, tail round his white paws. Black cap, black back, a patch over one eye and a black moustache. He looks very pleased with himself. SCRAPPY is cut into the stone under him.",
+  "flags": {
+    "aliases": "cat,statue,scrappy,marble,pedestal",
+    "interactions": [
+      "examine"
+    ],
+    "look": {
+      "arche": "prop",
+      "form": "catstatue",
+      "tag": "SCRAPPY"
+    },
+    "spot": {
+      "wall": "back",
+      "along": 2.6
+    }
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_solenne_b_fountain",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "marble cat",
+  "object_type": "furniture",
+  "power_draw_kw": null,
+  "price": 2400,
+  "zone_id": "zone_solenne_apt_b"
+}

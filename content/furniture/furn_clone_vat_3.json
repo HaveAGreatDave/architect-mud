@@ -1,0 +1,30 @@
+{
+  "description": "This one stands open and empty, its fluid down to a puddle, the front of the glass swung out on its hinge. The plate on the plinth gives a number. It was yours. There is already a work order taped to it.",
+  "flags": {
+    "look": {
+      "arche": "prop",
+      "dims": [
+        1.1,
+        1.1,
+        2.6
+      ],
+      "form": "vat",
+      "state": "drained",
+      "tag": "V-03"
+    },
+    "spot": {
+      "along": 7.2,
+      "wall": "left"
+    }
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_clone_vat_3",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "open vat",
+  "object_type": "decoration",
+  "power_draw_kw": null,
+  "price": null,
+  "zone_id": "zone_start"
+}

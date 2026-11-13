@@ -34,13 +34,34 @@ function ensureStyles() {
 const esc = (s) => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 
 // the page each hologram is laid out at, px: the reader's card, and the board the bypass is played on
-const CARD = [300, 400], BOARD = [640, 384];
+const CARD = [300, 400], BOARD = [640, 384], PAD = [150, 360];
 // how near the reader you have to be to work it, and to see it at all, metres
 const REACH = 2.3, SEEN = 11;
 // the door: how long it takes to slide each way, how long one you pushed through stays back, and how long the one
 // you came in by stays open behind you
 const OPEN_S = 0.32, SHUT_S = 0.8, PUSH_MS = 1600, BEHIND_MS = 900;
 const WORD = { north: 'North', south: 'South', east: 'East', west: 'West', up: 'Upper', down: 'Lower', in: 'Inner', out: 'Outer' };
+
+// Whether anything placed in the room (L.placed) stands across the line from a to b, each [u, v, y] in the room's
+// frame. The card is a page over the picture, so the picture's depth can't hide it: this does, so a wardrobe
+// between you and a keypad hides the keypad instead of the keypad showing through it. Small things don't count.
+export function piecesBlock(L, a, b) {
+  for (const p of L.placed || []) {
+    if (!(p.h > 0.35)) continue;
+    const q = Math.round(((p.turn || 0) % 180 + 180) % 180) === 90, hw = (q ? p.d : p.w) / 2, hd = (q ? p.w : p.d) / 2;
+    const y0 = p.rise || p.y0 || 0;
+    let t0 = 0, t1 = 1;
+    for (const [s, e, lo, hi] of [[a[0], b[0], p.u - hw, p.u + hw], [a[1], b[1], p.v - hd, p.v + hd], [a[2], b[2], y0, y0 + p.h]]) {
+      const d = e - s;
+      if (Math.abs(d) < 1e-9) { if (s < lo || s > hi) { t0 = 2; break; } continue; }
+      const k0 = (lo - s) / d, k1 = (hi - s) / d;
+      t0 = Math.max(t0, Math.min(k0, k1)); t1 = Math.min(t1, Math.max(k0, k1));
+    }
+    // a little short of the card, so a piece standing just behind it doesn't count
+    if (t0 < t1 && t0 < 0.97) return true;
+  }
+  return false;
+}
 
 // The CSS transform that lays a w x h page over four points on screen (top left, top right, bottom right,
 // bottom left), or null when they don't make a quad.
@@ -68,14 +89,16 @@ export function lockActs(k) {
   if (k.shop) return [];
   if (k.open) return [{ verb: 'close', label: 'Close', cmd: `close ${d}` }];
   if (!k.locked) return [{ verb: 'open', label: 'Open', cmd: `open ${d}` }, ...(k.lock !== false ? [{ verb: 'lock', label: 'Lock', cmd: `lock ${d}` }] : [])];
-  if (k.pass) return [{ verb: 'unlock', label: 'Open', cmd: `unlock ${d}`, then: `open ${d}` }];
+  // staff at a lock that doesn't know them: the unlock is an override, and the card plays it as one
+  if (k.staff) return [{ verb: 'unlock', label: 'Unlock', cmd: `unlock ${d}`, then: `open ${d}` }];
+  if (k.pass) return [{ verb: 'unlock', label: 'Unlock', cmd: `unlock ${d}`, then: `open ${d}` }];
   return [{ verb: 'unlock', label: 'Unlock', cmd: `unlock ${d}` }, ...(k.hack && !k.yours ? [{ verb: 'hack', label: 'Hack', cmd: `hack ${d}` }] : [])];
 }
 // how the card is drawn: 'shut' (locked to you), 'pass' (locked, and it knows you), 'open' (unlocked), 'ajar' (standing open)
-// A lock that knows you reads UNLOCKED, in green: to you it is. (It used to say KEYED, in amber.)
+// A locked door reads LOCKED, in the locked colour, even one that knows you: reading UNLOCKED in the open blue,
+// your own flat looked as if Lock had done nothing.
 const stateOf = (k) => (k.open ? 'ajar' : !k.locked ? 'open' : k.pass ? 'pass' : 'shut');
-const stateWord = (k) => (k.shop ? 'CLOSED' : k.open ? 'OPEN' : !k.locked ? (k.lock === false ? 'CLOSED' : 'UNLOCKED') : k.pass ? 'UNLOCKED' : 'LOCKED');
-const stateNote = (k) => (k.shop ? (k.pass ? 'You live here. Push through.' : k.reopens || 'Closed.') : k.open ? 'Walk through.' : !k.locked ? 'Push through, or open it.' : k.pass ? 'It knows you. Push through.' : k.hack ? 'Credentials or a deck.' : 'Credentials only.');
+const stateWord = (k) => (k.shop ? 'CLOSED' : k.open ? 'OPEN' : !k.locked ? (k.lock === false ? 'CLOSED' : 'UNLOCKED') : 'LOCKED');
 
 /**
  * The locks of one open Stage. `project(p, w, h)` is the renderer's; `send(cmd)` types a verb.
@@ -91,14 +114,57 @@ export function createRoomLocks({ host, project, send, setBatch }) {
   const cardHtml = (k) => `<div class="rl-head"><b>${k.lock === false ? 'DOOR' : 'HOLOLOCK'}</b><span>${esc(WORD[k.dir] || k.dir)} door</span></div>
       ${k.owner ? `<p class="rl-owner">${esc(k.owner)}</p>` : ''}
       <div class="rl-state"><i class="rl-icon"></i><strong${stateWord(k).length > 6 ? ' class="rl-long"' : ''}>${stateWord(k)}</strong></div>
-      <p class="rl-note">${esc(stateNote(k))}</p>
       ${k.shop && k.hours ? `<p class="rl-note rl-hours">${esc(k.hours)}</p>` : ''}
       <div class="rl-acts">${lockActs(k).map((a, i) => `<button type="button" data-i="${i}" class="rl-act rl-act-${a.verb}"><kbd>${i ? i + 1 : 'F'}</kbd>${esc(a.label)}</button>`).join('')}</div>
       <p class="rl-say" hidden></p>
       <div class="rl-burst" hidden></div>`;
 
+  // A keypad, where the wall beside the door is too narrow for the card (gl/room-lock.js `pad`). The digits only
+  // light the screen: the server decides who gets in, so ENT sends the card's first verb whatever was keyed, and
+  // the rest of the card's verbs (Hack) are the keys under it.
+  const padHtml = (k) => {
+    const acts = lockActs(k);
+    return `<div class="rl-pad-screen"><strong>${stateWord(k)}</strong><span class="rl-pad-code"></span></div>
+      <div class="rl-pad-keys">${['1', '2', '3', '4', '5', '6', '7', '8', '9', 'C', '0', 'ENT'].map((d) => `<button type="button" class="rl-pad-key${d === 'ENT' ? ' rl-pad-ent' : d === 'C' ? ' rl-pad-clr' : ''}" data-k="${d}"${d === 'ENT' && !acts.length ? ' disabled' : ''}>${d}</button>`).join('')}</div>
+      <div class="rl-acts">${acts.slice(1).map((a, i) => `<button type="button" data-i="${i + 1}" class="rl-act rl-act-${a.verb}">${esc(a.label)}</button>`).join('')}</div>
+      <p class="rl-say" hidden></p>
+      <div class="rl-burst" hidden></div>`;
+  };
+  // A bathroom's bolt (the en-suite door, `k.annex`): no digits and no Hack, the same on both sides. One big
+  // Open (or Close) and a small Lock or Unlock under it. Still only verbs; the server decides.
+  const bathActs = (k) => {
+    const d = `door ${k.dir}`;
+    if (k.open) return { big: { verb: 'close', label: 'Close', cmd: `close ${d}` }, small: null };
+    if (!k.locked) return { big: { verb: 'open', label: 'Open', cmd: `open ${d}` }, small: k.lock !== false ? { verb: 'lock', label: 'Lock', cmd: `lock ${d}` } : null };
+    const unlock = { verb: 'unlock', label: 'Unlock', cmd: `unlock ${d}` };
+    return { big: k.pass || k.staff ? { ...unlock, label: 'Open', then: `open ${d}` } : null, small: unlock };
+  };
+  const bathHtml = (k) => {
+    const { big, small } = bathActs(k);
+    return `<div class="rl-pad-screen"><strong>${stateWord(k)}</strong></div>
+      <button type="button" class="rl-bath-big" data-w="big"${big ? '' : ' disabled'}>${esc(big?.label || 'Open')}</button>
+      ${small ? `<button type="button" class="rl-bath-small" data-w="small">${esc(small.label)}</button>` : ''}
+      <p class="rl-say" hidden></p>
+      <div class="rl-burst" hidden></div>`;
+  };
+  function padKey(pn, d) {
+    const code = pn.el.querySelector('.rl-pad-code');
+    if (d === 'ENT') { const a = lockActs(pn.lock)[0]; if (code) code.textContent = ''; if (a) run(pn, a); return; }
+    if (!code) return;
+    code.textContent = d === 'C' ? '' : (code.textContent + '*').slice(-6);
+    try { window.AudioEngine?.init?.(); } catch { /* silent */ }
+  }
+
   function paint(pn) {
     const k = pn.lock;
+    if (pn.g?.pad) {
+      pn.el.className = `rl-holo rl-pad${k.annex ? ' rl-bath' : ''} rl-${stateOf(k)}${comicOn() ? ' rl-comic' : ''}`;
+      pn.el.style.setProperty('--rl-hue', lockHue(k));
+      pn.el.style.width = PAD[0] + 'px'; pn.el.style.height = PAD[1] + 'px';
+      pn.el.innerHTML = k.annex ? bathHtml(k) : padHtml(k);
+      pn.comic = comicOn();
+      return;
+    }
     pn.el.className = `rl-holo rl-${stateOf(k)}${k.lock === false ? ' rl-plain' : ''}${comicOn() ? ' rl-comic' : ''}`;
     pn.el.style.setProperty('--rl-hue', lockHue(k));
     pn.el.style.width = CARD[0] + 'px'; pn.el.style.height = CARD[1] + 'px';
@@ -115,6 +181,32 @@ export function createRoomLocks({ host, project, send, setBatch }) {
     clearTimeout(pn.burstT);
     pn.burstT = setTimeout(() => { b.hidden = true; pn.el.classList.remove('rl-shake'); }, 1100);
   }
+  // An admin override: an amber sweep down the card, hazard tape across it and ADMIN OVERRIDE stamped over, then
+  // it settles to its new state. Looks only; the server has already done it.
+  // First the card glitches for a second still showing the lock as it was, then it repaints unlocked and stamps.
+  function overridden(pn, prev) {
+    const el = pn.el, now = pn.lock;
+    clearTimeout(pn.ovrT); clearTimeout(pn.glT);
+    if (prev) { pn.lock = prev; paint(pn); pn.lock = now; }
+    el.querySelector('.rl-gl')?.remove();
+    const g = document.createElement('div');
+    g.className = 'rl-gl';
+    g.innerHTML = '<i></i><i></i><i></i><i></i><i></i><i></i><b>ADMIN<br>OVERRIDE</b>';
+    el.appendChild(g);
+    el.classList.add('rl-glitching');
+    pn.glT = setTimeout(() => { if (pn.lock === now) { paint(pn); stamp(pn); } if (pn.ovrChain) { send(pn.ovrChain); pn.ovrChain = null; } }, 1150);
+  }
+  function stamp(pn) {
+    const el = pn.el;
+    el.querySelector('.rl-ovr')?.remove();
+    const o = document.createElement('div');
+    o.className = 'rl-ovr';
+    o.innerHTML = '<i class="rl-ovr-sweep"></i><i class="rl-ovr-tape"></i><b>ADMIN<br>OVERRIDE</b><small>AUTH BYPASSED</small>';
+    el.appendChild(o);
+    el.classList.remove('rl-overriding'); void el.offsetWidth; el.classList.add('rl-overriding');
+    clearTimeout(pn.ovrT);
+    pn.ovrT = setTimeout(() => { o.remove(); el.classList.remove('rl-overriding'); }, 2200);
+  }
   function say(pn, text) {
     const el = pn?.el.querySelector('.rl-say');
     if (!el) return;
@@ -125,7 +217,7 @@ export function createRoomLocks({ host, project, send, setBatch }) {
 
   // The room's locks, new or changed. `via`: the room you came in from, whose door is open behind you.
   // `fresh`: a room you've just come into, whose doors start shut; false keeps each door where it is.
-  function load(layout, locks, { via = null, fresh = true } = {}) {
+  function load(layout, locks, { via = null, fresh = true, override = null } = {}) {
     if (!L) fresh = true;
     const was = new Map(panels.map((p) => [p.lock.to, p]));
     L = layout;
@@ -139,17 +231,22 @@ export function createRoomLocks({ host, project, send, setBatch }) {
       if (!g) return;
       const old = fresh ? null : was.get(k.to);
       const pn = old || { el: document.createElement('div') };
-      const before = old ? stateOf(old.lock) : null;
+      const before = old ? stateOf(old.lock) : null, prevLock = old?.lock;
       Object.assign(pn, { lock: k, g, way: i });
-      if (!old) { layer.appendChild(pn.el); pn.el.addEventListener('click', (e) => { const b = e.target.closest('.rl-act'); if (b) run(pn, lockActs(pn.lock)[Number(b.dataset.i)]); }); }
+      if (!old) { layer.appendChild(pn.el); pn.el.addEventListener('click', (e) => { const w = e.target.closest('[data-w]'); if (w) { const a = bathActs(pn.lock)[w.dataset.w]; if (a) run(pn, a); return; } const p = e.target.closest('.rl-pad-key'); if (p) { padKey(pn, p.dataset.k); return; } const b = e.target.closest('.rl-act'); if (b) run(pn, lockActs(pn.lock)[Number(b.dataset.i)]); }); }
       if (game?.pn !== pn) paint(pn);
       // the lock gave, or took: say so on it
       if (before && before !== stateOf(k)) {
         const wasOpen = before === 'ajar', wasLocked = before === 'shut' || before === 'pass';
-        burst(pn, k.open ? 'SHHK!' : wasOpen ? 'THUNK!' : k.locked ? 'KA-CHUNK!' : wasLocked ? 'CLACK!' : 'CLICK!');
+        // staff opened a lock that wasn't theirs: the card is overridden, not unlocked
+        if (override && override === k.door && !k.locked) overridden(pn, prevLock);
+        else burst(pn, k.open ? 'SHHK!' : wasOpen ? 'THUNK!' : k.locked ? 'KA-CHUNK!' : wasLocked ? 'CLACK!' : 'CLICK!');
         if (tried?.to === k.to) tried = null;
         // the lock you opened with one press: it gave, so the door follows
-        if (pn.chain && !k.locked && !k.open && performance.now() < pn.chain.until) send(pn.chain.cmd);
+        // an override plays its glitch first and opens the door after it
+        if (pn.chain && !k.locked && !k.open && performance.now() < pn.chain.until) {
+          if (override && override === k.door) pn.ovrChain = pn.chain.cmd; else send(pn.chain.cmd);
+        }
         pn.chain = null;
       }
       next.push(pn);
@@ -325,7 +422,7 @@ export function createRoomLocks({ host, project, send, setBatch }) {
     const comic = comicOn();
     for (const pn of panels) {
       if (pn.comic !== comic && game?.pn !== pn) paint(pn);
-      const board = game?.pn === pn, size = board ? BOARD : CARD, q = (board ? pn.g.board : pn.g.card).map((p) => project(p, w, h));
+      const board = game?.pn === pn, size = board ? BOARD : pn.g.pad ? PAD : CARD, q = (board ? pn.g.board : pn.g.card).map((p) => project(p, w, h));
       const dist = Math.hypot(pn.g.mid[0] - eye[0], pn.g.mid[2] - eye[2]);
       let m = null;
       // read from the room's side only: from behind, it showed mirrored through the wall it hangs on
@@ -334,7 +431,9 @@ export function createRoomLocks({ host, project, send, setBatch }) {
       // depth can't hide it: a flat's front door is down a hall beside the en-suite, and its card showed through
       // the bathroom and its door from anywhere in the room.
       const here = at || L.local(eye);
-      const seen = !here || roomSees(L, here, pn.g.door);
+      // nor through anything standing in front of it: each corner and the middle, eye to card
+      const E = L.local(eye), pts3 = [pn.g.mid, ...(board ? pn.g.board : pn.g.card)].map((p) => L.local(p));
+      const seen = (!here || (roomSees(L, here, pn.g.door) && roomSees(L, here, pts3[0]))) && !pts3.some((p) => piecesBlock(L, E, p));
       if (front && seen && q.every(Boolean) && dist < SEEN) {
         let pts = q.map((p) => [p.x, p.y]);
         // seen the other way round (the wall's `along` runs right to left from here): turn it to read
@@ -351,8 +450,16 @@ export function createRoomLocks({ host, project, send, setBatch }) {
     }
   }
 
+  // A resident keyed through their own lock while you watched (plugins/roomstage `fx`): the lock never changed, so
+  // the card plays it, CLACK! as it opens and KA-CHUNK! as they lock it behind them.
+  function play(fx) {
+    const pn = panels.find((p) => p.lock.door === fx?.door);
+    // both arrive in the one step, so the relock waits for the open to be read
+    if (pn && !game) setTimeout(() => { if (panels.includes(pn)) burst(pn, fx.cue === 'lock' ? 'KA-CHUNK!' : 'CLACK!'); }, fx.cue === 'lock' ? 900 : 0);
+  }
+
   return {
-    load, slide, enter, bump, aim, run: runFor, said, hack, key, draw,
+    load, slide, enter, bump, aim, run: runFor, said, hack, key, draw, play,
     get hacking() { return !!game; },
     get count() { return list.length; },
     stop() { endGame(); clearTimeout(sayT); clearTimeout(tried?.t); layer.remove(); },

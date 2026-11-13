@@ -192,6 +192,18 @@ glass screen right round to the back wall, so the sky GLASS paints is over it. A
 its sky there is dark. The forms: `piano`, `telescope`, `games` (a chess table), `treadmill`, `weights`,
 `pressbench`, `pool`, `lounger` and `firetrough`, all in gl/room-decor.js.
 
+For an old bar (gl/room-saloon.js, all data): `look.dress: 'saloon'` on a `bar` gives it a panelled mahogany
+front under a padded rail, a foot rail and spittoons, the bartender's well and a working top with the taps in the
+middle; on a `barwall` it's arched mirror bays of lit bottles with a till, a wireless and a clock, and `look.trade`
+lettered on the frieze (the trade, never the building's name); on a `poker` table it's brass nailheads, drinks in
+the cup holders and a cigar. Two forms: `stools`, a run of bar stools with a seat every 0.8 m, and `jukebox`. The
+room's own: `decor.neon` (lettering in lit tube), `pendants` (a card-room lamp or schoolhouse globes, which can
+light the room), `fans`, `salon` (a hang of old photographs), `trophy`, `chalk`, `darts`, `payphone`, `hatstand`
+and `litter` (peanut shells and butts on the floor). A bartender with `flags.post` on the bar and `post_gap: 0.3`
+stands behind it and still idles at the bar's work: pouring, shaking, pulling a pint, holding a bottle to the
+light, sending a glass down the bar (actor3d.js, the props in gl/figure-reach.js). The Embassy's lounge is
+dressed this way by `scripts/content/embassy-rooms.mjs`.
+
 The Solenne's five amenity floors are finished this way by `scripts/content/solenne-amenities.mjs`, which writes
 each room's `flags.room` and every row's `look` and `spot`: Bishop's Blend, Sweat Equity, The Aerie, the Sky
 Deck and the Sky Pad. Edit the script and run it again, not the JSON.
@@ -308,6 +320,12 @@ Now that work is done before you reach the door.
   for one and only build on a miss, so a piece that moved since costs one build and never draws a stale room. The
   kept mesh is never handed to `withShells`, which adds into the batches it's given; `roomMesh` copies it first.
   They're kept by size, 192 MB on a desktop and 48 on a phone, the oldest dropped first.
+- **Built in a worker** ([room-mesh-worker.js](../../client/game/js/panels/room-mesh-worker.js), `bakeOffThread`).
+  Baked on the main thread, each room ahead was 40 to 60 ms warm and 160 to 240 ms cold, run every 60 ms as you
+  walked into a room, so every doorway was followed by a stutter. The worker builds the layout and the mesh from the
+  spec and pieces and posts back only the fields in `MESH_FIELDS`, cut to length; the reply goes into the same kept
+  meshes. A room asked for before its reply lands is built on the main thread as any miss is. A new field the Stage
+  reads off a mesh goes in `MESH_FIELDS`, or a room baked ahead arrives without it.
 - **`room_ahead`** (plugins/roomstage `aheadPayload`). After every `room_view` in a building the server sends, for
   each room one doorway away, what that room's own `room_view` would carry: its spec and the rooms round it with
   their pieces and people. It calls `viewPayload` for it with `stamp: false`, so nothing is written, and what's
@@ -356,6 +374,12 @@ aluminium operator box. The leaves are aluminium frames with a push bar and a fr
 room's batches (`slideLeaves`) and slid on the props layer as a car's doors are: they part when you come within
 2.6 m and shut 1.4 s after you leave, and you can't walk through them shut. A room seen through a doorway keeps
 them drawn shut. The Solenne lobby is the first; its door row's `flags.slides` makes the move text say so.
+
+`{ kind: 'swing', w, trim, glass, monogram }` is an old hotel's pair instead: bronze-framed glass leaves with a
+middle rail, brass push plates and kick plates, under a fanlight of glazing bars between fluted bronze jambs. They
+open on the same distances and clocks as the sliders, but each leaf turns about its outer jamb into the room
+(`hinge` and `turn` on the leaf; `liftDoorBatch` turns its positions and normals). From the street the leaves are
+`swingPair` in glass/street-doors.js. The Embassy is the first (`scripts/content/embassy-rooms.mjs`).
 
 The street outside is warmed while you're in the lobby. A GLASS view's first paints compile its shaders and build
 its city, which is the loading screen. So a Stage in a room with a street door sends `room_street` a moment after

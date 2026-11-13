@@ -39,7 +39,8 @@
 //     instance after a server restart. crossing_room is flushed on player.logout, not
 //     per step. A same-session reconnect needs nothing (rooms still in RAM).
 
-import { wildlandsAt } from '../../client/shared/wildlands.js';
+import { wildGroundAt } from '../../client/shared/wildlands.js';
+import { floraLine } from '../../client/shared/flora.js';
 import { WILDLANDS_FIELD } from '../../client/shared/wildlands-field.js';
 import { getLivePlayer, getAllLivePlayers, getAllZones, getZone, getZoneEnemies, getMinimapData, addPlayerToZone, removePlayerFromZone,
   registerTransientZone, removeTransientZone, spawnEnemySync, removeEnemyInstance, propsOf } from '../../server/engine/world.js';
@@ -52,7 +53,7 @@ import { mutationFlag } from '../../server/engine/mutations.js';
 import { registerMoveGate } from '../../server/engine/movement-gates.js';
 import { getFlag, setFlag, setFlags, clearFlagsIn } from '../../server/engine/flags.js';
 import { OPPOSITE } from '../../server/engine/directions.js';
-import { VOID_TERRAINS, FEATURES, WAYSIDE, groundFlavour, featureFor } from './flavour.js';
+import { VOID_TERRAINS, FEATURES, WAYSIDE, GROUND, WALK_TERRAIN, groundFlavour, featureFor } from './flavour.js';
 import { effectiveSkill, awardSkillUse } from '../../server/engine/skills.js';
 import { query } from '../../server/models/db.js';
 import { getItem } from '../../server/engine/items-cache.js';
@@ -369,16 +370,25 @@ function pick(rng, arr) { return arr[Math.floor(rng() * arr.length)]; }
 // ⚠ AND THE HIGHLIGHT GETS ITS OWN STREAM. Seeding the feature roll off `|feat` rather than reading
 // further down the ground's generator keeps the two independent: retuning FEATURE_CHANCE, or adding a
 // kind, must not silently rename and re-surface every room in the world.
-// The wildlands terrain at a room's position, folded onto ground the prose has lines for. Sea is
-// not somewhere a void room can be (the road never goes there), so it reads as the beach.
-function walkTerrain(pt) {
-  const t = wildlandsAt(Math.round(pt.x), Math.round(pt.y)).terrain;
-  return WALK_TERRAIN[t] || t;
+// The ground at a room's position, as the corridor's verge and the floor read it (wildGroundAt in
+// client/shared/wildlands.js: always flat, always passable), folded onto ground the prose has lines
+// for. A terrain nobody has written for keeps the roll rather than reading as somewhere else.
+// ⚠ IT WAS WRITTEN AND NEVER CALLED. The doc said the void read the wildlands; every room went on
+// rolling scrub, ash, red rock or marsh, so a walker on the Coldwater grass plain was told about
+// drifting ash. Restored 2026-11-11 with the corridor's own answer, so the walker, the driver and the
+// pilot are on one ground.
+function walkTerrain(pt, rolled) {
+  const t0 = wildGroundAt(Math.round(pt.x), Math.round(pt.y)).terrain;
+  const t = WALK_TERRAIN[t0] || t0;
+  return GROUND[t] ? t : rolled;
 }
-const WALK_TERRAIN = { cliff: 'plateau', water: 'sand', deadwood: 'ash', sinter: 'alkali' };
+const BARE_GROUND = new Set(['ash', 'alkali']);
 function mkRoom(id, voidKey, window, salt, exits, extraFlags = {}, pt = null, wayside = false) {
   const rng = mulberry32(hashSeed(`${voidKey}|${window}|${salt}`));
-  const terrain = pick(rng, VOID_TERRAINS);
+  // ⚠ THE ROLL IS STILL DRAWN FIRST, so the stream under the name and the description doesn't move;
+  // a room with a position then stands on the ground that is really there.
+  const rolled = pick(rng, VOID_TERRAINS);
+  const terrain = pt ? walkTerrain(pt, rolled) : rolled;
   const ground = groundFlavour(rng, terrain);
   // ⚠ A WAYSIDE OUTRANKS THE HIGHLIGHT ROLL, because it is not a roll. A highlight is seeded onto a
   // tile; a wayside is the place where the walking route and the road are the same place, which the
@@ -388,14 +398,20 @@ function mkRoom(id, voidKey, window, salt, exits, extraFlags = {}, pt = null, wa
   const camp = wayside
     ? { name: WAYSIDE.name, description: pick(mulberry32(hashSeed(`${voidKey}|${window}|${salt}|camp`)), WAYSIDE.descs) }
     : null;
+  // What grows here, from the same ecology the windshield draws (client/shared/flora.js), so the
+  // walker is told about the plants a pilot overhead can see. A function of the position, never the
+  // room's stream, so adding it moved no name or description. Not on ground the prose calls ash or
+  // salt, where a line about bunchgrass would argue with the sentence before it.
+  const grows = pt && !BARE_GROUND.has(terrain) ? floraLine(pt.x, pt.y) : null;
+  const tail = grows ? ` ${grows}` : '';
   return {
     id,
     // The country, then the thing standing on it. A highlight takes the room's NAME because that is
     // what a walker would call the place, and appends to the description rather than replacing it,
     // so the ground underfoot is never contradicted by the landmark on top of it.
     name: camp ? camp.name : (feat ? feat.name : ground.name),
-    description: camp ? `${ground.description} ${camp.description}`
-      : (feat ? `${ground.description} ${feat.desc}` : ground.description),
+    description: (camp ? `${ground.description} ${camp.description}`
+      : (feat ? `${ground.description} ${feat.desc}` : ground.description)) + tail,
     // ⚠ COORDINATES, AND STILL `map_void`. The room is somewhere now, but it is not PLACED ground:
     // `getAllZones()` excludes transient zones by the marker rather than by missing coordinates, so
     // `surfaceAt`, `regionGates` and voidwalking's own rim index never see it — which is what keeps
@@ -425,7 +441,8 @@ function mkRoom(id, voidKey, window, salt, exits, extraFlags = {}, pt = null, wa
 // private list of wreck names that would drift out of step with it.
 function mkDetour(id, voidKey, window, salt, spineRoomId, pt = null) {
   const rng = mulberry32(hashSeed(`${voidKey}|${window}|${salt}|d`));
-  const terrain = pick(rng, VOID_TERRAINS);
+  const rolled = pick(rng, VOID_TERRAINS);
+  const terrain = pt ? walkTerrain(pt, rolled) : rolled;
   const pool = FEATURES.filter(f => f.kind === 'salvage' && (!f.terrains || f.terrains.includes(terrain)));
   const feat = pick(rng, pool.length ? pool : FEATURES.filter(f => f.kind === 'salvage'));
   return {

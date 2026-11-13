@@ -227,3 +227,62 @@
 /* Drawn into the apartment (kitchen-stage.js host): the Room Stage's own canvas under this one draws the
    picture, so the stage keeps to the room's pane and lets it show through. */
 .ks-root.ks-hosted { position: absolute; background: transparent; }
+
+/* The microwave's keypad on the page (kitchen-stage.js paintMw): what to do next, what could go in, the
+   display and the keys, at the left under the beat line. It types what the keys in the picture type. */
+.ks-mw {
+  position: absolute; top: 112px; left: 8px; width: 204px; z-index: 1; padding: 8px;
+  background: var(--ks-card); border: 2px solid var(--ks-ink); box-shadow: 4px 4px 0 var(--ks-ink);
+  display: flex; flex-direction: column; gap: 6px;
+}
+.ks-mw[hidden] { display: none; }
+.ks-mw-step { font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; line-height: 1.15; }
+.ks-mw-load { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; }
+.ks-mw-in { font-weight: 700; }
+.ks-mw-display {
+  font: 700 1.7em/1 "Courier New", monospace; text-align: right; padding: 4px 8px; letter-spacing: 0.08em;
+  background: #0c2016; color: #48ff8a; border: 2px solid var(--ks-ink); text-shadow: 0 0 6px rgba(72, 255, 138, 0.6);
+}
+.ks-mw-pad { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; }
+.ks-mw-key { padding: 4px 0; font-weight: 700; text-align: center; }
+.ks-mw-row { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; }
+.ks-mw-start { background: #3fae5a; color: var(--ks-paper); font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; }
+.ks-mw-take { background: var(--ks-red); color: var(--ks-paper); font-weight: 700; }
+.ks-mw button:disabled { opacity: 0.45; cursor: default; transform: none; box-shadow: 3px 3px 0 var(--ks-ink); }
+@media (max-width: 640px) { .ks-mw { top: auto; bottom: 96px; width: 172px; padding: 6px; } .ks-mw-display { font-size: 1.3em; } }
+
+/* On your feet in a room (kitchen-stage.js walkChrome): no tabs, rack, tray, beat line or top bar; one menu
+   at the left instead (.ks-cook, or the microwave's own panel). In a close-up the key line comes back, since
+   it says how the cut or the plate works. */
+.ks-walk .ks-tabs, .ks-walk .ks-top, .ks-walk .ks-rack, .ks-walk .ks-tray, .ks-walk .ks-beat { display: none; }
+.ks-free .ks-keys, .ks-free .ks-chips { display: none; }
+.ks-walk .ks-gl { cursor: default; }
+.ks-walk .ks-mw { top: 8px; }
+.ks-cook {
+  position: absolute; top: 8px; left: 8px; width: 236px; max-height: calc(100% - 16px); overflow-y: auto; z-index: 1; padding: 8px;
+  background: var(--ks-card); border: 2px solid var(--ks-ink); box-shadow: 4px 4px 0 var(--ks-ink);
+  display: flex; flex-direction: column; gap: 6px;
+}
+.ks-cook[hidden] { display: none; }
+.ks-ck-title { font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; background: var(--ks-ink); color: var(--ks-paper); padding: 2px 6px; align-self: flex-start; }
+.ks-ck-beat { line-height: 1.2; }
+.ks-ck-beat span { display: block; color: var(--ks-dim); font-size: 0.9em; }
+.ks-ck-row { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; }
+.ks-ck-k { font-weight: 700; text-transform: uppercase; font-size: 0.78em; color: var(--ks-dim); margin-right: 2px; }
+.ks-ck-go { background: var(--ks-red); color: var(--ks-paper); font-weight: 700; }
+.ks-ck-foot { display: flex; flex-wrap: wrap; gap: 4px; padding-top: 6px; border-top: 2px solid var(--ks-ink); }
+.ks-ck-done { margin-left: auto; font-weight: 700; }
+.ks-ck-how { font-size: 0.75em; color: var(--ks-dim); }
+@media (max-width: 640px) { .ks-cook { top: auto; bottom: 8px; width: 200px; max-height: 50%; } .ks-walk .ks-mw { top: auto; } }
+
+/* The appliance strip (kitchen-stage.js paintApps): every fridge, freezer, cupboard and cooker in one row
+   along the top, and Stock up on the end. On screen at every appliance and on your feet. */
+.ks-apps {
+  position: absolute; top: 8px; left: 50%; transform: translateX(-50%); z-index: 2;
+  display: flex; flex-wrap: wrap; justify-content: center; gap: 6px; max-width: calc(100% - 340px);
+  pointer-events: auto;
+}
+.ks-apps .ks-btn.on { background: var(--ks-ink); color: var(--ks-paper); }
+.ks-apps-stock { margin-left: 8px; }
+@media (max-width: 900px) { .ks-apps { top: 48px; max-width: calc(100% - 16px); } }
+.ks-walk .ks-apps { left: auto; right: 8px; transform: none; max-width: calc(100% - 260px); justify-content: flex-end; }

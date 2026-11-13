@@ -2,6 +2,8 @@
 import { _test } from './index.js';
 
 import { _internals as _home } from './home-life.js';
+import { _talk } from './home-talk.js';
+import { drinkUp, tipsyOf } from './tipsy.js';
 import { _intrusion } from './intrusion.js';
 import { _eviction } from './eviction.js';
 import { _blackout, zoneIsDark } from './blackout.js';
@@ -271,4 +273,43 @@ export default async function regress({ run, check }) {
     for (const id of ['b_ok', 'b_dead', 'b_asleep', 'b_shop', 'b_fight', 'b_mute', 'b_elsewhere', 'b_vendor']) world.npcs.delete(id);
     world.zones.delete(zoneId);
   }
+  // ── Home talk: every topic resolves, forks read the temper, tags land ──
+  {
+    const a = { id: 'ht_a', name: 'Ada Pell' }, b = { id: 'ht_b', name: 'Bo Grint' }, c = { id: 'ht_c', name: 'Cy Moss' };
+    const ctx = { dish: 'stew', drink: 'tea', neighbour: 'Nan', weather: 'this rain', phase: 'night', tv: 'Ring Fenced', team: 'Highlanders', stranger: true };
+    const mem = { temper: 0, grudge: 'the soup', joke: 'Doug' };
+    let dead = [];
+    for (const t of [..._talk.TOPICS, ..._talk.THREE]) {
+      t.steps.forEach((st, i) => {
+        const alts = Array.isArray(st) ? st : [...st.calm, ...st.hot];
+        for (const raw of alts) if (!_talk.resolveLine(raw, i % 2, [a, b, c], ctx, mem)) dead.push(t.id + ':' + raw);
+      });
+    }
+    check('home talk: every line resolves with a full context', dead.length === 0, dead.slice(0, 3).join(' | '));
+    const l = _talk.resolveLine('+"Label your own mouth. #grudge"', 1, [a, b], ctx, mem);
+    check('home talk: + raises temper, tag parsed, speaker kept', l?.move === 1 && l.tags[0][0] === 'grudge' && l.who === 1 && l.text === '"Label your own mouth."', JSON.stringify(l));
+    check('home talk: a missing token skips the line', _talk.resolveLine('"Did you see {team}?"', 0, [a, b], {}, mem) === null);
+    check('home talk: {you} is the other one', _talk.resolveLine('"Hi {you}."', 0, [a, b], ctx, mem)?.text === '"Hi Bo."');
+    const m = _talk.memoryOf(a, b);
+    check('home talk: pair memory is order-free', _talk.memoryOf(b, a) === m);
+    m.grudge = 'the rent'; m.temper = 3;
+    let opened = 0;
+    for (let i = 0; i < 200; i++) if (_talk.pickTopic([a, b], {}, m)?.callback === 'grudge') opened++;
+    check('home talk: a grudge gets brought up', opened > 20, opened);
+    check('home talk: the grudge topic is not re-picked fresh', !Array.from({ length: 200 }, () => _talk.pickTopic([a, b], {}, { ...m, joke: null, grudge: 'the rent' })).some((t) => t.label === 'the rent'));
+    _talk.pairs.clear();
+    const sc = _home.soloScene('night', true);
+    check('home life: solo scenes come back with beats', Array.isArray(sc.beats) && sc.beats.length > 0 && !!sc.kind, sc.kind);
+    // the body goes with the words: a raised line in a hot talk is 'hot', a storm-off is 'storm', a laugh a laugh
+    const tone = (raw, temper) => _talk.toneOf(_talk.resolveLine(raw, 0, [a, b], ctx, mem), temper, 0);
+    check('home talk: tones', tone('+"Label your own mouth. #grudge"', 2) === 'hot' && tone('+"Label your own mouth."', 0) === 'cross'
+      && tone('+"Bed. #storm"', 0) === 'storm' && tone('-laughs. "Fair."', 0) === 'laugh' && tone('-"Good. #make-up"', 0) === 'warm');
+    // drink: one at home is tipsy 1, five is 3, and a drunk pair mostly gets the drunk topics
+    const sot = {}; drinkUp(sot); const one = tipsyOf(sot); drinkUp(sot, 4);
+    check('tipsy: drinks add up', one === 1 && tipsyOf(sot) === 3, [one, tipsyOf(sot)]);
+    let drunkTopics = 0;
+    for (let i = 0; i < 200; i++) if (_talk.pickTopic([a, b], { tipsy: 2 }, { temper: 0 }).id.startsWith('drunk')) drunkTopics++;
+    check('home talk: a drunk pair mostly gets the drunk topics', drunkTopics > 100, drunkTopics);
+  }
+
 }

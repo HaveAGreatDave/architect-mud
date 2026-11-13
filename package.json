@@ -29,6 +29,7 @@
     "map:derive": "node scripts/content/derive-cli.mjs",
     "studio": "node tools/studio/serve.mjs",
     "modelshop": "node tools/modelshop/serve.mjs",
+    "bestiary": "node tools/modelshop/serve.mjs --open=/bestiary.html",
     "broadcast-studio": "node tools/broadcast-studio/serve.mjs",
     "actors:faces": "node scripts/shapes/actor-faces.mjs --write",
     "content:lint": "node scripts/content/lint.mjs",
@@ -169,6 +170,7 @@
   "dependencies": {
     "@getbrevo/brevo": "^5.0.4",
     "dotenv": "^16.4.5",
+    "esbuild": "^0.28.2",
     "pg": "^8.11.3",
     "ws": "^8.16.0"
   },

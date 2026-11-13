@@ -253,6 +253,8 @@ export const REGISTRY = [
   // after npcs + zones (both FK'd). Kept in sync by the NPC create/edit/auto-house
   // endpoints and the reconcile script.
   { table: 'npc_residences', class: 'content', pk: ['zone_id'], readTier: 'cold' },
+  // a pet's body and nature over its NPC (plugins/pets): loaded once at boot into the plugin's Map
+  { table: 'pets', class: 'content', pk: ['id'], readTier: 'boot' },
   // generators/power_zones: the power sim re-queries both every cycle and rewrites
   // them — derived per-zone status lives in environment state, never a table cache.
   { table: 'generators', class: 'content', pk: ['id'], readTier: 'fresh',

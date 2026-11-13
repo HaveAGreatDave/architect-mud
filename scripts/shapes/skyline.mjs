@@ -29,8 +29,8 @@ const ctx = new Proxy({}, {
 });
 host.getContext = () => ctx;
 
-let cells = null;
-ws.installGLWorld((c) => { cells = c; return { canvas: glCanvas, faces: 0 }; });
+let cells = null, curtain = null;
+ws.installGLWorld((c, cam, o) => { cells = c; curtain = o && o.curtain; return { canvas: glCanvas, faces: 0 }; });
 
 const SPIRE = [892, 906, 'asc_spire', 'The Spire', 30, 'west'];
 const SHOP = [880, 906, 'shop', null, null, 'south'];
@@ -55,6 +55,11 @@ else {
 }
 if (cells && cells.some((it) => it.c.bt === 'shop' && it.c.sky)) out.push('a shop on the skyline list was drawn past the window');
 
+// The Curtain rides the same list ([x, y, 0, …, cur]) and stands 90 tiles out, a building it is not.
+ws.paintWindshield('__sky', view(900, 1000, { skyline: [[899, 910, 0, null, null, null, 'ew'], [900, 910, 0, null, null, null, 'ew']] }));
+if (!curtain || !curtain.length) out.push('the Curtain, 90 tiles out, never reached the GL pass');
+if (cells && cells.some((it) => it.c.cur)) out.push('a Curtain tile was handed to the GL pass as a building');
+
 // GLASS 2 off: the canvas draws it. Compare against the same frame with no list.
 ws.RENDER_TUNE.gl = 0;
 ws.installGLWorld(null);
@@ -63,4 +68,4 @@ draws = 0; ws.paintWindshield('__sky', view(892, 960)); const withDraws = draws;
 if (withDraws <= bareDraws) out.push(`with GLASS 2 off the Spire drew nothing (${withDraws} draws against ${bareDraws} with it out of reach)`);
 
 if (out.length) { console.log('✗ skyline — ' + out.length + ' problem(s):'); for (const m of out) console.log('  ✗ ' + m); process.exit(1); }
-console.log('✓ skyline: the Spire draws 54 tiles out on both renderers; a shop does not');
+console.log('✓ skyline: the Spire draws 54 tiles out on both renderers; a shop does not; the Curtain draws 90 out');

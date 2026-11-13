@@ -43,6 +43,7 @@
 //
 // Pure, like the rest of the interior: no clock, no camera, no DOM. `live` arrives as an argument,
 // and every control's position is a function of it, so the gate can drive each to both stops.
+import { nightAt } from './sky-keys.js';
 import { makeKit, C, clamp, lerp, pedal, richSeat, SHINY, PANE, TEXTURE } from './interior-kit.js';
 import { MESH_ROWS } from './vehicle-meshes.js';
 import { eased, pressPulse, hotspotHalo } from './interior-cockpit-kit.js';
@@ -693,7 +694,7 @@ function orderPanel(Lp, Rp) {
 export function mayflyFit(P, live, push) {
   const K = makeKit(push), L = live || {}, Y = layout(P), D = P.mayfly;
   const powered = L.powered !== false;
-  const hour = num(L.hour, 12), night = hour < 6.5 || hour > 19.5;
+  const hour = num(L.hour, 12), night = nightAt(hour);
   // The post lights: on the PANEL switch, or after dark when a view sends no switch state.
   const post = powered && (L.panelLight != null ? !!L.panelLight : night);
   const ias = num(L.ias), alt = num(L.alt), vsi = num(L.vsi), hdg = num(L.hdg);

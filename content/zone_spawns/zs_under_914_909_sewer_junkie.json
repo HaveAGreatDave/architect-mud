@@ -1,6 +1,6 @@
 {
-  "enemy_id": "enemy_weeper_mutant",
-  "id": "zs_under_914_909_weeper_mutant",
+  "enemy_id": "enemy_sewer_junkie",
+  "id": "zs_under_914_909_sewer_junkie",
   "max_count": 2,
   "respawn_seconds": 300,
   "spawn_weight": 50,

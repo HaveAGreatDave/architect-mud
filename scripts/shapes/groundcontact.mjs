@@ -40,7 +40,7 @@ const map = Array.from({ length: N }, (_, y) => Array.from({ length: N }, (_, x)
 }));
 
 // ⚠ THE CAB'S OWN SIZE, NOT THE DEFAULT. `CONTACT_SIZE.truck` is honest for a rig seen from the air
-// and the road view multiplies it by seven (see ROAD_RIG_MUL); the bake's 700px guard is measured
+// and the road view multiplies it by ROAD_RIG_MUL (nine); the bake's 700px guard is measured
 // against the drawn box, so a gate using the unmultiplied size is testing a different object.
 const RIG = () => ({ id: 1, cls: 'truck', reg: 'T1', dx: 0.2, dy: -2.6, altDiff: 0, groundZ: 0,
   onGround: true, band: 'ground', heading: 0, sizeMul: ws.ROAD_RIG_MUL });

@@ -37,6 +37,7 @@ const CROUCH_PACE = 0.5;   // and how much slower
 //   onSettle   ([u, v], yaw) => void, when you stop walking (where you stand now)
 //   onUse      () => true if the host took the use key itself
 //   aimable    (pieceId) => true if the piece is on your side of any wall
+//   sees       (u, v) => true if nothing stands between the eye and that point (what hover and click can pick)
 //   start      a seat to start in, or { at: [u, v], yaw } to start on your feet
 //   carry     another walker's `keys()`: what was held when the host swapped walkers (a new room, a piece moved),
 //              so somebody holding W through a doorway keeps walking instead of stopping until the key repeats
@@ -120,7 +121,9 @@ export function createRoomWalk(opts) {
         const dfx = getDrugFx(), drunk = dfx?.profile === 'drunk' ? dfx.intensity : 0;
         if (drunk > 0.3) seat.yaw = y + Math.sin(now * 0.0011) * Math.sin(now * 0.00037 + 1) * (drunk - 0.3) * 1.4 * dt;
         const wx = (fx * ahead + rx * side) / l * pace, wz = (fz * ahead + rz * side) / l * pace;
-        at = roomStep(L, at, wx * L.r[0] + wz * L.r[2], -(wx * L.f[0] + wz * L.f[2]));
+        const to = roomStep(L, at, wx * L.r[0] + wz * L.r[2], -(wx * L.f[0] + wz * L.f[2]));
+        // something across the way the room's own plan doesn't know about (the shutters down over a balcony door)
+        if (!opts.fence?.(at, to)) at = to;
         walked = true;
       }
       place();
@@ -204,14 +207,18 @@ export function createRoomWalk(opts) {
     hit(x, y, w, h) {
       const pd = Math.max(150, w * 0.14), bd = Math.max(80, w * 0.07);
       let pick = null, pBest = pd, best = null, sBest = bd;
+      // ⚠ THE TAG IS HTML OVER THE PICTURE, so the room's depth can't hide it: a piece behind a wall or in the
+      // next room showed its name through the wall. `sees` says whether the eye has a clear line to it.
+      const seen = (u, v) => !opts.sees || opts.sees(u, v);
       for (const st of L.stations || []) {
+        if (!seen(st.u, st.v)) continue;
         const q = opts.project?.(L.world(st.u, st.v, st.y), w, h);
         const dd = q ? Math.hypot(q.x - x, q.y - y) : Infinity;
         if (dd < pBest) { pBest = dd; pick = st; }
       }
       if (pick) return { station: pick, far: !!pick.behind && Math.hypot(pick.u - at[0], pick.v - at[1]) > pick.reach };
       for (const s of L.seats) {
-        if (s === sat) continue;
+        if (s === sat || !seen(s.u, s.v)) continue;
         const q = opts.project?.(L.world(s.u, s.v, (s.lie ? s.y * 0.6 : 2.2 * ft)), w, h);
         const dd = q ? Math.hypot(q.x - x, q.y - y) : Infinity;
         if (dd < sBest) { sBest = dd; best = s; }

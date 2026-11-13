@@ -1,43 +1,293 @@
-/* The environmental control screen (envctl.js): docked bottom-left over the room, or full screen. */
+/* The environmental control screen (envctl.js): a small OS in black glass and brushed gold, docked
+   bottom-left over the room or full screen. A welcome, a home menu of app tiles, and a page per app. */
 .envctl {
+	--gold: #d9b26f; --gold-hi: #ffe0a3; --gold-lo: #7a5a2e; --ice: #8fe6e0; --ink: #e9eef1; --mute: #8a96a0;
 	position: fixed; left: 16px; bottom: 16px; z-index: 9000;
 	width: min(560px, calc(100vw - 32px)); max-height: calc(100vh - 32px); overflow: auto;
-	background: rgba(6, 9, 12, 0.94); color: #dfe8ec; border: 1px solid #6a5238; border-radius: 8px;
-	box-shadow: 0 10px 40px rgba(0, 0, 0, 0.6);
-	font: 13px/1.35 system-ui, -apple-system, 'Segoe UI', sans-serif;
+	color: var(--ink); border-radius: 18px; padding: 1px;
+	background:
+		radial-gradient(120% 80% at 15% 0%, rgba(217, 178, 111, 0.16), transparent 55%),
+		radial-gradient(90% 70% at 100% 100%, rgba(143, 230, 224, 0.10), transparent 60%),
+		linear-gradient(160deg, rgba(14, 16, 20, 0.97), rgba(4, 6, 9, 0.97));
+	border: 1px solid transparent;
+	background-clip: padding-box;
+	box-shadow:
+		0 0 0 1px rgba(217, 178, 111, 0.55),
+		0 0 0 4px rgba(10, 10, 12, 0.9),
+		0 0 0 5px rgba(217, 178, 111, 0.25),
+		0 24px 60px rgba(0, 0, 0, 0.7),
+		inset 0 1px 0 rgba(255, 230, 180, 0.12);
+	backdrop-filter: blur(14px);
+	font: 0.8125rem/1.35 'Segoe UI', system-ui, -apple-system, sans-serif;
+	animation: envctl-in 0.42s cubic-bezier(0.2, 0.9, 0.25, 1.15);
 }
 .envctl[hidden] { display: none; }
-.envctl.envctl-full { inset: 0; width: auto; max-height: none; border-radius: 0; font-size: 16px; display: flex; flex-direction: column; }
-.envctl-head { display: flex; align-items: center; gap: 8px; padding: 8px 10px; border-bottom: 1px solid #2a2f35; }
-.envctl-name { flex: 1; letter-spacing: 0.12em; text-transform: uppercase; font-size: 0.85em; color: #c9a86f; }
-.envctl-warn { color: #ff8a6a; font-size: 0.8em; letter-spacing: 0.1em; }
+.envctl.envctl-full { inset: 0; width: auto; max-height: none; border-radius: 0; font-size: 1rem; display: flex; flex-direction: column; box-shadow: none; }
+.envctl.envctl-dark { filter: saturate(0.4) brightness(0.8); }
+@keyframes envctl-in { from { opacity: 0; transform: translateY(14px) scale(0.97); } }
+
 .envctl button {
-	background: #141a20; color: #dfe8ec; border: 1px solid #34404a; border-radius: 5px;
-	padding: 6px 12px; font: inherit; cursor: pointer; min-height: 32px;
+	background: linear-gradient(180deg, rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0.015));
+	color: var(--ink); border: 1px solid rgba(217, 178, 111, 0.28); border-radius: 10px;
+	padding: 7px 14px; font: inherit; cursor: pointer; min-height: 34px;
+	transition: border-color 0.15s, box-shadow 0.2s, transform 0.1s, color 0.15s;
 }
-.envctl button:hover { border-color: #7fd6d0; }
-.envctl button.sel { border-color: #c9a86f; color: #ffcf8a; }
-.envctl-head button { padding: 2px 9px; }
-.envctl-body { display: grid; grid-template-columns: 1fr 1fr 1.4fr; gap: 10px; padding: 10px; }
-.envctl-full .envctl-body { flex: 1; gap: 20px; padding: 24px; }
-.envctl-tile { background: #0d1217; border: 1px solid #222a31; border-radius: 6px; padding: 10px; display: flex; flex-direction: column; gap: 8px; min-width: 0; }
-.envctl-tile h3 { margin: 0; font-size: 0.75em; letter-spacing: 0.16em; text-transform: uppercase; color: #8a98a2; font-weight: 600; }
-.envctl-big { font-size: 2em; font-weight: 300; color: #9fb0ba; }
-.envctl-big.on { color: #ffcf8a; }
-.envctl-big small { font-size: 0.4em; margin-left: 6px; color: #8a98a2; }
-.envctl-full .envctl-big { font-size: 3.4em; }
-.envctl-row { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
-.envctl-set { min-width: 4em; text-align: center; color: #7fd6d0; font-size: 1.15em; }
-.envctl-list { list-style: none; margin: 0; padding: 0; font-size: 0.85em; color: #6c7880; }
-.envctl-list li.on { color: #ffcf8a; }
-.envctl-live { color: #ff6a5a; margin-left: 6px; letter-spacing: 0.08em; }
-.envctl-where { font-size: 0.8em; color: #8a98a2; }
+.envctl button:hover { border-color: var(--gold); box-shadow: 0 0 14px rgba(217, 178, 111, 0.28); }
+.envctl button:active { transform: scale(0.97); }
+.envctl button.sel { border-color: var(--gold); color: var(--gold-hi); box-shadow: inset 0 0 12px rgba(217, 178, 111, 0.22); }
+
+/* ── the welcome ── */
+.envctl-welcome {
+	min-height: 300px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px;
+	text-align: center; cursor: pointer; position: relative; overflow: hidden; border-radius: 17px;
+}
+.envctl-full .envctl-welcome { flex: 1; }
+.envctl-welcome::before {
+	content: ''; position: absolute; inset: -50%;
+	background: conic-gradient(from 0deg, transparent 0 70%, rgba(255, 224, 163, 0.18) 80%, transparent 90%);
+	animation: envctl-spin 3.2s linear infinite;
+}
+.envctl-welcome > * { position: relative; }
+.envctl-crest { width: 58px; height: 58px; border-radius: 50%; margin-bottom: 14px; display: grid; place-items: center;
+	border: 1px solid var(--gold); box-shadow: 0 0 24px rgba(217, 178, 111, 0.5), inset 0 0 14px rgba(217, 178, 111, 0.35);
+	animation: envctl-pulse 1.6s ease-in-out infinite; }
+.envctl-crest i { width: 18px; height: 18px; transform: rotate(45deg); border: 2px solid var(--gold-hi); box-shadow: 0 0 10px var(--gold); }
+.envctl-hello { font-size: 1.1em; letter-spacing: 0.5em; text-transform: uppercase; color: var(--mute); opacity: 0; animation: envctl-rise 0.6s 0.15s forwards; }
+.envctl-who {
+	font-size: 2.6em; font-weight: 200; letter-spacing: 0.04em; opacity: 0;
+	background: linear-gradient(90deg, var(--gold-lo), var(--gold-hi) 40%, #fff 50%, var(--gold-hi) 60%, var(--gold-lo));
+	background-size: 250% 100%; -webkit-background-clip: text; background-clip: text; color: transparent;
+	animation: envctl-rise 0.7s 0.4s forwards, envctl-sheen 2.4s 0.6s linear infinite;
+}
+.envctl-full .envctl-who { font-size: 4.4em; }
+.envctl-sub { margin-top: 12px; font-size: 0.8em; letter-spacing: 0.2em; text-transform: uppercase; color: var(--mute); opacity: 0; animation: envctl-rise 0.6s 0.8s forwards; }
+@keyframes envctl-spin { to { transform: rotate(360deg); } }
+@keyframes envctl-pulse { 50% { box-shadow: 0 0 40px rgba(217, 178, 111, 0.75), inset 0 0 18px rgba(217, 178, 111, 0.5); } }
+@keyframes envctl-rise { from { opacity: 0; transform: translateY(10px); filter: blur(4px); } to { opacity: 1; transform: none; filter: none; } }
+@keyframes envctl-sheen { from { background-position: 100% 0; } to { background-position: -150% 0; } }
+
+/* ── the bar along the top ── */
+.envctl-head { display: flex; align-items: center; gap: 8px; padding: 10px 12px; border-bottom: 1px solid rgba(217, 178, 111, 0.18); }
+.envctl-name { flex: 1; letter-spacing: 0.22em; text-transform: uppercase; font-size: 0.78em; color: var(--gold); }
+.envctl-status { display: flex; gap: 10px; font-size: 0.8em; color: var(--mute); font-variant-numeric: tabular-nums; }
+.envctl-warn { color: #ff8a6a; letter-spacing: 0.1em; font-weight: 600; }
+.envctl-head button { padding: 2px 10px; min-height: 28px; border-radius: 8px; }
+.envctl .envctl-back { font-size: 1.3em; line-height: 1; padding: 0 10px; }
+
+.envctl-page { padding: 14px; display: flex; flex-direction: column; gap: 12px; animation: envctl-rise 0.3s; }
+.envctl-full .envctl-page { flex: 1; padding: 32px; gap: 22px; max-width: 980px; width: 100%; margin: 0 auto; box-sizing: border-box; }
+
+/* ── the home menu ── */
+.envctl-greet { font-size: 1.25em; font-weight: 200; color: var(--mute); }
+.envctl-greet b { font-weight: 400; color: var(--gold-hi); }
+.envctl-menu { display: grid; grid-template-columns: repeat(auto-fit, minmax(118px, 1fr)); gap: 10px; }
+.envctl .envctl-app {
+	display: grid; grid-template-rows: auto auto auto; justify-items: start; gap: 2px; text-align: left;
+	padding: 14px; min-height: 112px; border-radius: 14px; position: relative; overflow: hidden;
+	background: linear-gradient(160deg, rgba(255, 255, 255, 0.07), rgba(255, 255, 255, 0.01));
+}
+.envctl .envctl-app::after { content: ''; position: absolute; inset: 0; background: linear-gradient(115deg, transparent 40%, rgba(255, 240, 210, 0.10) 50%, transparent 60%); transform: translateX(-100%); transition: transform 0.6s; }
+.envctl .envctl-app:hover::after { transform: translateX(100%); }
+.envctl-app i { font-style: normal; font-size: 1.7em; color: var(--mute); margin-bottom: 6px; transition: color 0.2s, text-shadow 0.2s; }
+.envctl-app.on i { color: var(--gold-hi); text-shadow: 0 0 14px var(--gold); }
+.envctl-appname { font-size: 1.05em; letter-spacing: 0.04em; }
+.envctl-appstate { font-size: 0.8em; color: var(--mute); }
+.envctl-app.on .envctl-appstate { color: var(--ice); }
+.envctl-full .envctl-app { min-height: 180px; padding: 22px; }
+.envctl-full .envctl-app i { font-size: 2.6em; }
+
+/* ── an app's page ── */
+.envctl-hero { font-size: 2.6em; font-weight: 200; color: var(--mute); letter-spacing: 0.04em; }
+.envctl-hero.on { color: var(--gold-hi); text-shadow: 0 0 22px rgba(217, 178, 111, 0.55); }
+.envctl-hero small { font-size: 0.35em; margin-left: 8px; color: var(--mute); text-shadow: none; letter-spacing: 0.1em; }
+.envctl-full .envctl-hero { font-size: 4.2em; }
+.envctl-row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.envctl-big2 button { flex: 1; min-height: 44px; font-size: 1.05em; }
+.envctl-list { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 6px; font-size: 0.88em; color: var(--mute); }
+.envctl-list li { display: flex; align-items: center; gap: 8px; }
+.envctl-list i { width: 8px; height: 8px; border-radius: 50%; background: #333a40; }
+.envctl-list li.on { color: var(--ink); }
+.envctl-list li.on i { background: var(--gold-hi); box-shadow: 0 0 8px var(--gold); }
+
+/* the climate's dial: a gold arc as far round as the setting is up its range */
+.envctl-dial {
+	--p: 0; width: 190px; height: 190px; margin: 4px auto; border-radius: 50%; display: grid; place-items: center;
+	background: conic-gradient(from 225deg, var(--ice), var(--gold) calc(var(--p) * 270deg), rgba(255, 255, 255, 0.07) 0 270deg, transparent 0);
+	box-shadow: 0 0 30px rgba(217, 178, 111, 0.15);
+}
+.envctl-dial:not(.on) { background: conic-gradient(from 225deg, rgba(255, 255, 255, 0.07) 0 270deg, transparent 0); }
+.envctl-dial-in { width: 160px; height: 160px; border-radius: 50%; background: radial-gradient(circle at 50% 35%, #161a1f, #06080b); display: flex; flex-direction: column; align-items: center; justify-content: center; box-shadow: inset 0 2px 10px rgba(0, 0, 0, 0.8); }
+.envctl-set { font-size: 2.8em; font-weight: 200; color: var(--gold-hi); }
+.envctl-dial:not(.on) .envctl-set { color: var(--mute); }
+.envctl-dial-in small { color: var(--mute); letter-spacing: 0.1em; }
+.envctl-full .envctl-dial { width: 300px; height: 300px; }
+.envctl-full .envctl-dial-in { width: 256px; height: 256px; }
+
+/* the door camera */
+.envctl-camhead { display: flex; justify-content: space-between; font-size: 0.85em; color: var(--mute); }
+.envctl-live { color: #ff6a5a; letter-spacing: 0.1em; animation: envctl-blink 1.4s steps(1) infinite; }
+@keyframes envctl-blink { 50% { opacity: 0.35; } }
 .envctl-frame {
-	flex: 1; min-height: 90px; padding: 10px; border-radius: 4px;
-	background: repeating-linear-gradient(0deg, #12181c 0 2px, #0e1316 2px 4px);
-	color: #b8e6c4; font: 0.92em/1.4 ui-monospace, Consolas, monospace;
+	min-height: 120px; padding: 12px; border-radius: 10px; border: 1px solid rgba(143, 230, 224, 0.2);
+	background: repeating-linear-gradient(0deg, #10161a 0 2px, #0b1013 2px 4px);
+	color: #b8e6c4; font: 0.92em/1.45 ui-monospace, Consolas, monospace;
+	box-shadow: inset 0 0 30px rgba(0, 0, 0, 0.8);
 }
+.envctl-full .envctl-frame { flex: 1; }
 .envctl-nosig { color: #ff8a6a; display: flex; align-items: center; justify-content: center; text-align: center; }
-@media (max-width: 600px) {
-	.envctl-body { grid-template-columns: 1fr; }
+
+/* the shutters: scenes as swatches, and the blinds' five light steps */
+.envctl-scenes { display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 8px; }
+.envctl .envctl-scene { display: flex; flex-direction: column; align-items: stretch; gap: 4px; padding: 5px; text-align: left; }
+.envctl-scene i {
+	display: block; height: 46px; border-radius: 7px;
+	background: radial-gradient(circle at 70% 30%, var(--c) 0 3px, transparent 6px), linear-gradient(180deg, var(--a), var(--b));
 }
+.envctl-full .envctl-scene i { height: 90px; }
+.envctl-scene span { font-size: 0.85em; }
+.envctl-light span { font-size: 0.8em; color: var(--mute); margin-right: 2px; }
+.envctl .envctl-light button { padding: 4px 8px; min-height: 30px; font-size: 0.85em; }
+/* the blinds' colour wheel: hue round it, strength out from the middle, at the shade (--l) the blinds are nearest */
+.envctl-colour { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.envctl-colour > span { font-size: 0.8em; color: var(--mute); }
+.envctl-wheel {
+	position: relative; width: 96px; height: 96px; border-radius: 50%; cursor: crosshair; flex: none;
+	background: radial-gradient(closest-side, hsl(0 0% var(--l)), hsl(0 0% var(--l) / 0) 100%),
+		conic-gradient(from 90deg, hsl(0 85% var(--l)), hsl(60 85% var(--l)), hsl(120 85% var(--l)), hsl(180 85% var(--l)), hsl(240 85% var(--l)), hsl(300 85% var(--l)), hsl(360 85% var(--l)));
+	box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.5), 0 0 16px rgba(0, 0, 0, 0.4);
+}
+.envctl-wheel-dot { position: absolute; width: 14px; height: 14px; margin: -9px 0 0 -9px; border-radius: 50%; border: 2px solid #fff; box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.6); pointer-events: none; }
+.envctl-shades { display: flex; flex-direction: column; gap: 4px; }
+.envctl .envctl-shades button { padding: 3px 10px; min-height: 26px; font-size: 0.8em; }
+.envctl-full .envctl-wheel { width: 150px; height: 150px; }
+
+@media (prefers-reduced-motion: reduce) {
+	.envctl, .envctl *, .envctl *::before, .envctl *::after { animation: none !important; opacity: 1 !important; transition: none !important; }
+}
+
+/* ── on the wall's glass (room-envctl.js): a page bent onto the panel each frame, so no fixed place, no
+   entry animation (its transform is the projection) and no frame of its own (the gold bezel is in 3D) ── */
+.envctl.envctl-wall {
+	position: absolute; left: 0; top: 0; bottom: auto; transform-origin: 0 0; box-sizing: border-box;
+	max-height: none; overflow: hidden; border-radius: 6px; z-index: auto; pointer-events: auto;
+	box-shadow: inset 0 0 0 1px rgba(217, 178, 111, 0.25), inset 0 0 40px rgba(0, 0, 0, 0.6);
+	backdrop-filter: none; animation: none; font-size: 0.9375rem; display: flex; flex-direction: column;
+}
+.envctl-wall.envctl-far { pointer-events: none; }
+.envctl-wall .envctl-welcome { flex: 1; min-height: 0; }
+.envctl-wall .envctl-page { flex: 1; min-height: 0; overflow: hidden; }
+.envctl-wall .envctl-menu { grid-template-columns: 1fr 1fr; }
+.envctl-wall .envctl-app { min-height: 128px; }
+.envctl-wall .envctl-dial { width: 170px; height: 170px; }
+.envctl-wall .envctl-dial-in { width: 142px; height: 142px; }
+/* the glass asleep: a dim clock and a slow breath of gold */
+.envctl-sleep { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; cursor: pointer; border-radius: 6px;
+	background: radial-gradient(60% 40% at 50% 45%, rgba(217, 178, 111, 0.08), transparent 70%); }
+.envctl-sleep { container-type: inline-size; min-width: 0; overflow: hidden; }
+/* sized to the glass, never past it, and on one line: a small panel shrinks it rather than wrap the AM/PM under */
+.envctl-sleep-time { font-size: clamp(1.6em, 24cqw, 3.4em); font-weight: 200; color: rgba(255, 224, 163, 0.55); letter-spacing: 0.04em; white-space: nowrap; line-height: 1; font-variant-numeric: tabular-nums; }
+.envctl-sleep-time small { font-size: 0.34em; margin-left: 0.25em; letter-spacing: 0.12em; vertical-align: 0.25em; }
+.envctl-sleep-hint { max-width: 90cqw; text-align: center; }
+.envctl-sleep-hint { font-size: 0.8em; letter-spacing: 0.3em; text-transform: uppercase; color: var(--mute); animation: envctl-breathe 3s ease-in-out infinite; }
+@keyframes envctl-breathe { 50% { opacity: 0.35; } }
+
+/* ── the lights: a list to pick one from, and its dimmer bar ── */
+.envctl-lights { display: flex; flex-direction: column; gap: 6px; max-height: 190px; overflow: auto; }
+.envctl .envctl-light-pick { display: grid; grid-template-columns: auto 1fr auto; grid-template-rows: auto auto; column-gap: 10px; align-items: center; text-align: left; padding: 8px 12px; }
+.envctl-light-pick i { grid-row: 1 / 3; width: 10px; height: 10px; border-radius: 50%; background: #333a40; }
+.envctl-light-pick.on i { background: var(--gold-hi); box-shadow: 0 0 10px var(--gold); }
+.envctl-ln { font-size: 0.95em; }
+.envctl-lr { grid-column: 2; font-size: 0.72em; color: var(--mute); letter-spacing: 0.06em; }
+.envctl-light-pick b { grid-row: 1 / 3; grid-column: 3; font-weight: 300; color: var(--mute); font-variant-numeric: tabular-nums; }
+.envctl-light-pick.on b { color: var(--gold-hi); }
+.envctl-dimbox { display: flex; flex-direction: column; gap: 12px; padding: 14px; border-radius: 14px; border: 1px solid rgba(217, 178, 111, 0.2);
+	background: linear-gradient(160deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0.01)); }
+.envctl-dimbox.on { box-shadow: 0 0 30px rgba(217, 178, 111, 0.12); }
+.envctl-dimhead { display: flex; justify-content: space-between; align-items: baseline; }
+.envctl-dimval { font-size: 1.8em; font-weight: 200; color: var(--gold-hi); font-variant-numeric: tabular-nums; text-shadow: 0 0 16px rgba(217, 178, 111, 0.5); }
+/* the bar: a gold fill up to the level, with a glowing thumb */
+.envctl .envctl-dimmer { -webkit-appearance: none; appearance: none; width: 100%; height: 34px; margin: 0; background: transparent; cursor: pointer; --p: 0; }
+.envctl-dimmer::-webkit-slider-runnable-track { height: 12px; border-radius: 6px;
+	background: linear-gradient(90deg, var(--gold-lo), var(--gold-hi) calc(var(--p) * 100%), rgba(255, 255, 255, 0.08) 0); box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.7); }
+.envctl-dimmer::-moz-range-track { height: 12px; border-radius: 6px; background: rgba(255, 255, 255, 0.08); }
+.envctl-dimmer::-moz-range-progress { height: 12px; border-radius: 6px; background: linear-gradient(90deg, var(--gold-lo), var(--gold-hi)); }
+.envctl-dimmer::-webkit-slider-thumb { -webkit-appearance: none; width: 26px; height: 26px; margin-top: -7px; border-radius: 50%; background: radial-gradient(circle at 40% 35%, #fff6e0, var(--gold) 60%, var(--gold-lo)); box-shadow: 0 0 14px rgba(255, 224, 163, 0.8); border: 0; }
+.envctl-dimmer::-moz-range-thumb { width: 26px; height: 26px; border-radius: 50%; background: radial-gradient(circle at 40% 35%, #fff6e0, var(--gold) 60%, var(--gold-lo)); box-shadow: 0 0 14px rgba(255, 224, 163, 0.8); border: 0; }
+.envctl-wall .envctl-lights { max-height: 150px; }
+
+/* ── one line, always: a word never breaks over two lines, and a name too long for its box ends in an ellipsis ── */
+.envctl button, .envctl-name, .envctl-status, .envctl-appname, .envctl-appstate, .envctl-ln, .envctl-lr, .envctl-clip,
+.envctl-scene span, .envctl-label, .envctl-state b, .envctl-dock span { white-space: nowrap; }
+.envctl-name, .envctl-appname, .envctl-appstate, .envctl-ln, .envctl-lr, .envctl-clip, .envctl-scene span, .envctl-dock span {
+	overflow: hidden; text-overflow: ellipsis; min-width: 0; max-width: 100%; }
+.envctl-name { min-width: 0; }
+.envctl-head > * { flex-shrink: 0; }
+.envctl-head > .envctl-name { flex-shrink: 1; }
+.envctl button:disabled { opacity: 0.3; cursor: default; box-shadow: none; border-color: rgba(217, 178, 111, 0.15); }
+.envctl-empty { flex: 1; display: grid; place-items: center; color: var(--mute); letter-spacing: 0.2em; text-transform: uppercase; font-size: 0.85em; }
+.envctl-label { font-size: 0.75em; letter-spacing: 0.14em; text-transform: uppercase; color: var(--mute); margin-bottom: -6px; }
+
+/* rows whose buttons share the width evenly, so none is squeezed into wrapping */
+.envctl-row.envctl-even { flex-wrap: nowrap; }
+.envctl-row.envctl-even > button { flex: 1 1 0; min-width: 0; padding-left: 4px; padding-right: 4px; }
+
+/* ── the dock: a button for home and each app, always along the bottom ── */
+.envctl-dock { display: flex; gap: 4px; padding: 6px 8px 8px; border-top: 1px solid rgba(217, 178, 111, 0.18); background: rgba(0, 0, 0, 0.25); }
+.envctl .envctl-dock button { flex: 1 1 0; min-width: 0; display: flex; flex-direction: column; align-items: center; gap: 1px; padding: 5px 2px 4px; min-height: 0;
+	border-color: transparent; background: none; color: var(--mute); border-radius: 9px; font-size: 0.72em; letter-spacing: 0.04em; }
+.envctl-dock i { font-style: normal; font-size: 1.45em; line-height: 1.1; }
+.envctl .envctl-dock button.on i { color: var(--gold); }
+.envctl .envctl-dock button.sel { color: var(--gold-hi); border-color: rgba(217, 178, 111, 0.5); background: rgba(217, 178, 111, 0.1); box-shadow: inset 0 0 10px rgba(217, 178, 111, 0.15); }
+.envctl-full .envctl-dock { justify-content: center; padding: 10px; }
+.envctl-full .envctl-dock button { flex: 0 1 120px; font-size: 0.85em; }
+
+/* ── tabs inside an app (the shutters' Scenes and Blinds) ── */
+.envctl-tabs { display: flex; padding: 3px; gap: 3px; border-radius: 11px; background: rgba(0, 0, 0, 0.35); border: 1px solid rgba(217, 178, 111, 0.16); }
+.envctl .envctl-tabs button { flex: 1 1 0; min-height: 30px; padding: 4px; border-color: transparent; background: none; color: var(--mute); border-radius: 8px; }
+.envctl .envctl-tabs button.sel { color: var(--gold-hi); background: rgba(217, 178, 111, 0.14); border-color: rgba(217, 178, 111, 0.45); }
+.envctl-state { display: flex; align-items: baseline; gap: 10px; min-width: 0; }
+.envctl-state b { font-weight: 300; font-size: 1.35em; color: var(--mute); }
+.envctl-state.on b { color: var(--gold-hi); text-shadow: 0 0 14px rgba(217, 178, 111, 0.45); }
+.envctl-state span { color: var(--mute); font-size: 0.85em; }
+
+/* ── a paged list's arrows and dots ── */
+.envctl-pager { display: flex; align-items: center; justify-content: center; gap: 10px; margin-top: -4px; }
+.envctl .envctl-pager > button { min-height: 28px; padding: 0 14px; font-size: 1.2em; line-height: 1; }
+.envctl-dots { display: flex; gap: 6px; }
+.envctl .envctl-dots button { width: 9px; height: 9px; min-height: 0; padding: 0; border-radius: 50%; background: rgba(255, 255, 255, 0.15); border: 0; }
+.envctl .envctl-dots button.sel { background: var(--gold-hi); box-shadow: 0 0 8px var(--gold); }
+[data-pages] { touch-action: pan-y; user-select: none; }
+
+/* the lights as a grid of two, not a scrolling list */
+.envctl-lights { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; max-height: none; overflow: visible; flex-direction: unset; }
+.envctl .envctl-light-pick { grid-template-columns: auto minmax(0, 1fr) auto; padding: 6px 10px; min-height: 0; }
+.envctl-light-pick i { grid-row: 1 / 3; }
+.envctl-light-pick .envctl-ln { grid-column: 2; grid-row: 1; }
+.envctl-light-pick b { grid-row: 1; grid-column: 3; font-size: 0.85em; }
+.envctl-light-pick .envctl-lr { grid-column: 2 / 4; grid-row: 2; }
+.envctl-full .envctl-lights { grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); }
+.envctl-dimbox { gap: 8px; padding: 10px 12px; }
+.envctl-dimhead { gap: 10px; min-width: 0; }
+.envctl-dimval { font-size: 1.5em; flex-shrink: 0; }
+.envctl .envctl-dimmer { height: 28px; }
+
+/* the scenes, three across */
+.envctl-scenes { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.envctl-full .envctl-scenes { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); }
+.envctl-scene i { height: 40px; }
+.envctl-scene span { font-size: 0.8em; }
+.envctl-colour { flex-wrap: nowrap; justify-content: center; gap: 18px; }
+.envctl-shades { flex-direction: column; }
+
+/* the door camera's picture keeps to its box */
+.envctl-frame { max-height: 220px; overflow: auto; white-space: pre-wrap; }
+.envctl-full .envctl-frame { max-height: none; }
+
+/* ── on the wall's glass: fit everything to the panel, the dock pinned to its foot ── */
+.envctl-wall .envctl-page { padding: 12px; gap: 10px; }
+.envctl-wall .envctl-app { min-height: 104px; padding: 12px; }
+.envctl-wall .envctl-head { padding: 8px 10px; }
+/* the docked window: a column, so the dock stays in view and only the page between scrolls if it must */
+.envctl.envctl-window { display: flex; flex-direction: column; overflow: hidden; }
+.envctl.envctl-window[hidden] { display: none; }
+.envctl-window .envctl-page { overflow: auto; min-height: 0; }

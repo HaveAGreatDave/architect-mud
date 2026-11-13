@@ -52,7 +52,11 @@
           1.52
         ]
       ],
-      "windowless": true
+      "windowless": true,
+      "street_door": {
+        "bars": true,
+        "leaf": "#6e1e28"
+      }
     },
     "world_exit_zone": "zone_district_901_907"
   },

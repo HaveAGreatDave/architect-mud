@@ -28,6 +28,8 @@ import { mountOverlay } from './minigame-common.js';
 import { openColorPicker, closeColorPicker } from './color-picker.js';
 import { tagPreview } from './tag-bake.js';   // a leaf: the preview without fetching GLASS
 import { TAG_FACES } from '../../../shared/tag-strokes.js';
+import { sprayStage } from './spray-aim.js';
+import { runSpraySession } from './spray-session.js';
 import { escapeHtml as esc, loadCss } from '../../../shared/dom.js';
 
 // spraycan.css ships beside this file and is fetched when the module loads, so ensureStyles
@@ -287,18 +289,32 @@ function strip() {
 }
 
 // The wire format. Base64 of {t, r} — see plugins/graffiti/paint.js for why a
-// command line can't carry this any other way.
-function payload(name) {
+// command line can't carry this any other way. `spot` is where in a room ROOM aimed
+// the can (room-tags.js aimWall), sent as `s`.
+function payload(name, spot = null) {
   const obj = { t: S.text, r: runsFromChars(S.colors, S.flags, S.text.length) };
   if (S.face) obj.f = S.face;
   if (name) obj.n = name;
+  if (spot) obj.s = spot;
   return btoa(unescape(encodeURIComponent(JSON.stringify(obj))));
 }
 
+// Over a 3-D view (spray-aim.js), the piece goes up in the spray session first and is sent when it's
+// finished; put the lid back on in the session and nothing is sent. Anywhere else it's sent at once.
 function sprayIt() {
   if (!S.text.length || S.text.length > S.maxLen) return;
-  sendCmdSilent(`sprayapply ${S.wall} ${payload()}`);
+  const host = sprayStage();
+  if (!host) {
+    sendCmdSilent(`sprayapply ${S.wall} ${payload()}`);
+    S.close();
+    return;
+  }
+  let spot = null;
+  try { spot = host.aim?.() || null; } catch { spot = null; }
+  const line = `sprayapply ${S.wall} ${payload(null, spot)}`;
+  const piece = { text: S.text, runs: runsFromChars(S.colors, S.flags, S.text.length), face: S.face };
   S.close();
+  runSpraySession({ ...piece, host, onDone: () => sendCmdSilent(line) });
 }
 
 // ── The panel ────────────────────────────────────────────────────────────────

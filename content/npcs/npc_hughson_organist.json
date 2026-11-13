@@ -1,0 +1,111 @@
+{
+  "banter": [],
+  "behaviour_graph": {},
+  "chitchat": [
+    "Haskins plays four notes up the keys, very quietly, and nods to himself.",
+    "He pulls a drawbar out, listens, and pushes it back in a quarter of an inch.",
+    "He wipes the keys down with a handkerchief, white ones first, then the black.",
+    "He watches the pitcher's feet, not the ball, with one hand resting on the keys.",
+    "He plays the one song with his left hand while he unwraps a sandwich with his right.",
+    "\"Full count,\" he says to nobody, and gets his fingers ready on middle C.",
+    "He taps the swell pedal with his shoe in time with the crowd's clapping."
+  ],
+  "description": "A small, bald man in his sixties in a cardigan with leather buttons, sitting very upright at an electric organ by the press box glass. He has a cushion under him and another behind his back. His hands are big for the rest of him, and he keeps them on the keys even when he isn't playing.",
+  "dialogue_tree": {
+    "bits": {
+      "actions": [],
+      "options": [
+        {
+          "label": "Back up.",
+          "next": "root"
+        }
+      ],
+      "text": "\"Those aren't songs. Those are bits. Up the keys on a full count, down the keys when a foul goes in the seats, a little stride when they change the pitcher. Every ballpark organist plays them. You learn them in a week.\"\n\n\"A song you have to mean.\""
+    },
+    "bye": {
+      "actions": [],
+      "options": [],
+      "text": "\"Mind the cable on the way out. If you pull it I'm a man sitting at a table.\""
+    },
+    "role": {
+      "actions": [],
+      "options": [
+        {
+          "label": "Back up.",
+          "next": "root"
+        }
+      ],
+      "text": "\"I play between the pitches and in the breaks, and I stop when Vega's talking. That's the job. You don't play over the booth and you don't play over the ball.\"\n\n\"They put me up here because the cable reaches. I've got the best seat in the house and I spend it looking at the pitcher's feet.\""
+    },
+    "root": {
+      "actions": [],
+      "options": [
+        {
+          "label": "What do you do up here?",
+          "next": "role"
+        },
+        {
+          "label": "Is it true you only know one song?",
+          "next": "song"
+        },
+        {
+          "label": "What about all the little tunes between pitches?",
+          "next": "bits"
+        },
+        {
+          "label": "Goodbye.",
+          "next": "bye"
+        }
+      ],
+      "text": [
+        "\"Hello.\" He doesn't take his hands off the keys.",
+        "\"Come in, but don't lean on anything.\"",
+        "Haskins finishes a little run up the keys, then turns round on his cushion."
+      ],
+      "text_by_relation": {
+        "familiar": [
+          "\"There you are.\" He plays you three notes, which seems to be a greeting."
+        ],
+        "first": "The man at the organ holds up one finger until the pitch is thrown, then turns round.\n\n\"Gilbert Haskins. I play the organ.\" He nods at the organ, in case you'd missed it.",
+        "known": "\"Oh, hello again.\" He goes back to watching the mound."
+      }
+    },
+    "song": {
+      "actions": [],
+      "options": [
+        {
+          "label": "Back up.",
+          "next": "root"
+        }
+      ],
+      "text": "\"It's true. I know one song and I know it very well. It's in D minor and it's about a man who drowns.\"\n\n\"People ask why I don't learn another one. I tell them I'm still learning this one.\" He plays the first four notes. \"They sing along. They don't know the words either.\""
+    }
+  },
+  "faction": null,
+  "flags": {
+    "clothing_layers": [
+      "a brown cardigan with leather buttons",
+      "a checked shirt buttoned to the collar",
+      "a white vest",
+      "grey slacks and soft-soled shoes",
+      "white underpants"
+    ]
+  },
+  "home_activities": [],
+  "home_zone": "zone_hughson_pressbox",
+  "hp": 30,
+  "hp_max": 30,
+  "id": "npc_hughson_organist",
+  "name": "Gilbert Haskins",
+  "npc_type": "npc",
+  "sex": "male",
+  "studio_zone_id": null,
+  "vendor_inventory": [],
+  "vendor_restock_rate": 1,
+  "vendor_schedule": {},
+  "vendor_shop_name": null,
+  "vendor_stock_size": 10,
+  "wander_zones": [],
+  "wanders": 0,
+  "work_zone_id": "zone_hughson_pressbox"
+}

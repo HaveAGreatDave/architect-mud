@@ -35,6 +35,12 @@ import { linearOut, applyLinOut } from './colour.js';
 // this is that number: enough to win a tie against the surface a light is mounted on at any range,
 // far less than the ~0.44 tiles to that surface own near face, so it can never clear a wall.
 export const LIGHT_PULL = 0.05;   // exported: gl/fauna.js draws murmuration dots at the same nudge
+// The soft edge. With the scene's depth to read (hdr.js depthCopy), a glow fades out over the last
+// `band` tiles before the surface that would cut it, instead of stopping on a hard line that crawls
+// as the camera moves. The band is the pull, so a glow ON its wall (scene depth at the light's own)
+// keeps its full strength and only the part going into the surface fades. `on: false` is the old
+// hard edge, and so is any frame without the float target.
+export const SOFT_LIGHTS = { on: true, band: LIGHT_PULL };
 
 // centre 3, corner 2, radius 1, colour 3, alpha 1, hardness 1
 const STRIDE = 18;
@@ -64,6 +70,7 @@ uniform vec2 uAB;
 // How far toward the eye a light is nudged, in world tiles. See the WARN in main().
 uniform float uPull;
 out vec2 vCorner;
+out float vDist;
 out vec3 vColor;
 out float vAlpha;
 out float vHard;
@@ -88,6 +95,7 @@ void main() {
   // So the nudge is a fixed pull in TILES along the view ray, which is what DECO_PULL does on the
   // 2-D path and for the same reason. x/w and y/w are untouched, so the light lands on the same
   // pixels at the same size and only the depth it is compared at moves.
+  vDist = clip.w;
   float fp = max(0.02, clip.w - uPull);
   clip.z = (uAB.x + uAB.y / fp) * clip.w;
   gl_Position = clip;
@@ -100,9 +108,15 @@ void main() {
 const FRAG = linearOut(`#version 300 es
 precision highp float;
 in vec2 vCorner;
+in float vDist;
 in vec3 vColor;
 in float vAlpha;
 in float vHard;
+// The scene's depth and the soft band (SOFT_LIGHTS); uSoftBand 0 is the hard edge.
+uniform highp sampler2D uDepth;
+uniform float uSoftBand;
+uniform float uPullF;
+uniform vec2 uAB;
 // ⚠ HOW FAR PAST WHITE AN EMITTER IS ALLOWED TO GO, AND IT IS THE ONLY THING IN GLASS THAT DOES.
 // Every shader here was written against an 8-bit target and saturates by construction — measured on
 // the float buffer, the city's brightest pixel is 1.016 at night with 0.01% of the frame over 1.0 —
@@ -126,6 +140,12 @@ void main() {
   float soft = pow(max(0.0, 1.0 - d), 1.8);
   float hard = 1.0 - smoothstep(0.72, 1.0, d);
   float a = vAlpha * mix(soft, hard, clamp(vHard, 0.0, 1.0));
+  if (uSoftBand > 0.0) {
+    // The scene's distance at this pixel, from NDC depth = A + B/f. Sky (depth 1) comes out far.
+    float z = texelFetch(uDepth, ivec2(gl_FragCoord.xy), 0).r * 2.0 - 1.0;
+    float fs = z < 0.99999 ? uAB.y / (z - uAB.x) : 1e6;
+    a *= clamp((fs - (vDist - uPullF)) / uSoftBand, 0.0, 1.0);
+  }
   // Premultiplied: the canvas is, and an additive blend wants the colour already scaled anyway.
   outColor = vec4(vColor * a * uIntensity, a);
 }`, 'outColor');
@@ -151,6 +171,9 @@ export function createSpriteLayer(gl) {
     intensity: gl.getUniformLocation(prog, 'uIntensity'),
     ab: gl.getUniformLocation(prog, 'uAB'),
     pull: gl.getUniformLocation(prog, 'uPull'),
+    depth: gl.getUniformLocation(prog, 'uDepth'),
+    softBand: gl.getUniformLocation(prog, 'uSoftBand'),
+    pullF: gl.getUniformLocation(prog, 'uPullF'),
   };
 
   const vao = gl.createVertexArray();
@@ -239,7 +262,8 @@ export function createSpriteLayer(gl) {
 
   // `H` is the CANVAS height (device px) and sizes the viewport, because `aRadius` is already in
   // device pixels. `cssH` is the CAMERA's own frame height, which is what the matrix is built from.
-  function draw(cam, W, H, cssH, intensity) {
+  // `depth` is the scene's depth texture for the soft edge, or null for the hard one.
+  function draw(cam, W, H, cssH, intensity, depth = null) {
     const rO = arenaOver.runs, rA = arenaAdd.runs;
     if (!count && !rO.length && !rA.length) return 0;
     gl.useProgram(prog); applyLinOut(gl, prog);
@@ -248,6 +272,14 @@ export function createSpriteLayer(gl) {
     const zr = zRow((cam && cam.near) || NEAR);
     gl.uniform2f(loc.ab, zr[0], zr[1]);
     gl.uniform1f(loc.pull, LIGHT_PULL);
+    gl.uniform1f(loc.pullF, LIGHT_PULL);
+    // Unit 7, out of the way of the units the layers before bind and leave bound.
+    const band = depth && SOFT_LIGHTS.on ? SOFT_LIGHTS.band : 0;
+    gl.uniform1f(loc.softBand, band);
+    gl.uniform1i(loc.depth, 7);
+    gl.activeTexture(gl.TEXTURE7);
+    gl.bindTexture(gl.TEXTURE_2D, band > 0 ? depth : null);
+    gl.activeTexture(gl.TEXTURE0);
     gl.enable(gl.DEPTH_TEST);
     gl.depthMask(false);          // a light is the appearance of a thing, not a thing
     gl.enable(gl.BLEND);
@@ -267,6 +299,9 @@ export function createSpriteLayer(gl) {
       if (count > split) gl.drawArrays(gl.TRIANGLES, split, count - split);
     }
     gl.bindVertexArray(null);
+    gl.activeTexture(gl.TEXTURE7);
+    gl.bindTexture(gl.TEXTURE_2D, null);
+    gl.activeTexture(gl.TEXTURE0);
     gl.depthMask(true);
     gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
     return count / 6 + (arenaOver.verts + arenaAdd.verts) / 6;

@@ -522,6 +522,7 @@ export default async function regress({ run, check, getPlayer }) {
     r = await run('kitchenstock');
     check('kitchenstock sends the delivery catalogue', r?.type === 'kitchen_stock' && Array.isArray(r.items), JSON.stringify(r).slice(0, 300));
     check('...and every line is food or kit at a price', (r?.items || []).every(i => (i.shelf === 'food' || i.shelf === 'kit') && i.price > 0));
+    check('...at a 5% delivery markup', r?.markup === 5, JSON.stringify(r?.markup));
     r = await run('kitchenorder item_not_sold_anywhere 1');
     check('kitchenorder refuses what nobody delivers', r?.type === 'error', JSON.stringify(r));
     r = await run('kitchenstow');
@@ -1343,6 +1344,27 @@ export default async function regress({ run, check, getPlayer }) {
     const hob = (extra = {}) => ({ ...mw(extra), microwave: undefined });
 
     check('a microwave is faster than the best stove', MICROWAVE_SPEED > STOVE_SPEED.high);
+
+    // The time typed after the food. Its regex once lost its backslashes on the way into the file and
+    // read every time as part of the food's name, so "microwave stew 40" looked for a "stew 40".
+    const { microwaveSecs } = await import('./index.js');
+    check('microwave: "stew 40" is forty seconds', microwaveSecs('stew 40') === 40);
+    check('microwave: "stew 40s" and "stew 40 secs" too', microwaveSecs('stew 40s') === 40 && microwaveSecs('stew 40 secs') === 40);
+    check('microwave: "stew 1:30" is ninety seconds', microwaveSecs('stew 1:30') === 90);
+    check('microwave: "beef steak 2:05" keeps the name whole', microwaveSecs('beef steak 2:05') === 125);
+    check('microwave: no time is none', microwaveSecs('stew') === null && microwaveSecs('') === null);
+    check('microwave: held to ten minutes, and at least a second', microwaveSecs('stew 9999') === 600 && microwaveSecs('stew 0') === 1);
+    check('microwave: a number inside the name is not a time', microwaveSecs('10mm socket stew') === null);
+    // How long you set decides how it comes out, and that's what the item keeps (cook.js
+    // finishMicrowave stamps `end_state`, and the Kitchen Stage draws it): too short is still cold,
+    // the window is done, past it rubbery, well past it burnt.
+    {
+      const s = mw(), tl = timeline(s, PROFILES.dense_meat), at = (t) => evaluate(s, PROFILES.dense_meat, t, 0).endState;
+      check('microwave: stopped early, it is still raw in the middle', at(tl.doneAt * 0.5) === 'raw');
+      check('microwave: stopped in the window, it is done', at(tl.doneAt + tl.peakMs / 2) === 'peak');
+      check('microwave: stopped past it, it is overdone', at(tl.peakEnd + 1) === 'over');
+      check('microwave: stopped well past it, it is burnt', at(tl.burnAt + 1) === 'burnt');
+    }
     check("...and thaws faster still — the one job it's genuinely best at",
       MICROWAVE_THAW_SPEED > MICROWAVE_SPEED);
     check('frozen food thaws far quicker in one than on a hob', (() => {

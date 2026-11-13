@@ -54,6 +54,7 @@
 // at all. Seats, sticks, dials and levers are honest METRES for a person.
 //
 // Pure: no DOM, no camera. `live` is optional everywhere and every reader has a resting value.
+import { nightAt } from './sky-keys.js';
 import { makeKit, C, clamp, lerp, pedal, SHINY, PANE, TEXTURE } from './interior-kit.js';
 import { eased, pressPulse, hotspotHalo, panelGps, gpsHotspot, lensLamp } from './interior-cockpit-kit.js';
 import { FW_ROWS } from './vehicle-models.js';
@@ -669,7 +670,7 @@ export function reaperFit(P, live, push) {
   const R = readReaper(live), on = R.powered;
   // The panel lights are the PANEL switch (cockpit.js 'ck:panel'). A view that sends no switch state,
   // a seat shot, lights them after dark.
-  const panelOn = on && (R.L.panelLight != null ? !!R.L.panelLight : R.hour < 6.5 || R.hour > 19.5);
+  const panelOn = on && (R.L.panelLight != null ? !!R.L.panelLight : nightAt(R.hour));
   const Pn = K.panel([0, PANEL_Y, PZ], [1, 0, 0], [0, 0, 1]);
   // A placard is its lettering now: the old stripe's box is the room the words get, shrunk to fit.
   const placard = (pn, a0, b0, a1, b1, str) => pn.fitText(str, (a0 + a1) / 2, (b0 + b1) / 2, a1 - a0 + 0.006, 0.007, panelOn ? T.night : T.letter, panelOn ? 0.9 : 0.35, 0.003);

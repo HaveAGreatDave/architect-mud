@@ -27,7 +27,7 @@
 import { randomUUID } from 'crypto';
 import { loggedPanelsSync } from '../../server/engine/presentation.js';
 import { query } from '../../server/models/db.js';
-import { on } from '../../server/engine/events.js';
+import { on, emit } from '../../server/engine/events.js';
 import { getFlag, setFlag } from '../../server/engine/flags.js';
 import { sendToPlayer, teachVerb, pointAt, beaconOn, beaconOff, beaconClear } from '../../server/engine/messaging.js';
 import { registerMoveGate } from '../../server/engine/movement-gates.js';
@@ -58,6 +58,8 @@ const KIT = [
   { id: 'item_credit_chip',     name: 'credit chip',       qty: 1, credits: 100 },
   { id: 'item_ration',          name: 'vacuum ration',     qty: 5 },
   { id: 'canteen',              name: 'canteen',           qty: 1 },
+  { id: 'item_soylent',         name: 'soylent pouch',     qty: 1 },
+  { id: 'item_drink_surge',     name: 'can of Thirst Mutilator', qty: 1 },
 ];
 
 // Flags (player scope, string values via the flag store).
@@ -954,6 +956,8 @@ on('zone.entered', async ({ actor, zone, from }) => {
     beaconClear(actor.id);
     out(actor, `<span class="clone-vat-message">You wake. There's a floor now, cold and real, and a body on it that's yours, and it already aches. The vat behind you hisses shut. The between is gone. Somewhere far above, an algorithm notes that its very large number is, once again, correct.</span>`);
     firstClothing(actor);
+    // the wake's music (plugins/audio plays whatever the 'prologue.woke' route names)
+    emit('prologue.woke', { actor });
   }
 });
 

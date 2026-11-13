@@ -36,7 +36,7 @@
 // Pure: no WebGL and no DOM, so the gates run it. Times are seconds; places are feet in the pose's
 // own frame (x to the player's left, y up, z his forward), placed in the park by `at` and `yaw`.
 
-import { solvePose, solveTorso, solveHips, mirrorPose, scalePose } from './rig.js';
+import { solvePose, solveTorso, solveHips, mirrorPose, scalePose, shoulderBackOf } from './rig.js';
 
 const clamp = (x, a, b) => Math.max(a, Math.min(b, x));
 const sub = (a, b) => [a[0] - b[0], a[1] - b[1], a[2] - b[2]];
@@ -799,6 +799,9 @@ export function jointAngles(P, sol) {
     out['elbow' + S] = angle(sub(J['el' + S], J['sh' + S]), sub(J['wr' + S], J['el' + S]));
     out['ankle' + S] = angle(sub(J['kn' + S], J['an' + S]), sub(J['toe' + S], J['an' + S]));
     out['wrist' + S] = J['grip' + S] ? null : angle(sub(J['wr' + S], J['el' + S]), J['hdir' + S]);
+    // the upper arm behind his back, and the most it may go at the height it's at (rig.js SHOULDER_BACK)
+    const sb = J['grip' + S] ? null : shoulderBackOf(sub(J['el' + S], J['sh' + S]), sub(J['wr' + S], J['el' + S]), W.chest);
+    out['shoulderBack' + S] = sb ? sb.back : null; out['shoulderMost' + S] = sb ? sb.most : null;
     // the thigh in the pelvis's frame
     const t = sub(J['kn' + S], J['hip' + S]), M = W.pelvis;
     const d = [t[0] * M[0][0] + t[1] * M[0][1] + t[2] * M[0][2], t[0] * M[1][0] + t[1] * M[1][1] + t[2] * M[1][2], t[0] * M[2][0] + t[1] * M[2][1] + t[2] * M[2][2]];
@@ -816,6 +819,7 @@ export function limitBreaks(P, sol) {
     if (a['knee' + S] > L.knee) out.push(`knee${S} bends ${f(a['knee' + S])}° (most ${L.knee})`);
     if (a['elbow' + S] > L.elbow) out.push(`elbow${S} bends ${f(a['elbow' + S])}° (most ${L.elbow})`);
     if (a['wrist' + S] !== null && a['wrist' + S] > L.wrist) out.push(`wrist${S} bends ${f(a['wrist' + S])}° (most ${L.wrist})`);
+    if (a['shoulderBack' + S] !== null && a['shoulderBack' + S] > a['shoulderMost' + S]) out.push(`shoulder${S} back ${f(a['shoulderBack' + S])}° (most ${f(a['shoulderMost' + S])})`);
     if (a['ankle' + S] < L.ankle[0] || a['ankle' + S] > L.ankle[1]) out.push(`ankle${S} at ${f(a['ankle' + S])}° (${L.ankle[0]} to ${L.ankle[1]})`);
     if (a['hipFlex' + S] < L.hipFlex[0] || a['hipFlex' + S] > L.hipFlex[1]) out.push(`hip${S} forward ${f(a['hipFlex' + S])}° (${L.hipFlex[0]} to ${L.hipFlex[1]})`);
     if (a['hipAbd' + S] < L.hipAbd[0] || a['hipAbd' + S] > L.hipAbd[1]) out.push(`hip${S} out ${f(a['hipAbd' + S])}° (${L.hipAbd[0]} to ${L.hipAbd[1]})`);

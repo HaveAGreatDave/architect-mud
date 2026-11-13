@@ -89,7 +89,7 @@ const eye = eyeBase({ map: sent, gx: 0, gy: 0, storey: 35, storeys: 36 }, (x, y,
 check('the flat\'s own tower is off the map GLASS paints', !eye.map[1][1].bt && !eye.map[1][1].pad && eye.map[1][1].kind === 'land' && eye.map[1][1].self === 1, JSON.stringify(eye.map[1][1]));
 check('the buildings beside it stay', eye.map[1][0] === beside && eye.map[0][1] === beside);
 check('the eye\'s height is read before the tower comes off', eye.z > 5 && sent[1][1] === tower, String(eye.z));
-check('a room\'s frame holds the deck over the eye', ws.includes('DECK_FLOOR = still && v.freeCam') && ws.includes('Math.max(0.05, DECK_FLOOR,'));
+check('a room\'s frame holds the deck over the eye', ws.includes('DECK_FLOOR = (still || v.deckOverhead) && v.freeCam') && ws.includes('Math.max(0.05, DECK_FLOOR,'));
 check('the room takes the city camera\'s lens', /roomMatrices\(cam, w \/ h, light\.lens\)/.test(room));
 
 console.log(bad ? `room:window — ${bad} of ${n} failed` : `room:window — ${n} checks passed`);

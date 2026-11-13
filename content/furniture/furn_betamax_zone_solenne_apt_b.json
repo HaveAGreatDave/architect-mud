@@ -1,5 +1,5 @@
 {
-  "description": "A slab of brushed titanium on its own machined shelf under the Chromavision, no bigger than a hardback and much heavier. The loading door has no catch: you offer it a cassette and it takes it, drawing it in over four seconds and closing without a sound. An amber bar reports what it's doing.",
+  "description": "A slab of brushed titanium on a low black marble console beside the desk, no bigger than a hardback and much heavier, with a bonsai in a lacquered pot at one end. Offer it a cassette and it draws it in over four seconds without a sound. An amber bar says what it's doing.",
   "flags": {
     "beta_player": true,
     "channel_id": "ch_0_vcr",
@@ -14,8 +14,24 @@
     "interactions": [
       "watch"
     ],
+    "look": {
+      "dims": [
+        1.3,
+        0.38,
+        0.5
+      ],
+      "dress": "bonsai",
+      "tone": "black"
+    },
     "media_deck": true,
-    "mini_deck": true
+    "mini_deck": true,
+    "spot": {
+      "at": [
+        -3.45,
+        0.45
+      ],
+      "turn": 180
+    }
   },
   "hp": null,
   "hp_max": null,

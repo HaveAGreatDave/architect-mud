@@ -55,6 +55,7 @@
 // and the door arch) is read off the model.
 //
 // Pure: no clock, no camera, no DOM. `live` arrives as an argument.
+import { nightAt } from './sky-keys.js';
 import { makeKit, C, clamp, lerp, pedal, SHINY, PANE, TEXTURE } from './interior-kit.js';
 import { contactShadow, hotspotHalo, panelGps, gpsHotspot } from './interior-cockpit-kit.js';
 import { MESH_ROWS } from './vehicle-meshes.js';
@@ -600,7 +601,7 @@ const SW = { v: -0.118, u0: 0.02, pitch: 0.036, ids: ['master', 'clutch', 'land'
 const IGN_U = [-0.24, -0.20, -0.14];
 // The panel lights are the PANEL switch (cockpit.js 'ck:panel'); a view that sends no switch state,
 // a seat shot, lights them after dark.
-const panelOn = (R) => R.powered && (R.L.panelLight != null ? !!R.L.panelLight : R.hour < 6.5 || R.hour > 19.5);
+const panelOn = (R) => R.powered && (R.L.panelLight != null ? !!R.L.panelLight : nightAt(R.hour));
 function switchOn(id, R) {
   if (id === 'master') return R.powered;
   if (id === 'clutch') return R.powered && R.rpm > 0.2;

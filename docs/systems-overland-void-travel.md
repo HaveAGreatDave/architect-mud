@@ -593,7 +593,7 @@ DB write per node boundary (fine at fifteen; several a second at 282, which the 
 forbid) and now marks `zoneDirty` like its sibling `driveToZone`. And road terrain was keyed on the
 NODE INDEX, which only looked right because a node happened to be about nineteen tiles: at one node
 per tile the highway would have re-rolled its ground every tile. It bands on distance now
-(`terrainAt`), which is also where the landform field will plug in.
+(`terrainAt`). An anchored road now reads the carved relief there instead (`wildGroundAt`, 2026-11-11), and so does a positioned void room; see [the ground out there](systems-wildlands-ground.md#the-ground-out-there-one-answer-for-floor-verge-and-walker-2026-11-11).
 
 **BUILT — the country has things in it, and their mechanics are ordinary zone tags.**
 [flavour.js](../plugins/voidwalking/flavour.js) holds 54 room names and 36 descriptions keyed by the

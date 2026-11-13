@@ -6,6 +6,11 @@
     "interactions": [
       "watch"
     ],
+    "spot": {
+      "along": 4.3,
+      "wall": "back",
+      "y": 1.75
+    },
     "tuned_channel": 7,
     "tv": true,
     "tv_dial_freq": 7

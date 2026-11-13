@@ -304,6 +304,57 @@ export function createWildlands(F) {
     return groundTierAt(x + 1, y) >= t && groundTierAt(x - 1, y) >= t && groundTierAt(x, y + 1) >= t && groundTierAt(x, y - 1) >= t ? 'plateau' : 'cliff';
   }
 
+  // ── THE GROUND OUT THERE, AS ONE ANSWER ───────────────────────────────────────
+  //
+  // What the carved relief says the ground IS on an unplaced tile, for three readers that used to
+  // disagree: the floor's colour (groundColour, near and far), the void corridor's verge cells
+  // (plugins/trucking/corridor.js) and the walked void's rooms (plugins/voidwalking). Before this the
+  // floor painted the halo blend, the verge rolled scrub, ash, red rock or marsh every 18 tiles, and
+  // a walker rolled again, so a highway ran through a 48-tile stripe of ground unrelated to the
+  // country either side of it.
+  //
+  // { ground: a ground-palette key or null, terrain: a real terrain a person can walk and a truck can
+  //   cross, tint: how far the floor's colour moves from the halo blend toward the ground's own }.
+  //
+  // ⚠ THE TERRAIN IS ALWAYS PASSABLE AND FLAT. A cliff, a ramp, a plateau top and scree all become
+  // the ground they are made of: the verge inside HIGH_OFF is flat road country, and the walker's
+  // line always has a way through (raised ground past the road is a massif, drawn, not walked).
+  // ⚠ THE TINT FADES TO NOTHING AT A REGION'S RIM (the same 6-tile band as the relief's shading), so
+  // the halo a region spreads into the country around it is untouched where it meets the region.
+  // ⚠ THE VOLCANO AND THE EDGE BAND keep the blend: their ground is wildlandsAt's, not the relief's.
+  // `out` is true for ground at least a tile clear of anything placed.
+  // ⚠ CACHED BY WHOLE TILE AND FROZEN: the corridor asks it for every cell of every window push and
+  // the truck's surface check every tick, and under it is a relief read of about ten microseconds.
+  // Bounded and cleared whole. A fractional tile is computed and not kept.
+  const GROUND_CACHE = new Map();
+  function wildGroundAt(x, y, at) {
+    const whole = Number.isInteger(x) && Number.isInteger(y), key = whole ? (x + 32768) * 65536 + (y + 32768) : 0;
+    if (whole) { const hit = GROUND_CACHE.get(key); if (hit) return hit; }
+    if (!at) at = wildlandsAt(x, y);
+    let g;
+    if (at.sea) g = { ground: 'water', terrain: 'sand', tint: 0, out: false };
+    // A region's edge band carries its own terrain on past the rim, cliff line and all; a verge or a
+    // walker there takes the flat ground it is made of (EDGE_FLAT), never a rim nobody can cross.
+    else if (at.edge || at.landform || !V) g = { ground: null, terrain: EDGE_FLAT[at.terrain] || at.terrain, tint: 0, out: at.into > 0 };
+    else {
+      const w = WILD_GROUND[reliefAt(x, y, at).biome] || WILD_GROUND.badlands;
+      g = { ground: w[0], terrain: w[1], tint: w[2] * sstep(0, 6, distTo('land', x, y)), out: at.into > 0 };
+    }
+    Object.freeze(g);
+    if (whole) { if (GROUND_CACHE.size >= 150000) GROUND_CACHE.clear(); GROUND_CACHE.set(key, g); }
+    return g;
+  }
+  // The floor's colour at a tile: the halo blend, moved toward the relief's ground. The flight floor
+  // (near and far), the GL far field and the verge cells all come through here, so none of them can
+  // draw a seam against another.
+  function groundColour(x, y, palette, at = wildlandsAt(x, y)) {
+    const c = wildlandsColour(x, y, palette, at);
+    const g = wildGroundAt(x, y, at);
+    if (!g.ground || !(g.tint > 0) || !palette[g.ground]) return c;
+    const p = palette[g.ground], k = g.tint;
+    return [c[0] + (p[0] - c[0]) * k, c[1] + (p[1] - c[1]) * k, c[2] + (p[2] - c[2]) * k];
+  }
+
   // What the flight floor shades from, on the relief's own cells: `z` the ground height in world z
   // (smooth, no sample warp) and `w` how far into the wildlands a cell is, 0 under a region and 1
   // past a 6-tile band round its rim. The floor fades its old badland terraces out by `w` and adds
@@ -347,8 +398,22 @@ export function createWildlands(F) {
   // Tiles from the bay's own water (the baked `bay` plane, on its 4-tile grid). Render only: the far
   // floor asks it where wildlandsAt can't answer, on a region's placed tiles.
   function bayDist(x, y) { return inField(x, y) ? plane('bay', x, y) : 1e9; }
-  return { wildlandsAt, bayDist, wildlandsColour, landformHeight, landformTile, landformTier, landformBands, coneAt, landforms, routeNumber, routeType, wildlandsRect, inField, reliefAt, groundZ, highGroundAt, groundTierAt, reliefGrid, reliefShadePlanes, reliefView: V };
+  return { wildlandsAt, bayDist, wildlandsColour, landformHeight, landformTile, landformTier, landformBands, coneAt, landforms, routeNumber, routeType, wildlandsRect, inField, reliefAt, groundZ, highGroundAt, groundTierAt, reliefGrid, reliefShadePlanes, wildGroundAt, groundColour, reliefView: V };
 }
+
+// The relief's reading of a tile (relief-rules.js RELIEF_BIOMES) → [ground-palette key, the passable
+// terrain a verge or a void room takes, how far the floor moves toward that ground]. Grass, a dry
+// wash, scree and the lakebeds are the grounds the halo blend never had; the rock country moves
+// only a little, because the blend already reads as it.
+const WILD_GROUND = {
+  prairie: ['prairie', 'grass', 0.72], wash: ['wash', 'gravel', 0.7], scree: ['scree', 'gravel', 0.55],
+  hardpan: ['hardpan', 'hardpan', 0.6], alkali: ['alkali', 'alkali', 0.65], scrub: ['scrub', 'scrub', 0.45],
+  badlands: ['badlands', 'scrub', 0.25], redrock: ['redrock', 'redrock', 0.3], ramp: ['scree', 'gravel', 0.35],
+  cliff: ['redrock', 'redrock', 0.3], plateau: ['redrock', 'redrock', 0.3],
+  ash: [null, 'ash', 0], basalt: [null, 'basalt', 0], lava: [null, 'basalt', 0], water: ['water', 'sand', 0],
+};
+const EDGE_FLAT = { cliff: 'redrock', plateau: 'redrock', ramp: 'redrock', scree: 'gravel', water: 'sand' };
+export const WILD_GROUND_KEYS =[...new Set(Object.values(WILD_GROUND).map((g) => g[0]).filter(Boolean))];
 
 // Terrain → biome, for the edge band (the same mapping plugins/flight/biomes.js TERRAIN_BIOME makes
 // for a placed tile; only the terrains a region edge actually carries are needed here).
@@ -386,3 +451,5 @@ export const highGroundAt = W.highGroundAt;
 export const groundTierAt = W.groundTierAt;
 export const reliefGrid = W.reliefGrid;
 export const reliefShadePlanes = W.reliefShadePlanes;
+export const wildGroundAt = W.wildGroundAt;
+export const groundColour = W.groundColour;

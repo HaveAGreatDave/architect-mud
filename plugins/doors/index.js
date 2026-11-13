@@ -96,14 +96,12 @@ registerLockType('longwatch', {
   },
 });
 
-// Privacy lock — a simple bathroom-stall bolt. Anyone standing on the door's
-// `privacySide` (the bathroom side, auto-detected at placement or set via the
-// zone editor's lock-side switch) can lock AND unlock it; the other side is
-// simply shut out while it's occupied. It's a manual bolt, so the door won't
-// open for anyone while it's shut (passWhileLocked:false) — you slide it open to
-// leave, which means you can't lock it behind you from the far side. Not
-// hackable — bashing the door is the only forced entry, and the 10-minute
-// auto-unlock sweep frees anyone who nodded off in a public stall.
+// Privacy lock: a bathroom door bolt that works from either side. Anyone standing
+// on either side of the door can lock or unlock it (`privacySide` still marks the
+// bathroom side for the zone editor; auth treats it as one more side). It's a manual
+// bolt, so a locked door won't open for anyone (passWhileLocked:false): you slide
+// it back before you go through. Not hackable; bashing the door is the only forced
+// entry, and the 10-minute auto-unlock sweep frees a public stall left bolted.
 registerLockType('privacylock', {
   tagType: 'lock:privacylock',
   kitTag:  'lockkit:privacylock',
@@ -112,10 +110,13 @@ registerLockType('privacylock', {
     messages: {
       lock:   'You slide the privacy bolt shut.',
       unlock: 'You slide the privacy bolt open.',
-      denied: 'The privacy bolt only works from the other side.',
+      denied: "You can't reach the privacy bolt from here.",
     },
   },
-  authFn: async (lockTag, door, player) => player.current_zone === lockTag.privacySide,
+  authFn: async (lockTag, door, player) => {
+    const farIds = door.target_zone ? [door.target_zone] : exitTargets(getZone(door.zone_id), door.exit_dir);
+    return [door.zone_id, ...farIds, lockTag.privacySide].filter(Boolean).includes(player.current_zone);
+  },
 });
 
 // Every 10 minutes, spring every engaged privacy lock — a courtesy release so a

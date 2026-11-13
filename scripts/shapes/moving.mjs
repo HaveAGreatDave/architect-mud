@@ -335,13 +335,44 @@ for (const [key, why] of MUST_MOVE) {
   const water = shot(bare, 0.5);
   const twice = shot(bare, 0.5);
   const size = (u) => shot(sea, u).length - water.length;
-  const alongside = size(0.50), gone = size(0.02), arriving = size(0.20), leaving = size(0.84);
-  const early = size(0.30), late = size(0.70);
+  // ⚠ THE SAMPLES ARE READ OFF THE BERTH'S OWN PLAN, never written down here: the call is a
+  // ten-minute programme and most of both legs is far out past this nineteen-tile sea, so a
+  // fraction picked by hand lands on open water the day anybody retimes it.
+  const SP = ws.SHIP_PLAN, mid = (a, b) => (a + b) / 2, LOADW = SP.load1 - SP.load0;
+  const phaseAt = (u) => { ws.RENDER_TUNE.shipForce = u; return ws.berthPhase(0); };
+  const findU = (a, b, test) => { for (let i = 1; i < 400; i++) { const u = a + (b - a) * i / 400; if (test(phaseAt(u))) return u; } return null; };
+  const uSwing = findU(SP.in0, SP.in1, (P) => P.hl < -0.95);                    // broadside, halfway round
+  const uBack = mid(SP.back0, SP.back1);                                          // astern onto the berth
+  const uLeave = findU(SP.out0, SP.out1, (P) => P.travel > 2 && P.travel < 4);    // just off the quay, outbound
+  const uQuiet = mid(SP.quiet0, SP.quiet1);
+  // THE MANOEUVRE, asked of the numbers: in bow first, round without a snap, back astern, out ahead.
+  {
+    const early = phaseAt(SP.in0 + (SP.in1 - SP.in0) * 0.2);
+    if (!(early.hs < -0.99 && early.speed > 0)) problems.push(`on the inbound leg she is not coming in bow first (heading ${early.hs.toFixed(2)}, speed ${early.speed.toFixed(2)})`);
+    if (uSwing === null) problems.push('she never comes broadside on the way in — there is no swing, so she cannot be backing in');
+    let snap = 0, prev = null;
+    for (let i = 0; i <= 600; i++) {
+      const P = phaseAt(SP.in0 + (SP.back1 - SP.in0) * i / 600);
+      if (prev) snap = Math.max(snap, Math.hypot(P.hs - prev.hs, P.hl - prev.hl), Math.hypot(P.s - prev.s, P.l - prev.l) > 1 ? 9 : 0);
+      prev = P;
+    }
+    if (snap > 0.2) problems.push(`her heading or her position jumps by ${snap.toFixed(2)} in one step between the fairway and the berth — the turn is a cut, not a swing`);
+    const back = phaseAt(uBack);
+    if (!(back.hs > 0.99 && back.speed < 0)) problems.push(`backing in, she is not bow up the fairway going astern (heading ${back.hs.toFixed(2)}, speed ${back.speed.toFixed(2)})`);
+    const out = phaseAt(mid(SP.out0, SP.out1));
+    if (!(out.hs > 0.99 && out.speed > 0)) problems.push('outbound, she is not going ahead up the fairway');
+    let far = 0; for (let i = 0; i <= 50; i++) far = Math.max(far, phaseAt(SP.out0 + (SP.out1 - SP.out0) * i / 50).travel);
+    if (!(far > 40)) problems.push(`she gets only ${far.toFixed(1)} tiles out before she is gone — she was meant to steam well off into the distance`);
+  }
+  const alongside = size(mid(SP.load0, SP.load1)), gone = size(uQuiet), arriving = size(uBack), leaving = uLeave === null ? 0 : size(uLeave);
+  const swinging = uSwing === null ? 0 : size(uSwing);
+  const early = size(SP.load0 + LOADW * 0.05), late = size(SP.load1 - LOADW * 0.05);
   if (water !== twice) problems.push('the same empty sea drew two different frames — the clock or the dice are not pinned, so nothing below is a statement about the ship');
   else if (alongside <= 0) problems.push('the berth draws nothing at all with a ship alongside — the `berth` mark is not reaching the world sweep, and nothing below means anything');
   else {
     if (gone !== 0) problems.push(`the berth still draws ${gone} characters of geometry at the empty point of the cycle — she never sails, so there is no "until the next ship arrives"`);
-    if (!(arriving > 0)) problems.push('nothing is drawn on the inbound leg — she appears at the berth rather than coming up the fairway');
+    if (!(arriving > 0)) problems.push('nothing is drawn while she backs in — she appears at the berth rather than coming up the fairway');
+    if (!(swinging > 0)) problems.push('nothing is drawn halfway round her swing — she turns off the edge of the world');
     if (!(leaving > 0)) problems.push('nothing is drawn on the outbound leg — she vanishes off the berth rather than steaming out of it');
     if (!(late > early)) problems.push(`the deck stow does not grow: ${early} at the start of the loading window against ${late} near the end of it, so the gantry is stacking boxes into nothing`);
     // ⚠ SHE HAS TO BE IN A DIFFERENT PLACE, not merely drawn in both — a ship whose outbound frame
@@ -352,20 +383,20 @@ for (const [key, why] of MUST_MOVE) {
     // mutation that pinned the outbound leg to the berth sailed straight through it. Both of these
     // are past SHIP_LOAD1, so she is fully loaded in both and the only thing left to differ is
     // where she is.
-    if (shot(sea, 0.74) === shot(sea, 0.80)) problems.push('the frame alongside and the frame on the outbound leg are identical at the same load — she is not moving, only fading');
+    if (uLeave !== null && shot(sea, mid(SP.load1, SP.out0)) === shot(sea, uLeave)) problems.push('the frame alongside and the frame on the outbound leg are identical at the same load — she is not moving, only fading');
   }
 
   // Parked: ONE pose over the whole cycle, and that pose is a ship at a berth.
   ws.RENDER_TUNE.motion = 0;
-  const still = new Set([0.02, 0.20, 0.50, 0.84, 0.95].map((u) => shot(sea, u)));
-  const parked = shot(sea, 0.02).length - water.length;
+  const still = new Set([uQuiet, uBack, mid(SP.load0, SP.load1), uLeave ?? SP.out1, uSwing ?? SP.in1].map((u) => shot(sea, u)));
+  const parked = shot(sea, uQuiet).length - water.length;
   ws.RENDER_TUNE.motion = 1;
   if (still.size !== 1) problems.push(`the berth has ${still.size} poses with RENDER_TUNE.motion 0 — that flag promises a still harbour, not a slower one`);
   if (!(parked > alongside * 0.5)) problems.push(`parked, the berth draws ${parked} against ${alongside} alongside — "park it" has DELETED the ship, which is the half of that flag's contract this file refuses for every other arm`);
 
   ws.RENDER_TUNE.shipForce = null;
   globalThis.performance = clock2; Math.random = rnd2; Date.now = date2;
-  rows.push({ key: 'berth', on: 5, off: 1, why: 'a freighter comes up the fairway, loads, and steams off again' });
+  rows.push({ key: 'berth', on: 5, off: 1, why: 'a freighter comes in bow first, swings, backs onto the berth, loads, and steams off again' });
 }
 
 // ── 4b. AND THE CRANE STOPS WHEN SHE GOES ───────────────────────────────────
@@ -384,7 +415,7 @@ for (const [key, why] of MUST_MOVE) {
   else {
     const seen = new Set();
     for (let i = 0; i < 12; i++) {
-      ws.RENDER_TUNE.shipForce = 0.92 + i * 0.012;   // the berth stands empty either side of the wrap
+      ws.RENDER_TUNE.shipForce = ws.SHIP_PLAN.quiet0 + 0.01 + i * 0.012;   // the long quiet between calls
       const r = ws.canvasResidue(m, { cam, night: 0, bn: 'THE EXAMPLE', dy: -2, now: i * 3400 });
       if (r.threw) { problems.push('type:quay_crane: threw with the berth empty — ' + r.threw); break; }
       seen.add(JSON.stringify(r));

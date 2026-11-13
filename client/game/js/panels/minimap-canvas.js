@@ -589,9 +589,18 @@ function retarget(tx, ty, snap, now) {
 
 // ── Frame loop ───────────────────────────────────────────────────────────────
 
+// IDLE, THE MAP IS DRAWN AT A FEW FRAMES A SECOND. Every frame was a full-canvas resample and a blurred beacon for
+// the whole session, standing still. A glide, a floor/door fade or a new payload draws every frame; otherwise only
+// the locator ping moves, which reads the same at 20 fps, and with motion off nothing moves (twice a second catches
+// a resize or a theme change).
+const IDLE_MS = 50, STILL_MS = 500;
+let lastBlit = 0;
 function frame(now) {
 	raf = requestAnimationFrame(frame);
 	lastFrame = now;
+	const busy = cam.dur > 0 || !!fx.kind || scene.dirty;
+	if (!busy && now - lastBlit < (motionOff ? STILL_MS : IDLE_MS)) return;
+	lastBlit = now;
 	stepCamera(now);
 	if (scene.dirty) { scene.stamp = (scene.stamp || 0) + 1; rebuildBuffers(); scene.dirty = false; }
 	for (const view of views) {

@@ -5,6 +5,7 @@
 
 import { paintCrest } from '../club-crest.js';
 import { TAU, clamp } from './util.js';
+import { drawComic } from './comic.js';
 
 const FACE = '"Saira Condensed", "Arial Narrow", "Roboto Condensed", sans-serif';
 export const OFFICIAL_KIT = { jersey: '#f1f1ee', trim: '#141414', pants: '#141414', sock: '#141414', glove: '#e2b896', helmet: '#141414', stripes: true };
@@ -130,9 +131,13 @@ function drawWipe(ctx, live, w, h, u) {
   ctx.restore();
 }
 
-export function drawHud(ctx, W, w, h, u, live = W) {
+// `o` is what a comic replay needs (rink/comic.js drawComic): the replay camera's projection `P`
+// and the `picture` just drawn, for its panels. A comic replay draws its own frame in place of the
+// letterbox and the bug.
+export function drawHud(ctx, W, w, h, u, live = W, o = {}) {
   if (lapsing(W)) drawLapse(ctx, W, w, h, u);
-  if (W.replayOn) {
+  if (W.replayOn && W.comic && drawComic(ctx, W, w, h, u, o)) { /* the comic's own frame */ }
+  else if (W.replayOn) {
     // the replay: letterboxed, with the bug in the corner and its light blinking
     const bar = h * 0.07;
     ctx.fillStyle = 'rgba(0,0,0,0.85)'; ctx.fillRect(0, 0, w, bar); ctx.fillRect(0, h - bar, w, bar);

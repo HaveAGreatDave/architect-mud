@@ -57,6 +57,15 @@ export function skyAt(hour) {
   };
 }
 
+// How lit the world is at an hour, 0 at full night to 1 by day, from the same keyframes as the sky.
+// Every view that dims, tints or lights something by the time of day asks this, so dusk falls at
+// the same minute in the cockpit, the room, the hangar and the rain.
+export const lightAt = (hour) => 1 - skyAt(hour).night;
+// Whether it's dark enough for lamps, panel lights and lit doorways: on from about 18:00, as the
+// sun goes down, to about 6:00.
+export const NIGHT_LAMPS = 0.4;
+export const nightAt = (hour) => Number.isFinite(hour) && skyAt(hour).night >= NIGHT_LAMPS;
+
 // Where the sun is at an hour, as the windshield puts it: up in the east at 06:00, south at noon,
 // down in the west at 18:00 and below the horizon from 18:30 to 05:30. Returns { az (compass
 // degrees, 90 east), el (degrees above the horizon), up }.

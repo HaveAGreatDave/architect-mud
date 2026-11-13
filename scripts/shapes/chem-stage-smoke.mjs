@@ -184,6 +184,13 @@ for (const name of Object.keys(STAGES)) {
       for (let i = 0; i < b.n * STRIDE; i++) if (!Number.isFinite(b.data[i])) bad++;
       if (bad) fail(`${grade} ${name}: ${bad} vertex values aren't numbers`);
     }
+    // the bench with its panel up (chem-stage.js openChemBench): nothing moves on it, and its light is finite
+    {
+      const lit = M.lightStage(L, p, 'menu', {}, { t: 2.2, grade });
+      if (!lit.glows.length || !lit.halos.n) fail(`${grade} bench: the panel's light isn't there`);
+      if (lit.glows.some((g) => ![...g.p, ...g.c, g.r].every(Number.isFinite))) fail(`${grade} bench: a glow isn't numbers`);
+      if (M.drawStage(L, p, 'menu', {}, { t: 1, grade }).n !== 0) fail(`${grade} bench: the panel's bench draws moving pieces`);
+    }
     // what the server can say happened: each draws, at the start and part-way through, in numbers
     for (const kind of ['fire', 'burst', 'fumes', 'flash', 'spoiled', 'ok']) for (const age of [0, 1.4]) {
       const b = M.drawOutcome(L, p, kind, [0.6, 0], age, { grade, product: '#f0f0ea' }, (await import('../../client/game/js/panels/gl/ballpark-mesh.js')).createBatch(64));

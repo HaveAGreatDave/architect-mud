@@ -26,13 +26,17 @@ import { claimSeatKeyboard, endSeatKeyboard, seatHoldsKeyboard } from './seat-ke
 import { openWorkspacePanel } from './workspace.js';
 import * as M from './gl/arena-mesh.js';
 import * as KS from './gl/kitchen-mesh.js';
-import { createKitchenRenderer, pickPlane, toScreen } from './gl/kitchen.js';
+import { createKitchenRenderer, pickPlane, toScreen, kitchenCamOf } from './gl/kitchen.js';
 import { coverWithVeil } from './glass-veil.js';
 import { matterFor, beatOf } from '../../../shared/kitchen-matter.js';
 import * as Lq from './gl/kitchen-liquid.js';
+import * as MW from './kitchen-microwave.js';
 import { footprint, cutPieces, balancedGuides, bounds, cutToken, MAX_TILT } from '../../../shared/knife.js';
 import { presentation } from '../../../shared/plating.js';
 import { hobSoundState, thockFor, boxHums, createLoopMixer, pansOf, activePan, HUM_CUE, SEAL_OPEN, SEAL_SHUT } from '../../../shared/kitchen-sound.js';
+
+// The beat a component is drawn at: how a finished microwave cook came out (`done`), else its cook's.
+const beatFor = (c) => c?.done || beatOf(c?.cook, c?.state === 'cooked');
 
 const STAGE_CSS = await loadCss(new URL('./kitchen-stage.css', import.meta.url));
 const LIST_KEY = 'architect_kitchen_list';
@@ -47,8 +51,51 @@ const SHOTS = {
   push: { eye: [0, -78, 58], at: [0, 2, 0], fov: 0.58, roll: 0.02 },
   pass: { eye: [55, -70, 60], at: [55, 0, 0], fov: 0.6, roll: 0.04 },
 };
+// At a microwave the middle shot looks into it, at its window's height, and pushes in on its window.
+const OVEN_SHOTS = {
+  hob: { eye: [0, -108, 64], at: [0, 0, 19], fov: 0.6, roll: 0 },
+  push: { eye: [0, -66, 34], at: [0, 0, 12], fov: 0.58, roll: 0.02 },
+};
+const OVEN_CACHE = new WeakMap();
+function shotOf(want) {
+  const o = S?.oven, base = OVEN_SHOTS[want];
+  if (!o || !base) return SHOTS[want];
+  // one object per shot, kept, since moveCamera starts a cut whenever the target changes
+  let m = OVEN_CACHE.get(o);
+  if (!m) {
+    const K = KS.ovenCavity(o), h = o.h / 30;
+    m = {};
+    for (const [k, s] of Object.entries(OVEN_SHOTS)) m[k] = { ...s, eye: [K.cx * 0.6, s.eye[1], s.eye[2] * h], at: [K.cx, s.at[1], s.at[2] * h] };
+    OVEN_CACHE.set(o, m);
+  }
+  return m[want];
+}
+// The sequence's shots (kitchen-microwave.js seqAt): low and tilted at the door as it slams, then right
+// in on START at a hard dutch angle, then back to the microwave's own shot.
+const MW_CACHE = new WeakMap();
+function mwShot(name) {
+  const o = S.oven;
+  if (name === 'wide') return shotOf('hob');
+  let m = MW_CACHE.get(o);
+  if (!m) {
+    const K = KS.ovenCavity(o), key = KS.ovenPanel(o).keys.find((k) => k.key === 'start').c, y = -o.d / 2;
+    m = {
+      slam: { eye: [K.cx * 0.3 - 22, y - 46, o.h * 0.12], at: [K.cx, y, o.h * 0.55], fov: 0.8, roll: -0.14 },
+      pad: { eye: [key[0] + 7, key[1] - 21, key[2] + 8], at: [key[0] - 0.5, key[1], key[2] + 3], fov: 0.6, roll: 0.3 },
+    };
+    MW_CACHE.set(o, m);
+  }
+  return m[name];
+}
 const ORDER = ['board', 'hob', 'pass'];
 const LABEL = { board: 'Board', hob: 'Hob', pass: 'Pass' };
+// Drawn into a room you can walk about (room-stage.js host.view): no stations, no tabs. You stand where you
+// like and everything on the counter answers wherever you are; the kitchen takes the camera only for a
+// close-up (`cine`): a cut on the board, dressing the plate, an open fridge, the microwave's START.
+const walking = () => !!S?.host?.view?.();
+const cine = () => !!(S.cold || S.knife || S.dress || S.mw?.seq);
+const atSt = (st) => S.station === st || (walking() && !cine());
+const labelOf = (k) => (k === 'hob' && S?.oven ? 'Microwave' : k === 'hob' && S?.hobKind === 'bench' ? 'Pan' : LABEL[k]);
 const HOB_FOR_TIER = { low: 'camp', mid: 'domestic', high: 'range' };
 
 let S = null;
@@ -73,12 +120,10 @@ export function openKitchenStage(data) {
     <div class="ks-top">
       <div class="ks-tabs" role="tablist"></div>
       <div class="ks-tools">
-        <span class="ks-boxes"></span>
-        <button class="ks-btn" data-ks="stock" title="Have food and kit delivered">Stock up</button>
-        <button class="ks-btn" data-ks="list" title="The workspace list (L)">List</button>
         <button class="ks-btn" data-ks="close" aria-label="Close" title="Close (Esc)">✕</button>
       </div>
     </div>
+    <div class="ks-apps" role="toolbar" aria-label="Appliances"></div>
     <div class="ks-beat" aria-live="polite"></div>
     <div class="ks-say" aria-live="polite"></div>
     <div class="ks-mix" hidden></div>
@@ -88,6 +133,8 @@ export function openKitchenStage(data) {
     <div class="ks-rack"></div>
     <div class="ks-cold-bar" hidden></div>
     <div class="ks-tip" hidden></div>
+    <div class="ks-mw" role="group" aria-label="Microwave" hidden></div>
+    <div class="ks-cook" role="group" aria-label="Cooking" hidden></div>
     <div class="ks-menu" role="menu" hidden></div>
     <div class="ks-sheet" hidden></div>
   </div>`);
@@ -99,8 +146,8 @@ export function openKitchenStage(data) {
     const ask = new CustomEvent('kitchen:open', { detail: { kit: null, host: null } });
     window.dispatchEvent(ask);
     room = roomSet(ask.detail.kit);
-    // and, when it has a hob to stand you at, it draws the kitchen into the apartment itself
-    // (gl/kitchen.js host), so looking round shows the flat
+    // and it draws the kitchen into the apartment itself (gl/kitchen.js host), at its hob, its
+    // microwave or a worktop, so looking round shows the flat
     host = ask.detail.host || null;
     if (host) root.classList.add('ks-hosted');
   }
@@ -122,12 +169,17 @@ export function openKitchenStage(data) {
     flash: 0, impact: 0, shake: 0, lines: 0, puffs: [], bubbles: [], last: performance.now(), acc: 0, t: 0,
     tick: null, raf: 0, drag: null, M: null, sent: 0, orbit: { yaw: 0, pitch: 0 }, menu: null, sheet: null, liq: null, spoon: null, lastStir: 0,
     cold: null, coldShots: [], vesselId: null, tool: 'hand', hover: null, liqByPan: new Map(),
+    // cooking at the room's microwave (room-stage.js cookFrame `oven`): it, its door and its turntable
+    oven: host?.frame?.oven ? { ...host.frame.oven, colour: room?.oven || null } : null,
+    ovenDoor: { open: 0, held: false }, ovenSpin: 0,
+    mw: { load: null, digits: '', seq: null, run: null, endsAt: null, result: null, bursts: [], pressed: null, pressT: -9, hint: null },
     // the counter starts bare: only what you take out of a box, or lay on the board, stands on it
     out: new Set(), pendingOut: [],
     // the hob's held cue and the open fridge's hum (kitchen-sound.js)
     hobMix: createLoopMixer({ engine: () => window.AudioEngine, cueOf: (id) => window.SFXCatalog?.get(id) }),
     coldMix: createLoopMixer({ engine: () => window.AudioEngine, cueOf: (id) => window.SFXCatalog?.get(id) }),
   };
+  if (S.oven) S.cam = { ...shotOf('hob') };
   coverWithVeil(root, 'kitchen-stage');
   root.addEventListener('click', onClick);
   gl.addEventListener('pointerdown', onDown);
@@ -138,6 +190,7 @@ export function openKitchenStage(data) {
   window.addEventListener('pointermove', onMove);
   window.addEventListener('pointerup', onUp);
   window.addEventListener('keydown', onKey);
+  window.addEventListener('kitchen:walkaway', onWalkAway);
   if (!roomHost) window.dispatchEvent(new Event('pane:claimed'));
   claimSeatKeyboard(root, { label: 'KITCHEN' });
   sendCmdSilent('kitchenstage on');
@@ -149,16 +202,18 @@ export function refreshKitchenStage(data) {
   if (!S || !data) return;
   S.data = data;
   matchRoomBoxes();
+  if (S.oven) mwSync();
   const dial = dialOf(data), tierHob = HOB_FOR_TIER[dial?.ceilingBand] || 'domestic';
   // in a room, the room's own stove: a range is a range, a cooktop a domestic hob, whatever its tier
   const roomHob = S.room?.hobForm === 'range' ? 'range' : S.room?.hobForm === 'cooktop' ? 'domestic' : null;
   // drawn into the flat, the flat's own cooktop is the hob: nothing is set down over it
+  // at the room's microwave it's the microwave; at a worktop, nothing to heat on
   const hosted = S.root.classList.contains('ks-hosted');
-  const hob = hosted ? 'room' : roomHob && tierHob !== 'camp' ? roomHob : tierHob;
+  const hob = S.oven ? 'microwave' : S.host?.frame?.bench ? 'bench' : hosted ? 'room' : roomHob && tierHob !== 'camp' ? roomHob : tierHob;
   if (hob !== S.hobKind) {
     S.hobKind = hob;
     M.reset(S.stat);
-    KS.buildSet(S.stat, { hob, room: S.room, bare: S.root.classList.contains('ks-hosted') });
+    KS.buildSet(S.stat, { hob, room: S.room, bare: S.root.classList.contains('ks-hosted'), oven: S.oven });
     S.renderer.setStatic(S.stat);
   }
   syncBodies();
@@ -196,6 +251,7 @@ export function closeKitchenStage({ quiet = false } = {}) {
   window.removeEventListener('pointermove', onMove);
   window.removeEventListener('pointerup', onUp);
   window.removeEventListener('keydown', onKey);
+  window.removeEventListener('kitchen:walkaway', onWalkAway);
   endSeatKeyboard(s.root);
   s.root.remove();
   const inRoom = s.root.classList.contains('ks-in-room');
@@ -213,7 +269,7 @@ function roomSet(kit) {
   return {
     top: c(kit.top), front: c(kit.front), wall: c(kit.wall), sink: !!kit.sink,
     hob: kit.hob ? { colour: c(kit.hob.colour) } : null, hobForm: kit.hob?.form || null,
-    cold: c(kit.cold?.colour),
+    cold: c(kit.cold?.colour), oven: c(kit.microwave?.colour),
   };
 }
 
@@ -394,7 +450,7 @@ function syncLiquid() {
   let thick = 0, cloud = 0;
   for (const c of pan.contents || []) {
     if (!c.look) continue;
-    const m = matterFor(c.look.profile, c.look.matter), beat = beatOf(c.cook, c.state === 'cooked');
+    const m = matterFor(c.look.profile, c.look.matter), beat = beatFor(c);
     // starch in the water clouds it as it cooks
     if (m.form.kind === 'grain') cloud = Math.max(cloud, CLOUD_AT[beat] || 0);
     if (!liquidish(m)) continue;
@@ -440,14 +496,16 @@ function frame(now) {
   S.flash =Math.max(0, S.flash - dt * 4);
   S.shake = Math.max(0, S.shake - dt * 3);
   S.lines = Math.max(0, S.lines - dt * 3);
+  walkChrome();
   build(dt);
   const sh = S.shake * 0.004;
   // An impact frame is the picture inverted for two frames, as a manga panel cuts to white on black.
-  const fx = { shake: [(Math.random() - 0.5) * sh, (Math.random() - 0.5) * sh], flash: S.impact > 0 ? 1 : 0 };
+  const fx = { shake: [(Math.random() - 0.5) * sh, (Math.random() - 0.5) * sh], flash: S.impact > 0 ? 1 : 0, free: !!S.camFree };
   if (S.impact > 0) S.impact--;
   S.M = S.renderer.render(S.cam, S.dyn, fx);
   if (S.renderer.lost) { const d = S.data; closeKitchenStage({ quiet: true }); openWorkspacePanel(d); return; }
   paintFx();
+  if (S.oven) tickMwPanel();
   paintMix();
   sound();
   S.raf = requestAnimationFrame(frame);
@@ -465,9 +523,23 @@ function paintMix() {
 }
 
 function moveCamera(now) {
-  const want = S.cold ? 'cold' : S.station === 'hob' && windowOpen() ? 'push' : S.station;
-  const target = S.cold ? coldShot(S.cold.i) : SHOTS[want];
-  if (S.to !== target) { S.from = { ...S.cam }; S.to = target; S.tAt = now; }
+  // on your own feet in the room: the picture is the room's, from your eye, and the kitchen picks with it.
+  // Coming back out of a close-up, it eases from the shot to your eye before it lets go.
+  const mine = walking() && !cine() ? S.host.view() : null;
+  if (mine) {
+    const v = kitchenCamOf(mine, S.host.frame);
+    if (S.to) { S.from = { ...S.cam }; S.to = null; S.tAt = now; }
+    const k = Math.min(1, (now - S.tAt) / 300), e = k * k * (3 - 2 * k), L = (a, b) => a + (b - a) * e;
+    S.cam = k < 1 ? { eye: S.from.eye.map((x, i) => L(x, v.eye[i])), at: S.from.at.map((x, i) => L(x, v.at[i])), fov: L(S.from.fov, v.fov), roll: L(S.from.roll || 0, 0) } : v;
+    S.camFree = k >= 1;
+    return;
+  }
+  S.camFree = false;
+  const want = S.cold ? 'cold' : S.station === 'hob' && windowOpen() && !walking() ? 'push' : S.station;
+  // the microwave's sequence has shots of its own, and cuts to them rather than panning
+  const sq = S.mw?.seq ? MW.seqAt(seqTime()) : null;
+  const target = S.cold ? coldShot(S.cold.i) : sq ? mwShot(sq.shot) : shotOf(want);
+  if (S.to !== target) { S.from = { ...S.cam }; S.to = target; S.tAt = sq && sq.shot !== 'wide' ? now - 1000 : now; }
   const k = Math.min(1, (now - S.tAt) / 260), e = k * k * (3 - 2 * k);
   const L = (a, b) => a + (b - a) * e, V3 = (a, b) => [L(a[0], b[0]), L(a[1], b[1]), L(a[2], b[2])];
   // A tall screen (a phone held upright) keeps the shot's width by opening the lens.
@@ -477,7 +549,8 @@ function moveCamera(now) {
   // in the apartment the drag turns your head where you stand, so looking round shows the flat; on the
   // show set it swings the eye round what you're working on
   const hosted = S.root.classList.contains('ks-hosted');
-  S.cam = hosted ? { eye, at: lookFrom(eye, at), fov: wide, roll: L(S.from.roll, S.to.roll) } : { eye: orbitEye(eye, at), at, fov: wide, roll: L(S.from.roll, S.to.roll) };
+  S.cam = sq ? { eye, at, fov: wide, roll: L(S.from.roll, S.to.roll) }
+    : hosted ? { eye, at: lookFrom(eye, at), fov: wide, roll: L(S.from.roll, S.to.roll) } : { eye: orbitEye(eye, at), at, fov: wide, roll: L(S.from.roll, S.to.roll) };
   if (k < 1 && want !== 'push') S.lines = Math.max(S.lines, 0.6);
 }
 
@@ -502,17 +575,24 @@ function build(dt) {
   const b = M.reset(S.dyn), d = S.data, pan = panOf(d), dial = dialOf(d);
   const level = S.wheel ? S.wheel.level : dial?.level || 0;
   const onHeat = !!pan?.hot, ringBusy = vesselsOf(d).some((v) => v.hot);
-  KS.knob(b, level, KS.KNOB, KS.knobBase(S.hobKind));
-  buildElement(b, level, dial?.ceiling ?? 10);
-  embers(b, level, dial?.ceiling ?? 10, dt);
+  // a ring, a knob and a flame only where there's a hob: a microwave has its door and its light
+  const ring = S.hobKind !== 'microwave' && S.hobKind !== 'bench';
+  if (ring) {
+    KS.knob(b, level, KS.KNOB, KS.knobBase(S.hobKind));
+    buildElement(b, level, dial?.ceiling ?? 10);
+    embers(b, level, dial?.ceiling ?? 10, dt);
+  }
   buildFog(b);
-  if (ringBusy || level > 0) KS.flames(b, ringBusy ? level : 0, S.t, KS.BURNER, KS.PAN_Z - 0.2);
+  if (ring && (ringBusy || level > 0)) KS.flames(b, ringBusy ? level : 0, S.t, KS.BURNER, KS.PAN_Z - 0.2);
+  if (S.oven) buildOven(b, dt);
   buildOtherPans(b);
-  // the pan you're working with: on the ring, or on the rack beside it
+  // the pan you're working with: on the ring, or on the rack beside it; in a microwave, going round
+  // on its turntable
   if (pan) {
-    const at = PAN_AT(pan);
+    const at = PAN_AT(pan), spin = S.oven && onHeat ? S.ovenSpin : 0, cs = Math.cos(spin), sn = Math.sin(spin);
+    const turned = (q) => [q[0] * cs - q[1] * sn, q[0] * sn + q[1] * cs];
     at[2] += hopZ(pan.id);
-    const P = KS.pose(at, 0);
+    const P = KS.pose(at, spin);
     KS.vessel(b, pan.look.vessel, P);
     if (vesselsOf(d).length > 1) KS.ring(b, [0, 0, 0.4], KS.vesselSpec(pan.look.vessel).r + 2.4, 0.55 + 0.15 * Math.sin(S.t * 5), PICKED, 28, P);
     const L = S.liq?.L, depth = liquidDepth(pan);
@@ -520,8 +600,9 @@ function build(dt) {
     for (const c of pan.contents || []) {
       const body = S.bodies.get(c.id);
       if (!body || !c.look) continue;
-      const m = matterFor(c.look.profile, c.look.matter), beat = beatOf(c.cook, c.state === 'cooked');
-      const p = [at[0] + body.p[0], at[1] + body.p[1], at[2] + 1 + body.p[2]];
+      const m = matterFor(c.look.profile, c.look.matter), beat = beatFor(c);
+      const bp = spin ? turned(body.p) : body.p, yaw = body.yaw + spin;
+      const p = [at[0] + bp[0], at[1] + bp[1], at[2] + 1 + body.p[2]];
       if (onHeat && level > 0 && !S.liq?.L?.filled) p[2] += Math.sin(S.t * 47 + body.seed) * 0.07 * (level / 10) * (c.cook?.phase === 'window' ? 1.8 : 1);
       if (onHeat && level > 0) emit(m, c, p, dt);
       if (m.plate.stack === 'pool' && (m.cook.gloss || 0) > 0.8) oily = true;
@@ -530,8 +611,8 @@ function build(dt) {
       const k = 1 - 0.85 * (body.melt || 0);
       if (k < 0.18) continue;
       // an egg in a dry pan is cracked into it; in water it boils in its shell
-      if (c.look.profile === 'egg' && m.form.kind === 'sphere' && !L?.filled) KS.eggCracked(b, m, beat, KS.pose(p, body.yaw), body.seed);
-      else KS.foodPiece(b, m, pieceOf(m, c), KS.piecesOf(m, []).whole, beat, KS.pose(p, body.yaw, body.roll, k), body.seed);
+      if (c.look.profile === 'egg' && m.form.kind === 'sphere' && !L?.filled) KS.eggCracked(b, m, beat, KS.pose(p, yaw), body.seed);
+      else KS.foodPiece(b, m, pieceOf(m, c), KS.piecesOf(m, []).whole, beat, KS.pose(p, yaw, body.roll, k), body.seed);
     }
     if (L?.filled) Lq.drawLiquid(M, b, L, KS.pose([at[0], at[1], at[2] + 0.6]), depth, oily ? 0.9 : 0.35 + 0.5 * L.thick);
     if (L?.filled && onHeat && level >= 4 && Math.random() < dt * level) {
@@ -553,12 +634,12 @@ function build(dt) {
     const m = matterFor(food.look.profile, food.look.matter);
     const dr = S.drag?.kind === 'food' ? S.drag.at : null;
     const at = dr || [KS.STATIONS.board, 0, KS.BOARD.h];
-    KS.foodPiece(b, m, pieceOf(m, food), KS.piecesOf(m, []).whole, beatOf(food.cook), KS.pose(at, 0.1), 7);
+    KS.foodPiece(b, m, pieceOf(m, food), KS.piecesOf(m, []).whole, beatFor(food), KS.pose(at, 0.1), 7);
   }
   // what's on you, laid out along the back of the counter
   for (const [i, c] of shelf().entries()) {
     const m = matterFor(c.look.profile, c.look.matter);
-    KS.shelfPiece(b, m, pieceOf(m, c), KS.piecesOf(m, []).whole, beatOf(c.cook), KS.pose(shelfSpot(i), 0.3 * i), 11 + i);
+    KS.shelfPiece(b, m, pieceOf(m, c), KS.piecesOf(m, []).whole, beatFor(c), KS.pose(shelfSpot(i), 0.3 * i), 11 + i);
   }
   // the pass: a plate, with what is being laid out on it or the last dish served
   if (kit().plate) KS.plate(b, KS.pose([KS.STATIONS.pass, 0, 1.2]));
@@ -705,13 +786,14 @@ function paintFx() {
     }
   }
   paintPolish(x, w, h, S.lastDt || 0.016);
+  paintMw2d(x, w, h);
   if (S.flash > 0.05) { x.fillStyle = `rgba(255,252,240,${S.flash * 0.6})`; x.fillRect(0, 0, w, h); }
 }
 
 // ── the DOM round the picture ────────────────────────────────────────────────────────────────────
 function paintDom() {
   const d = S.data, pan = panOf(d), dial = dialOf(d), r = S.root;
-  r.querySelector('.ks-tabs').innerHTML = ORDER.map((k) => `<button class="ks-tab${S.station === k ? ' on' : ''}" role="tab" aria-selected="${S.station === k}" data-station="${k}">${LABEL[k]}</button>`).join('');
+  r.querySelector('.ks-tabs').innerHTML = ORDER.map((k) => `<button class="ks-tab${S.station === k ? ' on' : ''}" role="tab" aria-selected="${S.station === k}" data-station="${k}">${labelOf(k)}</button>`).join('');
   // The beat line: what the pan is doing and what the ring is doing, in the server's words. On the
   // board mid-cut, the cut.
   const live = (pan?.contents || []).find((c) => c.live);
@@ -733,10 +815,12 @@ function paintDom() {
       + (S.dress.wantsSauce ? `<button class="ks-chip${S.dress.sauce ? ' on' : ''}" data-dress="sauce" aria-pressed="${S.dress.sauce}">Sauce</button>` : '')
       + `<button class="ks-chip" data-dress="skip">Just plate it</button>`
     : [].map((a, i) => `<button class="ks-chip" data-chip="${i}" title="${esc(a.command)}${a.hint ? ` · ${esc(a.hint)}` : ''}">${esc(a.label)}</button>`).join('');
-  r.querySelector('.ks-keys').textContent = S.cold ? KEYS.cold : cutting ? KEYS.knife : dressing ? KEYS.dress : KEYS[S.station];
-  r.querySelector('.ks-boxes').innerHTML = coldBoxes().map((x) => `<button class="ks-btn${S.cold && String(S.cold.id) === String(x.id) ? ' on' : ''}" data-box="${esc(String(x.id))}" title="${esc(boxLabel(x))} (O)">${esc(boxLabel(x))}</button>`).join('');
+  r.querySelector('.ks-keys').textContent = S.cold ? KEYS.cold : cutting ? KEYS.knife : dressing ? KEYS.dress : S.oven && S.station === 'hob' ? KEYS.oven : KEYS[S.station];
+  paintApps();
   r.classList.toggle('ks-in-cold', !!S.cold);
   paintRack();
+  if (S.oven) paintMw();
+  paintCook();
   paintColdBar();
   paintSheet();
 }
@@ -745,7 +829,8 @@ const KEYS = {
   knife: 'Drag down through the food to cut, or Space when the blue marker is on a red guide · Esc: put the knife down',
   cold: 'Click something to take it out · Shift-click: straight onto the board · click the door rack to put things in · arrows and Enter · Esc: shut it',
   board: 'Click anything to use it · drag food onto a pan · Q/E: utensil · O: fridge · middle button: look',
-  hob: 'Drag the knob: heat · spoon: drag round the pan · spatula: click or flick the pan · [ ]: change pan · Q/E: utensil · O: fridge',
+  hob: 'Drag the knob: heat · spoon: drag round the pan · spatula: click or flick the pan · [ ]: change pan · Q/E: utensil · O: fridge · , .: appliances',
+  oven: 'Click the door to open it · put something in · type a time on its keys or yours · Enter or START · Backspace: a digit back · O: fridge',
   pass: 'Click the plate to serve · hold the middle button to look round',
 };
 
@@ -771,9 +856,12 @@ function onClick(e) {
   const t = e.target.closest('button');
   if (!t || !S) return;
   if (t.dataset.menu != null) { const it = S.menu?.[Number(t.dataset.menu)]; closeMenu(); it?.fn?.(); return; }
+  if (t.dataset.ck != null) { const fn = S.ckFns?.[Number(t.dataset.ck)]; if (fn) fn(); return; }
+  if (t.dataset.mw) return onMwClick(t.dataset.mw);
   if (t.dataset.ks === 'close') return closeKitchenStage();
   if (t.dataset.ks === 'list') return toList();
   if (t.dataset.ks === 'stock') { sendCmdSilent('kitchenstock'); return; }
+  if (t.dataset.app != null) { closeSheet(); return panTo(appliances()[Number(t.dataset.app)]); }
   if (t.dataset.box) return S.cold && String(S.cold.id) === t.dataset.box ? shutCold() : openCold(t.dataset.box);
   if (t.dataset.cold === 'shut') return shutCold();
   if (t.dataset.cold === 'offload') return coldOffload();
@@ -797,7 +885,11 @@ function onClick(e) {
   }
 }
 
+// ⚠ OFF FOR NOW: the list is the flat HUD kitchen, which is off until the 3D kitchen is settled and a text
+// kitchen can be made from it. Only a renderer that won't start still falls back to the HUD (openKitchenStage).
+const LIST_ON = false;
 function toList() {
+  if (!LIST_ON) return;
   try { sessionStorage.setItem(LIST_KEY, '1'); } catch { /* private window */ }
   const d = S.data;
   closeKitchenStage({ quiet: true });
@@ -832,7 +924,7 @@ export function kitchenDress(msg) {
   const items = (msg.components || []).map((c, i) => {
     const m = matterFor(c.look?.profile, c.look?.matter), whole = footprint(m.form);
     const piece = pieceOf(m, c), area = Math.abs(polyArea(piece));
-    return { id: c.id, m, whole, piece, beat: beatOf(c.cook, true), yaw: i * 0.7, placed: false, x: 0, y: 0, r: Math.sqrt(area / Math.PI) * DISH_SCALE };
+    return { id: c.id, m, whole, piece, beat: c.done || beatOf(c.cook, true), yaw: i * 0.7, placed: false, x: 0, y: 0, r: Math.sqrt(area / Math.PI) * DISH_SCALE };
   });
   const pour = items.find((it) => it.m.plate.stack === 'pool' || it.m.plate.sauce);
   S.dress = { vessel: msg.vessel, nonce: msg.nonce, wantsSauce: !!msg.sauce, items, line: [], sauce: false,
@@ -886,7 +978,8 @@ const boardHit = (e) => planeHit(e, KS.BOARD.h);
 function onDown(e) {
   // Not while the camera is still cutting to a station: the board would be picked through a moving lens.
   if (!S) return;
-  if (e.button === 1) {
+  const free = walking() && !cine();
+  if (e.button === 1 && !free) {
     e.preventDefault();
     S.drag = { kind: 'look', x: e.clientX, y: e.clientY };
     try { S.gl.setPointerCapture(e.pointerId); } catch { /* fine */ }
@@ -907,18 +1000,20 @@ function onDown(e) {
       if (!it) return;
       S.drag = { kind: 'dish', it };
     }
-  } else if (S.station === 'hob' && dial && near(e, KS.KNOB, 60)) {
+  } else if (atSt('hob') && dial && near(e, KS.KNOB, 60)) {
     S.drag = { kind: 'knob', x0: e.clientX, y0: e.clientY, l0: dial.level, level: dial.level };
-  } else if (S.station === 'hob' && pan && near(e, PAN_AT(pan), 120) && otherPanAt(e) == null) {
+  } else if (atSt('hob') && pan && !(S.oven && (pan.hot || mwHolds(pan.id))) && near(e, PAN_AT(pan), 120) && otherPanAt(e) == null) {
     S.drag = { kind: 'pan', x0: e.clientX, y0: e.clientY, t0: performance.now(), ang: 0, last: null };
-  } else if (S.station === 'board' && S.board && near(e, [KS.STATIONS.board, 0, KS.BOARD.h], 90)) {
+  } else if (atSt('board') && S.board && near(e, [KS.STATIONS.board, 0, KS.BOARD.h], 90)) {
     S.drag = { kind: 'food', x0: e.clientX, y0: e.clientY, at: [KS.STATIONS.board, 0, KS.BOARD.h + 3], moved: false };
   } else {
     const hit = hitObject(e);
-    if (!hit) return;
+    // nothing of the kitchen's under it: on your feet it's the room's (a drag looks round), in a close-up nobody's
+    if (!hit) { if (!free) e.stopPropagation(); return; }
     S.drag = { kind: 'tap', hit, x0: e.clientX, y0: e.clientY };
   }
   e.preventDefault();
+  e.stopPropagation();
   try { S.gl.setPointerCapture(e.pointerId); } catch { /* fine */ }
 }
 
@@ -1001,6 +1096,9 @@ function onUp(e) {
   if (g.kind === 'cold') return dropCold(g);
   if (g.kind === 'tap') {
     if (!still) return;
+    if (g.hit.kind === 'mwkey') return mwKey(g.hit.key);
+    if (g.hit.kind === 'oven') return mwDoor(e);
+    if (g.hit.kind === 'mwfood') return mwTakeOut();
     if (g.hit.kind === 'pan' && g.hit.id) return pickPan(g.hit.id);
     if (g.hit.kind === 'box') return openCold(g.hit.id);
     openMenu(menuFor(g.hit), e);
@@ -1042,6 +1140,11 @@ function onUp(e) {
       if (S.tool === 'knife' && chop && kit().blade) return pickKnife(chop);
       return openMenu(menuFor({ kind: 'board' }), e);
     }
+    // dropped on the microwave goes in the microwave
+    if (S.oven && near(e, ovenFront(), 90)) {
+      const c = mwCandidates().find((x) => x.kind === 'food' && String(x.id) === String(food?.id));
+      if (c) return mwLoad(c);
+    }
     // dropped on a pan goes in that pan; anywhere else off the board goes in the one you're using
     const into = panNear(g.at) || (g.at[0] > KS.STATIONS.board + KS.BOARD.w / 2 ? pan : null);
     if (into) {
@@ -1054,19 +1157,400 @@ function onUp(e) {
 // ── things you can click ─────────────────────────────────────────────────────────────────────────
 // Food you've set out (taken from a box, or laid on the board once) that isn't on the board, along
 // the back of the counter behind it. What you walked in carrying stays in your bag until you do.
-const shelf = () => foods().filter((c) => S.out.has(c.id) && (c.id !== S.board || S.knife));
+const shelf = () => foods().filter((c) => S.out.has(c.id) && (c.id !== S.board || S.knife) && !(S.oven && (c.live || mwHolds(c.id))));
 const shelfSpot = (i) => [KS.STATIONS.board - 30 + (i % 8) * 9, 22 + Math.floor(i / 8) * 9, 0];
 const PLATE_AT = () => [KS.STATIONS.pass, 0, 1.2];
 // The pan on the heat sits on the ring; the rest wait on the rack: the spare rings behind, then
 // the counter to the right of the hob.
 const RACK = [[17, 21, 3.6], [-17, 21, 3.6], [24, -4, 0], [-26, -6, 0]];
 function PAN_AT(pan) {
+  if (S.oven) return ovenPanAt(pan);
   if (!pan) return [KS.STATIONS.hob, 0, KS.PAN_Z];
   if (pan.hot) return [KS.STATIONS.hob, 0, KS.PAN_Z];
   const cold = vesselsOf(S.data).filter((v) => !v.hot), i = Math.max(0, cold.findIndex((v) => String(v.id) === String(pan.id)));
-  const r = RACK[i % RACK.length], camp = S.hobKind === 'camp' || S.hobKind === 'room';
+  const r = RACK[i % RACK.length], camp = S.hobKind === 'camp' || S.hobKind === 'room' || S.hobKind === 'bench';
   return [KS.STATIONS.hob + r[0], r[1], camp ? 0 : r[2]];
 }
+// ── the room's microwave ──
+// Cooking in a room whose microwave is what heats (room-stage.js cookFrame `oven`), the kitchen draws
+// that microwave in its place (gl/kitchen-mesh.js ovenSet/ovenLive) and you work it as you would the
+// real one: open the door, put something in, type a time on its keypad and press START. START plays
+// a comic-book sequence (kitchen-microwave.js seqAt: the door slams, the camera cuts to the keypad on
+// a hard tilt, a finger creeps in and jabs) and the jab sends `microwave <it> <seconds>`, the verb
+// anybody can type. It then runs for exactly that long, the display counting down the time you set
+// (the server's own, workspace.js `cook.timer`), and stops with a DING and the door shut on what's
+// inside. Open it and you see how it came out (`done`: raw, peak, over, burnt).
+//
+// S.mw: `load` what you've put in and not started (yours only; the server hears of it at the jab),
+// `digits` the keypad, `seq` the sequence playing, `run` the cook you started ({ id, sentAt, seenLive }),
+// `endsAt` when the display reaches 0:00, `result` what's done and waiting behind the door, `bursts`
+// the lettering on screen, `pressed`/`pressT` the key going down.
+const OVEN_TOP = [0, -0.26, 0.26];
+const REDUCED = (() => { try { return matchMedia('(prefers-reduced-motion: reduce)').matches; } catch { return false; } })();
+const mwHolds = (id) => [S.mw.load, S.mw.run, S.mw.result].some((x) => x && String(x.id) === String(id));
+function ovenPanAt(pan) {
+  const o = S.oven, K = KS.ovenCavity(o);
+  if (!pan || pan.hot || mwHolds(pan.id)) return [K.cx, K.cy, K.z0 + 0.5];
+  const cold = vesselsOf(S.data).filter((v) => !v.hot && !mwHolds(v.id)), i = Math.max(0, cold.findIndex((v) => String(v.id) === String(pan.id)));
+  return [OVEN_TOP[i % OVEN_TOP.length] * o.w, 0, o.h];
+}
+const ovenFront = () => { const K = KS.ovenCavity(S.oven); return [K.cx, -S.oven.d / 2, S.oven.h / 2]; };
+// Loose food the server has on the heat: bare in the microwave.
+const ovenLoose = () => foods().filter((c) => c.live);
+const ovenRunning = () => vesselsOf(S.data).some((v) => v.hot) || ovenLoose().length > 0;
+// What's cooking in it now, by id: a pan on it, or food on its own.
+const liveIds = () => new Set([...vesselsOf(S.data).filter((v) => v.hot).map((v) => String(v.id)), ...ovenLoose().map((c) => String(c.id))]);
+// What could go in: what the server offers to microwave (workspace.js role 'microwave'), a loaded pan or
+// loose food. The action is a prefix ("microwave beef "); the keypad finishes it.
+function mwCandidates() {
+  const out = [];
+  for (const v of vesselsOf(S.data)) { const a = actOf(v, 'microwave'); if (a) out.push({ kind: 'pan', id: v.id, name: v.name, act: a }); }
+  for (const c of foods()) { const a = actOf(c, 'microwave'); if (a) out.push({ kind: 'food', id: c.id, name: c.name, act: a }); }
+  return out;
+}
+const mwBusy = () => !!(S.mw.seq || S.mw.run || ovenRunning());
+const seqTime = () => S.t - S.mw.seq.t0 + S.mw.seq.from;
+function mwBurst(text, at = 'oven', { fill = '#ffe14a', ink = '#c8323a', life = 1.1, big = false } = {}) {
+  S.mw.bursts.push({ text, at, fill, ink, life, big, t0: S.t, seed: S.mw.bursts.length + 1 });
+}
+
+// How a finished thing came out: its own `done`, or for a pan the worst of what's in it.
+function doneOf(r) {
+  if (!r) return 'peak';
+  if (r.kind === 'food') return foods().find((c) => String(c.id) === String(r.id))?.done || 'peak';
+  const pan = vesselsOf(S.data).find((v) => String(v.id) === String(r.id));
+  const all = (pan?.contents || []).map((c) => c.done).filter(Boolean);
+  return ['burnt', 'over', 'raw', 'peak'].find((k) => all.includes(k)) || 'peak';
+}
+
+// The door: shut and idle, it opens; open, it shuts; running, it says so. Opening it on what's done
+// shows how it came out.
+function mwDoor(e) {
+  const W = S.mw, D = S.ovenDoor;
+  if (W.seq) return;
+  if (mwBusy()) return openMenu([{ title: 'The microwave' }, { label: "It's running. It stops itself", off: true }], e);
+  D.held = !D.held;
+  ksfx(D.held ? 'kitchen-whoosh' : 'kitchen-thock');
+  if (D.held && W.result && !W.result.shown) {
+    W.result.shown = true;
+    W.bursts = [];
+    const v = MW.VERDICT[doneOf(W.result)] || MW.VERDICT.peak;
+    // over the microwave, so what's on the turntable shows under it
+    mwBurst(v.text, 'top', { fill: v.fill, ink: v.ink, life: 1.8, big: true });
+    if (v.smoke) W.smokeUntil = S.t + 1.8;
+  }
+  paintMw();
+}
+// Into the microwave: the door opens if it was shut. It goes on the turntable, not yet anywhere the
+// server knows of.
+function mwLoad(c) {
+  const W = S.mw;
+  if (mwBusy() || W.result) return;
+  W.load = { kind: c.kind, id: c.id, name: c.name, act: c.act };
+  if (c.kind === 'food' && S.board === c.id) S.board = null;
+  if (c.kind === 'pan') S.vesselId = c.id;
+  if (!S.ovenDoor.held) { S.ovenDoor.held = true; ksfx('kitchen-whoosh'); }
+  ksfx('kitchen-tap');
+  paintMw(); paintDom();
+}
+function mwTakeOut() {
+  const W = S.mw, r = W.result || W.load;
+  if (!r) return;
+  if (r.kind === 'food') S.out.add(r.id); else S.vesselId = r.id;
+  W.result = null; W.load = null;
+  ksfx('kitchen-clink');
+  paintMw(); paintDom();
+}
+function mwKey(key) {
+  const W = S.mw;
+  if (W.seq || W.run || ovenRunning()) return;
+  W.pressed = key; W.pressT = S.t;
+  if (key === 'start') return mwStart();
+  ksfx('kitchen-knob');
+  W.digits = MW.padPress(W.digits, key);
+  paintMw();
+}
+function mwStart() {
+  const W = S.mw, secs = Math.min(MW.MAX_SECS, MW.padSecs(W.digits));
+  if (!W.load) { mwBurst('?!', 'oven', { fill: '#f6efe0', ink: '#2b3a63', life: 0.8 }); W.hint = 'Put something in first.'; return paintMw(); }
+  if (!(secs > 0)) { mwBurst('?!', 'key', { fill: '#f6efe0', ink: '#2b3a63', life: 0.8 }); W.hint = 'Type a time first.'; return paintMw(); }
+  const open = S.ovenDoor.open > 0.3 || S.ovenDoor.held;
+  W.hint = null;
+  W.seq = { t0: S.t, from: open ? 0 : MW.FROM_SHUT, last: open ? -1 : MW.FROM_SHUT, open0: Math.max(0.3, S.ovenDoor.open), secs, load: W.load };
+  S.ovenDoor.held = false;
+  if (!open) mwEvent('whoosh');
+  go('hob');
+  paintMw();
+}
+// The sequence's beats (kitchen-microwave.js SEQ_EVENTS): the sounds, the hits, and at the jab the
+// command. Reduced motion keeps the cuts and the lettering and loses the shake and the inverted frames.
+function mwEvent(id) {
+  const W = S.mw;
+  if (id === 'whoosh' || id === 'cut') { ksfx('kitchen-whoosh'); S.lines = Math.max(S.lines, 1); }
+  else if (id === 'slam') { ksfx('kitchen-thock'); S.flash = Math.max(S.flash, 0.3); if (!REDUCED) { S.impact = 2; S.shake = 1.2; } }
+  else if (id === 'jab') {
+    const q = W.seq;
+    ksfx('kitchen-taiko');
+    W.pressed = 'start'; W.pressT = S.t;
+    S.flash = Math.max(S.flash, 0.4);
+    if (!REDUCED) { S.impact = 2; S.shake = 1.5; }
+    if (q?.load) {
+      sendCmdQuiet(`${q.load.act.command.trimEnd()} ${q.secs}`);
+      sendCmdSilent('workspace');
+      W.run = { kind: q.load.kind, id: q.load.id, sentAt: S.t, seenLive: false, load: q.load };
+      W.endsAt = S.t + q.secs;
+      W.load = null; W.digits = '';
+    }
+  } else if (id === 'end') { W.seq = null; paintMw(); }
+}
+
+// Each frame: the sequence's beats, then whether what's cooking has started, finished or failed to start.
+function stepMw() {
+  const W = S.mw;
+  if (W.seq) { const t = seqTime(); for (const id of MW.eventsBetween(W.seq.last, t)) mwEvent(id); if (W.seq) W.seq.last = t; }
+  const now = liveIds();
+  const finish = (id, kind) => {
+    W.result = { id, kind, shown: false };
+    W.run = null; W.endsAt = null;
+    S.ovenDoor.held = false;
+    S.flash = Math.max(S.flash, 0.35);
+    mwBurst('DING!', 'oven', { life: 1.3, big: true });
+    paintMw(); paintDom();
+  };
+  if (W.run) {
+    const live = now.has(String(W.run.id));
+    if (live) W.run.seenLive = true;
+    else if (W.run.seenLive) finish(W.run.id, W.run.kind);
+    else if (S.t - W.run.sentAt > 4) {
+      // it never started: the server said why in the log. What you put in is still in there.
+      W.load = W.run.load; W.run = null; W.endsAt = null;
+      mwBurst('?!', 'oven', { fill: '#f6efe0', ink: '#2b3a63', life: 0.9 });
+      paintMw();
+    }
+    // past 0:00 and the server hasn't said: ask
+    if (live && W.endsAt != null && S.t >= W.endsAt && S.t - (W.asked || 0) > 0.8) { W.asked = S.t; sendCmdSilent('workspace'); }
+  } else if (!W.seq && W.lastLive?.size && !now.size) {
+    // started some other way (a typed `microwave`), and stopped
+    const id = [...W.lastLive][0];
+    finish(id, vesselsOf(S.data).some((v) => String(v.id) === id) ? 'pan' : 'food');
+  }
+  W.lastLive = now;
+}
+// What the display reads: the time you're typing, the time left, or End, blinking, until you open it.
+function mwDisplay() {
+  const W = S.mw;
+  if (W.result && !W.result.shown) return S.t % 1 < 0.6 ? 'End' : '';
+  if (W.seq && seqTime() < MW.SEQ.jab) return MW.padText(W.digits);
+  if (W.endsAt != null && (W.run || ovenRunning())) return MW.clockText(W.endsAt - S.t);
+  return W.digits || W.load ? MW.padText(W.digits) : '';
+}
+// The payload's word on the time left (workspace.js `cook.timer`), when it disagrees with ours.
+function mwSync() {
+  const W = S.mw;
+  if (!W) return;
+  const ts = [...ovenLoose().map((c) => c.cook?.timer), ...vesselsOf(S.data).filter((v) => v.hot).flatMap((v) => (v.contents || []).map((c) => c.cook?.timer))].filter(Number.isFinite);
+  if (ts.length) { const e = S.t + Math.max(...ts) / 1000; if (W.endsAt == null || Math.abs(e - W.endsAt) > 0.6) W.endsAt = e; }
+  if (W.load && !W.seq && !mwCandidates().some((x) => String(x.id) === String(W.load.id))) W.load = null;
+  if (W.result && ![...foods(), ...vesselsOf(S.data)].some((x) => String(x.id) === String(W.result.id))) W.result = null;
+}
+
+function buildOven(b, dt) {
+  const o = S.oven, D = S.ovenDoor, W = S.mw, on = ovenRunning(), K = KS.ovenCavity(o);
+  stepMw();
+  const sq = W.seq ? MW.seqAt(seqTime()) : null;
+  if (sq) D.open = sq.door * W.seq.open0;
+  else D.open += ((D.held ? 1 : 0) - D.open) * Math.min(1, dt * 8);
+  // running from the jab, not from when the server's word arrives
+  const going = on || !!W.run;
+  if (going) S.ovenSpin += dt * 0.55;
+  const since = S.t - (W.pressT ?? -9), press = since < 0.12 ? 1 : Math.max(0, 1 - (since - 0.12) / 0.12);
+  KS.ovenLive(b, o, { open: D.open, lit: going || D.open > 0.3, spin: S.ovenSpin, display: mwDisplay(), pressed: W.pressed, press });
+  if (sq && sq.finger > 0) KS.ovenFinger(b, o, sq.finger, { tremble: sq.tremble, t: S.t });
+  // on the turntable: what's cooking bare, what you've put in, what's done; a little apart when there's more than one
+  const ids = new Set(), inside = [];
+  for (const c of [...ovenLoose(), ...[W.load, W.run, W.result].filter((x) => x?.kind === 'food').map((x) => foods().find((c) => String(c.id) === String(x.id)))]) {
+    if (c && !ids.has(c.id)) { ids.add(c.id); inside.push(c); }
+  }
+  if (!vesselsOf(S.data).some((v) => v.hot || mwHolds(v.id))) for (const [i, c] of inside.entries()) {
+    const m = matterFor(c.look.profile, c.look.matter), a = S.ovenSpin + (i * Math.PI * 2) / inside.length, r = inside.length > 1 ? 5 : 0;
+    KS.foodPiece(b, m, pieceOf(m, c), KS.piecesOf(m, []).whole, beatFor(c), KS.pose([K.cx + Math.cos(a) * r, K.cy + Math.sin(a) * r, K.z0 + 0.6], a), 5 + i);
+  }
+  // steam out of the vent at the back of its top while it runs, more once something in it is ready
+  const ready = windowOpen() || inside.some((c) => c.cook?.phase === 'window');
+  if (on && Math.random() < dt * (ready ? 4 : 0.7)) {
+    S.puffs.push({ p: [K.cx + (Math.random() - 0.5) * 10, o.d / 2 - 5, o.h + 1], age: 0, life: 1.3, c: KS.COLOURS.steam, size: ready ? 0.8 : 0.5 });
+  }
+  // and black smoke out of the door you've just opened on something burnt
+  if (S.t < (W.smokeUntil || 0) && Math.random() < dt * 10) {
+    S.puffs.push({ p: [K.cx + (Math.random() - 0.5) * 14, -o.d / 2 - 3, o.h * (0.45 + Math.random() * 0.4)], age: 0, life: 1.8, c: SMOKE, size: 4 });
+  }
+}
+const SMOKE = M.rgb('#2a2624');
+
+// The 3-D keys under the pointer, close enough to press; at the wide shot the panel's keypad does it.
+function mwKeyAt(e) {
+  for (const k of KS.ovenPanel(S.oven).keys) if (near(e, k.c, 11)) return k.key;
+  return null;
+}
+
+// The lettering over the picture: the sequence's, and the DING, the verdict and the ?! (kitchen-microwave.js).
+function paintMw2d(g, w, h) {
+  const W = S.mw;
+  if (!S.oven || !W) return;
+  const o = S.oven, K = KS.ovenCavity(o), key = KS.ovenPanel(o).keys.find((k) => k.key === 'start').c;
+  const anchor = { door: [K.cx, -o.d / 2, o.h * 0.6], key, top: [K.cx, 0, o.h + 8], oven: [K.cx, -o.d / 2, o.h * 0.8] };
+  const at = (a, r) => {
+    const s = screenOf(anchor[a] || anchor.oven), x = s ? s[0] * w : w / 2, y = s ? s[1] * h : h / 2;
+    return [Math.max(r * 1.2, Math.min(w - r * 1.2, x)), Math.max(r, Math.min(h - r, y))];
+  };
+  if (W.seq) {
+    const t = seqTime(), sq = MW.seqAt(t);
+    if (sq.shot === 'pad') { const [kx, ky] = at('key', 0); MW.drawFocusLines(g, w, h, kx, ky, t >= MW.SEQ.creep ? 0.85 : 0.4, S.t); }
+    for (const wd of sq.words) {
+      if (wd.kind === 'caption') { MW.drawCaption(g, w, h, wd.text, wd); continue; }
+      if (wd.kind === 'hum') { const [x, y] = at('top', h * 0.05); MW.drawHum(g, x, y, h * 0.05, wd.text, { ...wd, t: S.t }); continue; }
+      const r = h * (wd.big ? 0.2 : 0.15), [x, y] = at(wd.at, r);
+      MW.drawBurst(g, x, y, r, wd.text, { age: wd.age, life: wd.life, seed: wd.text.length });
+    }
+  }
+  W.bursts = W.bursts.filter((q) => S.t - q.t0 < q.life);
+  for (const q of W.bursts) {
+    const r = h * (q.big ? 0.17 : 0.11), [x, y] = at(q.at, r);
+    MW.drawBurst(g, x, y, r, q.text, { age: S.t - q.t0, life: q.life, fill: q.fill, ink: q.ink, seed: q.seed, rot: q.seed % 2 ? -0.12 : 0.1 });
+  }
+}
+
+// The keypad on the page, for the wide shot and for anyone who'd rather click a button: what to do next,
+// what could go in, the display, the keys and START. It types what the 3-D keys type.
+function paintMw() {
+  const el = S.root.querySelector('.ks-mw');
+  if (!el) return;
+  const W = S.mw, show = !!S.oven && atSt('hob') && !S.cold && !W.seq;
+  el.hidden = !show;
+  if (!show) return;
+  const busy = W.run || ovenRunning(), open = S.ovenDoor.held, cands = mwCandidates();
+  const step = W.hint ? W.hint
+    : busy ? "It's running. It stops itself."
+      : W.result ? (W.result.shown ? 'Take it out.' : 'Done. Open the door.')
+        : !W.load ? (cands.length ? 'Put something in.' : 'Nothing on you goes in a microwave.')
+          : !(MW.padSecs(W.digits) > 0) ? 'Type a time.' : 'Press START.';
+  const load = busy ? ''
+    : W.result ? (W.result.shown ? `<button class="ks-chip ks-mw-take" data-mw="take">Take it out</button>` : '')
+      : W.load ? `<span class="ks-mw-in">In it: ${esc(W.load.name)}</span> <button class="ks-chip" data-mw="unload" aria-label="Take it back out">✕</button>`
+        : cands.map((c) => `<button class="ks-chip" data-mw="load:${esc(String(c.id))}">${esc(c.name)}</button>`).join('');
+  const keys = KS.OVEN_KEYS.flat().map((k) => `<button class="ks-btn ks-mw-key" data-mw="key:${k}"${busy ? ' disabled' : ''}>${k === 'C' ? 'Clear' : k}</button>`).join('');
+  S.ckFns = [];
+  el.innerHTML = `<div class="ks-mw-step">${esc(step)}</div>`
+    + (load ? `<div class="ks-mw-load">${load}</div>` : '')
+    + `<div class="ks-mw-display" aria-live="off">${esc(mwDisplay() || ' ')}</div>`
+    + `<div class="ks-mw-pad">${keys}</div>`
+    + `<div class="ks-mw-row"><button class="ks-btn ks-mw-door" data-mw="door"${busy ? ' disabled' : ''}>${open ? 'Shut the door' : 'Open the door'}</button>`
+    + `<button class="ks-btn ks-mw-start" data-mw="key:start"${busy ? ' disabled' : ''}>Start</button></div>`
+    + (walking() ? cookFoot() : '');
+  W.shown = mwDisplay();
+}
+// The display on the page follows the one in the picture, without rebuilding the panel every frame.
+function tickMwPanel() {
+  const W = S.mw;
+  if (!S.oven || !W) return;
+  const el = S.root.querySelector('.ks-mw');
+  const want = !!S.oven && atSt('hob') && !S.cold && !W.seq;
+  if (want === el?.hidden) return paintMw();
+  const d = mwDisplay();
+  if (d !== W.shown) { W.shown = d; const box = el?.querySelector('.ks-mw-display'); if (box) box.textContent = d || ' '; }
+  if (W.hint && S.t - (W.hintT ??= S.t) > 2.5) { W.hint = null; W.hintT = null; paintMw(); }
+}
+// ── the cook menu ──
+// On your feet in a room, the Stage's tabs, rack, tray and key line give way to one menu at the left: what
+// the pan's doing, the heat, what the pan offers, what's on the board and what it offers, what's on you,
+// the fridge and the cupboard, Stock up and Done. At the microwave its keypad panel is the menu, with the
+// same foot. Every button is a verb the payload offers (or the Stage's own, like the knife), as on the HUD.
+function walkChrome() {
+  const w = walking(), free = w && !cine(), r = S.root;
+  if (r.classList.contains('ks-walk') === w && r.classList.contains('ks-free') === free) return;
+  r.classList.toggle('ks-walk', w);
+  r.classList.toggle('ks-free', free);
+  paintDom();
+}
+function onWalkAway() { if (S && !cine()) closeKitchenStage(); }
+// The foot of either menu: the fridge and cupboards, Stock up, the list and Done, and how to move.
+function cookFoot() {
+  const fns = (S.ckFns ||= []);
+  const btn = (label, fn, cls = 'ks-btn') => { fns.push(fn); return `<button class="${cls}" data-ck="${fns.length - 1}">${esc(label)}</button>`; };
+  return `<div class="ks-ck-foot">${LIST_ON ? btn('List', toList) : ''}${btn('Done', () => closeKitchenStage(), 'ks-btn ks-ck-done')}</div>`
+    + '<div class="ks-ck-how">WASD walk · drag to look · click things to use them · , and . or the strip: pan between appliances · Esc: done</div>';
+}
+function paintCook() {
+  const el = S.root.querySelector('.ks-cook');
+  if (!el) return;
+  const show = walking() && !cine() && !S.oven;
+  el.hidden = !show;
+  if (!show) return;
+  const d = S.data, pan = panOf(d), dial = dialOf(d), fns = (S.ckFns = []);
+  const btn = (label, fn, cls = 'ks-chip', title = '') => { fns.push(fn); return `<button class="${cls}" data-ck="${fns.length - 1}"${title ? ` title="${esc(title)}"` : ''}>${esc(label)}</button>`; };
+  const live = (pan?.contents || []).find((c) => c.live);
+  const parts = [`<div class="ks-ck-title">${S.hobKind === 'bench' ? 'At the worktop' : 'At the hob'}</div>`];
+  parts.push(`<div class="ks-ck-beat">${esc(live ? `${live.name}: ${live.state || ''}` : pan ? `${pan.name}, ${pan.place}` : 'No pan out.')}${dial?.verdict?.text ? `<span>${esc(dial.verdict.text)}</span>` : ''}</div>`);
+  // the heat, as the knob's own settings
+  if (dial?.levels) {
+    const max = dial.ceiling ?? 10, sets = [[0, 'Off'], [Math.max(1, Math.round(max * 0.3)), 'Low'], [Math.max(1, Math.round(max * 0.6)), 'Medium'], [max, 'High']];
+    parts.push('<div class="ks-ck-row"><span class="ks-ck-k">Heat</span>' + sets.map(([n, label]) => (dial.levels[n] ? btn(label, () => { ksfx('kitchen-knob'); run(dial.levels[n]); }, `ks-chip${dial.level === n ? ' on' : ''}`) : '')).join('') + '</div>');
+  }
+  // the pans out, and what the one you're using offers
+  const pans = vesselsOf(d);
+  if (pans.length > 1) parts.push('<div class="ks-ck-row"><span class="ks-ck-k">Pan</span>' + pans.map((v) => btn(v.name, () => pickPan(v.id), `ks-chip${v === pan ? ' on' : ''}`)).join('') + '</div>');
+  const panActs = chipsFor('hob').map((a) => (a.role === 'finish' ? btn('Plate it', () => plateIt(a), 'ks-chip ks-ck-go')
+    : a.role === 'handle' && a.command.startsWith('flip ') ? btn(cap(a.label), flip)
+      : a.role === 'handle' && a.command.startsWith('stir ') ? btn(cap(a.label), stir)
+        : btn(cap(a.label), () => run(a), 'ks-chip', a.hint || a.command)));
+  if (panActs.length) parts.push('<div class="ks-ck-row">' + panActs.join('') + '</div>');
+  // the board
+  const onBoard = S.board ? foods().find((c) => c.id === S.board) : null;
+  if (onBoard) {
+    const chop = chopOf(onBoard);
+    const acts = [...(chop && kit().blade ? [btn('Cut it', () => pickKnife(chop), 'ks-chip ks-ck-go')] : []),
+      ...foodItems(onBoard).map((it) => btn(it.label, it.fn)), btn('Off the board', () => { S.board = null; paintDom(); })];
+    parts.push(`<div class="ks-ck-row"><span class="ks-ck-k">Board</span><b>${esc(onBoard.name)}</b></div><div class="ks-ck-row">${acts.join('')}</div>`);
+  }
+  // what's on you: onto the board
+  const yours = foods().filter((c) => c.id !== S.board && !c.live);
+  if (yours.length) parts.push('<div class="ks-ck-row"><span class="ks-ck-k">On you</span>' + yours.slice(0, 10).map((c) => btn(`${c.name}${c.qty ? ` ×${c.qty}` : ''}`, () => { S.board = c.id; S.out.add(c.id); ksfx('kitchen-tap'); paintDom(); }, 'ks-chip', 'Onto the board')).join('') + '</div>');
+  el.innerHTML = parts.join('') + cookFoot();
+}
+// What's under the pointer, said, and a hand over it, while you're on your feet.
+const TIP = { oven: 'The microwave: open or shut the door', mwfood: 'Take it out', knob: 'The knob: drag for the heat', plate: 'The plate: plate up', board: 'The board' };
+function hoverTip(e) {
+  const hit = hitObject(e), tip = S.root.querySelector('.ks-tip');
+  S.gl.style.cursor = hit ? 'pointer' : '';
+  if (!hit) return hideTip();
+  const name = hit.kind === 'mwkey' ? (hit.key === 'start' ? 'Start' : hit.key === 'C' ? 'Clear' : hit.key)
+    : hit.kind === 'pan' ? (vesselsOf(S.data).find((v) => String(v.id) === String(hit.id)) || panOf(S.data))?.name
+      : hit.kind === 'shelf' ? foods().find((c) => c.id === hit.id)?.name
+        : hit.kind === 'box' ? boxLabel(coldBoxes().find((x) => String(x.id) === String(hit.id)) || {})
+          : TIP[hit.kind];
+  if (!name) return hideTip();
+  tip.innerHTML = `<b>${esc(name)}</b>`;
+  tip.hidden = false;
+  const r = S.root.getBoundingClientRect();
+  tip.style.left = (e.clientX - r.left + 16) + 'px'; tip.style.top = (e.clientY - r.top + 12) + 'px';
+}
+
+function onMwClick(v) {
+  if (v === 'door') return mwDoor(null);
+  if (v === 'take') return mwTakeOut();
+  if (v === 'unload') { S.mw.load = null; ksfx('kitchen-tap'); return paintMw(); }
+  if (v.startsWith('key:')) return mwKey(v.slice(4));
+  if (v.startsWith('load:')) { const c = mwCandidates().find((x) => String(x.id) === v.slice(5)); if (c) mwLoad(c); }
+}
+// Typing at the microwave: digits, Backspace, Enter to start.
+function mwKeyboard(k) {
+  if (!S.oven || !atSt('hob') || S.cold || S.mw.seq) return false;
+  if (/^[0-9]$/.test(k)) { mwKey(k); return true; }
+  if (k === 'Backspace') { mwKey('back'); return true; }
+  if (k === 'Enter') { mwKey('start'); return true; }
+  return false;
+}
+
 // A pan that isn't the one you're using, under the pointer.
 function otherPanAt(e) {
   const pan = panOf(S.data);
@@ -1089,8 +1573,17 @@ function hitObject(e) {
   for (const [i, box] of coldBoxes().entries()) if (near(e, boxFront(i), 110)) return { kind: 'box', id: box.id };
   const other = otherPanAt(e);
   if (other) return { kind: 'pan', id: other.id };
+  // the microwave's keys, close up; what's done inside it, with the door open; then the microwave itself.
+  // A pan standing on top of it is a pan.
+  if (S.oven && atSt('hob') && !S.mw.seq) {
+    const key = mwKeyAt(e);
+    if (key) return { kind: 'mwkey', key };
+    if (S.mw.result?.shown && S.ovenDoor.held && near(e, ovenPanAt(null), 40)) return { kind: 'mwfood' };
+  }
+  if (S.oven && (!pan || pan.hot || mwHolds(pan.id)) && near(e, ovenFront(), 80)) return { kind: 'oven' };
   if (dialOf(S.data) && near(e, KS.KNOB, 50)) return { kind: 'knob' };
   if (pan && near(e, PAN_AT(pan), 100)) return { kind: 'pan' };
+  if (S.oven && near(e, ovenFront(), 80)) return { kind: 'oven' };
   if (near(e, PLATE_AT(), 70)) return { kind: 'plate' };
   if (S.board && near(e, BOARD_AT(), 90)) return { kind: 'board' };
   return null;
@@ -1266,6 +1759,49 @@ function shutCold() {
   if (!boxHums(coldBox())) ksfx('kitchen-thock');
 }
 // Cycle: shut → the first box → the next → shut.
+// ── the appliance strip ──────────────────────────────────────────────────────────────────────────
+// Every appliance in the kitchen in one row, always on screen: the fridges, freezers and cupboards,
+// then the cookers. Click one (or , and .) and the camera pans to it: a box swings open where it
+// stands; another cooker stands you at that one (the room's host.switchTo, the road a click on it
+// in the room takes). Stock up sits on the end, so the delivery sheet is a click from any of them.
+function appliances() {
+  const cookers = S.host?.cookers?.length ? S.host.cookers : [{ id: null, here: true, label: labelOf('hob') }];
+  const seen = {};
+  const cooks = cookers.map((c) => {
+    const n = (seen[c.label] = (seen[c.label] || 0) + 1);
+    return { k: 'cook', id: c.id, label: c.label, n, on: !S.cold && c.here, here: c.here };
+  });
+  // a second stove reads "Stove 2", and the first "Stove 1" once there's a second
+  for (const c of cooks) if (seen[c.label] > 1) c.label = `${c.label} ${c.n}`;
+  const boxes = coldBoxes().map((x) => ({ k: 'box', id: String(x.id), label: boxLabel(x), on: !!S.cold && S.cold.want === 1 && String(S.cold.id) === String(x.id) }));
+  return [...boxes, ...cooks];
+}
+function panTo(a) {
+  if (!a) return;
+  if (a.k === 'box') return openCold(a.id);
+  if (S.cold) shutCold();
+  if (a.here || a.id == null) return paintDom();
+  // another cooker: the kitchen shuts and opens again standing at it
+  ksfx('kitchen-whoosh');
+  const host = S.host;
+  closeKitchenStage({ quiet: true });
+  host?.switchTo?.(a.id);
+}
+function panStep(d) {
+  const list = appliances();
+  if (list.length < 2) return;
+  let i = list.findIndex((a) => a.on);
+  if (i < 0) i = list.findIndex((a) => a.here);
+  panTo(list[(i + d + list.length) % list.length]);
+}
+function paintApps() {
+  const el = S.root.querySelector('.ks-apps');
+  if (!el) return;
+  const list = appliances();
+  el.innerHTML = (list.length > 1 ? list.map((a, i) => `<button class="ks-btn${a.on ? ' on' : ''}" data-app="${i}" aria-pressed="${a.on}">${esc(a.label)}</button>`).join('') : '')
+    + `<button class="ks-btn ks-apps-stock" data-ks="stock" title="Have food and kit delivered here, for a little over the shop price">Stock up</button>`;
+}
+
 function cycleCold() {
   const boxes = coldBoxes();
   if (!boxes.length) return;
@@ -1334,7 +1870,7 @@ function coldDoor(box) {
 function drawThing(b, it, at, yaw, scale, seed) {
   if (it?.look?.profile) {
     const m = matterFor(it.look.profile, it.look.matter);
-    return KS.shelfPiece(b, m, pieceOf(m, it), KS.piecesOf(m, []).whole, beatOf(it.cook), KS.pose(at, yaw, 0, scale * fitScale(m)), seed);
+    return KS.shelfPiece(b, m, pieceOf(m, it), KS.piecesOf(m, []).whole, beatFor(it), KS.pose(at, yaw, 0, scale * fitScale(m)), seed);
   }
   if (it?.look?.vessel) return KS.vessel(b, it.look.vessel, KS.pose(at, yaw, 0, 0.4 * scale));
   KS.knife(b, KS.pose([at[0] - 4 * scale, at[1], at[2] + 0.3], yaw, Math.PI / 2, 0.5 * scale));
@@ -1630,7 +2166,7 @@ function buildElement(b, level, max) {
 function startTaste() {
   const pan = panOf(S.data), c = (pan?.contents || []).find((x) => x.look);
   const m = c && matterFor(c.look.profile, c.look.matter);
-  S.tasting = { t0: S.t, mood: null, tm: 0, col: m ? M.rgb(m.ramp[beatOf(c.cook, c.state === 'cooked')] || m.ramp.raw) : KS.COLOURS.steam, from: PAN_AT(pan) };
+  S.tasting = { t0: S.t, mood: null, tm: 0, col: m ? M.rgb(m.ramp[beatFor(c)] || m.ramp.raw) : KS.COLOURS.steam, from: PAN_AT(pan) };
   ksfx('kitchen-tap');
 }
 export function kitchenTaste(msg) {
@@ -1782,7 +2318,7 @@ function paintPolish(x, w, h, dt) {
     }
   }
   const dial = dialOf(S.data), level = S.wheel ? S.wheel.level : dial?.level || 0, max = dial?.ceiling ?? 10;
-  if (!c && level > 0 && S.station === 'hob') {
+  if (!c && level > 0 && atSt('hob')) {
     const s = screenOf([KS.STATIONS.hob, 0, KS.PAN_Z + 14]), k = level / max;
     if (s) {
       x.strokeStyle = `rgba(255,240,220,${0.12 + 0.25 * k})`; x.lineWidth = 2;
@@ -1792,6 +2328,17 @@ function paintPolish(x, w, h, dt) {
         for (let j = 0; j <= 10; j++) { const y = oy - j * 7, xx = ox + Math.sin(j * 0.9 + S.t * 6 + i) * 3 * k; j ? x.lineTo(xx, y) : x.moveTo(xx, y); }
         x.stroke();
       }
+    }
+  }
+  // a running microwave lights the air in front of its window, and the light hums
+  if (!c && S.oven && ovenRunning()) {
+    const K = KS.ovenCavity(S.oven), s = screenOf([K.cx, -S.oven.d / 2, S.oven.h * 0.5]);
+    if (s) {
+      const k = 0.88 + 0.12 * Math.sin(S.t * 19) * Math.sin(S.t * 2.3), R = h * 0.22;
+      const g = x.createRadialGradient(s[0] * w, s[1] * h, 0, s[0] * w, s[1] * h, R);
+      g.addColorStop(0, `rgba(255,214,140,${0.26 * k})`);
+      g.addColorStop(1, 'rgba(255,214,140,0)');
+      x.fillStyle = g; x.fillRect(s[0] * w - R, s[1] * h - R, R * 2, R * 2);
     }
   }
   if (S.wanted && S.tool === S.wanted && S.hover && !c) {
@@ -1922,7 +2469,7 @@ function buildOtherPans(b) {
     let k = 0;
     for (const c of v.contents || []) {
       if (!c.look) continue;
-      const m = matterFor(c.look.profile, c.look.matter), beat = beatOf(c.cook, c.state === 'cooked');
+      const m = matterFor(c.look.profile, c.look.matter), beat = beatFor(c);
       if (liquidish(m)) {
         M.disc(b, P.p([0, 0, Math.min(spec.wall * 0.6, 2)]), [0, 0, 1], spec.r * (spec.taper || 0.85) * 0.95, M.rgb(m.ramp[beat] || m.ramp.raw), 20, 0.2);
         continue;
@@ -1948,6 +2495,7 @@ function hoverAt(e) {
     S.gl.style.cursor = S.hover ? 'none' : '';
     return;
   }
+  if (S.tool === 'hand' && !S.menu && !S.knife && !S.dress && e.target === S.gl && walking()) { S.hover = null; return hoverTip(e); }
   if (S.tool === 'hand' || S.menu || S.knife || S.dress || e.target !== S.gl) { S.hover = null; S.gl.style.cursor = ''; return; }
   S.hover = planeHit(e, KS.PAN_Z + 7);
   S.gl.style.cursor = S.hover ? 'none' : '';
@@ -1980,7 +2528,7 @@ function closeSheet() {
 export function kitchenStock(msg) {
   if (!S) return;
   const shelf = S.sheet?.kind === 'stock' ? S.sheet.shelf : 'food';
-  S.sheet = { kind: 'stock', items: msg.items || [], credits: msg.credits ?? 0, shelf };
+  S.sheet = { kind: 'stock', items: msg.items || [], credits: msg.credits ?? 0, markup: msg.markup ?? 5, shelf };
   paintSheet();
 }
 
@@ -1993,7 +2541,7 @@ function paintSheet() {
   el.innerHTML = `<div class="ks-stock-box">
     <div class="ks-sheet-head"><span>Stock the kitchen</span><span class="ks-stock-cash">₵${sh.credits}</span><button class="ks-btn" data-sheet="close" aria-label="Close">Done</button></div>
     <div class="ks-stock-tabs">${[['food', 'Food'], ['kit', 'Pans and kit']].map(([k, l]) => `<button class="ks-tab${sh.shelf === k ? ' on' : ''}" data-shelf="${k}">${l}</button>`).join('')}</div>
-    <div class="ks-stock-note">Delivered to you here. It costs more than walking to the shop.</div>
+    <div class="ks-stock-note">Delivered to you here, at ${sh.markup}% over the shop price. Walk out to a shop, or further for a deal, and it costs less.</div>
     <div class="ks-stock-grid">${list.length ? list.map((it) => `<div class="ks-stock-card">
       <div class="ks-stock-name">${esc(it.name)}</div>
       ${it.note ? `<div class="ks-stock-desc">${esc(it.note)}</div>` : ''}
@@ -2052,10 +2600,12 @@ function stir() {
 function onKey(e) {
   if (!S || !seatHoldsKeyboard() || e.ctrlKey || e.metaKey || e.altKey) return;
   const k = e.key, d = S.data, dial = dialOf(d), pan = panOf(d);
+  if (walking() && !cine() && (/^[wasd]$/i.test(k) || /^Arrow/.test(k) || k === 'Tab' || k === 'Shift')) return;
   let done = true;
   if (S.menu && k === 'Escape') closeMenu();
   else if (S.sheet && k === 'Escape') closeSheet();
   else if (S.cold && (k === 'Escape' || (S.cold.want === 0 && k === 'o'))) shutCold();
+  else if (k === ',' || k === '.') panStep(k === ',' ? -1 : 1);
   else if (S.cold && coldKey(k, e.shiftKey)) { /* walked the shelves */ }
   else if (k === 'o' || k === 'O') cycleCold();
   else if (S.cold) done = false;
@@ -2067,6 +2617,7 @@ function onKey(e) {
   else if (S.dress && k === 'Escape') serve(null);
   else if (S.knife && k === ' ') cutAt(S.knife.sweep, 0, false);
   else if (S.knife && k === 'Escape') finishKnife(true);
+  else if (mwKeyboard(k)) { /* the microwave's keypad */ }
   else if (k === 'Escape') closeKitchenStage();
   else if (k === 'Tab' || k === 'ArrowRight') go(ORDER[(ORDER.indexOf(S.station) + (e.shiftKey ? 2 : 1)) % 3]);
   else if (k === 'ArrowLeft') go(ORDER[(ORDER.indexOf(S.station) + 2) % 3]);

@@ -212,6 +212,30 @@
       "straightens things on a desk that doesn't need straightening, quickly, twice.",
       "\"I can do twenty minutes on nothing. I would rather not. But I can.\""
     ],
+    "chess_lines": {
+      "accept": [
+        "Go on, then. Let me set them up again.",
+        "Oh, you play? Sit. I was losing to myself anyway."
+      ],
+      "refuse": [
+        "I'm in the middle of something. With myself. It's going very well.",
+        "I don't play people I don't know. You can watch, though. People do."
+      ]
+    },
+    "chess_lore": [
+      "Morphy played eight men at once in Paris, blindfolded, in 1858. Won six. I can't remember eight names at a dinner party.",
+      "Anderssen gave up both rooks and his queen against Kieseritzky in London and still mated him. They call it the Immortal Game. I call it showing off, and I respect it.",
+      "Capablanca went eight years without losing a game. Eight years. I can't go eight minutes without somebody telling me I'm wrong.",
+      "Fischer forfeited the second game in Reykjavik over the cameras. Then they played the third in a back room, and he won it. Turns out he just wanted a smaller audience. Can't relate.",
+      "Kasparov beat the machine in '96. The next year it beat him, and he said there was a person helping it. There wasn't. There's never a person helping.",
+      "Fischer was thirteen when he played the Game of the Century. Gave up his queen to Donald Byrne and won anyway. At thirteen I was doing the weather on a school radio station. Very good weather.",
+      "Steinitz was the first official world champion, 1886. Before that you were just a man who was good at chess, which is no way to live.",
+      "Alekhine died with the title. Nobody ever took it off him. That's how I intend to leave the slot.",
+      "Tal sacrificed pieces you'd swear he needed, and half the time nobody worked out why it was good until the next morning. They called him the Magician from Riga. I've been called worse.",
+      "Marshall played a queen move against Levitsky so good the crowd threw gold coins on the board. Or so the story goes. Nobody's ever thrown anything at me I could spend.",
+      "Morphy beat a duke and a count together in a box at the Paris opera, during the opera. Seventeen moves. He wanted to watch the show."
+    ],
+    "chess_strength": "hustler",
     "figure": {
       "age": 0,
       "beard": 0.9,

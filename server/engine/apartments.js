@@ -439,6 +439,7 @@ export async function rehomeNpc(npc, newZoneId) {
 	);
 	invalidateNpcResidences();
 	npc.home_zone = newZoneId;
+	lockNpcHomeDoors();
 	moveNpcToZone(npc.id, newZoneId);
 }
 
@@ -499,13 +500,50 @@ export async function reconcileNpcHomesVsOwnership() {
 // effectively unlocked so every gate/read treats unrented units as open.
 // Returns true only when the door touches an apartment AND no apartment side of
 // it is owned — a door with any owned apartment side keeps its real lock.
+// Zones an NPC calls home (home_zone), from RAM. Rebuilt at most every 30 s and at once on a rehome, so the move
+// gate can ask it every step. An NPC's flat has a real lock: npc_residences is authored, but home_zone is what an
+// NPC walks home to, and the two NPCs sharing a flat share it.
+let _npcHomes = null, _npcHomesAt = 0;
+export function invalidateNpcHomes() { _npcHomes = null; }
+export function npcLivesIn(zoneId) {
+	if (!zoneId) return false;
+	if (!_npcHomes || Date.now() - _npcHomesAt > 30_000) {
+		_npcHomes = new Set();
+		for (const n of world.npcs.values()) if (n.home_zone && !n._dead) _npcHomes.add(n.home_zone);
+		_npcHomesAt = Date.now();
+	}
+	return _npcHomes.has(zoneId);
+}
+// A lock-tagged door on an NPC's flat, and the flat it guards (null if it's no such door). A flat a player rents
+// keeps the player's own lock.
+export function npcFlatOf(door) {
+	if (!door || !Object.keys(door.tags || {}).some((t) => t.startsWith('lock:'))) return null;
+	for (const zid of [door.zone_id, ...doorFarIds(door)]) {
+		if (isApartmentZone(getZone(zid)) && !getApartment(zid)?.owner_id && npcLivesIn(zid)) return zid;
+	}
+	return null;
+}
+// Every NPC's flat starts locked (boot, and a rehome). Runtime only, like all door state. The flat is the
+// inside, so whoever is in it can always walk out (_autoLockedInside, movement.js autoLockLetsThrough).
+export function lockNpcHomeDoors() {
+	invalidateNpcHomes();
+	let n = 0;
+	for (const door of world.doors.values()) {
+		const flat = npcFlatOf(door);
+		if (!flat || !(door.hp > 0) || door.lock_state === 'locked') continue;
+		door.lock_state = 'locked'; door.is_open = 0; door._autoLockedInside = flat;
+		setDoorCache(door.id, door); n++;
+	}
+	return n;
+}
+
 export function doorGuardsOnlyUnownedApartment(door) {
 	if (!door || door.lock_state !== 'locked') return false;
 	let touchesApartment = false;
 	for (const zid of [door.zone_id, ...doorFarIds(door)]) {
 		if (!isApartmentZone(getZone(zid))) continue;
 		touchesApartment = true;
-		if (getApartment(zid)?.owner_id) return false;
+		if (getApartment(zid)?.owner_id || npcLivesIn(zid)) return false;   // a let flat, or an NPC home
 	}
 	return touchesApartment;
 }
@@ -613,6 +651,7 @@ export async function cmdRent(player) {
 	const nextDueStr = rentDue ? formatGameDate(rentDue) : 'next rent cycle';
 	return {
 		type: "rent",
+		player_update: { credits: player.credits },
 		message: `Congratulations, you're the proud new owner of <span style="color:var(--accent)">${zone.name}</span>!\n\n<span class="text-dim">Rented:</span> ${gToday ? formatGameDate(gToday) : '—'}\n<span class="text-dim">Rent (per ${RENT_PERIOD_DAYS}-day cycle):</span> <span style="color:var(--yellow)">${cost}₵</span>\n<span class="text-dim">First payment due:</span> ${nextDueStr}\n\nThis is your home now: GOHOME walks you back here from anywhere. Type LOCK to secure the door when you leave. Type UNRENT to give the place up.`,
 	};
 }
@@ -645,14 +684,20 @@ export async function cmdPrepay(player, args) {
 
 	// The only numeric token is the cycle count, so stray words are ignored the
 	// same way `spin the slots` works.
-	const tok = (args || []).map(a => parseInt(a, 10)).find(n => Number.isFinite(n));
+	// Commas are dropped before parsing: parseInt('12,000') is 12, which once
+	// bought a player 12 cycles when they meant 12,000 credits.
+	const tok = (args || []).map(a => parseInt(String(a).replace(/,/g, ''), 10)).find(n => Number.isFinite(n));
 	const cycles = tok == null ? 1 : tok;
+	const cost = apt.rent_cost ?? 100;
+	// A number too big to be a cycle count but a multiple of the rent reads as
+	// credits, so `prepay 1200` on a 400₵ unit buys 3 cycles.
+	if (cycles > MAX_PREPAY_CYCLES && cycles % cost === 0 && cycles / cost <= MAX_PREPAY_CYCLES)
+		return cmdPrepay(player, [String(cycles / cost)]);
 	if (!Number.isFinite(cycles) || cycles < 1)
 		return { type: "error", message: `Pay ahead how many ${RENT_PERIOD_DAYS}-day cycles? Try: PREPAY 4` };
 	if (cycles > MAX_PREPAY_CYCLES)
-		return { type: "error", message: `The landlord won't take more than ${MAX_PREPAY_CYCLES} cycles up front. That's a year; nobody plans that far here.` };
+		return { type: "error", message: `PREPAY takes a number of ${RENT_PERIOD_DAYS}-day cycles (rent here is ${cost}₵ a cycle), up to ${MAX_PREPAY_CYCLES}. That's a year; nobody plans that far here.` };
 
-	const cost = apt.rent_cost ?? 100;
 	const total = cost * cycles;
 
 	// Charged from what's ON HAND, deliberately, even though the collection tick
@@ -666,6 +711,7 @@ export async function cmdPrepay(player, args) {
 			type: "error",
 			message: `${cycles} ${cycles === 1 ? 'cycle' : 'cycles'} up front is <span style="color:var(--yellow)">${total}₵</span>. You're carrying ${player.credits}₵; the rest would need withdrawing first.`,
 		};
+	const player_update = { credits: player.credits };
 
 	// Push the due date out from where it ALREADY is, never from today: paying
 	// ahead on day one of a cycle must not silently bin the six days you have
@@ -684,6 +730,7 @@ export async function cmdPrepay(player, args) {
 	const dueStr = next ? formatGameDate(next) : 'the next cycle';
 	return {
 		type: "output",
+		player_update,
 		message: `Paid <span style="color:var(--yellow)">${total}₵</span> up front on <span style="color:var(--accent)">${zone.name}</span>: ${cycles} ${cycles === 1 ? 'cycle' : 'cycles'}, ${daysBought} days.\n\n<span class="text-dim">Rent now due:</span> ${dueStr}\n<span class="text-dim">On hand:</span> ${player.credits}₵\n\n<span class="text-dim">Paid rent isn't refundable. Give the unit up before then and the remaining days go with it.</span>`,
 	};
 }

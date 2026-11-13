@@ -22,6 +22,14 @@
     "is_interior": true,
     "lawless": true,
     "region_id": "region_the_reach",
+    "room": {
+      "d": 24,
+      "ground": "stone",
+      "h": 7.5,
+      "studio": false,
+      "w": 16,
+      "windowless": true
+    },
     "truck_depot": {
       "name": "The Last Load",
       "yard": "zone_the_reach_871_1958"

@@ -976,7 +976,7 @@ function _pickDailySlot(playlist, gameSecs, dayOfWeek) {
     if (gameSecs < i.startTime || gameSecs >= i.startTime + i.duration) continue;
     if (!_slotAirsOn(i, dayOfWeek)) continue;
     if (i.calendar === 'month_end' && !isCupDay(slotDay(sportsSlotIndex()))) continue;
-    if (i.slotType === 'sports_slate' && !sportsAiring(i.sportsScript, _slotAtGameSecs(gameSecs))) continue;
+    if (i.slotType === 'sports_slate' && _slateOnAirSlot(i.sportsScript, _slotAtGameSecs(gameSecs)) == null) continue;
     if (!best) { best = i; continue; }
     const pi = i.priority || 0, pb = best.priority || 0;
     if (pi !== pb) { if (pi > pb) best = i; continue; }
@@ -2738,6 +2738,60 @@ function sportsAiring(script, slot = sportsSlotIndex()) {
   return slots.includes(slotSod(slot));
 }
 
+// ── The overflow: a game that runs long keeps the air ────────────────────────────
+// A game is paced to its slot, but it can still run past it: a hockey night's line floors,
+// a theme that holds the title card, a long recap reel. The clock used to cut it off at the
+// turn. Now the last game that went on air is held (`_sportsHold`): while the clock is past
+// its slot and its content hasn't finished, it stays on, and the next game waits and then
+// airs from its title card, late. Its slot is paced as usual, so it ends late too, and the
+// lateness carries on until the day's empty slot (SLATE_BUFFER_SOD, no game) soaks it up.
+// A late game starts at the moment the last one's content ended, not at its own slot's
+// clock time, so its parked post-game tail is what gets cut, never the play.
+//
+// The hold is one record for the whole server, keyed by slot, like the graph cache: every
+// channel showing a slot's game agrees when it started. A boot, or a slot nobody was
+// watching at the turn, starts from the clock, as before.
+const SPORTS_HOLD_MAX_SLOTS = 2;   // a hold this many slots stale is dropped: something went wrong
+let _sportsHold = null;            // { slot, startMs, endMs } of the game last put on air
+// Pure, for regress: the slot still held over at clock slot `slot`, or null.
+function _holdingAt(hold, slot, nowMs) {
+  if (!hold || hold.slot >= slot || slot - hold.slot > SPORTS_HOLD_MAX_SLOTS) return null;
+  return nowMs < hold.endMs ? hold.slot : null;
+}
+// Pure, for regress: put `slot`'s game on air at `nowMs`. `byClockSec` is how far into its
+// slot the clock (or the seen turn) says it is, and `contentMs` how long its content runs.
+// Returns the new hold and the seconds into the game to seek.
+function _holdNext(prev, slot, nowMs, byClockSec, contentMs) {
+  if (prev?.slot === slot) {
+    const sec = (nowMs - prev.startMs) / 1000;
+    return { hold: prev, elapsedSec: sec < SPORTS_TOP_GRACE_S ? 0 : sec };
+  }
+  const clockStart = nowMs - byClockSec * 1000;
+  // the last game ran past this one's start: this one starts when it ended
+  const late = prev && prev.slot < slot && slot - prev.slot <= SPORTS_HOLD_MAX_SLOTS && prev.endMs > clockStart;
+  const startMs = late ? Math.min(nowMs, prev.endMs) : clockStart;
+  const sec = (nowMs - startMs) / 1000;
+  return { hold: { slot, startMs, endMs: startMs + contentMs }, elapsedSec: sec < SPORTS_TOP_GRACE_S ? 0 : sec };
+}
+// Which slot's game this script shows now: a held-over game if one is still on (and it's
+// this script's to show), else the clock's slot if it airs there, else null. While a game
+// is held over, nothing else goes on air in its place.
+function sportsAiringSlot(script, slot = sportsSlotIndex(), nowMs = Date.now()) {
+  const held = _holdingAt(_sportsHold, slot, nowMs);
+  if (held != null) return sportsAiring(script, held) ? held : null;
+  return sportsAiring(script, slot) ? slot : null;
+}
+// The picker's question for a slate item at `slot` of today. Only the current slot can be
+// held over; any other is asked plainly.
+const _slateOnAirSlot = (script, slot) => (slot === sportsSlotIndex() ? sportsAiringSlot(script, slot) : (sportsAiring(script, slot) ? slot : null));
+// Seconds into `slot`'s game, putting it on air (and holding it) if it's new.
+function sportsAiringElapsedSec(slot, graph, nowMs = Date.now()) {
+  const byClock = slot === sportsSlotIndex() ? sportsSegElapsedSec(nowMs) : 0;
+  const { hold, elapsedSec } = _holdNext(_sportsHold, slot, nowMs, byClock, graph?._contentMs || sportsSlotMs());
+  _sportsHold = hold;
+  return elapsedSec;
+}
+
 // Circle-method round-robin: for N teams (padded to even with a BYE), returns N-1
 // rounds of N/2 index pairs, every team appearing once per round. Deterministic
 // given N, so a day's schedule is reproducible from the day number alone.
@@ -2772,6 +2826,10 @@ function roundRobinRounds(n) {
 // All of it is a pure function of the day number and the club names, like the games.
 const SLATE_SPORTS = Object.keys(SPORTS);
 const SLATE_FEATURED_SOD = 6;   // 18:00, the slot KSAB-TV carries
+// 21:00 has no game on a regular day: it's the day's overflow, where a game that ran long
+// finishes (see _sportsHold). The pairing that would have played it sits the day out. On
+// Cup day it's still the second final's slot.
+const SLATE_BUFFER_SOD = 7;
 const DAY_MS = 86400000;
 const slateDate = (day) => new Date(day * DAY_MS);
 // The in-game day a slot falls on, and its slot of the day.
@@ -2821,6 +2879,7 @@ function buildSportDay(sport, day, names, counts) {
   }
   const out = [];
   for (const sod of sods) {
+    if (sod === SLATE_BUFFER_SOD) continue;
     const p = sod === SLATE_FEATURED_SOD && featured ? featured : pairs.shift();
     if (!p) continue;
     const flip = (sportsHash(day * SPORTS_GAMES_PER_DAY + sod, 0xa17f) & 1) === 1;
@@ -3379,6 +3438,9 @@ function assembleSportsGraph(script, broadcastId, slot, override, opts = {}) {
   const played = Object.values(nodes).reduce((sum, nd) => sum + holdOf(nd), 0);
   const tail = nodes[prevId] || nodes[outroId];
   if (tail) tail.holdMs = Math.max(lastFloor, slotMs - (played - holdOf(tail)));
+  // How long the game's content runs: everything but the parked tail past its own line.
+  // The next game waits this long for it (_sportsHold), so only the park is ever cut.
+  const contentMs = tail ? played - holdOf(tail) + Math.min(holdOf(tail), Math.ceil(lastFloor / BROADCAST_TICK_MS) * BROADCAST_TICK_MS) : played;
   // Each Gameday payload says how long its line holds, so a view can pace the play to it. A
   // sport with `holdSpansGap` (Deadball) counts on to the next payload instead, the lines with
   // no payload between included, so the park plays on through the booth's talk rather than
@@ -3403,6 +3465,7 @@ function assembleSportsGraph(script, broadcastId, slot, override, opts = {}) {
   // re-seeds to the next game — the same instant on every TV.
   const graph = _normalizeBroadcastGraph({ _start: startId, nodes });
   graph._broadcastId = `${broadcastId}:sport:${slot}${ws ? ':ws' : ''}`;
+  graph._contentMs = contentMs;
   // The whole game is decided the instant it's assembled (the play-by-play just
   // reveals it over the airing). Stash the outcome so the tick can announce it to
   // the betting system — the result is known at bet-lock time, paid at air's end.
@@ -5628,14 +5691,15 @@ async function getCurrentMessage(state, nowMs) {
       // on the shared clock so a daily-scheduled TV shows the identical in-progress game.
       // A `airSlots` broadcast only shows its featured game(s); otherwise this channel is
       // dark now (falls through to off-air / its other content).
-      if (item.playback_mode === 'sports' && sportsAiring(item.sportsScript)) {
+      const airSlot = item.playback_mode === 'sports' ? sportsAiringSlot(item.sportsScript, sportsSlotIndex(), nowMs) : null;
+      if (airSlot != null) {
         // Warm THIS sport's record cache + season before its graph assembles — the
         // announcer's records line and any postseason takeover both read them.
         await refreshStandings(nowMs, sportOf(item.sportsScript).id);
         await refreshSeason(nowMs, sportOf(item.sportsScript).id);
-        const spGraph = getSportsGraph(item.sportsScript, sportsSlotIndex(), overrideFor(item.sportsScript));
+        const spGraph = getSportsGraph(item.sportsScript, airSlot, overrideFor(item.sportsScript, airSlot));
         if (spGraph) {
-          const r = tickBroadcastGraph(state.channelId, spGraph, state, nowMs, sportsSegElapsedSec());
+          const r = tickBroadcastGraph(state.channelId, spGraph, state, nowMs, sportsAiringElapsedSec(airSlot, spGraph, nowMs));
           if (r) r.programName = item.broadcastName || null;
           return _sportsOnAir(state, item, r);
         }
@@ -5836,15 +5900,16 @@ async function getCurrentMessage(state, nowMs) {
       // and seek to the same beat; tuning in drops you in mid-game. Betting/standings
       // events come from the background heartbeat (below), not the airing, so they fire
       // with nobody watching.
-      if (item.playback_mode === 'sports' && sportsAiring(item.sportsScript)) {
+      const airSlot = item.playback_mode === 'sports' ? sportsAiringSlot(item.sportsScript, sportsSlotIndex(), nowMs) : null;
+      if (airSlot != null) {
         // Warm THIS sport's record cache + season before its graph assembles — the
         // announcer's records line and any postseason takeover both read them.
         await refreshStandings(nowMs, sportOf(item.sportsScript).id);
         await refreshSeason(nowMs, sportOf(item.sportsScript).id);      // is a final on? if so, run the finalists
-        const spGraph = getSportsGraph(item.sportsScript, sportsSlotIndex(), overrideFor(item.sportsScript));
+        const spGraph = getSportsGraph(item.sportsScript, airSlot, overrideFor(item.sportsScript, airSlot));
         if (spGraph) {
           state.currentFallbackMessages = item.fallbackMessages || [];
-          return _sportsOnAir(state, item, tickBroadcastGraph(state.channelId, spGraph, state, nowMs, sportsSegElapsedSec()));
+          return _sportsOnAir(state, item, tickBroadcastGraph(state.channelId, spGraph, state, nowMs, sportsAiringElapsedSec(airSlot, spGraph, nowMs)));
         }
       }
       // News — a fresh bulletin from the live news generator, re-rolled per refresh bucket
@@ -6242,7 +6307,8 @@ function _playDeckItem(item, state, nowMs) {
       return g ? tickBroadcastGraph(state.channelId, g, state, nowMs) : null;
     }
     if (item.playback_mode === 'sports') {
-      if (!sportsAiring(item.sportsScript)) return null;   // between featured games — dark
+      const airSlot = sportsAiringSlot(item.sportsScript, sportsSlotIndex(), nowMs);
+      if (airSlot == null) return null;   // between featured games, or another game held over: dark
       // ⚠ A TAPE MAY NOT SHADOW A DIFFERENT LEAGUE'S SCHEDULED GAME, and the reason is
       // that both walk the SAME channel blackboard. The deck outranks the schedule
       // (_resolveTickMessage is `deckResult || getCurrentMessage`), and a cassette carries
@@ -6258,8 +6324,8 @@ function _playDeckItem(item, state, nowMs) {
       // exactly why only the hockey nights broke.
       const scheduledSport = sportOnChannel(state.channelId);
       if (scheduledSport && scheduledSport !== sportOf(item.sportsScript).id) return null;
-      const g = getSportsGraph(item.sportsScript, sportsSlotIndex(), overrideFor(item.sportsScript));
-      return g ? tickBroadcastGraph(state.channelId, g, state, nowMs, sportsSegElapsedSec()) : null;
+      const g = getSportsGraph(item.sportsScript, airSlot, overrideFor(item.sportsScript, airSlot));
+      return g ? tickBroadcastGraph(state.channelId, g, state, nowMs, sportsAiringElapsedSec(airSlot, g, nowMs)) : null;
     }
     if (item.broadcastGraph) {
       return tickBroadcastGraph(state.channelId, item.broadcastGraph, state, nowMs);
@@ -9523,6 +9589,38 @@ registerAction({
   },
 });
 
+// When a slot airs, as the in-game calendar has it: its date, its hour, and how many
+// in-game days off it is. The Sports app states a final's date and time with it.
+registerAction({
+  type: 'broadcast.slotWhen',
+  handler: async ({ params = {} } = {}) => {
+    const slot = Number(params.slot);
+    if (!Number.isFinite(slot)) return null;
+    const now = sportsSlotIndex();
+    return {
+      slot, date: slateDate(slotDay(slot)).toISOString().slice(0, 10),
+      hour: slotSod(slot) * (24 / SPORTS_GAMES_PER_DAY),
+      daysAway: slotDay(slot) - slotDay(now), slotsAway: slot - now,
+    };
+  },
+});
+
+// Each club's look for a screen that lists them: its authored colours (else none) and the
+// three-letter abbreviation the scorebug uses.
+registerAction({
+  type: 'broadcast.getClubLook',
+  handler: async ({ params = {} } = {}) => {
+    const script = await anySportsScript(params.sport || 'baseball');
+    if (!script) return { clubs: {} };
+    const clubs = {};
+    for (const name of sportsTeamNames(script.teams)) {
+      const c = script.clubs?.[name];
+      clubs[name] = { abbr: sportsAbbr(name), colours: Array.isArray(c?.colours) ? c.colours.slice(0, 2) : null };
+    }
+    return { clubs };
+  },
+});
+
 // Which sports have a show that can actually be scheduled. The league plugin asks so it
 // never opens a season for a sport whose broadcast was never imported.
 registerAction({
@@ -11891,6 +11989,7 @@ export const _test = {
   normalizeBroadcastGraph: _normalizeBroadcastGraph, CARD_MIN_HOLD_MS,
   pickDailySlot: _pickDailySlot, dayMask: _dayMask, dayLabel: _dayLabel, slotAirsOn: _slotAirsOn,
   // KSAB5's slate row and KSAB-TV's relay (docs/proposals/daily-slate.md).
+  holdingAt: _holdingAt, holdNext: _holdNext, SLATE_BUFFER_SOD,
   scheduleRowItems: _scheduleRowItems, relayedItem: _relayedItem, slateHasGame, sportsHeartbeat, sportsHeartbeatSeen: _sportsHeartbeat, slateScheduleSlots: _slateScheduleSlots,
   sportsSlotLabel: _sportsSlotLabel, sportsScheduleSlots: _sportsScheduleSlots,
   // The log-rung overlay renderers. Pure over a payload, so the suite can assert

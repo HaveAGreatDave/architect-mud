@@ -257,6 +257,7 @@ export class ChessTable extends TableBase {
     this._hostSay(`${whiteHandle} has White. ${blackHandle} has Black.`
       + (this.stake ? ` ₵ ${(this.stake * 2).toLocaleString()} on the board.` : ''));
     this.pushPaneAll();
+    emit('room.boardChanged', { zoneId: this.zoneId, tableId: this.id });
     narrateBoard(this);
     this._startTurnTimer();
     this._lastPersist = 0; // force a persist on the next tick
@@ -277,6 +278,7 @@ export class ChessTable extends TableBase {
     this._clearTurnTimer();
     for (const evt of result.events) this._hostSay(evt);
     this.pushPaneAll();
+    emit('room.boardChanged', { zoneId: this.zoneId, tableId: this.id });
     narrateMove(this, result.san);
 
     if (this.game.isOver()) this._finish();

@@ -468,7 +468,7 @@ function showCatch(id, kg) {
 }
 
 const COUNT = ['', 'One', 'Two', 'Three', 'Four', 'Five'];
-function tempoWords(ms) { return ms < 450 ? 'Quick taps.' : ms < 700 ? 'Steady taps.' : ms < 1100 ? 'Slow taps.' : 'Long pauses.'; }
+function tempoWords(ms) { return ms < 1500 ? 'Twitch, short pause.' : ms < 2000 ? 'Twitch and wait.' : ms < 3000 ? 'Twitch, then let it sit.' : 'Twitch, then leave it a good while.'; }
 function followSpecies() {
   for (const f of S.follow) {
     const id = f?.species || f?.sp || (_speciesOf ? safe(() => _speciesOf(f.school, f.i)) : null);
@@ -483,7 +483,7 @@ function statusLine(t) {
   switch (S.phase) {
     case 'ready': return _host ? 'Cast when you\'re ready.' : 'Aim with A and D. Hold Cast or Space, then let go.';
     case 'flight': return 'The line\'s out.';
-    case 'wait': return 'Tap to twitch it in. Keep a rhythm. Reel in to cast again.';
+    case 'wait': return 'Twitch it, then let it sit. Fish gather to a lure worked slowly. Reel in to cast again.';
     case 'bite': return S.struck ? '' : TAKE_WORDS[S.script?.kind] || TAKE_WORDS.slide;
     case 'fight': {
       const F = S.F;
@@ -789,12 +789,13 @@ function render(t) {
     const sp = followSpecies();
     if (sp) { T = tempoOf(sp); fol = `${cap(SPECIES[sp].name)}${n > 1 ? ` and ${n - 1} more` : ''} following.`; tempo = tempoWords(T); }
     else if (n) fol = `${COUNT[n] || n} following.`;
-    if (!T && S.gap) { T = S.gap; tempo = `You're tapping every ${fmt1(S.gap / 1000)} s.`; }
+    if (!T && S.gap) tempo = `Last pause ${fmt1(S.gap / 1000)} s.`;
   }
   put('follow', E.follow, fol);
   put('tempo', E.tempo, tempo);
   if (E.lamp) {
-    const lit = T > 0 && S.lastTapAt != null && ((t - S.lastTapAt) % T) < 110;
+    // Lit once the pause has been long enough for whoever's following: twitch again any time after.
+    const lit = T > 0 && S.lastTapAt != null && t - S.lastTapAt >= T;
     if (E.last.lamp !== lit) { E.last.lamp = lit; E.lamp.classList.toggle('on', lit); }
   }
 

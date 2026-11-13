@@ -128,6 +128,16 @@ function stovesInZone(zoneId) {
   if (tier) out.push({ id: `zonefire_${zoneId}`, zone_id: zoneId, name: z.name, flags: { stove_tier: tier } });
   return out;
 }
+// The time on the end of `microwave <food> <time>`: seconds ("40", "40s", "40
+// secs") or minutes and seconds ("1:30"), held to 1..600. Null when there's none.
+const MICROWAVE_TIME = /\s+(?:(\d+):([0-5]\d)|(\d+)\s*(?:s|sec|secs|seconds)?)$/i;
+export function microwaveSecs(argStr) {
+  const m = String(argStr || '').match(MICROWAVE_TIME);
+  if (!m) return null;
+  const secs = m[1] != null ? Number(m[1]) * 60 + Number(m[2]) : Number(m[3]);
+  return Math.min(600, Math.max(1, secs));
+}
+
 // A microwave is its own appliance, not a stove tier (see MICROWAVE_* in config).
 function microwavesInZone(zoneId) {
   return getZoneFurniture(zoneId).filter(f => f.flags?.microwave);
@@ -2133,13 +2143,14 @@ export const commands = {
     const mws = microwavesInZone(player.current_zone);
     if (!mws.length) return { type: 'error', message: `There's no microwave here.` };
 
-    // "microwave <food> [seconds]": the time is set up front; omitted, it runs
-    // exactly as long as the food needs.
+    // "microwave <food> [time]": the time is set up front, as seconds ("40",
+    // "40s") or minutes and seconds ("1:30"); omitted, it runs exactly as long as
+    // the food needs. ⚠ The backslashes in this pattern were once lost on the way
+    // into the file, and every typed time was read as part of the food's name.
     const argStr = args.join(' ').trim();
     if (!argStr) return { type: 'error', message: `Microwave what, and for how long? ("microwave stew 40")` };
-    const m = argStr.match(/^(.*?)s+(d+)s*(?:s|sec|secs|seconds)?$/i);
-    const food = (m ? m[1] : argStr).trim();
-    const secs = m ? Math.min(600, Math.max(1, Number(m[2]))) : null;
+    const secs = microwaveSecs(argStr);
+    const food = secs == null ? argStr : argStr.replace(MICROWAVE_TIME, '').trim();
 
     return cookFood(food, player, broadcast,
       { ...mws[0], _kind: 'microwave', _runMs: secs ? secs * 1000 : null });

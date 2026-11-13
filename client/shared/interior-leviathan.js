@@ -45,6 +45,7 @@
 // metres, off the real deck.
 //
 // Pure, like the rest of the interior: no clock, no camera, no DOM. `live` arrives as an argument.
+import { nightAt } from './sky-keys.js';
 import { makeKit, C, clamp, lerp, pedal, SHINY, PANE, TEXTURE } from './interior-kit.js';
 import { contactShadow, eased, pressPulse, hotspotHalo, panelGps, gpsHotspot, lensLamp } from './interior-cockpit-kit.js';
 import { FW_ROWS } from './vehicle-models.js';
@@ -824,10 +825,10 @@ function readLive(live) {
     ail: clamp(num(L.stickX), -1, 1), elev: clamp(num(L.stickY), -1, 1), rud: clamp(num(L.rudder), -1, 1),
     flap: clamp(Math.round(num(L.flapNotch)), 0, 3), gear: L.gearDown !== false, trim: clamp(num(L.trim), -1, 1),
     land: !!L.landingLight, dome: !!L.dome, hour,
-    night: hour < 6.5 || hour > 19.5,
+    night: nightAt(hour),
     // The PANEL switch (cockpit.js 'ck:panel'). A view that sends no switch state, as a seat shot
     // does, gets the lights the hour would have them on with.
-    panel: L.panelLight != null ? !!L.panelLight : hour < 6.5 || hour > 19.5,
+    panel: L.panelLight != null ? !!L.panelLight : nightAt(hour),
   };
 }
 

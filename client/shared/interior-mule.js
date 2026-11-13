@@ -50,6 +50,7 @@
 //
 // Frame: metres, the eye at the origin, +x right, +y forward, +z up. The centreline is `xCentre`
 // to the right of the eye; the co-pilot sits at 2·xCentre.
+import { nightAt } from './sky-keys.js';
 import { makeKit, C, clamp, lerp, pedal, SHINY, PANE, TEXTURE, xfTurn } from './interior-kit.js';
 import { contactShadow, facingPanel, hotspotHalo, panelGps, gpsHotspot } from './interior-cockpit-kit.js';
 import { FW_ROWS } from './vehicle-models.js';
@@ -728,7 +729,7 @@ function muleFit(P, live, push) {
   // Each engine's power lever and spool (cockpit.js splits them); the ganged pair without.
   const thrs = muleLevers(L), rpms = [0, 1].map((e) => clamp(num(L.rpms?.[e], rpm), 0, 1.05));
   const trim = clamp(num(L.trim), -1, 1), rud = clamp(num(L.rudder), -1, 1), flap = clamp(num(L.flapNotch), 0, 3);
-  const hour = num(L.hour, 12), night = powered && (hour < 6.5 || hour > 19.5);
+  const hour = num(L.hour, 12), night = powered && (nightAt(hour));
   const oilT = L.oilTemp != null ? clamp(num(L.oilTemp) / 120, 0, 1) : (powered ? 0.35 + rpm * 0.3 : 0);
   // The panel's post lights are the PANEL switch. A view that does not send the switch (the
   // Modelshop) gets them at night, which is how the panel looked before it had one.

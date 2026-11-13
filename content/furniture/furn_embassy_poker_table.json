@@ -1,10 +1,27 @@
 {
-  "description": "A full-size poker table wedged into the corner of the lobby, green felt worn smooth at the betting line. Someone put it here years ago and it never left. A dealer's tray sits at the north end, clean and ready.",
+  "description": "A racetrack card table in walnut and green baize, the padded rail studded with brass and worn smooth at the elbows. Cup holders, an ashtray nobody empties, and a dealer's tray at the north end, clean and ready.",
   "flags": {
     "game_table_id": "gametable_embassy",
     "interactions": [
       "examine"
-    ]
+    ],
+    "look": {
+      "arche": "table",
+      "dims": [
+        2.3,
+        1.25,
+        0.78
+      ],
+      "dress": "saloon",
+      "form": "poker"
+    },
+    "spot": {
+      "at": [
+        3.4,
+        6.2
+      ],
+      "turn": 180
+    }
   },
   "hp": null,
   "hp_max": null,

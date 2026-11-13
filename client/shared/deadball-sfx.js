@@ -165,6 +165,7 @@ function organ(notes, bpm, gain = 0.07) {
   let at = 0;
   for (const [midis, beats] of notes) {
     const len = beats * beat, delay = +at.toFixed(4), held = { a: 0.008, d: Math.max(0.01, len * 0.92 - 0.02), s: 1, r: 0.08, linear: true, delay, tremolo: { rate: 6.4, depth: 0.12 } };
+    if (![].concat(midis).length) { at += len; continue; } // a rest
     [].concat(midis).forEach((m, i) => {
       layers.push(tone({ ...held, wave: 'triangle', hz: N(m), gain: +(gain * (i ? 0.7 : 1)).toFixed(4) }));
       if (!i) layers.push(tone({ ...held, hz: N(m) * 2, gain: +(gain * 0.45).toFixed(4) }));
@@ -186,6 +187,19 @@ const ANTHEM = [
   [[57, 50], 1], [[62], 1], [[66], 1], [[64, 52], 1], [[62], 1.5], [[61], 0.5], [[57, 54], 2],
   [[59, 43], 1], [[57], 1], [[55, 47], 1], [[57], 1], [[62, 50, 57, 66], 4],
 ];
+
+// Between plays he plays what every ballpark organist plays. Songs he knows one of; these are
+// bits, and nobody counts a bit. All written here in the manner, not lifted from anyone's park.
+// a full count: up the keys a semitone at a time, and he holds the top until the pitch
+const CLIMB = [...Array.from({ length: 12 }, (_, i) => [[60 + i], 0.5]), [[72, 64, 67], 3]];
+// a foul ball into the seats: down the keys, quick, and a low thud at the bottom
+const FOUL = [...Array.from({ length: 10 }, (_, i) => [[79 - i], 0.25]), [[55, 43], 1]];
+// the riff the park claps to: da-da DAH, a rest, da-da-da-da DAH
+const RIFF = [[[67], 0.5], [[67], 0.5], [[72, 64], 1], [[], 1], [[67], 0.5], [[67], 0.5], [[69], 0.5], [[71], 0.5], [[72, 64, 67], 2]];
+// the manager's walking out to the mound: a stride vamp in F while the new man comes in
+const VAMP = [0, 1, 2].flatMap(() => [[[41], 1], [[65, 69, 72], 1], [[36], 1], [[65, 69, 72], 1]]).concat([[[48, 64, 70], 1], [[41, 65, 69, 72], 2]]);
+// a visitor struck out: three notes down, and off you go
+const SAYONARA = [[[72, 64], 0.5], [[67], 0.5], [[60, 48], 2]];
 
 // ═══ THE CHANTS ═════════════════════════════════════════════════════════════════
 // The whole park on one vowel at a time: each syllable is vowel()'s formants over pink noise, twice,
@@ -472,6 +486,11 @@ export const BUILTINS = [
   // the organ
   def('db-organ-dirge', 'Organ: the one song', 3, organ(DIRGE, 84), { hold: 0.02, vary: STEADY }),
   def('db-organ-rally', 'Organ: the one song, hopeful', 3, organ(RALLY, 150, 0.08), { hold: 0.02, vary: STEADY }),
+  def('db-organ-climb', 'Organ: up the keys on a full count', 3, organ(CLIMB, 200, 0.06), { hold: 0.02, vary: STEADY }),
+  def('db-organ-foul', 'Organ: down the keys after a foul into the seats', 3, organ(FOUL, 220, 0.06), { hold: 0.02, vary: STEADY }),
+  def('db-organ-riff', 'Organ: the riff the park claps to', 3, organ(RIFF, 168, 0.07), { hold: 0.02, vary: STEADY }),
+  def('db-organ-vamp', 'Organ: a stride vamp for the pitching change', 3, organ(VAMP, 132, 0.06), { hold: 0.02, vary: STEADY }),
+  def('db-organ-sayonara', 'Organ: three notes down for a visitor struck out', 3, organ(SAYONARA, 140, 0.07), { hold: 0.02, vary: STEADY }),
   def('db-organ-anthem', 'Organ: the league anthem, before a final', 3, organ(ANTHEM, 72), { hold: 0.02, vary: STEADY }),
 ];
 const BY_ID = new Map(BUILTINS.map((d) => [d.id, d]));
@@ -555,6 +574,7 @@ export const EVENTS = {
   launch: 'db-fw-launch', burst: 'db-fw-burst', crackle: 'db-fw-crackle',
   // the organ
   dirge: 'db-organ-dirge', rally: 'db-organ-rally', anthem: 'db-organ-anthem',
+  climb: 'db-organ-climb', foulbit: 'db-organ-foul', riff: 'db-organ-riff', vamp: 'db-organ-vamp', sayonara: 'db-organ-sayonara',
 };
 // { id, intensity } for an event, or null when it has no sound
 export function eventFor(key, o = {}) {

@@ -2,6 +2,10 @@
   "description": "A battered plastic bin by the entrance. The lid is missing. Everything inside is gone within the hour.",
   "flags": {
     "interactions": [],
+    "spot": {
+      "along": 3.4,
+      "wall": "left"
+    },
     "trash_bin": true
   },
   "hp": null,

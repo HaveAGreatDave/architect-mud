@@ -117,6 +117,9 @@ const LOWRY_IDLE = [
   `"Canapés are complimentary with a drink. They're not, in any real sense, complimentary."`,
   `"Tab's running whether you drink or not. Might as well drink."`,
   `draws a slow pour of the Swill and slides it down the bar to no one in particular.`,
+  `shakes a cocktail for the end of the bar, the ice rattling in the tin.`,
+  `pulls a pint and lets it settle before topping it up.`,
+  `holds a bottle up to the light and marks the level with a thumbnail.`,
   `"Slow night. They're all slow nights. That's the business."`,
 ];
 

@@ -1,0 +1,212 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Cattery</title>
+<!--
+  The cat kit's cats (client/game/js/panels/gl/cat-kit.js) in the Room Stage's own renderer, comic-lit and inked as
+  ROOM draws them. Each pose is carved from the field and baked; the idle motion is the bake skinned to the bones.
+  The cats are cattery-recipes.js; the sliders change the one shown and rebake it, which is what a customised cat is.
+
+  ?cat=scrappy&pose=sit opens on one. Drag to orbit, wheel to zoom. __cat.shot(name) writes the frame via /api/shot.
+-->
+<style>
+  :root { --bg: #0b0d14; --panel: #10131c; --fg: #d8d4c8; --dim: #8a8678; --line: #23263a; --on: #e8c070; }
+  html, body { margin: 0; height: 100%; background: var(--bg); color: var(--fg); font: 13px/1.4 ui-monospace, Menlo, Consolas, monospace; }
+  body { display: flex; flex-direction: column; }
+  a { color: inherit; }
+  header { border-bottom: 1px solid var(--line); padding: 6px 12px; display: flex; flex-wrap: wrap; gap: 6px 12px; align-items: center; }
+  header b { color: var(--on); letter-spacing: 0.2em; }
+  select, button { background: var(--panel); color: var(--fg); border: 1px solid var(--line); border-radius: 4px; padding: 2px 8px; font: inherit; cursor: pointer; }
+  label.tick { color: var(--dim); white-space: nowrap; }
+  main { flex: 1; min-height: 0; display: flex; }
+  aside { width: 300px; flex: none; overflow-y: auto; background: var(--panel); border-right: 1px solid var(--line); padding: 10px 12px; box-sizing: border-box; }
+  aside h2 { margin: 0 0 4px; font-size: 15px; color: var(--on); font-weight: normal; }
+  aside h3 { margin: 12px 0 4px; font-size: 12px; color: var(--dim); font-weight: normal; letter-spacing: 0.15em; text-transform: uppercase; }
+  aside p { margin: 4px 0 8px; color: var(--dim); }
+  .row { display: grid; grid-template-columns: 78px 1fr 40px; gap: 6px; align-items: center; margin: 2px 0; }
+  .row input[type=range] { width: 100%; }
+  .row span:last-child { color: var(--dim); text-align: right; }
+  .row input[type=color] { width: 100%; height: 20px; border: 0; padding: 0; background: none; }
+  #stage { flex: 1; min-width: 0; position: relative; }
+  #c { position: absolute; inset: 0; width: 100%; height: 100%; display: block; cursor: grab; }
+  #stats { position: absolute; left: 12px; bottom: 10px; font-size: 12px; color: var(--dim); text-shadow: 0 0 4px #000; }
+  #busy { position: absolute; right: 12px; top: 10px; color: var(--on); display: none; }
+  @media (max-width: 800px) { main { flex-direction: column; } aside { width: auto; max-height: 34vh; border-right: 0; border-bottom: 1px solid var(--line); } #stage { min-height: 60vh; } }
+</style>
+</head>
+<body>
+<header>
+  <a href="/" style="opacity:.7">← Modelshop</a>
+  <b>CATTERY</b>
+  <select id="who" aria-label="cat"></select>
+  <select id="pose" aria-label="pose"></select>
+  <select id="q" aria-label="quality" title="The grid the field is meshed on">
+    <option value="0.006">room (3.6 mm)</option><option value="0.0045" selected>close (2.7 mm)</option><option value="0.0035">hd (2.1 mm)</option>
+  </select>
+  <label class="tick"><input type="checkbox" id="idle" checked> idle</label>
+  <label class="tick">awake <input type="range" id="awake" min="0" max="1" step="0.05" value="1" style="width:70px;vertical-align:middle"></label>
+  <label class="tick"><input type="checkbox" id="fur" checked> fur</label>
+  <label class="tick"><input type="checkbox" id="spin"> turntable</label>
+  <label class="tick"><input type="checkbox" id="person"> person for scale</label>
+  <label class="tick"><input type="checkbox" id="comic" checked> comic</label>
+  <button id="random" title="A random cat from the same numbers">random cat</button>
+</header>
+<main>
+  <aside id="side"></aside>
+  <section id="stage"><canvas id="c"></canvas><div id="stats"></div><div id="busy">carving…</div></section>
+</main>
+<script type="module">
+import { createRoomRenderer } from '/client/game/js/panels/gl/room.js';
+import { figurePeople } from '/client/game/js/panels/gl/room-people.js';
+import { createBatch, vtx, MAT } from '/client/game/js/panels/gl/ballpark-mesh.js';
+import { beastMesh, toBatch, placeAt, triCount } from '/client/game/js/panels/gl/beast-kit.js';
+import { catLook, catRig, skinCat, idleMotion, CAT_POSES, STILL } from '/client/game/js/panels/gl/cat-kit.js';
+import { bakeCatOff } from '/client/game/js/panels/gl/cat-bake.js';
+import { CATS } from '/cattery-recipes.js';
+
+const $ = (id) => document.getElementById(id);
+const q = new URLSearchParams(location.search);
+for (const [id, c] of Object.entries(CATS)) $('who').append(new Option(c.name, id));
+for (const p of Object.keys(CAT_POSES)) $('pose').append(new Option(p, p));
+$('who').value = CATS[q.get('cat')] ? q.get('cat') : 'scrappy';
+$('pose').value = CAT_POSES[q.get('pose')] ? q.get('pose') : 'sit';
+if (q.get('idle') === '0') $('idle').checked = false;
+if (q.get('fur') === '0') $('fur').checked = false;
+
+const canvas = $('c');
+const R = createRoomRenderer(canvas, {});
+if (!R) { $('stats').textContent = 'no WebGL2 here'; throw new Error('no WebGL2'); }
+const L = { world: (u, v, y) => [u, y, v], r: [1, 0, 0], f: [0, 0, 1] };
+function quad(b, a, bb, c, d, n, col) { for (const p of [a, bb, c, a, c, d]) vtx(b, p, n, [0, 0], col, MAT.MATTE); }
+const solid = createBatch(64);
+quad(solid, [-8, 0, -6], [8, 0, -6], [8, 0, 8], [-8, 0, 8], [0, 1, 0], [0.16, 0.15, 0.14]);
+quad(solid, [-8, 0, -3], [-8, 4, -3], [8, 4, -3], [8, 0, -3], [0, 0, 1], [0.24, 0.22, 0.2]);
+R.setRoom({ solid, screen: createBatch(1), glass: createBatch(1), view: createBatch(1), textured: new Map() }, () => null);
+
+const cam = { yaw: Math.PI + 0.5, pitch: -0.18, dist: 1.25, fov: 34, at: [0, 0.17, 0] };
+let drag = null, spin = 0;
+canvas.addEventListener('pointerdown', (e) => { drag = { x: e.clientX, y: e.clientY, yaw: cam.yaw, pitch: cam.pitch }; canvas.setPointerCapture(e.pointerId); });
+canvas.addEventListener('pointermove', (e) => { if (!drag) return; cam.yaw = drag.yaw - (e.clientX - drag.x) * 0.008; cam.pitch = Math.max(-1.4, Math.min(0.5, drag.pitch - (e.clientY - drag.y) * 0.006)); });
+canvas.addEventListener('pointerup', () => { drag = null; });
+canvas.addEventListener('wheel', (e) => { e.preventDefault(); cam.dist = Math.max(0.15, Math.min(8, cam.dist * (e.deltaY > 0 ? 1.08 : 1 / 1.08))); }, { passive: false });
+
+// the cat being shown: its numbers (the recipe with the sliders over it), and its bakes by pose
+let look = null, bakes = new Map(), dirty = true;
+const deep = (o) => JSON.parse(JSON.stringify(o));
+function setCat(id) {
+  look = catLook(deep(CATS[id].look));
+  rebake(); panel();
+}
+// the sliders: the build, the coat's white and colours, the eyes
+const SLIDERS = [
+  ['build', 'belly', 0.6, 1.6], ['build', 'pouch', 0.4, 1.8], ['build', 'chest', 0.8, 1.3], ['build', 'hips', 0.8, 1.3], ['build', 'neck', 0.8, 1.3],
+  ['build', 'legLen', 0.8, 1.2], ['build', 'legW', 0.8, 1.3], ['build', 'head', 0.85, 1.2], ['build', 'cheeks', 0.85, 1.3], ['build', 'ears', 0.7, 1.4],
+  ['build', 'muzzle', 0.85, 1.15], ['build', 'tailLen', 0.3, 1.4], ['build', 'tailW', 0.7, 1.5],
+  ['coat', 'white', 0, 1], ['eyes', 'pupil', 0, 1],
+  ['fur', 'body', 0, 0.02], ['fur', 'ruff', 0, 0.03], ['fur', 'tail', 0, 0.03],
+];
+const COLOURS = [['coat', 'base'], ['coat', 'whiteCol'], ['coat', 'nose'], ['eyes', 'iris']];
+let rebakeT = 0;
+function panel() {
+  const id = $('who').value, c = CATS[id], S = $('side');
+  S.innerHTML = '';
+  const h = document.createElement('h2'); h.textContent = c.name; S.append(h);
+  const p = document.createElement('p'); p.textContent = c.note; S.append(p);
+  let group = null;
+  for (const [g, k, lo, hi] of SLIDERS) {
+    if (g !== group) { group = g; const h3 = document.createElement('h3'); h3.textContent = g; S.append(h3); }
+    const row = document.createElement('div'); row.className = 'row';
+    const v = look[g][k];
+    row.innerHTML = `<span>${k}</span><input type="range" min="${lo}" max="${hi}" step="${(hi - lo) / 100}" value="${v}"><span>${(+v).toFixed(g === 'fur' ? 3 : 2)}</span>`;
+    const inp = row.querySelector('input');
+    inp.oninput = () => {
+      look[g][k] = +inp.value; row.lastChild.textContent = (+inp.value).toFixed(g === 'fur' ? 3 : 2);
+      // fur and the pupil need no carving
+      if (g === 'fur' || (g === 'eyes' && k === 'pupil')) return;
+      clearTimeout(rebakeT); rebakeT = setTimeout(() => { rebake(); }, 250);
+    };
+    S.append(row);
+  }
+  const h3 = document.createElement('h3'); h3.textContent = 'colours'; S.append(h3);
+  for (const [g, k] of COLOURS) {
+    const row = document.createElement('div'); row.className = 'row';
+    row.innerHTML = `<span>${k}</span><input type="color" value="${look[g][k]}"><span></span>`;
+    const inp = row.querySelector('input');
+    inp.oninput = () => { look[g][k] = inp.value; if (g === 'eyes') return; clearTimeout(rebakeT); rebakeT = setTimeout(() => { rebake(); }, 250); };
+    S.append(row);
+  }
+}
+function randomCat() {
+  const r = Math.random, pick = (a) => a[Math.floor(r() * a.length)];
+  const bases = ['#1c1a1f', '#4a4642', '#8a6a48', '#b07a3a', '#c8b8a0', '#6a6a72', '#d89040'];
+  const base = pick(bases);
+  look = catLook({
+    build: { belly: 0.8 + r() * 0.6, pouch: 0.6 + r() * 1.0, chest: 0.9 + r() * 0.3, hips: 0.9 + r() * 0.25, cheeks: 0.9 + r() * 0.3, ears: 0.8 + r() * 0.5, tailLen: 0.7 + r() * 0.6, legLen: 0.9 + r() * 0.2 },
+    coat: { base, white: r() < 0.4 ? 0 : r(), seed: Math.floor(r() * 50), tabby: r() < 0.5 ? { kind: pick(['mackerel', 'classic', 'spotted']), col: '#241a12' } : null, nose: r() < 0.5 ? '#c98a8e' : '#3a2a2a' },
+    eyes: { iris: pick(['#c8a838', '#a8b838', '#d88a20', '#7aa8c8', '#b8c060']), pupil: r() },
+    fur: { body: 0.004 + r() * 0.01, ruff: 0.006 + r() * 0.02, tail: 0.006 + r() * 0.02 },
+  });
+  rebake(); panel();
+}
+
+// A pose is carved in a worker (gl/cat-bake.js), so the page keeps drawing; until it's back, the cat last shown stays
+// up under the busy note. `gen` drops a carve that a slider or another cat made stale while it was out.
+const pending = new Set();
+let gen = 0, shown = null;
+function bakeOf(pose) {
+  const key = pose + '@' + $('q').value;
+  const b = bakes.get(key);
+  if (b) return (shown = b);
+  if (!pending.has(key)) {
+    pending.add(key); $('busy').style.display = 'block';
+    const g = gen, t0 = performance.now();
+    bakeCatOff(look, pose, { h: +$('q').value }).then((nb) => {
+      if (g === gen) { nb.ms = performance.now() - t0; bakes.set(key, nb); }
+    }, (e) => console.error(e)).finally(() => { pending.delete(key); if (!pending.size) $('busy').style.display = 'none'; });
+  }
+  return shown && shown.look === look ? shown : null;
+}
+const rebake = () => { bakes.clear(); gen++; dirty = true; };
+
+let last = null;
+function draw(now = performance.now()) {
+  globalThis.__houseComic = $('comic').checked;
+  const pose = $('pose').value, t = now / 1000;
+  if ($('spin').checked) spin += 0.006;
+  const b = bakeOf(pose);
+  if (!b) return;
+  // the idle moves on twos, as the beasts do
+  const tt = Math.floor(t * 12) / 12;
+  const awake = pose === 'curl' ? Math.min(+$('awake').value, 0.1) : +$('awake').value;
+  const mo = $('idle').checked ? idleMotion(tt, { awake, seed: 1 }) : STILL;
+  const M = beastMesh();
+  skinCat(b, M, mo, { fur: $('fur').checked });
+  const batch = createBatch(8192);
+  toBatch(batch, M, placeAt([0, 0, 0], [Math.sin(spin), 0, Math.cos(spin)]));
+  R.setBeasts(batch);
+  const recs = $('person').checked ? figurePeople(L, [{ id: 'lab-7-2', at: [0.55, -0.35], yaw: -0.4, pose: 'stand', sculpt: true }], t, { level: 'hd' }) : [];
+  R.setFigures(recs);
+  const cy = Math.cos(cam.pitch), eye = [cam.at[0] - Math.sin(cam.yaw) * cy * cam.dist, cam.at[1] - Math.sin(cam.pitch) * cam.dist, cam.at[2] - Math.cos(cam.yaw) * cy * cam.dist];
+  const lamps = [{ p: [eye[0] * 0.6 + 0.8, 1.8, eye[2] * 0.6], k: 1.3 }, { p: [-eye[0] * 0.5 - 0.4, 0.8, -eye[2] * 0.5 - 0.6], k: 0.7, tint: [0.75, 0.85, 1.0] }];
+  R.render({ eye, yaw: cam.yaw, pitch: cam.pitch, fov: cam.fov }, { lamp: lamps[0].p, lamps, lampOn: true, day: 0.5, sky: [0.75, 0.82, 0.95], rim: 1, win: { p: [-6, 2, 2], n: [1, 0, 0], a: [0, 0, 4], b: [0, 3, 0] } });
+  $('stats').textContent = `${pose} · ${b.verts.toLocaleString()} vertices carved in ${Math.round(b.ms)} ms · ${triCount(M).toLocaleString()} triangles with fur`;
+  last = { b, M };
+}
+function loop(now) { requestAnimationFrame(loop); draw(now); }
+$('who').onchange = () => { setCat($('who').value); history.replaceState(null, '', `?cat=${$('who').value}&pose=${$('pose').value}`); };
+$('pose').onchange = () => history.replaceState(null, '', `?cat=${$('who').value}&pose=${$('pose').value}`);
+$('random').onclick = randomCat;
+setCat($('who').value);
+async function shot(name = 'cattery', c = {}) {
+  Object.assign(cam, c); draw(performance.now());
+  const blob = await new Promise((res) => canvas.toBlob(res, 'image/png'));
+  const r = await fetch('/api/shot?name=' + encodeURIComponent(name), { method: 'POST', body: blob });
+  return r.json();
+}
+window.__cat = { R, cam, draw, shot, get look() { return look; }, bakes, $ };
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>

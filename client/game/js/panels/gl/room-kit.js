@@ -35,7 +35,11 @@ export function roomKit(L, bake, { textures = {}, cell = 1.5, glow = MAT.EMISSIV
   const quad = (b, ps, n, col, mat = E, uvs = null, raw = false) => {
     if (raw && mat === E) mat = glow;
     const U = uvs || [UV, UV, UV, UV];
-    const nl = [n[0] * L.r[0] + n[2] * L.r[2], n[1], -(n[0] * L.f[0] + n[2] * L.f[2])];
+    // `col` may be four colours and `n` four normals, one per corner, blended across the face, for a smooth
+    // curved form (the cat statue's veins, patches and shading)
+    const per = Array.isArray(col[0]), pn = Array.isArray(n[0]);
+    const toL = (m) => [m[0] * L.r[0] + m[2] * L.r[2], m[1], -(m[0] * L.f[0] + m[2] * L.f[2])];
+    const nl = pn ? null : toL(n);
     const len = (a, c) => Math.hypot(a[0] - c[0], a[1] - c[1], a[2] - c[2]);
     const nu = raw ? 1 : Math.max(1, Math.min(24, Math.ceil(Math.max(len(ps[0], ps[1]), len(ps[3], ps[2])) / cell)));
     const nv = raw ? 1 : Math.max(1, Math.min(24, Math.ceil(Math.max(len(ps[0], ps[3]), len(ps[1], ps[2])) / cell)));
@@ -43,11 +47,14 @@ export function roomKit(L, bake, { textures = {}, cell = 1.5, glow = MAT.EMISSIV
       const a = i / nu, c = j / nv, mix = (k) => (ps[0][k] * (1 - a) + ps[1][k] * a) * (1 - c) + (ps[3][k] * (1 - a) + ps[2][k] * a) * c;
       const mixU = (k) => (U[0][k] * (1 - a) + U[1][k] * a) * (1 - c) + (U[3][k] * (1 - a) + U[2][k] * a) * c;
       const lp = [mix(0), mix(1), mix(2)];
-      return { p: L.world(lp[0], lp[1], lp[2] + raised), uv: [mixU(0), mixU(1)], col: raw ? col : bake(lp, nl, col) };
+      const cc = per ? col[0].map((_, k) => (col[0][k] * (1 - a) + col[1][k] * a) * (1 - c) + (col[3][k] * (1 - a) + col[2][k] * a) * c) : col;
+      let nn = n, nlv = nl;
+      if (pn) { nn = [0, 1, 2].map((k) => (n[0][k] * (1 - a) + n[1][k] * a) * (1 - c) + (n[3][k] * (1 - a) + n[2][k] * a) * c); const l = Math.hypot(...nn) || 1; nn = nn.map((x) => x / l); nlv = toL(nn); }
+      return { p: L.world(lp[0], lp[1], lp[2] + raised), uv: [mixU(0), mixU(1)], n: nn, col: raw ? cc : bake(lp, nlv, cc) };
     };
     for (let j = 0; j < nv; j++) for (let i = 0; i < nu; i++) {
       const q = [at(i, j), at(i + 1, j), at(i + 1, j + 1), at(i, j + 1)];
-      for (const k of [0, 1, 2, 0, 2, 3]) vtx(b, q[k].p, n, q[k].uv, q[k].col, mat);
+      for (const k of [0, 1, 2, 0, 2, 3]) vtx(b, q[k].p, q[k].n, q[k].uv, q[k].col, mat);
     }
   };
   // a box from its corners in the room's frame. 'tex' puts it on a material, mapped flat onto each
@@ -136,7 +143,9 @@ export function roomKit(L, bake, { textures = {}, cell = 1.5, glow = MAT.EMISSIV
       const [tk, th] = tex ? matOf(tex) : [null, null];
       const b = tk ? TB(tk) : solid, t = tk ? textures[tk] : 1;
       const col = (s) => C(tk ? th : hex, k * s);
-      const face = (ps, n, s, i, j) => quad(b, ps.map(([x, y, z]) => P(x, y, z)), N(...n), col(s), mat, tk ? ps.map((q) => [q[i] / t, q[j] / t]) : null, k >= 1.25);
+      // carbon fibre (material 46) draws its weave in the shader off the face's own metres, so it needs uvs
+      // with no texture: it keeps its weave on the moving layer, which draws none
+      const face = (ps, n, s, i, j) => quad(b, ps.map(([x, y, z]) => P(x, y, z)), N(...n), col(s), mat, tk || mat === 46 ? ps.map((q) => [q[i] / t, q[j] / t]) : null, k >= 1.25);
       face([[x0, y1, z0], [x1, y1, z0], [x1, y1, z1], [x0, y1, z1]], [0, 1, 0], 1, 0, 2);
       face([[x0, y0, z0], [x0, y0, z1], [x1, y0, z1], [x1, y0, z0]], [0, -1, 0], 1, 0, 2);
       face([[x0, y0, z1], [x0, y1, z1], [x1, y1, z1], [x1, y0, z1]], [0, 0, 1], 1, 0, 1);

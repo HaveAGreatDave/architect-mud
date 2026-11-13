@@ -4,7 +4,16 @@
     "cosmetic_machine": true,
     "interactions": [
       "use"
-    ]
+    ],
+    "look": {
+      "arche": "prop",
+      "form": "morphex",
+      "pod": true
+    },
+    "spot": {
+      "along": -2.2,
+      "wall": "front"
+    }
   },
   "hp": null,
   "hp_max": null,

@@ -528,11 +528,12 @@ async function consumeSleeve(playerId) {
     [playerId, PACK_ITEM]
   );
   if (!rows.length) return null;
-  if (Number(rows[0].quantity) > 1) {
-    await query('UPDATE player_inventory SET quantity = quantity - 1 WHERE id=$1', [rows[0].id]);
-  } else {
-    await query('DELETE FROM player_inventory WHERE id=$1', [rows[0].id]);
-  }
+  // Guarded on the owner and checked: the sleeve can be traded away between the
+  // SELECT and here, and an unguarded DELETE tore the new owner's sleeve.
+  const spent = Number(rows[0].quantity) > 1
+    ? await query('UPDATE player_inventory SET quantity = quantity - 1 WHERE id=$1 AND player_id=$2 AND quantity > 1', [rows[0].id, playerId])
+    : await query('DELETE FROM player_inventory WHERE id=$1 AND player_id=$2', [rows[0].id, playerId]);
+  if (!spent.rowCount) return null;
   const d = rows[0].custom_data || {};
   // A legacy stacked sleeve (bought before coils meant anything) has no seed and
   // falls back to an unseeded roll. It must not throw, and it must not be worse.

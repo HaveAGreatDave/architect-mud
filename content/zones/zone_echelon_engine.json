@@ -19,6 +19,26 @@
     "floor": "metal",
     "is_building": true,
     "is_interior": true,
+    "room": {
+      "balcony": false,
+      "d": 7,
+      "decor": {
+        "rug": false
+      },
+      "face": 0,
+      "finish": "plain",
+      "ground": "stone",
+      "h": 2.6,
+      "studio": false,
+      "tone": {
+        "accent": "#d9a441",
+        "ceiling": "#141618",
+        "trim": "#16191b",
+        "wall": "#1c1f22"
+      },
+      "w": 9,
+      "windowless": true
+    },
     "world_exit_zone": "zone_echelon_exterior",
     "yacht": true
   },

@@ -1,5 +1,5 @@
 {
-  "description": "A scarred wooden counter beneath the brass THE EMBASSY LOUNGE sign. Lowry keeps it spotless out of sheer habit.",
+  "description": "A mahogany bar in raised panels under a padded oxblood rail, a brass foot rail and a spittoon at each end. Three taps, a bowl of peanuts and a candle in red glass. Lowry keeps it spotless out of sheer habit.",
   "flags": {
     "bar_counter": true,
     "interactions": [
@@ -7,7 +7,20 @@
     ],
     "look": {
       "arche": "surface",
+      "dims": [
+        5.4,
+        0.72,
+        1.12
+      ],
+      "dress": "saloon",
       "form": "bar"
+    },
+    "spot": {
+      "at": [
+        -3.9,
+        1.6
+      ],
+      "turn": 180
     }
   },
   "hp": null,

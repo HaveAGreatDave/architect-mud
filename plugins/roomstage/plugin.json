@@ -13,6 +13,9 @@
     "consumes": [
       "furniture.changed",
       "room.pos",
+      "player.drugUsed",
+      "room.pockets",
+      "room.act",
       "zone.entered",
       "posture.changed",
       "player.login",
@@ -25,7 +28,13 @@
       "tv.unwatch",
       "tv.poweroff",
       "elevator.parked",
-      "roomstage.warm"
+      "roomstage.warm",
+      "room.glassChanged",
+      "room.plumbingChanged",
+      "room.vehiclesChanged",
+      "graffiti.tagged",
+      "graffiti.removed",
+      "room.boardChanged"
     ],
     "emits": [
       "furniture.changed",

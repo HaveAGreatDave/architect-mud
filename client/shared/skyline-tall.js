@@ -17,6 +17,9 @@ export const SKYLINE_MIN_STOREYS = 14;
 export const SKYLINE_BASE_FAR = 34;
 export const SKYLINE_MAX_FAR = 110;
 const REACH_PER_STOREY = 2.5;
+// The Curtain stands taller than anything in Coldwater and is meant to be seen from anywhere, so
+// every tile of it is kept to the furthest reach a tower gets.
+export const CURTAIN_FAR = SKYLINE_MAX_FAR;
 
 const _memo = new Map();
 // Drawn height in storeys, from the building's baked shape when it has one.

@@ -1,8 +1,10 @@
 import { sendCmdSilent } from '../net.js';
+import { HAIR_STYLE_NAMES } from '../../../shared/morphex-catalog.js';
 
 const HAIR_COLORS  = ['black','dark brown','brown','auburn','dirty blonde','blonde','red','grey','white','silver','dyed blue','dyed green','dyed purple','dyed red'];
 const HAIR_LENGTHS = ['shaved','short','medium','long','very_long'];
-const HAIR_STYLES  = ['mohawk','shaved','dreadlocks','braided','messy','slicked-back','curly','wavy','undercut','fade','afro','cornrows','pompadour','pixie'];
+// the MORPHEX catalog's styles, the same list the server checks
+const HAIR_STYLES  = HAIR_STYLE_NAMES;
 const EYE_COLORS   = ['brown','dark brown','blue','light blue','green','hazel','grey','amber'];
 const BREAST_SIZES  = ['flat','small','medium','large','very large'];
 const TESTICLE_SIZES= ['small','average','large','very large'];

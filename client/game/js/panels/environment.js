@@ -1,6 +1,7 @@
 import { state } from '../state.js';
 import { formatTemp } from '/shared/settings.js';
-import { setWeatherFx, setDrugFieldFx as aimDrugSlot } from './weather-fx.js';
+import { setWeatherFx, setDrugFieldFx as aimDrugSlot, setWeatherFxLight } from './weather-fx.js';
+import { lightAt } from '../../../shared/sky-keys.js';
 import { doyOf } from '/shared/moon.js';
 import { moonPhaseOf } from '/shared/moon.js';
 
@@ -580,6 +581,9 @@ export function refreshZoneVisibility(preloaded) {
       const DARK_FLOOR = 0.35;
       const DAY_LIFT = 0.15;
       const daylight = v.buried ? 0 : Math.max(0, Math.min(1, v.daylight ?? 0));
+      // The rain's light is the shared sky's (sky-keys.js), so it dims at the minute the
+      // windscreen's does; the server's coarser `daylight` stays for the log's brightness.
+      setWeatherFxLight(v.buried ? 0 : clientMinutes == null ? daylight : lightAt(clientMinutes / 60));
       const lift = 1 + DAY_LIFT * daylight;
       const level = Math.min(1, (DARK_FLOOR + (1 - DARK_FLOOR) * (vis / 0.6)) * lift);
       const brightness = vis >= 0.6 ? '' : `brightness(${level.toFixed(3)})`;

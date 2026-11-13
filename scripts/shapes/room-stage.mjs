@@ -32,7 +32,7 @@ import { boothLayout } from '../../client/game/js/panels/gl/booth-mesh.js';
 import { buildRoom, withShells } from '../../client/game/js/panels/gl/room-mesh.js';
 import { STRIDE } from '../../client/game/js/panels/gl/ballpark-mesh.js';
 import { buildingGraph, buildingLayout, roomOpenings, placeFrom, ROOM_GAP } from '../../client/shared/building-graph.js';
-import { roomLayout, roomSpecOf, placeSpot, archetypeOf, dimsOf, formOf, ARCHETYPES, FORMS, withAnnex, annexFrame, roomFree, roomStep, inAnnex, onBalcony, layRows, rowDrawn, roomPath, roomNearFree, pathLength, withDoorways, doorwaysOf, openingCrossed, openingInside } from '../../client/shared/room-layout.js';
+import { roomLayout, roomSpecOf, placeSpot, archetypeOf, dimsOf, formOf, ARCHETYPES, FORMS, withAnnex, annexFrame, roomFree, roomStep, inAnnex, onBalcony, layRows, pieceBoxes, rowDrawn, roomPath, roomNearFree, pathLength, withDoorways, doorwaysOf, openingCrossed, openingInside, decorSolids } from '../../client/shared/room-layout.js';
 
 const FIXTURE = new URL('./booth-layout.fixture.json', import.meta.url);
 const fails = [];
@@ -201,10 +201,15 @@ const flatLayouts = [];
     }
     floor.forEach((p, i) => {
       const [u0, u1, v0, v1] = box[i], [a, b, c, e] = p.annex ? [A.u0, A.u1, A.v0, A.v0 + spec.annex.d] : [-L.w / 2, L.w / 2, 0, L.d];
-      if (u0 < a - 0.01 || u1 > b + 0.01 || v0 < c - 0.01 || v1 > e + 0.01) fail(`${z.id}: ${p.id} stands outside its room`);
+      // a piece may stand out on the balcony instead (30-B's lounger), wholly on the deck and clear of its dressing
+      const B = !p.annex && spec.balcony, deck = B && v1 <= -0.14 + 0.01 && v0 >= -0.14 - B.d - 0.01 && u0 >= B.u[0] - 0.01 && u1 <= B.u[1] + 0.01;
+      if (deck && decorSolids(spec).some(([q0, q1, q2, q3]) => u0 < q1 && u1 > q0 && v0 < q3 && v1 > q2)) fail(`${z.id}: ${p.id} stands in the balcony's dressing`);
+      if (!deck && (u0 < a - 0.01 || u1 > b + 0.01 || v0 < c - 0.01 || v1 > e + 0.01)) fail(`${z.id}: ${p.id} stands outside its room`);
       // a pit's banquette is a ring round its wall, so a runway passes over its middle on purpose
       const ring = (x) => x.form === 'banquette';
-      for (let j = i + 1; j < floor.length; j++) { const q = box[j]; if (ring(p) || ring(floor[j])) continue; if (u0 < q[1] - 0.01 && u1 > q[0] + 0.01 && v0 < q[3] - 0.01 && v1 > q[2] + 0.01) fail(`${z.id}: ${p.id} stands in ${floor[j].id}`); }
+      // what each takes up, which for a corner desk is its two runs and not the square they hold
+      const hits = (A, B) => A.some((a) => B.some((q) => a[0] < q[1] - 0.01 && a[1] > q[0] + 0.01 && a[2] < q[3] - 0.01 && a[3] > q[2] + 0.01));
+      for (let j = i + 1; j < floor.length; j++) { if (ring(p) || ring(floor[j])) continue; if (hits(pieceBoxes(p), pieceBoxes(floor[j]))) fail(`${z.id}: ${p.id} stands in ${floor[j].id}`); }
     });
   }
 }
@@ -483,6 +488,97 @@ const flatLayouts = [];
     if (bad) fail(`a ${grade} lab: ${bad} vertex values aren't numbers`);
     if (a.glass - b.glass < 200) fail(`a ${grade} lab put ${a.glass - b.glass} vertices of glass in the room: its glassware isn't there`);
     if (a.out - b.out > 0) fail(`a ${grade} lab ${dims.map((x) => x.toFixed(2)).join('×')}: ${a.out - b.out} vertices outside its footprint`);
+  }
+  // a Cachet authored wider than its turntable stands in a false wall: the wall keeps inside its footprint and
+  // stays in the room while the opening changes over; what's in the opening takes itself apart and the other side
+  // puts itself together, in parts (gl/room-mesh.js assembly), every part home at the end and the leaving ones gone
+  {
+    const { cachetWing, cachetInner, CACHET_OPEN } = await import('../../client/shared/room-layout.js');
+    const { assembleBatch } = await import('../../client/game/js/panels/gl/room-mesh.js');
+    const dims = [3.5, 1.3, 2.5], spot = placeSpot(spec, [], 'surface', dims, { form: 'barwall' });
+    const piece = { id: 'w', name: 'wall', arche: 'surface', form: 'chemwall', dims, spot, lab: 'refined', keypad: true, turned: 'chem lab', open: 3.0, wear: 0.3, seed: 5 };
+    const L = roomLayout(spec, [piece]), E = roomLayout(spec, []), p = L.placed[0];
+    if (Math.abs(cachetWing(p) - 0.25) > 1e-6 || Math.abs(cachetInner(p).w - 3.0) > 1e-6) fail(`a 3.5 m Cachet opening 3.0 has wings of ${cachetWing(p)} and a turntable ${cachetInner(p).w} wide`);
+    if (Math.abs(cachetWing({ keypad: true, w: 3.5 }) - (3.5 - CACHET_OPEN) / 2) > 1e-6) fail('a Cachet with no look.open doesn\'t open CACHET_OPEN wide');
+    const still = buildRoom(L, { seed: 3 }), moving = buildRoom(L, { seed: 3, turning: { id: 'w', from: 'barwall', to: 'chemwall' } }), empty = buildRoom(E, { seed: 3 });
+    // the wall goes up to the ceiling, so its height is measured against the room's, not the piece's
+    const tall = { ...p, h: L.h }, ta = tally(still, L, tall), tb = tally(empty, E, tall);
+    if (ta.out - tb.out > 0) fail(`a Cachet in a false wall: ${ta.out - tb.out} vertices outside its footprint`);
+    if (!(moving.solid.n > empty.solid.n)) fail('a Cachet in a false wall loses its wall while it changes over');
+    // the move both ways: the bar turns off into its pocket and the lab comes up the recess in its three units,
+    // or the reverse. Checked in the piece's frame (x across, z out of its front)
+    const { facing } = await import('../../client/shared/room-layout.js');
+    const ip = cachetInner(p), [fu, fv] = facing(ip.turn), o = L.world(ip.u, ip.v, 0);
+    const ax = (du, dv) => { const e = L.world(ip.u + du, ip.v + dv, 0), x = e[0] - o[0], z = e[2] - o[2], l = Math.hypot(x, z); return [x / l, z / l]; };
+    const A = ax(-fv, fu), B = ax(fu, fv), hw = ip.w / 2, hd = ip.d / 2;
+    const local = (d, i) => { const x = d[i] - o[0], z = d[i + 2] - o[2]; return [x * A[0] + z * A[1], d[i + 1], x * B[0] + z * B[1]]; };
+    // a move's box at k, in the piece's frame
+    const boxAt = (b, at, len) => { const m = [Infinity, Infinity, Infinity, -Infinity, -Infinity, -Infinity]; for (let i = 0; i < len; i += STRIDE) { const q = local(b.data, at + i); for (let j = 0; j < 3; j++) { m[j] = Math.min(m[j], q[j]); m[j + 3] = Math.max(m[j + 3], q[j]); } } return m; };
+    const meet = (m, n) => m[0] < n[3] && n[0] < m[3] && m[1] < n[4] && n[1] < m[4] && m[2] < n[5] && n[2] < m[5];
+    for (const [from, to] of [['barwall', 'chemwall'], ['chemwall', 'barwall']]) {
+      const asm = (from === 'barwall' ? moving : buildRoom(L, { seed: 3, turning: { id: 'w', from, to } })).spin, open = to === 'chemwall';
+      if (!asm?.asm) { fail(`a Cachet in a false wall going ${from} to ${to} doesn't assemble`); continue; }
+      const lab = asm.moves.filter((m) => m.unit), bar = asm.moves.filter((m) => m.swing);
+      if (lab.length !== 3 || bar.length !== 1) { fail(`a lab moves in ${lab.length} units, not three, and a bar in ${bar.length} pieces, not one`); continue; }
+      if (!lab.some((m) => m.glass.length)) fail('the glass of the lab does not ride with it');
+      const at = {}; let n = 0; for (const m of asm.moves) { at[m.unit || 'bar'] = n; n += m.data.length; }
+      for (const k of [0, 0.25, 0.5, 0.75, 1]) { const q = assembleBatch(asm, k); if ([...q.data, ...q.glass.data].some((x) => !Number.isFinite(x))) fail(`the assembly at ${k} has vertex values that aren't numbers`); }
+      // shut, the lab is all in the recess behind the wall; open, it's home, and the bar is off in its pocket
+      const snap = (k) => ({ data: assembleBatch(asm, k).data.slice() }), shut = snap(open ? 0 : 1), out = snap(open ? 1 : 0);
+      for (const m of lab) { const bx = boxAt(shut, at[m.unit], m.data.length); if (bx[5] > -hd - 0.05) fail(`the lab's ${m.unit} is out of the recess (front at z ${bx[5].toFixed(2)}) before it moves`); }
+      let off = 0;
+      for (const m of lab) for (let i = 0; i < m.data.length; i++) if (Math.abs(out.data[at[m.unit] + i] - m.data[i]) > 1e-4) off++;
+      if (off) fail(`${off} values of the lab aren't home with it open`);
+      const pk = boxAt(out, at.bar, bar[0].data.length);
+      if (pk[0] < hw + 0.05) fail(`with the lab out the bar's still in the opening (its left edge at x ${pk[0].toFixed(2)})`);
+      // the bar never touches a unit waiting for it, all the way round
+      for (let i = 0; i <= 50; i++) {
+        const k = i / 50, q = assembleBatch(asm, k), bb = boxAt(q, at.bar, bar[0].data.length);
+        const hit = lab.find((m) => meet(bb, boxAt(q, at[m.unit], m.data.length)));
+        if (hit) { fail(`going ${from} to ${to}, the bar runs into the lab's ${hit.unit} at ${k}`); break; }
+      }
+    }
+    // a plain Cachet, as wide as its turntable, has no wings
+    if (cachetWing({ keypad: true, w: CACHET_OPEN }) !== 0) fail('a Cachet as wide as its turntable grew a false wall');
+  }
+}
+
+// ── an open fridge: its doors come out of the room and swing out to the front on their hinges ─────────────────
+// (gl/room-mesh.js swingParts / swingBatch): nothing lost or drawn twice, shut at 0 exactly where the room had
+// them, and at 1 each door's middle is out in front of the piece and nothing has gone through the floor
+{
+  const { swingBatch } = await import('../../client/game/js/panels/gl/room-mesh.js');
+  const { facing } = await import('../../client/shared/room-layout.js');
+  const spec = roomSpecOf({ room: [5, 6, 2.6] }, true);
+  const count = (m) => [m.solid, ...m.textured.values()].reduce((n, b) => n + b.n, 0);
+  for (const [form, doors] of [['fridge', 2], ['double', 2], ['column', 1], ['chest', 1]]) {
+    const flags = { look: { arche: 'cold', form } }, dims = dimsOf('cold', 50000, flags), spot = placeSpot(spec, [], 'cold', dims, { form });
+    if (!spot) { fail(`cold/${form}: no spot`); continue; }
+    const L = roomLayout(spec, [{ id: 'f', name: 'fridge', arche: 'cold', form, dims, spot, wear: 0.2, seed: 99 }]), p = L.placed[0];
+    const shut = buildRoom(L, { seed: 3 }), open = buildRoom(L, { seed: 3, swinging: 'f' }), sw = open.swing;
+    if (!sw || sw.parts.length !== doors) { fail(`cold/${form}: ${sw?.parts.length || 0} doors swing, not ${doors}`); continue; }
+    const moved = sw.parts.reduce((n, q) => n + q.rest.length / STRIDE, 0);
+    if (count(open) + moved !== count(shut)) fail(`cold/${form}: ${count(shut)} vertices shut, ${count(open)} + ${moved} with its doors out`);
+    const at0 = swingBatch({ data: new Float32Array(0), n: 0 }, sw, 0);
+    let off = 0, i0 = 0;
+    for (const q of sw.parts) { for (let i = 0; i < q.rest.length; i++) if (Math.abs(at0.data[i0 + i] - q.rest[i]) > 1e-4) off++; i0 += q.rest.length; }
+    if (off) fail(`cold/${form}: shut, ${off} door values aren't where the room had them`);
+    const [fu, fv] = facing(p.turn), o = L.world(p.u, p.v, 0), e = L.world(p.u + fu, p.v + fv, 0), fx = e[0] - o[0], fz = e[2] - o[2];
+    const at1 = swingBatch({ data: new Float32Array(0), n: 0 }, sw, 1);
+    let base = 0;
+    for (const [j, q] of sw.parts.entries()) {
+      const n = q.rest.length / STRIDE;
+      let a = 0, b = 0, y = 0, low = 0;
+      for (let i = 0; i < n; i++) {
+        const r = i * STRIDE, s = base + r;
+        a += (q.rest[r] - o[0]) * fx + (q.rest[r + 2] - o[2]) * fz; b += (at1.data[s] - o[0]) * fx + (at1.data[s + 2] - o[2]) * fz;
+        y += at1.data[s + 1] - q.rest[r + 1]; if (at1.data[s + 1] < -0.01) low++;
+      }
+      // a door comes out to the front; a lid goes up and back
+      if (q.lid ? !(y / n > 0.1) : !(b / n - a / n > 0.15)) fail(`cold/${form}: door ${j} doesn't swing open (out ${((b - a) / n).toFixed(2)} m, up ${(y / n).toFixed(2)} m)`);
+      if (low) fail(`cold/${form}: door ${j} has ${low} vertices through the floor open`);
+      base += q.rest.length;
+    }
   }
 }
 

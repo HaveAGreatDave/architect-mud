@@ -76,6 +76,11 @@ const SND = {
   exhale: (k = 1) => sfx([NOISE({ hz: 850, q: 0.5, a: 0.06, d: 0.6 + 0.6 * k, gain: 0.05 * (0.5 + k) })]),
   cough: () => sfx([0, 0.22, 0.47].flatMap((d) => [NOISE({ hz: 620, q: 0.9, a: 0.005, d: 0.13, gain: 0.16, delay: d }), TONE({ hz: 190, to: 140, d: 0.1, gain: 0.08, delay: d })])),
   beat: (k = 1) => sfx([TONE({ hz: 62, to: 40, bend: 0.08, d: 0.12, gain: 0.32 * k }), TONE({ hz: 54, to: 36, bend: 0.08, d: 0.1, gain: 0.22 * k, delay: 0.16 })]),
+  // a hard sniff up a rolled note, and a pill going down dry
+  sniff: () => sfx([NOISE({ hz: 3200, to: 1800, q: 0.9, a: 0.02, d: 0.42, gain: 0.08 }), NOISE({ type: 'highpass', hz: 6000, a: 0.01, d: 0.3, gain: 0.03 })]),
+  gulp: () => sfx([TONE({ hz: 160, to: 95, bend: 0.09, d: 0.12, gain: 0.14 }), NOISE({ type: 'lowpass', hz: 380, d: 0.1, gain: 0.06, delay: 0.02 })]),
+  // the plunger's rubber going down the barrel
+  press: () => sfx([TONE({ hz: 820 + Math.random() * 120, to: 700, bend: 0.2, d: 0.18, gain: 0.025 }), NOISE({ hz: 2600, q: 2.5, d: 0.08, gain: 0.02 })]),
   cap: () => sfx([TONE({ hz: 700, to: 300, bend: 0.03, d: 0.05, gain: 0.14 }), NOISE({ type: 'highpass', hz: 4500, a: 0.004, d: 0.55, gain: 0.07, delay: 0.01 }), TONE({ hz: 4200, mod: 1.41, index: 1.5, d: 0.08, gain: 0.04, delay: 0.32 })]),
   glug: () => sfx([TONE({ hz: 190 + Math.random() * 40, to: 120, bend: 0.06, d: 0.08, gain: 0.12 }), NOISE({ type: 'lowpass', hz: 420, d: 0.07, gain: 0.05 })]),
   pour: () => sfx([NOISE({ hz: 1600 + Math.random() * 800, q: 1.2, d: 0.06, gain: 0.04 })]),
@@ -187,7 +192,10 @@ function roundRect(ctx, x, y, w, h, r) {
 }
 
 // ── the hands ─────────────────────────────────────────────────────────────────
-export function createHands(root, host, { send }) {
+// `onAct(act, hold)` hears each beat of a ritual (a bite, a sip, a drag, a dose) and null when it's put down, so a
+// room can show everybody else what you're doing (room-stage.js sends it as room_act).
+export function createHands(root, host, { send, onAct = null }) {
+  const beat = (a, hold) => { try { onAct?.(a, hold); } catch { /* the picture's only */ } };
   ensureStyles();
   const cg = document.createElement('canvas');
   cg.className = 'sh-canvas sh-gl';
@@ -252,6 +260,50 @@ export function createHands(root, host, { send }) {
   };
   const CHROME = { color: '#d9dde2', metal: 0.92, spec: 90, brush: 0.12 };
   const CHROME_DARK = { color: '#8b9096', metal: 0.8, spec: 60 };
+  // A lighter's look comes with what you took (item.lighter, plugins/stands lighterOf): the case, the
+  // trim (hinge, chimney, wheel plates) and an inlay on both faces. With none it's the plain chrome one.
+  //   case, trim   hex colours; metal 0..1 for each      inlay   'deco' (a gold sunburst round a diamond
+  //   finish       'gloss' (lacquer) or 'brush'                  inside a ruled border) or nothing
+  function lighterStyle(L) {
+    if (!L) return { body: CHROME, dark: CHROME_DARK, trim: CHROME, chim: { color: '#c4c8cd', metal: 0.85, spec: 70, brush: 0.08 }, inlay: null };
+    const gloss = L.finish === 'gloss';
+    const body = { color: L.case || '#d9dde2', metal: L.case_metal ?? (gloss ? 0.15 : 0.9), spec: gloss ? 140 : 90, ...(gloss ? {} : { brush: 0.12 }) };
+    const trim = { color: L.trim || '#d9dde2', metal: L.trim_metal ?? 0.95, spec: 110 };
+    return { body, dark: { ...trim, color: L.trim_dark || L.trim || '#8b9096', spec: 60 }, trim, chim: { ...trim, brush: 0.08 }, inlay: L.inlay ? { kind: L.inlay, gold: trim, ground: body } : null };
+  }
+  // The inlay on one face of the case, drawn proud of it by a hair. FM's x is across the face, y up it
+  // (top of the case at 0), z out of it.
+  function drawInlay(FM, I, lid = false) {
+    const bar = (x, y, w, h, a = 0, st = I.gold, dz = 0) => g3.draw(mesh.box(), M(FM, T(x, y, 0.012 + dz), RZ(a), S3(w, h, 0.025)), st);
+    if (lid) {
+      // the lid: a ruled border and a row of little diamonds along it
+      bar(0, 0.14, 3.3, 0.05); bar(0, 1.36, 3.3, 0.05); bar(-1.62, 0.75, 0.05, 1.27); bar(1.62, 0.75, 0.05, 1.27);
+      for (let k = -2; k <= 2; k++) bar(k * 0.6, 0.75, 0.22, 0.22, Math.PI / 4);
+      return;
+    }
+    // a double border round the face, with a stud at each corner
+    for (const [inset, wd] of [[0.18, 0.06], [0.32, 0.025]]) {
+      bar(0, -inset, 3.8 - inset * 2, wd); bar(0, -3.7 + inset, 3.8 - inset * 2, wd);
+      bar(-1.9 + inset, -1.85, wd, 3.7 - inset * 2); bar(1.9 - inset, -1.85, wd, 3.7 - inset * 2);
+    }
+    for (const sx of [-1, 1]) for (const y of [-0.38, -3.32]) g3.draw(mesh.sph(), M(FM, T(sx * 1.52, y, 0.02), S3(0.09, 0.09, 0.04)), I.gold);
+    // the sunburst: rays fanning out of a diamond in the middle, long and short by turns
+    const cy = -1.85;
+    for (let k = 0; k < 16; k++) {
+      const a = (k / 16) * Math.PI * 2, len = k % 2 ? 0.55 : 0.95, r0 = 0.5;
+      const r = r0 + len / 2;
+      bar(Math.cos(a) * r * 0.95, cy + Math.sin(a) * r * 1.3, 0.035, len, a - Math.PI / 2);
+    }
+    // the diamond: gold, a black one set in it, and a gold pip in the middle of that
+    bar(0, cy, 0.72, 0.72, Math.PI / 4);
+    bar(0, cy, 0.5, 0.5, Math.PI / 4, I.ground, 0.008);
+    bar(0, cy, 0.2, 0.2, Math.PI / 4, I.gold, 0.016);
+    // a scroll above and below: a stack of shrinking bars, like a chevron
+    for (const sy of [-1, 1]) for (let k = 0; k < 3; k++) {
+      const y = cy + sy * (1.38 - k * 0.1), w = 0.9 - k * 0.25;
+      bar(-w / 2, y, w, 0.035, sy * 0.35); bar(w / 2, y, w, 0.035, -sy * 0.35);
+    }
+  }
 
   // ── a cigarette (filter, gold band, paper) or a cigar (wrapper leaf, gold band, the cap
   // clipped off its head), then the ash and the coal; c as in smokeActivity, K from SMOKES ──
@@ -283,12 +335,14 @@ export function createHands(root, host, { send }) {
   // ── the zippo: brushed chrome case, the lid on a five-knuckle hinge, the chimney with its
   // sixteen holes, a knurled flint wheel, the cam and the wick. Origin is the top of the case.
   const WICK = [0.55, 1.9, 0];
-  function drawZippo(ZM, z) {
+  function drawZippo(ZM, z, look = lighterStyle(null)) {
+    const { body: CHROME, dark: CHROME_DARK, chim: CHIM, inlay } = look;
     g3.draw(mesh.body(), ZM, CHROME);
+    if (inlay) for (const side of [-1, 1]) drawInlay(M(ZM, T(0, 0, side * 0.65), RY(side > 0 ? 0 : Math.PI)), inlay);
     // the bottom's soft roll and the seam where the lid meets the case
     g3.draw(mesh.box(), M(ZM, T(0, -0.02, 0), S3(3.82, 0.04, 1.32)), { color: '#3a3d42', metal: 0.5, spec: 30 });
     if (z.lid > 0.03) {
-      g3.draw(mesh.chim(), ZM, { color: '#c4c8cd', metal: 0.85, spec: 70, brush: 0.08 });
+      g3.draw(mesh.chim(), ZM, CHIM);
       for (const side of [-1, 1]) for (let r = 0; r < 2; r++) for (let k = 0; k < 4; k++) {
         g3.draw(mesh.cyl(), M(ZM, T(-1.05 + k * 0.7, 0.42 + r * 0.55, side * 0.5), RX(Math.PI / 2), S3(0.15, 0.06, 0.15), T(0, -0.5, 0)), { color: '#121314', spec: 4 });
       }
@@ -300,8 +354,10 @@ export function createHands(root, host, { send }) {
       g3.draw(mesh.cyl(), M(ZM, T(WICK[0], 1.25, 0), S3(0.17, 0.5, 0.17)), { color: '#efe8d6', noise: 0.25, spec: 4 });
       g3.draw(mesh.cyl(), M(ZM, T(WICK[0], 1.74, 0), S3(0.18, 0.17, 0.18)), { color: '#2a2420', noise: 0.4, spec: 4, emit: z.flame ? [0.5, 0.15, 0] : [0, 0, 0] });
     }
-    g3.draw(mesh.lid(), M(ZM, T(1.9, 0, 0), RZ(-z.lid), T(-1.9, 0, 0)), CHROME);
-    for (let k = 0; k < 5; k++) g3.draw(mesh.cyl(), M(ZM, T(1.94, -0.72 + k * 0.29, 0.5), S3(0.14, 0.27, 0.14)), k % 2 ? CHROME_DARK : CHROME);
+    const LM = M(ZM, T(1.9, 0, 0), RZ(-z.lid), T(-1.9, 0, 0));
+    g3.draw(mesh.lid(), LM, CHROME);
+    if (inlay) for (const side of [-1, 1]) drawInlay(M(LM, T(0, 0, side * 0.65), RY(side > 0 ? 0 : Math.PI)), inlay, true);
+    for (let k = 0; k < 5; k++) g3.draw(mesh.cyl(), M(ZM, T(1.94, -0.72 + k * 0.29, 0.5), S3(0.14, 0.27, 0.14)), k % 2 ? CHROME_DARK : look.trim);
     return { wick: apply(ZM, WICK), hot: apply(ZM, [WICK[0], WICK[1] + 1.5, 0]), wheel: apply(ZM, [-0.62, 1.62, 0.5]) };
   }
 
@@ -467,7 +523,7 @@ export function createHands(root, host, { send }) {
     const K = /cigar(?!ette)/i.test(item.name) ? SMOKES.cigar : SMOKES.cigarette, cigar = !!K.cigar;
     const c = { len: 1, lit: false, ember: 0, ash: 0, glow: 0, cut: !cigar };
     let cutT = 0, capBit = null, CMnow = null;
-    const z = { lid: 0, lidTo: 0, wheel: 0, flame: 0, spin: 0 };
+    const z = { lid: 0, lidTo: 0, wheel: 0, flame: 0, spin: 0 }, look = lighterStyle(item.lighter);
     let phase = 'appear', t = 0, light = 0, fill = 0, drawing = false, crackleAt = 0, exhaleAt = 0, exhaleK = 0, away = 0, gone = 0;
     let aim = null, zp = null, cigTip = [0, 0, -14], cigBurn = cigTip, aside = 0, asideTo = 0;
     // ash: how long it holds before its own weight takes it, the bits on their way down, the flick
@@ -508,7 +564,7 @@ export function createHands(root, host, { send }) {
       },
       key(down) {
         if (asideTo) return;
-        if (phase === 'drag' && down && !drawing && fill <= 0 && exhaleAt <= 0) { drawing = true; SND.inhale(); }
+        if (phase === 'drag' && down && !drawing && fill <= 0 && exhaleAt <= 0) { drawing = true; SND.inhale(); beat('smoke', 'cigarette'); }
         if (phase === 'drag' && !down && drawing) release();
       },
       update(dt, now) {
@@ -620,7 +676,7 @@ export function createHands(root, host, { send }) {
           const in0 = phase === 'lid' ? ease(t / 0.4) : 1;
           const pos = [aim[0] + away * 3, lerp(aim[1] - 9, aim[1], in0) - away * 9, aim[2]];
           const ZM = M(T(...pos), RY(-0.5 + (mouse ? (mouse[0] / W - 0.5) * 0.4 : 0)), RX(0.15), S3(0.72), T(-WICK[0], -WICK[1], -WICK[2]));
-          zp = drawZippo(ZM, z);
+          zp = drawZippo(ZM, z, look);
           if (z.flame > 0) {
             const q = at(zp.wick);
             // the flame is on the 2-D layer over everything, so where the smoke is nearer than the
@@ -697,6 +753,8 @@ export function createHands(root, host, { send }) {
         if (phase === 'ready' || phase === 'cap') {
           const drinking = phase === 'ready' && space;
           tilt = lerp(tilt, drinking ? 1 : 0, 1 - Math.exp(-dt * 6));
+          if (drinking && !b.sipping) beat('drink', shape === 'cola' ? 'can' : 'bottle');
+          b.sipping = drinking;
           if (drinking) {
             held += dt;
             if (tilt > 0.8) { b.level = Math.max(0, b.level - dt * 0.2); if (now > glugAt) { SND.glug(); glugAt = now + 330 + Math.random() * 80; } }
@@ -756,7 +814,7 @@ export function createHands(root, host, { send }) {
       chomp = 0.001;
       setTimeout(() => {
         if (act?.eat !== true) return;
-        SND.bite(); eaten++;
+        SND.bite(); eaten++; beat('eat', 'food');
         const q = at(apply(FM, [cut - 1, 3, 0]));
         for (let k = 0; k < 8; k++) bits.push({ x: q[0], y: q[1], vx: (Math.random() - 0.5) * 120, vy: -40 - Math.random() * 60, r: (2 + Math.random() * 3) * S, col: kind === 'cocktail' ? '#f08a5c' : '#d9a868', life: 1.2, age: 0 });
         if (eaten >= N) { phase = 'done'; t = 0; send(`eat ${item.name}`); say(''); }
@@ -788,6 +846,92 @@ export function createHands(root, host, { send }) {
         const cutX = phase === 'done' ? -1e6 : apply(T(...pos), [cut, 0, 0])[0];
         drawFood(FM, kind, { cutX, shrimp: N - eaten });
         if (phase === 'appear') { const q = at(pos); sparkle(ctx, q[0], q[1], 120 * S, t, S); }
+      },
+      cancel() { wantMouse(false); },
+    };
+  }
+
+  // ── a dose: a pill, a line, a rig or a rag ─────────────────────────────────
+  // Each is Space held through to the end, and ends in the verb the Pockets list gave it (`use`, or `inject`).
+  // swallow  a capsule held up in front of you; hold Space and it goes to your mouth and down.
+  // snort    a mirror with a line cut on it and a rolled note; hold Space and the line goes up the note.
+  // inject   a loaded rig, its needle down to the crook of your arm; hold Space to press the plunger home.
+  // huff     a rag held to your face; hold Space to breathe it in.
+  function doseActivity(item) {
+    const kind = item.kind, HOLD = { swallow: 'pill', snort: '', inject: 'syringe', huff: 'rag' }[kind];
+    const tint = /blue|benz|xan/i.test(item.name) ? '#4a78d8' : /red|speed|amph/i.test(item.name) ? '#d84a3a' : '#e9e6dc';
+    // `k` 0 to 1 is how far it's gone; `rate` how fast holding Space takes it
+    let phase = 'appear', t = 0, k = 0, began = false, sndAt = 0;
+    const rate = { swallow: 1 / 0.8, snort: 0.42, inject: 0.3, huff: 0.38 }[kind];
+    SND.shimmer();
+    const finish = () => {
+      phase = 'done'; t = 0; say('');
+      if (kind === 'swallow') SND.gulp();
+      send(`${item.verb || (kind === 'inject' ? 'inject' : 'use')} ${item.name}`);
+    };
+    return {
+      dose: true,
+      key(down) { if (down && phase === 'ready' && !began) { began = true; beat(kind, HOLD); if (kind === 'snort') SND.sniff(); if (kind === 'huff') SND.inhale(); } },
+      update(dt, now) {
+        t += dt;
+        if (phase === 'appear' && t > 0.7) { phase = 'ready'; t = 0; say({ swallow: 'Hold Space to take it.', snort: 'Hold Space to do the line.', inject: 'Hold Space to press it in.', huff: 'Hold Space to breathe it in.' }[kind]); }
+        if (phase === 'ready' && space) {
+          k = Math.min(1, k + dt * rate);
+          if (now > sndAt) {
+            if (kind === 'inject') { SND.press(); sndAt = now + 320; }
+            else if (kind === 'snort') { SND.sniff(); sndAt = now + 900; }
+            else if (kind === 'huff') { SND.inhale(); sndAt = now + 1400; }
+          }
+          if (k >= 1) finish();
+        } else if (phase === 'ready' && kind === 'swallow') k = Math.max(0, k - dt * 2);
+        if (phase === 'done' && t > (kind === 'huff' ? 1.2 : 0.7)) {
+          if (kind === 'huff') SND.exhale(1);
+          return false;
+        }
+        return true;
+      },
+      draw() {
+        const rise = phase === 'appear' ? backOut(t / 0.7) : phase === 'done' ? 1 - ease(t / 0.7) : 1;
+        const low = (1 - rise) * 20, e = ease(k);
+        if (kind === 'swallow') {
+          // a capsule between finger and thumb, two halves, up to the mouth as Space is held
+          const pos = [lerp(2.5, 0, e), lerp(-3.5, -9, e) - low, lerp(-25, -9, e)];
+          const PM = M(T(...pos), RZ(1.2 - 0.5 * e), RX(0.3));
+          g3.draw(mesh.capsule('pill', 0.55, 1.1), PM, { color: '#f2f0ea', spec: 60 });
+          g3.draw(mesh.cyl(), M(PM, T(0, -0.02, 0), S3(0.565, 0.82, 0.565)), { color: tint, spec: 60 });
+        } else if (kind === 'snort') {
+          // the mirror tilted up toward you, the line on it going from the far end, the note following it
+          const MM = M(T(0, -6.5 - low, -30), RX(0.6));
+          g3.draw(mesh.box(), M(MM, S3(13, 0.35, 9)), { color: '#9aa8b4', metal: 0.9, spec: 120 });
+          g3.draw(mesh.box(), M(MM, T(0, -0.2, 0), S3(13.4, 0.2, 9.4)), { color: '#1a1a1c', spec: 10 });
+          const left = 1 - e;
+          if (left > 0.01) g3.draw(mesh.box(), M(MM, T(-4 + 8 * e + 4 * left, 0.3, 0.5), S3(8 * left, 0.22, 0.45)), { color: '#f4f2ee', spec: 4, noise: 0.25 });
+          // a little pile and a card beside it
+          g3.draw(mesh.sph(), M(MM, T(4.5, 0.25, -2.6), S3(1.1, 0.35, 0.9)), { color: '#f4f2ee', spec: 4, noise: 0.3 });
+          g3.draw(mesh.box(), M(MM, T(-3.8, 0.3, -2.8), RY(0.3), S3(5.4, 0.08, 3.4)), { color: '#2a5ac8', spec: 50 });
+          // the rolled note, its end on the line where it's got to
+          const end = apply(MM, [-4 + 8 * e, 0.6, 0.5]), up = [end[0] + 1.2, end[1] + 5.5, end[2] + 6];
+          g3.draw(mesh.cyl(), M(T(...end), alignY([up[0] - end[0], up[1] - end[1], up[2] - end[2]]), S3(0.45, Math.hypot(up[0] - end[0], up[1] - end[1], up[2] - end[2]), 0.45)), { color: '#7a9a6a', noise: 0.2, spec: 8 });
+        } else if (kind === 'inject') {
+          // the rig angled down to the crook of your left arm, low left; the plunger goes home as Space is held
+          const RM = M(T(lerp(4, 1.5, Math.min(1, t * 2)), -7 - low, -24), RZ(-1.05), RX(-0.35));
+          const L = 7, push = e * 4.6;
+          g3.draw(mesh.cyl(), M(RM, T(0, 0, 0), S3(0.62, L, 0.62)), { color: '#dfe8ee', spec: 120, alpha: 0.55 });
+          // what's still in the barrel
+          if (e < 0.98) g3.draw(mesh.cyl(), M(RM, T(0, 0.9, 0), S3(0.5, 4.6 - push, 0.5)), { color: '#b89a52', spec: 40, alpha: 0.85 });
+          // the plunger's rubber, its rod and its thumb rest
+          g3.draw(mesh.cyl(), M(RM, T(0, 5.5 - push, 0), S3(0.55, 0.45, 0.55)), { color: '#1c1c20', spec: 20 });
+          g3.draw(mesh.cyl(), M(RM, T(0, 5.95 - push, 0), S3(0.18, 3.2, 0.18)), { color: '#e8eef2', spec: 40 });
+          g3.draw(mesh.cyl(), M(RM, T(0, 9.15 - push, 0), S3(0.9, 0.18, 0.9)), { color: '#e8eef2', spec: 40 });
+          // the flange, and the needle out of the other end
+          g3.draw(mesh.box(), M(RM, T(0, L, 0), S3(2.6, 0.18, 1)), { color: '#e8eef2', spec: 40 });
+          g3.draw(mesh.cyl(), M(RM, T(0, -0.6, 0), S3(0.28, 0.6, 0.28)), { color: '#3a7ad8', spec: 40 });
+          g3.draw(mesh.cyl(), M(RM, T(0, -3.6, 0), S3(0.05, 3, 0.05)), { ...CHROME });
+        } else {
+          // a rag, balled in your hand and up over your mouth as you breathe in
+          const pos = [lerp(3, 0.5, e), lerp(-4, -6.5, e) - low, lerp(-28, -16, e)];
+          g3.draw(mesh.sph(), M(T(...pos), RZ(0.4), S3(3.4, 2.6, 1.3)), { color: '#b8a888', noise: 0.16, spec: 4 });
+        }
       },
       cancel() { wantMouse(false); },
     };
@@ -916,12 +1060,14 @@ export function createHands(root, host, { send }) {
   // (act), the other waits (held); Q swaps them. A second drink takes the place of the first; a
   // second smoke or bite waits till the first is done. A smoke can't be set down till it's lit.
   // whyNot(item) is the reason it can't be taken, or '' when it can.
-  const catOf = (kind) => (kind === 'smoke' ? 'smoke' : kind === 'eat' ? 'food' : 'drink');
-  const actCat = (a) => (a.smoke ? 'smoke' : a.eat ? 'food' : 'drink');
+  // a dose (a pill, a line, a rig, a rag) takes both hands and waits for nothing
+  const DOSES = ['swallow', 'snort', 'inject', 'huff'];
+  const catOf = (kind) => (kind === 'smoke' ? 'smoke' : kind === 'eat' ? 'food' : DOSES.includes(kind) ? 'dose' : 'drink');
+  const actCat = (a) => (a.smoke ? 'smoke' : a.eat ? 'food' : a.dose ? 'dose' : 'drink');
   function whyNot(item) {
     if (!act) return '';
     const c = catOf(item?.kind), ac = actCat(act), hc = held && actCat(held);
-    if (c === ac) return c === 'drink' ? '' : c === 'smoke' ? 'You’ve already got one going.' : 'Finish what you’re eating first.';
+    if (c === ac) return c === 'drink' ? '' : c === 'smoke' ? 'You’ve already got one going.' : c === 'dose' ? 'One thing at a time.' : 'Finish what you’re eating first.';
     if (held) return hc === c ? (c === 'drink' ? 'You’ve already got a drink in your other hand.' : c === 'smoke' ? 'You’ve already got one going.' : 'Finish what you’re eating first.') : 'Your hands are full.';
     if (act.smoke && !act.canPark()) return 'Light it first.';
     return '';
@@ -948,7 +1094,7 @@ export function createHands(root, host, { send }) {
     act = a; glassBtn.hidden = true; showGlass(); kick();
   }
   function end() {
-    act?.cancel?.(); act = null; wantMouse(false); say('');
+    act?.cancel?.(); act = null; wantMouse(false); say(''); beat(null);
     if (held) { act = held; held = null; act.park?.(false); }
     showGlass();
   }
@@ -1040,6 +1186,7 @@ export function createHands(root, host, { send }) {
       if (act && actCat(act) === 'drink' && catOf(item.kind) === 'drink') end();
       if (item.kind === 'smoke') start(smokeActivity(item));
       else if (item.kind === 'eat') start(eatActivity(item));
+      else if (DOSES.includes(item.kind)) start(doseActivity(item));
       else if (item.kind === 'glass') start(glassIntro(item));
       else if (item.kind === 'pour' && pourable()) start(pourActivity(item));
       else if (pour) start(chain(glassIntro(glassItem), () => pourActivity(item)));

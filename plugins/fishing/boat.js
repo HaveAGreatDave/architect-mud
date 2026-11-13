@@ -33,7 +33,7 @@ import { prefersTextMinigamesOrDefault } from '../../server/engine/presentation.
 import { resolveInventoryItem } from '../../server/engine/inventory.js';
 import { seaEnv, dayOfYear, taken, thinnedNow as seaThinned, takeFrom as seaTake } from './sea.js';
 import {
-  TWITCH_M, TWITCH_LIFT_M, TWITCH_MIN_MS, REEL_IN_M, SINK_MPS, CAST_MIN_M, NOTICE_M, BITE_AT,
+  TWITCH_M, TWITCH_LIFT_M, TWITCH_MIN_MS, REEL_IN_M, SINK_MPS, CAST_MIN_M, BITE_AT, noticeM, drawAfter,
   interestGain, decayInterest, LATENCY_SLACK_MS, takeScript, judgeStrike, setWords, minFightMs,
 } from '../../client/shared/boatfish-rules.js';
 import { SPECIES, habitatFor, fishNear, keenness, fishKg } from '../../client/shared/fish.js';
@@ -210,6 +210,7 @@ export function boatCast(player, bearingArg, rangeArg, token, { typed = false } 
   st.phase = 'line';
   st.lastTapAt = null;
   st.interest = {};
+  st.draw = 0;
   st.bite = null; st.fight = null;
   st.thinned = thinnedNow(t);
   // The take as it stands at the cast, so a school somebody else fished down since `open` draws as
@@ -269,10 +270,12 @@ export async function boatTwitch(player, token, { typed = false, reel = false } 
   if (f > 0) { L.floor = f; L.depth = Math.min(L.depth, Math.max(0, f - FLOOR_GAP_M)); }
   if (L.lineM <= REEL_IN_M) return reelIn(player, st, typed);
 
-  // Interest: every fish near enough to notice, in 3D. A fish that loses the rhythm cools off.
+  // The draw: a lure worked twitch-and-pause is noticed further off, so fish gather over time.
+  st.draw = drawAfter(st.draw, gap, gap == null ? 0 : gap);
+  // Interest: every fish near enough to notice, in 3D. Fussing the lure counts for little.
   const follow = [];
   let best = null;
-  for (const fish of fishNear(L.x + 0.5, L.y + 0.5, NOTICE_M / SEA_TILE_M, t, st.env, habitat(), st.thinned)) {
+  for (const fish of fishNear(L.x + 0.5, L.y + 0.5, noticeM(st.draw) / SEA_TILE_M, t, st.env, habitat(), st.thinned)) {
     const s = fish.school;
     if ((st.spooked[s.id] || 0) > t) continue;
     const sp = SPECIES[s.sp];
@@ -281,7 +284,7 @@ export async function boatTwitch(player, token, { typed = false, reel = false } 
     const dist3 = Math.hypot(fish.dist * SEA_TILE_M, fish.depth - L.depth);
     const gain = interestGain({
       dist3, gapMs: gap, spId: s.sp, keen: keenness(sp, st.env),
-      bait: (sp.bait || st.bait?.hasBait) ? 1 : 0,
+      bait: (sp.bait || st.bait?.hasBait) ? 1 : 0, draw: st.draw,
     });
     const key = `${s.id}:${fish.i}`;
     const prev = st.interest[key];

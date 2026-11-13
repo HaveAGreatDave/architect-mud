@@ -13,8 +13,11 @@
 // one to compare.
 
 import { actorBake, actorOutfit, actorSkinAt, actorSkinMix, actorClipFace, actorStrideM, ACTOR_CLIPS, ACTOR_IDLES, ACTOR_IDLE_SLOT, ACTOR_ACTS, ACTOR_MAT, ACTOR_ROOM_CLIPS } from '../actor3d.js';
-import { buildFigure, figureKey, figureGear, figureFabric, mutationLook, wildMutations, somaOf, FIGURE_FACIAL, FIG_SLOT, FIG_FABRIC, FIGURE_CUTS, bustApex, FIGURE_XBONES, FIGURE_BONE_COUNT, FIGURE_BONES, FIGURE_BONE, SCULPT_BUILDS, FIGURE_CROWN, propKey, propsOf, propBind, propUpright, handScaleOf } from '../figure.js';
+import { occlusionOf } from '../figure-occlusion.js';
+import { gaitFor } from '../actor-gait.js';
+import { buildFigure, figureKey, figureGear, figureFabric, mutationLook, wildMutations, somaOf, FIGURE_FACIAL, FIG_SLOT, FIG_FABRIC, FIGURE_CUTS, bustApex, FIGURE_XBONES, FIGURE_BONE_COUNT, FIGURE_BONES, FIGURE_BONE, SCULPT_BUILDS, FIGURE_CROWN, propKey, propsOf, propBind, propUpright, handScaleOf, cutPaint, FIGURE_BOTTOMS } from '../figure.js';
 import { createBatch, vtx, lin, MAT } from './ballpark-mesh.js';
+import { finishArms } from './figure-reach.js';
 import { expressionOf, easeExpression } from '../../../../shared/expressions.js';
 import { feelBand, wearFor } from '../../../../shared/comfort.js';
 
@@ -23,9 +26,14 @@ let bake = null;
 export function peopleReady() { return !!bake; }
 export function preparePeople() { if (!bake) bake = actorBake({ head: true }); return bake; }
 
+// A person's rolls off their id: FNV-1a over it, then a mix per slot. An id written '#' + base 36 is that
+// hash already, which is what the street feed sends as a figure's token (server/engine/street-actors.js), so a
+// street figure rolls exactly what the same person rolls in a room or on the TV.
 function rand(id) {
+  const s = String(id);
   let h = 2166136261;
-  for (const ch of String(id)) h = Math.imul(h ^ ch.charCodeAt(0), 16777619);
+  if (s[0] === '#') h = parseInt(s.slice(1), 36) | 0;
+  else for (const ch of s) h = Math.imul(h ^ ch.charCodeAt(0), 16777619);
   return (k) => { let x = Math.imul(h ^ (k * 0x9E3779B1), 0x85EBCA6B) >>> 0; x ^= x >>> 13; x = Math.imul(x, 0xC2B2AE35) >>> 0; x ^= x >>> 16; return (x >>> 0) / 4294967296; };
 }
 const outfits = new Map();
@@ -78,10 +86,18 @@ const WILD = {
 // A settled look arrives as a new object with every `room_people`, so its text is kept by the object.
 const figSigs = new WeakMap();
 const figSig = (fg) => { let s = figSigs.get(fg); if (s === undefined) { s = JSON.stringify(fg); figSigs.set(fg, s); } return s; };
+// How hard a life shows on somebody (gl/figure-hd.js uGrit): 0 clean, about 0.5 worn, 1 hardened. A settled look
+// names it (flags.figure.grit); otherwise it rolls off slot 141: four in ten clean, four worn, two hardened, a soft
+// face a little cleaner.
+function gritOf(R, fg, soft) {
+  if (fg && fg.grit !== undefined) return Math.max(0, Math.min(1, +fg.grit || 0));
+  const r = R(141), g = r < 0.4 ? 0.12 * (r / 0.4) : r < 0.8 ? 0.35 + 0.3 * ((r - 0.4) / 0.4) : 0.75 + 0.25 * ((r - 0.8) / 0.2);
+  return Math.round(g * (soft ? 0.7 : 1) * 20) / 20;
+}
 function lookOf(id, level, dress = '', sculpt = false, sex = '', figure = null, wear = null) {
-  const fg = sculpt ? figure : null, wr = wear && dress !== 'wildblood' && (wear.occasion || wear.feel) ? wear : null;
+  const fg = sculpt ? figure : null, wr = wear && dress !== 'wildblood' && (wear.occasion || wear.feel || wear.change) ? wear : null;
   // the look itself is in the key: somebody changing for work or for bed is a different look, not a stale one
-  const k = id + '|' + level + '|' + dress + (sculpt ? '|s' + sex + (globalThis.__figureMature ? '|M' : '') : '') + (fg ? '|f' + figSig(fg) : '') + (wr ? '|w' + (wr.occasion || '') + (wr.feel || 0) : '');
+  const k = id + '|' + level + '|' + dress + (sculpt ? '|s' + sex + (globalThis.__figureMature ? '|M' : '') : '') + (fg ? '|f' + figSig(fg) : '') + (wr ? '|w' + (wr.occasion || '') + (wr.feel || 0) + (wr.change ? 'c' + wr.change : '') : '');
   let o = looks.get(k);
   if (o) return o;
   const R = rand(id), pickOf = (list, j) => list[Math.min(list.length - 1, Math.floor(R(j) * list.length))];
@@ -98,7 +114,7 @@ function lookOf(id, level, dress = '', sculpt = false, sex = '', figure = null, 
   // bottoms, hat and scarf to go with it. Slots 120 and 121.
   const wardrobe = wardrobeOf(R, fg, soft, f.cut);
   if (wr) {
-    const ch = wearFor({ cut: f.cut, ...wardrobe }, { occasion: wr.occasion, feel: wr.feel, female: soft || sex === 'female' }, R(120), R(121));
+    const ch = wearFor({ cut: f.cut, ...wardrobe }, { occasion: wr.occasion, feel: wr.feel, change: wr.change || 0, female: soft || sex === 'female' }, R(120), R(121));
     if (ch.cut) { f.cut = ch.cut; f.mat = [0, f.mat[1], f.mat[2]]; }
     for (const key of ['bottoms', 'hat', 'scarf']) if (key in ch) wardrobe[key] = ch[key];
   }
@@ -149,14 +165,45 @@ function lookOf(id, level, dress = '', sculpt = false, sex = '', figure = null, 
   for (const c of FACIAL_ROLL) { fw -= c[1]; if (fw <= 0) { rolled = c[0]; break; } }
   const fl = facialLook(!sculpt || soft ? 'clean' : fg ? fg.facial ?? (fg.beard ? 'stubble' : 'clean') : rolled);
   o = {
-    print: fg?.print || '', mut: ml.paint, mutCol: new Float32Array(c(fg?.mut_accent ?? pickOf(MUT_ACCENT, 69))), key: { cut: f.cut, style, level, gear, body: bodyM, sculpt, head: sculptHead, spikes: sculpt ? Math.round(Math.max(0, Math.min(1, +fg?.spikes || 0)) * 10) / 10 : 0, build, weight, beard: fl.beardMesh, prop: sculpt ? propKey(fg?.props) : '', bust: !sculpt ? null : fg?.bust ?? (soft ? Math.round((0.15 + 0.7 * R(70)) * 10) / 10 : null), groin: sculpt && globalThis.__figureMature && !soft ? 'm' : '', ...wardrobe, butt: !sculpt ? null : fg?.butt ?? (soft ? Math.round((0.15 + 0.75 * R(71)) * 10) / 10 : null) }, neck: fg?.neckline || null, slit: fg?.slit || null, age, col, beardA: fl.beardA, beardB: fl.beardB, faceV: new Float32Array([fg?.brow ?? (soft ? 0.5 : 0.75 + 0.55 * R(48)), fg?.mouth ?? 0.88 + 0.22 * R(49), fg?.beard ?? fl.stubble * (0.8 + 0.4 * R(51)), soft ? 1 : 0]), smile: fg?.smile || 0, trim: new Float32Array(fg?.trim ? c(fg.trim) : [0.02, 0.02, 0.02]), surf, fab, gloves: gear.gloves, glove: new Float32Array(glove),
-    wild, mark: Math.floor(R(43) * 4), markCol: new Float32Array(c(pickOf(WILD.mark, 44))), wrapCol: new Float32Array(c(pickOf(WILD.wrap, 45))),
-    face: new Float32Array([f.face?.layout ?? 0, sculpt && !soft ? 0 : f.face?.makeup ?? 0, style, rand(id)(5) * 50]),
+    print: fg?.print || '', tat: fg?.tat || 0, tatCol: new Float32Array(c(fg?.tat_ink || [12, 12, 16])), mut: ml.paint, mutCol: new Float32Array(c(fg?.mut_accent ?? pickOf(MUT_ACCENT, 69))), key: { cut: f.cut, style, level, gear, body: bodyM, sculpt, head: sculptHead, spikes: sculpt ? Math.round(Math.max(0, Math.min(1, +fg?.spikes || 0)) * 10) / 10 : 0, build, weight, beard: fl.beardMesh, prop: sculpt ? propKey(fg?.props) : '', bust: !sculpt ? null : fg?.bust ?? (soft ? Math.round((0.15 + 0.7 * R(70)) * 10) / 10 : null), groin: sculpt && globalThis.__figureMature && !soft ? 'm' : '', ...wardrobe, butt: !sculpt ? null : fg?.butt ?? (soft ? Math.round((0.15 + 0.75 * R(71)) * 10) / 10 : null) }, neck: fg?.neckline || null, slit: fg?.slit || null, age, col, beardA: fl.beardA, beardB: fl.beardB, faceV: new Float32Array([fg?.brow ?? (soft ? 0.5 : 0.75 + 0.55 * R(48)), fg?.mouth ?? 0.88 + 0.22 * R(49), fg?.beard ?? fl.stubble * (0.8 + 0.4 * R(51)), soft ? 1 : 0]), smile: fg?.smile || 0, trim: new Float32Array(fg?.trim ? c(fg.trim) : [0.02, 0.02, 0.02]), surf, fab, gloves: gear.gloves, glove: new Float32Array(glove),
+    wild, grit: sculpt ? gritOf(R, fg, soft) : 0, mark: Math.floor(R(43) * 4), markCol: new Float32Array(c(pickOf(WILD.mark, 44))), wrapCol: new Float32Array(c(pickOf(WILD.wrap, 45))),
+    face: new Float32Array([f.face?.layout ?? 0, sculpt && !soft ? 0 : f.face?.makeup ?? 0, cutPaint(style), rand(id)(5) * 50]),
     lip: new Float32Array(sculpt ? skin.map((v, j) => v * [0.8, 0.6, 0.55][j]) : c(f.face?.lip || f.skin)), lipstick: new Float32Array(c(f.face?.lipstick || f.skin)), iris: new Float32Array(c(f.face?.iris || [60, 40, 30])),
   };
   looks.set(k, o);
   return o;
 }
+// ── The street's crowd, dressed as the room dresses them ──────────────────────────────────────────
+// The street draws people with the crowd body (actor3d.js, gl/actors.js), whose outfit is actorOutfit's shape in
+// sRGB 0..255. `streetLook` is that outfit for a street token (`t`, `s`, `g` off server/engine/street-actors.js)
+// with the colours, cut, hair and face taken from the close-up look the Room Stage and the TV draw the same person
+// in, so a coat seen on the news is the coat on the pavement. Kept per token and look.
+const toSrgb = (v) => Math.max(0, Math.min(255, Math.round(255 * (v <= 0.0031308 ? 12.92 * v : 1.055 * Math.pow(v, 1 / 2.4) - 0.055))));
+const slotRgb = (col, slot) => [toSrgb(col[slot * 3]), toSrgb(col[slot * 3 + 1]), toSrgb(col[slot * 3 + 2])];
+const SURF_CODE = new Map(SURF.map((m, i) => [m, i]));
+const streetLooks = new Map();
+export function streetLook(t, female = false, figure = null) {
+  const id = '#' + t, k = id + (female ? '|f' : '|m') + (figure ? '|' + figSig(figure) : '');
+  let out = streetLooks.get(k);
+  if (out) return out;
+  if (streetLooks.size > 2048) streetLooks.clear();
+  const o = lookOf(id, 'crowd', '', true, female ? 'female' : 'male', figure, null), base = actorOutfit(rand(id)), col = o.col;
+  const coat = slotRgb(col, FIG_SLOT.top), [r, g, b] = coat, luma = (0.2126 * r + 0.7152 * g + 0.0722 * b) / 255;
+  // The crowd's body is always in trousers. Shorts or a skirt leave leg bare close up, so its trousers lean toward the
+  // skin by how much: the share of the leg between the hem and the boot's top (0.235 m) up to the hip (0.92 m).
+  const B = FIGURE_BOTTOMS[o.key.bottoms], hem = B ? (B.skirt ? B.skirt.hem : B.legs.hem) : 0;
+  const bare = Math.max(0, Math.min(1, (hem - 0.235) / (0.92 - 0.235))) * 0.75;
+  const legs0 = slotRgb(col, FIG_SLOT.legs), skin0 = slotRgb(col, FIG_SLOT.skin);
+  out = { ...base, coat, legs: bare ? legs0.map((v, j) => Math.round(v + (skin0[j] - v) * bare)) : legs0, bare, shoes: slotRgb(col, FIG_SLOT.shoes), skin: slotRgb(col, FIG_SLOT.skin), hair: slotRgb(col, FIG_SLOT.hair),
+    mat: [SURF_CODE.get(o.surf[FIG_SLOT.top]) ?? 0, SURF_CODE.get(o.surf[FIG_SLOT.legs]) ?? 0, SURF_CODE.get(o.surf[FIG_SLOT.shoes]) ?? 2],
+    cut: o.key.cut, tone: Math.max(0, Math.min(5, Math.floor(luma * 1.9 * 6))),
+    face: { ...base.face, layout: o.face[0] | 0, makeup: o.face[1], hairStyle: Math.min(5, o.key.style | 0), lip: [...o.lip].map(toSrgb), lipstick: [...o.lipstick].map(toSrgb), iris: [...o.iris].map(toSrgb) },
+    // what the close-up figure draws them with, for the street's own close-up level (glass/street-hd.js)
+    hd: { id, sex: female ? 'female' : 'male', figure } };
+  streetLooks.set(k, out);
+  return out;
+}
+
 // The lowest points of a figure's mesh in bind space (its soles), with their bones, to find how far
 // a pose has to drop to stand on the floor.
 const soles = new Map();
@@ -168,6 +215,7 @@ function solesOf(key) {
   soles.set(s, out);
   return out;
 }
+const widen = (c) => (c && CLIP_DUR[c + 'Wide'] ? c + 'Wide' : c);
 const CLIP_DUR = Object.fromEntries([...ACTOR_CLIPS, ...ACTOR_ROOM_CLIPS].map((c) => [c.name, c.dur]));
 // How long a clip that plays once takes, in seconds; 0 for one that loops.
 export const clipOnce = (name) => (ACTOR_ROOM_CLIPS.find((c) => c.name === name && c.once)?.dur || 0);
@@ -382,17 +430,22 @@ export function figurePeople(L, bodies, t = 0, { level: asked = 'hd', eye = null
     let o = lookOf(body.id, level, body.dress || '', !!body.sculpt, body.sex || '', body.figure || null, body.wear || null);
     // the Lab's own picks
     if (body.build) o = { ...o, key: { ...o.key, build: body.build } };
+    if (body.grit !== undefined && body.grit !== '') o = { ...o, grit: +body.grit };
     for (const k of ['bottoms', 'hat', 'scarf']) if (body[k] !== undefined) o = { ...o, key: { ...o.key, [k]: body[k] } };
     if (body.facial) { const fl = facialLook(body.facial), fv = o.faceV.slice(); fv[2] = fl.stubble; o = { ...o, faceV: fv, beardA: fl.beardA, beardB: fl.beardB, key: { ...o.key, beard: fl.beardMesh } }; }
     if (body.weight !== undefined && body.weight !== '') o = { ...o, key: { ...o.key, weight: Math.round(body.weight * 10) / 10 } };
     if (o.key.sculpt && body.bust != null) o = { ...o, key: { ...o.key, bust: Math.round(body.bust * 10) / 10 } };
     if (o.key.sculpt && body.butt != null) o = { ...o, key: { ...o.key, butt: Math.round(body.butt * 10) / 10 } };
     // `clip` is the stage's when they're walking or talking; a walk's phase is how far they've come
-    const lying = body.pose === 'lie', clip = body.clip || (body.pose === 'sit' ? 'sit' : lying ? 'lieBack' : 'idle'), dur = CLIP_DUR[clip] || 4;
+    // a walk is walked in their own gait (actor-gait.js gaitFor): told, or from their mood, age, weight and habit
+    const lying = body.pose === 'lie', told = body.clip || (body.pose === 'sit' ? 'sit' : lying ? 'lieBack' : 'idle');
+    const clip = told === 'walk' ? gaitFor({ ...body, age: o.age, weight: o.key.weight }, rand(body.id)(88)) : told, dur = CLIP_DUR[clip] || 4;
     // with nothing to do, what they're doing comes off their id and the clock: from what suits how they are, asleep
     // or out cold, or at the work they're at (`manner`, plugins/roomstage)
     const kind = lying ? body.rest || 'lie' : body.pose === 'sit' ? (body.rest === 'sleep' ? 'sitSleep' : body.rest === 'out' ? 'sitOut' : 'sit') : body.manner || 'stand';
-    const plan = !body.clip && body.phase === undefined && (body.pose === 'sit' || body.pose === 'stand' || lying) ? idlePlan(body.id, kind, t, body.feel || 0) : null;
+    const plan0 = !body.clip && body.phase === undefined && (body.pose === 'sit' || body.pose === 'stand' || lying) ? idlePlan(body.id, kind, t, body.feel || 0) : null;
+    // a man sits with his knees wide: each clip's 'Wide' twin where it has one (actor3d.js wideKnees)
+    const plan = plan0 && body.sex === 'male' ? { ...plan0, a: widen(plan0.a), b: widen(plan0.b) } : plan0;
     const seated = lying || (plan ? plan.b : clip).startsWith('sit');
     // the face: what they're saying, or what the clip does to it, and a blink every few seconds
     const R0 = rand(body.id), M = o.key.sculpt ? body.mouth || null : null, cf = !o.key.sculpt ? null : plan ? actorClipFace(plan.b, plan.pb) : body.clip ? actorClipFace(clip, body.phase ?? t / dur) : null;
@@ -402,8 +455,9 @@ export function figurePeople(L, bodies, t = 0, { level: asked = 'hd', eye = null
     const X = o.key.sculpt ? moodFace(body, t) : null;
     const every = (3.2 + 3.4 * R0(7)) / Math.max(0.3, X?.blink ?? 1), blinkAt = (t + R0(8) * 9) % every, blink = Math.max(blinkAt < 0.16 ? Math.sin((blinkAt / 0.16) * Math.PI) : 0, cf?.shut || 0, X ? Math.max(0, -X.lid) * 0.42 : 0);
     // `mix` is a host's own blend of two clips ({ a, pa, b, pb, k }), as the Zamboni's driver eases into a wave
-    const mx = body.mix;
-    const ph = body.phase ?? (clip === 'walk' ? (body.walked || 0) / actorStrideM() : t / dur + rand(body.id)(3));
+    const mx = body.mix && body.sex === 'male' ? { ...body.mix, a: widen(body.mix.a), b: widen(body.mix.b) } : body.mix;
+    // (a walk with no distance, as the Figure Lab plays a gait, walks on the spot at its own pace)
+    const ph = body.phase ?? (clip.startsWith('walk') && body.walked !== undefined ? body.walked / actorStrideM(clip) : t / dur + rand(body.id)(3));
     // a change of clip (a new act at the head of a beat, or back to idling) eases over from the last pose
     const now = mx ? null : plan ? (plan.k > 0.5 ? { c: plan.b, p: plan.pb } : { c: plan.a, p: plan.pa }) : { c: clip, p: ph };
     let xf = now ? fades.get(body.id) : null;
@@ -427,7 +481,11 @@ export function figurePeople(L, bodies, t = 0, { level: asked = 'hd', eye = null
     // the head goes where the eyes go, and turns to whoever's watching when they come close
     const { S: S1, eyes } = lying ? { S: S0, eyes: gaze } : lookAround(S0, body, kind, O, AX, AY, AZ, eye, gaze, t);
     // the grown bones, off the posed ones (only a mutated body has anything on them)
-    const S = o.key.body ? growBones(S1, t, R0(66)) : S1;
+    const S2 = o.key.body ? growBones(S1, t, R0(66)) : S1;
+    // the hands, and the arms finished so what's in a hand arrives at the mouth, the nose or the arm (gl/figure-reach.js)
+    const playing = mx ? (mx.k > 0.5 ? mx.b : mx.a) : now ? now.c : clip;
+    const arms = finishArms(S2, { clip: playing, key: o.key, grip: holding(gripOf(playing), o.key.prop), props: propsOf(o.key.prop || ''), holds: body.holds || {}, meal: !!body.meal });
+    const S = arms.S;
     // stood on the floor: the lowest sole point at zero, as the bake drops its frames. Lying, the feet are where
     // placeOf puts them, and a knee drawn up mustn't slide the whole body up the bed
     let drop = lying ? 0 : Infinity;
@@ -484,7 +542,7 @@ export function figurePeople(L, bodies, t = 0, { level: asked = 'hd', eye = null
     const jiggle = o.key.sculpt && (o.key.bust ?? 0) > 0 ? bounceOf(body.id + '|c', rows, FIGURE_BONE.chest, t, JIGGLE) : null;
     const seatJ = o.key.sculpt && (o.key.butt ?? 0) > 0 ? bounceOf(body.id + '|p', rows, FIGURE_BONE.pelvis, t, SEAT_JIGGLE) : null;
     const nip = o.key.sculpt ? bustApex(o.key.bust ?? (o.key.head === 3 ? 0.35 : 0), o.key.weight ?? null) : null;
-    out.push({ key: o.key, rows, sway, jiggle, seatJ, nip, floor: O[1], print: o.print, grip: holding(gripOf(plan ? (plan.k > 0.5 ? plan.b : plan.a) : clip), o.key.prop), col: o.col, surf: o.surf, fab: o.fab, mut: o.mut || 0, mutCol: o.mutCol, blink2: o.key.body?.head2 ? blinkOf(t + 1.7, R0) : 0, face: o.face, lip: o.lip, lipstick: o.lipstick, iris: o.iris, faceV: o.faceV, age: o.age, smile: X ? Math.min(1, Math.max(o.smile, X.smile)) : o.smile, trim: o.trim,
+    out.push({ key: o.key, rows, sway, jiggle, seatJ, nip, floor: O[1], print: o.print, hands: arms.hands, hold: arms.hold, on: arms.on, clip: playing, col: o.col, surf: o.surf, fab: o.fab, mut: o.mut || 0, mutCol: o.mutCol, tat: o.tat || 0, tatCol: o.tatCol, blink2: o.key.body?.head2 ? blinkOf(t + 1.7, R0) : 0, grit: o.grit || 0, face: o.face, lip: o.lip, lipstick: o.lipstick, iris: o.iris, faceV: o.faceV, age: o.age, smile: X ? Math.min(1, Math.max(o.smile, X.smile)) : o.smile, trim: o.trim,
       expr: X ? [X.browIn, X.browUp, X.lid, X.frown] : null, sneer: X?.sneer || 0, beardA: o.beardA, beardB: o.beardB,
       mouthA: [Math.min(1, (M?.open ?? cf?.open ?? 0) + (X?.jaw || 0)), M?.wide ?? 0, M?.round ?? cf?.round ?? 0], mouthB: [M?.press ?? 0, M?.teeth ?? 0, M?.tongue ?? 0], blink: o.key.sculpt ? blink : 0, faceUp: faceUpOf(o.key), realEye: o.key.sculpt && o.key.level === 'hd', gaze: eyes, gloves: o.gloves, glove: o.glove, neck: o.neck, slit: o.slit, wild: o.wild, mark: o.mark, markCol: o.markCol, wrapCol: o.wrapCol });
   }
@@ -520,7 +578,8 @@ const GRIP = { spread: [-0.55, -0.55, 0, 0], holdup: [-0.5, -0.5, 0, 0], clap: [
 // a hand with something in it keeps hold of it, whatever the clip says
 // (a glass in a full grip; a cigarette between the fingers, so they stay nearly straight)
 const holding = (g, prop) => { if (!prop) return g; const h = propsOf(prop), min = (n) => (n === 'cigarette' ? 0.15 : 0.55); return g.map((v, i) => (i < 2 && h[i ? 'R' : 'L'] ? Math.max(v, min(h[i ? 'R' : 'L'])) : i >= 2 && h[i === 3 ? 'R' : 'L'] ? Math.max(v, 0) : v)); };
-const gripOf = (clip) => GRIP[clip] || GRIP[String(clip || '').replace(/^sit([A-Z])/, (m, c) => c.toLowerCase())] || [0.22, 0.22, 0, 0];
+const gripOf = (c) => gripOf0(String(c || '').replace(/Wide$/, ''));
+const gripOf0 = (clip) => GRIP[clip] || GRIP[String(clip || '').replace(/^sit([A-Z])/, (m, c) => c.toLowerCase())] || [0.22, 0.22, 0, 0];
 // Each person's clip and phase as last drawn, and the one it's easing over from (figurePeople), over CLIP_FADE s.
 const fades = new Map(), CLIP_FADE = 0.4;
 // Each person's cloth lag (figurePeople): the hips' eased position and the clock it was eased at.
@@ -590,6 +649,20 @@ function placeOf(L, body) {
   return { O: L.world(body.at[0], body.at[1], (L.baseAt?.(body.at[0], body.at[1]) || 0) + (body.lift || 0)), AX: [Math.cos(yaw), 0, -Math.sin(yaw)], AY: [0, 1, 0], AZ: [Math.sin(yaw), 0, Math.cos(yaw)] };
 }
 
+// the crowd body's occlusion (figure-occlusion.js), worked out once from its rest frame and kept on the bake
+function crowdOcclusion(B) {
+  if (B.ao) return B.ao;
+  const { nv, idx, preview } = B, P = preview.subarray(0, nv * 3), N = new Float32Array(nv * 3);
+  for (let k = 0; k < idx.length; k += 3) {
+    const a = idx[k] * 3, b = idx[k + 1] * 3, c = idx[k + 2] * 3;
+    const ux = P[b] - P[a], uy = P[b + 1] - P[a + 1], uz = P[b + 2] - P[a + 2], vx = P[c] - P[a], vy = P[c + 1] - P[a + 1], vz = P[c + 2] - P[a + 2];
+    const nx = uy * vz - uz * vy, ny = uz * vx - ux * vz, nz = ux * vy - uy * vx;
+    for (const j of [a, b, c]) { N[j] += nx; N[j + 1] += ny; N[j + 2] += nz; }
+  }
+  B.ao = occlusionOf({ P, N, I: idx });
+  return B.ao;
+}
+
 // ── The crowd's body ────────────────────────────────────────────────────────────────────────────────
 // `bodies` is [{ id, at: [u, v], yaw (host), pose: 'stand'|'sit'|'lie', head: [du, dv], top }] in the
 // layout's frame; `t` seconds moves the clips. Returns a batch, empty until preparePeople has run.
@@ -597,6 +670,7 @@ export function peopleBatch(L, bodies, t = 0) {
   const b = createBatch(16384);
   if (!bake || !bodies.length) return b;
   const { nv, idx, preview, mat, clips } = bake;
+  const AO = crowdOcclusion(bake);
   const P = new Float32Array(nv * 3), Nn = new Float32Array(nv * 3);
   for (const body of bodies) {
     const clip = clips[body.pose === 'sit' ? 'sit' : 'idle'] || clips.idle;
@@ -632,8 +706,9 @@ export function peopleBatch(L, bodies, t = 0) {
     const o = dress(body.id), uv = [0, 0];
     for (let k = 0; k < idx.length; k++) {
       const i = idx[k], m = mat[i], j = i * 3, l = Math.hypot(Nn[j], Nn[j + 1], Nn[j + 2]) || 1;
-      // a little darker low down, where the room's light doesn't reach
-      const ao = 0.7 + 0.3 * Math.min(1, Math.max(0, (P[j + 1] - O[1]) / 0.9));
+      // shut-in places darker (the body's own occlusion, baked once), and a little darker low down, where the
+      // room's light doesn't reach
+      const ao = (0.78 + 0.22 * Math.min(1, Math.max(0, (P[j + 1] - O[1]) / 0.9))) * (0.6 + 0.4 * AO[i]);
       const c = o.col[m] || [0.5, 0.5, 0.5];
       vtx(b, [P[j], P[j + 1], P[j + 2]], [Nn[j] / l, Nn[j + 1] / l, Nn[j + 2] / l], uv, [c[0] * ao, c[1] * ao, c[2] * ao], o.surf[m] ?? MAT.CLOTH);
     }

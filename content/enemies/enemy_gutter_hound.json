@@ -102,6 +102,7 @@
       "$enemy drops its head, hackles up, and stalks $player.",
       "$enemy breaks into a splashing charge at $player."
     ],
+    "fauna": "quadruped/hound",
     "first_strike_delay_ms": 5000,
     "leash_radius": 8
   },

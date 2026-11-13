@@ -1,0 +1,29 @@
+{
+  "description": "A tall column of rice paper on four black feet, lit from inside. It throws a soft light at the glass so the city has something warm to look at for once.",
+  "flags": {
+    "interactions": [
+      "examine"
+    ],
+    "look": {
+      "arche": "prop",
+      "form": "lantern"
+    },
+    "spot": {
+      "at": [
+        2.9,
+        0.6
+      ],
+      "turn": 0
+    }
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_solenne_b_lantern",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "paper lantern",
+  "object_type": "furniture",
+  "power_draw_kw": null,
+  "price": 380,
+  "zone_id": "zone_solenne_apt_b"
+}

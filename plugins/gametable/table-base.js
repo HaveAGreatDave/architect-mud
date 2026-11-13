@@ -22,7 +22,8 @@
 
 import { query } from '../../server/models/db.js';
 import { sendToPlayer, sendToZone } from '../../server/engine/messaging.js';
-import { getLivePlayer, getZoneNpcs, world, updateNpc } from '../../server/engine/world.js';
+import { getLivePlayer, getZoneNpcs, world, updateNpc, doorOnLink, getZone } from '../../server/engine/world.js';
+import { emit } from '../../server/engine/events.js';
 
 // ⚠ Keep the live player in step with the DB. Other code writes the balance
 // back from memory (SET credits=$1 with player.credits), so a DB-only change
@@ -35,6 +36,28 @@ export function syncLiveCredits(playerId, credits) {
 import { moveEntity } from '../../server/engine/ai-behaviour.js';
 import { findPath } from '../../server/engine/pathfinding.js';
 import { isGuest, guestRefusal } from '../../server/engine/guest.js';
+
+// Somebody on their way in who finds the door locked knocks every KNOCK_EVERY_MS and gives up after KNOCK_GIVE_UP_MS.
+const KNOCK_EVERY_MS = 7_000, KNOCK_GIVE_UP_MS = 150_000;
+// A dealer hired in for a private table comes over from wherever she was: this long until she's at the door.
+const HIRED_COMING_MS = 15_000;
+
+// The door on the link from `a` to `b`, if it's shut and locked. Either side's record will do.
+export function lockedDoorBetween(a, b) {
+  const d = doorOnLink(a, null, b) || doorOnLink(b, null, a);
+  return d && d.hp > 0 && d.lock_state === 'locked' ? d : null;
+}
+// The door into a room from outside it, and the zone on its far side. An en-suite's door doesn't count: its far
+// side is a room whose parent is this one.
+export function entryDoorOf(zoneId) {
+  for (const d of world.doors.values()) {
+    if (d.zone_id !== zoneId && d.target_zone !== zoneId) continue;
+    const far = d.zone_id === zoneId ? d.target_zone : d.zone_id;
+    if (!far || getZone(far)?.parent_zone === zoneId) continue;
+    return { door: d, outside: far };
+  }
+  return null;
+}
 
 const SEAT_RETAIN_MS = 60_000; // hold seat for a disconnected player before standing them up
 
@@ -58,7 +81,10 @@ export class TableBase {
 
     // seats: fixed array. null = empty. Each entry at minimum:
     // { playerId, handle, seatIdx } — subclasses add their own fields (chips, …)
-    this.seats = Array(this.constructor.MAX_SEATS).fill(null);
+    // A table may ask for its own seat count (config.seats); a game class caps it at MAX_SEATS_LIMIT.
+    const cap = this.constructor.MAX_SEATS_LIMIT || this.constructor.MAX_SEATS;
+    const want = Number(this.config.seats) || this.constructor.MAX_SEATS;
+    this.seats = Array(Math.max(2, Math.min(cap, want))).fill(null);
 
     // spectators: Set of player IDs watching but not seated
     this.spectators = new Set();
@@ -100,7 +126,7 @@ export class TableBase {
     const state = typeof row.state === 'string' ? JSON.parse(row.state) : (row.state || {});
     if (state.seats) {
       for (const s of state.seats) {
-        if (s && s.seatIdx >= 0 && s.seatIdx < this.constructor.MAX_SEATS) {
+        if (s && s.seatIdx >= 0 && s.seatIdx < this.seats.length) {
           this.seats[s.seatIdx] = s;
         }
       }
@@ -264,6 +290,8 @@ export class TableBase {
   // removed from the zone set on death, but the hp guard is belt-and-suspenders.
   _dealerNpc() {
     const alive = n => n && (n.hp == null || n.hp > 0);
+    // a dealer hired in for a self-dealt table (`calldealer` there): RAM only, gone on a restart
+    if (this.hiredDealer) return this.hiredDealer;
     const npcs = getZoneNpcs(this.zoneId).filter(alive);
     if (this.dealerNpcId) return npcs.find(n => n.id === this.dealerNpcId) || null;
     return npcs.find(n => n.flags?.table_id === this.id)
@@ -278,9 +306,23 @@ export class TableBase {
   }
 
   // Is a dealer physically present at the table right now?
+  // `config.selfDeal`: a private table with no dealer NPC; the players deal it themselves.
+  // A table nobody's assigned to deal (no `dealerNpcId`, no NPC with `flags.table_id`) is dealt by its players too,
+  // the button going round; an establishment's table, whose dealer is on the books, still waits for them.
   hasDealer() {
-    return !!this._dealerNpc();
+    return !!this.config.selfDeal || !!this._dealerNpc() || !this.hasOwnDealer();
   }
+
+  // Whether the table has a dealer on its books, here or not (alive).
+  hasOwnDealer() {
+    const alive = (n) => n && (n.hp == null || n.hp > 0);
+    if (this.dealerNpcId) return alive(world.npcs.get(this.dealerNpcId));
+    for (const n of world.npcs.values()) if (alive(n) && n.flags?.table_id === this.id) return true;
+    return false;
+  }
+
+  // Nobody dealing but the players: the button deals.
+  selfDealt() { return !this._dealerNpc(); }
 
   // Rush the table's assigned dealer to the felt if he's elsewhere and free.
   // Only the NPC already tagged as this table's dealer may be summoned this
@@ -309,7 +351,51 @@ export class TableBase {
 
   // Advance the incoming dealer two zones per tick — he's rushing, not
   // strolling. Called from the plugin tick.
+  // Somebody at a locked door on their way in: a knock the room inside hears, and the knocker's arm seen from the
+  // corridor (plugins/roomstage `room.knock`). `who` is { id, name } and may be a hired dealer with no zone.
+  _knock(who, door, outside, inside) {
+    sendToZone(inside, { type: 'zone_event', message: `<span style="color:var(--yellow)">Somebody knocks at the door.</span>` });
+    if (outside && getZone(outside)) sendToZone(outside, { type: 'zone_event', message: `${who.name} knocks on the door and waits.` });
+    emit('door.knock', { door, outside, inside, knockerId: who.id, name: who.name });
+  }
+
+  // Hire a dealer in (`calldealer` at a private table): she's sent for, walks over and comes in at the door. A
+  // locked door keeps her knocking outside until somebody opens it. RAM only, like the hand.
+  sendForHiredDealer(name) {
+    const e = entryDoorOf(this.zoneId);
+    this._hiredComing = { name, at: Date.now() + HIRED_COMING_MS, door: e?.door?.id || null, outside: e?.outside || null, since: 0, knockAt: 0 };
+  }
+  stepHiredDealer() {
+    const w = this._hiredComing, now = Date.now();
+    if (!w || now < w.at) return;
+    const door = w.door ? world.doors.get(w.door) : null, who = { id: `hired_dealer_${this.id}`, name: w.name };
+    if (door && door.hp > 0 && door.lock_state === 'locked') {
+      if (!w.since) w.since = now;
+      if (now - w.since > KNOCK_GIVE_UP_MS) {
+        this._hiredComing = null;
+        sendToZone(this.zoneId, { type: 'zone_event', message: `<span style="color:var(--yellow)">Nobody's answered. ${w.name} gives up and goes home.</span>` });
+        return;
+      }
+      if (now - w.knockAt >= KNOCK_EVERY_MS) { w.knockAt = now; this._knock(who, door, w.outside, this.zoneId); }
+      return;
+    }
+    this._hiredComing = null;
+    this.hiredDealer = { id: who.id, name: w.name, sex: 'female', npc_type: 'dealer', hp: null, flags: { table_id: this.id }, hired: true };
+    this.markWalkIn(who.id);
+    sendToZone(this.zoneId, { type: 'zone_event', message: `<span style="color:var(--yellow)">${w.name} lets herself in, shakes out the deck and takes the end of the table.</span>` });
+    this._dealerSay('Evening. House rules: no string bets, no crying on the felt.');
+    this.pushPaneAll();
+  }
+  // Somebody just came in at the door: the Room Stage walks them from it to their place rather than putting them
+  // there (plugins/gametable `room.tablePeople` passes `entered` on). Forgotten after a minute.
+  markWalkIn(id) {
+    (this._walkIns ||= new Map()).set(id, Date.now());
+    for (const [k, t] of this._walkIns) if (Date.now() - t > 60_000) this._walkIns.delete(k);
+  }
+  walkInOf(id) { const t = this._walkIns?.get(id); return t && Date.now() - t < 60_000 ? t : null; }
+
   stepIncomingDealer() {
+    this.stepHiredDealer();
     const w = this._incomingDealer;
     if (!w) return;
     for (let hop = 0; hop < 2; hop++) {
@@ -321,6 +407,7 @@ export class TableBase {
     }
     if (w.npc.zone_id === this.zoneId) {
       this._incomingDealer = null;
+      this.markWalkIn(w.npc.id);
       this._checkAutoStart();
       this._dealerSay("Sorry, folks. Let's get back to it.");
       this.pushPaneAll();
@@ -369,7 +456,13 @@ export class TableBase {
 
     if (npc.zone_id === this.zoneId) return this.seatBot(npc);
 
-    const path = findPath(npc.zone_id, this.zoneId, { maxDistance: 60 });
+    // they come from wherever they are, on foot; a locked door on the way stops them knocking (stepIncomingBots)
+    let path = findPath(npc.zone_id, this.zoneId, { maxDistance: 60 });
+    if ((!path || path.length < 2) && this.config.selfDeal) {
+      // too far to walk the whole way: they turn up outside the door, as somebody who took a cab would
+      const e = entryDoorOf(this.zoneId);
+      if (e && moveEntity(npc, e.outside, sendToZone, query, { teleport: true })) path = [e.outside, this.zoneId];
+    }
     if (!path || path.length < 2) return { ok: false, error: `${npc.name} can't get here from where they are.` };
     if (npc._ai) npc._ai.waitUntil = Date.now() + 3_600_000; // freeze their AI while we drive them
     this._incomingBots.push({ npc, path, step: 1 });          // step 0 is their current zone
@@ -384,9 +477,25 @@ export class TableBase {
     for (const w of this._incomingBots) {
       const next = w.path[w.step];
       const moved = next && moveEntity(w.npc, next, sendToZone, query);
-      if (!moved) { if (w.npc._ai) w.npc._ai.waitUntil = null; continue; } // arrived-off-path or blocked
+      if (!moved) {
+        // a locked door: they knock and wait for somebody to open it, and go home if nobody does
+        const door = next && lockedDoorBetween(w.npc.zone_id, next), now = Date.now();
+        if (door) {
+          w.since ||= now;
+          if (now - w.since <= KNOCK_GIVE_UP_MS) {
+            if (now - (w.knockAt || 0) >= KNOCK_EVERY_MS) { w.knockAt = now; this._knock(w.npc, door, w.npc.zone_id, next); }
+            still.push(w);
+            continue;
+          }
+          sendToZone(w.npc.zone_id, { type: 'zone_event', message: `${w.npc.name} gives up on the door and wanders off.` });
+        }
+        if (w.npc._ai) w.npc._ai.waitUntil = null;
+        continue;
+      } // arrived-off-path or blocked
+      w.since = 0;
       w.step++;
       if (w.npc.zone_id === this.zoneId) {
+        this.markWalkIn(w.npc.id);
         this.seatBot(w.npc)
           .then(r => {
             if (r.ok) this._dealerSay(this._botArrivedLine(w.npc));

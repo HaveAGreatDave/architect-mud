@@ -30,6 +30,11 @@ The rule that runs through the list is the one [house-voice.md](house-voice.md) 
 | The Fifth Element (1997) | The close-up figure's strap-wrap underwear: pale bands round the body with skin between, and bright braces. The idea only, not the costume. | [hd-figure.md](../proposals/hd-figure.md) |
 | Preston Blair, *Cartoon Animation* | The animator's mouth chart: a handful of shapes standing for all the sounds, which is what lip sync's `MOUTHS` are. | [sculpted-figure.md](../proposals/sculpted-figure.md) |
 | The FoxTrax puck | The glowing puck halo and the tail that turns red at speed. | [systems-broadcast.md](../systems-broadcast.md) |
+| Neon Genesis Evangelion | The bestiary's one accent per enemy, after the Angels' red core; pure geometry for the Architect's own. | [bestiary-art-direction.md](../proposals/bestiary-art-direction.md) |
+| Princess Mononoke and Nausicaä (Studio Ghibli) | The fused masses as the tatarigami's writhing black flesh; eyes that carry a state, after the Ohmu; designed shadow colours, after Michiyo Yasuda. | [bestiary-art-direction.md](../proposals/bestiary-art-direction.md) |
+| Promare and Cyberpunk: Edgerunners (Studio Trigger) | A shape grammar per faction; rim colour set by the feeling; the street animals' neon back light. | [bestiary-art-direction.md](../proposals/bestiary-art-direction.md) |
+| Akira | A glow's white core with its halo shifting to cyan. | [bestiary-art-direction.md](../proposals/bestiary-art-direction.md) |
+| Ghost in the Shell (the Tachikoma) | The maintenance drone's curious head tilt. | [bestiary-art-direction.md](../proposals/bestiary-art-direction.md) |
 
 ## Writing
 
@@ -105,6 +110,15 @@ Most of the murmuration's numbers come from the STARFLAG and COBBS reconstructio
 
 All in [birds.js](../../client/shared/birds.js).
 
+### Cats
+
+| Paper | What it gives |
+|---|---|
+| Litchfield et al. 2017, "The 'Feline Five'" (PLOS ONE) | The five axes of a cat's personality: skittish, outgoing, dominant, impulsive and friendly. |
+| Inigo Quilez, distance functions | The ellipsoid and round-cone estimates and the smooth union the cat is carved from, as the statue was. |
+
+In [pets.md](../proposals/pets.md) and [cat-kit.js](../../client/game/js/panels/gl/cat-kit.js).
+
 ### The sea
 
 Code: [sea-swell.js](../../client/shared/sea-swell.js), [water.js](../../client/game/js/panels/gl/water.js). Doc: [glass-notes.md](glass-notes.md).
@@ -130,6 +144,12 @@ Code: [sea-swell.js](../../client/shared/sea-swell.js), [water.js](../../client/
 | GGX, Smith shadowing, Schlick's Fresnel | The materials pass, aimed at three.js's MeshStandardMaterial. | [glass-materials.md](../proposals/glass-materials.md) |
 | Catmull-Rom with Kochanek-Bartels | Animation playback between keys. | [deadball-glass2.md](../proposals/deadball-glass2.md) |
 | Newell's method | Polygon normals. | [glass-notes.md](glass-notes.md) |
+| Roystan's toon shader; GPU Gems ch. 16 (wrap lighting) | The beasts' rim and the scatter band through a membrane or a slime. | [beast-light.js](../../client/game/js/panels/gl/beast-light.js) |
+| Belcour and Barla; Stavenga et al. on jewel beetles | The stepped thin film on chitin, oil and glass, bluer at a grazing angle. | [beast-light.js](../../client/game/js/panels/gl/beast-light.js) |
+| Helland's colour-temperature fit; UCSB dragonfish data | The burn family's blackbody ramp and the deep family's blue-green and far-red. | [bestiary-art-direction.md](../proposals/bestiary-art-direction.md) |
+| Catster's cat paw anatomy (catster.com, "Cat Paw Facts") | A cat's paw: four toes in an arc with a bean under each, the big pad behind them, the carpal pad up the back of the wrist and the dewclaw on the inside, on the forepaws only. | [beast-legs.js](../../client/game/js/panels/gl/beast-legs.js) |
+| Chris Wilson, "How to Draw Cat Paws" and "How to Draw a Cat Face" (chriswilsonstudio.com) | The paw wider than the leg, its outline running on from it, the middle toes forward; the face's eyes one eye's width apart and the nose lower than you'd think. | [beast-legs.js](../../client/game/js/panels/gl/beast-legs.js), [bestiary-art-direction.md](../proposals/bestiary-art-direction.md) |
+| Shell fur (Lengyel et al., "Real-Time Fur over Arbitrary Surfaces", 2001) | Fur drawn as layers over the skin, each cut down to the strands that reach it. | [beast-light.js](../../client/game/js/panels/gl/beast-light.js) |
 
 ### Speech
 
@@ -175,6 +195,23 @@ Every recording the game plays from [field-recordings.js](../../client/shared/fi
 | [wind.wav](https://freesound.org/people/nithala/sounds/525292/) | nithala | `wind`, loop |
 | [Wind__Artic__Cold.wav](https://freesound.org/people/cobratronik/sounds/117136/) | cobratronik | `blizzard`, loop |
 | [hail_rain.wav](https://freesound.org/people/MLaudio/sounds/521375/) | MLaudio | `hail`, loop |
+| [Wind 2.mp3](https://freesound.org/people/FunWithSound/sounds/390740/) | FunWithSound | `wind_breeze`, loop |
+| [Forest, close up of trees rustling in the wind.wav](https://freesound.org/people/Anya_Media/sounds/523389/) | Anya_Media | `leaves`, loop |
+| [Wind-Gusts-late-autumn.wav](https://freesound.org/people/BudJillett/sounds/109485/) | BudJillett | `wind_gusty`, loop |
+| [Howling Wind Ambience](https://freesound.org/people/DBlover/sounds/405601/) | DBlover | `wind_strong`, loop |
+| [Gale Wind.wav](https://freesound.org/people/LanDub/sounds/181935/) | LanDub | `wind_gale`, loop |
+| [Heavy gusts of wind](https://freesound.org/people/SamsterBirdies/sounds/565140/) | SamsterBirdies | `gusts`, calls |
+| [rain 1.wav](https://freesound.org/people/FenrirFangs/sounds/231687/) | FenrirFangs | `rain_drizzle`, loop |
+| [Light rain on street.wav](https://freesound.org/people/BonnyOrbit/sounds/380651/) | BonnyOrbit | `rain_street`, loop |
+| [rain-on-canvas-awning.wav](https://freesound.org/people/1888software/sounds/554577/) | 1888software | `rain_awning`, loop |
+| [AMB_Ext_Rain_Residential_002.wav](https://freesound.org/people/conleec/sounds/149240/) | conleec | `rain_yards`, loop |
+| [Hard Rain Strong Winds](https://freesound.org/people/Syphon64/sounds/135162/) | Syphon64 | `rain_windy`, loop |
+| [Passing cars on wet cobblestone street, light rain, city](https://freesound.org/people/Pfannkuchn/sounds/258163/) | Pfannkuchn | `wet_traffic`, loop |
+| [Small quiet street ambience](https://freesound.org/people/Oper8/sounds/241135/) | Oper8 | `street_quiet`, loop |
+| [People Ambience In The Old Town](https://freesound.org/people/WhiteNoiseSleeper/sounds/725605/) | WhiteNoiseSleeper | `street_people`, loop |
+| [Morning Ambience city](https://freesound.org/people/davidco80/sounds/164213/) | davidco80 | `city_day`, loop |
+| [Night city atmosphere](https://freesound.org/people/Soundkrampf/sounds/237329/) | Soundkrampf | `city_night`, loop |
+| [NightCity-1.wav](https://freesound.org/people/Dr.%20Macak/sounds/252690/) | Dr. Macak | `city_roof`, loop |
 | [Water wave Beach Field-recording 200815_0036.wav](https://freesound.org/people/szegvari/sounds/530699/) | szegvari | `surf_beach`, loop |
 | [Crashing Waves into Rocks 2](https://freesound.org/people/amholma/sounds/376801/) | amholma | `surf_rocks`, loop |
 | [Water_Lapping_Windy_Day_Gore_Creek_2.wav](https://freesound.org/people/DangerLaef/sounds/692542/) | DangerLaef | `harbour_lap`, loop |

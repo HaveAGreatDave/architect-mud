@@ -13,6 +13,8 @@
 import { MAT } from './ballpark-mesh.js';
 import { HUNG_AT, LACQUER_BODY } from '../../../../shared/room-layout.js';
 import { drawLab } from './lab-mesh.js';
+import { OFFICE_FORMS } from './room-office.js';
+import { saloonBar, saloonBackBar, SALOON_FORMS } from './room-saloon.js';
 
 const { GLOSS, METAL, LEATHER, SATIN, CLOTH, MATTE } = MAT;
 // A sheet of flame: gl/room.js burns it and it's on no switch. No MAT code is 43.
@@ -223,6 +225,10 @@ function hanging(c, x0, x1, y, z) {
 }
 
 const FORMS = {
+  // a corner computer desk and its chair (gl/room-office.js)
+  ...OFFICE_FORMS,
+  // an old bar's run of stools and its jukebox (gl/room-saloon.js)
+  ...SALOON_FORMS,
   // ── sitting and lying ─────────────────────────────────────────────────────────────────────────
   armchair(c) {
     // a deep chair: a rounded body on short legs, a cushion, wings; a throw on a worn one
@@ -436,12 +442,16 @@ const FORMS = {
     const { F, p } = c, { pbox, alongY } = F, hw = p.w / 2, hd = p.d / 2, h = p.h, zf = hd - 0.04, steel = { t: 'roomSteel', c: '#d0d4d8' };
     c.R(...alongY(), 0.06, h, -hw + 0.008, hw - 0.008, -hd, zf, 0.03, steel, 0.96, METAL);
     pbox(-hw + 0.02, hw - 0.02, 0, 0.06, -hd + 0.04, zf - 0.05, '#141414', 0.9);
+    c.coldInside?.(-hw + 0.02, hw - 0.02, 0.08, h - 0.03, zf, true);
+    // the door, its handle and its read-out swing together, on hinges at the left
+    c.K.mark?.('swing', { side: -1 });
     c.R(...alongY(), 0.07, h - 0.015, -hw + 0.01, hw - 0.01, zf, zf + 0.035, 0.012, steel, 1.02, METAL);
     const hx = hw - 0.07;
     c.rod(F.P(hx, h * 0.35, zf + 0.06), F.P(hx, h * 0.8, zf + 0.06), 0.012, '#e0e4e8', 1.1);
     for (const y of [h * 0.35, h * 0.8]) c.rod(F.P(hx, y, zf + 0.035), F.P(hx, y, zf + 0.06), 0.008, '#e0e4e8', 1.1);
     pbox(-0.05, 0.05, h - 0.12, h - 0.09, zf + 0.035, zf + 0.037, '#0a1a24', 1, null, GLOSS);
     pbox(-0.04, 0.0, h - 0.113, h - 0.097, zf + 0.037, zf + 0.0385, '#7ad8ff', 1.6);
+    c.K.mark?.('body');
   },
 
   // ── kitchen ───────────────────────────────────────────────────────────────────────────────────
@@ -513,6 +523,8 @@ const FORMS = {
     for (const x of [-0.03, 0.03]) c.rod(F.P(x, y + h * 0.6, hd - 0.03), F.P(x, y + h * 0.5, hd - 0.03), 0.008, '#c8ccd0', 1.05);
   },
   bar(c) {
+    // a saloon's (`look.dress: 'saloon'`) is panelled mahogany under a padded rail (gl/room-saloon.js)
+    if (c.p.dress === 'saloon') return saloonBar(c);
     // a bar you stand at: a reeded oak front under a slab that comes down both ends to the floor, a
     // brass rail for your foot, a line of light under the lip. Its front faces whoever's drinking
     // In a club (spec.club) it's chipped black laminate with red light under the lip and a chrome rail
@@ -632,6 +644,8 @@ const FORMS = {
     fireDial(c.K, F, p.id, (ox + hw) / 2, Math.min(y1 - 0.14, 0.95), zf, Math.min(1.25, (hw - ox) / 0.24));
   },
   barwall(c) {
+    // a saloon's back bar: arched mirror bays and columns over the counter (gl/room-saloon.js)
+    if (c.p.dress === 'saloon') return saloonBackBar(c);
     // a bar wall: a walnut cabinet to the worktop, then glass shelves of bottles lit from behind.
     // What it hides is nobody's business here: a concealed piece isn't in the payload until it's found
     // In a club (spec.club) the cabinet's black, and the shelves are lit red from behind
@@ -641,18 +655,42 @@ const FORMS = {
     const n = Math.max(2, Math.round(p.w / 0.55));
     for (let i = 0; i < n; i++) { const x0 = -hw + 0.006 + i * p.w / n, x1 = x0 + p.w / n - 0.012; pbox(x0, x1, 0.09, 0.91, hd - 0.02, hd - 0.004, cab, 1, wal, SATIN); }
     pbox(-hw - 0.01, hw + 0.01, 0.92, 0.96, -hd, hd + 0.01, club ? '#2a282c' : '#8a8c8e', 1, club ? null : STONE, GLOSS);
+    const brass = club ? '#8a1a2a' : '#b08a4a', glow = club ? '#ff3050' : '#e8b070';
+    // the back: a smoked mirror in a thin frame, lit by a strip down each side and a wash from the cornice,
+    // so the bottles stand dark against it with a rim of light
     pbox(-hw, hw, 0.96, h, -hd, -hd + 0.03, club ? '#1a0a10' : '#2a2018', 0.9, null, SATIN);
-    pbox(-hw + 0.05, hw - 0.05, 1.0, h - 0.1, -hd + 0.03, -hd + 0.034, club ? '#ff3050' : '#e8b070', 1.5);
+    pbox(-hw + 0.1, hw - 0.1, 1.02, h - 0.14, -hd + 0.03, -hd + 0.036, club ? '#2a1218' : '#3a3630', 1.25, null, GLOSS);
+    for (const x of [-hw + 0.06, hw - 0.08]) pbox(x, x + 0.02, 1.0, h - 0.1, -hd + 0.03, -hd + 0.04, glow, 1.6);
+    pbox(-hw + 0.05, hw - 0.05, h - 0.12, h - 0.1, -hd + 0.03, -hd + 0.05, glow, 1.5);
     pbox(-hw, -hw + 0.04, 0.96, h, -hd, hd - 0.1, cab, 1, wal, SATIN);
     pbox(hw - 0.04, hw, 0.96, h, -hd, hd - 0.1, cab, 1, wal, SATIN);
     pbox(-hw, hw, h - 0.06, h, -hd, hd - 0.1, cab, 1, wal, SATIN);
+    // a stepped cornice over it all
+    pbox(-hw - 0.015, hw + 0.015, h - 0.02, h, -hd, hd - 0.07, cab, 1.05, wal, SATIN);
+    pbox(-hw, hw, h - 0.075, h - 0.06, -hd, hd - 0.085, brass, 1.15, null, METAL);
     for (const y of [1.22, 1.56, 1.9]) {
       pbox(-hw + 0.04, hw - 0.04, y - 0.01, y, -hd + 0.03, hd - 0.12, '#dfe6e8', 0.85, null, GLOSS);
+      // a line of light along the glass's front edge, and a brass gallery rail to keep the bottles on
+      pbox(-hw + 0.05, hw - 0.05, y - 0.014, y - 0.01, hd - 0.13, hd - 0.12, glow, 1.45);
+      c.rod(F.P(-hw + 0.05, y + 0.06, hd - 0.13), F.P(hw - 0.05, y + 0.06, hd - 0.13), 0.006, brass, 1.15, METAL, 6);
       bottles(c, -hw + 0.1, hw - 0.1, y, -0.02, Math.round(p.w / 0.16 + r() * 3));
     }
-    // a pair of glasses and a mixing tin on the top
+    // brass pulls on the doors, a lit toe-kick, and a brass edge to the worktop
+    for (let i = 0; i < n; i++) { const x = -hw + (i + 0.5) * p.w / n; pbox(x - 0.07, x + 0.07, 0.8, 0.815, hd - 0.004, hd + 0.012, brass, 1.2, null, METAL); }
+    pbox(-hw + 0.02, hw - 0.02, 0.06, 0.07, hd - 0.065, hd - 0.055, glow, 1.4);
+    pbox(-hw - 0.01, hw + 0.01, 0.92, 0.93, hd + 0.01, hd + 0.016, brass, 1.15, null, METAL);
+    // on the top: a pair of glasses, a mixing tin and its spoon, an ice bucket, a cut-glass decanter,
+    // and a board with a lemon halved on it
     for (const x of [-0.3, -0.18]) c.lat(x, 0.05, [[0, 0.96], [0.03, 0.96], [0.012, 0.975], [0.012, 1.04], [0.042, 1.09], [0.042, 1.1], [0, 1.1]], '#dfe6e8', 1, 12, GLOSS);
     c.lat(0.25, 0.04, [[0, 0.96], [0.045, 0.96], [0.055, 1.14], [0, 1.14]], '#c8ccd0', 1.05, 14, METAL);
+    c.rod(F.P(0.26, 1.0, 0.03), F.P(0.31, 1.23, 0.05), 0.004, '#d8dade', 1.2, METAL, 5);
+    if (hw > 0.7) {
+      c.lat(-hw + 0.32, 0.04, [[0, 0.96], [0.08, 0.96], [0.095, 1.15], [0.1, 1.16], [0, 1.16]], '#c8ccd0', 1.1, 16, METAL);
+      c.lat(-hw + 0.32, 0.04, [[0, 1.13], [0.085, 1.13], [0.07, 1.15], [0, 1.15]], '#e8f2f4', 1.3, 10, GLOSS);
+      c.lat(hw - 0.3, 0.06, [[0, 0.96], [0.06, 0.96], [0.075, 1.04], [0.06, 1.12], [0.016, 1.16], [0.016, 1.2], [0.028, 1.21], [0.028, 1.24], [0, 1.24]], club ? '#6a1a24' : '#8a4a1a', 1.1, 12, GLOSS);
+      pbox(0.42, 0.62, 0.96, 0.975, -0.04, 0.12, '#8a6440', 1, wal, SATIN);
+      for (const x of [0.48, 0.55]) c.lat(x, 0.04, [[0, 0.975], [0.032, 0.975], [0.03, 0.99], [0.015, 1.0], [0, 1.0]], '#e8c83a', 1.15, 10, SATIN);
+    }
   },
 
   chemwall(c) {
@@ -673,6 +711,8 @@ const FORMS = {
     c.R(...alongZ(), -hd + 0.15, -hd + 0.26, -0.09, 0.09, 0.1, 0.4, 0.04, col, 0.94, surf);
     c.lat(0, -hd + 0.42, [[0.165, 0.4], [0.185, 0.405], [0.185, 0.425], [0.12, 0.425], [0.12, 0.41]], '#f2efe8', 1, 18, GLOSS);
     c.lat(0, -hd + 0.42, [[0, 0.401], [0.12, 0.401]], '#9aa8b0', 0.55, 16, GLOSS);
+    // the lid, up: stood on its hinge and resting against the cistern
+    c.R(...alongX(), -0.17, 0.17, -hd + 0.185, -hd + 0.21, 0.43, 0.84, 0.012, '#f2efe8', 1, GLOSS);
     c.rod(F.P(hw - 0.08, 0.7, -hd + 0.19), F.P(hw - 0.18, 0.72, -hd + 0.2), 0.008, '#c8ccd0', 1.05);
   },
   hung(c) {
@@ -685,6 +725,9 @@ const FORMS = {
     c.lat(0, -hd + 0.36, [[0.03, 0.16], [0.13, 0.2], [0.17, 0.3], [0.18, 0.38], [0, 0.38]], '#e8e4da', 0.97, 20, GLOSS);
     c.R(...alongZ(), -hd + 0.12, -hd + 0.26, -0.13, 0.13, 0.2, 0.38, 0.05, '#e8e4da', 0.95, GLOSS);
     c.lat(0, -hd + 0.36, [[0.16, 0.38], [0.185, 0.385], [0.185, 0.4], [0, 0.402]], '#f2efe8', 1, 20, GLOSS);
+    // the lid, up against the panel
+    const { alongX } = F;
+    c.R(...alongX(), -0.17, 0.17, -hd + 0.12, -hd + 0.145, 0.41, 0.8, 0.012, '#f2efe8', 1, GLOSS);
   },
   stall(c) {
     // a shower: a tray, a tiled back, a glass door and screen, a riser and a head

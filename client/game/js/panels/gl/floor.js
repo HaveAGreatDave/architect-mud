@@ -88,6 +88,12 @@ uniform float uFreq;       // RENDER_TUNE.tile
 uniform float uCwarp;      // coast warp amplitude, in tiles
 uniform vec2  uWc;         // the window centre in WORLD tiles — the warp phase is absolute
 uniform float uSeamEB;
+// Holes in the ground: a truck shed's lift well while its platform is down (windshield.js BAY_LIFT), so the
+// basement under the shed shows through it. x0, y0, x1, y1 in world tiles; nothing is drawn inside one, and
+// it writes no depth, so whatever stands below the ground there is seen.
+#define MAX_HOLE 2
+uniform vec4  uHole[MAX_HOLE];
+uniform int   uHoleN;
 
 // The wildlands palette, for the ground past the window. Uniforms rather than literals because
 // these two are BIOME_GROUND.badlands and .redrock, which the LUT paints the near half of the same
@@ -543,6 +549,12 @@ void main() {
   }
   float wx = uA.x + d * uSinh + l * uCosh;
   float wy = uA.y - d * uCosh + l * uSinh;
+  for (int i = 0; i < MAX_HOLE; i++) {
+    if (i >= uHoleN) break;
+    vec4 hb = uHole[i];
+    vec2 aw = vec2(wx, wy) + uWc;
+    if (aw.x > hb.x && aw.x < hb.z && aw.y > hb.y && aw.y < hb.w) discard;
+  }
 
   // Everything above the horizon belongs to the sky pass; leave it alone rather than painting over
   // it, because this buffer is composited onto a frame that already has a sky in it.
@@ -1496,6 +1508,7 @@ export function createFloorLayer(gl) {
     wear: U('uWear'), grain: U('uGrain'), toon: U('uToon'), toonBands: U('uToonBands'), mud: U('uMud'),
     hor: U('uHor'), hz: U('uHz'), hazeMax: U('uHazeMax'), nm: U('uNm'),
     freq: U('uFreq'), cwarp: U('uCwarp'), wc: U('uWc'), seamEB: U('uSeamEB'),
+    hole: U('uHole'), holeN: U('uHoleN'),
     farDirt: U('uFarDirt'), farRock: U('uFarRock'), farOn: U('uFarOn'),
     wild: U('uWild'), wildRect: U('uWildRect'), wildOn: U('uWildOn'),
     relief: U('uRelief'), reliefRect: U('uReliefRect'), reliefOn: U('uReliefOn'),
@@ -1579,7 +1592,11 @@ export function createFloorLayer(gl) {
     gl.uniform1f(loc.hz, s.hz); gl.uniform1f(loc.hazeMax, s.hazeMax); gl.uniform1f(loc.nm, s.nm);
     gl.uniform1f(loc.freq, s.freq); gl.uniform1f(loc.cwarp, s.cwarp);
     gl.uniform2f(loc.wc, s.wcx, s.wcy); gl.uniform1f(loc.seamEB, s.seamEB);
-    const fd = s.farDirt || [150, 112, 72], fr = s.farRock || [150, 82, 54];
+    // Written every frame, so a well that has closed isn't left cut out of the ground.
+    const holes = s.holes && s.holes.length ? s.holes.slice(0, 2) : null;
+    gl.uniform1i(loc.holeN, holes ? holes.length : 0);
+    if (holes) gl.uniform4fv(loc.hole, new Float32Array([].concat(...holes, ...(holes.length < 2 ? [[0, 0, 0, 0]] : []))));
+    const fd =s.farDirt || [150, 112, 72], fr = s.farRock || [150, 82, 54];
     gl.uniform3f(loc.farDirt, fd[0] / 255, fd[1] / 255, fd[2] / 255);
     gl.uniform3f(loc.farRock, fr[0] / 255, fr[1] / 255, fr[2] / 255);
     gl.uniform1f(loc.farOn, s.farOn == null ? 1 : s.farOn);

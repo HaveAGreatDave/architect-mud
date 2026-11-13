@@ -1,11 +1,19 @@
 {
-  "description": "Eighty-eight inches of flat glass in a brushed-chrome bezel, wall-hung facing the bed, thinner than a knife. None of the fishbowl bulge, none of the salvaged-CRT wobble everyone else watches the world through. The picture just sits there and stays put. CHROMAVISION is etched across the bottom rail.",
+  "description": "A hundred inches of flat glass in a brushed-chrome bezel, wall-hung facing the bed, thinner than a knife. It doesn't just come on: a line of light, a slow glow, CHROMAVISION spelled out in thin capitals, then the picture opening out of the middle. Nobody else's set does that.",
   "flags": {
     "broadcast_device_type": "tv",
     "broadcast_receiver": true,
     "interactions": [
       "watch"
     ],
+    "look": {
+      "boot": "Chromavision",
+      "dims": [
+        2.21,
+        0.12,
+        1.25
+      ]
+    },
     "tv": true,
     "tv_dial_freq": 7,
     "tv_skin": "flatscreen"
@@ -15,7 +23,7 @@
   "id": "furn_solenne_tv_apt_b",
   "light_type": null,
   "lumen_output": null,
-  "name": "Polaris Executive Chromavision 88",
+  "name": "Polaris Executive Chromavision 100",
   "object_type": "furniture",
   "power_draw_kw": 2,
   "price": 3500,

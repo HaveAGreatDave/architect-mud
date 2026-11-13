@@ -110,6 +110,47 @@ export function dribble(c, pk, T, dt, rand = Math.random, pocket = null) {
   return true;
 }
 
+// ── the passes ────────────────────────────────────────────────────────────────
+// WHAT KIND OF PASS, AND HOW IT'S PLAYED. A pass is called one of these, by the booth for a
+// staged rush (the kind rides on the touch's cue) or by the between-plays game:
+//   short     the plain one, along the ice
+//   drop      left for a man right behind him, soft, as he skates on
+//   give      straight back to the man who just gave it to him (a give-and-go)
+//   stretch   long up the ice, hard, led into the space ahead of a man going
+//   slot      hard into the slot, from the wall, the corner or the point, for the shot
+//   backhand  off the backhand, to his off side
+//   saucer    lifted over a stick, to land flat
+//   back, cross   back to the point, across the ice
+// `passPlay` turns the call into the pose it's played with (a rig.js SHOTS key) and how hard
+// it goes. Where the man is still decides what can be done: a drop called on a man who's got
+// ahead of him is played as the pass that fits. A called backhand is always off the backhand
+// (the director turns him to put the man on that side first). With no call, it's the pass that
+// fits where the man is. `over` lifts a stretch or a
+// slot pass over a stick in its lane (the booth's saucer is a call of its own).
+// (which side of him a point is on, as his stick has it: + his forehand, - his backhand. A
+// left shot carries his stick on his left, so a right shot's forehand is his right.)
+export const stickSide = (b, x, y) => (-(x - b.x) * Math.sin(b.h) + (y - b.y) * Math.cos(b.h)) * (b.hand === 'R' ? -1 : 1);
+export function passPlay(from, to, call, rand = Math.random, over = false) {
+  const dx = to.x - from.x, dy = to.y - from.y, d = hyp(dx, dy);
+  const lu = dx * Math.cos(from.h) + dy * Math.sin(from.h), fs = stickSide(from, to.x, to.y);
+  // (a called drop goes to a man level with him as well as one behind: he's left it, not passed it)
+  const behind = lu < (call === 'drop' ? 1 : -3);
+  const pose = call === 'saucer' || (over && call !== 'drop') ? 'saucer'
+    : call === 'backhand' ? 'backpass'
+    : behind && d < (call === 'drop' ? 26 : 14) ? 'drop'
+    : (fs < -4 && lu < 8) || behind ? 'backpass'
+    : 'pass';
+  // how hard, off how far it has to go (asked for as it's released, so the dice are thrown then)
+  const spd = (dd = d) => pose === 'drop' ? clamp(dd * 1.8, 16, 28)
+    : call === 'give' ? clamp(dd * 1.6 + 10, 28, 50)
+    : call === 'stretch' ? 80 + rand() * 12
+    : call === 'slot' ? 70 + rand() * 10
+    : pose === 'saucer' ? 60 + rand() * 10
+    : pose === 'backpass' ? 56 + rand() * 12
+    : 64 + rand() * 14;
+  return { pose, spd, lift: pose === 'saucer' ? 7 : 0 };
+}
+
 const SKINS = ['#e0b08c', '#c48d68', '#8f5e40', '#f0c9a8', '#a87454', '#6a4330', '#d9a27e'];
 const HAIRS = ['#2a1c14', '#5a3a22', '#141210', '#8a6a3a', '#3b2a1e', '#c9b48a', '#6b2d16'];
 const ROLE = ['LW', 'C', 'RW', 'LD', 'RD', 'F'];
@@ -182,7 +223,7 @@ export function createWorld(ice, seedKey) {
     view: null,
     cam: { mode: 'broadcast', focus: [100, MID_Y], zoom: 1, net: null },
     ev: [], script: null, puckScripted: false, allowGoal: false, frozen: false,
-    amb: { poss: 'a', nextPass: 1.5, lastTurn: 0, holdUntil: 0, fore: { a: null, h: null }, heldBy: null, heldAt: 0, passTry: -9 },
+    amb: { poss: 'a', nextPass: 1.5, lastTurn: 0, holdUntil: 0, fore: { a: null, h: null }, heldBy: null, heldAt: 0, passTry: -9, gg: null },
     emit: () => {},
     kits: { a: null, h: null },
     pulled: { a: false, h: false },
@@ -1305,6 +1346,7 @@ export function createWorld(ice, seedKey) {
         // easy skating gives a little back, and a whistle gives most. A tired man is slower to
         // his spot and off the mark, and has less control of the puck.
         m.stam = clamp((m.stam ?? 1) + dt * (W.frozen ? 0.05 : m.effort > 0.7 ? -0.006 * (1.3 - (m.rt || RT0).skate) : 0.004), 0.4, 1);
+        if (m.run && (W.t >= m.run.until || m === carrier || W.frozen)) m.run = null;
         if (m.scripted || m.rag || m.blend) continue;
         const isD = m.slot === 3 || m.slot === 4;
         let tx, ty, mv = 19;
@@ -1350,6 +1392,10 @@ export function createWorld(ice, seedKey) {
           const p = W.intercept(m, 24); [tx, ty] = p; mv = 24; m.through = W.t + 0.1;
           const dp = hyp(pk.x - m.x, pk.y - m.y);
           if (dp < 5) { m.face = Math.atan2(pk.y - m.y, pk.x - m.x); if (dp < 1.5) { tx = pk.x - (pk.x - m.x) / (dp || 1) * 1.8; ty = pk.y - (pk.y - m.y) / (dp || 1) * 1.8; mv = 8; } }
+        } else if (m.run && attacking) {
+          // a man a pass play has sent somewhere goes there flat out: into the space for a
+          // give-and-go's return, to the net after his drop pass, on through for a stretch
+          tx = m.run.x; ty = m.run.y; mv = m.run.v; m.through = W.t + 0.1;
         } else if (m === fore && !attacking && !onHim) {
           // the forechecker: on the man with the puck
           const c2 = carrier || pk;
@@ -1374,7 +1420,8 @@ export function createWorld(ice, seedKey) {
         }
         // Out of the road of his own man with the puck: a spot in the lane ahead of him moves
         // to the side of it, or he'd skate a stride in front of him and hold him up.
-        if (carrier && carrier !== m && carrier.side === side) {
+        // (not a man a pass play sent into that lane: he's there to have it)
+        if (carrier && carrier !== m && carrier.side === side && !(m.run && attacking)) {
           const cv = hyp(carrier.vx, carrier.vy), hx = cv > 4 ? carrier.vx / cv : Math.cos(carrier.h), hy = cv > 4 ? carrier.vy / cv : Math.sin(carrier.h);
           const ax = tx - carrier.x, ay = ty - carrier.y, along = ax * hx + ay * hy, lat = -ax * hy + ay * hx;
           if (along > -4 && along < 30 && Math.abs(lat) < 9) {
@@ -1437,9 +1484,29 @@ export function createWorld(ice, seedKey) {
         for (const m of team) if (checkOn(m, carrier)) { A.lastTurn = W.t; break; }
       }
     }
+    // (a give-and-go that's come apart: the passer's been taken out of it, or they have it)
+    {
+      const G = A.gg;
+      if (G && (W.t - G.t0 > 3.5 || G.passer.rag || G.passer.scripted || G.mate.rag || G.mate.scripted || (pk.carrier && pk.carrier.side !== G.passer.side) || (pk.carrier && pk.carrier !== G.mate && pk.carrier !== G.passer))) { G.passer.run = null; A.gg = null; }
+    }
     if (!free || !carrier || carrier.kind !== 'skater' || pk.carrier !== carrier) return;
     // the carrier moves it
     const side = carrier.side, dir = attackDir(side);
+    // THE GIVE-AND-GO COMES BACK. The man it was given to has it a moment, still moving, and
+    // plays it straight back to the passer in the space he skated into, if there's a lane to
+    // him; if not, he keeps it and the play goes on from him.
+    if (A.gg && carrier === A.gg.mate && W.t - A.heldAt > 0.3) {
+      const G = A.gg, opp = W.mates(side === 'a' ? 'h' : 'a');
+      A.gg = null;
+      // (into a tight lane too: that it might be picked off is the risk of the play)
+      const back = laneMargin(carrier, G.passer, 50, opp).margin > -0.3 && hyp(G.passer.x - carrier.x, G.passer.y - carrier.y) < 60;
+      if (back) {
+        A.passTry = W.t; A.nextPass = W.t + 1 + rand() * 1.2;
+        makePass(carrier, G.passer, 'give', opp);
+        return;
+      }
+      G.passer.run = null;
+    }
     // (held a second with a man of theirs on him, he moves it now rather than at his next look)
     const pressed = held > 1 && W.t - (A.passTry ?? -9) > 0.6 && W.mates(side === 'a' ? 'h' : 'a').some((o) => !o.rag && hyp(o.x - carrier.x, o.y - carrier.y) < 6);
     if (W.t > A.nextPass || pressed) {
@@ -1459,28 +1526,44 @@ export function createWorld(ice, seedKey) {
         W.schedule(releaseAt('dump'), () => { if (W.puck.carrier === carrier) W.dumpTo(carrier, offGoal(side) + dir * 4, cy, 64); });
         return;
       }
-      let best = null, bs = -1e9;
+      // THE PLAYS. Each man of his is weighed as somewhere to put it, and the pass is called for
+      // what it is (passPlay):
+      // - in the zone: back to the points, D to D, low to high, and the slot pass, to a forward
+      //   open in front of their net with a clean lane to him (the pass the play's been working for)
+      // - through the neutral zone: ahead to a winger in his lane, and the drop. Coming on to
+      //   their line with a man in front of him, he leaves it for the forward trailing him and
+      //   takes his man to the net with him.
+      // - out of his own end: the stretch, long, to a forward already over our blue line, if the
+      //   lane's clean at the speed a stretch goes
+      // (and only through a lane they can't get a stick into first: the worse it is for the
+      // poorer passer, who can't thread it)
+      const prt = (carrier.rt || RT0).pass;
+      const ownEnd = (carrier.x - RL / 2) * dir < -10;
+      const atLine = !zone && (offBlue(side) - carrier.x) * dir < 28 && (carrier.vx || 0) * dir > 6;
+      const stoodUp = opp.some((o) => !o.rag && hyp(o.x - carrier.x, o.y - carrier.y) < 16 && (o.x - carrier.x) * dir > 2);
+      let best = null, bs = -1e9, bcall = null;
       for (const m of team) {
         const open = Math.min(20, ...opp.map((o) => hyp(o.x - m.x, o.y - m.y)));
         const fwd = (m.x - carrier.x) * dir;
         const d = hyp(m.x - carrier.x, m.y - carrier.y);
-        if (d < 8 || d > 70) continue;
-        // the plays: in the zone, back to the points, D to D, low to high; through the neutral
-        // zone, the stretch pass to a winger in his lane
-        // (and only through a lane they can't get a stick into first: the worse it is for the
-        // poorer passer, who can't thread it)
-        const lm = laneMargin(carrier, m, 70, opp).margin;
-        let sc = open * 1.2 + rand() * 4 - (lm < 0 ? 22 : lm < 0.3 ? (0.3 - lm) * 45 : 0) * (1.2 - 0.4 * (carrier.rt || RT0).pass);
+        const trail = !isDef(m) && fwd < -3 && d < 18;
+        const stretch = ownEnd && !isDef(m) && fwd > 35 && d > 50 && (m.x - RL / 2) * dir > -(RL / 2 - BLUE_X[0]) + 2;
+        if (d < (trail ? 5 : 8) || d > (stretch ? 110 : 70)) continue;
+        const call = stretch ? 'stretch' : trail && atLine && stoodUp ? 'drop'
+          : zone && !isDef(m) && hyp(m.x - offGoal(side), m.y - MID_Y) < 30 && (offGoal(side) - m.x) * dir > 3 ? 'slot' : null;
+        const lm = laneMargin(carrier, m, call === 'stretch' ? 86 : 70, opp).margin;
+        let sc = open * 1.2 + rand() * 4 - (lm < 0 ? 22 : lm < 0.3 ? (0.3 - lm) * 45 : 0) * (1.2 - 0.4 * prt);
         if (zone) sc += (isDef(m) && !isDef(carrier) ? 9 : 0) + (isDef(m) && isDef(carrier) ? 11 : 0) + (!isDef(m) && isDef(carrier) && Math.abs(m.x - offGoal(side)) < 30 ? 6 : 0)
-          // (setting up the shot: a forward open in the slot with a clean lane to him is the
-          // pass the play's been working for)
-          + (!isDef(m) && lm > 0.3 && open > 8 && hyp(m.x - offGoal(side), m.y - MID_Y) < 30 ? 12 : 0);
-        else sc += clamp(fwd, -20, 25) * 0.4 + (m.slot === 0 || m.slot === 2 ? 4 : 0);
-        if (sc > bs) { bs = sc; best = m; }
+          + (call === 'slot' && lm > 0.3 && open > 8 ? 12 : 0);
+        else sc += clamp(fwd, -20, 25) * 0.4 + (m.slot === 0 || m.slot === 2 ? 4 : 0)
+          // (a stretch springs a man, and a good passer looks for it first)
+          + (call === 'stretch' && lm > 0.3 && open > 10 ? 6 + 8 * prt : 0)
+          + (call === 'drop' ? 14 : 0);
+        if (sc > bs) { bs = sc; best = m; bcall = call; }
       }
       // a man standing him up in front: beat him with the hands instead of moving it
       const front = opp.find((o) => !o.rag && hyp(o.x - carrier.x, o.y - carrier.y) < 7 && ((o.x - carrier.x) * Math.cos(carrier.h) + (o.y - carrier.y) * Math.sin(carrier.h)) > 1.5);
-      if (front && rand() < 0.45) {
+      if (front && bcall !== 'drop' && rand() < 0.45) {
         const mv = ['toedrag', 'deke', 'drag'][(rand() * 3) | 0];
         W.act(carrier, mv, 0.7);
         const sd2 = rand() < 0.5 ? 1 : -1;
@@ -1489,39 +1572,66 @@ export function createWorld(ice, seedKey) {
         return;
       }
       if (best) {
-        // the pass that fits: a saucer over a stick in the lane, a backhand to his off side,
-        // a drop pass to a man trailing him, otherwise the forehand along the ice
         const to = best;
-        const lu = (to.x - carrier.x) * Math.cos(carrier.h) + (to.y - carrier.y) * Math.sin(carrier.h);
-        const lv = -(to.x - carrier.x) * Math.sin(carrier.h) + (to.y - carrier.y) * Math.cos(carrier.h);
-        const lane = laneMargin(carrier, to, 70, opp).margin < 0.1;
-        const pd = hyp(to.x - carrier.x, to.y - carrier.y);
-        const kind = lu < -3 && pd < 14 ? 'drop' : lane ? 'saucer' : (lv < -4 && lu < 8) || lu < -3 ? 'backpass' : 'pass';
-        W.act(carrier, kind, SHOTS[kind].dur);
-        carrier.look = [to.x, to.y, 1];
-        W.schedule(releaseAt(kind), () => {
-          if (W.puck.carrier !== carrier) return;
-          const spd = kind === 'drop' ? clamp(pd * 1.8, 16, 28) : 66 + rand() * 10;
-          W.pass(carrier, to, spd);
-          // (only as true as his passing: a poorer passer's is off line by a degree or two, and
-          // more when they're on him; tape to tape otherwise)
-          const hurried = opp.some((o) => !o.rag && hyp(o.x - carrier.x, o.y - carrier.y) < 4.5) ? 1.8 : 1;
-          { const p0 = W.puck, err = (1 - (carrier.rt || RT0).pass) * 0.035 * hurried * (rand() - 0.5) * 2, c0 = Math.cos(err), s0 = Math.sin(err), vx = p0.vx; p0.vx = vx * c0 - p0.vy * s0; p0.vy = vx * s0 + p0.vy * c0; }
-          if (kind === 'saucer') W.puck.vz = 7;
-          const tt = hyp(to.x - carrier.x, to.y - carrier.y) / spd;
-          if (!to.scripted) W.act(to, 'receive', tt + 0.25, [carrier.x, carrier.y]);
-          // A pass through traffic is picked off by the man who can get his stick to its line
-          // before it gets there: certainly if he's well ahead of it, a coin on a close one
-          // (his hands), and a saucer goes over all but the plainest.
-          const pk2 = W.puck;
-          if (pk2.target === to) {
-            const { margin, o } = pathMargin(pk2, to, opp);
-            const need = kind === 'saucer' ? -0.3 : -0.06;
-            if (o && (margin < need || (kind !== 'saucer' && margin < 0.06 && rand() < 0.5 * (0.6 + 0.8 * (o.rt || RT0).hands) * (0.06 - margin) / 0.12))) pk2.target = o;
-          }
-        });
+        // (a lane with a stick in it is played over the stick: a saucer, unless it's a drop,
+        // which is left on the ice for a man right behind him)
+        let call = bcall, over = false;
+        if (call !== 'drop' && laneMargin(carrier, to, call === 'stretch' ? 86 : 70, opp).margin < 0.1) { if (call) over = true; else call = 'saucer'; }
+        // THE GIVE-AND-GO. A forward gives it to the open man and goes: into the space ahead of
+        // him, toward the middle, where it comes straight back to him. Likelier with a man of
+        // theirs standing him up in front (it's how he beats him), and the better the passer.
+        const gg = !call && !isDef(carrier) && !isDef(to) && !ownEnd && hyp(to.x - carrier.x, to.y - carrier.y) < 40 && rand() < (stoodUp ? 0.4 : 0.12) + 0.25 * prt;
+        if (gg) {
+          let rx = carrier.x + dir * 18, ry = carrier.y + (MID_Y - carrier.y) * 0.35;
+          if ((offGoal(side) - rx) * dir < 10) rx = offGoal(side) - dir * 10;
+          const c = insideRink(rx, ry, 8); if (c) { rx = c.x; ry = c.y; }
+          A.gg = { passer: carrier, mate: to, t0: W.t };
+          carrier.run = { x: rx, y: ry, v: 23, until: W.t + 3.5 };
+        }
+        // after a drop he drives the net and takes his man with him; a stretch's man is sent
+        // on through, so the pass is led into the ice ahead of him and he takes it going
+        if (call === 'drop') {
+          const c = insideRink(offGoal(side) - dir * 16, MID_Y + (carrier.y - MID_Y) * 0.4, 8) || { x: offGoal(side) - dir * 16, y: MID_Y + (carrier.y - MID_Y) * 0.4 };
+          carrier.run = { x: c.x, y: c.y, v: 24, until: W.t + 2.5 };
+        }
+        if (call === 'stretch') {
+          const c = insideRink(to.x + dir * 24, to.y, 8) || { x: to.x + dir * 24, y: to.y };
+          to.run = { x: c.x, y: c.y, v: 24, until: W.t + 2.5 };
+          to.tx = c.x; to.ty = c.y; to.through = W.t + 0.5;
+        }
+        makePass(carrier, to, call, opp, over);
       }
     }
+  }
+  // A PASS IS PLAYED: the pose for the kind it is, released at contact, as hard as that kind
+  // goes, as true as his passing, and picked off by a man of theirs who can get his stick to
+  // its line before it gets there.
+  function makePass(carrier, to, call, opp, over = false) {
+    const play = passPlay(carrier, to, call, rand, over), kind = play.pose;
+    W.act(carrier, kind, SHOTS[kind].dur);
+    carrier.look = [to.x, to.y, 1];
+    W.emit('pass', { call, pose: kind, from: carrier, to, staged: false });
+    W.schedule(releaseAt(kind), () => {
+      if (W.puck.carrier !== carrier) return;
+      const spd = play.spd(hyp(to.x - carrier.x, to.y - carrier.y));
+      W.pass(carrier, to, spd);
+      // (only as true as his passing: a poorer passer's is off line by a degree or two, and
+      // more when they're on him; tape to tape otherwise)
+      const hurried = opp.some((o) => !o.rag && hyp(o.x - carrier.x, o.y - carrier.y) < 4.5) ? 1.8 : 1;
+      { const p0 = W.puck, err = (1 - (carrier.rt || RT0).pass) * 0.035 * hurried * (rand() - 0.5) * 2, c0 = Math.cos(err), s0 = Math.sin(err), vx = p0.vx; p0.vx = vx * c0 - p0.vy * s0; p0.vy = vx * s0 + p0.vy * c0; }
+      if (play.lift) W.puck.vz = play.lift;
+      const tt = hyp(to.x - carrier.x, to.y - carrier.y) / spd;
+      if (!to.scripted) W.act(to, 'receive', tt + 0.25, [carrier.x, carrier.y]);
+      // A pass through traffic is picked off by the man who can get his stick to its line
+      // before it gets there: certainly if he's well ahead of it, a coin on a close one
+      // (his hands), and a saucer goes over all but the plainest.
+      const pk2 = W.puck;
+      if (pk2.target === to) {
+        const { margin, o } = pathMargin(pk2, to, opp);
+        const need = play.lift ? -0.3 : -0.06;
+        if (o && (margin < need || (!play.lift && margin < 0.06 && rand() < 0.5 * (0.6 + 0.8 * (o.rt || RT0).hands) * (0.06 - margin) / 0.12))) pk2.target = o;
+      }
+    });
   }
 
   // ── battles for the puck ──────────────────────────────────────────────────
@@ -1841,6 +1951,42 @@ export function createWorld(ice, seedKey) {
   // THE MAN GOES TO THE PUCK. Whoever is collecting it skates to where he'll meet it at full
   // speed and keeps his speed through it (`through`: no easing up as he gets there, which
   // read as a man creeping up on a puck), aiming so it comes onto his stick, not his skates.
+  // A NET IN THE WAY. The frame, and a body's width round it, is what a man can't skate
+  // through. If the line from (x0, y0) to (x1, y1) crosses it, where to go first: the corner, a
+  // stride clear of it, that makes the shorter way round. A spot tight against the frame (a puck
+  // dead behind the net) is gone for from the nearest clear side of it. Null when the way is clear.
+  const NET_BODY = 1.4, NET_CORNER = 3.2;
+  function crossesBox(x0, y0, x1, y1, xa, xb, ya, yb) {
+    // (Liang-Barsky: does the segment pass through the box?)
+    let t0 = 0, t1 = 1;
+    const ddx = x1 - x0, ddy = y1 - y0;
+    const clip = (p, q) => { if (p === 0) return q >= 0; const r = q / p; if (p < 0) { if (r > t1) return false; if (r > t0) t0 = r; } else { if (r < t0) return false; if (r < t1) t1 = r; } return true; };
+    return clip(-ddx, x0 - xa) && clip(ddx, xb - x0) && clip(-ddy, y0 - ya) && clip(ddy, yb - y0) && t0 < t1;
+  }
+  function roundNet(x0, y0, x1, y1) {
+    for (const n of NETS) {
+      const xa = Math.min(n.gx, n.gx + n.dir * NET_DEPTH) - NET_BODY, xb = Math.max(n.gx, n.gx + n.dir * NET_DEPTH) + NET_BODY;
+      const ya = MID_Y - NET_HALF - NET_BODY, yb = MID_Y + NET_HALF + NET_BODY;
+      const inside = (x, y) => x > xa && x < xb && y > ya && y < yb;
+      // (a man already up against it just goes)
+      if (inside(x0, y0)) continue;
+      let tx = x1, ty = y1;
+      if (inside(tx, ty)) {
+        const dl = tx - xa, dr = xb - tx, dd = ty - ya, du = yb - ty, m = Math.min(dl, dr, dd, du);
+        if (m === dl) tx = xa - 0.1; else if (m === dr) tx = xb + 0.1; else if (m === dd) ty = ya - 0.1; else ty = yb + 0.1;
+      }
+      if (!crossesBox(x0, y0, tx, ty, xa, xb, ya, yb)) { if (tx !== x1 || ty !== y1) return [tx, ty]; continue; }
+      const g = NET_CORNER - NET_BODY;
+      let best = null, bl = Infinity;
+      for (const c of [[xa - g, ya - g], [xa - g, yb + g], [xb + g, ya - g], [xb + g, yb + g]]) {
+        if (crossesBox(x0, y0, c[0], c[1], xa, xb, ya, yb)) continue;
+        const l = hyp(c[0] - x0, c[1] - y0) + hyp(tx - c[0], ty - c[1]) + (crossesBox(c[0], c[1], tx, ty, xa, xb, ya, yb) ? 40 : 0);
+        if (l < bl) { bl = l; best = c; }
+      }
+      return best || [tx, ty];
+    }
+    return null;
+  }
   function pursue() {
     const pk = W.puck, h = pk.home;
     if (!h || pk.carrier || pk.held || !h.active || h.rag || h.blend || h.hold) return;
@@ -1853,6 +1999,10 @@ export function createWorld(ice, seedKey) {
     // the blade is two feet ahead of him and a little to his forehand: aim his body short of it
     const back = Math.min(1.6, d * 0.5);
     h.tx = p[0] - dx / d * back; h.ty = p[1] - dy / d * back;
+    // (round a net that's in his way, by its nearer corner: sent straight at a puck on the far
+    // side of it, he slid along the frame for two seconds and more getting to it)
+    const via = roundNet(h.x, h.y, h.tx, h.ty);
+    if (via) { h.tx = via[0]; h.ty = via[1]; }
     // Flat out from far; close in, he comes onto it at its own speed and a bit (never under
     // 8 ft/s quicker than it), so he takes it in stride rather than creeping up on it or
     // flying past it and having to come round again.

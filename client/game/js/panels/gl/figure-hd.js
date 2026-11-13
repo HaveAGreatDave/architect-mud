@@ -22,12 +22,15 @@ import { FACE, HAIRLINE_GLSL } from '../actor-head.js';
 import { createFaceAtlasFeed } from './face-atlas.js';
 import { declareProgram, layerProgramAsync } from './programs.js';
 import { ROOM_LIGHT_GLSL } from './room-light.js';
+import { occlusionOf } from '../figure-occlusion.js';
 import { HOUSE } from './house-style.js';
+import { handsOfGrip, FINGER_GLSL, HAND_FLEX } from './figure-hands.js';
 
 export const FIG_BONE_ROWS = FIGURE_BONE_COUNT * 12;
 // how a cut's front is painted (FIGURE_CUTS front), as uCutF.x
 const FRONT_KIND = { buttons: 1, zip: 2, pocket: 3, vest: 4, tunic: 5, suit: 6, open: 7, cassock: 8, shirt: 9, seam: 10, straps: 11, holo: 12, hex: 13, lace: 14, cutout: 15 };
 const NB = FIGURE_BONE_COUNT * 3;
+const TAT_C = new Float32Array([0.004, 0.004, 0.006]);
 const NO_FAB = new Float32Array(20), MUT_C = new Float32Array([0.05, 0.3, 0.32]);
 const NO_EXPR = new Float32Array(4);   // no mood: uExpr all zero
 const f4 = (v) => v.toFixed(4);
@@ -62,21 +65,64 @@ vec3 mouthMorph(vec3 p, float slot, vec2 uv) {
   p.z += uMouthA.z * 0.008 * lip * m;
   return p;
 }
-// The hand's grip (figure.js handSculpt tags each finger): every finger curls toward the palm about its
-// knuckle line, further the further along it a point is, so the bones fold in turn; less than nothing
-// straightens and opens it. x and y are the left and right hands, z and w add to each index finger alone
-// (a point is a fist with the index held out). Done in bind space, before the skin.
-uniform vec4 uGrip;
-vec3 curl(vec3 p, float aux) {
-  if (aux > -0.5) return p;
-  float q = -aux - 1.0, f = floor(q + 0.0001), t = clamp((q - f) / 0.9, 0.0, 1.0), side = p.x > 0.0 ? 1.0 : -1.0;
-  float g = side > 0.0 ? uGrip.x : uGrip.y;
-  if (f < 0.5) g += side > 0.0 ? uGrip.z : uGrip.w;
-  vec2 piv = vec2(side * 0.196, 0.772);
-  if (f > 3.5) { g *= 0.45; piv = vec2(side * 0.19, 0.838); }
-  float a = -side * g * 1.35 * t * t, c = cos(a), sn = sin(a);
-  vec2 d = p.xy - piv;
-  return vec3(piv + vec2(c * d.x - sn * d.y, sn * d.x + c * d.y), p.z);
+// The hand (figure.js handSculpt tags each finger -(1 + finger + 0.9 t) in aux, t how far along it a point is).
+// Each finger curls toward the palm about its knuckle line, further the further along a point is, so its bones
+// fold in turn; less than nothing straightens it. uFingL and uFingR are the index, middle, ring and little
+// fingers of the left and right hands, 0 as modelled and 1 a fist. uThumb is each thumb's curl (x, y) and how
+// far it's brought across the palm to meet the fingers (z, w). uHandX is how far the fingers fan apart (x, y)
+// and how far each forearm is turned (z, w, radians, the palm toward the front positive): the turn goes on
+// along the forearm from nothing at the elbow to all of it at the wrist, as the two bones cross, and the hand's
+// own bone carries the whole of it (gl/room-people.js twistHand), so a turned wrist doesn't wring like a sweet
+// wrapper. Done in bind space before the skin, to the normals as well as the points: p' = R p + o.
+uniform vec4 uFingL;
+uniform vec4 uFingR;
+uniform vec4 uThumb;
+uniform vec4 uHandX;
+// Each finger's joints on the left hand (figure.js fingerJointsOf, at a typical hand's scale): fjK the knuckle,
+// fjP the middle joint, fjD the last, fjT how far along the finger the two finger joints fall and fjB how it was
+// modelled bent. A finger folds at all three in turn, so 1 is a closed fist rather than a finger bent as one arc.
+${FINGER_GLSL}
+// how far each joint bends, beyond as modelled, for a curl of 1: the knuckle, the middle joint, the last
+const vec3 FLEX = vec3(${HAND_FLEX.join(', ')});
+mat3 turnZ(float a) { float c = cos(a), s = sin(a); return mat3(c, s, 0.0, -s, c, 0.0, 0.0, 0.0, 1.0); }
+mat3 turnX(float a) { float c = cos(a), s = sin(a); return mat3(1.0, 0.0, 0.0, 0.0, c, s, 0.0, -s, c); }
+mat3 turnY(float a) { float c = cos(a), s = sin(a); return mat3(c, 0.0, -s, 0.0, 1.0, 0.0, s, 0.0, c); }
+// another turn R about a pivot c, after the one there is
+void then(inout mat3 R, inout vec3 o, mat3 T, vec3 c) { R = T * R; o = T * (o - c) + c; }
+void handXf(vec3 p, float aux, out mat3 R, out vec3 o) {
+  R = mat3(1.0); o = vec3(0.0);
+  float side = p.x > 0.0 ? 1.0 : -1.0;
+  if (aux > -0.5) {
+    // the forearm, turned by how much of the elbow-to-wrist it's past, on what of it the forearm's bone carries
+    float tw = side > 0.0 ? uHandX.z : uHandX.w;
+    if (tw == 0.0 || abs(p.x) < 0.1) return;
+    float fb = side > 0.0 ? ${FIGURE_BONE.farmL}.0 : ${FIGURE_BONE.farmR}.0, w = 0.0;
+    for (int k = 0; k < 4; k++) if (abs(aBones[k] - fb) < 0.5) w += aWeights[k];
+    float along = clamp((1.10 - p.y) / 0.25, 0.0, 1.0) * w;
+    if (along > 0.0) then(R, o, turnY(side * tw * along), vec3(side * 0.195, 0.0, -0.01));
+    return;
+  }
+  float q = -aux - 1.0, f = floor(q + 0.0001), t = clamp((q - f) / 0.9, 0.0, 1.0);
+  bool L = side > 0.0;
+  if (f > 3.5) {
+    // the thumb: curled in its own plane, then swung across the palm from its root
+    float c = L ? uThumb.x : uThumb.y, op = L ? uThumb.z : uThumb.w;
+    then(R, o, turnZ(-side * c * 0.61 * t * t), vec3(side * 0.19, 0.838, 0.0));
+    if (op != 0.0) then(R, o, turnY(-side * op * 0.9), vec3(side * 0.188, 0.0, 0.026));
+    return;
+  }
+  int fi = int(f + 0.5);
+  vec4 gs = L ? uFingL : uFingR;
+  float g = fi == 0 ? gs.x : fi == 1 ? gs.y : fi == 2 ? gs.z : gs.w, sp = L ? uHandX.x : uHandX.y;
+  vec3 sx = vec3(side, 1.0, 1.0), K = fjK(fi) * sx, P = fjP(fi) * sx, D = fjD(fi) * sx;
+  // a curl past nothing folds each joint by FLEX; under nothing it straightens the bend it was modelled with
+  vec3 a = g >= 0.0 ? g * FLEX : g * fjB(fi);
+  vec2 jt = fjT(fi);
+  then(R, o, turnZ(-side * a.z * smoothstep(jt.y - 0.06, jt.y + 0.04, t)), D);
+  then(R, o, turnZ(-side * a.y * smoothstep(jt.x - 0.07, jt.x + 0.05, t)), P);
+  then(R, o, turnZ(-side * a.x * smoothstep(0.0, 0.14, t)), K);
+  // fanned out about the knuckle: the index forward, the little finger back
+  if (sp != 0.0) then(R, o, turnX(-sp * (1.5 - f) * 0.16), vec3(0.0, K.y, K.z));
 }
 mat3x4 boneAt(float b) { int i = int(b + 0.5) * 3; return mat3x4(uBone[i], uBone[i + 1], uBone[i + 2]); }
 // Dual-quaternion skinning: each bone's rotation and translation as one unit quaternion pair, blended and
@@ -131,10 +177,11 @@ uniform vec3 uSway;          // where the cloth thinks the hips are, less where 
 uniform vec4 uBust;          // xyz the spring's lag (room metres), w the bust
 uniform vec4 uSeat;          // the same for the seat off the pelvis, w the butt
 vec3 jiggle(vec3 p, vec3 r) {
-  // the seat: each cheek over the back of the hips, moved by the pelvis's spring and pulled a little down
+  // the seat: each cheek over the back of the hips, moved by the pelvis's spring and pulled down only a touch (more
+  // and it reads as a sag)
   if (uSeat.w > 0.0) {
     float ax = abs(r.x), ws = exp(-pow((ax - 0.075) / (0.065 + 0.03 * uSeat.w), 2.0)) * exp(-pow((r.y - 0.9) / (0.065 + 0.03 * uSeat.w), 2.0)) * smoothstep(0.0, -0.04, r.z) * smoothstep(0.008, 0.04, ax);
-    p += (uSeat.xyz * (0.6 + 1.2 * uSeat.w) + vec3(0.0, -0.01 * uSeat.w * uSeat.w * (0.6 + 0.4 * smoothstep(0.93, 0.86, r.y)), 0.0)) * ws;
+    p += (uSeat.xyz * (0.6 + 1.2 * uSeat.w) + vec3(0.0, -0.004 * uSeat.w * uSeat.w * (0.6 + 0.4 * smoothstep(0.93, 0.86, r.y)), 0.0)) * ws;
   }
   if (uBust.w <= 0.0) return p;
   float ax = abs(r.x), w = exp(-pow((ax - 0.094 - 0.02 * uBust.w) / (0.06 + 0.05 * uBust.w), 2.0)) * exp(-pow((r.y - 1.27 + 0.05 * uBust.w) / (0.06 + 0.04 * uBust.w), 2.0)) * smoothstep(-0.01, 0.04, r.z);
@@ -179,24 +226,29 @@ layout(location = 2) in vec2 aUv;
 layout(location = 5) in float aSlot;
 layout(location = 6) in float aAux;
 layout(location = 7) in vec3 aNorF;
+layout(location = 8) in float aAo;     // how shut in the vertex is (figure-occlusion.js): 1 open, 0 shut
 ${SKIN_VS_GLSL}
 uniform mat4 uVP;
-out vec3 vPos; out vec3 vNor; out vec3 vNorF; out vec3 vRest; out vec3 vMouthP; out vec2 vUv; out float vAux; flat out float vSlot;
+out vec3 vPos; out vec3 vNor; out vec3 vNorF; out vec3 vRest; out vec3 vMouthP; out vec2 vUv; out float vAux; out float vAo; flat out float vSlot;
 void main() {
-  vMouthP = mouthMorph(curl(aPos, aAux), aSlot, aUv);
+  mat3 hR; vec3 hO;
+  handXf(aPos, aAux, hR, hO);
+  vMouthP = mouthMorph(hR * aPos + hO, aSlot, aUv);
   vec3 p = drape(skinAll(vec4(faceLift(vMouthP, aSlot), 1.0)), aPos, aSlot, aAux);
-  vPos = p; vNor = skinAll(vec4(aNor, 0.0)); vNorF = skinAll(vec4(aNorF, 0.0)); vRest = aPos; vUv = aUv; vAux = aAux; vSlot = aSlot;
+  vPos = p; vNor = skinAll(vec4(hR * aNor, 0.0)); vNorF = skinAll(vec4(hR * aNorF, 0.0)); vRest = aPos; vUv = aUv; vAux = aAux; vAo = aAo; vSlot = aSlot;
   gl_Position = uVP * vec4(p, 1.0);
 }`;
 
 const FS = `#version 300 es
 precision highp float;
-in vec3 vPos; in vec3 vNor; in vec3 vNorF; in vec3 vRest; in vec3 vMouthP; in vec2 vUv; in float vAux; flat in float vSlot;
+in vec3 vPos; in vec3 vNor; in vec3 vNorF; in vec3 vRest; in vec3 vMouthP; in vec2 vUv; in float vAux; in float vAo; flat in float vSlot;
 uniform vec3 uCol[20];
 uniform float uSurf[20];
 uniform float uFab[20];      // what each slot is made of (figure.js FIG_FABRIC), 0 plain
 uniform int uMut;            // what their mutations do to the skin (figure.js MUT_PAINT bits)
 uniform vec3 uMutC;          // the one accent colour their changes share
+uniform int uTat;            // tattoos (client/shared/morphex-catalog.js tattooCode): three bits a place
+uniform vec3 uTatC;          // their one ink
 uniform sampler2D uAtlas;
 uniform vec4 uFace;          // layout, makeup, hair style, a seed
 uniform vec3 uLip;
@@ -219,6 +271,7 @@ uniform vec3 uWrap;          // their wraps' linen
 uniform float uSculpt;       // the sculpted figure (docs/proposals/sculpted-figure.md): its paint, three tones and warm skin
 uniform vec4 uFaceV;         // its face: brow weight, mouth width, beard, soft
 uniform float uAge;          // how far its face has aged: 0 none, 1 old
+uniform float uGrit;         // how hard a life shows: 0 clean, 0.5 worn, 1 hardened (scars, grime and stubble on the face; grime, scuffs and chips on the clothes)
 uniform float uSmile;        // a settled grin, painted over the mouth: 0 none, 1 all of it
 uniform vec4 uExpr;          // their mood (client/shared/expressions.js): inner brows knit, inner brows lifted, lid (-1 narrow, +1 wide), mouth's corners down
 uniform float uSneer;        // and the upper lip lifted, the nose wrinkled
@@ -533,6 +586,13 @@ float triD(vec2 p, vec2 a, vec2 b, vec2 c) {
 }
 // a flat painted shadow with a crisp edge, in the skin's own warm shadow colour
 float darkSkin() { return smoothstep(0.17, 0.07, dot(uCol[0], vec3(0.333))); }
+// a rounded box's distance: c its centre, h its half-size, a its turn (radians, anticlockwise), k its corners' radius
+float boxD(vec2 p, vec2 c, vec2 h, float a, float k) {
+  vec2 d = p - c; float cs = cos(a), sn = sin(a); d = vec2(cs * d.x + sn * d.y, -sn * d.x + cs * d.y);
+  vec2 q = abs(d) - h + k; return length(max(q, 0.0)) + min(max(q.x, q.y), 0.0) - k;
+}
+// a superellipse's radius: 2 an ellipse, higher squarer
+float sqE(vec2 v, float n) { return pow(pow(abs(v.x), n) + pow(abs(v.y), n), 1.0 / n); }
 void shape(float d, float k, inout vec3 base) { float aa = max(fwidth(d), 1e-4); base *= mix(vec3(1.0), mix(vec3(0.74, 0.6, 0.58), vec3(0.74, 0.68, 0.76), darkSkin()), k * (1.0 - smoothstep(-aa, aa, d))); }
 // What a body's weight shows on bare skin. The relief alone doesn't: the form normals smooth most of it
 // away, so the muscles, ribs and folds are drawn in the house manner, as the face is. A form is one inked
@@ -883,6 +943,58 @@ float propPaint(int s, int piece, vec2 uv, inout vec3 base, inout float mat, ino
   }
   return ink;
 }
+
+// ── Tattoos (client/shared/morphex-catalog.js) ──
+// Flat ink on bare skin, laid out in the rest pose (vRest, metres): cheek, forehead, neck, the arms, the
+// knuckles, the chest. One design a place, one ink for all of them; a neon ink gives off a little light.
+float tatOf(int place) { return float((uTat >> (place * 3)) & 7); }
+float tatBars(float x, float y0, float y1, float y, float k) {
+  float on = step(0.45, hh(floor(x * k)));
+  return on * step(y0, y) * step(y, y1) * step(0.25, fract(x * k));
+}
+float tatPaint(int s, vec3 r, inout vec3 base, inout vec3 glow) {
+  if (uTat == 0) return 0.0;
+  bool face = s == ${FIG_SLOT.face}, neck = s == ${FIG_SLOT.neck}, skin = s == ${FIG_SLOT.skin};
+  if (!face && !neck && !skin) return 0.0;
+  float m = 0.0;
+  if (face && r.z > 0.03) {
+    float c = tatOf(0);
+    if (c == 1.0) { vec2 q = (r.xy - vec2(-0.036, 1.609)) / 0.0085; q.x *= 1.0 + 2.2 * max(q.y, 0.0); m = max(m, 1.0 - smoothstep(0.85, 1.0, length(q))); }
+    else if (c == 2.0) { float d = abs(length(r.xy - vec2(0.072, 1.6)) - 0.032); m = max(m, (1.0 - smoothstep(0.0012, 0.0022, d)) * step(0.02, r.x) * step(1.58, r.y) * step(r.y, 1.625)); }
+    else if (c == 3.0) m = max(m, tatBars(r.x, 1.596, 1.61, r.y, 700.0) * step(0.022, r.x) * step(r.x, 0.05));
+    float b = tatOf(1);
+    if (b == 1.0) m = max(m, max(step(abs(r.x), 0.0024) * step(abs(r.y - 1.694), 0.011), step(abs(r.x), 0.009) * step(abs(r.y - 1.698), 0.0024)));
+    else if (b == 2.0) { vec2 q = (r.xy - vec2(0.0, 1.694)) / vec2(0.016, 0.0075); float d = abs(length(q) - 1.0); m = max(m, max(1.0 - smoothstep(0.1, 0.22, d), 1.0 - smoothstep(0.3, 0.42, length(q)))); }
+    else if (b == 3.0) m = max(m, tatBars(r.x + 0.03, 1.696, 1.71, r.y, 650.0) * step(abs(r.x), 0.022));
+  }
+  if (neck || (skin && r.y > 1.44 && abs(r.x) < 0.08)) {
+    float n = tatOf(2), ang = atan(r.x, r.z + 0.01);
+    if (n == 1.0) m = max(m, tatBars(ang * 0.05, 1.47, 1.515, r.y, 900.0) * step(0.7, ang) * step(ang, 1.5));
+    else if (n == 2.0) { float zig = 0.004 * abs(fract(ang * 3.0) - 0.5); m = max(m, step(abs(r.y - 1.49 - zig), 0.003)); }
+    else if (n == 3.0 && r.z > 0.0) { vec2 q = vec2(r.x, r.y - 1.46); float rr = length(q), a = atan(q.x, q.y); m = max(m, (max(step(abs(fract(rr * 55.0) - 0.5), 0.07), step(abs(fract(a * 1.6) - 0.5), 0.04)) * step(rr, 0.05))); }
+  }
+  if (skin && abs(r.x) > 0.15 && r.y > 0.94 && r.y < 1.36) {
+    float a = tatOf(r.x > 0.0 ? 3 : 4), aa = atan(r.z + 0.01, abs(r.x) - 0.2);
+    if (a == 1.0) m = max(m, smoothstep(0.55, 0.62, sin(aa * 2.0 + r.y * 38.0 + 2.0 * sin(r.y * 22.0))) * step(1.05, r.y) * step(r.y, 1.32));
+    else if (a == 2.0) m = max(m, max(step(abs(r.y - 1.0), 0.008), step(abs(r.y - 1.035), 0.004)));
+    else if (a == 3.0) { vec2 c = fract(vec2(aa * 3.0, r.y * 60.0)); float on = step(0.4, hh(floor(aa * 3.0) * 13.0 + floor(r.y * 60.0))); m = max(m, on * max(step(c.x, 0.06), step(c.y, 0.06)) * step(0.96, r.y) * step(r.y, 1.3)); }
+  }
+  if (skin && abs(r.x) > 0.15 && r.y > 0.79 && r.y < 0.84 && tatOf(5) > 0.0) {
+    float h = tatOf(5);
+    if (h == 1.0) { vec2 q = fract(vec2(r.z * 70.0, r.y * 70.0)) - 0.5; m = max(m, step(length(q), 0.22)); }
+    else m = max(m, step(abs(r.y - 0.815), 0.004));
+  }
+  if (skin && abs(r.x) < 0.15 && r.y > 1.2 && r.y < 1.42 && r.z > 0.0) {
+    float c = tatOf(6);
+    if (c == 1.0) { float wing = step(abs(r.y - (1.335 + 0.28 * abs(r.x) - 0.6 * r.x * r.x)), 0.006 + 0.01 * (0.11 - abs(r.x))) * step(abs(r.x), 0.11); m = max(m, max(wing, step(length(r.xy - vec2(0.0, 1.305)), 0.014))); }
+    else if (c == 2.0) { vec2 g = fract(r.xy * 60.0); float on = step(0.45, hh(floor(r.x * 60.0) * 7.0 + floor(r.y * 60.0))); m = max(m, on * max(step(g.x, 0.07), step(g.y, 0.07)) * step(abs(r.x), 0.1) * step(1.25, r.y) * step(r.y, 1.38)); }
+    else if (c == 3.0) m = max(m, step(abs(r.y - 1.37), 0.006) * step(abs(r.x), 0.085) * step(0.35, hh(floor(r.x * 400.0))));
+  }
+  if (m <= 0.0) return 0.0;
+  base = mix(base, uTatC * (0.85 + 0.15 * vn3(r * 400.0)), m * 0.92);
+  if (max(uTatC.r, max(uTatC.g, uTatC.b)) > 0.4) glow += uTatC * m * 0.55;
+  return 0.0;
+}
 float mutPaint(int s, int piece, vec3 r, vec2 uv, inout vec3 base, inout float mat, inout vec3 glow) {
   // Drawn as a comic draws a costume, not a wound: clean shapes, flat tones, one accent colour per
   // person (uMutC) tying every change on them together, and nothing wet or raw.
@@ -1152,6 +1264,25 @@ float paintSculpt(int s, int piece, vec3 r, inout vec3 base) {
     float scuff = smoothstep(0.62, 0.72, vn3(r * 75.0)) * (0.5 + 0.5 * vn3(r * 240.0));
     base = mix(base, base * 1.5 + 0.012, 0.28 * scuff * max(smoothstep(1.34, 1.4, r.y), piece == ${FIG_PIECE.sleeve} ? exp(-pow((r.y - 1.1) / 0.05, 2.0)) : 0.0));
   }
+  if (uGrit > 0.02 && (s == ${FIG_SLOT.top} || s == ${FIG_SLOT.collar} || s == ${FIG_SLOT.legs} || s == ${FIG_SLOT.shoes} || s == ${FIG_SLOT.shirt})) {
+    float g = min(1.0, uGrit * 1.25), gn = vn3(r * 70.0 + uFace.w) * 0.6 + vn3(r * 240.0) * 0.4;
+    float low = s == ${FIG_SLOT.shoes} ? 1.0 : s == ${FIG_SLOT.legs} ? max(smoothstep(0.42, 0.12, r.y), exp(-pow((r.y - 0.5) / 0.06, 2.0))) : max(smoothstep(hem + 0.22, hem, r.y), piece == ${FIG_PIECE.sleeve} ? smoothstep(cuff + 0.15, cuff, r.y) : 0.0);
+    float th = 0.74 - 0.2 * g * (0.15 + 0.85 * low);
+    // on a dark cloth the dirt is dust, paler than it; on a light one it's grime, darker
+    vec3 dust = vec3(0.16, 0.135, 0.105);
+    float dk = smoothstep(0.09, 0.025, dot(base, vec3(0.333)));
+    vec3 gc = mix(base * vec3(0.62, 0.56, 0.5), mix(base, dust, 0.38), dk);
+    base = mix(base, gc, smoothstep(th, th + 0.03, gn) * 0.6 * g);
+    float fl = step(0.955 - 0.04 * g, vn3(r * 260.0 + 7.0)) * (0.4 + 0.6 * low);
+    base = mix(base, mix(vec3(0.09, 0.075, 0.06), dust * 1.3, dk), fl * 0.55 * g);
+    float edge = max(exp(-pow((r.y - hem) / 0.018, 2.0)), piece == ${FIG_PIECE.sleeve} ? exp(-pow((r.y - cuff) / 0.018, 2.0)) : 0.0) + (s == ${FIG_SLOT.collar} ? 0.6 : 0.0);
+    base = mix(base, mix(base * 1.75 + 0.03, dust * 1.5, dk), min(1.0, edge) * smoothstep(0.5, 0.6, vn3(r * 210.0)) * 0.65 * g);
+    float sc = fract((r.x * 0.7 + r.y * 1.3 + r.z * 0.9) * 150.0 + vn3(r * 30.0) * 3.0);
+    base = mix(base, mix(base * 1.55 + 0.02, dust * 1.4, dk), 0.4 * g * step(0.986, sc) * step(0.62, vn3(r * 55.0)));
+    // the trim: a vivid colour chipped back to the dark under it
+    float sat = max(max(base.r, base.g), base.b) - min(min(base.r, base.g), base.b);
+    if (sat > 0.3) base = mix(base, base * 0.3, step(0.7 - 0.14 * g, vn3(r * 330.0 + 3.0)) * g);
+  }
   return ink;
 }
 void main() {
@@ -1264,15 +1395,21 @@ void main() {
         // under the lip, and the sliver under the nose
         // the socket in two depths: all of it, and darker still under the brow and in beside the nose
         float sock = eyeM > 0.5 ? 0.0 : 1.0;
-        deep(length((q0 - vec2(eX + 0.0033, 1.6478)) / vec2(0.0242, 0.0085)) - 1.0, sock * mix(0.72, 0.1, soft), base);
-        deep(length((q0 - vec2(eX + 0.0056, 1.651)) / vec2(0.0225, 0.0036)) - 1.0, sock * 0.6 * hard, base);
+        deep(sqE((q0 - vec2(eX + 0.0033, 1.6476)) / vec2(0.0258, 0.0094), 3.4) - 1.0, sock * mix(0.92, 0.14, soft), base);
+        deep(sqE((q0 - vec2(eX + 0.0056, 1.651)) / vec2(0.0235, 0.0042), 3.4) - 1.0, sock * 0.78 * hard, base);
         // the wedge from the brow's inner end down beside the nose
         deep(triD(q0, vec2(eX - 0.0205, 1.6515), vec2(eX - 0.0065, 1.651), vec2(eX - 0.0165, 1.6368)) - 0.0012, sock * 0.62 * hard, base);
         // the wedge under the cheekbone, pointing at the mouth, its corners rounded; the temple, and the light on the bone
         float fz = smoothstep(0.0, 0.04, r.z);
-        shape(triD(q0, vec2(0.086, 1.612), vec2(0.047, 1.593), vec2(0.07, 1.545)) - 0.0035, 0.85 * hard * fz * (1.0 - 0.9 * uSoma.z), base);
-        shape(triD(q0, vec2(0.078, 1.69), vec2(0.066, 1.655), vec2(0.078, 1.63)), mix(0.5, 0.1, soft), base);
-        base *= 1.0 + 0.09 * hard * (1.0 - smoothstep(0.92, 1.0, length((q0 - vec2(0.05, 1.6235)) / vec2(0.019, 0.0062))));
+        shape(boxD(q0, vec2(0.0675, 1.5835), vec2(0.0118, 0.0205), -0.2, 0.0022), 0.9 * hard * fz * (1.0 - 0.9 * uSoma.z), base);
+        shape(boxD(q0, vec2(0.0735, 1.662), vec2(0.0058, 0.0235), -0.12, 0.0018), mix(0.62, 0.12, soft), base);
+        { float cb = boxD(q0, vec2(0.0525, 1.6215), vec2(0.0175, 0.0042), -0.2, 0.0018), ac = max(fwidth(cb), 1e-4); base *= 1.0 + 0.12 * hard * (1.0 - smoothstep(-ac, ac, cb)); }
+        // the chin squared: its underside a block of shadow, its sides two short bars, its front plane lit; and the jaw's
+        // underside a band along the line from its corner to the chin
+        shape(boxD(q0, vec2(0.0, 1.5315), vec2(0.0195, 0.0036), 0.0, 0.0014), 0.8 * hard * fz, base);
+        shape(boxD(q0, vec2(0.0212, 1.5445), vec2(0.0021, 0.0082), -0.12, 0.0009), 0.6 * hard * fz, base);
+        { float cf = boxD(q0, vec2(0.0, 1.5455), vec2(0.0155, 0.0068), 0.0, 0.002), ac = max(fwidth(cf), 1e-4); base *= 1.0 + 0.07 * hard * (1.0 - smoothstep(-ac, ac, cf)); }
+        shape(boxD(q0, vec2(0.0445, 1.5525), vec2(0.0235, 0.0026), 0.72, 0.0012), 0.55 * hard * fz, base);
         shape(length((q0 - vec2(0.0, 1.5505)) / vec2(0.0115, 0.0024)) - 1.0, 0.3 * soft, base);
         shape(length((q0 - vec2(0.0, 1.5855)) / vec2(mix(0.0135, 0.0095, soft), 0.0026)) - 1.0, mix(0.9, 0.35, soft), base);
         // nostrils, and the side of the nose away from the light
@@ -1296,10 +1433,10 @@ void main() {
       float fadeZ = smoothstep(-0.05, 0.05, r.z + 0.03 * (vn3(r * 180.0) - 0.5));
       // the beard stays dark, whatever the hair's colour
       vec3 beardC = min(hair, vec3(0.09));
-      base = mix(base, mix(skin * vec3(0.72, 0.66, 0.66), beardC, 0.3), (0.55 + 0.2 * smoothstep(1.0, 1.4, uFaceV.z)) * beard * fadeZ * min(1.0, uFaceV.z * 1.4));
+      base = mix(base, mix(skin * vec3(0.72, 0.66, 0.66), beardC, 0.3), (0.55 + 0.2 * smoothstep(1.0, 1.4, uFaceV.z)) * beard * fadeZ * min(1.0, (uFaceV.z + 0.45 * uGrit * hard) * 1.4));
       // stubble: short strokes running down the face, thickest at the beard's edge
       float fleck = smoothstep(0.68, 0.72, vn3(vec3(r.x * 2200.0, r.y * 620.0, r.z * 2200.0)));
-      base = mix(base, beardC * 1.6, 0.4 * step(0.01, uFaceV.z) * fleck * fadeZ * max(smoothstep(edge + 0.006, edge, r.y) * smoothstep(edge - 0.016, edge - 0.004, r.y), smoothstep(0.95, 1.3, uFaceV.z) * beard) * (1.0 - mouth));
+      base = mix(base, beardC * 1.6, 0.4 * step(0.01, uFaceV.z + 0.45 * uGrit * hard) * fleck * fadeZ * max(smoothstep(edge + 0.006, edge, r.y) * smoothstep(edge - 0.016, edge - 0.004, r.y), smoothstep(0.95, 1.3, uFaceV.z) * beard) * (1.0 - mouth));
       // heavy brows drawn as one tapering mass, the lid's line, the crease under the eye, a furrow
       if (r.z > 0.0) {
         // a soft face's fine lines stay darker than its skin, whatever the skin
@@ -1401,8 +1538,8 @@ void main() {
         }
         // a man's face in ink: nose to mouth, the two lines between the brows, the forehead, the cheek and the chin.
         // A mood deepens them: the lines between the brows when they knit, nose to mouth in a sneer
-        form(q0, vec2(0.0205, 1.592), vec2(0.0305, 1.5745), 0.0016, 0.00055, 0.0026, min(1.0, hard * (1.0 - uSmile) * 0.55 + 0.6 * uSneer), base);
-        form(q0, vec2(0.0082, 1.669), vec2(0.0064, 1.657), -0.0008, 0.0005, 0.0016, min(1.0, hard * 0.45 + 0.7 * uExpr.x), base);
+        form(q0, vec2(0.0205, 1.592), vec2(0.0305, 1.5745), 0.0016, 0.0007, 0.003, min(1.0, hard * (1.0 - uSmile) * 0.72 + 0.6 * uSneer), base);
+        form(q0, vec2(0.0082, 1.669), vec2(0.0064, 1.657), -0.0008, 0.00062, 0.0018, min(1.0, hard * 0.58 + 0.7 * uExpr.x), base);
         // lifted inner brows wrinkle the middle of the forehead, in short curved lines
         if (uExpr.y > 0.05) for (int i = 0; i < 3; i++) { float fy = 1.6745 + float(i) * 0.0072 - 1.2 * ax * ax; base = mix(base, skin * 0.55, 0.6 * uExpr.y * inkL(r.y - fy, 0.00045) * (1.0 - smoothstep(0.012, 0.03 - float(i) * 0.004, ax))); }
         // a sneer wrinkles the bridge of the nose across
@@ -1429,8 +1566,31 @@ void main() {
           base = mix(base, lineC, ak * (1.0 - smoothstep(0.0003, 0.0006, segD(q0, vec2(0.052, 1.64), vec2(0.06, 1.645)))));
           base = mix(base, lineC, ak * (1.0 - smoothstep(0.0003, 0.0006, segD(q0, vec2(0.052, 1.636), vec2(0.06, 1.634)))));
         }
+        // grit: grime with a broken edge, a scar for each step of it (through a brow, across a cheek, on the chin), and
+        // on a hard face the crease off the eye's outer corner
+        if (uGrit > 0.02) {
+          float sd = uFace.w;
+          // grime kept to the face's edges (the jaw, the temples, the hairline), the middle of it wiped clean
+          float dn = vn3(vec3(r.x * 210.0 + sd, r.y * 180.0, sd * 0.37)) * 0.7 + vn3(vec3(r.x * 520.0, r.y * 480.0 + sd, 1.0)) * 0.3;
+          float rim = max(max(smoothstep(0.04, 0.065, ax), smoothstep(1.565, 1.545, r.y)), smoothstep(1.675, 1.695, r.y));
+          float dirt = smoothstep(0.74 - 0.12 * uGrit, 0.765 - 0.12 * uGrit, dn) * rim;
+          base = mix(base, base * vec3(0.76, 0.68, 0.6), dirt * min(1.0, uGrit * 1.3) * 0.45);
+          for (int i = 0; i < 3; i++) {
+            if (float(i) > uGrit * 3.0 - 0.4) break;
+            float h1 = fract(sin(sd * 12.9 + float(i) * 78.2) * 43758.5), h2 = fract(sin(sd * 4.1 + float(i) * 31.7) * 2371.3);
+            if (sx != (h1 < 0.5 ? 1.0 : -1.0)) continue;
+            vec2 a = i == 0 ? vec2(0.031 + 0.012 * h2, 1.675) : i == 1 ? vec2(0.048 + 0.016 * h2, 1.613) : vec2(0.005 + 0.008 * h2, 1.552);
+            vec2 b = i == 0 ? vec2(0.026 + 0.012 * h1, 1.646) : i == 1 ? vec2(0.062 + 0.012 * h1, 1.58) : vec2(0.017 + 0.006 * h1, 1.534);
+            float d = segD(q0, a, b), aa = max(fwidth(d), 1e-5), w = 0.00105;
+            base = mix(base, skin * vec3(1.14, 0.97, 0.94) + 0.025, 1.0 - smoothstep(w * 0.55, w * 0.55 + aa, d));
+            base = mix(base, skin * 0.42, inkL(d - w, 0.00022));
+          }
+          float crow = smoothstep(0.55, 0.85, uGrit) * hard;
+          for (int i = 0; i < 2; i++) base = mix(base, skin * 0.5, crow * 0.8 * (1.0 - smoothstep(0.00025, 0.0005, segD(q0, vec2(0.0478, 1.6425 - 0.0042 * float(i)), vec2(0.0555, 1.6448 - 0.0085 * float(i))))));
+          base = mix(base, skin * 0.55, crow * 0.6 * inkL(r.y - (1.6268 + 18.0 * (ax - 0.0305) * (ax - 0.0305)), 0.00035) * step(abs(ax - 0.0305), 0.012));
+        }
         // the upper lid: one heavy tapering shape cutting the top of the iris, with a flick at the outer corner
-        float lid = mix(eyeT + eT * eyeK, 1.6352 + 9.0 * ex * ex, uBlink), lw = mix(mix(0.0023, 0.0009, smoothstep(0.0, 0.0152, abs(ex + 0.002))), mix(0.001, 0.0021, smoothstep(-0.012, 0.014, ex)), soft) * smoothstep(0.0, 0.3, eyeK);
+        float lid = mix(eyeT + eT * eyeK, 1.6352 + 9.0 * ex * ex, uBlink), lw = (1.0 + 0.2 * hard) * mix(mix(0.0023, 0.0009, smoothstep(0.0, 0.0152, abs(ex + 0.002))), mix(0.001, 0.0021, smoothstep(-0.012, 0.014, ex)), soft) * smoothstep(0.0, 0.3, eyeK);
         // a man's lid is a shape of its own over the eye, a heavy fold
         deep(max(r.y - (lid + 0.0034 * eyeK + 0.0006), lid - r.y), 0.45 * hard * step(abs(ex), eW), base);
         base = mix(base, lineS, (1.0 - uRealEye) * inkL(r.y - lid + lw * 0.7, lw) * step(abs(ex), eW - 0.0002));
@@ -1596,9 +1756,11 @@ void main() {
   }
   vec3 glow = vec3(0.0);
   ink = max(ink, mutPaint(s, piece, vRest, vUv, base, mat, glow));
+  tatPaint(s, vRest, base, glow);
   ink = max(ink, propPaint(s, piece, vUv, base, mat, glow));
-  // a little darker low down, where the room's light doesn't reach
-  base *= 0.72 + 0.28 * clamp(vRest.y / 0.9, 0.0, 1.0);
+  // shut-in places darker: the baked occlusion (figure-occlusion.js), softly over the whole body, and the
+  // light kept a little lower down, where the room's light doesn't reach
+  base *= (0.8 + 0.2 * clamp(vRest.y / 0.9, 0.0, 1.0)) * (0.62 + 0.38 * vAo);
   // The comic light (gl/comic-light.js, in ROOM_LIGHT_GLSL): lit or in shadow by the FORM, so a head or a limb takes
   // one clean shadow shape and the small forms only shade within it. The key is the lamp while it's
   // on, else the window; its light on a surface square to it is the room's own, so the tones still
@@ -1616,6 +1778,10 @@ void main() {
   float dkS = uSculpt > 0.5 ? darkSkin() : 0.0;
   vec3 shadeC = uSculpt > 0.5 && flesh ? mix(vec3(0.76, 0.58, 0.53), vec3(0.72, 0.62, 0.74), dkS) : uShade;
   vec3 c = comicTone(base, nf, n, v, key, dFull, uAmb, shadeC, lit);
+  // a deep crease (an armpit, under the chin, between the fingers) falls into the flat shadow tone, edge and
+  // all, as an inker blacks in a contact shadow, rather than greying off
+  float shutIn = 1.0 - smoothstep(0.42, 0.56, vAo);
+  if (s != ${FIG_SLOT.eye}) { c = mix(c, c * mix(vec3(1.0), shadeC, 0.6) * 0.62, shutIn * lit); lit *= 1.0 - shutIn; }
   if (uSculpt > 0.5) {
     // a third tone between the light and the terminator, and a thin light along the lit edges
     // on a man's skin that third tone stands higher and darker, and the shadow goes deeper, so a face is carved
@@ -1668,7 +1834,9 @@ layout(location = 6) in float aAux;
 // a growth (figure.js MUTATION_LOOK) is inked heavier than the body, as a comic draws the thing it wants you to see
 float growInk(float slot, float aux) { return abs(slot - ${FIG_SLOT.horn}.0) < 0.5 || (abs(slot) < 0.5 && aux > 16.5) || aBones.x > ${FIGURE_BONES.length}.0 - 0.5 ? 1.35 : 1.0; }
 void main() {
-  vec3 p = drape(skinAll(vec4(faceLift(mouthMorph(curl(aPos, aAux), aSlot, aUv), aSlot), 1.0)), aPos, aSlot, aAux), sn = skinAll(vec4(aNor, 0.0));
+  mat3 hR; vec3 hO;
+  handXf(aPos, aAux, hR, hO);
+  vec3 p = drape(skinAll(vec4(faceLift(mouthMorph(hR * aPos + hO, aSlot, aUv), aSlot), 1.0)), aPos, aSlot, aAux), sn = skinAll(vec4(hR * aNor, 0.0));
   float grow = growInk(aSlot, aAux);
   // an eye and its lids take no outline: the lids' dark undersides are its line
   if (aSlot > ${FIG_SLOT.eye}.0 - 0.5) { gl_Position = vec4(2.0, 2.0, 2.0, 1.0); return; }
@@ -1691,19 +1859,94 @@ precision highp float;
 uniform vec3 uCol;
 out vec4 outColor;
 void main() { outColor = vec4(uCol, 1.0); }`;
+// THE STAND-IN: the same body on the same bones, each slot its flat colour in the room's comic light, with no
+// paint, face or hair cards. The lit shader takes over a minute to compile the first time after it changes
+// (an empty driver cache) and a couple of seconds after that, and until it has, this is who's in the room:
+// a show on the TV ran several scenes on an empty set before. It's the room program's size, so it's ready
+// as soon as the room is.
+const QUICK_FS = `#version 300 es
+precision highp float;
+in vec3 vPos; in vec3 vNor; in vec3 vNorF; in vec3 vRest; flat in float vSlot;
+uniform vec3 uCol[20];
+uniform float uSurf[20];
+uniform vec3 uShade;
+out vec4 outColor;
+${ROOM_LIGHT_GLSL}
+void main() {
+  int s = int(vSlot + 0.5);
+  if (s == ${FIG_SLOT.card}) discard;
+  vec3 n = normalize(vNor), v = normalize(uEye - vPos), nf = normalize(vNorF) * (dot(n, v) < 0.0 ? -1.0 : 1.0);
+  vec3 base = uCol[s] * (0.72 + 0.28 * clamp(vRest.y / 0.9, 0.0, 1.0));
+  vec3 key = normalize((dot(uLampC, vec3(0.333)) > 0.01 ? uLampP[0] : uWinP[0]) - vPos), dFull, sFull;
+  float lit;
+  roomLight(vPos, key, v, uSurf[s], dFull, sFull);
+  outColor = vec4(finish(comicTone(base, nf, n, v, key, dFull, uAmb, uShade, lit)), 1.0);
+}`;
+// the stand-in first, so a new context's prewarm (programs.js) starts it ahead of the lit one
+declareProgram(VS, QUICK_FS);
 declareProgram(VS, FS);
 declareProgram(INK_VS, INK_FS);
+
+// THE WARM-UP: the figure's programs compiled once in a throwaway context, soon after the game loads, so the
+// first room or TV finds them in the browser's shader cache. Measured on Direct3D 11 (Chrome's ANGLE runs the
+// lit shader through FXC): over a minute cold, about 2 s from the cache in any later context. Nothing waits on
+// it, and it's done once per page. Without KHR_parallel_shader_compile the link would block the page, so it's
+// skipped, and the room compiles them as it always did. Resolves true once they've linked.
+const WARM_POLL_MS = 2000, WARM_GIVE_UP_MS = 10 * 60 * 1000;
+let warming = null;
+export function warmFigure() {
+  return (warming ??= new Promise((done) => {
+    const canvas = document.createElement('canvas');
+    canvas.width = canvas.height = 1;
+    const gl = canvas.getContext('webgl2');
+    if (!gl || !gl.getExtension('KHR_parallel_shader_compile')) { done(false); return; }
+    const progs = [[VS, QUICK_FS], [VS, FS], [INK_VS, INK_FS]].map(([vs, fs]) => layerProgramAsync(gl, vs, fs, 'figure warm-up'));
+    const t0 = performance.now();
+    const finish = (ok) => { gl.getExtension('WEBGL_lose_context')?.loseContext(); done(ok); };
+    const poll = () => {
+      if (gl.isContextLost()) { done(false); return; }
+      if (progs.every((p) => p.ready())) { finish(true); return; }
+      // a failed link stays not ready (and has said so in the console), so this gives up rather than poll for ever
+      if (performance.now() - t0 > WARM_GIVE_UP_MS) { finish(false); return; }
+      setTimeout(poll, WARM_POLL_MS);
+    };
+    setTimeout(poll, WARM_POLL_MS);
+  }));
+}
 
 // The layer for one GL context. `light(prog)` sets the room's light uniforms on a program (room.js
 // does it for its own); `draw(vp, recs, light)` draws them lit; `ink(vp, recs, set)` draws their
 // outline with uniforms `set` puts on the ink program.
 export function createFigureLayer(gl, { half = false } = {}) {
-  // ⚠ NEVER WAITED ON. The lit shader is ~114k characters; until both programs have linked in the
-  // background the people simply aren't drawn (programs.js layerProgramAsync)
+  // ⚠ NEVER WAITED ON. The lit shader is ~114k characters; until it has linked in the background the
+  // people are drawn by the stand-in, and until that has, not at all (programs.js layerProgramAsync)
   const prog = (vs, fs, label) => { const P = layerProgramAsync(gl, vs, fs, label), u = {}; return { get p() { return P.p; }, ready: () => P.ready(), u: (n) => (u[n] ??= gl.getUniformLocation(P.p, n)) }; };
-  const LIT = prog(VS, FS, 'figure lit'), INK = prog(INK_VS, INK_FS, 'figure ink');
+  const QUICK = prog(VS, QUICK_FS, 'figure stand-in'), LIT = prog(VS, FS, 'figure lit'), INK = prog(INK_VS, INK_FS, 'figure ink');
   const ready = () => LIT.ready() && INK.ready();
+  // what draws the bodies now: the lit program, the stand-in while that's compiling, or nothing yet
+  // (`__figureStandIn = true` in the console shows the stand-in, to look at)
+  const body = () => (LIT.ready() && !globalThis.__figureStandIn ? LIT : QUICK.ready() ? QUICK : null);
+  // the vertex shader's uniforms, which the body, its stand-in and its ink share: the bones, the cloth, the face's moves
+  function pose(P, r) {
+    const D = FIGURE_CUTS[r.key.cut] || FIGURE_CUTS.coat, sw = r.sway || [0, 0, 0], jg = r.jiggle || [0, 0, 0], sj = r.seatJ || [0, 0, 0], H = r.hands || handsOfGrip(r.grip);
+    gl.uniform4fv(P.u('uBone'), r.rows);
+    gl.uniform4f(P.u('uDrape'), D.top.hem < 0.81 ? 1 : 0, D.front === 'open' ? 1 : 0, D.top.hem, r.floor ?? -10);
+    gl.uniform3f(P.u('uSway'), sw[0], sw[1], sw[2]);
+    gl.uniform4f(P.u('uBust'), jg[0], jg[1], jg[2], r.jiggle ? r.key.bust || 0 : 0);
+    gl.uniform4f(P.u('uSeat'), sj[0], sj[1], sj[2], r.seatJ ? r.key.butt || 0 : 0);
+    gl.uniform4fv(P.u('uFingL'), H.fingL); gl.uniform4fv(P.u('uFingR'), H.fingR);
+    gl.uniform4fv(P.u('uThumb'), H.thumb); gl.uniform4fv(P.u('uHandX'), H.handX);
+    gl.uniform1f(P.u('uOpenW'), D.openW || 1);
+    gl.uniform3fv(P.u('uMouthA'), r.mouthA || [0, 0, 0]);
+    gl.uniform1f(P.u('uBlink'), r.blink || 0);
+    gl.uniform1f(P.u('uBlink2'), r.blink2 || 0);
+    gl.uniform1f(P.u('uFaceUp'), r.faceUp || 0);
+  }
   const meshes = new Map();
+  // how shut in each vertex is (figure-occlusion.js), baked once a figure and kept on it: here, where the mesh
+  // goes to the GPU, and not in buildFigure, which the gates call thousands of times and never draw. The
+  // Figure Lab turns it off with globalThis.__figAo = false, to compare
+  const occlusion = (F) => (globalThis.__figAo === false ? new Float32Array(F.nv).fill(1) : (F.AO ||= occlusionOf(F)));
   function meshOf(key) {
     const k = figureKey(key);
     let m = meshes.get(k);
@@ -1719,7 +1962,7 @@ export function createFigureLayer(gl, { half = false } = {}) {
       gl.vertexAttribPointer(loc, size, type, normalized, 0, 0);
       return b;
     };
-    const bufs = [buf(F.P, 0, 3), buf(F.N, 1, 3), buf(F.UV, 2, 2), buf(F.B, 3, 4, gl.UNSIGNED_BYTE), buf(F.W, 4, 4), buf(new Float32Array(F.S), 5, 1), buf(F.A, 6, 1), buf(F.NF || F.N, 7, 3)];
+    const bufs = [buf(F.P, 0, 3), buf(F.N, 1, 3), buf(F.UV, 2, 2), buf(F.B, 3, 4, gl.UNSIGNED_BYTE), buf(F.W, 4, 4), buf(new Float32Array(F.S), 5, 1), buf(F.A, 6, 1), buf(F.NF || F.N, 7, 3), buf(occlusion(F), 8, 1)];
     const ib = gl.createBuffer();
     gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, ib);
     gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, F.I, gl.STATIC_DRAW);
@@ -1768,22 +2011,15 @@ export function createFigureLayer(gl, { half = false } = {}) {
     prepare(key) { meshOf(key); },
     get ready() { return ready(); },
     ink(vp, recs, set) {
-      if (!recs.length || !ready()) return;
+      if (!recs.length || !INK.ready() || !body()) return;
       gl.useProgram(INK.p);
       gl.uniformMatrix4fv(INK.u('uVP'), false, vp);
       set(INK);
       for (const r of recs) {
         const m = meshOf(keyOf(r));
-        gl.uniform4fv(INK.u('uBone'), r.rows);
-        { const D = FIGURE_CUTS[r.key.cut] || FIGURE_CUTS.coat, sw = r.sway || [0, 0, 0]; gl.uniform4f(INK.u('uDrape'), D.top.hem < 0.81 ? 1 : 0, D.front === 'open' ? 1 : 0, D.top.hem, r.floor ?? -10); gl.uniform3f(INK.u('uSway'), sw[0], sw[1], sw[2]); const jg = r.jiggle || [0, 0, 0]; gl.uniform4f(INK.u('uBust'), jg[0], jg[1], jg[2], r.jiggle ? r.key.bust || 0 : 0); const sj = r.seatJ || [0, 0, 0]; gl.uniform4f(INK.u('uSeat'), sj[0], sj[1], sj[2], r.seatJ ? r.key.butt || 0 : 0); }
-        { const G = r.grip || [0.2, 0.2, 0, 0]; gl.uniform4f(INK.u('uGrip'), G[0], G[1], G[2], G[3]); }
-        gl.uniform1f(INK.u('uOpenW'), (FIGURE_CUTS[r.key.cut] || FIGURE_CUTS.coat).openW || 1);
-        gl.uniform3fv(INK.u('uMouthA'), r.mouthA || [0, 0, 0]);
-        gl.uniform1f(INK.u('uBlink'), r.blink || 0);
-        gl.uniform1f(INK.u('uBlink2'), r.blink2 || 0);
-        gl.uniform1f(INK.u('uFaceUp'), r.faceUp || 0);
+        pose(INK, r);
         // the sculpted figure's forms and paint carry the drawing, so its outline is lighter
-        gl.uniform1f(INK.u('uInkK'), r.key.sculpt ? 0.5 : 1);
+        gl.uniform1f(INK.u('uInkK'), r.key.sculpt ? 0.72 : 1);
         gl.bindVertexArray(m.vao);
         gl.drawElements(gl.TRIANGLES, m.opaque, gl.UNSIGNED_SHORT, 0);
       }
@@ -1791,7 +2027,26 @@ export function createFigureLayer(gl, { half = false } = {}) {
     },
     draw(vp, recs, light) {
       tris = 0;
-      if (!recs.length || !ready()) return;
+      const P = body();
+      if (!recs.length || !P) return;
+      if (P === QUICK) {
+        gl.useProgram(QUICK.p);
+        gl.uniformMatrix4fv(QUICK.u('uVP'), false, vp);
+        light(QUICK);
+        gl.uniform3fv(QUICK.u('uShade'), HOUSE.shade);
+        for (const r of recs) {
+          const m = meshOf(keyOf(r));
+          pose(QUICK, r);
+          gl.uniform3fv(QUICK.u('uCol'), r.col);
+          gl.uniform1fv(QUICK.u('uSurf'), r.surf);
+          gl.bindVertexArray(m.vao);
+          // the hair cards come last, and the stand-in has none
+          gl.drawElements(gl.TRIANGLES, m.opaque, gl.UNSIGNED_SHORT, 0);
+          tris += m.nt;
+        }
+        gl.bindVertexArray(null);
+        return;
+      }
       pollAtlas();
       gl.useProgram(LIT.p);
       gl.uniformMatrix4fv(LIT.u('uVP'), false, vp);
@@ -1803,16 +2058,15 @@ export function createFigureLayer(gl, { half = false } = {}) {
       gl.uniform3fv(LIT.u('uLine'), HOUSE.ink);
       for (const r of recs) {
         const m = meshOf(keyOf(r));
-        gl.uniform4fv(LIT.u('uBone'), r.rows);
-        { const D = FIGURE_CUTS[r.key.cut] || FIGURE_CUTS.coat, sw = r.sway || [0, 0, 0]; gl.uniform4f(LIT.u('uDrape'), D.top.hem < 0.81 ? 1 : 0, D.front === 'open' ? 1 : 0, D.top.hem, r.floor ?? -10); gl.uniform3f(LIT.u('uSway'), sw[0], sw[1], sw[2]); const jg = r.jiggle || [0, 0, 0]; gl.uniform4f(LIT.u('uBust'), jg[0], jg[1], jg[2], r.jiggle ? r.key.bust || 0 : 0); const sj = r.seatJ || [0, 0, 0]; gl.uniform4f(LIT.u('uSeat'), sj[0], sj[1], sj[2], r.seatJ ? r.key.butt || 0 : 0); }
-        { const G = r.grip || [0.2, 0.2, 0, 0]; gl.uniform4f(LIT.u('uGrip'), G[0], G[1], G[2], G[3]); }
-        gl.uniform1f(LIT.u('uOpenW'), (FIGURE_CUTS[r.key.cut] || FIGURE_CUTS.coat).openW || 1);
+        pose(LIT, r);
         gl.uniform1f(LIT.u('uPrint'), { wolves: 0, plain: 1, redstar: 2 }[r.print || 'wolves'] ?? 0);
         gl.uniform3fv(LIT.u('uCol'), r.col);
         gl.uniform1fv(LIT.u('uSurf'), r.surf);
         gl.uniform1fv(LIT.u('uFab'), r.fab || NO_FAB);
         gl.uniform1i(LIT.u('uMut'), r.mut || 0);
         gl.uniform3fv(LIT.u('uMutC'), r.mutCol || MUT_C);
+        gl.uniform1i(LIT.u('uTat'), r.tat || 0);
+        gl.uniform3fv(LIT.u('uTatC'), r.tatCol || TAT_C);
         gl.uniform4fv(LIT.u('uFace'), r.face);
         gl.uniform3fv(LIT.u('uLip'), r.lip);
         gl.uniform3fv(LIT.u('uLipstick'), r.lipstick);
@@ -1833,14 +2087,11 @@ export function createFigureLayer(gl, { half = false } = {}) {
         gl.uniform1f(LIT.u('uSculpt'), r.key.sculpt ? 1 : 0);
         gl.uniform4fv(LIT.u('uFaceV'), r.faceV || [1, 1, 0.8, 0]);
         gl.uniform1f(LIT.u('uAge'), r.age || 0);
+        gl.uniform1f(LIT.u('uGrit'), r.grit || 0);
         gl.uniform1f(LIT.u('uSmile'), r.smile || 0);
         gl.uniform4fv(LIT.u('uExpr'), r.expr || NO_EXPR);
         gl.uniform1f(LIT.u('uSneer'), r.sneer || 0);
-        gl.uniform3fv(LIT.u('uMouthA'), r.mouthA || [0, 0, 0]);
         gl.uniform3fv(LIT.u('uMouthB'), r.mouthB || [0, 0, 0]);
-        gl.uniform1f(LIT.u('uBlink'), r.blink || 0);
-        gl.uniform1f(LIT.u('uBlink2'), r.blink2 || 0);
-        gl.uniform1f(LIT.u('uFaceUp'), r.faceUp || 0);
         gl.uniform1f(LIT.u('uRealEye'), r.realEye ? 1 : 0);
         gl.uniform2fv(LIT.u('uGaze'), r.gaze || [0, 0]);
         gl.uniform4fv(LIT.u('uBeardA'), r.beardA || [0, 0, 0, 0]);

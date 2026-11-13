@@ -50,6 +50,7 @@
 // crown, which keeps the windscreen bow above the straight-ahead line) and the seat gives way.
 //
 // Metres, origin at the eye, +x right (starboard, the exterior's +g), +y forward, +z up.
+import { nightAt } from './sky-keys.js';
 import { FW_ROWS } from './vehicle-models.js';
 import { makeKit, C, clamp, lerp, pedal, SHINY, PANE, TEXTURE } from './interior-kit.js';
 import { contactShadow, hotspotHalo, SHADE, panelGps, gpsHotspot } from './interior-cockpit-kit.js';
@@ -493,7 +494,7 @@ function locustFit(P, live, push) {
   const on = R.powered;
   // The post lights over the panel are the PANEL switch (cockpit.js 'ck:panel'); a view that sends no
   // switch state, a seat shot, lights them after dark.
-  const panelOn = on && (R.L.panelLight != null ? !!R.L.panelLight : R.hour < 6.5 || R.hour > 19);
+  const panelOn = on && (R.L.panelLight != null ? !!R.L.panelLight : nightAt(R.hour));
   const glow = panelOn ? 0.25 : 0;
 
   // ── THE PANEL (Pawnee C, left to right) ──

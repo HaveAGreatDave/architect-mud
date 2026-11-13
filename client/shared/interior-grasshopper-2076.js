@@ -38,6 +38,7 @@
 // power from throttle and rpm. The sensor page's ranges come off the altitude and the ball's fixed
 // look-down. Nothing shows a constant dressed as a reading. Decoration may move on wall time (the
 // alert breathing, the boot); every readout moves only on live values.
+import { nightAt } from './sky-keys.js';
 import { brandTrim } from './interior-brands.js';
 import { makeKit, C, clamp, lerp, SHINY, PANE, TEXTURE } from './interior-kit.js';
 import { contactShadow, hotspotHalo, panelGps, gpsHotspot, lensLamp, eased, pressPulse, HALO,
@@ -360,7 +361,7 @@ const readings = (live) => {
     phase: num(L.phase), stall: !!L.stall,
   };
 };
-const night = (R) => R.hour < 6.5 || R.hour > 19.5;
+const night = (R) => nightAt(R.hour);
 const panelOn = (R) => R.powered && (R.L.panelLight != null ? !!R.L.panelLight : night(R));
 
 // ── THE SUN ON THE WING ──────────────────────────────────────────────────────

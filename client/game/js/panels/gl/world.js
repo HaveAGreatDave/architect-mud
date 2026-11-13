@@ -228,6 +228,7 @@ export function pickLights(cam, sprites, night, held, slots = MAX_LIGHTS, keep =
 }
 
 // Ramp each light toward its target and return the slots, weighted. `state` is per scene.
+const FL_IDEAL = new Set(), FL_IN = new Set(), FL_SEEN = new Set();
 export function fadeLights(ranked, state, dt, slots = MAX_LIGHTS) {
   // ⚠ The set is chosen on score alone; weight only sets brightness. Ranking on score * weight makes
   // a newly elected light (weight 0) lose its slot back, and churns worse than no fade.
@@ -235,19 +236,26 @@ export function fadeLights(ranked, state, dt, slots = MAX_LIGHTS) {
   const fall = LIGHT_TUNE.fall > 0 ? dt / LIGHT_TUNE.fall : 1;
   // ⚠ A fading light needs a free slot, so the wanted set gives up one per outgoing light (up to
   // fadeSlots), lowest score first; the bumped light then fades out in turn.
-  const ideal = ranked.slice(0, slots);
-  const idealKeys = new Set(ideal.map((e) => e.key));
-  const fading = ranked.filter((e) => !idealKeys.has(e.key) && (state.get(e.key) ?? 0) > 0);
-  const reserve = Math.min(fading.length, fadeSlots(slots));
-  const wanted = ideal.slice(0, Math.max(1, slots - reserve));
-  const inSet = new Set(wanted.map((e) => e.key));
+  // Scratch sets, reused: this ran every frame and made three new Sets, a filter and a copy of 'state'.
+  const nIdeal = Math.min(slots, ranked.length);
+  const idealKeys = FL_IDEAL; idealKeys.clear();
+  for (let i = 0; i < nIdeal; i++) idealKeys.add(ranked[i].key);
+  let fading = 0;
+  for (const e of ranked) if (!idealKeys.has(e.key) && (state.get(e.key) ?? 0) > 0) fading++;
+  const reserve = Math.min(fading, fadeSlots(slots));
+  const nWanted = Math.min(nIdeal, Math.max(1, slots - reserve));
+  const inSet = FL_IN; inSet.clear();
   const live = [];
-  for (const e of wanted) {
+  for (let i = 0; i < nWanted; i++) {
+    const e = ranked[i];
+    inSet.add(e.key);
     const w = Math.min(1, (state.get(e.key) ?? 0) + rise);
     state.set(e.key, w);
     if (w > 0) live.push({ e, w });
   }
+  const seen = FL_SEEN; seen.clear();
   for (const e of ranked) {
+    seen.add(e.key);
     if (inSet.has(e.key)) continue;
     const w0 = state.get(e.key);
     if (w0 === undefined) continue;
@@ -256,9 +264,9 @@ export function fadeLights(ranked, state, dt, slots = MAX_LIGHTS) {
     state.set(e.key, w);
     if (live.length < slots) live.push({ e, w });
   }
-  // ⚠ A light that left the frame isn't in `ranked`; decay it here or it keeps a stale weight.
-  const seen = new Set(ranked.map((e) => e.key));
-  for (const [k, w0] of [...state]) {
+  // ⚠ A light that left the frame isn't in 'ranked'; decay it here or it keeps a stale weight.
+  // Deleting the current key in a Map for-of is safe, and set() on a key already there doesn't revisit it.
+  for (const [k, w0] of state) {
     if (seen.has(k)) continue;                 // handled above, in one of the two loops
     const w = w0 - fall;
     if (w <= 0) state.delete(k); else state.set(k, w);
@@ -989,7 +997,12 @@ export function glWorldPass(id, host, cells, cam, deps, opts = {}) {
     lightList = ranked ? fadeLights(ranked, g.litW, dt, SLOTS) : null;
     if (opts.glCluster === 1 && ranked) gridLights = ranked.all || ranked;
     // ⚠ Held is what was wanted this frame, not what's lit, or a fading light re-elects itself.
-    g.litHeld = ranked ? new Set(ranked.slice(0, SLOTS).map((e) => e.key)) : null;
+    // One Set per scene, refilled: pickLights has already read last frame's.
+    if (ranked) {
+      const h = (g.litHeldSet ||= new Set()); h.clear();
+      for (let i = 0, m = Math.min(SLOTS, ranked.length); i < m; i++) h.add(ranked[i].key);
+      g.litHeld = h;
+    } else g.litHeld = null;
   } else { g.litHeld = null; g.litW.clear(); }
   // Built once so the mirror prepass and main pass share it. null (glCluster 0) clears it.
   if (g.view.setLightGrid) g.view.setLightGrid(gridLights);

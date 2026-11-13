@@ -41,6 +41,7 @@
 // are disabled for now: they stay in their tubes here and on the exterior (see dronesOut).
 //
 // Pure: no clock, no camera, no DOM. `live` arrives as an argument.
+import { nightAt } from './sky-keys.js';
 import { brandTrim } from './interior-brands.js';
 import { makeKit, C, clamp, lerp, SHINY, PANE, TEXTURE } from './interior-kit.js';
 import { contactShadow, hotspotHalo, panelGps, gpsHotspot, lensLamp, eased, pressPulse, HALO,
@@ -360,7 +361,7 @@ const readings = (live) => {
     ammo: Math.max(0, Math.round(num(L.ammo, GUN_LOAD))), missiles, firing: !!L.firing,
   };
 };
-const night = (R) => R.hour < 6.5 || R.hour > 19.5;
+const night = (R) => nightAt(R.hour);
 const panelOn = (R) => R.powered && (R.L.panelLight != null ? !!R.L.panelLight : night(R));
 // The drones' place between the tubes (0) and the box (1). Held at 0 with the exterior's `drones`
 // channel (cockpit.js classAnim) until they have a job in the sim, so the pages read STOWED.

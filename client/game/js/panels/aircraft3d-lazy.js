@@ -33,6 +33,9 @@ export function loadAircraft3d() {
     _m = m;
     return m;
   })();
+  // ⚠ A FAILED LOAD IS FORGOTTEN, so the next call fetches again. Kept, one refused fetch (the
+  // dev server restarting under --watch) left every view that needs this module dead until a reload.
+  _pending.catch(() => { _pending = null; });
   return _pending;
 }
 

@@ -326,10 +326,12 @@ async function cmdDeposit(args, raw, player) {
   }
 
   // Move the credits and fill the machine as one atomic unit.
-  const newStock = Math.min((atm.cash_max ?? 5000), (atm.cash_stock ?? 0) + amount);
+  // Relative, so a withdrawal committing alongside isn't erased by this write.
+  let newStock = Math.min((atm.cash_max ?? 5000), (atm.cash_stock ?? 0) + amount);
   const moved = await withTransaction(async (q) => {
     if (!await transferCredits(player, amount, 'deposit', q)) return false;
-    await q('UPDATE atm_units SET cash_stock=$1 WHERE id=$2', [newStock, atm.id]);
+    const r = await q('UPDATE atm_units SET cash_stock = LEAST(COALESCE(cash_max, 5000), cash_stock + $1) WHERE id=$2 RETURNING cash_stock', [amount, atm.id]);
+    if (r.rowCount) newStock = r.rows[0].cash_stock;
     return true;
   });
   if (!moved) return { type: 'error', message: `You only have ${player.credits || 0}₵ on you.` };
@@ -417,17 +419,23 @@ async function cmdWithdraw(args, raw, player) {
   // Debit bank (raw + fee), credit only rawAmount carried (the fee evaporates
   // into the network), and draw down the machine's cash — one atomic unit. The
   // guarded UPDATE also blocks a concurrent second withdrawal from overdrawing.
-  const newStock = Math.max(0, cashAvail - rawAmount);
+  // The drum is drawn first, relative and guarded: two players withdrawing at once
+  // both passed the cashAvail check above and each wrote cashAvail - rawAmount, so
+  // a 100₵ drum paid out 200₵.
+  let newStock = Math.max(0, cashAvail - rawAmount);
   const dispensed = await withTransaction(async (q) => {
+    const drum = await q('UPDATE atm_units SET cash_stock = cash_stock - $1 WHERE id = $2 AND cash_stock >= $1 RETURNING cash_stock', [rawAmount, atm.id]);
+    if (drum.rowCount === 0) return 'drum';
+    newStock = drum.rows[0].cash_stock;
     const res = await q(
       'UPDATE players SET bank_credits = bank_credits - $1, credits = credits + $2 WHERE id = $3 AND bank_credits >= $1 RETURNING credits, bank_credits',
       [totalDebited, rawAmount, player.id]);
-    if (res.rowCount === 0) return false;
+    if (res.rowCount === 0) throw Object.assign(new Error('atm:funds'), { atmFunds: true });
     player.credits      = res.rows[0].credits;
     player.bank_credits = res.rows[0].bank_credits;
-    await q('UPDATE atm_units SET cash_stock=$1 WHERE id=$2', [newStock, atm.id]);
     return true;
-  });
+  }).catch(e => { if (e.atmFunds) return false; throw e; });
+  if (dispensed === 'drum') return { type: 'error', message: 'ATM is low on cash. Someone just beat you to it.' };
   if (!dispensed) return { type: 'error', message: `Need ${totalDebited}₵ but you only have ${player.bank_credits || 0}₵ banked.` };
   noteUnit({ ...atm, cash_stock: newStock });   // the refill clock (see replenishTick)
   // Withdrawals were historically unlogged — the ledger was deposits-only. They
@@ -693,6 +701,8 @@ export const routeHandler = async (path, method, body, auth) => {
   // Reads too: the unit list carries every ATM's cash stock and hack difficulty,
   // which is a target list for ATM hacking. Only the dev panel calls these.
   if (!devOk(auth)) return { status: 403, body: { error: 'Dev access required' } };
+  // Setting a drum's cash is minting money, which /spawn keeps to dev/admin.
+  if (method !== 'GET' && !['dev', 'admin'].includes(auth.role)) return { status: 403, body: { error: 'Dev or admin required' } };
 
   const parts = path.split('/').filter(Boolean); // ['atm', resource, id?, sub?]
   const resource = parts[1];

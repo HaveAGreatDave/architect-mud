@@ -150,6 +150,9 @@ for (const level of ['crowd', 'far']) {
     ['stamps their feet to get the feeling back.', 'shiver'], ['does a few slow squats, counting under their breath.', 'exercise'],
     ['picks something up off the floor and looks for somewhere to put it.', 'stoop'], ['rubs their eyes with the heel of a hand.', 'rub'],
     ['cracks their knuckles one hand at a time.', 'knuckles'], ['taps a foot and waits for nothing in particular.', 'tap'], ['pulls on something warmer.', 'adjust'],
+    // behind a bar (plugins/bartender): a pour isn't a drink, a shaken cocktail isn't a shaken head, a pint pulled isn't a tap of the foot
+    ['pours without being asked.', 'pour'], ['pours yours a little short, which is the only opinion he intends to offer.', 'pour'], ['shakes a martini over one shoulder.', 'mix'],
+    ['shakes his head.', null], ['pulls you a pint without asking.', 'pint'], ['slides a drink down the bar.', 'slide'], ['holds a bottle up to the light.', 'eye'],
   ];
   for (const [line, want] of LINES) { const got = actOfLine(line); if (got !== want) problems.push(`"${line}" acts ${got}, not ${want}`); }
   if (speakerOf('Mary Ann Kerr wipes the bar.', ['Mary', 'Mary Ann Kerr', 'Ann']) !== 'Mary Ann Kerr') problems.push('a line goes to the shorter of two names');

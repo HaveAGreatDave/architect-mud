@@ -5,7 +5,7 @@
   ],
   "ambient_theme": "indoors",
   "bg_color": "#c9a884",
-  "description": "Top of the stairwell: the fourth-floor landing, closer to the roof and colder for it. Water stains bloom brown across the ceiling tiles, one sagging low enough to drip when it rains. Units 3A through 3D ring the landing, their doors heavier up here, the locks newer; people who climb this far want to stay lost. A single emergency light burns a weak red over the stairwell mouth, the only bulb on the floor that still works. The iron railing ends in a broken newel post someone's wrapped in duct tape.",
+  "description": "Top of the stairs, and the hotel has stopped pretending. Water stains bloom across the ceiling and the rose paper hangs in tongues. One emergency light burns red over the stairwell. Units 4A to 4D have newer locks and heavier doors. The newel post is carved with the hotel's crest and duct-taped where it broke.",
   "exits": {
     "down": "zone_embassy_floor2",
     "east": "zone_apt_11",
@@ -14,9 +14,34 @@
     "west": "zone_apt_12"
   },
   "flags": {
-    "floor": "linoleum",
-    "intro_lore": "One more flight and the building gives up pretending it was ever nice. The people up here climbed past two landings to get further from the noise, the smell, and each other, proof that in Coldwater, effort buys privacy same as money does anywhere else. The one working light burns red, which some call thematic and others call the bulb they had.",
-    "is_interior": true
+    "floor": "concrete",
+    "intro_lore": "One more flight and the building gives up pretending it was ever nice. The people up here climbed past two landings to get further from the noise, the smell and each other. The one working light burns red, which some call thematic and others call the bulb they had.",
+    "is_interior": true,
+    "room": {
+      "balcony": false,
+      "d": 3.2,
+      "decor": {
+        "plaques": {
+          "zone_apt_10": "4B",
+          "zone_apt_11": "4C",
+          "zone_apt_12": "4D",
+          "zone_apt_9": "4A"
+        },
+        "rug": false
+      },
+      "face": 0,
+      "ground": "concrete",
+      "h": 3,
+      "studio": false,
+      "tone": {
+        "accent": "#5a4a3a",
+        "ceiling": "#a89a8a",
+        "trim": "#1e1814",
+        "wall": "#8a6a66"
+      },
+      "w": 16,
+      "windowless": true
+    }
   },
   "grid_x": 0,
   "grid_y": 0,

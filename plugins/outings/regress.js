@@ -1,7 +1,7 @@
 // Outings: the network is built from the live world, venues are real bars and clubs, and a called
 // night out holds its members, walks them in, and lets them go when it ends.
 import { world } from '../../server/engine/world.js';
-import { buildNetwork, buildVenues, friendsOf, callOuting, isSocialNpc, _test } from './index.js';
+import { buildNetwork, buildVenues, friendsOf, callOuting, isSocialNpc, planEvening, _test } from './index.js';
 
 export default async function ({ check }) {
   const venues = buildVenues();
@@ -19,6 +19,18 @@ export default async function ({ check }) {
   const again = buildNetwork();
   const same = [...again].every(([a, s]) => [...s].every(b => net.get(a)?.has(b)));
   check('outings: the network is the same every boot', same, '');
+
+  // The plan is a pure function of the date: same date, same plan; another date, another plan.
+  const a = planEvening('2076-03-14', 6), b = planEvening('2076-03-14', 6), c = planEvening('2076-03-15', 7);
+  check('outings: an evening has a plan', a.events.length > 0, `${a.events.length} events`);
+  check('outings: the same date plans the same evening', JSON.stringify(a) === JSON.stringify(b), '');
+  check('outings: another date plans another evening', JSON.stringify(a.events) !== JSON.stringify(c.events), '');
+  const seen = new Set(); let twice = false;
+  for (const e of a.events) for (const id of e.members) { if (seen.has(id)) twice = true; seen.add(id); }
+  check('outings: nobody is booked twice in one evening', !twice, '');
+  const houses = a.events.filter(e => e.kind === 'house');
+  check('outings: house parties are planned', houses.length > 0, `${houses.length}`);
+  check("outings: a house party is at the host's home", houses.every(e => world.npcs.get(e.host)?.home_zone === e.venue), '');
 
   // A forced night out: pick a caller whose friends exist, pretend everyone's off and awake.
   _test.reset();
@@ -43,6 +55,14 @@ export default async function ({ check }) {
     o.endsAt = Date.now() - 1;
     const after = _test.drive(caller, { broadcast, query: noQuery, ai: caller._ai, zoneId: caller.zone_id ?? caller.zoneId });
     check('outings: an ended night lets the member go', after === false && !_test.memberOf.has(caller.id), '');
+    _test.reset();
+    const h = callOuting(caller.id, { env, force: true, kind: 'house' });
+    if (h) {
+      check("outings: a house party is at the caller's flat", h.kind === 'house' && h.venue === caller.home_zone, h.venue);
+      const guest = world.npcs.get([...h.members].find(id => id !== caller.id));
+      _test.release(caller, h, { broadcast, ai: caller._ai });
+      check('outings: the host leaving ends the party', !_test.outings.has(h.id) && !_test.memberOf.has(guest?.id), '');
+    }
     const stranger = social.find(n => !o.members.has(n.id));
     if (stranger?._ai) check('outings: the driver ignores NPCs who are not out', _test.drive(stranger, { broadcast, query: noQuery, ai: stranger._ai, zoneId: stranger.zone_id }) === false, '');
   } finally {

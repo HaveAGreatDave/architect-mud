@@ -145,7 +145,9 @@ export async function where(opts = {}) {
 
   // ⚠ `resFloor` ON THE VIEW, WHICH IS WHERE THE RENDERER READS IT (v.resFloor). `pinned` sets
   // RENDER_TUNE.resFloor as well, and nothing reads that one: the resolution dial was loose.
-  const view = { ...S, phase: 'cruise', worldBlend: 1, hour, weather, map, wxField: null, resFloor: 1 };
+  // ⚠ `mapCenter` IS THE WORLD TILE AT THE WINDOW'S CENTRE. Without it the frame is at 0,0, which no
+  // GLASS Lite chunk covers, so a Lite run measured plain GLASS 2 (liteStats chunks 0).
+  const view = { ...S, phase: 'cruise', worldBlend: 1, hour, weather, map, mapCenter: { x, y }, wxField: null, resFloor: 1 };
   const out = pinned(() => {
     // ⚠ The heading is swept rather than held. A fixed heading measures one frustum, and the cost
     // that matters is the one you pay while turning — which is also the only way a stale vertex

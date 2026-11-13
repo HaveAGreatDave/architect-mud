@@ -577,7 +577,8 @@ const SOCK = [[0.8, 0.42, 0.42, 0.02], [0.96, 0.35, 0.39, 0.08], [1.06, 0.33, 0.
 // An official's, a medic's or the ice crew's trousers, hip to skate.
 const TROUSERS = [[-0.06, 0.46, 0.44, 0.02], [0.15, 0.5, 0.47, 0.03], [0.6, 0.45, 0.42, 0.03], [1.0, 0.36, 0.36, 0.03], [1.5, 0.3, 0.31, 0.02], [1.95, 0.27, 0.27, 0]];
 // A sleeve over the shoulder and elbow pads, loose at the cuff over the glove.
-const SLEEVE = [[-0.05, 0.33, 0.32, 0], [0.35, 0.3, 0.29, 0], [0.85, 0.27, 0.27, 0], [1.0, 0.28, 0.28, 0], [1.3, 0.27, 0.26, 0], [1.8, 0.26, 0.25, 0], [2.0, 0.29, 0.28, 0]];
+// The elbow pad shows through it as a cap round the point of the elbow, behind the joint.
+const SLEEVE = [[-0.05, 0.33, 0.32, 0], [0.35, 0.3, 0.29, 0], [0.85, 0.28, 0.28, -0.01], [1.0, 0.31, 0.31, -0.035], [1.15, 0.29, 0.28, -0.015], [1.3, 0.27, 0.26, 0], [1.8, 0.26, 0.25, 0], [2.0, 0.29, 0.28, 0]];
 
 // The frame of a glove closed round the stick, or null when the hand isn't on it: p1 runs
 // along the knuckles (the shaft, squared to the forearm), p2 out of the back of the hand.
@@ -701,6 +702,13 @@ export function buildBody(b, bt, J, o) {
     rings.push({ c: V.add(J[3], [0, 0, 0.25 * k]), S: Ss, F, rs: 0.55 * k + 0.1, rf: 0.5 * k + 0.1, f: 1.25 });
   }
   loft(bt, rings, [1, 1, 1, 1], o.slot || null, hi ? 30 : det ? 16 : 12, hi ? 2.4 : 2);
+  // a hockey sweater's laced neck: the V cut down the front of the collar, and close up the lace
+  // across it, on the sweater's surface (SK_RINGS through the top of the chest)
+  if (det && !gk && !plain && ju <= 0.3) {
+    const out = hi ? 0.03 : 0.015, top = V.add(V.add(J[0], V.mul(U, 1.0 * tl)), V.mul(F, 0.38 + out)), bot = V.add(V.add(J[0], V.mul(U, 0.85 * tl)), V.mul(F, 0.51 + out));
+    for (const sd of [1, -1]) box(b, V.add(top, V.mul(Ss, sd * 0.13)), bot, 0.024, 0.012, mix(jersey, -0.55), F);
+    if (hi) for (const k of [0.25, 0.5, 0.75]) { const p = V.add(V.lerp(top, bot, k), V.mul(F, 0.01)), w = 0.13 * (1 - k); box(b, V.add(p, V.mul(Ss, w)), V.sub(p, V.mul(Ss, w)), 0.016, 0.012, trim, F); }
+  }
 
   // arms
   const ar = gk ? 1.3 : 1;
@@ -735,11 +743,20 @@ export function buildBody(b, bt, J, o) {
       // a glove gripping the stick: the knuckles run along the shaft and the back of the hand
       // faces out of the plane of forearm and shaft, so the fist closes round the stick
       const grip = gripFrame(J, H, dir);
-      box(b, wrist, palm, 0.23, 0.18, mix(glove, 0.05), grip ? grip[1] : undefined);
-      if (det) {
-        const [p1, p2] = grip || perp(dir);
-        for (let f = 0; f < 3; f++) { const at2 = V.add(V.lerp(wrist, palm, 0.35 + f * 0.25), V.mul(p2, 0.17)); box(b, V.sub(at2, V.mul(p1, 0.19)), V.add(at2, V.mul(p1, 0.19)), 0.045, 0.035, mix(glove, -0.18)); }
+      if (!det) box(b, wrist, palm, 0.23, 0.18, mix(glove, 0.05), grip ? grip[1] : undefined);
+      else {
+        // near, the hand is padded leather, not a brick: a rounded back over the knuckles, the
+        // padded rolls across the fingers, the thumb along the side, and close up the fingers
+        // curled under into a fist (round the shaft when he's holding the stick)
+        const [p1, p2] = grip || perp(dir), hl = V.len(V.sub(palm, wrist)) / 2, mid = V.lerp(wrist, palm, 0.5);
+        ellipsoid(b, V.add(mid, V.mul(p2, 0.02)), p1, p2, dir, [0.23, 0.17, hl * 1.08], mix(glove, 0.05), hi ? 14 : 8, hi ? 8 : 5);
+        for (let f = 0; f < 3; f++) { const at2 = V.add(V.lerp(wrist, palm, 0.38 + f * 0.23), V.mul(p2, 0.15)); tube(b, V.sub(at2, V.mul(p1, 0.19)), V.add(at2, V.mul(p1, 0.19)), 0.055, 0.055, mix(glove, -0.16), hi ? 8 : 6); }
         tube(b, V.add(V.lerp(wrist, palm, 0.3), V.mul(p1, 0.2)), V.add(V.lerp(wrist, palm, 0.75), V.mul(p1, 0.26)), 0.07, 0.065, mix(glove, -0.08), 6);
+        if (hi) {
+          tube(b, V.add(V.add(palm, V.mul(p2, -0.08)), V.mul(p1, -0.18)), V.add(V.add(palm, V.mul(p2, -0.08)), V.mul(p1, 0.18)), 0.085, 0.085, mix(glove, -0.1), 10);
+          // the palm's worn leather, lighter, where it shows between the fingers and the cuff
+          ellipsoid(b, V.add(V.lerp(wrist, palm, 0.45), V.mul(p2, -0.1)), p1, p2, dir, [0.19, 0.06, hl * 0.8], mix(glove, 0.35), 10, 4);
+        }
       }
     } else {
       tube(b, wrist, H, 0.15, 0.14, skin, seg);

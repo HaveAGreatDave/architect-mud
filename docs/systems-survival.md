@@ -759,6 +759,8 @@ stored as a meter: no per-tick write, it survives logout for free, and there is 
 
 ## Bodily pressure
 
+**Off by default (`BODILY_NEEDS = false` in the plugin).** Nobody has to go: the 1m tick sends no urges, no involuntary farts and no accidents, the `fart` gamble is never lost, and `pee`/`poop` work any time as roleplay, sounding and timing as a comfortable middling load (70). Food poisoning still has its episodes. Everything below describes the simulation with the switch on. There is no player toggle yet.
+
 Owned by the **bodily plugin** ([plugins/bodily/index.js](../plugins/bodily/index.js)) — its own 1m
 tick, skipping sleeping players. The engine keeps only the substrate half in
 [bodily.js](../server/engine/bodily.js): stains (`stainClothing`/`stainZone`) and the digestion loads

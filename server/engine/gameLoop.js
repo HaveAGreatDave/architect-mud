@@ -43,15 +43,15 @@ import { getItem } from './items-cache.js';
 // Stamina only regenerates once you've been idle (no movement) for a short delay,
 // and faster while sitting. HP only starts recovering — slowly, and only while
 // sitting — once stamina is back to full.
-const IDLE_REGEN_MS = 8000;       // no-movement grace before stamina recovers
-// Standing recovery is FRACTIONAL now — restRegenTick banks the remainder rather
-// than flooring it, so this no longer has to be a whole number to survive a
-// penalty. It was 1/tick (4/min, twenty-five minutes from empty), which read as
-// nothing happening even on the ticks it wasn't rounding to zero outright. At 2.5
-// a standing player is back on their feet in about ten minutes and sitting is
-// still worth doing — roughly 2.4× faster — which is the gap that has to hold.
-const STAND_STAMINA_REGEN = 2.5;  // stamina per tick when idle & standing (slow)
-const SIT_STAMINA_REGEN = 6;      // stamina per tick when sitting (faster rest)
+const IDLE_REGEN_MS = 5000;       // no-movement grace before stamina recovers
+// Standing recovery is FRACTIONAL: restRegenTick banks the remainder rather than
+// flooring it, so this needn't be a whole number to survive a penalty. At 2.5 a
+// new player who ran the tank dry (25 run steps) stood about ten minutes before
+// they could run again, and that's what they complained about. At 4 it's about
+// six minutes standing, and sitting at 9 (about 2.5 minutes) keeps the gap that
+// makes sitting worth doing.
+const STAND_STAMINA_REGEN = 4;    // stamina per tick when idle & standing
+const SIT_STAMINA_REGEN = 9;      // stamina per tick when sitting (faster rest)
 const SIT_REGEN_HP = 3;           // HP per tick while sitting, once stamina is full
 const WINDED_REGEN_MULT = 0.5;    // stamina regen while winded (ran the tank dry, movement.js) — halved
 // A well-fed player recovers stamina appreciably faster. This is what the whole

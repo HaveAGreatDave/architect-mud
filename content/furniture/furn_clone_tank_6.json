@@ -1,0 +1,28 @@
+{
+  "description": "A squat tank on four feet, lid dogged shut by six clamps. A stencilled label says what's inside in a code nobody upstairs is told. It's warm to the touch, and it hums.",
+  "flags": {
+    "look": {
+      "arche": "prop",
+      "dims": [
+        1.2,
+        1.2,
+        1.3
+      ],
+      "form": "tank"
+    },
+    "spot": {
+      "along": 7.4,
+      "wall": "right"
+    }
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_clone_tank_6",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "waste tank",
+  "object_type": "decoration",
+  "power_draw_kw": null,
+  "price": null,
+  "zone_id": "zone_clone_facility_z-1_1782276270002"
+}

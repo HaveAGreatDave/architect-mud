@@ -443,12 +443,21 @@ async function finishMicrowave(invId, playerId) {
   const session = row.custom_data.cooking;
   const profile = sessionProfile(session);
   await freeAppliance(session);
-  const band = profile ? evaluate(session, profile, Date.now(), 0).band : null;
-  if (!(await endSession(invId, band))) return;
+  const ev = profile ? evaluate(session, profile, Date.now(), 0) : null;
+  // How it came out (raw, peak, over, burnt) rides on the item, so the Kitchen Stage can draw it the
+  // way the time you set left it (workspace.js component `done`)
+  if (!(await endSession(invId, ev?.band || null, null, null, false, ev ? { end_state: ev.endState } : {}))) return;
   const zoneId = liveCooks.get(invId)?.zoneId;
   emit('cooking.sfx', { zoneId, playerId, action: 'microwave', state: 'done' });
-  narrate(playerId, `The ${row.name} is done. The microwave beeps three times and stops.`);
+  narrate(playerId, `The microwave beeps three times and stops. ${MICROWAVE_DONE[ev?.endState] || MICROWAVE_DONE.peak}`.replace('$', row.name));
 }
+// What you open the door on, by how the time you set worked out.
+const MICROWAVE_DONE = {
+  raw: 'The $ is hot on the outside and cold in the middle.',
+  peak: 'The $ is done.',
+  over: 'The $ has gone rubbery at the edges.',
+  burnt: 'Smoke comes out when you open the door. The $ is black.',
+};
 
 function narrate(playerId, message) {
   if (getLivePlayer(playerId)) sendToPlayer(playerId, { type: 'output', message });

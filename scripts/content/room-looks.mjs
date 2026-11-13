@@ -58,8 +58,8 @@ const ROOMS = {
 // 30-B's text names a chair and a stone bath
 const row = (id, zone_id, name, object_type, description, flags) => ({ description, flags, hp: null, hp_max: null, id, light_type: null, lumen_output: null, name, object_type, power_draw_kw: null, price: 0, zone_id });
 const NEW = [
-  row('furn_solenne_b_reading_chair', 'zone_solenne_apt_b', 'reading chair', 'furniture', 'A deep chair in grey wool, turned a little off square so it faces the corner of the glass and not the room.', { interactions: ['sit'], look: { arche: 'seat', form: 'armchair' }, spot: { at: [-4.4, 1.7], turn: -38 } }),
-  row('furn_solenne_b_stone_bath', 'zone_solenne_apt_b', 'stone bath', 'decoration', 'A bath cut from a single block of grey stone, deep enough to sit up to your neck in. It stands out in the room by the north glass. Nobody has to see you in it, and at this height nobody can.', { look: { arche: 'shower', form: 'soak' }, spot: { at: [-4.7, 8.2], turn: 90 } }),
+  // the corner's chair is the computer desk's since 2026-11-11 (furn_solenne_b_pc_desk, gl/room-office.js)
+  row('furn_solenne_b_reading_chair', 'zone_solenne_apt_b', 'desk chair', 'furniture', "A desk chair in black mesh on five castors, with a headrest, a lumbar pad and more levers under the seat than anyone has worked out. It's turned to face the monitor.", { interactions: ['sit'], look: { arche: 'seat', form: 'office' }, spot: { at: [-4.85, 1.15], turn: -45 } }),
 ];
 // a lounge for each of them: the tower's rows were a bed, a kitchen and a set, and a studio this size
 // has a whole end of the room with nothing in it. The crown's is sunken, and its rows are written by

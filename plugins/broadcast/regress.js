@@ -433,7 +433,8 @@ export default async function regress({ check, run, getPlayer }) {
         if (games.length || fin.length !== 2 || fin.some((g) => g.sod < 6) || new Set(fin.map((g) => g.sport)).size !== 2) bad.push(`${m} Cup day ${JSON.stringify(day)}`);
         continue;
       }
-      if (games.length !== 8) bad.push(`day ${d}: ${games.length} games`);
+      // seven games: 21:00 is the day's overflow, with no game of its own
+      if (games.length !== 7 || day[_test.SLATE_BUFFER_SOD].away) bad.push(`day ${d}: ${games.length} games`);
       for (const sp of ['baseball', 'hockey']) {
         const teams = games.filter((g) => g.sport === sp).flatMap((g) => [g.away, g.home]);
         if (new Set(teams).size !== teams.length) bad.push(`day ${d}: a ${sp} club plays twice`);
@@ -445,7 +446,7 @@ export default async function regress({ check, run, getPlayer }) {
         if ((mm?.away || null) !== g.away || (mm?.home || null) !== g.home) bad.push(`slot ${g.slot}: the lookup disagrees with the slate`);
       }
     }
-    check('slate: 8 games a day, no club twice, sports alternating', bad.length === 0 && cupDays === 2, bad.slice(0, 4).join('; '));
+    check('slate: 7 games a day and 21:00 empty, no club twice, sports alternating', bad.length === 0 && cupDays === 2, bad.slice(0, 4).join('; '));
     // Greedy, so not proven exact: measured at 1 or 2 across 2035's first two months.
     const wide = spread.filter(([, , s, n]) => s > 2 || n !== 8);
     check('slate: every club is on at 18:00 within two games of every other over a month', spread.length === 4 && !wide.length, JSON.stringify(spread));
@@ -505,7 +506,7 @@ export default async function regress({ check, run, getPlayer }) {
       // The guide lists today's games, matchups only.
       const guide = _test.slateScheduleSlots(chans['reg-ch-src']);
       check('slate guide: lists today\'s games with clock times and no scores',
-        Array.isArray(guide) && guide.every((g) => /^\d\d:00$/.test(g.todLabel) && !/\d+-\d+/.test(g.name)) && (guide.length === 8 || _test.isCupDay(today)), JSON.stringify(guide.slice(0, 2)));
+        Array.isArray(guide) && guide.every((g) => /^\d\d:00$/.test(g.todLabel) && !/\d+-\d+/.test(g.name)) && (guide.length === 7 || _test.isCupDay(today)), JSON.stringify(guide.slice(0, 2)));
 
       // One game on two channels is announced once. The relay isn't a sports channel at
       // all, so give a second channel the same slate item to be sure the dedupe is by game.
@@ -552,6 +553,47 @@ export default async function regress({ check, run, getPlayer }) {
     const g = _test.assembleSportsGraph(script, 'reg-bc-open', slot, null, { slotMs: 3600_000 });
     const first = g && (g.edges || []).find((e) => e.fromNode === g._start)?.toNode;
     check('handover: a Deadball game opens on its title card', !!first && g.nodes[first]?.type === 'title_card', first ? g.nodes[first]?.type : 'no graph');
+  }
+
+  // ── The overflow: a game that runs long keeps the air ─────────────────────────
+  // A game held past its slot stays on until its content ends; the next waits, then airs
+  // from its title card, late, and the lateness carries on until the empty 21:00 slot.
+  {
+    const T0 = 2_000_000_000, SLOT = 3600_000, CONTENT = 3300_000;
+    // slot 100 on air at T0 for its full content, running 10 minutes past its slot
+    let { hold } = _test.holdNext(null, 100, T0, 0, SLOT + 600_000);
+    check('overflow: a game put on air by the clock starts at the clock', hold.slot === 100 && hold.startMs === T0);
+    const turn = T0 + SLOT + 60_000;   // the clock has turned to 101, the game has 9 minutes left
+    check('overflow: past the turn a game still running is held over', _test.holdingAt(hold, 101, turn) === 100);
+    check('overflow: a held game is seeked where it is, not restarted', _test.holdNext(hold, 100, turn, 0, CONTENT).elapsedSec === (SLOT + 60_000) / 1000);
+    const ended = T0 + SLOT + 600_000;
+    check('overflow: once its content ends nothing is held', _test.holdingAt(hold, 101, ended) === null);
+    // the next game goes on air the moment it ended, from the top, though its slot is 10 min old
+    const nx = _test.holdNext(hold, 101, ended + 2000, 600, CONTENT);
+    check('overflow: the next game starts late, from its title card', nx.hold.startMs === ended && nx.elapsedSec === 0, JSON.stringify(nx));
+    check('overflow: a late game ends late by as much', nx.hold.endMs === ended + CONTENT);
+    // a game that ended inside its slot doesn't delay the next one
+    const early = _test.holdNext(null, 100, T0, 0, CONTENT).hold;
+    const onTime = _test.holdNext(early, 101, T0 + SLOT + 20_000, 20, CONTENT);
+    check('overflow: a game that finished in time hands over on the clock', onTime.hold.startMs === T0 + SLOT && onTime.elapsedSec === 20, JSON.stringify(onTime));
+    check('overflow: a stale hold is dropped', _test.holdingAt({ slot: 100, startMs: T0, endMs: Infinity }, 103, T0) === null);
+    // a day of games each running 8 minutes over: the 21:00 gap takes it all back by midnight
+    let h = null, lateAtMidnight = null;
+    for (let sod = 0; sod < 8; sod++) {
+      if (sod === _test.SLATE_BUFFER_SOD) continue;
+      const clockStart = T0 + sod * SLOT;
+      const now = Math.max(clockStart, h ? h.endMs : 0);
+      h = _test.holdNext(h, sod, now, (now - clockStart) / 1000, SLOT + 480_000).hold;
+    }
+    lateAtMidnight = h.endMs - (T0 + 8 * SLOT);
+    check('overflow: seven games each eight minutes long still fit the day', lateAtMidnight <= 0, `${lateAtMidnight / 60000} min over`);
+    // the content length rides on the graph, and is no longer than the paced slot
+    const pools = JSON.parse(readFileSync(new URL('../../content/media_broadcasts/bc_1783289744953.json', import.meta.url), 'utf8')).sports_pools;
+    const script = { ...pools, _slate: true };
+    let slot = 5000;
+    while (!_test.slateHasGame(script, slot) && slot < 5016) slot++;
+    const g = _test.assembleSportsGraph(script, 'reg-bc-hold', slot, null, { slotMs: SLOT });
+    check('overflow: a game\'s graph says how long its content runs', g && g._contentMs > SLOT * 0.5 && g._contentMs <= SLOT + 60_000, String(g?._contentMs));
   }
 
   // ── The desk's cast know where work is ─────────────────────────────────────────
@@ -4274,8 +4316,9 @@ export default async function regress({ check, run, getPlayer }) {
     const recorded = _test.getSimSwitch('baseball');   // whatever this database has recorded
     try {
       _test.setSimSwitch('baseball', { from: 50000, until: 50011 });   // 50011, not 50010: that slot is hockey's
+      // 49997, not 49999: the day's 21:00 slot (sod 7) carries no game
       const ver = (slot) => _test.sportsGameForSlot(deadball, slot, null).game.version || 1;
-      check('sim switch: a slot before it plays v1 and the slot it starts at plays v2', ver(49999) === 1 && ver(50000) === 2, `${ver(49999)}, ${ver(50000)}`);
+      check('sim switch: a slot before it plays v1 and the slot it starts at plays v2', ver(49997) === 1 && ver(50000) === 2, `${ver(49997)}, ${ver(50000)}`);
       check('sim switch: a slot after it ends plays v1 again', ver(50011) === 1, String(ver(50011)));
 
       // The booth: lines for every new play and for a tied score, and under v2 every play

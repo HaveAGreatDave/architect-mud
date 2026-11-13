@@ -1,0 +1,20 @@
+{
+  "description": null,
+  "flags": {},
+  "id": "item_zippo_chrome",
+  "name": "chrome zippo",
+  "tags": {
+    "description": "A plain brushed-chrome windproof lighter. The lid snaps open with a clack you can hear across a bar. It smells of fluid.",
+    "lighter": {
+      "case": "#d9dde2",
+      "finish": "brush",
+      "rank": 1,
+      "trim": "#d9dde2",
+      "trim_dark": "#8b9096"
+    },
+    "unique": true
+  },
+  "type": "misc",
+  "value": 40,
+  "weight": 60
+}

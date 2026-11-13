@@ -105,6 +105,63 @@ for (const hob of ['camp', 'domestic', 'range']) {
   KS.buildSet(b, { hob });
   check(`mesh: the set with a ${hob} hob is sound`, sound(b), b.n);
 }
+// the room's microwave, as the kitchen draws it in the room's place: on a worktop and on its trolley,
+// either way round, its door shut and open, its light off and on; its turntable's food sits inside it
+for (const stand of [0, 55]) for (const flip of [false, true]) {
+  const oven = { w: 50, d: 40, h: 30, stand, flip }, b = M.createBatch(1 << 12);
+  KS.buildSet(b, { hob: 'microwave', bare: true, oven });
+  for (const open of [0, 0.5, 1]) KS.ovenLive(b, oven, { open, lit: open > 0, spin: open * 3 });
+  check(`mesh: a microwave (stand ${stand}, flip ${flip}) is sound`, sound(b), b.n);
+  const K = KS.ovenCavity(oven), hw = oven.w / 2;
+  check(`mesh: its cavity is inside it (flip ${flip})`, K.x0 > -hw && K.x1 < hw && K.z1 < oven.h && K.y0 > -oven.d / 2 && K.x1 - K.x0 > 20, K);
+  check(`mesh: its cavity is on the keypad's far side (flip ${flip})`, flip ? K.cx > 0 : K.cx < 0, K.cx);
+  // the keypad: thirteen keys inside the panel, on the keypad's side, none overlapping, reading left to
+  // right in the kitchen's frame whichever way round it is
+  const P = KS.ovenPanel(oven), keys = P.keys;
+  check(`mesh: the keypad has 0-9, +30, C and START (flip ${flip})`, keys.length === 13 && ['0', '9', '+30', 'C', 'start'].every((k) => keys.some((x) => x.key === k)));
+  check(`mesh: every key is on the panel (flip ${flip})`, keys.every((k) => k.x0 >= P.x0 && k.x1 <= P.x1 && k.z0 >= P.z0 && k.z1 <= P.z1 && k.c.every(Number.isFinite)));
+  check(`mesh: the panel is clear of the cavity (flip ${flip})`, flip ? P.x1 <= K.x0 : P.x0 >= K.x1, { P: [P.x0, P.x1], K: [K.x0, K.x1] });
+  const at = (k) => keys.find((x) => x.key === k);
+  check(`mesh: 1 is left of 3 and above 7 (flip ${flip})`, at('1').x1 <= at('3').x0 && at('1').z0 >= at('7').z1);
+  check(`mesh: no two keys overlap (flip ${flip})`, keys.every((a, i) => keys.every((q, j) => i === j || a.x1 <= q.x0 || q.x1 <= a.x0 || a.z1 <= q.z0 || q.z1 <= a.z0)));
+  const f = M.createBatch(1 << 10);
+  for (const ext of [0.2, 0.7, 1]) KS.ovenFinger(f, oven, ext, { tremble: ext < 1, t: ext });
+  check(`mesh: the finger is sound (flip ${flip})`, sound(f), f.n);
+  const g = M.createBatch(1 << 10);
+  KS.ovenLive(g, oven, { display: '10:00', pressed: 'start', press: 1 });
+  check(`mesh: a pressed key and a four-digit display are sound (flip ${flip})`, sound(g), g.n);
+}
+{
+  // walking about a room while the kitchen's up, it picks with the room's own eye: kitchenCamOf has to be
+  // roomCamOf's exact inverse, or a click lands beside what's drawn
+  const KG = await import(R + 'game/js/panels/gl/kitchen.js');
+  const n3 = (v) => { const l = Math.hypot(...v); return v.map((x) => x / l); };
+  const frames = [KG.FREE, { o: [2, 0.9, -1], x: [0, 0, 1], y: [-1, 0, 0], z: [0, 1, 0], s: 0.01 }, { o: [-3, 1, 4], x: n3([0.6, 0, -0.8]), y: n3([0.8, 0, 0.6]), z: [0, 1, 0], s: 0.0328 }];
+  let worst = 0;
+  for (const F of frames) for (const v of [{ eye: [1, 1.6, 2], yaw: 0.4, pitch: -0.5, fov: 72 }, { eye: [-2, 1.2, 0.5], yaw: -2.9, pitch: 0.2, fov: 60 }]) {
+    const back = KG.roomCamOf(KG.kitchenCamOf(v, F), null, F);
+    const dy = Math.abs(Math.atan2(Math.sin(back.yaw - v.yaw), Math.cos(back.yaw - v.yaw)));
+    worst = Math.max(worst, dy, Math.abs(back.pitch - v.pitch), Math.abs(back.fov - v.fov), ...back.eye.map((x, i) => Math.abs(x - v.eye[i])));
+  }
+  check('camera: the room\'s eye through the kitchen and back is the same eye', worst < 1e-9, worst);
+}
+{
+  // the display font: every character the display and the keys show, and nothing past its box
+  check('mesh: the seven-segment font has every character it is asked for', ['0123456789', 'End', '+30', 'C', '1:30', '-'].every(KS.segGlyphs));
+  const b = M.createBatch(1 << 10);
+  KS.segText(b, '12:34', 0, 6, 0, 3, 0, KS.COLOURS.ovenLed);
+  let x0 = Infinity, x1 = -Infinity;
+  for (let i = 0; i < b.n; i++) { const x = b.data[i * M.STRIDE]; x0 = Math.min(x0, x); x1 = Math.max(x1, x); }
+  check('mesh: seven-segment text squeezes into its box', sound(b) && x0 >= -0.01 && x1 <= 6.01, [x0, x1]);
+  const n0 = b.n;
+  KS.segText(b, ' ', 0, 6, 0, 3, 0, KS.COLOURS.ovenLed);
+  check('mesh: a blank draws nothing', b.n === n0);
+}
+{
+  const b = M.createBatch(1 << 10);
+  KS.buildSet(b, { hob: 'bench', bare: true });
+  check('mesh: a worktop with no hob draws the board and the pass only', sound(b), b.n);
+}
 for (const kind of ['pan', 'pot', 'tray', 'bowl', 'bread']) {
   const b = M.createBatch(1 << 10);
   KS.vessel(b, kind, KS.pose([0, 0, KS.PAN_Z], 0.2));

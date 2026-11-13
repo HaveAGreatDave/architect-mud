@@ -242,6 +242,15 @@ export const SHELL_PROFILES = {
     room: (P, live, push, rich) => truckRoom(P, live, push, rich),
     roomRich: true,
     normalLit: true,        // lit by which way each face points (windshield.js), not by k alone
+    // Panel lamps for after dark, warm and low, only with the engine on: one under the binnacle
+    // hood, one over the centre stack, one over the passenger side of the dash. Without them the
+    // cab went black at night except for its lit digits.
+    floods: [
+      { p: [0, 0.66, -0.22], r: 0.34 },
+      { p: [0.55, 0.64, -0.30], r: 0.42 },
+      { p: [1.15, 0.64, -0.30], r: 0.38 },
+    ],
+    floodGain: 1.4,
     fit: 'truck',           // the fit-out — see interior-fit.js
     hotspots(live) { return truckHotspots(this, live); },   // the switch banks on the fascia (interior-fit.js)
     outboard: 0.42,         // ⚠ the west-coast mirrors hang outside the doors, and this is the one

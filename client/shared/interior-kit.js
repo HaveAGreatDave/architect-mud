@@ -518,23 +518,52 @@ export function roundWheel(K, c, rake, R, steer, lockDeg, rgbRim = C.grip, spoke
   const rimCol = pal ? pal.rim : rgbRim;
   const alt = pal && (style.rim === 'chain' || style.rim === 'segment') ? pal.rimAlt : null;
   const tube = R * (style && style.rim === 'chain' ? 0.10 : 0.085);
-  const N = 26;
-  let prev = null;
-  for (let i = 0; i <= N; i++) {
-    const t = (i / N) * Math.PI * 2;
-    const p = add(c, add(mul(Rr, Math.cos(t) * R), mul(Ur, Math.sin(t) * R)));
-    if (prev) K.rod(prev, p, tube, 'dash', 0.1, alt && i % 2 ? alt : rimCol, 0, 5, false);
-    prev = p;
-  }
-  for (const d of spokes) {
-    const t = d * Math.PI / 180;
-    const tip = add(c, add(mul(Rr, Math.cos(t) * R * 0.92), mul(Ur, Math.sin(t) * R * 0.92)));
-    K.rod(c, tip, R * (style && style.spoke === 'bone' ? 0.075 : 0.06), 'dash', 0.1, pal ? pal.spoke : C.steel, 0, 4);
-  }
-  if (pal) hornRgb = pal.boss;
   const n = norm(cross(Rr, Ur));
   const toward = dot(n, c) > 0 ? neg(n) : n;
-  K.obox(add(c, mul(toward, R * 0.05)), Rr, Ur, toward, R * 0.30, R * 0.26, R * 0.06, 'dash', 0.1, hornRgb || C.grip, 0);
+  // ── THE RIM IS ONE SWEPT TUBE ──────────────────────────────────────────────
+  // Rings at each station joined to the next, so the rim bends round instead of being 26 straight
+  // five-sided sticks butted end to end (which showed a kink at every joint and read as a polygon
+  // from the seat). Thumb grips at ten to two are a little fatter, as on a real rim.
+  const N = 40, SIDES = 8;
+  const grip = (t) => {
+    const d = ((t * 180 / Math.PI) % 360 + 360) % 360;
+    return (d > 18 && d < 44) || (d > 136 && d < 162) ? 1.16 : 1;
+  };
+  const ring = (t) => {
+    const rd = add(mul(Rr, Math.cos(t)), mul(Ur, Math.sin(t)));
+    const ctr = add(c, mul(rd, R)), tb = tube * grip(t);
+    return Array.from({ length: SIDES }, (_, j) => {
+      const a = (j / SIDES) * Math.PI * 2;
+      return add(ctr, add(mul(rd, Math.cos(a) * tb), mul(n, Math.sin(a) * tb)));
+    });
+  };
+  let A = ring(0);
+  for (let i = 1; i <= N; i++) {
+    const t1 = (i / N) * Math.PI * 2, tm = ((i - 0.5) / N) * Math.PI * 2, B = ring(t1);
+    const rdm = add(mul(Rr, Math.cos(tm)), mul(Ur, Math.sin(tm)));
+    const rgb = alt && (i >> 1) % 2 ? alt : rimCol;
+    for (let j = 0; j < SIDES; j++) {
+      const k2 = (j + 1) % SIDES, am = ((j + 0.5) / SIDES) * Math.PI * 2;
+      K.face([A[j], A[k2], B[k2], B[j]], norm(add(mul(rdm, Math.cos(am)), mul(n, Math.sin(am)))), 'dash', 0.1, rgb, 0);
+    }
+    A = B;
+  }
+  // Spokes are flat bars in the wheel's plane, as a pressed-steel truck wheel has; the Bone Rim's
+  // are round, as it promises.
+  for (const d of spokes) {
+    const t = d * Math.PI / 180;
+    const dir = add(mul(Rr, Math.cos(t)), mul(Ur, Math.sin(t)));
+    const tip = add(c, mul(dir, R * 0.94));
+    if (style && style.spoke === 'bone') { K.rod(c, tip, R * 0.075, 'dash', 0.1, pal ? pal.spoke : C.steel, 0, 6); continue; }
+    const across = norm(cross(toward, dir));
+    K.obox(add(c, mul(dir, R * 0.47)), dir, across, toward, R * 0.47, R * 0.095, R * 0.028, 'dash', 0.1, pal ? pal.spoke : C.steel, 0);
+  }
+  if (pal) hornRgb = pal.boss;
+  // The boss: a backing plate on the column, the horn pad proud of it, and the maker's badge in the
+  // middle of the pad.
+  K.obox(add(c, mul(toward, R * 0.04)), Rr, Ur, toward, R * 0.31, R * 0.27, R * 0.05, 'dash', 0.1, hornRgb || C.grip, 0);
+  K.obox(add(c, mul(toward, R * 0.11)), Rr, Ur, toward, R * 0.26, R * 0.21, R * 0.03, 'dash', 0.2, pal ? (hornRgb || C.rubber) : C.rubber, 0);
+  if (!(style && style.boss)) K.obox(add(c, mul(toward, R * 0.145)), Rr, Ur, toward, R * 0.075, R * 0.05, R * 0.006, 'dash', 0.3, C.chrome, 0.05);
   // A skull boss looks back at you off the hub, as the Skull Wheel and the Bone Rim promise.
   if (style && style.boss === 'skull' && pal) {
     const face = add(c, mul(toward, R * 0.13));
@@ -547,9 +576,11 @@ export function roundWheel(K, c, rake, R, steer, lockDeg, rgbRim = C.grip, spoke
       K.rod(add(c, mul(toward, R * 0.12)), tip, R * 0.03, 'dash', 0.3, pal.cap, 0.1, 4);
     }
   }
-  // A marker at twelve o'clock on the rim, so the lock on is readable at a glance.
-  const top = add(c, mul(Ur, R));
-  K.obox(add(top, mul(toward, R * 0.02)), Rr, Ur, toward, R * 0.07, R * 0.09, R * 0.09, 'dash', 0.1, C.amber, 0.3);
+  // A marker at twelve o'clock on the rim, so the lock on is readable at a glance: a stitched band
+  // wrapped round the rim, not a block stood on it.
+  const tA = Math.PI / 2 - 0.05, tB = Math.PI / 2 + 0.05;
+  K.rod(add(c, add(mul(Rr, Math.cos(tA) * R), mul(Ur, Math.sin(tA) * R))), add(c, add(mul(Rr, Math.cos(tB) * R), mul(Ur, Math.sin(tB) * R))),
+    tube * 1.07, 'dash', 0.1, [196, 150, 70], 0, 8);
   return { toward, Rr, Ur };
 }
 

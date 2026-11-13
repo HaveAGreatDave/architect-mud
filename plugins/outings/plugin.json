@@ -1,9 +1,17 @@
 {
   "name": "outings",
   "version": "1.0.0",
-  "description": "NPC friend networks and nights out. Each NPC with a home gets up to six friends, derived at boot from authored flags.friends, housemates, workmates and neighbours. In the evening a free NPC with free friends calls a night out: each walks from wherever they are to the same nearby bar or club, they meet, stay three game hours and go home. Anyone due on shift drops out. RAM only, no queries.",
+  "description": "NPC friend networks, nights out and house parties. Each NPC with a home gets up to six friends, derived at boot from authored flags.friends, housemates, workmates and neighbours. Each evening's plan (who goes to which bar or club, who throws a house party at their flat) is seeded from the game date, so it's the same after any restart; tonight() lists it. Anyone due on shift drops out. RAM only, no queries.",
   "commands": [],
   "hooks": [],
-  "ticks": ["1m"],
-  "extensionPoints": ["npcs.flags.friends", "npcs.flags.no_outings", "zones.flags.outing_venue", "zones.flags.no_outings"]
+  "ticks": [
+    "1m"
+  ],
+  "extensionPoints": [
+    "npcs.flags.friends",
+    "npcs.flags.no_outings",
+    "zones.flags.outing_venue",
+    "zones.flags.no_outings",
+    "zones.flags.no_house_parties"
+  ]
 }

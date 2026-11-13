@@ -235,6 +235,38 @@
         { waveform: 'sawtooth', freq: 170, pitchBend: { to: 40, time: 0.42 }, filter: { type: 'lowpass', freq: 800, q: 1 }, adsr: { a: 0.01, d: 0.24, s: 0.3, r: 0.28 }, gain: 0.22 },
         { waveform: 'noise', noiseMix: 1, delay: 0.06, filter: { type: 'highpass', freq: 2600, q: 1 }, adsr: { a: 0.001, d: 0.05, s: 0, r: 0.03 }, gain: 0.28 } ] } },
 
+    // ── Spray session (client/game/js/panels/spray-session.js) ───────────────
+    // An aerosol is noise through a hole: a bright band round 4 to 7 kHz, with the ball bearing
+    // knocking about inside the can. Nothing tonal but the last cue, which is the game's, not the can's.
+    { id: 'spray-rattle', name: 'Spray — shake the can', group: 'spray', category: 'sfx', priority: 5,
+      config: { duration: 0.52, vary: { pitch: 60, time: 0.12 }, layers: [0, 0.1, 0.19, 0.3, 0.39].flatMap((d, i) => [
+        { waveform: 'triangle', freq: 1900 + i * 70, delay: d, pitchBend: { to: 1450, time: 0.02 }, adsr: { a: 0.001, d: 0.035, s: 0, r: 0.02 }, filter: { type: 'bandpass', freq: 2200, q: 3 }, gain: 0.2 },
+        { waveform: 'noise', noiseMix: 1, delay: d, filter: { type: 'bandpass', freq: 3200, q: 3 }, adsr: { a: 0.001, d: 0.022, s: 0, r: 0.015 }, gain: 0.14 },
+      ]) } },
+    { id: 'spray-tick', name: 'Spray — a stroke', group: 'spray', category: 'sfx', priority: 4,
+      config: { duration: 0.16, vary: { filter: 300, gain: 1.5 }, layers: [
+        { waveform: 'noise', noiseMix: 1, filter: { type: 'bandpass', freq: 5200, q: 0.9 }, adsr: { a: 0.004, d: 0.12, s: 0, r: 0.05 }, gain: 0.34 },
+        { waveform: 'noise', noiseMix: 1, filter: { type: 'highpass', freq: 8000, q: 0.7 }, adsr: { a: 0.002, d: 0.06, s: 0, r: 0.04 }, gain: 0.12 } ] } },
+    { id: 'spray-fill', name: 'Spray — a section goes on', group: 'spray', category: 'sfx', priority: 6,
+      config: { duration: 0.55, vary: { filter: 200 }, layers: [
+        { waveform: 'noise', noiseMix: 1, filter: { type: 'bandpass', freq: 4600, q: 0.7 }, adsr: { a: 0.02, d: 0.1, s: 0.8, r: 0.2 }, gain: 0.36 },
+        { waveform: 'noise', noiseMix: 1, filter: { type: 'lowpass', freq: 1400, q: 0.7 }, adsr: { a: 0.02, d: 0.2, s: 0.3, r: 0.15 }, gain: 0.08 },
+        ...[0.06, 0.24, 0.41].map((d) => ({ waveform: 'triangle', freq: 2300, delay: d, pitchBend: { to: 1700, time: 0.02 }, adsr: { a: 0.001, d: 0.03, s: 0, r: 0.02 }, filter: { type: 'bandpass', freq: 2400, q: 3 }, gain: 0.1 })) ] } },
+    { id: 'spray-hold', name: 'Spray — nozzle held down', group: 'spray', category: 'sfx', priority: 3,
+      config: { duration: 0.4, layers: [
+        { waveform: 'noise', noiseMix: 1, filter: { type: 'bandpass', freq: 6200, q: 0.8 }, adsr: { a: 0.05, d: 0.05, s: 0.85, r: 0.14 }, gain: 0.13 },
+        { waveform: 'noise', noiseMix: 1, filter: { type: 'highpass', freq: 3200, q: 0.6 }, adsr: { a: 0.05, d: 0.05, s: 0.7, r: 0.12 }, gain: 0.05 } ] } },
+    { id: 'spray-sputter', name: 'Spray — sputters', group: 'spray', category: 'sfx', priority: 6,
+      config: { duration: 0.32, vary: { pitch: 40 }, layers: [
+        ...[[0, 0.3], [0.07, 0.22], [0.15, 0.14]].map(([d, g]) => ({ waveform: 'noise', noiseMix: 1, delay: d, filter: { type: 'bandpass', freq: 2100, q: 1.6 }, adsr: { a: 0.002, d: 0.04, s: 0, r: 0.02 }, gain: g })),
+        { waveform: 'sawtooth', freq: 92, pitchBend: { to: 58, time: 0.2 }, filter: { type: 'lowpass', freq: 600, q: 1 }, adsr: { a: 0.004, d: 0.18, s: 0, r: 0.06 }, gain: 0.1 } ] } },
+    { id: 'spray-done', name: 'Spray — piece finished', group: 'spray', category: 'sfx', priority: 8,
+      config: { duration: 0.75, layers: [
+        { waveform: 'noise', noiseMix: 1, filter: { type: 'bandpass', freq: 5000, q: 0.7 }, adsr: { a: 0.01, d: 0.3, s: 0, r: 0.12 }, gain: 0.26 },
+        { waveform: 'triangle', freq: 1300, delay: 0.16, pitchBend: { to: 900, time: 0.03 }, adsr: { a: 0.001, d: 0.05, s: 0, r: 0.03 }, filter: { type: 'bandpass', freq: 1400, q: 2 }, gain: 0.22 },
+        { waveform: 'square', freq: 1046, delay: 0.24, adsr: { a: 0.003, d: 0.1, s: 0, r: 0.06 }, filter: { type: 'lowpass', freq: 4000, q: 1 }, gain: 0.07 },
+        { waveform: 'square', freq: 1568, delay: 0.34, adsr: { a: 0.003, d: 0.2, s: 0, r: 0.12 }, filter: { type: 'lowpass', freq: 4500, q: 1 }, gain: 0.07 } ] } },
+
     // ── Vault Crack ──────────────────────────────────────────────────────────
     { id: 'vault-entry', name: 'Vault — approach', group: 'vault', category: 'sfx', priority: 4,
       config: { duration: 0.5, layers: [

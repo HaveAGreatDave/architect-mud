@@ -800,9 +800,12 @@ Two shows share the `sports` pipeline: **DEADBALL** (baseball, `bc_1783289744953
 pipeline may branch on it.
 
 **The daily slate** ([proposals/daily-slate.md](proposals/daily-slate.md), Phases 1 to 3
-and 4a built). Every club plays every in-game day. The two sports share the day's eight 3-hour
+and 4a built). The two sports share the day's eight 3-hour
 slots, taking turns, and the pattern swaps each day, so each gets the 18:00 game every other
-day (`sportsSlateForDay`, `sportsMatchupForSlot`; the order is SPORTS's). The 18:00 game
+day (`sportsSlateForDay`, `sportsMatchupForSlot`; the order is SPORTS's). Seven of the eight
+have a game: 21:00 (`SLATE_BUFFER_SOD`) is left empty on a regular day as the day's overflow,
+and the pairing that would have played it sits the day out, so all but two clubs of that
+night's sport play every day. The 18:00 game
 goes to the pairing whose clubs have had the fewest 18:00 games that month. A season is the
 in-game month, and its last day is Cup day: each sport plays only its final, in its last slot.
 
@@ -829,6 +832,18 @@ in-game month, and its last day is Cup day: each sport plays only its final, in 
   turn) is timed by the clock. On the TV, a change of programme drops the last game's
   sub-screen and score bug (`setProgramName` in tv.js), or the rink held the hockey final
   over the ballgame's title card.
+- **A game that runs long keeps the air.** The last game put on air is held
+  (`_sportsHold`: its slot, when it started and when its content ends, from the graph's
+  `_contentMs`, which is everything but the parked post-game tail). While the clock is past its
+  slot and its content hasn't ended, every channel that would show it keeps showing it
+  (`sportsAiringSlot`, which the slate picker asks too), and nothing goes on air in its place.
+  When it ends, the next game goes on air from its title card, late, started from that moment
+  rather than its slot's clock time; it's paced to a whole slot, so it ends late by as much,
+  and the lateness carries from game to game until the empty 21:00 slot takes it back. A game
+  that finishes inside its slot hands over on the clock as before, and a hold more than two
+  slots stale is dropped. The betting heartbeat, venue lights and KSAB-TV's 18:00 relay row
+  still follow the clock's slot, so an 18:00 game that runs past 21:00 is cut on KSAB-TV
+  (not on KSAB5).
 - `sports.game` fires once per game however many channels carry it, keyed by broadcast and
   slot. A park's lights follow the game being played there, not the channel.
 - **The grounds' picture** (phase 4a). The game is played whether or not it's filmed; what
@@ -2231,12 +2246,22 @@ the blade is, at the stick's exact length, and the bottom hand moves with the st
 rig.js). Without a stick fit (an official, a fight, a stick held up or across) both hands ease
 straight to their places (`easeHands`). About a quarter of a second for an ordinary move, quicker
 in an action, and nearly at once in a shot, a deke or a punch. The head turns the same way, slower
-(`easeLook`), and a goalie's hands ease quickly. The stick fit keeps a top hand out of the sweater
-(`clearChest` in rig.js): with the blade on the ice the hand holds its height and the stick swings
-round the blade, so a blade in close sends the hands out to his side. Left a stick's length up the
-shaft, the hand was inside his chest most of the time and came out of his back on a close dangle,
-which read as his arms going behind him. The easing is kept on the body against the
+(`easeLook`), and a goalie's hands ease quickly. The easing is kept on the body against the
 instant, as the blade's is, so the picture and its reflection ease once.
+
+**No glove behind his back.** With the blade on the ice (or lifted no higher than a lift takes it,
+`GRIP_HIGH`), the top hand is somewhere on a circle a stick's length round the blade, at whatever
+height the glove is. `gripOnIce` in rig.js picks the point on it nearest where the pose wants the
+hand that is inside the arm's reach, outside the sweater, on the top hand's side, in front of his
+hips, and with the shaft lying as a stick lies rather than stood up: a coarse ring, then refined, so
+the grip moves smoothly. Out of reach is never chosen, because a grip past it makes the fit bring
+the blade in, and the sim carries the puck in the drawn blade's pocket. Keeping the shaft's heading
+instead (the first fit) put both gloves in the small of his back whenever the blade came in close:
+10% of the time he carried the puck and 43% of a lift. The pose's own top hand sits in front of his
+belt, measured down his lean, so a man bent well over holds it at his hip, and one-handed at speed
+the arm is long and out ahead of him. A free hand (a shove, a hold, a hand swinging off the stick)
+is kept off his back by `handFront`. `rink-smoke` samples every skater's gloves through both games
+and fails if more than 0.3% are behind him; it was 0.9% before.
 
 **One shape for every body.** Every field the sim, the director or the rig hangs on a man is
 declared in `makeBody` (sim.js), in one order, undefined until it's used. Added as they came
@@ -2262,8 +2287,21 @@ the puck it needs, walks them through the beat and hands them back to the ambien
   the next touch, battles and dump-ins chased down, dekes past a man standing the carrier
   up. With cues on the payload each called touch happens as its line airs; without them a
   rush starts late when the whole chain would run past about five seconds. A pass is played
-  the kind the booth called it (`pass` on the touch's cue): lifted over a stick only when
-  it was called a saucer. The shot is the sim's `shotType` with its own wind-up. A
+  the kind the booth called it (`pass` on the touch's cue), through `passPlay` in
+  `rink/sim.js`, which turns a kind into a pose (a `SHOTS` key in `rig.js`) and a speed. A
+  drop is set up while its line is still to come (the passer carries on up the ice past the
+  spot and the man it's for comes up behind him), waits up to a second more for the man to
+  be behind him, and is left soft as he drives on; a stretch is hard (80 to 92 ft/s) and its
+  man takes it going; a slot pass is hard and its man comes through the slot onto it; a
+  backhand is off the backhand, the passer turning his shoulder first if the man's on his
+  forehand; a give-and-go's return is short and soft. It's lifted over a stick only when it
+  was called a saucer. Which side is a man's backhand depends on his hand (`stickSide`): a
+  right shot's forehand is his right. Nobody shoots from behind the goal line unless the
+  shot is six seconds overdue; a wrap-around comes round the corner a few feet wide of the
+  post before cutting in, so the puck isn't dragged into the frame; a shot whose puck came
+  off his stick in the wind-up is held while he gets it back, never handed to him from feet
+  away; and a dump-in whose line has aired goes in from where he is once he's over the red
+  line, not carried to its spot. The shot is the sim's `shotType` with its own wind-up. A
   one-timer is fed by a teammate, who waits in the stance and strikes it as the pass gets
   to his stick. A tip redirects a teammate's shot from out high, aimed at his blade where
   it'll be as it gets there and redirected when it reaches it. Either way the man who
@@ -2451,9 +2489,18 @@ centre covers low and the wingers take the points; through the neutral zone it's
 Nobody stands on his spot: the point men walk the line, the man at the net works for his
 ground, a defenceman boxes out a man parked in front of his net with a cross-check now and
 then, and a winger covering the point stays a stride inside the man there as he moves.
-Passing follows the zone: back to the points, D to D and low to high in the zone, the
-stretch pass to a winger through the middle. A drop pass is only for a man right behind;
-farther back the pass is played firmly. In a scripted rush, a touch goes to the man in that
+Passing follows the zone, and each pass is called for what it is (`passPlay` in
+`rink/sim.js`): back to the points, D to D and low to high in the zone, and the slot pass to
+a forward open in front of their net with a clean lane; ahead to a winger through the neutral
+zone, and the drop, when a carrier coming on to their line with a man in front of him leaves
+it for the forward trailing him and drives the net; out of his own end, the stretch, long and
+hard to a forward already over his own blue line. A forward with a man standing him up gives
+it to the open man and goes into the space past him for the return, the give-and-go (more
+often the better he passes). A pass to his off side is off the backhand, and a lane with a
+stick in it is played over the stick. A man a play sends somewhere (the passer in a
+give-and-go, the man who dropped it, a stretch's man going through) has `run` set, a spot
+and an end time, and goes there flat out. A man going for a puck goes round a net in his
+way, and to one dead against the frame from its clear side (`roundNet`). In a scripted rush, a touch goes to the man in that
 slot unless he's out of the play (40 ft off), when the nearest teammate takes it and the
 name the booth gives it. The booth calls up to five touches of a near-miss or a goal and
 three of a routine chance, so the build-up is on air as well as on the ice.
@@ -2797,11 +2844,14 @@ picture.
 
 **Passing plays, one-timers, and dropping back.** Each rush pass is read off its two
 keyframes (where the passer last had it and where it's taken), in feet the way his side
-attacks. It's called back toward his own end (`pbp.pass.back`: a drop pass, or back out to
-the point), long up the ice (`.stretch`), across it (`.cross`), lifted over a stick
+attacks. It's called a drop (`pbp.pass.drop`: a few strides back, within about 25 ft),
+back out to the point (`.back`: farther back), long up the ice (`.stretch`), into the slot
+from outside it (`.slot`, when the receiver's `{where}` is the slot or the high slot),
+across it (`.cross`, or `.backhand` about a quarter of the time), lifted over a stick
 (`.saucer`, now and then, for a long one or one across), straight back to the man who gave
 it once he's gone on up the ice (`.give`), or a short one (`pbp.pass`). The kind rides on
-that touch's cue as `pass`, and the rink plays that pass. The keyframes work a puck down low
+that touch's cue as `pass`, and the rink plays that pass. A goal's replay walks the last
+pass by its kind (`pbp.replay.pass.<kind>`). The keyframes work a puck down low
 and back out to a point in about one rush in eleven: `synthPossession` sends the touch
 before such a pass deep along the wall, off the rolls it already makes, so no result moves.
 `rollShot` reads the touch before the shot's own keyframe; it used to read the shot
@@ -2898,6 +2948,10 @@ sound, its event table and its crowd bed are in [systems-hockey-sound.md](system
 plays but the dev panel can't see it.
 
 ### Reading the league from outside (`broadcast.getNextOnAir`)
+
+Two small lookups serve the tablet's Sports screen: `broadcast.slotWhen` (a slot's in-game
+date, hour and how many days off it is) and `broadcast.getClubLook` (each club's authored
+colours and scorebug abbreviation).
 
 Two read Actions serve anything that wants league data without touching the sim:
 `broadcast.getTeamCard` (a club's form + when they're next on) and

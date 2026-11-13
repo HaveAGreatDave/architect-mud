@@ -72,8 +72,8 @@ gate their messaging.
 
 ## Tunables
 
-- `IDLE_REGEN_MS` = 8 s idle grace before stamina recovers.
-- `STAND_STAMINA_REGEN` = 1 / tick (standing, idle), `SIT_STAMINA_REGEN` = 6 / tick (sitting), `15s` cadence (`gameLoop.js`).
+- `IDLE_REGEN_MS` = 5 s idle grace before stamina recovers.
+- `STAND_STAMINA_REGEN` = 4 / tick (standing, idle), `SIT_STAMINA_REGEN` = 9 / tick (sitting), `15s` cadence (`gameLoop.js`).
 - `SIT_REGEN_HP` = 3 HP per tick, only while sitting **and** stamina is full. 3 HP / 15 s.
 - `flags.rest_multiplier` (zone flag, default 1) — scales **both** stamina regen and HP knit-back for anyone resting in that zone (`restRegenTick`). Authored on comfort zones: luxury apartments (Solenne units 1.5, penthouse 2.0). Reusable for any future safehouse/comfort space; no code change to add more.
 

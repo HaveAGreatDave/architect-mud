@@ -197,7 +197,7 @@ const TURN_IN_MARGIN = 1.15;   // a slip road's arc, as a multiple of the fold r
 // a sign, threw ReferenceError the first time a road was built WITH a plan. Every test that passed
 // no plan built no signs and never touched it.
 export { roadKm } from '../../client/shared/road-units.js';
-import { wildlandsAt, highGroundAt, groundTierAt, reliefGrid } from '../../client/shared/wildlands.js';
+import { wildlandsAt, highGroundAt, groundTierAt, reliefGrid, wildGroundAt } from '../../client/shared/wildlands.js';
 import { routeOnGrid, cumLengths, polyLength, pointAtLength, progressOn } from '../../client/shared/relief-route.js';
 import { halfWidthAt, typeAt, segmentAt } from '../../client/shared/highways.js';
 const typeNameAt = (route, s) => segmentAt(route, s)?.type || 'branch';
@@ -1172,7 +1172,14 @@ const TERRAINS = ['scrub', 'ash', 'redrock', 'marsh'];
 // This is also where the landform field plugs in when it lands: the country will say what the ground
 // is, and this becomes a lookup rather than a roll.
 const TERRAIN_BAND = 18;
-function terrainAt(route, s) {
+// ⚠ AN ANCHORED ROAD READS THE COUNTRY (2026-11-11). It has real coordinates, so its verge is the
+// ground the carved relief says is there (wildGroundAt in client/shared/wildlands.js): grass on the
+// wet flats, gravel in a dry wash, red rock, hardpan. The roll stays for the legacy local-frame road,
+// which has no real coordinates and which every pinned regress road is. Before this, an anchored
+// verge rolled too, so every highway ran through a 48-tile stripe of scrub, ash, red rock and marsh
+// that had nothing to do with the country either side of it.
+function terrainAt(route, s, x, y) {
+  if (route.anchored && x != null) return wildGroundAt(x, y).terrain;
   const band = Math.floor(Math.max(0, s) / TERRAIN_BAND);
   return pick(mulberry32(hashSeed(`${route.voidKey}|${route.window}|${route.destKey}b${band}`)), TERRAINS);
 }
@@ -1195,7 +1202,23 @@ const compassOf = (vx, vy) => Math.abs(vy) >= Math.abs(vx) ? (vy > 0 ? 'south' :
 // One surface cell of the corridor. THE contract: this returns the same shape `surfaceAt` does,
 // or null for open air. It is called once per window cell per push (≈5300 cells at radius 36), so
 // it allocates a little and queries nothing.
+// ⚠ AN ANCHORED CELL OUT IN THE COUNTRY SAYS SO. `wild_verge` tells the windshield to colour its
+// floor exactly as the off-map floor beside it (groundColour), and `wild_ground` is the relief's
+// ground as a palette key, which `districtBiome` hands on as the cell's biome. Together they are what
+// stops the corridor's band showing as a stripe. Not within a tile of placed ground: a carriageway
+// running in through a region's gate is on the region's own ground there.
 export function corridorAt(route, x, y) {
+  const c = corridorCell(route, x, y);
+  if (c && route.anchored && c.flags) {
+    const g = wildGroundAt(x, y);
+    if (g.out) {
+      c.flags.wild_verge = 1;
+      if (g.ground) c.flags.wild_ground = g.ground;
+    }
+  }
+  return c;
+}
+function corridorCell(route, x, y) {
   const hit = locate(route, x, y);
   if (!hit) return branchAt(route, x, y);                 // not our road — try the ones we forked away from
   const { s, t } = hit;

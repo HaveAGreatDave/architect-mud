@@ -157,3 +157,26 @@ that would make the whole layer read as broken. ⚠ `zoneIsDark()` treats an **u
 POWERED — `getZonePowerStatus` answers `'unpowered'` for any zone with no `power_zones` row, which is
 most of the map, and reading that as "dark" would switch off every domestic routine everywhere the
 grid was simply never wired.
+
+## Home talk: flatmates talking to each other
+
+When two or more residents are home, off shift and awake, `home-life.js` hands the turn to `home-talk.js` about
+45% of the time instead of a solo scene. A talk is built, not played from a list:
+
+- **Topics are steps of alternative lines, read as lanes.** A talk picks one lane and takes the line in that
+  position at every step, so lines in the same position are written to follow on from each other.
+- **Temper.** Each pair of flatmates has one. A line starting `+` raises it and `-` lowers it, and a
+  `{ calm, hot }` step picks its branch from it, so the same topic can end in a deal or a row.
+- **Memory, RAM only.** `#grudge` saves what they fell out over and `#joke:<text>` saves a joke. A later talk
+  can open on either, and `#make-up` clears the grudge. A pair still sore at each other gets the `SULK` solo
+  scenes (loud washing up in the other one's direction). `#storm` sends the speaker off to the bathroom.
+- **Interruptions.** The pipes, the neighbour through the wall, a drone at the window. Some knock the talk onto
+  another topic.
+- **The witness.** A stranger in the flat (`belongsHere` false) is talked about, in front of them.
+
+It shares the engine banter's chitchat format and its `npc.banter.start`/`end` events (the Room Stage turns
+them to face each other), and holds the zone with `holdBanterZone` so a library thread doesn't start over it.
+
+The solo half got eleven more kinds besides cooking, drinks and tidying: phone calls (one side of them),
+hobbies, getting ready, rehearsing something to say, fixing things, money, downtime, late-night and
+early-morning scenes, rare odd ones, and sulking. `soloScene` weights them by the time of day.

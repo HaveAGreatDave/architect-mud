@@ -30,10 +30,12 @@ import { adjustCredits } from '../../server/engine/economy.js';
 import { registerAction } from '../../server/engine/actions.js';
 import { emit } from '../../server/engine/events.js';
 import { loggedPanelsSync } from '../../server/engine/presentation.js';
+import { HAIR_STYLE_NAMES, FACE, TATTOO_PLACES, TATTOO_INKS } from '../../client/shared/morphex-catalog.js';
 
 const HAIR_COLORS  = ['black','dark brown','brown','auburn','dirty blonde','blonde','red','grey','white','silver','dyed blue','dyed green','dyed purple','dyed red'];
 const HAIR_LENGTHS = ['shaved','short','medium','long','very_long'];
-const HAIR_STYLES  = ['mohawk','shaved','dreadlocks','braided','messy','slicked-back','curly','wavy','undercut','fade','afro','cornrows','pompadour','pixie'];
+// the styles, the face and the tattoos are the MORPHEX catalog's, shared with the pod and the figure
+const HAIR_STYLES  = HAIR_STYLE_NAMES;
 const EYE_COLORS   = ['brown','dark brown','blue','light blue','green','hazel','grey','amber'];
 const BREAST_SIZES = ['flat','small','medium','large','very large'];
 const BREAST_MAP   = { flat:0, small:1, medium:2, large:3, 'very large':4 };
@@ -125,6 +127,9 @@ function renderMorphexText(player, toast) {
   L.push(`  <b>morphex hair style</b> ${CHOICES(HAIR_STYLES)}`);
   L.push(`  <b>morphex eye color</b> ${CHOICES(EYE_COLORS)}`);
   L.push(`  <b>morphex height</b> 150-210 · <b>morphex weight</b> 40-150`);
+  for (const [k, F] of Object.entries(FACE)) L.push(`  <b>morphex face ${k}</b> ${CHOICES(F.values)}`);
+  L.push(`  <b>morphex tattoo</b> &lt;place&gt; &lt;design&gt;|none · places: ${CHOICES(Object.keys(TATTOO_PLACES))}`);
+  L.push(`  <b>morphex ink</b> ${CHOICES(Object.keys(TATTOO_INKS))}`);
   if (mis) {
     if ((player.biological_sex || 'male') === 'female') {
       L.push(`  <b>morphex breast</b> ${CHOICES(BREAST_SIZES)}`);
@@ -401,6 +406,41 @@ async function cmdMorphex(args, raw, player) {
     await applyCharge(player, cost);
     await query('UPDATE players SET sexuality=$1 WHERE id=$2', [match, player.id]);
     return buildPanelData(player, `Sexuality preference → ${match}.${cost ? ` (-${cost}₵)` : ' (free)'}`);
+  }
+
+  // the face, the tattoos and their ink: appearance_data, one write each, 10₵ like the rest
+  if (sub === 'face' || sub === 'tattoo' || sub === 'ink') {
+    const app = { ...(player.appearance_data || {}) };
+    let said;
+    if (sub === 'face') {
+      const key = rest[0]?.toLowerCase(), val = rest.slice(1).join(' ').toLowerCase(), F = FACE[key];
+      if (!F) return buildPanelData(player, `Face options: ${Object.keys(FACE).join(', ')}`);
+      if (!F.values.includes(val)) return buildPanelData(player, `${F.label}: ${F.values.join(', ')}`);
+      if (app.face?.[key] === val) return buildPanelData(player, `Already ${val}.`);
+      app.face = { ...(app.face || {}), [key]: val };
+      said = `${F.label} → ${val}.`;
+    } else if (sub === 'tattoo') {
+      const place = rest[0]?.toLowerCase(), val = rest.slice(1).join(' ').toLowerCase(), T = TATTOO_PLACES[place];
+      if (!T) return buildPanelData(player, `Tattoo places: ${Object.keys(TATTOO_PLACES).join(', ')}`);
+      if (val !== 'none' && !T.designs.includes(val)) return buildPanelData(player, `${T.label}: ${T.designs.join(', ')}, or none`);
+      const tats = { ...(app.tattoos || {}) };
+      if (val === 'none') { if (!tats[place]) return buildPanelData(player, 'Nothing there to remove.'); delete tats[place]; }
+      else { if (tats[place] === val) return buildPanelData(player, `Already ${val}.`); tats[place] = val; }
+      app.tattoos = tats;
+      said = val === 'none' ? `${T.label} tattoo lasered off.` : `${T.label} → ${val}.`;
+    } else {
+      const val = rest.join(' ').toLowerCase();
+      if (!TATTOO_INKS[val]) return buildPanelData(player, `Inks: ${Object.keys(TATTOO_INKS).join(', ')}`);
+      if ((app.ink || 'black') === val) return buildPanelData(player, `Already ${val}.`);
+      app.ink = val;
+      said = `Ink → ${val}.`;
+    }
+    const { ok, cost } = chargeCheck(player);
+    if (!ok) return buildPanelData(player, `Insufficient funds: 10₵ required.`);
+    player.appearance_data = app;
+    await applyCharge(player, cost);
+    await query('UPDATE players SET appearance_data=$1 WHERE id=$2', [JSON.stringify(app), player.id]);
+    return buildPanelData(player, `${said}${cost ? ` (-${cost}₵)` : ' (free)'}`);
   }
 
   // Unknown sub-command — just open the panel

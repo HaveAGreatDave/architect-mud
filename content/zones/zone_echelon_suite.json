@@ -22,6 +22,43 @@
     "is_building": true,
     "is_interior": true,
     "mis_ok": true,
+    "room": {
+      "balcony": false,
+      "d": 6.5,
+      "decor": {
+        "ceiling": {
+          "band": 0.4,
+          "drop": 0.15,
+          "hex": "#120f12",
+          "kind": "cove",
+          "trim": "#b8913e"
+        }
+      },
+      "doors": {
+        "south": 0
+      },
+      "ensuite": {
+        "d": 2.4,
+        "finish": "fine",
+        "w": 3
+      },
+      "face": 0,
+      "finish": "fine",
+      "glass": [
+        "front",
+        "left",
+        "right"
+      ],
+      "h": 3,
+      "studio": false,
+      "tone": {
+        "accent": "#b8913e",
+        "ceiling": "#120f12",
+        "trim": "#0a080a",
+        "wall": "#1e1a1f"
+      },
+      "w": 9
+    },
     "window": {
       "description": "A window with a bad seal, letting in a draught and a slice of whatever the weather is doing.",
       "light": 0.75,

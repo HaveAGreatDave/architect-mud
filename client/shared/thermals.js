@@ -37,6 +37,9 @@ export const GROUND_HEAT = {
   citycore: 0.85, marquee: 0.85, ruins: 0.85, cliff: 0.9, alkali: 0.9, ash: 0.9, infra: 0.9, freight: 0.9, concrete: 0.9,
   badlands: 0.95, industrial: 0.95, redrock: 1.0, plateau: 1.0, asphalt: 1.0, airport: 1.0,
   hardpan: 1.05, basalt: 1.1,
+  // The relief's own grounds (wildlands.js wildGroundAt): dry grass holds less heat than bare rock,
+  // a pale wash about what hardpan does, broken scree as much as the rim it fell off.
+  prairie: 0.65, wash: 1.0, scree: 1.0,
 };
 
 /** Heat of a flight map cell ({ biome, road, bt }) or null for unknown ground (no lift). */

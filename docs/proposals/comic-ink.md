@@ -1,7 +1,8 @@
 # Comic ink: the whole game in one comic-book style
 
 > **Status: built and on by default (2026-11-02): the house style, the inked faces, the players,
-> the park's lines, the rink ([The rink](#the-rink-as-built)) and big plays replayed as a comic.
+> the park's lines, the rink ([The rink](#the-rink-as-built)) and big plays replayed as a comic,
+> at the park and at the rink ([Comic replays at the rink](#comic-replays-at-the-rink-as-built-2026-11-11)).
 > Settings → Cel Shading turns it off. A phone draws no ink on the city
 > ([Step 5](#step-5-as-built)). What still falls short is in [Coverage](#coverage).** The look-dev
 > prototype is a live page in Dave's artifacts, "Deadball Comic Ink".
@@ -303,8 +304,8 @@ Bringing the vehicles and the cockpits up to the figures is scoped in
 [vehicle-comic.md](vehicle-comic.md) (design).
 
 Not touched at all: the hockey fly-in (gl/approach.js), what you hold in a box suite
-(stands-hands-gl.js), and the park's plain fallback when its broadcast pass won't build. The
-comic replays are Deadball's only.
+(stands-hands-gl.js), and the park's plain fallback when its broadcast pass won't build. Comic
+replays are Deadball's and the rink's ([Comic replays at the rink](#comic-replays-at-the-rink-as-built-2026-11-11)).
 
 ## Comic replays
 
@@ -357,12 +358,29 @@ were wrong, and are fixed:
 - **The narration said "HOME RUN" under HOME RUN!** It's left out unless it says more than the
   headline (`tellsMore`: four words or more, not the headline again).
 
-**The print.** `printPanel` lifts the frame's mid-tones (a night game posterized as it comes is
-mostly black), pushes saturation and contrast, flattens each channel to five inks, makes the
-darkest solid ink, lays Ben-Day dots on a 45° screen through the half-tones, and inks every
-brightness step (a Sobel edge). It runs once a panel, never per frame: the moment's frame and the
-run-up's under the freeze's flash, what followed's as the page starts. About 30 ms for a 720-wide
-frame on a desktop, 120 under software GL. A canvas that can't hand back its pixels gets the plain
+**The print.** `printPanel` (now in comic-print.js, both sports') lifts the frame's mid-tones (a
+night game is dark) a little, smooths it, moves each channel of the smoothed colour a third of the
+way to the nearest of eight inks, makes the darkest solid ink, lays light Ben-Day dots on a 45°
+screen through the deepest shadow, and inks a thin line along each real edge. It keeps the models'
+own colour: they're cel-shaded already, and the first prints (a gamma of 0.66, saturation 1.35,
+six hard levels) blew a kit's blue out to cyan and the ice to paper white. rink-comic.mjs checks a
+blue, a red, an ice white and a dark pant each come out within 26 of what went in, hue unchanged.
+Deadball's slow-motion grade on its canvas (`.gds-print`) came down the same way, to a touch.
+It runs once a panel, never per frame: the moment's frame and the run-up's under the freeze's
+flash, what followed's as the page starts. About 100 ms for a 1280-wide frame on a desktop.
+
+**Cleaner and thinner** (2026-11-11, Dave: "more HD and less noisy, thinner lines"). The first
+prints inked every brightness step as a hard black pixel, so the crowd and the ice came out
+speckled and the lines thick and jaggy, and the dots ran through every half-tone. Now the frame is
+box-blurred first (`PRINT.soft`, a pixel at 720 wide, scaled with it), so texture makes neither
+specks nor blotches; a line is inked only on the crest of the gradient across an edge, so it's one
+pixel wide, and faded in with the step's strength (`edge` to `edgeHi`, in units where a step of
+brightness Δ reads 4Δ at any size) so a faint edge is a faint line rather than a broken one; the
+dots start lower (`dots` 0.16) and are lighter (`dotInk` 0.7). Both sports take their panels at
+up to 1280 wide (it was 960). The painters' strokes are thinner too: the burst's outline, the focus
+and speed lines, the motion streaks, the lettering's outline, and the frames and boxes on the page.
+rink-comic.mjs checks it on a synthetic frame: a hard step gets a line at most two pixels wide on
+every row, and grain and a busy crowd get no ink at all. A canvas that can't hand back its pixels gets the plain
 shot back; the diamond smoke caught a throw there that would have stopped the grandstand's frame.
 
 - **The lean.** The camera never rolls (diamond/camera.js), so the tilt is the picture's: a class
@@ -402,8 +420,8 @@ shot back; the diamond smoke caught a throw there that would have stopped the gr
   its foot saying where the game is (`BOTTOM OF THE 7TH`).
 - **The page** turns the other way round on alternate plays (`pageLayout(w, h, flip)`) and has a
   masthead top right, `DEADBALL COMICS No. 7`, numbered by the inning.
-- **The print** is taken at up to 960 px wide, and its dot screen scales with the frame, so it
-  holds up on a big screen.
+- **The print** is taken at up to 960 px wide (1280 since 2026-11-11), and its dot screen scales
+  with the frame, so it holds up on a big screen.
 
 **The videoboard** (diamond/jumbo.js, behind left-centre) shows the replay as it's taken and twice
 more after. Four things were wrong with it, and are fixed:
@@ -446,3 +464,82 @@ there whether a camera's on them or not. The aim is for most of the idle busines
   freeze, after and page in order, the replay world still on its moment for the freeze's length,
   on to the end of its window after, all three panels taken, and the worm's-eye camera for the
   run and the freeze.
+
+## Comic replays at the rink, as built (2026-11-11)
+
+Dave's ask: comic replays for big shots, big hits, fight wins and big saves. The rink's replays
+run in Deadball's four beats (run, freeze, after, page), behind the same Comic setting and never
+with reduced motion. The painters moved out of diamond/comic.js into
+[comic-print.js](../../client/game/js/panels/comic-print.js), which knows no sport;
+diamond/comic.js re-exports them and keeps Deadball's words, cameras and masthead. The rink's are
+in [rink/comic.js](../../client/game/js/panels/rink/comic.js).
+
+**What earns one** (rink/director.js):
+
+| Moment | When it's shown | Word, headline |
+|---|---|---|
+| A goal | on the booth's replay cue, in place of the plain replay | `SNIPE!`, `GOAL!` (`POWER-PLAY GOAL!`, `EMPTY NET!`) |
+| A shot off the post | at the next stoppage | `PINGG!`, `OFF THE POST!` |
+| A glove save, a pad save, a breakaway stopped | at the next stoppage | `THWAP!`, `GLOVE SAVE!` |
+| A hit on the boards | at the draw the booth brings it up over, seen or not | `KA-RUNCH!`, `BIG HIT!` (`INTO THE GLASS!`) |
+| The punch that knocks a man down | once the camera's pulled back from the winner | `POW!`, `KNOCKOUT!` |
+
+A routine save, a miss, a drawn fight, a fight that ends with the sweater over his head (nobody goes
+down, so there's no finish to draw) and a slash get no comic replay. A grave hit or fight keeps
+its X-ray replay, which is never a comic one too.
+
+- **The slot.** A goal's replay is fitted between the booth's `replay` and `live` cues, as
+  before; a comic one gives the freeze and the page their 4.2 s and fits the slow motion into
+  what's left, dropping the page and then the freeze when the gap's short (`comicPlan`). A kept
+  moment (`D.comic`) is shown once play is stopped, with up to `RINK_COMIC.room` (11 s), or to the
+  draw's drop when a draw is waiting, and it goes behind the wipe if the draw comes sooner. Only
+  the latest is kept; a hit the booth brings up wins over it, and a goal, a death or a period's
+  end drops it, as the booth has moved on.
+- **A hit in the picture.** Before, only a hit the picture missed was kept for the booth to bring
+  up. With comic replays on, every hit is, and one the picture saw is only ever replayed as a
+  comic.
+- **The page is a story** (comic-print.js `paintStory`, Dave's call on seeing the first ones): the
+  action big on the right, and down the left, small, just before it and just after it. The action
+  is the freeze's frame, with the burst, the sound word in the corner clearest of the man and the
+  burst, and the play told along the edge away from the burst. "Before" is taken
+  `RINK_COMIC.before` of the way through the run-up; "after" is the clip's last frame, and every
+  clip runs on past the moment far enough for that to be the finish (`RINK_COMIC.after`, 1.8 s; a
+  goal's 2.2 s): the puck in the net with the lamp on, the puck in his glove, the man flat on the
+  ice. Their captions run into each other (`HE WINDS UP...` / `...LIGHT THE LAMP!`). Deadball's
+  page (`paintPage`) is as it was; the paper, the masthead and the headline are shared.
+- **The action, by kind.** A goal's is the shot that went in leaving the stick (the director notes
+  every shot struck, `D.lastShot`), not the puck crossing the line; a save's is the puck into
+  the glove or off the pad, with the replay camera on the goalie rather than the puck; a hit's
+  the impact; a fight's the punch landing.
+- **The goalie in the clear.** A replay framed on a goalie leaves out the men between the replay
+  camera and him (rink/replay.js `clearView`, within 4 ft of the line; the renderers leave the
+  replay camera's eye on its source each frame). A save's does it throughout; a goal's from the
+  freeze on, when its camera swings to the goalie under the printed frame (`then`), so the shot
+  itself keeps everybody and "after" is the puck going in behind him.
+- **Recording.** A post, a big save and a knockdown are recorded from the play's start (a
+  fight's from 3.5 s before its last punch), which only happens with comic replays on.
+- **The clock** is the replay's own (rink/replay.js): it stops on the moment for the freeze and at
+  the end for the page, so the stand-in world stands still under both, and `left` counts them.
+  The live game plays on underneath, as with every replay.
+- **The freeze** bursts on the puck (a goal, a post, a save, its goalie kept clear), between the
+  two men (a hit, the man hit kept clear) or on the loser's head (a fight). The panels are taken
+  off the picture as each beat passes, in the frame's own task, so a WebGL canvas needs no
+  preserved buffer: rink/hud.js `drawHud` takes the replay camera's projection and the canvas
+  from both renderers.
+- **Inks.** A goal is hot, a post and a save cold, a hit a bruise purple, a fight blood red.
+  The page's masthead is `RINKSIDE COMICS`, numbered by the period, and the run's foot says the
+  period, or for a hit who hit whom. The scorer's lower third stays off the freeze and the page.
+- **Not done:** the lean and the newsprint grade on the picture (Deadball's CSS on its canvas),
+  and a worm's-eye camera; the rink's replay keeps its own ice-level camera.
+- **Seen on WebGL** in the rink sandbox (tools/sandbox/hockey-rink-test.html, stepped by hand in a
+  hidden pane): a glove save, a goal (its booth cues added by hand: the sandbox's payloads carry
+  none) and a knockdown, each through run, freeze, after and the page. Not seen: a hit, which
+  needs the booth to bring it up at a draw.
+- **Gate:** scripts/shapes/rink-comic.mjs checks every kind's word, captions, headline and
+  narration, the step-down, the story page's layout, the replay's held clock against `left`, and
+  that a man between the camera and the goalie is left out (and only from the freeze on for a
+  goal); then plays slot 289
+  through the view with Comic on until a goal, a save, a hit and a fight have each been replayed
+  as a comic and one has reached its page: beats in order, inside the window, the freeze still,
+  the live clock never held, and every page's last frame at least a second past its moment. In
+  that game, played to the end, about 20 moments get one, saves the most.

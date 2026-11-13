@@ -11,6 +11,7 @@ import { query } from '../../server/models/db.js';
 import { layRows, seatsClash, archetypeOf, roomLayout, resolveSpot, dimsOf, roomFree, rowDrawn, formOf, roomSpecOf, FLAT_ROOM, openingCrossed, openingInside } from '../../client/shared/room-layout.js';
 import { registerMoveGate } from '../../server/engine/movement-gates.js';
 import { _test } from './index.js';
+import { ritualOf, actOfDrug } from './acts.js';
 
 // what each kind of sold piece should be drawn as
 const EXPECT = {
@@ -31,6 +32,19 @@ async function residents(check) {
     npc.sex = 'female'; npc.flags.figure = { head: 3 };
     const told = _test.peopleIn(Z, []).find((p) => p.id === N);
     check('the room tells the client an NPC\'s sex and settled figure', told?.sex === 'female' && told?.figure?.head === 3, JSON.stringify(told));
+    // an enemy with a fauna model is sent as a beast; one without, or dead, isn't
+    {
+      const E = '__roomstage_test_hound__', E2 = '__roomstage_test_rat__';
+      world.enemies.set(E, { instanceId: E, name: 'gutter hound', zoneId: Z, flags: { fauna: 'quadruped/hound' } });
+      world.enemies.set(E2, { instanceId: E2, name: 'rat', zoneId: Z, flags: {} });
+      zone.enemies.add(E); zone.enemies.add(E2);
+      try {
+        const b = _test.beastsIn(Z);
+        check('an enemy with a fauna model is sent to the Stage as a beast', b.length === 1 && b[0].id === E && b[0].fauna === 'quadruped/hound', JSON.stringify(b));
+        world.enemies.get(E)._dead = true;
+        check('a dead beast is not sent', _test.beastsIn(Z).length === 0);
+      } finally { zone.enemies.delete(E); zone.enemies.delete(E2); world.enemies.delete(E); world.enemies.delete(E2); }
+    }
     delete npc.flags.figure;
     // a mood: the base one from content, a transient one over it, and nothing asleep
     {
@@ -78,6 +92,16 @@ async function residents(check) {
       delete npc.flags.figure_sleep; delete npc.flags.figure_cold;
       const p = _test.peopleIn(Z, []).find((q) => q.id === N);
       check('the room sends what to dress them for', p?.wear?.occasion === 'home', JSON.stringify(p));
+    }
+    // a shower stall is somewhere you walk into: the middle of it is free floor with its station there; a bath isn't
+    {
+      const spec = { w: 4, d: 4, h: 2.6 };
+      for (const [form, open] of [['stall', true], ['bath', false]]) {
+        const rows = [{ id: 'sh_' + form, name: 'shower', object_type: 'shower', flags: { look: { arche: 'shower', form }, spot: { wall: 'back', along: 0.5 } } }];
+        const L = roomLayout(spec, layRows(rows, spec).pieces), p = L.placed[0];
+        check(`a ${form} you ${open ? 'can' : "can't"} stand in`, !!p && roomFree(L, p.u, p.v) === open, p ? [p.u, p.v, p.form] : 'not placed');
+        if (open) check('...with its station under the head', L.stations.some((s) => s.piece === p.id && Math.hypot(s.u - p.u, s.v - p.v) < 0.01));
+      }
     }
     // somebody with a habit sits at a table to it (client/shared/table-stash.js): a chair pulled up to one, its
     // kit on the top in front of them, worked down one at a time; no table, or no habit, and there's no session
@@ -251,6 +275,23 @@ export default async function regress({ run, check, getPlayer }) {
     emit('room.pos', { playerId: p.id, at: [99, -4], yaw: 1.2, seat: 2 });
     const w = _test.where.get(p.id);
     check('a settled position is clamped into the room', w?.at[0] === 2 && w?.at[1] === 0 && w?.seat === 2, JSON.stringify(w));
+
+    // what they're doing with their hands (acts.js): a beat of their ritual, relayed to the room; a dose from the
+    // log plays its route; an act that isn't one is refused
+    {
+      _test.acts.forget(p.id);
+      emit('room.act', { playerId: p.id, act: 'drink', hold: 'can' });
+      const me = _test.peopleIn(APT, []).find((x) => x.id === p.id);
+      check("a ritual's beat shows the player drinking from a can", me?.act === 'drink' && me.hold === 'can' && me.beat === 1, JSON.stringify(me));
+      _test.acts.forget(p.id);
+      emit('room.act', { playerId: p.id, act: 'juggle', hold: 'can' });
+      check('an act the room has no clip for is refused', !_test.acts.of(p.id));
+      _test.acts.fromDose({ player: p, drug: { flags: { taken: 'inject' } } });
+      check('a dose typed in the log plays its route', _test.acts.of(p.id)?.act === 'inject' && _test.acts.of(p.id)?.hold === 'syringe', JSON.stringify(_test.acts.of(p.id)));
+      _test.acts.forget(p.id);
+      check('pockets: food is eaten, a hydrating can is drunk, a drug goes by its route', ritualOf({ name: 'Bread roll', tags: { restore_hunger: 4 } }, 'x')?.act === 'eat'
+        && ritualOf({ name: 'Can of cola', tags: { hydrating: 2 } }, 'y')?.hold === 'can' && actOfDrug({ flags: { taken: 'snort' } }) === 'snort' && actOfDrug({ flags: { alcoholic: true } }) === 'drink');
+    }
 
     // an en-suite: the zone `in` reaches, whose `out` comes back and whose parent is the flat, is drawn
     // on the flat's Stage, and going through its door doesn't close it
@@ -602,5 +643,21 @@ export default async function regress({ run, check, getPlayer }) {
     await query('DELETE FROM player_inventory WHERE player_id=$1 AND item_id = ANY($2)', [p.id, [TV, SOFA, FRIDGE, STOOL]]).catch(() => {});
     world.apartments.delete(APT);
     world.zones.delete(APT); world.zones.delete(PLAIN); world.zones.delete(BATH);
+  }
+  // THE EN-SUITE'S PRIVACY DOOR is a lock in the Stage, worked from whichever side you're on (Solenne 30-B)
+  {
+    const FLAT = 'zone_solenne_apt_b', EN = 'zone_solenne_apt_b_bath', spec = world.zones.get(FLAT) && _test.stageSpec(FLAT);
+    if (spec?.annex) {
+      const was = p.current_zone;
+      try {
+        p.current_zone = FLAT;
+        const out = (await _test.locksOf(p, FLAT, spec)).find((k) => k.annex);
+        check('a flat\'s en-suite door is sent as a lock, worked `in` from the flat', out?.to === EN && out.dir === 'in' && out.lock === true && out.inside === false, JSON.stringify(out));
+        p.current_zone = EN;
+        const inn = (await _test.locksOf(p, FLAT, spec)).find((k) => k.annex);
+        check('and `out` from inside the en-suite', inn?.to === FLAT && inn.dir === 'out' && inn.inside === true && inn.pass === true, JSON.stringify(inn));
+        check('a flat with an en-suite carries its locks with no building plan needed', !!(await _test.viewPayload(p, FLAT, spec)).locks?.some((k) => k.annex));
+      } finally { p.current_zone = was; }
+    }
   }
 }

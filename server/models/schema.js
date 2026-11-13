@@ -777,6 +777,17 @@ export const SCHEMA_SQL = `
   );
   CREATE INDEX IF NOT EXISTS idx_npc_residences_npc ON npc_residences(npc_id);
 
+  -- A pet (plugins/pets, docs/proposals/pets.md): the animal's body and nature. It is in the text world as its NPC
+  -- (npc_id: name, description, home_zone, the engine's own look and pet), and the Room Stage draws that NPC from
+  -- these numbers instead of a person. look is the cat kit's set (client/game/js/panels/gl/cat-kit.js catLook).
+  CREATE TABLE IF NOT EXISTS pets (
+    id          TEXT PRIMARY KEY,
+    npc_id      TEXT NOT NULL UNIQUE REFERENCES npcs(id) ON DELETE CASCADE,
+    species     TEXT NOT NULL DEFAULT 'cat',
+    look        JSONB NOT NULL DEFAULT '{}'::jsonb,
+    personality JSONB NOT NULL DEFAULT '{}'::jsonb
+  );
+
   CREATE TABLE IF NOT EXISTS recipes (
     id TEXT PRIMARY KEY,
     name TEXT NOT NULL,
@@ -3273,6 +3284,11 @@ export const SCHEMA_SQL = `
   -- sharp; the list is TAG_FACES in client/shared/tag-strokes.js). NULL means none was
   -- picked and the renderer rolls one off the wall, as it does for the city's own paint.
   ALTER TABLE zone_graffiti ADD COLUMN IF NOT EXISTS face TEXT;
+  -- Where on a room's own wall a tag sprayed in ROOM went: { u, v, y, n } in metres in the
+  -- Room Stage's frame, n the wall's inward normal ('u+', 'u-', 'v+', 'v-'). Validated by
+  -- safeSpot in plugins/graffiti/paint.js. NULL for a street wall (GLASS solves where on a
+  -- facade the paint goes) and for a room tag sprayed from the log, which ROOM places itself.
+  ALTER TABLE zone_graffiti ADD COLUMN IF NOT EXISTS spot JSONB;
 
   -- Saved sprays (graffiti plugin): a player's own designs, kept off the wall. The
   -- spray-can dialog is a design tool, and a design you can't put away is one you

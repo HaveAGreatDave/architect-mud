@@ -54,7 +54,7 @@ import { gameDayIndex } from '../../server/engine/zone-filth.js';
 import { gameToday } from '../../server/engine/apartments.js';
 import { emit } from '../../server/engine/events.js';
 import { query } from '../../server/models/db.js';
-import { normalizeRuns, coalesceRuns, renderStyled, decodePayload, safeFace } from './paint.js';
+import { normalizeRuns, coalesceRuns, renderStyled, decodePayload, safeFace, safeSpot } from './paint.js';
 import { escapeHtml as esc } from '../../server/engine/html.js';
 
 // One tag lives three game days. The clock is 1:1 by default (timeScale 1), so
@@ -109,11 +109,11 @@ async function hydrate() {
     hydrated = (async () => {
       try {
         const { rows } = await query(
-          'SELECT zone_id, target_zone_id, target_name, author_id, author_handle, text, style, face, day_index FROM zone_graffiti'
+          'SELECT zone_id, target_zone_id, target_name, author_id, author_handle, text, style, face, spot, day_index FROM zone_graffiti'
         );
         for (const r of rows) {
           putTag(r.zone_id, {
-            text: r.text, style: Array.isArray(r.style) ? r.style : null, face: safeFace(r.face),
+            text: r.text, style: Array.isArray(r.style) ? r.style : null, face: safeFace(r.face), spot: safeSpot(r.spot),
             authorId: r.author_id, authorHandle: r.author_handle,
             targetZoneId: r.target_zone_id || r.zone_id, targetName: r.target_name, dayIndex: r.day_index,
           });
@@ -170,6 +170,7 @@ export async function removeTag(zoneId, targetZoneId) {
   if (!room.size) tags.delete(zoneId);
   // The row goes even when the tag had already weathered off, which is the reaping tagOn promises.
   await query('DELETE FROM zone_graffiti WHERE zone_id=$1 AND target_zone_id=$2', [zoneId, targetZoneId]).catch(() => {});
+  emit('graffiti.removed', { zoneId, targetZoneId });
   return had;
 }
 
@@ -180,6 +181,7 @@ export async function removeTagsAt(zoneId) {
   const had = tagsAt(zoneId);
   tags.delete(zoneId);
   await query('DELETE FROM zone_graffiti WHERE zone_id=$1', [zoneId]).catch(() => {});
+  emit('graffiti.removed', { zoneId });
   return had;
 }
 
@@ -415,15 +417,16 @@ async function persistTag(zoneId, entry) {
   entry.targetZoneId ||= zoneId;       // it's half the key, so it's never null in the table
   putTag(zoneId, entry);
   await query(
-    `INSERT INTO zone_graffiti (zone_id, target_zone_id, target_name, author_id, author_handle, text, style, face, day_index)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)
+    `INSERT INTO zone_graffiti (zone_id, target_zone_id, target_name, author_id, author_handle, text, style, face, spot, day_index)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
      ON CONFLICT (zone_id, target_zone_id) DO UPDATE SET
        target_name=EXCLUDED.target_name,
        author_id=EXCLUDED.author_id, author_handle=EXCLUDED.author_handle,
-       text=EXCLUDED.text, style=EXCLUDED.style, face=EXCLUDED.face, day_index=EXCLUDED.day_index,
+       text=EXCLUDED.text, style=EXCLUDED.style, face=EXCLUDED.face, spot=EXCLUDED.spot, day_index=EXCLUDED.day_index,
        created_at=EXTRACT(EPOCH FROM NOW())`,
     [zoneId, entry.targetZoneId, entry.targetName, entry.authorId, entry.authorHandle,
-     entry.text, entry.style ? JSON.stringify(entry.style) : null, entry.face || null, entry.dayIndex]
+     entry.text, entry.style ? JSON.stringify(entry.style) : null, entry.face || null,
+     entry.spot ? JSON.stringify(entry.spot) : null, entry.dayIndex]
   ).catch(() => {});
 }
 
@@ -453,6 +456,7 @@ export async function tagFromWorld(zoneId, text, authorHandle = 'someone') {
     text: esc(String(text).slice(0, TAG_MAX_LEN)),
     style: null,
     face: null,
+    spot: null,
     authorId: null,
     authorHandle,
     targetZoneId: wall.id,
@@ -470,15 +474,18 @@ export async function tagFromWorld(zoneId, text, authorHandle = 'someone') {
  *
  * `runs` is normalized against the length of what was TYPED, before escaping —
  * see paint.js for why that distinction is the whole ballgame. `face` is the
- * letterform picked in the can, or null to let the wall roll one.
+ * letterform picked in the can, or null to let the wall roll one. `spot` is where on a room's own
+ * wall ROOM aimed it (paint.js safeSpot), kept only for a room's own wall: where paint goes on a
+ * street facade is GLASS's to solve.
  */
-async function applyTag(player, wall, text, runs, can, face = null) {
+async function applyTag(player, wall, text, runs, can, face = null, spot = null) {
   const over = tagOn(player.current_zone, wall.id);
   const style = coalesceRuns(normalizeRuns(runs, text.length));
   const entry = {
     text: esc(text),
     style: style.length ? style : null,
     face: safeFace(face),
+    spot: wall.id === player.current_zone ? safeSpot(spot) : null,
     authorId: player.id,
     authorHandle: player.handle,
     targetZoneId: wall.id,
@@ -578,7 +585,7 @@ async function doSprayApply(args, raw, player) {
   if (!can) return { type: 'output', message: `You've got nothing to spray with. Hardware shops sell paint.` };
   if (payload.text.length > can.paint) return { type: 'output', message: thinCan(can, payload.text.length) };
 
-  return applyTag(player, wall, payload.text, payload.runs, can, payload.face);
+  return applyTag(player, wall, payload.text, payload.runs, can, payload.face, payload.spot);
 }
 
 // --- The shelf of saved designs ---------------------------------------------
@@ -708,9 +715,32 @@ function describeTag(zone) {
   }).join('\n');
 }
 
+/**
+ * `room.tags` — what is sprayed on a room's own wall, for ROOM to paint (plugins/roomstage).
+ *
+ * An indoor tag is keyed on the room as both halves of its wall, so this is one Map lookup. Sync and
+ * query-free, like `wall.tags`, because `room_view` gathers it. The text goes out unescaped, as the
+ * flight window's does: it's baked onto a canvas, never put into HTML. `spot` is where ROOM aimed it;
+ * a tag sprayed from the log has none, and the Stage places it itself.
+ */
+function roomTags(zoneId) {
+  hydrate();
+  const t = zoneId ? tagOn(zoneId, zoneId) : null;
+  if (!t) return undefined;
+  return [{
+    zone: zoneId,
+    t: unesc(t.text).slice(0, TAG_MAX_LEN),
+    r: Array.isArray(t.style) && t.style.length ? t.style : undefined,
+    f: t.face || undefined,
+    spot: t.spot || undefined,
+    v: (String(zoneId).split('').reduce((a, ch) => (a * 31 + ch.charCodeAt(0)) | 0, 7) & 0xffff),
+  }];
+}
+
 export const hooks = {
   'zone.describeRoom': describeTag,
   'wall.tags': wallTags,
+  'room.tags': roomTags,
 };
 
 export const commands = {
@@ -721,6 +751,6 @@ export const commands = {
   spraydel: doSprayDelete,
 };
 
-export const _test = { wallsNear, pickWall, expired, tags, putTag, hydrate, esc, applyTag, paintedText, wallTags, byBuilding, unesc, wallLabel };
+export const _test = { wallsNear, pickWall, expired, tags, putTag, hydrate, esc, applyTag, paintedText, wallTags, roomTags, byBuilding, unesc, wallLabel };
 
 console.log('[graffiti] Plugin loaded.');

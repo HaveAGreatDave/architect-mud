@@ -1,0 +1,13 @@
+{
+  "name": "pets",
+  "version": "0.1.0",
+  "description": "Pets (docs/proposals/pets.md): an animal that lives in somebody's home. A pet is its NPC (flags.pet names its row), which the engine already lists, describes, sends home and lets you pet, plus a row in `pets` holding its body (the cat kit's numbers) and personality. Answers the Room Stage's roomstage.npcBeast hook so the stage draws the NPC as the cat instead of a person. Needs, carers and the pet verbs are still to come.",
+  "commands": [],
+  "hooks": ["roomstage.npcBeast"],
+  "events": {
+    "consumes": [],
+    "emits": []
+  },
+  "ticks": [],
+  "extensionPoints": ["npcs.flags.pet"]
+}

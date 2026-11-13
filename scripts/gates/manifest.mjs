@@ -150,6 +150,7 @@ export const GROUPS = [
       'scripts/shapes/liveries.mjs',
       'scripts/shapes/actors.mjs',
       'scripts/shapes/actors-hd.mjs',    // the street cut down from the close-up figure (ACTOR_BAKE.hd, off until stage 6): four silhouettes on budget and on one ground
+      'scripts/client/precip-look-smoke.mjs', // the shared rain/snow look: sizes, colour by light, the 2D painters
       'scripts/client/room-window-smoke.mjs', // flights and lightning are pure functions of the clock; the shot masks find sky, sea and open ground
       'scripts/client/interiors-smoke.mjs', // a room placed in GLASS where the window's eye says it is; near rooms whole, further ones boxes, far ones nothing
       'scripts/shapes/sequence.mjs',     // every set, sequence and show in media_graphics, built and checked
@@ -157,6 +158,8 @@ export const GROUPS = [
       'scripts/shapes/chem-stage-smoke.mjs', // the Chem Stage: every stage scores a good hand well and a bad one badly; heap, slosh and each stage's pieces build
       'scripts/shapes/actor-head.mjs',
       'scripts/shapes/figure.mjs',   // the close-up figure: every cut and hair style sound, the crowd's coat its coat
+      'scripts/shapes/gaits.mjs',    // ROOM's IK gaits: no NaN, a person's stride, the planted foot planted
+      'scripts/cats/cat-smoke.mjs',  // the cat kit: every Cattery cat carved in every pose, on the floor, skinned without tearing
       'scripts/shapes/actor-faces.mjs',   // without --write it only reads files
       'scripts/shapes/cloth.mjs',
       'scripts/shapes/slumpaint.mjs',
@@ -177,6 +180,7 @@ export const GROUPS = [
       'scripts/shapes/vehicle-ink.mjs',   // the own ship's comic lines: the edge classifier, and every vehicle builds a list
       'scripts/shapes/face-atlas-feed.mjs',   // the street, park and rink get the right face atlas when the comic look flips
       'scripts/shapes/comic-replay.mjs',   // the comic replay's length, camera, panels, words, page and painters
+      'scripts/shapes/rink-comic.mjs',     // the rink's comic replays: words, the replay's held clock, and a real game's goals, saves, hits and fights
       'scripts/shapes/jumbo-smoke.mjs',    // the videoboard from a seat: its own replay, the comic freeze on it, the suite's screen
       'scripts/shapes/elevation.mjs',
       'scripts/shapes/cliffrelief.mjs',
@@ -296,11 +300,13 @@ export const GROUPS = [
       'scripts/shapes/rink-smoke.mjs 289',
       'scripts/shapes/arena-smoke.mjs',      // GLASS 2 rink: matrices match the 2-D camera, meshes and heads sound, ice tiles listed
       'scripts/shapes/kitchen-smoke.mjs',    // the Kitchen Stage: the matter table whole, the knife's pieces and evenness, every food, vessel and hob mesh sound
+      'scripts/client/microwave-smoke.mjs',  // the Stage's microwave: the keypad's arithmetic, the START sequence's beats (one jab, one command), the lettering
       'scripts/shapes/gameday-smoke.mjs',    // Deadball's 2-D Gameday: real games, every play lands, the runners end where the sim left them
       'scripts/shapes/parkclock-smoke.mjs',  // Deadball's park clock: four seasons as they air, every pitch timed in its line's hold, the fit measured on both pitch draws
       'scripts/shapes/ballpark-smoke.mjs',   // Deadball's 3-D park: the park from venue data, the shots' matrices against the pinhole, the board, the 2-D fallback
       'scripts/shapes/cityscape-smoke.mjs',  // the city round it: the set composed from the content tree's skyline, every building placed and shaped, the streets from their arms
       'scripts/lite/smoke.mjs',              // GLASS Lite: the baked city (client/game/assets/lite/) is what the arms draw now; re-run npm run lite:bake after editing an arm
+      'scripts/perf/lite-retain.mjs',        // GLASS Lite's signs, lights and masts kept on the GPU draw what the same records draw sent plain, and keep emitTile's two promises
       'scripts/shapes/anim-smoke.mjs',       // Deadball's players skinned: the rig's frames, four weights a vertex, every pose on the posed build's surface, the hands on the bat
       // Deadball staged in 3-D: each pitch at its spot, every clip on the ball, every ball in play's gloves, throws and call at first, the line held to the landing (one game each, side by side)
       { run: 'scripts/shapes/diamond-smoke.mjs 16', budget: 90, why: '33 s of main-thread CPU alone (2026-11-05), past the 30 s that survives the slowest runner seen. The time is the animation solver (diamond/anim.js, rig.js) posing every body at each of 476,000 checks, which is what the gate tests, and the poses read world state that moves between checks, so they cannot be shared' },

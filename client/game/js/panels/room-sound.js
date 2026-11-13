@@ -101,7 +101,7 @@ export function createRoomSound() {
   const flying = new Map();   // loop id -> { muffled }
   function setFlights(list, ear) {
     const A = eng();
-    const out = !!ear.out, through = ear.annex ? 0.15 : out ? 1 : 0.3 + 0.5 * Math.max(ear.open || 0, Math.exp(-(ear.near ?? 9) / 5));
+    const out = !!ear.out, through = ear.annex ? 0.15 : out ? 1.6 : 0.3 + 0.5 * Math.max(ear.open || 0, Math.exp(-(ear.near ?? 9) / 5));
     const near = [];
     for (const f of list || []) {
       const ac = flybyClass(f.cls), L = ac && FLYBY_LOUD[ac];

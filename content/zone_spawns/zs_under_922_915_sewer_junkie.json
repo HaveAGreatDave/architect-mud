@@ -1,0 +1,8 @@
+{
+  "enemy_id": "enemy_sewer_junkie",
+  "id": "zs_under_922_915_sewer_junkie",
+  "max_count": 2,
+  "respawn_seconds": 360,
+  "spawn_weight": 45,
+  "zone_id": "zone_under_922_915"
+}

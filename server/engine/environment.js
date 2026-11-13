@@ -705,7 +705,9 @@ function computeZoneLighting(zoneId) {
   for (const f of getZoneFurniture(zoneId)) {
     if (f.object_type !== 'light' || f.light_on !== 1) continue;
     cnt++;
-    lm += Number(f.lumen_output ?? 0);
+    // a dimmed light (flags.dim, 0-100, plugins/envcontrol) gives that share of its lumens
+    const dim = Number(f.flags?.dim);
+    lm += Number(f.lumen_output ?? 0) * (Number.isFinite(dim) ? Math.max(0, Math.min(100, dim)) / 100 : 1);
   }
   return { cnt, lm };
 }

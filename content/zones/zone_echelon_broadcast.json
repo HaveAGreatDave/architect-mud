@@ -18,6 +18,25 @@
     "floor": "boards",
     "is_building": true,
     "is_interior": true,
+    "room": {
+      "balcony": false,
+      "d": 6,
+      "decor": {
+        "rug": false
+      },
+      "face": 180,
+      "finish": "plain",
+      "h": 2.6,
+      "studio": false,
+      "tone": {
+        "accent": "#c8302a",
+        "ceiling": "#151515",
+        "trim": "#0d0d0d",
+        "wall": "#222426"
+      },
+      "w": 9,
+      "windowless": true
+    },
     "world_exit_zone": "zone_echelon_exterior",
     "yacht": true
   },

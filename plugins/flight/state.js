@@ -18,7 +18,7 @@ export const gearRetracts = (type) => ['gunship', 'heavy', 'drake'].includes(typ
 import { describeZone } from '../../server/engine/commands/describe.js';
 import { biomeOf, districtBiome } from './biomes.js';
 import { thermalLiftMax, heatOfCell } from '../../client/shared/thermals.js';
-import { skylineFar } from '../../client/shared/skyline-tall.js';
+import { skylineFar, CURTAIN_FAR } from '../../client/shared/skyline-tall.js';
 import { lotSides } from '../../scripts/content/derive.mjs';
 import { normalizeLivery } from './livery.js';
 import { aircraftLiveryModel } from '../../client/shared/livery-sets.js';
@@ -1863,7 +1863,10 @@ export function deriveSurfaceCell(cell, x, y, at = surfaceAt, live = true) {
   // with no plan sends neither, and has no holograms.
   const holo = bt ? holoAdsFor(cell, x, y, at, ent) : null;
   // A runway is not a street (see `rwy` above): no kerbs, no steam vents, no pedestrians on it.
-  return { prp, kind, biome, road: rwy ? 0 : road, danger: cell.danger, pad, bt, bn, trd, ent, flr, mark, bk, strip, rwy, twy, hp, rd, rdeg, rt, rw, rl, wr, rc, sc, nfb, wake, sub, heading, cur, cld, ci, ft, hi, cf, pf: cell.flags?.park_feature, pfo: parkFocus(cell, x, y), pw, em, og, sl, sgn, plz, lk, ml, bf, bq, aa, vl, vr, brd: brd && brd.length ? brd : undefined, gft: gft && gft.length ? gft : undefined, ha: holo?.ha, hr: holo?.hr };
+  // `wv`: a void corridor cell out in the country (corridor.js wild_verge). The windshield colours its floor
+  // exactly as the off-map floor beside it, so the corridor's band never shows as a stripe.
+  const wv = cell.flags?.wild_verge ? 1 : undefined;
+  return { wv, prp, kind, biome, road: rwy ? 0 : road, danger: cell.danger, pad, bt, bn, trd, ent, flr, mark, bk, strip, rwy, twy, hp, rd, rdeg, rt, rw, rl, wr, rc, sc, nfb, wake, sub, heading, cur, cld, ci, ft, hi, cf, pf: cell.flags?.park_feature, pfo: parkFocus(cell, x, y), pw, em, og, sl, sgn, plz, lk, ml, bf, bq, aa, vl, vr, brd: brd && brd.length ? brd : undefined, gft: gft && gft.length ? gft : undefined, ha: holo?.ha, hr: holo?.hr };
 }
 
 // Which buildings carry a hologram advert, from the region's plan:
@@ -1925,6 +1928,13 @@ function skylineList() {
   const out = [];
   for (const [key, cell] of _coordIndex) {
     const f = cell.flags, bt = f.building_type;
+    // A Curtain tile rides the same list as [x, y, 0, null, null, null, cur]: the run axis in the
+    // seventh slot, and no building, so a client that doesn't know the shape drops it.
+    if (f.curtain) {
+      const [x, y] = key.split(',').map(Number);
+      out.push({ x, y, reach: CURTAIN_FAR, row: [x, y, 0, null, null, null, curtainRun(x, y)] });
+      continue;
+    }
     if (!bt) continue;
     const reach = skylineFar(bt, f.building_name, f.floors);
     if (!reach) continue;

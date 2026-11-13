@@ -281,13 +281,16 @@ async function cmdUnlockDoor(args, raw, player, broadcast) {
   if (!lockTag) return { type:'error', message:"This door has no lock." };
   if (door.lock_state !== 'locked') return { type:'error', message:"The door isn't locked." };
 
-  if (!['admin', 'dev'].includes(player.role) && !await checkLockAuth(lockTag, door, player)) {
+  // Staff open any lock, but one that wouldn't have opened for them is an OVERRIDE, and says so: ROOM plays it on
+  // the door's hologram (plugins/roomstage reads `override` off door.sfx).
+  const staff = ['admin', 'dev'].includes(player.role), auth = await checkLockAuth(lockTag, door, player);
+  if (!staff && !auth) {
     emit('door.sfx', { door, zoneId: player.current_zone, actorId: player.id, cue: 'denied' });
     return { type:'error', message: lockTag.messages?.denied ?? "The lock doesn't recognize your credentials." };
   }
 
   await updateDoor(door, { lock_state: 'unlocked' });
-  emit('door.sfx', { door, zoneId: player.current_zone, actorId: player.id, cue: 'unlock' });
+  emit('door.sfx', { door, zoneId: player.current_zone, actorId: player.id, cue: 'unlock', ...(staff && !auth ? { override: true } : {}) });
   broadcast(player.current_zone, { type:'zone_event', message:'The lock disengages.' }, player.id);
   return { type:'output', message: terseLock(player, lockTag.messages?.unlock ?? 'The lock disengages.', 'Unlocked.') };
 }

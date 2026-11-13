@@ -24,10 +24,10 @@ import { loadWindshield, paintWindshield, disposeWindshield, ensureWindshieldSty
 import { eyeBase, lensOf, viewOf } from './room-view.js';
 
 const FACE_PX = 1024;      // a face's height in pixels: 90° over the room's screen height, so 512 showed soft
-const LIVE_SLOW_MS = 9, LIVE_FAST_MS = 5, LIVE_MIN_SCALE = 0.6, LIVE_STILL_MS = 33;
+const LIVE_SLOW_MS = 9;
 // ⚠ A MACHINE THAT CAN'T AFFORD LIVE GIVES IT UP (`slow`, room-stage.js `toFaces`). Shrinking the canvas only helps
 // a GPU that's short of pixels; the city's cost is mostly the main thread building it, and that didn't move from
-// 1600 px wide to 400. So past LIVE_GIVE_UP_MS a paint at the smallest scale, for LIVE_GIVE_UP_N paints in a row
+// 1600 px wide to 400. So past LIVE_GIVE_UP_MS a paint, for LIVE_GIVE_UP_N paints in a row
 // (an occasional slow one is forgiven a step at a time), live says it's slow, and in the meantime it paints no
 // faster than every LIVE_SLOW_EVERY_MS so the room keeps its frame rate while the six faces come.
 const LIVE_GIVE_UP_MS = 14, LIVE_GIVE_UP_N = 30, LIVE_SLOW_EVERY_MS = 30;
@@ -101,16 +101,28 @@ export function createOutlook(msg, { host, onEye, onFail, onPano, feed, live = f
   };
 
   // the fallback: the same paint, here
+  // ⚠ A RENDERER THAT WON'T LOAD IS TRIED AGAIN, every few seconds up to RETRY_MAX_MS, for as long as the room is open.
+  // The usual cause is the server restarting (--watch, a deploy): every fetch is refused for a few seconds, and the
+  // server sends no new `room_outlook` when the socket comes back, so giving up left the windows black until a reload.
+  // `onFail` still goes at the first miss, so the veil lifts and the room shows meanwhile.
+  let retryMs = 0, retryTimer = 0;
+  const RETRY_MAX_MS = 30000;
   function here() {
     worker?.terminate();
     worker = null; free = false; K = null;
     canvas();
     loadWindshield().then(() => {
       if (!alive) return;
+      retryMs = 0;
       ensureWindshieldStyles();
       base = eyeBase(msg, modelTopZAt);
       ready({ eye: base.z, eyeX: base.x, eyeY: base.y, fxK: viewLatFocal(1000, null) / 500, vfK: viewFocal(1000, 1) / 1000 });
-    }).catch((e) => fail(e?.message));
+    }).catch((e) => {
+      if (!alive) return;
+      if (!retryMs) { console.warn('[room] no view from the window yet, trying again:', e?.message); onFail?.(); }
+      retryMs = Math.min(RETRY_MAX_MS, (retryMs || 1000) * 2);
+      retryTimer = setTimeout(() => { if (alive) here(); }, retryMs);
+    });
   }
 
   try {
@@ -130,32 +142,34 @@ export function createOutlook(msg, { host, onEye, onFail, onPano, feed, live = f
     worker.postMessage({ type: 'start', msg });
   } catch (e) { here(); }
   let lens0 = null;
-  // ⚠ LIVE COSTS A GLASS FRAME A FRAME, so it's kept in hand three ways. The canvas is drawn at `scale` of the room's
-  // size and stretched (the lens depends on the shape alone, so nothing moves), and `scale` follows what a paint costs:
-  // down when one takes over LIVE_SLOW_MS, back up when they're under LIVE_FAST_MS. A head that hasn't moved is
-  // repainted every LIVE_STILL_MS, not every frame: only what's moving out there changes, and at 30 a second it
-  // reads as smooth. And with no glass in view there's no paint at all.
-  let scale = 1, cost = 0, lastPose = '', lastPaint = 0, slowN = 0;
+  // ⚠ LIVE COSTS A GLASS FRAME A FRAME, so it's kept in hand two ways. A head that hasn't moved is repainted every
+  // other frame once a paint is dear: only what's moving out there changes, and at 30 a second it reads as smooth.
+  // And with no glass in view there's no paint at all.
+  // ⚠ NEVER SIZE THE CANVAS HERE. GLASS sizes it every paint from its CSS box and its own resolution dial
+  // (windshield.js resStep; viewOf pins it with resFloor 1). This used to shrink it to a `scale` that followed the
+  // paint's cost: GLASS put it straight back, so each paint reallocated the canvas twice and the picture never
+  // changed. The scale fell as soon as a turn made the paint dear (the near buildings run live off their kept pose),
+  // so turning was when it happened: the hitches while turning round a room.
+  let cost = 0, lastPose = '', lastPaint = 0, slowN = 0, stillN = 0;
   function livePaint(hour, wx, look, warming) {
     const W = Math.max(2, el.clientWidth), H = Math.max(2, el.clientHeight), { k, lens } = lensOf(K.fxK, K.vfK, W, H, look?.fov ?? lens0?.fov);
     if (look) lens0 = { fov: look.fov };
     if (!look && painted > 2) return lens;
     const t0 = performance.now(), pose = look ? [look.yaw, look.pitch, look.fov, look.at?.[0], look.at?.[1]].join() : '';
-    // a still head is painted at 30 a second only on a machine already shrinking the canvas: where a paint is cheap,
-    // every frame, or the traffic out there ran at half the room's rate and paint/skip frames came uneven (a hitch)
-    if (!warming && scale < 1 && pose === lastPose && t0 - lastPaint < LIVE_STILL_MS) return lens;
-    if (!warming && scale <= LIVE_MIN_SCALE && cost > LIVE_SLOW_MS && t0 - lastPaint < LIVE_SLOW_EVERY_MS) return lens;
+    // a still head is painted every other frame once a paint isn't cheap: where it is, every frame, or the traffic
+    // out there ran at half the room's rate. Every other FRAME, by count, not by clock: a 33 ms clock against a
+    // 16.7 ms frame skipped one frame or two as the timing fell, and the paint/skip frames came uneven (a hitch)
+    // Only once a paint is properly dear (LIVE_SLOW_MS): halving past 5 ms put the aircraft out there at 30 a
+    // second on most machines, and they read as choppy.
+    if (!warming && pose === lastPose && cost > LIVE_SLOW_MS && (++stillN & 1)) return lens;
+    if (pose !== lastPose) stillN = 0;
+    // on its way to giving up (slowN), no faster than LIVE_SLOW_EVERY_MS, so the room keeps its rate while the faces come
+    if (!warming && slowN > 0 && cost > LIVE_SLOW_MS && t0 - lastPaint < LIVE_SLOW_EVERY_MS) return lens;
     lastPose = pose; lastPaint = t0;
-    const cw = Math.max(2, Math.round(W * scale)), ch = Math.max(2, Math.round(H * scale));
-    if (el.width !== cw || el.height !== ch) { el.width = cw; el.height = ch; }
     try { paintWindshield(id, viewOf(msg, base, { hour, wx, look, fed: feed?.(), k })); painted++; } catch (e) { fail(e?.message); return lens; }
     cost += (performance.now() - t0 - cost) * 0.15;
-    // a step at a time, and only past a margin, so the canvas isn't reallocated every frame
-    if (!warming && painted > 20) {
-      if (cost > LIVE_SLOW_MS && scale > LIVE_MIN_SCALE) scale = Math.max(LIVE_MIN_SCALE, scale - 0.1);
-      else if (cost < LIVE_FAST_MS && scale < 1) scale = Math.min(1, scale + 0.05);
-      slowN = scale <= LIVE_MIN_SCALE && cost > LIVE_GIVE_UP_MS ? slowN + 1 : Math.max(0, slowN - 1);
-    }
+    // a paint dear on the main thread is too slow here; a smaller canvas wouldn't change it
+    if (!warming && painted > 20) slowN = cost > LIVE_GIVE_UP_MS ? slowN + 1 : Math.max(0, slowN - 1);
     return lens;
   }
 
@@ -182,7 +196,8 @@ export function createOutlook(msg, { host, onEye, onFail, onPano, feed, live = f
   return {
     get live() { return live; },
     // live and too dear for this machine: the room should swap to the six faces (LIVE_GIVE_UP_MS)
-    get slow() { return live && slowN >= LIVE_GIVE_UP_N; },
+    // `__roomLiveKeep` (a harness) holds it live however slow, so a lab on a slow pane can look through it
+    get slow() { return live && !globalThis.__roomLiveKeep && slowN >= LIVE_GIVE_UP_N; },
     // where it's looking from now (`place` replaces it), for a view of the same place started in its stead
     get spot() { return msg; },
     // live: a paint with no glass in view, for warming the city where you're about to be (a lift's next floor, behind
@@ -192,7 +207,7 @@ export function createOutlook(msg, { host, onEye, onFail, onPano, feed, live = f
     // all four faces up: the loading veil waits for this, not for `painted`
     get shown() { return live ? painted > 0 : filled >= FACES; },
     // for a harness: how many paints, a paint's round trip in ms, and how many faces are up
-    get stats() { return { paints: painted, lag: Math.round(lag), worker: !!worker, gl, faces: filled, live, scale, cost: +cost.toFixed(1) }; },
+    get stats() { return { paints: painted, lag: Math.round(lag), worker: !!worker, gl, faces: filled, live, cost: +cost.toFixed(1) }; },
     // what the worker's canvas holds, as a blob, for a harness
     peek: () => new Promise((res) => { peek = res; worker?.postMessage({ type: 'peek' }); }),
     // once a frame. `look` is non-null while there's glass in view. Returns null: the room keeps its own lens.
@@ -241,6 +256,7 @@ export function createOutlook(msg, { host, onEye, onFail, onPano, feed, live = f
     setSky(sky) { msg.sky = { ...(msg.sky || {}), ...sky }; worker?.postMessage({ type: 'sky', sky }); },
     stop() {
       alive = false;
+      clearTimeout(retryTimer);
       fresh?.bitmap.close(); fresh = null;
       for (const b of faces) b?.close?.();
       worker?.terminate();

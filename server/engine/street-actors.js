@@ -1,4 +1,5 @@
 import { world } from './world.js';
+import { playerFigure, lookOfPlayer } from '../../client/shared/player-figure.js';
 
 /**
  * STREET ACTORS — who is standing on the open world grid, right now.
@@ -26,29 +27,31 @@ import { world } from './world.js';
  * anyway: `isEnterableFacade` auto-forwards a mover into the interior, so an NPC's last
  * standing tile is always the one BESIDE the door rather than the door itself.
  *
- * ── The token is a correlator, not an identity ────────────────────────────────────────────
- * `t` exists for exactly one reason. NPCs move on a 15-second tick, one whole tile per step,
- * so a raw feed teleports; the client interpolates that into a walk, and to do it at all it
- * has to know the figure at A last push is the figure at B this push. Ship the npc id and
- * you have instead built a live position tracker on every named NPC in the city, readable
- * without a camera, a contact or a skill check.
+ * ── The token is the person's look ────────────────────────────────────────────────────────
+ * `t` does two jobs. NPCs move on a 15-second tick, one whole tile per step, so a raw feed
+ * teleports; the client interpolates that into a walk, and to do it it has to know the figure
+ * at A last push is the figure at B this push. And it dresses them: `t` is the FNV-1a hash of
+ * the id in base 36, which is the same hash the Room Stage and the TV seed a person's look
+ * from (client gl/room-people.js `rand(id)`), so somebody you saw on the news walks down the
+ * street in the same coat, hair and face (docs/proposals/street-people-ladder.md).
  *
- * So `t` is a truncated hash of the id under a salt minted at boot. Within a session it is
- * stable enough to interpolate; across a restart it is meaningless; and it never resolves
- * back to a name. The salt is process-global rather than per-connection ON PURPOSE — a
- * per-connection salt would defeat the cache below for no privacy gain, because two people
- * looking at the same street can already see that it is the same figure walking down it.
+ * ⚠ THAT IS A TRACKER, ON PURPOSE. Until 2026-11-12 `t` was salted per boot so a figure could
+ * never be followed back to a name: a recognisable figure is a live position for every named
+ * NPC, readable from the air with no camera, contact or skill check. David chose recognition
+ * over that (2026-11-12). The id itself still never goes on the wire, so a name has to be
+ * hashed to be found, but anyone with the content tree can.
+ *
+ * `s: 1` marks a woman (the close-up figure's head and build roll off it) and `g` is a settled
+ * look, an NPC's `flags.figure` or a player's MORPHEX figure (client/shared/player-figure.js),
+ * sent only for the few who have one, so the street costs a few bytes a figure more than before.
  */
 
-// Minted once per boot. See the token note above.
-const SALT = Math.floor(Math.random() * 0x7fffffff).toString(36) + Date.now().toString(36);
-
-// FNV-1a over salt+id, base36, truncated. ~250 entities against a 36^7 space: the chance of a
-// collision is negligible, and the failure mode if one ever happened is cosmetic (two figures
-// briefly interpolate as one). Cheap matters more here than perfect — this runs per entity.
-function token(id) {
+// FNV-1a over the id, base36: room-people.js rand(id)'s seed. ~250 entities against 2^32: a
+// collision is negligible, and its failure is cosmetic (two figures briefly interpolate as one
+// and dress alike). Cheap matters more here than perfect: this runs per entity.
+export function token(id) {
   let h = 0x811c9dc5;
-  const s = SALT + id;
+  const s = String(id);
   for (let i = 0; i < s.length; i++) {
     h ^= s.charCodeAt(i);
     h = Math.imul(h, 0x01000193) >>> 0;
@@ -82,7 +85,7 @@ function tally() {
     if (npc._aboard || npc._charterHeld) continue;   // riding something, not walking
     const z = surfaceTile(world.zones.get(npc.zone_id));
     if (!z) continue;
-    out.push({ id: npc.id, t: token(npc.id), x: z.grid_x, y: z.grid_y });
+    out.push({ id: npc.id, t: token(npc.id), x: z.grid_x, y: z.grid_y, f: npc.sex === 'female', g: npc.flags?.figure || null });
   }
   for (const [pid, p] of world.players) {
     // Airborne players are drawn as aircraft by the contact pass; they are not pedestrians.
@@ -90,7 +93,7 @@ function tally() {
     if (!p || p.posture === 'flying') continue;
     const z = surfaceTile(world.zones.get(p.current_zone));
     if (!z) continue;
-    out.push({ id: pid, t: token(pid), x: z.grid_x, y: z.grid_y });
+    out.push({ id: pid, t: token(pid), x: z.grid_x, y: z.grid_y, f: p.biological_sex === 'female', g: p.biological_sex ? playerFigure(lookOfPlayer(p)) : null });
   }
   _tally = out; _tallyAt = now;
   return out;
@@ -112,7 +115,7 @@ export function streetActors(cx, cy, radius, excludeId = null) {
   for (const a of tally()) {
     if (a.id === excludeId) continue;
     if (Math.abs(a.x - cx) > radius || Math.abs(a.y - cy) > radius) continue;
-    out.push({ t: a.t, x: a.x, y: a.y });
+    out.push(a.f ? (a.g ? { t: a.t, x: a.x, y: a.y, s: 1, g: a.g } : { t: a.t, x: a.x, y: a.y, s: 1 }) : a.g ? { t: a.t, x: a.x, y: a.y, g: a.g } : { t: a.t, x: a.x, y: a.y });
   }
   return out;
 }

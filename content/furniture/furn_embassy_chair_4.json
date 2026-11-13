@@ -5,7 +5,14 @@
     "interactions": [
       "sit"
     ],
-    "seat_idx": 3
+    "seat_idx": 3,
+    "spot": {
+      "at": [
+        5.1,
+        6.2
+      ],
+      "turn": -90
+    }
   },
   "hp": null,
   "hp_max": null,

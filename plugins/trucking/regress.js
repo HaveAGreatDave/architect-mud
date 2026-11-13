@@ -3876,6 +3876,15 @@ async function regressBody({ run, check, getPlayer }) {
       check('…cheapest first, so the ladder reads top-down',
         (yard?.stock || []).every((t, i, a) => i === 0 || a[i - 1].price <= t.price));
       check('…and an empty fleet is an empty fleet', Array.isArray(yard?.fleet));
+      // The stock trucks are semi-retired (hover-rigs.md phase 5): the lot sells each type in its
+      // 2076 body, and the card draws that body, not the stock mesh under a new name.
+      check('the lot sells every truck in its 2076 body',
+        (yard?.stock || []).every(t => /~e2076$/.test(t.variant || '') && / 2076$/.test(t.name)),
+        (yard?.stock || []).map(t => `${t.name}=${t.variant}`).join(', '));
+      check('…and each lot card draws a mesh other than the stock one',
+        (yard?.stock || []).every(t => { const a = aircraftFaces('truck', 1, false, t.variant), b = aircraftFaces('truck', 1, false, t.id);
+          return a?.length > 0 && a !== b && a.length !== b?.length; }),
+        (yard?.stock || []).map(t => `${t.id} ${aircraftFaces('truck', 1, false, t.variant)?.length}/${aircraftFaces('truck', 1, false, t.id)?.length}`).join(', '));
 
       const savedCredits = player.credits || 0;
       await setBalance(player, 40000);
@@ -3888,7 +3897,10 @@ async function regressBody({ run, check, getPlayer }) {
       try { tooRich = await run('yard buy continental'); } finally { setBroadcast(savedWire); }
       check('a truck you can afford is bought', !!tooRich && !/cannot|have \d/.test(tooRich?.message || ''), tooRich?.message?.slice(0, 45));
       check('…and it cost the sticker price', player.credits === 40000 - TYPES.continental.price, player.credits);
-      const { rows: [boughtRow] } = await query("SELECT id FROM trucks WHERE owner_id=$1 AND type_id='continental' ORDER BY created_at DESC LIMIT 1", [player.id]);
+      const { rows: [boughtRow] } = await query("SELECT id, custom_data FROM trucks WHERE owner_id=$1 AND type_id='continental' ORDER BY created_at DESC LIMIT 1", [player.id]);
+      check('…in its 2076 body, already owned, so the bench charges nothing to keep it',
+        boughtRow?.custom_data?.edition === '2076' && boughtRow?.custom_data?.owned_editions?.includes('2076') && /Continental 2076/.test(tooRich?.message || ''),
+        JSON.stringify(boughtRow?.custom_data)?.slice(0, 80));
       const dealt = wire.find((m) => m?.type === 'truck_depot');
       check('…and the counter dealt after it offers that truck to drive', !!boughtRow && dealt?.fresh === boughtRow.id,
         `${dealt?.fresh} vs ${boughtRow?.id}`);
@@ -3909,6 +3921,32 @@ async function regressBody({ run, check, getPlayer }) {
       const { rows: both } = await query('SELECT id, type_id FROM trucks WHERE owner_id=$1 AND depot_zone=$2 ORDER BY created_at',
         [player.id, player.current_zone]);
       check('…and both of them are really parked here', both.length === 2, both.map(r => r.type_id).join(' + '));
+
+      // ── THE LIFT IN THE SHED (hoist.js) ── the Room Stage's truck, called up from the garage
+      {
+        const { liftAt, roomVehicles, _resetHoist } = await import('./hoist.js');
+        const { gatherHookSync } = await import('../../server/engine/plugins.js');
+        const { getZone } = await import('../../server/engine/world.js');
+        const shed = player.current_zone;
+        _resetHoist();
+        const ask = await run('hoist');
+        check('hoist: with two downstairs it asks which, naming the verb', /hoist /.test(ask?.message || ''), ask?.message?.slice(0, 60));
+        const up = await run(`hoist ${both[0].id}`);
+        check('hoist <id>: the truck comes up on the lift', liftAt(shed)?.truckId === both[0].id, up?.message?.slice(0, 60));
+        const seen = gatherHookSync('room.vehicles', shed, player)[0];
+        check('…and the Stage sees it through room.vehicles, as the owner\'s', seen?.lift?.id === both[0].id && seen.lift.mine === true && !!seen.lift.variant, JSON.stringify(seen?.lift)?.slice(0, 80));
+        // This yard is the suite's own and has no room; the authored sheds (every indoor depot) are what a player
+        // hoists in. Their depot flag is off the board for this case, so read them from realDepots.
+        const sheds = realDepots.map(([z]) => z).filter((z) => z.flags?.is_interior);
+        check('…and every depot shed has a Stage to see it in', sheds.length > 0 && sheds.every((z) => !!z.flags?.room),
+          sheds.filter((z) => !z.flags?.room).map((z) => z.id).join(', ') || `${sheds.length} sheds`);
+        const again = await run(`hoist ${both[1].id}`);
+        check('hoist: one at a time', liftAt(shed)?.truckId === both[0].id && /already up/.test(again?.message || ''), again?.message?.slice(0, 60));
+        check('room.vehicles answers nothing in a room that is no depot', roomVehicles('zone_nowhere', player, { isDepot: () => false }) === undefined);
+        await run('hoist down');
+        check('hoist down: it starts down', liftAt(shed)?.down > 0);
+        _resetHoist();
+      }
 
       // WITH TWO IN THE YARD, THE VERB ASKS — and the asking is a MENU, because every line of it
       // is the command that picks that truck. A refusal that does not name its own way out is a

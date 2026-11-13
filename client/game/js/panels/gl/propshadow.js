@@ -18,6 +18,7 @@
 // a stroke is expanded to a SCREEN width there, which from the sun is no width at all.
 import { lightMatrix } from './camera.js';
 import { compileShader } from './programs.js';
+import { createArena } from './retain.js';
 
 export const PROP_SHADOW_SIZE = 2048;
 // Tiles of slack on the depth comparison, as SHADOW_BIAS_TILES. Smaller than the mass map's,
@@ -32,7 +33,9 @@ export const PROP_BIAS_TILES = 0.012;
 // that would be a plank of shadow on the road.
 // `actorH`/`actorW`: a person, in metres, as a slab turned to face the sun. `top` is the box's
 // ceiling in tiles: anything higher clips out of the map (an aircraft overhead).
-export const PROP_SHADOW_TUNE = { near: 6, perEye: 10, far: 18, ahead: 0.55, wMin: 0.002, wMax: 0.016, actorH: 1.75, actorW: 0.5, top: 1.4, flat: 0.02, keep: 1 };
+// `keep`: how the street kit's kept sets get in. 2 keeps them on the GPU (keptGroupsIn), 1 copies
+// what they cast into the frame's buffer each frame (keptCasters), 0 walks them face by face.
+export const PROP_SHADOW_TUNE = { near: 6, perEye: 10, far: 18, ahead: 0.55, wMin: 0.002, wMax: 0.016, actorH: 1.75, actorW: 0.5, top: 1.4, flat: 0.02, keep: 2 };
 
 const VERT = `#version 300 es
 layout(location = 0) in vec3 aPos;
@@ -153,6 +156,26 @@ function keptCasters(L, T) {
   e = { flat: T.flat, n, tri, off, px, py, x0, x1, y0, y1 };
   KEPT_CASTERS.set(L, e);
   return e;
+}
+
+// ── AND KEPT ON THE GPU ───────────────────────────────────────────────────────
+// What a kept set casts doesn't change while its array comes back, so it needn't be copied into the
+// frame's buffer and sent again: 1.5 MB a frame on a civic street from a cab, nearly all of the
+// prop map's upload. `keptArena` is a position-only arena (gl/retain.js) on attribute 0, and
+// `keptGroupsIn` this frame's groups for it: every set that reaches the box, whole. A set across the
+// box's edge goes in whole rather than face by face, which only adds casters the light matrix clips
+// or that genuinely shade into the box from just outside it. The lamp maps (gl/lampshadow.js) use both.
+// On with T.keep 2; below that, buildPropCasters puts the sets in the frame's buffer as before.
+export const keptArena = (gl) => createArena(gl, 3, [[0, 3, 0]]);
+export function keptGroupsIn(kept, box, T = PROP_SHADOW_TUNE) {
+  const out = [];
+  for (const L of kept || []) {
+    if (!L) continue;
+    const e = keptCasters(L, T);
+    if (!e.tri.length || e.x1 < box.x0 - 1 || e.x0 > box.x1 + 1 || e.y1 < box.y0 - 1 || e.y0 > box.y1 + 1) continue;
+    out.push(e.g || (e.g = { key: e, floats: e.tri.length, write: (d, o) => { d.set(e.tri, o); return o + e.tri.length; } }));
+  }
+  return out;
 }
 
 // Triangles for every caster in the box, as xyz floats in the map window's frame. `buf` is reused.
@@ -332,6 +355,7 @@ export function createPropShadowLayer(gl, size = PROP_SHADOW_SIZE) {
   let cap = 0;
   const buf = { data: new Float32Array(1 << 14) };
   const vp32 = new Float32Array(16);
+  const arena = keptArena(gl);
   let last = null;
 
   // Builds and draws the map. Returns what the readers need, or null when nothing in the box casts
@@ -343,14 +367,20 @@ export function createPropShadowLayer(gl, size = PROP_SHADOW_SIZE) {
     // The light's travel direction is the matrix's third row, normalised (see lightMatrix).
     const tl = Math.hypot(vp[2], vp[6], vp[10]) || 1;
     const travel = [vp[2] / tl, vp[6] / tl, vp[10] / tl];
-    const n = buildPropCasters(buf, box, { ...casters, travel });
-    last = { ...n, box };
-    if (!n.verts) return null;
-    gl.bindBuffer(gl.ARRAY_BUFFER, vbo);
-    const bytes = n.verts * 12;
-    if (bytes > cap) { cap = Math.max(bytes, cap * 2, 1 << 16); gl.bufferData(gl.ARRAY_BUFFER, cap, gl.DYNAMIC_DRAW); }
-    gl.bufferSubData(gl.ARRAY_BUFFER, 0, buf.data, 0, n.verts * 3);
-    gl.bindBuffer(gl.ARRAY_BUFFER, null);
+    // The kept sets from the arena (keptGroupsIn), the rest built and sent as before.
+    const keep = PROP_SHADOW_TUNE.keep >= 2;
+    const n = buildPropCasters(buf, box, { ...casters, kept: keep ? null : casters.kept, travel });
+    const runs = keep ? arena.retain(keptGroupsIn(casters.kept, box)) : null;
+    const kv = runs ? arena.verts : 0;
+    last = { ...n, kept: kv, box };
+    if (!n.verts && !kv) return null;
+    if (n.verts) {
+      gl.bindBuffer(gl.ARRAY_BUFFER, vbo);
+      const bytes = n.verts * 12;
+      if (bytes > cap) { cap = Math.max(bytes, cap * 2, 1 << 16); gl.bufferData(gl.ARRAY_BUFFER, cap, gl.DYNAMIC_DRAW); }
+      gl.bufferSubData(gl.ARRAY_BUFFER, 0, buf.data, 0, n.verts * 3);
+      gl.bindBuffer(gl.ARRAY_BUFFER, null);
+    }
     gl.bindFramebuffer(gl.FRAMEBUFFER, fbo);
     gl.viewport(0, 0, dim, dim);
     gl.disable(gl.BLEND);
@@ -364,8 +394,8 @@ export function createPropShadowLayer(gl, size = PROP_SHADOW_SIZE) {
     gl.clear(gl.DEPTH_BUFFER_BIT);
     gl.useProgram(prog);
     gl.uniformMatrix4fv(uLightVP, false, vp);
-    gl.bindVertexArray(vao);
-    gl.drawArrays(gl.TRIANGLES, 0, n.verts);
+    if (kv) { gl.bindVertexArray(arena.vao); for (const r of runs) gl.drawArrays(gl.TRIANGLES, r[0], r[1]); }
+    if (n.verts) { gl.bindVertexArray(vao); gl.drawArrays(gl.TRIANGLES, 0, n.verts); }
     gl.bindVertexArray(null);
     gl.disable(gl.POLYGON_OFFSET_FILL);
     gl.polygonOffset(0, 0);
@@ -373,7 +403,7 @@ export function createPropShadowLayer(gl, size = PROP_SHADOW_SIZE) {
     for (let i = 0; i < 16; i++) vp32[i] = vp[i];
     // The bias in this box's depth range, as sunShadowFor converts the mass map's.
     const span = Math.max(1, Math.hypot(box.x1 - box.x0, box.y1 - box.y0, box.z1 - box.z0));
-    return { tex, vp32, texel: 1 / dim, bias: PROP_BIAS_TILES / span, size: dim, tris: n.verts / 3 };
+    return { tex, vp32, texel: 1 / dim, bias: PROP_BIAS_TILES / span, size: dim, tris: (n.verts + kv) / 3 };
   }
   return { render, size: dim, get last() { return last; } };
 }

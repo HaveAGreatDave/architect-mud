@@ -18,7 +18,12 @@
 import { MAT } from './ballpark-mesh.js';
 import { readerAlong, CARD_TOP } from './room-lock.js';
 import { fireDial } from './room-fittings.js';
+import { drawChessBoard } from './room-chess.js';
 import { legend, legendWidth } from '../../../../shared/legend-font.js';
+import { balconyDressOf } from '../../../../shared/room-layout.js';
+import { glassLathe, liquidLathe } from './lab-mesh.js';
+import { drawCatStatue } from './cat-statue.js';
+import { drawSaloonDecor, dressCardTable, saloonCtx } from './room-saloon.js';
 
 const { GLOSS, METAL, SATIN, CLOTH, MATTE, LEATHER } = MAT;
 // the codes gl/room.js reads for a light's own face, as room-mesh.js has them (GLOW, LAMP)
@@ -415,6 +420,41 @@ export function liftPortal(K, L, o, { DH, H, lampOn }) {
   }
 }
 
+// ── a tower flat's balcony (room-layout.js balconyDressOf) ────────────────────────────────────────
+// A long charcoal planter of grasses and clipped box balls, a slatted oak bench on two black steel
+// frames, and a fig in an urn past it.
+function trough(K, [a, b, c, e], seed) {
+  const r = rng(seed), H = 0.55;
+  K.box(a, b, c, e, 0, H, '#2c2d30', 1, null, SATIN);
+  K.box(a + 0.03, b - 0.03, c + 0.03, e - 0.03, H, H + 0.006, '#2a1e16', 0.9);
+  const greens = ['#5f7a3a', '#6e8a44', '#8a9a52', '#b4a868'], vm = (c + e) / 2;
+  for (let u = a + 0.16; u < b - 0.1; u += 0.26) {
+    if (r() < 0.3) { K.ball(u, vm + (r() - 0.5) * 0.08, H + 0.12, 0.15 + r() * 0.03, '#34502a', 1, 12, SATIN); continue; }
+    for (let i = 0; i < 12; i++) {
+      const ang = r() * Math.PI * 2, el = 1.05 + r() * 0.4, len = 0.45 + r() * 0.3;
+      const st = [u + (r() - 0.5) * 0.06, vm + (r() - 0.5) * 0.08, H + 0.004];
+      leaf(K, st, [Math.cos(ang) * Math.cos(el), Math.sin(ang) * Math.cos(el), Math.sin(el)], [-Math.sin(ang), Math.cos(ang), 0], len, 0.03, greens[i % greens.length], 0.95 + r() * 0.15, 0.3);
+    }
+  }
+}
+function balconyBench(K, [a, b, c, e]) {
+  const steel = '#141518', y0 = 0.41, y1 = 0.45, n = 5, g = 0.012, sw = (e - c - g * (n - 1)) / n;
+  for (let i = 0; i < n; i++) { const v0 = c + i * (sw + g); K.box(a, b, v0, v0 + sw, y0, y1, '#c4955f', 1, { t: 'roomWood', c: '#c4955f' }, SATIN); }
+  // each frame a flat bar bent into a closed rectangle, standing in from the ends
+  for (const u of [a + 0.16, b - 0.22]) {
+    K.box(u, u + 0.06, c + 0.02, e - 0.02, y0 - 0.025, y0, steel, 1, null, METAL);
+    K.box(u, u + 0.06, c + 0.02, e - 0.02, 0, 0.02, steel, 1, null, METAL);
+    for (const [v0, v1] of [[c + 0.02, c + 0.045], [e - 0.045, e - 0.02]]) K.box(u, u + 0.06, v0, v1, 0, y0, steel, 1, null, METAL);
+  }
+}
+export function drawBalconyDress(K, L) {
+  const bd = balconyDressOf(L.spec);
+  if (!bd) return;
+  bd.troughs.forEach((t, i) => trough(K, t, 0x7a11 + i * 313));
+  if (bd.bench) balconyBench(K, bd.bench);
+  if (bd.urn) plant(K, bd.urn[0], bd.urn[1], bd.urn[2], 0xba1d); // odd seed: the fig, whose crown stays off the glass (a palm's fronds went through it)
+}
+
 // ── the whole finish ──────────────────────────────────────────────────────────────────────────────
 // ctx: { H, D, hu, T, DH, lampOn, lamps, runs (each wall's solid runs), fine, accent, TEX (the textures' repeats) }
 export function drawDecor(K, L, ctx) {
@@ -432,7 +472,164 @@ export function drawDecor(K, L, ctx) {
   if (dc.pad && typeof dc.pad === 'object') landingPad(K, L, dc.pad, ctx);
   for (const c of dc.doors || []) if (c && typeof c === 'object') shutDoor(K, L, c, ctx);
   if (dc.plaques && typeof dc.plaques === 'object') plaques(K, L, dc.plaques);
+  facility(K, L, dc, ctx);
+  // an old bar's: neon, pendants, fans, photographs, darts, a payphone, what's on the floor (gl/room-saloon.js)
+  drawSaloonDecor(K, L, dc, ctx);
 }
+
+// ── A working building's dressing (a clone facility, a plant room) ───────────────────────────────────
+// All of it is placed by the room's content file (flags.room.decor), none of it knows whose building it is:
+//   strips  [{ at: [u, v], len, along: 'u'|'v', cage? }]     ceiling lights: a lit tube in a housing, or a caged bulkhead
+//   pipes   [{ from: [u, v, y], to: [u, v, y], r, hex? }]     a straight run of pipe, flanged at each end
+//   drops   [{ wall, along, n, r?, into? }]                   a bundle of cables down a wall from the ceiling, into the slab if `into`
+//   paint   [{ kind: 'hazard'|'line'|'arrow'|'box', ... }]    floor markings: a striped band round a rect, a line, an arrow, an outline
+//   grates  [[u, v, w, d]]                                    a drain or a walkway grating let into the floor
+//   screens [{ wall, along, y, w, h, show }]                  a lit wall screen: 'vitals', 'ad' (with `text`), 'gauges' or 'status'
+//   signs   [{ wall, along, y, text, h?, hex?, lit?, plate? }]  lettering on a wall, on its own plate or straight on the paint
+//   pumps   [[u, v, turn?]]                                   a pump on a plinth, motor and volute
+//   lamps   [{ wall, along, y, hex? }]                        a small warning lamp in a cage on a wall
+const HAZ_A = '#e8b818', HAZ_B = '#1a1a1a';
+function floorBox(K, u0, u1, v0, v1, hex, k = 1, surf = MATTE, y = 0.004) { K.box(Math.min(u0, u1), Math.max(u0, u1), Math.min(v0, v1), Math.max(v0, v1), 0.001, y, hex, k, null, surf); }
+function hazardBand(K, [u0, u1, v0, v1], t = 0.12) {
+  // diagonal stripes read as stripes from a standing eye if they're short dashes along the band
+  const dash = (a0, a1, b0, b1, along) => {
+    const len = along === 'u' ? a1 - a0 : b1 - b0, n = Math.max(2, Math.round(len / 0.14));
+    for (let i = 0; i < n; i++) {
+      const s0 = i / n, s1 = (i + 1) / n, hex = i % 2 ? HAZ_B : HAZ_A;
+      if (along === 'u') floorBox(K, a0 + (a1 - a0) * s0, a0 + (a1 - a0) * s1, b0, b1, hex, hex === HAZ_A ? 1.05 : 1, SATIN);
+      else floorBox(K, a0, a1, b0 + (b1 - b0) * s0, b0 + (b1 - b0) * s1, hex, hex === HAZ_A ? 1.05 : 1, SATIN);
+    }
+  };
+  dash(u0, u1, v0, v0 + t, 'u'); dash(u0, u1, v1 - t, v1, 'u');
+  dash(u0, u0 + t, v0 + t, v1 - t, 'v'); dash(u1 - t, u1, v0 + t, v1 - t, 'v');
+}
+function floorArrow(K, [u, v], [du, dv], hex, s = 0.5) {
+  const l = Math.hypot(du, dv) || 1, fu = du / l, fv = dv / l, ru = -fv, rv = fu, w = 0.06 * s / 0.5;
+  const pt = (a, b) => [u + fu * a + ru * b, v + fv * a + rv * b, 0.005];
+  K.quad(K.solid, [pt(-s / 2, -w), pt(s * 0.15, -w), pt(s * 0.15, w), pt(-s / 2, w)], K.nrmOf(0, 1, 0), K.C(hex, 1.1), SATIN, null, true);
+  K.quad(K.solid, [pt(s * 0.15, -w * 3), pt(s / 2, 0), pt(s / 2, 0), pt(s * 0.15, w * 3)], K.nrmOf(0, 1, 0), K.C(hex, 1.1), SATIN, null, true);
+}
+function screenOn(K, L, s, lampOn) {
+  const { wall, along: a, y, w = 0.6, h = 0.36, show = 'status' } = s;
+  // the bezel, the glass, then what's on it, all a hair proud of the wall
+  onWall(K, L, wall, a - w / 2 - 0.03, a + w / 2 + 0.03, 0.005, 0.045, y - h / 2 - 0.03, y + h / 2 + 0.03, '#1b1e22', 1, null, SATIN);
+  const bg = show === 'ad' ? '#2a0a24' : show === 'gauges' ? '#0d1410' : '#06120c';
+  onWall(K, L, wall, a - w / 2, a + w / 2, 0.045, 0.05, y - h / 2, y + h / 2, bg, 1.4, null, GLOW);
+  const lit = (a0, a1, y0, y1, hex, k = 2) => onWall(K, L, wall, a0, a1, 0.05, 0.054, y0, y1, hex, lampOn ? k : k * 0.8, null, GLOW);
+  if (show === 'vitals') {
+    // a trace across it with one beat in it, a number under it
+    const n = 24;
+    for (let i = 0; i < n; i++) {
+      const t = i / n, x = a - w / 2 + 0.03 + t * (w - 0.06), beat = Math.abs(t - 0.55) < 0.04 ? (t < 0.55 ? 1 : -0.6) : 0;
+      lit(x, x + (w - 0.06) / n, y + 0.02 + beat * h * 0.3 - 0.006, y + 0.02 + beat * h * 0.3 + 0.006, '#4dff9a');
+    }
+    lit(a - w / 2 + 0.04, a - w / 2 + 0.2, y - h / 2 + 0.04, y - h / 2 + 0.08, '#4dff9a', 1.6);
+    lit(a + w / 2 - 0.12, a + w / 2 - 0.04, y + h / 2 - 0.08, y + h / 2 - 0.04, '#ffcf4a', 1.8);
+  } else if (show === 'gauges') {
+    for (let i = 0; i < 3; i++) {
+      const x = a - w / 2 + (i + 0.5) * w / 3, k = [0.7, 0.45, 0.9][i];
+      lit(x - 0.04, x + 0.04, y - h / 2 + 0.05, y - h / 2 + 0.05 + (h - 0.1) * k, k > 0.85 ? '#ff4a3a' : '#5ae08a', 1.8);
+    }
+  } else if (show === 'ad') {
+    lit(a - w / 2 + 0.03, a + w / 2 - 0.03, y - h / 2 + 0.03, y - h / 2 + 0.05, '#ff4fd8', 2.2);
+    // each line as big as fits across the glass
+    const fit = (t, cap) => Math.min(cap, (w - 0.16) / Math.max(0.01, legendWidth(String(t).toUpperCase(), 1)));
+    if (s.text) letter(K, L, wall, s.text, a, y + h * 0.08, fit(s.text, h * 0.3), 0.056, '#ffd6f6', 1);
+    if (s.sub) letter(K, L, wall, s.sub, a, y - h * 0.24, fit(s.sub, h * 0.11), 0.056, '#9be7ff', 1);
+  } else {
+    for (let i = 0; i < 4; i++) lit(a - w / 2 + 0.04, a - w / 2 + 0.04 + (w - 0.08) * [0.8, 0.55, 0.7, 0.4][i], y + h / 2 - 0.07 - i * 0.07, y + h / 2 - 0.05 - i * 0.07, i === 0 ? '#9be7ff' : '#5fa8c0', 1.6);
+  }
+}
+function facility(K, L, dc, { H, lampOn }) {
+  for (const s of dc.strips || []) {
+    if (!Array.isArray(s?.at)) continue;
+    const [u, v] = s.at, len = s.len || 1.2, U = s.along === 'u', hu = U ? len / 2 : 0.09, hv = U ? 0.09 : len / 2;
+    if (s.cage) {
+      // a bulkhead: a cast body on the ceiling, a lit lens, a wire cage over it
+      K.box(u - 0.14, u + 0.14, v - 0.09, v + 0.09, H - 0.08, H, '#3a3f44', 1, null, METAL);
+      K.box(u - 0.11, u + 0.11, v - 0.065, v + 0.065, H - 0.1, H - 0.08, lampOn ? '#fff4d8' : '#bdb8a8', lampOn ? 2.2 : 0.8, null, lampOn ? LAMP : MATTE);
+      for (const x of [-0.1, -0.035, 0.035, 0.1]) K.box(u + x - 0.004, u + x + 0.004, v - 0.075, v + 0.075, H - 0.13, H - 0.1, '#2a2d30', 1, null, METAL);
+      continue;
+    }
+    K.box(u - hu - 0.02, u + hu + 0.02, v - hv - 0.02, v + hv + 0.02, H - 0.07, H, '#d6dade', 1.04, null, METAL);
+    K.box(u - hu, u + hu, v - hv, v + hv, H - 0.075, H - 0.07, lampOn ? '#f4fbff' : '#c8ccd0', lampOn ? 2.4 : 0.8, null, lampOn ? LAMP : MATTE);
+  }
+  for (const p of dc.pipes || []) {
+    if (!Array.isArray(p?.from) || !Array.isArray(p?.to)) continue;
+    const r = p.r || 0.06, hex = p.hex || '#7d868e';
+    rod(K, p.from, p.to, r, hex, 1.02, METAL);
+    for (const e of [p.from, p.to]) K.lathe(e[0], e[1], [[0, e[2] - 0.02], [r + 0.03, e[2] - 0.02], [r + 0.03, e[2] + 0.02], [0, e[2] + 0.02]], '#5a6268', 1, 14, METAL);
+    // brackets to the ceiling every two metres along a level run
+    if (Math.abs(p.from[2] - p.to[2]) < 0.01 && p.from[2] < H - 0.05) {
+      const len = Math.hypot(p.to[0] - p.from[0], p.to[1] - p.from[1]), n = Math.floor(len / 2);
+      for (let i = 1; i <= n; i++) { const t = i / (n + 1), u = p.from[0] + (p.to[0] - p.from[0]) * t, v = p.from[1] + (p.to[1] - p.from[1]) * t; K.box(u - 0.015, u + 0.015, v - 0.015, v + 0.015, p.from[2] + r, H, '#3a3f44', 1, null, METAL); }
+    }
+  }
+  for (const d of dc.drops || []) {
+    if (!d?.wall) continue;
+    const n = d.n || 5, r = d.r || 0.035, s = toward(d.wall), r0 = mulberry(Math.round((d.along || 0) * 100) + 7);
+    for (let i = 0; i < n; i++) {
+      const a = d.along + s * (i - (n - 1) / 2) * r * 2.1, off = r + 0.01 + (i % 2) * r * 0.6, sag = 0.02 + r0() * 0.03;
+      const [u0, v0] = wallPt(L, d.wall, a, off), [u1, v1] = wallPt(L, d.wall, a + (r0() - 0.5) * 0.04, off + sag);
+      const hex = ['#1c1c1e', '#2b2b2e', '#3a2a1c', '#202a20'][i % 4];
+      rod(K, [u0, v0, H], [u1, v1, H * 0.55], r, hex, 1, SATIN);
+      rod(K, [u1, v1, H * 0.55], [u0, v0, d.into ? -0.05 : 0.05], r, hex, 1, SATIN);
+    }
+    // the clamps holding the bundle to the wall
+    for (const y of [H - 0.4, H * 0.55, 0.6]) onWall(K, L, d.wall, d.along - n * r * 1.15, d.along + n * r * 1.15, 0, r * 2.4 + 0.02, y - 0.025, y + 0.025, '#4a5056', 1, null, METAL);
+    if (d.into) { const [cu, cv] = wallPt(L, d.wall, d.along, r * 1.3); K.box(cu - n * r * 1.2, cu + n * r * 1.2, cv - r * 1.6, cv + r * 1.6, 0, 0.03, '#565350', 1, null, MATTE); }
+  }
+  for (const m of dc.paint || []) {
+    if (!m) continue;
+    const hex = m.hex || HAZ_A;
+    if (m.kind === 'hazard' && Array.isArray(m.rect)) hazardBand(K, m.rect, m.t || 0.12);
+    else if (m.kind === 'box' && Array.isArray(m.rect)) { const [u0, u1, v0, v1] = m.rect, t = m.t || 0.05; floorBox(K, u0, u1, v0, v0 + t, hex); floorBox(K, u0, u1, v1 - t, v1, hex); floorBox(K, u0, u0 + t, v0, v1, hex); floorBox(K, u1 - t, u1, v0, v1, hex); }
+    else if (m.kind === 'line' && Array.isArray(m.from) && Array.isArray(m.to)) {
+      const [a, b] = [m.from, m.to], t = (m.t || 0.06) / 2, l = Math.hypot(b[0] - a[0], b[1] - a[1]) || 1, nu = -(b[1] - a[1]) / l * t, nv = (b[0] - a[0]) / l * t;
+      K.quad(K.solid, [[a[0] - nu, a[1] - nv, 0.004], [b[0] - nu, b[1] - nv, 0.004], [b[0] + nu, b[1] + nv, 0.004], [a[0] + nu, a[1] + nv, 0.004]], K.nrmOf(0, 1, 0), K.C(hex, 1.05), SATIN, null, true);
+      if (m.arrows) { const n = Math.max(1, Math.floor(l / 1.6)); for (let i = 1; i <= n; i++) { const t2 = i / (n + 1); floorArrow(K, [a[0] + (b[0] - a[0]) * t2, a[1] + (b[1] - a[1]) * t2], [b[0] - a[0], b[1] - a[1]], hex, 0.45); } }
+    } else if (m.kind === 'arrow' && Array.isArray(m.at) && Array.isArray(m.dir)) floorArrow(K, m.at, m.dir, hex, m.s || 0.6);
+  }
+  for (const g of dc.grates || []) {
+    if (!Array.isArray(g) || g.length < 4) continue;
+    const [u, v, w, d] = g;
+    K.box(u - w / 2, u + w / 2, v - d / 2, v + d / 2, -0.02, 0.003, '#121314', 1, null, MATTE);
+    const along = w >= d, n = Math.max(3, Math.round((along ? w : d) / 0.045));
+    for (let i = 0; i <= n; i++) {
+      const t = -0.5 + i / n;
+      if (along) K.box(u + t * w - 0.008, u + t * w + 0.008, v - d / 2, v + d / 2, -0.005, 0.006, '#5d6266', 1, null, METAL);
+      else K.box(u - w / 2, u + w / 2, v + t * d - 0.008, v + t * d + 0.008, -0.005, 0.006, '#5d6266', 1, null, METAL);
+    }
+    K.box(u - w / 2 - 0.02, u + w / 2 + 0.02, v - d / 2 - 0.02, v - d / 2, 0, 0.006, '#6d7276', 1, null, METAL);
+    K.box(u - w / 2 - 0.02, u + w / 2 + 0.02, v + d / 2, v + d / 2 + 0.02, 0, 0.006, '#6d7276', 1, null, METAL);
+  }
+  for (const s of dc.screens || []) if (s?.wall) screenOn(K, L, s, lampOn);
+  for (const s of dc.signs || []) {
+    if (!s?.wall || !s.text) continue;
+    const h = s.h || 0.12, t = String(s.text).toUpperCase(), wd = legendWidth(t, h);
+    if (s.plate !== false) onWall(K, L, s.wall, s.along - wd / 2 - h * 0.6, s.along + wd / 2 + h * 0.6, 0.005, 0.03, s.y - h * 0.9, s.y + h * 0.9, s.plateHex || '#1b1e22', 1, null, SATIN);
+    letter(K, L, s.wall, t, s.along, s.y, h, s.plate !== false ? 0.031 : 0.006, s.hex || '#e8eef2', s.lit ? 1 : 0);
+  }
+  for (const p of dc.pumps || []) {
+    if (!Array.isArray(p)) continue;
+    const [u, v] = p;
+    K.box(u - 0.45, u + 0.45, v - 0.3, v + 0.3, 0, 0.12, '#4a4743', 1, null, MATTE);
+    K.box(u - 0.4, u + 0.05, v - 0.18, v + 0.18, 0.12, 0.5, '#2f5a7a', 1, null, SATIN);
+    for (let i = 0; i < 6; i++) K.box(u - 0.38 + i * 0.07, u - 0.35 + i * 0.07, v - 0.19, v + 0.19, 0.16, 0.46, '#284c68', 1, null, SATIN);
+    K.lathe(u + 0.22, v, [[0, 0.12], [0.2, 0.12], [0.24, 0.3], [0.2, 0.5], [0, 0.52]], '#7d868e', 1, 20, METAL);
+    rod(K, [u + 0.22, v, 0.5], [u + 0.22, v, H - 0.3], 0.06, '#7d868e', 1, METAL);
+    K.box(u - 0.02, u + 0.08, v - 0.05, v + 0.05, 0.28, 0.34, '#1b1e22', 1, null, SATIN);
+  }
+  for (const l of dc.lamps || []) {
+    if (!l?.wall) continue;
+    const hex = l.hex || '#ff3a2a';
+    onWall(K, L, l.wall, l.along - 0.06, l.along + 0.06, 0, 0.03, l.y - 0.06, l.y + 0.06, '#2a2d30', 1, null, METAL);
+    onWall(K, L, l.wall, l.along - 0.04, l.along + 0.04, 0.03, 0.09, l.y - 0.04, l.y + 0.04, hex, lampOn ? 2.4 : 1.8, null, GLOW);
+    for (const y of [-0.045, 0, 0.045]) onWall(K, L, l.wall, l.along - 0.05, l.along + 0.05, 0.09, 0.1, l.y + y - 0.004, l.y + y + 0.004, '#202224', 1, null, METAL);
+  }
+}
+function mulberry(a) { return () => { a = (a + 0x6d2b79f5) | 0; let t = Math.imul(a ^ (a >>> 15), 1 | a); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
+
 
 // ── the forms a hotel's furniture needs ───────────────────────────────────────────────────────────
 // Called from room-mesh.js drawPiece with the piece's own frame; true when it drew the piece.
@@ -464,15 +661,16 @@ export function drawDecorForm(K, F, p) {
     }
     case 'console': {
       // a slim marble top on two bronze trestles and a stretcher, dressed with what the row says
-      pbox(-hw, hw, h - 0.035, h, -hd, hd, '#ffffff', 1.05, marble, GLOSS);
+      const blk = p.tone === 'black', BR = blk ? '#1c1c1e' : BRONZE, BRD = blk ? '#0e0e10' : BRONZE_DARK; // tone 'black': nero marble on blackened steel
+      pbox(-hw, hw, h - 0.035, h, -hd, hd, blk ? '#2a2a2c' : '#ffffff', 1.05, blk ? { t: 'roomMarble', c: '#1a1a1c' } : marble, GLOSS);
       for (const s of [-1, 1]) {
         const x = s * (hw - 0.12);
-        pbox(x - 0.015, x + 0.015, 0, h - 0.035, -hd + 0.04, -hd + 0.07, BRONZE, 1.06, null, METAL);
-        pbox(x - 0.015, x + 0.015, 0, h - 0.035, hd - 0.07, hd - 0.04, BRONZE, 1.06, null, METAL);
-        pbox(x - 0.015, x + 0.015, h - 0.07, h - 0.035, -hd + 0.04, hd - 0.04, BRONZE, 1.06, null, METAL);
-        pbox(x - 0.04, x + 0.04, 0, 0.012, -hd + 0.03, hd - 0.03, BRONZE_DARK, 1, null, METAL);
+        pbox(x - 0.015, x + 0.015, 0, h - 0.035, -hd + 0.04, -hd + 0.07, BR, 1.06, null, METAL);
+        pbox(x - 0.015, x + 0.015, 0, h - 0.035, hd - 0.07, hd - 0.04, BR, 1.06, null, METAL);
+        pbox(x - 0.015, x + 0.015, h - 0.07, h - 0.035, -hd + 0.04, hd - 0.04, BR, 1.06, null, METAL);
+        pbox(x - 0.04, x + 0.04, 0, 0.012, -hd + 0.03, hd - 0.03, BRD, 1, null, METAL);
       }
-      pbox(-hw + 0.12, hw - 0.12, 0.16, 0.18, -hd + 0.06, hd - 0.06, BRONZE, 1.02, null, METAL);
+      pbox(-hw + 0.12, hw - 0.12, 0.16, 0.18, -hd + 0.06, hd - 0.06, BR, 1.02, null, METAL);
       dressTop(K, P, dress, h, hw);
       return true;
     }
@@ -508,6 +706,63 @@ export function drawDecorForm(K, F, p) {
       for (const x of [-0.11, 0, 0.11]) pbox(x - 0.022, x + 0.022, 0.03, 0.045, cz, cz + 0.1, BRASS, 1.08, null, METAL);
       return true;
     }
+    case 'boombox': {
+      // a nineties twin-deck boombox done over in brushed titanium: a speaker each end behind a chrome
+      // ring, a tape door between them under a strip of lit level bars, and a bent chrome handle on top
+      const TI = '#9aa1a8', DARK = '#16181c', CH = '#e4e8ec', fz = hd;
+      pbox(-hw, hw, 0.02, h - 0.05, -hd, hd, TI, 1.05, null, METAL);
+      pbox(-hw + 0.02, hw - 0.02, 0, 0.02, -hd + 0.02, hd - 0.02, DARK, 1, null, SATIN);
+      pbox(-hw - 0.006, hw + 0.006, h - 0.07, h - 0.05, -hd - 0.006, hd + 0.006, '#5ae0ff', 1.7, null, GLOW);
+      pbox(-hw + 0.03, hw - 0.03, h - 0.05, h - 0.03, -hd + 0.03, hd - 0.03, DARK, 1, null, SATIN);
+      const sr = Math.min(h * 0.36, w * 0.17);
+      for (const s of [-1, 1]) {
+        const x = s * (hw - sr - 0.035), y = 0.02 + (h - 0.07) * 0.48;
+        rod(K, P(x, y, fz - 0.004), P(x, y, fz + 0.012), sr + 0.012, CH, 1.15, METAL);
+        rod(K, P(x, y, fz + 0.004), P(x, y, fz + 0.014), sr, '#1c1e22', 1, MATTE);
+        rod(K, P(x, y, fz + 0.006), P(x, y, fz + 0.02), sr * 0.55, '#2a2d33', 1, SATIN);
+        rod(K, P(x, y, fz + 0.012), P(x, y, fz + 0.03), sr * 0.18, CH, 1.1, METAL);
+      }
+      // the tape doors, smoked glass with a cassette's two spools behind, and the transport keys under them
+      const cw = hw - 2 * sr - 0.06;
+      for (const s of [-1, 1]) {
+        const x0 = s < 0 ? -cw : 0.006, x1 = s < 0 ? -0.006 : cw, ty = 0.02 + (h - 0.07) * 0.32;
+        pbox(x0, x1, ty, ty + (h - 0.07) * 0.36, fz, fz + 0.006, '#20262c', 1, null, GLOSS);
+        for (const t of [0.3, 0.7]) rod(K, P(x0 + (x1 - x0) * t, ty + (h - 0.07) * 0.18, fz + 0.002), P(x0 + (x1 - x0) * t, ty + (h - 0.07) * 0.18, fz + 0.008), 0.014, '#d8dcdf', 1.1, METAL);
+        for (let i = 0; i < 4; i++) { const kx = x0 + (i + 0.5) * (x1 - x0) / 4; pbox(kx - 0.012, kx + 0.012, 0.035, 0.06, fz, fz + 0.014, i === 1 ? '#e8463a' : CH, 1.05, null, METAL); }
+      }
+      // the level meter: two rows of bars across the top of the face, lit
+      const my = 0.02 + (h - 0.07) * 0.76;
+      for (let i = 0; i < 14; i++) { const x = -cw + (i + 0.5) * (2 * cw) / 14, lit = i < 10; pbox(x - 0.006, x + 0.006, my, my + 0.012 + (i % 5) * 0.004, fz, fz + 0.004, i > 11 ? '#ff4f7a' : lit ? '#5ae0ff' : '#203038', lit ? 1.8 : 1, null, lit ? GLOW : MATTE); }
+      // the handle, two posts and a bar
+      for (const s of [-1, 1]) rod(K, P(s * (hw - 0.08), h - 0.03, 0), P(s * (hw - 0.1), h + 0.05, 0), 0.012, CH, 1.15, METAL);
+      rod(K, P(-hw + 0.1, h + 0.05, 0), P(hw - 0.1, h + 0.05, 0), 0.014, CH, 1.15, METAL);
+      return true;
+    }
+    case 'smoketable': {
+      // a low drum table in black lacquer, set with a silver cigarette box open on a few smokes, a cedar
+      // humidor, and a cut-glass ashtray with a cigar resting on its lip, still going
+      const R = Math.min(hw, hd), top = h - 0.02, [u, v] = P(0, 0, 0);
+      K.lathe(u, v, [[0, 0], [R * 0.9, 0], [R * 0.92, 0.03], [R * 0.86, top - 0.04], [R, top - 0.03], [R, top], [0, top]], '#141416', 1, 32, GLOSS);
+      torus(K, u, v, R * 0.99, 0.008, top - 0.015, '#d8dcdf', 1.1);
+      // the cigarette box, lid up at the back, filters showing
+      const bx = -R * 0.45, bz = -R * 0.2;
+      pbox(bx - 0.08, bx + 0.08, top, top + 0.04, bz - 0.05, bz + 0.05, '#d8dcdf', 1.15, null, METAL);
+      pbox(bx - 0.08, bx + 0.08, top + 0.04, top + 0.13, bz - 0.058, bz - 0.05, '#d8dcdf', 1.15, null, METAL);
+      for (let i = 0; i < 7; i++) { const x = bx - 0.066 + i * 0.022; rod(K, P(x, top + 0.042, bz - 0.04), P(x, top + 0.042, bz + 0.04), 0.0045, i % 2 ? '#d9a86a' : '#efe8dc', 1, MATTE); }
+      // the humidor, a cedar box with a brass plate
+      const hx = R * 0.35, hz = -R * 0.35;
+      pbox(hx - 0.09, hx + 0.09, top, top + 0.07, hz - 0.06, hz + 0.06, '#8a4f2c', 1, WALNUT, GLOSS);
+      pbox(hx - 0.025, hx + 0.025, top + 0.03, top + 0.045, hz + 0.06, hz + 0.062, BRASS, 1.1, null, METAL);
+      // the ashtray, heavy glass, two butts in it and a cigar across one rest, its end lit
+      const ax = R * 0.15, az = R * 0.35, [au, av] = P(ax, 0, az);
+      K.lathe(au, av, [[0, top], [0.075, top], [0.08, top + 0.035], [0.06, top + 0.035], [0.055, top + 0.012], [0, top + 0.012]], '#cfe2ea', 1.25, 24, GLOSS);
+      for (const [dx, dz, a] of [[-0.02, 0.01, 0.4], [0.015, -0.02, 2.1]]) rod(K, P(ax + dx, top + 0.016, az + dz), P(ax + dx + Math.cos(a) * 0.03, top + 0.018, az + dz + Math.sin(a) * 0.03), 0.004, '#d9a86a', 1, MATTE);
+      const c0 = P(ax + 0.07, top + 0.04, az), c1 = P(ax - 0.06, top + 0.03, az + 0.02);
+      rod(K, c0, c1, 0.009, '#5a3a22', 1, SATIN);
+      rod(K, P(ax + 0.055, top + 0.039, az), P(ax + 0.068, top + 0.04, az), 0.0095, '#c9a24a', 1.05, METAL);
+      K.ball(c1[0], c1[1], c1[2], 0.009, '#ff6a2a', 1.8, 8, GLOW);
+      return true;
+    }
     case 'telescope': {
       // a brass refractor on a wooden tripod, its tube tipped up at the far glass
       const top = h * 0.68, R = Math.min(hw, hd) - 0.04;
@@ -527,12 +782,64 @@ export function drawDecorForm(K, F, p) {
       const [cu, cv] = P(0, 0, 0), sq = Math.min(w, d) * 0.5 / 8, b0 = -sq * 4;
       K.lathe(cu, cv, [[0, 0], [0.24, 0], [0.24, 0.03], [0.07, 0.07], [0.045, 0.2], [0.045, h - 0.12], [0.1, h - 0.05], [0, h - 0.05]], WALNUT, 1, 18, SATIN);
       pbox(-hw, hw, h - 0.05, h, -hd, hd, '#5a3a26', 1, WALNUT, SATIN);
+      // a game in play (plugins/gametable through plugins/roomstage): the real position, in Staunton pieces
+      if (p.board) { drawChessBoard(K, F, h, Math.min(w, d) * 0.66, p.board); return true; }
       pbox(b0 - 0.015, -b0 + 0.015, h, h + 0.002, b0 - 0.015, -b0 + 0.015, BRASS, 1.05, null, METAL);
       for (let i = 0; i < 8; i++) for (let j = 0; j < 8; j++) pbox(b0 + i * sq, b0 + (i + 1) * sq, h + 0.002, h + 0.004, b0 + j * sq, b0 + (j + 1) * sq, (i + j) % 2 ? '#1a1512' : '#eadfc6', 1, null, GLOSS);
       for (const [i, j, dark, tall] of [[4, 0, 0, 1], [3, 1, 0, 0], [5, 1, 0, 0], [2, 2, 0, 0], [6, 0, 0, 1], [4, 7, 1, 1], [4, 5, 1, 0], [3, 6, 1, 0], [1, 5, 1, 1], [6, 6, 1, 0]]) {
         const [pu, pv] = P(b0 + (i + 0.5) * sq, 0, b0 + (j + 0.5) * sq), r0 = sq * 0.32, ph = tall ? sq * 1.7 : sq * 1.1;
         K.lathe(pu, pv, [[r0, h + 0.004], [r0 * 0.5, h + 0.004 + ph * 0.5], [r0 * 0.7, h + 0.004 + ph * 0.8], [0, h + 0.004 + ph]], dark ? '#17120f' : '#f0e6cc', 1, 8, GLOSS);
       }
+      return true;
+    }
+    case 'poker': {
+      // a racetrack card table for six: two carved walnut pedestals on splayed brass-shod feet, a scalloped
+      // apron, an oxblood padded rail round a walnut race with a brass line let in, green baize in the middle,
+      // and the dealer's end dressed: a squared deck of cards beside a cut one, and a chip caddy
+      const [x0, x1, z0, z1] = [-hw, hw, -hd, hd], R = hd, ALY = F.alongY();
+      for (const s of [-1, 1]) {
+        const [pu, pv] = P(s * (hw - hd * 0.95), 0, 0);
+        K.lathe(pu, pv, [[0, 0.08], [0.16, 0.08], [0.17, 0.12], [0.1, 0.16], [0.075, 0.24], [0.11, 0.3], [0.06, 0.36], [0.055, h - 0.24], [0.09, h - 0.2], [0.07, h - 0.16], [0.16, h - 0.13], [0, h - 0.13]], '#5a3a26', 1, 20, SATIN);
+        K.lathe(pu, pv, [[0.105, 0.29], [0.115, 0.3], [0.105, 0.31]], BRASS, 1.1, 20, METAL);
+        for (let i = 0; i < 4; i++) {
+          const a = Math.PI / 4 + i * Math.PI / 2, [fu, fv] = P(s * (hw - hd * 0.95) + Math.cos(a) * 0.42, 0, Math.sin(a) * 0.42);
+          rod(K, [pu, pv, 0.14], [fu, fv, 0.05], 0.035, '#4a2e1e', 1, SATIN);
+          K.ball(fu, fv, 0.04, 0.045, BRASS, 1.1, 10, METAL);
+        }
+      }
+      // the apron, with a carved bead along its foot
+      K.rounded(...ALY, h - 0.15, h - 0.05, x0 + 0.06, x1 - 0.06, z0 + 0.06, z1 - 0.06, R - 0.06, '#5a3a26', 1, SATIN);
+      K.rounded(...ALY, h - 0.165, h - 0.145, x0 + 0.05, x1 - 0.05, z0 + 0.05, z1 - 0.05, R - 0.05, BRASS, 1.05, METAL);
+      // the padded rail, then the race and its brass line, then the baize a hair below
+      K.rounded(...ALY, h - 0.05, h + 0.03, x0, x1, z0, z1, R, '#5a1a1c', 1, LEATHER);
+      K.rounded(...ALY, h + 0.03, h + 0.034, x0 + 0.13, x1 - 0.13, z0 + 0.13, z1 - 0.13, R - 0.13, '#6a4428', 1.05, GLOSS);
+      K.rounded(...ALY, h + 0.034, h + 0.037, x0 + 0.2, x1 - 0.2, z0 + 0.2, z1 - 0.2, R - 0.2, BRASS, 1.1, METAL);
+      K.rounded(...ALY, h + 0.037, h + 0.039, x0 + 0.215, x1 - 0.215, z0 + 0.215, z1 - 0.215, R - 0.215, '#1f5a34', 0.95, MATTE);
+      // a gold betting line round the baize
+      K.rounded(...ALY, h + 0.039, h + 0.0405, x0 + 0.42, x1 - 0.42, z0 + 0.42, z1 - 0.42, Math.max(0.05, R - 0.42), '#b8923e', 0.8, MATTE);
+      K.rounded(...ALY, h + 0.0405, h + 0.041, x0 + 0.43, x1 - 0.43, z0 + 0.43, z1 - 0.43, Math.max(0.04, R - 0.43), '#1f5a34', 0.95, MATTE);
+      // (rounded runs up the height here, so its rounding is the plan: a racetrack)
+      // the dealer's end (the back): the deck, squared, with a cut beside it, red backs up, and the box they came
+      // in lying open by them; the chip caddy along from it. Drawn half as big again as life so it reads across the room.
+      const dz = z0 + 0.4, top = h + 0.041, cw = 0.048, cd = 0.068, ch = 0.0024;
+      for (const [cx, n] of [[-0.2, 16], [-0.07, 7]]) {
+        pbox(cx - cw, cx + cw, top, top + n * ch, dz - cd, dz + cd, '#f2eee4', 1.05, null, SATIN);
+        pbox(cx - cw + 0.001, cx + cw - 0.001, top + n * ch, top + n * ch + 0.001, dz - cd + 0.001, dz + cd - 0.001, '#9a1c22', 1, null, GLOSS);
+        pbox(cx - cw + 0.01, cx + cw - 0.01, top + n * ch + 0.001, top + n * ch + 0.0015, dz - cd + 0.01, dz + cd - 0.01, '#e8d3a0', 0.9, null, GLOSS);
+      }
+      // the card box: red board with a gold band, its tuck flap open toward the dealer
+      const bx = -0.36, bh = 0.045;
+      pbox(bx - cw - 0.004, bx + cw + 0.004, top, top + bh, dz - cd - 0.004, dz + cd + 0.004, '#8a1a20', 1, null, SATIN);
+      pbox(bx - cw - 0.005, bx + cw + 0.005, top + bh * 0.4, top + bh * 0.6, dz - cd - 0.005, dz + cd + 0.005, '#c9a24a', 1.1, null, METAL);
+      pbox(bx - cw + 0.004, bx + cw - 0.004, top + bh, top + bh + 0.002, dz - cd + 0.004, dz + cd - 0.004, '#f2eee4', 1, null, SATIN);
+      pbox(bx - cw - 0.004, bx + cw + 0.004, top + bh, top + bh + 0.06, dz - cd - 0.006, dz - cd - 0.002, '#8a1a20', 0.9, null, SATIN);
+      pbox(0.16, 0.42, top, top + 0.05, dz - 0.07, dz + 0.07, '#3a2418', 1, WALNUT, SATIN);
+      ['#e9e4d8', '#b8262c', '#1d4a8a', '#1a1a1a', '#2e7a3a'].forEach((c, i) => {
+        const [cu, cv] = P(0.185 + i * 0.05, 0, dz);
+        K.lathe(cu, cv, [[0, top + 0.012], [0.019, top + 0.012], [0.019, top + 0.062], [0, top + 0.062]], c, 1.02, 10, SATIN);
+      });
+      // a regular game's table (`look.dress: 'saloon'`): nailheads round the rail, drinks in its cup holders, a cigar
+      if (dress === 'saloon') dressCardTable(saloonCtx(K, F, p), { h, hw, hd, R });
       return true;
     }
     case 'treadmill': {
@@ -612,11 +919,184 @@ export function drawDecorForm(K, F, p) {
       pbox(-hw + 0.07, hw - 0.07, bed, bed + 0.012, -hd + 0.07, hd - 0.07, '#0c0c0e', 0.9, null, MATTE);
       // a bed of coals the renderer heats with the dial (FIRE, sheet 8), and the dial on the trough's front
       K.quad(K.glass, [P(-hw + 0.08, bed + 0.014, hd - 0.08), P(hw - 0.08, bed + 0.014, hd - 0.08), P(hw - 0.08, bed + 0.014, -hd + 0.08), P(-hw + 0.08, bed + 0.014, -hd + 0.08)], F.N(0, 1, 0), [1, 1, 1], FIRE, [[8, 0], [9, 0], [9, 1], [8, 1]], true);
-      fireDial(K, F, p.id, hw - 0.22, bed / 2, hd, Math.min(1, bed / 0.24));
-      // four sheets of flame along the burner, staggered so it has a body from the side
+      fireDial(K, F, p.id, hw - 0.22, bed / 2, hd, Math.min(1, bed / 0.24));      // four sheets of flame along the burner, staggered so it has a body from the side
       [[-0.06, 10], [-0.02, 0], [0.02, 2], [0.06, 16]].forEach(([z, i]) => {
         K.quad(K.glass, [P(-hw + 0.12, bed + 0.01, z), P(hw - 0.12, bed + 0.01, z), P(hw - 0.12, bed + 0.5, z), P(-hw + 0.12, bed + 0.5, z)], F.N(0, 0, 1), [1, 1, 1], FIRE, [[i, 0], [i + 1, 0], [i + 1, 1], [i, 1]], true);
       });
+      return true;
+    }
+    // ── a calm flat's: water by the way in, a lit paper lantern, a tree in a dish ─────────────────
+    case 'fountain': {
+      // a slate wall fountain: a stone trough of still water and river stones, a slate panel at the
+      // back with a sheet of water running down its face from a copper lip, lit from the trough
+      const stone = { t: 'roomStone', c: '#cfc8bb' }, slate = { t: 'roomStone', c: '#3a3d44' }, tb = 0.24, rim = 0.045;
+      pbox(-hw, hw, 0, tb - 0.04, -hd, hd, '#ffffff', 1, stone, SATIN);
+      pbox(-hw, hw, tb - 0.04, tb, -hd, -hd + rim, '#ffffff', 1.04, stone, SATIN);
+      pbox(-hw, hw, tb - 0.04, tb, hd - rim, hd, '#ffffff', 1.04, stone, SATIN);
+      for (const s of [-1, 1]) pbox(s < 0 ? -hw : hw - rim, s < 0 ? -hw + rim : hw, tb - 0.04, tb, -hd + rim, hd - rim, '#ffffff', 1.04, stone, SATIN);
+      pbox(-hw + rim, hw - rim, tb - 0.04, tb - 0.025, -hd + rim, hd - rim, '#1f6f84', 1.2, null, GLOSS);
+      pbox(-hw + 0.1, hw - 0.1, tb - 0.026, tb - 0.024, -0.02, 0.04, '#cff6ff', 1.6, null, GLOW);
+      const r = rng(23);
+      for (let i = 0; i < 11; i++) {
+        const [u, v] = P(-hw + rim + 0.04 + r() * (w - 2 * rim - 0.08), 0, -hd + rim + 0.1 + r() * (d - 2 * rim - 0.14));
+        K.ball(u, v, tb - 0.03, 0.022 + r() * 0.016, ['#8a857c', '#6e6a64', '#b5ada0', '#4f4c48'][i % 4], 1, 8, GLOSS);
+      }
+      // the panel, the water on it, and the lip it spills from
+      pbox(-hw + 0.05, hw - 0.05, tb, h, -hd + rim, -hd + rim + 0.04, '#ffffff', 1, slate, SATIN);
+      pbox(-hw + 0.1, hw - 0.1, tb - 0.025, h - 0.07, -hd + rim + 0.04, -hd + rim + 0.046, '#3f5f68', 1.05, null, GLOSS);
+      // the run of the water: thin bright streaks down the sheet, uneven, as it catches the light
+      for (let i = 0; i < 9; i++) { const x = -hw + 0.13 + (i + r() * 0.6) * (w - 0.26) / 9, y0 = tb + r() * 0.25; pbox(x, x + 0.006, y0, h - 0.07 - r() * 0.1, -hd + rim + 0.046, -hd + rim + 0.049, '#d8f4fa', 1.3, null, GLOSS); }
+      pbox(-hw + 0.08, hw - 0.08, h - 0.07, h - 0.04, -hd + rim + 0.04, -hd + rim + 0.1, '#b0683a', 1.1, null, METAL);
+      return true;
+    }
+    case 'catstatue': {
+      // Scrappy (cat-statue.js) on a plain block of polished Statuario, its top edge bevelled, as on the design
+      // sheet. `look.tag` is cut into the block's front, dark.
+      const M = { t: 'roomMarble', c: '#f2efe9' }, ped = Math.min(0.56, h * 0.48), bev = 0.012;
+      pbox(-hw + 0.005, hw - 0.005, 0, ped - bev, -hd + 0.005, hd - 0.005, '#ffffff', 1, M, GLOSS);
+      pbox(-hw + 0.005 + bev, hw - 0.005 - bev, ped - bev, ped, -hd + 0.005 + bev, hd - 0.005 - bev, '#ffffff', 1.03, M, GLOSS);
+      pbox(-hw + 0.005 + bev * 0.5, hw - 0.005 - bev * 0.5, ped - bev, ped - bev * 0.5, -hd + 0.005 + bev * 0.5, hd - 0.005 - bev * 0.5, '#ffffff', 1.015, M, GLOSS);
+      const tag = String(p.tag || '').toUpperCase().slice(0, 12), fz = hd - 0.005;
+      if (tag) legend({ plate: (ps, col, emis) => K.quad(K.solid, ps.map(([a, b]) => P(-a, b, fz + 0.002)), F.N(0, 0, 1), col, MATTE, null, true) }, tag, 0, ped * 0.45, 0.06, K.C('#4a443e', 1), 0);
+      drawCatStatue(K, F, ped);
+      return true;
+    }
+    // ── a clone facility's: the vats, the tanks under them, and the MORPHEX pod ─────────────────────
+    case 'vat': {
+      // a print vat: a steel plinth and crown, a glass tube of lit green fluid, and somebody standing asleep in it,
+      // head bowed, a line into the mask over their face. `look.tag` letters a number plate on the plinth;
+      // `look.state: 'drained'` is the one you came out of: the fluid down to a puddle, the front panel of glass
+      // swung open, nobody inside, water on the floor.
+      const c = { F, K }, R = Math.min(hw, hd) * 0.9, base = 0.34, crown = h - 0.32, rr = rng(p.seed || 7), drained = p.state === 'drained';
+      const [u, v] = P(0, 0, 0), tube = R * 0.9, fluidTop = drained ? base + 0.06 : crown - 0.05;
+      // the plinth, stepped, with a lit ring where the glass seats
+      K.lathe(u, v, [[0, 0], [R + 0.06, 0], [R + 0.06, 0.08], [R + 0.02, 0.12], [R + 0.02, base - 0.05], [tube + 0.03, base], [0, base]], '#c9ced3', 1.05, 36, METAL);
+      torus(K, u, v, tube + 0.01, 0.018, base + 0.01, drained ? '#ff8a3a' : '#5fffc0', 1.6);
+      K.lathe(u, v, [[0, base + 0.002], [tube, base + 0.002]], drained ? '#ff9a5a' : '#7affd0', drained ? 1.4 : 2.2, 32, GLOW);
+      // the sleeper: upright in the fluid, a little off the floor, head bowed, arms loose, knees soft
+      if (!drained) {
+        const skin = '#b8c9b4', lift = 0.12 + rr() * 0.06, y0 = base + lift, sx = (rr() - 0.5) * 0.04, [bu, bv] = P(sx, 0, 0.02);
+        for (const s of [-1, 1]) {
+          const [lu, lv] = P(sx + s * 0.075, 0, 0.02 + (s > 0 ? 0.03 : 0));
+          K.lathe(lu, lv, [[0, y0], [0.045, y0 + 0.02], [0.05, y0 + 0.42], [0.062, y0 + 0.5], [0.078, y0 + 0.82], [0, y0 + 0.86]], skin, 1, 14, SATIN);
+        }
+        K.lathe(bu, bv, [[0, y0 + 0.8], [0.15, y0 + 0.84], [0.14, y0 + 1.0], [0.13, y0 + 1.12], [0.17, y0 + 1.3], [0.12, y0 + 1.38], [0.05, y0 + 1.42], [0, y0 + 1.42]], skin, 1, 18, SATIN);
+        const [hu2, hv2] = P(sx, 0, 0.06);
+        K.ball(hu2, hv2, y0 + 1.53, 0.1, skin, 1, 16, SATIN);
+        for (const s of [-1, 1]) {
+          const a = P(sx + s * 0.18, 0, 0.0), b = P(sx + s * 0.22, 0, 0.05), e = P(sx + s * 0.2, 0, 0.1);
+          rod(K, [a[0], a[1], y0 + 1.33], [b[0], b[1], y0 + 1.06], 0.04, skin, 1, SATIN);
+          rod(K, [b[0], b[1], y0 + 1.06], [e[0], e[1], y0 + 0.82], 0.035, skin, 1, SATIN);
+        }
+        // the mask and its line up to the crown
+        const [mu, mv] = P(sx, 0, 0.15);
+        K.ball(mu, mv, y0 + 1.48, 0.05, '#2a3a36', 1, 12, GLOSS);
+        rod(K, [mu, mv, y0 + 1.5], [u, v, crown], 0.012, '#1c2422', 1, SATIN);
+        // bubbles rising off them
+        for (let i = 0; i < 14; i++) { const a = rr() * Math.PI * 2, d = rr() * tube * 0.75; K.ball(u + Math.cos(a) * d, v + Math.sin(a) * d, base + 0.1 + rr() * (crown - base - 0.2), 0.008 + rr() * 0.012, '#e8fff6', 1.8, 6, GLOW); }
+      } else {
+        // a puddle in front, and the drained fluid's scum line on the glass
+        const [pu, pv] = P(0, 0, hd + 0.45);
+        K.lathe(pu, pv, [[0, 0.004], [0.55, 0.004]], '#3a5a50', 1, 24, GLOSS);
+        torus(K, u, v, tube - 0.005, 0.004, base + 0.9, '#6a8a74', 1);
+      }
+      // the fluid, then the glass round it, both see-through; drained, the front quarter of the glass is swung open
+      liquidLathe(c, 0, 0, [[0, base], [tube - 0.012, base], [tube - 0.012, fluidTop], [0, fluidTop]], drained ? '#3a7a60' : '#46e0a8', drained ? 0.9 : 1.25, 28);
+      if (!drained) glassLathe(c, 0, 0, [[tube, base], [tube, crown]], 28);
+      else {
+        // three quarters of the tube, and the open quarter swung out on its hinge at the left
+        const seg = 28, at = (r2, a, y) => P(Math.cos(a) * r2, y, Math.sin(a) * r2);
+        for (let j = 0; j < seg; j++) {
+          const a0 = (j / seg) * Math.PI * 2, a1 = ((j + 1) / seg) * Math.PI * 2, am = (a0 + a1) / 2;
+          if (Math.sin(am) > 0.7) continue;
+          K.quad(K.glass, [at(tube, a0, base), at(tube, a1, base), at(tube, a1, crown), at(tube, a0, crown)], F.N(Math.cos(am), 0, Math.sin(am)), [1, 1, 1], GLOSS, null, true);
+        }
+        const h0 = Math.PI * 0.25, op = 1.9, door = (k) => { const a = h0 + k * Math.PI * 0.5; return [Math.cos(h0) * tube + Math.cos(a + op) * 0.0 + (Math.cos(a) - Math.cos(h0)) * tube * Math.cos(op) - (Math.sin(a) - Math.sin(h0)) * tube * Math.sin(op), Math.sin(h0) * tube + (Math.cos(a) - Math.cos(h0)) * tube * Math.sin(op) + (Math.sin(a) - Math.sin(h0)) * tube * Math.cos(op)]; };
+        for (let j = 0; j < 7; j++) {
+          const [x0, z0] = door(j / 7), [x1, z1] = door((j + 1) / 7);
+          K.quad(K.glass, [P(x0, base + 0.01, z0), P(x1, base + 0.01, z1), P(x1, crown - 0.01, z1), P(x0, crown - 0.01, z0)], F.N((z1 - z0), 0, -(x1 - x0)), [1, 1, 1], GLOSS, null, true);
+        }
+        const [hx, hz] = door(0), [ex, ez] = door(1);
+        rod(K, [...P(ex, 0, ez)].slice(0, 2).concat(base + 0.02), [...P(ex, 0, ez)].slice(0, 2).concat(crown - 0.02), 0.012, '#c9ced3', 1.05, METAL);
+        rod(K, [...P(hx, 0, hz)].slice(0, 2).concat(base + 0.02), [...P(hx, 0, hz)].slice(0, 2).concat(crown - 0.02), 0.016, '#c9ced3', 1.05, METAL);
+      }
+      // the crown: a steel cap, a lit band under it, hoses up to the wall
+      K.lathe(u, v, [[0, crown], [tube + 0.03, crown], [R + 0.04, crown + 0.06], [R + 0.04, h - 0.1], [R * 0.7, h - 0.02], [0, h]], '#c9ced3', 1.05, 36, METAL);
+      torus(K, u, v, tube + 0.01, 0.014, crown + 0.01, drained ? '#ff8a3a' : '#5fffc0', 1.5);
+      for (const s of [-1, 1]) rod(K, [...P(s * R * 0.4, 0, -R * 0.3)].slice(0, 2).concat(h - 0.04), [...P(s * R * 0.55, 0, -hd - 0.02)].slice(0, 2).concat(h + 0.35), 0.03, '#2b3034', 1, SATIN);
+      // the plate on the plinth: a number in the legend face, and a status light
+      const tag = String(p.tag || '').toUpperCase().slice(0, 6);
+      pbox(-0.16, 0.16, 0.14, 0.26, R + 0.02, R + 0.035, '#1b1e22', 1, null, SATIN);
+      if (tag) legend({ plate: (ps, col, emis) => K.quad(K.solid, ps.map(([a, b]) => P(-a, b, R + 0.037)), F.N(0, 0, 1), col, emis > 0.5 ? GLOW : MATTE, null, true) }, tag, 0.03, 0.2, 0.06, K.C(drained ? '#ffb070' : '#bfffe6', 2), 1);
+      pbox(0.09, 0.13, 0.18, 0.22, R + 0.035, R + 0.045, drained ? '#ff7a2a' : '#4dff9a', 2.2, null, GLOW);
+      return true;
+    }
+    case 'tank': {
+      // a squat waste tank on four feet, its lid dogged shut by six clamps and a pipe out of the back
+      const [u, v] = P(0, 0, 0), R = Math.min(hw, hd) * 0.95, foot = 0.14;
+      for (const [x, z] of [[-1, -1], [1, -1], [1, 1], [-1, 1]]) pbox(x * R * 0.6 - 0.04, x * R * 0.6 + 0.04, 0, foot, z * R * 0.6 - 0.04, z * R * 0.6 + 0.04, '#3a3d40', 1, null, METAL);
+      K.lathe(u, v, [[0, foot], [R * 0.8, foot], [R, foot + 0.12], [R, h - 0.14], [R * 0.9, h - 0.06], [0, h - 0.06]], '#4f6a5c', 0.9, 28, SATIN);
+      K.lathe(u, v, [[0, h - 0.06], [R * 0.7, h - 0.06], [R * 0.66, h], [0, h]], '#5c6166', 1, 24, METAL);
+      for (let i = 0; i < 6; i++) { const a = i / 6 * Math.PI * 2, [cu, cv] = [u + Math.cos(a) * R * 0.72, v + Math.sin(a) * R * 0.72]; K.ball(cu, cv, h - 0.04, 0.03, '#2a2c2e', 1, 8, METAL); }
+      for (const y of [foot + 0.3, h - 0.3]) torus(K, u, v, R + 0.006, 0.014, y, '#33363a', 1);
+      pbox(-0.18, 0.18, h * 0.5, h * 0.5 + 0.12, hd - 0.03, hd - 0.02, '#d9c27a', 1.1, null, SATIN);
+      rod(K, [u, v, h * 0.4], [...P(0, 0, -hd - 0.05)].slice(0, 2).concat(h * 0.4), 0.06, '#3a3d40', 1, METAL);
+      return true;
+    }
+    case 'morphex': {
+      // the MORPHEX 9000 pod: a round chrome plinth with a lit ring to stand on, a mirrored spine up the back, a
+      // canopy with its scan ring parked in it, and the glass door slid round behind, out of the way. The door
+      // that closes, the ring that sweeps and the steam are the pod's sequence (panels/room-morphex.js), drawn as props.
+      const [u, v] = P(0, 0, 0.05), R = Math.min(hw, hd) * 0.9, plinth = 0.16, top = h - 0.3;
+      K.lathe(u, v, [[0, 0], [R + 0.05, 0], [R + 0.05, plinth - 0.03], [R, plinth], [0, plinth]], '#d8dde3', 1.1, 36, METAL);
+      torus(K, u, v, R * 0.82, 0.016, plinth + 0.005, '#ff4fd8', 1.4);
+      K.lathe(u, v, [[0, plinth + 0.002], [R * 0.78, plinth + 0.002]], '#2b2f36', 1, 32, GLOSS);
+      // the spine: a curved mirror panel, chrome-framed, the back third of the circle
+      for (let i = 0; i < 9; i++) {
+        const a0 = Math.PI * (1.17 + i * 0.074), a1 = a0 + Math.PI * 0.074, [x0, z0] = [Math.cos(a0) * R, Math.sin(a0) * R], [x1, z1] = [Math.cos(a1) * R, Math.sin(a1) * R];
+        const s = Math.min(x0, x1), e = Math.max(x0, x1), zs = Math.min(z0, z1), ze = Math.max(z0, z1);
+        pbox(s, e + 0.02, plinth, top, zs - 0.03 + 0.05, ze + 0.05, i % 4 === 0 ? '#c7cdd4' : '#9fb4c4', i % 4 === 0 ? 1.1 : 1.25, null, i % 4 === 0 ? METAL : GLOSS);
+      }
+      // the canopy and the parked ring, and its lit underside
+      K.lathe(u, v, [[0, top], [R + 0.08, top], [R + 0.08, top + 0.14], [R * 0.7, h - 0.02], [0, h]], '#e6e9ed', 1.12, 36, METAL);
+      torus(K, u, v, R * 0.86, 0.03, top - 0.04, '#9be7ff', 1.5);
+      K.lathe(u, v, [[0, top - 0.001], [R * 0.84, top - 0.001]], '#ffffff', 1.8, 32, LAMP);
+      // a ribbon of brand colour round the plinth's foot
+      torus(K, u, v, R + 0.06, 0.012, plinth + 0.04, '#ff4fd8', 1.3);
+      // the price board on a stalk at the front left, its screen a lit slab
+      const [bu, bv] = P(-hw + 0.08, 0, hd - 0.1);
+      rod(K, [bu, bv, 0], [bu, bv, 1.2], 0.02, '#c7cdd4', 1.05, METAL);
+      pbox(-hw - 0.08, -hw + 0.28, 1.2, 1.5, hd - 0.14, hd - 0.1, '#ff63e0', 1.6, null, GLOW);
+      return true;
+    }
+    case 'lantern': {
+      // a paper floor lantern on four black feet: rice paper over bamboo ribs, lit from inside
+      const R = Math.min(hw, hd) * 0.92, foot = 0.12, [u, v] = P(0, 0, 0);
+      for (const [x, z] of [[-1, -1], [1, -1], [1, 1], [-1, 1]]) { const [fu, fv] = P(x * R * 0.6, 0, z * R * 0.6); rod(K, [fu, fv, 0], [fu * 0.7 + u * 0.3, fv * 0.7 + v * 0.3, foot + 0.02], 0.008, '#151515', 1, SATIN); }
+      K.lathe(u, v, [[0, foot], [R * 0.82, foot], [R * 0.97, foot + (h - foot) * 0.25], [R, foot + (h - foot) * 0.55], [R * 0.95, foot + (h - foot) * 0.85], [R * 0.78, h - 0.01], [0, h - 0.01]], '#fff0d2', 1.9, 28, LAMP);
+      for (let i = 1; i < 9; i++) { const t = i / 9, y = foot + (h - foot) * t, rr = R * (t < 0.55 ? 0.82 + 0.33 * t : 1 - 0.5 * (t - 0.55) ** 2 * 2.2); torus(K, u, v, rr + 0.003, 0.003, y, '#a8915e', 0.9); }
+      return true;
+    }
+    case 'bonsai': {
+      // a juniper in a shallow glazed dish on a low walnut stand: a twisting trunk and flat pads of green
+      const top = Math.max(0.3, h - 0.42);
+      pbox(-hw, hw, top - 0.04, top, -hd, hd, '#5a3a26', 1, WALNUT, SATIN);
+      for (const [x, z] of [[-1, -1], [1, -1], [1, 1], [-1, 1]]) pbox(x * (hw - 0.05) - 0.025, x * (hw - 0.05) + 0.025, 0, top - 0.04, z * (hd - 0.05) - 0.025, z * (hd - 0.05) + 0.025, '#5a3a26', 0.95, WALNUT, SATIN);
+      pbox(-hw + 0.05, hw - 0.05, 0.08, 0.1, -hd + 0.05, hd - 0.05, '#5a3a26', 0.9, WALNUT, SATIN);
+      const [u, v] = P(0, 0, 0), pr = Math.min(hw, hd) * 0.8;
+      K.lathe(u, v, [[0, top], [pr * 0.8, top], [pr, top + 0.07], [pr * 0.96, top + 0.075], [0, top + 0.06]], '#2c4a72', 1.1, 28, GLOSS);
+      K.lathe(u, v, [[0, top + 0.068], [pr * 0.94, top + 0.068]], '#3e5a2a', 0.9, 24, MATTE);
+      // the trunk: a few bends, thinning as it goes
+      const r = rng(41), pts = [[u, v, top + 0.06]];
+      for (let i = 1; i <= 5; i++) { const t = i / 5; pts.push([u + Math.sin(t * 3.1) * 0.09 + (r() - 0.5) * 0.02, v + Math.cos(t * 2.3) * 0.03, top + 0.06 + t * 0.32]); }
+      for (let i = 1; i < pts.length; i++) rod(K, pts[i - 1], pts[i], 0.028 * (1 - i / 7), '#6a4e3a', 0.95, SATIN);
+      // pads off the bends, each a flat cluster of balls
+      const greens = ['#2f5a2a', '#3a6a30', '#284c24'];
+      for (const [k, du, dv] of [[2, -0.12, 0.02], [3, 0.13, -0.03], [4, -0.08, 0.05], [5, 0.04, 0]]) {
+        const [bu, bv, by] = pts[k], cu = bu + du, cv = bv + dv, cy = by + (k === 5 ? 0.04 : 0);
+        rod(K, pts[k], [cu, cv, cy], 0.008, '#6a4e3a', 0.95, SATIN);
+        for (let j = 0; j < 14; j++) { const a = r() * Math.PI * 2, rr = r() * 0.08; K.ball(cu + Math.cos(a) * rr, cv + Math.sin(a) * rr * 0.8, cy + (r() - 0.3) * 0.025, 0.028 + r() * 0.012, greens[j % 3], 1, 7, MATTE); }
+      }
       return true;
     }
     default: return false;
@@ -633,6 +1113,23 @@ function dressTop(K, P, dress, h, hw) {
     for (let i = 0; i < 9; i++) { const a = i / 9 * Math.PI * 2 + r(), rr = i < 6 ? 0.09 : 0.03; K.ball(u + Math.cos(a) * rr, v + Math.sin(a) * rr, h + (i < 6 ? 0.09 : 0.14), 0.042, i % 3 ? '#8ab03a' : '#a8c048', 1, 10, GLOSS); }
     return;
   }
+  if (dress === 'bonsai') {
+    // a juniper in a footed hexagonal pot: cobalt glaze with a gold rim and band on four gold feet, a moss
+    // bed, and a trunk that twists up into flat pads of green. On a console it stands at one end.
+    const [u, v] = at(hw ? -hw * 0.5 : 0), R = 0.15, r = rng(17);
+    for (let i = 0; i < 4; i++) { const a = i / 4 * Math.PI * 2 + Math.PI / 4; K.ball(u + Math.cos(a) * R * 0.75, v + Math.sin(a) * R * 0.75, h + 0.014, 0.022, GOLD, 1.1, 10, METAL); }
+    K.lathe(u, v, [[0, h + 0.02], [R * 0.85, h + 0.02], [R, h + 0.05], [R * 1.04, h + 0.1], [R * 1.12, h + 0.11], [R * 1.12, h + 0.125], [0, h + 0.12]], '#1f3c78', 1.12, 6, GLOSS);
+    torus(K, u, v, R * 1.12, 0.008, h + 0.125, GOLD, 1.1);
+    torus(K, u, v, R * 1.02, 0.005, h + 0.07, GOLD, 1.1);
+    K.lathe(u, v, [[0, h + 0.12], [R * 1.05, h + 0.12], [0, h + 0.135]], '#3e5a2a', 0.9, 18, MATTE);
+    let pt = [u, v, h + 0.12];
+    for (let k = 1; k <= 5; k++) { const nx = [u + Math.sin(k * 1.3) * 0.06, v + Math.cos(k * 1.7) * 0.03, h + 0.12 + k * 0.075]; rod(K, pt, nx, 0.03 - k * 0.004, '#5a4030', 0.95, SATIN); pt = nx; }
+    for (const [dx, dz, dy, sp] of [[-0.14, 0.02, 0.25, 0.1], [0.12, -0.03, 0.31, 0.09], [-0.04, 0.04, 0.44, 0.1], [0.07, 0, 0.52, 0.07]]) {
+      rod(K, [u + dx * 0.3, v, h + dy - 0.05], [u + dx, v + dz, h + dy], 0.01, '#5a4030', 0.95, SATIN);
+      for (let n = 0; n < 12; n++) { const a = r() * Math.PI * 2, rr = r() * sp; K.ball(u + dx + Math.cos(a) * rr, v + dz + Math.sin(a) * rr * 0.7, h + dy + (r() - 0.3) * 0.03, 0.035 + r() * 0.015, ['#3e5a2a', '#4a6a30', '#34502a'][n % 3], 1, 7, MATTE); }
+    }
+    return;
+  }
   if (dress === 'orchid') {
     const [u, v] = at(0);
     K.lathe(u, v, [[0, h], [0.07, h], [0.08, h + 0.12], [0, h + 0.11]], '#f2eee6', 1.04, 18, GLOSS);
@@ -643,11 +1140,12 @@ function dressTop(K, P, dress, h, hw) {
     for (const a of [0.4, 2.2, 3.9]) K.ball(u + Math.cos(a) * 0.07, v + Math.sin(a) * 0.07, h + 0.13, 0.045, '#3e5a2a', 0.95, 8, SATIN);
     return;
   }
-  // a tall vase, and stems with flower heads: white lilies, or something dried and blue
-  const [u, v] = at(hw ? hw * 0.35 : 0), dried = dress === 'thistle', r = rng(dried ? 5 : 3);
+  // a tall vase, and stems with flower heads: white lilies, or something dried and blue. On a console it
+  // stands at the end, its stems leaning outward, so a TV on the wall above the middle stays clear.
+  const [u, v] = at(hw ? Math.max(0, hw - 0.09) : 0), dried = dress === 'thistle', r = rng(dried ? 5 : 3);
   K.lathe(u, v, [[0, h], [0.06, h], [0.075, h + 0.12], [0.05, h + 0.32], [0.055, h + 0.36], [0, h + 0.35]], dried ? '#4a4038' : '#d8e4e6', dried ? 1 : 1.1, 20, GLOSS);
   for (let i = 0; i < 9; i++) {
-    const a = r() * Math.PI * 2, s = 0.06 + r() * 0.16, top = h + 0.55 + r() * 0.3, fu = u + Math.cos(a) * s, fv = v + Math.sin(a) * s;
+    const a = hw ? (r() - 0.5) * Math.PI * 0.5 : r() * Math.PI * 2, s = hw ? 0.1 + r() * 0.14 : 0.06 + r() * 0.16, top = h + 0.55 + r() * 0.3, fu = u + Math.cos(a) * s, fv = v + Math.sin(a) * s;
     rod(K, [u + Math.cos(a) * 0.02, v + Math.sin(a) * 0.02, h + 0.34], [fu, fv, top], 0.004, dried ? '#7a6a4a' : '#4a6a2a', 0.9, SATIN);
     if (dried) K.ball(fu, fv, top, 0.028, i % 2 ? '#5a6a9a' : '#8a7a9a', 1, 8, MATTE);
     else for (let j = 0; j < 5; j++) { const b = j / 5 * Math.PI * 2; rod(K, [fu, fv, top - 0.01], [fu + Math.cos(b) * 0.06, fv + Math.sin(b) * 0.06, top + 0.03], 0.012, '#fbf8f0', 1.12, SATIN); }

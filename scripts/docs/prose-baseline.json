@@ -412,6 +412,12 @@
       "jargon-metaphor": 3,
       "em-dash": 44
     },
+    "docs/proposals/clone-facility-depths.md": {
+      "caps-run": 2
+    },
+    "docs/proposals/subject-pool-tests.md": {
+      "caps-run": 4
+    },
     "docs/proposals/systems-flight-pvp.md": {
       "em-dash": 45
     },

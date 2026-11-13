@@ -23,6 +23,14 @@
     "is_building": true,
     "is_interior": true,
     "region_id": "region_scarletwastes",
+    "room": {
+      "d": 24,
+      "ground": "stone",
+      "h": 7.5,
+      "studio": false,
+      "w": 16,
+      "windowless": true
+    },
     "truck_depot": {
       "name": "The Deadleg",
       "yard": "zone_scw_1024_957"

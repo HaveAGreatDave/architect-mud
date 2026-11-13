@@ -46,6 +46,7 @@
 // is, how wide a seat is, how long a lever is, how big a dial is. Those are honest metres.
 //
 // Pure, like the rest of the interior: no clock, no camera, no DOM. `live` arrives as an argument.
+import { nightAt } from './sky-keys.js';
 import { makeKit, C, clamp, lerp, SHINY, PANE, TEXTURE } from './interior-kit.js';
 import { MESH_ROWS } from './vehicle-meshes.js';
 import { hotspotHalo, contactShadow, eased, pressPulse } from './interior-cockpit-kit.js';
@@ -563,7 +564,7 @@ export function carcassFit(P, live, push) {
   const gearDown = L.gearDown !== false, stall = !!L.stall;
   // The bicycle lamp under the coaming is the panel light, on the PANEL switch (the hour when a view
   // sends no switch state).
-  const hour = num(L.hour, 12), panelOn = powered && (L.panelLight != null ? !!L.panelLight : hour < 6.5 || hour > 19.5);
+  const hour = num(L.hour, 12), panelOn = powered && (L.panelLight != null ? !!L.panelLight : nightAt(hour));
 
   // ── THE PANEL ──
   const Pn = panelOf(K, P);

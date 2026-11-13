@@ -207,6 +207,33 @@
         "PORT": "3100"
       },
       "port": 3100
+    },
+    {
+      "name": "modelshop-bestiary",
+      "runtimeExecutable": "node",
+      "runtimeArgs": [
+        "tools/modelshop/serve.mjs",
+        "5182"
+      ],
+      "port": 5182
+    },
+    {
+      "name": "modelshop-poker",
+      "runtimeExecutable": "node",
+      "runtimeArgs": [
+        "tools/modelshop/serve.mjs",
+        "5263"
+      ],
+      "port": 5263
+    },
+    {
+      "name": "zippo",
+      "runtimeExecutable": "node",
+      "runtimeArgs": [
+        "C:/Users/david/AppData/Local/Temp/claude/b351d9388d2278c5/ec75f982-c209-4402-9c3c-1f23dca5c343/scratchpad/zippo/serve.mjs",
+        "5247"
+      ],
+      "port": 5247
     }
   ]
 }

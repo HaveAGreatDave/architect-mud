@@ -1,0 +1,36 @@
+{
+  "description": "A walnut chair with a leather seat, pulled up to the chess table. The leather has a dip worn into it, and Akerson is the one who wore it.",
+  "flags": {
+    "aliases": [
+      "chair",
+      "chess chair",
+      "akerson's chair"
+    ],
+    "game_table_id": "gametable_akerson_chess",
+    "interactions": [
+      "sit"
+    ],
+    "look": {
+      "arche": "seat",
+      "form": "chair"
+    },
+    "seat_idx": 1,
+    "spot": {
+      "at": [
+        5.15,
+        1.5
+      ],
+      "turn": 270
+    }
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_penthouse_chess_chair_host",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "Akerson's chair",
+  "object_type": "furniture",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_solenne_penthouse"
+}

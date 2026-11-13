@@ -23,6 +23,44 @@
     "mis_ok": true,
     "naval_ambience": true,
     "open_sky": true,
+    "room": {
+      "balcony": false,
+      "d": 8,
+      "decor": {
+        "downlights": false,
+        "plants": [
+          [
+            3.9,
+            7.4,
+            0.9
+          ],
+          [
+            -3.9,
+            7.4,
+            0.9
+          ]
+        ],
+        "rug": false
+      },
+      "doors": {
+        "down": [
+          0,
+          4
+        ]
+      },
+      "face": 0,
+      "finish": "fine",
+      "h": 3,
+      "open": true,
+      "studio": false,
+      "tone": {
+        "accent": "#3fd0d4",
+        "ceiling": "#1a1a1a",
+        "trim": "#e9e3d6",
+        "wall": "#d8d0c0"
+      },
+      "w": 9
+    },
     "world_exit_zone": "zone_echelon_exterior",
     "yacht": true
   },

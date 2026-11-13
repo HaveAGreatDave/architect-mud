@@ -113,16 +113,19 @@ export async function getTruck(id, playerId) {
   return r && truckType(r.type_id) ? { ...r, type: truckType(r.type_id) } : null;
 }
 
-export async function buyTruck(playerId, typeId, depotZone, plate) {
+// `edition` is the body it leaves the lot in (editions.js lotEdition), already paid for and kept.
+// Hire trucks and the school rig pass none and come out stock.
+export async function buyTruck(playerId, typeId, depotZone, plate, edition = null) {
   const type = truckType(typeId);
   if (!type) return null;
   const id = `truck_${randomUUID().slice(0, 8)}`;
+  const cd = edition ? { edition: String(edition), owned_editions: [String(edition)] } : {};
   await query(
-    'INSERT INTO trucks (id, type_id, name, owner_id, depot_zone, fuel) VALUES ($1,$2,$3,$4,$5,1)',
-    [id, typeId, plate || null, playerId, depotZone]
+    'INSERT INTO trucks (id, type_id, name, owner_id, depot_zone, fuel, custom_data) VALUES ($1,$2,$3,$4,$5,1,$6::jsonb)',
+    [id, typeId, plate || null, playerId, depotZone, JSON.stringify(cd)]
   );
   return { id, type_id: typeId, name: plate || null, depot_zone: depotZone, fuel: 1, odometer: 0,
-    condition: 1, custom_data: {}, type };
+    condition: 1, custom_data: cd, type };
 }
 
 export async function sellTruck(id, playerId) {

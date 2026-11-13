@@ -39,6 +39,7 @@
 // can drive every moving thing to both stops headlessly, as it can every other cockpit.
 //
 // Pure: no clock, no camera, no DOM. `live` arrives as an argument.
+import { nightAt } from './sky-keys.js';
 import { brandTrim } from './interior-brands.js';
 import { makeKit, C, clamp, lerp, SHINY, PANE, TEXTURE } from './interior-kit.js';
 import { contactShadow, hotspotHalo, panelGps, gpsHotspot, lensLamp, eased, pressPulse, HALO,
@@ -379,7 +380,7 @@ const readings = (live) => {
     phase: num(L.phase), stall: !!L.stall,
   };
 };
-const night = (R) => R.hour < 6.5 || R.hour > 19.5;
+const night = (R) => nightAt(R.hour);
 const panelOn = (R) => R.powered && (R.L.panelLight != null ? !!R.L.panelLight : night(R));
 
 // ── WHERE THE CONTROLS ARE ───────────────────────────────────────────────────

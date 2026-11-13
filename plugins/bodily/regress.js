@@ -5,13 +5,20 @@ export default async function regress({ run, check, getPlayer }) {
   const p = getPlayer();
   const savedThirst = p.thirst, savedHunger = p.hunger;
 
-  p.thirst = 0;
-  let r = await run('pee');
-  check('pee verb routed + dehydration gate', /too dehydrated/.test(r?.message || ''), r?.message);
+  // Needs are off by default: nobody has to go, so there is no empty-tank gate
+  // to test (and running the verb would start a real relief in the fake zone).
+  const { BODILY_NEEDS } = await import('./index.js');
+  check('bodily needs are off by default (relief is roleplay only)', BODILY_NEEDS === false);
+  let r;
+  if (BODILY_NEEDS) {
+    p.thirst = 0;
+    r = await run('pee');
+    check('pee verb routed + dehydration gate', /too dehydrated/.test(r?.message || ''), r?.message);
 
-  p.hunger = 0;
-  r = await run('poop');
-  check('poop verb routed + empty-stomach gate', /haven't eaten/.test(r?.message || ''), r?.message);
+    p.hunger = 0;
+    r = await run('poop');
+    check('poop verb routed + empty-stomach gate', /haven't eaten/.test(r?.message || ''), r?.message);
+  }
 
   p.thirst = savedThirst; p.hunger = savedHunger;
 
@@ -20,6 +27,24 @@ export default async function regress({ run, check, getPlayer }) {
 
   r = await run('flush');
   check('flush verb routed', /flush|no toilet/i.test(r?.message || ''), r?.message);
+
+  r = await run('shower off');
+  check('shower off with no shower here', /no shower here|isn't on/i.test(r?.message || ''), r?.message);
+
+  // What ROOM draws of a bowl (plumbingOf): a zone with a toilet, fouled and then flushed. RAM only.
+  {
+    const { plumbingOf, foulToilet, clearToiletFilth } = await import('./index.js');
+    const { world } = await import('../../server/engine/world.js');
+    const toilet = [...(world.furniture?.values?.() || [])].find((f) => f?.zone_id && (f.object_type === 'toilet'));
+    if (toilet) {
+      clearToiletFilth(toilet.id);
+      foulToilet(toilet.id, 'pee', toilet.zone_id);
+      const st = plumbingOf(toilet.zone_id)[toilet.id];
+      check('a peed-in bowl reads as filled and yellow', st?.level > 0 && st?.tint > 0, JSON.stringify(st));
+      clearToiletFilth(toilet.id);
+      check('...and clean once it is cleared', !plumbingOf(toilet.zone_id)[toilet.id]?.level, JSON.stringify(plumbingOf(toilet.zone_id)[toilet.id]));
+    }
+  }
 
   r = await run('shower');
   check('shower verb routed + no-shower gate', /no shower here/i.test(r?.message || ''), r?.message);

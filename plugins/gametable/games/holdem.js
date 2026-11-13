@@ -255,13 +255,21 @@ export class HoldemGame {
         if (raiseBy < this.minRaise && seat.chips > raiseBy)
           return { ok: false, error: `Minimum raise is ${this.minRaise}.` };
         const actual = Math.min(raiseBy, seat.chips);
-        this.minRaise = Math.max(this.minRaise, raiseBy);
+        const prevBet = this.currentBet;
         seat.chips -= actual;
         seat.bet += actual;
         seat.contributed += actual;
         this.pot += actual;
-        this.currentBet = seat.bet;
-        this.lastRaiserIdx = idx;
+        // A short stack's all-in can land below the bet or short of a full raise.
+        // It never lowers the bet (below it, it plays as a call), and only a
+        // full raise moves minRaise. Any rise still makes this seat the closer,
+        // as the allin case does, so everyone behind gets to match it.
+        if (seat.bet > prevBet) {
+          const raisedBy = seat.bet - prevBet;
+          this.currentBet = seat.bet;
+          this.minRaise = Math.max(this.minRaise, raisedBy);
+          this.lastRaiserIdx = idx;
+        }
         if (seat.chips === 0) { seat.allIn = true; events.push(`${seat.handle} raises to ${seat.bet} and is all in!`); }
         else events.push(`${seat.handle} raises to ${seat.bet}.`);
         break;

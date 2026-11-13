@@ -109,6 +109,7 @@ let fxClock = 0;
 // by scripts/shapes/weatherfx-smoke.mjs in node, where a root-absolute specifier
 // resolves against the filesystem root and fails. The browser resolves both.
 import { WEATHER_FX, FIELD_FX, DRUG_FX, ALL_FX } from '../../../shared/drug-fx.js';
+import { RAIN_DAY, RAIN_ON_LIGHT_BG, rainRGB as rainRGBOf, rainLit, glintAmount, dropSize, dropSprite, glintSprite, GLINT_SHARE } from '../../../shared/precip-look.js';
 export { WEATHER_FX, FIELD_FX, DRUG_FX, ALL_FX };
 
 function approach(v, target, step) {
@@ -172,8 +173,26 @@ function bgIsLight() {
   const n = parseInt(m[1], 16);
   return (0.299 * ((n >> 16) & 255) + 0.587 * ((n >> 8) & 255) + 0.114 * (n & 255)) > 140;
 }
+// How lit the rain is: 1 at noon, 0 at night (environment.js feeds the server's
+// `daylight`). The colour, size and glint all come from shared/precip-look.js, so
+// this overlay and every other view that draws rain agree.
+let rainLight = 1;
+let rainLightStep = -1;     // quantised, so the sprite is re-picked a handful of times a day
+let bgIsLightCached = false;
+let rainRGBArr = RAIN_DAY;
+function rainColour() {
+  rainRGBArr = bgIsLightCached ? RAIN_ON_LIGHT_BG : rainRGBOf(rainLightStep / 8);
+  return rainRGBArr.join(",");
+}
+export function setWeatherFxLight(daylight) {
+  rainLight = Math.max(0, Math.min(1, Number(daylight) || 0));
+  const step = Math.round(rainLight * 8);
+  if (step !== rainLightStep) { rainLightStep = step; rainRGB = rainColour(); }
+}
 function refreshThemeColors() {
-  rainRGB = bgIsLight() ? '54,88,132' : '178,203,235';
+  if (rainLightStep < 0) rainLightStep = 8;
+  bgIsLightCached = bgIsLight();
+  rainRGB = rainColour();
   // ⚠ A SHAPE AT THE EDGE OF SIGHT HAS TO BE VISIBLE. `spiders` shipped for one
   // afternoon as `rgba(14,12,16)` — a dark form, which is what the symptom is —
   // and every theme this game actually uses is darker than that, so the thing
@@ -184,13 +203,10 @@ function refreshThemeColors() {
   // renders nothing.
   spiderRGB = bgIsLight() ? '18,16,20' : '206,198,214';
   veinRGB   = bgIsLight() ? '58,30,62' : '168,126,178';
-  dropSprite = null;  // rebuilt in the new colour on next draw
 }
 
-// A raindrop seen falling is a streak that is faint at the tail and solid at the
-// head, not a ruled line. One sprite per theme, stretched and turned per drop:
-// a gradient per drop per frame costs far more than a drawImage.
-let dropSprite = null;
+// A raindrop is the shared tapered sprite (precip-look.js), stretched and turned
+// per drop: a gradient per drop per frame costs far more than a drawImage.
 let curDpr = 1;
 let splashes = [];  // { x, y, t, r, a, z } — where a drop met the ground
 // ── THE RAIN HAS A GROUND, SO IT IS IN A PLACE ──────────────────────────────
@@ -203,29 +219,8 @@ let splashes = [];  // { x, y, t, r, a, z } — where a drop met the ground
 // low mist, so there is air between you and the far drops.
 const RAIN_HORIZON = 0.42;   // fraction of the pane height where the ground meets the distance
 let curtains = [];           // { x, w, a, v } — drifting sheets of denser rain
-function getDropSprite() {
-  if (dropSprite) return dropSprite;
-  const c = document.createElement('canvas');
-  c.width = 8; c.height = 64;
-  const g = c.getContext && c.getContext('2d');
-  if (!g || !g.createLinearGradient) return null;
-  const grad = g.createLinearGradient(0, 0, 0, 64);
-  grad.addColorStop(0, `rgba(${rainRGB},0)`);
-  grad.addColorStop(0.55, `rgba(${rainRGB},0.35)`);
-  grad.addColorStop(0.9, `rgba(${rainRGB},0.9)`);
-  grad.addColorStop(1, `rgba(${rainRGB},1)`);
-  g.fillStyle = grad;
-  // Tapered: a hair at the tail, the drop's width at the head.
-  g.beginPath();
-  g.moveTo(3.6, 0); g.lineTo(4.4, 0);
-  g.lineTo(7, 58); g.quadraticCurveTo(4, 66, 1, 58);
-  g.closePath(); g.fill();
-  // The head catches the light.
-  g.fillStyle = 'rgba(255,255,255,0.35)';
-  g.beginPath(); g.ellipse(4, 59, 1.6, 3, 0, 0, Math.PI * 2); g.fill();
-  dropSprite = c;
-  return c;
-}
+function getDropSprite() { return dropSprite(rainRGBArr); }
+function getGlintSprite() { return glintSprite(); }
 
 function ensureCanvas() {
   if (canvas) return canvas;
@@ -323,8 +318,10 @@ function spawnParticle(S, fromTop) {
     return {
       x: rand(-0.15 * w, w), y: fromTop ? rand(-h, 0) : rand(0, h),
       z,
-      len: (7 + 30 * z) * (0.7 + I) * rand(0.8, 1.2),
-      wid: 0.7 + 2.0 * z,
+      len: dropSize(z, I).len * rand(0.8, 1.2),
+      wid: dropSize(z, I).wid,
+      // A few of the nearer drops pass through lamplight; only shows after dark.
+      glint: z > 0.3 && Math.random() < GLINT_SHARE,
       vy,
       vx: (120 + 300 * wind) * (0.5 + 0.5 * z) + rand(-25, 25),
       a: (0.32 + 0.55 * z) * rand(0.8, 1.1),
@@ -752,6 +749,9 @@ function drawBase(S, dt, w, h) {
 
   if (S.active === 'rain') {
     const spr = getDropSprite();
+    const night = bgIsLightCached ? 0 : glintAmount(rainLight);
+    const gspr = night > 0.05 ? getGlintSprite() : null;
+    const lit = bgIsLightCached ? 1 : rainLit(rainLight);
     const d = curDpr;
     // Gusts lean the whole sheet a little, slowly.
     const gust = 1 + 0.25 * Math.sin(fxClock * 0.7) * Math.sin(fxClock * 0.23 + 1.3);
@@ -761,7 +761,7 @@ function drawBase(S, dt, w, h) {
       p.x += vx * dt; p.y += p.vy * dt;
       if (p.y >= p.land) {
         if (splashes.length < 220 && (p.z > 0.12 || Math.random() < 0.35)) {
-          splashes.push({ x: p.x, y: p.land, t: 0, r: 0.8 + 6 * p.z, a: p.a, z: p.z });
+          splashes.push({ x: p.x, y: p.land, t: 0, r: 0.6 + 3.5 * p.z, a: p.a * lit, z: p.z });
         }
         Object.assign(p, spawnParticle(S, true)); continue;
       }
@@ -770,9 +770,14 @@ function drawBase(S, dt, w, h) {
       const sp = Math.hypot(vx, p.vy);
       const cs = p.vy / sp, sn = -vx / sp;
       ctx.setTransform(d * cs, d * sn, -d * sn, d * cs, d * p.x, d * p.y);
-      ctx.globalAlpha = p.a * S.presence;
-      if (spr) ctx.drawImage(spr, -p.wid / 2, -p.len, p.wid, p.len);
-      else {
+      ctx.globalAlpha = p.a * S.presence * lit;
+      if (spr) {
+        ctx.drawImage(spr, -p.wid / 2, -p.len, p.wid, p.len);
+        if (gspr && p.glint) {
+          ctx.globalAlpha = p.a * S.presence * night;
+          ctx.drawImage(gspr, -p.wid / 2, -p.len, p.wid, p.len);
+        }
+      } else {
         ctx.strokeStyle = `rgb(${rainRGB})`; ctx.lineWidth = p.wid;
         ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(0, -p.len); ctx.stroke();
       }

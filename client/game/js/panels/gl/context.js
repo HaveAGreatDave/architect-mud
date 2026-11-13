@@ -6,7 +6,7 @@ import { viewProjMatrix, mat4f } from './camera.js';
 import { HEIGHT_FOG_GLSL, LIGHT_SHAFT_GLSL } from './fog.js';
 import { TOON_GLSL } from './toon.js';
 import { cityInkCol } from './house-style.js';
-import { createSpriteLayer } from './sprites.js';
+import { createSpriteLayer, SOFT_LIGHTS } from './sprites.js';
 import { createCurtainLayer } from './curtain.js';
 import { createDecalLayer } from './decals.js';
 import { createStrokeLayer } from './strokes.js';
@@ -19,6 +19,7 @@ import { createVehicleInkLayer } from './vehicle-ink.js';
 import { comicOn } from './house-style.js';
 import { createFaunaLayer } from './fauna.js';
 import { createActorLayer } from './actors.js';
+import { createStreetHD } from './street-hd.js';
 import { createClothLayer } from './cloth.js';
 import { createMurmurGPU } from './murmur-gpu.js';
 // The interior's own clip range, in tiles (a cab is about 0.10 tile deep). See drawInterior.
@@ -2271,7 +2272,9 @@ const lightRaw = new Float32Array(MAX_LIGHTS * 3);
     if ((!list || !list.length) && !sprites) return 0;
     const L = spriteLayer(), w = windowFrame(cam), sp = splitGroups(list || [], w.ox, w.oy);
     L.upload(sp.rest, w.ox, w.oy, sp.groups);
-    return L.draw(w.cam, canvas.width, canvas.height, cssH, intensity);
+    // The scene's depth for the lights' soft edge (sprites.js). Null off the float target, and they draw hard-edged.
+    const depth = hdr && targetLive && hdr.depthCopy && SOFT_LIGHTS.on ? hdr.depthCopy() : null;
+    return L.draw(w.cam, canvas.width, canvas.height, cssH, intensity, depth);
   }
 
   // The cloud deck, a second pass over the same depth buffer (gl/clouds.js).
@@ -2464,6 +2467,9 @@ const lightRaw = new Float32Array(MAX_LIGHTS * 3);
   const actorLayer = () => (acl || (acl = createActorLayer(gl)));
   let actorInst = 0;
   const actorRecs = [];
+  // The nearest of them drawn close up, as the Room Stage draws people (gl/street-hd.js).
+  let shd = null;
+  const streetHD = () => (shd || (shd = createStreetHD(gl)));
   // Cloth the same way (`.cloth`, gl/cloth.js).
   let cll = null;
   const clothLayer = () => (cll || (cll = createClothLayer(gl)));
@@ -2521,6 +2527,8 @@ const lightRaw = new Float32Array(MAX_LIGHTS * 3);
     if (mg && clouds.length) mg.sweep(clouds[0].now);
     solidQuads = all.length || groups.length || shp ? solidsLayer().upload(all, null, null, null, null, groups, kitFade) : 0;
     faunaInst = (instRecs.length || fnl) ? faunaLayer().upload(instRecs) : 0;
+    // who's drawn close up is marked (r.hd) before the crowd uploads, so it can leave them out
+    if (actorRecs.length || shd) streetHD().pick(actorRecs);
     actorInst = (actorRecs.length || acl) ? actorLayer().upload(actorRecs) : 0;
     clothInst = (clothRecs.length || cll) ? clothLayer().upload(clothRecs) : 0;
     return solidQuads;
@@ -2565,6 +2573,8 @@ const lightRaw = new Float32Array(MAX_LIGHTS * 3);
     opts = opts || {};
     opts.lightGrid = bindWallGrid;
     opts.ink = opts.noInk ? null : inkFrame;
+    // the close-up level first; once it has drawn, the crowd leaves those people out of this pass
+    opts.hideHD = shd && shd.count ? shd.draw(cam, cssH || canvas.height, opts) : false;
     return actorInst ? actorLayer().draw(cam, cssH || canvas.height, opts || {}) : 0;
   }
 

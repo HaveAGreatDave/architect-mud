@@ -1340,9 +1340,11 @@ export function openCab(ctx = {}) {
     const KNOB_DX = Math.sin(LEAN_DEG * Math.PI / 180) * STICK_PX;
     const KNOB_DY = -Math.cos(LEAN_DEG * Math.PI / 180) * STICK_PX;
     gate.style.setProperty('--cab-stick', STICK_PX + 'px');
+    // Every frame through glide; the style is written only when the knob has moved.
     const put = (x, y) => {
-      lever.style.setProperty('--gx', x.toFixed(3));
-      lever.style.setProperty('--gy', y.toFixed(3));
+      const gx = x.toFixed(3), gy = y.toFixed(3);
+      if (lever.__gx !== gx) { lever.__gx = gx; lever.style.setProperty('--gx', gx); }
+      if (lever.__gy !== gy) { lever.__gy = gy; lever.style.setProperty('--gy', gy); }
       // ⚠ Published here rather than in glide, so a drag on the shelf lever moves the painted one too.
       st.gatePos = { x, y };
     };
@@ -1386,8 +1388,12 @@ export function openCab(ctx = {}) {
         if (!g) continue;
         const gear = gearOfSlot(g);
         const label = g.label || String(gear);
-        el.textContent = label;
-        el.setAttribute('aria-label', gear > 0 ? `Gear ${gear}` : gear < 0 ? 'Reverse' : 'Neutral');
+        // Every frame; written only on a change (a range swap relabels them).
+        if (el.__slot !== label + '|' + gear) {
+          el.__slot = label + '|' + gear;
+          el.textContent = label;
+          el.setAttribute('aria-label', gear > 0 ? `Gear ${gear}` : gear < 0 ? 'Reverse' : 'Neutral');
+        }
         el.classList.toggle('on', st.sim.gear === gear);
       }
     };
@@ -1861,6 +1867,10 @@ export function openCab(ctx = {}) {
     const el = container.querySelector('.cab-keybarrel');
     if (!el) return;
     const pos = st.cranking ? 'start' : st.sim.stalled ? 'off' : 'on';
+    // Called every frame; written only on a change (see the readouts in frame()).
+    const k = pos + '|' + !!st.sim.stalled;
+    if (el.__keyPos === k) return;
+    el.__keyPos = k;
     el.style.setProperty('--keyrot', KEY_DEG[pos] + 'deg');
     el.classList.toggle('on', !st.sim.stalled);
     el.classList.toggle('cranking', !!st.cranking);
@@ -2415,9 +2425,39 @@ export function openCab(ctx = {}) {
     if (e.target.closest?.('.cab-hitch-go')) sendCmdSilent('pickup');
   });
 
+  // THE LIFT (windshield.js BAY_LIFT): a rig called out at a truck shed (`fromBay`, cmdDrive) comes up from the
+  // deck under the shed on its lift. The view steps out to a 3/4 shot over the well to watch it come, the
+  // brakes hold until the platform is flush, and then you're handed back the seat you had. The throttle
+  // hurries it. GLASS 2 only: the 2-D painter can't open the well, so there the rig is simply there.
+  if (ctx.fromBay && RENDER_TUNE.gl && RENDER_TUNE.glFloor) {
+    st.lift = { t: 0, wasExt: st.external, cam: { yaw: st.extYaw, pitch: st.extPitch, zoom: st.extZoom } };
+    cabFrame({ yaw: 205, pitch: 0.62, zoom: 0.45 }, 0);   // close and high, looking down the well
+  }
 
   st.raf = requestAnimationFrame(frame);
   return st;
+}
+// The lift's beats, in seconds: a moment on the deck for the shot to settle, the rise, a moment flush.
+const LIFT_WAIT = 0.8, LIFT_RISE = 5, LIFT_REST = 0.7;
+// How far up the platform is (0 on the deck, 1 flush), and the brakes on while it moves. Null with no lift.
+function liftStep(dt) {
+  const L = st.lift;
+  if (!L) return null;
+  L.t += dt * ((st.input.throttle || 0) > 0.3 ? 3 : 1);
+  st.input.throttle = 0; st.input.brake = 1;
+  const u = Math.max(0, Math.min(1, (L.t - LIFT_WAIT) / LIFT_RISE)), k = u * u * (3 - 2 * u);
+  if (L.t >= LIFT_WAIT + LIFT_RISE + LIFT_REST) {
+    st.lift = null;
+    // back in the seat you had, with the chase camera where you'd left it, unless the bay has opened over the
+    // glass meanwhile (Maintenance), which frames the rig itself
+    if (!document.querySelector('.ds-bay.open')) {
+      const keys = { yaw: 'extYaw', pitch: 'extPitch', zoom: 'extZoom' };
+      if (L.wasExt) tweenOrbit(st, keys, L.cam, 900);
+      else { st.setExternal?.(false); tweenOrbit(st, keys, L.cam, 0); }
+    }
+    return null;
+  }
+  return k;
 }
 
 
@@ -3026,6 +3066,8 @@ function frame(now) {
     autoClutchStep(dt);
     // The spring brakes: the last word on the pedal this frame, after cruise and the automatic.
     if (st.park) st.input.brake = 1;
+    // …and a lift still bringing the rig up holds it, whatever the pedals say (liftStep)
+    const liftK = liftStep(dt);
     step(st.sim, st.input, P, dt);
     const r = truckReadout(st.sim, P);
     // ── WHAT IS THROWING THE CAB ABOUT ────────────────────────────────────────
@@ -3068,26 +3110,33 @@ function frame(now) {
       bumpJolt(mph);
     }
 
-    const q = (s) => st.container.querySelector(s);
-    q('.cab-speed').textContent = Math.round(r.speed * MPH_KMH);
-    q('.cab-odo').textContent = legKm();
+    // ⚠ WRITTEN ONLY WHEN THE WORDS CHANGE. A textContent write replaces the text node even with the
+    // same string, so ten readouts written every frame were a style and layout pass every frame for
+    // a picture that hadn't moved. The elements are looked up once per cab (st.qc).
+    const qc = st.qc || (st.qc = new Map());
+    const q = (s) => { let el = qc.get(s); if (!el || !el.isConnected) { el = st.container.querySelector(s); qc.set(s, el); } return el; };
+    const txt = (el, t) => { t = String(t); if (el && el.__cabT !== t) { el.__cabT = t; el.textContent = t; } };
+    const cls = (el, c) => { if (el && el.className !== c) el.className = c; };
+    txt(q('.cab-speed'), Math.round(r.speed * MPH_KMH));
+    txt(q('.cab-odo'), legKm());
     // The surface readout says why you're stopped first.
-    q('.cab-surface').textContent = st.broken ? 'BROKEN' : st.dry ? 'NO FUEL' : (st.input.surface || 'road').toUpperCase();
-    q('.cab-surface').className = 'cab-surface s-' + (st.broken ? 'offroad' : st.input.surface);
+    txt(q('.cab-surface'), st.broken ? 'BROKEN' : st.dry ? 'NO FUEL' : (st.input.surface || 'road').toUpperCase());
+    cls(q('.cab-surface'), 'cab-surface s-' + (st.broken ? 'offroad' : st.input.surface));
     // The controls follow the truck, whatever moved them.
     st.paintGate?.();
     st.paintControls?.();
     // The key's angle is the engine (paintKey).
     st.paintKey?.();
     const gearEl = q('.cab-gear');
-    gearEl.textContent = r.stalled ? '—' : r.reversing ? 'R' : (r.gear === 0 ? 'N' : r.gear + (st.sim.split ? '½' : ''));
-    gearEl.className = 'cab-gear' + (r.stalled ? ' g-stall' : r.inBand ? ' g-band' : '');
+    txt(gearEl, r.stalled ? '—' : r.reversing ? 'R' : (r.gear === 0 ? 'N' : r.gear + (st.sim.split ? '½' : '')));
+    cls(gearEl, 'cab-gear' + (r.stalled ? ' g-stall' : r.inBand ? ' g-band' : ''));
     // The REV lamp is derived from the box, and dims while rolling. ⚠ Use 'q': this is module scope.
     const rev = q('.cab-revbtn');
     if (rev) {
       rev.classList.toggle('on', r.gear < 0);
-      rev.setAttribute('aria-pressed', String(r.gear < 0));
-      rev.disabled = Math.abs(st.sim.speed) >= 2;
+      if (rev.getAttribute('aria-pressed') !== String(r.gear < 0)) rev.setAttribute('aria-pressed', String(r.gear < 0));
+      const revOff = Math.abs(st.sim.speed) >= 2;
+      if (rev.disabled !== revOff) rev.disabled = revOff;
     }
     // ── GETTING OUT ────────────────────────────────────────────────────────────
     // ⚠ Matches the server's PARK_STOPPED_MPH in plugins/trucking/index.js.
@@ -3097,26 +3146,26 @@ function frame(now) {
     if (st.park && stopped && !st.parkSent) { st.parkSent = true; sendCmdSilent('park'); }
     // The exit button is derived: lit when parked and stopped. It sends the ordinary 'park' verb.
     const exit = q('.cab-exitbtn');
-    if (exit) exit.disabled = !(st.park && stopped);
+    if (exit && exit.disabled !== !(st.park && stopped)) exit.disabled = !(st.park && stopped);
     // BEST (the shift indicator) is a tier privilege; see CAB_KIT.
     const kit = kitFor(P);
-    q('.cab-gearhint').textContent = r.stalled ? 'ENGINE OFF · CLUTCH + KEY'
-      : kit.best ? `GEAR · BEST ${r.best}` : 'GEAR · , .';
+    txt(q('.cab-gearhint'), r.stalled ? 'ENGINE OFF · CLUTCH + KEY'
+      : kit.best ? `GEAR · BEST ${r.best}` : 'GEAR · , .');
     // The instruments are drawn on the dash in the scene (drawCabInterior); nothing is painted here.
 
     // Brake temperature is a word. Below tier 2 there's only a warning lamp; FADING always shows.
     const bEl = q('.cab-brakes');
     const bt = r.brakeTemp;
-    bEl.textContent = r.fading ? 'FADING'
+    txt(bEl, r.fading ? 'FADING'
       : !kit.brakeTemp ? 'OK'
-      : bt > 0.42 ? 'HOT' : bt > 0.2 ? 'WARM' : 'COLD';
-    bEl.className = 'cab-brakes' + (r.fading ? ' b-fade' : kit.brakeTemp && bt > 0.42 ? ' b-hot' : '');
+      : bt > 0.42 ? 'HOT' : bt > 0.2 ? 'WARM' : 'COLD');
+    cls(bEl, 'cab-brakes' + (r.fading ? ' b-fade' : kit.brakeTemp && bt > 0.42 ? ' b-hot' : ''));
     // Articulation angle in degrees is the Orlov's alone.
-    q('.cab-riginfo').textContent = r.hitched
+    txt(q('.cab-riginfo'), r.hitched
       ? (r.folding ? 'JACKKNIFING'
         : kit.trailerAngle ? `TRAILER ${r.phi > 0 ? '+' : ''}${r.phi.toFixed(0)}°` : 'TRAILER')
-      : 'BOBTAIL';
-    q('.cab-riginfo').className = 'cab-riginfo' + (r.folding ? ' b-fade' : '');
+      : 'BOBTAIL');
+    cls(q('.cab-riginfo'), 'cab-riginfo' + (r.folding ? ' b-fade' : ''));
 
     // The gearbox's voice, keyed on 'sim.gear' so every source sounds the same. A split is quieter.
     if (st.sim.gear !== st.lastGear || st.sim.split !== st.lastSplit) {
@@ -3167,6 +3216,13 @@ function frame(now) {
           try {
             paintWindshield(st.id + '-rear', {
               cls: 'truck', phase: 'ground', worldBlend: 1, bare: true,
+              // ⚠ THE WINDSCREEN'S OWN TUNE, the same object. The kept-arm and ground-tile caches
+              // hold one entry per map cell, keyed partly on the view's tune, and the mirror's
+              // slice is the same cells as the windscreen's. On RENDER_TUNE the two views rekeyed
+              // the nearest 169 tiles against each other every 250 ms, and the mirror uploaded
+              // 2 to 8 million floats a paint instead of about 600,000 (scripts/perf/movecost.mjs
+              // with a rear paint added, marrow cab).
+              tune: CAB_VIEW_TUNE,
               height: 0, eyeH: 0.12, speed: Math.min(1, Math.abs(st.sim.speed || 0) / 68),
               // ⚠ The rig's heading turned round, never the camera's: a mirror doesn't follow your head.
               heading: ((st.sim.heading || 0) + 180) % 360,
@@ -3189,6 +3245,8 @@ function frame(now) {
     paintWindshield(st.id, {
       rearImg: st.rearImg || null,
       cls: 'truck', phase: 'ground', worldBlend: 1,
+      // the shed's lift bringing the rig up, 0 on the deck to 1 flush; null with none running
+      bayLift: liftK,
       // Never below one backing pixel per CSS pixel (resFloorPx); lane markings must stay sharp.
       resFloor: 0.5, resFloorPx: 1,
       // Supersample up to 2x; it backs off on its own (see paintWindshield).

@@ -22,6 +22,22 @@
     "is_dwelling": true,
     "is_interior": true,
     "mis_ok": true,
+    "room": {
+      "balcony": false,
+      "d": 2.8,
+      "face": 0,
+      "finish": "fine",
+      "h": 2.6,
+      "studio": false,
+      "tone": {
+        "accent": "#d4708f",
+        "ceiling": "#2a1520",
+        "trim": "#1a0d14",
+        "wall": "#4a2232"
+      },
+      "w": 3.2,
+      "windowless": true
+    },
     "world_exit_zone": "zone_echelon_exterior",
     "yacht": true
   },

@@ -192,7 +192,7 @@ const BAT_BALLS = Object.freeze([[0.17, 0.09], [0.45, 0.09], [0.8, 0.05], [1.2, 
 export const SINK_SOFT = 0.03;
 // The girdle and the hull, each on unless switched off here: for the Pose Lab and the gates to see
 // what they add, never for the game.
-export const SOLVER = { girdle: true, hull: true, steps: 1, gain: 2 };
+export const SOLVER = { girdle: true, hull: true, shoulder: true, steps: 1, gain: 2 };
 // the most an elbow swings off where the pose points it, in radians, and the furthest a push
 // takes a wrist from its shoulder (at rest): short of where the IK starts to soften
 const SWING_MOST = 1.4, ARM_REACH = 0.95 * (0.98 + 0.90);
@@ -377,6 +377,38 @@ function armClear(A, T, l1, l2, pole, hull, s) {
   return [mid, add(mid, mul(norm(sub(T, mid)), l2)), pe];
 }
 
+// ── the shoulder's reach behind ────────────────────────────────────────────────
+// An upper arm goes behind the line of his back by about 50° and no further: a sprinter's elbow at
+// the end of his back swing. Nothing held a pose to it, so a run's back swing, a flip of the bat or
+// a barehanded pick-up could send it out flat behind him, which read as the arm going round his
+// back. SHOULDER_BACK is where the hold starts and the most it lets through, in degrees off the
+// chest's plane: a free arm past the first is turned forward about the shoulder, the forearm with
+// it, eased so it never quite reaches the second. An arm raised toward his shoulder's height goes
+// back less (SHOULDER_BACK_UP comes off both at level). An arm cocked to throw, the forearm up by
+// his ear, is let go further: that's a throw loading, not an arm round his back, and holding it
+// slowed the hand through the release. A hand on the bat is the bat's to place.
+export const SHOULDER_BACK = Object.freeze([36, 52]), SHOULDER_BACK_UP = 10;
+// `u` the upper arm, `f` the forearm, `C` the chest's frame
+export function shoulderBackOf(u, f, C) {
+  const ul = len(u) || 1e-9, lift = 1 - clamp(-dot(u, C[1]) / ul, 0, 1), cock = sstep(0.05, 0.5, dot(f, C[1]) / (len(f) || 1e-9));
+  const most = SHOULDER_BACK[1] - SHOULDER_BACK_UP * lift, from = SHOULDER_BACK[0] - SHOULDER_BACK_UP * lift;
+  return { back: Math.asin(clamp(-dot(u, C[2]) / ul, -1, 1)) / DEG, most: most + (90 - most) * cock, from: from + (90 - from) * cock };
+}
+function shoulderHold(sh, el, wr, pe, C) {
+  const u = sub(el, sh), F = C[2];
+  const { back, from: b0, most: b1 } = shoulderBackOf(u, sub(wr, el), C);
+  if (back <= b0) return [el, wr, pe];
+  const kept = b0 + soft(back - b0, b1 - b0), d = (back - kept) * DEG;
+  // about the axis that takes the upper arm toward his front
+  let k = cross(u, F);
+  const kl = len(k);
+  if (kl < 1e-6) return [el, wr, pe];
+  k = mul(k, 1 / kl);
+  const c = Math.cos(d), sn = Math.sin(d);
+  const rot = (v) => { const kv = cross(k, v), kd = dot(k, v); return [v[0] * c + kv[0] * sn + k[0] * kd * (1 - c), v[1] * c + kv[1] * sn + k[1] * kd * (1 - c), v[2] * c + kv[2] * sn + k[2] * kd * (1 - c)]; };
+  return [add(sh, rot(u)), add(sh, rot(sub(wr, sh))), rot(pe)];
+}
+
 // The whole pose: the torso, then each leg and arm by two-bone IK to its target, the arms kept
 // clear of the body. `J.anT` and `J.wrT` are where each ankle and wrist was asked to be (the wrist
 // after the hull has had its say), so a gate can see a limb fall short.
@@ -432,7 +464,9 @@ export function solvePose(P) {
   for (const S of ['L', 'R']) girdle(J, W, S, T[S], s, b.sh);
   for (const [S, sg] of [['L', 1], ['R', -1]]) {
     const ep = dirW(P['elb' + S] || [sg * 0.4, -0.2, -1]);
-    const [el, wr, pe] = armClear(J['sh' + S], T[S], 0.98 * s, 0.90 * s, ep, hull, s);
+    let [el, wr, pe] = armClear(J['sh' + S], T[S], 0.98 * s, 0.90 * s, ep, hull, s);
+    // a free arm swung back past what a shoulder does is brought round toward his front
+    if (SOLVER.shoulder && !J['grip' + S]) [el, wr, pe] = shoulderHold(J['sh' + S], el, wr, pe, W.chest);
     J['el' + S] = el; J['wr' + S] = wr; J['wrT' + S] = T[S]; J['epole' + S] = pe;
     if (!J['hand' + S]) {
       const hd = hdir[S] || norm(sub(wr, el));

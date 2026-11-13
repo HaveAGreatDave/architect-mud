@@ -61,6 +61,8 @@ export function createRenderer(canvas, W0, ice, { cam: from = null } = {}) {
     // (what the live picture shows, for the director: a hit it misses is replayed later)
     W0.view = { P: live.P, w, h, t: W0.t };
     const { C, P, camPos } = rp ? (rcam ??= createRinkCamera(rp.source, { snap: true })).update(w, h, now) : live;
+    // (where the replay's camera is, for a comic replay on a goalie: rink/replay.js clearView)
+    if (rp) rp.source.eye = [C.x, C.y, C.z];
     P0 = P;
 
     ctx.setTransform(1, 0, 0, 1, 0, 0);
@@ -124,7 +126,7 @@ export function createRenderer(canvas, W0, ice, { cam: from = null } = {}) {
       ctx.save(); ctx.globalCompositeOperation = 'saturation'; ctx.fillStyle = `rgba(128,128,128,${0.75 * W.mourning})`; ctx.fillRect(0, 0, w, h); ctx.restore();
       ctx.fillStyle = `rgba(0,0,0,${0.22 * W.mourning})`; ctx.fillRect(0, 0, w, h);
     }
-    drawHud(ctx, W, w, h, u, W0);
+    drawHud(ctx, W, w, h, u, W0, { P, picture: canvas });
   }
 
   const opts = (b, camPos, style) => ({ ...bodyOpts(W, b), camPos, style });

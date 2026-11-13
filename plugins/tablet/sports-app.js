@@ -70,76 +70,97 @@ const codeOf = (screenId) => {
 // screenId = a code's tab name -> that league. params = a team name -> its card.
 
 async function leagueScreen(player, code) {
-  const [standings, season] = await Promise.all([
+  const [standings, season, look, cal] = await Promise.all([
     dispatchAction({ type: 'sportsleague.getStandings', actor: player, params: { sport: code.id } }).catch(() => null),
     dispatchAction({ type: 'sportsleague.getSeason', actor: player, params: { sport: code.id } }).catch(() => null),
+    dispatchAction({ type: 'broadcast.getClubLook', actor: player, params: { sport: code.id } }).catch(() => null),
+    dispatchAction({ type: 'broadcast.getSeasonCalendar', actor: player, params: { sport: code.id } }).catch(() => null),
   ]);
   const rows = standings?.rows || [];
+  const clubs = look?.clubs || {};
 
-  // The table. Every club is tappable — its card is the interesting screen.
-  const items = rows.map((r, i) => ({
-    id: r.team,
-    label: `${String(i + 1).padStart(2)}  ${r.team}`,
-    sub: code.cols.map((c, k) => `${c} ${code.row(r)[k]}`).join('  ·  '),
-    badge: i === 0 ? 'ready' : 'active',
-    badgeLabel: i === 0 ? 'TOP' : `#${i + 1}`,
+  // The table. Every club is tappable: its card is the interesting screen.
+  const table = rows.map((r, i) => ({
+    team: r.team, pos: i + 1,
+    abbr: clubs[r.team]?.abbr || r.team.slice(0, 3).toUpperCase(),
+    colours: clubs[r.team]?.colours || null,
+    cells: code.row(r),
   }));
 
-  if (!items.length) {
-    items.push({ id: '', label: code.empty, sub: 'Tables are folded from games as they air.', badge: 'active', badgeLabel: '—' });
-  }
-
-  // The per-player races, straight off the same fold as the table above them —
+  // The per-player races, straight off the same fold as the table above them,
   // so a leader can never contradict the standings he appears in.
   const races = [];
+  const notes = [];
   if (code.id === 'baseball') {
     pushRace(races, 'Batting', standings?.batters, (r) => `${fmtAvg(r.avg)} avg · ${r.hits} H in ${r.ab} AB`);
     pushRace(races, 'Home runs', standings?.homers, (r) => `${r.hr} HR · ${r.rbi} RBI`);
     pushRace(races, 'Runs batted in', standings?.rbis, (r) => `${r.rbi} RBI · ${r.hr} HR`);
     pushRace(races, 'Stolen bases', standings?.steals, (r) => `${r.sb} SB · ${r.cs} CS`);
     pushRace(races, 'Strikeouts', standings?.strikeouts, (r) => `${r.k} K · ${r.w}-${r.l} · ${(r.era || 0).toFixed(2)} ERA`);
-    if (standings?.minAb) races.push({ note: `Qualified: ${standings.minAb}+ at-bats.` });
+    if (standings?.minAb) notes.push(`Batting race: ${standings.minAb}+ at-bats to qualify.`);
   } else {
     pushRace(races, 'Scoring', standings?.scorers, (r) => `${r.points} pts · ${r.goals} G, ${r.assists} A`);
     if (standings?.injuries) {
-      races.push({ note: `Season casualties: ${standings.injuries} carried off`
-        + (standings.deaths ? `, ${standings.deaths} of them permanently.` : '.') });
+      notes.push(`Season casualties: ${standings.injuries} carried off`
+        + (standings.deaths ? `, ${standings.deaths} of them permanently.` : '.'));
     }
   }
 
-  const rowsOut = [];
-  if (season?.seasonNo) rowsOut.push({ label: 'Season', value: `#${season.seasonNo}` });
-  if (season?.phase && season.phase !== 'regular') {
-    rowsOut.push({ label: 'Phase', value: season.phase === 'worldseries' ? 'Championship' : season.phase });
-  }
-  if (season?.finalistA && season?.finalistB) {
-    rowsOut.push({ label: 'Final', value: `${season.finalistA} v ${season.finalistB}` });
-  }
-  for (const r of races) {
-    if (r.note) { rowsOut.push({ label: '', value: r.note }); continue; }
-    rowsOut.push({ label: r.title, value: '' });
-    for (const line of r.lines) rowsOut.push({ label: `  ${line.name}`, value: line.stat });
-  }
+  const final = await finalFor(player, code, season, cal);
 
   // What the home-screen card is currently set to, and the button that walks it on
-  // to the next setting. One action, four states — cheaper to read than a row of
-  // four buttons, and this screen is a table, not a settings panel.
+  // to the next setting. One action, four states.
   const mode = await widgetModeOf(player);
   const follow = await followedTeam(player);
   const nextMode = WIDGET_MODES[(WIDGET_MODES.indexOf(mode) + 1) % WIDGET_MODES.length];
-  rowsOut.push({ label: '—', value: '' });
-  rowsOut.push({ label: 'Home card', value: WIDGET_MODE_LABEL[mode] + (follow ? ` · following ${follow}` : '') });
 
   return {
-    view: 'list',
+    view: 'sports',
     breadcrumb: ['Sports', code.tab],
     activeTab: code.tab,
-    tabs: Object.values(CODES).map(c => ({ id: c.tab, label: c.tab })),
-    boardName: `${code.icon} ${code.league}`,
-    items,
-    rows: rowsOut,
+    tabs: Object.values(CODES).map(c => ({ id: c.tab, label: `${c.icon} ${c.tab}` })),
+    sport: code.id, icon: code.icon, league: code.league, show: code.tab,
+    seasonNo: season?.seasonNo || null,
+    day: cal ? { of: cal.dayOfMonth, days: cal.monthDays } : null,
+    final,
+    cols: code.cols, table, empty: code.empty,
+    follow,
+    races, notes,
+    homeCard: WIDGET_MODE_LABEL[mode] + (follow ? ` · following ${follow}` : ''),
     actions: [{ id: `widget:${code.id}:${nextMode}`, label: `Home card: ${WIDGET_MODE_LABEL[nextMode]}` }],
   };
+}
+
+// The season's final: its name, the date and hour it airs, and who's in it once the
+// league has seeded it. Before then it's the last day of the season's month, in the
+// sport's last slot that day, the same sum the league seeds it with.
+async function finalFor(player, code, season, cal) {
+  let slot = season?.phase === 'worldseries' && season.wsSlot != null ? season.wsSlot : null;
+  if (slot == null && season?.startSlot != null) {
+    const sc = await dispatchAction({ type: 'broadcast.getSeasonCalendar', actor: player, params: { sport: code.id, slot: season.startSlot } }).catch(() => null);
+    slot = sc?.finalSlot ?? null;
+  }
+  if (slot == null) slot = cal?.finalSlot ?? null;
+  if (slot == null) return null;
+  const when = await dispatchAction({ type: 'broadcast.slotWhen', actor: player, params: { slot } }).catch(() => null);
+  if (!when) return null;
+  const seeded = season?.phase === 'worldseries' && season.finalistA && season.finalistB;
+  return {
+    title: FINAL_TITLE[code.id],
+    date: when.date, dateLabel: fmtGameDate(when.date),
+    hour: when.hour, time: `${String(when.hour).padStart(2, '0')}:00`,
+    daysAway: when.daysAway,
+    state: when.slotsAway === 0 ? 'live' : when.slotsAway < 0 ? 'played' : 'upcoming',
+    teams: seeded ? [season.finalistA, season.finalistB] : null,
+  };
+}
+const FINAL_TITLE = { baseball: 'Curtain Call', hockey: 'Coldwater Cup' };
+const DOW = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+const MON = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+function fmtGameDate(iso) {
+  const d = new Date(`${iso}T00:00:00Z`);
+  if (Number.isNaN(d.getTime())) return iso;
+  return `${DOW[d.getUTCDay()]} ${d.getUTCDate()} ${MON[d.getUTCMonth()]} ${d.getUTCFullYear()}`;
 }
 
 function pushRace(out, title, rows, stat) {
@@ -153,65 +174,52 @@ async function teamScreen(player, code, teamParam) {
   // The dispatcher lowercases every command it tokenizes, so the club name that
   // comes back off a tap is 'coldwater kingfishers', never the 'Coldwater
   // Kingfishers' the league knows. Resolve it against the live table BEFORE asking
-  // for a card — an exact-match lookup on the lowercased string finds nothing, and
-  // the screen reads as a club that has never played.
-  const standings = await dispatchAction({ type: 'sportsleague.getStandings', actor: player, params: { sport: code.id } }).catch(() => null);
+  // for a card: an exact-match lookup on the lowercased string finds nothing.
+  const [standings, season, look] = await Promise.all([
+    dispatchAction({ type: 'sportsleague.getStandings', actor: player, params: { sport: code.id } }).catch(() => null),
+    dispatchAction({ type: 'sportsleague.getSeason', actor: player, params: { sport: code.id } }).catch(() => null),
+    dispatchAction({ type: 'broadcast.getClubLook', actor: player, params: { sport: code.id } }).catch(() => null),
+  ]);
   const rows = standings?.rows || [];
   const team = resolveTeam(rows, teamParam);
-  const card = await dispatchAction({ type: 'broadcast.getTeamCard', actor: player, params: { sport: code.id, team } }).catch(() => null);
-  const following = await followedTeam(player);
+  const [card, following] = await Promise.all([
+    dispatchAction({ type: 'broadcast.getTeamCard', actor: player, params: { sport: code.id, team } }).catch(() => null),
+    followedTeam(player),
+  ]);
   const idx = rows.findIndex(r => r.team === team);
   const rec = idx >= 0 ? rows[idx] : null;
-
-  const out = [];
-  if (rec) {
-    out.push({ label: 'Position', value: `${idx + 1} of ${rows.length}` });
-    code.cols.forEach((c, k) => out.push({ label: c, value: code.row(rec)[k] }));
-  } else {
-    out.push({ label: 'Record', value: "Hasn't played yet this season." });
-  }
-
-  if (card?.streak > 1) {
-    out.push({ label: 'Streak', value: `${card.streak} ${card.streakWon ? 'wins' : 'losses'} running` });
-  }
-
-  if (card?.form?.length) {
-    out.push({ label: '—', value: '' });
-    out.push({ label: 'Form', value: card.form.map(f => (f.won ? 'W' : 'L')).join(' ') + '   (newest first)' });
-    for (const f of card.form) {
-      out.push({
-        label: `  ${f.won ? 'W' : 'L'} ${f.us}–${f.them}`,
-        value: `${f.home ? 'vs' : 'at'} ${f.opponent}${f.overtime ? ' (OT)' : ''}`,
-      });
-    }
-  }
+  const clubs = look?.clubs || {};
 
   // Upcoming carries NO score. Every game is a pure function of its slot, so the
-  // result of a game that hasn't aired is computable — and printing it would spoil
+  // result of a game that hasn't aired is computable, and printing it would spoil
   // the broadcast this whole system exists to make worth watching.
-  out.push({ label: '—', value: '' });
+  let next = null;
   if (card?.next) {
     const n = card.next;
-    const when = n.live ? 'On air now'
-      : n.slotsAway <= 1 ? 'Next up'
-      : `${n.slotsAway} slots away · ${String(Math.floor(n.hour)).padStart(2, '0')}:00`;
-    out.push({ label: 'Next game', value: `${n.home ? 'vs' : 'at'} ${n.opponent}` });
-    out.push({ label: 'When', value: when });
-  } else {
-    out.push({ label: 'Next game', value: 'Nothing scheduled in the current window.' });
+    next = {
+      opponent: n.opponent, home: n.home, live: !!n.live,
+      oppAbbr: clubs[n.opponent]?.abbr || null, oppColours: clubs[n.opponent]?.colours || null,
+      when: n.live ? 'On air now' : n.slotsAway <= 1 ? 'Next up' : `${String(Math.floor(n.hour)).padStart(2, '0')}:00 · ${n.slotsAway} slots away`,
+    };
   }
 
+  const inFinal = season?.phase === 'worldseries' && [season.finalistA, season.finalistB].includes(team);
+  const final = inFinal ? await finalFor(player, code, season, null) : null;
+
   return {
-    view: 'detail',
+    view: 'sports_team',
     breadcrumb: ['Sports', code.tab, team],
-    detail: {
-      id: team, name: team,
-      desc: `${code.icon} ${code.league}${following === team ? ' · following' : ''}`,
-      rows: out,
-    },
+    sport: code.id, icon: code.icon, league: code.league,
+    team, abbr: clubs[team]?.abbr || team.slice(0, 3).toUpperCase(), colours: clubs[team]?.colours || null,
+    following: following === team,
+    pos: rec ? idx + 1 : null, of: rows.length,
+    cols: code.cols, cells: rec ? code.row(rec) : null,
+    streak: card?.streak > 1 ? `${card.streak} ${card.streakWon ? 'wins' : 'losses'} running` : null,
+    form: (card?.form || []).map(f => ({ won: f.won, us: f.us, them: f.them, home: f.home, opponent: f.opponent, overtime: !!f.overtime })),
+    next, final,
     // Following a club points the home-screen card at the next time THEY are on
-    // television instead of whatever airs next. The detail view hands its own id
-    // through as the action's params, so the club travels with the tap.
+    // television. The id travels as the action's params.
+    detail: { id: team },
     actions: [{
       id: `follow:${code.id}`,
       label: following === team ? '★ Following: tap to unfollow' : '☆ Follow on home screen',

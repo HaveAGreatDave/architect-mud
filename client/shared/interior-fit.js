@@ -318,13 +318,16 @@ function truckWheel(S) {
     const W = K.panel([hub[0], hub[1] - 0.02, hub[2] + 0.005], [1, 0, 0], up);
     W.annulus(0, 0, 0.045, 0.05, glow, 0.7, 0.012, 20);
   }
-  // Two stalks: indicators and wipers on the left, the retarder on the right.
-  K.rod([-0.05, 0.47, -0.56], [-0.21, 0.43, -0.53], 0.008, 'dash', 0, C.black, 0, 5);
-  K.rod([-0.21, 0.43, -0.53], [-0.235, 0.425, -0.525], 0.012, 'dash', 0, C.steel, 0.1, 5);
-  if (tier > 0) {
-    K.rod([0.05, 0.47, -0.56], [0.20, 0.44, -0.58], 0.008, 'dash', 0, C.black, 0, 5);
-    K.rod([0.20, 0.44, -0.58], [0.225, 0.435, -0.585], 0.012, 'dash', 0, C.amber, 0.2, 5);
-  }
+  // Two stalks: indicators and wipers on the left, the retarder on the right. Each ends in a
+  // rubber grip with a thin band of colour at its tip (amber for the retarder), not a lit block.
+  const stalk = (a, b, tip, band) => {
+    K.rod(a, b, 0.008, 'dash', 0, C.black, 0, 6);
+    const d = [tip[0] - b[0], tip[1] - b[1], tip[2] - b[2]];
+    K.rod(b, add3(b, [d[0] * 0.8, d[1] * 0.8, d[2] * 0.8]), 0.013, 'dash', 0.05, C.rubber, 0, 8);
+    K.rod(add3(b, [d[0] * 0.8, d[1] * 0.8, d[2] * 0.8]), tip, 0.0135, 'dash', 0.1, band, 0, 8);
+  };
+  stalk([-0.05, 0.47, -0.56], [-0.21, 0.43, -0.53], [-0.25, 0.42, -0.522], C.steel);
+  if (tier > 0) stalk([0.05, 0.47, -0.56], [0.20, 0.44, -0.58], [0.24, 0.43, -0.588], [150, 104, 44]);
 }
 
 // ── THE STACKS ───────────────────────────────────────────────────────────────
@@ -533,13 +536,22 @@ function truckTunnel(S) {
   if (tier >= 2) {
     for (let i = 0; i < 4; i++) K.box(base[0] - 0.06 + i * 0.035 - 0.003, base[1] - 0.05, tz + 0.012, base[0] - 0.06 + i * 0.035 + 0.003, base[1] + 0.05, tz + 0.014, 'dash', 0, glow, on ? 0.6 : 0.05);
   }
-  K.obox([base[0], base[1], tz + 0.045], [1, 0, 0], [0, 1, 0], [0, 0, 1], 0.05, 0.05, 0.035, 'dash', 0, C.rubber);
+  // The gaiter: a rubber cone stepping in from the plate to the lever, leaning with it.
+  const top = [base[0] + gx * 0.35, base[1] + (gy - 0.04) * 0.35, tz + 0.10];
+  K.rod([base[0], base[1], tz + 0.012], [base[0] + gx * 0.15, base[1] + (gy - 0.04) * 0.15, tz + 0.05], 0.052, 'dash', 0, C.rubber, 0, 10);
+  K.rod([base[0] + gx * 0.15, base[1] + (gy - 0.04) * 0.15, tz + 0.05], top, 0.034, 'dash', 0, C.rubber, 0, 10);
   const tall = tier === 3 ? 0.30 : 0.40;
   const knob = [base[0] + gx, base[1] + gy - 0.04, tz + tall];
-  K.rod([base[0], base[1], tz + 0.07], knob, 0.011, 'dash', 0, C.chrome, 0.1, 6);
+  K.rod(top, knob, 0.011, 'dash', 0, C.chrome, 0.1, 8);
+  // The knob: a turned mushroom with a chrome collar, and the shift pattern let into its crown.
   const knobRgb = tier === 3 ? C.wood : C.black;
-  K.obox(knob, [1, 0, 0], [0, 0, 1], [0, 1, 0], 0.030, 0.042, 0.030, 'dash', 0.1, knobRgb);
-  K.obox(add3(knob, [-0.031, 0, 0.01]), [1, 0, 0], [0, 0, 1], [0, 1, 0], 0.004, 0.010, 0.012, 'dash', 0.2, tier >= 2 ? glow : C.amber, 0.3);
+  K.rod(add3(knob, [0, 0, -0.012]), add3(knob, [0, 0, -0.004]), 0.020, 'dash', 0.3, C.chrome, 0.05, 10);
+  K.rod(add3(knob, [0, 0, -0.004]), add3(knob, [0, 0, 0.030]), 0.032, 'dash', 0.1, knobRgb, 0, 12);
+  K.rod(add3(knob, [0, 0, 0.030]), add3(knob, [0, 0, 0.040]), 0.026, 'dash', 0.15, knobRgb, 0, 12);
+  const crown = K.panel(add3(knob, [0, 0, 0.0405]), [1, 0, 0], [0, 1, 0]);
+  const ink = tier >= 2 ? glow : [210, 206, 196];
+  for (const x of [-0.012, 0, 0.012]) crown.rect(x - 0.0012, -0.011, x + 0.0012, 0.011, ink, tier >= 2 && on ? 0.5 : 0, 0.0006);
+  crown.rect(-0.0132, -0.0012, 0.0132, 0.0012, ink, tier >= 2 && on ? 0.5 : 0, 0.0006);
 }
 
 // ── THE PEDALS ───────────────────────────────────────────────────────────────

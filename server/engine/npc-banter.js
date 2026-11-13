@@ -253,6 +253,13 @@ async function startScene(zoneId, npcs, broadcast) {
   runTurn(zoneId, broadcast);
 }
 
+// For another conversation layer (plugins/ambient-life/home-talk.js): is a generic scene running here,
+// and hold the zone quiet for `ms` so one doesn't start over the top of theirs.
+export const isBanterBusy = (zoneId) => activeScenes.has(zoneId);
+export function holdBanterZone(zoneId, ms) {
+  zoneCooldown.set(zoneId, Math.max(zoneCooldown.get(zoneId) ?? 0, Date.now() + ms));
+}
+
 // Initiation tick (scheduled). Scans witnessed zones and occasionally kicks off
 // a scene where two idle NPCs share the room. Turn-by-turn pacing is handled by
 // the per-scene timers above; this only decides when a scene begins.

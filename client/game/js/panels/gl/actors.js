@@ -91,6 +91,9 @@ uniform mat4 uView;
 uniform float uFogNear;
 uniform float uFogFar;
 uniform float uFogAmt;
+// 1 in the main pass while gl/street-hd.js draws the nearest people close up: a record it draws comes with its
+// brightness negative (iLit.x), and is put off the screen here. The mirror and the ink's depth prepass keep it.
+uniform float uHideHD;
 ${OUTLINE_GLSL}
 out vec3 vColor;
 out vec3 vN;
@@ -118,6 +121,7 @@ void clipAt(vec4 c, out vec3 p, out vec3 n) {
   n = mix(texelFetch(uNrmT, texel(b + f0), 0).xyz, texelFetch(uNrmT, texel(b + f1), 0).xyz, t);
 }
 void main() {
+  if (iLit.x < 0.0 && uHideHD > 0.5) { gl_Position = vec4(2.0, 2.0, 2.0, 1.0); return; }
   vec3 p;
   vec3 n;
   clipAt(iClipA, p, n);
@@ -154,7 +158,7 @@ void main() {
   vToEye = -transpose(mat3(uView)) * uView[3].xyz - w;
   vColor = m == 0 ? iSkin : m == 1 ? iCoat : m == 2 ? iLegs : m == 3 ? iShoe
          : m == 4 ? iHair : m == 5 ? vec3(0.035) : iSkin * vec3(0.78, 0.55, 0.55);
-  vLum = iLit.x;
+  vLum = abs(iLit.x);
   vAlpha = iLit.y;
   vec4 clip = uViewProj * vec4(w, 1.0);
   gl_Position = outlined(w, vN, vToEye, iPos.w, clip);
@@ -403,6 +407,7 @@ in vec4 iFace;
 uniform highp sampler2D uBones;
 uniform mat4 uViewProj;
 uniform mat4 uView;
+uniform float uHideHD;
 ${OUTLINE_GLSL}
 uniform float uFogNear;
 uniform float uFogFar;
@@ -440,6 +445,7 @@ mat4 boneAt(vec4 c, int at) {
   return boneOf(b + f0, at) * (1.0 - t) + boneOf(b + f1, at) * t;
 }
 void main() {
+  if (iFace.x < 0.0 && uHideHD > 0.5) { gl_Position = vec4(2.0, 2.0, 2.0, 1.0); return; }
   mat4 MH = boneAt(iClipA, ${ACTOR_HEAD_BONES.head});
   mat4 MN = boneAt(iClipA, ${ACTOR_HEAD_BONES.neck});
   if (iClipB.w > 0.0) {
@@ -465,7 +471,7 @@ void main() {
   vec4 clip = uViewProj * vec4(w, 1.0);
   gl_Position = outlined(w, vN, vToEye, iPos.w, clip);
   float ff = clamp((clip.w - uFogNear) / max(1e-3, uFogFar - uFogNear), 0.0, 1.0);
-  vMisc = vec4(sel, ff * ff * uFogAmt, iFace.x, iFace.y);
+  vMisc = vec4(sel, ff * ff * uFogAmt, abs(iFace.x), iFace.y);
 }`;
 
 // The lab's head shading (tools/modelshop/actor-head.js HEAD_FRAG) on the atlas, lit the way the body
@@ -688,6 +694,7 @@ export function createActorLayer(gl) {
     view: gl.getUniformLocation(prog, 'uView'),
     out: gl.getUniformLocation(prog, 'uOut'), outRes: gl.getUniformLocation(prog, 'uOutRes'), outOn: gl.getUniformLocation(prog, 'uOutOn'), outCol: gl.getUniformLocation(prog, 'uOutCol'),
     look: gl.getUniformLocation(prog, 'uLook'),
+    hideHD: gl.getUniformLocation(prog, 'uHideHD'),
     matOn: gl.getUniformLocation(prog, 'uMat'),
     top: gl.getUniformLocation(prog, 'uTop'),
     rest: A('aRest'),
@@ -714,7 +721,7 @@ export function createActorLayer(gl) {
     bones: HU('uBones'), atlas: HU('uAtlas'), viewProj: HU('uViewProj'), view: HU('uView'),
     fog: HU('uFog'), fogNear: HU('uFogNear'), fogFar: HU('uFogFar'), fogAmt: HU('uFogAmt'),
     out: HU('uOut'), outRes: HU('uOutRes'), outOn: HU('uOutOn'), outCol: HU('uOutCol'),
-    keyDir: HU('uKeyDir'), dim: HU('uDim'),
+    keyDir: HU('uKeyDir'), dim: HU('uDim'), hideHD: HU('uHideHD'),
     wlN: HU('uWLN'), wlP: HU('uWLP'), wlC: HU('uWLC'), wlR: HU('uWLR'),
   };
   // The wall's light grid (RENDER_TUNE.glCluster), which context.js binds through opts.lightGrid.
@@ -921,7 +928,8 @@ export function createActorLayer(gl) {
       data[o + 4] = A.row0; data[o + 5] = A.len; data[o + 6] = r.ph || 0; data[o + 7] = r.hd || 0;
       data[o + 8] = Bc ? Bc.row0 : 0; data[o + 9] = Bc ? Bc.len : 1; data[o + 10] = r.ph2 || 0; data[o + 11] = Bc ? (r.mix || 0) : 0;
       c(o + 12, r.o.coat); c(o + 15, r.o.legs); c(o + 18, r.o.skin); c(o + 21, r.o.hair); c(o + 24, r.o.shoes);
-      data[o + 27] = r.lum == null ? 1 : r.lum; data[o + 28] = r.a == null ? 1 : r.a;
+      // drawn close up by gl/street-hd.js: the brightness goes negative, for uHideHD
+      data[o + 27] = (r.lum == null ? 1 : r.lum) * (r.close ? -1 : 1); data[o + 28] = r.a == null ? 1 : r.a;
       const mt = r.o.mat;
       data[o + 29] = mt ? (mt[0] & 7) + (mt[1] & 7) * 8 + (mt[2] & 7) * 64 : 0;
       const bd = r.o.body;
@@ -956,7 +964,7 @@ export function createActorLayer(gl) {
       hdata[o + 8] = Bc ? Bc.row0 : 0; hdata[o + 9] = Bc ? Bc.len : 1; hdata[o + 10] = r.ph2 || 0; hdata[o + 11] = Bc ? (r.mix || 0) : 0;
       c(o + 12, r.o.skin); c(o + 15, r.o.hair);
       c(o + 18, F ? F.lip : r.o.skin); c(o + 21, F ? F.lipstick : r.o.skin); c(o + 24, F ? F.iris : [60, 44, 32]);
-      hdata[o + 27] = r.lum == null ? 1 : r.lum; hdata[o + 28] = r.a == null ? 1 : r.a;
+      hdata[o + 27] = (r.lum == null ? 1 : r.lum) * (r.close ? -1 : 1); hdata[o + 28] = r.a == null ? 1 : r.a;
       hdata[o + 29] = (F ? F.layout : 0) + 32 * (b % HAIR_STYLES); hdata[o + 30] = F ? F.makeup : 0;
     }
     hstream.write(hdata, nh * HSTRIDE);
@@ -1023,6 +1031,8 @@ export function createActorLayer(gl) {
       gl.uniform3f(U.keyDir, key[0], key[1], key[2]);
       gl.uniform1i(U.wlN, nW);
       gl.uniform1f(U.dim, opts.nightDim > 0 ? opts.nightDim : 1);
+      // the main pass leaves out whoever gl/street-hd.js drew close up; the mirror and the depth prepass keep them
+      gl.uniform1f(U.hideHD, opts.hideHD && !opts.depthOnly ? 1 : 0);
       if (nW) { gl.uniform3fv(U.wlP, wlP); gl.uniform3fv(U.wlC, wlC); gl.uniform1fv(U.wlR, wlR); }
       // Bound on every draw, grid or not: the samplers need units of their own either way.
       if (opts.lightGrid) opts.lightGrid(U, 8); else bindNoLightGrid(gl, U, 8);

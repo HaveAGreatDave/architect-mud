@@ -54,8 +54,9 @@ function fightBone(wound) {
 // A punch's share of what a fight takes out of a man (the pips over the fight): a jab less,
 // an uppercut or a hook more. By the rig's action for it.
 const PIP_W = { jab: 0.6, punchL: 1, punchR: 1, uppercut: 1.5, hook: 1.5 };
-import { makeBody, ratingsFor } from './sim.js';
+import { makeBody, ratingsFor, passPlay, stickSide as stickSideOf } from './sim.js';
 import { createReplay } from './replay.js';
+import { comicSpecOf, comicPlan, comicExtra, periodOf, RINK_COMIC, COMIC_CHANCES } from './comic.js';
 import { createRinkCamera } from './camera.js';
 import { clubOf } from '../club-crest.js';
 
@@ -214,7 +215,7 @@ export function createDirector(W, opts = {}) {
     return B;
   }
   const at = (B, dt, fn) => W.schedule(dt, () => { if (D.beat === B) fn(); });
-  function land(B) { if (B.landed) return; B.landed = true; opts.onLand?.(B.kind); }
+  function land(B) { if (B.landed) return; B.landed = true; B.onLanded?.(); opts.onLand?.(B.kind); }
   function finish(B) {
     if (D.beat !== B) return;
     land(B);
@@ -273,9 +274,10 @@ export function createDirector(W, opts = {}) {
       if (!S.heard && d > -0.55) { S.heard = true; W.sfx('xrayIn', { gore }); }
       if (!S.broke && d >= 0) { S.broke = true; W.sfx('boneCrack', { gore, dead: S.xray.dead }); if (gore === 'full') W.sfx('boneWet'); }
     }
+    if (D.foulPending && W.t >= D.foulPending.saveAt) saveFoul();
     if (D.hitPending && W.t >= D.hitPending.saveAt) {
       const h = D.hitPending; D.hitPending = null;
-      const clip = replay.save(h.t - 3.2, h.t + 1.2);
+      const clip = replay.save(h.t - 3.2, h.t + (h.comic ? RINK_COMIC.after : 1.2));
       if (clip) D.hitClip = { ...h, clip };
     }
     const B = D.beat, S = D.hitShow, rel = B ? W.t - B.t0 : 0;
@@ -283,7 +285,8 @@ export function createDirector(W, opts = {}) {
     const late = !!B && B.kind === 'faceoff' && (B.down || rel > B.dropAt - 1.2);
     if (S) {
       if (S.phase === 'in' && W.t >= S.at) {
-        if (late || !replay.play(S.clip, S.speed, S.follow, S.label, S.xray || null)) { D.hitShow = null; return; }
+        if (late || !replay.play(S.clip, S.speed, S.follow, S.label, S.xray || null, S.comic || null)) { D.hitShow = null; return; }
+        replay.foul = !!S.foul;
         S.phase = 'on';
       } else if (S.phase === 'on' && (!replay.active || replay.left() <= WIPE / 2 || late || !W.frozen)) { wipe(); S.phase = 'out'; S.at = W.t + WIPE / 2; }
       else if (S.phase === 'out' && W.t >= S.at) { if (replay.kind === 'hit') replay.stop(); D.hitShow = null; }
@@ -292,15 +295,67 @@ export function createDirector(W, opts = {}) {
     const H = D.hitClip;
     if (!H || D.recall == null || !B || replay.active || !W.frozen || late || rel < Math.max(0.3, D.recall - 2.5)) return;
     D.recall = null;
-    // up to the drop (its wipe back and a second to spare), or eight seconds
-    const room = Math.min(8, B.kind === 'faceoff' ? B.dropAt - rel - 1.2 - WIPE : 8);
+    // up to the drop (its wipe back and a second to spare), or eight seconds; a comic one up to
+    // RINK_COMIC.room, the freeze and the page out of it (a seen hit is only ever a comic one)
+    const room0 = B.kind === 'faceoff' ? B.dropAt - rel - 1.2 - WIPE : Infinity;
+    const plan = H.comic && comicOn() ? comicPlan(Math.min(RINK_COMIC.room, room0)) : null;
+    if (!plan && H.seen) { D.hitClip = null; return; }
+    const room = plan ? Math.min(RINK_COMIC.room, room0) - comicExtra(plan) : Math.min(8, room0);
     if (room < 2.5) return;
     D.hitClip = null;
+    if (D.comic && D.comic.t < H.t) D.comic = null;
     // three quarters speed or slower; short of room, less of the run-up
-    const len = H.clip.to - H.clip.from, speed = clamp(len / room, 0.5, 0.75), span = Math.min(len, room * speed);
-    const from = Math.max(H.clip.from, H.t - span + Math.min(1.2, span * 0.3, H.clip.to - H.t));
+    const len = H.clip.to - H.clip.from, speed = clamp(len / room, plan ? 0.4 : 0.5, 0.75), span = Math.min(len, room * speed);
+    const from = Math.max(H.clip.from, H.t - span + (plan ? Math.min(H.clip.to - H.t, span * 0.6) : Math.min(1.2, span * 0.3, H.clip.to - H.t)));
     const clip = { frames: H.clip.frames, from, to: Math.min(H.clip.to, from + span) };
-    D.hitShow = { phase: 'in', at: W.t + WIPE / 2, clip, follow: H.follow, label: H.label, speed };
+    D.hitShow = { phase: 'in', at: W.t + WIPE / 2, clip, follow: H.follow, label: H.label, speed,
+      comic: plan ? { ...H.comic, key: H.t, page: plan === 'page' } : null };
+    wipe();
+  }
+  // COMIC REPLAYS (rink/comic.js), with the comic look on and motion allowed (the view says, as
+  // `W.comicReplays`). A goal's replay is a comic one in its own slot (see `goal`), and so is a hit
+  // the booth brings up (`hitReplays`, seen or not). A shot off the post, a big save and the punch
+  // that wins a fight are kept as `D.comic` (`keepComic`) and shown here once play is stopped: its
+  // clip taken a moment after the moment, then run behind the wipe as a hit's is, through the
+  // stoppage's own beats, and cut short behind the wipe if the draw comes first. Only the latest is
+  // kept, a hit brought up wins over it, and a goal, a death or a period's end drops it, as the
+  // booth has moved on. One older than COMIC_AGE is dropped too.
+  const comicOn = () => !!(W.comicReplays && W.comicReplays());
+  // (every shot struck, and by whom: a goal's comic replay freezes on the one that went in)
+  { const shoot0 = W.shoot; W.shoot = (b, ...a) => { D.lastShot = b ? { t: W.t, seed: b.seed, side: b.side } : null; return shoot0(b, ...a); }; }
+  const COMIC_AGE = 30;
+  // `kind` goal, post, save, hit or fight, `sub` what happened, `f` the names (comicSpecOf); `at`
+  // what the freeze bursts on (puck, hit or head), `focus` and `by` the man it's on and the man
+  // who did it (seeds and sides). Recorded until a moment after.
+  function keepComic(kind, sub, f, at, focus = null, by = null, startIn = 0) {
+    const A = RINK_COMIC.after;
+    D.comic = { t: W.t, saveAt: W.t + A + 0.05, startAt: Math.max(W.t + startIn, W.t + A + 0.05), at, focus, by, clip: null,
+      spec: comicSpecOf(kind, sub, f), label: f.note || null };
+    D.recordUntil = W.t + A + 0.1;
+    return D.comic;
+  }
+  function comicReplays() {
+    const C = D.comic;
+    if (!C) return;
+    if (!C.clip && W.t >= C.saveAt) { C.clip = replay.save(C.t - 3.2, C.t + RINK_COMIC.after); if (!C.clip) { D.comic = null; return; } }
+    if (W.t - C.t > COMIC_AGE) { D.comic = null; return; }
+    // (a hit the booth's bringing up goes first)
+    if (D.hitClip && D.recall != null) return;
+    if (!C.clip || D.hitShow || replay.active || !W.frozen || W.t < C.startAt) return;
+    const B = D.beat, rel = B ? W.t - B.t0 : 0;
+    if (B && B.kind === 'faceoff' && (B.down || rel > B.dropAt - 1.2)) return;
+    const room = Math.min(RINK_COMIC.room, B && B.kind === 'faceoff' ? B.dropAt - rel - 1.2 - WIPE : RINK_COMIC.room);
+    const plan = comicPlan(room);
+    D.comic = null;
+    if (!plan) return;
+    // the slow motion gets what the freeze and the page leave; short of room, less of the run-up
+    const run = room - comicExtra(plan), len = C.clip.to - C.clip.from;
+    const speed = clamp(len / run, 0.4, 0.75), span = Math.min(len, run * speed);
+    // (all of the finish, which the page's last frame is, and the run-up gets what's left)
+    const from = Math.max(C.clip.from, C.t - span + Math.min(C.clip.to - C.t, span * 0.6));
+    const clip = { frames: C.clip.frames, from, to: Math.min(C.clip.to, from + span) };
+    D.hitShow = { phase: 'in', at: W.t + WIPE / 2, clip, follow: C.focus, label: C.label, speed,
+      comic: { spec: C.spec, key: C.t, page: plan === 'page', at: C.at, focus: C.focus, by: C.by, clear: C.clear || null, pathFrom: C.pathFrom ?? null } };
     wipe();
   }
   const busyBody = (b) => D.tasks.some((k) => k.bodies && k.bodies.includes(b));
@@ -606,6 +661,20 @@ export function createDirector(W, opts = {}) {
     const def = other(att), dir = attackDir(att);
     const netX = att === 'a' ? GOAL_X[1] : GOAL_X[0];
     const kind = p.kind === 'goal' || p.type === 'goal' ? 'goal' : (SAVE[p.kind] ? p.kind : 'save');
+    // a shot off the post or a big save is kept for a comic replay at the next stoppage, from the
+    // moment it lands (the puck at the net: a beat cut short before its shot keeps nothing)
+    if (COMIC_CHANCES.has(kind) && comicOn()) {
+      B.onLanded = () => {
+        if (hyp(pk.x - netX, pk.y - MID_Y) > 30) return;
+        // (the camera on the goalie: on the puck, the men in front of his crease hid him)
+        // and the men between the camera and him left out (rink/replay.js `clear`)
+        const gk = g && g.active ? { seed: g.seed, side: g.side } : null;
+        const kept = keepComic(kind === 'post' ? 'post' : 'save', kind, { a: p.shooter, b: p.goalie, period: periodOf(p), clock: p.clock }, 'puck', gk);
+        kept.clear = gk;
+        // (its flight from the stick inked into the freeze)
+        if (D.lastShot && W.t - D.lastShot.t < 3) kept.pathFrom = D.lastShot.t;
+      };
+    }
     const type = SHOTS[p.shotType] ? p.shotType : 'wrist';
     const r = rng(hash(`${p.clock}|${p.shooter}|${p.kind}`));
     const g = W.goalie[def];
@@ -790,16 +859,28 @@ export function createDirector(W, opts = {}) {
         const nd = nodes[li], tb = touchBody(nd);
         const passing = tb && tb !== cur && nd.ev !== 'battle' && nd.ev !== 'dump';
         if (passing) { script(tb); cur.tx = lerp(cur.x, nd.x, 0.25); cur.ty = lerp(cur.y, nd.y, 0.25); }
-        leg = { kind: 'wait', until: want, mover: passing ? tb : cur, tx: nd.x, ty: nd.y, t: 0, hold: passing ? [cur.tx, cur.ty] : null };
+        // (a drop the booth has called is set up: he carries on up the ice past the spot, and the
+        // man it's left for comes up to it behind him. Left where they were, the man was as often
+        // ahead of him as not, and the drop was played as a pass forward.)
+        const said0 = passing ? cueAt(p, 'node', 'i', nd.oi) : null, drop = !!(said0 && said0.pass === 'drop');
+        if (drop) {
+          let hx = nd.x + dir * 14, hy = nd.y + (MID_Y - nd.y) * 0.2;
+          const hc = insideRink(hx, hy, 6); if (hc) { hx = hc.x; hy = hc.y; }
+          cur.tx = inFront(hx); cur.ty = hy;
+        }
+        leg = { kind: 'wait', until: want, mover: passing ? tb : cur, tx: nd.x, ty: nd.y, t: 0, hold: passing ? [cur.tx, cur.ty] : null, drop };
         return;
       }
       // A dump goes in from about where the sim had it. From well short of that (his own
       // end, when the play joined where the puck was) it would be icing, and it would leave
-      // his side chasing it the length of the ice: he carries it up there first.
-      if (nodes[li].ev === 'dump' && (nodes[li].x - cur.x) * dir > 30) {
+      // his side chasing it the length of the ice: he carries it up there first. (Over the red
+      // line it isn't icing, so once its line has aired he puts it in from where he is: carried
+      // the rest of the way, a dump two seconds late put the shot after its save was called.)
+      const lateDump = (n) => n.ev === 'dump' && (cur.x - RL / 2) * dir > 4 && want != null && W.t - B.t0 > want + 0.3;
+      if (nodes[li].ev === 'dump' && (nodes[li].x - cur.x) * dir > 30 && !lateDump(nodes[li])) {
         const up = nodes[li];
         cur.tx = up.x; cur.ty = up.y; cur.maxV = 24;
-        leg = { kind: 'carry', up: true, t: 0, dist: hyp(up.x - cur.x, up.y - cur.y), tx: up.x, ty: up.y };
+        leg = { kind: 'carry', up: true, dump: true, t: 0, dist: hyp(up.x - cur.x, up.y - cur.y), tx: up.x, ty: up.y };
         return;
       }
       // Nor is anything passed the length of the ice: a receiver more than 85 ft off is a
@@ -858,24 +939,53 @@ export function createDirector(W, opts = {}) {
         tb.tx = nd.x; tb.ty = nd.y; tb.maxV = 22;
         // (sprung: he takes it in stride, going)
         if (ba && nd === ba.S) { tb.tx = nd.x + dir * 16; tb.maxV = 20; tb.through = W.t + 0.1; }
-        // a drop pass is for a man right behind him; farther back it's played firmly; and it's
-        // lifted only when the booth called a saucer (the kind rides on the touch's cue)
-        const pd = hyp(tb.x - cur.x, tb.y - cur.y), said = cueAt(p, 'node', 'i', nd.oi);
-        const pkind = said && said.pass === 'saucer' ? 'saucer' : passKind(cur, tb);
-        W.act(cur, pkind, SHOTS[pkind].dur); cur.look = [tb.x, tb.y, 1];
+        // PLAYED THE WAY THE BOOTH CALLED IT (the kind rides on the touch's cue: see passPlay in
+        // sim.js). A drop is left for a man right behind him, and the man who left it drives on
+        // to the net; a stretch is hard, and its man takes it going, led into the ice past his
+        // spot; a slot pass is hard and its man comes through the slot onto it; a backhand is
+        // off the backhand; a give-and-go's return is short and soft. It's lifted only when the
+        // booth called a saucer.
+        const said = cueAt(p, 'node', 'i', nd.oi), call = said && said.pass;
+        if (call === 'stretch' && !(ba && nd === ba.S)) { tb.maxV = 24; tb.through = W.t + 0.1; }
+        if (call === 'slot') { tb.tx = nd.x + dir * 3; tb.maxV = 20; tb.through = W.t + 0.1; }
         const from = cur, pass = { kind: 'pass', to: tb, from: cur, t: 0 };
-        // (a shot called before it's away takes the leg over, and he keeps the puck to shoot)
-        at(B, releaseAt(pkind), () => {
+        // (after a drop he drives on up the ice, past where he left it)
+        const driveOn = () => {
+          let qx = from.x + dir * 16, qy = from.y + (MID_Y - from.y) * 0.3;
+          const qc = insideRink(qx, qy, 6); if (qc) { qx = qc.x; qy = qc.y; }
+          from.tx = inFront(qx); from.ty = qy; from.maxV = 22; from.through = W.t + 0.1;
+        };
+        // A drop called on a man who isn't behind him yet: he carries on up the ice, a second at
+        // most, until the man's come up behind him, and leaves it then. (Played straight off, a
+        // drop the booth called was a pass forward two times in three.)
+        let held = 0;
+        const wind = () => {
           if (leg !== pass) return;
-          // led to where he'll be on his way to the touch's spot when it gets to him
-          const spd = passSpeed(pkind, pd);
-          W.give(from); pass.made = W.pass(from, tb, spd);
-          tb.meetPass = W.t + 3;
-          if (pkind === 'saucer') pk.vz = 7;
-          W.act(tb, 'receive', 0.6, [from.x, from.y]);
-        });
+          const play = passPlay(from, tb, call, r), pkind = play.pose;
+          if (call === 'drop' && pkind !== 'drop' && held < 1) { held += 0.1; driveOn(); at(B, 0.1, wind); return; }
+          // (a backhand: he turns his shoulder so the man's off his backhand side, his stick's
+          // other side, and plays it from there; he faces his own way again once it's gone)
+          const turned = call === 'backhand' && stickSideOf(from, tb.x, tb.y) > -4;
+          if (turned) from.face = Math.atan2(tb.y - from.y, tb.x - from.x) + (from.hand === 'R' ? -0.9 : 0.9);
+          if (pkind === 'drop') driveOn();
+          W.act(from, pkind, SHOTS[pkind].dur); from.look = [tb.x, tb.y, 1];
+          W.emit('pass', { call, pose: pkind, from, to: tb, staged: true });
+          // (a shot called before it's away takes the leg over, and he keeps the puck to shoot)
+          at(B, releaseAt(pkind), () => {
+            if (leg !== pass) return;
+            // led to where he'll be on his way to the touch's spot when it gets to him (and for
+            // the distance it is now: the release is a beat after the wind-up started)
+            const spd = play.spd(hyp(tb.x - from.x, tb.y - from.y));
+            if (turned && from.face != null) from.face = null;
+            W.give(from); pass.made = W.pass(from, tb, spd);
+            tb.meetPass = W.t + 3;
+            if (play.lift) pk.vz = play.lift;
+            W.act(tb, 'receive', 0.6, [from.x, from.y]);
+          });
+        };
         lastPasser = cur;
         leg = pass;
+        wind();
         return;
       }
       // carry it there himself; a deke beats the man standing him up on the way
@@ -899,8 +1009,10 @@ export function createDirector(W, opts = {}) {
     // their forechecker for seconds at a time, so he never parks either.
     function keepMoving(m, at0, L, left = 0, give = true) {
       if (give && giveGo(m, at0, L, left)) return;
-      if (hyp(at0[0] - m.x, at0[1] - m.y) > 14) { m.tx = at0[0]; m.ty = at0[1]; m.maxV = 13; m.protect = 0; return; }
-      weave(m, at0, L, 7, 10);
+      if (hyp(at0[0] - m.x, at0[1] - m.y) > 14) { m.tx = at0[0]; m.ty = at0[1]; m.maxV = 16; m.protect = 0; return; }
+      // (at a skating pace, not a crawl: at 10 ft/s a man waiting on his touch read as stood
+      // there with it)
+      weave(m, at0, L, 9, 14);
       shield(m);
     }
     // (never round the back of a net with it: the puck caught on the frame there and he spent
@@ -940,17 +1052,8 @@ export function createDirector(W, opts = {}) {
       }
       m.tx = w.x; m.ty = w.y; m.maxV = v; m.through = W.t + 0.1;
     }
-    // the pass that fits where the man is: a drop to a man right behind him, a backhand to his
-    // off side or behind, otherwise the forehand
-    function passKind(from, to) {
-      const lu = (to.x - from.x) * Math.cos(from.h) + (to.y - from.y) * Math.sin(from.h);
-      const lv = -(to.x - from.x) * Math.sin(from.h) + (to.y - from.y) * Math.cos(from.h);
-      return lu < -3 && hyp(to.x - from.x, to.y - from.y) < 14 ? 'drop' : (lv < -4 && lu < 8) || lu < -3 ? 'backpass' : 'pass';
-    }
-    const passSpeed = (kind, d) => (kind === 'drop' ? clamp(d * 1.8, 16, 28) : 64 + r() * 14);
-    // (a give-and-go is played short and soft, so one that goes by him doesn't run the length
-    // of the ice)
-    const ggSpeed = (d) => clamp(d * 1.6 + 10, 28, 50);
+    // (the pass that fits where the man is, and how hard, is passPlay's, in sim.js: a give-and-go
+    // is played short and soft both ways, so one that goes by him doesn't run the length of the ice)
     // An open man of his for a give-and-go: 14 to 36 ft off, nobody of theirs within 8 ft of
     // him or 4.5 ft of the line to him, and nobody the booth has a touch for still to come
     // (it's the point man, as often as not).
@@ -969,14 +1072,14 @@ export function createDirector(W, opts = {}) {
       for (const o of W.mates(att)) {
         if (skip.has(o) || !able(o) || o.scripted) continue;
         const d = hyp(o.x - m.x, o.y - m.y);
-        if (d < 14 || d > 36) continue;
+        if (d < 12 || d > 40) continue;
         let open = 99, lane = 99;
         for (const e of opp) {
           open = Math.min(open, hyp(e.x - o.x, e.y - o.y));
           const t = clamp(((e.x - m.x) * (o.x - m.x) + (e.y - m.y) * (o.y - m.y)) / (d * d), 0, 1);
           lane = Math.min(lane, hyp(m.x + (o.x - m.x) * t - e.x, m.y + (o.y - m.y) * t - e.y));
         }
-        if (open < 8 || lane < 4.5) continue;
+        if (open < 7 || lane < 4) continue;
         // (up the ice beats back: a pass that gains ground is worth a tighter lane)
         const sc = open + lane * 0.8 - Math.abs(d - 24) * 0.3 + clamp((o.x - m.x) * dir, -10, 14) * 0.35;
         if (sc > bs) { bs = sc; best = o; }
@@ -1004,11 +1107,13 @@ export function createDirector(W, opts = {}) {
       if (L.gg) return stepGiveGo(m, L.gg, L);
       // (never in a breakaway's build-up: the man he'd give it to is the one who has to be left
       // behind them, or one of theirs is drawn back to it)
-      if (ba || pk.carrier !== m || left < 3.2 || (L.ggAt != null && W.t - L.ggAt < 1.5) || slack() < (quick ? 1 : 4.5)) return false;
+      // (it costs about two seconds, so it wants three in hand: at four and a half it was rare,
+      // and a man with a few seconds to kill just carried it about)
+      if (ba || pk.carrier !== m || left < 2.6 || (L.ggAt != null && W.t - L.ggAt < 1.5) || slack() < (quick ? 1 : 3)) return false;
       if (L.heldAt == null) L.heldAt = W.t;
       const foe = W.nearestOf(W.mates(def).filter((o) => o.active && !o.rag), m.x, m.y);
       const fd = foe ? hyp(foe.x - m.x, foe.y - m.y) : 99;
-      if (!quick && W.t - L.heldAt < (fd < 8 ? 0.7 : 1.4)) return false;
+      if (!quick && W.t - L.heldAt < (fd < 8 ? 0.5 : 1.0)) return false;
       const mate = openMate(m);
       if (!mate) return false;
       script(mate);
@@ -1025,12 +1130,12 @@ export function createDirector(W, opts = {}) {
       at(B, 0.3, () => {
         if (L.gg !== G) return;
         if (pk.carrier !== m) { endGiveGo(L); return; }
-        const kind = passKind(m, mate);
+        const play = passPlay(m, mate, 'give', r), kind = play.pose;
         W.act(m, kind, SHOTS[kind].dur);
         at(B, releaseAt(kind), () => {
           if (L.gg !== G) return;
           if (pk.carrier !== m) { endGiveGo(L); return; }
-          W.pass(m, mate, ggSpeed(hyp(mate.x - m.x, mate.y - m.y)));
+          W.pass(m, mate, play.spd(hyp(mate.x - m.x, mate.y - m.y)));
           mate.meetPass = W.t + 3; W.act(mate, 'receive', 0.6, [m.x, m.y]);
           G.phase = 'flight';
         });
@@ -1042,15 +1147,20 @@ export function createDirector(W, opts = {}) {
       m.tx = G.rx; m.ty = G.ry; m.maxV = 15; m.protect = 0; m.through = W.t + 0.1;
       if (G.phase === 'flight' && pk.carrier === mate) { G.phase = 'held'; G.heldAt = W.t; }
       if (G.phase === 'held') {
-        // (he has it a moment and gives it straight back, skating on as he was)
-        mate.tx = mate.x + mate.vx * 0.5; mate.ty = mate.y + mate.vy * 0.5; mate.maxV = 10;
+        // (he has it a moment and gives it straight back, skating on as he was, or up the ice if
+        // he took it standing: told to go on at 10 ft/s to half a second ahead, he braked to a
+        // stop with it every time)
+        const mv = hyp(mate.vx, mate.vy);
+        let qx = mv > 5 ? mate.x + mate.vx * 0.9 : mate.x + dir * 8, qy = mv > 5 ? mate.y + mate.vy * 0.9 : mate.y + (MID_Y - mate.y) * 0.2;
+        const qc = insideRink(qx, qy, 6); if (qc) { qx = qc.x; qy = qc.y; }
+        mate.tx = inFront(qx); mate.ty = qy; mate.maxV = Math.max(12, mv); mate.through = W.t + 0.1;
         if (!G.back && (W.t - G.heldAt > (G.quick ? 0.12 : 0.45) || G.hurry)) {
           G.back = true;
-          const kind = passKind(mate, m);
+          const play = passPlay(mate, m, 'give', r), kind = play.pose;
           W.act(mate, kind, SHOTS[kind].dur); mate.look = [m.x, m.y, 1];
           at(B, releaseAt(kind), () => {
             if (L.gg !== G || pk.carrier !== mate) return;
-            W.pass(mate, m, ggSpeed(hyp(m.x - mate.x, m.y - mate.y)));
+            W.pass(mate, m, play.spd(hyp(m.x - mate.x, m.y - mate.y)));
             m.meetPass = W.t + 3; W.act(m, 'receive', 0.6, [mate.x, mate.y]);
             G.phase = 'return';
           });
@@ -1098,7 +1208,7 @@ export function createDirector(W, opts = {}) {
         const qc = insideRink(qx, qy, 6); if (qc) { qx = qc.x; qy = qc.y; }
         if (giveGo(m, [qx, qy], L, left - d / 16 - 0.6)) return;
         if (hyp(qx - m.x, qy - m.y) > 14) { m.tx = qx; m.ty = qy; m.maxV = 18; m.through = W.t + 0.1; return; }
-        weave(m, [qx, qy], L, left > 3 ? 8 : 5, left > 3 ? 12 : 10, ul > 40);
+        weave(m, [qx, qy], L, left > 3 ? 10 : 7, left > 3 ? 15 : 13, ul > 40);
         shield(m);
         return;
       }
@@ -1196,6 +1306,13 @@ export function createDirector(W, opts = {}) {
       }
       if (leg && leg.blocker) W.act(leg.blocker, 'block', 0.9);
       at(B, releaseAt(T), () => {
+        // (lost off his stick in the wind-up, caught on the frame coming round the post, say,
+        // and out of his reach: he goes and gets it and shoots then, rather than have it put on
+        // his stick from feet away and shot from wherever it was)
+        if (pk.carrier !== shooter && !pk.hidden && !W.inReach(shooter, pk.x, pk.y) && hyp(pk.x - shooter.x, pk.y - shooter.y) > 1.6 && (B.shotWait || 0) < 80) {
+          W.collect(shooter); at(B, 0.1, () => shoot(shooter));
+          return;
+        }
         if (pk.carrier !== shooter) W.give(shooter, true);
         let a;
         if (kind === 'blocked' && leg && leg.blocker) { const bl = leg.blocker; a = { tgt: [bl.x - dir * 0.8, bl.y, 0.3] }; }
@@ -1382,9 +1499,13 @@ export function createDirector(W, opts = {}) {
       const rc = cueOf(p, 'replay'), lc = cueOf(p, 'live');
       // (the recording stops a moment after the goal, so the run-up is still there however
       // long the booth takes to call the replay)
-      D.recordUntil = W.t + 2;
+      D.recordUntil = W.t + (comicOn() ? RINK_COMIC.goalAfter + 0.4 : 2);
       if (rc != null) {
         const goalT = W.t, seq = D.seq, wait = Math.max(1.7, B.t0 + rc - W.t);
+        // (a comic replay freezes on the shot that went in, the action, not the puck crossing the
+        // line: the last shot struck in this play, if it was in the last three seconds)
+        const LS = D.lastShot && goalT - D.lastShot.t < 3 ? D.lastShot : null;
+        const shotT = LS ? LS.t : goalT - 0.3, shotBy = LS ? { seed: LS.seed, side: LS.side } : null;
         W.schedule(wait, () => {
           if (D.seq !== seq) return;
           // (the booth already back live, or nearly: too late to be worth going to it)
@@ -1393,12 +1514,25 @@ export function createDirector(W, opts = {}) {
           wipe();
           W.schedule(WIPE / 2, () => {
             if (D.seq !== seq) return;
-            if (fill == null) { if (!replay.start(goalT - 5, goalT + 1.5, 0.5)) return; }
+            // A comic one (rink/comic.js) freezes on the goal and may end on a page, so its slow
+            // motion gets what those leave of the slot; too short a slot for the freeze is plain.
+            const plan = comicOn() ? (fill == null ? 'page' : comicPlan(fill)) : null;
+            const cm = plan ? { spec: comicSpecOf('goal', null, { a: p.shooter, b: p.goalie, shot: p.shotLabel, strength: p.strength, period: periodOf(p), clock: p.clock }),
+              key: shotT, page: plan === 'page', at: 'puck', focus: shotBy,
+              // (the freeze is the puck going past the goalie, its flight from the stick inked in)
+              pathFrom: LS ? shotT : null, past: LS && g && g.active ? { seed: g.seed, side: g.side } : null,
+              // (from the freeze the camera's on the goalie, so what follows is the puck going past
+              // him into the net, with the men in front of him left out: rink/replay.js `clear`)
+              then: g && g.active ? { seed: g.seed, side: g.side } : null,
+              clear: g && g.active ? { seed: g.seed, side: g.side, after: true } : null } : null;
+            // (a comic one runs on past the puck going in to the lamp: its page's last frame)
+            const aft = cm ? RINK_COMIC.goalAfter : 1.2;
+            if (fill == null) { if (!replay.start(goalT - 5, goalT + Math.max(1.5, aft), 0.5, cm)) return; }
             else {
-              const speed = clamp(5.7 / fill, 0.4, 0.75);
-              if (!replay.start(goalT - clamp(fill * speed - 1.2, 2, 7.5), goalT + 1.2, speed)) return;
+              const run = fill - comicExtra(plan), speed = clamp(5.7 / run, 0.4, 0.75);
+              if (!replay.start(goalT - clamp(run * speed - aft, 2, 7.5), goalT + aft, speed, cm)) return;
               // (the recording can hold less than that: what there is, slowed to fill it)
-              replay.speed = clamp((replay.to - replay.from) / fill, 0.3, 0.8);
+              replay.speed = clamp((replay.to - replay.from) / run, 0.3, 0.8);
             }
             // back to live behind the wipe as the booth comes back, or when it runs out
             const end = Math.min(replay.left(), fill ?? Infinity);
@@ -1547,7 +1681,13 @@ export function createDirector(W, opts = {}) {
           let qx = c.x + (cur.x - c.x) / dc * 10, qy = c.y + (cur.y - c.y) / dc * 10;
           const qc = insideRink(qx, qy, 4); if (qc) { qx = qc.x; qy = qc.y; }
           c.tx = qx; c.ty = qy; c.maxV = vc; c.through = W.t + 0.1;
-        } else { c.tx = c.x + c.vx * 0.3; c.ty = c.y + c.vy * 0.3; c.maxV = 10; }
+        } else {
+          // He doesn't stand and wait to have it taken: he carries it up the ice his own way,
+          // cutting across the line of the man coming at him (the weave, round a point that
+          // goes up the ice with him), and still working it with the man on him. Told to coast
+          // to a stop here, he stood with it two seconds and more, thirty times a game.
+          weave(c, [c.x - dir * 10, c.y + (MID_Y - c.y) * 0.15], leg.cw ??= {}, 8, dc < 4 ? 10 : 14);
+        }
         c.protect = dc < 9 ? (lv >= 0 ? 1 : -1) : 0;
         // (into him, through the puck, rather than easing up short of him)
         cur.tx = pk.x + pk.vx * 0.15; cur.ty = pk.y + pk.vy * 0.15; cur.maxV = 26; cur.through = W.t + 0.1; cur.charging = c;
@@ -1613,10 +1753,12 @@ export function createDirector(W, opts = {}) {
           // early without it, he works to get open about his spot
           weave(m, [leg.tx, leg.ty], leg.mw ??= {}, 6, 10);
         } else {
+          // (with time in hand he gets there early and works about it, above, rather than
+          // creeping over timed to arrive with the line: at 5 ft/s he read as stood there)
           m.tx = leg.tx; m.ty = leg.ty;
-          m.maxV = clamp(dn / Math.max(0.4, left), 5, 24);
+          m.maxV = clamp(dn / Math.max(0.4, left), left > 1.2 ? 13 : 5, 24);
         }
-        if (m !== cur) { cur.maxV = 9; if (leg.hold) keepMoving(cur, leg.hold, leg, left); }
+        if (m !== cur) { cur.maxV = 9; if (leg.hold) keepMoving(cur, leg.hold, leg, left, !leg.drop); }
         // (a give-and-go still out when the touch is due comes straight back, and the touch
         // waits for it, two seconds at most; past that, whoever has it plays the touch)
         if (leg.gg && left < 0.8) leg.gg.hurry = true;
@@ -1649,7 +1791,8 @@ export function createDirector(W, opts = {}) {
           // (back on his stick: on to the touch's spot, with the time for what's left of it)
           cur.tx = leg.tx; cur.ty = leg.ty; cur.maxV = 22; leg.t = 0; leg.dist = hyp(leg.tx - cur.x, leg.ty - cur.y);
         }
-        if (hyp(cur.tx - cur.x, cur.ty - cur.y) < 4 || leg.t > leg.dist / 17 + 0.6) { leg = null; nextLeg(); }
+        const dumpNow = leg.dump && !leg.gg && pk.carrier === cur && (cur.x - RL / 2) * dir > 4 && nextCue != null && rel > nextCue + 0.3;
+        if (dumpNow || hyp(cur.tx - cur.x, cur.ty - cur.y) < 4 || leg.t > leg.dist / 17 + 0.6) { leg = null; nextLeg(); }
       } else if (leg.kind === 'pass') {
         if (pk.carrier === leg.to) { leg.from.scripted = false; cur = leg.to; leg = null; nextLeg(); }
         else if (leg.made && !pk.carrier && !pk.held && pk.target !== leg.to) {
@@ -1716,7 +1859,7 @@ export function createDirector(W, opts = {}) {
         if (has && shotCue != null && !leg.stretch && !ba && !leg.breakaway && kind !== 'breakaway' && !p.breakaway && d > 24 * Math.max(0, shotCue - rel) + 60) {
           const mate = W.nearestOf(W.mates(att).filter((m) => m !== sh && able(m)), leg.sx, leg.sy);
           if (mate && hyp(mate.x - leg.sx, mate.y - leg.sy) < d - 40) {
-            const pkind = passKind(sh, mate), spd = passSpeed(pkind, hyp(mate.x - sh.x, mate.y - sh.y)), mine = leg;
+            const play = passPlay(sh, mate, 'stretch', r), pkind = play.pose, spd = play.spd(), mine = leg;
             leg.stretch = true;
             script(mate); mate.tx = leg.sx; mate.ty = leg.sy; mate.maxV = 22;
             W.act(sh, pkind, SHOTS[pkind].dur); sh.look = [mate.x, mate.y, 1];
@@ -1753,11 +1896,16 @@ export function createDirector(W, opts = {}) {
           // (in alone he starts his deke a little before the shot's time, so the save it ends in
           // lands as it's called)
           const lead = kind === 'breakaway' && g && g.active ? 0.45 : 0;
-          if (has && alone) sh.maxV = clamp(d / Math.max(0.3, left - lead), 9, 24);
+          // (as slow as a glide, 6 ft/s, when he's sprung close in with the call still a way off)
+          if (has && alone) sh.maxV = clamp(d / Math.max(0.3, left - lead), 6, 24);
           if (has && !(left <= 0 && !inRange) && !alone) runUp(sh, leg, left, type);
           // (and if he's there anyway, he doesn't stop to wait for it)
           const there = alone && d < 5 && (kind !== 'goal' || inFront);
-          if (has && (there || (left <= lead && inRange && (kind !== 'goal' || (d < 14 && inFront) || -left > 2.0) && (kind !== 'breakaway' || d < 12 || -left > 2.5)))) { leg.kind = 'shooting'; shoot(sh); }
+          // (nor from behind the goal line, however late: a man who ran a dump-in down round the
+          // back of the net let it go from against the end boards, out of the picture, at a net
+          // he couldn't see)
+          const ahead = (netX - sh.x) * dir > 2 || -left > 6;
+          if (has && ahead && (there || (left <= lead && inRange && (kind !== 'goal' || (d < 14 && inFront) || -left > 2.0) && (kind !== 'breakaway' || d < 12 || -left > 2.5)))) { leg.kind = 'shooting'; shoot(sh); }
         } else if (has && (d < 5 || leg.t > 1.7)) { leg.kind = 'shooting'; shoot(sh); }
       } else if (leg.kind === 'wrapIn') {
         // late on its line, he cuts the corner and comes straight round the post
@@ -1773,8 +1921,19 @@ export function createDirector(W, opts = {}) {
           const a = W.t * 1.4 + cur.seed, bx = netX + dir * 7, by = MID_Y + leg.sv * 4;
           cur.tx = bx + Math.cos(a) * 3; cur.ty = by + Math.sin(a) * 2.5; cur.maxV = 9; cur.through = W.t + 0.1;
         }
-        if (go && !leg.round) { leg.round = true; leg.roundAt = leg.t; cur.tx = px; cur.ty = py; cur.maxV = late ? 26 : 20; }
-        if (leg.round && (hyp(cur.tx - cur.x, cur.ty - cur.y) < 2 || leg.t > 2.2 || (late && leg.t - leg.roundAt > 0.5)) && (shotCue == null || rel >= shotCue)) { leg.kind = 'shooting'; shoot(cur); }
+        // (round the corner wide first, a few feet off the post, then in to it: cut straight from
+        // behind the net to the post, a man with his stick on the net side dragged the puck into
+        // the frame and left it there)
+        if (go && !leg.round) { leg.round = true; leg.roundAt = leg.t; leg.wide = true; cur.maxV = late ? 26 : 20; }
+        if (leg.wide) {
+          const wx = netX - dir * 1, wy = MID_Y + leg.sv * (NET_HALF + 3.5);
+          cur.tx = wx; cur.ty = wy; cur.through = W.t + 0.1;
+          if (hyp(wx - cur.x, wy - cur.y) < 2.5 || (netX - cur.x) * dir > 0.5 || leg.t - leg.roundAt > 1.2) { leg.wide = false; cur.tx = px; cur.ty = py; }
+        }
+        // (and never from behind the goal line: let go from there, it went into the side of the net
+        // and round the boards, and the goal came off a shot from the far end of the ice)
+        const round = (netX - cur.x) * dir > 0.8 || leg.t > 3.6;
+        if (leg.round && !leg.wide && round && (hyp(cur.tx - cur.x, cur.ty - cur.y) < 2 || leg.t > 2.2 || (late && leg.t - leg.roundAt > 0.5)) && (shotCue == null || rel >= shotCue)) { leg.kind = 'shooting'; shoot(cur); }
       } else if (leg.kind === 'feed') {
         const sh = leg.shooter;
         if (!leg.fed && pk.carrier === cur) keepMoving(cur, leg.fx ??= [cur.tx, cur.ty], leg);
@@ -1807,9 +1966,12 @@ export function createDirector(W, opts = {}) {
         }
         if (!leg.fed && (shotCue != null ? rel >= shotCue - 0.5 : (leg.t > 0.7 || hyp(sh.tx - sh.x, sh.ty - sh.y) < 4))) {
           leg.fed = true; const from = cur;
-          W.act(from, 'pass', SHOTS.pass.dur);
+          // (the feed is the slot pass, off whichever side of his stick the shooter's on; a point
+          // shot for a tip is struck off the forehand)
+          const fp = type === 'tip' ? 'pass' : passPlay(from, sh, 'slot', r).pose, fpose = fp === 'drop' ? 'pass' : fp;
+          W.act(from, fpose, SHOTS[fpose].dur);
           if (type === 'onetimer') W.act(sh, 'onetimerReady', 0.8);
-          at(B, releaseAt('pass'), () => {
+          at(B, releaseAt(fpose), () => {
             if (type === 'tip') {
               // The point shot is the setup; the tip is the shot that counts. It's aimed at his
               // blade where it'll be as the shot gets there, and he redirects it when it does
@@ -2092,9 +2254,15 @@ export function createDirector(W, opts = {}) {
       // straight to him.)
       const seen = inPicture(victim.x, victim.y, 3);
       D.lastHit = { t: W.t, seen, fatal: !!fatal };
-      D.recordUntil = W.t + 1.3;
+      D.recordUntil = W.t + (comicOn() ? RINK_COMIC.after + 0.1 : 1.3);
       D.hitClip = null;
-      D.hitPending = !seen && !fatal ? { t: W.t, saveAt: W.t + 1.25, follow: { seed: victim.seed, side: victim.side }, label: `${String(hitter.name || '').toUpperCase()} ON ${String(victim.name || '').toUpperCase()}` } : null;
+      // (with comic replays on, one in the picture is kept too, for a comic replay when the booth
+      // brings it up: see hitReplays)
+      const hitLabel = `${String(hitter.name || '').toUpperCase()} ON ${String(victim.name || '').toUpperCase()}`;
+      keepFoul(victim, hitLabel);
+      D.hitPending = (!seen || comicOn()) && !fatal ? { t: W.t, saveAt: W.t + (comicOn() ? RINK_COMIC.after + 0.05 : 1.25), follow: { seed: victim.seed, side: victim.side }, label: hitLabel, seen,
+        comic: comicOn() ? { spec: comicSpecOf('hit', style, { a: hitter.name, b: victim.name, period: periodOf(p), clock: p.clock, note: hitLabel }), at: 'hit',
+          focus: { seed: victim.seed, side: victim.side }, by: { seed: hitter.seed, side: hitter.side } } : null } : null;
       // a hit that ends his season or his life goes to X-ray, seen or not (see hitReplays)
       D.xrayPending = null;
       if (hurt && (fatal || (p.slotsOut || 0) >= XRAY_SLOTS) && (W.xrayGore || 'full') !== 'off') {
@@ -2181,6 +2349,7 @@ export function createDirector(W, opts = {}) {
         if (!p.caught) D.lastHit = { t: W.t, seen, fatal: false };
         D.recordUntil = W.t + 1.3;
         D.hitClip = null;
+        keepFoul(victim, `${String(slasher.name || '').toUpperCase()} ON ${String(victim.name || '').toUpperCase()}`);
         D.hitPending = !seen && !p.caught ? { t: W.t, saveAt: W.t + 1.25, follow: { seed: victim.seed, side: victim.side }, label: `${String(slasher.name || '').toUpperCase()} ON ${String(victim.name || '').toUpperCase()}` } : null;
         land(B);
         at(B, 0.6, () => { slasher.scripted = false; slasher.face = null; });
@@ -2473,7 +2642,11 @@ export function createDirector(W, opts = {}) {
     // Each punch lands as the booth calls it. A punch whose line was cut falls between its
     // neighbours; with no cues at all they come in a quick flurry as before.
     const times = ex.map((e, n) => { const c = cueOf(p, 'punch', 'n', n); return c != null ? c + 0.15 : null; });
-    if (grave) { D.recording = true; D.recordFrom = W.t + Math.max(0, Math.max(0, ...times.filter((x) => x != null)) - 3.5); }
+    // A FIGHT SOMEBODY WINS (a knockdown, or his sweater over his head) is a comic replay with the
+    // comic look on, recorded the same way: see the last punch and `keepComic`.
+    // (not a sweater over his head: nobody goes down, so there's no finish for its last frame)
+    const comicFight = !grave && !p.draw && p.ending === 'knockdown' && comicOn();
+    if (grave || comicFight) { D.recording = true; D.recordFrom = W.t + Math.max(0, Math.max(0, ...times.filter((x) => x != null)) - 3.5); }
     {
       let last = 2.45 - 0.5;
       for (let n = 0; n < times.length; n++) {
@@ -2548,6 +2721,9 @@ export function createDirector(W, opts = {}) {
             W.banner = { text: 'TURTLE', t0: W.t, dur: 1.2, col: '#f0bd4c' }; W.sfx('fightTurtle');
           }
           B.overAt = W.t;
+          // (shown once the camera's pulled back out from the winner: see tBox)
+          if (comicFight) B.comic = keepComic('fight', p.ending, { a: p.winner, b: p.loser, period: periodOf(p), clock: p.clock }, 'head',
+            { seed: vi.seed, side: vi.side }, { seed: win.seed, side: win.side }, 8);
           // the winner, close, named over the man he beat, until the camera pulls back out
           if (!p.draw) at(B, 1.4, () => {
             if (B.toBox) return;
@@ -2577,6 +2753,7 @@ export function createDirector(W, opts = {}) {
       B.winnerCam = false; frame('broadcast', [cx, cy]); W.fight.hud = false;
       // (no later than 8 s on: the recorder keeps ten, and the clip starts 1.4 s before the punch)
       if (B.xray) B.xray.startAt = Math.min(W.t + 1.0, B.xray.t + 8);
+      if (B.comic) B.comic.startAt = Math.min(W.t + 1.0, B.comic.t + 8);
     });
     after(tBox, () => {
       B.toBox = true;
@@ -2913,11 +3090,42 @@ export function createDirector(W, opts = {}) {
       return false;
     });
   }
+  // THE FOUL, RUN BACK ON THE CALL. Every hit and slash is kept (`D.foulPending`, then
+  // `D.foulClip`) whether the picture saw it or not; when the whistle goes for a penalty, the
+  // broadcast runs it back behind the wipe while the referee gives the call at the bench, so
+  // the call is heard over the picture of the foul. (A seat in the arena just sees the referee
+  // make it: there's no replay there.) A hit already being shown, or a grave one's X-ray, wins.
+  const FOUL_AGE = 20;
+  function keepFoul(victim, label) {
+    D.foulClip = null;
+    D.foulPending = { t: W.t, saveAt: W.t + 1.25, follow: { seed: victim.seed, side: victim.side }, label };
+  }
+  function saveFoul() {
+    const h = D.foulPending; D.foulPending = null;
+    const clip = replay.save(h.t - 3.2, Math.min(W.t, h.t + 1.2));
+    D.foulClip = clip ? { ...h, clip } : null;
+  }
+  function replayFoul(B) {
+    if (D.foulPending) saveFoul();
+    const F = D.foulClip; D.foulClip = null;
+    if (!F || W.t - F.t > FOUL_AGE || opts.zamboniReal) return;
+    // (the booth's own run-back of the same hit would show it twice)
+    if (D.hitClip && D.hitClip.t === F.t) D.hitClip = null;
+    D.hitPending = null;
+    // a moment on the referee's arm going up, then the foul
+    at(B, 1.1, () => {
+      if (D.hitShow || D.xrayPending || replay.active) return;
+      const len = F.clip.to - F.clip.from;
+      D.hitShow = { phase: 'in', at: W.t + WIPE / 2, clip: F.clip, follow: F.follow, label: F.label, speed: clamp(len / 7, 0.5, 0.75), foul: true };
+      wipe();
+    });
+  }
   function stagePenalty(p) {
     const B = begin('penalty');
     const side = sideOfTeam(p.teamName, p) || tagSide(p.victimSide) || sideOfTeam(p.victimTeam, p) || 'a';
     const man = bodyFor(side, p.player || p.victim, W.nearestOf(W.mates(side), pk.x, pk.y));
     whistle(true); land(B);
+    replayFoul(B);
     const ref = W.officials[1];
     if (ref && ref.active && !ref.rag && !busyBody(ref)) {
       // arm up where he saw it, then over to the scorer's bench to give the call
@@ -3215,11 +3423,14 @@ export function createDirector(W, opts = {}) {
     if (p.type === 'goal' || p.type === 'intermission') D.xrayPending = null;
     // (after a goal, a death or a period's end the booth has moved on from a hit it missed;
     // a play the booth brings one up over carries a `recall` cue, see `hitReplays`)
-    if (['goal', 'death', 'intermission'].includes(p.type) || (p.type === 'faceoff' && p.reason === 'period')) { D.hitClip = null; D.hitPending = null; }
+    if (['goal', 'death', 'intermission'].includes(p.type) || (p.type === 'faceoff' && p.reason === 'period')) { D.hitClip = null; D.hitPending = null; D.comic = null; }
     D.recall = cueOf(p, 'recall');
     // only a goal and a hit are ever replayed, so only theirs is recorded: keeping every
     // man's joints thirty times a second all game would be work nobody watches
-    D.recording = p.type === 'goal' || p.type === 'boards' || p.type === 'slash' || p.type === 'death'; D.recordUntil = null;
+    // (and, with comic replays on, a shot off the post or a big save: see keepComic; a fight's is
+    // turned on in stageFight once it knows the fight has a winner)
+    D.recording = p.type === 'goal' || p.type === 'boards' || p.type === 'slash' || p.type === 'death'
+      || (p.type === 'chance' && COMIC_CHANCES.has(p.kind) && comicOn()); D.recordUntil = null;
     // (a hit's clip starts 3.2 s before it lands, and it lands within a second of its line: the
     // skate along the wall before that is never shown, and was most of the recording)
     D.recordFrom = p.type === 'boards' || p.type === 'slash' || p.type === 'death' ? (D.arrived ?? W.t) + Math.max(0, (cueOf(p, 'impact') ?? 0) - 4.4) : 0;
@@ -3262,6 +3473,7 @@ export function createDirector(W, opts = {}) {
     // a whistle's beat, holding the picture until the draw: everybody to the dot
     if (B && B.stopped) regroupTick(B);
     hitReplays();
+    comicReplays();
     if (!B || !B.ownsCam || (B.stopped && !B.keepCam)) W.cam.focus = [pk.x, pk.y];
     if (D.tasks.length) D.tasks = D.tasks.filter((k) => !k.tick(dt));
     // Cup night's house lights, going down or coming back up (stageAnthem)

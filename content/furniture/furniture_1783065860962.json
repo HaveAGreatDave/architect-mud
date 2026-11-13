@@ -8,6 +8,10 @@
       "watch"
     ],
     "owner_npc": "npc_embassy_barkeep",
+    "spot": {
+      "along": 1.6,
+      "wall": "front"
+    },
     "tuned_channel": 7,
     "tv": true,
     "tv_dial_freq": 7

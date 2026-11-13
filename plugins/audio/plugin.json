@@ -13,6 +13,7 @@
       "audio.sfx.triggered"
     ],
     "consumes": [
+      "prologue.woke",
       "zone.entered",
       "enemy.killed",
       "enemy.attacked",

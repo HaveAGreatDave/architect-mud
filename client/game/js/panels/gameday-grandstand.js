@@ -690,8 +690,8 @@ export function createGrandstandView(host, opts = {}) {
     const C = replay.comic, g = comicCanvas?.getContext('2d'), M = mods.comic;
     if (C.grab >= 0) {
       try {
-        // up to 960 wide: at 720 a print stretched over a big screen showed its pixels
-        const k = Math.min(1, 960 / Math.max(1, canvas.width)), c = doc.createElement('canvas');
+        // up to 1280 wide: at 720, then 960, a print stretched over a big screen showed its pixels
+        const k = Math.min(1, 1280 / Math.max(1, canvas.width)), c = doc.createElement('canvas');
         c.width = Math.max(1, Math.round(canvas.width * k)); c.height = Math.max(1, Math.round(canvas.height * k));
         c.getContext('2d').drawImage(canvas, 0, 0, c.width, c.height);
         C.panels[C.grab] = c;

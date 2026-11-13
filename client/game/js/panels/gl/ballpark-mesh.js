@@ -826,6 +826,10 @@ function buildBowl(B, field, BT) {
   //    outer skin (`tracery`), so the city shows through them from the field. Sorrel Way and the
   //    east have the grandstand against them and keep the windows painted (EXTERIOR).
   const ext = B('exterior');
+  // ⚠ THE INSIDE SKIN STANDS PROUD OF THE COURSES. The plinth, frieze, clerestory and cornice boxes
+  // have their own backs at -0.07; the inside faces drawn in that plane fought them, and from the
+  // field the back wall flickered. So the inside faces sit a hair further in.
+  const IN_SKIN = -0.072;
   SIDES.forEach((n, k) => {
     const ns = !!n[1], run = ns ? OUT + 0.01 : BACK;
     // ⚠ NOT ACROSS A GATE: its frontispiece stands in front of this face
@@ -859,9 +863,9 @@ function buildBowl(B, field, BT) {
         const I = [[tb, za], [ta, za], [ta, zb], [tb, zb]].map(([t, z]) => B2T(...SPT(n, t, -0.07, z)));
         quad(ext, I[0], I[1], I[2], I[3], mul(nn, -1), [k * 0.25 + 0.125, bays.length ? 1 : 0, 0], MAT.EXTERIOR, [[ux(-tb), ftUp(za)], [ux(-ta), ftUp(za)], [ux(-ta), ftUp(zb)], [ux(-tb), ftUp(zb)]]);
       }
-      const J = [SPT(n, -run, -0.07, 0), SPT(n, run, -0.07, 0), SPT(n, run, -0.07, Z.plinth), SPT(n, -run, -0.07, Z.plinth)].map(([u, v, z]) => B2T(u, v, z));
+      const J = [SPT(n, -run, IN_SKIN, 0), SPT(n, run, IN_SKIN, 0), SPT(n, run, IN_SKIN, Z.plinth), SPT(n, -run, IN_SKIN, Z.plinth)].map(([u, v, z]) => B2T(u, v, z));
       quad(plain, J[0], J[1], J[2], J[3], mul(nn, -1), COL.inner, MAT.CONCRETE);
-      const K = [SPT(n, -run, -0.07, Z.wall), SPT(n, run, -0.07, Z.wall), SPT(n, run, -0.07, Z.corn), SPT(n, -run, -0.07, Z.corn)].map(([u, v, z]) => B2T(u, v, z));
+      const K = [SPT(n, -run, IN_SKIN, Z.wall), SPT(n, run, IN_SKIN, Z.wall), SPT(n, run, IN_SKIN, Z.corn), SPT(n, -run, IN_SKIN, Z.corn)].map(([u, v, z]) => B2T(u, v, z));
       quad(plain, K[0], K[1], K[2], K[3], mul(nn, -1), COL.stone, MAT.DECO);
       if (bays.length) {
         concourse(n, run);
@@ -872,12 +876,14 @@ function buildBowl(B, field, BT) {
     // GATE C and GATE D: the map's plain frontispiece (glass/models/coliseum.js 9b), its doors and its
     // fanlight, lit every night. Its plate is bare bronze here; the map letters it.
     if (sg) {
-      const t0 = sg.v - sg.hw, t1 = sg.v + sg.hw;
-      sideBox(n, t0 - 0.005, t1 + 0.005, -0.07, 0.016, 0, Z.plinth, COL.granite, MAT.DECO);
-      sideBox(n, t0, t1, -0.07, 0.012, Z.plinth, sg.top, COL.stone, MAT.DECO);
-      sideBox(n, t0 - 0.004, t1 + 0.004, -0.07, 0.016, sg.top, sg.top + 0.012, COL.trim, MAT.DECO, COL.copper);
-      sideBox(n, t0 + 0.04, t1 - 0.04, -0.07, 0.008, sg.top + 0.012, sg.top + 0.05, COL.stone, MAT.DECO);
-      sideBox(n, t0 + 0.07, t1 - 0.07, -0.07, 0.008, sg.top + 0.05, sg.top + 0.064, COL.trim, MAT.DECO, COL.copper);
+      // ⚠ ITS BODY STOPS INSIDE THE WALL (GATE_BACK), or its back fights the windows painted on the
+      // wall's inside face and they flash from the field
+      const t0 = sg.v - sg.hw, t1 = sg.v + sg.hw, gb = GATE_BACK - OUT;
+      sideBox(n, t0 - 0.005, t1 + 0.005, gb, 0.016, 0, Z.plinth, COL.granite, MAT.DECO);
+      sideBox(n, t0, t1, gb, 0.012, Z.plinth, sg.top, COL.stone, MAT.DECO);
+      sideBox(n, t0 - 0.004, t1 + 0.004, gb, 0.016, sg.top, sg.top + 0.012, COL.trim, MAT.DECO, COL.copper);
+      sideBox(n, t0 + 0.04, t1 - 0.04, gb, 0.008, sg.top + 0.012, sg.top + 0.05, COL.stone, MAT.DECO);
+      sideBox(n, t0 + 0.07, t1 - 0.07, gb, 0.008, sg.top + 0.05, sg.top + 0.064, COL.trim, MAT.DECO, COL.copper);
       for (const o of [-1, 1]) sideBox(n, sg.v + o * 0.10 - 0.012, sg.v + o * 0.10 + 0.012, 0.012, 0.022, Z.plinth, sg.top - 0.01, COL.fin, MAT.DECO);
       sideFace(plain, n, sg.v - 0.06, sg.v + 0.06, 0.0125, Z.plinth, 0.22, COL.bronze, MAT.GILT);
       sideFace(plain, n, sg.v - 0.05, sg.v + 0.05, 0.0130, 0.235, 0.29, COL.lobby, MAT.GLAZE, [1, 0]);

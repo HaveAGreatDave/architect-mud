@@ -37,6 +37,9 @@ uniform vec4 uInkEye;
 // ndc z is A + B / depth, so a clip z at depth w put ft further off moves by -B ft / (w + ft)
 float backOf(float w) { return uBack.y > 0.0 ? uBack.x * uBack.y / (w + uBack.y) : uInk.w * w; }
 void main() {
+  // a layer of an animal's fur (gl/beast-kit.js furShells, material 50..65) gets no line, nor even an unpushed copy:
+  // it's mostly holes, and the copy would show black through them
+  if (aTex > 49.5 && aTex < 65.5) { gl_Position = vec4(0.0, 0.0, -2.0, 1.0); return; }
   float nl = dot(aNor, aNor);
   vec4 c = uVP * vec4(aPos, 1.0);
   // a vertex with no normal, or behind the eye, stays where it is unpushed: thrown off screen
@@ -48,7 +51,9 @@ void main() {
   vec2 d = (cn.xy / max(cn.w, 1e-3) - c.xy / c.w) * uRes * 0.5;
   float L = length(d);
   vec2 dir = L > 1e-4 ? d / L : vec2(0.0);
-  float wk = mix(max(uWeigh, 1.0), 1.0, smoothstep(-0.5, 0.7, dot(n, uKey)));
+  // a normal shorter than 1 asks for a finer line, in proportion (gl/beast-kit.js furCoat's spikes); every mesh
+  // with unit normals keeps the line it had
+  float wk = mix(max(uWeigh, 1.0), 1.0, smoothstep(-0.5, 0.7, dot(n, uKey))) * min(1.0, sqrt(nl));
   c.xy += dir * clamp(L, uInk.y, uInk.z) * wk / (uRes * 0.5) * c.w;
   c.z += backOf(c.w);
   c.xy += uShake * c.w;

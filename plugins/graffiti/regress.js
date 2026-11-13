@@ -17,13 +17,13 @@
 // renderer that indexed the escaped text would slice an entity in half and put a
 // live `<` back on the wall.
 import { _test, TAG_MAX_LEN, TAG_LIFE_DAYS, CAN_CAPACITY, tagOn, tagsAt, removeTag, removeTagsAt, tagFromWorld } from './index.js';
-import { normalizeRuns, coalesceRuns, renderStyled, decodePayload, safeColor, safeFace, escapedChars } from './paint.js';
+import { normalizeRuns, coalesceRuns, renderStyled, decodePayload, safeColor, safeFace, safeSpot, escapedChars } from './paint.js';
 import { TAG_FACES } from '../../client/shared/tag-strokes.js';
 import { world, clearTileIndex } from '../../server/engine/world.js';
 import { gameDayIndex } from '../../server/engine/zone-filth.js';
 
 export default async function regress({ run, check }) {
-  const { wallsNear, pickWall, expired, esc, tags, putTag, wallTags, unesc, wallLabel } = _test;
+  const { wallsNear, pickWall, expired, esc, tags, putTag, wallTags, roomTags, unesc, wallLabel } = _test;
 
   let r = await run('tag');
   check('tag verb routed', r?.type !== undefined, JSON.stringify(r));
@@ -58,6 +58,21 @@ export default async function regress({ run, check }) {
   check('an interior offers its own wall', inner.length === 1 && inner[0].id === backroom.id, JSON.stringify(inner));
   check('the interior wall is pickable with no word', pickWall(inner, '')?.wall?.id === backroom.id);
   check("an interior doesn't also offer the street outside", !inner.some(w => w.id === street.id));
+
+  // --- ROOM: where on a room's wall, and what the Stage is sent -------------
+  // The spot is only ever numbers and one of four names: the client aims it, the server keeps it.
+  check('safeSpot keeps a spot the Stage aimed', JSON.stringify(safeSpot({ u: -2.5, v: 3.04, y: 1.5, n: 'u+' })) === '{"u":-2.5,"v":3.04,"y":1.5,"n":"u+"}');
+  check('safeSpot refuses a wall that is not one of four', safeSpot({ u: 0, v: 0, y: 1, n: 'up' }) === null);
+  check('safeSpot refuses a spot with no numbers', safeSpot({ u: 'x', v: 0, y: 1, n: 'v-' }) === null && safeSpot(null) === null);
+  check('safeSpot clamps a spot to the room-sized box', safeSpot({ u: 1e9, v: -1e9, y: 99, n: 'v+' })?.u === 60 && safeSpot({ u: 1e9, v: -1e9, y: 99, n: 'v+' })?.y === 12);
+  const spotPay = Buffer.from(JSON.stringify({ t: 'IN HERE', s: { u: 1, v: 2, y: 1.4, n: 'v-' } })).toString('base64');
+  check('decodePayload carries the spot through', decodePayload(spotPay)?.spot?.n === 'v-');
+  putTag(backroom.id, { text: esc('IN <HERE>'), style: null, face: 'block', spot: { u: 1, v: 2, y: 1.4, n: 'v-' }, authorId: 'x', authorHandle: 'x', targetZoneId: backroom.id, targetName: 'Back Room', dayIndex: null });
+  const inPaint = roomTags(backroom.id) || [];
+  check('room.tags hands ROOM the room\'s own tag, its spot and its letterform', inPaint.length === 1 && inPaint[0].spot?.n === 'v-' && inPaint[0].f === 'block', JSON.stringify(inPaint));
+  check('room.tags sends the words as typed, for a canvas', inPaint[0]?.t === 'IN <HERE>', inPaint[0]?.t);
+  check('room.tags has nothing for a street tile', roomTags(street.id) === undefined);
+  tags.delete(backroom.id);
 
   // --- Picking which wall ---------------------------------------------------
   check('pickWall matches a direction', pickWall(walls, 'north')?.wall?.id === '__rg_shop__');

@@ -18,13 +18,14 @@ const LEGS = ['left_leg', 'right_leg'];
 const ARMS = ['left_arm', 'right_arm'];
 
 // Torso: a body busy mending itself has less to give back.
-const TORSO_REGEN = { [HURT]: 0.6, [MAIMED]: 0.3 };
+// Was 0.6/0.3; a fight left new players unable to recover, so it's gentler now.
+const TORSO_REGEN = { [HURT]: 0.8, [MAIMED]: 0.5 };
 // Arms: each wounded arm degrades the swing. They stack, because two ruined arms
 // should be worse than one, and there is no reason to special-case it.
 const ARM_HIT = { [HURT]: -2, [MAIMED]: -5 };
 // Legs and feet: stamina per step. Never a movement block — see the note in
 // movement.js. A player who cannot move has nothing to do but wait.
-const LEG_STEP_COST = { [HURT]: 1, [MAIMED]: 3 };
+const LEG_STEP_COST = { [HURT]: 1, [MAIMED]: 2 };
 
 /**
  * The impairment provider. `sev(part)` is injected rather than imported so this

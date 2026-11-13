@@ -48,11 +48,13 @@ export function createRoomLift({ host, project, press }) {
     shown = null;
   }
 
-  // The car's panel, new or on a new floor. A room with no lift has none.
-  function load(L) {
-    const S = L?.spec, p = S?.lift ? liftPanelAt(S) : null;
+  // The car's panel, new or on a new floor. A room with no lift has none. `S` is the car's spec with its `lift`;
+  // `remote` when the car is the room next door (seen from its landing): drawn the same, but not yours to press.
+  let away = false;
+  function load(L, S = L?.spec, remote = false) {
+    const p = S?.lift ? liftPanelAt(S) : null;
     bs = p ? liftButtons(S) : [];
-    card = null;
+    card = null; away = remote;
     if (!p) { quad = null; el.style.display = 'none'; hidden = true; return; }
     at = S.lift.at;
     paint();
@@ -64,7 +66,9 @@ export function createRoomLift({ host, project, press }) {
   // Laid over its four points, every frame. `floor` is the one the read-out shows; `ride` is { from, to } while
   // the car moves, else null.
   function draw(w, h, floor, ride) {
-    if (!quad) return;
+    // the car next door: its panel is a page over the picture, so nothing in the picture hides it, and from the
+    // landing it showed through the shaft wall. You press it from inside the car, so it shows only from there.
+    if (!quad || away) { if (!hidden) { el.style.display = 'none'; hidden = true; } return; }
     if (comic !== comicOn()) paint();
     const going = ride ? Math.sign(ride.to - ride.from) : 0, key = `${floor}:${going}:${ride?.to ?? ''}`;
     if (key !== shown) {
@@ -92,7 +96,7 @@ export function createRoomLift({ host, project, press }) {
 
   // The panel as the Stage's card ({ id, name, lift, liftActs }), for F and the number keys, or null in a room
   // with no lift. A car is small enough that you're always at it.
-  const aim = () => (quad ? card || (card = { id: 'lift:panel', name: 'Lift', lift: true, liftActs: bs.map((b) => ({ verb: 'floor', label: b.tag, n: b.n })) }) : null);
+  const aim = () => (quad && !away ? card || (card = { id: 'lift:panel', name: 'Lift', lift: true, liftActs: bs.map((b) => ({ verb: 'floor', label: b.tag, n: b.n })) }) : null);
 
   return { load, draw, aim, get on() { return !!quad; }, stop() { layer.remove(); } };
 }

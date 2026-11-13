@@ -19,6 +19,35 @@
     "floor": "metal",
     "is_building": true,
     "is_interior": true,
+    "room": {
+      "balcony": false,
+      "d": 7,
+      "decor": {
+        "ceiling": {
+          "hex": "#101214",
+          "kind": "slot",
+          "trim": "#4fb3c9"
+        },
+        "rug": false
+      },
+      "face": 0,
+      "finish": "fine",
+      "glass": [
+        "front",
+        "left",
+        "right"
+      ],
+      "ground": "stone",
+      "h": 3.2,
+      "studio": false,
+      "tone": {
+        "accent": "#4fb3c9",
+        "ceiling": "#141414",
+        "trim": "#0b0b0b",
+        "wall": "#1d1d1f"
+      },
+      "w": 9
+    },
     "world_exit_zone": "zone_echelon_exterior",
     "yacht": true
   },

@@ -1,6 +1,6 @@
 {
   "ambient_theme": "indoors",
-  "description": "A narrow box under the roof of the stands, glazed along the front. Two microphones stand on a desk with a scorebook open between them, and a cushion is tied to one of the chairs. The name stencilled on the back of that chair is VEGA.",
+  "description": "A narrow box under the roof of the stands, glazed along the front. Two microphones stand on a desk with a scorebook open between them, and a cushion is tied to one of the chairs. The name stencilled on the back of that chair is VEGA. At the far end of the glass an electric organ sits on a rubber mat, its cable taped down across the floor to a socket by the door.",
   "exits": {
     "down": "zone_hughson_club"
   },

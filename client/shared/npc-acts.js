@@ -8,6 +8,11 @@
 
 const P = '(?:his|her|their|a|the)';
 const ACTS = [
+  // at a card table (plugins/gametable GameTable._gesture): before 'tap', 'toss' and 'lean' can take them
+  ['rap', /\b(raps?|knocks?) (on )?the (felt|table)\b/],
+  ['muck', /\bmucks?\b/],
+  ['chips', /\b(slides?|pushes|push|shoves?) (chips|a stack|the whole stack)\b/],
+  ['deal', /\bdeals? (them|the cards|a card|out)\b/],
   ['doze', /\b(doz(es?|ing)|nods? off|snor(es?|ing)|naps?|drifts? off|falls? asleep)\b/],
   ['cower', new RegExp(`\\b(cowers?|flinch(es)?|backs? away|ducks?|shields? ${P} (face|head)|throws? ${P} arms up)\\b`)],
   ['laugh', /\b(laugh(s|ing)?|chuckles?|cackles?|giggles?|snickers?|guffaws?)\b/],
@@ -29,6 +34,12 @@ const ACTS = [
   ['tap', /\btaps? a foot\b/],
   ['roll', new RegExp(`\\brolls? ${P} neck\\b`)],
   ['smoke', /\b(smokes?|cigarettes?|cigars?|lights? up|lights? a|drags? on|takes? a drag|vapes?|blows? smoke|ashes)\b/],
+  // behind a bar (plugins/bartender's lines): before 'drink', since "pours a drink" isn't drinking one
+  ['pint', /\b(pulls? (you |him |her |them )?(a|another|two|three) (pint|half|beer)s?|draws? (a|another) (pint|beer))\b/],
+  ['mix', /\b(shakes? (up )?(a |the |another |your )?(cocktail|martini|shaker|tin|drink)s?|mix(es)? (a|the|you|another|up)|muddles?|strains? (it|the|a))\b/],
+  ['slide', /\bslides? (a |the |your |it |another |his |her )?(\w+ )?(down|across|along) the (bar|counter)\b/],
+  ['eye', /\b(holds? (a|the) bottle (up )?to the light|checks? (the|a) (bottle|level))\b/],
+  ['pour', /\b(pours?|tops? (it |you |him |her |them )?up)\b/],
   ['polish', /\b(polish(es)?|buffs?)\b/],
   ['drink', new RegExp(`\\b(drinks?|sips?|swigs?|gulps?|takes? a pull|knocks? back|nurses? ${P}|downs ${P})\\b`)],
   ['eat', /\b(eats?|chews?|bites? into|munch(es)?|nibbles?|wolfs?|takes? a bite)\b/],

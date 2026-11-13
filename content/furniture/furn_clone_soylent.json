@@ -4,7 +4,20 @@
     "interactions": [
       "vend"
     ],
+    "look": {
+      "arche": "prop",
+      "dims": [
+        0.75,
+        0.6,
+        1.85
+      ],
+      "form": "cabinet"
+    },
     "plugged_in": false,
+    "spot": {
+      "along": 2.6,
+      "wall": "front"
+    },
     "vend_cooldown_s": 20,
     "vend_line": "The dispenser shudders, gargles, and drops a cold foil pouch into the tray with an institutional sigh, the little sun on its label grinning up at you.",
     "vends": "item_soylent"

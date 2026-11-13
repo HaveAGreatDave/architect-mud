@@ -127,6 +127,7 @@ A fielder creeping in as the pitch comes (`field_ready_*`) is never heard, even 
   booth says in `baseball.bsm`), `db-organ-rally`, its first four notes played hopefully, and
   `db-organ-anthem`, the same song in D major for once, before a final's first pitch. A
   note's length is held by its decay at full sustain, so a phrase is one cue.
+- **The organist's bits:** what he plays between plays, which he doesn't count as songs. `db-organ-climb` (up the keys a semitone at a time on a full count), `db-organ-foul` (down them after one foul in three), `db-organ-riff` (now and then for a home batter, with the park clapping four after it), `db-organ-vamp` (a stride vamp in F when the pitcher changes mid-half) and `db-organ-sayonara` (three notes down for half of the visitors struck out). Each waits for the booth to be quiet. He's Gilbert Haskins (`npc_hughson_organist`), in the press box.
 
 `db-collision` is in the bank and the event table but nothing plays it yet: the sim has no
 collisions at the plate.

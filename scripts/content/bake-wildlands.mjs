@@ -25,6 +25,11 @@ delete cfg._comment;
 const routesFile = JSON.parse(readFileSync(join(ROOT, 'content', 'map', 'routes.json'), 'utf8'));
 const routesCfg = routesFile.routes || {}, hwTypes = routesFile.types || {};
 const voidsCfg = JSON.parse(readFileSync(join(ROOT, 'content', 'map', 'voids.json'), 'utf8')).voids || {};
+// What grows out there (client/shared/flora.js). Carried through as it is: the species are read by
+// the same module on the server and every client, so they travel with the ground they grow on.
+const floraFile = join(ROOT, 'content', 'map', 'flora.json');
+const floraCfg = existsSync(floraFile) ? JSON.parse(readFileSync(floraFile, 'utf8')) : null;
+if (floraCfg) delete floraCfg._comment;
 
 const WATER = new Set(['water', 'hotspring']);
 const tiles = [];
@@ -96,7 +101,7 @@ function pack(fn) {
 const out = {
   x0: X0, y0: Y0, x1: X1, y1: Y1, cell: CELL, cw: CW, ch: CH, coastY, bayShoreY,
   routes: routesCfg, voids: voidsCfg, hwTypes,
-  halo: cfg.halo, landforms: cfg.landforms || [], edgeTerrains: TERR, edge: cfg.edge || {},
+  halo: cfg.halo, landforms: cfg.landforms || [], edgeTerrains: TERR, edge: cfg.edge || {}, flora: floraCfg,
   // centres of each region, so a plume can be aimed "toward" one by id
   centres: Object.fromEntries(regions.map((r) => {
     let sx = 0, sy = 0, n = 0; for (const t of tiles) if (t.r === r) { sx += t.x; sy += t.y; n++; }

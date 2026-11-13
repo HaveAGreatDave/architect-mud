@@ -28,6 +28,8 @@ import { DT } from './rink/rig.js';
 import { SAVE, createDirector } from './rink/director.js';
 import { ratingsFor } from './rink/sim.js';
 import { loadClassicScript } from '../classic-script.js';
+import { comicOn } from './gl/house-style.js';
+import { loadComicFaces } from './comic-print.js';
 
 function _esc(s) { return String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
 // A club's crest beside its name, when the league's identities have arrived (club-crest.js).
@@ -458,6 +460,10 @@ export function createRinkView(host, opts = {}) {
     ice = createIce(doc);
     W = createWorld(ice, 'rinkside');
     W.xrayGore = gore;
+    // comic replays (rink/comic.js) with the comic look on, and never with reduced motion; their
+    // sound words are in Bungee, which the rink's own HUD doesn't load
+    W.comicReplays = () => comicOn() && !motionOff();
+    loadComicFaces(doc, { word: true });
     D = createDirector(W, {
       onLand: () => {
         if (!landed) { landed = true; if (last) head(last); }
@@ -716,7 +722,9 @@ export function createRinkView(host, opts = {}) {
   }
   // (each frame: the scorer's line goes up with his goal's replay and comes down with it)
   function l3Tick() {
-    const on = !!(W && W.replay && W.replay.active && W.replay.kind === 'goal');
+    // (not over a comic replay's freeze or its page, which are the whole picture)
+    const cb = W && W.replay && W.replay.comic ? W.replay.comic.beat : null;
+    const on = !!(W && W.replay && W.replay.active && W.replay.kind === 'goal') && cb !== 'freeze' && cb !== 'page';
     if (on && l3Up !== 'replay' && l3Goal) showL3(statCard(l3Goal, false), 0, 'replay');
     else if (!on && l3Up === 'replay') hideL3();
   }

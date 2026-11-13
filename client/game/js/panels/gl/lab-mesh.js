@@ -21,16 +21,22 @@ import { MAT } from './ballpark-mesh.js';
 import { LAB_GRADES } from '../../../../shared/room-layout.js';
 
 const { GLOSS, METAL, SATIN, MATTE } = MAT;
+const CHROME = 45;   // gl/room.js draws it as steel with the room soft in it
+const CARBON = 46;   // carbon fibre: gl/room.js weaves it off the face's metres
+// A Cachet's lab (a piece with a keypad) is carbon fibre and steel whatever its grade: carbon casework and back
+// panel, steel worktop, hood and trim. Nothing of it is painted (a texture): it comes out on the moving layer,
+// which draws none, and a texture would pop on as it landed.
+const CF = { carcass: '#3c4047', door: '#474c54', steel: '#9ea5ac', dark: '#6e757c', back: '#33373d' };
 export const gradeOf = (q) => Math.max(0, LAB_GRADES.indexOf(q));
 // the worktop's height, and what each grade's bench is made of
 export const WORKTOP = 0.9;
 const LOOK = [
   // standard: a scavenged bench, plywood doors gone grey, a steel sheet screwed over the top
-  { carcass: '#4a4c48', door: '#5a5a52', top: '#8a8e90', topSurf: METAL, edge: '#6a6e70', hood: '#3a3e40', handle: '#8a8e92' },
+  { carcass: '#4a4c48', door: '#5a5a52', top: '#8a8e90', topSurf: METAL, edge: '#6a6e70', hood: '#3a3e40', handle: '#8a8e92', topTex: 'roomSteel', wall: 'roomTile', hoodTex: 'roomSteel', hoodC: '#a8acb0' },
   // refined: grey lab casework and a black epoxy top
-  { carcass: '#5a6066', door: '#6e757c', top: '#1c1e20', topSurf: GLOSS, edge: '#2a2c2e', hood: '#4a5056', handle: '#b8bcc0' },
+  { carcass: '#5a6066', door: '#6e757c', top: '#6e7278', topSurf: GLOSS, edge: '#2a2c2e', hood: '#4a5056', handle: '#e4e8ec', topTex: 'roomEpoxy', wall: 'roomSubway', hoodTex: 'roomBrushed', hoodC: '#dde2e6' },
   // pristine: white casework, a black epoxy top, a stainless hood
-  { carcass: '#d8dcdc', door: '#e8ecec', top: '#141618', topSurf: GLOSS, edge: '#202224', hood: '#b8bec2', handle: '#9aa0a6' },
+  { carcass: '#d8dcdc', door: '#e8ecec', top: '#5a5e64', topSurf: GLOSS, edge: '#202224', hood: '#b8bec2', handle: '#eef2f4', topTex: 'roomEpoxy', wall: 'roomSubway', hoodTex: null, hoodC: '#e4e8ec' },
 ];
 // what a reagent can look like in the glass; the seed picks
 const REAGENTS = ['#3a8a5a', '#c8a050', '#7a3a8a', '#c83a3a', '#5fb8e8', '#e8e0a0', '#e88a3a', '#d8e4e8'];
@@ -311,13 +317,17 @@ export function workingSet(c, stage, grade = 0) {
 export function ringStand(c, x, z, y0, h, base = 0.11) {
   const { pbox } = c.F;
   pbox(x - base * 0.6, x + base * 0.6, y0, y0 + 0.012, z - base, z + base * 0.4, '#2a2c30', 1, null, METAL);
-  c.rod(c.F.P(x, y0 + 0.012, z - base * 0.7), c.F.P(x, y0 + h, z - base * 0.7), 0.006, '#b8bcc0', 1.05, METAL);
+  c.rod(c.F.P(x, y0 + 0.012, z - base * 0.7), c.F.P(x, y0 + h, z - base * 0.7), 0.006, '#e4e8ec', 1.05, CHROME, 10);
+  c.lat(x, z - base * 0.7, [[0.012, y0 + 0.012], [0.009, y0 + 0.03], [0.007, y0 + 0.032]], '#2a2c30', 1, 10, METAL);
   return [x, z - base * 0.7];
 }
 // A clamp from the upright at (ux, uz) out to (x, z) at height y, its jaws round something r wide.
 export function clamp(c, ux, uz, x, z, y, r) {
-  c.rod(c.F.P(ux, y, uz), c.F.P(x, y, z), 0.004, '#9aa0a6', 1, METAL);
+  c.rod(c.F.P(ux, y, uz), c.F.P(x, y, z), 0.004, '#dde2e6', 1, CHROME, 8);
   c.lat(ux, uz, [[0.012, y - 0.012], [0.012, y + 0.012]], '#3a3c40', 1, 8, METAL);
+  // the boss's thumbscrew
+  c.rod(c.F.P(ux, y, uz), c.F.P(ux, y, uz + 0.03), 0.0025, '#dde2e6', 1, CHROME, 6);
+  c.lat(ux, uz + 0.03, [[0, y - 0.004], [0.009, y - 0.004], [0.009, y + 0.004], [0, y + 0.004]], '#1c1e20', 1, 8, SATIN);
   for (const s of [-1, 1]) c.rod(c.F.P(x - r * 1.1, y, z + s * r * 0.8), c.F.P(x + r * 1.1, y, z + s * r * 0.8), 0.003, '#c86a3a', 1, SATIN);
 }
 // A round-bottom flask on a heater with a reflux condenser up out of it, clamped to a stand.
@@ -452,7 +462,10 @@ export function gasBottle(c, x, z, grade) {
   c.lat(x, z, [[0, 0], [0.09, 0], [0.095, 0.02], [0.095, top - 0.1], [0.07, top - 0.03], [0.03, top], [0, top]], col, 1, 18, GLOSS);
   c.lat(x, z, [[0.096, top * 0.5], [0.096, top * 0.5 + 0.03]], '#2a2a2c', 1, 18, SATIN);
   c.lat(x, z, [[0.016, top], [0.016, top + 0.05], [0, top + 0.05]], '#c8a050', 1.05, 10, METAL);
-  c.lat(x + 0.035, z, [[0, top + 0.03], [0.026, top + 0.03], [0.026, top + 0.04], [0, top + 0.04]].map(([r, y]) => [r, y]), '#c8ccd0', 1.05, 14, METAL);
+  c.lat(x + 0.035, z, [[0, top + 0.03], [0.026, top + 0.03], [0.026, top + 0.04], [0, top + 0.04]], '#e4e8ec', 1.05, 14, CHROME);
+  // its gauge, a white dial in a chrome bezel facing out
+  c.lat(x + 0.035, z + 0.03, [[0, top + 0.08], [0.024, top + 0.08], [0.026, top + 0.082]], '#e4e8ec', 1, 14, CHROME);
+  c.rod(c.F.P(x + 0.035, top + 0.04, z), c.F.P(x + 0.035, top + 0.075, z + 0.02), 0.005, '#e4e8ec', 1, CHROME, 8);
   c.rod(c.F.P(x + 0.04, top + 0.06, z), c.F.P(x + 0.04, WORKTOP + 0.01, z - 0.05), 0.006, '#c84a2a', 0.95, SATIN);
 }
 // A skull, which every scavenged bench seems to end up with.
@@ -463,108 +476,244 @@ export function skull(c, x, z, y0) {
   for (const s of [-1, 1]) c.F.pbox(x + s * 0.02 - 0.01, x + s * 0.02 + 0.01, y0 + 0.045, y0 + 0.065, z + 0.045, z + 0.049, '#1a1410', 1, null, MATTE);
 }
 
+// A rack of test tubes on the bench: a wire frame, and a row of tubes, some with something in them.
+export function tubeRack(c, x, z, y0, n = 8) {
+  const { pbox, P } = c.F, w = n * 0.026;
+  for (const y of [y0 + 0.05, y0 + 0.09]) pbox(x - w / 2 - 0.01, x + w / 2 + 0.01, y, y + 0.006, z - 0.025, z + 0.025, '#c8ccd0', 1.05, null, METAL);
+  for (const sx of [-1, 1]) pbox(x + sx * (w / 2 + 0.005) - 0.004, x + sx * (w / 2 + 0.005) + 0.004, y0, y0 + 0.096, z - 0.025, z + 0.025, '#c8ccd0', 1.05, null, METAL);
+  for (let i = 0; i < n; i++) {
+    const tx = x - w / 2 + 0.013 + i * 0.026, fill = c.r() < 0.7 ? 0.2 + c.r() * 0.5 : 0, prof = [[0, y0 + 0.006], [0.009, y0 + 0.012], [0.009, y0 + 0.13]];
+    glassLathe(c, tx, z, prof, 10);
+    if (fill) liquidLathe(c, tx, z, fillOf(prof, y0 + 0.012 + 0.12 * fill), pick(c.r, REAGENTS), 1, 10);
+    c.lat(tx, z, [[0.0085, y0 + 0.128], [0.01, y0 + 0.13], [0.01, y0 + 0.134], [0.0085, y0 + 0.134]], '#e8f0f2', 1.05, 10, GLOSS);
+  }
+  c.rod(P(x - w / 2, y0 + 0.002, z + 0.03), P(x + w / 2, y0 + 0.002, z + 0.03), 0.002, '#c8ccd0', 1, METAL);
+}
+// A screen on the wall: a slim bezel and a molecule on it, drawn in light.
+export function wallScreen(c, x0, x1, y0, y1, z) {
+  const { pbox, P } = c.F, cx = (x0 + x1) / 2, cy = (y0 + y1) / 2, r = Math.min(x1 - x0, y1 - y0) * 0.22;
+  pbox(x0, x1, y0, y1, z, z + 0.025, '#0c0e10', 1, null, GLOSS);
+  pbox(x0 + 0.012, x1 - 0.012, y0 + 0.012, y1 - 0.012, z + 0.025, z + 0.026, '#071318', 1.3, null, MATTE);
+  // a ring of six, a tail off one corner, a readout under it
+  const at = (i) => [cx - r * 0.3 + Math.cos((i / 6) * Math.PI * 2) * r, cy + 0.01 + Math.sin((i / 6) * Math.PI * 2) * r];
+  for (let i = 0; i < 6; i++) { const a = at(i), b = at(i + 1); c.rod(P(a[0], a[1], z + 0.027), P(b[0], b[1], z + 0.027), 0.0018, '#5ae0ff', 1.6, MATTE, 4); pbox(a[0] - 0.004, a[0] + 0.004, a[1] - 0.004, a[1] + 0.004, z + 0.027, z + 0.029, i % 3 ? '#9ff0ff' : '#ff6ad0', 1.7, null, MATTE); }
+  const t0 = at(0); c.rod(P(t0[0], t0[1], z + 0.027), P(t0[0] + r * 0.9, t0[1] + r * 0.5, z + 0.027), 0.0018, '#5ae0ff', 1.6, MATTE, 4);
+  for (let i = 0; i < 3; i++) pbox(cx + r * 0.6, x1 - 0.03, y0 + 0.025 + i * 0.018, y0 + 0.03 + i * 0.018, z + 0.027, z + 0.028, i ? '#2a8aa0' : '#48ff8a', 1.5, null, MATTE);
+}
+
+// A vacuum manifold along the hood's back wall: a double chrome rail from end to end, glass taps down off it
+// every so often with a hose's olive on each, a gauge at one end and a cold trap in its silvered Dewar at the
+// other, stood on the bench under the rail.
+export function manifold(c, x0, x1, y, z, top, liquid) {
+  const { P, pbox } = c.F;
+  for (const dy of [0, 0.05]) c.rod(P(x0, y + dy, z), P(x1, y + dy, z), 0.011, '#eef2f4', 1, CHROME, 14);
+  for (const x of [x0 + 0.02, x1 - 0.02]) { pbox(x - 0.012, x + 0.012, y - 0.02, y + 0.07, z - 0.07, z - 0.05, '#2a2c30', 1, null, METAL); c.rod(P(x, y, z - 0.05), P(x, y, z), 0.005, '#dde2e6', 1, CHROME, 8); }
+  const n = Math.max(3, Math.round((x1 - x0) / 0.16));
+  for (let i = 1; i < n; i++) {
+    const x = x0 + ((x1 - x0) * i) / n;
+    // a tap: a glass barrel across the rail, its key, and an olive down to a hose
+    glassLathe(c, x, z + 0.004, [[0.007, y - 0.06], [0.007, y + 0.06]], 8);
+    c.lat(x, z + 0.004, [[0.011, y + 0.018], [0.011, y + 0.032], [0, y + 0.034]], '#e8e4dc', 1, 10, GLOSS);
+    c.rod(P(x - 0.022, y + 0.025, z + 0.004), P(x + 0.022, y + 0.025, z + 0.004), 0.004, i % 2 ? '#3a6ac8' : '#e8e4dc', 1, GLOSS, 6);
+    c.lat(x, z + 0.004, [[0.004, y - 0.09], [0.006, y - 0.08], [0.004, y - 0.07], [0.006, y - 0.065], [0.004, y - 0.06]], '#e8f0f2', 1, 8, GLOSS);
+    if (i % 2) c.rod(P(x, y - 0.09, z + 0.004), P(x + 0.02, top + 0.02, z + 0.07), 0.005, '#c86a3a', 0.9, SATIN, 6);
+  }
+  // the gauge: a dial in a chrome bezel at the left end
+  const gx = x0 + 0.05;
+  c.rod(P(gx, y + 0.06, z), P(gx, y + 0.12, z), 0.005, '#eef2f4', 1, CHROME, 8);
+  pbox(gx - 0.034, gx + 0.034, y + 0.1, y + 0.168, z + 0.012, z + 0.016, '#f4f2ea', 1, null, MATTE);
+  pbox(gx - 0.038, gx + 0.038, y + 0.096, y + 0.172, z + 0.004, z + 0.012, '#eef2f4', 1, null, CHROME);
+  c.rod(P(gx, y + 0.134, z + 0.017), P(gx + 0.02, y + 0.15, z + 0.017), 0.0015, '#c83a2a', 1, MATTE, 4);
+  // the cold trap: a silvered Dewar at the right end, the trap's glass up out of it to the rail
+  const tx = x1 - 0.06, tz = z + 0.06;
+  c.lat(tx, tz, [[0, top], [0.045, top], [0.048, top + 0.006], [0.048, top + 0.2], [0.042, top + 0.21], [0.036, top + 0.205]], '#eef2f4', 1, 18, CHROME);
+  c.lat(tx, tz, [[0.036, top + 0.205], [0.03, top + 0.19], [0, top + 0.19]], '#c8eaff', 1.2, 14, GLOSS);
+  glassLathe(c, tx, tz, [[0.02, top + 0.06], [0.02, top + 0.26], [0.008, top + 0.28], [0.008, y - 0.01]], 12);
+  c.rod(P(tx, y - 0.01, tz), P(tx, y, z), 0.006, '#e8f0f2', 1, GLOSS, 8);
+  // a wisp of frost on the Dewar's rim
+  for (let i = 0; i < 8; i++) { const a = (i / 8) * Math.PI * 2; pbox(tx + Math.cos(a) * 0.04 - 0.004, tx + Math.cos(a) * 0.04 + 0.004, top + 0.205, top + 0.212, tz + Math.sin(a) * 0.04 - 0.004, tz + Math.sin(a) * 0.04 + 0.004, '#f4fbff', 1.15, null, MATTE); }
+}
+// A tray of capped vials, a row or two of whatever's been made in the colours given, labelled.
+export function vialTray(c, x, z, y0, cols, n = 4) {
+  const { pbox } = c.F, rows = 2, w = n * 0.026 + 0.02;
+  pbox(x - w / 2, x + w / 2, y0, y0 + 0.02, z - 0.035, z + 0.035, '#e8eaec', 1, null, SATIN);
+  for (let j = 0; j < rows; j++) for (let i = 0; i < n; i++) {
+    const vx = x - w / 2 + 0.023 + i * 0.026, vz = z - 0.013 + j * 0.026, prof = [[0.009, y0 + 0.006], [0.009, y0 + 0.06]];
+    glassLathe(c, vx, vz, prof, 10);
+    liquidLathe(c, vx, vz, [[0.008, y0 + 0.007], [0.008, y0 + 0.02 + 0.03 * ((i + j) % 3) / 2], [0, y0 + 0.02 + 0.03 * ((i + j) % 3) / 2]], cols[(i + j * 2) % cols.length], 1, 10);
+    c.lat(vx, vz, [[0.0095, y0 + 0.058], [0.0095, y0 + 0.072], [0, y0 + 0.073]], ['#c83a2a', '#2a6ac8', '#1c1e20', '#e8c020'][(i + j) % 4], 1, 10, GLOSS);
+    if (j === 1) pbox(vx - 0.006, vx + 0.006, y0 + 0.028, y0 + 0.042, vz + 0.0092, vz + 0.0096, '#f4f2ea', 1, null, MATTE);
+  }
+}
+// A squeeze wash bottle: a soft body, a screw cap, the bent delivery tube.
+export function washBottle(c, x, z, y0, col, cap) {
+  c.lat(x, z, [[0, y0], [0.032, y0], [0.035, y0 + 0.01], [0.035, y0 + 0.12], [0.026, y0 + 0.15], [0.012, y0 + 0.16], [0, y0 + 0.16]], col, 0.98, 16, SATIN);
+  c.lat(x, z, [[0.0355, y0 + 0.04], [0.0355, y0 + 0.08]], '#f4f2ea', 1, 16, MATTE);
+  c.lat(x, z, [[0.016, y0 + 0.156], [0.016, y0 + 0.18], [0, y0 + 0.18]], cap, 1, 12, GLOSS);
+  const { P } = c.F;
+  c.rod(P(x, y0 + 0.18, z), P(x, y0 + 0.22, z), 0.003, '#f4f6f8', 1, GLOSS, 6);
+  c.rod(P(x, y0 + 0.22, z), P(x + 0.05, y0 + 0.2, z + 0.02), 0.003, '#f4f6f8', 1, GLOSS, 6);
+}
+
 // ── the bench ─────────────────────────────────────────────────────────────────────────────────────
-// The whole lab in p's footprint: casework to the worktop, a hood over the left of it, open bench and
-// a reagent shelf on the right, and the glassware a lab of that grade has out.
+// The whole lab in p's footprint: a tiled wall behind it, casework to the worktop, a hood over the left of
+// it, open bench and reagent shelves on the right, and the glassware a lab of that grade has out.
+//
+// It's drawn in PARTS, each begun with `c.K.mark(name)` when the kit has one: back, carcass, hood, rig,
+// bench, shelf, gas, then end. A Cachet's reveal (gl/room-mesh.js `assembly`) moves each part on its own
+// way in: the bench across, the hood and the shelves down, the rig and the tools into place.
 export function drawLab(c, quality = 'standard') {
-  const { F, p, r } = c, { pbox, P, N } = F, g = gradeOf(quality), L = LOOK[g];
+  const { F, p, r } = c, { pbox, P, N } = F, g = gradeOf(quality), cf = !!p.keypad;
+  const L = cf ? { ...LOOK[g], carcass: CF.carcass, door: CF.door, top: CF.steel, topSurf: CHROME, edge: CF.dark, handle: CF.steel, topTex: null, wall: null, hoodTex: null, hoodC: CF.steel } : LOOK[g];
   const hw = p.w / 2, hd = p.d / 2, h = p.h, T = WORKTOP;
+  const mark = (name) => c.K.mark?.(name);
   const liquid = pick(r, REAGENTS), second = pick(r, REAGENTS), product = pick(r, ['#f0f0ea', '#e8eaf0', '#c8e8f0', '#e8a050', '#f0d040']);
   const split = -hw + p.w * 0.6;            // where the hood ends and the open bench begins
   const knee = hw - 0.26;                   // the knee space at the right end, where the gas stands
-  // the plinth, the casework and its doors, the worktop
+  const top = T + 0.03, sh = Math.min(h - 0.5, top + 0.55), sh2 = sh + 0.36;
+
+  // ── the wall behind: tiled the whole width, a darker grey-green so the glass and what glows stand out,
+  // and on a good bench a screen up over the shelves
+  mark('back');
+  if (cf) pbox(-hw + 0.005, hw - 0.005, top, h - 0.02, -hd - 0.002, -hd + 0.004, CF.back, 1, null, CARBON);
+  else pbox(-hw + 0.005, hw - 0.005, top, h - 0.02, -hd - 0.002, -hd + 0.004, '#ffffff', 1, { t: L.wall, c: g === 0 ? '#6a7268' : g === 1 ? '#3e4a4c' : '#cdd6d4' }, GLOSS);
+  // a pristine lab's wall has a steel splashback to the shelves (a Cachet's too); a refined one a chrome trim along the tiles' top
+  if (cf) pbox(-hw + 0.005, hw - 0.005, top + 0.08, top + 0.5, -hd + 0.004, -hd + 0.007, CF.steel, 1, null, CHROME);
+  else if (g === 2) pbox(-hw + 0.005, hw - 0.005, top + 0.08, top + 0.5, -hd + 0.004, -hd + 0.007, '#ffffff', 1, { t: 'roomBrushed', c: '#e8ecee' }, CHROME);
+  else if (g === 1) pbox(-hw + 0.005, hw - 0.005, top + 0.5, top + 0.515, -hd + 0.004, -hd + 0.012, '#e4e8ec', 1, null, CHROME);
+  if (g > 0 && h - (sh2 + 0.24) > 0.34) wallScreen(c, hw - 0.66, hw - 0.12, sh2 + 0.3, Math.min(h - 0.08, sh2 + 0.62), -hd + 0.004);
+
+  // ── the casework: plinth, cabinets and their doors, the worktop with its upstand and drip edge
+  mark('carcass');
   pbox(-hw + 0.02, knee, 0, 0.08, -hd, hd - 0.06, '#101012', 0.9);
-  pbox(-hw, knee, 0.08, T - 0.03, -hd, hd - 0.02, L.carcass, 0.92, null, SATIN);
+  if (g > 0) pbox(-hw + 0.05, knee - 0.03, 0.014, 0.022, hd - 0.066, hd - 0.06, '#a8f0ff', 1.6);
+  if (cf) pbox(-hw, knee, 0.08, T - 0.03, -hd, hd - 0.02, L.carcass, 1, null, CARBON);
+  else pbox(-hw, knee, 0.08, T - 0.03, -hd, hd - 0.02, g > 0 ? '#ffffff' : L.carcass, 0.92, g > 0 ? { t: 'roomPowder', c: L.carcass } : null, SATIN);
   const doors = Math.max(2, Math.round((knee + hw) / 0.5));
   for (let i = 0; i < doors; i++) {
     const x0 = -hw + 0.006 + (i * (knee + hw)) / doors, x1 = x0 + (knee + hw) / doors - 0.012;
-    pbox(x0, x1, 0.09, T - 0.04, hd - 0.02, hd - 0.004, L.door, g === 0 ? 0.85 + r() * 0.12 : 1, null, SATIN);
-    pbox((x0 + x1) / 2 - 0.05, (x0 + x1) / 2 + 0.05, T - 0.1, T - 0.088, hd - 0.004, hd + 0.012, L.handle, 1, null, METAL);
-    if (g === 0) c.stain((x0 + x1) / 2, 0.3 + r() * 0.3, hd - 0.003, 0.05);
+    if (cf) pbox(x0, x1, 0.09, T - 0.04, hd - 0.02, hd - 0.004, L.door, 1, null, CARBON);
+    else pbox(x0, x1, 0.09, T - 0.04, hd - 0.02, hd - 0.004, g > 0 ? '#ffffff' : L.door, g === 0 ? 0.85 + r() * 0.12 : 1, g > 0 ? { t: 'roomPowder', c: L.door } : null, SATIN);
+    if (g > 0 || cf) {
+      // a bar pull on two stand-offs, polished, and a recessed label holder under it
+      const mx = (x0 + x1) / 2;
+      c.rod(P(mx - 0.07, T - 0.094, hd + 0.008), P(mx + 0.07, T - 0.094, hd + 0.008), 0.004, L.handle, 1, CHROME, 10);
+      for (const s of [-1, 1]) c.rod(P(mx + s * 0.06, T - 0.094, hd - 0.004), P(mx + s * 0.06, T - 0.094, hd + 0.008), 0.003, L.handle, 1, CHROME, 8);
+      pbox(mx - 0.035, mx + 0.035, T - 0.15, T - 0.128, hd - 0.004, hd - 0.002, '#f4f2ea', 1, null, MATTE);
+      pbox(mx - 0.038, mx + 0.038, T - 0.153, T - 0.125, hd - 0.0045, hd - 0.0035, L.handle, 1, null, CHROME);
+    } else pbox((x0 + x1) / 2 - 0.05, (x0 + x1) / 2 + 0.05, T - 0.1, T - 0.088, hd - 0.004, hd + 0.012, L.handle, 1, null, METAL);
+    if (g === 0 && !cf) c.stain((x0 + x1) / 2, 0.3 + r() * 0.3, hd - 0.003, 0.05);
   }
-  pbox(knee, hw, T - 0.03, T, -hd, hd - 0.02, L.carcass, 0.92, null, SATIN);
-  pbox(hw - 0.02, hw, 0, T - 0.03, -hd, hd - 0.02, L.carcass, 0.9, null, SATIN);
-  pbox(-hw - 0.01, hw + 0.01, T, T + 0.03, -hd, hd + 0.015, L.top, 1, null, L.topSurf);
-  pbox(-hw - 0.01, hw + 0.01, T - 0.004, T, hd, hd + 0.015, L.edge, 1, null, SATIN);
+  pbox(knee, hw, T - 0.03, T, -hd, hd - 0.02, L.carcass, cf ? 1 : 0.92, null, cf ? CARBON : SATIN);
+  pbox(hw - 0.02, hw, 0, T - 0.03, -hd, hd - 0.02, L.carcass, cf ? 1 : 0.9, null, cf ? CARBON : SATIN);
+  if (cf) pbox(-hw - 0.01, hw + 0.01, T, T + 0.03, -hd, hd + 0.015, L.top, 1, null, CHROME);
+  else pbox(-hw - 0.01, hw + 0.01, T, T + 0.03, -hd, hd + 0.015, '#ffffff', 1, { t: L.topTex, c: L.top }, L.topSurf);
+  pbox(-hw - 0.01, hw + 0.01, T - 0.004, T, hd, hd + 0.015, L.edge, 1, null, cf ? CHROME : SATIN);
+  pbox(-hw, hw, top, top + 0.08, -hd + 0.004, -hd + 0.016, L.top, 1, null, L.topSurf);
   // a scavenged top is scarred; a scar stays on the top, never over its edge
-  // (`c.stain` is for a front face; these lie flat on the top)
-  if (g === 0) for (let i = 0; i < 4; i++) {
+  if (g === 0 && !cf) for (let i = 0; i < 4; i++) {
     const s = 0.04 + r() * 0.04, x = -hw + s + r() * (p.w - 2 * s), z = -hd + s + r() * Math.max(0, p.d - 2 * s);
     pbox(x - s, x + s, T + 0.03, T + 0.0312, z - s * 0.6, z + s * 0.6, pick(r, ['#2a2018', '#3a3a1a', '#4a1a14']), 0.6 + r() * 0.2, null, MATTE);
   }
-  const top = T + 0.03;
 
-  // the hood: its sides and back, a baffle, a lit roof, a sash half up, and the duct to the ceiling
+  // ── the hood: its sides and back, a baffle, a lit roof, a sash, a status panel, the duct to the ceiling
+  mark('hood');
   // a bench being worked at has its sash pushed up out of the way
   const hoodTop = h - 0.3, sashLo = p.working ? hoodTop - 0.16 : top + 0.36, sashHi = hoodTop - 0.04;
-  pbox(-hw, split, top, h - 0.18, -hd, -hd + 0.025, L.hood, 0.85, null, SATIN);
-  for (const x of [-hw, split - 0.04]) pbox(x, x + 0.04, top, hoodTop, -hd, hd - 0.02, L.hood, 1, null, g === 2 ? METAL : SATIN);
-  pbox(-hw, split, hoodTop, h - 0.18, -hd, hd - 0.02, L.hood, 1, null, g === 2 ? METAL : SATIN);
+  // its shell is polished chrome (material 45, a mirror of the room in gl/room.js)
+  const hoodSkin = L.hoodTex ? { t: L.hoodTex, c: L.hoodC } : null, hoodHex = L.hoodTex ? '#ffffff' : L.hoodC;
+  pbox(-hw, split, top, h - 0.18, -hd, -hd + 0.025, hoodHex, 1, hoodSkin, CHROME);
+  for (const x of [-hw, split - 0.04]) pbox(x, x + 0.04, top, hoodTop, -hd, hd - 0.02, hoodHex, 1, hoodSkin, CHROME);
+  pbox(-hw, split, hoodTop, h - 0.18, -hd, hd - 0.02, hoodHex, 1, hoodSkin, CHROME);
+  // the liner: a dished steel pan the hood's glass stands in, its lip turned up at the front
+  pbox(-hw + 0.04, split - 0.04, top, top + 0.003, -hd + 0.04, hd - 0.05, cf ? CF.steel : '#ffffff', 1, cf ? null : { t: 'roomBrushed', c: g === 0 ? '#9a9c9a' : '#e8ecee' }, g === 0 && !cf ? METAL : CHROME);
+  pbox(-hw + 0.04, split - 0.04, top, top + 0.018, hd - 0.06, hd - 0.05, g === 0 ? '#9a9c9a' : '#e8ecee', 1, null, g === 0 && !cf ? METAL : CHROME);
   pbox(-hw + 0.05, split - 0.05, hoodTop - 0.03, hoodTop - 0.02, -hd + 0.04, hd - 0.08, '#e8f4f0', 1.6);
-  pbox(-hw + 0.04, split - 0.04, top + 0.05, hoodTop - 0.08, -hd + 0.025, -hd + 0.04, L.hood, 0.75, null, SATIN);
-  // the sash: a frame, a pane, a pull
-  pbox(-hw + 0.04, split - 0.04, sashLo - 0.03, sashLo, hd - 0.04, hd - 0.02, L.handle, 1, null, METAL);
-  pbox(-hw + 0.04, split - 0.04, sashHi, sashHi + 0.02, hd - 0.04, hd - 0.02, L.handle, 1, null, METAL);
+  if (cf) pbox(-hw + 0.04, split - 0.04, top + 0.05, hoodTop - 0.08, -hd + 0.025, -hd + 0.04, CF.carcass, 1, null, CARBON);
+  else pbox(-hw + 0.04, split - 0.04, top + 0.05, hoodTop - 0.08, -hd + 0.025, -hd + 0.04, L.hood, 0.75, null, SATIN);
+  // the baffle's slots along the back, where the air goes
+  for (let i = 0; i < 6; i++) { const x = -hw + 0.12 + i * ((split - hw - 0.24 + 2 * hw) / 6); pbox(x, x + 0.08, top + 0.1, top + 0.115, -hd + 0.04, -hd + 0.042, '#0c0d0e', 1, null, MATTE); }
+  const trim = g > 0 || cf ? CHROME : METAL;
+  pbox(-hw + 0.04, split - 0.04, sashLo - 0.03, sashLo, hd - 0.04, hd - 0.02, L.handle, 1, null, trim);
+  pbox(-hw + 0.04, split - 0.04, sashHi, sashHi + 0.02, hd - 0.04, hd - 0.02, L.handle, 1, null, trim);
   // its stiles, and a muntin up the middle: the pane only shows its highlights, so the frame says it's a window
-  for (const x of [-hw + 0.04, (-hw + split) / 2 - 0.006, split - 0.052]) pbox(x, x + 0.012, sashLo - 0.03, sashHi + 0.02, hd - 0.04, hd - 0.02, L.handle, 1, null, METAL);
+  for (const x of [-hw + 0.04, (-hw + split) / 2 - 0.006, split - 0.052]) pbox(x, x + 0.012, sashLo - 0.03, sashHi + 0.02, hd - 0.04, hd - 0.02, L.handle, 1, null, trim);
   c.K.quad(c.K.glass, [P(-hw + 0.04, sashLo, hd - 0.03), P(split - 0.04, sashLo, hd - 0.03), P(split - 0.04, sashHi, hd - 0.03), P(-hw + 0.04, sashHi, hd - 0.03)], N(0, 0, 1), [1, 1, 1], GLOSS, null, true);
-  c.rod(P(-hw + 0.2, sashLo - 0.04, hd - 0.01), P(split - 0.2, sashLo - 0.04, hd - 0.01), 0.008, L.handle, 1.05, METAL);
+  c.rod(P(-hw + 0.2, sashLo - 0.04, hd - 0.01), P(split - 0.2, sashLo - 0.04, hd - 0.01), 0.008, L.handle, 1.05, trim);
+  // the fascia's status panel: three lights, power, airflow, alarm
+  if (g > 0) {
+    const fx = split - 0.32;
+    pbox(fx, fx + 0.24, h - 0.27, h - 0.2, hd - 0.02, hd - 0.012, '#121416', 1, null, GLOSS);
+    ['#48ff8a', '#48ff8a', '#3a6aff'].forEach((col, i) => pbox(fx + 0.03 + i * 0.07, fx + 0.06 + i * 0.07, h - 0.245, h - 0.23, hd - 0.012, hd - 0.009, col, 1.7));
+  }
   // the duct up from the hood's roof, and its fan: a grey can on a scavenged bench, its grille rusted
   const dx = (-hw + split) / 2;
-  c.lat(dx, -hd * 0.2, [[0.1, h - 0.18], [0.1, h]], g === 0 ? '#7a6a5a' : '#b8bcc0', 0.95, 16, METAL);
-  c.lat(dx, -hd * 0.2, [[0.13, h - 0.16], [0.13, h - 0.08], [0.1, h - 0.06]], g === 0 ? '#5a4a3a' : '#c8ccd0', 1, 16, METAL);
+  c.lat(dx, -hd * 0.2, [[0.1, h - 0.18], [0.1, h]], g === 0 && !cf ? '#7a6a5a' : '#dde2e6', 0.95, 20, g === 0 && !cf ? METAL : CHROME);
+  c.lat(dx, -hd * 0.2, [[0.13, h - 0.16], [0.13, h - 0.08], [0.1, h - 0.06]], g === 0 && !cf ? '#5a4a3a' : '#e4e8ec', 1, 20, g === 0 && !cf ? METAL : CHROME);
+  // the duct's ribs, every hand's width
+  for (let y = h - 0.17; y < h - 0.01; y += 0.05) c.lat(dx, -hd * 0.2, [[0.1, y], [0.104, y + 0.004], [0.104, y + 0.01], [0.1, y + 0.014]], g === 0 && !cf ? '#6a5a4a' : '#eef2f4', 1, 20, g === 0 && !cf ? METAL : CHROME);
   // the airflow readout on the hood's post: a green bar on the good benches, a strip of tape on the bad
   if (g > 0) {
     pbox(split - 0.035, split - 0.005, top + 0.6, top + 0.72, hd - 0.02, hd - 0.012, '#1c1e20', 1, null, SATIN);
     pbox(split - 0.03, split - 0.01, top + 0.62, top + 0.68, hd - 0.012, hd - 0.01, '#48ff8a', 1.6);
   } else pbox(split - 0.035, split - 0.005, top + 0.5, top + 0.56, hd - 0.02, hd - 0.016, '#e8d040', 0.9, null, MATTE);
 
-  // under the hood: the reflux rig, the separator and a couple of beakers
+  // ── under the hood: the reflux rig, the separator and a couple of beakers
+  mark('rig');
   const zIn = -hd * 0.15;
   refluxRig(c, -hw + 0.28, zIn, top, g, liquid);
   if (split + hw > 1.0) separator(c, -hw + 0.62, zIn, top, liquid, second);
   vessel(c, split - 0.18, zIn + 0.06, top, SHAPES.beaker(0.04, 0.1), 0.35 + r() * 0.3, second);
   vessel(c, split - 0.1, zIn - 0.02, top, SHAPES.flask(0.045, 0.13), 0.25, liquid);
+  if (g > 0) manifold(c, -hw + 0.1, split - 0.1, top + 0.46, -hd + 0.07, top, liquid);
+  if (split + hw > 1.0) vialTray(c, split - 0.34, hd * 0.42, top, [liquid, second, product, pick(r, REAGENTS)]);
+  else vialTray(c, split - 0.2, hd * 0.5, top, [liquid, second, product], 3);
 
-  // the open bench, in two rows so nothing stands in anything else. At the front: the scale, the
+  // ── the open bench, in two rows so nothing stands in anything else. At the front: the scale, the
   // mortar, and the crystal dish (the skull on a scavenged bench). At the back: the filter rig (a
-  // measuring cylinder), the tablet press on a pristine bench, and the stirrer at the end.
-  // A bench the Chem Stage is working at (`p.working`) has its open bench cleared, and the stage's own
-  // tools put on it instead (workingSet).
+  // measuring cylinder), the tablet press on a pristine bench, a rack of tubes where there's room, and
+  // the stirrer at the end. A bench the Chem Stage is working at (`p.working`) has its open bench
+  // cleared, and the stage's own tools put on it instead (workingSet).
+  mark('bench');
   const front = hd * 0.3, back = -hd * 0.3;
-  if (p.working) {
-    // the wall behind a bench being worked at: tiled the whole width and up past the shelves, a darker grey-green
-    // so the glass and what glows stand out against it
-    pbox(-hw + 0.005, hw - 0.005, top, h - 0.02, -hd - 0.002, -hd + 0.004, '#ffffff', 1, { t: 'roomTile', c: g === 0 ? '#6a7268' : g === 1 ? '#5e6a66' : '#7a8682' }, GLOSS);
-    if (typeof p.working === 'string') workingSet(c, p.working, g);
-  }
+  if (p.working) { if (typeof p.working === 'string') workingSet(c, p.working, g); }
   else {
-  scale(c, split + 0.14, front, top, g);
-  mortar(c, split + 0.36, front, top, product);
-  if (g > 0) crystalDish(c, hw - 0.34, front, top, product);
-  else skull(c, hw - 0.34, front - 0.03, top);
-  if (g > 0) filterRig(c, split + 0.14, back, top, product);
-  else vessel(c, split + 0.14, back, top, SHAPES.cylinder(0.022, 0.2), 0.5, second);
-  if (g === 2) pillPress(c, split + 0.42, back, top, product);
-  if (g > 0) stirrer(c, hw - 0.18, back, top, g, second);
-  else vessel(c, hw - 0.18, back, top, SHAPES.beaker(0.04, 0.1), 0.45, second);
+    scale(c, split + 0.14, front, top, g);
+    mortar(c, split + 0.36, front, top, product);
+    if (g > 0) crystalDish(c, hw - 0.34, front, top, product);
+    else skull(c, hw - 0.34, front - 0.03, top);
+    washBottle(c, hw - 0.12, front + 0.02, top, g === 0 ? '#e8e4d0' : '#f4f6f8', '#2a6ac8');
+    if (hd > 0.3) washBottle(c, hw - 0.2, front + 0.08, top, '#f4f6f8', g === 0 ? '#c83a2a' : '#e8c020');
+    if (g > 0) filterRig(c, split + 0.14, back, top, product);
+    else vessel(c, split + 0.14, back, top, SHAPES.cylinder(0.022, 0.2), 0.5, second);
+    if (g === 2) pillPress(c, split + 0.42, back, top, product);
+    if (hw - split > 1.0) tubeRack(c, (split + 0.6 + hw - 0.3) / 2, back, top, 7);
+    if (g > 0) stirrer(c, hw - 0.18, back, top, g, second);
+    else vessel(c, hw - 0.18, back, top, SHAPES.beaker(0.04, 0.1), 0.45, second);
   }
-  // the reagent shelf on the wall over the open bench, and its bottles
-  const sh = Math.min(h - 0.5, top + 0.55);
-  pbox(split + 0.02, hw - 0.02, sh, sh + 0.018, -hd, -hd + 0.15, g === 0 ? '#7a6a52' : '#b8bcc0', 1, null, g === 0 ? SATIN : METAL);
-  for (const x of [split + 0.04, hw - 0.04]) pbox(x - 0.008, x + 0.008, sh - 0.12, sh, -hd, -hd + 0.012, '#5a5e62', 1, null, METAL);
-  reagents(c, split + 0.06, hw - 0.06, sh + 0.018, -hd + 0.075, Math.max(4, Math.round((hw - split) / 0.075)), g);
-  if (h - sh > 0.7) {
-    const sh2 = sh + 0.36;
-    pbox(split + 0.02, hw - 0.02, sh2, sh2 + 0.018, -hd, -hd + 0.15, g === 0 ? '#7a6a52' : '#b8bcc0', 1, null, g === 0 ? SATIN : METAL);
-    reagents(c, split + 0.06, hw - 0.06, sh2 + 0.018, -hd + 0.075, Math.max(3, Math.round((hw - split) / 0.09)), g);
+
+  // ── the reagent shelves on the wall over the open bench, their bottles, and a light under each
+  mark('shelf');
+  for (const [y, n] of [[sh, Math.max(4, Math.round((hw - split) / 0.075))], ...(h - sh > 0.7 ? [[sh2, Math.max(3, Math.round((hw - split) / 0.09))]] : [])]) {
+    if (g === 0 && !cf) pbox(split + 0.02, hw - 0.02, y, y + 0.018, -hd, -hd + 0.15, '#7a6a52', 1, null, SATIN);
+    else {
+      // a solid chrome shelf with a gallery rail along its front so nothing walks off it
+      pbox(split + 0.02, hw - 0.02, y, y + 0.012, -hd, -hd + 0.15, cf ? CF.steel : '#ffffff', 1, cf ? null : { t: 'roomBrushed', c: '#e4e8ec' }, CHROME);
+      c.rod(P(split + 0.03, y + 0.05, -hd + 0.145), P(hw - 0.03, y + 0.05, -hd + 0.145), 0.0035, '#eef2f4', 1, CHROME, 8);
+      for (let x = split + 0.03; x <= hw - 0.03 + 1e-6; x += (hw - split - 0.06) / Math.max(1, Math.round((hw - split) / 0.3))) c.rod(P(x, y + 0.012, -hd + 0.145), P(x, y + 0.05, -hd + 0.145), 0.0025, '#eef2f4', 1, CHROME, 6);
+    }
+    for (const x of [split + 0.04, hw - 0.04]) pbox(x - 0.008, x + 0.008, y - 0.12, y, -hd, -hd + 0.012, g === 0 && !cf ? '#5a5e62' : '#e4e8ec', 1, null, g === 0 && !cf ? METAL : CHROME);
+    if (g > 0) pbox(split + 0.05, hw - 0.05, y - 0.006, y, -hd + 0.03, -hd + 0.12, '#f4fbff', 1.5);
+    reagents(c, split + 0.06, hw - 0.06, y + 0.018, -hd + 0.075, n, g);
   }
-  // the knee space: the gas, strapped to the end panel
+
+  // ── the knee space: the gas, strapped to the end panel; a pristine bench's eyewash on the end post
+  mark('gas');
   gasBottle(c, (knee + hw) / 2, -hd * 0.1, g);
   c.rod(P(knee + 0.01, 0.55, -hd * 0.1 + 0.1), P(hw - 0.03, 0.55, -hd * 0.1 + 0.1), 0.006, '#2a2a2c', 1, SATIN);
-  // a pristine bench has its eyewash on the end post
   if (g === 2) {
     c.rod(P(hw - 0.05, top, hd - 0.1), P(hw - 0.05, top + 0.2, hd - 0.1), 0.01, '#3a8a3a', 1, GLOSS);
     c.lat(hw - 0.05, hd - 0.1, [[0, top + 0.2], [0.04, top + 0.2], [0.05, top + 0.23], [0, top + 0.22]], '#3a8a3a', 1, 14, GLOSS);
   }
+  mark('end');
 }

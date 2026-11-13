@@ -45,6 +45,10 @@ const GUST = { everyMin: 4, everyMax: 12, prob: 0.8, gain: 0.7, duration: 2.6, j
   noise(7121, 'pink', { type: 'bandpass', freq: 650, q: 1.4 }, 0.6, sway(7122, 0.9, 900, 0.4), { a: 1.1, d: 0.6, s: 0.5, r: 1.4 }),
   noise(7123, 'white', { type: 'highpass', freq: 3000, q: 0.5 }, 0.08, null, { a: 1, d: 0.5, s: 0.4, r: 1.2 }),
 ] };
+// A real gust off a recording, picked by seed so two sparkles aren't the same one; the stand-in is GUST's swell.
+const GUST_REC = (seed, gain = 0.6, every = [6, 16]) => ({ everyMin: every[0], everyMax: every[1], prob: 0.75, gain, duration: 4, jitter: 0, layers: all(
+  stand(GUST.layers), fieldCall('gusts', seed, -20),
+) });
 // Something loose in the wind: a sign or a shutter knocking twice.
 const RATTLE = { everyMin: 7, everyMax: 22, prob: 0.6, gain: 0.45, duration: 0.5, jitter: 0.2, layers: [
   noise(7131, 'brown', { type: 'bandpass', freq: 380, q: 2 }, 0.9, null, hit(0.002, 0.09, 0.1)),
@@ -75,11 +79,15 @@ const WIND_STAND = [
 const WHISTLE = (seed, gain, freq = 1400) => noise(seed, 'white', { type: 'bandpass', freq, q: 9 }, gain, sway(seed + 1, 0.2, 900, 0.85));
 const BODY = (seed, gain) => noise(seed, 'pink', { type: 'bandpass', freq: 420, q: 1.1 }, gain, sway(seed + 1, 0.15, 1100, 0.7));
 
+const half = (layers) => layers.map((l) => ({ ...l, gain: l.gain * 0.5 }));
 export const WEATHER_BEDS = {
-  rain: bed('wx_amb_rain', all(stand(RAIN_STAND), rec('rain_light', -18), PATTER(7011, 0.05), RUNOFF(7013, 0.06)), [DRIP], 2.4),
-  rain_heavy: bed('wx_amb_rain_heavy', all(stand(RAIN_STAND), rec('rain_heavy', -16), PATTER(7021, 0.07), RUNOFF(7023, 0.1), ROAR(7025, 0.12)), [DRIP, GURGLE], 2.2),
+  // drizzle: a fine wet hiss and the odd drop off an awning
+  drizzle: bed('wx_amb_drizzle', all(stand(half(RAIN_STAND)), rec('rain_drizzle', -20), rec('rain_awning', -30), RUNOFF(7005, 0.03)), [DRIP], 2.2),
+  // a shower on the street, and the canvas over a shop front
+  rain: bed('wx_amb_rain', all(stand(RAIN_STAND), rec('rain_light', -19), rec('rain_street', -23), rec('rain_awning', -29), PATTER(7011, 0.05), RUNOFF(7013, 0.06)), [DRIP], 2.4),
+  rain_heavy: bed('wx_amb_rain_heavy', all(stand(RAIN_STAND), rec('rain_heavy', -17), rec('rain_yards', -21), PATTER(7021, 0.07), RUNOFF(7023, 0.1), ROAR(7025, 0.12)), [DRIP, GURGLE], 2.2),
   // a storm is the downpour with the wind in it
-  storm: bed('wx_amb_storm', all(stand(RAIN_STAND), rec('rain_thunder', -17), rec('wind', -24), ROAR(7031, 0.16), BODY(7033, 0.1), WHISTLE(7035, 0.03)), [GURGLE, GUST], 3.6),
+  storm: bed('wx_amb_storm', all(stand(RAIN_STAND), rec('rain_thunder', -18), rec('rain_windy', -20), rec('wind', -25), ROAR(7031, 0.16), BODY(7033, 0.1), WHISTLE(7035, 0.03)), [GURGLE, GUST_REC(1)], 3.6),
   sleet: bed('wx_amb_sleet', all(stand([
     noise(7041, 'white', { type: 'bandpass', freq: 5200, q: 0.8 }, 0.5, null, { a: 1, d: 0, s: 1, r: 1 }),
     noise(7042, 'white', { type: 'highpass', freq: 3000, q: 0.6 }, 0.22, null, { a: 1, d: 0, s: 0.6, r: 1 }),
@@ -90,8 +98,22 @@ export const WEATHER_BEDS = {
     noise(7071, 'brown', { type: 'lowpass', freq: 1800, q: 0.8 }, 0.6),
     noise(7072, 'pink', { type: 'bandpass', freq: 750, q: 1.5 }, 0.3),
   ]), rec('blizzard', -17), WHISTLE(7073, 0.04, 1800), BODY(7075, 0.12)), [GUST], 1.75),
-  wind: bed('wx_amb_wind', all(stand(WIND_STAND), rec('wind', -20), BODY(7081, 0.1), WHISTLE(7083, 0.025)), [GUST, RATTLE], 2.2),
+  // The wind by strength (windTierFor picks one). Each step up adds to the one below rather than
+  // swapping it out: air and leaves, then the gusts, then the howl, then the gale on top of that.
+  wind_breeze: bed('wx_amb_wind_breeze', all(stand(half(WIND_STAND)), rec('wind_breeze', -24), rec('leaves', -27), BODY(7077, 0.05)), undefined, 2.0),
+  wind: bed('wx_amb_wind', all(stand(WIND_STAND), rec('wind', -21), rec('wind_gusty', -24), BODY(7081, 0.1), WHISTLE(7083, 0.025)), [GUST_REC(0, 0.5, [8, 20]), RATTLE], 2.2),
+  wind_strong: bed('wx_amb_wind_strong', all(stand(WIND_STAND), rec('wind_strong', -19), rec('wind_gusty', -22), BODY(7085, 0.12), WHISTLE(7087, 0.035)), [GUST_REC(1), GUST_REC(2, 0.5, [9, 22]), RATTLE], 2.3),
+  wind_gale: bed('wx_amb_wind_gale', all(stand(WIND_STAND), rec('wind_gale', -17), rec('wind_strong', -21), BODY(7091, 0.15), WHISTLE(7093, 0.045, 1700), WHISTLE(7095, 0.03, 900)), [GUST_REC(3, 0.7, [4, 10]), GUST_REC(0, 0.6, [5, 12]), RATTLE, { ...RATTLE, everyMin: 4, everyMax: 12 }], 2.4),
 };
+
+// The wind bed for a speed in kph, null under the breeze. The step it's on now (prevId) holds
+// until the wind drops 4 kph under it, so a wind on the line doesn't swap beds every tick.
+export const WIND_TIERS = [['wind_breeze', 25], ['wind', 40], ['wind_strong', 60], ['wind_gale', 80]];
+export function windTierFor(kph, prevId = null) {
+  let tier = null;
+  for (const [key, min] of WIND_TIERS) if (kph >= (WEATHER_BEDS[key].id === prevId ? min - 4 : min)) tier = key;
+  return tier;
+}
 
 // ── the city ─────────────────────────────────────────────────────────────────────────────────────
 // A train on the elevated line, a long way off: a rumble that comes up and goes.
@@ -126,15 +148,22 @@ const CITY_LAYERS = [
   tone('sawtooth', 50, 0.012, { type: 'lowpass', freq: 200, q: 0.7 }),
   tone('sine', 238, 0.004),
 ];
+// The recordings over the synth: a city a few streets off, a quiet street close by and, by day,
+// people on it. At night the people go home and the far city and the elevated line take over.
+const CITY_DAY = [rec('city_day', -27), rec('street_quiet', -29), rec('street_people', -33)];
+const CITY_NIGHT = [rec('city_night', -28), rec('city_roof', -31), rec('street_quiet', -32)];
 export const CITY_BEDS = {
-  city: bed('amb_city', CITY_LAYERS, [TRAIN, CLANK, THUMP, PIGEON(3)], 0.6),
-  // the same streets in the wet: tyres hiss on the road
-  city_wet: bed('amb_city_wet', all(CITY_LAYERS, noise(7311, 'white', { type: 'highpass', freq: 2600, q: 0.5 }, 0.035, sway(7312, 0.09, 700, 0.75))), [TRAIN, CLANK, THUMP], 0.6),
+  city: bed('amb_city', all(CITY_LAYERS, CITY_DAY), [TRAIN, CLANK, THUMP, PIGEON(3)], 0.6),
+  city_night: bed('amb_city_night', all(CITY_LAYERS, CITY_NIGHT), [TRAIN, CLANK, THUMP], 0.6),
+  // the same streets in the wet: tyres hiss on the road, and cars go by through it
+  city_wet: bed('amb_city_wet', all(CITY_LAYERS, noise(7311, 'white', { type: 'highpass', freq: 2600, q: 0.5 }, 0.035, sway(7312, 0.09, 700, 0.75)), rec('wet_traffic', -27), rec('city_night', -33)), [TRAIN, CLANK, THUMP], 0.6),
 };
 
 // The ambient themes that are a city's streets (zones.ambient_theme).
 export const CITY_THEMES = new Set(['city', 'urban', 'residential', 'waterfront']);
 // The city by the hour: quietest at four in the morning, full in the day.
+// The night bed plays from 22:00 to 06:00.
+export const isCityNight = (hour) => { const h = ((hour % 24) + 24) % 24; return h >= 22 || h < 6; };
 export function cityGainFor(hour) {
   const h = ((hour % 24) + 24) % 24;
   if (h >= 7 && h < 20) return 1;

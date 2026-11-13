@@ -1,0 +1,35 @@
+{
+  "description": "A long desk in fluted brass and pink marble, polished to a shine nobody pays for. A brass bell at one end. The guest book on it stops the week of the Handoff; tenants have signed under it since.",
+  "flags": {
+    "aliases": "desk,reception,bell,guest book,guestbook",
+    "interactions": [
+      "lean"
+    ],
+    "look": {
+      "arche": "surface",
+      "dims": [
+        3.6,
+        0.8,
+        1.1
+      ],
+      "form": "reception"
+    },
+    "spot": {
+      "at": [
+        -1.5,
+        8.2
+      ],
+      "turn": 0
+    }
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_embassy_reception",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "reception desk",
+  "object_type": "fixture",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_residential_lobby"
+}

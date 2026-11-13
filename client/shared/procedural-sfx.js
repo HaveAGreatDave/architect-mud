@@ -1120,6 +1120,36 @@
     return atLevel(def(closing ? 'door_close' : 'door_open', travel + 0.45, layers, 3), DOOR_LEVEL);
   }
 
+  // ── KNOCK ────────────────────────────────────────────────────────────────────
+  //
+  // Knuckles on a shut door: rap-rap, a beat, rap. Each rap is the leaf's body thudding (pitched by its mass, so a
+  // reinforced door is a dull thump and a shoddy one a hollow clack) and the knuckle's contact on top of it; a
+  // cheap door rattles in its frame after each. Somebody wants in.
+  function knock({ surface: kind = 'basic', intensity = 0.6 } = {}) {
+    const d = doorKind(kind), i = clamp01(intensity);
+    const gap = vary(0.17, 0.12), hits = [0, gap, gap * 2 + vary(0.16, 0.2)];
+    const layers = [];
+    hits.forEach((at, n) => {
+      const g = (n === 2 ? 1.1 : 0.9) * (0.6 + 0.6 * i), body = vary(lerp(210, 95, d.mass), 0.08);
+      layers.push(
+        { waveform: 'triangle', freq: body, delay: at, pitchBend: { to: body * 0.78, time: 0.04 },
+          filter: { type: 'lowpass', freq: vary(lerp(1400, 700, d.mass), 0.15), q: 1.4 },
+          adsr: { a: 0.001, d: vary(lerp(0.07, 0.13, d.mass), 0.15), s: 0, r: 0.05 },
+          gain: vary(0.13 * g, 0.12) },
+        { noiseMix: 1, delay: at,
+          filter: { type: 'bandpass', freq: vary(lerp(1900, 1100, d.mass), 0.15), q: 1.3 },
+          adsr: { a: 0.0005, d: vary(0.025, 0.2), s: 0, r: 0.02 },
+          gain: vary(0.08 * g, 0.15) },
+        d.rattle > 0.3 && { waveform: 'square', freq: vary(lerp(140, 240, d.rattle), 0.2), delay: at + 0.02,
+          filter: { type: 'bandpass', freq: vary(850, 0.2), q: 3 },
+          tremolo: { rate: vary(18, 0.2), depth: 0.8 },
+          adsr: { a: 0.003, d: vary(0.07 * d.rattle, 0.25), s: 0, r: 0.05 },
+          gain: vary(0.02 * d.rattle * g, 0.2) },
+      );
+    });
+    return atLevel(def('door_knock', hits[2] + 0.35, layers, 3), DOOR_LEVEL);
+  }
+
   // ── LOCK ─────────────────────────────────────────────────────────────────────
   //
   // The MECHANISM, not the leaf. A door and its lock are two separate sounds
@@ -1885,6 +1915,7 @@
       case 'footstep': return footstep({ surface: surf, intensity, wet, foot, detail });
       case 'door':     return door({ surface: surf, intensity, state, powered });
       case 'lock':     return lock({ surface: surf, intensity, state });
+      case 'knock':    return knock({ surface: surf, intensity });
       case 'chop':    return chop({ material: mat, intensity, state });
       case 'impact':  return impact({ surface: surf || vessel || 'metal', intensity, weight: weight ?? intensity, detail });
       case 'break':   return shatter({ surface: surf || vessel || 'glass', intensity, detail });

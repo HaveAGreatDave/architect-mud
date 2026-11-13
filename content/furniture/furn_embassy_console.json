@@ -1,0 +1,30 @@
+{
+  "description": "A marble console by the washroom door with a tall vase of lilies on it. The lilies are silk, and someone dusts them every morning.",
+  "flags": {
+    "aliases": "console,table,lilies,vase",
+    "look": {
+      "arche": "surface",
+      "dims": [
+        1.6,
+        0.42,
+        0.86
+      ],
+      "dress": "lilies",
+      "form": "console"
+    },
+    "spot": {
+      "along": 3.4,
+      "wall": "right"
+    }
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_embassy_console",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "console table",
+  "object_type": "decoration",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_residential_lobby"
+}

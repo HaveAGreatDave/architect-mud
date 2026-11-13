@@ -426,7 +426,7 @@ export function openStandsMenu(msg, host = seatUi) {
   card.setAttribute('aria-label', String(msg.name || msg.target));
   // the concessions (target 'order') are paid for; everything in a box is on the house
   const paid = msg.target === 'order' || !!msg.buy;
-  const row = (it) => `<li><button type="button" data-id="${esc(it.id)}"><b>${esc(it.name)}</b>${it.description ? `<span>${esc(it.description)}</span>` : ''}<i>${paid ? `₵${it.price | 0}` : 'Take one'}</i></button></li>`;
+  const row = (it) => `<li><button type="button" data-id="${esc(it.id)}"><b>${esc(it.name)}</b>${it.description ? `<span>${esc(it.description)}</span>` : ''}<i>${paid && (it.price | 0) > 0 ? `₵${it.price | 0}` : 'Take one'}</i></button></li>`;
   // a menu that files its items (the concessions: food, drinks, cigarettes, cigars) gets a heading
   // for each, and a strip of tabs along the top that jumps to one
   const groups = Array.isArray(msg.groups) ? msg.groups.filter((g) => (msg.items || []).some((it) => it.group === g)) : [];
@@ -440,7 +440,7 @@ export function openStandsMenu(msg, host = seatUi) {
   card.innerHTML = `<div class="st-menu-head"><b>${esc(msg.name || msg.target)}</b><button type="button" class="st-menu-x" aria-label="Close">✕</button></div>`
     + (msg.description ? `<p class="st-menu-desc">${esc(msg.description)}</p>` : '')
     + list
-    + `<p class="st-menu-foot">${msg.buy ? credits : paid ? `${credits} A runner brings it to your seat.`.trim() : 'On the house.'}</p>`;
+    + `<p class="st-menu-foot">${msg.buy ? ((msg.items || []).some((it) => (it.price | 0) > 0) ? credits : 'Help yourself.') : paid ? `${credits} A runner brings it to your seat.`.trim() : 'On the house.'}</p>`;
   const close = () => { card.remove(); document.removeEventListener('keydown', onEsc, true); };
   const onEsc = (e) => { if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); close(); } };
   document.addEventListener('keydown', onEsc, true);

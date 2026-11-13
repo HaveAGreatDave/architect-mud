@@ -15,6 +15,7 @@ import { strikesAfter } from '../../../shared/strike-feed.js';
 import { growBolt, boltBright, boltSeed } from '../../../shared/lightning.js';
 import { FLIGHT_EYE_H, FLIGHT_CLIMB_LIFT, FLIGHT_HEIGHT_FT } from '../../../shared/flight-height.js';
 import { TILE_M, FT_M } from '../../../shared/world-scale.js';
+import { precipKind } from '../../../shared/precip-look.js';
 
 const ROLL = 3600;
 // how fast a change in the weather comes through, per second
@@ -22,7 +23,6 @@ const EASE = 0.5, WET_UP = 0.25, WET_DOWN = 0.012;
 // weather that's a storm with lightning in it, and how much of the sky each word covers
 const STORM = { thunderstorm: 0.7, storm: 1, blizzard: 0.25 };
 const COVER = { clear: 0.06, sunny: 0.06, fair: 0.14, partly_cloudy: 0.32, cloudy: 0.55, overcast: 0.75, fog: 0.45, haze: 0.3, drizzle: 0.65, rain: 0.8, sleet: 0.8, snow: 0.8, thunderstorm: 0.95, storm: 1, blizzard: 1, acid: 0.85 };
-const SNOWY = new Set(['snow', 'blizzard']);
 const CLASS = { plane: 'prop', heli: 'heli', jet: 'heavy' };
 // a height in tiles as the feet a contact carries (client/shared/flight-height.js, the other way)
 const ftOf = (z) => Math.max(0, (z - FLIGHT_EYE_H) / FLIGHT_CLIMB_LIFT) ** 2 * FLIGHT_HEIGHT_FT;
@@ -44,7 +44,7 @@ export function createRoomWindow() {
     if (Number.isFinite(sky.wind)) windKph = sky.wind;
     const dir = sky.windDir ?? sky.field?.wind?.dir;
     if (Number.isFinite(dir)) windDir = dir;
-    const type = String(sky.here?.precipType || 'none'), rate = Number(sky.here?.precipRate) || 0, snowy = SNOWY.has(type) || type === 'sleet' && rate < 0.3;
+    const type = String(sky.here?.precipType || 'none'), rate = Number(sky.here?.precipRate) || 0, snowy = precipKind(type) === 'snow';   // sleet is snow, as the ground and the windscreen count it
     wantRain = snowy ? 0 : rate;
     wantSnow = snowy ? rate : 0;
     storm = STORM[word] ?? (sky.event?.type === 'ion_storm' ? 0.5 : 0);

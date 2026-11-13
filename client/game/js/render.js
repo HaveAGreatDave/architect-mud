@@ -589,13 +589,14 @@ const MAX_LINES = 1500;
 //
 // Gagged lines ARE recorded (see appendMsg). Trimmed lines are not recoverable
 // once past the cap, which is the same honest limit, one order of magnitude out.
-const TRANSCRIPT_MAX = 20000;
+const TRANSCRIPT_MAX = 20000, TRANSCRIPT_SLACK = 1000;
 const _transcript = [];
 let _transcriptLost = 0;      // dropped off the front — the file says how many
 
 function recordLine(text) {
   _transcript.push(String(text ?? ''));
-  if (_transcript.length > TRANSCRIPT_MAX) {
+  // dropped a thousand at a time: one off the front per line moved all 20,000 for every line once it was full
+  if (_transcript.length > TRANSCRIPT_MAX + TRANSCRIPT_SLACK) {
     const over = _transcript.length - TRANSCRIPT_MAX;
     _transcript.splice(0, over);
     _transcriptLost += over;
@@ -603,7 +604,8 @@ function recordLine(text) {
 }
 
 export function getTranscript() {
-  return { lines: [..._transcript], lost: _transcriptLost, cap: TRANSCRIPT_MAX };
+  const extra = Math.max(0, _transcript.length - TRANSCRIPT_MAX);
+  return { lines: _transcript.slice(extra), lost: _transcriptLost + extra, cap: TRANSCRIPT_MAX };
 }
 
 function trimScrollback(out) {
@@ -612,11 +614,26 @@ function trimScrollback(out) {
   while (over-- > 0 && out.firstElementChild) out.removeChild(out.firstElementChild);
 }
 
-export function scrollOutput() {
+// ⚠ ONE SNAP A FRAME. Reading scrollHeight straight after an append forces a layout, and a burst (status_tick,
+// resource_tick, a fight) paid it once per line. A follower's trim and snap now wait for the next frame, once for
+// however many lines came. A hidden tab runs no frames, so there it's done at once or the log grows untrimmed.
+let _snapRaf = 0;
+function snapSoon() {
+  _snapRaf = 0;
   const out = document.getElementById('output');
   if (!out) return;
   trimScrollback(out);
-  if (_following) { snap(out); return; }
+  if (_following) snap(out);
+}
+export function scrollOutput() {
+  const out = document.getElementById('output');
+  if (!out) return;
+  if (_following) {
+    if (document.hidden) snapSoon();
+    else if (!_snapRaf) _snapRaf = requestAnimationFrame(snapSoon);
+    return;
+  }
+  trimScrollback(out);
   _held++;
   paintChip();
 }

@@ -1045,7 +1045,7 @@ void main() {
     // shower happens above it: 0.2 of a shower wets 0.3% of the road, 0.35 wets 1.1%, 0.6 wets
     // 5.4%, and a full downpour 25%. A few damp hollows, then real puddles, then a street with
     // water lying in it — and never a sheet, which is what the level floor is guarding.
-    float level = mix(0.94, 0.24, uPond);
+    float level = mix(0.86, 0.20, uPond);   // was 0.94..0.24: a steady shower showed almost none
     // ── ⚠ A SHORELINE, NOT A GRADIENT ───────────────────────────────────────────────────────────
     //
     // The transition used to be 0.30 wide against a field that only spans −1..1, so a "puddle" was

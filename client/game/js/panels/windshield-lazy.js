@@ -11,7 +11,7 @@ let _pending = null;
 // after `loadWindshield()` has resolved sees the real value, because an import binds rather
 // than copies. Read one before that and it is undefined, which is why the loader is awaited
 // at the door rather than at the first use.
-export let ADORN_CHEAP, ADORN_NEAR, ADORN_RICH, AUTHORED_ADORN_KINDS, AUTHORED_DETAIL_KINDS, BERTH_LIFTS, BERTH_SETDOWN, BERTH_SLOTS, BUILDING_FOOT, CAB_TRIM, CONTACT_NEAR_F, CURTAIN_H, CURTAIN_HALF_W, DETAIL_PX, DRUM_MAT_FAMILIES, FAUNA_INK_GAIN, FAUNA_INK_R, FLASH_AREA, FLASH_BANK, FLASH_FLOOR, FLAT_ONLY_KINDS, FT_PER_FLOOR, GLASS1_BASIC, GL_TIER, HUNT_BAND, HUNT_MIN_LEDGE, HUNT_REACH, LEGACY_MODELS, MAT_ORDER, MODEL_MAX_EXTENT, NEON_ART, NO_TILE_FIT, PARK_CLIP, PARK_FIG_STRIDE, PHONE_TIER, RENDER_TUNE, RIDE_ROLL_W, RIDE_ROLL_ZETA, RIDE_W, ROAD_RIG_MUL, ROOF_CATCH_CEIL_Z, ROOF_CATCH_R, SHELTER_MARCH, SIGN_FONT, SIGN_PICTO, SIGN_TRACK, TILE_REACH, TRUCK_STEP_Z, TRUCK_VARIANTS, VEHICLE_CLASSES, VEHICLE_PARAM_TABLE, VISIBLE_FAR_F, VISIBLE_NEAR_F, WIRE_RING_S, _bayCutaway, _lifeGeo, armKeepStats, armKeepWhy, parkFigStats;
+export let ADORN_CHEAP, ADORN_NEAR, ADORN_RICH, AUTHORED_ADORN_KINDS, AUTHORED_DETAIL_KINDS, BERTH_LIFTS, BERTH_SETDOWN, BERTH_SLOTS, BUILDING_FOOT, CAB_TRIM, CONTACT_NEAR_F, CURTAIN_H, CURTAIN_HALF_W, DETAIL_PX, DRUM_MAT_FAMILIES, FAUNA_INK_GAIN, FAUNA_INK_R, FLASH_AREA, FLASH_BANK, FLASH_FLOOR, FLAT_ONLY_KINDS, FT_PER_FLOOR, GLASS1_BASIC, GL_TIER, HUNT_BAND, HUNT_MIN_LEDGE, HUNT_REACH, LEGACY_MODELS, MAT_ORDER, MODEL_MAX_EXTENT, NEON_ART, NO_TILE_FIT, PARK_CLIP, PARK_FIG_STRIDE, PHONE_TIER, RENDER_TUNE, RIDE_ROLL_W, RIDE_ROLL_ZETA, RIDE_W, ROAD_RIG_MUL, ROOF_CATCH_CEIL_Z, ROOF_CATCH_R, SHELTER_MARCH, SHIP_PLAN, SIGN_FONT, SIGN_PICTO, SIGN_TRACK, TILE_REACH, TRUCK_STEP_Z, TRUCK_VARIANTS, VEHICLE_CLASSES, VEHICLE_PARAM_TABLE, VISIBLE_FAR_F, VISIBLE_NEAR_F, WIRE_RING_S, _bayCutaway, _lifeGeo, armKeepStats, armKeepWhy, parkFigStats;
 
 export function isLoaded() { return !!_m; }
 
@@ -63,6 +63,7 @@ export function loadWindshield() {
     ROOF_CATCH_CEIL_Z = m.ROOF_CATCH_CEIL_Z;
     ROOF_CATCH_R = m.ROOF_CATCH_R;
     SHELTER_MARCH = m.SHELTER_MARCH;
+    SHIP_PLAN = m.SHIP_PLAN;
     SIGN_FONT = m.SIGN_FONT;
     SIGN_PICTO = m.SIGN_PICTO;
     SIGN_TRACK = m.SIGN_TRACK;
@@ -83,6 +84,9 @@ export function loadWindshield() {
   try { (await import('./gl/install.js')).installGL?.(); } catch (e) { console.error('[windshield-lazy] GL install failed, staying on the 2-D renderer:', e?.message); }
     return m;
   })();
+  // ⚠ A FAILED LOAD IS FORGOTTEN, so the next call fetches again. Kept, one refused fetch (the
+  // dev server restarting under --watch) left every view that needs this module dead until a reload.
+  _pending.catch(() => { _pending = null; });
   return _pending;
 }
 
@@ -107,6 +111,7 @@ export function bakedSurfaces(...a) { return (_m || _cold('bakedSurfaces')).bake
 export function bayDims(...a) { return (_m || _cold('bayDims')).bayDims(...a); }
 export function bayDoorHead(...a) { return (_m || _cold('bayDoorHead')).bayDoorHead(...a); }
 export function bayDoorOpen(...a) { return (_m || _cold('bayDoorOpen')).bayDoorOpen(...a); }
+export function bayFootSolid(...a) { return (_m || _cold('bayFootSolid')).bayFootSolid(...a); }
 export function bayMassSmoke(...a) { return (_m || _cold('bayMassSmoke')).bayMassSmoke(...a); }
 export function bayOccluderSmoke(...a) { return (_m || _cold('bayOccluderSmoke')).bayOccluderSmoke(...a); }
 export function berthBoxColour(...a) { return (_m || _cold('berthBoxColour')).berthBoxColour(...a); }

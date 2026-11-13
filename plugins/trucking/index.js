@@ -9,7 +9,7 @@ import { applyDamage, impactSplit, grindSplit, IMPACT_AREAS, damageOf, overall, 
   isBroken, isCosmetic, PART_ITEMS, PART_SHARE, COSMETIC_MUL, BROKEN_AT } from './damage.js';
 import { grimeOf, grimeBand, washCost } from './filth.js';
 import { FITTINGS, FIT_IDS, SLOTS, installedFits, fitInSlot, fitSuffix, priceFor } from './fittings.js';
-import { editionOf, editionSuffix, editionCatalogue } from './editions.js';
+import { editionOf, editionSuffix, editionCatalogue, lotEdition } from './editions.js';
 import { TRINKETS, TRINKET_IDS, CAB_SLOTS, installedTrinkets, trinketPrice } from '../../client/shared/cab-trinkets.js';
 import { sendToPlayer, sendToZone, teachVerb } from '../../server/engine/messaging.js';
 import { on } from '../../server/engine/events.js';
@@ -40,6 +40,7 @@ import { crossingChain, crossingDest, crossingInfo, voidGateOf, launchCrossing, 
 import { pushRoadWindow } from './mmroad.js';
 import { cmdRoadTest, roadTestTick, roadTestPark, roadTestImpact, isLicensedDriver, unlicensedLine } from './roadtest.js';
 import { registerDepotBrief } from './onboard.js';
+import { raise as hoistRaise, lower as hoistLower, taken as hoistTaken, liftAt, noteHand, roomVehicles } from './hoist.js';
 import { rentStock, rentFee, makeRental, activeRental, reclaimRental, sweepRentals, rentalExpired, isRental,
   rentalLeft, fmtLeft, RENT_TERM_MS } from './rental.js';
 import { stampIfMissing, serviceSheet, hornCatalogue, hornPrice, hornOf } from './service.js';
@@ -814,6 +815,8 @@ async function depotPanel(player, hereIn, depotIn, tab = 'fleet', forceText = fa
   }
   const mine = await fleetOf(player.id);
   const rig = rigOf(player);
+  // the Stage's lift panel lists what's downstairs here (hoist.js), from this hand
+  noteHand(player.id, bay.id, mine.filter(t => zonesHere.includes(t.depot_zone)).map(t => ({ id: t.id, name: t.name || t.type.name })));
   // Independent reads go out together (read tiers: Promise.all). This opens from a footstep.
   // `parked` is what other plugins keep in this shed (a racer, say), each as a card that names its
   // own verb: the `depot.parked` hook. The shed keeps any ground vehicle; this yard sells trucks.
@@ -977,12 +980,13 @@ async function depotPanel(player, hereIn, depotIn, tab = 'fleet', forceText = fa
     rentStock: rentStock(player.credits || 0),
     hasRental: mine.some((t) => isRental(t)),
     hornCat: hornCatalogue(),
-    stock: TRUCK_TYPES.map(t => ({
-      id: t.id, name: t.name, tier: t.tier, price: t.price, blurb: t.blurb,
-      variant: t.id, kg: t.kg, tank: t.tank, tankL: t.tankL, top: t.topSpeed,
+    // The lot sells each truck in its lot body (editions.js), so the card is that body.
+    stock: TRUCK_TYPES.map(t => { const e = lotEdition(t.id); return {
+      id: t.id, name: e?.name || t.name, tier: t.tier, price: t.price, blurb: e?.lot || t.blurb,
+      variant: e ? `${t.id}~e${e.id}` : t.id, kg: t.kg, tank: t.tank, tankL: t.tankL, top: t.topSpeed,
       stats: axesFor(t.id, {}, 1),
       afford: (player.credits || 0) >= t.price,
-    })),
+    }; }),
     trailerStock: TRAILER_TYPES.map(t => ({
       id: t.id, name: t.name, price: t.price, rated: t.rated, kg: t.kg,
       afford: (player.credits || 0) >= t.price,
@@ -1176,17 +1180,20 @@ async function yardBuy(player, here, depot, typeId, plate) {
   if (!type) {
     return say(`No such truck. <span class="text-dim">trucks: ${TRUCK_TYPES.map(t => t.id).join(', ')} · trailers: ${TRAILER_TYPES.map(t => t.id).join(', ')}</span>`);
   }
+  // The lot sells the type in its lot body at the list price; the stock body isn't sold new.
+  const ed = lotEdition(key);
+  const name = ed?.name || type.name;
   if ((player.credits || 0) < type.price) {
-    return say(`The ${type.name} is ${type.price}₵ and you have ${player.credits || 0}₵.`);
+    return say(`The ${name} is ${type.price}₵ and you have ${player.credits || 0}₵.`);
   }
   // A yard holds as many of yours as you can pay for; pickParked settles the ambiguity.
   if (!(await adjustCredits(player, -type.price, undefined, 'trucking:buy-truck'))) return say(`That's ${type.price}₵ and you have ${player.credits || 0}₵.`);
   // Bought into the bay, not onto the street; `drive` brings it out.
-  const bought = await buyTruck(player.id, key, here.id, plate);
+  const bought = await buyTruck(player.id, key, here.id, plate, ed?.id);
   noteFreshVehicle(player.id, bought?.id);
   sendToPlayer(player.id, { type: 'player_update', credits: player.credits });
   await repush(player, 'fleet');
-  return say(`<span class="item-grant">Bought: the ${type.name}${plate ? `, "${plate}"` : ''}. ${type.price}₵.</span>\n`
+  return say(`<span class="item-grant">Bought: the ${name}${plate ? `, "${plate}"` : ''}. ${type.price}₵.</span>\n`
     + `<span class="text-dim">${type.kg} kg of deck and ${type.tank} tiles to a tank. ${teachVerb('drive')} when you're ready.</span>`);
 }
 
@@ -2727,8 +2734,45 @@ async function cmdHop(args, raw, player) {
     : '<span class="text-green">You drop down out of the cab.</span>' };
 }
 
+// ── The lift in the shed (hoist.js) ──
+// `hoist <truck>` brings one of yours up from the garage under the shed floor onto the lift, where the Room Stage
+// draws it and you can walk round it; `hoist down` sends it back. RAM only: the row's `depot_zone` never moves,
+// so `drive` from beside it is the counter's Deploy. Works typed, at every rung; the Stage's panel sends the same.
+async function cmdHoist(args, raw, player) {
+  if (rigOf(player)) return say("You're behind the wheel. The lift is for a truck nobody's in.");
+  const stood = getZone(player.current_zone);
+  const bay = depotAt(stood);
+  if (!bay) return say("There's no lift here. The trucks come up through the floor of a depot's shed.");
+  const want = (args || []).join(' ').trim();
+  const up = liftAt(stood.id);
+  if (/^(down|lower|away|stow)$/i.test(want)) {
+    if (!up || up.down) return say('The lift is already down.');
+    if (String(up.ownerId) !== String(player.id)) return say(`The ${up.name} on the lift isn't yours to send down.`);
+    hoistLower(stood.id);
+    return say(`<span class="text-amber">The beacon goes round and the ${up.name} sinks into the floor.</span>`);
+  }
+  if (up?.down) return say('The lift is still on its way down.');
+  if (up) {
+    return say(String(up.ownerId) === String(player.id)
+      ? `The ${up.name} is already up. <span class="text-dim">hoist down</span> sends it back; <span class="text-dim">drive ${up.truckId}</span> takes it out.`
+      : `The lift's carrying somebody's ${up.name}. Wait for it to go down.`);
+  }
+  const parked = await trucksAt(player.id, depotZonesOf(stood, bay));
+  if (!parked.length) return say("Nothing of yours is downstairs here. Buy or hire one at the counter, or have one towed in.");
+  const t = pickParked(parked, want);
+  if (!t) return whichTruckLine('hoist', parked, want);
+  const cd = t.custom_data || {};
+  const name = t.name || t.type.name;
+  hoistRaise(stood.id, player.id, { truckId: t.id, name,
+    variant: `${t.type_id}${editionSuffix(cd, t.type_id)}${fitSuffix(cd)}`, paint: paintOf(cd, t.type_id), grime: grimeOf(cd) });
+  return say(`<span class="text-amber">A klaxon, a beacon, and the floor plate drops away. The ${name} comes up out of the garage on the lift.</span>`);
+}
+const isDepotRoom = (zoneId) => !!depotAt(getZone(zoneId));
+
 export const commands = {
-  drive: cmdDrive,
+  hoist: cmdHoist,
+  // A truck driven off the lift leaves it empty (hoist.js `taken`).
+  drive: async (args, raw, player) => { const r = await cmdDrive(args, raw, player); const rig = rigOf(player); if (rig?.truckId) hoistTaken(rig.truckId); return r; },
   // `deps` handed in so roadtest.js never imports back into this file.
   roadtest: (args, raw, player) => cmdRoadTest(args, raw, player, { depotHere, mount: mountTruckById, isDriving: (id) => rigs.has(id) }),
   ride: cmdRide,
@@ -2769,6 +2813,8 @@ export const commands = {
 
 export const hooks = {
   'zone.describeRoom': describeDepot,
+  // What stands on a shed's lift, and the viewer's trucks downstairs, for the Room Stage (hoist.js). Sync, RAM.
+  'room.vehicles': (zoneId, player) => roomVehicles(zoneId, player, { isDepot: isDepotRoom }),
   // Diesel's price from the system that charges it, so a sign never keeps its own FUEL_FULL. A tile
   // with no pump answers nothing. `each` is one percent of a tank (t.fuel is 0..1).
   'fuel.prices': (zone) => pumpAt({ leg: 'city', zoneId: zone?.id })

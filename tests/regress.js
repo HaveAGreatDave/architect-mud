@@ -218,6 +218,7 @@ section('layer 1: manifest contracts');
       'mis/mis-system.js',      // per-player event interval, cleared by stopMisEvent
       'trip/index.js',          // per-player phantom sync, cleared when the trip ends
       'gametable/game-table.js',// per-table shuffle SFX, cleared with the table
+      'bodily/index.js',        // per-shower water beat, cleared by endShower
     ]);
     const offenders = [];
     const walk = async (dir, rel = '') => {
@@ -2307,7 +2308,7 @@ check('look returns a result', r && r.type !== 'error', JSON.stringify(r)?.slice
   const deckRows = (html) => [...html.matchAll(/<span class="action-link[^"]*"[^>]*data-ftype="media_deck"[^>]*>/g)].map(([m]) => m);
   const body = (await run('look'))?.message || '';
   check('a consumer deck under a set is absorbed out of the room pane', deckRows(body).length === 0, body.slice(0, 900));
-  check('the television keeps its own entry', /data-target="Polaris Executive Chromavision 88"/.test(body), body.slice(0, 900));
+  check('the television keeps its own entry', /data-target="Polaris Executive Chromavision 100"/.test(body), body.slice(0, 900));
   {
     // …UNLESS no TV panel opens for this player. At the log rung the strip never
     // arrives, so the deck must be back in the pane as the satellite row it has
@@ -2342,7 +2343,9 @@ check('look returns a result', r && r.type !== 'error', JSON.stringify(r)?.slice
     // links equals the count of DISTINCT pieces among them. Asserted as a
     // relationship rather than a magic number, so re-dressing the flat doesn't
     // turn this red. A piece landing in two sections is the failure this catches.
-    const links = [...body.matchAll(/class="action-link furniture-link"[^>]*data-target="([^"]+)"/g)].map((m) => m[1]);
+    // A piece carries data-ftype; a game table's panel buttons (Sit, seat 1..6, Watch) don't, and two of
+    // them rightly point at the same seat.
+    const links = [...body.matchAll(/class="action-link furniture-link" data-ftype="[^"]*"[^>]*data-target="([^"]+)"/g)].map((m) => m[1]);
     check('no piece is printed in two sections',
       links.length >= 8 && new Set(links).size === links.length, `${links.length} links: ${links.join(' | ')}`);
     check('…and the pieces themselves are still there',

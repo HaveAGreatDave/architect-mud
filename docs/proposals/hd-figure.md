@@ -40,6 +40,8 @@ The outline is set back 2 cm along the eye's ray in world space, not by a consta
 
 `peopleBatch`, the crowd's body posed on the CPU, is kept for the Figure Lab's "crowd body beside".
 
+The lit fragment shader is about 114k characters. It links in the background (programs.js `layerProgramAsync`), which took over a minute the first time after it changed (an empty driver cache) and about 2 s after that. Until it has linked, a stand-in draws everybody: the same mesh on the same bones, each slot its flat colour in the room's comic light, with no paint, face or hair cards. Cold, it was ready about 6 s after the page loaded. Before it, a show on the TV's 3-D stage could run several scenes on an empty set. `__figureStandIn = true` in the console shows it.
+
 ## The Borderlands pass
 
 After a style report (2026-11-03) asked for stronger shapes, gear and painted detail at much the same triangle count, the figure moved toward Borderlands' people. Most of it is paint and small pieces of gear; detail was given up where shape and line read better.
@@ -129,6 +131,14 @@ Under the comic look the sports' people and the rooms take the same comic light 
 
 Not done: an official's stripes stop at his shoulders (only the torso carries the jersey texture), and the rink's shoulder pads are plain caps of the jersey's colour.
 
+## Hands and arms
+
+- **The fingers fold at their joints.** Each finger of the sculpted hand bends at its knuckle, its middle joint and its last joint in turn (`handXf` in gl/figure-hd.js), each joint blended over a few millimetres so the skin creases rather than snaps. `fingerJointsOf` in figure.js reads the joints off the hand as it's built. A curl of 1 is a closed fist and below 0 straightens the bend the hand was modelled with. The first version swung each finger about its knuckle as one arc, which couldn't close past a loose claw. The normals bend with the points, so a curled finger is lit as one.
+- **Each finger has its own curl**, the thumb its curl and how far it's brought across the palm, and the fingers fan apart (`uFingL`, `uFingR`, `uThumb`, `uHandX`). Named shapes are in gl/figure-hands.js (`HAND_SHAPES`): relax, fist, open, flat, cup, pinch, cig, tool, syringe, pipe, rag, point. `bendPoint` there is the same bend in JS, so `pinchOf` finds where a pinch really closes.
+- **The forearm turns, not the wrist.** A forearm's turn (`uHandX` z and w) goes on along it from nothing at the elbow to all of it at the wrist, and the hand's bone carries all of it (`twistHand` in gl/figure-reach.js), so a turned hand doesn't wring the wrist.
+- **A hand arrives where the clip meant it to.** The clips pose an arm by its joints' angles measured on the average body, so on anybody else, or sat lower, a fork stopped short of the mouth or went through the cheek. `finishArms` (gl/figure-reach.js) runs after the pose: for the clips that take something to the face or the arm (`CLIP_HANDS`) it sets each hand's shape and what's in it, and as the clip brings the palm near the goal, a two-bone reach takes the tip of what's held onto the mouth, the nose or the crook of the other arm, keeping the elbow on the side the clip put it. A bottle, a fork or a needle is turned at the wrist to point where it's going, and a bottle comes in base up. Other clips keep their old grips (`GRIP` in gl/room-people.js).
+- ⚠ **Never index a constant array with a variable in the figure's shaders.** ANGLE's D3D back end turned the joints' tables into code that took the driver minutes to compile; the lit program failed to link with an empty log and the GPU process hung, and Chrome then turned WebGL off until a restart. The joints are picked by a chain of selects (`FINGER_GLSL`).
+
 ## What else changed
 
 - **The shoe sole is a rocker** (`shoeSole`): flat under the ball, the old crowd shoe's curve to the toe, rounded at the heel. The root solve pivots on that line (`figureSole`), not on six points along a flat one, and it pins whichever sole is lowest rather than the foot with the lower ankle. With the old rule, in double support it pinned the leading heel while the trailing toe was still the lowest thing on the body, and the toe slid.
@@ -167,7 +177,7 @@ A mutation (`content/mutations`) shows on the close-up figure through `MUTATION_
 
 ## Open questions
 
-- **The street's own close-ups.** The standing camera and free look still draw the crowd body with the L0 head. Swapping in the close-up figure past some size would mean GPU skinning on the street (gl/actors.js bakes every vertex for every frame), as the ballplayers do.
+- **The street's own close-ups.** Answered by [street-people-ladder.md](street-people-ladder.md): the nearest few people on the street are drawn with this figure (gl/street-hd.js), posed on the CPU by `figurePeople` for now, and the crowd is dressed from the same look.
 - **Tying the comic manner to the setting.** The close-up figure ignores the Cel Shading switch. If the plain look is meant to stay a real choice, the figure needs a plain rendering that doesn't read as uncanny.
 - **Hatching.** The figure has the comic look's bands, edge line and outline, but not its hatching in deep shadow.
 - **More cuts.** Shorts, skirts, hoods and order dress, each a cut over the same body.

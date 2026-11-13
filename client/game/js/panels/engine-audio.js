@@ -101,7 +101,7 @@ const voiceOf = (cls) => FE_VOICE[cls] || FE_VOICE.prop;
 const FLYBY_CLASS = { grasshopper: 'ultralight', drake: 'prop', jet: 'heavy' };
 export const FLYBY_LOUD = {
   ultralight: { ref: 1.0, hear: 22 }, wreck: { ref: 1.8, hear: 30 }, prop: { ref: 2.2, hear: 36 },
-  locust: { ref: 2.6, hear: 40 }, divebomber: { ref: 3.2, hear: 48 }, heli: { ref: 3.0, hear: 46 },
+  locust: { ref: 2.6, hear: 40 }, divebomber: { ref: 3.2, hear: 48 }, heli: { ref: 5.0, hear: 70 },
   // a heavy at cruise is 10 km up and still a faint rumble, so it's heard a very long way
   gunship: { ref: 5.0, hear: 120 }, heavy: { ref: 6.5, hear: 700 },
 };
@@ -118,10 +118,10 @@ export function flybyCue(cls, { muffled = false } = {}) {
     // a broadband slap on the same beat, a tail rotor buzzing over it and the turboshaft's whine
     const P = CLASS_AUDIO.heli, slap = 11;
     return [
-      { waveform: P.wave, freq: P.power[0] / 2, filter: { type: 'lowpass', freq: muffled ? 260 : 420, q: 1 }, tremolo: { rate: slap, depth: 0.7 }, adsr: A, gain: 0.15 },
-      { waveform: 'noise', noiseMix: 1, noise: 'pink', filter: { type: 'lowpass', freq: 380, q: 0.8 }, tremolo: { rate: slap, depth: 0.85 }, adsr: A, gain: 0.13 },
+      { waveform: P.wave, freq: P.power[0] / 2, filter: { type: 'lowpass', freq: muffled ? 260 : 420, q: 1 }, tremolo: { rate: slap, depth: 0.7 }, adsr: A, gain: 0.26 },
+      { waveform: 'noise', noiseMix: 1, noise: 'pink', filter: { type: 'lowpass', freq: 380, q: 0.8 }, tremolo: { rate: slap, depth: 0.85 }, adsr: A, gain: 0.23 },
       ...(muffled ? [] : [
-        { waveform: 'noise', noiseMix: 1, noise: 'pink', filter: { type: 'bandpass', freq: 950, q: 0.7 }, tremolo: { rate: slap, depth: 0.9 }, adsr: A, gain: 0.05 },
+        { waveform: 'noise', noiseMix: 1, noise: 'pink', filter: { type: 'bandpass', freq: 950, q: 0.7 }, tremolo: { rate: slap, depth: 0.9 }, adsr: A, gain: 0.09 },
         { waveform: P.wave, freq: P.power[1], filter: { type: 'lowpass', freq: 700, q: 1 }, tremolo: { rate: 46, depth: 0.5 }, adsr: A, gain: 0.03 },
         { waveform: 'sine', freq: 1850, adsr: A, gain: 0.01 },
       ]),

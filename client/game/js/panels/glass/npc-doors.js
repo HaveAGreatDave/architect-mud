@@ -53,7 +53,7 @@ function probe(map, R, wcx, wcy, gx, gy, E) {
 
 // The door into the building beside street tile (x, y) in direction (dx, dy), cached per window.
 export function npcDoorFor(map, R, wcx, wcy, x, y, dx, dy) {
-  if (map !== _map) { _map = map; for (const [k, d] of DOORS) if (!d.ev.length) DOORS.delete(k); }
+  if (map !== _map) { _map = map; for (const [k, d] of DOORS) if (!d?.ev.length) DOORS.delete(k); }   // null is a tile probed with no door
   const gx = Math.round(x) + dx, gy = Math.round(y) + dy, key = `${gx},${gy},${dx},${dy}`;
   if (DOORS.has(key)) { const d = DOORS.get(key); if (d) return d; }
   let d = null;

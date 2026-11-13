@@ -129,15 +129,19 @@ async function maybeSitAtPoker(target, player, broadcast) {
 
 	if (target) {
 		const name = target.replace(/^the\s+/i, "").trim().toLowerCase();
-		const seat = zoneFurn.find(
-			(f) => f.flags?.game_table_id != null && (f.name || "").toLowerCase().includes(name),
-		);
+		// ⚠ A TABLE'S CHAIRS SHARE A NAME ("Player's Chair" x4), so a name finds the first. The Room Stage names
+		// the chair you sat in by its furniture id; an exact name beats a part of one for a typed `sit`.
+		const games = zoneFurn.filter((f) => f.flags?.game_table_id != null);
+		const seat =
+			games.find((f) => String(f.id).toLowerCase() === name) ||
+			games.find((f) => (f.name || "").toLowerCase() === name) ||
+			games.find((f) => (f.name || "").toLowerCase().includes(name));
 		if (!seat) return undefined; // not one of its seats — let posture logic try
 		const seatIdx = seat.flags?.seat_idx;
 		return dispatchAction({
 			type: "gametable.take_seat",
 			actor: player,
-			params: { seatIdx },
+			params: { seatIdx, chair: seat.name },
 			context: { broadcast },
 		});
 	}

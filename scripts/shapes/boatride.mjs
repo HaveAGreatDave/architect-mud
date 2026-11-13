@@ -31,7 +31,7 @@ const CONTACT = 0.034, EXT_MUL = 6.0, VS = 1.6, CHOP_DRAWN = 0.055 / SEA_K;
   const fs = await import('node:fs');
   const ws = fs.readFileSync(new URL('../../client/game/js/panels/windshield.js', import.meta.url), 'utf8');
   ok(/hydro: 0\.034 \};/.test(ws), 'windshield.js CONTACT_SIZE.hydro is no longer 0.034 — restate it here');
-  ok(/OWN_EXT_MUL_BY_CLS = \{ truck: 7\.0, hydro: 6\.0 \}/.test(ws), 'windshield.js OWN_EXT_MUL_BY_CLS.hydro is no longer 6.0 — restate it here');
+  ok(/OWN_EXT_MUL_BY_CLS = \{ truck: [\d.]+, hydro: 6\.0 \}/.test(ws), 'windshield.js OWN_EXT_MUL_BY_CLS.hydro is no longer 6.0 — restate it here');
   ok(/const CONTACT_VS = 1\.6;/.test(ws), 'windshield.js CONTACT_VS is no longer 1.6 — restate it here');
   ok(/glSeaAmp: 0\.055 \/ SEA_K,/.test(ws), 'windshield.js glSeaAmp (the drawn chop) is no longer 0.055 — restate it here');
   // The green-water sheet starts at her DECK. At her keel (`rideZ + SZ * 0.05`) it was up on 53-68%

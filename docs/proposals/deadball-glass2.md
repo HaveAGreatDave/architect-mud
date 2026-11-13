@@ -1570,8 +1570,12 @@ Phase 3, or with sim v2 if that comes later.
   each joint's speed and acceleration, no jump in velocity at a blend point (under 1 ft/s, taken
   to zero time), planted feet still within 0.1 ft, the hands on the bat within 0.05 ft, the glove
   at the ball within 0.1 ft across its box, the release within a frame of the hand's top speed,
-  and the pitcher on the real mound both ways round. Root motion waits for the running clips in
-  Phase 3; until then a clip moves within its own frame and the director places the frame.
+  and the pitcher on the real mound both ways round. A free upper arm goes no further behind his
+  back than a shoulder does (rig.js `SHOULDER_BACK`: the solver eases it in from 36° off the
+  chest's plane and holds it short of 52°, ten less with the arm raised level, and lets an arm cocked
+  to throw go further), and `limitBreaks` holds every key and frame to it: a run's back swing, a bat
+  flip and a barehanded pick-up had reached 75°, the arm out flat behind him. Root motion waits
+  for the running clips in Phase 3; until then a clip moves within its own frame and the director places the frame.
 - **2c built:** the pitch's clips, thirty in all, each keyed to pass the gate. The pitcher's: a
   delivery from the stretch and one from the windup for each arm slot (over the top,
   three-quarters, sidearm: the throwing arm turned about its shoulder, the trunk's lean easing as

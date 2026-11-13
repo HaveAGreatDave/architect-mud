@@ -508,14 +508,21 @@ registerAction({
   },
 });
 
+// The gate's "nothing unpaid" for this one step, so zone.entered doesn't ask the DB the same
+// question again. Gate and listener run inside one move command, so nothing can be picked up
+// between them; the short life only covers a step the gate passed and something later vetoed.
+const cleanExit = new Map();   // playerId → { owner, at }
+const CLEAN_EXIT_MS = 2000;
+
 registerMoveGate(async ({ player, from, to, direction }) => {
   const owner = shopZoneOwner(from?.id);
   if (!owner || shopZoneOwner(to?.id) === owner) return;   // not leaving a shop
+  cleanExit.delete(player.id);
   const warned = liveDoorPrompt(player.id);
   if (warned?.owner === owner) return;                     // already asked; this is the answer
 
   const lifted = await carriedUnpaid(player.id, owner);
-  if (!lifted.length) return;
+  if (!lifted.length) { cleanExit.set(player.id, { owner, at: Date.now() }); return; }
 
   const vendor = world.npcs.get(owner);
   const discount = vendor?.faction ? await getIdeologyDiscount(player.id, vendor.faction) : 0;
@@ -574,6 +581,9 @@ on('zone.entered', async ({ actor: player, zone, from }) => {
   const shopOwner = shopZoneOwner(from);
   if (!shopOwner || shopZoneOwner(zone) === shopOwner) return; // still inside
 
+  const clean = cleanExit.get(player.id);
+  cleanExit.delete(player.id);
+  if (clean?.owner === shopOwner && Date.now() - clean.at < CLEAN_EXIT_MS) return;   // the gate just looked
   const lifted = await carriedUnpaid(player.id, shopOwner);
   if (!lifted.length) return;
 

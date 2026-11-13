@@ -106,6 +106,29 @@ async function play(slot) {
   // can (a ragdoll thrown into the boards included), and the only place one appears is
   // the near boards, coming on from the bench.
   const leaps = [], pops = [];
+  // NO GLOVE IN THE SMALL OF HIS BACK. A fixed-length stick with its blade in close put the top
+  // hand behind him, and a hand sent to a man beside him went round his back: both gloves sat
+  // behind him 10% of the time he carried the puck, 0.8% of all arms in a game. Each skater's
+  // gloves, sampled every eighth of a second, against his torso: behind his hips and inside the
+  // width of his back.
+  const gloves = { step: 0, n: 0, behind: 0, list: [] };
+  const sub3 = (a, b) => [a[0] - b[0], a[1] - b[1], a[2] - b[2]], dot3 = (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
+  const unit3 = (a) => { const l = Math.hypot(a[0], a[1], a[2]) || 1; return [a[0] / l, a[1] / l, a[2] / l]; };
+  // (the rig eases his blade, hands and head against the last time it was asked, and the sim
+  // carries the puck in the eased blade, so asking here leaves that as it was: a look changes nothing)
+  const EASED = ['bladeE', 'bladeT', 'bladeM', 'handE', 'handT', 'handM', 'lookE', 'lookT'];
+  const glovesOf = (b) => {
+    const kept = EASED.map((k) => b[k]), J = W.rigOf(b);
+    EASED.forEach((k, i) => { b[k] = kept[i]; });
+    if (!J[4] || !J[6] || !J[9]) return;
+    const U = unit3(sub3(J[2], J[0])), s = sub3(J[4], J[7]), k = dot3(s, U), S = unit3([s[0] - U[0] * k, s[1] - U[1] * k, s[2] - U[2] * k]);
+    const F = [S[1] * U[2] - S[2] * U[1], S[2] * U[0] - S[0] * U[2], S[0] * U[1] - S[1] * U[0]];
+    for (const i of [6, 9]) {
+      const d = sub3(J[i], J[0]);
+      gloves.n++;
+      if (dot3(d, F) < -0.15 && Math.abs(dot3(d, S)) < 0.85) { gloves.behind++; if (gloves.list.length < 4) gloves.list.push(`${b.side}${b.slot} ${b.act || (b.carrying ? 'carrying' : 'skating')} at ${(W.t - tApply).toFixed(2)}s`); }
+    }
+  };
   let onIce = [];
   // AND THE CAMERA NEVER CUTS: from one 60 Hz frame to the next it moves no farther than
   // its springs allow.
@@ -144,6 +167,19 @@ async function play(slot) {
   // shot it redirects), from the man the booth said fed it.
   let curG = null, lastShot = null;
   const lastPassTo = new Map(), unasked = [], fedShots = { n: 0, bad: [] };
+  // THE PASSES ARE PLAYED AS CALLED (passPlay in sim.js). In a rush, the pass the booth calls a
+  // drop is played as one when the man's behind him, and a backhand off the backhand unless the
+  // man's well out on his forehand; between the beats the sim makes all five plays itself: the
+  // drop, the give-and-go, the stretch, the slot pass, and passes off the backhand.
+  const played = { amb: {}, called: {} };
+  const emit0 = W.emit;
+  W.emit = (name, d) => {
+    if (name === 'pass' && d) {
+      if (!d.staged) { const k = d.call || (d.pose === 'backpass' ? 'backhand' : null); if (k) played.amb[k] = (played.amb[k] || 0) + 1; }
+      else if (d.call === 'drop' || d.call === 'backhand') { const c = played.called[d.call] ||= { n: 0, as: 0 }; c.n++; if (d.pose === (d.call === 'drop' ? 'drop' : 'backpass')) c.as++; }
+    }
+    return emit0(name, d);
+  };
   const pass0 = W.pass;
   W.pass = (from, to, spd, at) => {
     const ok = pass0(from, to, spd, at);
@@ -259,6 +295,7 @@ async function play(slot) {
         if (dx * dx + dy * dy > 0.75 * 0.75) leaps.push(`${b.kind} ${b.side}${b.slot} ${Math.hypot(dx, dy).toFixed(1)} ft at ${(W.t - tApply).toFixed(2)}s (${D.kind() || 'between plays'})`);
       }
       onIce = now;
+      if (++gloves.step % 15 === 0) for (const b of now) if (b.kind === 'skater' && !b.rag && !b.blend) glovesOf(b);
       {
         const c = pk.carrier;
         if (!c || c.kind !== 'skater' || W.frozen) endSpell();
@@ -295,8 +332,11 @@ async function play(slot) {
       if (hon && !hitRp.on) {
         const R = W.replay, at = `${(W.t - tApply).toFixed(2)}s into ${curG ? curG.type : '?'}`;
         hitRp.shown++;
-        const why = [!W.frozen && 'play going on', !((curG && curG.cues) || []).some((c) => c.ev === 'recall') && 'nobody brought it up', !R.follow && 'on the puck, not the man',
-          !(hitRp.missedT > R.from && hitRp.missedT < R.to) && 'the hit not in it'].filter(Boolean);
+        // (a penalty's foul, run back on the call, needs no recall and may have been seen)
+        const foul = !!R.foul && curG && curG.type === 'penalty';
+        if (foul) hitRp.fouls = (hitRp.fouls || 0) + 1;
+        const why = [!W.frozen && 'play going on', !foul && !((curG && curG.cues) || []).some((c) => c.ev === 'recall') && 'nobody brought it up', !R.follow && 'on the puck, not the man',
+          !foul && !(hitRp.missedT > R.from && hitRp.missedT < R.to) && 'the hit not in it'].filter(Boolean);
         if (!why.length && !R.frame().bodies().some((b) => b.seed === R.follow.seed && b.side === R.follow.side)) why.push('the man hit not in it');
         if (why.length) hitRp.bad.push(`${why.join(', ')} at ${at}`);
         // (what the viewer sees: the REPLAY bug with the hit named under it, drawn once a game)
@@ -553,6 +593,7 @@ async function play(slot) {
   check(`${slot}: the puck never jumps`, jumps.length === 0, `${jumps.length}: ${jumps.slice(0, 4).join(', ')}`);
   check(`${slot}: nobody on the ice jumps`, leaps.length === 0, `${leaps.length}: ${leaps.slice(0, 4).join(', ')}`);
   check(`${slot}: nobody appears except over the near boards`, pops.length === 0, `${pops.length}: ${pops.slice(0, 4).join(', ')}`);
+  check(`${slot}: gloves stay off his back`, gloves.n > 5000 && gloves.behind / gloves.n < 0.003, `${gloves.behind} of ${gloves.n} behind him: ${gloves.list.join(', ')}`);
   check(`${slot}: the camera never jumps`, camJumps.length === 0, `${camJumps.length}: ${camJumps.slice(0, 4).join(', ')}`);
   check(`${slot}: the camera stays on the puck through a hit until it lands`, camOff.length === 0, `${camOff.length}: ${camOff.slice(0, 4).join(', ')}`);
   check(`${slot}: a hit the picture missed is run back as the booth brings it up`, hitRp.shown > 0 && hitRp.bad.length === 0, `${hitRp.shown} run back, ${hitRp.owed} brought up, ${hitRp.missed} missed: ${hitRp.bad.slice(0, 4).join('; ')}`);
@@ -561,6 +602,8 @@ async function play(slot) {
   check(`${slot}: every shot is taken with its net in frame`, unseen.length === 0, `${unseen.length}: ${unseen.slice(0, 4).join(', ')}`);
   check(`${slot}: nobody gains the puck from beyond his reach`, snaps.length === 0, `${snaps.length}: ${snaps.slice(0, 4).join(', ')}`);
   check(`${slot}: the rink lifts a pass only when the booth called a saucer`, unasked.length === 0, `${unasked.length}: ${unasked.slice(0, 4).join(', ')}`);
+  check(`${slot}: between the beats they drop it, give and go, stretch it, find the slot and pass off the backhand`, ['drop', 'give', 'stretch', 'slot', 'backhand'].every((k) => played.amb[k] > 0), JSON.stringify(played.amb));
+  for (const k of ['drop', 'backhand']) { const c = played.called[k]; if (c) check(`${slot}: a ${k} the booth calls is mostly played as one`, c.as >= c.n * 0.5, `${c.as} of ${c.n}`); }
   check(`${slot}: a one-timer or a tip is struck off the pass, by the man the booth said fed it`, fedShots.n > 0 && fedShots.bad.length === 0, `${fedShots.bad.length} of ${fedShots.n}: ${fedShots.bad.slice(0, 4).join(', ')}`);
   const standing = shotsTaken.filter((q) => q.still > 1);
   check(`${slot}: shots are taken in stride, not after standing still with it`, standing.length <= Math.max(2, shotsTaken.length * 0.05), `${standing.length} of ${shotsTaken.length} after more than a second under 3 ft/s: ${standing.slice(0, 4).map((q) => `${q.type} ${q.at} (${q.still.toFixed(1)}s)`).join(', ')}`);

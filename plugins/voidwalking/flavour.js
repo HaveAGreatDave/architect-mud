@@ -23,6 +23,13 @@
 // `plateau` is the top of a mesa: it only comes up when a cut goes OVER something the road went round.
 export const VOID_TERRAINS = ['scrub', 'ash', 'redrock', 'marsh', 'hardpan', 'alkali', 'gravel', 'sand'];
 export const CUT_TERRAINS = ['plateau', 'gravel', 'redrock'];
+// A room with a position stands on the ground that is really there (wildGroundAt), which can be a
+// terrain the roll never makes. This folds the ones with no prose of their own onto the nearest that
+// has some: broken rock as gravel, a region's edge dirt as scrub, a wood's edge as grass. `grass` and
+// `basalt` are walked grounds the roll never makes; each has its own lines below.
+export const WALK_TERRAIN = { cliff: 'plateau', water: 'sand', deadwood: 'ash', sinter: 'alkali',
+  scree: 'gravel', ramp: 'gravel', dirt: 'scrub', forest: 'grass', park: 'grass' };
+export const WALK_ONLY_TERRAINS = ['grass', 'basalt'];
 
 export const GROUND = {
   scrub: {
@@ -104,6 +111,17 @@ export const GROUND = {
       "The ground here was liquid once and has not entirely forgiven the cold. It holds the day's heat long after dark.",
       'Fields of broken basalt, every edge a knife. Somewhere to the south-west the mountain that made it is still thinking about it.',
       'A crust of rock over nothing you want to know about. The cracks breathe a warm, sulphur breath now and then.',
+    ],
+  },
+  // The low wet ground the carved relief turns to grass (the coastal plain, the floors of the big
+  // drainages). Only a room with a real position stands on it; the roll never makes it.
+  grass: {
+    names: ['The Long Grass', 'Dry Meadow', 'Strawfield', 'The Stubble', 'Yellow Reach', 'Bent Grass'],
+    descs: [
+      'Dry grass to the knee, the colour of straw, and all of it leans the same way when the wind comes.',
+      'Grass for a long way in every direction. Somebody fenced some of it once. The posts are still here; the wire went years ago.',
+      'The grass hides the ground, so you find the holes by stepping in them.',
+      'Seed heads catch on your trousers and ride along. By evening you are carrying a fair bit of the field.',
     ],
   },
   plateau: {

@@ -40,4 +40,9 @@ export const BIOME_GROUND = {
   // the rust mesa it spreads into; lava is Mount Cinder's crater and live flows, the one ground in
   // the game brighter in red than anything a sign paints.
   scarlet: [168, 70, 48], lava: [214, 92, 34],
+  // The grounds the carved relief adds (client/shared/wildlands.js wildGroundAt), which the halo
+  // blend never had. prairie is dry grass, gold before green: it is the wet end of a desert, not a
+  // lawn, and it must not read as the city's parkland. wash is the pale sand and gravel of a dry
+  // channel, a shade under hardpan. scree is broken rock at a cliff's foot, greyer than the face.
+  prairie: [138, 132, 80], wash: [172, 154, 120], scree: [124, 96, 80],
 };

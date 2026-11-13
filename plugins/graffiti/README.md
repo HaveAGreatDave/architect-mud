@@ -54,6 +54,20 @@ The trap that shapes `paint.js`: **`esc` changes the LENGTH of the string** (`<`
 
 **The client decides nothing.** `sprayapply` re-asks whether there's a wall there and a can in your hand, re-validates every colour, and re-measures the length. The panel is a nicer way to say a sentence the server was always going to check.
 
+## In 3-D: the spray session
+
+With a 3-D view up (the Room Stage, or the street on foot in GLASS), **G** opens the can on the wall you're facing: in a room that's `spraycan` on the room's wall, on the street `spraycan <the way you face>`. In ROOM the can in **Pockets** does the same. It's the ordinary dialog, and the server answers as it always has (no can, no wall).
+
+Its SPRAY IT then doesn't send at once. It starts the **spray session** (`client/game/js/panels/spray-session.js`) over the view: the piece is cut into sections, one for every four letters up to six (`sectionsFor`), and each section is a pattern of two to four strokes shown as arrows, the later sections longer, some with a spin (↻ or ↺: round once, starting anywhere). Drag them with the mouse or a finger, or press them on the arrows or WASD. A wrong stroke sputters and that section starts again; a right one hisses, and the last one sweeps the section on. When the piece is finished it sends the same `sprayapply` the dialog always sent. Put the lid back on (Esc) and nothing is sent or spent. The sounds are SIREN cues in `client/shared/sfx-catalog.js` (group `spray`): the ball bearing rattling, a hiss a stroke, a held hiss while the nozzle's down, a sputter, a section going on, and the finish.
+
+**The session decides nothing.** A miss costs time, not paint, and how you did is only the line at the end. The server checks the wall, the can and the paint on `sprayapply` exactly as before, so a client that skipped the session would only skip the picture.
+
+Which view is up is `client/game/js/panels/spray-aim.js`: the Room Stage and the street view register a host while they're on screen, and `spraycan.js` asks it. With no host (the text rungs) SPRAY IT sends at once.
+
+**In a room, the paint goes where you looked.** The Stage aims the eye's ray at the walls of the room you're in (`aimWall` in `client/game/js/panels/room-tags.js`, 3.5 m reach) and sends the spot with the payload as `s`: `{ u, v, y, n }`, metres in the Stage's frame, `n` the wall's inward normal. `safeSpot` in `paint.js` keeps it to numbers and one of four names, and `applyTag` keeps it only for a room's own wall, in `zone_graffiti.spot`. A street wall's place on the facade is GLASS's to solve, as before. The `room.tags` hook hands the room's tag to plugins/roomstage, which sends it on `room_view` as `tags` and again as `room_tags` when `graffiti.tagged` or `graffiti.removed` fires; the Stage draws it on the plaster through `setDecals` in `gl/room.js`, baked by the same `tag-bake.js` GLASS uses. During the session the piece goes on that wall section by section. A room tag sprayed from the log has no spot, and lies on the left wall.
+
+**On the street,** the session shows the piece in its own close-up on brick, and plugins/freelook sends the window again to whoever's on foot within reach of the building when a tag goes up or comes down, so the wall has it.
+
 ## Letterforms
 
 A throw-up comes in four letterforms, listed as `TAG_FACES` in `client/shared/tag-strokes.js`:
@@ -92,11 +106,15 @@ The budget is the point of the price: at ₵120 a can and 120 characters in it, 
 ## Extension points
 - `items.tags.spray_paint`
 - `events.graffiti.tagged`
+- `events.graffiti.removed` (`{ zoneId, targetZoneId? }`, from `removeTag` and `removeTagsAt`): ROOM and the street view repaint
+- `hooks.wall.tags`, `hooks.room.tags`
 
 ## Files
 - `index.js` — the verbs, the RAM authority, the one write path (`applyTag`)
 - `paint.js` — the per-letter style model and the only thing that renders it, plus `safeFace`
 - `client/game/js/panels/spraycan.js` — the dialog
+- `client/game/js/panels/spray-session.js` (and `.css`): the spray session over a 3-D view; `spray-aim.js`, which view is up
+- `client/game/js/panels/room-tags.js`: where ROOM aims the can, and a room's tags as quads on its walls
 - `client/game/js/panels/color-picker.js` — the shared wheel (also the hangar bench's)
 - `client/shared/tag-strokes.js`: the stroke alphabet and the `TAG_FACES` list
 - `client/shared/tag-glyphs.js`: the traced bubble sheet (regenerate with `scripts/tags/trace-sheet.cjs`)

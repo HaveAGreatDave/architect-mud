@@ -2,6 +2,8 @@
 //
 //   npm run modelshop            → http://localhost:5181
 //   npm run modelshop -- 5200    → pick another port
+//   npm run bestiary             → the same, opened in the browser on /bestiary.html (`--open=<page>`); if the
+//                                  Modelshop is already running, it just opens the page
 //
 // Local-only. Do not expose it.
 //
@@ -26,6 +28,7 @@
 // the sim would not. That is the same contract the Studio states about derive.mjs,
 // and it is why the one interesting route here is a static file server.
 import { createServer } from 'node:http';
+import { spawn } from 'node:child_process';
 import { readFile, writeFile, unlink, mkdir } from 'node:fs/promises';
 import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
@@ -57,7 +60,13 @@ const VEHICLE_DIR = join(ROOT, 'content', 'vehicle_models');
 const VEHICLE_BAKE_OUT = join(ROOT, 'client', 'shared', 'vehicle-models.js');
 const FAUNA_DIR = join(ROOT, 'content', 'fauna_models');
 const FAUNA_BAKE_OUT = join(ROOT, 'client', 'shared', 'fauna-models.js');
-const PORT = Number(process.argv[2]) || 5181;
+const PORT = Number(process.argv.slice(2).find((a) => /^\d+$/.test(a))) || 5181;
+// `--open=/page.html` opens that page in the browser once the server is listening
+const OPEN = (process.argv.slice(2).find((a) => a.startsWith('--open=')) || '').slice('--open='.length);
+function openInBrowser(url) {
+  const [cmd, args] = process.platform === 'win32' ? ['cmd', ['/c', 'start', '', url]] : [process.platform === 'darwin' ? 'open' : 'xdg-open', [url]];
+  try { spawn(cmd, args, { detached: true, stdio: 'ignore' }).unref(); } catch { console.log(`Open ${url} in your browser.`); }
+}
 
 const send = (res, code, body, type = 'application/json') => {
   res.writeHead(code, { 'content-type': type, 'cache-control': 'no-store' });
@@ -284,6 +293,12 @@ const server = createServer(async (req, res) => {
   try {
     const url = new URL(req.url, 'http://localhost');
     const path = url.pathname;
+    // Refuse writes from another site's page (see the Studio's foreignOrigin).
+    if (req.method !== 'GET' && req.method !== 'HEAD'
+        && (req.headers['sec-fetch-site'] === 'cross-site'
+            || (req.headers.origin && !/^https?:\/\/(localhost|127\.0\.0\.1|\[::1\])(:\d+)?$/.test(req.headers.origin)))) {
+      res.writeHead(403); return res.end('cross-origin write refused');
+    }
 
     if (req.method === 'GET' && (path === '/' || path === '/index.html')) {
       return send(res, 200, await readFile(join(HERE, 'index.html')), 'text/html; charset=utf-8');
@@ -312,6 +327,22 @@ const server = createServer(async (req, res) => {
     // The Room Stage opened on any room in content/, with no server (scripts/shapes/room-stage.mjs
     // gates the meshes; this is a picture). Bare, the rooms it can open; with `zone`, that room's
     // rows and its en-suite's, read off the files.
+    // Every enemy in content/enemies drawn to ROOM's standard (bestiary-recipes.js): the people as the close-up
+    // figure, the rest from the beast kit (gl/beast-kit.js). A concept; this is a picture.
+    if (req.method === 'GET' && path === '/bestiary.html') {
+      return send(res, 200, await readFile(join(HERE, 'bestiary.html')), 'text/html; charset=utf-8');
+    }
+    // The cat kit's cats (cattery-recipes.js, gl/cat-kit.js), carved and posed, with the sliders that customise one
+    if (req.method === 'GET' && path === '/cattery.html') {
+      return send(res, 200, await readFile(join(HERE, 'cattery.html')), 'text/html; charset=utf-8');
+    }
+    if (req.method === 'GET' && path === '/api/enemies') {
+      const dir = join(ROOT, 'content', 'enemies'), out = [];
+      for (const f of readdirSync(dir).filter((n) => n.endsWith('.json')).sort()) {
+        try { const e = JSON.parse(await readFile(join(dir, f), 'utf8')); out.push({ id: e.id, name: e.name, description: e.description || '', level: e.level ?? null, fauna: e.flags?.fauna || null }); } catch {}
+      }
+      return json(res, 200, out);
+    }
     if (req.method === 'GET' && path === '/room-lab.html') {
       return send(res, 200, await readFile(join(HERE, 'room-lab.html')), 'text/html; charset=utf-8');
     }
@@ -570,7 +601,22 @@ const server = createServer(async (req, res) => {
   }
 });
 
-server.listen(PORT, () => {
+// Loopback only: the Modelshop writes and deletes building models with no login.
+// MODELSHOP_HOST=0.0.0.0 opens it to the LAN on purpose (a phone on the Wi-Fi).
+// With --open and the Modelshop already up on this port, open the page on that one and leave it be.
+server.on('error', (e) => {
+  if (e.code === 'EADDRINUSE' && OPEN) {
+    const url = `http://localhost:${PORT}${OPEN.startsWith('/') ? OPEN : '/' + OPEN}`;
+    console.log(`The Modelshop is already running → ${url}`);
+    openInBrowser(url);
+    setTimeout(() => process.exit(0), 300);
+    return;
+  }
+  throw e;
+});
+server.listen(PORT, process.env.MODELSHOP_HOST || '127.0.0.1', () => {
   console.log(`Modelshop → http://localhost:${PORT}`);
+  console.log(`Bestiary  → http://localhost:${PORT}/bestiary.html`);
   console.log('GLASS building models, drawn by the real renderer — no database in this process.');
+  if (OPEN) openInBrowser(`http://localhost:${PORT}${OPEN.startsWith('/') ? OPEN : '/' + OPEN}`);
 });

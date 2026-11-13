@@ -41,6 +41,14 @@ whose `ambient_theme` is `city`, `urban`, `residential` or `waterfront`: traffic
 mains, rooftop plant, a distant train, clanks, thumps and a pigeon. It's quieter at night, hisses
 when the street is wet, and has no horns or sirens.
 
+Most beds layer two or three recordings. Rain comes in three: drizzle (the `drizzle` and `acid`
+types), a shower on the street and an awning, and a downpour. Wind comes in four steps by the
+tile's kph (`windTierFor`): a breeze with leaves from 25, a wind with gusts from 40, a hard wind
+from 60 and a gale from 80. Each step holds until the wind drops 4 kph below its threshold, and
+the stronger steps play recorded gusts as one-shots. The city plays three recordings by day (the
+far city, a quiet street, people on it) and swaps to a night bed from 22:00 to 06:00. In the wet,
+it adds cars going past on a wet road.
+
 Every bed is `whole` (`config.whole`): one gain node takes the server's `audio_loop_gain` and the
 one-shots go through it too, so a bed heard through a wall drips through the wall as well. A whole
 bed starts silent, so always send the loop gain after the ambience. Levels were set at the master in

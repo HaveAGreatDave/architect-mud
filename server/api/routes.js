@@ -724,8 +724,11 @@ async function apiVerifyEmail(body) {
   const row = rows[0];
   if (row.used) return { status:400, body:{ error:'This verification link has already been used.' } };
   if (Date.now() > row.expires_at) return { status:400, body:{ error:'Verification link has expired. Request a new one.' } };
+  // Spend the link first, conditionally: two concurrent clicks both passed the
+  // `used` check above and each got a session token.
+  const spent = await query('UPDATE email_verification_tokens SET used=TRUE WHERE id=$1 AND used IS NOT TRUE', [row.id]);
+  if (!spent.rowCount) return { status:400, body:{ error:'This verification link has already been used.' } };
   await query('UPDATE players SET email_verified=TRUE WHERE id=$1', [row.player_id]);
-  await query('UPDATE email_verification_tokens SET used=TRUE WHERE id=$1', [row.id]);
   const { rows: pRows } = await query('SELECT id, handle, role FROM players WHERE id=$1', [row.player_id]);
   const p = pRows[0];
   return { status:200, body:{ token:signToken(p.id,p.role), playerId:p.id, handle:p.handle, role:p.role } };
@@ -889,6 +892,10 @@ async function apiResetPassword(body) {
   const row = rows[0];
   if (row.used)                    return { status:400, body:{ error:'This reset link has already been used.' } };
   if (Date.now() > row.expires_at) return { status:400, body:{ error:'This reset link has expired.' } };
+  // Spend the link first, conditionally, so two concurrent submits can't both
+  // set a password off one link.
+  const spent = await query('UPDATE password_reset_tokens SET used=TRUE WHERE id=$1 AND used IS NOT TRUE', [row.id]);
+  if (!spent.rowCount) return { status:400, body:{ error:'This reset link has already been used.' } };
   // email_verified goes TRUE in the same statement: clicking a link we mailed to
   // that address IS the proof verification asks for. Without it an unverified
   // player who forgot their password is in a closed loop — the reset works, and
@@ -901,7 +908,6 @@ async function apiResetPassword(body) {
     'UPDATE players SET password_hash=$1, email_verified=TRUE WHERE id=$2 RETURNING username',
     [await hashPassword(password), row.player_id]
   );
-  await query('UPDATE password_reset_tokens SET used=TRUE WHERE id=$1', [row.id]);
   // Whoever prompted this reset may well be signed in right now. A new password
   // that leaves their session alive hasn't taken the account back.
   await revokeTokensFor(row.player_id);

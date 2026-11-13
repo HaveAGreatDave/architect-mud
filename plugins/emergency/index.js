@@ -546,6 +546,9 @@ function devOk(auth) {
 export const routeHandler = async (path, method, body, auth) => {
   if (!path.startsWith('/emergency')) return null;
   if (!devOk(auth)) return { status: 403, body: { error: 'Dev access required' } };
+  // Content roles may look; only dev/admin may throw a server-wide switch, as with
+  // /mis/toggle and /registrations/toggle.
+  if (method !== 'GET' && !['dev', 'admin'].includes(auth.role)) return { status: 403, body: { error: 'Dev or admin required' } };
 
   if (path === '/emergency/state' && method === 'GET') {
     return {

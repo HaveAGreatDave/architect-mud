@@ -18,6 +18,462 @@
     "intro_lore": "Welcome to the only birth you'll get. The vat behind you printed you off a backup nobody bothered to keep current, and the receipt it spat out is the closest thing you have to family. Coldwater doesn't care that you're new; the second you step outside you're just another mouth the basin didn't ask for. What you can carry, you keep. Everything else was always going to be somebody else's.",
     "is_building": true,
     "is_interior": true,
+    "room": {
+      "balcony": false,
+      "d": 11,
+      "decor": {
+        "grates": [
+          [
+            0,
+            5.2,
+            0.7,
+            0.7
+          ],
+          [
+            -3.25,
+            7.2,
+            0.45,
+            0.9
+          ]
+        ],
+        "paint": [
+          {
+            "kind": "hazard",
+            "rect": [
+              -4.98,
+              -3.68,
+              1.68,
+              3.12
+            ]
+          },
+          {
+            "kind": "hazard",
+            "rect": [
+              -4.98,
+              -3.68,
+              4.08,
+              5.52
+            ]
+          },
+          {
+            "kind": "hazard",
+            "rect": [
+              -4.98,
+              -3.68,
+              6.48,
+              7.92
+            ]
+          },
+          {
+            "kind": "hazard",
+            "rect": [
+              3.68,
+              4.98,
+              1.68,
+              3.12
+            ]
+          },
+          {
+            "kind": "hazard",
+            "rect": [
+              3.68,
+              4.98,
+              4.08,
+              5.52
+            ]
+          },
+          {
+            "kind": "hazard",
+            "rect": [
+              3.68,
+              4.98,
+              6.48,
+              7.92
+            ]
+          },
+          {
+            "arrows": true,
+            "from": [
+              -3.5,
+              7.2
+            ],
+            "hex": "#3fd27a",
+            "kind": "line",
+            "t": 0.08,
+            "to": [
+              -0.4,
+              9.2
+            ]
+          },
+          {
+            "from": [
+              -0.4,
+              9.2
+            ],
+            "hex": "#3fd27a",
+            "kind": "line",
+            "t": 0.08,
+            "to": [
+              -0.4,
+              10.6
+            ]
+          },
+          {
+            "arrows": true,
+            "from": [
+              -3.5,
+              6.7
+            ],
+            "hex": "#ff4fd8",
+            "kind": "line",
+            "t": 0.08,
+            "to": [
+              -2.2,
+              2
+            ]
+          },
+          {
+            "hex": "#ff4fd8",
+            "kind": "box",
+            "rect": [
+              -3.05,
+              -1.35,
+              0.15,
+              1.75
+            ],
+            "t": 0.05
+          }
+        ],
+        "pipes": [
+          {
+            "from": [
+              -4.78,
+              0.8,
+              3.62
+            ],
+            "hex": "#c3c9ce",
+            "r": 0.085,
+            "to": [
+              -4.78,
+              8.2,
+              3.62
+            ]
+          },
+          {
+            "from": [
+              -4.6,
+              0.8,
+              3.78
+            ],
+            "hex": "#5fa890",
+            "r": 0.05,
+            "to": [
+              -4.6,
+              8.2,
+              3.78
+            ]
+          },
+          {
+            "from": [
+              -4.78,
+              2.4,
+              3.55
+            ],
+            "hex": "#c3c9ce",
+            "r": 0.045,
+            "to": [
+              -4.78,
+              2.4,
+              2.95
+            ]
+          },
+          {
+            "from": [
+              -4.78,
+              4.8,
+              3.55
+            ],
+            "hex": "#c3c9ce",
+            "r": 0.045,
+            "to": [
+              -4.78,
+              4.8,
+              2.95
+            ]
+          },
+          {
+            "from": [
+              -4.78,
+              7.2,
+              3.55
+            ],
+            "hex": "#c3c9ce",
+            "r": 0.045,
+            "to": [
+              -4.78,
+              7.2,
+              2.95
+            ]
+          },
+          {
+            "from": [
+              4.78,
+              0.8,
+              3.62
+            ],
+            "hex": "#c3c9ce",
+            "r": 0.085,
+            "to": [
+              4.78,
+              8.2,
+              3.62
+            ]
+          },
+          {
+            "from": [
+              4.6,
+              0.8,
+              3.78
+            ],
+            "hex": "#5fa890",
+            "r": 0.05,
+            "to": [
+              4.6,
+              8.2,
+              3.78
+            ]
+          },
+          {
+            "from": [
+              4.78,
+              2.4,
+              3.55
+            ],
+            "hex": "#c3c9ce",
+            "r": 0.045,
+            "to": [
+              4.78,
+              2.4,
+              2.95
+            ]
+          },
+          {
+            "from": [
+              4.78,
+              4.8,
+              3.55
+            ],
+            "hex": "#c3c9ce",
+            "r": 0.045,
+            "to": [
+              4.78,
+              4.8,
+              2.95
+            ]
+          },
+          {
+            "from": [
+              4.78,
+              7.2,
+              3.55
+            ],
+            "hex": "#c3c9ce",
+            "r": 0.045,
+            "to": [
+              4.78,
+              7.2,
+              2.95
+            ]
+          }
+        ],
+        "rug": false,
+        "screens": [
+          {
+            "along": 3.6,
+            "h": 0.32,
+            "show": "vitals",
+            "w": 0.5,
+            "wall": "left",
+            "y": 1.75
+          },
+          {
+            "along": 3.6,
+            "h": 0.32,
+            "show": "vitals",
+            "w": 0.5,
+            "wall": "right",
+            "y": 1.75
+          },
+          {
+            "along": 6,
+            "h": 0.32,
+            "show": "vitals",
+            "w": 0.5,
+            "wall": "left",
+            "y": 1.75
+          },
+          {
+            "along": 6,
+            "h": 0.32,
+            "show": "vitals",
+            "w": 0.5,
+            "wall": "right",
+            "y": 1.75
+          },
+          {
+            "along": -2.45,
+            "h": 0.8,
+            "show": "ad",
+            "sub": "You, But Better.",
+            "text": "MORPHEX 9000",
+            "w": 1.4,
+            "wall": "back",
+            "y": 2.25
+          },
+          {
+            "along": 2.45,
+            "h": 0.8,
+            "show": "ad",
+            "sub": "Power For The Newly Printed",
+            "text": "Two-Cell",
+            "w": 1.4,
+            "wall": "back",
+            "y": 2.25
+          }
+        ],
+        "signs": [
+          {
+            "along": 0,
+            "h": 0.2,
+            "hex": "#eaf6ff",
+            "lit": true,
+            "plateHex": "#20262c",
+            "text": "Coldwater Clone Facility",
+            "wall": "front",
+            "y": 3.45
+          },
+          {
+            "along": 0,
+            "h": 0.07,
+            "hex": "#9be7ff",
+            "plate": false,
+            "text": "Printed While You Wait",
+            "wall": "front",
+            "y": 3.08
+          },
+          {
+            "along": 0,
+            "h": 0.13,
+            "hex": "#5aff9a",
+            "lit": true,
+            "plateHex": "#0e1a12",
+            "text": "Exit",
+            "wall": "back",
+            "y": 2.55
+          },
+          {
+            "along": 3.6,
+            "h": 0.075,
+            "plateHex": "#2a2f34",
+            "text": "Please Vacate Your Vat Promptly",
+            "wall": "left",
+            "y": 3.2
+          },
+          {
+            "along": 3.6,
+            "h": 0.075,
+            "plateHex": "#2a2f34",
+            "text": "Do Not Tap The Glass",
+            "wall": "right",
+            "y": 3.2
+          }
+        ],
+        "strips": [
+          {
+            "along": "v",
+            "at": [
+              -2.4,
+              1.8
+            ],
+            "len": 1.5
+          },
+          {
+            "along": "v",
+            "at": [
+              -2.4,
+              4.4
+            ],
+            "len": 1.5
+          },
+          {
+            "along": "v",
+            "at": [
+              -2.4,
+              7
+            ],
+            "len": 1.5
+          },
+          {
+            "along": "v",
+            "at": [
+              -2.4,
+              9.6
+            ],
+            "len": 1.5
+          },
+          {
+            "along": "v",
+            "at": [
+              2.4,
+              1.8
+            ],
+            "len": 1.5
+          },
+          {
+            "along": "v",
+            "at": [
+              2.4,
+              4.4
+            ],
+            "len": 1.5
+          },
+          {
+            "along": "v",
+            "at": [
+              2.4,
+              7
+            ],
+            "len": 1.5
+          },
+          {
+            "along": "v",
+            "at": [
+              2.4,
+              9.6
+            ],
+            "len": 1.5
+          }
+        ]
+      },
+      "doors": {
+        "down": [
+          3.6,
+          9
+        ]
+      },
+      "finish": "plain",
+      "ground": "tile",
+      "h": 4,
+      "studio": false,
+      "tone": {
+        "accent": "#ff4fd8",
+        "ceiling": "#f2f4f5",
+        "trim": "#8f979e",
+        "wall": "#e4e8ea"
+      },
+      "w": 10,
+      "windowless": false
+    },
     "scavenging_table_id": "scav_roadside_junk",
     "terrain": "grass",
     "window": {

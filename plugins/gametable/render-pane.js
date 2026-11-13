@@ -52,7 +52,15 @@ function chipStackHTML(chips) {
 
 // Compass positions relative to viewer (south): by how many seats clockwise.
 // With 4 seats: +1 = east, +2 = north, +3 = west
-const OFFSET_TO_COMPASS = { 1: 'east', 2: 'north', 3: 'west' };
+// Six-seat felts (config.seats: 6) go round the same way, with four corners.
+const SPOTS = {
+  2: ['south', 'north'],
+  3: ['south', 'ne', 'nw'],
+  4: ['south', 'east', 'north', 'west'],
+  5: ['south', 'se', 'ne', 'nw', 'sw'],
+  6: ['south', 'se', 'ne', 'north', 'nw', 'sw'],
+};
+const spotsFor = (n) => SPOTS[n] || SPOTS[4];
 
 const PHASE_LABELS = {
   preflop: 'PRE-FLOP',
@@ -77,12 +85,12 @@ export function renderPane(table, viewerId) {
   // We map each seat to a compass position relative to the viewer.
   const seatPositions = {}; // 'north'|'east'|'south'|'west' → seat row or null
 
-  for (let i = 0; i < 4; i++) {
+  const N = seats.length, spots = spotsFor(N);
+  for (let i = 0; i < N; i++) {
     const offset = viewerSeatIdx < 0
       ? i                             // spectator: seat 0 = south, etc.
-      : (i - viewerSeatIdx + 4) % 4; // viewer always south (offset 0)
-    const compass = offset === 0 ? 'south' : (OFFSET_TO_COMPASS[offset] || 'north');
-    seatPositions[compass] = seats[i] || null;
+      : (i - viewerSeatIdx + N) % N; // viewer always south (offset 0)
+    seatPositions[spots[offset]] = seats[i] || null;
   }
 
   // Build HTML for one seat
@@ -257,6 +265,32 @@ export function renderPane(table, viewerId) {
 
   const headerLabel = esc(table.name);
 
+  // What the 3D felt (client panels/poker3d.js) draws: every seat from the viewer round, the board and the pot.
+  // Read-only; the buttons stay the only way to act. A card the viewer can't see goes as null.
+  function state3d() {
+    return {
+      seats: spots.map((spot, k) => {
+        const seat = seatPositions[spot];
+        if (!seat) return null;
+        const gs = game ? game.seats.find(x => x && x.playerId === seat.playerId) : null;
+        const me = seat.playerId === viewerId;
+        const show = me || (phase === 'showdown' && gs && !gs.folded);
+        return {
+          k, name: seat.handle, me, bot: !!seat.isBot,
+          chips: gs ? gs.chips : seat.chips, bet: gs?.bet || 0,
+          folded: !!gs?.folded, allIn: !!gs?.allIn,
+          cards: gs && !gs.folded ? (gs.hand || []).map(c => (show ? { rank: c.rank, suit: c.suit } : null)) : [],
+          dealer: !!(game && game.seats[game.dealerIdx]?.playerId === seat.playerId),
+          acting: !!(game && game.actionIdx >= 0 && game.seats[game.actionIdx]?.playerId === seat.playerId),
+          won: !!table.lastWinners?.includes(seat.playerId),
+          said: table.chatBubbles?.[seat.playerId] || table.bubbles?.[seat.playerId] || '',
+        };
+      }),
+      n: N, board: community.map(c => ({ rank: c.rank, suit: c.suit })), pot,
+      phase: phaseLabel, wait: waitLabel, shuffling: !!table._shuffleAnim, viewer: viewerSeatIdx >= 0,
+    };
+  }
+
   // Dealer figure with speech bubble (top-left, opening inward). When he's not
   // at the table the avatar dims and a status replaces his speech bubble.
   const dealerText = table.dealerBubble;
@@ -269,19 +303,13 @@ export function renderPane(table, viewerId) {
     </div>`;
 
   return `
-<div class="poker-table-wrap">
+<div class="poker-table-wrap poker-seats-${N}"${table.config?.view3d ? ` data-p3d="${esc(JSON.stringify(state3d()))}"` : ''}>
   <div class="poker-felt"></div>
   <div class="poker-header">${headerLabel}</div>
   ${dealerHTML}
-  ${seatHTML('north')}
-  ${seatHTML('east')}
   ${boardHTML}
-  ${seatHTML('south')}
-  ${seatHTML('west')}
-  ${betPileHTML('north')}
-  ${betPileHTML('east')}
-  ${betPileHTML('south')}
-  ${betPileHTML('west')}
+  ${spots.map(seatHTML).join('')}
+  ${spots.map(betPileHTML).join('')}
 </div>
 ${cmdBarHTML()}`.trim();
 }

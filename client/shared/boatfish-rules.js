@@ -30,38 +30,61 @@ export const REEL_IN_M = 0.5;         // at this much line out it auto-reels, an
 export const SINK_MPS = 0.6;          // a plain lure's sink rate, until a lure item says otherwise
 export const CAST_MIN_M = 6;          // the shortest cast that counts as a cast
 
-// ── TEMPO ──────────────────────────────────────────────────────────────────────────────────────
-// Each species likes a gap between twitches. Quick fish want quick taps; sulkers want you to wait.
-// A row may set `tempo` itself; otherwise it follows from the fight style.
-const TEMPO_BY_FIGHT = { runner: 380, jumper: 520, wriggler: 300, steady: 800, sulker: 1500 };
+// ── THE PAUSE ──────────────────────────────────────────────────────────────────────────────────
+// You work a lure the way people do: twitch it, let it sit, twitch it again. Each species wants a
+// pause of its own between twitches before it'll come in (`tempo`, ms). Quick fish want a short one;
+// sulkers want you to leave it alone a good while. A row may set `tempo` itself; otherwise it follows
+// from the fight style. Twitching again too soon does little, and fussing it puts fish off.
+const TEMPO_BY_FIGHT = { runner: 1400, jumper: 1800, wriggler: 1200, steady: 2400, sulker: 3500 };
 export const tempoOf = (spId) => {
   const sp = SPECIES[spId];
-  return (sp && (sp.tempo || TEMPO_BY_FIGHT[sp.fight])) || 800;
+  return (sp && (sp.tempo || TEMPO_BY_FIGHT[sp.fight])) || 2400;
 };
 
-/** How well one gap between taps matches a species' tempo, 0..1. */
-export function tempoMatch(gapMs, spId) {
-  const t = tempoOf(spId);
-  return Math.exp(-Math.abs(gapMs - t) / (t * 0.35));
+/**
+ * How good one pause was, 0..1. Short of the species' pause it counts for little; from there to a
+ * long wait it's all good; a very long wait is still fine, the lure's just gone a bit dead.
+ */
+export function pauseQuality(gapMs, spId) {
+  if (gapMs == null) return 0.5;
+  const r = gapMs / tempoOf(spId);
+  if (r < 1) return 0.05 + 0.95 * r * r;
+  if (r <= 3) return 1;
+  return Math.max(0.6, 1 - (r - 3) * 0.1);
 }
+/** Back-compat name. */
+export const tempoMatch = pauseQuality;
 
-// ── INTEREST ───────────────────────────────────────────────────────────────────────────────────
-export const NOTICE_M = 7;            // a fish this close to the lure (in 3D) can notice it
+// ── INTEREST AND THE DRAW ──────────────────────────────────────────────────────────────────────
+export const NOTICE_M = 7;            // a fish this close to the lure (in 3D) can notice it at first
+export const DRAW_MAX = 1;            // a well-worked lure draws fish from NOTICE_M * (1 + DRAW_MAX)
 export const BITE_AT = 1;             // interest at which it takes the lure
 
 /**
- * The interest one twitch adds to one fish. `dist3` is metres from lure to fish in 3D; `gapMs` the
- * gap since the last tap (null for the first); `keen` the species' keenness now (fish.js keenness);
- * `bait` 1 when the bait suits it.
+ * The draw: how far a lure worked well has been noticed, 0..DRAW_MAX. Each good twitch-and-pause adds
+ * to it, so more fish gather the longer you work a spot properly; fussing the lure loses it.
  */
-export function interestGain({ dist3, gapMs, spId, keen = 1, bait = 0 }) {
-  if (!(dist3 < NOTICE_M)) return 0;
-  const near = 1 - dist3 / NOTICE_M;
-  const rhythm = gapMs == null ? 0.35 : 0.2 + 0.8 * tempoMatch(gapMs, spId);
-  return near * rhythm * keen * (1 + 0.6 * bait) * 0.45;
+export function drawAfter(draw, gapMs, dtMs) {
+  const d = (draw || 0) * Math.exp(-Math.max(0, dtMs || 0) / 30000);
+  const q = gapMs == null ? 0.5 : Math.min(1, gapMs / 1500);
+  return Math.max(0, Math.min(DRAW_MAX, d + (q >= 0.6 ? 0.18 * q : -0.15)));
 }
-/** Interest fades between taps: a fish that loses the rhythm loses interest. Per ms. */
-export const INTEREST_DECAY_MS = 6000;
+export const noticeM = (draw = 0) => NOTICE_M * (1 + Math.max(0, Math.min(DRAW_MAX, draw)));
+
+/**
+ * The interest one twitch adds to one fish. `dist3` is metres from lure to fish in 3D; `gapMs` the
+ * pause since the last twitch (null for the first); `keen` the species' keenness now (fish.js
+ * keenness); `bait` 1 when the bait suits it; `draw` the lure's draw. A fish already following
+ * needs only two or three good twitches to take it.
+ */
+export function interestGain({ dist3, gapMs, spId, keen = 1, bait = 0, draw = 0 }) {
+  const reach = noticeM(draw);
+  if (!(dist3 < reach)) return 0;
+  const near = 0.35 + 0.65 * (1 - dist3 / reach);
+  return near * pauseQuality(gapMs, spId) * keen * (1 + 0.6 * bait) * 0.5;
+}
+/** Interest fades slowly; a fish will wait out a pause. Per ms. */
+export const INTEREST_DECAY_MS = 20000;
 export const decayInterest = (v, dtMs) => v * Math.exp(-dtMs / INTEREST_DECAY_MS);
 
 // ── THE TAKE ───────────────────────────────────────────────────────────────────────────────────

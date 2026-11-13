@@ -6,7 +6,19 @@
     "conceal_hides": "furn_chem_lab_solenne_b",
     "interactions": [
       "lean"
-    ]
+    ],
+    "look": {
+      "dims": [
+        3.5,
+        1.3,
+        2.65
+      ],
+      "open": 3
+    },
+    "spot": {
+      "along": -4.25,
+      "wall": "back"
+    }
   },
   "hp": null,
   "hp_max": null,

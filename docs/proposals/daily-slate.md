@@ -183,7 +183,7 @@ This is ordered so that each phase ships on its own and leaves the game working.
 6. **Remove the Deadball fallbacks** in `sportOf` and `leagueOf`. An unknown sport logs a warning and returns null.
 
 Gate: a pure slate test over 62 simulated days covering two month boundaries:
-- 8 games a day, 4 per sport, and no club twice in a day.
+- 8 games a day, 4 per sport, and no club twice in a day. (Since 2026-11-12, 7: the 21:00 slot is an empty overflow for a game that runs long. See [Sports](../systems-broadcast.md#sports--two-codes-one-pipeline).)
 - Sports alternate slots and swap on each day.
 - Over a month, each club's 18:00 count is within 2 of every other club in its league. Greedy picking is close but not proven exact, so check the measured spread and tighten the gate if it's always 1.
 - Cup day holds exactly the two finals.

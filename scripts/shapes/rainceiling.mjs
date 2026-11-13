@@ -11,8 +11,8 @@
 //
 // ⚠ COUNT THE CURTAIN, NOT THE FRAME. The obvious test is the delta in canvas calls between two
 // altitudes, and it measures almost anything else: the LOD sheds buildings, the cloud deck grows,
-// the ground raster changes size. The curtain identifies itself — rain sets `strokeStyle` to
-// `rgba(196,216,242,…)`, snow sets `fillStyle` to `rgba(240,246,255,…)` and ash and dust set it to
+// the ground raster changes size. The curtain identifies itself — rain and snow set `strokeStyle`
+// and `fillStyle` to their shared colours in this light, and ash and dust set it to
 // `rgba(200,140,90,…)` — so the instrument is a `set` trap on the context that counts those three
 // and nothing else. That is exact, and it is the only reading here that does not move when the
 // scene does.
@@ -23,6 +23,7 @@
 // So every ceiling case is run twice, `RENDER_TUNE.rainGate` 1 and 0, and the 0 run has to RAIN.
 // A case that is dry both ways is reported as a failure of this file rather than a pass.
 import { loadWindshield, stubCanvas } from './dom-stub.mjs';
+import { rainRGB, snowRGB } from '../../client/shared/precip-look.js';
 
 const REPORT = process.argv.includes('--report');
 
@@ -54,8 +55,11 @@ const SCENE = Array.from({ length: N }, () => Array.from({ length: N }, () => ({
 function watch(el) {
   const real = el.getContext('2d');
   const seen = { drops: 0 };
-  const isPrecip = (v) => typeof v === 'string'
-    && (v.startsWith('rgba(196,216,242,') || v.startsWith('rgba(240,246,255,') || v.startsWith('rgba(200,140,90,'));
+  // Rain and snow are coloured by the light (shared/precip-look.js), which the windscreen steps in
+  // sixteenths, so the curtain is any of those 17 colours of each.
+  const PRE = new Set(['rgba(200,140,90,']);
+  for (let i = 0; i <= 16; i++) for (const c of [rainRGB(i / 16), rainRGB(i / 16, { acid: true }), snowRGB(i / 16)]) PRE.add(`rgba(${c[0]},${c[1]},${c[2]},`);
+  const isPrecip = (v) => typeof v === 'string' && PRE.has(v.slice(0, v.lastIndexOf(',') + 1));
   const wrapped = new Proxy(real, {
     get(o, k) { const v = o[k]; return typeof v === 'function' ? (...a) => v.apply(o, a) : v; },
     set(o, k, v) { if ((k === 'strokeStyle' || k === 'fillStyle') && isPrecip(v)) seen.drops++; o[k] = v; return true; },

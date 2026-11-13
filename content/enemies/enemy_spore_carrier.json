@@ -1,0 +1,151 @@
+{
+  "behavior": "aggressive",
+  "behaviour_graph": {
+    "_start": "start",
+    "nodes": {
+      "start": {
+        "type": "start",
+        "next": "has_target"
+      },
+      "has_target": {
+        "type": "condition",
+        "condition_type": "HAS_TARGET",
+        "ifTrue": "call",
+        "ifFalse": "idle"
+      },
+      "attack": {
+        "type": "action",
+        "action_type": "ATTACK",
+        "next": "loop"
+      },
+      "idle": {
+        "type": "action",
+        "action_type": "IDLE",
+        "next": "loop"
+      },
+      "loop": {
+        "type": "loop",
+        "next": "start"
+      },
+      "call": {
+        "type": "action",
+        "action_type": "CALL_BACKUP",
+        "params": {
+          "radius": 2,
+          "faction_only": false
+        },
+        "next": "attack"
+      }
+    }
+  },
+  "body_parts": [
+    {
+      "part": "head",
+      "soak": {
+        "kinetic": 0
+      },
+      "weight": 10
+    },
+    {
+      "part": "torso",
+      "soak": {
+        "kinetic": 1
+      },
+      "weight": 40
+    },
+    {
+      "part": "left_arm",
+      "role": "attack",
+      "soak": {
+        "kinetic": 0
+      },
+      "weight": 12
+    },
+    {
+      "part": "right_arm",
+      "role": "attack",
+      "soak": {
+        "kinetic": 0
+      },
+      "weight": 12
+    },
+    {
+      "part": "left_leg",
+      "soak": {
+        "kinetic": 0
+      },
+      "weight": 13
+    },
+    {
+      "part": "right_leg",
+      "soak": {
+        "kinetic": 0
+      },
+      "weight": 13
+    }
+  ],
+  "butcher_difficulty": 3,
+  "butcher_table": [],
+  "death_message": "The spore carrier settles into a heap and goes on breathing out spores for a while.",
+  "description": "A hooded figure with mushrooms growing out of its back and shoulders, leaning on a staff. Every blow knocks a cloud of spores loose that gets in your eyes and lungs. The rats come when it calls, and they don't seem to mind the spores.",
+  "dodge": 1,
+  "faction": null,
+  "flags": {
+    "attacks_npcs": true,
+    "battle_cries": [
+      "$enemy shakes itself and the air round $player goes yellow.",
+      "$enemy raps its staff on the pipe and something squeals back."
+    ],
+    "first_strike_delay_ms": 6000,
+    "on_hit_status": {
+      "sense_overload": 0.3,
+      "choking": 0.2
+    }
+  },
+  "hit": 3,
+  "hp_max": 34,
+  "id": "enemy_spore_carrier",
+  "loot_table": [
+    {
+      "item": "item_rag_bandage",
+      "qty": [
+        1,
+        1
+      ],
+      "weight": 10
+    },
+    {
+      "item": "item_credit_chip",
+      "credits": [
+        25,
+        70
+      ],
+      "qty": [
+        1,
+        1
+      ],
+      "weight": 18
+    },
+    {
+      "item": "item_credit_chip",
+      "credits": [
+        75,
+        210
+      ],
+      "qty": [
+        1,
+        1
+      ],
+      "super": true,
+      "weight": 3
+    }
+  ],
+  "name": "spore carrier",
+  "weapon": [
+    {
+      "type": "kinetic",
+      "min": 2,
+      "max": 5
+    }
+  ]
+}

@@ -22,7 +22,8 @@
 // sixty metres, and that is the term the mesh displaces and the term a boat rides.
 import {
   SEA_SWELL_SIDE, SEA_WIND_SIDE, SEA_SWELL_PEAK, SEA_WIND_PEAK, SEA_SKEW, SEA_ASYM,
-  SEA_FOAM_ALONG, SEA_FOAM_FREQ, SEA_TILE_M, SEA_K, SURF_GAMMA, SURF_REF_M, SURF_KS_MAX } from '../../../../shared/sea-swell.js';
+  SEA_FOAM_ALONG, SEA_FOAM_FREQ, SEA_TILE_M, SEA_K, SURF_GAMMA, SURF_REF_M, SURF_KS_MAX,
+  SURF_PEAK, SURF_ZONE_LO, SURF_LEAN, SURF_FOLD_S, SURF_FOLD_P } from '../../../../shared/sea-swell.js';
 
 // ⚠ THE SIDEBANDS ARE GENERATED FROM THE JS TABLE RATHER THAN RETYPED, and that is a change of kind
 // rather than of style: the peak trains above are a hand-written twin held to the original by a
@@ -219,14 +220,35 @@ float seaSurfKs(float hM) {
 float seaShoalGain(float deep, float hM, float H0, float amt) {
   float ship = deep * deep;
   if (amt <= 0.0) return ship;
-  float lim = ${f(SURF_GAMMA)} * max(hM, 0.0) / max(H0, 0.001);
+  float r = seaSurfKs(hM) * H0 / max(${f(SURF_GAMMA)} * max(hM, 0.0), 0.001);
+  float pk = smoothstep(0.7, 1.0, r) * (1.0 - smoothstep(1.0, 1.9, r));
+  float lim = ${f(SURF_GAMMA)} * (1.0 + ${f(SURF_PEAK)} * pk) * max(hM, 0.0) / max(H0, 0.001);
   float grow = min(seaSurfKs(hM), lim) * smoothstep(0.0, 0.5, deep);
   return mix(ship, grow, clamp(amt, 0.0, 1.0));
 }
 // 1 where the shoaled wave has reached the depth limit and is breaking, 0 where it is not yet.
 float seaSurfZone(float hM, float H0) {
   float r = seaSurfKs(hM) * H0 / max(${f(SURF_GAMMA)} * max(hM, 0.0), 0.001);
-  return smoothstep(0.85, 1.0, r);
+  return smoothstep(${f(SURF_ZONE_LO)}, 1.0, r);
+}
+// The breaker's fold (sea-swell.js, SURF_FOLD_*): x is how far, in WORLD tiles along the swell's
+// wavevector, this point slides; y is the Jacobian of that slide, 1 at rest and near 0 at the lip.
+// 'z' is how far into the surf zone it is, 0..1. Height is sin(th), so the crest is th = pi/2 and
+// the wave travels toward -k: the S term bunches water under the crest, the P term carries the
+// crest's top forward of its base, which steepens the front face and eases the back.
+vec2 seaBreakFold(vec2 p, float t, float z) {
+  float th = p.x * 0.2090 + p.y * 0.1280 + t * 0.18;
+  float s = sin(th), c = cos(th), sp = max(s, 0.0);
+  float S = ${f(SURF_FOLD_S)} * z, P = ${f(SURF_FOLD_P)} * z;
+  float kw = ${f(0.2451 * SEA_K)};
+  return vec2((S * c - P * sp * sp) / kw, 1.0 - S * s - 2.0 * P * sp * c);
+}
+// Where this point is on the long swell's carrier, -pi..pi: 0 is the crest, NEGATIVE is the front
+// face (the side it's travelling into, since height is sin(th) and th rises with t), positive the
+// back. The surf foam reads it to put the lip ahead of the crest and the spent froth behind it.
+float seaSurfPhase(vec2 p, float t) {
+  float th = p.x * 0.2090 + p.y * 0.1280 + t * 0.18 - 1.5707963;
+  return mod(th + 3.14159265, 6.2831853) - 3.14159265;
 }
 // Deep-water wave height in metres from the two displaced trains' amplitudes in tiles.
 float seaH0(float rollA, float windA) {
@@ -238,12 +260,12 @@ float seaH0(float rollA, float windA) {
 // just before the foam takes it. The foam is what says "this one has gone over".
 float seaSurfLean(vec2 p, float t, float A) {
   float th = p.x * 0.2090 + p.y * 0.1280 + t * 0.18;
-  return A * 0.45 * sin(2.0 * th);
+  return A * ${f(SURF_LEAN)} * sin(2.0 * th);
 }
 // d/dp of the above. ⚠ One derivative for one height, or the light describes a wave the mesh is not.
 vec2 seaSurfLeanD(vec2 p, float t, float A) {
   float th = p.x * 0.2090 + p.y * 0.1280 + t * 0.18;
-  float c = A * 0.90 * cos(2.0 * th);
+  float c = A * ${f(2 * SURF_LEAN)} * cos(2.0 * th);
   return vec2(c * 0.2090, c * 0.1280);
 }
 float seaRoll(vec2 p, float t, float A, float sp) {

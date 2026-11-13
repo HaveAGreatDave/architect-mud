@@ -119,6 +119,7 @@
     <fieldset><legend>Head</legend>
       <label>hair <select id="hair"><option value="">by person</option><option value="0">cropped</option><option value="1">neat</option><option value="2">tousled</option><option value="3">long</option><option value="4">quiff</option></select></label>
       <label>facial hair <select id="facial"><option value="">by person</option><option>clean</option><option>stubble</option><option>shadow</option><option>moustache</option><option>goatee</option><option>vandyke</option><option>soulpatch</option><option>chinstrap</option><option>sideburns</option><option>trimmed</option><option>full</option><option>long</option></select></label>
+      <label title="How hard a life shows: scars, grime and stubble on the face, grime, scuffs and chips on the clothes">grit <select id="grit"><option value="">by person</option><option value="0">clean</option><option value="0.5">worn</option><option value="1">hardened</option></select></label>
       <label>mood <select id="mood"><option value="">none</option></select></label>
       <label>strength <input id="moodI" type="range" min="0" max="1" step="0.05" value="1"></label>
       <label>say <input id="say" placeholder="a line, then Enter" style="width:12em"></label>
@@ -186,6 +187,8 @@
 // loaded the first time it's picked (it bakes the crowd and opens two WebGL contexts). Each
 // renderer's animation loop draws nothing while the other is showing.
 const q = new URLSearchParams(location.search);
+// the query as the page opened, before writeUrl rewrites it (the camera below reads it)
+globalThis.__labQ = location.search;
 const radio = (name, v) => { const r = document.querySelector(`input[name="${name}"][value="${v}"]`); if (r) r.checked = true; };
 let streetLoaded = null;
 function setRenderer(r) {
@@ -229,6 +232,7 @@ setRenderer(q.get('renderer') === 'street' ? 'street' : 'room');
 // (/api/npc-figures); the id box takes anyone, settled or not.
 import { createRoomRenderer } from '/client/game/js/panels/gl/room.js';
 import { figurePeople, peopleBatch, preparePeople } from '/client/game/js/panels/gl/room-people.js';
+import { heldProps } from '/client/game/js/panels/gl/room-held.js';
 import { createBatch, vtx, MAT } from '/client/game/js/panels/gl/ballpark-mesh.js';
 import { MOUTHS, mouthTrack, textTrack, mouthAt } from '/client/shared/lip-sync.js';
 import { ACTOR_CLIPS, ACTOR_ROOM_CLIPS } from '/client/game/js/panels/actor3d.js';
@@ -277,6 +281,10 @@ quad(solid, [-6, 0, -3], [-6, 3, -3], [6, 3, -3], [6, 0, -3], [0, 0, 1], [0.24, 
 R.setRoom({ solid, screen: createBatch(1), glass: createBatch(1), view: createBatch(1), textured: new Map() }, () => null);
 
 const cam = { yaw: Math.PI, pitch: -0.08, dist: 3.4, fov: 40, at: [0, 1.05, 0] };
+// ?set=id:value,... sets any control on the left as the page opens (a box takes 1 or 0)
+{ const st = new URLSearchParams(globalThis.__labQ || location.search).get('set'); for (const kv of (st || '').split(',').filter(Boolean)) { const [k, v] = kv.split(':'), el = document.getElementById(k); if (!el) continue; if (el.type === 'checkbox') el.checked = v === '1'; else el.value = v; } }
+{ const g = new URLSearchParams(globalThis.__labQ || location.search).get('grit'); if (g !== null) document.getElementById('grit').value = g; }
+{ const qc = (new URLSearchParams(globalThis.__labQ || location.search).get('cam') || '').split(',').map(Number); if (qc.length === 4 && qc.every(Number.isFinite)) { cam.yaw = qc[0]; cam.pitch = qc[1]; cam.dist = qc[2]; cam.at = [0, qc[3], 0]; } }
 let spin = 0, drag = null;
 canvas.addEventListener('pointerdown', (e) => { drag = { x: e.clientX, y: e.clientY, yaw: cam.yaw, pitch: cam.pitch }; canvas.setPointerCapture(e.pointerId); });
 canvas.addEventListener('pointermove', (e) => { if (!drag) return; cam.yaw = drag.yaw - (e.clientX - drag.x) * 0.008; cam.pitch = Math.max(-1.2, Math.min(1.2, drag.pitch - (e.clientY - drag.y) * 0.006)); });
@@ -287,7 +295,7 @@ canvas.addEventListener('wheel', (e) => { e.preventDefault(); cam.dist = Math.ma
 let line = null;
 for (const k of Object.keys(MOUTHS)) $('shape').add(new Option(k));
 // every clip a person in a room can play, to look at one by one; a clip that plays once starts again every few seconds
-for (const c of [...ACTOR_CLIPS, ...ACTOR_ROOM_CLIPS]) if (c.name !== 'walk') $('doing').add(new Option(c.name));
+for (const c of [...ACTOR_CLIPS, ...ACTOR_ROOM_CLIPS]) $('doing').add(new Option(c.name));
 // a mood for everybody, as the server sends one (docs/systems-expressions.md)
 for (const m of MOODS) if (m !== 'neutral') $('mood').add(new Option(m));
 const moodNow = () => ($('mood').value ? { mood: { m: $('mood').value, i: +$('moodI').value } } : {});
@@ -306,7 +314,7 @@ function bodies() {
   // lying, a row of them on the floor, heads to the right
   const lie = $('pose').value === 'lie', doing = $('doing').value, once = onceOf(doing), m = who ? 1 : n;
   const act = { ...(doing ? { clip: doing } : {}), ...(doing && once ? { phase: Math.min(0.999, ((performance.now() / 1000) % (once + 1.5)) / once) } : {}), ...($('rest').value ? { rest: $('rest').value } : {}), ...($('manner').value ? { manner: $('manner').value } : {}) };
-  for (let i = 0; i < m; i++) out.push({ id: who || `lab-${seed}-${i}`, ...act, ...(lie ? { at: [0.8, (i - (m - 1) / 2) * 0.9], head: [1, 0], top: 0 } : { at: [(i - (m - 1) / 2) * 0.85, 0] }), yaw: 0, pose: $('pose').value, dress: $('dress').value, sculpt: mode === 'sculpt', build: $('build').value, mouth: mouthNow(), facial: $('facial').value, ...moodNow(), ...(who ? settled : {}), ...($('useW').checked ? { weight: +$('weight').value } : {}), ...($('sex').value ? { sex: $('sex').value } : {}), ...($('useB').checked ? { bust: +$('bust').value } : {}), ...($('useT').checked ? { butt: +$('butt').value } : {}), ...Object.fromEntries(['bottoms', 'hat', 'scarf'].filter((k) => $(k).value).map((k) => [k, $(k).value === 'none' ? '' : $(k).value])) });
+  for (let i = 0; i < m; i++) out.push({ id: who || `lab-${seed}-${i}`, ...act, ...(lie ? { at: [0.8, (i - (m - 1) / 2) * 0.9], head: [1, 0], top: 0 } : { at: [(i - (m - 1) / 2) * 0.85, 0] }), yaw: 0, pose: $('pose').value, dress: $('dress').value, sculpt: mode === 'sculpt', build: $('build').value, mouth: mouthNow(), facial: $('facial').value, ...moodNow(), ...(who ? settled : {}), ...($('useW').checked ? { weight: +$('weight').value } : {}), ...($('sex').value ? { sex: $('sex').value } : {}), ...($('grit').value !== '' ? { grit: +$('grit').value } : {}), ...($('useB').checked ? { bust: +$('bust').value } : {}), ...($('useT').checked ? { butt: +$('butt').value } : {}), ...Object.fromEntries(['bottoms', 'hat', 'scarf'].filter((k) => $(k).value).map((k) => [k, $(k).value === 'none' ? '' : $(k).value])) });
   return out;
 }
 let crowdReady = false;
@@ -336,6 +344,8 @@ function draw(now) {
     recs[i] = { ...recs[i], rows };
   }
   R.setFigures(recs);
+  // what's in their hands (gl/room-held.js): the bottle, the pill, the rig a clip takes to the face or the arm
+  R.setProps(heldProps(createBatch(512), B, recs));
   if ($('crowd').checked) {
     if (!crowdReady) { preparePeople(); crowdReady = true; }
     R.setPeople(peopleBatch(L, B.map((b) => ({ ...b, at: [b.at[0] + 0.42, b.at[1]] })), t));

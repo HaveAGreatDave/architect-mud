@@ -43,7 +43,7 @@ import { isA11yTablet, renderA11yTablet, close as closeA11yTablet, initA11yTable
 import { openListDialog, closeListDialog, initListDialog } from './panels/listdialog.js';
 import { openTabletPanel, closeTabletPanel, tabletQuestUpdate, noteQuestLog, openTabletToSpecter, openTabletToReel, openTabletSpecterInstall, refreshTabletGearIfOpen, openTabletToMap, refreshTabletMapIfOpen, openTabletTvPanel } from './panels/lazy-views.js';
 import { openVoidwalkStaging, appendVoidwalkChat } from './panels/voidwalk-staging.js';
-import { mountChess3D } from './panels/lazy-views.js';
+import { mountChess3D, mountPoker3D } from './panels/lazy-views.js';
 import { openAlarmPanel } from './panels/alarmpanel.js';
 import { openTextAlarm, isTextAlarmActive } from './panels/textalarm.js';
 import { openTextSynth, isTextSynthActive } from './panels/textsynth.js';
@@ -86,7 +86,7 @@ import { openConcealSearch } from './panels/conceal.js';
 import { updateTrade, closeTrade } from './panels/trade.js';
 import { openHangarBay, openCharterScreen, closeHangarBay, isHangarBayActive } from './panels/lazy-views.js';
 import { openKitchenStage, closeKitchenStage, isKitchenStageActive, kitchenBeat, kitchenKnife, kitchenDress, kitchenStock, kitchenSays, kitchenTaste } from './panels/lazy-views.js';
-import { openChemStageOr, chemOutcome } from './panels/lazy-views.js';
+import { openChemStageOr, openChemBenchOr, chemOutcome } from './panels/lazy-views.js';
 import { chainFor, SPLICE_RIG } from '../../shared/chem-chain.js';
 import { openAdminPanel } from './panels/admin.js';
 import { renderMarkup } from './markup.js';
@@ -400,6 +400,10 @@ function heard(html, scene = false) {
 
 // The Room Stage (plugins/roomstage): a flat in first person, loaded the first time one opens.
 let roomMod = null;
+// a card table's felt that came in while the Stage was being opened for it (poker_update)
+let pokerPending = null, pokerOpening = false;
+// how long after logging in the room's people start compiling, clear of the login's own loading
+const FIGURE_WARM_MS = 15000;
 const loadRoom = () => (roomMod ??= import('./panels/room-stage.js').catch((e) => { roomMod = null; throw e; }));
 const loadStands = () => (standsMod ??= Promise.all([import('./panels/stands.js'), loadTv()]).then(([m]) => m).catch((e) => { standsMod = null; throw e; }));
 
@@ -486,6 +490,12 @@ const handlers = {
     if (DEV_ROLES.includes(state.player.role)) showDevPanelButton();
     if (wasReconnect) appendMsg('Reconnected.', 'system');
     else playWelcomeVoice(state.player.handle, state.player);   // spoken login greeting (fresh logins only)
+    // The people in a room are drawn by a shader that takes over a minute to compile the first time
+    // (gl/figure-hd.js warmFigure). Start it in the background now, so the first room or TV has it.
+    // Not on a text rung, which never draws one.
+    if (!wasReconnect && state.player.displayRung !== 'textgames' && state.player.displayRung !== 'log') {
+      setTimeout(() => { import('./panels/gl/figure-hd.js').then((m) => m.warmFigure()).catch(() => {}); }, FIGURE_WARM_MS);
+    }
     // Push this device's Extra Lore preference — the server keeps the per-player
     // flag, but the Settings toggle is local, so re-assert it each login.
     sendCmdSilent(`lorealways ${(loadSettings().extraLore || 'off') === 'on' ? 'on' : 'off'}`);
@@ -879,6 +889,13 @@ const handlers = {
   // up, so the panel doesn't flicker on every self-issued `workspace`.
   workspace_view: (msg) => {
     if (msg.mainMsg) appendHtml(msg.mainMsg, 'help');
+    // A chem lab's bench, in the Room Stage on the visual rung: the bench comes up in 3D at the room's own lab
+    // (chem-stage.js openChemBench), or the HUD when there's no lab out in this room
+    if (msg.provider === 'chembench' && document.body.classList.contains('room-stage-on') && state.player?.displayRung !== 'textgames' && state.player?.displayRung !== 'log' && typeof WebGL2RenderingContext !== 'undefined') {
+      if (isWorkspaceOpen()) closeWorkspacePanel();
+      openChemBenchOr(msg, () => { if (isWorkspaceOpen()) refreshWorkspacePanel(msg); else openWorkspacePanel(msg); });
+      return;
+    }
     // The kitchen's 3-D rung, when the server offers it ('visual' only) and the player hasn't
     // asked for the list this session. It falls back to the HUD itself if WebGL2 won't start.
     if (wantsKitchenStage(msg)) {
@@ -1305,7 +1322,20 @@ const handlers = {
   // The answer to a save or a bin: the whole shelf, never a delta, so the open panel
   // can't drift from the table. Ignored if the can is already shut.
   spray_shelf: (msg) => { updateSprayShelf(msg); },
-  poker_update: (msg) => { setAreaPane(msg.html); },
+  // a felt that carries data-p3d is then drawn in 3D over itself; any other felt unmounts it
+  // and the Room Stage, if it's open, takes your own hole cards out of it for the table it draws (room-stage.js)
+  // ⚠ WITH THE ROOM STAGE OPEN, ROOM IS THE TABLE: the felt pane and its 3D overlay aren't hung at all; the Stage
+  // only takes your own hole cards out of the pane (room-stage.js roomPokerPane) and draws the rest itself
+  poker_update: (msg) => {
+    if (document.getElementById('room-stage')) { roomMod?.then((m) => m.roomPokerPane(msg.html)).catch(() => {}); return; }
+    // where the room can be opened, the felt pane is never hung: the Stage opens and takes the felt's cards once up
+    if (document.querySelector('.dpad-room-btn[data-room="available"]')) {
+      pokerPending = msg.html;
+      if (!pokerOpening) { pokerOpening = true; sendCmdSilent('room'); setTimeout(() => { pokerOpening = false; }, 4000); }
+      return;
+    }
+    setAreaPane(msg.html); mountPoker3D();
+  },
   poker_sfx: (msg) => { playPokerSfx(msg.cue); },
   // The generic seated-table pane (chess today). Same treatment as the felt —
   // the server renders it whole and the client just hangs it up. Buttons and
@@ -1396,12 +1426,22 @@ const handlers = {
   stands_menu: (msg) => { if (msg.buy && document.getElementById('room-stage')) loadStands().then((m) => m.openStandsMenu(msg, { root: document.getElementById('room-stage') })).catch(() => {}); else standsMod?.then((m) => m.openStandsMenu(msg)).catch(() => {}); },
   room_avail: (msg) => setRoomButton({ avail: !!msg.on }),
   // one world: a room the street view on foot has drawn is walked into in GLASS (freelook-view.js freelookTakeRoom)
-  room_view: (msg) => { if (freelookTakeRoom(msg)) return; setRoomButton({ open: true }); loadRoom().then((m) => m.openRoomStage(msg)).catch((e) => { setRoomButton({ open: false }); console.error('[room]', e); }); },
+  room_view: (msg) => { if (freelookTakeRoom(msg)) return; if (msg.vehicles && isTruckDepotActive()) closeTruckDepot(); setRoomButton({ open: true }); loadRoom().then((m) => { m.openRoomStage(msg); pokerOpening = false; if (pokerPending) { m.roomPokerPane(pokerPending); pokerPending = null; } }).catch((e) => { setRoomButton({ open: false }); console.error('[room]', e); }); },
   room_ahead: (msg) => { roomMod?.then((m) => m.roomAhead?.(msg)).catch(() => {}); },
   room_piece: (msg) => { roomMod?.then((m) => m.roomPiece(msg)).catch(() => {}); },
   room_people: (msg) => { roomMod?.then((m) => m.roomPeople(msg)).catch(() => {}); },
+  // a move on a chess table in the room (plugins/gametable `room.boards`)
+  room_board: (msg) => { roomMod?.then((m) => m.roomBoard(msg)).catch(() => {}); },
+  // what you carry that the room can take in first person (panels/room-stage.js Pockets)
+  room_pockets: (msg) => { roomMod?.then((m) => m.roomPockets(msg)).catch(() => {}); },
   // how the locks on the room's doorways stand now (panels/room-lock.js)
   room_locks: (msg) => { roomMod?.then((m) => m.roomLocks(msg)).catch(() => {}); },
+  // the shutters over a room's glass and the scene on them, changed from its control panel (plugins/envcontrol)
+  room_glass: (msg) => { roomMod?.then((m) => m.roomGlass(msg)).catch(() => {}); },
+  room_plumbing: (msg) => { roomMod?.then((m) => m.roomPlumbing(msg)).catch(() => {}); },
+  // a tag sprayed on a room's wall or cleaned off it (plugins/roomstage, plugins/graffiti)
+  room_tags: (msg) => { roomMod?.then((m) => m.roomTags(msg)).catch(() => {}); },
+  room_vehicles: (msg) => { roomMod?.then((m) => m.roomVehicles(msg)).catch(() => {}); },
   room_set: (msg) => { roomMod?.then((m) => m.roomSet(msg)).catch(() => {}); },
   room_here: (msg) => { roomMod?.then((m) => m.roomHere(msg)).catch(() => {}); },
   room_outlook: (msg) => { roomMod?.then((m) => m.roomOutlook(msg)).catch(() => {}); },
@@ -1855,6 +1895,8 @@ const handlers = {
   truck_depot: (msg) => {
     if (msg.service) { if (isCabActive()) openTruckDepot(msg); return; }
     if (isCabActive()) return;
+    // in the shed's Room Stage the lift is the counter (room-hoist.js); close the Stage for the screen
+    if (document.body.classList.contains('room-stage-on')) return;
     openTruckDepot(msg);
   },
   // …and it re-looks on the way out, the same as `hangar_close` does. Walking out of a yard fires
@@ -2060,7 +2102,18 @@ const handlers = {
   // for this song, so closing that surface can stop it without silencing a zone
   // theme or the player's own AMP tape — they all share one music player.
   // `once`: a title card's theme, played through a single time (a song otherwise loops)
-  audio_music: (msg) => { window.AudioEngine?.playMusic(msg.def, { restartIfSame: false, owner: msg.owner, once: !!msg.once }); },
+  audio_music: (msg) => {
+    const play = () => window.AudioEngine?.playMusic(msg.def, { restartIfSame: false, owner: msg.owner, once: !!msg.once });
+    if (!msg.only3d) return play();
+    // Scored for the 3D room (the first wake in the clone vat): play only where the Room Stage
+    // draws. The room's view can land a beat after the move, so wait a few seconds for it.
+    if (state.player?.displayRung === 'textgames' || state.player?.displayRung === 'log') return;
+    const on3d = () => document.body.classList.contains('room-stage-on');
+    if (on3d()) return play();
+    const watch = new MutationObserver(() => { if (on3d()) { watch.disconnect(); clearTimeout(give); play(); } });
+    const give = setTimeout(() => watch.disconnect(), 6000);
+    watch.observe(document.body, { attributes: true, attributeFilter: ['class'] });
+  },
   // `from`/`hops` are only present when the cue reached you from ANOTHER room
   // (propagateAudio in server/engine/sounds.js) — the doorway it came through and
   // the rooms crossed; `shut` is how many of those crossings were a closed door

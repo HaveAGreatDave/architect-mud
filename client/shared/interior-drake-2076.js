@@ -31,6 +31,7 @@
 //
 // Pure: no camera, no DOM. `live` arrives as an argument; decoration may move on wall time, every
 // readout moves only on a live value.
+import { nightAt } from './sky-keys.js';
 import { makeKit, C, clamp, lerp, PANE } from './interior-kit.js';
 import { facingPanel, eased, pressPulse, HALO, bootAge, reveal, alertLight, sweep, lightLine, bandFrame, glassBand,
   holoFrame, holoProjector, windscreenHud, lensLamp, HOLO, HOLO_LINE, HOLO_AMBER, HOLO_RED } from './interior-cockpit-kit.js';
@@ -94,7 +95,7 @@ const readings = (live) => {
     conv: num(L.conv, 1.2),
   };
 };
-const night = (R) => R.hour < 6.5 || R.hour > 19.5;
+const night = (R) => nightAt(R.hour);
 const panelOn = (R) => R.powered && (R.L.panelLight != null ? !!R.L.panelLight : night(R));
 
 // ── THE BAND ─────────────────────────────────────────────────────────────────

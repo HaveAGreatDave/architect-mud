@@ -623,12 +623,36 @@ export const SURF_GAMMA = 0.78;    // breaker height / depth
 export const SURF_REF_M = 30;      // depth at which Green's law starts to lift the wave
 export const SURF_KS_MAX = 1.6;    // shoaling cap; the depth limit takes over well before it binds
 export const SURF_DEPTH_Q = 4;     // depth texture: metres x this, in one byte, so 0..63.75 m
+// A breaker stands taller than McCowan's 0.78 for a moment as it peaks: on a sloping bed the
+// breaker index runs to about 1.0-1.2 (Weggel 1972), then the bore that's left decays to gamma.
+// So the depth limit gets a bump of this share where the wave is right at breaking, and no more.
+export const SURF_PEAK = 0.4;
+// Where the surf zone starts, as the ratio of the shoaled height to the depth limit. Below 1 the
+// wave isn't breaking yet but its face is already pitching forward and steepening.
+export const SURF_ZONE_LO = 0.65;
+export const SURF_LEAN = 0.75;     // share of the swell amplitude in the breaker's forward pitch
+// The breaker's FOLD: a skewed trochoid. In the surf zone the surface is slid along the swell, the
+// Gerstner way, so the water bunches under the crest (FOLD_S) and the crest itself is carried
+// forward of its base (FOLD_P). That stands the front face up far steeper than any height field can,
+// and the Jacobian of the slide (1 at rest, near 0 where the surface folds) says where the lip is,
+// which is where the foam goes (Tessendorf 2004; Dupuy & Bruneton 2012). Their sum must stay under 1
+// or the surface passes through itself.
+export const SURF_FOLD_S = 0.58;
+export const SURF_FOLD_P = 0.34;
+
+const smooth01 = (a, b, x) => { const t = Math.min(1, Math.max(0, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
+// The ratio of the shoaled wave to the depth it can stand in: 1 is breaking.
+function surfRatio(hM, H0) {
+  const ks = Math.min(SURF_KS_MAX, Math.max(1, Math.pow(SURF_REF_M / Math.max(hM, 0.25), 0.25)));
+  return { ks, r: ks * H0 / Math.max(SURF_GAMMA * Math.max(hM, 0), 1e-3) };
+}
 
 // The shoaled height gain and whether it is breaking, for a depth in METRES and a deep-water wave
 // height in METRES. The GLSL twin in gl/sea-glsl.js is generated from these constants.
 export function surfGain(hM, H0) {
-  const ks = Math.min(SURF_KS_MAX, Math.max(1, Math.pow(SURF_REF_M / Math.max(hM, 0.25), 0.25)));
-  const lim = SURF_GAMMA * Math.max(hM, 0) / Math.max(H0, 1e-3);
+  const { ks, r } = surfRatio(hM, H0);
+  const peak = smooth01(0.7, 1.0, r) * (1 - smooth01(1.0, 1.9, r));
+  const lim = SURF_GAMMA * (1 + SURF_PEAK * peak) * Math.max(hM, 0) / Math.max(H0, 1e-3);
   return Math.min(ks, lim);
 }
 // What a HULL rides near the shore: the displaced swell's amplitude multiplier for the seabed depth
@@ -642,10 +666,7 @@ export function surfHullGain(depthM, rollA, windA, amt = 1) {
   return 1 + (surfGain(depthM, H0) - 1) * Math.min(1, amt);
 }
 export function surfBreaking(hM, H0) {
-  const ks = Math.min(SURF_KS_MAX, Math.max(1, Math.pow(SURF_REF_M / Math.max(hM, 0.25), 0.25)));
-  const r = ks * H0 / Math.max(SURF_GAMMA * Math.max(hM, 0), 1e-3);
-  const t = Math.min(1, Math.max(0, (r - 0.85) / 0.15));
-  return t * t * (3 - 2 * t);
+  return smooth01(SURF_ZONE_LO, 1.0, surfRatio(hM, H0).r);
 }
 export function seaShelter(d, maxD) {
   if (!(maxD > 0)) return 1;

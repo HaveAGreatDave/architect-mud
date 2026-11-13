@@ -90,12 +90,13 @@ room is built on the first rather than beside it.
 | Walker | `client/game/js/panels/room-walk.js`, used by the suite (`stands.js`) and by a flat (`room-stage.js`); it claims the keyboard through `seat-keys.js` |
 | Mesh | `gl/room-kit.js` holds the shapes (box, rounded block, turned piece, drop) that both `gl/booth-mesh.js` and `gl/room-mesh.js` build from. The suite's mesh came out of the move byte for byte |
 | Fittings | `gl/room-fittings.js` holds the forms a flat is fitted with: wardrobes and wall cabinets, shelves and lockers, kitchen runs and basins, pans, showers and baths, a set's deck, tables and what stands on a worktop. `client/shared/room-layout.js` says which form a row is (`rowDrawn`, `rowLook`, `layRows`) |
+| Office | `gl/room-office.js`: `pcdesk`, a corner computer desk (an L of two runs, `pcdeskRuns`, with the square they hold left free for its chair; `pieceBoxes` is what the walker and the `room-stage` gate both read), and `office`, an ergonomic desk chair. The desk's monitor shows the page its row names in `flags.look.screen`, painted by `gl/room-screens.js` as the texture `roomScreen|<page>` (`claude`, or the plain `desktop`) |
 | Renderer | The suite stays in the ballpark. A flat is `gl/room.js`: occlusion baked into the vertex colours, up to four lamps and three panes lighting it per pixel with a highlight by material, ACES, and the ink and toon bands when the comic look is on |
 | En-suite | The zone behind a flat's `in` exit is drawn behind the back wall on the same Stage (`withAnnex`, `annexFrame`, `buildAnnex`): a second rectangle to walk in, joined by the strip through its door. Crossing the door sends `in` or `out` |
 | The outlook | `panels/room-outlook.js`: see below |
 | People | `gl/room-people.js` poses everyone else as the close-up figure ([hd-figure.md](hd-figure.md)) in the street's `idle` or `sit` clip, or laid down for `lying`, dressed by `actorOutfit` off their id; `gl/figure-hd.js` draws them in the comic manner |
 
-One thing differs from the plan above: the hands (`stands-hands.js`) aren't opened in a flat yet, because nothing in a flat hands you a drink the way the suite's bar does.
+The hands (`stands-hands.js`) open in a flat for what a vending machine hands you and for anything taken from your pockets (below).
 
 ### The outlook
 
@@ -142,7 +143,7 @@ A studio above the ground floor has a balcony past its front wall (`spec.balcony
 
 ### Television on the wall
 
-A set in a flat shows what's on. `panels/room-tv.js` is a third surface for `createTvView`, after the CRT popup and the tablet, so every show, ticker, scorebug and Gameday comes through the one renderer. Its page is laid out off the side of the window, and `panels/page-paint.js` paints it to a canvas up to thirty times a second, and not while the set's behind you, which `gl/room.js` draws on that set's stretch of the screen batch (`K.screens`, `first` and `count`). It's in the picture, so the room's depth hides it and a person can walk in front of it. `setWallTv` makes it the surface tv.js's panel calls go to while the room's open, so `watch` and `tune` arrive on the wall and the server needs no change. F or a click on the set starts it and stops it, and the bar's dial or `[` and `]` change the channel by sending `tune`.
+A set in a flat shows what's on. `panels/room-tv.js` is a third surface for `createTvView`, after the CRT popup and the tablet, so every show, ticker, scorebug and Gameday comes through the one renderer. Its page is laid out off the side of the window, and `panels/page-paint.js` paints it to a canvas up to thirty times a second, and not while the set's behind you, which `gl/room.js` draws on that set's stretch of the screen batch (`K.screens`, `first` and `count`). It's in the picture, so the room's depth hides it and a person can walk in front of it. `setWallTv` makes it the surface tv.js's panel calls go to while the room's open, so `watch` and `tune` arrive on the wall and the server needs no change. F or a click on the set starts it and stops it, from anywhere in the room you can see it from: the set you're looking at, within 12 m, is the card over the seat you're on, and over a piece in reach once the middle of the view is on its screen. The bar's dial, `[` and `]`, or the wheel over its picture change the channel by sending `tune`.
 
 page-paint.js covers what a broadcast uses; its header lists what it leaves out. Other people in the flat see a dark set until they watch it themselves.
 
@@ -153,6 +154,14 @@ Facing a piece within reach brings up a card at the bottom of the picture: its n
 ### Talking to people
 
 Facing an NPC within eight feet brings up the card with their name and Talk, and they win over the furniture around them. A click on them holds the card from across the room, as it does for a piece. Talk is the verb `talk <name>`, so it reaches the same conversation or shop as typing it, and the dialogue panel comes up over the room with the keys while it's open. Somebody on the far side of the en-suite's door can't be talked to, because the verb runs in your zone.
+
+### Eating, drinking and taking something
+
+**Pockets** (the button by the tablet's, or P) lists what you carry that a room can take in first person: food, drinks, smokes and drugs, each by how it's taken. `room_pockets` asks the server once, on the click (`pocketsOf` in `plugins/roomstage/acts.js`, one query), and a line puts it in your hands (`stands-hands.js`). Food, drink and smokes are the suite's rituals. A drug is a dose (`doseActivity`): a pill held up and taken to your mouth, a line on a mirror and a rolled note, a loaded rig to the crook of your arm, or a rag over your mouth, each Space held through to the end. Every ritual ends in the verb you could type (`eat`, `drink`, `smoke`, `inject`, or `use` for a pill, a line or a huff), so nothing here changes what a dose does.
+
+Everybody else in the room sees you do it. Each beat of a ritual (a bite, a sip, a drag, a dose) goes to the server as `room_act`, which relays it on `room_people` as the person's `act`, `hold` and `beat`; a dose typed in the log (`player.drugUsed`) plays its route once. It's RAM only and forgotten after 12 seconds without a beat. The client plays the act's clip, standing or sat (`ACT_CLIP` in room-stage.js), from the top on each beat, with the thing in their right hand.
+
+The figure finishes the clip (`gl/figure-reach.js`). Each clip that takes something to the face or the arm says how each hand is held, what's in it, how far its forearm turns, and where the thing has to arrive: the mouth, the nose or the crook of the other arm. As the clip brings the palm within about 13 cm of there, a two-bone reach (shoulder, elbow, wrist) takes the tip the rest of the way and turns the hand at the wrist so a bottle, a fork or a needle points at where it's going, so it lands on any build and in any seat. `gl/room-held.js` draws what's held off the hand's bone: a bottle, a can, a cigarette, a joint, a pill, a rig, a pipe, a roll, a rag or a lighter. A meal (`gl/room-meals.js`) and a session at the table (`gl/room-stash.js`) draw their own. A resident's habit taken standing gets the same things in their hands.
 
 ### People at home
 
@@ -183,8 +192,7 @@ The Room Lab (`/room-lab.html` in the Modelshop) opens any of these off the cont
 
 ## Open questions
 
-- **What others see you holding.** The hands draw your drink and your cigarette in first person.
-  Whether other people see a bottle in your hand and smoke over your head is the actor renderer's
-  work, and a smaller first step is to show only posture.
+- **Smoke over somebody's head.** Others see the cigarette in your hand and your hand at your mouth
+  (Eating, drinking and taking something, above), but no smoke comes off it yet.
 - **Privacy in a flat.** A visitor sees the tenant and anyone else there. Whether the tenant can
   see who's at the door before opening it is the doors and knock plugins' business, not this layer's.

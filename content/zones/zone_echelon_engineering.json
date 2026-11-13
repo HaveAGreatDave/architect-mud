@@ -21,6 +21,37 @@
     "floor": "linoleum",
     "is_building": true,
     "is_interior": true,
+    "room": {
+      "balcony": false,
+      "d": 9,
+      "decor": {
+        "ceiling": {
+          "hex": "#2a2e31",
+          "kind": "slot",
+          "trim": "#d9a441"
+        },
+        "rug": false
+      },
+      "doors": {
+        "up": [
+          0,
+          4.5
+        ]
+      },
+      "face": 0,
+      "finish": "plain",
+      "ground": "rubber",
+      "h": 2.6,
+      "studio": false,
+      "tone": {
+        "accent": "#d9a441",
+        "ceiling": "#2a2e31",
+        "trim": "#16191b",
+        "wall": "#3a4045"
+      },
+      "w": 2.6,
+      "windowless": true
+    },
     "world_exit_zone": "zone_echelon_exterior",
     "yacht": true
   },

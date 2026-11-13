@@ -1,0 +1,22 @@
+{
+  "description": null,
+  "flags": {},
+  "id": "item_zippo_black_gold",
+  "name": "black and gold zippo",
+  "tags": {
+    "description": "A windproof lighter in black lacquer with gold inlay on both faces: a ruled border, a sunburst round a gold diamond, a row of small diamonds on the lid. The hinge and chimney are gold too. It's heavy for its size.",
+    "lighter": {
+      "case": "#121114",
+      "case_metal": 0.1,
+      "finish": "gloss",
+      "inlay": "deco",
+      "rank": 10,
+      "trim": "#d4a93f",
+      "trim_dark": "#a07a22"
+    },
+    "unique": true
+  },
+  "type": "misc",
+  "value": 1200,
+  "weight": 70
+}

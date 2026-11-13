@@ -69,6 +69,10 @@ export function biomeOf(zone) {
 export function districtBiome(zone) {
   if (!zone) return null;
   const f = zone.flags || {};
+  // A void corridor cell out in the country carries the carved relief's own ground as a palette key
+  // (plugins/trucking/corridor.js wild_ground: prairie, wash, scree, red rock, …), which outranks the
+  // terrain it walks as: a grass verge is dry prairie from the air, never the city's parkland.
+  if (f.wild_ground) return f.wild_ground;
   // A void highway tile is drawn as road by the road channel; the ground under it is the verge's
   // (plugins/trucking/corridor.js road_ground).
   if (f.road_ground && TERRAIN_BIOME[f.road_ground]) return TERRAIN_BIOME[f.road_ground];

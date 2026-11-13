@@ -23,6 +23,30 @@
     "is_interior": true,
     "naval_ambience": true,
     "open_sky": true,
+    "room": {
+      "balcony": false,
+      "d": 10,
+      "decor": {
+        "downlights": false,
+        "pad": {
+          "r": 3.6
+        },
+        "rug": false
+      },
+      "face": 180,
+      "finish": "plain",
+      "ground": "rubber",
+      "h": 3,
+      "open": true,
+      "studio": false,
+      "tone": {
+        "accent": "#f2f2f2",
+        "ceiling": "#1a1a1a",
+        "trim": "#111111",
+        "wall": "#2c2f33"
+      },
+      "w": 11
+    },
     "window": {
       "description": "A window with a bad seal, letting in a draught and a slice of whatever the weather is doing.",
       "light": 0.75,

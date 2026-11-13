@@ -151,7 +151,8 @@
         "y": 3.55
       },
       "street_door": {
-        "glass": "#6f8a9c",
+        "glass": "#1b2c4a",
+        "handle": "s",
         "kind": "sliding",
         "monogram": "S",
         "trim": "#c9a24a",

@@ -1,0 +1,10 @@
+{
+  "ambient_id": null,
+  "enabled": 1,
+  "event_name": "prologue.woke",
+  "id": "route_prologue_woke",
+  "sample_id": null,
+  "scope": "player",
+  "sfx_id": null,
+  "song_id": "song_clone_wake_sombre"
+}

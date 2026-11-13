@@ -151,8 +151,11 @@ export async function openSportsPack(sport, player, broadcast) {
     [player.id, lg.item]);
   if (!rows.length) return { type: 'error', message: `You have no ${lg.short} sleeves. They come out of a ${lg.short} card machine: ₵${SPORTS_PACK_PRICE} a go.` };
   const row = rows[0];
-  if (Number(row.quantity) > 1) await query('UPDATE player_inventory SET quantity = quantity - 1 WHERE id=$1', [row.id]);
-  else await query('DELETE FROM player_inventory WHERE id=$1', [row.id]);
+  // Guarded on the owner and checked: see consumeSleeve in index.js.
+  const spent = Number(row.quantity) > 1
+    ? await query('UPDATE player_inventory SET quantity = quantity - 1 WHERE id=$1 AND player_id=$2 AND quantity > 1', [row.id, player.id])
+    : await query('DELETE FROM player_inventory WHERE id=$1 AND player_id=$2', [row.id, player.id]);
+  if (!spent.rowCount) return { type: 'error', message: `You have no ${lg.short} sleeves.` };
   const d = row.custom_data || {};
   let cards = Array.isArray(d.cards) ? d.cards : [];
   // A sleeve with nothing stamped on it (given by staff, or from before the stamp) is

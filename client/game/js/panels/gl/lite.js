@@ -123,7 +123,16 @@ const move1 = (q, b, dx, dy) => { q[0] = b[0] + dx; q[1] = b[1] + dy; };
 // (`lodNear`) and its window glows past the bloom reach (`glBloomFar`), and keeps a beacon (an `air`
 // light) and anything with a glow to the draw limit. Without them Lite pushed half as many records
 // again as the GLASS 2 frame it stands in for.
-function emitTile(t, dx, dy, alpha, night, SP, DE, ST, f, tune, LV) {
+//
+// ⚠ ON THE GPU, NOT RE-SENT. `G` is the frame's window ({ ox, oy, w }, null with glRetain off): a tile
+// at full strength hands its arrays to the sinks as retained groups (gl/retain.js), as armReplay does,
+// so the sprite, stroke and decal layers write it once per map window instead of once per frame. A
+// record's x plus the camera's `ox` is the window's own coordinate, which is what the arena keeps.
+// ⚠ AND A RECORD MOVES ONLY WITH THE ONE ARRAY IT'S GROUPED IN. An arena that fills re-places the
+// groups it's keeping from their live records, with the offset it last saw for each; a record moved
+// under another array, or moved and streamed, would be written back in the wrong place. So the
+// ranges are disjoint arrays (`groupsOf`), and a tile fading in the haze streams copies (`fadeOf`).
+function emitTile(t, dx, dy, alpha, night, SP, DE, ST, f, tune, LV, G) {
   if (!t.recs) return;
   const n = night > 0.5 ? 'n1' : 'n0';
   if (!t.live) t.live = {};
@@ -135,6 +144,66 @@ function emitTile(t, dx, dy, alpha, night, SP, DE, ST, f, tune, LV) {
   }
   const near = (tune && tune.lodNear) || 20, bloom = (tune && tune.glBloomFar) || 22;
   const close = !(f > near), lit = !(f > bloom), nite = night > 0.5;
+  if (G && alpha === 1) {
+    const K = groupsOf(L);
+    if (DE) { if (close) keepDe(DE, K.de, dx, dy, G); if (close || nite) keepDe(DE, K.deLit, dx, dy, G); }
+    if (SP) { if (lit) keepSp(SP, K.sp, dx, dy, G); keepSp(SP, K.spAir, dx, dy, G); }
+    if (ST) keepSt(ST, L.st, dx, dy, G);
+  } else {
+    if (G) L = fadeOf(L);
+    streamTile(L, dx, dy, alpha, SP, DE, ST, close, lit, nite);
+  }
+  // The moving parts go back to the frame, which draws each with the live clock (liteLiveDraw).
+  const R = t.recs[n];
+  if (LV && R && R.lv) for (const l of R.lv) LV.push(l);
+}
+
+// The ranges as disjoint arrays: the lettering that goes past `lodNear` (`de`) and the lit signs kept
+// at night (`deLit`); the window glows that go past `glBloomFar` (`sp`) and the beacons (`spAir`).
+function groupsOf(L) {
+  return L.keep || (L.keep = {
+    de: L.de.filter((d) => !(d.emit > 0)), deLit: L.de.filter((d) => d.emit > 0),
+    sp: L.sp.filter((s) => !s.air), spAir: L.sp.filter((s) => s.air),
+  });
+}
+// The tile's records again, with points of their own, for the frames it fades: see emitTile.
+function fadeOf(L) {
+  return L.fade || (L.fade = {
+    de: L.de.map((d) => ({ ...d, p: d.p.map(P3), rp: d.rp ? d.rp.map(P3) : d.rp, rc: d.rc ? d.rc.map(P3) : d.rc })),
+    sp: L.sp.map((s) => ({ ...s })),
+    st: L.st.map((s) => ({ ...s, a: P3(s.a), b: P3(s.b), ra: s.ra ? P3(s.ra) : s.ra, rb: s.rb ? P3(s.rb) : s.rb })),
+  });
+}
+const group = (sink, recs, G) => { (sink.groups || (sink.groups = [])).push({ recs, at: sink.length, ox: G.ox, oy: G.oy, w: G.w }); };
+function keepDe(sink, recs, dx, dy, G) {
+  if (!recs.length) return;
+  group(sink, recs, G);
+  for (const d of recs) {
+    move(d.p, d._b.p, dx, dy);
+    if (d.rp) move(d.rp, d._b.rp, dx, dy);
+    if (d.rc) move(d.rc, d._b.rc, dx, dy);
+    d.alpha = d._a;
+    sink.push(d);
+  }
+}
+function keepSp(sink, recs, dx, dy, G) {
+  if (!recs.length) return;
+  group(sink, recs, G);
+  for (const s of recs) { s.x = s._b[0] + dx; s.y = s._b[1] + dy; s.a = s._a; sink.push(s); }
+}
+function keepSt(sink, recs, dx, dy, G) {
+  if (!recs.length) return;
+  group(sink, recs, G);
+  for (const s of recs) {
+    move1(s.a, s._b[0], dx, dy); move1(s.b, s._b[1], dx, dy);
+    if (s.ra) move1(s.ra, s._b[2], dx, dy);
+    if (s.rb) move1(s.rb, s._b[3], dx, dy);
+    s.alpha = s._a;
+    sink.push(s);
+  }
+}
+// Every record down the stream, with its fade, as before the groups.
+function streamTile(L, dx, dy, alpha, SP, DE, ST, close, lit, nite) {
   if (DE) for (const d of L.de) {
     if (!close && !(d.emit > 0 && nite)) continue;
     move(d.p, d._b.p, dx, dy);
@@ -158,9 +227,6 @@ function emitTile(t, dx, dy, alpha, night, SP, DE, ST, f, tune, LV) {
     s.alpha = s._a * alpha;
     ST.push(s);
   }
-  // The moving parts go back to the frame, which draws each with the live clock (liteLiveDraw).
-  const R = t.recs[n];
-  if (LV && R && R.lv) for (const l of R.lv) LV.push(l);
 }
 
 // The bake holds this tile AS THE LIVE MAP HAS IT: the same building type and name. The bake follows
@@ -172,9 +238,9 @@ const same = (t, c) => !!t && (!c || ((t.bt || null) === (c.bt || null) && (t.bn
 // the bake (liteFacesFor doesn't ask), since the mesh never moves.
 const VIEW = {
   has: (wx, wy, c) => { const t = tiles.get(wx + ',' + wy); return same(t, c) && !t.an; },
-  emit: (wx, wy, dx, dy, alpha, night, SP, DE, ST, f, tune, LV) => {
+  emit: (wx, wy, dx, dy, alpha, night, SP, DE, ST, f, tune, LV, G) => {
     const t = tiles.get(wx + ',' + wy);
-    if (t) emitTile(t, dx, dy, alpha, night, SP, DE, ST, f, tune, LV);
+    if (t) emitTile(t, dx, dy, alpha, night, SP, DE, ST, f, tune, LV, G || null);
   },
 };
 

@@ -221,7 +221,7 @@ export function roomOpenings(b, plan, zoneId, parked = null) {
     const dir = mine ? d.dir : (b.doors.find((x) => x.from === zoneId && x.to === other)?.dir ?? null);
     // the ground floor's way into the car is a plain door in the plan; its landing gets the bronze doors too
     const landing = !lift && !!plan.lifts?.[other] && d.kind === 'door';
-    out.push({ wall: side.wall, a: side.a, b: side.b, kind: d.kind === 'door' && !dir ? 'shut' : d.kind, dir, to: other, ...deep, ...(d.slide || landing ? { slide: true } : {}), ...(landing ? { lift: true } : {}) });
+    out.push({ wall: side.wall, a: side.a, b: side.b, kind: d.kind === 'door' && !dir ? 'shut' : d.kind, dir, to: other, ...deep, ...(d.slide || landing ? { slide: true } : {}), ...(d.swing ? { swing: true } : {}), ...(landing ? { lift: true } : {}) });
   }
   return out;
 }
@@ -284,8 +284,9 @@ export function buildingLayout(b, { zones, specOf }) {
   const stairOf = (id, dir) => { const v = Z.get(id)?.flags?.room?.doors?.[dir]; return Array.isArray(v) && v.length === 2 && v.every(Number.isFinite) ? v : null; };
   // a point in a placed room's own frame (u across, v back from the front wall) as [x, z] from its middle
   const fromMid = (face, d, [u, v]) => { const f = face * Math.PI / 180, fx = Math.sin(f), fz = Math.cos(f), rx = Math.cos(f), rz = -Math.sin(f); return [fx * (d / 2 - v) + rx * u, fz * (d / 2 - v) + rz * u]; };
-  // `flags.room.street_door`: { kind: 'sliding', w } is a pair of automatic glass doors in place of a plain one
-  const streetDoorOf = (id) => { const v = Z.get(id)?.flags?.room?.street_door; return v?.kind === 'sliding' ? { w: Math.max(1.2, Math.min(3, Number(v.w) || 1.8)) } : null; };
+  // `flags.room.street_door`: { kind: 'sliding', w } is a pair of automatic glass doors in place of a plain one;
+  // { kind: 'swing', w } a pair of hinged glass doors in metal frames that swing in, as an old hotel's do
+  const streetDoorOf = (id) => { const v = Z.get(id)?.flags?.room?.street_door; return v?.kind === 'sliding' || v?.kind === 'swing' ? { w: Math.max(1.2, Math.min(3, Number(v.w) || 1.8)), swing: v.kind === 'swing' } : null; };
   const offOf = (id, dir) => { const v = Number(Z.get(id)?.flags?.room?.doors?.[dir]); return Number.isFinite(v) ? v : 0; };
   const ext = (R) => (R.face % 180 === 0 ? [R.w, R.d] : [R.d, R.w]);
   const mid = (R) => [(R.box[0] + R.box[1]) / 2, (R.box[4] + R.box[5]) / 2];
@@ -403,7 +404,7 @@ export function buildingLayout(b, { zones, specOf }) {
       opening(to, B, bSide, offAt(to, B.face, OPPOSITE[dir]));
       sides[to] = { ...onWalls(B, [at[0] + nx * g, at[1], at[2] + nz * g]), ...(bDeep ? { deep: bDeep } : {}) };
     }
-    doors.push({ kind, from, dir, to, at, sides, ...(sd ? { slide: true } : {}) });
+    doors.push({ kind, from, dir, to, at, sides, ...(sd ? { slide: true } : {}), ...(sd?.swing ? { swing: true } : {}) });
   };
 
   const entry = b.entry, f0 = faceFor(entry, null);

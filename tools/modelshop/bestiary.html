@@ -1,0 +1,284 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Bestiary</title>
+<!--
+  Every enemy in content/enemies drawn to ROOM's standard, in the Room Stage's own renderer (gl/room.js): the
+  people as the close-up figure (figure.js, gl/figure-hd.js) with their gear on its bones, everything else from
+  the beast kit (gl/beast-kit.js), comic-lit and inked as the people are. The recipes are bestiary-recipes.js.
+  A concept: only the gutter hound ships to the Room Stage (gl/beast-looks.js).
+
+  ?id=enemy_gutter_hound opens on one; ?mode=lineup stands them all in rows. Drag to orbit, wheel to zoom.
+-->
+<style>
+  :root { --bg: #0b0d14; --panel: #10131c; --fg: #d8d4c8; --dim: #8a8678; --line: #23263a; --on: #e8c070; }
+  html, body { margin: 0; height: 100%; background: var(--bg); color: var(--fg); font: 13px/1.4 ui-monospace, Menlo, Consolas, monospace; }
+  body { display: flex; flex-direction: column; }
+  a { color: inherit; }
+  header { border-bottom: 1px solid var(--line); padding: 6px 12px; display: flex; flex-wrap: wrap; gap: 6px 12px; align-items: center; }
+  header b { color: var(--on); letter-spacing: 0.2em; }
+  .k { color: var(--dim); }
+  .seg { display: inline-flex; border: 1px solid var(--line); border-radius: 4px; overflow: hidden; }
+  .seg label { cursor: pointer; position: relative; }
+  .seg input { position: absolute; opacity: 0; pointer-events: none; }
+  .seg span { display: block; padding: 3px 10px; color: var(--dim); border-left: 1px solid var(--line); }
+  .seg label:first-child span { border-left: 0; }
+  .seg input:checked + span { background: var(--on); color: #14120f; }
+  button { background: var(--panel); color: var(--fg); border: 1px solid var(--line); border-radius: 4px; padding: 2px 9px; cursor: pointer; font: inherit; }
+  select { background: var(--panel); color: var(--fg); border: 1px solid var(--line); font: inherit; max-width: 22em; }
+  label.tick { color: var(--dim); white-space: nowrap; }
+  main { flex: 1; min-height: 0; display: flex; }
+  aside { width: 290px; flex: none; overflow-y: auto; background: var(--panel); border-right: 1px solid var(--line); padding: 10px 12px; box-sizing: border-box; }
+  aside h2 { margin: 0 0 2px; font-size: 15px; color: var(--on); font-weight: normal; }
+  aside .id { color: var(--dim); font-size: 11px; margin-bottom: 8px; }
+  aside .how { color: var(--dim); font-size: 12px; border-top: 1px solid var(--line); margin-top: 10px; padding-top: 8px; }
+  aside p { margin: 6px 0; }
+  #stage { flex: 1; min-width: 0; position: relative; }
+  #c { position: absolute; inset: 0; width: 100%; height: 100%; display: block; cursor: grab; }
+  #stats { position: absolute; left: 12px; bottom: 10px; font-size: 12px; color: var(--dim); text-shadow: 0 0 4px #000; }
+  #tags { position: absolute; inset: 0; pointer-events: none; overflow: hidden; }
+  #tags span { position: absolute; transform: translate(-50%, -100%); font-size: 11px; color: #f0e6cc; text-shadow: 0 0 3px #000, 0 0 3px #000; white-space: nowrap; }
+  @media (max-width: 800px) { main { flex-direction: column; } aside { width: auto; max-height: 30vh; border-right: 0; border-bottom: 1px solid var(--line); } #stage { min-height: 60vh; } }
+</style>
+</head>
+<body>
+<header>
+  <a href="/" style="opacity:.7">← Modelshop</a>
+  <b>BESTIARY</b>
+  <span class="seg" role="radiogroup" aria-label="mode">
+    <label><input type="radio" name="mode" value="one" checked><span>one</span></label>
+    <label title="Every enemy at true size, in rows by kind"><input type="radio" name="mode" value="lineup"><span>line-up</span></label>
+  </span>
+  <button id="prev" title="previous (←)">‹</button>
+  <select id="who"></select>
+  <button id="next" title="next (→)">›</button>
+  <label class="tick"><input type="checkbox" id="spin"> turntable</label>
+  <label class="tick"><input type="checkbox" id="anim" checked> animate</label>
+  <label class="tick" title="A person beside it, for size"><input type="checkbox" id="person" checked> person for scale</label>
+  <label class="tick" title="The room in the comic look too (the enemies always are)"><input type="checkbox" id="comic"> comic room</label>
+  <label class="tick" title="Light each one as its family is lit: a tinted key and a coloured back light"><input type="checkbox" id="staged" checked> staged</label>
+  <label class="tick"><input type="checkbox" id="lamp" checked> lamp</label>
+  <label class="k">day <input type="range" id="day" min="0" max="1" step="0.01" value="0.5" style="width:80px;vertical-align:middle"></label>
+</header>
+<main>
+  <aside id="info"></aside>
+  <section id="stage"><canvas id="c"></canvas><div id="tags"></div><div id="stats"></div></section>
+</main>
+<script type="module">
+import { createRoomRenderer, roomMatrices, projectWith } from '/client/game/js/panels/gl/room.js';
+import { figurePeople } from '/client/game/js/panels/gl/room-people.js';
+import { createBatch, vtx, MAT } from '/client/game/js/panels/gl/ballpark-mesh.js';
+import { beastMesh, toBatch, placeAt, boneXf, triCount, extentOf } from '/client/game/js/panels/gl/beast-kit.js';
+import { BESTIARY, GROUPS, stretchRows, figureBody } from '/bestiary-recipes.js';
+
+const $ = (id) => document.getElementById(id);
+const q = new URLSearchParams(location.search);
+const enemies = await fetch('/api/enemies').then((r) => (r.ok ? r.json() : [])).catch(() => []);
+const byId = new Map(enemies.map((e) => [e.id, e]));
+// every enemy in the recipe book's order, grouped; anything in content without a recipe is listed last
+const order = [];
+for (const g of GROUPS) for (const [id, rcp] of Object.entries(BESTIARY)) if (rcp.group === g.key) order.push(id);
+for (const e of enemies) if (!BESTIARY[e.id]) order.push(e.id);
+for (const g of GROUPS) {
+  const og = document.createElement('optgroup'); og.label = g.label;
+  for (const id of order) if (BESTIARY[id]?.group === g.key) og.append(new Option(byId.get(id)?.name || id, id));
+  if (og.children.length) $('who').append(og);
+}
+const missing = order.filter((id) => !BESTIARY[id]);
+if (missing.length) { const og = document.createElement('optgroup'); og.label = 'no recipe yet'; for (const id of missing) og.append(new Option(byId.get(id)?.name || id, id)); $('who').append(og); }
+$('who').value = q.get('id') && order.includes(q.get('id')) ? q.get('id') : 'enemy_gutter_hound';
+if (q.get('person') === '0') $('person').checked = false;
+if (q.get('mode') === 'lineup') document.querySelector('input[name="mode"][value="lineup"]').checked = true;
+const mode = () => document.querySelector('input[name="mode"]:checked').value;
+
+const canvas = $('c');
+const R = createRoomRenderer(canvas, {});
+if (!R) { $('stats').textContent = 'no WebGL2 here'; throw new Error('no WebGL2'); }
+
+// the room: a floor and a back wall, sized for the line-up
+const L = { world: (u, v, y) => [u, y, v], r: [1, 0, 0], f: [0, 0, 1] };
+function quad(b, a, bb, c, d, n, col) { for (const p of [a, bb, c, a, c, d]) vtx(b, p, n, [0, 0], col, MAT.MATTE); }
+const solid = createBatch(64);
+quad(solid, [-40, 0, -20], [40, 0, -20], [40, 0, 40], [-40, 0, 40], [0, 1, 0], [0.14, 0.135, 0.13]);
+quad(solid, [-40, 0, -20], [-40, 12, -20], [40, 12, -20], [40, 0, -20], [0, 0, 1], [0.21, 0.2, 0.19]);
+R.setRoom({ solid, screen: createBatch(1), glass: createBatch(1), view: createBatch(1), textured: new Map() }, () => null);
+
+const cam = { yaw: Math.PI + 0.55, pitch: -0.12, dist: 3.2, fov: 38, at: [0, 0.6, 0] };
+let drag = null, spin = 0;
+canvas.addEventListener('pointerdown', (e) => { drag = { x: e.clientX, y: e.clientY, yaw: cam.yaw, pitch: cam.pitch }; canvas.setPointerCapture(e.pointerId); });
+canvas.addEventListener('pointermove', (e) => { if (!drag) return; cam.yaw = drag.yaw - (e.clientX - drag.x) * 0.008; cam.pitch = Math.max(-1.3, Math.min(0.6, drag.pitch - (e.clientY - drag.y) * 0.006)); });
+canvas.addEventListener('pointerup', () => { drag = null; });
+canvas.addEventListener('wheel', (e) => { e.preventDefault(); cam.dist = Math.max(0.4, Math.min(80, cam.dist * (e.deltaY > 0 ? 1.08 : 1 / 1.08))); }, { passive: false });
+
+// a beast's model at t, cached when it's still
+const still = new Map();
+function beastModel(id, t) {
+  const rcp = BESTIARY[id];
+  if (!rcp?.build) return null;
+  if (t === null && still.has(id)) return still.get(id);
+  const M = beastMesh();
+  try { rcp.build(M, t ?? 0); } catch (e) { console.error(id, e); }
+  if (t === null) still.set(id, M);
+  return M;
+}
+// how big each one stands, for framing and for the line-up's spacing: [half-width, height, half-depth]
+const sizes = new Map();
+function sizeOf(id) {
+  if (sizes.has(id)) return sizes.get(id);
+  const rcp = BESTIARY[id];
+  // [half-width, top, half-depth, bottom]: the bottom is what's seen (a hovering drone's, or the floor for anything that dips under it)
+  let s = [0.45, 1.8, 0.35, 0];
+  if (rcp?.build) { const [lo, hi] = extentOf(beastModel(id, null)); s = [Math.max(Math.abs(lo[0]), hi[0], 0.03), Math.max(0.03, hi[1]), Math.max(Math.abs(lo[2]), hi[2], 0.03), Math.max(0, lo[1])]; }
+  else if (rcp?.figure) { const h = (rcp.height || 1.78) * (rcp.size || 1); s = [0.45 * (rcp.width || 1), h, 0.35]; }
+  sizes.set(id, s);
+  return s;
+}
+
+// one figure: its record, its stretched bones, and its gear on them
+function figureOf(id, at, yaw, t, batch) {
+  const rcp = BESTIARY[id], body = figureBody(id, rcp, at, yaw, t);
+  const [rec] = figurePeople(L, [body], t, { level: 'hd' });
+  if (!rec) return null;
+  // a recipe's own mesh keys (body only, for a thing with no clothes left on it)
+  if (rcp.key) rec.key = { ...rec.key, ...rcp.key };
+  if (rcp.stretch) stretchRows(rec.rows, rcp.stretch);
+  if (rcp.gear) {
+    const M = beastMesh();
+    try { rcp.gear(M, t); } catch (e) { console.error(id, e); }
+    toBatch(batch, M, boneXf(rec.rows));
+    rec.gearTris = triCount(M);
+  }
+  return rec;
+}
+
+// the line-up: rows by group, each spaced by its own width
+let lineup = null;
+function layLineup() {
+  const rows = [], gap = 0.5;
+  for (const g of GROUPS) {
+    const ids = order.filter((id) => BESTIARY[id]?.group === g.key);
+    if (!ids.length) continue;
+    let x = 0;
+    const spots = ids.map((id) => { const s = sizeOf(id), w = Math.min(s[0], 6); const at = x + w; x += 2 * w + gap; return { id, x: at, s }; });
+    rows.push({ g, spots, width: x - gap, depth: Math.max(...spots.map((p) => Math.min(p.s[2], 6))) });
+  }
+  let z = 0;
+  for (const r of rows) { r.z = z + r.depth; z += 2 * r.depth + 1.6; }
+  const maxW = Math.max(...rows.map((r) => r.width));
+  for (const r of rows) for (const p of r.spots) { p.x -= r.width / 2; p.z = -r.z + z / 2; }
+  lineup = { rows, depth: z, width: maxW };
+  return lineup;
+}
+
+function info(id) {
+  const e = byId.get(id), rcp = BESTIARY[id];
+  const g = GROUPS.find((x) => x.key === rcp?.group);
+  $('info').innerHTML = '';
+  const h = document.createElement('h2'); h.textContent = e?.name || id; $('info').append(h);
+  const sub = document.createElement('div'); sub.className = 'id'; sub.textContent = id + (g ? ' · ' + g.label : ''); $('info').append(sub);
+  for (const para of String(e?.description || '').split(/\n+/)) { const p = document.createElement('p'); p.textContent = para; $('info').append(p); }
+  const how = document.createElement('div'); how.className = 'how';
+  how.textContent = !rcp ? 'No recipe yet.' : rcp.figure ? 'Drawn as the close-up figure' + (rcp.gear ? ', with its gear on the bones' : '') + (rcp.stretch ? ', its limbs drawn out' : '') + '. ' + (rcp.note || '') : 'Built from the beast kit. ' + (rcp.note || '');
+  if (id === 'enemy_gutter_hound') how.textContent += ' This one ships: the Room Stage draws a gutter hound from it (gl/beast-looks.js).';
+  $('info').append(how);
+}
+
+let shown = null;
+function draw(now = performance.now()) {
+  globalThis.__houseComic = $('comic').checked;
+  // the beasts move on twos (twelve poses a second), as cel animation holds them; the figures keep their own clock
+  const animate = $('anim').checked, t = now / 1000, tt = animate ? Math.floor(t * 12) / 12 : null;
+  if ($('spin').checked) spin += 0.005;
+  const batch = createBatch(8192), recs = [];
+  let kitTris = 0;
+  const tags = [];
+  if (mode() === 'one') {
+    const id = $('who').value, rcp = BESTIARY[id];
+    if (shown !== id) {
+      shown = id; info(id);
+      const s = sizeOf(id), big = Math.max(s[1], s[0] * 1.6, s[2] * 1.4);
+      // framed on what stands above the floor, close for something palm-sized
+      const tall = s[1] - (s[3] || 0), bb = Math.max(tall, s[0] * 1.6, s[2] * 1.4);
+      cam.at = [0, Math.min((s[1] + (s[3] || 0)) * 0.5, 4), 0]; cam.dist = Math.max(0.3, bb * 2.3 + 0.12); cam.pitch = -0.12;
+      // ?cam=yaw,pitch,distK turns the first framing (yaw and pitch in radians off the default, distance as a multiple)
+      // a recipe's own first view: { yaw, pitch, dist } off the default, or { at, yawAbs, distAbs } outright
+      if (rcp?.view) { const v = rcp.view; if (v.at) cam.at = v.at.slice(); cam.yaw = v.yawAbs ?? cam.yaw + (v.yaw ?? 0); cam.pitch = v.pitch ?? cam.pitch; cam.dist = v.distAbs ?? cam.dist * (v.dist ?? 1); }
+      const qc = (q.get('cam') || '').split(',').map(Number);
+      if (qc.length === 3 && qc.every(Number.isFinite)) { cam.yaw += qc[0]; cam.pitch = qc[1]; cam.dist *= qc[2]; }
+      // ?at=x,y,z&dist=m looks at a point from a set distance (a close-up of a head)
+      const qa = (q.get('at') || '').split(',').map(Number);
+      if (qa.length === 3 && qa.every(Number.isFinite)) cam.at = qa;
+      if (Number.isFinite(+q.get('dist')) && q.get('dist')) cam.dist = +q.get('dist');
+      if (q.get('yaw')) cam.yaw = +q.get('yaw');
+      if (q.get('pitch')) cam.pitch = +q.get('pitch');
+      history.replaceState(null, '', location.pathname + '?id=' + id);
+    }
+    const yaw = spin;
+    if (rcp?.build) {
+      const M = beastModel(id, tt);
+      if (M) { toBatch(batch, M, placeAt([0, 0, 0], [Math.sin(yaw), 0, Math.cos(yaw)])); kitTris += triCount(M); }
+    } else if (rcp?.figure) {
+      const rec = figureOf(id, [0, 0], yaw, t, batch);
+      if (rec) { recs.push(rec); kitTris += rec.gearTris || 0; }
+    }
+    if ($('person').checked) {
+      const s = sizeOf(id);
+      recs.push(...figurePeople(L, [{ id: 'lab-7-2', at: [0.85 * (Math.min(s[0], 8) + 0.8), -0.52 * (Math.min(s[0], 8) + 0.8)], yaw: -0.4, pose: 'stand', sculpt: true }], t, { level: 'hd' }));
+    }
+  } else {
+    if (!lineup) layLineup();
+    if (shown !== 'lineup') { shown = 'lineup'; cam.at = [0, 1.0, 0]; cam.yaw = Math.PI; cam.dist = Math.max(lineup.width * 0.75, lineup.depth * 1.1); cam.pitch = -0.5; $('info').innerHTML = '<h2>Line-up</h2><p>Every enemy at true size, in rows by kind. Pick one above to see it alone.</p>'; history.replaceState(null, '', location.pathname + '?mode=lineup'); }
+    for (const row of lineup.rows) for (const p of row.spots) {
+      const rcp = BESTIARY[p.id];
+      if (rcp.build) { const M = beastModel(p.id, null); if (M) { toBatch(batch, M, placeAt([p.x, 0, p.z], [0, 0, 1])); kitTris += triCount(M); } }
+      else { const rec = figureOf(p.id, [p.x, p.z], 0, t, batch); if (rec) { recs.push(rec); kitTris += rec.gearTris || 0; } }
+      tags.push({ p: [p.x, Math.min(p.s[1], 8) + 0.15, p.z], text: byId.get(p.id)?.name || p.id });
+    }
+  }
+  R.setBeasts(batch);
+  R.setFigures(recs);
+  const cy = Math.cos(cam.pitch), eye = [cam.at[0] - Math.sin(cam.yaw) * cy * cam.dist, cam.at[1] - Math.sin(cam.pitch) * cam.dist, cam.at[2] - Math.cos(cam.yaw) * cy * cam.dist];
+  const lu = mode() === 'lineup';
+  // one enemy is staged in its family's light (GROUPS[].stage): a tinted key over the camera's shoulder and a coloured
+  // lamp behind it, low, for the back light; the line-up is lit plainly from above
+  const g = GROUPS.find((x) => x.key === BESTIARY[$('who').value]?.group), st = $('staged').checked && BESTIARY[$('who').value]?.stage, s0 = sizeOf($('who').value), big = Math.max(s0[1], s0[0] * 1.5, 1);
+  const lamps = lu ? [-0.35, 0, 0.35].flatMap((fx) => [-0.3, 0.3].map((fz) => ({ p: [fx * lineup.width, 6, fz * lineup.depth], k: 4 })))
+    : st ? [{ p: [eye[0] * 0.6 + big, Math.max(2.6, big * 1.6), eye[2] * 0.6], k: 1.5 * (st.keyK ?? 1), tint: st.key }, { p: [-eye[0] * 0.5 - big * 0.4, big * 0.7 + 0.4, -eye[2] * 0.5 - big * 0.6], k: 1.1 * (st.backK ?? 1), tint: st.back }]
+      : [{ p: [1.2, 3.2, 2.2], k: 1.4 }];
+  R.render({ eye, yaw: cam.yaw, pitch: cam.pitch, fov: cam.fov }, {
+    lamp: lamps[0].p, lamps, lampOn: $('lamp').checked, day: st ? Math.min(+$('day').value, 0.25) : +$('day').value, sky: [0.75, 0.82, 0.95], rim: st?.rimK ?? 1,
+    win: { p: [-6, 2, 2], n: [1, 0, 0], a: [0, 0, 4], b: [0, 3, 0] },
+  });
+  // name tags over the line-up
+  const T = $('tags');
+  if (lu) {
+    const w = canvas.clientWidth, h = canvas.clientHeight, vp = roomMatrices({ eye, yaw: cam.yaw, pitch: cam.pitch, fov: cam.fov }, w / h);
+    while (T.children.length < tags.length) T.append(document.createElement('span'));
+    tags.forEach((g, i) => { const s = projectWith(vp, g.p, w, h), el = T.children[i]; if (!s) { el.style.display = 'none'; return; } el.style.display = ''; el.style.left = s.x + 'px'; el.style.top = s.y + 'px'; el.textContent = g.text; });
+    for (let i = tags.length; i < T.children.length; i++) T.children[i].style.display = 'none';
+  } else T.innerHTML = '';
+  $('stats').textContent = `${lu ? order.filter((id) => BESTIARY[id]).length + ' enemies' : ''} ${(R.figureTris || 0).toLocaleString()} figure triangles · ${kitTris.toLocaleString()} kit triangles`;
+}
+const step = (d) => { const ids = order.filter((id) => BESTIARY[id]), i = ids.indexOf($('who').value); $('who').value = ids[(i + d + ids.length) % ids.length]; document.querySelector('input[name="mode"][value="one"]').checked = true; };
+$('prev').onclick = () => step(-1);
+$('next').onclick = () => step(1);
+$('who').onchange = () => { document.querySelector('input[name="mode"][value="one"]').checked = true; };
+addEventListener('keydown', (e) => { if (e.target.tagName === 'SELECT') return; if (e.key === 'ArrowRight') step(1); if (e.key === 'ArrowLeft') step(-1); });
+for (const r of document.querySelectorAll('input[name="mode"]')) r.addEventListener('change', () => { shown = null; });
+// draw(now) renders one frame on demand: a hidden Browser pane runs no animation frames
+// __best.shot(id, name, cam?) renders one enemy and writes the frame through /api/shot: a hidden pane draws nothing
+async function shot(id, name, c = {}) {
+  if (id) { $('who').value = id; document.querySelector('input[name="mode"][value="one"]').checked = true; }
+  shown = null; draw(performance.now()); Object.assign(cam, c); draw(performance.now());
+  const blob = await new Promise((res) => canvas.toBlob(res, 'image/png'));
+  const r = await fetch('/api/shot?name=' + encodeURIComponent(name || id || 'bestiary'), { method: 'POST', body: blob });
+  return r.json();
+}
+window.__best = { R, cam, draw, sizeOf, BESTIARY, shot };
+function loop(now) { requestAnimationFrame(loop); draw(now); }
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>

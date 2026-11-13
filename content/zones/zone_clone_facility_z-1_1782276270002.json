@@ -10,6 +10,520 @@
     "floor": "concrete",
     "intro_lore": "Below the print floor, where the facility keeps the machinery that makes new people and the tanks that quietly dispose of the failed attempts. It hums with power the rest of the block would knife each other for. The Custodians tolerate this place because it still, technically, serves the city; step wrong down here and you'll learn how thin 'technically' is.",
     "is_interior": true,
+    "room": {
+      "balcony": false,
+      "d": 11,
+      "decor": {
+        "drops": [
+          {
+            "along": -1.1,
+            "into": true,
+            "n": 6,
+            "r": 0.055,
+            "wall": "front"
+          },
+          {
+            "along": 1.1,
+            "into": true,
+            "n": 5,
+            "r": 0.045,
+            "wall": "front"
+          },
+          {
+            "along": 4.2,
+            "into": true,
+            "n": 4,
+            "r": 0.04,
+            "wall": "back"
+          }
+        ],
+        "grates": [
+          [
+            0,
+            4.4,
+            0.55,
+            7.6
+          ]
+        ],
+        "lamps": [
+          {
+            "along": -0.2,
+            "wall": "back",
+            "y": 2.55
+          },
+          {
+            "along": 9.2,
+            "wall": "left",
+            "y": 2.5
+          },
+          {
+            "along": 0.8,
+            "wall": "right",
+            "y": 2.5
+          }
+        ],
+        "paint": [
+          {
+            "kind": "hazard",
+            "rect": [
+              -4.98,
+              -3.62,
+              1.85,
+              3.35
+            ]
+          },
+          {
+            "kind": "hazard",
+            "rect": [
+              -4.98,
+              -3.62,
+              4.25,
+              5.75
+            ]
+          },
+          {
+            "kind": "hazard",
+            "rect": [
+              -4.98,
+              -3.62,
+              6.65,
+              8.15
+            ]
+          },
+          {
+            "kind": "hazard",
+            "rect": [
+              3.62,
+              4.98,
+              1.85,
+              3.35
+            ]
+          },
+          {
+            "kind": "hazard",
+            "rect": [
+              3.62,
+              4.98,
+              4.25,
+              5.75
+            ]
+          },
+          {
+            "kind": "hazard",
+            "rect": [
+              3.62,
+              4.98,
+              6.65,
+              8.15
+            ]
+          },
+          {
+            "from": [
+              -1.5,
+              0.5
+            ],
+            "hex": "#e8b818",
+            "kind": "line",
+            "t": 0.09,
+            "to": [
+              -1.5,
+              8.2
+            ]
+          },
+          {
+            "from": [
+              1.5,
+              0.5
+            ],
+            "hex": "#e8b818",
+            "kind": "line",
+            "t": 0.09,
+            "to": [
+              1.5,
+              8.2
+            ]
+          }
+        ],
+        "pipes": [
+          {
+            "from": [
+              -3.1,
+              0.3,
+              2.88
+            ],
+            "hex": "#6f7a72",
+            "r": 0.13,
+            "to": [
+              -3.1,
+              10.7,
+              2.88
+            ]
+          },
+          {
+            "from": [
+              -3.5,
+              0.3,
+              2.62
+            ],
+            "hex": "#8a4a32",
+            "r": 0.065,
+            "to": [
+              -3.5,
+              10.7,
+              2.62
+            ]
+          },
+          {
+            "from": [
+              -3.1,
+              2.6,
+              2.74
+            ],
+            "hex": "#6f7a72",
+            "r": 0.06,
+            "to": [
+              -4.38,
+              2.6,
+              2.74
+            ]
+          },
+          {
+            "from": [
+              -4.38,
+              2.6,
+              2.74
+            ],
+            "hex": "#6f7a72",
+            "r": 0.06,
+            "to": [
+              -4.38,
+              2.6,
+              1.34
+            ]
+          },
+          {
+            "from": [
+              -3.1,
+              5,
+              2.74
+            ],
+            "hex": "#6f7a72",
+            "r": 0.06,
+            "to": [
+              -4.38,
+              5,
+              2.74
+            ]
+          },
+          {
+            "from": [
+              -4.38,
+              5,
+              2.74
+            ],
+            "hex": "#6f7a72",
+            "r": 0.06,
+            "to": [
+              -4.38,
+              5,
+              1.34
+            ]
+          },
+          {
+            "from": [
+              -3.1,
+              7.4,
+              2.74
+            ],
+            "hex": "#6f7a72",
+            "r": 0.06,
+            "to": [
+              -4.38,
+              7.4,
+              2.74
+            ]
+          },
+          {
+            "from": [
+              -4.38,
+              7.4,
+              2.74
+            ],
+            "hex": "#6f7a72",
+            "r": 0.06,
+            "to": [
+              -4.38,
+              7.4,
+              1.34
+            ]
+          },
+          {
+            "from": [
+              3.1,
+              0.3,
+              2.88
+            ],
+            "hex": "#6f7a72",
+            "r": 0.13,
+            "to": [
+              3.1,
+              10.7,
+              2.88
+            ]
+          },
+          {
+            "from": [
+              3.5,
+              0.3,
+              2.62
+            ],
+            "hex": "#8a4a32",
+            "r": 0.065,
+            "to": [
+              3.5,
+              10.7,
+              2.62
+            ]
+          },
+          {
+            "from": [
+              3.1,
+              2.6,
+              2.74
+            ],
+            "hex": "#6f7a72",
+            "r": 0.06,
+            "to": [
+              4.38,
+              2.6,
+              2.74
+            ]
+          },
+          {
+            "from": [
+              4.38,
+              2.6,
+              2.74
+            ],
+            "hex": "#6f7a72",
+            "r": 0.06,
+            "to": [
+              4.38,
+              2.6,
+              1.34
+            ]
+          },
+          {
+            "from": [
+              3.1,
+              5,
+              2.74
+            ],
+            "hex": "#6f7a72",
+            "r": 0.06,
+            "to": [
+              4.38,
+              5,
+              2.74
+            ]
+          },
+          {
+            "from": [
+              4.38,
+              5,
+              2.74
+            ],
+            "hex": "#6f7a72",
+            "r": 0.06,
+            "to": [
+              4.38,
+              5,
+              1.34
+            ]
+          },
+          {
+            "from": [
+              3.1,
+              7.4,
+              2.74
+            ],
+            "hex": "#6f7a72",
+            "r": 0.06,
+            "to": [
+              4.38,
+              7.4,
+              2.74
+            ]
+          },
+          {
+            "from": [
+              4.38,
+              7.4,
+              2.74
+            ],
+            "hex": "#6f7a72",
+            "r": 0.06,
+            "to": [
+              4.38,
+              7.4,
+              1.34
+            ]
+          },
+          {
+            "from": [
+              -4.8,
+              10.2,
+              2.9
+            ],
+            "hex": "#6f7a72",
+            "r": 0.09,
+            "to": [
+              1,
+              10.2,
+              2.9
+            ]
+          }
+        ],
+        "pumps": [
+          [
+            -2.6,
+            9.6
+          ],
+          [
+            -0.9,
+            9.6
+          ]
+        ],
+        "rug": false,
+        "screens": [
+          {
+            "along": 3.3,
+            "h": 0.5,
+            "show": "gauges",
+            "w": 0.8,
+            "wall": "front",
+            "y": 1.55
+          },
+          {
+            "along": -3,
+            "h": 0.45,
+            "show": "status",
+            "w": 0.7,
+            "wall": "front",
+            "y": 1.55
+          }
+        ],
+        "signs": [
+          {
+            "along": 0,
+            "h": 0.16,
+            "hex": "#e8c040",
+            "plate": false,
+            "text": "Plant Room",
+            "wall": "front",
+            "y": 2.55
+          },
+          {
+            "along": 3.8,
+            "h": 0.085,
+            "hex": "#ffffff",
+            "plateHex": "#7a1a14",
+            "text": "Do Not Open Tanks",
+            "wall": "left",
+            "y": 2.05
+          },
+          {
+            "along": 3.8,
+            "h": 0.085,
+            "hex": "#ffffff",
+            "plateHex": "#7a1a14",
+            "text": "Do Not Open Tanks",
+            "wall": "right",
+            "y": 2.05
+          },
+          {
+            "along": -2.4,
+            "h": 0.07,
+            "hex": "#101010",
+            "plateHex": "#e8c040",
+            "text": "Authorised Staff Only",
+            "wall": "back",
+            "y": 2.2
+          },
+          {
+            "along": 2.6,
+            "h": 0.26,
+            "hex": "#e8c040",
+            "plate": false,
+            "text": "Level B1",
+            "wall": "back",
+            "y": 2.35
+          }
+        ],
+        "strips": [
+          {
+            "at": [
+              -2.2,
+              2.2
+            ],
+            "cage": true
+          },
+          {
+            "at": [
+              2.2,
+              2.2
+            ],
+            "cage": true
+          },
+          {
+            "at": [
+              -2.2,
+              5.4
+            ],
+            "cage": true
+          },
+          {
+            "at": [
+              2.2,
+              5.4
+            ],
+            "cage": true
+          },
+          {
+            "at": [
+              -2.2,
+              8.4
+            ],
+            "cage": true
+          },
+          {
+            "at": [
+              0.4,
+              8.4
+            ],
+            "cage": true
+          }
+        ]
+      },
+      "doors": {
+        "up": [
+          3.6,
+          9
+        ]
+      },
+      "finish": "plain",
+      "ground": "concrete",
+      "h": 3.2,
+      "studio": false,
+      "tone": {
+        "accent": "#e8b818",
+        "ceiling": "#2c3135",
+        "trim": "#1a1d20",
+        "wall": "#4a5157"
+      },
+      "w": 10,
+      "windowless": true
+    },
     "terrain": "grass"
   },
   "grid_x": 0,

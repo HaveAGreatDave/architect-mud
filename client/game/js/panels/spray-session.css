@@ -1,0 +1,66 @@
+/* The spray session (spray-session.js): over a 3-D view, so the room or the street stays in sight
+   above the panel. The can's own green, as the dialog's. */
+#spray-session { position:fixed; inset:0; z-index:9210; display:flex; align-items:flex-end; justify-content:center;
+  padding:0 12px 18px; box-sizing:border-box; touch-action:none; user-select:none; cursor:crosshair;
+  background:linear-gradient(180deg, rgba(3,4,6,0) 0%, rgba(3,4,6,0.18) 45%, rgba(3,4,6,0.72) 100%);
+  font-family:'Courier New',monospace; --ss-accent:#39ff88; --ss-fg:#dff7e4; --ss-dim:#7fa98a; }
+#spray-session .ss-panel { position:relative; z-index:1; width:min(640px, 100%); padding:12px 14px 12px; border-radius:10px;
+  color:var(--ss-fg); background:linear-gradient(168deg, rgba(42,48,41,0.94) 0%, rgba(14,16,13,0.94) 100%);
+  border:1px solid color-mix(in srgb, var(--ss-accent) 34%, transparent);
+  box-shadow:0 18px 50px rgba(0,0,0,0.6), 0 0 26px color-mix(in srgb, var(--ss-accent) 14%, transparent);
+  animation:ssUp .22s ease-out; }
+@keyframes ssUp { from { opacity:0; transform:translateY(16px) } to { opacity:1; transform:none } }
+#spray-session .ss-head { display:flex; align-items:center; gap:8px; font-size:11px; letter-spacing:3px; color:var(--ss-accent); }
+#spray-session .ss-where { letter-spacing:1px; color:var(--ss-dim); text-transform:none; }
+#spray-session .ss-pips { margin-left:auto; display:flex; gap:5px; }
+#spray-session .ss-pips i { width:14px; height:6px; border-radius:3px; background:rgba(255,255,255,0.12); }
+#spray-session .ss-pips i.now { background:color-mix(in srgb, var(--ss-accent) 45%, transparent); box-shadow:0 0 8px var(--ss-accent); }
+#spray-session .ss-pips i.on { background:var(--ss-accent); }
+/* the close-up: the wall, scaled to the panel */
+#spray-session .ss-wall { display:block; width:100%; max-height:34vh; object-fit:contain; margin-top:9px; border-radius:7px;
+  background:#1a1a1a; box-shadow:inset 0 0 0 1px rgba(0,0,0,0.5); }
+/* over ROOM the paint goes on the real wall above, so the panel keeps low: a small guide, not the picture */
+#spray-session.live .ss-panel { width:min(560px, 100%); background:linear-gradient(168deg, rgba(42,48,41,0.86) 0%, rgba(14,16,13,0.88) 100%); }
+#spray-session.live .ss-wall { max-height:13vh; }
+/* the strokes for this section, big enough to read off the corner of an eye */
+#spray-session .ss-steps { display:flex; justify-content:center; gap:12px; margin-top:12px; min-height:56px; }
+#spray-session .ss-step { position:relative; display:grid; place-items:center; width:54px; height:54px; border-radius:50%;
+  font-size:32px; line-height:1; color:rgba(223,247,228,0.45); background:rgba(0,0,0,0.38);
+  border:2px solid rgba(223,247,228,0.16); transition:transform .1s, color .1s, border-color .1s; }
+#spray-session .ss-step.now { color:#08120b; background:var(--ss-accent); border-color:var(--ss-accent);
+  box-shadow:0 0 18px color-mix(in srgb, var(--ss-accent) 60%, transparent); animation:ssPulse .7s ease-in-out infinite alternate; }
+#spray-session .ss-step.done { color:var(--ss-accent); border-color:color-mix(in srgb, var(--ss-accent) 50%, transparent); transform:scale(0.88); }
+/* a spin under way: the ring round it fills a quarter a stroke */
+#spray-session .ss-step.spin.now::after { content:''; position:absolute; inset:-7px; border-radius:50%;
+  background:conic-gradient(#fff calc(var(--p, 0) * 360deg), transparent 0);
+  -webkit-mask:radial-gradient(farthest-side, transparent calc(100% - 4px), #000 calc(100% - 3px));
+          mask:radial-gradient(farthest-side, transparent calc(100% - 4px), #000 calc(100% - 3px)); }
+@keyframes ssPulse { from { transform:scale(1) } to { transform:scale(1.08) } }
+#spray-session .ss-steps.shake { animation:ssShake .32s ease-in-out; }
+#spray-session .ss-steps.shake .ss-step.now { background:#ff2d55; border-color:#ff2d55; box-shadow:0 0 18px rgba(255,45,85,0.6); }
+@keyframes ssShake { 0%,100% { transform:none } 20% { transform:translateX(-9px) } 40% { transform:translateX(8px) } 60% { transform:translateX(-6px) } 80% { transform:translateX(4px) } }
+#spray-session .ss-say { min-height:16px; margin-top:8px; text-align:center; font-size:13px; letter-spacing:1px; color:var(--ss-fg); }
+#spray-session .ss-say.bad { color:#ff6b7f; }
+#spray-session .ss-say.good { color:var(--ss-accent); font-weight:bold; }
+#spray-session .ss-foot { display:flex; align-items:center; gap:10px; margin-top:8px; font-size:10px; letter-spacing:0.6px; color:var(--ss-dim); }
+#spray-session .ss-foot span { flex:1 1 auto; }
+#spray-session .ss-lid { flex:none; padding:6px 10px; font-family:inherit; font-size:11px; letter-spacing:1px; cursor:pointer;
+  color:var(--ss-fg); background:rgba(0,0,0,0.4); border:1px solid color-mix(in srgb, var(--ss-accent) 28%, transparent); border-radius:6px; }
+#spray-session .ss-lid:hover { border-color:var(--ss-accent); }
+#spray-session.finished .ss-wall { box-shadow:0 0 0 2px var(--ss-accent), 0 0 24px color-mix(in srgb, var(--ss-accent) 40%, transparent); }
+/* the mist, over everything, going nowhere near the pointer */
+#spray-session .ss-mist { position:fixed; inset:0; width:100%; height:100%; z-index:2; pointer-events:none; mix-blend-mode:screen; }
+/* the can under the pointer: a cylinder and a cap, nozzle at the hot spot */
+#spray-session .ss-can { position:fixed; left:0; top:0; z-index:3; pointer-events:none; width:0; height:0; }
+#spray-session .ss-can::before { content:''; position:absolute; left:6px; top:-4px; width:18px; height:34px; border-radius:4px 4px 3px 3px;
+  background:linear-gradient(90deg, #6b6f73, #d8dde0 35%, #8a8f94 70%, #4a4e52); box-shadow:0 2px 6px rgba(0,0,0,0.5);
+  transform:rotate(-24deg); transform-origin:0 0; }
+#spray-session .ss-can::after { content:''; position:absolute; left:2px; top:-8px; width:7px; height:6px; border-radius:2px;
+  background:var(--ss-accent); transform:rotate(-24deg); }
+@media (max-width: 600px) {
+  #spray-session .ss-step { width:46px; height:46px; font-size:27px; }
+  #spray-session .ss-foot span { display:none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  #spray-session .ss-step.now, #spray-session .ss-panel { animation:none; }
+}

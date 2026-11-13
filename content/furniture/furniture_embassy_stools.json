@@ -1,16 +1,32 @@
 {
-  "description": "A half-dozen stools lined up at the counter, vinyl split and patched with duct tape. Free to sit, if you don't mind the wobble.",
+  "description": "Six stools at the counter in burgundy velvet, gone bald at the seat and shiny where the brass foot-rail has been kicked for decades. They swivel, all but one.",
   "flags": {
     "interactions": [
       "sit"
-    ]
+    ],
+    "look": {
+      "arche": "seat",
+      "dims": [
+        4.8,
+        0.45,
+        0.78
+      ],
+      "form": "stools"
+    },
+    "spot": {
+      "at": [
+        -3.9,
+        2.42
+      ],
+      "turn": 0
+    }
   },
   "hp": null,
   "hp_max": null,
   "id": "furniture_embassy_stools",
   "light_type": "lamp",
   "lumen_output": null,
-  "name": "cracked vinyl stools",
+  "name": "velvet bar stools",
   "object_type": "furniture",
   "power_draw_kw": null,
   "price": 35,

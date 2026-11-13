@@ -1,0 +1,138 @@
+{
+  "behavior": "aggressive",
+  "behaviour_graph": {
+    "_start": "start",
+    "nodes": {
+      "start": {
+        "type": "start",
+        "next": "has_target"
+      },
+      "has_target": {
+        "type": "condition",
+        "condition_type": "HAS_TARGET",
+        "ifTrue": "attack",
+        "ifFalse": "idle"
+      },
+      "attack": {
+        "type": "action",
+        "action_type": "ATTACK",
+        "next": "loop"
+      },
+      "idle": {
+        "type": "action",
+        "action_type": "IDLE",
+        "next": "loop"
+      },
+      "loop": {
+        "type": "loop",
+        "next": "start"
+      }
+    }
+  },
+  "body_parts": [
+    {
+      "part": "head",
+      "soak": {
+        "kinetic": 1
+      },
+      "weight": 10
+    },
+    {
+      "part": "torso",
+      "soak": {
+        "kinetic": 2
+      },
+      "weight": 40
+    },
+    {
+      "part": "left_arm",
+      "role": "attack",
+      "soak": {
+        "kinetic": 1
+      },
+      "weight": 12
+    },
+    {
+      "part": "right_arm",
+      "role": "attack",
+      "soak": {
+        "kinetic": 1
+      },
+      "weight": 12
+    },
+    {
+      "part": "left_leg",
+      "soak": {
+        "kinetic": 1
+      },
+      "weight": 13
+    },
+    {
+      "part": "right_leg",
+      "soak": {
+        "kinetic": 1
+      },
+      "weight": 13
+    }
+  ],
+  "butcher_difficulty": 3,
+  "butcher_table": [],
+  "death_message": "The sewer brawler goes down on one knee, then the rest of the way.",
+  "description": "Big, shaved down the sides and built from hauling junk through knee-deep water. He's adapted the way people adapt: thick skin, bad temper, a vest he won't take off. He hits like a dropped door and he wants you up close.",
+  "dodge": 1,
+  "faction": null,
+  "flags": {
+    "attacks_npcs": true,
+    "battle_cries": [
+      "$enemy cracks his knuckles and walks straight at $player.",
+      "$enemy tells $player this is his tunnel."
+    ],
+    "first_strike_delay_ms": 6000
+  },
+  "hit": 4,
+  "hp_max": 48,
+  "id": "enemy_sewer_brawler",
+  "loot_table": [
+    {
+      "item": "item_scrap_metal",
+      "qty": [
+        1,
+        3
+      ],
+      "weight": 25
+    },
+    {
+      "item": "item_credit_chip",
+      "credits": [
+        25,
+        70
+      ],
+      "qty": [
+        1,
+        1
+      ],
+      "weight": 18
+    },
+    {
+      "item": "item_credit_chip",
+      "credits": [
+        75,
+        210
+      ],
+      "qty": [
+        1,
+        1
+      ],
+      "super": true,
+      "weight": 3
+    }
+  ],
+  "name": "sewer brawler",
+  "weapon": [
+    {
+      "type": "kinetic",
+      "min": 4,
+      "max": 8
+    }
+  ]
+}

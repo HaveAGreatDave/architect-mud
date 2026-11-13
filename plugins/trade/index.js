@@ -334,8 +334,12 @@ async function resyncCredits(pid) {
 
 async function executeTrade(session) {
   const [aId, bId] = session.players;
-  const aOff = session.offers[aId], bOff = session.offers[bId];
-  const aP = getLivePlayer(aId), bP = getLivePlayer(bId);
+  // A snapshot, taken before the first await: the live offers stay editable from
+  // the other player's queue while this runs, and a credit stake retracted mid-move
+  // used to commit as 0.
+  const snap = (o) => ({ ...o, credits: Number(o.credits) || 0, items: (o.items || []).map(it => ({ ...it })) });
+  const aOff = snap(session.offers[aId]), bOff = snap(session.offers[bId]);
+  const aP =getLivePlayer(aId), bP = getLivePlayer(bId);
 
   // What changed hands, told to the rest of the server once the swap has committed.
   let moved = [];

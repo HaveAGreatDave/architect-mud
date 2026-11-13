@@ -1218,8 +1218,9 @@ Not dressing for the {club}: {missing}. Still on the shelf.
 # ("at the left point", "in the slot", "on the right wall", "through centre"),
 # worked out from the same keyframe the rink plays it at, with left and right as the
 # carrier skates; {from} is the same for the shot ("from the slot"). A pass is called
-# the way it went, and the rink plays the same pass: back toward his own end
-# (pbp.pass.back), across the ice (.cross), long up it (.stretch), lifted over a stick
+# the way it went, and the rink plays the same pass: left for the man trailing him
+# (pbp.pass.drop), back out to the point (.back), across the ice (.cross), across on the
+# backhand (.backhand), long up it (.stretch), into the slot (.slot), lifted over a stick
 # (.saucer), straight back to the man who gave it (.give), or a short one (pbp.pass).
 # A one-timer or a tip names the man who fed it when there is one ({feeder}, the .fed
 # pools). The shot says what it was and the save says how it was stopped. The goal is
@@ -1259,15 +1260,23 @@ Tape to tape, {to}.
 Quick touch to {to}.
 ::endlines
 
-# Back toward his own end: a drop pass, or back out to a defenceman at the point.
-::lines pbp.pass.back
+# A few strides back, left for the man trailing him: a drop pass.
+::lines pbp.pass.drop
+Drop pass, {to}.
+{player} drops it for {to}.
+{player} leaves it for {to}.
 {player} drops it back to {to}.
+{player} leaves it behind for {to}.
+Left for {to}, coming late.
+::endlines
+
+# Farther back toward his own end: back out to a defenceman at the point.
+::lines pbp.pass.back
 Back to {to} {where}.
 {player} works it back to {to}.
-{player} leaves it for {to}.
 {to} drops back for it.
 Back out to {to} {where}.
-Drop pass, {to}.
+{player} sends it back to {to}.
 ::endlines
 
 ::lines pbp.pass.cross
@@ -1286,6 +1295,25 @@ Long one up to {to}.
 {player} hits {to} with a long pass.
 {player} sends {to} up the ice.
 {player} chips it ahead to {to}.
+::endlines
+
+# Into the slot from outside it (the wall, the corner, the point), for the shot.
+::lines pbp.pass.slot
+{player} finds {to} in front.
+Into the slot, {to}!
+{player} feeds {to} out front.
+{player} slips it into the slot for {to}.
+Out front to {to}.
+{player} centres it to {to}.
+::endlines
+
+# Across the ice off the backhand.
+::lines pbp.pass.backhand
+{player} backhands it to {to}.
+Backhand pass, {to} {where}.
+{player} feeds {to} off the backhand.
+{player} gets it across on the backhand to {to}.
+{player} flips a backhand over to {to}.
 ::endlines
 
 # Lifted over a stick: a long pass or one across, flipped so it lands flat.
@@ -2095,6 +2123,25 @@ The give-and-go. Gives it, goes, gets it back.
 Watch {shooter} give it and go.
 He gives it up, and he gets it back.
 Look at the return. Nobody picks him up.
+::endlines
+
+::lines pbp.replay.pass.drop
+Watch the drop pass. He leaves it, and {shooter} skates onto it.
+He drops it, takes his man with him, and {shooter} has room.
+Look at the drop. Nobody picks up {shooter}.
+::endlines
+
+::lines pbp.replay.pass.slot
+Watch the pass into the slot. Right on his tape.
+It comes out front, and {shooter} is waiting.
+Into the slot, and the goalie has no time to set.
+Look at {shooter} in front when it gets there.
+::endlines
+
+::lines pbp.replay.pass.backhand
+Watch the backhand pass. No look, right on the tape.
+Off the backhand, and right to {shooter}.
+Look at that backhand feed to {shooter}.
 ::endlines
 
 ::lines pbp.replay.pass.back

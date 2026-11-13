@@ -2,7 +2,11 @@
   "description": "A cash dispensing terminal.",
   "flags": {
     "atm": true,
-    "interactions": []
+    "interactions": [],
+    "spot": {
+      "along": 4.9,
+      "wall": "back"
+    }
   },
   "hp": null,
   "hp_max": null,

@@ -151,6 +151,35 @@ for (const [name, c] of Object.entries(clips)) {
   if (combos.size < 200) problems.push(`500 figures wore only ${combos.size} distinct coat/trouser/skin combinations`);
 }
 
+// ── 2b. One person, one look ────────────────────────────────────────────────────────────────────────
+// The street dresses a figure off its token, which is its id's hash (server/engine/street-actors.js token), and
+// the Room Stage and the TV dress the same person off the id (gl/room-people.js figurePeople). They must come out
+// the same: the coat on the pavement is the coat on the news (docs/proposals/street-people-ladder.md).
+{
+  const { token } = await import('../../server/engine/street-actors.js');
+  const { streetLook, figurePeople } = await import('../../client/game/js/panels/gl/room-people.js');
+  const { FIG_SLOT } = await import('../../client/game/js/panels/figure.js');
+  const srgb = (v) => Math.max(0, Math.min(255, Math.round(255 * (v <= 0.0031308 ? 12.92 * v : 1.055 * Math.pow(v, 1 / 2.4) - 0.055))));
+  const L = { world: (a, b, h) => [a, h, b], r: [1, 0, 0], f: [0, 0, 1], baseAt: () => 0 };
+  const cases = [['npc_jerry_rosenberg', 'male'], ['npc_joan_dempsey', 'female'], ['npc_1783019600509', 'female'], ['p_7', 'male']];
+  for (const [id, sex] of cases) {
+    let figure = null;
+    try { figure = JSON.parse(readFileSync(new URL(`../../content/npcs/${id}.json`, import.meta.url), 'utf8')).flags?.figure || null; } catch { /* a player, or none */ }
+    const street = streetLook(token(id), sex === 'female', figure);
+    const room = figurePeople(L, [{ id, sculpt: true, sex, figure, at: [0, 0], pose: 'stand', clip: 'idle', phase: 0 }], 0, { level: 'hd' })[0];
+    for (const [part, slot] of [['coat', FIG_SLOT.top], ['legs', FIG_SLOT.legs], ['skin', FIG_SLOT.skin], ['hair', FIG_SLOT.hair], ['shoes', FIG_SLOT.shoes]]) {
+      // the crowd's trousers lean toward the skin by how much leg short bottoms leave bare (street.bare)
+      const skinW = [0, 1, 2].map((j) => srgb(room.col[FIG_SLOT.skin * 3 + j]));
+      const want = [0, 1, 2].map((j) => { const v = srgb(room.col[slot * 3 + j]); return part === 'legs' && street.bare ? Math.round(v + (skinW[j] - v) * street.bare) : v; });
+      if (want.some((v, j) => Math.abs(v - street[part][j]) > 1)) problems.push(`${id}: the street's ${part} is ${street[part]} and the room's is ${want}; one person, two looks`);
+    }
+    if (street.cut !== room.key.cut) problems.push(`${id}: the street dresses them in a ${street.cut} and the room in a ${room.key.cut}`);
+    if (street.face.layout !== (room.face[0] | 0)) problems.push(`${id}: the street's face is layout ${street.face.layout} and the room's ${room.face[0]}`);
+    if (street.hd.id !== '#' + token(id)) problems.push(`${id}: the close-up level would draw ${street.hd.id}, not the token's look`);
+  }
+  report(`one look: ${cases.length} people dressed alike on the street and in a room`);
+}
+
 // ── 3. The sweep ────────────────────────────────────────────────────────────────────────────────────
 const ws = await loadWindshield();
 const Wc = 640, Hc = 360;
@@ -230,7 +259,10 @@ ws.RENDER_TUNE.actorFarPx = 7.99;
 const tiny = frame(VIEW);
 if (tiny.recs.some((r) => r.lod)) problems.push('a far-body record for somebody under RENDER_TUNE.actorFarPx');
 ws.RENDER_TUNE.actorFarPx = farWas;
-const ALLOWED = new Set(['actor', 'lod', 'hl', 'x', 'y', 'z', 's', 'hd', 'o', 'clip', 'ph', 'clip2', 'ph2', 'mix', 'lum', 'a', 'lx', 'ly']);
+// The keys a record may carry. Since 2026-11-12 a figure is dressed as the person it is (the token is their
+// look's hash, server/engine/street-actors.js), so `o.hd` names the look the close-up level draws; `px` and
+// `s0` are for that level (gl/street-hd.js), which marks `close` on whoever it draws. Nothing else is new.
+const ALLOWED = new Set(['actor', 'lod', 'hl', 'px', 's0', 'close', 'x', 'y', 'z', 's', 'hd', 'o', 'clip', 'ph', 'clip2', 'ph2', 'mix', 'lum', 'a', 'lx', 'ly']);
 for (const r of recs) {
   // The close-up body's head: a level, and a face off the outfit.
   if (!r.lod && !(Number.isInteger(r.hl) && r.hl >= 0 && r.hl <= 2)) problems.push(`a close-up record's head level is ${r.hl}`);
