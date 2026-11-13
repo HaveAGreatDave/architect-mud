@@ -1808,11 +1808,13 @@ function openStage(msg) {
   }
   setTimeout(() => {
     if (ui?.S !== S) return;
+    // whoever's next door only once the worker has them (drawPeople's ⚠); they're drawn when they arrive
+    const ready = () => bodiesNow().filter((b) => !b.next || figuresReady([b], figLevel));
     const prep = () => {
-      try { for (const r of figurePeople(S.L, bodiesNow(), 0, { level: figLevel })) R.prepareFigure(r.key); } catch (err) { console.warn('[room] people:', err); }
+      try { for (const r of figurePeople(S.L, ready(), 0, { level: figLevel })) R.prepareFigure(r.key); } catch (err) { console.warn('[room] people:', err); }
       peopleOn = true;
       // and each one's other level, ready for when they cross the room (figurePeople's eye)
-      if (figLevel === 'hd') setTimeout(() => { if (ui?.S === S) try { for (const r of figurePeople(S.L, bodiesNow(), 0, { level: 'lite' })) R.prepareFigure(r.key); } catch (err) { console.warn('[room] people:', err); } }, 400);
+      if (figLevel === 'hd') setTimeout(() => { if (ui?.S === S) try { for (const r of figurePeople(S.L, ready(), 0, { level: 'lite' })) R.prepareFigure(r.key); } catch (err) { console.warn('[room] people:', err); } }, 400);
     };
     if (veiled && S.bake) whenFigures(bodiesNow(), figLevel, prep); else prep();
   }, 60);
@@ -2168,7 +2170,12 @@ function openStage(msg) {
     else if (S.inShower === fid) { S.inShower = null; sendCmd('shower off'); }
   }
   function drawPeople(t) {
-    const bodies = bodiesNow();
+    // ⚠ NEXT DOOR WAITS FOR ITS FIGURE. Somebody seen through a doorway is left out until the worker has built them
+    // (figuresReady asks it), or figurePeople built them here on the frame they came into view, 50 to 180 ms each,
+    // while the bake was waiting on the worker for the same figure: in the Room Lab, with three people next door,
+    // the page spent longer building figures than with no worker at all. Under the veil the bake holds the veil
+    // for them, so they're there when it lifts. Anybody in this room is drawn at once, as always.
+    const all = bodiesNow(), bodies = all.some((b) => b.next) ? all.filter((b) => !b.next || figuresReady([b], figLevel)) : all;
     const recs = figurePeople(S.L, bodies, t, { level: figLevel, eye: seat.eye });
     R.setFigures(recs);
     drawBeasts();
