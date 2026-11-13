@@ -16,8 +16,14 @@
 //
 // `--gl` runs the real GL world pass (gl/install.js, world.js, context.js) under the fake WebGL2
 // instead of a stub hook, so `world:gl` and the floats written include the mass buffer: the cost a
-// recentre pays there (RENDER_TUNE.massKeep) is invisible without it. The sprite, stroke and decal
+// recentre pays there (RENDER_TUNE.massKeep) is invisible without it.
+//
+// `--lite` turns GLASS Lite on (RENDER_TUNE.glassLite = 1), the default on every device since
+// 2026-11-10. The bake's chunks are read off disk; the first frames run before they've loaded, and
+// the 30 settling frames the summary skips cover that. The sprite, stroke and decal
 // counts are then the pass's own, not a separate view's.
+import { readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
 import { openScene, PLACES } from './scene.mjs';
 import { internMap } from '../../client/game/js/panels/map-intern.js';
 const { createGLView } = await import(new URL('../../client/game/js/panels/gl/context.js', import.meta.url).href);
@@ -27,6 +33,14 @@ const opt = (k, d) => { const i = args.indexOf(k); return i >= 0 ? args[i + 1] :
 const pos = args.filter((a, i) => !a.startsWith('--') && !(i && args[i - 1].startsWith('--')));
 const place = pos[0] || 'halcyon', seat = pos[1] || 'cockpit';
 const FRAMES = Number(opt('--frames', 240)), RESEND = Number(opt('--resend', 0));
+const LITE = args.includes('--lite');
+// gl/lite.js fetches its chunks relative to its own URL, which in Node is a file URL.
+if (LITE) globalThis.fetch = async (u) => {
+  try {
+    const b = readFileSync(fileURLToPath(String(u)));
+    return { ok: true, status: 200, json: async () => JSON.parse(b.toString('utf8')), arrayBuffer: async () => b.buffer.slice(b.byteOffset, b.byteOffset + b.byteLength) };
+  } catch { return { ok: false, status: 404 }; }
+};
 
 function fakeView() {
   let written = 0, draws = 0, binds = 0;
@@ -80,6 +94,10 @@ if (GLW) {
   const { installGL } = await import(new URL('../../client/game/js/panels/gl/install.js', import.meta.url).href);
   installGL(() => host);
 } else scene.ws.installGLWorld((cells, cam, o) => { hook = { cam, o }; return { canvas: { width: 640, height: 360 }, faces: 0 }; });
+if (LITE) {
+  scene.ws.RENDER_TUNE.glassLite = 1;
+  if (!GLW) scene.ws.installGLLite((await import(new URL('../../client/game/js/panels/gl/lite.js', import.meta.url).href)).liteView);
+}
 for (const kv of (opt('--tune', '') || '').split(',').filter(Boolean)) { const [k, v] = kv.split('='); scene.ws.RENDER_TUNE[k] = Number(v); }
 const G = fakeView();
 const at = /^-?\d+,-?\d+$/.test(place) ? place.split(',').map(Number) : place;
@@ -87,6 +105,15 @@ const H0 = Number(opt('--heading', 0));
 const v0 = scene.view(at, seat, { hour: Number(opt('--hour', 13)), heading: H0 });
 const clone = (map) => map.map((row) => row.map((c) => JSON.parse(JSON.stringify(c))));
 let map = v0.map;
+if (LITE) {
+  // Lite answers null until the chunk under the window has loaded, which needs the event loop.
+  const { liteStats } = await import(new URL('../../client/game/js/panels/gl/lite.js', import.meta.url).href);
+  for (let k = 0; k < 100 && !(liteStats().faceHits > 0); k++) {
+    scene.ws.paintWindshield('__perf', v0);
+    await new Promise((r) => setTimeout(r, 20));
+  }
+  if (!(liteStats().faceHits > 0)) { console.error('movecost --lite: the bake never loaded', JSON.stringify(liteStats())); process.exit(1); }
+}
 const [X0, Y0] = Array.isArray(at) ? at : PLACES[place];
 let k = 0;   // whole tiles the window's centre has moved north
 const t0 = clock.now();

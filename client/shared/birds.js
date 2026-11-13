@@ -180,6 +180,24 @@ export function flockClearance(f, isBlocked) {
       if (out[j] > out[i] + MAX_SLEW) out[j] = out[i] + MAX_SLEW;
     }
   }
+  return internClear(f, baseR, out);
+}
+// ⚠ THE SAME PROFILE IS THE SAME ARRAY. lapTable memoises on the array, and a fresh one every call
+// made it miss on every flock every frame: about a quarter of a millisecond of a city frame rebuilt
+// identical 96-point tables. The profile is still computed fresh above (see the ⚠ on the function);
+// only a result equal to the last one for this flock and radius hands back the old array. Bounded:
+// cleared whole when it holds more flocks than any window shows.
+const _clearIntern = new Map();
+function internClear(f, baseR, out) {
+  const key = f.sp + ':' + f.ax + ',' + f.ay + ':' + baseR;
+  const prev = _clearIntern.get(key);
+  if (prev && prev.length === out.length) {
+    let same = true;
+    for (let i = 0; i < out.length; i++) if (prev[i] !== out[i]) { same = false; break; }
+    if (same) return prev;
+  }
+  if (_clearIntern.size > 512) _clearIntern.clear();
+  _clearIntern.set(key, out);
   return out;
 }
 

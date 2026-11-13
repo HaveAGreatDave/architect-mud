@@ -67,7 +67,8 @@ import { seatLadderHTML, bindSeatLadder, releaseSeatLadder, keepSeatRung } from 
 import { createRoomRenderer } from './gl/room.js';
 import { assembleBatch } from './gl/room-mesh.js';
 import { buildRoom, withShells, roomKitchenKit, spinBatch, swingBatch, liftDoorBatch, paintRoomTexture, paintView, paintScreen, ROOM_RUG } from './gl/room-mesh.js';
-import { figurePeople, dressOf, clipOnce, actClip, clipHold, clipDur } from './gl/room-people.js';
+import { figurePeople, figureLooks, dressOf, clipOnce, actClip, clipHold, clipDur } from './gl/room-people.js';
+import { figureAhead } from './figure-ahead.js';
 import { mealProps } from './gl/room-meals.js';
 import { plumbingProps, plumbingLive } from './gl/room-plumbing.js';
 import { beastsBatch, hasCats, onlyCats, catSettle, catsVersion } from './gl/room-beasts.js';
@@ -1781,12 +1782,39 @@ function openStage(msg) {
     if (pl.head) { const b = here(pl.at[0] + pl.head[0], pl.at[1] + pl.head[1]); pl.head = [b[0] - at[0], b[1] - at[1]]; }
     return { ...pl, at };
   }
+  // ⚠ A FIGURE IS 50 TO 180 MS ON THE PAGE, so it's built in the worker (figure-ahead.js) where that can wait: the
+  // people next door before you reach them (the bake below), and the room's own under the loading veil, which waits
+  // for them (bake.pending). `figurePeople` then finds them made and only the upload is left here. Through a doorway
+  // there's no veil to wait under, and they were built ahead, so the room's own go as they always did.
+  // The keys come from figureLooks, which can't see the Figure Lab's own picks: a body with one is built where it's
+  // drawn, as before. Only the levels asked for: a phone draws the lite figure and never builds the close one.
+  const figuresReady = (bodies, level) => {
+    let ok = true;
+    for (const b of bodies) { const k = figureLooks(b); for (const key of level === 'hd' ? k : [k[1]]) if (!figureAhead(key)) ok = false; }
+    return ok;
+  };
+  function whenFigures(bodies, level, done) {
+    const bk = S.bake;
+    let tries = 0, held = false;
+    const step = () => {
+      let ok = true;
+      if (ui?.S === S) try { ok = figuresReady(bodies, level); } catch (err) { console.warn('[room] people:', err); }
+      // about four seconds, then the old way for whatever the worker hasn't got to
+      if (ok || ++tries > 50) { if (held) bk.pending--; if (ui?.S === S) done(); return; }
+      if (!held) { held = true; bk.pending++; }
+      setTimeout(step, 80);
+    };
+    step();
+  }
   setTimeout(() => {
     if (ui?.S !== S) return;
-    try { for (const r of figurePeople(S.L, bodiesNow(), 0, { level: figLevel })) R.prepareFigure(r.key); } catch (err) { console.warn('[room] people:', err); }
-    peopleOn = true;
-    // and each one's other level, ready for when they cross the room (figurePeople's eye)
-    if (figLevel === 'hd') setTimeout(() => { if (ui?.S === S) try { for (const r of figurePeople(S.L, bodiesNow(), 0, { level: 'lite' })) R.prepareFigure(r.key); } catch (err) { console.warn('[room] people:', err); } }, 400);
+    const prep = () => {
+      try { for (const r of figurePeople(S.L, bodiesNow(), 0, { level: figLevel })) R.prepareFigure(r.key); } catch (err) { console.warn('[room] people:', err); }
+      peopleOn = true;
+      // and each one's other level, ready for when they cross the room (figurePeople's eye)
+      if (figLevel === 'hd') setTimeout(() => { if (ui?.S === S) try { for (const r of figurePeople(S.L, bodiesNow(), 0, { level: 'lite' })) R.prepareFigure(r.key); } catch (err) { console.warn('[room] people:', err); } }, 400);
+    };
+    if (veiled && S.bake) whenFigures(bodiesNow(), figLevel, prep); else prep();
   }, 60);
 
   // ⚠ BAKED AHEAD: THE ROOMS PAST THE NEXT DOORWAY, BEFORE YOU REACH IT. `room_ahead` (plugins/roomstage aheadPayload)
@@ -1848,7 +1876,21 @@ function openStage(msg) {
       bake.pending++;
       p.then((m) => { bake.pending--; if (ui?.S === S) wear(m || here()); }).catch((err) => { bake.pending--; console.warn('[room] baking ahead:', err); });
     }, { quick: true });
-    const figure = (p, level) => () => { for (const r of figurePeople(S.L, [{ id: p.id, at: [0, S.spec.d / 2], yaw: 0, pose: 'stand', dress: dressOf(p.order), sculpt: true, sex: p.sex, figure: figOf(p), wear: p.wear, feel: p.feel,mood: p.mood }], 0, { level })) R.prepareFigure(r.key); };
+    // built in the worker first (figuresReady), and asked again until it's back; this job then only uploads it
+    const figure = (p, level) => {
+      const body = { id: p.id, at: [0, S.spec.d / 2], yaw: 0, pose: 'stand', dress: dressOf(p.order), sculpt: true, sex: p.sex, figure: figOf(p), wear: p.wear, feel: p.feel,mood: p.mood };
+      let tries = 0;
+      const job = () => {
+        if (ui?.S !== S || bake.gen !== gen) return;
+        if (++tries < 40 && !figuresReady([body], level)) {
+          bake.pending++;
+          setTimeout(() => { bake.pending--; if (ui?.S === S && bake.gen === gen) bake.jobs.push(job); }, 100);
+          return;
+        }
+        for (const r of figurePeople(S.L, [body], 0, { level })) R.prepareFigure(r.key);
+      };
+      return job;
+    };
     // a ride (plugins/roomstage `elevator.boarded`): the car as it will stand open on the floor it's going to, and
     // that floor's landing as its shell, keyed as ui.cross and reshell will ask for them when the doors open
     const ahead = a.ride ? (a.next || []).map((x) => ({ ...x, pieces: x.pieces || [], people: x.people || [] })) : nextDoor;

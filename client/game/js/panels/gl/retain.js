@@ -9,9 +9,17 @@
 // Groups are placed end to end. A full buffer keeps every group seen in the last KEEP frames (not just
 // this frame's: a turn brings a new set of tiles into view every frame, and rebuilding from this frame
 // alone rebuilt every frame) and grows to twice that if they don't fit.
+//
+// ⚠ EXCEPT ON A FRAME THAT RE-KEYED THE WINDOW. A recentre hands every group back under a new key (its
+// records moved with the window), so the groups of the last KEEP frames are dead and are never asked
+// for again. Kept, a rebuild wrote them a second time beside the live set and doubled the buffer. When
+// fewer than a quarter of a frame's groups are already here (STALE_HIT), a rebuild keeps only this
+// frame's. Only this frame's groups are ever drawn, so the picture can't change; a group that does come
+// back is written again.
 import { makeVertexStream } from './stream.js';
 
 const KEEP = 120;
+export const STALE_HIT = 0.25;
 
 /**
  * @param {WebGL2RenderingContext} gl
@@ -40,13 +48,14 @@ export function createArena(gl, stride, attrs, floor = 1 << 15) {
       map.set(g.key, { at: at / stride, n: (w - at) / stride, seen, g });
       used = w;
     };
-    let add = 0;
-    for (const g of groups) { const e = map.get(g.key); if (e) e.seen = now; else add += g.floats; }
+    let add = 0, hits = 0;
+    for (const g of groups) { const e = map.get(g.key); if (e) { e.seen = now; hits++; } else add += g.floats; }
     if (add) {
       if (used + add > data.length) {
         const keep = [];
         let need = add;
-        for (const e of map.values()) if (now - e.seen < KEEP) { keep.push(e); need += e.n * stride; }
+        const keepFor = hits < groups.length * STALE_HIT ? 1 : KEEP;
+        for (const e of map.values()) if (now - e.seen < keepFor) { keep.push(e); need += e.n * stride; }
         if (need * 2 > data.length) data = new Float32Array(Math.max(need * 2, data.length * 2));
         map.clear(); used = 0;
         for (const e of keep) place(e.g, e.seen);

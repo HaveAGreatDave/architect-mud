@@ -178,6 +178,36 @@ export function keptGroupsIn(kept, box, T = PROP_SHADOW_TUNE) {
   return out;
 }
 
+// ── THE BAY'S RETAINED GROUPS ARE KEPT SETS TOO ────────────────────────────────
+// A bayGroup array (a hoodoo tile, a park, a replayed arm's solids) comes back unchanged frame after
+// frame, which is the promise the solids layer already retains it on. Walked as loose records, every
+// one was tested and its triangles copied and sent again each frame. Handed over as kept sets, they're
+// worked out once per array (keptCasters) and kept on the GPU with the street kit's. The loose
+// records are the rest, in the list's order. Found by uploadSolids' own walk (gl/context.js), which
+// checks a group still sits where it says before trusting it. Once per bay list a frame: the prop map
+// and the lamp maps both ask.
+const BAY_SPLIT = new WeakMap();
+export function bayCasterSplit(bay) {
+  const sets = (bay && bay.sets) || null;
+  const G = bay && bay.groups;
+  if (!bay || !G || !G.length) return { loose: bay || null, kept: sets };
+  let s = BAY_SPLIT.get(bay);
+  if (s && s.n === bay.length && s.g === G.length) return s;
+  const loose = [], kept = sets ? sets.slice() : [];
+  let gi = 0;
+  for (let i = 0; i < bay.length; i++) {
+    while (gi < G.length && G[gi].at < i) gi++;
+    if (gi < G.length && G[gi].at === i) {
+      const recs = G[gi++].recs, n = recs.length;
+      if (n && i + n <= bay.length && bay[i] === recs[0] && bay[i + n - 1] === recs[n - 1]) { kept.push(recs); i += n - 1; continue; }
+    }
+    loose.push(bay[i]);
+  }
+  s = { loose, kept, n: bay.length, g: G.length };
+  BAY_SPLIT.set(bay, s);
+  return s;
+}
+
 // Triangles for every caster in the box, as xyz floats in the map window's frame. `buf` is reused.
 //   solids:  lists of solid records ({ p: [[x,y,z]...] }), map window. Film, the room, the birds and
 //            the cloth are skipped: see `castable`.

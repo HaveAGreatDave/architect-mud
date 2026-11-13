@@ -19,6 +19,7 @@
 import { viewProjMatrix, eyePos } from './camera.js';
 const IDENT = new Float32Array([1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1]);
 import { makeVertexStream } from './stream.js';
+import { STALE_HIT } from './retain.js';
 import { declareProgram, layerProgram, compileShader } from './programs.js';
 import { linearOut, applyLinOut } from './colour.js';
 import { LIGHTGRID_GLSL, LIGHTGRID_UNIFORMS, bindNoLightGrid } from './lightgrid.js';
@@ -1381,17 +1382,22 @@ export function createSolidsLayer(gl, opt = {}) {
       R.map.set(recs, { at: at / ST, n: (w - at) / ST, seen });
       R.used = w;
     };
-    let add = 0, quads = 0;
+    let add = 0, quads = 0, hits = 0;
     for (const recs of groups) {
       quads += recs.length;
       const e = R.map.get(recs);
-      if (e) e.seen = now; else add += tris(recs) * ST;
+      if (e) { e.seen = now; hits++; } else add += tris(recs) * ST;
     }
     if (add) {
       if (R.used + add > R.data.length) {
         const keep = [];
         let need = add;
-        for (const [recs, e] of R.map) if (now - e.seen < RETAIN_KEEP) { keep.push([recs, e.seen]); need += e.n * ST; }
+        // ⚠ A RECENTRE RE-KEYS EVERY GROUP (armReplay hands back a new array), and the working set
+        // kept above is then all dead: rebuilt with it, a cockpit's resend frame wrote every street
+        // tile twice. A frame that finds under a quarter of its groups here keeps only its own. See
+        // STALE_HIT in gl/retain.js.
+        const keepFor = hits < groups.length * STALE_HIT ? 1 : RETAIN_KEEP;
+        for (const [recs, e] of R.map) if (now - e.seen < keepFor) { keep.push([recs, e.seen]); need += e.n * ST; }
         if (need * 2 > R.data.length) R.data = new Float32Array(Math.max(need * 2, R.data.length * 2));
         R.map.clear(); R.used = 0;
         for (const [recs, seen] of keep) place(recs, seen);

@@ -6,7 +6,7 @@ import { drawSky } from './sky.js';
 import { createGLView, MAX_LIGHTS } from './context.js';
 import { buildAtlas, growAtlas, faceUVs } from './atlas.js';
 import { lightMatrix, eyePos, nearFor, viewProjMatrix, setJitter } from './camera.js';
-import { strokeRuns } from './propshadow.js';
+import { strokeRuns, bayCasterSplit } from './propshadow.js';
 import { pickShadowLamps } from './lampshadow.js';
 import { jitterFor, reprojMatrix, TAA_TUNE } from './taa.js';
 import { createSkylineStrip } from './skyline.js';
@@ -459,9 +459,10 @@ function propShadowFor(cam, camAt, cssH, dpr, opts) {
     ground: Math.min(1, k * Math.min(0.4, sun.alpha)),
   };
 }
-const propCasters = (cam, camAt, cssH, dpr, opts) => ({
-  solids: [opts.bay, opts.fauna, (opts.bay && opts.bay.fades) || null],
-  kept: (opts.bay && opts.bay.sets) || null,
+// The bay's retained groups go with the street kit's sets as kept arrays (bayCasterSplit).
+const propCasters = (cam, camAt, cssH, dpr, opts, bay = bayCasterSplit(opts.bay)) => ({
+  solids: [bay.loose, opts.fauna, (opts.bay && opts.bay.fades) || null],
+  kept: bay.kept,
   strokes: cam.FL > 0 ? { runs: strokeRuns(opts.strokes, cam.ox || 0, cam.oy || 0), vp: viewProjMatrix(camAt, cssH), FL: cam.FL * (dpr || 1) } : null,
 });
 
