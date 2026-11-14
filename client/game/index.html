@@ -78,7 +78,8 @@
 
 		<link rel="stylesheet" href="styles.css" />
 		<link rel="stylesheet" href="/shared/themes.css" />
-		<script defer src="https://cloud.umami.is/script.js" data-website-id="1d2831a3-7b4b-4dd6-81ac-776ed6375456"></script>
+		<!-- data-exclude-search: reset and verify links carry their token in the query string, and Umami's first pageview runs before main.js clears it. -->
+		<script defer src="https://cloud.umami.is/script.js" data-website-id="1d2831a3-7b4b-4dd6-81ac-776ed6375456" data-exclude-search="true"></script>
 		<script>
 			// Auto-login is in flight when remembered credentials exist — hide the
 			// auth screen before first paint so it never flashes on refresh.

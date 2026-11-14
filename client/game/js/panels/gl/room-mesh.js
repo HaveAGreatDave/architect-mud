@@ -21,7 +21,7 @@ import { cachetWing, cachetInner } from '../../../../shared/room-layout.js';
 import { facing, COUNTER_H, doorwaysOf, liftButtons, liftPanelAt, hallOf, stairsOf, wellBox, STAIR } from '../../../../shared/room-layout.js';
 import { drawDecor, drawDecorForm, liftPortal, drawBalconyDress } from './room-decor.js';
 import { legend, legendWidth } from '../../../../shared/legend-font.js';
-import { drawFitting, baseRun, STONE, FITTED_FORMS } from './room-fittings.js';
+import { drawFitting, baseRun, STONE, FITTED_FORMS, stockOf, shelfKeep, STOCK } from './room-fittings.js';
 import { paintDesktop } from './room-screens.js';
 import { paintBoothTexture } from './booth-mesh.js';
 import { drawEnvPanel } from './room-envctl.js';
@@ -162,12 +162,15 @@ export function withShells(m, shells) {
 
 // opts.joined: the zones past this room's doorways that are drawn too, so a doorway into one is a
 // threshold rather than a dim passage.
-export function buildRoom(L, { seed = 1, lampOn = true, doorShut = false, turning = null, swinging = null, joined = new Set(), shell = false } = {}) {
+export function buildRoom(L, { seed = 1, lampOn = true, doorShut = false, turning = null, swinging = null, joined = new Set(), shell = false, frontOpen = false } = {}) {
   const K = roomKit(L, bakeAO(L), { textures: ROOM_TEXTURES, cell: 0.4, glow: GLOW });
   const { solid, quad, box, lathe, ball, onU, onV, C, nrmOf, TB, E } = K;
   K.fine = L.spec.finish === 'fine'; K.L = L; K.screens = []; K.dials = [];
   const view = createBatch(64);
-  const hu = L.w / 2, D = L.d, H = L.h, T = 0.14, spec = L.spec, fine = K.fine;
+  // ⚠ A HAIR UNDER THE FLOOR ABOVE, in a room with a flight up through it. The room above is drawn with this one, its
+  // floor in the plane of this ceiling and the tops of these walls, and they fought: boards through the plaster from
+  // below, plaster through the boards from above.
+  const hu = L.w / 2, D = L.d, H = L.h - (stairsOf(L.spec).some((o) => o.wall === 'ceiling') ? 0.015 : 0), T = 0.14, spec = L.spec, fine = K.fine;
   // a club (spec.club) is painted black-red, ceiling and all, and lit by its rig (clubRig)
   const club = spec.club === 'vip' ? 'vip' : !!spec.club, R = rng(seed), wall0 = fine ? '#e4e0d8' : pick(R, WALLS), trim0 = fine ? '#efece6' : pick(R, ['#ece8de', '#e2dccd', '#d2cab8']);
   // `spec.tone` paints a room its own way (Solenne's lobby: dark walls, gold): its walls, trim and ceiling,
@@ -364,8 +367,13 @@ export function buildRoom(L, { seed = 1, lampOn = true, doorShut = false, turnin
   // finger plate; a light switch and a socket by it. A fine flat's is one flush oak leaf, floor to head
   if (!overDoor) {
     const [d0, d1] = door, dv = D - 0.04, leaf = { t: fine ? 'roomOak' : 'roomWood', c: fine ? '#8a6a4a' : '#9a7a5a' };
-    box(d0, d1, dv, D, 0, DH - 0.01, '#6a4a30', 0.92, leaf, SATIN);
-    if (!fine) {
+    // stood open while somebody goes through it (`frontOpen`): the leaf swung in on its hinge at d1, flat to the
+    // wall beside it, and the corridor dark past the frame
+    if (frontOpen) {
+      box(d1 - 0.04, d1, D - (d1 - d0), D - 0.01, 0, DH - 0.01, '#6a4a30', 0.92, leaf, SATIN);
+      box(d0, d1, D + T - 0.02, D + T, 0, DH, '#141416', 1);
+    } else box(d0, d1, dv, D, 0, DH - 0.01, '#6a4a30', 0.92, leaf, SATIN);
+    if (!fine && !frontOpen) {
       for (const [a, b] of [[d0 + 0.09, (d0 + d1) / 2 - 0.04], [(d0 + d1) / 2 + 0.04, d1 - 0.09]]) for (const [c, e] of [[0.18, 0.92], [1.08, 1.9]]) {
         box(a, b, dv - 0.012, dv, c, e, '#6a4a30', 0.85, leaf, SATIN);
         box(a + 0.04, b - 0.04, dv - 0.02, dv - 0.012, c + 0.04, e - 0.04, '#6a4a30', 0.97, leaf, SATIN);
@@ -373,7 +381,8 @@ export function buildRoom(L, { seed = 1, lampOn = true, doorShut = false, turnin
     }
     for (const [a, b, c, e] of [[d0 - 0.07, d0, 0, DH + 0.07], [d1, d1 + 0.07, 0, DH + 0.07], [d0 - 0.07, d1 + 0.07, DH, DH + 0.07]]) box(a, b, D - 0.02, D, c, e, fine ? '#2a2c30' : trim, 0.97, null, SATIN);
     const ku = d0 + 0.07;
-    if (fine) {
+    if (frontOpen) { /* the knob went round with the leaf */ }
+    else if (fine) {
       K.rounded(...onV, dv - 0.05, dv - 0.03, ku - 0.012, ku + 0.012, 0.9, 1.3, 0.008, '#1c1d20', 1, METAL);
       for (const y of [0.92, 1.28]) box(ku - 0.008, ku + 0.008, dv - 0.04, dv, y - 0.008, y + 0.008, '#1c1d20', 1, null, METAL);
     } else {
@@ -515,7 +524,8 @@ export function buildRoom(L, { seed = 1, lampOn = true, doorShut = false, turnin
   // the street's glass doors, and a lift landing's bronze ones
   const slides = doorways.filter((o) => o.slide && (o.kind === 'front' || o.lift));
   // the balcony's door is an automatic glass one too: it parts as you come up to it, shutters down or not
-  if (spec.balcony && !isCar) slides.push({ wall: 'front', a: spec.balcony.door[0], b: spec.balcony.door[1], h: glassTop || DH, to: 'balcony', balcony: true });
+  // A plain room's leaf is a painted timber frame in the room's trim; a tower flat's is black
+  if (spec.balcony && !isCar) slides.push({ wall: 'front', a: spec.balcony.door[0], b: spec.balcony.door[1], h: glassTop || DH, to: 'balcony', balcony: true, ...(fine ? {} : { timber: trim }) });
   // ⚠ A ROOM SEEN THROUGH A DOORWAY KEEPS THEM IN ITS BATCHES, DRAWN SHUT: only the room you're in moves them.
   // They used to be left out of a shell altogether, so a lift landing's bronze doors popped in as you stepped into
   // the hall.
@@ -526,24 +536,194 @@ export function buildRoom(L, { seed = 1, lampOn = true, doorShut = false, turnin
   return { ...K, view, lamps: [...rest, ...kept, ...spa], windows, spin, swing, liftDoors, slideDoors: shell ? null : slideDoors };
 }
 
-// THE INSIDE OF A FRIDGE OR FREEZER, behind its door: a lit liner, glass shelves (wire in a freezer) and a
-// few things on them. It sits inside the door's own thickness, so a shut door hides it and nothing is drawn
-// twice; it only shows while the door is swung (swingBatch). Its own seed, so the fridge's picks don't move.
+// THE CABINET ROUND A COLD ROOM: a back, two sides, a top and a floor, open at the front where the door hangs, so
+// the room inside is a room and not a sticker on a solid block. `c` is the outside's colour (or texture). A shut
+// door closes the front, so from the room it looks as it always did.
+const COLD_WALL = 0.04;
+function coldShell(F, R, { hw, hd, h, zf, y0 = 0.06, c, k = 0.96, surf = GLOSS }) {
+  const { alongY, pbox } = F, t = COLD_WALL, x0 = -hw + 0.01, x1 = hw - 0.01;
+  R(...alongY(), y0, h, x0, x1, -hd, -hd + t, 0.02, c, k, surf);
+  R(...alongY(), y0, h, x0, x0 + t, -hd, zf, 0.012, c, k, surf);
+  R(...alongY(), y0, h, x1 - t, x1, -hd, zf, 0.012, c, k, surf);
+  R(...alongY(), h - t, h, x0, x1, -hd, zf, 0.012, c, k, surf);
+  pbox(x0, x1, y0, y0 + t, -hd, zf, typeof c === 'string' ? c : c.c, k, null, surf);
+}
+
+// THE INSIDE OF A FRIDGE OR FREEZER, behind its door, from the back of the cabinet (`zb`) to its open front (`zf`):
+// a lit liner, glass shelves (wire in a freezer) the whole depth, and what's kept on them, drawn as things: milk
+// and juice cartons, bottles, jars, tins, tubs and a takeaway; a crisper drawer of vegetables at the bottom of a
+// fridge tall enough; frosted packs and a tray of ice in a freezer. The front few centimetres are left for the
+// door's own bins (coldDoor). Its own seed, so the fridge's picks don't move. As much is kept in it as the
+// container's level says (gl/room-fittings.js stockOf): nothing, a few things on the middle shelf, the lower
+// shelves stocked, or the lot.
 const COLD_STOCK = ['#d83a2a', '#f2ead2', '#3a7ad8', '#e8c02a', '#3aa84a', '#c86a4a', '#f4f2ec'];
-function coldInside(K, F, p, x0, x1, y0, y1, zf, frozen) {
-  const { pbox } = F, r = rng(((p.seed || 7) * 31 + (frozen ? 11 : 5)) >>> 0);
-  pbox(x0, x1, y0, y1, zf, zf + 0.002, frozen ? '#c8d8e2' : '#d8dcd8', 1, null, MATTE);
-  pbox(x0 + 0.025, x1 - 0.025, y0 + 0.02, y1 - 0.02, zf + 0.002, zf + 0.004, frozen ? '#e6f2fa' : '#f4f6f0', 1.35, null, MATTE);
-  const n = Math.max(1, Math.round((y1 - y0) / 0.32)), gap = (y1 - y0) / (n + 1);
-  for (let i = 1; i <= n; i++) {
-    const y = y0 + gap * i;
-    pbox(x0 + 0.02, x1 - 0.02, y, y + 0.01, zf + 0.004, zf + 0.03, frozen ? '#b8c4cc' : '#cfe4ea', frozen ? 1 : 1.15, null, frozen ? METAL : GLOSS);
-    // what's kept on it: a carton, a jar, a tub; in a freezer, boxes white with frost
-    let x = x0 + 0.04;
-    while (x < x1 - 0.1) {
-      const w = 0.05 + r() * 0.08, hh = Math.min(0.06 + r() * 0.14, gap - 0.03);
-      if (r() < 0.7 && hh > 0.02) pbox(x, Math.min(x + w, x1 - 0.04), y + 0.01, y + 0.01 + hh, zf + 0.006, zf + 0.026, frozen ? '#e8eef2' : pick(r, COLD_STOCK), 1.05, null, SATIN);
-      x += w + 0.02 + r() * 0.05;
+const COLD_GLASS = ['#3a6a3a', '#5a3a1e', '#d8e4e0', '#8a2a1a', '#2a4a6a'];
+const COLD_VEG = ['#4a9a3a', '#c83a2a', '#e88a2a', '#6aaa3a', '#d8c84a', '#7a3a6a'];
+const COLD_BIN = 0.08;
+function coldInside(K, F, p, x0, x1, y0, y1, zf, frozen, zb = zf - 0.03) {
+  const { pbox } = F, r = rng(((p.seed || 7) * 31 + (frozen ? 11 : 5)) >>> 0), rod = rodOf(K), lvl = stockOf(p);
+  const lat = (x, z, prof, c, k = 1, n = 10, surf = SATIN) => { const [u, v] = F.P(x, 0, z); K.lathe(u, v, prof, c, k, n, surf); };
+  const liner = frozen ? '#e6f2fa' : '#f4f6f0', front = zf - COLD_BIN;
+  // the liner, lit: the back, the sides, the roof and the floor, and the lamp under the roof
+  pbox(x0, x1, y0, y1, zb, zb + 0.004, liner, 1.3, null, MATTE);
+  pbox(x0, x0 + 0.004, y0, y1, zb, zf, liner, 1.2, null, MATTE);
+  pbox(x1 - 0.004, x1, y0, y1, zb, zf, liner, 1.2, null, MATTE);
+  pbox(x0, x1, y1 - 0.004, y1, zb, zf, liner, 1.1, null, MATTE);
+  pbox(x0, x1, y0, y0 + 0.004, zb, zf, liner, 1.25, null, MATTE);
+  const mx = (x0 + x1) / 2;
+  if (y1 - y0 > 0.3) pbox(mx - 0.06, mx + 0.06, y1 - 0.03, y1 - 0.004, zb + 0.08, zb + 0.16, frozen ? '#d8f0ff' : '#fff6d8', 1.8, null, MATTE);
+  // a crisper drawer along the floor of a fridge tall enough for one, and vegetables in it
+  let base = y0;
+  if (!frozen && y1 - y0 > 0.8) {
+    const top = y0 + 0.2;
+    pbox(x0 + 0.01, x1 - 0.01, top, top + 0.01, zb, front, '#cfe4ea', 1.15, null, GLOSS);
+    pbox(x0 + 0.02, x1 - 0.02, y0 + 0.01, y0 + 0.1, front - 0.012, front, '#d6e8ec', 1.2, null, GLOSS);
+    pbox(mx - 0.06, mx + 0.06, y0 + 0.07, y0 + 0.09, front, front + 0.01, '#b8c8cc', 1, null, GLOSS);
+    for (let x = x0 + 0.06; x < x1 - 0.05; x += 0.07 + r() * 0.04) for (const z of [zb + 0.1, (zb + front) / 2, front - 0.08]) {
+      if (r() > 0.65 * STOCK[lvl]) continue;
+      const s = 0.028 + r() * 0.018, y = y0 + 0.01;
+      lat(x, z, [[0, y], [s * 0.8, y + s * 0.15], [s, y + s * 0.8], [s * 0.85, y + s * 1.5], [s * 0.3, y + s * 1.9], [0, y + s * 1.95]], pick(r, COLD_VEG), 1.05, 8, SATIN);
+    }
+    base = top + 0.01;
+  }
+  const n = Math.max(1, Math.round((y1 - base) / 0.3)), gap = (y1 - base) / (n + 1);
+  // the floor of the cabinet is the first shelf, then the glass ones over it
+  const shelves = [base, ...Array.from({ length: n }, (_, i) => base + gap * (i + 1))];
+  for (const [i, y] of shelves.entries()) {
+    if (i) {
+      if (frozen) { for (let z = zb + 0.03; z < front; z += 0.045) rod(F.P(x0 + 0.01, y + 0.005, z), F.P(x1 - 0.01, y + 0.005, z), 0.003, '#c8d0d4', 1.05); }
+      else {
+        pbox(x0 + 0.005, x1 - 0.005, y, y + 0.008, zb + 0.005, front, '#d8eaf0', 1.2, null, GLOSS);
+        pbox(x0 + 0.005, x1 - 0.005, y - 0.006, y + 0.012, front - 0.012, front, '#c8d4d8', 1.05, null, METAL);
+      }
+    }
+    const room = (i < shelves.length - 1 ? shelves[i + 1] : y1) - y - 0.03, y2 = y + 0.008;
+    if (room < 0.05) continue;
+    // two rows deep: the back one full, the front one gappier
+    // (a stocked shelf always has something at the back on the left, so a few things is never nothing)
+    const kept = shelfKeep(lvl, i, shelves.length);
+    for (const [z, keep] of [[zb + 0.08, 0.85], [front - 0.08, 0.55]]) {
+      let x = x0 + 0.05;
+      while (x < x1 - 0.05) {
+        const first = kept > 0 && z === zb + 0.08 && x === x0 + 0.05;
+        const used = r() < keep * kept || first ? coldThing(pbox, lat, r, x, z, y2, room, frozen) : 0.06 + r() * 0.04;
+        x += used + 0.012 + r() * 0.03;
+      }
+    }
+  }
+}
+// One thing on a shelf, its foot at y, centred at (x, z), no taller than `room`. Returns how much shelf it took.
+function coldThing(pbox, lat, r, x, z, y, room, frozen) {
+  if (frozen) {
+    const k = r();
+    if (k < 0.2 && room > 0.05) {
+      // a tray of ice: a white tray with the cubes standing proud
+      pbox(x - 0.06, x + 0.06, y, y + 0.025, z - 0.05, z + 0.05, '#e8eef2', 1.15, null, GLOSS);
+      for (let i = 0; i < 4; i++) for (let j = 0; j < 3; j++) pbox(x - 0.05 + i * 0.027, x - 0.03 + i * 0.027, y + 0.025, y + 0.04, z - 0.04 + j * 0.028, z - 0.02 + j * 0.028, '#dff2ff', 1.4, null, GLOSS);
+      return 0.12;
+    }
+    // a pack white with frost over its colour, or a bag lying flat
+    const w = 0.08 + r() * 0.07, hh = Math.min(room, 0.04 + r() * 0.1), c = pick(r, COLD_STOCK);
+    pbox(x, x + w, y, y + hh, z - 0.05, z + 0.05, c, 0.75, null, SATIN);
+    pbox(x - 0.002, x + w + 0.002, y + hh - 0.004, y + hh + 0.002, z - 0.052, z + 0.052, '#eef4f8', 1.25, null, MATTE);
+    return w;
+  }
+  const k = r();
+  if (k < 0.18 && room > 0.2) {
+    // a carton of milk or juice, a gable top
+    const hh = Math.min(room, 0.2 + r() * 0.05), c = pick(r, ['#f4f2ec', '#f4f2ec', '#e8c02a', '#e88a2a', '#d83a2a']);
+    pbox(x - 0.035, x + 0.035, y, y + hh - 0.03, z - 0.035, z + 0.035, c, 1.05, null, SATIN);
+    pbox(x - 0.036, x + 0.036, y + hh * 0.35, y + hh * 0.55, z - 0.036, z + 0.036, pick(r, ['#3a7ad8', '#3aa84a', '#d83a2a']), 1, null, SATIN);
+    pbox(x - 0.035, x + 0.035, y + hh - 0.03, y + hh, z - 0.008, z + 0.008, c, 1, null, SATIN);
+    return 0.075;
+  }
+  if (k < 0.36 && room > 0.18) {
+    // a bottle: wine, beer, a sauce, a fizzy drink, with its cap
+    const hh = Math.min(room, 0.18 + r() * 0.1), s = 0.028 + r() * 0.01;
+    lat(x, z, [[0, y], [s, y], [s, y + hh * 0.6], [s * 0.45, y + hh * 0.82], [s * 0.4, y + hh * 0.96], [0, y + hh * 0.96]], pick(r, COLD_GLASS), 1.1, 10, GLOSS);
+    lat(x, z, [[0, y + hh * 0.96], [s * 0.45, y + hh * 0.96], [s * 0.45, y + hh], [0, y + hh]], pick(r, ['#c8a83a', '#d83a2a', '#f4f2ec']), 1, 8, METAL);
+    return s * 2 + 0.01;
+  }
+  if (k < 0.52 && room > 0.1) {
+    // a jar with a lid: jam, pickles, mayonnaise
+    const hh = Math.min(room, 0.08 + r() * 0.05), s = 0.03 + r() * 0.012;
+    lat(x, z, [[0, y], [s, y], [s, y + hh * 0.82], [s * 0.85, y + hh * 0.86], [0, y + hh * 0.86]], pick(r, ['#c83a2a', '#6a8a3a', '#f2ead2', '#8a3a5a']), 1.05, 10, GLOSS);
+    lat(x, z, [[0, y + hh * 0.86], [s * 0.9, y + hh * 0.86], [s * 0.9, y + hh], [0, y + hh]], pick(r, ['#d8d8d0', '#c8a83a', '#d83a2a']), 1, 10, METAL);
+    return s * 2 + 0.005;
+  }
+  if (k < 0.66 && room > 0.12) {
+    // a tin or a can
+    const hh = Math.min(room, 0.11), s = 0.032;
+    lat(x, z, [[0, y], [s, y], [s, y + hh], [0, y + hh]], pick(r, COLD_STOCK), 1.05, 10, METAL);
+    return s * 2;
+  }
+  if (k < 0.82) {
+    // a tub: butter, yoghurt, leftovers in a box with a coloured lid
+    const w = 0.08 + r() * 0.05, hh = Math.min(room, 0.05 + r() * 0.05);
+    pbox(x, x + w, y, y + hh - 0.01, z - 0.05, z + 0.05, pick(r, ['#f4f2ec', '#e8e4d8', '#d8e4e8']), 1.05, null, SATIN);
+    pbox(x - 0.003, x + w + 0.003, y + hh - 0.01, y + hh, z - 0.053, z + 0.053, pick(r, COLD_STOCK), 1, null, GLOSS);
+    return w;
+  }
+  // a takeaway carton or a wrapped block of cheese
+  const w = 0.09 + r() * 0.05, hh = Math.min(room, 0.04 + r() * 0.06);
+  pbox(x, x + w, y, y + hh, z - 0.045, z + 0.045, pick(r, ['#f2ead2', '#e8c02a', '#c86a4a', '#f4f2ec']), 1, null, SATIN);
+  return w;
+}
+// THE WELL OF A CHEST FREEZER, from x0 to x1 and z0 to z1, its floor at y0 and its rim at y1: a frosted liner,
+// frozen packs and trays of ice in layers, one thin layer for a few things and up near the rim for a full one, and
+// two wire baskets hung across the top with more in them when it's full. Its own seed, so the chest's don't move.
+function chestInside(K, F, p, x0, x1, y0, y1, z0, z1) {
+  const { pbox } = F, r = rng(((p.seed || 7) * 43 + 17) >>> 0), lvl = stockOf(p);
+  const lat = (x, z, prof, c, k = 1, n = 10, surf = SATIN) => { const [u, v] = F.P(x, 0, z); K.lathe(u, v, prof, c, k, n, surf); };
+  const liner = '#e6f0f6';
+  pbox(x0, x1, y0, y0 + 0.004, z0, z1, liner, 1.3, null, MATTE);
+  pbox(x0, x1, y0, y1, z0, z0 + 0.004, liner, 1.2, null, MATTE);
+  pbox(x0, x1, y0, y1, z1 - 0.004, z1, liner, 1.2, null, MATTE);
+  pbox(x0, x0 + 0.004, y0, y1, z0, z1, liner, 1.15, null, MATTE);
+  pbox(x1 - 0.004, x1, y0, y1, z0, z1, liner, 1.15, null, MATTE);
+  const lh = 0.11;
+  [[], [0.45], [0.9, 0.5], [1, 0.95, 0.9, 0.6]][lvl].forEach((keep, j) => {
+    const y = y0 + 0.004 + j * lh;
+    if (y + lh > y1 - 0.12) return;
+    for (let z = z0 + 0.07; z < z1 - 0.06; z += 0.12) {
+      let x = x0 + 0.02;
+      while (x < x1 - 0.17) x += (r() < keep || (j === 0 && z === z0 + 0.07 && x === x0 + 0.02) ? coldThing(pbox, lat, r, x, z, y, lh - 0.01, true) : 0.08 + r() * 0.05) + 0.01;
+    }
+  });
+  // the baskets across the top: a wire rim and a floor, each its own half of the well
+  const bt = y1 - 0.13, mx = (x0 + x1) / 2;
+  for (const [a, b] of [[x0 + 0.02, mx - 0.01], [mx + 0.01, x1 - 0.02]]) {
+    for (const y of [bt, y1 - 0.01]) for (const [e, f] of [[z0 + 0.02, z0 + 0.03], [z1 - 0.03, z1 - 0.02]]) pbox(a, b, y - 0.006, y, e, f, '#b8c4cc', 1, null, METAL);
+    for (let x = a; x <= b; x += (b - a) / 6) pbox(x - 0.003, x + 0.003, bt - 0.006, bt, z0 + 0.02, z1 - 0.02, '#b8c4cc', 1, null, METAL);
+    if (lvl >= 2 && r() < (lvl === 3 ? 0.9 : 0.4)) for (let x = a + 0.02; x < b - 0.1;) x += coldThing(pbox, lat, r, x, (z0 + z1) / 2, bt, 0.1, true) + 0.015;
+  }
+}
+// The bins on the inside of a cold room's door, drawn with the door so they swing with it: a lined inner face and
+// a clear-fronted bin at each height, with bottles, sauces and a box of eggs stood in them. Its own seed.
+function coldDoor(K, F, p, x0, x1, y0, y1, zf, frozen) {
+  const { pbox } = F, r = rng(((p.seed || 7) * 37 + (frozen ? 13 : 3)) >>> 0), lvl = stockOf(p);
+  const lat = (x, z, prof, c, k = 1, n = 8, surf = GLOSS) => { const [u, v] = F.P(x, 0, z); K.lathe(u, v, prof, c, k, n, surf); };
+  pbox(x0 + 0.02, x1 - 0.02, y0 + 0.02, y1 - 0.02, zf - 0.008, zf, frozen ? '#e6f2fa' : '#eef0ea', 1.25, null, MATTE);
+  const bins = Math.max(1, Math.floor((y1 - y0) / 0.26)), step = (y1 - y0) / (bins + 0.5), z = zf - COLD_BIN / 2 - 0.006;
+  for (let i = 0; i < bins; i++) {
+    const y = y0 + 0.05 + step * i;
+    pbox(x0 + 0.04, x1 - 0.04, y, y + 0.008, zf - COLD_BIN, zf - 0.008, '#d8e6ea', 1.1, null, GLOSS);
+    pbox(x0 + 0.04, x1 - 0.04, y, y + 0.06, zf - COLD_BIN - 0.004, zf - COLD_BIN, '#cfe2e8', 1.2, null, GLOSS);
+    const room = Math.min(step - 0.04, 0.24);
+    let x = x0 + 0.07;
+    // the top bin of a fridge door holds the eggs
+    if (!frozen && i === bins - 1 && room > 0.06) {
+      // half a box of eggs in a fridge half full, none in one nearly empty
+      const ex = lvl >= 3 ? x1 - 0.07 : lvl === 2 ? (x + x1) / 2 : x;
+      for (; x < ex; x += 0.045) lat(x, z, [[0, y + 0.008], [0.017, y + 0.015], [0.021, y + 0.035], [0.015, y + 0.058], [0, y + 0.064]], '#e8d8b8', 1.05, 8, SATIN);
+      continue;
+    }
+    while (x < x1 - 0.06) {
+      if (r() < 0.75 * shelfKeep(lvl, i, bins) && room > 0.08) {
+        const hh = Math.min(room, (frozen ? 0.08 : 0.12) + r() * 0.1), s = 0.024 + r() * 0.008;
+        lat(x, z, [[0, y + 0.008], [s, y + 0.008], [s, y + hh * 0.7], [s * 0.5, y + hh * 0.9], [s * 0.45, y + hh], [0, y + hh]], frozen ? '#e8eef2' : pick(r, [...COLD_GLASS, '#f4f2ec', '#d83a2a', '#e8c02a']), 1.05, 8, GLOSS);
+      }
+      x += 0.06 + r() * 0.02;
     }
   }
 }
@@ -1132,7 +1312,7 @@ function drawKitchen(K, { H, lampOn, lamps, seed }) {
   const top = kitchenSlab(L.spec) || (fine ? STONE : { t: 'roomButcher', c: '#ffffff' }), side = fine || KO.face === 'fluted' ? { t: 'roomOak', c: '#8a6a4a' } : null;
   const topSurf = fine || KO.top === 'marble' || KO.top === 'terrazzo' ? SATIN : MATTE, slab = kitchenSlab(L.spec);
   const grade = fine ? 3 : KO.grade;
-  const unit = (u, v, fu, fv, w, d) => baseRun({ F: K.frame(u, v, fu, fv), p: { w, d, h: T }, r, fine, rod, front, slab }, T, grade === undefined ? {} : { grade });
+  const unit = (u, v, fu, fv, w, d, o = {}) => baseRun({ F: K.frame(u, v, fu, fv), p: { w, d, h: T }, r, fine, rod, front, slab }, T, { ...(grade === undefined ? {} : { grade }), ...o });
   const depth = 0.66, runD = P.run[1] - P.run[0], over = c1 - c0 - depth, kv0 = P.kitchen[2];
   // its own floor, stopping at the counter
   {
@@ -1141,19 +1321,23 @@ function drawKitchen(K, { H, lampOn, lamps, seed }) {
   }
   // the long side: units on the kitchen's side, a panel and the overhang on the lounge's, and the slab
   // running down the end to the floor (both ends on an island)
-  unit(c1 - depth / 2, (v0 + v1) / 2, 1, 0, v1 - v0, depth);
+  // under the counter's own slab (the box below): its own worktop would sit in the slab's plane and flicker
+  unit(c1 - depth / 2, (v0 + v1) / 2, 1, 0, v1 - v0, depth, { noTop: true });
   box(c0, c1, v0, v1, T - 0.04, T, '#a8a49c', 1, top, topSurf);
   counterFace(K, { c0, over, v0, v1, T, front, side, seed, face: KO.face });
   box(c0, c1, v1, v1 + 0.04, 0, T, '#a8a49c', 0.97, top, topSurf);
   if (P.island) box(c0, c1, v0 - 0.04, v0, 0, T, '#a8a49c', 0.97, top, topSurf);
   else {
     // the return to the wall, closing the front of the kitchen
-    unit((c1 + hu) / 2, v0 + runD / 2 + 0.02, 0, 1, hu - c1, runD - 0.04);
+    // back against the end panel, no gap and no upstand: there's no wall behind it
+    unit((c1 + hu) / 2, v0 + runD / 2, 0, 1, hu - c1, runD, { noUpstand: true });
     box(c0, hu, v0 - 0.04, v0, 0, T, '#a8a49c', 0.97, top, topSurf);
   }
   // the units along the wall, in the gaps the appliances leave
   const taken = L.placed.filter((p) => p.wall === 'right' && !p.annex && p.v > rv0 - 0.5 && p.v < rv1 + 0.5 && !(p.arche === 'cabinet' || p.arche === 'screen')).map((p) => [p.v - p.w / 2, p.v + p.w / 2]).sort((a, b) => a[0] - b[0]);
-  let s = rv0;
+  // from the end of the return's worktop: its front lip comes 2 cm past runD, and a unit begun under it laid a
+  // second top in the same plane at the corner
+  let s = P.island ? rv0 : Math.max(rv0, v0 + runD + 0.02);
   for (const [a, b] of [...taken, [rv1, rv1]]) {
     if (a - s > 0.03) unit(hu - runD / 2, (s + a) / 2, -1, 0, a - s, runD);
     s = Math.max(s, b);
@@ -1304,27 +1488,46 @@ function drawBalcony(K, { hu, H, T, DH, fine, trim, top }) {
   box(-hu - T, hu + T, -T - 0.006, -T + 0.02, H - 0.01, H + 0.2, '#6a6864', 0.9);
   // the door: a threshold through the wall, and its frame
   box(d0, d1, -T, 0, -0.02, 0.012, '#2a2c30', 1, null, METAL);
-  const fr = fine ? '#17181b' : trim;
-  // the right jamb is the one the leaf shuts against; the left is the mouth of the pocket it slides into: two
-  // black lips either side of the leaf's track (v -0.1..-0.06) with a dark slot between, so the leaf goes in
-  // through a gap instead of through the frame
-  const fb = '#141518';
-  box(d1 - 0.02, d1 + 0.04, -T - 0.012, 0.012, 0, top + 0.04, fb, 0.97, null, SATIN);
-  box(d0 - 0.04, d0 + 0.02, -T - 0.012, -0.106, 0, top + 0.04, fb, 0.97, null, SATIN);
-  box(d0 - 0.04, d0 + 0.02, -0.054, 0.012, 0, top + 0.04, fb, 0.97, null, SATIN);
-  box(d0 - 0.04, d0 - 0.03, -0.106, -0.054, 0, top + 0.04, '#050506', 1, null, MATTE);
-  // the head: a black box over the opening and the pocket, with the track slot along its underside
   const pk = d0 - (d1 - d0) - 0.02;
-  box(pk, d1 + 0.04, -T - 0.012, -0.106, top - 0.02, top + 0.06, fb, 0.97, null, SATIN);
-  box(pk, d1 + 0.04, -0.054, 0.012, top - 0.02, top + 0.06, fb, 0.97, null, SATIN);
-  box(pk, d1 + 0.04, -0.106, -0.054, top + 0.02, top + 0.06, '#050506', 1, null, MATTE);
-  // a black threshold track the leaf rides in, the full run of the pocket
-  box(pk, d1, -0.11, -0.05, 0, 0.008, fb, 1, null, METAL);
+  if (fine) {
+    // the right jamb is the one the leaf shuts against; the left is the mouth of the pocket it slides into: two
+    // black lips either side of the leaf's track (v -0.1..-0.06) with a dark slot between, so the leaf goes in
+    // through a gap instead of through the frame
+    const fb = '#141518';
+    box(d1 - 0.02, d1 + 0.04, -T - 0.012, 0.012, 0, top + 0.04, fb, 0.97, null, SATIN);
+    box(d0 - 0.04, d0 + 0.02, -T - 0.012, -0.106, 0, top + 0.04, fb, 0.97, null, SATIN);
+    box(d0 - 0.04, d0 + 0.02, -0.054, 0.012, 0, top + 0.04, fb, 0.97, null, SATIN);
+    box(d0 - 0.04, d0 - 0.03, -0.106, -0.054, 0, top + 0.04, '#050506', 1, null, MATTE);
+    // the head: a black box over the opening and the pocket, with the track slot along its underside
+    box(pk, d1 + 0.04, -T - 0.012, -0.106, top - 0.02, top + 0.06, fb, 0.97, null, SATIN);
+    box(pk, d1 + 0.04, -0.054, 0.012, top - 0.02, top + 0.06, fb, 0.97, null, SATIN);
+    box(pk, d1 + 0.04, -0.106, -0.054, top + 0.02, top + 0.06, '#050506', 1, null, MATTE);
+    // a black threshold track the leaf rides in, the full run of the pocket
+    box(pk, d1, -0.11, -0.05, 0, 0.008, fb, 1, null, METAL);
+  } else {
+    // ⚠ A PLAIN ROOM'S POCKET IS IN THE WALL, AND NOTHING OF IT SHOWS ON THE WALL'S FACE. It had the tower flat's
+    // black head box run a door's width out over the plaster, where it cut through the accent band at the
+    // door heads. Now the opening is lined through the wall in the room's trim, with an architrave round it like
+    // the sash window's, and the leaf goes into the wall through a dark slot in the left-hand lining.
+    const lin = (a, b, v0, v1, y0, y1) => box(a, b, v0, v1, y0, y1, trim, 0.95, null, SATIN);
+    lin(d1 - 0.02, d1, -T, 0, 0, top);
+    lin(d0, d0 + 0.02, -T, -0.106, 0, top);
+    lin(d0, d0 + 0.02, -0.054, 0, 0, top);
+    box(d0 - 0.01, d0, -0.106, -0.054, 0, top, '#0a0a0b', 1, null, MATTE);
+    lin(d0, d1, -T, -0.106, top - 0.02, top);
+    lin(d0, d1, -0.054, 0, top - 0.02, top);
+    box(d0, d1, -0.106, -0.054, top - 0.004, top, '#0a0a0b', 1, null, MATTE);
+    // the architrave on the room side, 1.8 cm proud, so it stands over the ends of the accent band and the skirting
+    for (const [a, b, c, e] of [[d0 - 0.07, d0, 0, top + 0.07], [d1, d1 + 0.07, 0, top + 0.07], [d0 - 0.07, d1 + 0.07, top, top + 0.07]]) box(a, b, 0, 0.018, c, e, trim, 0.97, null, SATIN);
+    // a brass track let into the threshold, the full run of the pocket
+    box(d0, d1, -0.1, -0.06, 0.012, 0.016, '#a88a4a', 1.05, null, METAL);
+  }
   // the door itself is an automatic glass slider (slideLeaves, way 'balcony'), moved by the Stage. The shutters
   // come down over its doorway too, on a pane of their own just inside the leaves: its uv runs from 300 at the
-  // doorway's middle, and the shader opens it from the right as the one leaf slides left (uShutDoor), shutters down or not
+  // doorway's middle, and the shader opens it from the right as the one leaf slides left (uShutDoor), shutters down or not.
+  // Only where the door is in a wall of glass: a door in a plain wall isn't the window, and its blinds are the window's
   const dm = (d0 + d1) / 2, dps = [[d0, -0.04, 0.004], [d1, -0.04, 0.004], [d1, -0.04, top], [d0, -0.04, top]];
-  quad(K.glass, dps, nrmOf(0, 0, 1), [0.8, 0.86, 0.9], GLOSS, dps.map((q) => [300 + q[0] - dm, q[2]]), true);
+  if ((L.spec.windows || []).some((q) => q.wall === 'front' && q.kind === 'curtain')) quad(K.glass, dps, nrmOf(0, 0, 1), [0.8, 0.86, 0.9], GLOSS, dps.map((q) => [300 + q[0] - dm, q[2]]), true);
   // the rail round the open sides
   const RH = 1.12, metal = fine ? '#17181b' : '#5a5e62';
   const run = wrap && B.sides ? [[[u0, vO], [u1, vO]], [[u1, vO], [u1, vB]], [[u1, vB], [xe, vB]], [[-xe, vB], [u0, vB]], [[u0, vB], [u0, vO]]]
@@ -1428,7 +1631,11 @@ function drawPane(K, q, { hu, D, trim, fine }) {
     // the architrave round the opening on the room side
     for (const [a, b, c, e] of [[-half - 0.07, -half, y0 - 0.035, y1 + 0.07], [half, half + 0.07, y0 - 0.035, y1 + 0.07], [-half - 0.07, half + 0.07, y1, y1 + 0.07]]) pbox(a, b, c, e, 0, 0.018, trim, 0.97, null, SATIN);
     glass(-0.06);
-    if (!fine) {
+    // Venetian blinds the room's panel runs (spec.blinds, plugins/envcontrol): only the headrail is a solid, in the
+    // reveal under the head; the slats are drawn on the glass by the shutter shader (gl/room-shutters.js blindAt),
+    // as they are on a glass wall, so they turn and come down without a rebuild
+    if (L.spec.blinds) pbox(-half + fw, half - fw, y1 - fw - 0.05, y1 - fw, -0.03, -0.004, trim, 0.95, null, SATIN);
+    if (!fine && !L.spec.blinds) {
       // the blind: a cassette at the head, the cloth down a quarter of the glass, a bar and a pull
       const bl = y1 - (y1 - y0) * 0.24;
       pbox(-half - 0.02, half + 0.02, y1 + 0.07, y1 + 0.15, -0.01, 0.07, trim, 0.95, null, SATIN);
@@ -1436,6 +1643,8 @@ function drawPane(K, q, { hu, D, trim, fine }) {
       pbox(-half, half, bl - 0.03, bl, 0.025, 0.045, trim, 0.9, null, SATIN);
       const [pu, pv] = P(0, 0, 0.04);
       K.lathe(pu, pv, [[0, bl - 0.25], [0.012, bl - 0.25], [0.012, bl - 0.21], [0.003, bl - 0.2], [0.003, bl - 0.03], [0, bl - 0.03]], trim, 0.9, 8);
+    }
+    if (!fine) {
       // the radiator under the window: a row of columns on two pipes, gloss white
       const r0 = -half + 0.05, r1 = half - 0.05, cols = Math.round((r1 - r0) / 0.065);
       for (let i = 0; i < cols; i++) {
@@ -1781,7 +1990,7 @@ function drawPiece(K, p) {
   if (drawDecorForm(K, F, p)) return;
   // what stands in a studio's kitchen takes its fronts and worktop from the kitchen (spec.kitchen)
   const kit = !p.annex && K.L.spec.kitchen ? { front: K.L.spec.kitchen.front, slab: kitchenSlab(K.L.spec) } : null;
-  if (drawFitting({ K, F, p, r, L: K.L, ...(kit?.front ? { front: kit.front } : {}), ...(kit?.slab ? { slab: kit.slab } : {}), coldInside: (...a) => coldInside(K, F, p, ...a), wear, fine, fab, wood, enamel, plastic, steel, tired, stain, lat, rod, R, pick: (list) => pick(r, list) })) return;
+  if (drawFitting({ K, F, p, r, L: K.L, ...(kit?.front ? { front: kit.front } : {}), ...(kit?.slab ? { slab: kit.slab } : {}), coldInside: (...a) => coldInside(K, F, p, ...a), coldShell: (o) => coldShell(F, R, o), coldDoor: (...a) => coldDoor(K, F, p, ...a), COLD_WALL, wear, fine, fab, wood, enamel, plastic, steel, tired, stain, lat, rod, R, pick: (list) => pick(r, list) })) return;
   switch (p.form) {
     case 'stool': {
       lat(0, 0, [[0, 0], [0.19, 0], [0.19, 0.012], [0.14, 0.03], [0.03, 0.05], [0.022, 0.1], [0.022, 0.64], [0.05, 0.67], [0.05, 0.69], [0, 0.69]], '#9aa0a8', 1, 18, METAL);
@@ -1926,32 +2135,40 @@ function drawPiece(K, p) {
       // a tall cabinet with rounded corners, a freezer door over the fridge door (or two doors side by
       // side), steel handles, a black kick plate, and things stuck to the door
       const metal = p.form === 'double', body = metal ? '#c8ccd0' : enamel, tex = metal ? steel : null, surf = metal ? METAL : GLOSS;
-      R(...alongY(), 0.06, h, -hw + 0.01, hw - 0.01, -hd, hd - 0.035, 0.05, tex || body, metal ? 1 : 0.96, surf);
+      // hollow: the cold rooms inside it go back to the cabinet's back wall (coldShell, coldInside)
+      const zf = hd - 0.035, wl = COLD_WALL, ix0 = -hw + 0.01 + wl, ix1 = hw - 0.01 - wl, iy0 = 0.06 + wl, iy1 = h - wl, zb = -hd + wl;
+      coldShell(F, R, { hw, hd, h, zf, c: tex || body, k: metal ? 1 : 0.96, surf });
       pbox(-hw + 0.03, hw - 0.03, 0, 0.06, -hd + 0.04, hd - 0.08, '#141414', 0.9);
-      const zf = hd - 0.035;
       if (metal) {
-        // two cold rooms side by side behind the doors: the freezer on the left, the fridge on the right
-        coldInside(K, F, p, -hw + 0.02, -0.006, 0.08, h - 0.03, zf, true);
-        coldInside(K, F, p, 0.006, hw - 0.02, 0.08, h - 0.03, zf, false);
+        // two cold rooms side by side behind the doors: the freezer on the left, the fridge on the right, a wall between
+        pbox(-0.012, 0.012, iy0, iy1, zb, zf, '#e8ecee', 1.1, null, MATTE);
+        coldInside(K, F, p, ix0, -0.012, iy0, iy1, zf, true, zb);
+        coldInside(K, F, p, 0.012, ix1, iy0, iy1, zf, false, zb);
         K.mark?.('swing', { side: -1 });
+        coldDoor(K, F, p, -hw + 0.01, -0.006, 0.07, h - 0.02, zf, true);
         R(...alongY(), 0.07, h - 0.02, -hw + 0.01, -0.006, zf, zf + 0.035, 0.012, steel, 1.02, METAL);
         rod(P(-0.04, h * 0.35, zf + 0.06), P(-0.04, h * 0.8, zf + 0.06), 0.012, '#e0e4e8', 1.1); for (const y of [h * 0.35, h * 0.8]) rod(P(-0.04, y, zf + 0.035), P(-0.04, y, zf + 0.06), 0.008, '#e0e4e8', 1.1);
         K.mark?.('swing', { side: 1 });
+        coldDoor(K, F, p, 0.006, hw - 0.01, 0.07, h - 0.02, zf, false);
         R(...alongY(), 0.07, h - 0.02, 0.006, hw - 0.01, zf, zf + 0.035, 0.012, steel, 1.02, METAL);
         rod(P(0.04, h * 0.35, zf + 0.06), P(0.04, h * 0.8, zf + 0.06), 0.012, '#e0e4e8', 1.1); for (const y of [h * 0.35, h * 0.8]) rod(P(0.04, y, zf + 0.035), P(0.04, y, zf + 0.06), 0.008, '#e0e4e8', 1.1);
         K.mark?.('body');
         pbox(-0.006, 0.006, 0.07, h - 0.02, zf, zf + 0.03, SEAM, 0.9);
       } else {
         const split = h * 0.7;
-        coldInside(K, F, p, -hw + 0.02, hw - 0.02, 0.08, split - 0.01, zf, false);
-        coldInside(K, F, p, -hw + 0.02, hw - 0.02, split + 0.01, h - 0.03, zf, true);
+        // the fridge under the freezer, a shelf of cabinet between them
+        pbox(ix0, ix1, split - 0.02, split + 0.02, zb, zf, body, 0.96, null, GLOSS);
+        coldInside(K, F, p, ix0, ix1, iy0, split - 0.02, zf, false, zb);
+        coldInside(K, F, p, ix0, ix1, split + 0.02, iy1, zf, true, zb);
         pbox(-hw + 0.01, hw - 0.01, split - 0.008, split + 0.008, zf, zf + 0.03, SEAM, 0.9); // the gasket showing between the doors
         // both doors hang on the right, the handles on the left; the freezer's first, then the fridge's with its notes
         const hx = -hw + 0.07, handle = (y0, y1) => { rod(P(hx, y0, zf + 0.06), P(hx, y1, zf + 0.06), 0.011, '#d8dce0', 1.1); for (const y of [y0, y1]) rod(P(hx, y, zf + 0.035), P(hx, y, zf + 0.06), 0.008, '#d8dce0', 1.1); };
         K.mark?.('swing', { side: 1 });
+        coldDoor(K, F, p, -hw + 0.01, hw - 0.01, split + 0.008, h - 0.015, zf, true);
         R(...alongY(), split + 0.008, h - 0.015, -hw + 0.01, hw - 0.01, zf, zf + 0.035, 0.014, body, 0.98, GLOSS);
         handle(split + 0.06, split + 0.24);
         K.mark?.('swing', { side: 1 });
+        coldDoor(K, F, p, -hw + 0.01, hw - 0.01, 0.07, split - 0.008, zf, false);
         R(...alongY(), 0.07, split - 0.008, -hw + 0.01, hw - 0.01, zf, zf + 0.035, 0.014, body, 0.98, GLOSS);
         handle(split - 0.42, split - 0.1);
         // a takeaway menu, a photo, a shopping list, each held by a magnet
@@ -1969,10 +2186,21 @@ function drawPiece(K, p) {
     }
     case 'chest': {
       // a chest freezer: a white box with a rounded lid, a handle, a dial and a green lamp
-      R(...alongX(), -hw, hw, -hd, hd, 0.06, h - 0.07, 0.04, enamel, 0.96, GLOSS);
-      // the frosted well under the lid, and the baskets across it
-      pbox(-hw + 0.05, hw - 0.05, h - 0.075, h - 0.07, -hd + 0.05, hd - 0.05, '#e6f0f6', 1.3, null, MATTE);
-      for (const x of [-hw * 0.5, hw * 0.5]) pbox(x - 0.012, x + 0.012, h - 0.072, h - 0.071, -hd + 0.06, hd - 0.06, '#b8c4cc', 1, null, METAL);
+      if (K.mark) {
+        // its lid lifting (swingParts): a frosted well down into the body, packed as full as its level (chestInside)
+        const wt = 0.05, yb = 0.2, top = h - 0.07;
+        R(...alongX(), -hw, hw, -hd, hd, 0.06, yb, 0.04, enamel, 0.96, GLOSS);
+        R(...alongX(), -hw, hw, -hd, -hd + wt, yb - 0.01, top, 0.02, enamel, 0.96, GLOSS);
+        R(...alongX(), -hw, hw, hd - wt, hd, yb - 0.01, top, 0.02, enamel, 0.96, GLOSS);
+        R(...alongZ(), -hd + wt, hd - wt, -hw, -hw + wt, yb - 0.01, top, 0.02, enamel, 0.96, GLOSS);
+        R(...alongZ(), -hd + wt, hd - wt, hw - wt, hw, yb - 0.01, top, 0.02, enamel, 0.96, GLOSS);
+        chestInside(K, F, p, -hw + wt, hw - wt, yb, top, -hd + wt, hd - wt);
+      } else {
+        R(...alongX(), -hw, hw, -hd, hd, 0.06, h - 0.07, 0.04, enamel, 0.96, GLOSS);
+        // the frosted well under the lid, and the baskets across it
+        pbox(-hw + 0.05, hw - 0.05, h - 0.075, h - 0.07, -hd + 0.05, hd - 0.05, '#e6f0f6', 1.3, null, MATTE);
+        for (const x of [-hw * 0.5, hw * 0.5]) pbox(x - 0.012, x + 0.012, h - 0.072, h - 0.071, -hd + 0.06, hd - 0.06, '#b8c4cc', 1, null, METAL);
+      }
       K.mark?.('swing', { lid: true });
       R(...alongX(), -hw - 0.01, hw + 0.01, -hd - 0.01, hd + 0.01, h - 0.07, h, 0.03, enamel, 0.99, GLOSS);
       R(...alongX(), -0.2, 0.2, hd + 0.01, hd + 0.04, h - 0.1, h - 0.07, 0.01, '#9aa0a8', 1, METAL);
@@ -2649,13 +2877,21 @@ function slideLeaves(K, L, { DH: DH0, ways, keep = false }) {
         onWall(K, L, o.wall, st, st + 0.01, -0.0575, -0.0535, 0.3, DH - 0.06, '#d8b47c', 1.2, null, METAL);
       } else {
       const a0 = side < 0 || o.balcony ? o.a : m + 0.004, a1 = o.balcony ? o.b : side < 0 ? m - 0.004 : o.b, d0 = -0.1, d1 = -0.06;
-      // a balcony leaf is framed in black, to match its jambs and head
-      const bar = (u0, u1, y0, y1, hex = o.balcony ? '#16171a' : AL, k = 1.1) => onWall(K, L, o.wall, u0, u1, d0, d1, y0, y1, hex, k, null, o.balcony ? SATIN : METAL);
+      // a balcony leaf is framed in black, to match its jambs and head; in a plain room, in the room's painted trim
+      const bar = (u0, u1, y0, y1, hex = o.timber || (o.balcony ? '#16171a' : AL), k = o.timber ? 0.95 : 1.1) => onWall(K, L, o.wall, u0, u1, d0, d1, y0, y1, hex, k, null, o.balcony ? SATIN : METAL);
       // a balcony door's leaf is clear glass in a slim frame (the props layer is opaque, so the glass is left
       // out and the view shows through): two rows of etched dots at eye height so nobody walks into it
-      if (o.balcony) for (const y of [1.42, 1.5]) for (let u = a0 + 0.1; u < a1 - 0.09; u += 0.07) onWall(K, L, o.wall, u, u + 0.025, -0.082, -0.078, y, y + 0.025, '#e6eef2', 0.95, null, GLOSS);
-      bar(a0, a0 + 0.055, 0.004, DH); bar(a1 - 0.055, a1, 0.004, DH);
-      bar(a0, a1, 0.004, 0.12); bar(a0, a1, DH - 0.06, DH);
+      if (o.balcony && !o.timber) for (const y of [1.42, 1.5]) for (let u = a0 + 0.1; u < a1 - 0.09; u += 0.07) onWall(K, L, o.wall, u, u + 0.025, -0.082, -0.078, y, y + 0.025, '#e6eef2', 0.95, null, GLOSS);
+      if (o.timber) {
+        // a timber leaf: broader stiles, a deep bottom rail, a lock rail at hand height and a brass flush pull
+        // in the leading stile, the edge you'd hook a finger in to slide it
+        bar(a0, a0 + 0.075, 0.004, DH); bar(a1 - 0.075, a1, 0.004, DH);
+        bar(a0, a1, 0.004, 0.2); bar(a0, a1, DH - 0.08, DH); bar(a0, a1, 0.98, 1.04);
+        onWall(K, L, o.wall, a1 - 0.055, a1 - 0.025, d1, d1 + 0.006, 0.92, 1.12, '#b8924a', 1.15, null, METAL);
+      } else {
+        bar(a0, a0 + 0.055, 0.004, DH); bar(a1 - 0.055, a1, 0.004, DH);
+        bar(a0, a1, 0.004, 0.12); bar(a0, a1, DH - 0.06, DH);
+      }
       // the push bar, on the room side, and the frosted band across the glass; a balcony leaf is one clear
       // pane, so it has neither
       if (!o.balcony) onWall(K, L, o.wall, a0 + 0.12, a1 - 0.12, d1, d1 + 0.05, 1.02, 1.06, '#c8ccd0', 1.15, null, METAL);

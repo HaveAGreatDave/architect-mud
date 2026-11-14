@@ -11,8 +11,8 @@
 //   3b. A sunken floor: its levels, its seats and climb lowered, the floor drawn down there.
 //   4. A flat with an en-suite: you can walk from the room through the door into it and back, a piece
 //      in it lands in it, and the wall between keeps you out everywhere but the door.
-//   5. Every flat in content/ lays out: nothing drawn outside its room, nothing stood in anything else,
-//      and nothing concealed or a shelf of something else in the payload.
+//   5. Every flat in content/ lays out: nothing drawn outside its room, nothing stood in anything else
+//      or in front of a screen, and nothing concealed or a shelf of something else in the payload.
 //   6. A glazed room lights and draws: every pane gives a light to the renderer and a quad to look
 //      through, and a screen doesn't hang across a window.
 //   7. A studio keeps its parts: walked from the door, every flat reaches every seat and every thing
@@ -32,7 +32,7 @@ import { boothLayout } from '../../client/game/js/panels/gl/booth-mesh.js';
 import { buildRoom, withShells } from '../../client/game/js/panels/gl/room-mesh.js';
 import { STRIDE } from '../../client/game/js/panels/gl/ballpark-mesh.js';
 import { buildingGraph, buildingLayout, roomOpenings, placeFrom, ROOM_GAP } from '../../client/shared/building-graph.js';
-import { roomLayout, roomSpecOf, placeSpot, archetypeOf, dimsOf, formOf, ARCHETYPES, FORMS, withAnnex, annexFrame, roomFree, roomStep, inAnnex, onBalcony, layRows, pieceBoxes, rowDrawn, roomPath, roomNearFree, pathLength, withDoorways, doorwaysOf, openingCrossed, openingInside, decorSolids } from '../../client/shared/room-layout.js';
+import { roomLayout, roomSpecOf, placeSpot, archetypeOf, dimsOf, formOf, ARCHETYPES, FORMS, withAnnex, annexFrame, roomFree, roomStep, inAnnex, onBalcony, layRows, pieceBoxes, rowDrawn, roomPath, roomNearFree, pathLength, withDoorways, doorwaysOf, openingCrossed, openingInside, decorSolids, screenView, mayFaceScreen } from '../../client/shared/room-layout.js';
 
 const FIXTURE = new URL('./booth-layout.fixture.json', import.meta.url);
 const fails = [];
@@ -154,7 +154,9 @@ const flatLayouts = [];
   for (const r of read('furniture/')) { if (!rows.has(r.zone_id)) rows.set(r.zone_id, []); rows.get(r.zone_id).push(r); }
   const fp = (p) => { const q = Math.round(((p.turn % 360) + 360) % 360 / 90) % 2, hw = (q ? p.d : p.w) / 2, hd = (q ? p.w : p.d) / 2; return [p.u - hw, p.u + hw, p.v - hd, p.v + hd]; };
   for (const z of zones.values()) {
-    let spec = roomSpecOf(z.flags, !!z.flags?.is_apartment);
+    // the storey off its marker, as the plugin reads it (specOf), so an upstairs flat has its balcony
+    const storey = parseInt(z.marker, 10);
+    let spec = roomSpecOf(z.flags, !!z.flags?.is_apartment, { storey: Number.isFinite(storey) ? storey : null });
     if (!spec) continue;
     const inner = zones.get(z.exits?.in), annex = inner?.exits?.out === z.id && inner.parent_zone === z.id ? inner : null;
     if (annex) spec = withAnnex(spec, annex.id, annex.name);
@@ -211,6 +213,20 @@ const flatLayouts = [];
       const hits = (A, B) => A.some((a) => B.some((q) => a[0] < q[1] - 0.01 && a[1] > q[0] + 0.01 && a[2] < q[3] - 0.01 && a[3] > q[2] + 0.01));
       for (let j = i + 1; j < floor.length; j++) { if (ring(p) || ring(floor[j])) continue; if (hits(pieceBoxes(p), pieceBoxes(floor[j]))) fail(`${z.id}: ${p.id} stands in ${floor[j].id}`); }
     });
+    // nothing in front of a set but its own deck: the seats that watch it are back past its clear floor
+    for (const s of L.placed.filter((p) => p.arche === 'screen')) {
+      const r = screenView(s), meets = (q) => q[0] < r[1] - 0.01 && q[1] > r[0] + 0.01 && q[2] < r[3] - 0.01 && q[3] > r[2] + 0.01;
+      if (!s.annex && decorSolids(spec).some(meets)) fail(`${z.id}: a plant or a column stands in front of ${s.id}`);
+      // and a set on the window wall hangs on wall, not across the glass or the balcony's door
+      if (s.wall === 'front' && !s.crt) {
+        const half = s.w / 2, gaps = [...(spec.windows || []).filter((q) => q.wall === 'front').map((q) => [q.a, q.b]), ...(spec.balcony ? [spec.balcony.door] : [])];
+        if (gaps.some(([a, b]) => s.u + half > a + 0.01 && s.u - half < b - 0.01)) fail(`${z.id}: ${s.id} hangs across the window wall's glass`);
+      }
+      for (const p of L.placed) {
+        if (p === s || !!p.annex !== !!s.annex || mayFaceScreen(p, s)) continue;
+        if (pieceBoxes(p).some(meets)) fail(`${z.id}: ${p.id} stands in front of ${s.id}`);
+      }
+    }
   }
 }
 
@@ -411,11 +427,11 @@ const flatLayouts = [];
   const nums = (a) => Array.from(a).every(Number.isFinite);
   if (!nums(G.fixed) || G.leaves.some((l) => !nums(l.rest))) fail('a lock\'s vertices aren\'t numbers');
   // shut, the two leaves fill the doorway; open, nothing of them is left in it
-  const inWay = (batch, o) => {
+  const inWay = (batch, o, R = L, edge = 0.06) => {
     let n = 0;
     for (let i = 0; i < batch.n; i++) {
-      const q = L.local([batch.data[i * STRIDE], batch.data[i * STRIDE + 1], batch.data[i * STRIDE + 2]]), along = o.wall === 'front' || o.wall === 'back' ? q[0] : q[1];
-      if (along > o.a + 0.06 && along < o.b - 0.06) n++;
+      const q = R.local([batch.data[i * STRIDE], batch.data[i * STRIDE + 1], batch.data[i * STRIDE + 2]]), along = o.wall === 'front' || o.wall === 'back' ? q[0] : q[1];
+      if (along > o.a + edge && along < o.b - edge) n++;
     }
     return n;
   };
@@ -431,6 +447,18 @@ const flatLayouts = [];
     }
     if (!roomFree(L, ...p.at)) fail(`nobody can stand at the ${o.dir} lock`);
   });
+  // a hotel's doors (decor.leaves, panelDoorOf): one hinged leaf a doorway, filling it shut and swung clear of
+  // it open, past the leaf's own thickness and lever at the hinge
+  {
+    const P = withDoorways({ w: 6, d: 5, h: 3, windowless: true, decor: { leaves: { kind: 'panel' } } }, openings), LP = roomLayout(P, []), wp = doorwaysOf(P);
+    const GP = buildLocks(LP, wp, wp.map((o) => ({ to: o.to, dir: o.dir, door: 'd_' + o.to, locked: true, pass: false, yours: false, hack: true })));
+    if (GP.leaves.length !== 4 || GP.leaves.some((l) => !l.hinge)) fail(`${GP.leaves.length} hinged leaves for 4 hotel doorways`);
+    wp.forEach((o, i) => {
+      const mine = GP.leaves.filter((l) => l.way === i);
+      if (!inWay(liftDoorBatch(mine, 1), o, LP)) fail(`the ${o.dir} hotel door shut leaves its doorway empty`);
+      if (inWay(liftDoorBatch(mine, 0), o, LP, 0.15)) fail(`the ${o.dir} hotel door open still stands in its doorway`);
+    });
+  }
   {
     // a page laid over its own rectangle is the identity, moved
     const m = quadMatrix(300, 400, [[10, 20], [310, 20], [310, 420], [10, 420]]);
@@ -545,24 +573,42 @@ const flatLayouts = [];
 
 // ── an open fridge: its doors come out of the room and swing out to the front on their hinges ─────────────────
 // (gl/room-mesh.js swingParts / swingBatch): nothing lost or drawn twice, shut at 0 exactly where the room had
-// them, and at 1 each door's middle is out in front of the piece and nothing has gone through the floor
+// them, and at 1 each door's middle is out in front of the piece and nothing has gone through the floor. A
+// wardrobe, a cupboard, a locker, a crate and a chest freezer open the same way. Their inside is drawn only while
+// they're open (a shut one is a block), so for them "nothing drawn twice" is that no door is also in the room.
+// And how full each is (`fill`, gl/room-fittings.js stockOf): an empty one draws less inside than a full one.
 {
   const { swingBatch } = await import('../../client/game/js/panels/gl/room-mesh.js');
   const { facing } = await import('../../client/shared/room-layout.js');
   const spec = roomSpecOf({ room: [5, 6, 2.6] }, true);
   const count = (m) => [m.solid, ...m.textured.values()].reduce((n, b) => n + b.n, 0);
-  for (const [form, doors] of [['fridge', 2], ['double', 2], ['column', 1], ['chest', 1]]) {
-    const flags = { look: { arche: 'cold', form } }, dims = dimsOf('cold', 50000, flags), spot = placeSpot(spec, [], 'cold', dims, { form });
-    if (!spot) { fail(`cold/${form}: no spot`); continue; }
-    const L = roomLayout(spec, [{ id: 'f', name: 'fridge', arche: 'cold', form, dims, spot, wear: 0.2, seed: 99 }]), p = L.placed[0];
+  const HOLLOW_OPEN = new Set(['chest', 'wardrobe', 'cupboard', 'locker', 'crate']);
+  // a door's vertices as they lie in a batch, position and normal, to find one drawn in the room as well
+  const keysOf = (data, n) => { const out = []; for (let i = 0; i < n; i++) out.push(Array.from(data.subarray(i * STRIDE, i * STRIDE + 6), (x) => x.toFixed(4)).join(',')); return out; };
+  for (const [arche, form, doors, grams] of [['cold', 'fridge', 2, 50000], ['cold', 'double', 2, 50000], ['cold', 'column', 1, 50000], ['cold', 'chest', 1, 50000],
+    ['wardrobe', 'wardrobe', 3, 90000], ['cabinet', 'cupboard', 3, 25000], ['store', 'locker', 1, 30000], ['store', 'crate', 1, 30000]]) {
+    const flags = { look: { arche, form } }, dims = dimsOf(arche, grams, flags), spot = placeSpot(spec, [], arche, dims, { form });
+    if (!spot) { fail(`${arche}/${form}: no spot`); continue; }
+    const piece = (fill) => ({ id: 'f', name: form, arche, form, dims, spot, wear: 0.2, seed: 99, container: true, ...(fill == null ? {} : { fill }) });
+    const L = roomLayout(spec, [piece(3)]), p = L.placed[0];
     const shut = buildRoom(L, { seed: 3 }), open = buildRoom(L, { seed: 3, swinging: 'f' }), sw = open.swing;
-    if (!sw || sw.parts.length !== doors) { fail(`cold/${form}: ${sw?.parts.length || 0} doors swing, not ${doors}`); continue; }
+    if (!sw || sw.parts.length !== doors) { fail(`${arche}/${form}: ${sw?.parts.length || 0} doors swing, not ${doors}`); continue; }
     const moved = sw.parts.reduce((n, q) => n + q.rest.length / STRIDE, 0);
-    if (count(open) + moved !== count(shut)) fail(`cold/${form}: ${count(shut)} vertices shut, ${count(open)} + ${moved} with its doors out`);
+    if (!HOLLOW_OPEN.has(form)) { if (count(open) + moved !== count(shut)) fail(`${arche}/${form}: ${count(shut)} vertices shut, ${count(open)} + ${moved} with its doors out`); }
+    else {
+      const room = new Set([open.solid, ...open.textured.values()].flatMap((b) => keysOf(b.data, b.n)));
+      const twice = sw.parts.reduce((n, q) => n + keysOf(q.rest, q.rest.length / STRIDE).filter((k) => room.has(k)).length, 0);
+      if (twice > moved * 0.05) fail(`${arche}/${form}: ${twice} of its ${moved} door vertices are in the room as well`);
+      if (!(count(open) + moved > count(shut))) fail(`${arche}/${form}: open, it draws no more than shut (${count(open)} + ${moved} against ${count(shut)}): no inside`);
+    }
+    // the levels: an empty one, a few things, half full, full. Empty draws less than a few, and both a few and half
+    // less than full; a few against half is left to the seed, since the level is a look and not a count
+    const inside = [0, 1, 2, 3].map((fill) => count(buildRoom(roomLayout(spec, [piece(fill)]), { seed: 3, swinging: 'f' })));
+    if (!(inside[0] < inside[1] && inside[1] < inside[3] && inside[2] < inside[3])) fail(`${arche}/${form}: open at each fill level it draws ${inside.join(', ')} vertices, not more as it fills`);
     const at0 = swingBatch({ data: new Float32Array(0), n: 0 }, sw, 0);
     let off = 0, i0 = 0;
     for (const q of sw.parts) { for (let i = 0; i < q.rest.length; i++) if (Math.abs(at0.data[i0 + i] - q.rest[i]) > 1e-4) off++; i0 += q.rest.length; }
-    if (off) fail(`cold/${form}: shut, ${off} door values aren't where the room had them`);
+    if (off) fail(`${arche}/${form}: shut, ${off} door values aren't where the room had them`);
     const [fu, fv] = facing(p.turn), o = L.world(p.u, p.v, 0), e = L.world(p.u + fu, p.v + fv, 0), fx = e[0] - o[0], fz = e[2] - o[2];
     const at1 = swingBatch({ data: new Float32Array(0), n: 0 }, sw, 1);
     let base = 0;
@@ -575,8 +621,8 @@ const flatLayouts = [];
         y += at1.data[s + 1] - q.rest[r + 1]; if (at1.data[s + 1] < -0.01) low++;
       }
       // a door comes out to the front; a lid goes up and back
-      if (q.lid ? !(y / n > 0.1) : !(b / n - a / n > 0.15)) fail(`cold/${form}: door ${j} doesn't swing open (out ${((b - a) / n).toFixed(2)} m, up ${(y / n).toFixed(2)} m)`);
-      if (low) fail(`cold/${form}: door ${j} has ${low} vertices through the floor open`);
+      if (q.lid ? !(y / n > 0.1) : !(b / n - a / n > 0.15)) fail(`${arche}/${form}: door ${j} doesn't swing open (out ${((b - a) / n).toFixed(2)} m, up ${(y / n).toFixed(2)} m)`);
+      if (low) fail(`${arche}/${form}: door ${j} has ${low} vertices through the floor open`);
       base += q.rest.length;
     }
   }

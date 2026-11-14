@@ -10,11 +10,9 @@
 // ⚠ IT'S THE PICTURE'S, AND RAM ONLY. Nothing here doses, feeds or charges anybody: the verbs the ritual ends in do
 // that, as they would typed. An act is forgotten after ACT_MS without a beat, and on logout.
 //
-// `pocketsOf` is what the room's Pockets list shows: one query, on a click, of what a player carries that ROOM can
-// take in first person, each with the ritual it's taken by and the verb that ritual ends in.
+// `ritualOf` and `sprayOf` say how ROOM takes a carried thing in first person; the Pack (pack.js) stamps each row with
+// it, the ritual and the verb that ritual ends in.
 
-import { query } from '../../server/models/db.js';
-import { getItem } from '../../server/engine/items-cache.js';
 import { drugForItem } from '../../server/engine/drugs.js';
 
 // What each act may have in the hand (client gl/figure-reach.js HELD); the first is what a dose typed in the log shows.
@@ -84,21 +82,6 @@ export function createActs({ changed }) {
   };
 }
 
-// A can of spray paint isn't taken, it's used on a wall: the Pockets list offers it, and picking it opens the can
+// A can of spray paint isn't taken, it's used on a wall: the Pack offers it (pack.js), and picking it opens the can
 // (plugins/graffiti `spraycan`) on the wall you're facing. No ritual, so nothing is sent as a `room.act`.
-const sprayOf = (it) => ((Array.isArray(it?.tags) ? it.tags.includes('spray_paint') : !!it?.tags?.spray_paint) ? { act: 'spray', hold: 'can', verb: 'spraycan' } : null);
-
-// What a player has on them that a room can take in first person: [{ id, item, name, qty, act, hold, verb }].
-export async function pocketsOf(playerId) {
-  const { rows } = await query(`SELECT id, item_id, quantity, custom_data FROM player_inventory WHERE player_id=$1 AND container_id IS NULL`, [playerId]);
-  const out = [];
-  for (const r of rows) {
-    const it = getItem(r.item_id), how = it && (ritualOf(it, r.item_id) || sprayOf(it));
-    if (!how) continue;
-    let cd = r.custom_data;
-    if (typeof cd === 'string') { try { cd = JSON.parse(cd); } catch { cd = null; } }
-    if (cd?.packaged) continue;
-    out.push({ id: r.id, item: r.item_id, name: cd?.name || it.name, qty: r.quantity || 1, ...how, verb: how.verb || RITUAL_VERB[how.act] });
-  }
-  return out.sort((a, b) => a.act.localeCompare(b.act) || a.name.localeCompare(b.name));
-}
+export const sprayOf = (it) => ((Array.isArray(it?.tags) ? it.tags.includes('spray_paint') : !!it?.tags?.spray_paint) ? { act: 'spray', hold: 'can', verb: 'spraycan' } : null);

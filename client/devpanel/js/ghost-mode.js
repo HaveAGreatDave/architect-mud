@@ -598,8 +598,10 @@
         break;
       case 'ambient':
         if (msg.message) appendFeed(msg.message, 'msg-ambient', true); break;
+      // A player's own words: text, never HTML, as the game client draws them.
+      // As HTML, a player's `say <img onerror=…>` ran in the watching admin's panel.
       case 'say':
-        if (msg.message) appendFeed(msg.message, 'msg-say', true); break;
+        if (msg.message) appendFeed(msg.message, 'msg-say'); break;
 
       // ── System / status ─────────────────────────────────────────────
       case 'system':
@@ -665,10 +667,11 @@
         if (msg.message) appendFeed(msg.message, 'msg-error', true); break;
 
       // ── Whispers ─────────────────────────────────────────────────────
+      // Player-written, so text like `say` above.
       case 'whisper':
-        appendFeed(`[whisper from ${msg.from || '?'}] ${msg.message}`, 'msg-say', true); break;
+        appendFeed(`[whisper from ${msg.from || '?'}] ${msg.message}`, 'msg-say'); break;
       case 'whisper_sent':
-        appendFeed(`[whisper to ${msg.to}] ${msg.message}`, 'msg-system', true); break;
+        appendFeed(`[whisper to ${msg.to}] ${msg.message}`, 'msg-system'); break;
     }
   }
 

@@ -56,7 +56,7 @@ The trap that shapes `paint.js`: **`esc` changes the LENGTH of the string** (`<`
 
 ## In 3-D: the spray session
 
-With a 3-D view up (the Room Stage, or the street on foot in GLASS), **G** opens the can on the wall you're facing: in a room that's `spraycan` on the room's wall, on the street `spraycan <the way you face>`. In ROOM the can in **Pockets** does the same. It's the ordinary dialog, and the server answers as it always has (no can, no wall).
+With a 3-D view up (the Room Stage, or the street on foot in GLASS), **G** opens the can on the wall you're facing: in a room that's `spraycan` on the room's wall, on the street `spraycan <the way you face>`. In ROOM the can in the **Pack** does the same. It's the ordinary dialog, and the server answers as it always has (no can, no wall).
 
 Its SPRAY IT then doesn't send at once. It starts the **spray session** (`client/game/js/panels/spray-session.js`) over the view: the piece is cut into sections, one for every four letters up to six (`sectionsFor`), and each section is a pattern of two to four strokes shown as arrows, the later sections longer, some with a spin (↻ or ↺: round once, starting anywhere). Drag them with the mouse or a finger, or press them on the arrows or WASD. A wrong stroke sputters and that section starts again; a right one hisses, and the last one sweeps the section on. When the piece is finished it sends the same `sprayapply` the dialog always sent. Put the lid back on (Esc) and nothing is sent or spent. The sounds are SIREN cues in `client/shared/sfx-catalog.js` (group `spray`): the ball bearing rattling, a hiss a stroke, a held hiss while the nozzle's down, a sputter, a section going on, and the finish.
 

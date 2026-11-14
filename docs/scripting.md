@@ -94,6 +94,7 @@ Return values from subscribers are ignored. Async subscribers run but their reje
 | `item.equipped` / `item.unequipped` | `{ actor, item, slot }` (no `slot` on unequip) |
 | `inventory.changed` | `{ actor }` |
 | `zone.entered` | `{ actor, zone, from }` |
+| `npc.moved` | `{ npc, from, to, dir }`: an NPC (not an enemy) walked from one zone to the next by an exit (`moveEntity` in ai-behaviour.js; a jump doesn't fire it). The roomstage plugin walks them out of the room and in at the other end |
 | `flag.set` | `{ actor, scope, flag, value }` |
 | `flag.cleared` | `{ actor, scope, flag }` |
 | `property.released` | `{ zoneId, ownerId, kind }`: a flat, corp HQ or storefront went back on the market (`releaseApartment` in apartments.js, `releaseShop` in the storefront plugin). `kind` is `apartment`, `corp_hq` or `storefront`; `ownerId` is who held it and may be null. The furnishing plugin boxes placed furniture on it |

@@ -145,6 +145,9 @@ export function baseRun(c, y1, opts = {}) {
     face(x0, x1, 0.11, dr - (dr < top ? 0.01 : 0), true, i);
     if (dr < top) face(x0, x1, dr, top, false, i);
   }
+  // ⚠ ONE TOP. `noTop`: something else lays the worktop over this run (a studio's counter slab, room-mesh.js
+  // drawKitchen); drawn here too, the two tops sat in one plane with their grain crossed and flickered.
+  if (!opts.noTop) {
   // the worktop: worn laminate, cleaner laminate on an aluminium edge, oiled beech, stone
   // `c.slab` is the worktop the flat's kitchen says it has (room-layout.js kitchenOf), over the grade's own
   const slab = c.slab || (g === 3 ? STONE : g === 2 ? { t: 'roomButcher', c: '#ffffff' } : { t: 'roomLaminate', c: g === 0 ? '#e0d4b8' : '#ffffff' });
@@ -160,8 +163,10 @@ export function baseRun(c, y1, opts = {}) {
   else if (g === 1) pbox(-hw, hw, y1 - tt, y1, zo, zo + 0.004, '#a8acb0', 1, null, METAL);
   else if (g === 3) pbox(-hw, hw, y1 - 0.004, y1, zo - 0.004, zo + 0.001, '#c8cacc', 1, null, SATIN);
   // an upstand along the wall on a let flat's; a black line where a slum's worktop has come off the wall
-  if (g === 1 || g === 2) pbox(-hw, hw, y1, y1 + 0.05, -hd, -hd + 0.015, '#a8a49c', k, slab, surf);
+  // (`noUpstand`: a run whose back isn't against a wall, like a kitchen's return to its counter)
+  if (opts.noUpstand) { /* no wall behind it */ } else if (g === 1 || g === 2) pbox(-hw, hw, y1, y1 + 0.05, -hd, -hd + 0.015, '#a8a49c', k, slab, surf);
   else if (g === 0) pbox(-hw, hw, y1, y1 + 0.003, -hd, -hd + 0.01, INK, 1);
+  }
   return y1;
 }
 
@@ -213,12 +218,127 @@ function bottles(c, x0, x1, y, z, n) {
   }
 }
 
-// Clothes on a rail between x0 and x1 at height y: hangers, then a garment as a soft block.
-function hanging(c, x0, x1, y, z) {
+// ── HOW FULL A CONTAINER IS DRAWN ───────────────────────────────────────────────────────────────
+// `p.fill` is the level plugins/roomstage fill.js sends with a container's piece: 0 empty, 1 a few things, 2 half
+// full, 3 full. It's a level, not the contents: what's drawn is the form's own kind of thing, as many as the level.
+// A piece that isn't a container is drawn as it always was (full), and a container whose level hasn't come is half.
+export const stockOf = (p) => (!p.container ? 3 : Number.isInteger(p.fill) ? Math.max(0, Math.min(3, p.fill)) : 2);
+// how much of a rail, a row or a heap is there at each level, as a share of a full one
+export const STOCK = [0, 0.2, 0.55, 1];
+// How much of shelf `i` of `n` (counted from the bottom) is stocked at a level, as a share of a full one: a few
+// things go on the one shelf in the middle, half full is the lower shelves, full is every shelf.
+export function shelfKeep(level, i, n) {
+  if (level >= 3) return 1;
+  if (level <= 0) return 0;
+  const mid = Math.floor((n - 1) / 2);
+  if (level === 1) return i === mid ? 0.55 : 0;
+  return i <= Math.max(mid, Math.ceil(n / 2) - 1) ? 0.75 : 0.15;
+}
+// A carcass with its front open, for a piece whose doors swing (room-mesh.js swingParts): a back, two sides, a top
+// and a floor, `t` thick, in `col` (a hex) or `tex`. Drawn only while the doors are out, when there's an inside to see.
+function carcass(c, x0, x1, y0, y1, z0, z1, t, col, k, tex, surf) {
+  const { pbox } = c.F;
+  pbox(x0, x1, y0, y1, z0, z0 + t, col, k * 0.8, tex, surf);
+  pbox(x0, x0 + t, y0, y1, z0, z1, col, k, tex, surf);
+  pbox(x1 - t, x1, y0, y1, z0, z1, col, k, tex, surf);
+  pbox(x0, x1, y1 - t, y1, z0, z1, col, k, tex, surf);
+  pbox(x0, x1, y0, y0 + t, z0, z1, col, k * 0.9, tex, surf);
+}
+// ⚠ AN INSIDE HAS ITS OWN SEED. It's only drawn while the doors are out, so drawn off the piece's `r` it would move
+// every pick after it (the suitcase on a wardrobe) the moment the doors opened.
+function insideOf(c) {
+  let a = (((c.p.seed || 7) * 41 + 9) >>> 0) || 1;
+  const r = () => { a ^= a << 13; a >>>= 0; a ^= a >>> 17; a ^= a << 5; a >>>= 0; return a / 4294967296; };
+  return { ...c, r };
+}
+// INSIDE A WARDROBE: a shelf across the top with folded things on it, a rail under it with what's hung there, and
+// shoes in pairs on the floor, as much of each as its level. A wardrobe too short to hang a coat in is all shelves.
+function wardrobeInside(c, x0, x1, y0, y1, z0, z1, lvl) {
+  const { F, r } = c, { pbox } = F, S = STOCK[lvl], zm = (z0 + z1) / 2, shelf = y1 - 0.3;
+  pbox(x0, x1, shelf - 0.018, shelf, z0, z1 - 0.02, '#5a3a22', 0.8, c.wood, SATIN);
+  const tall = shelf - 0.15 - 1.15 > y0 + 0.12;
+  if (tall) c.rod(F.P(x0, shelf - 0.08, zm), F.P(x1, shelf - 0.08, zm), 0.011, '#c8ccd0', 1.05);
+  else pbox(x0, x1, (y0 + shelf) / 2 - 0.018, (y0 + shelf) / 2, z0, z1 - 0.02, '#5a3a22', 0.8, c.wood, SATIN);
+  if (!lvl) return;
+  const cloth = c.fine ? ['#2a2c30', '#3a3e46', '#c8c4b8', '#4a3a30'] : ['#3a4a5a', '#6a3a2a', '#4a5a3a', '#8a7a5a', '#c8c4b8'];
+  if (tall) hanging(c, x0 + 0.03, x1 - 0.03, shelf - 0.09, zm, S);
+  // folded things in piles on the shelf (and on the middle one of a short wardrobe)
+  for (const y of tall ? [shelf] : [shelf, (y0 + shelf) / 2]) {
+    for (let x = x0 + 0.03; x < x1 - 0.28; x += 0.31) {
+      const k = r(), nn = 1 + Math.floor(r() * 4 * S);
+      if (k > S * 0.9 + 0.05) continue;
+      for (let j = 0; j < nn; j++) pbox(x, x + 0.26, y + j * 0.04, y + j * 0.04 + 0.036, z0 + 0.04, z1 - 0.08, pick(r, cloth), 0.95, null, CLOTH);
+    }
+  }
+  // shoes on the floor, in pairs
+  for (let x = x0 + 0.04; x < x1 - 0.2; x += 0.22) {
+    if (r() > S * 0.8) continue;
+    const col = pick(r, ['#2a1e16', '#1a1a1c', '#5a3a22', '#c8c4b8', '#7a2a2a']);
+    for (const dx of [0, 0.085]) {
+      pbox(x + dx, x + dx + 0.075, y0, y0 + 0.04, z1 - 0.3, z1 - 0.04, col, 0.95, null, LEATHER);
+      pbox(x + dx + 0.005, x + dx + 0.07, y0 + 0.04, y0 + 0.08, z1 - 0.3, z1 - 0.18, col, 0.9, null, LEATHER);
+    }
+  }
+}
+// INSIDE A CRATE: straw on the floor and what's packed in it in layers, boxes, tins and a bottle laid down, one
+// layer thin for a few things and up near the lid for a full one.
+function crateInside(c, x0, x1, y0, y1, z0, z1, lvl) {
+  const { F, r } = c, { pbox } = F, lh = Math.min(0.12, (y1 - y0 - 0.02) / 3);
+  pbox(x0, x1, y0, y0 + 0.012, z0, z1, '#c8a85a', 0.9, null, MATTE);
+  [[], [0.4], [0.9, 0.35], [1, 0.95, 0.8]][lvl].forEach((keep, j) => {
+    const y = y0 + 0.012 + j * lh;
+    for (let x = x0 + 0.015; x < x1 - 0.11; x += 0.13) for (let z = z0 + 0.015; z < z1 - 0.11; z += 0.13) {
+      if (r() > keep && !(j === 0 && x === x0 + 0.015 && z === z0 + 0.015)) continue;
+      const k = r();
+      if (k < 0.4) pbox(x, x + 0.11, y, y + lh - 0.006, z, z + 0.11, pick(r, PACKS), 0.9, null, MATTE);
+      else if (k < 0.75) c.lat(x + 0.055, z + 0.055, [[0, y], [0.045, y], [0.045, y + lh - 0.01], [0, y + lh - 0.01]], pick(r, TINS), 1.05, 10, METAL);
+      else c.rod(F.P(x + 0.005, y + 0.034, z + 0.055), F.P(x + 0.12, y + 0.034, z + 0.055), 0.032, pick(r, ['#3a6a3a', '#5a3a1e', '#2a4a6a']), 1.05, GLOSS, 10);
+    }
+  });
+}
+const TINS = ['#c83a2a', '#3a7ad8', '#e8c02a', '#3aa84a', '#d8d4c8', '#8a3a5a'];
+const PACKS = ['#d8a83a', '#c83a2a', '#3a7ad8', '#f2ead2', '#6a8a3a', '#e88a2a'];
+// A shelf's kept things between x0 and x1, standing on y and no taller than `room`, from zb at the back to zf at the
+// front: tins, jars, packets, mugs and a stack of plates. `keep` is the share of the shelf that's used.
+function shelfGoods(c, x0, x1, y, room, zb, zf, keep) {
+  const { F, r } = c, { pbox } = F, zm = (zb + zf) / 2, dz = (zf - zb) * 0.32;
+  for (let x = x0 + 0.03; x < x1 - 0.07;) {
+    // the first place on a shelf in use is always taken, so a few things is never nothing
+    const k = r(), take = r() < keep || (keep > 0 && x === x0 + 0.03);
+    let w = 0.05 + r() * 0.05;
+    if (!take) { /* a gap */ } else if (k < 0.25 && room > 0.12) {
+      // a tin
+      c.lat(x + 0.034, zm, [[0, y], [0.034, y], [0.034, y + 0.11], [0, y + 0.11]], pick(r, TINS), 1.05, 10, METAL); w = 0.07;
+    } else if (k < 0.42 && room > 0.11) {
+      // a jar with a lid
+      const hh = Math.min(room, 0.09 + r() * 0.04);
+      c.lat(x + 0.032, zm, [[0, y], [0.032, y], [0.032, y + hh * 0.84], [0, y + hh * 0.84]], pick(r, ['#c83a2a', '#6a8a3a', '#f2ead2', '#8a5a2a']), 1.05, 10, GLOSS);
+      c.lat(x + 0.032, zm, [[0, y + hh * 0.84], [0.03, y + hh * 0.84], [0.03, y + hh], [0, y + hh]], pick(r, ['#d8d8d0', '#c8a83a']), 1, 10, METAL); w = 0.066;
+    } else if (k < 0.66 && room > 0.15) {
+      // a packet stood on end: cereal, rice, crackers
+      const hh = Math.min(room - 0.01, 0.15 + r() * 0.1), pw = 0.05 + r() * 0.03;
+      pbox(x, x + pw, y, y + hh, zm - dz, zm + dz, pick(r, PACKS), 0.95, null, SATIN); w = pw;
+    } else if (k < 0.82 && room > 0.1) {
+      // a mug with its handle
+      c.lat(x + 0.04, zm, [[0, y], [0.036, y], [0.04, y + 0.09], [0, y + 0.09]], pick(r, ['#f2efe8', '#2c4a72', '#c46a2a', '#3a3a3e']), 1, 10, GLOSS);
+      c.rod(F.P(x + 0.078, y + 0.025, zm), F.P(x + 0.078, y + 0.07, zm), 0.008, '#f2efe8', 1); w = 0.09;
+    } else {
+      // a stack of plates
+      const nn = 2 + Math.floor(r() * 5);
+      c.lat(x + 0.1, zm, [[0, y], [0.1, y], [0.11, y + nn * 0.012], [0, y + nn * 0.012]], pick(r, ['#f2efe8', '#e4e0d4', '#c8d8d0']), 1.05, 16, GLOSS); w = 0.22;
+    }
+    x += w + 0.015;
+  }
+}
+
+// Clothes on a rail between x0 and x1 at height y: hangers, then a garment as a soft block. `keep` is how much of
+// the rail is used (STOCK), a full rail by default.
+function hanging(c, x0, x1, y, z, keep = 1) {
   const { F, r } = c, n = Math.max(3, Math.round((x1 - x0) / 0.1));
   const cols = c.fine ? ['#2a2c30', '#3a3e46', '#6a6e74', '#c8c4b8', '#4a3a30'] : ['#3a4a5a', '#6a3a2a', '#4a5a3a', '#8a7a5a', '#2a2a2e', '#7a2a2a'];
   for (let i = 0; i < n; i++) {
-    if (r() < 0.16) continue;
+    // (one in the middle of a rail in use is always hung, so a few things is never nothing)
+    if (r() < 1 - 0.84 * keep && !(keep > 0 && i === n >> 1)) continue;
     const x = x0 + (i + 0.5) * (x1 - x0) / n, l = 0.75 + r() * 0.4, col = pick(r, cols);
     c.rod(F.P(x, y, z), F.P(x, y - 0.06, z), 0.003, '#c8ccd0', 1, METAL, 4);
     c.R(...F.alongX(), x - 0.03, x + 0.03, z - 0.2, z + 0.2, y - 0.06 - l, y - 0.06, 0.025, { t: 'roomWeave', c: col }, 0.95, CLOTH);
@@ -284,15 +404,25 @@ const FORMS = {
     // worn one a door has dropped a little
     const { F, p, r } = c, { pbox } = F, hw = p.w / 2, hd = p.d / 2, h = p.h, wood = c.wood, n = p.w > 1.1 ? 3 : 2;
     pbox(-hw, hw, 0, 0.09, -hd, hd - 0.02, '#3a2a1e', 0.85, wood, SATIN);
-    pbox(-hw + 0.01, hw - 0.01, 0.09, h - 0.08, -hd, hd - 0.04, '#5a3a22', 0.85, wood, SATIN);
+    // open (its doors swinging, room-mesh.js swingParts) it's a carcass with what's kept in it; shut, a block
+    if (c.K.mark) {
+      const t = 0.02, x0 = -hw + 0.01, x1 = hw - 0.01, y0 = 0.09, y1 = h - 0.08, zf = hd - 0.04;
+      carcass(c, x0, x1, y0, y1, -hd, zf, t, '#5a3a22', 0.85, wood, SATIN);
+      wardrobeInside(insideOf(c), x0 + t, x1 - t, y0 + t, y1 - t, -hd + t, zf, stockOf(p));
+    } else pbox(-hw + 0.01, hw - 0.01, 0.09, h - 0.08, -hd, hd - 0.04, '#5a3a22', 0.85, wood, SATIN);
     pbox(-hw - 0.012, hw + 0.012, h - 0.08, h, -hd - 0.0, hd + 0.01, '#5a3a22', 0.95, wood, SATIN);
     for (let i = 0; i < n; i++) {
       const x0 = -hw + 0.02 + i * (p.w - 0.04) / n, x1 = x0 + (p.w - 0.04) / n - 0.006, sag = c.wear > 0.5 && i === 1 ? 0.012 : 0;
+      // the left half of the doors hang on the left and the right half on the right, so open they fan out like a
+      // book and never swing through each other; each handle is on its door's free edge
+      const left = i < n / 2;
+      c.K.mark?.('swing', { side: left ? -1 : 1 });
       pbox(x0, x1, 0.1 - sag, h - 0.09 - sag, hd - 0.04, hd - 0.012, '#5a3a22', 0.97, wood, SATIN);
       pbox(x0 + 0.06, x1 - 0.06, 0.24, h * 0.5, hd - 0.012, hd - 0.008, '#5a3a22', 0.9, wood, SATIN);
       pbox(x0 + 0.06, x1 - 0.06, h * 0.5 + 0.08, h - 0.2, hd - 0.012, hd - 0.008, '#5a3a22', 0.9, wood, SATIN);
-      c.lat(i % 2 ? x0 + 0.05 : x1 - 0.05, hd + 0.012, [[0, 1.08], [0.016, 1.09], [0.016, 1.11], [0, 1.12]], '#c9a24a', 1.05, 8, METAL);
+      c.lat(left ? x1 - 0.05 : x0 + 0.05, hd + 0.012, [[0, 1.08], [0.016, 1.09], [0.016, 1.11], [0, 1.12]], '#c9a24a', 1.05, 8, METAL);
     }
+    c.K.mark?.('body');
     // a suitcase on top of a lived-in one
     if (c.wear > 0.3 && r() < 0.7) pbox(-hw * 0.5, hw * 0.3, h, h + 0.18, -hd * 0.6, hd * 0.5, '#6a4a2a', 0.9, null, LEATHER);
   },
@@ -313,10 +443,12 @@ const FORMS = {
         pbox(x1 - 0.015, x1, 0.06, h - 0.03, -hd + 0.03, hd - 0.02, '#2a2420', 0.9, null, SATIN);
         pbox(x0 + 0.02, x1 - 0.02, h - 0.05, h - 0.035, -0.02, 0.02, '#ffe9c4', 1.7);
         c.rod(F.P(x0 + 0.015, h - 0.2, 0), F.P(x1 - 0.015, h - 0.2, 0), 0.012, '#c9a24a', 1.05);
-        hanging(c, x0 + 0.03, x1 - 0.03, h - 0.21, 0);
-        for (const y of [0.3, 0.56]) {
+        // as much on the rail and the shelves as it holds (stockOf)
+        const lvl = stockOf(p);
+        hanging(c, x0 + 0.03, x1 - 0.03, h - 0.21, 0, STOCK[lvl]);
+        for (const [j, y] of [0.3, 0.56].entries()) {
           pbox(x0 + 0.015, x1 - 0.015, y - 0.015, y, -hd + 0.03, hd - 0.04, '#7a5a3a', 1, panel, SATIN);
-          for (let k = 0; k < 3; k++) pbox(x0 + 0.05, x1 - 0.05, y + k * 0.04, y + k * 0.04 + 0.036, -hd + 0.1, hd - 0.14, pick(r, ['#3a3e46', '#c8c4b8', '#6a6e74', '#4a3a30']), 0.95, null, CLOTH);
+          for (let k = 0; k < Math.round(3 * shelfKeep(lvl, j, 2) + (lvl === 1 ? 0.4 : 0)); k++) pbox(x0 + 0.05, x1 - 0.05, y + k * 0.04, y + k * 0.04 + 0.036, -hd + 0.1, hd - 0.14, pick(r, ['#3a3e46', '#c8c4b8', '#6a6e74', '#4a3a30']), 0.95, null, CLOTH);
         }
       } else {
         pbox(x0 + 0.003, x1 - 0.003, 0.065, h - 0.035, hd - 0.05, hd - 0.012, '#7a5a3a', 1, panel, SATIN);
@@ -327,12 +459,23 @@ const FORMS = {
     // wall cupboards: a carcass hung on the wall, two or three doors, a light line under them
     const { F, p, r } = c, { pbox } = F, hw = p.w / 2, hd = p.d / 2, y0 = HUNG_AT, y1 = y0 + p.h, n = Math.max(2, Math.round(p.w / 0.45));
     const front = c.fine ? '#3b3d41' : pick(r, ['#d8d0c0', '#c8d0c8', '#8a6a4a']);
-    pbox(-hw, hw, y0, y1, -hd, hd - 0.02, front, 0.85, null, SATIN);
+    // open, a carcass with a shelf across it and the kitchen's things on both; shut, a block
+    if (c.K.mark) {
+      const t = 0.016, zf = hd - 0.02, ci = insideOf(c), lvl = stockOf(p), mid = (y0 + y1) / 2;
+      carcass(c, -hw, hw, y0, y1, -hd, zf, t, front, 0.85, null, SATIN);
+      pbox(-hw + t, hw - t, y0 + t, y1 - t, -hd + t, -hd + t + 0.002, '#eeeae0', 0.9, null, MATTE);
+      pbox(-hw + t, hw - t, mid - 0.014, mid, -hd + t, zf - 0.01, front, 0.92, null, SATIN);
+      for (const [j, [ya, yb]] of [[y0 + t, mid - 0.014], [mid, y1 - t]].entries()) shelfGoods(ci, -hw + t, hw - t, ya, yb - ya - 0.02, -hd + t, zf, shelfKeep(lvl, j, 2) * 0.8);
+    } else pbox(-hw, hw, y0, y1, -hd, hd - 0.02, front, 0.85, null, SATIN);
     for (let i = 0; i < n; i++) {
       const x0 = -hw + 0.004 + i * p.w / n, x1 = x0 + p.w / n - 0.008;
+      // hung like a wardrobe's: the left half on the left, the right half on the right, the handle on the free edge
+      const left = i < n / 2;
+      c.K.mark?.('swing', { side: left ? -1 : 1 });
       pbox(x0, x1, y0 + 0.006, y1 - 0.006, hd - 0.02, hd - 0.002, front, 0.97, null, SATIN);
-      if (!c.fine) { const x = i % 2 ? x0 + 0.04 : x1 - 0.04; c.rod(F.P(x, y0 + 0.06, hd + 0.012), F.P(x, y0 + 0.16, hd + 0.012), 0.006, '#c8ccd0', 1.05); }
+      if (!c.fine) { const x = left ? x1 - 0.04 : x0 + 0.04; c.rod(F.P(x, y0 + 0.06, hd + 0.012), F.P(x, y0 + 0.16, hd + 0.012), 0.006, '#c8ccd0', 1.05); }
     }
+    c.K.mark?.('body');
     if (c.fine) pbox(-hw + 0.03, hw - 0.03, y0 - 0.006, y0, -0.04, 0.04, '#ffe9c4', 1.7);
   },
   vitrine(c) {
@@ -343,12 +486,12 @@ const FORMS = {
     pbox(-hw, -hw + 0.03, 0.1, h - 0.05, -hd, hd, '#3a2a1e', 0.9, oak, SATIN);
     pbox(hw - 0.03, hw, 0.1, h - 0.05, -hd, hd, '#3a2a1e', 0.9, oak, SATIN);
     pbox(-hw + 0.03, hw - 0.03, 0.1, h - 0.05, -hd, -hd + 0.015, '#2a2622', 0.8, null, SATIN);
-    const shelves = 4;
+    const shelves = 4, lvl = stockOf(p);
     for (let i = 1; i <= shelves; i++) {
       const y = 0.1 + i * (h - 0.2) / (shelves + 0.6);
       pbox(-hw + 0.03, hw - 0.03, y - 0.008, y, -hd + 0.015, hd - 0.03, '#dfe6e8', 0.9, null, GLOSS);
       pbox(-hw + 0.04, hw - 0.04, y + 0.3, y + 0.303, -hd + 0.02, -hd + 0.03, '#ffe9c4', 1.6);
-      bottles(c, -hw + 0.08, hw - 0.08, y, 0, 3 + Math.floor(r() * 3));
+      bottles(c, -hw + 0.08, hw - 0.08, y, 0, Math.round((3 + Math.floor(r() * 3)) * shelfKeep(lvl, i - 1, shelves)));
     }
     c.K.quad(c.K.glass, [P(-hw + 0.03, 0.1, hd - 0.012), P(hw - 0.03, 0.1, hd - 0.012), P(hw - 0.03, h - 0.05, hd - 0.012), P(-hw + 0.03, h - 0.05, hd - 0.012)], N(0, 0, 1), [0.8, 0.86, 0.9], GLOSS, null, true);
     c.rod(P(-0.04, 1.0, hd + 0.01), P(-0.04, 1.22, hd + 0.01), 0.006, '#c9a24a', 1.05);
@@ -365,16 +508,16 @@ const FORMS = {
     pbox(-hw + 0.035, hw - 0.035, 0.12, h - 0.07, -hd, -hd + 0.02, cedar, 0.85, null, SATIN);
     pbox(-hw + 0.035, -hw + 0.05, 0.12, h - 0.07, -hd + 0.02, hd - 0.03, cedar, 0.85, null, SATIN);
     pbox(hw - 0.05, hw - 0.035, 0.12, h - 0.07, -hd + 0.02, hd - 0.03, cedar, 0.85, null, SATIN);
-    const racks = 5, x0 = -hw + 0.07, x1 = hw - 0.07;
+    const racks = 5, x0 = -hw + 0.07, x1 = hw - 0.07, lvl = stockOf(p);
     for (let i = 0; i < racks; i++) {
-      const y = 0.2 + i * (h - 0.36) / racks;
+      const y = 0.2 + i * (h - 0.36) / racks, keep = 0.92 * shelfKeep(lvl, i, racks);
       pbox(-hw + 0.05, hw - 0.05, y - 0.012, y, -hd + 0.02, hd - 0.04, slat, 0.95, null, SATIN);
       pbox(-hw + 0.05, hw - 0.05, y + 0.17, y + 0.174, -hd + 0.03, hd - 0.05, '#cfe8ff', 1.7);
       const n = Math.max(6, Math.round((x1 - x0) / 0.032));
       for (let row = 0; row < 2; row++) {
         const cy = y + 0.012 + row * 0.022;
         for (let k = 0; k < n; k++) {
-          if (r() < 0.08) continue;
+          if (r() > keep) continue;
           const x = x0 + (k + 0.5 + row * 0.5) * (x1 - x0) / (n + 0.5), col = pick(r, ['#4a2a18', '#5a3420', '#3a2014', '#6a3e22']);
           c.rod(P(x, cy, -hd + 0.06), P(x, cy, hd - 0.08), 0.0105, col, 1, MATTE, 6);
           c.rod(P(x, cy, hd - 0.14), P(x, cy, hd - 0.12), 0.0112, i % 2 ? '#c9a24a' : '#18181a', 1.05, METAL, 6);
@@ -394,7 +537,7 @@ const FORMS = {
     for (const y of [y0, y0 + 0.08, y1 - 0.06]) for (const z of [-hd + 0.02, hd - 0.03]) c.rod(F.P(-hw, y, z), F.P(hw, y, z), 0.005, '#b8bcc0', 1, METAL, 4);
     const n = Math.round(p.w / 0.05);
     for (let i = 0; i <= n; i++) { const x = -hw + i * p.w / n; c.rod(F.P(x, y0, hd - 0.03), F.P(x, y0 + 0.2, hd - 0.03), 0.003, '#b8bcc0', 1, METAL, 4); }
-    for (let i = 0; i < 6; i++) {
+    for (let i = 0; i < Math.round(6 * STOCK[stockOf(p)]); i++) {
       const x = -hw + 0.1 + i * (p.w - 0.2) / 5, [u, v] = F.P(x, 0, 0);
       void u; void v;
       c.R(...F.alongX(), x - 0.008, x + 0.008, -0.12, 0.12, y0 + 0.02, y0 + 0.26, 0.006, pick(r, ['#f2efe8', '#e4e0d4', '#c8d8d0']), 1, GLOSS);
@@ -402,7 +545,7 @@ const FORMS = {
   },
   shelves(c) {
     // steel shelving: four uprights, shelves, and what's been put on them
-    const { F, p, r } = c, { pbox } = F, hw = p.w / 2, hd = p.d / 2, h = p.h, n = Math.max(3, Math.round(h / 0.45));
+    const { F, p, r } = c, { pbox } = F, hw = p.w / 2, hd = p.d / 2, h = p.h, n = Math.max(3, Math.round(h / 0.45)), lvl = stockOf(p);
     for (const [x, z] of [[-hw + 0.02, -hd + 0.02], [hw - 0.02, -hd + 0.02], [-hw + 0.02, hd - 0.02], [hw - 0.02, hd - 0.02]]) pbox(x - 0.016, x + 0.016, 0, h, z - 0.016, z + 0.016, '#6a6e74', 0.95, null, METAL);
     for (let i = 0; i < n; i++) {
       const y = 0.12 + i * (h - 0.16) / (n - 1);
@@ -410,7 +553,7 @@ const FORMS = {
       if (i === n - 1) continue;
       for (let x = -hw + 0.06; x < hw - 0.14;) {
         const w = 0.1 + r() * 0.2, t = 0.1 + r() * 0.22;
-        if (r() < 0.8) pbox(x, x + w, y, y + t, -hd + 0.05, hd - 0.06, pick(r, ['#8a7a5a', '#6a5a4a', '#3a4a5a', '#c8c0a8', '#5a6a5a']), 0.95, null, MATTE);
+        if (r() < 0.8 * shelfKeep(lvl, i, n - 1)) pbox(x, x + w, y, y + t, -hd + 0.05, hd - 0.06, pick(r, ['#8a7a5a', '#6a5a4a', '#3a4a5a', '#c8c0a8', '#5a6a5a']), 0.95, null, MATTE);
         x += w + 0.02;
       }
     }
@@ -425,11 +568,14 @@ const FORMS = {
     pbox(-hw - 0.015, hw + 0.015, h - t, h + 0.012, -hd, hd + 0.02, wc, 1.05, wood, SATIN);
     pbox(-hw + t, hw - t, 0, 0.1, -hd + 0.02, hd - 0.015, wc, 0.85, wood, SATIN);
     const BOOKS = ['#7a1f1a', '#1f3346', '#2a4a2a', '#c8a46a', '#3a2a1e', '#d8cdb8', '#4a1e2e', '#1a1a1a', '#5a6a7a', '#8a4a2a'];
+    const lvl = stockOf(p);
     for (let i = 0; i < n; i++) {
       const y = 0.1 + i * (h - 0.1 - t) / n, top = 0.1 + (i + 1) * (h - 0.1 - t) / n - t;
       pbox(-hw + t, hw - t, y, y + t, -hd + 0.012, hd - 0.005, wc, 0.98, wood, SATIN);
       const fy = y + t, room = top - fy - 0.015;
-      for (let x = -hw + t + 0.01; x < hw - t - 0.04;) {
+      // a bookcase that's a container is filled from the left as far as its level (stockOf)
+      const end = -hw + t + 0.01 + (p.w - 2 * t - 0.05) * shelfKeep(lvl, i, n);
+      for (let x = -hw + t + 0.01; x < end;) {
         const k = r();
         if (k < 0.08 && x < hw - t - 0.16) {
           // a turned pot
@@ -452,17 +598,40 @@ const FORMS = {
   locker(c) {
     // a steel locker: a door with louvres, a hasp and a number plate
     const { F, p, r } = c, { pbox } = F, hw = p.w / 2, hd = p.d / 2, h = p.h, paint = pick(r, ['#5a6a6a', '#6a6a5a', '#4a5a6a', '#7a7468']);
-    pbox(-hw, hw, 0, h, -hd, hd - 0.02, paint, 0.9, null, METAL);
+    // open, a steel shell with a shelf, a rail of what's hung and boots on the floor; shut, a block
+    if (c.K.mark) {
+      const t = 0.012, x0 = -hw + t, x1 = hw - t, z0 = -hd + t, zf = hd - 0.02, shelf = h - 0.36, zm = (z0 + zf) / 2;
+      const ci = insideOf(c), lvl = stockOf(p), S = STOCK[lvl];
+      carcass(c, -hw, hw, 0, h, -hd, zf, t, paint, 0.75, null, METAL);
+      pbox(x0, x1, shelf - 0.012, shelf, z0, zf - 0.01, paint, 0.85, null, METAL);
+      c.rod(F.P(x0, shelf - 0.06, zm), F.P(x1, shelf - 0.06, zm), 0.009, '#c8ccd0', 1.05);
+      if (lvl) {
+        shelfGoods(ci, x0, x1, shelf, h - t - shelf - 0.02, z0, zf, S * 0.8);
+        hanging(ci, x0 + 0.02, x1 - 0.02, shelf - 0.07, zm, S);
+        // a pair of boots in one half full, and a holdall on a full one
+        if (lvl >= 2) for (const dx of [0, 0.1]) { pbox(x0 + 0.05 + dx, x0 + 0.13 + dx, t, t + 0.05, zf - 0.32, zf - 0.04, '#2a241c', 0.9, null, LEATHER); pbox(x0 + 0.055 + dx, x0 + 0.125 + dx, t + 0.05, t + 0.24, zf - 0.32, zf - 0.2, '#2a241c', 0.85, null, LEATHER); }
+        if (lvl === 3) c.R(...F.alongZ(), z0 + 0.04, zf - 0.04, x1 - 0.24, x1 - 0.02, t, t + 0.22, 0.05, { t: 'roomWeave', c: pick(ci.r, ['#3a4a2a', '#2a3a5a', '#5a2a2a']) }, 0.9, CLOTH);
+      }
+    } else pbox(-hw, hw, 0, h, -hd, hd - 0.02, paint, 0.9, null, METAL);
+    // the door on hinges at the left, the hasp at the right
+    c.K.mark?.('swing', { side: -1 });
     pbox(-hw + 0.02, hw - 0.02, 0.05, h - 0.03, hd - 0.02, hd - 0.004, paint, 0.97, null, METAL);
     for (let i = 0; i < 5; i++) { const y = h - 0.2 - i * 0.05; pbox(-hw + 0.12, hw - 0.12, y, y + 0.022, hd - 0.004, hd, '#1a1a1c', 0.9, null, METAL); }
     pbox(hw - 0.09, hw - 0.05, h * 0.5, h * 0.5 + 0.12, hd - 0.004, hd + 0.012, '#c8ccd0', 1.05, null, METAL);
     pbox(-0.06, 0.06, h - 0.1, h - 0.06, hd - 0.004, hd, '#d8d4c8', 1, null, SATIN);
     c.stain(0, h * 0.35, hd, 0.06);
+    c.K.mark?.('body');
   },
   crate(c) {
     // a crate: slats round a box, a lid sat on it
     const { F, p } = c, { pbox } = F, hw = p.w / 2, hd = p.d / 2, h = p.h, n = 3;
-    pbox(-hw + 0.02, hw - 0.02, 0.02, h - 0.04, -hd + 0.02, hd - 0.02, '#3a2a1e', 0.75);
+    // open (its lid lifting, room-mesh.js swingParts), a dark inside with what's packed in it; shut, a block
+    if (c.K.mark) {
+      const x0 = -hw + 0.02, x1 = hw - 0.02, z0 = -hd + 0.02, z1 = hd - 0.02, y0 = 0.02, y1 = h - 0.04;
+      pbox(x0, x1, y0, y0 + 0.02, z0, z1, '#3a2a1e', 0.75);
+      for (const [a, b, e, f] of [[x0, x1, z0, z0 + 0.01], [x0, x1, z1 - 0.01, z1], [x0, x0 + 0.01, z0, z1], [x1 - 0.01, x1, z0, z1]]) pbox(a, b, y0, y1, e, f, '#3a2a1e', 0.7);
+      crateInside(insideOf(c), x0 + 0.01, x1 - 0.01, y0 + 0.02, y1, z0 + 0.01, z1 - 0.01, stockOf(p));
+    } else pbox(-hw + 0.02, hw - 0.02, 0.02, h - 0.04, -hd + 0.02, hd - 0.02, '#3a2a1e', 0.75);
     for (let i = 0; i < n; i++) {
       const y = 0.03 + i * (h - 0.08) / n, t = (h - 0.08) / n - 0.018;
       pbox(-hw, hw, y, y + t, hd - 0.02, hd, '#8a6a4a', 0.95, c.wood, SATIN);
@@ -470,16 +639,23 @@ const FORMS = {
       pbox(-hw, -hw + 0.02, y, y + t, -hd, hd, '#8a6a4a', 0.92, c.wood, SATIN);
       pbox(hw - 0.02, hw, y, y + t, -hd, hd, '#8a6a4a', 0.92, c.wood, SATIN);
     }
+    // the lid, hinged along its back edge
+    c.K.mark?.('swing', { lid: true });
     pbox(-hw - 0.01, hw + 0.01, h - 0.03, h, -hd - 0.01, hd + 0.01, '#8a6a4a', 1, c.wood, SATIN);
+    c.K.mark?.('body');
   },
   column(c) {
     // a tall freezer to stand beside a fridge: one door, a bar handle, a lamp at the top
     const { F, p } = c, { pbox, alongY } = F, hw = p.w / 2, hd = p.d / 2, h = p.h, zf = hd - 0.04, steel = { t: 'roomSteel', c: '#d0d4d8' };
-    c.R(...alongY(), 0.06, h, -hw + 0.008, hw - 0.008, -hd, zf, 0.03, steel, 0.96, METAL);
+    // hollow, the cold room inside going back to the cabinet's back wall (room-mesh.js coldShell)
+    const wl = c.COLD_WALL ?? 0.04;
+    if (c.coldShell) c.coldShell({ hw, hd, h, zf, c: steel, k: 0.96, surf: METAL });
+    else c.R(...alongY(), 0.06, h, -hw + 0.008, hw - 0.008, -hd, zf, 0.03, steel, 0.96, METAL);
     pbox(-hw + 0.02, hw - 0.02, 0, 0.06, -hd + 0.04, zf - 0.05, '#141414', 0.9);
-    c.coldInside?.(-hw + 0.02, hw - 0.02, 0.08, h - 0.03, zf, true);
-    // the door, its handle and its read-out swing together, on hinges at the left
+    c.coldInside?.(-hw + 0.01 + wl, hw - 0.01 - wl, 0.06 + wl, h - wl, zf, true, -hd + wl);
+    // the door, its handle and its read-out swing together, on hinges at the left, its bins on the inside
     c.K.mark?.('swing', { side: -1 });
+    c.coldDoor?.(-hw + 0.01, hw - 0.01, 0.07, h - 0.015, zf, true);
     c.R(...alongY(), 0.07, h - 0.015, -hw + 0.01, hw - 0.01, zf, zf + 0.035, 0.012, steel, 1.02, METAL);
     const hx = hw - 0.07;
     c.rod(F.P(hx, h * 0.35, zf + 0.06), F.P(hx, h * 0.8, zf + 0.06), 0.012, '#e0e4e8', 1.1);

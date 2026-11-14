@@ -1018,13 +1018,9 @@ wss.on("connection", (ws, req) => {
 			if (session.playerId) emit("room.pos", { playerId: session.playerId, at: msg.at, yaw: msg.yaw, seat: msg.seat });
 			return;
 		}
-		// What they're doing with their hands, as their first-person ritual goes, and their Pockets list (plugins/roomstage acts.js).
+		// What they're doing with their hands, as their first-person ritual goes (plugins/roomstage acts.js).
 		if (msg.type === "room_act") {
 			if (session.playerId) emit("room.act", { playerId: session.playerId, act: typeof msg.act === "string" ? msg.act : null, hold: typeof msg.hold === "string" ? msg.hold : null });
-			return;
-		}
-		if (msg.type === "room_pockets") {
-			if (session.playerId) emit("room.pockets", { playerId: session.playerId });
 			return;
 		}
 		if (msg.type === "panel_watch" || msg.type === "panel_unwatch") {

@@ -961,6 +961,10 @@ export function moveEntity(entity, newZoneId, broadcast, query, opts = {}) {
     }
   }
 
+  // Walked out by an exit (not a jump): plugins/roomstage walks them to that doorway on an open Stage, and in at
+  // the other end, rather than dropping them from one room and dropping them into the next.
+  if (departDir && !isEnemy(entity)) emit('npc.moved', { npc: entity, from: oldZoneId, to: newZoneId, dir: departDir });
+
   // Drag along any players following this entity. Fire-and-forget + dynamic
   // import to keep moveEntity synchronous and avoid a circular import.
   if (departDir) {

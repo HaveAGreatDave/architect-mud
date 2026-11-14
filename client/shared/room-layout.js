@@ -287,6 +287,20 @@ export function pieceBoxes(p, k = 1) {
   return pcdeskRuns(p, k).map((q) => { const a = pt(q[0], q[2]), b = pt(q[1], q[3]); return [Math.min(a[0], b[0]), Math.max(a[0], b[0]), Math.min(a[1], b[1]), Math.max(a[1], b[1])]; });
 }
 
+// The floor kept clear in front of a screen, as [u0, u1, v0, v1]: as wide as the set and SCREEN_CLEAR
+// metres out from its face. Nothing stands in it but the set's own deck (and what's set down on that),
+// so the seats that watch it are back past it. placeSpot keeps it, and the room-stage gate holds an
+// authored room to it.
+export const SCREEN_CLEAR = 1.2;
+export function screenView(p, k = 1) {
+  const [fu, fv] = facing(p.turn), su = -fv, sv = fu, hw = p.w / 2, z0 = p.d / 2, z1 = z0 + SCREEN_CLEAR * k;
+  const pts = [[-hw, z0], [hw, z0], [-hw, z1], [hw, z1]].map(([x, z]) => [p.u + su * x + fu * z, p.v + sv * x + fv * z]);
+  return [Math.min(...pts.map((q) => q[0])), Math.max(...pts.map((q) => q[0])), Math.min(...pts.map((q) => q[1])), Math.max(...pts.map((q) => q[1]))];
+}
+// What may stand in screen `s`'s clear floor: its deck, anything sat on another piece, and under a set
+// hung high on purpose (a `y` on its spot: over a bar, over a reception desk) whatever doesn't reach it.
+export const mayFaceScreen = (p, s = null) => p.arche === 'deck' || !!p.spot?.on || !!p.on || (s?.mount > 0 && p.h < s.mount - s.h / 2);
+
 // ── what each archetype gives the room ──────────────────────────────────────────────────────────
 // Seats with their eyes, stations with a reach, and what a walker can't stand in or climbs over.
 // `x` across the piece (the sitter's right as they face out of it) and `z` out of its front.
@@ -991,7 +1005,8 @@ export const roomYaw = (L, du, dv) => Math.atan2(L.r[0] * du - L.f[0] * dv, L.r[
 // (studioPlan) that's its own part of the room: what cooks and keeps food goes along the kitchen's
 // wall behind the counter, a bed and a wardrobe in the back left, and the lounge's pieces out front,
 // seats facing whatever screen is in the room. Without a plan it's wall by wall. Either way nothing
-// goes in the way in, and nothing tall in front of the window.
+// goes in the way in, nothing tall in front of the window, and nothing in front of a screen
+// (screenView); a screen hangs where a sofa or chair already looks, when one does.
 // `pieces` are the room's furnished pieces with their spots (and `crt` on a set that stands on the
 // floor). Spots are in metres. Returns a spot, or null when the room is full.
 //
@@ -1003,7 +1018,9 @@ export const roomYaw = (L, du, dv) => Math.atan2(L.r[0] * du - L.f[0] * dv, L.r[
 // `form` tells a hung cabinet from a standing one; `bases` (true for an authored piece) lets a kettle
 // or a microwave take `{ on, x }`, a place on a worktop already in the room. A player's piece never
 // does, since the worktop can be taken away from under it.
-export function placeSpot(spec, pieces, arche, dims, { crt = false, wall = null, form = null, bases = false } = {}) {
+// `test` is a spot to check rather than one to find: placeSpot hands it back if it fits by the same rules, else
+// null (spotFits). The arrange mode's preview and the server's `arrange layout` both ask it.
+export function placeSpot(spec, pieces, arche, dims, { crt = false, wall = null, form = null, bases = false, test = null } = {}) {
   const S = { w: FLAT_ROOM.w, d: FLAT_ROOM.d, h: FLAT_ROOM.h, ...spec };
   const k = unitsPerM(S), hu = S.w / 2 / k, D = S.d / k, P = S.plan || null;
   const cooks = arche === 'cold' || arche === 'hob' || arche === 'sink' || arche === 'cabinet' || (arche === 'surface' && form === 'counter');
@@ -1041,8 +1058,13 @@ export function placeSpot(spec, pieces, arche, dims, { crt = false, wall = null,
       const g = footprint(o);
       if (fp[0] < g[1] + gap && fp[1] > g[0] - gap && fp[2] < g[3] + gap && fp[3] > g[2] - gap) return false;
     }
+    // nothing stands in front of a screen, and a screen only goes where the floor in front of it is clear
+    const meets = (a, r) => a[0] < r[1] - 0.01 && a[1] > r[0] + 0.01 && a[2] < r[3] - 0.01 && a[3] > r[2] + 0.01;
+    if (have.some((o) => o.arche === 'screen' && !mayFaceScreen({ ...q, arche }, o) && meets(fp, screenView(o, k)))) return false;
+    if (arche === 'screen') { const r = screenView(q, k); if (have.some((o) => !mayFaceScreen(o, q) && meets(footprint(o), r)) || decorSolids(S).some((b) => meets(b, r))) return false; }
     return true;
   };
+  if (test) return fits(test) ? test : null;
   const along = (wall, from, to, step = 0.1) => { const out = []; for (let a = from; from <= to ? a <= to + 1e-6 : a >= to - 1e-6; a += from <= to ? step : -step) out.push({ wall, along: +a.toFixed(2) }); return out; };
   // a side wall from the back toward the window; the front and back walls from left to right
   const wallRun = (wall) => (wall === 'left' || wall === 'right' ? along(wall, D - 0.4, 0.4) : along(wall, -hu + 0.4, hu - 0.4));
@@ -1133,6 +1155,20 @@ export function placeSpot(spec, pieces, arche, dims, { crt = false, wall = null,
     // every wall full: the open floor, in rows from the back. A piece that has to go somewhere goes
     // here rather than standing in the one behind it
     for (let v = D - 0.8; v > 0.6; v -= 0.4) for (let u = 0; u < hu; u += 0.4) for (const s of u ? [-1, 1] : [1]) cands.push({ at: [+(s * u).toFixed(2), +v.toFixed(2)], turn: 0 });
+  }
+  // a set hangs where a sofa or a chair in the room already looks, a few metres off, the sofa first
+  const watch = arche === 'screen' ? have.filter((o) => o.arche === 'sofa' || o.arche === 'bench' || (o.arche === 'seat' && o.form !== 'stool')) : [];
+  if (watch.length) {
+    const score = (c) => {
+      const q = resolveSpot(S, c, dims), [fu, fv] = facing(q.turn);
+      return watch.reduce((n, o) => {
+        const du = q.u - o.u, dv = q.v - o.v, r = Math.hypot(du, dv), [gu, gv] = facing(o.turn);
+        const looks = r > 0 && (gu * du + gv * dv) / r > 0.85 && -(fu * du + fv * dv) / r > 0.7 && r / k >= 1.6 && r / k <= 5;
+        return n + (looks ? (o.arche === 'seat' ? 1 : 2) : 0);
+      }, 0);
+    };
+    const ranked = cands.map((c, i) => ({ c, i, s: score(c) }));
+    cands = ranked.sort((a, b) => b.s - a.s || a.i - b.i).map((x) => x.c);
   }
   return cands.find(fits) || null;
 }
@@ -1231,6 +1267,7 @@ function keepClear(S) {
 // or, for a flat, FLAT_ROOM. Null when the room has no Stage. As an object it may also carry:
 //   glass    the walls that are floor-to-ceiling glass instead of a window: any of 'front', 'left',
 //            'right'. With none the room has the one sash window in its front wall.
+//   blinds   true for Venetian blinds in that sash window, which a control panel runs (plugins/envcontrol)
 //   sash     the sash window made a period one (sashOf): { w, at, y0, y1, transom, lights, head, drapes, pole }
 //   finish   what the room is built from ('plain' by default, 'fine' for a tower flat)
 //   ensuite  { w, d, finish }, the size of an en-suite when the flat has one
@@ -1297,6 +1334,9 @@ export function roomSpecOf(flags, isFlat, { storey = null } = {}) {
   if (sash) out.window = [sash.a, sash.b, sash.y0, sash.y1];
   out.windows = glass.length ? glass.map(pane) : [sash ? { wall: 'front', ...sash, kind: 'sash' } : { wall: 'front', a: window[0], b: window[1], y0: window[2], y1: window[3], kind: 'sash' }];
   if (glass.includes('front')) out.window = [-hu + 0.12, hu - 0.12, 0.05, h - 0.1];
+  // Venetian blinds in a sash window, run from the room's control panel (plugins/envcontrol): the mesh hangs a
+  // headrail in place of the roller blind, and the shutter shader draws the slats
+  if (base.blinds === true && !glass.length && !base.windowless) out.blinds = true;
   if (base.ensuite && typeof base.ensuite === 'object') out.ensuite = base.ensuite;
   // `tile` is a clinic's white tile, `concrete` a plant room's slab, `terrazzo` an old lobby's chips in cream (gl/room-mesh.js)
   if (['stone', 'marble', 'terrazzo', 'rubber', 'tile', 'concrete'].includes(base.ground)) out.ground = base.ground;
@@ -1477,6 +1517,44 @@ export function layRows(rows, spec, { annex = false, finish = 'plain', itemOf = 
   for (const f of player.filter((x) => x.flags?.spot)) add(f, f.flags.spot);
   for (const f of player.filter((x) => !x.flags?.spot)) { const spot = fresh(f, false); add(f, spot); stamps.push({ row: f, spot }); }
   return { pieces, stamps };
+}
+
+// ── arranging by hand (plugins/roomstage `arrange layout`, panels/room-arrange.js) ──────────────────
+// Whether a laid-out piece (one of layRows' pieces: arche, dims, form, crt) may stand at `spot` among `others`,
+// by placeSpot's own rules: in the room, out of the way in, the window, the kitchen's aisle and the screen's view,
+// and clear of every other piece. A hung piece (a flat screen, a wall cabinet) only ever hangs on a wall.
+export const pieceHangs = (p) => (p.arche === 'screen' && !p.crt) || hungOf(p.arche, p.form);
+export function spotFits(spec, others, p, spot) {
+  if (!spot || (pieceHangs(p) && !spot.wall)) return false;
+  const arche = ARCHETYPES[p.arche] ? p.arche : 'prop';
+  return !!placeSpot(spec, others, arche, p.dims || dimsOf(arche), { crt: !!p.crt, form: p.form || null, test: spot });
+}
+// A hand-placed spot as the server keeps it: { wall, along } with its back to a wall, or { at: [u, v], turn } out
+// in the room, turned a quarter at a time. Null for anything else.
+export function cleanSpot(s) {
+  const r2 = (x) => Math.round(x * 100) / 100;
+  if (!s || typeof s !== 'object') return null;
+  if (s.wall) return WALL_TURN[s.wall] !== undefined && Number.isFinite(Number(s.along)) ? { wall: s.wall, along: r2(Number(s.along)) } : null;
+  if (!Array.isArray(s.at) || s.at.length !== 2 || !s.at.every((x) => Number.isFinite(Number(x)))) return null;
+  const turn = ((Math.round((Number(s.turn) || 0) / 90) * 90) % 360 + 360) % 360;
+  return { at: [r2(Number(s.at[0])), r2(Number(s.at[1]))], turn };
+}
+// The words of an arrange mode Save (`arrange layout ...` less its two verbs), as the game (plugins/roomstage) and the
+// Room Lab (tools/modelshop) both read them: `<id>@<spot>` moves a piece, `+<item>@<spot>` adds one, `-<id>` takes one
+// out. A spot is `<wall>:<along>` or `<u>,<v>,<turn>`. Null if any word doesn't read; at most `max` words.
+export function parseLayout(words, max = 80) {
+  const out = [];
+  for (const w of words.slice(0, max)) {
+    if (w.startsWith('-') && w.length > 1) { out.push({ id: w.slice(1), remove: true }); continue; }
+    const at = w.lastIndexOf('@');
+    if (at < 1) return null;
+    const add = w.startsWith('+'), id = w.slice(add ? 1 : 0, at), s = w.slice(at + 1);
+    const wall = /^(left|right|front|back):(-?[\d.]+)$/.exec(s), free = /^(-?[\d.]+),(-?[\d.]+),(-?\d+)$/.exec(s);
+    const spot = cleanSpot(wall ? { wall: wall[1], along: wall[2] } : free ? { at: [free[1], free[2]], turn: free[3] } : null);
+    if (!id || !spot) return null;
+    out.push(add ? { item: id, spot, add: true } : { id, spot });
+  }
+  return out;
 }
 
 // The order authored pieces are placed in: what needs a wall first, what goes on or under it after.

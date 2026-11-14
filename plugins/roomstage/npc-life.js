@@ -124,11 +124,13 @@ const DOING_HOT = {
 // they come out of it in different clothes. `say` is what's said of it, now and then.
 const S_ = (clip, ms, o = {}) => ({ clip, ms, ...o });
 const USE_STEPS = {
+  // the door pulled open and held (fridgeOpen), a look over the shelves with a hand going in (fridgeLook), and
+  // the door let go to swing shut; room-stage.js mirrors both to the hinge's side
   cold: [
-    { steps: [S_('rummage', [3500, 6000], { open: 1 }), S_('eat', [6000, 11000])], say: ['takes something out of the {piece} and eats it standing up.', 'finds a cold leftover in the {piece} and eats it with their fingers.'] },
-    { steps: [S_('rummage', [3000, 5000], { open: 1 }), S_('stare', [3000, 5000], { open: 1 }), S_('idleSigh', [2000, 3000])], say: ['opens the {piece}, stares into it for a while, and shuts it with nothing.', 'looks in the {piece} as though something new might have turned up.'] },
-    { steps: [S_('rummage', [2500, 4500], { open: 1 }), S_('drink', [6000, 10000])], say: ['takes a bottle out of the {piece} and drinks from it with the door still open.', 'gets a can out of the {piece} and opens it.'] },
-    { steps: [S_('reach', [2500, 4000], { open: 1 }), S_('rummage', [2500, 4000], { open: 1 }), S_('eat', [4000, 7000], { open: 1 })], say: ['eats something out of the {piece} without closing the door.', 'picks at something in the {piece} with the door wide open.'] },
+    { steps: [S_('fridgeOpen', [1600, 1600], { open: 1 }), S_('fridgeLook', [4500, 7000], { open: 1 }), S_('eat', [6000, 11000])], say: ['takes something out of the {piece} and eats it standing up.', 'finds a cold leftover in the {piece} and eats it with their fingers.'] },
+    { steps: [S_('fridgeOpen', [1600, 1600], { open: 1 }), S_('fridgeLook', [6000, 10000], { open: 1 }), S_('idleSigh', [2000, 3000])], say: ['opens the {piece}, stares into it for a while, and shuts it with nothing.', 'looks in the {piece} as though something new might have turned up.'] },
+    { steps: [S_('fridgeOpen', [1600, 1600], { open: 1 }), S_('fridgeLook', [3500, 5000], { open: 1 }), S_('drink', [6000, 10000])], say: ['takes a bottle out of the {piece} and drinks from it.', 'gets a can out of the {piece} and opens it.'] },
+    { steps: [S_('fridgeOpen', [1600, 1600], { open: 1 }), S_('fridgeLook', [3000, 4500], { open: 1 }), S_('eat', [4000, 7000], { open: 1 })], say: ['eats something out of the {piece} without closing the door.', 'picks at something in the {piece} with the door wide open.'] },
   ],
   wardrobe: [
     { steps: [S_('rummage', [4000, 7000]), S_('undress', [3500, 5000]), S_('redress', [4000, 6000], { outfit: 1 }), S_('adjust', [2500, 4000])], say: ['changes into something else at the {piece}.', 'tries a different top on and keeps it.'] },
@@ -349,7 +351,7 @@ export function createNpcLife({ viewers, annexOf, mainOf, specOf, roomPieces, se
   const spotsOf = (main, me) => [...lives.values()].filter((l) => l !== me && l.main === main && !Number.isInteger(l.seat))
     .map((l) => l.job?.stand || l.at).filter(Boolean);
   // A standing job moved off anyone else's spot: a step to the side of it, or null when the floor round it is full.
-  const ROOM_APART = 0.6;
+  const ROOM_APART = 0.7;
   function apart(job, L, main, me) {
     if (!job?.stand || job.seat !== undefined || job.pair) return job;   // a pair stands close on purpose
     const others = spotsOf(main, me), clear = (s) => s && others.every((o) => Math.hypot(o[0] - s[0], o[1] - s[1]) >= ROOM_APART);
@@ -363,8 +365,8 @@ export function createNpcLife({ viewers, annexOf, mainOf, specOf, roomPieces, se
 
   // Lands them where a job puts them.
   function settle(life, job, L, now) {
-    life.at = job.stand; life.route = null; life.job = null; life.kind = job.kind; life.steps = null; life.stepTok = null;
-    life.seat = job.seat ?? null; life.on = job.on ?? null; life.pose = job.pose ?? null; life.clip = job.clip ?? null;
+    life.at = job.stand; life.route = null; life.job = null; life.kind = job.kind; life.steps = null; life.stepTok = null; life.walkTok = null;
+    life.seat = job.seat ?? null; life.on = job.on ?? null; life.pose = job.pose ?? null; life.clip = job.clip ?? null; life.openPiece = job.openPiece ?? null;
     if (job.face) life.yaw = roomYaw(L, job.face[0] - job.stand[0], job.face[1] - job.stand[1]);
     else if (job.yaw !== undefined) life.yaw = job.yaw;
     life.next = life.talk ? Infinity : now + between(STAY[job.kind] || STAY.pace) + between(REST_MS);
@@ -389,7 +391,9 @@ export function createNpcLife({ viewers, annexOf, mainOf, specOf, roomPieces, se
       const stand = st && roomNearFree(L, st.u, st.v, 1.8, main);
       if (!stand) return null;
       life.meal = { dish: HOME_DISHES[Math.floor(Math.random() * HOME_DISHES.length)].id, stage: 'get', piece: named.get(st.piece)?.name || 'fridge' };
-      return { kind: 'meal', meal: 'get', stand, face: st.at, clip: 'rummage' };
+      // a fridge they open and look into (fridgeLook, the door held open: stageOf's `open`); a cupboard they go through
+      const cold = named.get(st.piece)?.arche === 'cold';
+      return { kind: 'meal', meal: 'get', stand, face: st.at, clip: cold ? 'fridgeLook' : 'rummage', ...(cold ? { openPiece: st.piece } : {}) };
     }
     if (m.stage === 'get') {
       // the hob whenever there's one to stand at; the floor only when there isn't
@@ -427,12 +431,53 @@ export function createNpcLife({ viewers, annexOf, mainOf, specOf, roomPieces, se
     return null;
   }
 
+  // ⚠ NOBODY WALKS THROUGH ANYBODY. Everyone else in the room who's stood or sat still (or is on their way to a
+  // spot) is a box in the way of the route, so it goes round them; and a route that would meet another walker's at
+  // the same moment waits a beat for them to pass, up to WAIT_TRIES times, and then goes anyway. A trip to the
+  // bathroom doesn't wait: the door's on a clock.
+  const BODY_HALF = 0.2, PASS_GAP = 0.55, WAIT_MS = 1_300, WAIT_TRIES = 3;
+  function crowded(L, main, me) {
+    const boxes = [];
+    for (const l of lives.values()) {
+      if (l === me || l.main !== main || !l.at) continue;
+      const at = l.route ? l.job?.stand : l.seat !== null && l.L?.seats?.[l.seat] ? [l.L.seats[l.seat].u, l.L.seats[l.seat].v] : l.at;
+      if (at) boxes.push([at[0] - BODY_HALF, at[0] + BODY_HALF, at[1] - BODY_HALF, at[1] + BODY_HALF]);
+    }
+    return boxes.length ? { ...L, solid: [...L.solid, ...boxes] } : L;
+  }
+  // The first moment (ms from now) a route set off now would come within PASS_GAP of somebody else's, or -1.
+  function meets(path, ms, main, me, now) {
+    const len = pathLength(path), others = [...lives.values()].filter((l) => l !== me && l.main === main && l.route);
+    if (!others.length) return -1;
+    for (let t = 0; t <= ms; t += 150) {
+      const a = pathAt(path, len * t / (ms || 1)).at;
+      for (const l of others) {
+        const r = l.route, k = Math.min(1, Math.max(0, (now + t - r.t0) / r.ms));
+        if (k >= 1) continue;   // there by then: it's a box in crowded()
+        const b = pathAt(r.path, r.len * k).at;
+        if (Math.hypot(a[0] - b[0], a[1] - b[1]) < PASS_GAP) return t;
+      }
+    }
+    return -1;
+  }
   // Sets off for a job. False when there's no way there from here.
-  function walk(n, life, L, job, main, now) {
-    const path = roomPath(L, life.at, job.stand);
+  function walk(n, life, L, job, main, now, tries = 0) {
+    const tok = life.walkTok = {};
+    const path = roomPath(crowded(L, main, life), life.at, job.stand) || roomPath(L, life.at, job.stand);
     if (!path) return false;
     const len = pathLength(path);
-    life.seat = null; life.on = null; life.pose = null; life.clip = null; life.stash = null;
+    if (job.kind !== 'bath' && tries < WAIT_TRIES && meets(path, len / SPEED * 1000, main, life, now) >= 0) {
+      // stood where they are a moment, facing where they're going, and then off
+      life.route = null; life.job = null; life.next = Infinity;
+      const t = setTimeout(() => {
+        if (lives.get(n.id) !== life || life.walkTok !== tok || life.route) return;
+        if (!walk(n, life, L, job, main, Date.now(), tries + 1)) life.next = Date.now() + between(REST_MS);
+        if (viewers.get(main)?.size) sendPeople(main).catch(() => {});
+      }, WAIT_MS);
+      t.unref?.();
+      return true;
+    }
+    life.seat = null; life.on = null; life.pose = null; life.clip = null; life.stash = null; life.openPiece = null;
     // on the way to the hob with what they took out, or to a seat with the plate
     if (job.meal && life.meal) life.meal.stage = job.meal === 'get' ? 'get' : job.meal === 'cook' ? 'carry' : 'serve';
     // the last point exact: rounded, a spot against the counter can land a few millimetres inside it
@@ -549,7 +594,7 @@ export function createNpcLife({ viewers, annexOf, mainOf, specOf, roomPieces, se
 
   // Now and then they do it where you can read it, and now and then they say something.
   function remark(n, job, main) {
-    if (job.kind === 'talk') return;
+    if (job.kind === 'talk' || job.kind === 'bath') return;
     if (job.say && Math.random() < 0.7) { say(n, main, pick(job.say).replace(/\{piece\}/g, job.name || 'cupboard')); return; }
     if (job.stash) { say(n, main, pick(SIT_LINES[job.stash.k] || SIT_LINES.swallow).replace(/\{table\}/g, job.name || 'table')); return; }
     if (job.meal) {
@@ -574,8 +619,9 @@ export function createNpcLife({ viewers, annexOf, mainOf, specOf, roomPieces, se
   // On their feet and still, wherever they've got to.
   function stopFor(life, now) {
     const r = life.route;
+    life.walkTok = null;   // a walk waiting on somebody to pass (walk()) is off too
     if (r) { life.at = pathAt(r.path, Math.min(r.len, (now - r.t0) / r.ms * r.len)).at; life.route = null; life.job = null; }
-    life.seat = null; life.on = null; life.pose = null; life.clip = null; life.stash = null;
+    life.seat = null; life.on = null; life.pose = null; life.clip = null; life.stash = null; life.openPiece = null;
   }
 
   // What peopleIn draws for this NPC, or null when the engine has them.
@@ -589,22 +635,23 @@ export function createNpcLife({ viewers, annexOf, mainOf, specOf, roomPieces, se
     const sat = life.seat !== null && !life.route && !!SIT_TAKE[use];
     if (use && !life.talk && !sat) stopFor(life, now);
     const r = life.route;
+    // the en-suite's plain leaf: shut by whoever's in there, as the trip says, or by anyone stood in there anyway
+    const shut = life.bath ? life.bath.door === 'shut' : life.inside && !r && n.zone_id === annexOf(main)?.id;
     // what they're cooking or eating, and where the stove and the pan are (gl/room-meals.js)
     const m = life.meal, meal = m ? { d: m.dish, s: m.stage, ...(m.stove ? { stove: m.stove } : {}), ...(m.pan && m.stage === 'cook' ? { pan: m.pan } : {}) } : null;
     if (r) {
       const gone = Math.min(r.len, (now - r.t0) / r.ms * r.len), q = pathAt(r.path, gone);
-      return { at: q.at.map((x) => +x.toFixed(2)), yaw: life.yaw || 0, route: { path: [q.at, ...r.path.slice(q.leg)], ms: Math.max(0, Math.round(r.ms - (now - r.t0))) }, ...(meal ? { meal } : {}) };
+      return { at: q.at.map((x) => +x.toFixed(2)), yaw: life.yaw || 0, route: { path: [q.at, ...r.path.slice(q.leg)], ms: Math.max(0, Math.round(r.ms - (now - r.t0))) }, ...(meal ? { meal } : {}), ...(shut ? { shut: true } : {}) };
     }
     // at the table: the kit and the clock it's taken on (client/shared/table-stash.js); the client works out the clip
     const stash = life.stash ? { k: life.stash.k, of: life.stash.of, beat: life.stash.beat, at: life.stash.at, gone: now - life.stash.t0 } : null;
     const said = life.talk && life.talkClip && life.talkClip.until > now ? life.talkClip.clip : null;
     const seatClip = use ? SIT_TAKE[use] : stash ? null : (said && SIT_TWIN[said]) || life.clip;
-    if (life.seat !== null) return { posture: life.pose, on: life.on, seat: life.seat, ...(seatClip ? { clip: seatClip } : {}), ...(meal ? { meal } : {}), ...(stash ? { stash } : {}) };
-    const shut = life.inside && n.zone_id === annexOf(main)?.id;
+    if (life.seat !== null) return { posture: life.pose, on: life.on, seat: life.seat, ...(seatClip ? { clip: seatClip } : {}), ...(meal ? { meal } : {}), ...(stash ? { stash } : {}), ...(shut ? { shut: true } : {}) };
     const step = life.talk || use ? null : stepOf(life, now);
     const clip = life.talk ? said || 'listen' : use || step?.clip || life.clip;
     // a step with the piece open says which piece: the client swings its doors (room-stage.js openFridge)
-    const open = step?.open && life.job == null && life.on == null ? life.usePiece : null;
+    const open = step?.open && life.job == null && life.on == null ? life.usePiece : !step && !r && life.openPiece != null ? life.openPiece : null;
     return { at: life.at.map((x) => +x.toFixed(2)), yaw: life.yaw || 0, ...(clip ? { clip } : {}), ...(open ? { open } : {}), ...(shut ? { shut: true } : {}), ...(meal ? { meal } : {}) };
   }
 
@@ -651,6 +698,7 @@ export function createNpcLife({ viewers, annexOf, mainOf, specOf, roomPieces, se
       if (!free(n, main) || clipOfUse(n.id)) return false;
       const life = lives.get(n.id);
       if (!life || life.main !== main) return true;
+      if (life.bath) return false;   // on a trip to the bathroom (bathroom()): the trip moves them
       catchUp(life, now);
       return !life.route && (life.inside !== (n.zone_id === annex?.id) || life.next <= now);
     });
@@ -701,12 +749,104 @@ export function createNpcLife({ viewers, annexOf, mainOf, specOf, roomPieces, se
     if (changed) await sendPeople(main);
   }
 
+  // THE TRIP TO THE BATHROOM (ambient-life home-life.js playBathroom, `npc.bathroom`). The engine owns the beats
+  // and the door; this walks the body to each: up to the door, a hand on it as it opens, through, over to the
+  // toilet, the shower or the basin, back to the door, and out. `life.bath` holds them off every other job until
+  // the trip's `end`, and its `door` is the plain en-suite's leaf (a door with a row is drawn from the locks).
+  async function bathroom({ zoneId, npcId, phase, intent, fixtureId }) {
+    const main = mainOf(zoneId), n = world.npcs.get(npcId);
+    let life = lives.get(npcId);
+    if (!n || !viewers.get(main)?.size) { if (life && phase === 'end') life.bath = null; return; }
+    if (!life || life.main !== main) {
+      if (phase !== 'going') return;
+      await settleIn(main);
+      life = lives.get(npcId);
+      if (!life || life.main !== main) return;
+    }
+    const lay = await layoutOf(main);
+    const L = lay?.L, A = L?.annex, door = L?.spec.annex?.door;
+    if (!L || !A || !door) return;
+    life.L = L;
+    const now = Date.now(), mid = (door[0] + door[1]) / 2;
+    const outside = () => roomNearFree(L, mid, L.d - 0.45, 0.8, L.bounds) || roomNearFree(L, mid, L.d - 0.6, 1.8);
+    const inside = () => roomNearFree(L, mid, A.v0 + 0.55, 0.8) || [mid, A.v0 + 0.6];
+    const go = (job) => { if (!walk(n, life, L, job, main, now)) settle(life, job, L, now); };
+    const b = life.bath || (life.bath = { intent, fixtureId, door: 'open' });
+    life.next = Infinity;
+    switch (phase) {
+      case 'going': {
+        stopFor(life, now);
+        life.meal = null; life.want = null;
+        if (tvBy.get(main) === n.id) { tvBy.delete(main); tvChanged(main); }
+        go({ kind: 'bath', stand: outside(), face: [mid, L.d + 1] });
+        break;
+      }
+      case 'open': {
+        b.door = 'open';
+        // a hand to it as it goes, where they stand
+        if (!life.route) { life.clip = 'reach'; life.yaw = roomYaw(L, 0, life.inside ? -1 : 1); }
+        break;
+      }
+      case 'close': b.door = 'shut'; break;
+      case 'in': {
+        life.inside = true;
+        go(fixtureJob(L, b) || { kind: 'bath', stand: inside(), face: [mid, A.v0 + 2] });
+        break;
+      }
+      case 'use': {
+        // sat on the bowl already; under the water or at the basin, the clip that goes with it
+        // (still on the way, it's the job's, or arriving would wipe it)
+        const clip = b.intent === 'shower' ? 'shower' : b.intent === 'wash' ? 'wash' : b.intent === 'poop' ? 'sitPhone' : null;
+        if (life.route && life.job) life.job.clip = clip;
+        else if (clip) life.clip = clip;
+        break;
+      }
+      case 'done': {
+        go({ kind: 'bath', stand: inside(), face: [mid, A.v0 - 1] });
+        break;
+      }
+      case 'out': {
+        life.inside = false;
+        const taken = busy(main, lay.pieces), feel = feelOf(main);
+        const job = apart(chooseJob(L, taken, null, outside(), feel), L, main, life) || { kind: 'pace', stand: outside() };
+        go(job);
+        break;
+      }
+      case 'end': {
+        life.bath = null;
+        life.next = (life.route ? life.route.t0 + life.route.ms : now) + between(REST_MS);
+        break;
+      }
+    }
+    await sendPeople(main);
+  }
+  // Where the trip's fixture is used: sat on the toilet, stood under the shower, at the basin.
+  function fixtureJob(L, b) {
+    const named = new Map(L.placed.map((p) => [p.id, p])), p = named.get(b.fixtureId);
+    if (!p) return null;
+    if (b.intent === 'pee' || b.intent === 'poop') {
+      const i = L.seats.findIndex((s) => s.piece === p.id);
+      if (i < 0) return null;
+      const s = L.seats[i], stand = seatApproach(L, s, 1.8);
+      return stand ? { kind: 'bath', seat: i, on: s.piece, pose: 'sitting', stand } : null;
+    }
+    const st = L.stations.find((x) => x.piece === p.id);
+    if (!st) return null;
+    const [fu, fv] = facingOf(p.turn);
+    // a walk-in stall's station is under the head: stood in it facing out, so the room sees them; a bath, a basin,
+    // in front of it looking at it
+    const walkIn = p.arche === 'shower' && p.form !== 'bath' && p.form !== 'soak';
+    const stand = walkIn ? roomNearFree(L, st.u, st.v, 0.5) : roomNearFree(L, st.u, st.v, 1.2);
+    if (!stand) return null;
+    return { kind: 'bath', stand, face: walkIn ? [stand[0] + fu, stand[1] + fv] : st.at };
+  }
+
   // Not whoever put it on: their own viewers registering is a change too, and they'd get up and turn it off.
   function tvChanged(main) { const by = lives.get(tvBy.get(main)); for (const l of lives.values()) if (l !== by && l.main === main && !l.route && !l.talk) l.next = 0; }
   const spotOf = (l) => (l.seat !== null ? [l.L.seats[l.seat].u, l.L.seats[l.seat].v] : l.at);
 
   return {
-    stageOf, settleIn, lives, tvBy, bandSeen, mealJob, jobsIn, sessionJob,
+    stageOf, settleIn, lives, tvBy, bandSeen, mealJob, jobsIn, sessionJob, walk, crowded, meets, fixtureJob,
     tvOf: (main) => tvBy.has(main),
     async tick() { for (const [main, set] of [...viewers]) if (set.size) await tickRoom(main).catch((e) => console.error('[roomstage] npc life:', e.message)); },
     // A set in this room came on or went off: they go and sit down for it, or get up after it.
@@ -775,6 +915,7 @@ export function createNpcLife({ viewers, annexOf, mainOf, specOf, roomPieces, se
       const main = mainOf(npc.zone_id);
       if (viewers.get(main)?.size) sendPeople(main).catch(() => {});
     },
+    bathroom,
     // A scene has started in home-life.js: they go and do it, at the next tick.
     scene({ zoneId, npcId, kind }) {
       const life = lives.get(npcId);

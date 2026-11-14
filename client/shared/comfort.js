@@ -28,17 +28,18 @@ const WEAR = {
   warm: { m: ['tee', 'shortsleeve', 'tank'], f: ['tee', 'tank', 'crop'] }, hot: ['tank', 'tee'],
   skirts: ['pencil', 'aline', 'midi', ''], scarves: ['scarf', 'chunky', 'snood'],
 };
-export const WEAR_OCCASIONS = ['sleep', 'home', 'out'];
+export const WEAR_OCCASIONS = ['sleep', 'home', 'out', 'bath'];
 const pick = (list, r) => list[Math.min(list.length - 1, Math.floor(r * list.length))];
 
 // What somebody changes for an occasion and the temperature. `now` is what they have on ({ cut, bottoms, hat,
-// scarf }); `occasion` is 'sleep', 'home', 'out' or nothing; `feel` is feelOf's or feelBand's. `r` and `r2` are
+// scarf }); `occasion` is 'sleep', 'home', 'out', 'bath' (stripped to a vest and shorts under the shower) or nothing; `feel` is feelOf's or feelBand's. `r` and `r2` are
 // the person's own 0..1, so they pick the same thing every time. Returns only the keys that change.
 // `change` counts the times they've changed at the wardrobe since: each one is another top from the same list.
 export function wearFor(now, { occasion = '', feel = 0, female = false, change = 0 } = {}, r = 0, r2 = 0) {
   if (change) { r = (r + change * 0.382) % 1; r2 = (r2 + change * 0.618) % 1; }
   const out = {}, band = Number.isInteger(feel) ? Math.max(-2, Math.min(2, feel)) : feelBand(feel), sex = female ? 'f' : 'm';
   const has = (k) => (k in out ? out[k] : now[k]) || '';
+  if (occasion === 'bath') { out.cut = 'tank'; out.bottoms = 'shorts'; out.hat = ''; out.scarf = ''; for (const k of Object.keys(out)) if ((now[k] || '') === out[k]) delete out[k]; return out; }
   if (occasion === 'sleep') { out.cut = pick(WEAR.sleep[sex], r); out.bottoms = 'shorts'; out.hat = ''; out.scarf = ''; }
   else if (occasion === 'home') {
     // the coat comes off indoors, and the hat and scarf with it

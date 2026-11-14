@@ -1,0 +1,39 @@
+{
+  "description": "A pane of black glass in a brass frame by the door, where the hotel had its bell push. It wakes when you look at it: the lights, the heat, the blinds in the window, and the camera on the landing outside.",
+  "flags": {
+    "aliases": "panel",
+    "envctl": {
+      "camera": "secdev_embassy_landing_3",
+      "max_c": 28,
+      "min_c": 16,
+      "scenes": [
+        "blinds"
+      ],
+      "target_c": 21
+    },
+    "look": {
+      "arche": "cabinet",
+      "dims": [
+        0.46,
+        0.04,
+        0.6
+      ],
+      "dress": "envctl",
+      "form": "cupboard"
+    },
+    "spot": {
+      "along": 8.8,
+      "wall": "right"
+    }
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_apt8_envctl",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "control panel",
+  "object_type": "furniture",
+  "power_draw_kw": 0.005,
+  "price": 0,
+  "zone_id": "zone_apt_8"
+}

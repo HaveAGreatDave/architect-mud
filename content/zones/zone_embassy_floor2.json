@@ -39,6 +39,11 @@
           "kind": "cove",
           "trim": "#8a6a44"
         },
+        "leaves": {
+          "kind": "panel",
+          "metal": "#8a6a44",
+          "wood": "#5e3f36"
+        },
         "plaques": {
           "zone_apt_5": "3A",
           "zone_apt_6": "3B",

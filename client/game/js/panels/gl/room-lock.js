@@ -4,7 +4,8 @@
 // A building's doorway is a hole in the room's mesh (gl/room-mesh.js), and it stays one: the door is built
 // here, apart, as two steel leaves that slide into the wall either side, so a lock giving costs no rebuild of
 // the room. Each leaf is the shape `liftDoorBatch` slides (a lift's doors and the street's glass ones are the
-// same), and the stage puts the batch on the renderer's lock layer (gl/room.js `setLocks`).
+// same), and the stage puts the batch on the renderer's lock layer (gl/room.js `setLocks`). A room whose decor
+// says so (`decor.leaves`, panelDoorOf) has a hinged wooden door instead, which liftDoorBatch swings.
 //
 // Pure: vertices and points, no GL and no DOM. `at` and the panel corners are in the host frame (L.world).
 
@@ -80,6 +81,49 @@ export const CARD_TOP = 1.68;
 const kitFor = (L) => roomKit(L, (lp, nl, col) => col, { glow: GLOW });
 const take = (K) => K.solid.data.slice(0, K.solid.n * STRIDE);
 
+// A HOTEL'S DOORS (`spec.decor.leaves`: { kind: 'panel', wood, metal, flush }). In place of the steel pair, one
+// wooden leaf hung on the side away from the reader, so its lever is by the card. Four fielded panels a face, or
+// none on a `flush` one; a lever and a kick plate in `metal` on both faces. It swings toward the private side,
+// as a hotel's do: into a flat's hall from the landing, into the en-suite from the flat. Null for the steel pair.
+const HEX = /^#[0-9a-f]{6}$/i;
+export function panelDoorOf(spec) {
+  const v = spec?.decor?.leaves;
+  if (v?.kind !== 'panel') return null;
+  return { wood: HEX.test(v.wood || '') ? v.wood : '#4a2c1c', metal: HEX.test(v.metal || '') ? v.metal : '#c9a24a', flush: !!v.flush };
+}
+// how far a hinged leaf opens, radians
+const SWING = 1.52;
+function panelLeaf(L, F, o, { DH, look, hingeAt, inward, way, to }) {
+  const K = kitFor(L), { wood, metal, flush } = look;
+  // the leaf in the wall's thickness, p from P0 (the room's face) to P1, hinged at `hingeAt` (o.a or o.b)
+  const P0 = 0.035, P1 = 0.08, a0 = o.a + 0.004, a1 = o.b - 0.004, side = hingeAt === o.a ? 1 : -1;
+  const box = (b0, b1, p0, p1, y0, y1, hex, kk = 1, surf = MAT.SATIN) => K.box(...F.span(b0, b1, p0, p1), y0, y1, hex, kk, null, surf);
+  box(a0, a1, P0, P1, 0.008, DH - 0.005, wood, 0.92);
+  // both faces alike: a moulded frame round each panel and its field proud of the leaf
+  for (const [f0, dir] of [[P0, -1], [P1, 1]]) {
+    const at = (d0, d1) => (dir < 0 ? [f0 - d1, f0 - d0] : [f0 + d0, f0 + d1]);
+    if (!flush) {
+      const m = (a0 + a1) / 2, top = DH - 0.18, mid = Math.min(1.12, top * 0.48);
+      for (const [b0, b1] of [[a0 + 0.09, m - 0.035], [m + 0.035, a1 - 0.09]]) for (const [y0, y1] of [[0.32, mid - 0.06], [mid + 0.06, top]]) {
+        box(b0, b1, ...at(0, 0.01), y0, y1, wood, 0.82);
+        box(b0 + 0.035, b1 - 0.035, ...at(0, 0.016), y0 + 0.035, y1 - 0.035, wood, 1.02);
+      }
+    }
+    // the kick plate, and the lever: a rose on the face, a stem off it and the handle turned back toward the hinge
+    box(a0 + 0.04, a1 - 0.04, ...at(0, 0.004), 0.03, 0.24, metal, 1.05, MAT.METAL);
+    const free = side > 0 ? a1 : a0, ku = free - side * 0.075;
+    box(ku - 0.028, ku + 0.028, ...at(0, 0.012), 0.96, 1.07, metal, 1.08, MAT.METAL);
+    box(ku - 0.009, ku + 0.009, ...at(0.012, 0.05), 1.005, 1.025, metal, 1.08, MAT.METAL);
+    const l0 = side > 0 ? ku - 0.13 : ku - 0.009, l1 = side > 0 ? ku + 0.009 : ku + 0.13;
+    box(l0, l1, ...at(0.045, 0.062), 1.0, 1.03, metal, 1.12, MAT.METAL);
+  }
+  // hung on its edge at the face it opens from, turning whichever way carries its free edge to the swing side
+  const pH = inward ? P0 : P1, hp = F.world(hingeAt, pH, 0), fp = F.world((a0 + a1) / 2, pH, 0), c = F.world((a0 + a1) / 2, 0, 0), n = F.world((a0 + a1) / 2, inward ? -1 : 1, 0);
+  const nx = n[0] - c[0], nz = n[2] - c[2], ex = fp[0] - hp[0], ez = fp[2] - hp[2];
+  const reach = (t) => (ex * Math.cos(t) - ez * Math.sin(t)) * nx + (ex * Math.sin(t) + ez * Math.cos(t)) * nz;
+  return { rest: take(K), out: null, dir: [0, 0], slide: 0, at: [c[0], c[2]], way, to, hinge: [hp[0], hp[2]], turn: reach(SWING) > reach(-SWING) ? SWING : -SWING };
+}
+
 /**
  * The doors and readers for a room's locks. `locks` is the server's list; each needs a doorway in `ways`
  * (room-layout.js doorwaysOf) with the same `to`.
@@ -88,12 +132,20 @@ const take = (K) => K.solid.data.slice(0, K.solid.n * STRIDE);
  */
 export function buildLocks(L, ways, locks) {
   const fine = L.spec.finish === 'fine', DH = fine ? Math.min(2.4, L.h - 0.3) : 2.05;
-  const leaves = [], panels = [], fixedK = kitFor(L);
+  const leaves = [], panels = [], fixedK = kitFor(L), look = panelDoorOf(L.spec);
   locks.forEach((k, way) => {
     const o = k.annex ? annexWay(L.spec, k.inside, k.to) : ways.find((x) => x.to === k.to && !x.annex);
     if (!o) { panels.push(null); return; }
     const F = frameOf(L, o), m = (o.a + o.b) / 2, half = (o.b - o.a) / 2, hue = lockHue(k);
-    for (const side of [-1, 1]) {
+    const { R, c, pad } = readerFrame(L, o, F);
+    if (look) {
+      // hinged on the end of the doorway further from the reader, and an architrave round it on this side
+      const rd = R.world(c, 0, 0), dist = (a) => { const q = F.world(a, 0, 0); return Math.hypot(q[0] - rd[0], q[2] - rd[2]); };
+      const inward = !!hallOf(L.spec, o) || (!!k.annex && !!k.inside);
+      leaves.push(panelLeaf(L, F, o, { DH, look, hingeAt: dist(o.a) > dist(o.b) ? o.a : o.b, inward, way, to: k.to }));
+      const cas = (b0, b1, y0, y1) => fixedK.box(...F.span(b0, b1, -0.022, 0), y0, y1, look.wood, 0.85, null, MAT.SATIN);
+      cas(o.a - 0.08, o.a, 0, DH + 0.08); cas(o.b, o.b + 0.08, 0, DH + 0.08); cas(o.a - 0.08, o.b + 0.08, DH, DH + 0.08);
+    } else for (const side of [-1, 1]) {
       const K = kitFor(L), a0 = side < 0 ? o.a - 0.01 : m + 0.003, a1 = side < 0 ? m - 0.003 : o.b + 0.01;
       const box = (b0, b1, p0, p1, y0, y1, hex, kk = 1, surf = MAT.METAL) => K.box(...F.span(b0, b1, p0, p1), y0, y1, hex, kk, null, surf);
       // the slab, inside the wall's thickness; a raised plate on the room's side and a kick plate under it
@@ -113,7 +165,6 @@ export function buildLocks(L, ways, locks) {
       leaves.push({ rest: take(K), out: null, dir: [p1[0] - p0[0], p1[2] - p0[2]], slide: half - 0.02, at: [mid[0], mid[2]], way, to: k.to });
     }
     // the reader, on whichever side of the doorway has the wall for it
-    const { R, c, pad } = readerFrame(L, o, F);
     const fb = (b0, b1, p0, p1, y0, y1, hex, kk = 1, surf = MAT.METAL) => fixedK.box(...R.span(b0, b1, p0, p1), y0, y1, hex, kk, null, surf);
     // a keypad where there's no wall for the card: a steel housing whose face is the page (room-lock.js keypad)
     if (pad) {

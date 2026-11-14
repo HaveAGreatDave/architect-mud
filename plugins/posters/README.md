@@ -16,6 +16,14 @@ The seven posters start as authored furniture (`furn_hero_poster_<key>`, one fil
 
 ## Hooks
 - `furniture.describe`
+- `room.sheets`: the posters hanging in a room as sheets for ROOM to draw (`sheets.js`)
+
+## In ROOM
+Each poster on a room's wall is drawn as one sheet of a run, hung edge to edge in mural order on the clearest stretch of wall, with a gap where a sheet is missing (`client/game/js/panels/room-sheets.js`). The sheets are slices of one print: the grounds run into each other, a sunburst and a skyline cross every tear, and each sheet carries its letter of HELLMOO faint in the ground behind its hero. Cyd's wing runs off his sheet over Kiyo's, and GRU is printed across their tear.
+
+With all seven hung, ROOM plays the join once: the camera goes to the wall, the letters light up in turn, the sheets close up under gold seams, and the seams go, leaving one long poster whose letters keep a low gleam. A tap, Space, Enter or Escape skips it. A browser remembers that it saw a room's join (`localStorage` `rs-joined:<zone>:hellmoo`); taking a sheet down forgets it, so hanging the run again plays it again.
+
+`sheets.js` holds the mural order, the word and how each sheet is printed (ground, ink, accent, slogan, pose). It's a leaf with no server imports, so the Room Lab's `__labSheets()` hangs the run with no server. `putup` and a peel emit `room.sheetsChanged` so whoever has the room open sees it at once.
 
 ## The two-layer easter egg
 Kiyo and Cyd were printed as **one image**, so hanging that pair together reveals a hidden GRU at the seam on examine. Hanging **all seven** sheets in one room spells HELLMOO across the seams.

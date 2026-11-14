@@ -29,16 +29,12 @@ import { getApartment, insertFurniture, deleteFurniture, deleteFurnitureWhere, g
 import { setFlag, getWorldFlagsByPrefix } from '../../server/engine/flags.js';
 import { playerControlsApt } from '../../server/engine/apartments.js';
 import { escAttr } from '../../server/engine/text.js';
+import { emit } from '../../server/engine/events.js';
+// The wall order and the word it spells, and how ROOM draws each sheet (sheets.js, a leaf the Room Lab imports too)
+import { MURAL, MURAL_WORD, roomSheets } from './sheets.js';
 
 // Posters that share a secret seam. Deliberately tiny and mechanical.
 const SECRET_PAIR = { kiyo: 'cyd', cyd: 'kiyo' };
-
-// The wall order. Seven sheets torn from one print run: hung left-to-right in
-// this sequence, the letter standing at each seam spells the word below. Like
-// SECRET_PAIR this is mechanical fact, not prose — the poster text lives in the
-// DB. Djerk is the left-hand sheet (its outer edge is the only clean margin).
-const MURAL = ['djerk', 'alphagunman', 'ocelot', 'cyd', 'kiyo', 'stabbz', 'bonghitz'];
-const MURAL_WORD = 'HELLMOO';
 
 const muralSlot = (key) => MURAL.indexOf(key);          // 0-based, -1 if not in the mural
 const titleName = (key) => key.charAt(0).toUpperCase() + key.slice(1);
@@ -184,6 +180,7 @@ async function peelPoster(f, player, broadcast) {
   // removes it again when the plugin loads after the deploy restart.
   if (isAuthoredPoster(f)) await setFlag('world', `${TAKEN_PREFIX}${key}`, 'true');
   await deleteFurniture(f.id);
+  emit('room.sheetsChanged', { zoneId: f.zone_id });
   await query(
     `INSERT INTO player_inventory (id, player_id, item_id, quantity, custom_data) VALUES ($1,$2,$3,1,$4)`,
     [randomUUID(), player.id, `item_poster_${key}`,
@@ -261,6 +258,8 @@ async function cmdPutup(args, raw, player, broadcast) {
     origin: 'player', owner_id: player.id,
   });
   await query('DELETE FROM player_inventory WHERE id=$1', [r.id]);
+  // ROOM hangs it on the wall for whoever has the room open, and the seventh sheet plays the join
+  emit('room.sheetsChanged', { zoneId: player.current_zone });
 
   broadcast(player.current_zone,
     { type: 'zone_event', message: `${player.handle} smooths the ${shortName(cd.name)} poster onto the wall.` },
@@ -275,6 +274,12 @@ async function cmdPutup(args, raw, player, broadcast) {
 // ── furniture.describe hook — a "you can peel this off" telegraph, plus the ───
 // Kiyo/Cyd seam reveal when the secret partner hangs in the same room.
 export const hooks = {
+  // The sheets ROOM hangs on this room's wall (plugins/roomstage sheetsOf). Sync and query-free: the
+  // furniture cache is RAM.
+  'room.sheets': (zoneId) => {
+    const out = roomSheets(getZoneFurniture(zoneId));
+    return out.length ? out : undefined;
+  },
   'furniture.describe': async (f) => {
     if (f?.flags?.hero_poster !== true) return undefined;
 

@@ -12,6 +12,8 @@ import { fuelName, fuelUnit, fmtFuel } from '../../client/shared/fuels.js';
 import { randomUUID } from 'crypto';
 import { cmdChampagne } from './champagne.js';
 import { query } from '../../server/models/db.js';
+// A player names their aircraft (`modify name`), and the name lands in a data-cmd attribute.
+import { escapeHtml } from '../../server/engine/html.js';
 import { adjustCredits } from '../../server/engine/economy.js';
 import { effectiveSkill, awardSkillUse, skillCheck } from '../../server/engine/skills.js';
 import { grantSkillIp } from '../../server/engine/ip.js';
@@ -1903,7 +1905,7 @@ async function describeHangarInterior(zone, player) {
     [ramp.id]
   ).catch(() => ({ rows: [] }));
   if (rows.length) {
-    const craftLink = `<span class="action-link" data-action="cmd" data-cmd="examine ${rows[0].name}" title="its actions: embark / refuel / maintenance">an aircraft is parked outside</span>`;
+    const craftLink = `<span class="action-link" data-action="cmd" data-cmd="examine ${escapeHtml(rows[0].name)}" title="its actions: embark / refuel / maintenance">an aircraft is parked outside</span>`;
     line += `\n<span class="furniture-label">On the ramp:</span> ${svcLink('embark', 'embark')} <span class="text-dim">${craftLink}: board it from here</span> · ${svcLink('loadout', 'loadout')} <span class="text-dim">(seats ⇄ cargo)</span>`;
   }
   const ch = charterParkedAt(ramp.id);
@@ -1970,7 +1972,7 @@ async function describeAirfield(zone, player) {
   if (rows.length) {
     // Each craft name is a click → `examine <name>`, which opens its action menu
     // (embark / refuel / maintenance + cargo) rather than just a static description.
-    const names = rows.map(r => { const c = rampColorWord(r.custom_data?.livery, aircraftLiveryModel(r.class, r.hardpoints)); return `<span class="action-link" data-action="cmd" data-cmd="examine ${r.name}" title="look it over: embark / refuel / maintenance">a ${c ? c + ' ' : ''}${r.tname}</span>`; });
+    const names = rows.map(r => { const c = rampColorWord(r.custom_data?.livery, aircraftLiveryModel(r.class, r.hardpoints)); return `<span class="action-link" data-action="cmd" data-cmd="examine ${escapeHtml(r.name)}" title="look it over: embark / refuel / maintenance">a ${c ? c + ' ' : ''}${r.tname}</span>`; });
     const list = names.length === 1 ? names[0] : `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}`;
     line += `\n<span class="furniture-label">On the ramp:</span> ${svcLink('embark', 'embark')} <span class="text-dim">${list} parked here: click one for its actions</span>`;
   }

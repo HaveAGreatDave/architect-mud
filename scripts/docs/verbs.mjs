@@ -54,6 +54,8 @@ const NOT_PLAYER_TYPED = new Set([
   'selectcassette', 'tablettune', 'sprayapply', 'spraysave', 'spraydel',
   'outfitsetid', 'outfitwearid', 'outfitwearnowid', 'outfitdelid',
   'undressid', 'hangwornid', 'takeoffid',
+  // The Room Stage's Pack (plugins/roomstage pack.js): the panel's own fetch and its wear, off and drop by row id.
+  'roompack',
   // Dev-only entry points, prefixed with a dot in the manifest.
   'hackpreview', 'createsound', 'playsound', 'cooktest', 'splicetest',
 ]);

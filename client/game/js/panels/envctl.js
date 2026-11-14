@@ -128,7 +128,8 @@ function apps(s) {
     { id: 'climate', name: 'Climate', glyph: '❄', on: c.target != null, state: c.target == null ? `${fmtC(c.now)} · off` : `${fmtC(c.now)} → ${c.target}°` },
     { id: 'security', name: 'Security', glyph: '◉', on: !!cam.frame, state: cam.frame ? 'Door camera live' : cam.status === 'none' ? 'No camera' : 'No signal' },
   ];
-  if (sh) list.push({ id: 'shutters', name: 'Shutters', glyph: '▤', on: sh.down, state: !sh.down ? 'Up' : sh.scene === 'blinds' ? `Blinds ${sh.level}%` : (sh.scenes.find((x) => x.id === sh.scene)?.name || 'Down') });
+  // a sash window's panel offers the blinds and nothing else, so its tile says so
+  if (sh) list.push({ id: 'shutters', name: sh.scenes.every((x) => x.id === 'blinds') ? 'Blinds' : 'Shutters', glyph: '▤', on: sh.down, state:!sh.down ? 'Up' : sh.scene === 'blinds' ? `Blinds ${sh.level}%` : (sh.scenes.find((x) => x.id === sh.scene)?.name || 'Down') });
   return list;
 }
 
@@ -330,12 +331,13 @@ function shutterPage(sh, v) {
   const now = sh.scenes.find((x) => x.id === sh.scene);
   const blinds = sh.scenes.find((x) => x.id === 'blinds'), drawn = sh.down && sh.scene === 'blinds';
   const scenes = sh.scenes.filter((x) => x.id !== 'blinds');
-  const tab = blinds && (v.tab || (drawn ? 'blinds' : 'scenes')) === 'blinds' ? 'blinds' : 'scenes';
-  const tabs = blinds ? `<div class="envctl-tabs" role="tablist">
+  // with no scenes (a sash window's blinds) there's one page, and no tabs
+  const tab = blinds && (!scenes.length || (v.tab || (drawn ? 'blinds' : 'scenes')) === 'blinds') ? 'blinds' : 'scenes';
+  const tabs = blinds && scenes.length ? `<div class="envctl-tabs" role="tablist">
       <button type="button" role="tab" data-tab="scenes" aria-selected="${tab === 'scenes'}" class="${tab === 'scenes' ? 'sel' : ''}">Scenes</button>
       <button type="button" role="tab" data-tab="blinds" aria-selected="${tab === 'blinds'}" class="${tab === 'blinds' ? 'sel' : ''}">Blinds</button>
     </div>` : '';
-  const status = `<div class="envctl-state${sh.down ? ' on' : ''}"><b>${drawn ? 'Blinds drawn' : sh.down ? 'Shutters down' : 'Shutters up'}</b><span class="envctl-clip">${drawn ? `${sh.level}% light` : sh.down ? esc(now?.name || '') : 'Window clear'}</span></div>`;
+  const status = `<div class="envctl-state${sh.down ? ' on' : ''}"><b>${drawn ? 'Blinds drawn' : sh.down ? 'Shutters down' : scenes.length ? 'Shutters up' : 'Blinds up'}</b><span class="envctl-clip">${drawn ? `${sh.level}% light` : sh.down ? esc(now?.name || '') : 'Window clear'}</span></div>`;
   if (tab === 'blinds') {
     return `${tabs}${status}
       <div class="envctl-label">Light through them</div>

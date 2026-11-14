@@ -40,6 +40,11 @@
           "trim": "#b8913e"
         },
         "downlights": false,
+        "leaves": {
+          "kind": "panel",
+          "metal": "#b8913e",
+          "wood": "#4a2c1c"
+        },
         "plaques": {
           "zone_apt_1": "2A",
           "zone_apt_2": "2B",

@@ -11,6 +11,7 @@
     "floor": "boards",
     "is_apartment": true,
     "room": {
+      "blinds": true,
       "d": 10,
       "decor": {
         "art": [
@@ -46,6 +47,11 @@
           "kind": "cove",
           "trim": "#b8924a"
         },
+        "leaves": {
+          "kind": "panel",
+          "metal": "#b8913e",
+          "wood": "#4a2c1c"
+        },
         "plants": [
           [
             -3.55,
@@ -76,7 +82,7 @@
           "y": 1.8
         }
       },
-      "h": 3.1,
+      "h": 3,
       "kitchen": {
         "face": "fluted",
         "front": "#e8e2d4",

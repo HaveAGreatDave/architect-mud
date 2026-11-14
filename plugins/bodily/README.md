@@ -70,6 +70,9 @@ An NPC yells, and takes a **−35 warmth** hit, the biggest single one in the pl
 ## `shower` vs. MIS `wash`
 `shower` is the **superset**: it strips `clothing_contamination`, `soiled_state`, `ejaculate_state` and `covered_in_blood`, and leaves a brief cosmetic "refreshed" badge. MIS `wash` deliberately leaves the bodily stains.
 
+## An NPC at the fixtures
+`npcFixtureFor`, `npcSitToilet`, `npcLeaveToilet`, `npcShowerOn`, `npcShowerOff` and `npcDoneWithFixtures` are ambient-life's bathroom trip using a toilet, a shower or a basin. They write the same RAM maps a player's use does, so the bowl, the smell, the running water's loop and ROOM's picture (`room.plumbing`) all follow, and `shower off` turns an NPC's water off too. The trip owns the timing; nothing here has a clock but the length of a piss.
+
 ## Hooks
 - `furniture.describe` — toilet and sink panels.
 - `zone.smells` — the body's contribution to the smell pass.

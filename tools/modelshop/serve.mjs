@@ -52,6 +52,7 @@ import { floorsFor } from '../../client/shared/skyline-scale.js';
 // The Room Lab's building: the same plans and payload the roomstage plugin sends (docs/proposals/building-stage.md).
 import { walkPlans, buildingView, zoneSpecOf, placeFrom, streetDoorAt } from '../../client/shared/building-graph.js';
 import { roomSpecOf } from '../../client/shared/room-layout.js';
+import { labCatalog, labArrange, stampsOf } from './room-files.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(HERE, '..', '..');
@@ -248,7 +249,9 @@ function roomLab(zoneId, parked = null) {
   }
   let t = zone;
   for (let hop = 0; hop < 4 && t && t.map_id !== 'map_world'; hop++) t = t.parent_zone ? read(zdir, t.parent_zone + '.json') : null;
-  return { zone, annex, rows, annexRows, tile: t ? { x: t.grid_x, y: t.grid_y } : null, building, nextRows, nextAnnexRows, nextSpecs, lift };
+  // `stamps`: each of this room's rows as its file stood when read, which the arrange mode's Save sends back
+  // (room-files.mjs labArrange), so a file changed since is never overwritten
+  return { zone, annex, rows, annexRows, tile: t ? { x: t.grid_x, y: t.grid_y } : null, building, nextRows, nextAnnexRows, nextSpecs, lift, stamps: stampsOf(rows) };
 }
 // Every room of the building a zone is on, for GLASS's one-world interiors (docs/proposals/one-world-interiors.md):
 // each room's spec as the plugin builds it, its furniture rows, and its frame (where it stands, as plugins/roomstage
@@ -351,6 +354,23 @@ const server = createServer(async (req, res) => {
     }
     if (req.method === 'GET' && path === '/api/room-lab') {
       return json(res, 200, roomLab(url.searchParams.get('zone'), url.searchParams.get('parked')));
+    }
+    // what plugins/posters would hang on a room's wall (`room.sheets`) with every hero poster in content/ there, or
+    // the slots in `?slots=0,1,2`: the Room Lab's __labSheets
+    if (req.method === 'GET' && path === '/api/room-lab/sheets') {
+      const dir = join(ROOT, 'content', 'furniture'), rows = [];
+      for (const f of readdirSync(dir)) if (f.startsWith('furn_hero_poster_')) { try { rows.push(JSON.parse(readFileSync(join(dir, f), 'utf8'))); } catch { /* skip a torn file */ } }
+      const { roomSheets } = await import('../../plugins/posters/sheets.js');
+      const want = url.searchParams.get('slots');
+      const keep = want ? new Set(want.split(',').map(Number)) : null;
+      return json(res, 200, roomSheets(rows).filter((s) => !keep || keep.has(s.slot)));
+    }
+    // the Room Lab's arrange mode, staff side, straight to content/ (room-files.mjs): its Furniture menu and its Save
+    if (req.method === 'GET' && path === '/api/room-lab/catalog') {
+      return json(res, 200, { items: labCatalog() });
+    }
+    if (req.method === 'POST' && path === '/api/room-lab/arrange') {
+      return json(res, 200, await labArrange(await readJson(req)));
     }
     // The tool's own modules. Name-restricted and joined onto this directory, so it cannot climb
     // out of it — the same shape as the client allowlist below, and the reason it is a pattern

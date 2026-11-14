@@ -74,6 +74,7 @@ export const GROUPS = [
       'scripts/client/maintbay-smoke.mjs',   // the bay controller's rules, and all four depots' bays walked job by job
       'scripts/client/boatfish-smoke.mjs',   // the boat reel: cast, twitch, the take, the fight and the net, against boatfish-rules.js
       'scripts/client/console-escape-smoke.mjs',   // player text in the pirate/emergency consoles renders inert
+      'scripts/client/paper-doll-smoke.mjs',   // every wearable item in content/ draws on the Pack's paper doll, both bodies
       'scripts/bank-hold-tune.mjs --check',   // the ← → bank hold settles, holds height and lets go, on every airframe
     ],
   },

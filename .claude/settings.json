@@ -6,11 +6,12 @@
 			"Bash(npm run *)",
 			"Bash(npm test)",
 			"Read",
-			"Edit(src/**)",
-			"Bash(git push *)"
+			"Edit(src/**)"
 		],
 		"ask": [
-			"Bash(rm *)"
+			"Bash(rm *)",
+			"Bash(git push)",
+			"Bash(git push *)"
 		]
 	}
 }

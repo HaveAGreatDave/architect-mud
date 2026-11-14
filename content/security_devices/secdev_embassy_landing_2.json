@@ -1,0 +1,21 @@
+{
+  "battery": 1,
+  "battery_max": 1,
+  "concealment": 4,
+  "device_kind": "sticky_cam",
+  "direction": "north",
+  "hack_difficulty": 6,
+  "id": "secdev_embassy_landing_2",
+  "is_damaged": 0,
+  "is_powered": 1,
+  "is_recording": 0,
+  "network_id": null,
+  "owner_id": null,
+  "placed_at": "1794528000",
+  "recording_buffer": [],
+  "status_flags": {},
+  "storage_limit": 200,
+  "tier": 2,
+  "wired": 1,
+  "zone_id": "zone_embassy_floor_2nd"
+}

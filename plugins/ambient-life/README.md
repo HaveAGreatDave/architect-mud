@@ -83,6 +83,10 @@ still has an audience before each line. After any scene a zone rests for `ZONE_C
   for witnesses, `propagateSound`/`sendToZone` to emit, `adjustCredits` + hunger/sanity for the
   two interactions. No engine changes — a pure leaf plugin over existing seams.
 
+## The bathroom trip
+
+A resident in a flat with an en-suite goes to it now and then (`playBathroom` in home-life.js). They go in for something: a piss most of the time, a shower more often in the morning or when they've let themselves go, a longer sit now and then, a wash at the basin, and only what the room has. Each beat is its own step: up to the door, the door opened, through, the door shut behind them, the fixture used through bodily's NPC calls (the water runs, the bowl fills, and nearly always it's flushed), back to the door, out, and the door shut again if it was shut before. A door row's `is_open` changes for real, so the text world and the door's sound follow. Nobody goes in on top of a player or another resident, or through a bolted door; they try it and come away. Every beat is emitted as `npc.bathroom` (`going`, `open`, `in`, `close`, `use`, `done`, `out`, `end`), and ROOM walks the body to it.
+
 ## Eviction — being told to leave, and then made to
 
 [intrusion.js](intrusion.js) is the words half: a resident challenges a stranger standing in their

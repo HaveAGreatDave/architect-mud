@@ -13,6 +13,7 @@
     "is_interior": true,
     "rent_cost": 50,
     "room": {
+      "blinds": true,
       "d": 10,
       "decor": {
         "art": [
@@ -48,6 +49,11 @@
           "kind": "cove",
           "trim": "#c9a14a"
         },
+        "leaves": {
+          "kind": "panel",
+          "metal": "#8a6a44",
+          "wood": "#5e3f36"
+        },
         "plants": [
           [
             -3.55,
@@ -79,7 +85,7 @@
           "y": 1.8
         }
       },
-      "h": 3.1,
+      "h": 3,
       "kitchen": {
         "face": "fluted",
         "front": "#2a2a2c",

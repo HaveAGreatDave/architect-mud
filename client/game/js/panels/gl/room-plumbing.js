@@ -45,24 +45,110 @@ function headOf(p, L, k) {
   }
 }
 
+// Where a body stood under the head is, in the piece's frame (metres, x across and z out), or null: whoever's
+// within reach of the water, you or anyone drawn (`bodies`, with `at` in the room's frame) on their feet.
+function bodyUnder(L, p, h, k, bodies, you) {
+  const [fu, fv] = facing(p.turn), su = -fv, sv = fu;
+  let best = null, far = h.spread + 0.32;
+  for (const bd of [...(you?.at ? [you] : []), ...(bodies || [])]) {
+    if (!bd?.at || (bd.pose && bd.pose !== 'stand')) continue;
+    const du = (bd.at[0] - p.u) / k, dv = (bd.at[1] - p.v) / k, x = du * su + dv * sv, z = du * fu + dv * fv;
+    const d = Math.hypot(x - h.at[0], z - h.at[2]);
+    if (d < far) { far = d; best = [x, z]; }
+  }
+  return best;
+}
+// How high the water meets somebody stood at `body`, at a point (x, z) of the spray: the crown over the middle,
+// the shoulders round it, nothing past them.
+const CROWN = 1.72, SHOULDER = 1.46;
+function meetsAt(body, x, z) {
+  if (!body) return null;
+  const d = Math.hypot(x - body[0], z - body[1]);
+  return d < 0.1 ? CROWN : d < 0.25 ? SHOULDER - (d - 0.1) * 0.6 : null;
+}
+
 // A running shower: streaks falling from the head, each one a short bright dash travelling down, and a
-// splash ring where it lands.
-function showerWater(b, L, p, t) {
-  const { P, k } = frameOf(L, p), h = headOf(p, L, k), fall = h.at[1] - h.floor, N = h.spread < 0.05 ? 10 : 46;
+// splash ring where it lands. Somebody stood in it breaks the fall: it bursts off the crown and the shoulders and
+// runs down them in sheets. A puddle spreads on the tray with rings going out across it, and steam climbs off
+// the lot into `g`, the see-through layer (material 47 in gl/room.js), when there is one.
+const STEAM = lin('#e4ebf0'), TAU = Math.PI * 2;
+function showerWater(b, L, p, t, bodies, you, g) {
+  const { P, k } = frameOf(L, p), h = headOf(p, L, k), fall = h.at[1] - h.floor, tub = h.spread < 0.05, N = tub ? 10 : 64;
+  const body = tub ? null : bodyUnder(L, p, h, k, bodies, you);
   for (let i = 0; i < N; i++) {
-    const a = hash(i, 1) * Math.PI * 2, r0 = Math.sqrt(hash(i, 2)) * h.spread;
+    const a = hash(i, 1) * TAU, r0 = Math.sqrt(hash(i, 2)) * h.spread;
     // the jets fan out a little as they fall
     const speed = 3.2 + hash(i, 3) * 1.4, q = ((t * speed / fall) + hash(i, 4)) % 1;
     const y = h.at[1] - q * fall, r = r0 * (1 + q * 1.6);
     const x = h.at[0] + Math.sin(a) * r, z = h.at[2] + Math.cos(a) * r;
     const len = 0.09 + 0.08 * hash(i, 5);
-    box(b, P(x, Math.max(h.floor, y - len / 2), z), [0.0035 * k, (len / 2) * k, 0.0035 * k], 0, i % 3 ? WATER : SPRAY, MAT.GLOSS);
+    // broken on whoever's under it: the dash stops where it meets them
+    const stop = Math.max(h.floor, meetsAt(body, x, z) ?? h.floor);
+    if (y - len < stop) { if (y > stop) box(b, P(x, (y + stop) / 2, z), [0.0035 * k, ((y - stop) / 2) * k, 0.0035 * k], 0, SPRAY, MAT.GLOSS); continue; }
+    box(b, P(x, y - len / 2, z), [0.0035 * k, (len / 2) * k, 0.0035 * k], 0, i % 3 ? WATER : SPRAY, MAT.GLOSS);
   }
-  // where it lands: a few flecks thrown up off the tray
-  for (let i = 0; i < 14; i++) {
-    const q = ((t * 2.4) + hash(i, 6)) % 1, a = hash(i, 7) * Math.PI * 2, r = h.spread * 1.4 + q * 0.12;
+  // beads hanging off the head before they go
+  if (!tub) for (let i = 0; i < 8; i++) {
+    const a = hash(i, 30) * TAU, r = h.spread * 0.8 * Math.sqrt(hash(i, 31)), q = ((t * 1.7) + hash(i, 32)) % 1;
+    box(b, P(h.at[0] + Math.sin(a) * r, h.at[1] - 0.012 - q * 0.02, h.at[2] + Math.cos(a) * r), [0.004 * k, (0.004 + 0.004 * q) * k, 0.004 * k], 0, SPRAY, MAT.GLOSS);
+  }
+  if (body) {
+    // thrown off the crown and the shoulders in short arcs
+    for (let i = 0; i < 22; i++) {
+      const q = ((t * 3.1) + hash(i, 33)) % 1, a = hash(i, 34) * TAU, top = i % 3 ? SHOULDER : CROWN, r0 = top === CROWN ? 0.05 : 0.17;
+      const out = r0 + q * (0.1 + 0.12 * hash(i, 35)), y = top + 0.05 * Math.sin(q * Math.PI) - q * q * 0.35;
+      box(b, P(body[0] + Math.sin(a) * out, y, body[1] + Math.cos(a) * out), [0.003 * k, 0.003 * k, 0.003 * k], 0, SPRAY, MAT.GLOSS);
+    }
+    // and running down them: slower, thinner streaks round the body from the shoulders to the tray
+    for (let i = 0; i < 26; i++) {
+      const a = hash(i, 36) * TAU, rr = 0.15 + 0.08 * hash(i, 37), q = ((t * (0.9 + 0.5 * hash(i, 38))) + hash(i, 39)) % 1;
+      const y = SHOULDER - 0.05 - q * (SHOULDER - 0.05 - h.floor), len = 0.06 + 0.06 * hash(i, 40);
+      box(b, P(body[0] + Math.sin(a) * rr * (1 - 0.35 * q * (1 - q)), Math.max(h.floor + len / 2, y), body[1] + Math.cos(a) * rr * 0.75), [0.0025 * k, (len / 2) * k, 0.0025 * k], 0, WATER, MAT.GLOSS);
+    }
+  }
+  // where it lands: a puddle on the tray, rings going out across it, and flecks thrown up off it
+  const land = body || [h.at[0], h.at[2]];
+  if (!tub) {
+    disc(b, P(land[0], h.floor + 0.003, land[1]), (h.spread * 1.8 + 0.1) * k, WATER, MAT.GLOSS, 20);
+    for (let ring = 0; ring < 3; ring++) {
+      const q = ((t * 0.9) + ring / 3) % 1, rr = (0.04 + q * (h.spread * 1.8 + 0.06));
+      for (let i = 0; i < 14; i++) {
+        const a = i / 14 * TAU + ring;
+        box(b, P(land[0] + Math.sin(a) * rr, h.floor + 0.005, land[1] + Math.cos(a) * rr), [0.012 * k * (1 - q * 0.5), 0.0012 * k, 0.003 * k], (a * 180) / Math.PI, SPRAY, MAT.GLOSS);
+      }
+    }
+  }
+  for (let i = 0; i < 18; i++) {
+    const q = ((t * 2.4) + hash(i, 6)) % 1, a = hash(i, 7) * TAU, r = (body ? 0.22 : h.spread * 1.4) + q * 0.12;
     const y = h.floor + Math.sin(q * Math.PI) * 0.06;
-    box(b, P(h.at[0] + Math.sin(a) * r, y, h.at[2] + Math.cos(a) * r), [0.004 * k, 0.004 * k, 0.004 * k], 0, SPRAY, MAT.GLOSS);
+    box(b, P(land[0] + Math.sin(a) * r, y, land[1] + Math.cos(a) * r), [0.004 * k, 0.004 * k, 0.004 * k], 0, SPRAY, MAT.GLOSS);
+  }
+  if (g) showerSteam(g, P, h, t, k, land);
+}
+
+// Steam off hot water: soft puffs climbing out of the spray, swelling and thinning as they go and drifting off,
+// each three crossed fans so it reads as round from anywhere. How thick is vUv.x; the rim is vUv.y.
+function puff(g, c, r, a) {
+  for (const [A, B, N] of [[[1, 0, 0], [0, 1, 0], [0, 0, 1]], [[0, 0, 1], [0, 1, 0], [1, 0, 0]], [[1, 0, 0], [0, 0, 1], [0, 1, 0]]]) {
+    const e = (ang) => { const cs = Math.cos(ang) * r, sn = Math.sin(ang) * r; return [c[0] + A[0] * cs + B[0] * sn, c[1] + A[1] * cs + B[1] * sn, c[2] + A[2] * cs + B[2] * sn]; };
+    for (let i = 0; i < 8; i++) {
+      vtx(g, c, N, [a, 0], STEAM, 47); vtx(g, e(i / 8 * TAU), N, [a, 1], STEAM, 47); vtx(g, e((i + 1) / 8 * TAU), N, [a, 1], STEAM, 47);
+    }
+  }
+}
+// White steam on white tile barely shows, so it's thick in the middle of its life and there's a lot of it, with a
+// slow haze gathering under the ceiling over the stall.
+function showerSteam(g, P, h, t, k, land) {
+  const top = Math.max(h.at[1] + 0.25, 2.2);
+  for (let i = 0; i < 20; i++) {
+    const life = 4 + hash(i, 41) * 3, q = ((t / life) + hash(i, 42)) % 1, a = hash(i, 43) * TAU + t * 0.15;
+    const y0 = h.floor + 0.3 + hash(i, 44) * 1.2, y = y0 + q * (top - y0), drift = 0.08 + q * (0.25 + 0.2 * hash(i, 45));
+    const c = P(land[0] + Math.sin(a) * drift, y, land[1] + Math.cos(a) * drift), r = (0.14 + 0.34 * q) * k;
+    puff(g, c, r, 0.42 * Math.sin(Math.PI * q) * (0.6 + 0.4 * hash(i, 46)));
+  }
+  for (let i = 0; i < 5; i++) {
+    const a = hash(i, 47) * TAU + t * 0.05, d = 0.2 + 0.3 * hash(i, 48), breathe = 0.85 + 0.15 * Math.sin(t * 0.4 + i);
+    puff(g, P(land[0] + Math.sin(a) * d, top - 0.1 - 0.15 * hash(i, 49), land[1] + Math.cos(a) * d), (0.5 + 0.2 * hash(i, 50)) * k, 0.17 * breathe);
   }
 }
 
@@ -125,13 +211,14 @@ export function plumbingLive(plumb) {
 }
 
 // Into batch `b`. `plumb` is { [pieceId]: state }; `bodies` the people as drawn (at, yaw); `you` is your own
-// spot ({ id, at: [u, v], yaw }) since you aren't one of the bodies.
-export function plumbingProps(b, L, plumb, bodies, you, t, now = Date.now()) {
+// spot ({ id, at: [u, v], yaw }) since you aren't one of the bodies. `glass`, when given, is a batch for the
+// see-through layer (gl/room.js setPropsGlass): a running shower's steam goes there.
+export function plumbingProps(b, L, plumb, bodies, you, t, now = Date.now(), glass = null) {
   if (!plumb || !L?.placed) return b;
   for (const p of L.placed) {
     const st = plumb[p.id];
     if (!st) continue;
-    if (st.shower && p.arche === 'shower') showerWater(b, L, p, t);
+    if (st.shower && p.arche === 'shower') showerWater(b, L, p, t, bodies, you, glass);
     if (p.arche !== 'toilet') continue;
     const w = bowlWater(b, L, p, st, now);
     if (!st.stream) continue;

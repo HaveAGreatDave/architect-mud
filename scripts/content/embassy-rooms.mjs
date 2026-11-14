@@ -19,6 +19,13 @@ const read = (f) => JSON.parse(fs.readFileSync(f, 'utf8'));
 const GOLD = '#b8913e', ROSE = '#d39aa2', base = { balcony: false, face: 0, studio: false };
 
 const LOBBY = 'zone_residential_lobby', L2 = 'zone_embassy_floor_2nd', L3 = 'zone_embassy_floor2', L4 = 'zone_embassy_floor3';
+// each landing's doors (gl/room-lock.js panelDoorOf): the units on that floor carry the same, so the door is one door
+// from either side. Walnut and brass on the second floor, painted over on the third, flush and heavier on the fourth
+const LEAVES = {
+  [L2]: { kind: 'panel', wood: '#4a2c1c', metal: GOLD },
+  [L3]: { kind: 'panel', wood: '#5e3f36', metal: '#8a6a44' },
+  [L4]: { kind: 'panel', wood: '#3a3430', metal: '#9aa0a6', flush: true },
+};
 const plaques = (n, first) => Object.fromEntries(['A', 'B', 'C', 'D'].map((x, i) => [`zone_apt_${first + i}`, `${n}${x}`]));
 
 const ZONE = {
@@ -76,6 +83,7 @@ const ZONE = {
         sconces: { y: 1.85, points: [['front', -5.5], ['front', 5.5], ['back', -5.5], ['back', 5.5]] },
         art: [{ wall: 'front', at: -2.6, w: 0.9, h: 1.1, y: 1.8, seed: 11 }],
         plaques: plaques(2, 1),
+        leaves: LEAVES[L2],
       },
     },
   },
@@ -93,6 +101,7 @@ const ZONE = {
         sconces: { y: 1.85, points: [['front', -5.5], ['back', 5.5]] },
         art: [{ wall: 'back', at: -3.4, w: 0.8, h: 0.6, y: 1.7, seed: 52 }],
         plaques: plaques(3, 5),
+        leaves: LEAVES[L3],
       },
     },
   },
@@ -103,7 +112,7 @@ const ZONE = {
     room: {
       ...base, w: 16, d: 3.2, h: 3, windowless: true, ground: 'concrete',
       tone: { accent: '#5a4a3a', ceiling: '#a89a8a', trim: '#1e1814', wall: '#8a6a66' },
-      decor: { rug: false, plaques: plaques(4, 9) },
+      decor: { rug: false, plaques: plaques(4, 9), leaves: LEAVES[L4] },
     },
   },
 };

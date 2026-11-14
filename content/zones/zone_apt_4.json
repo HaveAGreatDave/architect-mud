@@ -12,6 +12,7 @@
     "is_apartment": true,
     "is_interior": true,
     "room": {
+      "blinds": true,
       "d": 11,
       "decor": {
         "art": [
@@ -46,6 +47,11 @@
           "hex": "#f2eee4",
           "kind": "cove",
           "trim": "#b8924a"
+        },
+        "leaves": {
+          "kind": "panel",
+          "metal": "#b8913e",
+          "wood": "#4a2c1c"
         },
         "lights": [
           {
@@ -94,7 +100,7 @@
           "y": 1.8
         }
       },
-      "h": 3.2,
+      "h": 3,
       "kitchen": {
         "face": "shelves",
         "front": "#8a6a4a",

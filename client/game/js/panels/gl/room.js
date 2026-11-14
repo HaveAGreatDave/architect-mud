@@ -50,7 +50,7 @@ uniform float uBearing;     // the way the room's front wall faces, radians cloc
 uniform vec3 uFront;        // the room's front and right, in the frame the eye is in
 uniform vec3 uRight;
 uniform bool uLive;         // the broadcast: its texture is plain RGBA, so it's decoded here
-uniform int uMode;          // 0 plain, 1 textured, 2 a picture (a screen), 3 glass, 4 the view out, 5 the city, 6 paint on a wall
+uniform int uMode;          // 0 plain, 1 textured, 2 a picture (a screen), 3 glass, 4 the view out, 5 the city, 6 paint on a wall, 7 light off a wall
 uniform vec2 uPanoLens;     // the city's paints: their projection scales, x and y
 uniform float uPanoTilt;    // the down and up faces' pitch (room-outlook.js TILT)
 out vec4 outColor;
@@ -107,6 +107,13 @@ void main() {
     outColor = vec4(fallOver(d, finish(texture(uTex, vec2(abs(fract(az * 0.5 + 0.25) * 2.0 - 1.0), clamp(0.62 - t * 0.42, 0.01, 0.99))).rgb)), 1.0);
     return;
   }
+  // light off a wall (setDecals 'glow'): the canvas added over the picture, as strong as its vertex colour, lit by
+  // nothing in the room, so it shows in the dark
+  if (uMode == 7) {
+    vec4 t = texture(uTex, vUv);
+    outColor = vec4(t.rgb * t.a * vCol, 0.0);
+    return;
+  }
   if (uMode == 1 || uMode == 2) {
     vec3 t = texture(uTex, vUv).rgb;
     base *= uLive ? mix(t / 12.92, pow((t + 0.055) / 1.055, vec3(2.4)), step(0.04045, t)) : t;
@@ -141,6 +148,12 @@ void main() {
   if (uMode == 3 && vMat == 44.0) {
     float fr = fresnelOf(n, v);
     outColor = vec4(finish(base * (uAmb * 1.4 + diff * 0.85) + spec * 1.3 + base * 0.08), 0.62 + 0.3 * fr);
+    return;
+  }
+  // steam (material 47, gl/room-plumbing.js): a soft puff, how thick in vUv.x, thinning to nothing at its rim (vUv.y)
+  if (uMode == 3 && vMat == 47.0) {
+    float rim = clamp(vUv.y, 0.0, 1.0);
+    outColor = vec4(finish(base * (0.5 + uAmb * 0.9 + diff * 0.5)), clamp(vUv.x, 0.0, 1.0) * (1.0 - rim) * (1.0 - rim));
     return;
   }
   if (uMode == 3) {
@@ -473,9 +486,11 @@ export function createRoomRenderer(canvas, { phone = false, see = false } = {}) 
       ls.forEach((g, i) => { stageGlowP.set([g.p[0], g.p[1], g.p[2], g.r], i * 4); stageGlowC.set(g.c, i * 3); });
     }
     function setLocks(b) { upload(locks, b); }
-    // [{ key, src, quad: [tl, tr, br, bl] (room points), n (the wall's inward normal), fresh? }]: a tag a quad, its
+    // [{ key, src, quad: [tl, tr, br, bl] (room points), n (the wall's inward normal), fresh?, glow? }]: a tag a quad, its
     // texture the canvas it was baked on. A key already uploaded keeps its texture unless `fresh` says the canvas
-    // was painted again (the spray session filling a section in); a key no longer listed is let go.
+    // was painted again (the spray session filling a section in); a key no longer listed is let go. Two decals may
+    // share a key, and so a texture. `glow` (0..) is light, not paint: added over the picture after the paint, unlit,
+    // that strong (panels/room-sheets.js, the join's letters and seams). Cheap to call every frame with known keys.
     function setDecals(list) {
       const ls = (list || []).filter((d) => d && d.key && d.src && Array.isArray(d.quad) && d.quad.length === 4);
       const keep = new Set(ls.map((d) => d.key));
@@ -489,13 +504,13 @@ export function createRoomRenderer(canvas, { phone = false, see = false } = {}) 
           if (had) gl.deleteTexture(had.t);
           decalTex.set(d.key, { t: texture(d.src, { repeat: false }), src: d.src, w: d.src.width, h: d.src.height });
         } else if (d.fresh) { refill(had.t, d.src); gl.generateMipmap(gl.TEXTURE_2D); }
-        const n = d.n || [0, 0, 1], uv = [[0, 0], [1, 0], [1, 1], [0, 1]];
+        const n = d.n || [0, 0, 1], uv = [[0, 0], [1, 0], [1, 1], [0, 1]], k = d.glow != null ? Math.max(0, +d.glow || 0) : 1;
         for (const c of [0, 1, 2, 0, 2, 3]) {
           const p = d.quad[c];
-          data.set([p[0], p[1], p[2], n[0], n[1], n[2], uv[c][0], uv[c][1], 1, 1, 1, 13], o);
+          data.set([p[0], p[1], p[2], n[0], n[1], n[2], uv[c][0], uv[c][1], k, k, k, 13], o);
           o += STRIDE;
         }
-        decalRuns.push({ key: d.key, first: i * 6 });
+        decalRuns.push({ key: d.key, first: i * 6, glow: d.glow != null });
       });
       upload(decals, { data, n: ls.length * 6 });
     }
@@ -751,7 +766,13 @@ export function createRoomRenderer(canvas, { phone = false, see = false } = {}) 
           gl.uniform1i(LIT.u('uMode'), 6);
           gl.enable(gl.BLEND); gl.blendFuncSeparate(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA, gl.ZERO, gl.ONE); gl.depthMask(false); gl.depthFunc(gl.LEQUAL);
           gl.bindVertexArray(decals.vao);
-          for (const r of decalRuns) { const d = decalTex.get(r.key); if (!d) continue; gl.bindTexture(gl.TEXTURE_2D, d.t); gl.drawArrays(gl.TRIANGLES, r.first, 6); }
+          for (const r of decalRuns) { const d = !r.glow && decalTex.get(r.key); if (!d) continue; gl.bindTexture(gl.TEXTURE_2D, d.t); gl.drawArrays(gl.TRIANGLES, r.first, 6); }
+          // then the light off them, added (and the frame's alpha left as it is, or a glow would open a hole to the street)
+          if (decalRuns.some((r) => r.glow)) {
+            gl.uniform1i(LIT.u('uMode'), 7);
+            gl.blendFuncSeparate(gl.ONE, gl.ONE, gl.ZERO, gl.ONE);
+            for (const r of decalRuns) { const d = r.glow && decalTex.get(r.key); if (!d) continue; gl.bindTexture(gl.TEXTURE_2D, d.t); gl.drawArrays(gl.TRIANGLES, r.first, 6); }
+          }
           gl.disable(gl.BLEND); gl.depthMask(true); gl.depthFunc(gl.LESS);
         }
         gl.uniform1i(LIT.u('uMode'), 2);

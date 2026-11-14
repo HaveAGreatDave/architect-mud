@@ -5,13 +5,15 @@
 import { emit } from '../../server/engine/events.js';
 import { world, setApartmentCache, getZoneFurniture, deleteFurnitureWhere, insertFurniture, deleteFurniture, setDoorCache, deleteDoorCache, doorOnLink } from '../../server/engine/world.js';
 import { getBroadcast, setBroadcast } from '../../server/engine/messaging.js';
-import { getItem } from '../../server/engine/items-cache.js';
+import { getItem, getItemCache } from '../../server/engine/items-cache.js';
 import { giveItemById } from '../../server/engine/inventory.js';
 import { query } from '../../server/models/db.js';
-import { layRows, seatsClash, archetypeOf, roomLayout, resolveSpot, dimsOf, roomFree, onFoot, roomNearFree, roomPath, seatApproach, rowDrawn, formOf, roomSpecOf, FLAT_ROOM, openingCrossed, openingInside } from '../../client/shared/room-layout.js';
+import { layRows, seatsClash, archetypeOf, roomLayout, resolveSpot, dimsOf, roomFree, onFoot, roomNearFree, roomPath, seatApproach, rowDrawn, formOf, roomSpecOf, FLAT_ROOM, openingCrossed, openingInside, placeSpot, spotFits, cleanSpot, pieceHangs } from '../../client/shared/room-layout.js';
 import { registerMoveGate } from '../../server/engine/movement-gates.js';
 import { _test } from './index.js';
+import { pieceActs } from '../../client/shared/room-acts.js';
 import { ritualOf, actOfDrug } from './acts.js';
+import { fillLevel, fillOf, noteView, _fillTest } from './fill.js';
 
 // what each kind of sold piece should be drawn as
 const EXPECT = {
@@ -157,6 +159,36 @@ async function residents(check) {
       };
       check('with a hob in the flat, everybody cooks at it', cooks([row('fridge', 'cold'), row('hob', 'hob')]) === 'stir', cooks([row('fridge', 'cold'), row('hob', 'hob')]));
       check('with none, they cook on the floor', cooks([row('fridge', 'cold')]) === 'squatStir', cooks([row('fridge', 'cold')]));
+      // getting it out of the fridge is the door held open and a look in, not a rummage at a shut one
+      {
+        const L = roomLayout(spec, layRows([row('fridge', 'cold'), row('hob', 'hob')], spec).pieces), l = { main: Z, at: [3, 3], L };
+        const job = _test.life.mealJob({ id: '__fridge' }, l, L, free);
+        check('a meal starts at the fridge with its door open and a look in', job?.clip === 'fridgeLook' && job.openPiece === 'fridge', JSON.stringify(job));
+      }
+      // a wardrobe offers a change of clothes (the Room Stage opens your gear for it); nothing else does
+      check('a wardrobe offers Change clothes, which opens the Pack', pieceActs({ arche: 'wardrobe', name: 'wardrobe', container: true }).some((a) => a.verb === 'dress' && a.cmd === 'roompack' && a.label === 'Change clothes')
+        && !pieceActs({ arche: 'cold', name: 'fridge', container: true }).some((a) => a.verb === 'dress'));
+      // NOBODY WALKS THROUGH ANYBODY: a route goes round somebody stood in the way, and waits for somebody crossing it
+      {
+        const M = '__regress_crowd', L = roomLayout(spec, []), lv = _test.life.lives;
+        const mid = roomNearFree(L, 0, 3.5), from = roomNearFree(L, 0, 1.2), to = roomNearFree(L, 0, 5.8);
+        const still = { main: M, at: mid, seat: null, L }, me = { main: M, at: from, seat: null, L, next: 0 };
+        lv.set('__still', still); lv.set('__me', me);
+        try {
+          const path = roomPath(_test.life.crowded(L, M, me), from, to);
+          let near = Infinity;
+          for (let i = 1; i < (path || []).length; i++) for (let s = 0; s <= 20; s++) {
+            const a = path[i - 1], b = path[i], p = [a[0] + (b[0] - a[0]) * s / 20, a[1] + (b[1] - a[1]) * s / 20];
+            near = Math.min(near, Math.hypot(p[0] - mid[0], p[1] - mid[1]));
+          }
+          check('a route goes round somebody stood in the way', !!path && near >= 0.3, `${near.toFixed(2)} ${JSON.stringify(path)}`);
+          // now they're walking across it instead, right now: the route waits for them to pass
+          lv.set('__still', { ...still, at: roomNearFree(L, -2.5, 3.5), route: { path: [roomNearFree(L, -2.5, 3.5), roomNearFree(L, 2.5, 3.5)], len: 5, t0: Date.now(), ms: 5 / 1.1 * 1000 }, job: { stand: roomNearFree(L, 2.5, 3.5) } });
+          const went = _test.life.walk({ id: '__me' }, me, L, { kind: 'pace', stand: to }, M, Date.now());
+          check('a route that meets a walker waits a beat for them', went && !me.route && me.next === Infinity, JSON.stringify({ went, route: !!me.route, next: me.next }));
+          check('...and a trip to the bathroom does not', _test.life.walk({ id: '__me' }, me, L, { kind: 'bath', stand: to }, M, Date.now()) && !!me.route);
+        } finally { me.walkTok = null; lv.delete('__still'); lv.delete('__me'); }
+      }
       const L = roomLayout(spec, layRows([row('fridge', 'cold'), row('hob', 'hob')], spec).pieces), kinds = (f, want = null) => _test.life.jobsIn(L, free, want, f).map((j) => j.kind);
       check('a room at room temperature has nothing to do about it', !kinds(0).some((k) => ['warm', 'heater', 'cool', 'air'].includes(k)));
       check('a cold room gives them something to do about the cold, and a hot one about the heat', kinds(-0.6).includes('warm') && kinds(0.6).includes('cool') && kinds(0.6).includes('air'));
@@ -197,8 +229,92 @@ async function residents(check) {
   }
 }
 
+// Somebody walking out of a room somebody has open, or into it, by an exit: noted as `gone` and `came` for the
+// room's people, so the client walks them to the door instead of dropping them. A jump is never noted.
+async function comings(check) {
+  const A = '__roomstage_test_out_a__', B = '__roomstage_test_out_b__', C = '__roomstage_test_out_c__', N = '__roomstage_test_walker__', V = '__roomstage_test_viewer__';
+  const mk = (id, exits) => ({ id, name: id, flags: {}, exits, players: new Set(), npcs: new Set(), enemies: new Set(), corpses: new Set() });
+  world.zones.set(A, mk(A, { out: B })); world.zones.set(B, mk(B, { in: A })); world.zones.set(C, mk(C, {}));
+  const had = _test.viewers.get(A);
+  _test.viewers.set(A, new Set([V]));
+  try {
+    emit('npc.moved', { npc: { id: N }, from: A, to: B, dir: 'out' });
+    const m = _test.movesOf(A);
+    check('an NPC walking out of an open room is sent as gone, by the way they went', m?.gone?.length === 1 && m.gone[0].id === N && m.gone[0].to === B, JSON.stringify(m));
+    check('and nothing is noted for a room nobody can see', !_test.movesOf(B));
+    emit('npc.moved', { npc: { id: N }, from: B, to: A, dir: 'in' });
+    const back = _test.movesOf(A);
+    check('walking back in, they come by that doorway and are no longer going', back?.came?.[0]?.id === N && back.came[0].from === B && !back.gone.some((g) => g.id === N), JSON.stringify(back));
+    emit('zone.entered', { actor: { id: '__roomstage_test_jumper__' }, zone: C, from: A });
+    check('a jump with no exit between the rooms is not walked', !_test.movesOf(A)?.gone?.some((g) => g.id === '__roomstage_test_jumper__'));
+  } finally {
+    if (had) _test.viewers.set(A, had); else _test.viewers.delete(A);
+    for (const z of [A, B, C]) world.zones.delete(z);
+  }
+}
+
+// How full a container is drawn (fill.js): the level from a count and a weight, and a container view moving it,
+// all in RAM. The furniture row is set straight into the cache and taken out again; nothing is written.
+function fills(check) {
+  check('an empty box is level 0, two things 1, five 2, nine 3', [0, 2, 5, 9].map((n) => fillLevel(n, 0, 60000)).join() === '0,1,2,3');
+  check('one heavy thing filling most of a box is full', fillLevel(1, 50000, 60000) === 3);
+  const ID = '__roomstage_fill_box__', had = _fillTest.tallies.get(ID);
+  world.furniture.set(ID, { id: ID, zone_id: '__roomstage_fill_zone__', name: 'test fridge', object_type: 'container', flags: { container: 50000 } });
+  try {
+    const item = (n) => ({ item_id: 'x', quantity: n });
+    const moved = noteView({ containerId: ID, usedWeight: 400, containerItems: [item(1), item(2)] });
+    check('a box opened is counted, and its level moves', fillOf(ID) === 2 && moved.includes(ID), JSON.stringify({ fill: fillOf(ID), moved }));
+    check('the same count again moves nothing', noteView({ containerId: ID, usedWeight: 400, containerItems: [item(3)] }).length === 0);
+    noteView({ containerId: ID, usedWeight: 0, containerItems: [] });
+    check('emptied, it is level 0', fillOf(ID) === 0);
+    check('a view of something that is no furniture is left alone', noteView({ containerId: '__no_such_box__', usedWeight: 1, containerItems: [item(1)] }).length === 0);
+  } finally { world.furniture.delete(ID); if (had) _fillTest.tallies.set(ID, had); else _fillTest.tallies.delete(ID); }
+}
+
+// The Pack (pack.js, client panels/room-pack.js): `roompack` answers what you carry and wear, and wears, takes off and
+// drops by row id through the inventory's own functions; the paper doll draws what it answers.
+async function packs(check, run, getPlayer) {
+  const p = getPlayer(), SHIRT = 'item_basic_shirt', FOOD = 'item_anch_tiramisu', COLA = 'item_arcline_cola';
+  const mine = async () => (await query('SELECT id, item_id, is_equipped FROM player_inventory WHERE player_id=$1 AND item_id = ANY($2) AND container_id IS NULL', [p.id, [SHIRT, FOOD, COLA]])).rows;
+  let cola = null;
+  try {
+    await query('DELETE FROM player_inventory WHERE player_id=$1 AND item_id = ANY($2)', [p.id, [SHIRT, FOOD, COLA]]);
+    for (const id of [SHIRT, FOOD, COLA]) await giveItemById(p.id, id, 1);
+    delete p._carriedWeight;
+    let r = await run('roompack');
+    const row = (it) => r?.items?.find((x) => x.item === it);
+    check('roompack answers the pack, with the look the doll is drawn from', r?.type === 'room_pack' && Array.isArray(r.items) && !!r.look && (r.sex === 'male' || r.sex === 'female') && r.capacity > 0, JSON.stringify(r)?.slice(0, 200));
+    check('a garment says its slot and layer, and is not worn yet', row(SHIRT)?.slot === 'torso' && row(SHIRT)?.layer === 2 && !row(SHIRT)?.worn, JSON.stringify(row(SHIRT)));
+    check('food is taken in first person, as Pockets took it', row(FOOD)?.take?.act === 'eat' && row(FOOD)?.take?.verb === 'eat', JSON.stringify(row(FOOD)));
+    check('a can of cola is drunk from a can', row(COLA)?.take?.act === 'drink' && row(COLA)?.take?.hold === 'can', JSON.stringify(row(COLA)));
+    const shirt = row(SHIRT)?.id;
+    r = await run(`roompack wear ${shirt}`);
+    check('roompack wear puts it on and says so', r?.type === 'room_pack' && row(SHIRT)?.worn === true && !!r.say && r.ok !== false, `${r?.say} ${JSON.stringify(row(SHIRT))}`);
+    check('and the row is equipped in the table', (await mine()).find((x) => x.id === shirt)?.is_equipped === 1);
+    const { dollSvg } = await import('../../client/shared/paper-doll.js');
+    const svg = dollSvg(r);
+    check('the paper doll draws what you wear, picked by its row', svg.includes(`data-id="${shirt}"`) && !/NaN|undefined/.test(svg));
+    r = await run(`roompack off ${shirt}`);
+    check('roompack off takes it off', !row(SHIRT)?.worn && (await mine()).find((x) => x.id === shirt)?.is_equipped === 0, r?.say);
+    r = await run('roompack wear not-a-row');
+    check('wearing a row that is not yours is refused, and still answers the pack', r?.type === 'room_pack' && r.ok === false, r?.say);
+    cola = row(COLA)?.id;
+    r = await run(`roompack drop ${cola} 1`);
+    check('roompack drop leaves it on the floor', !row(COLA) && !(await mine()).some((x) => x.id === cola), r?.say);
+    r = await run('roompack juggle');
+    check('an op it has no use for is an error', r?.type === 'error');
+  } finally {
+    // ours, and the can we dropped (a whole row dropped keeps its id on the floor)
+    await query('DELETE FROM player_inventory WHERE (player_id=$1 AND item_id = ANY($2)) OR id=$3', [p.id, [SHIRT, FOOD, COLA], cola]).catch(() => {});
+    delete p._carriedWeight;
+  }
+}
+
 export default async function regress({ run, check, getPlayer }) {
+  fills(check);
   await residents(check);
+  await comings(check);
+  await packs(check, run, getPlayer);
   const flat = [...world.zones.values()].find((z) => z.flags?.is_apartment), probe = { id: '__room_avail' };
   _test.tellAvail({ ...probe, current_zone: flat?.id });
   check('the room button lights in a flat', _test.told.get(probe.id) === true, flat?.id);
@@ -690,6 +806,78 @@ export default async function regress({ run, check, getPlayer }) {
 
       r = await run('arrange grand piano left');
       check('arrange names a piece that is not there', /no "grand piano" in here/i.test(r?.message || ''), r?.message);
+
+      // arrange layout: the arrange mode's Save (client/game/js/panels/room-arrange.js), every moved piece at once
+      {
+        const spec2 = _test.stageSpec(APT);
+        const pcs = (await _test.roomPieces(APT, spec2)).filter((x) => !x.annex);
+        const sofa = pcs.find((x) => /sofa/i.test(x.name)), box = pcs.find((x) => /coldbox/i.test(x.name));
+        check('a player piece is sent as placed, so the owner may drag it', !!sofa?.placed && !!box?.placed);
+        const rest = pcs.filter((x) => x !== sofa && x !== box);
+        const sL = placeSpot(spec2, rest, sofa.arche, sofa.dims, { crt: sofa.crt, form: sofa.form, wall: 'left' });
+        const bF = sL && placeSpot(spec2, [...rest, { ...sofa, spot: sL }], box.arche, box.dims, { crt: box.crt, form: box.form, wall: 'front' });
+        check('the layout check has two free spots to try', !!sL && !!bF, JSON.stringify([sL, bF]));
+        sent.length = 0;
+        r = await run(`arrange layout ${sofa.id}@left:${sL?.along} ${box.id}@front:${bF?.along}`);
+        await settle();
+        check('arrange layout moves every piece in it', rowNamed(/sofa/i)?.flags?.spot?.wall === 'left' && rowNamed(/coldbox/i)?.flags?.spot?.wall === 'front', `${r?.message} ${JSON.stringify([rowNamed(/sofa/i)?.flags?.spot, rowNamed(/coldbox/i)?.flags?.spot])}`);
+        check('arrange layout answers room_arranged ok', sent.some((m) => m.type === 'room_arranged' && m.ok === true), JSON.stringify(sent.filter((m) => m.type === 'room_arranged')));
+        const sends = sent.filter((m) => m.type === 'room_piece');
+        check('a viewer gets the whole room once, not a piece at a time', sends.length === 1 && Array.isArray(sends[0].pieces), JSON.stringify(sends.map((m) => Object.keys(m))));
+        check('the flags round the spot are kept', !!rowNamed(/sofa/i)?.flags?.item_id, JSON.stringify(rowNamed(/sofa/i)?.flags));
+        clash = await overlapIn();
+        check('after a layout nothing stands in anything else', !clash, clash);
+
+        r = await run(`arrange layout ${sofa.id}@left:${sL?.along}`);
+        check('a second layout straight after is held, so a looping client costs no queries', /give it a moment/i.test(r?.message || ''), r?.message);
+
+        // all or nothing: two pieces on one spot, and neither moves
+        const before = JSON.stringify([rowNamed(/sofa/i)?.flags?.spot, rowNamed(/coldbox/i)?.flags?.spot]);
+        sent.length = 0;
+        r = await run(`arrange layout ${sofa.id}@0,5,0 ${box.id}@0,5,0`);
+        const no = sent.find((m) => m.type === 'room_arranged');
+        check('a layout with a clash is refused whole', /nothing moved/i.test(r?.message || '') && no?.ok === false && no.bad.length > 0 && JSON.stringify([rowNamed(/sofa/i)?.flags?.spot, rowNamed(/coldbox/i)?.flags?.spot]) === before, `${r?.message} ${JSON.stringify(no)}`);
+        r = await run('arrange layout nonsense');
+        check('a layout that does not parse moves nothing', /didn't make sense/i.test(r?.message || ''), r?.message);
+        r = await run('arrange layout __nope__@left:1');
+        check('a layout naming a piece that is not there moves nothing', /isn't there any more/i.test(r?.message || ''), r?.message);
+        const flat = { arche: 'screen', crt: false, dims: dimsOf('screen') };
+        check('a hung screen is never out in the room', pieceHangs(flat) && !spotFits(spec2, [], flat, { at: [0, 5], turn: 0 }));
+        // the admin mode: staff on a local database set any room up (content files off, so a run writes nothing)
+        r = await run(`arrange layout +item_nope@0,5,0`);
+        check('a player cannot add a piece', /for staff/i.test(r?.message || ''), r?.message);
+        const savedRole = p.role;
+        p.role = 'dev';
+        _test.setSyncFiles(false);
+        try {
+          const furn = [...getItemCache().values()].find((it) => it.type === 'furniture' && rowDrawn({ object_type: 'furniture', flags: { ...(it.flags || {}), item_id: it.id } }));
+          if (!_test.adminHere(p)) check('the admin mode is offered only on a local database', !(await _test.viewPayload(p, APT, spec2)).admin);
+          else if (furn) {
+            const v = await _test.viewPayload(p, APT, spec2);
+            check('staff on a local database are offered the admin mode', v.admin === true);
+            sent.length = 0;
+            await run('arrange catalog');
+            const cat = sent.find((m) => m.type === 'room_catalog');
+            check('arrange catalog sends every furniture item with its look', Array.isArray(cat?.items) && cat.items.some((it) => it.id === furn.id && it.arche && Array.isArray(it.dims)), JSON.stringify(cat?.items?.slice(0, 2)));
+            await insertFurniture({ id: '__roomstage_fixed2__', zone_id: APT, name: 'bolted shelf', description: 'A shelf bolted to the floor.', flags: JSON.stringify({ interactions: ['lean'] }), object_type: 'furniture' });
+            const fixed = getZoneFurniture(APT).find((f) => f.id === '__roomstage_fixed2__');
+            check('a staff-test authored row is authored', fixed?.origin === 'authored', fixed?.origin);
+            sent.length = 0;
+            r = await run(`arrange layout +${furn.id}@0.5,5,90 __roomstage_fixed2__@left:2`);
+            await settle();
+            const made = getZoneFurniture(APT).find((f) => f.flags?.item_id === furn.id && f.origin === 'authored' && f.id !== '__roomstage_fixed2__');
+            check('staff add a catalog piece as an authored row with its spot', !!made && JSON.stringify(made.flags.spot) === JSON.stringify({ at: [0.5, 5], turn: 90 }), `${r?.message} ${JSON.stringify(made?.flags?.spot)}`);
+            check('staff move an authored piece', getZoneFurniture(APT).find((f) => f.id === '__roomstage_fixed2__')?.flags?.spot?.wall === 'left', r?.message);
+            r = await run(`arrange layout -${made?.id} -__roomstage_fixed2__`);
+            check('staff take pieces out', !getZoneFurniture(APT).some((f) => f.id === made?.id || f.id === '__roomstage_fixed2__'), r?.message);
+          }
+        } finally {
+          p.role = savedRole;
+          _test.setSyncFiles(true);
+          await deleteFurnitureWhere("DELETE FROM furniture WHERE zone_id = $1 AND origin = 'authored'", [APT]).catch(() => {});
+        }
+        check('cleanSpot rounds to centimetres and quarter turns', JSON.stringify(cleanSpot({ at: [1.234, 2], turn: 100 })) === JSON.stringify({ at: [1.23, 2], turn: 90 }) && cleanSpot({ wall: 'roof', along: 1 }) === null);
+      }
     } finally {
       setBroadcast(prevBroadcast);
     }

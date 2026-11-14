@@ -139,6 +139,14 @@ export default async function regress({ run, check, getPlayer }) {
     check('full set spells the word across the seams', /H E L L M O O/.test(full || ''), full);
     check('full reveal supersedes the GRU pair hint', !/three deliberate letters/i.test(full || ''), full);
     check('full reveal still offers the take link', /data-action="take"/.test(full || ''), full);
+
+    // ── ROOM: the sheets on the wall (`room.sheets`), one per slot, whose glyphs spell the word ──
+    const sheets = hooks['room.sheets'](zone) || [];
+    check('room.sheets gives one sheet per slot in order',
+      sheets.length === _test.MURAL.length && sheets.every((s, i) => s.slot === i && s.of === _test.MURAL.length && s.set === 'hellmoo'), JSON.stringify(sheets.map((s) => s.slot)));
+    check('the sheets\' glyphs spell the word', sheets.map((s) => s.glyph).join('') === _test.MURAL_WORD, sheets.map((s) => s.glyph).join(''));
+    check('a sheet carries its title and print', sheets.every((s) => s.title && /^#[0-9a-f]{6}$/i.test(s.ground) && s.pose), JSON.stringify(sheets[0]));
+    check('room.sheets answers nothing for a bare room', hooks['room.sheets']('__no_such_room__') === undefined);
   } finally {
     await deleteFurnitureWhere(`DELETE FROM furniture WHERE id IN ('furn_regress_poster','furn_regress_cyd') OR id LIKE 'furn_regress_mural_%' OR flags->>'poster_key'='regress'`);
     await clearFlag('world', 'poster_taken:regress');

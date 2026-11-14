@@ -11,6 +11,7 @@
     "floor": "boards",
     "is_apartment": true,
     "room": {
+      "blinds": true,
       "d": 10,
       "decor": {
         "art": [
@@ -45,6 +46,12 @@
           "hex": "#ece4d0",
           "kind": "cove",
           "trim": "#c9a14a"
+        },
+        "leaves": {
+          "flush": true,
+          "kind": "panel",
+          "metal": "#9aa0a6",
+          "wood": "#3a3430"
         },
         "plants": [
           [

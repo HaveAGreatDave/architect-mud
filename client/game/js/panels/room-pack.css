@@ -1,0 +1,140 @@
+/* The Pack (room-pack.js): ROOM's inventory over the picture, a paper doll of you beside what you carry.
+   Its colours are the Room Stage's (room-stage.css: --rs-panel, --rs-btn) and the text game's theme under them. */
+#room-stage .rp {
+	position: absolute; z-index: 30; left: 50%; top: 50%; transform: translate(-50%, -50%);
+	width: min(880px, calc(100% - 24px)); height: min(640px, calc(100% - 24px));
+	display: flex; flex-direction: column; overflow: hidden;
+	background: color-mix(in srgb, var(--bg) 94%, transparent); color: var(--text);
+	border: 1px solid var(--border); border-radius: 10px; box-shadow: 0 12px 40px rgba(0, 0, 0, 0.55);
+	font: 0.8125rem/1.3 var(--rs-font); user-select: none; -webkit-user-select: none;
+	--rp-col: var(--text-dim);
+}
+#room-stage .rp[hidden] { display: none; }
+/* the room's own buttons and card stay out from under it */
+#room-stage.rp-open .rs-card, #room-stage.rp-open .rs-tip { visibility: hidden; }
+
+#room-stage .rp-head { display: flex; align-items: center; gap: 12px; padding: 8px 10px 8px 14px; border-bottom: 1px solid var(--border); }
+#room-stage .rp-title { font: 700 0.9375rem 'RS Orbitron', var(--rs-font); letter-spacing: 0.08em; color: var(--accent); text-transform: uppercase; }
+#room-stage .rp-carry { display: inline-flex; align-items: center; gap: 8px; color: var(--text-dim); margin-left: auto; }
+#room-stage .rp-bar { width: 110px; height: 6px; border-radius: 3px; background: var(--rs-btn); overflow: hidden; border: 1px solid var(--border); }
+#room-stage .rp-bar i { display: block; height: 100%; background: var(--accent); }
+#room-stage .rp-carry.heavy .rp-bar i { background: var(--red, #d24b40); }
+#room-stage .rp-carry.heavy { color: var(--red, #d24b40); }
+#room-stage .rp-cr { color: var(--text-dim); }
+#room-stage .rp-x { width: 30px; height: 30px; border-radius: 6px; cursor: pointer; font-size: 1.125rem; line-height: 1; background: var(--rs-btn); color: var(--text); border: 1px solid var(--border); }
+#room-stage .rp-x:hover { border-color: var(--accent); color: var(--accent); }
+
+#room-stage .rp-body { flex: 1 1 auto; min-height: 0; display: flex; }
+#room-stage .rp-dollbox {
+	flex: 0 0 38%; min-width: 0; min-height: 0; overflow: hidden; display: flex; flex-direction: column; align-items: stretch;
+	border-right: 1px solid var(--border);
+	background: radial-gradient(ellipse at 50% 40%, color-mix(in srgb, var(--accent) 10%, transparent), transparent 70%);
+}
+#room-stage .rp-doll { flex: 1 1 auto; min-height: 0; min-width: 0; overflow: hidden; touch-action: none; display: flex; justify-content: center; padding: 8px 6px 0; border-radius: 8px; transition: background 0.15s; }
+#room-stage .rp-doll.drop-on { background: color-mix(in srgb, var(--accent) 14%, transparent); }
+#room-stage .pd-svg { height: 100%; width: auto; max-width: 100%; overflow: visible; }
+#room-stage .pd-item { cursor: grab; transition: filter 0.12s; }
+#room-stage .pd-item.hov { filter: brightness(1.18) drop-shadow(0 0 2px color-mix(in srgb, var(--accent) 80%, transparent)); }
+#room-stage .pd-item.sel { filter: drop-shadow(0 0 2.5px var(--accent)) drop-shadow(0 0 1px var(--accent)); }
+#room-stage .pd-item.ghost { opacity: 0.62; pointer-events: none; }
+#room-stage .pd-glow { filter: drop-shadow(0 0 3px rgba(120, 220, 255, 0.9)); }
+#room-stage .rp-dollacts { display: flex; justify-content: center; gap: 8px; padding: 8px; }
+#room-stage .rp-dollacts button, #room-stage .rp-act, #room-stage .rp-tabs button {
+	padding: 5px 12px; border-radius: 5px; cursor: pointer; font: inherit;
+	background: var(--rs-btn); color: var(--text); border: 1px solid var(--border);
+}
+#room-stage .rp-dollacts button:hover:not(:disabled), #room-stage .rp-act:hover, #room-stage .rp-tabs button:hover { border-color: var(--accent); }
+#room-stage .rp-dollacts button:disabled { opacity: 0.4; cursor: default; }
+#room-stage .rp-dollacts button[hidden] { display: none; }
+
+#room-stage .rp-packbox { flex: 1 1 auto; min-width: 0; min-height: 0; display: flex; flex-direction: column; padding: 8px 10px; gap: 8px; border-radius: 0 8px 8px 0; transition: background 0.15s; }
+#room-stage .rp-packbox.drop-on { background: color-mix(in srgb, var(--accent) 8%, transparent); }
+#room-stage .rp-tabs { display: flex; gap: 6px; flex-wrap: wrap; }
+#room-stage .rp-tabs button.on { color: var(--accent); border-color: var(--accent); background: var(--rs-btn-hover); }
+#room-stage .rp-grid {
+	flex: 1 1 auto; min-height: 0; overflow-y: auto; align-content: start;
+	display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 6px; padding: 2px;
+	scrollbar-width: thin; overflow-anchor: none;
+}
+#room-stage .rp-empty { grid-column: 1 / -1; color: var(--text-dim); padding: 24px 4px; text-align: center; }
+#room-stage .rp-tile {
+	position: relative; display: grid; grid-template-columns: 30px 1fr; grid-template-rows: auto auto; column-gap: 8px; align-items: center;
+	min-height: 52px; padding: 6px 8px; text-align: left; cursor: grab; font: inherit; color: var(--text);
+	background: var(--rs-btn); border: 1px solid var(--border); border-left: 3px solid var(--rp-col); border-radius: 6px;
+	touch-action: pan-y;
+}
+#room-stage .rp-tile:hover { border-color: var(--accent); border-left-color: var(--rp-col); }
+#room-stage .rp-tile.sel { border-color: var(--accent); background: var(--rs-btn-hover); box-shadow: 0 0 0 1px var(--accent) inset; }
+#room-stage .rp-tile.worn { background: color-mix(in srgb, var(--accent) 7%, var(--rs-btn)); }
+#room-stage .rp-tile.worn::after { content: '●'; position: absolute; top: 4px; right: 6px; font-size: 0.5rem; color: var(--accent); }
+#room-stage .rp-ico { grid-row: 1 / span 2; width: 28px; height: 28px; color: var(--text-dim); }
+#room-stage .rp-name {
+	min-width: 0; overflow: hidden; padding-right: 10px; line-height: 1.2; overflow-wrap: anywhere;
+	display: -webkit-box; -webkit-line-clamp: 2; line-clamp: 2; -webkit-box-orient: vertical;
+}
+#room-stage .rp-name em { font-style: normal; color: var(--text-dim); }
+#room-stage .rp-sub, #room-stage .rp-cond { font-size: 0.6875rem; color: var(--text-dim); }
+#room-stage .rp-cond { position: absolute; bottom: 5px; right: 8px; }
+#room-stage .rp-quick {
+	position: absolute; right: 6px; bottom: 5px; padding: 1px 7px; border-radius: 9px; font-size: 0.6875rem;
+	background: var(--accent); color: var(--bg); cursor: pointer; opacity: 0; transition: opacity 0.12s;
+}
+#room-stage .rp-tile:hover .rp-quick, #room-stage .rp-tile.sel .rp-quick, #room-stage .rp-tile:focus-visible .rp-quick { opacity: 1; }
+#room-stage .rp-tile:hover .rp-cond, #room-stage .rp-tile.sel .rp-cond { opacity: 0; }
+/* no hover on a touch screen: the chip is always there */
+@media (hover: none) { #room-stage .rp-quick { opacity: 1; } #room-stage .rp-cond { display: none; } }
+
+#room-stage .rp-floor {
+	flex: 0 0 auto; padding: 7px; text-align: center; color: var(--text-dim); font-size: 0.75rem;
+	border: 1px dashed var(--border); border-radius: 6px; opacity: 0.55; transition: opacity 0.15s, background 0.15s;
+}
+#room-stage .rp.dragging .rp-floor { opacity: 1; }
+#room-stage .rp-floor.drop-on { background: color-mix(in srgb, var(--red, #d24b40) 22%, transparent); border-color: var(--red, #d24b40); color: var(--text); }
+
+#room-stage .rp-sel { flex: 0 0 auto; min-height: 68px; padding: 8px 14px 10px; border-top: 1px solid var(--border); }
+#room-stage .rp-hint { color: var(--text-dim); }
+#room-stage .rp-selhead { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+#room-stage .rp-selhead b { color: var(--text-bright, var(--text)); font-size: 0.875rem; }
+#room-stage .rp-selhead span { color: var(--text-dim); font-size: 0.75rem; }
+#room-stage .rp-desc { margin: 3px 0 6px; color: var(--text-dim); font-size: 0.75rem; line-height: 1.35; max-height: 2.8em; overflow: hidden; }
+#room-stage .rp-acts { display: flex; flex-wrap: wrap; gap: 6px; }
+#room-stage .rp-act.main { background: var(--accent); color: var(--bg); border-color: var(--accent); font-weight: 600; }
+#room-stage .rp-act.main:hover { filter: brightness(1.1); }
+#room-stage .rp-act.drop { margin-left: auto; color: var(--text-dim); }
+#room-stage .rp-act.drop + .rp-act.drop { margin-left: 0; }
+
+#room-stage .rp-say {
+	position: absolute; left: 50%; top: 54px; transform: translate(-50%, -8px); max-width: 80%; z-index: 3;
+	padding: 6px 12px; border-radius: 6px; background: var(--rs-panel); border: 1px solid var(--green, #5cb85c); color: var(--text);
+	font-size: 0.75rem; opacity: 0; pointer-events: none; transition: opacity 0.2s, transform 0.2s;
+}
+#room-stage .rp-say.on { opacity: 1; transform: translate(-50%, 0); }
+#room-stage .rp-say.bad { border-color: var(--red, #d24b40); }
+
+#room-stage .rp-drag {
+	position: absolute; left: 0; top: 0; z-index: 2; pointer-events: none; display: flex; align-items: center; gap: 6px;
+	padding: 4px 10px 4px 6px; border-radius: 6px; background: var(--rs-panel); border: 1px solid var(--accent);
+	box-shadow: 0 4px 14px rgba(0, 0, 0, 0.5); white-space: nowrap;
+}
+#room-stage .rp-drag .rp-ico { width: 22px; height: 22px; }
+#room-stage .rp.dragging, #room-stage .rp.dragging * { cursor: grabbing; }
+
+/* a phone held upright: the doll on top, small, and the pack under it (on its side it keeps the two columns) */
+@media (max-width: 640px) and (orientation: portrait) {
+	#room-stage .rp { width: calc(100% - 12px); height: calc(100% - 12px); }
+	#room-stage .rp-body { flex-direction: column; }
+	#room-stage .rp-dollbox { flex: 0 0 38%; border-right: 0; border-bottom: 1px solid var(--border); flex-direction: row; }
+	#room-stage .rp-doll { flex: 1 1 auto; padding: 4px; }
+	#room-stage .rp-dollacts { flex-direction: column; justify-content: center; }
+	#room-stage .rp-grid { grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); }
+	#room-stage .rp-carry .rp-bar { width: 60px; }
+}
+/* a short window (a phone on its side): no hint line, and a slimmer footer, so the grid keeps its rows */
+@media (max-height: 480px) {
+	#room-stage .rp { height: calc(100% - 8px); }
+	#room-stage .rp-head { padding: 4px 8px 4px 12px; }
+	#room-stage .rp-sel { min-height: 0; padding: 4px 10px 6px; }
+	#room-stage .rp-sel .rp-hint, #room-stage .rp-desc, #room-stage .rp-floor { display: none; }
+	#room-stage .rp-dollacts { padding: 4px; }
+	#room-stage .rp-tile { min-height: 44px; padding: 4px 6px; }
+}

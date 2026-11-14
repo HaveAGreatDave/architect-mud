@@ -1,6 +1,6 @@
 # The Building Stage: walk a whole building, out to the street
 
-> **Status: steps 1 to 5 built (the graph, the floor plan, their gate, walking through a doorway, the next room drawn furnished, with its people, lift cars with a 3D button panel, sliding doors and a ride you feel, flats on corridors with their en-suites in the plan, room finishes, the street door out to GLASS on foot and back with the street warmed ahead, automatic glass street doors, and the view out placed in the world); stairs, portal culling and authoring are design.** It extends the [Room Stage](room-stage.md) from one
+> **Status: steps 1 to 5 built (the graph, the floor plan, their gate, walking through a doorway, the next room drawn furnished, with its people, lift cars with a 3D button panel, sliding doors and a ride you feel, flats on corridors with their en-suites in the plan, room finishes, the street door out to GLASS on foot and back with the street warmed ahead, automatic glass street doors, the view out placed in the world, and stairs between floors, walked up and down); portal culling and authoring are design.** It extends the [Room Stage](room-stage.md) from one
 > room to every room of a building, and joins the building's front door to the street in GLASS.
 > Where it disagrees with [plugins/roomstage/README.md](../../plugins/roomstage/README.md), the
 > README wins.
@@ -251,13 +251,54 @@ room-stage.js swaps the room's own state (spec, pieces, people, the rooms next d
 street's doors, the bar's name, the set) and keeps the pane, the canvas, the GL renderer and the view out, so the
 last frame of one room stays up until the first of the next and nothing compiles again. A lift ride goes the same
 way. A doorway in the same wall as an en-suite's door no longer reads as going into the en-suite: only the
-en-suite's own width counts, and not while a doorway is being crossed. Shut doors are still plain wall, and stairs
-aren't walked.
+en-suite's own width counts, and not while a doorway is being crossed. Shut doors are still plain wall. Stairs are
+walked: see "Stairs" below.
 
 Checked by the roomstage regress suite (a three-room building, its doorways, the walk through with
 the real `north`, and a door a move gate refuses) and by check 10 in
 [scripts/shapes/room-stage.mjs](../../scripts/shapes/room-stage.mjs) (every wall's doorway cut,
 walked through and come back from, the window and the flat's door given way, a shut door left whole).
+
+### Stairs: built
+
+A building's floors join without a lift by a flight of stairs. It's authored once, on the room it goes up from, as
+`flags.room.stair` `{ at: [u, v], climb, w }`: `at` is the middle of the bottom step in that room's own frame, `climb`
+the wall you face going up (`left`, `right`, `front` or `back`) and `w` its width (0.8 to 3 m, 1.1 by default). The
+room needs its `up` exit, and the room above its `down`, as any stair does in text. A stair with no flight authored
+stays text, and the Stage leaves it out.
+
+- **Numbers** (`flightOf` in room-layout.js). The flight rises the lower room's height, to the floor of the room above,
+  which the plan stands on its ceiling. Each riser is at most 0.19 m and each going 0.27 m, so a 3 m room has 16 risers
+  and a flight 4.05 m long. The floor above is its last step. `hole` is where the floor above is cut from, so nobody
+  climbing has less than 2.05 m over their head; `cross` is where you go from one room to the other, about where your eye
+  passes through the floor above.
+- **Plan** (building-graph.js). The room above stands with its `flags.room.doors.down` `[u, v]` over the top of the
+  flight; without one, its middle is. The plan fails `stair_off_room` (the flight runs out through a wall of its room) and
+  `stair_off_floor` (its well, or 0.6 m of floor past its top, isn't in the floor above). Both rooms get it as an opening,
+  `kind: 'stair'`, in their own frame: the room below with `wall: 'ceiling'` and the flight on its floor, the room above
+  with `wall: 'floor'` and the flight falling away from it (`y0` is -rise there). Each sees the other through the well,
+  so each is the other's neighbour, drawn, furnished and with its people, and `nextDoor` on the server counts it.
+- **Walking** (room-layout.js). The flight is a lane: a rail down each side and the end you can't step off (the top below,
+  the foot of the well above), so you walk onto it from one end only. `groundAt` on it is the line up the noses, so the
+  eye climbs smoothly; `baseAt` is each tread, for a figure's feet. Past `cross` it's `openingCrossed`, so the Stage
+  sends the ordinary `up` or `down` once, as it sends a doorway's direction, and a refusal puts you back short of the
+  line ("You can't get up the stairs."). A crossing carries where you stand and the keys you hold into the other room's
+  frame, so you keep climbing. Typed, you arrive off the bottom step facing away from it, or off the top facing on.
+  Residents plan their walks round the lane (`onFoot`), so nobody wanders up a flight and stands over the well.
+- **Drawn** (gl/room-mesh.js). The room below draws the flight: treads with a nose over painted risers between two
+  stringers, a plastered soffit, newels and a baluster a step down each open side under a handrail, and on a side along a
+  wall a rail on brackets instead; its ceiling is cut round the well, which is cased in the trim. The room above cuts its
+  floor round the well and stands a balustrade round it on the floor's edge, its long sides stopping where the flight's
+  own rail has come up high enough to take over. The two are drawn together, so neither draws the slab every room has
+  under its floor or over its ceiling, and the room below is drawn 1.5 cm short of the floor above, or its ceiling and
+  the tops of its walls fight that floor.
+
+Jolene's is the first: the bar's flight runs up its west wall from beside the street door to the Room Over the Kitchen,
+which stands over the bar's west wall and the kitchen. The gate's rules check a made-up flight's plan, both openings, and
+a flight off its room and a well off its floor; the roomstage regress walks a made-up building's stair with the real `up`.
+
+Still to come: a flight with a half landing or a turn (a straight flight is all there is, so a tall room's is long), the
+same stair joining more than two floors in a stairwell, and residents drawn climbing it.
 
 ### 4. Drawing the next room: built
 

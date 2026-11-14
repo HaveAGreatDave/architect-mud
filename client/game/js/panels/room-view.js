@@ -14,6 +14,12 @@ const EYE_OUT = 0.42;
 // machine at half rate, and within two seconds the governor had cut every detail ring to 40%, so the city out of
 // the window looked a step softer than the room. The view keeps its own cost in hand (half rate, then the faces).
 const TUNE = { farMax: 16, lodNear: 8, lodFar: 14, decoFar: 8, glowFar: 11, shadowFar: 6, signFar: 6, perfDS: 0 };
+// ⚠ A BALCONY ROOM HAS A FIXED, CHEAPER LOD. Out on the deck there's no pane strip to cull to (room-stage.js lookOut),
+// so the whole width of the city is built every paint, with the room's own tower kept as well, and that's where a live
+// view got dear enough to give up and drop to the six faces for the rest of the session. The rings are closer in: past
+// lodNear a building's arm runs only its CHEAP lights and signs (windshield.js glTier). Keyed on the room, not on
+// standing on the deck, so nothing pops as you step through the door. Fixed, like TUNE: the governor stays down.
+const BALCONY_TUNE = { ...TUNE, lodNear: 4, lodFar: 9, decoFar: 4, glowFar: 8, shadowFar: 3, signFar: 4 };
 
 // How high the eye is, in the renderer's units: the same fraction of the building's height as the
 // flat's storey is of its storeys. A building that doesn't say how many it has is taken to stop two
@@ -66,7 +72,7 @@ function facadeOut(msg, cell, rad, floorZ, modelTopZAt) {
 // The box a balcony room takes out of its own building, in the window's tiles (the window is centred on the
 // building's tile, so the tile's middle is 0, 0): the room's width and the deck's, from a little behind its back
 // wall forward to the tile's edge, and from just under its floor to just over its ceiling. `msg.cut` is
-// { w, d, h, deck, wrap } in metres; `fit` squeezes a room that isn't placed in its building as viewOf's walk is.
+// { w, d, h, deck, wrap, sides } in metres; `fit` squeezes a room that isn't placed in its building as viewOf's walk is.
 // Null when there's no cut, or when GLASS 1 is painting (`gl` false: it has no cut, so it gets the map without the tower).
 const CUT_SIDE = 0.4, CUT_BACK = 0.5, CUT_SLAB = 0.15;
 function roomCut(msg, base, cam, fit, gl) {
@@ -77,6 +83,8 @@ function roomCut(msg, base, cam, fit, gl) {
   // a deck round the sides (and the back, for 'all') takes its own depth out past each wall
   if (c.wrap) half += m2t(deck + CUT_SIDE);
   if (c.wrap === 'all') back += m2t(deck + CUT_SIDE);
+  // glass in a side wall looks across the floor inside the model, so the cut takes the tile's whole width there
+  if (c.sides) half = 1;
   const floor = base.placed ? m2t(base.floor) : cam.z - m2t(1.6);
   return { x: base.x, y: base.y, rad: base.rad, half, back, z0: floor - m2t(CUT_SLAB), z1: floor + m2t(h + CUT_SLAB), tx: 0, ty: 0 };
 }
@@ -143,7 +151,7 @@ export function viewOf(msg, base, { hour, wx, look, fed, k, gl = true }) {
     external: true, hideOwnShip: true, bare: true, noWxBadge: true, still: true, phase: 'cruise', worldBlend: 1, resFloor: 1,
     heading: 0, height: 0, speed: 0, hour: Math.floor(hour * 20) / 20, moon: wx?.moon ?? sky.moon, weather: wx?.weather || sky.weather, wxField: sky.field, wxGround: sky.ground, event: sky.event || null,
     map: roomCutNow ? base.keep : base.map, skyline: msg.skyline, mapCenter: { x: msg.gx, y: msg.gy }, mapOffset: { x: 0, y: 0 },
-    acX: msg.gx, acY: msg.gy, airport: 'default', tune: TUNE, actors: fed?.actors || [], contacts: fed?.contacts || null, roads: msg.roads, regions: msg.regions,
+    acX: msg.gx, acY: msg.gy, airport: 'default', tune: msg.cut ? BALCONY_TUNE : TUNE, actors: fed?.actors || [], contacts: fed?.contacts || null, roads: msg.roads, regions: msg.regions,
     // the front wall is at v 0, and the room runs back from it; u is along it, to the right
     freeCam: { x: cam.x, y: cam.y, z: cam.z, yaw: look?.yaw ?? 0, pitch: look?.pitch ?? 0, roll: 0, fov: k },
     // the strip of the canvas the panes show (room-stage.js lookOut, live only): nothing off it is built

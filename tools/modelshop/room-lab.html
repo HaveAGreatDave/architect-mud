@@ -27,7 +27,7 @@
 // baked flight world. Every verb the Stage sends goes nowhere here, so an en-suite is walked into by
 // answering its door. scripts/shapes/room-stage.mjs is what gates the meshes; this is a picture.
 import { roomSpecOf, withAnnex, annexFrame, layRows } from '/client/shared/room-layout.js';
-import { openRoomStage, closeRoomStage, roomOutlook, roomHere, roomSky, roomAhead, roomLocks, roomLockHack, roomGlass, roomPlumbing, _test } from '/client/game/js/panels/room-stage.js';
+import { openRoomStage, closeRoomStage, roomOutlook, roomHere, roomSky, roomAhead, roomLocks, roomLockHack, roomGlass, roomPlumbing, roomSheets, _test, setArrangeHost, roomArranged, roomCatalog } from '/client/game/js/panels/room-stage.js';
 
 const q = new URLSearchParams(location.search);
 const $ = (id) => document.getElementById(id);
@@ -50,6 +50,7 @@ const BEARING = { north: 0, northeast: 45, east: 90, southeast: 135, south: 180,
 async function open(_, via = null) {
   const id = $('zone').value, hour = Number($('hour').value);
   const d = await (await fetch('/api/room-lab?zone=' + encodeURIComponent(id) + (window.__labParked ? '&parked=' + encodeURIComponent(window.__labParked) : ''))).json();
+  labStamps = d.stamps || {};
   // ?turned=1 opens every Cachet in the room, so what it hides stands on its turntable (a chem lab)
   if (q.get('turned') === '1') for (const f of d.rows || []) if (f.flags?.conceal_hidden_by) f.flags = { ...f.flags, concealed: false };
   // ?lab=standard|refined|pristine draws every chem lab in the room at that grade
@@ -60,6 +61,10 @@ async function open(_, via = null) {
   if (d.annex) spec = withAnnex(spec, d.annex.id, d.annex.name);
   const pieces = layRows(d.rows, spec, { finish: spec.finish }).pieces;
   if (d.annex) pieces.push(...layRows(d.annexRows, annexFrame(spec).spec, { annex: true, finish: spec.annex.finish }).pieces);
+  // `placed`, as plugins/roomstage sends it: a player's piece, which the arrange mode (B) moves. ?arrange=1 lets
+  // every piece in the room be moved here, since a room in content/ holds only authored ones; ?admin=1 opens the staff
+  // mode, whose Furniture menu needs the server's catalog (hand it one with room-stage.js roomCatalog)
+  for (const p of pieces) if (!p.annex && (q.get('arrange') === '1' || (d.rows || []).find((f) => f.id === p.id)?.origin === 'player')) p.placed = true;
   // a chess table carries a position, as plugins/gametable's `room.boards` puts one on it: ?board= is 64
   // characters, rank 8 to rank 1, '.' for an empty square; unset, the opening position
   const BOARD = /^[pnbrqkPNBRQK.]{64}$/.test(q.get('board') || '') ? q.get('board') : 'rnbqkbnrpppppppp' + '.'.repeat(32) + 'PPPPPPPPRNBQKBNR';
@@ -72,7 +77,7 @@ async function open(_, via = null) {
   }
   // through a doorway the game keeps the Stage open and moves it (ui.cross); closing it here first hid what a crossing costs
   if (!via) closeRoomStage(true);
-  openRoomStage({ type: 'room_view', zone: id, here: id, name: d.zone.name, spec, ...(d.building ? { building: d.building.building } : {}), ...(d.lift ? { lift: d.lift } : {}), ...(via ? { via } : {}), ...(lockList(id, spec).length ? { locks: lockList(id, spec) } : {}), hasView: !!d.tile && $('glass').checked, mine: true, you: 'lab', pieces, people: [], clock: { hour, hourMs: Date.now(), rate: 0 } });
+  openRoomStage({ type: 'room_view', zone: id, here: id, name: d.zone.name, spec, ...(d.building ? { building: d.building.building } : {}), ...(d.lift ? { lift: d.lift } : {}), ...(via ? { via } : {}), ...(lockList(id, spec).length ? { locks: lockList(id, spec) } : {}), hasView: !!d.tile && $('glass').checked, mine: true, ...(q.get('admin') === '1' ? { admin: true } : {}), you: 'lab', pieces, people: [], clock: { hour, hourMs: Date.now(), rate: 0 } });
   const own = Number(d.zone.flags?.room?.face), dir = Object.keys(d.zone.exits || {}).find((k) => BEARING[k] !== undefined);
   // a room on a building's walk is placed as the plugin places it (frameOf): where it stands and how high, so the
   // lobby's window is at street level and not a fraction of the way up the tower
@@ -102,6 +107,25 @@ async function open(_, via = null) {
 }
 for (const el of ['zone', 'hour', 'glass']) $(el).addEventListener('change', open);
 window.__labOpen = open;
+// THE ARRANGE MODE SAVES TO FILES HERE (tools/modelshop/room-files.mjs): B, or Arrange, then Save writes this room's
+// content/furniture files with no server, the way the Studio writes zones. ?admin=1 is the staff mode, with the Furniture
+// menu off content/items. Each row's file stamp came with the room, so a file changed since isn't overwritten; after a
+// Save the room is opened again off the files. __labArranged is the last Save's answer.
+let labStamps = {};
+setArrangeHost(async (cmd, msg) => {
+  if (/^arrange catalog\b/.test(cmd)) {
+    const r = await (await fetch('/api/room-lab/catalog')).json().catch(() => ({ items: [] }));
+    roomCatalog({ items: r.items || [] });
+    return;
+  }
+  if (!/^arrange layout\b/.test(cmd)) return;
+  let r;
+  try { r = await (await fetch('/api/room-lab/arrange', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ zone: msg.zone, command: cmd, stamps: labStamps }) })).json(); }
+  catch (err) { r = { ok: false, message: 'The Modelshop did not answer: ' + err.message }; }
+  window.__labArranged = r;
+  roomArranged({ zone: msg.zone, ok: !!r.ok, message: r.message, bad: r.bad || [] });
+  if (r.ok) setTimeout(() => open(), 300);
+});
 // A lock on a doorway, as plugins/roomstage sends it (docs/proposals/room-hololock.md). There's no server here, so
 // the verbs go nowhere and the lab works the lock itself:
 //   __labLock('zone_solenne_apt_b')                  locks the door to that room (pass { yours, pass, hack } to say more)
@@ -135,6 +159,14 @@ window.__labGlass = (glass) => roomGlass({ zone: $('zone').value, glass });
 // What plugins/bodily sends as the water moves (`room_plumbing`): __labPlumb({ <furnitureId>: { shower: true, by: 'lab' } }) or
 // { level: 0.6, tint: 0.8, stream: { by: 'lab' } } on a toilet; `flushed: Date.now()` plays a flush
 window.__labPlumb = (plumbing) => roomPlumbing({ zone: $('zone').value, plumbing });
+// What plugins/posters hangs on the wall (`room_sheets`): __labSheets() hangs every hero poster and plays the join;
+// __labSheets([0, 1, 2]) hangs those slots only; __labSheets([]) takes them down. The join plays once a browser per
+// room (localStorage rs-joined:<zone>:<set>); taking a sheet down forgets it.
+window.__labSheets = async (slots = null) => {
+  const sheets = await (await fetch('/api/room-lab/sheets' + (slots ? '?slots=' + slots.join(',') : ''))).json();
+  roomSheets({ zone: $('zone').value, sheets: slots && !slots.length ? [] : sheets });
+  return sheets.length;
+};
 // What the server would say: __labSky({ weather: 'thunderstorm', wind: 60, here: { precipType: 'rain', precipRate: 0.9 } })
 window.__labSky = (sky) => roomSky({ zone: $('zone').value, contacts: [], ...sky });
 // A frame to disk, from anywhere in the room: 'at' is [u, v] in the room's frame, 'yaw' and 'pitch'

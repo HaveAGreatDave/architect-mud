@@ -1201,6 +1201,39 @@ function rummagePose(p) {
   setR(P, 'head', 15 * DEG * k, 8 * DEG * w * k, 0);
   return P;
 }
+// AT THE FRIDGE (plugins/roomstage npc-life.js USE_STEPS 'cold'). The door's on the left hand: room-stage.js
+// plays the '…R' mirror when its hinge is on their right. Opening: the left hand out to the handle, then
+// carried out to the side as the door swings with it, and the first of the lean in.
+function fridgeOpenPose(p) {
+  const P = stance(p), k = smooth(0, 0.35, p), o = smooth(0.35, 0.9, p), lean = smooth(0.55, 1, p);
+  arm(P, 'L', -12 - 52 * k + 4 * o, -6 * k + 16 * o, 0.08 + 0.04 * k + 0.34 * o, -12 - 42 * k + 26 * o, -10);
+  setR(P, 'spine', 10 * DEG * lean, 0, 0); setR(P, 'chest', 4 * DEG * lean, 0, 0);
+  setR(P, 'head', (6 + 10 * lean) * DEG, 0, 0);
+  return P;
+}
+// Stood in the open door with a hand on its top, leant in from the hips, looking the shelves over top to bottom
+// and side to side, the other hand going in after something halfway through and coming out again.
+function fridgeLookPose(p) {
+  const P = stance(p), scan = 0.5 + 0.5 * Math.sin(TAU * p - Math.PI / 2), side = Math.sin(2 * TAU * p);
+  const k = held(p, 0.45, 0.72), w = Math.sin(6 * TAU * p) * k;
+  setR(P, 'spine', 16 * DEG, 0, 0); setR(P, 'chest', 8 * DEG, 0, 0);
+  setR(P, 'thighL', -5 * DEG, 0, 0); setR(P, 'thighR', -5 * DEG, 0, 0); setR(P, 'shinL', 8 * DEG, 0, 0); setR(P, 'shinR', 8 * DEG, 0, 0);
+  arm(P, 'L', -56, 16, 0.42, -16, -12);
+  arm(P, 'R', -10 - 58 * k, 14 * k, -0.08 - 0.02 * k, -14 - 12 * k + 8 * w, -6);
+  setR(P, 'neck', (4 + 8 * scan) * DEG, 0, 0);
+  setR(P, 'head', (4 + 18 * scan) * DEG, 12 * DEG * side * (1 - k), 0);
+  return P;
+}
+// UNDER THE SHOWER: both hands in the hair with the head tipped back into the water, then soaping the arms and
+// chest with the head down, and the hair again.
+function showerPose(p) {
+  const P = stance(p), hair = held(p, 0.04, 0.4), body = held(p, 0.5, 0.84), w = Math.sin(7 * TAU * p);
+  arm(P, 'R', -10 - 140 * hair - 34 * body, 22 * hair + 62 * body, -0.08 - 0.32 * hair, -14 - 112 * hair - 76 * body + 10 * w * (hair + body), -8);
+  arm(P, 'L', -10 - 138 * hair - 18 * body, -22 * hair - 30 * body, 0.08 + 0.32 * hair, -14 - 110 * hair - 52 * body - 10 * w * hair, -8);
+  setR(P, 'chest', (-3 * hair + 6 * body) * DEG, 4 * DEG * w * body, 0);
+  setR(P, 'neck', (-10 * hair + 8 * body) * DEG, 0, 0); setR(P, 'head', (-14 * hair + 14 * body) * DEG, 6 * DEG * w * hair, 0);
+  return P;
+}
 // At the sink: both hands low in front, rubbing.
 function washPose(p) {
   const P = stance(p), r = Math.sin(5 * TAU * p);
@@ -1789,6 +1822,9 @@ const ROOM_CLIPS = [
   { name: 'pour', dur: 6, fn: pourPose }, { name: 'shakeTin', dur: 5, fn: shakeTinPose }, { name: 'tapPull', dur: 6, fn: tapPullPose },
   { name: 'checkBottle', dur: 6, fn: checkBottlePose }, { name: 'slideGlass', dur: 4, fn: slideGlassPose },
   { name: 'rummage', dur: 7, fn: rummagePose }, { name: 'wash', dur: 5, fn: washPose }, { name: 'counter', dur: 10, fn: counterPose },
+  { name: 'fridgeOpen', dur: 1.6, fn: fridgeOpenPose, once: true }, { name: 'fridgeOpenR', dur: 1.6, fn: (p) => mirrored(fridgeOpenPose(p)), once: true },
+  { name: 'fridgeLook', dur: 7, fn: fridgeLookPose }, { name: 'fridgeLookR', dur: 7, fn: (p) => mirrored(fridgeLookPose(p)) },
+  { name: 'shower', dur: 8, fn: showerPose, face: (p) => ({ shut: held(p, 0.04, 0.4) }) },
   { name: 'count', dur: 8, fn: countPose }, { name: 'write', dur: 8, fn: writePose },
   { name: 'eat', dur: 8, fn: eatPose, face: (p) => ({ open: chewK(p) }) }, { name: 'sitEat', dur: 8, fn: sitOf(eatPose, 12), face: (p) => ({ open: chewK(p) }) },
   { name: 'squatStir', dur: 6, fn: squatStirPose },

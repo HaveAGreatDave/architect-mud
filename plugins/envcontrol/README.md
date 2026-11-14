@@ -4,7 +4,8 @@
 its temperature, shows the camera over its front door, and puts shutters or blinds over a glass
 wall. You use it on its own glass in the Room Stage, standing at it; pop it out into a window
 (docked or full screen) if you'd rather; or type the same verbs. The first one is in Solenne Residence
-30-B.
+30-B. Each of the Embassy's twelve units has one by its door (on the right-hand wall of the lobby end),
+running the blinds in its sash window, with the camera on that floor's landing.
 
 A panel is any furniture row with `flags.envctl`, so another flat gets one by adding a row:
 
@@ -46,10 +47,17 @@ One OS (`client/game/js/panels/envctl.js`) on two screens:
   tilted to let in that per cent of the light, and `shutters colour <#rrggbb>` colours their slats;
   `shutters up` clears either. The screen's Shutters page has a button for each, and a colour wheel
   (hue round it, strength out from the middle) with Pale, Mid and Deep shades for the blinds.
+- `blinds [up|down|<0-100>|colour <#rrggbb>]`: the blinds alone, the way you'd say it at a window.
+  Bare toggles them; `down` draws them at the level they were. It goes through `shutters`.
 
 ## Shutters and blinds
-Only a room with curtain glass (`flags.room.glass` on its zone) has them; anywhere else the verb
-says so and the screen has no Shutters page.
+A room with curtain glass (`flags.room.glass` on its zone) has both. A room with a sash window and
+`flags.room.blinds: true` has the blinds and nothing else, whatever scenes its panel lists: a scene
+needs a wall of glass. There the card's line is Blinds and the screen's page is Blinds, with no
+Scenes tab. The mesh hangs a headrail in the sash in place of the roller blind
+(`gl/room-mesh.js` drawPane), and the slats are the same shader the glass wall uses. The balcony
+door beside a sash window gets no blinds: its shutter pane is drawn only in a wall of glass.
+Anywhere else the verb says there's nothing to cover and the screen has no Shutters page.
 
 - **The scenes are data**, in `scenes.js`: a name, the words `shutters <word>` answers to, a painter
   (`kind`) and three colours. `gl/room-shutters.js` in the client knows the painters (stars, water,

@@ -21,6 +21,12 @@
       "balcony": false,
       "d": 3.2,
       "decor": {
+        "leaves": {
+          "flush": true,
+          "kind": "panel",
+          "metal": "#9aa0a6",
+          "wood": "#3a3430"
+        },
         "plaques": {
           "zone_apt_10": "4B",
           "zone_apt_11": "4C",

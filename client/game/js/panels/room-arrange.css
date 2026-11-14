@@ -1,0 +1,88 @@
+/* THE ARRANGE MODE over the Room Stage (room-arrange.js): the room from above with its walls down, a grid and
+   the footprints drawn over it, and the bar along the bottom. */
+
+/* what the walker's Stage shows that isn't wanted from up here: the card, the hints, the hand-held buttons and
+   the view out of the window, which is painted from where you stood */
+#room-stage.rs-arranging .rs-card,
+#room-stage.rs-arranging .rs-hover,
+#room-stage.rs-arranging .rs-tip,
+#room-stage.rs-arranging .rs-tablet,
+#room-stage.rs-arranging .rs-gear,
+#room-stage.rs-arranging .rs-pockets,
+#room-stage.rs-arranging .rs-pocketlist,
+#room-stage.rs-arranging .rs-firehud,
+#room-stage.rs-arranging .rs-tv,
+#room-stage.rs-arranging .rs-city { display: none !important; }
+#room-stage.rs-arranging .rs-host { background: radial-gradient(ellipse at 50% 45%, #2a3340 0%, #141920 60%, #0b0e12 100%); }
+#room-stage.rs-arranging .rs-arrange { color: var(--accent); border-color: var(--accent); }
+
+.ra-layer { position: absolute; inset: 0; z-index: 30; touch-action: none; user-select: none; -webkit-user-select: none; }
+.ra-ink { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+
+.ra-top {
+  position: absolute; top: 10px; left: 12px; right: 12px; display: flex; gap: 12px; align-items: baseline; pointer-events: none;
+  color: #e6eef6; font-size: 13px; text-shadow: 0 1px 3px rgba(0, 0, 0, 0.8);
+}
+.ra-top b { font-size: 15px; letter-spacing: 0.08em; text-transform: uppercase; color: #7fe0ff; }
+.ra-hint { opacity: 0.8; }
+
+.ra-tip {
+  position: absolute; pointer-events: none; padding: 4px 8px; border-radius: 6px; white-space: nowrap;
+  background: rgba(10, 14, 20, 0.88); color: #e6eef6; font-size: 12px; border: 1px solid rgba(127, 224, 255, 0.35);
+}
+.ra-flash {
+  position: absolute; left: 50%; bottom: 76px; transform: translateX(-50%); max-width: min(560px, 90%); pointer-events: none;
+  padding: 8px 14px; border-radius: 8px; background: rgba(60, 14, 18, 0.92); color: #ffd9d9; font-size: 13px; text-align: center;
+  border: 1px solid rgba(255, 110, 110, 0.5);
+}
+.ra-flash.good { background: rgba(14, 50, 28, 0.92); color: #d9ffe4; border-color: rgba(110, 240, 150, 0.5); }
+
+.ra-bar {
+  position: absolute; left: 12px; right: 12px; bottom: 14px; width: fit-content; margin: 0 auto;
+  display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; padding: 8px 10px; border-radius: 12px;
+  background: rgba(10, 14, 20, 0.88); border: 1px solid rgba(127, 224, 255, 0.25); box-shadow: 0 6px 24px rgba(0, 0, 0, 0.5);
+}
+.ra-group { display: inline-flex; align-items: center; gap: 4px; }
+.ra-group + .ra-group { padding-left: 8px; border-left: 1px solid rgba(255, 255, 255, 0.12); }
+.ra-name { min-width: 92px; max-width: 180px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #bfe9ff; font-size: 13px; padding: 0 4px; }
+.ra-bar button {
+  min-height: 34px; min-width: 34px; padding: 4px 10px; border-radius: 8px; cursor: pointer; font: inherit; font-size: 13px;
+  background: rgba(255, 255, 255, 0.06); color: #e6eef6; border: 1px solid rgba(255, 255, 255, 0.18);
+}
+.ra-bar button:hover:not(:disabled) { border-color: #7fe0ff; color: #fff; }
+.ra-bar button:disabled { opacity: 0.38; cursor: default; }
+.ra-bar .ra-save { background: #1f8a4c; border-color: #35c06f; color: #fff; font-weight: 600; }
+.ra-bar .ra-save:hover:not(:disabled) { background: #26a35b; border-color: #6ff0a4; }
+.ra-bar .ra-save:disabled { background: rgba(31, 138, 76, 0.35); }
+
+.ra-bar .ra-add { border-color: #d8b24a; color: #ffe39a; }
+.ra-bar .ra-add.on { background: rgba(216, 178, 74, 0.2); }
+
+/* the admin mode's Furniture menu, down the right */
+.ra-menu {
+  position: absolute; top: 40px; right: 12px; bottom: 76px; width: min(300px, calc(100% - 24px)); display: flex; flex-direction: column; gap: 8px;
+  padding: 10px; border-radius: 12px; background: rgba(10, 14, 20, 0.94); border: 1px solid rgba(216, 178, 74, 0.4); box-shadow: 0 6px 24px rgba(0, 0, 0, 0.5);
+  color: #e6eef6; font-size: 13px;
+}
+.ra-menu[hidden] { display: none; }
+.ra-menu-head { display: flex; align-items: center; justify-content: space-between; }
+.ra-menu-head b { color: #ffe39a; letter-spacing: 0.06em; text-transform: uppercase; }
+.ra-menu-x { background: none; border: 0; color: #e6eef6; font-size: 20px; line-height: 1; cursor: pointer; padding: 0 4px; }
+.ra-find { width: 100%; box-sizing: border-box; padding: 7px 9px; border-radius: 8px; border: 1px solid rgba(255, 255, 255, 0.2); background: rgba(255, 255, 255, 0.06); color: #fff; font: inherit; }
+.ra-cats { display: flex; flex-wrap: wrap; gap: 4px; }
+.ra-cats button { padding: 3px 8px; border-radius: 999px; border: 1px solid rgba(255, 255, 255, 0.18); background: none; color: #c9d6e2; font: inherit; font-size: 12px; cursor: pointer; }
+.ra-cats button.on { border-color: #ffe39a; color: #ffe39a; }
+.ra-list { flex: 1 1 auto; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 3px; }
+.ra-item { display: flex; justify-content: space-between; gap: 8px; text-align: left; padding: 7px 9px; border-radius: 8px; border: 1px solid transparent; background: rgba(255, 255, 255, 0.04); color: #e6eef6; font: inherit; cursor: pointer; }
+.ra-item:hover, .ra-item:focus-visible { border-color: #ffe39a; background: rgba(216, 178, 74, 0.12); }
+.ra-item span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ra-item i { flex: none; font-style: normal; opacity: 0.6; font-size: 12px; }
+.ra-empty { opacity: 0.7; margin: 8px 2px; }
+
+@media (max-width: 640px) {
+  .ra-menu { top: 36px; bottom: 120px; }
+  .ra-hint { display: none; }
+  .ra-bar { gap: 6px; padding: 6px; bottom: 8px; }
+  .ra-name { min-width: 0; max-width: 90px; }
+  .ra-bar button { padding: 4px 8px; }
+}

@@ -1168,6 +1168,7 @@ async function cmdShower(player, args = []) {
     // somebody else's: you can reach in and shut it off on them
     const theirs = here.map((f) => showerRunning.get(f.id)).find(Boolean);
     if (!theirs) return { type: 'error', message: here.length ? `The shower isn't on.` : `There's no shower here.` };
+    if (theirs.npc) { npcShowerOff(theirs.by); return { type: 'output', message: `You reach in and turn the water off on them.` }; }
     endShower(theirs.by);
     sendToPlayer(theirs.by, { type: 'output', private: true, message: `${player.handle} reaches in and turns your water off.` });
     return { type: 'output', message: `You reach in and turn the water off on them.` };
@@ -1224,11 +1225,86 @@ export function plumbingOf(zoneId) {
     for (const [pid, se] of toiletSessions) {
       if (se.flowing && se.target?.kind === 'toilet' && se.target.furniture?.id === f.id) o.stream = { by: pid, seated: !!se.seated, strength: se.pressure };
     }
+    const nt = npcOnToilet.get(f.id);
+    if (nt?.flowing) o.stream = { by: nt.by, seated: true, strength: nt.strength };
     if (Object.keys(o).length) out[f.id] = o;
   }
   return out;
 }
 function plumbingChanged(zoneId) { if (zoneId) emit('room.plumbingChanged', { zoneId }); }
+
+// ── An NPC at the fixtures (plugins/ambient-life home-life.js, the trip to the bathroom) ──────────────────
+// The same maps a player's use writes, so the bowl, the smell, the running water and ROOM's picture all read it
+// and nothing downstream needs to know it was an NPC. No session, no clock of its own: the trip owns the timing
+// and calls these at its beats. RAM only, like everything above.
+const npcOnToilet = new Map();   // furniture id -> { by: npcId, zoneId, mode, flowing, strength }
+const freeFixture = (f) => !showerRunning.has(f.id) && !npcOnToilet.has(f.id)
+  && ![...toiletSessions.values()].some((se) => se.target?.furniture?.id === f.id);
+// The fixture an NPC would use for `intent` in a zone: a toilet for pee/poop, a shower, a sink. Null when there's
+// none free.
+export function npcFixtureFor(zoneId, intent) {
+  const want = intent === 'shower' ? isShower : intent === 'wash' ? (f) => f?.object_type === 'sink' || /\b(sink|basin)\b/i.test(f?.name || '') : isToilet;
+  return getZoneFurniture(zoneId).find((f) => want(f) && freeFixture(f)) || null;
+}
+// Sat down on the bowl. A piss is heard and drawn as it goes; anything else goes in quietly and lands at the end.
+export function npcSitToilet(npcId, zoneId, furnId, mode) {
+  const pee = mode === 'pee', t = { by: npcId, zoneId, mode, flowing: pee, strength: 0.5 + Math.random() * 0.3 };
+  npcOnToilet.set(furnId, t);
+  if (pee) {
+    emit('bodily.sfx', { zoneId, cue: 'stream_start', surface: 'water', intensity: t.strength });
+    // the stream runs a while and tails off; they sit on a bit after it
+    const end = setTimeout(() => {
+      if (npcOnToilet.get(furnId) !== t || !t.flowing) return;
+      t.flowing = false;
+      emit('bodily.sfx', { zoneId, cue: 'stream_fade', surface: 'water', intensity: t.strength });
+      plumbingChanged(zoneId);
+    }, 6_000 + Math.random() * 5_000);
+    end.unref?.();
+  }
+  plumbingChanged(zoneId);
+}
+// Done on the bowl: what went in stays in it, and most of the time they flush. True when they flushed.
+export function npcLeaveToilet(npcId, { flush = true } = {}) {
+  for (const [fid, t] of npcOnToilet) {
+    if (t.by !== npcId) continue;
+    npcOnToilet.delete(fid);
+    if (t.mode === 'poop') emit('bodily.sfx', { zoneId: t.zoneId, cue: 'plop', surface: 'water' });
+    else if (t.flowing) emit('bodily.sfx', { zoneId: t.zoneId, cue: 'stream_fade', surface: 'water', intensity: t.strength });
+    foulToilet(fid, t.mode === 'poop' ? 'poop' : 'pee', t.zoneId);
+    if (flush) {
+      clearToiletFilth(fid);
+      flushedAt.set(fid, Date.now());
+      emit('bodily.sfx', { zoneId: t.zoneId, cue: 'flush' });
+    }
+    plumbingChanged(t.zoneId);
+    return flush;
+  }
+  return false;
+}
+// The water on, for everybody in the room, as a player's is.
+export function npcShowerOn(npcId, zoneId, furnId) {
+  if (showerRunning.has(furnId)) return false;
+  showerRunning.set(furnId, { zoneId, by: npcId, npc: true });
+  sendToZone(zoneId, { type: 'audio_ambience', def: showerLoop(furnId) });
+  emit('bodily.sfx', { zoneId, cue: 'shower' });
+  plumbingChanged(zoneId);
+  return true;
+}
+export function npcShowerOff(npcId) {
+  for (const [fid, r] of showerRunning) {
+    if (!r.npc || r.by !== npcId) continue;
+    showerRunning.delete(fid);
+    sendToZone(r.zoneId, { type: 'audio_stop', scope: 'ambience', id: showerLoop(fid).id });
+    plumbingChanged(r.zoneId);
+    return true;
+  }
+  return false;
+}
+// Whatever they had on or were sat on, given up: a trip cut short (a fight, a death) leaves no tap running.
+export function npcDoneWithFixtures(npcId) {
+  npcShowerOff(npcId);
+  for (const [fid, t] of npcOnToilet) if (t.by === npcId) { npcOnToilet.delete(fid); plumbingChanged(t.zoneId); }
+}
 
 // The pay-off, applied only if the player stayed under the water the whole ritual.
 async function finishShower(player, session) {

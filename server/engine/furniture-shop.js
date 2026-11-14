@@ -28,28 +28,18 @@ import { vendorBuyReaction } from './vendor-reactions.js';
 import { isVendorClosed, vendorClosedLine } from './ai-behaviour.js';
 import { world, syncNpc, insertFurniture } from './world.js';
 import { randomUUID } from 'crypto';
+import { furnitureInteractions, furnitureObjectType } from '../../client/shared/furniture-row.js';
 
 const CONSUMER_INTERACTIONS = ['sit', 'lean', 'lie', 'watch', 'lift'];
 
-export function furnitureInteractions(item) {
-  const ix = item?.flags?.interactions;
-  return Array.isArray(ix) ? ix : [];
-}
+// furnitureInteractions and furnitureObjectType are client/shared/furniture-row.js's, so the Modelshop's Room Lab
+// builds the same row with no database
+export { furnitureInteractions, furnitureObjectType };
 
 // True for furniture items a vendor will actually sell (things you can use).
 export function isConsumerFurniture(item) {
   return item?.type === 'furniture'
     && furnitureInteractions(item).some(v => CONSUMER_INTERACTIONS.includes(v));
-}
-
-// The `furniture.object_type` a placed piece is born as. A piece that HOLDS
-// things has to be a `container`: `loadContainerById` and every `stow`/`open`
-// path find a furniture container by `object_type='container'` and nothing
-// else, so a bought fridge inserted as plain 'furniture' was a fridge you could
-// never open — while the authored twin of the same appliance is a 'container'.
-// Derived from the capacity flag, so no item declares its own row type.
-export function furnitureObjectType(flags) {
-  return Number(flags?.container) > 0 ? 'container' : 'furniture';
 }
 
 // Random price factor. Most rolls sit within ±8%; ~1 in 6 widens to ±30% so a

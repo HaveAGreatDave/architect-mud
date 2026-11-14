@@ -106,12 +106,22 @@ async function doorFrame(panel) {
 // room open as `room_glass` (plugins/roomstage, on `room.glassChanged`).
 // The blinds (BLINDS_KIND) are the other covering: horizontal Venetian slats instead of the slats, and `level`, the
 // per cent of the light they let in, instead of a picture, and `colour`, the cloth's (null is the scene's own blue).
+// A sash window fitted with Venetian blinds (`flags.room.blinds`, room-layout.js roomSpecOf) has them and nothing else:
+// a scene needs a wall of glass to show on.
 const DEFAULT_LEVEL = 50;
-const hasGlass = (panel) => { const g = getZone(panel.zone_id)?.flags?.room?.glass; return Array.isArray(g) && g.length > 0; };
+const curtainOf = (panel) => { const g = getZone(panel.zone_id)?.flags?.room?.glass; return Array.isArray(g) && g.length > 0; };
+const sashBlinds = (panel) => { const r = getZone(panel.zone_id)?.flags?.room; return !!r && r.blinds === true && !r.windowless && !curtainOf(panel); };
+const hasGlass = (panel) => curtainOf(panel) || sashBlinds(panel);
 const isBlinds = (scene) => SCENES[scene]?.kind === BLINDS_KIND;
+const offeredOf = (panel) => {
+  const all = scenesOf(cfg(panel));
+  if (!sashBlinds(panel)) return all;
+  const own = all.filter(isBlinds);
+  return own.length ? own : Object.keys(SCENES).filter(isBlinds);
+};
 const levelOf = (n) => Math.max(0, Math.min(100, Math.round(Number(n) / 5) * 5));
 function shutOf(panel) {
-  const s = cfg(panel).shutters || {}, offered = scenesOf(cfg(panel));
+  const s = cfg(panel).shutters || {}, offered = offeredOf(panel);
   return { down: !!s.down, scene: offered.includes(s.scene) ? s.scene : offered[0], level: Number.isFinite(Number(s.level)) && s.level !== null ? levelOf(s.level) : DEFAULT_LEVEL, colour: hexOf(s.colour) };
 }
 // What the Room Stage draws: up or down, the scene and its painter, the blinds' level, and whether there's power to light it.
@@ -135,7 +145,7 @@ async function stateOf(panel) {
     cam: await doorFrame(panel),
     // null where the room has no glass wall to shutter
     // the blinds' swatch is in the colour they've been given
-    shutters: hasGlass(panel) ? (() => { const sh = shutOf(panel); return { ...sh, scenes: scenesOf(cfg(panel)).map((id) => { const pt = paintOf(id, sh.colour); return { id, name: SCENES[id].name, swatch: [pt.a, pt.b, pt.c] }; }) }; })() : null,
+    shutters: hasGlass(panel) ? (() => { const sh = shutOf(panel); return { ...sh, scenes: offeredOf(panel).map((id) => { const pt = paintOf(id, sh.colour); return { id, name: SCENES[id].name, swatch: [pt.a, pt.b, pt.c] }; }) }; })() : null,
   };
 }
 function summary(s) {
@@ -267,7 +277,7 @@ async function cmdShutters(args, raw, player, broadcast) {
   if (!panel) return shopShutters(args, raw, player, broadcast);
   if (!hasGlass(panel)) return reply(panel, "There's no glass wall here to put shutters over.");
   let words = args.map((w) => String(w).toLowerCase());
-  const was = shutOf(panel), offered = scenesOf(cfg(panel));
+  const was = shutOf(panel), offered = offeredOf(panel);
   const blindsId = offered.find(isBlinds) || null;
   // `colour <#rrggbb>` anywhere in it; the rest may only name the blinds
   const ci = words.findIndex((w) => w === 'colour' || w === 'color');
@@ -319,13 +329,31 @@ async function cmdShutters(args, raw, player, broadcast) {
   return reply(panel, mine);
 }
 
-export const commands = { panel: cmdPanel, lights: cmdLights, dim: cmdDim, thermostat: cmdThermostat, doorcam: cmdDoorcam, shutters: cmdShutters };
+// `blinds` is `shutters` said the way you'd say it at a window: bare toggles them, `up` draws them back, `down`
+// draws them at the level they were, a number turns them to that much light, `colour <#rrggbb>` recolours them.
+async function cmdBlinds(args, raw, player, broadcast) {
+  const panel = panelFor(player.current_zone);
+  if (!panel) return noPanel;
+  if (!hasGlass(panel) || !offeredOf(panel).some(isBlinds)) return reply(panel, "There are no blinds here.");
+  const words = args.map((w) => String(w).toLowerCase()), w = words[0] || '', s = shutOf(panel);
+  const drawn = s.down && isBlinds(s.scene);
+  let to;
+  if (!w) to = drawn ? ['up'] : ['blinds'];
+  else if (UP.has(w)) to = ['up'];
+  else if (DOWN.has(w)) to = ['blinds'];
+  else if (w === 'colour' || w === 'color' || /^\d{1,3}%?$/.test(w)) to = words;
+  else return { type: 'error', message: 'Usage: blinds [up|down|<0-100>|colour <#rrggbb>]' };
+  return cmdShutters(to, raw, player, broadcast);
+}
+
+export const commands = { panel: cmdPanel, lights: cmdLights, dim: cmdDim, thermostat: cmdThermostat, doorcam: cmdDoorcam, shutters: cmdShutters, blinds: cmdBlinds };
 
 export const hooks = {
   // the Room Stage's card: the screen first, so a click on the panel opens it
-  'furniture.acts': (f) => (isPanel(f) ? [{ verb: 'panel', bare: true }, { verb: 'lights', bare: true }, { verb: 'doorcam', bare: true }, ...(hasGlass(f) ? [{ verb: 'shutters', bare: true }] : [])] : undefined),
+  // (a sash window's line is Blinds: it has nothing else)
+  'furniture.acts': (f) => (isPanel(f) ? [{ verb: 'panel', bare: true }, { verb: 'lights', bare: true }, { verb: 'doorcam', bare: true }, ...(hasGlass(f) ? [{ verb: sashBlinds(f) ? 'blinds' : 'shutters', bare: true }] : [])] : undefined),
   // ⚠ SYNC: the Room Stage gathers it building `room_view`. The glass of a room whose panel runs it.
   'room.glass': (zoneId) => { const p = panelIn(zoneId); return p ? glassOf(p) ?? undefined : undefined; },
 };
 
-export const _test = { isPanel, panelFor, annexOf, lightsOf, heldAt, targetOf, limits, ramps, stateOf, RAMP_C_PER_MIN, hasGlass, shutOf, glassOf, levelOf };
+export const _test = { isPanel, panelFor, annexOf, lightsOf, heldAt, targetOf, limits, ramps, stateOf, RAMP_C_PER_MIN, hasGlass, sashBlinds, offeredOf, shutOf, glassOf, levelOf };

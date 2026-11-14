@@ -149,4 +149,39 @@ export default async function regress({ run, check, getPlayer }) {
     await updateFurniture(PANEL, { flags: JSON.stringify(savedFlags) }).catch(() => {});
     for (const [id, on] of savedLights) await updateFurniture(id, { light_on: on }).catch(() => {});
   }
+
+  // ── a sash window's blinds: the Embassy's units (flags.room.blinds) ──
+  const SASH = 'zone_apt_8', SPANEL = 'furn_apt8_envctl', sp = getFurnitureById(SPANEL);
+  check('Unit 3D has its control panel', !!sp && isPanel(sp), SPANEL);
+  if (!sp) return;
+  check('a sash window with blinds counts, and offers the blinds alone', _test.sashBlinds(sp) && _test.hasGlass(sp) && _test.offeredOf(sp).join() === 'blinds', _test.offeredOf(sp).join());
+  check('its card says Blinds, not Shutters', furnitureActs(sp).some((a) => a.verb === 'blinds') && !furnitureActs(sp).some((a) => a.verb === 'shutters'));
+  check('a panel listing scenes still offers a sash window only the blinds', _test.offeredOf({ ...sp, flags: { ...sp.flags, envctl: { ...sp.flags.envctl, scenes: ['space', 'storm'] } } }).join() === 'blinds');
+  const sSaved = JSON.parse(JSON.stringify(sp.flags));
+  try {
+    p.current_zone = SASH;
+    let r = await run('panel');
+    check('the panel offers only the blinds on its screen', r?.shutters?.scenes?.map((x) => x.id).join() === 'blinds', JSON.stringify(r?.shutters?.scenes));
+    r = await run('blinds up');
+    check('`blinds up` leaves the window clear', r?.type === 'envctl' && r.shutters?.down === false, r?.message);
+    if (r?.power !== 'unpowered') {
+      r = await run('blinds 40');
+      check('`blinds 40` draws them at 40%', r?.shutters?.down === true && r.shutters.scene === 'blinds' && r.shutters.level === 40, JSON.stringify(r?.shutters));
+      check('the Room Stage gets them (room.glass)', gatherHookSync('room.glass', SASH)[0]?.paint?.kind === 'blinds', JSON.stringify(gatherHookSync('room.glass', SASH)[0]));
+      r = await run('shutters space');
+      check('a scene is a usage error at a sash window', r?.type === 'error', r?.message);
+      r = await run('blinds');
+      check('bare `blinds` toggles them back up', r?.shutters?.down === false, JSON.stringify(r?.shutters));
+      r = await run('blinds down');
+      check('`blinds down` draws them at the level they were', r?.shutters?.down === true && r.shutters.level === 40, JSON.stringify(r?.shutters));
+    }
+    r = await run('blinds sideways');
+    check('a bad word is a usage error', r?.type === 'error');
+    p.current_zone = '__envctl_nowhere__';
+    r = await run('blinds');
+    check('no panel, no blinds', r?.type === 'error', r?.message);
+  } finally {
+    p.current_zone = wasZone;
+    await updateFurniture(SPANEL, { flags: JSON.stringify(sSaved) }).catch(() => {});
+  }
 }

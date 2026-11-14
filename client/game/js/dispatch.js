@@ -1057,7 +1057,7 @@ const handlers = {
   // The server's canonical "your inventory changed" ping (emitted on
   // `inventory.changed`). No payload — the Kit app refetches itself, and only if it's
   // open, so this is free when the tablet is closed.
-  inventory_dirty: () => { refreshTabletGearIfOpen(); refreshWeaponChip(); },
+  inventory_dirty: () => { refreshTabletGearIfOpen(); refreshWeaponChip(); roomMod?.then((m) => m.roomPackDirty()).catch(() => {}); },
 
   use: (msg) => {
     appendHtml(msg.message, 'loot');
@@ -1068,6 +1068,7 @@ const handlers = {
     // `inventory_dirty` ping above because the consumption paths mutate directly and
     // don't emit; refreshing here is the belt to that braces.
     refreshTabletGearIfOpen();
+    roomMod?.then((m) => m.roomPackDirty()).catch(() => {});
   },
 
   dialogue: (msg) => { openDialogue(msg); },
@@ -1429,11 +1430,15 @@ const handlers = {
   room_view: (msg) => { if (freelookTakeRoom(msg)) return; if (msg.vehicles && isTruckDepotActive()) closeTruckDepot(); setRoomButton({ open: true }); loadRoom().then((m) => { m.openRoomStage(msg); pokerOpening = false; if (pokerPending) { m.roomPokerPane(pokerPending); pokerPending = null; } }).catch((e) => { setRoomButton({ open: false }); console.error('[room]', e); }); },
   room_ahead: (msg) => { roomMod?.then((m) => m.roomAhead?.(msg)).catch(() => {}); },
   room_piece: (msg) => { roomMod?.then((m) => m.roomPiece(msg)).catch(() => {}); },
+  // how the arrange mode's Save went (plugins/roomstage arrangeLayout)
+  room_arranged: (msg) => { roomMod?.then((m) => m.roomArranged(msg)).catch(() => {}); },
+  // the admin arrange mode's Furniture menu (plugins/roomstage arrangeCatalog)
+  room_catalog: (msg) => { roomMod?.then((m) => m.roomCatalog(msg)).catch(() => {}); },
   room_people: (msg) => { roomMod?.then((m) => m.roomPeople(msg)).catch(() => {}); },
   // a move on a chess table in the room (plugins/gametable `room.boards`)
   room_board: (msg) => { roomMod?.then((m) => m.roomBoard(msg)).catch(() => {}); },
-  // what you carry that the room can take in first person (panels/room-stage.js Pockets)
-  room_pockets: (msg) => { roomMod?.then((m) => m.roomPockets(msg)).catch(() => {}); },
+  // the Room Stage's Pack (room-pack.js): what you carry and wear, as plugins/roomstage pack.js sends it
+  room_pack: (msg) => { roomMod?.then((m) => m.roomPack(msg)).catch(() => {}); },
   // how the locks on the room's doorways stand now (panels/room-lock.js)
   room_locks: (msg) => { roomMod?.then((m) => m.roomLocks(msg)).catch(() => {}); },
   // the shutters over a room's glass and the scene on them, changed from its control panel (plugins/envcontrol)
@@ -1442,6 +1447,7 @@ const handlers = {
   room_plumbing: (msg) => { roomMod?.then((m) => m.roomPlumbing(msg)).catch(() => {}); },
   // a tag sprayed on a room's wall or cleaned off it (plugins/roomstage, plugins/graffiti)
   room_tags: (msg) => { roomMod?.then((m) => m.roomTags(msg)).catch(() => {}); },
+  room_sheets: (msg) => { roomMod?.then((m) => m.roomSheets(msg)).catch(() => {}); },
   room_vehicles: (msg) => { roomMod?.then((m) => m.roomVehicles(msg)).catch(() => {}); },
   room_set: (msg) => { roomMod?.then((m) => m.roomSet(msg)).catch(() => {}); },
   room_here: (msg) => { roomMod?.then((m) => m.roomHere(msg)).catch(() => {}); },
@@ -2128,7 +2134,11 @@ const handlers = {
     window.AudioEngine?.playSfx(PA_CHIME, GAME_SFX_GAIN);
     setTimeout(() => window.AudioEngine?.speak(msg.speech || msg.message, { seed: msg.seed || 'public_address', pa: true }), 1150);
   },
-  audio_sfx: (msg) => { window.AudioEngine?.playSfx(msg.def, (msg.gain ?? 1) * GAME_SFX_GAIN, { pan: panForDir(msg.from), distance: msg.hops || 0, shut: msg.shut || 0, room: msg.room }); },
+  // (from another room into a Room Stage room with no glass, at the Stage's hush: room-stage.js `hush`)
+  audio_sfx: (msg) => {
+    const hush = msg.hops ? Number(document.body.dataset.roomHush) || 1 : 1;
+    window.AudioEngine?.playSfx(msg.def, (msg.gain ?? 1) * GAME_SFX_GAIN * hush, { pan: panForDir(msg.from), distance: msg.hops || 0, shut: msg.shut || 0, room: msg.room });
+  },
   // Procedural cue: the server sent PARAMETERS and a seed, not layers. We build
   // the sound here from the shared generator — same seed, same field, ~100 bytes
   // on the wire instead of the several KB a serialised burst field costs.

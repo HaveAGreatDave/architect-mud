@@ -9,7 +9,7 @@ import { _eviction } from './eviction.js';
 import { _blackout, zoneIsDark } from './blackout.js';
 import { isDwellingZone } from '../../server/engine/zone-tags.js';
 import { world, getZone, getZoneFurniture } from '../../server/engine/world.js';
-import { isToilet, isShower } from '../bodily/index.js';
+import { isToilet, isShower, plumbingOf, npcFixtureFor, npcSitToilet, npcLeaveToilet, npcShowerOn, npcShowerOff, npcDoneWithFixtures } from '../bodily/index.js';
 
 export default async function regress({ run, check }) {
   // ── Verb routing ──
@@ -119,6 +119,38 @@ export default async function regress({ run, check }) {
       check('bath: at least one ensuite exists in world content', false, 'no dwelling sub-zone with a toilet/shower');
     }
     check('bath: a flat with no ensuite resolves to nothing', bathroomFor('zone_does_not_exist') === null);
+
+    // What they go in for, and the fixtures they use for it: only what the room has, and the same maps a
+    // player's use writes, so the bowl, the water and ROOM's picture all follow an NPC too.
+    if (expectBath) {
+      const { BATH_USE, pickBathUse, bathDoor, bathroomFree } = _home;
+      const npc = { id: '__regress_bather', name: 'Bather' };
+      const seen = new Set();
+      for (let i = 0; i < 60; i++) { const u = pickBathUse(npc, expectBath, 'morning'); if (u) seen.add(u.intent); }
+      const has = (k) => !!npcFixtureFor(expectBath, k);
+      check('bath: every intent picked has its fixture in the room', [...seen].every((k) => BATH_USE[k] && has(k)), [...seen].join());
+      check('bath: a room with a toilet gets toilet trips', !has('pee') || seen.has('pee'), [...seen].join());
+      const door = bathDoor(expectParent, expectBath);
+      check('bath: a free en-suite is free to go in', bathroomFree(expectBath, door, npc.id));
+      const toilet = npcFixtureFor(expectBath, 'pee');
+      if (toilet) {
+        npcSitToilet(npc.id, expectBath, toilet.id, 'pee');
+        check('bath: an NPC on the toilet is drawn peeing into it', plumbingOf(expectBath)[toilet.id]?.stream?.by === npc.id, JSON.stringify(plumbingOf(expectBath)[toilet.id]));
+        check('bath: a seat taken by an NPC is not offered again', npcFixtureFor(expectBath, 'pee')?.id !== toilet.id);
+        const flushed = npcLeaveToilet(npc.id, { flush: true }), st = plumbingOf(expectBath)[toilet.id];
+        check('bath: getting up and flushing leaves a clean bowl, swirling', flushed && !st?.stream && !st?.level && !!st?.flushed, JSON.stringify(st));
+      }
+      const shower = npcFixtureFor(expectBath, 'shower');
+      if (shower) {
+        npcShowerOn(npc.id, expectBath, shower.id);
+        check('bath: an NPC turning the shower on runs the water', plumbingOf(expectBath)[shower.id]?.shower === true);
+        npcShowerOff(npc.id);
+        check('bath: and off', !plumbingOf(expectBath)[shower.id]?.shower);
+        npcShowerOn(npc.id, expectBath, shower.id);
+        npcDoneWithFixtures(npc.id);
+        check('bath: a trip cut short leaves no tap running', !plumbingOf(expectBath)[shower.id]?.shower);
+      }
+    }
   }
 
   // ── Somebody let themselves in ──

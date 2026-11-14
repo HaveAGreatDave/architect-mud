@@ -295,6 +295,13 @@ export function createRoomLocks({ host, project, send, setBatch }) {
     if (!k.open) pushed[i] = performance.now() + PUSH_MS;
     return (shut[i] ?? 1) > 0.35 ? 'wait' : 'go';
   }
+  // Somebody else going through the doorway to `to` (room-stage.js, a person walking out or in): the door swings
+  // open for them and shuts behind, as the room text has it. Only the picture: the door's own `open` is the server's.
+  function pass(to, ms = PUSH_MS) {
+    const i = list.findIndex((k) => k.to === to);
+    if (i < 0 || list[i].open) return;
+    pushed[i] = Math.max(pushed[i] || 0, performance.now() + ms);
+  }
   // Walked into a door that's shut to you.
   function bump(to) {
     const pn = panels.find((p) => p.lock.to === to), now = performance.now();
@@ -459,7 +466,7 @@ export function createRoomLocks({ host, project, send, setBatch }) {
   }
 
   return {
-    load, slide, enter, bump, aim, run: runFor, said, hack, key, draw, play,
+    load, slide, enter, pass, bump, aim, run: runFor, said, hack, key, draw, play,
     get hacking() { return !!game; },
     get count() { return list.length; },
     stop() { endGame(); clearTimeout(sayT); clearTimeout(tried?.t); layer.remove(); },

@@ -12,6 +12,7 @@
     "is_apartment": true,
     "is_interior": true,
     "room": {
+      "blinds": true,
       "d": 10,
       "decor": {
         "art": [
@@ -38,6 +39,11 @@
           "hex": "#eee8dc",
           "kind": "cove",
           "trim": "#c9a24a"
+        },
+        "leaves": {
+          "kind": "panel",
+          "metal": "#8a6a44",
+          "wood": "#5e3f36"
         },
         "mirrors": [
           {
@@ -78,7 +84,7 @@
           "y": 1.8
         }
       },
-      "h": 3.1,
+      "h": 3,
       "kitchen": {
         "face": "fluted",
         "front": "#3e5a44",

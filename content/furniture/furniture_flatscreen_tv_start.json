@@ -3,6 +3,10 @@
   "flags": {
     "broadcast_device_type": "tv",
     "broadcast_receiver": true,
+    "spot": {
+      "along": 1.4,
+      "wall": "right"
+    },
     "tv": true,
     "tv_dial_freq": 7,
     "tv_skin": "flatscreen"

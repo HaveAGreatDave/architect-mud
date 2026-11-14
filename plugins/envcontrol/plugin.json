@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "description": "The environmental control panel a high-end flat has on its wall: lights, climate, the camera over the front door and the shutters over a glass wall, from verbs the wall screen sends.",
   "after": ["surveillance", "storefront"],
-  "commands": ["panel", "lights", "dim", "thermostat", "doorcam", "shutters"],
+  "commands": ["panel", "lights", "dim", "thermostat", "doorcam", "shutters", "blinds"],
   "hooks": ["furniture.acts", "room.glass"],
   "events": {
     "emits": ["room.glassChanged"]

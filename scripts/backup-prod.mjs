@@ -17,8 +17,8 @@ import { homedir } from 'node:os';
 
 const url = process.env.PROD_DATABASE_URL;
 if (!url) {
-  console.error('✗ PROD_DATABASE_URL is not set. Add your Supabase SESSION-pooler URL (port 5432) to .env, e.g.\n' +
-    '  PROD_DATABASE_URL=postgresql://USER:PASS@aws-1-us-west-2.pooler.supabase.com:5432/postgres');
+  console.error('✗ PROD_DATABASE_URL is not set. Add the prod Neon connection string to .env, e.g.\n' +
+    '  PROD_DATABASE_URL=postgresql://USER:PASS@ep-XXXX.REGION.aws.neon.tech/DBNAME?sslmode=require');
   process.exit(1);
 }
 const host = new URL(url).hostname;

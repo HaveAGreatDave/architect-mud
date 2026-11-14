@@ -27,18 +27,18 @@
 //     dark zone starts nothing and an in-flight scene stops where it is. What
 //     plays instead is blackout.js, which is the reaction to the thing that
 //     just interrupted dinner.
-import { world, getZonePlayers, getZone, getZoneFurniture } from '../../server/engine/world.js';
+import { world, getZonePlayers, getZone, getZoneFurniture, doorOnLink, setDoorCache } from '../../server/engine/world.js';
 import { isDwellingZone } from '../../server/engine/zone-tags.js';
 import { sendToZone, getBroadcast } from '../../server/engine/messaging.js';
 import { isNpcScheduledNow } from '../../server/engine/broadcast-bridge.js';
 import { getEnvironmentState, getZoneTemperature } from '../../server/engine/environment.js';
 import { feelOf } from '../../client/shared/comfort.js';
 import { moveEntity } from '../../server/engine/ai-behaviour.js';
-import { npcWashAtHome } from '../../server/engine/hygiene.js';
+import { npcWashAtHome, grimeFactor } from '../../server/engine/hygiene.js';
 import { query } from '../../server/models/db.js';
 import { DISHES } from '../cooking/dishes.js';
 import { DRINKS } from '../drinks/recipes.js';
-import { isToilet, isShower } from '../bodily/index.js';
+import { isToilet, isShower, npcFixtureFor, npcSitToilet, npcLeaveToilet, npcShowerOn, npcShowerOff, npcDoneWithFixtures } from '../bodily/index.js';
 import { zoneIsDark } from './blackout.js';
 import { randInt } from '../../server/engine/util.js';
 import { emit } from '../../server/engine/events.js';
@@ -372,7 +372,7 @@ const TEMP_CHANCE = [0.25, 0.75];   // of a scene being about the temperature: j
 // here keeps clean" reset. That call already happened invisibly every tick an
 // NPC stood in their own home; this gives it somewhere to have happened.
 
-const BATHROOM_MS   = [25_000, 60_000];   // how long they're gone
+
 const BATHROOM_GOING = [
   `{npc} gets up without a word and heads for the bathroom.`,
   `{npc} says "give me a minute" to nobody in particular and goes through.`,
@@ -409,52 +409,167 @@ function bathroomFor(zoneId) {
   return found;
 }
 
+// WHAT THEY WENT IN FOR. A piss most of the time, a shower more often first thing or when they've let themselves
+// go, the long sit now and then, and a wash at the basin when there's nothing else. Only what the room has: a
+// shower room with no toilet gets showers.
+const BATH_USE = {
+  pee:    { ms: [12_000, 22_000], w: () => 5 },
+  poop:   { ms: [40_000, 75_000], w: () => 1.6 },
+  shower: { ms: [55_000, 100_000], w: (npc, phase) => (phase === 'dawn' || phase === 'morning' ? 4 : 1.2) + 4 * grimeOf(npc) },
+  wash:   { ms: [10_000, 18_000], w: () => 1 },
+};
+function grimeOf(npc) { try { return grimeFactor(npc) || 0; } catch { return 0; } }
+function pickBathUse(npc, bathId, phase) {
+  const opts = Object.keys(BATH_USE).map((k) => ({ k, f: npcFixtureFor(bathId, k) })).filter((o) => o.f);
+  if (!opts.length) return null;
+  let r = Math.random() * opts.reduce((n, o) => n + BATH_USE[o.k].w(npc, phase), 0);
+  for (const o of opts) if ((r -= BATH_USE[o.k].w(npc, phase)) <= 0) return { intent: o.k, fixture: o.f };
+  return { intent: opts[0].k, fixture: opts[0].f };
+}
+// Heard from the flat while the door's shut on them. Only the shower and the flush carry.
+const BATH_HEARD = {
+  shower: [`The shower comes on behind the bathroom door.`, `Water starts running in the bathroom.`],
+  flush:  [`The toilet flushes.`, `A cistern empties and starts to refill.`],
+};
+const BATH_SEEN = {
+  pee:    [`{npc} sits down on the toilet.`],
+  poop:   [`{npc} sits down on the toilet and settles in.`],
+  shower: [`{npc} turns the shower on and gets in.`],
+  wash:   [`{npc} runs the tap and splashes water on their face.`],
+};
+// The beats of the trip. ROOM (plugins/roomstage npc-life.js) walks the body to each on `npc.bathroom`, so the
+// gaps are the walks: up to the door from wherever they were, through it, and over to the fixture.
+const BATH_STEP = { toDoor: [7_000, 11_000], handle: 1_100, through: 2_400, toFixture: 2_600, toDoorIn: 2_800 };
+
+// The door between the flat and its en-suite, if it has one, worked by hand: opened, then shut behind them.
+// moveEntity opens and shuts a door within the one step, which nothing ever saw; here each is its own beat.
+function bathDoor(zoneId, bathId) {
+  const dir = Object.entries(getZone(zoneId)?.exits || {}).find(([, to]) => to === bathId)?.[0];
+  const door = dir ? doorOnLink(zoneId, dir, bathId) : null;
+  return door && door.hp > 0 ? door : null;
+}
+function setBathDoor(door, open, zoneId, npc, line) {
+  if (!door || !!door.is_open === open) return;
+  door.is_open = open ? 1 : 0;
+  setDoorCache(door.id, door);
+  emit('door.toggled', { zoneId: door.zone_id, targetZoneId: door.target_zone });
+  // the sound, and ROOM's leaves swing to it (plugins/roomstage lockTouched)
+  emit('door.sfx', { door, zoneId, actorId: null, cue: open ? 'open' : 'close' });
+  if (line) sendToZone(zoneId, { type: 'zone_event', message: line.replace(/\{npc\}/g, npc.name), refresh: true });
+}
+
+// Nobody else in there, and the bolt not across. A player who's gone in shuts the room to the household.
+function bathroomFree(bathId, door, npcId) {
+  if (getZonePlayers(bathId).length) return false;
+  if ([...(world.zones.get(bathId)?.npcs || [])].some((id) => id !== npcId)) return false;
+  return !(door && door.lock_state === 'locked');
+}
+
 // Bespoke rather than play(): the generic beat-runner aborts the moment the NPC
 // isn't in the room any more, and being out of the room is the point of this one.
 function playBathroom(zoneId, npc, bathId) {
+  const { timePhase } = getEnvironmentState();
+  const use = pickBathUse(npc, bathId, timePhase);
+  const door = bathDoor(zoneId, bathId);
+  if (!use || !bathroomFree(bathId, door, npc.id)) return false;
   activeHome.add(zoneId);
-  const done = () => { activeHome.delete(zoneId); startCooldown(zoneId); };
-  const say = (pool) => sendToZone(zoneId, {
+  const wasOpen = !!door?.is_open;
+  const tell = (phase, more = {}) => emit('npc.bathroom', { zoneId, bathId, npcId: npc.id, phase, intent: use.intent, fixtureId: use.fixture.id, door: !!door, ...more });
+  let over = false;
+  const done = () => {
+    if (over) return;
+    over = true;
+    npcDoneWithFixtures(npc.id);
+    const n = world.npcs.get(npc.id);
+    if (n) n._showering = false;
+    if (n?._ai) n._ai.waitUntil = null;
+    activeHome.delete(zoneId); startCooldown(zoneId);
+    tell('end');
+  };
+  const say = (where, pool) => sendToZone(where, {
     type: 'ambient',
     message: `<span class="msg-ambient">${rand(pool).replace(/\{npc\}/g, npc.name)}</span>`,
     flavour: true,   // scenery — dropped at the Display Mode `log` rung
   });
+  // Still theirs to carry on with: alive, awake, out of a fight, and where the last beat left them.
+  const ok = (where) => {
+    const n = world.npcs.get(npc.id);
+    return n && !n._dead && !n._combatTargetId && !isBusyBeingUnconscious(n) && n.zone_id === where ? n : null;
+  };
+  const after = (ms, fn) => { const t = setTimeout(() => { if (!over) fn(); }, ms); t.unref?.(); };
 
-  say(BATHROOM_GOING);
-  setTimeout(() => {
-    const live = world.npcs.get(npc.id);
-    if (!live || live._dead || live.zone_id !== zoneId || live._combatTargetId
-        || isBusyBeingUnconscious(live)) return done();
-    if (!moveEntity(live, bathId, getBroadcast(), query)) return done();
-
-    // Hold the behaviour graph off while they're in there, so the AI doesn't
-    // decide mid-visit that this NPC is inexplicably away from home and path
-    // them back out. Same lever sleep uses.
-    const away = randInt(BATHROOM_MS[0], BATHROOM_MS[1]);
-    if (live._ai) live._ai.waitUntil = Date.now() + away;
-
-    setTimeout(() => {
-      const back = world.npcs.get(npc.id);
-      if (!back || back._dead) return done();
-      if (back._ai) back._ai.waitUntil = null;
-      // The point of the trip. Rate-limited inside, so a short interval between
-      // visits just means this one was only a toilet visit.
-      npcWashAtHome(back);
-      if (back.zone_id === bathId && !moveEntity(back, zoneId, getBroadcast(), query)) return done();
-      if (back.zone_id === zoneId && getZonePlayers(zoneId).length) say(BATHROOM_BACK);
-      done();
-    }, away);
-  }, randInt(BEAT_GAP_MS[0], BEAT_GAP_MS[1]));
+  say(zoneId, BATHROOM_GOING);
+  tell('going');
+  after(randInt(BATH_STEP.toDoor[0], BATH_STEP.toDoor[1]), () => {
+    const live = ok(zoneId);
+    if (!live) return done();
+    // somebody got in first: they try the door and give up
+    if (!bathroomFree(bathId, door, npc.id)) {
+      sendToZone(zoneId, { type: 'zone_event', message: `${npc.name} tries the bathroom door, finds it taken, and comes away.` });
+      return done();
+    }
+    setBathDoor(door, true, zoneId, npc, `{npc} opens the bathroom door.`);
+    tell('open');
+    after(BATH_STEP.handle, () => {
+      const n = ok(zoneId);
+      if (!n || !moveEntity(n, bathId, getBroadcast(), query)) return done();
+      const ms = randInt(BATH_USE[use.intent].ms[0], BATH_USE[use.intent].ms[1]);
+      // Hold the behaviour graph off while they're in there, so the AI doesn't
+      // decide mid-visit that this NPC is inexplicably away from home and path
+      // them back out. Same lever sleep uses.
+      if (n._ai) n._ai.waitUntil = Date.now() + ms + 20_000;
+      tell('in');
+      after(BATH_STEP.through, () => {
+        if (!ok(bathId)) return done();
+        setBathDoor(door, false, bathId, npc, null);
+        if (door) sendToZone(zoneId, { type: 'zone_event', message: `The bathroom door shuts behind ${npc.name}.`, refresh: true });
+        tell('close');
+        after(BATH_STEP.toFixture, () => {
+          if (!ok(bathId)) return done();
+          const fid = use.fixture.id;
+          // stripped for it, as ROOM draws them (roomstage dressedAs, `_showering`, RAM only)
+          if (use.intent === 'shower') { const b = world.npcs.get(npc.id); if (b) b._showering = true; npcShowerOn(npc.id, bathId, fid); say(zoneId, BATH_HEARD.shower); }
+          else if (use.intent === 'pee' || use.intent === 'poop') npcSitToilet(npc.id, bathId, fid, use.intent);
+          if (getZonePlayers(bathId).length) say(bathId, BATH_SEEN[use.intent]);
+          tell('use');
+          after(ms, () => {
+            const b = ok(bathId);
+            if (!b) return done();
+            if (use.intent === 'shower') { npcShowerOff(npc.id); b._showering = false; }
+            // now and then they don't, and the bowl's the next person's problem
+            else if ((use.intent === 'pee' || use.intent === 'poop') && npcLeaveToilet(npc.id, { flush: Math.random() < 0.88 })) say(zoneId, BATH_HEARD.flush);
+            // The point of the trip. Rate-limited inside, so a short interval between
+            // visits just means this one was only a toilet visit.
+            npcWashAtHome(b);
+            tell('done');
+            after(BATH_STEP.toDoorIn, () => {
+              if (!ok(bathId)) return done();
+              setBathDoor(door, true, bathId, npc, null);
+              tell('open');
+              after(BATH_STEP.handle, () => {
+                const m = ok(bathId);
+                if (!m || !moveEntity(m, zoneId, getBroadcast(), query)) return done();
+                if (getZonePlayers(zoneId).length) say(zoneId, BATHROOM_BACK);
+                tell('out');
+                // shut behind them as it was found; one that stood open is left open
+                after(BATH_STEP.through, () => { if (!wasOpen) { setBathDoor(door, false, zoneId, npc, null); tell('close'); } done(); });
+              });
+            });
+          });
+        });
+      });
+    });
+  });
+  return true;
 }
 
 // A trip asked for from outside a scene: a resident on the Room Stage who needs the bathroom. False
-// when the flat has none or something else is going on in it.
+// when the flat has none, somebody's in it, or something else is going on in the flat.
 export function tripToBathroom(zoneId, npc) {
   if (activeHome.has(zoneId)) return false;
   const bath = bathroomFor(zoneId);
   if (!bath) return false;
-  playBathroom(zoneId, npc, bath);
-  return true;
+  return playBathroom(zoneId, npc, bath);
 }
 
 // A plausible thing to have made. Straight off the live catalogues, so anything
@@ -577,7 +692,7 @@ export function homeLifeTick() {
       activeHome.add(zoneId);
       startHomeTalk(zoneId, folk, {
         done: () => { activeHome.delete(zoneId); startCooldown(zoneId); },
-        bathroom: (who) => { const bath = bathroomFor(zoneId); if (bath && !activeHome.has(zoneId)) playBathroom(zoneId, who, bath); },
+        bathroom: (who) => { if (!activeHome.has(zoneId)) tripToBathroom(zoneId, who); },
       }).then((ok) => { if (!ok && !isTalking(zoneId)) activeHome.delete(zoneId); })
         .catch(() => activeHome.delete(zoneId));
       continue;
@@ -595,7 +710,7 @@ export function homeLifeTick() {
     // through to the narrated half, exactly as before.
     if (roll < 0.12) {
       const bath = bathroomFor(zoneId);
-      if (bath) { playBathroom(zoneId, npc, bath); continue; }
+      if (bath && playBathroom(zoneId, npc, bath)) continue;
     }
 
     let beats, kind;
@@ -623,6 +738,6 @@ export function homeLifeTick() {
 // Test seam — regress asserts the catalogues actually yield nouns.
 export const _internals = {
   pickMeal, pickDrink, MEAL, DRINK, TIDY, CHILL, HEAT, isBusyBeingUnconscious,
-  bathroomFor, bathroomOf, BATHROOM_GOING, BATHROOM_BACK,
+  bathroomFor, bathroomOf, BATHROOM_GOING, BATHROOM_BACK, BATH_USE, pickBathUse, bathDoor, bathroomFree,
   PHONE, HOBBY, GROOM, REHEARSE, DIY, MONEY, LEISURE, NIGHT, MORNING, ODD, SULK, soloScene,
 };
