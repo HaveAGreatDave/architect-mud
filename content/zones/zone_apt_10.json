@@ -85,6 +85,13 @@
         "top": "stone",
         "uppers": "cabinets"
       },
+      "sash": {
+        "drapes": "#c9b48a",
+        "head": true,
+        "lights": 2,
+        "transom": 0.4,
+        "w": 1.8
+      },
       "tone": {
         "accent": "#b8924a",
         "ceiling": "#f0e8e2",

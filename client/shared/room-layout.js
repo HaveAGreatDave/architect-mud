@@ -1231,6 +1231,7 @@ function keepClear(S) {
 // or, for a flat, FLAT_ROOM. Null when the room has no Stage. As an object it may also carry:
 //   glass    the walls that are floor-to-ceiling glass instead of a window: any of 'front', 'left',
 //            'right'. With none the room has the one sash window in its front wall.
+//   sash     the sash window made a period one (sashOf): { w, at, y0, y1, transom, lights, head, drapes, pole }
 //   finish   what the room is built from ('plain' by default, 'fine' for a tower flat)
 //   ensuite  { w, d, finish }, the size of an en-suite when the flat has one
 //   studio   false for a room with no studio plan (studioPlan)
@@ -1291,7 +1292,10 @@ export function roomSpecOf(flags, isFlat, { storey = null } = {}) {
   // floor-to-ceiling glass stops short of a corner by its frame, of the room's back quarter on the
   // left, where the bed goes, and of the kitchen on the right
   const pane = (wall) => ({ wall, a: wall === 'front' ? -hu + 0.12 : 0.12, b: wall === 'front' ? hu - 0.12 : wall === 'right' && plan ? plan.kitchen[2] - 0.15 : open ? d - 0.12 : d * 0.72, y0: 0.05, y1: open ? h - 0.04 : h - 0.1, kind: 'curtain' });
-  out.windows = glass.length ? glass.map(pane) : [{ wall: 'front', a: window[0], b: window[1], y0: window[2], y1: window[3], kind: 'sash' }];
+  // a period window in place of the flat's (sashOf): taller, under a transom, perhaps with drapes
+  const sash = glass.length ? null : sashOf(base.sash, w, h);
+  if (sash) out.window = [sash.a, sash.b, sash.y0, sash.y1];
+  out.windows = glass.length ? glass.map(pane) : [sash ? { wall: 'front', ...sash, kind: 'sash' } : { wall: 'front', a: window[0], b: window[1], y0: window[2], y1: window[3], kind: 'sash' }];
   if (glass.includes('front')) out.window = [-hu + 0.12, hu - 0.12, 0.05, h - 0.1];
   if (base.ensuite && typeof base.ensuite === 'object') out.ensuite = base.ensuite;
   // `tile` is a clinic's white tile, `concrete` a plant room's slab, `terrazzo` an old lobby's chips in cream (gl/room-mesh.js)
@@ -1345,11 +1349,32 @@ export function roomSpecOf(flags, isFlat, { storey = null } = {}) {
   if (Number(base.storeys) && (Number(base.storey) || storey) >= Number(base.storeys) - 1) out.crown = true;
   return out;
 }
+// A period sash window, as an old hotel or a mansion block has, from `flags.room.sash`; null for none.
+// Every key is optional: { sash: {} } is a tall pair of sashes in the middle of the front wall.
+//   w        its width, metres (1.8)            at      its middle along the wall (0)
+//   y0, y1   the sill and the head (0.7, and 0.55 under the ceiling, room for a cornice and a pole)
+//   transom  the fixed light over the sashes, metres tall; under 0.2 is none
+//   lights   sashes side by side, 1 to 3 (2)    head    true for a moulded cornice over the architrave
+//   drapes   a hex: curtains in that colour, tied back either side, on a pole
+//   pole     the pole's metal, a hex (the room's accent)
+function sashOf(s, w, h) {
+  if (!s || typeof s !== 'object' || Array.isArray(s)) return null;
+  const half = clampN(s.w, 0.8, Math.max(0.8, Math.min(4, w - 1.6)), 1.8) / 2, room = Math.max(0, w / 2 - half - 0.3);
+  const at = clampN(s.at, -room, room, 0), y0 = clampN(s.y0, 0.3, 1.2, 0.7), y1 = clampN(s.y1, y0 + 0.9, h - 0.25, Math.max(y0 + 0.9, h - 0.55));
+  const out = { a: +(at - half).toFixed(3), b: +(at + half).toFixed(3), y0, y1, lights: Math.round(clampN(s.lights, 1, 3, 2)) };
+  const tr = clampN(s.transom, 0, (y1 - y0) * 0.4, 0);
+  if (tr >= 0.2) out.transom = tr;
+  if (s.head === true) out.head = true;
+  for (const k of ['drapes', 'pole']) if (/^#[0-9a-f]{6}$/i.test(s[k] || '')) out[k] = s[k];
+  return out;
+}
 // A studio's balcony: a door out of the lounge, and a deck past it. A tower flat's runs the width of
 // the room; a plain one is a slab with a rail, either side of its door. A wrapped deck goes past each
 // side wall by its own depth and round the back, and withAnnex moves `wrap` back past an en-suite.
+// A window with drapes wants room for them, so its door stands further off.
 function balconyOf(S, P, glazed, wrap) {
-  const hu = S.w / 2, fine = S.finish === 'fine', c = glazed ? (P.living[0] + P.living[1]) / 2 : S.window[0] - 0.9, half = glazed ? 0.75 : 0.5;
+  const drapes = S.windows?.some((q) => q.wall === 'front' && q.drapes);
+  const hu = S.w / 2, fine = S.finish === 'fine', c = glazed ? (P.living[0] + P.living[1]) / 2 : S.window[0] - (drapes ? 1.05 : 0.9), half = glazed ? 0.75 : 0.5;
   const r = (x) => +x.toFixed(2);
   const d = fine ? 2.4 : 1.5, u = fine ? [r(-hu + 0.1), r(hu - 0.1)] : [r(Math.max(-hu + 0.1, c - 2.4)), r(Math.min(hu - 0.1, c + 2.4))];
   const out = { door: [r(c - half), r(c + half)], u, d };

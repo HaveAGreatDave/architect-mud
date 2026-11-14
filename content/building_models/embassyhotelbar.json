@@ -208,108 +208,273 @@
       "z": 0.004
     },
     {
-      "count": 3,
+      "count": 5,
       "kind": "repeat",
       "of": {
         "bars": 1,
         "cx": -0.296,
         "cy": 0.4,
-        "depth": 0.014,
+        "depth": 0.01,
         "glass": "#241a22",
         "glow": "#cfd8ea",
-        "half": 0.052,
-        "hh": 0.058,
+        "half": 0.036,
+        "hh": 0.068,
         "kind": "windowBay",
         "pal": "ty_embassy_cream",
-        "transom": 0.3,
-        "z": 0.352
+        "rails": 2,
+        "transom": 0.2,
+        "z": 0.356
       },
       "step": {
-        "z": 0.196
+        "cx": 0.148
       }
     },
     {
-      "count": 3,
+      "count": 5,
       "kind": "repeat",
       "of": {
         "bars": 1,
-        "cx": -0.148,
-        "cy": 0.4,
-        "depth": 0.014,
+        "cx": -0.296,
+        "cy": -0.4,
+        "depth": 0.01,
         "glass": "#241a22",
         "glow": "#cfd8ea",
-        "half": 0.052,
-        "hh": 0.058,
+        "half": 0.036,
+        "hh": 0.068,
         "kind": "windowBay",
         "pal": "ty_embassy_cream",
-        "transom": 0.3,
-        "z": 0.352
+        "rails": 2,
+        "transom": 0.2,
+        "z": 0.356
       },
       "step": {
-        "z": 0.196
+        "cx": 0.148
       }
     },
     {
-      "count": 3,
+      "count": 4,
       "kind": "repeat",
       "of": {
         "bars": 1,
-        "cx": 0,
-        "cy": 0.4,
-        "depth": 0.014,
+        "cx": -0.27,
+        "cy": -0.4,
+        "depth": 0.01,
+        "face": "x",
         "glass": "#241a22",
         "glow": "#cfd8ea",
-        "half": 0.052,
-        "hh": 0.058,
+        "half": 0.036,
+        "hh": 0.068,
         "kind": "windowBay",
         "pal": "ty_embassy_cream",
-        "transom": 0.3,
-        "z": 0.352
+        "rails": 2,
+        "transom": 0.2,
+        "z": 0.356
       },
       "step": {
-        "z": 0.196
+        "cx": 0.18
       }
     },
     {
-      "count": 3,
+      "count": 4,
       "kind": "repeat",
       "of": {
         "bars": 1,
-        "cx": 0.148,
+        "cx": -0.27,
         "cy": 0.4,
-        "depth": 0.014,
+        "depth": 0.01,
+        "face": "x",
         "glass": "#241a22",
         "glow": "#cfd8ea",
-        "half": 0.052,
-        "hh": 0.058,
+        "half": 0.036,
+        "hh": 0.068,
         "kind": "windowBay",
         "pal": "ty_embassy_cream",
-        "transom": 0.3,
-        "z": 0.352
+        "rails": 2,
+        "transom": 0.2,
+        "z": 0.356
       },
       "step": {
-        "z": 0.196
+        "cx": 0.18
       }
     },
     {
-      "count": 3,
+      "count": 5,
       "kind": "repeat",
       "of": {
         "bars": 1,
-        "cx": 0.296,
+        "cx": -0.296,
         "cy": 0.4,
-        "depth": 0.014,
+        "depth": 0.01,
         "glass": "#241a22",
         "glow": "#cfd8ea",
-        "half": 0.052,
-        "hh": 0.058,
+        "half": 0.036,
+        "hh": 0.062,
         "kind": "windowBay",
         "pal": "ty_embassy_cream",
-        "transom": 0.3,
-        "z": 0.352
+        "rails": 2,
+        "transom": 0.2,
+        "z": 0.566
       },
       "step": {
-        "z": 0.196
+        "cx": 0.148
+      }
+    },
+    {
+      "count": 5,
+      "kind": "repeat",
+      "of": {
+        "bars": 1,
+        "cx": -0.296,
+        "cy": -0.4,
+        "depth": 0.01,
+        "glass": "#241a22",
+        "glow": "#cfd8ea",
+        "half": 0.036,
+        "hh": 0.062,
+        "kind": "windowBay",
+        "pal": "ty_embassy_cream",
+        "rails": 2,
+        "transom": 0.2,
+        "z": 0.566
+      },
+      "step": {
+        "cx": 0.148
+      }
+    },
+    {
+      "count": 4,
+      "kind": "repeat",
+      "of": {
+        "bars": 1,
+        "cx": -0.27,
+        "cy": -0.4,
+        "depth": 0.01,
+        "face": "x",
+        "glass": "#241a22",
+        "glow": "#cfd8ea",
+        "half": 0.036,
+        "hh": 0.062,
+        "kind": "windowBay",
+        "pal": "ty_embassy_cream",
+        "rails": 2,
+        "transom": 0.2,
+        "z": 0.566
+      },
+      "step": {
+        "cx": 0.18
+      }
+    },
+    {
+      "count": 4,
+      "kind": "repeat",
+      "of": {
+        "bars": 1,
+        "cx": -0.27,
+        "cy": 0.4,
+        "depth": 0.01,
+        "face": "x",
+        "glass": "#241a22",
+        "glow": "#cfd8ea",
+        "half": 0.036,
+        "hh": 0.062,
+        "kind": "windowBay",
+        "pal": "ty_embassy_cream",
+        "rails": 2,
+        "transom": 0.2,
+        "z": 0.566
+      },
+      "step": {
+        "cx": 0.18
+      }
+    },
+    {
+      "count": 5,
+      "kind": "repeat",
+      "of": {
+        "bars": 1,
+        "cx": -0.296,
+        "cy": 0.4,
+        "depth": 0.01,
+        "glass": "#241a22",
+        "glow": "#cfd8ea",
+        "half": 0.036,
+        "hh": 0.066,
+        "kind": "windowBay",
+        "pal": "ty_embassy_cream",
+        "rails": 2,
+        "transom": 0.2,
+        "z": 0.768
+      },
+      "step": {
+        "cx": 0.148
+      }
+    },
+    {
+      "count": 5,
+      "kind": "repeat",
+      "of": {
+        "bars": 1,
+        "cx": -0.296,
+        "cy": -0.4,
+        "depth": 0.01,
+        "glass": "#241a22",
+        "glow": "#cfd8ea",
+        "half": 0.036,
+        "hh": 0.066,
+        "kind": "windowBay",
+        "pal": "ty_embassy_cream",
+        "rails": 2,
+        "transom": 0.2,
+        "z": 0.768
+      },
+      "step": {
+        "cx": 0.148
+      }
+    },
+    {
+      "count": 4,
+      "kind": "repeat",
+      "of": {
+        "bars": 1,
+        "cx": -0.27,
+        "cy": -0.4,
+        "depth": 0.01,
+        "face": "x",
+        "glass": "#241a22",
+        "glow": "#cfd8ea",
+        "half": 0.036,
+        "hh": 0.066,
+        "kind": "windowBay",
+        "pal": "ty_embassy_cream",
+        "rails": 2,
+        "transom": 0.2,
+        "z": 0.768
+      },
+      "step": {
+        "cx": 0.18
+      }
+    },
+    {
+      "count": 4,
+      "kind": "repeat",
+      "of": {
+        "bars": 1,
+        "cx": -0.27,
+        "cy": 0.4,
+        "depth": 0.01,
+        "face": "x",
+        "glass": "#241a22",
+        "glow": "#cfd8ea",
+        "half": 0.036,
+        "hh": 0.066,
+        "kind": "windowBay",
+        "pal": "ty_embassy_cream",
+        "rails": 2,
+        "transom": 0.2,
+        "z": 0.768
+      },
+      "step": {
+        "cx": 0.18
       }
     },
     {
@@ -381,7 +546,7 @@
       "z1": 0.845
     },
     {
-      "cx": -0.3,
+      "cx": -0.372,
       "cy": -0.4,
       "kind": "pipe",
       "pal": "ty_embassy_iron",

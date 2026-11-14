@@ -1035,6 +1035,19 @@ export const AUTHORED_DETAIL = {
       const tz = z + hh - 2 * hh * clamp(transom, 0.05, 0.95), t = Math.max(hh * 0.035, 0.004);
       Q([[c.lx - half, yb2, tz + t], [c.lx + half, yb2, tz + t], [c.lx + half, yb2, tz - t], [c.lx - half, yb2, tz - t]], jamb, c.alpha, { lift: DETAIL_LIFT * 1.45 });
     }
+    // ── `rails`: A PERIOD WINDOW'S GLAZING BARS ─────────────────────────────────────────────────
+    //
+    // Bars across the glass under the transom, evenly spaced: one is a sash's meeting rail, two or
+    // three a steel casement's, and they are what make a tall pane a hotel's or a mansion block's
+    // window and not an office's. Mesh-only, the bargain `bars` makes.
+    const rails = MESH_SINK && !d.door ? clamp(Math.round(d.rails || 0), 0, 5) : 0;
+    if (rails) {
+      const top = transom ? z + hh - 2 * hh * clamp(transom, 0.05, 0.95) : z + hh, t = Math.max(hh * 0.022, 0.003);
+      for (let i = 1; i <= rails; i++) {
+        const zr = z - hh + (top - (z - hh)) * (i / (rails + 1));
+        Q([[c.lx - half, yb2, zr + t], [c.lx + half, yb2, zr + t], [c.lx + half, yb2, zr - t], [c.lx - half, yb2, zr - t]], jamb, c.alpha, { lift: DETAIL_LIFT * 1.45 });
+      }
+    }
     // The leaves. Drawn in both renderers, unlike the mullions: one door a building is nothing to
     // pay, and a doorway with no leaves in it reads as a lit window that reaches the pavement.
     if (d.door) {

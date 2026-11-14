@@ -85,6 +85,13 @@
         "top": "butcher",
         "uppers": "shelves"
       },
+      "sash": {
+        "drapes": "#6b4a2e",
+        "head": true,
+        "lights": 2,
+        "transom": 0.4,
+        "w": 1.8
+      },
       "tone": {
         "accent": "#b8924a",
         "ceiling": "#f2eee4",

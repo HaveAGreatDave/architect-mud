@@ -450,6 +450,8 @@ vec3 shScene(vec2 p, float t) {
 // Venetian blinds: horizontal slats 5 cm apart, each covering uShutVane of the spacing, the window between them
 vec4 blindAt(vec3 diff, vec3 spec) {
   float y = vUv.y, top = uShutY.y;
+  // glass over the head is a transom's (room-mesh.js drawPeriodSash), and the blinds hang under it
+  if (y > top) return vec4(-1.0);
   // the headrail across the head
   if (y > top - 0.07) return vec4(finish(roomShade(vec3(0.62, 0.64, 0.66), diff, spec, 4.0)), 1.0);
   // horizontal slats, 5 cm apart, tilted to cover uShutVane of the spacing; the ladder tapes hang down through
@@ -474,6 +476,8 @@ vec4 shutterAt(vec3 diff, vec3 spec, float fres) {
   // the doorway's pane (uv from 300 at its middle) opens from its right-hand jamb as the one leaf slides left
   if (vUv.x > 250.0 && uShutDoor.y > 0.0 && vUv.x - 300.0 > uShutDoor.y * (1.0 - 2.0 * uShutDoor.x)) return vec4(-1.0);
   if (vPos.x < uShutBox.x || vPos.x > uShutBox.y || vPos.z < uShutBox.z || vPos.z > uShutBox.w) return vec4(-1.0);
+  // a transom's light, over the head the shutters run to, stays clear
+  if (vUv.y > uShutY.y + 0.06) return vec4(-1.0);
   if (uShutVane > 0.0) return blindAt(diff, spec);
   // the leading edge: from above the head down to past the foot, so the rail ends under the frame
   float top = uShutY.y + 0.06, bot = uShutY.x - 0.06, edge = top - uShut.x * (top - bot), y = vUv.y;

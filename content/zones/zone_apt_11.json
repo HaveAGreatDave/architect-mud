@@ -71,6 +71,13 @@
         "top": "terrazzo",
         "uppers": "shelves"
       },
+      "sash": {
+        "drapes": "#3a4a3e",
+        "head": true,
+        "lights": 2,
+        "transom": 0.4,
+        "w": 1.8
+      },
       "tone": {
         "accent": "#a07c52",
         "ceiling": "#f4eee4",

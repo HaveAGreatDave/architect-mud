@@ -527,6 +527,48 @@ function palaisLights(ctx, cam, F, E, k, out, off, dX, night, alpha) {
   // A bronze plaque over the middle light.
   k.paint([[off + 0.07, yb - 0.004, 0.548], [off - 0.07, yb - 0.004, 0.548], [off - 0.07, yb - 0.004, 0.538], [off + 0.07, yb - 0.004, 0.538]], back, [96, 70, 42]);
 }
+// THE MERIDIAN'S WALLS: plain ashlar with the deco built on it. Each stage of the tower carries its own
+// bays on all four faces: tall bronze-framed windows in vertical strips between proud stone piers, each
+// with a bronze spandrel and a gilt chevron under it, and a scatter of rooms lit after dark.
+// ⚠ THE WALLS WERE ONE PAINTED SKIN (DECO_WALL, `ty_meridian`), whose window grid ran at the texture's
+// own pitch: through the setbacks, behind the pilasters and the nameplate, and the same size on the
+// podium as on the crown. Built per stage, every window lines up with the stage it's in.
+// `half` is the stage's half-width and `us`/`piers` the strips' and piers' centres along a face, all in
+// fh; `z0`/`z1` its window band; `sh` a window's half-width in fh; `skip` faces with no bays.
+const MER_BRONZE = 'ty_meridian_bronze', MER_STONE = 'ty_palais_stone', MER_TRIM = 'ty_archive_col';
+function meridianStage(ctx, cam, F, E, W3, fh, seed, night, alpha, { half, z0, z1, floors, us, piers, sh, skip = [] }) {
+  const yaw = faceYaw(E), dn = night ? clamp(+night, 0, 1) : 0, plane = half * fh;
+  const fz = (z1 - z0) / floors, hh = fz * 0.34, w = sh * fh, fr = Math.min(w, hh) * 0.26, sp = fz * 0.14;
+  const bronze = rgb([96, 68, 40].map((v) => v * (1 - 0.55 * dn))), gilt = rgb([214, 170, 92].map((v) => v * (1 - 0.4 * dn)));
+  const pd = fh * 0.014, pw = fh * 0.017;
+  for (const [fi, [nx, ny]] of [[0, 1], [0, -1], [1, 0], [-1, 0]].entries()) {
+    if (skip.includes(fi)) continue;
+    const side = nx !== 0, out = [nx, ny, 0];
+    // a point on this face: `a` along it, `o` out from its plane
+    const at = (a, o, z) => (side ? [nx * (plane + o), -a, z] : [a, ny * (plane + o), z]);
+    for (let f = 0; f < floors; f++) {
+      const zc = z0 + fz * (f + 0.56), zt = zc - hh - fr, zb = zt - sp;
+      us.forEach((u, i) => {
+        const a = u * fh, on = frac(Math.sin(seed * 0.37 + fi * 17.1 + f * 3.7 + i * 11.3) * 4375.85) < 0.42;
+        drawArmPart(ctx, cam, F, E, { kind: 'windowBay', ...(side ? { face: 'x', cx: a, cy: nx * plane } : { cx: a, cy: ny * plane }),
+          z: zc, half: w, hh, depth: fh * 0.01, pal: MER_BRONZE, bars: 1, transom: 0.3, glass: '#2a3440', glow: on ? '#ffd49a' : '#161b22' }, night, alpha, MER_BRONZE);
+        // the spandrel under it, and its chevron
+        flatOut(ctx, cam, W3, [at(a - w - fr, 0.002, zt), at(a + w + fr, 0.002, zt), at(a + w + fr, 0.002, zb), at(a - w - fr, 0.002, zb)], out, bronze, alpha);
+        flatOut(ctx, cam, W3, [at(a - w * 0.55, 0.004, zt - sp * 0.2), at(a + w * 0.55, 0.004, zt - sp * 0.2), at(a, 0.004, zb + sp * 0.18)], out, gilt, alpha);
+      });
+    }
+    // the piers between the strips, standing proud of the windows, each with a reed down its face
+    const Bx = (a, o, hwA, hwO, za, zb, p, s) => {
+      const [x, y] = at(a, o, 0), [bx, by] = F(x, y);
+      draw3DBoxAt(ctx, cam, bx, by, side ? hwO : hwA, za, zb, p, seed + s, night, alpha, false, yaw, side ? hwA : hwO);
+    };
+    piers.forEach((p, j) => {
+      Bx(p * fh, pd, pw, pd, z0 - fz * 0.05, z1, MER_STONE, 80 + fi * 10 + j);
+      Bx(p * fh, pd * 2.2, pw * 0.35, pd * 0.3, z0 - fz * 0.05, z1, MER_TRIM, 120 + fi * 10 + j);
+    });
+  }
+}
+
 // One foyer. `off` is the tile's centre on X and which way is out: +1 box office, −1 bar.
 function palaisFoyer(ctx, cam, F, W3, E, m, seed, night, alpha, now, frontVis, off) {
   const k = palaisKit(ctx, cam, F, W3, E, off, seed, night, alpha), { B, dn } = k;
@@ -1180,13 +1222,15 @@ export const DOWNTOWN_ARMS = {
     blinkLight(ctx, cam, dx, dy, topZ + h * 0.58, led, now, seed, alpha, 2);
   },
   meridian(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E, name, board, pal, sign, F, W3, frontVis) {   // The Meridian: a stepped art deco limestone tower under a copper cupola. No neon.
-    const trim = 'ty_archive_col', bronze = 'ty_meridian_bronze';                                     // warm limestone trim + dark bronze entrance metal
+    const trim = MER_TRIM, bronze = MER_BRONZE, stone = MER_STONE;                                          // warm limestone trim + dark bronze entrance metal
+    // ⚠ Plain ashlar, never the `pal` the registry gives it (`ty_meridian`): that skin paints a window grid, and the
+    // windows are parts now (meridianStage). `pal` still names the building everywhere else.
     // ⚠ Copper roof faces over limestone sides (`facePals`): from the air, roofs are most of what you see.
     const copper = 'ty_verdigris';
-    const deck = facePals(E, { side: pal, roof: copper });                                            // a terrace: limestone walls, copper deck
+    const deck = facePals(E, { side: stone, roof: copper });                                            // a terrace: limestone walls, copper deck
     const ledge = facePals(E, { side: trim, roof: copper });                                          // a cornice ledge: stone fascia, copper flashing
     const zPod = h * 0.24, zShaft = h * 1.04, zSet1 = h * 1.52, zSet2 = h * 1.86, zCrown = h * 2.06;
-    draw3DBoxAt(ctx, cam, dx, dy, fh * 1.34, 0, zPod, pal, seed + 5, night, alpha, true);              // podium
+    draw3DBoxAt(ctx, cam, dx, dy, fh * 1.34, 0, zPod, stone, seed + 5, night, alpha, true);              // podium
     draw3DBoxAt(ctx, cam, dx, dy, fh * 1.40, zPod, zPod + h * 0.045, ledge, seed + 6, night, alpha, true);   // base cornice band
     // The entrance: a portal of three orders built out from the podium face, round bronze doors.
     { const L = (x, y, z) => { const [wx, wy] = F(x, y); return [wx, wy, z]; };
@@ -1228,7 +1272,7 @@ export const DOWNTOWN_ARMS = {
       }
       if (night) { const [gx, gy] = F(0, face + fh * 0.2); glowPool(ctx, cam, gx, gy, zOpen * 0.4, '255,190,110', 12, alpha * 0.4); }   // the lobby spilling out
     }
-    draw3DBoxAt(ctx, cam, dx, dy, fh * 1.06, zPod + h * 0.045, zShaft, pal, seed, night, alpha, true);
+    draw3DBoxAt(ctx, cam, dx, dy, fh * 1.06, zPod + h * 0.045, zShaft, stone, seed, night, alpha, true);
     // The gilt nameplate in the frieze.
     { const friZ0 = zPod + h * 0.07, friZ1 = zPod + h * 0.17, fr = Math.min(fh * 1.10, 0.44);   // the frieze as segFit leaves it: a box never reaches past 0.44, a decal does
       draw3DBoxAt(ctx, cam, dx, dy, fr, friZ0, friZ1, trim, seed + 46, night, alpha, false);    // stone frieze band on the lower shaft
@@ -1264,9 +1308,17 @@ export const DOWNTOWN_ARMS = {
       draw3DBoxAt(ctx, cam, px, py, fh * (sx && sy ? 0.13 : 0.10), zPod, zShaft + h * 0.04, trim, seed + 20 + sx * 3 + sy, night, alpha, false);
     }
     draw3DBoxAt(ctx, cam, dx, dy, fh * 1.13, zShaft, zShaft + h * 0.045, ledge, seed + 7, night, alpha, true);
-    draw3DBoxAt(ctx, cam, dx, dy, fh * 0.82, zShaft + h * 0.045, zSet1, pal, seed + 1, night, alpha, true);
+    draw3DBoxAt(ctx, cam, dx, dy, fh * 0.82, zShaft + h * 0.045, zSet1, stone, seed + 1, night, alpha, true);
     draw3DBoxAt(ctx, cam, dx, dy, fh * 0.89, zSet1, zSet1 + h * 0.04, ledge, seed + 8, night, alpha, true);
-    draw3DBoxAt(ctx, cam, dx, dy, fh * 0.58, zSet1 + h * 0.04, zSet2, pal, seed + 2, night, alpha, true);
+    draw3DBoxAt(ctx, cam, dx, dy, fh * 0.58, zSet1 + h * 0.04, zSet2, stone, seed + 2, night, alpha, true);
+    // The walls' bays, stage by stage (meridianStage): the podium's lobby windows clear the portal and its lanterns,
+    // the shaft's strips the corner and mid-face pilasters, and the shaft's band starts over the nameplate's frieze.
+    { const S = (o) => meridianStage(ctx, cam, F, E, W3, fh, seed, night, alpha, o);
+      S({ half: 1.34, z0: zPod * 0.08, z1: zPod * 0.92, floors: 1, us: [-1.08, -0.78, 0.78, 1.08], piers: [-0.93, 0.93], sh: 0.09 });
+      S({ half: 1.06, z0: zPod + h * 0.18, z1: zShaft - h * 0.02, floors: 5, us: [-0.75, -0.5, -0.25, 0, 0.25, 0.5, 0.75], piers: [-0.625, -0.375, -0.125, 0.125, 0.375, 0.625], sh: 0.065, skip: [1, 2, 3] });
+      S({ half: 1.06, z0: zPod + h * 0.18, z1: zShaft - h * 0.02, floors: 5, us: [-0.74, -0.49, -0.24, 0.24, 0.49, 0.74], piers: [-0.615, -0.365, 0.365, 0.615], sh: 0.065, skip: [0] });
+      S({ half: 0.82, z0: zShaft + h * 0.06, z1: zSet1 - h * 0.015, floors: 3, us: [-0.54, -0.18, 0.18, 0.54], piers: [-0.72, -0.36, 0, 0.36, 0.72], sh: 0.07 });
+      S({ half: 0.58, z0: zSet1 + h * 0.05, z1: zSet2 - h * 0.015, floors: 2, us: [-0.3, 0, 0.3], piers: [-0.45, -0.15, 0.15, 0.45], sh: 0.07 }); }
     // The crown block and its finned coronet.
     draw3DBoxAt(ctx, cam, dx, dy, fh * 0.64, zSet2, zSet2 + h * 0.035, ledge, seed + 9, night, alpha, true);
     draw3DBoxAt(ctx, cam, dx, dy, fh * 0.40, zSet2 + h * 0.035, zCrown, deck, seed + 3, night, alpha, true);   // the crown deck

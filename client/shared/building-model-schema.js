@@ -330,7 +330,9 @@ export const DETAIL_SCHEMA = {
     // `door` (1 or 2 leaves) draws the bay as a doorway and claims the kit's ground floor; see the
     // windowBay drawer. `z - hh` is then the threshold, so it sits on the pavement or the plinth.
     // Leave `bars` out and the drawer divides the glass by the bay's shape; `bars: 0` is one sheet.
-    plain: { pal: 'string', glow: 'string', glass: 'string', bars: 'number', transom: 'number', face: 'string', door: 'number' }, px: 9 },
+    // `rails` puts that many glazing bars across the glass under the transom: 1 is a sash's meeting
+    // rail, 2 or 3 a steel casement's.
+    plain: { pal: 'string', glow: 'string', glass: 'string', bars: 'number', transom: 'number', face: 'string', door: 'number', rails: 'number' }, px: 9 },
   // A slab cantilevered over the storey below, with an authored soffit. Not `balcony`: that is a
   // tray with a rail whose underside comes off the wall palette.
   canopy: { geom: { cx: 'fh', cy: 'fh', z: 'h', half: 'fh', out: 'fh', hh: 'h' }, required: ['z', 'half', 'out'],

@@ -85,6 +85,13 @@
         "top": "marble",
         "uppers": "cabinets"
       },
+      "sash": {
+        "drapes": "#a8323a",
+        "head": true,
+        "lights": 2,
+        "transom": 0.4,
+        "w": 1.8
+      },
       "tone": {
         "accent": "#c9a14a",
         "ceiling": "#ece4d0",

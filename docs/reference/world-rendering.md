@@ -314,7 +314,7 @@ Nineteen families now sit above that branch, checked **in order**, first match w
 | `METAL_WALL` | corrugated ribbed steel siding + rivet rows |
 | `GLASS_WALL` | curtain glass: floor-plate striping + sky sheen |
 | `SHED_GLASS` | industrial steel glazing: small panes, bars and transoms — a clerestory ribbon |
-| `DECO_WALL` | art-deco limestone (The Meridian) |
+| `DECO_WALL` | art-deco limestone with a painted window grid; no wall wears it since the Meridian's windows were built (2026-11-13) |
 | `STRUCT_WALL` | painted structural steel — a column section, no apertures |
 | `PUMP_WALL` | a fuel dispenser, painted rather than modelled |
 | `PLAIN_WALL` | flat painted panel: soffits, kerbs, hide, canvas, `ty_door` |

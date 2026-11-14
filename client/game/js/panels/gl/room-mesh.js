@@ -1414,6 +1414,9 @@ function drawPane(K, q, { hu, D, trim, fine }) {
     pbox(-half, half, y0 - 0.05, y0 + 0.03, out, -0.02, frame, 1, null, SATIN);
     for (let i = 0; i <= n; i++) { const x = -half + i * half * 2 / n; pbox(x - 0.03, x + 0.03, y0, y1, out, -0.02, frame, 1, null, SATIN); }
     glass(-0.06);
+  } else if (q.lights) {
+    // a period window (flags.room.sash): its own frame, sashes, transom, head and drapes
+    drawPeriodSash(K, q, F, { half, trim, fine, glass, accent: L.spec.tone?.accent });
   } else {
     // the frame, the sill board and the bars
     const fw = 0.05, fv = [-0.09, -0.03], my = y0 + (y1 - y0) * 0.62;
@@ -1446,9 +1449,128 @@ function drawPane(K, q, { hu, D, trim, fine }) {
   // the light through it: its middle just inside the glass, the two ways it spans, and how much of a
   // window it is. A wall of glass lets in more than a sash, but not in proportion: the sky is one sky
   const p = P(0, (y0 + y1) / 2, 0.02), a = P(half, 0, 0), b = P(-half, 0, 0), wa = L.world(a[0], a[1], 0), wb = L.world(b[0], b[1], 0), nf = P(0, 0, 1), n0 = P(0, 0, 0), wn = L.world(nf[0], nf[1], 0), w0 = L.world(n0[0], n0[1], 0);
-  // y0 and y1, the glass's foot and head up the wall, are where the shutters run (gl/room-shutters.js)
-  return { p: L.world(p[0], p[1], p[2]), n: [wn[0] - w0[0], 0, wn[2] - w0[2]], a: [wa[0] - wb[0], 0, wa[2] - wb[2]], b: [0, y1 - y0, 0], k: Math.min(3, Math.max(1, half * 2 * (y1 - y0) / 2.4)), y0, y1 };
+  // y0 and y1, the glass's foot and head up the wall, are where the shutters run (gl/room-shutters.js).
+  // Under a transom they run on the sashes only: blinds hang below the transom bar, and its light stays clear
+  const sy1 = q.lights && q.transom ? y1 - q.transom - 0.035 : y1;
+  return { p: L.world(p[0], p[1], p[2]), n: [wn[0] - w0[0], 0, wn[2] - w0[2]], a: [wa[0] - wb[0], 0, wa[2] - wb[2]], b: [0, y1 - y0, 0], k: Math.min(3, Math.max(1, half * 2 * (y1 - y0) / 2.4)), y0, y1: sy1 };
 }
+
+// A PERIOD SASH WINDOW (room-layout.js sashOf), in drawPane's frame for it: x along the wall, z out into the
+// room, y up, the wall from z = -0.14 to 0 and the glass at -0.06. One-over-one sashes side by side between
+// mullions, the upper sash outboard of the lower and its stiles run down past the meeting rail as horns; a
+// fixed transom light over them in small panes; a deep window board on an apron, a wide moulded architrave
+// and, with `head`, a frieze and cornice over it. Brass fitch catches and lifts, a radiator under it in a
+// plain room, and with `drapes` a pair of curtains tied back on a pole. Venetian blinds (spec.blinds) hang
+// under the transom bar; with no blinds and no drapes a roller blind does.
+function drawPeriodSash(K, q, F, { half, trim, fine, glass, accent }) {
+  const { P, N, pbox, alongX, alongY } = F, L = K.L, y0 = q.y0, y1 = q.y1, n = q.lights || 1;
+  const brass = q.pole || accent || '#b8913e', fw = 0.06, fv = [-0.095, -0.025], ty = q.transom ? y1 - q.transom : y1;
+  const tb = 0.035, sy1 = q.transom ? ty - tb : y1 - fw;
+  const frame = (a, b, c, e, z0 = fv[0], z1 = fv[1]) => pbox(a, b, c, e, z0, z1, trim, 0.95, null, SATIN);
+  glass(-0.06);
+  // the box frame: jambs, head and the sill rail
+  frame(-half, -half + fw, y0, y1); frame(half - fw, half, y0, y1);
+  frame(-half, half, y1 - fw, y1); frame(-half, half, y0, y0 + 0.045);
+  // the mullions between the lights, the full height; the transom bar across
+  const mw = 0.045, xs = Array.from({ length: n + 1 }, (_, i) => -half + fw + (i * (2 * (half - fw))) / n);
+  for (let i = 1; i < n; i++) frame(xs[i] - mw, xs[i] + mw, y0, y1);
+  if (q.transom) frame(-half, half, ty - tb, ty + tb, fv[0], fv[1] + 0.004);
+  // each light: the sashes, then the transom's small panes over them
+  const sw = 0.045, up = [-0.094, -0.066], lo = [-0.055, -0.024];
+  for (let i = 0; i < n; i++) {
+    const l = xs[i] + (i ? mw : 0), r = xs[i + 1] - (i < n - 1 ? mw : 0), cx = (l + r) / 2, bot = y0 + 0.045, ym = (bot + sy1) / 2;
+    const sash = (a, b, c, e, z) => pbox(a, b, c, e, z[0], z[1], trim, 0.97, null, SATIN);
+    // the upper sash, outboard: stiles from the head down past the meeting rail as horns, a top rail and its meeting rail
+    for (const [a, b] of [[l, l + sw], [r - sw, r]]) sash(a, b, ym - 0.07, sy1, up);
+    sash(l, r, sy1 - sw, sy1, up);
+    sash(l + sw, r - sw, ym, ym + 0.04, up);
+    // the lower sash, inboard: stiles, its meeting rail, and a deeper bottom rail
+    for (const [a, b] of [[l, l + sw], [r - sw, r]]) sash(a, b, bot, ym, lo);
+    sash(l + sw, r - sw, ym - 0.04, ym, lo);
+    sash(l + sw, r - sw, bot, bot + 0.075, lo);
+    // a fitch catch on the meeting rails, and two lifts on the bottom rail
+    pbox(cx - 0.035, cx + 0.035, ym - 0.012, ym + 0.006, lo[1], lo[1] + 0.018, brass, 1.05, null, METAL);
+    for (const x of [l + 0.12, r - 0.12]) pbox(x - 0.018, x + 0.018, bot + 0.03, bot + 0.05, lo[1], lo[1] + 0.022, brass, 1.05, null, METAL);
+    if (q.transom) {
+      const m = Math.max(2, Math.round((r - l) / 0.24));
+      for (let j = 1; j < m; j++) { const x = l + (j * (r - l)) / m; pbox(x - 0.009, x + 0.009, ty + tb, y1 - fw, -0.078, -0.05, trim, 0.97, null, SATIN); }
+    }
+  }
+  // the window board, a moulded nosing, and the apron under it
+  pbox(-half - 0.1, half + 0.1, y0 - 0.04, y0, -0.03, 0.17, trim, 1, null, SATIN);
+  pbox(-half - 0.1, half + 0.1, y0 - 0.055, y0 - 0.04, 0.0, 0.155, trim, 0.9, null, SATIN);
+  pbox(-half - 0.06, half + 0.06, y0 - 0.2, y0 - 0.055, -0.004, 0.022, trim, 0.94, null, SATIN);
+  // the architrave: a wide flat with a raised back band round its outer edge
+  const aw = 0.11, ab = 0.028;
+  for (const [a, b, c, e] of [[-half - aw, -half, y0 - 0.04, y1 + aw], [half, half + aw, y0 - 0.04, y1 + aw], [-half - aw, half + aw, y1, y1 + aw]]) pbox(a, b, c, e, 0, 0.018, trim, 0.97, null, SATIN);
+  for (const [a, b, c, e] of [[-half - aw, -half - aw + ab, y0 - 0.04, y1 + aw], [half + aw - ab, half + aw, y0 - 0.04, y1 + aw], [-half - aw, half + aw, y1 + aw - ab, y1 + aw]]) pbox(a, b, c, e, 0, 0.032, trim, 1, null, SATIN);
+  // a frieze and a cornice over it
+  if (q.head) {
+    pbox(-half - aw, half + aw, y1 + aw, y1 + aw + 0.075, 0, 0.024, trim, 0.95, null, SATIN);
+    pbox(-half - aw - 0.025, half + aw + 0.025, y1 + aw + 0.075, y1 + aw + 0.095, 0, 0.045, trim, 0.97, null, SATIN);
+    pbox(-half - aw - 0.05, half + aw + 0.05, y1 + aw + 0.095, y1 + aw + 0.125, 0, 0.07, trim, 1.02, null, SATIN);
+  }
+  // Venetian blinds (spec.blinds, plugins/envcontrol): the headrail under the transom; the slats are the shutter shader's
+  if (L.spec.blinds) pbox(-half + fw, half - fw, sy1 - 0.05, sy1, -0.022, -0.002, trim, 0.95, null, SATIN);
+  else if (!q.drapes) {
+    // a roller blind under the head, the cloth down a fifth of the sashes
+    const bl = sy1 - (sy1 - y0) * 0.2;
+    pbox(-half + fw, half - fw, sy1 - 0.07, sy1, -0.02, 0.03, trim, 0.95, null, SATIN);
+    pbox(-half + fw + 0.01, half - fw - 0.01, bl, sy1 - 0.07, 0.0, 0.006, '#e9e1cf', 0.95, { t: 'roomCanvas', c: '#efe6d2' }, CLOTH);
+    pbox(-half + fw, half - fw, bl - 0.03, bl, -0.004, 0.012, trim, 0.9, null, SATIN);
+  }
+  if (!fine) {
+    // the radiator under the board: cast columns on two pipes, in the trim's gloss, sized to the sill
+    const r0 = -half + 0.08, r1 = half - 0.08, cols = Math.round((r1 - r0) / 0.065), top = Math.min(0.74, y0 - 0.12);
+    for (let i = 0; i < cols; i++) {
+      const x = r0 + (i + 0.5) * (r1 - r0) / cols;
+      K.rounded(...alongY(), 0.14, top, x - 0.024, x + 0.024, 0.05, 0.14, 0.02, trim, 0.9, GLOSS);
+    }
+    for (const y of [0.17, top - 0.03]) K.rounded(...alongX(), r0 - 0.04, r1 + 0.04, 0.08, 0.11, y - 0.015, y + 0.015, 0.012, trim, 0.85, GLOSS);
+    for (const x of [r0 - 0.06, r1 + 0.06]) { const [u, v] = P(x, 0, 0.09); K.lathe(u, v, [[0.012, 0], [0.012, 0.16]], '#c9c4b8', 0.9, 8, METAL); }
+  }
+  if (q.drapes) drawDrapes(K, F, { half: half + aw * 0.5, y1: y1 + aw + (q.head ? 0.15 : 0.06), sill: y0, hex: q.drapes, brass });
+}
+
+// A PAIR OF DRAPES on a pole over a window, tied back either side: each a run of rounded pleats that hangs
+// from the pole, is drawn in to a cord at the tie-back and falls out again to the floor. `half` is where
+// the drapes' inner edges hang at the pole, `y1` the pole's height, in drawPeriodSash's frame.
+function drawDrapes(K, F, { half, y1, sill, hex, brass }) {
+  const { P, N, alongX } = F, col = K.C(hex, 0.92), dark = K.C(hex, 0.7);
+  const W = 0.36, pleats = 6, yt = Math.max(0.85, sill + 0.35), segs = 8;
+  // the pole on two brackets, with ball finials
+  const pe = half + W + 0.06;
+  K.rounded(...alongX(), -pe, pe, 0.09, 0.13, y1 - 0.018, y1 + 0.018, 0.016, brass, 1.05, METAL);
+  for (const s of [-1, 1]) {
+    const [u, v] = P(s * (pe + 0.03), 0, 0.11);
+    K.ball(u, v, y1, 0.034, brass, 1.1, 12, METAL);
+    drapeBox(F, s * (half + W - 0.04) - 0.015, s * (half + W - 0.04) + 0.015, y1 - 0.012, y1 + 0.012, 0, 0.11, brass);
+  }
+  // how wide a drape is up its fall: full under the pole, gathered at the tie-back, flared to the floor
+  const width = (y) => (y >= yt ? 0.12 + (W - 0.12) * Math.min(1, (y - yt) / Math.max(0.3, (y1 - 0.05 - yt) * 0.55)) : 0.12 + (0.24 - 0.12) * Math.pow((yt - y) / yt, 0.8));
+  const ys = [0.005, yt * 0.35, yt * 0.7, yt - 0.06, yt, yt + 0.06, yt + (y1 - yt) * 0.2, yt + (y1 - yt) * 0.4, yt + (y1 - yt) * 0.6, yt + (y1 - yt) * 0.8, y1 - 0.04];
+  for (const s of [-1, 1]) {
+    const xo = s * (half + W);   // the outer edge, which hangs straight
+    for (let p = 0; p < pleats; p++) {
+      const t = (p + 0.5) / pleats, zc = 0.085 + (p % 2 ? 0.014 : -0.008);
+      const ring = (y) => { const w = width(y), r = (w / pleats) * 0.72; return { x: xo - s * t * w, r, z: zc, y }; };
+      const rs = ys.map(ring);
+      for (let i = 0; i + 1 < rs.length; i++) {
+        const A = rs[i], B = rs[i + 1];
+        for (let j = 0; j < segs; j++) {
+          const a0 = (j / segs) * Math.PI * 2, a1 = ((j + 1) / segs) * Math.PI * 2, am = (a0 + a1) / 2;
+          const pt = (R, a) => P(R.x + Math.cos(a) * R.r, R.y, R.z + Math.sin(a) * R.r * 0.8);
+          K.quad(K.solid, [pt(A, a0), pt(A, a1), pt(B, a1), pt(B, a0)], N(Math.cos(am), 0, Math.sin(am)), Math.sin(am) < -0.3 ? dark : col, CLOTH);
+        }
+      }
+    }
+    // the tie-back: a band of the same cloth round the gathered drape, and its brass hook in the wall
+    const xc = xo - s * 0.06;
+    drapeBox(F, xc - 0.075, xc + 0.075, yt - 0.03, yt + 0.03, 0.05, 0.125, hex, 0.75, CLOTH);
+    drapeBox(F, xo + s * 0.01 - 0.012, xo + s * 0.01 + 0.012, yt - 0.012, yt + 0.012, 0, 0.06, brass);
+  }
+}
+const drapeBox = (F, x0, x1, y0, y1, z0, z1, hex, k = 1, surf = METAL) => F.pbox(x0, x1, y0, y1, z0, z1, hex, k, null, surf);
 
 // THE EN-SUITE behind the back wall, a second room in the same frame. Its front wall is the far side
 // of the flat's back wall, with the door in it standing open against the wall; fine ones are grey

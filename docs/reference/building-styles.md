@@ -38,8 +38,8 @@ keys today, distributed very unevenly:
 | `bale` · `brass` · `frost` · `chrome` | 5 · 5 · 4 · 4 | straw and fibre · gilt · etched glass · mirror |
 | `lattice` · `struct` · `deco` · `pump` | 3 · 2 · 1 · 1 | see-through truss · structural steel · the Meridian · a fuel dispenser |
 
-⚠ **`deco` is one key.** The art-deco surface in this city is `ty_meridian`, worn by the Meridian and
-the Coldwater Palais's foyers. That is a fact about the city rather than a limit of the format — see §2.4.
+⚠ **`deco` is one key, and no wall wears it now.** The art-deco surface `ty_meridian` was the Meridian's skin;
+since 2026-11-13 the Meridian is plain ashlar with its windows built on it, as the Palais is. See §2.4.
 
 **MODERNITY.** `placeModern(place)` answers 0..1 and everything district-shaped in the derived kit
 reads it: how likely a frontage is to carry neon, a ribbon of glazing, a lit roof armature, a corner
@@ -194,8 +194,11 @@ burning the same colour, at which point it is not an accent, it is the backgroun
 
 ### 2.4 Deco — the Meridian and its relatives
 
-**One building wears the family.** `DECO_WALL` is `{ ty_meridian }`: bespoke art-deco limestone with
-reeded vertical piers, tall paired windows and chevron spandrels, under a standing-seam copper crown
+**The family is built, not painted.** The Meridian is `ty_palais_stone` ashlar, and each stage of the tower
+carries its own bays on all four faces (`meridianStage` in glass/models/downtown.js): tall bronze-framed windows
+in vertical strips between proud reeded piers, with a bronze spandrel and a gilt chevron under each window. It
+wore `DECO_WALL` (`ty_meridian`, a painted window grid) until 2026-11-13, whose grid ran through the setbacks and
+behind the pilasters. It stands under a standing-seam copper crown
 gone to verdigris (`SEAM_ROOF`, `ty_verdigris`). `brass` (`ty_meridian_bronze`, `ty_marble_bronze`,
 `ty_dw_brass`, `ty_thumb_brass`, `ty_vig_trim`) is the gilt that goes with it, and `MAT_FONT` gives
 both the `deco` hand — the inscriptional face, gilt on stone, a chiselled lintel.
@@ -219,7 +222,7 @@ the same stone and gilt at a smaller size.
 
 **Before the Coliseum it was two.** The Coldwater Palais on Meltwater Row (2026-10,
 [coldwater-palais.md](../proposals/coldwater-palais.md)) is the Meridian's decade and the Meridian's
-stone: its foyers' windowed floors wear `ty_meridian` itself, and its blind stage house and ground
+stone: its foyers' windows are parts between its piers (`palaisLights`), and its blind stage house and ground
 floors are `ty_palais_stone`, a paler limestone in STONE_WALL, because an auditorium has no windows
 and the deco skin is a window grid. Bronze is `ty_meridian_bronze`, roofs are `ty_verdigris`, and it
 lettered its blade in the `deco` hand. If you want a deco *street*, the honest entry cost is still a
