@@ -178,9 +178,14 @@ async function stadiumKit({ run, check, getPlayer }) {
     const { sportsGamesAhead } = await import('../broadcast/index.js');
     const ahead = sportsGamesAhead('hockey', 4), g = ahead[1] || ahead[0];
     if (g) {
-      // the spend is a guarded UPDATE on the row (adjustCredits), so the row is funded, not only the live player
+      // the spend is a guarded UPDATE on the row (adjustCredits) and the ticket is a player_inventory row, so the
+      // regress player, who lives in RAM only, gets a funded players row for the purchase (as the vendor-stock suite
+      // does), taken away again after if it was made here. This only runs when the schedule has a hockey game ahead.
       const credits = me.credits;
       me.credits = Math.max(me.credits | 0, 500);
+      const made = (await query(
+        `INSERT INTO players (id, username, password_hash, handle, credits) VALUES ($1,$1,'x',$2,$3)
+         ON CONFLICT (id) DO NOTHING RETURNING id`, [me.id, me.handle || me.id, me.credits])).rowCount > 0;
       await query('UPDATE players SET credits=$2 WHERE id=$1', [me.id, me.credits]);
       r = await run(`buyticket ends door home@${g.slot}`);
       const t = [...(tk.held.get(me.id)?.values() || [])].find((x) => x.slot === g.slot && x.section === 'home');
@@ -204,7 +209,9 @@ async function stadiumKit({ run, check, getPlayer }) {
         tk.held.delete(me.id); tk.sold.clear();
       }
       me.credits = credits;
-      await query('UPDATE players SET credits=$2 WHERE id=$1', [me.id, credits | 0]);
+      await query('DELETE FROM player_inventory WHERE player_id=$1 AND item_id=$2', [me.id, TICKET_ITEM]).catch(() => {});
+      if (made) await query('DELETE FROM players WHERE id=$1', [me.id]).catch(() => {});
+      else await query('UPDATE players SET credits=$2 WHERE id=$1', [me.id, credits | 0]);
     }
   } finally { me.current_zone = home; }
 
