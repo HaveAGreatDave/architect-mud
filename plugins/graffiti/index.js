@@ -56,6 +56,7 @@ import { emit } from '../../server/engine/events.js';
 import { query } from '../../server/models/db.js';
 import { normalizeRuns, coalesceRuns, renderStyled, decodePayload, safeFace, safeSpot } from './paint.js';
 import { escapeHtml as esc } from '../../server/engine/html.js';
+import { resolve as siftResolve } from '../../server/engine/sift.js';
 
 // One tag lives three game days. The clock is 1:1 by default (timeScale 1), so
 // that's three real days — long enough that a tag is worth putting up, short
@@ -372,6 +373,10 @@ async function doTag(args, raw, player) {
   await hydrate();
   const zone = getZone(player.current_zone);
   if (!zone) return { type: 'output', message: `You're nowhere in particular.` };
+  // `tag camera`: paint over a lens rather than a wall. Checked first, because a camera
+  // is named by what it is and no wall answers to "camera".
+  const camHint = cameraAsked(raw);
+  if (camHint) return paintCamera(player, camHint);
 
   const walls = wallsNear(zone);
   if (!walls.length) {
@@ -520,6 +525,86 @@ async function applyTag(player, wall, text, runs, can, face = null, spot = null)
   return { type: 'output', message: msg, refresh: true };
 }
 
+// --- Painting over a camera -------------------------------------------------
+//
+// `tag camera` (or `tag <camera name>`, or `spraycan camera`) puts a blast of paint
+// over a security camera's lens, and the camera stops seeing: it can't witness a
+// crime, its feed shows paint, and it records nothing. The camera rows belong to the
+// surveillance plugin, which is the only writer of security_devices, so the paint
+// itself goes on through its `paintLens` and comes off through its `cleanLens` (the
+// cleaning plugin's `clean`). This half is the verb and the can.
+//
+// It's quick, not free. The crime is vandalism, charged before the paint lands, and
+// the lens you're painting gets its own good look at you raising the can.
+
+// Any of these words in the command means a camera, not a wall.
+const CAM_WORDS = new Set(['camera', 'cameras', 'cam', 'cams', 'cctv', 'lens']);
+
+// A lens takes this many characters' worth of paint off the can.
+export const LENS_PAINT = 6;
+
+// The words after the verb when they ask for a camera, else null.
+function cameraAsked(raw) {
+  const words = String(raw || '').trim().split(/\s+/).slice(1).filter(Boolean);
+  return words.some(w => CAM_WORDS.has(w.toLowerCase())) ? words.join(' ') : null;
+}
+
+// Imported when asked for, not at load: surveillance is a large plugin with its own
+// imports, and graffiti is imported by the cleaning and unrest plugins.
+const surveillance = () => import('../surveillance/index.js').catch(() => null);
+
+// Which camera the player means. A bare "camera" picks among the ones in plain
+// sight. A name is matched by SIFT over those first, and only then over cameras
+// somebody has hidden, so the answer never lists a hidden one you didn't name.
+function pickCamera(hint, cams) {
+  const generic = hint.toLowerCase().split(/\s+/).every(w => CAM_WORDS.has(w));
+  const seen = cams.filter(c => !c.concealed);
+  if (generic) {
+    const clean = seen.filter(c => !c.painted);
+    if (clean.length === 1 || (!clean.length && seen.length === 1)) return { cam: clean[0] || seen[0] };
+    if (clean.length > 1) return { ambiguous: clean };
+    return seen.length ? { cam: seen[0] } : {};
+  }
+  for (const pool of [seen, cams.filter(c => c.concealed)]) {
+    const r = siftResolve(hint, pool);
+    if (r.type === 'match') return { cam: r.candidate };
+    if (r.type === 'ambiguous') return { ambiguous: r.candidates };
+  }
+  return {};
+}
+
+async function paintCamera(player, hint) {
+  const surv = await surveillance();
+  const cams = surv?.camerasHere ? (await surv.camerasHere(player.current_zone)).filter(c => !c.damaged) : [];
+  const picked = pickCamera(hint, cams);
+  if (picked.ambiguous) {
+    return { type: 'output', message: `Which camera? ${picked.ambiguous.map(c => `<b>${esc(c.name)}</b>`).join(', ')}` };
+  }
+  const cam = picked.cam;
+  if (!cam) return { type: 'output', message: `You can't see a camera here to paint.` };
+  if (cam.painted) {
+    return { type: 'output', message: `The ${esc(cam.name)} already has paint on its lens.${cam.paintedBy ? ` <span class="text-dim">${esc(cam.paintedBy)} got there first.</span>` : ''}` };
+  }
+
+  const can = await carriedCan(player);
+  if (!can) return { type: 'output', message: `You've got nothing to spray with. Hardware shops sell paint.` };
+  if (can.paint < LENS_PAINT) return { type: 'output', message: thinCan(can, LENS_PAINT) };
+
+  const res = await surv.paintLens(player, cam.id);
+  if (res?.already) return { type: 'output', message: `The ${esc(cam.name)} already has paint on its lens.` };
+  if (!res?.ok) return { type: 'output', message: `You can't see a camera here to paint.` };
+  const left = await spendCan(can, LENS_PAINT);
+
+  let msg = `You reach up and give the ${esc(res.name)} a long blast over the lens. All it can see now is paint.`;
+  if (res.caught) msg += `\n<span class="text-dim">It got a good look at you on the way up.</span>`;
+  msg += left > 0
+    ? `\n<span class="text-dim">The can rattles. Paint for about ${left} more characters.</span>`
+    : (can.quantity > 1
+        ? `\n<span class="text-dim">The can hisses empty on the lens. You crack the next one: ${can.quantity - 1} left.</span>`
+        : `\n<span class="text-dim">The can hisses empty on the lens. That was the last of it.</span>`);
+  return { type: 'output', message: msg, refresh: true, cue: 'spray-fill' };
+}
+
 // --- The can with the caps in the lid ---------------------------------------
 
 /**
@@ -535,6 +620,9 @@ async function doSpray(args, raw, player) {
   await hydrate();
   const zone = getZone(player.current_zone);
   if (!zone) return { type: 'output', message: `You're nowhere in particular.` };
+  // A lens takes no lettering, so `spraycan camera` skips the dialog and paints it.
+  const camHint = cameraAsked(raw);
+  if (camHint) return paintCamera(player, camHint);
 
   const walls = wallsNear(zone);
   if (!walls.length) return { type: 'output', message: `Nothing round here but open ground. You need a wall.` };
@@ -758,6 +846,6 @@ export const commands = {
   spraydel: doSprayDelete,
 };
 
-export const _test = { wallsNear, pickWall, expired, tags, putTag, hydrate, esc, applyTag, paintedText, wallTags, roomTags, byBuilding, unesc, wallLabel, withSignature };
+export const _test = { cameraAsked, pickCamera, paintCamera, wallsNear, pickWall, expired, tags, putTag, hydrate, esc, applyTag, paintedText, wallTags, roomTags, byBuilding, unesc, wallLabel, withSignature };
 
 console.log('[graffiti] Plugin loaded.');

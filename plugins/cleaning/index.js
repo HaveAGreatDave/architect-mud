@@ -89,13 +89,48 @@ function cleanLine(types) {
   return `You scrub the floor down until it stops being a problem.`;
 }
 
+// ── Paint on a camera lens ──────────────────────────────────────────────────
+// Somebody's `tag camera` (graffiti) blinds a security camera with paint. Taking it
+// off is a clean like any other paint: it needs a tool, and anybody may do it, the
+// way anybody may scrub a wall. The surveillance plugin owns the camera rows, so it
+// does the write (cleanLens); this is the verb and the rag.
+const LENS_WORDS = new Set(['camera', 'cameras', 'cam', 'cams', 'cctv', 'lens', 'lenses']);
+const surveillance = () => import('../surveillance/index.js').catch(() => null);
+
+async function paintedLenses(zoneId) {
+  const surv = await surveillance();
+  if (!surv?.camerasHere) return { surv: null, lenses: [] };
+  return { surv, lenses: (await surv.camerasHere(zoneId)).filter(c => c.painted) };
+}
+
+async function wipeLenses(player, zoneId, tool) {
+  const { surv, lenses } = await paintedLenses(zoneId);
+  if (!lenses.length) return { count: 0, msg: '' };
+  if (!tool) {
+    return { count: lenses.length, msg: `<span class="text-dim">The paint on the lens doesn't come off with a thumb. That needs solvent and a rag.</span>` };
+  }
+  for (const c of lenses) await surv.cleanLens(c.id);
+  const names = lenses.map(c => c.name).join(', ');
+  return { count: lenses.length, msg: `You take ${tool.name} to the ${names} until the lens is glass again. ${lenses.length > 1 ? 'They can' : 'It can'} see the room.`, wiped: true };
+}
+
 async function doClean(args, raw, player) {
   const zoneId = player.current_zone;
+
+  // `clean camera` / `clean lens`: just the lens.
+  if ((args || []).some(w => LENS_WORDS.has(String(w).toLowerCase()))) {
+    const tool = (await carriedTool(player)) || fixtureTool(zoneId);
+    const lens = await wipeLenses(player, zoneId, tool);
+    if (!lens.count) return { type: 'output', message: `There's no paint on any camera here.` };
+    return { type: 'output', message: lens.msg, refresh: true };
+  }
+
   const before = filthCount(zoneId);
   // Every wall in reach, one tag each. A proper tool clears the room, so it clears all of them.
   const paint = tagsAt(zoneId);
+  const { lenses } = await paintedLenses(zoneId);
 
-  if (!before && !paint.length) {
+  if (!before && !paint.length && !lenses.length) {
     // Not an error — "there's nothing to clean" is information, and answering it
     // here stops `clean` falling through to an unhelpful "Unknown command".
     return { type: 'output', message: `There's nothing here worth cleaning. Small mercies.` };
@@ -119,6 +154,7 @@ async function doClean(args, raw, player) {
       paintMsg = `\n<span class="text-dim">The paint on the ${walls} doesn't care about your hands. That needs solvent and a brush.</span>`;
     }
   }
+  if (lenses.length) paintMsg += `\n${(await wipeLenses(player, zoneId, tool)).msg}`;
 
   // The wall was the only job here, and it's done (or refused) — don't run the
   // floor arithmetic over a clean floor and report "0 patches".
@@ -158,6 +194,6 @@ export const commands = {
   mop: doClean,
 };
 
-export const _test = { doClean, cleanLine, carriedTool, CLEAN_LINES, TOOL_MARKS, BARE_MARKS };
+export const _test = { doClean, wipeLenses, cleanLine, carriedTool, CLEAN_LINES, TOOL_MARKS, BARE_MARKS };
 
 console.log('[cleaning] Plugin loaded.');

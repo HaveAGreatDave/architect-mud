@@ -34,6 +34,17 @@ At the default `timeScale: 1`, three game days is three real days.
 
 `clean` removes every tag on the walls around you, but **only with a real `cleaning_tool`** — bare hands do floor filth, not brickwork. That asymmetry is deliberate and it is the whole point: floor filth yields to a determined scrub because requiring a tool would mean nobody ever cleans, but if defacing a shopfront cost the owner nothing to undo it wouldn't mean anything. A storefront owner goes and buys a solvent like everybody else.
 
+## Painting over a camera
+`tag camera` (or `tag <the camera's name>`, or `spraycan camera`) gives a security camera's lens a blast of paint, and the camera stops seeing. Any of *camera*, *cam*, *cctv* or *lens* in the command means a camera rather than a wall. A bare *camera* picks among the ones in plain sight; a name is matched by SIFT over those first and only then over hidden ones, so the answer never lists a hidden camera you didn't name. It costs `LENS_PAINT` (6) characters of paint off the can. A camera that's already painted says so.
+
+A painted camera doesn't witness crimes, its feed (the SPECTER hub, a television patch, a flat's door panel) shows paint, and it records nothing. That's all the surveillance plugin's, which owns the camera rows: graffiti calls its `paintLens`, and the paint is `status_flags.painted` on the device's row, read from the device snapshot every reader already holds.
+
+It's quick, not free. The charge is `vandalism` (1★), rolled before the paint lands, so the camera you're painting is still live for it: it gets its own 50% look at you raising the can (`LENS_CATCH`, less in bad weather or behind a Null veil), and every other camera and cop in the room gets the ordinary roll. Painting your own camera is no crime. The owner gets a `⚠ TAMPER` ping.
+
+It comes off with `clean camera` and a tool ([cleaning](../cleaning/README.md)), by anybody. A police camera also has a city crew: four game hours after it was painted it counts as clean, and a 10-minute sweep wipes the row and tells the room. A private camera stays painted until somebody cleans it.
+
+ROOM and GLASS don't draw the city's cameras, so there's no paint to show on a lens in 3-D.
+
 ## The crime
 
 Spraying emits `graffiti.tagged`; the surveillance plugin charges `graffiti` through the ordinary witness gate. Nothing here decides whether you got away with it. Worth knowing what 0.3★ means after the severity scaling: it floors at `sevFactor` 0.25× and it's a **one-shot** roll, so at default camera effectiveness it's a single ~2.5% chance. You will nearly always walk. That's correct — the rare bust should be a funny slap, not a tax on the one expressive thing in the game.
@@ -112,6 +123,7 @@ The budget is the point of the price: at ₵120 a can and 120 characters in it, 
 - `events.graffiti.tagged`
 - `events.graffiti.removed` (`{ zoneId, targetZoneId? }`, from `removeTag` and `removeTagsAt`): ROOM and the street view repaint
 - `hooks.wall.tags`, `hooks.room.tags`
+- surveillance's `camerasHere`, `paintLens` and `cleanLens`: the camera half, imported when asked for
 
 ## Files
 - `index.js` — the verbs, the RAM authority, the one write path (`applyTag`)

@@ -47,6 +47,7 @@ import { takeDoor, keepStill, stillFor, takeCarry } from './lobby-still.js';
 import { createWallTv, paintBoot, BOOT_S } from './room-tv.js';
 import { createRoomLocks } from './room-lock.js';
 import { createRoomEnvctl } from './room-envctl.js';
+import { feedRequest } from './room-feed.js';
 import { createPack } from './room-pack.js';
 import { footDockHTML, bindFootDock } from './foot-dock.js';
 import { setScreenHour } from './gl/room-screens.js';
@@ -3038,7 +3039,9 @@ function openStage(msg) {
     const join = ax ? null : joinFrame(now);
     // the Pack open: the camera round you (packCamNow)
     const packed = !join && !ax && !cook && S.packCam ? packCamNow(now) : null;
-    R.render(join?.cam || ax?.cam || cook?.cam || packed || seat, { lamps: S.mesh.lamps, next: nextLit(Lr, seat.eye), lampOn, lampLevel: power === 'low' ? lampLevel * EMERGENCY_K : lampLevel, fire, flame,day: Math.min(1, dayOf(h) * outside.dimOf() + out.flash * 0.5), sky, wins: S.mesh.windows, annex, outZ: S.spec.balcony ? 0.145 : undefined, outRing: S.spec.balcony?.wrap ? [-S.spec.w / 2 - 0.145, S.spec.w / 2 + 0.145, S.spec.balcony.sides ? -1e6 : -S.spec.balcony.wrap - 0.005] : undefined, front: Lr.f, right: Lr.r, bearing: S.bearing, outside: out, lens: S.seeLens, tvOn: tvNow(now), shut, focusSharp: streetSharp(), ...pokerFocus() });
+    // a flat's door panel showing its camera: the landing drawn again from the camera's eye (room-feed.js)
+    const feed = feedRequest(now, msg.zone, nextDoor, S.feedAt || (S.feedAt = { at: 0 }));
+    R.render(join?.cam || ax?.cam || cook?.cam || packed || seat, { lamps: S.mesh.lamps, next: nextLit(Lr, seat.eye), lampOn, lampLevel: power === 'low' ? lampLevel * EMERGENCY_K : lampLevel, fire, flame,day: Math.min(1, dayOf(h) * outside.dimOf() + out.flash * 0.5), sky, wins: S.mesh.windows, annex, outZ: S.spec.balcony ? 0.145 : undefined, outRing: S.spec.balcony?.wrap ? [-S.spec.w / 2 - 0.145, S.spec.w / 2 + 0.145, S.spec.balcony.sides ? -1e6 : -S.spec.balcony.wrap - 0.005] : undefined, front: Lr.f, right: Lr.r, bearing: S.bearing, outside: out, lens: S.seeLens, tvOn: tvNow(now), shut, focusSharp: streetSharp(), ...(feed ? { feed } : {}), ...pokerFocus() });
     if (bob) seat.eye[1] -= bob;
     if (ax) { ax.after(); hearing.tick(outside.hear, placeOfEar(h, now), outdoors); placeVoices(); return; }
     if (lockUi.count) lockUi.draw(host.clientWidth, host.clientHeight, seat.eye, S.walk?.at);

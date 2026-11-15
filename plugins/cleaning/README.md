@@ -17,6 +17,9 @@ Either way the work costs sweat through the hygiene substrate, so a proper scrub
 ## Walls, not just floors
 `clean` also takes **graffiti** off the building front ([graffiti](../graffiti/README.md)) — one verb for "make this room right" beats two. The asymmetry with the rule above is deliberate: **paint requires a tool.** Bare hands do floor filth, not brickwork. A tool is *rewarded* on the floor because requiring one would mean nobody ever cleans; it is *required* on a wall because if defacing a shopfront cost the owner nothing to undo, a tag wouldn't mean anything.
 
+## Camera lenses
+`clean` also takes paint off a security camera's lens, the paint graffiti's `tag camera` puts on. `clean camera` (or `clean lens`) does the lens alone; bare `clean` does it with the floor and the walls. It's paint, so it needs a tool, and anybody may do it, the way anybody may scrub a wall. The camera rows are the surveillance plugin's, so the write is its `cleanLens`; this is the verb and the rag.
+
 ## Cost model
 **No table, no tick, no skill.** Stains live in RAM on the zone, so a clean is a synchronous mutation — this plugin adds nothing to the DB or the tick budget.
 
