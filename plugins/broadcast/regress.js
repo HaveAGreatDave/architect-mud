@@ -3532,11 +3532,20 @@ export default async function regress({ check, run, getPlayer }) {
         const kind = g.overtime ? 'tied' : 'reg';
         if (g.dead || want[kind]) continue;
         want[kind] = true;
-        const calls = [];
-        narrateSlot(slot, { desk: (when, at) => calls.push(when === 'break' ? `break:${at?.section}` : `${when}:${at ?? ''}`) });
+        // The narrator asks for the booth's own segments too (booth_open, booth_break, booth_end,
+        // booth_cut). Those are a second show on the same callback, so they're checked apart.
+        const calls = [], booth = [];
+        narrateSlot(slot, { desk: (when, at) => {
+          if (when.startsWith('booth_')) { if (when !== 'booth_cut') booth.push(when); return; }
+          calls.push(when === 'break' ? `break:${at?.section}` : `${when}:${at ?? ''}`);
+        } });
         const expect = ['open:', 'break:1st', 'break:2nd', ...(kind === 'tied' ? ['break:3rd'] : []), 'close:end'];
-        check(`hockey: the desk airs pregame, intermissions and postgame (${kind === 'tied' ? 'overtime' : 'regulation'})`,
+        const label = kind === 'tied' ? 'overtime' : 'regulation';
+        check(`hockey: the desk airs pregame, intermissions and postgame (${label})`,
           JSON.stringify(calls) === JSON.stringify(expect), `${calls.join(' ')} want ${expect.join(' ')}`);
+        const expectBooth = ['booth_open', ...expect.filter((c) => c.startsWith('break:')).map(() => 'booth_break'), 'booth_end'];
+        check(`hockey: the booth opens, takes each intermission and closes (${label})`,
+          JSON.stringify(booth) === JSON.stringify(expectBooth), `${booth.join(' ')} want ${expectBooth.join(' ')}`);
       }
       check('hockey: a regulation and an overtime game were found for the desk', want.reg && want.tied, JSON.stringify(want));
     }
@@ -3566,6 +3575,20 @@ export default async function regress({ check, run, getPlayer }) {
     }
     // The Cup: a final is the same sim with `ws`, which unlocks the cup.* pools.
     narrateSlot(11, { ws: true, matchup: { away: teams[0], home: teams[1], teams } });
+    // A Cup won in a shootout has no deciding goal (the winner never leads on goals), which is
+    // the only way to reach cup.celebrate.game.nodecider. Hunt one, as the OT hunt above does.
+    {
+      let sawSoFinal = false;
+      for (let slot = 0; slot < 4000 && !sawSoFinal; slot++) {
+        const matchup = { away: teams[slot % teams.length], home: teams[(slot * 7 + 5) % teams.length], teams };
+        if (matchup.away === matchup.home) continue;
+        const g = HOCKEY.simGame(matchup, players, sportsRng(sportsHash(slot, 0x77)));
+        if (!g.beats.some((b) => b.type === 'shootout_end')) continue;
+        narrateSlot(slot, { ws: true, matchup });
+        sawSoFinal = true;
+      }
+      check('hockey: a Cup final can go to a shootout', sawSoFinal, 'none in 4000 slots');
+    }
     // The vat (sim v2): a death says how long the reprint takes, and a man back from it is
     // named before the drop, once for his first death, once for a second this season and
     // once with deaths in an earlier season.
@@ -4492,11 +4515,15 @@ export default async function regress({ check, run, getPlayer }) {
     check('sim switch: @sim 2 in a .bsm compiles to sports_pools.sim', bsm('@type sports\n@sport baseball\n@sim 2\n').sportsScript?.sim?.version === 2, 'no sim');
     const recorded = _test.getSimSwitch('baseball');   // whatever this database has recorded
     try {
-      _test.setSimSwitch('baseball', { from: 50000, until: 50011 });   // 50011, not 50010: that slot is hockey's
-      // 49997, not 49999: the day's 21:00 slot (sod 7) carries no game
-      const ver = (slot) => _test.sportsGameForSlot(deadball, slot, null).game.version || 1;
-      check('sim switch: a slot before it plays v1 and the slot it starts at plays v2', ver(49997) === 1 && ver(50000) === 2, `${ver(49997)}, ${ver(50000)}`);
-      check('sim switch: a slot after it ends plays v1 again', ver(50011) === 1, String(ver(50011)));
+      // Three Deadball slots in a row off the slate, found rather than listed: hardcoded ones
+      // (49997, 50000, 50011) went stale when the slate changed and a null game threw the suite.
+      const dbSlots = [];
+      for (let s = 49990; dbSlots.length < 3 && s < 50200; s++) if (_test.sportsGameForSlot(deadball, s, null)) dbSlots.push(s);
+      const [sBefore, sFrom, sAfter] = dbSlots;
+      _test.setSimSwitch('baseball', { from: sFrom, until: sAfter });
+      const ver = (slot) => { const g = _test.sportsGameForSlot(deadball, slot, null); return g ? (g.game.version || 1) : 0; };
+      check('sim switch: a slot before it plays v1 and the slot it starts at plays v2', dbSlots.length === 3 && ver(sBefore) === 1 && ver(sFrom) === 2, `${dbSlots.join(',')}: ${ver(sBefore)}, ${ver(sFrom)}`);
+      check('sim switch: a slot after it ends plays v1 again', dbSlots.length === 3 && ver(sAfter) === 1, `${sAfter}: ${ver(sAfter)}`);
 
       // The booth: lines for every new play and for a tied score, and under v2 every play
       // on the bases that airs is called with every token filled.
