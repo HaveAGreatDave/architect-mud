@@ -1285,6 +1285,9 @@ export function narrate(ctx) {
         tally[b.teamName] = (tally[b.teamName] || 0) + 1;
         const lead = (tally[winName] || 0) - (tally[L0.name] || 0);
         if (lead > 0 && was <= 0 && b.teamName === winName) decider = b;
+        // a lead given back undoes the decider: a final the winner led, lost the lead in and
+        // took in the shootout had no deciding goal, and the nodecider lines are for it
+        if (lead <= 0) decider = null;
         was = lead;
       }
       const seed = ctx.seasonState?.finalistA === winName ? 1 : ctx.seasonState?.finalistB === winName ? 2 : null;

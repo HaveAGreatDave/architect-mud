@@ -5832,7 +5832,12 @@ export default async function regress({ check, run, getPlayer }) {
         check(`desk: ${showId} has an open, a break and a close`, packs.length >= 3 && packs.length === ends.length, `${packs.length} segments, ${ends.length} ends`);
         check(`desk: no raw token on air in ${showId}`, !desk.some((n) => /[{}]/.test(textOf(n))), desk.map(textOf).find((s) => /[{}]/.test(s)));
         const kept = after.filter((n) => !isDesk(n)).map(textOf), was = before.map(textOf);
-        check(`desk: ${showId} moved none of the booth's lines`, kept.length === was.length && kept.every((s, i) => s === was[i]), `${kept.length} vs ${was.length}`);
+        // A segment may stand in for the line it replaces (deskNow returns true so a narrator can
+        // drop it: the colour man's last word for booth_end, the after-talk for a booth_cut). So
+        // every line that's left airs unchanged and in order, and no more are gone than segments aired.
+        let wi = 0;
+        const inOrder = kept.every((s) => { while (wi < was.length && was[wi] !== s) wi++; return wi++ < was.length; });
+        check(`desk: ${showId} moved none of the booth's lines`, inOrder && was.length - kept.length <= packs.length, `${kept.length} vs ${was.length}, ${packs.length} segments`);
       }
     } finally {
       cache.clear(); for (const [k, v] of saved) cache.set(k, v);
