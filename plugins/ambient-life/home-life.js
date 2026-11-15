@@ -614,6 +614,7 @@ function homebodiesIn(zoneId) {
     if (npc.home_zone !== zoneId) continue;        // this is their place, not a shift
     if (npc._combatTargetId) continue;
     if (npc.flags?.no_home_life) continue;         // the opt-out, for anyone it reads wrong on
+    if (npc.flags?.animal) continue;               // a pet lives its own day (plugins/pets), not a person's evening
     if (isBusyBeingUnconscious(npc)) continue;     // asleep in the next room, not making dinner
     if (isNpcScheduledNow(npc.id)) continue;       // on shift — same gate banter uses
     out.push(npc);

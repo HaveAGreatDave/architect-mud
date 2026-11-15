@@ -121,6 +121,7 @@ uniform vec4 uShutBox;   // the room's ground, x0 x1 z0 z1: only its own panes a
 uniform vec2 uShutY;     // the glass's foot and head, metres (a pane's uv y)
 uniform vec3 uShutA; uniform vec3 uShutB; uniform vec3 uShutC;
 uniform vec2 uShutDoor;  // the balcony door: how far open (0..1), and half the doorway's width, metres
+uniform int uShutOnly;   // 1 on gl/room.js's depth pass: the covered panes only, so no halo shows through them
 
 float shHash(vec2 p) { p = fract(p * vec2(123.34, 456.21)); p += dot(p, p + 45.32); return fract(p.x * p.y); }
 float shNoise(vec2 p) {
@@ -486,7 +487,13 @@ vec4 shutterAt(vec3 diff, vec3 spec, float fres) {
   // the slats, 12 cm each; the last few over the edge are still turning shut and show the glass between them
   float s = fract(y / 0.12), open = 0.45 * (1.0 - smoothstep(0.0, 0.5, below)) * (1.0 - down);
   if (s < open) return vec4(-1.0);
+  // the depth pass only wants to know the slats are here, not the scene on them
+  if (uShutOnly == 1) return vec4(1.0);
   float groove = smoothstep(0.0, 0.05, s - open) * smoothstep(1.0, 0.93, s);
+  // seen from outside (the balcony, the street) the shutters are the display's back: black, whatever it shows.
+  // The room's side of a pane is the side its box's middle is on, so this holds pane by pane.
+  vec3 mid = vec3(0.5 * (uShutBox.x + uShutBox.y), vPos.y, 0.5 * (uShutBox.z + uShutBox.w));
+  if (dot(uEye - vPos, vNor) * dot(mid - vPos, vNor) < 0.0) return vec4(spec * 0.25 + vec3(0.03, 0.035, 0.04) * fres, 1.0);
   vec3 slat = vec3(0.07, 0.075, 0.082) * (0.7 + 0.3 * groove) * (0.85 + 0.25 * (s - open));
   vec3 col = finish(roomShade(slat, diff, spec * 0.6, 4.0));
   // the bottom rail, brushed steel

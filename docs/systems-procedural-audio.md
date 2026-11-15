@@ -1036,7 +1036,7 @@ worked. It is the one cue in this tier deliberately mixed **above** the others.
 
 ## Field recordings
 
-**Status: built.** The weather, the shore and the birds play real recordings: 26 CC0 recordings from
+**Status: built.** The weather, the shore, the birds and a pet cat play real recordings: 79 CC0 recordings from
 Freesound, credited in [bibliography.md](reference/bibliography.md#field-recordings). Each is a row in
 `content/audio_samples` (`smp_field_<key>`), a mono 22,050 Hz 48 kbps MP3, and the table cues read is
 [field-recordings.js](../client/shared/field-recordings.js).
@@ -1067,6 +1067,7 @@ Recordings are played as they are: the SNES crush in `loadSample` doesn't touch 
 | A GLASS view, free look included | the nearest shore within 7 tiles, positioned on the water: a quay laps, open shore breaks harder as the wind rises; each bird call is a recorded call of its species at the flock's tile | [field-audio.js](../client/game/js/panels/field-audio.js) |
 | A seat's thunder | two recorded claps added to the three it already had | [engine-audio.js](../client/game/js/panels/engine-audio.js) |
 | The Room Stage | rain recorded from indoors, wind and thunder, placed at the nearest window or balcony door, with the listener turned with the camera; the birds and the surf round the building, just outside that opening and leaning toward where they are | [room-sfx.js](../client/shared/room-sfx.js), [room-sound.js](../client/game/js/panels/room-sound.js), [room-outdoors.js](../client/game/js/panels/room-outdoors.js) |
+| A pet cat in the Room Stage | 38 `cat_*` recordings: meows (hello, asking, hungry, cross, old), purrs, trills, chirps and chatter at birds, hisses and growls, grooming, snoring, claws on the floor and a post, landings and zoomies. Each clip names its own (gl/cat-clips.js `sound`): a bed under it and calls at moments, played where the cat is. Eating, drinking, lapping and the litter tray are built and wait for the bowl and the tray | [room-cat-sound.js](../client/game/js/panels/room-cat-sound.js), [cat-clips.js](../client/game/js/panels/gl/cat-clips.js) |
 
 The peregrine has no CC0 recording and keeps its FM call.
 

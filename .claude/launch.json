@@ -227,6 +227,15 @@
       "port": 5263
     },
     {
+      "name": "cups-harness",
+      "runtimeExecutable": "node",
+      "runtimeArgs": [
+        "C:/Users/david/AppData/Local/Temp/claude/3ead524e62898ae2/7fb6ca4f-a85e-4b0d-a744-458f94d9d6e4/scratchpad/cups/serve.mjs",
+        "5243"
+      ],
+      "port": 5243
+    },
+    {
       "name": "zippo",
       "runtimeExecutable": "node",
       "runtimeArgs": [
@@ -234,6 +243,15 @@
         "5247"
       ],
       "port": 5247
+    },
+    {
+      "name": "modelshop-mirror",
+      "runtimeExecutable": "node",
+      "runtimeArgs": [
+        "tools/modelshop/serve.mjs",
+        "5244"
+      ],
+      "port": 5244
     }
   ]
 }

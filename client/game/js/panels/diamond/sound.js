@@ -127,6 +127,8 @@ export function createParkSound({ win = globalThis, state = () => ({}), detail =
   let tier = detail || sfxDetail(loadSettings());
   let world = null, lastT = 0;
   let ball = { path: null };
+  // the payload whose home run has had its horn
+  let hornFor = null;
   let lastCatchCue = -9, lastCrackT = -9, cracks = 0;
   const stepAt = new Map();
   let stepWindow = { t: -9, n: 0 };
@@ -282,6 +284,9 @@ export function createParkSound({ win = globalThis, state = () => ({}), detail =
     // past the fence: the pole, or the seats as it comes down
     const fence = fenceDistance(Math.atan2(q1[0], q1[2]));
     if (p.kind === 'homerun') {
+      // the ball's gone, over the fence or down in the seats: the ship's horn on the roof, once a
+      // home run and for either side, as the lights go out (spectacle.js planLights)
+      if (hornFor !== p && ((r0 < fence && r1 >= fence) || (Number.isFinite(path.land) && path.land <= t1))) { hornFor = p; play('hrhorn', {}, 'event', t1); }
       if (r0 < fence && r1 >= fence && p.play?.hr === 'pole' && !ball.done.pole) { ball.done.pole = 1; play('pole', { pan: panAt(q1), at: q1 }, 'event', t1); }
       // a home run's path knows where it comes down (flight.js `land`, which the fireworks use too)
       if (Number.isFinite(path.land) && path.land > t0 && path.land <= t1 && p.play?.hr !== 'pole' && !ball.done.seats) { ball.done.seats = 1; play('seats', { pan: panAt(q1) }, 'event', path.land); }

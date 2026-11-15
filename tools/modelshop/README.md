@@ -32,8 +32,30 @@ which starts it for you the way the Map Studio link does. Both links share one l
 | <kbd>Ctrl</kbd>+<kbd>Z</kbd> / <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>Z</kbd> | undo / redo |
 | <kbd>O</kbd> / <kbd>T</kbd> | the model browser · show or hide the tool palette |
 | <kbd>F</kbd> | re-frame |
+| <kbd>Ctrl</kbd>+<kbd>K</kbd> | Go to: any page, or any of this page's actions |
+| <kbd>?</kbd> | every shortcut on the page you're on |
 
-**Its other pages** open from the toolbar in their own tab. **Figure Lab ↗** (`/figure-lab.html`)
+**The rail** down the left edge of every page is `nav.js` and `nav.css`, and it's the only way
+between pages: no page carries its own links to the others. One labelled icon per page, the pages of
+a workspace together between hairlines; hover one for its full name and what it's for:
+
+| Workspace | Pages |
+|---|---|
+| Models | Editor (`/`), Cab (`/cabtrinkets.html`) |
+| People | Figures (`/figure-lab.html`), Poses (`/pose-lab.html`), 1st Gen (`/first-gen-lab.html`) |
+| Creatures | Bestiary (`/bestiary.html`), Cattery (`/cattery.html`) |
+| Rooms | Room Lab (`/room-lab.html`) |
+
+Go to and Keys sit at the foot of the rail. It costs width rather than height, which is what a 3-D
+view is short of. Pages open in the same tab; Ctrl-click opens one in another. `nav.css` pads the body
+clear of the rail and gives every page's own `<header>` the same toolbar look. A new page adds a row
+to `PAGES` in `nav.js` (with an icon in `I`) and two lines to its `<head>`; a page that pins things to
+the window's left edge offsets them by `var(--ms-nav-w)`. A page offers its own shortcuts and Go to
+actions with `msNav.shortcuts([...])` and `msNav.actions([...])`; the editor's are in `ui.js`, which also
+folds the rail's sections, hides the ones with nothing to say about the subject (a vehicle has no cage
+or checks), sizes the rail by its left edge, and asks before you leave with an edit unsaved.
+
+**Its other pages.** **Figures** (`/figure-lab.html`)
 is everybody drawn as a person, in either of the game's renderers, picked at the top of the page:
 
 - **Room · close-up** is the close-up figure (`figure.js`) in the Room Stage's own renderer
@@ -50,9 +72,8 @@ is everybody drawn as a person, in either of the game's renderers, picked at the
   built`. `window.__actorLab` holds its crowds and the matrices the heads ride.
 
 The URL carries the top rows (`?renderer=street&shot=gala`, `?fig=both&npc=npc_john_akerson`), and
-the old `/actor-lab.html` redirects to the Street renderer. The Figure Lab's header goes on to the
-**Pose Lab**. **Cab interior ↗** shows on a truck's page only
-and opens `/cabtrinkets.html?truck=<id>`, that truck's cab with the driver's things hung in it: a
+the old `/actor-lab.html` redirects to the Street renderer. **Cab** is on the rail, and on a
+truck's page the toolbar has a button that opens `/cabtrinkets.html?truck=<id>`, that truck's cab with the driver's things hung in it: a
 truck is the one vehicle with a cab anything hangs in (`client/shared/cab-trinkets.js`). The cab
 is GLASS 2 geometry, so the page installs the GL pass the way the game does; without it the glass
 shows the road and no cab. The dash trinket stands on the passenger side, so turn the `look`
@@ -2301,6 +2322,6 @@ signage and the glows gone, and the buildings still standing — a dark city, no
 emergency state adds one cold vertical line per facade, which is the stair lit at every landing and
 the one thing a battery is there for.
 
-The Bestiary (`/bestiary.html`; `npm run bestiary` starts the Modelshop and opens it, and the Modelshop's **Bestiary ↗** button and the dev panel's **🐾 Bestiary** link both get you there) draws every enemy in `content/enemies` to ROOM's standard in the Room Stage's own renderer: the people as the close-up figure with a settled look, gear built on its bones and limbs drawn out where the description asks (`stretchRows`), and everything else from the beast kit (`client/game/js/panels/gl/beast-kit.js`: lofts, tubes, superquadrics, membranes and fur tufts, comic-lit and inked). The recipes are `bestiary-recipes.js`; `/api/enemies` serves the names and descriptions. `?id=` opens one, `?mode=lineup` stands them all at true size in rows by kind, and `__best.draw()` renders a frame on demand. It's a concept: only the gutter hound ships, through `gl/beast-looks.js`, which the Room Stage reads.
+The Bestiary (`/bestiary.html`; `npm run bestiary` starts the Modelshop and opens it, and the Modelshop's Creatures workspace and the dev panel's **🐾 Bestiary** link both get you there) draws every enemy in `content/enemies` to ROOM's standard in the Room Stage's own renderer: the people as the close-up figure with a settled look, gear built on its bones and limbs drawn out where the description asks (`stretchRows`), and everything else from the beast kit (`client/game/js/panels/gl/beast-kit.js`: lofts, tubes, superquadrics, membranes and fur tufts, comic-lit and inked). The recipes are `bestiary-recipes.js`; `/api/enemies` serves the names and descriptions. `?id=` opens one, `?mode=lineup` stands them all at true size in rows by kind, and `__best.draw()` renders a frame on demand. It's a concept: only the gutter hound ships, through `gl/beast-looks.js`, which the Room Stage reads.
 
-The Cattery (`/cattery.html`, the Modelshop's **Cattery ↗** button) draws the cat kit's cats (`client/game/js/panels/gl/cat-kit.js`) in the same renderer: each pose carved from the field and baked, the idle motion skinned over it, with the build, coat and eye sliders that make a customised cat. The cats are `cattery-recipes.js`, Scrappy first. `?cat=scrappy&pose=sit` opens one, `&idle=0` holds it still, and `__cat.shot(name)` writes a frame through `/api/shot`. `node scripts/cats/cat-smoke.mjs` is its gate. See [pets.md](../../docs/proposals/pets.md).
+The Cattery (`/cattery.html`, in the Modelshop's Creatures workspace) draws the cat kit's cats (`client/game/js/panels/gl/cat-kit.js`) in the same renderer: each pose carved from the field and baked, the idle motion skinned over it, with the build, coat and eye sliders that make a customised cat. The cats are `cattery-recipes.js`, Scrappy first. `?cat=scrappy&pose=sit` opens one, `&idle=0` holds it still, and `__cat.shot(name)` writes a frame through `/api/shot`. The clip list plays any clip (gl/cat-clips.js) on the GPU path a room draws a pet with (gl/cat-gpu.js); `?clip=groom` opens on one and `__cat.clipAt(name, t)` holds a clip at a moment. `node scripts/cats/cat-smoke.mjs` is its gate. See [pets.md](../../docs/proposals/pets.md).

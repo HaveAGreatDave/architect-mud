@@ -155,6 +155,32 @@ const brass = (hz, at, len, gain = 0.13, pan = 0) => tone({
 });
 const N = (m) => 440 * Math.pow(2, (m - 69) / 12);
 
+// ═══ THE HOME-RUN HORN ══════════════════════════════════════════════════════════
+// A ship's horn on the roof, sounded for every ball out of the park, as Toronto's is. One blast is
+// a deep sawtooth (87 Hz) through the bell's three resonances, a second reed a few cents off so the
+// two beat, the plain note lowpassed under them for weight, and the air rushing through it. The
+// pitch comes up into the note as the air pressure builds and sags at the end, which is the
+// diaphone's grunt. The stands answer each blast 0.21 s later and the city 0.52 s later, darker.
+const HORN_HZ = 87;
+function shipHorn(at, len) {
+  const held = { a: 0.14, d: len, s: 1, r: 0.32, linear: true, delay: at };
+  const blast = [
+    tone({ ...held, wave: 'sawtooth', hz: HORN_HZ * 0.9, to: HORN_HZ, bend: 0.3, gain: 0.1, vibrato: { rate: 4.6, depth: 1.2 },
+      formants: [{ freq: 290, q: 2.6, gain: 1 }, { freq: 610, q: 3.6, gain: 0.6 }, { freq: 1180, q: 5, gain: 0.28 }] }),
+    tone({ ...held, wave: 'sawtooth', hz: HORN_HZ * 0.906, to: HORN_HZ * 1.006, bend: 0.34, gain: 0.07, pan: 0.2,
+      formants: [{ freq: 300, q: 2.6, gain: 1 }, { freq: 640, q: 3.6, gain: 0.5 }] }),
+    tone({ ...held, wave: 'sawtooth', hz: HORN_HZ * 0.9, to: HORN_HZ, bend: 0.3, gain: 0.08, pan: -0.15, filter: { type: 'bandpass', freq: 200, q: 0.6 } }),
+  ];
+  // the grunt: the note sagging a fourth as the air runs out, over the blast's last moment
+  const grunt = tone({ wave: 'sawtooth', hz: HORN_HZ, to: HORN_HZ * 0.72, bend: 0.32, a: 0.02, d: 0.3, s: 0, r: 0.12, linear: true, gain: 0.05,
+    delay: +(at + held.a + len - 0.12).toFixed(4), filter: { type: 'lowpass', freq: 520, q: 0.8 } });
+  const air = noise({ type: 'lowpass', hz: 700, q: 0.6, a: 0.18, d: len, s: 1, r: 0.3, linear: true, gain: 0.03, colour: 'pink', width: 0.5, tremolo: { rate: 13, depth: 0.35 }, delay: at });
+  const hall = [[0.21, 0.32, 900], [0.52, 0.16, 520]].flatMap(([ms, g, lp]) => [...blast, grunt].map(({ formants, ...l }) => ({
+    ...l, gain: +(l.gain * g).toFixed(4), delay: +((l.delay || 0) + ms).toFixed(4), pan: -(l.pan || 0) * 1.5, filter: { type: 'lowpass', freq: lp, q: 0.5 },
+  })));
+  return [...blast, grunt, air, ...hall];
+}
+
 // ═══ THE ORGAN ═════════════════════════════════════════════════════════════════
 // The organist knows one song. It's in a minor key and it's about drowning (data/scripts/
 // baseball.bsm says so). A pitch is a triangle (the hollow, odd-harmonic stops), the tune gets
@@ -401,6 +427,9 @@ export const BUILTINS = [
     wave: 'sawtooth', hz: hz * (1 + (i - 1) * 0.004), a: 0.02, d: 0.85, s: 0.9, r: 0.12, linear: true, gain: 0.011,
     drive: 0.35, filter: { type: 'lowpass', freq: 2600, q: 0.9 }, vibrato: { rate: 4.5, depth: 3 }, pan: (i - 1) * 0.25,
   })), { vary: STEADY }),
+  // the ship's horn on the roof for a ball out of the park, either side's: three blasts, the last
+  // the longest (THE HOME-RUN HORN above)
+  def('db-hype-horn', 'Hype: the home-run horn', 6, [...shipHorn(0, 1.3), ...shipHorn(1.95, 1.3), ...shipHorn(3.9, 2.1)], { hold: 0.02, vary: STEADY }),
   // the videoboard's hit: a sub drop under a crash of noise
   def('db-hype-boom', 'Hype: the videoboard boom', 5, [
     tone({ hz: 70, to: 32, bend: 0.6, a: 0.004, d: 0.7, r: 0.2, gain: 0.26 }),
@@ -562,7 +591,7 @@ export const EVENTS = {
   // off the bat, as loud as the ball's hit and louder for one going up
   swell: (o) => ['db-crowd-swell', Math.min(1, 0.45 + Math.max(0, (+o.ev || 85) - 80) / 40 + (o.t === 'fb' ? 0.15 : 0))],
   murmur: 'db-crowd-murmur', whistle: 'db-crowd-whistle',
-  airhorn: 'db-airhorn', boom: 'db-hype-boom', drum: 'db-drum-chant', stomp: 'db-stomp',
+  airhorn: 'db-airhorn', hrhorn: 'db-hype-horn', boom: 'db-hype-boom', drum: 'db-drum-chant', stomp: 'db-stomp',
   letsgo: 'db-chant-letsgo', defense: 'db-chant-defense', charge: 'db-chant-charge',
   cheer: 'db-crowd-cheer', roar: 'db-crowd-roar', groan: 'db-crowd-groan', boo: 'db-crowd-boo',
   gasp: 'db-crowd-gasp', ooh: 'db-crowd-ooh', clap: ['db-clap', 0.8], towels: 'db-towels',

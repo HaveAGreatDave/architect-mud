@@ -57,6 +57,7 @@ const PIP_W = { jab: 0.6, punchL: 1, punchR: 1, uppercut: 1.5, hook: 1.5 };
 import { makeBody, ratingsFor, passPlay, stickSide as stickSideOf } from './sim.js';
 import { createReplay } from './replay.js';
 import { comicSpecOf, comicPlan, comicExtra, periodOf, RINK_COMIC, COMIC_CHANCES } from './comic.js';
+import { KEN_COMIC, kenComicDue, startKenComic, stepKenComic, stopKenComic } from './ken-comic.js';
 import { createRinkCamera } from './camera.js';
 import { clubOf } from '../club-crest.js';
 
@@ -178,8 +179,13 @@ export function createDirector(W, opts = {}) {
     // (how full the barn is tonight, for the crowd: gl/arena-crowd.js)
     if (Number.isFinite(p.gate)) W.gate = p.gate;
     // Ken Raven's Zamboni wears his livery every night, not just on Cup final night
-    // (rink/livery.js). `cup` is the livery's switch and nothing else reads it.
+    // (rink/livery.js). `cup` is the livery's switch and nothing else reads it. Cup final night
+    // (every play's payload says `cup`) dresses it up further: `final`, the Cup night's version,
+    // and the intermission comic's lines for it (rink/ken-comic.js).
     W.cup = true;
+    // (kept for the game: a payload that doesn't say doesn't take it off; a new matchup does)
+    const pair = `${p.awayTeam || ''}|${p.homeTeam || ''}`;
+    if (p.cup) { W.final = true; D.finalFor = pair; } else if (D.finalFor !== pair) W.final = false;
     // the identities can land after the first payload: dress again when they do
     const dressed = `${clubOf(p.awayTeam, 'hockey') ? 1 : 0}${clubOf(p.homeTeam, 'hockey') ? 1 : 0}`;
     const key = `${p.awayTeam || ''}|${p.homeTeam || ''}|${dressed}`;
@@ -3202,7 +3208,11 @@ export function createDirector(W, opts = {}) {
       D.tasks = D.tasks.filter((k) => !k.leave);
       W.netsGone();
     }
-    if (back != null) at(B, Math.max(10, back - 6.5), () => { W.zamboniOff(); teamsOn(); B.regroup = 'C'; B.stopped = true; W.cam.mode = 'broadcast'; });
+    if (back != null) at(B, Math.max(10, back - 6.5), () => { stopKenComic(W); W.zamboniOff(); teamsOn(); B.regroup = 'C'; B.stopped = true; W.cam.mode = 'broadcast'; });
+    // THE KEN RAVEN COMIC (rink/ken-comic.js): in the first break, with comic replays on, once the
+    // machine has been out a few seconds, the broadcast tells its driver as a comic and comes back
+    // to the time-lapse. Not for a seat, nor a viewer who joined the break late.
+    const per = periodOf(p);
     B.update = () => {
       if (B.stopped) return;
       // the linesman collects the puck and goes off with it (or without it, four seconds on: the
@@ -3222,7 +3232,11 @@ export function createDirector(W, opts = {}) {
         if (mt >= W.zamboniTime()) W.netsOn();
         else W.startZamboni(opts.zamboniLapse || (left != null ? clamp((W.zamboniTime() - mt) / Math.max(1, left), least, 60) : 10), mt);
         W.cam.mode = 'zam';
+        B.zamAt = W.t;
       }
+      if (W.kenComic) stepKenComic(W);
+      else if (!B.ken && B.zamAt != null && W.t - B.zamAt >= KEN_COMIC.after && aired <= 20 && !opts.zamboniReal && comicOn()
+        && kenComicDue(W, per, back != null ? back - 7.5 - (W.t - B.t0) : null)) { B.ken = true; startKenComic(W, per); }
       const z = W.zamboni;
       W.cam.focus = z ? [z.x, z.y] : [pk.x, pk.y];
     };
@@ -3233,6 +3247,7 @@ export function createDirector(W, opts = {}) {
   // come back on over the boards, the linesman with the puck in his hand.
   function endIntermission() {
     if (!D.intermission) return;
+    stopKenComic(W);
     W.zamboniOff();
     // (the Zamboni leaving puts the nets back; one that never came on doesn't)
     if (!W.zamboni) W.netsOn();
@@ -3311,10 +3326,18 @@ export function createDirector(W, opts = {}) {
     B.cleanup = () => { if (W.show) W.show.to = 0; opts.onIntro?.(null); };
     return B;
   }
-  // THE CUP (`crown`): the champions mob each other at centre while the losers go to their bench,
-  // the referee carries the Cup out from the near boards, hands it to the captain, he lifts it
-  // under the confetti, and then he skates it round the sheet with his club strung out behind
-  // him. It runs until the next picture, through the booth's last lines.
+  // THE CUP (`crown`), the Coldwater Cup, the Golden Goose Cup. At the horn the champions throw
+  // their gloves and sticks and go for their goalie, and pile on him in his crease, his mask off
+  // and flung; the losers go to their bench, their goalie slumped. The pile comes out to centre as
+  // one mob, hugging each other two by two as they go round. Then the handshake line: the two clubs
+  // file past each other along the red line. The referee carries the Cup out from the near boards to
+  // the captain, who lifts it over his head under confetti in the club's colours and their pyro
+  // (`W.pyro`, bursts under the roof and fountains off the boards); then the player of the final
+  // and the goalie (`p.stars`), each lifting it in turn with the club round him; and the last skates
+  // it round the sheet with his club strung out behind him. The camera goes round all of it on its
+  // own framings (CROWN_SHOTS): close on the pile, panning with the mob, wide on the line, in on each
+  // man as it goes up, the whole sheet for the pyro, and with the lap. It runs until the next
+  // picture, through the booth's last lines. CROWN is the clock, in seconds.
   function stageCrown(p) {
     const B = begin('crown');
     B.ownsCam = true; land(B);
@@ -3325,53 +3348,133 @@ export function createDirector(W, opts = {}) {
     (p.skaters || []).forEach((n, k) => { if (men[k] && n) nameBody(men[k], n); });
     const cap = (p.captain && D.names[win].get(p.captain)) || men[0] || null;
     const g = W.goalie[win], lg = W.goalie[lose];
+    if (g && p.goalie) nameBody(g, p.goalie);
     const [lin, ref] = W.officials;
+    // who lifts it, in turn: the captain, then the payload's other stars where they're on the ice
+    const lifters = [cap, ...(p.stars || []).slice(1).map((n) => D.names[win].get(n) || (g && g.name === n ? g : null))].filter((m, i, a) => m && a.indexOf(m) === i).slice(0, 3);
     W.lamp = 4.5; W.lampSide = lose; W.sfx('horn', { seed: p.hornSeed });
     W.trophy = null;
     const cols = [...new Set([W.kits[win]?.jersey, W.kits[win]?.trim, '#ffd23e', '#f4f6f8'].filter(Boolean))];
-    let lifted = false, lap = null;
-    at(B, 4, () => { if (ref && ref.active) { W.trophy = { x: ref.x, y: ref.y, z: 3 }; B.carry = ref; } });
-    at(B, 9.5, () => {
-      if (!cap) return;
-      B.carry = cap; lifted = true; W.act(cap, 'celebrate', 6);
-      W.confetti(380, cols); W.sfx('horn', { seed: p.hornSeed }); W.crowd = 1;
-    });
-    at(B, 13, () => W.confetti(260, cols));
-    at(B, 15.5, () => { lap = W.t; if (cap) W.act(cap, 'celebrate', 600); });
+    const club = cols.filter((c) => c !== '#f4f6f8').slice(0, 2);
+    const C = CROWN, r = rng(((p.hornSeed | 0) ^ 0x9e37) >>> 0);
+    const mob = [...W.mates(win), g].filter((m) => m && m.active);
+    // the gloves and the sticks go up, and the goalie's mask
+    mob.forEach((m, k) => at(B, 0.15 + 0.12 * k, () => {
+      if (m.rag) return;
+      const a = m.h + (r() - 0.5) * 2.4;
+      if (m.stick !== false) { m.stick = false; W.addDebris('stick', [m.x, m.y, 4.6], [Math.cos(a) * 5, Math.sin(a) * 5, 14 + 6 * r()], a, 7 + 5 * r(), m.side); }
+      if (m.gloves !== false && r() < 0.8) { m.gloves = false; W.addDebris('glove', [m.x, m.y, 4], [Math.cos(a + 1) * 6, Math.sin(a + 1) * 6, 10 + 4 * r()], a, 9, m.side); }
+      if (m === g && m.helmet) { m.helmet = false; W.addDebris('helmet', [m.x, m.y, 5.6], [Math.cos(a) * 4, Math.sin(a) * 4, 13], a, 6, m.side); }
+    }));
+    let lifted = null, lap = null, turn = -1;
+    // the Cup out, and up in each man's hands in turn
+    at(B, C.cup, () => { if (ref && ref.active) { W.trophy = { x: ref.x, y: ref.y, z: 3 }; B.carry = ref; } });
+    lifters.forEach((m, i) => at(B, C.lift + i * C.each, () => {
+      B.carry = m; lifted = m; turn = i; W.act(m, 'celebrate', C.each + 0.5);
+      W.confetti(i ? 220 : 380, cols); W.pyro?.('bursts', club, r); W.sfx('horn', { seed: p.hornSeed }); W.crowd = 1;
+      opts.onLift?.({ name: m.name, i, n: lifters.length });
+    }));
+    lifters.forEach((_, i) => at(B, C.lift + i * C.each + 3.2, () => W.pyro?.('fountains', club, r)));
+    at(B, C.lift + lifters.length * C.each, () => { lap = W.t; if (lifted) W.act(lifted, 'celebrate', 600); W.confetti(260, cols); W.pyro?.('bursts', club, r); opts.onLift?.(null); });
+    // more pyro as the lap goes round
+    for (let k = 1; k <= 6; k++) at(B, C.lift + lifters.length * C.each + k * 6.5, () => W.pyro?.(k % 2 ? 'fountains' : 'bursts', club, r));
+    const crease = g ? [g.x, g.y] : [RL / 2, MID_Y];
     B.update = (dt, t) => {
-      // the losers to their bench, along the near boards, heads down
-      W.mates(lose).forEach((m, k) => { if (busyBody(m)) return; m.scripted = true; m.tx = RL / 2 + attackDir(lose) * -(14 + k * 4); m.ty = 5; m.maxV = 7; m.face = Math.PI / 2; });
-      if (lg && lg.active && !lg.rag) { lg.scripted = true; if (!lg.act) W.act(lg, 'slump', 3); }
-      // the winners: a pile at centre, then round the captain, then strung out behind his lap
-      const a0 = lap != null ? (W.t - lap) * 0.32 : 0;
-      const mates = [...W.mates(win), g].filter((m) => m && m.active && !m.rag && !busyBody(m));
-      mates.forEach((m, k) => {
-        m.scripted = true; m.maxV = lap != null ? 15 : 12;
-        if (m === cap && lap != null) { m.tx = RL / 2 + Math.cos(a0) * 66; m.ty = MID_Y + Math.sin(a0) * 26; m.face = null; return; }
-        if (lap != null) { const a = a0 - 0.22 * (k + 1); m.tx = RL / 2 + Math.cos(a) * 66; m.ty = MID_Y + Math.sin(a) * 26; m.face = null; return; }
-        const r = lifted ? 6 : 2.5, a = k * 1.3 + t * 0.4;
-        const cx = cap ? cap.x : RL / 2, cy = cap ? cap.y : MID_Y;
-        m.tx = (m === cap ? RL / 2 : cx + Math.cos(a) * r); m.ty = (m === cap ? MID_Y + 4 : cy + Math.sin(a) * r);
-        if (m !== cap && (!m.act || m.actT > m.actDur)) W.act(m, 'celebrate', 1.6 + (k % 3) * 0.4);
-        m.face = m === cap ? -Math.PI / 2 : Math.atan2(cy - m.y, cx - m.x);
+      // the losers to their bench, along the near boards, heads down, and out for the line
+      const line = t >= C.line && t < C.cup;
+      W.mates(lose).forEach((m, k) => {
+        if (busyBody(m)) return;
+        m.scripted = true;
+        if (line) { const x = RL / 2 + 46 - (t - C.line) * 11 - k * 5; m.tx = x; m.ty = MID_Y + 1.4; m.maxV = 9; m.face = Math.PI; if (x < RL / 2 + 40 && x > RL / 2 - 40) shake(m, win, t); return; }
+        m.tx = RL / 2 + attackDir(lose) * -(14 + k * 4); m.ty = 5; m.maxV = 7; m.face = Math.PI / 2;
       });
-      // the referee brings it out from the near boards to the captain
-      if (ref && ref.active && B.carry === ref) { ref.scripted = true; ref.tx = RL / 2; ref.ty = MID_Y - 1; ref.maxV = 6; ref.face = Math.PI / 2; }
-      // and once it's handed over he skates clear, to the near boards
+      if (lg && lg.active && !lg.rag) { lg.scripted = true; if (!lg.act) W.act(lg, 'slump', 3); }
+      const a0 = lap != null ? (W.t - lap) * 0.32 : 0;
+      const mates = mob.filter((m) => m.active && !m.rag && !busyBody(m));
+      // the middle of the mob: their goalie's crease, then out to centre
+      const out = clamp((t - C.out) / 4, 0, 1), cx = lerp(crease[0], RL / 2, out), cy = lerp(crease[1], MID_Y, out);
+      mates.forEach((m, k) => {
+        m.scripted = true; m.maxV = lap != null ? 15 : t < C.pile ? 19 : 12;
+        const holder = lifted || cap;
+        if (lap != null) {
+          if (m === holder) { m.tx = RL / 2 + Math.cos(a0) * 66; m.ty = MID_Y + Math.sin(a0) * 26; m.face = null; return; }
+          const a = a0 - 0.22 * (k + 1); m.tx = RL / 2 + Math.cos(a) * 66; m.ty = MID_Y + Math.sin(a) * 26; m.face = null; return;
+        }
+        if (line) {
+          // the champions' half of the handshake line, the other way along the red line
+          const x = RL / 2 - 46 + (t - C.line) * 11 + k * 5;
+          m.tx = x; m.ty = MID_Y - 1.4; m.maxV = 9; m.face = 0;
+          if (x < RL / 2 + 40 && x > RL / 2 - 40) shake(m, lose, t);
+          return;
+        }
+        if (t < C.out) {
+          // on the goalie: everybody in on him, arms round whoever's nearest
+          const a = k * 1.1 + t * 0.6, rr = m === g ? 0 : 2.2 + (k % 3) * 1.1;
+          m.tx = cx + Math.cos(a) * rr; m.ty = cy + Math.sin(a) * rr * 0.8;
+          if (m !== g && t > C.pile * 0.5 && (!m.act || m.actT > m.actDur)) { m.target = g || cap; W.act(m, k % 2 ? 'hug' : 'celebrate', 1.4 + (k % 3) * 0.3); }
+          m.face = Math.atan2(cy - m.y, cx - m.x);
+          return;
+        }
+        // the mob round centre, or round the man with the Cup up, two by two in each other's arms
+        const ring = holder && lifted ? holder : null;
+        const mx = ring ? ring.x : cx, my = ring ? ring.y : cy;
+        if (m === lifted) { m.tx = RL / 2; m.ty = MID_Y + 4; m.face = -Math.PI / 2; return; }
+        const a = k * 1.3 + t * 0.45, rr = ring ? 6 : 3 + (k % 2) * 1.6;
+        m.tx = mx + Math.cos(a) * rr; m.ty = my + Math.sin(a) * rr;
+        if (!m.act || m.actT > m.actDur) {
+          const mate = mates[(k + 1 + (Math.floor(t / 3) % 3)) % mates.length];
+          if (!ring && mate && mate !== m && Math.hypot(mate.x - m.x, mate.y - m.y) < 4) { m.target = mate; W.act(m, 'hug', 1.2); }
+          else W.act(m, 'celebrate', 1.6 + (k % 3) * 0.4);
+        }
+        m.face = Math.atan2(my - m.y, mx - m.x);
+      });
+      // the referee brings it out from the near boards to the first man to lift it
+      const first = lifters[0];
+      if (ref && ref.active && B.carry === ref) { ref.scripted = true; ref.tx = first ? first.x : RL / 2; ref.ty = (first ? first.y : MID_Y) - 2; ref.maxV = 6; ref.face = Math.PI / 2; }
       else if (ref && ref.active && W.trophy) { ref.scripted = true; ref.tx = RL / 2 - 26; ref.ty = 7; ref.maxV = 9; ref.face = null; }
+      else if (ref && ref.active) { ref.scripted = true; ref.tx = RL / 2 - 30; ref.ty = 6; ref.maxV = 8; }
       if (lin && lin.active) { lin.scripted = true; lin.tx = RL / 2 + 30; lin.ty = 6; }
-      // the Cup goes where it's carried: at the hip, or over the captain's head
+      // the Cup goes where it's carried: at the hip, or over the man's head
       const c = B.carry;
       if (W.trophy && c) {
         const h = c.h || 0, f = lifted ? 0.3 : 1.2;
         W.trophy.x = c.x + Math.cos(h) * f; W.trophy.y = c.y + Math.sin(h) * f; W.trophy.z = lifted ? 5.9 : 2.4;
       }
-      if (lifted && cap) frame('push', [cap.x, cap.y]);
-      else frame('push', [RL / 2, MID_Y]);
+      crownCam(t, { cx, cy, lifted, lap, turn, ref });
     };
-    B.cleanup = () => { W.trophy = null; pk.hidden = false; };
+    // a hand out to the man going by on the other side of the line
+    function shake(m, side, t) {
+      if (m.act && m.actT < m.actDur) return;
+      const o = W.mates(side).find((x) => x.active && Math.abs(x.x - m.x) < 2.6);
+      if (o && ((m.seed | 0) + Math.floor(t * 2)) % 2 === 0) { m.target = o; W.act(m, 'hug', 0.5); }
+    }
+    // The cameras (CROWN_SHOTS): each framing a spring the camera eases into, so every change is a pan.
+    function crownCam(t, s) {
+      if (s.lap != null) {
+        const k = Math.floor((W.t - s.lap) / 7) % 3, h = s.lifted || cap;
+        if (k === 1) { frame('zam'); return; }
+        frame(k === 0 ? 'push' : 'zoom', h ? [h.x, h.y] : [RL / 2, MID_Y]);
+        return;
+      }
+      if (s.lifted) {
+        // in close on him as it goes up, then back for the club round him, then the whole sheet for the pyro
+        const u = t - (C.lift + s.turn * C.each);
+        if (u < 3.4) frame('winner', [s.lifted.x, s.lifted.y]);
+        else if (u < 5.2) frame('push', [s.lifted.x, s.lifted.y]);
+        else frame(s.turn % 2 ? 'zam' : 'zoom', [s.lifted.x, s.lifted.y]);
+        return;
+      }
+      if (t >= C.cup) { frame('push', s.ref && s.ref.active ? [s.ref.x, s.ref.y] : [RL / 2, MID_Y]); return; }
+      if (t >= C.line) { frame('broadcast', [RL / 2 + Math.sin((t - C.line) * 0.4) * 18, MID_Y]); return; }
+      if (t >= C.out) { frame(Math.floor(t / 4) % 2 ? 'zoom' : 'fight', [s.cx, s.cy]); return; }
+      frame(t < 2.2 ? 'push' : 'fight', [s.cx, s.cy]);
+    }
+    B.cleanup = () => { W.trophy = null; pk.hidden = false; opts.onLift?.(null); };
     return B;
   }
+  // the Cup night's clock (s): the pile on the goalie by `pile`, the mob out to centre from `out`, the
+  // handshake line from `line`, the Cup out at `cup`, the first lift at `lift` and each `each` after
+  const CROWN = Object.freeze({ pile: 3.5, out: 8, line: 15, cup: 24, lift: 29, each: 9 });
   const BLUE_X_A = 75, BLUE_X_H = 125;
 
   // ── before the first play ─────────────────────────────────────────────────
@@ -3490,5 +3593,7 @@ export function createDirector(W, opts = {}) {
     kind: () => (D.beat ? D.beat.kind : null),
     reset() { if (D.beat) { D.beat.cleanup?.(); D.beat = null; } releaseAll(); },
     state: D,
+    // the Cup night's clock, for the view's cards
+    CROWN,
   };
 }

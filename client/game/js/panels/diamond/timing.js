@@ -48,11 +48,14 @@ export const landBy = (p) => Math.max(budgetOf(p), LAST_PITCH + playRoom(p));
 // coming down to his foot on the plate), the welcome there (`welcome`), its replay (`replay`, which
 // is REPLAY.span played at REPLAY.rate in diamond/replay.js, and a beat either side) and the field
 // back (`reset`). A play that earns a replay (a walk-off, a double or triple play, a great catch, a
-// triple, strike three that ends a threat, a man thrown out stealing): `replay` and `reset`.
+// triple, strike three that ends a threat, a man thrown out stealing, a stolen base, a pickoff, a
+// man round from first to score): `replay` and `reset`.
 // Anything else: `reset`, the field walking back and the pitcher rubbing up the ball. (A close
 // play at a bag or the plate earns a replay too, but only the staged play knows how close it was,
-// so those take theirs out of whatever the booth's talk leaves.)
-export const AFTER = Object.freeze({ trot: 21.5, welcome: 3.5, replay: 10, reset: 10 });
+// so those take theirs out of whatever the booth's talk leaves.) The last out of a final
+// (`end.champion`): `champion`, the champions' pile, their mob and the fireworks before the Cup
+// (diamond/ceremony.js planMob), which nothing cuts short.
+export const AFTER = Object.freeze({ trot: 21.5, welcome: 3.5, replay: 10, reset: 10, champion: 40 });
 // Strike three with something on it: the last out of an inning with a man on base, or of a game
 // within two runs from the ninth on. diamond/replay.js replays these, and no other strikeout.
 export function bigStrikeout(p) {
@@ -62,10 +65,19 @@ export function bigStrikeout(p) {
 }
 // A man thrown out stealing, which replay.js always shows again.
 export const caughtStealing = (p) => !!p && p.phase === 'run' && (p.kind === 'caughtstealing' || (p.kind === 'doublesteal' && !!p.out));
+// Every stolen base and every pickoff, which replay.js shows again too: a steal on the man, from
+// his jump to his slide.
+export const stolenBase = (p) => !!p && p.phase === 'run' && (p.kind === 'steal' || (p.kind === 'doublesteal' && !p.out));
+export const pickedOff = (p) => !!p && p.phase === 'run' && p.kind === 'pickoff';
+// A man all the way round from first to score on a hit (replay.js follows him round).
+export const scoredFromFirst = (p) => !!p && !p.phase && ['single', 'double', 'error'].includes(p.kind)
+  && Array.isArray(p.moves) && p.moves.some((m) => m && m.from === 1 && m.to === 4);
 export function afterLand(p) {
-  if (!p || p.phase === 'half') return 0;
+  if (!p || p.phase === 'half' || p.phase === 'crown') return 0;
+  if (p.end?.champion) return Math.max(AFTER.champion, p.kind === 'homerun' ? AFTER.trot + AFTER.welcome : 0);
   if (p.kind === 'homerun') return AFTER.trot + AFTER.welcome + AFTER.replay + AFTER.reset;
   const big = p.walkoff || p.kind === 'triple' || p.kind === 'doubleplay' || p.kind === 'tripleplay'
-    || ['diving', 'sliding', 'leaping', 'rail'].includes(p.play?.g) || bigStrikeout(p) || caughtStealing(p);
+    || ['diving', 'sliding', 'leaping', 'rail'].includes(p.play?.g) || bigStrikeout(p) || caughtStealing(p)
+    || stolenBase(p) || pickedOff(p) || scoredFromFirst(p);
   return (big ? AFTER.replay : 0) + AFTER.reset;
 }

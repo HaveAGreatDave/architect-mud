@@ -5977,6 +5977,8 @@ check('move succeeds when gates pass', r?.type === 'move' && getPlayer().current
   // A player takes the deed → the same NPC now squats a player-owned unit.
   world.apartments.set(ownedId, { zone_id: ownedId, owner_id: 'player_regress' });
   check('NPC in a PLAYER-OWNED apartment is a squatter', npcHomedInOwnedUnit(squatter) === true, 'owner set');
+  // A pet lives in its owner's flat on purpose; the boot sweep must leave it there.
+  check('a pet in a PLAYER-OWNED apartment is not a squatter', npcHomedInOwnedUnit({ ...squatter, flags: { pet: 'pet_regress' } }) === false);
   // Homed in a non-apartment, or nowhere → never a squat.
   check('NPC homed in a non-apartment is not a squatter', npcHomedInOwnedUnit({ id: 'x', home_zone: openId }) === false);
   check('NPC with no home is not a squatter', npcHomedInOwnedUnit({ id: 'x' }) === false);

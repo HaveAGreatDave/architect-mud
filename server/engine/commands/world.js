@@ -1316,6 +1316,8 @@ async function cmdEvict(args, player) {
   if (matches.length > 1)
     return { type:'error', message:`"${name}" matches ${matches.length} NPCs — be more specific: ${matches.slice(0, 6).map(n => n.name).join(', ')}${matches.length > 6 ? '…' : ''}.` };
   const npc = matches[0];
+  // A pet belongs to whoever has the flat it lives in, player or NPC, so it isn't a tenant to evict.
+  if (npc.flags?.pet) return { type:'error', message:`${npc.name} is a pet. ${npc.name} lives with whoever has the flat; move ${npc.name} in the dev panel instead.` };
 
   const oldZoneId = npc.home_zone;
   if (!oldZoneId || !isApartmentZone(getZone(oldZoneId)))

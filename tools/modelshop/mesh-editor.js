@@ -331,6 +331,8 @@ export function meshPaintOverlay(ctx) {
   }
   ctx.restore();
 }
+// The mesh files with edits not yet saved, so leaving the page can ask first (ui.js).
+export function meshUnsaved() { return [...S.dirty].map((id) => 'mesh_' + id + '.json'); }
 export function meshAnim() { return S.anim; }
 export function meshGearAnim() { return S.gear; }
 export function meshLivery() {

@@ -3661,6 +3661,28 @@ html[data-density="compact"] #tablet-os-overlay .tos-mf:disabled { opacity:.35; 
 #tablet-os-overlay .tos-sp-note { font-size:.72rem; color:var(--tos-fg-dim); margin-top:8px; }
 #tablet-os-overlay .tos-sp-empty { padding:18px; text-align:center; color:var(--tos-fg-dim); border:1px dashed var(--tos-border); border-radius:8px; }
 
+/* The Cups tab: both leagues side by side where there's room, one under the other on a phone. */
+#tablet-os-overlay .tos-cups { display:grid; grid-template-columns:repeat(auto-fit,minmax(260px,1fr)); gap:14px; align-items:start; }
+#tablet-os-overlay .tos-cup-tally { display:flex; flex-wrap:wrap; gap:6px; margin:0 0 4px; }
+#tablet-os-overlay .tos-cup-t { display:inline-flex; align-items:center; gap:5px; padding:3px 7px 3px 3px; border-radius:12px;
+  background:var(--tos-surface-lo); border:1px solid var(--tos-border); font-size:.78rem; }
+#tablet-os-overlay .tos-cup-t b { color:var(--sp-gold); font-variant-numeric:tabular-nums; }
+#tablet-os-overlay .tos-cup-t b::before { content:'🏆 '; font-size:.7rem; }
+#tablet-os-overlay .tos-cup-row { padding:8px 10px; margin-bottom:6px; border-radius:8px; background:var(--tos-surface-lo);
+  border:1px solid var(--tos-border); box-shadow:inset 3px 0 0 var(--sp-gold); }
+#tablet-os-overlay .tos-cup-row.pending { box-shadow:none; border-style:dashed; }
+#tablet-os-overlay .tos-cup-when { font-size:.62rem; letter-spacing:1.3px; text-transform:uppercase; color:var(--tos-fg-dim); margin-bottom:5px; }
+#tablet-os-overlay .tos-cup-match { display:grid; grid-template-columns:minmax(0,1fr) auto minmax(0,1fr); align-items:center; gap:8px; }
+#tablet-os-overlay .tos-cup-club { display:flex; align-items:center; gap:6px; min-width:0; font-size:.8rem; }
+#tablet-os-overlay .tos-cup-club .n { white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+#tablet-os-overlay .tos-cup-club.won .n { font-weight:bold; color:var(--tos-fg); }
+#tablet-os-overlay .tos-cup-club.won::after { content:'🏆'; font-size:.7rem; flex:none; }
+#tablet-os-overlay .tos-cup-club.lost { color:var(--tos-fg-dim); flex-direction:row-reverse; text-align:right; }
+#tablet-os-overlay .tos-cup-match > .tos-cup-club:last-child:not(.lost) { flex-direction:row-reverse; text-align:right; }
+#tablet-os-overlay .tos-cup-mid { font-size:.8rem; font-weight:bold; font-variant-numeric:tabular-nums; color:var(--sp-gold); white-space:nowrap; }
+#tablet-os-overlay .tos-cup-row.pending .tos-cup-mid { color:var(--tos-fg-dim); font-weight:normal; }
+#tablet-os-overlay .tos-cup-tbd { font-size:.66rem; color:var(--tos-fg-dim); margin-top:4px; text-align:center; }
+
 #tablet-os-overlay .tos-sp-club { display:flex; align-items:center; gap:14px; padding:14px; margin:2px 0 12px; border-radius:8px; color:#fff;
   background:linear-gradient(120deg,var(--a) 0%,#0b0f16 85%); }
 #tablet-os-overlay .tos-sp-club-name { font-size:1.15rem; font-weight:bold; letter-spacing:1px; text-shadow:0 1px 2px rgba(0,0,0,.5); }

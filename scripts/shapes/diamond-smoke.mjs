@@ -80,7 +80,10 @@
 //      its sparks above the stands, framed by the wide shot it's cut to once the ball's down, never
 //      more than three in a second, and the high camera back after the last; the home-run camera
 //      riding beside the ball, keeping it in frame (95%) from inside the park; and with reduced
-//      motion, no camera riding with it and nothing at all. Every play's own splash has its words,
+//      motion, no camera riding with it and nothing at all. A home run's light show (spectacle.js
+//      planLights) starts once the ball's over the fence and never flashes more than three times in
+//      a second, the lights coming back counted; with reduced motion it never flashes at all, and
+//      nothing but a home run gets one. Every play's own splash has its words,
 //      and every play's cheer (spectacle.js cheerOf) is a side, a level and a time; the roar
 //      (gl/crowd.js createRoar) rises, holds and falls as a cheer says.
 //   1f. REDUCED MOTION, every ball in play staged again with it, without running the world: every
@@ -138,7 +141,7 @@ const { isShot, shotAt, project } = await import(P + 'diamond/camera.js');
 const { pitchText } = await import(P + 'gameday.js');
 const { BAGS } = await import(P + 'diamond/geo.js');
 const { legsOf, fenceAt, sprayOf } = await import(P + 'diamond/play.js');
-const { HARD, KINDS: FX, particleAt, trailAt, endOf: fxEnd, splashOf, cheerOf } = await import(P + 'diamond/spectacle.js');
+const { HARD, KINDS: FX, particleAt, trailAt, endOf: fxEnd, splashOf, cheerOf, planLights, lightsAt, goneAt, STROBE } = await import(P + 'diamond/spectacle.js');
 const { createRoar, ROAR } = await import(P + 'gl/crowd.js');
 const { replayOf, stageReplay, REPLAY } = await import(P + 'diamond/replay.js');
 // a home run seen from centre field runs REPLAY.toss past contact so the bat toss lands (replay.js), 1.1 s before it
@@ -183,7 +186,7 @@ const bagAt = (b) => (b === 4 ? [0, 0, 0] : BAGS[b]);
 for (const p of order) for (const m of p.moves || []) if (m && m.name) check('a runner\'s legs in the picture are the sim\'s (play.js legsOf)', legsOf(m.name) === speedOf(m.name), m.name);
 
 // ── 1. the director ──────────────────────────────────────────────────────────
-const seen = { fieldCut: 0, roundCut: 0, skip: 0, ritual: 0, block: 0, check: 0, punchout: 0, hbp: 0, lefty: 0, sideL: 0, toFirst: 0, air: 0, rundown: 0, scored: 0, round: 0, trot: 0, off: 0, warmup: 0, replay: 0, scar: 0, between: 0, rub: 0, goneOff: 0, deckShot: 0, crew: 0, stepout: 0, look: 0, welcome: 0 };
+const seen = { fieldCut: 0, roundCut: 0, skip: 0, ritual: 0, block: 0, check: 0, punchout: 0, hbp: 0, lefty: 0, sideL: 0, toFirst: 0, air: 0, rundown: 0, scored: 0, round: 0, trot: 0, off: 0, warmup: 0, replay: 0, scar: 0, between: 0, rub: 0, goneOff: 0, deckShot: 0, crew: 0, stepout: 0, look: 0, welcome: 0, twoOutRun: 0, getBack: 0, focus: 0 };
 // The ball of a foot, where marks.js puts its mark: half way from the ankle to the toe.
 const footAt = (J, S) => [(J['an' + S][0] + J['toe' + S][0]) / 2, (J['an' + S][2] + J['toe' + S][2]) / 2];
 // The dirt's marks (diamond/marks.js) a staging said: each on the canvas, a foot's on the dirt,
@@ -414,7 +417,8 @@ for (const hold of [undefined, 45000]) {
       seen.replay++;
       const R = stageReplay(p, spec, { cast }), tBat = D.log[N - 1].contact.t, ballOf = (pl, t) => { let b = null; for (const x of pl.balls) if (x.from <= t) b = x; return b ? (b.path ? b.path(t) : b.at) : null; };
       check('a replay: its window holds its moment, and no more than REPLAY.span (for a home run, 1.1 s plus REPLAY.toss)', spec.from <= spec.key && spec.key <= spec.to && spec.to - spec.from <= replayMost(spec) + 1e-9, `${label}: ${spec.kind} ${spec.from.toFixed(2)}..${spec.to.toFixed(2)}`);
-      check('a replay: its camera is a camera', isShot(spec.shot), `${label}: ${JSON.stringify(spec.shot)}`);
+      // (a replay about a man, a stolen base say, gets its camera's track once he's staged: replay.js focus)
+      check('a replay: its camera is a camera', isShot(spec.focus != null && R ? R.shot : spec.shot), `${label}: ${JSON.stringify(spec.shot)}`);
       if (R) {
         const t2 = R.key - spec.key;
         let worst = 0;
@@ -422,7 +426,14 @@ for (const hold of [undefined, 45000]) {
         check('a replay: staged again it\'s the same play (the ball within a micron of the live one)', worst < 1e-6, `${label}: ${worst.toExponential(2)} ft`);
         check('a replay: its world starts where its window does', Math.abs(R.W.t - R.from) <= DT + 1e-9, `${label}: ${(R.W.t - R.from).toFixed(4)} s`);
         // the moment in its camera's frame: the ball, but for a man sliding in (a triple, the winning run)
-        if (['cf', 'bag', 'first'].includes(spec.shot) || typeof spec.shot === 'object') {
+        if (spec.focus != null) {
+          // a replay about a man: him at his moment, in the camera riding with him
+          seen.focus++;
+          const m = R.momentAt?.(R.key), q = m ? project(shotAt(R.shot, R.key), 400, 300, m) : null;
+          check('a replay: one about a man has him at its moment, in the camera riding with him', !!q && q.x > 40 && q.x < 360 && q.y > 30 && q.y < 270, `${label}: ${spec.kind} ${q ? `${q.x.toFixed(0)},${q.y.toFixed(0)}` : 'behind'}`);
+          const Q = R.W.pose(spec.focus);
+          check('a replay: the man it\'s about is in its world', !!Q, `${label}: slot ${spec.focus}`);
+        } else if (['cf', 'bag', 'first'].includes(spec.shot) || typeof spec.shot === 'object') {
           const q = project(shotAt(spec.shot, R.key), 400, 300, ballOf(R.D.play, R.key));
           check('a replay: its camera has the ball at its moment', !!q && q.x > 0 && q.x < 400 && q.y > 0 && q.y < 300, `${label}: ${spec.kind} ${q ? `${q.x.toFixed(0)},${q.y.toFixed(0)}` : 'behind'}`);
         }
@@ -593,6 +604,9 @@ for (const hold of [undefined, 45000]) {
         }
         if (r.forced != null && r.bags?.[r.out] != null) check('a play: a man forced out gets there after the ball', r.bags[r.out] >= r.forced, `${label}: ${g.who} at +${(r.bags[r.out] - tPlay).toFixed(2)}, the ball +${(r.forced - tPlay).toFixed(2)}`);
         if (r.bags?.[1] != null && r.bags?.[2] != null) seen.round++;
+        // on a ball in the air (bases.js airHold): gone on contact with two out, back once it's caught with fewer
+        if (r.twoOut) seen.twoOutRun++;
+        if (r.back != null) seen.getBack++;
       }
       // the runs: every man the play sends home over the plate, by the landing but on a home run
       const homeMen = menOn.filter((g) => g.r.to === 4), inBy = homeMen.filter((g) => (g.near[4] ?? Infinity) <= 3 && (p.kind === 'homerun' || trot || g.r.bags[4] <= D.landAt + 1e-6)).length;
@@ -641,6 +655,7 @@ check('the game has a ball caught in the air', seen.air > 0);
 check('the game has a ball run down in the outfield', seen.rundown > 0);
 check('the game has a run scored on a ball in the park', seen.scored > 0);
 check('the game has a man rounding first for second', seen.round > 0);
+check('the game has a man running on contact with two out, and one getting back to his bag on a catch with fewer', seen.twoOutRun > 0 && seen.getBack > 0, JSON.stringify({ twoOut: seen.twoOutRun, back: seen.getBack }));
 check('the game has a trot to first after ball four or a hit batsman', seen.trot > 0);
 check('the game has a side going off after its third out', seen.off > 0);
 check('the game has a play that earns a replay', seen.replay > 0);
@@ -964,7 +979,7 @@ for (const { p, seed } of runs) {
     for (let s = SEED + 1; s <= SEED + 60; s++) { const w = gameOf(s).find((x) => !x.phase && has(x) && (x.pitches || []).length); if (w) { fxPlays.push({ p: w, seed: s }); break; } }
     check(`the spectacle stages ${want} (the game's, or the next games' first)`, fxPlays.some((x) => has(x.p)));
   }
-  const fxSeen = { homer: 0, sparks: 0, walkoff: 0 };
+  const fxSeen = { homer: 0, sparks: 0, walkoff: 0, lights: 0 };
   for (const { p, seed } of fxPlays) {
     const label = `seed ${seed}: ${p.inning}${p.half[0]} ${p.batter} ${p.kind}${p.walkoff ? ' walk-off' : ''} (${Number(p.play?.ev) || '-'} mph)`;
     const shots = [];
@@ -1051,7 +1066,42 @@ for (const { p, seed } of runs) {
       check('the spectacle: reduced motion has no camera riding with it, and nothing of the spectacle', !riding && !(D2.fx || []).length, label);
       D2.stop();
     }
+    // the lights (planLights), as the view plans them: a home run's from once it's over the fence,
+    // never more than three flashes in a second with the lights coming back counted as one, and
+    // with reduced motion no flash at all, only a slow wash; nothing but a home run gets one
+    const lightsOf = (motion) => planLights({ p, path, tBat: rec?.contact?.t, colours: [[0.01, 0.03, 0.35], [0.8, 0.02, 0.02]], motion });
+    const show = lightsOf(true);
+    check('the lights: a show for a home run, and for no other play', !!show === (hr && !!path), `${label}: ${show ? 'a show' : 'none'}`);
+    if (show) {
+      const gone = goneAt(path, rec.contact.t), q = path(show.t);
+      check('the lights: they go out once the ball\'s over the fence, and by the time it\'s down', Math.abs(show.t - gone) < 1e-9 && Math.hypot(q[0], q[2]) >= fenceAt(sprayOf(q)) - 0.5 && show.t <= path.land + 1e-9, `${label}: at ${(show.t - rec.contact.t).toFixed(2)} s, down at ${(path.land - rec.contact.t).toFixed(2)}`);
+      check('the lights: untouched before it\'s gone and after the show', !lightsAt(show, show.t - 0.01) && !lightsAt(show, show.end + 0.01), label);
+      fxSeen.lights++;
+    }
+    // how bright the park is through a show, the lights' white and the floods' colour as one
+    // (outside it, all lit): each time it comes up through half is a flash, and the steepest it
+    // changes, per second
+    const flashesOf = (s) => {
+      const ups = [], STEP = 1 / 240;
+      let was = 1, prev = { out: 0, flash: 0 }, steep = 0;
+      for (let t = s.t - 0.5; t <= s.end + 0.5; t += STEP) {
+        const l = lightsAt(s, t) || { out: 0, flash: 0 }, lum = 1 - l.out + l.flash;
+        if (was < 0.5 && lum >= 0.5) ups.push(t);
+        // the white and the colour each on their own: a slow swap of one for the other is still slow
+        steep = Math.max(steep, Math.abs(l.out - prev.out) / STEP, Math.abs(l.flash - prev.flash) / STEP);
+        was = lum; prev = l;
+      }
+      return { ups, steep };
+    };
+    if (show) {
+      const { ups } = flashesOf(show);
+      for (let i = 0; i + 3 < ups.length; i++) check('the lights: never more than three flashes in a second', ups[i + 3] - ups[i] > 1, `${label}: four in ${(ups[i + 3] - ups[i]).toFixed(2)} s`);
+      check('the lights: every flash planned is seen, and the lights come back', ups.length === (p.walkoff ? STROBE.walkoff : STROBE.n) + 1, `${label}: ${ups.length}`);
+      const calm = lightsOf(false), slow = calm && flashesOf(calm);
+      check('the lights: with reduced motion, no flash, and nothing changing faster than one a second', !!calm && calm.calm && !calm.flashes.length && slow.ups.length === 0 && slow.steep < 1, `${label}: ${slow ? `${slow.ups.length} flashes, ${slow.steep.toFixed(2)} a second` : 'none'}`);
+    }
   }
+  check('a home run gets its light show (the game\'s, or the next games\' first)', fxSeen.lights > 0, JSON.stringify(fxSeen));
   check('a home run gets its camera and its fireworks (the game\'s, or the next games\' first)', fxSeen.homer > 0, JSON.stringify(fxSeen));
   check('the game has a ball hit hard enough to spark', fxSeen.sparks > 0, JSON.stringify(fxSeen));
   check('a walk-off gets its fireworks (the game\'s, or the next games\' first)', fxSeen.walkoff > 0, JSON.stringify(fxSeen));
@@ -1144,6 +1194,29 @@ for (const { p, seed } of runs) {
       check(`a replay: its camera has ${man ? 'the man sliding in' : 'the ball'} at its moment`, !!q && q.x > 0 && q.x < 400 && q.y > 0 && q.y < 300, `${label}: ${q ? `${q.x.toFixed(0)},${q.y.toFixed(0)}` : 'behind'}`);
       R.D.stop();
     }
+    D.stop();
+  }
+}
+
+// ── 1h. a replay about a man ─────────────────────────────────────────────────
+// A stolen base is replayed on the runner (replay.js focus): the game's own if it had one (section
+// 1 checks it), else the first from the games after it, staged and checked here the same way.
+if (!seen.focus) {
+  let p = null, seed = SEED;
+  for (let s = SEED + 1; !p && s <= SEED + 40; s++) { p = gameOf(s).find((x) => x.phase === 'run' && x.kind === 'steal'); seed = s; }
+  check('a replay about a man: a stolen base to stage (the game\'s, or the next games\' first)', !!p);
+  if (p) {
+    const label = `seed ${seed}: ${p.inning}${p.half[0]} ${p.runner} steal`;
+    const D = createDirector(W, {});
+    D.stage(p, castOf(p));
+    const spec = D.play ? replayOf(p, D.play, D.log) : null;
+    check('a replay about a man: a stolen base earns one, on the man', spec?.kind === 'steal' && spec.focus != null, `${label}: ${JSON.stringify(spec && { kind: spec.kind, focus: spec.focus })}`);
+    const R = spec ? stageReplay(p, spec, { cast: castOf(p) }) : null;
+    if (R) {
+      const m = R.momentAt?.(R.key), q = m ? project(shotAt(R.shot, R.key), 400, 300, m) : null;
+      check('a replay about a man: its camera rides with him and has him at his slide', isShot(R.shot) && !!q && q.x > 40 && q.x < 360 && q.y > 30 && q.y < 270, `${label}: ${q ? `${q.x.toFixed(0)},${q.y.toFixed(0)}` : 'behind'}`);
+      R.D.stop();
+    } else check('a replay about a man: it stages', false, label);
     D.stop();
   }
 }

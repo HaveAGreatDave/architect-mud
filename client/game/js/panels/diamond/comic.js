@@ -32,7 +32,8 @@ export const COMIC_WORDS = Object.freeze({
   catch: ['THWAP!', 'SNAG!', 'WHUMP!', 'FWUMP!', 'SNATCH!'], robbed: ['YOINK!', 'DENIED!', 'SNAG!', 'NOPE!'],
   doubleplay: ['SNAP!', 'ZIP-ZIP!', 'POP-POP!'], tripleplay: ['SNAP-SNAP!', 'ZIP-ZIP-ZIP!'],
   triple: ['FWOOSH!', 'ZOOOM!', 'VROOSH!'], close: ['BANG-BANG!', 'WHAM!', 'THUD!'],
-  plate: ['SKRRSH!', 'WHUMP!', 'KA-THUD!'], caught: ['SLAP!', 'GOTCHA!', 'THWAP!'], steal: ['ZIP!', 'SKRRT!', 'FWISH!'],
+  plate: ['SKRRSH!', 'WHUMP!', 'KA-THUD!'], caught: ['SLAP!', 'GOTCHA!', 'THWAP!'], steal: ['ZIP!', 'SKRRT!', 'FWISH!', 'SWIPE!', 'ZOOM!'],
+  pickoff: ['SNAP!', 'GOTCHA!', 'THWAP!', 'NABBED!'], scoring: ['ZOOOM!', 'WHOOSH!', 'SKRRSH!', 'VROOM!'],
   strikeout: ['WHIFF!', 'SWOOSH!', 'POP!'],
 });
 // What the page's two small panels say, the run-up's and what followed's, by kind.
@@ -42,13 +43,14 @@ export const COMIC_CAPTIONS = Object.freeze({
   tripleplay: ['NOBODY BELIEVES IT...', '...ALL THREE OF THEM!'], triple: ['HE\'S NOT STOPPING...', '...IN STANDING UP!'],
   close: ['DOWN THE LINE...', '...AND THE CALL IS IN!'],
   robbed: ['THAT ONE\'S GOING...', '...NOT TODAY!'], plate: ['THEY\'RE SENDING HIM...', '...AT THE PLATE!'],
-  caught: ['HE\'S GOING...', '...AND HE\'S GONE!'], steal: ['HE\'S GOING...', '...UNDER THE TAG!'],
+  caught: ['HE\'S GOING...', '...AND HE\'S GONE!'], steal: ['HE\'S OFF WITH THE PITCH...', '...IN THERE! IT\'S HIS!'],
+  pickoff: ['HE\'S STRAYED TOO FAR...', '...AND HE\'S PICKED OFF!'], scoring: ['THEY\'RE WAVING HIM ROUND...', '...ALL THE WAY HOME!'],
   strikeout: ['TWO STRIKES...', '...SIT DOWN!'],
 });
 // The page's headline for the kinds the HUD has no words for (hud.js HUD_THEME.words has the rest).
 export const COMIC_HEADLINES = Object.freeze({
   catch: 'WHAT A CATCH!', robbed: 'ROBBED!', plate: 'PLAY AT THE PLATE!', close: 'BANG-BANG PLAY!',
-  caught: 'CAUGHT STEALING!', steal: 'STOLEN BASE!', strikeout: 'STRIKE THREE!', triple: 'TRIPLE!',
+  caught: 'CAUGHT STEALING!', steal: 'STOLEN BASE!', pickoff: 'PICKED OFF!', scoring: 'ALL THE WAY HOME!', strikeout: 'STRIKE THREE!', triple: 'TRIPLE!',
 });
 /** The headline for a replay of `kind` of the play `p`: a grand slam says so. Null where the HUD's own words do. */
 export function comicHeadlineOf(kind, p = null) {
@@ -57,7 +59,7 @@ export function comicHeadlineOf(kind, p = null) {
 }
 // The inks a kind is lettered and burst in: [the face's top, its foot, the extrusion, the burst's
 // outer]. Off the bat it's the hot set; into a glove, the cold; in the dirt at a bag, the dust.
-const INK_OF = { catch: 'cold', robbed: 'cold', strikeout: 'cold', close: 'dust', plate: 'dust', caught: 'dust', steal: 'dust', triple: 'dust', doubleplay: 'dust', tripleplay: 'dust' };
+const INK_OF = { catch: 'cold', robbed: 'cold', strikeout: 'cold', close: 'dust', plate: 'dust', caught: 'dust', steal: 'dust', pickoff: 'dust', scoring: 'dust', triple: 'dust', doubleplay: 'dust', tripleplay: 'dust' };
 /** The inks for a replay of `kind` (COMIC_INKS). */
 export const comicInksOf = (kind) => COMIC_INKS[INK_OF[kind] || 'hot'];
 const hashStr = (s) => { let h = 2166136261; for (const ch of String(s)) { h ^= ch.charCodeAt(0); h = Math.imul(h, 16777619); } return h >>> 0; };

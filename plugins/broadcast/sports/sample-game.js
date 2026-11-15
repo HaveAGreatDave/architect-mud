@@ -5,7 +5,7 @@
 import { HOCKEY } from './hockey.js';
 import { BASEBALL } from './baseball.js';
 import { sportsRng } from '../rng.js';
-import { factsAt, momentBeat } from './facts.js';
+import { momentFacts } from './facts.js';
 
 const SEASON_GAMES = 24;
 const names = (row) => (row.teams || []).map((t) => (typeof t === 'string' ? t : t.name));
@@ -36,7 +36,7 @@ export function sampleGame(row, seed = 1) {
 export function sampleFacts(row, seed, when, n = 0) {
   const { sport, game, ctx } = sampleGame(row, seed);
   return {
-    ...factsAt(sport, game, momentBeat(sport, game, when, n), ctx),
+    ...momentFacts(sport, game, when, n, ctx),
     announcer: row.announcer || '', analyst: row.analyst || '', venue: row.venue?.said || row.venue?.name || '',
   };
 }

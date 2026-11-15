@@ -65,12 +65,22 @@ for (const f of files) {
   for (const s of src.matchAll(/\bconst\s+([A-Za-z_]\w*)\s*=\s*`([^`]*)`/g)) {
     if (!/^#version/.test(s[2])) snippets.set(s[1], s[2]);
   }
+  // ⚠ A DECLARATION THE JS WRITES BY MAPPING A TABLE IS STILL A DECLARATION. gl/crowd.js turns
+  // FAN_CLIPS into `const vec4 C_${c.name.toUpperCase()} = ...;` lines, one per clip, so C_SIT is
+  // a real GLSL const the compiler sees, but its name only exists after the map runs. Read the
+  // prefix off the generator (`const <type> C_${`) and accept any caps name that starts with it.
+  const genPrefixes = new Set();
+  const readGen = (text) => {
+    for (const g of text.matchAll(/\bconst\s+(?:float|int|uint|bool|[iub]?vec[234]|mat[234])\s+([A-Z][A-Z0-9]*_)\$\{/g)) genPrefixes.add(g[1]);
+  };
+  readGen(src);
   // A snippet imported from a sibling module (gl/sea-detail.js's SEA_DETAIL_GLSL) is spliced the
   // same way, so read its const from that file too.
   for (const im of src.matchAll(/\bimport\s*\{([^}]*)\}\s*from\s*['"](\.{1,2}\/[^'"]+)['"]/g)) {
     const p = path.join(path.dirname(path.join(ROOT, f)), im[2]);
     if (!fs.existsSync(p)) continue;
     const dep = fs.readFileSync(p, 'utf8');
+    readGen(dep);
     for (const n of im[1].split(',').map((x) => x.trim().split(/\s+as\s+/).pop()).filter(Boolean)) {
       const s = dep.match(new RegExp(`\\bexport\\s+const\\s+${n}\\s*=\\s*\`([^\`]*)\``));
       if (s && !/^#version/.test(s[1])) snippets.set(n, s[1]);
@@ -121,7 +131,7 @@ for (const f of files) {
       }
     }
     for (const u of bare.matchAll(/\b([A-Z][A-Z0-9]*_[A-Z0-9_]*)\b/g)) {
-      if (!capsOk.has(u[1])) problems.push(`${f}: shader uses ${u[1]}, which it never declares — a JS const is not a GLSL one`);
+      if (!capsOk.has(u[1]) && ![...genPrefixes].some((p) => u[1].startsWith(p))) problems.push(`${f}: shader uses ${u[1]}, which it never declares — a JS const is not a GLSL one`);
     }
   }
   if (!bodies.length) continue;

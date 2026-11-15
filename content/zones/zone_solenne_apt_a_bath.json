@@ -3,17 +3,17 @@
   "ambient_theme": "indoors",
   "bg_color": "#2b3a34",
   "color": "#e8ddc7",
-  "description": "A private head finished to the same hush as the rest of the residence: warm oak underfoot, a wall of honed pale stone, and a walk-in rain shower behind a single pane of frameless glass. A floating basin, a concealed toilet, soft indirect light. Everything runs hot and clean and silent. The bolt on the door slides shut with a whisper.",
+  "description": "A private head in pale veined marble over big slabs of darker stone, warm underfoot. A rain shower stands behind one pane of glass against black marble. A walnut vanity floats under a mirror as wide as it is, lit from behind, and a towel warms on a brass rail by the door. The bolt slides shut with a whisper.",
   "exits": {
     "out": "zone_solenne_apt_a"
   },
   "flags": {
-    "floor": "carpet",
+    "floor": "stone",
     "is_interior": true,
     "window": {
-      "description": "A window with a bad seal, letting in a draught and a slice of whatever the weather is doing.",
+      "description": "A high slot of frosted glass under the ceiling. It lets the day in and nobody look back.",
       "light": 0.75,
-      "name": "the window",
+      "name": "the frosted slot",
       "visibility": 0.8
     }
   },

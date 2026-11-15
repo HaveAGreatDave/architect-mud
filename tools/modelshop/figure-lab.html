@@ -4,6 +4,8 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Figure Lab</title>
+<link rel="stylesheet" href="/nav.css">
+<script type="module" src="/nav.js"></script>
 <!--
   Everybody drawn as a person, in either of the game's two figure renderers:
 
@@ -72,14 +74,10 @@
 <body data-renderer="room">
 <header>
   <div class="row">
-    <a href="/" style="opacity:.7">← Modelshop</a>
-    <b>FIGURE LAB</b>
     <span class="seg big" role="radiogroup" aria-label="renderer">
       <label title="The close-up figure in the Room Stage's renderer: rooms, the TV, Broadcast Studio sequences"><input type="radio" name="renderer" value="room" checked><span>Room · close-up</span></label>
       <label title="The street's baked crowd body and street heads, dressed by district"><input type="radio" name="renderer" value="street"><span>Street · crowd</span></label>
     </span>
-    <span class="spacer"></span>
-    <a href="/pose-lab.html" title="Deadball's clips keyed on the real rig and played in the 3-D park">Pose Lab →</a>
   </div>
   <div class="row" data-for="room">
     <span class="k">figure</span>

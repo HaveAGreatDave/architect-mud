@@ -77,8 +77,9 @@ void main() {
   float life = uLife * aK.y, glow = 0.0, fade = 1.0;
   vec3 head, tail;
   bool alive;
-  if (uKind == 2) {
-    // let go along the deck over the stagger, catching the lamps as it turns
+  if (uKind == 2 || uKind == 3) {
+    // let go along the deck (or over the Cup's stage, as ticker tape) over the stagger, catching the
+    // lamps as it turns
     float u = uTau - (aDir.y * 0.5 + 0.5) * uRise;
     alive = u >= 0.0 && u <= life;
     head = flakeAt(u); tail = flakeAt(max(0.0, u - uStreak));
@@ -108,6 +109,7 @@ void main() {
   vQ = vec2(along, side);
   vCol = uKind == 0 ? mix(vec3(1.0, 0.93, 0.78), vec3(1.0, 0.5, 0.14), aK.z)
        : uKind == 2 ? (aK.z < 0.45 ? vec3(1.0, 0.72, 0.22) : aK.z < 0.75 ? vec3(1.0) : uCol)
+       : uKind == 3 ? (aK.z < 0.42 ? uCol : aK.z < 0.8 ? uCol2 : vec3(1.0))
                     : mix(vec3(1.0, 0.97, 0.9), aK.z > 0.82 ? uCol2 : uCol, smoothstep(0.0, 0.3, uTau));
   vGlow = glow;
   gl_Position = uVP * vec4(p, 1.0);
@@ -239,7 +241,7 @@ export function createSpectacle(gl, prog) {
       gl.useProgram(P.p);
       gl.uniformMatrix4fv(P.u('uVP'), false, M.viewProj);
       gl.uniform3fv(P.u('uEye'), M.eye);
-      gl.uniform1i(P.u('uKind'), e.kind === 'sparks' ? 0 : e.kind === 'confetti' ? 2 : 1);
+      gl.uniform1i(P.u('uKind'), e.kind === 'sparks' ? 0 : e.kind === 'confetti' ? 2 : e.kind === 'tape' ? 3 : 1);
       gl.uniform3fv(P.u('uAt'), e.at); gl.uniform3fv(P.u('uFrom'), e.from || e.at); gl.uniform3fv(P.u('uAxis'), e.axis || e.dir || [0, 1, 0]);
       gl.uniform1f(P.u('uSpin'), e.spin || 0); gl.uniform1f(P.u('uScale'), e.scale || 1); gl.uniform1f(P.u('uTau'), tau);
       gl.uniform1f(P.u('uV'), K.v); gl.uniform1f(P.u('uDrag'), K.drag); gl.uniform1f(P.u('uG'), K.g); gl.uniform1f(P.u('uLife'), K.life);

@@ -36,6 +36,7 @@ const CROUCH_PACE = 0.5;   // and how much slower
 //   canSit     (seat) => true unless somebody else is in it
 //   onSettle   ([u, v], yaw) => void, when you stop walking (where you stand now)
 //   onUse      () => true if the host took the use key itself
+//   fence      (from, to) => true if something the plan doesn't know about stops that step (a shut door)
 //   aimable    (pieceId) => true if the piece is on your side of any wall
 //   sees       (u, v) => true if nothing stands between the eye and that point (what hover and click can pick)
 //   start      a seat to start in, or { at: [u, v], yaw } to start on your feet
@@ -122,8 +123,10 @@ export function createRoomWalk(opts) {
         if (drunk > 0.3) seat.yaw = y + Math.sin(now * 0.0011) * Math.sin(now * 0.00037 + 1) * (drunk - 0.3) * 1.4 * dt;
         const wx = (fx * ahead + rx * side) / l * pace, wz = (fz * ahead + rz * side) / l * pace;
         const to = roomStep(L, at, wx * L.r[0] + wz * L.r[2], -(wx * L.f[0] + wz * L.f[2]));
-        // something across the way the room's own plan doesn't know about (the shutters down over a balcony door)
+        // something across the way the room's own plan doesn't know about (a shut door): stopped, or slid along it
+        // on whichever of the two ways the step went that it lets you
         if (!opts.fence?.(at, to)) at = to;
+        else for (const q of [[to[0], at[1]], [at[0], to[1]]]) if ((q[0] !== at[0] || q[1] !== at[1]) && roomFree(L, q[0], q[1]) && !opts.fence(at, q)) { at = q; break; }
         walked = true;
       }
       place();

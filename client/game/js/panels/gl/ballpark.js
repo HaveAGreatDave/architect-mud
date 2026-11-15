@@ -22,12 +22,14 @@
 // 'createBallparkRenderer' returns null with no WebGL2, float target or shader, and the view falls
 // back to the 2-D Gameday. ⚠ NO FACE CULLING, as in arena.js: builders don't keep one winding.
 
-import { buildPark, buildDress, crowdMorph, seedCrowdMorph, createBatch, vtx, dragMat, lin, STRIDE, CROWD_STRIDE, CROWD_MORPH, MAT, BAY, BAND_RUNS, BAND_STONE, BAND_UV, MAIN_PLATE, PLATE_ATLAS, roofLights, roofTrack, shellShift } from './ballpark-mesh.js';
+import { buildPark, buildDress, cupInto, CUP_VERTS, createBatch, vtx, dragMat, lin, STRIDE, CROWD_STRIDE, MAT, BAY, BAND_RUNS, BAND_STONE, BAND_UV, MAIN_PLATE, PLATE_ATLAS, roofLights, roofTrack, shellShift } from './ballpark-mesh.js';
 import { insideOutline, ftUp } from '../diamond/geo.js';
 import { WIN, WIN_OPEN, RAYS, SUN, rayReach } from '../glass/coliseum-window.js';
 import { breathe } from '../diamond/anim.js';
 import { ROOF_MS } from '../world-feed.js';
-import { CROWD_VS, CARD_VS, CARD_QUAD, flashesAt, createRoarLag } from './crowd.js';
+import { CROWD_VS, CARD_VS, CARD_QUAD, flashesAt, createRoarLag, nearCut } from './crowd.js';
+import { fanBakeAsync, fanBakeReady } from './fan-vat.js';
+import { uploadFan, dropFan, fanVao, bindFan } from './fan-gl.js';
 import { paintInfield, paintMark, smoothPoly, DIRT_RECT } from '../diamond/dirt.js';
 import { boardLamps, BOARD_W, BOARD_H } from '../diamond/board.js';
 import { shotMatrices, shotOf, inv4 } from '../diamond/camera.js';
@@ -59,8 +61,10 @@ import { HAIRLINE_GLSL } from '../actor-head.js';
 import { buildCityscape, FACADE_GLSL, STREET_GLSL, LIGHT_STRIDE } from './cityscape.js';
 import { CURTAIN_FRAG } from './curtain.js';
 import { applyLinOut } from './colour.js';
+import { createBallparkFigures, PARK_FIGURES } from './ballpark-figures.js';
 import { HUD_FACES, loadHudFaces } from '../diamond/hud.js';
 import { createSpectacle } from './spectacle.js';
+import { lightsAt } from '../diamond/spectacle.js';
 import { NIGHT, skyLook } from '../diamond/sky.js';
 import { createWeather } from './weather.js';
 import { createCloudVolume } from './cloudvol.js';
@@ -436,6 +440,9 @@ precision highp float;
 in vec3 vPos; in vec3 vNrm; in vec2 vUv; in vec3 vCol; flat in int vMat; in vec3 vBind;
 uniform sampler2D uTex; uniform sampler2D uDirt; uniform sampler2D uGrass; uniform sampler2D uBoard;
 uniform int uTextured; uniform float uAlphaTest; uniform float uAlpha; uniform float uEmis; uniform float uGlass; uniform float uScreen;
+// a home run's light show on the lamps' own glow: added to 1 on each channel, so its white goes out (-out)
+// and its colour comes up; 0, unchanged, on everything but the lamps (setLightShow)
+uniform vec3 uShowLamp;
 uniform vec3 uFence; uniform vec2 uBoardRes; uniform vec3 uBoardOn;
 uniform float uCityLit; uniform float uPoolK;
 // the roof: how shut it is (0 open, 1 shut), which keeps the rain off the field, and how much of the
@@ -547,7 +554,7 @@ void main() {
     float d = clamp(uWear.x * low * (0.35 + 0.65 * blot) + uWear.y * up * blot, 0.0, 0.85);
     alb = mix(alb, vec3(0.16, 0.088, 0.048), d);
   }
-  if (vMat == ${MAT.EMISSIVE}) { o = vec4(airOf(alb * uEmis, vPos), uAlpha * tex.a); return; }
+  if (vMat == ${MAT.EMISSIVE}) { o = vec4(airOf(alb * uEmis * max(vec3(1.0) + uShowLamp, 0.0), vPos), uAlpha * tex.a); return; }
   if (vMat == ${MAT.POOL}) {
     // a pool of lamplight, added over the ground: the light under a lamp 26 ft up across a quad
     // 38 ft round (gl/cityscape.js), faded at its rim
@@ -1177,22 +1184,13 @@ export function prepareBallpark(canvas, opts = {}) {
 
 // THE WARM-UP: the park's programs compiled in a throwaway context while the game's open is still on
 // (tv.js, off the title card's `warm` overlay), so the view's own context finds them in the browser's
-// shader cache when the game starts, and the fans' figure baked in a worker (crowd-morph-worker.js).
+// shader cache when the game starts, and the fans baked in a worker (gl/fan-vat.js fanBakeAsync).
 // Once per page; nothing waits on it. Resolves true once the programs have compiled, false without
 // the extension.
 const WARM_POLL_MS = 500, WARM_GIVE_UP_MS = 5 * 60 * 1000;
 let warming = null;
-function bakeFans() {
-  if (typeof Worker !== 'function') return;
-  try {
-    const w = new Worker(new URL('./crowd-morph-worker.js', import.meta.url), { type: 'module' });
-    w.onmessage = (e) => { seedCrowdMorph(e.data?.towels, e.data?.out); w.terminate(); };
-    w.onerror = () => w.terminate();   // the build makes it itself
-    w.postMessage({ towels: false });
-  } catch { /* the build makes it itself */ }
-}
 export function warmBallpark(doc = globalThis.document) {
-  if (!warming) bakeFans();
+  if (!warming) fanBakeAsync();
   return (warming ??= new Promise((done) => {
     const canvas = doc?.createElement?.('canvas');
     if (!canvas) { done(false); return; }
@@ -1367,101 +1365,110 @@ export function createBallparkRenderer(canvas, opts = {}) {
     // the roof has got to (ballpark-mesh.js shellShift)
     const lampDraws = Object.entries(park.lamps).filter(([, b]) => b.n).map(([kind, b]) => ({ key: 'lamp', kind, emis: 1, ...upload(b) }));
     const shells = park.roof.map((r) => ({ key: 'shell', i: r.i, fixed: r.fixed, ...upload(r.batch) }));
-    // the crowd: one figure in its three poses (ballpark-mesh.js crowdMorph), drawn once for the fans
-    // who rest sitting, once standing and once cheering, each getting up as his side roars. Each
-    // kind's fans are dealt into a seeded order, so a tier that draws fewer (its `crowd`) draws the
-    // first of them and thins every stand evenly, rather than emptying the back rows.
-    // A final sells every seat and hands out rally towels (setFinal): the same build, from the park
-    // built full, with the towel in every cheering fan's hand.
+    // the crowd: gl/fan-vat.js's fan, his clips baked into a texture (gl/crowd.js FAN_GLSL poses him),
+    // drawn once for the fans who rest sitting, once standing and once cheering, each getting up as
+    // his side roars. Each kind's fans are dealt into a seeded order, so a tier that draws fewer (its
+    // `crowd`) draws the first of them and thins every stand evenly, rather than emptying the back
+    // rows. A final sells every seat and hands out rally towels (setFinal): the same build, from the
+    // park built full, with uTowel on.
+    // The bake comes from a worker (fanBakeAsync); until it's here every fan is a card.
     const dealt = Object.fromEntries(['sit', 'stand', 'cheer'].map((kind) => [kind, dealFans(park.crowd[kind] || new Float32Array(0), CROWD_STRIDE)]));
     const cardQuad = gl.createBuffer();
     gl.bindBuffer(gl.ARRAY_BUFFER, cardQuad); gl.bufferData(gl.ARRAY_BUFFER, CARD_QUAD, gl.STATIC_DRAW);
     const norm3 = (v) => { const l = Math.hypot(v[0], v[1], v[2]) || 1; return [v[0] / l, v[1] / l, v[2] / l]; };
-    // Each kind has a second VAO over the same fans with the figure's near level (the same
-    // street body today; crowdMorph `street: false` keeps the old fan's two), drawn when the shot's lens is long enough to bring the stands up close
-    // (quality.fans 2, CLOSE_FOV).
+    // the two levels on this context, once the bake is here
+    const fanGpu = { far: null, near: null, asked: false };
+    const fansReady = () => {
+      if (fanGpu.far) return true;
+      const far = fanBakeReady('far'), near = fanBakeReady('near');
+      if (far && near) {
+        fanGpu.far = uploadFan(gl, far); fanGpu.near = uploadFan(gl, near);
+        for (const list of [homeCrowd, fullCrowd]) if (list) fanVaos(list);
+        return true;
+      }
+      if (!fanGpu.asked) { fanGpu.asked = true; fanBakeAsync(); }
+      return false;
+    };
+    const IS = CROWD_STRIDE * 4;
+    // Each kind has three instance buffers the split fills (splitCrowd): the fans drawn at the far
+    // level, those big enough on the screen for the near one, and those small enough to be cards.
     const crowdOf = (src, towels) => {
       const list = [];
-      const morphs = [crowdMorph({ far: opts.crowd !== 'near', towels }), crowdMorph({ far: false, towels })];
-      const mbs = morphs.map((morph) => { const b = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, b); gl.bufferData(gl.ARRAY_BUFFER, morph, gl.STATIC_DRAW); return b; });
       const deal = src === park.crowd ? dealt : Object.fromEntries(['sit', 'stand', 'cheer'].map((kind) => [kind, dealFans(src[kind] || new Float32Array(0), CROWD_STRIDE)]));
       for (const [base, kind] of ['sit', 'stand', 'cheer'].entries()) {
         const inst = deal[kind];
         if (!inst.length) continue;
-        const ib = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, ib); gl.bufferData(gl.ARRAY_BUFFER, inst, gl.STATIC_DRAW);
-        const vaos = mbs.map((mb) => {
-          const vao = gl.createVertexArray();
-          gl.bindVertexArray(vao);
-          gl.bindBuffer(gl.ARRAY_BUFFER, mb);
-          const VS = CROWD_MORPH * 4;
-          for (const [loc, size, off] of [[0, 3, 0], [1, 3, 12], [2, 3, 24], [6, 3, 36], [7, 3, 48], [8, 3, 60], [9, 1, 72]]) {
-            gl.enableVertexAttribArray(loc); gl.vertexAttribPointer(loc, size, gl.FLOAT, false, VS, off);
-          }
-          gl.bindBuffer(gl.ARRAY_BUFFER, ib);
-          const IS = CROWD_STRIDE * 4;
-          gl.enableVertexAttribArray(3); gl.vertexAttribPointer(3, 4, gl.FLOAT, false, IS, 0); gl.vertexAttribDivisor(3, 1);
-          gl.enableVertexAttribArray(4); gl.vertexAttribPointer(4, 4, gl.FLOAT, false, IS, 16); gl.vertexAttribDivisor(4, 1);
-          gl.enableVertexAttribArray(5); gl.vertexAttribPointer(5, 3, gl.FLOAT, false, IS, 32); gl.vertexAttribDivisor(5, 1);
-          gl.bindVertexArray(null);
-          return vao;
-        });
-        // the far fans as cards (CARD_VS): the card's corners, and an instance buffer of its own the
-        // split fills (splitCrowd)
+        const ib = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, ib); gl.bufferData(gl.ARRAY_BUFFER, inst, gl.DYNAMIC_DRAW);
+        const nb = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, nb); gl.bufferData(gl.ARRAY_BUFFER, inst.byteLength, gl.DYNAMIC_DRAW);
         const cb = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, cb); gl.bufferData(gl.ARRAY_BUFFER, inst.byteLength, gl.DYNAMIC_DRAW);
         const cardVao = gl.createVertexArray();
         gl.bindVertexArray(cardVao);
         gl.bindBuffer(gl.ARRAY_BUFFER, cardQuad); gl.enableVertexAttribArray(0); gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 8, 0);
         gl.bindBuffer(gl.ARRAY_BUFFER, cb);
-        const IS = CROWD_STRIDE * 4;
         gl.enableVertexAttribArray(3); gl.vertexAttribPointer(3, 4, gl.FLOAT, false, IS, 0); gl.vertexAttribDivisor(3, 1);
         gl.enableVertexAttribArray(4); gl.vertexAttribPointer(4, 4, gl.FLOAT, false, IS, 16); gl.vertexAttribDivisor(4, 1);
         gl.enableVertexAttribArray(5); gl.vertexAttribPointer(5, 3, gl.FLOAT, false, IS, 32); gl.vertexAttribDivisor(5, 1);
         gl.bindVertexArray(null);
-        list.push({ vao: vaos[0], near: vaos[1], cardVao, base, n: morphs[0].length / CROWD_MORPH, nNear: morphs[1].length / CROWD_MORPH, count: inst.length / CROWD_STRIDE,
-          src: inst, ib, cb, figs: null, cards: 0, buffers: [ib, cb] });
+        list.push({ vao: null, nearVao: null, cardVao, base, count: inst.length / CROWD_STRIDE,
+          src: inst, ib, nb, cb, figs: 0, near: 0, cards: 0, buffers: [ib, nb, cb] });
       }
-      list.mbs = mbs;
+      list.towels = towels;
+      if (fanGpu.far) fanVaos(list);
       return list;
     };
-    const dropCrowd = (list) => { for (const d of list) { gl.deleteVertexArray(d.vao); gl.deleteVertexArray(d.near); gl.deleteVertexArray(d.cardVao); for (const b of d.buffers) gl.deleteBuffer(b); } for (const b of list.mbs) gl.deleteBuffer(b); };
-    // Which fans are drawn as cards (quality.cards): every one the tier draws who stands less than
-    // CARD_PX device pixels tall on the screen, worked out again when the camera has moved enough
-    // (the split's key: where it is and looks, rounded, its lens, the frame's height and the tier's
-    // share of the fans) and at most every CARD_EVERY ms. The figures' instance buffer then holds the
-    // rest, nearest the camera, and the cards' buffer the far ones. A fan's height is FAN_H feet.
+    function fanVaos(list) {
+      for (const d of list) if (!d.vao) { d.vao = fanVao(gl, fanGpu.far, d.ib, IS); d.nearVao = fanVao(gl, fanGpu.near, d.nb, IS); }
+    }
+    const dropCrowd = (list) => { for (const d of list) { if (d.vao) { gl.deleteVertexArray(d.vao); gl.deleteVertexArray(d.nearVao); } gl.deleteVertexArray(d.cardVao); for (const b of d.buffers) gl.deleteBuffer(b); } };
+    // Who is drawn how, worked out again when the camera has moved enough (the split's key: where it
+    // is and looks, rounded, its lens, the frame's height, the tier's share of the fans and what's
+    // allowed) and at most every CARD_EVERY ms: a fan NEAR_PX device pixels tall or more at the near
+    // level, one under CARD_PX as a card (quality.cards), the rest at the far level. Before the bake
+    // is here, every fan is a card. A fan's height is FAN_H feet.
     const CARD_PX = 9, CARD_EVERY = 250, FAN_H = 5;
     let splitAt = -Infinity;
-    function splitCrowd(list, M, h, share) {
+    function splitCrowd(list, M, h, share, cards, nearPx, ready) {
       const r = (v, k) => Math.round(v / k);
-      const key = [r(M.eye[0], 4), r(M.eye[1], 4), r(M.eye[2], 4), r(M.at[0], 8), r(M.at[1], 8), r(M.at[2], 8), r(M.fov, 0.5), h, share].join();
+      const key = [r(M.eye[0], 4), r(M.eye[1], 4), r(M.eye[2], 4), r(M.at[0], 8), r(M.at[1], 8), r(M.at[2], 8), r(M.fov, 0.5), h, share, cards, nearPx, ready].join();
       if (list.splitKey === key) return;
       const now = clock();
-      if (list.splitKey && now - splitAt < CARD_EVERY) return;
-      splitAt = now; list.splitKey = key;
+      if (list.splitKey && list.splitReady === ready && now - splitAt < CARD_EVERY) return;
+      splitAt = now; list.splitKey = key; list.splitReady = ready;
       const f = norm3([M.at[0] - M.eye[0], M.at[1] - M.eye[1], M.at[2] - M.eye[2]]), k0 = (h / 2) / Math.tan(M.fov * Math.PI / 360) * FAN_H;
+      // every fan's height on the screen first, so the near level goes to the NEAR_MAX biggest
+      const total = list.reduce((s, d) => s + d.count, 0);
+      if (!list.px || list.px.length < total) list.px = new Float32Array(total);
+      let at = 0;
+      for (const d of list) {
+        const n = Math.round(d.count * share);
+        for (let i = 0; i < n; i++) {
+          const o = i * CROWD_STRIDE, z = (d.src[o] - M.eye[0]) * f[0] + (d.src[o + 1] - M.eye[1]) * f[1] + (d.src[o + 2] - M.eye[2]) * f[2];
+          list.px[at++] = z > 1 ? k0 / z : 0;
+        }
+      }
+      const cut = nearCut(list.px, at, nearPx);
+      at = 0;
       for (const d of list) {
         const n = Math.round(d.count * share), S = CROWD_STRIDE;
-        if (!d.figArr) { d.figArr = new Float32Array(d.src.length); d.cardArr = new Float32Array(d.src.length); }
-        let nf = 0, nc = 0;
+        if (!d.figArr) { d.figArr = new Float32Array(d.src.length); d.nearArr = new Float32Array(d.src.length); d.cardArr = new Float32Array(d.src.length); }
+        let nf = 0, nn = 0, nc = 0;
         for (let i = 0; i < n; i++) {
-          const o = i * S, dx = d.src[o] - M.eye[0], dy = d.src[o + 1] - M.eye[1], dz = d.src[o + 2] - M.eye[2];
-          const z = dx * f[0] + dy * f[1] + dz * f[2];
-          if (z > 1 && k0 / z >= CARD_PX) d.figArr.set(d.src.subarray(o, o + S), nf++ * S);
-          else d.cardArr.set(d.src.subarray(o, o + S), nc++ * S);
+          const o = i * S, px = list.px[at++];
+          const fan = d.src.subarray(o, o + S);
+          if (!ready) { if (cards) d.cardArr.set(fan, nc++ * S); }
+          else if (px >= cut) d.nearArr.set(fan, nn++ * S);
+          else if (!cards || px >= CARD_PX) d.figArr.set(fan, nf++ * S);
+          else d.cardArr.set(fan, nc++ * S);
         }
-        gl.bindBuffer(gl.ARRAY_BUFFER, d.ib); gl.bufferSubData(gl.ARRAY_BUFFER, 0, d.figArr, 0, nf * S);
-        gl.bindBuffer(gl.ARRAY_BUFFER, d.cb); gl.bufferSubData(gl.ARRAY_BUFFER, 0, d.cardArr, 0, nc * S);
-        d.figs = nf; d.cards = nc;
+        if (nf) { gl.bindBuffer(gl.ARRAY_BUFFER, d.ib); gl.bufferSubData(gl.ARRAY_BUFFER, 0, d.figArr, 0, nf * S); }
+        if (nn) { gl.bindBuffer(gl.ARRAY_BUFFER, d.nb); gl.bufferSubData(gl.ARRAY_BUFFER, 0, d.nearArr, 0, nn * S); }
+        if (nc) { gl.bindBuffer(gl.ARRAY_BUFFER, d.cb); gl.bufferSubData(gl.ARRAY_BUFFER, 0, d.cardArr, 0, nc * S); }
+        d.figs = nf; d.near = nn; d.cards = nc;
       }
     }
-    // the cards off: the figures' buffer back to every fan in his dealt order
-    function unsplitCrowd(list) {
-      if (!list.splitKey) return;
-      list.splitKey = null;
-      for (const d of list) { gl.bindBuffer(gl.ARRAY_BUFFER, d.ib); gl.bufferSubData(gl.ARRAY_BUFFER, 0, d.src); d.figs = null; d.cards = 0; }
-    }
-    // a lens this long or longer (degrees) brings the stands up close enough for the near figure
-    const CLOSE_FOV = 20;
+    // a fan this many device pixels tall or more is drawn at the near level: on the top tier
+    // (quality.fans 2) anybody the lens brings up close, below it only the man beside you
+    const nearPxOf = (q) => ((q.fans ?? 1) >= 2 ? 70 : 150);
     const homeCrowd = crowdOf(park.crowd, !!opts.towels);
     let crowd = homeCrowd, fullCrowd = null;
     // how loud each side's fans are (gl/crowd.js createRoar), the clock their bouncing keeps, and
@@ -1494,8 +1501,9 @@ export function createBallparkRenderer(canvas, opts = {}) {
       ['sit', 'stand', 'cheer'].forEach((kind, base) => { const a = dealt[kind]; for (let i = 0; i < a.length; i += CROWD_STRIDE) out.push(a[i], a[i + 1], a[i + 2], a[i + 3], base); });
       return new Float32Array(out);
     })();
-    // the fans drawn at the tier's share, and the seat of the i-th of them
-    const crowdShare = () => Math.max(0, Math.min(1, api.quality.crowd ?? 1));
+    // the fans drawn at the tier's share, and the seat of the i-th of them. A final's a sell-out
+    // on every tier (setFinal): the Curtain Call is the one night the house has to look full.
+    const crowdShare = () => (final ? 1 : Math.max(0, Math.min(1, api.quality.crowd ?? 1)));
     const seatOf = (i, share) => {
       let first = 0;
       for (const d of crowd) {
@@ -1589,7 +1597,9 @@ export function createBallparkRenderer(canvas, opts = {}) {
       gl.bindVertexArray(null);
       return { vao, buf, n: b.n };
     }
-    const dropBody = (body) => { for (const lv of body.levels || [body.batches]) for (const b of lv) { gl.deleteVertexArray(b.vao); gl.deleteBuffer(b.buf); } };
+    const dropBody = (body) => { for (const lv of [...(body.levels || [body.batches]), ...(body.gear || [])]) for (const b of lv) { gl.deleteVertexArray(b.vao); gl.deleteBuffer(b.buf); } };
+    // the close-up figure for anyone whose figure is ready (ballpark-figures.js), behind PARK_FIGURES.on
+    const figs = createBallparkFigures(gl);
     // the bind frames by height and build (diamond/cast.js buildOf), as each body was built in
     const binds = new Map();
     const bindOf = (scale, build) => {
@@ -1609,6 +1619,7 @@ export function createBallparkRenderer(canvas, opts = {}) {
       const sol = solvePose(build ? { ...pose, build } : pose);
       joints.set(slot, sol.J);
       palette.write(slot, skinRows(boneFrames(sol, frames), bindOf(pose.scale || 1, build), skinBuf));
+      figs.pose(slot, sol, frames);
     }
     // where the cast stands each man, by slot, for `idle`
     const rests = new Map();
@@ -1655,6 +1666,7 @@ export function createBallparkRenderer(canvas, opts = {}) {
       const want = new Map(cast.map((c) => [keyOf(c), { ...c, kit: kitOf(c) }]));
       // built hi-def at the near level while the comic look is on; a flip rebuilds that level (render)
       bodyHd = comicOn(); lastWant = want; hdQueue = [];
+      figs.setCast([...want.values()]);
       for (const [k, body] of bodies) if (!want.has(k)) { dropBody(body); bodies.delete(k); }
       queue = [...want].filter(([k]) => !bodies.has(k));
       members = cast.map((c) => ({ key: keyOf(c), slot: c.look.slot }));
@@ -1680,8 +1692,9 @@ export function createBallparkRenderer(canvas, opts = {}) {
     // first, so a man is on the field as soon as his far level is up.
     // One level of one man's body, built and uploaded. The near level is hi-def while the comic
     // look is on (ballplayer-mesh.js createPlayerSet `hd`).
-    function buildLevel(c, lod) {
-      const look = lookOf({ ...c.look, scale: c.scale, ...(c.kit ? { kit: c.kit } : {}) });
+    // `part` 'gear' builds only what he wears over the close-up figure (ballpark-figures.js)
+    function buildLevel(c, lod, part = null) {
+      const look = lookOf({ ...c.look, scale: c.scale, ...(c.kit ? { kit: c.kit } : {}), ...(part ? { part } : {}) });
       const G = createPlayerSet({ skin: true, lod, hd: bodyHd });
       buildBody(G, look);
       return [...G.batches].map(([k, b]) => ({ key: k, ...uploadSkin(b) }));
@@ -1690,9 +1703,18 @@ export function createBallparkRenderer(canvas, opts = {}) {
       const t0 = performance.now();
       while (queue.length && performance.now() - t0 < budget) {
         const [key, c] = queue.shift();
-        const levels = [];
+        const levels = [], gear = [];
         for (let lod = PLAYER_LODS - 1; lod >= 0; lod--) levels[lod] = buildLevel(c, lod);
-        bodies.set(key, { batches: levels[0], levels });
+        // his gear alone, for when he's drawn as the close-up figure: built while the switch is on
+        if (PARK_FIGURES.on) for (let lod = PLAYER_LODS - 1; lod >= 0; lod--) gear[lod] = buildLevel(c, lod, 'gear');
+        bodies.set(key, { batches: levels[0], levels, gear: gear.length ? gear : null, c });
+      }
+      // the switch turned on since a body was built: its gear, a body or two a frame
+      if (PARK_FIGURES.on) for (const [, body] of bodies) {
+        if (body.gear || !body.c || performance.now() - t0 >= budget) continue;
+        const gear = [];
+        for (let lod = PLAYER_LODS - 1; lod >= 0; lod--) gear[lod] = buildLevel(body.c, lod, 'gear');
+        body.gear = gear;
       }
       refreshCasters();
       return queue.length;
@@ -2044,6 +2066,24 @@ export function createBallparkRenderer(canvas, opts = {}) {
       batDraw.n = batBatch.n;
     }
 
+    // ── the Cup in a champion's hands ───────────────────────────────────────────
+    // setCup({ base, up, yaw }) or null: the Memorial Cup off its table and where a man holds it
+    // (diamond/ceremony.js cupAt), rewritten into one stream each frame it moves; the table's drawn
+    // bare meanwhile. Null puts it back on the table.
+    const cupBatch = createBatch(CUP_VERTS), cupDraw = { key: 'trophy', ...upload(createBatch(1)) };
+    let cupHeld = null;
+    function setCup(c) {
+      const ok = c && Array.isArray(c.base) && c.base.every(Number.isFinite);
+      if (!ok) { cupHeld = null; cupDraw.n = 0; return; }
+      const key = `${c.base.map((v) => v.toFixed(3))}|${(c.up || []).map((v) => v.toFixed(3))}|${(c.yaw || 0).toFixed(3)}`;
+      if (key === cupHeld && cupDraw.n) return;
+      cupHeld = key;
+      cupBatch.n = 0;
+      cupInto(cupBatch, c.base, c.up || [0, 1, 0], c.yaw || 0);
+      cupDraw.st.write(cupBatch.data, cupBatch.n * STRIDE);
+      cupDraw.n = cupBatch.n;
+    }
+
     // ── the infield's marks ───────────────────────────────────────────────────
     // The dirt keeps the game (diamond/marks.js, painted by dirt.js paintMark): this park's own
     // copy of the infield canvas, made at the first mark, and only the rects the marks touch go up
@@ -2158,11 +2198,21 @@ export function createBallparkRenderer(canvas, opts = {}) {
     // rows and the towers' lights under them, which are all that's left on the field, carry it: up to
     // SKY_IN more with the roof shut at noon, and nothing at night. 'day' is the sky's, 0 to 1.
     const SKY_IN = 0.9;
+    // A home run's light show (diamond/spectacle.js planLights, set by setLightShow and read at
+    // the frame's time with lightsAt): each light's white goes down by the show's `out` and its
+    // colour comes up by its `flash`, SHOW.flash times as bright as the white it stands in for, and
+    // by day with the roof open SHOW.day times more again, so the colour shows with the sun up.
+    // Under the shut roof by day the sky through the glazing (the ambient) goes down by SHOW.amb of
+    // the way too, or the park never went dark. The scoreboard, the videoboard and the signs keep
+    // their own light.
+    const SHOW = { flash: 1.4, day: 2, amb: 0.85 }, NO_COLOUR = [0, 0, 0];
+    let showPlan = null, showT = 0, showNow = null;
     function placeLights(p, day = 0) {
-      const sky = 1 + SKY_IN * p * day;
+      const sky = 1 + SKY_IN * p * day, s = showNow;
+      const w = s ? 1 - s.out : 1, f = s ? s.flash * SHOW.flash * (1 + SHOW.day * day * (1 - p)) : 0, c = s ? s.colour : NO_COLOUR;
       roofLights(lightsOf, p).forEach((L, i) => {
         const k = lightK[i] * L.k * sky;
-        LPos.set(L.lamp, i * 3); LCol.set([k, k * 0.965, k * 0.9], i * 3); LDir.set(L.dir, i * 3);
+        LPos.set(L.lamp, i * 3); LCol.set([k * (w + f * c[0]), k * (0.965 * w + f * c[1]), k * (0.9 * w + f * c[2])], i * 3); LDir.set(L.dir, i * 3);
         LRef[i] = L.dir[1] < -0.05 ? Math.min(900, L.lamp[1] / -L.dir[1]) : 400;
         const row = lightsOf[i].kind === 'deck' || L.lamp !== lightsOf[i].lamp, hl = Math.hypot(L.dir[0], L.dir[2]) || 1;
         LRad[i] = row ? 4 : FLOOD.bank / 2; LLen[i] = row ? FLOOD.row / 2 : 0;
@@ -2323,7 +2373,7 @@ export function createBallparkRenderer(canvas, opts = {}) {
     }
 
     // this frame's ambient from above and sky, with any bolt's flash in them
-    let frameUp = look.up, frameZen = look.zen, frameHor = look.hor, frameAway = look.horAway;
+    let frameUp = look.up, frameDn = look.dn, frameZen = look.zen, frameHor = look.hor, frameAway = look.horAway;
     // the light on the streets: the sky's, and the sodium lamps' once they're on (gl/streetlife.js)
     const SODIUM_FILL = [1.0, 0.46, 0.13];
     const streetLook = (q) => ({
@@ -2350,7 +2400,7 @@ export function createBallparkRenderer(canvas, opts = {}) {
 
     function lights(P, eye) {
       gl.uniform3fv(P.u('uLPos'), LPos); gl.uniform3fv(P.u('uLCol'), LCol); gl.uniform3fv(P.u('uLDir'), LDir);
-      gl.uniform3fv(P.u('uEye'), eye); gl.uniform3fv(P.u('uSkyUp'), frameUp); gl.uniform3fv(P.u('uSkyDn'), look.dn);
+      gl.uniform3fv(P.u('uEye'), eye); gl.uniform3fv(P.u('uSkyUp'), frameUp); gl.uniform3fv(P.u('uSkyDn'), frameDn);
       const q = api.quality;
       gl.uniform3fv(P.u('uFogCol'), look.fog); gl.uniform1f(P.u('uFogDens'), q.fog ? look.fogDens : 0); gl.uniform1f(P.u('uFogH'), NIGHT.fogH);
       gl.uniform1f(P.u('uShaft'), q.fog ? NIGHT.shaft : 0); gl.uniform1f(P.u('uShaftReach'), NIGHT.shaftReach);
@@ -2385,11 +2435,17 @@ export function createBallparkRenderer(canvas, opts = {}) {
       let tris = 0, draws = 0;
       // where the roof has got to, and the lights with it; under it, nothing falls on the camera
       roofNow = roofT.at(clock());
-      placeLights(roofNow, 1 - Math.min(1, Math.max(0, +look.night || 0)));
+      showNow = lightsAt(showPlan, showT);
+      const dayNow = 1 - Math.min(1, Math.max(0, +look.night || 0));
+      placeLights(roofNow, dayNow);
       const underRoof = roofNow > 0.5 && insideOutline(park.outline, M.eye);
       for (const d of lampDraws) d.emis = d.kind === 'tower' ? Math.max(0, 1 - 2 * roofNow) : d.kind === 'deck' ? 1 : look.lights;
+      // the lamps' own glow through the show (LIT_FS uShowLamp): white down, the colour up
+      const showLamp = showNow ? showNow.colour.map((c) => c * showNow.flash * SHOW.flash - showNow.out) : null;
       const flash = weather.flashAt(), add3 = (a, b) => [a[0] + b[0], a[1] + b[1], a[2] + b[2]];
       frameUp = flash ? add3(look.up, flash.up) : look.up;
+      frameDn = look.dn;
+      if (showNow && roofNow > 0) { const k = 1 - showNow.out * SHOW.amb * roofNow * dayNow; frameUp = frameUp.map((v) => v * k); frameDn = frameDn.map((v) => v * k); }
       frameZen = flash ? add3(look.zen, flash.sky) : look.zen; frameHor = flash ? add3(look.hor, flash.sky) : look.hor; frameAway = flash ? add3(look.horAway, flash.sky) : look.horAway;
 
       // the players' poses, sent once for the shadows and the picture both
@@ -2436,6 +2492,7 @@ export function createBallparkRenderer(canvas, opts = {}) {
             for (const d of opaque) { gl.bindVertexArray(d.vao); gl.drawArrays(gl.TRIANGLES, 0, d.n); }
             if (ballAt) { gl.bindVertexArray(ballDraw.vao); gl.drawArrays(gl.TRIANGLES, 0, ballDraw.n); }
             if (batDraw.n) { gl.bindVertexArray(batDraw.vao); gl.drawArrays(gl.TRIANGLES, 0, batDraw.n); }
+            if (final && champ && cupDraw.n) { gl.bindVertexArray(cupDraw.vao); gl.drawArrays(gl.TRIANGLES, 0, cupDraw.n); }
             for (const d of shells) {
               const s = shellShift(d.i, roofNow);
               gl.uniform3f(STD.u('uShift'), s[0], s[1], s[2]);
@@ -2522,7 +2579,9 @@ export function createBallparkRenderer(canvas, opts = {}) {
       litSetup(LIT);
       drawSet(opaque, 1);
       if (jumboDraw) { gl.uniform1f(LIT.u('uScreen'), 1); drawSet([jumboDraw], 1); gl.uniform1f(LIT.u('uScreen'), 0); }
+      if (showLamp) gl.uniform3fv(LIT.u('uShowLamp'), showLamp);
       drawSet(lampDraws, 1);
+      if (showLamp) gl.uniform3f(LIT.u('uShowLamp'), 0, 0, 0);
       // the roof's shells, each where the roof has got to on its rails
       for (const d of shells) {
         const s = shellShift(d.i, roofNow);
@@ -2531,7 +2590,7 @@ export function createBallparkRenderer(canvas, opts = {}) {
       }
       gl.uniform3f(LIT.u('uShift'), 0, 0, 0);
       if (final && dress) drawSet(dress.opaque, 1);
-      if (final && champ && dress) drawSet([dress.trophy], 1);
+      if (final && champ && dress) drawSet(cupDraw.n ? [dress.table, cupDraw] : [dress.trophy], 1);
       if (TEX.sign) drawSet([signDraw], 1);
       if (ballAt) drawSet([ballDraw], 1);
       if (batDraw.n) drawSet([batDraw], 1);
@@ -2586,10 +2645,15 @@ export function createBallparkRenderer(canvas, opts = {}) {
       gl.uniform3f(LIT.u('uShift'), 0, 0, 0); gl.uniform1f(LIT.u('uGlass'), 0);
       gl.disable(gl.BLEND); gl.depthMask(true);
       const detail = q.detail ?? 2;
+      // who's drawn as the close-up figure this frame (ballpark-figures.js): only his gear from here,
+      // the figure itself after the players
+      const asFig = figs.prepare(shown, M, h);
+      const levelsOf = (m, body) => (asFig.has(m.slot) && body.gear ? body.gear : body.levels || [body.batches]);
+      const inkOn = !!(SKINK && CEL_TUNE.on && CEL_TUNE.ink && q.ink !== false);
       // the ink round the players (gl/cel-figure.js), first, so each man's lit body covers its
       // inside: at the level of detail he's lit at, and not the alpha-tested pieces (the catcher's
       // mask), whose holes the line would fill. Not on a tier without it (diamond/quality.js ink).
-      if (SKINK && CEL_TUNE.on && CEL_TUNE.ink && q.ink !== false) {
+      if (inkOn) {
         const u = w / 900;
         gl.useProgram(SKINK.p);
         gl.uniformMatrix4fv(SKINK.u('uVP'), false, M.viewProj);
@@ -2608,7 +2672,8 @@ export function createBallparkRenderer(canvas, opts = {}) {
             const body = bodies.get(m.key);
             if (!body) continue;
             gl.uniform1i(SKINK.u('uBoneRow'), m.slot);
-            for (const d of body.levels?.[lodOf(m.slot, M.viewProj, h, detail)] || body.batches) {
+            const lv = levelsOf(m, body);
+            for (const d of lv[lodOf(m.slot, M.viewProj, h, detail)] || lv[0]) {
               if (ALPHA_TEST.has(d.key)) continue;
               gl.bindVertexArray(d.vao); gl.drawArrays(gl.TRIANGLES, 0, d.n);
               tris += d.n / 3; draws++;
@@ -2634,29 +2699,45 @@ export function createBallparkRenderer(canvas, opts = {}) {
         gl.uniform4f(SKLIT.u('uKitCell'), cell[0], cell[1], cell[2], cell[3]);
         const wr = wear.get(m.key);
         gl.uniform2f(SKLIT.u('uWear'), wr ? wr[0] : 0, wr ? wr[1] : 0);
-        drawSet(body.levels?.[lodOf(m.slot, M.viewProj, h, detail)] || body.batches, 1, SKLIT);
+        const lv = levelsOf(m, body);
+        drawSet(lv[lodOf(m.slot, M.viewProj, h, detail)] || lv[0], 1, SKLIT);
+      }
+      // and the close-up figures, in the park's light: the low sun, the towers, the sky
+      if (asFig.size) {
+        const towers = [];
+        for (let i = 0; i < 6; i++) towers.push({ p: [LPos[i * 3], LPos[i * 3 + 1], LPos[i * 3 + 2]], col: [LCol[i * 3], LCol[i * 3 + 1], LCol[i * 3 + 2]] });
+        const n = figs.draw(asFig, M, w, h, { towers, sun: sunNow, up: frameUp, dn: frameDn, night: look.night, comic: comicOn(), centre: [0, 0, 60] }, worldT, inkOn, TEX.kit);
+        draws += n;
       }
 
       // the crowd
       if (crowd.length && !empty) {
-        gl.useProgram(CROWD.p);
-        lights(CROWD, M.eye);
-        shadows.bind(CROWD.u, 4, q.light !== 0 && q.light !== false ? 1 : 0);
-        gl.uniformMatrix4fv(CROWD.u('uVP'), false, M.viewProj); cutUniforms(CROWD);
-        gl.uniform2f(CROWD.u('uRoar'), roar.home, roar.away); gl.uniform4fv(CROWD.u('uLagH'), roarLag.home); gl.uniform4fv(CROWD.u('uLagA'), roarLag.away); gl.uniform1f(CROWD.u('uT'), roar.t); gl.uniform1f(CROWD.u('uMove'), roar.move); fanUniforms(CROWD);
-        lookAtPlay(roar.t);
-        gl.uniform3f(CROWD.u('uLook'), crowdLook.x, crowdLook.z, crowdLook.w); gl.uniform4fv(CROWD.u('uNear'), seatDrop);
-        const share = crowdShare(), close = (q.fans ?? 1) >= 2 && M.fov > 0 && M.fov <= CLOSE_FOV;
+        const share = crowdShare(), ready = fansReady();
         const cards = q.cards !== false && q.cards !== 0;
-        if (cards) splitCrowd(crowd, M, h, share); else unsplitCrowd(crowd);
-        for (const d of crowd) {
-          const k = cards && d.figs != null ? d.figs : Math.round(d.count * share);
-          if (!k) continue;
-          const n = close ? d.nNear : d.n;
-          gl.uniform1f(CROWD.u('uBase'), d.base); gl.bindVertexArray(close ? d.near : d.vao); gl.drawArraysInstanced(gl.TRIANGLES, 0, n, k); tris += n / 3 * k; draws++;
+        splitCrowd(crowd, M, h, share, cards, nearPxOf(q), ready);
+        if (ready) {
+          gl.useProgram(CROWD.p);
+          lights(CROWD, M.eye);
+          shadows.bind(CROWD.u, 4, q.light !== 0 && q.light !== false ? 1 : 0);
+          gl.uniformMatrix4fv(CROWD.u('uVP'), false, M.viewProj); cutUniforms(CROWD);
+          gl.uniform4fv(CROWD.u('uLagH'), roarLag.home); gl.uniform4fv(CROWD.u('uLagA'), roarLag.away); gl.uniform1f(CROWD.u('uT'), roar.t); gl.uniform1f(CROWD.u('uMove'), roar.move); fanUniforms(CROWD);
+          lookAtPlay(roar.t);
+          gl.uniform3f(CROWD.u('uLook'), crowdLook.x, crowdLook.z, crowdLook.w); gl.uniform4fv(CROWD.u('uNear'), seatDrop);
+          gl.uniform3fv(CROWD.u('uEyeC'), M.eye);
+          // the far level, then the near one
+          for (const [lv, near] of [[fanGpu.far, false], [fanGpu.near, true]]) {
+            if (!crowd.some((d) => (near ? d.near : d.figs))) continue;
+            bindFan(gl, CROWD, lv, crowd.towels ? 1 : 0);
+            for (const d of crowd) {
+              const k = near ? d.near : d.figs;
+              if (!k) continue;
+              gl.uniform1f(CROWD.u('uBase'), d.base); gl.bindVertexArray(near ? d.nearVao : d.vao);
+              gl.drawElementsInstanced(gl.TRIANGLES, lv.n, gl.UNSIGNED_SHORT, 0, k); tris += lv.tris * k; draws++;
+            }
+          }
         }
         // and the far ones as cards, two triangles each
-        if (cards && crowd.some((d) => d.cards)) {
+        if (crowd.some((d) => d.cards)) {
           gl.useProgram(CARD.p);
           lights(CARD, M.eye);
           gl.uniformMatrix4fv(CARD.u('uVP'), false, M.viewProj); cutUniforms(CARD);
@@ -2666,7 +2747,6 @@ export function createBallparkRenderer(canvas, opts = {}) {
             if (!d.cards) continue;
             gl.uniform1f(CARD.u('uBase'), d.base); gl.bindVertexArray(d.cardVao); gl.drawArraysInstanced(gl.TRIANGLES, 0, 6, d.cards); tris += 2 * d.cards; draws++;
           }
-          gl.useProgram(CROWD.p);
         }
       }
 
@@ -2778,8 +2858,10 @@ export function createBallparkRenderer(canvas, opts = {}) {
         for (const d of [...opaque, ...translucent, ...lampDraws, ...shells, signDraw, ballDraw, fxDraw, matDraw, ...(jumboDraw ? [jumboDraw] : [])]) { gl.deleteVertexArray(d.vao); gl.deleteBuffer(d.st.buf); }
         dropCity();
         dropCrowd(homeCrowd); if (fullCrowd) dropCrowd(fullCrowd);
+        dropFan(gl, fanGpu.far); dropFan(gl, fanGpu.near);
         dropRoom(); if (tvFbo) gl.deleteFramebuffer(tvFbo);
-        if (dress) for (const d of [...dress.opaque, dress.trophy]) { gl.deleteVertexArray(d.vao); gl.deleteBuffer(d.st.buf); }
+        if (dress) for (const d of [...dress.opaque, dress.trophy, dress.table]) { gl.deleteVertexArray(d.vao); gl.deleteBuffer(d.st.buf); }
+        gl.deleteVertexArray(cupDraw.vao); gl.deleteBuffer(cupDraw.st.buf);
         for (const body of bodies.values()) dropBody(body);
         bodies.clear();
         palette.dispose();
@@ -2798,7 +2880,7 @@ export function createBallparkRenderer(canvas, opts = {}) {
       if (!on) { final = null; champ = false; crowd = homeCrowd; return; }
       if (!dress) {
         const d = buildDress(opts.venue);
-        dress = { opaque: [...d.opaque].map(([key, b]) => ({ key, ...upload(b) })), trophy: { key: 'trophy', ...upload(d.trophy) } };
+        dress = { opaque: [...d.opaque].map(([key, b]) => ({ key, ...upload(b) })), trophy: { key: 'trophy', ...upload(d.trophy) }, table: { key: 'trophy', ...upload(d.table) } };
       }
       if (!final || final.name !== f.name) {
         if (TEX.finalLogo) gl.deleteTexture(TEX.finalLogo);
@@ -2935,14 +3017,20 @@ export function createBallparkRenderer(canvas, opts = {}) {
       // no city: where the fly-in before a game comes down to (diamond/camera.js approachShot)
       get streetCam() { return streetCam; },
       setRoom, setRoomDim, get roomDim() { return roomDim; }, renderTv, setTvImage, get room() { return room ? room.L : null; },
-      setFinal, setChampion: (on) => { champ = !!on; },
+      setFinal, setChampion: (on) => { champ = !!on; if (!champ) setCup(null); }, setCup,
       // setEmpty(on): no game on, so the park draws without its players or its crowd
       setEmpty: (on) => { empty = !!on; }, get empty() { return empty; }, get final() { return final ? { ...final, champion: champ } : null; },
       // setFanColours(home, away): the two clubs' colours as linear [r, g, b], which 30% and 10%
       // of the fans wear (gl/crowd.js); null takes them off
       setFanColours: (home, away) => { fanKit.on = home && away ? 1 : 0; if (fanKit.on) { fanKit.home = [...home]; fanKit.away = [...away]; } },
+      // setLightShow(show, t): a home run's light show (diamond/spectacle.js planLights) and the live
+      // world's time to draw it at; null, or a time outside it, leaves the lights alone. `show` is
+      // what lightsAt makes of the last one at the last time given, for the gates.
+      setLightShow: (s, t) => { showPlan = s || null; showT = +t || 0; },
+      get show() { return lightsAt(showPlan, showT); },
       setCrowd: (levels, t, move = true) => { roar.home = +levels?.[0] || 0; roar.away = +levels?.[1] || 0; roar.t = +t || 0; roar.move = move ? 1 : 0; roarLag.push(roar.t, roar.home, roar.away); },
-      pending: () => queue.length,
+      // bodies to build, and while the close-up figure is on, the gear of any body built before it was
+      pending: () => queue.length + (PARK_FIGURES.on ? [...bodies.values()].filter((b) => !b.gear && b.c).length : 0),
       get park() { return park; },
       // what the city came to: { buildings, filler, lamps, tris, placed, bearing, … }, or null
       get city() { return city?.stats || null; },

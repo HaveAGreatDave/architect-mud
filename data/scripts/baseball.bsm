@@ -3,7 +3,9 @@
 @category sport
 @type sports
 @sport baseball
-@sim 3
+# v4 runs on two out (plugins/broadcast/sports/baseball.js TWO_OUT_SEND); the server starts it
+# from the next game day, and every game before that replays as it aired.
+@sim 4
 # The First Generation: two augmented or mutant players drafted into each club a season
 # (client/shared/deadball-gen1.js). Take the line out, or say off, and the clubs are as they were.
 @firstgen on
@@ -613,6 +615,57 @@ Big lead, and the bleachers are thinning out. The ones who stay are the ones wit
 Not much doubt about this one. || There's always doubt, {chip}. I saw a team blow a nine-run lead in this park. || What happened? || The lights went out for twenty minutes and they came back on cold.
 They're playing it out. Somebody's going to have a nice line in the box score out of this.
 A blowout, but it still counts the same in the standings. Ask anybody who finished a game back.
+::endlines
+
+# --- A man the play put in scoring position and left there (baseball-booth.js risp). Said after
+# the play, twice a half-inning at most, and it stands in for the next man's sit.risp. Tokens:
+# {runner} the man, {bag} 'second' or 'third', and the at-bat's own ({team}, {fielding}, {pitcher}).
+# risp.tying and risp.ahead are from the 7th on, when he's the tying or the go-ahead run.
+::lines risp
+{runner}'s at {bag} now. That's scoring position for the {team}.
+And {runner} moves up to {bag}. A base hit scores him.
+{runner} into scoring position. {pitcher} has some work to do.
+That gets {runner} to {bag}. The {team} have something going.
+{runner} at {bag}. || A single brings him in. || That's the idea.
+Now there's a man in scoring position. {pitcher} looks over at {bag} and doesn't like what he sees.
+{runner} on {bag}, and the {fielding} infield takes a step in.
+Scoring position for {runner}. That's what the {team} have been after all inning.
+::endlines
+
+::lines risp.third
+{runner} at third with less than two out. A fly ball does it.
+Ninety feet away, {runner}. A ground ball to the right side might do it.
+{runner}'s on third, and there's not two out. || {pitcher} needs a strikeout here. || Or a pop-up. Anything but a fly ball.
+Man on third, fewer than two out. The {fielding} bring the infield in.
+{runner} on third. Any kind of contact and he's coming.
+Runner at third, one out at most. This is where you get a run without a hit.
+::endlines
+
+::lines risp.twoout
+{runner} gets to {bag}, but there's two out. They need a hit.
+Two out, {runner} in scoring position. He's running on contact.
+{runner} on {bag} with two away. He goes on anything.
+Scoring position, two out. || It's a base hit or nothing. || It usually is, {dusty}.
+{runner}'s at {bag}. Two out, so he's gone with the crack of the bat.
+Two down, and {runner}'s in scoring position. {pitcher} needs one more out.
+::endlines
+
+::lines risp.tying
+That's the tying run at {bag}. {runner}.
+{runner} at {bag}, and he's the tying run. The place is on its feet.
+The tying run is in scoring position. {pitcher} steps off the rubber. || I'd step off too.
+Tying run at {bag}. This is the inning the {team} needed.
+{runner} gets to {bag}, and the {team} have the tying run in scoring position.
+The tying run's at {bag}. {pitcher} has to get out of this, and he knows it.
+::endlines
+
+::lines risp.ahead
+And now the go-ahead run's at {bag}. {runner}.
+{runner} at {bag} is the go-ahead run. One hit and the {team} lead.
+Go-ahead run in scoring position. Nobody's sitting down for this.
+That's the lead run at {bag}. || The {fielding} have to stop it here. || They will if {pitcher} throws strikes.
+{runner} to {bag}. The go-ahead run, late, and the {team} dugout is up on the rail.
+The go-ahead run's in scoring position. It's quiet in here, and it shouldn't be.
 ::endlines
 
 # --- The changeover: the starters, the leaders, the table, the stretch, the drag.
@@ -1859,6 +1912,52 @@ CHAMPIONS! The {leader} take the whole thing, {homeScore} to {awayScore}! A seas
 That's your ballgame and your SEASON! The {leader} take the Curtain Call! {away} {awayScore}, {home} {homeScore}. Somewhere, a bookie weeps into his ledger.
 ::endlines
 
+# --- The champions on the field, then the Cup -----------------------------------
+# Said after the final's last line while the field celebrates (the Grandstand's mob, diamond/ceremony.js),
+# Chip first and Dusty after the ||. {leader} won, {loser} lost, {score} is "5 to 3", {mvp} is the
+# night's best man on the winning side and {mvpLine} his line ("2 for 4, a home run, 3 runs batted in");
+# {decider} drove in the run that put them ahead for good, in the {deciderOrd}; {record} is their season
+# going in and {seedSaid} their seed ("the top seed"). {cup} is the trophy's name.
+::lines worldseries.celebrate.game
+Look at them go. The {leader} are all over each other out there. {score}, and they'll take it any way it comes. || {decider} put them in front in the {deciderOrd}. They never gave it back.
+They're piling on at the mound and nobody wants to get up. || {decider} did it, {chip}. The run in the {deciderOrd}, and the {loser} never caught up.
+The whole bench is out on the grass. Listen to this place. || {mvp} went {mvpLine}. You don't do much better than that in the last game of the year.
+::endlines
+
+::lines worldseries.celebrate.game.nodecider
+Look at them go. The {leader} are all over each other out there. || {mvp} went {mvpLine}. That's the game right there.
+They're piling on at the mound and nobody wants to get up. || {score}. It wasn't pretty and nobody out there cares.
+::endlines
+
+::lines worldseries.celebrate.season
+{record} in the regular season, {seedSaid}, and now this. || They were the best team all year, and tonight they proved it.
+They came in {seedSaid} at {record}. A lot of people picked against them. || Not me. || You picked against them in April. || That was April.
+{record} going in. Not everybody had the {leader} here. || They had themselves here. That's what counts.
+::endlines
+
+::lines worldseries.celebrate.loser
+Spare a thought for the {loser}. They're walking off and nobody's looking at them. || They'll be back. || Will they? || Probably. Most people come back.
+The {loser} are back in their dugout already. It's a long walk from the mound. || Longer when you lose.
+::endlines
+
+# The ceremony. The first carries the cup's payload: the park cuts to the trophy's table, the champions round it.
+# {star1} lifts it first; {star2} and {star3} after him.
+::lines worldseries.cup
+And here it comes. The {cup}, out to the {leader}. Sir Charles's own cup, and it's theirs for a month.
+Time for the hardware. The {cup}. The {leader} are gathered round it and they haven't stopped jumping yet.
+The {cup} is on the table by the mound, and the {leader} are coming to get it.
+::endlines
+
+::lines worldseries.cup.lift
+{star1} gets it first. Up over his head it goes! || He's earned that. {mvpLine} tonight.
+There's {star1} with the {cup}! Up it goes, and the place goes with it. || Don't drop it, son. || He won't drop it.
+::endlines
+
+::lines worldseries.cup.pass
+Now it's {star2}'s turn. And then {star3}. || They'll all get a go. Nobody's leaving till they do.
+There's {star2} with it now. Look at his face. || That's a man who's going to sleep with it tonight.
+::endlines
+
 ::lines worldseries.outro
 The {leader} are champions. The rest of us go back to nothing. Chip Vega. Good night, and long live the kings, however briefly.
 Champions crowned, season buried. Chip Vega signing off on the Curtain Call. Same dirt tomorrow, but tonight belongs to the {leader}.
@@ -1919,6 +2018,77 @@ For the {club}, {star} is the bat to watch, {starSaid}. {next} gets the ball, {n
 Keep an eye on {star} for the {club}, {starSaid}.
 ::endlines
 
+# =============================================================================
+# THE CURTAIN CALL DURING THE GAME (plugins/broadcast/sports/baseball-booth.js, the final)
+# The final's facts come from its package (final-package.js): {club} {record} {place} {last10}
+# {streak} for the club coming up, told at the changeovers from the 2nd to the 5th; the season
+# series {leader} {trailer} {leadWins} {trailWins} {meetings} once from the 4th. {final} is the
+# final's name. final.outs from the 7th, once a half, with {outsLeft} and {lead}; final.pressure
+# from the 6th in a big spot, once a half; final.stakes after a run: the lead changing hands, the
+# game tied, or a lead stretched from the 6th ({lead}).
+# =============================================================================
+
+::lines final.road
+The {club} came in at {record}, {place} in the table. They went {last10} over their last ten to get here.
+How the {club} got here: {record} on the year, {place} in the table, and they've {streak}.
+The {club} finished {place} at {record}. || Not everybody had them here. || You did? || I pick everybody, {chip}.
+{record} for the {club} this season, and {last10} in their last ten. A team playing like that doesn't scare easy.
+The {club} went {last10} down the stretch. That's how you end up playing on the last night of the season.
+::endlines
+
+::lines final.series
+These two met {meetings} times this season, and the {leader} won {leadWins}. None of that counts now.
+The {leader} had the better of the season series, {leadWins} to {trailWins}. || Doesn't matter tonight. || It matters to the {trailer}. They remember every one of them.
+The {trailer} only beat the {leader} {trailWins} times this year. They need one more, tonight.
+::endlines
+
+::lines final.series.even
+They split it {leadWins} apiece during the season. Tonight's the one that counts.
+Even in the season series, {leadWins} each. You couldn't draw it up closer.
+::endlines
+
+::lines final.outs
+The {fielding} are {outsLeft} outs from the {final}.
+{outsLeft} outs. That's all that's between the {fielding} and the {final}. || Don't count them yet. || Everybody in the building is counting them, {dusty}.
+{pitcher} knows how many outs are left. Everybody here knows. It's {outsLeft}.
+The {fielding} lead by {lead}, {outsLeft} outs to go. || That's a long way in a game like this. || It's the shortest it's been all season.
+{outsLeft} outs from a title for the {fielding}. The {team} need something, and soon.
+The {team} are running out of outs. {outsLeft} left, down {lead}, and the {final} on the line.
+::endlines
+
+::lines final.pressure
+This is what the whole season was for. {batter} against {pitcher}, and it's on both of them.
+What's it like on the mound in a spot like this, {dusty}? || Lonely. Everybody in the place is watching you breathe.
+{batter}'s been up in big spots all year. None like this one.
+Nobody's sitting down. Nobody's buying a beer. {pitcher} looks in.
+{batter} steps out and takes a breath. || He's allowed to be nervous here. Anybody who says they aren't is lying.
+Every pitch now, one of these clubs gets a little closer. {pitcher} to {batter}.
+My hands are sweating, {dusty}, and I'm only calling it. || Try holding the ball.
+Big spot in the {final}, and {pitcher} needs this one.
+::endlines
+
+::lines final.stakes.lead
+And the {team} lead the {final}. That changes everything.
+The {team} go in front. The {fielding} have to answer now.
+That's the lead, in the last game of the year. || Somebody's going to be telling people about that swing for a long time.
+The {team} take the lead. It's very quiet in the {fielding} dugout.
+Lead change in the {final}. You couldn't ask for more than this.
+::endlines
+
+::lines final.stakes.tie
+And it's all square. The {final} starts over from here.
+Tied. A whole season, and it's level again.
+The {team} tie it. || That's what a champion does. || Neither of them's a champion yet.
+Level again. You can hear the {team} fans from up here.
+::endlines
+
+::lines final.stakes.more
+That's room to breathe for the {team}. In a game like this, every run counts double.
+The {team} add on. The {fielding} need more than one swing now.
+Up {lead} now, and the {fielding} are running out of innings.
+The {team} push it to {lead}. You can see the {fielding} bench sag.
+::endlines
+
 # --- One out away: the half that ends the game, two out, the fielding side ahead. Said
 # --- once, before the pitches. {fielding} is the side in the field, {batting} the side up.
 ::lines lastout.up
@@ -1965,6 +2135,104 @@ Chip Vega, signing off. Same dirt, same dread, tomorrow. Stay off the field.
 We've lost the picture from {venue}. The game's still going. We'll get you back there as soon as the line's up.
 No pictures from {venue} for the moment. They're still playing, and the score's in the corner.
 The feed from {venue} has gone down. Somebody's been sent to find out why. The game goes on without us.
+::endlines
+
+# =============================================================================
+# THE CLUBS' HISTORY (plugins/broadcast/sports/club-lore.js)
+# What the booth knows about each club's past, worked out from the league's closed seasons:
+# Curtain Calls won and lost, droughts, and where each club finished the last five months. Told at
+# the changeovers: before the first pitch the two clubs' finals against each other and the bigger
+# story, then now and then from the 3rd to the 8th. Four a game at most. Dusty opens these.
+# Tokens: as Cluster Puck's history pools (data/scripts/hockey.bsm), plus {chip} {dusty}.
+# =============================================================================
+
+::lines lore.dynasty
+The {club} have won the Curtain Call {streakSaid} months running. || Somebody's going to have to take it off them. || Nobody's managed it yet.
+The {club} beat the {beat} {finalScore} for their last one. That's {streakSaid} in a row. || You were there? || I'm at all of them, {chip}.
+Every month the {club} end up in the last game, and every month they win it. That's {streakSaid} in a row. || Somebody's keeping count. || I am.
+::endlines
+
+::lines lore.defending
+The {club} are the champions. They beat the {beat} {finalScore} in the Curtain Call last month.
+Defending champs, the {club}. || They don't play like it every night. || They played like it in the final.
+The {club} won it all last month. Every club they see wants a piece of them now.
+::endlines
+
+::lines lore.heartbreak
+The {club} have lost {lostStreakSaid} Curtain Calls in a row. || That's a hard thing to carry around. || The {beatenBy} beat them in the last one.
+The {club} keep getting to the last game and losing it. That's {lostStreakSaid} straight now.
+::endlines
+
+::lines lore.lastfinal
+The {club} were in the Curtain Call last month. The {beatenBy} beat them {finalScore}. || They've had a month to think about it. || That's long enough.
+The {club} were one game from the title last month. The {beatenBy} won that game {finalScore}.
+::endlines
+
+::lines lore.breakout
+The {club} are {place} in the table. Their best finish in the last {span} was {bestFinish}. || Somebody over there figured something out.
+I wouldn't have picked the {club} to be {place}. Their best finish in {span} was {bestFinish}.
+::endlines
+
+::lines lore.fallen
+The {club} won it all in {lastTitle}. They're {place} right now. || It goes quick in this game. || It does.
+The {club} were champions in {lastTitle}. They're {place} tonight.
+::endlines
+
+::lines lore.slump
+The {club} are {place}. They don't usually live down there. || They're not enjoying the view.
+Rough month for the {club}. They're {place} in the table, and they're used to the top three.
+::endlines
+
+::lines lore.titles
+The {club} have {titlesSaid}. The last one came in {lastTitle}.
+The {club} have won {titlesSaid}. That's more than most clubs in this league can say. The last was in {lastTitle}.
+::endlines
+
+::lines lore.drought
+The {club} last won it all in {lastTitle}. That's {sinceSaid} ago. || It feels longer if you're a fan. || Most things do.
+The {club} won the Curtain Call in {lastTitle}. Their fans still bring it up. That was {sinceSaid} ago.
+::endlines
+
+::lines lore.close
+The {club} have been to {finalsSaid} and lost all of them. The {beatenBy} beat them in the last one.
+The {club} have made {finalsSaid} and never won it. || They know how to get there. || It's the last game that gets them.
+::endlines
+
+::lines lore.never
+The {club} have never been to a Curtain Call. || Not once? || Not once.
+There's no title on the wall for the {club}, and no final either. Every month they say this is the one.
+::endlines
+
+::lines lore.rising
+The {club} finished {oldFinish} not long ago, and {lastFinish} last month. They're going the right way.
+The {club} are climbing. They went from {oldFinish} to {lastFinish}. || About time.
+::endlines
+
+::lines lore.falling
+The {club} were {oldFinish} not long ago. Last month they finished {lastFinish}. || Something's gone wrong over there. || Nobody will tell me what.
+The {club} have gone from {oldFinish} to {lastFinish} in a few months. That's a long way down.
+::endlines
+
+::lines lore.cellar
+The {club} have finished last {cellarSaid} in the last {span}. || They must be used to it. || Nobody gets used to it, {chip}.
+The {club} have been in last place {cellarSaid} in {span}. Their fans are a patient bunch.
+::endlines
+
+::lines lore.contender
+The {club} have finished in the top two {top2Said} in the last {span} and never won it. || Always close. || Close doesn't get your name on anything.
+::endlines
+
+::lines lore.rematch
+These two played for it all in the {lastFinalSeason} Curtain Call. The {lastWinner} won {finalScore}. || The {lastLoser} remember. || They remember.
+The last time the {lastWinner} and the {lastLoser} met with something on it, it was the Curtain Call. The {lastWinner} won it {finalScore}.
+::endlines
+
+::lines lore.rivalry
+The {club} and the {opponent} have met in the Curtain Call {metSaid}. The {lastWinner} won the last one.
+::endlines
+
+::lines lore.rivalry.owned
+The {club} and the {opponent} have met in the Curtain Call {metSaid}, and the {leader} won every time. || Every time? || Every time.
 ::endlines
 
 END

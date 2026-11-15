@@ -1,10 +1,11 @@
 // GLASS 2 · THE RINK'S CROWD, AND THE BOWL THEY SIT IN.
 //
 // A bowl of seats round the whole sheet, row on row behind the glass and following its rounded
-// corners, and a fan in as many of them as the night draws: Deadball's fan (gl/ballpark-mesh.js
-// crowdMorph), one figure in three poses, instanced once a seat, so a full house is one draw call.
-// The vertex shader is gl/crowd.js's turned onto the rink's axes (z up, not y): each fan sits until
-// the roar passes his own threshold, then stands and cheers on his own beat.
+// corners, and a fan in as many of them as the night draws: Deadball's fan (gl/fan-vat.js, his clips
+// baked into a texture), instanced once a seat, so a full house is two draw calls, the far level
+// and the near one. The vertex shader is gl/crowd.js's FAN_GLSL turned onto the rink's axes (z up,
+// not y): each fan sits until the roar passes his own threshold, then gets up and cheers on his own
+// beat.
 //
 //   · HOW FULL. The narrator puts `gate` on every payload, the share of the seats sold (a Cup
 //     final sells out, a grudge match or two of the best fill most of it, two of the worst about
@@ -26,6 +27,7 @@
 // Pure apart from the shaders' source: no DOM, no GL. arena.js owns the buffers and the draw.
 
 import { RL, RW, RC } from '../rink/geo.js';
+import { FAN_GLSL } from './crowd.js';
 
 export const LOWER = 16, ROWS = 30, ROW_D = 3, ROW_Z = 2.2, D0 = 4, Z0 = 4.2, SEAT_W = 2.2;
 // the walkway between the tiers, out and up
@@ -176,17 +178,12 @@ export function buildBowl(M, batches) {
   }
 }
 
-// The fans' vertex shader: gl/crowd.js's, on the rink's axes. The figure is built facing +z with
-// y up (ballpark-mesh.js); here it faces `yaw` across the rink with z up. A fan past the view's
-// `uHide` plane, or within uNear.w of the eye (uNear.xyz), is put outside the picture.
+// The fans' vertex shader: gl/crowd.js's fan (FAN_GLSL) on the rink's axes. The figure is built facing
+// +z with y up (gl/fan-vat.js); here it faces `yaw` across the rink with z up. A fan past the view's
+// `uHide` plane, or within uNear.w of the eye (uNear.xyz), is put outside the picture. uRoar is the
+// home fans' and the visitors' levels (roarOf), heard by everybody at once; a negative size (iB.w)
+// is a visitors' fan. Nothing holds the heads here, so a few wander on their own beat.
 export const RINK_CROWD_VS = `#version 300 es
-layout(location = 0) in vec3 aSit;
-layout(location = 1) in vec3 aSitN;
-layout(location = 2) in vec3 aStand;
-layout(location = 6) in vec3 aStandN;
-layout(location = 7) in vec3 aCheer;
-layout(location = 8) in vec3 aCheerN;
-layout(location = 9) in float aPart;
 layout(location = 3) in vec4 iA;
 layout(location = 4) in vec4 iB;
 layout(location = 5) in vec3 iC;
@@ -197,27 +194,25 @@ uniform float uT;
 uniform float uMove;
 uniform vec4 uHide;
 uniform vec4 uNear;
+uniform vec3 uEyeC;
 out vec3 vPos; out vec3 vN; out vec3 vAlb;
-float hash(vec2 p, vec2 k, float m) { return fract(sin(dot(p, k)) * m); }
+float hash(vec2 p, vec2 k, float m) { vec3 q = fract(vec3(p.xyx) * 0.1031 + vec3(k, m) * 0.00731); q += dot(q, q.yzx + 33.33); return fract((q.x + q.y) * q.z); }
+float heard(vec2 seat, float away) { return mix(uRoar.x, uRoar.y, away); }
+${FAN_GLSL}
 void main() {
   if (dot(uHide.xyz, iA.xyz) + uHide.w > 0.0 || distance(iA.xyz, uNear.xyz) < uNear.w) { vPos = vec3(0.0); vN = vec3(0.0, 0.0, 1.0); vAlb = vec3(0.0); gl_Position = vec4(2.0, 2.0, 2.0, 1.0); return; }
-  float h = hash(iA.xy, vec2(12.99, 78.23), 43758.5), h2 = hash(iA.xy, vec2(39.35, 11.13), 24634.6);
-  float roar = iB.w < 0.0 ? uRoar.y : uRoar.x;
-  float thr = 0.12 + 0.75 * h2, up = smoothstep(thr, thr + 0.18, roar);
-  vec3 p = up < 0.5 ? mix(aSit, aStand, up * 2.0) : mix(aStand, aCheer, up * 2.0 - 1.0);
-  vec3 n = up < 0.5 ? mix(aSitN, aStandN, up * 2.0) : mix(aStandN, aCheerN, up * 2.0 - 1.0);
-  float joy = up * uMove;
-  p.y += joy * 0.22 * max(0.0, sin(uT * 7.0 + h * 6.283));
-  p.x += joy * max(0.0, p.y - 3.0) * 0.06 * sin(uT * 4.3 + h2 * 6.283);
-  // seated, now and then he shifts in his seat
-  p.x += (1.0 - up) * max(0.0, p.y - 2.0) * 0.05 * sin(uT * 0.7 + h * 40.0);
-  p *= abs(iB.w);
+  float h = hash(iA.xy, vec2(12.99, 78.23), 43758.5), h9 = hash(iA.xy, vec2(88.1, 23.7), 27109.3);
+  float fidget = step(hash(iA.xy, vec2(44.9, 3.71), 29399.1), 0.2);
+  float yaw = 0.3 * fidget * uMove * sin(uT * 0.31 * (0.6 + 0.8 * h9) + h * 6.283);
+  fanPose(iA.xy, iB.w < 0.0 ? 1.0 : 0.0, 0.0, yaw, iB.rgb, iC);
+  vec3 p = fP * abs(iB.w), n = fN;
   float c = cos(iA.w), s = sin(iA.w);
   vec3 w = iA.xyz + vec3(-s * p.x + c * p.z, c * p.x + s * p.z, p.y);
   vN = vec3(-s * n.x + c * n.z, c * n.x + s * n.z, n.y);
-  vec3 pants = mix(vec3(0.05, 0.06, 0.09), vec3(0.16, 0.14, 0.11), h);
-  vAlb = aPart < 0.5 ? iC : (aPart < 1.5 ? iB.rgb : (aPart < 2.5 ? pants : vec3(0.04, 0.03, 0.025) + 0.06 * h));
+  vAlb = fAlb;
   vPos = w;
+  vec3 toEye = uEyeC - w; float de = length(toEye);
+  if (fFace > 0.5) w += toEye / max(de, 1e-3) * clamp(de * 0.0015, 0.01, 0.25);
   vec4 q = uVP * vec4(w, 1.0);
   q.xy += uShake * q.w;
   gl_Position = q;

@@ -111,6 +111,12 @@ export function finalPackage({ sport, final, away, home, rows = [], results = []
   const outTok = (side, team) => ((out[side] || []).length ? { club: team, missing: out[side].join(', '), count: word(out[side].length) } : null);
 
   return {
+    // each club's tape and road and the season series, as tokens, for the booth to tell during the
+    // game (baseball-booth.js, the final)
+    facts: {
+      clubs: { [away]: { ...tapeTok(tape.away), ...roadTok(road.away) }, [home]: { ...tapeTok(tape.home), ...roadTok(road.home) } },
+      series: { ...seriesTok, key: seriesKey },
+    },
     pages: [tape, road, pack],
     lines: [
       { page: 0, key: 'tape.club', tok: tapeTok(tape.away) },

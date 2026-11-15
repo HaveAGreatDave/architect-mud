@@ -29,7 +29,7 @@
 import { sportsShuffle, sportsRng, sportsHash } from '../rng.js';
 import { narrate } from './hockey-narrator.js';
 import { clubsRevOf } from './clubs.js';
-import { paceCalls } from './hockey-pacing.js';
+import { paceCalls, paceClock } from './hockey-pacing.js';
 
 // ── chance outcomes ──────────────────────────────────────────────────────────
 // Tuned so a game lands around 5–6 goals on 55–65 shots: roughly a 10–11% shooting
@@ -810,8 +810,21 @@ export function simGame(matchup, players, rand = Math.random, opts = {}) {
     return 'even';
   }
 
-  const push = (o) => beats.push({ period, clock: Math.max(0, Math.round(clock)), clockStr: clockStr(Math.max(0, clock)),
-    awayScore: away.score, homeScore: home.score, ...o });
+  // WHO IS IN THE BOX, on every beat while anyone is: each man serving and the game seconds
+  // he has left at this beat's clock, so the rink and the bug can say whose power play it is
+  // and for how long. Read from the same box `serving` counts, so it can't disagree with the
+  // strength the chance was rolled at. v8 only: before it the box timed itself backwards.
+  const boxNow = (at) => {
+    if (!v8) return null;
+    const side = (t) => t.box.filter(p => p.until > elapsed(at)).map(p => ({ name: p.name, left: Math.round(p.until - elapsed(at)) }));
+    const a = side(away), h = side(home);
+    return a.length || h.length ? { away: a, home: h } : null;
+  };
+  const push = (o) => {
+    const box = boxNow(clock);
+    beats.push({ period, clock: Math.max(0, Math.round(clock)), clockStr: clockStr(Math.max(0, clock)),
+      awayScore: away.score, homeScore: home.score, ...(box ? { box } : {}), ...o });
+  };
 
   // `att`/`def` carry the two clubs' profiles: a good shooting side against a weak
   // goaltender is the swing, and it compounds with the strength multiplier exactly as
@@ -1262,6 +1275,8 @@ export function simGame(matchup, players, rand = Math.random, opts = {}) {
 export const SEASON = {
   finalName: 'Coldwater Cup',
   finalShort: 'CUP',
+  // When the final starts on Cup day, in in-game minutes after midnight: 20:00.
+  finalAt: 20 * 60,
   columns: ['W', 'L', 'OTL', 'PTS'],
   fold(table, game) {
     const { awayScore, homeScore } = game;
@@ -1373,7 +1388,7 @@ export const HOCKEY = {
   // no `narrate` and takes the original path untouched.
   narrate,
   // Holds by line length, and the cue times the rink syncs to.
-  paceCalls,
+  paceCalls, paceClock,
   // which chances were shots on goal (the narrator's stat lines count them)
   onGoal: ON_GOAL,
   // The stamp a client checks its club identities against.

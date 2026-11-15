@@ -140,6 +140,10 @@
         // the game's first beat is the fly-in onto the Gardens (gl/approach.js), with the venue loaded below
         venue: { said: 'Golden Goose Gardens', name: 'Golden Goose Gardens', rev: '' }, xpick: pick,
       });
+      // the game clock's pace, as the server sets it (hockey-pacing.js paceClock), with every
+      // payload on air for the auto-play's 3.2 s
+      for (const b of out) b.gd.spanMs = 3200;
+      HOCKEY.paceClock(out.map((b) => b.gd));
       document.getElementById('head').textContent =
         `${matchup.away} ${game.awayScore} — ${game.homeScore} ${matchup.home} · ${game.beats.length} beats simulated · ` +
         `${out.length} animated · draws ${game.faceoffs.away}-${game.faceoffs.home}`;

@@ -250,6 +250,11 @@ uniform vec3 uMutC;          // the one accent colour their changes share
 uniform int uTat;            // tattoos (client/shared/morphex-catalog.js tattooCode): three bits a place
 uniform vec3 uTatC;          // their one ink
 uniform sampler2D uAtlas;
+// A ballplayer's kit off the ballpark's kit atlas (gl/ballpark-figures.js, diamond/kits.js), 0 everywhere else:
+// his jersey's cell, and his side's trousers, socks and sleeves (gl/ballplayer-mesh.js kitCell, KIT_PANTS...)
+uniform sampler2D uKit;
+uniform float uKitOn;
+uniform vec4 uKitCell, uKitPants, uKitSock, uKitSleeve;
 uniform vec4 uFace;          // layout, makeup, hair style, a seed
 uniform vec3 uLip;
 uniform vec3 uLipstick;
@@ -1167,6 +1172,55 @@ float mutPaint(int s, int piece, vec3 r, vec2 uv, inout vec3 base, inout float m
   }
   return ink;
 }
+// ── a ballplayer's kit ──────────────────────────────────────────────────────────────────────────────
+// A cell's uv from its own 0..1, kept a texel or two inside it, as ballplayer-mesh.js inCell does.
+vec2 kitIn(vec4 c, vec2 q) { return c.xy + (vec2(0.004, 0.008) + clamp(q, 0.0, 1.0) * vec2(0.992, 0.984)) * c.zw; }
+// The jersey cell's rows by the figure's height: Deadball's torso rows (ballplayer-mesh.js TORSO, the collar at the
+// cell's top and the tuck at its foot, most of it over the chest), with the figure's joints laid on Deadball's.
+float kitJerseyV(float y) {
+  float v = 1.0;
+  v = mix(v, 0.865, clamp((y - 1.06) / 0.06, 0.0, 1.0));
+  v = mix(v, 0.741, clamp((y - 1.12) / 0.08, 0.0, 1.0));
+  v = mix(v, 0.559, clamp((y - 1.2) / 0.1, 0.0, 1.0));
+  v = mix(v, 0.448, clamp((y - 1.3) / 0.05, 0.0, 1.0));
+  v = mix(v, 0.332, clamp((y - 1.35) / 0.04, 0.0, 1.0));
+  v = mix(v, 0.195, clamp((y - 1.39) / 0.03, 0.0, 1.0));
+  return mix(v, 0.0, clamp((y - 1.42) / 0.032, 0.0, 1.0));
+}
+// The kit's cloth as the base colour, before the folds and ink go on: the jersey round the body (the chest a
+// quarter of the way round the cell, the back three quarters), each sleeve round its arm in its half of the
+// sleeves' cell (the outside of the arm in the middle), the trousers round each leg (the front at 0, the outside
+// seam a quarter on, the knee three quarters down), the socks on the boot's shaft. False for anything else.
+bool kitCloth(int s, int piece, vec3 r, inout vec3 base) {
+  if (uKitOn < 0.5) return false;
+  const float TAU = 6.2831853;
+  float side = r.x >= 0.0 ? 1.0 : -1.0;
+  if ((s == ${FIG_SLOT.top} || s == ${FIG_SLOT.collar}) && piece != ${FIG_PIECE.sleeve}) {
+    float u = fract(0.25 + atan(r.x, r.z + 0.012) / TAU);
+    base = texture(uKit, kitIn(uKitCell, vec2(u, kitJerseyV(r.y)))).rgb;
+    // the buttons down the placket
+    vec2 b = vec2(r.x - 0.004, mod(r.y - 1.07, 0.058) - 0.029);
+    base = mix(base, base * 0.55 + 0.32, step(0.0, r.z) * step(1.07, r.y) * step(r.y, 1.42) * (1.0 - smoothstep(0.0036, 0.0046, length(b))));
+    return true;
+  }
+  if (s == ${FIG_SLOT.top}) {
+    float a = atan(side * (r.x - side * ${(0.195).toFixed(3)}), r.z + 0.01) / TAU;
+    float u = (side > 0.0 ? 0.5 : 0.0) + 0.5 * fract(a + 0.25);
+    base = texture(uKit, kitIn(uKitSleeve, vec2(u, 0.4 + 0.6 * (1.39 - r.y) / 0.18))).rgb;
+    return true;
+  }
+  float lu = fract(atan(side * (r.x - side * ${(0.095).toFixed(3)}), r.z) / TAU);
+  if (s == ${FIG_SLOT.legs}) {
+    float v = r.y > 0.49 ? 0.74 * (1.005 - r.y) / 0.515 : 0.74 + 0.26 * (0.49 - r.y) / 0.42;
+    base = texture(uKit, kitIn(uKitPants, vec2(lu, v))).rgb;
+    return true;
+  }
+  if (s == ${FIG_SLOT.shoes} && piece == ${FIG_PIECE.boot}) {
+    base = texture(uKit, kitIn(uKitSock, vec2(lu, (0.235 - r.y) / 0.175))).rgb;
+    return true;
+  }
+  return false;
+}
 float paintSculpt(int s, int piece, vec3 r, inout vec3 base) {
   if (s == ${FIG_SLOT.skin}) { skinPaint(r, 0.6 * (1.0 - uFaceV.w), base); if (piece == ${FIG_PIECE.torso}) bodyDetail(r, base); }
   if (s == ${FIG_SLOT.skin} && r.y > 0.9 && uSoma.x + uSoma.y + uSoma.z > 0.0) paintBody(piece, r, base);
@@ -1244,8 +1298,8 @@ float paintSculpt(int s, int piece, vec3 r, inout vec3 base) {
     vec2 p = vec2(lx, r.y);
     // denim worn pale down the front of the thigh and at the knee, darker in the seams
     float wearK = front * exp(-pow((lx + 0.002) / 0.04, 2.0)) * (0.5 * smoothstep(0.92, 0.72, r.y) * smoothstep(0.5, 0.62, r.y) + exp(-pow((r.y - 0.52) / 0.05, 2.0)));
-    base *= 1.0 + 0.3 * wearK;
-    base *= 1.0 - 0.2 * smoothstep(0.03, 0.075, abs(lx));
+    // (a ballplayer's trousers are flannel off the kit atlas, not denim: they keep only the folds)
+    if (uKitOn < 0.5) { base *= 1.0 + 0.3 * wearK; base *= 1.0 - 0.2 * smoothstep(0.03, 0.075, abs(lx)); }
     // the front pockets, the fly, the knee's breaks and the stack over the boot
     if (front > 0.5) {
       ink = max(ink, step(segD(q, vec2(0.16, 0.985), vec2(0.105, 0.925)), W));
@@ -1258,7 +1312,7 @@ float paintSculpt(int s, int piece, vec3 r, inout vec3 base) {
     fold(p, vec2(-0.04, 0.37), vec2(0.03, 0.345), 0.008, 0.14, base);
   }
   // wear on the jacket: broad faded patches, the shoulders and chest sun-worn, scuffs along the raised edges
-  if (s == ${FIG_SLOT.top} || s == ${FIG_SLOT.collar}) {
+  if ((s == ${FIG_SLOT.top} || s == ${FIG_SLOT.collar}) && uKitOn < 0.5) {
     base *= 0.9 + 0.22 * vn3(r * 16.0 + 3.0);
     base *= 1.0 + 0.2 * smoothstep(1.28, 1.4, r.y);
     float scuff = smoothstep(0.62, 0.72, vn3(r * 75.0)) * (0.5 + 0.5 * vn3(r * 240.0));
@@ -1293,6 +1347,8 @@ void main() {
   vec3 skin = uCol[0], hair = uCol[4];
   vec3 base = uCol[s];
   float mat = uSurf[s];
+  // a ballplayer's kit, where he wears one (the only call: see kitCloth)
+  kitCloth(s, int(vAux + 0.5), vRest, base);
   if (s == ${FIG_SLOT.card}) {
     // a card cut into strands, each ending at its own length and thinning to its tip
     // a card is a few chunky clumps, each tapering to a point, inked round its edge with a stroke of
@@ -2058,9 +2114,14 @@ export function createFigureLayer(gl, { half = false } = {}) {
       gl.uniform1i(LIT.u('uAtlas'), 1);
       gl.uniform3fv(LIT.u('uShade'), HOUSE.shade);
       gl.uniform3fv(LIT.u('uLine'), HOUSE.ink);
+      // a ballplayer's kit atlas, on unit 2 when the caller has bound one (gl/ballpark-figures.js)
+      gl.uniform1i(LIT.u('uKit'), 2);
       for (const r of recs) {
         const m = meshOf(keyOf(r));
         pose(LIT, r);
+        const K = r.kit;
+        gl.uniform1f(LIT.u('uKitOn'), K ? 1 : 0);
+        if (K) { gl.uniform4fv(LIT.u('uKitCell'), K.cell); gl.uniform4fv(LIT.u('uKitPants'), K.pants); gl.uniform4fv(LIT.u('uKitSock'), K.socks); gl.uniform4fv(LIT.u('uKitSleeve'), K.sleeves); }
         gl.uniform1f(LIT.u('uPrint'), { wolves: 0, plain: 1, redstar: 2 }[r.print || 'wolves'] ?? 0);
         gl.uniform3fv(LIT.u('uCol'), r.col);
         gl.uniform1fv(LIT.u('uSurf'), r.surf);

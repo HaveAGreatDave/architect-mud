@@ -490,8 +490,16 @@ export function checkSequence(seq, set) {
 export const SHOW_KINDS = Object.freeze({
   sports: {
     label: 'Sports',
-    moments: [{ when: 'open', label: 'Pregame' }, { when: 'break', label: 'First break' }, { when: 'break', label: 'Second break', n: 1 }, { when: 'close', label: 'Final' }],
-    roles: { a: 'Play-by-play', b: 'Analyst' }, simulated: true, stage: 'default', sample: {},
+    // The desk's moments, and the booth's: the two men calling the game, on camera in the ground's
+    // press box. A booth segment airs before the desk's at the same moment, and `booth_cut` is the
+    // rare cut to them after a big moment (sports/facts.js boothCuts).
+    moments: [
+      { when: 'open', label: 'Pregame' }, { when: 'break', label: 'First break' }, { when: 'break', label: 'Second break', n: 1 }, { when: 'close', label: 'Final' },
+      { when: 'booth_open', label: 'The booth, before the first play' }, { when: 'booth_break', label: 'The booth, into the first break' },
+      { when: 'booth_break', label: 'The booth, into the second break', n: 1 }, { when: 'booth_cut', label: 'A cut to the booth, after a big moment' },
+      { when: 'booth_end', label: 'The booth, how it ended' },
+    ],
+    roles: { a: 'Play-by-play', b: 'Analyst' }, simulated: true, stage: 'default', sample: {}, castTokens: ['announcer', 'analyst'],
   },
   talkshow: {
     label: 'Talk show',

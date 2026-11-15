@@ -19,7 +19,7 @@ import { createFigureLayer } from './figure-hd.js';
 import { HOUSE } from './house-style.js';
 import { kenWave } from '../rink/livery.js';
 import { actorSkinAt } from '../actor3d.js';
-import { FIGURE_BONE } from '../figure.js';
+import { FIGURE_BONE, buildFigure, figureKey } from '../figure.js';
 
 const FT = 3.2808;
 export const KEN_FIGURE = {
@@ -51,40 +51,137 @@ export function kenRig() {
 }
 
 // His Highlanders scarf: wrapped twice round the neck and knotted at the front left, the two ends hanging
-// down his chest into his lap. The wrap rides the neck bone; the ends are cloth, a Verlet chain each
-// (metres, on the ice's frame), under gravity and the air's drag, held to their length, pushed out of his
-// chest, belly and thighs. So they swing when the machine turns or brakes, stream back on the straights,
-// and fall on his knees. In the Highlanders' green-and-navy tartan, as his NPC description has it.
+// down his chest into his lap. The wrap rides the neck and chest as his collar does; the ends are cloth, a
+// Verlet chain each (metres, on the ice's frame), under gravity and the air's drag, held to their length,
+// pushed out of his chest, belly and thighs. So they swing when the machine turns or brakes, stream back
+// on the straights, and fall on his knees. In the Highlanders' green-and-navy tartan, as his NPC
+// description has it.
+//
+// Both are sized off his own mesh (scarfFit), not typed in: the wrap's turns rest on the hoodie, its
+// collar, the hood down behind his neck and his neck, at every angle round it, and the ends hit spheres
+// laid along the front of the sweater and round his trousers. Change his cut and the scarf still sits on it.
 const SCARF = {
-  seg: 0.05, w: 0.12, damp: 0.985, drag: 0.5, flutter: 0.35,
-  ends: [{ at: [0.005, 1.41, 0.12], n: 13 }, { at: [0.04, 1.4, 0.115], n: 11 }],
-  // [bind point, radius, bone]: what the ends can't pass through
-  hit: [[[0, 1.47, 0], 0.07, 'neck'], [[0, 1.3, -0.01], 0.135, 'chest'], [[0, 1.18, -0.005], 0.135, 'chest'], [[0, 1.05, 0.0], 0.14, 'spine'],
-    [[0.095, 0.80, 0.03], 0.1, 'thighL'], [[0.095, 0.62, 0.03], 0.095, 'thighL'], [[-0.095, 0.80, 0.03], 0.1, 'thighR'], [[-0.095, 0.62, 0.03], 0.095, 'thighR']],
+  seg: 0.05, w: 0.12, damp: 0.985, drag: 0.5, flutter: 0.35, n: [13, 11],
+  // the two turns: the height each sits at, how far up the shoulders' slope it may ride, the roll's thickness
+  turns: [{ y: 1.47, lift: 0.01, th: 0.032 }, { y: 1.43, lift: 0.03, th: 0.036 }],
+  gap: 0.005, // the cloth's clearance over what it lies on
   green: '#1f5a36', green2: '#2c7046', navy: '#1b2744', red: '#a3262c',
 };
-const atBone = (R, bone, p) => { const o = FIGURE_BONE[bone] * 12; return [0, 1, 2].map((i) => R[o + i * 4] * p[0] + R[o + i * 4 + 1] * p[1] + R[o + i * 4 + 2] * p[2] + R[o + i * 4 + 3]); };
+const NA = 28, NB = 8;
+const atBone = (R, bone, p) => { const o = (typeof bone === 'number' ? bone : FIGURE_BONE[bone]) * 12; return [0, 1, 2].map((i) => R[o + i * 4] * p[0] + R[o + i * 4 + 1] * p[1] + R[o + i * 4 + 2] * p[2] + R[o + i * 4 + 3]); };
+// a bind point carried as the collar is (figure.js TORSO_CHAIN): the neck above, the chest below
+const neckK = (y) => { const t = Math.max(0, Math.min(1, (y - 1.405) / 0.05)); return t * t * (3 - 2 * t); };
+const atNeck = (R, p) => {
+  const k = neckK(p[1]), a = atBone(R, 'neck', p);
+  if (k >= 1) return a;
+  const b = atBone(R, 'chest', p);
+  return [0, 1, 2].map((i) => a[i] * k + b[i] * (1 - k));
+};
+
+// What the scarf lies on, measured once off his built figure (figure.js buildFigure, bind space, metres).
+// `turns[j].c[i]` is turn j's centre line at angle i of NA (0 is his front, a quarter on is his left), as
+// [x, y, z]; `knot` and `roots` are where the ends come out; `hit` is [bind point, radius, bone] for the
+// ends to stay out of. Exported for the check that nothing of the wrap is inside him.
+export function scarfFit(F) {
+  const pick = (names, keep = () => true) => {
+    const out = [];
+    for (const p of F.parts) if (names.includes(p.name)) for (let v = p.v0; v < p.v0 + p.nv; v++) {
+      const q = [F.P[v * 3], F.P[v * 3 + 1], F.P[v * 3 + 2]];
+      if (!keep(q)) continue;
+      let bb = F.B[v * 4], bw = F.W[v * 4];
+      for (let k = 1; k < 4; k++) if (F.W[v * 4 + k] > bw) { bw = F.W[v * 4 + k]; bb = F.B[v * 4 + k]; }
+      out.push([...q, bb]);
+    }
+    return out;
+  };
+  // the neck's centre, off the collar (or the top's neckline, a cut without one)
+  const ring = pick(['collar']), neck = ring.length ? ring : pick(['top'], (q) => q[1] > 1.43);
+  const cz = (Math.max(...neck.map((q) => q[2])) + Math.min(...neck.map((q) => q[2]))) / 2;
+  // round the neck, by angle: everything the wrap could touch (the strings go under it)
+  const NBIN = 56, bins = Array.from({ length: NBIN }, () => []);
+  const angBin = (x, z) => ((Math.round(Math.atan2(x, z - cz) / (2 * Math.PI) * NBIN) % NBIN) + NBIN) % NBIN;
+  for (const q of pick(['top', 'collar', 'hood', 'torso', 'head'], (q) => q[1] > 1.3 && q[1] < 1.53)) bins[angBin(q[0], q[2])].push([q[1], Math.hypot(q[0], q[2] - cz)]);
+  const turns = SCARF.turns.map((T) => {
+    const h = T.th * 0.85;
+    // the least centre radius at angle bin b with the roll's centre at height y, so its round section
+    // clears every point under it by the gap
+    const need = (b, y) => {
+      let r = 0;
+      for (let d = -1; d <= 1; d++) for (const [py, pr] of bins[(b + d + NBIN) % NBIN]) {
+        const u = (py - y) / h;
+        if (u > -1 && u < 1) r = Math.max(r, pr + SCARF.gap + T.th * Math.sqrt(1 - u * u));
+      }
+      return r;
+    };
+    const binOf = (i) => Math.round((i / NA) * NBIN) % NBIN;
+    // each angle rides as far up the slope as it pays to: a centimetre higher for every one it comes in
+    let R = [], Y = [];
+    for (let i = 0; i < NA; i++) {
+      let best = null;
+      for (let l = 0; l <= T.lift + 1e-9; l += 0.0025) {
+        const r = need(binOf(i), T.y + l), cost = r + l;
+        if (!best || cost < best[0]) best = [cost, r, T.y + l];
+      }
+      R.push(best[1]); Y.push(best[2]);
+    }
+    // smoothed round the ring, so it reads as one roll, never smaller than it has to be
+    for (let pass = 0; pass < 3; pass++) {
+      const sm = (A) => A.map((_, i) => (A[(i + NA - 1) % NA] + 2 * A[i] + A[(i + 1) % NA]) / 4);
+      Y = sm(Y); R = sm(R).map((r, i) => Math.max(r, need(binOf(i), Y[i])));
+    }
+    const c = R.map((r, i) => { const a = (i / NA) * Math.PI * 2; return [Math.sin(a) * r, Y[i], cz + Math.cos(a) * r]; });
+    return { c, th: T.th, h };
+  });
+  // the knot sits on the lower turn at his front left, and the ends come out under it
+  const L = turns[1], out = (i, k) => { const a = (i / NA) * Math.PI * 2, P = L.c[i]; return [P[0] + Math.sin(a) * k, P[1], P[2] + Math.cos(a) * k]; };
+  const knot = [out(0, L.th * 0.6), out(1, L.th * 0.6)];
+  const roots = [[knot[0][0] + 0.004, knot[0][1] - 0.02, knot[0][2] + 0.01], [knot[1][0] + 0.004, knot[1][1] - 0.025, knot[1][2] + 0.008]];
+  // down the front of the sweater (and its strings): a ball every 3 cm, touching the cloth's front
+  // where the ends hang, on the bone that carries the cloth there
+  const hit = [], front = pick(['top', 'strings', 'collar'], (q) => Math.abs(q[0]) < 0.07 && q[2] > cz);
+  const RB = 0.16;
+  for (let y = 1.45; y > 0.94; y -= 0.03) {
+    const band = front.filter((q) => Math.abs(q[1] - y) < 0.014);
+    if (!band.length) continue;
+    const zf = Math.max(...band.map((q) => q[2])), bones = {};
+    for (const q of band) bones[q[3]] = (bones[q[3]] || 0) + 1;
+    const bone = +Object.entries(bones).sort((a, b) => b[1] - a[1])[0][0];
+    hit.push([[0, y, zf - RB], RB, bone]);
+  }
+  // round each thigh, off the trousers and the sweater's hem over them
+  for (const s of [1, -1]) {
+    const tb = FIGURE_BONE[s > 0 ? 'thighL' : 'thighR'];
+    const leg = pick([s > 0 ? 'trouserL' : 'trouserR'], (q) => q[1] > 0.5 && q[1] < 0.9);
+    for (let y = 0.86; y > 0.52; y -= 0.06) {
+      const band = leg.filter((q) => Math.abs(q[1] - y) < 0.02);
+      if (!band.length) continue;
+      const cx = band.reduce((a, q) => a + q[0], 0) / band.length, czl = band.reduce((a, q) => a + q[2], 0) / band.length;
+      hit.push([[cx, y, czl], Math.max(...band.map((q) => Math.hypot(q[0] - cx, q[2] - czl))), tb]);
+    }
+  }
+  return { cz, turns, knot, roots, hit };
+}
 const axisOf = (R, bone, k) => { const o = FIGURE_BONE[bone] * 12; return [R[o + k], R[o + 4 + k], R[o + 8 + k]]; };
 const nrm = (a) => { const l = Math.hypot(a[0], a[1], a[2]) || 1; return [a[0] / l, a[1] / l, a[2] / l]; };
 const crs = (a, b) => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
 
 function createScarf() {
-  let ends = null, last = null;
+  let ends = null, last = null, fit = null;
   function reset(R) {
-    ends = SCARF.ends.map((e) => {
-      const r = atBone(R, 'neck', e.at), p = [];
-      for (let i = 0; i <= e.n; i++) p.push([r[0], r[1], r[2] - i * SCARF.seg]);
-      return { e, p, q: p.map((x) => x.slice()) };
+    ends = fit.roots.map((at, k) => {
+      const n = SCARF.n[k], r = atNeck(R, at), p = [];
+      for (let i = 0; i <= n; i++) p.push([r[0], r[1], r[2] - i * SCARF.seg]);
+      return { at, n, p, q: p.map((x) => x.slice()) };
     });
   }
   function step(R, dt, t) {
-    const g = -9.8, hits = SCARF.hit.map(([p, r, b]) => [atBone(R, b, p), r]);
+    const g = -9.8, hits = fit.hit.map(([p, r, b]) => [atBone(R, b, p), r]);
     for (const E of ends) {
-      const { p, q } = E, root = atBone(R, 'neck', E.e.at);
+      const { p, q } = E, root = atNeck(R, E.at);
       for (let i = 1; i < p.length; i++) {
         const P = p[i], Q = q[i], k = i / p.length;
         // the air: drag toward still air, and a little flutter that grows to the end
-        const fl = SCARF.flutter * k * Math.sin(t * 9 + i * 0.9 + E.e.n), fx = fl * 0.6, fy = fl * Math.cos(t * 7 + i);
+        const fl = SCARF.flutter * k * Math.sin(t * 9 + i * 0.9 + E.n), fx = fl * 0.6, fy = fl * Math.cos(t * 7 + i);
         for (let c = 0; c < 3; c++) {
           const v = (P[c] - Q[c]) * SCARF.damp, a = (c === 2 ? g : c === 0 ? fx : fy) - SCARF.drag * v / Math.max(dt, 1e-4);
           Q[c] = P[c]; P[c] += v + a * dt * dt;
@@ -105,14 +202,17 @@ function createScarf() {
     }
   }
   return {
+    // fit it to the figure he's built as (scarfFit); a new key fits it again
+    fit(key, built) { if (!fit || fit.key !== key) { fit = { ...scarfFit(built()), key }; ends = null; } },
     update(R, t) {
+      if (!fit) return;
       const dt = last === null ? -1 : t - last;
       last = t;
       if (!ends || dt < 0 || dt > 0.5) { reset(R); for (let k = 0; k < 90; k++) step(R, 1 / 60, t); return; }
       const n = Math.min(8, Math.max(1, Math.ceil(dt / (1 / 120))));
       for (let k = 0; k < n; k++) step(R, dt / n, t);
       // thrown above the knot (a cut, a replay starting), it settles again from hanging
-      const knot = atBone(R, 'neck', SCARF.ends[0].at)[2];
+      const knot = atNeck(R, fit.roots[0])[2];
       if (ends.some((E) => E.p.some((P) => P[2] > knot + 0.12 || !Number.isFinite(P[2])))) { reset(R); for (let k = 0; k < 90; k++) step(R, 1 / 60, t); }
     },
     // into an arena batch, in feet
@@ -120,19 +220,17 @@ function createScarf() {
       if (!ends) return;
       const F = (p) => [p[0] * FT, p[1] * FT, p[2] * FT];
       const G = rgb(SCARF.green), G2 = rgb(SCARF.green2), N = rgb(SCARF.navy), Rd = rgb(SCARF.red);
-      // the wrap: two thick turns round the neck, outside the collar, green with a navy band
-      // (each a torus in the neck's bind space, one continuous surface, so it reads as a roll of cloth)
-      for (const [y, rx, rz, th] of [[1.455, 0.098, 0.094, 0.036], [1.415, 0.108, 0.104, 0.04]]) {
-        const NA = 28, NB = 8;
+      // the wrap: two thick turns round the neck, over the collar and the hood, green with a navy band
+      // (each a roll round its fitted centre line, one continuous surface, so it reads as cloth)
+      for (const T of fit.turns) {
         const at = (i, k) => {
-          const a = (i / NA) * Math.PI * 2, c = (k / NB) * Math.PI * 2, s = Math.sin(a), co = Math.cos(a);
-          const r = th * Math.cos(c), h = th * Math.sin(c) * 0.85;
-          return F(atBone(R, 'neck', [s * (rx + r), y - 0.004 * Math.cos(a * 2) + h, co * (rz + r) + 0.006]));
+          const a = (i / NA) * Math.PI * 2, c = (k / NB) * Math.PI * 2, C = T.c[i % NA], r = T.th * Math.cos(c);
+          return F(atNeck(R, [C[0] + Math.sin(a) * r, C[1] + T.h * Math.sin(c), C[2] + Math.cos(a) * r]));
         };
         for (let i = 0; i < NA; i++) for (let k = 0; k < NB; k++) quad(b, at(i, k), at(i + 1, k), at(i + 1, k + 1), at(i, k + 1), i % 9 < 2 ? N : (i % 9 === 5 ? G2 : G));
       }
       // the knot, where the ends come out at the front left
-      tube(b, F(atBone(R, 'neck', [0.0, 1.43, 0.11])), F(atBone(R, 'neck', [0.04, 1.405, 0.11])), 0.045 * FT, 0.04 * FT, G2, 8);
+      tube(b, F(atNeck(R, fit.knot[0])), F(atNeck(R, fit.knot[1])), 0.045 * FT, 0.04 * FT, G2, 8);
       // the ends: one strip each, sides shared between segments so it reads as one piece of cloth;
       // three bands across, checked green and navy, a red line through every sixth row, fringed
       const fwd = nrm(axisOf(R, 'chest', 2)), lft = nrm(axisOf(R, 'chest', 0)), w = SCARF.w / 2;
@@ -167,7 +265,7 @@ export function createArenaKen(gl) {
     scarf(b, quad, tube, rgb) { if (rec) scarf.build(rec.rows, b, quad, tube, rgb); },
     // pose him for this frame on the machine `z` ({ x, y, h }, feet); returns his record, or null
     pose(z, t) {
-      const wv = kenWave(t);
+      const wv = kenWave(t, z);
       const body = { ...BODY, clip: 'sitDrive', phase: t / 6, mix: wv > 0 ? { a: 'sitDrive', pa: t / 6, b: 'sitDriveWave', pb: t / 1.6, k: wv } : null };
       const r = figurePeople(L, [body], t, { level: 'hd' })[0];
       if (!r) { rec = null; return null; }
@@ -182,6 +280,7 @@ export function createArenaKen(gl) {
         out[b * 12 + i * 4 + c] = s + (c === 3 ? T[i] : 0);
       }
       rec = { ...r, rows: out };
+      scarf.fit(figureKey(r.key), () => buildFigure(r.key));
       scarf.update(out, t);
       return rec;
     },

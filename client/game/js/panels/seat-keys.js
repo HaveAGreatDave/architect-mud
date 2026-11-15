@@ -35,12 +35,19 @@ import { activeModal } from '../a11y-focus.js';
 
 const TAG_ID = 'seat-keys-tag';
 
-// The pane the open seat owns, and what to call it. One at a time: there has never been a moment
-// in this client with two seats mounted, and a second claim replaces the first rather than
-// stacking, so a seat that forgets to end its own claim cannot leave a dead pane holding the keys.
+// The pane the open seat owns, and what to call it. One holds the keys at a time, and a second
+// claim takes them from the first.
+//
+// ⚠ BUT A SEAT CAN OPEN OVER ANOTHER, AND THE ONE UNDER GETS THE KEYS BACK. The kitchen opens
+// inside ROOM (kitchen-stage.js, `ks-in-room`), and closing it used to end the only claim there
+// was: the room was still up with nobody holding the keys, so input.js pulled the next letter into
+// the command bar and F (use) typed an "f" there. So a claim keeps the one it covered (`under`),
+// and ending it hands the keys back to that one if it's still in the page. A pane that has left
+// the page is dropped, so a seat that forgets to end its own claim still can't hold the keys dead.
 let pane = null;
 let label = 'SEAT';
 let ownTag = null;      // the element handed in by the seat, or null when this file made one
+const under = [];       // the claims a later one covered, last on top: { pane, label, ownTag }
 let installed = false;
 
 // ⚠ NOT EVERY `INPUT` IS SOMEWHERE YOU TYPE. The private copies tested `/^(INPUT|TEXTAREA)$/`,
@@ -135,6 +142,10 @@ function announce() {
 export function claimSeatKeyboard(el, opts = {}) {
   if (!el) return;
   install();
+  // the claim this one covers, kept to hand the keys back to; the same pane claiming again covers nothing
+  const was = under.findIndex((c) => c.pane === el);
+  if (was >= 0) under.splice(was, 1);
+  if (live() && pane !== el) under.push({ pane, label, ownTag });
   pane = el;
   label = String(opts.label || 'SEAT').toUpperCase().slice(0, 12);
   ownTag = opts.tag || null;
@@ -149,12 +160,25 @@ export function claimSeatKeyboard(el, opts = {}) {
   announce();
 }
 
-// …and coming down. Takes the pane so a seat closing late cannot end somebody else's claim.
+// …and coming down. Takes the pane so a seat closing late cannot end somebody else's claim (a
+// covered one closing just leaves the pile). The seat under, if it's still in the page, gets the
+// keys back: focus there unless the caret is in something you type into.
 export function endSeatKeyboard(el) {
-  if (el && pane && el !== pane) return;
+  if (el && pane && el !== pane) {
+    const i = under.findIndex((c) => c.pane === el);
+    if (i >= 0) under.splice(i, 1);
+    return;
+  }
   pane = null;
   ownTag = null;
   document.getElementById(TAG_ID)?.remove();
+  let back = under.pop();
+  while (back && !back.pane.isConnected) back = under.pop();
+  if (!el) under.length = 0;
+  else if (back) {
+    ({ pane, label, ownTag } = back);
+    if (!typingFocus()) grabSeatKeys(); else paintSeatKeys();
+  }
   announce();
 }
 

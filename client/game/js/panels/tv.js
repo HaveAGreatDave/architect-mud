@@ -1042,10 +1042,19 @@ export function createTvView(root, opts = {}) {
     // Hockey's equivalent of the diamond: live strength. Only rendered while it's
     // actually true — the server omits `strength` at even strength, so the chip
     // appears exactly for the seconds a man is in the box or a net is empty.
+    // A bug that carries the box (`pp`, hockey-narrator.js ppOf) names the club with the extra
+    // man and the time it has at the bug's clock; the beat's own `strength` is the attacking
+    // side's and flips PP to SH with the puck, so then it only says an empty net.
     let strength = '';
-    if (sb.strength) {
+    if (sb.pp && sb.pp.left > 0) {
+      const p = sb.pp, men = `${Math.max(p.away, p.home)}-ON-${Math.min(p.away, p.home)}`;
+      const t = Math.ceil(p.left), time = `${Math.floor(t / 60)}:${String(t % 60).padStart(2, '0')}`;
+      const what = !p.team ? men : Math.abs(p.away - p.home) > 1 ? `${p.abbr || ''} ${men}` : `${p.abbr || ''} PP`;
+      strength = `<div class="tv-sb-strength ${p.team ? 'pp' : 'even'}">${_esc(what.trim())} ${time}</div>`;
+    }
+    if (sb.strength === 'en' || (!sb.pp && sb.strength)) {
       const label = { pp: 'PP', sh: 'SH', en: 'EN' }[sb.strength] || String(sb.strength).toUpperCase();
-      strength = `<div class="tv-sb-strength ${_esc(sb.strength)}">${_esc(label)}</div>`;
+      strength += `<div class="tv-sb-strength ${_esc(sb.strength)}">${_esc(label)}</div>`;
     }
     // Shots on goal — hockey's second scoreboard. A 1-0 game reads completely
     // differently at 9 shots than at 40, and this is where a viewer looks for it.

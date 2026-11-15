@@ -31,7 +31,8 @@ import { pitcherStyleOf, batterTypeOf, eraOf, LINEUP_POSITIONS } from './basebal
 import { POSITIONS } from '../../../client/game/js/panels/diamond/play.js';
 import { holdFor } from './baseball-pacing.js';
 
-const COLOUR = /^(story|scout|tonight|duel|react)\b/;
+// (`lore`, the clubs' history, is Dusty's too: he was there for most of it)
+const COLOUR = /^(story|scout|tonight|duel|react|lore)\b/;
 const PITCH_WORD = { 'Four-Seam Fastball': 'fastball', Sinker: 'sinker', Slider: 'slider', Changeup: 'changeup', Curveball: 'curveball', Cutter: 'cutter', Splitter: 'splitter', Knuckleball: 'knuckleball' };
 const DELIVERY_KEY = { 'over the top': 'over', 'three-quarters': 'threequarter', sidearm: 'sidearm', submarine: 'submarine' };
 const HIT = new Set(['single', 'double', 'triple', 'homerun']);
@@ -86,7 +87,13 @@ const rankIn = (list, name) => (Array.isArray(list) ? list.slice(0, 3).findIndex
 // `pools` the script's line pools, `rand` the booth's stream, `game` the sim's game, `leaders`
 // gamedayLeaders' shape, `recordOf(team)` the club's record, `ledger` the season's every-man
 // ledger (for a pitcher's own batting line).
-export function makeBooth({ pools, rand, announcer = '', analyst = '', game, leaders = null, recordOf = () => '', ledger = null }) {
+// `lore` is the two clubs' history (sports/club-lore.js gameLore) and `loreRand` its own stream,
+// so telling it moves no other line; without them the booth says nothing about the past.
+// `final` is the Curtain Call, or null: { name, clubs: { team: tokens }, series: tokens } as the
+// final's package has them (final-package.js facts). With it the booth tells how each club got
+// here, counts the outs to the title, talks about the pressure in a big spot and raises the stakes
+// when a run changes the game.
+export function makeBooth({ pools, rand, announcer = '', analyst = '', game, leaders = null, recordOf = () => '', ledger = null, lore = null, loreRand = null, final = null }) {
   const used = new Set();          // lines aired tonight
   const told = new Set();          // topics told tonight
   const night = { bats: new Map(), arms: new Map(), met: new Map() };
@@ -96,21 +103,21 @@ export function makeBooth({ pools, rand, announcer = '', analyst = '', game, lea
   // stays quiet rather than repeat itself (the 'up' pools excepted: a man still has to come up).
   const REUSABLE = /^up(\.|$)/;
   const has = (key) => Array.isArray(pools?.[key]) && pools[key].length > 0 && (REUSABLE.test(key) || pools[key].some((l) => !used.has(l)));
-  const draw = (key) => {
+  const draw = (key, rnd = rand) => {
     const L = pools[key];
     const fresh = L.filter((l) => !used.has(l));
     const from = fresh.length ? fresh : L;
-    const l = from[Math.floor(rand() * from.length)];
+    const l = from[Math.floor(rnd() * from.length)];
     used.add(l);
     return l;
   };
   // A pool's line as spoken lines, the exchange's turns alternating voices. Each carries its
   // priority for the pacer and the exchange's group.
-  const render = (key, tok, p) => {
+  const render = (key, tok, p, rnd = rand) => {
     if (!has(key)) return [];
     let colour = COLOUR.test(key);
     const g = grp++;
-    return draw(key).split(/\s*\|\|\s*/).map((t) => {
+    return draw(key, rnd).split(/\s*\|\|\s*/).map((t) => {
       const said = sportsFill(t, tok).trim();
       const voice = colour; colour = !colour;
       if (!said) return null;
@@ -119,6 +126,43 @@ export function makeBooth({ pools, rand, announcer = '', analyst = '', game, lea
     }).filter(Boolean);
   };
   const first = (...keys) => keys.find(has) || null;
+
+  // ── the final ──
+  // The score and the outs before beat `b` (the beat has them after the play), from the batting side's end.
+  const OUTS_BY = { doubleplay: 2, tripleplay: 3 };
+  const pre = (b) => {
+    const homeBats = b.battingName === game?.home?.name, runs = b.runs ?? b.rbi ?? 0;
+    const mine = ((homeBats ? b.homeScore : b.awayScore) ?? 0), theirs = ((homeBats ? b.awayScore : b.homeScore) ?? 0);
+    return { mine, theirs, was: mine - runs, outs: Math.max(0, (b.outs ?? 0) - (b.out ? OUTS_BY[b.kind] || 1 : 0)) };
+  };
+  const finalTok = (b, gd, more = {}) => ({ ...tokens(b, gd), final: final?.name || 'Final', ...more });
+  // Before the man's at-bat in a final: from the 7th, the outs the leading side is from the title,
+  // once a half; from the 6th in a big spot, the pressure, once a half. Each three times a game at most.
+  const FINAL_MOST = 3, finalSaid = { outs: 0, pressure: 0 };
+  function finalBefore(b, gd) {
+    if (!final || !(b.inning >= 6) || b.inning > 9) return [];
+    const s = pre(b), half = `final:${b.inning}${b.half}`;
+    const left = (9 - b.inning) * 3 + (3 - s.outs);
+    if (b.inning >= 7 && s.theirs > s.mine && left >= 2 && finalSaid.outs < FINAL_MOST && !told.has(`${half}:outs`) && has('final.outs')) {
+      told.add(`${half}:outs`); finalSaid.outs++;
+      return render('final.outs', finalTok(b, gd, { outsLeft: left <= 12 ? words(left) : left, lead: words(s.theirs - s.mine), team: b.battingName }), 3);
+    }
+    if (finalSaid.pressure < FINAL_MOST && !told.has(`${half}:pressure`) && stakesOf(b, game?.home?.name, gd?.basesBefore) >= 0.5 && has('final.pressure')) {
+      told.add(`${half}:pressure`); finalSaid.pressure++;
+      return render('final.pressure', finalTok(b, gd), 3);
+    }
+    return [];
+  }
+  // After a run in a final: the lead changing hands, the game tied, or a lead stretched late.
+  function finalAfter(b, gd) {
+    if (!final || !((b.runs ?? b.rbi ?? 0) > 0)) return [];
+    const s = pre(b);
+    const key = s.was <= s.theirs && s.mine > s.theirs ? 'final.stakes.lead'
+      : s.mine === s.theirs ? 'final.stakes.tie'
+        : s.was > s.theirs && s.mine - s.theirs >= 2 && b.inning >= 6 ? 'final.stakes.more' : null;
+    if (!key || !has(key)) return [];
+    return render(key, finalTok(b, gd, { lead: words(s.mine - s.theirs) }), 3);
+  }
 
   const batNight = (name) => night.bats.get(name) || { pa: 0, ab: 0, h: 0, hr: 0, k: 0, bb: 0, rbi: 0, last: '' };
   const armNight = (name) => night.arms.get(name) || { bf: 0, k: 0, runs: 0, hits: 0, bb: 0, from: 0 };
@@ -240,6 +284,8 @@ export function makeBooth({ pools, rand, announcer = '', analyst = '', game, lea
     const key = bn.pa === 0 ? (ab < 15 ? first('up.early', 'up') : first('up.first', 'up'))
       : !bn.ab ? first('up') : ab >= 15 && rand() < 0.4 ? first('up.again.season', 'up.again', 'up') : first('up.again', 'up');
     if (key) { const ls = render(key, tok, 3); out.push(...ls); left -= ls.reduce((a, l) => a + l.secs, 0); }
+    // in a final, the outs to the title or the pressure, before anything about his season
+    if (left > 3) { const ls = finalBefore(b, gd); out.push(...ls); left -= ls.reduce((a, l) => a + l.secs, 0); }
     // then what's worth saying, the batter and the pitcher taking turns at going first
     const pair = rand() < 0.6
       ? [['b', batterTopics(b, gd)], ['p', pitcherTopics(b, gd)]]
@@ -263,11 +309,44 @@ export function makeBooth({ pools, rand, announcer = '', analyst = '', game, lea
     return out;
   }
 
+  // A man the play put in scoring position without bringing him home: where that leaves things.
+  // The man who got furthest from behind second (from the box or from first), or one who got to
+  // third from second with fewer than two out (ninety feet from scoring on a fly ball). Late in a
+  // close one he's the tying or the go-ahead run and the booth says so; with two out he's off on
+  // contact. Twice a half-inning at most, and it stands in for the next man's 'sit.risp'.
+  // Returns spoken lines, as before() and after() do.
+  function risp(b, gd) {
+    const outs = b.outs ?? 0;
+    if (outs >= 3 || b.walkoff || !Array.isArray(b.moves)) return [];
+    const m = b.moves.filter((x) => x && x.name && (x.to === 2 || x.to === 3) && x.from < x.to).sort((x, y) => y.to - x.to)[0];
+    if (!m || (m.from === 2 && outs >= 2)) return [];
+    const half = `risp:${b.inning}${b.half}`, n = told.has(`${half}:2`) ? 2 : told.has(`${half}:1`) ? 1 : 0;
+    if (n >= 2) return [];
+    // which run he is: the men on the bags ahead of him come in first
+    const homeBats = b.battingName === game?.home?.name;
+    const mine = (homeBats ? b.homeScore : b.awayScore) ?? 0, theirs = (homeBats ? b.awayScore : b.homeScore) ?? 0;
+    const ahead = Array.isArray(b.bases) ? b.bases.slice(m.to).filter(Boolean).length : 0, nth = ahead + 1;
+    const late = (b.inning || 0) >= 7;
+    const key = late && theirs > mine && theirs - mine === nth ? first('risp.tying', 'risp')
+      : late && theirs >= mine && theirs - mine + 1 === nth ? first('risp.ahead', 'risp')
+        : m.to === 3 && outs < 2 ? first('risp.third', 'risp')
+          : outs === 2 ? first('risp.twoout', 'risp') : first('risp');
+    if (!key) return [];
+    told.add(`${half}:${n + 1}`);
+    // the next man up hears it said already
+    told.add(`sit:${b.inning}${b.half}:sit.risp`);
+    return render(key, { ...tokens(b, gd), runner: m.name, bag: m.to === 3 ? 'third' : 'second' }, 3);
+  }
+
   // The talk after the play, when it earns some, in no more than about `secs` seconds.
   function after(b, gd, secs) {
     const out = [];
     if (!(secs > 2.5) || b.type !== 'atbat') return out;
     const tok = tokens(b, gd);
+    // in a final, what the run does to the game; then a man left in scoring position: both are
+    // about the game, and the next pitch
+    out.push(...finalAfter(b, gd));
+    if (!(b.runs > 0) || b.moves?.some((x) => x && x.to === 3 && x.from < 3)) out.push(...risp(b, gd));
     const ps = pitcherStyleOf(b.pitcher), bt = batterTypeOf(b.batter);
     const bl = gd?.bl || [0, 0, 0, 0, 0];
     const lastPitch = gd?.pitches?.[gd.pitches.length - 1];
@@ -299,13 +378,27 @@ export function makeBooth({ pools, rand, announcer = '', analyst = '', game, lea
     } else if (b.kind === 'walk' && (ps.style === 'flamethrower' || ps.style === 'knuckleballer') && rand() < 0.4) {
       key = first(`react.walk.${ps.style}`, 'react.walk');
     }
-    if (key) out.push(...render(key, tok, 2));
+    if (key && !(out.length && rand() < 0.5)) out.push(...render(key, tok, 2));
     if (out.reduce((a, l) => a + l.secs, 0) > secs + 6) out.length = 0;
     // then the time till the next man's up is the booth's, a line or an exchange, two when
     // there's plenty of it
     let left = secs - out.reduce((a, l) => a + l.secs, 0), guard = 0;
     while (left > 8 && guard++ < (left > 40 ? 2 : 1)) { const s2 = filler(tok, out); if (!s2) break; left -= s2; }
     return out;
+  }
+
+  // One of the clubs' stories, told once a game, four at most. Returns whether it was told and
+  // leaves its seconds in `lastLoreSecs`.
+  let loreCount = 0, lastLoreSecs = 0;
+  function tellLore(topic, tok, out) {
+    if (!topic || loreCount >= 4) return false;
+    const id = `lore:${topic.key}|${topic.tok.club}`;
+    if (told.has(id) || !has(topic.key)) return false;
+    told.add(id); loreCount++;
+    const ls = render(topic.key, { ...tok, ...topic.tok }, 2, loreRand);
+    out.push(...ls);
+    lastLoreSecs = ls.reduce((a, l) => a + l.secs, 0);
+    return ls.length > 0;
   }
 
   // Over a half-inning's changeover: the starting pitchers in the first inning, the leaders and
@@ -327,6 +420,32 @@ export function makeBooth({ pools, rand, announcer = '', analyst = '', game, lea
       const starter = (hp?.pl?.[2] || 0) > 0 ? 'break.starter' : first('break.starter.new', 'break.starter');
       if (starter && has(starter)) take(starter, 2);
       if (left > 3) take(`scout.pitch.${ps.style}`, 2);
+    }
+    // The final: from the 2nd to the 5th, how the club coming up got here, once each; from the 4th
+    // to the 7th, the season series between them, once.
+    if (final && left > 5) {
+      const club = final.clubs?.[hs.battingName], ser = final.series;
+      const sayIt = (key, more) => { const ls = render(key, { ...tok, final: final.name || 'Final', ...more }, 3); out.push(...ls); left -= ls.reduce((a, l) => a + l.secs, 0); };
+      if (club && hs.inning >= 2 && hs.inning <= 5 && !told.has(`final:road:${hs.battingName}`) && has('final.road')) {
+        told.add(`final:road:${hs.battingName}`);
+        sayIt('final.road', club);
+      }
+      const sk = ser?.key === 'series.even' ? 'final.series.even' : ser?.key === 'series' ? 'final.series' : null;
+      if (left > 5 && sk && hs.inning >= 4 && hs.inning <= 7 && !told.has('final:series') && has(sk)) { told.add('final:series'); sayIt(sk, ser); }
+    }
+    // The clubs' history: before the first pitch, their finals against each other and the bigger
+    // of the two clubs' stories; from the 3rd to the 8th, now and then, the next story about one
+    // of them. Four at most a game, each told once, all off the lore's own stream.
+    if (lore && loreRand && left > 6) {
+      if (hs.inning === 1 && hs.half === 'top') {
+        if (tellLore(lore.rivalry, tok, out)) left -= lastLoreSecs;
+        const lead = [lore.home?.[0], lore.away?.[0]].filter(Boolean).sort((a, z) => z.p - a.p)[0];
+        if (left > 6 && tellLore(lead, tok, out)) left -= lastLoreSecs;
+      } else if (hs.inning >= 3 && hs.inning <= 8 && loreRand() < 0.4) {
+        const side = loreRand() < 0.5 ? [lore.home, lore.away] : [lore.away, lore.home];
+        const topic = side.map((l) => (l || []).find((t) => !told.has(`lore:${t.key}|${t.tok.club}`))).find(Boolean);
+        if (tellLore(topic, tok, out)) left -= lastLoreSecs;
+      }
     }
     const races = [['leaders.hr', 'break.leaders.hr', leaders?.hr?.length], ['leaders.avg', 'break.leaders.avg', leaders?.avg?.length], ['leaders.sb', 'break.leaders.sb', leaders?.sb?.length], ['leaders.k', 'break.leaders.k', leaders?.k?.length], ['standings', 'break.standings', tok.record && tok.record !== '0-0']];
     for (const [topic, key, ok] of races) {
@@ -367,5 +486,5 @@ export function makeBooth({ pools, rand, announcer = '', analyst = '', game, lea
     if (runs > 0) { const a = { ...armNight(b.pitcher) }; a.runs += runs; night.arms.set(b.pitcher, a); }
   }
 
-  return { before, after, changeover, track, trackRun };
+  return { before, after, changeover, track, trackRun, risp };
 }

@@ -12,9 +12,16 @@
 
 // the machine's colours in the livery, over the boxes' everyday ones (render.js ZB)
 export const FINAL = { tank: '#141217', chassis: '#1b1820', band: '#6a2bb8', trim: '#e2b33a' };
+// CUP FINAL NIGHT (`final`): the machine dressed up past its everyday livery. The tank goes royal
+// purple, the bands and the tank's lid gold, the trim and the rims chrome; the piece on the flank
+// is the gold version with CUP FINAL on a ribbon under it (paintLivery `final`), a replica of the
+// Cup rides on the lid and two pennants in the finalists' colours fly off the roll hoop
+// (gl/arena-mesh.js buildZamboni).
+export const CUP_NIGHT = { tank: '#2a0f52', chassis: '#141217', band: '#e2b33a', trim: '#eef1f4' };
 // the everyday colour each one replaces (the blue bands and the driver's cap go purple)
 const RECOLOUR = { '#eceff2': FINAL.chassis, '#f4f6f8': FINAL.tank, '#1f4fbf': FINAL.band, '#c9ced3': FINAL.trim };
-export const cupColour = (col, cup) => (cup && RECOLOUR[col]) || col;
+const RECOLOUR_CUP = { '#eceff2': CUP_NIGHT.chassis, '#f4f6f8': CUP_NIGHT.tank, '#1f4fbf': CUP_NIGHT.band, '#c9ced3': CUP_NIGHT.trim };
+export const cupColour = (col, cup, final = false) => (final && RECOLOUR_CUP[col]) || (cup && RECOLOUR[col]) || col;
 // the flank the piece covers, in the tank box's own feet: [u0, u1] along it, [z0, z1] up it
 export const FLANK = { u: [0.35, 4.6], z: [2.98, 5.5] };
 export const LIVERY_W = 512, LIVERY_H = 300;
@@ -115,24 +122,51 @@ function crown(x, cx, cy, w, rot) {
   x.restore();
 }
 
-// The piece on its own canvas, painted the first time it's asked for.
-let _canvas = null;
-export function liveryCanvas(doc) {
-  if (!_canvas && doc) { _canvas = doc.createElement('canvas'); _canvas.width = LIVERY_W; _canvas.height = LIVERY_H; paintLivery(_canvas.getContext('2d')); }
-  return _canvas;
+// The piece on its own canvas, painted the first time it's asked for (the Cup night's on its own).
+const _canvas = { 0: null, 1: null };
+export function liveryCanvas(doc, final = false) {
+  const k = final ? 1 : 0;
+  if (!_canvas[k] && doc) { const c = doc.createElement('canvas'); c.width = LIVERY_W; c.height = LIVERY_H; paintLivery(c.getContext('2d'), LIVERY_W, LIVERY_H, final); _canvas[k] = c; }
+  return _canvas[k];
+}
+
+// The Cup night's ribbon: a gold-edged purple banner with swallowtails, CUP FINAL across it.
+function ribbon(x, cx, cy, w, h, text) {
+  x.save(); x.translate(cx, cy); x.rotate(-0.03); x.lineJoin = 'round';
+  const hw = w / 2, hh = h / 2, tail = h * 0.9;
+  const ends = (s) => { x.beginPath(); x.moveTo(s * (hw - 6), -hh + 6); x.lineTo(s * (hw + tail), -hh + 6); x.lineTo(s * (hw + tail * 0.6), 6); x.lineTo(s * (hw + tail), hh + 6); x.lineTo(s * (hw - 6), hh + 6); x.closePath(); };
+  for (const s of [-1, 1]) { ends(s); x.fillStyle = PURPLE_DK; x.fill(); x.lineWidth = 5; x.strokeStyle = INK; x.stroke(); }
+  x.beginPath(); x.rect(-hw, -hh, w, h);
+  x.lineWidth = 8; x.strokeStyle = INK; x.stroke();
+  x.fillStyle = PURPLE; x.fill();
+  x.lineWidth = 3; x.strokeStyle = GOLD; x.strokeRect(-hw + 4, -hh + 4, w - 8, h - 8);
+  x.font = '900 30px Impact, "Arial Black", "Saira Condensed", sans-serif'; x.textAlign = 'center'; x.textBaseline = 'middle';
+  x.strokeStyle = INK; x.lineWidth = 6; x.strokeText(text, 0, 2, w - 24);
+  x.fillStyle = GOLD; x.fillText(text, 0, 2, w - 24);
+  x.restore();
 }
 
 // Paint the piece onto a w × h canvas context (LIVERY_W × LIVERY_H is what it's laid out for).
-export function paintLivery(x, w = LIVERY_W, h = LIVERY_H) {
+// `final` paints the Cup night's: the letters in gold on royal purple, the gold heavier, confetti
+// in the overspray and a CUP FINAL ribbon along the foot.
+export function paintLivery(x, w = LIVERY_W, h = LIVERY_H, final = false) {
   const r = rng(0x4b52);
   x.save(); x.scale(w / LIVERY_W, h / LIVERY_H);
   const W = LIVERY_W, H = LIVERY_H;
-  x.fillStyle = FINAL.tank; x.fillRect(0, 0, W, H);
+  x.fillStyle = final ? CUP_NIGHT.tank : FINAL.tank; x.fillRect(0, 0, W, H);
   // the wall behind the piece: purple and smoke clouds, then a gold speckle of overspray
-  for (let i = 0; i < 9; i++) cloud(x, 140 + r() * 360, 60 + r() * 190, 60 + r() * 70, '123,53,208', 0.3 + r() * 0.2);
-  for (let i = 0; i < 6; i++) cloud(x, r() * W, r() * H, 50 + r() * 60, '60,52,72', 0.35);
+  for (let i = 0; i < 9; i++) cloud(x, 140 + r() * 360, 60 + r() * 190, 60 + r() * 70, final ? '242,194,48' : '123,53,208', (0.3 + r() * 0.2) * (final ? 0.55 : 1));
+  for (let i = 0; i < 6; i++) cloud(x, r() * W, r() * H, 50 + r() * 60, final ? '123,53,208' : '60,52,72', 0.35);
   x.fillStyle = 'rgba(242,194,48,0.55)';
   for (let i = 0; i < 220; i++) { const px = r() * W, py = r() * H; x.fillRect(px, py, 1 + r() * 1.5, 1 + r() * 1.5); }
+  if (final) {
+    // confetti in the overspray: little turned slips of gold, white and purple
+    const cols = [GOLD, WHITE, PURPLE_LT, GOLD];
+    for (let i = 0; i < 70; i++) {
+      x.save(); x.translate(r() * W, r() * H); x.rotate(r() * Math.PI);
+      x.fillStyle = cols[i % cols.length]; x.fillRect(-4, -1.6, 8, 3.2); x.restore();
+    }
+  }
   raven(x, 104, 150, 176);
   // RAVEN: block letters, each tipped and bounced a little, with a deep purple drop, an ink
   // outline, a gold edge inside it, a purple fill, drips and shines
@@ -148,15 +182,19 @@ export function paintLivery(x, w = LIVERY_W, h = LIVERY_H) {
   }
   const each = (fn) => letters.forEach((L) => { x.save(); x.translate(L.x, L.y); x.rotate(L.rot); x.transform(1, 0, -0.12, 1, 0, 0); x.scale(k, 1.08); fn(L); x.restore(); });
   x.textAlign = 'center';
-  for (let d = 12; d > 0; d -= 2) each((L) => { x.fillStyle = d > 10 ? INK : PURPLE_DK; x.fillText(L.c, d * 0.9 / k, d * 0.7); });
+  // (on Cup night the letters are gold leaf edged in purple, over a gold drop)
+  for (let d = 12; d > 0; d -= 2) each((L) => { x.fillStyle = d > 10 ? INK : final ? GOLD_DK : PURPLE_DK; x.fillText(L.c, d * 0.9 / k, d * 0.7); });
   each((L) => { x.strokeStyle = INK; x.lineWidth = 18 / k; x.strokeText(L.c, 0, 0); });
-  each((L) => { x.strokeStyle = GOLD; x.lineWidth = 7 / k; x.strokeText(L.c, 0, 0); });
+  each((L) => { x.strokeStyle = final ? PURPLE : GOLD; x.lineWidth = 7 / k; x.strokeText(L.c, 0, 0); });
   each((L) => {
-    const g = x.createLinearGradient(0, -86, 0, 0); g.addColorStop(0, PURPLE_LT); g.addColorStop(0.45, PURPLE); g.addColorStop(1, PURPLE_DK);
+    const g = x.createLinearGradient(0, -86, 0, 0);
+    // (bright to the foot: the arena's lights take a gold that ends dark down to brown)
+    if (final) { g.addColorStop(0, '#fffbe0'); g.addColorStop(0.4, '#ffd84a'); g.addColorStop(1, '#e0a91e'); }
+    else { g.addColorStop(0, PURPLE_LT); g.addColorStop(0.45, PURPLE); g.addColorStop(1, PURPLE_DK); }
     x.fillStyle = g; x.fillText(L.c, 0, 0);
     x.strokeStyle = 'rgba(255,250,240,0.6)'; x.lineWidth = 3 / k; x.beginPath(); x.moveTo(-L.cw / k * 0.3, -78); x.lineTo(-L.cw / k * 0.3, -56); x.stroke();
   });
-  for (const L of letters) for (let j = 0; j < 2; j++) if (r() < 0.75) drip(x, L.x - L.cw * 0.3 + r() * L.cw * 0.6, L.y + 4, 10 + r() * 28, 3 + r() * 2.5, PURPLE);
+  for (const L of letters) for (let j = 0; j < 2; j++) if (r() < 0.75) drip(x, L.x - L.cw * 0.3 + r() * L.cw * 0.6, L.y + 4, 10 + r() * 28, 3 + r() * 2.5, final ? GOLD : PURPLE);
   // the gold crown, tipped on the R
   crown(x, letters[0].x - 2, letters[0].y - 104, 54, -0.16);
   // Ken: the tag over it, in gold with an ink edge, and a swoosh under
@@ -168,15 +206,23 @@ export function paintLivery(x, w = LIVERY_W, h = LIVERY_H) {
   x.fillStyle = GOLD; x.beginPath(); x.moveTo(152, 3); x.lineTo(137, -3); x.lineTo(141, 12); x.closePath(); x.fill();
   x.restore();
   sparkle(x, 452, 112, 14, GOLD); sparkle(x, 222, 92, 9); sparkle(x, 484, 262, 8, GOLD);
+  if (final) {
+    sparkle(x, 30, 40, 12, GOLD); sparkle(x, 190, 30, 10); sparkle(x, 500, 40, 11, GOLD); sparkle(x, 170, 250, 9, GOLD);
+    ribbon(x, 330, 272, 236, 40, 'CUP FINAL');
+  }
   // the edges fade back into the tank, so the piece sits on the machine rather than on a sheet
-  const fade = (x0, x1) => { const g = x.createLinearGradient(x0, 0, x1, 0); g.addColorStop(0, 'rgba(20,18,23,1)'); g.addColorStop(1, 'rgba(20,18,23,0)'); x.fillStyle = g; x.fillRect(Math.min(x0, x1), 0, Math.abs(x1 - x0), H); };
+  const fc = final ? '42,15,82' : '20,18,23';
+  const fade = (x0, x1) => { const g = x.createLinearGradient(x0, 0, x1, 0); g.addColorStop(0, `rgba(${fc},1)`); g.addColorStop(1, `rgba(${fc},0)`); x.fillStyle = g; x.fillRect(Math.min(x0, x1), 0, Math.abs(x1 - x0), H); };
   fade(0, 10); fade(W, W - 10);
   x.restore();
 }
 
 // Ken Raven drives the Zamboni and waves to the crowd 3 s in every 39 (gl/arena-mesh.js
 // buildKen, render.js). This is how far into a wave he is: 0, both hands on the wheel, to 1, arm up.
-export function kenWave(t) {
-  const c = ((t % 39) + 39) % 39;
-  return c < 3.2 ? Math.sin(Math.PI / 2 * Math.min(1, c / 0.5, (3.2 - c) / 0.5)) : 0;
+// The machine `z` can ask for one as well: `z.wave`, the world second it starts (rink/ken-comic.js,
+// so a shot of him waving has him waving).
+const waveAt = (c) => (c >= 0 && c < 3.2 ? Math.sin(Math.PI / 2 * Math.min(1, c / 0.5, (3.2 - c) / 0.5)) : 0);
+export function kenWave(t, z = null) {
+  const cue = z && Number.isFinite(z.wave) ? waveAt(t - z.wave) : 0;
+  return Math.max(cue, waveAt(((t % 39) + 39) % 39));
 }

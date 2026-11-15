@@ -39,6 +39,18 @@ for (const id of cats) {
     check(low > -0.004, `${tag} nothing under the floor (lowest ${low.toFixed(4)})`);
     check(low < 0.02, `${tag} rests on the floor (lowest ${low.toFixed(4)})`);
     check(wbad === 0, `${tag} bone weights sum to one (${wbad} off)`);
+    // nothing on the body rides the head or an ear: a piece whose field goes flat far from it claims distant vertices
+    // (an ear once took the top of the thigh, coat and all, and would have swung it about with every flick)
+    {
+      const R = b.rig, Xh = b.X[R.index.head], hc = [0, 1, 2].map((k) => Xh.R[k * 3] * R.HC[0] + Xh.R[k * 3 + 1] * R.HC[1] + Xh.R[k * 3 + 2] * R.HC[2] + Xh.t[k]);
+      let stray = 0;
+      for (let v = 0; v < b.verts; v++) for (let k = 0; k < 4; k++) {
+        if (b.Ww[v * 4 + k] < 0.05) continue;
+        const g = R.bones[b.Wb[v * 4 + k]].group;
+        if ((g === 'ear' || g === 'head') && Math.hypot(b.P[v * 3] - hc[0], b.P[v * 3 + 1] - hc[1], b.P[v * 3 + 2] - hc[2]) > 0.25 * R.HS) { stray++; break; }
+      }
+      check(stray === 0, `${tag} no body vertex rides the head or an ear (${stray})`);
+    }
     // skinned with no motion, every carved vertex lands where it was (in metres)
     const M0 = beastMesh();
     K.skinCat(b, M0, K.STILL, { fur: false });
@@ -58,7 +70,9 @@ for (const id of cats) {
     const M1 = beastMesh();
     K.skinCat(b, M1, K.idleMotion(3.7, { awake: 1, seed: 1 }), { fur: false });
     let far = 0, nan1 = 0;
-    const n = Math.min(M0.P.length, M1.P.length);
+    // the carved body only: the eyes, lids and whiskers come after it, and a blink adds lid quads, which shifts every
+    // index past them, so comparing those compares different vertices
+    const n = Math.min(b.quads * 6 * 3, M0.P.length, M1.P.length);
     for (let i = 0; i < n; i += 3) {
       if (!Number.isFinite(M1.P[i]) || !Number.isFinite(M1.P[i + 1]) || !Number.isFinite(M1.P[i + 2])) { nan1++; continue; }
       far = Math.max(far, Math.hypot(M1.P[i] - M0.P[i], M1.P[i + 1] - M0.P[i + 1], M1.P[i + 2] - M0.P[i + 2]));
@@ -72,6 +86,59 @@ for (const id of cats) {
     const lum = new Set();
     for (let i = 0; i < b.verts; i += 7) lum.add(b.C[i * 3] > 0.25 ? 'light' : b.C[i * 3] < 0.05 ? 'dark' : 'mid');
     check(lum.has('light') && lum.has('dark'), `${id} shows its two colours`);
+  }
+}
+
+// ── the clips on the GPU's path (gl/cat-clips.js, gl/cat-gpu.js), for the first cat ──────────────────────────────
+// The GPU buffer skinned still is the carve; every clip at a few moments gives finite bones, keeps the cat in one
+// piece (nothing further than 60 cm from where it was carved, a gallop's reach) and nothing more than 3 cm under the
+// floor; and the room's shaders take the skin.
+{
+  const G = await import(pathToFileURL(resolve(ROOT, 'client/game/js/panels/gl/cat-gpu.js')).href);
+  const C = await import(pathToFileURL(resolve(ROOT, 'client/game/js/panels/gl/cat-clips.js')).href);
+  const look = K.catLook(CATS[cats[0]].look), rig = K.catRig(look), bakes = {};
+  for (const p of ['stand', 'sit', 'loaf', 'curl']) bakes[p] = K.bakeCat(look, p, { h: H, rig });
+  const place = { O: [0, 0, 0], F: [0, 0, 1] };
+  for (const [p, b] of Object.entries(bakes)) {
+    const m = G.catBodyMesh(b);
+    check(m.index.every((v) => v < m.verts) && m.fur.every((f) => f.index.every((v) => v < m.verts) && f.layers >= 2 && f.layers <= 8), `gpu/${p} indices in range, ${m.fur.map((f) => f.layers).join('+')} fur layers`);
+    const still = G.skinOnCpu(m, K.catBoneRows(b, K.solveRig(b.rig, b.pose, K.STILL), place));
+    let drift = 0;
+    for (let i = 0; i < Math.min(2000, m.index.length); i++) {
+      const v = m.index[i];
+      drift = Math.max(drift, Math.hypot(still.data[i * 12] - b.P[v * 3] * look.scale, still.data[i * 12 + 1] - b.P[v * 3 + 1] * look.scale, still.data[i * 12 + 2] - b.P[v * 3 + 2] * look.scale));
+    }
+    check(drift < 1e-5, `gpu/${p} skinned still is the carve (drift ${drift.toExponential(1)})`);
+    for (const part of G.BIT_PARTS) check(G.catBitsMesh(b, K.STILL, part).verts > 0 || part === 'lids', `gpu/${p} ${part} built`);
+  }
+  for (const name of C.CLIP_NAMES) {
+    const c = C.CAT_CLIPS[name], b = bakes[c.base], m = G.catBodyMesh(b, { fur: false });
+    const rest = G.skinOnCpu(m, K.catBoneRows(b, K.solveRig(b.rig, b.pose, K.STILL), place));
+    let bad = 0, far = 0, low = Infinity;
+    for (const t of [0.6, 1.6, 3.9]) {
+      const f = C.clipFrame(b.rig, name, t, { seed: 1 }), rows = K.catBoneRows(b, K.solveRig(b.rig, f.pose, f.mo), place);
+      if (rows.some((v) => !Number.isFinite(v))) { bad++; continue; }
+      const s = G.skinOnCpu(m, rows);
+      for (let i = 0; i < s.n; i += 11) {
+        far = Math.max(far, Math.hypot(s.data[i * 12] - rest.data[i * 12], s.data[i * 12 + 1] - rest.data[i * 12 + 1], s.data[i * 12 + 2] - rest.data[i * 12 + 2]));
+        low = Math.min(low, s.data[i * 12 + 1]);
+      }
+    }
+    check(bad === 0, `clip ${name} gives finite bones`);
+    check(far < 0.6, `clip ${name} keeps the cat in one piece (furthest ${far.toFixed(2)} m)`);
+    check(low > -0.03, `clip ${name} stays out of the floor (lowest ${low.toFixed(3)} m)`);
+  }
+  // every sound a clip names is a field recording of the right kind: a bed loops, a call has its slices
+  const { FIELD } = await import(pathToFileURL(resolve(ROOT, 'client/shared/field-recordings.js')).href);
+  for (const [name, c] of Object.entries(C.CAT_CLIPS)) {
+    if (c.sound?.bed) check(!!FIELD[c.sound.bed]?.loop, `clip ${name}'s bed ${c.sound.bed} is a loop`);
+    for (const s of c.sound?.calls || []) for (const k of s.keys) check(!!FIELD[k]?.slices?.length, `clip ${name}'s call ${k} has its calls`);
+  }
+  const { INK_VS } = await import(pathToFileURL(resolve(ROOT, 'client/game/js/panels/gl/ink.js')).href);
+  const { BEAST_VS } = await import(pathToFileURL(resolve(ROOT, 'client/game/js/panels/gl/beast-light.js')).href);
+  for (const [k, vs] of [['ink', INK_VS], ['beast', BEAST_VS]]) {
+    const s = G.skinVariant(vs);
+    check(s.includes('catSkin();') && !/in vec3 aPos;/.test(s) && /in vec3 aPos0;/.test(s) && /in float \w+0;/.test(s), `the ${k} shader takes the skin`);
   }
 }
 console.log(`cat smoke: ${checks - fails}/${checks} passed`);

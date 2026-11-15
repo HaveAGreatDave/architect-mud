@@ -12608,6 +12608,22 @@ html[data-density="compact"] .corner-grip, html.tv-popped .corner-grip { display
 [data-motion="off"] .gds-arrive, [data-motion="off"] .gdr-arrive { transition: none; transform: none; }
 [data-motion="off"] .gds-arrive-tag i, [data-motion="off"] .gdr-arrive-tag i { animation: none; }
 @media (prefers-reduced-motion: reduce) { .gds-arrive, .gdr-arrive { transition: none; transform: none; } .gds-arrive-tag i, .gdr-arrive-tag i { animation: none; } }
+/* A final's Cup: its card across the middle of the picture as it cuts to the ceremony (the
+   Grandstand's gds-cup, Rinkside's gdr-cup), a navy band edged in gold that wipes in from the left
+   and fades out. */
+.gds-cup, .gdr-cup {
+  position: absolute; left: 0; right: 0; top: 50%; z-index: 6; pointer-events: none; text-align: center;
+  padding: 14px 16px 12px; transform: translateY(-50%) scaleX(0.02); transform-origin: left center; opacity: 0;
+  background: linear-gradient(180deg, rgba(10, 22, 52, 0.94), rgba(18, 34, 74, 0.94));
+  border-top: 2px solid #e2b13c; border-bottom: 2px solid #e2b13c; box-shadow: 0 0 40px rgba(226, 177, 60, 0.35);
+  transition: transform 0.45s cubic-bezier(0.2, 0.9, 0.25, 1), opacity 0.35s;
+}
+.gds-cup.in, .gdr-cup.in { transform: translateY(-50%); opacity: 1; }
+.gds-cup-tag, .gdr-cup-tag { font: 700 0.6875rem var(--font-mono); letter-spacing: 6px; color: #e8e2d0; }
+.gds-cup-name, .gdr-cup-name { font-family: 'K7 Bungee', 'Arial Black', Impact, var(--font-mono); font-size: clamp(16px, 4vw, 34px); line-height: 1.08; color: #f2c14e; text-shadow: 0 2px 0 #6b4a0e, 0 0 18px rgba(242, 193, 78, 0.55); }
+.gds-cup-sub, .gdr-cup-sub { margin-top: 4px; font: 700 0.75rem var(--font-mono); letter-spacing: 4px; text-transform: uppercase; color: #fff; }
+[data-motion="off"] .gds-cup, [data-motion="off"] .gdr-cup { transition: opacity 0.35s; transform: translateY(-50%); }
+@media (prefers-reduced-motion: reduce) { .gds-cup, .gdr-cup { transition: opacity 0.35s; transform: translateY(-50%); } }
 
 /* ── Gameday · Rink (CPhL) ─────────────────────────────────────────────────────
    The hockey sub-screen. Deliberately a COLD sheet against Deadball's warm green
@@ -12627,6 +12643,17 @@ html[data-density="compact"] .corner-grip, html.tv-popped .corner-grip { display
 .gdr-head-str { font-weight: 900; letter-spacing: 1px; padding: 0 4px; border-radius: 2px; background: rgba(79,210,255,0.16); color: #9fe4ff; border: 1px solid rgba(79,210,255,0.45); }
 .gdr-head-str.sh { background: rgba(255,190,60,0.16); color: #ffd27a; border-color: rgba(255,190,60,0.45); }
 .gdr-head-str.en { background: rgba(255,60,70,0.18); color: #ff9aa2; border-color: rgba(255,60,70,0.5); }
+/* the power play: whose (their crest, their colour down the side) and how long it has */
+.gdr-pp {
+	flex: 0 0 auto; display: inline-flex; align-items: center; gap: 4px; padding: 1px 6px 1px 5px; border-radius: 2px;
+	background: rgba(255, 196, 60, 0.18); border: 1px solid rgba(255, 196, 60, 0.6); border-left: 4px solid var(--pp, #ffc43c);
+	color: #ffe2a0; font-variant-numeric: tabular-nums; letter-spacing: 1px;
+}
+.gdr-pp b { color: #fff; font-weight: 900; }
+.gdr-pp i { font-style: normal; font-weight: 900; color: #ffd36b; }
+.gdr-pp-time { color: #fff; font-weight: 700; }
+.gdr-pp.even { background: rgba(120, 200, 240, 0.12); border-color: rgba(120, 200, 240, 0.45); border-left-color: rgba(120, 200, 240, 0.8); }
+.gdr-pp.even i { color: #9fe4ff; }
 
 /* ── the ice ───────────────────────────────────────────────────────────────────
    One canvas, drawn by client/game/js/panels/rink/render.js through a broadcast
@@ -12752,6 +12779,8 @@ html[data-density="compact"] .corner-grip, html.tv-popped .corner-grip { display
 .gdri.over .gdri-stats { margin-top: 4px; }
 .gdri.over .gdri-main { background: rgba(4, 10, 18, 0.8); }
 .gdri.over .gdri-stand { display: none; }
+/* and steps aside while the Ken Raven comic has the picture (rink/ken-comic.js) */
+.gdr-kencomic .gdri.over { display: none; }
 
 .gdr-strip {
 	flex: 0 0 auto; display: flex; align-items: baseline; gap: 10px; padding: 3px 10px;
@@ -12847,7 +12876,8 @@ html[data-density="compact"] .corner-grip, html.tv-popped .corner-grip { display
 	.gdr-l3-id .tm { display: none; }
 	.gdr-head { gap: 6px; padding: 3px 8px; }
 	.gdr-head-badge i { display: none; }
-	.gdr-head-badge, .gdr-head-score, .gdr-head-clock { letter-spacing: 0; }
+	.gdr-head-badge, .gdr-head-score, .gdr-head-clock, .gdr-pp { letter-spacing: 0; }
+	.gdr-pp { padding: 0 4px 0 3px; }
 	.gdr-jumbo { padding: 8px 14px; max-width: calc(100% - 24px); }
 	.gdr-jumbo-brand { margin-bottom: 3px; }
 	.gdr-jumbo-brand svg { width: 1.75rem; height: 1.75rem; }
@@ -13438,6 +13468,7 @@ html[data-density="compact"] .corner-grip, html.tv-popped .corner-grip { display
 	background: rgba(79, 210, 255, 0.16); color: #9fe4ff; border: 1px solid rgba(79, 210, 255, 0.45);
 }
 .tv-sb-strength.sh { background: rgba(255, 190, 60, 0.16); color: #ffd27a; border-color: rgba(255, 190, 60, 0.45); }
+.tv-sb-strength.pp { background: rgba(255, 196, 60, 0.2); color: #ffe2a0; border-color: rgba(255, 196, 60, 0.6); font-variant-numeric: tabular-nums; white-space: nowrap; }
 .tv-sb-strength.en { background: rgba(255, 60, 70, 0.18); color: #ff9aa2; border-color: rgba(255, 60, 70, 0.5); }
 
 /* Lower-third nameplate */

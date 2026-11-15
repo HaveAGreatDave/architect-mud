@@ -808,12 +808,28 @@ pipeline may branch on it.
 **The daily slate** ([proposals/daily-slate.md](proposals/daily-slate.md), Phases 1 to 3
 and 4a built). The two sports share the day's eight 3-hour
 slots, taking turns, and the pattern swaps each day, so each gets the 18:00 game every other
-day (`sportsSlateForDay`, `sportsMatchupForSlot`; the order is SPORTS's). Seven of the eight
-have a game: 21:00 (`SLATE_BUFFER_SOD`) is left empty on a regular day as the day's overflow,
-and the pairing that would have played it sits the day out, so all but two clubs of that
-night's sport play every day. The 18:00 game
-goes to the pairing whose clubs have had the fewest 18:00 games that month. A season is the
-in-game month, and its last day is Cup day: each sport plays only its final, in its last slot.
+day (`sportsSlateForDay`, `sportsMatchupForSlot`; the order is SPORTS's). Six of the eight
+have a game: 09:00 and 21:00 (`SLATE_BUFFER_SODS`) are left empty on a regular day as the
+overflow, so no more than three games are played back to back and a game that runs long never
+pushes the next one past its gap. Both gaps are the same sport's on a given day, so that sport
+plays two games (four clubs sit out) and the other four, and it swaps the next day. The 09:00
+pairing is still drawn and dropped, so every later game that day is the one it always was. The
+18:00 game goes to the pairing whose clubs have had the fewest 18:00 games that month.
+
+**Cup day.** A season is the in-game month, and its last day is Cup day. Nothing is played
+but the two finals, each at its sport's own hour (`season.finalAt` on the sport module): the
+Curtain Call at 13:00 and the Coldwater Cup at 20:00. The next season starts at midnight.
+
+- A final is in the slot its hour falls in (`finalSodOf`: 12:00 and 18:00), and starts that
+  far into it (`slateStartOffsetMin`: 60 and 120 game-minutes). `slateSportAt` gives a final's
+  slot to its sport whatever the pattern says.
+- Before its start the final isn't on air (`_gameStarted`, off the seen turn, so it airs from
+  its title card), though the slot is its and the park is lit. It's timed from its start
+  (`sportsAiringElapsedSec` takes the offset off), paced to a whole slot, and held over past
+  its slot like any game that runs long. A boot after its slot finds it by the clock
+  (`_finalStillOn`).
+- The guide, the Sports app (`broadcast.slotWhen`) and the next-game lookup all say the
+  final's real hour (`slateStartHour`).
 
 - **KSAB5** (channel 5, `ch_5_cinqo`) airs every game, live, round the clock,
   from one playlist row of `slot_type` **`sports_slate`**
@@ -825,9 +841,10 @@ in-game month, and its last day is Cup day: each sport plays only its final, in 
 - **KSAB-TV** carries the 18:00 game through a **`relay`** row, which has no programme of its
   own and airs whatever `source_channel_id` is showing (`_relayedItem`, one hop only; a relay
   of its own channel or of a relaying channel shows the off-air card, and `content:lint`
-  refuses both). On Cup day a second relay row at 21:00 (`conditions.calendar: 'month_end'`,
-  priority 1) carries the other final. At equal priority the narrower day mask wins, so
-  Saturday's 18:00 show still beats the every-day relay.
+  refuses both). On Cup day two relay rows (`conditions.calendar: 'month_end'`, priority 1)
+  carry the finals: 13:00 to 17:00 and 20:00 to midnight. Between them the every-day 18:00 row
+  relays KSAB5, which has nothing on until 20:00. At equal priority the narrower day mask
+  wins, so Saturday's 18:00 show still beats the every-day relay.
 - **The handover airs the next game from its title card.** The in-game clock moves a whole
   minute at a time, once a real minute, so a slot is first seen up to `timeScale` game-minutes
   old (40 real seconds at timeScale 3). Seeking that far into the new game skipped Deadball's
@@ -845,7 +862,7 @@ in-game month, and its last day is Cup day: each sport plays only its final, in 
   (`sportsAiringSlot`, which the slate picker asks too), and nothing goes on air in its place.
   When it ends, the next game goes on air from its title card, late, started from that moment
   rather than its slot's clock time; it's paced to a whole slot, so it ends late by as much,
-  and the lateness carries from game to game until the empty 21:00 slot takes it back. A game
+  and the lateness carries from game to game until an empty slot (09:00 or 21:00) takes it back. A game
   that finishes inside its slot hands over on the clock as before, and a hold more than two
   slots stale is dropped. The betting heartbeat, venue lights and KSAB-TV's 18:00 relay row
   still follow the clock's slot, so an 18:00 game that runs past 21:00 is cut on KSAB-TV
@@ -933,6 +950,22 @@ a home run's trot and replay included. The booth's lines are optional: a short s
 needed first, spread through the game, and a long one scales every hold. At the live 3:1 clock a
 plate appearance averages about 36 s; at 1:1 about 100. Before this every line held the slot's even
 share (22 s at 3:1), and the park stood still for most of it. That was the freeze between at-bats.
+
+A play that puts a man in scoring position and leaves him there gets a line after it (`risp`): a
+hit, a productive out, a steal or a ball that got by. Late in a close one he's the tying or the
+go-ahead run (`risp.tying`, `risp.ahead`); on third with fewer than two out a fly ball scores him
+(`risp.third`); with two out he's running on contact (`risp.twoout`). Twice a half-inning at most,
+and it stands in for the next man's `sit.risp`.
+
+**The Curtain Call in the booth.** In a final the booth is given the final's facts, the same ones
+its pre-game package shows (`finalPackage`'s `facts`): at the changeovers from the 2nd to the 5th,
+how the club coming up got there (`final.road`: its record, its place, its last ten, its streak), and
+once from the 4th the season series between them (`final.series`). From the 6th, in a big spot, a
+line about the pressure (`final.pressure`); from the 7th, how many outs the leading side is from the
+title (`final.outs`); each once a half and three a game at most. After a run, what it does to the
+game: the lead changing hands, the game tied, or a lead stretched from the 6th (`final.stakes.*`).
+Every call in a final runs hotter (the narrator's `exciteFor`), and the lean-in before a pitch comes
+in a smaller spot.
 
 **Styles.** Each man has a style from his name (`pitcherStyleOf`, `batterTypeOf` in
 [sports/baseball.js](../plugins/broadcast/sports/baseball.js)): a pitcher's mix of pitches and his out
@@ -1174,9 +1207,16 @@ Built so far (Phases 1 and 2 of the plan):
   matchup with both season lines, a steal's card with its clocks and a home run's distance, and
   its board in words carries the leaders' table between innings, so nothing on the hidden graphics
   canvas is only a picture;
-- the crowd (Phase 4c, [gl/crowd.js](../client/game/js/panels/gl/crowd.js)): every fan is one
-  figure in three poses, sitting, standing and cheering (`crowdMorph` pairs the poses vertex for
-  vertex), and the vertex shader moves him between them by how loud his side is. A play's cheer
+- the crowd (Phase 4c, [gl/crowd.js](../client/game/js/panels/gl/crowd.js)): every fan is
+  [gl/fan-vat.js](../client/game/js/panels/gl/fan-vat.js)'s figure, the street's body with a sculpted
+  head and a face of flat triangles (eyes, brows, lips, a mouth that opens when he shouts), his clips
+  baked into one texture, a column a vertex and a row a frame, which the vertex shader (`FAN_GLSL`)
+  plays by how loud his side is. Sat, he sits one of four ways, claps in his seat for a little noise
+  from his side, and puts his hands on his head for the other side's; past his threshold he gets up
+  through a baked rise and cheers one of four ways (arms up, clapping, a fist, shouting through his
+  hands), or whirls a rally towel on a final. His build, sex, hair, cap, beard and glasses are all
+  off his seat's hash. A fan big on the screen is drawn at the near level (about 2,100 triangles, at
+  most `NEAR_MAX` of them), the rest at the far one (about 740), and under 9 px as a card. A play's cheer
   (spectacle.js `cheerOf`) says whose fans, how loud and how long: a home run brings its side up
   off the bat, a run, a double play, a great catch or a strikeout ending a half as it lands. Each
   side's roar rises, holds and falls away (`createRoar`, a pure function of time), and each fan
@@ -1252,7 +1292,11 @@ Built so far (Phases 1 and 2 of the plan):
   motion it holds still where they'll walk through;
 - replays (Phase 4b, [diamond/replay.js](../client/game/js/panels/diamond/replay.js)): a walk-off,
   a home run, a triple or double play, a catch that took a dive, a slide or a leap, a triple and a
-  call at first closer than 0.15 s are shown again in slow motion. Staging is a pure function of
+  call at first closer than 0.15 s are shown again in slow motion. So are every stolen base, a
+  pickoff and a man who came all the way round from first: a steal and a man round from first are
+  replays about a man (`focus`, his slot), on a camera that rides along with his run
+  (`runnerShot`), with his touch on the bag or the plate as the moment, so the comic replay freezes
+  on his slide and not on the tag (`momentAt`). Staging is a pure function of
   the payload, so the play is staged again in a world of its own (`stageReplay`), stepped to just
   before its moment and played at 0.4 of its speed from a second camera, at most 3.4 s of play,
   silent, under a REPLAY bug beside the score; the live world carries on behind it and a cut its
@@ -1437,6 +1481,31 @@ piling on while the losers walk off. The city's own fireworks go up from the par
 crowned. The sandbox page plays any game as the final with `?po=1`. All of it is under Phase 5 in
 [deadball-glass2.md](proposals/deadball-glass2.md#phases).
 
+**The champions and the Memorial Cup** (as built). After the final line the booth talks over the
+celebration: how they won the game (`worldseries.celebrate.game`, naming the man who put them ahead
+for good and the night's best man), their season (`.season`, their record and seed) and a word for
+the losers (`.loser`), Chip then Dusty. The last-out payload's hold runs through all of it, at least
+`AFTER.champion` (40 s, [diamond/timing.js](../client/game/js/panels/diamond/timing.js)). In the park
+([diamond/ceremony.js](../client/game/js/panels/diamond/ceremony.js) `planMob`) the pile gets up,
+the bench and the coaches sprint out, the champions go round slapping hands (two rounds where
+there's time) and then pack into one mass on the mound, bouncing (`celebrate_leap`,
+`celebrate_pump`), while the shells keep going up in waves in the club's two colours
+(spectacle.js `planChampion` `colours`, `until`). The cameras move (`mobShots`, the `party` shot in
+camera.js, a track of eye, aim and lens): in low on the pile, round it on a steadicam, a jib craning up
+off the mob, the shells, the crowd. Then the `worldseries.cup` line carries a payload of its own,
+`phase: 'crown'` (its cup, the winner, both clubs, the score, `stars` and `mvp`; the champions in the
+field, so the cast is theirs, cast.js `crownCast`). The Grandstand cuts to the Charles B. Hughson
+Memorial Cup's card and the trophy's table beside the mound, the twelve champions round it in two arcs,
+and each star (sports/baseball-narrator.js `cupStars`: the night's best man, the winners' pitcher, the
+next best bat) walks up, lifts the Cup off the table (`cup_lift`), holds it up over his head
+(`cup_hoist`) under ticker tape in the club's colours and their shells (spectacle.js `planCupShow`, the
+`tape` kind), and puts it back (`cup_set`) for the next; his name goes up as he lifts it. The last keeps
+it up while the team crowds round him, through the outro. The Cup rides his hands (`cupAt`, off his
+wrists, eased off the table and back on; gl/ballpark.js `setCup` draws it, ballpark-mesh.js
+`cupInto` builds it). The pacer, the park clock and the 2-D Gameday don't count the Cup's payload as a
+play. A late tuner gets the dress and the card with it. With reduced motion every camera stands
+still and there's no tape or shells. `final-smoke` holds all of it.
+
 ### Live from the venue, and the final's package (as built)
 
 **The venue.** Each sport's row names where its games are played in `sports_pools.venue`: `name`,
@@ -1513,17 +1582,30 @@ The Cup final gets what the Curtain Call has, on the rink's own terms.
   readings share the line's hold (0.6 s to 2.4 s a man). The line has a 15 s `hockeycup` card so it
   holds long enough, and a set without the rink shows that card; the rink keeps it off its picture.
   The lights come back up as the next beat begins. Music: `ksab7_cup_anthem`.
-- **The Cup** (`type: 'crown'`). After `cup.final`, the `cup.crown` line names the winner, the
-  captain (the centre) and the player of the final (goals, then assists, on the winning side).
-  `stageCrown` sends the losers to their bench and the goalie into a slump, piles the champions up
-  at centre, has the referee carry the Cup out at 4 s, hands it to the captain at 9.5 s, who lifts
-  it under the first fall of confetti in the club's colours (`W.confetti`, fluttering in
-  [rink/sim.js](../client/game/js/panels/rink/sim.js)), and from 15.5 s skates it round the sheet
-  with his club strung out behind him. It runs until the next picture, through the outro. The view
-  puts up a CHAMPIONS! card and then the player of the final's lower third. The trophy is
+- **The Cup** (`type: 'crown'`), the Coldwater Cup, which the booth also calls the Golden Goose Cup.
+  After `cup.final`, the `cup.crown` line names the winner, the captain (the centre), the player of
+  the final (goals, then assists, on the winning side) and `stars`, the three who lift it in turn
+  (`cupStars` in [hockey-narrator.js](../plugins/broadcast/sports/hockey-narrator.js): the captain,
+  the player of the final, the goalie). The booth then talks over the celebration off the venue's
+  stream (`ctx.xpick`): how they won it (`cup.celebrate.game`, the goal that put them ahead for good
+  and the player of the final's night), their season (`.season`, record and seed), the handshake
+  line (`.loser`), and each lift (`cup.lift`, `cup.pass`); the colour man's ordinary sign-off is
+  left out. `stageCrown` on its clock (`CROWN`): at the horn the champions fling their sticks and
+  gloves and the goalie his mask, and pile on him in his crease while the losers go to their bench
+  and their goalie slumps; from 8 s the mob comes out to centre hugging two by two; from 15 s the
+  two clubs file past each other along the red line; at 24 s the referee carries the Cup out (the
+  view puts up its card, `.gdr-cup`); from 29 s the three stars lift it in turn, 9 s each, under
+  confetti in the club's colours and their pyro (`W.pyro` in
+  [rink/sim.js](../client/game/js/panels/rink/sim.js): shells bursting under the roof and fountains
+  off the boards, glowing `spark` points in [gl/arena.js](../client/game/js/panels/gl/arena.js)),
+  each named in a lower third (`onLift`); then the last skates it round the sheet with his club
+  strung out behind him, the pyro going off every 6.5 s. The camera works through its own framings
+  as it goes (low on the pile, panning with the mob, wide along the line, close on each man as it
+  goes up, the whole sheet for the pyro, with the lap). It runs until the next picture, through the
+  outro. The view puts up a CHAMPIONS! card and then the player of the final's lower third. The trophy is
   `buildCup` in [gl/arena-mesh.js](../client/game/js/panels/gl/arena-mesh.js). Music:
   `ksab7_cup_champions` on `cup.final`, then `ksab7_cup_close` under the outro, all three scored in
-  [build-final-opens.mjs](../scripts/content/build-final-opens.mjs).
+  [build-final-opens.mjs](../scripts/content/build-final-opens.mjs). `rink-smoke` holds the Cup night.
 - Only the GLASS 2 rink (gl/arena.js) draws the spotlights, the Cup and the confetti; the old 2-D
   `rink/render.js` stages the men but doesn't draw them.
 
@@ -1559,7 +1641,8 @@ for that long and the theme's tracker, which schedules a tenth of a second ahead
 stalled with it. Three things fix it. A sports title card carries `warm` (the sport), and the walker
 sends it to watchers as a `warm` overlay that draws nothing; on the visual rung tv.js loads the
 game's views and calls `warmGrandstand`, which compiles the park's programs in a throwaway context
-and bakes the fans' figure in a worker (`gl/crowd-morph-worker.js`) while the theme plays. The view
+and bakes the fans in a worker (`gl/fan-vat-worker.js`, `fanBakeAsync`) while the theme plays;
+until the bake is back every fan is drawn as a card. The view
 itself never builds on a cold compile: it puts its shell up, starts the programs on its own canvas
 (`prepareBallpark`) and builds the park only once they've finished, polling meanwhile, with
 "Waiting for the first pitch" over the picture. And each renderer prewarms only its own scene's
@@ -1632,6 +1715,17 @@ Two people at KSAB5's desk open a game, take its break and close it, as 3-D sequ
 ⚠ A desk line carries its `desk` overlay as a `graphic`, never a `gameday` payload. A gameday payload ends the hockey pacer's break run and restarts its cues.
 
 A segment is performed: its lines go out only while everybody cast is standing in the set's room (`deskStaffed`), and otherwise none of them airs, text included. The desk's cast are on no playlist row's staff, so the studio lookup answers for them from their show (`castStage` in sequences.js: the room of the set their show's sequences use), and the next-shift lookup has them on while a slate has a game on. Without that, `CHECK_WORK` found no studio and sent them home while the schedule checker had them on shift, and no desk segment of either sport ever aired.
+
+### The booth on camera (as built)
+
+Each sport's two callers are on camera too, in their ground's press box: Chip Vega and Dusty Merriman in the Coliseum's (`set_hughson_booth`), Tug Brennan and Rennie Gault on the Gardens' gantry (`set_slush_booth`). Each set is a desk with two microphones in front of the glass, and the glass is a video wall showing the game's own picture (the sequences' `wall: 'feed'`). They're the same show entries as the desk's, with four more moments, and the narrators call them through the same `ctx.desk`:
+
+- **`booth_open`**: after the desk's open, which throws to them. Who they are, the records, a man to watch, the starter or the goalies.
+- **`booth_break`**: before the desk's break at the same moment, the stretch or each intermission. The score, the goals or homers so far, the fights, and over to the desk.
+- **`booth_cut`**: now and then, straight after a big play, in place of the booth's after-talk. `boothCuts` in [sports/facts.js](../plugins/broadcast/sports/facts.js) lists every moment in a game worth it (a hat trick, a man killed, a fight, a goal in the third that ties it or puts a side ahead; a grand slam, or a play from the 7th to the 9th that ties it or puts a side ahead), never the play that ends the game. `pickBoothCut` takes one at most, each kind on its sport's odds (`BOOTH_CUT_ODDS`), off a stream of its own (`0xb0c7`), so about one hockey game in four has a cut and one ballgame in seven. The cut's facts (`cutFacts`) are `cut` (the kind), `cutMan`, `cutLoser` (a fight), `cutTied` and `cutPlay`, and its sequence's beats are conditioned on `cut`.
+- **`booth_end`**: straight after the final call, before the desk's close: how it was decided. The end facts are `decider` (the goal or play that put the winner ahead for good, with `periodSaid` or `inning` and `play`), `endedIn` (`regulation`, `overtime` or `a shootout`; `nine` or `12 innings`), `soWinner` and `soScore`, `walkoff`, and `comebackFrom` and `comebackSaid` when the winner had been behind. In hockey it stands in for the colour man's last word (`colour.final`), which still airs if no segment does. A final has the champions' celebration instead, where the booth already says how they won it.
+
+The callers aren't NPCs. The show casts them as tokens (`pbp: '{announcer}'`, `col: '{analyst}'`), named from the script's `@announcer` and `@analyst`, and the set's `looks` dresses them by name. The booth sets have no `zone`, so the real press boxes stay the rooms they are and the segment needs nobody standing anywhere. `deskNow` returns whether a segment aired. The Studio previews every moment from a simulated game (`momentFacts`, which adds a cut's facts at `booth_cut`), and the gate tries a cut at every moment a sample game offers one.
 
 ### An advert inside a show (as built)
 
@@ -2136,6 +2230,25 @@ the first tick after the deploy. Change the era only when the roster changes. De
 `deadball-rosters`, the eight clubs above playing their season squads (below); its
 sixteen-club seasons had no era and close the same way.
 
+**The clubs' history on air** ([sports/club-lore.js](../plugins/broadcast/sports/club-lore.js)).
+Each club has a story worked out from the league's closed seasons (`sportsleague.getHistory`):
+Cups or Curtain Calls won, back-to-back runs, finals lost in a row, droughts, never having won,
+and where it finished in each of the last five months against where it stands tonight. A season
+counts for a club only if the club is in it or it was played under today's roster era. Nothing
+is stored but each season's final table, so the story moves the month a result changes it: the
+champions are a dynasty until someone beats them, and a club that finished last twice and sits
+second tonight has turned it round. Two clubs that have met in a final have a rivalry (`lore.rematch`,
+`lore.rivalry`, `lore.rivalry.owned`). Cluster Puck says the rivalry and the bigger story before
+the drop and one more in each intermission; Deadball's booth tells them at the changeovers, Dusty
+first, before the first pitch and now and then from the 3rd to the 8th, four a game at most. The
+lines are the `lore.*` pools in each script, drawn on a stream of their own so no other line
+moves, and a script without them says nothing about the past.
+
+**Staff can start either league over** from the dev panel's 🏆 Leagues tab, which sportsleague
+brings itself. The open season closes uncrowned and a fresh one opens 0-0 from the next game,
+still ending on Cup day; a box on the tab also wipes that league's history back to Season 1.
+Details in [the plugin README](../plugins/sportsleague/README.md#seasons--the-curtain-call).
+
 **Deadball's season squads (sim v3).** From `@sim 3` a club keeps thirteen men a season: nine
 who play where they always play, three starters who take turns by the day, and a bench man who
 spells a regular every fourth day. Between seasons (the in-game month) each club changes about
@@ -2165,6 +2278,22 @@ CPhL sub-screen. It keeps the Deadball view's interface (`apply`, `clear`, `setC
 `showIdle`, `showCard`), so tv.js picks a view by sport and nothing else changes. The file
 is the shell: the header, the strip, the caption, the jumbotron cards, the intermission
 board, the sound mapping and the frame loop. The work is in `client/game/js/panels/rink/`:
+
+**The clock and the power play.** A play's payload carries the clock at its moment
+(`clockSecs`), and the header runs down to it and stops there till the next play, as a clock
+stops at a whistle. It runs at one pace for the night, `clockRate` (game seconds a real
+second), which `paceClock` in [hockey-pacing.js](../plugins/broadcast/sports/hockey-pacing.js)
+sets from how long each payload is on air (`spanMs`, filled in by `assembleSportsGraph`): the
+rate 85% of the gaps between plays fit inside. A gap that won't fit runs just fast enough to
+arrive by the time the clock next has to move (`runMs`). Before this the header ran down at
+a second a second, faster the further behind it was, which raced and crawled.
+From sim v8 every beat carries `box`, each man serving and his game seconds left, and the
+narrator turns it into `pp` (`ppOf`): the club with the extra man, the men a side and the
+seconds until that changes. The header shows it as the club's crest and abbreviation with
+POWER PLAY (or `PP 5-ON-3`, or `4-ON-4` when both boxes are level) and the time, counted down
+with the clock; the TV's score bug shows the same at the bug's clock. A beat's `strength` is
+the attacking side's, so it flips PP to SH as the puck changes hands; with `pp` to read, both
+show `strength` only for an empty net.
 
 **The picture comes first.** The view gets whatever box the set gives it: about 378×306 on
 a portrait phone, 536×251 on one turned sideways, 754×393 on a desktop. Its text is in rem,
@@ -2225,8 +2354,9 @@ The 2-D renderer (figure.js) keeps the slimmer shapes.
 **The crowd (GLASS 2).** A bowl of sixteen rows of seats runs round the whole sheet behind the
 glass, corners and all, a seat back and pan a place, and a fan sits in as many as the night
 draws ([arena-crowd.js](../client/game/js/panels/gl/arena-crowd.js)). The fan is Deadball's
-(`crowdMorph`), one figure in three poses instanced a seat, so a full house of about 5,100 is a
-few draw calls. The narrator puts `gate`, the share of the seats sold, on every payload: a Cup
+([gl/fan-vat.js](../client/game/js/panels/gl/fan-vat.js), his clips baked into a texture) instanced a
+seat, at the far level or, big on the screen, the near one, so a full house is two draw calls a
+pass. Until the bake is back from its worker there are no fans. The narrator puts `gate`, the share of the seats sold, on every payload: a Cup
 final sells out; otherwise it's the two clubs' places in the table, a rivalry on top, and the
 night's luck off the seed, between 0.3 and 0.97. Seats sell best first (low, near centre ice,
 with chance in it), so a thin house leaves the upper corners and ends empty. Most fans wear the
@@ -2777,6 +2907,14 @@ director now sets `W.cup` on every game, and both
 renderers read it: render.js lays the piece's canvas on the flank, and GLASS 2 has it in
 the lettering texture under ICE CREW (`ZAMBONI_LABEL`).
 
+Cup final night has a version of its own. Every play's payload in the final says `cup`, and the
+director keeps it as `W.final` for the game. The tank goes royal purple, the bands and the tank's
+lid gold, the trim and the rims chrome (`CUP_NIGHT`); the piece is the gold one, the letters in
+gold leaf with confetti in the overspray and a CUP FINAL ribbon under them (`paintLivery` with
+`final`, the second piece in the label texture); a two-thirds replica of the Cup rides on the
+lid (`buildCup` with `k`); and a pennant in each finalist's colour flies off the roll hoop. The
+2-D renderer has the colours and the piece, but not the Cup or the pennants.
+
 A break is six and a half minutes on air (`BREAK_MS` in [hockey-pacing.js](../plugins/broadcast/sports/hockey-pacing.js)),
 so a seat in the stands (`zamboniReal`) watches the whole sheet done at a driver's pace, sped up
 only if a short slot's break can't hold it. The booth's lines are spread through the break with
@@ -2797,6 +2935,15 @@ renderer draws as darker, glossier ice. As it goes off it has the crew put the n
 (`W.netsOn`). The period starts on dry ice with nothing on it: `ice.markedFeet()`, the
 square feet still carrying a mark, is none. Called off early (`W.zamboniOff`, the period
 back before the break said), it lifts the conditioner and drives to the nearer gate.
+
+In the first break, with comic replays on, the broadcast leaves the time-lapse for about 30 s to
+thank Ken in a comic: six live shots from a camera on the ice riding with the machine, Ken waving
+in two of them, each held as a printed panel, then all six as a "Thank you, Ken!" page in
+Rinkside Comics, with confetti; on Cup final night some lines change to say so
+([rink/ken-comic.js](../client/game/js/panels/rink/ken-comic.js); details in
+[comic-ink.md](proposals/comic-ink.md#ken-raven-the-intermission-comic-as-built-2026-11-14)). The
+machine runs at a lapse of 1 for the shots and catches up after, so it's through its gate when it
+would have been.
 
 **Things that trip people up.**
 

@@ -32,7 +32,8 @@ import { HOCKEY, rivalOf, healSlot, reprintSlots, rosterFor } from './sports/hoc
 import { bindingOf, whereabouts, seasonLine } from './sports/league-npcs.js';
 import { finalPackage, packageText } from './sports/final-package.js';
 import { deskSegment, deskOverlay, deskStaffed, castOnAir, castStage, withLive, stageSet, roomSet, guestPerson, breakSetFor, breakStage, sceneSetFor, setOfId } from './sequences.js';
-import { factsAt, watchOf } from './sports/facts.js';
+import { factsAt, watchOf, boothCuts, pickBoothCut, cutFacts } from './sports/facts.js';
+import { gameLore } from './sports/club-lore.js';
 import {
   gameshowAiring, gameshowDayBucket, getGameshowGraph, gameshowOpenRound, gameshowResolveRound,
   gameshowTokens, gameshowForgetPlayer, makeGuessCommand, assembleGameshowGraph, gameshowPool,
@@ -981,7 +982,7 @@ function _pickDailySlot(playlist, gameSecs, dayOfWeek) {
     if (gameSecs < i.startTime || gameSecs >= i.startTime + i.duration) continue;
     if (!_slotAirsOn(i, dayOfWeek)) continue;
     if (i.calendar === 'month_end' && !isCupDay(slotDay(sportsSlotIndex()))) continue;
-    if (i.slotType === 'sports_slate' && _slateOnAirSlot(i.sportsScript, _slotAtGameSecs(gameSecs)) == null) continue;
+    if (i.slotType === 'sports_slate' && _slateOnAirSlot(i.sportsScript, _slotAtGameSecs(gameSecs), gameSecs) == null) continue;
     if (!best) { best = i; continue; }
     const pi = i.priority || 0, pb = best.priority || 0;
     if (pi !== pb) { if (pi > pb) best = i; continue; }
@@ -2749,7 +2750,7 @@ function sportsAiring(script, slot = sportsSlotIndex()) {
 // turn. Now the last game that went on air is held (`_sportsHold`): while the clock is past
 // its slot and its content hasn't finished, it stays on, and the next game waits and then
 // airs from its title card, late. Its slot is paced as usual, so it ends late too, and the
-// lateness carries on until the day's empty slot (SLATE_BUFFER_SOD, no game) soaks it up.
+// lateness carries on until one of the day's empty slots (SLATE_BUFFER_SODS) soaks it up.
 // A late game starts at the moment the last one's content ended, not at its own slot's
 // clock time, so its parked post-game tail is what gets cut, never the play.
 //
@@ -2784,14 +2785,45 @@ function _holdNext(prev, slot, nowMs, byClockSec, contentMs) {
 function sportsAiringSlot(script, slot = sportsSlotIndex(), nowMs = Date.now()) {
   const held = _holdingAt(_sportsHold, slot, nowMs);
   if (held != null) return sportsAiring(script, held) ? held : null;
-  return sportsAiring(script, slot) ? slot : null;
+  if (sportsAiring(script, slot)) return _gameStarted(script, slot, nowMs) ? slot : null;
+  return _finalStillOn(script, slot);
 }
-// The picker's question for a slate item at `slot` of today. Only the current slot can be
-// held over; any other is asked plainly.
-const _slateOnAirSlot = (script, slot) => (slot === sportsSlotIndex() ? sportsAiringSlot(script, slot) : (sportsAiring(script, slot) ? slot : null));
-// Seconds into `slot`'s game, putting it on air (and holding it) if it's new.
+// A final starts partway into its slot (the sport's `season.finalAt`): before then it isn't on
+// air, though the slot is its and the park's lit. Timed off the seen turn like the rest, so it
+// airs from its title card. Only the current slot is asked this way.
+function _gameStarted(script, slot, nowMs) {
+  const off = _startOffsetSec(script, slot);
+  return !off || slot !== sportsSlotIndex() || sportsSegElapsedSec(nowMs) >= off;
+}
+// Real seconds into `slot` before its game starts: 0 but for a final.
+const _startOffsetSec = (script, slot) => (slateStartOffsetMin(sportOf(script).id, slot) / SPORTS_SLOT_GAME_MIN) * (sportsSlotMs() / 1000);
+// A final runs past its slot by however far into it it started, and nothing is scheduled after
+// it on Cup day. The hold carries it, but a boot after its slot has no hold: then the clock
+// says whether it's still on, from its start, for as long as a game is paced to run.
+function _finalStillOn(script, slot) {
+  const now = sportsInGameMinutes();
+  for (let k = 1; k <= SPORTS_HOLD_MAX_SLOTS; k++) {
+    const s = slot - k, off = slateStartOffsetMin(sportOf(script).id, s);
+    if (!off || _sportsHold?.slot === s || !sportsAiring(script, s)) continue;
+    if (now < s * SPORTS_SLOT_GAME_MIN + off + SPORTS_SLOT_GAME_MIN * SPORTS_GAME_FILL) return s;
+  }
+  return null;
+}
+// The picker's question for a slate item at `gameSecs` today. Only the current slot can be
+// held over; any other is asked plainly, a final only from its start.
+function _slateOnAirSlot(script, slot, gameSecs = null) {
+  if (slot === sportsSlotIndex()) return sportsAiringSlot(script, slot);
+  if (!sportsAiring(script, slot)) return null;
+  const off = slateStartOffsetMin(sportOf(script).id, slot);
+  return off && gameSecs != null && (gameSecs / 60) % SPORTS_SLOT_GAME_MIN < off ? null : slot;
+}
+// Seconds into `slot`'s game, putting it on air (and holding it) if it's new. A final is timed
+// from its start, not its slot's; a past slot (a final the boot found still on) by the clock.
 function sportsAiringElapsedSec(slot, graph, nowMs = Date.now()) {
-  const byClock = slot === sportsSlotIndex() ? sportsSegElapsedSec(nowMs) : 0;
+  const script = graph?._script || null, cur = sportsSlotIndex();
+  const off = script ? _startOffsetSec(script, slot) : 0;
+  const byClock = slot === cur ? Math.max(0, sportsSegElapsedSec(nowMs) - off)
+    : slot < cur && off ? Math.max(0, ((sportsInGameMinutes() - slot * SPORTS_SLOT_GAME_MIN) / SPORTS_SLOT_GAME_MIN) * (sportsSlotMs() / 1000) - off) : 0;
   const { hold, elapsedSec } = _holdNext(_sportsHold, slot, nowMs, byClock, graph?._contentMs || sportsSlotMs());
   _sportsHold = hold;
   return elapsedSec;
@@ -2824,17 +2856,21 @@ function roundRobinRounds(n) {
 // one, which goes to the pairing whose clubs have had the fewest 18:00 games so far this
 // month, so every club is on KSAB-TV about as often as every other.
 //
-// The last day of the in-game month is Cup day. Each sport plays only its final, in its
-// last slot of the day, and every other slot is empty. The finalists are the league's
-// (postseasonOverride), so the slate marks the slot as the final and names nobody.
+// The last day of the in-game month is Cup day. Nothing is played but the two finals, each
+// at its own hour (the sport's `season.finalAt`: Deadball's at 13:00, the Cup at 20:00), in
+// the slot that hour falls in and starting partway into it. Every other slot is empty, and
+// the next season starts at midnight. The finalists are the league's (postseasonOverride),
+// so the slate marks the slot as the final and names nobody.
 //
 // All of it is a pure function of the day number and the club names, like the games.
 const SLATE_SPORTS = Object.keys(SPORTS);
 const SLATE_FEATURED_SOD = 6;   // 18:00, the slot KSAB-TV carries
-// 21:00 has no game on a regular day: it's the day's overflow, where a game that ran long
-// finishes (see _sportsHold). The pairing that would have played it sits the day out. On
-// Cup day it's still the second final's slot.
-const SLATE_BUFFER_SOD = 7;
+// 09:00 and 21:00 have no game on a regular day: they're the overflow, where a game that
+// ran long finishes (see _sportsHold), so three games at most are played back to back. Both
+// are the same sport's on a given day, so that sport plays two games and the other four,
+// and it swaps the next day. The pairings that would have played them sit the day out; the
+// 09:00 one is still drawn, so the 15:00 game is the one it always was.
+const SLATE_BUFFER_SODS = new Set([3, 7]);
 const DAY_MS = 86400000;
 const slateDate = (day) => new Date(day * DAY_MS);
 // The in-game day a slot falls on, and its slot of the day.
@@ -2844,8 +2880,23 @@ const slotSod = (slot) => ((slot % SPORTS_GAMES_PER_DAY) + SPORTS_GAMES_PER_DAY)
 const monthStartDay = (day) => day - (slateDate(day).getUTCDate() - 1);
 const isCupDay = (day) => slateDate(day + 1).getUTCDate() === 1;
 const monthEndDay = (day) => { const d = slateDate(day); return Math.floor(Date.UTC(d.getUTCFullYear(), d.getUTCMonth() + 1, 0) / DAY_MS); };
-// The sport that plays in slot-of-day `sod` on `day`.
-const slateSportAt = (day, sod) => SLATE_SPORTS[(((sod + day) % SLATE_SPORTS.length) + SLATE_SPORTS.length) % SLATE_SPORTS.length];
+// The sport whose turn slot-of-day `sod` is on a day, by the alternating pattern.
+const _turnAt = (day, sod) => SLATE_SPORTS[(((sod + day) % SLATE_SPORTS.length) + SLATE_SPORTS.length) % SLATE_SPORTS.length];
+// When a sport's final starts on Cup day, in in-game minutes after midnight: its own
+// `season.finalAt`, or the start of its last slot by the pattern.
+function finalAtMin(sport, day) {
+  const m = SPORTS[sport]?.season?.finalAt;
+  if (Number.isFinite(m) && m >= 0 && m < 1440) return m;
+  for (let s = SPORTS_GAMES_PER_DAY - 1; s >= 0; s--) if (_turnAt(day, s) === sport) return s * SPORTS_SLOT_GAME_MIN;
+  return null;
+}
+const finalSodOf = (sport, day) => { const m = finalAtMin(sport, day); return m == null ? null : Math.floor(m / SPORTS_SLOT_GAME_MIN); };
+// The sport that plays in slot-of-day `sod` on `day`. On Cup day a final's slot is its
+// sport's whatever the pattern says.
+function slateSportAt(day, sod) {
+  if (isCupDay(day)) for (const sp of SLATE_SPORTS) if (finalSodOf(sp, day) === sod) return sp;
+  return _turnAt(day, sod);
+}
 // A sport's slots-of-day on `day`, in time order.
 function slateSodsFor(sport, day) {
   const out = [];
@@ -2854,19 +2905,26 @@ function slateSodsFor(sport, day) {
 }
 // The slot a sport's Cup-day final is played in, given any slot in the season's month.
 function slateFinalSlot(sport, slot) {
-  const cup = monthEndDay(slotDay(slot));
-  const sods = slateSodsFor(sport, cup);
-  return sods.length ? cup * SPORTS_GAMES_PER_DAY + sods[sods.length - 1] : null;
+  const cup = monthEndDay(slotDay(slot)), sod = finalSodOf(sport, cup);
+  return sod == null ? null : cup * SPORTS_GAMES_PER_DAY + sod;
 }
+// In-game minutes into `slot` before `sport`'s game in it starts: a final's offset, else 0.
+function slateStartOffsetMin(sport, slot) {
+  const day = slotDay(slot);
+  if (!isCupDay(day) || finalSodOf(sport, day) !== slotSod(slot)) return 0;
+  return finalAtMin(sport, day) - slotSod(slot) * SPORTS_SLOT_GAME_MIN;
+}
+// When `sport`'s game in `slot` starts, as an hour of the day (13 for a 13:00 final).
+const slateStartHour = (sport, slot) => (slotSod(slot) * SPORTS_SLOT_GAME_MIN + slateStartOffsetMin(sport, slot)) / 60;
 const sportSalt = (sport) => sportsHash(...[...String(sport)].map((c) => c.charCodeAt(0)));
 
 // One sport's games on one day: [{ sod, away, home }] in time order, or on Cup day
 // [{ sod, final: true }]. `counts` holds each club's 18:00 games so far this month and
 // is read, not written.
 function buildSportDay(sport, day, names, counts) {
+  if (isCupDay(day)) { const sod = finalSodOf(sport, day); return sod == null ? [] : [{ sod, final: true }]; }
   const sods = slateSodsFor(sport, day);
   if (!sods.length) return [];
-  if (isCupDay(day)) return [{ sod: sods[sods.length - 1], final: true }];
   const salt = sportSalt(sport);
   const order = sportsShuffle(names, sportsRng(sportsHash(monthStartDay(day), salt, 0x5c4e)));
   const rounds = roundRobinRounds(order.length);
@@ -2884,9 +2942,8 @@ function buildSportDay(sport, day, names, counts) {
   }
   const out = [];
   for (const sod of sods) {
-    if (sod === SLATE_BUFFER_SOD) continue;
     const p = sod === SLATE_FEATURED_SOD && featured ? featured : pairs.shift();
-    if (!p) continue;
+    if (!p || SLATE_BUFFER_SODS.has(sod)) continue;
     const flip = (sportsHash(day * SPORTS_GAMES_PER_DAY + sod, 0xa17f) & 1) === 1;
     out.push(flip ? { sod, away: p[1], home: p[0] } : { sod, away: p[0], home: p[1] });
   }
@@ -3251,6 +3308,8 @@ function assembleSportsGraph(script, broadcastId, slot, override, opts = {}) {
   const xrng = sportsRng(sportsHash(gs.seed, 0x11fe));
   const xpick = (...keys) => sportsPick(pools, xrng, ...keys);
   const vrng = sportsRng(sportsHash(gs.seed, 0x7a7));
+  // the club history's lines, from a stream of their own like the vat's
+  const lrng = sportsRng(sportsHash(gs.seed, 0x10e));
   const { away, home, awayScore, homeScore, beats } = game;
 
   const nodes = {};
@@ -3287,20 +3346,27 @@ function assembleSportsGraph(script, broadcastId, slot, override, opts = {}) {
   const booth = (node) => { const lex = sportsLexFor(node.text, script.say); return { ...node, ...(lex ? { lex } : {}), ...(script.voice ? { voice: script.voice } : {}), ...(script.announcer ? { speaker: script.announcer } : {}) }; };
   const say = (line, tok, sb, graphic, gd, meta) => { if (!line) return; const text = sportsFill(line, tok).trim(); if (!text) return; add(booth({ type: 'say', text, style: 'raw', ...(sb ? { scorebug: sb } : {}), ...(graphic ? { graphic } : {}), ...(gd ? { gameday: gd } : {}), ...(meta && meta.cue ? { _cue: meta.cue } : {}), ...(meta && meta.opt ? { _opt: meta.opt } : {}), ...(meta && meta.excite ? { excite: meta.excite } : {}), ...(meta && meta.play ? { play: meta.play } : {}), ...(meta && meta.call ? { call: true } : {}), ...(meta && meta.song ? { song: meta.song } : {}) })); };
 
-  // ── the desk ─────────────────────────────────────────────────
+  // ── the desk and the booth ───────────────────────────────────
   // A sequence at this moment of the game, if the show's entry has one (sequences.js): two people
-  // at KSAB5's desk before the first pitch, in a break and after the final. `at` is where the game
-  // has got to, a beat or null or 'end', and the facts are counted up to there (sports/facts.js).
-  // Its lines come off the show's own seed, so no line the booth picks moves.
-  const deskNow = (when, at, sb) => {
+  // at KSAB5's desk before the first pitch, in a break and after the final, and the two men calling
+  // the game on camera in the ground's press box (`booth_*`). `at` is where the game has got to, a
+  // beat or null or 'end', and the facts are counted up to there (sports/facts.js); `cut` is the
+  // moment a `booth_cut` is for. Its lines come off the show's own seed, so no line the booth picks
+  // moves. True when a segment aired, so a narrator can drop the line it stood in for.
+  const deskNow = (when, at, sb, cut = null) => {
     const sport = sportOf(script).id, cache = _standingsCaches.get(sport) || {};
+    const fctx = { season: cache.extras, clubs: script.clubs, records: (t) => recordOf(t, sport), rows: cache.rows };
     const data = {
-      ...factsAt(sport, game, at, { season: cache.extras, clubs: script.clubs, records: (t) => recordOf(t, sport), rows: cache.rows }),
+      ...factsAt(sport, game, at, fctx), ...(cut ? cutFacts(sport, cut, fctx) : {}),
       announcer, analyst: script.analyst || '', venue: venueSaid(script) || '',
     };
     const seg = deskSegment(graphicsCache, { broadcast: broadcastId, when, seed: `${slot}|${when}|${data.section}`, npcOf: (id) => world.npcs.get(id), data });
     seg?.lines.forEach((l, n) => say(l.name ? `${l.name} says, "${l.text.replace(/"/g, "'")}"` : l.text, {}, sb, deskOverlay(seg, l, n)));
+    return !!seg;
   };
+  // The one cut to the booth this game gets, if any (sports/facts.js boothCuts): drawn from a stream
+  // of its own, so no other line moves. The narrator cuts away after that beat's call.
+  const boothCut = pickBoothCut(sportOf(script).id, boothCuts(sportOf(script).id, game), sportsRng(sportsHash(gs.seed, 0xb0c7)));
 
   // ── the sport seam ──────────────────────────────────────────────────────────
   // Everything above this line is sport-agnostic: the node chain, the say/pick
@@ -3316,7 +3382,7 @@ function assembleSportsGraph(script, broadcastId, slot, override, opts = {}) {
   let outroId = null;
   if (typeof sportMod.narrate === 'function') {
     const r = sportMod.narrate({
-      script, game, gs, slot, ws, announcer, analyst: script.analyst || '', pools, nrng, desk: deskNow,
+      script, game, gs, slot, ws, announcer, analyst: script.analyst || '', pools, nrng, desk: deskNow, boothCut,
       sport: sportMod, add, say, pick, abbr: sportsAbbr,
       // Bound to THIS sport's table — a narrator asking for a record must not be able
       // to accidentally read the other league's.
@@ -3331,10 +3397,16 @@ function assembleSportsGraph(script, broadcastId, slot, override, opts = {}) {
       venue: { said: venueSaid(script), name: script.venue?.name || '', rev: venueFor(script)?.rev || '', finalOpen: script.venue?.finalOpen || null },
       finalPackage: (prefix, bug, opts) => sayFinalPackage(finalPackageFor(sportMod, script, game, opts), prefix, xpick, say, bug),
       xpick,
+      // the season's finalists, for the champions' seed on Cup night
+      seasonState: seasonOf(sportMod.id),
       // The vat: who's back tonight from a reprint, and the lines about it, drawn from a
       // stream of their own so no line the booth already picks moves.
       vatBack: vatReturnsAt(script, slot, injuryWindowStart(sportMod.id, slot)),
       vpick: (...keys) => sportsPick(pools, vrng, ...keys),
+      // Each club's past and the two clubs' finals against each other (sports/club-lore.js), and
+      // the picker for their lines, on a stream of its own so no other line moves.
+      lore: loreFor(sportMod.id, home.name, away.name),
+      lpick: (...keys) => sportsPick(pools, lrng, ...keys),
       slotsPerDay: SPORTS_GAMES_PER_DAY,
       lastId: () => prevId,
     }) || {};
@@ -3343,12 +3415,15 @@ function assembleSportsGraph(script, broadcastId, slot, override, opts = {}) {
     // Deadball's play-by-play (sports/baseball-narrator.js), a pure module so a gate can run a
     // game's real lines without this file (scripts/shapes/parkclock-smoke.mjs).
     outroId = narrateBaseball({
-      script, game, gs, ws, announcer, pools, nrng, pick, xpick, say, winner, nodes, startId, desk: deskNow,
+      // the final's facts (the package's tape, road and series), for the booth during the game
+      finalFacts: () => finalPackageFor(sportMod, script, game).facts,
+      script, game, gs, ws, announcer, pools, nrng, pick, xpick, say, winner, nodes, startId, desk: deskNow, boothCut,
       sport: sportMod, fillMs: slotLen() * SPORTS_GAME_FILL, abbr: sportsAbbr, ordinal: sportsOrdinal,
       recordOf: (team) => recordOf(team),
       pregame: (opts) => pregameFx('baseball', (_standingsCaches.get('baseball') || {}).rows, opts),
       standings: gamedayStandings('baseball'), leaders: gamedayLeadersFor('baseball'), ledger: gamedayLedger('baseball'),
       seasonState: seasonOf(sportMod.id), venueRev: venueFor(script)?.rev || '', venueSaid, liveHoldS: LIVE_HOLD_S,
+      lore: loreFor('baseball', home.name, away.name), loreRand: lrng,
       finalPackage: (prefix, bug, opts) => sayFinalPackage(finalPackageFor(sportMod, script, game, opts), prefix, xpick, say, bug),
       lastId: () => prevId,
     }).outroId;
@@ -3464,6 +3539,20 @@ function assembleSportsGraph(script, broadcastId, slot, override, opts = {}) {
       const nd = nodes[id];
       if (nd.gameday && nd.holdMs) nd.gameday = { ...nd.gameday, hold: holdOf(nd) };
     }
+    // A sport with `paceClock` (Cluster Puck) is also told how long each payload has on air
+    // before the next (`spanMs`, everything between counted), so it can set a pace for its
+    // game clock that the rink runs steadily between the plays.
+    if (typeof sportMod.paceClock === 'function') {
+      const order = [];
+      let gd = null;
+      for (let id = startId; id; id = nodes[id].next) {
+        const nd = nodes[id];
+        if (nd._recap) { gd = null; continue; }
+        if (nd.gameday && nd.holdMs) { gd = nd.gameday; gd.spanMs = 0; order.push(gd); }
+        if (gd) gd.spanMs += holdOf(nd);
+      }
+      sportMod.paceClock(order);
+    }
   }
 
   // When the chain ends the walker restarts at _start on its own. Keying _broadcastId
@@ -3472,6 +3561,8 @@ function assembleSportsGraph(script, broadcastId, slot, override, opts = {}) {
   const graph = _normalizeBroadcastGraph({ _start: startId, nodes });
   graph._broadcastId = `${broadcastId}:sport:${slot}${ws ? ':ws' : ''}`;
   graph._contentMs = contentMs;
+  // its sport, for a final's start partway into its slot (sportsAiringElapsedSec)
+  graph._script = { sport: sportOf(script).id };
   // The whole game is decided the instant it's assembled (the play-by-play just
   // reveals it over the airing). Stash the outcome so the tick can announce it to
   // the betting system — the result is known at bet-lock time, paid at air's end.
@@ -3651,6 +3742,7 @@ function noteVenuePlay(bug) {
   const msg = {
     type: 'venue_play', block: [b.x0, b.y0, b.x1, b.y1], home: bug.home, away: bug.away,
     top: bug.status.startsWith('TOP') ? 1 : 0, outs: bug.outs ?? 0, bases: (bug.bases || []).map((x) => (x ? 1 : 0)),
+    ...(bug.final ? { final: 1 } : {}),
   };
   const key = JSON.stringify(msg);
   if (key === _venuePlayKey) return;
@@ -4085,7 +4177,20 @@ async function refreshSeason(nowMs, sport = 'baseball') {
     ? { at: nowMs, phase: res.phase, finalistA: res.finalistA, finalistB: res.finalistB, wsSlot: res.wsSlot ?? null, startSlot: res.startSlot ?? null, seasonNo: res.seasonNo ?? null }
     : { ...cur, at: nowMs };
   _seasonCaches.set(sport, next);
+  // The league's history rides the same refresh: what the booth knows about each club's past
+  // (sports/club-lore.js). sportsleague keeps it until a season changes, so this costs no query.
+  const hist = await dispatchAction({ type: 'sportsleague.getHistory', params: { sport } }).catch(() => null);
+  if (Array.isArray(hist?.seasons)) _historyCaches.set(sport, { era: hist.era || null, seasons: hist.seasons });
   return next;
+}
+
+// Each league's closed seasons, for the booth's club history. Filled by refreshSeason.
+const _historyCaches = new Map();   // sport -> { era, seasons }
+// What's worth saying tonight about two clubs' pasts, against where they stand now.
+function loreFor(sport, home, away) {
+  const h = _historyCaches.get(sport);
+  if (!h) return null;
+  return gameLore(h, home, away, { rows: (_standingsCaches.get(sport) || {}).rows || [] });
 }
 // { teams:[a,b], worldSeries:true } in the final's slot once the league has seeded it.
 // A postseason belongs to ONE sport's season, and handing a takeover to the wrong sim
@@ -7653,7 +7758,7 @@ function _slateScheduleSlots(state) {
     const item = items.find((i) => sportOf(i.sportsScript).id === g.sport);
     if (!item || (!g.away && !g.final)) continue;
     if (g.final && !postseasonOverride(g.sport, g.slot)) continue;   // a final not yet seeded has no teams to list
-    out.push({ name: _sportsSlotLabel(item, g.slot), todLabel: _fmtHHMM(g.sod * SPORTS_SLOT_GAME_MIN), durationSec: SPORTS_SLOT_GAME_MIN * 60, onNow: g.slot === cur });
+    out.push({ name: _sportsSlotLabel(item, g.slot), todLabel: _fmtHHMM(slateStartHour(g.sport, g.slot) * 60), durationSec: SPORTS_SLOT_GAME_MIN * 60, onNow: g.slot === cur });
   }
   return out;
 }
@@ -9608,7 +9713,7 @@ registerAction({
     const now = sportsSlotIndex();
     return {
       slot, date: slateDate(slotDay(slot)).toISOString().slice(0, 10),
-      hour: slotSod(slot) * (24 / SPORTS_GAMES_PER_DAY),
+      hour: slateStartHour(params.sport || slateSportAt(slotDay(slot), slotSod(slot)), slot),
       daysAway: slotDay(slot) - slotDay(now), slotsAway: slot - now,
     };
   },
@@ -9839,7 +9944,7 @@ registerAction({
           channel: c.number,
           slot,
           slotsAway: slot - now,
-          hour: sod * (24 / G),
+          hour: slateStartHour(c.sport, slot),
           away: g.away.name, home: g.home.name,
           awayAbbr: sportsAbbr(g.away.name), homeAbbr: sportsAbbr(g.home.name),
           live: false, final: false,
@@ -11998,7 +12103,7 @@ export const _test = {
   normalizeBroadcastGraph: _normalizeBroadcastGraph, CARD_MIN_HOLD_MS,
   pickDailySlot: _pickDailySlot, dayMask: _dayMask, dayLabel: _dayLabel, slotAirsOn: _slotAirsOn,
   // KSAB5's slate row and KSAB-TV's relay (docs/proposals/daily-slate.md).
-  holdingAt: _holdingAt, holdNext: _holdNext, SLATE_BUFFER_SOD,
+  holdingAt: _holdingAt, holdNext: _holdNext, SLATE_BUFFER_SODS, slateStartOffsetMin, slateStartHour, slateFinalSlot, finalSodOf,
   scheduleRowItems: _scheduleRowItems, relayedItem: _relayedItem, slateHasGame, sportsHeartbeat, sportsHeartbeatSeen: _sportsHeartbeat, slateScheduleSlots: _slateScheduleSlots,
   sportsSlotLabel: _sportsSlotLabel, sportsScheduleSlots: _sportsScheduleSlots,
   // The log-rung overlay renderers. Pure over a payload, so the suite can assert
@@ -12011,6 +12116,8 @@ export const _test = {
   // was enough to flip it and turn the suite red for a reason that had nothing to
   // do with the code. The suite now sets this and restores it.
   seasonCaches: _seasonCaches,
+  // the league histories the booth's club lore reads (sports/club-lore.js)
+  historyCaches: _historyCaches,
   // and the standings cache, so the final's package (finalPackageFor) can be built off a season
   // the suite folds itself, with packageLines for the log rung
   standingsCaches: _standingsCaches, finalPackageFor, packageLines,

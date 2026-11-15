@@ -17,7 +17,8 @@
 //     every call is short enough for ORACLE to shout
 //   • the 2-D view's nine names are all patches
 //   • the busiest moment (a grand slam's crack, sparks, fanfare, roar, two shells and the organ)
-//     stays under full scale at the mix's levels
+//     stays under full scale at the mix's levels, and so does a home run once it's gone, the
+//     home-run horn and all; the horn sounds once for a home run, the visitors' too
 //   • the crowd bed rises with its level, never steps, adds no nodes and is silent after stop();
 //     the park's air is finite and silent after stop()
 //   • the mixer: a clip's catch, tag, throw, footsteps, slide and umpire's call are heard at their
@@ -52,6 +53,8 @@ const FAMILY = [
   [/^db-crack-screamer$/, [300, 700]],
   [/^db-dive-dirt$/, [150, 500]],
   [/^db-(airhorn|hype-boom)$/, [500, 1400]],
+  // the home-run horn: three blasts and the stands answering the last
+  [/^db-hype-horn$/, [5500, 8500]],
   [/^db-(drum-chant|stomp)$/, [1200, 2600]],
   [/^db-(crack|bunt|bat-break|foul-tip)/, [30, 300]],
   [/^db-(mitt|glove|stretch|tag|pickoff|hop|ball-dirt|hbp|cleat|throw|whiff|dive|collision)/, [20, 300]],
@@ -140,6 +143,10 @@ check('every clip event kind is known to the mixer', Object.keys(CLIP_EVENTS).ev
   const g = (id) => M.get(id).peak * Math.pow(10, B.MIX[B.layerOf(id)].db / 20);
   const worst = g('db-crack') + g('db-sparks') + g('db-sting-homer') + g('db-crowd-roar') + 2 * g('db-fw-burst') + g('db-organ-rally');
   check('a grand slam at its busiest stays under full scale', worst < 1, worst.toFixed(3));
+  // once it's gone (the crack's long over by then): the horn under the fanfare, the roar, the air
+  // horn and the videoboard's boom at home, and two shells
+  const gone = g('db-hype-horn') + g('db-sting-homer') + g('db-crowd-roar') + g('db-airhorn') + g('db-hype-boom') + 2 * g('db-fw-burst');
+  check('a home run gone, horn and all, stays under full scale', gone < 1, gone.toFixed(3));
 }
 
 // ── the beds ─────────────────────────────────────────────────────────────────
@@ -332,6 +339,8 @@ check('mixer: dispose stops the scene\'s voices', full.R.said.some((s) => s.canc
     at(1, () => W.setBall(path));
   });
   check('a home run clatters into the seats where it comes down, once', count(gone.log, 'seats') === 1, String(count(gone.log, 'seats')));
+  check('a home run sounds the horn once it\'s gone, the visitors\' too, once', count(gone.log, 'hrhorn') === 1, String(count(gone.log, 'hrhorn')));
+  check('the horn is the home-run horn, not the harbour\'s', gone.log.some((e) => e[0] === 'hrhorn' && e[1] === 'db-hype-horn'));
 }
 
 check('the dirt is the infield\'s and the track\'s', onDirt(0, 60) && onDirt(60, 60) && !onDirt(0, 250) && onDirt(0, 395));

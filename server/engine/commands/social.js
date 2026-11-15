@@ -302,8 +302,18 @@ export function isAnimal(entity) {
   return ANIMAL_KEYWORDS.some(k => lower.includes(k));
 }
 
+// Where on an animal a hand goes: "pet the cat on the back", "pet scrappy under the chin". The spot is peeled off the
+// end before the animal is looked for and handed to `npc.petAttempt` as `spot`, so a plugin with opinions about where
+// it's touched (plugins/pets) can answer for it; nothing here reads it.
+const PET_SPOT = /^(.*?)\s+(?:(?:on|under|behind|along|by)\s+)?(?:(?:the|its|his|her|their)\s+)?(chin|throat|cheeks?|face|head|forehead|ears?|back|side|flank|tail|belly|tummy|stomach|paws?|feet|toes)$/i;
+const SPOT_OF = { throat: 'chin', cheeks: 'cheek', face: 'cheek', forehead: 'head', ear: 'ears', side: 'back', flank: 'back', tummy: 'belly', stomach: 'belly', paw: 'paws', feet: 'paws', toes: 'paws' };
 async function cmdPet(targetStr, player, broadcast) {
   if (!targetStr) return { type: 'error', message: 'Pet what?' };
+  let spot = null;
+  {
+    const m = String(targetStr).trim().match(PET_SPOT);
+    if (m && m[1]) { targetStr = m[1]; spot = SPOT_OF[m[2].toLowerCase()] || m[2].toLowerCase(); }
+  }
 
   const npcs    = getZoneNpcs(player.current_zone).map(n => ({ ...n, _kind: 'npc' }));
   const enemies = getZoneEnemies(player.current_zone).map(e => ({ ...e, _kind: 'enemy' }));
@@ -344,7 +354,7 @@ async function cmdPet(targetStr, player, broadcast) {
   // NOTE for subscribers: `target` is a SPREAD COPY built at the top of this
   // function, not the live NPC. Read its flags freely; re-look-up by id before
   // mutating anything.
-  const petHook = await fireHook('npc.petAttempt', { player, npc: target, zoneId: player.current_zone, broadcast });
+  const petHook = await fireHook('npc.petAttempt', { player, npc: target, zoneId: player.current_zone, broadcast, spot });
   if (petHook !== undefined) return petHook;
 
   // NPC animal — wholesome

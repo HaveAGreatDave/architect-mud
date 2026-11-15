@@ -36,9 +36,7 @@
 // ⚠ NO FACE CULLING, as in arena.js: the builders don't keep one winding.
 
 import { DEG, BAGS, MOUND, RUBBER, FOUL_GROUND, DUGOUT, offLine, moundHeight, venueField, fenceDistance, parkOutline, insideOutline, seeded, BOWL, sf, sOf, fromBlock, ftUp } from '../diamond/geo.js';
-import { FT_M } from '../../../../shared/world-scale.js';
 import { WIN_OPEN, sunburst, headPanels, wallRects } from '../glass/coliseum-window.js';
-import { actorPoseMesh } from '../actor3d.js';
 import {
   BACK, BAND, BGATE, DECK, DOME, FIN_AT, GATE, GIRDER, GUARD, LANTERN, OUT, POLES, SHELLS, SIDE_GATES, TOWER, UNIT_FT, Z,
   FIXED_END, archOf, isFan, rail, shellArch, shellAt, shellProfile, sillZ, springZ,
@@ -1337,9 +1335,10 @@ function jumboFrame(field) {
   return { c, n, t: norm(cross([0, 1, 0], n)), w: 48, h: 27, yaw: Math.atan2(n[0], n[2]) / DEG + 180 };
 }
 
-// ── the crowd's figures ─────────────────────────────────────────────────────
-// One figure a kind, instanced over the crowd's positions: 7 floats a vertex, position (3),
-// normal (3) and the part. `far` is the coarse level for a crowd seen from the broadcast cameras.
+// ── the hand-built figure ───────────────────────────────────────────────────
+// The walkers gl/streetlife.js puts round the park are this figure, one a pose, instanced: 7 floats
+// a vertex, position (3), normal (3) and the part. `far` is the coarse level. (The stands' fans were
+// too, until gl/fan-vat.js baked them their own.)
 //
 // ⚠ IT READS AS A PERSON BY ITS SILHOUETTE, so the shape is in the outline, not the detail: a torso
 // lofted from rings (hips, waist, chest, shoulders broader than the hips), a head on top of it,
@@ -1354,7 +1353,7 @@ function jumboFrame(field) {
 export const CROWD_PART = Object.freeze({ skin: 0, hand: 0.25, shirt: 1, sleeve: 1.25, hips: 1.75, leg: 2.25, hair: 3, shoe: 3.25, face: 3.45, towel: 4 });
 const CP = CROWD_PART;
 // Each pose's joints, in feet, the figure facing +z. Every pose is built from the same pieces in
-// the same order, so the three pair up vertex for vertex (crowdMorph).
+// the same order, so the three pair up vertex for vertex.
 const CROWD_POSE = {
   stand: { lift: 0, lean: 0, hip: [0.19, 3.15, 0], knee: [0.21, 1.72, 0.04], ankle: [0.21, 0.28, 0], shoe: [0.21, 0.13, 0.1],
     sh: [0.48, 4.68, 0], elbow: [0.56, 3.86, 0.04], wrist: [0.53, 3.06, 0.16], hand: [0.53, 2.93, 0.18] },
@@ -1421,196 +1420,6 @@ export function crowdMesh(kind, { towels = false, far = false } = {}) {
 }
 export const CROWD_VERTEX = 7;
 
-// The three poses as one figure, so a fan can get up (gl/crowd.js): each vertex's place and
-// normal sitting, standing and cheering, then its part. crowdMesh builds every pose from the same
-// pieces in the same order, so their vertices pair up; the towel only the cheer holds is folded
-// into the hand in the other two.
-export const CROWD_MORPH = 19;
-const CROWD_HAND = { sit: CROWD_POSE.sit.hand, stand: CROWD_POSE.stand.hand };
-export function crowdMorph(o = {}) {
-  if (o.street !== false) return streetMorph(o);
-  const sit = crowdMesh('sit', { ...o, towels: false }), stand = crowdMesh('stand', { ...o, towels: false }), cheer = crowdMesh('cheer', o);
-  const V = CROWD_VERTEX, n = cheer.length / V, body = sit.length / V;
-  if (stand.length / V !== body || n < body) throw new Error('the crowd\'s poses no longer pair up');
-  const out = new Float32Array(n * CROWD_MORPH);
-  for (let i = 0; i < n; i++) {
-    const at = i * CROWD_MORPH, c = i * V;
-    if (i < body) { out.set(sit.subarray(c, c + 6), at); out.set(stand.subarray(c, c + 6), at + 6); }
-    else { out.set([...CROWD_HAND.sit, 0, 1, 0], at); out.set([...CROWD_HAND.stand, 0, 1, 0], at + 6); }
-    out.set(cheer.subarray(c, c + 6), at + 12);
-    out[at + 18] = cheer[c + 6];
-  }
-  return out;
-}
-
-// The fan as the street's people are (actor3d.js): the same coat, trousers, shoes, hands and head,
-// posed by the street rig's own `sit`, `idle` and `cheer` clips, so the stands and the pavement are
-// one population. Both levels are the street's far body (612 triangles to the old fan's 260 and 460). Feet, facing +z, in the
-// CROWD_MORPH layout, and its parts are CROWD_PART codes, so the crowd shaders don't change. The
-// towel hangs off the right hand in the cheer and folds into it in the other two. `street: false`
-// on crowdMorph is the old hand-built fan (crowdMesh).
-const FT = 1 / FT_M;
-// the street rig's materials as the crowd's parts: 0 skin, 1 coat, 2 trousers, 3 shoes, 4 hair, 5 eyes, 6 lips
-const STREET_PART = [CP.skin, CP.shirt, CP.leg - 0.25, CP.shoe, CP.hair, CP.hair, CP.skin];
-// Kept by `towels` alone: both levels are the one body (`lod` below), so `far` doesn't change it, and
-// building it twice was half a second of the park's build. The park's warm-up bakes it in a worker
-// (crowd-morph-worker.js) and hands it over with seedCrowdMorph, so the build finds it made.
-const _streetMorph = new Map();
-export function seedCrowdMorph(towels, out) {
-  if (out instanceof Float32Array && out.length % CROWD_MORPH === 0 && !_streetMorph.has(`${!!towels}`)) _streetMorph.set(`${!!towels}`, out);
-}
-function streetMorph({ towels = false } = {}) {
-  const key = `${!!towels}`;
-  if (_streetMorph.has(key)) return _streetMorph.get(key);
-  // the street's far body for both levels: its close one is 4,800 triangles, which a full house can't pay for
-  const lod = 1;
-  const poses = [actorPoseMesh('sit', 0, lod), actorPoseMesh('idle', 0, lod), actorPoseMesh('cheer', 0.125, lod)];
-  // the right hand (the rig's +X is its left): the highest skin below the shoulders' reach on -X,
-  // which in the cheer is the fist over the head
-  const hand = (m) => { let at = null; for (let k = 0; k < m.mat.length; k++) if (m.mat[k] === 0 && m.p[k * 3] < -0.15 && (!at || m.p[k * 3 + 1] > at[1])) at = [m.p[k * 3], m.p[k * 3 + 1], m.p[k * 3 + 2]]; return (at || [0, 1, 0]).map((v) => v * FT); };
-  const body = poses[0].mat.length, face = FAN_FACE.length, n = body + (towels ? 12 : 0) + face, out = new Float32Array(n * CROWD_MORPH);
-  for (let i = 0; i < body; i++) {
-    const at = i * CROWD_MORPH;
-    for (let k = 0; k < 3; k++) {
-      const m = poses[k], o = at + k * 6;
-      // the rig faces +Z with +X its left; the fan faces +z with +x its left too
-      out[o] = m.p[i * 3] * FT; out[o + 1] = m.p[i * 3 + 1] * FT; out[o + 2] = m.p[i * 3 + 2] * FT;
-      out[o + 3] = m.n[i * 3]; out[o + 4] = m.n[i * 3 + 1]; out[o + 5] = m.n[i * 3 + 2];
-    }
-    out[at + 18] = STREET_PART[poses[2].mat[i]] ?? CP.shirt;
-    // skin out from the neck or under the chin, standing, is a hand: CP.hand, or the crowd shader
-    // (crowd.js `head`) turns it with the head and the sleeve's triangles stretch into shards
-    const sx = poses[1].p[i * 3], sy = poses[1].p[i * 3 + 1];
-    if (poses[2].mat[i] === 0 && (Math.abs(sx) > 0.13 || sy < 1.3)) out[at + 18] = CP.hand;
-  }
-  mittHands(out, body, poses);
-  if (towels) {
-    const [hs, hd, hc] = poses.map(hand);
-    // caught mid-wave out over the shoulder, both faces, as crowdMesh's
-    const a = hc, b = [hc[0] - 0.95, hc[1] + 0.3, hc[2] - 0.12], c2 = [hc[0] - 1.0, hc[1] + 1.3, hc[2] - 0.18], d = [hc[0] + 0.04, hc[1] + 1.05, hc[2] - 0.05];
-    const nn = norm(cross(sub(b, a), sub(d, a))), tri = [[a, b, c2, nn], [a, c2, d, nn], [a, c2, b, mul(nn, -1)], [a, d, c2, mul(nn, -1)]];
-    let i = body;
-    for (const [p, q, r, nm] of tri) for (const v of [p, q, r]) {
-      const at = i++ * CROWD_MORPH;
-      out.set([...hs, 0, 1, 0], at); out.set([...hd, 0, 1, 0], at + 6); out.set([...v, ...nm], at + 12); out[at + 18] = CP.towel;
-    }
-  }
-  fanHead(out, body, poses, n - face);
-  _streetMorph.set(key, out);
-  return out;
-}
-// The far body's head is small on a long neck, with no eyes or mouth (only the close body has
-// them, and a full house can't pay for that one). In every pose the head is made 12% bigger and
-// set down its neck 3.5 cm, so the neck mostly sits inside the collar, and a face is laid on it in
-// a few triangles: eyes, brows and a mouth in CP.face, and a nose in skin that the light shapes.
-// The face is placed in the standing head's frame (metres, +z ahead) and carried into each pose
-// by that pose's own head frame, worked out from the head's vertices.
-const HEAD_GROW = 1.12, NECK_DROP = 0.035;
-const FAN_FACE = (() => {
-  const zAt = (x, y) => 0.118 * Math.sqrt(Math.max(0, 1 - (x / 0.1) ** 2)) - 0.25 * (y - 1.665) ** 2 + 0.006;
-  const tris = [];
-  const quad = (cx, cy, w, h, part, diamond = false) => {
-    const P = (x, y) => [x, y, zAt(x, y)];
-    const a = diamond ? P(cx - w, cy) : P(cx - w, cy - h), b = diamond ? P(cx, cy - h) : P(cx + w, cy - h);
-    const c = diamond ? P(cx + w, cy) : P(cx + w, cy + h), d = diamond ? P(cx, cy + h) : P(cx - w, cy + h);
-    tris.push([a, b, c, part], [a, c, d, part]);
-  };
-  for (const s of [-1, 1]) {
-    quad(s * 0.034, 1.667, 0.012, 0.0065, CP.face, true);             // an eye
-    quad(s * 0.036, 1.687, 0.016, 0.0035, CP.face);                    // its brow
-  }
-  quad(0, 1.603, 0.019, 0.0035, CP.face);                              // the mouth
-  // the nose: a wedge out of the face, its two sides lit differently
-  const tip = [0, 1.632, zAt(0, 1.632) + 0.022], root = [0, 1.668, zAt(0, 1.668)];
-  const l = [-0.013, 1.628, zAt(-0.013, 1.628)], r = [0.013, 1.628, zAt(0.013, 1.628)];
-  tris.push([root, l, tip, CP.skin], [root, tip, r, CP.skin], [l, r, tip, CP.skin]);
-  return tris.flatMap(([a, b, c, part]) => [a, b, c].map((p) => ({ p, part, n: norm(cross(sub(b, a), sub(c, a))) })));
-})();
-function fanHead(out, body, poses, faceAt) {
-  const S = CROWD_MORPH, I = poses[1];
-  // which corners are the head (skin above the chin that isn't a hand, and the hair) and which the
-  // neck, both by where they stand
-  const isHead = new Uint8Array(body), neckT = new Float32Array(body);
-  for (let i = 0; i < body; i++) {
-    const m = I.mat[i], y = I.p[i * 3 + 1], part = out[i * S + 18];
-    if (part === CP.hand) continue;
-    if (m === 4 || m === 5 || m === 6 || (m === 0 && y > 1.55)) isHead[i] = 1;
-    else if (m === 0 && y > 1.44) neckT[i] = Math.min(1, (y - 1.44) / 0.11);
-  }
-  const frameOf = (k) => {
-    const o = k * 6, P = (i) => [out[i * S + o] / FT, out[i * S + o + 1] / FT, out[i * S + o + 2] / FT];
-    let c = [0, 0, 0], top = [0, 0, 0], low = [0, 0, 0], front = [0, 0, 0], nt = 0, nl = 0, nf = 0, nc = 0;
-    for (let i = 0; i < body; i++) if (isHead[i]) {
-      const p = P(i), y = I.p[i * 3 + 1], z = I.p[i * 3 + 2];
-      c = add(c, p); nc++;
-      if (y > 1.71) { top = add(top, p); nt++; }
-      if (y < 1.6) { low = add(low, p); nl++; }
-      if (z > 0.08 && y < 1.7) { front = add(front, p); nf++; }
-    }
-    c = mul(c, 1 / nc);
-    const u = norm(sub(mul(top, 1 / nt), mul(low, 1 / nl)));
-    let f = sub(mul(front, 1 / nf), c); f = norm(sub(f, mul(u, f[0] * u[0] + f[1] * u[1] + f[2] * u[2])));
-    return { c, u, f, x: cross(u, f) };
-  };
-  const F = [0, 1, 2].map(frameOf), F0 = F[1];
-  const local = (p) => { const d = sub(p, F0.c); return [d[0] * F0.x[0] + d[1] * F0.x[1] + d[2] * F0.x[2], d[0] * F0.u[0] + d[1] * F0.u[1] + d[2] * F0.u[2], d[0] * F0.f[0] + d[1] * F0.f[1] + d[2] * F0.f[2]]; };
-  const place = (Fk, l, grow) => add(add(add(Fk.c, mul(Fk.x, l[0] * grow)), add(mul(Fk.u, l[1] * grow), mul(Fk.f, l[2] * grow))), mul(Fk.u, -NECK_DROP));
-  for (let k = 0; k < 3; k++) {
-    const Fk = F[k], o = k * 6;
-    for (let i = 0; i < body; i++) {
-      const at = i * S + o;
-      if (isHead[i]) {
-        const p = [out[at] / FT, out[at + 1] / FT, out[at + 2] / FT];
-        const q = add(add(Fk.c, mul(sub(p, Fk.c), HEAD_GROW)), mul(Fk.u, -NECK_DROP));
-        out[at] = q[0] * FT; out[at + 1] = q[1] * FT; out[at + 2] = q[2] * FT;
-      } else if (neckT[i] > 0) {
-        const t = neckT[i] * NECK_DROP;
-        out[at] -= Fk.u[0] * t * FT; out[at + 1] -= Fk.u[1] * t * FT; out[at + 2] -= Fk.u[2] * t * FT;
-      }
-    }
-    FAN_FACE.forEach((v, j) => {
-      const at = (faceAt + j) * S + o, q = place(Fk, local(v.p), HEAD_GROW), nl = local(add(F0.c, v.n));
-      const nn = norm(add(add(mul(Fk.x, nl[0]), mul(Fk.u, nl[1])), mul(Fk.f, nl[2])));
-      out[at] = q[0] * FT; out[at + 1] = q[1] * FT; out[at + 2] = q[2] * FT;
-      out.set(nn, at + 3);
-      out[at + 18] = v.part;
-    });
-  }
-}
-
-// The far body's fingers are a fan of thin spikes that read as claws a row away, so each hand's
-// triangles become a plain mitt in every pose: an eight-faced lozenge from the wrist (the sleeve's
-// corners nearest the hand) out past the hand's centre, flattened across the palm, and the
-// triangles it doesn't need folded to a point inside it.
-function mittHands(out, body, poses) {
-  const S = CROWD_MORPH, LONG = 0.3, WIDE = 0.15, THICK = 0.08;
-  for (const side of [1, -1]) {
-    const own = [];
-    for (let t = 0; t < body; t += 3) if ([0, 1, 2].every((j) => out[(t + j) * S + 18] === CP.hand) && Math.sign(poses[1].p[t * 3]) === side) own.push(t);
-    if (!own.length) continue;
-    for (let k = 0; k < 3; k++) {
-      const P = (i) => [out[i * S + k * 6], out[i * S + k * 6 + 1], out[i * S + k * 6 + 2]];
-      let c = [0, 0, 0];
-      for (const t of own) for (let j = 0; j < 3; j++) c = add(c, mul(P(t + j), 1 / (own.length * 3)));
-      // the wrist: the sleeve's corners within a hand's length of it
-      let w = [0, 0, 0], nw = 0;
-      for (let i = 0; i < body; i++) if (out[i * S + 18] === CP.shirt && len(sub(P(i), c)) < 0.45) { w = add(w, P(i)); nw++; }
-      const ax = nw ? norm(sub(c, mul(w, 1 / nw))) : [0, -1, 0];
-      const across = norm(Math.abs(ax[1]) > 0.9 ? cross(ax, [1, 0, 0]) : cross(ax, [0, 1, 0])), palm = norm(cross(ax, across));
-      const mid = madd(c, ax, 0.05), tip = madd(mid, ax, LONG), heel = madd(mid, ax, -LONG * 0.6);
-      const ring = [madd(mid, across, WIDE), madd(mid, palm, THICK), madd(mid, across, -WIDE), madd(mid, palm, -THICK)];
-      const faces = [];
-      for (let r = 0; r < 4; r++) { const a = ring[r], b = ring[(r + 1) % 4]; faces.push([tip, a, b], [heel, b, a]); }
-      own.forEach((t, f) => {
-        const tri = faces[f] || [mid, mid, mid];
-        const fn = faces[f] ? norm(cross(sub(tri[1], tri[0]), sub(tri[2], tri[0]))) : ax;
-        const n = dot(fn, sub(tri[0], mid)) < 0 ? mul(fn, -1) : fn;
-        tri.forEach((p, j) => { const o = (t + j) * S + k * 6; out.set(p, o); out.set(n, o + 3); });
-      });
-    }
-  }
-}
-
 // ── a final's dress ─────────────────────────────────────────────────────────
 // What a final adds to the park (gl/ballpark.js setFinal): fan bunting along the front of the
 // upper deck in gold, white and red, a gold pennant over every light tower, the final's logo
@@ -1658,24 +1467,44 @@ export function buildDress(venue) {
     const P = (x, z) => madd(madd(c, right, x), up, z);
     quad(B('finalLogo'), P(-L.w, -L.d), P(L.w, -L.d), P(L.w, L.d), P(-L.w, L.d), [0, 1, 0], WHITE, MAT.MATTE, [[0, 1], [1, 1], [1, 0], [0, 0]]);
   }
-  // the trophy on its table: a draped table, a stepped base, the stem, the cup and two handles
-  const trophy = createBatch(2048), at = TROPHY_AT;
-  box(trophy, add(at, [0, 1.5, 0]), [2.2, 1.5, 1.4], 30, lin('#1d2a4a'), MAT.CLOTH);
-  const profile = [[0.9, 0], [0.9, 0.25], [0.62, 0.32], [0.55, 0.6], [0.22, 0.75], [0.18, 1.4], [0.3, 1.55], [0.75, 1.8], [1.05, 2.4], [1.15, 3.1], [1.1, 3.2], [0.9, 3.1]];
-  const base = add(at, [0, 3, 0]);
-  for (let k = 0; k + 1 < profile.length; k++) {
-    const [r0, y0] = profile[k], [r1, y1] = profile[k + 1];
+  // the trophy on its table: a draped table, and the cup standing on it (cupInto); `table` is the
+  // table alone, for while a champion's holding the cup up (gl/ballpark.js setCup)
+  const trophy = createBatch(2048), table = createBatch(64), at = TROPHY_AT;
+  for (const b of [trophy, table]) box(b, add(at, [0, 1.5, 0]), [2.2, 1.5, 1.4], 30, lin('#1d2a4a'), MAT.CLOTH);
+  cupInto(trophy, add(at, [0, CUP_TABLE, 0]));
+  return { opaque: out, trophy, table };
+}
+
+// THE CHARLES B. HUGHSON MEMORIAL CUP: a stepped base, the stem, a deep bowl flaring to its lip and
+// a ring handle either side, in gold, 3.2 ft from the foot to the lip. `base` is the middle of its
+// foot; `up` the way its stem points (straight up unless a man's tipping it), and `yaw` (radians)
+// turns its handles. It stands CUP_TABLE ft up, on the table's top. The draws reuse it per frame
+// (gl/ballpark.js setCup), so it's small: CUP_VERTS vertices.
+export const CUP_TABLE = 3, CUP_HIGH = 3.2;
+const CUP_PROFILE = Object.freeze([[0.9, 0], [0.9, 0.25], [0.62, 0.32], [0.55, 0.6], [0.22, 0.75], [0.18, 1.4], [0.3, 1.55], [0.75, 1.8], [1.05, 2.4], [1.15, 3.1], [1.1, 3.2], [0.9, 3.1]]);
+export const CUP_VERTS = (CUP_PROFILE.length - 1) * 16 * 6 + 2 * 6 * 36;
+export function cupInto(b, base, up = [0, 1, 0], yaw = 0) {
+  const GOLD = lin('#e2b13c');
+  // the cup's own frame: y along `up`, x and z square to it, turned by yaw
+  const Y = norm(up), ref = Math.abs(Y[2]) < 0.9 ? [0, 0, 1] : [1, 0, 0];
+  let X = norm(cross(Y, ref)), Z = cross(X, Y);
+  const c = Math.cos(yaw), s = Math.sin(yaw);
+  [X, Z] = [add(mul(X, c), mul(Z, -s)), add(mul(X, s), mul(Z, c))];
+  const P = (x, y, z) => add(base, add(add(mul(X, x), mul(Y, y)), mul(Z, z)));
+  const V = (x, y, z) => norm(add(add(mul(X, x), mul(Y, y)), mul(Z, z)));
+  for (let k = 0; k + 1 < CUP_PROFILE.length; k++) {
+    const [r0, y0] = CUP_PROFILE[k], [r1, y1] = CUP_PROFILE[k + 1];
     for (let j = 0; j < 16; j++) {
       const a0 = j / 16 * TAU, a1 = (j + 1) / 16 * TAU;
-      const p = (r, y, a) => add(base, [Math.sin(a) * r, y, Math.cos(a) * r]);
-      const nm = (a) => norm([Math.sin(a) * (y1 - y0), r0 - r1, Math.cos(a) * (y1 - y0)]);
-      vtx(trophy, p(r0, y0, a0), nm(a0), [0, 0], GOLD, MAT.METAL); vtx(trophy, p(r1, y1, a0), nm(a0), [0, 0], GOLD, MAT.METAL); vtx(trophy, p(r1, y1, a1), nm(a1), [0, 0], GOLD, MAT.METAL);
-      vtx(trophy, p(r0, y0, a0), nm(a0), [0, 0], GOLD, MAT.METAL); vtx(trophy, p(r1, y1, a1), nm(a1), [0, 0], GOLD, MAT.METAL); vtx(trophy, p(r0, y0, a1), nm(a1), [0, 0], GOLD, MAT.METAL);
+      const p = (r, y, a) => P(Math.sin(a) * r, y, Math.cos(a) * r);
+      const nm = (a) => V(Math.sin(a) * (y1 - y0), r0 - r1, Math.cos(a) * (y1 - y0));
+      vtx(b, p(r0, y0, a0), nm(a0), [0, 0], GOLD, MAT.METAL); vtx(b, p(r1, y1, a0), nm(a0), [0, 0], GOLD, MAT.METAL); vtx(b, p(r1, y1, a1), nm(a1), [0, 0], GOLD, MAT.METAL);
+      vtx(b, p(r0, y0, a0), nm(a0), [0, 0], GOLD, MAT.METAL); vtx(b, p(r1, y1, a1), nm(a1), [0, 0], GOLD, MAT.METAL); vtx(b, p(r0, y0, a1), nm(a1), [0, 0], GOLD, MAT.METAL);
     }
   }
-  for (const s of [-1, 1]) for (let k = 0; k < 6; k++) {
-    const a = -Math.PI / 2 + Math.PI * k / 5, h = add(base, [s * (1.15 + Math.cos(a) * 0.45), 2.7 + Math.sin(a) * 0.5, 0]);
-    box(trophy, h, [0.09, 0.09, 0.09], 0, GOLD, MAT.METAL);
+  // the handles: six beads round a half ring either side, square to the stem
+  for (const sd of [-1, 1]) for (let k = 0; k < 6; k++) {
+    const a = -Math.PI / 2 + Math.PI * k / 5;
+    box(b, P(sd * (1.15 + Math.cos(a) * 0.45), 2.7 + Math.sin(a) * 0.5, 0), [0.09, 0.09, 0.09], 0, GOLD, MAT.METAL);
   }
-  return { opaque: out, trophy };
 }

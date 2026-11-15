@@ -57,6 +57,45 @@ function breaksIn(lines) {
   return out;
 }
 
+// THE GAME CLOCK'S PACE. A play's payload carries the clock at its moment (`clockSecs`), and
+// the rink runs the clock down to it from the last play's, then stops it till the next play,
+// as a clock stops at a whistle. The clock between two plays (18 to 54 s of it) and the air
+// between them (one line to a dozen) don't keep step, so a clock run to fit each gap would
+// race through one and crawl through the next. This sets one pace for the night instead
+// (`clockRate`, game seconds a real second): the rate most gaps fit inside at PACE_FIT, so
+// the clock ticks at the same speed play to play and stops a while before most whistles.
+//
+// A gap has until the clock next has to move to get there: a faceoff, a penalty or a fight
+// at the same second needs no clock, so its air counts for the play before it (`runMs` on
+// each payload: ms from it to the next payload at another clock or period). A gap that can't
+// fit at the pace runs faster, just enough to get there in its time, so it never lags.
+const PACE_FIT = 0.85;
+export function paceClock(payloads) {
+  const clocked = (p) => Number.isFinite(p.clockSecs) && p.type !== 'intermission';
+  for (let i = 0; i < payloads.length; i++) {
+    const p = payloads[i];
+    if (!clocked(p)) continue;
+    let ms = 0, j = i;
+    for (; j < payloads.length; j++) {
+      const q = payloads[j];
+      if (j > i && (!clocked(q) || q.section !== p.section || q.clockSecs !== p.clockSecs)) break;
+      ms += q.spanMs || 0;
+    }
+    p.runMs = ms;
+  }
+  const rates = [];
+  for (let i = 1; i < payloads.length; i++) {
+    const a = payloads[i - 1], b = payloads[i];
+    if (!clocked(a) || !clocked(b) || a.section !== b.section) continue;
+    const gap = a.clockSecs - b.clockSecs;
+    if (gap > 0 && b.runMs > 0) rates.push(gap / (b.runMs / 1000));
+  }
+  if (!rates.length) return;
+  rates.sort((x, y) => x - y);
+  const rate = Math.round(rates[Math.min(rates.length - 1, Math.floor(PACE_FIT * rates.length))] * 100) / 100;
+  for (const p of payloads) if (clocked(p)) p.clockRate = rate;
+}
+
 export function holdFor(text, graphic) {
   const s = String(text || '').trim();
   const held = (s.match(/([A-Za-z])\1{2,}/g) || []).reduce((a, run) => a + run.length - 1, 0);

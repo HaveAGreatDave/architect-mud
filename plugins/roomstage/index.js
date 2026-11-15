@@ -129,8 +129,12 @@ async function piecesOf(zoneId, spec, { stamp, annex, finish }) {
   // `fill`: how full a container is drawn, 0 to 3 (fill.js, RAM); left off until it's known
   warm(fillWarmed);
   const fillsOf = (p) => { const f = p.container ? fillOf(p.id) : null; return f == null ? {} : { fill: f }; };
+  // what a plugin says a piece is showing now (`room.pieceState`, sync, RAM): { [pieceId]: { ...fields } }, laid over
+  // the piece as it's drawn, as a pet's bowls carry how full they are (plugins/pets). A plugin that changes one emits
+  // furniture.changed with the piece's id, and it's sent again
+  const shown = Object.assign({}, ...gatherHookSync('room.pieceState', zoneId));
   // `placed`: a player's piece, which the room's owner may move (`arrange`); an authored one never moves
-  return pieces.map((p) => ({ ...p, acts: furnitureActs(rows.get(p.id)), ...(rows.get(p.id)?.origin === 'player' ? { placed: true } : {}), ...(boards[p.id] ? { board: boards[p.id] } : {}), ...fillsOf(p) }));
+  return pieces.map((p) => ({ ...p, acts: furnitureActs(rows.get(p.id)), ...(rows.get(p.id)?.origin === 'player' ? { placed: true } : {}), ...(boards[p.id] ? { board: boards[p.id] } : {}), ...fillsOf(p), ...(shown[p.id] || {}) }));
 }
 
 // ── a building's rooms (docs/proposals/building-stage.md) ────────────────────────────────────────
@@ -660,6 +664,11 @@ schedule('5s', () => { if (viewers.size) lockSweep(); });
 // An enemy coming in, leaving or dying has no event of its own (ai-behaviour.js moves it, combat.js kills it), so
 // the rooms somebody has open are compared against what was last sent. RAM only, and nothing runs with nobody looking.
 const beastSeen = new Map();
+// a pet's beat (plugins/pets: greeting somebody at the door, being stroked) goes out at once, not on the next sweep
+on('pet.beat', ({ zoneId }) => {
+  const z = zoneId && mainOf(zoneId);
+  if (z && watchersOf(z).size) sendPeople(z).catch(() => {});
+});
 schedule('2s', () => {
   if (!viewers.size) return;
   for (const zoneId of viewers.keys()) {

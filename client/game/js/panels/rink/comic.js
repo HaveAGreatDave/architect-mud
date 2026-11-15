@@ -163,8 +163,9 @@ export const comicExtra = (plan) => (plan === 'page' ? COMIC.freeze + COMIC.page
 // (RINK_COMIC.before of the way through the run-up), the action (the first frame of the freeze),
 // and just after it (the clip's last frame, as the page starts: how it ended).
 
-// a copy of the picture, at most capW wide; null if it can't be read
-function grab(doc, picture) {
+// a copy of the picture, at most capW wide; null if it can't be read (rink/ken-comic.js takes its
+// shots with it too)
+export function grab(doc, picture) {
   const pw = picture?.width | 0, ph = picture?.height | 0;
   if (!doc?.createElement || !(pw > 0 && ph > 0)) return null;
   try {

@@ -4,6 +4,8 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Cattery</title>
+<link rel="stylesheet" href="/nav.css">
+<script type="module" src="/nav.js"></script>
 <!--
   The cat kit's cats (client/game/js/panels/gl/cat-kit.js) in the Room Stage's own renderer, comic-lit and inked as
   ROOM draws them. Each pose is carved from the field and baked; the idle motion is the bake skinned to the bones.
@@ -38,10 +40,9 @@
 </head>
 <body>
 <header>
-  <a href="/" style="opacity:.7">← Modelshop</a>
-  <b>CATTERY</b>
   <select id="who" aria-label="cat"></select>
   <select id="pose" aria-label="pose"></select>
+  <select id="clip" aria-label="clip" title="A clip (gl/cat-clips.js), skinned on the GPU as a room draws it"><option value="">(the pose, on the CPU)</option></select>
   <select id="q" aria-label="quality" title="The grid the field is meshed on">
     <option value="0.006">room (3.6 mm)</option><option value="0.0045" selected>close (2.7 mm)</option><option value="0.0035">hd (2.1 mm)</option>
   </select>
@@ -65,11 +66,15 @@ import { beastMesh, toBatch, placeAt, triCount } from '/client/game/js/panels/gl
 import { catLook, catRig, skinCat, idleMotion, CAT_POSES, STILL } from '/client/game/js/panels/gl/cat-kit.js';
 import { bakeCatOff } from '/client/game/js/panels/gl/cat-bake.js';
 import { CATS } from '/cattery-recipes.js';
+import { CAT_CLIPS, clipFrame, GAIT_SPEED } from '/client/game/js/panels/gl/cat-clips.js';
+import { catDrawer } from '/client/game/js/panels/gl/cat-gpu.js';
 
 const $ = (id) => document.getElementById(id);
 const q = new URLSearchParams(location.search);
 for (const [id, c] of Object.entries(CATS)) $('who').append(new Option(c.name, id));
 for (const p of Object.keys(CAT_POSES)) $('pose').append(new Option(p, p));
+for (const c of Object.keys(CAT_CLIPS)) $('clip').append(new Option(c, c));
+if (CAT_CLIPS[q.get('clip')]) $('clip').value = q.get('clip');
 $('who').value = CATS[q.get('cat')] ? q.get('cat') : 'scrappy';
 $('pose').value = CAT_POSES[q.get('pose')] ? q.get('pose') : 'sit';
 if (q.get('idle') === '0') $('idle').checked = false;
@@ -103,7 +108,7 @@ function setCat(id) {
 const SLIDERS = [
   ['build', 'belly', 0.6, 1.6], ['build', 'pouch', 0.4, 1.8], ['build', 'chest', 0.8, 1.3], ['build', 'hips', 0.8, 1.3], ['build', 'neck', 0.8, 1.3],
   ['build', 'legLen', 0.8, 1.2], ['build', 'legW', 0.8, 1.3], ['build', 'head', 0.85, 1.2], ['build', 'cheeks', 0.85, 1.3], ['build', 'ears', 0.7, 1.4],
-  ['build', 'muzzle', 0.85, 1.15], ['build', 'tailLen', 0.3, 1.4], ['build', 'tailW', 0.7, 1.5],
+  ['build', 'muzzle', 0.85, 1.15], ['build', 'tailLen', 0.3, 1.4], ['build', 'tailW', 0.7, 1.5], ['build', 'tailFluff', 0, 1], ['build', 'legFluff', 0, 1],
   ['coat', 'white', 0, 1], ['eyes', 'pupil', 0, 1],
   ['fur', 'body', 0, 0.02], ['fur', 'ruff', 0, 0.03], ['fur', 'tail', 0, 0.03],
 ];
@@ -143,7 +148,7 @@ function randomCat() {
   const bases = ['#1c1a1f', '#4a4642', '#8a6a48', '#b07a3a', '#c8b8a0', '#6a6a72', '#d89040'];
   const base = pick(bases);
   look = catLook({
-    build: { belly: 0.8 + r() * 0.6, pouch: 0.6 + r() * 1.0, chest: 0.9 + r() * 0.3, hips: 0.9 + r() * 0.25, cheeks: 0.9 + r() * 0.3, ears: 0.8 + r() * 0.5, tailLen: 0.7 + r() * 0.6, legLen: 0.9 + r() * 0.2 },
+    build: { belly: 0.8 + r() * 0.6, pouch: 0.6 + r() * 1.0, chest: 0.9 + r() * 0.3, hips: 0.9 + r() * 0.25, cheeks: 0.9 + r() * 0.3, ears: 0.62 + r() * 0.36, tailLen: 0.7 + r() * 0.6, legLen: 0.9 + r() * 0.2 },
     coat: { base, white: r() < 0.4 ? 0 : r(), seed: Math.floor(r() * 50), tabby: r() < 0.5 ? { kind: pick(['mackerel', 'classic', 'spotted']), col: '#241a12' } : null, nose: r() < 0.5 ? '#c98a8e' : '#3a2a2a' },
     eyes: { iris: pick(['#c8a838', '#a8b838', '#d88a20', '#7aa8c8', '#b8c060']), pupil: r() },
     fur: { body: 0.004 + r() * 0.01, ruff: 0.006 + r() * 0.02, tail: 0.006 + r() * 0.02 },
@@ -168,15 +173,33 @@ function bakeOf(pose) {
   }
   return shown && shown.look === look ? shown : null;
 }
-const rebake = () => { bakes.clear(); gen++; dirty = true; };
+const rebake = () => { bakes.clear(); gen++; dirty = true; D?.clear(); };
 
-let last = null;
+let last = null, D = null, clipT0 = 0, clipHold = null;
+// a clip: the carve of its base pose, skinned on the GPU through the room's own cat path (gl/cat-gpu.js), as a room
+// draws a pet. A gait walks on the spot.
+function drawClip(now, clip) {
+  const c = CAT_CLIPS[clip], b = bakeOf(c.base);
+  if (!b || b.look !== look) return false;
+  D ||= catDrawer(R, { furBudget: $('fur').checked ? 480000 : 0 });
+  const t = clipHold ?? (now - clipT0) / 1000, f = clipFrame(b.rig, clip, t, { seed: 1 });
+  const F = [Math.sin(spin), 0, Math.cos(spin)];
+  R.setBeasts(createBatch(1));
+  R.setCats([D.frame(b, f.pose, f.mo, { O: [0, 0, 0], F })]);
+  $('stats').textContent = `${clip} (${c.base}) · t ${t.toFixed(1)} s${c.len ? ' of ' + c.len : ''}${c.gait ? ' · ' + GAIT_SPEED[c.gait] + ' m/s on the spot' : ''}`;
+  return true;
+}
 function draw(now = performance.now()) {
   globalThis.__houseComic = $('comic').checked;
   const pose = $('pose').value, t = now / 1000;
   if ($('spin').checked) spin += 0.006;
-  const b = bakeOf(pose);
-  if (!b) return;
+  const clip = $('clip').value;
+  if (clip) {
+    if (!drawClip(now, clip)) return;
+  } else R.setCats([]);
+  const b = clip ? null : bakeOf(pose);
+  if (!b && !clip) return;
+  if (clip) { renderOnly(now); return; }
   // the idle moves on twos, as the beasts do
   const tt = Math.floor(t * 12) / 12;
   const awake = pose === 'curl' ? Math.min(+$('awake').value, 0.1) : +$('awake').value;
@@ -186,18 +209,24 @@ function draw(now = performance.now()) {
   const batch = createBatch(8192);
   toBatch(batch, M, placeAt([0, 0, 0], [Math.sin(spin), 0, Math.cos(spin)]));
   R.setBeasts(batch);
+  renderOnly(now);
+  $('stats').textContent = `${pose} · ${b.verts.toLocaleString()} vertices carved in ${Math.round(b.ms)} ms · ${triCount(M).toLocaleString()} triangles with fur`;
+  last = { b, M };
+}
+function renderOnly(now) {
+  const t = now / 1000;
   const recs = $('person').checked ? figurePeople(L, [{ id: 'lab-7-2', at: [0.55, -0.35], yaw: -0.4, pose: 'stand', sculpt: true }], t, { level: 'hd' }) : [];
   R.setFigures(recs);
   const cy = Math.cos(cam.pitch), eye = [cam.at[0] - Math.sin(cam.yaw) * cy * cam.dist, cam.at[1] - Math.sin(cam.pitch) * cam.dist, cam.at[2] - Math.cos(cam.yaw) * cy * cam.dist];
   const lamps = [{ p: [eye[0] * 0.6 + 0.8, 1.8, eye[2] * 0.6], k: 1.3 }, { p: [-eye[0] * 0.5 - 0.4, 0.8, -eye[2] * 0.5 - 0.6], k: 0.7, tint: [0.75, 0.85, 1.0] }];
   R.render({ eye, yaw: cam.yaw, pitch: cam.pitch, fov: cam.fov }, { lamp: lamps[0].p, lamps, lampOn: true, day: 0.5, sky: [0.75, 0.82, 0.95], rim: 1, win: { p: [-6, 2, 2], n: [1, 0, 0], a: [0, 0, 4], b: [0, 3, 0] } });
-  $('stats').textContent = `${pose} · ${b.verts.toLocaleString()} vertices carved in ${Math.round(b.ms)} ms · ${triCount(M).toLocaleString()} triangles with fur`;
-  last = { b, M };
 }
 function loop(now) { requestAnimationFrame(loop); draw(now); }
 $('who').onchange = () => { setCat($('who').value); history.replaceState(null, '', `?cat=${$('who').value}&pose=${$('pose').value}`); };
 $('pose').onchange = () => history.replaceState(null, '', `?cat=${$('who').value}&pose=${$('pose').value}`);
 $('random').onclick = randomCat;
+$('clip').onchange = () => { clipT0 = performance.now(); history.replaceState(null, '', `?cat=${$('who').value}&pose=${$('pose').value}${$('clip').value ? '&clip=' + $('clip').value : ''}`); };
+$('fur').onchange = () => { D?.clear(); D = null; };
 setCat($('who').value);
 async function shot(name = 'cattery', c = {}) {
   Object.assign(cam, c); draw(performance.now());
@@ -205,7 +234,9 @@ async function shot(name = 'cattery', c = {}) {
   const r = await fetch('/api/shot?name=' + encodeURIComponent(name), { method: 'POST', body: blob });
   return r.json();
 }
-window.__cat = { R, cam, draw, shot, get look() { return look; }, bakes, $ };
+// clipAt(name, t, still): show a clip at t seconds, held there unless still is false (for a gate or a shot)
+function clipAt(name, t = 0, still = true) { $('clip').value = name; clipT0 = performance.now() - t * 1000; clipHold = still ? t : null; draw(performance.now()); }
+window.__cat = { R, cam, draw, shot, clipAt, get look() { return look; }, bakes, $ };
 requestAnimationFrame(loop);
 </script>
 </body>

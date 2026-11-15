@@ -404,6 +404,7 @@ export const REGISTRY = [
   { table: 'org_members', class: 'player' },
   { table: 'sports_bets', class: 'player' },
   { table: 'bounties', class: 'player' },            // player-funded contracts + their escrow
+  { table: 'conceal_codes', class: 'player' },       // concealment plugin — the code somebody set on their cabinet; a secret, never exported
   { table: 'yacht_invites', class: 'player' },       // The Echelon invite list — approved players
   { table: 'password_reset_tokens', class: 'player' },
   { table: 'email_verification_tokens', class: 'player' },

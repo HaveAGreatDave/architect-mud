@@ -37,7 +37,8 @@
       "room.vehiclesChanged",
       "graffiti.tagged",
       "graffiti.removed",
-      "room.boardChanged"
+      "room.boardChanged",
+      "pet.beat"
     ],
     "emits": [
       "furniture.changed",

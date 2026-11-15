@@ -15,7 +15,7 @@
 // change the odds. At the `textgames` and `log` rungs the server sends `render`, and those boards open as ever.
 
 import { loadCss } from '../../../shared/dom.js';
-import { doorwaysOf, roomSees } from '../../../shared/room-layout.js';
+import { doorwaysOf, roomSees, WALL_T } from '../../../shared/room-layout.js';
 import { buildLocks, lockHue } from './gl/room-lock.js';
 import { liftDoorBatch } from './gl/room-mesh.js';
 import { comicOn } from './gl/house-style.js';
@@ -40,6 +40,8 @@ const REACH = 2.3, SEEN = 11;
 // the door: how long it takes to slide each way, how long one you pushed through stays back, and how long the one
 // you came in by stays open behind you
 const OPEN_S = 0.32, SHUT_S = 0.8, PUSH_MS = 1600, BEHIND_MS = 900;
+// how far shut a door can be and still let you through: `enter`'s 'wait' and the fence agree on it
+const GAP = 0.35;
 const WORD = { north: 'North', south: 'South', east: 'East', west: 'West', up: 'Upper', down: 'Lower', in: 'Inner', out: 'Outer' };
 
 // Whether anything placed in the room (L.placed) stands across the line from a to b, each [u, v, y] in the room's
@@ -286,14 +288,38 @@ export function createRoomLocks({ host, project, send, setBatch }) {
   // Somebody has walked into the doorway to `to`. 'go': nothing's in the way, send the step. 'wait': a shut door
   // that will let you through is sliding back, as it does in the room text, where walking through a shut door
   // opens it for the step and it swings shut behind you. 'no': it's locked to you.
-  // ⚠ WALKING INTO A DOOR IS THE ONLY THING THAT OPENS ONE UNASKED. Standing near it doesn't.
+  // ⚠ WALKING INTO A DOOR IS THE ONLY THING THAT OPENS ONE UNASKED. Standing near it doesn't, and a bathroom's
+  // never does: you open it (its card's Open, or `open door in`), or you wait for whoever's in there.
   function enter(to) {
     const i = list.findIndex((k) => k.to === to);
     if (i < 0) return 'go';
     const k = list[i];
     if (!k.open && !k.pass) { bump(to); return 'no'; }
+    if (!k.open && k.annex) { if ((shut[i] ?? 1) > GAP) { bump(to); return 'no'; } return 'go'; }
     if (!k.open) pushed[i] = performance.now() + PUSH_MS;
-    return (shut[i] ?? 1) > 0.35 ? 'wait' : 'go';
+    return (shut[i] ?? 1) > GAP ? 'wait' : 'go';
+  }
+  // ⚠ A SHUT DOOR IS A WALL. The walker (room-walk.js `fence`) asks before each step, and a step that would take you
+  // past the door's face, inside the doorway, while its leaf is shut stops where the wall beside it would have
+  // stopped you. Before this you walked into the leaf until your eye was in it, and only then did the door open
+  // or put you back. Walking into one is still how a door you can pass opens for you; a bathroom's stays shut.
+  // Only a step deeper in counts, and only from short of the leaf, so you can always step back out of a doorway
+  // and a door that shuts behind you never holds you in the next room.
+  function fence(from, to) {
+    if (!geo || !L) return false;
+    const m = 0.9 * (L.ft || 1);
+    for (let i = 0; i < list.length; i++) {
+      const g = geo.panels[i], k = list[i];
+      if (!g?.local || k.open || (shut[i] ?? 1) <= GAP) continue;
+      const [a, p] = g.local(to[0], to[1]);
+      if (p <= -m || a < g.span[0] - 0.05 || a > g.span[1] + 0.05) continue;
+      const p0 = g.local(from[0], from[1])[1];
+      if (p <= p0 || p0 >= WALL_T / 2) continue;
+      if (k.pass && !k.annex) pushed[i] = performance.now() + PUSH_MS;
+      else bump(k.to);
+      return true;
+    }
+    return false;
   }
   // Somebody else going through the doorway to `to` (room-stage.js, a person walking out or in): the door swings
   // open for them and shuts behind, as the room text has it. Only the picture: the door's own `open` is the server's.
@@ -466,7 +492,7 @@ export function createRoomLocks({ host, project, send, setBatch }) {
   }
 
   return {
-    load, slide, enter, pass, bump, aim, run: runFor, said, hack, key, draw, play,
+    load, slide, enter, fence, pass, bump, aim, run: runFor, said, hack, key, draw, play,
     get hacking() { return !!game; },
     get count() { return list.length; },
     stop() { endGame(); clearTimeout(sayT); clearTimeout(tried?.t); layer.remove(); },

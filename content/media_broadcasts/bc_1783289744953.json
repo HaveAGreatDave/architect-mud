@@ -3596,6 +3596,59 @@
         "That's the last out. Ballgame. {leader} take it by {lead}.",
         "There's the final out, and it's over. {leader} win by {lead}."
       ],
+      "final.outs": [
+        "The {fielding} are {outsLeft} outs from the {final}.",
+        "{outsLeft} outs. That's all that's between the {fielding} and the {final}. || Don't count them yet. || Everybody in the building is counting them, {dusty}.",
+        "{pitcher} knows how many outs are left. Everybody here knows. It's {outsLeft}.",
+        "The {fielding} lead by {lead}, {outsLeft} outs to go. || That's a long way in a game like this. || It's the shortest it's been all season.",
+        "{outsLeft} outs from a title for the {fielding}. The {team} need something, and soon.",
+        "The {team} are running out of outs. {outsLeft} left, down {lead}, and the {final} on the line."
+      ],
+      "final.pressure": [
+        "This is what the whole season was for. {batter} against {pitcher}, and it's on both of them.",
+        "What's it like on the mound in a spot like this, {dusty}? || Lonely. Everybody in the place is watching you breathe.",
+        "{batter}'s been up in big spots all year. None like this one.",
+        "Nobody's sitting down. Nobody's buying a beer. {pitcher} looks in.",
+        "{batter} steps out and takes a breath. || He's allowed to be nervous here. Anybody who says they aren't is lying.",
+        "Every pitch now, one of these clubs gets a little closer. {pitcher} to {batter}.",
+        "My hands are sweating, {dusty}, and I'm only calling it. || Try holding the ball.",
+        "Big spot in the {final}, and {pitcher} needs this one."
+      ],
+      "final.road": [
+        "The {club} came in at {record}, {place} in the table. They went {last10} over their last ten to get here.",
+        "How the {club} got here: {record} on the year, {place} in the table, and they've {streak}.",
+        "The {club} finished {place} at {record}. || Not everybody had them here. || You did? || I pick everybody, {chip}.",
+        "{record} for the {club} this season, and {last10} in their last ten. A team playing like that doesn't scare easy.",
+        "The {club} went {last10} down the stretch. That's how you end up playing on the last night of the season."
+      ],
+      "final.series": [
+        "These two met {meetings} times this season, and the {leader} won {leadWins}. None of that counts now.",
+        "The {leader} had the better of the season series, {leadWins} to {trailWins}. || Doesn't matter tonight. || It matters to the {trailer}. They remember every one of them.",
+        "The {trailer} only beat the {leader} {trailWins} times this year. They need one more, tonight."
+      ],
+      "final.series.even": [
+        "They split it {leadWins} apiece during the season. Tonight's the one that counts.",
+        "Even in the season series, {leadWins} each. You couldn't draw it up closer."
+      ],
+      "final.stakes.lead": [
+        "And the {team} lead the {final}. That changes everything.",
+        "The {team} go in front. The {fielding} have to answer now.",
+        "That's the lead, in the last game of the year. || Somebody's going to be telling people about that swing for a long time.",
+        "The {team} take the lead. It's very quiet in the {fielding} dugout.",
+        "Lead change in the {final}. You couldn't ask for more than this."
+      ],
+      "final.stakes.more": [
+        "That's room to breathe for the {team}. In a game like this, every run counts double.",
+        "The {team} add on. The {fielding} need more than one swing now.",
+        "Up {lead} now, and the {fielding} are running out of innings.",
+        "The {team} push it to {lead}. You can see the {fielding} bench sag."
+      ],
+      "final.stakes.tie": [
+        "And it's all square. The {final} starts over from here.",
+        "Tied. A whole season, and it's level again.",
+        "The {team} tie it. || That's what a champion does. || Neither of them's a champion yet.",
+        "Level again. You can hear the {team} fans from up here."
+      ],
       "final.walkoff": [
         "Final score: {home} {homeScore}, {away} {awayScore}.",
         "They'll write that one down. {home} {homeScore}, {away} {awayScore}, and the {home} walk off."
@@ -3665,6 +3718,77 @@
         "Live from {venue}!",
         "Live from {venue}! The lights are on in Halcyon Fields and there's a ballgame tonight.",
         "Live from {venue}, where the gates are open and the organist is already warming up!"
+      ],
+      "lore.breakout": [
+        "The {club} are {place} in the table. Their best finish in the last {span} was {bestFinish}. || Somebody over there figured something out.",
+        "I wouldn't have picked the {club} to be {place}. Their best finish in {span} was {bestFinish}."
+      ],
+      "lore.cellar": [
+        "The {club} have finished last {cellarSaid} in the last {span}. || They must be used to it. || Nobody gets used to it, {chip}.",
+        "The {club} have been in last place {cellarSaid} in {span}. Their fans are a patient bunch."
+      ],
+      "lore.close": [
+        "The {club} have been to {finalsSaid} and lost all of them. The {beatenBy} beat them in the last one.",
+        "The {club} have made {finalsSaid} and never won it. || They know how to get there. || It's the last game that gets them."
+      ],
+      "lore.contender": [
+        "The {club} have finished in the top two {top2Said} in the last {span} and never won it. || Always close. || Close doesn't get your name on anything."
+      ],
+      "lore.defending": [
+        "The {club} are the champions. They beat the {beat} {finalScore} in the Curtain Call last month.",
+        "Defending champs, the {club}. || They don't play like it every night. || They played like it in the final.",
+        "The {club} won it all last month. Every club they see wants a piece of them now."
+      ],
+      "lore.drought": [
+        "The {club} last won it all in {lastTitle}. That's {sinceSaid} ago. || It feels longer if you're a fan. || Most things do.",
+        "The {club} won the Curtain Call in {lastTitle}. Their fans still bring it up. That was {sinceSaid} ago."
+      ],
+      "lore.dynasty": [
+        "The {club} have won the Curtain Call {streakSaid} months running. || Somebody's going to have to take it off them. || Nobody's managed it yet.",
+        "The {club} beat the {beat} {finalScore} for their last one. That's {streakSaid} in a row. || You were there? || I'm at all of them, {chip}.",
+        "Every month the {club} end up in the last game, and every month they win it. That's {streakSaid} in a row. || Somebody's keeping count. || I am."
+      ],
+      "lore.fallen": [
+        "The {club} won it all in {lastTitle}. They're {place} right now. || It goes quick in this game. || It does.",
+        "The {club} were champions in {lastTitle}. They're {place} tonight."
+      ],
+      "lore.falling": [
+        "The {club} were {oldFinish} not long ago. Last month they finished {lastFinish}. || Something's gone wrong over there. || Nobody will tell me what.",
+        "The {club} have gone from {oldFinish} to {lastFinish} in a few months. That's a long way down."
+      ],
+      "lore.heartbreak": [
+        "The {club} have lost {lostStreakSaid} Curtain Calls in a row. || That's a hard thing to carry around. || The {beatenBy} beat them in the last one.",
+        "The {club} keep getting to the last game and losing it. That's {lostStreakSaid} straight now."
+      ],
+      "lore.lastfinal": [
+        "The {club} were in the Curtain Call last month. The {beatenBy} beat them {finalScore}. || They've had a month to think about it. || That's long enough.",
+        "The {club} were one game from the title last month. The {beatenBy} won that game {finalScore}."
+      ],
+      "lore.never": [
+        "The {club} have never been to a Curtain Call. || Not once? || Not once.",
+        "There's no title on the wall for the {club}, and no final either. Every month they say this is the one."
+      ],
+      "lore.rematch": [
+        "These two played for it all in the {lastFinalSeason} Curtain Call. The {lastWinner} won {finalScore}. || The {lastLoser} remember. || They remember.",
+        "The last time the {lastWinner} and the {lastLoser} met with something on it, it was the Curtain Call. The {lastWinner} won it {finalScore}."
+      ],
+      "lore.rising": [
+        "The {club} finished {oldFinish} not long ago, and {lastFinish} last month. They're going the right way.",
+        "The {club} are climbing. They went from {oldFinish} to {lastFinish}. || About time."
+      ],
+      "lore.rivalry": [
+        "The {club} and the {opponent} have met in the Curtain Call {metSaid}. The {lastWinner} won the last one."
+      ],
+      "lore.rivalry.owned": [
+        "The {club} and the {opponent} have met in the Curtain Call {metSaid}, and the {leader} won every time. || Every time? || Every time."
+      ],
+      "lore.slump": [
+        "The {club} are {place}. They don't usually live down there. || They're not enjoying the view.",
+        "Rough month for the {club}. They're {place} in the table, and they're used to the top three."
+      ],
+      "lore.titles": [
+        "The {club} have {titlesSaid}. The last one came in {lastTitle}.",
+        "The {club} have won {titlesSaid}. That's more than most clubs in this league can say. The last was in {lastTitle}."
       ],
       "lost_picture": [
         "We've lost the picture from {venue}. The game's still going. We'll get you back there as soon as the line's up.",
@@ -3776,6 +3900,48 @@
         "After {inningOrd}: {away} {awayScore}, {home} {homeScore}. Grab a beer, it won't help.",
         "Three in the books at the turn of the {inningOrd}: {away} {awayScore}, {home} {homeScore}.",
         "Where we stand through {inningOrd}: {home} {homeScore}, {away} {awayScore}."
+      ],
+      "risp": [
+        "{runner}'s at {bag} now. That's scoring position for the {team}.",
+        "And {runner} moves up to {bag}. A base hit scores him.",
+        "{runner} into scoring position. {pitcher} has some work to do.",
+        "That gets {runner} to {bag}. The {team} have something going.",
+        "{runner} at {bag}. || A single brings him in. || That's the idea.",
+        "Now there's a man in scoring position. {pitcher} looks over at {bag} and doesn't like what he sees.",
+        "{runner} on {bag}, and the {fielding} infield takes a step in.",
+        "Scoring position for {runner}. That's what the {team} have been after all inning."
+      ],
+      "risp.ahead": [
+        "And now the go-ahead run's at {bag}. {runner}.",
+        "{runner} at {bag} is the go-ahead run. One hit and the {team} lead.",
+        "Go-ahead run in scoring position. Nobody's sitting down for this.",
+        "That's the lead run at {bag}. || The {fielding} have to stop it here. || They will if {pitcher} throws strikes.",
+        "{runner} to {bag}. The go-ahead run, late, and the {team} dugout is up on the rail.",
+        "The go-ahead run's in scoring position. It's quiet in here, and it shouldn't be."
+      ],
+      "risp.third": [
+        "{runner} at third with less than two out. A fly ball does it.",
+        "Ninety feet away, {runner}. A ground ball to the right side might do it.",
+        "{runner}'s on third, and there's not two out. || {pitcher} needs a strikeout here. || Or a pop-up. Anything but a fly ball.",
+        "Man on third, fewer than two out. The {fielding} bring the infield in.",
+        "{runner} on third. Any kind of contact and he's coming.",
+        "Runner at third, one out at most. This is where you get a run without a hit."
+      ],
+      "risp.twoout": [
+        "{runner} gets to {bag}, but there's two out. They need a hit.",
+        "Two out, {runner} in scoring position. He's running on contact.",
+        "{runner} on {bag} with two away. He goes on anything.",
+        "Scoring position, two out. || It's a base hit or nothing. || It usually is, {dusty}.",
+        "{runner}'s at {bag}. Two out, so he's gone with the crack of the bat.",
+        "Two down, and {runner}'s in scoring position. {pitcher} needs one more out."
+      ],
+      "risp.tying": [
+        "That's the tying run at {bag}. {runner}.",
+        "{runner} at {bag}, and he's the tying run. The place is on its feet.",
+        "The tying run is in scoring position. {pitcher} steps off the rubber. || I'd step off too.",
+        "Tying run at {bag}. This is the inning the {team} needed.",
+        "{runner} gets to {bag}, and the {team} have the tying run in scoring position.",
+        "The tying run's at {bag}. {pitcher} has to get out of this, and he knows it."
       ],
       "run.caughtstealing": [
         "{runner} is going, and the throw is there! Caught stealing. {outs} away.",
@@ -4140,6 +4306,37 @@
         "That run in the top of the {inningOrd} stands up, and the {leader} steal it on the road and get out of town alive.",
         "Go-ahead run in extras, home half comes up empty, and the {leader} make it stick. Ballgame."
       ],
+      "worldseries.celebrate.game": [
+        "Look at them go. The {leader} are all over each other out there. {score}, and they'll take it any way it comes. || {decider} put them in front in the {deciderOrd}. They never gave it back.",
+        "They're piling on at the mound and nobody wants to get up. || {decider} did it, {chip}. The run in the {deciderOrd}, and the {loser} never caught up.",
+        "The whole bench is out on the grass. Listen to this place. || {mvp} went {mvpLine}. You don't do much better than that in the last game of the year."
+      ],
+      "worldseries.celebrate.game.nodecider": [
+        "Look at them go. The {leader} are all over each other out there. || {mvp} went {mvpLine}. That's the game right there.",
+        "They're piling on at the mound and nobody wants to get up. || {score}. It wasn't pretty and nobody out there cares."
+      ],
+      "worldseries.celebrate.loser": [
+        "Spare a thought for the {loser}. They're walking off and nobody's looking at them. || They'll be back. || Will they? || Probably. Most people come back.",
+        "The {loser} are back in their dugout already. It's a long walk from the mound. || Longer when you lose."
+      ],
+      "worldseries.celebrate.season": [
+        "{record} in the regular season, {seedSaid}, and now this. || They were the best team all year, and tonight they proved it.",
+        "They came in {seedSaid} at {record}. A lot of people picked against them. || Not me. || You picked against them in April. || That was April.",
+        "{record} going in. Not everybody had the {leader} here. || They had themselves here. That's what counts."
+      ],
+      "worldseries.cup": [
+        "And here it comes. The {cup}, out to the {leader}. Sir Charles's own cup, and it's theirs for a month.",
+        "Time for the hardware. The {cup}. The {leader} are gathered round it and they haven't stopped jumping yet.",
+        "The {cup} is on the table by the mound, and the {leader} are coming to get it."
+      ],
+      "worldseries.cup.lift": [
+        "{star1} gets it first. Up over his head it goes! || He's earned that. {mvpLine} tonight.",
+        "There's {star1} with the {cup}! Up it goes, and the place goes with it. || Don't drop it, son. || He won't drop it."
+      ],
+      "worldseries.cup.pass": [
+        "Now it's {star2}'s turn. And then {star3}. || They'll all get a go. Nobody's leaving till they do.",
+        "There's {star2} with it now. Look at his face. || That's a man who's going to sleep with it tonight."
+      ],
       "worldseries.final": [
         "IT'S OVER! The {leader} are your DEADBALL CURTAIN CALL CHAMPIONS! {home} {homeScore}, {away} {awayScore}. Carve it into whatever's still standing!",
         "CHAMPIONS! The {leader} take the whole thing, {homeScore} to {awayScore}! A season of blood and rust, and they're the last ones grinning!",
@@ -4193,7 +4390,7 @@
     },
     "sim": {
       "firstGen": true,
-      "version": 3
+      "version": 4
     },
     "sport": "baseball",
     "teams": [

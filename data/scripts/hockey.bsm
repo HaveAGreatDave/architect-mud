@@ -1138,6 +1138,43 @@ Out comes the Coldwater Cup. The {leader} get it first, and they get to find out
 There is the Cup. Hand it to the captain, and somebody get the lid.
 ::endlines
 
+# ── the champions on the ice, then the Cup ────────────────────────────────────
+# Said after cup.crown while the rink celebrates (rink/director.js stageCrown): the play-by-play man
+# first, the colour man after each ||. {leader} won, {loser} lost, {score} reads "4 to 2"; {decider}
+# scored the goal that put them ahead for good, in the {deciderOrd}; {mvp} is the player of the final
+# and {mvpLine} his night ("two goals and an assist"); {record} is their season going in and
+# {seedSaid} their seed. {captain} lifts the Cup first, then {star2} and {star3}. {nick} is the
+# Cup's other name, the Golden Goose Cup, after the Gardens.
+::lines cup.celebrate.game
+Gloves everywhere, sticks in the air, and the {leader} are in one big heap at centre. {score}. || {decider} put them in front in the {deciderOrd}, and they sat on it like it owed them money.
+Look at them. Nobody on that bench is on the bench any more. || {mvp} had {mvpLine}. That's your final right there.
+They're all over the goalie. Somebody get him out from under there. || He earned the pile. {mvp} earned the rest of it, with {mvpLine}.
+::endlines
+
+::lines cup.celebrate.game.nodecider
+Gloves everywhere, sticks in the air, and the {leader} are in one big heap at centre. || {mvp} had {mvpLine}. That'll do it.
+::endlines
+
+::lines cup.celebrate.season
+{record} in the regular season, {seedSaid}, and now they've got the last word. || Best team in the league. Nobody gets to argue now.
+They came in {seedSaid} at {record}. Plenty of people had them out early. || Plenty of people are wrong for a living.
+::endlines
+
+::lines cup.celebrate.loser
+And here's the handshake line. The {loser} come out for it, which is more than some clubs do. || Shake his hand, then go home and break something.
+The {loser} line up to shake hands. Hardest skate in the sport. || They'll be back. || They always say that. || Sometimes it's true.
+::endlines
+
+::lines cup.lift
+{captain} has it! Up over his head goes the Coldwater Cup! || The Golden Goose Cup. Look at it shine.
+There's the captain, {captain}, with the {nick}! Up it goes, and the Gardens comes down. || Don't drop it. || He won't. He's waited his whole life for that.
+::endlines
+
+::lines cup.pass
+{captain} gives it to {star2}. Then it's {star3}'s go. || Everybody gets a turn. That's the rule.
+Now {star2} has it up. Look at his face. || That man is going to sleep with it tonight.
+::endlines
+
 ::lines cup.final
 THE {leader} HAVE WON THE COLDWATER CUP. {home} {homeScore}, {away} {awayScore}. They'll drink out of it, because that's the tradition, and we'll see who's still here next season.
 IT'S OVER. The {leader} are your Coldwater Cup champions. Carve it into whatever's still standing.
@@ -2365,6 +2402,113 @@ Good game. {leader} wanted it more in the third. That's all it was.
 Hard game. Everybody go home and put some ice on it.
 Same time tomorrow, {pbpFirst}? || Same time tomorrow. || The scheduler says so. || The scheduler says so.
 That's the win. Two points, a lot of bruises, and they'll do it again tomorrow.
+::endlines
+
+# =============================================================================
+# THE CLUBS' HISTORY (plugins/broadcast/sports/club-lore.js)
+# What the booth knows about each club's past, worked out from the league's closed seasons: Cups
+# won and lost, droughts, and where each club finished the last five months. Said before the drop
+# (the two clubs' finals against each other, then the bigger story) and once in each intermission.
+# Which pool fires is the club's story tonight, so it changes as the results do.
+# Tokens: {club} {opponent} {cupsSaid} {titlesSaid} {lastTitle} {sinceSaid} {streakSaid}
+#   {lostStreakSaid} {finalsSaid} {beat} {beatenBy} {finalScore} {lastFinalSeason} {place}
+#   {bestFinish} {lastFinish} {oldFinish} {span} {cellarSaid} {top2Said}; the rivalry pools have
+#   {metSaid} {lastWinner} {lastLoser} {leader} {trailer}. No "||" here: the announcer says these.
+# =============================================================================
+
+::lines lore.dynasty
+The {club} have won the Cup {streakSaid} months running. Everybody else is playing for second until somebody stops them.
+That's {cupsSaid} for the {club}, the last {streakSaid} of them in a row. They beat the {beat} {finalScore} for the latest.
+The {club} keep winning the last game of the month. It's {streakSaid} straight now, and the engraver has their name set up already.
+::endlines
+
+::lines lore.defending
+The {club} are the champions. They beat the {beat} {finalScore} in the last Cup final, and they'd like you to remember it.
+Defending Cup champions tonight, the {club}. They took it off the {beat} last month.
+The {club} have the Cup. Every club they play this month wants to be the one that beat the champions.
+::endlines
+
+::lines lore.heartbreak
+The {club} have lost {lostStreakSaid} Cup finals in a row. Their fans have stopped buying the souvenir mugs in advance.
+The {club} keep getting to the final and losing it. That's {lostStreakSaid} straight, the last one to the {beatenBy}.
+Nobody gets to the final more than the {club} lately. Nobody loses it more, either. They've lost the last {lostStreakSaid}.
+::endlines
+
+::lines lore.lastfinal
+The {club} were in the Cup final last month and lost it to the {beatenBy}, {finalScore}. They haven't said much since.
+Last month the {club} were one game from the Cup. The {beatenBy} won that game {finalScore}.
+The {club} got to the final last month and the {beatenBy} beat them {finalScore}. They've had a month to think about it.
+::endlines
+
+::lines lore.breakout
+The {club} are {place} in the table. Their best finish in the last {span} was {bestFinish}. Something's changed over there.
+Look who's {place}. It's the {club}, and that's not where anybody had them. Their best in {span} was {bestFinish}.
+::endlines
+
+::lines lore.fallen
+The {club} won the Cup in {lastTitle}. Tonight they're {place}. Things move fast in this league.
+The {club} were champions in {lastTitle}. They're {place} now, and nobody on that bench wants to talk about it.
+::endlines
+
+::lines lore.slump
+The {club} are {place} tonight. They're used to the top three, so this is new for them.
+It's a bad month for the {club}. They're {place} in the table, and they don't usually live down there.
+::endlines
+
+::lines lore.titles
+The {club} have {cupsSaid}. The last one was in {lastTitle}.
+The {club} have won {cupsSaid}, more than most clubs in this building. The last was {lastTitle}.
+::endlines
+
+::lines lore.drought
+The {club} last won the Cup in {lastTitle}. That's {sinceSaid} ago, and their fans count every one.
+It's been {sinceSaid} since the {club} won anything. Some of the men on that bench hadn't been printed yet.
+The {club} won the Cup in {lastTitle}, and they still talk about it. That was {sinceSaid} ago.
+::endlines
+
+::lines lore.close
+The {club} have been to {finalsSaid} and lost every one. The {beatenBy} beat them in the last.
+The {club} know the way to the final. They've been to {finalsSaid}. It's the last game they can't win.
+::endlines
+
+::lines lore.never
+The {club} have never made a Cup final. Not once. They'd settle for one.
+There's nothing on the wall for the {club}. No final, no Cup. Every month they say this is the month.
+::endlines
+
+::lines lore.rising
+The {club} finished {oldFinish} a few months ago and {lastFinish} last month. They're going the right way.
+The {club} are climbing. They went from {oldFinish} to {lastFinish}, and the rest of the league has noticed.
+::endlines
+
+::lines lore.falling
+The {club} were {oldFinish} not long ago. Last month they were {lastFinish}. It's been a long slide.
+The {club} have gone from {oldFinish} to {lastFinish} in a few months. Nobody in their front office will say why.
+::endlines
+
+::lines lore.cellar
+The {club} have finished last {cellarSaid} in the last {span}. They know the bottom of this table well.
+The {club} were dead last {cellarSaid} in {span}. They're hoping this month is different. So are their fans, what's left of them.
+::endlines
+
+::lines lore.contender
+The {club} have finished in the top two {top2Said} in the last {span}, and they still haven't won the Cup.
+The {club} are always close. Top two {top2Said} in {span}, and no Cup to show for it.
+::endlines
+
+::lines lore.rematch
+These two met in the {lastFinalSeason} final. The {lastWinner} won it {finalScore}. The {lastLoser} haven't forgotten.
+The last time the {lastWinner} and the {lastLoser} played for something, it was the Cup, and the {lastWinner} won {finalScore}.
+::endlines
+
+::lines lore.rivalry
+The {club} and the {opponent} have met in the Cup final {metSaid}. The {lastWinner} won the last one, {finalScore}.
+These two have played for the Cup {metSaid}. They don't like each other, and the {lastWinner} won the last one.
+::endlines
+
+::lines lore.rivalry.owned
+The {club} and the {opponent} have met in the Cup final {metSaid}. The {leader} won every time.
+The {trailer} have played the {leader} for the Cup {metSaid} and lost {metSaid}. They'd like that to change tonight.
 ::endlines
 
 END

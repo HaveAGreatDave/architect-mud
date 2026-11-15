@@ -12,9 +12,15 @@ export const CATS = {
     name: 'Scrappy',
     note: "Cyd's cat. A black saddle and tail, black hind legs in white socks, white chest and front legs, a patch on his left shoulder, a cap, a patch round his left eye into a black left ear, a handlebar moustache and a chin spot.",
     look: {
-      build: { belly: 1.5, pouch: 1.6, chest: 1.18, hips: 1.2, cheeks: 1.1, head: 1.08, legLen: 0.92, tailW: 1.15, neck: 1.05, length: 0.84, neckLen: 0.72 },
+      // a tuxedo American Shorthair (gl/cat-breeds.js), and a full-grown tom: about 47 cm nose to rump, bigger than the
+      // breed's own 0.66
+      breed: 'american_shorthair',
+      scale: 0.7,
+      // a tom's head: big and round on a fat neck, heavy jowls, the muzzle short and the ears small for the size of it
+      build: { belly: 1.7, pouch: 1.9, legW: 1.25, chest: 1.18, hips: 1.12, cheeks: 0.93, jowls: 1, dome: 1.06, head: 1.02, muzzle: 0.94, ears: 0.75, legLen: 0.92, tailW: 1.05, tailFluff: 1, legFluff: 1, neck: 1.05, length: 0.94, neckLen: 0.72 },
       coat: {
-        base: '#1c1a1f', whiteCol: '#eeeae2', white: 1, seed: 3,
+        // the tuxedo's white, then his own: he's more white than most tuxedos, and his marks say where the black is
+        pattern: 'tuxedo', base: '#1c1a1f', whiteCol: '#eeeae2', white: 1, seed: 3,
         nose: '#d4898f', pads: '#cf8b93', earInner: '#dda2a4', whisker: '#f4f1ea',
         marks: [
           // the cap: a thin band over the crown joining the two ear bases, the forehead left white
@@ -27,25 +33,27 @@ export const CATS = {
           // his left ear black; the right stays white, pink inside
           { space: 'head', on: ['ear'], c: [0.11, 0.12, -0.02], r: [0.08, 0.14, 0.09] },
           // the handlebar moustache: a big lobe on his right, a longer thinner one on his left, joined under the nose
-          { space: 'head', c: [-0.022, -0.036, 0.08], r: [0.02, 0.012, 0.03], wob: 0.3 },
-          { space: 'head', c: [0.02, -0.034, 0.081], r: [0.021, 0.0085, 0.03], wob: 0.3 },
-          { space: 'head', c: [0.0, -0.031, 0.088], r: [0.012, 0.008, 0.02], wob: 0.1 },
+          { space: 'head', c: [-0.022, -0.043, 0.08], r: [0.02, 0.012, 0.03], wob: 0.3 },
+          { space: 'head', c: [0.02, -0.041, 0.081], r: [0.021, 0.0085, 0.03], wob: 0.3 },
+          { space: 'head', c: [0.0, -0.041, 0.088], r: [0.012, 0.008, 0.02], wob: 0.1 },
           // the spot on the chin, a little to his right
-          { space: 'head', c: [-0.006, -0.066, 0.066], r: [0.012, 0.012, 0.02], wob: 0.2 },
+          { space: 'head', c: [-0.008, -0.072, 0.06], r: [0.009, 0.007, 0.014], wob: 0.2 },
           // the saddle: his back and sides black from behind the shoulders to the tail, the belly left white
           { space: 'body', on: ['body', 'neck'], c: [0, 0.44, -0.17], r: [0.22, 0.25, 0.28] },
           // and the belly under it white
           { space: 'body', on: ['body'], col: 'white', c: [0, 0.2, -0.08], r: [0.1, 0.12, 0.3] },
-          { space: 'body', on: ['tail'], c: [0, 0.3, -0.6], r: [0.3, 0.3, 0.4], wob: 0 },
+          { space: 'body', on: ['tail'], c: [0, 0.3, -0.6], r: [0.35, 0.35, 0.6], wob: 0 },
           // the hind legs black down to white socks
-          { space: 'body', on: ['leg'], c: [0.1, 0.32, -0.2], r: [0.085, 0.2, 0.15] },
-          { space: 'body', on: ['leg'], c: [-0.1, 0.32, -0.2], r: [0.085, 0.2, 0.15] },
+          { space: 'body', on: ['leg'], c: [0.11, 0.34, -0.2], r: [0.14, 0.26, 0.22] },
+          { space: 'body', on: ['leg'], c: [-0.11, 0.34, -0.2], r: [0.14, 0.26, 0.22] },
           // the patch on the front of his left shoulder
-          { space: 'body', on: ['body', 'leg'], c: [0.085, 0.38, 0.17], r: [0.035, 0.075, 0.05] },
+          { space: 'body', on: ['body', 'leg'], c: [0.09, 0.36, 0.2], r: [0.045, 0.075, 0.055] },
         ],
       },
-      eyes: { iris: '#bcc486', rim: '#5c6440', pupil: 0.6, size: 1.16, open: 1.12, sunk: 0.5, droop: 0 },
-      fur: { body: 0.009, ruff: 0.016, belly: 0.014, tail: 0.012, legs: 0.005, face: 0.0025 },
+      eyes: { iris: '#bcc486', rim: '#5c6440', pupil: 0.6, size: 1.08, open: 1.18, sunk: 0.5, droop: 0 },
+      // dense and plush, longer than the breed's flat coat: he's a fluffy one, the ruff and the tail longest
+      // (the ruff's shells show their layers past about 1.2 cm, as a lace collar)
+      fur: { body: 0.01, ruff: 0.012, belly: 0.015, tail: 0.012, legs: 0.011, face: 0.0028 },
     },
   },
   // the kit's own numbers, a plain cat to measure against

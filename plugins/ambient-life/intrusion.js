@@ -61,6 +61,7 @@ function residentsOf(zoneId) {
     if (npc.home_zone !== zoneId) continue;      // a guest is not a householder
     if (npc._combatTargetId) continue;           // already having a worse evening
     if (npc.flags?.no_home_life) continue;       // same opt-out the domestic routines use
+    if (npc.flags?.animal) continue;             // a cat doesn't tell you to get out of its kitchen
     out.push(npc);
   }
   return out;

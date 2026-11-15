@@ -852,6 +852,18 @@ export function simGame(matchup, players, rand = Math.random) {
 //     running) and `base` (the bag in play). One that makes the third out ends the half
 //     with the batter still up, and he leads off the next inning.
 //   • The game carries `version: 2`.
+//
+// v4 is v3 with the runners reading the outs. With two out a man goes on contact, so on a single
+// the man on second scores and the man on first takes third more often, and on a double the man
+// on first comes all the way round more often; with fewer out he's held up a little more. Each is
+// the same draw v3 makes, read against a different line, so the stream and every other play are
+// v3's.
+export const TWO_OUT_SEND = Object.freeze({
+  // [fewer than two out, two out]; v3 has one number for both
+  singleFromSecond: [0.66, 0.9],     // he scores (v3 0.72)
+  singleFirstToThird: [0.38, 0.56],  // first to third (v3 0.42)
+  doubleFromFirst: [0.56, 0.8],      // he scores (v3 0.62)
+});
 export const SIM_V2_RATES = Object.freeze({
   error: 10 / 162,       // of singles: he reached on an error instead (v1's single weight carried them)
   throwingError: 0.3,    // of errors: thrown away, so the batter takes second and every runner two bags
@@ -994,7 +1006,9 @@ export function lineupForDay(club, day) {
 
 // `lineups` (sim v3) names each side's nine and pitcher; without it the pool is shuffled and
 // dealt for the night, as v2 always did.
-export function simGameV2(matchup, players, rand = Math.random, { seed = 0, rates = SIM_V2_RATES, lineups = null } = {}) {
+export function simGameV2(matchup, players, rand = Math.random, { seed = 0, rates = SIM_V2_RATES, lineups = null, version = 2 } = {}) {
+  // how readily a man is sent on a hit: v3's one number, or v4's by the outs (TWO_OUT_SEND)
+  const sendOn = (k, v3, outs) => (version >= 4 ? TWO_OUT_SEND[k][outs >= 2 ? 1 : 0] : v3);
   const side = sportsRng(sportsHash(seed >>> 0, 0x5132));
   const awayName = matchup?.away || 'Away', homeName = matchup?.home || 'Home';
   // v3 draws nothing to deal, so its play stream starts one shuffle earlier than v2's.
@@ -1163,18 +1177,18 @@ export function simGameV2(matchup, players, rand = Math.random, { seed = 0, rate
         }
         occ[step - 1] = batter; moves.push({ from: 0, to: step, name: batter });
       } else {
-        // v1's hits, draw for draw.
+        // v1's hits, draw for draw (v4 reads the same draws against lines that know the outs).
         const [n0, n1, n2] = before;
         occ[0] = occ[1] = occ[2] = null;
         if (kind === 'single') {
           if (n2 != null) { runs++; moves.push({ from: 3, to: 4, name: n2 }); }
-          if (n1 != null) { if (rand() < 0.72) { runs++; moves.push({ from: 2, to: 4, name: n1 }); } else { occ[2] = n1; moves.push({ from: 2, to: 3, name: n1 }); } }
-          if (n0 != null) { if (rand() < 0.42 && occ[2] == null) { occ[2] = n0; moves.push({ from: 1, to: 3, name: n0 }); } else { occ[1] = n0; moves.push({ from: 1, to: 2, name: n0 }); } }
+          if (n1 != null) { if (rand() < sendOn('singleFromSecond', 0.72, outs)) { runs++; moves.push({ from: 2, to: 4, name: n1 }); } else { occ[2] = n1; moves.push({ from: 2, to: 3, name: n1 }); } }
+          if (n0 != null) { if (rand() < sendOn('singleFirstToThird', 0.42, outs) && occ[2] == null) { occ[2] = n0; moves.push({ from: 1, to: 3, name: n0 }); } else { occ[1] = n0; moves.push({ from: 1, to: 2, name: n0 }); } }
           occ[0] = batter; moves.push({ from: 0, to: 1, name: batter });
         } else if (kind === 'double') {
           if (n2 != null) { runs++; moves.push({ from: 3, to: 4, name: n2 }); }
           if (n1 != null) { runs++; moves.push({ from: 2, to: 4, name: n1 }); }
-          if (n0 != null) { if (rand() < 0.62) { runs++; moves.push({ from: 1, to: 4, name: n0 }); } else { occ[2] = n0; moves.push({ from: 1, to: 3, name: n0 }); } }
+          if (n0 != null) { if (rand() < sendOn('doubleFromFirst', 0.62, outs)) { runs++; moves.push({ from: 1, to: 4, name: n0 }); } else { occ[2] = n0; moves.push({ from: 1, to: 3, name: n0 }); } }
           occ[1] = batter; moves.push({ from: 0, to: 2, name: batter });
         } else {
           for (const [n, name] of [[3, n2], [2, n1], [1, n0]]) if (name != null) { runs++; moves.push({ from: n, to: 4, name }); }
@@ -1401,6 +1415,8 @@ export const eraOf = (r) => (r && r.outs ? (r.er * 27) / r.outs : 0);
 export const SEASON = {
   finalName: 'Curtain Call',
   finalShort: 'CC',
+  // When the final starts on Cup day, in in-game minutes after midnight: 13:00, a day game.
+  finalAt: 13 * 60,
   // Column labels for the on-air standings bug and the `standings` command.
   columns: ['W', 'L', 'RD'],
   fold(table, game) {
@@ -1490,8 +1506,9 @@ export const BASEBALL = {
   sectionPlural: 'innings',
   simGame: simGameFor,
   // The sim versions this sport has. sportsGameForSlot picks one by slot; see the switch
-  // in broadcast/index.js. v3 is v2 played by the season's fixed club rosters (clubRosters).
-  simVersions: [1, 2, 3],
+  // in broadcast/index.js. v3 is v2 played by the season's fixed club rosters (clubRosters); v4
+  // is v3 with two-out running (TWO_OUT_SEND).
+  simVersions: [1, 2, 3, 4],
   clubRosters, seasonOfDay, lineupForDay,
   synthDetail: synthPitches,
   synthPlay,

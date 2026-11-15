@@ -969,20 +969,21 @@ export function buildDebris(b, d, K) {
 // barrel banded in black, a gold collar, a short neck and the bowl on top. Nobody knows who made
 // it, so it looks like a trophy and nothing more particular (rink/director.js stageCrown).
 const CUP_SILVER = '#d4d9df', CUP_DARK = '#7c838c', CUP_GOLD = '#d8b24a';
+// `s.k` scales it (the Zamboni's replica on Cup final night is two-thirds size).
 export function buildCup(b, s) {
-  const at = (z) => [s.x, s.y, s.z + z], up = [0, 0, 1];
-  const ring = (z0, z1, r0, r1, col) => tube(b, at(z0), at(z1), r0, r1, rgb(col), 14);
-  ring(0, 0.18, 0.62, 0.62, CUP_DARK); disc(b, at(0.18), up, 0.62, rgb(CUP_DARK), 14, 0.02);
+  const k = s.k || 1, at = (z) => [s.x, s.y, s.z + z * k], up = [0, 0, 1];
+  const ring = (z0, z1, r0, r1, col) => tube(b, at(z0), at(z1), r0 * k, r1 * k, rgb(col), 14);
+  ring(0, 0.18, 0.62, 0.62, CUP_DARK); disc(b, at(0.18), up, 0.62 * k, rgb(CUP_DARK), 14, 0.02 * k);
   ring(0.18, 0.62, 0.56, 0.56, CUP_SILVER);
   ring(0.62, 0.68, 0.58, 0.58, CUP_DARK);
   ring(0.68, 1.12, 0.5, 0.5, CUP_SILVER);
   ring(1.12, 1.18, 0.52, 0.52, CUP_DARK);
   ring(1.18, 1.58, 0.44, 0.38, CUP_SILVER);
-  disc(b, at(1.6), up, 0.4, rgb(CUP_SILVER), 14, 0.04);
+  disc(b, at(1.6), up, 0.4 * k, rgb(CUP_SILVER), 14, 0.04 * k);
   ring(1.6, 1.72, 0.3, 0.3, CUP_GOLD);
   ring(1.72, 2.2, 0.17, 0.13, CUP_SILVER);
-  ellipsoid(b, at(2.2), [1, 0, 0], [0, 1, 0], up, [0.22, 0.22, 0.1], rgb(CUP_GOLD), 10, 5);
-  ellipsoid(b, at(2.5), [1, 0, 0], [0, 1, 0], up, [0.46, 0.46, 0.26], rgb(CUP_SILVER), 14, 7);
+  ellipsoid(b, at(2.2), [1, 0, 0], [0, 1, 0], up, [0.22 * k, 0.22 * k, 0.1 * k], rgb(CUP_GOLD), 10, 5);
+  ellipsoid(b, at(2.5), [1, 0, 0], [0, 1, 0], up, [0.46 * k, 0.46 * k, 0.26 * k], rgb(CUP_SILVER), 14, 7);
   ring(2.62, 2.7, 0.47, 0.5, CUP_GOLD);
 }
 export function buildStretcher(b, s) {
@@ -996,7 +997,8 @@ export function buildStretcher(b, s) {
 // conditioner). No two faces share a plane: a stripe stands off its panel, so nothing z-fights.
 // With `cup` (every night now) it's in Ken Raven's colours with his piece on the tank (rink/livery.js).
 // The lettering texture: ICE CREW in a strip at the top, the piece under it.
-export const ZAMBONI_LABEL = { w: LIVERY_W, crew: 128, h: 128 + LIVERY_H };
+// (two pieces under it: the everyday one, then Cup final night's)
+export const ZAMBONI_LABEL = { w: LIVERY_W, crew: 128, piece: LIVERY_H, h: 128 + 2 * LIVERY_H };
 // the everyday colours cupColour swaps (rink/livery.js RECOLOUR), and the fixed ones
 const ZC = { hull: '#eceff2', tank: '#f4f6f8', band: '#1f4fbf', trim: '#c9ced3', steel: '#5d646c', dark: '#2a2e34', tyre: '#16181c', hazard: '#f2c230', hazardK: '#141217' };
 // side views (u forward, w up) of the panels, each convex and anticlockwise
@@ -1035,7 +1037,7 @@ function zSlab(b, W3, prof, v0, v1, bev, c) {
 // Machine frame: u forward, v left, w up; he sits at u -3.2, v 1.5, facing +u.
 const KEN = { skin: '#e2ad8e', skinDk: '#c98d6e', hair: '#5b3b25', hairLt: '#7a5236', beard: '#4a3122', grey: '#8e8274',
   parka: '#24324a', parkaDk: '#1a2436', trouser: '#2a2f38', boot: '#16181c', tartan: '#2f5d3a', tartanB: '#1c2a4a', frame: '#111214' };
-function buildKen(b, W3, ax, ay, az, t) {
+function buildKen(b, W3, ax, ay, az, t, z = null) {
   const P = (u, v, w) => W3(u, v, w), V0 = 1.5;
   const el = (u, v, w, r, col, seg = 8, rings = 6) => ellipsoid(b, P(u, v, w), ax, ay, az, r, rgb(col), seg, rings);
   const tb = (a, c, ra, rb, col, seg = 7) => tube(b, P(...a), P(...c), ra, rb, rgb(col), seg);
@@ -1059,7 +1061,7 @@ function buildKen(b, W3, ax, ay, az, t) {
   const rim = (a) => [0, 1, 2].map((i) => hub[i] + (Math.cos(a) * r1[i] + Math.sin(a) * r2[i]) * 0.42);
   for (let i = 0; i < 12; i++) tb(rim(i / 12 * Math.PI * 2), rim((i + 1) / 12 * Math.PI * 2), 0.045, 0.045, '#1c1e22', 5);
   // arms: the inside hand stays on the wheel; the outside one waves when kenWave says so
-  const wv = kenWave(t), sway = Math.sin(t * 8) * 0.28 * wv;
+  const wv = kenWave(t, z), sway = Math.sin(t * 8) * 0.28 * wv;
   for (const s of [-1, 1]) {
     const sh = [-3.15, V0 + s * 0.55, 4.9], onWheel = [-0.95, 1.4 + s * 0.36, 4.55];
     let el1 = [-2.15, V0 + s * 0.68, 4.25], hand = onWheel;
@@ -1114,11 +1116,14 @@ function buildKen(b, W3, ax, ay, az, t) {
 }
 // `rig` ({ hub, seat }, gl/arena-ken.js kenRig) is there when the close-up Ken drives: the seat is
 // raised to his hips and the wheel put between his hands, and buildKen, the far driver, is left out.
-export function buildZamboni(b, bt, z, t, cup = false, rig = null) {
+// `final` is Cup final night ({ flags: [the two finalists' colours] }): the machine in its Cup
+// colours, the gold piece, a replica of the Cup on the tank's lid and a pennant for each club
+// flying off the roll hoop (rink/livery.js CUP_NIGHT).
+export function buildZamboni(b, bt, z, t, cup = false, rig = null, final = null) {
   const ch = Math.cos(z.h), sn = Math.sin(z.h), ax = [ch, sn, 0], ay = [-sn, ch, 0], az = [0, 0, 1];
   const W3 = (u, v, w) => [z.x + u * ch - v * sn, z.y + u * sn + v * ch, w];
   const bx = (u0, u1, v0, v1, z0, z1, col) => boxAxes(b, W3((u0 + u1) / 2, (v0 + v1) / 2, (z0 + z1) / 2), ax, ay, az, (u1 - u0) / 2, (v1 - v0) / 2, (z1 - z0) / 2, rgb(col));
-  const col = (k) => rgb(cupColour(ZC[k], cup));
+  const col = (k) => rgb(cupColour(ZC[k], cup, !!final));
   const flat = (sv, v, pts, c) => { const P = pts.map(([u, w]) => W3(u, sv * v, w)); quad(b, P[0], P[1], P[2], P[3], c); };
   // the hull, the tank on its nose, the conditioner behind, and the console at the driver's knees
   zSlab(b, W3, Z_HULL, -3.45, 3.45, 0.28, col('hull'));
@@ -1166,8 +1171,10 @@ export function buildZamboni(b, bt, z, t, cup = false, rig = null) {
   if (bt) for (const sv of [-1, 1]) {
     const v = sv * 3.37;
     if (cup) {
+      // (the everyday piece is the first under ICE CREW, the Cup night's the second)
       const u0 = sv > 0 ? FLANK.u[1] : FLANK.u[0], u1 = sv > 0 ? FLANK.u[0] : FLANK.u[1], [z0, z1] = FLANK.z;
-      quad(bt, W3(u0, v, z0), W3(u1, v, z0), W3(u1, v, z1), W3(u0, v, z1), [1, 1, 1, 1], [0, L.crew / L.h, 1, 1], V.mul(ay, sv));
+      const p0 = (L.crew + (final ? L.piece : 0)) / L.h, p1 = (L.crew + (final ? 2 : 1) * L.piece) / L.h;
+      quad(bt, W3(u0, v, z0), W3(u1, v, z0), W3(u1, v, z1), W3(u0, v, z1), [1, 1, 1, 1], [0, p0, 1, p1], V.mul(ay, sv));
       continue;
     }
     const u0 = sv > 0 ? 4.45 : 0.5, u1 = sv > 0 ? 0.5 : 4.45;
@@ -1177,7 +1184,7 @@ export function buildZamboni(b, bt, z, t, cup = false, rig = null) {
     disc(b, W3(wu, sv * 3.3, 0.95), V.mul(ay, sv), 0.95, rgb(ZC.tyre), 16, 0.55);
     disc(b, W3(wu, sv * 3.3, 0.95), V.mul(ay, sv), 0.46, col('trim'), 10, 0.62);
   }
-  if (!rig) buildKen(b, W3, ax, ay, az, t);
+  if (!rig) buildKen(b, W3, ax, ay, az, t, z);
   else {
     // a pedestal seat with a cushion and a tall back, and the column up to a three-spoke wheel
     const st = rig.seat, [hu, hv, hw] = rig.hub, dark = '#30343b', ink = rgb('#1c1e22');
@@ -1189,6 +1196,26 @@ export function buildZamboni(b, bt, z, t, cup = false, rig = null) {
     const rim = (a) => W3(hu + Math.cos(a) * tip[0] * R, hv + Math.sin(a) * R, hw + Math.cos(a) * tip[2] * R);
     for (let i = 0; i < 16; i++) tube(b, rim(i / 16 * Math.PI * 2), rim((i + 1) / 16 * Math.PI * 2), 0.06, 0.06, ink, 5);
     for (const a of [Math.PI / 2, -Math.PI / 2, Math.PI]) tube(b, W3(hu, hv, hw), rim(a), 0.035, 0.035, ink, 4);
+  }
+  if (final) {
+    // the Cup's replica, bolted to the middle of the tank's lid, two-thirds size
+    const lid = W3(2.4, 0, 6.12);
+    buildCup(b, { x: lid[0], y: lid[1], z: lid[2], k: 0.66 });
+    // a pennant for each finalist off the roll hoop's top corners: a whip up, and a long flag on it
+    // streaming back, rippling as it goes (its own clock, so it never sits still)
+    const flags = final.flags || [];
+    [0.15, 2.95].forEach((v, i) => {
+      const c = rgb(flags[i] || (i ? '#e2b33a' : '#6a2bb8')), pole = rgb('#c9ced3');
+      tube(b, W3(-4.5, v, 6.25), W3(-4.6, v, 9.6), 0.035, 0.025, pole, 5);
+      const N = 5, len = 2.4, top = 9.5, drop = 0.75;
+      for (let s = 0; s < N; s++) {
+        const k0 = s / N, k1 = (s + 1) / N;
+        const wav = (k) => Math.sin(t * 9 + i * 1.7 - k * 5) * 0.28 * k;
+        // tapering to a point: the hoist is `drop` deep, the tip a sliver
+        const at = (k, down) => W3(-4.6 - k * len, v + wav(k), top - down * drop * (1 - k * 0.9));
+        quad(b, at(k0, 0), at(k1, 0), at(k1, 1), at(k0, 1), c);
+      }
+    });
   }
   // the light bar's two beacons, flashing in turn, lit from inside: an unlit vertex colour
   const on = Math.sin(t * 7) > 0, hot = [1, 0.75, 0.25, 1], cold = [0.55, 0.36, 0.1, 1];

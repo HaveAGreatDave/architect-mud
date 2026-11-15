@@ -155,6 +155,8 @@ export function createGrandstandView(host, opts = {}) {
   // the fans (gl/crowd.js createRoar): how loud each side is, on the live world's clock; `calm`
   // while the viewer has asked for less motion, when they get up without bouncing
   let roar = null, calm = false;
+  // a home run's light show (diamond/spectacle.js planLights): the live game's, never a replay's
+  let show = null;
   // what the park sounds like (diamond/sound.js): it hears the live world each frame
   let snd = null;
   // the videoboard behind left-centre (diamond/jumbo.js): the replays, the chants, the score. In
@@ -193,7 +195,7 @@ export function createGrandstandView(host, opts = {}) {
     away: '', home: '', awayTeam: '', homeTeam: '', aScore: 0, hScore: 0, inning: 0, half: '',
     balls: 0, strikes: 0, outs: 0, bases: [false, false, false], batter: '', pitcher: '', line: null, desc: '',
     pitch: null, pitches: [], bats: '', lastBatter: '', matchup: null, steal: null, dist: null, splash: null,
-    leaders: null, seasonN: null, gold: false, tableRace: null, tableFoot: '', replay: false,
+    leaders: null, seasonN: null, lineups: null, gold: false, tableRace: null, tableFoot: '', replay: false,
     final: null, intro: null, champ: null,
   };
   const holds = {};
@@ -206,8 +208,8 @@ export function createGrandstandView(host, opts = {}) {
   function loadMods() {
     return (modsP ??= Promise.all([import('./gl/ballpark.js'), import('./diamond/hud.js'), import('./diamond/camera.js'), import('./diamond/cast.js'),
       import('./diamond/world.js'), import('./diamond/director.js'), import('./diamond/spectacle.js'), import('./diamond/replay.js'), import('./gl/crowd.js'),
-      import('./diamond/crew.js'), import('./diamond/quality.js'), import('./diamond/sound.js'), import('./diamond/secondary.js'), import('./diamond/comic.js'), import('./diamond/jumbo.js')])
-      .then(([park, hudMod, cam, cast, world, director, fx, rp, crowd, crew, quality, sound, sec, comic, jumboMod]) => (mods = {
+      import('./diamond/crew.js'), import('./diamond/quality.js'), import('./diamond/sound.js'), import('./diamond/secondary.js'), import('./diamond/comic.js'), import('./diamond/jumbo.js'), import('./diamond/ceremony.js')])
+      .then(([park, hudMod, cam, cast, world, director, fx, rp, crowd, crew, quality, sound, sec, comic, jumboMod, cer]) => (mods = {
         comic, createJumbo: jumboMod.createJumbo,
         createSettle: sec.createSettle,
         ...park, hud: hudMod, project: cam.project, shotAt: cam.shotAt, SHOTS: cam.SHOTS, approachShot: cam.approachShot, APPROACH: cam.APPROACH, handheld: cam.handheld, numberOf: cast.numberOf, pictureAfter: director.pictureAfter, opensGame: director.opensGame,
@@ -215,7 +217,8 @@ export function createGrandstandView(host, opts = {}) {
         replayOf: rp.replayOf, stageReplay: rp.stageReplay, REPLAY: rp.REPLAY, fxEnd: fx.endOf,
         cheerOf: fx.cheerOf, createRoar: crowd.createRoar, matAt: crew.matAt, sweptAlong: crew.sweptAlong,
         parkTier: quality.parkTier, rungsFor: quality.rungsFor, createGovernor: quality.createGovernor,
-        createParkSound: sound.createParkSound, crackPitch: sound.crackPitch, planChampion: fx.planChampion, planSearchlights: fx.planSearchlights,
+        createParkSound: sound.createParkSound, crackPitch: sound.crackPitch, planChampion: fx.planChampion, planSearchlights: fx.planSearchlights, planLights: fx.planLights,
+        planCupShow: fx.planCupShow, crownCast: cast.crownCast, cupAt: cer.cupAt, CUP_STAND: cer.CUP_STAND,
       })));
   }
 
@@ -429,6 +432,9 @@ export function createGrandstandView(host, opts = {}) {
       R.setBall(RW.ballAt(tR), shutter > 0 ? RW.ballAt(tR - shutter) : null);
       R.setBats?.(RW.batsAt(tR));
       R.setSpectacle?.(replay ? replay.D.fx : D.fx, tR);
+      // the Cup, on its table or in a champion's hands (diamond/ceremony.js cupAt)
+      if (!replay) R.setCup?.(D.cup ? mods.cupAt(D.cup.holders, tR, (slot, tt) => W.pose(slot, tt)) : null);
+      R.setLightShow?.(show, replay ? W.t : tR);
       // the fans move by how stirred they are, which follows the noise and settles before it does
       R.setCrowd?.(roar.stir(replay ? W.t : tR), replay ? W.t : tR, !calm);
       R.setTime?.(tR);
@@ -513,7 +519,7 @@ export function createGrandstandView(host, opts = {}) {
         // frozen and printed with its burst and its word, and what follows (no page: the board's small)
         if (comicOn()) {
           let ball = null;
-          try { ball = boardRep.W.ballAt?.(boardRep.key); } catch { ball = null; }
+          try { ball = (boardRep.momentAt || boardRep.W.ballAt)?.(boardRep.key); } catch { ball = null; }
           // (the staged world can't always say before it's got there: the camera's own mark, or the plate)
           if (!(Array.isArray(ball) && ball.every(Number.isFinite))) ball = (boardRep.shot && typeof boardRep.shot === 'object' && boardRep.shot.at) || [0, 3, 1];
           boardRep.comic = {
@@ -568,7 +574,7 @@ export function createGrandstandView(host, opts = {}) {
       held.getContext('2d').drawImage(canvas, sx, sy, BOARD_W * k, BOARD_H * k, 0, 0, BOARD_W, BOARD_H);
       K.print = C.printPanel(doc, held);
       if (!boardOver) { boardOver = doc.createElement('canvas'); boardOver.width = BOARD_W; boardOver.height = BOARD_H; }
-      const ball = (() => { try { return B.W.ballAt?.(t); } catch { return null; } })() || K.ball;
+      const ball = (() => { try { return (B.momentAt || B.W.ballAt)?.(t); } catch { return null; } })() || K.ball;
       const q = ball ? mods.project(cam, cw, ch, ball) : null;
       if (q && Number.isFinite(q.x) && Number.isFinite(q.y)) K.q = [(q.x - sx) / k, (q.y - sy) / k];
       const S = subjectAt(cam, cw, ch, ball, B.W);
@@ -674,11 +680,12 @@ export function createGrandstandView(host, opts = {}) {
     // where the moment is: the ball then, if the staged world can say before it's got there, or the
     // replay camera's own mark, or the plate; the freeze takes the ball again once it's there
     let ball = null;
-    try { ball = replay.W.ballAt?.(replay.key); } catch { ball = null; }
+    // (a replay about a man, a steal say, has his middle for the moment: replay.js momentAt)
+    try { ball = (replay.momentAt || replay.W.ballAt)?.(replay.key); } catch { ball = null; }
     if (!(Array.isArray(ball) && ball.every(Number.isFinite))) ball = (replay.shot && typeof replay.shot === 'object' && replay.shot.at) || [0, 3, 1];
     // the way the ball's going from its moment, a few hundredths on, for the freeze's streaks
     let after = null;
-    try { after = replay.W.ballAt?.(replay.key + 0.05); } catch { after = null; }
+    try { after = (replay.momentAt || replay.W.ballAt)?.(replay.key + 0.05); } catch { after = null; }
     replay.comic = {
       phase: 'run', spec, page: due.comic === 'page', panels: [null, null, null], prints: [null, null, null], grab: -1, until: 0, at: W.t,
       word: C.comicWordOf(replay.kind, due.p.desc || ''),
@@ -719,7 +726,7 @@ export function createGrandstandView(host, opts = {}) {
       if (C.panels[0] === null && C.grab < 0 && RW.t >= P(sp, 0)) C.grab = 0;
       if (RW.t >= sp.key - 1e-9) {
         C.phase = 'freeze'; C.at = W.t; C.until = W.t + mods.comic.COMIC.freeze; C.grab = 1;
-        try { const b = RW.ballAt?.(RW.t); if (Array.isArray(b) && b.every(Number.isFinite)) C.ball = b; } catch { /* keep the one it had */ }
+        try { const b = (replay.momentAt || RW.ballAt)?.(RW.t); if (Array.isArray(b) && b.every(Number.isFinite)) C.ball = b; } catch { /* keep the one it had */ }
         print(false);
       }
     } else if (C.phase === 'freeze') {
@@ -1055,6 +1062,9 @@ export function createGrandstandView(host, opts = {}) {
       S.seasonN = p.season.n ?? null; S.gold = p.season.phase === 'final';
       // a final: its name and the seeds go up with the score, and the park's dressed for it
       S.final = S.gold ? { name: p.season.name || 'Final', seeds: { away: p.season.seedAway ?? null, home: p.season.seedHome ?? null } } : null;
+      // and its line-ups, kept: the season rides the game's first payload, which is the fly-in
+      // ('arrive'), and they're read out on the top of the first (introduce)
+      S.lineups = S.gold ? p.season.lineups || null : null;
       R?.setFinal?.(S.final);
       if (!S.final) S.champ = null;
     }
@@ -1063,7 +1073,9 @@ export function createGrandstandView(host, opts = {}) {
   // address reading both line-ups, a card a man, the visitors first, as many as the hold has room
   // for. Returns whether it ran (the leaders' table gives way to it).
   function introduce(p) {
-    const L = p.season?.lineups;
+    // (the first payload's, kept in sides(): since the fly-in came first, the top of the first
+    // carries no season of its own, and for three weeks a final went without its line-ups)
+    const L = p.season?.lineups || S.lineups;
     if (!S.final || !L || (p.inning | 0) !== 1 || p.half !== 'top') return false;
     const until = Number.isFinite(p.hold) ? p.hold : 30000;
     const cards = [];
@@ -1091,17 +1103,80 @@ export function createGrandstandView(host, opts = {}) {
     const t = W.t + FINAL_HOLD_MS / 1000;
     const score = `${S.awayTeam} ${S.aScore | 0}, ${S.homeTeam} ${S.hScore | 0}`;
     later(FINAL_HOLD_MS, () => {
+      // the pitch is history: its speed and the zone come down for the champions
+      S.pitch = null; S.pitches = [];
       R?.setChampion?.(true);
       hold('splash', { kind: 'champion', word: 'CHAMPIONS!' }, OWN_SPLASH_MS);
       hold('champ', { team: e.winner, side, name: e.name || S.final?.name, score, mvp: e.mvp || null }, CHAMP_MS);
       say(mods.hud.champSaid(S.champ));
     });
-    const fx = mods.planChampion({ t, colour: linear(sideColours(side, side === 'home' ? S.homeTeam : S.awayTeam)[0]), motion: !calm, seed: (p.inning | 0) * 977 + (S.hScore | 0) * 31 + (S.aScore | 0) });
+    // the shells in the champions' colours, in waves till the Cup's payload is due
+    const cols = sideColours(side, side === 'home' ? S.homeTeam : S.awayTeam).map(linear);
+    const until = Number.isFinite(p.hold) ? c.t0 + p.hold / 1000 : null;
+    const fx = mods.planChampion({ t, colour: cols[0], colours: cols, until: until != null ? until - 2 : null, motion: !calm, seed: (p.inning | 0) * 977 + (S.hScore | 0) * 31 + (S.aScore | 0) });
     D.fx = [...(D.fx || []), ...fx];
     D.until = Math.max(D.until || 0, ...fx.map(mods.fxEnd));
     parkHold = D.until + PARK_BEAT;
     roar.cheer(side === 'home' ? 0 : 1, 1, t, 8);
-    if (Number.isFinite(p.hold) && c.cast) D.planPile?.({ from: t + 0.3, until: c.t0 + p.hold / 1000 });
+    // and again once they're one mob, the whole house up
+    if (until != null) roar.cheer(side === 'home' ? 0 : 1, 0.9, t + 14, Math.max(4, until - t - 16));
+    if (until != null && c.cast) D.planPile?.({ from: t + 0.3, until, motion: !calm });
+  }
+  // A final's Cup (`phase: 'crown'`, after the last out): the picture cuts to the trophy's table by
+  // the mound under the Cup's card, the champions round it in their kit (cast.js crownCast), and each
+  // of the night's stars lifts it in turn (director.js stageCrown), each getting his name up as he
+  // does, under ticker tape in the club's colours and their shells (spectacle.js planCupShow). It
+  // runs till the next picture, through the outro.
+  function ceremony(p, pend) {
+    const side = p.winner === p.home ? 'home' : 'away';
+    calm = prefersReducedMotion();
+    // a late tuner gets the final's dress and the champions' card too
+    if (!S.final) { S.final = { name: p.final || 'Final', seeds: { away: null, home: null } }; S.gold = true; R?.setFinal?.(S.final); }
+    R?.setChampion?.(true);
+    Object.assign(S, { awayTeam: p.away || S.awayTeam, homeTeam: p.home || S.homeTeam, aScore: p.awayScore ?? S.aScore, hScore: p.homeScore ?? S.hScore, half: '', inning: p.inning | 0, balls: 0, strikes: 0, outs: 0, bases: [false, false, false], batter: '' });
+    dropHolds();
+    const top = side === 'away';
+    const cast = mods.crownCast(p);
+    dressed = { cast, teams: { home: p.home, away: p.away } };
+    R?.setCast(cast, dressed.teams);
+    dressFans();
+    live = true; acc = 0; cur = null;
+    const until = Number.isFinite(p.hold) ? W.t + p.hold / 1000 : W.t + 90;
+    const plan = D.stageCrown(p, cast, { until, motion: !calm });
+    shot = opts.shot || plan.shots[0]?.shot || 'high';
+    const cols = sideColours(side, top ? p.away : p.home).map(linear);
+    const fx = mods.planCupShow({ t: W.t, hoists: plan.hoists, until: until - 1, at: mods.CUP_STAND, colours: cols, motion: !calm, seed: (p.homeScore | 0) * 31 + (p.awayScore | 0) });
+    D.fx = fx;
+    roar.prune(W.t);
+    for (const h of plan.hoists) roar.cheer(side === 'home' ? 0 : 1, 1, h, 5);
+    parkHold = until;
+    letterCup(p);
+    snd?.anthem?.();
+    // each star's name up as he puts it over his head
+    const stars = Array.isArray(p.stars) ? p.stars : [];
+    plan.hoists.forEach((h, i) => {
+      const name = stars[i];
+      if (name) later((h - W.t) * 1000 / Math.max(0.05, speed || 1), () => { hold('splash', { kind: 'champion', word: String(name).toUpperCase(), sub: `${p.winner} · ${p.cup || 'the Cup'}` }, OWN_SPLASH_MS + 600); paint(); });
+    });
+    later(2600, () => { if (p.mvp) hold('champ', { team: p.winner, side, name: p.final || S.final?.name, score: `${p.away} ${p.awayScore | 0}, ${p.home} ${p.homeScore | 0}`, mvp: p.mvp }, CHAMP_MS); paint(); });
+    pendingCaption = null;
+    if (pend) later(500, () => { showCaption(pend.text); pend.speak?.(); });
+    paint();
+    draw();
+  }
+  // The Cup's card over the cut to the ceremony: its name in gold, the champions under it.
+  function letterCup(p) {
+    const park = host?.querySelector('.gds-park');
+    if (!park) return;
+    park.querySelector('.gds-cup')?.remove();
+    const el = doc.createElement('div');
+    el.className = 'gds-cup';
+    el.setAttribute('aria-hidden', 'true');
+    el.innerHTML = `<div class="gds-cup-tag">THE</div><div class="gds-cup-name">${_esc(p.cup || 'Memorial Cup')}</div><div class="gds-cup-sub">${_esc(p.winner || '')}${p.final ? ` · ${_esc(p.final)} Champions` : ''}</div>`;
+    park.appendChild(el);
+    const at = (ms, fn) => setTimeout(fn, ms);
+    at(30, () => el.classList.add('in'));
+    at(calm ? 4000 : 3200, () => { el.classList.remove('in'); at(900, () => el.remove()); });
   }
   // "Live from" the park: the game's first line. The camera comes in high over the city and down
   // onto the park, landing on the main gate from the street with the crowd going in (the wide shot
@@ -1177,6 +1252,9 @@ export function createGrandstandView(host, opts = {}) {
     // ninety seconds when it changes; a payload without one leaves it where it is
     if (p.roof != null) setRoof(p.roof);
     if (p.phase === 'arrive') { arrive(p, pend); return; }
+    // the Cup stays in a champion's hands only through its own ceremony
+    if (D) D.cup = null;
+    if (p.phase === 'crown') { ceremony(p, pend); return; }
     const cast = castFor(p);
     S.pitch = null; S.pitches = []; S.bats = p.bats || '';
     if (p.phase === 'half') {
@@ -1236,6 +1314,10 @@ export function createGrandstandView(host, opts = {}) {
     D.stage(p, cast, { cutaway, motion: !calm });
     // the fans: a ball they can see is gone brings them up off the bat, anything else as it lands
     const ch = mods.cheerOf(p), hit = D.log[D.log.length - 1]?.contact?.t;
+    // a home run puts the park's lights out and flashes the hitting club's colours; one still
+    // running carries on, and any other's dropped, as its world's clock may have started again
+    const lit = mods.planLights({ p, path: D.play?.balls?.[0]?.path, tBat: hit, colours: sideColours(p.half === 'top' ? 'away' : 'home', p.battingTeam).map(linear), motion: !calm });
+    show = lit || (show && W.t >= show.t && W.t <= show.end ? show : null);
     roar.prune(W.t);
     if (ch && ch.from === 'contact' && Number.isFinite(hit)) roar.cheer(fansOf(p, ch.side), ch.amp, hit + 0.35, ch.hold);
     else cur.cheer = ch;

@@ -127,9 +127,37 @@ function hockeyFacts(game, beats, at, ctx) {
     ...(hatTrick ? { hatTrick: person(hatTrick) } : {}),
     awayGoalie: personOf(sport, game.away.goalie, game.away.name, ctx), homeGoalie: personOf(sport, game.home.goalie, game.home.name, ctx),
     overtime: end ? !!game.overtime : false, shootout: end ? !!game.shootout : false,
+    ...(end ? hockeyEnd(game, beats, goals, goalPerson, ctx) : {}),
   };
   const status = !beats.length ? 'TONIGHT' : end ? 'FINAL' : `${section} INTERMISSION`;
   return { awayScore, homeScore, status, facts };
+}
+// How a hockey game was decided, for the booth after it: the goal that put the winner ahead for
+// good (`decider`, and the period it came in as said), or the shootout's winner, how it ended
+// (`endedIn`), and how far down the winner was (`comebackFrom`, `comebackSaid`).
+const PERIOD_SAID = { '1st': 'the first', '2nd': 'the second', '3rd': 'the third', OT: 'overtime' };
+const DOWN_SAID = ['', 'down one', 'down two', 'down three', 'down four', 'down five'];
+function hockeyEnd(game, beats, goals, goalPerson, ctx) {
+  const win = game.awayScore > game.homeScore ? game.away.name : game.home.name;
+  let lead = 0, worst = 0, decider = null;
+  for (const g of goals) {
+    const was = lead;
+    lead += g.team === win ? 1 : -1;
+    worst = Math.min(worst, lead);
+    if (g.team === win && was <= 0 && lead > 0) decider = g;
+  }
+  const so = !!game.shootout;
+  const soWin = so ? [...beats].reverse().find((b) => b.type === 'shootout' && b.scored && b.teamName === win) : null;
+  const soEnd = so ? beats.find((b) => b.type === 'shootout_end') : null;
+  const out = {
+    endedIn: so ? 'a shootout' : game.overtime ? 'overtime' : 'regulation',
+    regulation: !game.overtime,
+    ...(worst < 0 ? { comebackFrom: -worst, comebackSaid: DOWN_SAID[-worst] || `down ${-worst}` } : {}),
+  };
+  if (!so && decider) out.decider = { ...goalPerson(decider), periodSaid: PERIOD_SAID[decider.period] || decider.period || '', strength: decider.strength || 'even' };
+  if (soWin) out.soWinner = { ...personOf('hockey', soWin.shooter, soWin.teamName, ctx), round: soWin.round };
+  if (soEnd) out.soScore = `${Math.max(soEnd.soAway, soEnd.soHome)}-${Math.min(soEnd.soAway, soEnd.soHome)}`;
+  return out;
 }
 
 // ── Deadball ───────────────────────────────────────────────────────────────────────────────────
@@ -172,10 +200,45 @@ function baseballFacts(game, beats, at, ctx) {
     ...(lastHr ? { lastHomer: personOf(sport, lastHr.player, lastHr.team, ctx, { inning: lastHr.inning, rbi: lastHr.rbi }) } : {}),
     awayStarter: personOf(sport, game.away.pitcher, game.away.name, ctx, { as: 'arm', pos: 'SP' }), homeStarter: personOf(sport, game.home.pitcher, game.home.name, ctx, { as: 'arm', pos: 'SP' }),
     extras: end ? game.innings > 9 : false, innings: end ? game.innings : inning,
+    ...(end ? baseballEnd(game, beats, ctx) : {}),
   };
   const awayScore = end ? game.awayScore : scoreA, homeScore = end ? game.homeScore : scoreH;
   const status = !beats.length ? 'TONIGHT' : end ? 'FINAL' : inning === 7 ? 'SEVENTH-INNING STRETCH' : `${half === 'top' ? 'TOP' : 'BOTTOM'} ${ordinal(inning)}`;
   return { awayScore, homeScore, status, facts };
+}
+// How a ballgame was decided, for the booth after it: the play that put the winner ahead for good
+// (`decider`: who, in which inning, and the play as said), a walk-off, how long it went
+// (`endedIn`), and how far down the winner was (`comebackFrom`, `comebackSaid`).
+const PLAY_SAID = {
+  single: 'a single', double: 'a double', triple: 'a triple', homerun: 'a home run', walk: 'a walk', hitbypitch: 'a hit batter',
+  sacfly: 'a sacrifice fly', error: 'an error', doubleplay: 'a double play', popout: 'a pop-up', doublesteal: 'a double steal', productout: 'a ground ball', groundout: 'a ground ball', flyout: 'a fly ball',
+  wildpitch: 'a wild pitch', passedball: 'a passed ball', steal: 'a steal', stealhome: 'a steal of home', balk: 'a balk',
+};
+const RUNS_DOWN = ['', 'down a run', 'down two', 'down three', 'down four', 'down five', 'down six'];
+function baseballEnd(game, beats, ctx) {
+  const win = game.awayScore > game.homeScore ? game.away.name : game.home.name, winAway = win === game.away.name;
+  let a = 0, h = 0, worst = 0, decider = null;
+  for (const b of beats) {
+    if (b.type !== 'atbat' && b.type !== 'run') continue;
+    const wasLead = winAway ? a - h : h - a;
+    a = b.awayScore ?? a; h = b.homeScore ?? h;
+    const lead = winAway ? a - h : h - a;
+    worst = Math.min(worst, lead);
+    if (wasLead <= 0 && lead > 0) decider = b;
+  }
+  const last = [...beats].reverse().find((b) => b.type === 'atbat');
+  const out = {
+    walkoff: !!last?.walkoff,
+    endedIn: game.innings > 9 ? `${game.innings} innings` : 'nine',
+    ...(worst < 0 ? { comebackFrom: -worst, comebackSaid: RUNS_DOWN[-worst] || `down ${-worst}` } : {}),
+  };
+  if (decider) {
+    const who = decider.type === 'run' && decider.runner ? decider.runner : decider.batter;
+    out.decider = personOf('baseball', who, decider.battingName || win, ctx, {
+      inning: ordinal(decider.inning), half: decider.half || '', play: PLAY_SAID[decider.kind] || 'the go-ahead run', rbi: decider.rbi || 0,
+    });
+  }
+  return out;
 }
 
 // ── The feed ───────────────────────────────────────────────────────────────────────────────────
@@ -202,10 +265,76 @@ export function factsAt(sport, game, at = null, ctx = {}) {
 }
 
 // The beat a moment means, on a game: `break` is the first intermission or the stretch, or the
-// `n`th of them. For the Studio's samples: a broadcast calls factsAt with the beat it's at.
+// `n`th of them, and the booth's moments are the desk's (`booth_cut` is the `n`th of boothCuts).
+// For the Studio's samples: a broadcast calls factsAt with the beat it's at.
 export function momentBeat(sport, game, moment, n = 0) {
-  if (moment === 'open') return null;
-  if (moment === 'close') return 'end';
+  if (moment === 'open' || moment === 'booth_open') return null;
+  if (moment === 'close' || moment === 'booth_end') return 'end';
+  if (moment === 'booth_cut') { const c = boothCuts(sport, game); return c.length ? c[Math.min(n, c.length - 1)].beat : 'end'; }
   const stops = game.beats.filter((b) => (sport === 'hockey' ? b.type === 'period_end' && b.section !== '3rd' && !b.sudden : b.type === 'half_start' && b.inning === 7 && b.half === 'bottom'));
   return stops[Math.min(n, stops.length - 1)] || 'end';
+}
+// The facts at a moment, with a cut's own: what a broadcast hands the show at that moment.
+export function momentFacts(sport, game, moment, n = 0, ctx = {}) {
+  const facts = factsAt(sport, game, momentBeat(sport, game, moment, n), ctx);
+  if (moment !== 'booth_cut') return facts;
+  const c = boothCuts(sport, game);
+  return c.length ? { ...facts, ...cutFacts(sport, c[Math.min(n, c.length - 1)], ctx) } : facts;
+}
+
+// ── The cut to the booth ───────────────────────────────────────────────────────────────────────
+// Now and then the picture leaves the play for the two men in the press box, after something
+// worth stopping for. `boothCuts` is every such moment in a game, in order: a hat trick, a man
+// killed, a fight, and in the third a goal that ties it or puts a side ahead; in Deadball a grand
+// slam, and from the 7th to the 9th a play that ties it or puts a side ahead. Never the play that
+// ends a game: the booth has the end to itself. `pickBoothCut` takes one at most, each kind on
+// its sport's odds (BOOTH_CUT_ODDS) off the caller's own stream. Measured over 150 games, about
+// one hockey game in four has a cut and one ballgame in seven; a hat trick is common in this league.
+export const BOOTH_CUT_ODDS = Object.freeze({
+  hockey: { hattrick: 0.25, death: 0.5, fight: 0.05, late: 0.15 },
+  baseball: { grandslam: 0.6, late: 0.4 },
+});
+export function boothCuts(sport, game) {
+  const out = [], beats = game.beats || [];
+  if (sport === 'hockey') {
+    const goalsBy = new Map();
+    for (const b of beats) {
+      if (b.type === 'goal' && b.section !== 'OT') {
+        const n = (goalsBy.get(b.shooter) || 0) + 1;
+        goalsBy.set(b.shooter, n);
+        const mine = b.teamName === game.away.name ? b.awayScore - b.homeScore : b.homeScore - b.awayScore;
+        if (n === 3) out.push({ beat: b, cut: 'hattrick', player: b.shooter, team: b.teamName });
+        else if (b.section === '3rd' && (mine === 0 || mine === 1)) out.push({ beat: b, cut: 'late', player: b.shooter, team: b.teamName, tied: mine === 0 });
+      } else if (b.type === 'death' && b.player) out.push({ beat: b, cut: 'death', player: b.player, team: b.teamName || '' });
+      else if (b.type === 'fight' && b.winner) out.push({ beat: b, cut: 'fight', player: b.winner, team: b.winnerTeam || '', loser: b.loser || '' });
+    }
+    return out;
+  }
+  let a = 0, h = 0;
+  for (const b of beats) {
+    if (b.type !== 'atbat' && b.type !== 'run') continue;
+    const top = b.half === 'top', was = top ? a - h : h - a;
+    a = b.awayScore ?? a; h = b.homeScore ?? h;
+    const now = top ? a - h : h - a;
+    if (b.walkoff || b.inning > 9 || now <= was) continue;
+    if (b.type === 'atbat' && b.kind === 'homerun' && (b.rbi || 0) >= 4) out.push({ beat: b, cut: 'grandslam', player: b.batter, team: b.battingName });
+    else if (b.inning >= 7 && was <= 0 && (now === 0 || now === 1)) out.push({ beat: b, cut: 'late', player: b.type === 'run' && b.runner ? b.runner : b.batter, team: b.battingName, tied: now === 0, play: PLAY_SAID[b.kind] || 'the play' });
+  }
+  return out;
+}
+export function pickBoothCut(sport, cuts, rand) {
+  const odds = BOOTH_CUT_ODDS[sport] || {};
+  for (const c of cuts) if (rand() < (odds[c.cut] ?? 0)) return c;
+  return null;
+}
+// What a cut tells the show: which kind it is (`cut`), the man it's about (`cutMan`, a person),
+// the man he beat in a fight (`cutLoser`), whether the play tied it (`cutTied`), and the play as said.
+export function cutFacts(sport, c, ctx = {}) {
+  if (!c) return {};
+  return {
+    cut: c.cut, cutMan: personOf(sport, c.player, c.team, ctx), cutTied: !!c.tied,
+    ...(c.loser ? { cutLoser: personOf(sport, c.loser, '', ctx) } : {}),
+    ...(c.play ? { cutPlay: c.play } : {}),
+    status: sport === 'hockey' ? `${c.beat.section || ''} PERIOD`.trim() : `${c.beat.half === 'top' ? 'TOP' : 'BOTTOM'} ${ordinal(c.beat.inning)}`,
+  };
 }

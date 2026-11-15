@@ -3,17 +3,17 @@
   "ambient_theme": "indoors",
   "bg_color": "#2b3a34",
   "color": "#e8ddc7",
-  "description": "A private head under a run of concealed light: pale stone, warm oak, a walk-in shower with no door and no threshold. A soft-edged basin, a concealed toilet, a mirror that clears itself before you reach it. The heating is underfoot and the silence is total.",
+  "description": "A head under a run of concealed light: pale marble walls, warm stone underfoot, a walk-in shower with no door and no threshold against black marble. The walnut vanity has a stone bowl on it and a mirror the width of the wall, lit round its edge. It never fogs. A towel warms on a brass rail by the door.",
   "exits": {
     "out": "zone_solenne_apt_d"
   },
   "flags": {
-    "floor": "carpet",
+    "floor": "stone",
     "is_interior": true,
     "window": {
-      "description": "A window with a bad seal, letting in a draught and a slice of whatever the weather is doing.",
+      "description": "A high slot of frosted glass under the ceiling. It lets the day in and nobody look back.",
       "light": 0.75,
-      "name": "the window",
+      "name": "the frosted slot",
       "visibility": 0.8
     }
   },

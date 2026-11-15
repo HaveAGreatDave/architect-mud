@@ -1,13 +1,40 @@
 {
   "name": "pets",
-  "version": "0.1.0",
-  "description": "Pets (docs/proposals/pets.md): an animal that lives in somebody's home. A pet is its NPC (flags.pet names its row), which the engine already lists, describes, sends home and lets you pet, plus a row in `pets` holding its body (the cat kit's numbers) and personality. Answers the Room Stage's roomstage.npcBeast hook so the stage draws the NPC as the cat instead of a person. Needs, carers and the pet verbs are still to come.",
-  "commands": [],
-  "hooks": ["roomstage.npcBeast"],
-  "events": {
-    "consumes": [],
-    "emits": []
+  "version": "0.3.0",
+  "description": "Pets (docs/proposals/pets.md): an animal that lives in somebody's home. A pet is its NPC (flags.pet names its row), which the engine already lists, describes, sends home and lets you pet, plus a row in `pets` holding its body (the cat kit's numbers) and personality. Answers the Room Stage's roomstage.npcBeast hook so the stage draws the NPC as the cat instead of a person, with its nature, its bowls and whatever beat it's on. What a cat does on its own is client/shared/cat-life.js, from its id and the clock, including which piece of furniture it's up on and its goes at its bowls; this plugin says it in the room as it changes, so the text and the 3D cat agree. Its beats are RAM: it greets whoever comes in (zone.entered) at the door they came through and waits to be stroked, and it claims `pet` (npc.petAttempt) to purr, then warn, then swat whoever keeps going; `pet <cat> <where>` (the engine hands the spot over: chin, cheek, head, ears, back, tail, paws, belly) weighs on that ladder by what the spot is to a cat, and ROOM sends it as you stroke him with the mouse. A feeding station (furniture with flags.pet_bowls) holds two meals and a day's water; `refill` fills it at a small price for what's gone. Carers, bond and the other pet verbs are still to come.",
+  "commands": [
+    "refill"
+  ],
+  "objectGatedCommands": {
+    "refill": {
+      "discoverVia": "pet_bowls",
+      "exposed": true,
+      "note": "Flag-gated on a pet's feeding station (flags.pet_bowls): a declaration-only specialized action advertises REFILL on its examine, furniture.acts puts it on the piece in ROOM, and the handler finds the station in the room itself."
+    }
   },
-  "ticks": [],
-  "extensionPoints": ["npcs.flags.pet"]
+  "hooks": [
+    "roomstage.npcBeast",
+    "npc.petAttempt",
+    "room.pieceState",
+    "furniture.acts",
+    "furniture.describe"
+  ],
+  "events": {
+    "consumes": [
+      "zone.entered",
+      "furniture.changed"
+    ],
+    "emits": [
+      "pet.beat",
+      "npc.petted",
+      "furniture.changed"
+    ]
+  },
+  "ticks": [
+    "5s"
+  ],
+  "extensionPoints": [
+    "npcs.flags.pet",
+    "furniture.flags.pet_bowls"
+  ]
 }

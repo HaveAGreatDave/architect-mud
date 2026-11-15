@@ -2,69 +2,111 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<title>Modelshop — GLASS building models</title>
+<title>Modelshop · Editor</title>
 <link rel="stylesheet" href="/shared/themes.css">
+<link rel="stylesheet" href="/nav.css">
+<script type="module" src="/nav.js"></script>
 <style>
-  :root { color-scheme: dark; --ms-bg: #0d0f12; --ms-panel: #14181d; --ms-line: #262c34; --ms-ink: #d6dde6; --ms-dim: #8b97a5; --ms-accent: #6fd3ff; }
+  :root {
+    color-scheme: dark;
+    --ms-bg: #0d0f12; --ms-panel: #14181d; --ms-raised: #1b2129; --ms-line: #262c34; --ms-ink: #d6dde6; --ms-dim: #8b97a5; --ms-accent: #e8c070;
+    --ms-sans: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+    --ms-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    --ms-rail-w: 340px;
+  }
   * { box-sizing: border-box; }
-  body { margin: 0; background: var(--ms-bg); color: var(--ms-ink); font: 13px/1.45 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; overflow: hidden; }
+  body { margin: 0; background: var(--ms-bg); color: var(--ms-ink); font: 12px/1.45 var(--ms-sans); overflow: hidden; display: flex; flex-direction: column; height: 100vh; }
 
-  /* Two columns, not three. The model list moved into a dialog so the viewport gets
-     the width — a browser you open once a minute should not hold a quarter of the
-     screen while you are editing. */
-  #wrap { display: grid; grid-template-columns: 1fr 320px; height: 100vh; }
-  #stage { display: flex; flex-direction: column; min-width: 0; position: relative; }
-  #rail { overflow: auto; border-left: 1px solid var(--ms-line); }
+  /* The viewport and the rail. The model list is a dialog (O) so the viewport gets the width; the
+     rail is as wide as you drag it (the handle on its left edge). */
+  #wrap { flex: 1; min-height: 0; display: grid; grid-template-columns: minmax(0, 1fr) var(--ms-rail-w); grid-template-rows: minmax(0, 1fr); }
+  #stage { display: flex; flex-direction: column; min-width: 0; min-height: 0; position: relative; }
+  #rail { position: relative; overflow: auto; border-left: 1px solid var(--ms-line); background: var(--ms-panel); font: 12px/1.45 var(--ms-mono); }
+  #railgrip { position: absolute; top: 0; bottom: 0; width: 7px; margin-left: -4px; cursor: col-resize; z-index: 50; }
+  #railgrip:hover, #railgrip.drag { background: linear-gradient(90deg, transparent 3px, var(--ms-accent) 3px, var(--ms-accent) 4px, transparent 4px); }
 
   #view { flex: 1; min-height: 0; background: #000; display: block; width: 100%; cursor: default; }
   #view.grabbing { cursor: grabbing; }
 
-  /* The toolbar sits OVER the viewport rather than stealing height from it. */
-  #tools { position: absolute; top: 8px; left: 8px; right: 8px; display: flex; gap: 6px; align-items: center; flex-wrap: wrap; pointer-events: none; }
+  /* THE TOOLBAR floats over the viewport rather than stealing height from it, in three groups:
+     what you're looking at (left), what a drag does (middle), and the camera (right). */
+  #tools { position: absolute; top: 8px; left: 8px; right: 8px; display: flex; gap: 8px; align-items: center; pointer-events: none; z-index: 30; }
   #tools > * { pointer-events: auto; }
   .spacer { flex: 1; }
-  #hud { position: absolute; left: 10px; bottom: 46px; color: var(--ms-dim); font-size: 11px; pointer-events: none; text-shadow: 0 1px 3px #000; }
-  #modelname { color: var(--ms-accent); font-size: 12px; padding: 0 4px; text-shadow: 0 1px 3px #000; }
+  .float { display: inline-flex; align-items: center; gap: 2px; padding: 3px; background: rgba(17, 21, 27, .86); backdrop-filter: blur(6px); border: 1px solid var(--ms-line); border-radius: 8px; box-shadow: 0 4px 14px #0007; }
+  .float button, .float a.navbtn { display: inline-flex; align-items: center; gap: 6px; height: 28px; padding: 0 9px; background: transparent; border: 1px solid transparent; border-radius: 5px; color: var(--ms-ink); }
+  .float button:hover, .float a.navbtn:hover { background: var(--ms-raised); border-color: transparent; }
+  .float button.on { background: #2a2417; border-color: #5e4a22; color: var(--ms-accent); }
+  .float .div { width: 1px; height: 18px; background: var(--ms-line); margin: 0 3px; }
+  .float kbd { margin-left: 2px; }
+  #open { font-weight: 600; }
+  #modelname { color: var(--ms-accent); font: 12px var(--ms-mono); padding: 0 8px 0 4px; max-width: 32vw; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  #modelname:empty { display: none; }
+  #hud { position: absolute; left: 12px; bottom: calc(var(--ms-bar-h, 46px) + 8px); color: var(--ms-dim); font-size: 11px; pointer-events: none; text-shadow: 0 1px 3px #000; }
 
   /* THE TOOL PALETTE. A floating panel rather than a dialog, because a dialog is modal and a
      tool palette is the one surface you want open WHILE you work. Dragged by its head, closed
      with the x, brought back with the toolbar button or T. Its position and whether it is open
      are remembered per browser, so it stays where you put it. */
-  #toolbox { position: absolute; z-index: 40; width: 168px; background: var(--ms-panel); border: 1px solid var(--ms-line); border-radius: 4px; box-shadow: 0 6px 22px #0009; user-select: none; }
+  #toolbox { position: absolute; z-index: 40; width: 176px; background: rgba(17, 21, 27, .94); backdrop-filter: blur(6px); border: 1px solid var(--ms-line); border-radius: 8px; box-shadow: 0 8px 26px #0009; user-select: none; }
   #toolbox[hidden] { display: none; }
-  #tbhead { display: flex; align-items: center; gap: 6px; padding: 4px 4px 4px 8px; cursor: move; border-bottom: 1px solid var(--ms-line); font-size: 11px; color: var(--ms-dim); }
-  #tbhead b { flex: 1; font-weight: normal; letter-spacing: .08em; text-transform: uppercase; font-size: 10px; }
-  #tbbody { padding: 6px; }
-  #tbbody .grp { font-size: 9px; letter-spacing: .09em; text-transform: uppercase; color: var(--ms-dim); margin: 4px 0 3px; }
+  #tbhead { display: flex; align-items: center; gap: 6px; padding: 5px 5px 5px 10px; cursor: move; border-bottom: 1px solid var(--ms-line); font-size: 11px; color: var(--ms-dim); }
+  #tbhead b { flex: 1; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; font-size: 10px; }
+  #tbbody { padding: 6px 8px 8px; }
+  #tbbody .grp { font-size: 9px; letter-spacing: .09em; text-transform: uppercase; color: var(--ms-dim); margin: 6px 0 4px; }
   #tbbody .icons { display: grid; grid-template-columns: repeat(5, 1fr); gap: 3px; }
-  .ic { display: flex; align-items: center; justify-content: center; padding: 0; height: 27px; background: #1b2129; border: 1px solid var(--ms-line); border-radius: 3px; cursor: pointer; color: var(--ms-ink); }
+  .ic { display: flex; align-items: center; justify-content: center; padding: 0; height: 28px; background: var(--ms-raised); border: 1px solid var(--ms-line); border-radius: 5px; cursor: pointer; color: var(--ms-ink); }
   .ic:hover { border-color: #3d4b5a; }
-  .ic.on { border-color: var(--ms-accent); color: var(--ms-accent); background: #16222b; }
+  .ic.on { border-color: var(--ms-accent); color: var(--ms-accent); background: #2a2417; }
   .ic.off { opacity: .35; cursor: not-allowed; }
   .ic svg { display: block; }
 
-  #bar { padding: 6px 10px; border-top: 1px solid var(--ms-line); background: var(--ms-panel); display: flex; flex-wrap: wrap; gap: 10px; align-items: center; font-size: 11px; }
-  label { color: var(--ms-dim); display: inline-flex; gap: 5px; align-items: center; }
-  input[type=range] { width: 96px; }
-  button { background: #1b2129; color: var(--ms-ink); border: 1px solid var(--ms-line); padding: 4px 9px; font: inherit; cursor: pointer; border-radius: 3px; }
-  button:hover { border-color: #3d4b5a; }
-  button.on { border-color: var(--ms-accent); color: var(--ms-accent); background: #16222b; }
-  button.mini { padding: 0 5px; font-size: 11px; line-height: 16px; }
-  /* a link to another of the Modelshop's pages, dressed as a toolbar button */
-  a.navbtn { background: #1b2129; color: var(--ms-ink); border: 1px solid var(--ms-line); padding: 4px 9px; font: inherit; border-radius: 3px; text-decoration: none; }
-  a.navbtn:hover { border-color: #3d4b5a; }
-  a.navbtn[hidden] { display: none; }
-  kbd { background: #10141a; border: 1px solid var(--ms-line); border-radius: 2px; padding: 0 3px; font-size: 10px; color: var(--ms-dim); }
+  /* THE VIEW BAR: how the subject is shown, in labelled groups. None of it is saved with a model. */
+  #bar { display: flex; flex-wrap: wrap; gap: 6px 18px; align-items: center; padding: 7px 12px; border-top: 1px solid var(--ms-line); background: var(--ms-panel); font-size: 12px; }
+  #bar .grp { display: inline-flex; align-items: center; gap: 8px; }
+  #bar .grp[hidden] { display: none; }
+  #bar .gl { font-size: 10px; font-weight: 600; letter-spacing: .09em; text-transform: uppercase; color: #66717e; }
+  #bar label { gap: 6px; }
+  #bar output { min-width: 2.4em; font: 11px var(--ms-mono); color: var(--ms-ink); font-variant-numeric: tabular-nums; }
+  #scaleread { font: 11px var(--ms-mono); }
+  .seg { display: inline-flex; background: var(--ms-bg); border: 1px solid var(--ms-line); border-radius: 6px; padding: 2px; gap: 2px; }
+  .seg button { border: 1px solid transparent; background: transparent; padding: 3px 9px; border-radius: 4px; }
+  .seg button:hover { background: var(--ms-raised); border-color: transparent; }
+  .seg button.on { background: #2a2417; border-color: #5e4a22; color: var(--ms-accent); }
 
-  section { padding: 9px 11px; border-bottom: 1px solid var(--ms-line); }
-  section h2 { font-size: 10px; margin: 0 0 7px; color: var(--ms-dim); letter-spacing: .1em; text-transform: uppercase; }
-  #rail h3 { font-size: 10px; margin: 10px 0 4px; color: var(--ms-dim); letter-spacing: .1em; text-transform: uppercase; }
+  label { color: var(--ms-dim); display: inline-flex; gap: 5px; align-items: center; }
+  input[type=range] { width: 96px; accent-color: var(--ms-accent); }
+  button { background: var(--ms-raised); color: var(--ms-ink); border: 1px solid var(--ms-line); padding: 4px 9px; font: inherit; cursor: pointer; border-radius: 4px; }
+  button:hover { border-color: #3d4b5a; }
+  button:disabled { opacity: .4; cursor: not-allowed; }
+  button.on { border-color: var(--ms-accent); color: var(--ms-accent); background: #2a2417; }
+  button.mini { padding: 0 6px; font-size: 11px; line-height: 18px; }
+  :focus-visible { outline: 2px solid var(--ms-accent); outline-offset: 1px; }
+  /* a link to another of the Modelshop's pages, dressed as a toolbar button */
+  a.navbtn { color: var(--ms-ink); font: inherit; text-decoration: none; }
+  a.navbtn[hidden] { display: none; }
+  kbd { background: #10141a; border: 1px solid var(--ms-line); border-bottom-width: 2px; border-radius: 3px; padding: 0 4px; font: 10px var(--ms-sans); color: var(--ms-dim); }
+
+  /* THE RAIL: sections fold by their heading (remembered per browser), and a section with nothing
+     to say about this subject isn't shown at all (ui.js). */
+  section { border-bottom: 1px solid var(--ms-line); }
+  section[hidden] { display: none; }
+  section > h2 { position: sticky; top: 0; z-index: 2; display: flex; align-items: center; gap: 7px; margin: 0; padding: 9px 12px; background: var(--ms-panel); cursor: pointer; user-select: none;
+    font: 600 10px/1 var(--ms-sans); color: var(--ms-dim); letter-spacing: .1em; text-transform: uppercase; }
+  section > h2:hover { color: var(--ms-ink); }
+  section > h2::before { content: ''; width: 0; height: 0; border-left: 4px solid currentColor; border-top: 4px solid transparent; border-bottom: 4px solid transparent; transform: rotate(90deg); transition: transform .12s; }
+  section.shut > h2::before { transform: rotate(0deg); }
+  section > h2 .badge { margin-left: auto; letter-spacing: 0; text-transform: none; font-weight: 500; font-size: 11px; color: #ffbe6f; }
+  section > h2 .badge.ok { color: #7ee787; }
+  section > .body { padding: 2px 12px 12px; }
+  section.shut > .body { display: none; }
+  #rail h3 { font: 600 10px var(--ms-sans); margin: 10px 0 4px; color: var(--ms-dim); letter-spacing: .1em; text-transform: uppercase; }
 
   #scales { display: grid; grid-template-columns: 1fr 1fr; gap: 5px; }
   #scales figure, #diffimgs figure { margin: 0; }
-  #scales canvas, #diffimgs canvas { width: 100%; background: #000; display: block; border: 1px solid var(--ms-line); }
+  #scales canvas, #diffimgs canvas { width: 100%; background: #000; display: block; border: 1px solid var(--ms-line); border-radius: 3px; }
   #scales figcaption, #diffimgs figcaption { color: var(--ms-dim); font-size: 10px; padding-top: 2px; text-align: center; }
-  select { width: 100%; background: #1b2129; color: var(--ms-ink); border: 1px solid var(--ms-line); font: inherit; padding: 3px; margin-bottom: 5px; }
+  select { width: 100%; background: var(--ms-raised); color: var(--ms-ink); border: 1px solid var(--ms-line); border-radius: 4px; font: inherit; padding: 3px; margin-bottom: 5px; }
   #diffimgs { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 4px; }
   #diffnum { padding-top: 5px; }
 
@@ -77,14 +119,14 @@
   ol li { color: var(--ms-dim); }
 
   .etop { display: flex; gap: 6px; align-items: center; justify-content: space-between; margin-bottom: 7px; }
-  .part { border: 1px solid var(--ms-line); border-radius: 3px; margin-bottom: 4px; }
+  .part { border: 1px solid var(--ms-line); border-radius: 4px; margin-bottom: 4px; }
   .part.sel { border-color: var(--ms-accent); }
   .phead { display: flex; gap: 3px; align-items: center; padding: 3px 5px; background: #171c22; cursor: pointer; }
   .phead b { flex: 1; font-weight: normal; color: var(--ms-accent); font-size: 11px; }
   .pbody { display: grid; grid-template-columns: 1fr 1fr; gap: 2px 6px; padding: 5px; }
   .fld { display: flex; gap: 4px; align-items: center; }
   .fld label { flex: 0 0 32px; font-size: 10px; }
-  .fld input { flex: 1; min-width: 0; background: #10141a; color: var(--ms-ink); border: 1px solid var(--ms-line); font: inherit; font-size: 11px; padding: 1px 3px; }
+  .fld input { flex: 1; min-width: 0; background: #10141a; color: var(--ms-ink); border: 1px solid var(--ms-line); border-radius: 3px; font: inherit; font-size: 11px; padding: 1px 3px; font-variant-numeric: tabular-nums; }
   .fld input.warn { color: #ffbe6f; border-color: #ffbe6f; }
   .fld select.tag { flex: 0 0 40px; font-size: 10px; padding: 0; margin: 0; width: auto; }
   .fld select.tag.warn { color: #ffbe6f; border-color: #ffbe6f; }
@@ -96,18 +138,20 @@
   .addrow select, .addrow input { flex: 1; margin: 0; min-width: 0; background: #10141a; color: var(--ms-ink); border: 1px solid var(--ms-line); font: inherit; font-size: 11px; }
   .msgs { margin-top: 6px; font-size: 11px; }
   #esave { font-size: 11px; padding-top: 6px; word-break: break-word; }
+  #esave:empty { display: none; }
   #esave.ok { color: #7ee787; }
   #esave.err { color: #ff7b72; }
 
-  /* ── the model browser, as a dialog ── */
-  dialog { background: var(--ms-panel); color: var(--ms-ink); border: 1px solid var(--ms-line); border-radius: 5px; padding: 0; width: min(780px, 92vw); height: min(680px, 88vh); }
-  dialog::backdrop { background: rgba(0,0,0,.6); }
+  /* ── the model browser and the texture picker, as dialogs ── */
+  dialog { background: var(--ms-panel); color: var(--ms-ink); border: 1px solid var(--ms-line); border-radius: 10px; padding: 0; width: min(780px, 92vw); height: min(680px, 88vh); box-shadow: 0 24px 60px #000a; }
+  dialog::backdrop { background: rgba(4, 6, 9, .6); backdrop-filter: blur(2px); }
   #browser { display: flex; flex-direction: column; height: 100%; }
   #bhead { display: flex; gap: 8px; align-items: center; padding: 10px 12px; border-bottom: 1px solid var(--ms-line); }
-  #search { flex: 1; background: #10141a; border: 1px solid var(--ms-line); color: var(--ms-ink); font: inherit; padding: 5px 8px; }
-  #blist { flex: 1; overflow: auto; padding: 4px 0; }
-  #blist .grp { padding: 9px 12px 3px; color: var(--ms-dim); font-size: 10px; letter-spacing: .1em; text-transform: uppercase; position: sticky; top: 0; background: var(--ms-panel); border-bottom: 1px solid var(--ms-line); }
-  #blist .item { padding: 4px 12px; cursor: pointer; display: flex; gap: 8px; align-items: baseline; }
+  #search, #palsearch { flex: 1; background: var(--ms-bg); border: 1px solid var(--ms-line); border-radius: 6px; color: var(--ms-ink); font: 14px var(--ms-sans); padding: 7px 10px; outline: 0; }
+  #search:focus, #palsearch:focus { border-color: #5e4a22; }
+  #blist { flex: 1; overflow: auto; padding: 4px 0; font-family: var(--ms-mono); }
+  #blist .grp { padding: 9px 12px 3px; color: var(--ms-dim); font: 600 10px var(--ms-sans); letter-spacing: .1em; text-transform: uppercase; position: sticky; top: 0; background: var(--ms-panel); border-bottom: 1px solid var(--ms-line); }
+  #blist .item { padding: 4px 12px; cursor: pointer; display: flex; gap: 8px; align-items: baseline; border-radius: 4px; margin: 0 4px; }
   #blist .item:hover { background: #1d2732; }
   #blist .item.on { background: #1d2732; color: var(--ms-accent); }
   #blist .item .k { color: var(--ms-dim); font-size: 10px; margin-left: auto; }
@@ -118,15 +162,19 @@
   /* the texture (palette) picker */
   .sw { width: 13px; height: 13px; border: 1px solid #000; border-radius: 2px; flex: 0 0 auto; cursor: pointer; }
   #palgrid { flex: 1; overflow: auto; padding: 4px 0; }
-  #palgrid .grp { padding: 9px 12px 3px; color: var(--ms-dim); font-size: 10px; letter-spacing: .1em; text-transform: uppercase; position: sticky; top: 0; background: var(--ms-panel); border-bottom: 1px solid var(--ms-line); }
+  #palgrid .grp { padding: 9px 12px 3px; color: var(--ms-dim); font: 600 10px var(--ms-sans); letter-spacing: .1em; text-transform: uppercase; position: sticky; top: 0; background: var(--ms-panel); border-bottom: 1px solid var(--ms-line); }
   #palgrid .wrapg { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 3px; padding: 5px 12px; }
-  #palgrid .pk { display: flex; gap: 6px; align-items: center; padding: 3px 5px; cursor: pointer; border: 1px solid transparent; border-radius: 3px; font-size: 11px; }
+  #palgrid .pk { display: flex; gap: 6px; align-items: center; padding: 3px 5px; cursor: pointer; border: 1px solid transparent; border-radius: 4px; font-size: 11px; }
   #palgrid .pk:hover { background: #1d2732; border-color: var(--ms-line); }
   #palgrid .pk.on { border-color: var(--ms-accent); color: var(--ms-accent); }
   #palgrid .pk i { width: 15px; height: 15px; border: 1px solid #000; border-radius: 2px; flex: 0 0 auto; }
   #palgrid .pk span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
-  /* the tool picker */
+  @media (max-width: 1100px) {
+    .float kbd, #tools .lbl { display: none; }
+    #bar .gl { display: none; }
+    #bar input[type=range] { width: 72px; }
+  }
 </style>
 </head>
 <body>
@@ -134,74 +182,124 @@
   <div id="stage">
     <canvas id="view"></canvas>
     <div id="tools">
-      <button id="open">📂 Open… <kbd>O</kbd></button>
-      <span id="modelname"></span>
+      <div class="float">
+        <button id="open" title="Open a model (O)">
+          <svg width="15" height="15" viewBox="0 0 16 16" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round" d="M1.5 4.5v8h12l1-6h-10l-1 6M1.5 4.5V3h4l1 1.5h6v2"/></svg>
+          <span class="lbl">Open</span> <kbd>O</kbd>
+        </button>
+        <span id="modelname" title="The model in the viewport"></span>
+      </div>
       <span class="spacer"></span>
-      <button id="mode-move" class="on" title="Move the selected piece — drag on the ground, Shift+drag for height">Move <kbd>G</kbd></button>
-      <button id="mode-scale" title="Scale the selected piece — drag for width, Shift+drag for height">Scale <kbd>S</kbd></button>
-      <button id="mode-rotate" title="Rotate the selected piece about its own axis">Rotate <kbd>R</kbd></button>
-      <button id="tools-open" title="Every mode and every primitive, with what each one is for">Tools <kbd>T</kbd></button>
-      <button id="frame" title="Frame the model again">Frame <kbd>F</kbd></button>
-      <!-- The Modelshop's other pages, each in its own tab. The cab shows on a truck only (app.js cabLink). -->
-      <a id="cablink" class="navbtn" target="_blank" rel="noopener" hidden title="This truck's cab from the driver's seat, with the things a driver hangs in it">Cab interior ↗</a>
-      <a class="navbtn" href="/figure-lab.html" target="_blank" rel="noopener" title="Everybody drawn as a person: the close-up figure in the Room Stage renderer, or the street's crowd body and heads">Figure Lab ↗</a>
-      <a class="navbtn" href="/room-lab.html" target="_blank" rel="noopener" title="The Room Stage on any flat in content/, with the real view out of its windows">Room Lab ↗</a>
-      <a class="navbtn" href="/bestiary.html" target="_blank" rel="noopener" title="Every enemy and animal drawn to ROOM's standard: one at a time or the whole line-up">Bestiary ↗</a>
-      <a class="navbtn" href="/cattery.html" target="_blank" rel="noopener" title="The cat kit: Scrappy and the other cats carved in each pose, idling, with sliders to make a new one">Cattery ↗</a>
+      <div class="float" role="toolbar" aria-label="Transform">
+        <button id="mode-move" class="on" title="Move the selected piece: drag on the ground, Shift+drag for height (G)">
+          <svg width="15" height="15" viewBox="0 0 16 16" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" d="M8 1.5v13M1.5 8h13M8 1.5 6 3.5M8 1.5l2 2M8 14.5l-2-2M8 14.5l2-2M1.5 8l2-2M1.5 8l2 2M14.5 8l-2-2M14.5 8l-2 2"/></svg>
+          <span class="lbl">Move</span> <kbd>G</kbd>
+        </button>
+        <button id="mode-scale" title="Scale the selected piece: drag for width, Shift+drag for height (S)">
+          <svg width="15" height="15" viewBox="0 0 16 16" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" d="M2 9.5V14h4.5M2 14l5-5M9.5 2H14v4.5M14 2 9 7"/></svg>
+          <span class="lbl">Scale</span> <kbd>S</kbd>
+        </button>
+        <button id="mode-rotate" title="Rotate the selected piece about its own axis (R)">
+          <svg width="15" height="15" viewBox="0 0 16 16" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" d="M13.5 8A5.5 5.5 0 1 1 11.6 3.8M13.5 1.8v3.4h-3.4"/></svg>
+          <span class="lbl">Rotate</span> <kbd>R</kbd>
+        </button>
+        <span class="div"></span>
+        <button id="tools-open" title="Every mode and every primitive, with what each one is for (T)">
+          <svg width="15" height="15" viewBox="0 0 16 16" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round" d="M2 2h5v5H2zM9 2h5v5H9zM2 9h5v5H2zM9 9h5v5H9z"/></svg>
+          <span class="lbl">Tools</span> <kbd>T</kbd>
+        </button>
+      </div>
+      <span class="spacer"></span>
+      <div class="float">
+        <!-- The cab shows on a truck only (app.js cabLink). -->
+        <a id="cablink" class="navbtn" hidden title="This truck's cab from the driver's seat, with the things a driver hangs in it">Cab interior</a>
+        <button id="frame" title="Frame the model again (F)">
+          <svg width="15" height="15" viewBox="0 0 16 16" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" d="M1.5 5V1.5H5M11 1.5h3.5V5M14.5 11v3.5H11M5 14.5H1.5V11"/><circle cx="8" cy="8" r="2" fill="currentColor"/></svg>
+          <span class="lbl">Frame</span> <kbd>F</kbd>
+        </button>
+      </div>
     </div>
     <div id="hud"></div>
 <div id="toolbox">
-  <div id="tbhead"><b>Tools</b><span class="dim" title="T toggles this panel">T</span><button id="tbclose" class="mini" title="Close — the Tools button brings it back">x</button></div>
+  <div id="tbhead"><b>Tools</b><span class="dim" title="T toggles this panel">T</span><button id="tbclose" class="mini" title="Close: the Tools button brings it back">✕</button></div>
   <div id="tbbody"></div>
 </div>
     <div id="bar">
-      <button id="preset-cockpit" class="on">Cockpit</button>
-      <button id="preset-cab">Cab</button>
-      <label title="Storeys — fh and h are DERIVED from this the way the sim derives them, so the preview is a building the game could actually draw">floors <input id="floors" type="range" min="1" max="40" step="1" value="6"></label>
-      <span id="scaleread" class="dim"></span>
-      <label>seed <input id="seed" type="range" min="0" max="12" step="1" value="3"></label>
-      <label>night <input id="night" type="range" min="0" max="1" step="0.05" value="0"></label>
-      <label>facing
-        <select id="facing" style="width:auto;margin:0">
-          <option value="0,1">N</option><option value="0,-1">S</option>
-          <option value="1,0">E</option><option value="-1,0">W</option>
-        </select>
-      </label>
-      <button id="wire">Cage</button>
-      <button id="spin">Spin</button>
-      <button id="gl" title="Draw the same model through the WebGL2 spike (G)">GL</button>
-      <button id="g2" title="Draw the subject through the game's own GLASS 2 frame: materials, shadows, SSAO, reflections, lights (2)">GLASS 2</button>
-      <button id="grey" title="A plain grey backdrop in place of the sky (B)">Grey</button>
+      <div class="grp">
+        <span class="gl">Camera</span>
+        <div class="seg">
+          <button id="preset-cockpit" class="on" title="The eye a pilot has">Cockpit</button>
+          <button id="preset-cab" title="The eye a driver has">Cab</button>
+        </div>
+      </div>
+      <!-- a building's own dials: hidden for a vehicle or an animal, which have no checks (ui.js) -->
+      <div class="grp" data-show-when="checks">
+        <span class="gl">Building</span>
+        <label title="Storeys. fh and h are DERIVED from this the way the sim derives them, so the preview is a building the game could actually draw">Floors <input id="floors" type="range" min="1" max="40" step="1" value="6"><output data-for="floors"></output></label>
+        <span id="scaleread" class="dim"></span>
+        <label title="The seed a seed-variant model rolls its shape from">Seed <input id="seed" type="range" min="0" max="12" step="1" value="3"><output data-for="seed"></output></label>
+        <label>Facing
+          <select id="facing" style="width:auto;margin:0">
+            <option value="0,1">N</option><option value="0,-1">S</option>
+            <option value="1,0">E</option><option value="-1,0">W</option>
+          </select>
+        </label>
+      </div>
+      <div class="grp">
+        <span class="gl">Light</span>
+        <label title="0 is noon, 1 is midnight">Night <input id="night" type="range" min="0" max="1" step="0.05" value="0"><output data-for="night"></output></label>
+      </div>
+      <span class="spacer"></span>
+      <div class="grp">
+        <span class="gl">Show</span>
+        <div class="seg">
+          <button id="wire" title="The cage: the box the cold open draws in place of the model">Cage</button>
+          <button id="grey" title="A plain grey backdrop in place of the sky (B)">Grey sky</button>
+          <button id="spin" title="Turn the model on a turntable, 36° a second">Spin</button>
+        </div>
+      </div>
+      <div class="grp">
+        <span class="gl">Renderer</span>
+        <div class="seg">
+          <button id="gl" title="Draw the same model through the WebGL2 spike">GL spike</button>
+          <button id="g2" title="Draw the subject through the game's own GLASS 2 frame: materials, shadows, SSAO, reflections, lights (2)">GLASS 2</button>
+        </div>
+      </div>
     </div>
   </div>
 
   <div id="rail">
-    <section>
+    <div id="railgrip" title="Drag to resize the panel · double-click to reset"></div>
+    <section data-fold="edit">
       <h2>Edit</h2>
-      <div id="editor"></div>
-      <div id="esave"></div>
+      <div class="body">
+        <div id="editor"></div>
+        <div id="esave"></div>
+      </div>
     </section>
-    <section>
+    <section data-fold="model">
       <h2>Model</h2>
-      <div id="meta"></div>
+      <div class="body"><div id="meta"></div></div>
     </section>
-    <section>
+    <section data-fold="scales" data-show-when="scales">
       <h2>At other scales</h2>
-      <div id="scales"></div>
+      <div class="body"><div id="scales"></div></div>
     </section>
-    <section>
-      <h2>Cage — what the cold open gets</h2>
-      <div id="bake"></div>
+    <section data-fold="cage" data-show-when="bake">
+      <h2>Cage <span class="dim" style="letter-spacing:0;text-transform:none;font-weight:400">what the cold open gets</span></h2>
+      <div class="body"><div id="bake"></div></div>
     </section>
-    <section>
+    <section data-fold="diff" data-show-when="checks">
       <h2>Difference</h2>
-      <select id="cmp"><option value="">— compare with —</option></select>
-      <div id="diffimgs"></div>
-      <div id="diffnum"></div>
+      <div class="body">
+        <select id="cmp"><option value="">— compare with —</option></select>
+        <div id="diffimgs"></div>
+        <div id="diffnum"></div>
+      </div>
     </section>
-    <section>
-      <h2>Checks</h2>
-      <div id="checks"></div>
+    <section data-fold="checks" data-show-when="checks">
+      <h2>Checks <span class="badge" id="checkbadge"></span></h2>
+      <div class="body"><div id="checks"></div></div>
     </section>
   </div>
 </div>
@@ -209,7 +307,7 @@
 <dialog id="paldlg">
   <div id="browser">
     <div id="bhead">
-      <input id="palsearch" placeholder="filter textures…" autocomplete="off">
+      <input id="palsearch" placeholder="Filter textures…" autocomplete="off">
       <span id="palcount" class="dim"></span>
       <button id="palclose">Close</button>
     </div>
@@ -220,7 +318,7 @@
 <dialog id="browserdlg">
   <div id="browser">
     <div id="bhead">
-      <input id="search" placeholder="filter models…" autocomplete="off">
+      <input id="search" placeholder="Filter models…" autocomplete="off">
       <span id="count" class="dim"></span>
       <label class="dim" id="offmaplbl" title="buildings on the holding map, and models no tile in the world draws"><input type="checkbox" id="offmap"> stored &amp; unused</label>
       <button id="bclose">Close</button>
@@ -230,5 +328,6 @@
 </dialog>
 
 <script type="module" src="/app.js"></script>
+<script type="module" src="/ui.js"></script>
 </body>
 </html>

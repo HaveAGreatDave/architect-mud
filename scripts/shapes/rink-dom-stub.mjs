@@ -215,6 +215,8 @@ export function __install() {
     AudioEngine: { playSfx: (d) => sounds.push(d && d.id) }, HockeySfx: HOCKEY_SFX,
     SFXCatalog: { get: (id) => HOCKEY_SFX.get(id) },
     requestAnimationFrame: raf, cancelAnimationFrame: caf, performance: perf, devicePixelRatio: 1,
+    // the same hand-cranked timers, as a window has them (the grandstand's fly-in letters its venue through win.setTimeout)
+    setTimeout: (fn, ms) => globalThis.setTimeout(fn, ms), clearTimeout: (id) => globalThis.clearTimeout(id),
   };
 
   return {

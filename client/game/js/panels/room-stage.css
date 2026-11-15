@@ -151,6 +151,13 @@ body.bigscreen #room-stage .rs-bar, body.bigscreen #room-stage .rs-tip { display
 #room-stage .rs-flash.on { opacity: 1; }
 #room-stage .rs-flash.rs-flash-no { color: var(--red); border-color: var(--red); }
 #room-stage .rs-tags { position: absolute; inset: 0; pointer-events: none; }
+/* a Cachet's keypad, for whoever's told there's one (room-stage.js padCue): a warm ring pulsing on the pad */
+#room-stage .rs-padcue { position: absolute; width: 26px; height: 26px; margin: -13px 0 0 -13px; border-radius: 50%; pointer-events: none;
+	border: 2px solid rgba(232, 176, 112, 0.9); box-shadow: 0 0 10px rgba(232, 176, 112, 0.55), inset 0 0 6px rgba(232, 176, 112, 0.35);
+	animation: rs-padcue 1.6s ease-out infinite; }
+#room-stage .rs-padcue[hidden] { display: none; }
+@keyframes rs-padcue { 0% { transform: scale(0.7); opacity: 0.95; } 70% { transform: scale(1.35); opacity: 0.15; } 100% { transform: scale(1.35); opacity: 0; } }
+html[data-motion="off"] #room-stage .rs-padcue { animation: none; opacity: 0.8; }
 #room-stage .rs-tag {
 	position: absolute; transform: translate(-50%, -100%); padding: 1px 7px; border-radius: 8px;
 	background: var(--rs-panel); color: var(--text-bright); font: 0.75rem var(--rs-font); white-space: nowrap;

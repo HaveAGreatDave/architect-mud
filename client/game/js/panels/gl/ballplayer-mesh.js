@@ -626,12 +626,20 @@ export function faceFor(look) {
     // clubhouse, so moustaches and goatees, and a good many clean-shaven
     shape: SCULPT_HEADS[Math.floor(rand(21) * 3) % 3], weight: Math.round(Math.max(0.2, Math.min(0.9, 0.45 + 5 * (look.girth || 0))) * 10) / 10,
     facial: FACIAL_CODE[beardOf(FACE_LAYOUTS[layout].beard, rand(22))],
+    // the same by name, for the close-up figure (figure.js FIGURE_FACIAL, gl/ballpark-figures.js)
+    facialName: beardOf(FACE_LAYOUTS[layout].beard, rand(22)),
   };
+}
+// Where the head's middle goes, which headFrame reads: worked out alone for a body built without a head of its
+// own (the close-up figure's, diamond/figure-rig.js, is put in the same place)
+function headPlace(J, W, s, look) {
+  const k0 = FT * s * (look.headScale || 1);
+  look.headC = add(J.head, m3v(W.head, [0, 0.31 * s - HEAD_SINK * k0, 0.03 * s]));
+  return look.headC;
 }
 function head(G, J, W, s, look) {
   const H = W.head, Nk = W.neck;
-  const k0 = FT * s * (look.headScale || 1), c = add(J.head, m3v(H, [0, 0.31 * s - HEAD_SINK * k0, 0.03 * s]));
-  look.headC = c;
+  const k0 = FT * s * (look.headScale || 1), c = headPlace(J, W, s, look);
   // where the head's middle would be if it sat straight on the neck
   const cN = add(J.neck, m3v(Nk, [0, 0.65 * s - HEAD_SINK * k0, 0.06 * s]));
   const k = FT * s * (look.headScale || 1);
@@ -1222,7 +1230,11 @@ export function buildPlayer(G, pose, look) {
     const uu = S === 'L' ? 1 - u : u;
     return p === 'sock' ? inCell(socks, uu, (v - 0.62) / 0.38) : p === 'pants' ? inCell(pants, uu, v * 1.5) : [u, v];
   };
-  for (const S of ['L', 'R']) {
+  // `look.part`: 'body' builds only what the close-up figure replaces (diamond/figure-rig.js), 'gear' only what
+  // it wears (the cap or helmet, the mask, the catcher's gear, the glove, the bat, a First Generation man's
+  // parts); neither builds him whole
+  const part = look.part || null, wantBody = part !== 'gear', wantGear = part !== 'body';
+  if (wantBody) for (const S of ['L', 'R']) {
     limb(G, J['hip' + S], J['kn' + S], J['an' + S], m3v(W.pelvis, [0, 0, 1]), ump ? SLACKS : LEG, s, keyOf, colOf, matOf, legUv(S), LEG_RIG[S], thickLeg);
     limb(G, J['sh' + S], J['el' + S], J['wr' + S], m3v(W.chest, [0, 0, -1]), ARM, s, keyOf, colOf, matOf, armUv(S), ARM_RIG[S], thickArm);
     deltoid(G, J, W, S, s, keyOf, colOf, matOf, armUv(S), thickArm);
@@ -1230,33 +1242,39 @@ export function buildPlayer(G, pose, look) {
     G.cur = [[BONE['foot' + S], 1]];
     shoe(G, J, S, s, ump ? hex(plain.shoe) : hex('#151515'), !ump);
   }
-  torso(G, J, W, s, keyOf, colOf, matOf, uvOf, look.girth || 0, (ump ? plain.girth : 0) + (look.belly || 0), b);
-  beltDress(G, J, W, s, look.girth || 0, ump ? hex(plain.belt) : hex(kit.belt));
-  if (ump) shirtCollar(G, J, W, s, navyU, (look.girth || 0) + plain.girth * 0.3, b.sh);
-  else collar(G, J, W, s, trim, look.girth || 0, b.sh);
-  // his own: a band at the wrist, a guard over the elbow he leads with
-  const band = hex(kit.ink);
-  for (const S of ['L', 'R']) if (!ump && (look.wristbands === 'both' || look.wristbands === S)) wristband(G, J, S, s, band, thickArm);
-  if (!ump && look.elbowGuard) elbowGuard(G, J, look.elbowGuard, s, hex(kit.helmet), thickArm);
-  if (!ump && look.battingGloves) for (const S of ['L', 'R']) gloveCuff(G, J, S, s, hex(look.battingGloves), thickArm);
-  if (look.role === 'ump' && look.mask) ballBags(G, J, W, s, mul(navyU, 0.9), b.girth);
-  head(G, J, W, s, look);
+  if (wantBody) {
+    torso(G, J, W, s, keyOf, colOf, matOf, uvOf, look.girth || 0, (ump ? plain.girth : 0) + (look.belly || 0), b);
+    beltDress(G, J, W, s, look.girth || 0, ump ? hex(plain.belt) : hex(kit.belt));
+    if (ump) shirtCollar(G, J, W, s, navyU, (look.girth || 0) + plain.girth * 0.3, b.sh);
+    else collar(G, J, W, s, trim, look.girth || 0, b.sh);
+    // his own: a band at the wrist, a guard over the elbow he leads with
+    const band = hex(kit.ink);
+    for (const S of ['L', 'R']) if (!ump && (look.wristbands === 'both' || look.wristbands === S)) wristband(G, J, S, s, band, thickArm);
+    if (!ump && look.elbowGuard) elbowGuard(G, J, look.elbowGuard, s, hex(kit.helmet), thickArm);
+    if (!ump && look.battingGloves) for (const S of ['L', 'R']) gloveCuff(G, J, S, s, hex(look.battingGloves), thickArm);
+    if (look.role === 'ump' && look.mask) ballBags(G, J, W, s, mul(navyU, 0.9), b.girth);
+  }
+  // the head's place is the headwear's too (headFrame), so it's worked out either way; only the body draws one
+  if (wantBody) head(G, J, W, s, look);
+  else headPlace(J, W, s, look);
   look.s = s;
   const logo = LOGO_CELLS.cap[side];
   G.cur = [[BONE.head, 1]];
-  if (look.role === 'catcher') catcherGear(G, J, W, s, look, hex(kit.helmet));
-  else if (ump) { cap(G, W, s, look, hex(plain.cap), hex(plain.capUnder), null); if (look.mask) mask(G, W, s, look); }
-  else if (look.helmet) helmet(G, W, s, look, look.flapSide || 1, hex(kit.helmet), logo);
-  else cap(G, W, s, look, hex(kit.cap), hex(kit.under), logo, hex(kit.bill || kit.cap));
-  if (!ump && look.gen1) gen1Gear(G, J, W, s, look, look.gen1, thickArm, thickLeg);
+  if (wantGear) {
+    if (look.role === 'catcher') catcherGear(G, J, W, s, look, hex(kit.helmet));
+    else if (ump) { cap(G, W, s, look, hex(plain.cap), hex(plain.capUnder), null); if (look.mask) mask(G, W, s, look); }
+    else if (look.helmet) helmet(G, W, s, look, look.flapSide || 1, hex(kit.helmet), logo);
+    else cap(G, W, s, look, hex(kit.cap), hex(kit.under), logo, hex(kit.bill || kit.cap));
+    if (!ump && look.gen1) gen1Gear(G, J, W, s, look, look.gen1, thickArm, thickLeg);
+  }
   for (const S of ['L', 'R']) {
     // a hand on a bat holds the bat, glove or no glove
     G.cur = [[BONE[(J['grip' + S] ? 'fist' : 'hand') + S], 1]];
-    if (look.glove === S && !J['grip' + S]) glove(G, J, S, s, look.role === 'catcher' ? 'catcher' : look.mitt === 'first' ? 'first' : 'fielder');
-    else hand(G, J, S, s, look.battingGloves ? hex(look.battingGloves) : skin, look.battingGloves ? MAT.LEATHER : MAT.SKIN);
+    if (look.glove === S && !J['grip' + S]) { if (wantGear) glove(G, J, S, s, look.role === 'catcher' ? 'catcher' : look.mitt === 'first' ? 'first' : 'fielder'); }
+    else if (wantBody) hand(G, J, S, s, look.battingGloves ? hex(look.battingGloves) : skin, look.battingGloves ? MAT.LEATHER : MAT.SKIN);
   }
   G.cur = [[BONE.bat, 1]];
-  if (pose.bat) bat(G, J, s);
+  if (pose.bat && wantGear) bat(G, J, s);
   return { J, W, s, feet: [J.anL, J.anR, J.toeL, J.toeR] };
 }
 
@@ -1270,9 +1288,9 @@ export function buildBody(G, look) {
   const res = buildPlayer(G, body, { ...look, headIndex: 0 });
   if (look.helmet) {
     const { J, s } = solvePose(grip), col = look.battingGloves ? hex(look.battingGloves) : hex(look.skin);
-    for (const S of ['L', 'R']) { G.cur = [[BONE['fist' + S], 1]]; hand(G, J, S, s, col, look.battingGloves ? MAT.LEATHER : MAT.SKIN); }
+    if (look.part !== 'gear') for (const S of ['L', 'R']) { G.cur = [[BONE['fist' + S], 1]]; hand(G, J, S, s, col, look.battingGloves ? MAT.LEATHER : MAT.SKIN); }
     G.cur = [[BONE.bat, 1]];
-    bat(G, J, s);
+    if (look.part !== 'body') bat(G, J, s);
   }
   return res;
 }

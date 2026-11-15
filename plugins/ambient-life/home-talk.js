@@ -331,7 +331,7 @@ const drink = () => { const k = Object.keys(DRINKS).filter((x) => DRINKS[x].hot)
 function neighbourOf(zoneId, skip) {
   const pool = [];
   for (const n of world.npcs.values()) {
-    if (n._dead || skip.has(n.id) || !n.home_zone || n.home_zone === zoneId || n.hostile) continue;
+    if (n._dead || skip.has(n.id) || !n.home_zone || n.home_zone === zoneId || n.hostile || n.flags?.animal) continue;
     pool.push(n);
     if (pool.length > 40) break;
   }

@@ -300,6 +300,7 @@ nothing, silently; wire a reader first.
 | `job_board` | jobboard | job board |
 | `junction_box` | power | junction-box housing |
 | `media_deck` | broadcast | cassette deck |
+| `pet_bowls` | pets | a pet's feeding station: the id of the `pets` row it feeds. A food dish that holds two meals and a water bowl that holds a day's water; how full each is comes from when it was last filled (`pet_bowls` table) and the cat's meal times (client/shared/cat-life.js), and `refill` fills them. Drawn as the `petbowl` form (`look: { arche: 'small', form: 'petbowl' }`). See [proposals/pets.md](proposals/pets.md) |
 | `police_terminal` | jail | police booking terminal |
 | `prologue_holosign` | prologue | prologue set dressing (the `use` `requiredTag`). Sibling `prologue_chair` is authored but **has no reader** |
 | `requires_demolition` | — | **no reader.** Demolition gating is not a flag: it comes from `DEVICE_SPECS[furniture.object_type].requiresDemolition` (`commands/infrastructure.js:23-25,56`). Setting this key gates nothing |

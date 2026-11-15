@@ -201,7 +201,20 @@ export function narrate(ctx) {
   // The club identities' revision rides on every bug and payload; a client that hasn't
   // got this one asks for the set once (tv_clubs) and draws crests and kits from it.
   const clubsRev = ctx.sport?.clubsRevOf?.(script?.clubs) || '';
-  const bug = (status, aScore, hScore, strength) => ({
+  // THE MANPOWER, from the box the beat carries (sim v8 on): who has the extra man, how many a
+  // side, and the game seconds until that changes (the first man out of either box). A beat's
+  // `strength` is the ATTACKING side's, so it flips PP to SH with the puck; this names a club.
+  // `team` is 'away' or 'home', or '' when both boxes are level (four on four).
+  const ppOf = (b) => {
+    const box = b?.box;
+    if (!box || b.type === 'intermission') return null;
+    const a = 5 - (box.away?.length || 0), h = 5 - (box.home?.length || 0);
+    const left = Math.min(...[...(box.away || []), ...(box.home || [])].map((p) => p.left));
+    if (!Number.isFinite(left) || left <= 0) return null;
+    const team = a > h ? 'away' : h > a ? 'home' : '';
+    return { team, abbr: team === 'away' ? awayAbbr : team === 'home' ? homeAbbr : '', away: a, home: h, left };
+  };
+  const bug = (status, aScore, hScore, strength, pp) => ({
     sport: 'hockey',
     ...(clubsRev ? { clubsRev } : {}),
     away: away.name, home: home.name, awayAbbr, homeAbbr,
@@ -209,10 +222,11 @@ export function narrate(ctx) {
     shotsAway: sogAway, shotsHome: sogHome,
     ...(rivalry ? { rivalry: true } : {}),
     ...(strength && strength !== 'even' ? { strength } : {}),
+    ...(pp ? { pp } : {}),
   });
   const beatBug = (b) => bug(
     `${b.section || ''}${b.clockStr ? ` ${b.clockStr}` : ''}`.trim() || 'LIVE',
-    b.awayScore, b.homeScore, b.strength,
+    b.awayScore, b.homeScore, b.strength, ppOf(b),
   );
   // A goal's beat carries the score after the goal. Everything shown before the puck goes
   // in (the rush, the shot, the rink's header) wears the score before it, or the bug calls
@@ -360,6 +374,8 @@ export function narrate(ctx) {
     defendingColours: (b.teamName === home.name ? away : home).profile?.colours || null,
     section: b.section || '', clock: b.clockStr || '', clockSecs: b.clock ?? 0,
     kind: b.kind || b.type, type: b.type, strength: b.strength || 'even',
+    // the power play by club, and how long it has to run at this beat's clock (ppOf)
+    ...(ppOf(b) ? { pp: ppOf(b) } : {}),
     awayScore: b.awayScore ?? 0, homeScore: b.homeScore ?? 0,
     ...(b.type === 'goal' ? { scoreBefore: scoreBefore(b) } : {}),
     desc: mod.playDesc(b),
@@ -517,6 +533,8 @@ export function narrate(ctx) {
       { song: 'ksab7_cup_anthem' });
   }
   ctx.desk?.('open', null, preBug);
+  // and the desk throws to the booth: the two men calling it, on camera up on the gantry
+  ctx.desk?.('booth_open', null, preBug);
 
   // The injury report, read between the matchup and the opening face-off. Counted
   // separately because it is spoken BEFORE the beat loop declares its line tally.
@@ -542,6 +560,28 @@ export function narrate(ctx) {
     const keys = career > died ? ['vat.back.career', 'vat.back'] : died > 1 ? ['vat.back.again', 'vat.back'] : ['vat.back'];
     const line = vpick(...keys);
     if (line) { say(line, { ...gameTok, player: m.name, team: m.team, times: timesWord(died), careerTimes: timesWord(career) }, preBug); preGameLines++; }
+  }
+
+  // The clubs' history (ctx.lore, sports/club-lore.js): who's won the Cup lately, who keeps
+  // losing finals, who's turned it round. Before the drop, the two clubs' finals against each
+  // other if they've met in one, then whichever club has the bigger story; each intermission
+  // takes the next untold story, the away club's in the first and the home club's in the second.
+  // Its lines come off their own stream (ctx.lpick), so no other line moves, and a script with
+  // no `lore.*` pools says nothing here.
+  const loreTold = new Set();
+  const tellLore = (topic, sb) => {
+    if (!topic || !ctx.lpick || loreTold.has(`${topic.key}|${topic.tok.club}`)) return false;
+    const line = ctx.lpick(topic.key);
+    if (!line) return false;
+    loreTold.add(`${topic.key}|${topic.tok.club}`);
+    say(line, { ...gameTok, ...topic.tok }, sb);
+    return true;
+  };
+  const nextLore = (team) => (team === home.name ? ctx.lore?.home : ctx.lore?.away)?.find((t) => !loreTold.has(`${t.key}|${t.tok.club}`)) || null;
+  if (ctx.lore) {
+    if (tellLore(ctx.lore.rivalry, preBug)) preGameLines++;
+    const lead = [ctx.lore.home?.[0], ctx.lore.away?.[0]].filter(Boolean).sort((a, b) => b.p - a.p)[0];
+    if (tellLore(lead, preBug)) preGameLines++;
   }
 
   // ── the game ──────────────────────────────────────────────────────────────
@@ -590,8 +630,9 @@ export function narrate(ctx) {
     }); said++;
     // The rink is showing the Zamboni come on while the booth reads the summary.
     call('pbp.zamboni.on', t, null, sb, { opt: true });
-    // (after the 3rd the game's over unless it's tied, and the desk has the close to do)
-    if (per.section !== '3rd' || b.awayScore === b.homeScore) ctx.desk?.('break', b, sb);
+    // (after the 3rd the game's over unless it's tied, and the desk has the close to do). The booth
+    // has the period first, on camera, and sends it to the desk.
+    if (per.section !== '3rd' || b.awayScore === b.homeScore) { ctx.desk?.('booth_break', b, sb); ctx.desk?.('break', b, sb); }
     if (per.goals.length) {
       say(pick('intermission.summary'), stat, sb); said++;
       // One line per goal, in the order they went in — the scoring summary is a list,
@@ -607,6 +648,11 @@ export function narrate(ctx) {
     say(pick('intermission.stats'), stat, sb); said++;
     colour(per.goals.length ? 'colour.intermission' : ['colour.intermission.scoreless', 'colour.intermission'], stat, null, sb);
     call('pbp.zamboni.lap', t, null, sb, { opt: true });
+    // a club's story while the ice is cleaned: the away club's in the first break, the home's in the second
+    if (per.section !== '3rd') {
+      const first = per.section === '1st' ? away.name : home.name, other = first === home.name ? away.name : home.name;
+      if (tellLore(nextLore(first) || nextLore(other), sb)) said++;
+    }
     // The break is six and a half minutes (hockey-pacing.js), so the booth has more to get through
     // than the period. After the 3rd there may be no break, only the sign-off.
     // (no play to name, so a line that needs a shooter or a team isn't for here)
@@ -1186,6 +1232,9 @@ export function narrate(ctx) {
       default:
         break;
     }
+    // Now and then the picture goes up to the booth after a big moment (facts.js boothCuts): the
+    // two of them on camera, and back to the ice.
+    if (ctx.boothCut?.beat === b) ctx.desk?.('booth_cut', b, sb, ctx.boothCut);
   }
 
   // ── final ─────────────────────────────────────────────────────────────────
@@ -1212,19 +1261,83 @@ export function narrate(ctx) {
     const W0 = winName === away.name ? away : home;
     const sk = W0.skaters || [];
     const best = [...sk].sort((x, y) => (y.goals * 2 + y.assists) - (x.goals * 2 + x.assists))[0];
+    const captain = (sk.find((s) => s.pos === 'C') || sk[0] || {}).name || '';
+    const mvp = best && (best.goals || best.assists) ? { name: best.name, goals: best.goals, assists: best.assists } : null;
+    // who lifts it, in turn: the captain, the player of the final, the goalie (cupStars)
+    const stars = cupStars(captain, mvp, W0.goalie, sk);
     say(pick('cup.crown'), finalTok, finalBug, null,
       { sport: 'hockey', type: 'crown', cup: true, final: ctx.sport?.season?.finalName || 'Coldwater Cup',
         awayTeam: away.name, homeTeam: home.name, awayAbbr, homeAbbr, clubsRev, awayScore, homeScore,
         awayColours: away.profile?.colours || null, homeColours: home.profile?.colours || null,
-        winner: winName, captain: (sk.find((s) => s.pos === 'C') || sk[0] || {}).name || '',
-        mvp: best && (best.goals || best.assists) ? { name: best.name, goals: best.goals, assists: best.assists } : null,
+        winner: winName, captain, mvp, stars,
         skaters: sk.map((s) => s.name), goalie: W0.goalie || '' });
+    // THE CHAMPIONS ON THE ICE. While the rink celebrates (the gloves off, the pile, the handshake
+    // line, then the Cup passed down the stars), the booth says how they won it, the game and the
+    // season, gives the losers a word, and calls each man as he lifts it. These draw from the
+    // venue's stream (ctx.xpick), so the outro and every line before stay as they were.
+    const xp = ctx.xpick;
+    if (xp) {
+      const L0 = W0 === away ? home : away;
+      let decider = null, was = 0;
+      const tally = {};
+      for (const b of beats) {
+        if (b.type !== 'goal') continue;
+        tally[b.teamName] = (tally[b.teamName] || 0) + 1;
+        const lead = (tally[winName] || 0) - (tally[L0.name] || 0);
+        if (lead > 0 && was <= 0 && b.teamName === winName) decider = b;
+        was = lead;
+      }
+      const seed = ctx.seasonState?.finalistA === winName ? 1 : ctx.seasonState?.finalistB === winName ? 2 : null;
+      const tok = {
+        ...finalTok, ...boothTok, loser: L0.name, score: `${Math.max(awayScore, homeScore)} to ${Math.min(awayScore, homeScore)}`,
+        decider: decider?.shooter || '', deciderOrd: decider?.section === 'OT' ? 'overtime' : decider?.section || '',
+        mvp: mvp?.name || captain || winName, mvpLine: nightSaid(mvp), record: recordOf(winName),
+        seedSaid: seed === 1 ? 'the top seed' : seed === 2 ? 'the second seed' : 'the underdog',
+        captain: stars[0] || captain, star2: stars[1] || stars[0] || '', star3: stars[2] || stars[1] || stars[0] || '',
+        nick: 'Golden Goose Cup',
+      };
+      const exchange = (line) => {
+        if (!line) return;
+        String(line).split(/\s*\|\|\s*/).forEach((t, i) => {
+          const s = cap(t.trim().replace(/\{(\w+)\}/g, (m, w) => (w in tok ? String(tok[w] ?? '') : m)));
+          if (s) say(i % 2 === 1 && analyst ? `${analyst} says, "${s.replace(/"/g, "'")}"` : s, {}, finalBug);
+        });
+      };
+      exchange(xp(decider ? 'cup.celebrate.game' : 'cup.celebrate.game.nodecider', 'cup.celebrate.game.nodecider'));
+      exchange(xp('cup.celebrate.season'));
+      exchange(xp('cup.celebrate.loser'));
+      exchange(xp('cup.lift'));
+      if (stars.length > 1) exchange(xp('cup.pass'));
+    }
   }
-  colour('colour.final', finalTok, null, finalBug);
+  // (on Cup night the colour man's had his say over the celebration, and a night's sign-off about
+  // tomorrow would be wrong after the last game of the season)
+  // How it ended, from the booth on camera: what decided it, the overtime or the shootout, who won
+  // it. It stands in for the colour man's last word; a final has the Cup celebration instead.
+  const boothEnd = !ws && !!ctx.desk?.('booth_end', 'end', finalBug);
+  if (!boothEnd && !(ws && winName && ctx.xpick)) colour('colour.final', finalTok, null, finalBug);
   ctx.desk?.('close', 'end', finalBug);
   const outroId = ctx.lastId();
   say(pick(...(ws ? ['cup.outro', 'outro'] : ['outro'])), finalTok, finalBug, null, null, ws ? { song: 'ksab7_cup_close' } : null);
   return { outroId, lines: said + colourLines };
+}
+
+// Who lifts the Cup on Cup night, in turn: the captain, the player of the final, the goalie, and the
+// next man down the line-up if two of those are one man. Three at most, each once.
+export function cupStars(captain, mvp, goalie, skaters = []) {
+  const out = [];
+  const put = (n) => { if (n && !out.includes(n) && out.length < 3) out.push(n); };
+  put(captain); put(mvp?.name); put(goalie);
+  for (const sk of skaters) put(sk?.name);
+  return out;
+}
+// The player of the final's night in words: "two goals and an assist", "three assists".
+const WORDS = ['no', 'one', 'two', 'three', 'four', 'five', 'six'];
+export function nightSaid(m) {
+  if (!m) return 'a big night';
+  const n = (k, one, many) => (k === 1 ? `a${one === 'assist' ? 'n' : ''} ${one}` : `${WORDS[k] || k} ${many}`);
+  const parts = [m.goals ? n(m.goals, 'goal', 'goals') : '', m.assists ? n(m.assists, 'assist', 'assists') : ''].filter(Boolean);
+  return parts.join(' and ') || 'a big night';
 }
 
 export default narrate;

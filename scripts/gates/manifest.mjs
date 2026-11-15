@@ -158,6 +158,7 @@ export const GROUPS = [
       'scripts/shapes/room-stage.mjs',   // the suite's layout as frozen, every room form builds, placeSpot never stacks pieces
       'scripts/shapes/chem-stage-smoke.mjs', // the Chem Stage: every stage scores a good hand well and a bad one badly; heap, slosh and each stage's pieces build
       'scripts/shapes/actor-head.mjs',
+      'scripts/shapes/fan-vat.mjs',  // the stands' fans: both levels baked sound, on the ground, the face on the head, the mouth opening, no claws
       'scripts/shapes/figure.mjs',   // the close-up figure: every cut and hair style sound, the crowd's coat its coat
       'scripts/shapes/gaits.mjs',    // ROOM's IK gaits: no NaN, a person's stride, the planted foot planted
       'scripts/cats/cat-smoke.mjs',  // the cat kit: every Cattery cat carved in every pose, on the floor, skinned without tearing
@@ -310,6 +311,7 @@ export const GROUPS = [
       'scripts/perf/lite-retain.mjs',        // GLASS Lite's signs, lights and masts kept on the GPU draw what the same records draw sent plain, and keep emitTile's two promises
       'scripts/perf/retain-world-check.mjs', // a recentre leaves the solids' retained groups and the kept casters where their records are (retainWorld)
       'scripts/shapes/anim-smoke.mjs',       // Deadball's players skinned: the rig's frames, four weights a vertex, every pose on the posed build's surface, the hands on the bat
+      'scripts/shapes/figure-rig.mjs',       // Deadball's players as the close-up figure: every clip's joints and head land where the rig put them, no row mirrored
       // Deadball staged in 3-D: each pitch at its spot, every clip on the ball, every ball in play's gloves, throws and call at first, the line held to the landing (one game each, side by side)
       { run: 'scripts/shapes/diamond-smoke.mjs 16', budget: 90, why: '33 s of main-thread CPU alone (2026-11-05), past the 30 s that survives the slowest runner seen. The time is the animation solver (diamond/anim.js, rig.js) posing every body at each of 476,000 checks, which is what the gate tests, and the poses read world state that moves between checks, so they cannot be shared' },
       { run: 'scripts/shapes/diamond-smoke.mjs 41', budget: 90, why: 'The same animation solver cost as seed 16, a little more: 36 s of CPU alone (2026-10-19). Dropping the long-hold pass to every fourth at-bat saved 8%' },

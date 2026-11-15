@@ -1,7 +1,8 @@
 // The hero posters as ROOM draws them: one sheet each, a slice of the print run they were torn from.
 //
 // `roomSheets(rows)` answers the `room.sheets` gather (plugins/roomstage) for the furniture rows in a room: every
-// hero poster hanging there as `{ id, set, slot, of, glyph, title, sub, line, ground, ink, accent, pose, seam? }`.
+// hero poster hanging there as `{ id, set, slot, of, glyph, title, sub, line, ground, ink, accent, pose, seam?, art }`.
+// `art` is the painted print ROOM cuts the sheet from; the rest is what ROOM paints one from when there's no art.
 // ROOM knows nothing about these posters. It hangs a set's sheets edge to edge in slot order and, with every slot
 // present, plays the join (client/game/js/panels/room-sheets.js). So the word, the order and how each sheet is printed
 // are all here.
@@ -26,6 +27,12 @@ const PRINT = {
   bonghitz: { ground: '#583c84', ink: '#150d22', accent: '#d8c2ff', pose: 'smoke', line: 'HE INHALED YOUR FEAR.' },
 };
 
+// The print itself: client/game/assets/posters/hellmoo.webp, the seven panels side by side with no lettering, and
+// hellmoo-letters.webp, the gold HELLMOO that goes over it once the run has joined (scripts/posters/bake.mjs). `cols`
+// are where the divider strips are, so panel i is cols[i]..cols[i + 1]; a sheet on its own is cut `inset` pixels inside
+// the strips either side of it.
+const ART = Object.freeze({ src: 'hellmoo', w: 1024, h: 559, cols: [0, 188.5, 327, 466, 605.5, 744, 883, 1024], inset: 5, height: 1.2 });
+
 // "hero poster: CYD, THE ONE WHO COMES BACK" -> ['CYD', 'THE ONE WHO COMES BACK']
 function titleOf(name, key) {
   const s = String(name || '').replace(/^hero poster:\s*/i, '');
@@ -40,7 +47,7 @@ export function sheetOf(f) {
   const key = f?.flags?.poster_key, slot = MURAL.indexOf(key);
   if (!isHero(f) || slot < 0) return null;
   const [title, sub] = titleOf(f.name, key), p = PRINT[key];
-  return { id: f.id, set: 'hellmoo', slot, of: MURAL.length, glyph: MURAL_WORD[slot], title, sub, line: p.line, ground: p.ground, ink: p.ink, accent: p.accent, pose: p.pose, ...(p.seam ? { seam: p.seam } : {}) };
+  return { id: f.id, set: 'hellmoo', slot, of: MURAL.length, glyph: MURAL_WORD[slot], title, sub, line: p.line, ground: p.ground, ink: p.ink, accent: p.accent, pose: p.pose, ...(p.seam ? { seam: p.seam } : {}), art: ART };
 }
 
 /** The sheets hanging among a room's furniture rows, one per slot, in slot order. */

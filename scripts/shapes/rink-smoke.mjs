@@ -652,6 +652,37 @@ for (const slot of slots.length ? slots : [37, 289]) await play(slot);
   const L = await sit(120);
   check('a late seat finds it partway round', L.zamboni?.lapse === 1 && L.zamboni.mt >= 100 && L.skaters().length === 0, `lapse ${L.zamboni?.lapse}, mt ${L.zamboni?.mt}`);
 }
+// CUP NIGHT (rink/director.js stageCrown): gloves and sticks off at the horn and the pile on the
+// goalie, the handshake line, the Cup out and up in each star's hands in turn under pyro and
+// confetti in the club's colours, then the lap; the camera on its own framings throughout. Once,
+// with the first slot's run.
+if (!slots.length || slots.includes(37)) {
+  const view = createRinkView(stub.makeHost());
+  await view.ready();
+  view.showIdle();
+  const W = view.world, D = view.director, lifts = [];
+  const crown = { sport: 'hockey', type: 'crown', cup: true, final: 'Coldwater Cup', awayTeam: 'Rats', homeTeam: 'Kings', awayAbbr: 'RAT', homeAbbr: 'KIN', awayScore: 2, homeScore: 4,
+    winner: 'Kings', captain: 'Al Centre', mvp: { name: 'Bo Wing', goals: 2, assists: 1 }, stars: ['Al Centre', 'Bo Wing', 'Cy Keeper'],
+    skaters: ['Al Centre', 'Bo Wing', 'Di Wing', 'Ed Dee', 'Fi Dee'], goalie: 'Cy Keeper', hornSeed: 7, sync: 1234 };
+  view.apply(crown);
+  const C = D.CROWN, t0 = W.t, modes = new Set();
+  let nan = 0, cupHigh = 0, sparks = 0, gear = 0, liftT = [];
+  let was = null;
+  for (let i = 0; i < 120 * 62; i++) {
+    W.step(DT);
+    modes.add(W.cam.mode);
+    for (const m of [...W.team.h, ...W.team.a]) if (!Number.isFinite(m.x) || !Number.isFinite(m.y)) nan++;
+    if (W.trophy && W.trophy.z > 5) { cupHigh++; const c = D.state.beat?.carry; if (c && c !== was) { was = c; liftT.push(W.t - t0); } }
+    sparks = Math.max(sparks, W.parts.filter((p) => p.type === 'spark').length);
+    if (i === 120 * 3) gear = W.debris.filter((d) => d.kind === 'stick' || d.kind === 'glove').length;
+  }
+  check('cup: gloves and sticks off at the horn', gear >= 5, String(gear));
+  check('cup: every man stays on the sheet', nan === 0, String(nan));
+  check('cup: up in three men\'s hands in turn, the captain first', liftT.length === 3 && Math.abs(liftT[0] - C.lift) < 0.2 && liftT.every((t, i) => !i || t - liftT[i - 1] > C.each - 0.5), liftT.map((t) => t.toFixed(1)).join(','));
+  check('cup: pyro in the club\'s colours', sparks > 50 && W.parts.filter((p) => p.type === 'spark' || p.type === 'confetti').every((p) => typeof p.col === 'string'), String(sparks));
+  check('cup: the camera goes round it', ['push', 'fight', 'broadcast', 'winner', 'zam'].every((m) => modes.has(m)), [...modes].join(','));
+  view.clear?.();
+}
 for (const t of [...new Set((slots.length ? slots : [37, 289]).flatMap((n) => EXPECT[n]))]) {
   check(`a "${t}" was staged`, seen.has(t), [...seen].join(','));
 }

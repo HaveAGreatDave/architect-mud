@@ -1055,7 +1055,16 @@ export default async function regress({ run, check, getPlayer }) {
     // The final is named with its in-game date and hour, seeded or not.
     check('the league names its final with a date and time',
       !r?.final || (/^\d{4}-\d{2}-\d{2}$/.test(r.final.date) && /^\d{2}:00$/.test(r.final.time) && !!r.final.title), JSON.stringify(r?.final));
-    check('both codes are offered as tabs', (r?.tabs || []).length === 2, JSON.stringify(r?.tabs));
+    check('both codes and the Cups are offered as tabs', (r?.tabs || []).map(t => t.id).join(',') === 'Deadball,Cluster Puck,Cups', JSON.stringify(r?.tabs));
+
+    // The Cups tab: every final either league has played, by year. A regress DB may have
+    // none, so this holds the shape, not the history.
+    r = await run('tabletnav sports cups');
+    check('the Cups tab routes', r?.type === 'tablet_panel' && r?.view === 'sports_cups' && !r?.error, JSON.stringify(r)?.slice(0, 140));
+    check('the Cups tab carries both leagues', (r?.leagues || []).map(l => l.sport).join(',') === 'baseball,hockey', JSON.stringify(r?.leagues)?.slice(0, 200));
+    check('each final names its two clubs, and a played one its score',
+      (r?.leagues || []).every(l => (l.years || []).every(y => /^(\d{4}|Undated)$/.test(y.year) && y.finals.every(f => f.a?.name && f.b?.name && (f.pending || /^\d+–\d+$/.test(f.score || ''))))),
+      JSON.stringify(r?.leagues)?.slice(0, 300));
 
     r = await run('tabletnav sports cluster_puck');
     check('the hockey tab routes', r?.type === 'tablet_panel' && !r?.error, JSON.stringify(r)?.slice(0, 140));

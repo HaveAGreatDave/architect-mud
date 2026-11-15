@@ -19,12 +19,15 @@
 //   c.nodes, c.startId       the chain so far, which the payloads are stamped on at the end
 //   c.fillMs                 the play-by-play's share of the slot (ms)
 //   c.lastId()               the chain's last node, so the caller knows where the outro starts
+//   c.desk(when, at, sb, cut) a show's segment at a moment, the desk's or the booth's (`booth_*`);
+//                            true when one aired
+//   c.boothCut               the one cut to the booth this game gets (facts.js boothCuts), or null
 //
 // Returns { outroId }: the final's line, which the pacer holds to the slot's end.
 import { sportsRng, sportsHash, sportsFill, sportsPickTagged } from '../rng.js';
 import { BASEBALL } from './baseball.js';
 import { gamedayPayloads, gameMvp } from './baseball-gameday.js';
-import { makeBooth, exciteFor } from './baseball-booth.js';
+import { makeBooth, exciteFor as exciteOf } from './baseball-booth.js';
 import { rivalOf } from './hockey.js';
 import { landBy, afterLand } from '../../../client/game/js/panels/diamond/timing.js';
 import { venueField } from '../../../client/game/js/panels/diamond/geo.js';
@@ -36,6 +39,14 @@ export function narrateBaseball(c) {
     recordOf, standings, leaders, ledger, seasonState, venueRev: venueStamp, venueSaid, liveHoldS: LIVE_HOLD_S,
   } = c;
   const { away, home, awayScore, homeScore } = game;
+  // In a final every call runs hotter: the same play means more, and the booth sounds it. The
+  // lean-in before a pitch comes in a smaller spot too.
+  const exciteFor = (b, h, phase = 'call', bases = null) => {
+    const v = exciteOf(b, h, phase, bases);
+    if (!ws) return v;
+    if (phase === 'before' && !v) return exciteOf({ ...b, inning: Math.max(9, b.inning || 0) }, h, phase, bases);
+    return Math.min(1, Math.round((v * 1.25 + (v > 0 ? 0.08 : 0)) * 100) / 100);
+  };
   // How excited the booth is at the play it's on (exciteFor), on every line it says until it
   // moves on; a line that brings its own wins.
   let curExcite = 0;
@@ -53,6 +64,8 @@ export function narrateBaseball(c) {
     awayScore: aScore, homeScore: hScore, status,
     ...(outs != null ? { outs } : {}),
     ...(bases ? { bases } : {}),
+    // the Curtain Call: the Coliseum on the map seats a full house for it (world-feed.js venuePlay)
+    ...(ws ? { final: true } : {}),
   });
   const beatBug = (b) => bug(
     `${b.half === 'top' ? 'TOP' : 'BOT'} ${sportsOrdinal(b.inning)}`,
@@ -154,6 +167,8 @@ export function narrateBaseball(c) {
     : null;
   say(pick(...(ws ? ['worldseries.matchup', 'matchup.records', 'matchup'] : (hasRecords ? ['matchup.records', 'matchup'] : ['matchup']))), gameTok, pregameBug, muGraphic);
   c.desk?.('open', null, pregameBug);
+  // and the desk throws to the booth: the two men calling it, on camera in the press box
+  c.desk?.('booth_open', null, pregameBug);
 
   // The half-innings, each narrated in full: every plate appearance is called, so the park
   // never jumps a man the booth skipped, and between them the booth talks
@@ -179,6 +194,10 @@ export function narrateBaseball(c) {
   const talkers = makeBooth({
     pools: boothPools, rand: sportsRng(sportsHash(gs.seed, 0xb007)), announcer, analyst: script.analyst || '', game,
     leaders: gdLeaders, recordOf: (team) => recordOf(team), ledger,
+    // the clubs' history (sports/club-lore.js), told at the changeovers off its own stream
+    lore: c.lore || null, loreRand: c.loreRand || null,
+    // the Curtain Call: how each club got here, the stakes and the pressure (baseball-booth.js)
+    final: ws ? { name: sportMod.season?.finalName || 'Final', ...(c.finalFacts?.() || {}) } : null,
   });
   const brng = sportsRng(sportsHash(gs.seed, 0xb008));
   // One plate appearance's share of the slot (s), a changeover counting as one and a half, and
@@ -220,6 +239,68 @@ export function narrateBaseball(c) {
       away: away.name, home: home.name, awayScore, homeScore, champion: !!ws,
     } } : null);
   };
+  // THE CHAMPIONS (a final, after its last line). The field's theirs while the booth says how they
+  // won it, the game and then the season, and the losers get a word; then the Memorial Cup: its
+  // line carries a payload of its own (`phase: 'crown'`), and the 3-D park cuts to the trophy's
+  // table with the champions round it, where the night's stars lift it one after another
+  // (diamond/ceremony.js). Its lines draw from the venue's stream (xpick), so the outro's line and
+  // everything the booth picked before stay as they were. The last-out payload's hold runs to the
+  // cup's, so the park's celebration lasts as long as this talk (and at least AFTER.champion,
+  // diamond/timing.js, which the pacer makes room for).
+  const champions = () => {
+    const W0 = winName === away.name ? away : home, L0 = W0 === away ? home : away;
+    const mvp = gameMvp(GD.order, winName);
+    const stars = cupStars(GD.order, winName, W0, mvp);
+    // the run that put them ahead for good: the last payload that took the winners from level or
+    // behind to in front
+    let decider = null, was = 0;
+    for (const p of GD.order) {
+      if (p.phase === 'half' || p.phase === 'arrive' || !Number.isFinite(p.awayScore) || !Number.isFinite(p.homeScore)) continue;
+      const lead = winName === away.name ? p.awayScore - p.homeScore : p.homeScore - p.awayScore;
+      if (lead > 0 && was <= 0 && p.battingTeam === winName) decider = p;
+      was = lead;
+    }
+    const deciderName = decider ? (decider.phase === 'run' ? decider.runner || '' : decider.batter || '') : '';
+    const seed = winName === seasonState.finalistA ? 1 : winName === seasonState.finalistB ? 2 : null;
+    const ws_ = Math.max(awayScore, homeScore), ls_ = Math.min(awayScore, homeScore);
+    const tok = {
+      ...finalTok, loser: L0.name, score: `${ws_} to ${ls_}`, record: recordOf(winName),
+      seedSaid: seed === 1 ? 'the top seed' : seed === 2 ? 'the second seed' : 'the underdog',
+      mvp: mvp?.name || stars[0] || winName, mvpLine: mvpSaid(mvp?.line), decider: deciderName,
+      deciderOrd: decider ? sportsOrdinal(decider.inning) : '',
+      cup: CUP_NAME, star1: stars[0] || '', star2: stars[1] || stars[0] || '', star3: stars[2] || stars[1] || stars[0] || '',
+      chip: String(announcer).split(' ')[0], dusty: String(script.analyst || '').split(' ')[0],
+    };
+    // a pool's line as the booth says it: Chip's turns plain, the colour man's as "Name says"
+    const exchange = (line, first = {}) => {
+      if (!line) return;
+      String(line).split(/\s*\|\|\s*/).forEach((t, i) => {
+        const said = sportsFill(t, tok).trim();
+        if (!said) return;
+        const colour = i % 2 === 1 && script.analyst;
+        say(colour ? `${script.analyst} says, "${said.replace(/"/g, "'")}"` : said, {}, finalBug, i === 0 ? first.graphic : null, i === 0 ? first.gd : null);
+      });
+    };
+    exchange(xpick(deciderName ? 'worldseries.celebrate.game' : 'worldseries.celebrate.game.nodecider', 'worldseries.celebrate.game.nodecider'));
+    exchange(xpick('worldseries.celebrate.season'));
+    exchange(xpick('worldseries.celebrate.loser'));
+    // the Cup: the park turns over to the ceremony on this line
+    const top = W0 === away;
+    exchange(xpick('worldseries.cup') || 'The {cup}, for the {leader}.', {
+      graphic: { ...winGraphic, label: CUP_NAME, duration: 4.6 },
+      gd: {
+        sport: 'baseball', phase: 'crown', cup: CUP_NAME, final: sportMod.season?.finalName || 'Final',
+        winner: winName, loser: L0.name, away: away.name, home: home.name, awayScore, homeScore,
+        // the champions take the field for it, so the cast is theirs (diamond/cast.js crownCast)
+        half: top ? 'bottom' : 'top', fieldingTeam: winName, battingTeam: L0.name,
+        fieldingAbbr: top ? awayAbbr : homeAbbr, battingAbbr: top ? homeAbbr : awayAbbr,
+        inning: game.innings, pitcher: W0.pitcher || '', stars, mvp: mvp || null,
+      },
+    });
+    exchange(xpick('worldseries.cup.lift'));
+    if (stars.length > 1) exchange(xpick('worldseries.cup.pass'));
+  };
+
   // The game's last play is known up front: the last beat of the last half. In regulation the booth
   // sees it coming (one out away) and calls it as the end; extras are cut to the drama below.
   const endsInRegulation = !extraHalves.length;
@@ -233,7 +314,8 @@ export function narrateBaseball(c) {
 
   for (const h of regHalves) {
     // the stretch is the game's one break: the desk has it before the bottom of the seventh
-    if (h.start.inning === 7 && h.start.half === 'bottom') c.desk?.('break', h.start, beatBug(h.start));
+    // (the booth sends it there first)
+    if (h.start.inning === 7 && h.start.half === 'bottom') { c.desk?.('booth_break', h.start, beatBug(h.start)); c.desk?.('break', h.start, beatBug(h.start)); }
     say(pick(`half.${h.start.half}`, 'half'), beatTok(h.start), beatBug(h.start), null, halfGameday(h.start));
     bank += 1.5 * share - 6;
     bank -= talk(talkers.changeover(h.start, { ...halfGameday(h.start), pl: beatGameday(h.atbats.find((x) => x.type === 'atbat'))?.pl }, bank * 0.6), beatBug(h.start));
@@ -255,8 +337,11 @@ export function narrateBaseball(c) {
         say(pick(...keys), tok, sb, null, gd);
         if (scored) say(scoreUpdate(b), tok, sb, null, null, runMeta(b));
         if (b.walkoff) { say(pick('walkoff'), tok, sb, walkoffGraphic(b)); walkoffHalf = true; }
+        // a steal or a ball that got by that put a man in scoring position: the booth says where that leaves it
+        else if (!b.out && !scored) bank -= talk(talkers.risp(b, gd), sb);
         talkers.trackRun(b, gd);
         if (walkoffHalf || b === lastBeat) { curExcite = 0; sayFinal(walkoffHalf ? 'final.walkoff' : 'final.out'); break; }
+        if (c.boothCut?.beat === b) c.desk?.('booth_cut', b, sb, c.boothCut);
         continue;
       }
       // The batter coming up. The booth talks over the pitches: the at-bat's payload rides the first
@@ -329,6 +414,9 @@ export function narrateBaseball(c) {
       if (walkoffHalf || b === lastBeat) { curExcite = 0; sayFinal(walkoffHalf ? 'final.walkoff' : 'final.out'); break; }
       // and what the play earns, never over a walk-off or the third out's changeover
       // (a home run's trot and replay is time the park takes anyway, so the booth talks over it)
+      // Now and then the picture goes up to the booth after a big moment (facts.js boothCuts), and
+      // the two of them on camera take the place of the after-talk.
+      if (c.boothCut?.beat === b && c.desk?.('booth_cut', b, sb, c.boothCut)) { curExcite = 0; continue; }
       curExcite = exciteFor(b, home.name, 'after', gd?.basesBefore);
       if (!walkoffHalf && b.outs < 3) bank -= talk(talkers.after(b, gd, Math.max(0, bank, b.kind === 'homerun' ? afterLand(gd) - 8 : 0)), sb);
       curExcite = 0;
@@ -381,6 +469,10 @@ export function narrateBaseball(c) {
   }
 
   sayFinal();
+  // How it ended, from the booth on camera: what decided it, the walk-off or the extras, who won it.
+  // A final has the champions instead, where the booth says how they won it over the celebration.
+  if (ws && winName) champions();
+  else c.desk?.('booth_end', 'end', finalBug);
   c.desk?.('close', 'end', finalBug);
   const outroId = c.lastId();
   say(pick(...(ws ? ['worldseries.outro', 'outro'] : ['outro'])), finalTok, finalBug);
@@ -407,6 +499,8 @@ export function narrateBaseball(c) {
     for (let id = startId; id; id = nodes[id].next) {
       const gd = nodes[id].gameday;
       if (!gd) continue;
+      // the Cup's payload comes after the game's last: it's not a play, and the game's end isn't on it
+      if (gd.phase === 'crown') { if (clubsRev) nodes[id].gameday = { ...gd, clubsRev }; continue; }
       all.push(gd); lastId = id;
       const stamp = clubsRev ? { clubsRev } : {};
       nodes[id].gameday = first ? { ...gd, standings: gdStandings, leaders: gdLeaders, season, ...(venueRev ? { venueRev } : {}), ...stamp } : { ...gd, ...stamp };
@@ -417,4 +511,40 @@ export function narrateBaseball(c) {
     }
   }
   return { outroId };
+}
+
+// The trophy the Curtain Call is played for, named for the man the ballpark is.
+export const CUP_NAME = 'Charles B. Hughson Memorial Cup';
+
+// The men who lift the Cup, in turn: the night's most valuable player, the winners' pitcher, and
+// their next best bat on the night (bases and runs batted in, as gameMvp counts), else the first
+// of their line-up who isn't already named. Three at most, each once.
+const HIT_BASES = { single: 1, double: 2, triple: 3, homerun: 4 };
+export function cupStars(payloads, winner, team, mvp) {
+  const by = new Map();
+  for (const p of payloads || []) {
+    if (p.phase || !p.batter || p.battingTeam !== winner) continue;
+    by.set(p.batter, (by.get(p.batter) || 0) + (HIT_BASES[p.kind] || 0) + 1.5 * (p.rbi | 0));
+  }
+  const out = [];
+  const add = (n) => { if (n && !out.includes(n) && out.length < 3) out.push(n); };
+  add(mvp?.name);
+  add(team?.pitcher);
+  [...by.entries()].sort((a, b) => b[1] - a[1]).forEach(([n]) => add(n));
+  for (const x of Array.isArray(team?.lineup) ? team.lineup : []) add(typeof x === 'string' ? x : x?.name);
+  return out;
+}
+
+// gameMvp's line ('2-4, HR, 3 RBI') as the booth says it: "2 for 4, a home run, 3 runs batted in".
+export function mvpSaid(line) {
+  return String(line || '').split(/,\s*/).filter(Boolean).map((s) => {
+    let m = /^(\d+)-(\d+)$/.exec(s);
+    if (m) return `${m[1]} for ${m[2]}`;
+    if (s === 'HR') return 'a home run';
+    m = /^(\d+) HR$/.exec(s);
+    if (m) return `${m[1]} home runs`;
+    m = /^(\d+) RBI$/.exec(s);
+    if (m) return m[1] === '1' ? '1 run batted in' : `${m[1]} runs batted in`;
+    return s;
+  }).join(', ') || 'a big night';
 }

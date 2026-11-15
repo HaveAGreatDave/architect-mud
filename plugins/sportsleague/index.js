@@ -160,6 +160,104 @@ function invalidateSeason(sport) {
   _seasonGen++;
   const hit = _seasonCaches.get(sport);
   if (hit) hit.fresh = false;
+  _finalsCache.delete(sport);
+  _historyCache.delete(sport);
+}
+
+// ── The league's history, for the booth ──────────────────────────────────────
+// Every played season, newest first: its final and where each club finished. The broadcast
+// reads it through `sportsleague.getHistory` and works the clubs' stories out of it
+// (plugins/broadcast/sports/club-lore.js). Dropped with the season cache, so it's one read
+// per league per season change.
+const _historyCache = new Map();   // sport -> seasons
+const HISTORY_KEPT = 24;
+async function leagueHistory(sport) {
+  if (_historyCache.has(sport)) return _historyCache.get(sport);
+  const { rows } = await query(
+    `SELECT season_no, champion, runner_up, champ_score, runner_score, final_table, era
+       FROM sports_season WHERE sport = $1 AND phase = 'complete'
+        AND (champion IS NOT NULL OR jsonb_array_length(COALESCE(final_table, '[]'::jsonb)) > 0)
+      ORDER BY season_no DESC LIMIT ${HISTORY_KEPT}`,
+    [sport],
+  ).catch(() => ({ rows: null }));
+  if (!rows) return [];
+  const seasons = rows.map((r) => ({
+    seasonNo: r.season_no, champion: r.champion || null, runnerUp: r.runner_up || null,
+    score: r.champion ? [r.champ_score, r.runner_score] : null,
+    table: Array.isArray(r.final_table) && r.final_table.length ? r.final_table : null,
+    era: r.era || null,
+  }));
+  _historyCache.set(sport, seasons);
+  return seasons;
+}
+
+// Where every club finished a season, top first: the table that seeded its final, which runs
+// to the start of Cup day. One fold of the month's games, so it's run once, as the season
+// closes, and kept on the row.
+async function finalTableOf(sport, season) {
+  const start = season?.start_slot != null ? Number(season.start_slot) : null;
+  if (!Number.isFinite(start)) return null;
+  const [cal, clock] = await Promise.all([calendar(sport, start), currentSlot()]);
+  // never past the games that have aired: a season closed mid-month finished where it stood
+  const end = Math.min(Number(cal?.cupDayStartSlot), clock.ready ? clock.slot : Infinity);
+  if (!Number.isFinite(end) || end <= start) return null;
+  const res = await dispatchAction({ type: 'broadcast.computeStandings', params: { startSlot: start, endSlot: end, sport } }).catch(() => null);
+  return Array.isArray(res?.rows) ? res.rows.map((r) => r.team) : null;
+}
+
+// Seasons closed before final_table was kept get theirs worked out once, the most recent few
+// only. A table is kept only when its top two are the season's finalists, which is how it's
+// known to be the table that aired: a season played under another roster or another sim folds
+// to something else today, and gets an empty list so it isn't tried again.
+const _backfilled = new Set();
+async function backfillTables(sport) {
+  if (_backfilled.has(sport)) return;
+  _backfilled.add(sport);
+  const { rows } = await query(
+    `SELECT season_no, start_slot, finalist_a, finalist_b FROM sports_season
+      WHERE sport = $1 AND phase = 'complete' AND champion IS NOT NULL AND final_table IS NULL
+      ORDER BY season_no DESC LIMIT 5`,
+    [sport],
+  ).catch(() => ({ rows: [] }));
+  let wrote = 0;
+  for (const s of rows) {
+    const table = await finalTableOf(sport, s);
+    if (!table) continue;
+    const ok = table.length >= 2 && new Set([table[0], table[1]]).size === 2 && [table[0], table[1]].every((t) => t === s.finalist_a || t === s.finalist_b);
+    await query(`UPDATE sports_season SET final_table = $3::jsonb WHERE sport = $1 AND season_no = $2`,
+      [sport, s.season_no, JSON.stringify(ok ? table : [])]).catch(() => {});
+    wrote++;
+    console.log(`[sportsleague] ${leagueOf(sport).league} season ${s.season_no}: final table ${ok ? 'kept' : 'did not match its finalists, left empty'}`);
+  }
+  if (wrote) invalidateSeason(sport);
+}
+
+// Every final a league has seeded, newest first, for the tablet's Cups tab: the two
+// clubs, and once it's played, who won and by what. Every writer of sports_season goes
+// through invalidateSeason, which drops this too, so it's one read per league per change.
+const _finalsCache = new Map();   // sport -> rows
+const FINALS_KEPT = 120;          // ten years of monthly seasons
+async function leagueFinals(sport) {
+  if (_finalsCache.has(sport)) return _finalsCache.get(sport);
+  const { rows } = await query(
+    `SELECT season_no, start_month, phase, finalist_a, finalist_b, champion, runner_up, champ_score, runner_score
+       FROM sports_season WHERE sport = $1 AND finalist_a IS NOT NULL AND finalist_b IS NOT NULL
+      ORDER BY season_no DESC LIMIT ${FINALS_KEPT}`,
+    [sport],
+  ).catch(() => ({ rows: null }));
+  if (!rows) return [];
+  const out = rows.map((r) => ({
+    seasonNo: r.season_no,
+    month: /^\d{4}-\d{2}$/.test(r.start_month || '') && r.start_month !== '0000-00' ? r.start_month : null,
+    teams: [r.finalist_a, r.finalist_b],
+    winner: r.champion || null,
+    loser: r.champion ? r.runner_up : null,
+    score: r.champion ? [r.champ_score, r.runner_score] : null,
+    // Seeded and not yet crowned: the final this season is building to.
+    pending: !r.champion && r.phase === 'worldseries',
+  })).filter((f) => f.winner || f.pending);
+  _finalsCache.set(sport, out);
+  return out;
 }
 
 async function currentSeason(sport) {
@@ -181,6 +279,9 @@ async function currentSeason(sport) {
 // of the month, or of the next month on Cup day. Season numbers run per sport, so both
 // leagues have a Season 1.
 async function ensureSeason(sport) {
+  // A dev-panel restart closes the open season and writes the next one itself. Opening
+  // one here in between would anchor it to the start of the month, games and all.
+  if (_restarts.has(sport)) await _restarts.get(sport).catch(() => {});
   const active = await currentSeason(sport);
   if (active) return active;
   const { rows } = await query(
@@ -246,10 +347,12 @@ async function crownChampion(sport, season) {
   const champScore = winner === g.away ? g.awayScore : g.homeScore;
   const runScore = winner === g.away ? g.homeScore : g.awayScore;
   const toll = await seasonToll(sport);
+  const table = await finalTableOf(sport, season).catch(() => null);
   await query(
     `UPDATE sports_season SET phase = 'complete', champion = $1, runner_up = $2,
-       champ_score = $3, runner_score = $4, decided_at = NOW(), toll = $7::jsonb WHERE sport = $5 AND season_no = $6`,
-    [winner, loser, champScore, runScore, sport, season.season_no, toll],
+       champ_score = $3, runner_score = $4, decided_at = NOW(), toll = $7::jsonb, final_table = $8::jsonb
+     WHERE sport = $5 AND season_no = $6`,
+    [winner, loser, champScore, runScore, sport, season.season_no, toll, table ? JSON.stringify(table) : null],
   ).catch((e) => console.error('[sportsleague] crown error:', e.message));
   invalidateSeason(sport);
   _standCaches.delete(sport);
@@ -269,22 +372,117 @@ function staleEra(sport, season) {
 // Close a season with no champion (the champions history lists only seasons that have one)
 // and open the next. Whatever phase it was in, including a final already seeded with two
 // clubs that are no longer in the league.
-async function closeUncrowned(sport, season, why) {
+async function closeSeasonRow(sport, season) {
   const toll = await seasonToll(sport);
+  // A season closed before Cup day has no final table; one closed after it (too few games
+  // for a final) still finished somewhere.
+  const table = await finalTableOf(sport, season).catch(() => null);
   await query(
-    `UPDATE sports_season SET phase = 'complete', decided_at = NOW(), toll = $3::jsonb
+    `UPDATE sports_season SET phase = 'complete', decided_at = NOW(), toll = $3::jsonb, final_table = $4::jsonb
       WHERE sport = $1 AND season_no = $2 AND phase <> 'complete'`,
-    [sport, season.season_no, toll],
+    [sport, season.season_no, toll, table && table.length ? JSON.stringify(table) : null],
   ).catch((e) => console.error('[sportsleague] season close error:', e.message));
   invalidateSeason(sport);
   _standCaches.delete(sport);
   _careers.delete(sport);
+}
+async function closeUncrowned(sport, season, why) {
+  await closeSeasonRow(sport, season);
   console.log(`[sportsleague] ${leagueOf(sport).league} season ${season.season_no} closed with no champion (${why}), a fresh one opens`);
   return ensureSeason(sport);
 }
 // The league's roster has changed since this season opened. The next season records the
 // new era.
 const closeForEra = (sport, season) => closeUncrowned(sport, season, `the league is now ${leagueOf(sport).era}`);
+
+// ── Starting a league over (the dev panel's Leagues tab) ─────────────────────────
+// Closes the open season with no champion and opens the next one from the next slot,
+// so the table reads 0-0 now rather than at the turn of the month. Cup day stays the
+// month's last day; a season started too late to seed a final closes uncrowned on Cup
+// day, as any thin season does. Started on Cup day itself, it opens with next month.
+// `wipe` deletes every season the league has had first, so it's Season 1 again with an
+// empty trophy case and no careers. Deadball and the CPhL are restarted one at a time.
+const _restarts = new Map();   // sport -> the restart in flight, which ensureSeason waits on
+async function restartLeague(sport, { wipe = false } = {}) {
+  if (!LEAGUES[sport]) return { error: `No league for "${sport}".` };
+  if (_restarts.has(sport)) return { error: `${leagueOf(sport).league} is already being restarted.` };
+  const clock = await currentSlot();
+  if (!clock.ready) return { error: "The in-game clock hasn't loaded yet. Try again in a few seconds." };
+  const cal = await calendar(sport, clock.slot);
+  const job = (async () => {
+    const open = await currentSeason(sport);
+    if (wipe) {
+      await query(`DELETE FROM sports_season WHERE sport = $1`, [sport]);
+      invalidateSeason(sport);
+      _standCaches.delete(sport);
+      _careers.delete(sport);
+    } else if (open) {
+      await closeSeasonRow(sport, open);
+    }
+    const { rows } = await query(
+      `SELECT COALESCE(MAX(season_no), 0) + 1 AS n FROM sports_season WHERE sport = $1`, [sport],
+    );
+    const n = rows[0]?.n || 1;
+    const startSlot = cal?.isCupDay ? cal.seasonStartSlot : clock.slot + 1;
+    const startDate = (cal?.isCupDay ? cal.seasonStartDate : gameDate()) || cal?.seasonStartDate || null;
+    await query(
+      `INSERT INTO sports_season (sport, season_no, start_month, start_date, start_slot, phase, era)
+       VALUES ($1, $2, $3, $4, $5, 'regular', $6)`,
+      [sport, n, startDate ? startDate.slice(0, 7) : gameMonth(), startDate, startSlot, leagueOf(sport).era || null],
+    );
+    invalidateSeason(sport);
+    _standCaches.delete(sport);
+    console.log(`[sportsleague] ${leagueOf(sport).league} restarted from the dev panel: season ${n} opens at slot ${startSlot}` +
+      (wipe ? ', history wiped' : open ? `, season ${open.season_no} closed uncrowned` : ''));
+    return { ok: true, sport, seasonNo: n, startSlot, startDate, closed: (!wipe && open) ? open.season_no : null, wiped: !!wipe };
+  })();
+  _restarts.set(sport, job);
+  try { return await job; }
+  catch (e) {
+    console.error('[sportsleague] restart error:', e.message);
+    invalidateSeason(sport);
+    return { error: `Restart failed: ${e.message}` };
+  } finally { _restarts.delete(sport); }
+}
+
+// Everything the Leagues tab shows for one league: the open season, how far into its
+// month it is, the table as it stands, and the trophy case.
+async function leagueState(sport) {
+  const L = leagueOf(sport);
+  const [s, champ, clock] = await Promise.all([currentSeason(sport), lastChampion(sport), currentSlot()]);
+  const cal = clock.ready ? await calendar(sport, clock.slot) : null;
+  const rows = await queryStandings(sport).catch(() => []);
+  const { rows: hist } = await query(
+    `SELECT COUNT(*)::int AS seasons, COUNT(champion)::int AS crowned FROM sports_season WHERE sport = $1`, [sport],
+  ).catch(() => ({ rows: [{}] }));
+  return {
+    sport, icon: L.icon, show: L.show, league: L.league, final: L.finalTitle, head: L.head,
+    season: s ? {
+      no: s.season_no, phase: s.phase, startDate: s.start_date, era: s.era,
+      finalists: s.finalist_a ? [s.finalist_a, s.finalist_b] : null,
+      startsLater: s.start_slot != null && clock.ready && Number(s.start_slot) > clock.slot,
+    } : null,
+    day: cal ? { of: cal.dayOfMonth, days: cal.monthDays, cupDay: !!cal.isCupDay } : null,
+    table: rows.map((r) => ({ team: r.team, played: L.played(r), cells: L.cells(r) })),
+    champion: champ ? { season: champ.season_no, team: champ.champion, over: champ.runner_up, score: `${champ.champ_score}-${champ.runner_score}` } : null,
+    seasons: hist[0]?.seasons || 0, crowned: hist[0]?.crowned || 0,
+  };
+}
+
+const DEV_ROLES = ['dev', 'admin', 'builder', 'designer'];
+export async function routeHandler(path, method, body, auth) {
+  if (path === '/sportsleague/state' && method === 'GET') {
+    if (!auth || !DEV_ROLES.includes(auth.role)) return { status: 403, body: { error: 'Dev access required' } };
+    const leagues = await Promise.all(Object.keys(LEAGUES).map((s) => leagueState(s)));
+    return { status: 200, body: { leagues } };
+  }
+  if (path === '/sportsleague/restart' && method === 'POST') {
+    if (!auth || !['dev', 'admin'].includes(auth.role)) return { status: 403, body: { error: 'Dev or admin access required' } };
+    const r = await restartLeague(String(body?.sport || ''), { wipe: !!body?.wipe });
+    return { status: r.error ? 400 : 200, body: r };
+  }
+  return null;
+}
 
 // ── Standings (computed, cached) ────────────────────────────────────────────────
 
@@ -552,6 +750,22 @@ registerAction({
   },
 });
 
+registerAction({
+  type: 'sportsleague.getHistory',
+  handler: async ({ params = {} } = {}) => {
+    const sport = LEAGUES[params.sport] ? params.sport : 'baseball';
+    // `era`: the roster the league plays with now. A season of this era had every club in it.
+    return { sport, era: leagueOf(sport).era || null, seasons: await leagueHistory(sport) };
+  },
+});
+registerAction({
+  type: 'sportsleague.getFinals',
+  handler: async ({ params = {} } = {}) => {
+    const sport = LEAGUES[params.sport] ? params.sport : 'baseball';
+    return { sport, final: leagueOf(sport).finalTitle, finals: await leagueFinals(sport) };
+  },
+});
+
 // Season clock: once a minute, for every league with a show on the air, keep a season
 // open, seed the championship when the season has run its course, and crown the winner
 // once its slot has aired.
@@ -595,6 +809,8 @@ async function seasonTickFor(sport) {
 async function seasonTick() {
   for (const sport of await activeSports()) {
     await seasonTickFor(sport).catch((e) => console.error(`[sportsleague] ${sport} season tick error:`, e.message));
+    // once a process, after the season's own business: the recent tables the history needs
+    if ((await currentSlot()).ready) await backfillTables(sport).catch((e) => console.error(`[sportsleague] ${sport} table backfill error:`, e.message));
   }
 }
 // Idle-gated: every phase transition derives from the game clock (slots

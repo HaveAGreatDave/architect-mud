@@ -206,15 +206,16 @@ const cl255 = (c) => c.map((v) => clamp(v, 0, 255));
 // parkFigures as the GPU's pavement people (their clips baked into a texture). Every figure is
 // [u, v, z, clip, seed] in block coordinates; `who` says which list. The seats are the stands' own
 // numbers below (the three grandstand tiers and the outfield rows), a fan every FAN_GAP, and a seed
-// over FILL leaves the seat empty. The players stand where the defence does with nobody on: the
-// live play is a follow-up (docs/proposals/hughson-coliseum.md).
+// over FILL leaves the seat empty, except on a final night, when every seat's taken (the venue
+// push's `final`). The players stand where the defence does with nobody on: the live play is a
+// follow-up (docs/proposals/hughson-coliseum.md).
 const FAN_GAP = 0.055, FILL = 0.82, FIG_K = 0.8;
 const figHash = (a, b) => { const s = Math.sin(a * 127.1 + b * 311.7) * 43758.5453; return s - Math.floor(s); };
-let PARK_PEOPLE = null;
-function parkPeople() {
-  if (PARK_PEOPLE) return PARK_PEOPLE;
-  const fans = [], players = [];
-  const seat = (u, v, z) => { const h = figHash(u, v); if (h < FILL) fans.push([u, v, z, h / FILL]); };
+const PARK_PEOPLE = [null, null];
+function parkPeople(full = false) {
+  if (PARK_PEOPLE[+full]) return PARK_PEOPLE[+full];
+  const fans = [], players = [], fill = full ? 1 : FILL;
+  const seat = (u, v, z) => { const h = figHash(u, v); if (h < fill) fans.push([u, v, z, h / fill]); };
   // the grandstand: two rows a tier along Sorrel Way (v) and the east side (u)
   const tiers = [[STAND, 1.20, 0.055], [1.20, 1.31, 0.11], [1.31, BACK, 0.17]];
   for (const [t0, t1, z] of tiers) for (const r of [0.3, 0.75]) {
@@ -241,8 +242,8 @@ function parkPeople() {
   const at = (r, deg) => [HP[0] - r * Math.cos(deg * Math.PI / 180), HP[1] - r * Math.sin(deg * Math.PI / 180)];
   for (const [r, deg, clip] of [[0.355, 45, 'idle'], [-0.04, 45, 'wait'], [0.50, 10, 'wait'], [0.66, 30, 'wait'], [0.66, 60, 'wait'],
     [0.50, 80, 'wait'], [1.45, 15, 'wait'], [1.6, 45, 'wait'], [1.45, 75, 'wait']]) players.push([...at(r, deg), 0.004, clip, figHash(r, deg)]);
-  PARK_PEOPLE = { fans, players, ump: [...at(-0.08, 45), 0.004, 'idle', 0.71] };
-  return PARK_PEOPLE;
+  PARK_PEOPLE[+full] = { fans, players, ump: [...at(-0.08, 45), 0.004, 'idle', 0.71] };
+  return PARK_PEOPLE[+full];
 }
 // Where the batting side stands: the batter beside the plate, and a runner a step off each base
 // toward the next (first, second, third).
@@ -1324,7 +1325,7 @@ export const COLISEUM_ARMS = {
       const build = () => {
         const g = pl ? venuePlay(pl.wx, pl.wy) : null;
         if (memo && memoOf === g) return memo;
-        const { fans, players, ump } = parkPeople(), figs = [];
+        const { fans, players, ump } = parkPeople(!!(g && g.final)), figs = [];
         const add = (u, v, z, clip, seed, kit = 0) => {
           if (!inTile(u, v)) return;
           const [wx, wy] = P(u, v);

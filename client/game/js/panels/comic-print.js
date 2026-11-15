@@ -517,15 +517,17 @@ export function paintPage(g, w, h, shots, word, words, t, o = {}) {
 }
 
 // The page's paper, fading in over its first 0.15 s: a faint dot screen and a yellowed edge.
+// (under whatever alpha the caller set: a page fading out fades its paper with it)
 function paper(g, w, h, k, t) {
-  g.globalAlpha = ease(t / 0.15);
+  const A0 = g.globalAlpha ?? 1;
+  g.globalAlpha = A0 * ease(t / 0.15);
   g.fillStyle = PAPER; g.fillRect(0, 0, w, h);
   g.fillStyle = 'rgba(120,90,50,0.08)';
   const st = Math.max(6, 9 * k);
   for (let y = 0; y < h; y += st) for (let x = ((y / st) % 2) * st / 2; x < w; x += st) g.fillRect(x, y, 1.5 * k, 1.5 * k);
   const edge = g.createRadialGradient?.(w / 2, h / 2, Math.min(w, h) * 0.35, w / 2, h / 2, Math.hypot(w, h) * 0.6);
   if (edge) { edge.addColorStop(0, 'rgba(150,110,40,0)'); edge.addColorStop(1, 'rgba(150,110,40,0.28)'); g.fillStyle = edge; g.fillRect(0, 0, w, h); }
-  g.globalAlpha = 1;
+  g.globalAlpha = A0;
 }
 // The masthead, top right: the comic's name and its number, as a cover's corner box has them.
 // `t` is seconds since it started to come in; none without `o.issue`.
@@ -533,7 +535,7 @@ function masthead(g, L, w, k, t, o) {
   const a = ease(t / 0.25);
   if (o.issue == null || !(a > 0)) return;
   const C = L.caption, bh = C.h * 0.86, size = bh * 0.3, text = String(o.masthead || 'COMICS').toUpperCase(), no = `No. ${o.issue}`;
-  g.save(); g.globalAlpha = a;
+  g.save(); g.globalAlpha = (g.globalAlpha ?? 1) * a;
   g.font = HAND(Math.round(size));
   const bw = Math.max(g.measureText?.(text)?.width || size * text.length * 0.6, size * 4) + size, x = w - L.margin - bw, y = C.y + (C.h - bh) / 2;
   g.fillStyle = INK; g.fillRect(x + 3 * k, y + 3 * k, bw, bh);
@@ -549,7 +551,7 @@ function headline(g, L, k, t, words) {
   const a = ease(t / 0.25);
   if (!words || !(a > 0)) return;
   const C = L.caption, size = C.h * 0.6;
-  g.save(); g.globalAlpha = a;
+  g.save(); g.globalAlpha = (g.globalAlpha ?? 1) * a;
   g.font = WORD(Math.round(size));
   const tw = (g.measureText?.(words)?.width || size * words.length * 0.8) + size;
   g.fillStyle = INK; g.fillRect(C.x + 4 * k, C.y + 4 * k, tw, C.h);
@@ -711,5 +713,207 @@ export function paintRun(g, w, h, t, beat = 0, o = {}) {
   const size = Math.max(12, 22 * k);
   caption(g, beat ? 'AND THEN...' : 'SLOW MO', beat ? w - bw - 10 * k : bw + 10 * k, bw + 10 * k, size, w * 0.4, k, !!beat);
   if (o.note && !beat) caption(g, String(o.note).toUpperCase(), bw + 10 * k, h - bw - 10 * k - size * 1.2, size * 0.8, w * 0.6, k);
+  g.restore();
+}
+
+// ── a feature: a story told in shots, then a page of them ─────────────────────────────────────────
+// Not a replay: live shots, each framed as a comic panel while it plays (paintLive), taken and held
+// as a printed panel (paintSnap), and then all of them as one page (paintSheet). The rink's
+// intermission feature on the Zamboni's driver is the first (rink/ken-comic.js).
+
+/**
+ * The live picture framed as a panel, `t` seconds into the shot: the ink border, the dot screen in
+ * the corners and the shot's narration top left. Cheap enough for every frame.
+ */
+export function paintLive(g, w, h, t, narration = null) {
+  const k = Math.min(w, h) / 600, a = ease(t / 0.25);
+  if (!(a > 0)) return;
+  g.save();
+  g.globalAlpha = 0.2 * a;
+  const step = Math.max(8, 12 * k), cx = w / 2, cy = h / 2, R = Math.hypot(cx, cy);
+  g.fillStyle = INK;
+  for (let y = step / 2, row = 0; y < h; y += step, row++) {
+    for (let x = step / 2 + (row % 2) * step / 2; x < w; x += step) {
+      const rr = clamp01((Math.hypot(x - cx, y - cy) / R - 0.62) / 0.38) * step * 0.5;
+      if (rr > 0.5) { g.beginPath(); g.arc(x, y, rr, 0, Math.PI * 2); g.fill(); }
+    }
+  }
+  g.globalAlpha = a;
+  const bw = Math.max(3, 5 * k);
+  g.lineWidth = bw; g.strokeStyle = INK; g.strokeRect(bw / 2, bw / 2, w - bw, h - bw);
+  if (narration && a > 0.3) narrate(g, String(narration).toUpperCase(), bw + 10 * k, bw + 10 * k, w * 0.5, Math.min(w, h), k);
+  g.restore();
+}
+
+/**
+ * A speech balloon: `text` hand lettered in a white oval centred on (x, y), no wider than `maxW`,
+ * its tail to (tx, ty) (none without them), popping in over its first fifth of a second.
+ */
+export function paintBalloon(g, text, x, y, maxW, short, k, t = Infinity, tx = null, ty = null) {
+  if (!text) return;
+  const s = Number.isFinite(t) ? pop(t / 0.2) : 1;
+  if (!(s > 0.01)) return;
+  let size = Math.max(10, short * 0.06), lines;
+  for (let n = 0; n < 6; n++) {
+    g.font = HAND(Math.round(size));
+    lines = wrap(g, String(text).toUpperCase(), maxW * 0.72, size);
+    if (lines.length <= 2) break;
+    size *= 0.9;
+  }
+  const width = (ln) => g.measureText?.(ln)?.width || size * ln.length * 0.6;
+  const tw = Math.max(...lines.map(width)), th = lines.length * size * 1.15;
+  const rx = tw * 0.62 + size * 0.7, ry = th * 0.62 + size * 0.6;
+  g.save();
+  g.translate(x, y); g.scale(s, s); g.translate(-x, -y);
+  g.lineWidth = Math.max(2, 2.6 * k); g.strokeStyle = INK; g.fillStyle = WHITE; g.lineJoin = 'round';
+  const oval = () => { g.beginPath(); g.ellipse?.(x, y, rx, ry, 0, 0, Math.PI * 2); };
+  // the tail: a wedge from inside the oval toward the speaker, stopping short of him
+  const tail = () => {
+    if (!(Number.isFinite(tx) && Number.isFinite(ty))) return false;
+    const dx = tx - x, dy = ty - y, d = Math.hypot(dx, dy);
+    if (!(d > Math.max(rx, ry) * 1.1)) return false;
+    const ux = dx / d, uy = dy / d, nx = -uy, ny = ux, base = Math.min(rx, ry) * 0.32;
+    const reach = Math.min(d * 0.75, Math.max(rx, ry) + short * 0.12);
+    g.beginPath();
+    g.moveTo(x + nx * base, y + ny * base);
+    g.lineTo(x + ux * reach, y + uy * reach);
+    g.lineTo(x - nx * base, y - ny * base);
+    g.closePath();
+    return true;
+  };
+  // ink round both, then white over both, so the tail joins the oval with no line across it
+  if (tail()) { g.fill(); g.stroke(); }
+  oval(); g.fill(); g.stroke();
+  if (tail()) g.fill();
+  oval(); g.fill();
+  g.fillStyle = INK; g.textAlign = 'center'; g.textBaseline = 'middle';
+  g.font = HAND(Math.round(size));
+  lines.forEach((ln, i) => g.fillText(ln, x, y + (i - (lines.length - 1) / 2) * size * 1.15 + size * 0.05));
+  g.restore();
+}
+
+// Where a balloon goes in a box `bw` by `bh` (centred on 0, 0) round a speaker at x = `sx`: high on
+// the right, clear of the narration top left; or, with him on the right, on the left below the
+// narration, so the oval never sits on him and the tail crosses toward him.
+function balloonAt(bw, bh, sx) {
+  return sx > bw * 0.08 ? [-bw * 0.24, -bh * 0.04] : [bw * 0.24, -bh * 0.22];
+}
+
+/**
+ * A shot taken and held, `t` seconds into the hold: the printed frame `print` full size, slapped down
+ * with a white flash and a small turn, its narration top left and, with `o.say`, the speaker's line
+ * in a balloon with its tail to `o.at` ([x, y] px, where he is on the frame).
+ */
+export function paintSnap(g, w, h, print, t, o = {}) {
+  const k = Math.min(w, h) / 600, s = 1 + 0.05 * (1 - ease(t / 0.22)), rot = -0.012 * ease(t / 0.22);
+  g.save();
+  g.fillStyle = INK; g.fillRect(0, 0, w, h);
+  if (print && print.width) {
+    g.translate(w / 2, h / 2); g.rotate(rot); g.scale(s, s); g.translate(-w / 2, -h / 2);
+    const sc = Math.max(w / print.width, h / print.height) * 1.02;
+    g.drawImage(print, (w - print.width * sc) / 2, (h - print.height * sc) / 2, print.width * sc, print.height * sc);
+  }
+  g.restore();
+  const bw = Math.max(3, 5 * k);
+  g.save();
+  g.lineWidth = bw; g.strokeStyle = INK; g.strokeRect(bw / 2, bw / 2, w - bw, h - bw);
+  if (o.narration) narrate(g, String(o.narration).toUpperCase(), bw + 10 * k, bw + 10 * k, w * 0.5, Math.min(w, h), k);
+  if (o.say) {
+    const at = Array.isArray(o.at) && o.at.every(Number.isFinite) ? o.at : [w / 2, h * 0.6];
+    const [bx, by] = balloonAt(w, h, at[0] - w / 2);
+    paintBalloon(g, o.say, w / 2 + bx, h / 2 + by, w * 0.42, Math.min(w, h), k, t - 0.25, at[0], at[1]);
+  }
+  g.restore();
+  if (t < COMIC.flash * 1.5) { g.fillStyle = `rgba(255,255,255,${0.85 * (1 - t / (COMIC.flash * 1.5))})`; g.fillRect(0, 0, w, h); }
+}
+
+/**
+ * A page of panels in rows, in a `w` by `h` picture: `rows` is a list of { h: its share of the
+ * height, cols: each panel's share of the row's width }. Same margins, caption band and gutters as
+ * pageLayout, each panel a little turned, the turns alternating. Panels are in reading order.
+ */
+export function sheetLayout(w, h, rows) {
+  const m = Math.min(w, h) * 0.05, gut = Math.min(w, h) * 0.03, cap = Math.min(w, h) * 0.12;
+  const top = m + cap, bh = h - top - m, hs = rows.reduce((s, r) => s + (r.h || 1), 0);
+  const panels = [];
+  let y = top, n = 0;
+  rows.forEach((r, ri) => {
+    const rh = (bh - gut * (rows.length - 1)) * (r.h || 1) / hs, ws = r.cols.reduce((s, c) => s + c, 0);
+    let x = m;
+    r.cols.forEach((c) => {
+      const pw = (w - 2 * m - gut * (r.cols.length - 1)) * c / ws;
+      panels.push({ x, y, w: pw, h: rh, rot: (n % 2 ? 0.022 : -0.02) * (ri % 2 ? -1 : 1) });
+      x += pw + gut; n++;
+    });
+    y += rh + gut;
+  });
+  return { margin: m, caption: { x: m, y: m * 0.6, h: cap }, panels };
+}
+
+/**
+ * The page of a feature, `t` seconds into it: paper, the panels coming in one after another in
+ * reading order, each with its narration top left and its line in a balloon; the headline and the
+ * masthead. `frames[i]` is { img, at: [u, v] where the subject is in it as fractions, narration, say,
+ * zoom }; the shot is cropped round its subject. `o`: rows (sheetLayout), headline, issue, masthead,
+ * and `alpha` to fade the whole page out.
+ */
+export function paintSheet(g, w, h, frames, t, o = {}) {
+  const L = sheetLayout(w, h, o.rows || [{ h: 1, cols: frames.map(() => 1) }]), k = Math.min(w, h) / 600, A = o.alpha ?? 1;
+  g.save();
+  g.globalAlpha = A;
+  paper(g, w, h, k, t);
+  L.panels.forEach((P, n) => {
+    const F = frames[n] || {}, a = ease((t - 0.15 - n * 0.28) / 0.3);
+    if (a <= 0) return;
+    g.save();
+    g.translate(P.x + P.w / 2, P.y + P.h / 2); g.rotate(P.rot * a); g.scale(0.85 + 0.15 * a, 0.85 + 0.15 * a);
+    g.globalAlpha = A * a;
+    g.fillStyle = INK; g.fillRect(-P.w / 2 + 7 * k, -P.h / 2 + 7 * k, P.w, P.h);
+    g.save(); g.beginPath(); g.rect(-P.w / 2, -P.h / 2, P.w, P.h); g.clip();
+    const img = F.img, at = Array.isArray(F.at) ? F.at : [0.5, 0.5];
+    let sx = 0, sy = 0;
+    if (img && img.width) {
+      // covering the panel, a little over, and slid so the subject is as near its middle as the
+      // shot's edges allow
+      const sc = Math.max(P.w / img.width, P.h / img.height) * (F.zoom || 1.15), W2 = img.width * sc, H2 = img.height * sc;
+      const ox = Math.max(P.w / 2 - W2, Math.min(-P.w / 2, -at[0] * W2)), oy = Math.max(P.h / 2 - H2, Math.min(-P.h / 2, -at[1] * H2));
+      g.drawImage(img, ox, oy, W2, H2);
+      sx = ox + at[0] * W2; sy = oy + at[1] * H2;
+    } else { g.fillStyle = '#2a2622'; g.fillRect(-P.w / 2, -P.h / 2, P.w, P.h); }
+    g.restore();
+    g.lineWidth = Math.max(2, 3.5 * k); g.strokeStyle = INK; g.strokeRect(-P.w / 2, -P.h / 2, P.w, P.h);
+    if (a > 0.6) {
+      const short = Math.min(P.w, P.h);
+      if (F.narration) narrate(g, String(F.narration).toUpperCase(), -P.w / 2 + 6 * k, -P.h / 2 + 6 * k, P.w * 0.8, short * 1.25, k);
+      if (F.say) {
+        const [bx, by] = balloonAt(P.w, P.h, sx);
+        paintBalloon(g, F.say, bx, by, P.w * 0.62, short * 1.2, k, t - 0.45 - n * 0.28, sx, sy);
+      }
+    }
+    g.restore();
+  });
+  masthead(g, L, w, k, t - 0.5, o);
+  headline(g, L, k, t - 0.35, o.headline);
+  if (o.confetti) confetti(g, w, h, k, t - 0.6, o.seed ?? 23);
+  g.restore();
+}
+
+// Confetti falling over a page, `t` seconds after it starts: slips of red, gold, white and blue,
+// each turning as it falls, the same slips every frame (from `seed`).
+function confetti(g, w, h, k, t, seed) {
+  if (!(t > 0)) return;
+  const r = rnd(seed), cols = [RED, YELLOW, WHITE, '#3c8ce6', YELLOW], A = g.globalAlpha ?? 1;
+  g.save();
+  for (let i = 0; i < 90; i++) {
+    const x0 = r() * w, start = r() * 1.2, fall = (0.12 + r() * 0.12) * h, sway = (8 + r() * 14) * k, spin = 3 + r() * 6, ph = r() * 6.28;
+    const tt = t - start;
+    if (tt <= 0) continue;
+    const y = -12 * k + ((tt * fall) % (h + 24 * k)), x = x0 + Math.sin(tt * 2 + ph) * sway;
+    g.save();
+    g.globalAlpha = A * Math.min(1, tt / 0.2);
+    g.translate(x, y); g.rotate(tt * spin + ph); g.scale(1, Math.cos(tt * spin * 0.7 + ph));
+    g.fillStyle = cols[i % cols.length]; g.fillRect(-5 * k, -2 * k, 10 * k, 4 * k);
+    g.restore();
+  }
   g.restore();
 }

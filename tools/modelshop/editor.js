@@ -44,6 +44,8 @@ let dirty = new Set();
 // The gizmo writes straight into the doc, so it needs to say so — otherwise a dragged
 // segment is unsaved and the Save button does not look like it has anything to do.
 export function markDirty() { const f = keyToFile.get(currentKey); if (f) dirty.add(f); }
+// The model files with edits not yet saved, so leaving the page can ask first (ui.js).
+export function unsavedFiles() { return [...dirty].filter(Boolean); }
 let currentKey = null;
 export function editorDocFor(key) {
   currentKey = key;

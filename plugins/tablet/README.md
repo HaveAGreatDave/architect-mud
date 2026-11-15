@@ -89,6 +89,13 @@ the game that just aired.
   league seeds it, its two clubs.
 - **Tap a club** for its card: league position, current streak, last five results, and
   the next time they are on.
+- **The Cups tab** (`view: 'sports_cups'`, screen `cups`) lists every final both leagues have
+  played, newest first under the in-game year it was played in: the two clubs, the winner
+  first with a 🏆, and the score, with each league's title count by club at the top. It reads
+  `sportsleague.getFinals`, which returns seasons that seeded a final (uncrowned seasons
+  never had one and are left out). A seeded final that hasn't aired shows its two clubs and
+  "Not played yet", never a result. A club that has left the league keeps its name and loses
+  its colours.
 
 **The spoiler rule.** Every game is a pure function of its slot, so the result of a
 fixture that has not aired is computable right now. The team card therefore returns the

@@ -3,13 +3,16 @@
 // title, sub, line, ground, ink, accent, pose, seam? }`. A set's sheets hang edge to edge along the clearest stretch
 // of wall, in slot order, each where its slot falls, so a run with gaps in it shows the gaps.
 //
-// The sheets are slices of one print. `printOf` paints the whole run as one canvas: the grounds run into each other,
-// a sunburst and a skyline cross every seam, each slot has its hero and, faint in the ground behind them, its glyph.
-// A sheet on the wall is its slice with torn edges, a little crooked and a little apart from the next.
+// The sheets are slices of one print. A set with `art` is cut from a picture in client/game/assets/posters/: `<src>.webp`
+// is the whole run with no lettering, `cols` where one panel ends and the next begins, and `<src>-letters.webp` is the
+// lettering alone (scripts/posters/bake.mjs). A set without is painted (`printOf`): the grounds run into each other, a
+// sunburst and a skyline cross every seam, each slot has its hero and, faint behind them, its glyph. A sheet on the wall
+// is its panel with torn edges, a little crooked and a little apart from the next, and carries no lettering.
 //
-// With every slot hung, the join plays once (`createSheetScene`): the camera goes to the wall, each sheet's glyph
-// lights up in turn, the sheets close up with gold light along the seams, and the seams go, leaving one long sheet
-// whose glyphs keep a low gleam. After that the set is drawn joined (`sheetDecals` with `joined`).
+// With every slot hung, the join plays once (`createSheetScene`): the camera goes to the wall, the sheets close up and
+// straighten under gold light along the seams, they become one long sheet as the seams go, and then the lettering
+// lights up one glyph at a time. After that the set is drawn joined (`sheetDecals` with `joined`), and the lettering
+// is foil: it shimmers as you move, and from far enough round to the side it's gone and the picture shows through.
 //
 // ⚠ IT'S ALL DATA. Nothing here knows the word or the heroes: the plugin sends the glyphs, the titles and the colours
 // (plugins/posters/sheets.js for Architect's). A second game's set of prints joins the same way.
@@ -89,11 +92,14 @@ function busyOn(L, wall, y0, y1) {
   }
   return out.sort((a, b) => a[0] - b[0]);
 }
-/** Where a run of `of` sheets hangs: { wall, c, y, sw, sh, across } in the room's units, or null for nowhere. */
-export function sheetRun(L, of, taken = []) {
-  if (!L?.spec || !(of > 0)) return null;
-  const k = perM(L), sw0 = SHEET_W * k, sh0 = SHEET_H * k, y = Math.min(MID_Y * k, (L.h || 2.6 * k) - sh0 / 2 - 0.15 * k);
-  const need = of * sw0, edge = 0.2 * k, clear = 0.12 * k;
+/**
+ * Where a run `width` long and `height` tall hangs (metres): { wall, c, y, s, across } in the room's units, `s` how far
+ * it's shrunk to fit (1 at full size), or null for nowhere.
+ */
+export function sheetRun(L, width, height, taken = []) {
+  if (!L?.spec || !(width > 0)) return null;
+  const k = perM(L), sh0 = height * k, y = Math.min(MID_Y * k, (L.h || 2.6 * k) - sh0 / 2 - 0.15 * k);
+  const need = width * k, edge = 0.2 * k, clear = 0.12 * k;
   let best = null;
   for (const W of wallsOf(L)) {
     const busy = [...busyOn(L, W.wall, y - sh0 / 2, y + sh0 / 2), ...taken.filter((t) => t.wall === W.wall).map((t) => [t.a, t.b])].sort((a, b) => a[0] - b[0]);
@@ -106,7 +112,7 @@ export function sheetRun(L, of, taken = []) {
   if (!best) return null;
   const s = Math.min(1, (best.b - best.a) / need);
   if (s < 0.6) return null;
-  return { wall: best.wall, c: (best.a + best.b) / 2, y, sw: sw0 * s, sh: sh0 * s, across: best.across, span: [best.a, best.b] };
+  return { wall: best.wall, c: (best.a + best.b) / 2, y, s, across: best.across, span: [best.a, best.b] };
 }
 
 // A point on the run's wall, `s` across it to the right as you face it from its middle and `y` up, `d` out of it,
@@ -269,25 +275,32 @@ export function printOf(g0) {
   return cv;
 }
 
-// One sheet: its slice of the print, torn at the sides. Only the first sheet's left edge is a clean margin.
-function sheetCanvas(print, slot) {
-  const cv = document.createElement('canvas');
-  cv.width = PX; cv.height = PH;
+// One sheet: columns x0..x1 of a print, torn at the sides. Only the first sheet's left edge is a clean margin.
+function cutSheet(print, x0, x1, h, slot, clean) {
+  const w = Math.max(1, Math.round(x1 - x0)), cv = document.createElement('canvas');
+  cv.width = w; cv.height = h;
   const g = cv.getContext('2d');
-  g.drawImage(print, -slot * PX, 0);
-  const r = rng(0x5eed + slot * 977);
-  const tear = (x0, dir) => {
+  g.drawImage(print, x0, 0, x1 - x0, h, 0, 0, w, h);
+  const r = rng(0x5eed + slot * 977), deep = Math.max(2, w * 0.012), more = Math.max(3, w * 0.022);
+  const tear = (xe, dir) => {
     const pts = [];
-    for (let y = 0; y <= PH; y += 6) pts.push([x0 + dir * (2 + r() * 9 + Math.sin(y * 0.05 + slot) * 2), y]);
+    for (let y = 0; y <= h; y += Math.max(3, h / 90)) pts.push([xe + dir * (deep * 0.5 + r() * more + Math.sin(y * 0.05 + slot) * deep * 0.4), y]);
     g.globalCompositeOperation = 'destination-out';
-    g.beginPath(); g.moveTo(x0 - dir * 2, 0); for (const [x, y] of pts) g.lineTo(x, y); g.lineTo(x0 - dir * 2, PH); g.closePath(); g.fill();
+    g.beginPath(); g.moveTo(xe - dir * 2, 0); for (const [x, y] of pts) g.lineTo(x, y); g.lineTo(xe - dir * 2, h); g.closePath(); g.fill();
     g.globalCompositeOperation = 'source-over';
     // the paper's own colour along a torn edge
-    g.strokeStyle = 'rgba(236, 226, 204, 0.85)'; g.lineWidth = 2;
+    g.strokeStyle = 'rgba(236, 226, 204, 0.8)'; g.lineWidth = Math.max(1, w / 180);
     g.beginPath(); pts.forEach(([x, y], i) => (i ? g.lineTo(x + dir, y) : g.moveTo(x + dir, y))); g.stroke();
   };
-  if (slot > 0) tear(0, 1);
-  tear(PX, -1);
+  if (!clean) tear(0, 1);
+  tear(w, -1);
+  return cv;
+}
+// Columns x0..x1 of a picture, as they are
+function cutCols(img, x0, x1, h) {
+  const w = Math.max(1, Math.round(x1 - x0)), cv = document.createElement('canvas');
+  cv.width = w; cv.height = h;
+  cv.getContext('2d').drawImage(img, x0, 0, x1 - x0, h, 0, 0, w, h);
   return cv;
 }
 // The light off a glyph: the same glyph, where the print has it, gold with a wide soft edge
@@ -318,14 +331,59 @@ function seamGlow() {
   return cv;
 }
 
-// What a set's paint is, kept while its sheets don't change
+// ── the print a set is cut from ───────────────────────────────────────────────────────────────────
+// A set's geometry, from its data alone: how tall it hangs (metres), how wide the picture is and where each panel's
+// columns are. Painted sets are PX a panel.
+function frameOf(g0) {
+  const a = g0.sheets.find((s) => s.art?.src)?.art;
+  const cols = a && Array.isArray(a.cols) && a.cols.length === g0.of + 1 ? a.cols.map(Number) : null;
+  if (a && cols && a.w > 0 && a.h > 0) return { raster: a.src, w: +a.w, h: +a.h, cols, inset: Math.max(0, +a.inset || 0), height: num(a.height, 1.2, 0.3, 2.4) };
+  return { raster: null, w: PX * g0.of, h: PH, cols: Array.from({ length: g0.of + 1 }, (_, i) => i * PX), inset: 0, height: SHEET_H };
+}
+function num(x, d, lo, hi) { const n = Number(x); return Number.isFinite(n) ? Math.max(lo, Math.min(hi, n)) : d; }
+
+// The pictures, loaded once a name; a set waits for its own and redraws when they're in (`onArt`)
+const ASSETS = new URL('../../assets/posters/', import.meta.url);
+const pics = new Map();
+let artHeard = null;
+/** What to call when a set's pictures have loaded, so the room can hang it. */
+export function onArt(fn) { artHeard = typeof fn === 'function' ? fn : null; }
+function picsOf(src) {
+  if (!/^[a-z0-9_-]{1,40}$/i.test(src)) return null;
+  let p = pics.get(src);
+  if (!p) {
+    p = { plain: null, letters: null, failed: false };
+    pics.set(src, p);
+    const load = (name) => new Promise((ok) => { const im = new Image(); im.onload = () => ok(im); im.onerror = () => ok(null); im.src = new URL(name, ASSETS).href; });
+    Promise.all([load(`${src}.webp`), load(`${src}-letters.webp`)]).then(([plain, letters]) => {
+      p.plain = plain; p.letters = letters; p.failed = !plain;
+      if (!plain) console.warn(`[room] sheets: no picture at assets/posters/${src}.webp`);
+      artHeard?.();
+    });
+  }
+  return p.plain ? p : null;
+}
+
+// What a set's paint is, kept while its sheets don't change: the joined print, each sheet on its own, and each slot's
+// lettering (a raster set's, cut from its letters) or glyph light (a painted set's).
 const cache = new Map();
 function artOf(g0) {
-  const sig = JSON.stringify(g0.sheets);
+  const F = frameOf(g0), sig = JSON.stringify(g0.sheets);
   const had = cache.get(g0.set);
   if (had?.sig === sig) return had;
-  const print = printOf(g0), art = { sig, print, sheets: new Map(), glows: new Map() };
-  for (const s of g0.sheets) { art.sheets.set(s.slot, sheetCanvas(print, s.slot)); art.glows.set(s.slot, glyphGlow(s.glyph)); }
+  let plain, letters = null;
+  if (F.raster) {
+    const p = picsOf(F.raster);
+    if (!p) return null;
+    plain = p.plain; letters = p.letters;
+  } else plain = printOf(g0);
+  const art = { sig, F, plain, sheets: new Map(), letters: new Map(), glyphs: new Map() };
+  for (const s of g0.sheets) {
+    const i = s.slot, x0 = F.cols[i] + (i > 0 ? F.inset : 0), x1 = F.cols[i + 1] - (i < g0.of - 1 ? F.inset : 0);
+    art.sheets.set(i, cutSheet(plain, x0, x1, F.h, i, i === 0));
+    if (letters) art.letters.set(i, cutCols(letters, F.cols[i], F.cols[i + 1], F.h));
+    else if (!F.raster) art.glyphs.set(i, glyphGlow(s.glyph));
+  }
   cache.set(g0.set, art);
   return art;
 }
@@ -339,76 +397,78 @@ function slack(slot) {
 
 /**
  * A set's decals on its run, at a point in the join: `j` 0 hung apart, 1 closed up; `joined` draws it as one sheet;
- * `glyphs` (per slot) and `seams` (one number) are how strong the light off them is.
+ * `seams` is how strong the light along them is; `letters` (per slot, 0..1) how much of each slot's lettering shows,
+ * as foil, and `flare` (per slot) the light off it as it comes up. A painted set's lettering is its glyph light.
  */
-function runDecals(L, run, g0, { j = 0, joined = false, glyphs = null, seams = 0 } = {}) {
-  const art = artOf(g0), F = wallFrame(L, run), k = perM(L), out = [];
-  const sw = run.sw, sh = run.sh, scale = sw / (SHEET_W * k);
+function runDecals(L, run, g0, { j = 0, joined = false, seams = 0, letters = null, flare = null } = {}) {
+  const art = artOf(g0);
+  if (!art) return [];
+  const F = art.F, W = wallFrame(L, run), k = perM(L), out = [];
+  const u = (F.height * k * run.s) / F.h;          // room units a picture pixel
+  const sh = F.h * u, mid = F.w / 2;
   const quad = (cs, cy, w, h, rot, d) => {
-    const c = Math.cos(rot), s = Math.sin(rot), at = (x, y) => F.pt(cs + x * c - y * s, cy + x * s + y * c, d);
+    const c = Math.cos(rot), s = Math.sin(rot), at = (x, y) => W.pt(cs + x * c - y * s, cy + x * s + y * c, d);
     return [at(-w / 2, h / 2), at(w / 2, h / 2), at(w / 2, -h / 2), at(-w / 2, -h / 2)];
   };
-  // where each slot hangs: closing up as `j` goes to 1
-  const sl = [];
-  for (let i = 0; i < g0.of; i++) sl.push(slack(i));
-  const pitch = (i) => sl[i].gap * k * scale * (1 - j);
-  let total = 0;
-  for (let i = 0; i < g0.of; i++) total += sw + (i ? pitch(i) : 0);
-  const centres = [];
-  let x = -total / 2;
-  for (let i = 0; i < g0.of; i++) { if (i) x += pitch(i); centres.push(x + sw / 2); x += sw; }
-  const pose = (i) => ({ cs: centres[i], cy: run.y + sl[i].dy * k * (1 - j), rot: sl[i].rot * (1 - j) });
-  if (joined) {
-    out.push({ key: `sheets:${g0.set}:joined`, src: art.print, quad: quad(0, run.y, sw * g0.of, sh, 0, PROUD * k), n: F.n });
-  } else {
-    for (const s of g0.sheets) { const p = pose(s.slot); out.push({ key: `sheets:${g0.set}:${s.slot}`, src: art.sheets.get(s.slot), quad: quad(p.cs, p.cy, sw, sh, p.rot, PROUD * k), n: F.n }); }
-  }
-  for (const s of g0.sheets) {
-    const gk = glyphs?.[s.slot] || 0;
-    if (gk <= 0.002) continue;
-    const p = joined ? { cs: (s.slot - (g0.of - 1) / 2) * sw, cy: run.y, rot: 0 } : pose(s.slot);
-    out.push({ key: `sheets:${g0.set}:glow:${s.slot}`, src: art.glows.get(s.slot), quad: quad(p.cs, p.cy, sw, sh, p.rot, GLOW_PROUD * k), n: F.n, glow: gk });
-  }
+  // where each slot's sheet hangs: spread a little apart and askew, closing up as `j` goes to 1
+  const pose = (i) => {
+    const sl = slack(i), x0 = F.cols[i] + (i > 0 ? F.inset : 0), x1 = F.cols[i + 1] - (i < g0.of - 1 ? F.inset : 0);
+    const spread = (i - (g0.of - 1) / 2) * sl.gap * k * run.s * 1.6 * (1 - j);
+    return { cs: ((x0 + x1) / 2 - mid) * u + spread, w: (x1 - x0) * u, cy: run.y + sl.dy * k * (1 - j), rot: sl.rot * (1 - j) };
+  };
+  const colAt = (i) => ({ cs: ((F.cols[i] + F.cols[i + 1]) / 2 - mid) * u, w: (F.cols[i + 1] - F.cols[i]) * u });
+  if (joined) out.push({ key: `sheets:${g0.set}:joined`, src: art.plain, quad: quad(0, run.y, F.w * u, sh, 0, PROUD * k), n: W.n });
+  else for (const s of g0.sheets) { const p = pose(s.slot); out.push({ key: `sheets:${g0.set}:${s.slot}`, src: art.sheets.get(s.slot), quad: quad(p.cs, p.cy, p.w, sh, p.rot, PROUD * k), n: W.n }); }
   if (seams > 0.002) {
     seamCv = seamCv || seamGlow();
     for (let i = 1; i < g0.of; i++) {
-      const a = pose(i - 1), b = pose(i), cs = (a.cs + sw / 2 + b.cs - sw / 2) / 2;
-      out.push({ key: 'sheets:seam', src: seamCv, quad: quad(cs, (a.cy + b.cy) / 2, 0.11 * k * scale, sh * 1.06, (a.rot + b.rot) / 2, GLOW_PROUD * k), n: F.n, glow: seams });
+      const a = pose(i - 1), b = pose(i), cs = (a.cs + a.w / 2 + b.cs - b.w / 2) / 2;
+      out.push({ key: 'sheets:seam', src: seamCv, quad: quad(cs, (a.cy + b.cy) / 2, 0.11 * k * run.s, sh * 1.06, (a.rot + b.rot) / 2, GLOW_PROUD * k), n: W.n, glow: seams });
     }
+  }
+  // the lettering only ever over the joined run, where it lines up across the panels
+  if (joined) for (const s of g0.sheets) {
+    const c = colAt(s.slot), lk = letters?.[s.slot] || 0, fk = flare?.[s.slot] || 0;
+    const lt = art.letters.get(s.slot), gl = art.glyphs.get(s.slot);
+    if (lt && lk > 0.002) out.push({ key: `sheets:${g0.set}:letters:${s.slot}`, src: lt, quad: quad(c.cs, run.y, c.w, sh, 0, GLOW_PROUD * k), n: W.n, foil: Math.min(1, lk) });
+    if (lt && fk > 0.002) out.push({ key: `sheets:${g0.set}:letters:${s.slot}`, src: lt, quad: quad(c.cs, run.y, c.w, sh, 0, GLOW_PROUD * k), n: W.n, glow: fk });
+    if (gl && lk + fk > 0.002) out.push({ key: `sheets:${g0.set}:glow:${s.slot}`, src: gl, quad: quad(c.cs, run.y, c.w, sh, 0, GLOW_PROUD * k), n: W.n, glow: lk * GLEAM + fk });
   }
   return out;
 }
 
 /** Every set's runs in a room: [{ g, run }] for the sets that have a wall to go on, laid out one after another. */
 export function sheetRuns(L, sheets) {
-  const taken = [], out = [];
+  const taken = [], out = [], k = perM(L);
   for (const g of setsOf(sheets)) {
-    const run = sheetRun(L, g.of, taken);
+    const F = frameOf(g), width = (F.w / F.h) * F.height;
+    const run = sheetRun(L, width, F.height, taken);
     if (!run) continue;
-    taken.push({ wall: run.wall, a: run.c - (run.sw * g.of) / 2, b: run.c + (run.sw * g.of) / 2 });
-    out.push({ g, run });
+    const half = (width * k * run.s) / 2;
+    taken.push({ wall: run.wall, a: run.c - half, b: run.c + half });
+    out.push({ g, run, width: width * k * run.s, height: F.height * k * run.s });
   }
   return out;
 }
 
-/** The room's sheets as decals, at rest: a whole set in `joined` (a Set of set names) drawn as one, with its gleam. */
+/** The room's sheets as decals, at rest: a whole set in `joined` (a Set of set names) drawn as one, lettered. */
 export function sheetDecals(L, runs, joined = new Set()) {
   const out = [];
   for (const { g, run } of runs) {
     const one = isWhole(g) && joined.has(g.set);
-    out.push(...runDecals(L, run, g, one ? { joined: true, j: 1, glyphs: Object.fromEntries(g.sheets.map((s) => [s.slot, GLEAM])) } : {}));
+    out.push(...runDecals(L, run, g, one ? { joined: true, j: 1, letters: Object.fromEntries(g.sheets.map((s) => [s.slot, 1])) } : {}));
   }
   return out;
 }
 
 // ── the join ──────────────────────────────────────────────────────────────────────────────────────
-// Seconds into it: the camera goes to the wall, each glyph lights in turn, the sheets close up under gold seams, the
-// seams go and the glyphs settle to their gleam, and the camera comes back to where you were.
-const T = { inEnd: 1.6, glyph0: 1.7, glyphStep: 0.42, glyphRise: 0.5, join0: 4.9, join1: 6.4, settle: 7.7, out0: 8.5, end: 10 };
+// Seconds into it: the camera goes to the wall, the sheets close up under gold seams and become one, the seams go, the
+// lettering lights one glyph at a time and settles, and the camera comes back to where you were.
+const T = { inEnd: 1.6, join0: 1.9, join1: 3.5, seamsOut: 4.7, glyph0: 4.3, glyphStep: 0.42, glyphRise: 0.5, flareOut: 1.4, out0: 8.8, end: 10.4 };
 
-function chime(i, n) {
+function chime(i) {
   // a bell for each glyph, up a pentatonic scale
-  const steps = [0, 2, 4, 7, 9, 12, 14, 16, 19, 21], f = 392 * Math.pow(2, steps[Math.min(i, steps.length - 1)] / 12) * (n > 7 ? 0.75 : 1);
+  const steps = [0, 2, 4, 7, 9, 12, 14, 16, 19, 21], f = 392 * Math.pow(2, steps[Math.min(i, steps.length - 1)] / 12);
   try {
     window.AudioEngine?.playSfx({ id: 'sfx_sheet_glyph', name: 'sfx_sheet_glyph', category: 'sfx', priority: 3, config: { duration: 1.6, layers: [
       { waveform: 'sine', freq: f, adsr: { a: 0.004, d: 1.2, s: 0, r: 0.3 }, gain: 0.22 },
@@ -434,22 +494,22 @@ const wrapPi = (a) => Math.atan2(Math.sin(a), Math.cos(a));
  * the way back ends where you are; `aspect()` the picture's width over its height. Each frame answers
  * `{ cam, decals, done }`: the camera to draw from and the set's decals as they are this moment. `skip()` ends it.
  */
-export function createSheetScene({ L, run, g, seat, aspect = () => 16 / 9, now = 0, sound = true }) {
+export function createSheetScene({ L, run, g, width, height, seat, aspect = () => 16 / 9, now = 0, sound = true }) {
   const t0 = now, k = perM(L), F = wallFrame(L, run);
   const from = { eye: seat.eye.slice(), yaw: seat.yaw || 0, pitch: seat.pitch || 0, fov: seat.fov || 72 };
-  // the shot: square on to the run's middle, far enough back to see all of it, as far as the room allows
+  // the shot: square on to the run's middle, far enough back to take it all in without looking at its ends from the
+  // side (the lettering fades from there), as far as the room allows
   const shot = () => {
-    const a = aspect(), half = (run.sw * g.of) / 2 * 1.16, vh = run.sh * 0.9;
-    let fov = 62;
+    const a = aspect(), half = (width / 2) * 1.16, vh = height * 0.62;
+    let fov = 58;
     const hfov = (f) => 2 * Math.atan(Math.tan(f * Math.PI / 360) * a);
-    let dist = Math.max(half / Math.tan(hfov(fov) / 2), vh / Math.tan(fov * Math.PI / 360));
+    const fit = Math.max(half / Math.tan(hfov(fov) / 2), vh / Math.tan(fov * Math.PI / 360));
+    let dist = Math.max(fit, half * 2.4);
     const room = run.across - 0.4 * k;
     if (dist > room) {
       dist = room;
-      // too close to take it all in: open the lens to fit, up to a point
-      const want = 2 * Math.atan(half / dist);
-      fov = Math.min(96, Math.max(fov, 2 * Math.atan(Math.tan(want / 2) / a) * 180 / Math.PI));
-    }
+      if (fit > room) fov = Math.min(96, Math.max(fov, 2 * Math.atan(Math.tan(Math.atan(half / dist)) / a) * 180 / Math.PI));
+    } else fov = Math.max(30, Math.min(fov, 2 * Math.atan(Math.max(half / a, vh) / dist) * 180 / Math.PI));
     const c = F.pt(0, run.y, 0), eye = [c[0] + F.n[0] * dist, c[1] - 0.06 * k, c[2] + F.n[2] * dist];
     return { eye, yaw: Math.atan2(-F.n[0], -F.n[2]), pitch: Math.atan2(c[1] - eye[1], dist), fov };
   };
@@ -462,21 +522,22 @@ export function createSheetScene({ L, run, g, seat, aspect = () => 16 / 9, now =
       const t = skipped ? T.end : (at - t0) / 1000;
       const S = shot(), here = { eye: seat.eye.slice(), yaw: seat.yaw || 0, pitch: seat.pitch || 0, fov: seat.fov || 72 };
       const cam = t < T.inEnd ? mix(from, S, ease(t / T.inEnd)) : t < T.out0 ? { ...S, mode: 'free' } : mix(S, here, ease((t - T.out0) / (T.end - T.out0)));
-      // the glyphs, one after another, then down to their gleam once the seams have gone
-      const settle = ease((t - T.join1) / (T.settle - T.join1));
-      const glyphs = {};
-      g.sheets.forEach((s, i) => {
-        const up = ease((t - (T.glyph0 + i * T.glyphStep)) / T.glyphRise);
-        glyphs[s.slot] = up * (1.15 + 0.08 * Math.sin(t * 5 + i)) * (1 - settle) + GLEAM * settle;
-        if (sound && !skipped && up > 0 && rung < i) { rung = i; chime(i, g.sheets.length); }
-      });
+      // the sheets close up under gold seams, then the seams go
       const j = ease((t - T.join0) / (T.join1 - T.join0));
       if (sound && !skipped && j > 0 && !swelled) { swelled = true; swell(); }
-      const seams = t < T.join0 ? 0 : t < T.join1 ? 1.5 * ease((t - T.join0) / 0.7) : 1.5 * (1 - ease((t - T.join1) / (T.settle - T.join1)));
+      const seams = t < T.join0 ? 0 : t < T.join1 ? 1.5 * ease((t - T.join0) / 0.7) : 1.5 * (1 - ease((t - T.join1) / (T.seamsOut - T.join1)));
       const joined = t >= T.join1;
-      return { cam, decals: runDecals(L, run, g, { j, joined, glyphs, seams }), done: t >= T.end, t };
+      // then the lettering, one glyph after another: up through a flare of light that dies back to the foil
+      const letters = {}, flare = {};
+      g.sheets.forEach((s, i) => {
+        const t1 = T.glyph0 + i * T.glyphStep, up = ease((t - t1) / T.glyphRise);
+        letters[s.slot] = up;
+        flare[s.slot] = up * (1.1 * (1 - ease((t - t1 - T.glyphRise) / T.flareOut)) + 0.0);
+        if (sound && !skipped && up > 0 && rung < i) { rung = i; chime(i); }
+      });
+      return { cam, decals: runDecals(L, run, g, { j, joined, seams, letters, flare }), done: t >= T.end, t };
     },
   };
 }
 
-export const _sheetsTest = { setsOf, sheetRun, sheetRuns, printOf, T, PX, PH, SHEET_W, SHEET_H };
+export const _sheetsTest = { setsOf, sheetRun, sheetRuns, printOf, frameOf, T, PX, PH, SHEET_W, SHEET_H };

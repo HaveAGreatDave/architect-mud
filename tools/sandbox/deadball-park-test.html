@@ -104,6 +104,7 @@
   <script type="module">
     import { simGame, simGameV2, playTokens, playTags, contactCall, SEASON, BASEBALL } from '../../plugins/broadcast/sports/baseball.js';
     import { gamedayPayloads, gamedayLeaders, gameMvp } from '../../plugins/broadcast/sports/baseball-gameday.js';
+    import { cupStars, CUP_NAME } from '../../plugins/broadcast/sports/baseball-narrator.js';
     import { sportsRng, sportsHash, sportsPickTagged, sportsFill } from '../../plugins/broadcast/rng.js';
     import { createGamedayView } from '../../client/game/js/panels/gameday.js';
     import { createGrandstandView } from '../../client/game/js/panels/gameday-grandstand.js';
@@ -286,6 +287,15 @@
         if (c) order[i] = { ...order[i], contact: { text: c, by: 'Chip Vega' } };
       }
       const out = order.map((p) => ({ p, text: sportsFill(callFor(p, pickFor(p)) || p.desc || '', tokOf(p, away, home)).trim() || p.desc || '', card: cardFor(p) }));
+      // a final goes on to the Cup after its last out (the broadcast's `phase: 'crown'` payload)
+      if (po && order.length) {
+        const W0 = winner === game.away.name ? game.away : game.home, top = W0 === game.away, mvp = gameMvp(order, winner);
+        const stars = cupStars(order, winner, W0, mvp);
+        const crown = { sport: 'baseball', phase: 'crown', cup: CUP_NAME, final: 'Curtain Call', winner, loser: top ? home : away, away, home,
+          awayScore: game.awayScore, homeScore: game.homeScore, half: top ? 'bottom' : 'top', fieldingTeam: winner, battingTeam: top ? home : away,
+          inning: game.innings, pitcher: W0.pitcher || '', stars, mvp, hold: Math.max(HOLD_MS, 60000) };
+        out.push({ p: crown, text: `The ${CUP_NAME} is on the table by the mound, and the ${winner} are coming to get it.`, card: null });
+      }
       document.getElementById('head').textContent =
         `slot ${slot}${simV === 2 ? ' (sim v2)' : ''} · ${away} ${game.awayScore}, ${home} ${game.homeScore}` +
         `${game.innings > 9 ? ` (${game.innings})` : ''} · ${order.filter(p => !p.phase).length} at-bats`;

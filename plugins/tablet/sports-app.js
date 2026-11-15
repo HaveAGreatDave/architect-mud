@@ -118,7 +118,7 @@ async function leagueScreen(player, code) {
     view: 'sports',
     breadcrumb: ['Sports', code.tab],
     activeTab: code.tab,
-    tabs: Object.values(CODES).map(c => ({ id: c.tab, label: `${c.icon} ${c.tab}` })),
+    tabs: sportsTabs(),
     sport: code.id, icon: code.icon, league: code.league, show: code.tab,
     seasonNo: season?.seasonNo || null,
     day: cal ? { of: cal.dayOfMonth, days: cal.monthDays } : null,
@@ -132,8 +132,8 @@ async function leagueScreen(player, code) {
 }
 
 // The season's final: its name, the date and hour it airs, and who's in it once the
-// league has seeded it. Before then it's the last day of the season's month, in the
-// sport's last slot that day, the same sum the league seeds it with.
+// league has seeded it. Before then it's the last day of the season's month, at the
+// sport's own hour (`season.finalAt`), the same sum the league seeds it with.
 async function finalFor(player, code, season, cal) {
   let slot = season?.phase === 'worldseries' && season.wsSlot != null ? season.wsSlot : null;
   if (slot == null && season?.startSlot != null) {
@@ -142,7 +142,7 @@ async function finalFor(player, code, season, cal) {
   }
   if (slot == null) slot = cal?.finalSlot ?? null;
   if (slot == null) return null;
-  const when = await dispatchAction({ type: 'broadcast.slotWhen', actor: player, params: { slot } }).catch(() => null);
+  const when = await dispatchAction({ type: 'broadcast.slotWhen', actor: player, params: { slot, sport: code.id } }).catch(() => null);
   if (!when) return null;
   const seeded = season?.phase === 'worldseries' && season.finalistA && season.finalistB;
   return {
@@ -235,7 +235,66 @@ function resolveTeam(rows, name) {
   return (rows || []).find(r => String(r.team).toLowerCase() === want)?.team || String(name || '').trim();
 }
 
+// ── The Cups tab: every final either league has played ───────────────────────
+// Season by season, newest first, under the in-game year each one was played in: the
+// two clubs, who won and the score. A final that's seeded but not played yet shows its
+// two clubs and nothing else; the league only knows the winner once it's aired. Clubs
+// that have since left the league keep their names and lose their colours.
+const CUPS_TAB = 'Cups';
+const sportsTabs = () => [
+  ...Object.values(CODES).map(c => ({ id: c.tab, label: `${c.icon} ${c.tab}` })),
+  { id: CUPS_TAB, label: '🏆 Cups' },
+];
+const MONTH_NAMES = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+
+async function cupsScreen(player) {
+  const leagues = await Promise.all(Object.values(CODES).map(async (code) => {
+    const [res, look] = await Promise.all([
+      dispatchAction({ type: 'sportsleague.getFinals', actor: player, params: { sport: code.id } }).catch(() => null),
+      dispatchAction({ type: 'broadcast.getClubLook', actor: player, params: { sport: code.id } }).catch(() => null),
+    ]);
+    const clubs = look?.clubs || {};
+    const chip = (team) => ({ name: team, abbr: clubs[team]?.abbr || String(team).slice(0, 3).toUpperCase(), colours: clubs[team]?.colours || null });
+    const finals = res?.finals || [];
+
+    // Titles, most first; a tie goes to whoever won one most recently (finals are newest first).
+    const titles = new Map();
+    for (const f of finals) if (f.winner) titles.set(f.winner, (titles.get(f.winner) || 0) + 1);
+    const tally = [...titles].sort((a, b) => b[1] - a[1]).map(([team, n]) => ({ ...chip(team), titles: n }));
+
+    // Grouped by year, in the order the finals came.
+    const years = [];
+    for (const f of finals) {
+      const year = f.month ? f.month.slice(0, 4) : 'Undated';
+      let y = years[years.length - 1];
+      if (!y || y.year !== year) years.push(y = { year, finals: [] });
+      // The winner first, so the row reads "beat"; a pending final keeps its seeding, top seed first.
+      const [a, b] = f.winner ? [f.winner, f.loser] : f.teams;
+      y.finals.push({
+        seasonNo: f.seasonNo,
+        month: f.month ? MONTH_NAMES[Number(f.month.slice(5, 7)) - 1] || '' : '',
+        a: chip(a), b: chip(b),
+        score: f.score ? `${f.score[0]}–${f.score[1]}` : null,
+        pending: !!f.pending,
+      });
+    }
+    return {
+      sport: code.id, icon: code.icon, league: code.league,
+      final: res?.final || FINAL_TITLE[code.id], tally, years,
+      played: finals.filter(f => f.winner).length,
+    };
+  }));
+  return {
+    view: 'sports_cups',
+    breadcrumb: ['Sports', CUPS_TAB],
+    activeTab: CUPS_TAB,
+    tabs: sportsTabs(),
+    leagues,
+  };
+}
+
 async function buildScreen(player, screenId, params) {
+  if (normScreen(screenId) === CUPS_TAB.toLowerCase()) return cupsScreen(player);
   const code = codeOf(screenId);
   const team = (params || '').trim();
   if (team) return teamScreen(player, code, team);

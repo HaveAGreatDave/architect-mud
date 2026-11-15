@@ -278,6 +278,75 @@ export default async function regress({ check, run, getPlayer }) {
     check('pregame open: any other card writes nothing to the log', _test.pregameLines({ kind: 'matchup' }) === null && _test.pregameLines(null) === null);
   }
 
+  // ── The clubs' history (sports/club-lore.js) ────────────────────────────────
+  // The rules on a made-up league, newest season first. A dynasty is the club that won the last
+  // two; a club finishing 8th, 6th, then 2nd is rising; a club that joined under the current era
+  // two seasons ago hasn't gone four without a title; nobody is told about a season they missed.
+  {
+    const { loreTopics, rivalryTopic } = await import('./sports/club-lore.js');
+    const T = (top) => [...top, ...['E', 'F', 'G', 'H', 'I', 'J'].filter((t) => !top.includes(t))].slice(0, 8);
+    const hist = { era: 'now', seasons: [
+      { seasonNo: 6, champion: 'A', runnerUp: 'B', score: [4, 2], table: T(['A', 'B', 'C', 'D']), era: 'now' },
+      { seasonNo: 5, champion: 'A', runnerUp: 'B', score: [3, 2], table: T(['A', 'B', 'D', 'E']), era: 'now' },
+      { seasonNo: 4, champion: 'Z', runnerUp: 'Y', score: [1, 0], table: null, era: 'then' },
+      { seasonNo: 3, champion: 'Z', runnerUp: 'Y', score: [2, 0], table: null, era: 'then' },
+      { seasonNo: 2, champion: 'Z', runnerUp: 'Y', score: [6, 1], table: null, era: 'then' },
+    ] };
+    const keys = (team, opts) => loreTopics(hist, team, '', opts).map((t) => t.key);
+    check('club lore: back-to-back champions are a dynasty', keys('A')[0] === 'lore.dynasty', keys('A').join(','));
+    check('club lore: two finals lost in a row is heartbreak', keys('B').includes('lore.heartbreak'), keys('B').join(','));
+    check('club lore: a club only counts the seasons it was in', !keys('C').includes('lore.never') && !keys('C').includes('lore.drought'), keys('C').join(','));
+    const rising = { ...hist, seasons: [
+      { seasonNo: 9, champion: 'A', runnerUp: 'C', score: [2, 1], table: ['A', 'C', 'B', 'D', 'E', 'F', 'G', 'H'], era: 'now' },
+      { seasonNo: 8, champion: 'A', runnerUp: 'B', score: [2, 1], table: ['A', 'B', 'D', 'E', 'F', 'C', 'G', 'H'], era: 'now' },
+      { seasonNo: 7, champion: 'B', runnerUp: 'A', score: [2, 1], table: ['B', 'A', 'D', 'E', 'F', 'G', 'H', 'C'], era: 'now' },
+    ] };
+    const up = loreTopics(rising, 'C', '').map((t) => t.key);
+    check('club lore: eighth, sixth, then second is rising', up.includes('lore.rising'), up.join(','));
+    const tops = loreTopics(hist, 'B', '', { rows: [{ team: 'C', wins: 9, losses: 1 }, { team: 'B', wins: 1, losses: 9 }] });
+    check('club lore: tokens say numbers as the booth says them', tops.find((t) => t.key === 'lore.heartbreak')?.tok.lostStreakSaid === 'two', JSON.stringify(tops[0]?.tok));
+    const riv = rivalryTopic(hist, 'B', 'A');
+    check('club lore: a pair that met twice, one side winning both, is owned', riv?.key === 'lore.rivalry.owned' && riv.tok.leader === 'A' && riv.tok.metSaid === 'twice', JSON.stringify(riv));
+    check('club lore: clubs that never met in a final have no rivalry', rivalryTopic(hist, 'C', 'D') === null);
+  }
+
+  // A made-up past for whichever two clubs a slot puts on: the home club has won the last two
+  // titles, the away club lost both finals to them. The booth should say so before the game and,
+  // in hockey, in an intermission; and the history's lines come off their own stream, so taking
+  // them out leaves every other line of a hockey game exactly as it was.
+  for (const [file, seed, sport, word] of [['bc_cluster_puck', 42, 'hockey', 'Cup'], ['bc_1783289744953', 40002, 'baseball', 'Curtain Call']]) {
+    const row = JSON.parse(readFileSync(new URL(`../../content/media_broadcasts/${file}.json`, import.meta.url), 'utf8')).sports_pools;
+    const saved = _test.historyCaches.get(sport);
+    _test.historyCaches.delete(sport);
+    const textOf = (n) => n.data?.text ?? n.text;
+    const plain = _test.assembleSportsGraph(row, `bc_regress_lore0_${sport}`, seed, null, { slotMs: 3600000 });
+    const says0 = plain ? Object.values(plain.nodes).filter((n) => n.type === 'say').map(textOf) : [];
+    const open = plain ? Object.values(plain.nodes).map((n) => n.data?.graphic || n.graphic).find((x) => x?.kind === 'pregame') : null;
+    const home = open?.home?.name, away = open?.away?.name;
+    _test.historyCaches.set(sport, { era: 'regress', seasons: [
+      { seasonNo: 3, champion: home, runnerUp: away, score: [5, 4], table: null, era: 'regress' },
+      { seasonNo: 2, champion: home, runnerUp: away, score: [3, 1], table: null, era: 'regress' },
+    ] });
+    const told = _test.assembleSportsGraph(row, `bc_regress_lore1_${sport}`, seed, null, { slotMs: 3600000 });
+    if (saved) _test.historyCaches.set(sport, saved); else _test.historyCaches.delete(sport);
+    const says1 = told ? Object.values(told.nodes).filter((n) => n.type === 'say').map(textOf) : [];
+    const lore = says1.filter((t) => t && !says0.includes(t) && t.includes(home) && (t.includes(word) || /in a row|straight|running|every time/.test(t)));
+    check(`club lore: ${sport} tells the champions' run`, !!home && lore.length > 0, `${home} v ${away}: ${says1.filter((t) => !says0.includes(t)).slice(0, 3).join(' / ')}`);
+    if (sport === 'hockey') {
+      // before the drop: the first new line comes before the first period starts
+      const firstNew = says1.findIndex((t) => !says0.includes(t));
+      const drop = says1.findIndex((t) => /drop|face-?off/i.test(t || ''));
+      check('club lore: hockey tells it before the drop', firstNew >= 0 && (drop < 0 || firstNew < drop), `new at ${firstNew}, drop at ${drop}`);
+      check('club lore: taking the history out leaves every other hockey line as it was',
+        JSON.stringify(says1.filter((t) => says0.includes(t))) === JSON.stringify(says0), `${says0.length} vs ${says1.length}`);
+      const nodes = told ? Object.values(told.nodes) : [];
+      const brk = nodes.findIndex((n) => (n.data?.gameday || n.gameday)?.type === 'intermission');
+      check('club lore: an intermission tells one of the clubs\' stories',
+        brk >= 0 && nodes.slice(brk).some((n) => n.type === 'say' && !says0.includes(textOf(n)) && [home, away].some((c) => (textOf(n) || '').includes(c))),
+        `intermission at ${brk}`);
+    }
+  }
+
   // ── Live from the venue, and the final's package ────────────────────────────
   // Every game opens "Live from" its park (sports_pools.venue.said), and that line carries the
   // fly-in (a gameday payload with `phase: 'arrive'`) and the LIVE card. Every CPhL game is played
@@ -430,11 +499,13 @@ export default async function regress({ check, run, getPlayer }) {
       if (_test.isCupDay(d)) {
         cupDays++;
         const fin = day.filter((g) => g.final);
-        if (games.length || fin.length !== 2 || fin.some((g) => g.sod < 6) || new Set(fin.map((g) => g.sport)).size !== 2) bad.push(`${m} Cup day ${JSON.stringify(day)}`);
+        // nothing but the two finals: the Curtain Call in the 12:00 slot, the Cup in the 18:00 one
+        const sodOf = (sp) => fin.find((g) => g.sport === sp)?.sod;
+        if (games.length || fin.length !== 2 || sodOf('baseball') !== 4 || sodOf('hockey') !== 6) bad.push(`${m} Cup day ${JSON.stringify(day)}`);
         continue;
       }
-      // seven games: 21:00 is the day's overflow, with no game of its own
-      if (games.length !== 7 || day[_test.SLATE_BUFFER_SOD].away) bad.push(`day ${d}: ${games.length} games`);
+      // six games: 09:00 and 21:00 are the day's overflow, with no game of their own
+      if (games.length !== 6 || [..._test.SLATE_BUFFER_SODS].some((s) => day[s].away)) bad.push(`day ${d}: ${games.length} games`);
       for (const sp of ['baseball', 'hockey']) {
         const teams = games.filter((g) => g.sport === sp).flatMap((g) => [g.away, g.home]);
         if (new Set(teams).size !== teams.length) bad.push(`day ${d}: a ${sp} club plays twice`);
@@ -446,13 +517,18 @@ export default async function regress({ check, run, getPlayer }) {
         if ((mm?.away || null) !== g.away || (mm?.home || null) !== g.home) bad.push(`slot ${g.slot}: the lookup disagrees with the slate`);
       }
     }
-    check('slate: 7 games a day and 21:00 empty, no club twice, sports alternating', bad.length === 0 && cupDays === 2, bad.slice(0, 4).join('; '));
+    check('slate: 6 games a day with 09:00 and 21:00 empty, no club twice, sports alternating; Cup day only the finals', bad.length === 0 && cupDays === 2, bad.slice(0, 4).join('; '));
     // Greedy, so not proven exact: measured at 1 or 2 across 2035's first two months.
     const wide = spread.filter(([, , s, n]) => s > 2 || n !== 8);
     check('slate: every club is on at 18:00 within two games of every other over a month', spread.length === 4 && !wide.length, JSON.stringify(spread));
     const cal = _test.seasonCalendar('baseball', (d0 + 30) * G + 2);
     check('calendar: the 31st is Cup day and the next season starts on the 1st', cal.isCupDay && cal.monthDays === 31 && cal.seasonStartDate === '2035-02-01' && cal.seasonStartSlot === (d0 + 31) * G, JSON.stringify(cal));
-    check('calendar: each sport\'s final is in its last slot on Cup day', [cal.finalSlot, _test.seasonCalendar('hockey', d0 * G).finalSlot].sort().join() === [(d0 + 30) * G + 6, (d0 + 30) * G + 7].join(), String(cal.finalSlot));
+    const hkFinal = _test.seasonCalendar('hockey', d0 * G).finalSlot;
+    check('calendar: the Curtain Call is in the 12:00 slot and the Cup in the 18:00 one on Cup day', cal.finalSlot === (d0 + 30) * G + 4 && hkFinal === (d0 + 30) * G + 6, `${cal.finalSlot} ${hkFinal}`);
+    check('calendar: the finals start at 13:00 and 20:00, an hour and two into their slots',
+      _test.slateStartHour('baseball', cal.finalSlot) === 13 && _test.slateStartHour('hockey', hkFinal) === 20
+      && _test.slateStartOffsetMin('baseball', cal.finalSlot) === 60 && _test.slateStartOffsetMin('hockey', hkFinal) === 120
+      && _test.slateStartOffsetMin('baseball', cal.finalSlot - G) === 0, `${_test.slateStartHour('baseball', cal.finalSlot)} ${_test.slateStartHour('hockey', hkFinal)}`);
     check('calendar: a Cup-day final is no regular game', _test.sportsMatchupForSlot(cal.finalSlot, db.teams, 'baseball') === null, String(cal.finalSlot));
     check('calendar: mid-month, the season started on the 1st', _test.seasonCalendar('hockey', (d0 + 40) * G).seasonStartSlot === (d0 + 31) * G, 'february');
   }
@@ -506,7 +582,7 @@ export default async function regress({ check, run, getPlayer }) {
       // The guide lists today's games, matchups only.
       const guide = _test.slateScheduleSlots(chans['reg-ch-src']);
       check('slate guide: lists today\'s games with clock times and no scores',
-        Array.isArray(guide) && guide.every((g) => /^\d\d:00$/.test(g.todLabel) && !/\d+-\d+/.test(g.name)) && (guide.length === 7 || _test.isCupDay(today)), JSON.stringify(guide.slice(0, 2)));
+        Array.isArray(guide) && guide.every((g) => /^\d\d:00$/.test(g.todLabel) && !/\d+-\d+/.test(g.name)) && (guide.length === 6 || _test.isCupDay(today)), JSON.stringify(guide.slice(0, 2)));
 
       // One game on two channels is announced once. The relay isn't a sports channel at
       // all, so give a second channel the same slate item to be sure the dedupe is by game.
@@ -577,16 +653,18 @@ export default async function regress({ check, run, getPlayer }) {
     const onTime = _test.holdNext(early, 101, T0 + SLOT + 20_000, 20, CONTENT);
     check('overflow: a game that finished in time hands over on the clock', onTime.hold.startMs === T0 + SLOT && onTime.elapsedSec === 20, JSON.stringify(onTime));
     check('overflow: a stale hold is dropped', _test.holdingAt({ slot: 100, startMs: T0, endMs: Infinity }, 103, T0) === null);
-    // a day of games each running 8 minutes over: the 21:00 gap takes it all back by midnight
-    let h = null, lateAtMidnight = null;
+    // a day of games each running a third of a slot over: each gap takes the run before it
+    // back, so the 12:00 game starts on time and the day ends by midnight
+    let h = null, lateAtMidnight = null, lateAtNoon = null;
     for (let sod = 0; sod < 8; sod++) {
-      if (sod === _test.SLATE_BUFFER_SOD) continue;
+      if (_test.SLATE_BUFFER_SODS.has(sod)) continue;
       const clockStart = T0 + sod * SLOT;
       const now = Math.max(clockStart, h ? h.endMs : 0);
-      h = _test.holdNext(h, sod, now, (now - clockStart) / 1000, SLOT + 480_000).hold;
+      h = _test.holdNext(h, sod, now, (now - clockStart) / 1000, SLOT + SLOT / 3).hold;
+      if (sod === 4) lateAtNoon = h.startMs - clockStart;
     }
     lateAtMidnight = h.endMs - (T0 + 8 * SLOT);
-    check('overflow: seven games each eight minutes long still fit the day', lateAtMidnight <= 0, `${lateAtMidnight / 60000} min over`);
+    check('overflow: six games each a third of a slot long still fit the day, and 09:00 takes the morning back', lateAtMidnight <= 0 && lateAtNoon === 0, `${lateAtMidnight / 60000} min over, ${lateAtNoon / 60000} late at noon`);
     // the content length rides on the graph, and is no longer than the paced slot
     const pools = JSON.parse(readFileSync(new URL('../../content/media_broadcasts/bc_1783289744953.json', import.meta.url), 'utf8')).sports_pools;
     const script = { ...pools, _slate: true };
@@ -3235,6 +3313,48 @@ export default async function regress({ check, run, getPlayer }) {
       check('hockey v5: the booth has the lines', ['boards.crosscheck', 'pbp.hit.carry.open', 'pbp.slash', 'pbp.slash.missed'].every((k) => pools[k]?.length), '');
     }
 
+    // v8: the box rides every beat, and it says what the strength said. A chance rolled at 'pp'
+    // has the attacking club's box shorter than the other's; 'sh' the reverse; 'even' level.
+    // The booth's payload names the club with the extra man (ppOf), and the clock's pace
+    // (paceClock) runs every gap between plays in the air it has.
+    {
+      const { paceClock } = await import('./sports/hockey-pacing.js');
+      const bad = [], seen = { pp: 0, sh: 0, payloads: 0 };
+      for (let slot = 0; slot < 12; slot++) {
+        const seed = sportsHash(slot, 8);
+        const matchup = { away: teams[slot % teams.length], home: teams[(slot * 7 + 5) % teams.length], teams };
+        if (matchup.away === matchup.home) continue;
+        const game = HOCKEY.simGame(matchup, players, sportsRng(seed), { version: 8 });
+        for (const b of game.beats) {
+          if (b.type !== 'chance' || !['pp', 'sh', 'even'].includes(b.strength)) continue;
+          const att = b.teamName === matchup.away ? 'away' : 'home', def = att === 'away' ? 'home' : 'away';
+          const n = (s) => b.box?.[s]?.length || 0;
+          const want = n(att) < n(def) ? 'pp' : n(att) > n(def) ? 'sh' : 'even';
+          if (want !== b.strength) bad.push(`${b.section} ${b.clockStr} ${b.strength} vs box ${n('away')}/${n('home')}`);
+          if (b.strength !== 'even') seen[b.strength]++;
+        }
+        const gds = [], nrng = sportsRng(seed ^ 0x9e3779b9);
+        HOCKEY.narrate({
+          script: {}, game, gs: { seed, game }, slot, ws: false, announcer: 'Tug Brennan', pools, nrng, sport: HOCKEY, add: () => {},
+          pick: (...keys) => sportsPick(pools, nrng, ...keys),
+          say: (line, tok, sb, graphic, gd) => {
+            if (!gd) return;
+            gds.push(gd);
+            const box = game.beats.find((x) => x.clock === gd.clockSecs && x.section === gd.section && x.type === gd.type && x.box)?.box;
+            if (gd.pp && box && gd.pp.team !== (box.away.length < box.home.length ? 'away' : box.home.length < box.away.length ? 'home' : '')) bad.push(`pp names ${gd.pp.team} at ${gd.clock}`);
+            if (gd.pp && sb?.pp?.team !== gd.pp.team) bad.push(`bug and rink disagree at ${gd.clock}`);
+          },
+          abbr: (n) => String(n).slice(0, 3).toUpperCase(), recordOf: () => '0-0-0', lastId: () => null,
+        });
+        for (const g of gds) g.spanMs = 6000;
+        paceClock(gds);
+        seen.payloads += gds.length;
+        const clocked = gds.filter((g) => Number.isFinite(g.clockSecs) && g.type !== 'intermission');
+        if (!clocked.length || clocked.some((g) => !(g.clockRate > 0) || !(g.runMs >= 6000))) bad.push(`slot ${slot}: no pace`);
+      }
+      check('hockey v8: the box on each beat agrees with the strength it was rolled at', bad.length === 0 && seen.pp > 0 && seen.sh > 0, `${JSON.stringify(seen)} ${bad.slice(0, 3).join(' | ')}`);
+    }
+
     check('hockey: goals cross the goal line', notCrossed.length === 0, `${notCrossed.length} short: ${notCrossed.slice(0, 3).join(',')}`);
     check('hockey: no unfilled tokens reach the air', unfilled.length === 0, unfilled.slice(0, 3).join(' | '));
     // How hard each line is sold rides on it, off the pool it came from (exciteOf in
@@ -3368,6 +3488,7 @@ export default async function regress({ check, run, getPlayer }) {
         abbr: (n) => String(n).slice(0, 3).toUpperCase(), recordOf: () => '8-4-1', lastId: () => null,
         venue: { said: 'Golden Goose Gardens', name: 'Golden Goose Gardens', rev: '' }, xpick: pick, finalPackage,
         vpick: pick, vatBack: opts.vatBack || null, season: opts.season || null, slotsPerDay: 8,
+        lore: opts.lore || null, lpick: pick,
         ...(opts.desk ? { desk: opts.desk } : {}),
       });
       return game;
@@ -3474,6 +3595,53 @@ export default async function regress({ check, run, getPlayer }) {
       const said = _test.lostPictureLine({ pools });
       if ((pools.lost_picture || []).some(l => sportsFill(l, { venue: 'the ground' }).trim() === said)) usedPools.add('lost_picture');
     }
+    // The clubs' history (sports/club-lore.js): which story a club gets is the league's past, so
+    // the narrator can only reach a `lore.*` pool when some history calls for it. One made-up
+    // league tells every story somebody: back-to-back champions, a club that lost both finals to
+    // them, a pair that split two finals and a pair that met once, a drought, a club that has
+    // never won and one that has never got there, rising and falling form, the cellar, the club
+    // always in the top two, and, against tonight's table, a breakout, a fallen champion and a
+    // slump. A second league has a single champion and the club it beat. Every line of every
+    // story is filled with that story's tokens, and one game is narrated with the history on.
+    if (teams.length >= 8) {
+      const { loreTopics, rivalryTopic, gameLore } = await import('./sports/club-lore.js');
+      const [A, B, C, D, E, F, G, H] = teams;
+      const rest = (...top) => [...top, ...teams.filter((t) => !top.includes(t))];
+      const X = { era: 'now', seasons: [
+        { seasonNo: 8, champion: A, runnerUp: B, score: [3, 2], table: rest(A, B, C, D, E, F, G, H), era: 'now' },
+        { seasonNo: 7, champion: A, runnerUp: B, score: [2, 1], table: rest(A, B, D, C, F, E, H, G), era: 'now' },
+        { seasonNo: 6, champion: C, runnerUp: D, score: [4, 1], table: rest(C, B, D, A, E, G, F, H), era: 'now' },
+        { seasonNo: 5, champion: D, runnerUp: C, score: [5, 3], table: rest(D, C, B, A, F, E, G, H), era: 'now' },
+        { seasonNo: 4, champion: C, runnerUp: E, score: [2, 0], table: rest(C, E, B, D, F, A, G, H), era: 'now' },
+        { seasonNo: 3, champion: F, runnerUp: G, score: [1, 0], table: null, era: 'now' },
+      ] };
+      const Y = { era: 'now', seasons: [
+        { seasonNo: 2, champion: A, runnerUp: B, score: [6, 2], table: null, era: 'now' },
+        { seasonNo: 1, champion: C, runnerUp: D, score: [3, 2], table: null, era: 'now' },
+      ] };
+      const R = [H, C, D, E, F, G, B, A].map((team) => ({ team, wins: 5, losses: 5, otl: 0 }));
+      const topics = [];
+      for (const [hist, rows] of [[X, []], [X, R], [Y, []]]) {
+        for (const a of teams) {
+          topics.push(...loreTopics(hist, a, '', { rows }));
+          for (const b of teams) if (a !== b) { const r = rivalryTopic(hist, a, b); if (r) topics.push(r); }
+        }
+      }
+      const told = new Set(topics.map((t) => t.key));
+      const loreKeys = Object.keys(pools).filter((k) => k.startsWith('lore.'));
+      check('club lore: some history tells every story the script has lines for', loreKeys.every((k) => told.has(k)), loreKeys.filter((k) => !told.has(k)).join(','));
+      for (const k of loreKeys) if (told.has(k)) usedPools.add(k);
+      const empty = [];
+      for (const t of topics) for (const l of pools[t.key] || []) {
+        const x = sportsFill(l, { announcer: 'Tug Brennan', ...t.tok }).trim();
+        if (/\{[a-zA-Z]/.test(x) || /\s[.,!?;:]|\s{2,}|\bthe the\b/i.test(x)) empty.push(`${t.key}: ${x}`);
+      }
+      check('club lore: every line of every story fills', empty.length === 0, empty.slice(0, 3).join(' | '));
+      const before = unfilled.length;
+      narrateSlot(21, { matchup: { away: B, home: A, teams }, lore: gameLore(X, A, B) });
+      check('club lore: a game narrated with the history on leaves nothing unfilled', unfilled.length === before, unfilled.slice(before, before + 2).join(' | '));
+    }
+
     // Now the check has no exemptions but the deliberate `faceoff` fallback, which sits
     // behind the three dot-specific pools and is expected never to fire.
     const unreachable = Object.keys(pools).filter(k => !usedPools.has(k) && k !== 'faceoff');

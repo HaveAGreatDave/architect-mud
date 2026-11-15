@@ -8,10 +8,19 @@
     "cup",
     "champions"
   ],
+  "routePrefix": "/sportsleague",
+  "devPanel": {
+    "id": "leagues",
+    "nav": "🏆 Leagues",
+    "navGroup": "media",
+    "scripts": ["panel.js"]
+  },
   "actions": {
     "registers": [
       "sportsleague.getStandings",
-      "sportsleague.getSeason"
+      "sportsleague.getSeason",
+      "sportsleague.getFinals",
+      "sportsleague.getHistory"
     ]
   },
   "events": {

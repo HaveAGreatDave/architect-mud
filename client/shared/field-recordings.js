@@ -395,6 +395,381 @@ export const FIELD = {
     -9.6 ],
    [ 0.98, 0.354,
     -9.5 ] ]
+ },
+ "cat_meow": {
+  "id": "smp_field_cat_meow",
+  "kind": "calls",
+  "dur": 1.123,
+  "slices": [
+   [ 0.3, 0.55,
+    -8.5 ] ]
+ },
+ "cat_meow_small": {
+  "id": "smp_field_cat_meow_small",
+  "kind": "calls",
+  "dur": 0.81,
+  "slices": [
+   [ 0.3, 0.24,
+    -13.2 ] ]
+ },
+ "cat_meow_short": {
+  "id": "smp_field_cat_meow_short",
+  "kind": "calls",
+  "dur": 0.967,
+  "slices": [
+   [ 0.3, 0.39,
+    -12.2 ] ]
+ },
+ "cat_meow_high": {
+  "id": "smp_field_cat_meow_high",
+  "kind": "calls",
+  "dur": 1.228,
+  "slices": [
+   [ 0.3, 0.21,
+    -18.9 ],
+   [ 0.76, 0.21,
+    -16.8 ] ]
+ },
+ "cat_meow_beg": {
+  "id": "smp_field_cat_meow_beg",
+  "kind": "calls",
+  "dur": 1.045,
+  "slices": [
+   [ 0.3, 0.49,
+    -10.6 ] ]
+ },
+ "cat_meow_hungry": {
+  "id": "smp_field_cat_meow_hungry",
+  "kind": "calls",
+  "dur": 4.598,
+  "slices": [
+   [ 0.72, 0.52,
+    -18 ],
+   [ 2.56, 0.19,
+    -25.3 ],
+   [ 3.43, 0.21,
+    -24 ],
+   [ 3.89, 0.45,
+    -25 ] ]
+ },
+ "cat_meow_old": {
+  "id": "smp_field_cat_meow_old",
+  "kind": "calls",
+  "dur": 4.545,
+  "slices": [
+   [ 0.3, 1.23,
+    -19.6 ],
+   [ 1.78, 0.21,
+    -27.6 ],
+   [ 2.24, 0.45,
+    -22.4 ],
+   [ 2.94, 0.26,
+    -29.4 ],
+   [ 3.45, 0.82,
+    -22.4 ] ]
+ },
+ "cat_meow_cross": {
+  "id": "smp_field_cat_meow_cross",
+  "kind": "calls",
+  "dur": 1.698,
+  "slices": [
+   [ 0.3, 0.23,
+    -14.7 ],
+   [ 0.78, 0.66,
+    -11.9 ] ]
+ },
+ "cat_meow_grumpy": {
+  "id": "smp_field_cat_meow_grumpy",
+  "kind": "calls",
+  "dur": 3.971,
+  "slices": [
+   [ 1.12, 0.24,
+    -18.9 ],
+   [ 3.31, 0.39,
+    -15.6 ] ]
+ },
+ "cat_yowl": {
+  "id": "smp_field_cat_yowl",
+  "kind": "calls",
+  "dur": 5.381,
+  "slices": [
+   [ 0.3, 1.03,
+    -12.2 ],
+   [ 1.58, 1.06,
+    -12.3 ],
+   [ 2.89, 1.01,
+    -12.7 ],
+   [ 4.15, 0.97,
+    -15 ] ]
+ },
+ "cat_yowl_tom": {
+  "id": "smp_field_cat_yowl_tom",
+  "kind": "calls",
+  "dur": 11.363,
+  "slices": [
+   [ 0.3, 2.76,
+    -15.2 ],
+   [ 3.31, 2.25,
+    -10.9 ],
+   [ 5.81, 2.76,
+    -15.2 ],
+   [ 8.82, 2.28,
+    -10.9 ] ]
+ },
+ "cat_purr": {
+  "id": "smp_field_cat_purr",
+  "kind": "calls",
+  "dur": 3.918,
+  "slices": [
+   [ 0.3, 1.5,
+    -24.9 ],
+   [ 2.57, 1.07,
+    -24.1 ] ]
+ },
+ "cat_purr_tom": {
+  "id": "smp_field_cat_purr_tom",
+  "kind": "bed",
+  "dur": 10.553,
+  "loop": [ 0.3, 10.3 ],
+  "lufs": -26.8
+ },
+ "cat_purr_petted": {
+  "id": "smp_field_cat_purr_petted",
+  "kind": "bed",
+  "dur": 12.565,
+  "loop": [ 0.3, 12.3 ],
+  "lufs": -28
+ },
+ "cat_purr_soft": {
+  "id": "smp_field_cat_purr_soft",
+  "kind": "bed",
+  "dur": 10.841,
+  "loop": [ 0.3, 10.575 ],
+  "lufs": -28.6
+ },
+ "cat_trill": {
+  "id": "smp_field_cat_trill",
+  "kind": "calls",
+  "dur": 1.306,
+  "slices": [
+   [ 0.3, 0.3,
+    -14.9 ],
+   [ 0.85, 0.19,
+    -17.8 ] ]
+ },
+ "cat_trill_b": {
+  "id": "smp_field_cat_trill_b",
+  "kind": "calls",
+  "dur": 5.538,
+  "slices": [
+   [ 1.23, 0.71,
+    -21.6 ],
+   [ 2.19, 0.63,
+    -25.5 ],
+   [ 3.07, 0.69,
+    -19.1 ],
+   [ 4.01, 0.42,
+    -15.8 ],
+   [ 4.68, 0.59,
+    -25.8 ] ]
+ },
+ "cat_trill_c": {
+  "id": "smp_field_cat_trill_c",
+  "kind": "calls",
+  "dur": 0.836,
+  "slices": [
+   [ 0.3, 0.27,
+    -16 ] ]
+ },
+ "cat_chirp": {
+  "id": "smp_field_cat_chirp",
+  "kind": "calls",
+  "dur": 1.176,
+  "slices": [
+   [ 0.3, 0.61,
+    -13.9 ] ]
+ },
+ "cat_chirp_b": {
+  "id": "smp_field_cat_chirp_b",
+  "kind": "calls",
+  "dur": 5.198,
+  "slices": [
+   [ 0.3, 0.93,
+    -21.4 ],
+   [ 1.48, 0.52,
+    -21 ],
+   [ 2.25, 0.49,
+    -22.3 ],
+   [ 2.99, 0.94,
+    -17.5 ],
+   [ 4.18, 0.27,
+    -20.1 ],
+   [ 4.7, 0.24,
+    -18 ] ]
+ },
+ "cat_chatter": {
+  "id": "smp_field_cat_chatter",
+  "kind": "calls",
+  "dur": 2.116,
+  "slices": [
+   [ 0.3, 0.38,
+    -19.2 ],
+   [ 0.93, 0.4,
+    -25.6 ] ]
+ },
+ "cat_chatter_b": {
+  "id": "smp_field_cat_chatter_b",
+  "kind": "calls",
+  "dur": 2.168,
+  "slices": [
+   [ 0.3, 0.2,
+    -29.5 ],
+   [ 0.75, 0.22,
+    -34.1 ],
+   [ 1.22, 0.17,
+    -34 ],
+   [ 1.64, 0.25,
+    -27.2 ] ]
+ },
+ "cat_hiss": {
+  "id": "smp_field_cat_hiss",
+  "kind": "calls",
+  "dur": 1.097,
+  "slices": [
+   [ 0.3, 0.54,
+    -11 ] ]
+ },
+ "cat_hiss_b": {
+  "id": "smp_field_cat_hiss_b",
+  "kind": "calls",
+  "dur": 1.254,
+  "slices": [
+   [ 0.3, 0.69,
+    -12 ] ]
+ },
+ "cat_growl": {
+  "id": "smp_field_cat_growl",
+  "kind": "calls",
+  "dur": 9.509,
+  "slices": [
+   [ 0.3, 1.67,
+    -16.7 ],
+   [ 2.22, 3.11,
+    -14.8 ],
+   [ 5.58, 2.78,
+    -14.2 ],
+   [ 8.61, 0.63,
+    -16.2 ] ]
+ },
+ "cat_growl_hiss": {
+  "id": "smp_field_cat_growl_hiss",
+  "kind": "calls",
+  "dur": 4.937,
+  "slices": [
+   [ 0.3, 2.68,
+    -19.5 ],
+   [ 3.23, 1.43,
+    -13.1 ] ]
+ },
+ "cat_eat_dry": {
+  "id": "smp_field_cat_eat_dry",
+  "kind": "bed",
+  "dur": 10.553,
+  "loop": [ 0.3, 10.3 ],
+  "lufs": -29.2
+ },
+ "cat_eat_wet": {
+  "id": "smp_field_cat_eat_wet",
+  "kind": "bed",
+  "dur": 10.553,
+  "loop": [ 0.3, 10.3 ],
+  "lufs": -28.9
+ },
+ "cat_drink": {
+  "id": "smp_field_cat_drink",
+  "kind": "bed",
+  "dur": 8.568,
+  "loop": [ 0.3, 8.3 ],
+  "lufs": -31.5
+ },
+ "cat_lap": {
+  "id": "smp_field_cat_lap",
+  "kind": "bed",
+  "dur": 8.568,
+  "loop": [ 0.3, 8.3 ],
+  "lufs": -27
+ },
+ "cat_groom": {
+  "id": "smp_field_cat_groom",
+  "kind": "bed",
+  "dur": 10.553,
+  "loop": [ 0.3, 10.3 ],
+  "lufs": -33
+ },
+ "cat_snore": {
+  "id": "smp_field_cat_snore",
+  "kind": "bed",
+  "dur": 10.553,
+  "loop": [ 0.3, 10.3 ],
+  "lufs": -26.4
+ },
+ "cat_scratch": {
+  "id": "smp_field_cat_scratch",
+  "kind": "calls",
+  "dur": 3.527,
+  "slices": [
+   [ 2.74, 0.51,
+    -16.4 ] ]
+ },
+ "cat_scratch_floor": {
+  "id": "smp_field_cat_scratch_floor",
+  "kind": "calls",
+  "dur": 3.344,
+  "slices": [
+   [ 0.3, 1.23,
+    -21.3 ],
+   [ 2.45, 0.63,
+    -28.3 ] ]
+ },
+ "cat_litter": {
+  "id": "smp_field_cat_litter",
+  "kind": "calls",
+  "dur": 5.016,
+  "slices": [
+   [ 0.3, 0.17,
+    -29.2 ],
+   [ 0.72, 0.26,
+    -28.6 ],
+   [ 1.23, 1.03,
+    -21.7 ],
+   [ 2.51, 1.75,
+    -23.9 ],
+   [ 4.51, 0.24,
+    -30.5 ] ]
+ },
+ "cat_jump": {
+  "id": "smp_field_cat_jump",
+  "kind": "calls",
+  "dur": 1.646,
+  "slices": [
+   [ 0.3, 1.09,
+    -26.3 ] ]
+ },
+ "cat_land": {
+  "id": "smp_field_cat_land",
+  "kind": "calls",
+  "dur": 1.019,
+  "slices": [
+   [ 0.3, 0.45,
+    -21 ] ]
+ },
+ "cat_zoomies": {
+  "id": "smp_field_cat_zoomies",
+  "kind": "calls",
+  "dur": 3.396,
+  "slices": [
+   [ 0.3, 1.43,
+    -21.1 ] ]
  }
 };
 

@@ -4,6 +4,8 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Pose Lab</title>
+<link rel="stylesheet" href="/nav.css">
+<script type="module" src="/nav.js"></script>
 <!--
   THE POSE LAB: Deadball's clips (content/animation_clips/) keyed on the real rig and played on a
   real player in the 3-D park. The page's code and its notes are in /pose-lab.js; the Modelshop's
@@ -12,6 +14,7 @@
 <style>
   :root { --bg: #0b0d14; --fg: #d8d4c8; --dim: #8a8678; --line: #23263a; --good: #7fd6a0; --warn: #e8c070; --bad: #ff7a6a; }
   html, body { margin: 0; height: 100%; background: var(--bg); color: var(--fg); font: 12px/1.4 ui-monospace, Menlo, Consolas, monospace; }
+  body { display: flex; flex-direction: column; }
   header { padding: 6px 10px; border-bottom: 1px solid var(--line); display: flex; flex-wrap: wrap; gap: 6px 14px; align-items: center; }
   header b { color: #e8c070; letter-spacing: 0.2em; }
   label { color: var(--dim); white-space: nowrap; }
@@ -19,7 +22,7 @@
   button { padding: 2px 8px; cursor: pointer; }
   button:disabled { opacity: 0.4; cursor: default; }
   input[type=number] { width: 5.2em; }
-  main { display: grid; grid-template-columns: 300px 1fr 380px; height: calc(100% - 40px); }
+  main { display: grid; grid-template-columns: 300px 1fr 380px; flex: 1; min-height: 0; }
   aside { overflow: auto; padding: 8px 10px; border-right: 1px solid var(--line); }
   aside:last-child { border-right: 0; border-left: 1px solid var(--line); }
   h3 { margin: 10px 0 4px; font-size: 11px; letter-spacing: 0.15em; color: var(--dim); font-weight: normal; }
@@ -51,13 +54,12 @@
 </head>
 <body>
 <header>
-  <a href="/figure-lab.html?renderer=street" style="color:inherit;opacity:.7">← Figure Lab</a>
-  <b>POSE LAB</b>
   <label>clip <select id="clip"></select></label>
   <button id="new">new clip</button>
   <button id="save" disabled>save</button>
   <span id="verdict"></span>
   <label><input type="checkbox" id="lefty"> left-handed</label>
+  <label title="the close-up figure on Deadball's rig (docs/proposals/deadball-players-v2.md, phase 1)"><input type="checkbox" id="figbody"> figure body</label>
   <label>his way <select id="traits"><option value="none">as keyed</option><option value="low">low ends</option><option value="high">high ends</option></select></label>
   <span>view
     <button data-view="front">front</button><button data-view="left">left</button><button data-view="back">back</button><button data-view="right">right</button><button data-view="top">top</button>

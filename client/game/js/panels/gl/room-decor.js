@@ -930,6 +930,35 @@ export function drawDecorForm(K, F, p) {
       K.ball(c1[0], c1[1], c1[2], 0.009, '#ff6a2a', 1.8, 8, GLOW);
       return true;
     }
+    case 'petbowl': {
+      // a pet's feeding station (plugins/pets): a rubber mat with a lip, a steel dish of biscuits on the left and a steel
+      // bowl of water on the right. `food` and `water` are how full each is, 0 to 1 (the piece's state, room.pieceState),
+      // so the biscuits go down as he eats and the water as he drinks
+      const c = { F, K }, rr = rng(p.seed || 11), mat = '#34444c';
+      pbox(-hw, hw, 0, 0.005, -hd, hd, mat, 1, null, MATTE);
+      for (const s of [-1, 1]) { pbox(-hw, hw, 0.005, 0.011, s < 0 ? -hd : hd - 0.012, s < 0 ? -hd + 0.012 : hd, mat, 0.9, null, MATTE); pbox(s < 0 ? -hw : hw - 0.012, s < 0 ? -hw + 0.012 : hw, 0.005, 0.011, -hd, hd, mat, 0.9, null, MATTE); }
+      const R = Math.min(hd - 0.03, hw / 2 - 0.02), H = Math.min(h - 0.008, 0.058), y0 = 0.005;
+      // the bowl's wall, out and in, and the floor of it
+      const wall = [[0, y0], [R * 0.66, y0], [R * 0.74, y0 + 0.006], [R, y0 + H], [R * 1.04, y0 + H + 0.003], [R * 0.97, y0 + H + 0.004], [R * 0.9, y0 + H * 0.5], [R * 0.66, y0 + 0.01], [0, y0 + 0.01]];
+      const inner = (y) => R * 0.66 + (R * 0.94 - R * 0.66) * Math.max(0, Math.min(1, (y - y0 - 0.01) / (H - 0.006)));
+      for (const [x, kind] of [[-hw / 2, 'food'], [hw / 2, 'water']]) {
+        const [u, v] = P(x, 0, 0);
+        K.lathe(u, v, wall, '#c9cfd4', 1.12, 28, METAL);
+        const lvl = Math.max(0, Math.min(1, Number(p[kind]) || 0)), top = y0 + 0.01 + (H - 0.012) * lvl;
+        if (lvl <= 0.01) continue;
+        if (kind === 'water') { liquidLathe(c, x, 0, [[0, y0 + 0.01], [inner(top) * 0.97, y0 + 0.01], [inner(top) * 0.97, top], [0, top]], '#a8cfdc', 1.05, 24); continue; }
+        // the biscuits: a low mound to the level, and loose ones on top of it, two browns
+        const r = inner(top) * 0.96;
+        K.lathe(u, v, [[0, y0 + 0.01], [r, y0 + 0.01], [r, top - 0.004], [r * 0.6, top + 0.002], [0, top + 0.004]], '#6e4626', 1, 18, MATTE);
+        const n = Math.round(8 + 22 * lvl);
+        for (let i = 0; i < n; i++) {
+          const a = rr() * Math.PI * 2, d = Math.sqrt(rr()) * (r - 0.006), y = top + 0.002 * (1 - d / r) + rr() * 0.002;
+          const [bu, bv] = P(x + Math.cos(a) * d, 0, Math.sin(a) * d);
+          K.ball(bu, bv, y, 0.0045 + rr() * 0.0015, rr() < 0.5 ? '#8a5a30' : '#5e3a1c', 1, 6, SATIN);
+        }
+      }
+      return true;
+    }
     case 'telescope': {
       // a brass refractor on a wooden tripod, its tube tipped up at the far glass
       const top = h * 0.68, R = Math.min(hw, hd) - 0.04;

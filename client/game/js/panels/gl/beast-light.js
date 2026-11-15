@@ -43,6 +43,10 @@ uniform vec3 uGlowC[8];
 uniform int uGlowN;
 uniform vec3 uShadeTint;
 uniform float uRimK;
+// 1 while a cat's coat is drawn with alpha-to-coverage on (gl/room.js drawCats): each strand's edge then covers part
+// of a pixel instead of all of it or none, so the coat is soft at its edges and goes to a haze, not a speckle, where
+// the strands are smaller than a pixel. 0 (every other caller) keeps the hard test.
+uniform float uFurSoft;
 float lum(vec3 c) { return dot(c, vec3(0.2126, 0.7152, 0.0722)); }
 vec3 furHash(vec3 c) { return fract(sin(vec3(dot(c, vec3(127.1, 311.7, 74.7)), dot(c, vec3(269.5, 183.3, 246.1)), dot(c, vec3(113.5, 271.9, 124.6)))) * 43758.5453); }
 // a colour packed by the kit as 1 + r·65536 + g·256 + b, 8-bit sRGB, to linear
@@ -55,7 +59,7 @@ void main() {
   gCurve = smoothstep(0.004, 0.03, length(fwidth(normalize(vNor))));
   vec3 base = vCol, n = normalize(vNor), v = normalize(uEye - vPos);
   if (dot(n, v) < 0.0) n = -n;
-  float m = vMat;
+  float m = vMat, furA = 1.0;
   // FUR (gl/beast-kit.js furShells): a layer of the coat, its material 50 + its height in fifteenths and its normal's
   // length the fur's length. Each strand's root is found back on the skin. The strands stand at random points, one
   // in each cell of a grid, and a point of the coat belongs to the nearest, measured along the skin, so there are no
@@ -75,8 +79,18 @@ void main() {
       if (l < best) { best = l; bc = c; }
     }
     float tall = 0.6 + 0.4 * furHash(bc + 7.0).x;
-    if (hh > tall || sqrt(best) > 0.8 * (1.0 - hh / tall) + 0.14) discard;
-    base *= mix(1.0 - 0.5 * smoothstep(0.003, 0.014, fl), 1.16, hh);
+    float rad = 0.8 * (1.0 - hh / tall) + 0.14, dist = sqrt(best);
+    if (uFurSoft > 0.5) {
+      // how much of this pixel the strand covers: its edge a pixel wide, wider where the strands are smaller than one.
+      // Nothing is discarded here: a pixel no strand reaches is left at no coverage, and alpha-to-coverage writes
+      // nothing for it. A discard would leave the light's derivatives below (fwidth in the comic step) undefined for
+      // its neighbours, and those came out lit in the shadow as white specks
+      float px = max(fwidth(dist), 1e-4), w = px * 0.75 + max(0.0, px - 0.5) * 0.9;
+      furA = hh > tall ? 0.0 : 1.0 - smoothstep(rad - w, rad + w, dist);
+      // each strand its own shade, a little paler at the tip
+      base *= 0.96 + 0.08 * furHash(bc + 3.0).y;
+    } else if (hh > tall || dist > rad) discard;
+    base *= uFurSoft > 0.5 ? mix(1.0 - 0.2 * smoothstep(0.003, 0.014, fl), 1.05, hh) : mix(1.0 - 0.5 * smoothstep(0.003, 0.014, fl), 1.16, hh);
     m = 13.0;
   }
   if (m == 40.0 || m == 47.0) {
@@ -149,7 +163,7 @@ void main() {
     float hi = smoothstep(cut - hw, cut + hw, h) * lit * gCurve;
     col += (m == 6.0 ? mix(vec3(1.0, 0.95, 0.82), base * 2.5, 0.5) : vec3(1.0, 0.96, 0.84)) * hi * (0.35 + lum(E)) * (m == 5.0 ? 0.35 : 0.8);
   }
-  outColor = vec4(finish(col), 1.0);
+  outColor = vec4(finish(col), furA);
 }`;
 
 // The halos: soft shells round each glowing part, added over the frame. The shell is brightest where it faces the

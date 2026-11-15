@@ -3703,6 +3703,31 @@ function renderSportsTeam(d) {
   return hero + tosSportsFinal(d.final) + stats + form + next;
 }
 
+// The Cups tab: every final each league has played, by year, the winner first.
+function renderSportsCups(d) {
+  const club = (c, cls) => `<span class="tos-cup-club ${cls}">${tosClubChip(c.abbr, c.colours)}<span class="n">${esc(c.name)}</span></span>`;
+  const league = (l) => {
+    const tally = (l.tally || []).length
+      ? `<div class="tos-cup-tally">${l.tally.map(t => `<span class="tos-cup-t">${tosClubChip(t.abbr, t.colours)}<b>${t.titles}</b></span>`).join('')}</div>`
+      : '';
+    const years = (l.years || []).map(y => `<div class="tos-sp-sec">${esc(y.year)}</div>
+      ${y.finals.map(f => `<div class="tos-cup-row${f.pending ? ' pending' : ''}">
+        <div class="tos-cup-when">Season ${esc(String(f.seasonNo))}${f.month ? ` &middot; ${esc(f.month)}` : ''}</div>
+        <div class="tos-cup-match">${club(f.a, f.pending ? '' : 'won')}
+          <span class="tos-cup-mid">${f.pending ? 'v' : esc(f.score || 'beat')}</span>${club(f.b, f.pending ? '' : 'lost')}</div>
+        ${f.pending ? '<div class="tos-cup-tbd">Not played yet</div>' : ''}
+      </div>`).join('')}`).join('');
+    return `<div class="tos-cup-league">
+      <div class="tos-sp-hero tos-sp-${esc(l.sport)}"><div class="tos-sp-hero-icon">${esc(l.icon || '')}</div>
+        <div><div class="tos-sp-league">${esc(l.final)}</div>
+          <div class="tos-sp-season">${esc(l.league)} &middot; ${l.played ? `${l.played} played` : 'none played yet'}</div></div></div>
+      ${tally}
+      ${years || `<div class="tos-sp-empty">No ${esc(l.final)} has been played yet. The top two meet on the last day of the month.</div>`}
+    </div>`;
+  };
+  return `<div class="tos-cups">${(d.leagues || []).map(league).join('')}</div>`;
+}
+
 // ── Binder: the league pages ─────────────────────────────────────────────────
 // A checklist by club, names and all (plugins/cards/sports-verbs.js says why a league page
 // names its gaps and the Draft page doesn't), then the special editions on their own shelf.
@@ -6085,8 +6110,8 @@ function renderBody() {
   if (d.view === 'calendar') {
     return `<div class="tos-body">${hdr}${summary}${renderBreadcrumb(d.appId, d.breadcrumb || [d.appName])}${renderCalendar(d)}${renderList(d.items)}${renderActions(d.appId, d.actions, '')}</div>`;
   }
-  if (d.view === 'sports' || d.view === 'sports_team') {
-    const body = d.view === 'sports' ? renderSports(d) : renderSportsTeam(d);
+  if (d.view === 'sports' || d.view === 'sports_team' || d.view === 'sports_cups') {
+    const body = d.view === 'sports' ? renderSports(d) : d.view === 'sports_cups' ? renderSportsCups(d) : renderSportsTeam(d);
     return `<div class="tos-body tos-sp">${hdr}${summary}${renderBreadcrumb(d.appId, d.breadcrumb || [d.appName])}${renderTosTabs(d)}${body}${renderActions(d.appId, d.actions, d.team || '')}</div>`;
   }
   if (d.view === 'list') {

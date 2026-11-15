@@ -1,6 +1,10 @@
 {
-  "description": "A basin carved from a single block of pale stone, floating off the wall on a hidden bracket. A slim tap runs hot or cold, clean water: enough to drink, or to wash the day off your hands.",
+  "description": "A floating walnut vanity with a marble top and a stone bowl standing on it. A brass spout comes out of the wall over the bowl, hot or cold, clean enough to drink. Above it, a mirror as wide as the vanity, lit from behind.",
   "flags": {
+    "look": {
+      "arche": "sink",
+      "form": "vanity"
+    },
     "water_source": true
   },
   "hp": null,

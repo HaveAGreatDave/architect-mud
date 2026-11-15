@@ -426,6 +426,39 @@ ways, that the lab moves in three units with its glass and the bar in one, that 
 before it opens, home when it's open with the bar in its pocket, and that the bar's box never meets a waiting
 unit's at any of 51 moments.
 
+### The Cachet's keypad (as built)
+
+Players couldn't find what to click to bring up the keypad: its station was an invisible point floating in
+front of the shelves. It's now a drawn panel (`drawCachetPad` in gl/room-mesh.js), smoked glass in a brass
+hairline with a dim amber grid of keys, dressed as the bar's lighting control. It sits on the false wall's wing
+at switch height, or stands on the worktop's end where there's no wing, at the left end to somebody facing the
+bar. `cachetPad` in client/shared/room-layout.js is the one place that says where, and the station is put
+there, so the hover, the click and the drawing agree. Only a viewer the room tells about the keypad (the
+owner, or anyone in unowned space) gets the warm ring that pulses on it within a few steps and a first-time
+line saying where it is, so a guest in somebody's flat sees a bar with a control on it and nothing more.
+
+The pad itself is part of the pretend bar: every key is a drinks icon over its digit (a shot glass for 1,
+three olives for 3, a lime of eight segments for 8, a bottle cap for 0), and reset is a last-orders bell. The
+code is the server's: the factory code (1234) asks for a code of your own on its first right entry, and the
+code somebody sets lives in the `conceal_codes` table, because a deploy rewrites a furniture row's flags.
+[plugins/concealment/README.md](../../plugins/concealment/README.md) has the rules.
+
+### The bar it passes for (as built)
+
+A sealed Cachet has to be taken for a real bar, so the `barwall` form (gl/room-fittings.js) is dressed as one.
+The base is walnut with panelled doors framed in brass, and its middle bay is a wine cubby of bottles laid
+neck out, each shelf lit from underneath; the carcass is cut back in that bay, or the bottles are buried in
+it. The worktop is dark marble with the bar's kit on it: a rail of house pours with steel speed pourers at
+the back, a ribbed rubber mat with a Boston shaker and its mixing glass, a jigger, a strainer and two coupes,
+an ice bucket with tongs, a bowl of limes and lemons, three bitters bottles, a decanter and a board with a
+lemon halved on it, with the keypad's end kept clear. Behind, glass shelves of bottles in six shapes (wine,
+square whisky, gin, squat liqueur, frosted vodka, champagne), each with a paper label in the canvas texture
+and a coloured band, the top shelf the bigger bottles. On a wall deep enough (0.7 m or more) a lit riser at
+the back of each shelf takes a second row a step up, and where there's height over the top shelf, stemware
+hangs upside down from a brass rail under the cornice. Nothing passes the footprint, since the bar goes
+round as one box (room-stage.mjs section 13). The same form draws every other back bar (the Aerie, the
+Cherry, the penthouse; the Embassy's is a saloon and keeps its own), so they all got the upgrade.
+
 ## Open questions
 
 - College teaching lab or pharmacy back room for the licensed lab.

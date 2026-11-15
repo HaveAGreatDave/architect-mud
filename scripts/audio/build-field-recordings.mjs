@@ -81,6 +81,51 @@ export const SOURCES = [
   { key: 'robin',        user: 'Andrew.soundscape', id: 671058, title: 'robin song', kind: 'calls', n: 8, max: 3.2, gap: 0.3 },
   { key: 'hawk',         user: 'craigsmith', id: 479610, title: 'R30-34-Red Tailed Hawk.wav', kind: 'calls', n: 5, max: 2.6 },
   { key: 'vulture',      user: 'AntumDeluge', id: 188041, title: 'Vulture', kind: 'calls', n: 2, max: 1.2 },
+  // cats (docs/proposals/pets.md): what a pet cat says and does, played by client/game/js/panels/room-cat-sound.js
+  // meows: hello, asking, hungry, cross, and the yowl
+  { key: 'cat_meow',        user: 'tuberatanka', id: 110011, title: 'cat meow', kind: 'calls', n: 6, max: 1.6 },
+  { key: 'cat_meow_small',  user: 'PolterKaist', id: 795848, title: 'Small Cat Meow', kind: 'calls', n: 4, max: 1.4 },
+  { key: 'cat_meow_short',  user: 'skymary', id: 412017, title: 'cat meow short', kind: 'calls', n: 4, max: 1.2 },
+  { key: 'cat_meow_high',   user: 'megrez7274', id: 508686, title: 'SND_CatHighMeows.wav', kind: 'calls', n: 6, max: 1.6 },
+  { key: 'cat_meow_beg',    user: 'Lukey1028', id: 732521, title: 'Begging Meow', kind: 'calls', n: 5, max: 2 },
+  { key: 'cat_meow_hungry', user: '%C3%91ado', id: 843100, title: 'Hungry cat meowing for food', kind: 'calls', n: 8, max: 2 },
+  { key: 'cat_meow_old',    user: 'FreqWincy', id: 724090, title: 'Coco meow 17 year old cat', kind: 'calls', n: 5, max: 2 },
+  { key: 'cat_meow_cross',  user: 'steprock', id: 845517, title: 'cat-meow-annoyed', kind: 'calls', n: 4, max: 1.8 },
+  { key: 'cat_meow_grumpy', user: 'OwenKlash', id: 851329, title: 'grumpy cat meows', kind: 'calls', n: 6, max: 2 },
+  { key: 'cat_yowl',        user: 'tcurless', id: 826683, title: 'Siamese Cat Yowls', kind: 'calls', n: 4, max: 3 },
+  { key: 'cat_yowl_tom',    user: 'olivierklein', id: 815301, title: 'Cat yowling - distant then close-up - Russian Blue cat, male', kind: 'calls', n: 4, max: 3 },
+  // purrs
+  { key: 'cat_purr',        user: 'RazzleDizzle', id: 575933, title: 'Cat Purr', kind: 'calls', n: 4, max: 1.6 },
+  { key: 'cat_purr_tom',    user: 'TheKingOfGeeks360', id: 807969, title: 'House Cats - Tom Cat, Purr', kind: 'bed', len: 10, rms: -26 },
+  { key: 'cat_purr_petted', user: 'ValentinPetiteau', id: 627748, title: 'Petting a cat - purring', kind: 'bed', len: 12, rms: -26 },
+  { key: 'cat_purr_soft',   user: 'sokworks', id: 866537, title: 'Gentle Purring', kind: 'bed', len: 12, rms: -28 },
+  // trills, chirps and the chatter at birds
+  { key: 'cat_trill',       user: 'CatPhony', id: 850104, title: 'Cat trills shortly (calm/quiet)', kind: 'calls', n: 6, max: 1.2 },
+  { key: 'cat_trill_b',     user: 'jsbarrett', id: 200336, title: 'Cat trilling', kind: 'calls', n: 6, max: 1.4 },
+  { key: 'cat_trill_c',     user: 'MBPL', id: 668825, title: 'Cat trill 4', kind: 'calls', n: 3, max: 1.4 },
+  { key: 'cat_chirp',       user: 'yahsay', id: 842520, title: 'Cat Chirping', kind: 'calls', n: 6, max: 1.6 },
+  { key: 'cat_chirp_b',     user: 'Tyler31898', id: 634174, title: 'Cat Chirps.wav', kind: 'calls', n: 6, max: 1 },
+  { key: 'cat_chatter',     user: 'CatPhony', id: 850103, title: 'Chatter and Trill', kind: 'calls', n: 4, max: 2.5 },
+  { key: 'cat_chatter_b',   user: 'CatPhony', id: 844717, title: 'Chatter and Purr', kind: 'calls', n: 4, max: 2.5 },
+  // hisses and growls
+  { key: 'cat_hiss',        user: 'aunrea', id: 485952, title: 'Cat Hissing', kind: 'calls', n: 4, max: 2 },
+  { key: 'cat_hiss_b',      user: 'Zabuhailo', id: 146963, title: 'catHisses1.wav', kind: 'calls', n: 4, max: 2 },
+  { key: 'cat_growl',       user: 'Islabonita', id: 471059, title: 'Cat_growl.wav', kind: 'calls', n: 4, max: 4 },
+  { key: 'cat_growl_hiss',  user: 'Wrenasmir', id: 455495, title: 'Cat Growl into Hiss.aif', kind: 'calls', n: 2, max: 4 },
+  // eating, drinking, grooming, sleeping
+  { key: 'cat_eat_dry',     user: 'piermic', id: 323043, title: 'My cat Athos while eating dry food', kind: 'bed', len: 10, rms: -27, steady: false },
+  { key: 'cat_eat_wet',     user: 'Valerie-Vivegnis', id: 865410, title: '26.07.27- Cat purring and eating wet food', kind: 'bed', len: 10, rms: -27, steady: false },
+  { key: 'cat_drink',       user: 'Valerie-Vivegnis', id: 865411, title: '26.07.27- Cat drinking water', kind: 'bed', len: 8, rms: -27 },
+  { key: 'cat_lap',         user: 'martian', id: 180275, title: 'cat bowl lapping milk.wav', kind: 'bed', len: 8, rms: -27 },
+  { key: 'cat_groom',       user: 'Sadiquecat', id: 844503, title: 'Pearl the cat cleaning herself', kind: 'bed', len: 10, rms: -29, steady: false },
+  { key: 'cat_snore',       user: 'CatPhony', id: 844716, title: 'Snoring Cat', kind: 'bed', len: 10, rms: -29 },
+  // claws, the tray, the floor
+  { key: 'cat_scratch',     user: 'Samantha_Dolman', id: 490730, title: 'Cat Scratching A Post', kind: 'calls', n: 4, max: 3 },
+  { key: 'cat_scratch_floor', user: '16FPanskaRollerova_Adriena', id: 498842, title: 'cat_scratching_wooden_floor.wav', kind: 'calls', n: 4, max: 2.5 },
+  { key: 'cat_litter',      user: 'vcspran', id: 344584, title: 'Cat_Scraping_Litterbox.wav', kind: 'calls', n: 5, max: 2 },
+  { key: 'cat_jump',        user: '16GPanskaZlochova_Eliska', id: 496278, title: '3_Cat, jump.wav', kind: 'calls', n: 3, max: 1.2 },
+  { key: 'cat_land',        user: 'superEGsonic', id: 803297, title: 'cat_land_floor', kind: 'calls', n: 3, max: 0.8 },
+  { key: 'cat_zoomies',     user: 'qubodup', id: 855106, title: 'Cat Zoomies', kind: 'calls', n: 6, max: 2 },
 ];
 export const pageOf = (s) => `https://freesound.org/people/${s.user}/sounds/${s.id}/`;
 export const sampleId = (key) => `smp_field_${key}`;
@@ -281,7 +326,10 @@ async function buildOne(s) {
   } else if (s.kind === 'calls') {
     // a busy recording runs its calls together at a low floor: raise it until they come apart
     let calls = [];
-    for (const floor of [22, 16, 12, 8, 5]) { calls = findCalls(x, RATE, { ...s, floor }); if (calls.length >= Math.min(s.n ?? 6, 3)) break; }
+    // (and if raising it loses them all, as a short recording of two squeaks does, keep the most it found)
+    let most = [];
+    for (const floor of [22, 16, 12, 8, 5]) { calls = findCalls(x, RATE, { ...s, floor }); if (calls.length > most.length) most = calls; if (calls.length >= Math.min(s.n ?? 6, 3)) break; }
+    if (!calls.length) calls = most;
     if (!calls.length) throw new Error(`${s.key}: found no calls`);
     const gap = Math.round(0.25 * RATE), lead = 0.03, parts = [], slices = [];
     let at = gap;

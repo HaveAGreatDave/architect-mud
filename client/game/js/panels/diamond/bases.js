@@ -18,8 +18,11 @@
 // the same point in the stride (the three cycles plant their feet at the same share of a stride),
 // so his legs never cross in a mix.
 //
-// A man who holds stays in his lead (run_lead) on a ball on the ground, and goes back to his bag
-// on one in the air, as he'd tag up. A man going home goes on over the plate and pulls up. The
+// A man who holds stays in his lead (run_lead) on a ball on the ground. On one in the air he reads
+// the outs (`airHold`): with two out he's gone on contact and pulls up where the catch finds him;
+// with fewer, he freezes on a liner or a pop-up and gets back once it's caught, the man on first
+// goes part way on a fly to the outfield and back, and a man on second or third tags up. A man
+// going home goes on over the plate and pulls up. The
 // batter runs through first on a play there, rounds it and comes back on a single to the
 // outfield, slides into second or third where the play says he slid (`sl`), and trots round on a
 // home run.
@@ -346,6 +349,11 @@ export function planBases(ctx, o) {
       rec.end = null;
       return rec;
     }
+    // holding on a ball in the air that's caught, or that he only holds on (airHold)
+    if (!m.off && (to == null || to <= m.from) && air && !o.isHR) {
+      const r = airHold(man, F);
+      if (r) { Object.assign(rec, r); return rec; }
+    }
     // holding: in his lead on the ground, back to his bag on a ball in the air
     if (m.off || to == null || to <= m.from) {
       if (air && !o.isHR) standOn(B, m.from, tBat + 0.3);
@@ -398,6 +406,39 @@ export function planBases(ctx, o) {
     rec.end = toHome ? null : to;
     rec.done = rec.bags[to] + 0.3;
     return rec;
+  }
+
+  // A man holding on a ball in the air, played as he'd play it, or null to leave him to the plain
+  // hold (back to his bag at once, as he'd tag up). Returns the fields for his log entry.
+  //   Two out and it's caught: he went on contact (goOf) and was still going when it came down, so
+  //     he pulls up where the catch finds him, round the next bag on a deep one. The inning's over,
+  //     so he ends nowhere (`end` null), as a man the inning ended on does.
+  //   Fewer out, a liner or a pop-up: he freezes in his lead, and the moment it's caught he's back
+  //     to his bag, or he's doubled off.
+  //   Fewer out, a fly to the outfield: the man on first goes part of the way to second, further on
+  //     a deep one, and gets back to first once it's caught. A man on second or third tags.
+  function airHold(man, F) {
+    const { m, B } = man;
+    const tCatch = F.airCatch ?? (Number.isFinite(F.settled) ? F.settled : null);
+    if (tCatch == null) return null;
+    if (twoOut) {
+      if (!o.isOut) return null;
+      const t0 = goOf(man), route = routeOf(m.from, Math.min(4, m.from + 2)), toHome = route[route.length - 1] === 4;
+      const path = basePath(B.spotAt(t0), route, toHome ? OVER_THE_PLATE : {});
+      // he sees it's caught a beat after it is, and pulls up from there
+      const ran = profile(9, man.v, 11).dist(Math.max(0, tCatch + 0.3 - t0));
+      const r = stopAt(B, path, t0, clamp(ran + STOP_LEN, 12, path.len), { v: man.v });
+      return { end: null, stop: r.on, twoOut: true };
+    }
+    const fly = pl.t === 'fb' && (pl.f?.[0] ?? 0) >= 7;
+    const back = (t) => standOn(B, m.from, t + 0.12 + 0.12 * rand('back' + m.from)).t;
+    if (!fly) return { end: m.from, back: back(tCatch), froze: true };
+    if (m.from !== 1) return null;
+    // part way: 20 ft off on a shallow fly, 38 on one to the track, and never past half way
+    const depth = clamp(((pl.d ?? 280) - 200) / 140, 0, 1), t0 = tBat + 0.35 + 0.2 * rand('part');
+    const path = basePath(B.spotAt(t0), routeOf(1, 2)), part = Math.min(path.len / 2, 20 + 18 * depth);
+    const r = stopAt(B, path, t0, part, { v: Math.min(man.v, 17) });
+    return { end: 1, back: back(Math.max(r.on, tCatch)), part };
   }
 
   // The batter: through first on a play there, round it and back on a single to the outfield, on

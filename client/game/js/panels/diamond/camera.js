@@ -94,6 +94,9 @@ export const SHOTS = Object.freeze({
   // the fly-in before a game: high over the city and down onto the park, to the street camera
   // (`approachShot` places it); this is where it starts with no city round the park
   approach: Object.freeze({ eye: [1500, 1100, -1900], at: [0, 40, 140], fov: 40, shadow: [[0, 0, 140], 600] }),
+  // the champions' cameras (diamond/ceremony.js): on a jib or a steadicam round the mob and the
+  // Cup, each move a track of its own (`{ shot: 'party', track }`); this is the pile from the plate
+  party: Object.freeze({ eye: [0, 6, 20], at: [0, 3.5, 58], fov: 30, dof: 0, shadow: [[0, 0, 58], 40] }),
 });
 
 // THE FLY-IN. A game's first line ("Live from…") comes in high over the city a long way out and
@@ -184,6 +187,9 @@ function aimOf(s, t) {
   if (!s || typeof s !== 'object' || typeof s.track !== 'function') return s;
   const base = SHOTS[s.shot] || SHOTS.high, q = s.track(t);
   if (s.shot === 'approach') return { ...q, near: 2, shadow: [[q.at[0], 0, q.at[2]], Math.max(140, Math.min(900, q.eye[1]))] };
+  // a champions' camera: its track gives the eye, the aim and the lens; the shadows are fitted round
+  // the men it's on, and its lens blurs past them
+  if (s.shot === 'party') return q && q.eye && q.at ? { eye: q.eye, at: q.at, fov: q.fov || base.fov, near: 1, dof: q.dof ?? base.dof, shadow: [[q.at[0], 0, q.at[2]], q.r || 40] } : base;
   if (s.shot === 'homer') {
     // the track is smoothed over a third of a second and runs behind the ball, so it looks a beat
     // ahead of it

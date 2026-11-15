@@ -106,4 +106,28 @@ export default async function regress({ run, check }) {
   const hStand = await run('standings hockey');
   check('standings hockey routed', hStand?.type === 'output', hStand?.message);
   check('standings hockey shows only the CPhL', !/COLDWATER LEAGUE STANDINGS/.test(hStand?.message || ''), hStand?.message);
+
+  // The tablet's Cups tab reads every final through this seam.
+  for (const sport of ['baseball', 'hockey']) {
+    const f = await dispatchAction({ type: 'sportsleague.getFinals', params: { sport } });
+    check(`finals: ${sport} answers with a list`, f?.sport === sport && Array.isArray(f?.finals) && !!f?.final, JSON.stringify(f)?.slice(0, 200));
+    check(`finals: every ${sport} final is played or still to come`,
+      (f?.finals || []).every(x => x.teams?.length === 2 && (x.winner ? x.score?.length === 2 && x.teams.includes(x.winner) : x.pending)),
+      JSON.stringify(f?.finals?.slice(0, 3)));
+  }
+
+  // ── The dev panel's Leagues tab ─────────────────────────────────────────────
+  // Reads only: a restart writes sports_season, so the suite checks the gates in front
+  // of it and never runs one.
+  const { routeHandler } = await import('./index.js');
+  const anon = await routeHandler('/sportsleague/state', 'GET', null, null);
+  check('leagues: the state route wants a dev login', anon?.status === 403, JSON.stringify(anon));
+  const st = await routeHandler('/sportsleague/state', 'GET', null, { role: 'dev' });
+  const sports = (st?.body?.leagues || []).map(l => l.sport).sort().join(',');
+  check('leagues: the state route returns both leagues', st?.status === 200 && sports === 'baseball,hockey', JSON.stringify(st?.body).slice(0, 300));
+  check('leagues: each carries its table', (st?.body?.leagues || []).every(l => Array.isArray(l.table)), sports);
+  const builder = await routeHandler('/sportsleague/restart', 'POST', { sport: 'hockey' }, { role: 'builder' });
+  check('leagues: a builder cannot restart a league', builder?.status === 403, JSON.stringify(builder));
+  const bogus = await routeHandler('/sportsleague/restart', 'POST', { sport: 'curling' }, { role: 'admin' });
+  check('leagues: an unknown sport is refused', bogus?.status === 400 && /No league/.test(bogus?.body?.error || ''), JSON.stringify(bogus));
 }

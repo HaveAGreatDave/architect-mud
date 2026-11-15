@@ -146,6 +146,8 @@ export default async function regress({ run, check, getPlayer }) {
       sheets.length === _test.MURAL.length && sheets.every((s, i) => s.slot === i && s.of === _test.MURAL.length && s.set === 'hellmoo'), JSON.stringify(sheets.map((s) => s.slot)));
     check('the sheets\' glyphs spell the word', sheets.map((s) => s.glyph).join('') === _test.MURAL_WORD, sheets.map((s) => s.glyph).join(''));
     check('a sheet carries its title and print', sheets.every((s) => s.title && /^#[0-9a-f]{6}$/i.test(s.ground) && s.pose), JSON.stringify(sheets[0]));
+    check('every sheet is cut from one print, a panel a slot',
+      sheets.every((s) => s.art?.src === sheets[0].art?.src && s.art.cols.length === s.of + 1 && s.art.cols.every((c, i) => !i || c > s.art.cols[i - 1])), JSON.stringify(sheets[0]?.art));
     check('room.sheets answers nothing for a bare room', hooks['room.sheets']('__no_such_room__') === undefined);
   } finally {
     await deleteFurnitureWhere(`DELETE FROM furniture WHERE id IN ('furn_regress_poster','furn_regress_cyd') OR id LIKE 'furn_regress_mural_%' OR flags->>'poster_key'='regress'`);

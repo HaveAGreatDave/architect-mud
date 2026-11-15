@@ -66,6 +66,9 @@ vec2 specOf(float m) {
 float gCurve = 1.0;
 vec3 aces(vec3 x) { return clamp(x * (2.51 * x + 0.03) / (x * (2.43 * x + 0.59) + 0.14), 0.0, 1.0); }
 vec3 finish(vec3 c) {
+  // 3: the ballpark's float target (gl/ballpark-figures.js), which tone-maps the whole frame itself, so the
+  // light goes in linear and unmapped, as the park's own players' does
+  if (uStreet > 2.5) return c * uExpo;
   c = aces(c * uExpo);
   if (uStreet > 1.5) return c;
   c = pow(c, vec3(1.0 / 2.2));

@@ -429,7 +429,8 @@ export function createRenderer(canvas, W0, ice, { cam: from = null } = {}) {
         if (b) add(streak, p.col).push(b.x, b.y, c.x, c.y, Math.max(0.8, p.size * 0.7 * c.s));
         continue;
       }
-      const col = p.type === 'spray' ? 'rgba(245,250,255,0.7)' : p.type === 'tooth' ? '#f4f1e6' : p.type === 'sweat' ? 'rgba(220,235,255,0.7)' : 'rgba(200,232,250,0.85)';
+      // (the Cup's confetti and pyro carry their club's colour)
+      const col = (p.type === 'spark' || p.type === 'confetti') && p.col ? p.col : p.type === 'spray' ? 'rgba(245,250,255,0.7)' : p.type === 'tooth' ? '#f4f1e6' : p.type === 'sweat' ? 'rgba(220,235,255,0.7)' : 'rgba(200,232,250,0.85)';
       add(dots, col).push(c.x, c.y, Math.max(0.8, p.size * c.s));
     }
     ctx.lineCap = 'round';
@@ -477,9 +478,9 @@ export function createRenderer(canvas, W0, ice, { cam: from = null } = {}) {
     const pt = (u, v, zz) => P(...W3(u, v, zz));
     const boxes = ZB.map((o) => { const b = o.b, c = W3((b[0] + b[1]) / 2, (b[2] + b[3]) / 2, (b[4] + b[5]) / 2); return { o, d: Math.hypot(c[0] - camPos[0], c[1] - camPos[1], c[2] - camPos[2]) }; });
     boxes.sort((p, q) => q.d - p.d);
-    const L = V.norm([0.3, -0.5, 0.8]), cup = !!W0.cup;
+    const L = V.norm([0.3, -0.5, 0.8]), cup = !!W0.cup, final = !!W0.final;
     for (const { o } of boxes) {
-      const [u0, u1, v0, v1, z0, z1] = o.b, col = cupColour(o.col, cup);
+      const [u0, u1, v0, v1, z0, z1] = o.b, col = cupColour(o.col, cup, final);
       const side = (n, a0, a1) => n[0] ? [[n[0] > 0 ? u1 : u0, v0, a0], [n[0] > 0 ? u1 : u0, v1, a0], [n[0] > 0 ? u1 : u0, v1, a1], [n[0] > 0 ? u1 : u0, v0, a1]]
         : [[u0, n[1] > 0 ? v1 : v0, a0], [u1, n[1] > 0 ? v1 : v0, a0], [u1, n[1] > 0 ? v1 : v0, a1], [u0, n[1] > 0 ? v1 : v0, a1]];
       const faces = [[[0, 0, 1], [[u0, v0, z1], [u1, v0, z1], [u1, v1, z1], [u0, v1, z1]]], ...[[1, 0, 0], [-1, 0, 0], [0, 1, 0], [0, -1, 0]].map((n) => [n, side(n, z0, z1)])];
@@ -493,12 +494,12 @@ export function createRenderer(canvas, W0, ice, { cam: from = null } = {}) {
         if (n[2] === 0) {
           for (const [a0, a1, bc] of o.bands || []) {
             const bq = side(n, a0, a1).map((p) => pt(...p)); if (bq.some((p) => !p)) continue;
-            ctx.fillStyle = shadeHex(cupColour(bc, cup), lit); quad(ctx, bq[0], bq[1], bq[2], bq[3]); ctx.fill();
+            ctx.fillStyle = shadeHex(cupColour(bc, cup, final), lit); quad(ctx, bq[0], bq[1], bq[2], bq[3]); ctx.fill();
           }
           if (o.label && n[1] !== 0 && cup) {
             // the piece over the flank, read left to right from either side
             const fu = n[1] > 0 ? [FLANK.u[1], FLANK.u[0]] : FLANK.u, fv = n[1] > 0 ? v1 : v0;
-            const a = pt(fu[0], fv, FLANK.z[1]), b = pt(fu[1], fv, FLANK.z[1]), c = pt(fu[0], fv, FLANK.z[0]), img = liveryCanvas(doc);
+            const a = pt(fu[0], fv, FLANK.z[1]), b = pt(fu[1], fv, FLANK.z[1]), c = pt(fu[0], fv, FLANK.z[0]), img = liveryCanvas(doc, final);
             if (a && b && c && img && a.s > 3) {
               ctx.save(); ctx.globalAlpha = Math.min(1, 0.55 + 0.45 * lit); ctx.transform(b.x - a.x, b.y - a.y, c.x - a.x, c.y - a.y, a.x, a.y);
               ctx.drawImage(img, 0, 0, 1, 1); ctx.restore();
@@ -534,7 +535,7 @@ export function createRenderer(canvas, W0, ice, { cam: from = null } = {}) {
         for (const o of side > 0.6 ? [0] : [-0.14, 0.14]) ctx.strokeRect(gx + o * r - 0.09 * r, hd.y - 0.08 * r, 0.18 * r, 0.12 * r);
       }
     }
-    const wv = kenWave(W.t), sh = pt(-3.15, 2.05, 4.9);
+    const wv = kenWave(W.t, z), sh = pt(-3.15, 2.05, 4.9);
     const wh = wv > 0 ? pt(lerp(-0.95, -3.0, wv), 1.76 + lerp(0, 0.9 + Math.sin(W.t * 8) * 0.28, wv), lerp(4.55, 6.15, wv)) : pt(-0.85, 1.4, 4.45);
     if (sh && wh) line(ctx, sh, wh, Math.max(1, 0.28 * sh.s), '#24324a');
     if (wh && wv > 0.3) { ctx.fillStyle = '#e2ad8e'; ctx.beginPath(); ctx.arc(wh.x, wh.y - 0.15 * wh.s, 0.17 * wh.s, 0, TAU); ctx.fill(); }

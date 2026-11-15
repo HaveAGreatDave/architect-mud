@@ -36,7 +36,9 @@ import { CEL, CEL_GLSL } from './cel-figure.js';
 import { INK, PAINTED, inkLine, fold, patch } from '../comic-pen.js';
 import { createDepthSSAO } from './ssao.js';
 import * as M from './arena-mesh.js';
-import { crowdMorph, CROWD_MORPH } from './ballpark-mesh.js';
+import { fanBakeAsync, fanBakeReady } from './fan-vat.js';
+import { uploadFan, fanVao, bindFan } from './fan-gl.js';
+import { nearCut } from './crowd.js';
 import { GATE_Y, GATE_HALF } from '../rink/zamboni.js';
 import { paintLivery } from '../rink/livery.js';
 import { goalLights } from '../rink/goal-lights.js';
@@ -364,12 +366,14 @@ export function createArenaRenderer(canvas, overlay, W0, ice) {
       const c = cv(32, 32), x = c.getContext('2d');
       x.strokeStyle = 'rgba(244,246,248,0.95)'; x.lineWidth = 3; x.strokeRect(0, 0, 32, 32); return c;
     })(), { repeat: true, mip: true });
-    // the Zamboni's lettering: ICE CREW over Ken Raven's Cup final piece (M.ZAMBONI_LABEL)
+    // the Zamboni's lettering: ICE CREW over Ken Raven's piece, then the Cup night's gold one
+    // (M.ZAMBONI_LABEL)
     const texLabel = texture((() => {
       const Z = M.ZAMBONI_LABEL, c = cv(Z.w, Z.h), x = c.getContext('2d');
       x.fillStyle = '#1f4fbf'; x.font = `800 100px ${FACE}`; x.textAlign = 'center'; x.textBaseline = 'middle';
       x.fillText('ICE CREW', Z.w / 2, 68, Z.w - 32);
       x.save(); x.translate(0, Z.crew); paintLivery(x); x.restore();
+      x.save(); x.translate(0, Z.crew + Z.piece); paintLivery(x, undefined, undefined, true); x.restore();
       return c;
     })(), { mip: true });
     const atlas = texture(null, { w: ATLAS, h: ATLAS });
@@ -417,6 +421,8 @@ export function createArenaRenderer(canvas, overlay, W0, ice) {
     canvas.addEventListener?.('webglcontextlost', (e) => { e.preventDefault(); lost = true; api.lost = true; });
 
     const camera = createRinkCamera(W);
+    // (GL draws a camera at any heading, so the Ken Raven comic's shots are taken from the ice)
+    camera.free = true;
     let frame = 0, hudShown = false, nHalo = 0;
     const st = { tris: 0, draws: 0, tiles: 0 };
 
@@ -787,7 +793,8 @@ export function createArenaRenderer(canvas, overlay, W0, ice) {
       kenOn = false;
       if (W.zamboni) {
         try { kenOn = !!(ken && ken.pose(W.zamboni, W.t)); } catch (err) { console.warn('[rink] Ken:', err && err.message); ken = null; }
-        M.buildZamboni(d, B.label, W.zamboni, W.t, !!W0.cup, kenOn ? kenRig() : null);
+        M.buildZamboni(d, B.label, W.zamboni, W.t, !!W0.cup, kenOn ? kenRig() : null,
+          W0.final ? { flags: [W0.kits?.a?.jersey, W0.kits?.h?.jersey] } : null);
         if (kenOn) { ken.glasses(d, null, M.tube, M.rgb); ken.scarf(d, M.quad, M.tube, M.rgb); }
       }
       propsN = d.n;
@@ -879,6 +886,8 @@ export function createArenaRenderer(canvas, overlay, W0, ice) {
         // the Cup's confetti: each piece turning over as it falls, so it flickers between its
         // face and its edge
         else if (p.type === 'confetti') pt(p.x, p.y, p.z, M.rgb(p.col), p.size * (0.45 + 0.55 * Math.abs(Math.sin(p.life * p.spin + p.seed))));
+        // the Cup's pyro (rink/sim.js W.pyro): a soft glow in the club's colour, burning down as it falls
+        else if (p.type === 'spark') { const c = M.rgb(p.col), k = 1 - p.life / p.max; pt(p.x, p.y, p.z, [c[0] * 1.8, c[1] * 1.8, c[2] * 1.8, -Math.max(0.05, k)], p.size * (0.6 + 0.6 * k)); }
         else pt(p.x, p.y, p.z, PCOL[p.type] || PCOL.shard, p.size * 2);
       }
       if (W.spray) for (const p of W.spray) pt(p.x, p.y, p.z, PCOL.spray, p.size * 2);
@@ -933,39 +942,80 @@ export function createArenaRenderer(canvas, overlay, W0, ice) {
       celFor(false);
     }
     // ── the fans (gl/arena-crowd.js) ──────────────────────────────────────────
-    // One figure in three poses, instanced a seat; the seats' instance data rebuilt only when the
-    // clubs' colours change. As many are drawn as the night's gate and the quality rung allow.
-    const fanMorph = crowdMorph({ far: true, towels: false }), FAN_V = fanMorph.length / CROWD_MORPH;
-    const fanVao = gl.createVertexArray(), fanMb = gl.createBuffer(), fanIb = gl.createBuffer();
-    gl.bindVertexArray(fanVao);
-    gl.bindBuffer(gl.ARRAY_BUFFER, fanMb); gl.bufferData(gl.ARRAY_BUFFER, fanMorph, gl.STATIC_DRAW);
-    for (const [loc, size, off] of [[0, 3, 0], [1, 3, 12], [2, 3, 24], [6, 3, 36], [7, 3, 48], [8, 3, 60], [9, 1, 72]]) { gl.enableVertexAttribArray(loc); gl.vertexAttribPointer(loc, size, gl.FLOAT, false, CROWD_MORPH * 4, off); }
-    gl.bindBuffer(gl.ARRAY_BUFFER, fanIb);
-    for (const [loc, size, off] of [[3, 4, 0], [4, 4, 16], [5, 3, 32]]) { gl.enableVertexAttribArray(loc); gl.vertexAttribPointer(loc, size, gl.FLOAT, false, CROWD_INST * 4, off); gl.vertexAttribDivisor(loc, 1); }
-    gl.bindVertexArray(null);
-    let fanKey = null, fanGroups = null;
+    // gl/fan-vat.js's fan, instanced a seat; the seats' instance data rebuilt only when the clubs'
+    // colours change. As many are drawn as the night's gate and the quality rung allow, from the
+    // groups the view shows, each fan at the far level or, FAN_NEAR_PX device pixels tall or more,
+    // the near one (the NEAR_MAX biggest at most, gl/crowd.js nearCut): worked out again every
+    // FAN_SPLIT_MS, or at once when the view, the share or the kits change. The bake comes from a worker (fanBakeAsync); until it's here there are no fans.
+    const FAN_NEAR_PX = 80, FAN_SPLIT_MS = 250, FAN_H = 5, FIS = CROWD_INST * 4;
+    const fanIb = gl.createBuffer(), fanNb = gl.createBuffer();
+    const fanGpu = { far: null, near: null, asked: false, vao: null, nearVao: null };
+    let fanKey = null, fanGroups = null, fanFar = null, fanNear = null, fanPx = null, fanAt = null, fanSplitKey = null, fanSplitAt = -Infinity, fanN = [0, 0];
+    function fansReady() {
+      if (fanGpu.far) return true;
+      const far = fanBakeReady('far'), near = fanBakeReady('near');
+      if (far && near) {
+        fanGpu.far = uploadFan(gl, far); fanGpu.near = uploadFan(gl, near);
+        fanGpu.vao = fanVao(gl, fanGpu.far, fanIb, FIS); fanGpu.nearVao = fanVao(gl, fanGpu.near, fanNb, FIS);
+        return true;
+      }
+      if (!fanGpu.asked) { fanGpu.asked = true; fanBakeAsync(); }
+      return false;
+    }
+    // the fans the view shows, split into the far level's buffer and the near one's
+    function splitFans(vp, view, share, hpx) {
+      const key = [fanKey, view, share].join('|'), now = performance.now();
+      if (key === fanSplitKey && now - fanSplitAt < FAN_SPLIT_MS) return;
+      fanSplitKey = key; fanSplitAt = now;
+      const src = fanGroups.data, S = CROWD_INST, ring = seesRing(view);
+      if (!fanFar || fanFar.length < src.length) { fanFar = new Float32Array(src.length); fanNear = new Float32Array(src.length); }
+      // every shown fan's height on the screen (his height up the picture over his distance), so the
+      // near level goes to the NEAR_MAX biggest
+      if (!fanPx || fanPx.length < src.length / S) { fanPx = new Float32Array(src.length / S); fanAt = new Int32Array(src.length / S); }
+      let m = 0;
+      for (let g = 0; g < 4; g++) {
+        if ((g & 1) && !ring) continue;
+        const n = Math.round(fanGroups.count[g] * share);
+        for (let i = 0; i < n; i++) {
+          const o = (fanGroups.start[g] + i) * S, w = vp[3] * src[o] + vp[7] * src[o + 1] + vp[11] * src[o + 2] + vp[15];
+          fanPx[m] = w > 0.5 ? Math.abs(vp[9]) * FAN_H / w * hpx * 0.5 : 0; fanAt[m++] = o;
+        }
+      }
+      const cut = nearCut(fanPx, m, FAN_NEAR_PX);
+      let nf = 0, nn = 0;
+      for (let i = 0; i < m; i++) {
+        const o = fanAt[i];
+        if (fanPx[i] >= cut) fanNear.set(src.subarray(o, o + S), nn++ * S); else fanFar.set(src.subarray(o, o + S), nf++ * S);
+      }
+      if (nf) { gl.bindBuffer(gl.ARRAY_BUFFER, fanIb); gl.bufferSubData(gl.ARRAY_BUFFER, 0, fanFar, 0, nf * S); }
+      if (nn) { gl.bindBuffer(gl.ARRAY_BUFFER, fanNb); gl.bufferSubData(gl.ARRAY_BUFFER, 0, fanNear, 0, nn * S); }
+      fanN = [nf, nn];
+    }
     function drawFans(vp, shake, view, eye) {
       const K = W0.kits || {}, key = [K.a?.jersey, K.a?.trim, K.h?.jersey, K.h?.trim].join('|');
-      if (key !== fanKey) { fanKey = key; const fi = crowdInstances(K); fanGroups = fi; gl.bindBuffer(gl.ARRAY_BUFFER, fanIb); gl.bufferData(gl.ARRAY_BUFFER, fi.data, gl.STATIC_DRAW); }
-      const share = clamp(W0.gate ?? 0.7, 0, 1) * clamp(api.quality.crowd ?? 1, 0, 1);
-      if (share <= 0) return;
+      if (key !== fanKey) {
+        fanKey = key; fanGroups = crowdInstances(K);
+        for (const b of [fanIb, fanNb]) { gl.bindBuffer(gl.ARRAY_BUFFER, b); gl.bufferData(gl.ARRAY_BUFFER, fanGroups.data.byteLength, gl.DYNAMIC_DRAW); }
+      }
+      // Cup night sells out (the gate's 1) and is drawn whole on every tier: it's the one night
+      // the barn has to look full
+      const share = W0.final ? 1 : clamp(W0.gate ?? 0.7, 0, 1) * clamp(api.quality.crowd ?? 1, 0, 1);
+      if (share <= 0 || !fansReady()) return;
+      splitFans(vp, view, share, gl.drawingBufferHeight);
       const roar = roarOf(W);
       gl.useProgram(FANS.p);
       gl.uniformMatrix4fv(FANS.u('uVP'), false, vp); gl.uniform2fv(FANS.u('uShake'), shake);
       gl.uniform2f(FANS.u('uRoar'), roar[0], roar[1]); gl.uniform1f(FANS.u('uT'), W.t || 0); gl.uniform1f(FANS.u('uMove'), 1);
       gl.uniform4fv(FANS.u('uHide'), hideFor(view));
       gl.uniform4f(FANS.u('uNear'), eye[0], eye[1], eye[2] - nearDrop(view), nearR(view));
+      gl.uniform3fv(FANS.u('uEyeC'), eye);
       gl.uniform1f(FANS.u('uDim'), 0.62); gl.uniform1f(FANS.u('uMourn'), W.mourning || 0);
-      // (each group the view shows, from its first seat, its own instance attributes moved on to it)
-      const ring = seesRing(view);
-      gl.bindVertexArray(fanVao); gl.bindBuffer(gl.ARRAY_BUFFER, fanIb);
-      for (let i = 0; i < 4; i++) {
-        if ((i & 1) && !ring) continue;
-        const n = Math.round(fanGroups.count[i] * share), base = fanGroups.start[i] * CROWD_INST * 4;
-        if (n <= 0) continue;
-        for (const [loc, size, off] of [[3, 4, 0], [4, 4, 16], [5, 3, 32]]) gl.vertexAttribPointer(loc, size, gl.FLOAT, false, CROWD_INST * 4, base + off);
-        gl.drawArraysInstanced(gl.TRIANGLES, 0, FAN_V, n);
-        st.draws++; st.tris += FAN_V / 3 * n;
+      for (const [lv, vao, n] of [[fanGpu.far, fanGpu.vao, fanN[0]], [fanGpu.near, fanGpu.nearVao, fanN[1]]]) {
+        if (!n) continue;
+        bindFan(gl, FANS, lv, 0);
+        gl.bindVertexArray(vao);
+        gl.drawElementsInstanced(gl.TRIANGLES, lv.n, gl.UNSIGNED_SHORT, 0, n);
+        st.draws++; st.tris += lv.tris * n;
       }
     }
     // ── the ink round the players ─────────────────────────────────────────────

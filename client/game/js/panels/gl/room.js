@@ -26,6 +26,7 @@ import { ROOM_SKY_GLSL, setOutsideUniforms } from './room-sky.js';
 import { BEAST_VS, BEAST_FS, HALO_VS, HALO_FS } from './beast-light.js';
 import { SHUTTER_GLSL, setShutterUniforms, shutterWinC } from './room-shutters.js';
 import { createRoomDof, roomDofOn } from './room-dof.js';
+import { CAT_STRIDE, CAT_ATTRS, skinVariant } from './cat-gpu.js';
 // the city's faces round a room (room-outlook.js): how many, and the down and up faces' pitch
 const PANO_FACES = 6, PANO_TILT = 1.45;
 
@@ -50,7 +51,8 @@ uniform float uBearing;     // the way the room's front wall faces, radians cloc
 uniform vec3 uFront;        // the room's front and right, in the frame the eye is in
 uniform vec3 uRight;
 uniform bool uLive;         // the broadcast: its texture is plain RGBA, so it's decoded here
-uniform int uMode;          // 0 plain, 1 textured, 2 a picture (a screen), 3 glass, 4 the view out, 5 the city, 6 paint on a wall, 7 light off a wall
+uniform int uMode;          // 0 plain, 1 textured, 2 a picture (a screen), 3 glass, 4 the view out, 5 the city, 6 paint on a wall, 7 light off a wall, 8 foil on a wall
+uniform float uFoilT;       // seconds, for foil's shimmer
 uniform vec2 uPanoLens;     // the city's paints: their projection scales, x and y
 uniform float uPanoTilt;    // the down and up faces' pitch (room-outlook.js TILT)
 out vec4 outColor;
@@ -69,6 +71,12 @@ uniform int uProbeOn;
 uniform vec3 uProbeP;
 uniform vec3 uProbeMin;
 uniform vec3 uProbeMax;
+// A mirror (material 48): the room drawn again through it this frame (the mirror pass, display-ready), read where the
+// pixel is on the screen. uMirrorPl is the plane that pass was drawn for, n.xyz and d, so a second mirror in the room
+// doesn't show the first one's picture. uMirrorOn is 0 in the bake, in the mirror pass itself and with no mirror in view.
+uniform sampler2D uMirror;
+uniform int uMirrorOn;
+uniform vec4 uMirrorPl;
 // A direction as east and north.
 vec2 compass(vec3 d) {
   float fw = dot(d, uFront), rt = dot(d, uRight), s = sin(uBearing), c = cos(uBearing);
@@ -79,6 +87,8 @@ ${SHUTTER_GLSL}
 void main() {
   vec3 base = vCol;
   gCurve = smoothstep(0.004, 0.03, length(fwidth(normalize(vNor))));
+  // the shutters' depth pass wants panes only (their uv is metres from 100), not the flames, steam or liquids
+  if (uShutOnly == 1 && (vUv.x < 50.0 || vMat > 40.5)) discard;
   if (vMat == 43.0) { outColor = fireAt(vUv); return; }
   if (uMode == 5) {
     // the city round the building (room-outlook.js): six GLASS paints side by side, the front, right, back and
@@ -112,6 +122,21 @@ void main() {
   if (uMode == 7) {
     vec4 t = texture(uTex, vUv);
     outColor = vec4(t.rgb * t.a * vCol, 0.0);
+    return;
+  }
+  // foil on a wall (setDecals 'foil'): lettering laid over a picture, lit by nothing in the room. A bright band runs
+  // across it as you move and as time goes; from far enough round to the side it's gone, and what's under it shows.
+  if (uMode == 8) {
+    vec4 t = texture(uTex, vUv);
+    if (t.a < 0.01) discard;
+    vec3 n = normalize(vNor), e = normalize(uEye - vPos), rt = normalize(vec3(n.z, 0.0, -n.x));
+    float side = dot(e, rt), off = abs(side) + 0.35 * max(0.0, abs(e.y) - 0.45);
+    float vis = 1.0 - smoothstep(0.5, 0.74, off);
+    float along = dot(vPos, rt);
+    float band = pow(max(0.0, sin((along * 1.6 + vPos.y * 0.8) * 6.2831853 - side * 12.0 - uFoilT * 0.7)), 14.0);
+    float glint = 0.94 + 0.06 * sin(uFoilT * 2.7 + along * 31.0);
+    vec3 c = t.rgb * glint * (1.0 + band * 0.8) + vec3(1.0, 0.86, 0.55) * band * 0.3;
+    outColor = vec4(c, t.a * vis * clamp(vCol.r, 0.0, 1.0));
     return;
   }
   if (uMode == 1 || uMode == 2) {
@@ -159,6 +184,7 @@ void main() {
   if (uMode == 3) {
     // the shutters down over a pane, dark or showing a scene (gl/room-shutters.js)
     vec4 sh = shutterAt(diff, spec, fresnelOf(n, v));
+    if (uShutOnly == 1) { if (sh.a <= 0.0) discard; outColor = vec4(0.0); return; }
     if (sh.a > 0.0) { outColor = sh; return; }
     // a doorway's shutter line (uv from 300) is nothing with the shutters up
     if (vUv.x > 250.0) discard;
@@ -170,6 +196,29 @@ void main() {
       g = vec4(mix(g.rgb, pic * 0.92 + 0.03, dr.z), max(g.a, dr.z * 0.3));
     }
     outColor = g;
+    return;
+  }
+  // a mirror (material 48): the live picture when it's the mirror drawn this frame; otherwise the chrome's soft room
+  // off the probe, or a painted room with no probe, so a mirror out of the pass still reads as glass. Its colour is
+  // the silvering's tint
+  if (vMat == 48.0) {
+    if (uMirrorOn == 1 && abs(dot(uMirrorPl.xyz, vPos) - uMirrorPl.w) < 0.02 && dot(normalize(vNor), uMirrorPl.xyz) > 0.95) {
+      outColor = vec4(texture(uMirror, gl_FragCoord.xy / uRes).rgb * base, 1.0);
+      return;
+    }
+    vec3 rf = reflect(-v, n), env;
+    if (uProbeOn == 1) {
+      vec3 sr = sign(rf) * max(abs(rf), vec3(1e-4));
+      vec3 fa = max((uProbeMax - vPos) / sr, (uProbeMin - vPos) / sr);
+      vec3 dir = vPos + rf * max(0.0, min(min(fa.x, fa.y), fa.z)) - uProbeP;
+      env = pow(clamp(textureLod(uProbe, dir, 0.6).rgb / 0.744, 0.0, 1.4), vec3(2.2));
+    } else {
+      float up = rf.y;
+      env = mix(vec3(0.14, 0.11, 0.08), vec3(0.06, 0.06, 0.065), smoothstep(-0.25, -0.03, up));
+      env = mix(env, vec3(0.5, 0.5, 0.52), smoothstep(0.0, 0.2, up));
+      env += vec3(0.9) * smoothstep(0.7, 0.85, up);
+    }
+    outColor = vec4(finish(env * base + spec * 0.6), 1.0);
     return;
   }
   // chrome (material 45): a mirror of the room by the reflected ray, a dark floor, the walls, a bright band of
@@ -248,6 +297,11 @@ declareProgram(INK_VS, INK_FS, null, { scenes: ['room'] });
 declareProgram(DEPTH_VS, DEPTH_FS, null, { scenes: ['room'] });
 declareProgram(BEAST_VS, BEAST_FS, null, { scenes: ['room'] });
 declareProgram(HALO_VS, HALO_FS, null, { scenes: ['room'] });
+// a cat, skinned on the GPU (gl/cat-gpu.js): the ink, depth and beast shaders taking its bones
+const CAT_INK_VS = skinVariant(INK_VS), CAT_DEPTH_VS = skinVariant(DEPTH_VS), CAT_BEAST_VS = skinVariant(BEAST_VS);
+declareProgram(CAT_INK_VS, INK_FS, null, { scenes: ['room'] });
+declareProgram(CAT_DEPTH_VS, DEPTH_FS, null, { scenes: ['room'] });
+declareProgram(CAT_BEAST_VS, BEAST_FS, null, { scenes: ['room'] });
 
 const ATTRS = [[0, 3, 0], [1, 3, 12], [2, 2, 24], [3, 3, 32], [4, 1, 44]];
 const INK_COL = [0.05, 0.045, 0.06];
@@ -261,6 +315,9 @@ const INK_BACK = 0.03;
 // (room-layout.js's frame), pitch up is positive.
 // `lens` is [x, y], the projection's own scales, for a room drawn over a camera with a lens of its own.
 export function roomMatrices(cam, aspect, lens = null) {
+  return shaken(new Float32Array(mat4mul(roomProj(cam, aspect, lens), roomView(cam))), cam);
+}
+function roomView(cam) {
   const y = cam.yaw || 0, p = cam.pitch || 0;
   const f = [Math.sin(y) * Math.cos(p), Math.sin(p), Math.cos(y) * Math.cos(p)];
   let r = norm(cross(f, [0, 1, 0])), u = cross(r, f);
@@ -270,13 +327,37 @@ export function roomMatrices(cam, aspect, lens = null) {
     const cr = Math.cos(cam.roll), sr = Math.sin(cam.roll), r0 = r, u0 = u;
     r = r0.map((x, i) => x * cr + u0[i] * sr); u = u0.map((x, i) => x * cr - r0[i] * sr);
   }
-  const view = [r[0], u[0], -f[0], 0, r[1], u[1], -f[1], 0, r[2], u[2], -f[2], 0, -dot(r, e), -dot(u, e), dot(f, e), 1];
-  const near = NEAR, far = FAR, t = 1 / Math.tan(((cam.fov || 70) * Math.PI / 180) / 2);
-  const proj = [lens ? lens[0] : t / aspect, 0, 0, 0, 0, lens ? lens[1] : t, 0, 0, 0, 0, (far + near) / (near - far), -1, 0, 0, (2 * far * near) / (near - far), 0];
-  const vp = new Float32Array(mat4mul(proj, view));
-  // `shake` [x, y] moves the picture in clip space (a hit on the board)
+  return [r[0], u[0], -f[0], 0, r[1], u[1], -f[1], 0, r[2], u[2], -f[2], 0, -dot(r, e), -dot(u, e), dot(f, e), 1];
+}
+function roomProj(cam, aspect, lens, far = FAR) {
+  const near = NEAR, t = 1 / Math.tan(((cam.fov || 70) * Math.PI / 180) / 2);
+  return [lens ? lens[0] : t / aspect, 0, 0, 0, 0, lens ? lens[1] : t, 0, 0, 0, 0, (far + near) / (near - far), -1, 0, 0, (2 * far * near) / (near - far), 0];
+}
+// `shake` [x, y] moves the picture in clip space (a hit on the board)
+function shaken(vp, cam) {
   if (cam.shake) for (let c = 0; c < 4; c++) { vp[c * 4] += cam.shake[0] * vp[c * 4 + 3]; vp[c * 4 + 1] += cam.shake[1] * vp[c * 4 + 3]; }
   return vp;
+}
+// THE CAMERA THROUGH A MIRROR in the plane n.x = d: the room reflected in it (R), seen from where you stand, so a
+// point drawn with this lands on the screen where its reflection is seen in the glass. The near plane is turned
+// into the mirror's own (Lengyel's oblique clipping), so nothing behind the glass (its own wall, the room past it)
+// comes into the picture. Null when the eye isn't in front of it.
+export function mirrorMatrices(cam, aspect, lens, n, d) {
+  // (the far plane pushed well out first: the oblique near plane swings the far one in, and it bit the ceiling off)
+  const V = roomView(cam), P = roomProj(cam, aspect, lens, FAR * 40);
+  const R = [1 - 2 * n[0] * n[0], -2 * n[0] * n[1], -2 * n[0] * n[2], 0, -2 * n[0] * n[1], 1 - 2 * n[1] * n[1], -2 * n[1] * n[2], 0,
+    -2 * n[0] * n[2], -2 * n[1] * n[2], 1 - 2 * n[2] * n[2], 0, 2 * d * n[0], 2 * d * n[1], 2 * d * n[2], 1];
+  // the plane in the eye space of V·R: its normal is V's turn of the reflected normal (−n), through V of a point on
+  // its reflection. Cut a whisker into the room (n.p = d + 0.003, reflected to d − 0.003), so the glass itself goes
+  const k = d - 0.003, ne = [0, 1, 2].map((i) => -(V[i] * n[0] + V[4 + i] * n[1] + V[8 + i] * n[2]));
+  const pe = [0, 1, 2].map((i) => V[i] * n[0] * k + V[4 + i] * n[1] * k + V[8 + i] * n[2] * k + V[12 + i]);
+  const C = [ne[0], ne[1], ne[2], -(ne[0] * pe[0] + ne[1] * pe[1] + ne[2] * pe[2])];
+  if (C[3] >= -1e-4) return null;
+  const q = [(Math.sign(C[0]) + P[8]) / P[0], (Math.sign(C[1]) + P[9]) / P[5], -1, (1 + P[10]) / P[14]];
+  const s = 2 / (C[0] * q[0] + C[1] * q[1] + C[2] * q[2] + C[3] * q[3]);
+  P[2] = C[0] * s; P[6] = C[1] * s; P[10] = C[2] * s + 1; P[14] = C[3] * s;
+  const e = cam.eye, side = n[0] * e[0] + n[1] * e[1] + n[2] * e[2] - d;
+  return { vp: shaken(new Float32Array(mat4mul(P, mat4mul(V, R))), cam), eye: [e[0] - 2 * side * n[0], e[1] - 2 * side * n[1], e[2] - 2 * side * n[2]] };
 }
 // A point in the room to the picture's pixels, or null behind the eye.
 export function projectWith(vp, p, w, h) {
@@ -299,6 +380,7 @@ export function createRoomRenderer(canvas, { phone = false, see = false } = {}) 
     const LIT = prog(VS, FS, 'room lit'), INK = prog(INK_VS, INK_FS, 'room ink'), DEPTH = prog(DEPTH_VS, DEPTH_FS, 'room depth');
     // the beasts' own light and the halos round what glows on them (gl/beast-light.js)
     const BEAST = prog(BEAST_VS, BEAST_FS, 'room beasts'), HALO = prog(HALO_VS, HALO_FS, 'room halos');
+    const CAT_INK = prog(CAT_INK_VS, INK_FS, 'room cat ink'), CAT_DEPTH = prog(CAT_DEPTH_VS, DEPTH_FS, 'room cat depth'), CAT_BEAST = prog(CAT_BEAST_VS, BEAST_FS, 'room cat');
     const layer = () => { const vao = gl.createVertexArray(); return { vao, st: makeVertexStream(gl, vao, STRIDE, ATTRS), n: 0 }; };
     const upload = (L, b) => { L.st.write(b.data, b.n * STRIDE); L.n = b.n; };
     const drop = (L) => { if (!L) return; gl.deleteVertexArray(L.vao); gl.deleteBuffer(L.st.buf); };
@@ -338,6 +420,74 @@ export function createRoomRenderer(canvas, { phone = false, see = false } = {}) 
     const decalTex = new Map();   // key -> { t, src }
     // an animal on the floor (gl/room-beasts.js), inked like the people and lit by gl/beast-light.js
     const beasts = layer(), halos = layer();
+    // the cats (gl/cat-gpu.js): each carve and each part of the eyes uploaded once (catMesh), and each frame only
+    // their bones (setCats). A mesh is { body: { vao, n, indexed }, fur: [{ vao, n, layers }], bufs }.
+    let cats = [];
+    const catMeshes = new Set();
+    function catMesh(m) {
+      const buf = gl.createBuffer(), bufs = [buf], S = CAT_STRIDE * 4;
+      gl.bindBuffer(gl.ARRAY_BUFFER, buf);
+      gl.bufferData(gl.ARRAY_BUFFER, m.data, gl.STATIC_DRAW);
+      const vaoOf = (index) => {
+        const vao = gl.createVertexArray();
+        gl.bindVertexArray(vao);
+        gl.bindBuffer(gl.ARRAY_BUFFER, buf);
+        for (const [l, n, off] of CAT_ATTRS) { gl.enableVertexAttribArray(l); gl.vertexAttribPointer(l, n, gl.FLOAT, false, S, off); }
+        if (index) {
+          const ib = gl.createBuffer();
+          gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, ib);
+          gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, index, gl.STATIC_DRAW);
+          bufs.push(ib);
+        }
+        gl.bindVertexArray(null);
+        return vao;
+      };
+      const h = {
+        body: { vao: vaoOf(m.index), n: m.index ? m.index.length : m.verts, indexed: !!m.index },
+        fur: (m.fur || []).map((f) => ({ vao: vaoOf(f.index), n: f.index.length, layers: f.layers })),
+        bufs,
+      };
+      catMeshes.add(h);
+      return h;
+    }
+    function freeCatMesh(h) {
+      if (!h || !catMeshes.has(h)) return;
+      catMeshes.delete(h);
+      gl.deleteVertexArray(h.body.vao);
+      for (const f of h.fur) gl.deleteVertexArray(f.vao);
+      for (const b of h.bufs) gl.deleteBuffer(b);
+    }
+    // [{ meshes: [handle], rows: Float32Array (12 a bone), breath (metres) }]
+    function setCats(list) { cats = (list || []).filter((c) => c?.rows && c.meshes?.length); }
+    // every cat through program P: the body and its parts, and with `fur` the shells, one instance a layer
+    function drawCats(P, fur = false) {
+      for (const c of cats) {
+        gl.uniform4fv(P.u('uCatBone'), c.rows);
+        gl.uniform1f(P.u('uCatBreath'), c.breath || 0);
+        gl.uniform1f(P.u('uCatShells'), 0);
+        for (const h of c.meshes) {
+          if (!catMeshes.has(h) || !h.body.n) continue;
+          gl.bindVertexArray(h.body.vao);
+          if (h.body.indexed) gl.drawElements(gl.TRIANGLES, h.body.n, gl.UNSIGNED_INT, 0); else gl.drawArrays(gl.TRIANGLES, 0, h.body.n);
+        }
+        if (!fur) continue;
+        // the coat with alpha-to-coverage (gl/beast-light.js uFurSoft): soft strand edges on the multisampled target,
+        // and the canvas's own alpha left as the body wrote it
+        gl.enable(gl.SAMPLE_ALPHA_TO_COVERAGE); gl.colorMask(true, true, true, false);
+        gl.uniform1f(P.u('uFurSoft'), 1);
+        for (const h of c.meshes) {
+          if (!catMeshes.has(h)) continue;
+          for (const f of h.fur) {
+            if (!f.n || !f.layers) continue;
+            gl.uniform1f(P.u('uCatShells'), f.layers);
+            gl.bindVertexArray(f.vao);
+            gl.drawElementsInstanced(gl.TRIANGLES, f.n, gl.UNSIGNED_INT, 0, f.layers);
+          }
+        }
+        gl.uniform1f(P.u('uFurSoft'), 0);
+        gl.disable(gl.SAMPLE_ALPHA_TO_COVERAGE); gl.colorMask(true, true, true, true);
+      }
+    }
     // a stage's own see-through props (liquids, gl/lab-matter.js) and its own halos, drawn with the room's glass and halos
     const propsGlass = layer(), stageHalos = layer();
     const stageGlowP = new Float32Array(32), stageGlowC = new Float32Array(24);
@@ -349,7 +499,7 @@ export function createRoomRenderer(canvas, { phone = false, see = false } = {}) 
     const uploadRoom = (m, paint) => {
       const one = (b) => { const L = layer(); upload(L, b); L.kit = b.kit || []; return L; };
       for (const key of m.textured.keys()) if (!tex.has(key)) tex.set(key, texture(paint(key)));
-      return { solid: one(m.solid), screen: one(m.screen), glass: one(m.glass), view: one(m.view), mats: [...m.textured].map(([key, b]) => ({ key, ...one(b) })), probeAt: measureProbe([m.solid, ...m.textured.values()]) };
+      return { solid: one(m.solid), screen: one(m.screen), glass: one(m.glass), view: one(m.view), mats: [...m.textured].map(([key, b]) => ({ key, ...one(b) })), probeAt: measureProbe([m.solid, ...m.textured.values()]), mirrors: measureMirrors(m.solid) };
     };
     // ⚠ A ROOM UPLOADED AHEAD (room-stage.js composes the rooms past the next doorway with their shells during the
     // bake). The upload and the probe's pass over every vertex were most of what a crossing still cost once the
@@ -409,8 +559,88 @@ export function createRoomRenderer(canvas, { phone = false, see = false } = {}) 
       }
       Object.assign(probe, { p, min, max, dirty: true });
     }
+    // ── the mirrors ─────────────────────────────────────────────────────────────────────────────
+    // Every flat run of mirror in the room (material 48), one entry a plane: { n, d, lo, hi } with its box. Each
+    // frame the one taking most of the picture is drawn into: the room again, through the camera reflected in it
+    // (mirrorMatrices), into a target at part of the picture's size, with you in it (setMirrorFigures). The glass
+    // reads that back where it is on the screen. No mirror in view, no pass and no cost.
+    function measureMirrors(b) {
+      const d = b.data, groups = new Map();
+      for (let i = 0; i < b.n; i++) {
+        const o = i * STRIDE;
+        if (d[o + 11] !== 48) continue;
+        const l = Math.hypot(d[o + 3], d[o + 4], d[o + 5]) || 1, n = [d[o + 3] / l, d[o + 4] / l, d[o + 5] / l];
+        const p = [d[o], d[o + 1], d[o + 2]], dd = dot(n, p), key = n.map((x) => Math.round(x * 40)).join(',') + '|' + Math.round(dd * 50);
+        let g = groups.get(key);
+        if (!g) groups.set(key, g = { n, sum: 0, cnt: 0, lo: [...p], hi: [...p] });
+        g.sum += dd; g.cnt++;
+        for (let k = 0; k < 3; k++) { g.lo[k] = Math.min(g.lo[k], p[k]); g.hi[k] = Math.max(g.hi[k], p[k]); }
+      }
+      return [...groups.values()].slice(0, 12).map((g) => ({ n: g.n, d: g.sum / g.cnt, lo: g.lo, hi: g.hi }));
+    }
+    // how far off you can be for a mirror to be drawn, and the part of the picture's size it's drawn at
+    const MIRROR_REACH = 9, MIRROR_RES = phone ? 0.5 : 0.75;
+    let mirror = null, mirrorFigs = [], mirrorSeen = false;
+    gl.useProgram(LIT.p); gl.uniform1i(LIT.u('uMirror'), 2); gl.uniform1i(LIT.u('uMirrorOn'), 0);
+    function mirrorTarget(w, h) {
+      if (!mirror) {
+        const t = gl.createTexture();
+        gl.bindTexture(gl.TEXTURE_2D, t);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+        gl.bindTexture(gl.TEXTURE_2D, null);
+        mirror = { t, fb: gl.createFramebuffer(), rb: gl.createRenderbuffer(), w: 0, h: 0 };
+      }
+      if (mirror.w !== w || mirror.h !== h) {
+        gl.bindTexture(gl.TEXTURE_2D, mirror.t);
+        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, w, h, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+        gl.bindRenderbuffer(gl.RENDERBUFFER, mirror.rb);
+        gl.renderbufferStorage(gl.RENDERBUFFER, gl.DEPTH_COMPONENT24, w, h);
+        gl.bindFramebuffer(gl.FRAMEBUFFER, mirror.fb);
+        gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, mirror.t, 0);
+        gl.framebufferRenderbuffer(gl.FRAMEBUFFER, gl.DEPTH_ATTACHMENT, gl.RENDERBUFFER, mirror.rb);
+        // ⚠ and off the unit again: left bound there, the pass that draws into it reads it, and WebGL drops the draws
+        gl.bindTexture(gl.TEXTURE_2D, null);
+        mirror.w = w; mirror.h = h;
+      }
+      return mirror;
+    }
+    const dropMirror = () => { if (mirror) { gl.deleteTexture(mirror.t); gl.deleteFramebuffer(mirror.fb); gl.deleteRenderbuffer(mirror.rb); } mirror = null; };
+    // the mirror most in view this frame, with its camera, or null: in front of you, near enough, and on the screen
+    function mirrorInView(cam, vp, aspect, lens) {
+      let best = null, most = 0.002;
+      for (const m of room.mirrors || []) {
+        const side = dot(m.n, cam.eye) - m.d;
+        if (side < 0.03 || side > MIRROR_REACH) continue;
+        // its box on the screen: the corners in front of you, and where each edge crosses to behind you
+        let x0 = 1, x1 = -1, y0 = 1, y1 = -1, any = false;
+        const clip = (p) => [vp[0] * p[0] + vp[4] * p[1] + vp[8] * p[2] + vp[12], vp[1] * p[0] + vp[5] * p[1] + vp[9] * p[2] + vp[13], vp[3] * p[0] + vp[7] * p[1] + vp[11] * p[2] + vp[15]];
+        const put = (c) => { const X = c[0] / c[2], Y = c[1] / c[2]; x0 = Math.min(x0, X); x1 = Math.max(x1, X); y0 = Math.min(y0, Y); y1 = Math.max(y1, Y); any = true; };
+        const cs = [];
+        for (let i = 0; i < 8; i++) cs.push(clip([(i & 1 ? m.hi : m.lo)[0], (i & 2 ? m.hi : m.lo)[1], (i & 4 ? m.hi : m.lo)[2]]));
+        for (let i = 0; i < 8; i++) {
+          if (cs[i][2] > 1e-3) put(cs[i]);
+          for (const b of [1, 2, 4]) {
+            const j = i | b;
+            if (j === i) continue;
+            const A = cs[i], B = cs[j];
+            if ((A[2] > 1e-3) === (B[2] > 1e-3)) continue;
+            const t = (1e-3 - A[2]) / (B[2] - A[2]);
+            put([A[0] + (B[0] - A[0]) * t, A[1] + (B[1] - A[1]) * t, 1e-3]);
+          }
+        }
+        if (!any) continue;
+        const a = Math.max(0, Math.min(x1, 1) - Math.max(x0, -1)) * Math.max(0, Math.min(y1, 1) - Math.max(y0, -1)) / 4;
+        if (a > most) { most = a; best = m; }
+      }
+      if (!best) return null;
+      const M = mirrorMatrices(cam, aspect, lens, best.n, best.d);
+      return M && { ...M, n: best.n, d: best.d };
+    }
     // the six faces: where each looks, and its up (the cube map's own convention)
-    const FACES = [[[1, 0, 0], [0, -1, 0]], [[-1, 0, 0], [0, -1, 0]], [[0, 1, 0], [0, 0, 1]], [[0, -1, 0], [0, 0, -1]], [[0, 0, 1], [0, -1, 0]], [[0, 0, -1], [0, -1, 0]]];
+    const FACES =[[[1, 0, 0], [0, -1, 0]], [[-1, 0, 0], [0, -1, 0]], [[0, 1, 0], [0, 0, 1]], [[0, -1, 0], [0, 0, -1]], [[0, 0, 1], [0, -1, 0]], [[0, 0, -1], [0, -1, 0]]];
     function bakeProbe(setLight, light, level, faces = [0, 1, 2, 3, 4, 5]) {
       const prev = gl.getParameter(gl.FRAMEBUFFER_BINDING), S = probe.size, e = probe.p;
       gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_CUBE_MAP, null); gl.activeTexture(gl.TEXTURE0);
@@ -421,6 +651,7 @@ export function createRoomRenderer(canvas, { phone = false, see = false } = {}) 
       // uRes far out makes the vignette one flat 0.744 over the face, which the lookup takes back out
       setLight(LIT, e, 1e9, 1e9);
       gl.uniform1i(LIT.u('uProbeOn'), 0);
+      gl.uniform1i(LIT.u('uMirrorOn'), 0);
       gl.uniform1i(LIT.u('uTex'), 0);
       gl.uniform1f(LIT.u('uLampDim'), 0.28 + 0.72 * level);
       setOutsideUniforms(gl, LIT, light.outside || null);
@@ -490,7 +721,8 @@ export function createRoomRenderer(canvas, { phone = false, see = false } = {}) 
     // texture the canvas it was baked on. A key already uploaded keeps its texture unless `fresh` says the canvas
     // was painted again (the spray session filling a section in); a key no longer listed is let go. Two decals may
     // share a key, and so a texture. `glow` (0..) is light, not paint: added over the picture after the paint, unlit,
-    // that strong (panels/room-sheets.js, the join's letters and seams). Cheap to call every frame with known keys.
+    // that strong (panels/room-sheets.js, the join's letters and seams). `foil` (0..1) is lettering over the paint,
+    // unlit, shimmering and gone at a steep enough angle (uMode 8), that much of it. Cheap to call every frame.
     function setDecals(list) {
       const ls = (list || []).filter((d) => d && d.key && d.src && Array.isArray(d.quad) && d.quad.length === 4);
       const keep = new Set(ls.map((d) => d.key));
@@ -504,13 +736,13 @@ export function createRoomRenderer(canvas, { phone = false, see = false } = {}) 
           if (had) gl.deleteTexture(had.t);
           decalTex.set(d.key, { t: texture(d.src, { repeat: false }), src: d.src, w: d.src.width, h: d.src.height });
         } else if (d.fresh) { refill(had.t, d.src); gl.generateMipmap(gl.TEXTURE_2D); }
-        const n = d.n || [0, 0, 1], uv = [[0, 0], [1, 0], [1, 1], [0, 1]], k = d.glow != null ? Math.max(0, +d.glow || 0) : 1;
+        const n = d.n || [0, 0, 1], uv = [[0, 0], [1, 0], [1, 1], [0, 1]], k = d.glow != null ? Math.max(0, +d.glow || 0) : d.foil != null ? Math.max(0, Math.min(1, +d.foil || 0)) : 1;
         for (const c of [0, 1, 2, 0, 2, 3]) {
           const p = d.quad[c];
           data.set([p[0], p[1], p[2], n[0], n[1], n[2], uv[c][0], uv[c][1], k, k, k, 13], o);
           o += STRIDE;
         }
-        decalRuns.push({ key: d.key, first: i * 6, glow: d.glow != null });
+        decalRuns.push({ key: d.key, first: i * 6, glow: d.glow != null, foil: d.glow == null && d.foil != null });
       });
       upload(decals, { data, n: ls.length * 6 });
     }
@@ -523,6 +755,8 @@ export function createRoomRenderer(canvas, { phone = false, see = false } = {}) 
       ls.forEach((g, i) => { glowP.set([g.p[0], g.p[1], g.p[2], g.r], i * 4); glowC.set(g.c, i * 3); });
     }
     function setFigures(recs) { figures = recs || []; }
+    // the figures only a mirror shows: you (room-stage.js mirrorBody), since the camera is in your head
+    function setMirrorFigures(recs) { mirrorFigs = recs || []; }
 
     let vp = null;
     // the lens, made the first frame it's wanted; null if it wouldn't build
@@ -537,7 +771,11 @@ export function createRoomRenderer(canvas, { phone = false, see = false } = {}) 
       get res() { return res; },
       setRes(k) { res = Math.max(0.5, Math.min(1, k)); },
       get lost() { return lost; },
-      setRoom, prepareRoom, dropPrepared, setView, setPano, setScreen, setLive, setPeople, setProps, setLocks, setBeasts, setFigures, setPropsGlass, setStageHalos, setGlows, setDecals,
+      setRoom, prepareRoom, dropPrepared, setView, setPano, setScreen, setLive, setPeople, setProps, setLocks, setBeasts, setFigures, setMirrorFigures, setPropsGlass, setStageHalos, setGlows, setDecals,
+      // whether the room has a mirror, and whether one was drawn last frame (so the stage poses you only then)
+      get hasMirror() { return !!room?.mirrors?.length; },
+      get mirrorSeen() { return mirrorSeen; },
+      catMesh, freeCatMesh, setCats,
       get figureTris() { return fig.tris; },
       // where the chrome's probe stands and the box it's projected on, for a bench to check (null with no chrome)
       get probe() { return probe ? { p: probe.p, min: probe.min, max: probe.max, size: probe.size } : null; },
@@ -563,91 +801,8 @@ export function createRoomRenderer(canvas, { phone = false, see = false } = {}) 
         // the depth of field (gl/room-dof.js): the room drawn into its target, then through the lens onto the canvas
         if (roomDofOn() && dof === undefined) dof = createRoomDof(gl, { phone });
         const lensOn = roomDofOn() && light.dof !== false && !!dof && dof.begin(w, h);
-        gl.viewport(0, 0, w, h);
-        // with `see` the canvas is premultiplied, so any colour at alpha 0 is added to the city through every pane
-        gl.clearColor(see ? 0 : 0.02, see ? 0 : 0.02, see ? 0 : 0.025, see ? 0 : 1);
-        gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-        gl.enable(gl.DEPTH_TEST); gl.depthMask(true); gl.depthFunc(gl.LESS);
-        gl.disable(gl.CULL_FACE); gl.disable(gl.BLEND);
         const comic = comicOn();
-        const opaque = [room.solid, ...room.mats, people, locks, beasts];
         const draw = (L) => { if (L.n > 0) { gl.bindVertexArray(L.vao); gl.drawArrays(gl.TRIANGLES, 0, L.n); } };
-
-        if (comic) {
-          gl.useProgram(INK.p);
-          gl.uniformMatrix4fv(INK.u('uVP'), false, vp);
-          gl.uniform2f(INK.u('uShake'), 0, 0);
-          gl.uniform2f(INK.u('uRes'), w, h);
-          // 6 mm of the thing, between 1 and 3 px of a 900-tall picture: the house line
-          const ink = inkOf({ ft: 0.006, px: phone ? [0.9, 2.2] : [1.1, 3.0], col: INK_COL }), k = h / 900;
-          gl.uniform4f(INK.u('uInk'), ink.ft, ink.px[0] * k, ink.px[1] * k, 0.0004);
-          gl.uniform2f(INK.u('uBack'), 2 * FAR * NEAR / (FAR - NEAR), INK_BACK);
-          gl.uniform4f(INK.u('uInkEye'), cam.eye[0], cam.eye[1], cam.eye[2], 1);
-          gl.uniform3fv(INK.u('uCol'), ink.col);
-          gl.uniform3f(INK.u('uKey'), 0, -1, 0);
-          opaque.forEach(draw);
-          // the props a finer, softer line than the room: a pan is small, and a full line swallows it
-          if (props.n > 0) {
-            gl.uniform4f(INK.u('uInk'), ink.ft * 0.5, ink.px[0] * k * 0.45, ink.px[1] * k * 0.45, 0.0004);
-            gl.uniform3f(INK.u('uCol'), 0.24, 0.22, 0.24);
-            draw(props);
-          }
-        }
-        // the furniture is always inked, in the house line weighted away from the light, like the people: a
-        // Borderlands sofa whether or not the walls are drawn that way. Over the comic room's own line it's
-        // the heavier of the two that shows.
-        {
-          const kit = [room.solid, ...room.mats].filter((L) => L.n > 0 && L.kit.length);
-          if (kit.length) {
-            const k = h / 900, s = phone ? 0.8 : 1;
-            gl.useProgram(INK.p);
-            gl.uniformMatrix4fv(INK.u('uVP'), false, vp);
-            gl.uniform2f(INK.u('uShake'), 0, 0);
-            gl.uniform2f(INK.u('uRes'), w, h);
-            gl.uniform4f(INK.u('uInk'), 0.015, HOUSE.px[0] * k * s * 0.7, HOUSE.px[1] * k * s * 0.7, 0.0004);
-            gl.uniform2f(INK.u('uBack'), 2 * FAR * NEAR / (FAR - NEAR), INK_BACK);
-            gl.uniform4f(INK.u('uInkEye'), cam.eye[0], cam.eye[1], cam.eye[2], 1);
-            gl.uniform3fv(INK.u('uCol'), HOUSE.ink);
-            gl.uniform3f(INK.u('uKey'), 0, 1, 0);
-            gl.uniform1f(INK.u('uWeigh'), HOUSE.weigh);
-            for (const L of kit) { gl.bindVertexArray(L.vao); for (const [a, c] of L.kit) gl.drawArrays(gl.TRIANGLES, a, c); }
-            // what people are handling, a finer line: a pan is small, and a full one swallows it
-            if (props.n > 0) {
-              gl.uniform4f(INK.u('uInk'), 0.007, HOUSE.px[0] * k * s * 0.4, HOUSE.px[1] * k * s * 0.4, 0.0004);
-              draw(props);
-            }
-            gl.uniform1f(INK.u('uWeigh'), 0);
-          }
-        }
-        // an animal is always inked at the people's line, comic or not, so it reads as one of the cast
-        if (beasts.n > 0 && !comic) {
-          const k = h / 900, s = phone ? 0.8 : 1;
-          gl.useProgram(INK.p);
-          gl.uniformMatrix4fv(INK.u('uVP'), false, vp);
-          gl.uniform2f(INK.u('uShake'), 0, 0);
-          gl.uniform2f(INK.u('uRes'), w, h);
-          gl.uniform4f(INK.u('uInk'), 0.01, HOUSE.px[0] * k * s, HOUSE.px[1] * k * s, 0.0004);
-          gl.uniform2f(INK.u('uBack'), 2 * FAR * NEAR / (FAR - NEAR), INK_BACK);
-          gl.uniform4f(INK.u('uInkEye'), cam.eye[0], cam.eye[1], cam.eye[2], 1);
-          gl.uniform3fv(INK.u('uCol'), HOUSE.ink);
-          gl.uniform3f(INK.u('uKey'), 0, 1, 0);
-          gl.uniform1f(INK.u('uWeigh'), HOUSE.weigh);
-          draw(beasts);
-          gl.uniform1f(INK.u('uWeigh'), 0);
-        }
-        // the people are always inked, at the house's line, weighted under the light: the close-up
-        // figure is drawn in the comic manner whether or not the room is (gl/figure-hd.js)
-        fig.ink(vp, figures, (P) => {
-          const k = h / 900;
-          gl.uniform2f(P.u('uRes'), w, h);
-          gl.uniform4f(P.u('uInk'), 0.01, HOUSE.px[0] * k * (phone ? 0.8 : 1), HOUSE.px[1] * k * (phone ? 0.8 : 1), 0);
-          gl.uniform3fv(P.u('uEyeI'), cam.eye);
-          gl.uniform1f(P.u('uBack'), 0.02);
-          gl.uniform3fv(P.u('uCol'), HOUSE.ink);
-          gl.uniform3f(P.u('uKey'), 0, 1, 0);
-          gl.uniform1f(P.u('uWeigh'), HOUSE.weigh);
-        });
-
         const day = Math.max(0, Math.min(1, light.day || 0)), sky = light.sky || [0.7, 0.8, 1];
         // the dimmer is on the lamps one by one, since a fire isn't on the switch
         const level = light.lampOn ? (light.lampLevel ?? 1) : 0, lampK = 2.6;
@@ -719,105 +874,266 @@ export function createRoomRenderer(canvas, { phone = false, see = false } = {}) 
           else { bakeProbe(setLight, light, level, [probe.next]); probe.next = (probe.next + 1) % 6; if (!probe.next) probe.at = now; }
           gl.viewport(0, 0, w, h);
         }
-        fig.draw(vp, figures, setLight);
-        // the opaque room's depth, then everything lit on it shades only what's in front
-        gl.useProgram(DEPTH.p);
-        gl.uniformMatrix4fv(DEPTH.u('uVP'), false, vp);
-        gl.colorMask(false, false, false, false);
-        draw(room.solid); draw(people); draw(props); draw(locks); draw(beasts);
-        for (const m of room.mats) draw(m);
-        gl.colorMask(true, true, true, true);
-        gl.depthFunc(gl.LEQUAL);
-        gl.useProgram(LIT.p);
-        gl.uniformMatrix4fv(LIT.u('uVP'), false, vp);
-        setLight(LIT);
-        gl.uniform1i(LIT.u('uTex'), 0);
-        gl.uniform1f(LIT.u('uLampDim'), 0.28 + 0.72 * level);
-        setOutsideUniforms(gl, LIT, light.outside || null);
-        gl.uniform1f(LIT.u('uFlame'), light.flame ?? 0.7);
-        gl.activeTexture(gl.TEXTURE0);
-        gl.uniform1i(LIT.u('uProbeOn'), probe ? 1 : 0);
-        if (probe) {
-          gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_CUBE_MAP, probe.t); gl.activeTexture(gl.TEXTURE0);
-          gl.uniform3fv(LIT.u('uProbeP'), probe.p); gl.uniform3fv(LIT.u('uProbeMin'), probe.min); gl.uniform3fv(LIT.u('uProbeMax'), probe.max);
-        }
-        gl.uniform1i(LIT.u('uMode'), 0);
-        draw(room.solid); draw(people); draw(props); draw(locks);
-        // an animal is lit in the comic manner whatever the room is, as the people are (gl/beast-kit.js)
-        if (beasts.n > 0) {
-          gl.useProgram(BEAST.p);
-          gl.uniformMatrix4fv(BEAST.u('uVP'), false, vp);
-          setLight(BEAST);
-          gl.uniform1f(BEAST.u('uComic'), 1);
-          gl.uniform1f(BEAST.u('uTime'), (light.now ?? performance.now()) / 1000);
-          gl.uniform3f(BEAST.u('uShadeTint'), 0.6, 0.55, 0.8);
-          gl.uniform1f(BEAST.u('uRimK'), light.rim ?? 1);
-          gl.uniform1i(BEAST.u('uGlowN'), glowN);
-          gl.uniform4fv(BEAST.u('uGlowP'), glowP);
-          gl.uniform3fv(BEAST.u('uGlowC'), glowC);
-          draw(beasts);
-          gl.useProgram(LIT.p);
-        }
-        gl.uniform1i(LIT.u('uMode'), 1);
-        for (const m of room.mats) { gl.bindTexture(gl.TEXTURE_2D, tex.get(m.key)); draw(m); }
-        // paint on the walls, over the plaster it's on: blended, writing no depth, and the canvas's own alpha kept
-        // (with `see` a transparent pixel is a hole to the street)
-        if (decals.n > 0) {
-          gl.uniform1i(LIT.u('uMode'), 6);
-          gl.enable(gl.BLEND); gl.blendFuncSeparate(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA, gl.ZERO, gl.ONE); gl.depthMask(false); gl.depthFunc(gl.LEQUAL);
-          gl.bindVertexArray(decals.vao);
-          for (const r of decalRuns) { const d = !r.glow && decalTex.get(r.key); if (!d) continue; gl.bindTexture(gl.TEXTURE_2D, d.t); gl.drawArrays(gl.TRIANGLES, r.first, 6); }
-          // then the light off them, added (and the frame's alpha left as it is, or a glow would open a hole to the street)
-          if (decalRuns.some((r) => r.glow)) {
-            gl.uniform1i(LIT.u('uMode'), 7);
-            gl.blendFuncSeparate(gl.ONE, gl.ONE, gl.ZERO, gl.ONE);
-            for (const r of decalRuns) { const d = r.glow && decalTex.get(r.key); if (!d) continue; gl.bindTexture(gl.TEXTURE_2D, d.t); gl.drawArrays(gl.TRIANGLES, r.first, 6); }
+        // THE SCENE, drawn through `vp` from `eye` into a target `w` by `h`: the picture, or (mirror pass) the room
+        // seen in the mirror `mir` is null for. `mir` is the mirror this frame, read back by the glass in the picture.
+        const scene = (vp, eye, w, h, figures, mir) => {
+          const opaque = [room.solid, ...room.mats, people, locks, beasts];
+
+          if (comic) {
+            gl.useProgram(INK.p);
+            gl.uniformMatrix4fv(INK.u('uVP'), false, vp);
+            gl.uniform2f(INK.u('uShake'), 0, 0);
+            gl.uniform2f(INK.u('uRes'), w, h);
+            // 6 mm of the thing, between 1 and 3 px of a 900-tall picture: the house line
+            const ink = inkOf({ ft: 0.006, px: phone ? [0.9, 2.2] : [1.1, 3.0], col: INK_COL }), k = h / 900;
+            gl.uniform4f(INK.u('uInk'), ink.ft, ink.px[0] * k, ink.px[1] * k, 0.0004);
+            gl.uniform2f(INK.u('uBack'), 2 * FAR * NEAR / (FAR - NEAR), INK_BACK);
+            gl.uniform4f(INK.u('uInkEye'), eye[0], eye[1], eye[2], 1);
+            gl.uniform3fv(INK.u('uCol'), ink.col);
+            gl.uniform3f(INK.u('uKey'), 0, -1, 0);
+            opaque.forEach(draw);
+            // the props a finer, softer line than the room: a pan is small, and a full line swallows it
+            if (props.n > 0) {
+              gl.uniform4f(INK.u('uInk'), ink.ft * 0.5, ink.px[0] * k * 0.45, ink.px[1] * k * 0.45, 0.0004);
+              gl.uniform3f(INK.u('uCol'), 0.24, 0.22, 0.24);
+              draw(props);
+            }
           }
-          gl.disable(gl.BLEND); gl.depthMask(true); gl.depthFunc(gl.LESS);
+          // the furniture is always inked, in the house line weighted away from the light, like the people: a
+          // Borderlands sofa whether or not the walls are drawn that way. Over the comic room's own line it's
+          // the heavier of the two that shows.
+          {
+            const kit = [room.solid, ...room.mats].filter((L) => L.n > 0 && L.kit.length);
+            if (kit.length) {
+              const k = h / 900, s = phone ? 0.8 : 1;
+              gl.useProgram(INK.p);
+              gl.uniformMatrix4fv(INK.u('uVP'), false, vp);
+              gl.uniform2f(INK.u('uShake'), 0, 0);
+              gl.uniform2f(INK.u('uRes'), w, h);
+              gl.uniform4f(INK.u('uInk'), 0.015, HOUSE.px[0] * k * s * 0.7, HOUSE.px[1] * k * s * 0.7, 0.0004);
+              gl.uniform2f(INK.u('uBack'), 2 * FAR * NEAR / (FAR - NEAR), INK_BACK);
+              gl.uniform4f(INK.u('uInkEye'), eye[0], eye[1], eye[2], 1);
+              gl.uniform3fv(INK.u('uCol'), HOUSE.ink);
+              gl.uniform3f(INK.u('uKey'), 0, 1, 0);
+              gl.uniform1f(INK.u('uWeigh'), HOUSE.weigh);
+              for (const L of kit) { gl.bindVertexArray(L.vao); for (const [a, c] of L.kit) gl.drawArrays(gl.TRIANGLES, a, c); }
+              // what people are handling, a finer line: a pan is small, and a full one swallows it
+              if (props.n > 0) {
+                gl.uniform4f(INK.u('uInk'), 0.007, HOUSE.px[0] * k * s * 0.4, HOUSE.px[1] * k * s * 0.4, 0.0004);
+                draw(props);
+              }
+              gl.uniform1f(INK.u('uWeigh'), 0);
+            }
+          }
+          // an animal is always inked at the people's line, comic or not, so it reads as one of the cast
+          if (beasts.n > 0 && !comic) {
+            const k = h / 900, s = phone ? 0.8 : 1;
+            gl.useProgram(INK.p);
+            gl.uniformMatrix4fv(INK.u('uVP'), false, vp);
+            gl.uniform2f(INK.u('uShake'), 0, 0);
+            gl.uniform2f(INK.u('uRes'), w, h);
+            gl.uniform4f(INK.u('uInk'), 0.01, HOUSE.px[0] * k * s, HOUSE.px[1] * k * s, 0.0004);
+            gl.uniform2f(INK.u('uBack'), 2 * FAR * NEAR / (FAR - NEAR), INK_BACK);
+            gl.uniform4f(INK.u('uInkEye'), eye[0], eye[1], eye[2], 1);
+            gl.uniform3fv(INK.u('uCol'), HOUSE.ink);
+            gl.uniform3f(INK.u('uKey'), 0, 1, 0);
+            gl.uniform1f(INK.u('uWeigh'), HOUSE.weigh);
+            draw(beasts);
+            gl.uniform1f(INK.u('uWeigh'), 0);
+          }
+          // a cat too, at the people's line whether the room is comic or not (its shells get no line)
+          if (cats.length) {
+            const k = h / 900, s = phone ? 0.8 : 1;
+            gl.useProgram(CAT_INK.p);
+            gl.uniformMatrix4fv(CAT_INK.u('uVP'), false, vp);
+            gl.uniform2f(CAT_INK.u('uShake'), 0, 0);
+            gl.uniform2f(CAT_INK.u('uRes'), w, h);
+            gl.uniform4f(CAT_INK.u('uInk'), 0.01, HOUSE.px[0] * k * s, HOUSE.px[1] * k * s, 0.0004);
+            gl.uniform2f(CAT_INK.u('uBack'), 2 * FAR * NEAR / (FAR - NEAR), INK_BACK);
+            gl.uniform4f(CAT_INK.u('uInkEye'), eye[0], eye[1], eye[2], 1);
+            gl.uniform3fv(CAT_INK.u('uCol'), HOUSE.ink);
+            gl.uniform3f(CAT_INK.u('uKey'), 0, 1, 0);
+            gl.uniform1f(CAT_INK.u('uWeigh'), HOUSE.weigh);
+            // the line round the outside of the coat, not inside it: pushed out through most of the fur's length, so
+            // the strands don't break it up into a ragged band
+            gl.uniform1f(CAT_INK.u('uCatFurInk'), 0.8);
+            drawCats(CAT_INK);
+            gl.uniform1f(CAT_INK.u('uCatFurInk'), 0);
+          }
+          // the people are always inked, at the house's line, weighted under the light: the close-up
+          // figure is drawn in the comic manner whether or not the room is (gl/figure-hd.js)
+          fig.ink(vp, figures, (P) => {
+            const k = h / 900;
+            gl.uniform2f(P.u('uRes'), w, h);
+            gl.uniform4f(P.u('uInk'), 0.01, HOUSE.px[0] * k * (phone ? 0.8 : 1), HOUSE.px[1] * k * (phone ? 0.8 : 1), 0);
+            gl.uniform3fv(P.u('uEyeI'), eye);
+            gl.uniform1f(P.u('uBack'), 0.02);
+            gl.uniform3fv(P.u('uCol'), HOUSE.ink);
+            gl.uniform3f(P.u('uKey'), 0, 1, 0);
+            gl.uniform1f(P.u('uWeigh'), HOUSE.weigh);
+          });
+
+          fig.draw(vp, figures, (P) => setLight(P, eye, w, h));
+          // the opaque room's depth, then everything lit on it shades only what's in front
+          gl.useProgram(DEPTH.p);
+          gl.uniformMatrix4fv(DEPTH.u('uVP'), false, vp);
+          gl.colorMask(false, false, false, false);
+          draw(room.solid); draw(people); draw(props); draw(locks); draw(beasts);
+          for (const m of room.mats) draw(m);
+          if (cats.length) {
+            gl.useProgram(CAT_DEPTH.p);
+            gl.uniformMatrix4fv(CAT_DEPTH.u('uVP'), false, vp);
+            drawCats(CAT_DEPTH);
+          }
+          gl.colorMask(true, true, true, true);
+          gl.depthFunc(gl.LEQUAL);
+          gl.useProgram(LIT.p);
+          gl.uniformMatrix4fv(LIT.u('uVP'), false, vp);
+          setLight(LIT, eye, w, h);
+          gl.uniform1i(LIT.u('uTex'), 0);
+          gl.uniform1f(LIT.u('uLampDim'), 0.28 + 0.72 * level);
+          setOutsideUniforms(gl, LIT, light.outside || null);
+          gl.uniform1f(LIT.u('uFlame'), light.flame ?? 0.7);
+          gl.activeTexture(gl.TEXTURE0);
+          gl.uniform1i(LIT.u('uProbeOn'), probe ? 1 : 0);
+          if (probe) {
+            gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_CUBE_MAP, probe.t); gl.activeTexture(gl.TEXTURE0);
+            gl.uniform3fv(LIT.u('uProbeP'), probe.p); gl.uniform3fv(LIT.u('uProbeMin'), probe.min); gl.uniform3fv(LIT.u('uProbeMax'), probe.max);
+          }
+          // the mirror drawn this frame, on its own unit, for the glass to read; none in the mirror pass itself
+          gl.uniform1i(LIT.u('uMirrorOn'), mir ? 1 : 0);
+          if (mir) { gl.activeTexture(gl.TEXTURE2); gl.bindTexture(gl.TEXTURE_2D, mirror.t); gl.activeTexture(gl.TEXTURE0); gl.uniform4f(LIT.u('uMirrorPl'), mir.n[0], mir.n[1], mir.n[2], mir.d); }
+          gl.uniform1i(LIT.u('uMode'), 0);
+          draw(room.solid); draw(people); draw(props); draw(locks);
+          // an animal is lit in the comic manner whatever the room is, as the people are (gl/beast-kit.js)
+          if (beasts.n > 0) {
+            gl.useProgram(BEAST.p);
+            gl.uniformMatrix4fv(BEAST.u('uVP'), false, vp);
+            setLight(BEAST, eye, w, h);
+            gl.uniform1f(BEAST.u('uComic'), 1);
+            gl.uniform1f(BEAST.u('uTime'), (light.now ?? performance.now()) / 1000);
+            gl.uniform3f(BEAST.u('uShadeTint'), 0.6, 0.55, 0.8);
+            gl.uniform1f(BEAST.u('uRimK'), light.rim ?? 1);
+            gl.uniform1i(BEAST.u('uGlowN'), glowN);
+            gl.uniform4fv(BEAST.u('uGlowP'), glowP);
+            gl.uniform3fv(BEAST.u('uGlowC'), glowC);
+            draw(beasts);
+            gl.useProgram(LIT.p);
+          }
+          // the cats, lit as the beasts are, with their fur
+          if (cats.length) {
+            gl.useProgram(CAT_BEAST.p);
+            gl.uniformMatrix4fv(CAT_BEAST.u('uVP'), false, vp);
+            setLight(CAT_BEAST, eye, w, h);
+            gl.uniform1f(CAT_BEAST.u('uComic'), 1);
+            gl.uniform1f(CAT_BEAST.u('uTime'), (light.now ?? performance.now()) / 1000);
+            gl.uniform3f(CAT_BEAST.u('uShadeTint'), 0.6, 0.55, 0.8);
+            gl.uniform1f(CAT_BEAST.u('uRimK'), light.rim ?? 1);
+            gl.uniform1i(CAT_BEAST.u('uGlowN'), glowN);
+            gl.uniform4fv(CAT_BEAST.u('uGlowP'), glowP);
+            gl.uniform3fv(CAT_BEAST.u('uGlowC'), glowC);
+            drawCats(CAT_BEAST, true);
+            gl.useProgram(LIT.p);
+          }
+          gl.uniform1i(LIT.u('uMode'), 1);
+          for (const m of room.mats) { gl.bindTexture(gl.TEXTURE_2D, tex.get(m.key)); draw(m); }
+          // paint on the walls, over the plaster it's on: blended, writing no depth, and the canvas's own alpha kept
+          // (with `see` a transparent pixel is a hole to the street)
+          if (decals.n > 0) {
+            gl.uniform1i(LIT.u('uMode'), 6);
+            gl.enable(gl.BLEND); gl.blendFuncSeparate(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA, gl.ZERO, gl.ONE); gl.depthMask(false); gl.depthFunc(gl.LEQUAL);
+            gl.bindVertexArray(decals.vao);
+            for (const r of decalRuns) { const d = !r.glow && !r.foil && decalTex.get(r.key); if (!d) continue; gl.bindTexture(gl.TEXTURE_2D, d.t); gl.drawArrays(gl.TRIANGLES, r.first, 6); }
+            // foil over the paint, blended the same way (the frame's alpha left alone)
+            if (decalRuns.some((r) => r.foil)) {
+              gl.uniform1i(LIT.u('uMode'), 8);
+              gl.uniform1f(LIT.u('uFoilT'), ((light.now ?? performance.now()) / 1000) % 1000);
+              gl.blendFuncSeparate(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA, gl.ZERO, gl.ONE);
+              for (const r of decalRuns) { const d = r.foil && decalTex.get(r.key); if (!d) continue; gl.bindTexture(gl.TEXTURE_2D, d.t); gl.drawArrays(gl.TRIANGLES, r.first, 6); }
+            }
+            // then the light off them, added (and the frame's alpha left as it is, or a glow would open a hole to the street)
+            if (decalRuns.some((r) => r.glow)) {
+              gl.uniform1i(LIT.u('uMode'), 7);
+              gl.blendFuncSeparate(gl.ONE, gl.ONE, gl.ZERO, gl.ONE);
+              for (const r of decalRuns) { const d = r.glow && decalTex.get(r.key); if (!d) continue; gl.bindTexture(gl.TEXTURE_2D, d.t); gl.drawArrays(gl.TRIANGLES, r.first, 6); }
+            }
+            gl.disable(gl.BLEND); gl.depthMask(true); gl.depthFunc(gl.LESS);
+          }
+          gl.uniform1i(LIT.u('uMode'), 2);
+          if (screen) {
+            const on = live && light.tvOn, S = room.screen, part = (a, n) => { if (n > 0) { gl.bindVertexArray(S.vao); gl.drawArrays(gl.TRIANGLES, a, n); } };
+            gl.bindTexture(gl.TEXTURE_2D, screen.t);
+            if (on) { part(0, on.first); part(on.first + on.count, S.n - on.first - on.count); gl.bindTexture(gl.TEXTURE_2D, live.t); gl.uniform1i(LIT.u('uLive'), 1); part(on.first, on.count); gl.uniform1i(LIT.u('uLive'), 0); } else draw(S);
+          }
+          // the painted street, on a phone or a room with no tile; with `see` the panes are holes
+          if (see && pano) {
+            gl.uniform1i(LIT.u('uMode'), 5);
+            gl.uniform3fv(LIT.u('uFront'), light.front || [0, 0, 1]);
+            gl.uniform3fv(LIT.u('uRight'), light.right || [-1, 0, 0]);
+            gl.uniform2f(LIT.u('uPanoLens'), pano.lens[0], pano.lens[1]);
+            gl.uniform1f(LIT.u('uPanoTilt'), PANO_TILT);
+            gl.bindTexture(gl.TEXTURE_2D, pano.t);
+            draw(room.view);
+          } else if (!see && view) {
+            gl.uniform1i(LIT.u('uMode'), 4);
+            gl.uniform1f(LIT.u('uBearing'), (light.bearing || 0) * Math.PI / 180);
+            gl.uniform3fv(LIT.u('uFront'), light.front || [0, 0, 1]);
+            gl.uniform3fv(LIT.u('uRight'), light.right || [-1, 0, 0]);
+            if (view) gl.bindTexture(gl.TEXTURE_2D, view.t);
+            draw(room.view);
+          }
+          // the glass last, blended over what's behind it, writing no depth; under the shutters it's opaque
+          setShutterUniforms(gl, LIT, light.shut || null);
+          if (light.shut) { gl.uniform3fv(LIT.u('uFront'), light.front || [0, 0, 1]); gl.uniform3fv(LIT.u('uRight'), light.right || [-1, 0, 0]); }
+          gl.uniform1i(LIT.u('uMode'), 3);
+          // the covered panes into the depth first, colour untouched: they're opaque, so the flames, the other
+          // panes and the halos behind them mustn't show through (from the balcony a covered pane is black)
+          if (light.shut) {
+            gl.colorMask(false, false, false, false); gl.uniform1i(LIT.u('uShutOnly'), 1);
+            draw(room.glass);
+            gl.uniform1i(LIT.u('uShutOnly'), 0); gl.colorMask(true, true, true, true); gl.depthFunc(gl.LEQUAL);
+          }
+          gl.enable(gl.BLEND); gl.blendFuncSeparate(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA, gl.ONE, gl.ONE_MINUS_SRC_ALPHA); gl.depthMask(false);
+          // a stage's liquids first, so the glass round them puts its highlights on top
+          draw(propsGlass);
+          draw(room.glass);
+          // the halos round what glows, added over everything, writing no depth
+          if (halos.n > 0 || stageHalos.n > 0) {
+            gl.blendFunc(gl.ONE, gl.ONE);
+            gl.useProgram(HALO.p);
+            gl.uniformMatrix4fv(HALO.u('uVP'), false, vp);
+            gl.uniform3fv(HALO.u('uEye'), eye);
+            gl.uniform1f(HALO.u('uTime'), (light.now ?? performance.now()) / 1000);
+            draw(halos); draw(stageHalos);
+          }
+          gl.depthMask(true); gl.disable(gl.BLEND); gl.depthFunc(gl.LESS);
+          gl.bindVertexArray(null);
+          // light.focus pins the lens in metres (a stage's own camera on its bench); without it, it focuses itself
+        };
+        // the mirror most in view, if any: the room again through it, you in it, into its own target. Its texture is
+        // taken off every unit first: bound while it's drawn into, it's a feedback loop and WebGL refuses the draw
+        const mir = room.mirrors?.length && light.mirror !== false ? mirrorInView(cam, vp, w / h, light.lens) : null;
+        mirrorSeen = !!mir;
+        if (mir) {
+          const prev = gl.getParameter(gl.FRAMEBUFFER_BINDING), mw = Math.max(1, Math.round(w * MIRROR_RES)), mh = Math.max(1, Math.round(h * MIRROR_RES));
+          gl.activeTexture(gl.TEXTURE2); gl.bindTexture(gl.TEXTURE_2D, null); gl.activeTexture(gl.TEXTURE0);
+          const T = mirrorTarget(mw, mh);
+          gl.bindFramebuffer(gl.FRAMEBUFFER, T.fb);
+          gl.viewport(0, 0, mw, mh);
+          gl.clearColor(0.02, 0.02, 0.025, 1);
+          gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+          gl.enable(gl.DEPTH_TEST); gl.depthMask(true); gl.depthFunc(gl.LESS);
+          gl.disable(gl.CULL_FACE); gl.disable(gl.BLEND);
+          scene(mir.vp, mir.eye, mw, mh, mirrorFigs.length ? [...figures, ...mirrorFigs] : figures, null);
+          gl.bindFramebuffer(gl.FRAMEBUFFER, prev);
         }
-        gl.uniform1i(LIT.u('uMode'), 2);
-        if (screen) {
-          const on = live && light.tvOn, S = room.screen, part = (a, n) => { if (n > 0) { gl.bindVertexArray(S.vao); gl.drawArrays(gl.TRIANGLES, a, n); } };
-          gl.bindTexture(gl.TEXTURE_2D, screen.t);
-          if (on) { part(0, on.first); part(on.first + on.count, S.n - on.first - on.count); gl.bindTexture(gl.TEXTURE_2D, live.t); gl.uniform1i(LIT.u('uLive'), 1); part(on.first, on.count); gl.uniform1i(LIT.u('uLive'), 0); } else draw(S);
-        }
-        // the painted street, on a phone or a room with no tile; with `see` the panes are holes
-        if (see && pano) {
-          gl.uniform1i(LIT.u('uMode'), 5);
-          gl.uniform3fv(LIT.u('uFront'), light.front || [0, 0, 1]);
-          gl.uniform3fv(LIT.u('uRight'), light.right || [-1, 0, 0]);
-          gl.uniform2f(LIT.u('uPanoLens'), pano.lens[0], pano.lens[1]);
-          gl.uniform1f(LIT.u('uPanoTilt'), PANO_TILT);
-          gl.bindTexture(gl.TEXTURE_2D, pano.t);
-          draw(room.view);
-        } else if (!see && view) {
-          gl.uniform1i(LIT.u('uMode'), 4);
-          gl.uniform1f(LIT.u('uBearing'), (light.bearing || 0) * Math.PI / 180);
-          gl.uniform3fv(LIT.u('uFront'), light.front || [0, 0, 1]);
-          gl.uniform3fv(LIT.u('uRight'), light.right || [-1, 0, 0]);
-          if (view) gl.bindTexture(gl.TEXTURE_2D, view.t);
-          draw(room.view);
-        }
-        // the glass last, blended over what's behind it, writing no depth; under the shutters it's opaque
-        setShutterUniforms(gl, LIT, light.shut || null);
-        if (light.shut) { gl.uniform3fv(LIT.u('uFront'), light.front || [0, 0, 1]); gl.uniform3fv(LIT.u('uRight'), light.right || [-1, 0, 0]); }
-        gl.enable(gl.BLEND); gl.blendFuncSeparate(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA, gl.ONE, gl.ONE_MINUS_SRC_ALPHA); gl.depthMask(false);
-        gl.uniform1i(LIT.u('uMode'), 3);
-        // a stage's liquids first, so the glass round them puts its highlights on top
-        draw(propsGlass);
-        draw(room.glass);
-        // the halos round what glows, added over everything, writing no depth
-        if (halos.n > 0 || stageHalos.n > 0) {
-          gl.blendFunc(gl.ONE, gl.ONE);
-          gl.useProgram(HALO.p);
-          gl.uniformMatrix4fv(HALO.u('uVP'), false, vp);
-          gl.uniform3fv(HALO.u('uEye'), cam.eye);
-          gl.uniform1f(HALO.u('uTime'), (light.now ?? performance.now()) / 1000);
-          draw(halos); draw(stageHalos);
-        }
-        gl.depthMask(true); gl.disable(gl.BLEND); gl.depthFunc(gl.LESS);
-        gl.bindVertexArray(null);
-        // light.focus pins the lens in metres (a stage's own camera on its bench); without it, it focuses itself
+        gl.viewport(0, 0, w, h);
+        // with `see` the canvas is premultiplied, so any colour at alpha 0 is added to the city through every pane
+        gl.clearColor(see ? 0 : 0.02, see ? 0 : 0.02, see ? 0 : 0.025, see ? 0 : 1);
+        gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+        gl.enable(gl.DEPTH_TEST); gl.depthMask(true); gl.depthFunc(gl.LESS);
+        gl.disable(gl.CULL_FACE); gl.disable(gl.BLEND);
+        scene(vp, cam.eye, w, h, figures, mir);
         if (lensOn) dof.finish({ near: NEAR, far: FAR, focus: light.focus || 0, at: light.focusAt || null, band: light.focusBand || null, sharp: light.focusSharp || 0 });
         return true;
       },
@@ -825,7 +1141,9 @@ export function createRoomRenderer(canvas, { phone = false, see = false } = {}) 
         canvas.removeEventListener('webglcontextlost', onLost);
         try { dof?.dispose(); } catch { /* the context may be gone already */ }
         try { fig.dispose(); } catch { /* the context may be gone already */ }
+        try { for (const h of [...catMeshes]) freeCatMesh(h); } catch { /* the context may be gone already */ }
         try { dropProbe(); } catch { /* the context may be gone already */ }
+        try { dropMirror(); } catch { /* the context may be gone already */ }
         try { gl.getExtension('WEBGL_lose_context')?.loseContext(); } catch { /* already gone */ }
       },
     };

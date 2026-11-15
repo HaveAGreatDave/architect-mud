@@ -1,6 +1,10 @@
 {
-  "description": "A bowl cut into a slab of grey stone that floats off the wall, under a mirror lit from behind.",
+  "description": "A floating walnut vanity with a marble top and a stone bowl standing on it. A brass spout comes out of the wall over the bowl, hot or cold, clean enough to drink. Above it, a mirror as wide as the vanity, lit from behind.",
   "flags": {
+    "look": {
+      "arche": "sink",
+      "form": "vanity"
+    },
     "water_source": true
   },
   "hp": null,

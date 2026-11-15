@@ -1,10 +1,13 @@
-/* The Pack (room-pack.js): ROOM's inventory over the picture, a paper doll of you beside what you carry.
+/* The Pack (room-pack.js): ROOM's inventory over the picture, you beside what you carry. The panel is clear where
+   you stand (.rp-dollbox): the room draws you there, turned as you drag (room-stage.js packCam), so only its other
+   parts take the panel's colour.
    Its colours are the Room Stage's (room-stage.css: --rs-panel, --rs-btn) and the text game's theme under them. */
 #room-stage .rp {
 	position: absolute; z-index: 30; left: 50%; top: 50%; transform: translate(-50%, -50%);
 	width: min(880px, calc(100% - 24px)); height: min(640px, calc(100% - 24px));
 	display: flex; flex-direction: column; overflow: hidden;
-	background: color-mix(in srgb, var(--bg) 94%, transparent); color: var(--text);
+	--rp-bg: color-mix(in srgb, var(--bg) 94%, transparent);
+	background: transparent; color: var(--text);
 	border: 1px solid var(--border); border-radius: 10px; box-shadow: 0 12px 40px rgba(0, 0, 0, 0.55);
 	font: 0.8125rem/1.3 var(--rs-font); user-select: none; -webkit-user-select: none;
 	--rp-col: var(--text-dim);
@@ -13,6 +16,7 @@
 /* the room's own buttons and card stay out from under it */
 #room-stage.rp-open .rs-card, #room-stage.rp-open .rs-tip { visibility: hidden; }
 
+#room-stage .rp-head, #room-stage .rp-packbox, #room-stage .rp-sel { background: var(--rp-bg); }
 #room-stage .rp-head { display: flex; align-items: center; gap: 12px; padding: 8px 10px 8px 14px; border-bottom: 1px solid var(--border); }
 #room-stage .rp-title { font: 700 0.9375rem 'RS Orbitron', var(--rs-font); letter-spacing: 0.08em; color: var(--accent); text-transform: uppercase; }
 #room-stage .rp-carry { display: inline-flex; align-items: center; gap: 8px; color: var(--text-dim); margin-left: auto; }
@@ -28,16 +32,15 @@
 #room-stage .rp-dollbox {
 	flex: 0 0 38%; min-width: 0; min-height: 0; overflow: hidden; display: flex; flex-direction: column; align-items: stretch;
 	border-right: 1px solid var(--border);
-	background: radial-gradient(ellipse at 50% 40%, color-mix(in srgb, var(--accent) 10%, transparent), transparent 70%);
 }
-#room-stage .rp-doll { flex: 1 1 auto; min-height: 0; min-width: 0; overflow: hidden; touch-action: none; display: flex; justify-content: center; padding: 8px 6px 0; border-radius: 8px; transition: background 0.15s; }
+#room-stage .rp-doll { position: relative; flex: 1 1 auto; min-height: 0; min-width: 0; overflow: hidden; touch-action: none; cursor: grab; border-radius: 8px; transition: background 0.15s; }
+#room-stage .rp-doll.turning { cursor: grabbing; }
+#room-stage .rp-turn {
+	position: absolute; left: 50%; top: 8px; transform: translateX(-50%); pointer-events: none; white-space: nowrap;
+	padding: 2px 9px; border-radius: 9px; font-size: 0.6875rem; color: var(--text-dim); background: var(--rp-bg); opacity: 0.8; transition: opacity 0.3s;
+}
+#room-stage .rp-doll.turning .rp-turn { opacity: 0; }
 #room-stage .rp-doll.drop-on { background: color-mix(in srgb, var(--accent) 14%, transparent); }
-#room-stage .pd-svg { height: 100%; width: auto; max-width: 100%; overflow: visible; }
-#room-stage .pd-item { cursor: grab; transition: filter 0.12s; }
-#room-stage .pd-item.hov { filter: brightness(1.18) drop-shadow(0 0 2px color-mix(in srgb, var(--accent) 80%, transparent)); }
-#room-stage .pd-item.sel { filter: drop-shadow(0 0 2.5px var(--accent)) drop-shadow(0 0 1px var(--accent)); }
-#room-stage .pd-item.ghost { opacity: 0.62; pointer-events: none; }
-#room-stage .pd-glow { filter: drop-shadow(0 0 3px rgba(120, 220, 255, 0.9)); }
 #room-stage .rp-dollacts { display: flex; justify-content: center; gap: 8px; padding: 8px; }
 #room-stage .rp-dollacts button, #room-stage .rp-act, #room-stage .rp-tabs button {
 	padding: 5px 12px; border-radius: 5px; cursor: pointer; font: inherit;
@@ -47,8 +50,7 @@
 #room-stage .rp-dollacts button:disabled { opacity: 0.4; cursor: default; }
 #room-stage .rp-dollacts button[hidden] { display: none; }
 
-#room-stage .rp-packbox { flex: 1 1 auto; min-width: 0; min-height: 0; display: flex; flex-direction: column; padding: 8px 10px; gap: 8px; border-radius: 0 8px 8px 0; transition: background 0.15s; }
-#room-stage .rp-packbox.drop-on { background: color-mix(in srgb, var(--accent) 8%, transparent); }
+#room-stage .rp-packbox { flex: 1 1 auto; min-width: 0; min-height: 0; display: flex; flex-direction: column; padding: 8px 10px; gap: 8px; }
 #room-stage .rp-tabs { display: flex; gap: 6px; flex-wrap: wrap; }
 #room-stage .rp-tabs button.on { color: var(--accent); border-color: var(--accent); background: var(--rs-btn-hover); }
 #room-stage .rp-grid {

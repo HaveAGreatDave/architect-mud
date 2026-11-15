@@ -181,14 +181,24 @@ for (const [w, h] of [[420, 288], [1800, 1230]]) {
   check(anchorOf({ contact: { t: 3 }, catch: { t: 9 } }) === 3 && anchorOf({ catch: { t: 9 } }) === 9 && Number.isNaN(anchorOf({})), 'a replay\'s times count from the bat, or with no contact from the mitt');
   // the server leaves these the replay's room (timing.js), and no other strikeout
   check(bigStrikeout(K) && afterLand(K) === AFTER.replay + AFTER.reset && afterLand({ ...K, outs: 2 }) === AFTER.reset, 'the server leaves a big strikeout room for its replay');
-  check(afterLand({ phase: 'run', kind: 'caughtstealing' }) === AFTER.replay + AFTER.reset && afterLand({ phase: 'run', kind: 'steal' }) === AFTER.reset, 'and a man thrown out stealing');
-  // on the bases: thrown out always, safe only when the tag nearly had him
-  const plan = (touch) => ({ log: { throw: { catch: { t: 14 } }, tag: { t: 14.1 }, runners: [{ touch }] } });
+  const steals = ['caughtstealing', 'steal', 'pickoff'].every((kind) => afterLand({ phase: 'run', kind }) === AFTER.replay + AFTER.reset);
+  check(steals && afterLand({ phase: 'run', kind: 'wildpitch' }) === AFTER.reset && afterLand({ phase: 'run', kind: 'doublesteal', out: false }) === AFTER.replay + AFTER.reset,
+    'and a man thrown out stealing or picked off, and every stolen base');
+  const fromFirst = { kind: 'double', moves: [{ from: 1, to: 4 }, { from: 0, to: 2 }] };
+  check(afterLand(fromFirst) === AFTER.replay + AFTER.reset && afterLand({ ...fromFirst, moves: [{ from: 2, to: 4 }, { from: 0, to: 2 }] }) === AFTER.reset,
+    'and a man all the way round from first, not one in from second');
+  // on the bases: thrown out at the bag, on the throw; safe, on the man, from his jump to his slide
+  const plan = (touch) => ({ log: { throw: { catch: { t: 14 } }, tag: { t: 14.1 }, runners: [{ touch, go: touch - 3.1, slot: 11 }] } });
   const run = { phase: 'run', kind: 'caughtstealing', base: 2 }, rl = [{ catch: { t: 12 } }];
   const c = replayOf(run, plan(14.2), rl);
   check(c && c.kind === 'caught' && c.shot === 'bag' && Math.abs(c.key - 2) < 1e-9, 'a man thrown out stealing earns one at his bag, on the throw arriving', JSON.stringify(c));
-  check(replayOf({ ...run, kind: 'steal' }, plan(14.0), rl)?.kind === 'steal' && replayOf({ ...run, kind: 'steal' }, plan(13.8), rl) === null, 'a steal earns one only when the tag nearly had him');
-  check(replayOf({ ...run, kind: 'steal', base: 3 }, plan(14.0), rl)?.shot === 'third' && replayOf({ phase: 'run', kind: 'wildpitch' }, plan(14), rl) === null, 'at third from third\'s camera, and nothing else on the bases');
+  const s = replayOf({ ...run, kind: 'steal' }, plan(13.6), rl);
+  check(s?.kind === 'steal' && s.focus === 11 && Math.abs(s.key - 1.6) < 1e-9 && s.shot?.shot === 'field' && s.to - s.from <= REPLAY.span + 1e-9 && s.from <= s.key - 2.7,
+    'every stolen base earns one, on the man: his slide is the moment, from his jump, on a camera that rides with him', JSON.stringify(s));
+  const s3 = replayOf({ ...run, kind: 'steal', base: 3 }, plan(13.6), rl);
+  const eye3 = s3?.shot?.eye, eye2 = s?.shot?.eye;
+  check(eye2 && eye3 && eye2[2] > 127 && eye3[0] * eye2[0] < 0, 'its camera out on the grass beyond the bag he\'s stealing, on that side of the field', JSON.stringify({ eye2, eye3 }));
+  check(replayOf({ phase: 'run', kind: 'pickoff', base: 1 }, plan(14), rl)?.kind === 'pickoff' && replayOf({ phase: 'run', kind: 'wildpitch' }, plan(14), rl) === null, 'a pickoff earns one, and nothing else on the bases');
 }
 
 // ── the videoboard (diamond/jumbo.js) ──

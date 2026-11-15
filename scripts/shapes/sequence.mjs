@@ -10,7 +10,7 @@ import { dirname, join } from 'node:path';
 import { buildSet, SET_PIECES } from '../../client/game/js/panels/gl/set-mesh.js';
 import { autoShot, roleMark as markOfRole, GFX, FRAMES, MOVES, checkSequence, checkShow, shotCamera, timeline, parseCamLabel, sequenceFromBsm, fill, passes, slotFor, tableRows, profileOf, castToken, resolveSet, checkSkin } from '../../client/shared/sequence.js';
 import { sampleGame } from '../../plugins/broadcast/sports/sample-game.js';
-import { factsAt, momentBeat } from '../../plugins/broadcast/sports/facts.js';
+import { momentFacts, boothCuts } from '../../plugins/broadcast/sports/facts.js';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
 
@@ -94,7 +94,9 @@ for (const show of of('show')) {
     for (const seed of SEEDS) {
       const { sport, game, ctx } = sampleGame(row, seed);
       for (const when of [...new Set((show.slots || []).map((s) => s.when))]) {
-        for (const n of when === 'break' ? [0, 1] : [0]) tryData(when, { show: show.name, announcer: row.announcer, analyst: row.analyst, venue: 'the park', ...factsAt(sport, game, momentBeat(sport, game, when, n), ctx) }, `${when} ${n} ${seed}`);
+        // a cut is tried at every moment the game offers one (none in a quiet game), a break at the first two
+        const ns = when === 'booth_cut' ? boothCuts(sport, game).map((_, i) => i) : /break$/.test(when) ? [0, 1] : [0];
+        for (const n of ns) tryData(when, { show: show.name, announcer: row.announcer, analyst: row.analyst, venue: 'the park', ...momentFacts(sport, game, when, n, ctx) }, `${when} ${n} ${seed}`);
       }
     }
     for (const s of show.slots || []) if (s.sequence && !played.has(s.id)) bad.push(`${show.id}: slot ${s.id} never plays in ${SEEDS.length} games`);

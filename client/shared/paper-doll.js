@@ -228,6 +228,60 @@ export function garmentOf(it) {
   return { kind, col, mat };
 }
 
+// ── The same clothes on the close-up figure ──────────────────────────────────
+// The Pack turns the 3D you (room-stage.js) as well as drawing this doll, and a player's figure carries no clothes of
+// its own (player-figure.js is the body only), so `figureWorn` reads what's worn into the overrides the close-up
+// figure takes on a settled look (gl/room-people.js lookOf): the cut of the outermost top, its colour and cloth, a
+// shirt showing under a jacket, the bottoms, the shoes, a hat and a scarf. `skin` is the body's own colour, when
+// it's been chosen, for what's bare. The names are figure.js FIGURE_CUTS, FIGURE_BOTTOMS, FIGURE_HATS and
+// FIG_FABRIC keys, as strings, so this file stays free of the renderer.
+const TORSO_CUT = {
+  longcoat: 'trench', slicker: 'mac', coat: 'coat', jumpsuit: 'coverall', gown: 'dress', suit: 'suit', jacket: 'jacket', hoodie: 'hoodie',
+  sweater: 'sweater', vest: 'vest', shirt: 'oxford', tee: 'tee', crop: 'crop', undershirt: 'tank', binder: 'tank', apron: 'tee', harness: 'strapwrap', bra: 'briefs',
+};
+const TORSO_OUTER = ['longcoat', 'slicker', 'coat', 'jumpsuit', 'gown', 'suit', 'jacket', 'hoodie', 'sweater', 'vest', 'apron', 'shirt', 'tee', 'crop', 'undershirt', 'binder', 'harness', 'bra'];
+const OPEN_FRONT = new Set(['longcoat', 'slicker', 'coat', 'suit', 'jacket', 'vest']);
+const LEG_BOTTOMS = { shorts: 'shorts', micro: 'cutoffs', skirt: 'aline', boxers: 'cutoffs', briefs: 'cutoffs' };
+const HAT = { cap: 'cap', beanie: 'beanie', helmet: 'hardhat', bucket: 'bucket' };
+const FABRIC = { denim: 'denim', knit: 'knit', plate: 'canvas' };
+const UNDIES = [214, 208, 198];
+const fabricOf = (it, g) => (g.mat === 'gloss' ? (/leather|suede/.test(String(it.name).toLowerCase()) ? 'leather' : 'rubber') : FABRIC[g.mat] || 'plain');
+
+export function figureWorn(items, { sex = 'male', skin = null } = {}) {
+  const worn = (items || []).filter((it) => it.worn && it.slot), bare = skin || null;
+  const top = (slot) => worn.filter((it) => it.slot === slot).map((it) => ({ it, g: garmentOf(it) }));
+  const torso = top('torso').sort((a, b) => ((b.it.layer || 2) - (a.it.layer || 2)) || (TORSO_OUTER.indexOf(a.g.kind) - TORSO_OUTER.indexOf(b.g.kind)));
+  const legs = top('legs').sort((a, b) => (b.it.layer || 2) - (a.it.layer || 2));
+  const out = { hat: '', scarf: '' };
+  const lg = legs[0], under = !lg || ['briefs', 'boxers', 'micro'].includes(lg.g.kind);
+  if (!torso.length && under) {
+    // down to your underwear, or less: the figure's own underwear set, in the briefs' colour if you've some on
+    out.cut = sex === 'female' ? 'briefs' : 'boxers';
+    out.top = lg?.g.col || UNDIES;
+    out.bottoms = '';
+  } else {
+    const o = torso[0];
+    if (o) {
+      out.cut = TORSO_CUT[o.g.kind] || 'tee'; out.top = o.g.col; out.fabric_top = fabricOf(o.it, o.g);
+      // what's under an open front shows at the collar
+      const inner = OPEN_FRONT.has(o.g.kind) && torso.find((x) => x !== o && !OPEN_FRONT.has(x.g.kind));
+      if (inner) out.shirt = inner.g.col;
+    } else {
+      // trousers and nothing on top: a vest the colour of you, or a pale one if your skin's not been chosen
+      out.cut = 'tank'; out.top = bare || UNDIES;
+    }
+    if (lg) { out.legs = lg.g.col; out.bottoms = LEG_BOTTOMS[lg.g.kind] || ''; out.fabric_legs = fabricOf(lg.it, lg.g); }
+    else { out.legs = UNDIES; out.bottoms = 'cutoffs'; }
+  }
+  const ft = top('feet')[0];
+  out.shoes = ft ? ft.g.col : bare || [196, 160, 136];
+  if (ft) out.fabric_shoes = fabricOf(ft.it, ft.g);
+  const hd = top('head').find((x) => HAT[x.g.kind]);
+  if (hd) out.hat = HAT[hd.g.kind];
+  if (top('accessory').some((x) => x.g.kind === 'scarf')) out.scarf = 'scarf';
+  return out;
+}
+
 // ── Drawing ───────────────────────────────────────────────────────────────────
 
 // A drawn shape: its path, its flat colour, whether it takes the shadow tone, and the item it belongs to.

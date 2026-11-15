@@ -470,8 +470,11 @@ export async function clearNpcResidence(npc) {
 // True when this NPC is homed in an apartment a player OWNS — the invariant the
 // boot reconcile corrects. Pure/read-only: the testable core of the law, split out
 // so a test can assert the predicate without the DB-writing rehome path.
+// A pet (flags.pet, plugins/pets) is the exception: it belongs to whoever has the flat, player or NPC, and stays
+// wherever it's set, so it is never a squatter (and `evict` refuses it too).
 export function npcHomedInOwnedUnit(npc) {
 	const home = npc?.home_zone;
+	if (npc?.flags?.pet) return false;
 	return !!home && isApartmentZone(getZone(home)) && !!getApartment(home)?.owner_id;
 }
 

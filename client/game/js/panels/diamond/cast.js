@@ -184,6 +184,28 @@ export function castOf(p) {
   return out;
 }
 
+// The cast for a final's Cup (a `phase: 'crown'` payload, diamond/ceremony.js): the champions alone,
+// twelve of them in their own kit, bare-headed and without gloves. The payload's `stars` first, as the
+// men they are (their names, so a star looks as he did at the plate), then the winners' pitcher, then
+// the rest by position and the bench. The payload puts the champions in the field (`fieldingTeam`),
+// and `winner` is home or away; where they stand is the ceremony's to say, so here they're round
+// the trophy's table.
+export function crownCast(p) {
+  if (!p) return [];
+  const team = p.winner || p.fieldingTeam || 'Home', side = team === p.home ? 'home' : team === p.away ? 'away' : (p.half === 'top' ? 'home' : 'away');
+  const base = side === 'home' ? 0 : 12, out = [], ids = [];
+  const add = (id, role) => { if (!id || ids.includes(id) || ids.length >= 12) return; ids.push(id); out.push({ id, role }); };
+  for (const s of Array.isArray(p.stars) ? p.stars : []) add(s, s === p.pitcher ? 'pitcher' : 'fielder');
+  add(p.pitcher || `${team}:P`, 'pitcher');
+  for (const pos of ['C', '1B', '2B', 'SS', '3B', 'LF', 'CF', 'RF']) add(`${team}:${pos}`, 'fielder');
+  for (let i = 0; i < 3; i++) add(`${team}:bench${i}`, 'bench');
+  return out.map(({ id, role }, k) => {
+    const b = buildOf(id, role === 'bench' ? 'coach' : role), at = [-14 + (k % 6) * 2 - 5, 0, 56 + Math.floor(k / 6) * 3];
+    return { id, pose: 'stand', at, yaw: 180, mirror: false, scale: b.scale,
+      look: { id, side, role, slot: base + k, number: numberOf(id), girth: b.girth, shoulders: b.shoulders, belly: b.belly } };
+  });
+}
+
 // A key for one cast member as a still: what he looks like, how he stands and where. Two payloads
 // that share a key share a posed body (gl/ballplayer-mesh.js buildPlayer).
 export const castKey = (c) => JSON.stringify([c.id, c.pose, c.at, Math.round(c.yaw * 100), c.mirror, c.scale, c.look.side, c.look.slot, c.look.glove, c.look.helmet, c.look.flapSide, c.look.mask]);

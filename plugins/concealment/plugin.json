@@ -7,8 +7,9 @@
   "objectGatedCommands": {
     "keypad": { "discoverVia": "conceal_hides", "note": "The panel on a disguise piece. Surfaced by the specialized action registered under requiredFlag conceal_hides, and as an action-link on examine." },
     "concealcode": { "discoverVia": "furniture:flags.conceal_hides", "exposed": false, "note": "Client transport only — the keypad overlay's submit, sent silently so the digits never reach the log. Players use `keypad`." },
-    "concealsetcode": { "discoverVia": "furniture:flags.conceal_hides", "exposed": false, "note": "Client transport only — the overlay's change-code panel (old code + new). Reached through `keypad`, never typed." }
+    "concealsetcode": { "discoverVia": "furniture:flags.conceal_hides", "exposed": false, "note": "Client transport only — the overlay's reset key and first-use setup. <id> <code> checks the current code and answers with the overlay's `new` stage; <id> <code> <new> sets it (into the conceal_codes table). Reached through `keypad`, never typed; the typed form is `keypad <name> <code> <new code>`." }
   },
+  "dataSchema": ["conceal_codes"],
   "extensionPoints": ["furniture.flags.conceal_hides", "furniture.flags.conceal_code", "furniture.flags.conceal_brand", "furniture.flags.concealed"],
   "events": { "emits": ["furniture.changed"] }
 }

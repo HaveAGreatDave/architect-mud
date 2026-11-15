@@ -15,6 +15,10 @@
  * Reduced motion leaves all of it out. With it on, the shells go up at least BEAT apart, so they
  * never flash more than three times a second.
  *
+ * A home run also gets the park's light show (planLights, lightsAt): the lights out and the floods
+ * flashing in the hitting club's colours, drawn by gl/ballpark.js. It keeps to the same three
+ * flashes a second, and with reduced motion it's a slow wash of colour instead of a strobe.
+ *
  * Pure: no DOM and no GL.
  */
 
@@ -50,7 +54,12 @@ export const KINDS = Object.freeze({
   // seconds, drifting `v` ft/s out over the field, falling `fall` ft/s and fluttering `sway` ft
   // either way; a flake catches the lamps as it turns (its glow comes and goes)
   confetti: Object.freeze({ n: 96, v: 2.6, drag: 1, g: 0, life: 9, width: 0.34, streak: 0.06, glow: 2.4, fall: 5.2, sway: 1.5, span: 34, stagger: 1.6 }),
+  // ticker tape over the Cup's ceremony: confetti's flutter, but long strips (a long streak) in the
+  // champions' two colours and white, coming down slower and swinging wider over a wider patch
+  tape: Object.freeze({ n: 96, v: 1.4, drag: 1, g: 0, life: 13, width: 0.4, streak: 0.3, glow: 1.7, fall: 3.4, sway: 2.6, span: 48, stagger: 2.6 }),
 });
+// the kinds that flutter down (flakeAt) rather than fly out from a point
+const FLUTTER = new Set(['confetti', 'tape']);
 // The confetti's colours, in linear light: gold, white, and the champions' own.
 export const CONFETTI = Object.freeze({ gold: [1, 0.72, 0.22], white: [1, 1, 1] });
 // How far apart the shells go up, at least: more than a third of a second, so no second ever has
@@ -69,7 +78,7 @@ export const DOWN = 0.5;
 export function wayAt(e, i, tau) {
   const K = KINDS[e.kind], T = TEMPLATES, o = i * 6;
   let d = [T[o], T[o + 1], T[o + 2]];
-  if (e.kind === 'confetti') return flakeAt(e, d, T[o + 3], tau - flakeDelay(d));
+  if (FLUTTER.has(e.kind)) return flakeAt(e, d, T[o + 3], tau - flakeDelay(d, e.kind));
   if (e.kind === 'sparks') d = unit([e.dir[0] + d[0] * K.spread, e.dir[1] + d[1] * K.spread, e.dir[2] + d[2] * K.spread]);
   else { const c = Math.cos(e.spin), s = Math.sin(e.spin); d = [c * d[0] + s * d[2], d[1] < 0 ? d[1] * DOWN : d[1], -s * d[0] + c * d[2]]; }
   const v = K.v * T[o + 3] * (e.scale || 1), k = K.drag, ex = Math.exp(-k * tau);
@@ -78,9 +87,9 @@ export function wayAt(e, i, tau) {
 }
 // A flake: where along the deck it's let go (d.x), how far out from the front (d.z), when (its
 // d.y: flakeDelay), and k its own pace. `e.axis` runs along the deck and `e.out` over the field.
-export const flakeDelay = (d) => (d[1] * 0.5 + 0.5) * KINDS.confetti.stagger;
+export const flakeDelay = (d, kind = 'confetti') => (d[1] * 0.5 + 0.5) * KINDS[kind].stagger;
 function flakeAt(e, d, k, tau) {
-  const K = KINDS.confetti, A = e.axis, O = e.out, sw = Math.sin(tau * 2.1 * k + d[2] * 7) * K.sway * 0.5, sa = Math.cos(tau * 1.7 + d[0] * 9) * K.sway;
+  const K = KINDS[e.kind] || KINDS.confetti, A = e.axis, O = e.out, sw = Math.sin(tau * 2.1 * k + d[2] * 7) * K.sway * 0.5, sa = Math.cos(tau * 1.7 + d[0] * 9) * K.sway;
   const along = d[0] * K.span / 2 + sa, out = 1 + (d[2] * 0.5 + 0.5) * 3 + K.v * tau * k + sw;
   return [e.at[0] + A[0] * along + O[0] * out, Math.max(0.1, e.at[1] - K.fall * k * tau), e.at[2] + A[2] * along + O[2] * out];
 }
@@ -97,8 +106,8 @@ export function particleAt(e, i, t) {
       return { at: [e.from[0] + (e.at[0] - e.from[0]) * ease, e.from[1] + (e.at[1] - e.from[1]) * ease, e.from[2] + (e.at[2] - e.from[2]) * ease], glow: K.glow * 0.5 };
     }
   } else if (tau < 0) return null;
-  if (e.kind === 'confetti') {
-    const o = i * 6, d = [T[o], T[o + 1], T[o + 2]], u = tau - flakeDelay(d), life = K.life * T[o + 4];
+  if (FLUTTER.has(e.kind)) {
+    const o = i * 6, d = [T[o], T[o + 1], T[o + 2]], u = tau - flakeDelay(d, e.kind), life = K.life * T[o + 4];
     if (u < 0 || u > life) return null;
     const fade = Math.min(1, (life - u) / (life * 0.3));
     return { at: wayAt(e, i, tau), glow: K.glow * (0.25 + 0.75 * Math.abs(Math.sin(u * 9 * T[o + 3] + d[0] * 30))) * fade };
@@ -190,26 +199,159 @@ export function planSpectacle(o) {
 // city, more of them and higher than a home run's. `colour` is the champions' own, in linear light.
 // Nothing for a viewer who's asked for less motion. Returns the effects.
 export const DECK = Object.freeze({ r: 134, y: 50, from: -112, to: -248, n: 8 });
-export function planChampion({ t, colour = CONFETTI.gold, motion = true, seed = 1 } = {}) {
+// A club's colour as a shell or a strip of tape burns it: the same hue at full brightness, so a
+// navy burns blue rather than nothing; black or grey burns white.
+export function brightOf(c) {
+  if (!Array.isArray(c) || c.length < 3 || !c.every(Number.isFinite)) return [1, 1, 1];
+  const hi = Math.max(c[0], c[1], c[2]), lo = Math.min(c[0], c[1], c[2]);
+  if (!(hi > 0.02) || (hi - lo) / hi < 0.15) return [1, 1, 1];
+  return [c[0] / hi, c[1] / hi, c[2] / hi];
+}
+// The champions' shells after the first two volleys: a wave every `gap` seconds, give or take
+// `jitter`, of `n` shells at BEAT, until the show's `until`; every other shell in the club's second
+// colour, a gold one in every wave.
+export const WAVES = Object.freeze({ gap: 6.5, jitter: 1.2, n: 6, first: 7 });
+const GOLD = Object.freeze([1, 0.72, 0.22]);
+function shellOf(rand, k, n, r0, y0, scale, t0, cols) {
+  const dir = Math.max(-42, Math.min(42, 84 * ((n > 1 ? k / (n - 1) : 0.5) - 0.5) + (rand() - 0.5) * 8));
+  const r = fenceAt(dir) + r0 + 40 * rand(), y = y0 + 40 * rand();
+  const at = [-Math.sin(dir * DEG) * r, y, Math.cos(dir * DEG) * r], from = [-Math.sin(dir * DEG) * (r + 14), 28, Math.cos(dir * DEG) * (r + 14)];
+  const c = Math.floor(rand() * SHELLS.length);
+  // in the club's colours where it has them, a gold shell now and then; the old rainbow without
+  const colour = cols ? (k % 4 === 3 ? GOLD : cols[k % cols.length]) : SHELLS[c];
+  const second = cols ? (k % 4 === 3 ? cols[0] : cols.length > 1 ? cols[(k + 1) % cols.length] : [1, 1, 1]) : SHELLS[(c + 2) % SHELLS.length];
+  return { kind: 'burst', t: t0 + KINDS.burst.rise + (BEAT + JITTER / 2) * k + JITTER / 2 * rand(), at, from, spin: rand() * Math.PI * 2, scale, colour, second };
+}
+// `colours` (the club's, in linear light, the first its main one) puts the shells in them; `until`
+// keeps them going in waves (WAVES) till then.
+export function planChampion({ t, colour = CONFETTI.gold, colours = null, until = null, motion = true, seed = 1 } = {}) {
   const fx = [];
   if (!motion || !Number.isFinite(t)) return fx;
   const rand = seeded(seed >>> 0);
+  const cols = Array.isArray(colours) && colours.length ? colours.slice(0, 2).map(brightOf) : null;
   for (let k = 0; k < DECK.n; k++) {
     const a = (DECK.from + (DECK.to - DECK.from) * (k + 0.5) / DECK.n) * DEG, at = [Math.sin(a) * DECK.r, DECK.y, Math.cos(a) * DECK.r];
     const out = unit([-at[0], 0, 60 - at[2]]), axis = [-out[2], 0, out[0]];
     fx.push({ kind: 'confetti', t: t + 0.15 * k * rand(), at, out, axis, colour });
   }
-  const shell = (k, n, r0, y0, scale, t0) => {
-    const dir = Math.max(-42, Math.min(42, 84 * ((n > 1 ? k / (n - 1) : 0.5) - 0.5) + (rand() - 0.5) * 8));
-    const r = fenceAt(dir) + r0 + 40 * rand(), y = y0 + 40 * rand();
-    const at = [-Math.sin(dir * DEG) * r, y, Math.cos(dir * DEG) * r], from = [-Math.sin(dir * DEG) * (r + 14), 28, Math.cos(dir * DEG) * (r + 14)];
-    const c = Math.floor(rand() * SHELLS.length);
-    return { kind: 'burst', t: t0 + KINDS.burst.rise + (BEAT + JITTER / 2) * k + JITTER / 2 * rand(), at, from, spin: rand() * Math.PI * 2, scale,
-      colour: SHELLS[c], second: SHELLS[(c + 2) % SHELLS.length] };
-  };
-  for (let k = 0; k < 12; k++) fx.push(shell(k, 12, 55, 92, 1, t + 0.6));
-  for (let k = 0; k < 8; k++) fx.push(shell(k, 8, 260, 170, 1.5, t + 1.4));
+  for (let k = 0; k < 12; k++) fx.push(shellOf(rand, k, 12, 55, 92, 1, t + 0.6, cols));
+  for (let k = 0; k < 8; k++) fx.push(shellOf(rand, k, 8, 260, 170, 1.5, t + 1.4, cols));
+  if (Number.isFinite(until)) fx.push(...waves(rand, t + WAVES.first, until, cols));
   return fx;
+}
+function waves(rand, from, until, cols) {
+  const out = [];
+  for (let t0 = from, w = 0; t0 + WAVES.n * BEAT + KINDS.burst.rise < until; t0 += WAVES.gap + WAVES.jitter * (rand() * 2 - 1), w++) {
+    const far = w % 2 === 1;
+    for (let k = 0; k < WAVES.n; k++) out.push(shellOf(rand, k, WAVES.n, far ? 220 : 60, far ? 150 : 95, far ? 1.4 : 1.05, t0, cols));
+  }
+  return out;
+}
+
+// THE CUP'S SHOW. Ticker tape over the ceremony each time a man puts the Cup up (`hoists`, world
+// times), a shower of strips in the club's colours and white let go 70 ft over the stage and
+// coming down round the men; confetti off the upper deck in the club's colour as it starts; and the
+// shells in the club's colours in waves from the first hoist till `until`. `at` is where the Cup's
+// table stands. Nothing with less motion.
+export const TAPE = Object.freeze({ y: 70, spots: Object.freeze([[0, 0], [-16, 6], [16, 6], [-8, 18], [10, 20], [0, -10]]) });
+export function planCupShow({ t, hoists = [], until = null, at = [0, 0, 50], colours = null, motion = true, seed = 1 } = {}) {
+  const fx = [];
+  if (!motion || !Number.isFinite(t)) return fx;
+  const rand = seeded((seed >>> 0) ^ 0xc0ffee);
+  const cols = Array.isArray(colours) && colours.length ? colours.slice(0, 2).map(brightOf) : [GOLD];
+  for (let k = 0; k < DECK.n; k++) {
+    const a = (DECK.from + (DECK.to - DECK.from) * (k + 0.5) / DECK.n) * DEG, p = [Math.sin(a) * DECK.r, DECK.y, Math.cos(a) * DECK.r];
+    const out = unit([-p[0], 0, 60 - p[2]]), axis = [-out[2], 0, out[0]];
+    fx.push({ kind: 'confetti', t: t + 0.2 * k * rand(), at: p, out, axis, colour: cols[0] });
+  }
+  hoists.filter(Number.isFinite).forEach((h, n) => {
+    TAPE.spots.forEach(([dx, dz], j) => {
+      // each patch let go a little apart, drifting a different way, so the strips don't fall in step
+      const a = rand() * Math.PI * 2, out = [Math.sin(a), 0, Math.cos(a)], axis = [-out[2], 0, out[0]];
+      fx.push({ kind: 'tape', t: h + 0.25 * j + 0.3 * rand(), at: [at[0] + dx, TAPE.y + 8 * rand(), at[2] + dz], out, axis,
+        colour: cols[(n + j) % cols.length], second: cols[(n + j + 1) % cols.length] });
+    });
+  });
+  const first = hoists.find(Number.isFinite) ?? t + 2;
+  for (let k = 0; k < 10; k++) fx.push(shellOf(rand, k, 10, 55, 92, 1.1, first + 0.4, cols));
+  if (Number.isFinite(until)) fx.push(...waves(rand, first + WAVES.first, until, cols));
+  return fx;
+}
+
+// ── the lights ──────────────────────────────────────────────────────────────
+// A home run's light show, as Toronto's park does it: once the ball's over the fence the park's own
+// lights drop out, the floods flash in the colours of the club that hit it, and then the lights
+// come back. Planned here from the play, drawn by gl/ballpark.js (setLightShow), which decides how
+// dark the park can go: at night or under the shut roof it goes dark, and by day with the roof
+// open the sun stays up and only the floods' colour shows. The scoreboard and the videoboard keep
+// their own light. It belongs to the live game: a replay doesn't stage one.
+//
+// Photosensitivity: the flashes come `period` seconds apart, and `period` is more than BEAT, so
+// no second ever has more than three of them, the lights coming back counted as one. With reduced
+// motion there's no strobe at all: the lights dim by half and the hitting club's colour washes
+// slowly up and back down.
+//
+// drop: how long the lights take to go out; first: the first flash after the ball's gone; n: how
+// many flashes (more for a walk-off); attack and fall: a flash's rise and its fall's time constant
+// (it's down to about 1% by the next one); back: how long the lights take to come up again after
+// a period's rest. calm is the reduced-motion wash: up, held and down, in seconds, how far the
+// lights dim and how strong the colour is.
+export const STROBE = Object.freeze({
+  drop: 0.2, first: 0.55, period: 0.4, n: 10, walkoff: 14, attack: 0.03, fall: 0.07, back: 0.8,
+  calm: Object.freeze({ up: 1.4, hold: 3.2, down: 1.8, out: 0.5, wash: 0.55 }),
+});
+// When the ball's gone: the first moment its path is past the fence, looked for between `from`
+// (the crack) and its landing; the landing if it never is, and null with no landing.
+export function goneAt(path, from) {
+  if (typeof path !== 'function' || !Number.isFinite(path.land) || !Number.isFinite(from)) return null;
+  const past = (t) => { const q = path(t); return !!q && Math.hypot(q[0], q[2]) >= fenceAt(sprayOf(q)); };
+  const n = 48, span = path.land - from;
+  if (!(span > 0)) return path.land;
+  for (let k = 1; k <= n; k++) {
+    const t = from + span * k / n;
+    if (!past(t)) continue;
+    // the crossing, to a hundredth of the step
+    let lo = from + span * (k - 1) / n, hi = t;
+    for (let j = 0; j < 7; j++) { const m = (lo + hi) / 2; if (past(m)) hi = m; else lo = m; }
+    return hi;
+  }
+  return path.land;
+}
+// The show for a play, or null: a home run (a walk-off one too), either side. `o`: { p, path (the
+// ball off the bat, with `.land`), tBat (the crack), colours (the hitting club's, in linear light,
+// the first the main one), motion (false: reduced motion) }. Returns { t (the ball's gone), end,
+// calm, colours, flashes: [{ t, colour }] }.
+export function planLights(o = {}) {
+  const p = o.p || {};
+  if (p.kind !== 'homerun') return null;
+  const t = goneAt(o.path, o.tBat);
+  if (!Number.isFinite(t)) return null;
+  const cols = (Array.isArray(o.colours) && o.colours.length ? o.colours : [[1, 1, 1]]).slice(0, 2).map(brightOf);
+  if (o.motion === false) {
+    const C = STROBE.calm;
+    return { t, end: t + C.up + C.hold + C.down, calm: true, colours: cols, flashes: [] };
+  }
+  const n = p.walkoff ? STROBE.walkoff : STROBE.n, flashes = [];
+  for (let k = 0; k < n; k++) flashes.push({ t: t + STROBE.first + STROBE.period * k, colour: cols[k % cols.length] });
+  const back = flashes[n - 1].t + STROBE.period;
+  return { t, back, end: back + STROBE.back, calm: false, colours: cols, flashes };
+}
+const ease = (x) => { const u = Math.min(1, Math.max(0, x)); return u * u * (3 - 2 * u); };
+// The show at time t: { out (how far the park's own lights are down, 0 to 1), flash (how bright the
+// floods' colour is, 0 to 1), colour }, or null outside it. Pure in t, so a stopped clock draws it
+// the same every frame.
+export function lightsAt(show, t) {
+  if (!show || !Number.isFinite(t) || t < show.t || t > show.end) return null;
+  if (show.calm) {
+    const C = STROBE.calm, k = ease(Math.min((t - show.t) / C.up, (show.end - t) / C.down));
+    return { out: C.out * k, flash: C.wash * k, colour: show.colours[0] };
+  }
+  const out = Math.min(ease((t - show.t) / STROBE.drop), 1 - ease((t - show.back) / STROBE.back));
+  let f = null;
+  for (const x of show.flashes) { if (x.t <= t) f = x; else break; }
+  if (!f) return { out, flash: 0, colour: show.colours[0] };
+  const u = t - f.t, flash = u < STROBE.attack ? u / STROBE.attack : Math.exp(-(u - STROBE.attack) / STROBE.fall);
+  return { out, flash, colour: f.colour };
 }
 
 // A string's hash as a seed (FNV-1a), so the same play always gets the same show.

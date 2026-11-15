@@ -3,17 +3,17 @@
   "ambient_theme": "indoors",
   "bg_color": "#2b3a34",
   "color": "#e8ddc7",
-  "description": "The corner residence's private head, cut from the same monolithic grey stone as the great bath outside: one seamless block, wet-room floor, a rain shower set into the ceiling with no visible fitting. A sculpted basin, a low concealed toilet, the city turning slowly past a slot of frosted glass. Warm underfoot, and utterly quiet. The privacy bolt seats with a soft magnetic click.",
+  "description": "The corner residence's head is pale veined marble, wall to wall and up to the ceiling. The shower is a sheet of glass and a slab of black stone, its head flush in the ceiling. A walnut vanity with a stone bowl on top floats under a mirror lit from behind. The privacy bolt seats with a soft click.",
   "exits": {
     "out": "zone_solenne_apt_b"
   },
   "flags": {
-    "floor": "carpet",
+    "floor": "stone",
     "is_interior": true,
     "window": {
-      "description": "A window with a bad seal, letting in a draught and a slice of whatever the weather is doing.",
+      "description": "A high slot of frosted glass under the ceiling. It lets the day in and nobody look back.",
       "light": 0.75,
-      "name": "the window",
+      "name": "the frosted slot",
       "visibility": 0.8
     }
   },

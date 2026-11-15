@@ -543,3 +543,45 @@ its X-ray replay, which is never a comic one too.
   as a comic and one has reached its page: beats in order, inside the window, the freeze still,
   the live clock never held, and every page's last frame at least a second past its moment. In
   that game, played to the end, about 20 moments get one, saves the most.
+
+## Ken Raven, the intermission comic, as built (2026-11-14)
+
+Dave's ask: a comic section on Ken Raven, the Zamboni driver, in the first intermission, with shots
+of him waving and of his machine. It's [rink/ken-comic.js](../../client/game/js/panels/rink/ken-comic.js),
+behind the same switch as the comic replays (the Comic setting, and never with reduced motion).
+
+- **When.** The first break only, four seconds after the Zamboni comes on, if the break has at
+  least a minute left. Not for a seat in the stands, a viewer who joined the break more than 20 s
+  late, or a break the period comes back from early (rink/director.js `stageIntermission`).
+- **A tribute** (Dave's second pass: "a celebration of the zamboni man and the good work he
+  does"), told the way a comic hails its hero. **Six live shots**, each about 2.4 s: the machine
+  on the wrecked ice (`Meanwhile, the ice lies in ruins...`), Ken waving (`But one man answers
+  the call. Ken Raven!`, `Evening, everybody!`), the fresh ice behind the conditioner (`Every
+  gouge. Every chip. Every drop of blood. Gone.`), his piece on the tank (`He painted her
+  himself.`), the sheet from high up (`Big loops...`), and Ken waving over the tank (`The players
+  get the cheers. The ice is all his.`, `See you in the second!`). Each plays in an ink border
+  with its narration (comic-print.js `paintLive`), then its last frame is printed and held for
+  1.3 s with his line in a balloon (`paintSnap`, `paintBalloon`). Then the page, `THANK YOU, KEN!`,
+  Rinkside Comics No. 1, all six in two rows with confetti falling over it (`paintSheet`), 7.5 s,
+  fading back to the time-lapse. About 30 s in all.
+- **Cup final night** has the machine in its Cup colours, with the replica Cup on its lid and the
+  finalists' pennants (rink/livery.js `CUP_NIGHT`), and a shot's `cup` words over its own: `Cup
+  final night. The ice lies in ruins...`, `Big night, everybody!` and `And on Cup night, she wears
+  the gold.`
+- **The camera is on the ice.** Each shot's eye and target are in the machine's frame and ride
+  with it (rink/camera.js `shotFrame`, at any heading through `C.ax`, as a seat's). An eye that
+  would be past the boards is mirrored to the machine's other side or pulled in along its line
+  (`shotEye`). A shot of Ken keeps his side, the side he waves with. The camera moves to the next
+  shot under the held frame, so no cut shows. The 2-D renderer can't turn its camera, so it
+  shows the shots from the broadcast side, close.
+- **He waves on cue.** `kenWave(t, z)` (rink/livery.js) takes the machine's `z.wave`, so a shot
+  of him has a wave start with it and the held frame has his arm up.
+- **The machine slows for it.** The Zamboni runs at a lapse of 1 while the shots are on, so it
+  isn't across the sheet in one, and when they're done its lapse is set so it's through the gate
+  when it would have been. The sheet is done the same either way.
+- **The intermission board** steps aside while it's on (`.gdr-kencomic` on the rink in
+  gameday-rink.js).
+- **Seen on WebGL** in the rink sandbox, stepped by hand, on an ordinary night and on Cup final
+  night (`?po=1`): all six shots, the held frames and the page, then the time-lapse resuming and
+  the machine through its gate; the second break brings the Zamboni on with no comic. Not seen:
+  the 2-D renderer's shots.

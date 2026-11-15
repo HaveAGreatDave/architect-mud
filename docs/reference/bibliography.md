@@ -117,8 +117,20 @@ All in [birds.js](../../client/shared/birds.js).
 |---|---|
 | Litchfield et al. 2017, "The 'Feline Five'" (PLOS ONE) | The five axes of a cat's personality: skittish, outgoing, dominant, impulsive and friendly. |
 | Inigo Quilez, distance functions | The ellipsoid and round-cone estimates and the smooth union the cat is carved from, as the statue was. |
+| Caeiro, Burrows and Waller 2017, "Development and application of CatFACS" (Applied Animal Behaviour Science) | The ear actions (forward, together, flattened, rotated, down) the ear moods are built on (`EAR_MOODS`). |
+| Leyhausen 1979, *Cat Behavior* | The grid of offensive and defensive faces: an angry cat turns the backs of its ears to you, a frightened one lays them flat and down. |
+| Smit et al. 2024, "Classifying the Behaviour of Domestic Cats using Accelerometers" (Sensors 24(8)) | What a pet cat's day is: lying 37%, sitting 37%, standing 13%, eating 5%, active 3%, with the peaks at dawn and dusk, which cat-life.js weighs his day by. |
+| CFA, American Shorthair breed standard | The breed's head, ears, eyes, body and coat, for `american_shorthair` in [cat-breeds.js](../../client/game/js/panels/gl/cat-breeds.js). |
+| Reighard and Jennings 1901, *Anatomy of the Cat* | The muscle groups the cat kit's legs and body are built from and where each attaches: the triceps filling the angle behind the arm, the biceps femoris and hamstrings fanning from the point of the buttock to the stifle and shin, the calf running into the Achilles tendon. |
+| A 19th-century engraving of a cat's skeleton drawn inside its outline, and Wikimedia Commons' "Felis catus skeleton" (a mount at Naturalis, Leiden) | Where the joints sit in a standing cat: the shoulder joint at the point of the chest, the elbow at the bottom of the ribs, the hip high under the croup, the stifle high in the flank, the high hock and the upright metatarsus. The kit's silhouette is checked by laying it over the engraving. |
 
 In [pets.md](../proposals/pets.md) and [cat-kit.js](../../client/game/js/panels/gl/cat-kit.js).
+
+### Motion
+
+| Source | What it gives | Where |
+|---|---|---|
+| t3ssel8r, "Giving Personality to Procedural Animations using Math" (2022) | Second-order dynamics set by frequency, damping and response: how a cat's head, heading, speed, ears and lean follow what they're after, with the numbers set from its nature. | [second-order.js](../../client/shared/second-order.js), [room-beasts.js](../../client/game/js/panels/gl/room-beasts.js) |
 
 ### The sea
 
@@ -228,6 +240,44 @@ Every recording the game plays from [field-recordings.js](../../client/shared/fi
 | [robin song](https://freesound.org/people/Andrew.soundscape/sounds/671058/) | Andrew.soundscape | `robin`, calls |
 | [R30-34-Red Tailed Hawk.wav](https://freesound.org/people/craigsmith/sounds/479610/) | craigsmith | `hawk`, calls |
 | [Vulture](https://freesound.org/people/AntumDeluge/sounds/188041/) | AntumDeluge | `vulture`, calls |
+| [cat meow](https://freesound.org/people/tuberatanka/sounds/110011/) | tuberatanka | `cat_meow`, calls |
+| [Small Cat Meow](https://freesound.org/people/PolterKaist/sounds/795848/) | PolterKaist | `cat_meow_small`, calls |
+| [cat meow short](https://freesound.org/people/skymary/sounds/412017/) | skymary | `cat_meow_short`, calls |
+| [SND_CatHighMeows.wav](https://freesound.org/people/megrez7274/sounds/508686/) | megrez7274 | `cat_meow_high`, calls |
+| [Begging Meow](https://freesound.org/people/Lukey1028/sounds/732521/) | Lukey1028 | `cat_meow_beg`, calls |
+| [Hungry cat meowing for food](https://freesound.org/people/%C3%91ado/sounds/843100/) | Ñado | `cat_meow_hungry`, calls |
+| [Coco meow 17 year old cat](https://freesound.org/people/FreqWincy/sounds/724090/) | FreqWincy | `cat_meow_old`, calls |
+| [cat-meow-annoyed](https://freesound.org/people/steprock/sounds/845517/) | steprock | `cat_meow_cross`, calls |
+| [grumpy cat meows](https://freesound.org/people/OwenKlash/sounds/851329/) | OwenKlash | `cat_meow_grumpy`, calls |
+| [Siamese Cat Yowls](https://freesound.org/people/tcurless/sounds/826683/) | tcurless | `cat_yowl`, calls |
+| [Cat yowling - distant then close-up - Russian Blue cat, male](https://freesound.org/people/olivierklein/sounds/815301/) | olivierklein | `cat_yowl_tom`, calls |
+| [Cat Purr](https://freesound.org/people/RazzleDizzle/sounds/575933/) | RazzleDizzle | `cat_purr`, calls |
+| [House Cats - Tom Cat, Purr](https://freesound.org/people/TheKingOfGeeks360/sounds/807969/) | TheKingOfGeeks360 | `cat_purr_tom`, loop |
+| [Petting a cat - purring](https://freesound.org/people/ValentinPetiteau/sounds/627748/) | ValentinPetiteau | `cat_purr_petted`, loop |
+| [Gentle Purring](https://freesound.org/people/sokworks/sounds/866537/) | sokworks | `cat_purr_soft`, loop |
+| [Cat trills shortly (calm/quiet)](https://freesound.org/people/CatPhony/sounds/850104/) | CatPhony | `cat_trill`, calls |
+| [Cat trilling](https://freesound.org/people/jsbarrett/sounds/200336/) | jsbarrett | `cat_trill_b`, calls |
+| [Cat trill 4](https://freesound.org/people/MBPL/sounds/668825/) | MBPL | `cat_trill_c`, calls |
+| [Cat Chirping](https://freesound.org/people/yahsay/sounds/842520/) | yahsay | `cat_chirp`, calls |
+| [Cat Chirps.wav](https://freesound.org/people/Tyler31898/sounds/634174/) | Tyler31898 | `cat_chirp_b`, calls |
+| [Chatter and Trill](https://freesound.org/people/CatPhony/sounds/850103/) | CatPhony | `cat_chatter`, calls |
+| [Chatter and Purr](https://freesound.org/people/CatPhony/sounds/844717/) | CatPhony | `cat_chatter_b`, calls |
+| [Cat Hissing](https://freesound.org/people/aunrea/sounds/485952/) | aunrea | `cat_hiss`, calls |
+| [catHisses1.wav](https://freesound.org/people/Zabuhailo/sounds/146963/) | Zabuhailo | `cat_hiss_b`, calls |
+| [Cat_growl.wav](https://freesound.org/people/Islabonita/sounds/471059/) | Islabonita | `cat_growl`, calls |
+| [Cat Growl into Hiss.aif](https://freesound.org/people/Wrenasmir/sounds/455495/) | Wrenasmir | `cat_growl_hiss`, calls |
+| [My cat Athos while eating dry food](https://freesound.org/people/piermic/sounds/323043/) | piermic | `cat_eat_dry`, loop |
+| [26.07.27- Cat purring and eating wet food](https://freesound.org/people/Valerie-Vivegnis/sounds/865410/) | Valerie-Vivegnis | `cat_eat_wet`, loop |
+| [26.07.27- Cat drinking water](https://freesound.org/people/Valerie-Vivegnis/sounds/865411/) | Valerie-Vivegnis | `cat_drink`, loop |
+| [cat bowl lapping milk.wav](https://freesound.org/people/martian/sounds/180275/) | martian | `cat_lap`, loop |
+| [Pearl the cat cleaning herself](https://freesound.org/people/Sadiquecat/sounds/844503/) | Sadiquecat | `cat_groom`, loop |
+| [Snoring Cat](https://freesound.org/people/CatPhony/sounds/844716/) | CatPhony | `cat_snore`, loop |
+| [Cat Scratching A Post](https://freesound.org/people/Samantha_Dolman/sounds/490730/) | Samantha_Dolman | `cat_scratch`, calls |
+| [cat_scratching_wooden_floor.wav](https://freesound.org/people/16FPanskaRollerova_Adriena/sounds/498842/) | 16FPanskaRollerova_Adriena | `cat_scratch_floor`, calls |
+| [Cat_Scraping_Litterbox.wav](https://freesound.org/people/vcspran/sounds/344584/) | vcspran | `cat_litter`, calls |
+| [3_Cat, jump.wav](https://freesound.org/people/16GPanskaZlochova_Eliska/sounds/496278/) | 16GPanskaZlochova_Eliska | `cat_jump`, calls |
+| [cat_land_floor](https://freesound.org/people/superEGsonic/sounds/803297/) | superEGsonic | `cat_land`, calls |
+| [Cat Zoomies](https://freesound.org/people/qubodup/sounds/855106/) | qubodup | `cat_zoomies`, calls |
 
 ### Flight and physics
 

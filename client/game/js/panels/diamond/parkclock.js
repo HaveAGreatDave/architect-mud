@@ -59,7 +59,7 @@ const FLIGHT_FT = 55, FT_PER_MPH = 5280 / 3600;
 const flightOf = (q) => FLIGHT_FT / (Math.max(50, Number(q?.velo) || 90) * FT_PER_MPH);
 
 export function needOf(p) {
-  if (!p || p.phase === 'arrive') return { gaps: 0, pitches: 0, fixed: 0 };
+  if (!p || p.phase === 'arrive' || p.phase === 'crown') return { gaps: 0, pitches: 0, fixed: 0 };
   if (p.phase === 'half') return { gaps: 0, pitches: 0, fixed: CHANGEOVER_MIN, change: true };
   const n = p.phase === 'run' ? 0 : (Array.isArray(p.pitches) ? p.pitches.length : 0);
   return { gaps: Math.max(0, n - 1), pitches: n, fixed: LAST_PITCH + playRoom(p) + afterLand(p) };
@@ -71,7 +71,7 @@ export function windowNeed(p) {
     const n = needOf(q);
     out.gaps += n.gaps; out.pitches += n.pitches; out.fixed += n.fixed;
     if (n.change) out.changes++;
-    if (q && q.phase !== 'arrive' && q.phase !== 'half') out.plays++;
+    if (q && q.phase !== 'arrive' && q.phase !== 'half' && q.phase !== 'crown') out.plays++;
   }
   return out;
 }
@@ -105,7 +105,7 @@ export function parkClock(payloads, { seed = 0 } = {}) {
     const rand = rngOf(mix(seed, CLOCK_SALT, k));
     const gapW = [];
     for (let i = 0; i < need.gaps; i++) gapW.push(SHARE.gap * (1 + SHARE.vary * (2 * rand() - 1)));
-    const plays = playsOf(p).filter((q) => q && q.phase !== 'arrive');
+    const plays = playsOf(p).filter((q) => q && q.phase !== 'arrive' && q.phase !== 'crown');
     const resets = plays.filter((q) => q.phase !== 'half').length;
     const totalW = gapW.reduce((a, w) => a + w, 0) + resets * SHARE.reset + need.changes * SHARE.change + SHARE.lead;
     // over its need, the slack is shared out; under it, everything goes at its quickest and the

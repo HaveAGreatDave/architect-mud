@@ -87,6 +87,7 @@ import { makeBody, cloneBody, onOf, flat } from './bodies.js';
 import { strideOf, digOf, scarsOf } from './marks.js';
 import { planBetween, planPile, deckPlan, shotsBetween, BETWEEN } from './between.js';
 import { planCrew, crewShots } from './crew.js';
+import { planMob, mobShots, planCeremony } from './ceremony.js';
 import { budgetOf } from './timing.js';
 import { BAGS } from './geo.js';
 import { SHOTS } from './camera.js';
@@ -893,6 +894,8 @@ export function createDirector(W, opts = {}) {
   // field to its dugout and the side batting to its own, from wherever the world has him then;
   // the picture goes wide to see them go.
   function offField(p, cast, t) {
+    // a final's last out: the pile (D.planPile, planned as it landed) has every man already
+    if (p.end?.champion && D.pile && D.payload === p) return;
     const batting = dugoutOf(p);
     let until = D.until;
     const men = [], planned = new Map([...(D.play?.bodies || []), ...(D.trot?.bodies || [])].map((B) => [B.slot, B]));
@@ -1056,6 +1059,8 @@ export function createDirector(W, opts = {}) {
   // The last out of a final (the payload's `end` says the champions): once the moment's held
   // (`o.from`), the champions on the field pile on at the mound or the plate and the losers walk
   // off (between.js planPile), the camera wide and then in on the pile, till `o.until`.
+  // Then, with the room, the pile gets up and turns into the mob (ceremony.js planMob): the bench
+  // out, hands slapped all round, one mass bouncing, the cameras going round it (mobShots).
   D.planPile = (o = {}) => {
     const p = D.payload, cast = D.cast || [];
     if (!p || !p.end?.champion || !Number.isFinite(o.until)) return null;
@@ -1063,14 +1068,45 @@ export function createDirector(W, opts = {}) {
     if (by - from < 2) return null;
     const men = menNow(cast, t, from);
     const gone = planPile({ p, end: p.end, men, by });
+    const mob = planMob({ p, end: p.end, men, pile: gone, from, by });
+    if (mob) gone.push(...mob.gone);
     sendMen(men, gone, from);
     W.at(from, () => W.setBall(null));
     const winBat = p.end.winner === p.battingTeam;
-    W.at(from, () => emit('shot', 'high'));
-    W.at(from + 2.2, () => emit('shot', winBat ? 'bat' : 'mound'));
+    const bursts = (D.fx || []).filter((e) => e.kind === 'burst').map((e) => e.t);
+    const shots = mob ? mobShots({ centre: mob.centre, from, rise: mob.rise, mobAt: mob.mobAt, by: o.until, bursts, motion: o.motion !== false, salt: `${p.inning}|${p.end.winner}` })
+      : [{ at: from, shot: 'high' }, { at: from + 2.2, shot: winBat ? 'bat' : 'mound' }];
+    for (const x of shots) W.at(x.at, () => emit('shot', x.shot));
     D.until = Math.max(D.until, o.until);
-    D.pile = { gone, from, until: o.until, by, winBat };
+    D.pile = { gone, from, until: o.until, by, winBat, mob, shots };
     return D.pile;
+  };
+
+  // A final's Cup (the `phase: 'crown'` payload, after the last out): a new picture, the champions
+  // round the trophy's table by the mound (cast.js crownCast), each of the night's stars lifting it
+  // in turn and the last holding it up while the team crowds round (ceremony.js planCeremony), the
+  // cameras going round them, till `o.until`. `D.cup` is who's holding the Cup when (ceremony.js
+  // cupAt). Returns the plan.
+  D.stageCrown = (p, cast, o = {}) => {
+    D.payload = p; D.cast = cast; D.log = []; D.played = []; D.views = null; D.play = null; D.trot = null; D.cutaway = false; D.opening = null; D.marks = []; D.drags = []; D.crew = null;
+    D.between = null; D.pile = null; D.homer = null; D.queued = new Map();
+    W.clearQueue();
+    for (const slot of [...W.bodies.keys()]) W.drop(slot);
+    W.setBall(null); W.clearBats?.();
+    const t0 = W.t, until = Number.isFinite(o.until) ? o.until : t0 + 60;
+    Object.assign(D, { t0, landAt: t0, floor: 0, budget: 0, landed: true });
+    const plan = planCeremony({ cast, stars: p.stars || [], t0, until, motion: o.motion !== false, salt: `${p.winner}|crown` });
+    for (const B of plan.bodies) {
+      W.place(B.slot, { id: B.id, role: B.role, at: B.base.at, yaw: B.base.yaw, scale: B.scale, mirror: B.mirror });
+      for (const e of B.clips) {
+        W.at(e.issue ?? e.from ?? e.start, () => { W.play(B.slot, e.clip, { at: e.start, speed: e.speed, fade: e.fade, frame: e.given ? e.F : undefined, from: e.from, carry: e.carry }); D.played.push({ t: e.start, role: B.role, slot: B.slot, clip: e.clip, start: e.start }); });
+      }
+    }
+    for (const x of plan.shots) W.at(x.at, () => emit('shot', x.shot));
+    D.cup = { holders: plan.holders, hoists: plan.hoists };
+    D.until = Math.max(D.until || 0, until);
+    D.crown = plan;
+    return plan;
   };
 
   // Everyone who can move, as he is at the landing `t` (the director's plan for him, what the world

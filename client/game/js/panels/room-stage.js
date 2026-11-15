@@ -27,14 +27,14 @@
 
 import { lightAt } from '../../../shared/sky-keys.js';
 import { FT_M } from '../../../shared/world-scale.js';
-import { sendCmd, sendCmdSilent, sendRaw } from '../net.js';
+import { sendCmd, sendCmdSilent, sendCmdQuiet, sendRaw } from '../net.js';
 import { createHands } from './stands-hands.js';
 import { closeDialogue } from './dialogue.js';
 import { loadCss } from '../../../shared/dom.js';
 import { LIFT_STOREY } from '../../../shared/building-graph.js';
-import { cachetInner } from '../../../shared/room-layout.js';
+import { cachetInner, WASH_FORMS } from '../../../shared/room-layout.js';
 import { roomPath, roomNearFree } from '../../../shared/room-layout.js';
-import { roomLayout, inAnnex, onBalcony, pathAt, pathLength, roomYaw, seatsClash, openingCrossed, openingInside, roomFree, roomSees, facing, FT_PER_M, pieceBoxes, heldShort, openingPast, flightLocal } from '../../../shared/room-layout.js';
+import { roomLayout, inAnnex, onBalcony, pathAt, pathLength, roomYaw, seatsClash, openingCrossed, openingInside, roomFree, roomSees, facing, FT_PER_M, pieceBoxes, heldShort, openingPast, flightLocal, WALL_T } from '../../../shared/room-layout.js';
 import { pieceActs } from '../../../shared/room-acts.js';
 import { createRoomWalk } from './room-walk.js';
 import { createOutlook, warmOutlook } from './room-outlook.js';
@@ -50,9 +50,10 @@ import { createPack } from './room-pack.js';
 import { setScreenHour } from './gl/room-screens.js';
 import { createRoomLift } from './room-lift.js';
 import { createMorphex } from './room-morphex.js';
-import { createArrange } from './room-arrange.js';
+import { createArrange, cutaway } from './room-arrange.js';
+import { figureWorn } from '../../../shared/paper-doll.js';
 import { aimWall, tagDecals, tagQuad, bakeRoomTag, tagVariant } from './room-tags.js';
-import { sheetRuns, sheetDecals, setsOf, isWhole, createSheetScene } from './room-sheets.js';
+import { sheetRuns, sheetDecals, setsOf, isWhole, createSheetScene, onArt } from './room-sheets.js';
 import { setSprayStage, clearSprayStage } from './spray-aim.js';
 import { playerFigure, lookOfPlayer } from '../../../shared/player-figure.js';
 // A person's settled look: an NPC's `figure`, or a player's from their MORPHEX columns (`look`), one object per look
@@ -75,7 +76,9 @@ import { figurePeople, figureLooks, dressOf, clipOnce, actClip, clipHold, clipDu
 import { figureAhead } from './figure-ahead.js';
 import { mealProps } from './gl/room-meals.js';
 import { plumbingProps, plumbingLive } from './gl/room-plumbing.js';
-import { beastsBatch, hasCats, onlyCats, catSettle, catsVersion } from './gl/room-beasts.js';
+import { beastsBatch, hasCats, onlyCats, catsFrame, catHit, catTouch, catActors } from './gl/room-beasts.js';
+import { catDrawer } from './gl/cat-gpu.js';
+import { createCatSound } from './room-cat-sound.js';
 import { createRoomHoist } from './room-hoist.js';
 import { stashProps } from './gl/room-stash.js';
 import { createShutters, shutterFrame } from './gl/room-shutters.js';
@@ -425,6 +428,9 @@ function openStage(msg) {
 
   const outside = createRoomWindow();
   const hearing = createRoomSound();
+  // a pet cat (plugins/pets): its carves on the GPU, its bones each frame, its voice where it is (gl/room-beasts.js catsFrame)
+  // the coat's shells, in triangles drawn: a fluffy cat's long fur wants about six layers over all of it
+  const catDraw = catDrawer(R, { furBudget: phone ? 60000 : 480000 }), catVoice = createCatSound();
   const outdoors = createRoomOutdoors();   // the birds and the shore round the building, for `hearing`
   const pilots = makeContactTrack(), flights = makeContactTrack();
   // what's really flying is heard as well as drawn, phone included (frame(0, 0) keeps absolute tiles)
@@ -534,7 +540,9 @@ function openStage(msg) {
         return roomSees(L, e, [u + du * k, v + dv * k]);
       },
       canSit: (s) => !takenBy(s),
-      // the balcony's glass door slides open as you come up to it, shutters down or not, so nothing fences it
+      // a shut door is a wall: a lock's leaves (room-lock.js fence), and the en-suite's plain door with somebody in
+      // there. The balcony's glass door slides open as you come up to it, shutters down or not, so nothing fences it.
+      fence: (from, to) => lockUi.fence(from, to) || annexFence(from, to),
       onSit: (s) => {
         if (syncing) return;
         const piece = S.pieces.find((p) => p.id === s.piece);
@@ -628,19 +636,29 @@ function openStage(msg) {
     sendCmd(o.dir);
   }
 
-  // The en-suite's door: shut behind a resident in there, and it gives as you come up to it, because
-  // walking in on them is allowed. One remesh each way, as the lights are.
+  // The en-suite's door: shut behind a resident in there, and it stays shut till they come out. It used to give as
+  // you came up to it; a bathroom door doesn't open itself. One remesh each way, as the lights are.
   function watchAnnexDoor() {
-    const L = S.L, at = S.walk?.at, door = S.spec.annex?.door;
+    const L = S.L, door = S.spec.annex?.door;
     if (!L?.annex || !door) return;
-    const near = at && Math.hypot(at[0] - (door[0] + door[1]) / 2, at[1] - L.annex.v0) < 1.3;
     // a privacy door drawn as a lock (room-lock.js) is the door; the plain leaf is for an en-suite without one
-    const shut = !near && !S.locks?.some((k) => k.annex) && S.people.some((p) => p.npc && p.shut);
+    const shut = !S.locks?.some((k) => k.annex) && S.people.some((p) => p.npc && p.shut);
     if (shut === !!S.doorShut) return;
     S.doorShut = shut;
     S.mesh = roomMesh(L, { seed, lampOn, doorShut: shut, turning: S.spin?.turning, swinging: S.fridge?.id });
     R.setRoom(S.mesh, paint);
     if (S.spin) S.spin.mesh = S.mesh.spin;
+  }
+  // that plain door, shut, as a wall: a step past the back wall's face inside its width, from short of the leaf,
+  // stops where the wall beside it would have (room-lock.js fence does the same for a lock's leaves)
+  function annexFence(from, to) {
+    const L = S.L, door = S.spec.annex?.door;
+    if (!S.doorShut || !L?.annex || !door || to[0] < door[0] - 0.05 || to[0] > door[1] + 0.05) return false;
+    const p = to[1] - L.d, p0 = from[1] - L.d;
+    if (p <= -0.9 * (L.ft || 1) || p <= p0 || p0 >= WALL_T / 2) return false;
+    const now = performance.now();
+    if (now - (S.annexBumpT || 0) > 2500) { S.annexBumpT = now; flash("It's shut. Somebody's in there.", false); }
+    return true;
   }
 
   // A Cachet going round: lifted out of the room and turned on the people's layer, then put back as
@@ -1064,7 +1082,8 @@ function openStage(msg) {
   // while it's open goes through its cutaway, so a lamp switched or a door shut keeps the walls down too.
   // Nothing is written until its Save, which is the `arrange layout` verb.
   const setRoomWhole = R.setRoom;
-  R.setRoom = (m, paint) => setRoomWhole(S.arrange?.on ? S.arrange.cut(m) : m, paint);
+  // (and while the Pack has the camera going round you: room-pack.js, packView)
+  R.setRoom = (m, paint) => setRoomWhole(S.arrange?.on ? S.arrange.cut(m) : S.packCam ? packCut(m) : m, paint);
   function startArrange() {
     if (!(msg.mine || msg.admin) || S.arrange?.on || S.morph?.on || S.cooking || !S.L) return;
     hoverEl.hidden = true;
@@ -1486,8 +1505,84 @@ function openStage(msg) {
   S.pack = createPack({
     host: root, silent: sendCmdSilent, cmd: sendCmd, spray: () => openCan(),
     take: (it) => takeInHand(it),
-    onToggle: (open) => packBtn.setAttribute('aria-expanded', String(open)),
+    onToggle: (open) => { packBtn.setAttribute('aria-expanded', String(open)); packView(open); },
+    turn: (dYaw, dPitch, zoom) => packTurn(dYaw, dPitch, zoom),
   });
+
+  // YOU, IN THE PACK. While it's open the camera leaves your eyes and goes round you: your close-up figure, in what
+  // the Pack says you have on (paper-doll.js figureWorn, since a player's figure carries no clothes of its own),
+  // framed in the panel's clear box (room-pack.js dollRect), turned all the way round by a drag there, Q and E.
+  // The walls come down as they do to arrange the room (room-arrange.js cutaway), so the camera can stand anywhere
+  // round you, and the furniture goes, all but the seat you're on, or a fridge or a worktop between it and you hides
+  // you; the room's lamps still light the floor. The mesh goes back whole when the Pack shuts. Your body stays where
+  // you are, facing where you looked.
+  const PACK_FOV = 38, PACK_PITCH = -0.28;
+  const packCuts = new WeakMap();
+  function packCut(m) {
+    const on = S.walk?.sat?.piece ?? null, Lp = { ...S.L, placed: S.L.placed.filter((q) => q.id === on) };
+    const bare = bakedMesh(S.key + '|pack|' + (on ?? ''), Lp, { seed, lampOn, doorShut: S.doorShut, joined });
+    const c = packCuts.get(bare);
+    if (c && c.L === S.L) return c.m;
+    const out = { ...cutaway(bare, S.L), lamps: m.lamps, windows: m.windows };
+    packCuts.set(bare, { L: S.L, m: out });
+    return out;
+  }
+  function packView(open) {
+    const was = !!S.packCam;
+    S.packCam = open && S.L && S.walk?.at ? { yaw: seat.yaw + Math.PI, pitch: PACK_PITCH, zoom: 1, goal: { yaw: seat.yaw + Math.PI, pitch: PACK_PITCH, zoom: 1 }, face: seat.yaw, t: 0 } : null;
+    if (was !== !!S.packCam && S.mesh) R.setRoom(S.mesh, paint);
+  }
+  function packTurn(dYaw = 0, dPitch = 0, zoom = 1) {
+    const g = S.packCam?.goal;
+    if (!g) return;
+    g.yaw += dYaw;
+    g.pitch = Math.max(-1.2, Math.min(0.12, g.pitch - dPitch));
+    g.zoom = Math.max(0.4, Math.min(1.6, g.zoom * zoom));
+  }
+  // the camera: round you at the goal's angle, far enough back that you fill the clear box, and turned off you by
+  // as much as the box is off the middle of the picture, so you stand in it and not behind the grid
+  function packCamNow(now) {
+    const pc = S.packCam, L = S.L, w = S.walk, r = S.pack?.dollRect(), cr = canvas.getBoundingClientRect();
+    if (!pc || !L || !w?.at || !r || !r.height || !cr.height) return null;
+    const dt = pc.t ? Math.min(0.1, (now - pc.t) / 1000) : 0.016, k = 1 - Math.exp(-dt * 14);
+    pc.t = now;
+    pc.yaw += (pc.goal.yaw - pc.yaw) * k; pc.pitch += (pc.goal.pitch - pc.pitch) * k; pc.zoom += (pc.goal.zoom - pc.zoom) * k;
+    const m = S.spec.unit === 'ft' ? FT_PER_M : 1, s = w.sat, at = s ? [s.u, s.v] : w.at;
+    const mid = (s ? (s.lie ? 0.5 : 0.72) : 0.95) * m, span = (s ? (s.lie ? 1.4 : 1.55) : 2.05) * m;
+    const half = PACK_FOV * Math.PI / 360, hf = r.height / cr.height, aspect = cr.width / cr.height;
+    const d = span / (2 * hf * Math.tan(half)) * pc.zoom;
+    const c = L.world(at[0], at[1], mid), cp = Math.cos(pc.pitch);
+    const eye = [c[0] - Math.sin(pc.yaw) * cp * d, c[1] - Math.sin(pc.pitch) * d, c[2] - Math.cos(pc.yaw) * cp * d];
+    const nx = ((r.left + r.width / 2) - (cr.left + cr.width / 2)) / (cr.width / 2), ny = ((cr.top + cr.height / 2) - (r.top + r.height / 2)) / (cr.height / 2);
+    const ax = Math.atan(nx * Math.tan(half) * aspect), ay = Math.atan(ny * Math.tan(half));
+    return { eye, yaw: pc.yaw + ax, pitch: pc.pitch - ay, fov: PACK_FOV, mode: 'free' };
+  }
+  // your body for it: stood where you are, or in your seat, dressed from the Pack (kept per outfit)
+  let packFig = { sig: null, fig: null };
+  function packBody() { return S.packCam ? selfBody(S.packCam.face) : null; }
+  // You, as a mirror shows you (gl/room.js mirror pass): as the Pack draws you, facing the way you look, your head
+  // tipped with the camera and your eyes straight ahead, walking while you're on the move.
+  const selfWalk = { at: null, walked: 0, moved: -1 };
+  function mirrorBody(t) {
+    const me = selfBody(seat.yaw), at = S.walk?.at;
+    if (!me) return null;
+    if (at && selfWalk.at && !S.walk.sat) { const d = Math.hypot(at[0] - selfWalk.at[0], at[1] - selfWalk.at[1]); if (d > 0.002 && d < 1) { selfWalk.walked += d; selfWalk.moved = t; } }
+    selfWalk.at = at ? [...at] : null;
+    const walking = !S.walk?.sat && t - selfWalk.moved < 0.2;
+    return { ...me, gaze: [0, 0], look: [0, seat.pitch || 0], ...(walking ? { clip: 'walk', walked: selfWalk.walked } : {}) };
+  }
+  function selfBody(face) {
+    const w = S.walk;
+    if (!w?.at || !S.L) return null;
+    const mine = S.people.find((p) => p.id === S.you), base = (mine && figOf(mine)) || figOf({ look: lookOfPlayer({}) }) || {};
+    const items = S.pack?.worn(), sex = mine?.sex || 'male';
+    const sig = items ? items.filter((x) => x.worn && x.slot).map((x) => x.id).join(',') : '';
+    if (packFig.sig !== sig || packFig.base !== base) packFig = { sig, base, fig: items ? { ...base, ...figureWorn(items, { sex, skin: base.skin || null }) } : base };
+    const s = w.sat;
+    const pl = s ? { seat: s, at: [s.u, s.v], yaw: s.yaw, pose: s.lie ? 'lie' : 'sit', head: s.head, top: s.top, ...(s.back != null && !s.lie ? { back: s.back } : {}), ...(s.lift && !s.lie ? { lift: s.lift } : {}) }
+      : { at: [...w.at], yaw: face, pose: 'stand' };
+    return { id: S.you, ...pl, sculpt: true, sex, figure: packFig.fig };
+  }
   packBtn.addEventListener('click', (e) => { e.currentTarget.blur(); S.pack.toggle(); });
   packBtn.addEventListener('pointerdown', (e) => e.stopPropagation());
 
@@ -1539,8 +1634,9 @@ function openStage(msg) {
   function startJoin(set) {
     if (S.scene || !S.L || S.arrange?.on || S.cooking) return false;
     const it = runsNow().find(({ g }) => g.set === set && isWhole(g));
-    if (!it) return false;
-    S.scene = createSheetScene({ L: S.L, run: it.run, g: it.g, seat, aspect: () => (host.clientWidth || 16) / (host.clientHeight || 9), now: performance.now() });
+    // (and its pictures are in: a set cut from one draws nothing until they are)
+    if (!it || !sheetDecals(S.L, [it]).length) return false;
+    S.scene = createSheetScene({ L: S.L, run: it.run, g: it.g, width: it.width, height: it.height, seat, aspect: () => (host.clientWidth || 16) / (host.clientHeight || 9), now: performance.now() });
     root.classList.add('rs-cine');
     host.addEventListener('pointerdown', skipOnTap, true);
     return true;
@@ -1569,6 +1665,8 @@ function openStage(msg) {
     for (const { g } of runsNow()) if (isWhole(g) && !seenJoin(g.set) && startJoin(g.set)) return;
   }
   Object.assign(S, { startJoin, endJoin, markJoin });
+  // a set cut from a picture goes up once the picture's in
+  onArt(() => { if (ui?.S === S) paintTags(); });
   function openCan() { sendCmdSilent('spraycan'); }
   const sprayHost = {
     label: 'the wall in here', ground: 'plaster',
@@ -1596,6 +1694,16 @@ function openStage(msg) {
   // looking round: a drag turns the head the way the mouse moves, held where you leave it
   const turn = (dx, dy) => { seat.yaw -= dx * TURN; seat.pitch = Math.max(-1.35, Math.min(1.35, seat.pitch - dy * TURN)); };
   let drag = null;
+  // STROKING A CAT with the mouse (a pet: plugins/pets, gl/room-beasts.js): press on him and drag. He answers the spot
+  // under the pointer at once, here (catTouch: he leans and rubs into your hand, or turns round at you), and every
+  // PET_EVERY of stroking it's sent as the typed 'pet <cat> <spot>', so the server's ladder runs and everybody in the
+  // room sees him answer. Hovering over his face, he looks at the pointer.
+  const PET_EVERY = 1100, PET_REACH = 1.5;
+  const PET_SAY = { chin: 'Scratch under the chin', cheek: 'Rub his cheek', head: 'Stroke his head', ears: 'Rub behind the ears', back: 'Stroke his back', tail: 'Stroke his tail', paws: 'Touch a paw', belly: 'Rub his belly' };
+  let petting = null;
+  const catUnder = (x, y, w, h) => (S.walk && S.beasts?.some((b) => b?.cat) ? catHit(R.project, x, y, w, h, S.beasts) : null);
+  const catNear = (id) => { const A = catActors().get(id), me = S.walk?.at; return !!A && !!me && Math.hypot(A.at[0] - me[0], A.at[1] - me[1]) <= PET_REACH; };
+  const petSend = (p) => { sendCmdQuiet('pet ' + p.name + ' ' + p.spot); p.sent = performance.now(); p.moved = 0; };
   host.addEventListener('pointerdown', (e) => {
     if (e.target.closest('button')) return;
     // a click on the world takes the keyboard back from the command line, so WASD walks again
@@ -1604,6 +1712,19 @@ function openStage(msg) {
     }
     if (e.button === 0 && ui?.hands?.click?.()) { e.preventDefault(); return; }
     if (e.button === 1) e.preventDefault();
+    // pressing on a cat starts stroking it, not looking round
+    if (e.button === 0) {
+      const b = host.getBoundingClientRect(), hit = catUnder(e.clientX - b.left, e.clientY - b.top, b.width, b.height);
+      if (hit) {
+        if (!catNear(hit.id)) { flash(`${hit.name || 'The cat'} is out of reach.`, false); return; }
+        petting = { id: hit.id, name: hit.name, spot: hit.spot, x: e.clientX, y: e.clientY, moved: 0, sent: 0, pointer: e.pointerId };
+        catTouch(hit.id, { ...hit, down: true });
+        host.style.cursor = 'grabbing';
+        try { host.setPointerCapture(e.pointerId); } catch { /* not capturable */ }
+        e.preventDefault();
+        return;
+      }
+    }
     drag = { x: e.clientX, y: e.clientY, x0: e.clientX, y0: e.clientY, id: e.pointerId };
     try { host.setPointerCapture(e.pointerId); } catch { /* not capturable */ }
   });
@@ -1621,6 +1742,28 @@ function openStage(msg) {
   };
   host.addEventListener('pointermove', (e) => {
     const b = host.getBoundingClientRect();
+    if (petting && e.pointerId === petting.pointer) {
+      const hit = catUnder(e.clientX - b.left, e.clientY - b.top, b.width, b.height);
+      petting.moved += Math.hypot(e.clientX - petting.x, e.clientY - petting.y);
+      petting.x = e.clientX; petting.y = e.clientY;
+      if (hit && hit.id === petting.id) {
+        petting.spot = hit.spot;
+        catTouch(hit.id, { ...hit, down: true });
+        if (petting.moved > 24 && performance.now() - petting.sent > PET_EVERY) petSend(petting);
+      }
+      return;
+    }
+    if (!drag && S.walk && !S.cooking) {
+      const hit = catUnder(e.clientX - b.left, e.clientY - b.top, b.width, b.height);
+      if (hit) {
+        catTouch(hit.id, { ...hit, down: false });
+        host.style.cursor = 'grab';
+        hoverEl.hidden = false;
+        hoverEl.textContent = catNear(hit.id) ? `${hit.name}: ${(PET_SAY[hit.spot] || 'Stroke him').toLowerCase()}` : `${hit.name}`;
+        hoverEl.style.left = (e.clientX - b.left + 16) + 'px'; hoverEl.style.top = (e.clientY - b.top + 12) + 'px';
+        return;
+      }
+    }
     // cooking, what's under the pointer is the kitchen's to say (kitchen-stage.js hoverAt)
     if (!drag && S.walk && !S.cooking) {
       const x = e.clientX - b.left, y = e.clientY - b.top, who = personAt(x, y, b.width, b.height);
@@ -1638,6 +1781,13 @@ function openStage(msg) {
     if (dx || dy) turn(dx, dy);
   });
   host.addEventListener('pointerup', (e) => {
+    if (petting && e.pointerId === petting.pointer) {
+      // a press with no stroke to speak of is a pat on that spot, sent once
+      if (!petting.sent) petSend(petting);
+      catTouch(petting.id, null);
+      petting = null; host.style.cursor = 'grab';
+      return;
+    }
     const d = drag; drag = null;
     if (!d || !S.walk || Math.hypot(e.clientX - d.x0, e.clientY - d.y0) > 14) return;
     const b = host.getBoundingClientRect();
@@ -1655,7 +1805,7 @@ function openStage(msg) {
     if (!reachable(piece)) { flash(`The ${piece.name} is through the door.`, false); return; }
     S.held = { piece: id, at: [...S.walk.at] };
   });
-  host.addEventListener('pointercancel', () => { drag = null; });
+  host.addEventListener('pointercancel', () => { drag = null; if (petting) { catTouch(petting.id, null); petting = null; } });
   host.addEventListener('pointerleave', () => { hoverEl.hidden = true; host.style.cursor = ''; S.tv?.touching(false); });
   // the wheel on the set: how far it turns for a station (a mouse's notch is 100), the least time between two,
   // and how long a pause starts the count again
@@ -1707,6 +1857,8 @@ function openStage(msg) {
     const field = e.target.closest?.('input, textarea, [contenteditable]');
     if (field && field.closest('#room-stage, #container-panel')) return;
     if (document.getElementById('tablet-os-overlay')) return;
+    // so does a cabinet's keypad (panels/keypad.js): its digits mustn't pick a card's line behind it
+    if (document.getElementById('keypad-overlay')) return;
     if (field) return;
     // the spray can's dialog and its session are over the room, and the room behind mustn't walk off
     if (document.getElementById('spray-overlay') || document.getElementById('spray-session')) return;
@@ -1965,6 +2117,8 @@ function openStage(msg) {
     }
     // you, while the MORPHEX pod has you (room-morphex.js): walking in, standing in it, walking out
     if (S.morph?.on) { const me = S.morph.self(performance.now()); if (me) bodies.push(me); }
+    // and you, while the Pack has the camera going round you
+    else if (S.packCam) { const me = packBody(); if (me) bodies.push(me); }
     easedAt = performance.now();
     return bodies;
   };
@@ -2016,6 +2170,8 @@ function openStage(msg) {
     const ready = () => bodiesNow().filter((b) => !b.next || figuresReady([b], figLevel));
     const prep = () => {
       try { for (const r of figurePeople(S.L, ready(), 0, { level: figLevel })) R.prepareFigure(r.key); } catch (err) { console.warn('[room] people:', err); }
+      // and you, in a room with a mirror, so walking up to it doesn't wait on your figure being built
+      try { const me = R.hasMirror && selfBody(seat.yaw); if (me) for (const r of figurePeople(S.L, [me], 0, { level: figLevel })) R.prepareFigure(r.key); } catch (err) { console.warn('[room] you:', err); }
       peopleOn = true;
       // and each one's other level, ready for when they cross the room (figurePeople's eye)
       if (figLevel === 'hd') setTimeout(() => { if (ui?.S === S) try { for (const r of figurePeople(S.L, ready(), 0, { level: 'lite' })) R.prepareFigure(r.key); } catch (err) { console.warn('[room] people:', err); } }, 400);
@@ -2190,20 +2346,32 @@ function openStage(msg) {
   // the animals on the floor (gl/room-beasts.js), built again only when they change or you've moved half a metre,
   // since each one turns to face you
   // The shed's lift rides in the same batch (room-hoist.js), built every frame while it moves and once after.
-  // A cat (a pet) settles somewhere new every few minutes, so with one in the room they're built again when it does,
-  // and when a pose's carve lands. A cat doesn't turn to face you, so a room of only cats isn't rebuilt as you walk.
-  let beastsFor = null, beastsEye = null, beastsL = null, hoistVer = -1, hoistWas = false, catWas = -1, catVer = -1;
+  // A cat (a pet) isn't in the batch: catsFrame moves it every frame on the GPU, and room-cat-sound.js voices it.
+  let beastsFor = null, beastsEye = null, beastsL = null, hoistVer = -1, hoistWas = false;
   function drawBeasts() {
+    drawCats();
     const eye = S.walk?.at || null, moved = !onlyCats(S.beasts) && (!beastsEye !== !eye || (eye && Math.hypot(eye[0] - beastsEye[0], eye[1] - beastsEye[1]) > 0.5));
     const lifting = hoistUi.moving(), lift = lifting || hoistWas || hoistVer !== hoistUi.ver;
-    const cats = hasCats(S.beasts), beat = cats ? catSettle() : -1, cv = catsVersion();
-    if (beastsFor === S.beasts && beastsL === S.L && !moved && !lift && beat === catWas && cv === catVer) return;
-    catWas = beat; catVer = cv;
+    if (beastsFor === S.beasts && beastsL === S.L && !moved && !lift) return;
     beastsFor = S.beasts; beastsL = S.L; beastsEye = eye ? [eye[0], eye[1]] : null;
     hoistWas = lifting; hoistVer = hoistUi.ver;
     const b = beastsBatch(S.L, S.beasts, { eye });
     hoistUi.into(b);
     R.setBeasts(b);
+  }
+  // where a person stands now, for a cat going to them: you where you've walked, anybody else where they're drawn
+  const whereIs = (id) => { if (id === S.you) return S.walk?.at || null; const p = personOf(id); return shown.get(id)?.at || (p ? placeOf(p)?.at : null) || null; };
+  function drawCats() {
+    if (!hasCats(S.beasts)) { R.setCats([]); catVoice.tick([]); return; }
+    // (everybody in the room, you first, so a cat can choose who to look at)
+    const folk = () => [S.you, ...(S.people || []).map((p) => p.id)].map((id) => ({ id, at: whereIs(id) })).filter((x) => x.at);
+    // how much light there is for the cats' pupils: the lamps, and the day through the windows if the room has any
+    const h = hourNow(), lamp = lampOn ? (power === 'low' ? lampLevel * EMERGENCY_K : lampLevel) : 0;
+    const day = S.mesh?.windows?.length || S.spec?.balcony ? dayOf(h) * outside.dimOf() : 0;
+    const light = Math.min(1, 0.8 * lamp + 0.95 * day);
+    const f = catsFrame(S.L, S.beasts, { now: Date.now(), hour: h, whereIs, folk, drawer: catDraw, lite: phone, light });
+    R.setCats(f.cats);
+    catVoice.tick(f.voices);
   }
   // The card table's controls are on the table: small holograms pinned to the felt (gl/room-poker.js pokerAnchors),
   // not a bar over the picture. Your cards are the peek (click them to turn them up, again to put them down) with the hand's
@@ -2428,6 +2596,11 @@ function openStage(msg) {
     const all = bodiesNow(), bodies = all.some((b) => b.next) ? all.filter((b) => !b.next || figuresReady([b], figLevel)) : all;
     const recs = figurePeople(S.L, bodies, t, { level: figLevel, eye: seat.eye });
     R.setFigures(recs);
+    // you, in a mirror: posed only while one was drawn last frame, and not while the Pack or the pod already has you
+    if (R.hasMirror) {
+      const me = R.mirrorSeen && !S.morph?.on && !S.packCam ? mirrorBody(t) : null;
+      R.setMirrorFigures(me ? figurePeople(S.L, [me], t, { level: figLevel }) : []);
+    }
     drawBeasts();
     // a pan, a stove, a plate: what anybody cooking or eating has (gl/room-meals.js), and nothing once nobody is
     // and the kit on a table (gl/room-stash.js), and the lid of a lacquered box, open while its card is up
@@ -2507,8 +2680,41 @@ function openStage(msg) {
       return tag + `<span class="rs-say" style="left:${sx.toFixed(0)}px;top:${sy.toFixed(0)}px">${esc(line.text)}</span>`;
     }).join('');
     if (html !== tagsHtml) { tagsHtml = html; tagsEl.innerHTML = html; }
+    padCue(b, eye);
   }
   let tagsHtml = '';
+  // ⚠ WHERE A CACHET'S KEYPAD IS, for whoever the room tells there's one (msg.keypad: the owner, or anybody in
+  // unowned space). The pad is small and dressed as the bar's own (gl/room-mesh.js drawCachetPad), so within a few
+  // steps a ring pulses on it, and the first time you see one the room says where it is. A guest in an owned room
+  // gets neither, so nothing here gives the cabinet away. One element kept and moved, never rewritten, or the
+  // pulse would start again every frame.
+  let padEl = null;
+  function padCue(b, eye) {
+    let at = null;
+    if (msg.keypad && S.walk?.at && eye && !S.cooking) {
+      const k = S.spec.unit === 'ft' ? FT_PER_M : 1;
+      let best = 4.5 * k;
+      for (const st of S.L.stations || []) {
+        if (!st.pad) continue;
+        const dd = Math.hypot(st.u - S.walk.at[0], st.v - S.walk.at[1]);
+        if (dd > best || !roomSees(S.L, eye, [st.u, st.v])) continue;
+        const q = R.project(S.L.world(st.u, st.v, st.y), b.width, b.height);
+        if (!q || q.x < 8 || q.x > b.width - 8 || q.y < 8 || q.y > b.height - 8) continue;
+        best = dd; at = { q, st };
+      }
+    }
+    if (!at) { if (padEl) padEl.hidden = true; return; }
+    if (!padEl) { padEl = document.createElement('span'); padEl.className = 'rs-padcue'; padEl.setAttribute('aria-hidden', 'true'); tagsEl.parentNode.insertBefore(padEl, tagsEl); }
+    padEl.hidden = false;
+    padEl.style.left = at.q.x.toFixed(0) + 'px'; padEl.style.top = at.q.y.toFixed(0) + 'px';
+    firstPad(at.st);
+  }
+  // said once per cabinet on this device, the first time its pad's in view
+  function firstPad(st) {
+    const key = 'rs-pad-seen:' + st.piece;
+    try { if (localStorage.getItem(key)) return; localStorage.setItem(key, '1'); } catch { return; }
+    flash(`The ${st.target} has a keypad: the little lit panel at its left end. Click it, or face it and press F.`, true);
+  }
   const tagLift = new Map();   // each name tag's eased lift off its head, in pixels, and `t` the frame it was last set
 
   // ⚠ THE VIEW OUT IS TURNED FOR THE NEXT ROOM BEFORE YOU'RE IN IT. In a room with no glass (a hall) nobody sees it,
@@ -2648,7 +2854,9 @@ function openStage(msg) {
     // a run of sheets joining (room-sheets.js): its camera, until it's played
     watchJoins(now);
     const join = ax ? null : joinFrame(now);
-    R.render(join?.cam || ax?.cam || cook?.cam || seat, { lamps: S.mesh.lamps, next: nextLit(Lr, seat.eye), lampOn, lampLevel: power === 'low' ? lampLevel * EMERGENCY_K : lampLevel, fire, flame,day: Math.min(1, dayOf(h) * outside.dimOf() + out.flash * 0.5), sky, wins: S.mesh.windows, annex, outZ: S.spec.balcony ? 0.145 : undefined, outRing: S.spec.balcony?.wrap ? [-S.spec.w / 2 - 0.145, S.spec.w / 2 + 0.145, S.spec.balcony.sides ? -1e6 : -S.spec.balcony.wrap - 0.005] : undefined, front: Lr.f, right: Lr.r, bearing: S.bearing, outside: out, lens: S.seeLens, tvOn: tvNow(now), shut, focusSharp: streetSharp(), ...pokerFocus() });
+    // the Pack open: the camera round you (packCamNow)
+    const packed = !join && !ax && !cook && S.packCam ? packCamNow(now) : null;
+    R.render(join?.cam || ax?.cam || cook?.cam || packed || seat, { lamps: S.mesh.lamps, next: nextLit(Lr, seat.eye), lampOn, lampLevel: power === 'low' ? lampLevel * EMERGENCY_K : lampLevel, fire, flame,day: Math.min(1, dayOf(h) * outside.dimOf() + out.flash * 0.5), sky, wins: S.mesh.windows, annex, outZ: S.spec.balcony ? 0.145 : undefined, outRing: S.spec.balcony?.wrap ? [-S.spec.w / 2 - 0.145, S.spec.w / 2 + 0.145, S.spec.balcony.sides ? -1e6 : -S.spec.balcony.wrap - 0.005] : undefined, front: Lr.f, right: Lr.r, bearing: S.bearing, outside: out, lens: S.seeLens, tvOn: tvNow(now), shut, focusSharp: streetSharp(), ...pokerFocus() });
     if (bob) seat.eye[1] -= bob;
     if (ax) { ax.after(); hearing.tick(outside.hear, placeOfEar(h, now), outdoors); return; }
     if (lockUi.count) lockUi.draw(host.clientWidth, host.clientHeight, seat.eye, S.walk?.at);
@@ -2810,6 +3018,7 @@ function openStage(msg) {
     S.outlook?.stop();
     S.facesNext?.stop(); S.facesNext = null;
     hearing.stop();
+    catVoice.stop(); catDraw.clear();
     hush(null);
     S.tv?.stop();
     window.removeEventListener('npc:speaking', onSpeaking);
@@ -3263,13 +3472,13 @@ export function closeRoomStage(quiet = false, handover = null, { fade = false } 
 // at (S.cookAt): that one wins, so the microwave you clicked is the microwave you stand at even in a
 // flat with a range. Each frame also carries `stand`, where you stand to use it, facing it.
 const BENCHES = [['surface', 'counter'], ['table', null], ['surface', null], ['sink', null]];
-const cookable = (q) => q.arche === 'hob' || BENCHES.some(([a, f]) => q.arche === a && (!f || q.form === f) && q.form !== 'basin');
+const cookable = (q) => q.arche === 'hob' || BENCHES.some(([a, f]) => q.arche === a && (!f || q.form === f) && !WASH_FORMS.includes(q.form));
 function cookFrame(L, want = null) {
   const all = (L.placed || []).filter((q) => !q.annex && !q.on), mw = (q) => q.arche === 'hob' && q.form === 'microwave';
   const picked = want != null ? (L.placed || []).find((q) => String(q.id) === String(want) && !q.annex && cookable(q)) : null;
   const oven = picked && mw(picked) ? picked : all.concat((L.placed || []).filter((q) => !q.annex && q.on)).find(mw);
   const p = picked || all.find((q) => q.arche === 'hob' && !mw(q) && q.stove) || oven || all.find((q) => q.arche === 'hob' && !mw(q))
-    || BENCHES.map(([a, f]) => all.find((q) => q.arche === a && (!f || q.form === f) && q.form !== 'basin')).find(Boolean);
+    || BENCHES.map(([a, f]) => all.find((q) => q.arche === a && (!f || q.form === f) && !WASH_FORMS.includes(q.form))).find(Boolean);
   if (!p) return null;
   const F = cookFrameOf(L, p, p === oven);
   return F && { ...F, stand: cookStand(L, p) };

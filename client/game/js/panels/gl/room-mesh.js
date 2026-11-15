@@ -17,7 +17,7 @@
 import { lightAt } from '../../../../shared/sky-keys.js';
 import { roomKit } from './room-kit.js';
 import { createBatch, MAT, STRIDE } from './ballpark-mesh.js';
-import { cachetWing, cachetInner } from '../../../../shared/room-layout.js';
+import { cachetWing, cachetInner, cachetPad } from '../../../../shared/room-layout.js';
 import { facing, COUNTER_H, doorwaysOf, liftButtons, liftPanelAt, hallOf, stairsOf, wellBox, STAIR } from '../../../../shared/room-layout.js';
 import { drawDecor, drawDecorForm, liftPortal, drawBalconyDress } from './room-decor.js';
 import { legend, legendWidth } from '../../../../shared/legend-font.js';
@@ -502,6 +502,8 @@ export function buildRoom(L, { seed = 1, lampOn = true, doorShut = false, turnin
     if (swinging != null && String(p.id) === String(swinging)) continue;
     K.lift(p.y0 || 0); drawPiece(K, cachetInner(p));
   }
+  // a Cachet's keypad, where its station is (cachetPad): one on the false wall stays put while the wall goes round
+  for (const p of L.placed) if (p.keypad && (cachetPad(p).wall || p.id !== turning?.id)) { K.lift(p.y0 || 0); drawCachetPad(K, p); }
   // an open fridge: its body stays in the room, its doors come out to be swung on the props layer (swingBatch)
   const sp = swinging != null && L.placed.find((p) => String(p.id) === String(swinging));
   const swing = sp ? swingParts(K, L, sp) : null;
@@ -1786,13 +1788,19 @@ const drapeBox = (F, x0, x1, y0, y1, z0, z1, hex, k = 1, surf = METAL) => F.pbox
 // stone with a light in a slot, plain ones tiled to shoulder height with a bulkhead lamp. A high slot
 // of frosted glass in the far wall lets the day in.
 function buildAnnex(K, { H, D, T, DH, lampOn, lamps, doorShut }) {
-  const { box, quad, TB, C, lathe } = K, L = K.L, A = L.annex, a = L.spec.annex, fine = a.finish === 'fine';
+  const { box, quad, TB, C, lathe } = K, L = K.L, A = L.annex, a = L.spec.annex, fine = a.finish === 'fine', spa = a.dress === 'spa';
   const u0 = A.u0, u1 = A.u1, v0 = A.v0, v1 = A.v0 + a.d;
-  const stone = { t: 'roomStone', c: '#d6d6d4' }, wall = fine ? stone : { t: 'roomPlaster', c: '#d8d8d0' }, wallHex = '#ffffff';
-  // the floor: stone or square tiles
+  // a spa en-suite (`ensuite.dress`) is pale veined marble floor to ceiling
+  const stone = spa ? { t: 'roomMarble', c: '#efe9df' } : { t: 'roomStone', c: '#d6d6d4' }, wall = fine || spa ? stone : { t: 'roomPlaster', c: '#d8d8d0' }, wallHex = '#ffffff';
+  // the floor: stone or square tiles; a spa's is big slabs of a darker stone with fine joints
   {
-    const key = fine ? 'roomStone' : 'roomTile', t = ROOM_TEXTURES[key], ps = [[u0, v0, 0], [u1, v0, 0], [u1, v1, 0], [u0, v1, 0]];
-    quad(TB(key), ps, [0, 1, 0], C(fine ? '#b0b2b2' : '#c8ccc4', 0.95), SATIN, ps.map((q) => [q[0] / t, q[1] / t]));
+    const key = fine || spa ? 'roomStone' : 'roomTile', t = ROOM_TEXTURES[key], ps = [[u0, v0, 0], [u1, v0, 0], [u1, v1, 0], [u0, v1, 0]];
+    quad(TB(key), ps, [0, 1, 0], C(spa ? '#8a8682' : fine ? '#b0b2b2' : '#c8ccc4', 0.95), SATIN, ps.map((q) => [q[0] / t, q[1] / t]));
+    if (spa) {
+      const S = 0.9, j = 0.0025;
+      for (let u = u0 + S; u < u1 - 0.1; u += S) box(u - j, u + j, v0, v1, 0, 0.0012, '#3a3632', 0.9, null, MATTE);
+      for (let v = v0 + S; v < v1 - 0.1; v += S) box(u0, u1, v - j, v + j, 0, 0.0012, '#3a3632', 0.9, null, MATTE);
+    }
     box(u0 - T, u1 + T, v0 - T, v1 + T, -0.2, -0.01, '#2a2622');
     const cp = [[u0, v1, H], [u1, v1, H], [u1, v0, H], [u0, v0, H]], ct = ROOM_TEXTURES.roomCeiling;
     quad(TB('roomCeiling'), cp, [0, -1, 0], C('#f2efe8', 0.96), E0, cp.map((q) => [q[0] / ct, q[1] / ct]));
@@ -1833,9 +1841,39 @@ function buildAnnex(K, { H, D, T, DH, lampOn, lamps, doorShut }) {
   else box(d1, d1 + lw, v0 + 0.03, v0 + 0.07, 0, DH - 0.01, '#6a4a30', 0.92, annexLeaf, SATIN);
   // the light
   const cu = (u0 + u1) / 2, cv = (v0 + v1) / 2;
-  if (fine) box(u0 + 0.2, u1 - 0.2, cv - 0.02, cv + 0.02, H - 0.004, H - 0.001, lampOn ? '#fff0d0' : '#c8c4b8', lampOn ? 2 : 0.8);
+  if (spa) spaDress(K, { u0, u1, v0, v1, H, d0, d1, lw, lampOn, doorShut });
+  else if (fine) box(u0 + 0.2, u1 - 0.2, cv - 0.02, cv + 0.02, H - 0.004, H - 0.001, lampOn ? '#fff0d0' : '#c8c4b8', lampOn ? 2 : 0.8);
   else lathe(cu, cv, [[0.13, H - 0.09], [0.15, H - 0.06], [0.15, H - 0.01], [0, H - 0.01]], lampOn ? '#fff2d8' : '#c8c4b8', lampOn ? 1.6 : 0.8, 16, lampOn ? LAMP : undefined);
-  lamps.push({ p: L.world(cu, cv, H - 0.35), annex: true, k: 1.1 });
+  // a spa's light is the cove's, which in a tall room (the penthouse's five metres) is a long way up: brought
+  // down to where a lamp would be, and stronger as the room is taller
+  lamps.push({ p: L.world(cu, cv, spa ? Math.min(H - 0.35, 2.6) : H - 0.35), annex: true, k: spa ? 1.3 * Math.max(1, H / 2.9) : 1.1 });
+}
+// A SPA EN-SUITE's own dressing, past the marble: a shadow gap at the foot of each wall, a soffit round the
+// ceiling with a line of warm light along its inner edge, and a brass ladder rail warming a towel on the wall
+// beside the door, on the side the leaf doesn't swing to, if no piece stands there.
+function spaDress(K, { u0, u1, v0, v1, H, d0, d1, lw, lampOn, doorShut }) {
+  const { box } = K, L = K.L, rod = rodOf(K), dark = '#141312', plaster = '#f4f0e8';
+  // the shadow gap: a dark line a few centimetres high, just proud of each wall
+  for (const [a, b, c, e] of [[u0, u0 + 0.004, v0, v1], [u1 - 0.004, u1, v0, v1], [u0, u1, v1 - 0.004, v1], [u0, d0, v0 + 0.012, v0 + 0.016], [d1, u1, v0 + 0.012, v0 + 0.016]]) box(a, b, c, e, 0, 0.035, dark, 1, null, MATTE);
+  // the soffit, 18 cm wide and 12 deep, and the light along its inner edge
+  const s = 0.18, y = H - 0.12, glow = lampOn ? '#ffe2b4' : '#b8b0a2', gk = lampOn ? 1.9 : 0.8;
+  for (const [a, b, c, e] of [[u0, u1, v0 + 0.012, v0 + s], [u0, u1, v1 - s, v1], [u0, u0 + s, v0 + s, v1 - s], [u1 - s, u1, v0 + s, v1 - s]]) box(a, b, c, e, y, H, plaster, 1, null, SATIN);
+  for (const [a, b, c, e] of [[u0 + s, u1 - s, v0 + s - 0.012, v0 + s], [u0 + s, u1 - s, v1 - s, v1 - s + 0.012], [u0 + s - 0.012, u0 + s, v0 + s, v1 - s], [u1 - s, u1 - s + 0.012, v0 + s, v1 - s]]) box(a, b, c, e, y - 0.006, y + 0.004, glow, gk);
+  // the towel rail: the wider stretch of the front wall that isn't behind the open leaf
+  const left = [u0 + 0.12, d0 - 0.12], right = [doorShut ? d1 + 0.12 : d1 + lw + 0.12, u1 - 0.12];
+  const span = left[1] - left[0] >= right[1] - right[0] ? left : right, w = Math.min(0.55, span[1] - span[0]);
+  if (w < 0.4) return;
+  const cu = (span[0] + span[1]) / 2, ra = cu - w / 2, rb = cu + w / 2, z = v0 + 0.012 + 0.06;
+  // nothing in the way: no piece of the en-suite standing within reach of it
+  if (L.placed.some((p) => p.annex && Math.abs(p.u - cu) < w / 2 + Math.max(p.w, p.d) / 2 && p.v - Math.max(p.w, p.d) / 2 < v0 + 0.5)) return;
+  const brass = '#b8913e', at = (u, yy, zz = z) => [u, zz, yy];
+  for (const u of [ra, rb]) { rod(at(u, 0.55), at(u, 1.45), 0.013, brass, 1.08, METAL, 8); rod(at(u, 0.6, v0 + 0.012), at(u, 0.6), 0.008, brass, 1.08, METAL, 6); rod(at(u, 1.4, v0 + 0.012), at(u, 1.4), 0.008, brass, 1.08, METAL, 6); }
+  for (let i = 0; i < 7; i++) { const yy = 0.62 + i * 0.13; rod(at(ra, yy), at(rb, yy), 0.008, brass, 1.08, METAL, 6); }
+  // a bath towel folded over the top bars, hanging down the front
+  const towel = { t: 'roomWeave', c: '#efe9de' }, tw = w * 0.42;
+  box(cu - tw, cu + tw, z - 0.02, z + 0.025, 1.36, 1.42, '#ffffff', 0.98, towel, CLOTH);
+  box(cu - tw, cu + tw, z + 0.02, z + 0.035, 0.98, 1.42, '#ffffff', 0.97, towel, CLOTH);
+  box(cu - tw, cu + tw, z - 0.035, z - 0.02, 1.12, 1.42, '#ffffff', 0.95, towel, CLOTH);
 }
 
 // ── the pieces ──────────────────────────────────────────────────────────────────────────────────
@@ -1855,6 +1893,32 @@ function rodOf(K) {
         K.nrmOf(nm[0], nm[2], nm[1]), col, surf, null, k >= 1.25);
     }
   };
+}
+
+// A CACHET'S KEYPAD (client/shared/room-layout.js cachetPad), drawn where its station is so a player can see
+// what to click. It's dressed as the bar's own: smoked glass in a brass hairline, its twelve keys a dim warm grid
+// like a lighting panel's, so a guest sees a bar with a control on it and nothing that says what's behind. On a
+// false wall it's a plate on the wing; on a bar with no wing, a little pad standing on the worktop's end. Either way
+// it's at the left end to somebody facing the bar.
+function drawCachetPad(K, p) {
+  const [fu, fv] = facing(p.turn), F = K.frame(p.u, p.v, fu, fv), { pbox } = F, pad = cachetPad(p);
+  const w = 0.085, h = 0.12, x0 = pad.x - w / 2, x1 = pad.x + w / 2, y0 = pad.y - h / 2, y1 = pad.y + h / 2;
+  let z = pad.z;
+  if (!pad.wall) {
+    // a brass foot on the worktop, and the pad's body standing on it
+    pbox(x0 - 0.01, x1 + 0.01, 0.96, 0.972, z - 0.04, z + 0.02, '#b08a4a', 1.15, null, METAL);
+    pbox(x0, x1, 0.972, y1, z - 0.03, z - 0.006, '#1c1a18', 1, null, SATIN);
+  }
+  // the brass hairline, then the smoked glass in it
+  pbox(x0 - 0.006, x1 + 0.006, y0 - 0.006, y1 + 0.006, z - 0.006, z + 0.002, '#b08a4a', 1.15, null, METAL);
+  pbox(x0, x1, y0, y1, z + 0.002, z + 0.006, '#141416', 1, null, GLOSS);
+  // its keys: a grid of three by four, lit dim amber from behind, and a status lamp over them
+  const kw = 0.016, kh = 0.014, gx = (w - 0.02) / 3, gy = (h - 0.035) / 4;
+  for (let r = 0; r < 4; r++) for (let c = 0; c < 3; c++) {
+    const cx = x0 + 0.01 + gx * (c + 0.5), cy = y0 + 0.01 + gy * (r + 0.5);
+    pbox(cx - kw / 2, cx + kw / 2, cy - kh / 2, cy + kh / 2, z + 0.006, z + 0.008, '#e8b070', 1.35, null, MATTE);
+  }
+  pbox(pad.x - 0.006, pad.x + 0.006, y1 - 0.016, y1 - 0.008, z + 0.006, z + 0.009, '#ffcf8a', 1.7, null, MATTE);
 }
 
 // A Cachet's false wall (client/shared/room-layout.js cachetWing): plaster wings either side of the opening and
@@ -2880,8 +2944,7 @@ function slideLeaves(K, L, { DH: DH0, ways, keep = false }) {
       // a balcony leaf is framed in black, to match its jambs and head; in a plain room, in the room's painted trim
       const bar = (u0, u1, y0, y1, hex = o.timber || (o.balcony ? '#16171a' : AL), k = o.timber ? 0.95 : 1.1) => onWall(K, L, o.wall, u0, u1, d0, d1, y0, y1, hex, k, null, o.balcony ? SATIN : METAL);
       // a balcony door's leaf is clear glass in a slim frame (the props layer is opaque, so the glass is left
-      // out and the view shows through): two rows of etched dots at eye height so nobody walks into it
-      if (o.balcony && !o.timber) for (const y of [1.42, 1.5]) for (let u = a0 + 0.1; u < a1 - 0.09; u += 0.07) onWall(K, L, o.wall, u, u + 0.025, -0.082, -0.078, y, y + 0.025, '#e6eef2', 0.95, null, GLOSS);
+      // out and the view shows through). It had two rows of etched white dots at eye height; David had them taken off
       if (o.timber) {
         // a timber leaf: broader stiles, a deep bottom rail, a lock rail at hand height and a brass flush pull
         // in the leading stile, the edge you'd hook a finger in to slide it

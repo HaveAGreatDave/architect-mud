@@ -316,6 +316,10 @@ const server = createServer(async (req, res) => {
     if (req.method === 'GET' && path === '/pose-lab.html') {
       return send(res, 200, await readFile(join(HERE, 'pose-lab.html')), 'text/html; charset=utf-8');
     }
+    // The First Generation: Deadball's 32 expansion players in the close-up figure, in their club kit.
+    if (req.method === 'GET' && path === '/first-gen-lab.html') {
+      return send(res, 200, await readFile(join(HERE, 'first-gen-lab.html')), 'text/html; charset=utf-8');
+    }
     // The Actor Lab is the Figure Lab's Street renderer now (crowd-lab.js); old links land there.
     if (req.method === 'GET' && path === '/actor-lab.html') {
       res.writeHead(302, { Location: '/figure-lab.html?renderer=street' });
@@ -380,6 +384,13 @@ const server = createServer(async (req, res) => {
       try {
         return send(res, 200, await readFile(join(HERE, own[1] + '.js')), 'text/javascript; charset=utf-8');
       } catch { return send(res, 404, 'no such module', 'text/plain; charset=utf-8'); }
+    }
+    // Its own stylesheets (nav.css, the navigation bar every page wears), on the same terms.
+    const ownCss = /^\/([a-z0-9-]+)\.css$/.exec(path);
+    if (req.method === 'GET' && ownCss) {
+      try {
+        return send(res, 200, await readFile(join(HERE, ownCss[1] + '.css')), 'text/css; charset=utf-8');
+      } catch { return send(res, 404, 'no such stylesheet', 'text/plain; charset=utf-8'); }
     }
     // The dev panel's own palettes, so the Modelshop wears the same themes the rest
     // of the tooling does rather than a second set of colours.

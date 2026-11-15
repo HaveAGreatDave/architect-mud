@@ -656,6 +656,27 @@ export function createWorld(ice, seedKey) {
     }
     if (W.parts.length > 800) W.parts.splice(0, W.parts.length - 800);
   };
+  // The Cup's pyro, in the club's colours (`cols`): `bursts`, shells going off up under the roof over
+  // the ice, and `fountains`, sparks thrown up off the top of the boards in the four corners. Each
+  // spark is a glow that slows, sinks and goes out (stepParts). `rnd` is the beat's own dice.
+  W.pyro = (kind, cols, rnd = fxRand) => {
+    const C = cols && cols.length ? cols : ['#ffd23e'];
+    const spark = (x, y, z, vx, vy, vz, col, max) => W.parts.push({ type: 'spark', x, y, z, vx, vy, vz, life: 0, max, size: 0.5 + rnd() * 0.35, col });
+    if (kind === 'bursts') {
+      for (let b = 0; b < 4; b++) {
+        const x = RL / 2 + (rnd() - 0.5) * 120, y = MID_Y + (rnd() - 0.5) * 44, z = 55 + rnd() * 35, col = C[b % C.length];
+        for (let i = 0; i < 48; i++) {
+          const u = rnd() * 2 - 1, a = rnd() * Math.PI * 2, s = Math.sqrt(1 - u * u), v = 26 + rnd() * 10;
+          spark(x, y, z, Math.cos(a) * s * v, Math.sin(a) * s * v, u * v, i % 5 === 0 ? '#fff6d8' : col, 1.3 + rnd() * 0.6);
+        }
+      }
+    } else {
+      for (const [x, y] of [[14, 6], [RL - 14, 6], [14, RW - 6], [RL - 14, RW - 6]]) {
+        for (let i = 0; i < 26; i++) spark(x, y, GLASS_H + 0.5, (rnd() - 0.5) * 6, (rnd() - 0.5) * 6, 30 + rnd() * 16, C[i % C.length], 1.1 + rnd() * 0.5);
+      }
+    }
+    if (W.parts.length > 800) W.parts.splice(0, W.parts.length - 800);
+  };
   // snow off a skate: thrown out along the slide, low and fast, and gone when it lands
   W.snow = (x, y, n, vx, vy) => {
     for (let i = 0; i < n; i++) {
@@ -682,6 +703,14 @@ export function createWorld(ice, seedKey) {
       if (p.type === 'confetti') {
         if (p.z > 0) { p.x += (p.vx + Math.sin(p.life * 2.3 + p.seed) * 1.4) * dt; p.y += (p.vy + Math.cos(p.life * 1.9 + p.seed) * 1.4) * dt; p.z = Math.max(0, p.z - (2.2 + Math.sin(p.life * p.spin) * 0.8) * dt); }
         if (p.life > p.max) kill(i);
+        continue;
+      }
+      // a spark of the Cup's pyro: slowed by the air, sinking, out at its end or on the ice
+      if (p.type === 'spark') {
+        const k = Math.exp(-1.6 * dt);
+        p.vx *= k; p.vy *= k; p.vz = p.vz * k - 12 * dt;
+        p.x += p.vx * dt; p.y += p.vy * dt; p.z += p.vz * dt;
+        if (p.life > p.max || p.z <= 0) kill(i);
         continue;
       }
       const g = p.type === 'spray' ? 10 : G;

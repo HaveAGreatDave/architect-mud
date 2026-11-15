@@ -3,17 +3,17 @@
   "ambient_theme": "indoors",
   "bg_color": "#2b3a34",
   "color": "#e8ddc7",
-  "description": "A corner ensuite with glass on two sides, smoked to the exact grade where the view survives and you disappear. A stone bath stands clear of the walls; the shower is a warm seam in the floor. Nothing in here has a handle you have to find.",
+  "description": "A corner en-suite in pale veined marble, warm underfoot. The shower is a seam in the floor behind one pane of glass, its back wall black marble. A walnut vanity floats under a mirror lit from behind, and nothing in here has a handle you have to find.",
   "exits": {
     "out": "zone_solenne_apt_e"
   },
   "flags": {
-    "floor": "carpet",
+    "floor": "stone",
     "is_interior": true,
     "window": {
-      "description": "A window with a bad seal, letting in a draught and a slice of whatever the weather is doing.",
+      "description": "A high slot of frosted glass under the ceiling. It lets the day in and nobody look back.",
       "light": 0.75,
-      "name": "the window",
+      "name": "the frosted slot",
       "visibility": 0.8
     }
   },

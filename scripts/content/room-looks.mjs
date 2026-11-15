@@ -38,12 +38,12 @@ const LOOKS = [
   [/hot ?plate$/, { arche: 'hob', form: 'cooktop' }],
   [/^rust-run sink$/, { arche: 'sink', form: 'kitchen' }],
 ];
-// a bathroom in the tower is a wet room in stone, with a wall-hung pan
-const FINE_BATH = { toilet: { arche: 'toilet', form: 'hung' }, shower: { arche: 'shower', form: 'wetroom' } };
+// a bathroom in the tower is a wet room in marble, with a wall-hung pan and a floating vanity under a mirror
+const FINE_BATH = { toilet: { arche: 'toilet', form: 'hung' }, shower: { arche: 'shower', form: 'wetroom' }, sink: { arche: 'sink', form: 'vanity' } };
 
 // the Solenne Residences: a corner flat and the crown have glass on two sides. The crown's third side
 // is the wall the set hangs on and the kitchen runs down
-const FINE = { finish: 'fine', storeys: 36, ensuite: { w: 3.2, d: 3.4 } };
+const FINE = { finish: 'fine', storeys: 36, ensuite: { w: 3.2, d: 3.4, dress: 'spa' } };
 const ROOMS = {
   zone_solenne_apt_a: { w: 10, d: 11.5, h: 2.9, glass: ['front'], ...FINE },
   zone_solenne_apt_b: { w: 12, d: 13, h: 3, glass: ['front', 'left'], ...FINE },
@@ -51,7 +51,7 @@ const ROOMS = {
   zone_solenne_apt_d: { w: 11, d: 12, h: 2.9, glass: ['front'], ...FINE },
   zone_solenne_apt_e: { w: 12.5, d: 13.5, h: 3, glass: ['front', 'left'], ...FINE },
   zone_solenne_apt_f: { w: 10, d: 11, h: 2.9, glass: ['front'], ...FINE },
-  zone_solenne_penthouse: { w: 16, d: 18, h: 5, glass: ['front', 'left'], storey: 35, ...FINE, ensuite: { w: 4.2, d: 4.4 }, balcony: { wrap: 'all' }, ground: 'stone', pit: { at: [-2.4, 3.8, 3.2, 9.2], depth: 0.42, step: 0.42 } },
+  zone_solenne_penthouse: { w: 16, d: 18, h: 5, glass: ['front', 'left'], storey: 35, ...FINE, ensuite: { w: 4.2, d: 4.4, dress: 'spa' }, balcony: { wrap: 'all' }, ground: 'stone', pit: { at: [-2.4, 3.8, 3.2, 9.2], depth: 0.42, step: 0.42 } },
 };
 
 // rows a room's text promises and nothing stood for: the tower's D, E and F en-suites had none, and
@@ -71,7 +71,7 @@ for (const [id, zone] of [['a', 'zone_solenne_apt_a'], ['b', 'zone_solenne_apt_b
 for (const id of ['d', 'e', 'f']) {
   const z = `zone_solenne_apt_${id}_bath`;
   NEW.push(row(`furn_${z}_shower`, z, 'shower', 'shower', 'A rain head let into the ceiling over a fall in the stone floor, behind one pane of glass.', {}));
-  NEW.push(row(`furn_${z}_sink`, z, 'sink', 'sink', 'A bowl cut into a slab of grey stone that floats off the wall, under a mirror lit from behind.', { water_source: true }));
+  NEW.push(row(`furn_${z}_sink`, z, 'sink', 'sink', 'A floating walnut vanity with a marble top and a stone bowl standing on it. A brass spout comes out of the wall over the bowl, hot or cold, clean enough to drink. Above it, a mirror as wide as the vanity, lit from behind.', { water_source: true }));
   NEW.push(row(`furn_${z}_toilet`, z, 'toilet', 'toilet', 'A low pan hung off a stone panel, its cistern somewhere in the wall.', {}));
 }
 

@@ -450,7 +450,7 @@ function playOnSpot(B, id, t, d) {
 // him (pile_dive), each a little higher than the one before, so they lie heaped. The losers walk off
 // to their own dugout, and the umpires stay where they are. `end` is the payload's (`winner`);
 // `men` as planBetween has them. Returns, for each man sent, { slot, role, to, rest, end }.
-export const PILE = Object.freeze({ spread: 2.4, lift: 0.85, dive: rootAt(CLIPS.pile_dive, CLIPS.pile_dive.duration).at[1] });
+export const PILE = Object.freeze({ spread: 2.4, lift: 0.85, run: 24, dive: rootAt(CLIPS.pile_dive, CLIPS.pile_dive.duration).at[1] });
 export function planPile({ p, end, men, by }) {
   const winBat = end?.winner === p.battingTeam;
   const centre = winBat ? [0, 0, 4] : [MOUND[0], 0, MOUND[1] - 1.5];
@@ -472,7 +472,8 @@ export function planPile({ p, end, men, by }) {
     if (Math.hypot(u[0], u[2]) < 1) u = [Math.sin(i * 2.4), 0, Math.cos(i * 2.4)];
     const a = Math.atan2(u[0], u[2]) + ((i % 3) - 1) * 0.35, r = PILE.dive + PILE.spread * (i % 2);
     const from = [centre[0] + Math.sin(a) * r, 0, centre[2] + Math.cos(a) * r], face = faceTo(from, centre);
-    const t = goTo(m.B, from, face, m.go, { by: by - CLIPS.pile_dive.duration });
+    // flat out: it's the last out of the season
+    const t = goTo(m.B, from, face, m.go, { by: by - CLIPS.pile_dive.duration, jog: PILE.run });
     if (t == null) return;
     const lie = Math.min(3, Math.ceil(i / 2)) * PILE.lift;
     m.B.play('pile_dive', t + 0.1, { frame: { at: [from[0], groundHeight(from[0], from[2]) + lie, from[2]], yaw: face }, fade: 0.3 });

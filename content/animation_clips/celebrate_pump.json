@@ -1,0 +1,50 @@
+{
+  "id": "celebrate_pump",
+  "role": "any",
+  "duration": 0.9,
+  "loop": true,
+  "note": "In the champions' mob: bouncing on his toes with his right fist pumping over his head and his left arm out round the man beside him. For the champions, beside celebrate_leap, so the mob isn't one man jumping twelve times.",
+  "events": [],
+  "plants": [
+    { "foot": "L", "from": 0, "to": 0.9 },
+    { "foot": "R", "from": 0, "to": 0.9 }
+  ],
+  "keys": [
+    {
+      "t": 0,
+      "pose": {
+        "pelvis": [0, 3.38, 0], "pitch": 4, "roll": 3, "spine": [2, 0, 0], "chest": [2, -4, 0], "neck": [-8, 0, 0], "head": [-8, 0, 0],
+        "ankL": [0.5, 0.04], "toeL": [0.2, 0, 1], "kneeL": [0.12, 0.2, 1], "ankR": [-0.5, 0.04], "toeR": [-0.2, 0, 1], "kneeR": [-0.12, 0.2, 1],
+        "wrL": [1.85, 4.2, 0.5], "elbL": [0.6, -0.8, -0.2], "handL": [0.6, -0.3, 0.75], "palmL": [0, -1, 0.3],
+        "wrR": [-0.55, 6.5, 0.45], "elbR": [-1, 0.1, -0.2], "handR": [0.05, 1, 0.1], "palmR": [0, 0, 1]
+      }
+    },
+    {
+      "t": 0.3,
+      "pose": {
+        "pelvis": [0, 3.05, 0.05], "pitch": 10, "roll": 1, "spine": [5, 0, 0], "chest": [5, -6, 0], "neck": [-4, 0, 0], "head": [-4, 0, 0],
+        "ankL": [0.5, 0.04], "toeL": [0.2, 0, 1], "kneeL": [0.14, 0.2, 1], "ankR": [-0.5, 0.04], "toeR": [-0.2, 0, 1], "kneeR": [-0.14, 0.2, 1],
+        "wrL": [1.8, 4, 0.55], "elbL": [0.6, -0.8, -0.2], "handL": [0.6, -0.3, 0.75], "palmL": [0, -1, 0.3],
+        "wrR": [-0.75, 5.2, 0.85], "elbR": [-1, -0.5, -0.2], "handR": [0.1, 0.7, 0.7], "palmR": [0, -0.7, 0.7]
+      }
+    },
+    {
+      "t": 0.55,
+      "pose": {
+        "pelvis": [0, 3.55, 0], "pitch": 2, "roll": 4, "spine": [1, 0, 0], "chest": [0, -2, 0], "neck": [-12, 0, 0], "head": [-10, 0, 0],
+        "ankL": [0.5, 0.04], "toeL": [0.2, 0, 1], "kneeL": [0.1, 0.2, 1], "ankR": [-0.5, 0.04], "toeR": [-0.2, 0, 1], "kneeR": [-0.1, 0.2, 1],
+        "wrL": [1.9, 4.35, 0.45], "elbL": [0.6, -0.8, -0.2], "handL": [0.6, -0.3, 0.75], "palmL": [0, -1, 0.3],
+        "wrR": [-0.5, 6.75, 0.35], "elbR": [-1, 0.1, -0.2], "handR": [0.05, 1, 0.1], "palmR": [0, 0, 1]
+      }
+    },
+    {
+      "t": 0.9,
+      "pose": {
+        "pelvis": [0, 3.38, 0], "pitch": 4, "roll": 3, "spine": [2, 0, 0], "chest": [2, -4, 0], "neck": [-8, 0, 0], "head": [-8, 0, 0],
+        "ankL": [0.5, 0.04], "toeL": [0.2, 0, 1], "kneeL": [0.12, 0.2, 1], "ankR": [-0.5, 0.04], "toeR": [-0.2, 0, 1], "kneeR": [-0.12, 0.2, 1],
+        "wrL": [1.85, 4.2, 0.5], "elbL": [0.6, -0.8, -0.2], "handL": [0.6, -0.3, 0.75], "palmL": [0, -1, 0.3],
+        "wrR": [-0.55, 6.5, 0.45], "elbR": [-1, 0.1, -0.2], "handR": [0.05, 1, 0.1], "palmR": [0, 0, 1]
+      }
+    }
+  ]
+}

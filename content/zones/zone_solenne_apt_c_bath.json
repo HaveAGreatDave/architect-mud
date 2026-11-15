@@ -3,17 +3,17 @@
   "ambient_theme": "indoors",
   "bg_color": "#2b3a34",
   "color": "#e8ddc7",
-  "description": "A serene private head beneath its own small skylight that tracks the weather: pale plaster, warm oak, a walk-in shower open to the falling light. A soft-edged basin, a concealed toilet, a fogged pane that watches the storms roll in from somewhere safe and dry. The heating is underfoot and the silence is total. The door seals with a soft magnetic sigh.",
+  "description": "Pale marble on every wall and warm stone underfoot, with a cove of light round the ceiling instead of a lamp. The walk-in shower is behind frameless glass against black marble, and a frosted slot up high carries the weather. A wide mirror over the walnut vanity is lit from behind. The door seals with a soft sigh.",
   "exits": {
     "out": "zone_solenne_apt_c"
   },
   "flags": {
-    "floor": "carpet",
+    "floor": "stone",
     "is_interior": true,
     "window": {
-      "description": "A window with a bad seal, letting in a draught and a slice of whatever the weather is doing.",
+      "description": "A high slot of frosted glass under the ceiling. It lets the day in and nobody look back.",
       "light": 0.75,
-      "name": "the window",
+      "name": "the frosted slot",
       "visibility": 0.8
     }
   },

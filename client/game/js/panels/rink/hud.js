@@ -6,6 +6,7 @@
 import { paintCrest } from '../club-crest.js';
 import { TAU, clamp } from './util.js';
 import { drawComic } from './comic.js';
+import { drawKenComic } from './ken-comic.js';
 
 const FACE = '"Saira Condensed", "Arial Narrow", "Roboto Condensed", sans-serif';
 export const OFFICIAL_KIT = { jersey: '#f1f1ee', trim: '#141414', pants: '#141414', sock: '#141414', glove: '#e2b896', helmet: '#141414', stripes: true };
@@ -93,7 +94,7 @@ export function glowTail(W) {
 // while a replay is on the screen.
 export function hudActive(W, live = W) {
   const B = W.banner, Wp = live.wipe;
-  return !!(W.replayOn || lapsing(W) || (W.fight && W.fight.hud) || (B && W.t - B.t0 < (B.dur || 1.3)) || (Wp && live.t - Wp.t0 < Wp.dur));
+  return !!(W.replayOn || live.kenComic || lapsing(W) || (W.fight && W.fight.hud) || (B && W.t - B.t0 < (B.dur || 1.3)) || (Wp && live.t - Wp.t0 < Wp.dur));
 }
 
 // THE TIME-LAPSE BUG, while the Zamboni is out: the sheet is being shown sped up, and says so.
@@ -191,5 +192,7 @@ export function drawHud(ctx, W, w, h, u, live = W, o = {}) {
       ctx.restore();
     }
   }
+  // the Ken Raven comic (rink/ken-comic.js), over everything but the wipe
+  if (live.kenComic && !W.replayOn) drawKenComic(ctx, live, w, h, u, o);
   drawWipe(ctx, live, w, h, u);
 }

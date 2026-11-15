@@ -104,7 +104,7 @@ export function createRinkView(host, opts = {}) {
   // tag and his words in the bar; anything else is the play-by-play man's, whom the broadcast
   // names with each line (tv.js passes it as 'who').
   let capWho = 'Booth', anchorWho = '';
-  let last = null, landed = true, raf = 0, lastFrame = 0, frameAvg = 0, acc = 0, mounted = false, speed = opts.speed || 1;
+  let last = null, landed = true, raf = 0, lastFrame = 0, frameAvg = 0, acc = 0, mounted = false, speed = opts.speed || 1, kenComicOn = false;
   let W = null, D = null, R = null, ice = null, canvas = null, modsP = null, mods = null;
   const sfxAt = {};
   let costAvg = 0;
@@ -274,25 +274,71 @@ export function createRinkView(host, opts = {}) {
     `</div>`;
   }
   // THE CLOCK RUNS BETWEEN PLAYS. The booth sends the clock once a play, 18 to 54 seconds
-  // of it apart, so the header ticks down a second at a time toward the latest one (faster
-  // when it has fallen behind) and holds there until the next, as a clock stops at a
-  // whistle. A new period, or a clock that has gone up, starts again where it says.
-  const clk = { shown: null, aim: 0, section: null, text: '' };
+  // of it apart, and the header runs down toward the latest one and holds there until the
+  // next, as a clock stops at a whistle. It runs at the night's one pace (`clockRate`, game
+  // seconds a real second, hockey-pacing.js `paceClock`), faster only when that wouldn't get
+  // it there before the clock next has to move (`runMs`). A new period, or a clock that has
+  // gone up, starts again where it says. A payload without a pace (an old server) ticks a
+  // second at a time, faster when it has fallen behind, as before.
+  const clk = { shown: null, aim: 0, section: null, text: '', rate: null, from: null };
   const clockText = (s) => { const t = Math.max(0, Math.ceil(s - 1e-6)); return `${Math.floor(t / 60)}:${String(t % 60).padStart(2, '0')}`; };
   function clockAim(p) {
     if (!Number.isFinite(p.clockSecs)) { clk.shown = null; return (clk.text = p.clock || ''); }
     clk.aim = p.clockSecs;
     if (clk.shown == null || clk.section !== p.section || clk.aim > clk.shown) clk.shown = clk.aim;
     clk.section = p.section;
+    // (the pace is set once a payload: the header redraws for crests and the landing too)
+    if (clk.from !== p) {
+      clk.from = p;
+      const lag = clk.shown - clk.aim;
+      clk.rate = p.clockRate > 0 ? Math.max(p.clockRate, p.runMs > 0 ? lag / (p.runMs * 0.0009) : lag) : null;
+    }
     return (clk.text = clockText(clk.shown));
   }
   function clockTick(real) {
-    if (clk.shown == null || clk.shown <= clk.aim) return;
-    clk.shown = Math.max(clk.aim, clk.shown - real * Math.max(1, (clk.shown - clk.aim) / 6));
-    const t = clockText(clk.shown);
-    if (t === clk.text) return;
-    clk.text = t;
-    const el = host?.querySelector('.gdr-head-time'); if (el) el.textContent = t;
+    if (clk.shown != null && clk.shown > clk.aim) {
+      const v = clk.rate != null ? clk.rate : Math.max(1, (clk.shown - clk.aim) / 6);
+      clk.shown = Math.max(clk.aim, clk.shown - real * v);
+      const t = clockText(clk.shown);
+      if (t !== clk.text) { clk.text = t; const el = host?.querySelector('.gdr-head-time'); if (el) el.textContent = t; }
+    }
+    ppTick();
+  }
+
+  // THE POWER PLAY, by club and with its time. The payload's `pp` (hockey-narrator.js `ppOf`)
+  // names the side with the extra man, the men a side and the game seconds until that changes,
+  // at the payload's own clock; the header counts it down with the clock. While the clock is
+  // still running to a penalty's whistle the new kill hasn't started, so its time holds. A
+  // power play that ran out between two plays counts down to nothing before it goes.
+  let ppNow = null, ppText = '';
+  const BOXED = new Set(['penalty', 'fight', 'brawl']);
+  function ppAim(p) {
+    if (p.type === 'intermission' || !Number.isFinite(p.clockSecs)) { ppNow = null; return; }
+    if (p.pp) ppNow = { ...p.pp, aim: p.clockSecs, section: p.section, held: BOXED.has(p.type) };
+    else if (ppNow && (ppNow.section !== p.section || ppNow.held)) ppNow = null;
+  }
+  function ppLeft() {
+    if (!ppNow || clk.shown == null) return 0;
+    return ppNow.left + (ppNow.held && clk.shown > ppNow.aim ? 0 : clk.shown - ppNow.aim);
+  }
+  function ppHtml(p) {
+    const left = ppLeft();
+    if (!ppNow || left <= 0) return '';
+    const col = (ppNow.team === 'home' ? p.homeColours : ppNow.team === 'away' ? p.awayColours : null)?.[0];
+    const men = `${Math.max(ppNow.away, ppNow.home)}-ON-${Math.min(ppNow.away, ppNow.home)}`;
+    const what = !ppNow.team ? men : Math.abs(ppNow.away - ppNow.home) > 1 ? `PP ${men}` : 'POWER PLAY';
+    const team = ppNow.team ? `${_crest(ppNow.team === 'home' ? p.homeTeam : p.awayTeam, 14)}<b>${_esc(ppNow.abbr || '')}</b> ` : '';
+    ppText = clockText(left);
+    return `<span class="gdr-pp${ppNow.team ? '' : ' even'}"${col ? ` style="--pp:${_esc(col)}"` : ''}>${team}<i>${what}</i> <span class="gdr-pp-time">${ppText}</span></span>`;
+  }
+  function ppTick() {
+    if (!ppNow) return;
+    const left = ppLeft();
+    if (left <= 0) { ppNow = null; host?.querySelector('.gdr-pp')?.remove(); return; }
+    const t = clockText(left);
+    if (t === ppText) return;
+    ppText = t;
+    const el = host?.querySelector('.gdr-pp-time'); if (el) el.textContent = t;
   }
   // the header redraws with crests when the club identities turn up mid-game
   let offClubs = null;
@@ -304,12 +350,18 @@ export function createRinkView(host, opts = {}) {
     const el = host?.querySelector('.gdr-head'); if (!el) return;
     const live = !landed && p.type !== 'intermission';
     const sc = live && p.scoreBefore ? p.scoreBefore : { away: p.awayScore, home: p.homeScore };
+    ppAim(p);
+    // the beat's own strength is the attacking side's (PP one play, SH the next as the puck
+    // changes hands), so with the box to read it says only an empty net
+    let str = p.type === 'intermission' || p.strength === 'even' ? '' : p.strength || '';
+    if (ppNow && str !== 'en') str = '';
     el.innerHTML =
       `<span class="gdr-head-badge">${cphlMark('17px')}<i>CPhL</i></span>` +
       `<span class="gdr-head-score">${_crest(p.awayTeam, 16)}${_esc(p.awayAbbr || p.awayTeam || 'AWY')} <b>${sc.away | 0}</b>: <b>${sc.home | 0}</b> ${_esc(p.homeAbbr || p.homeTeam || 'HOM')}${_crest(p.homeTeam, 16)}</span>` +
       `<span class="gdr-head-clock">${p.type === 'intermission' ? 'INTERMISSION' : `${_esc(p.section || '')} <span class="gdr-head-time">${_esc(clockAim(p))}</span>`}</span>` +
+      ppHtml(p) +
       (p.rivalry ? '<span class="gdr-head-rival">RIVALRY</span>' : '') +
-      (p.strength && p.strength !== 'even' && p.type !== 'intermission' ? `<span class="gdr-head-str ${_esc(p.strength)}">${_esc(p.strength.toUpperCase())}</span>` : '');
+      (str ? `<span class="gdr-head-str ${_esc(str)}">${str === 'en' ? 'EMPTY NET' : _esc(str.toUpperCase())}</span>` : '');
     const st = host.querySelector('.gdr-strip');
     if (st) st.innerHTML = p.type === 'intermission' ? '' : live
       ? `<span class="gdr-strip-desc">Live</span><span class="gdr-strip-names">${_esc(p.possession ? p.attackingTeam || '' : '')}</span>`
@@ -372,6 +424,8 @@ export function createRinkView(host, opts = {}) {
     W.alpha = acc / DT;
     if (R.lost) fallback();
     R.render(now);
+    // the intermission board steps aside while the Ken Raven comic has the picture (rink/ken-comic.js)
+    if (!!W.kenComic !== kenComicOn) { kenComicOn = !!W.kenComic; host?.querySelector('.gdr-rink')?.classList.toggle('gdr-kencomic', kenComicOn); }
     // `opts.onFrame` copies the picture while it's still in the drawing buffer (a WebGL canvas
     // read later in the frame, off screen, hands back a stale one): the box's screen (stands.js)
     opts.onFrame?.();
@@ -476,6 +530,8 @@ export function createRinkView(host, opts = {}) {
       zamboniReal: !!opts.seat,
       // Cup night: the man the spotlight is on as the public address reads him (null: done)
       onIntro: (c) => introCard(c),
+      // and each man as he puts the Cup over his head (rink/director.js stageCrown)
+      onLift: (c) => liftCard(c),
     });
     // the scorer's stat line goes up with his goal's replay and comes down with it (and the
     // frame loop checks again, for a replay that runs out on its own)
@@ -518,6 +574,8 @@ export function createRinkView(host, opts = {}) {
       const score = `${p.awayAbbr || p.awayTeam} ${p.awayScore | 0}, ${p.homeAbbr || p.homeTeam} ${p.homeScore | 0}`;
       renderCard({ kind: 'cupchamps', winner: p.winner, final: p.final, score, duration: 7 });
       if (p.mvp) setTimeout(() => { if (last === p) showL3(mvpCard(p, side), 9, 'mvp'); }, 7500);
+      // the Cup's own card as the referee brings it out (rink/director.js CROWN.cup)
+      setTimeout(() => { if (last === p) letterCup(p); }, (D.CROWN?.cup ?? 24) * 1000);
     }
   }
   // the man under the spotlight: his number, his name, where he plays and for whom
@@ -527,6 +585,26 @@ export function createRinkView(host, opts = {}) {
     showL3(`<div class="gdr-l3-id">${_crest(c.team, 30) || ''}${c.num ? `<span class="num">${c.num | 0}</span>` : ''}<span class="nm">${_esc(String(c.name).toUpperCase())}</span>` +
       `<span class="tm">${_esc(c.team || '')} · ${_esc(POS_SAID[c.pos] || c.pos || '')}</span></div>` +
       `<div class="gdr-l3-row"><span class="lbl">Coldwater Cup Final</span><span class="tag">${c.side === 'a' ? 'Visitors' : 'Home'}</span></div>`, 0, 'intro');
+  }
+  // the man with the Cup over his head: his number and name, and the Cup's name under it
+  function liftCard(c) {
+    if (!c) { if (l3Up === 'lift') hideL3(); return; }
+    const p = last || {}, b = bodyOf({ name: c.name, team: p.winner });
+    showL3(`<div class="gdr-l3-id">${_crest(p.winner, 30) || ''}${b?.num ? `<span class="num">${b.num | 0}</span>` : ''}<span class="nm">${_esc(String(c.name).toUpperCase())}</span><span class="tm">${_esc(p.winner || '')}</span></div>` +
+      `<div class="gdr-l3-row"><span class="lbl">Lifts the ${_esc(p.final || 'Coldwater Cup')}</span><span class="tag">${c.i + 1} of ${c.n}</span></div>`, 6, 'lift');
+  }
+  // the Cup's card as it comes out: its name in gold across the picture (styles.css gdr-cup)
+  function letterCup(p) {
+    const pic = host?.querySelector('.gdr-rink');
+    if (!pic || opts.seat) return;
+    pic.querySelector('.gdr-cup')?.remove();
+    const el = doc.createElement('div');
+    el.className = 'gdr-cup';
+    el.setAttribute('aria-hidden', 'true');
+    el.innerHTML = `<div class="gdr-cup-tag">THE</div><div class="gdr-cup-name">${_esc(p.final || 'Coldwater Cup')}</div><div class="gdr-cup-sub">The Golden Goose Cup · ${_esc(p.winner || '')}</div>`;
+    pic.appendChild(el);
+    setTimeout(() => el.classList.add('in'), 30);
+    setTimeout(() => { el.classList.remove('in'); setTimeout(() => el.remove(), 900); }, 3600);
   }
   function mvpCard(p, side) {
     const m = p.mvp, b = bodyOf({ name: m.name, team: p.winner });

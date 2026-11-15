@@ -11,7 +11,7 @@ Everything is synthesised. There are no samples.
 
 | File | What |
 |---|---|
-| [client/shared/deadball-sfx.js](../client/shared/deadball-sfx.js) | The bank: 70 patches in SIREN's layer schema, the event table, the mix, the Sound Detail tiers, the voices and their words, the crowd bed and the park's air |
+| [client/shared/deadball-sfx.js](../client/shared/deadball-sfx.js) | The bank: 78 patches in SIREN's layer schema, the event table, the mix, the Sound Detail tiers, the voices and their words, the crowd bed and the park's air |
 | [client/game/js/panels/diamond/sound.js](../client/game/js/panels/diamond/sound.js) | The mixer: hears the live world each frame and plays the bank |
 | [client/game/js/panels/gameday-grandstand.js](../client/game/js/panels/gameday-grandstand.js) | Makes the mixer, hands it each frame, each payload and each landing |
 | [client/shared/audio-engine.js](../client/shared/audio-engine.js) | SIREN and ORACLE. The `scene` speech channel, `speak({ gain })`, `speechLeft()` and `engineNodes(category)` were added for this |
@@ -33,7 +33,10 @@ happened since the last frame:
 - **The ball.** Sampled at the frame's times: a bounce is the vertical speed changing sign near the
   ground (dirt or grass by where), the wall is the ball coming back toward the plate past 200 ft,
   the backstop (low) or the club seats (high, as there is no net) is it passing behind the plate, a home run clatters into the seats at its
-  path's own `land` time, and one that hits the pole rings it as it crosses the fence.
+  path's own `land` time, and one that hits the pole rings it as it crosses the fence. Once a home
+  run is gone (over the fence, or down at `land`), the home-run horn sounds, once, whichever side
+  hit it. It's the moment the park's lights go out and flash the hitting club's colours
+  (`planLights` in [spectacle.js](../client/game/js/panels/diamond/spectacle.js)).
 - **The spectacle.** The comet's tail, the sparks off the bat, and each shell's launch whistle,
   burst and crackle. A burst is heard late by its distance at 1,125 ft/s.
 - **The crowd.** The fans in the stands (`createRoar` in [gl/crowd.js](../client/game/js/panels/gl/crowd.js),
@@ -99,7 +102,7 @@ A fielder creeping in as the pitch comes (`field_ready_*`) is never heard, even 
 
 ## The patches
 
-70, in the `deadball` group, ids `db-*`. Measured at 48 kHz (16 kHz past 1.5 s) by the gate.
+78, in the `deadball` group, ids `db-*`. Measured at 48 kHz (16 kHz past 1.5 s) by the gate.
 
 - **Contact:** `db-crack` (the barrel: a click, a shaped noise crack, the wood's body through three
   resonances at 380, 820 and 1,650 Hz, an FM ring at 2.41, a low knock and a sub thump),
@@ -117,7 +120,11 @@ A fielder creeping in as the pitch comes (`field_ready_*`) is never heard, even 
   `-whistle`, `db-clap`, `db-towels`.
 - **The hype:** `db-airhorn` (three driven reeds; driven layers normalise, so its gains are tiny),
   `db-hype-boom` (the videoboard), `db-drum-chant` (the bleachers' bass drum, two then three quick),
-  `db-stomp` (the stands stamping, quickening).
+  `db-stomp` (the stands stamping, quickening), `db-hype-horn` (the home-run horn, a ship's horn
+  on the roof as Toronto's park has: three blasts of an 87 Hz sawtooth through the bell's
+  resonances, a second reed beating against it, the pitch rising into each blast and sagging at
+  its end, and the stands and the city answering at 0.21 and 0.52 s; about 7 s). It isn't
+  `db-foghorn`, which is the harbour's Beacon in the distance.
 - **The graphics:** `db-sting-homer`, `-run`, `-k`, `-out`, `-base`, `-splash` (brass is a sawtooth
   whose lowpass opens on the attack), `db-click`, `db-beep`, `db-trail`, `db-sparks`, `db-rewind`,
   `db-sweep`, `db-table`.

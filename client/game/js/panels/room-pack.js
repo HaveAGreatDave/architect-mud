@@ -1,20 +1,26 @@
-// THE PACK: the Room Stage's own inventory. What you carry, on a grid; what you wear, on a paper doll of you
-// (client/shared/paper-doll.js). Opened from the Pack button, I, P (on what you can eat and drink) or a wardrobe's
-// Change clothes, over the room; the room stays where it is under it. It never opens the tablet.
+// THE PACK: the Room Stage's own inventory. What you carry, on a grid; what you wear, on you. Opened from the Pack
+// button, I, P (on what you can eat and drink) or a wardrobe's Change clothes, over the room. It never opens the tablet.
+//
+// ⚠ THE DOLL IS YOU, IN 3D. The left-hand box is a hole in the panel: room-stage.js swings its camera round to
+// frame your own close-up figure there, in what you're wearing (paper-doll.js figureWorn), and a drag across the
+// box turns you all the way round (`turn`), as do Q and E; the wheel brings you closer. The paper doll's
+// `garmentOf` still names each garment's kind and colour.
 //
 // Everything it does is a verb (plugins/roomstage pack.js has the server's half):
-//   · drag a garment onto the doll, or its Wear button: `roompack wear <id>`
-//   · drag something off the doll, double-click it, or Take off: `roompack off <id>`
+//   · drag a garment onto you, or its Wear button: `roompack wear <id>` (it shows on you before you let go)
+//   · a worn thing's Take off, or double-click it: `roompack off <id>`
 //   · drag a thing onto the floor strip, or Drop: `roompack drop <id> [qty]`
 //   · Eat, Drink, Smoke, Take: ROOM's first-person ritual in your hands (stands-hands.js via `take`), which ends in
 //     the ordinary verb; anything else is the typed verb by name (`read`, `use`, `open`)
 //   · Undress and Dress again: `undress`, then `roompack wear` with what it took off
 // The server answers each `roompack` with the whole pack again (`room_pack`), and `say` is its line about it.
 //
-// room-stage.js makes one: createPack({ host, silent, cmd, take, spray, onToggle }) → { open, close, toggle,
-// isOpen, data, dirty, key }. `silent` sends a line without echoing it, `cmd` sends one that answers on the card.
+// room-stage.js makes one: createPack({ host, silent, cmd, take, spray, onToggle, turn }) → { open, close, toggle,
+// isOpen, data, dirty, key, dollRect, worn }. `silent` sends a line without echoing it, `cmd` sends one that answers
+// on the card. `turn(dYaw, dPitch, zoom)` turns the camera round you; `worn()` is the pack's rows with a garment
+// held over you counted as on.
 
-import { dollSvg, garmentOf } from '../../../shared/paper-doll.js';
+import { garmentOf } from '../../../shared/paper-doll.js';
 import { loadCss, escapeHtml as esc } from '../../../shared/dom.js';
 
 const PACK_CSS = await loadCss(new URL('./room-pack.css', import.meta.url));
@@ -70,7 +76,7 @@ function iconOf(it) {
   return `<svg viewBox="0 0 24 24" class="rp-ico" aria-hidden="true"><path d="${d}"${fill} stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round"/></svg>`;
 }
 
-export function createPack({ host, silent, cmd, take, spray, onToggle = null }) {
+export function createPack({ host, silent, cmd, take, spray, onToggle = null, turn = null }) {
   ensureStyles();
   const el = document.createElement('div');
   el.className = 'rp';
@@ -86,7 +92,7 @@ export function createPack({ host, silent, cmd, take, spray, onToggle = null }) 
     </header>
     <div class="rp-body">
       <section class="rp-dollbox" aria-label="What you're wearing">
-        <div class="rp-doll"></div>
+        <div class="rp-doll" title="Drag to turn round, the wheel to come closer"><span class="rp-turn" aria-hidden="true">⟲ drag to turn</span></div>
         <div class="rp-dollacts">
           <button type="button" class="rp-undress" title="Take off everything you're wearing, but what's in your hand and your accessories">Undress</button>
           <button type="button" class="rp-redress" hidden title="Put back on what you took off">Dress again</button>
@@ -104,7 +110,7 @@ export function createPack({ host, silent, cmd, take, spray, onToggle = null }) 
   const $ = (s) => el.querySelector(s);
   const dollEl = $('.rp-doll'), grid = $('.rp-grid'), selEl = $('.rp-sel'), sayEl = $('.rp-say'), floor = $('.rp-floor');
 
-  let pack = null, tab = 'all', selected = null, ghost = null, hover = null, open = false, waiting = false;
+  let pack = null, tab = 'all', selected = null, ghost = null, open = false, waiting = false;
   let stripped = [];   // what Undress took off, for Dress again (this session only)
   let sayTimer = 0;
 
@@ -125,9 +131,9 @@ export function createPack({ host, silent, cmd, take, spray, onToggle = null }) 
     sayTimer = setTimeout(() => sayEl.classList.remove('on'), 4200);
   }
 
+  // you're drawn by the room behind the box (room-stage.js); this keeps its buttons right
   function paintDoll() {
-    if (!pack) { dollEl.innerHTML = ''; return; }
-    dollEl.innerHTML = dollSvg(pack, { selected, ghost, hover });
+    if (!pack) return;
     const worn = pack.items.some((x) => x.worn && x.slot && x.slot !== 'weapon_hand' && x.slot !== 'accessory');
     $('.rp-undress').disabled = !worn;
     const back = stripped.filter((id) => byId(id) && !byId(id).worn);
@@ -162,7 +168,7 @@ export function createPack({ host, silent, cmd, take, spray, onToggle = null }) 
 
   function paintSel() {
     const it = selected && byId(selected);
-    if (!it) { selEl.innerHTML = `<span class="rp-hint">Click a thing to see what you can do with it. Drag clothes onto yourself to put them on, and off to take them off.</span>`; return; }
+    if (!it) { selEl.innerHTML = `<span class="rp-hint">Click a thing to see what you can do with it. Drag clothes onto yourself to put them on. Drag across yourself to turn round.</span>`; return; }
     const facts = [];
     if (it.slot) facts.push(it.slot === 'weapon_hand' ? 'held' : `${SLOT_LABEL[it.slot]}${LAYER_LABEL[it.layer] ? `, ${LAYER_LABEL[it.layer]}` : ''}`);
     if (it.soak) facts.push(`soak ${it.soak}`);
@@ -224,11 +230,10 @@ export function createPack({ host, silent, cmd, take, spray, onToggle = null }) 
   }
 
   // ── pointer: click, double-click and drag, one path for mouse and touch ──
-  let drag = null;   // { id, from: 'grid'|'doll', x, y, live, ghostEl }
+  let drag = null;   // { id, from: 'grid', x, y, live, ghostEl }
   const DRAG_PX = 7;
   const overDoll = (x, y) => { const r = dollEl.getBoundingClientRect(); return x >= r.left && x <= r.right && y >= r.top && y <= r.bottom; };
   const overFloor = (x, y) => { const r = floor.getBoundingClientRect(); return x >= r.left && x <= r.right && y >= r.top && y <= r.bottom; };
-  const overPack = (x, y) => { const r = $('.rp-packbox').getBoundingClientRect(); return x >= r.left && x <= r.right && y >= r.top && y <= r.bottom; };
 
   function startDrag(e, id, from) {
     drag = { id, from, x: e.clientX, y: e.clientY, live: false, pid: e.pointerId };
@@ -246,7 +251,7 @@ export function createPack({ host, silent, cmd, take, spray, onToggle = null }) 
       drag.el.className = 'rp-drag';
       drag.el.innerHTML = `${iconOf(it)}<span>${esc(it.name)}</span>`;
       el.appendChild(drag.el);
-      el.classList.add('dragging', drag.from === 'doll' ? 'from-doll' : 'from-grid');
+      el.classList.add('dragging', 'from-grid');
       if (drag.from === 'grid' && it.slot && !it.worn) el.classList.add('can-wear');
     }
     const r = el.getBoundingClientRect();
@@ -257,21 +262,19 @@ export function createPack({ host, silent, cmd, take, spray, onToggle = null }) 
     if ((want?.id || null) !== (ghost?.id || null)) { ghost = want; paintDoll(); }
     dollEl.classList.toggle('drop-on', !!want);
     floor.classList.toggle('drop-on', overFloor(e.clientX, e.clientY) && !it?.worn);
-    $('.rp-packbox').classList.toggle('drop-on', drag.from === 'doll' && overPack(e.clientX, e.clientY) && !overFloor(e.clientX, e.clientY));
   }
   function endDrag(e) {
     if (!drag || e.pointerId !== drag.pid) return false;
     const d = drag; drag = null;
-    el.classList.remove('dragging', 'from-doll', 'from-grid', 'can-wear');
-    dollEl.classList.remove('drop-on'); floor.classList.remove('drop-on'); $('.rp-packbox').classList.remove('drop-on');
+    el.classList.remove('dragging', 'from-grid', 'can-wear');
+    dollEl.classList.remove('drop-on'); floor.classList.remove('drop-on');
     d.el?.remove();
     if (ghost) { ghost = null; paintDoll(); }
     if (!d.live) return false;
     const it = byId(d.id);
     if (!it) return true;
     if (overFloor(e.clientX, e.clientY)) { if (it.worn) say(`Take ${it.name} off first.`, false); else act(it, 'drop'); }
-    else if (d.from === 'grid' && overDoll(e.clientX, e.clientY)) { if (it.slot && !it.worn) act(it, 'wear'); else if (!it.slot) say(`${it.name} isn't something you wear.`, false); }
-    else if (d.from === 'doll' && !overDoll(e.clientX, e.clientY)) act(it, 'off');
+    else if (overDoll(e.clientX, e.clientY)) { if (it.slot && !it.worn) act(it, 'wear'); else if (!it.slot) say(`${it.name} isn't something you wear.`, false); }
     return true;
   }
 
@@ -283,25 +286,29 @@ export function createPack({ host, silent, cmd, take, spray, onToggle = null }) 
     if (!t || e.button > 0 || e.pointerType === 'touch') return;
     startDrag(e, t.dataset.id, 'grid');
   });
+  // across you: turning you round, a pixel a fifth of a degree, and up and down a little
+  let spin = null;
   dollEl.addEventListener('pointerdown', (e) => {
-    const g = e.target.closest('[data-id]');
-    if (!g || e.button > 0) return;
-    startDrag(e, g.dataset.id, 'doll');
+    if (e.button > 0) return;
+    spin = { pid: e.pointerId, x: e.clientX, y: e.clientY };
+    try { dollEl.setPointerCapture(e.pointerId); } catch { /* the pointer's gone */ }
+    dollEl.classList.add('turning');
   });
-  el.addEventListener('pointermove', (e) => {
-    moveDrag(e);
-    if (!drag) {
-      const g = e.target.closest?.('.rp-doll [data-id]');
-      const id = g?.dataset.id || null;
-      if (id !== hover) { hover = id; paintDoll(); }
-    }
+  dollEl.addEventListener('pointermove', (e) => {
+    if (!spin || e.pointerId !== spin.pid) return;
+    turn?.(-(e.clientX - spin.x) * 0.0105, (e.clientY - spin.y) * 0.006, 1);
+    spin.x = e.clientX; spin.y = e.clientY;
   });
-  el.addEventListener('pointerleave', () => { if (hover) { hover = null; paintDoll(); } });
+  const endSpin = (e) => { if (spin && e.pointerId === spin.pid) { spin = null; dollEl.classList.remove('turning'); } };
+  dollEl.addEventListener('pointerup', endSpin);
+  dollEl.addEventListener('pointercancel', endSpin);
+  dollEl.addEventListener('wheel', (e) => { turn?.(0, 0, Math.exp(Math.max(-1, Math.min(1, e.deltaY / 240)) * 0.25)); e.preventDefault(); }, { passive: false });
+  el.addEventListener('pointermove', moveDrag);
   el.addEventListener('pointerup', (e) => {
     if (endDrag(e)) return;
-    // a click: a tile's chip does its main thing; a tile or a piece on the doll selects, twice quickly does its main thing
-    const chip = e.target.closest('[data-quick]'), tile = e.target.closest('.rp-tile'), piece = e.target.closest('.rp-doll [data-id]');
-    const id = tile?.dataset.id || piece?.dataset.id;
+    // a click: a tile's chip does its main thing; a tile selects, twice quickly does its main thing
+    const chip = e.target.closest('[data-quick]'), tile = e.target.closest('.rp-tile');
+    const id = tile?.dataset.id;
     if (chip && tile) { primary(byId(tile.dataset.id)); return; }
     if (!id) return;
     const now = performance.now();
@@ -309,7 +316,7 @@ export function createPack({ host, silent, cmd, take, spray, onToggle = null }) 
     lastTap = { id, at: now };
     select(id);
   });
-  el.addEventListener('pointercancel', (e) => { if (drag && e.pointerId === drag.pid) { drag.el?.remove(); drag = null; el.classList.remove('dragging', 'from-doll', 'from-grid', 'can-wear'); if (ghost) { ghost = null; paintDoll(); } } });
+  el.addEventListener('pointercancel', (e) => { if (drag && e.pointerId === drag.pid) { drag.el?.remove(); drag = null; el.classList.remove('dragging', 'from-grid', 'can-wear'); if (ghost) { ghost = null; paintDoll(); } } });
   // the room under it doesn't turn or walk while you're in the pack
   for (const ev of ['pointerdown', 'wheel', 'contextmenu']) el.addEventListener(ev, (e) => e.stopPropagation());
 
@@ -350,6 +357,9 @@ export function createPack({ host, silent, cmd, take, spray, onToggle = null }) 
     if (k === 'Enter' || k === 'f' || k === 'F') { if (!e.repeat) primary(byId(selected)); return true; }
     if (k === 'Delete' || k === 'Backspace') { const it = byId(selected); if (it && !it.worn && !e.repeat) act(it, 'drop'); return true; }
     if (/^[1-4]$/.test(k)) { tab = TABS[+k - 1][0]; paintHead(); paintGrid(); return true; }
+    // Q and E turn you round, as they turn you in the room
+    if (k === 'q' || k === 'Q') { turn?.(0.2, 0, 1); return true; }
+    if (k === 'e' || k === 'E') { turn?.(-0.2, 0, 1); return true; }
     // the room's own keys stay the room's: nothing else walks or acts while the pack is up
     return k.length === 1 || k.startsWith('Arrow') || k === ' ';
   }
@@ -364,7 +374,7 @@ export function createPack({ host, silent, cmd, take, spray, onToggle = null }) 
   }
   function close() {
     if (!open) return;
-    open = false; el.hidden = true; ghost = null; hover = null;
+    open = false; el.hidden = true; ghost = null; spin = null;
     host.classList.remove('rp-open');
     onToggle?.(false);
   }
@@ -374,6 +384,10 @@ export function createPack({ host, silent, cmd, take, spray, onToggle = null }) 
     close,
     toggle(withTab) { if (open && (!withTab || withTab === tab)) close(); else openPack(withTab); },
     isOpen: () => open,
+    // where you're drawn, on the page, for the room's camera to frame you in
+    dollRect: () => (open ? dollEl.getBoundingClientRect() : null),
+    // what you have on, with a garment held over you counted as on, for the figure (null till the pack's come)
+    worn: () => (pack ? (ghost ? pack.items.map((x) => (x.id === ghost.id ? { ...x, worn: true } : x)) : pack.items) : null),
     // the server's `room_pack`
     data(msg) {
       waiting = false;

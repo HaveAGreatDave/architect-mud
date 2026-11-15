@@ -6,7 +6,8 @@
 // view matrix a pan and a pitch, which `matrices()` writes out by hand so it can be read
 // against `P` line for line. The one yaw is the vertical view (`C.yaw`, 0 or 1): the camera
 // stands at the left end looking down the sheet, so the play runs up and down the screen.
-// Only GL draws it; the 2-D renderer shows the broadcast view instead.
+// Only GL draws it; the 2-D renderer shows the broadcast view instead. A seat in the stands and the
+// Ken Raven comic's shots (`shotFrame`) turn to any heading, on GL only.
 //
 // THE NHL 99 CAMERA. The default framing is the one the old EA games played on: high on the
 // near side, close enough that the players are big, panning with the puck and leading it
@@ -32,6 +33,7 @@
 import { clamp, lerp } from './util.js';
 import { RL, RW, GOAL_X, MID_Y, BOARD_H } from './geo.js';
 import { ROOF_Z } from '../gl/arena-crowd.js';
+import { shotEye } from './ken-comic.js';
 
 export const NEAR = 0.6, FAR = 600;
 
@@ -126,6 +128,15 @@ export function createRinkCamera(W, { snap = false, from = null } = {}) {
       // the Zamboni is a time-lapse, and a time-lapse is shot locked off: high and wide, the
       // whole sheet in the picture, in either view
       case 'zam': return want() === 'vertical' ? wholeSheetV(aspect) : wholeSheet(aspect);
+      // the Ken Raven comic's shots (rink/ken-comic.js): a camera free to turn shoots them from the
+      // ice (`shotFrame`), and the springs wait on the time-lapse's framing for after; one that
+      // can't turn (the 2-D renderer) shoots them from the broadcast side, close
+      case 'ken': {
+        const S = c.shot, z = W.zamboni;
+        if (api.free || !S || !z) return want() === 'vertical' ? wholeSheetV(aspect) : wholeSheet(aspect);
+        const { L } = shotEye(S, z, S.side || 1);
+        return { lx: clamp(L[0], 20, RL - 20), ly: clamp(L[1], 10, RW - 6), lz: L[2] * 0.6, dist: 26, pitch: 0.3, fm: 1 };
+      }
       case 'death': return { lx: clamp(f[0], 44, RL - 44), ly: clamp(f[1], 14, RW - 6), lz: 0.8, dist: 28 - Math.min(8, (W.t - (c.since || W.t)) * 0.6), pitch: 0.42, fm: 1 };
       default: return want() === 'vertical' ? vertical(f, c, aspect) : broadcast(f, c, aspect);
     }
@@ -260,6 +271,8 @@ export function createRinkCamera(W, { snap = false, from = null } = {}) {
     if (api.view !== lastView) { lastView = api.view; yawS = yawT; yawV.v = 0; Object.assign(cam, tg); for (const k of KEYS) vel[k].v = 0; }
     else if (yawS !== yawT) yawS = dt > 0 ? smooth(yawS, yawT, yawV, SWING * 0.45, dt, Infinity) : yawS;
     if (api.seat) { api.shown = 'broadcast'; return seatFrame(api.seat, w, h, dt); }
+    // (the stands all round it: the camera is on the ice, so no stand is the one it stands in)
+    if (api.free && W.cam.mode === 'ken' && W.cam.shot && W.zamboni) { api.shown = 'vertical'; return shotFrame(W.cam.shot, W.zamboni, w, h); }
     const yaw = yawS, { fx, fy, rx, ry } = camAxes(yaw);
     api.shown = yaw > 0.5 ? 'vertical' : 'broadcast';
     const back = cam.dist * Math.cos(cam.pitch);
@@ -293,7 +306,22 @@ export function createRinkCamera(W, { snap = false, from = null } = {}) {
     const P = (X, Y, Z) => { const qx = X - ex, qy = Y - ey, dz = Z - ez, dx = qx * rx + qy * ry, dy = qx * fx + qy * fy, d = dy * cp - dz * sp; if (d < NEAR) return null; const up = dy * sp + dz * cp; return { x: C.cx + C.f * dx / d, y: C.cy - C.f * up / d, s: C.f / d, d }; };
     return { C, P, camPos: [ex, ey, ez] };
   }
+  // A SHOT OF THE KEN RAVEN COMIC (rink/ken-comic.js): an eye on the ice riding with the Zamboni,
+  // where the shot puts it in the machine's frame, looking at what it says, at any heading (`C.ax`,
+  // as a seat's). Bolted to the machine, so it moves as the machine does, which turns smoothly.
+  function shotFrame(S, z, w, h) {
+    const { E, L } = shotEye(S, z, S.side || 1);
+    const tx = L[0] - E[0], ty = L[1] - E[1], tz = L[2] - E[2];
+    const a = Math.atan2(tx, ty), fx = Math.sin(a), fy = Math.cos(a), rx = fy, ry = -fx;
+    const fov = clamp(S.fov || 46, 15, 100) * Math.PI / 180;
+    const C = { x: E[0], y: E[1], z: E[2], pitch: Math.atan2(-tz, Math.hypot(tx, ty)), yaw: 0, ax: { fx, fy, rx, ry }, f: (w / 2) / Math.tan(fov / 2), cx: w / 2, cy: h / 2, w, h };
+    const cp = Math.cos(C.pitch), sp = Math.sin(C.pitch);
+    const P = (X, Y, Z) => { const qx = X - E[0], qy = Y - E[1], dz = Z - E[2], dx = qx * rx + qy * ry, dy = qx * fx + qy * fy, d = dy * cp - dz * sp; if (d < NEAR) return null; const up = dy * sp + dz * cp; return { x: C.cx + C.f * dx / d, y: C.cy - C.f * up / d, s: C.f / d, d }; };
+    return { C, P, camPos: E.slice() };
+  }
   api.seat = null;
+  // whether the renderer can draw a camera at any heading (GL can; the 2-D one can't)
+  api.free = false;
   return api;
 }
 

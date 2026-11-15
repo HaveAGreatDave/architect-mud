@@ -241,7 +241,8 @@ export function createNpcLife({ viewers, annexOf, mainOf, specOf, roomPieces, se
   const clipOfUse = (id) => { const u = using.get(id); if (u && u.until <= Date.now()) using.delete(id); return using.get(id)?.clip || null; };
 
   const here = (main) => { const annex = annexOf(main); return [...getZoneNpcs(main), ...(annex ? getZoneNpcs(annex.id) : [])]; };
-  const free = (n, main) => !n._dead && !n._combatTargetId && !n.flags?.no_home_life && !n.onFurniture && !n.sittingOn
+  // (an animal is never a resident here: a pet's day is its own, plugins/pets and client/shared/cat-life.js)
+  const free = (n, main) => !n._dead && !n._combatTargetId && !n.flags?.no_home_life && !n.flags?.animal && !n.onFurniture && !n.sittingOn
     && (n.posture || 'standing') === 'standing' && !n._ai?.dosedOut && !isNpcAsleep(n) && !isNpcScheduledNow(n.id)
     && !!n.home_zone && mainOf(n.home_zone) === main;
 

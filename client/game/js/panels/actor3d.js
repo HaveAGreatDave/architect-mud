@@ -187,8 +187,8 @@ const HD_DROP = new Set([FIG_SLOT.hair, FIG_SLOT.face, FIG_SLOT.ear, FIG_SLOT.ne
 // Triangles for the crowd's body and the far one: what the coarse levels had.
 const HD_TRIS = [3600, 430];
 const _hdBodies = new Map();
-function hdBody(lod, sil) {
-  const key = `${lod}:${sil}`;
+function hdBody(lod, sil, tris = HD_TRIS[lod ? 1 : 0]) {
+  const key = `${lod}:${sil}:${tris}`;
   if (_hdBodies.has(key)) return _hdBodies.get(key);
   const cut = (ACTOR_SILHOUETTES[sil] || ACTOR_SILHOUETTES[0]).cut;
   const at = (weight = null, build = 'average') => buildFigure({ cut, level: 'hd', sculpt: true, weight, build });
@@ -200,7 +200,7 @@ function hdBody(lod, sil) {
   }
   const cls = Uint8Array.from(F.S, (s) => SLOT_MAT[s] ?? COAT);
   const skin = (v) => { const o = []; for (let k = 0; k < 4; k++) if (F.W[v * 4 + k] > 0) o.push([F.B[v * 4 + k], F.W[v * 4 + k]]); return o; };
-  const { ids, I } = simplifyMesh({ P: F.P, I: keep, cls, skin, target: HD_TRIS[lod ? 1 : 0] });
+  const { ids, I } = simplifyMesh({ P: F.P, I: keep, cls, skin, target: tris });
   // How far each kept point moves along its normal for the three bodies and a woman's, as buildBody
   // measures the coarse mesh: the close-up figure has the same points at every weight.
   const E = at(0), Me = at(0.5), En = at(1), Wo = at(0.5, 'woman');
@@ -218,13 +218,13 @@ function hdBody(lod, sil) {
   return out;
 }
 
-function buildBody(lod = 0, head = true, sil = 0) {
+function buildBody(lod = 0, head = true, sil = 0, tris = undefined) {
   const M = meshBuilder();
   const far = lod > 0;
   const N = far ? 6 : 14, SUB = far ? 0 : 1;
   const ell = (c, r, nu, nv, wf, mat, shape) => ellipsoid(M, c, r, far ? Math.max(4, nu >> 1) : nu, far ? Math.max(3, nv >> 1) : nv, wf, mat, shape);
-  if (ACTOR_BAKE.hd) {
-    const H = hdBody(lod, sil);
+  if (ACTOR_BAKE.hd || tris) {
+    const H = hdBody(lod, sil, tris);
     for (let k = 0; k < H.p.length; k++) M.p.push(H.p[k]);
     for (let k = 0; k < H.w.length; k++) { M.b0.push(H.b0[k]); M.b1.push(H.b1[k]); M.w.push(H.w[k]); M.m.push(H.m[k]); }
     for (let k = 0; k < H.i.length; k++) M.i.push(H.i[k]);
@@ -1769,6 +1769,163 @@ function guardPose(p) {
   return P;
 }
 
+// ── In the stands: the fans' clips (gl/fan-vat.js bakes them). ──
+// An arm solved to put the middle of its palm at `to`, given in the chest bone's own frame (metres:
+// +x the figure's left, +y up the spine, +z ahead), so a target rides the lean of whatever body it's
+// on. Coordinate descent on the shoulder's flexion, twist and abduction and the elbow, from a hanging
+// arm, with a little pull back toward that arm so the elbow stays down and out. `base` names the body
+// it's solved on ('stand' or 'sit'); the answer is kept by base, side and target, so a clip solves its
+// handful of targets once and every frame after that is a lookup.
+const _reach = new Map();
+const PALM = [0, -0.085, 0.01];
+function palmOf(W, side) {
+  const m = W[B['hand' + side]];
+  return [m[0] * PALM[0] + m[4] * PALM[1] + m[8] * PALM[2] + m[12], m[1] * PALM[0] + m[5] * PALM[1] + m[9] * PALM[2] + m[13], m[2] * PALM[0] + m[6] * PALM[1] + m[10] * PALM[2] + m[14]];
+}
+function reach(base, side, to) {
+  const key = `${base}${side}${to.map((v) => v.toFixed(3)).join()}`;
+  if (_reach.has(key)) return _reach.get(key);
+  const body = base === 'sit' ? sitting(4) : stance(0);
+  const C = fk(body)[B.chest];
+  const T = [0, 1, 2].map((r) => C[r] * to[0] + C[4 + r] * to[1] + C[8 + r] * to[2] + C[12 + r]);
+  const s = side === 'L' ? 1 : -1;
+  // [flexion, twist, abduction, elbow], radians; the elbow only bends one way
+  let v = [-0.3, 0.4 * s, 0.15 * s, -1.2];
+  const rest = v.slice();
+  const cost = (q) => {
+    const P = { r: body.r.slice(), root: body.root.slice() };
+    for (const b of ['uarm', 'farm', 'hand']) { const i = B[b + side] * 3; P.r[i] = P.r[i + 1] = P.r[i + 2] = 0; }
+    const iu = B['uarm' + side] * 3, ifa = B['farm' + side] * 3;
+    P.r[iu] = q[0]; P.r[iu + 1] = q[1]; P.r[iu + 2] = q[2]; P.r[ifa] = Math.min(0, q[3]);
+    const p = palmOf(fk(P), side), d = [p[0] - T[0], p[1] - T[1], p[2] - T[2]];
+    let e = d[0] * d[0] + d[1] * d[1] + d[2] * d[2];
+    for (let k = 0; k < 4; k++) e += 2e-4 * (q[k] - rest[k]) ** 2;
+    // the elbow out from the body rather than across it
+    e += 4e-3 * Math.max(0, -s * q[2]) ** 2;
+    return e;
+  };
+  let best = cost(v);
+  for (let step = 0.5; step > 1e-4; step *= 0.6) {
+    for (let it = 0; it < 12; it++) {
+      let moved = false;
+      for (let k = 0; k < 4; k++) for (const d of [step, -step]) {
+        const q = v.slice(); q[k] += d;
+        const c = cost(q);
+        if (c < best) { best = c; v = q; moved = true; }
+      }
+      if (!moved) break;
+    }
+  }
+  _reach.set(key, v);
+  return v;
+}
+// Set an arm to a solved reach, or part-way between two.
+function reachTo(P, base, side, a, b = a, k = 0) {
+  const u = reach(base, side, a), w = b === a ? u : reach(base, side, b);
+  const q = u.map((x, i) => x + (w[i] - x) * k);
+  zeroR(P, 'uarm' + side); zeroR(P, 'farm' + side); zeroR(P, 'hand' + side);
+  setR(P, 'uarm' + side, q[0], q[1], q[2]); setR(P, 'farm' + side, Math.min(0, q[3]), 0, 0);
+}
+const mirrorX = (t) => [-t[0], t[1], t[2]];
+// Sat quiet, hands in the lap: the seat every fan's other clips start from.
+function fanSitPose(p) {
+  const P = sitting(4), s = Math.sin(TAU * p);
+  armTo(P, 'L', 'lapL'); armTo(P, 'R', 'lapR');
+  setR(P, 'chest', 1.5 * DEG * Math.cos(TAU * p), 0, 0);
+  setR(P, 'head', 3 * DEG, 6 * DEG * s, 0);
+  return P;
+}
+// Getting up, `p` 0 sat to 1 stood: the two poses mixed on the joints, so the knees and the arms
+// swing round rather than cut through the seat. Played by how far up he is, not by the clock.
+function fanRisePose(p) {
+  const A = fanSitPose(0), Z = stance(0), k = smooth(0, 1, p), P = newPose();
+  armTo(Z, 'L', 'hangL'); armTo(Z, 'R', 'hangR');
+  for (let i = 0; i < P.r.length; i++) P.r[i] = A.r[i] + (Z.r[i] - A.r[i]) * k;
+  P.root = A.root.map((v, i) => v + (Z.root[i] - v) * k);
+  // half-way up he leans forward over his feet, as anybody getting out of a seat does
+  setR(P, 'spine', 22 * DEG * Math.sin(Math.PI * k), 0, 0);
+  return P;
+}
+// Clapping: the palms meet in front of the chest twice a cycle and part to a shoulder's width.
+const CLAP_IN = [0.025, 0.06, 0.3], CLAP_OUT = [0.17, 0.1, 0.27];
+const SIT_CLAP_IN = [0.025, -0.02, 0.3], SIT_CLAP_OUT = [0.16, 0.02, 0.27];
+function clapArms(P, base, p, inn, out) {
+  // shut fast and open slower, so the beat is on the meeting
+  const c = Math.pow(0.5 + 0.5 * Math.cos(2 * TAU * p), 0.6);
+  reachTo(P, base, 'L', out, inn, c); reachTo(P, base, 'R', mirrorX(out), mirrorX(inn), c);
+}
+function fanClapPose(p) {
+  const P = stance(p);
+  clapArms(P, 'stand', p, CLAP_IN, CLAP_OUT);
+  setR(P, 'head', -3 * DEG, 4 * DEG * Math.sin(TAU * p), 0);
+  return P;
+}
+function fanSitClapPose(p) {
+  const P = sitting(10);
+  clapArms(P, 'sit', p, SIT_CLAP_IN, SIT_CLAP_OUT);
+  setR(P, 'head', 0, 4 * DEG * Math.sin(TAU * p), 0);
+  return P;
+}
+// One fist punched up, over and over, the other on the hip.
+const FIST_LOW = [-0.24, 0.42, 0.16], FIST_HIGH = [-0.2, 0.86, 0.12];
+function fanFistPose(p) {
+  const P = stance(p);
+  armTo(P, 'L', 'hipL');
+  // up hard and down easy, twice a cycle
+  const q = (2 * p) % 1, k = q < 0.3 ? smooth(0, 0.3, q) : 1 - smooth(0.3, 1, q);
+  reachTo(P, 'stand', 'R', FIST_LOW, FIST_HIGH, k);
+  setR(P, 'chest', -4 * DEG * k, 6 * DEG, 0);
+  setR(P, 'head', -10 * DEG * k, 0, 0);
+  return P;
+}
+// Shouting through the hands, leant into it.
+function fanCupPose(p) {
+  const P = stance(p), s = Math.sin(TAU * p);
+  armTo(P, 'L', 'cupL'); armTo(P, 'R', 'cupR');
+  setR(P, 'spine', (6 + 3 * s) * DEG, 0, 0);
+  setR(P, 'head', (-6 - 3 * s) * DEG, 0, 0);
+  return P;
+}
+// A rally towel whirled over the head in the right hand, the left fist going with it.
+const TOWEL_C = [-0.14, 0.8, 0.12];
+function fanTowelPose(p) {
+  const P = stance(p), a = TAU * p, r = 0.16;
+  // a few points round the circle, solved once each, and the arm eased between the two either side
+  const N = 6, f = p * N, i = Math.floor(f) % N, j = (i + 1) % N;
+  const at = (n) => [TOWEL_C[0] + r * Math.cos(TAU * n / N), TOWEL_C[1], TOWEL_C[2] + r * Math.sin(TAU * n / N)];
+  reachTo(P, 'stand', 'R', at(i), at(j), f - Math.floor(f));
+  reachTo(P, 'stand', 'L', [0.22, 0.5, 0.18], [0.2, 0.62, 0.16], 0.5 + 0.5 * Math.sin(a));
+  setR(P, 'head', -6 * DEG, 0, 0);
+  return P;
+}
+// Sat, both hands on top of the head: the other lot have scored.
+function fanDespairPose(p) {
+  const P = sitting(18), s = Math.sin(TAU * p);
+  reachTo(P, 'sit', 'L', [0.07, 0.56, 0.04]); reachTo(P, 'sit', 'R', [-0.07, 0.56, 0.04]);
+  setR(P, 'neck', 8 * DEG, 0, 0);
+  setR(P, 'head', (10 + 3 * s) * DEG, 8 * DEG * Math.sin(TAU * p * 0.5), 0);
+  return P;
+}
+// Every clip the fans play. `k` clips are played by a value (fanRise by how far up he is), the rest
+// loop on the clock. ROOM's own seated clips (sitRest, sitLean, sitFold) are baked beside these.
+const FAN_CLIPS = [
+  { name: 'fanSit', dur: 9, fn: fanSitPose },
+  { name: 'fanRise', dur: 1, fn: fanRisePose, k: true },
+  { name: 'fanClap', dur: 0.9, fn: fanClapPose },
+  { name: 'fanSitClap', dur: 0.9, fn: fanSitClapPose },
+  { name: 'fanFist', dur: 1.4, fn: fanFistPose },
+  { name: 'fanCup', dur: 2.2, fn: fanCupPose },
+  { name: 'fanTowel', dur: 1.1, fn: fanTowelPose },
+  { name: 'fanDespair', dur: 7, fn: fanDespairPose },
+];
+export const ACTOR_FAN_CLIPS = FAN_CLIPS.map(({ name, dur, k }) => ({ name, dur, k: !!k }));
+// A fan clip's pose at `p` as skin matrices, the lowest point of the body not yet dropped to the
+// ground (the bake does that, as it does for its own clips). Any clip actorSkinAt knows, too.
+export function actorFanSkin(name, p) {
+  const c = FAN_CLIPS.find((x) => x.name === name);
+  return c ? skinMats(fk(c.fn(c.k ? Math.min(1, Math.max(0, p)) : ((p % 1) + 1) % 1))) : actorSkinAt(name, p);
+}
+
 // Frames per clip and seconds per cycle. The walk's cycle time is only its nominal pace: in the game
 // its phase follows the distance walked (see actorStrideM), so it is never read as a clock.
 // The standing clips are slow, so they bake few frames; the shader blends between neighbours.
@@ -2178,7 +2335,6 @@ export const actorBakeReady = () => _bake;
 export function actorBakeReset() {
   if (_worker && _worker !== false) _worker.terminate();
   _bake = null; _job = null; _done = []; _bakeHead = null; _worker = null;
-  for (const k of Object.keys(_poseBody)) delete _poseBody[k];
 }
 // The whole bake at once, for the gate and the Modelshop. `head: true` is the near body with its old
 // head on, which the Actor Lab finds its parts in and the gate measures the bones against; its far
@@ -2213,40 +2369,6 @@ export function actorSkinMix(a, pa, b, pb, k) {
   P.root = A.root.map((v, i) => v + (Bp.root[i] - v) * k);
   return skinMats(fk(P));
 }
-// One frame of a clip as a plain triangle list, for a figure drawn without the bake: the stands'
-// fans (gl/ballpark-mesh.js crowdMorph), who need three poses and not every frame of every clip.
-// Returns { p, n, mat } per corner (three corners a triangle, unindexed), metres, +Y up, +Z ahead,
-// the lowest point on the ground as the bake drops it. The same body every call, so two poses pair
-// up corner for corner.
-const _poseBody = {};
-export function actorPoseMesh(name, phase = 0, lod = 1) {
-  const M = _poseBody[lod] || (_poseBody[lod] = buildBody(lod, true));
-  const clip = CLIPS.find((c) => c.name === name) || CLIPS[1];
-  const S = skinMats(fk(clip.fn(((phase % 1) + 1) % 1)));
-  const nv = M.p.length / 3, P = new Float32Array(nv * 3);
-  let minY = Infinity;
-  for (let v = 0; v < nv; v++) {
-    const x = M.p[v * 3], y = M.p[v * 3 + 1], z = M.p[v * 3 + 2], w = M.w[v], u = 1 - w, a = S[M.b0[v]], b = S[M.b1[v]];
-    for (let k = 0; k < 3; k++) P[v * 3 + k] = w * (a[k] * x + a[4 + k] * y + a[8 + k] * z + a[12 + k]) + u * (b[k] * x + b[4 + k] * y + b[8 + k] * z + b[12 + k]);
-    if (P[v * 3 + 1] < minY) minY = P[v * 3 + 1];
-  }
-  for (let v = 0; v < nv; v++) P[v * 3 + 1] -= minY;
-  const Nn = new Float32Array(nv * 3), I = M.i;
-  for (let t = 0; t < I.length; t += 3) {
-    const i0 = I[t] * 3, i1 = I[t + 1] * 3, i2 = I[t + 2] * 3;
-    const ux = P[i1] - P[i0], uy = P[i1 + 1] - P[i0 + 1], uz = P[i1 + 2] - P[i0 + 2], vx = P[i2] - P[i0], vy = P[i2 + 1] - P[i0 + 1], vz = P[i2 + 2] - P[i0 + 2];
-    const nx = uy * vz - uz * vy, ny = uz * vx - ux * vz, nz = ux * vy - uy * vx;
-    for (const j of [i0, i1, i2]) { Nn[j] += nx; Nn[j + 1] += ny; Nn[j + 2] += nz; }
-  }
-  const p = new Float32Array(I.length * 3), n = new Float32Array(I.length * 3), mat = new Uint8Array(I.length);
-  for (let k = 0; k < I.length; k++) {
-    const v = I[k], l = Math.hypot(Nn[v * 3], Nn[v * 3 + 1], Nn[v * 3 + 2]) || 1;
-    for (let c = 0; c < 3; c++) { p[k * 3 + c] = P[v * 3 + c]; n[k * 3 + c] = Nn[v * 3 + c] / l; }
-    mat[k] = M.m[v];
-  }
-  return { p, n, mat };
-}
-
 // What a clip does to the face at `phase`: { open, round, shut }, or null if nothing.
 export function actorClipFace(name, phase) {
   const c = ROOM_CLIPS.find((x) => x.name === name);
@@ -2258,6 +2380,14 @@ export function actorClipFace(name, phase) {
 export function actorBind(lod = 0, head = true) {
   const M = buildBody(lod, head);
   return { p: new Float32Array(M.p), b0: new Uint8Array(M.b0), b1: new Uint8Array(M.b1), w: new Float32Array(M.w), mat: new Uint8Array(M.m), idx: new Uint16Array(M.i) };
+}
+// The body without its head, cut down to `tris` triangles from the sculpted figure in silhouette `sil`
+// (ACTOR_SILHOUETTES), for the stands' fans (gl/fan-vat.js), who bake their own clips and wear their
+// own head. As actorBind, plus `body`: how far each point moves along its normal for the three builds
+// and a woman's, four a vertex, in metres. Kept by its arguments.
+export function actorFanBody({ tris = 430, sil = 0 } = {}) {
+  const M = buildBody(1, false, sil, tris);
+  return { p: new Float32Array(M.p), b0: new Uint8Array(M.b0), b1: new Uint8Array(M.b1), w: new Float32Array(M.w), mat: new Uint8Array(M.m), idx: new Uint16Array(M.i), body: new Float32Array(M.body) };
 }
 
 // ── Outfits ────────────────────────────────────────────────────────────────────────────────────────

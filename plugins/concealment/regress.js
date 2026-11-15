@@ -30,12 +30,45 @@ export default async function regress({ run, check, getPlayer }) {
   if (cabinet && lab) {
     check('cabinet names the lab it hides', cabinet.flags?.conceal_hides === LAB, JSON.stringify(cabinet.flags));
     check('cabinet and lab share a zone', cabinet.zone_id === lab.zone_id, `${cabinet.zone_id} vs ${lab.zone_id}`);
-    check('factory code is set', /^\d{4,8}$/.test(_test.codeOf(cabinet)), _test.codeOf(cabinet));
+    check('factory code is set', /^\d{4,8}$/.test(_test.factoryOf(cabinet)), _test.factoryOf(cabinet));
 
     p.current_zone = cabinet.zone_id;
+    // The code the dev DB had, put back at the end: a suite that leaves somebody's
+    // cabinet on a code they didn't pick is a bug in the suite.
+    const priorCode = await _test.ownCode(cabinet);
+    const wasOpen = _test.isOpen(cabinet);
+    const factory = _test.factoryOf(cabinet);
+    const OWN = factory === '5807' ? '5808' : '5807', NEXT = OWN === '5807' ? '4416' : '4417';
+
+    // --- The factory code asks for a new one, and won't take itself back ---------
+    await _test.restoreCode(cabinet, null);
+    const first = await run(`keypad cachet ${factory}`);
+    check('factory code asks for a new code', first?.type === 'output' && /factory code/i.test(first?.message || ''), first?.message);
+    check("factory code doesn't move the wall yet", _test.isOpen(cabinet) === wasOpen, 'the wall moved before a code was set');
+    const overlay = await run(`concealcode ${CABINET} ${factory}`);
+    check('the overlay is sent to its setup stage', overlay?.type === 'conceal_keypad' && overlay?.stage === 'setup', JSON.stringify(overlay));
+    const same = await run(`keypad cachet ${factory} ${factory}`);
+    check("the factory code can't be the new code", same?.type === 'error', same?.message);
+    const set = await run(`keypad cachet ${factory} ${OWN}`);
+    check('a new code is set', set?.type === 'output' && /new code set/i.test(set?.message || ''), set?.message);
+    check('setting the first code opens the wall', _test.isOpen(cabinet) !== wasOpen, 'the wall stayed put');
+    check('the code is stored', (await _test.ownCode(cabinet)) === OWN, String(await _test.ownCode(cabinet)));
+    const stale = await run(`keypad cachet ${factory}`);
+    check('the factory code stops working', stale?.type === 'error', stale?.message);
+    check("the stale code doesn't move the wall", _test.isOpen(cabinet) !== wasOpen, 'the factory code moved it');
+    await run(`keypad cachet ${OWN}`);
+    check('the new code works the wall', _test.isOpen(cabinet) === wasOpen, "the owner's code didn't move it");
+
+    // --- The reset key: the current code first, then a new one ----------------
+    const wrongReset = await run(`concealsetcode ${CABINET} ${factory}`);
+    check('reset refuses a wrong current code', wrongReset?.type === 'error', JSON.stringify(wrongReset));
+    const askNew = await run(`concealsetcode ${CABINET} ${OWN}`);
+    check('reset asks for the new code', askNew?.type === 'conceal_keypad' && askNew?.stage === 'new', JSON.stringify(askNew));
+    const reset = await run(`concealsetcode ${CABINET} ${OWN} ${NEXT}`);
+    check('reset sets the new code', reset?.type === 'output' && (await _test.ownCode(cabinet)) === NEXT, reset?.message);
+    check("reset doesn't move the wall", _test.isOpen(cabinet) === wasOpen, 'a reset opened it');
 
     // A wrong code changes nothing and says nothing useful.
-    const wasOpen = _test.isOpen(cabinet);
     const bad = await run('keypad cachet 9999');
     check('wrong code is refused', bad?.type === 'error', bad?.message);
     check('wrong code leaks nothing about the lab', !/chem|lab/i.test(bad?.message || ''), bad?.message);
@@ -44,9 +77,9 @@ export default async function regress({ run, check, getPlayer }) {
     // The real code toggles it. Run it twice so the suite leaves the world exactly
     // as it found it — a regress that leaves a dealer's lab hanging open is a bug
     // in the test, not a passing feature.
-    const code = _test.codeOf(cabinet);
-    const first = await run(`keypad cachet ${code}`);
-    check('right code is accepted', first?.type === 'output', first?.message);
+    const code = await _test.codeOf(cabinet);
+    const right = await run(`keypad cachet ${code}`);
+    check('right code is accepted', right?.type === 'output', right?.message);
     check('the wall pivots', _test.isOpen(cabinet) !== wasOpen, 'nothing moved on a good code');
 
     const revealed = _test.isOpen(cabinet);
@@ -86,6 +119,9 @@ export default async function regress({ run, check, getPlayer }) {
     // While sealed, examine advertises the pad and nothing else.
     const desc = await run('examine cachet vantage 900 cabinet');
     check('examine shows a keypad, not a lab', /keypad/i.test(desc?.message || '') && !/chem lab/i.test(desc?.message || ''), desc?.message);
+
+    await _test.restoreCode(cabinet, priorCode);
+    check('the code is put back how the suite found it', (await _test.ownCode(cabinet)) === priorCode, String(await _test.ownCode(cabinet)));
   }
 
   // --- Owner-only keypad ----------------------------------------------------
@@ -105,6 +141,9 @@ export default async function regress({ run, check, getPlayer }) {
     JSON.stringify(availableActions(fake, p)));
   check('guest gets no keypad action', !availableActions(fake, stranger).includes('keypad'),
     JSON.stringify(availableActions(fake, stranger)));
+  // …and only the owner sets the code, so a guest who knows it can't lock them out
+  check('owner may set the code', _test.canSetCode(fake, p), 'the owner was refused');
+  check("a guest can't set the code", !_test.canSetCode(fake, stranger), 'a guest could change the code');
 
   // Unowned space is unchanged — nobody to be private from.
   const openRoom = { ...fake, zone_id: '__conceal_unowned_zone__' };

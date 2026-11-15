@@ -48,6 +48,19 @@ export function fireDial(K, F, id, x, y, z, s = 1) {
 // the stone a fine flat's worktops and bathrooms are cut from
 export const STONE = { t: 'roomStone', c: '#9a9c9e' };
 const BLACK = '#17181b';
+// the brass of a spa en-suite's fittings (room-layout.js ANNEX_DRESSES), the Solenne's gold
+const BRASS = '#b8913e';
+// A MIRROR: a face gl/room.js draws the room into, through the glass, from wherever you're standing (its mirror
+// pass). No MAT code is 48. Its colour is the silvering's tint.
+export const MIRROR = 48;
+// A pane of mirror on a piece's front at depth z, facing out of it: one flat face, unbaked, so the renderer finds
+// its plane exactly. A mirror's glass is never quite white: a touch of green and a little light lost.
+export function mirrorPane(c, x0, x1, y0, y1, z) {
+  const { P, N } = c.F;
+  c.K.quad(c.K.solid, [P(x0, y0, z), P(x1, y0, z), P(x1, y1, z), P(x0, y1, z)], N(0, 0, 1), [0.86, 0.9, 0.88], MIRROR, null, true);
+}
+// whether a piece stands in a spa en-suite, where its metal is brass
+const spaOf = (c) => !!c.p.annex && c.L?.spec?.annex?.dress === 'spa';
 
 // A hollow in a block: four walls round a floor set down into it, so a bath or a basin has an inside.
 // `top` is the rim, `floor` the bottom of the hollow, `rim` how thick the walls are.
@@ -215,6 +228,100 @@ function bottles(c, x0, x1, y, z, n) {
   for (let i = 0; i < n; i++) {
     const x = x0 + (i + 0.5) * (x1 - x0) / n + (c.r() - 0.5) * 0.02, h = 0.2 + c.r() * 0.1, wd = 0.03 + c.r() * 0.012, col = pick(c.r, cols);
     c.lat(x, z, [[0, y], [wd, y], [wd, y + h * 0.62], [wd * 0.4, y + h * 0.78], [wd * 0.34, y + h], [0, y + h]], col, 0.95, 10, GLOSS);
+  }
+}
+
+// ── A BAR'S BOTTLES (barwall) ───────────────────────────────────────────────────────────────────
+// One bottle standing at (x, z) on y, `s` its scale. Six kinds, each its own shape: a wine bottle with a foil capsule,
+// a square whisky with a cork, a tall gin, a squat liqueur with a wax-dipped neck, a frosted vodka and a champagne
+// bottle with its foil and cage. Every one wears a paper label (the canvas texture, so it reads as paper) with a
+// coloured band, so a shelf of them reads as stock and not as coloured rods. `pour` gives it a steel speed pourer,
+// as the bottles a bartender reaches for do.
+const LIQUOR = ['#5a2a14', '#2a4a2a', '#b8862a', '#8a2a1a', '#dfe8ec', '#1e2e4a', '#6a2a4a', '#c8a050', '#3a1a10'];
+const LABEL = { t: 'roomCanvas', c: '#ece2c6' };
+const BAND = ['#8a1a1a', '#1a2a4a', '#c8a050', '#1a1a1c', '#2a5a3a', '#e8e0d0'];
+function barBottle(c, x, z, y, kind, s = 1, pour = false) {
+  const { pbox } = c.F, r = c.r, col = kind === 'vodka' ? '#dfe8ec' : pick(r, LIQUOR), band = pick(r, BAND);
+  const label = (rr, y0, y1) => {
+    c.lat(x, z, [[rr, y0], [rr, y1]], LABEL, 1.05, 10, SATIN);
+    const ym = y0 + (y1 - y0) * (0.3 + r() * 0.4);
+    c.lat(x, z, [[rr + 0.0015, ym - 0.007], [rr + 0.0015, ym + 0.007]], band, 1.05, 10, SATIN);
+  };
+  let top;
+  if (kind === 'whisky') {
+    // square shouldered glass, a short neck and a wooden-topped cork
+    const a = 0.034 * s, hb = 0.17 * s;
+    pbox(x - a, x + a, y, y + hb, z - a * 0.8, z + a * 0.8, col, 1, null, GLOSS);
+    pbox(x - a * 0.8, x + a * 0.8, y + hb, y + hb + 0.02 * s, z - a * 0.62, z + a * 0.62, col, 1, null, GLOSS);
+    pbox(x - a * 0.85, x + a * 0.85, y + hb * 0.2, y + hb * 0.62, z + a * 0.8, z + a * 0.8 + 0.002, '#ffffff', 1.05, LABEL, SATIN);
+    pbox(x - a * 0.85, x + a * 0.85, y + hb * 0.5, y + hb * 0.56, z + a * 0.8 + 0.002, z + a * 0.8 + 0.003, band, 1.05, null, SATIN);
+    c.lat(x, z, [[0.012 * s, y + hb + 0.02 * s], [0.012 * s, y + hb + 0.06 * s]], col, 1, 8, GLOSS);
+    c.lat(x, z, [[0, y + hb + 0.06 * s], [0.017 * s, y + hb + 0.06 * s], [0.017 * s, y + hb + 0.085 * s], [0, y + hb + 0.085 * s]], '#6a4a2a', 1, 8, SATIN);
+    top = y + hb + 0.085 * s;
+  } else if (kind === 'liqueur') {
+    // a squat round body, a long neck and a dripped wax seal
+    const rb = 0.042 * s;
+    c.lat(x, z, [[0, y], [rb * 0.8, y], [rb, y + 0.04 * s], [rb, y + 0.09 * s], [rb * 0.6, y + 0.13 * s], [0.012 * s, y + 0.15 * s], [0.012 * s, y + 0.22 * s], [0, y + 0.22 * s]], col, 1, 10, GLOSS);
+    label(rb * 1.01, y + 0.045 * s, y + 0.085 * s);
+    c.lat(x, z, [[0, y + 0.2 * s], [0.016 * s, y + 0.2 * s], [0.017 * s, y + 0.235 * s], [0, y + 0.24 * s]], pick(r, ['#8a1a1a', '#1a1a1c', '#c8a050']), 1, 8, GLOSS);
+    top = y + 0.24 * s;
+  } else {
+    // round bottles: wine, gin, vodka and champagne differ in girth, height and shoulders
+    const sh = { wine: [0.036, 0.3, 0.6, 0.82], gin: [0.035, 0.29, 0.72, 0.8], vodka: [0.032, 0.32, 0.7, 0.8], champagne: [0.044, 0.32, 0.55, 0.84] }[kind] || [0.035, 0.3, 0.62, 0.8];
+    const rb = sh[0] * s, h = sh[1] * s, rn = rb * (kind === 'champagne' ? 0.4 : 0.36);
+    c.lat(x, z, [[0, y], [rb, y], [rb, y + h * sh[2]], [rn * 1.25, y + h * sh[3]], [rn, y + h * 0.9], [rn, y + h], [0, y + h]], col, kind === 'vodka' ? 1.1 : 0.95, 10, GLOSS);
+    label(rb * 1.01, y + h * 0.16, y + h * (kind === 'gin' ? 0.62 : 0.48));
+    if (kind === 'wine' || kind === 'champagne') {
+      // the capsule: foil down the neck, and on champagne a gold cage over a fatter one
+      const foil = kind === 'champagne' ? '#c8a050' : pick(r, ['#8a1a1a', '#1a1a1c', '#c8a050', '#d8d8d0']);
+      c.lat(x, z, [[rn * 1.06, y + h * (kind === 'champagne' ? 0.8 : 0.86)], [rn * 1.06, y + h + 0.004]], foil, 1.1, 10, METAL);
+    } else c.lat(x, z, [[0, y + h], [rn * 1.15, y + h], [rn * 1.15, y + h + 0.02 * s], [0, y + h + 0.022 * s]], kind === 'gin' ? '#2a2a2e' : '#c8ccd0', 1.05, 8, METAL);
+    top = y + h + (kind === 'wine' || kind === 'champagne' ? 0.004 : 0.022 * s);
+  }
+  // a speed pourer: a steel spout angled off the top
+  if (pour) c.rod(c.F.P(x, top, z), c.F.P(x, top + 0.025, z + 0.02), 0.0035, '#d8dade', 1.2, METAL, 5);
+}
+const BOTTLE_KINDS = ['wine', 'whisky', 'gin', 'liqueur', 'vodka', 'wine', 'gin', 'whisky', 'champagne'];
+// a row of them along a shelf, spaced by their size, each kind off the seed
+function bottleRow(c, x0, x1, y, z, s = 1, pour = false) {
+  const step = 0.095 * s;
+  for (let x = x0 + step / 2; x < x1 - step / 2 + 1e-6; x += step) barBottle(c, x + (c.r() - 0.5) * 0.01, z, y, pick(c.r, BOTTLE_KINDS), s * (0.9 + c.r() * 0.1), pour);
+}
+// Wine laid down in a cubby of the base: a dark recess between x0 and x1, a shelf under each row, each bottle on its
+// side with its foil end out. Drawn along z, so nothing passes the front at hd.
+// Each shelf is lit along its front from underneath, so the bottles under it catch the light and the bay reads as
+// stock from across the room, not as a dark panel.
+function wineCubby(c, x0, x1, y0, y1, hd, cab, tex, glow, brass) {
+  const { pbox, P } = c.F, back = hd - 0.32, rows = 3, gy = (y1 - y0) / rows;
+  pbox(x0, x1, y0, y1, back - 0.01, back, cab, 0.75, tex, SATIN);
+  for (const x of [x0, x1 - 0.012]) pbox(x, x + 0.012, y0, y1, back, hd - 0.004, cab, 1, tex, SATIN);
+  for (let i = 0; i <= rows; i++) {
+    const y = y0 + i * gy;
+    pbox(x0, x1, y - 0.008, y + 0.008, back, hd - 0.004, cab, 1, tex, SATIN);
+    pbox(x0 + 0.012, x1 - 0.012, y - 0.008, y + 0.008, hd - 0.006, hd - 0.002, brass, 1.1, null, METAL);
+    if (i > 0) pbox(x0 + 0.02, x1 - 0.02, y - 0.014, y - 0.008, hd - 0.05, hd - 0.03, glow, 1.5);
+  }
+  for (let i = 0; i < rows; i++) {
+    const yc = y0 + i * gy + 0.008 + 0.04;
+    for (let x = x0 + 0.06; x < x1 - 0.05; x += 0.09) {
+      // a rod is an open tube, so the shoulder and the foil's end are domes over its ends
+      const col = pick(c.r, ['#6a2a1a', '#2e5a34', '#7a2430', '#3a3a44']), foil = pick(c.r, ['#b82a1a', '#d8b060', '#2a2a2e', '#e8e8e0']);
+      const dome = (z, r, hex, k, surf) => { const [u, v] = P(x, 0, z); c.K.ball(u, v, yc, r, hex, k, 10, surf); };
+      c.rod(P(x, yc, back + 0.01), P(x, yc, hd - 0.12), 0.038, col, 1.15, GLOSS, 10);
+      dome(hd - 0.12, 0.038, col, 1.15, GLOSS);
+      c.rod(P(x, yc, hd - 0.12), P(x, yc, hd - 0.05), 0.016, col, 1.15, GLOSS, 8);
+      c.rod(P(x, yc, hd - 0.05), P(x, yc, hd - 0.03), 0.018, foil, 1.2, METAL, 8);
+      dome(hd - 0.03, 0.018, foil, 1.2, METAL);
+    }
+  }
+}
+// Stemware hung upside down from a rail under the cornice, foot up and bowl down, as a back bar keeps it.
+function hangingGlasses(c, x0, x1, top, z) {
+  const { pbox } = c.F;
+  pbox(x0, x1, top - 0.006, top, z - 0.03, z + 0.03, '#b08a4a', 1.15, null, METAL);
+  for (let x = x0 + 0.06; x < x1 - 0.05; x += 0.1) {
+    const t = top - 0.008;
+    c.lat(x, z, [[0, t], [0.034, t], [0.034, t - 0.004], [0.004, t - 0.01], [0.004, t - 0.085], [0.026, t - 0.1], [0.04, t - 0.135], [0.037, t - 0.18], [0.035, t - 0.182]], '#e2eaee', 1.15, 10, GLOSS);
   }
 }
 
@@ -688,12 +795,13 @@ const FORMS = {
   basin(c) {
     // a bathroom basin on the wall with a mirror over it. Fine: a sculpted stone bowl on a floating
     // slab and a mirror lit from behind. Plain: a china basin on a pedestal and a bare mirror
-    const { F, p } = c, { pbox } = F, hw = p.w / 2, hd = p.d / 2, y = p.h;
+    const { F, p } = c, { pbox } = F, hw = p.w / 2, hd = p.d / 2, y = p.h, spa = spaOf(c);
     if (c.fine) {
       pbox(-hw, hw, y - 0.14, y - 0.1, -hd, hd, '#8a8c8e', 1, STONE, SATIN);
       hollow(c, -hw + 0.06, hw - 0.06, -hd + 0.1, hd - 0.04, y, y - 0.1, 0.03, STONE, '#6a6c70', 1, SATIN);
-      tap(c, 0, y - 0.1, -hd + 0.05, 0.2, '#2a2c30');
-      pbox(-hw + 0.02, hw - 0.02, 1.2, 1.95, -hd, -hd + 0.012, '#8ea2ae', 0.95, null, GLOSS);
+      tap(c, 0, y - 0.1, -hd + 0.05, 0.2, spa ? BRASS : '#2a2c30');
+      pbox(-hw + 0.02, hw - 0.02, 1.2, 1.95, -hd, -hd + 0.012, '#1a1a1c', 1, null, SATIN);
+      mirrorPane(c, -hw + 0.02, hw - 0.02, 1.2, 1.95, -hd + 0.013);
       pbox(-hw - 0.012, hw + 0.012, 1.188, 1.2, -hd, -hd + 0.004, '#ffe9c4', 1.7);
       pbox(-hw - 0.012, hw + 0.012, 1.95, 1.962, -hd, -hd + 0.004, '#ffe9c4', 1.7);
     } else {
@@ -701,7 +809,68 @@ const FORMS = {
       c.R(...F.alongX(), -hw, hw, -hd, hd, y - 0.14, y, 0.05, '#e8e4da', 0.98, GLOSS);
       pbox(-hw + 0.08, hw - 0.08, y + 0.001, y + 0.0025, -hd + 0.1, hd - 0.08, '#9aa2a8', 0.5, null, GLOSS);
       for (const x of [-0.08, 0.08]) c.lat(x, -hd + 0.05, [[0.016, y], [0.012, y + 0.06], [0.022, y + 0.07], [0, y + 0.08]], '#c8ccd0', 1.05, 8, METAL);
-      pbox(-hw + 0.04, hw - 0.04, 1.2, 1.75, -hd, -hd + 0.015, '#8ea2ae', 0.92, null, GLOSS);
+      // a bare mirror on four steel screw caps
+      pbox(-hw + 0.04, hw - 0.04, 1.2, 1.75, -hd, -hd + 0.006, '#2a2c30', 1, null, SATIN);
+      mirrorPane(c, -hw + 0.04, hw - 0.04, 1.2, 1.75, -hd + 0.007);
+      for (const [x, yy] of [[-hw + 0.07, 1.23], [hw - 0.07, 1.23], [-hw + 0.07, 1.72], [hw - 0.07, 1.72]]) pbox(x - 0.008, x + 0.008, yy - 0.008, yy + 0.008, -hd + 0.007, -hd + 0.012, '#c8ccd0', 1.05, null, METAL);
+    }
+  },
+  vanity(c) {
+    // a floating vanity: a walnut cabinet off the floor with a strip of light under it, two banks of drawers
+    // with a slim pull along each, a slab of stone on top with a vessel basin standing on it (two on a top
+    // 1.2 m or wider) and a spout out of the wall over each, and a mirror the width of the top, stood off the
+    // wall on a hidden frame and lit round its edge from behind. In a spa en-suite the metal is brass, the top
+    // is marble and the mirror has a brass edge.
+    const { F, p } = c, { pbox, P } = F, hw = p.w / 2, hd = p.d / 2, y = p.h, spa = spaOf(c);
+    const metal = spa ? BRASS : c.fine ? '#2a2c30' : '#c8ccd0';
+    const wood = { t: 'roomOak', c: c.fine ? '#6a4630' : '#9a7a5a' };
+    const slab = spa ? { t: 'roomMarble', c: '#f2eee6' } : c.fine ? STONE : { t: 'roomStone', c: '#d8d4cc' };
+    const b0 = 0.3, b1 = y - 0.045, front = hd - 0.025;
+    // the cabinet, then the light under its front edge
+    pbox(-hw + 0.015, hw - 0.015, b0, b1, -hd, front, '#ffffff', 0.86, wood, SATIN);
+    pbox(-hw + 0.05, hw - 0.05, b0 - 0.008, b0, front - 0.07, front - 0.04, '#ffe2b0', 1.8);
+    // the drawers: a bank under each basin, two deep, with a shadow gap round each front
+    const xs = p.w >= 1.2 ? [-hw / 2, hw / 2] : [0], bw = p.w / xs.length, mid = b0 + (b1 - b0) * 0.48;
+    for (const x of xs) {
+      for (const [y0, y1] of [[b0 + 0.008, mid - 0.004], [mid + 0.004, b1 - 0.008]]) {
+        pbox(x - bw / 2 + 0.022, x + bw / 2 - 0.022, y0, y1, front, front + 0.018, '#ffffff', 0.95, wood, SATIN);
+        pbox(x - bw * 0.22, x + bw * 0.22, y1 - 0.034, y1 - 0.022, front + 0.018, front + 0.03, metal, 1.05, null, METAL);
+      }
+    }
+    // the top: four centimetres of stone, a centimetre proud of the drawers
+    pbox(-hw, hw, b1, y, -hd, hd, '#ffffff', 1, slab, spa ? GLOSS : SATIN);
+    // a vessel basin on it at each bank: a turned bowl, its wall thick at the rim, and a waste in the bottom
+    const bowl = spa ? '#f4f1ea' : c.fine ? '#d8d6d0' : '#eceae4', r = Math.min(0.2, bw / 2 - 0.08);
+    for (const x of xs) {
+      c.lat(x, 0.02, [[0, y], [r * 0.55, y], [r * 0.92, y + 0.04], [r, y + 0.12], [r * 0.93, y + 0.125], [r * 0.86, y + 0.05], [r * 0.5, y + 0.022], [0, y + 0.018]], bowl, 1, 28, GLOSS);
+      c.lat(x, 0.02, [[0, y + 0.019], [0.022, y + 0.019], [0.022, y + 0.021], [0, y + 0.021]], metal, 1.05, 12, METAL);
+      // the spout out of the wall over it, on a round plate, and its lever beside it
+      const sy = y + 0.3, reach = 0.17 + r * 0.6;
+      pbox(x - 0.032, x + 0.032, sy - 0.032, sy + 0.032, -hd, -hd + 0.008, metal, 1.05, null, METAL);
+      c.rod(P(x, sy, -hd + 0.005), P(x, sy, -hd + reach), 0.011, metal, 1.08, METAL, 10);
+      c.rod(P(x, sy, -hd + reach), P(x, sy - 0.03, -hd + reach + 0.01), 0.011, metal, 1.08, METAL, 10);
+      c.rod(P(x + 0.09, sy + 0.01, -hd + 0.005), P(x + 0.09, sy + 0.01, -hd + 0.07), 0.009, metal, 1.08, METAL, 8);
+      c.rod(P(x + 0.09, sy + 0.01, -hd + 0.07), P(x + 0.13, sy + 0.01, -hd + 0.08), 0.007, metal, 1.08, METAL, 8);
+    }
+    // the mirror: the top's width, from a span above the spouts up to two metres, three centimetres off the wall
+    // on a dark frame, with a band of warm light round it on the wall behind
+    const m0 = y + 0.42, m1 = Math.max(m0 + 0.5, Math.min(2.05, (c.L?.h || 2.6) - 0.3)), mx = hw - 0.03, mz = -hd + 0.032;
+    pbox(-mx + 0.02, mx - 0.02, m0 + 0.02, m1 - 0.02, -hd, -hd + 0.004, '#ffe2b0', 1.7);
+    pbox(-mx + 0.04, mx - 0.04, m0 + 0.04, m1 - 0.04, -hd + 0.004, mz - 0.002, '#141416', 1, null, SATIN);
+    mirrorPane(c, -mx, mx, m0, m1, mz);
+    if (spa) for (const [a, b, e, f] of [[-mx - 0.006, mx + 0.006, m0 - 0.006, m0], [-mx - 0.006, mx + 0.006, m1, m1 + 0.006], [-mx - 0.006, -mx, m0, m1], [mx, mx + 0.006, m0, m1]]) pbox(a, b, e, f, mz - 0.012, mz + 0.002, BRASS, 1.05, null, METAL);
+    // what's on it: a soap pump between the bowls, and a hand towel folded at one end; in a fine room a
+    // stem of white orchid in a glass at the other
+    const pumpX = xs.length > 1 ? 0 : hw - 0.12;
+    c.lat(pumpX, -hd + 0.12, [[0, y], [0.032, y], [0.034, y + 0.12], [0.026, y + 0.14], [0.01, y + 0.15], [0.01, y + 0.18], [0, y + 0.18]], spa ? '#2a2420' : '#e8e4da', 1, 14, GLOSS);
+    c.rod(P(pumpX, y + 0.175, -hd + 0.12), P(pumpX, y + 0.175, -hd + 0.18), 0.006, metal, 1.05, METAL, 6);
+    const tx = xs.length > 1 ? -hw + 0.13 : -hw + 0.12;
+    for (let i = 0; i < 2; i++) pbox(tx - 0.1, tx + 0.1, y + i * 0.03, y + i * 0.03 + 0.028, -hd + 0.08, -hd + 0.3, '#ffffff', 0.97, { t: 'roomWeave', c: spa ? '#efe9de' : '#e2ddd2' }, CLOTH);
+    if (c.fine) {
+      const ox = xs.length > 1 ? hw - 0.1 : -hw + 0.12, oz = xs.length > 1 ? -hd + 0.12 : hd - 0.12;
+      c.lat(ox, oz, [[0, y], [0.035, y], [0.035, y + 0.11], [0, y + 0.11]], '#cfe2e6', 0.8, 12, GLOSS);
+      c.rod(P(ox, y + 0.05, oz), P(ox - 0.02, y + 0.36, oz + 0.01), 0.004, '#4a6a2a', 0.9, SATIN, 5);
+      for (let i = 0; i < 4; i++) { const t = 0.22 + i * 0.045, px = ox - 0.02 * (t / 0.36) + (i % 2 ? 0.04 : -0.035); c.lat(px, oz + 0.01, [[0, y + t], [0.028, y + t + 0.004], [0.03, y + t + 0.012], [0, y + t + 0.016]], '#f6f2f4', 1.08, 10, SATIN); }
     }
   },
   seam(c) {
@@ -857,16 +1026,39 @@ const FORMS = {
   barwall(c) {
     // a saloon's back bar: arched mirror bays and columns over the counter (gl/room-saloon.js)
     if (c.p.dress === 'saloon') return saloonBackBar(c);
-    // a bar wall: a walnut cabinet to the worktop, then glass shelves of bottles lit from behind.
-    // What it hides is nobody's business here: a concealed piece isn't in the payload until it's found
-    // In a club (spec.club) the cabinet's black, and the shelves are lit red from behind
+    // a bar wall, dressed to be taken for a real one: a walnut base with panelled doors and a wine cubby, a stone
+    // worktop with the bar's working kit on a rubber mat, then a smoked mirror behind glass shelves of labelled
+    // bottles, tiered on a deep wall, stemware hung under the cornice on a tall one, all lit from behind.
+    // What it hides is nobody's business here: a concealed piece isn't in the payload until it's found.
+    // In a club (spec.club) the cabinet's black, the stone's black and the shelves are lit red from behind.
+    // Everything stays inside the footprint, because a Cachet's bar goes round as one box (room-stage.mjs 13).
     const { F, p, r } = c, { pbox } = F, hw = p.w / 2, hd = p.d / 2, h = p.h, club = !!c.L?.spec?.club, wal = club ? null : { t: 'roomOak', c: '#6a4a30' }, cab = club ? '#16141a' : '#4a3020';
-    pbox(-hw, hw, 0, 0.08, -hd, hd - 0.06, '#101012', 0.9);
-    pbox(-hw, hw, 0.08, 0.92, -hd, hd - 0.02, cab, 0.9, wal, SATIN);
-    const n = Math.max(2, Math.round(p.w / 0.55));
-    for (let i = 0; i < n; i++) { const x0 = -hw + 0.006 + i * p.w / n, x1 = x0 + p.w / n - 0.012; pbox(x0, x1, 0.09, 0.91, hd - 0.02, hd - 0.004, cab, 1, wal, SATIN); }
-    pbox(-hw - 0.01, hw + 0.01, 0.92, 0.96, -hd, hd + 0.01, club ? '#2a282c' : '#8a8c8e', 1, club ? null : STONE, GLOSS);
     const brass = club ? '#8a1a2a' : '#b08a4a', glow = club ? '#ff3050' : '#e8b070';
+    const top = { t: 'roomMarble', c: club ? '#202024' : '#3c3a3a' };
+    pbox(-hw, hw, 0, 0.08, -hd, hd - 0.06, '#101012', 0.9);
+    // the base's bays: panelled doors, and the middle one open as a wine cubby. The carcass is solid but for the
+    // cubby's bay, which is cut back to the cubby's own back wall (wineCubby, 0.32 deep), or its bottles are buried
+    const n = Math.max(2, Math.round(p.w / 0.55)), cubby = n >= 3 ? Math.floor(n / 2) : -1;
+    if (cubby < 0) pbox(-hw, hw, 0.08, 0.92, -hd, hd - 0.02, cab, 0.9, wal, SATIN);
+    else {
+      const c0 = -hw + 0.006 + cubby * p.w / n, c1 = c0 + p.w / n - 0.012, cb = hd - 0.004 - 0.32 - 0.01;
+      pbox(-hw, c0, 0.08, 0.92, -hd, hd - 0.02, cab, 0.9, wal, SATIN);
+      pbox(c1, hw, 0.08, 0.92, -hd, hd - 0.02, cab, 0.9, wal, SATIN);
+      pbox(c0, c1, 0.08, 0.92, -hd, cb, cab, 0.9, wal, SATIN);
+      pbox(c0, c1, 0.08, 0.1, cb, hd - 0.02, cab, 0.9, wal, SATIN);
+      pbox(c0, c1, 0.9, 0.92, cb, hd - 0.02, cab, 0.9, wal, SATIN);
+    }
+    for (let i = 0; i < n; i++) {
+      const x0 = -hw + 0.006 + i * p.w / n, x1 = x0 + p.w / n - 0.012;
+      if (i === cubby) { wineCubby(c, x0, x1, 0.1, 0.9, hd - 0.004, cab, wal, glow, brass); continue; }
+      pbox(x0, x1, 0.09, 0.91, hd - 0.02, hd - 0.004, cab, 1, wal, SATIN);
+      // a raised field in each door, inside a moulded frame
+      pbox(x0 + 0.06, x1 - 0.06, 0.16, 0.74, hd - 0.004, hd + 0.002, cab, 1.06, wal, SATIN);
+      for (const [a, b, y0, y1] of [[x0 + 0.05, x1 - 0.05, 0.15, 0.16], [x0 + 0.05, x1 - 0.05, 0.74, 0.75], [x0 + 0.05, x0 + 0.06, 0.15, 0.75], [x1 - 0.06, x1 - 0.05, 0.15, 0.75]]) pbox(a, b, y0, y1, hd - 0.004, hd + 0.004, brass, 1.05, null, METAL);
+      const x = (x0 + x1) / 2;
+      pbox(x - 0.07, x + 0.07, 0.8, 0.815, hd - 0.004, hd + 0.012, brass, 1.2, null, METAL);
+    }
+    pbox(-hw - 0.01, hw + 0.01, 0.92, 0.96, -hd, hd + 0.01, '#ffffff', 1, top, GLOSS);
     // the back: a smoked mirror in a thin frame, lit by a strip down each side and a wash from the cornice,
     // so the bottles stand dark against it with a rim of light
     pbox(-hw, hw, 0.96, h, -hd, -hd + 0.03, club ? '#1a0a10' : '#2a2018', 0.9, null, SATIN);
@@ -879,28 +1071,81 @@ const FORMS = {
     // a stepped cornice over it all
     pbox(-hw - 0.015, hw + 0.015, h - 0.02, h, -hd, hd - 0.07, cab, 1.05, wal, SATIN);
     pbox(-hw, hw, h - 0.075, h - 0.06, -hd, hd - 0.085, brass, 1.15, null, METAL);
-    for (const y of [1.22, 1.56, 1.9]) {
+    // the shelves: glass, lit along the front edge, a brass gallery rail; on a deep wall a lit riser at the back
+    // takes a second row a step up, so the shelf reads as a back bar's tiers and not a single file
+    const deep = p.d >= 0.7, zf = deep ? hd - 0.24 : -0.02, zb = -hd + 0.14;
+    const shelves = [1.22, 1.56, 1.9];
+    shelves.forEach((y, i) => {
       pbox(-hw + 0.04, hw - 0.04, y - 0.01, y, -hd + 0.03, hd - 0.12, '#dfe6e8', 0.85, null, GLOSS);
-      // a line of light along the glass's front edge, and a brass gallery rail to keep the bottles on
       pbox(-hw + 0.05, hw - 0.05, y - 0.014, y - 0.01, hd - 0.13, hd - 0.12, glow, 1.45);
       c.rod(F.P(-hw + 0.05, y + 0.06, hd - 0.13), F.P(hw - 0.05, y + 0.06, hd - 0.13), 0.006, brass, 1.15, METAL, 6);
-      bottles(c, -hw + 0.1, hw - 0.1, y, -0.02, Math.round(p.w / 0.16 + r() * 3));
-    }
-    // brass pulls on the doors, a lit toe-kick, and a brass edge to the worktop
-    for (let i = 0; i < n; i++) { const x = -hw + (i + 0.5) * p.w / n; pbox(x - 0.07, x + 0.07, 0.8, 0.815, hd - 0.004, hd + 0.012, brass, 1.2, null, METAL); }
+      // the top shelf is the good stuff: bigger bottles, further apart. A shelf is 0.34 under the next, so the
+      // tallest bottle (champagne, 0.32 at 1) clears it, and the riser's row a step up is drawn at 0.8
+      const s = i === shelves.length - 1 ? 1.12 : 1;
+      if (deep) {
+        pbox(-hw + 0.06, hw - 0.06, y, y + 0.07, -hd + 0.04, zb + 0.07, cab, 1, wal, SATIN);
+        pbox(-hw + 0.06, hw - 0.06, y + 0.064, y + 0.07, zb + 0.07, zb + 0.074, glow, 1.4);
+        bottleRow(c, -hw + 0.1, hw - 0.1, y + 0.07, zb, s * 0.8);
+      }
+      bottleRow(c, -hw + 0.12, hw - 0.12, y, zf, s);
+    });
+    // stemware under the cornice, where there's height for it over the top shelf
+    if (h - 0.08 - 0.19 > shelves[2] + 0.38) hangingGlasses(c, -hw + 0.12, hw - 0.12, h - 0.08, deep ? hd - 0.3 : 0);
+    // a lit toe-kick, and a brass edge to the worktop
     pbox(-hw + 0.02, hw - 0.02, 0.06, 0.07, hd - 0.065, hd - 0.055, glow, 1.4);
     pbox(-hw - 0.01, hw + 0.01, 0.92, 0.93, hd + 0.01, hd + 0.016, brass, 1.15, null, METAL);
-    // on the top: a pair of glasses, a mixing tin and its spoon, an ice bucket, a cut-glass decanter,
-    // and a board with a lemon halved on it
-    for (const x of [-0.3, -0.18]) c.lat(x, 0.05, [[0, 0.96], [0.03, 0.96], [0.012, 0.975], [0.012, 1.04], [0.042, 1.09], [0.042, 1.1], [0, 1.1]], '#dfe6e8', 1, 12, GLOSS);
-    c.lat(0.25, 0.04, [[0, 0.96], [0.045, 0.96], [0.055, 1.14], [0, 1.14]], '#c8ccd0', 1.05, 14, METAL);
-    c.rod(F.P(0.26, 1.0, 0.03), F.P(0.31, 1.23, 0.05), 0.004, '#d8dade', 1.2, METAL, 5);
+    // THE WORKTOP. At the back a rail of the house pours with steel speed pourers; at the front a ribbed rubber
+    // mat with a shaker and its mixing glass, a jigger, a strainer and two coupes on it; an ice bucket with its
+    // tongs, a bowl of limes and lemons, three bitters bottles and a board with a lemon halved on it. The +x end
+    // is kept clear for a keypad to stand on (room-layout.js cachetPad).
+    const T = 0.96, front = hd - 0.16, back = Math.max(-hd + 0.12, hd - 0.42), keep = hw - 0.24;
+    const at = (x) => Math.max(-hw + 0.12, Math.min(keep, x));
+    // the well: a rail and its bottles
+    const w0 = at(-hw + 0.5), w1 = Math.min(keep, w0 + 0.42);
+    pbox(w0 - 0.03, w1 + 0.03, T, T + 0.05, back - 0.05, back + 0.05, '#2a2c30', 1, null, METAL);
+    for (let x = w0 + 0.035; x < w1; x += 0.085) barBottle(c, x, back, T + 0.005, pick(r, ['gin', 'vodka', 'whisky', 'wine']), 0.66, true);
+    // the mat, ribbed, and what's on it
+    const m0 = at(-0.42), m1 = Math.min(keep, m0 + 0.62);
+    pbox(m0, m1, T, T + 0.008, front - 0.11, front + 0.1, '#141416', 1, null, MATTE);
+    for (let z = front - 0.09; z < front + 0.09; z += 0.03) pbox(m0 + 0.01, m1 - 0.01, T + 0.008, T + 0.011, z, z + 0.012, '#202024', 1, null, MATTE);
+    const mt = T + 0.011, mx = (m0 + m1) / 2;
+    // a Boston shaker: the steel tin, and the mixing glass beside it
+    c.lat(m0 + 0.08, front, [[0, mt], [0.034, mt], [0.046, mt + 0.17], [0, mt + 0.17]], '#c8ccd0', 1.1, 14, METAL);
+    c.lat(m0 + 0.18, front, [[0, mt], [0.035, mt], [0.042, mt + 0.15], [0.039, mt + 0.15], [0.032, mt + 0.006], [0, mt + 0.006]], '#e2eaee', 1.15, 14, GLOSS);
+    c.rod(F.P(m0 + 0.19, mt + 0.02, front), F.P(m0 + 0.21, mt + 0.22, front - 0.02), 0.0035, '#d8dade', 1.2, METAL, 5);
+    // a jigger, two steel cones point to point, and a hawthorne strainer flat on the mat
+    c.lat(mx, front + 0.03, [[0.022, mt], [0.006, mt + 0.045], [0.022, mt + 0.075]], '#d8dade', 1.15, 12, METAL);
+    c.lat(mx + 0.07, front + 0.04, [[0, mt], [0.042, mt], [0.042, mt + 0.012], [0, mt + 0.014]], '#c8ccd0', 1.1, 14, METAL);
+    // two coupes, stem and saucer
+    for (const dx of [0.17, 0.25]) c.lat(Math.min(m1 - 0.04, mx + dx), front - 0.04, [[0, mt], [0.03, mt], [0.006, mt + 0.012], [0.005, mt + 0.09], [0.04, mt + 0.115], [0.052, mt + 0.13], [0.05, mt + 0.132]], '#e2eaee', 1.15, 14, GLOSS);
     if (hw > 0.7) {
-      c.lat(-hw + 0.32, 0.04, [[0, 0.96], [0.08, 0.96], [0.095, 1.15], [0.1, 1.16], [0, 1.16]], '#c8ccd0', 1.1, 16, METAL);
-      c.lat(-hw + 0.32, 0.04, [[0, 1.13], [0.085, 1.13], [0.07, 1.15], [0, 1.15]], '#e8f2f4', 1.3, 10, GLOSS);
-      c.lat(hw - 0.3, 0.06, [[0, 0.96], [0.06, 0.96], [0.075, 1.04], [0.06, 1.12], [0.016, 1.16], [0.016, 1.2], [0.028, 1.21], [0.028, 1.24], [0, 1.24]], club ? '#6a1a24' : '#8a4a1a', 1.1, 12, GLOSS);
-      pbox(0.42, 0.62, 0.96, 0.975, -0.04, 0.12, '#8a6440', 1, wal, SATIN);
-      for (const x of [0.48, 0.55]) c.lat(x, 0.04, [[0, 0.975], [0.032, 0.975], [0.03, 0.99], [0.015, 1.0], [0, 1.0]], '#e8c83a', 1.15, 10, SATIN);
+      // the ice bucket and its tongs, at the far end from the keypad
+      const ix = -hw + 0.22;
+      c.lat(ix, front, [[0, T], [0.075, T], [0.092, T + 0.18], [0.098, T + 0.19], [0, T + 0.19]], '#c8ccd0', 1.1, 16, METAL);
+      c.lat(ix, front, [[0, T + 0.16], [0.085, T + 0.16], [0.07, T + 0.185], [0, T + 0.185]], '#eef6f8', 1.35, 10, GLOSS);
+      c.rod(F.P(ix + 0.05, T + 0.18, front), F.P(ix + 0.12, T + 0.24, front - 0.02), 0.004, '#d8dade', 1.2, METAL, 5);
+      // a shallow bowl of citrus
+      const bx = at(m1 + 0.12), bz = back;
+      c.lat(bx, bz, [[0, T], [0.05, T], [0.09, T + 0.045], [0.086, T + 0.048], [0.046, T + 0.006], [0, T + 0.006]], '#e8e4dc', 1.05, 16, GLOSS);
+      for (const [dx, dz, col] of [[-0.03, 0, '#7ab83a'], [0.03, 0.02, '#e8c83a'], [0, -0.03, '#6aa83a'], [0.02, -0.01, '#7ab83a']]) {
+        const [u, v] = F.P(bx + dx, 0, bz + dz);
+        c.K.ball(u, v, T + 0.04, 0.026, col, 1.12, 10, SATIN);
+      }
+      // a cut-glass decanter and the bitters, short of the keypad's end
+      const dx = at(keep - 0.05);
+      c.lat(dx, back, [[0, T], [0.055, T], [0.07, T + 0.07], [0.055, T + 0.14], [0.015, T + 0.17], [0.015, T + 0.2], [0.026, T + 0.21], [0.026, T + 0.235], [0, T + 0.235]], club ? '#6a1a24' : '#8a4a1a', 1.1, 12, GLOSS);
+      for (let i = 0; i < 3; i++) {
+        const x = at(dx - 0.13 - i * 0.05);
+        c.lat(x, back + 0.02, [[0, T], [0.02, T], [0.021, T + 0.07], [0.008, T + 0.085], [0.008, T + 0.1], [0, T + 0.1]], pick(r, ['#5a2a14', '#3a1a10', '#2a3a1a']), 1, 10, GLOSS);
+        c.lat(x, back + 0.02, [[0.0205, T + 0.015], [0.0205, T + 0.055]], LABEL, 1.05, 10, SATIN);
+        c.lat(x, back + 0.02, [[0, T + 0.1], [0.011, T + 0.1], [0.011, T + 0.115], [0, T + 0.12]], '#d8d8d0', 1.1, 8, METAL);
+      }
+      // a board with a lemon halved on it, by the mat
+      const kx = at(m1 + 0.02);
+      if (kx > m1 - 0.05 && kx + 0.2 < dx - 0.3) {
+        pbox(kx, kx + 0.2, T, T + 0.015, front - 0.08, front + 0.08, '#8a6440', 1, wal, SATIN);
+        for (const x of [kx + 0.06, kx + 0.13]) c.lat(x, front, [[0, T + 0.015], [0.032, T + 0.015], [0.03, T + 0.03], [0.015, T + 0.04], [0, T + 0.04]], '#e8c83a', 1.15, 10, SATIN);
+      }
     }
   },
 
@@ -928,11 +1173,13 @@ const FORMS = {
   },
   hung(c) {
     // a wall-hung pan with its cistern in the wall: a boxed panel, a flush plate, a low egg of a bowl
-    const { F, p } = c, { pbox, alongZ } = F, hd = p.d / 2, hw = p.w / 2, panel = c.fine ? STONE : '#d8d4cc';
-    pbox(-hw - 0.08, hw + 0.08, 0, 1.08, -hd, -hd + 0.12, '#9a9c9e', 1, typeof panel === 'object' ? panel : null, SATIN);
-    pbox(-0.1, 0.1, 0.84, 0.98, -hd + 0.12, -hd + 0.126, '#2a2c30', 1, null, METAL);
-    pbox(-0.085, -0.005, 0.855, 0.965, -hd + 0.126, -hd + 0.13, '#c8ccd0', 1.05, null, METAL);
-    pbox(0.005, 0.085, 0.855, 0.965, -hd + 0.126, -hd + 0.13, '#c8ccd0', 1.05, null, METAL);
+    // in a spa en-suite the boxing is the walls' own marble with a shelf on it, and the plate brass
+    const { F, p } = c, { pbox, alongZ } = F, hd = p.d / 2, hw = p.w / 2, spa = spaOf(c), panel = spa ? { t: 'roomMarble', c: '#efe9df' } : c.fine ? STONE : '#d8d4cc';
+    pbox(-hw - 0.08, hw + 0.08, 0, 1.08, -hd, -hd + 0.12, spa ? '#ffffff' : '#9a9c9e', 1, typeof panel === 'object' ? panel : null, SATIN);
+    if (spa) pbox(-hw - 0.09, hw + 0.09, 1.08, 1.11, -hd, -hd + 0.13, '#ffffff', 1, { t: 'roomMarble', c: '#3a3836' }, GLOSS);
+    pbox(-0.1, 0.1, 0.84, 0.98, -hd + 0.12, -hd + 0.126, spa ? BRASS : '#2a2c30', 1, null, METAL);
+    pbox(-0.085, -0.005, 0.855, 0.965, -hd + 0.126, -hd + 0.13, spa ? '#d8b868' : '#c8ccd0', 1.05, null, METAL);
+    pbox(0.005, 0.085, 0.855, 0.965, -hd + 0.126, -hd + 0.13, spa ? '#d8b868' : '#c8ccd0', 1.05, null, METAL);
     c.lat(0, -hd + 0.36, [[0.03, 0.16], [0.13, 0.2], [0.17, 0.3], [0.18, 0.38], [0, 0.38]], '#e8e4da', 0.97, 20, GLOSS);
     c.R(...alongZ(), -hd + 0.12, -hd + 0.26, -0.13, 0.13, 0.2, 0.38, 0.05, '#e8e4da', 0.95, GLOSS);
     c.lat(0, -hd + 0.36, [[0.16, 0.38], [0.185, 0.385], [0.185, 0.4], [0, 0.402]], '#f2efe8', 1, 20, GLOSS);
@@ -960,18 +1207,32 @@ const FORMS = {
   wetroom(c) {
     // a shower with no tray: a fall to a slot drain, one frameless pane, a head let into the ceiling
     // and a niche in the stone with a few bottles
-    const { F, p } = c, { pbox, P, N } = F, hw = p.w / 2, hd = p.d / 2, h = p.h, H = c.L.h;
-    pbox(-hw + 0.1, hw - 0.1, 0.002, 0.006, -hd + 0.08, -hd + 0.13, '#1a1b1e', 1, null, METAL);
+    const { F, p } = c, { pbox, P, N } = F, hw = p.w / 2, hd = p.d / 2, h = p.h, H = c.L.h, spa = spaOf(c);
+    const trim = spa ? BRASS : BLACK, chrome = spa ? BRASS : '#c8ccd0', shelf = spa ? '#1c1c1e' : '#6a6c70';
+    // in a spa en-suite the wet wall is a slab of dark veined marble to the ceiling, and the floor in the stall
+    // is the same stone, laid to its fall
+    if (spa) {
+      pbox(-hw, hw, 0, H - 0.002, -hd, -hd + 0.014, '#ffffff', 1, { t: 'roomMarble', c: '#3a3836' }, GLOSS);
+      pbox(-hw, hw - 0.01, 0.001, 0.004, -hd + 0.014, hd, '#ffffff', 1, { t: 'roomMarble', c: '#3a3836' }, SATIN);
+    }
+    const back = spa ? -hd + 0.014 : -hd;
+    pbox(-hw + 0.1, hw - 0.1, 0.002, 0.006, back + 0.08, back + 0.13, spa ? BRASS : '#1a1b1e', 1, null, METAL);
     c.K.quad(c.K.glass, [P(hw, 0, -hd), P(hw, 0, hd), P(hw, h, hd), P(hw, h, -hd)], N(1, 0, 0), [0.8, 0.86, 0.9], GLOSS, null, true);
-    pbox(hw - 0.004, hw + 0.004, 0, 0.02, -hd, hd, BLACK, 1, null, METAL);
-    pbox(hw - 0.004, hw + 0.004, h - 0.02, h, -hd, hd, BLACK, 1, null, METAL);
-    pbox(-0.2, 0.2, H - 0.012, H - 0.002, -0.2, 0.2, '#2a2c30', 1, null, METAL);
-    for (let i = 0; i < 25; i++) pbox(-0.16 + (i % 5) * 0.08 - 0.008, -0.16 + (i % 5) * 0.08 + 0.008, H - 0.014, H - 0.012, -0.16 + Math.floor(i / 5) * 0.08 - 0.008, -0.16 + Math.floor(i / 5) * 0.08 + 0.008, '#c8ccd0', 1.05, null, METAL);
-    pbox(-hw + 0.12, -hw + 0.62, 1.1, 1.12, -hd, -hd + 0.11, '#6a6c70', 0.95, null, SATIN);
-    pbox(-hw + 0.12, -hw + 0.62, 1.42, 1.44, -hd, -hd + 0.11, '#6a6c70', 0.95, null, SATIN);
-    pbox(-hw + 0.14, -hw + 0.6, 1.438, 1.44, -hd + 0.03, -hd + 0.09, '#ffe9c4', 1.6);
-    for (const [x, t] of [[-hw + 0.22, 0.2], [-hw + 0.33, 0.17], [-hw + 0.46, 0.15]]) c.lat(x, -hd + 0.06, [[0, 1.12], [0.03, 1.12], [0.03, 1.12 + t * 0.8], [0.012, 1.12 + t], [0, 1.12 + t]], c.pick(['#d8d4c8', '#2a2c30', '#8a7a64']), 0.97, 10, GLOSS);
-    pbox(-0.1, 0.1, 1.05, 1.1, -hd, -hd + 0.03, '#c8ccd0', 1.05, null, METAL);
+    pbox(hw - 0.004, hw + 0.004, 0, 0.02, -hd, hd, trim, 1, null, METAL);
+    pbox(hw - 0.004, hw + 0.004, h - 0.02, h, -hd, hd, trim, 1, null, METAL);
+    pbox(-0.2, 0.2, H - 0.012, H - 0.002, -0.2, 0.2, spa ? BRASS : '#2a2c30', 1, null, METAL);
+    for (let i = 0; i < 25; i++) pbox(-0.16 + (i % 5) * 0.08 - 0.008, -0.16 + (i % 5) * 0.08 + 0.008, H - 0.014, H - 0.012, -0.16 + Math.floor(i / 5) * 0.08 - 0.008, -0.16 + Math.floor(i / 5) * 0.08 + 0.008, spa ? '#8a6a2e' : '#c8ccd0', 1.05, null, METAL);
+    pbox(-hw + 0.12, -hw + 0.62, 1.1, 1.12, back, back + 0.11, shelf, 0.95, null, SATIN);
+    pbox(-hw + 0.12, -hw + 0.62, 1.42, 1.44, back, back + 0.11, shelf, 0.95, null, SATIN);
+    pbox(-hw + 0.14, -hw + 0.6, 1.438, 1.44, back + 0.03, back + 0.09, '#ffe9c4', 1.6);
+    for (const [x, t] of [[-hw + 0.22, 0.2], [-hw + 0.33, 0.17], [-hw + 0.46, 0.15]]) c.lat(x, back + 0.06, [[0, 1.12], [0.03, 1.12], [0.03, 1.12 + t * 0.8], [0.012, 1.12 + t], [0, 1.12 + t]], c.pick(['#d8d4c8', '#2a2c30', '#8a7a64']), 0.97, 10, GLOSS);
+    pbox(-0.1, 0.1, 1.05, 1.1, back, back + 0.03, chrome, 1.05, null, METAL);
+    // and a hand shower on its rail beside the mixer
+    if (spa) {
+      c.rod(P(0.24, 0.95, back + 0.025), P(0.24, 1.75, back + 0.025), 0.01, BRASS, 1.08, METAL, 8);
+      c.rod(P(0.24, 1.5, back + 0.03), P(0.24, 1.5, back + 0.08), 0.008, BRASS, 1.08, METAL, 8);
+      c.lat(0.24, back + 0.1, [[0.012, 1.36], [0.016, 1.46], [0.032, 1.5], [0.032, 1.53], [0, 1.535]], BRASS, 1.08, 12, METAL);
+    }
   },
   bath(c) {
     // a roll-top bath on claw feet: enamel inside, a rolled rim, taps at the wall end, a rail and curtain
@@ -994,8 +1255,9 @@ const FORMS = {
     pbox(-hw, hw, 0, 0.14, -hd, hd, '#8a8c8e', 1, STONE, SATIN);
     hollow(c, -hw, hw, -hd, hd, y, 0.14, rim, STONE, '#5a5c60', 0.92, SATIN);
     pbox(-hw + rim, hw - rim, y - 0.13, y - 0.125, -hd + rim, hd - rim, '#6a8a94', 0.55, null, GLOSS);
-    c.rod(F.P(hw + 0.12, 0, -hd + 0.5), F.P(hw + 0.12, y + 0.26, -hd + 0.5), 0.018, BLACK, 1);
-    c.rod(F.P(hw + 0.12, y + 0.26, -hd + 0.5), F.P(hw - 0.12, y + 0.26, -hd + 0.5), 0.016, BLACK, 1);
+    const spout = spaOf(c) ? BRASS : BLACK;
+    c.rod(F.P(hw + 0.12, 0, -hd + 0.5), F.P(hw + 0.12, y + 0.26, -hd + 0.5), 0.018, spout, 1);
+    c.rod(F.P(hw + 0.12, y + 0.26, -hd + 0.5), F.P(hw - 0.12, y + 0.26, -hd + 0.5), 0.016, spout, 1);
   },
 
   // ── the set, and a table ──────────────────────────────────────────────────────────────────────

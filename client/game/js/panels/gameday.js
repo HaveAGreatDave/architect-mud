@@ -864,6 +864,9 @@ export function createGamedayView(host, opts = {}) {
     // "Live from" the park, before the game: no field yet, only where it's from (the 3-D view flies
     // in), and the line up at once
     if (p.phase === 'arrive') { _applyArrive(p); return; }
+    // a final's Cup ceremony after the last out: the 3-D park stages it; here the champions' card
+    // the broadcast throws with it is all there is
+    if (p.phase === 'crown') return;
     const isTop = p.half === 'top';
     const away = isTop ? { abbr: p.battingAbbr } : { abbr: p.fieldingAbbr };
     const home = isTop ? { abbr: p.fieldingAbbr } : { abbr: p.battingAbbr };

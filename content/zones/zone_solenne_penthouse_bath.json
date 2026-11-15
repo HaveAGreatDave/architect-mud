@@ -3,17 +3,17 @@
   "ambient_theme": "indoors",
   "bg_color": "#2f3a47",
   "color": "#efe4cd",
-  "description": "A private spa the size of an ordinary apartment, walled floor-to-ceiling in book-matched grey stone that runs unbroken from the wet-room floor up into the five-metre dark. One whole wall is glass, the bay and the mountains laid out and unable to look back in, and a monolithic soaking tub sits cut from a single block of that same stone, deep enough to vanish into. A frameless rain shower and a hidden steam vent stand off to one side; a floating basin, a concealed toilet, warm bronze fittings that have never dripped. The floor is heated, the air is soft, and nothing up here makes a sound it doesn't mean to. The privacy bolt seats with a single soft note, like a struck bell.",
+  "description": "A private spa the size of an ordinary apartment, walled floor-to-ceiling in book-matched marble that runs unbroken from the wet-room floor up into the five-metre dark. One whole wall is glass, the bay and the mountains laid out and unable to look back in, and a monolithic soaking tub sits cut from a single block of that same stone, deep enough to vanish into. A frameless rain shower and a hidden steam vent stand off to one side; a floating basin, a concealed toilet, warm bronze fittings that have never dripped. The floor is heated, the air is soft, and nothing up here makes a sound it doesn't mean to. The privacy bolt seats with a single soft note, like a struck bell.",
   "exits": {
     "out": "zone_solenne_penthouse"
   },
   "flags": {
-    "floor": "carpet",
+    "floor": "stone",
     "is_interior": true,
     "window": {
-      "description": "A window with a bad seal, letting in a draught and a slice of whatever the weather is doing.",
+      "description": "A high slot of frosted glass under the ceiling. It lets the day in and nobody look back.",
       "light": 0.75,
-      "name": "the window",
+      "name": "the frosted slot",
       "visibility": 0.8
     }
   },

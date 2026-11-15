@@ -629,6 +629,16 @@ Object.assign(FIGURE_CUTS, {
     shoulder: 0, front: 'hex',
     legs: { ease: 0.003, hug: 0.82 },
   },
+  // a baseball jersey (Deadball, docs/proposals/deadball-players-v2.md): cut full through the body so it moves
+  // on a swing, the short sleeves loose to above the elbow, no collar but the placket's, the tail tucked under the
+  // belt. No front of its own: the placket, the buttons and the lettering are the club's kit, off the park's
+  // atlas (gl/figure-hd.js kitCloth). Asked for by name: never rolled
+  jersey: {
+    top: { hem: 0.975, neck: 1.452, ease: 0.013, hug: 0.22, drape: 0.5, flare: 0.004 },
+    sleeve: { cuff: 1.21, ease: 0.016, drape: 0.42, open: 0.014 },
+    collar: { y0: 1.444, y1: 1.456, ease: 0.004, flare: 0, open: 0.02 },
+    shoulder: 0.01,
+  },
 });
 export const FIGURE_UNDER_CUTS = ['briefs', 'boyshorts', 'bodysuit', 'baselayer', 'strapwrap', 'boxers', 'bikini', 'longline', 'slip', 'cutout', 'hexsuit', 'stagelace', 'stagehex'];
 // The cuts anybody might wear; the tunic is the Wildblood's dress, not a pick.

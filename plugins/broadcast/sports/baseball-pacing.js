@@ -32,8 +32,9 @@ export function holdFor(text, graphic) {
   if (graphic && graphic.duration) ms = Math.max(ms, graphic.duration * 1000 + 400);
   return Math.min(HOLD_MAX_MS, Math.max(HOLD_MIN_MS, ms));
 }
-// A half-inning's changeover and the fly-in to the park before the first pitch ('arrive') aren't plays.
-const isPlay = (n) => !!(n.gameday && n.gameday.phase !== 'half' && n.gameday.phase !== 'arrive');
+// A half-inning's changeover, the fly-in to the park before the first pitch ('arrive') and a final's
+// Cup ceremony after the last ('crown') aren't plays.
+const isPlay = (n) => !!(n.gameday && n.gameday.phase !== 'half' && n.gameday.phase !== 'arrive' && n.gameday.phase !== 'crown');
 // A play's lines: the one carrying its payload, the talk after it, and the call (`call`, its
 // own line when the payload led on the booth's talk; the payload's line itself otherwise).
 // From the payload to the end of the call has to cover the pitches, the play and the call, or

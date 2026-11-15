@@ -584,6 +584,17 @@ export function figurePeople(L, bodies, t = 0, { level: asked = 'hd', eye = null
   }
   return out;
 }
+// Somebody's look as figurePeople draws it, without posing them: the key, colours, face and the rest of a record,
+// for a caller that poses the figure itself (gl/ballpark-figures.js hangs it on Deadball's rig). It builds nothing:
+// figurePeople finds the soles off the built mesh, which is a whole figure built on the page.
+export function figureLook(body, level = 'hd') {
+  let o = lookOf(body.id, level, body.dress || '', !!body.sculpt, body.sex || '', body.figure || null, body.wear || null);
+  if (body.facial) { const fl = facialLook(body.facial), fv = o.faceV.slice(); fv[2] = fl.stubble; o = { ...o, faceV: fv, beardA: fl.beardA, beardB: fl.beardB, key: { ...o.key, beard: fl.beardMesh } }; }
+  const nip = o.key.sculpt ? bustApex(o.key.bust ?? 0, o.key.weight ?? null) : null;
+  return { key: o.key, nip, print: o.print, col: o.col, surf: o.surf, fab: o.fab, mut: o.mut || 0, mutCol: o.mutCol, tat: o.tat || 0, tatCol: o.tatCol, grit: o.grit || 0, face: o.face, lip: o.lip, lipstick: o.lipstick, iris: o.iris, faceV: o.faceV, age: o.age, smile: o.smile, trim: o.trim,
+    expr: null, sneer: 0, beardA: o.beardA, beardB: o.beardB, mouthA: [0, 0, 0], mouthB: [0, 0, 0], blink: 0, faceUp: faceUpOf(o.key), realEye: o.key.sculpt && o.key.level === 'hd', gaze: [0, 0],
+    gloves: o.gloves, glove: o.glove, neck: o.neck, slit: o.slit, wild: o.wild, mark: o.mark, markCol: o.markCol, wrapCol: o.wrapCol };
+}
 // Somebody's face as their mood (client/shared/expressions.js) has it, eased per person so a mood comes on rather than
 // snaps. `mood` is the server's { m, i, s }: `s` is how many seconds it has left, counted from when it arrived.
 const faces = new Map(), moodEnds = new WeakMap();
@@ -643,7 +654,9 @@ export const NOTICE = { near: 3.2, arc: 1.7, yaw: 0.85, pitch: 0.35, rate: 3.5 }
 function lookAround(S, body, kind, O, AX, AY, AZ, eye, gaze, t) {
   const R = rand(body.id), awake = !/sleep|Out|out/.test(kind) && body.rest !== 'sleep' && body.rest !== 'out';
   let ty = gaze[0] * 0.6, tp = gaze[1] * 0.5, on = false;
-  if (eye && awake && !body.gaze) {
+  // `look` [yaw, pitch] is where the head is pointed and no wander: yours in a mirror, where the camera points
+  if (Array.isArray(body.look)) { ty = Math.max(-NOTICE.yaw, Math.min(NOTICE.yaw, body.look[0])); tp = Math.max(-0.6, Math.min(0.6, body.look[1])); }
+  else if (eye && awake && !body.gaze) {
     const hy = body.pose === 'sit' ? 1.15 : 1.55, d = [0, 1, 2].map((r) => eye[r] - (O[r] + AY[r] * hy));
     const x = d[0] * AX[0] + d[1] * AX[1] + d[2] * AX[2], y = d[0] * AY[0] + d[1] * AY[1] + d[2] * AY[2], z = d[0] * AZ[0] + d[1] * AZ[1] + d[2] * AZ[2];
     const flat = Math.hypot(x, z), yaw = Math.atan2(x, z), slot = 9 + 4 * R(11), keen = 0.45 + 0.4 * R(12);

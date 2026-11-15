@@ -154,12 +154,14 @@ export function archetypeOf(flags = {}, grams = 0, type = '') {
 
 // The shape within an archetype, from the same flags and weight: a deep-freeze is a chest, a heavy
 // lie-only piece is a pod, a light sit-and-lie piece is a cot. `flags.look.form` overrides.
+// A sink that's for washing, not for working at: nothing stands on it and nobody cooks at it
+export const WASH_FORMS = Object.freeze(['basin', 'vanity']);
 export const FORMS = Object.freeze({
   seat: ['stool', 'chair', 'armchair', 'office', 'stools'], bench: ['bench', 'booth', 'banquette', 'slab'], sofa: ['sofa', 'cot', 'lounger'], bed: ['bed', 'pod', 'platform', 'mattress', 'pressbench'],
   screen: ['flat', 'crt', 'slab'], cold: ['fridge', 'double', 'chest', 'column'], hob: ['cooktop', 'range', 'microwave', 'seam'],
-  surface: ['counter', 'desk', 'rail', 'barwall', 'chemwall', 'bar', 'stage', 'runway', 'reception', 'console', 'treadmill', 'pool', 'pcdesk'], small: ['heater', 'box', 'plinth', 'telescope', 'lacquer', 'boombox', 'smoketable'], prop: ['cabinet', 'piano', 'fountain', 'catstatue', 'lantern', 'bonsai', 'vat', 'tank', 'morphex', 'jukebox', 'easel'], fireplace: ['hearth', 'firetrough'],
+  surface: ['counter', 'desk', 'rail', 'barwall', 'chemwall', 'bar', 'stage', 'runway', 'reception', 'console', 'treadmill', 'pool', 'pcdesk'], small: ['heater', 'box', 'plinth', 'telescope', 'lacquer', 'boombox', 'smoketable', 'petbowl'], prop: ['cabinet', 'piano', 'fountain', 'catstatue', 'lantern', 'bonsai', 'vat', 'tank', 'morphex', 'jukebox', 'easel'], fireplace: ['hearth', 'firetrough'],
   wardrobe: ['wardrobe', 'valet'], cabinet: ['cupboard', 'vitrine', 'humidor', 'rack'], store: ['shelves', 'locker', 'crate', 'weights', 'bookcase'],
-  sink: ['kitchen', 'basin', 'trough'], toilet: ['pan', 'hung'], shower: ['stall', 'wetroom', 'bath', 'soak'],
+  sink: ['kitchen', 'basin', 'trough', 'vanity'], toilet: ['pan', 'hung'], shower: ['stall', 'wetroom', 'bath', 'soak'],
   deck: ['console', 'portable'], table: ['coffee', 'dining', 'games', 'poker'], top: ['kettle', 'press'],
 });
 export function formOf(arche, flags = {}, grams = 0, { annex = false } = {}) {
@@ -184,7 +186,7 @@ export function formOf(arche, flags = {}, grams = 0, { annex = false } = {}) {
     case 'deck': return flags.portable || (flags.mini_deck && !flags.deck_style) ? 'portable' : 'console';
     case 'table': return 'coffee';
     case 'top': return 'kettle';
-    case 'small': return flags.heater_target_c || flags.heater_battery_min ? 'heater' : 'box';
+    case 'small': return flags.pet_bowls ? 'petbowl' : flags.heater_target_c || flags.heater_battery_min ? 'heater' : 'box';
     case 'fireplace': return 'hearth';
     default: return 'cabinet';
   }
@@ -196,13 +198,15 @@ const FORM_DIMS = { chest: [1.3, 0.72, 0.88], double: [1.3, 0.75, 2.0], range: [
   desk: [1.2, 0.6, 0.76], rail: [1.2, 0.12, 1.0], cot: [1.9, 0.75, 0.5], pod: [1.1, 2.15, 1.1], stool: [0.42, 0.42, 0.74], booth: [1.5, 0.7, 1.15],
   column: [0.62, 0.68, 2.0], seam: [1.2, 0.62, 0.92], barwall: [2.2, 0.46, 2.3], chemwall: [2.4, 0.72, 2.3], armchair: [0.82, 0.84, 0.92], office: [0.68, 0.68, 1.24], pcdesk: [1.9, 1.9, 0.75], platform: [2.6, 2.25, 0.62], mattress: [1.0, 2.0, 0.26],
   valet: [2.2, 0.64, 2.3], vitrine: [1.0, 0.36, 1.9], humidor: [0.8, 0.48, 1.45], rack: [0.7, 0.3, 0.5], shelves: [1.2, 0.42, 1.9], locker: [0.6, 0.52, 1.8], crate: [0.72, 0.5, 0.44],
-  basin: [0.62, 0.46, 0.88], trough: [1.4, 0.5, 0.86], hung: [0.38, 0.56, 0.82], wetroom: [1.3, 1.1, 2.2], bath: [0.8, 1.75, 0.6], soak: [1.0, 2.0, 0.66],
+  basin: [0.62, 0.46, 0.88], vanity: [1.5, 0.52, 0.86], trough: [1.4, 0.5, 0.86], hung: [0.38, 0.56, 0.82], wetroom: [1.3, 1.1, 2.2], bath: [0.8, 1.75, 0.6], soak: [1.0, 2.0, 0.66],
   portable: [0.5, 0.36, 0.2], dining: [1.6, 0.86, 0.76], press: [0.3, 0.36, 0.4], bar: [3.2, 0.8, 1.12],
   reception: [3.4, 0.85, 1.1], console: [1.3, 0.38, 0.82], plinth: [0.4, 0.4, 1.1], slab: [1.6, 0.5, 0.45],
   // a lacquered stash box on a bar top (gl/room-fittings.js; its lid is gl/room-stash.js's)
   lacquer: [0.36, 0.24, 0.12],
   // a balcony's (gl/room-decor.js): a boombox that opens the AMP player, and a drum table of smokes
   boombox: [0.66, 0.2, 0.36], smoketable: [0.56, 0.56, 0.5],
+  // a pet's feeding station (gl/room-decor.js): a rubber mat with its food dish and its water bowl (plugins/pets)
+  petbowl: [0.5, 0.3, 0.07],
   // a club's, a gym's and a roof deck's (gl/room-decor.js): a sun lounger, a bench press, a treadmill, a raised pool,
   // a telescope on its tripod, an upright piano, a dumbbell rack, a chess table and a fire trough
   lounger: [1.95, 0.72, 0.75], pressbench: [1.3, 1.75, 1.2], treadmill: [0.85, 1.9, 1.4], pool: [3, 2, 0.5], telescope: [0.6, 0.6, 1.55],
@@ -402,7 +406,8 @@ function contribute(spec, p) {
       // a Cachet: its keypad, and once it's turned the bench, with the keypad at its end to shut it
       if (p.keypad) {
         out.solid.push(fp);
-        const [ku, kv] = pt(p.w / 2 - 0.2 * k, p.d / 2 + 0.05 * k), keypad = { target: p.name, piece: p.id, verb: 'keypad', u: ku, v: kv, y: 1.15 * k, reach: 1.2 * k, at: [p.u, p.v] };
+        // on the pad itself (cachetPad), so the hover and the click land on what's drawn
+        const pad = cachetPad(p, k), [ku, kv] = pt(pad.x, pad.z + 0.02 * k), keypad = { target: p.name, piece: p.id, verb: 'keypad', u: ku, v: kv, y: pad.y, reach: 1.2 * k, at: [p.u, p.v], pad: true };
         if (p.turned) { const [wu, wv] = pt(-0.3 * k, p.d / 2 + 0.05 * k); out.stations.push({ target: p.turned, piece: p.id, verb: 'workspace', u: wu, v: wv, y: 1.0 * k, reach: 1.3 * k, at: [p.u, p.v] }); }
         out.stations.push(keypad);
         break;
@@ -1076,7 +1081,7 @@ export function placeSpot(spec, pieces, arche, dims, { crt = false, wall = null,
   // stands on it
   if (bases && (arche === 'top' || (arche === 'hob' && form === 'microwave'))) {
     for (const b of [...have, ...(P ? [counterBase(S)] : [])]) {
-      if (b.spot?.on || (b.id !== 'counter' && !(b.arche === 'sink' && b.form !== 'basin') && !(b.arche === 'surface' && b.form === 'counter'))) continue;
+      if (b.spot?.on || (b.id !== 'counter' && !(b.arche === 'sink' && !WASH_FORMS.includes(b.form)) && !(b.arche === 'surface' && b.form === 'counter'))) continue;
       const room = (b.w / k) / 2 - dims[0] / 2 - 0.04, busy = have.filter((o) => o.spot?.on === b.id).map((o) => [Number(o.spot.x) || 0, (o.dims?.[0] || 0.3) / 2]);
       // the basin takes the left of a sink's run, so what stands on it starts from the right
       for (let x = room; x >= (b.arche === 'sink' ? 0.02 : -room); x -= 0.05) {
@@ -1270,7 +1275,8 @@ function keepClear(S) {
 //   blinds   true for Venetian blinds in that sash window, which a control panel runs (plugins/envcontrol)
 //   sash     the sash window made a period one (sashOf): { w, at, y0, y1, transom, lights, head, drapes, pole }
 //   finish   what the room is built from ('plain' by default, 'fine' for a tower flat)
-//   ensuite  { w, d, finish }, the size of an en-suite when the flat has one
+//   ensuite  { w, d, finish, dress }, the size of an en-suite when the flat has one. `dress: 'spa'` clads it
+//            in marble with a heated floor, a cove light and a brass towel rail (gl/room-mesh.js buildAnnex)
 //   studio   false for a room with no studio plan (studioPlan)
 //   balcony  false for a studio with no balcony. `storey` 1, the ground floor, has none either.
 //            { wrap: 'all' } carries a tower flat's deck right round the building, { wrap: 'sides' } round
@@ -1433,8 +1439,11 @@ export function withAnnex(spec, zone, name) {
   const w = clampN(own.w, 1.6, Math.max(1.6, span), Math.min(2.6, span)), d = clampN(own.d, 1.6, 8, 2.8);
   const u0 = -spec.w / 2 + Math.max(0.1, (span - w) * 0.4), u1 = u0 + w, c = (u0 + u1) / 2;
   const ring = spec.balcony?.wrap ? { balcony: { ...spec.balcony, wrap: +(spec.d + 2 * WALL_T + d).toFixed(2) } } : null;
-  return { ...spec, ...ring, annex: { zone, name, u: [+u0.toFixed(2), +u1.toFixed(2)], d, h: spec.h, door: [+(c - 0.45).toFixed(2), +(c + 0.45).toFixed(2)], finish: FINISHES.includes(own.finish) ? own.finish : spec.finish, windows: [] } };
+  const dress = ANNEX_DRESSES.includes(own.dress) ? { dress: own.dress } : null;
+  return { ...spec, ...ring, annex: { zone, name, u: [+u0.toFixed(2), +u1.toFixed(2)], d, h: spec.h, door: [+(c - 0.45).toFixed(2), +(c + 0.45).toFixed(2)], finish: FINISHES.includes(own.finish) ? own.finish : spec.finish, ...dress, windows: [] } };
 }
+// How an en-suite can be dressed past its finish (`ensuite.dress`): 'spa' is marble, brass and a cove of light.
+export const ANNEX_DRESSES = Object.freeze(['spa']);
 
 // ── what a furniture row is drawn as ────────────────────────────────────────────────────────────
 // Which rows stand in a room. A compartment is a shelf of the cabinet it's part of, a concealed piece
@@ -1490,6 +1499,15 @@ export const CACHET_OPEN = 2.2;
 export const cachetWing = (p) => (p.keypad ? Math.max(0, (p.w - (p.open || CACHET_OPEN)) / 2) : 0);
 // The turntable's own piece: the opening's width, the same place, depth and height.
 export const cachetInner = (p) => (cachetWing(p) > 0 ? { ...p, w: p.w - 2 * cachetWing(p) } : p);
+// WHERE A CACHET'S KEYPAD IS, in the piece's own frame (x across, y up, z out to its face): a plate on the false
+// wall's +x wing at switch height, or, with no wing to take it, a small pad standing on the +x end of the worktop.
+// +x is the piece's own right, so it's the left end to somebody facing it. The keypad's station is put here (roomLayout) and gl/room-mesh.js cachetPad draws it here, so the
+// click and the thing you can see are one place. `wall` says which.
+export function cachetPad(p, k = 1) {
+  const wing = cachetWing(p);
+  if (wing >= 0.14 * k) return { x: p.w / 2 - wing / 2, y: 1.2 * k, z: p.d / 2, wall: true };
+  return { x: p.w / 2 - 0.13 * k, y: 1.03 * k, z: p.d / 2 - 0.07 * k, wall: false };
+}
 
 // A chem lab's grade, from its station's quality (plugins/synthesis reads the same key for its
 // bonus): what gl/lab-mesh.js draws it as.

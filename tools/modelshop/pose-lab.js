@@ -20,6 +20,7 @@
 // client's own modules.
 
 import { createBallparkRenderer, castOf } from '/client/game/js/panels/gl/ballpark.js';
+import { PARK_FIGURES } from '/client/game/js/panels/gl/ballpark-figures.js';
 import { sampleClip, completePose, limitBreaks, TRAIT_RANGE } from '/client/game/js/panels/diamond/anim.js';
 import { solvePose, POSES } from '/client/game/js/panels/diamond/rig.js';
 import { validateClip, clipFileName, CLIP_ROLES, CLIP_EVENTS, POSE_FIELDS } from '/client/game/js/panels/diamond/clip-schema.js';
@@ -548,6 +549,16 @@ $('save').onclick = async () => {
 
 // ── the bar ────────────────────────────────────────────────────────────────────
 $('lefty').onchange = (e) => { lab.lefty = e.target.checked; place(); };
+// the close-up figure for the body (gl/ballpark-figures.js): it loads its shader and builds each man's figure in a
+// worker, so the picture is drawn again for a while until they're all up
+let figWait = 0;
+function figureBody(on) {
+  PARK_FIGURES.on = on ? 1 : 0;
+  place();
+  clearInterval(figWait);
+  if (on) { let n = 0; figWait = setInterval(() => { draw(); if (++n > 60) clearInterval(figWait); }, 250); }
+}
+$('figbody').onchange = (e) => figureBody(e.target.checked);
 $('traits').onchange = (e) => { lab.traits = e.target.value; draw(); };
 for (const b of document.querySelectorAll('[data-view]')) b.onclick = () => view(b.dataset.view);
 document.addEventListener('keydown', (e) => {
@@ -570,6 +581,7 @@ await loadLibrary();
 const first = new URLSearchParams(location.search).get('clip');
 const pick = library.find((c) => c.doc.id === first) || library[0];
 if (pick) { $('clip').value = pick.doc.id; open(pick.doc); }
+if (new URLSearchParams(location.search).get('figure') === '1') { $('figbody').checked = true; figureBody(true); }
 // for a look from a script: which clip is open, the playhead, the camera (an orbit's az, el and
 // dist round its focus, or a broadcast shot by name), the renderer, `still` and `shoot`
 window.__lab = { get doc() { return doc; }, get t() { return t; }, set t(v) { seek(v); draw(); }, set laps(v) { laps = v; draw(); }, view, cam, still, shoot, get renderer() { return R; } };

@@ -34,14 +34,16 @@ function frameOf(L, o) {
   if (o.wall === 'annex' && L.annex) {
     const A = L.annex, uv = (a, p) => [a, A.v0 - p];
     const span = (a, b, p0, p1) => { const q = uv(a, p0), r = uv(b, p1); return [Math.min(q[0], r[0]), Math.max(q[0], r[0]), Math.min(q[1], r[1]), Math.max(q[1], r[1])]; };
-    return { uv, span, lo: A.u0, hi: A.u1, world: (a, p, y) => { const q = uv(a, p); return L.world(q[0], q[1], y); } };
+    return { uv, span, lo: A.u0, hi: A.u1, local: (u, v) => [u, A.v0 - v], world: (a, p, y) => { const q = uv(a, p); return L.world(q[0], q[1], y); } };
   }
   const S = L.spec, hu = L.w / 2, hall = hallOf(S, o), DB = hall ? hall.v1 : L.d;
   const uv = (a, p) => (o.wall === 'front' ? [a, -p] : o.wall === 'back' ? [a, DB + p] : o.wall === 'left' ? [-hu - p, a] : [hu + p, a]);
   // [u0, u1, v0, v1] of a slab across [a, b] from depth p0 to p1
   const span = (a, b, p0, p1) => { const q = uv(a, p0), r = uv(b, p1); return [Math.min(q[0], r[0]), Math.max(q[0], r[0]), Math.min(q[1], r[1]), Math.max(q[1], r[1])]; };
   const lo = hall ? hall.a : o.wall === 'front' || o.wall === 'back' ? -hu : 0, hi = hall ? hall.b : o.wall === 'front' || o.wall === 'back' ? hu : L.d;
-  return { uv, span, lo, hi, world: (a, p, y) => { const q = uv(a, p); return L.world(q[0], q[1], y); } };
+  // uv's inverse: a spot [u, v] in the room as [along, p]
+  const local = (u, v) => (o.wall === 'front' ? [u, -v] : o.wall === 'back' ? [u, v - DB] : o.wall === 'left' ? [v, -hu - u] : [v, u - hu]);
+  return { uv, span, lo, hi, local, world: (a, p, y) => { const q = uv(a, p); return L.world(q[0], q[1], y); } };
 }
 
 // Where along its wall a doorway's reader stands: on whichever side has the wall for it. The room's mesh
@@ -192,6 +194,8 @@ export function buildLocks(L, ways, locks) {
       board: quad(F, m, 1.42, Math.min(1.1, (o.b - o.a) + 0.24), 0.66, 0.3),
       at: stand,          // where you'd stand to use it, [u, v]
       door,               // just inside the doorway, [u, v]
+      span: [o.a, o.b],   // the doorway along its wall, and `local` puts a spot [u, v] in its frame as [along, p]
+      local: F.local,
       mid: pad ? R.world(c, -PAD_OFF, 1.27) : R.world(c, -HOLO_OFF, 1.38),
       // the way the card faces: off the wall, into the room. It's read from that side only.
       face: (() => { const a = R.world(c, 0, 0), b = R.world(c, -1, 0); return [b[0] - a[0], b[2] - a[2]]; })(),

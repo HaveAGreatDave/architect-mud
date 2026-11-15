@@ -195,7 +195,8 @@ const flatLayouts = [];
         if (p.annex || p.on) continue;
         const cooks = p.arche === 'cold' || (p.arche === 'hob' && p.form !== 'microwave') || (p.arche === 'sink' && p.form !== 'basin');
         if (cooks && !within(p, P.kitchen)) fail(`${z.id}: ${p.id} (${p.form}) isn't in the kitchen`);
-        if (!cooks && within(p, P.kitchen) && p.arche !== 'cabinet' && p.arche !== 'hob' && !(p.arche === 'surface' && p.form === 'counter')) fail(`${z.id}: ${p.id} (${p.form}) is in the kitchen`);
+        // (a pet's feeding station is where it ought to be on a kitchen floor)
+        if (!cooks && within(p, P.kitchen) && p.arche !== 'cabinet' && p.arche !== 'hob' && p.form !== 'petbowl' && !(p.arche === 'surface' && p.form === 'counter')) fail(`${z.id}: ${p.id} (${p.form}) is in the kitchen`);
         // a row that fixes its own spot has been told where to stand (the crown's bed is under the north glass)
         if (p.arche === 'bed' && !(p.v > L.d * 0.5) && !here.find((r) => r.id === p.id)?.flags?.spot) fail(`${z.id}: ${p.id} isn't in the back of the room`);
         if ((p.arche === 'sofa' || p.arche === 'table') && p.v > P.living[3]) fail(`${z.id}: ${p.id} isn't in the lounge`);
