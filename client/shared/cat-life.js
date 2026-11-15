@@ -79,15 +79,19 @@ export function blockState(id, block, hour, nature = {}) {
   return st;
 }
 
-// what each state does on a turn
+// what each state does on a turn. Asleep, now and then he dreams (paws and whiskers going); sat, he may wash the base
+// of a hind leg held straight up (the cello), shake his head, or give somebody the slow blink; about, he rubs his cheek
+// on the corner of something (`mark`), and once in a long while brings up a hairball (about one day in two); flopped
+// out, he rolls about on his back
+const HAIRBALL = 0.0012;
 function turnAct(state, id, block, turn, hour, nature) {
-  const r = hash(id + ':t' + block + ':' + turn), imp = nature.impulsive ?? 0.5;
+  const r = hash(id + ':t' + block + ':' + turn), imp = nature.impulsive ?? 0.5, out = nature.outgoing ?? 0.5;
   switch (state) {
-    case 'sleep': return 'sleep';
-    case 'flop': return 'flop';
+    case 'sleep': return hash(id + ':dr' + block + ':' + turn) < 0.22 ? 'dream' : 'sleep';
+    case 'flop': return pick({ flop: 0.78, roll: 0.22 }, r);
     case 'rest': return pick({ loaf: 0.68, knead: 0.14, flank: 0.18 }, r);
-    case 'sit': return pick({ sit: 0.32, groom: 0.2, scratch: 0.08, yawn: 0.08, watch: 0.18, situp: 0.05, yowl: night(hour) ? 0.09 : 0 }, r);
-    default: return pick({ stand: 0.2, sniff: 0.18, stretch: 0.08, claw: 0.1, stalk: 0.08 + 0.06 * imp, wander: 0.24, zoomies: dusky(hour) ? 0.14 + 0.1 * imp : 0 }, r);
+    case 'sit': return pick({ sit: 0.28, groom: 0.18, scratch: 0.07, yawn: 0.07, watch: 0.16, situp: 0.05, cello: 0.06, shake: 0.04, slowblink: 0.03 + 0.04 * out, yowl: night(hour) ? 0.09 : 0 }, r);
+    default: return pick({ stand: 0.18, sniff: 0.16, stretch: 0.07, claw: 0.09, stalk: 0.07 + 0.06 * imp, wander: 0.22, mark: 0.08, shake: 0.03, hairball: HAIRBALL, zoomies: dusky(hour) ? 0.14 + 0.1 * imp : 0 }, r);
   }
 }
 
@@ -143,6 +147,9 @@ const PERCH = {
   cold: { top: () => null, w: { sleep: 0.5, rest: 2, flop: 0, sit: 2.5 } },
   small: { top: () => null, w: { sleep: 0.2, rest: 0.6, flop: 0, sit: 1.2 } },
   deck: { top: () => null, w: { sleep: 0.4, rest: 1, flop: 0, sit: 1 } },
+  // the kitchen sink's worktop: never somewhere he settles, only where he goes to drink from the tap when his water
+  // bowl's empty (catAtBowls `tap`)
+  sink: { top: () => null, w: { sleep: 0, rest: 0, flop: 0, sit: 0 } },
 };
 const SKIP_FORM = new Set(['pcdesk', 'banquette']);
 // how much room each state needs on top, metres across its narrow way
@@ -163,6 +170,7 @@ export function catPerches(L, look = {}) {
     const P = PERCH[p.arche];
     if (!P || p.on || p.annex || SKIP_FORM.has(p.form) || p.keypad || p.lab || p.rise) continue;
     if (p.arche === 'cabinet' && p.form !== 'vitrine' && p.form !== 'humidor') continue;   // hung on the wall
+    if (p.arche === 'sink' && p.form !== 'kitchen') continue;   // a basin hangs on the wall; a vanity's in the en-suite
     const t0 = P.top(p), top = (t0 == null ? p.h : t0 * k) + (p.y0 || 0);
     if (!(top > 0.15 * k) || top > leap) continue;
     if (Math.min(p.w, p.d) < 0.3 * k) continue;
@@ -189,9 +197,13 @@ export function catPerches(L, look = {}) {
     // lounger: the last 0.62 m of its length): the top is only the flat part, or he lands in the steps and sinks into them
     const head = p.form === 'lounger' ? Math.min(0.64 * k, p.w / 2) : 0;
     if (head) free = [Math.max(free[0], -hw + head), free[1]];
+    // a platform bed's width takes in the shelves either side of its headboard: its mattress is 0.42 m in from each
+    // side (gl/room-fittings.js platform), and the top is only that
+    const shelf = p.form === 'platform' ? Math.min(0.42 * k, hw - 0.2 * k) : 0;
+    if (shelf) free = [Math.max(free[0], -hw + shelf), Math.min(free[1], hw - shelf)];
     if (free[1] - free[0] < 0.3 * k) continue;
     const face = [Math.sin((p.turn || 0) * Math.PI / 180), -Math.cos((p.turn || 0) * Math.PI / 180)];
-    const q = Math.round(((p.turn % 360) + 360) % 360 / 90) % 2, bw = (q ? p.d : p.w - head) / 2, bd = (q ? p.w - head : p.d) / 2;
+    const q = Math.round(((p.turn % 360) + 360) % 360 / 90) % 2, bw = (q ? p.d : p.w - head - 2 * shelf) / 2, bd = (q ? p.w - head - 2 * shelf : p.d) / 2;
     const cu = p.u + face[1] * -head / 2, cv = p.v + face[0] * head / 2;
     // a chair's or a sofa's back: which way the seat faces (its back is behind) and how high the back stands, so he
     // gets up from the front or a side, and over the top of the back if that's the only way, never through it
@@ -233,7 +245,32 @@ export function catPerchOf(L, life, look = {}) {
 export function perchWord(p) {
   const n = String(p?.name || '').trim().replace(/^(the|a|an)\s+/i, '').toLowerCase();
   if (n && n.split(/\s+/).length <= 3 && n.length <= 18) return n;
-  return ({ bed: 'bed', sofa: 'sofa', bench: 'bench', seat: 'chair', table: 'table', surface: 'counter', cabinet: 'cabinet', store: 'shelves', wardrobe: 'wardrobe', cold: 'fridge', small: 'side table', deck: 'cabinet under the TV' })[p?.arche] || 'furniture';
+  return ({ bed: 'bed', sofa: 'sofa', bench: 'bench', seat: 'chair', table: 'table', surface: 'counter', cabinet: 'cabinet', store: 'shelves', wardrobe: 'wardrobe', cold: 'fridge', small: 'side table', deck: 'cabinet under the TV', sink: 'sink', prop: 'stand' })[p?.arche] || 'furniture';
+}
+
+// ── marking ────────────────────────────────────────────────────────────────────────────────────────
+// Going about, a cat rubs the side of his face along the corner of the furniture, leaving his smell on it (bunting).
+// Which corner of which piece is picked here from the room and the turn, so the words and the picture agree:
+// { id, name, arche, corner: [u, v], at: [u, v] where he stands, face: [u, v] what he rubs }, or null.
+const MARK_SKIP = new Set(['screen', 'cabinet', 'top', 'shower', 'toilet', 'urinal', 'stall']);
+export function catMarkOf(L, life) {
+  if (!L?.placed || life?.act !== 'mark') return null;
+  const k = unitsOf(L), F = onFoot(L);
+  const all = L.placed.filter((p) => !p.on && !p.annex && !MARK_SKIP.has(p.arche) && p.h > 0.3 * k && Math.min(p.w, p.d) > 0.25 * k);
+  if (!all.length) return null;
+  const r = hash(life.spot + ':mark:' + life.since);
+  for (let i = 0; i < 6; i++) {
+    const p = all[Math.floor(hash(r + ':' + i) * all.length) % all.length];
+    const q = Math.round(((p.turn % 360) + 360) % 360 / 90) % 2, hw = (q ? p.d : p.w) / 2, hd = (q ? p.w : p.d) / 2;
+    const c0 = Math.floor(hash(r + ':c' + i) * 4);
+    for (let j = 0; j < 4; j++) {
+      const c = (c0 + j) % 4, su = c & 1 ? 1 : -1, sv = c & 2 ? 1 : -1, corner = [p.u + su * hw, p.v + sv * hd];
+      // stood off the corner, square to one of its faces
+      const at = j % 2 ? [corner[0] + su * 0.22 * k, corner[1] - sv * 0.12 * k] : [corner[0] - su * 0.12 * k, corner[1] + sv * 0.22 * k];
+      if (roomFree(F, at[0], at[1])) return { id: p.id, name: p.name, arche: p.arche, corner, at, face: corner };
+    }
+  }
+  return null;
 }
 
 // ── meals ──────────────────────────────────────────────────────────────────────────────────────────
@@ -294,8 +331,111 @@ export function catAtBowls(id, now, bowls) {
       const full = bowlLevel(id, kind, s, t - 1) > 1e-6;
       if (!best || t > best.since) best = { kind, act: full ? (kind === 'food' ? 'eat' : 'drink') : 'beg', since: t };
     }
+    // hungry or thirsty at an empty one, he goes back to it between times to complain again (catNeeds)
+    const P = pesterAt(id, kind, now, s);
+    if (P && (!best || P > best.since)) best = { kind, act: 'beg', since: P, pester: true, ...(kind === 'water' && hash(id + ':tap:' + P) < 0.5 ? { tap: true } : {}) };
   }
   return best;
+}
+
+// ── hunger and thirst ──────────────────────────────────────────────────────────────────────────────
+// Worked out when they're read, never on a tick, from the one thing anybody does about them: filling his bowls. When he
+// last ate (or drank) is the last of his goes since the bowl was filled that found something in it; with no go since
+// the fill, the last go before it, since nobody had left him waiting (a bowl he'd been waiting at is filled with a
+// made-up meal, `due`). How hungry he is follows from how long ago that was: nothing for a few hours after a meal, then
+// rising, so on an ordinary day he's a little peckish by his next one and after a day without food he's starving.
+// Thirst rises quicker.
+const NEED = { food: { grace: 4 * 3.6e6, span: 20 * 3.6e6 }, water: { grace: 3 * 3.6e6, span: 15 * 3.6e6 } };
+// how hungry (or thirsty) he has to be before he goes back to an empty bowl to complain, and how often he does
+const PESTER = { food: { at: 0.4, every: 35 * 60 * 1000, ms: 60 * 1000 }, water: { at: 0.35, every: 45 * 60 * 1000, ms: 50 * 1000 } };
+/** When the cat `id` last ate (`kind` 'food') or drank ('water') from a bowl last filled as `s`, ms, before `now`. */
+export function lastFed(id, kind, s, now) {
+  if (!s || !Number.isFinite(s.at)) return null;
+  const n = Math.round(1 / BOWL[kind].portion), goes = goesSince(id, kind, s, now).slice(0, n);
+  if (goes.length) return goes[goes.length - 1];
+  const prev = bowlTimes(id, kind, s.at - DAY_MS, s.at);
+  return prev.length ? prev[prev.length - 1] : s.at;
+}
+const _needs = new Map();
+/**
+ * How hungry and thirsty the cat is at `now`, 0 (just fed) to 1 (a day or more without), from his bowls (`bowls` as
+ * catAtBowls takes them): { hunger, thirst, ate, drank } (when he last ate and drank, ms), or null with no bowls.
+ */
+export function catNeeds(id, now, bowls) {
+  if (!bowls?.food && !bowls?.water) return null;
+  const f = bowls.food, w = bowls.water, key = id + ':' + (f?.at ?? '') + ':' + (f?.due ?? '') + ':' + (w?.at ?? '') + ':' + (w?.due ?? '') + ':' + Math.floor(now / 1000);
+  const had = _needs.get(key);
+  if (had) return had;
+  const ate = lastFed(id, 'food', f, now), drank = lastFed(id, 'water', w, now);
+  const level = (kind, t) => (t == null ? 0 : Math.max(0, Math.min(1, (now - t - NEED[kind].grace) / NEED[kind].span)));
+  const out = { hunger: level('food', ate), thirst: level('water', drank), ate, drank };
+  if (_needs.size > 500) _needs.clear();
+  _needs.set(key, out);
+  return out;
+}
+// The go at an empty bowl he's on at `now` because he's hungry (or thirsty), ms it began, or null. Each PESTER.every
+// slot of the clock has one, at a time in it hashed off the cat, while the bowl's empty and he needs it.
+function pesterAt(id, kind, now, s) {
+  const P = PESTER[kind], slot = Math.floor(now / P.every), t = slot * P.every + Math.floor(hash(id + ':pest:' + kind + ':' + slot) * (P.every - P.ms));
+  if (now < t || now >= t + P.ms || t <= s.at) return null;
+  if (bowlLevel(id, kind, s, t) > 1e-6) return null;
+  const n = catNeeds(id, t, { [kind]: s });
+  return n && (kind === 'food' ? n.hunger : n.thirst) >= P.at ? t : null;
+}
+
+// ── the tray ───────────────────────────────────────────────────────────────────────────────────────
+// A cat pees three or four times a day and does the other once, most often an hour or two after breakfast, and some
+// days again in the evening. The times are real time, nudged per cat and per day, like his meals. The tray's whole state
+// is when it was last scooped (`at`, ms, the `pet_trays` row): every go since is in it. Past TRAY_FUSSY goes he digs
+// longer and sniffs it over first; at TRAY_FULL he won't get in, and goes on the floor beside it instead. Scooping clears
+// both. Nothing is written while he goes.
+export const TRAY = {
+  pee: { at: [0.8, 6.2, 12.6, 19.6], ms: 75 * 1000, p: [1, 0.8, 1, 0.9] },
+  poo: { at: [9.3, 20.4], ms: 115 * 1000, p: [1, 0.35] },
+};
+export const TRAY_FUSSY = 4, TRAY_FULL = 7;
+/** Every go at the tray in (from, to], oldest first: [{ t, kind: 'pee' | 'poo' }]. */
+export function trayTimes(id, from, to) {
+  const out = [];
+  if (!(to > from)) return out;
+  for (let day = Math.floor(from / DAY_MS); day * DAY_MS <= to; day++) {
+    for (const kind of ['pee', 'poo']) TRAY[kind].at.forEach((h, i) => {
+      if (hash(id + ':tray:' + kind + ':' + day + ':' + i + ':p') >= TRAY[kind].p[i]) return;
+      const t = day * DAY_MS + Math.round((h + (hash(id + ':tray:' + kind + ':' + day + ':' + i) - 0.5) * 1.4) * 3.6e6);
+      if (t > from && t <= to) out.push({ t, kind });
+    });
+  }
+  return out.sort((a, b) => a.t - b.t);
+}
+/**
+ * How the tray last scooped as `s` ({ at }) stands at `now`: { pee, poo (the goes in it), mess: [{ t, kind }] (the
+ * goes beside it, since it was full), dirt (every go since it was scooped) }.
+ */
+export function trayState(id, s, now) {
+  const goes = s && Number.isFinite(s.at) ? trayTimes(id, s.at, now) : [];
+  const inIt = goes.slice(0, TRAY_FULL);
+  return { pee: inIt.filter((g) => g.kind === 'pee').length, poo: inIt.filter((g) => g.kind === 'poo').length, mess: goes.slice(TRAY_FULL), dirt: goes.length };
+}
+/**
+ * The go at his tray the cat is on at `now`, or null: { kind: 'tray', act: 'pee' | 'poo', since, fussy (it wants
+ * scooping: he sniffs it over and digs longer), mess (it's full: he goes beside it), zoom (after the other, he tears
+ * off round the flat, as cats do) }. `tray` is { at } or null.
+ */
+export function catAtTray(id, now, tray) {
+  if (!tray || !Number.isFinite(tray.at)) return null;
+  const goes = trayTimes(id, Math.max(tray.at, now - TRAY.poo.ms), now);
+  for (let i = goes.length - 1; i >= 0; i--) {
+    const g = goes[i];
+    if (now - g.t >= TRAY[g.kind].ms) continue;
+    const before = trayTimes(id, tray.at, g.t - 1).length;
+    return { kind: 'tray', act: g.kind, since: g.t, fussy: before >= TRAY_FUSSY, mess: before >= TRAY_FULL, zoom: g.kind === 'poo' && hash(id + ':pz:' + g.t) < 0.45 };
+  }
+  return null;
+}
+/** What he's at now of his bowls and his tray, whichever he went to last, or null. */
+export function catAtChores(id, now, bowls, tray) {
+  const a = catAtBowls(id, now, bowls), b = catAtTray(id, now, tray);
+  return a && b ? (b.since >= a.since ? b : a) : a || b;
 }
 
 // ── biscuits ───────────────────────────────────────────────────────────────────────────────────────
@@ -335,4 +475,108 @@ export function catSettle(L, life, perch = null) {
   // on something soft, some of the lying about turns into biscuits
   else if (soft && life.state === 'rest' && act === 'loaf' && hash(life.spot + ':kn:' + life.turn) < 0.3) act = 'knead';
   return { act, rug };
+}
+
+// ── two cats ───────────────────────────────────────────────────────────────────────────────────────
+// Cats that share a home get on, or don't, in a few ways (Crowell-Davis et al. 2004; van den Bos 1998): friends greet
+// nose to nose and then sniff each other's back end, rub heads and flanks (allorubbing), groom each other, mostly the
+// head and neck and mostly the bigger personality grooming the other, sleep in contact, and play-fight and chase. A pair
+// that doesn't get on stares, one puffs up and hisses, and the other flattens and gets out of the way.
+//
+// Which of those happens is worked out here from the two ids, their natures and the clock, the same on the server
+// (plugins/pets says it) and every client (gl/room-beasts.js plays it), as a cat's own day is. An encounter takes a
+// turn or two (MEET_KINDS[kind].turns) and starts on a turn that's a multiple of that; sleeping in a heap lasts as long
+// as both sleeps do. While it runs it goes over both cats' days; a cat at its bowls or on a beat is left out of it.
+//
+// Roles: `a` stays where it is (its day puts it there) and `b` comes to it. In a greeting `b` is the one that was up
+// and about; in a groom `b` is the groomer, the more dominant; in a spat `a` is the more dominant, the one hissing.
+export const MEET_KINDS = {
+  greet: { turns: 2, awake: true },
+  play: { turns: 2, awake: true },
+  spat: { turns: 1, awake: true },
+  groom: { turns: 2, settled: true },
+  pile: { turns: 0, asleep: true },
+};
+/** How well two cats get on, 0..1, from their natures (the Feline Five): friendly cats get on; two bossy ones don't. */
+export function catBond(na = {}, nb = {}) {
+  const f = ((na.friendly ?? 0.5) + (nb.friendly ?? 0.5)) / 2, clash = Math.min(na.dominant ?? 0.5, nb.dominant ?? 0.5);
+  const nerves = Math.max(na.skittish ?? 0.5, nb.skittish ?? 0.5);
+  return Math.max(0.05, Math.min(0.95, 0.2 + 0.75 * f - 0.4 * clash - 0.15 * nerves + 0.1));
+}
+const AWAKE = new Set(['about', 'sit']), SETTLED = new Set(['rest', 'sit', 'flop']);
+// the block a settled spell began in, off its spot key (`id:block`)
+const firstBlock = (life) => +String(life.spot).slice(String(life.spot).lastIndexOf(':') + 1) || life.block;
+/**
+ * Who's with whom at `now`: a Map of cat id → { kind, with (the other's id), role ('a' | 'b'), since (ms), until (ms or
+ * null while it lasts), key (the same for both), on (the piece both are on, for `b` to come up onto, or null) }.
+ * `cats`: [{ id, nature, look, bowls, busy }] in one room, `busy` for a cat on a beat. `L` the room's layout, or null
+ * (then nothing is up on anything, and every encounter is on the floor).
+ */
+export function catMeets(L, cats, now, hour = 13) {
+  const out = new Map();
+  if (!cats || cats.length < 2) return out;
+  const all = cats.filter((c) => c?.id).slice().sort((x, y) => (x.id < y.id ? -1 : 1)).map((c) => {
+    const life = catLife(c.id, now, hour, c.nature || {});
+    const perch = L ? catPerchOf(L, life, c.look || {}) : null;
+    return { ...c, life, perch, free: !c.busy && !catAtChores(c.id, now, c.bowls, c.tray) };
+  });
+  const k = unitsOf(L);
+  const pairs = [];
+  for (let i = 0; i < all.length; i++) for (let j = i + 1; j < all.length; j++) pairs.push([all[i], all[j]]);
+  // a cat in a heap stays in it, so the heaps go first
+  pairs.sort((p, q) => (p[0].life.asleep && p[1].life.asleep ? 0 : 1) - (q[0].life.asleep && q[1].life.asleep ? 0 : 1));
+  for (const [x, y] of pairs) {
+    if (!x.free || !y.free || out.has(x.id) || out.has(y.id)) continue;
+    const pk = x.id + '+' + y.id, bond = catBond(x.nature, y.nature), lx = x.life, ly = y.life;
+    let m = null;
+    if (lx.asleep && ly.asleep) {
+      // asleep together: one goes and curls up against the other, for the whole of the sleep, if they're close enough
+      // friends and there's room for two where the other is
+      const roomy = (p) => !p || (p.free[1] - p.free[0] >= 0.62 * k && p.d >= 0.32 * k);
+      if (bond > 0.35 && hash(pk + ':pile:' + lx.spot + ':' + ly.spot) < 0.7 * bond * bond) {
+        const [a, b] = hash(pk + ':pr:' + lx.spot) < 0.5 ? [x, y] : [y, x];
+        if (roomy(a.perch)) m = { kind: 'pile', a, b, since: Math.max(firstBlock(lx), firstBlock(ly)) * BLOCK_MS, until: null };
+      }
+    } else {
+      const span = (kind) => MEET_KINDS[kind].turns;
+      const at = (n) => { const t0 = lx.turn - (lx.turn % n); return { t0, since: lx.block * BLOCK_MS + t0 * TURN_MS, until: lx.block * BLOCK_MS + (t0 + n) * TURN_MS }; };
+      const awake = AWAKE.has(lx.state) && AWAKE.has(ly.state), settled = SETTLED.has(lx.state) && SETTLED.has(ly.state) && (lx.state !== 'sit' || ly.state !== 'sit');
+      const dusk = (hour >= 5 && hour < 8.5) || (hour >= 16.5 && hour < 21);
+      const imp = ((x.nature?.impulsive ?? 0.5) + (y.nature?.impulsive ?? 0.5)) / 2;
+      if (awake) {
+        // one roll a turn for what, if anything, the two of them do (the play and the spat on their own clocks: each
+        // spans its own turns)
+        const w = {
+          greet: 0.01 + 0.11 * bond,
+          play: bond > 0.3 ? (dusk ? 0.1 : 0.03) * (0.5 + imp) : 0,
+          spat: bond < 0.45 ? 0.035 * (0.45 - bond) / 0.45 + 0.01 : 0,
+        };
+        for (const kind of ['play', 'greet', 'spat']) {
+          const T = at(span(kind));
+          if (hash(pk + ':' + kind + ':' + lx.block + ':' + T.t0) >= w[kind]) continue;
+          // the one that stays put is on the floor
+          let a, b;
+          if (kind === 'spat') [a, b] = (x.nature?.dominant ?? 0.5) >= (y.nature?.dominant ?? 0.5) ? [x, y] : [y, x];
+          else if (kind === 'greet') [a, b] = lx.state === 'about' && ly.state !== 'about' ? [y, x] : ly.state === 'about' && lx.state !== 'about' ? [x, y] : hash(pk + ':g' + T.t0) < 0.5 ? [x, y] : [y, x];
+          else [a, b] = hash(pk + ':p' + T.t0) < 0.5 ? [x, y] : [y, x];
+          if (a.perch) continue;
+          m = { kind, a, b, since: T.since, until: T.until };
+          break;
+        }
+      } else if (settled) {
+        const T = at(span('groom'));
+        if (bond > 0.35 && hash(pk + ':groom:' + lx.block + ':' + T.t0) < 0.18 * bond) {
+          // the groomer is the bossier of the two; it comes to the other, up onto the piece if that's where it is and
+          // there's room
+          const [b, a] = (x.nature?.dominant ?? 0.5) >= (y.nature?.dominant ?? 0.5) ? [x, y] : [y, x];
+          if (!a.perch || (a.perch.free[1] - a.perch.free[0] >= 0.58 * k && a.perch.d >= 0.3 * k)) m = { kind: 'groom', a, b, since: T.since, until: T.until };
+        }
+      }
+    }
+    if (!m) continue;
+    const key = pk + ':' + m.kind + ':' + m.since, on = m.a.perch?.id || null;
+    out.set(m.a.id, { kind: m.kind, with: m.b.id, role: 'a', since: m.since, until: m.until, key, on });
+    out.set(m.b.id, { kind: m.kind, with: m.a.id, role: 'b', since: m.since, until: m.until, key, on });
+  }
+  return out;
 }

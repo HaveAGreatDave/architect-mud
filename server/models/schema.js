@@ -798,6 +798,14 @@ export const SCHEMA_SQL = `
     water_at     TIMESTAMPTZ,
     water_due    TIMESTAMPTZ
   );
+  -- A pet's litter tray (furniture with flags.pet_tray naming the pet): when it was last scooped. Every go he's had since
+  -- is worked out from that and his times (client/shared/cat-life.js trayTimes), how dirty it is and whether he's started
+  -- going beside it included, so nothing is written while he goes; only a scoop writes. Runtime state, not content: no
+  -- row means it was scooped at the start of the day it was first seen.
+  CREATE TABLE IF NOT EXISTS pet_trays (
+    furniture_id TEXT PRIMARY KEY,
+    scooped_at   TIMESTAMPTZ
+  );
 
   CREATE TABLE IF NOT EXISTS recipes (
     id TEXT PRIMARY KEY,

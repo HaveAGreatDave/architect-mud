@@ -24,6 +24,7 @@
 
 import { on } from '../../server/engine/events.js';
 import { getZone, getLivePlayer } from '../../server/engine/world.js';
+import { bayKindOf, noteStandHand } from '../../server/engine/vehicle-stand.js';
 import { allExits } from '../../server/engine/exits.js';
 import { sendToPlayer } from '../../server/engine/messaging.js';
 import { query } from '../../server/models/db.js';
@@ -175,9 +176,14 @@ export async function marinaPanel(player, zoneId, tab = 'fleet') {
     capacity: berthCapacity(z), taken: taken.get(z.id) || 0,
   }));
 
+  // a covered slip with a Room Stage (server/engine/vehicle-stand.js): a card offers Call it up, and the slip's
+  // panel lists what's kept in it from this hand
+  const stand = !!here?.flags?.room && bayKindOf(here) === 'boat';
+  if (stand) noteStandHand(player.id, here.id, fleet.filter((f) => f.hereNow).map((f) => ({ id: f.id, name: f.name })));
   return {
     type: 'marina',
     tab,
+    stand,
     name: here?.flags?.building_name || here?.name || 'The Marina',
     credits: Number(player.credits || 0),
     fleet,

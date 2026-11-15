@@ -10,6 +10,63 @@
     "floor": "concrete",
     "is_building": true,
     "is_interior": true,
+    "room": {
+      "balcony": false,
+      "d": 5,
+      "decor": {
+        "rug": false,
+        "signs": [
+          {
+            "along": 2.5,
+            "h": 0.08,
+            "hex": "#101010",
+            "plateHex": "#e8c040",
+            "text": "Wear a Mask",
+            "wall": "left",
+            "y": 2.2
+          }
+        ],
+        "strips": [
+          {
+            "along": "u",
+            "at": [
+              -2,
+              0.9
+            ],
+            "len": 1.6
+          },
+          {
+            "along": "u",
+            "at": [
+              2,
+              0.9
+            ],
+            "len": 1.6
+          }
+        ],
+        "walls": {
+          "hex": "#7a5a3c",
+          "kind": "walnut",
+          "on": [
+            "front"
+          ],
+          "trim": "#2a2420",
+          "y1": 2.6
+        }
+      },
+      "face": 0,
+      "ground": "concrete",
+      "h": 3.2,
+      "studio": false,
+      "tone": {
+        "accent": "#8a6a44",
+        "ceiling": "#e2ddd2",
+        "trim": "#3a3026",
+        "wall": "#d6d0c4"
+      },
+      "w": 9,
+      "windowless": true
+    },
     "world_exit_zone": "zone_district_893_902"
   },
   "grid_x": 0,

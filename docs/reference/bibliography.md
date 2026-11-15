@@ -121,6 +121,9 @@ All in [birds.js](../../client/shared/birds.js).
 | Leyhausen 1979, *Cat Behavior* | The grid of offensive and defensive faces: an angry cat turns the backs of its ears to you, a frightened one lays them flat and down. |
 | Smit et al. 2024, "Classifying the Behaviour of Domestic Cats using Accelerometers" (Sensors 24(8)) | What a pet cat's day is: lying 37%, sitting 37%, standing 13%, eating 5%, active 3%, with the peaks at dawn and dusk, which cat-life.js weighs his day by. |
 | CFA, American Shorthair breed standard | The breed's head, ears, eyes, body and coat, for `american_shorthair` in [cat-breeds.js](../../client/game/js/panels/gl/cat-breeds.js). |
+| CFA breed standards for the Siamese, Maine Coon, Persian, British Shorthair and Abyssinian | Each breed's build, head, ears, eyes and coat in [cat-breeds.js](../../client/game/js/panels/gl/cat-breeds.js). The Siamese is the traditional cat rather than the standard's extreme wedge, checked against photographs of seal points (Wikipedia's "Siamese cat"). |
+| Crowell-Davis, Curtis and Knowles 2004, "Social organization in the cat: a modern understanding" (Journal of Feline Medicine and Surgery 6) | How cats that live together show they get on: greeting nose to nose, allorubbing, allogrooming, sleeping in contact and play; and that a household of cats has preferred associates and ones it avoids. The kinds of `catMeets` in [cat-life.js](../../client/shared/cat-life.js). |
+| van den Bos 1998, "The function of allogrooming in domestic cats" (Journal of Ethology 16) | Grooming another cat goes mostly to the head and neck, and mostly from the higher-ranking cat to the lower: the groomer in `catMeets` is the bossier of the two. |
 | Reighard and Jennings 1901, *Anatomy of the Cat* | The muscle groups the cat kit's legs and body are built from and where each attaches: the triceps filling the angle behind the arm, the biceps femoris and hamstrings fanning from the point of the buttock to the stifle and shin, the calf running into the Achilles tendon. |
 | A 19th-century engraving of a cat's skeleton drawn inside its outline, and Wikimedia Commons' "Felis catus skeleton" (a mount at Naturalis, Leiden) | Where the joints sit in a standing cat: the shoulder joint at the point of the chest, the elbow at the bottom of the ribs, the hip high under the croup, the stifle high in the flank, the high hock and the upright metatarsus. The kit's silhouette is checked by laying it over the engraving. |
 
@@ -278,6 +281,20 @@ Every recording the game plays from [field-recordings.js](../../client/shared/fi
 | [3_Cat, jump.wav](https://freesound.org/people/16GPanskaZlochova_Eliska/sounds/496278/) | 16GPanskaZlochova_Eliska | `cat_jump`, calls |
 | [cat_land_floor](https://freesound.org/people/superEGsonic/sounds/803297/) | superEGsonic | `cat_land`, calls |
 | [Cat Zoomies](https://freesound.org/people/qubodup/sounds/855106/) | qubodup | `cat_zoomies`, calls |
+
+### Crowd recordings
+
+The recordings the CPhL's and Deadball's crowd patches were fitted to: each patch's band levels and its level's wander were measured off one of these. Cuts of five of them also ship as field recordings (`crowd_*`), cut by hand from stretches clear of PA music and single voices, which CC0 doesn't clear. All are from Freesound under CC0 1.0, checked on each sound's page. Docs: [systems-hockey-sound.md](../systems-hockey-sound.md) (K) and [systems-deadball-sound.md](../systems-deadball-sound.md).
+
+| Recording | By | Fitted to it | Ships as |
+|---|---|---|---|
+| [Rogers Arena - NHL game atmosphere](https://freesound.org/people/SEF7/sounds/706497/) | SEF7 | hockey's `crowdBed()`, `hk-crowd-bed` | `crowd_arena`, a loop |
+| [Hockey - Huge Body Check Hit Into Boards](https://freesound.org/people/producerdan/sounds/161996/) | producerdan | `hk-crowd-goal`, `hk-crowd-roar` | `crowd_goal`, one cut |
+| [Sports Crowd Various Sounds](https://freesound.org/people/FlatHill/sounds/324756/) | FlatHill | `hk-crowd-cheer`, `db-crowd-roar` | `crowd_roar` and `crowd_cheer`, cuts |
+| [Crowd, large outrage then booing reaction, hockey game, 2011.wav](https://freesound.org/people/TRP/sounds/577098/) | TRP | `hk-crowd-boo` | `crowd_boo`, cuts |
+| [small crowd gasp shock surprise](https://freesound.org/people/HowardV/sounds/264376/) | HowardV | `hk-crowd-gasp`, `db-crowd-gasp` | not shipped: one held breath, not a gasp |
+| [Crowd and field noise before and during homerun hit at MLB baseball stadium](https://freesound.org/people/bmadore/sounds/691975/) | bmadore | Deadball's `crowdBed()`, `db-crowd-cheer` | not shipped: its uploader notes stadium music under the crowd |
+| [baseball sounds.mp3](https://freesound.org/people/bowlingballout/sounds/58596/) | bowlingballout | `db-crowd-boo` | `crowd_park`, a loop; `crowd_boo_park`, one cut |
 
 ### Flight and physics
 

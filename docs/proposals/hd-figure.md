@@ -175,6 +175,32 @@ A mutation (`content/mutations`) shows on the close-up figure through `MUTATION_
 - Each person's changes share one accent colour (`mutCol`, `flags.figure.mut_accent`).
 - Only the close-up levels draw them. The street crowd doesn't.
 
+## The fine face (prototype)
+
+A denser sculpted head, behind the Figure Lab's `face: hd` box and off everywhere else. `faceHd: true` on `buildFigure` (it's in `figureKey`) builds the head on `HEAD_HD` in actor-head.js instead of L0. That level has L0's rings and columns with two more between each pair through the face and one more over the crown, which comes to 62 rings and 27 columns a side. The head goes from about 1,200 vertices to about 6,300, and the whole figure from about 13,300 to 19,600. HEAD_HD isn't in `HEAD_LEVELS`, because the street never draws it.
+
+- **Its face style** is the head's own with `+hd` (`hdFace`): fuller lips and nose wings, and softer elsewhere. The cheekbones are flatter and broader (`cheekS` widens them) over a shallower hollow, because in profile they stood out as a triangle. The brow is rounder, the jaw gentler, and the folds stay as they were, because deeper ones shade the philtrum into a moustache.
+- **Its ears are modelled** (`addEarFine`): a rolled rim over the top and down the back, the groove and the ridge inside it, the bowl, the flap in front of it and a full lobe, with the rim curled over the edge. They stand further off the head than the plain ear, so the hair doesn't cut across them.
+- **Its designed normals** diffuse for 40 passes, smooth for 10 and lay the planes on at 70% (`faceDesigned`'s arguments).
+- **Its face and neck vertices carry aux 0.25, and its ears 2 plus the bowl's depth.** gl/figure-hd.js reads these to hold back the paint the geometry now carries:
+  - the face's plane shapes go to 30%, the hair's shadow on the forehead to half, and the lines between the brows and from the nose to the mouth are lighter;
+  - the neck's bands for its two ridges go to 20%, and its jaw shadow and notch to half;
+  - the ear's painted folds are dropped;
+  - on the mouth, the lips edge softly (the lower one most), there's less ink round them and under the lower lip, and the teeth are greyer. The nostrils are smaller and lighter;
+  - the third tone is a third gentler, the hatching on the face and neck is down to a third, and the shut-in shadow is off on the face, where it filled the hollow under the nose.
+
+`scripts/shapes/figure.mjs` checks that it builds finite at three heads, still indexes as UNSIGNED_SHORT, and leaves the phone figure alone.
+
+## The eyes from below
+
+Seen from below, every close-up figure's eyes went black, fine head or not. Three things caused it, and all three are fixed for every real eye:
+
+- **The ball's lid shadow was painted on the ball's own top.** From below, the top of the ball is what shows through the opening. The shadow is now traced: the ball's aux holds the skin's depth over the eye (`eyeParts`), and the shader follows the line of sight from each point out to that depth and shades only where it passes just under the upper lid's edge. Head on, that's the same band as before.
+- **The upper lid's whole underside was lash line.** From below, all of it shows. The ink now keeps to the lid's front-lower edge, and keeps closer to the bottom of the lid the lower the camera is. The part behind it, toward the ball, is skin in shadow. Front and back come from the lid's normal in the head's own space.
+- **Lines of sight passed the ball and went into the head.** There they met the ink's outline shell, drawn black 2 cm behind the face. A lining (the `socket` part) now runs from round the ball to just behind the skin past the opening. It shades from the ball's greyed white to the pink inside of the lids.
+
+The head's own space comes from the screen derivatives (`bindMat` in gl/figure-hd.js): over a pixel the head is rigid, so the map between the bind and world positions' slopes turns a world direction into the head's.
+
 ## Open questions
 
 - **The street's own close-ups.** Answered by [street-people-ladder.md](street-people-ladder.md): the nearest few people on the street are drawn with this figure (gl/street-hd.js), posed on the CPU by `figurePeople` for now, and the crowd is dressed from the same look.

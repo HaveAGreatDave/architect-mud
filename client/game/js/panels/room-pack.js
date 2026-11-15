@@ -19,8 +19,11 @@
 // isOpen, data, dirty, key, dollRect, worn }. `silent` sends a line without echoing it, `cmd` sends one that answers
 // on the card. `turn(dYaw, dPitch, zoom)` turns the camera round you; `worn()` is the pack's rows with a garment
 // held over you counted as on.
+// ⚠ WITH NO `turn` THE DOLL IS FLAT. The street on foot (freelook-view.js) has no close-up of you to frame, so it
+// passes none, and the box draws paper-doll.js dollSvg instead, a garment held over you included. The rest is the
+// same panel on the same verbs.
 
-import { garmentOf } from '../../../shared/paper-doll.js';
+import { garmentOf, dollSvg } from '../../../shared/paper-doll.js';
 import { loadCss, escapeHtml as esc } from '../../../shared/dom.js';
 
 const PACK_CSS = await loadCss(new URL('./room-pack.css', import.meta.url));
@@ -78,8 +81,9 @@ function iconOf(it) {
 
 export function createPack({ host, silent, cmd, take, spray, onToggle = null, turn = null }) {
   ensureStyles();
+  const flat = !turn;
   const el = document.createElement('div');
-  el.className = 'rp';
+  el.className = flat ? 'rp rp-flat' : 'rp';
   el.hidden = true;
   el.setAttribute('role', 'dialog');
   el.setAttribute('aria-label', 'Your pack');
@@ -92,7 +96,7 @@ export function createPack({ host, silent, cmd, take, spray, onToggle = null, tu
     </header>
     <div class="rp-body">
       <section class="rp-dollbox" aria-label="What you're wearing">
-        <div class="rp-doll" title="Drag to turn round, the wheel to come closer"><span class="rp-turn" aria-hidden="true">⟲ drag to turn</span></div>
+        <div class="rp-doll" title="${flat ? 'Drag clothes here to put them on' : 'Drag to turn round, the wheel to come closer'}"><span class="rp-turn" aria-hidden="true">⟲ drag to turn</span><span class="rp-paper"></span></div>
         <div class="rp-dollacts">
           <button type="button" class="rp-undress" title="Take off everything you're wearing, but what's in your hand and your accessories">Undress</button>
           <button type="button" class="rp-redress" hidden title="Put back on what you took off">Dress again</button>
@@ -131,9 +135,11 @@ export function createPack({ host, silent, cmd, take, spray, onToggle = null, tu
     sayTimer = setTimeout(() => sayEl.classList.remove('on'), 4200);
   }
 
-  // you're drawn by the room behind the box (room-stage.js); this keeps its buttons right
+  // you're drawn by the room behind the box (room-stage.js), or flat in it on the street; this keeps its buttons right
+  const paperEl = $('.rp-paper');
   function paintDoll() {
     if (!pack) return;
+    if (flat) paperEl.innerHTML = dollSvg(pack, { ghost, selected });
     const worn = pack.items.some((x) => x.worn && x.slot && x.slot !== 'weapon_hand' && x.slot !== 'accessory');
     $('.rp-undress').disabled = !worn;
     const back = stripped.filter((id) => byId(id) && !byId(id).worn);
@@ -168,7 +174,7 @@ export function createPack({ host, silent, cmd, take, spray, onToggle = null, tu
 
   function paintSel() {
     const it = selected && byId(selected);
-    if (!it) { selEl.innerHTML = `<span class="rp-hint">Click a thing to see what you can do with it. Drag clothes onto yourself to put them on. Drag across yourself to turn round.</span>`; return; }
+    if (!it) { selEl.innerHTML = `<span class="rp-hint">Click a thing to see what you can do with it. Drag clothes onto yourself to put them on.${flat ? '' : ' Drag across yourself to turn round.'}</span>`; return; }
     const facts = [];
     if (it.slot) facts.push(it.slot === 'weapon_hand' ? 'held' : `${SLOT_LABEL[it.slot]}${LAYER_LABEL[it.layer] ? `, ${LAYER_LABEL[it.layer]}` : ''}`);
     if (it.soak) facts.push(`soak ${it.soak}`);

@@ -1,0 +1,32 @@
+{
+  "description": "A canvas cot in the corner with an army blanket on it. It is the warmest place in the yard.",
+  "flags": {
+    "aliases": [
+      "cot",
+      "bed",
+      "blanket"
+    ],
+    "interactions": [
+      "sit",
+      "lie"
+    ],
+    "look": {
+      "arche": "sofa",
+      "form": "cot"
+    },
+    "spot": {
+      "along": 2.6,
+      "wall": "right"
+    }
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_hulls_cot",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "the cot",
+  "object_type": "furniture",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_hulls_back"
+}

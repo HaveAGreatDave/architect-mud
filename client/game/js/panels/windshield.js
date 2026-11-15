@@ -31157,6 +31157,23 @@ function drawRoadside(ctx, cam, v, wcx, wcy, night, now, FAR) {
 
 // A street figure's half-width in tiles, about 0.3 m: a mesh whose centre is this far behind the eye can't reach the frame.
 const ACTOR_BODY_R = 0.017;
+
+// ── YOU, ON THE STREET ───────────────────────────────────────────────────────────
+// `v.self` is the viewer's own body, set by the street on foot while its Pack is open (freelook-view.js), so the
+// camera can stand back and look at you as the Room Stage's Pack does: { x, y, z } in absolute tiles, `hd` the
+// crowd's heading, `o` a streetLook whose `hd.figure` carries what you're wearing, `k` your height over the
+// crowd's. It's an ordinary actor record, so the close-up level (gl/street-hd.js) draws it with the Room Stage's
+// figure as soon as you're tall enough on the screen, which in the Pack you always are. Mesh only: there's no card
+// of you to fall back to, and a moment of the crowd's body while your figure builds is the same as anybody's.
+function drawSelfFigure(ctx, cam, v, wcx, wcy, night, now, FAR) {
+  const me = v.self;
+  if (!me || !me.o || !actorMeshOn() || !(actorBakeReady() || actorBakeStep(2))) return;
+  const dx = (me.x - wcx) - cam.ox, dy = (me.y - wcy) - cam.oy;
+  const f = dx * cam.sinh - dy * cam.cosh;
+  if (f + (cam.fwdOff || 0) <= -ACTOR_BODY_R || f > FAR) return;
+  const pose = { o: me.o, k: me.k || 1, hd: me.hd || 0, clip: 'idle', gd: 0, ph: (now / 4000) % 1, from: null, mix: 0 };
+  emitScatterFace(f + (cam.fwdOff || 0), () => drawActorFigure(ctx, cam, dx, dy, 1, 'self', 0, false, night, { pose, z: me.z || 0 }));
+}
 function drawStreetActors(ctx, cam, v, map, R, wcx, wcy, night, now, FAR) {
   const winKey = map ? `${wcx},${wcy}` : null;
   syncStreetActors(v.actors, now, winKey != null && winKey === _actorWinKey);
@@ -56853,6 +56870,8 @@ function drawWorldObjects(ctx, cam, v, sky, now, sun) {
     // The corridor's own figure. Outside the ACTORS map entirely, so an empty city population never
     // suppresses them — 'drawStreetActors' returns early on an empty set and this must not ride it.
     drawRoadside(ctx, cam, v, wcx, wcy, night, now, FAR);
+    // You, on foot with the Pack open (freelook-view.js packView): the only time the street draws its own viewer.
+    drawSelfFigure(ctx, cam, v, wcx, wcy, night, now, FAR);
   }
   pEnd();                      // ── end world:street ──
   // THE GEESE. Its own sub-phase rather than a line inside world:street, because that block is

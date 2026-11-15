@@ -46,6 +46,30 @@ import { fuelPrices } from './fuel.js';
 import { overboard, describeAdrift } from './adrift.js';
 // Who may take a boat, the parked index and the latch the lock/unlock router turns (access.js).
 import { unindexBoat } from './access.js';
+import { registerStandKind, standVehicles } from '../../server/engine/vehicle-stand.js';
+import { boatLiveryOf } from './service.js';
+
+// The boat's kind of vehicle stand (server/engine/vehicle-stand.js): `callup` in a covered slip brings one of yours
+// kept in that slip round from the wet store behind the water gate, where the Room Stage draws her afloat; stepping
+// aboard is `boat take`, the counter's Cast off. A covered slip is a bay when its spec carries a stand, or when it's
+// a `boat_covered` room with a spec.
+registerStandKind('boat', {
+  isBay: (zone) => !!(zone?.flags?.boat_covered && zone.flags.room),
+  from: 'front', label: 'SLIP', moveMs: 10000,
+  board: (id) => `boat take ${id}`,
+  busy: (player) => (aboard.has(player.id) ? "You're aboard already. Step off her first." : null),
+  list: async (player, zone) => {
+    const { rows } = await query('SELECT id, name, type_id, custom_data FROM boats WHERE owner_id = $1 AND berth_zone = $2 ORDER BY created_at', [player.id, zone.id]);
+    return rows.map((b) => ({ id: b.id, name: b.name || BOAT_TYPES.find((t) => t.id === b.type_id)?.name || b.type_id,
+      look: { cls: b.type_id || 'hydro', livery: boatLiveryOf(b.custom_data) } }));
+  },
+  words: {
+    noun: 'boat',
+    up: (name) => `The water gate grinds up, and a yard hand walks the ${name} in on her lines and makes her fast alongside.`,
+    down: (name) => `The yard hand casts the ${name} off and walks her back out through the water gate to the wet store.`,
+    none: "Nothing of yours is kept in this slip. Buy or hire one at the counter, or `tow` one round from another yard.",
+  },
+});
 
 // Every boat currently under way, by player id. RAM only and deliberately so: a position on the
 // water is per-tick state, and the persistence tiers are explicit that per-tick state does not go
@@ -148,6 +172,8 @@ installMarinaShopfront();
 
 export const hooks = {
   'vehicle.contacts': (x, y, range) => boatContactsNear(x, y, range),
+  // One of yours brought into a covered slip, for the Room Stage (server/engine/vehicle-stand.js). Sync, RAM.
+  'room.vehicles': (zoneId, player) => standVehicles(zoneId, player, 'boat'),
   // A hull somebody left floating in this square of water. ⚠ GATHERED, so this line sits beside
   // whatever else the room has to say rather than replacing it, and it answers `undefined` for
   // every tile in the world that is not open water — which is all but 932 of them — before it

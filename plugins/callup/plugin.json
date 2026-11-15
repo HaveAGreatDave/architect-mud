@@ -1,0 +1,7 @@
+{
+  "name": "callup",
+  "version": "1.0.0",
+  "description": "Call one of your vehicles out onto a depot's floor (a truck shed's lift, a hangar's tug, a marina's covered slip, the racer bay's dolly), walk up to it in the Room Stage and climb in. The verb over server/engine/vehicle-stand.js; each vehicle plugin registers its own kind.",
+  "hooks": [],
+  "commands": ["callup"]
+}

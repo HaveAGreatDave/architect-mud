@@ -26,7 +26,7 @@
  * (audio-engine.js holds the same list). Values are linearly interpolated between frames.
  */
 const TRACK = ['f0', 'jitA', 'jitB', 'av', 'ah', 'af', 'f1', 'f2', 'f3', 'f4', 'q1', 'q2', 'q3', 'q4',
-  'nf', 'nq', 'nzf', 'nzdb', 'tilt', 'closure', 'rd', 'creak'];
+  'nf', 'nq', 'nzf', 'nzdb', 'tilt', 'closure', 'rd', 'creak', 'fb', 'ff'];
 const NP = TRACK.length;
 const IX = Object.fromEntries(TRACK.map((k, i) => [k, i]));
 // Smooth random wander, ~9 Hz and ~3 Hz octaves, peak about 1. ⚠ Duplicated in
@@ -147,6 +147,22 @@ class BandPass {
   }
 }
 
+// The RBJ highpass, for the frication's flat path (Klatt's bypass): noise with no peak,
+// and no rumble under it. Q is linear here; the engine's graph gives Web Audio dB.
+class HighPass {
+  constructor() { this.b0 = 0; this.b1 = 0; this.b2 = 0; this.a1 = 0; this.a2 = 0; this.x1 = 0; this.x2 = 0; this.y1 = 0; this.y2 = 0; }
+  set(f, q, T) {
+    const w = TAU * f * T, al = Math.sin(w) / (2 * q), cw = Math.cos(w), a0 = 1 + al;
+    this.b0 = (1 + cw) / 2 / a0; this.b1 = -(1 + cw) / a0; this.b2 = this.b0;
+    this.a1 = -2 * cw / a0; this.a2 = (1 - al) / a0;
+  }
+  run(x) {
+    const y = this.b0 * x + this.b1 * this.x1 + this.b2 * this.x2 - this.a1 * this.y1 - this.a2 * this.y2;
+    this.x2 = this.x1; this.x1 = x; this.y2 = this.y1; this.y1 = y;
+    return y;
+  }
+}
+
 // Pink noise, Paul Kellett's filter, the same colour as speechNoise() in the engine.
 class Pink {
   constructor(seed) { this.s = seed >>> 0 || 1; this.b = new Float64Array(7); }
@@ -180,6 +196,7 @@ class OracleVoice extends AudioWorkletProcessor {
     this.R = [0, 1, 2, 3, 4].map(() => new Reson());       // cascade F1-F5
     this.np = new Reson(); this.nz = new AntiReson();      // the nasal pair
     this.fb1 = new BandPass(); this.fb2 = new BandPass();  // the frication band, twice
+    this.fhp = new HighPass();                             // and its flat path
     this.lpf = 0; this.done = false; this.stopped = false; this.tilt = 0;
     this.emph = 0; this.emphNorm = 1; this.px = 0;
     this.rms = 0; this.n = 0; this.rd = 1;
@@ -199,6 +216,7 @@ class OracleVoice extends AudioWorkletProcessor {
         this.emph = Math.max(0, Math.min(0.97, +this.k.emph || 0));
         const w = TAU * 500 / sampleRate;
         this.emphNorm = 1 / Math.hypot(1 - this.emph * Math.cos(w), this.emph * Math.sin(w));
+        this.fhp.set(+this.k.flatHz || 2500, +this.k.flatQ || 0.7, this.T);
       } else if (d.type === 'stop') this.stopped = true;
     };
   }
@@ -359,8 +377,14 @@ class OracleVoice extends AudioWorkletProcessor {
       // the murmur under /v z/. F1's output alone, crossfaded by the closure track.
       const cl = this.at(IX.closure, lt);
       y = y * (1 - cl) + r1 * cl * k.closureK;
-      // The parallel branch: frication and bursts, through a doubled band and a top cut.
-      const fz = this.fb2.run(this.fb1.run(nse * af)) * k.fricK;
+      // The parallel branch: frication and bursts, through a doubled band beside a flat
+      // path (the engine's `fb`/`ff` mix, levelled there), then a top cut. Under voicing
+      // (/z v ʒ ð/) the noise is pulsed at F0 as aspiration is: the airflow through the
+      // constriction rises and falls with the glottis, so the hiss buzzes.
+      const fp = av > 0.02 ? Math.min(1, k.fricPulse * (k.natural ?? 1)) : 0;
+      const fo = fp > 0 ? (this.ph < te ? 1 : 1 - fp) / Math.sqrt(te + (1 - te) * (1 - fp) * (1 - fp)) : 1;
+      const fn = nse * af * fo;
+      const fz = (this.fb2.run(this.fb1.run(fn)) * this.at(IX.fb, lt) + this.fhp.run(fn) * this.at(IX.ff, lt)) * k.fricK;
       this.lpf += (fz - this.lpf) * k.lpA;
       const s = y * k.cascK + this.lpf;
       out[i] = s;

@@ -1,0 +1,30 @@
+{
+  "description": "Steel racking along the wall: drawers of sockets, coils of safety wire, a tyre on its rim and a box of rags. Every tool has a painted outline, and about half the outlines are empty.",
+  "flags": {
+    "aliases": "racks,rack,tools,tool rack,racking",
+    "look": {
+      "arche": "store",
+      "dims": [
+        4,
+        0.5,
+        2.2
+      ],
+      "form": "shelves",
+      "wear": 0.6
+    },
+    "spot": {
+      "along": 21.5,
+      "wall": "right"
+    }
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_hangar_racks_outskirts",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "the tool racks",
+  "object_type": "fixture",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_hangar_outskirts"
+}

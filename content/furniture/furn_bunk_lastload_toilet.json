@@ -2,6 +2,14 @@
   "description": "A steel pan behind a partition somebody has patched with a road sign. The cistern was replaced recently and works better than anything else in the building, which is either luck or the only thing anyone here has ever prioritised.",
   "flags": {
     "aliases": "toilet,pan,bog,head,cistern",
+    "look": {
+      "arche": "toilet",
+      "form": "pan"
+    },
+    "spot": {
+      "along": 2.6,
+      "wall": "front"
+    },
     "water_source": true
   },
   "hp": null,

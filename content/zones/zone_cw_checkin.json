@@ -11,7 +11,356 @@
   "flags": {
     "floor": "tile",
     "hangar_ramp": "zone_district_925_903",
-    "is_interior": true
+    "is_interior": true,
+    "room": {
+      "balcony": false,
+      "d": 15,
+      "decor": {
+        "doors": [
+          {
+            "at": 7.5,
+            "finish": "steel",
+            "label": "Arrivals",
+            "w": 1.4,
+            "wall": "left"
+          }
+        ],
+        "grates": [
+          [
+            1.79,
+            10.75,
+            0.6,
+            0.7
+          ],
+          [
+            -0.28,
+            10.75,
+            0.6,
+            0.7
+          ],
+          [
+            -2.35,
+            10.75,
+            0.6,
+            0.7
+          ],
+          [
+            -4.41,
+            10.75,
+            0.6,
+            0.7
+          ],
+          [
+            -6.48,
+            10.75,
+            0.6,
+            0.7
+          ],
+          [
+            -8.55,
+            10.75,
+            0.6,
+            0.7
+          ]
+        ],
+        "paint": [
+          {
+            "from": [
+              -10.2,
+              9.9
+            ],
+            "hex": "#e8b818",
+            "kind": "line",
+            "t": 0.08,
+            "to": [
+              2.2,
+              9.9
+            ]
+          },
+          {
+            "from": [
+              -2,
+              9.8
+            ],
+            "hex": "#e8eef2",
+            "kind": "line",
+            "t": 0.06,
+            "to": [
+              -2,
+              5.6
+            ]
+          },
+          {
+            "from": [
+              0.2,
+              9.8
+            ],
+            "hex": "#e8eef2",
+            "kind": "line",
+            "t": 0.06,
+            "to": [
+              0.2,
+              5.6
+            ]
+          },
+          {
+            "at": [
+              -0.9,
+              6.4
+            ],
+            "dir": [
+              0,
+              1
+            ],
+            "hex": "#e8eef2",
+            "kind": "arrow",
+            "s": 0.6
+          }
+        ],
+        "payphone": [
+          {
+            "at": 11.5,
+            "wall": "right",
+            "y": 1.4
+          }
+        ],
+        "pipes": [
+          {
+            "from": [
+              -5.6,
+              14.95,
+              4.25
+            ],
+            "hex": "#5a5e62",
+            "r": 0.012,
+            "to": [
+              -5.6,
+              14.95,
+              5.5
+            ]
+          },
+          {
+            "from": [
+              -2.4,
+              14.95,
+              4.25
+            ],
+            "hex": "#5a5e62",
+            "r": 0.012,
+            "to": [
+              -2.4,
+              14.95,
+              5.5
+            ]
+          }
+        ],
+        "rug": false,
+        "screens": [
+          {
+            "along": -4,
+            "h": 0.95,
+            "show": "status",
+            "w": 3.6,
+            "wall": "back",
+            "y": 3.75
+          }
+        ],
+        "signs": [
+          {
+            "along": 1.17,
+            "h": 0.26,
+            "hex": "#4a5056",
+            "plateHex": "#1b1e22",
+            "text": "1",
+            "wall": "back",
+            "y": 2.75
+          },
+          {
+            "along": -0.9,
+            "h": 0.26,
+            "hex": "#ffd23a",
+            "lit": true,
+            "plateHex": "#1b1e22",
+            "text": "2",
+            "wall": "back",
+            "y": 2.75
+          },
+          {
+            "along": -2.97,
+            "h": 0.26,
+            "hex": "#4a5056",
+            "plateHex": "#1b1e22",
+            "text": "3",
+            "wall": "back",
+            "y": 2.75
+          },
+          {
+            "along": -5.03,
+            "h": 0.26,
+            "hex": "#4a5056",
+            "plateHex": "#1b1e22",
+            "text": "4",
+            "wall": "back",
+            "y": 2.75
+          },
+          {
+            "along": -7.1,
+            "h": 0.26,
+            "hex": "#4a5056",
+            "plateHex": "#1b1e22",
+            "text": "5",
+            "wall": "back",
+            "y": 2.75
+          },
+          {
+            "along": -9.17,
+            "h": 0.26,
+            "hex": "#4a5056",
+            "plateHex": "#1b1e22",
+            "text": "6",
+            "wall": "back",
+            "y": 2.75
+          },
+          {
+            "along": 6,
+            "h": 0.16,
+            "hex": "#ffffff",
+            "plateHex": "#2a5f96",
+            "text": "Security",
+            "wall": "back",
+            "y": 2.6
+          },
+          {
+            "along": 7,
+            "h": 0.08,
+            "hex": "#ffffff",
+            "plateHex": "#8a1a14",
+            "text": "No smoking",
+            "wall": "right",
+            "y": 2.2
+          }
+        ],
+        "strips": [
+          {
+            "along": "u",
+            "at": [
+              -8,
+              3.5
+            ],
+            "len": 2.4
+          },
+          {
+            "along": "u",
+            "at": [
+              -8,
+              7.5
+            ],
+            "len": 2.4
+          },
+          {
+            "along": "u",
+            "at": [
+              -3,
+              3.5
+            ],
+            "len": 2.4
+          },
+          {
+            "along": "u",
+            "at": [
+              -3,
+              7.5
+            ],
+            "len": 2.4
+          },
+          {
+            "along": "u",
+            "at": [
+              -3,
+              11.5
+            ],
+            "len": 2.4
+          },
+          {
+            "along": "u",
+            "at": [
+              2,
+              3.5
+            ],
+            "len": 2.4
+          },
+          {
+            "along": "u",
+            "at": [
+              2,
+              7.5
+            ],
+            "len": 2.4
+          },
+          {
+            "along": "u",
+            "at": [
+              2,
+              11.5
+            ],
+            "len": 2.4
+          },
+          {
+            "along": "u",
+            "at": [
+              7,
+              3.5
+            ],
+            "len": 2.4
+          },
+          {
+            "along": "u",
+            "at": [
+              7,
+              7.5
+            ],
+            "len": 2.4
+          },
+          {
+            "along": "u",
+            "at": [
+              7,
+              11.5
+            ],
+            "len": 2.4
+          }
+        ]
+      },
+      "doors": {
+        "west": -6
+      },
+      "face": 90,
+      "finish": "plain",
+      "glass": [
+        "front"
+      ],
+      "ground": "tile",
+      "h": 5.5,
+      "sign": {
+        "at": -4,
+        "size": 0.36,
+        "text": "DEPARTURES",
+        "wall": "back",
+        "y": 4.85
+      },
+      "street_door": {
+        "kind": "sliding",
+        "w": 2.4
+      },
+      "studio": false,
+      "tone": {
+        "accent": "#2a5f96",
+        "ceiling": "#dfe2e0",
+        "trim": "#3a4046",
+        "wall": "#c9cdc8"
+      },
+      "w": 22
+    }
   },
   "grid_x": 0,
   "grid_y": 0,

@@ -3,6 +3,19 @@
   "flags": {
     "aliases": "fridge,refrigerator,cold box",
     "container": 40000,
+    "look": {
+      "arche": "cold",
+      "dims": [
+        0.62,
+        0.64,
+        1.45
+      ],
+      "form": "fridge"
+    },
+    "spot": {
+      "along": -2.3,
+      "wall": "back"
+    },
     "truck_bunk_fridge": true
   },
   "hp": 30,

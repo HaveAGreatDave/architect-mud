@@ -53,6 +53,9 @@ function neonArtTex(name, lit, frame = -1, force = false) {
   for (const pass of [false, true]) {
     for (const run of art.runs) {
       if (litRun(run) !== pass) continue;
+      // A `ghost` run is a flasher's other position (a screw slot mid-turn), drawn only while it's
+      // lit: as unlit glass beside the lit one it reads as clutter, a star where there's a slot.
+      if (!pass && run.ghost) continue;
       if (pass) {
         g.globalAlpha = 0.4; stroke(run, run.glow || run.c, run.lw * 2.4, 22); g.globalAlpha = 1;   // the halo
         stroke(run, run.c, run.lw, 5);                                                                // the tube

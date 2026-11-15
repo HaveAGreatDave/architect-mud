@@ -33,9 +33,10 @@ import { LIN, linRgb } from './colour.js';
 
 // `on` 0 is the crowd for everybody, as before. `px` is how tall somebody is on the screen, in device pixels,
 // before they're drawn close up, and `off` the share of that they drop back under (so a figure on the line
-// doesn't flicker). `max` is how many at once, nearest first. The street's figure is 1.776 m, so 260 px is a
-// head about 34 px tall: the crowd head's L0.
-export const STREET_HD = { on: 1, px: 260, off: 0.8, max: 6 };
+// doesn't flicker). `max` is how many at once, nearest first. The street's figure is 1.776 m, so 100 px is a
+// head about 13 px tall: far enough off that the change from the crowd's body to the close-up figure doesn't
+// show (at 260 px, a 34 px head, it did, 2026-11-15). Most are drawn at the lite level out there.
+export const STREET_HD = { on: 1, px: 100, off: 0.8, max: 16 };
 // Phones keep the crowd: GLASS Lite already leaves street life out there.
 const PHONE = (() => {
   try {

@@ -313,8 +313,8 @@ function ensureStyles() {
       background:rgba(8,11,15,.62); border:1px solid rgba(255,255,255,.16); border-radius:11px;
       padding:7px 14px; cursor:pointer; white-space:nowrap; transition:opacity .35s linear; }
     #bigscreen-hint:hover{ border-color:rgba(255,255,255,.42); }
-    /* ROOM has its tablet button in that corner (room-stage.css .rs-tablet), so the hint sits above it */
-    body.room-stage-on #bigscreen-hint{ bottom:64px; }
+    /* on foot, in a room or on the street, the Pack and tablet are in that corner (foot-dock.css), so the hint sits above them */
+    body.room-stage-on #bigscreen-hint, body:has(.foot-dock:not([hidden])) #bigscreen-hint{ bottom:64px; }
     /* Opacity rather than display: this is a look and it must not move the layout under a shot
        being composed — with pointer-events, so a faded control cannot be clicked by a cursor that
        cannot see it. */

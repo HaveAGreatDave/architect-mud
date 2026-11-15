@@ -12,6 +12,39 @@
     "floor": "boards",
     "is_building": true,
     "is_interior": true,
+    "room": {
+      "balcony": false,
+      "d": 4.5,
+      "decor": {
+        "rug": false,
+        "strips": [
+          {
+            "at": [
+              0,
+              1.4
+            ],
+            "cage": true
+          }
+        ],
+        "walls": {
+          "hex": "#6b5236",
+          "kind": "walnut",
+          "trim": "#3a2e24",
+          "y1": 2.8
+        }
+      },
+      "face": 90,
+      "h": 2.8,
+      "studio": false,
+      "tone": {
+        "accent": "#6a5a44",
+        "ceiling": "#3a2e24",
+        "trim": "#241c16",
+        "wall": "#5e4a36"
+      },
+      "w": 6,
+      "windowless": true
+    },
     "world_exit_zone": "zone_district_921_901"
   },
   "grid_x": 1,

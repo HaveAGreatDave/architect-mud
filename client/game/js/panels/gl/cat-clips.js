@@ -88,10 +88,11 @@ function gait(R, t, ctx, kind) {
   pose.root.at = [at[0], at[1] + G.bob * Math.cos(ph * Math.PI * 4) - (kind === 'gallop' ? 0.02 : 0), at[2]];
   pose.root.rot = [(G.flex || 0) * 0.5 * Math.sin(ph * Math.PI * 2), 0.04 * Math.sin(ph * Math.PI * 2), 0.03 * Math.sin(ph * Math.PI * 2)];
   if (G.flex) pose.spine.lumbar = [G.flex * Math.sin(ph * Math.PI * 2 + 1), 0, 0];
-  // tail: level on a walk, up with a hooked tip on the trot over to somebody, streaming out on a run
+  // tail: up with a hooked tip on the trot over to somebody, streaming out on a run; on a walk, carried as the cat is
+  // (`ctx.tailCarry`, 0..1): a sure, sociable cat walks about with it straight up, a wary one level or low
   if (G.tail >= 1) pose.tail = tailUp(R);
   else if (kind === 'gallop') pose.tail = [[0, R.Y(0.42), -0.5], [0, R.Y(0.45), -0.65], [0, R.Y(0.47), -0.8], [0, R.Y(0.5), -0.92]];
-  else pose.tail = [[0, R.Y(0.38), -0.48], [0, R.Y(0.36), -0.62], [0, R.Y(0.34), -0.76], [0, R.Y(0.38), -0.86]];
+  else pose.tail = carried(R, [[0, R.Y(0.38), -0.48], [0, R.Y(0.36), -0.62], [0, R.Y(0.34), -0.76], [0, R.Y(0.38), -0.86]], ctx.tailCarry);
   const mo = idle(t, ctx, 1);
   mo.head = [0.08 - 0.05 * Math.cos(ph * Math.PI * 4), mo.head[1] * 0.25, 0];
   mo.tailSway = Math.sin(ph * Math.PI * 2) * 0.25; mo.tailFlick *= 0.3;
@@ -140,13 +141,33 @@ function pettedOn(base, amp, awake, bed) {
 }
 // the tail straight up with its tip hooked over: hello
 function tailUp(R) { return [[0, R.Y(0.55), -0.36], [0, R.Y(0.72), -0.38], [0, R.Y(0.86), -0.36], [0.02, R.Y(0.92), -0.29], [0.03, R.Y(0.89), -0.24]]; }
+// a tail line `k` of the way from `low` to straight up (the up line resampled to as many points as `low` has)
+function carried(R, low, k = 0) {
+  if (!(k > 0.01)) return low;
+  const up = tailUp(R), n = low.length;
+  return low.map((p, i) => { const q = up[Math.round((i / (n - 1)) * (up.length - 1))]; return [lerp(p[0], q[0], k), lerp(p[1], q[1], k), lerp(p[2], q[2], k)]; });
+}
+/** How high a cat carries its tail when it's up and about, 0..1, from its nature: friendly and outgoing raise it, nerves
+ * bring it down. */
+export const tailCarryOf = (n = {}) => clamp(((n.friendly ?? 0.5) + (n.outgoing ?? 0.5)) / 2 - 0.6 * (n.skittish ?? 0.5) + 0.05, 0, 0.7) / 0.7;
+
+// The phases of a go at the tray, seconds: dig, turn round, squat, sniff, cover (t1..t4 where each ends, len the lot).
+// gl/room-beasts.js turns him round at t1 and lets him out after len.
+export const LITTER = {
+  pee: { dig: 5, turn: 1.6, squat: 15, sniff: 3, cover: 7 },
+  poo: { dig: 6.5, turn: 1.6, squat: 28, sniff: 3.5, cover: 10 },
+};
+for (const L of Object.values(LITTER)) {
+  L.t1 = L.dig; L.t2 = L.t1 + L.turn; L.t3 = L.t2 + L.squat; L.t4 = L.t3 + L.sniff; L.len = L.t4 + L.cover;
+}
 
 // ── the clips ──────────────────────────────────────────────────────────────────────────────────────
 export const CAT_CLIPS = {
   // holding a pose, idling
-  stand: { base: 'stand', len: 0, frame: (R, t, ctx) => ({ pose: baseOf(R, 'stand').pose, mo: idle(t, ctx, 1) }) },
-  sit: { base: 'sit', len: 0, frame: (R, t, ctx) => ({ pose: baseOf(R, 'sit').pose, mo: idle(t, ctx, 1) }) },
-  loaf: { base: 'loaf', len: 0, frame: (R, t, ctx) => ({ pose: baseOf(R, 'loaf').pose, mo: moodEars(idle(t, ctx, 0.55), 'content', 0.4) }), sound: { calls: [{ keys: ['cat_purr'], every: 9, gain: 0.45, p: 0.4 }] } },
+  stand: { base: 'stand', len: 0, frame: (R, t, ctx) => { const pose = baseOf(R, 'stand').pose; pose.tail = carried(R, pose.tail, 0.85 * (ctx.tailCarry || 0)); return { pose, mo: idle(t, ctx, 1) }; } },
+  // sat about he says something now and then: a trill, a small meow, a chirp
+  sit: { base: 'sit', len: 0, frame: (R, t, ctx) => ({ pose: baseOf(R, 'sit').pose, mo: idle(t, ctx, 1) }), sound: { calls: [{ keys: ['cat_trill', 'cat_trill_b', 'cat_meow_small', 'cat_chirp'], every: 12, gain: 0.55, p: 0.45 }] } },
+  loaf: { base: 'loaf', len: 0, frame: (R, t, ctx) => ({ pose: baseOf(R, 'loaf').pose, mo: moodEars(idle(t, ctx, 0.55), 'content', 0.4) }), sound: { calls: [{ keys: ['cat_purr'], every: 9, gain: 0.6, p: 0.6 }] } },
   sleep: {
     base: 'curl', len: 0, frame: (R, t, ctx) => ({ pose: baseOf(R, 'curl').pose, mo: moodEars(idle(t, ctx, 0.04), 'sleepy', 0.9) }),
     sound: { bed: 'cat_snore', gain: 0.5 },
@@ -397,7 +418,8 @@ export const CAT_CLIPS = {
     base: 'stand', len: 4,
     sound: { bed: 'cat_purr_tom', gain: 0.8 },
     frame(R, t, ctx) {
-      const pose = baseOf(R, 'stand').pose, ph = t / 4 * Math.PI * 2, side = (ctx.seed ?? 1) % 2 ? 1 : -1;
+      // (against another cat, `ctx.side` is the side it's on: they rub along each other)
+      const pose = baseOf(R, 'stand').pose, ph = t / 4 * Math.PI * 2, side = ctx.side || ((ctx.seed ?? 1) % 2 ? 1 : -1);
       const lean = side * (0.14 + 0.06 * Math.sin(ph));
       pose.root.rot = [0, 0.1 * Math.sin(ph), lean];
       pose.spine.neck = [-0.1, side * 0.25, side * 0.2];
@@ -525,7 +547,8 @@ export const CAT_CLIPS = {
       const at = pose.root.at, legs = pose.legs;
       const shift = (k, dx, dy, dz) => { const p = legs[k].paw; legs[k].paw = [p[0] + dx, p[1] + dy, p[2] + dz]; };
       if (L.part === 'crouch') {
-        const c = smooth(0, 0.35, s), wig = up ? hold(s, 0.35, 0.9, 0.12) : 0;
+        // (a step over a low rim, his tray's, is a dip and a hop: nothing to measure)
+        const c = smooth(0, 0.35, s) * (L.small ? 0.35 : 1), wig = up && !L.small ? hold(s, 0.35, 0.9, 0.12) : 0;
         pose.root.at = [at[0] + Math.sin(t * 24) * 0.014 * wig, at[1] - (up ? 0.075 : 0.05) * c, at[2] - (up ? 0.02 : -0.03) * c];
         pose.root.rot = [(up ? -0.2 : 0.3) * c, Math.sin(t * 24) * 0.06 * wig, 0];
         pose.spine.neck = [(up ? -0.35 : 0.45) * c, 0, 0];
@@ -610,6 +633,151 @@ export const CAT_CLIPS = {
     },
   },
 
+  // ── with another cat (gl/cat-meet.js stages them; `ctx.side` is the side the other cat is on, +1 its left) ──────
+  // nose to nose: the neck out and a little down, whiskers forward, ears forward, the nose working; the tail up
+  noseTouch: {
+    base: 'stand', len: 0,
+    sound: { calls: [{ keys: ['cat_trill', 'cat_trill_b', 'cat_trill_c'], at: 0.4, gain: 0.35, p: 0.4 }] },
+    frame(R, t, ctx) {
+      const pose = baseOf(R, 'stand').pose, k = smooth(0, 0.7, t), sniff = Math.sin(t * Math.PI * 2 * 4.5) * smooth(0.5, 0.9, t);
+      pose.spine.neck = [pose.spine.neck[0] + 0.18 * k, 0, 0];
+      pose.spine.chest = [0.06 * k, 0, 0];
+      pose.root.rot = [0.05 * k, 0, 0];
+      pose.tail = tailUp(R);
+      const mo = idle(t, ctx, 1);
+      mo.head = [0.08 * k + 0.012 * sniff, mo.head[1] * 0.15, 0];
+      mo.whiskers = 0.9 * k;
+      moodEars(mo, 'forward', k);
+      mo.pupil = 0.6;
+      mo.tailFlick = 0.25 * Math.sin(t * 2.2);
+      return { pose, mo };
+    },
+  },
+  // stood still to be sniffed: the tail up out of the way, the head turned back round to keep an eye on it
+  present: {
+    base: 'stand', len: 0,
+    frame(R, t, ctx) {
+      const pose = baseOf(R, 'stand').pose, side = ctx.side || 1, k = smooth(0, 0.6, t), back = hold(t % 6, 0.8, 4.5, 0.6);
+      pose.tail = tailUp(R);
+      pose.spine.neck = [pose.spine.neck[0], side * 0.45 * back, 0];
+      const mo = idle(t, ctx, 1);
+      mo.head = [mo.head[0], side * (0.15 * k + 0.55 * back), side * 0.1 * back];
+      moodEars(mo, 'listening', 0.6 * k);
+      mo.tailFlick = 0.35 * Math.sin(t * 1.8);
+      return { pose, mo };
+    },
+  },
+  // nose down at the other's back end, working, whiskers forward
+  sniffRear: {
+    base: 'stand', len: 0,
+    frame(R, t, ctx) {
+      const pose = baseOf(R, 'stand').pose, k = smooth(0, 0.6, t), sniff = Math.sin(t * Math.PI * 2 * 5) * k;
+      pose.spine.neck = [pose.spine.neck[0] + 0.3 * k, 0.08 * Math.sin(t * 0.9) * k, 0];
+      pose.root.rot = [0.06 * k, 0, 0];
+      const mo = idle(t, ctx, 1);
+      mo.head = [0.1 * k + 0.012 * sniff, 0.12 * Math.sin(t * 1.3) * k, 0];
+      mo.whiskers = 1 * k;
+      moodEars(mo, 'forward', 0.7 * k);
+      mo.tailSway *= 0.4;
+      return { pose, mo };
+    },
+  },
+  // lying alongside another cat washing its head and neck: the head reached across and down, long licks, eyes half shut
+  allogroom: {
+    base: 'loaf', len: 0,
+    sound: { bed: 'cat_groom', gain: 0.7 },
+    frame(R, t, ctx) {
+      const pose = baseOf(R, 'loaf').pose, side = ctx.side || 1, k = smooth(0, 1, t);
+      const stroke = Math.max(0, Math.sin(t * Math.PI * 2 * 1.6)), rest = hold((t + 2) % 9, 6.4, 8.8, 0.5);
+      const on = k * (1 - rest);
+      // (reaching across to the other's head: most of it a turn of the neck and the chest, the head rolled over toward
+      // it, each lick a nod down and along)
+      pose.spine.chest = [pose.spine.chest[0], side * 0.22 * on, side * 0.06 * on];
+      pose.spine.neck = [pose.spine.neck[0] + 0.05 * on, side * 0.75 * on, 0];
+      const mo = idle(t, ctx, 0.6);
+      mo.head = [(0.06 + 0.16 * stroke) * on, side * (0.6 + 0.08 * stroke) * on, side * 0.4 * on];
+      mo.lids = Math.max(mo.lids, 0.6 * on);
+      moodEars(mo, 'content', 0.7);
+      mo.tailSway *= 0.4;
+      return { pose, mo };
+    },
+  },
+  // being groomed by another cat: lying, the head tipped into it, eyes squeezed, purring (the stroked clip, the
+  // groomer's tongue for a hand)
+  groomed: (() => {
+    const c = pettedOn('loaf', 0.6, 0.4, 'cat_purr_soft');
+    return { ...c, frame: (R, t, ctx) => c.frame(R, t, { ...ctx, spot: 'cheek' }) };
+  })(),
+  // play-fighting: up on the hind legs facing the other, forepaws batting at its face in turn, ears forward
+  box: {
+    base: 'sit', len: 0,
+    sound: { calls: [{ keys: ['cat_chirp', 'cat_chirp_b', 'cat_trill_b'], every: 3.2, gain: 0.3, p: 0.4 }] },
+    frame(R, t, ctx) {
+      const b = baseOf(R, 'sit'), pose = b.pose, k = hold(t % 4.5, 0.15, 4.3, 0.45), ph = t * Math.PI * 2 * 1.7 + (ctx.seed ?? 1);
+      pose.root.rot = [pose.root.rot[0] - 0.6 * k, 0, 0.05 * Math.sin(ph * 0.5) * k];
+      pose.root.at = [pose.root.at[0], pose.root.at[1] + 0.035 * k, pose.root.at[2] - 0.04 * k];
+      pose.spine.neck = [pose.spine.neck[0] + 0.4 * k, 0, 0];
+      ['LF', 'RF'].forEach((leg, i) => {
+        const p = pose.legs[leg].paw, s = i ? -1 : 1, bat = Math.max(0, Math.sin(ph + i * Math.PI));
+        const to = [s * (0.05 - 0.03 * bat), b.brisket[1] - 0.02 + 0.09 * bat, b.brisket[2] + 0.05 + 0.13 * bat];
+        pose.legs[leg] = { paw: [lerp(p[0], to[0], k), lerp(p[1], to[1], k), lerp(p[2], to[2], k)],
+          fwd: unit([0, -0.6 * k + 0.5 * bat * k, 1 - 0.5 * k]), up: unit([0, 1 - 0.8 * k, 0.9 * k]), meta: unit([0, -0.7 * k + 0.6 * bat * k, 1 - 0.5 * k]), pole: [0, -0.4, -1] };
+      });
+      const mo = idle(t, ctx, 1);
+      // (the body's reared back, so the head pitches forward to keep its eyes on the other cat)
+      mo.head = [0.3 * k + 0.08 * Math.sin(ph), 0.12 * Math.sin(ph * 0.5), 0];
+      moodEars(mo, 'forward', 0.6 * k);
+      mo.pupil = 0.95;
+      mo.whiskers = 0.6;
+      mo.tailFlick = Math.sin(t * 6) * 0.8; mo.tailSway = Math.sin(t * 2.5) * 0.5;
+      return { pose, mo };
+    },
+  },
+  // the threat: up on straight legs, back arched high, turned side-on to look bigger, the head round to the other,
+  // ears flat, a hiss and a growl
+  hiss: {
+    base: 'stand', len: 0,
+    sound: { calls: [{ keys: ['cat_hiss', 'cat_hiss_b', 'cat_growl_hiss'], every: 3.6, gain: 0.8 }, { keys: ['cat_growl'], every: 5.1, gain: 0.55, p: 0.6 }] },
+    frame(R, t, ctx) {
+      const pose = baseOf(R, 'stand').pose, side = ctx.side || 1, k = smooth(0, 0.45, t), at = pose.root.at;
+      const spit = hold(t % 3.6, 0.1, 0.9, 0.12);
+      pose.root.at = [at[0], at[1] + 0.04 * k, at[2]];
+      pose.root.rot = [pose.root.rot[0] + 0.04 * k, 0, 0];
+      pose.spine.lumbar = [pose.spine.lumbar[0] - 0.45 * k, 0, 0];
+      pose.spine.chest = [pose.spine.chest[0] - 0.2 * k, 0, 0];
+      pose.spine.neck = [pose.spine.neck[0] + 0.15 * k, side * 0.55 * k, 0];
+      for (const leg of ['LF', 'RF', 'LH', 'RH']) { const p = pose.legs[leg].paw; pose.legs[leg].paw = [p[0], p[1], p[2] * (1 - 0.12 * k)]; }
+      // the tail up off the root and over in an arc that drops at the end, the Halloween cat's
+      pose.tail = [[0, R.Y(0.56), -0.4], [0, R.Y(0.66), -0.5], [0, R.Y(0.64), -0.62], [0, R.Y(0.5), -0.68]];
+      const mo = idle(t, ctx, 1);
+      // (the head held a little low, the mouth opening on the spit)
+      mo.head = [0.22 * k - 0.1 * spit, side * 0.75 * k, 0];
+      moodEars(mo, 'flat', k);
+      mo.pupil = 1; mo.lids = 0;
+      mo.whiskers = -0.9 * k;
+      mo.tailFlick = Math.sin(t * 8) * 0.5 * k;
+      return { pose, mo };
+    },
+  },
+  // giving way: down low with the paws under, ears flat, the head turned away, eyes narrowed, a growl now and then
+  cower: {
+    base: 'loaf', len: 0,
+    sound: { calls: [{ keys: ['cat_growl'], every: 4.4, gain: 0.4, p: 0.5 }] },
+    frame(R, t, ctx) {
+      const pose = baseOf(R, 'loaf').pose, side = ctx.side || 1, k = smooth(0, 0.5, t), at = pose.root.at;
+      pose.root.at = [at[0], at[1] - 0.015 * k, at[2]];
+      pose.spine.neck = [pose.spine.neck[0] + 0.2 * k, -side * 0.3 * k, 0];
+      const mo = idle(t, ctx, 1);
+      mo.head = [0.15 * k, -side * (0.35 + 0.1 * Math.sin(t * 0.7)) * k, 0];
+      moodEars(mo, 'flat', k);
+      mo.pupil = 1;
+      mo.lids = 0.35 * k;
+      mo.whiskers = -0.8 * k;
+      mo.tailSway = 0; mo.tailFlick = Math.sin(t * 5) * 0.3 * k;
+      return { pose, mo };
+    },
+  },
+
   // the night yowl, head up
   yowl: {
     base: 'sit', len: 4,
@@ -623,7 +791,199 @@ export const CAT_CLIPS = {
       return { pose, mo };
     },
   },
+
+  // ── the tray (cat-life.js catAtTray) ─────────────────────────────────────────────────────────────────
+  // In the tray: a dig at the litter with the forepaws in turn, a turn round to face out (gl/room-beasts.js turns him
+  // at LITTER[kind].turn), the squat, hunched, hips down, tail out level, staring at nothing, a sniff at what he's done
+  // and a long cover, raking it over with the forepaws. The other takes longer than a pee, and some pushing.
+  pee: litterClip('pee'),
+  poo: litterClip('poo'),
+
+  // ── more of his own ──────────────────────────────────────────────────────────────────────────────────
+  // asleep and dreaming: the snore, and every few seconds a paw paddles, the whiskers and an ear twitch, the tail tip
+  // goes, and now and then a small sound
+  dream: {
+    base: 'curl', len: 0,
+    sound: { bed: 'cat_snore', gain: 0.4, calls: [{ keys: ['cat_trill_c', 'cat_meow_small', 'cat_chirp_b'], every: 13, gain: 0.16, p: 0.3 }] },
+    frame(R, t, ctx) {
+      const pose = baseOf(R, 'curl').pose, sd = (ctx.seed ?? 1) * 0.29;
+      const cyc = (t + sd * 7) % 6.5, tw = hold(cyc, 3.2, 4.6, 0.12), run = Math.sin(t * Math.PI * 2 * 3.1) * tw;
+      for (const [k, s] of [['LF', 1], ['RF', -1]]) { const L = pose.legs[k]; if (L?.paw) L.paw = [L.paw[0], L.paw[1] + 0.012 * Math.max(0, run * s), L.paw[2] + 0.018 * run * s]; }
+      const mo = moodEars(idle(t, ctx, 0.04), 'sleepy', 0.9);
+      mo.whiskers = 0.5 * tw * Math.max(0, Math.sin(t * 17));
+      mo.ears = mo.ears.map((e, i) => [e[0], e[1] + 0.35 * tw * Math.max(0, Math.sin(t * 13 + i * 2)), e[2]]);
+      mo.tailFlick = 0.5 * tw * Math.sin(t * 9);
+      mo.lids = 1;
+      return { pose, mo };
+    },
+  },
+  // a quick shake of the head, the ears flapping, then still again
+  shake: {
+    base: 'sit', len: 3, once: true,
+    frame(R, t, ctx) {
+      const pose = baseOf(R, 'sit').pose, k = hold(t, 0.8, 1.7, 0.08), decay = 1 - smooth(0.8, 1.7, t);
+      const roll = Math.sin((t - 0.8) * Math.PI * 2 * 7.5) * 0.55 * k * (0.4 + 0.6 * decay);
+      pose.spine.neck = [pose.spine.neck[0] - 0.08 * k, 0, roll * 0.35];
+      const mo = idle(t, ctx, 1);
+      mo.head = [-0.08 * k, mo.head[1] * (1 - k), roll];
+      mo.ears = [[0, 0.3 * Math.abs(roll), -roll * 0.8], [0, 0.3 * Math.abs(roll), roll * 0.8]];
+      mo.lids = Math.max(mo.lids, 0.7 * k);
+      mo.whiskers = -0.3 * k;
+      return { pose, mo };
+    },
+  },
+  // the slow blink at somebody: the head down a touch, the eyes closing slowly and opening slowly. It means he trusts
+  // you (gl/room-beasts.js has him look at whoever's nearest)
+  slowblink: {
+    base: 'sit', len: 6,
+    sound: { calls: [{ keys: ['cat_purr'], at: 2.2, gain: 0.4, p: 0.4 }] },
+    frame(R, t, ctx) {
+      const pose = baseOf(R, 'sit').pose, k = hold(t, 0, 6, 0.5);
+      const shut = smooth(1.0, 2.3, t) * (1 - smooth(3.0, 4.4, t));
+      const mo = idle(t, ctx, 0.8);
+      mo.head = [0.12 * k + 0.08 * shut, mo.head[1] * 0.3, 0];
+      mo.lids = Math.max(0.3 * k, 0.95 * shut);
+      moodEars(mo, 'content', 0.8 * k);
+      mo.whiskers = 0.2;
+      mo.tailSway *= 0.4;
+      return { pose, mo };
+    },
+  },
+  // the cello: sat back with one hind leg held straight up beside his head, washing the base of it, the tongue going in
+  // long strokes, and a look round in the middle as if he'd heard something
+  cello: {
+    base: 'sit', len: 8,
+    sound: { bed: 'cat_groom', gain: 0.75 },
+    frame(R, t, ctx) {
+      const b = baseOf(R, 'sit'), pose = b.pose, side = (ctx.seed ?? 1) % 2 ? 1 : -1, k = side > 0 ? 'LH' : 'RH';
+      const up = hold(t, 0.2, 7.6, 0.7), pause = hold(t, 4.2, 5.3, 0.25), lick = Math.max(0, Math.sin(t * Math.PI * 2 * 1.9)) * (1 - pause);
+      const ear = b.ears[side > 0 ? 0 : 1], rest = pose.legs[k].paw;
+      // (up beside his head and a little in front of it: out past the shoulder, so the belly faces forward)
+      const to = [ear[0] + side * 0.12, ear[1] - 0.03, ear[2] + 0.06];
+      pose.legs[k] = { ...pose.legs[k], paw: [lerp(rest[0], to[0], up), lerp(rest[1], to[1], up), lerp(rest[2], to[2], up)],
+        fwd: unit([side * 0.15, 1 - 0.2 * up, 0.5]), meta: unit([side * 0.2 * up, 0.9 * up + 0.05, 0.3 + 0.4 * (1 - up)]), pole: [side * 1, 0.2, 0.4] };
+      // back on his tail and leaning away from the leg
+      pose.root.rot = [pose.root.rot[0] - 0.16 * up, 0, -side * 0.12 * up];
+      pose.spine.lumbar = [pose.spine.lumbar[0] + 0.12 * up, 0, 0];
+      pose.spine.neck = [pose.spine.neck[0] + 0.35 * up * (1 - pause), side * 0.35 * up * (1 - pause), 0];
+      const mo = idle(t, ctx, 0.7);
+      mo.head = [(0.45 + 0.15 * lick) * up * (1 - pause) - 0.1 * pause, side * (0.35 * up * (1 - pause) + 0.5 * pause), side * 0.15 * up];
+      mo.lids = Math.max(mo.lids * pause, 0.6 * up * (1 - pause));
+      if (pause > 0.5) { moodEars(mo, 'forward', pause); mo.pupil = 0.8; }
+      mo.tailSway *= 0.2;
+      return { pose, mo };
+    },
+  },
+  // rolling about on his back: over from one side toward the other through belly up, the forepaws curled, the head
+  // upside down to look at you, and back
+  roll: {
+    base: 'stand', len: 6,
+    sound: { calls: [{ keys: ['cat_trill', 'cat_trill_b', 'cat_purr'], at: 1.5, gain: 0.35, p: 0.5 }] },
+    frame(R, t, ctx) {
+      const pose = baseOf(R, 'stand').pose, side = (ctx.seed ?? 1) % 2 ? 1 : -1, ph = t / 6 * Math.PI * 2;
+      const over = 0.5 - 0.5 * Math.cos(ph), roll = side * (1.42 + 0.55 * over);
+      pose.root = { at: [side * 0.02 * (1 - over), 0.165 + 0.015 * over, -0.2], rot: [0, 0.12 * Math.sin(ph), roll] };
+      pose.spine.neck = [0.1, 0, -side * (0.35 + 0.35 * over)];
+      pose.spine.chest = [0, 0, -side * 0.12 * over];
+      for (const k of ['LF', 'RF', 'LH', 'RH']) {
+        const L = R.legs[k], d = L.J.D, front = L.front, paw = front ? 0.04 * over * Math.max(0, Math.sin(t * 3.4 + (k === 'LF' ? 0 : 1.6))) : 0;
+        pose.legs[k] = { rel: true, paw: [d[0] * 1.15, R.Y(0.05) + (front ? 0.03 + 0.05 * over + paw : 0.02 * over), d[2] + (front ? 0.06 - 0.03 * over : -0.06)], fwd: front ? unit([0, -0.6 * over, 1]) : [0, 0, 1], up: [0, 1, 0], pole: front ? [0, 0, -1] : [0, 0, 1] };
+      }
+      pose.tail = [[side * -0.08, 0.05, -0.45], [side * -0.12, 0.03, -0.6], [side * -0.1, 0.025, -0.75], [side * -0.04, 0.025, -0.86]];
+      const mo = idle(t, ctx, 0.8);
+      mo.head = [mo.head[0] * 0.5, mo.head[1] * 0.4 + side * 0.3 * over, mo.head[2] - side * 0.4 * over];
+      mo.lids = Math.max(mo.lids, 0.35);
+      mo.tailSway = Math.sin(t * 1.1) * 0.6;
+      return { pose, mo };
+    },
+  },
+  // bringing up a hairball: down low with the neck stretched out, the body heaving, harder each time, then the retch,
+  // and a shake of the head after
+  hairball: {
+    base: 'stand', len: 8, once: true,
+    sound: { calls: [{ keys: ['cat_hiss_b'], at: 1.6, gain: 0.3 }, { keys: ['cat_hiss_b'], at: 3.1, gain: 0.4 }, { keys: ['cat_growl_hiss'], at: 4.4, gain: 0.45 }, { keys: ['cat_hiss'], at: 5.5, gain: 0.55 }] },
+    frame(R, t, ctx) {
+      const pose = baseOf(R, 'stand').pose, at = pose.root.at, low = hold(t, 0.3, 6.6, 0.6);
+      const build = smooth(1, 5.2, t), heave = Math.max(0, Math.sin((t - 1) * Math.PI * 2 * 0.7)) * build * (1 - smooth(5.6, 6, t));
+      const retch = hold(t, 5.35, 5.95, 0.12), shake = hold(t, 6.8, 7.6, 0.1);
+      pose.root.at = [at[0], at[1] - 0.075 * low + 0.015 * heave, at[2] + 0.03 * retch];
+      pose.root.rot = [0.12 * low + 0.06 * retch, 0, 0];
+      pose.spine.lumbar = [pose.spine.lumbar[0] - 0.22 * heave - 0.16 * retch, 0, 0];
+      pose.spine.chest = [pose.spine.chest[0] - 0.1 * heave, 0, 0];
+      pose.spine.neck = [-0.1 * low + 0.3 * retch, 0, Math.sin(t * 40) * 0.08 * shake];
+      for (const k of ['LF', 'RF']) { const p = pose.legs[k].paw; pose.legs[k].paw = [p[0] * (1 + 0.2 * low), p[1], p[2] + 0.05 * low]; }
+      for (const k of ['LH', 'RH']) { const p = pose.legs[k].paw; pose.legs[k].paw = [p[0], p[1], p[2] + 0.04 * low]; }
+      const mo = idle(t, ctx, 1);
+      mo.head = [0.15 * low + 0.3 * retch - 0.1 * heave, 0, Math.sin(t * 45) * 0.4 * shake];
+      mo.lids = Math.max(mo.lids, 0.5 * heave + 0.8 * retch);
+      moodEars(mo, 'airplane', 0.6 * low);
+      mo.whiskers = -0.4 * low;
+      mo.tailSway *= 0.2; mo.tailFlick = 0.4 * heave;
+      return { pose, mo };
+    },
+  },
+  // hungry and at somebody, or at his empty dish: sat up straight, looking up, meowing and meowing, the tail going
+  demand: {
+    base: 'sit', len: 5,
+    sound: { calls: [{ keys: ['cat_meow_hungry', 'cat_meow_beg', 'cat_meow'], at: 0.6, gain: 0.8 }, { keys: ['cat_meow_hungry', 'cat_meow_grumpy', 'cat_meow_cross', 'cat_meow_high'], at: 2.9, gain: 0.75, p: 0.8 }] },
+    frame(R, t, ctx) {
+      const pose = baseOf(R, 'sit').pose;
+      pose.spine.neck = [pose.spine.neck[0] - 0.25, 0, 0];
+      const mo = idle(t, ctx, 1);
+      const mew = Math.max(hold(t, 0.5, 1.4, 0.15), hold(t, 2.8, 3.7, 0.15));
+      mo.head = [-0.5 + 0.08 * mew, mo.head[1] * 0.15, 0.1 * Math.sin(t * 0.9)];
+      moodEars(mo, 'forward', 0.9);
+      mo.pupil = 0.75;
+      mo.whiskers = 0.5;
+      mo.tailSway = 0.35 * Math.sin(t * 1.3);
+      mo.tailFlick = 0.8 * Math.sin(t * 3.1);
+      return { pose, mo };
+    },
+  },
 };
+// rubbing his cheek along the corner of the furniture (cat-life.js catMarkOf): the greeting's rub, the purr quieter
+CAT_CLIPS.mark = { ...CAT_CLIPS.rub, sound: { bed: 'cat_purr_soft', gain: 0.6 } };
+
+// The tray's clip for `kind`: the frame across its phases (LITTER[kind]).
+function litterClip(kind) {
+  const P = LITTER[kind];
+  return {
+    base: 'stand', len: P.len, once: true, litter: kind,
+    sound: { calls: [{ keys: ['cat_litter'], every: 1.25, from: 0.3, to: P.t1 - 0.3, gain: 0.7 }, { keys: ['cat_litter'], every: 0.95, from: P.t4 + 0.2, to: P.len - 0.4, gain: 0.8 }] },
+    frame(R, t, ctx) {
+      const b = baseOf(R, 'stand'), pose = b.pose, at = pose.root.at, side = (ctx.seed ?? 1) % 2 ? 1 : -1;
+      const dig = hold(t, 0, P.t1, 0.4), sq = hold(t, P.t2, P.t3, 1.1), sn = hold(t, P.t3, P.t4, 0.5), cov = hold(t, P.t4, P.len, 0.5);
+      const ph = t * Math.PI * 2 * (t < P.t1 ? 2.4 : 2.9);
+      // the forepaws: digging, each in turn reaching forward and scraping back and down; covering, raking sideways and
+      // back toward himself
+      ['LF', 'RF'].forEach((leg, i) => {
+        const p = pose.legs[leg].paw, s = Math.sin(ph + i * Math.PI), up = Math.max(0, s);
+        const dz = dig * (0.05 + 0.05 * s) + cov * (0.04 + 0.05 * s), dy = (dig + cov) * 0.03 * up, dx = cov * (i ? -1 : 1) * 0.025 * Math.cos(ph);
+        pose.legs[leg].paw = [p[0] + dx, p[1] + dy, p[2] + dz];
+        if (up > 0.2 && (dig + cov) > 0.3) pose.legs[leg].fwd = unit([0, -0.5 * up, 1]);
+      });
+      // the squat: the hips down and the hind paws forward under him, the back hunched, the front end up a little, the
+      // tail out straight behind; pushing now and then for the other
+      const push = kind === 'poo' ? hold((t - P.t2 + (ctx.seed ?? 1) * 0.3) % 6, 2.4, 4.6, 0.5) * sq : 0;
+      for (const leg of ['LH', 'RH']) { const p = pose.legs[leg].paw; pose.legs[leg].paw = [p[0] * (1 + 0.12 * sq), p[1], p[2] + 0.075 * sq]; }
+      const nose = 0.35 * dig + 0.42 * sn + 0.3 * cov;
+      pose.root.at = [at[0], at[1] - 0.085 * sq - 0.02 * (dig + cov) - 0.01 * push, at[2] - 0.03 * sq];
+      pose.root.rot = [-0.05 * sq + 0.1 * (dig + cov) + 0.06 * sn, 0, 0];
+      pose.spine.lumbar = [pose.spine.lumbar[0] - 0.14 * sq - 0.05 * push, 0, 0];
+      pose.spine.chest = [pose.spine.chest[0] + 0.12 * sq, 0, 0];
+      pose.spine.neck = [pose.spine.neck[0] + nose + 0.08 * sq, 0.12 * Math.sin(t * 1.4) * (sn + dig), 0];
+      if (sq > 0.05) pose.tail = pose.tail.map((q, i) => [q[0] * (1 - sq), lerp(q[1], R.Y(0.3) + 0.018 * i, sq), lerp(q[2], -0.46 - 0.14 * i, sq)]);
+      const mo = idle(t, ctx, 1);
+      mo.head = [0.3 * nose + 0.08 * Math.sin(ph) * (dig + cov) * 0.3 + 0.3 * sq, lerp(mo.head[1], 0.2 * side * Math.sin(t * 0.37), sq), 0];
+      // squatting he stares at nothing, half shut, ears going round; the push screws them up
+      mo.lids = Math.max(mo.lids, 0.35 * sq + 0.35 * push);
+      moodEars(mo, sq > 0.5 ? 'listening' : 'neutral', 0.7 * sq);
+      mo.whiskers = 0.6 * (dig + sn + cov) - 0.2 * push;
+      mo.tailSway *= 1 - sq; mo.tailFlick *= 1 - 0.8 * sq;
+      return { pose, mo };
+    },
+  };
+}
 export const CLIP_NAMES = Object.keys(CAT_CLIPS);
 
 /** The frame of `name` at `t` seconds: { pose, mo, base }. A looping clip wraps, a one-shot holds its end. */

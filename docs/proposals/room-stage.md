@@ -75,7 +75,7 @@ Every 3-D room is built from the same parts: `roomLayout` and `room-walk.js` for
 | 3 | The suite's fixed furniture read from its zone's furniture rows (not built: the suite's pieces are fitted pieces in `boothLayout`) | Moving a buffet row moves the buffet |
 | 4 | The standalone room renderer | A shapes-style gate builds every archetype in a stub room |
 | 5 | Home Stage phases 1-3 on top | [home-stage.md](home-stage.md) |
-| 6 | Bars, Holding and storefronts as more rooms with a spec | Each is content plus a spec, no new walker |
+| 6 | Bars, Holding and storefronts as more rooms with a spec | Each is content plus a spec, no new walker. Shops: Screw It is the first, and [shop-interiors.md](shop-interiors.md) is the standard |
 
 Steps 1 and 2 change nothing a player sees. They're worth doing before the Home Stage so the second
 room is built on the first rather than beside it.

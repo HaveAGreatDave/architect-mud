@@ -2243,6 +2243,12 @@ export function meshLamps(cls, variant = '', armed = false) {
 }
 // A moving part at its default pose for renderers with no channel values.
 const poseAtRest = (f) => (f.anim ? { ...f, p: animFacePoints(f, null) } : f);
+// One vehicle standing still, as the card's turntable draws it: at rest, buttoned up, its rotors left out (they're
+// drawn spinning or not at all), and a mesh's own channels (`anim`, a racer's kit parts) deciding which parts show.
+// For a vehicle stood on a Room Stage floor (room-hoist.js).
+export function standFaces(cls, armed = false, variant = '', anim = null) {
+  return aircraftFaces(cls, 1, armed, variant).map(poseAtRest).filter((f) => f.role !== 'rotor' && !visorHidden(f, 0, anim));
+}
 function wreckFaces() { return !_legacyMeshes && meshRow('wreck') ? meshFacesById('wreck', 1) : buildWreck(); }
 
 // A mesh by id, for the Modelshop and the gates. Memoised on the row.

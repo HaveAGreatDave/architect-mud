@@ -3,7 +3,18 @@
   "flags": {
     "interactions": [
       "sit"
-    ]
+    ],
+    "look": {
+      "arche": "seat",
+      "form": "office"
+    },
+    "spot": {
+      "at": [
+        -13.5,
+        10
+      ],
+      "turn": -90
+    }
   },
   "hp": null,
   "hp_max": null,

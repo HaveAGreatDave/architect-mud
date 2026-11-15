@@ -155,6 +155,21 @@ const hz = (x) => x.toFixed(1);
   check('a comma nucleus falls less than a full stop nucleus', comma > stop, `end/peak ${comma.toFixed(3)} at a comma, ${stop.toFixed(3)} at a stop`);
 }
 
+// ── A yes/no question rises; a wh-question falls ───────────────────────────────
+{
+  // The terminal target lands after the last vowel, so read F0 where the line ends
+  // and compare it with the last vowel's own peak.
+  const ending = (text) => {
+    const r = speak(text);
+    const v = r?.vowels.at(-1), end = r?.trace.find(e => e.p === 'END');
+    return v && end ? { hi: r.shape(v).hi, end: r.f0(end.at) } : null;
+  };
+  const yn = ending('Is he going home?'), wh = ending('Why is he going home?');
+  check('a yes/no question ends above its last vowel', yn && yn.end > yn.hi, yn && `last vowel ${hz(yn.hi)}, end ${hz(yn.end)} Hz`);
+  check('a wh-question ends below its last vowel', wh && wh.end < wh.hi, wh && `last vowel ${hz(wh.hi)}, end ${hz(wh.end)} Hz`);
+  check('a wh-question ends well below a yes/no question', yn && wh && wh.end < yn.end * 0.9, yn && wh && `wh ${hz(wh.end)}, yes/no ${hz(yn.end)} Hz`);
+}
+
 // ── A minor break lifts the pitch part way ──────────────────────────────────────
 {
   const LONG = 'The forward carries the puck through the neutral zone and drops it back to the defenceman at the point';

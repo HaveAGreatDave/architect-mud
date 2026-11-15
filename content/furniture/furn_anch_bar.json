@@ -5,6 +5,10 @@
     "look": {
       "arche": "surface",
       "form": "bar"
+    },
+    "spot": {
+      "along": 3.2,
+      "wall": "back"
     }
   },
   "id": "furn_anch_bar",

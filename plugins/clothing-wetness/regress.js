@@ -242,4 +242,27 @@ export default async function regress({ check, getPlayer }) {
       p._clothesDamp = saved.damp;
     }
   }
+
+  // A TOWEL RAIL dries the skin at once and leaves the clothes alone. Run in the bath it's authored in.
+  {
+    const { isTowelRail, cmdDry } = _test;
+    const { hooks } = await import('./index.js');
+    check('a towel rail offers dry in ROOM', JSON.stringify(hooks['furniture.acts']({ flags: { towel_rail: true }, name: 'towel rail' })) === JSON.stringify([{ verb: 'dry', bare: true }]));
+    check('a shower is not a towel rail', !isTowelRail({ object_type: 'shower', flags: {} }));
+    const p = getPlayer();
+    const saved = { zone: p.current_zone, skin: p._skinWetness, wet: p.wetness };
+    try {
+      p.current_zone = 'zone_solenne_apt_a_bath';
+      p._skinWetness = Object.fromEntries(BODY_SLOTS.map((s) => [s, 90]));
+      p.wetness = 90;
+      const r = await cmdDry([], 'dry', p);
+      check('dry at the rail zeroes the skin', BODY_SLOTS.every((s) => p._skinWetness[s] === 0), JSON.stringify(p._skinWetness));
+      check('dry at the rail says so', r?.type === 'output' && /towel/.test(r.message), JSON.stringify(r));
+      p.current_zone = '__no_such_zone__';
+      check('no rail, no towel', (await cmdDry([], 'dry', p))?.type === 'error');
+    } finally {
+      p.current_zone = saved.zone; p.wetness = saved.wet;
+      if (saved.skin) p._skinWetness = saved.skin; else delete p._skinWetness;
+    }
+  }
 }

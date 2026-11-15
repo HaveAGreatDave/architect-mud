@@ -359,6 +359,38 @@ function cycles(text, extra) {
   A.cancelSpeech();
 }
 
+// ── Fricatives: each its own spectrum, and voiced ones buzz ────────────────────
+// The frication noise was one band for every fricative, so /f/ and /s/ differed only in
+// where the band sat. Now each mixes the band with a flat (high-passed) path by its
+// `fl`: /f/ is mostly flat, /s/ nearly all band, /ʃ/ between, and setNoiseBand keeps
+// the mix as loud as the band alone was.
+{
+  const at = (word, ph) => {
+    const r = render(word), seg = r.trace.filter(e => e.p === ph).pop();
+    return seg ? { r, seg, fb: col(r.line, 'fb', seg.at + 0.03), ff: col(r.line, 'ff', seg.at + 0.03) } : null;
+  };
+  const s = at('A sass.', 'S'), sh = at('A shush.', 'SH'), f = at('A fife.', 'F');
+  check('/s/ is nearly all band', s && s.fb > 0.9 && s.ff < 0.1, s && `fb ${s.fb.toFixed(3)} ff ${s.ff.toFixed(3)}`);
+  check('/f/ is mostly flat', f && f.ff > f.fb * 3, f && `fb ${f.fb.toFixed(3)} ff ${f.ff.toFixed(3)}`);
+  check('/ʃ/ is between', sh && sh.ff > s.ff * 4 && sh.ff < f.ff, sh && `ff ${sh.ff.toFixed(3)}`);
+  // Under voicing, the noise is pulsed at F0: a /z/'s hiss carries the period in its
+  // envelope, at natural 1 and not at natural 0, and a voiceless /s/ doesn't.
+  const modAtF0 = (r, ph) => {
+    const seg = r.trace.filter(e => e.p === ph).pop(), next = r.trace[r.trace.indexOf(seg) + 1];
+    if (!seg || !next) return NaN;
+    const s0 = Math.floor((seg.at + 0.02) * SR), s1 = Math.floor((next.at - 0.01) * SR), e = [];
+    // a second difference is a crude high-pass, so the murmur under /z/ drops out
+    for (let i = s0; i < s1; i++) { const d = r.out[i] - 2 * r.out[i - 1] + r.out[i - 2]; e.push(d * d); }
+    const w = (2 * Math.PI * col(r.line, 'f0', (seg.at + next.at) / 2)) / SR;
+    let a = 0, b = 0, m = 0;
+    for (let i = 0; i < e.length; i++) { a += e[i] * Math.cos(w * i); b -= e[i] * Math.sin(w * i); m += e[i]; }
+    return Math.hypot(a, b) / m;
+  };
+  const z1 = modAtF0(render('A buzz.'), 'Z'), z0 = modAtF0(render('A buzz.', { voice: { natural: 0 } }), 'Z'), s1 = modAtF0(s.r, 'S');
+  check('a voiced fricative buzzes: its hiss is pulsed at F0', z1 > 2 * z0 && z1 > 3 * s1,
+    `F0 modulation: /z/ ${z1.toFixed(3)}, /z/ at natural 0 ${z0.toFixed(3)}, /s/ ${s1.toFixed(3)}`);
+}
+
 // A node that can't be built leaves the line on the graph, and the worklet off for good,
 // so this goes last.
 {

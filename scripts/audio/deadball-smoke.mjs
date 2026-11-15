@@ -19,6 +19,8 @@
 //   • the busiest moment (a grand slam's crack, sparks, fanfare, roar, two shells and the organ)
 //     stays under full scale at the mix's levels, and so does a home run once it's gone, the
 //     home-run horn and all; the horn sounds once for a home run, the visitors' too
+//   • a crowd cue with a recording sounds as its synthesis alone until the recording loads (as
+//     here, in Node)
 //   • the crowd bed rises with its level, never steps, adds no nodes and is silent after stop();
 //     the park's air is finite and silent after stop()
 //   • the mixer: a clip's catch, tag, throw, footsteps, slide and umpire's call are heard at their
@@ -147,6 +149,15 @@ check('every clip event kind is known to the mixer', Object.keys(CLIP_EVENTS).ev
   // horn and the videoboard's boom at home, and two shells
   const gone = g('db-hype-horn') + g('db-sting-homer') + g('db-crowd-roar') + g('db-airhorn') + g('db-hype-boom') + 2 * g('db-fw-burst');
   check('a home run gone, horn and all, stays under full scale', gone < 1, gone.toFixed(3));
+}
+
+// ── the crowd's recordings ───────────────────────────────────────────────────
+for (const d of B.BUILTINS.filter((x) => x.rec)) {
+  const a = (await renderCue(AE, B.variant({ ...d, rec: undefined }, 9))).getChannelData(0);
+  const b = (await renderCue(AE, B.variant(d, 9))).getChannelData(0);
+  let pk = 0, worst = 0;
+  for (let i = 0; i < a.length; i++) { pk = Math.max(pk, Math.abs(a[i])); worst = Math.max(worst, Math.abs(a[i] - (b[i] || 0))); }
+  check(`${d.id}: with its recording not yet loaded, sounds as its synthesis`, worst <= pk * 1e-4, `${(worst / pk * 100).toFixed(3)}% of the peak`);
 }
 
 // ── the beds ─────────────────────────────────────────────────────────────────

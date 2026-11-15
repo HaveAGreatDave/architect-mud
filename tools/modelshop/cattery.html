@@ -12,6 +12,8 @@
   The cats are cattery-recipes.js; the sliders change the one shown and rebake it, which is what a customised cat is.
 
   ?cat=scrappy&pose=sit opens on one. Drag to orbit, wheel to zoom. __cat.shot(name) writes the frame via /api/shot.
+  ?meet=greet&with=siamese plays two cats together (gl/cat-meet.js): the cat shown stays put and the other comes to it,
+  each phase in its place, round and round (a chase is left out: it needs a room to run in).
 -->
 <style>
   :root { --bg: #0b0d14; --panel: #10131c; --fg: #d8d4c8; --dim: #8a8678; --line: #23263a; --on: #e8c070; }
@@ -43,6 +45,8 @@
   <select id="who" aria-label="cat"></select>
   <select id="pose" aria-label="pose"></select>
   <select id="clip" aria-label="clip" title="A clip (gl/cat-clips.js), skinned on the GPU as a room draws it"><option value="">(the pose, on the CPU)</option></select>
+  <select id="meet" aria-label="with another cat" title="Two cats together (gl/cat-meet.js), staged as a room stages them"><option value="">(on its own)</option></select>
+  <select id="with" aria-label="the other cat" title="The other cat"></select>
   <select id="q" aria-label="quality" title="The grid the field is meshed on">
     <option value="0.006">room (3.6 mm)</option><option value="0.0045" selected>close (2.7 mm)</option><option value="0.0035">hd (2.1 mm)</option>
   </select>
@@ -68,10 +72,14 @@ import { bakeCatOff } from '/client/game/js/panels/gl/cat-bake.js';
 import { CATS } from '/cattery-recipes.js';
 import { CAT_CLIPS, clipFrame, GAIT_SPEED } from '/client/game/js/panels/gl/cat-clips.js';
 import { catDrawer } from '/client/game/js/panels/gl/cat-gpu.js';
+import { MEET_PLAN, meetGeom, meetPlace } from '/client/game/js/panels/gl/cat-meet.js';
 
 const $ = (id) => document.getElementById(id);
 const q = new URLSearchParams(location.search);
-for (const [id, c] of Object.entries(CATS)) $('who').append(new Option(c.name, id));
+for (const [id, c] of Object.entries(CATS)) { $('who').append(new Option(c.name, id)); $('with').append(new Option(c.name, id)); }
+for (const k of Object.keys(MEET_PLAN)) $('meet').append(new Option(k, k));
+if (MEET_PLAN[q.get('meet')]) $('meet').value = q.get('meet');
+$('with').value = CATS[q.get('with')] ? q.get('with') : 'tabby';
 for (const p of Object.keys(CAT_POSES)) $('pose').append(new Option(p, p));
 for (const c of Object.keys(CAT_CLIPS)) $('clip').append(new Option(c, c));
 if (CAT_CLIPS[q.get('clip')]) $('clip').value = q.get('clip');
@@ -189,10 +197,50 @@ function drawClip(now, clip) {
   $('stats').textContent = `${clip} (${c.base}) · t ${t.toFixed(1)} s${c.len ? ' of ' + c.len : ''}${c.gait ? ' · ' + GAIT_SPEED[c.gait] + ' m/s on the spot' : ''}`;
   return true;
 }
+// ── two cats ────────────────────────────────────────────────────────────────────────────────────────
+// The cat shown is `a`, staying put at the middle facing the camera's side; the other (`b`, the `with` cat at its own
+// recipe) is put where the staging says for each phase. A phase with no length is held 6 s here. The other cat's bakes
+// are its own, carved in the worker like the first's.
+let lookB = null, lookBid = null, D2 = null, meetT0 = 0;
+const bakesB = new Map(), pendingB = new Set();
+function bakeB(pose) {
+  if (lookBid !== $('with').value) { lookBid = $('with').value; lookB = catLook(deep(CATS[lookBid].look)); bakesB.clear(); D2?.clear(); }
+  const key = pose + '@' + $('q').value, b = bakesB.get(key);
+  if (b) return b;
+  if (!pendingB.has(key)) {
+    pendingB.add(key); $('busy').style.display = 'block';
+    const want = lookBid;
+    bakeCatOff(lookB, pose, { h: +$('q').value }).then((nb) => { if (want === lookBid) bakesB.set(key, nb); }, (e) => console.error(e)).finally(() => { pendingB.delete(key); if (!pendingB.size && !pending.size) $('busy').style.display = 'none'; });
+  }
+  return null;
+}
+// the phases as the Cattery plays them: no chase, and a held phase given 6 s
+const meetPhases = (kind) => MEET_PLAN[kind].filter((p) => p.place !== 'chase').map((p) => ({ ...p, dur: p.dur || 6 }));
+function drawMeet(now) {
+  const kind = $('meet').value, P = meetPhases(kind), total = P.reduce((s, p) => s + p.dur, 0);
+  let t = ((clipHold ?? (now - meetT0) / 1000) % total + total) % total, i = 0;
+  while (t >= P[i].dur) { t -= P[i].dur; i++; }
+  const ph = P[i];
+  const CA = CAT_CLIPS[ph.a], CB = CAT_CLIPS[ph.b], ba = bakeOf(CA.base), bb = bakeB(CB.base);
+  if (!ba || ba.look !== look || !bb) return false;
+  D ||= catDrawer(R, { furBudget: $('fur').checked ? 480000 : 0 });
+  D2 ||= catDrawer(R, { furBudget: $('fur').checked ? 480000 : 0 });
+  // `a` at the middle facing +Z; `b` comes from its left front
+  const A = { at: [0, 0], head: 0 }, B0 = { at: [0.5, 0.45], head: Math.PI };
+  const pl = meetPlace(ph.place, A, B0, meetGeom(ba.rig), meetGeom(bb.rig));
+  const headA = pl.headA ?? 0, headB = pl.headB;
+  const side = (me, mh, other) => { const F = [Math.sin(mh), Math.cos(mh)], d = [other[0] - me[0], other[1] - me[1]]; return Math.sign(d[0] * F[1] - d[1] * F[0]) || 1; };
+  const fa = clipFrame(ba.rig, ph.a, t, { seed: 1, side: side(A.at, headA, pl.at) }), fb = clipFrame(bb.rig, ph.b, t, { seed: 2, side: side(pl.at, headB, A.at) });
+  R.setBeasts(createBatch(1));
+  R.setCats([D.frame(ba, fa.pose, fa.mo, { O: [0, 0, 0], F: [Math.sin(headA), 0, Math.cos(headA)] }), D2.frame(bb, fb.pose, fb.mo, { O: [pl.at[0], 0, pl.at[1]], F: [Math.sin(headB), 0, Math.cos(headB)] })]);
+  $('stats').textContent = `${kind}: ${ph.place} · ${ph.a} / ${ph.b} · t ${t.toFixed(1)} of ${ph.dur} s`;
+  return true;
+}
 function draw(now = performance.now()) {
   globalThis.__houseComic = $('comic').checked;
   const pose = $('pose').value, t = now / 1000;
   if ($('spin').checked) spin += 0.006;
+  if ($('meet').value) { if (drawMeet(now)) renderOnly(now); return; }
   const clip = $('clip').value;
   if (clip) {
     if (!drawClip(now, clip)) return;
@@ -226,7 +274,10 @@ $('who').onchange = () => { setCat($('who').value); history.replaceState(null, '
 $('pose').onchange = () => history.replaceState(null, '', `?cat=${$('who').value}&pose=${$('pose').value}`);
 $('random').onclick = randomCat;
 $('clip').onchange = () => { clipT0 = performance.now(); history.replaceState(null, '', `?cat=${$('who').value}&pose=${$('pose').value}${$('clip').value ? '&clip=' + $('clip').value : ''}`); };
-$('fur').onchange = () => { D?.clear(); D = null; };
+$('fur').onchange = () => { D?.clear(); D = null; D2?.clear(); D2 = null; };
+const meetUrl = () => history.replaceState(null, '', `?cat=${$('who').value}&pose=${$('pose').value}${$('meet').value ? '&meet=' + $('meet').value + '&with=' + $('with').value : ''}`);
+$('meet').onchange = () => { meetT0 = performance.now(); if (!$('meet').value) R.setCats([]); meetUrl(); };
+$('with').onchange = () => { meetT0 = performance.now(); meetUrl(); };
 setCat($('who').value);
 async function shot(name = 'cattery', c = {}) {
   Object.assign(cam, c); draw(performance.now());
@@ -236,7 +287,9 @@ async function shot(name = 'cattery', c = {}) {
 }
 // clipAt(name, t, still): show a clip at t seconds, held there unless still is false (for a gate or a shot)
 function clipAt(name, t = 0, still = true) { $('clip').value = name; clipT0 = performance.now() - t * 1000; clipHold = still ? t : null; draw(performance.now()); }
-window.__cat = { R, cam, draw, shot, clipAt, get look() { return look; }, bakes, $ };
+// meetAt(kind, with, t, still): two cats together at t seconds into the loop (for a gate or a shot)
+function meetAt(kind, other, t = 0, still = true) { $('meet').value = kind; if (other) $('with').value = other; meetT0 = performance.now() - t * 1000; clipHold = still ? t : null; draw(performance.now()); }
+window.__cat = { R, cam, draw, shot, clipAt, meetAt, meetPhases, get look() { return look; }, bakes, bakesB, $ };
 requestAnimationFrame(loop);
 </script>
 </body>

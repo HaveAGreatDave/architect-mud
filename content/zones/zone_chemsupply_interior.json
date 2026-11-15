@@ -16,6 +16,295 @@
     "floor": "boards",
     "is_building": true,
     "is_interior": true,
+    "room": {
+      "balcony": false,
+      "d": 10,
+      "decor": {
+        "doors": [
+          {
+            "at": 0.9,
+            "finish": "steel",
+            "w": 1,
+            "wall": "back"
+          }
+        ],
+        "grates": [
+          [
+            4.6,
+            1.3,
+            0.9,
+            0.4
+          ]
+        ],
+        "lamps": [
+          {
+            "along": 5.4,
+            "hex": "#ffa21e",
+            "wall": "front",
+            "y": 2.7
+          }
+        ],
+        "paint": [
+          {
+            "kind": "hazard",
+            "rect": [
+              3.4,
+              5.9,
+              0.15,
+              2.4
+            ]
+          },
+          {
+            "from": [
+              2.75,
+              2.6
+            ],
+            "hex": "#e8b818",
+            "kind": "line",
+            "t": 0.09,
+            "to": [
+              2.75,
+              9.6
+            ]
+          },
+          {
+            "from": [
+              4.75,
+              2.6
+            ],
+            "hex": "#e8b818",
+            "kind": "line",
+            "t": 0.09,
+            "to": [
+              4.75,
+              9.6
+            ]
+          },
+          {
+            "at": [
+              3.75,
+              3.4
+            ],
+            "dir": "v",
+            "hex": "#e8b818",
+            "kind": "arrow",
+            "s": 0.6
+          },
+          {
+            "hex": "#d8d4c4",
+            "kind": "box",
+            "rect": [
+              -4.7,
+              -0.1,
+              3.9,
+              4.6
+            ],
+            "t": 0.06
+          }
+        ],
+        "pipes": [
+          {
+            "from": [
+              -5.6,
+              9.3,
+              3.85
+            ],
+            "hex": "#7a7f78",
+            "r": 0.24,
+            "to": [
+              5.6,
+              9.3,
+              3.85
+            ]
+          },
+          {
+            "from": [
+              4.2,
+              9.3,
+              3.85
+            ],
+            "hex": "#7a7f78",
+            "r": 0.18,
+            "to": [
+              4.2,
+              1,
+              3.85
+            ]
+          },
+          {
+            "from": [
+              -5.7,
+              6.4,
+              0.2
+            ],
+            "hex": "#8a4a32",
+            "r": 0.05,
+            "to": [
+              -5.7,
+              6.4,
+              3.9
+            ]
+          }
+        ],
+        "rug": false,
+        "signs": [
+          {
+            "along": -2.4,
+            "h": 0.4,
+            "hex": "#7dff6a",
+            "lit": true,
+            "plate": true,
+            "plateHex": "#141a10",
+            "text": "SCREW IT",
+            "wall": "back",
+            "y": 3.45
+          },
+          {
+            "along": 0.9,
+            "h": 0.12,
+            "hex": "#f2efe4",
+            "plate": true,
+            "plateHex": "#7a1e1e",
+            "text": "STAFF ONLY",
+            "wall": "back",
+            "y": 2.4
+          },
+          {
+            "along": 2.6,
+            "h": 0.16,
+            "hex": "#f2efe4",
+            "plate": true,
+            "plateHex": "#9a1c1c",
+            "text": "NO NAKED FLAMES",
+            "wall": "left",
+            "y": 3.1
+          },
+          {
+            "along": 3.4,
+            "h": 0.24,
+            "hex": "#161206",
+            "plate": true,
+            "plateHex": "#d8c018",
+            "text": "GOODS IN",
+            "wall": "front",
+            "y": 3.2
+          },
+          {
+            "along": 5.2,
+            "h": 0.18,
+            "hex": "#161206",
+            "plate": true,
+            "plateHex": "#d8c018",
+            "text": "SOLVENTS",
+            "wall": "right",
+            "y": 3.55
+          }
+        ],
+        "strips": [
+          {
+            "along": "u",
+            "at": [
+              -3.6,
+              2.4
+            ],
+            "len": 1.5
+          },
+          {
+            "along": "u",
+            "at": [
+              -3.6,
+              5
+            ],
+            "len": 1.5
+          },
+          {
+            "along": "u",
+            "at": [
+              -3.6,
+              7.6
+            ],
+            "len": 1.5
+          },
+          {
+            "along": "u",
+            "at": [
+              0,
+              2.4
+            ],
+            "len": 1.5
+          },
+          {
+            "along": "u",
+            "at": [
+              0,
+              5
+            ],
+            "len": 1.5
+          },
+          {
+            "along": "u",
+            "at": [
+              0,
+              7.6
+            ],
+            "len": 1.5
+          },
+          {
+            "along": "u",
+            "at": [
+              3.6,
+              2.4
+            ],
+            "len": 1.5
+          },
+          {
+            "along": "u",
+            "at": [
+              3.6,
+              5
+            ],
+            "len": 1.5
+          },
+          {
+            "along": "u",
+            "at": [
+              3.6,
+              7.6
+            ],
+            "len": 1.5
+          }
+        ]
+      },
+      "doors": {
+        "west": -4.3
+      },
+      "face": 270,
+      "finish": "plain",
+      "ground": "concrete",
+      "h": 4.2,
+      "panes": [
+        {
+          "a": -3.5,
+          "b": -0.5,
+          "wall": "front",
+          "y0": 0.55,
+          "y1": 2.9
+        }
+      ],
+      "street_door": {
+        "glass": "#5f7a66",
+        "kind": "swing",
+        "trim": "#3a3f36",
+        "w": 1.2
+      },
+      "studio": false,
+      "tone": {
+        "ceiling": "#8c8f88",
+        "trim": "#3c4238",
+        "wall": "#b9bbae"
+      },
+      "w": 12
+    },
     "window": {
       "description": "A full-height pane onto the street, kept just clean enough to trade through. Whatever the weather is doing out there, it's doing it in plain view.",
       "light": 0.85,

@@ -2,6 +2,19 @@
   "description": "A tall drinks machine lit from inside, its front a picture of a can of Arcline cola sweating in the sun. Every button gets you the same can.",
   "flags": {
     "aliases": "drinks, drink, cola, can, soda",
+    "look": {
+      "arche": "cabinet",
+      "dims": [
+        1,
+        0.8,
+        1.95
+      ],
+      "form": "vitrine"
+    },
+    "spot": {
+      "along": -0.45,
+      "wall": "back"
+    },
     "vend_line": "Something heavy rolls inside the machine, and a can thumps into the tray at the bottom.",
     "vend_price": 6,
     "vends": "item_arcline_cola"

@@ -38,7 +38,7 @@
 import { query } from '../../server/models/db.js';
 import { hasTag, tagValue } from '../../server/engine/tags.js';
 import { getZoneTemperature, getZonePrecip, getZoneWindKph, getHumidityPct } from '../../server/engine/environment.js';
-import { getAllLivePlayers, getLivePlayer, getZone, bodyZoneOf } from '../../server/engine/world.js';
+import { getAllLivePlayers, getLivePlayer, getZone, bodyZoneOf, getZoneFurniture } from '../../server/engine/world.js';
 import { resolveInventoryForPlayers, patchInventoryCustomData } from '../../server/engine/inventory.js';
 import { wear, announceWear } from '../../server/engine/durability.js';
 import { registerTopicalWetting } from '../../server/engine/topical.js';
@@ -374,6 +374,7 @@ on('inventory.changed', ({ actor }) => {
 });
 
 export const hooks = {
+  'furniture.acts': (f) => (isTowelRail(f) ? [{ verb: 'dry', bare: true }] : undefined),
   'tick.minute': async ({ broadcast }) => {
     // ONE read and ONE write for the whole world, not one of each per player.
     // This hook is awaited by the minute tick, so the old shape (a joined SELECT
@@ -576,10 +577,50 @@ export const hooks = {
   },
 };
 
+// ── A towel on a rail ─────────────────────────────────────────────────────────
+//
+// A towel rail (furniture with flags.towel_rail, or object_type 'towel_rail') dries your SKIN at once: what
+// the shower or the rain left on you. Clothes stay as wet as they are, since you don't towel a coat; they go
+// on drying on the minute tick. ROOM offers it on the rail through furniture.acts.
+const isTowelRail = (f) => !!f?.flags?.towel_rail || f?.object_type === 'towel_rail';
+
+async function cmdDry(args, raw, player, broadcast) {
+  const rail = getZoneFurniture(player.current_zone).find(isTowelRail);
+  if (!rail) return { type: 'error', message: "There's no towel here." };
+  const skin = skinState(player);
+  const skinWas = BODY_SLOTS.some((s) => (skin[s] ?? 0) > 0);
+  const rows = (await resolveInventoryForPlayers([player.id], { equipped: true, topLevel: false })
+    .then((m) => m.get(player.id))) || [];
+  const stacks = new Map(BODY_SLOTS.map((s) => [s, []]));
+  for (const item of rows) {
+    if (!hasTag(item, 'gets_wet')) continue;
+    for (const s of slotsOf(item)) if (stacks.has(s)) stacks.get(s).push(item);
+  }
+  for (const [, st] of stacks) st.sort((a, b) => layerRank(a) - layerRank(b));
+  for (const s of BODY_SLOTS) skin[s] = 0;
+  let felt = 0, clothWet = false;
+  for (const s of BODY_SLOTS) {
+    const st = stacks.get(s), inner = st.length ? st[st.length - 1] : null;
+    const cloth = inner ? (inner.custom_data?.wetness ?? 0) : 0;
+    if (cloth > 10) clothWet = true;
+    felt += SLOT_AREA[s] * cloth;
+  }
+  const prev = player.wetness ?? 0;
+  player.wetness = Math.round(felt);
+  clothesChanged(player, clothWet || undefined);
+  if (typeof broadcast === 'function') broadcast(null, { type: 'resource_tick', messages: [], player_update: { wetness: player.wetness } }, null, player.id);
+  if (!skinWas && prev <= 0) return { type: 'output', message: 'You take the towel off the rail, find nothing to dry, and hang it back warm.' };
+  const tail = clothWet ? " Your clothes are still wet, though. A towel can't help with those." : " You're dry.";
+  return { type: 'output', message: 'You take the warm towel off the rail and rub yourself down, hair last, then hang it back.' + tail };
+}
+
+export const commands = { dry: cmdDry, towel: cmdDry };
+export const specializedActions = [{ verb: 'dry', requiredFlag: 'towel_rail', handler: null }];
+
 // Test surface (regress only; never imported in production).
 export const _test = {
   rainWettingRate, snowWettingRate, dryMultiplier, windMultiplier, humidityMultiplier,
   skinWetnessStep, SKIN_DRY_FACTOR, COVERED_SKIN_DRY_FACTOR, WETNESS_THRESHOLDS,
   layerPassthrough, layerRank, slotsOf, stackFlux, drivenRainMultiplier,
-  absorbStep, dryStep, storedWetness, BODY_SLOTS, SLOT_AREA, needsPass,
+  isTowelRail, cmdDry, absorbStep, dryStep, storedWetness, BODY_SLOTS, SLOT_AREA, needsPass,
 };

@@ -86,11 +86,30 @@ async function openShopFor(npc, player, forceText = false) {
   };
 }
 
+// The counters in this room a vendor serves over (`flags.serves: <npcId>`), each with that vendor.
+// The vendor is looked for in the room, not the world: a counter nobody is behind sells nothing.
+function servedCounters(zoneId, npcs) {
+  return getZoneFurniture(zoneId)
+    .filter((f) => hasKey(f.flags, 'serves'))
+    .map((f) => ({ id: f.id, name: f.name, vendor: npcs.find((n) => n.id === jsonText(f.flags.serves)) || null }));
+}
+
 async function cmdShop(npcName, player, forceText = false) {
-  if (!npcName) return { type:'error', message:'Browse whose shop? (shop <npc name>)' };
   const npcs = getZoneNpcs(player.current_zone);
+  if (!npcName) {
+    // Bare `shop` in a room with one shopkeeper means that one.
+    const vendors = npcs.filter((n) => n.vendor_inventory?.length);
+    if (vendors.length === 1) return openShopFor(vendors[0], player, forceText);
+    return { type:'error', message: vendors.length ? 'Whose shop? (shop <name>)' : 'Nobody here is selling anything.' };
+  }
   const r = siftResolve(npcName, npcs);
-  if (r.type === 'none') return { type:'error', message:`Can't find "${npcName}" here.` };
+  if (r.type === 'none') {
+    // `shop counter`: the counter a vendor serves over stands for them, which is what the Room
+    // Stage's card on the counter sends.
+    const c = siftResolve(npcName, servedCounters(player.current_zone, npcs));
+    if (c.type === 'match') return c.candidate.vendor ? openShopFor(c.candidate.vendor, player, forceText) : { type:'error', message:`Nobody's behind ${c.candidate.name}.` };
+    return { type:'error', message:`Can't find "${npcName}" here.` };
+  }
   if (r.type === 'ambiguous') {
     createSelectionState(player.id, r.candidates, { dispatchType: 'commerce.shop_vendor', dispatchParam: 'target' });
     return { type:'output', message: formatSelectionPage({ allCandidates: r.candidates, visibleIndex: 0, pageSize: 5 }) };
@@ -628,6 +647,10 @@ export const commands = {
 // so it's discoverable without having to already know the word.
 export const specializedActions = [
   { verb: 'checkout', requiredTag: 'checkout', handler: (args, raw, player) => cmdCheckout(player) },
+  // A counter a vendor serves over (`serves: <npcId>`) offers Shop, on examine and on the Room
+  // Stage's card. Declaration only: `shop <counter>` is the ordinary command, which takes a
+  // counter's name for its vendor (cmdShop).
+  { verb: 'shop', requiredFlag: 'serves', handler: null },
 ];
 
 // `examine door north` at a shopfront reads the trading-hours card. The engine

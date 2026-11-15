@@ -124,6 +124,15 @@ FACE_STYLES.sculptSoft = { ...FACE_STYLES.sculpt, brow: 0.6, bridge: 0.75, socke
 // (the rolls stop at 3); a settled look asks for it (John Akerson's).
 FACE_STYLES.sculptChin = { ...FACE_STYLES.sculpt, cheek: 2.5, hollow: 1.9, nose: 1.2, chin: 1.9, chinW: 1.4, chinOut: 0.0045, jaw: -0.1, jawSq: 1.1, jawY: 1.57, jawR: 0.02, chinFlat: 0.35 };
 export const SCULPT_HEADS = ['sculpt', 'sculptBroad', 'sculptLean', 'sculptSoft', 'sculptChin'];
+// A sculpted head drawn on HEAD_HD: the rows there can hold the relief the coarse head left to the paint, so the
+// lips are put back toward the real head's, and the rest softened: flatter, broader cheekbones over a shallower hollow (they
+// stood out in profile as a triangle), a rounder brow and a gentler jaw. Not the folds: deeper, the philtrum shades
+// under the nose into a moustache.
+export function hdFace(style) {
+  const name = style + '+hd';
+  if (!FACE_STYLES[name]) { const K = FACE_STYLES[style]; FACE_STYLES[name] = { ...K, lips: Math.max(K.lips, 0.95), wings: K.wings * 1.1, cheek: K.cheek * 0.62, hollow: K.hollow * 0.55, cheekS: 1.35, brow: K.brow * 0.85, browEdge: K.browEdge * 1.25, socket: K.socket * 0.9, jawSq: K.jawSq * 0.75 }; }
+  return name;
+}
 // A sculpted head at a body's weight (figure.js SOMA), 0 to 1. What each body does to the face, added to
 // the head's own shape: an ectomorph's goes hollow and narrow, a mesomorph's heavier in the
 // jaw, an endomorph's round and full, the jaw lost and a second chin under it (`fat` in skullPoint).
@@ -151,8 +160,9 @@ function faceDisp(x, y, K = FACE_STYLES.real) {
   d -= K.bridge * 0.004 * gauss(x, y, 0, 1.6485, 0.011, 0.0075);          // the bridge's root
   d -= K.socket * 0.0095 * gauss(ax, y, K.eyeX || 0.031, 1.6415, 0.019, 0.012);     // sockets
   d += K.ball * 0.0052 * gauss(ax, y, K.eyeX || 0.0312, 1.6395, 0.0115, 0.0068);  // the eyeball in them
-  d += K.cheek * 0.006 * gauss(ax, y, 0.047, 1.6215 + K.cheekHi, 0.016, 0.012);      // cheekbones
-  d -= K.hollow * 0.0035 * gauss(ax, y, 0.047, 1.59, 0.013, 0.014);       // and the hollow under them
+  const cS = K.cheekS || 1;
+  d += K.cheek * 0.006 * gauss(ax, y, 0.047, 1.6215 + K.cheekHi, 0.016 * cS, 0.012 * cS);      // cheekbones
+  d -= K.hollow * 0.0035 * gauss(ax, y, 0.047, 1.59, 0.013 * cS, 0.014 * cS);       // and the hollow under them
   d += K.nose * NOSE_H(y) * Math.exp(-((x / (NOSE_W(y) * (1 - (K.noseNarrow || 0) * sstep(1.598, 1.625, y)))) ** 2));
   d += K.tip * 0.0035 * gauss(x, y, 0, 1.5985, 0.0085, 0.0075);        // the tip
   d += K.wings * 0.0075 * gauss(ax, y, 0.0155, 1.5925, 0.0066, 0.0064);  // the wings of the nostrils
@@ -205,6 +215,18 @@ export const HEAD_LEVELS = [
 ];
 // The level for a figure this many pixels tall.
 export const headLevelFor = (px) => HEAD_LEVELS.findIndex((L) => px >= L.px);
+// The close-up face's own level, asked for by name ('hd' where a level index goes): L0's rings and
+// columns with two more between each pair through the face and one more over the crown and under the
+// chin, so the nose's wings, the lips, the philtrum and the jaw's line have rows to hold them. It isn't
+// in HEAD_LEVELS because the street never draws it, and the street counts its levels.
+const fillIn = (v, k) => v.flatMap((a, i) => (i === v.length - 1 ? [a] : Array.from({ length: k(a, v[i + 1]) }, (_, j) => a + ((v[i + 1] - a) * j) / k(a, v[i + 1]))));
+export const HEAD_HD = {
+  name: 'LHD', px: Infinity,
+  rings: fillIn(HEAD_LEVELS[0].rings, (a, b) => ((a + b) / 2 > 1.528 && (a + b) / 2 < 1.685 ? 3 : 2)),
+  xs: fillIn([0.066, ...HEAD_LEVELS[0].xs, 0], () => 3).slice(0, -1),
+  back: 30, ear: [16, 10], neck: [18, 12], sheet: [20, 12],
+};
+const levelOf = (lv) => (lv === 'hd' ? HEAD_HD : HEAD_LEVELS[lv]);
 
 const se = (v, n) => Math.sign(v) * Math.abs(v) ** (2 / n);
 // A point on the skull at height `y` and angle `phi` round it (x = cos phi, z = sin phi), the
@@ -371,7 +393,7 @@ const _grid = {};
 function grid(lv, style = 'real') {
   const gk = lv + style;
   if (_grid[gk]) return _grid[gk];
-  const L = HEAD_LEVELS[lv], ys = L.rings;
+  const L = levelOf(lv), ys = L.rings;
   const pts = ys.map((y) => ringPhis(L, y).map((phi) => skullPoint(y, phi, style)));
   const n = pts[0].length;
   const top = [0, FACE.top, ZC], bot = [0, FACE.chin + (FACE_STYLES[style]?.chinUp || 0) - (FACE_STYLES[style]?.fat || 0) * 0.012, 0.05];
@@ -418,6 +440,55 @@ function addEar(M, side, nu, nv, sculpt = false) {
   }
   const bot = vert(Math.PI, 0);
   // ph runs x = cos, z = sin, the same as the skull, so the left ear winds like it; the mirror flips.
+  const flip = side < 0;
+  for (let k = 0; k < nu; k++) { const a = rings[0][(k + 1) % nu], b = rings[0][k]; flip ? M.t(top, b, a) : M.t(top, a, b); }
+  stitch(M, rings, flip);
+  const R = rings[rings.length - 1];
+  for (let k = 0; k < nu; k++) { const a = R[k], b = R[(k + 1) % nu]; flip ? M.t(b, a, bot) : M.t(a, b, bot); }
+}
+
+// The fine head's ear (HEAD_HD, sculpted): modelled rather than painted. A front face over the ear's outline with its
+// relief laid on (the rolled rim over the top and down the back, the groove inside it, the ridge inside that, the
+// bowl, the flap in front of the bowl and a full lobe), the rim curled over the edge, and a plain back face toward the
+// skull. Placed as addEar places its ear, but further out and flared more, so it stands off the head clear of the
+// hair. `aux` is 2 plus how deep in the bowl a point is, so gl/figure-hd.js can tell the folds are modelled and paints
+// only the bowl's shade.
+const g1 = (x, x0, s) => Math.exp(-(((x - x0) / s) ** 2));
+function addEarFine(M, side) {
+  const ry = 0.0255, rz = 0.0165, tilt = -0.2, flare = -0.34 * side, nu = 32;
+  const place = (lx, ly, lz) => {
+    const y = ly * Math.cos(tilt) - lz * Math.sin(tilt), z = ly * Math.sin(tilt) + lz * Math.cos(tilt);
+    const x = lx * side, pz = rz * 0.75, dz = z - pz;
+    const x2 = x * Math.cos(flare) + dz * Math.sin(flare), z2 = -x * Math.sin(flare) + dz * Math.cos(flare) + pz;
+    return [x2 + 0.0705 * side, y + 1.62, z2 - 0.014];
+  };
+  // the outline, angle th round the middle (cos toward the face, sin up): an egg wider at the top, narrowing to the
+  // lobe, a little flatter along the front where it joins the head
+  const outline = (th) => { const c = Math.cos(th), s = Math.sin(th); return [rz * c * (1 - 0.18 * Math.max(0, c)) * (1 - 0.32 * sstep(0, -1, s)), ry * s]; };
+  const bowl = (z, y) => Math.max(0, 1 - ((z - 0.16 * rz) / (0.44 * rz)) ** 2 - ((y + 0.12 * ry) / (0.42 * ry)) ** 2) ** 1.4;
+  const front = (r, th) => {
+    const [oz, oy] = outline(th), z = oz * r, y = oy * r, up = Math.sin(th), fr = Math.cos(th);
+    const helix = sstep(-0.82, -0.45, up) * (fr > 0 ? sstep(0.0, 0.45, up) : 1);
+    const anti = sstep(-0.55, -0.15, up) * (1 - sstep(0.25, 0.7, fr));
+    const lobe = sstep(-0.5, -0.9, up);
+    const b = bowl(z, y);
+    let h = 0.0016 + 0.0042 * r * r
+      + 0.0034 * helix * g1(r, 0.88, 0.07) - 0.0011 * helix * g1(r, 0.75, 0.045)
+      + 0.0022 * anti * g1(r, 0.58, 0.085)
+      - 0.0058 * b
+      + 0.0026 * gauss(z, y, 0.64 * rz, -0.16 * ry, 0.13 * rz, 0.17 * ry)
+      + 0.0016 * lobe * (1 - r * r);
+    return { p: [h, y, z], b };
+  };
+  const rings = [], fr = [0.12, 0.24, 0.36, 0.46, 0.55, 0.63, 0.7, 0.76, 0.81, 0.86, 0.9, 0.94, 0.97, 1.0];
+  const ths = Array.from({ length: nu }, (_, k) => (k * TAU) / nu);
+  const v = (p, b) => M.v(place(p[0], p[1], p[2]), 8, 1, Math.max(0, p[1] / ry) ** 2, 2 + b);
+  for (const r of fr) rings.push(ths.map((th) => { const f = front(r, th); return v(f.p, f.b); }));
+  // the rim curled over the edge, then the back face in toward the middle
+  rings.push(ths.map((th) => { const f = front(1, th), [oz, oy] = outline(th); return v([f.p[0] * 0.45 - 0.0006, oy * 1.03, oz * 1.03], 0); }));
+  for (const [r, lx] of [[1.0, -0.0022], [0.7, -0.003], [0.35, -0.0034]]) rings.push(ths.map((th) => { const [oz, oy] = outline(th); return v([lx, oy * r, oz * r], 0); }));
+  const c0 = front(0, 0), top = v(c0.p, c0.b), bot = v([-0.0035, 0, 0], 0);
+  // wound outward, as the skull is; the mirror flips it
   const flip = side < 0;
   for (let k = 0; k < nu; k++) { const a = rings[0][(k + 1) % nu], b = rings[0][k]; flip ? M.t(top, b, a) : M.t(top, a, b); }
   stitch(M, rings, flip);
@@ -487,14 +558,14 @@ const _head = {};
 export function headMesh(lv = 0, style = 'real', fineNeck = false) {
   const hk = lv + style + (fineNeck ? '+neck' : '');
   if (_head[hk]) return _head[hk];
-  const L = HEAD_LEVELS[lv], G = grid(lv, style), M = builder(), n = G.n;
+  const L = levelOf(lv), G = grid(lv, style), M = builder(), n = G.n;
   const ti = M.v(G.top, 7), rings = G.pts.map((r) => r.map((p) => M.v(p, 7))), bi = M.v(G.bot, 7);
   for (let k = 0; k < n; k++) M.t(ti, rings[0][(k + 1) % n], rings[0][k]);
   stitch(M, rings);
   const R = rings[rings.length - 1];
   for (let k = 0; k < n; k++) M.t(R[k], R[(k + 1) % n], bi);
   const sculpt = style.startsWith('sculpt');
-  addEar(M, 1, ...L.ear, sculpt); addEar(M, -1, ...L.ear, sculpt);
+  if (L === HEAD_HD && sculpt) { addEarFine(M, 1); addEarFine(M, -1); } else { addEar(M, 1, ...L.ear, sculpt); addEar(M, -1, ...L.ear, sculpt); }
   addNeck(M, ...L.neck, sculpt ? NECK_SCULPT : 1, fineNeck);
   _head[hk] = done(M);
   return _head[hk];
@@ -508,9 +579,9 @@ export const HAIR_STYLES = 6;
 const _hair = [];
 // `sculpt` fits the sculpted head and its hairline, and leaves the volume to figure.js's locks.
 export function hairMesh(style, lv = 0, sculpt = false) {
-  const key = lv * HAIR_STYLES + style + (sculpt ? 100 : 0);
+  const key = lv === 'hd' ? `hd${style}${sculpt ? 's' : ''}` : lv * HAIR_STYLES + style + (sculpt ? 100 : 0);
   if (_hair[key]) return _hair[key];
-  const L = HEAD_LEVELS[lv], G = grid(lv, sculpt ? 'sculpt' : 'real'), M = builder(), n = G.n, line = sculpt ? HAIRLINE_SCULPT : HAIRLINE;
+  const L = levelOf(lv), G = grid(lv, sculpt ? 'sculpt' : 'real'), M = builder(), n = G.n, line = sculpt ? HAIRLINE_SCULPT : HAIRLINE;
   const shell = (p, nn) => {
     const ax = Math.abs(p[0]);
     let T = [0.0032, 0.0042, 0.008, 0.007, 0.011, 0.006][style];

@@ -1,0 +1,37 @@
+{
+  "description": "A long counter of scuffed steel with a ply top, a clipboard chained to one end for the sign-out sheet and a till that has been opened with a screwdriver more than once. Whatever you want, Angus fetches it from behind it.",
+  "flags": {
+    "aliases": "counter,trade counter,till",
+    "interactions": [
+      "lean"
+    ],
+    "look": {
+      "arche": "surface",
+      "dims": [
+        4.4,
+        0.8,
+        1.05
+      ],
+      "form": "tradecounter",
+      "stock": "chem"
+    },
+    "serves": "npc_chem_boateng",
+    "spot": {
+      "at": [
+        -2.4,
+        5.2
+      ],
+      "turn": 0
+    }
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_screwit_counter",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "the trade counter",
+  "object_type": "fixture",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_chemsupply_interior"
+}

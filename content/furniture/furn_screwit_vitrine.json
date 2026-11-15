@@ -1,0 +1,30 @@
+{
+  "description": "A glass-fronted cabinet of respirators, goggles and gloves, each size on its own hook. A card taped inside the glass says WEAR IT.",
+  "flags": {
+    "aliases": "cabinet,safety cabinet,respirators",
+    "look": {
+      "arche": "cabinet",
+      "dims": [
+        1.1,
+        0.42,
+        1.9
+      ],
+      "form": "vitrine",
+      "stock": "safety"
+    },
+    "spot": {
+      "along": 0.4,
+      "wall": "front"
+    }
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_screwit_vitrine",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "the safety cabinet",
+  "object_type": "fixture",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_chemsupply_interior"
+}

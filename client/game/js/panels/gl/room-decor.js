@@ -981,6 +981,49 @@ export function drawDecorForm(K, F, p) {
       }
       return true;
     }
+    case 'littertray': {
+      // a pet's litter tray (plugins/pets): a plastic tray with a high back and low front, grey litter in it, and what he's
+      // left: `pee` clumps and `poo` (how many of each since it was scooped) half dug in, and `mess`, what he did on the
+      // floor beside it once it was too dirty to get into (the piece's state, room.pieceState). A scoop leans on the back.
+      const plastic = '#8fa7b3', lip = '#a9bec8', y0 = 0.004, back = h, front = Math.min(h, 0.1), t = 0.012;
+      pbox(-hw, hw, 0, y0, -hd, hd, plastic, 0.9, null, SATIN);
+      pbox(-hw, hw, y0, back, -hd, -hd + t, plastic, 1, null, SATIN);
+      pbox(-hw, hw, y0, front, hd - t, hd, plastic, 1, null, SATIN);
+      for (const s of [-1, 1]) {
+        // the sides step down from the back to the front
+        pbox(s < 0 ? -hw : hw - t, s < 0 ? -hw + t : hw, y0, front, -hd + t, hd - t, plastic, 1, null, SATIN);
+        pbox(s < 0 ? -hw : hw - t, s < 0 ? -hw + t : hw, front, back, -hd + t, -hd + (hd * 2) * 0.35, plastic, 1, null, SATIN);
+      }
+      pbox(-hw - 0.006, hw + 0.006, back, back + 0.008, -hd - 0.006, -hd + t + 0.004, lip, 1.05, null, SATIN);
+      pbox(-hw - 0.006, hw + 0.006, front, front + 0.008, hd - t - 0.004, hd + 0.006, lip, 1.05, null, SATIN);
+      // the litter, a little humped and dug about
+      const ly = 0.05, ir = (i, n) => rng((p.seed || 13) + i * 7919 + n * 104729);
+      pbox(-hw + t, hw - t, y0, ly, -hd + t, hd - t, '#cfc8b8', 1, null, MATTE);
+      for (let i = 0; i < 9; i++) { const r = ir(i, 0), x = (r() - 0.5) * (w - 0.1), z = (r() - 0.5) * (d - 0.1), [u, v] = P(x, 0, z); K.lathe(u, v, [[0, ly], [0.05 + r() * 0.03, ly], [0, ly + 0.006 + r() * 0.006]], '#d8d1c2', 1, 8, MATTE); }
+      const pee = Math.max(0, Math.min(8, Number(p.pee) || 0)), poo = Math.max(0, Math.min(4, Number(p.poo) || 0));
+      for (let i = 0; i < pee; i++) {
+        const r = ir(i, 1), x = (r() - 0.5) * (w - 0.12), z = (r() - 0.5) * (d - 0.12), [u, v] = P(x, 0, z), s = 0.02 + r() * 0.012;
+        K.lathe(u, v, [[0, ly - 0.004], [s, ly - 0.002], [s * 0.8, ly + s * 0.5], [0, ly + s * 0.6]], '#a4977c', 1, 9, MATTE);
+      }
+      for (let i = 0; i < poo; i++) {
+        const r = ir(i, 2), x = (r() - 0.5) * (w - 0.14), z = (r() - 0.5) * (d - 0.14), a = r() * Math.PI;
+        for (let j = 0; j < 2 + Math.round(r()); j++) {
+          const o = (j - 0.8) * 0.032, b = a + (r() - 0.5) * 0.9;
+          const c0 = P(x + Math.cos(a) * o, ly + 0.008, z + Math.sin(a) * o), c1 = P(x + Math.cos(a) * o + Math.cos(b) * 0.028, ly + 0.01, z + Math.sin(a) * o + Math.sin(b) * 0.028);
+          rod(K, c0, c1, 0.0085, '#4a3020', 1, SATIN);
+        }
+      }
+      // the scoop, leant on the back
+      rod(K, P(hw - 0.08, back + 0.13, -hd - 0.035), P(hw - 0.1, 0.02, -hd - 0.07), 0.008, '#3a6a8a', 1, SATIN);
+      pbox(hw - 0.15, hw - 0.05, 0.005, 0.012, -hd - 0.13, -hd - 0.04, '#3a6a8a', 1, null, SATIN);
+      // what he did beside it: in front of the tray, a puddle or a pile on the floor
+      (Array.isArray(p.mess) ? p.mess.slice(0, 6) : []).forEach((kind, i) => {
+        const r = ir(i, 3), x = (r() - 0.5) * (w + 0.2), z = hd + 0.12 + r() * 0.25, [u, v] = P(x, 0, z);
+        if (kind === 'poo') { for (let j = 0; j < 3; j++) { const a = r() * Math.PI; rod(K, P(x + (j - 1) * 0.03, 0.01, z), P(x + (j - 1) * 0.03 + Math.cos(a) * 0.03, 0.012, z + Math.sin(a) * 0.03), 0.009, '#4a3020', 1, SATIN); } }
+        else K.lathe(u, v, [[0, 0.0016], [0.07 + r() * 0.05, 0.0016], [0.085 + r() * 0.05, 0.0006]], '#6e6232', 0.7, 18, GLOSS);
+      });
+      return true;
+    }
     case 'telescope': {
       // a brass refractor on a wooden tripod, its tube tipped up at the far glass
       const top = h * 0.68, R = Math.min(hw, hd) - 0.04;
@@ -1285,6 +1328,22 @@ export function drawDecorForm(K, F, p) {
       const [bu, bv] = P(-hw + 0.08, 0, hd - 0.1);
       rod(K, [bu, bv, 0], [bu, bv, 1.2], 0.02, '#c7cdd4', 1.05, METAL);
       pbox(-hw - 0.08, -hw + 0.28, 1.2, 1.5, hd - 0.14, hd - 0.1, '#ff63e0', 1.6, null, GLOW);
+      return true;
+    }
+    case 'towelrail': {
+      // a heated brass ladder rail on the wall, two stiles and four bars, with a thick white towel folded over the
+      // top two and hanging down the front
+      const zr = -hd + 0.07, bars = [0.42, 0.62, 0.82, h - 0.06];
+      for (const s of [-1, 1]) {
+        rod(K, P(s * (hw - 0.03), 0.3, zr), P(s * (hw - 0.03), h, zr), 0.016, BRASS, 1.1, METAL);
+        for (const y of [0.4, h - 0.04]) rod(K, P(s * (hw - 0.03), y, -hd), P(s * (hw - 0.03), y, zr), 0.01, BRASS, 1.05, METAL);
+      }
+      for (const y of bars) rod(K, P(-hw + 0.03, y, zr), P(hw - 0.03, y, zr), 0.011, BRASS, 1.1, METAL);
+      const tw = hw - 0.09, top = h - 0.06, weave = { t: 'roomWeave', c: '#f2efe8' };
+      pbox(-tw, tw, top - 0.02, top + 0.035, zr - 0.035, zr + 0.035, '#f2efe8', 1, weave, CLOTH);
+      pbox(-tw, tw, 0.5, top, zr + 0.015, zr + 0.05, '#f2efe8', 1, weave, CLOTH);
+      pbox(-tw, tw, 0.66, top, zr - 0.05, zr - 0.015, '#e6e2da', 0.95, weave, CLOTH);
+      pbox(-tw, tw, 0.54, 0.57, zr + 0.05, zr + 0.052, '#c9b78e', 1, null, CLOTH);
       return true;
     }
     case 'lantern': {

@@ -242,6 +242,51 @@ lacks('a word with no run has no marker', 'He scores.', '~');
 // ── punctuation shapes the phrase ────────────────────────────────────────────
 has('comma is a continuation, not a full stop', 'bread, water', '_C');
 has('full stop is terminal',                    'bread. water', '__');
+// A wh-question falls like a statement; a yes/no or echo question rises.
+has('a wh-question is marked to fall',           'where are you going?', '_QW');
+has('…after a leading "and"',                    'and why not?', '_QW');
+lacks('a yes/no question is not',                'are you going?', '_QW');
+lacks('an echo question is not',                 'you went where?', '_QW');
+lacks('a bare "what?" is not',                   'what?', '_QW');
+lacks('a "what," cut off by a comma is not',     'what, you think I care?', '_QW');
+
+// ── the letter-guesser on Latin endings and hyphens ──────────────────────────
+// Each of these came out as two schwas in a row, or as one long run of noise.
+has('i before a vowel is /i/ (aurelia)',          'aurelia', 'L IY AX');
+lacks('no two schwas in a row (giardia)',         'giardia', 'AX AX');
+has('-cia is /ʃə/ (fascia)',                      'fascia', 'SH AX');
+has('y between vowels is the glide (priya)',      'priya', 'IY Y');
+has('y after a consonant, before a vowel, is AY (myomer)', 'myomer', 'M * AY');
+has('a hyphenated run says each word (steel-toed)', 'steel-toed', 'S T * IY L');
+has('re- before a hyphen is "ree" (re-armed)',    're-armed', 'R IY');
+has('a curly apostrophe is an apostrophe (don’t)', 'don’t', 'D * OW N T');
+
+// ── homographs: picked by the words either side ─────────────────────────────
+// The lexicon keeps one pronunciation each, and for these it was often the wrong one:
+// "read" was always "red", "lead" the metal, "wind" "wined", "record" the verb.
+has('"I read books" is the present',             'I read books', 'R * IY D');
+has('"she read it" is the past',                 'she read it', 'R * EH D');
+has('"has read" is the past',                    'she has read it', 'R * EH D');
+has('"take the lead" is "leed"',                 'take the lead', 'L * IY D');
+has('"a lead pipe" is the metal',                'a lead pipe', 'L * EH D');
+has('weather wind is the noun',                  'the wind is cold', 'W * IH N D');
+has('"wind it up" is the verb',                  'wind it up', 'W * AY N D');
+has('"we are live" is "lyve"',                   'we are live', 'L * AY V');
+has('"live from" is "lyve"',                     'live from the Coliseum', 'L * AY V');
+has('"weeks to live" is "liv"',                  'weeks to live', 'L * IH V');
+has('"long live" is "liv"',                      'long live the king', 'L * IH V');
+has('"off the record" is REcord',                'off the record', 'R * EH K ER D');
+has('"to record it" is reCORD',                  'to record it', 'R AX K * AO R D');
+has('"she records" is the verb',                 'she records it', 'R AX K * AO R D Z');
+has('"the suspect" is SUSpect',                  'the suspect', 'S * AH S P EH K T');
+has('"re-record" is the verb',                   're-record', 'R AX K * AO R D');
+has('"close the door" is a Z',                   'close the door', 'K L * OW Z');
+has('"so close" is an S',                        'so close', 'K L * OW S');
+has('"will use" is a Z',                         'they will use it', 'Y * UW Z');
+has('"no use" is an S',                          'it is no use', 'Y * UW S');
+has('"used to" is an S',                         'I used to', 'Y * UW S');
+has('an injury wound is "woond"',                'a nasty wound', 'W * UW N D');
+has('"wound up" is "wownd"',                     'he wound up', 'W * AW N D');
 
 // ── pacing: broadcast's nodeHoldMs is FITTED to estimateDuration ─────────────
 // If these drift apart, captions land on top of the voice — which has happened
@@ -289,18 +334,13 @@ lacks('…nor an invented name', 'marrick', 'R R');
 has('a single medial consonant is untouched', 'happy', 'HH * AE P IY');
 has('…and so is a flap', 'little', 'L * IH DX AX L');
 has('…and a long vowel run survives', 'banana', 'B AX N * AE N AX');
-// ⚠ Asserts the FILTER'S SCOPE, not that this pronunciation is any good. `priya`
-// is still wrong and sits in the suspects report — the -ia/-ya vowel fault is a
-// separate bug with a separate cause. The point is that degemination must not
-// start eating vowels, because that would quietly MASK the whole family, turning a
-// visible "P R IH AX AX" into a plausible-looking "P R IH AX" that nobody fixes.
-//
-// ⚠ `priya` and not `fascia`, and the difference is worth knowing: only SOME of
-// these vowel runs reach this filter at all. `fascia`, `cassius`, `aurelia` and
-// `giardia` are unchanged whether the exemption is there or not, because their run
-// is produced downstream of pronounceWord — so a guard written on one of those
-// would pass no matter what this filter did.
-has('degemination does not touch vowels', 'priya', 'AX AX');
+// ⚠ Asserts the FILTER'S SCOPE, not that this pronunciation is any good. `kaalo`
+// is a made-up word whose "aa" the letter rules read as AE AE, two vowels, before
+// stress reduces the second. Degemination must not eat one of them: a filter that
+// ate vowels would quietly hide a vowel fault, turning a visible doubled vowel
+// into a plausible-looking single one that nobody fixes. (`priya` was the example
+// until the -ia/-ya letter rules were fixed; it now says P R IY Y AX.)
+has('degemination does not touch vowels', 'kaalo', 'AE AX');
 
 // ── the game's own vocabulary is IN the dictionary ───────────────────────────
 // The curated subset was "common English minus junk", chosen with no reference to

@@ -66,9 +66,15 @@ export function tvLine(name, text) {
 
 // A third of the city talks RP, off the same name, so the accent is theirs too.
 // The voice's own timing goes out with the line, so a figure on the Stage can move its mouth to it.
+// ⚠ WHERE THEY ARE. `npc:place` asks whoever draws the room where the speaker's mouth is; the Stage fills
+// `place` ({ position, ref, rolloff } on its floor plan) if it has them, and the voice comes from there.
+// Nobody answering leaves it in the middle, as it always was. The line's handle goes out on `npc:voice`
+// (`voice.move`), so the Stage can keep it on them as they walk.
 const say = (name, text, queue) => {
-  const trace = [], res = window.AudioEngine?.speak?.(text, { channel: 'npc', seed: name, queue, trace, accent: hashOf(name) % 3 === 0 ? 'rp' : undefined });
-  window.dispatchEvent(new CustomEvent('npc:voice', { detail: { name, text, trace: res ? trace : null, delay: res ? res.delay : 0 } }));
+  const ask = { name, place: null };
+  window.dispatchEvent(new CustomEvent('npc:place', { detail: ask }));
+  const trace = [], res = window.AudioEngine?.speak?.(text, { channel: 'npc', seed: name, queue, trace, accent: hashOf(name) % 3 === 0 ? 'rp' : undefined, ...(ask.place || {}) });
+  window.dispatchEvent(new CustomEvent('npc:voice', { detail: { name, text, trace: res ? trace : null, delay: res ? res.delay : 0, voice: res?.move ? res : null } }));
   return res;
 };
 

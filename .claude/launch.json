@@ -252,6 +252,15 @@
         "5244"
       ],
       "port": 5244
+    },
+    {
+      "name": "modelshop-stand",
+      "runtimeExecutable": "node",
+      "runtimeArgs": [
+        "tools/modelshop/serve.mjs",
+        "5268"
+      ],
+      "port": 5268
     }
   ]
 }

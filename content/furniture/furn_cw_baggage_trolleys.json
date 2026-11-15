@@ -1,6 +1,20 @@
 {
   "description": "Steel trolleys nested in a rack and chained together. Each has a coin lock that takes a token the airport stopped selling.",
-  "flags": {},
+  "flags": {
+    "look": {
+      "arche": "surface",
+      "dims": [
+        2.6,
+        0.12,
+        1
+      ],
+      "form": "rail"
+    },
+    "spot": {
+      "along": 3,
+      "wall": "left"
+    }
+  },
   "hp": null,
   "hp_max": null,
   "id": "furn_cw_baggage_trolleys",

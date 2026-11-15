@@ -62,6 +62,7 @@ import { buildCityscape, FACADE_GLSL, STREET_GLSL, LIGHT_STRIDE } from './citysc
 import { CURTAIN_FRAG } from './curtain.js';
 import { applyLinOut } from './colour.js';
 import { createBallparkFigures, PARK_FIGURES } from './ballpark-figures.js';
+import { createCrowdHD, CROWD_HD, crowdHdLine, parkDress, parkLook, parkHeard } from './crowd-hd.js';
 import { HUD_FACES, loadHudFaces } from '../diamond/hud.js';
 import { createSpectacle } from './spectacle.js';
 import { lightsAt } from '../diamond/spectacle.js';
@@ -1429,7 +1430,7 @@ export function createBallparkRenderer(canvas, opts = {}) {
     let splitAt = -Infinity;
     function splitCrowd(list, M, h, share, cards, nearPx, ready) {
       const r = (v, k) => Math.round(v / k);
-      const key = [r(M.eye[0], 4), r(M.eye[1], 4), r(M.eye[2], 4), r(M.at[0], 8), r(M.at[1], 8), r(M.at[2], 8), r(M.fov, 0.5), h, share, cards, nearPx, ready].join();
+      const key = [r(M.eye[0], 4), r(M.eye[1], 4), r(M.eye[2], 4), r(M.at[0], 8), r(M.at[1], 8), r(M.at[2], 8), r(M.fov, 0.5), h, share, cards, nearPx, ready, crowdHD.poll(), CROWD_HD.on, CROWD_HD.share, CROWD_HD.max, fanKit.on, seatDrop[0], seatDrop[2]].join();
       if (list.splitKey === key) return;
       const now = clock();
       if (list.splitKey && list.splitReady === ready && now - splitAt < CARD_EVERY) return;
@@ -1447,6 +1448,28 @@ export function createBallparkRenderer(canvas, opts = {}) {
         }
       }
       const cut = nearCut(list.px, at, nearPx);
+      // the biggest few, a share of the picture tall or more (crowdHdLine), drawn as ROOM draws people (gl/crowd-hd.js) and left out here;
+      // never the seat a viewer sits in (seatFor)
+      const hdCands = [];
+      if (ready) {
+        at = 0;
+        const S = CROWD_STRIDE, min = crowdHdLine(h) * CROWD_HD.off, v = M.viewProj, focal = 1 / Math.tan(M.fov * Math.PI / 360);
+        for (const d of list) {
+          const n = Math.round(d.count * share);
+          for (let i = 0; i < n; i++) {
+            const px = list.px[at++], o = i * S;
+            if (px < min || Math.hypot(d.src[o] - seatDrop[0], d.src[o + 1] - seatDrop[1], d.src[o + 2] - seatDrop[2]) < seatDrop[3]) continue;
+            // and some of him in the picture: his chest, give or take 3.5 ft (a man at your shoulder has his head in it)
+            const X = d.src[o], Y = d.src[o + 1] + 3, Z = d.src[o + 2], cw = v[3] * X + v[7] * Y + v[11] * Z + v[15], mg = 1 + 3.5 * focal / Math.max(0.1, cw);
+            if (!(cw > -3.5) || (cw > 0.1 && (Math.abs((v[0] * X + v[4] * Y + v[8] * Z + v[12]) / cw) > mg || Math.abs((v[1] * X + v[5] * Y + v[9] * Z + v[13]) / cw) > mg))) continue;
+            hdCands.push({ src: d.src, o, px, base: d.base, d, i });
+          }
+        }
+      }
+      for (const d of list) d.hdMask = null;
+      hdCtx.h = h;
+      list.hd = crowdHD.pick(hdCands, hdCtx);
+      for (const c of list.hd) (c.d.hdMask ??= new Uint8Array(c.d.count))[c.i] = 1;
       at = 0;
       for (const d of list) {
         const n = Math.round(d.count * share), S = CROWD_STRIDE;
@@ -1454,6 +1477,7 @@ export function createBallparkRenderer(canvas, opts = {}) {
         let nf = 0, nn = 0, nc = 0;
         for (let i = 0; i < n; i++) {
           const o = i * S, px = list.px[at++];
+          if (d.hdMask && d.hdMask[i]) continue;
           const fan = d.src.subarray(o, o + S);
           if (!ready) { if (cards) d.cardArr.set(fan, nc++ * S); }
           else if (px >= cut) d.nearArr.set(fan, nn++ * S);
@@ -1600,6 +1624,10 @@ export function createBallparkRenderer(canvas, opts = {}) {
     const dropBody = (body) => { for (const lv of [...(body.levels || [body.batches]), ...(body.gear || [])]) for (const b of lv) { gl.deleteVertexArray(b.vao); gl.deleteBuffer(b.buf); } };
     // the close-up figure for anyone whose figure is ready (ballpark-figures.js), behind PARK_FIGURES.on
     const figs = createBallparkFigures(gl);
+    // the fans biggest in the picture as the close-up figure (gl/crowd-hd.js), on the players' figure layer:
+    // what they wear, as CROWD_VS dresses them, for the split's pick
+    const crowdHD = createCrowdHD('park', () => figs.layer());
+    const hdCtx = { dress: parkDress(fanKit) };
     // the bind frames by height and build (diamond/cast.js buildOf), as each body was built in
     const binds = new Map();
     const bindOf = (scale, build) => {
@@ -1736,7 +1764,7 @@ export function createBallparkRenderer(canvas, opts = {}) {
     // middle level (a shadow's edge is soft; the full level's 14,000 triangles four times over were
     // most of the shadow pass)
     function refreshCasters() {
-      api.casters = members.filter((m) => bodies.has(m.key)).map((m) => { const b = bodies.get(m.key); return { slot: m.slot, batches: b.levels?.[1] || b.batches }; });
+      api.casters = members.filter((m) => bodies.has(m.key)).map((m) => { const b = bodies.get(m.key); return { slot: m.slot, batches: b.levels?.[1] || b.batches, gear: b.gear?.[1] || null }; });
     }
     // Which level a man is drawn at this frame (quality.detail 2, or 1 for a level coarser
     // throughout): by how tall he stands on the screen, his pelvis and a point six feet over it
@@ -2454,6 +2482,9 @@ export function createBallparkRenderer(canvas, opts = {}) {
       // 1. the towers' shadows, of whatever casts: the players, skinned; and where the tier has them
       // (quality.stands), the park's own structure and the roof's shells where they've rolled to, and
       // the ball, so a grandstand's shadow lies across the field and a fly ball's on the grass
+      // who's drawn as the close-up figure this frame (ballpark-figures.js), for the shadows and the
+      // picture both: only his gear from the park's own bodies, the figure itself after the players
+      const asFig = figs.prepare(shown, M, h);
       let spotN = 0;
       spotsNow = 0;
       const casters = empty ? [] : api.casters, stands = q.stands !== false && q.stands !== 0;
@@ -2478,12 +2509,15 @@ export function createBallparkRenderer(canvas, opts = {}) {
       if (list.length) {
         spotN = shadows.render(list, (vp, own, k) => {
           const struct = stands || k === sunSh;
+          // the men drawn as the close-up figure cast it, and their gear; until its depth program has
+          // linked, their old bodies
+          const figCast = asFig.size > 0 && figs.depth(asFig, vp, worldT);
           gl.useProgram(SKD.p);
           gl.uniformMatrix4fv(SKD.u('uVP'), false, vp);
           palette.bind(9); gl.uniform1i(SKD.u('uBones'), 9);
           for (const c of casters) {
             gl.uniform1i(SKD.u('uBoneRow'), c.slot);
-            for (const b of c.batches) { gl.bindVertexArray(b.vao); gl.drawArrays(gl.TRIANGLES, 0, b.n); }
+            for (const b of (figCast && c.gear && asFig.has(c.slot) ? c.gear : c.batches)) { gl.bindVertexArray(b.vao); gl.drawArrays(gl.TRIANGLES, 0, b.n); }
           }
           if (struct) {
             gl.useProgram(STD.p);
@@ -2645,9 +2679,6 @@ export function createBallparkRenderer(canvas, opts = {}) {
       gl.uniform3f(LIT.u('uShift'), 0, 0, 0); gl.uniform1f(LIT.u('uGlass'), 0);
       gl.disable(gl.BLEND); gl.depthMask(true);
       const detail = q.detail ?? 2;
-      // who's drawn as the close-up figure this frame (ballpark-figures.js): only his gear from here,
-      // the figure itself after the players
-      const asFig = figs.prepare(shown, M, h);
       const levelsOf = (m, body) => (asFig.has(m.slot) && body.gear ? body.gear : body.levels || [body.batches]);
       const inkOn = !!(SKINK && CEL_TUNE.on && CEL_TUNE.ink && q.ink !== false);
       // the ink round the players (gl/cel-figure.js), first, so each man's lit body covers its
@@ -2702,11 +2733,17 @@ export function createBallparkRenderer(canvas, opts = {}) {
         const lv = levelsOf(m, body);
         drawSet(lv[lodOf(m.slot, M.viewProj, h, detail)] || lv[0], 1, SKLIT);
       }
-      // and the close-up figures, in the park's light: the low sun, the towers, the sky
-      if (asFig.size) {
+      // and the close-up figures, in the park's light: the low sun, the towers, the sky (the stands' close-up fans
+      // below are lit by it too)
+      const figLight = () => {
         const towers = [];
         for (let i = 0; i < 6; i++) towers.push({ p: [LPos[i * 3], LPos[i * 3 + 1], LPos[i * 3 + 2]], col: [LCol[i * 3], LCol[i * 3 + 1], LCol[i * 3 + 2]] });
-        const n = figs.draw(asFig, M, w, h, { towers, sun: sunNow, up: frameUp, dn: frameDn, night: look.night, comic: comicOn(), centre: [0, 0, 60] }, worldT, inkOn, TEX.kit);
+        // by day with no low sun to cast (look.sunLight), the sky's own sun as the figures' key, as the clouds take it
+        const skySun = !sunNow && dayNow > 0.05 ? { dir: (() => { const d = [look.sun[0] * 0.8, 0.6, look.sun[2] * 0.8], l = Math.hypot(...d) || 1; return d.map((v) => v / l); })(), col: [dayNow, dayNow * 0.97, dayNow * 0.9] } : null;
+        return { towers, sun: sunNow || skySun, up: frameUp, dn: frameDn, night: look.night, comic: comicOn(), centre: [0, 0, 60] };
+      };
+      if (asFig.size) {
+        const n = figs.draw(asFig, M, w, h, figLight(), worldT, inkOn, TEX.kit, TEX.logo || null);
         draws += n;
       }
 
@@ -2747,6 +2784,12 @@ export function createBallparkRenderer(canvas, opts = {}) {
             if (!d.cards) continue;
             gl.uniform1f(CARD.u('uBase'), d.base); gl.bindVertexArray(d.cardVao); gl.drawArraysInstanced(gl.TRIANGLES, 0, 6, d.cards); tris += 2 * d.cards; draws++;
           }
+        }
+        // and the biggest few as the close-up figure (gl/crowd-hd.js), doing what the bake would have them doing
+        if (ready && crowd.hd && crowd.hd.length) {
+          const R = crowdHD.records({ t: roar.t, move: roar.move, towel: !!crowd.towels, base: (c) => c.base,
+            look: parkLook(crowdLook, roar.t, roar.move), heard: parkHeard(roarLag) });
+          draws += figs.drawRecs(R, M, w, h, { ...figLight(), expo: PARK_FIGURES.fans }, inkOn);
         }
       }
 

@@ -1,4 +1,4 @@
-// FIELD RECORDINGS: the CC0 weather, sea and bird recordings SIREN plays as `sample` layers.
+// FIELD RECORDINGS: the CC0 weather, sea, bird, cat and crowd recordings SIREN plays as `sample` layers.
 //
 //   node scripts/audio/build-field-recordings.mjs --fetch   download the originals (checks each is CC0)
 //   node scripts/audio/build-field-recordings.mjs           build content/audio_samples + the table
@@ -12,8 +12,10 @@
 //          end before it and a little of its start after it. An MP3 decoder may add up to ~60 ms of
 //          delay at the front, and browsers don't agree on it; with the loop padded on both sides, a
 //          shift moves both loop points together and the seam stays seamless whatever the decoder did.
+//          `at` (seconds) takes the loop from the stretch starting there instead.
 //   calls  the separate calls in a recording, found from its level, each a slice [start, length] of
-//          one file with a gap between, so a bird is one fetch and one row, not eight.
+//          one file with a gap between, so a bird is one fetch and one row, not eight. `cuts`
+//          ([[start, length]] in the recording's seconds) gives them instead, each faded out.
 //   shot   one sound, trimmed to its level and faded out.
 //
 // Everything comes out mono, 22,050 Hz, 48 kbps MP3, levelled (beds to an RMS, calls and shots to a
@@ -126,6 +128,16 @@ export const SOURCES = [
   { key: 'cat_jump',        user: '16GPanskaZlochova_Eliska', id: 496278, title: '3_Cat, jump.wav', kind: 'calls', n: 3, max: 1.2 },
   { key: 'cat_land',        user: 'superEGsonic', id: 803297, title: 'cat_land_floor', kind: 'calls', n: 3, max: 0.8 },
   { key: 'cat_zoomies',     user: 'qubodup', id: 855106, title: 'Cat Zoomies', kind: 'calls', n: 6, max: 2 },
+  // the CPhL's and Deadball's crowds. Recordings made at real games can carry PA music, an
+  // announcer or a chant of a real club's name, which CC0 doesn't clear, so each is cut by hand
+  // (`at`, `cuts`) from stretches measured clear of steady tones and single voices, and listened to
+  { key: 'crowd_arena', user: 'SEF7', id: 706497, title: 'Rogers Arena - NHL game atmosphere', kind: 'bed', len: 12, rms: -22, at: 35 },
+  { key: 'crowd_park', user: 'bowlingballout', id: 58596, title: 'baseball sounds.mp3', kind: 'bed', len: 12, rms: -22, at: 332 },
+  { key: 'crowd_goal', user: 'producerdan', id: 161996, title: 'Hockey - Huge Body Check Hit Into Boards', kind: 'calls', cuts: [[3.9, 8.3]] },
+  { key: 'crowd_roar', user: 'FlatHill', id: 324756, title: 'Sports Crowd Various Sounds', kind: 'calls', cuts: [[99.83, 9.9], [151.96, 8.2]] },
+  { key: 'crowd_cheer', user: 'FlatHill', id: 324756, title: 'Sports Crowd Various Sounds', kind: 'calls', cuts: [[181.33, 3.8], [100.1, 3.8], [152.2, 3.8]] },
+  { key: 'crowd_boo', user: 'TRP', id: 577098, title: 'Crowd, large outrage then booing reaction, hockey game, 2011.wav', kind: 'calls', cuts: [[17, 3.6], [20.6, 3.5], [26.39, 1.49]] },
+  { key: 'crowd_boo_park', user: 'bowlingballout', id: 58596, title: 'baseball sounds.mp3', kind: 'calls', cuts: [[391.28, 1.66]] },
 ];
 export const pageOf = (s) => `https://freesound.org/people/${s.user}/sounds/${s.id}/`;
 export const sampleId = (key) => `smp_field_${key}`;
@@ -313,6 +325,8 @@ async function buildOne(s) {
   if (s.kind === 'bed') {
     const xf = Math.round(1.5 * RATE), pad = Math.round(0.25 * RATE);
     const want = Math.round(s.len * RATE);
+    // a bed cut by hand: only the stretch from `at`, the loop and its crossfade
+    if (s.at != null) x = x.slice(Math.round(s.at * RATE), Math.round((s.at + s.len + 1.5 + 0.1) * RATE));
     const [w0, wl] = pickWindow(x, RATE, s.len + 1.5 + 0.1, s.steady);
     const len = Math.min(want, wl - xf - 4);
     const B = loopBody(x, w0, len, xf);
@@ -328,14 +342,16 @@ async function buildOne(s) {
     let calls = [];
     // (and if raising it loses them all, as a short recording of two squeaks does, keep the most it found)
     let most = [];
-    for (const floor of [22, 16, 12, 8, 5]) { calls = findCalls(x, RATE, { ...s, floor }); if (calls.length > most.length) most = calls; if (calls.length >= Math.min(s.n ?? 6, 3)) break; }
+    if (s.cuts) calls = s.cuts.map(([t, d]) => ({ s: t, d }));
+    else for (const floor of [22, 16, 12, 8, 5]) { calls = findCalls(x, RATE, { ...s, floor }); if (calls.length > most.length) most = calls; if (calls.length >= Math.min(s.n ?? 6, 3)) break; }
     if (!calls.length) calls = most;
     if (!calls.length) throw new Error(`${s.key}: found no calls`);
-    const gap = Math.round(0.25 * RATE), lead = 0.03, parts = [], slices = [];
+    const gap = Math.round(0.25 * RATE), lead = s.cuts ? 0 : 0.03, tail = s.cuts ? 0 : 0.08, parts = [], slices = [];
     let at = gap;
     for (const c of calls) {
-      const a = Math.max(0, Math.round((c.s - lead) * RATE)), b = Math.min(x.length, Math.round((c.s + c.d + 0.08) * RATE));
-      const seg = fadeEdges(x.slice(a, b), RATE, 0.008, 0.06);
+      const a = Math.max(0, Math.round((c.s - lead) * RATE)), b = Math.min(x.length, Math.round((c.s + c.d + tail) * RATE));
+      // a hand cut ends mid-sound, so it fades over its last quarter (at most 0.8 s)
+      const seg = s.cuts ? fadeEdges(x.slice(a, b), RATE, 0.02, Math.min(0.8, c.d * 0.25)) : fadeEdges(x.slice(a, b), RATE, 0.008, 0.06);
       parts.push(seg); slices.push([at / RATE, seg.length / RATE]);
       at += seg.length + gap;
     }

@@ -1,6 +1,23 @@
 {
   "description": "A perspex bin on a stand, half full of lighters, nail files, scissors and one bread knife. The label reads 'Items surrendered at screening'.",
-  "flags": {},
+  "flags": {
+    "look": {
+      "arche": "cabinet",
+      "dims": [
+        0.6,
+        0.45,
+        1
+      ],
+      "form": "vitrine"
+    },
+    "spot": {
+      "at": [
+        -1.5,
+        5.6
+      ],
+      "turn": 90
+    }
+  },
   "hp": null,
   "hp_max": null,
   "id": "furn_cw_confiscation_bin",

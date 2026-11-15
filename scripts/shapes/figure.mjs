@@ -78,6 +78,15 @@ for (const [name, F] of Object.entries(FIGURE_FACIAL)) if (F.mesh) for (const le
     for (let v = e.v0; v < e.v0 + e.nv; v++) if (!Number.isFinite(F.P[v * 3 + 2])) { problems.push(`head ${head} weight ${weight}: an eye isn't finite`); break; }
   }
 }
+// The fine face (faceHd, the Figure Lab's face: hd, actor-head.js HEAD_HD) is the sculpted close-up's alone, finite at every
+// head, and still indexes as UNSIGNED_SHORT.
+for (const head of [0, 3, 4]) {
+  const K = { cut: 'tee', style: 4, level: 'hd', sculpt: true, head, weight: 0.5, build: head === 3 ? 'woman' : 'average' }, F = buildFigure({ ...K, faceHd: true }), O = buildFigure(K);
+  if (F.P.some((v) => !Number.isFinite(v)) || F.NF.some((v) => !Number.isFinite(v))) problems.push(`fine face head ${head}: a position or form normal isn't finite`);
+  if (F.nv > 65535) problems.push(`fine face head ${head}: ${F.nv} vertices won't index as UNSIGNED_SHORT`);
+  if (!(F.nv > O.nv)) problems.push(`fine face head ${head}: faceHd built the ordinary head`);
+}
+if (buildFigure({ cut: 'tee', style: 4, level: 'lite', sculpt: true, faceHd: true }).nv !== buildFigure({ cut: 'tee', style: 4, level: 'lite', sculpt: true }).nv) problems.push('faceHd changed the phone figure');
 // The levels of detail step down at every weight and beard, each well under the one before it.
 for (const weight of [0, 0.5, 1]) for (const beard of ['', 'full', 'long']) {
   const nt = ['hd', 'lite', 'crowd', 'far'].map((level) => buildFigure({ cut: 'coat', style: 4, level, sculpt: true, weight, beard }).nt);

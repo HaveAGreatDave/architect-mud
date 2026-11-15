@@ -28,6 +28,7 @@ import { DT } from './rink/rig.js';
 import { SAVE, createDirector } from './rink/director.js';
 import { ratingsFor } from './rink/sim.js';
 import { loadClassicScript } from '../classic-script.js';
+import { fieldBed, fieldCall } from '../../../shared/field-recordings.js';
 import { comicOn } from './gl/house-style.js';
 import { loadComicFaces } from './comic-print.js';
 
@@ -157,8 +158,15 @@ export function createRinkView(host, opts = {}) {
     }
   }
 
+  // hockey-sfx.js is a classic script, so the crowd's recordings reach it from here
+  let fieldGiven = false;
+  function hockeySfx() {
+    const H = win?.HockeySfx;
+    if (H?.useField && !fieldGiven) { H.useField({ fieldBed, fieldCall }); fieldGiven = true; }
+    return H;
+  }
   function _sfx(key, o) {
-    const H = win?.HockeySfx, AE = win?.AudioEngine;
+    const H = hockeySfx(), AE = win?.AudioEngine;
     if (!W || !H?.eventFor || !AE?.playSfx) return;
     const pick = H.eventFor(key, o || {});
     if (pick) {
@@ -191,7 +199,7 @@ export function createRinkView(host, opts = {}) {
   let crowd = null, crowdBack = null, loudUntil = 0;
   function crowdOn() {
     if (crowd != null) return crowd || null;
-    const H = win?.HockeySfx;
+    const H = hockeySfx();
     crowd = (H?.crowdBed && win?.AudioEngine?.engineNodes && H.crowdBed()) || false;
     if (crowd) crowd.start().setState('active');
     return crowd || null;

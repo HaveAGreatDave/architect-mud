@@ -7,7 +7,20 @@
       "firebox",
       "planks",
       "rack"
-    ]
+    ],
+    "look": {
+      "arche": "fireplace",
+      "dims": [
+        3.4,
+        0.7,
+        0.8
+      ],
+      "form": "firetrough"
+    },
+    "spot": {
+      "along": 0,
+      "wall": "front"
+    }
   },
   "hp": null,
   "hp_max": null,

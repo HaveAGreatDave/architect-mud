@@ -5,6 +5,14 @@
     "interactions": [
       "lean"
     ],
+    "look": {
+      "arche": "sink",
+      "form": "basin"
+    },
+    "spot": {
+      "along": 5.1,
+      "wall": "left"
+    },
     "water_source": true
   },
   "hp": null,

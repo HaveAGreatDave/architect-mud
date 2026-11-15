@@ -9,7 +9,113 @@
   "flags": {
     "floor": "concrete",
     "hangar_ramp": "zone_district_925_903",
-    "is_interior": true
+    "is_interior": true,
+    "room": {
+      "balcony": false,
+      "d": 9,
+      "decor": {
+        "doors": [
+          {
+            "at": -1.6,
+            "dial": 30,
+            "finish": "steel",
+            "label": "Lift",
+            "pair": true,
+            "trim": "#c8ccd0",
+            "w": 1.2,
+            "wall": "back"
+          },
+          {
+            "at": 2.3,
+            "finish": "steel",
+            "label": "Stairs",
+            "w": 0.95,
+            "wall": "back"
+          }
+        ],
+        "lamps": [
+          {
+            "along": -3.6,
+            "hex": "#3a3d40",
+            "wall": "back",
+            "y": 2.35
+          }
+        ],
+        "rug": false,
+        "screens": [
+          {
+            "along": -3.6,
+            "h": 0.4,
+            "show": "gauges",
+            "w": 0.5,
+            "wall": "back",
+            "y": 1.75
+          }
+        ],
+        "signs": [
+          {
+            "along": 0.4,
+            "h": 0.07,
+            "hex": "#101010",
+            "plateHex": "#e8b818",
+            "text": "Authorised staff only",
+            "wall": "back",
+            "y": 2.5
+          }
+        ],
+        "strips": [
+          {
+            "along": "u",
+            "at": [
+              -2.2,
+              2.6
+            ],
+            "len": 0.5
+          },
+          {
+            "along": "u",
+            "at": [
+              -2.2,
+              6.4
+            ],
+            "len": 0.5
+          },
+          {
+            "along": "u",
+            "at": [
+              2.2,
+              2.6
+            ],
+            "len": 0.5
+          },
+          {
+            "along": "u",
+            "at": [
+              2.2,
+              6.4
+            ],
+            "len": 0.5
+          }
+        ]
+      },
+      "face": 90,
+      "finish": "plain",
+      "glass": [
+        "front",
+        "left",
+        "right"
+      ],
+      "ground": "concrete",
+      "h": 3.6,
+      "studio": false,
+      "tone": {
+        "accent": "#c8ccd0",
+        "ceiling": "#c6cacc",
+        "trim": "#23272b",
+        "wall": "#9aa0a4"
+      },
+      "w": 9
+    }
   },
   "grid_x": 0,
   "grid_y": 0,

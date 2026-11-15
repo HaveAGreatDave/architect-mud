@@ -770,6 +770,68 @@ export const FIELD = {
   "slices": [
    [ 0.3, 1.43,
     -21.1 ] ]
+ },
+ "crowd_arena": {
+  "id": "smp_field_crowd_arena",
+  "kind": "bed",
+  "dur": 12.565,
+  "loop": [ 0.3, 12.3 ],
+  "lufs": -22.2
+ },
+ "crowd_park": {
+  "id": "smp_field_crowd_park",
+  "kind": "bed",
+  "dur": 12.565,
+  "loop": [ 0.3, 12.3 ],
+  "lufs": -22.4
+ },
+ "crowd_goal": {
+  "id": "smp_field_crowd_goal",
+  "kind": "calls",
+  "dur": 8.856,
+  "slices": [
+   [ 0.3, 8.3,
+    -12.9 ] ]
+ },
+ "crowd_roar": {
+  "id": "smp_field_crowd_roar",
+  "kind": "calls",
+  "dur": 18.913,
+  "slices": [
+   [ 0.3, 9.9,
+    -8.9 ],
+   [ 10.45, 8.2,
+    -15.9 ] ]
+ },
+ "crowd_cheer": {
+  "id": "smp_field_crowd_cheer",
+  "kind": "calls",
+  "dur": 12.46,
+  "slices": [
+   [ 0.3, 3.8,
+    -10.8 ],
+   [ 4.35, 3.8,
+    -18.8 ] ]
+ },
+ "crowd_boo": {
+  "id": "smp_field_crowd_boo",
+  "kind": "calls",
+  "dur": 9.665,
+  "slices": [
+   [ 0.3, 3.6,
+    -13.3 ],
+   [ 4.15, 3.5,
+    -13.4 ],
+   [ 7.9, 1.49,
+    -19.1 ] ]
+ },
+ "crowd_boo_park": {
+  "id": "smp_field_crowd_boo_park",
+  "kind": "calls",
+  "dur": 2.22,
+  "slices": [
+   [ 0.3, 1.66,
+    -9.3 ] ]
  }
 };
 

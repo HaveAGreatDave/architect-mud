@@ -1,6 +1,6 @@
 # Street people: one look, four levels
 
-**Status: steps 1 to 3 built (one look on the wire, the crowd dressed from it, the close-up level in GLASS); steps 4 to 6 are design.** It answers the "street's own close-ups" question in [hd-figure.md](hd-figure.md#open-questions) and replaces the token rule in [street-figure-heads.md](street-figure-heads.md#what-doesnt-change).
+**Status: steps 1 to 3 built (one look on the wire, the crowd dressed from it, the close-up level in GLASS), and the same close-up level in the stands at the park and the rink; steps 4 to 6 are design.** It answers the "street's own close-ups" question in [hd-figure.md](hd-figure.md#open-questions) and replaces the token rule in [street-figure-heads.md](street-figure-heads.md#what-doesnt-change).
 
 ## Why
 
@@ -20,13 +20,13 @@ Every level is drawn from one look, so a person crossing from one level to the n
 
 | Level | Drawn by | When | Cost a person |
 |---|---|---|---|
-| close-up `hd` | the Room Stage's figure ([gl/figure-hd.js](../../client/game/js/panels/gl/figure-hd.js)) through [gl/street-hd.js](../../client/game/js/panels/gl/street-hd.js) | over `STREET_HD.px` (260 device px tall) and within `FIGURE_LOD.near` (3.1 m), at most `STREET_HD.max` (6) | about 28,000 triangles, posed on the CPU, one draw and its ink |
-| close-up `lite` | the same | over 260 px, past 3.7 m | about 5,000 vertices |
+| close-up `hd` | the Room Stage's figure ([gl/figure-hd.js](../../client/game/js/panels/gl/figure-hd.js)) through [gl/street-hd.js](../../client/game/js/panels/gl/street-hd.js) | over `STREET_HD.px` (100 device px tall) and within `FIGURE_LOD.near` (3.1 m), at most `STREET_HD.max` (16) | about 28,000 triangles, posed on the CPU, one draw and its ink |
+| close-up `lite` | the same | over 100 px, past 3.7 m | about 5,000 vertices |
 | crowd | the baked body and the street's heads ([gl/actors.js](../../client/game/js/panels/gl/actors.js)) | over `actorMeshPx` (8 px) | 1,961 vertices, instanced, no CPU |
 | far | the far body | 1.5 to 8 px | 387 vertices, instanced |
 | billboard | the canvas card in the coat's tone | under 1.5 px | a quad |
 
-At the street's 1.776 m a 260 px figure has a head about 34 px tall, where the crowd's head reaches its finest level (L0). That's where the close-up face starts to add something.
+At the street's 1.776 m a 260 px figure has a head about 34 px tall, where the crowd's head reaches its finest level (L0). The close-up level started there until 2026-11-15, and the change from the crowd's body to the figure showed as somebody walked up. It now starts at 100 px (a head about 13 px tall), where the two are too small to tell apart, with up to 16 people at once, most of them at the lite level.
 
 ## One look (built)
 
@@ -57,6 +57,19 @@ Not carried: the occasion and weather changes the Room Stage adds (`figure_work`
 **Measured again (2026-11-13).** Two-thirds of that was `fk` in actor3d.js making eleven `Float64Array`s a bone, with a walk running it twice. It now works in scratch matrices with the same sums in the same order (the bake and every clip come out bit for bit as before), and six people pose in about 0.6 ms in Node, 0.1 ms a person. On foot on Marrow Street with six close up, the close-up level is about 6% of the frame's CPU. In headless Chrome the figures came from the worker a second or two after somebody came close, and the close-up count filled in as they did.
 
 `__streetHD.tune` and `__streetHD.stats` (`cand`, `drawn`, `poseMs`, `ready`, `tallest`) are on the console.
+
+## The stands' close-up level (built)
+
+[gl/crowd-hd.js](../../client/game/js/panels/gl/crowd-hd.js). David asked (2026-11-15) for the fans round you at Deadball and Clusterpuck, and the TV's close shots of the stands, to be ROOM's figure too. The park ([gl/ballpark.js](../../client/game/js/panels/gl/ballpark.js)) and the rink ([gl/arena.js](../../client/game/js/panels/gl/arena.js)) draw every fan instanced off one bake ([gl/fan-vat.js](../../client/game/js/panels/gl/fan-vat.js)), posed in the shader from hashes of his seat ([gl/crowd.js](../../client/game/js/panels/gl/crowd.js) `FAN_GLSL`). That stays for the stands at large.
+
+- **Who.** Each host's split, which already measures every fan's height on the screen, hands `pick` those over `crowdHdLine`, biggest first, up to `max` (32), with the same margin as the street. The line is a share of the picture's height (`CROWD_HD.share`, 0.12 of it for a fan stood, and never under 60 px), so the TV on a wall makes the same choice as the whole screen: the park's crowd cutaway (diamond/camera.js `crowd`) has its nearest fans at about 0.16. A seat in the stands (stands.js) and a long lens on a stand both bring fans up that big; a wide shot of the bowl doesn't. Only fans with some of themselves in the picture count: the split measures depth alone, and a seat sees hundreds over the line behind and beside it. The seat a viewer sits in is never one. The chosen are left out of the bake's draw. The rink keeps them at the end of its near buffer for the comic look's line depth, so no seat's edge is inked through them.
+- **The same man.** Everything `FAN_GLSL` reads off a seat is read again on the CPU, the same hashes in float32 (`ghash`): his side, a woman or not, his build (a weight in fifths), cropped, long or bald, a cap and its colour, a beard, glasses, his trousers, eyes and hair, and his shirt and skin off the instance. That's a settled look for gl/room-people.js `lookOf`. What he's doing is `FAN_GLSL`'s weights again, each clip at the same phase, mixed on the pose by actor3d.js `actorSkinBlend` (figurePeople's `blend`), with the same bounce, head turn and open mouth.
+- **Club colours.** A fan in his club's colour wears its jersey: the baseball cut at the park (most of them; the rest a tee in it), and at the rink a hockey sweater (figure.js `hockey`, the club's trim in two stripes round the hem and forearms). At the rink a fan in the trim colour sometimes wears the sweater the other way round.
+- **Built off the page.** As on the street: a fan is drawn close up only once his two figures are built (figure-ahead.js) and the figure's shader has linked; until then the bake keeps him. `poll` moves `version` when one comes ready, and each split takes it into its key. The figure's modules aren't loaded until a fan is first big enough.
+- **The draw.** The park draws them on the players' figure layer in the players' light (gl/ballpark-figures.js `drawRecs`); the rink on Ken Raven's layer, lit as `RINK_CROWD_FS` lights the bake round them (gl/arena-ken.js `drawFans`, `__rinkFanLight` to tune). Phones keep the bake.
+- **Cost.** 0.15 to 0.3 ms of CPU a fan a frame to pose in the Browser pane (2026-11-15): 12 beside a seat in 1.7 to 3.4 ms, 40 in the park's crowd cutaway in 6 to 14 ms, which is why `max` is 32. Step 4 (posing on the GPU) would let it grow.
+
+`__crowdHD.tune` and `__crowdHD.stats` (`cand`, `chosen`, `waiting`, `poseMs`) are on the console.
 
 ## Checks
 

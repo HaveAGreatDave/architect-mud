@@ -7,7 +7,12 @@ import { _test as stage } from '../roomstage/index.js';
 import { world, getZone } from '../../server/engine/world.js';
 import { catLook, EAR_MOODS } from '../../client/game/js/panels/gl/cat-kit.js';
 import { CLIP_NAMES } from '../../client/game/js/panels/gl/cat-clips.js';
-import { catLife, catPerchOf, catSettle, perchSoft, bowlTimes, bowlLevel, DAY_MS } from '../../client/shared/cat-life.js';
+import { catLife, catPerchOf, catSettle, perchSoft, bowlTimes, bowlLevel, catMeets, catNeeds, catAtBowls, trayTimes, trayState, catAtTray, TRAY_FULL, MEET_KINDS, DAY_MS } from '../../client/shared/cat-life.js';
+import { LITTER } from '../../client/game/js/panels/gl/cat-clips.js';
+import { query } from '../../server/models/db.js';
+import { mainOf } from '../roomstage/index.js';
+import { MEET_PLAN } from '../../client/game/js/panels/gl/cat-meet.js';
+import { BREEDS } from '../../client/game/js/panels/gl/cat-breeds.js';
 import { allExits } from '../../server/engine/exits.js';
 
 export default async function regress({ check }) {
@@ -124,6 +129,76 @@ export default async function regress({ check }) {
     if ([...BOWLS.values()].some((b) => b.pet === first.id)) check('pets: the beast carries its bowls', !!bb?.food && Number.isFinite(bb.food.at));
   }
 
+  // hunger and thirst: worked out from when his bowls were filled. Left two days, he's starving and after food, examine
+  // says so and whoever comes in is greeted with a demand; just filled, he's after nothing
+  const { hungerOf, describeAnimal } = pets;
+  if (first) {
+    const n0 = world.npcs.get(first.npcId), b = pets.stationOf(first), zone0 = n0 && (n0.zone_id || n0.home_zone);
+    if (n0 && b) {
+      const keep = { food: { ...b.food }, water: { ...b.water } }, t0 = Date.now();
+      b.food = { at: t0 - 2 * DAY_MS, due: null }; b.water = { at: t0 - 2 * DAY_MS, due: null };
+      const n = catNeeds(n0.id, t0, b);
+      check('pets: two days without his bowls filled, he is starving and parched', n.hunger > 0.9 && n.thirst > 0.9, JSON.stringify(n));
+      check('pets: and he is after food', hungerOf(first, n0, t0) === 'food');
+      check('pets: examining him says so', /eaten|hungry/.test(describeAnimal(n0) || ''), describeAnimal(n0));
+      let pest = 0;
+      for (let t = t0; t < t0 + 3 * 3.6e6; t += 15000) if (catAtBowls(n0.id, t, b)?.pester) pest++;
+      check('pets: hungry at an empty dish, he goes back to it between meals', pest >= 4, `${pest} samples in three hours`);
+      if (way) {
+        let demanded = null;
+        for (let i = 0; i < 20 && !demanded; i++) {
+          setBeat(n0, null, zone0);
+          onEntered({ actor: { id: `p_pet_hungry_${i}`, handle: `Hungry${i}`, current_zone: zone0 }, zone: zone0, from: way.target });
+          if (BEATS.get(n0.id)?.hungry) demanded = BEATS.get(n0.id);
+        }
+        check('pets: hungry, he greets whoever comes in by demanding food', demanded?.hungry === 'food', JSON.stringify(demanded));
+        setBeat(n0, null, zone0);
+      }
+      b.food = { at: t0, due: null }; b.water = { at: t0, due: null };
+      check('pets: just filled, he is after nothing', hungerOf(first, n0, t0) === null);
+      b.food = keep.food; b.water = keep.water;
+    }
+  }
+  {
+    // an ordinary day, the bowls filled each morning: peckish by his next meal at worst, never starving
+    const t0 = Date.UTC(2026, 10, 14), bowls = { food: { at: t0, due: null }, water: { at: t0, due: null } };
+    let mh = 0;
+    for (let t = t0; t < t0 + DAY_MS; t += 600000) mh = Math.max(mh, catNeeds('c', t, bowls).hunger);
+    check('pets: fed every day, he is never more than peckish', mh < 0.6, mh.toFixed(2));
+  }
+
+  // his tray: about five goes a day, the same twice; left three days it's full and he's gone in front of it, it smells
+  // in its room and the room it opens off, it's drawn with what's in it, examine says it, and `scoop` empties it
+  {
+    const D = trayTimes('c', 0, 10 * DAY_MS);
+    check('pets: tray times are the same twice', JSON.stringify(D) === JSON.stringify(trayTimes('c', 0, 10 * DAY_MS)));
+    check('pets: about five goes at the tray a day', D.length >= 40 && D.length <= 60, `${D.length} in ten days`);
+    check('pets: the tray clips are the tray goes', Object.keys(LITTER).every((k) => D.some((g) => g.kind === k)) && D.every((g) => LITTER[g.kind]));
+    const s = trayState('c', { at: 0 }, 3 * DAY_MS);
+    check('pets: three days unscooped, the tray is full and the rest is beside it', s.pee + s.poo === TRAY_FULL && s.mess.length > 0, JSON.stringify(s));
+    const g = D.find((x) => x.t > 2 * DAY_MS);
+    check('pets: at a full tray he goes beside it', catAtTray('c', g.t + 1000, { at: 0 })?.mess === true);
+    check('pets: at a clean one he goes in it', catAtTray('c', g.t + 1000, { at: g.t - 1 })?.mess === false);
+  }
+  const { TRAYS, cmdScoop, describeTray, traySmells, stateOf } = pets;
+  for (const t of TRAYS.values()) {
+    const keep = t.at, t0 = Date.now();
+    t.at = t0 - 3 * DAY_MS;
+    check(`pets: ${t.id} is drawn with what's in it`, Array.isArray(pieceState(t.zone)?.[t.id]?.mess) && pieceState(mainOf(t.zone))?.[t.id]?.pee >= 0);
+    check(`pets: examining ${t.id} full says he's given up on it`, /given up/.test(describeTray({ id: t.id }) || ''), describeTray({ id: t.id }));
+    check(`pets: ${t.id} full smells, and in the room it opens off`, !!traySmells({ id: t.zone })?.length && !!traySmells({ id: mainOf(t.zone) })?.length);
+    const r = await cmdScoop([], 'scoop', { id: 'p_pet_test_scoop', handle: 'Scooper', current_zone: mainOf(t.zone) });
+    check(`pets: scoop from the room it opens off empties ${t.id}`, stateOf(t).dirt === 0 && /scoop/.test(r.message), r.message);
+    check(`pets: ${t.id} scooped smells of nothing`, !traySmells({ id: t.zone }));
+    check(`pets: scooping a clean ${t.id} says so`, /clean/.test((await cmdScoop([], 'scoop', { id: 'p_pet_test_scoop', handle: 'Scooper', current_zone: t.zone })).message));
+    // put it back as it was, here and in its row
+    t.at = keep;
+    await query('UPDATE pet_trays SET scooped_at = to_timestamp($2::float8 / 1000) WHERE furniture_id = $1', [t.id, keep]);
+    const p = PETS.get(t.pet), npc = p && world.npcs.get(p.npcId);
+    if (npc) check(`pets: the beast carries ${t.id}`, npcBeast(npc)?.tray?.id === t.id && Number.isFinite(npcBeast(npc)?.tray?.at));
+  }
+  check('pets: scoop where there is no tray says so', /no litter tray/.test((await cmdScoop([], 'scoop', { id: 'x', handle: 'X', current_zone: 'zone_regress_nowhere' })).message));
+
   // the shared day: the bowl schedule, the piece he's up on and the biscuits are the same answer twice, and he only
   // kneads on something soft
   const { layoutOf, nowOf, lineFor } = pets;
@@ -160,4 +235,44 @@ export default async function regress({ check }) {
   check('pets: every ear mood is two ears of three numbers', Object.values(EAR_MOODS).every((m) => m.length === 2 && m.every((e) => e.length === 3 && e.every(Number.isFinite))));
   check('pets: a breed is under the cat and the cat wins', catLook({ breed: 'american_shorthair', build: { head: 1.3 } }).build.head === 1.3 && catLook({ breed: 'american_shorthair' }).build.earRound > 0);
   check('pets: a coat pattern sets the white', catLook({ coat: { pattern: 'tuxedo' } }).coat.white === 0.42);
+  check('pets: a coat colour sets the genes under the cat', catLook({ coat: { colour: 'calico' } }).coat.tortie?.col && catLook({ coat: { colour: 'calico', white: 0.3 } }).coat.white === 0.3);
+  check('pets: every breed is a cat the kit can build', Object.keys(BREEDS).every((b) => { const l = catLook({ breed: b }); return l.scale > 0.4 && Number.isFinite(l.build.ears); }));
+  check('pets: every breed leans a nature', Object.entries(BREEDS).every(([k, b]) => k === 'domestic' || Object.keys(b.nature || {}).length === 5));
+  check('pets: a Siamese is pointed', !!catLook({ breed: 'siamese' }).coat.points?.col);
+
+  // two cats: the same answer for everybody, whichever order the room lists them in; both sides of it agree; every
+  // clip it stages is a clip; friends get on and rivals don't; and its lines are filled in
+  const { MEET_LINE, meetLine } = pets;
+  const friendA = { id: 'npc_regress_cat_a', nature: { friendly: 0.85, dominant: 0.45, outgoing: 0.6, impulsive: 0.5, skittish: 0.2 } };
+  const friendB = { id: 'npc_regress_cat_b', nature: { friendly: 0.8, dominant: 0.35, outgoing: 0.7, impulsive: 0.6, skittish: 0.3 } };
+  const rivalA = { id: 'npc_regress_cat_c', nature: { friendly: 0.3, dominant: 0.8, outgoing: 0.4, impulsive: 0.5, skittish: 0.3 } };
+  const rivalB = { id: 'npc_regress_cat_d', nature: { friendly: 0.35, dominant: 0.7, outgoing: 0.5, impulsive: 0.4, skittish: 0.5 } };
+  const tally = (pair) => {
+    const kinds = {};
+    let same = true, agree = true;
+    const t0 = Date.UTC(2026, 10, 14);
+    for (let t = t0; t < t0 + DAY_MS; t += 20000) {
+      const h = ((t - t0) / 3.6e6) % 24, m = catMeets(null, pair, t, h), m2 = catMeets(null, [...pair].reverse(), t, h);
+      if (JSON.stringify([...m].sort()) !== JSON.stringify([...m2].sort())) same = false;
+      const x = m.get(pair[0].id), y = m.get(pair[1].id);
+      if (!!x !== !!y || (x && (x.key !== y.key || x.role === y.role || x.with !== pair[1].id))) agree = false;
+      if (x) kinds[x.kind] = (kinds[x.kind] || 0) + 1;
+    }
+    return { kinds, same, agree };
+  };
+  const fr = tally([friendA, friendB]), rv = tally([rivalA, rivalB]);
+  check('pets: two cats meet the same for everybody', fr.same && rv.same);
+  check('pets: both cats agree on what they are doing together', fr.agree && rv.agree);
+  check('pets: friends greet, groom, play and sleep in a heap', ['greet', 'groom', 'play', 'pile'].every((k) => fr.kinds[k] > 0), JSON.stringify(fr.kinds));
+  check('pets: friends never fall out', !fr.kinds.spat, JSON.stringify(fr.kinds));
+  check('pets: rivals fall out and never groom or share a bed', rv.kinds.spat > 0 && !rv.kinds.groom && !rv.kinds.pile, JSON.stringify(rv.kinds));
+  check('pets: a cat on a beat is left out', !catMeets(null, [{ ...friendA, busy: true }, friendB], Date.UTC(2026, 10, 14, 7), 7).size);
+  const CLIPS = new Set(CLIP_NAMES);
+  check('pets: every clip two cats play is a clip', Object.values(MEET_PLAN).every((ph) => ph.every((p) => CLIPS.has(p.a) && CLIPS.has(p.b))));
+  check('pets: every kind of meeting has its staging and its words', Object.keys(MEET_KINDS).every((k) => MEET_PLAN[k] && MEET_LINE[k]?.length));
+  {
+    const na = { name: 'Alpha', sex: 'female' }, nb = { name: 'Beta', sex: 'male' };
+    const all = Object.keys(MEET_KINDS).map((kind) => meetLine({ kind, key: kind + ':1', on: null }, na, nb, null));
+    check('pets: two-cat lines are all filled in', all.every((s) => s && !/\$/.test(s) && s.includes('Alpha') && s.includes('Beta')), JSON.stringify(all));
+  }
 }

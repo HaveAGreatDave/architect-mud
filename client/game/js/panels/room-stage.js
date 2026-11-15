@@ -28,12 +28,13 @@
 import { lightAt } from '../../../shared/sky-keys.js';
 import { FT_M } from '../../../shared/world-scale.js';
 import { sendCmd, sendCmdSilent, sendCmdQuiet, sendRaw } from '../net.js';
+import { clubOf } from './club-crest.js';
 import { createHands } from './stands-hands.js';
 import { closeDialogue } from './dialogue.js';
 import { loadCss } from '../../../shared/dom.js';
 import { LIFT_STOREY } from '../../../shared/building-graph.js';
 import { cachetInner, WASH_FORMS } from '../../../shared/room-layout.js';
-import { roomPath, roomNearFree } from '../../../shared/room-layout.js';
+import { roomPath, roomNearFree, crowdSpot, crowdSeed, lineSpots, linePoints } from '../../../shared/room-layout.js';
 import { roomLayout, inAnnex, onBalcony, pathAt, pathLength, roomYaw, seatsClash, openingCrossed, openingInside, roomFree, roomSees, facing, FT_PER_M, pieceBoxes, heldShort, openingPast, flightLocal, WALL_T } from '../../../shared/room-layout.js';
 import { pieceActs } from '../../../shared/room-acts.js';
 import { createRoomWalk } from './room-walk.js';
@@ -47,6 +48,7 @@ import { createWallTv, paintBoot, BOOT_S } from './room-tv.js';
 import { createRoomLocks } from './room-lock.js';
 import { createRoomEnvctl } from './room-envctl.js';
 import { createPack } from './room-pack.js';
+import { footDockHTML, bindFootDock } from './foot-dock.js';
 import { setScreenHour } from './gl/room-screens.js';
 import { createRoomLift } from './room-lift.js';
 import { createMorphex } from './room-morphex.js';
@@ -271,6 +273,7 @@ export const roomStageOpen = () => !!ui;
 // ⚠ A FAILED OPEN MUST NOT LEAVE THE PANE BLANK. room-stage-on hides the room text; an open that threw
 // partway left it hidden with nothing over it, the sidebar alone, until the Stage was opened again.
 export function openRoomStage(msg) {
+  askCrests(msg.people);
   try { openStage(msg); } catch (err) {
     if (ui) closeRoomStage(true);
     else { document.getElementById('room-stage')?.remove(); document.body.classList.remove('room-stage-on'); releaseSeatLadder(); }
@@ -311,8 +314,7 @@ function openStage(msg) {
         <input type="range" class="rs-dim" min="10" max="100" step="5" value="100" title="Dim the lights (- and =)" aria-label="How bright the lights are">
         <span class="rs-fire-lbl rs-light-lbl">100%</span>
       </div>
-      <button type="button" class="rs-tablet" title="Open your tablet (T)" aria-label="Open your tablet"><svg class="rs-tablet-ico" viewBox="0 0 24 32" aria-hidden="true"><rect x="1.5" y="1.5" width="21" height="29" rx="3" fill="none" stroke="currentColor" stroke-width="2"/><rect x="4.5" y="5" width="15" height="20" rx="1" fill="currentColor" opacity="0.35"/><rect x="7" y="8" width="4" height="4" rx="1" fill="currentColor"/><rect x="13" y="8" width="4" height="4" rx="1" fill="currentColor"/><rect x="7" y="14" width="4" height="4" rx="1" fill="currentColor"/><rect x="13" y="14" width="4" height="4" rx="1" fill="currentColor"/><circle cx="12" cy="27.8" r="1.3" fill="currentColor"/></svg></button>
-      <button type="button" class="rs-pockets" title="Your pack: what you carry and what you're wearing, to dress, undress, eat and drink (I, or P for food and drink)" aria-label="Your pack" aria-expanded="false">Pack</button>
+      ${footDockHTML()}
       <div class="rs-tip">WASD to walk, Shift to run, C to crouch · drag to look, Q and E to turn · face something or click it to see what you can do: F or a number picks · the switch by the door has the lights: L, - and = · click a fire's dial to set it, or , and . · F on a set you're looking at turns it on or off, and [ and ] or the wheel on its picture change the channel · I for your pack, to dress, undress, eat and drink, and P for what you can eat and drink · G to tag the wall you're facing, with a can on you · T for your tablet</div>
     </div>`;
   // into the game pane, over the room text, which stays underneath for when the Stage closes
@@ -1055,10 +1057,57 @@ function openStage(msg) {
     // a post the server gave them: a dancer at her pole, `face` the way she looks in the room's u and v, and
     // `lift` how far up she stands (the stage's top)
     if (p.at) return { at: p.at, yaw: p.face ? roomYaw(L, p.face[0], p.face[1]) : p.yaw || 0, pose: 'stand', ...(p.lift ? { lift: p.lift } : {}), ...(p.clip ? { clip: p.clip } : {}) };
-    // nobody has said where: by the door, a step apart from the next
+    // nobody has said where: spread over the floor, or in line at a counter (crowdPlace)
     const i = S.people.indexOf(p), d = S.spec.door || [0.7, 1.6];
     if (p.annex && L.annex) { const [u, v] = annexStand(L); return { at: [u + (i % 3 - 1) * 0.4, v + 0.5], yaw: Math.atan2(-L.f[0], -L.f[2]), pose: 'stand' }; }
-    return { at: [d[0] + 0.3 + (i % 3) * 0.45, S.spec.d - 0.5 - Math.floor(i / 3) * 0.5], yaw: Math.atan2(L.f[0], L.f[2]), pose: 'stand' };
+    const c = crowdPlace(L, p, S.people, () => {
+      const out = [];
+      for (const q of S.people) { if (q === p || q.id === S.you || q.annex) continue; const at = placeOf(q)?.at; if (at) out.push(at); }
+      if (S.walk?.at) out.push(S.walk.at);
+      return out;
+    });
+    return c || { at: [d[0] + 0.3 + (i % 3) * 0.45, S.spec.d - 0.5 - Math.floor(i / 3) * 0.5], yaw: Math.atan2(L.f[0], L.f[2]), pose: 'stand' };
+  }
+  // ── Where somebody stands when nothing has said where (room-layout.js crowdSpot, lineSpots) ──
+  // A spot each, chosen once a layout and held while they're in the room, so nobody shuffles when somebody else
+  // comes in: clear of everyone already placed (sat, posted, walking, you), anywhere on the open floor. An NPC
+  // where there's a counter to queue at (a box office, a trade counter, a reception desk) joins its line about
+  // half the time, by their id, up to LINE_MAX, one behind another; the line moves up as the front leaves.
+  const LINE_SHARE = 0.5, LINE_MAX = 5;
+  const crowds = new WeakMap();   // layout -> { spots: Map id -> { at, yaw }, lines: [{ spots, ids }], busy }
+  function crowdPlace(L, p, people, others) {
+    let C = crowds.get(L);
+    if (!C) { C = { spots: new Map(), lines: linePoints(L).map((q) => ({ spots: lineSpots(L, q, LINE_MAX), ids: [] })).filter((ln) => ln.spots.length), busy: false }; crowds.set(L, C); }
+    // (asked while working out somebody else's spot: everyone in C is counted from C itself)
+    if (C.busy) return null;
+    const here = new Set(people.filter((q) => !q._gone).map((q) => q.id));
+    for (const ln of C.lines) {
+      const k = ln.ids.filter((id) => here.has(id)).indexOf(p.id), q = k >= 0 && ln.spots[k];
+      if (q) return { at: [...q.at], yaw: q.yaw, pose: 'stand' };
+    }
+    const had = C.spots.get(p.id);
+    if (had) return { at: [...had.at], yaw: had.yaw, pose: 'stand' };
+    // somebody new: whoever's gone is let go first
+    for (const id of [...C.spots.keys()]) if (!here.has(id)) C.spots.delete(id);
+    for (const ln of C.lines) ln.ids = ln.ids.filter((id) => here.has(id));
+    const seed = crowdSeed(p.id);
+    if (p.npc && C.lines.length && (seed & 0xffff) / 0x10000 < LINE_SHARE) {
+      const ln = C.lines.reduce((a, b) => (b.ids.length < a.ids.length ? b : a));
+      if (ln.ids.length < ln.spots.length) { ln.ids.push(p.id); const q = ln.spots[ln.ids.length - 1]; return { at: [...q.at], yaw: q.yaw, pose: 'stand' }; }
+    }
+    C.busy = true;
+    let taken;
+    try { taken = others(); } finally { C.busy = false; }
+    for (const s of C.spots.values()) taken.push(s.at);
+    // a line keeps the place behind its last one free, so the next to join isn't stood in somebody
+    for (const ln of C.lines) for (const q of ln.spots.slice(0, ln.ids.length + 1)) taken.push(q.at);
+    const at = crowdSpot(L, taken, seed);
+    if (!at) return null;
+    // facing into the room, give or take
+    const [u0, u1, v0, v1] = L.bounds, turn = ((seed >>> 16) / 0x10000 - 0.5) * 2.2;
+    const yaw = roomYaw(L, (u0 + u1) / 2 - at[0], (v0 + v1) / 2 - at[1]) + turn;
+    C.spots.set(p.id, { at, yaw });
+    return { at: [...at], yaw, pose: 'stand' };
   }
   // your own posture, from the server: a `sit` typed in the log seats you here too
   function followSelf() {
@@ -1170,6 +1219,9 @@ function openStage(msg) {
     let acts = pieceActs(piece, S.L.seats.filter((s) => s.piece === piece.id));
     // a seat door: the tickets you hold for its sections first, each sitting you on it (plugins/stands `stands ticket`)
     if (piece.door) acts = [...ticketActs(S.tickets, piece.door), ...acts];
+    // a Cachet's keypad, for whoever the room says may know of it: first on its card, so F at the bar brings the pad up
+    // wherever on the cabinet you're facing, not only from the step in front of its little panel
+    if (piece.keypad && msg.keypad) { const rest = acts.filter((x) => x.verb !== 'keypad'), pad = { verb: 'keypad', label: 'Use the keypad' }; acts = piece.turned ? [...rest, pad] : [pad, ...rest]; }
     // a set's Watch is its power switch (useStation): it says which way it'll go
     if (S.mesh.screens.some((s) => s.id === piece.id)) acts = acts.map((a) => (a.verb === 'watch' ? { ...a, label: tvOnHere(piece) ? 'Turn it off' : 'Turn it on' } : a));
     if (S.walk?.sat?.piece === piece.id) return [{ verb: 'stand', label: 'Get up' }, ...acts.filter((a) => a.verb !== 'sit' && a.verb !== 'lie')];
@@ -1318,6 +1370,7 @@ function openStage(msg) {
       return;
     }
     if (a.verb === 'leave') { sendCmd('leave'); return; }
+    if (a.verb === 'keypad') { sendCmd(`keypad ${piece.name}`); return; }
     // a wardrobe's Change clothes: your gear, to dress and undress
     if (a.verb === 'dress') { S.pack.open('wear'); return; }
     if (a.verb === 'sit' || a.verb === 'lie') {
@@ -1510,17 +1563,15 @@ function openStage(msg) {
     else if (e.key === 'ArrowDown' || e.key === 'ArrowLeft') { setFlame(flame - 0.05); e.preventDefault(); e.stopPropagation(); }
   });
   showFlame();
-  const openTablet = () => sendCmd('tablet');
-  root.querySelector('.rs-tablet').addEventListener('click', (e) => { e.currentTarget.blur(); openTablet(); });
-  root.querySelector('.rs-tablet').addEventListener('pointerdown', (e) => e.stopPropagation());
-  // THE PACK (room-pack.js): what you carry and wear, on a paper doll of you, from the button, I, P (on what you can
+  // THE DOCK (foot-dock.js): Pack and the tablet, the same buttons and keys (I, P, T) the street has on foot
+  const dock = bindFootDock(root, { pack: (tab) => S.pack.toggle(tab), tablet: () => sendCmd('tablet') });
+  // THE PACK (room-pack.js): what you carry and wear, on a paper doll of you, from the dock, I, P (on what you can
   // eat and drink) or a wardrobe's Change clothes. Never the tablet. Eating and drinking from it is the first-person
   // ritual in your hands, as Pockets was; a can of paint opens on the wall you're facing, as G does.
-  const packBtn = root.querySelector('.rs-pockets');
   S.pack = createPack({
     host: root, silent: sendCmdSilent, cmd: sendCmd, spray: () => openCan(),
     take: (it) => takeInHand(it),
-    onToggle: (open) => { packBtn.setAttribute('aria-expanded', String(open)); packView(open); },
+    onToggle: (open) => { dock.setPack(open); packView(open); },
     turn: (dYaw, dPitch, zoom) => packTurn(dYaw, dPitch, zoom),
   });
 
@@ -1598,8 +1649,6 @@ function openStage(msg) {
       : { at: [...w.at], yaw: face, pose: 'stand' };
     return { id: S.you, ...pl, sculpt: true, sex, figure: packFig.fig };
   }
-  packBtn.addEventListener('click', (e) => { e.currentTarget.blur(); S.pack.toggle(); });
-  packBtn.addEventListener('pointerdown', (e) => e.stopPropagation());
 
   // ── THE SPRAY CAN (room-tags.js, spray-session.js) ──
   // G, or the can in Pockets, opens the can on the room's wall: `spraycan` is the ordinary verb, and the server says
@@ -1908,9 +1957,8 @@ function openStage(msg) {
     if (S.walk?.key(e, true)) { e.preventDefault(); return; }
     if (k === 'Escape' && S.held) { S.held = null; e.preventDefault(); }
     // Escape never closes the stage: the toolbar's Close button does (David, 2026-11-12)
-    if ((k === 't' || k === 'T') && !e.ctrlKey && !e.metaKey && !e.altKey) { if (!e.repeat) openTablet(); e.preventDefault(); }
-    else if ((k === 'p' || k === 'P') && !e.ctrlKey && !e.metaKey && !e.altKey) { if (!e.repeat) S.pack.open('eat'); e.preventDefault(); }
-    else if ((k === 'i' || k === 'I') && !e.ctrlKey && !e.metaKey && !e.altKey) { if (!e.repeat) S.pack.open(); e.preventDefault(); }
+    // T, I and P are the dock's (foot-dock.js), as they are on the street
+    if (dock.key(e)) e.preventDefault();
     else if ((k === 'g' || k === 'G') && !e.ctrlKey && !e.metaKey && !e.altKey) { if (!e.repeat) openCan(); e.preventDefault(); }
     else if ((k === 'b' || k === 'B') && (msg.mine || msg.admin) && !e.ctrlKey && !e.metaKey && !e.altKey) { if (!e.repeat) startArrange(); e.preventDefault(); }
     else if (k === 'l' || k === 'L') { toggleLamp(); e.preventDefault(); }
@@ -2047,8 +2095,52 @@ function openStage(msg) {
   };
   window.addEventListener('npc:speaking', onSpeaking);
   // the line being voiced, by speaker: its mouth shapes and when it starts
-  const onVoice = (e) => { const d = e.detail; lips.set(d.name, { track: d.trace?.length ? mouthTrack(d.trace) : textTrack(d.text), t0: performance.now() + d.delay * 1000 }); };
+  const onVoice = (e) => {
+    const d = e.detail;
+    lips.set(d.name, { track: d.trace?.length ? mouthTrack(d.trace) : textTrack(d.text), t0: performance.now() + d.delay * 1000 });
+    if (d.voice?.move) voiced.set(d.voice, d.name);
+  };
   window.addEventListener('npc:voice', onVoice);
+  // ⚠ A VOICE COMES OUT OF ITS MOUTH (docs/systems-procedural-audio.md#oracle-in-3d). npc-bubbles.js asks where a
+  // speaker is (`npc:place`) before it voices them, and gets their head on this room's plan, the frame earPose puts
+  // the ear in; then each frame (placeVoices) every live line follows its speaker and the ear follows you, so turning
+  // to face somebody brings their voice round to the front. Somebody next door talks from where they're drawn,
+  // through the doorway. The level falls gently with distance (VOICE_AT): it's a room, and the line must stay heard.
+  const HEAD_Z = { stand: 1.6, sit: 1.15, lie: 0.45 }, VOICE_AT = { ref: 1.5, rolloff: 0.6 };
+  const voiced = new Map();   // a live line's handle -> its speaker's name
+  function speakerSpot(name) {
+    let id = null, pl = null;
+    const p = S.people.find((q) => q.name === name && q.id !== S.you);
+    if (p) { id = p.id; pl = shown.get(id) || placeOf(p); }
+    else for (const n of S.next) {
+      const i = n.L ? n.people.findIndex((q) => q.name === name) : -1;
+      if (i >= 0) { id = n.people[i].id; pl = shown.get(id) || placeNext(n, n.people[i], i); break; }
+    }
+    if (!pl?.at) return null;
+    const head = pl.pose === 'lie' && pl.head ? pl.head : [0, 0];
+    return [pl.at[0] + head[0], pl.at[1] + head[1], (HEAD_Z[pl.pose] ?? HEAD_Z.stand) + (pl.pose === 'sit' ? pl.lift || 0 : 0)];
+  }
+  const earNow = () => {
+    const pose = S.walk?.at && earPose(S.walk.at).pose;
+    if (pose) window.AudioEngine?.setListenerPose?.({ ...pose, vel: [0, 0, 0], metresPerUnit: 1 });
+    return !!pose;
+  };
+  const onPlace = (e) => {
+    const d = e.detail;
+    if (!d || d.place || !S.walk?.at) return;
+    const at = speakerSpot(d.name);
+    if (at && earNow()) d.place = { position: at, ...VOICE_AT };
+  };
+  window.addEventListener('npc:place', onPlace);
+  function placeVoices() {
+    if (!voiced.size) return;
+    earNow();
+    for (const [v, name] of voiced) {
+      if (v.state()?.closed) { voiced.delete(v); continue; }
+      const at = speakerSpot(name);
+      if (at) v.move(at);
+    }
+  }
   // what an emote line says somebody's doing, acted out for a while: "Marla wipes down the bar." By name, as the
   // text gives it; a line about nobody in the room does nothing
   const acting = new Map();
@@ -2150,6 +2242,8 @@ function openStage(msg) {
       if (s) pl = { at: [s.u, s.v], yaw: s.yaw, pose: s.lie ? 'lie' : 'sit', head: s.head, top: s.top, ...(s.back != null && !s.lie ? { back: s.back } : {}), ...(s.lift && !s.lie ? { lift: s.lift } : {}) };
     }
     if (!pl && p.at) pl = { at: p.at, yaw: (p.yaw || 0) + (n.spec.face || 0) * Math.PI / 180, pose: 'stand' };
+    // nobody has said where: spread over that room's floor as they'd be stood in it (crowdPlace)
+    if (!pl && !p.annex) pl = crowdPlace(Ln, p, n.people, () => n.people.filter((q) => q !== p && !q.annex && Array.isArray(q.at)).map((q) => q.at));
     if (!pl) pl = { at: [((i % 3) - 1) * 0.6, n.spec.d / 2 + Math.floor(i / 3) * 0.6], yaw: Math.atan2(Ln.f[0], Ln.f[2]), pose: 'stand' };
     const at = here(pl.at[0], pl.at[1]);
     if (pl.head) { const b = here(pl.at[0] + pl.head[0], pl.at[1] + pl.head[1]); pl.head = [b[0] - at[0], b[1] - at[1]]; }
@@ -2875,11 +2969,12 @@ function openStage(msg) {
     const packed = !join && !ax && !cook && S.packCam ? packCamNow(now) : null;
     R.render(join?.cam || ax?.cam || cook?.cam || packed || seat, { lamps: S.mesh.lamps, next: nextLit(Lr, seat.eye), lampOn, lampLevel: power === 'low' ? lampLevel * EMERGENCY_K : lampLevel, fire, flame,day: Math.min(1, dayOf(h) * outside.dimOf() + out.flash * 0.5), sky, wins: S.mesh.windows, annex, outZ: S.spec.balcony ? 0.145 : undefined, outRing: S.spec.balcony?.wrap ? [-S.spec.w / 2 - 0.145, S.spec.w / 2 + 0.145, S.spec.balcony.sides ? -1e6 : -S.spec.balcony.wrap - 0.005] : undefined, front: Lr.f, right: Lr.r, bearing: S.bearing, outside: out, lens: S.seeLens, tvOn: tvNow(now), shut, focusSharp: streetSharp(), ...pokerFocus() });
     if (bob) seat.eye[1] -= bob;
-    if (ax) { ax.after(); hearing.tick(outside.hear, placeOfEar(h, now), outdoors); return; }
+    if (ax) { ax.after(); hearing.tick(outside.hear, placeOfEar(h, now), outdoors); placeVoices(); return; }
     if (lockUi.count) lockUi.draw(host.clientWidth, host.clientHeight, seat.eye, S.walk?.at);
     if (envUi.on) envUi.draw(host.clientWidth, host.clientHeight, seat.eye, S.walk?.at);
     if (liftUi.on) liftUi.draw(host.clientWidth, host.clientHeight, readoutNow(now), S.ride && rideK(now)?.k < 1 ? S.ride : null);
     hearing.tick(outside.hear, placeOfEar(h, now), outdoors);
+    placeVoices();
   }
 
   // ⚠ LIVE TOO DEAR, THE SIX FACES INSTEAD (room-outlook.js `slow`). A view of the same place is started without
@@ -2901,7 +2996,7 @@ function openStage(msg) {
     }
     if (S.facesFor !== live.spot) { next.stop(); S.facesNext = null; return; }
     const look = lookOut();
-    next.tick(h, liveWx(), look && { ...look, at: [0, 0] });
+    next.tick(h, liveWx(), look);
     if (!next.shown) return;
     live.stop();
     S.facesNext = null;
@@ -2948,11 +3043,14 @@ function openStage(msg) {
       }
       if (lo > -Infinity && hi > lo) cull = [Math.max(0, lo - CULL_PAD), Math.min(1, hi + CULL_PAD)];
     }
-    // ⚠ LIVE, THE CITY'S EYE IS YOURS: it's painted every frame from where you stand (room-outlook.js `live`). For the
-    // six faces it's fixed at the middle of the front glass, since they're painted once from one place.
-    return { yaw: (S.bearing || 0) - look * 180 / Math.PI, pitch: seat.pitch, fov: seat.fov, at: S.outlook?.live ? at : [0, 0], room: [spec.w, spec.d], cull };
+    // ⚠ THE CITY'S EYE IS YOURS: live, it's painted every frame from where you stand (room-outlook.js `live`), and each
+    // of the six faces is painted from where you stood when it was sent, and corrected for the step since (panoEye).
+    return { yaw: (S.bearing || 0) - look * 180 / Math.PI, pitch: seat.pitch, fov: seat.fov, at, room: [spec.w, spec.d], cull };
   }
   S.lookOut = lookOut;
+  // where a face of the city was painted from (room-outlook.js `faceAt`, [u, v]), as a point in the room's frame at the
+  // window view's own eye height (room-view.js viewOf: 1.6 m off the floor), for gl/room.js uPanoEye
+  const panoEye = (at) => (Array.isArray(at) && S.L ? S.L.world(at[0], at[1], 1.6) : null);
 
   // where you're hearing the outside from: how far from the glass, how much of an open door you've got,
   // and which way you're looking, on the compass
@@ -3007,7 +3105,7 @@ function openStage(msg) {
       onEye: (l) => { outside.setPlace({ eyeZ: l.eye, eyeX: l.eyeX, eyeY: l.eyeY }); },
       onFail: () => { S.noView = true; },
       // a face of the city round the building, for the room's renderer to look the panes up in
-      onPano: (i, pic, lens) => R.setPano(i, pic, lens),
+      onPano: (i, pic, lens, at) => R.setPano(i, pic, lens, panoEye(at)),
       // what's moving out there: the timetable and anybody really flying or sailing, as GLASS draws any contact
       feed: () => { flights.update(outside.flightsNow()); return { actors: S.actors, contacts: [...flights.frame(o.gx, o.gy), ...pilots.frame(o.gx, o.gy)] }; },
     };
@@ -3022,7 +3120,7 @@ function openStage(msg) {
   // this room's `room_outlook` comes
   const kept = msg.hasView && !phone ? takeParked(msg.building?.id) : null;
   if (msg.place) { S.bearing = msg.place.bearing || 0; S.lastPlace = msg.place; }
-  if (kept) { S.outlook = kept; if (msg.place) kept.place({ ...msg.place, cut: balconyCut(S.spec) }); kept.adopt(S.viewHooks = { host, onEye: () => {}, onFail: () => { S.noView = true; }, onPano: (i, pic, lens) => R.setPano(i, pic, lens), feed: () => ({ actors: S.actors || [], contacts: [] }) }); }
+  if (kept) { S.outlook = kept; if (msg.place) kept.place({ ...msg.place, cut: balconyCut(S.spec) }); kept.adopt(S.viewHooks = { host, onEye: () => {}, onFail: () => { S.noView = true; }, onPano: (i, pic, lens, at) => R.setPano(i, pic, lens, panoEye(at)), feed: () => ({ actors: S.actors || [], contacts: [] }) }); }
   S.onSky = (m) => {
     if (m.weather !== undefined) { outside.weather(m); S.skyWord = String(m.weather || '').toLowerCase() || S.skyWord; S.outlook?.setSky({ weather: m.weather, wind: m.wind, here: m.here, event: m.event, ...(m.field ? { field: m.field } : {}) }); }
     if (m.contacts) pilots.update(m.contacts);
@@ -3041,6 +3139,8 @@ function openStage(msg) {
     S.tv?.stop();
     window.removeEventListener('npc:speaking', onSpeaking);
     window.removeEventListener('npc:voice', onVoice);
+    window.removeEventListener('npc:place', onPlace);
+    voiced.clear();
     window.removeEventListener('npc:line', onLine);
     S.walk?.stop();
     ui?.hands?.stop();
@@ -3109,6 +3209,8 @@ function openStage(msg) {
     S.plumb = msg.plumbing || null; S.inShower = null;
     S.tags = msg.tags || []; S.sprayLive = null;
     S.sheets = msg.sheets || []; endJoin(); S.builtAt = 0;
+    // a depot room's stand is the new room's (room-hoist.js): the hangar next door has its own tug
+    ui.hoistUi?.load(null, msg.vehicles?.machine ? null : msg.vehicles || null);
     S.tickets = msg.tickets || []; stadium.setMsg(msg);
     // what was being baked was for the doorways of the room you've left; this room's `room_ahead` is on its way
     bake.jobs.length = 0; bake.waiting = false; bake.gen = (bake.gen || 0) + 1; placedFor = null;
@@ -3443,7 +3545,19 @@ export function roomRide(msg) {
 }
 
 // Who's in the room now, and where.
+// Somebody in the room wearing a club's crest on their cap (flags.figure.hat_badge, a club's name): the client asks for
+// that league's clubs once, if it hasn't got the club, and the cap shows the crest when they come (gl/figure-hd.js).
+const _crestAsked = new Set();
+function askCrests(people) {
+  for (const p of people || []) {
+    const b = p.figure?.hat_badge, sport = p.figure?.hat_badge_sport || 'baseball';
+    if (!b || b === 'bird' || clubOf(b, sport) || _crestAsked.has(sport)) continue;
+    _crestAsked.add(sport);
+    sendRaw({ type: 'tv_clubs', sport });
+  }
+}
 export function roomPeople(msg) {
+  askCrests(msg.people);
   if (!ui?.S) return;
   // next door: who you see through the doorway (bodiesNow draws them from here)
   const n = ui.S.next?.find((x) => x.zone === msg.zone);

@@ -13,6 +13,170 @@
     "floor": "tile",
     "hangar_ramp": "zone_district_925_903",
     "is_interior": true,
+    "room": {
+      "balcony": false,
+      "d": 12,
+      "decor": {
+        "doors": [
+          {
+            "at": 6,
+            "finish": "steel",
+            "label": "Check-in",
+            "w": 1.4,
+            "wall": "right"
+          },
+          {
+            "at": 9.5,
+            "finish": "steel",
+            "label": "Staff",
+            "w": 0.95,
+            "wall": "left"
+          }
+        ],
+        "rug": false,
+        "screens": [
+          {
+            "along": 3,
+            "h": 0.9,
+            "show": "status",
+            "w": 3.2,
+            "wall": "back",
+            "y": 3.2
+          }
+        ],
+        "signs": [
+          {
+            "along": -6,
+            "h": 0.16,
+            "hex": "#ffffff",
+            "plateHex": "#2a5f96",
+            "text": "Baggage",
+            "wall": "back",
+            "y": 2.6
+          },
+          {
+            "along": 3,
+            "h": 0.08,
+            "hex": "#ffffff",
+            "plateHex": "#8a1a14",
+            "text": "No smoking",
+            "wall": "left",
+            "y": 2.2
+          }
+        ],
+        "strips": [
+          {
+            "along": "u",
+            "at": [
+              -9,
+              3
+            ],
+            "len": 2.6
+          },
+          {
+            "along": "u",
+            "at": [
+              -9,
+              8
+            ],
+            "len": 2.6
+          },
+          {
+            "along": "u",
+            "at": [
+              -4.5,
+              3
+            ],
+            "len": 2.6
+          },
+          {
+            "along": "u",
+            "at": [
+              -4.5,
+              8
+            ],
+            "len": 2.6
+          },
+          {
+            "along": "u",
+            "at": [
+              0,
+              3
+            ],
+            "len": 2.6
+          },
+          {
+            "along": "u",
+            "at": [
+              0,
+              8
+            ],
+            "len": 2.6
+          },
+          {
+            "along": "u",
+            "at": [
+              4.5,
+              3
+            ],
+            "len": 2.6
+          },
+          {
+            "along": "u",
+            "at": [
+              4.5,
+              8
+            ],
+            "len": 2.6
+          },
+          {
+            "along": "u",
+            "at": [
+              9,
+              3
+            ],
+            "len": 2.6
+          },
+          {
+            "along": "u",
+            "at": [
+              9,
+              8
+            ],
+            "len": 2.6
+          }
+        ]
+      },
+      "doors": {
+        "west": 6
+      },
+      "face": 90,
+      "finish": "plain",
+      "glass": [
+        "front"
+      ],
+      "ground": "terrazzo",
+      "h": 5,
+      "sign": {
+        "at": 3,
+        "size": 0.36,
+        "text": "ARRIVALS",
+        "wall": "back",
+        "y": 4.3
+      },
+      "street_door": {
+        "kind": "sliding",
+        "w": 2.4
+      },
+      "studio": false,
+      "tone": {
+        "accent": "#3ad8e8",
+        "ceiling": "#d6dad8",
+        "trim": "#2c3136",
+        "wall": "#c4c8c6"
+      },
+      "w": 24
+    },
     "window": {
       "description": "Floor-to-ceiling glass onto the apron and the runway past it. Whatever is taxiing, you see it here first.",
       "light": 0.8,

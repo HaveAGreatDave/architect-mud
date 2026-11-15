@@ -11,6 +11,151 @@
     "floor": "carpet",
     "hangar_ramp": "zone_district_925_903",
     "is_interior": true,
+    "room": {
+      "balcony": false,
+      "d": 18,
+      "decor": {
+        "paint": [
+          {
+            "from": [
+              -7.6,
+              14.5
+            ],
+            "hex": "#8a96a0",
+            "kind": "line",
+            "t": 0.05,
+            "to": [
+              7.6,
+              13.5
+            ]
+          }
+        ],
+        "pendants": [
+          {
+            "at": [
+              -5,
+              4.5
+            ],
+            "k": 1,
+            "kind": "school",
+            "tint": [
+              1.08,
+              1,
+              0.86
+            ],
+            "y": 2.5
+          },
+          {
+            "at": [
+              0,
+              4.5
+            ],
+            "kind": "school",
+            "y": 2.5
+          },
+          {
+            "at": [
+              5,
+              4.5
+            ],
+            "k": 1,
+            "kind": "school",
+            "tint": [
+              1.08,
+              1,
+              0.86
+            ],
+            "y": 2.5
+          },
+          {
+            "at": [
+              -5,
+              13.5
+            ],
+            "k": 1,
+            "kind": "school",
+            "tint": [
+              1.08,
+              1,
+              0.86
+            ],
+            "y": 2.5
+          },
+          {
+            "at": [
+              0,
+              13.5
+            ],
+            "kind": "school",
+            "y": 2.5
+          },
+          {
+            "at": [
+              5,
+              13.5
+            ],
+            "k": 1,
+            "kind": "school",
+            "tint": [
+              1.08,
+              1,
+              0.86
+            ],
+            "y": 2.5
+          }
+        ],
+        "rug": false,
+        "screens": [
+          {
+            "along": -0.4,
+            "h": 0.6,
+            "show": "status",
+            "w": 1.6,
+            "wall": "back",
+            "y": 2.55
+          }
+        ],
+        "signs": [
+          {
+            "along": 13,
+            "h": 0.14,
+            "hex": "#ffffff",
+            "plateHex": "#2a5f96",
+            "text": "Gate 1",
+            "wall": "right",
+            "y": 2.55
+          },
+          {
+            "along": -6,
+            "h": 0.08,
+            "hex": "#ffffff",
+            "plateHex": "#8a1a14",
+            "text": "No smoking",
+            "wall": "back",
+            "y": 2.2
+          }
+        ]
+      },
+      "doors": {
+        "north": -6,
+        "south": -4
+      },
+      "face": 90,
+      "finish": "plain",
+      "glass": [
+        "front"
+      ],
+      "ground": "rubber",
+      "h": 3.6,
+      "studio": false,
+      "tone": {
+        "accent": "#2a5f96",
+        "ceiling": "#d8d2c6",
+        "trim": "#3a3630",
+        "wall": "#b9b2a4"
+      },
+      "w": 16
+    },
     "window": {
       "description": "A long pane onto the apron. Tyre marks, a fuel bowser, and the boarding stair at Gate 1.",
       "light": 0.8,

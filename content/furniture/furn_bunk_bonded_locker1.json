@@ -1,0 +1,28 @@
+{
+  "description": "A grey steel locker with louvres in the door and a padlock through the hasp. Somebody has scratched a tally of days into the paint.",
+  "flags": {
+    "aliases": [
+      "locker",
+      "lockers",
+      "first locker"
+    ],
+    "look": {
+      "arche": "store",
+      "form": "locker"
+    },
+    "spot": {
+      "along": 1.55,
+      "wall": "back"
+    }
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_bunk_bonded_locker1",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "first locker",
+  "object_type": "decoration",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_bunk_bonded"
+}

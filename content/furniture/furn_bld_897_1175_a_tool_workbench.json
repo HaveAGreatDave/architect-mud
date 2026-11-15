@@ -1,6 +1,21 @@
 {
   "description": "A steel bench buried in wrenches, safety wire, and the guts of an engine somebody swears they'll finish. A grease-black rag hangs off one corner like a flag of surrender.",
-  "flags": {},
+  "flags": {
+    "look": {
+      "arche": "surface",
+      "dims": [
+        2.8,
+        0.8,
+        0.92
+      ],
+      "form": "counter",
+      "wear": 0.9
+    },
+    "spot": {
+      "along": 8,
+      "wall": "left"
+    }
+  },
   "hp": null,
   "hp_max": null,
   "id": "furn_bld_897_1175_a_tool_workbench",

@@ -41,7 +41,7 @@ export function mixShape(a, b, k) {
   if (k <= 0) return A;
   if (k >= 1) return B;
   const m = (x, y) => x + (y - x) * k;
-  return { f: A.f.map((v, i) => m(v, B.f[i])), th: m(A.th, B.th), op: m(A.op, B.op), sp: m(A.sp, B.sp) };
+  return { f: A.f.map((v, i) => m(v, B.f[i])), th: m(A.th, B.th), op: m(A.op, B.op), sp: m(A.sp, B.sp), gk: m(A.gk || 0, B.gk || 0) };
 }
 // The old way of saying a grip, [left, right, left index, right index] (one curl a hand, and the index's extra),
 // as a shape for each hand. The thumb's curl is the hand's, as it was.
@@ -52,7 +52,7 @@ export function shapeOfGrip(g, side) {
 // What gl/figure-hd.js's uniforms get: the two hands' shapes and their forearms' turns.
 export function handsUniforms(L, R, twL = 0, twR = 0) {
   const a = shapeOf(L), b = shapeOf(R);
-  return { fingL: Float32Array.from(a.f), fingR: Float32Array.from(b.f), thumb: Float32Array.of(a.th, b.th, a.op, b.op), handX: Float32Array.of(a.sp, b.sp, twL, twR) };
+  return { fingL: Float32Array.from(a.f), fingR: Float32Array.from(b.f), thumb: Float32Array.of(a.th, b.th, a.op, b.op), handX: Float32Array.of(a.sp, b.sp, twL, twR), grip: Float32Array.of(a.gk || 0, b.gk || 0) };
 }
 export const handsOfGrip = (g = [0.2, 0.2, 0, 0]) => handsUniforms(shapeOfGrip(g, 1), shapeOfGrip(g, -1));
 
@@ -65,6 +65,10 @@ const JOINTS = fingerJointsOf(HAND_K);
 const MODELLED = [[0.1, 0.34, 0.26], [0.14, 0.4, 0.3], [0.2, 0.46, 0.32], [0.28, 0.52, 0.34]].map(([a, b, c]) => [a + 0.25, b + 0.05, c]);
 // How far each joint folds, past as modelled, for a curl of 1: a closed fist.
 export const HAND_FLEX = [1.3, 1.25, 0.8];
+// The same for a power grip round a handle (a bat): the knuckle bends less and the two finger joints more, so the
+// fingers wrap round what's in the palm instead of their first bones sweeping through it. A shape's `gk` (0 to 1)
+// is how far toward this its fingers fold; fitted against a bat's handle (diamond/figure-rig.js HAND_HOLD.bat).
+export const GRIP_FLEX = [0.6, 1.7, 1.1];
 // ⚠ PICKED BY A CHAIN OF SELECTS, NEVER BY INDEXING A CONST ARRAY WITH A VARIABLE. ANGLE's D3D back end turns
 // a variable index into a const array into a function per array, and the figure's ~114k-character shader then
 // took the driver minutes to compile and failed to link with an empty log, hanging the page meanwhile.
@@ -94,8 +98,8 @@ export function bendPoint(p, side, fi, t, shape) {
     if (H.op) q = turnAbout(q, 'y', -s * H.op * 0.9, [s * 0.188, 0, 0.026]);
     return q;
   }
-  const J = JOINTS[fi], m = (q) => [q[0] * s, q[1], q[2]], [K, P, D] = J.j.map(m), g = H.f[fi];
-  const a = g >= 0 ? HAND_FLEX.map((x) => x * g) : MODELLED[fi].map((x) => x * g);
+  const J = JOINTS[fi], m = (q) => [q[0] * s, q[1], q[2]], [K, P, D] = J.j.map(m), g = H.f[fi], gk = H.gk || 0;
+  const a = g >= 0 ? HAND_FLEX.map((x, i) => (x + (GRIP_FLEX[i] - x) * gk) * g) : MODELLED[fi].map((x) => x * g);
   let q = turnAbout(p, 'z', -s * a[2] * sstep(J.t[1] - 0.06, J.t[1] + 0.04, t), D);
   q = turnAbout(q, 'z', -s * a[1] * sstep(J.t[0] - 0.07, J.t[0] + 0.05, t), P);
   q = turnAbout(q, 'z', -s * a[0] * sstep(0, 0.14, t), K);

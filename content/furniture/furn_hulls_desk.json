@@ -14,7 +14,20 @@
     "interactions": [
       "use"
     ],
-    "marina_desk": true
+    "look": {
+      "arche": "surface",
+      "dims": [
+        2.6,
+        0.75,
+        0.9
+      ],
+      "form": "desk"
+    },
+    "marina_desk": true,
+    "spot": {
+      "along": 6.2,
+      "wall": "left"
+    }
   },
   "id": "furn_hulls_desk",
   "name": "the bench",

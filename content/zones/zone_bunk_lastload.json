@@ -19,6 +19,57 @@
     "is_building": true,
     "is_interior": true,
     "region_id": "region_the_reach",
+    "room": {
+      "balcony": false,
+      "d": 6.8,
+      "decor": {
+        "mirrors": [
+          {
+            "at": 5.1,
+            "w": 0.7,
+            "wall": "left",
+            "y0": 1.2,
+            "y1": 1.45
+          }
+        ],
+        "rug": false,
+        "strips": [
+          {
+            "along": "v",
+            "at": [
+              0,
+              3.4
+            ],
+            "len": 1.2
+          }
+        ]
+      },
+      "face": 90,
+      "ground": "tile",
+      "h": 2.7,
+      "studio": false,
+      "tone": {
+        "ceiling": "#d8d4c8",
+        "trim": "#3a3a36",
+        "wall": "#b8b2a2"
+      },
+      "w": 6.4,
+      "walls": [
+        [
+          1.7,
+          1.8,
+          0,
+          1.5
+        ],
+        [
+          1.8,
+          2.4,
+          1.4,
+          1.5
+        ]
+      ],
+      "windowless": true
+    },
     "sanctuary": true,
     "truck_bunkroom": true,
     "world_exit_zone": "zone_the_reach_872_1958"

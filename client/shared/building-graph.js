@@ -239,8 +239,11 @@ export function roomOpenings(b, plan, zoneId, parked = null) {
 // the room's `frame.door`: the client stands THE DOOR on the street edge, not the entry room's front wall. The two are
 // the same place only when the door is in the middle of the front wall. The Embassy's is in its lobby's left wall,
 // and the whole building stood seven metres out in the street. Null with no street door: the front wall stands there.
+// A room with two ways out to the street (a boatshed's water door and its street door) stands you at the one onto the
+// building's own facade.
 export function streetDoorAt(plan, id) {
-  const R = plan.rooms[id], d = plan.doors?.find((x) => x.kind === 'front' && x.from === id), s = d?.sides?.[id];
+  const fronts = (plan.doors || []).filter((x) => x.kind === 'front' && x.from === id);
+  const R = plan.rooms[id], d = fronts.find((x) => plan.facade && x.to === plan.facade) || fronts[0], s = d?.sides?.[id];
   if (!R || !s || !Number.isFinite(s.a) || !Number.isFinite(s.b)) return null;
   const c = (s.a + s.b) / 2;
   return s.wall === 'front' ? [c, 0] : s.wall === 'back' ? [c, R.d] : s.wall === 'left' ? [-R.w / 2, c] : [R.w / 2, c];
@@ -279,10 +282,14 @@ function toPlan(R, [u, v], dir = false) {
 // Every ready building with more than one room to walk and a plan with no problems, keyed by each of its
 // rooms: { b, plan }. A building whose plan has problems isn't joined up (the content gate fails it),
 // and each of its rooms stays a Stage of its own. specOf(zone) is the room's Stage spec or null.
+// A building of one room is planned too when that room places its own street door (`flags.room.street_door`
+// or `flags.room.doors`), as a shop does: the plan puts the door in the wall the street is through, beside its
+// window, and walking out of it is `move <dir>`. Without one, a lone room keeps a flat's door in the back corner.
+const ownsDoor = (z) => !!(z?.flags?.room?.street_door || z?.flags?.room?.doors);
 export function walkPlans({ zones, maps, specOf }) {
-  const out = new Map();
-  for (const b of buildingGraph({ zones, maps, specOf }).values()) {
-    if (b.readiness !== 'ready' || b.walk.length < 2) continue;
+  const out = new Map(), Z = zones instanceof Map ? zones : new Map([...zones].map((z) => [z.id, z]));
+  for (const b of buildingGraph({ zones: Z, maps, specOf }).values()) {
+    if (b.readiness !== 'ready' || !b.walk.length || (b.walk.length < 2 && !ownsDoor(Z.get(b.entry)))) continue;
     const plan = buildingLayout(b, { zones, specOf });
     if (plan.problems.length) continue;
     const entry = { b, plan };
@@ -537,5 +544,5 @@ export function buildingLayout(b, { zones, specOf }) {
     const o = (a0, a1, b0, b1) => Math.min(a1, b1) - Math.max(a0, b0);
     if (o(p[0], p[1], q[0], q[1]) > EPS && o(P.box[2], P.box[3], Q.box[2], Q.box[3]) > EPS && o(p[2], p[3], q[2], q[3]) > EPS) problems.push({ kind: 'overlap', zone: ids[i], to: ids[j] });
   }
-  return { rooms, doors, problems, lifts };
+  return { rooms, doors, problems, lifts, facade: b.facade || null };
 }

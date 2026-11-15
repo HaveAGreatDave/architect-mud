@@ -14,6 +14,7 @@ import { MAT } from './ballpark-mesh.js';
 import { HUNG_AT, LACQUER_BODY } from '../../../../shared/room-layout.js';
 import { drawLab } from './lab-mesh.js';
 import { OFFICE_FORMS } from './room-office.js';
+import { SHOP_FORMS, shopGoods } from './room-shop.js';
 import { saloonBar, saloonBackBar, SALOON_FORMS } from './room-saloon.js';
 
 const { GLOSS, METAL, LEATHER, SATIN, CLOTH, MATTE } = MAT;
@@ -457,6 +458,8 @@ const FORMS = {
   ...OFFICE_FORMS,
   // an old bar's run of stools and its jukebox (gl/room-saloon.js)
   ...SALOON_FORMS,
+  // a shop's trade counter, pallet racking and drawer wall (gl/room-shop.js)
+  ...SHOP_FORMS,
   // ── sitting and lying ─────────────────────────────────────────────────────────────────────────
   armchair(c) {
     // a deep chair: a rounded body on short legs, a cushion, wings; a throw on a worn one
@@ -598,7 +601,9 @@ const FORMS = {
       const y = 0.1 + i * (h - 0.2) / (shelves + 0.6);
       pbox(-hw + 0.03, hw - 0.03, y - 0.008, y, -hd + 0.015, hd - 0.03, '#dfe6e8', 0.9, null, GLOSS);
       pbox(-hw + 0.04, hw - 0.04, y + 0.3, y + 0.303, -hd + 0.02, -hd + 0.03, '#ffe9c4', 1.6);
-      bottles(c, -hw + 0.08, hw - 0.08, y, 0, Math.round((3 + Math.floor(r() * 3)) * shelfKeep(lvl, i - 1, shelves)));
+      // a shop's cabinet carries its trade's goods (gl/room-shop.js); anyone else's, bottles
+      if (p.stock) shopGoods(c, p.stock, -hw + 0.04, hw - 0.04, y, (h - 0.2) / (shelves + 0.6) - 0.03, -hd + 0.03, hd - 0.03, shelfKeep(lvl, i - 1, shelves));
+      else bottles(c, -hw + 0.08, hw - 0.08, y, 0, Math.round((3 + Math.floor(r() * 3)) * shelfKeep(lvl, i - 1, shelves)));
     }
     c.K.quad(c.K.glass, [P(-hw + 0.03, 0.1, hd - 0.012), P(hw - 0.03, 0.1, hd - 0.012), P(hw - 0.03, h - 0.05, hd - 0.012), P(-hw + 0.03, h - 0.05, hd - 0.012)], N(0, 0, 1), [0.8, 0.86, 0.9], GLOSS, null, true);
     c.rod(P(-0.04, 1.0, hd + 0.01), P(-0.04, 1.22, hd + 0.01), 0.006, '#c9a24a', 1.05);
@@ -658,6 +663,8 @@ const FORMS = {
       const y = 0.12 + i * (h - 0.16) / (n - 1);
       pbox(-hw, hw, y - 0.02, y, -hd, hd, '#7a7e84', 0.95, null, METAL);
       if (i === n - 1) continue;
+      // a shop's shelving carries its trade's goods (gl/room-shop.js) in place of plain boxes
+      if (p.stock) { shopGoods(c, p.stock, -hw + 0.02, hw - 0.02, y, (h - 0.16) / (n - 1) - 0.04, -hd + 0.04, hd - 0.04, shelfKeep(lvl, i, n - 1)); continue; }
       for (let x = -hw + 0.06; x < hw - 0.14;) {
         const w = 0.1 + r() * 0.2, t = 0.1 + r() * 0.22;
         if (r() < 0.8 * shelfKeep(lvl, i, n - 1)) pbox(x, x + w, y, y + t, -hd + 0.05, hd - 0.06, pick(r, ['#8a7a5a', '#6a5a4a', '#3a4a5a', '#c8c0a8', '#5a6a5a']), 0.95, null, MATTE);

@@ -20,7 +20,7 @@
 
 import { MAT } from './ballpark-mesh.js';
 import { furShells } from './beast-kit.js';
-import { BREEDS, PATTERNS } from './cat-breeds.js';
+import { BREEDS, PATTERNS, COLOURS } from './cat-breeds.js';
 
 // ── numbers ─────────────────────────────────────────────────────────────────────────────────────────
 const add = (a, b) => [a[0] + b[0], a[1] + b[1], a[2] + b[2]];
@@ -175,13 +175,23 @@ function mkPaw(c, L, w = 1) {
 // `eyes` and `fur` are what they say. `coat.white` is how far white spotting has spread, from none (0) through a
 // locket and mittens (0.2), a tuxedo (0.45), a bicolour (0.65) to a van (0.9); `marks` are patches laid over it,
 // each an ellipsoid where it sits on the rest cat ('body') or on the head ('head', in the head's own frame).
+//
+// The other genes in the coat: `points` ({ col, shade }) is a colourpoint's (a Siamese's), the coat's `base` pale on
+// the body and `col` on the mask, the ears, the legs and the tail, the warm extremities, with `shade` the darkening an
+// older pointed cat gets along its back; `tortie` ({ col, amount, scale, brindle, stripe }) lays the red of a
+// tortoiseshell over the base in patches, `amount` of it, the patches `scale` big and `brindle` how much the two colours
+// mix in flecks at their edges (a calico is a tortie with white, and its patches are bigger and cleaner); `grain` is
+// how ticked the hairs are, a fine jitter of light and dark (an Abyssinian's agouti coat).
 export const CAT = {
   scale: 0.6,
   // `jowls` are a tom's: the heavy cheeks an entire or late-neutered male carries low on the face; `dome` is how round
-  // and high the skull is over the eyes (a kitten's is high; it reads as young and soft)
-  build: { length: 1, neckLen: 1, belly: 1, pouch: 1, chest: 1, hips: 1, neck: 1, legLen: 1, legW: 1, head: 1, cheeks: 1, jowls: 1, dome: 1, ears: 0.8, earRound: 0, muzzle: 1, tailLen: 1, tailW: 1, tailFluff: 0, legFluff: 0 },
+  // and high the skull is over the eyes (a kitten's is high; it reads as young and soft). A long coat stands further
+  // out than the shells can carry, so its volume is carved: `ruff` the mane round the neck and down the chest (a Maine
+  // Coon's, a Persian's), `bodyFluff` the whole barrel fuller. On the ears: `earSet` low and wide apart (+, a Persian's)
+  // or high on the crown (-), `furnish` how long the hair out of them is, `lynx` the tufts off their tips.
+  build: { length: 1, neckLen: 1, belly: 1, pouch: 1, chest: 1, hips: 1, neck: 1, legLen: 1, legW: 1, head: 1, cheeks: 1, jowls: 1, dome: 1, ears: 0.8, earRound: 0, earSet: 0, furnish: 1, lynx: 0, muzzle: 1, snout: 1, tailLen: 1, tailW: 1, tailFluff: 0, legFluff: 0, ruff: 0, bodyFluff: 0 },
   coat: {
-    base: '#4a4642', white: 0, whiteCol: '#ece7dc', seed: 1, tabby: null, marks: [],
+    base: '#4a4642', white: 0, whiteCol: '#ece7dc', seed: 1, tabby: null, marks: [], points: null, tortie: null, grain: 0,
     nose: '#c98a8e', pads: '#c48890', earInner: '#d8a4a2', lid: '#151314', mouth: '#2a1a1c', whisker: '#f2eee6',
   },
   // size scales the eye and its socket; open is how round the opening is (1 the statue's almond, more for a wide,
@@ -191,12 +201,13 @@ export const CAT = {
   fur: { body: 0.006, ruff: 0.012, belly: 0.01, tail: 0.01, legs: 0.004, face: 0.002, budget: 60000 },
 };
 // A cat's numbers: the kit's, then its breed's (gl/cat-breeds.js, `breed`), then its coat pattern's (`coat.pattern`,
-// which sets how far the white goes), then its own over all of them.
+// which sets how far the white goes), then its colour's (`coat.colour`: a tortie, a calico, a seal point), then its own
+// over all of them.
 export function catLook(o = {}) {
-  const B = BREEDS[o.breed] || BREEDS.domestic, pat = PATTERNS[o.coat?.pattern] || {};
+  const B = BREEDS[o.breed] || BREEDS.domestic, pat = PATTERNS[o.coat?.pattern] || {}, col = COLOURS[o.coat?.colour] || {};
   return {
     ...CAT, ...(B.scale ? { scale: B.scale } : {}), ...o,
-    build: { ...CAT.build, ...(B.build || {}), ...(o.build || {}) }, coat: { ...CAT.coat, ...(B.coat || {}), ...pat, ...(o.coat || {}) },
+    build: { ...CAT.build, ...(B.build || {}), ...(o.build || {}) }, coat: { ...CAT.coat, ...(B.coat || {}), ...pat, ...col, ...(o.coat || {}) },
     eyes: { ...CAT.eyes, ...(B.eyes || {}), ...(o.eyes || {}) }, fur: { ...CAT.fur, ...(B.fur || {}), ...(o.fur || {}) },
   };
 }
@@ -213,7 +224,8 @@ function eyeKit(e = {}) {
   const rx = 0.0215 * es, ryT = 0.0128 * es * op, ryB = 0.0145 * es * Math.sqrt(op);
   const eyeC = (s) => [s * (0.044 + 0.004 * (es - 1)), 0.004 + 0.003 * (es - 1), 0.064 + 0.01 * (es - 1)];
   // turned out a little, and tilted so the outer corner sits higher than the inner: a cat's eye slants up and out
-  const eyeM = (s) => M3.T(euler([0, s * EYE_YAW, s * EYE_ROLL]));
+  // (`slant`, 1 an ordinary cat's; an Oriental eye, a Siamese's, slants down toward the nose about twice as far)
+  const eyeM = (s) => M3.T(euler([0, s * EYE_YAW, s * EYE_ROLL * (e.slant ?? 1)]));
   const fromEye = (q, s) => add(eyeC(s), M3.v(M3.T(eyeM(s)), q));
   // the lid: a soft ridge round the opening, the upper a little heavier; thinner than the statue's, which was stone
   const lidD = (ex, ey, ez) => {
@@ -229,15 +241,17 @@ function eyeKit(e = {}) {
 // the nose is about 1.2 times the tip of the nose to the chin; the statue's was 0.7.
 const NY = -0.011, PY = -0.006;
 function makeHead(b, EK) {
-  const mz = b.muzzle, ck = b.cheeks, jw = b.jowls ?? 1, dm = b.dome ?? 1, { eyeC, eyeM, lidD, SOCKET } = EK;
+  // `snout` is how wide the muzzle and whisker pads are (a Siamese's wedge runs straight from the nose to the ears, with
+  // no break at the whiskers: narrow); a long muzzle draws the bridge out with it, so the profile stays one line
+  const mz = b.muzzle, sn = b.snout ?? 1, ck = b.cheeks, jw = b.jowls ?? 1, dm = b.dome ?? 1, { eyeC, eyeM, lidD, SOCKET } = EK;
   const CRANIUM = mkEllip([0, 0.004 + 0.012 * (dm - 1), -0.012], [0.088 * (1 + 0.3 * (dm - 1)), 0.064 * dm, 0.083]), CHEEKS = mkEllip([0, -0.006, 0.0], [0.1 * ck, 0.05, 0.072]);
   // a tom's jowls: two soft masses low and wide on the cheeks, behind the whisker pads, filling the face out to a
   // rounded square; none on a cat at 1
   const JOWLS = jw > 1.01 ? [-1, 1].map((s) => mkEllip([s * 0.058 * ck, -0.03 - 0.008 * (jw - 1), 0.008], [0.042 + 0.03 * (jw - 1), 0.034 + 0.016 * (jw - 1), 0.05])) : [];
   const RUFFS = [-1, 1].map((s) => mkEllip([s * 0.07 * ck, -0.03, -0.018], [0.03, 0.036, 0.042]));
-  const BRIDGE = mkEllip([0, -0.004 + NY * 0.5, 0.05 * mz], [0.026, 0.03 - NY * 0.4, 0.023], [-0.6, 0, 0]), MUZZLE = mkEllip([0, -0.036 + PY, 0.058 * mz], [0.04, 0.029, 0.032]);
-  const PADS = [-1, 1].map((s) => mkEllip([s * 0.0195, -0.041 + PY, 0.074 * mz], [0.024, 0.0195, 0.021]));
-  const CHIN = mkEllip([0, -0.061, 0.054 * mz], [0.016, 0.011, 0.015]), NOSE = mkEllip([0, -0.018 + NY, 0.085 * mz], [0.0135, 0.0085, 0.009], [-0.35, 0, 0]);
+  const BRIDGE = mkEllip([0, -0.004 + NY * 0.5, 0.05 * mz], [0.026 * sn, 0.03 - NY * 0.4, 0.023 * Math.max(1, mz)], [-0.6, 0, 0]), MUZZLE = mkEllip([0, -0.036 + PY, 0.058 * mz], [0.04 * sn, 0.029, 0.032]);
+  const PADS = [-1, 1].map((s) => mkEllip([s * 0.0195 * sn, -0.041 + PY, 0.074 * mz], [0.024 * sn, 0.0195, 0.021]));
+  const CHIN = mkEllip([0, -0.061, 0.054 * mz], [0.016 * sn, 0.011, 0.015]), NOSE = mkEllip([0, -0.018 + NY, 0.085 * mz], [0.0135, 0.0085, 0.009], [-0.35, 0, 0]);
   const NOSTRILS = [-1, 1].map((s) => mkEllip([s * 0.0072, -0.0205 + NY, 0.0905 * mz], [0.0028, 0.0018, 0.004], [0, 0, s * 0.6]));
   const CLEFT = mkCone([0, -0.025 + NY, 0.091 * mz], [0, -0.039 + NY * 0.6, 0.089 * mz], 0.0013, 0.0013);
   const MOUTH = [-1, 1].map((s) => mkCone([0, -0.04 + NY * 0.6, 0.088 * mz], [s * 0.032, -0.053 + NY * 0.3, 0.066 * mz], 0.0013, 0.001));
@@ -280,7 +294,7 @@ function makeHead(b, EK) {
     for (const mo of MOUTH) if (mo(x, y, z) < 0.0016) return 'mouth';
     // the whisker roots: four rows of dots across each pad, a little darker than the fur round them
     if (z > 0.07 * mz && y < -0.03 + PY && y > -0.054 + PY) for (const sd of [-1, 1]) for (let j = 0; j < 4; j++) for (let i = 0; i < 4; i++) {
-      const dx = x - sd * (0.012 + i * 0.0062 + j * 0.0012), dy = y - (-0.0335 + PY - j * 0.0048 - i * 0.0006);
+      const dx = x - sd * (0.012 + i * 0.0062 + j * 0.0012) * sn, dy = y - (-0.0335 + PY - j * 0.0048 - i * 0.0006);
       if (dx * dx + dy * dy < 0.0011 * 0.0011) return 'dot';
     }
     for (const { c, m } of EM) {
@@ -299,13 +313,17 @@ function makeHead(b, EK) {
 const EAR_CUT = 0.48;
 // an ear in the head's frame: a cupped shell, edges curling forward round a hollow, thinning to the tip, tufts
 // chiselled on its inner face (the statue's earD)
-function makeEar(s, k, round = 0) {
+// `set` moves the root out and down the side of the skull and tips the ear out (a Persian's, low and wide apart), or up
+// toward the crown when it's below 0; `furnish` is how long the furnishings are (a Maine Coon's stand well out of the
+// ear); `lynx` the tuft off the tip
+function makeEar(s, k, round = 0, set = 0, furnish = 1, lynx = 0) {
   // A cat's ear (the pinna) is a cone of cartilage opened at the front: broad at the root, set on the top corner of the
   // skull, turned a little out. Its inner (medial) edge runs nearly straight to a rounded tip; the outer edge bows out
   // a little, then comes in at the root, where Henry's pocket folds into it. The cup is deepest at the root, where the
   // canal turns down into the head, and the edges are rolled. u runs across the ear (+ toward +X on both ears, so the
   // outer edge is where u·s > 0), v up it, w out of its front.
-  const B = [s * 0.056, 0.042, -0.016], T = [s * (0.057 + 0.056 * k), 0.042 + 0.106 * k, -0.016 - 0.012 * k], a = unit(sub(T, B));
+  const B = [s * (0.056 + 0.012 * set), 0.042 - 0.014 * set, -0.016 + 0.004 * set];
+  const T = [s * (0.057 + 0.012 * set + (0.056 + 0.04 * set) * k), 0.042 - 0.014 * set + (0.106 - 0.03 * set) * k, -0.016 + 0.004 * set - 0.012 * k], a = unit(sub(T, B));
   const f0 = unit([s * 0.42, 0.05, 1]), f = unit(sub(f0, mul(a, dot(f0, a)))), e = cross(a, f), L = len(sub(T, B)), W = 0.054 * (0.6 + 0.4 * k);
   const local = (x, y, z) => { const rx = x - B[0], ry = y - B[1], rz = z - B[2]; return [rx * e[0] + ry * e[1] + rz * e[2], rx * a[0] + ry * a[1] + rz * a[2], rx * f[0] + ry * f[1] + rz * f[2]]; };
   const toHead = (u, v, w) => add(add(add(B, mul(e, u)), mul(a, v)), mul(f, w));
@@ -358,8 +376,21 @@ function makeEar(s, k, round = 0) {
       const t = 0.03 + (i % 6) * 0.046 + Math.floor(i / 6) * 0.008, half = halfAt(t, false);
       const u = -s * half * (0.05 + 0.8 * ((i * 0.37) % 1)), v = t * L, w = cupAt(u, t) + 0.0012;
       const up = 0.95 - (i % 3) * 0.14, fwd = 0.35 + (i % 2) * 0.25, side = s * (0.08 + 0.1 * (i % 4));
-      const l = 0.03 + 0.026 * ((i * 0.61) % 1);
+      const l = (0.03 + 0.026 * ((i * 0.61) % 1)) * furnish;
       const p0 = [u, v, w], p1 = [u + side * l * 0.3, v + up * l * 0.36, w + fwd * l * 0.26], p2 = [u + side * l * 0.68, v + up * l * 0.72, w + fwd * l * 0.55 + 0.002], p3 = [u + side * l * 1.05, v + up * l * 0.95, w + fwd * l * 0.82 + 0.005];
+      out.push([p0, p1, p2, p3].map((q) => toHead(q[0], q[1], q[2])));
+    }
+    return furnish > 0.05 ? out : [];
+  };
+  // the lynx tip: a brush of stiff hairs standing up off the tip, longest in the middle; it rides the tip's own bone
+  const lynxTip = () => {
+    if (!(lynx > 0.02)) return [];
+    const out = [];
+    for (let i = 0; i < 14; i++) {
+      const t = 0.82 + 0.12 * ((i * 0.53) % 1), half = halfAt(t, i % 2 === 0) * 0.7, x = ((i * 0.37) % 1) * 2 - 1, u = s * half * x, v = t * L;
+      const w = cupAt(u, t) + 0.001, l = L * (0.2 + 0.28 * (1 - Math.abs(x))) * lynx * (0.8 + 0.4 * ((i * 0.71) % 1));
+      const lean = 0.25 * x * s, back = -0.12;
+      const p0 = [u, v, w], p1 = [u + lean * l * 0.3, v + l * 0.36, w + back * l * 0.2], p2 = [u + lean * l * 0.65, v + l * 0.7, w + back * l * 0.5], p3 = [u + lean * l, v + l, w + back * l];
       out.push([p0, p1, p2, p3].map((q) => toHead(q[0], q[1], q[2])));
     }
     return out;
@@ -371,7 +402,7 @@ function makeEar(s, k, round = 0) {
     const d = field(x, y, z), v = local(x, y, z)[1];
     return part === 'tip' ? smax(d, L * (EAR_CUT - 0.08) - v, 0.003) : smax(d, v - L * (EAR_CUT + 0.08), 0.003);
   };
-  return { B, field, partField, inner, L, at, pocket, tufts, mid, a };
+  return { B, field, partField, inner, L, at, pocket, tufts, lynxTip, mid, a };
 }
 
 // ── the rig ─────────────────────────────────────────────────────────────────────────────────────────
@@ -410,7 +441,7 @@ export function catRig(look0) {
   const HS = 0.96 * b.head, HC = NK([0, Y(0.61), 0.335]);
   const head = bone('head', 'neck', NK([0, Y(0.565), 0.285]), 'head');
   const ears = [1, -1].map((s) => {
-    const E = makeEar(s, b.ears, b.earRound ?? 0), root = bone(s > 0 ? 'earL' : 'earR', 'head', add(HC, mul(E.B, HS)), 'ear');
+    const E = makeEar(s, b.ears, b.earRound ?? 0, b.earSet ?? 0, b.furnish ?? 1, b.lynx ?? 0), root = bone(s > 0 ? 'earL' : 'earR', 'head', add(HC, mul(E.B, HS)), 'ear');
     return { s, E, bone: root, tip: bone(root.name + 't', root.name, add(HC, mul(E.mid, HS)), 'ear') };
   });
   // the tail hangs back from the root, a little down
@@ -445,18 +476,19 @@ export function catRig(look0) {
   // behind the ribs and the pouch hanging under the loin. The rib cage deep and narrow in front, where the shoulder
   // blades lie flat on its sides, widening toward its back; the sternum a keel along its floor, its point between
   // the shoulders and no further forward than them.
-  const hp = b.hips, ch = b.chest;
-  P(pelvis, mkEllip([0, Y(0.425), -0.235], [0.088 * hp, 0.09, 0.1]), 0.05);
+  // (`bodyFluff`: a long coat's barrel, the fur's volume carved over the body's own; the belly hangs fuller with it)
+  const hp = b.hips, ch = b.chest, cf = 1 + 0.13 * (b.bodyFluff ?? 0);
+  P(pelvis, mkEllip([0, Y(0.425), -0.235], [0.088 * hp * cf, 0.09 * cf, 0.1 * cf]), 0.05);
   for (const s of [1, -1]) {
     P(pelvis, mkEllip([s * 0.04 * hp, Y(0.47), -0.175], [0.034, 0.028, 0.05]), 0.03);          // the wing of the ilium
     P(pelvis, mkEllip([s * 0.036 * hp, Y(0.375), -0.315], [0.036, 0.042, 0.034]), 0.03);      // the point of the buttock
   }
-  P(lumbar, mkEllip([0, Y(0.43), -0.09], [0.078 * hp, 0.075, 0.15]), 0.05);
-  P(lumbar, mkEllip([0, Y(0.37 - 0.05 * (b.belly - 1)), -0.06], [0.086 * b.belly, 0.07 * b.belly, 0.13]), 0.05);
+  P(lumbar, mkEllip([0, Y(0.43), -0.09], [0.078 * hp * cf, 0.075 * cf, 0.15]), 0.05);
+  P(lumbar, mkEllip([0, Y(0.37 - 0.05 * (b.belly - 1) - 0.02 * (cf - 1)), -0.06], [0.086 * b.belly * cf, 0.07 * b.belly * cf, 0.13]), 0.05);
   P(lumbar, mkEllip([0, Y(0.315 - 0.055 * (b.pouch - 1)), -0.16], [0.06 * b.pouch, 0.045 * b.pouch, 0.09]), 0.04);
   // the flank folds: the skin from the belly out to each stifle, so the thigh's front runs into the belly
   for (const s of [1, -1]) P(lumbar, mkAxis([s * 0.062 * hp, Y(0.32), -0.13], [s * 0.3, -0.5, -0.4], [1, 0, 0], [0.06, 0.022, 0.045]), 0.05);
-  P(chest, mkEllip([0, Y(0.395), 0.03], [0.098 * ch, 0.122, 0.12]), 0.05);                     // the ribs, widest behind
+  P(chest, mkEllip([0, Y(0.395), 0.03], [0.098 * ch * cf, 0.122 * cf, 0.12]), 0.05);           // the ribs, widest behind
   P(chest, mkEllip([0, Y(0.39), 0.12], [0.07 * ch, 0.112, 0.09]), 0.05);                     // narrowing to the front
   P(chest, mkAxis([0, Y(0.29), 0.08], [0, -0.15, -1], [1, 0, 0], [0.115, 0.042 * ch, 0.03]), 0.05); // the keel
   P(chest, mkEllip([0, Y(0.335), 0.19], [0.042 * ch, 0.05, 0.032]), 0.04);                    // the point of the sternum
@@ -471,6 +503,14 @@ export function catRig(look0) {
   P(neck, mkCone([0, Y(0.425), 0.19], NK([0, Y(0.575), 0.3]), 0.08 * b.neck, 0.068 * b.neck), 0.05);
   P(neck, mkEllip(NK([0, Y(0.465), 0.245]), [0.062 * b.neck, 0.07, 0.05]), 0.05);
   P(neck, mkAxis(NK([0, Y(0.515), 0.225]), [0, 0.55, 1], [1, 0, 0], [0.075, 0.052 * b.neck, 0.04]), 0.04);
+  // the ruff (`ruff`, 0 to 1): a long coat's mane, the frill standing out round the throat and down onto the chest,
+  // and full either side of the neck behind the cheeks, so the head sits in it
+  const rf = b.ruff ?? 0;
+  if (rf > 0) {
+    P(neck, mkEllip(NK([0, Y(0.43 - 0.02 * rf), 0.255 + 0.012 * rf]), [0.07 + 0.03 * rf, 0.08 + 0.035 * rf, 0.045 + 0.03 * rf]), 0.05);
+    for (const s of [1, -1]) P(neck, mkEllip(NK([s * (0.05 + 0.012 * rf), Y(0.5), 0.235]), [0.035 + 0.025 * rf, 0.06 + 0.02 * rf, 0.05 + 0.012 * rf]), 0.05);
+    P(chest, mkEllip([0, Y(0.33), 0.175], [0.06 * ch + 0.02 * rf, 0.06 + 0.02 * rf, 0.035 + 0.02 * rf]), 0.05);
+  }
   // the head, set on at HS
   const EK = eyeKit(look.eyes);
   const H = makeHead(b, EK);
@@ -605,6 +645,52 @@ export function catRig(look0) {
 // and the tail are in the cat's own ground frame: the floor at y = 0, facing +Z. Written as functions of the rig, so
 // a long-legged cat sits as high as its legs make it.
 const P_FWD = [0, 0, 1], P_UP = [0, 1, 0];
+// How far bone i's own pieces reach at a point of the pose (their raw field, read back on the rest cat)
+function ownAt(R, X, i, p) {
+  const T = X[i], r = M3.v(M3.T(T.R), sub(p, T.t));
+  let v = 1;
+  for (const pr of R.bones[i].prims) v = Math.min(v, pr.f(r[0], r[1], r[2]));
+  return v;
+}
+// THE SIT, STOOD CLEAR. Sat up, a cat's body leans back over its forelegs, and the statue's sit (a slim cat's) has the
+// ribs down onto the top of each forearm; on a big-chested or long-coated cat the forearm runs 4 cm into the chest, and
+// the tail, wrapped round the front, into the paws and the haunch. Carved like that the parts fuse (the seams in
+// poseField cut them apart again, but leave each one's imprint in the other). So the sit is measured for the build:
+// the forepaws go forward and the elbows out a step at a time until each forearm stands clear of the chest below the
+// elbow, and the tail's loop goes wider until it lies clear of the legs, as a big cat really sits. At most 8 steps.
+const SIT_CLEAR = 0.006;
+function sitClear(R, pose) {
+  const torso = R.bones.map((b, i) => (b.group === 'body' || b.group === 'neck' ? i : -1)).filter((i) => i >= 0);
+  const legs = R.bones.map((b, i) => (b.group === 'leg' || b.group === 'paw' ? i : -1)).filter((i) => i >= 0);
+  const tail = R.bones.map((b, i) => (b.group === 'tail' && b.k >= 3 ? i : -1)).filter((i) => i >= 0);
+  const minOwn = (X, ids, p) => { let v = 1; for (const i of ids) v = Math.min(v, ownAt(R, X, i, p)); return v; };
+  // the deepest the front legs (below the elbow) are into the body, and the tail into any leg
+  const overlaps = (X) => {
+    let fore = -1, tl = -1;
+    for (const k of ['LF', 'RF']) {
+      const ids = ['lo', 'me', 'pw'].map((s) => R.index[k + s]), J = ids.map((i) => apply(X[i], R.bones[i].j));
+      J.push(apply(X[ids[2]], add(R.bones[ids[2]].j, [0, 0, 0.02])));
+      for (let s = 0.25; s <= 2.0001; s += 0.125) {
+        const a = Math.min(1, Math.floor(s)), f = s - a, p = lerp3(J[a], J[a + 1], a === 1 && s >= 2 ? 1 : f);
+        fore = Math.max(fore, -minOwn(X, ids, p) - minOwn(X, torso, p));
+      }
+    }
+    for (const i of tail) { const p = apply(X[i], R.bones[i].j); tl = Math.max(tl, -ownAt(R, X, i, p) - minOwn(X, legs, p)); }
+    return { fore, tl };
+  };
+  for (let n = 0; n < 8; n++) {
+    const o = overlaps(solveRig(R, pose, STILL));
+    if (o.fore < SIT_CLEAR && o.tl < SIT_CLEAR) break;
+    if (o.fore >= SIT_CLEAR) for (const k of ['LF', 'RF']) {
+      const L = pose.legs[k], s = k[0] === 'L' ? 1 : -1;
+      L.paw = [L.paw[0] * 1.06, L.paw[1], L.paw[2] + 0.012];
+      L.pole = [s * Math.min(0.6, Math.abs(L.pole[0]) + 0.12), L.pole[1], L.pole[2]];
+    }
+    // the loop of the tail wider round the haunch and further out in front of the forepaws
+    if (o.tl >= SIT_CLEAR) pose.tail = pose.tail.map((q, i) => (i ? [q[0] * 1.08, q[1], q[2] > 0 ? q[2] + 0.016 : q[2]] : q));
+  }
+  return pose;
+}
 export const CAT_POSES = {
   stand: (R) => ({
     root: { at: R.bones[R.index.pelvis].j, rot: [0, 0, 0] },
@@ -612,8 +698,9 @@ export const CAT_POSES = {
     legs: Object.fromEntries(LEGS.map((k) => [k, { paw: R.legs[k].J.D, fwd: P_FWD, up: P_UP }])),
     tail: [[0, R.Y(0.33), -0.46], [0, R.Y(0.18), -0.55], [0, R.Y(0.14), -0.68], [0, R.Y(0.22), -0.78]],
   }),
-  // upright on the haunches, the forepaws together, the tail round the front of them: the statue's sit
-  sit: (R) => ({
+  // upright on the haunches, the forepaws together, the tail round the front of them: the statue's sit, with the
+  // forelegs stood clear of the chest for the build (sitClear)
+  sit: (R) => sitClear(R, {
     root: { at: [0, 0.11, -0.18], rot: [-0.62, 0, 0] },
     spine: { lumbar: [-0.22, 0, 0], chest: [-0.2, 0, 0], neck: [0.85, 0, 0], head: [0.25, 0, 0] },
     legs: {
@@ -803,13 +890,37 @@ function alongCurve(ctrl, step, n) {
 // ── the field through the bones ─────────────────────────────────────────────────────────────────────
 // For a point in the pose: each bone takes it back to the rest cat and its pieces are read there, the bones joined
 // by their pieces' smooth unions. A bone whose sphere is far beyond what's been found already is skipped.
-function poseField(R, X) {
+//
+// SEAMS. Parts of a cat that are never joined (one leg and another, the tail and a leg, a forearm or a shin and the
+// body, a paw and the head) still touch in a pose: a sitting cat's tail wrapped round its forepaws, its forearms
+// hanging against its chest, its shins against its belly, a curled cat's paws at its face. Carved as one field they'd
+// fuse into one skin, and when a clip parts them the skin between stretches in a web (a Maine Coon up boxing dragged
+// its tail tip off the floor by its paw). So where two of those parts meet the carve cuts a seam about `gap` wide down
+// the plane between them, and each comes away clean. A leg and the body are left joined round the top of the forearm
+// or shin (the elbow, the stifle), where they really are; the leg's top bone is part of neither.
+// (a leg's top bone, its shoulder or thigh, is its own part: it parts from the tail, the head and the other legs, never
+// from the body or its own lower leg. Cutting a folded shin from its thigh left the shin's outline printed on the thigh
+// of every sitting cat and parted nothing a clip needed)
+const SEAM_CLASS = (bn) => (bn.group === 'leg' || bn.group === 'paw' ? bn.name.slice(0, 2) + (bn.name.endsWith('up') ? 'u' : '')
+  : bn.group === 'tail' ? (bn.k >= 3 ? 'tail' : null) : bn.group === 'head' ? 'head' : bn.group === 'body' || bn.group === 'neck' ? 'torso' : null);
+const SEAM_IDS = ['torso', 'head', 'tail', 'LF', 'RF', 'LH', 'RH', 'LFu', 'RFu', 'LHu', 'RHu'];
+// whether two parts may be parted where they touch (by index in SEAM_IDS, a < b)
+const SEAM_PAIR = SEAM_IDS.map((_, a) => SEAM_IDS.map((__, b) => !(a === 0 && b <= 1) && !(a === 0 && b >= 7) && !(a >= 3 && a <= 6 && b === a + 4)));
+// where each leg comes out of the body, posed: its elbow or stifle, kept whole within JOIN_R (sculpt units)
+// (small: only the joint itself, under the fur; any more and a raised forearm fans the skin left joined into slivers)
+const JOIN_R = 0.012, JOIN_FADE = 0.025, SEAM_REACH = 0.035;
+const jointsOf = (R, X) => LEGS.map((k) => apply(X[R.index[k + 'lo']], R.bones[R.index[k + 'lo']].j));
+function poseField(R, X, o = {}) {
   const B = R.bones.map((bn, i) => {
-    const Rt = M3.T(X[i].R), t = X[i].t, c = apply(X[i], bn.c);
-    return { Rt, t, c, r: bn.r, prims: bn.prims };
+    const Rt = M3.T(X[i].R), t = X[i].t, c = apply(X[i], bn.c), sc = SEAM_CLASS(bn);
+    return { Rt, t, c, r: bn.r, prims: bn.prims, cls: sc ? SEAM_IDS.indexOf(sc) : -1 };
   });
+  const gap = o.gap ?? 0, nc = SEAM_IDS.length, cmin = new Float64Array(nc);
+  // where each leg comes out of the body (its elbow or stifle, posed), kept whole
+  const joins = jointsOf(R, X);
   const D = (x, y, z, per) => {
     let d = 1;
+    if (gap) cmin.fill(1);
     for (let i = 0; i < B.length; i++) {
       const b = B[i];
       const cx = x - b.c[0], cy = y - b.c[1], cz = z - b.c[2], q = Math.sqrt(cx * cx + cy * cy + cz * cz) - b.r;
@@ -823,6 +934,31 @@ function poseField(R, X) {
         d = smin(d, v, p.k);
       }
       if (per) per[i] = own;
+      if (gap && b.cls >= 0 && own < cmin[b.cls]) cmin[b.cls] = own;
+    }
+    if (gap && d < gap) {
+      // every two parts that are both right here and may be parted (three can meet: a forepaw, a hind foot and the
+      // belly of a sitting cat). "Here" reaches as far as the body's smooth unions do (its pieces blend over up to
+      // 5 cm of the sculpt): a forearm 3 cm off the belly is still joined to it by the blend's fillet, a web of skin
+      // that the seam has to cut too
+      for (let a = 0; a < nc; a++) {
+        if (cmin[a] >= SEAM_REACH) continue;
+        for (let b2 = a + 1; b2 < nc; b2++) {
+          if (cmin[b2] >= SEAM_REACH || !SEAM_PAIR[a][b2]) continue;
+          // a leg against the body, near where it comes out of it, stays joined
+          // (and the seam fades in from there over JOIN_FADE rather than starting at full depth, which left a notch
+          // pinched into the elbow)
+          let g = gap;
+          if (a === 0 && b2 >= 3 && b2 <= 6) {
+            const j = joins[b2 - 3], r = Math.hypot(x - j[0], y - j[1], z - j[2]);
+            if (r < JOIN_R) continue;
+            g = gap * smooth(JOIN_R, JOIN_R + JOIN_FADE, r);
+          }
+          // (the two distances part at up to twice the rate a point moves, so halving their difference makes the
+          // seam `2 * gap` across)
+          d = Math.max(d, g - Math.abs(cmin[b2] - cmin[a]) / 2);
+        }
+      }
     }
     return d;
   };
@@ -858,10 +994,17 @@ function dorsality(R, g, p, hq) {
   if (g === 'neck') d -= 0.2 * smooth(0.25, 0.35, z);
   return clamp(d, 0, 1.2);
 }
+// 1 where a tabby's stripe is, 2 where a rosette's paler middle is (`tabby.inner`), else 0
 function tabbyAt(R, g, p, hq, tb) {
   const f = tb.freq || 1, [x, y, z] = p;
   const w = fbm(x * 9, y * 9, z * 9) * 1.4;
-  if (tb.kind === 'ticked') return 0;
+  // ticked (an Abyssinian's): no stripes on the body or the legs, every hair banded instead (`coat.grain`); what's left
+  // of the tabby is the face's lines, a line down the spine and the tail's dark tip
+  if (tb.kind === 'ticked') {
+    if (g === 'tail') return (R.TB[2] - z) / (0.5 * (R.look.build.tailLen ?? 1)) > 0.82 ? 1 : 0;
+    if (g === 'body') return Math.abs(x) < 0.014 + 0.006 * w && y > R.Y(0.52) ? 1 : 0;
+    if (g !== 'head') return 0;
+  }
   if (g === 'tail') return Math.abs(Math.sin(z * 55 * f + w)) > 0.55 ? 1 : 0;
   if (g === 'leg' || g === 'paw') return Math.abs(Math.sin(y * 60 * f + w)) > 0.7 ? 1 : 0;
   if (g === 'head') {
@@ -871,10 +1014,44 @@ function tabbyAt(R, g, p, hq, tb) {
     if (Math.abs(hy - 0.0 - Math.abs(hx) * 0.15) < 0.006 && Math.abs(hx) > 0.06) return 1;
     return 0;
   }
+  if (tb.kind === 'ticked') return 0;
   if (tb.kind === 'spotted') return fbm(x * 30 * f, y * 30 * f, z * 30 * f, 2) > 0.18 ? 1 : 0;
+  // rosettes (a Bengal's): a broken dark ring round a middle darker than the ground but paler than the ring
+  if (tb.kind === 'rosette') { const n = fbm(x * 26 * f + 5, y * 26 * f, z * 26 * f, 2); return n > 0.3 ? (tb.inner ? 2 : 1) : n > 0.15 ? 1 : 0; }
   if (tb.kind === 'classic') { const r = Math.hypot(y - R.Y(0.42), z + 0.05); return Math.abs(Math.sin(r * 45 * f + w)) > 0.6 ? 1 : 0; }
   // mackerel: thin stripes down from the spine
   return Math.abs(Math.sin(z * 48 * f + w * 1.5)) > 0.66 ? 1 : 0;
+}
+// How far into a colourpoint's points a point on the rest cat is, 0 to 1: the temperature-sensitive gene darkens only
+// the cool extremities. The ears all of it, the tail most of it and more toward the tip, the legs from below the elbow
+// and the stifle down, and the mask: an oval over the muzzle, the whisker pads and the eyes, which on a grown cat
+// reaches up the forehead (`points.mask`, 1 a grown cat's, less a young one's). `points.shade` darkens the back.
+function pointsAt(R, g, p, hq, pt) {
+  if (g === 'ear') return 1;
+  if (g === 'tail') return 0.62 + 0.38 * smooth(0, 0.5, (R.TB[2] - p[2]) / (0.5 * (R.look.build.tailLen ?? 1)));
+  if (g === 'paw') return 1;
+  if (g === 'leg') return 1 - smooth(0.15, p[2] > 0 ? 0.32 : 0.36, p[1]);
+  if (g === 'head') {
+    // darkest on the nose and the whisker pads, smoky out over the cheeks and round the eyes, the forehead and the
+    // back of the head left pale (a faint tracing up toward each ear on a grown cat)
+    const m = pt.mask ?? 1, [hx, hy, hz] = hq;
+    // above the eyes the mask rises to a soft point up the middle of the forehead rather than stopping in a line
+    const dy = hy + 0.026 - 0.008 * m, up = dy > 0 ? 0.62 + 0.38 * smooth(0, 0.045, Math.abs(hx)) : 1;
+    const e = (hx / (0.06 + 0.014 * m)) ** 2 + (dy * up / (0.048 + 0.022 * m)) ** 2 + (Math.max(0, 0.065 - hz) / (0.068 + 0.012 * m)) ** 2;
+    const trace = 0.35 * m * smooth(0.02, 0.06, hy) * (1 - smooth(0.006, 0.02, Math.abs(Math.abs(hx) - 0.035 - (hy - 0.02) * 0.6))) * smooth(-0.04, 0.02, hz);
+    // the chin and the lower lip stay paler than the rest of the mask
+    const chin = 1 - 0.55 * smooth(-0.052, -0.066, hy) * smooth(0.0, 0.03, hz);
+    // and the crown and the back of the head shaded like the back
+    const crown = (pt.shade || 0) * 0.7 * smooth(0.0, 0.07, hy - 0.4 * hz);
+    return Math.max(Math.pow(1 - smooth(0.2, 1.7, e), 0.8) * chin, trace, crown);
+  }
+  return (pt.shade || 0) * smooth(0.45, 1, dorsality(R, g, p, null)) * (g === 'neck' ? 0.6 : 1);
+}
+// a tortoiseshell's red, 0 or 1: big soft patches, and at their edges the two colours flecked together (`brindle`)
+function tortieAt(p, tt, seed) {
+  const sc = 7 * (tt.scale || 1), [x, y, z] = p;
+  const n = fbm(x * sc + seed * 1.7 + 11, y * sc, z * sc, 3), fleck = fbm(x * 70 + seed, y * 70, z * 70, 2) * (tt.brindle ?? 0.4) * 0.5;
+  return n + fleck > 0.32 - 0.64 * (tt.amount ?? 0.45) ? 1 : 0;
 }
 // the colour (linear), fur length and material of a point on the rest cat
 const inPoly = (x, y, P) => {
@@ -902,7 +1079,9 @@ function coatAt(R, look, g, p, ear, rn = null) {
   let col = 'base';
   const dn = dorsality(R, g, p, hq), wob = fbm(p[0] * 14 + co.seed * 3.1, p[1] * 14, p[2] * 14) * 0.18;
   if (co.white >= 0.98 || (co.white > 0 && dn < co.white * 1.1 + wob - 0.04)) col = 'white';
-  if (col === 'base' && co.tabby && tabbyAt(R, g, p, hq, co.tabby)) col = 'stripe';
+  if (col === 'base' && co.tabby) { const tb = tabbyAt(R, g, p, hq, co.tabby); if (tb) col = tb === 2 ? 'inner' : 'stripe'; }
+  // a tortoiseshell's red over the black, its own stripes on it (a torbie's)
+  if (co.tortie && (col === 'base' || col === 'stripe' || col === 'inner') && tortieAt(p, co.tortie, co.seed || 1)) col = col === 'base' ? 'tortie' : 'tortieStripe';
   for (const mk of co.marks || []) {
     const q = mk.space === 'head' ? hq : p;
     if (mk.poly) {
@@ -920,18 +1099,29 @@ function coatAt(R, look, g, p, ear, rn = null) {
   // the inside of an ear is skin: pink under white fur, darkened toward the coat under any other
   // the inside of an ear is skin: pink under white fur, darkened toward the coat under any other; darker down in the
   // cup, with pale furnishings fanning up from its base
+  // what each colour is, linear; a colourpoint's points are worked over the ground continuously, not in patches
+  const ptK = co.points && col !== 'white' ? pointsAt(R, g, p, hq, co.points) : 0;
+  const colOf = (k) => {
+    let c = k === 'white' ? toLin(co.whiteCol) : k === 'base' ? toLin(co.base) : k === 'stripe' ? toLin(co.tabby.col)
+      : k === 'inner' ? toLin(co.tabby.inner || co.tabby.col) : k === 'tortie' ? toLin(co.tortie.col)
+        : k === 'tortieStripe' ? toLin(co.tortie.stripe || co.tortie.col).map((v) => (co.tortie.stripe ? v : v * 0.45)) : toLin(k);
+    if (ptK > 0 && k !== 'white') c = lerp3(c, toLin(co.points.col), ptK);
+    return c;
+  };
   if (innerEar) {
     let k = toLin(co.earInner);
-    if (col !== 'white') k = lerp3(k, col === 'base' ? toLin(co.base) : toLin(col === 'stripe' ? co.tabby.col : col), 0.55);
+    if (col !== 'white') k = lerp3(k, colOf(col), 0.55);
     const { t, canal, rim, fold } = ear.E.at(hq[0], hq[1], hq[2]);
     // brighter toward the tip where the light comes through, darker and redder down the cup into the canal, and a
     // short lining of the coat's own fur along the rim
     k = k.map((v) => v * (0.42 + 0.58 * smooth(0.0, 0.55, t)) * (1 + 0.18 * fold));
     k = lerp3(k, toLin(co.mouth), 0.7 * canal);
-    k = lerp3(k, col === 'white' ? toLin(co.whiteCol) : col === 'base' ? toLin(co.base) : k, 0.6 * rim);
+    k = lerp3(k, col === 'white' || col === 'base' || ptK > 0 ? colOf(col) : k, 0.6 * rim);
     return { c: k, f: 0, m: MAT.MATTE };
   }
-  let c = col === 'white' ? toLin(co.whiteCol) : col === 'base' ? toLin(co.base) : col === 'stripe' ? toLin(co.tabby.col) : toLin(col);
+  let c = colOf(col);
+  // ticking: each hair banded light and dark, a fine grain over the coat that the shells carry as a speckle
+  if (co.grain > 0 && col !== 'white') { const gr = fbm(p[0] * 160 + 3, p[1] * 160, p[2] * 160, 2); c = c.map((v) => v * (1 + co.grain * 0.9 * gr)); }
   let f = fur.body;
   if (g === 'tail') f = fur.tail;
   else if (g === 'leg') f = fur.legs + (fur.body - fur.legs) * smooth(0.1, 0.3, p[1]);
@@ -1006,8 +1196,11 @@ export function bakeCat(look0, pose = 'stand', o = {}) {
   const R = o.rig || catRig(look);
   const poseFn = typeof pose === 'string' ? CAT_POSES[pose] : pose;
   const X = solveRig(R, poseFn, STILL);
-  const F = poseField(R, X);
   const H = o.h || 0.004, nb = R.bones.length;
+  // the seams between parts that touch in this pose: two and a half cells across, or the mesh bridges the walls of a
+  // seam cut through two parts carved into each other (a long coat's forearm buried in its chest) (`seams: false`
+  // carves it as one)
+  const F = poseField(R, X, { gap: o.seams === false ? 0 : 1.25 * H });
   // the box: every bone's posed sphere
   let lo = [1e9, 1e9, 1e9], hi = [-1e9, -1e9, -1e9];
   R.bones.forEach((bn, i) => { const c = apply(X[i], bn.c); for (let k = 0; k < 3; k++) { lo[k] = Math.min(lo[k], c[k] - bn.r * 0.8); hi[k] = Math.max(hi[k], c[k] + bn.r * 0.8); } });
@@ -1037,7 +1230,7 @@ export function bakeCat(look0, pose = 'stand', o = {}) {
   // each vertex: its normal from the field, its bones and weights, where it was on the rest cat, its coat
   const n = verts.length, Pv = new Float32Array(n * 3), Nv = new Float32Array(n * 3), Cv = new Float32Array(n * 3), Fv = new Float32Array(n), Mv = new Uint8Array(n);
   const Wb = new Uint8Array(n * 4), Ww = new Float32Array(n * 4), Bm = new Float32Array(n), Rest = new Float32Array(n * 3);
-  const per = new Float64Array(nb), e = H * 0.25;
+  const per = new Float64Array(nb), e = H * 0.25, joins = jointsOf(R, X);
   const inv = X.map((x) => ({ Rt: M3.T(x.R), t: x.t }));
   const sig = 0.011;
   // the face's lighting normal (below): how far it's rounded, and the point in the skull it's rounded about
@@ -1051,9 +1244,28 @@ export function bakeCat(look0, pose = 'stand', o = {}) {
     F(p[0], p[1], p[2], per);
     let best = 1e9;
     for (let i = 0; i < nb; i++) best = Math.min(best, per[i]);
-    const top = [];
+    // Where two parts are carved touching (a long coat's forearm hanging against its chest or its haunch as it sits, a
+    // tail lying over a hind paw), the skin between them would be welded across both, and stretch in a web from one to
+    // the other when they part (a Maine Coon up boxing). So a limb's skin rides its own limb only, and only the top of
+    // a leg (the shoulder, the hip) and the root of the tail blend into the body; the body takes nothing from below the
+    // elbow or the stifle, or from the tail past its root.
+    let top = [];
     for (let i = 0; i < nb; i++) { const w = Math.exp(-(per[i] - best) / sig); if (w > 0.02) top.push([w, i]); }
     top.sort((x, y) => y[0] - x[0]);
+    {
+      const limbOf = (i) => { const b = R.bones[i]; return b.group === 'leg' || b.group === 'paw' ? b.name.slice(0, 2) : b.group === 'tail' ? 'tail' : null; };
+      // round where a leg comes out of the body (the patch the seams leave joined), the skin blends the body and that
+      // leg's upper and lower bones, so it stretches over the joint like an armpit rather than in one long face
+      const near = joins.findIndex((j) => Math.hypot(p[0] - j[0], p[1] - j[1], p[2] - j[2]) < JOIN_R + JOIN_FADE);
+      const rooted = (i) => { const b = R.bones[i]; return b.name.endsWith('up') || b.name === 'tail0' || (near >= 0 && b.name === LEGS[near] + 'lo'); };
+      const o = top[0][1], mine = limbOf(o);
+      top = top.filter(([, i]) => {
+        const l = limbOf(i);
+        if (!mine) return !l || rooted(i);                       // the body: a limb's root only
+        if (l) return l === mine;                                // a limb: never another limb
+        return rooted(o);                                        // the body, only from a limb's root
+      });
+    }
     const k4 = top.slice(0, 4), sw = k4.reduce((s, q) => s + q[0], 0);
     let rest = [0, 0, 0];
     k4.forEach(([w, i], k) => {
@@ -1193,9 +1405,9 @@ function headBits(R, look, mo, push, headX, want = { eyes: true, lids: true, whi
     if (!want.whiskers) continue;
     // whiskers (the mystacial set): four rows across each pad, three to a row, the top rows longest, curving down and
     // back, fanned forward by `whiskers` (−1 laid back flat, +1 bristling forward to feel something)
-    const wc = toLin(co.whisker), mz = look.build.muzzle, fan = (mo.whiskers || 0) * 0.5;
+    const wc = toLin(co.whisker), mz = look.build.muzzle, sn = look.build.snout ?? 1, fan = (mo.whiskers || 0) * 0.5;
     for (let j = 0; j < 4; j++) for (let i = 0; i < 3; i++) {
-      const root = [s * (0.016 + i * 0.0068 + j * 0.0012), -0.0335 + PY - j * 0.0048 - i * 0.0006, 0.084 * mz - i * 0.006 - j * 0.002];
+      const root = [s * (0.016 + i * 0.0068 + j * 0.0012) * sn, -0.0335 + PY - j * 0.0048 - i * 0.0006, 0.084 * mz - i * 0.006 - j * 0.002];
       const dir = unit([s * 1, 0.28 - j * 0.16 + i * 0.02, -0.4 + fan + i * 0.06]);
       const L = (0.11 - j * 0.012 + 0.02 * Math.sin(i * 2.3 + j)) * (1 - 0.15 * i);
       const droop = 0.02 + j * 0.006;
@@ -1307,6 +1519,8 @@ export function skinCat(bake, M, mo = STILL, o = {}) {
       const eX = Xn[R.index[ear.bone.name]];
       const toW = (q) => apply(eX, add(R.HC, mul(q, R.HS))), nW = (n) => unit(M3.v(eX.R, n));
       for (const pts of ear.E.tufts()) hair(pts, 0.0018, 0.00025, fc, pushQ, toW, nW, { seg: 6 });
+      const tX = Xn[R.index[ear.tip.name]], toT = (q) => apply(tX, add(R.HC, mul(q, R.HS))), nT = (n) => unit(M3.v(tX.R, n));
+      for (const pts of ear.E.lynxTip()) hair(pts, 0.0022, 0.0003, lynxCol(look), pushQ, toT, nT, { seg: 6 });
     }
   }
   if (o.fur !== false && look.fur.budget > 0) furShells(M, from, { budget: o.furBudget ?? look.fur.budget, step: 0.0014, max: 8, floor: 0.004 });
@@ -1314,6 +1528,8 @@ export function skinCat(bake, M, mo = STILL, o = {}) {
 }
 
 // ── skinned on the GPU (gl/cat-gpu.js) ──────────────────────────────────────────────────────────────
+// a lynx tip is the ear's own colour at its darkest: the points on a colourpoint, else the coat's ground, a little darker
+const lynxCol = (look) => (look.coat.points ? toLin(look.coat.points.col) : toLin(look.coat.base).map((v) => v * 0.7));
 /**
  * The eyes, lids, whiskers and ear tufts as they'd be on the bake's own pose, for the GPU: each quad carries the bone
  * it rides on (the head, or its ear), so the skinning carries it with the head as it turns. Sculpt units, not metres.
@@ -1336,6 +1552,9 @@ export function catBits(bake, mo = STILL, part = null) {
     const eX = bake.X[bone];
     const toW = (q) => apply(eX, add(R.HC, mul(q, R.HS))), nW = (n) => unit(M3.v(eX.R, n));
     for (const pts of ear.E.tufts()) hair(pts, 0.0018, 0.00025, fc, pushQ, toW, nW, { seg: 6 });
+    bone = R.index[ear.tip.name];
+    const tX = bake.X[bone], toT = (q) => apply(tX, add(R.HC, mul(q, R.HS))), nT = (n) => unit(M3.v(tX.R, n));
+    for (const pts of ear.E.lynxTip()) hair(pts, 0.0022, 0.0003, lynxCol(look), pushQ, toT, nT, { seg: 6 });
   }
   return { P, N, C, M: Mt, B };
 }

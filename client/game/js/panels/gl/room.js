@@ -29,6 +29,11 @@ import { createRoomDof, roomDofOn } from './room-dof.js';
 import { CAT_STRIDE, CAT_ATTRS, skinVariant } from './cat-gpu.js';
 // the city's faces round a room (room-outlook.js): how many, and the down and up faces' pitch
 const PANO_FACES = 6, PANO_TILT = 1.45;
+// The sphere a face's picture is laid on to correct it for where you've stepped since it was painted (FS uMode 5), in
+// metres round the spot it was painted from: about where the pavement and the people on it are from a shop window.
+// Nearer than this is drawn a touch small, further a touch large, and both errors shrink as the face is repainted
+// from where you are now.
+const PANO_PROXY = 6;
 
 const VS = `#version 300 es
 layout(location = 0) in vec3 aPos;
@@ -55,6 +60,8 @@ uniform int uMode;          // 0 plain, 1 textured, 2 a picture (a screen), 3 gl
 uniform float uFoilT;       // seconds, for foil's shimmer
 uniform vec2 uPanoLens;     // the city's paints: their projection scales, x and y
 uniform float uPanoTilt;    // the down and up faces' pitch (room-outlook.js TILT)
+// where each face was painted from, in this frame, w 1; w 0 for a face from an unknown spot (room-outlook.js faceAt)
+uniform vec4 uPanoEye[6];
 out vec4 outColor;
 ${ROOM_LIGHT_GLSL}
 uniform float uLampDim;      // how far down the dimmer has a lamp's own face
@@ -95,14 +102,29 @@ void main() {
     // left of the room, then down and up (pitched uPanoTilt), from one fixed eye, each a 90° square. Looked up by
     // direction, so it stays where it is in the world however you turn or walk, as a real view does. The face is
     // the one facing the pixel most nearly. Already display-ready, so no finish.
-    vec3 d = normalize(vPos - uEye);
-    float f = dot(d, uFront), r = dot(d, uRight);
+    // ⚠ EACH FACE WAS PAINTED FROM ITS OWN SPOT (uPanoEye), not from your eye now, so the ray is corrected for the
+    // step between the two before the lookup: carried out to a sphere PANO_PROXY metres round the face's spot (about
+    // where the pavement and the people on it are), and the face read toward that point from where it was painted.
+    // Read by direction alone, as it was, a face painted at the glass drew a passer-by the size they'd be from the
+    // glass wherever in the room you stood. The face is picked, the ray corrected with its spot, and picked again.
+    vec3 d0 = normalize(vPos - uEye), d = d0;
     float bi = 0.0, bf = -2.0, bx = 0.0, by = 0.0;
-    for (int i = 0; i < 6; i++) {
-      float a = i < 4 ? float(i) * 1.5707963 : 0.0, p = i == 4 ? -uPanoTilt : (i == 5 ? uPanoTilt : 0.0);
-      float ca = cos(a), sa = sin(a), cp = cos(p), sp = sin(p), dh = f * ca + r * sa;
-      float fw = cp * dh + sp * d.y;
-      if (fw > bf) { bf = fw; bi = float(i); bx = r * ca - f * sa; by = cp * d.y - sp * dh; }
+    for (int pass = 0; pass < 3; pass++) {
+      float f = dot(d, uFront), r = dot(d, uRight);
+      bi = 0.0; bf = -2.0;
+      for (int i = 0; i < 6; i++) {
+        float a = i < 4 ? float(i) * 1.5707963 : 0.0, p = i == 4 ? -uPanoTilt : (i == 5 ? uPanoTilt : 0.0);
+        float ca = cos(a), sa = sin(a), cp = cos(p), sp = sin(p), dh = f * ca + r * sa;
+        float fw = cp * dh + sp * d.y;
+        if (fw > bf) { bf = fw; bi = float(i); bx = r * ca - f * sa; by = cp * d.y - sp * dh; }
+      }
+      if (pass == 2) break;
+      vec4 pe = uPanoEye[int(bi)];
+      vec3 o = uEye - pe.xyz;
+      float oo = dot(o, o);
+      if (pe.w < 0.5 || oo < 1e-6) break;
+      float R = max(${PANO_PROXY.toFixed(1)}, sqrt(oo) + 0.5), od = dot(o, d0);
+      d = normalize(o + (-od + sqrt(max(od * od - oo + R * R, 0.0))) * d0);
     }
     vec2 ndc = vec2(bx, by) / max(bf, 0.05) * uPanoLens;
     vec2 uv = vec2((bi + clamp(ndc.x * 0.5 + 0.5, 0.002, 0.998)) / 6.0, clamp(0.5 - ndc.y * 0.5, 0.0, 1.0));
@@ -682,7 +704,9 @@ export function createRoomRenderer(canvas, { phone = false, see = false } = {}) 
     function setView(src) { if (view && src.width === view.w) refill(view.t, src); else { view = { t: texture(src, { repeat: false }), w: src.width }; } }
     // one face of the city round the building (room-outlook.js): i 0..5 is front, right, back, left, down, up
     let pano = null;
-    function setPano(i, src, lens) {
+    // `eye` is where face i was painted from, in the room's frame (room-outlook.js faceAt), or null for a face painted
+    // from an unknown spot, which is looked up straight as before
+    function setPano(i, src, lens, eye = null) {
       const fw = src.width, fh = src.height;
       if (!pano || pano.fw !== fw || pano.fh !== fh) {
         if (pano) gl.deleteTexture(pano.t);
@@ -693,9 +717,10 @@ export function createRoomRenderer(canvas, { phone = false, see = false } = {}) 
         gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
         gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
         gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
-        pano = { t, fw, fh, lens };
+        pano = { t, fw, fh, lens, eyes: new Float32Array(4 * PANO_FACES) };
       }
       pano.lens = lens;
+      pano.eyes.set(eye ? [eye[0], eye[1], eye[2], 1] : [0, 0, 0, 0], 4 * i);
       gl.bindTexture(gl.TEXTURE_2D, pano.t);
       gl.texSubImage2D(gl.TEXTURE_2D, 0, i * fw, 0, gl.RGBA, gl.UNSIGNED_BYTE, src);
     }
@@ -947,9 +972,10 @@ export function createRoomRenderer(canvas, { phone = false, see = false } = {}) 
             draw(beasts);
             gl.uniform1f(INK.u('uWeigh'), 0);
           }
-          // a cat too, at the people's line whether the room is comic or not (its shells get no line)
+          // a cat too, whether the room is comic or not (its shells get no line), at a little over half the people's
+          // line: he's small, and at their weight the line swallowed his shape
           if (cats.length) {
-            const k = h / 900, s = phone ? 0.8 : 1;
+            const k = h / 900, s = (phone ? 0.8 : 1) * 0.55;
             gl.useProgram(CAT_INK.p);
             gl.uniformMatrix4fv(CAT_INK.u('uVP'), false, vp);
             gl.uniform2f(CAT_INK.u('uShake'), 0, 0);
@@ -1087,6 +1113,7 @@ export function createRoomRenderer(canvas, { phone = false, see = false } = {}) 
             gl.uniform3fv(LIT.u('uRight'), light.right || [-1, 0, 0]);
             gl.uniform2f(LIT.u('uPanoLens'), pano.lens[0], pano.lens[1]);
             gl.uniform1f(LIT.u('uPanoTilt'), PANO_TILT);
+            gl.uniform4fv(LIT.u('uPanoEye'), pano.eyes);
             gl.bindTexture(gl.TEXTURE_2D, pano.t);
             draw(room.view);
           } else if (!see && view) {

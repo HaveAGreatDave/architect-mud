@@ -13,6 +13,46 @@
     "floor": "stone",
     "is_building": true,
     "is_interior": true,
+    "room": {
+      "balcony": false,
+      "d": 9,
+      "decor": {
+        "ceiling": {
+          "band": 0.45,
+          "drop": 0.25,
+          "hex": "#ece8e0",
+          "kind": "cove",
+          "trim": "#c9b48a"
+        },
+        "rug": false,
+        "walls": {
+          "hex": "#a9aeb2",
+          "kind": "bronze",
+          "on": [
+            "back"
+          ],
+          "trim": "#8a9096"
+        }
+      },
+      "face": 180,
+      "glass": [
+        "front"
+      ],
+      "ground": "stone",
+      "h": 4.2,
+      "street_door": {
+        "kind": "sliding",
+        "w": 2
+      },
+      "studio": false,
+      "tone": {
+        "accent": "#c9b48a",
+        "ceiling": "#f1efea",
+        "trim": "#8a8478",
+        "wall": "#e6e2da"
+      },
+      "w": 12
+    },
     "window": {
       "description": "Floor to ceiling on the quay side, in panes big enough that the joints are the only thing telling you there is glass there at all. Halcyon Quay beyond it, swept, and the rail along the water with the gap in it where the pontoon goes down.",
       "light": 0.75,

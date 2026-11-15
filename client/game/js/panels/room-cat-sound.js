@@ -12,7 +12,7 @@ import { FIELD, fieldBed, fieldCall, fieldIds } from '../../../shared/field-reco
 import { CAT_CLIPS } from './gl/cat-clips.js';
 
 // how loud, in LUFS: a purr is felt more than heard; a meow is meant for you
-const BED_LUFS = -27, CALL_LUFS = -19;
+const BED_LUFS = -22, CALL_LUFS = -15;
 // metres: a cat's voice at its own level a metre and a half off, falling off past it
 const REF_M = 1.5, MAX_M = 25;
 const hash = (s) => { let h = 2166136261; for (const ch of String(s)) { h ^= ch.charCodeAt(0); h = Math.imul(h, 16777619); } return h >>> 0; };
@@ -59,7 +59,9 @@ export function createCatSound() {
   return {
     /**
      * Once a frame. `cats` is [{ id, clip, t (seconds into the clip), pos [x, y, z] in the room's world }].
-     * A clip's calls go once a loop (at `at` seconds into it), or every `every` seconds for one that doesn't loop.
+     * A clip's calls go once a loop (at `at` seconds into it), or every `every` seconds for one that doesn't loop,
+     * only between `from` and `to` seconds into it when it says (the tray's scratching: while he digs, and while he
+     * covers, not through the squat).
      */
     tick(cats) {
       const A = eng();
@@ -72,7 +74,10 @@ export function createCatSound() {
         bed(cat, s?.bed || null, s?.gain ?? 1);
         (s?.calls || []).forEach((spec, i) => {
           let loop;
-          if (spec.every) loop = Math.floor(cat.t / spec.every);
+          if (spec.every) {
+            if (cat.t < (spec.from ?? 0) || cat.t > (spec.to ?? Infinity)) return;
+            loop = Math.floor((cat.t - (spec.from ?? 0)) / spec.every);
+          }
           else if (c.len && !c.once) { const n = Math.floor(cat.t / c.len), into = cat.t - n * c.len; loop = into >= (spec.at || 0) ? n : n - 1; }
           else loop = cat.t >= (spec.at || 0) ? 0 : -1;
           if (loop >= 0) call(cat, spec, i, cat.since + ':' + loop);

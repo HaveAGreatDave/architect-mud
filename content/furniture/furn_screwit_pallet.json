@@ -1,0 +1,32 @@
+{
+  "description": "Four drums on a pallet inside the hazard paint, waiting to be signed in. Somebody has written NOT YET on the top one in marker.",
+  "flags": {
+    "aliases": "pallet,drums,goods in",
+    "look": {
+      "arche": "store",
+      "dims": [
+        1.2,
+        1,
+        0.95
+      ],
+      "form": "crate"
+    },
+    "spot": {
+      "at": [
+        4.6,
+        1.5
+      ],
+      "turn": 0
+    }
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_screwit_pallet",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "a pallet of drums",
+  "object_type": "fixture",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_chemsupply_interior"
+}

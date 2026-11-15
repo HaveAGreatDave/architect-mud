@@ -252,6 +252,8 @@ export const freelookStep = ifLoaded(freelook, 'freelookStep');
 // one world (docs/proposals/one-world-interiors.md): a room the street view has drawn stays in GLASS
 export const freelookTakeRoom = ifLoaded(freelook, 'freelookTakeRoom', false);
 export const freelookInside = ifLoaded(freelook, 'freelookInside', false);
+export const freelookPack = ifLoaded(freelook, 'freelookPack');
+export const freelookPackDirty = ifLoaded(freelook, 'freelookPackDirty');
 export const openFreelook = call(freelook, 'openFreelook');
 
 const chess3d = lazy('chess3d', () => import('./chess3d.js'), { glass: false });

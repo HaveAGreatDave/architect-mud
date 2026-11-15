@@ -331,18 +331,21 @@ export function pickClass(id) { return id != null && String(id) === picked ? ' s
 /** The card's own attribute, in place of its seating verb. */
 export function pickAttr(id) { return `data-vc-pick="${esc(id)}" aria-pressed="${String(id) === picked}"`; }
 /**
- * The three keys under a picked card. Each is `{ cmd }`, `{ hold }` (sell is always held) or
+ * The keys under a picked card. Each is `{ cmd }`, `{ hold }` (sell is always held) or
  * `{ attrs }` for a depot that sends from its own handler (the hangar's data-act). One given `why`
- * is drawn disabled with that reason; one left out isn't drawn.
+ * is drawn disabled with that reason; one left out isn't drawn. `call` is in a room with a stand
+ * (server/engine/vehicle-stand.js): `callup <id>` brings it out onto the floor and the Room Stage opens
+ * round you, so you walk up to it and climb in rather than being seated from the till.
  */
-export function choiceHtml({ maint = null, deploy = null, sell = null, sellLabel = 'Sell', deployLabel = 'Deploy' } = {}) {
+export function choiceHtml({ maint = null, deploy = null, sell = null, call = null, sellLabel = 'Sell', deployLabel = 'Deploy' } = {}) {
   const key = (k, label, ico, cls, flag) => {
     if (!k) return '';
     const off = !!k.why || (!k.cmd && !k.hold && !k.attrs);
     return btnHtml(label, { cmd: k.cmd || '', hold: k.hold || '', ico, cls, attrs: `${flag} ${k.attrs || ''}`, disabled: off, why: k.why || k.title || '' });
   };
   return `<div class="vc-choice" role="group" aria-label="What to do with it">
-    ${key(deploy, deployLabel, '⏵', 'primary', 'data-ds-deploy')}
+    ${key(call, 'Call it up', '⇡', 'primary', 'data-ds-call')}
+    ${key(deploy, deployLabel, '⏵', call ? '' : 'primary', 'data-ds-deploy')}
     ${key(maint, 'Maintenance', '🔧', '', 'data-ds-maint')}
     ${key(sell, sellLabel, '₵', 'ghost', '')}
   </div>`;

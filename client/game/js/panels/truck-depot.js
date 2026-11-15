@@ -307,6 +307,7 @@ function lotScreen() {
       !t.hereNow ? `<button class="vc-mini" data-hold="yard recall ${esc(t.id)}" title="Bring it here on a low-loader">Tow home · ${money(t.recall)}</button>` : '',
     ].filter(Boolean).join('');
     const choice = here ? choiceHtml({
+      call: d.stand ? { cmd: `callup ${t.id}`, title: 'Bring it up on the lift, then walk up to it and climb in' } : null,
       deploy: { cmd: `drive ${t.id}`, title: 'Climb in and drive straight out' },
       maint: { cmd: `drive ${t.id}`, title: 'Climb in with the shed opened up around it' },
       sell: t.rental ? { hold: `yard return ${t.id}`, title: 'Hand it back early, no refund' } : { hold: `yard sell ${t.id}`, title: `Sell ${t.name}` },

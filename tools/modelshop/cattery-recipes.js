@@ -66,4 +66,44 @@ export const CATS = {
     name: 'Tuxedo', note: 'Black with a white bib, belly and paws.',
     look: { coat: { base: '#18161a', white: 0.42, seed: 7, nose: '#2a2224', pads: '#2a2224' }, eyes: { iris: '#d8b030' }, build: { belly: 0.9, chest: 0.95 } },
   },
+
+  // ── the breeds (gl/cat-breeds.js), one cat each ──
+  siamese: {
+    name: 'Siamese', note: 'A seal point: the pale body, the dark mask, ears, legs and tail, the wedge head, big ears, blue almond eyes.',
+    look: { breed: 'siamese', coat: { colour: 'seal_point', seed: 4 } },
+  },
+  bluepoint: {
+    name: 'Siamese, blue point', note: 'The same cat in the dilute: cold white with slate points.',
+    look: { breed: 'siamese', coat: { colour: 'blue_point', seed: 9 }, build: { belly: 0.9 } },
+  },
+  coon: {
+    name: 'Maine Coon', note: 'A brown classic tabby with a white bib and mittens: big, long and shaggy, a mane, lynx tips and a plume of a tail.',
+    look: { breed: 'maine_coon', coat: { base: '#7e6650', white: 0.16, seed: 5, tabby: { kind: 'classic', col: '#30241a', freq: 1.35 }, whiteCol: '#efe6d6', nose: '#a8604e' } },
+  },
+  persian: {
+    name: 'Persian', note: 'A cream: the round flat face, small low ears, copper eyes, a long coat standing off the body and a ruff.',
+    look: { breed: 'persian', coat: { base: '#e2c49a', seed: 6, nose: '#d88a88', pads: '#d49890', whiteCol: '#f2e6d2' } },
+  },
+  british: {
+    name: 'British Shorthair', note: 'The blue: a round grey teddy of a cat with copper eyes and a dense, crisp coat.',
+    look: { breed: 'british_shorthair', coat: { seed: 2 } },
+  },
+  aby: {
+    name: 'Abyssinian', note: 'A ruddy: every hair ticked, a line down the spine, the tail tipped dark, big ears and gold eyes.',
+    look: { breed: 'abyssinian', coat: { seed: 8 } },
+  },
+
+  // ── the tortoiseshells ──
+  tortie: {
+    name: 'Tortoiseshell', note: 'A tortie shorthair: black and orange brindled together, no white.',
+    look: { coat: { colour: 'tortie', seed: 12 }, eyes: { iris: '#d8a030' }, build: { belly: 1.05 } },
+  },
+  torbie: {
+    name: 'Torbie', note: 'A tortoiseshell tabby: the patches each carrying the stripes.',
+    look: { coat: { colour: 'tortie', base: '#5e4a36', seed: 15, tabby: { kind: 'mackerel', col: '#1e1610' }, tortie: { col: '#c07a3a', stripe: '#6a3410', amount: 0.45, scale: 1, brindle: 0.4 } }, eyes: { iris: '#b8b040' } },
+  },
+  calico: {
+    name: 'Calico', note: 'A tortie with white: clean patches of black and orange over a white cat.',
+    look: { coat: { colour: 'calico', seed: 21 }, eyes: { iris: '#c8a838' } },
+  },
 };

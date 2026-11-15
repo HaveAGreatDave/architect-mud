@@ -11,6 +11,23 @@ Four places sell, store and service vehicles: the truck depot ([truck-depot.js](
   - **The seat's chrome steps out.** The bars cover the seat's own chips and gauges; the racer hides its levers and chips outright while the bay is open (`.pod-root:has(> .ds-bay.open)` in podracer-view.js).
   - **While it's open, the shed opens up completely.** The shed the vehicle stands in loses its roof, and every wall, frame, jamb and the roller door are cut down to a sill (`BAY_SILL`, 0.12 of the eaves) with a dark cap along the cut, the same from every side (`bayServiceUp` in windshield.js reads `.ds-bay.open`). The floor, its paint and the fittings stay, and two work lamps on stands replace the high-bays that hung under the roof. A boat is serviced under a building rather than in a shed, so the two marinas take the roof off their berth instead: the Fairweather plate with its mast and stays, and the Eastern Marina's lean-to, whose piles are cut to stumps. A type does this by carrying `berthRoof` in glass/model-registry.js and asking `berthServiceOpen()` before drawing that roof; world-feed.js `noteServiceAt` says where the open bay's vehicle is, and GLASS 2 keys the building's mesh on it. Folded or gone, everything is whole again. `scripts/shapes/bay.mjs` holds all of it.
 
+## Call it up (as built, 2026-11-14)
+
+In a depot room with a Room Stage, you can have your vehicle brought out onto the floor, walk up to it and climb in, instead of being seated from the till. A truck comes up on the shed's lift, an aircraft is pulled out of the hangar's far bay by a tug, a boat is walked into the covered slip through the water gate, and a racer is rolled out of the racer bay's back door on a dolly.
+
+- **One verb, `callup`** ([plugins/callup](../../plugins/callup/README.md)): `callup [vehicle]` brings one out, `callup back` sends it away. In a truck shed it's `hoist`. It works typed, at every rung.
+- **The counter's card offers it.** In a room with a stand the payload carries `stand`, and the picked card's first key is **Call it up** (`choiceHtml`'s `call`), which sends `callup <id>`; Deploy and Maintenance still seat you straight away. The server then opens the Stage round you (`vehicle.calledUp`, plugins/roomstage), and its `room_view` closes the counter, so you're stood in the room as the vehicle comes out. While the Stage is up in a room with a stand, the counter's pushes are dropped: the stand's panel is the counter there, as the lift's always was. Close the Stage for the screen.
+- **The stand is RAM** ([server/engine/vehicle-stand.js](../../server/engine/vehicle-stand.js)). A vehicle on the floor is a picture of where its row already is; nothing is written. One vehicle a room, half an hour at most, and only its owner can send it back or climb in. Each vehicle plugin registers its kind (`registerStandKind`) and answers `room.vehicles` for its own bays.
+- **Where it stands is the room's** `flags.room.stand` (`{ kind, at, face, len, wid, from, water }`, room-layout.js `standSpecOf`): its middle on the floor, the wall its nose points at, the box it's scaled into (no bigger than the vehicle's own length), the wall it comes in through (where a roller door is drawn, open while it moves) or `below` for a lift, and `water` for a slip the walker can't step into. The rules keep furniture out of the box and a step round it (`keepClear`).
+- **The Stage draws it** with GLASS's own mesh (`standFaces`, the card turntable's faces at rest) in [room-hoist.js](../../client/game/js/panels/room-hoist.js). The key beside it is the seat's own verb from the server (`lift.board`): **Climb into**, **Climb aboard**, **Step aboard**. Seated, the Stage gives way to the seat in the same task (dispatch.js `stageGivesWay`), since a boat or a racer seats you without a move, and the floor is empty at once.
+
+| | room | comes out | the panel | climbing in |
+|---|---|---|---|---|
+| truck | a `truck_depot` shed | `below`, the lift | LIFT | `drive <id>` |
+| aircraft | a `hangar_interior` room | `back`, the tug | TUG | `hangaract launch <id>` |
+| boat | a `boat_covered` slip | `front`, the water gate | SLIP | `boat take <id>` |
+| racer | the `podracer_lot` bay | `back`, the dolly | DOLLY | `podracer take <id>` |
+
 ## The rules every depot keeps
 
 - **Every button is a verb a player could type.** A key carries `data-cmd` with the exact command. The log rung is the same verbs without the panel.

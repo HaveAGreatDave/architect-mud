@@ -1,10 +1,26 @@
 {
   "description": "One slab of pale stone on a chrome plinth with nothing on it: no screen, no pad, no bell. Hulls are bought and hired across it from whoever is behind it.",
   "flags": {
-    "marina_desk": true,
     "interactions": [
       "use"
-    ]
+    ],
+    "look": {
+      "arche": "surface",
+      "dims": [
+        3.4,
+        0.85,
+        1.05
+      ],
+      "form": "reception"
+    },
+    "marina_desk": true,
+    "spot": {
+      "at": [
+        -3,
+        6.4
+      ],
+      "turn": 0
+    }
   },
   "id": "furn_marina_desk",
   "name": "the desk",

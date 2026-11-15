@@ -10,6 +10,41 @@
     "floor": "boards",
     "is_building": true,
     "is_interior": true,
+    "room": {
+      "balcony": false,
+      "d": 4.5,
+      "decor": {
+        "art": [
+          {
+            "at": 1,
+            "h": 0.42,
+            "seed": 12,
+            "w": 0.6,
+            "wall": "left",
+            "y": 1.55
+          }
+        ]
+      },
+      "doors": {
+        "down": [
+          -4.88,
+          3.85
+        ]
+      },
+      "face": 90,
+      "glass": [
+        "front"
+      ],
+      "h": 2.6,
+      "studio": false,
+      "tone": {
+        "accent": "#9aa3a8",
+        "ceiling": "#e8e6e2",
+        "trim": "#3a4046",
+        "wall": "#dcd8d0"
+      },
+      "w": 11
+    },
     "window": {
       "description": "The whole south pitch of the roof, from the inside. The Glasshouse stands over it and the Spire is a lit line up the corner of the frame.",
       "light": 0.85,

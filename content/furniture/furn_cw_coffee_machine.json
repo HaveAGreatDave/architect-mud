@@ -3,6 +3,19 @@
   "flags": {
     "aliases": "coffee, cup, cups",
     "brew_tier": "machine",
+    "look": {
+      "arche": "prop",
+      "dims": [
+        0.8,
+        0.75,
+        1.8
+      ],
+      "form": "cabinet"
+    },
+    "spot": {
+      "along": 0.7,
+      "wall": "back"
+    },
     "vend_drink": "black_coffee",
     "vend_line": "The machine drops a paper cup into the bay and fills it in two long hisses.",
     "vends": "item_paper_cup"

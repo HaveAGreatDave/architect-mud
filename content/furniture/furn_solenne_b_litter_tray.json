@@ -1,0 +1,31 @@
+{
+  "description": "A grey plastic litter tray with a high back, tucked in the corner of the en-suite by the door, a scoop leant against it. It's the only thing in here that didn't come with the flat.",
+  "flags": {
+    "aliases": "tray,litter tray,litter box,litter,cat tray,box,scoop",
+    "interactions": [
+      "examine"
+    ],
+    "look": {
+      "arche": "small",
+      "form": "littertray"
+    },
+    "pet_tray": "pet_scrappy",
+    "spot": {
+      "at": [
+        -1.18,
+        0.36
+      ],
+      "turn": 180
+    }
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_solenne_b_litter_tray",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "litter tray",
+  "object_type": "furniture",
+  "power_draw_kw": null,
+  "price": 18,
+  "zone_id": "zone_solenne_apt_b_bath"
+}

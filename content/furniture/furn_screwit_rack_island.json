@@ -1,0 +1,33 @@
+{
+  "description": "A run of orange pallet racking down the middle of the floor, drums on the bottom beam and sacks above, every one with a hazard diamond turned to the aisle.",
+  "flags": {
+    "aliases": "racking,pallet racking,drums",
+    "look": {
+      "arche": "store",
+      "dims": [
+        4,
+        1.1,
+        3
+      ],
+      "form": "racking",
+      "stock": "chem"
+    },
+    "spot": {
+      "at": [
+        1.6,
+        6.2
+      ],
+      "turn": 90
+    }
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_screwit_rack_island",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "the pallet racking",
+  "object_type": "fixture",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_chemsupply_interior"
+}

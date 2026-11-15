@@ -2,6 +2,19 @@
   "description": "A glass-fronted machine of spiral coils, most of them empty. The full ones hold beef jerky in red foil.",
   "flags": {
     "aliases": "snacks, snack, machine, jerky",
+    "look": {
+      "arche": "prop",
+      "dims": [
+        0.95,
+        0.85,
+        1.85
+      ],
+      "form": "cabinet"
+    },
+    "spot": {
+      "along": -1.6,
+      "wall": "back"
+    },
     "vend_line": "The coil turns, the packet tips off the end and drops into the hatch.",
     "vend_price": 12,
     "vends": "item_beef_jerky"

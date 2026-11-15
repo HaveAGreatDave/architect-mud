@@ -24,6 +24,7 @@ import { takeFreshVehicle } from '../../server/engine/fresh-vehicle.js';
 import { buyRacer, hireRacer, returnRacer, sellRacer, serviceRow, listRacers, racerHere, isLot, stockLines,
   racerLine, myRacers, racerPanel, sweepHires, recoverRacer, paintRow, parkedCards, fitRow, fitMenu, lockedRacerHere, setRacerLocked } from './lot.js';
 import { registerVehicleLock } from '../../server/engine/vehicle-access.js';
+import { registerStandKind, standTaken, standVehicles } from '../../server/engine/vehicle-stand.js';
 import { mountRacer, cmdPodSync, cmdPodEvent, dropSeat, bayLotAt, pushBay, svcState, recoverSeated, homeLot, noteRacerParked } from './seat.js';
 import { PODRACER_TYPES, podracerPoseFrom, podracerLook, podracerLivery } from '../../client/game/js/panels/podracer-model.js';
 import { cmdPod, textPodCtx } from './texthelm.js';
@@ -74,6 +75,8 @@ export const hooks = {
   'vehicle.contacts': (x, y, range) => racerContactsNear(x, y, range),
   // A truck depot's counter deals the racers kept in its shed as cards (lot.js parkedCards).
   'depot.parked': (player, zoneIds) => parkedCards(player, zoneIds),
+  // One of yours rolled out onto the racer bay's floor, for the Room Stage (server/engine/vehicle-stand.js). Sync, RAM.
+  'room.vehicles': (zoneId, player) => standVehicles(zoneId, player, 'podracer'),
 };
 
 // ── The counter ────────────────────────────────────────────────────────────────
@@ -114,6 +117,32 @@ const andRepush = (fn) => async (player, ...a) => { const out = await fn(player,
 //   podracer sell [id]       sell one parked in the bay back to the yard
 //   podracer service [id]    repair and refuel, in the bay or sitting in it on the bay door
 //   podracer list            what you own and where
+// Climbed in off the bay floor: the stand is empty (server/engine/vehicle-stand.js).
+async function mountOffStand(player, row) {
+  const r = await mountRacer(player, row);
+  if (seated.has(player.id)) standTaken(row.id, 'podracer');
+  return r;
+}
+
+// The racer's kind of vehicle stand: `callup` in the racer bay has the yard roll one of yours kept here out of the
+// back on its dolly, where the Room Stage draws it; climbing in is `podracer take`, the counter's Deploy.
+registerStandKind('podracer', {
+  isBay: (zone) => !!(isLot(zone) && zone.flags.room),
+  from: 'back', label: 'DOLLY', moveMs: 9000,
+  board: (id) => `podracer take ${id}`,
+  busy: (player) => (seated.has(player.id) ? 'You are already strapped in.' : null),
+  list: async (player, zone) => (await myRacers(player.id)).filter((r) => r.park_zone === zone.id).map((r) => ({
+    id: r.id, name: r.name || PODRACER_TYPES[r.type_id]?.name || 'racer',
+    look: { cls: 'podracer', variant: r.type_id, livery: r.custom_data?.livery || null, kit: r.custom_data?.kit || null },
+  })),
+  words: {
+    noun: 'racer',
+    up: (name) => `Two of the yard's lads put their backs into the dolly and roll the ${name} out of the back, turbines first, and chock it.`,
+    down: (name) => `The lads kick the chocks out and roll the ${name} back on its dolly.`,
+    none: 'Nothing of yours is kept in this bay. Buy or hire one at the counter, or have one fetched.',
+  },
+});
+
 async function cmdPodracer(args = [], raw, player, broadcast) {
   const sub = String(args[0] || '').toLowerCase();
   const rest = args.slice(1).join(' ');
@@ -136,10 +165,10 @@ async function cmdPodracer(args = [], raw, player, broadcast) {
   if (sub === 'take' || sub === 'ride') {
     const row = await racerHere(player, args[1] || null, { strangers: true });
     if (!row) return say(dim(await lockedRacerHere(player) ? 'It is locked, and it is not yours.' : 'That racer is not parked where you are standing.'));
-    return mountRacer(player, row);
+    return mountOffStand(player, row);
   }
   const row = await racerHere(player, null, { strangers: true });
-  if (row) return mountRacer(player, row);
+  if (row) return mountOffStand(player, row);
   const shut = await lockedRacerHere(player);
   if (shut) return say(dim(`The ${shut.name || 'racer'} parked here is locked, and it is not yours.`));
   const here = getZone(player.current_zone);

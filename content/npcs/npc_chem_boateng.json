@@ -135,7 +135,7 @@
     "\"Sign the sheet. The sheet keeps us both breathing.\"",
     "\"Wear the mask. I mean it. I like repeat customers.\""
   ],
-  "description": "A broad, methodical stockman in a rubber apron who knows exactly what everything on his shelves can do, and pointedly never asks which one you have in mind.",
+  "description": "A big, easy-grinning stockman in an open hi-vis work vest and a blue and white Basin Blue Birds ballcap. He knows exactly what everything on his shelves can do, and pointedly never asks which one you have in mind.",
   "dialogue_tree": {
     "bye": {
       "options": [],
@@ -466,11 +466,120 @@
   "faction": null,
   "flags": {
     "clothing_layers": [
-      "a heavy rubberised apron over a hi-vis vest",
-      "a company coverall",
+      "an open rubberised hi-vis work vest with four flapped pockets, a pen in one, over a charcoal tee",
+      "a blue and white Basin Blue Birds ballcap",
+      "straight-leg jeans over brown steel-toe work boots",
       "grey boxers"
     ],
-    "personality": "vendor"
+    "figure": {
+      "age": 0.15,
+      "beard": 0.1,
+      "bottoms": false,
+      "build": "stocky",
+      "cut": "jacket",
+      "fabric_legs": "canvas",
+      "fabric_shoes": "leather",
+      "fabric_top": "canvas",
+      "facial": "clean",
+      "gear": false,
+      "glasses": [
+        44,
+        46,
+        52
+      ],
+      "grit": 0.1,
+      "hair": [
+        132,
+        82,
+        52
+      ],
+      "hair_style": 3,
+      "hat": "cap",
+      "hat_badge": "Basin Blue Birds",
+      "hat_col": [
+        34,
+        64,
+        176
+      ],
+      "head": 1,
+      "height": 1.86,
+      "iris": [
+        104,
+        128,
+        146
+      ],
+      "legs": [
+        184,
+        170,
+        144
+      ],
+      "mouth": 1,
+      "scarf": false,
+      "shirt": [
+        30,
+        40,
+        70
+      ],
+      "shoes": [
+        96,
+        64,
+        40
+      ],
+      "skin": [
+        238,
+        184,
+        164
+      ],
+      "smile": 0.75,
+      "top": [
+        60,
+        64,
+        52
+      ],
+      "weight": 0.9,
+      "hat_front": [
+        236,
+        236,
+        232
+      ],
+      "hat_under": [
+        30,
+        120,
+        60
+      ],
+      "fan": 0.7,
+      "hat_badge_sport": "baseball",
+      "boots": "steeltoe"
+    },
+    "figure_work": {
+      "cut": "workvest",
+      "top": [
+        226,
+        196,
+        34
+      ],
+      "fabric_top": "rubber",
+      "shirt": [
+        54,
+        54,
+        58
+      ],
+      "legs": [
+        50,
+        66,
+        98
+      ],
+      "fabric_legs": "denim",
+      "shoes": [
+        96,
+        64,
+        40
+      ],
+      "fabric_shoes": "leather"
+    },
+    "personality": "vendor",
+    "post": "furn_screwit_counter",
+    "post_gap": 0.45
   },
   "home_activities": [],
   "home_zone": "zone_meridian_unit_104",

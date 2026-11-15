@@ -19,9 +19,10 @@ import { toBatch, placeAt, beastMesh } from './beast-kit.js';
 import { BEAST_LOOKS } from './beast-looks.js';
 import { catLook, tailTarget, tailRadius, TAIL_N, solveRig } from './cat-kit.js';
 import { bakeCatOff } from './cat-bake.js';
-import { CAT_CLIPS, clipFrame, GAIT_SPEED } from './cat-clips.js';
+import { CAT_CLIPS, clipFrame, GAIT_SPEED, tailCarryOf, LITTER } from './cat-clips.js';
 import { createTail, stepTail } from './cat-tail.js';
-import { catLife, catPerchOf, catPerches, catAtBowls, catSettle } from '../../../../shared/cat-life.js';
+import { catLife, catPerchOf, catPerches, catAtChores, catSettle, catMeets, catMarkOf, TURN_MS } from '../../../../shared/cat-life.js';
+import { meetGeom, meetPlace, meetPhase } from './cat-meet.js';
 import { roomPath, roomNearFree, roomFree, onFoot, doorwaysOf, openingInside, facing } from '../../../../shared/room-layout.js';
 import { SecondOrder, SecondOrderAngle } from '../../../../shared/second-order.js';
 
@@ -77,7 +78,8 @@ const NEAR_M = 0.42;
 const BOWL_REACH = 0.317;
 // how far in from a top's edge it lands, and the three parts of a jump (seconds) with the arc over the straight line
 const EDGE_IN = 0.16;
-const JUMP = { up: { crouch: 0.62, fly: 0.36, land: 0.34, arc: 0.12 }, down: { crouch: 0.3, fly: 0.3, land: 0.38, arc: 0.06 } };
+// (a step over a low rim, into his tray and out of it, is a quick hop with no measuring it up first)
+const JUMP = { up: { crouch: 0.62, fly: 0.36, land: 0.34, arc: 0.12 }, down: { crouch: 0.3, fly: 0.3, land: 0.38, arc: 0.06 }, step: { crouch: 0.16, fly: 0.26, land: 0.2, arc: 0.16 } };
 const DECEL = 2.2;                        // m/s² it brakes at, coming up to where it's going
 // what he does when he's touched in each spot (the stroker's own picture, and a 'petted' beat's for everybody):
 // gl/cat-clips.js petted (by spot), arch, bothered, cross
@@ -102,6 +104,30 @@ function mixDeep(a, b, k) {
 }
 const TOUCH_MS = 450;                     // a touch not heard of this long has stopped
 const _actors = new Map();                // cat id → its state on this client
+// Two cats together (cat-life.js catMeets, staged by gl/cat-meet.js): who's with whom, worked out once a second, and
+// each encounter's state on this client: which phase it's on, when that phase's clock started (when the cat coming got
+// to its place) and, in a chase, how many runs there have been
+const _meets = new Map();                 // encounter key → { phase, t0, zk }
+let _meetMemo = { sig: null, map: new Map() };
+function meetsOf(L, beasts, now, hour) {
+  const cats = beasts.filter((b) => b?.cat);
+  if (cats.length < 2) return _meetMemo.map.size ? (_meetMemo = { sig: null, map: new Map() }).map : _meetMemo.map;
+  const sig = Math.floor(now / 1000) + '|' + Math.round(hour * 60) + '|' + cats.map((b) => b.id + (b.beat ? ':' + b.beat.act + b.beat.since : '')).join(',');
+  if (_meetMemo.sig !== sig || _meetMemo.L !== L) {
+    const busy = (b) => !!(b.beat && now - b.beat.since < (BEAT_MS[b.beat.act] || 0));
+    _meetMemo = { sig, L, map: catMeets(L, cats.map((b) => ({ id: b.id, nature: b.nature, look: b.cat, bowls: b.bowls, tray: b.tray, busy: busy(b) })), now, hour) };
+    const keys = new Set([..._meetMemo.map.values()].map((m) => m.key));
+    for (const k of _meets.keys()) if (!keys.has(k)) _meets.delete(k);
+  }
+  return _meetMemo.map;
+}
+// which side of a cat at `at` facing `head` a point `q` is on: +1 its left (the rig's +X), -1 its right
+function sideOf(L, at, head, q) {
+  const P = L.world(at[0] + Math.sin(head), at[1] + Math.cos(head), 0), B0 = L.world(at[0], at[1], 0), W = L.world(q[0], q[1], 0);
+  const fx = P[0] - B0[0], fz = P[2] - B0[2];
+  return Math.sign((W[0] - B0[0]) * fz - (W[2] - B0[2]) * fx) || 1;
+}
+const intoBox = (b, q, m) => [clamp(q[0], b[0] + m, b[1] - m), clamp(q[1], b[2] + m, b[3] - m)];
 
 // How a cat's body answers, from its nature (the Feline Five, 0..1 each): [f, ζ, r] for each second-order layer.
 // Impulsive: quicker and bouncier everywhere. Skittish: the head and ears snap ahead of the rest (r > 1). Dominant: the
@@ -145,16 +171,111 @@ function perchesOf(L, look) {
   let m = _perches.get(L);
   if (!m) _perches.set(L, (m = new Map()));
   const k = JSON.stringify(look?.build || {});
-  if (!m.has(k)) m.set(k, catPerches(L, look));
+  if (!m.has(k)) m.set(k, [...catPerches(L, look), ...traysOf(L)]);
   return m.get(k);
+}
+// A litter tray stands in the room as a top he steps up into (cat-life.js catAtTray): its litter's surface, inside its
+// rim. It's never somewhere he settles; only his go at it takes him there.
+const TRAY_LITTER = 0.05, TRAY_RIM = 0.02;
+function traysOf(L) {
+  const k = unitsPerM(L);
+  return (L.placed || []).filter((p) => p.form === 'littertray').map((p) => {
+    const q = Math.round(((p.turn % 360) + 360) % 360 / 90) % 2, hw = (q ? p.d : p.w) / 2 - TRAY_RIM * k, hd = (q ? p.w : p.d) / 2 - TRAY_RIM * k;
+    const [fu, fv] = facing(p.turn || 0);
+    return { id: p.id, name: p.name, arche: 'tray', form: p.form, u: p.u, v: p.v, w: p.w, d: p.d, turn: p.turn || 0, top: TRAY_LITTER * k + (p.y0 || 0),
+      free: [-p.w / 2, p.w / 2], box: [p.u - hw, p.u + hw, p.v - hd, p.v + hd], face: [fu, fv], backTop: null, annex: !!p.annex };
+  });
+}
+// the floor in front of a tray, where he goes when it's too dirty to get into
+function besideTray(L, T) {
+  const r = Math.max(T.box[1] - T.box[0], T.box[3] - T.box[2]) / 2 + 0.28, q = [T.u + T.face[0] * r, T.v + T.face[1] * r];
+  return roomNearFree(L, q[0], q[1], 0.8) || q;
 }
 const perchById = (L, look, id) => (id ? perchesOf(L, look).find((p) => p.id === id) || null : null);
 const inBox = (b, u, v, m = 0) => u > b[0] - m && u < b[1] + m && v > b[2] - m && v < b[3] + m;
-// the point on a top `p` it lands on coming from `from` (floor), EDGE_IN inside its nearest edge
-function edgeOf(p, from) {
-  const b = p.box, cu = b[1] - b[0] > 2 * EDGE_IN ? clamp(from[0], b[0] + EDGE_IN, b[1] - EDGE_IN) : (b[0] + b[1]) / 2;
-  const cv = b[3] - b[2] > 2 * EDGE_IN ? clamp(from[1], b[2] + EDGE_IN, b[3] - EDGE_IN) : (b[2] + b[3]) / 2;
+// the point on a top `p` it lands on coming from `from` (floor), `m` inside its nearest edge, of the part `b` it can sit on
+function edgeOf(p, from, m = EDGE_IN, b = p.box) {
+  const cu = b[1] - b[0] > 2 * m ? clamp(from[0], b[0] + m, b[1] - m) : (b[0] + b[1]) / 2;
+  const cv = b[3] - b[2] > 2 * m ? clamp(from[1], b[2] + m, b[3] - m) : (b[2] + b[3]) / 2;
   return [cu, cv];
+}
+// room units to the metre (a room laid out in feet is 3.28)
+function unitsPerM(L) {
+  const a = L.world(0, 0, 0), b = L.world(1, 0, 0);
+  return 1 / (Math.hypot(b[0] - a[0], b[1] - a[1], b[2] - a[2]) || 1);
+}
+// The part of a top a cat can settle on, room units: a sofa's seat cushions, clear of the back cushions behind and the
+// arms either side (gl/room-mesh.js sofa: the seat starts 0.26 m in, an arm is 0.2 m), and a chair's seat in front of
+// its back. On the box itself he'd sit inside the back or on the arm with his rump in the air.
+function topBox(p, k) {
+  const b = p.box.slice(), f = p.face;
+  if (!f) return b;
+  const sofa = p.arche === 'sofa' && p.form !== 'lounger';
+  const back = (sofa ? 0.26 : p.backTop ? 0.08 : 0) * k, arm = (sofa ? 0.2 : 0) * k;
+  [[-1, 0], [1, 0], [0, -1], [0, 1]].forEach(([nu, nv], i) => {
+    const dot = nu * f[0] + nv * f[1], d = dot < -0.5 ? back : dot > 0.5 ? 0 : arm;
+    b[i] += i % 2 ? -d : d;
+  });
+  return b;
+}
+// How much top it takes in a pose, metres from its root: behind (z0) and in front (z1) along its heading, and to its
+// right (x0) and left (x1), off the pose's own carve (a fat cat's flanks stand well out past his paws, and curled up
+// he's wider than he's long). The head and the tail may go over an edge, as a cat's do; the body and the paws don't.
+const FOOT_PAD = 0.02;
+const _feet = new WeakMap();
+function footOf(bake) {
+  let f = _feet.get(bake);
+  if (f) return f;
+  const R = bake.rig, sc = R.look.scale, grp = R.bones.map((b) => b.group), P = bake.P, W = bake.Ww, B = bake.Wb;
+  let z0 = 0, z1 = 0, x0 = 0, x1 = 0;
+  for (let i = 0; i < bake.verts; i++) {
+    let bi = 0, bw = -1;
+    for (let j = 0; j < 4; j++) if (W[i * 4 + j] > bw) { bw = W[i * 4 + j]; bi = B[i * 4 + j]; }
+    const g = grp[bi];
+    if (g === 'tail' || g === 'head' || g === 'ear') continue;
+    const x = P[i * 3], z = P[i * 3 + 2];
+    if (z < z0) z0 = z; if (z > z1) z1 = z; if (x < x0) x0 = x; if (x > x1) x1 = x;
+  }
+  f = { z0: z0 * sc - FOOT_PAD, z1: z1 * sc + FOOT_PAD, x0: x0 * sc - FOOT_PAD, x1: x1 * sc + FOOT_PAD };
+  _feet.set(bake, f);
+  return f;
+}
+// which way the rig's +X (its left) lies in the room's own frame, turned to face +v: +1 along +u, -1 along -u
+const _sides = new WeakMap();
+function leftOf(L) {
+  let s = _sides.get(L);
+  if (s == null) {
+    const B0 = L.world(0, 0, 0), P = L.world(0, 1, 0), F = [P[0] - B0[0], P[2] - B0[2]], fl = Math.hypot(F[0], F[1]) || 1;
+    const q = L.local([B0[0] + F[1] / fl, B0[1], B0[2] - F[0] / fl]);
+    _sides.set(L, (s = Math.sign(q[0]) || 1));
+  }
+  return s;
+}
+// that footprint turned to heading `h`, as offsets from the root in room units: [u0, u1, v0, v1]
+function footSpan(h, F, k, s = 1) {
+  const fu = Math.sin(h), fv = Math.cos(h);
+  let u0 = Infinity, u1 = -Infinity, v0 = Infinity, v1 = -Infinity;
+  for (const z of [F.z0, F.z1]) for (const x of [F.x0 * s, F.x1 * s]) {
+    const du = (fu * z + fv * x) * k, dv = (fv * z - fu * x) * k;
+    u0 = Math.min(u0, du); u1 = Math.max(u1, du); v0 = Math.min(v0, dv); v1 = Math.max(v1, dv);
+  }
+  return [u0, u1, v0, v1];
+}
+// where on the top `b` it settles, facing `h`, nearest `at` with all of it on the top (in the middle, where it can't be)
+function fitOnTop(b, at, h, F, k, side = 1) {
+  const s = footSpan(h, F, k, side), one = (q, lo, hi) => (lo <= hi ? clamp(q, lo, hi) : (lo + hi) / 2);
+  return [one(at[0], b[0] - s[0], b[1] - s[1]), one(at[1], b[2] - s[2], b[3] - s[3])];
+}
+// the heading nearest `h0` it fits on the top `b` facing: along a narrow top, not across it
+function fitHeading(b, h0, F, k, side = 1) {
+  let best = h0, least = Infinity;
+  for (let i = 0; i <= 12; i++) for (const sg of i ? [1, -1] : [1]) {
+    const h = h0 + sg * i * Math.PI / 12, s = footSpan(h, F, k, side);
+    const over = Math.max(0, s[1] - s[0] - (b[1] - b[0])) + Math.max(0, s[3] - s[2] - (b[3] - b[2]));
+    if (over < 1e-4) return h;
+    if (over < least) { least = over; best = h; }
+  }
+  return best;
 }
 // whether a point on the floor is behind a chair's or a sofa's back (cat-life.js catPerches: `face`, `backTop`)
 function behindBack(p, q) {
@@ -207,6 +328,7 @@ export function catsFrame(L, beasts, o) {
   const out = { cats: [], voices: [] };
   if (!L || !beasts?.length || !o.drawer) return out;
   const now = o.now ?? Date.now();
+  const meets = meetsOf(L, beasts, now, o.hour ?? 13);
   for (const bt of beasts) {
     if (!bt?.cat) continue;
     const bakes = Object.fromEntries(BASES.map((p) => [p, catBake(bt.cat, p, !!o.lite)]));
@@ -217,7 +339,8 @@ export function catsFrame(L, beasts, o) {
     const beat = bt.beat && now - bt.beat.since < (BEAT_MS[bt.beat.act] || 0) ? bt.beat : null;
     // a hand on him from this client (catTouch): pressed, he stops where he is and answers it; only hovering, he looks
     const A1 = _actors.get(bt.id), touch = A1?.touch && now - A1.touch.t < TOUCH_MS ? A1.touch : null;
-    const bowl = beat ? null : catAtBowls(bt.id, now, bt.bowls);
+    // his bowls and his tray (cat-life.js catAtChores): whichever he went to last
+    const bowl = beat ? null : catAtChores(bt.id, now, bt.bowls, bt.tray);
     let D = null, since = life.since, seed = hash(bt.id + ':' + life.since), spot = null, side = 0;
     if (touch?.down && beat?.act !== 'cross' && !A1.jump) {
       const uv = L.local(touch.at);
@@ -237,20 +360,95 @@ export function catsFrame(L, beasts, o) {
         if (beat.act === 'petted' && A0?.on && who && dist(who, A0.at) < 1.3) D = { on: A0.on, perch: perchById(L, look, A0.on), at: A0.at, face: null, hold: true, act: spotClip(beat.spot, A0.lastBase), key: D.key };
         if (!to) D.at = null;
       }
+    } else if (bowl?.kind === 'tray') {
+      // His tray: over to it, a hop in over the rim, the dig facing the back of it, round to face out for the squat, the
+      // sniff and the cover (gl/cat-clips.js LITTER), and out again when the clip's done; after the other, now and then,
+      // a mad dash round the flat. A tray too dirty to get into, he goes on the floor in front of it. The phases run off
+      // when he got there on this client; the go itself is everybody's.
+      const T = bt.tray?.id ? perchById(L, look, bt.tray.id) : null, A0 = _actors.get(bt.id), key = 'tray:' + bowl.since, P = LITTER[bowl.act];
+      const there = A0?.goalKey === key && A0.arrived ? A0.arrived : null, s = there ? (now - there) / 1000 : 0, len = P.len + (bowl.fussy ? 2.5 : 0);
+      if (A0?.trayDone === key) {
+        if (bowl.zoom && now - A0.trayDoneAt < 9000) D = { on: null, at: spotOf(L, bt.id + ':pz:' + bowl.since + ':' + (A0.zk ?? 0)), gait: 'gallop', act: 'stand', key: 'pz:' + bowl.since + ':' + (A0.zk ?? 0), zoom: true };
+      } else if (T) {
+        if (there && s > len) { A0.trayDone = key; A0.trayDoneAt = now; }
+        const out = Math.atan2(T.face[0], T.face[1]), inward = Math.atan2(-T.face[0], -T.face[1]);
+        D = bowl.mess ? { on: null, at: besideTray(L, T), face: [T.u, T.v], gait: 'walk', act: bowl.act, key }
+          : { on: T.id, perch: T, at: [T.u, T.v], act: bowl.act, key, yaw: there ? (s < P.t1 + (bowl.fussy ? 2.5 : 0) ? inward : out) : null };
+        // (fussy about a dirty one: a long sniff at it first, then the dig)
+        since = bowl.since; seed = hash(bt.id + ':' + bowl.since);
+        if (bowl.fussy && there) { if (s < 2.5) D.act = 'sniff'; else since = there + 2500; }
+      }
     } else if (bowl) {
-      const bs = bowlSpot(L, bt.bowls, bowl.kind, bt.cat?.scale ?? 0.6);
-      if (bs) { D = { on: null, at: bs.at, face: bs.face, gait: bowl.act === 'beg' ? 'trot' : 'walk', act: bowl.act === 'beg' ? 'wait' : bowl.act, key: 'bowl:' + bowl.kind + ':' + bowl.since }; since = bowl.since; seed = hash(bt.id + ':' + bowl.since); }
+      // at an empty bowl because he's hungry or thirsty, he sits by it and demands; thirsty, half the time he goes up
+      // on the kitchen sink instead and drinks from the tap
+      const sink = bowl.tap ? perchesOf(L, look).find((p) => p.arche === 'sink') : null;
+      if (sink) D = { on: sink.id, perch: sink, at: [(sink.box[0] + sink.box[1]) / 2, (sink.box[2] + sink.box[3]) / 2], act: 'drink', key: 'tap:' + bowl.since };
+      else {
+        const bs = bowlSpot(L, bt.bowls, bowl.kind, bt.cat?.scale ?? 0.6);
+        if (bs) D = { on: null, at: bs.at, face: bs.face, gait: bowl.act === 'beg' ? 'trot' : 'walk', act: bowl.act === 'beg' ? (bowl.pester ? 'demand' : 'wait') : bowl.act, key: 'bowl:' + bowl.kind + ':' + bowl.since };
+      }
+      if (D) { since = bowl.since; seed = hash(bt.id + ':' + bowl.since); }
     }
     if (!D && life.act === 'zoomies') {
       const A0 = _actors.get(bt.id), zk = A0?.zk ?? 0;
       D = { on: null, at: spotOf(L, bt.id + ':z:' + life.since + ':' + zk), gait: 'gallop', act: 'stand', key: 'z' + life.since + ':' + zk, zoom: true };
     }
+    // rubbing his cheek on the corner of something (cat-life.js catMarkOf: the same corner for everybody)
+    if (!D && life.act === 'mark') {
+      const M = catMarkOf(L, life);
+      if (M) D = { on: null, at: M.at, face: M.face, gait: 'walk', act: 'mark', key: 'mark:' + life.since };
+    }
     if (!D) {
       // up on something, or on the floor (on the rug, if he's settled and there is one), and what he does there: no
       // biscuits on a hard top (catSettle)
       const P = catPerchOf(L, life, look), st = catSettle(L, life, P);
-      const act = st.act === 'wander' || st.act === 'zoomies' ? 'stand' : st.act;
+      const act = st.act === 'wander' || st.act === 'zoomies' || st.act === 'mark' ? 'stand' : st.act;
       D = P ? { on: P.id, perch: perchById(L, look, P.id) || P, at: P.at, act, key: 'p:' + life.spot } : { on: null, at: st.rug || spotOf(L, life.spot), act, key: life.spot + (st.rug ? ':rug' : ''), gait: 'walk' };
+    }
+
+    // ── with another cat ──────────────────────────────────────────────────────────────────────────
+    // An encounter (catMeets) goes over the day: the one staying (`a`) keeps the place its day gives it and, once the
+    // other's there, plays the phase's clip turned the way the staging says; the one coming (`b`) goes to its place by
+    // `a` (up onto the piece `a` is on, for a groom or a heap) and plays its own. `b` drives the phases.
+    const mt = !touch?.down && !beat && !bowl ? meets.get(bt.id) : null;
+    let meetSide = 0, meetLook = null;
+    {
+      const me = _actors.get(bt.id), other = mt && _actors.get(mt.with);
+      if (mt && me?.rig && other?.rig) {
+        let ms = _meets.get(mt.key);
+        if (!ms) _meets.set(mt.key, (ms = { phase: 0, t0: null, zk: 0 }));
+        const ph = meetPhase(mt.kind, ms.phase), isA = mt.role === 'a';
+        const A = isA ? me : other, Bc = isA ? other : me;
+        const pl = meetPlace(ph.place, { at: A.at, head: A.head }, { at: Bc.at, head: Bc.head }, meetGeom(A.rig), meetGeom(Bc.rig));
+        meetSide = sideOf(L, me.at, me.head, other.at);
+        if (isA) {
+          const there = ms.t0 != null;
+          if (ph.place === 'chase') {
+            // it runs, a new spot each time it gets there
+            D = { on: null, at: spotOf(L, bt.id + ':mz:' + mt.key + ':' + ms.zk), gait: 'gallop', act: 'stand', key: 'mz:' + mt.key + ':' + ms.zk, meetZoom: ms };
+          } else if (!D.on || D.on === mt.on) {
+            const lying = mt.kind === 'groom' || mt.kind === 'pile';
+            D = { ...D, act: there ? ph.a : lying ? D.act : (D.act === 'sit' || D.act === 'stand' ? D.act : 'stand'), yaw: there ? pl.headA : null, hold: true, key: D.key + ':m' };
+            // watching the other come, where the two end up facing; otherwise it holds still, or the place behind it
+            // or beside it would go round with it
+            if (!there && !lying && pl.headA != null) { D.yaw = Math.atan2(other.at[0] - me.at[0], other.at[1] - me.at[1]); meetLook = other; }
+          }
+          if (there) { since = ms.t0; seed = hash(bt.id + ':' + mt.key + ':' + ms.phase); }
+        } else {
+          const share = mt.on && A.on === mt.on ? perchById(L, look, mt.on) : null;
+          let tgt = ph.place === 'chase' ? A.at : pl.at;
+          if (share) tgt = intoBox(share.box, tgt, 0.12);
+          else if (ph.place !== 'chase') tgt = roomNearFree(L, tgt[0], tgt[1], 0.6) || tgt;
+          const there = ph.place === 'chase' || (dist(me.at, tgt) < 0.09 && !me.jump && (share ? me.on === share.id : !me.on));
+          if (ms.t0 == null && (ph.timed || there)) ms.t0 = now;
+          if (ms.t0 != null && ph.dur && now - ms.t0 > ph.dur * 1000) { ms.phase++; ms.t0 = null; }
+          D = { on: share ? share.id : null, perch: share, at: tgt, yaw: there ? pl.headB : null, near: ph.place === 'chase',
+            // (trotting over to somebody across the room, as a cat comes to say hello; walking up the last of it)
+            gait: mt.kind === 'play' ? (ph.place === 'chase' ? 'gallop' : 'trot') : ph.place === 'flee' || dist(me.at, tgt) > 1.4 ? 'trot' : 'walk',
+            act: there ? ph.b : 'stand', key: 'meet:' + mt.key + ':' + ms.phase };
+          if (ms.t0 != null) { since = ms.t0; seed = hash(bt.id + ':' + mt.key + ':' + ms.phase); }
+        }
+      }
     }
 
     // ── its state on this client ───────────────────────────────────────────────────────────────────
@@ -276,12 +474,39 @@ export function catsFrame(L, beasts, o) {
 
     // ── getting there ─────────────────────────────────────────────────────────────────────────────
     let moving = false, gait = D.gait || 'walk', leap = null;
-    const cur = A.on ? perchById(L, look, A.on) : null;
+    const cur = A.on ? perchById(L, look, A.on) : null, ku = unitsPerM(L), lsd = leftOf(L);
+    // how much top a pose takes, from its carve (or the nearest carve there is, until it's carved)
+    const footIn = (base) => { const b = bakes[base] || BASES.map((p) => bakes[p]).find(Boolean); return b ? footOf(b) : null; };
+    // up on a top: the part he can sit on, and how much of it he takes in the pose he'll settle in
+    const topNow = () => {
+      const p = A.on ? perchById(L, look, A.on) : null, F = p && footIn(CAT_CLIPS[D.act]?.base || 'stand');
+      return F ? { b: topBox(p, ku), F } : null;
+    };
+    // which way he faces once he's there: the way he's told, or his own way, turned along a top too narrow to sit across
+    const restWant = () => {
+      if (D.yaw != null) return D.yaw;
+      if (D.face) return headingTo(A.at, D.face);
+      if (beat || D.hold) return A.want;
+      const h = hash(D.key) * Math.PI * 2, T = topNow();
+      return T ? fitHeading(T.b, h, T.F, ku, lsd) : h;
+    };
+    // where he's first seen up on a top: square on it, all of him, facing the way he'll settle, from the first frame his
+    // carve is there (before that he isn't drawn at all)
+    if (!A.fitted && !A.jump) {
+      const T = A.on ? topNow() : null;
+      if (T) {
+        const h = restWant();
+        A.at = fitOnTop(T.b, A.at, h, T.F, ku, lsd); A.want = A.head = h; A.path = null;
+        A.dyn.turn.reset?.(h);
+        A.fitted = true;
+      } else if (!A.on) A.fitted = true;
+    }
     const startJump = (up, to, toY, on) => {
       const fromY = A.on && cur ? cur.top : (L.baseAt?.(A.at[0], A.at[1]) || 0);
       // from behind a chair's back (only when there's no other side to go from): the arc clears the top of the back
       const seat = up ? D.perch : cur, over = seat && behindBack(seat, up ? A.at : to) ? seat.backTop + 0.1 - (fromY + toY) / 2 : 0;
-      A.jump = { up, from: A.at.slice(), fromY, to, toY, on, t: 0, T: JUMP[up ? 'up' : 'down'], since: now, over: Math.max(0, over) };
+      const small = Math.abs(toY - fromY) < 0.15 * ku;
+      A.jump = { up, from: A.at.slice(), fromY, to, toY, on, t: 0, T: JUMP[small ? 'step' : up ? 'up' : 'down'], since: now, over: Math.max(0, over), small };
       A.want = headingTo(A.at, to);
     };
     // along a way (round the furniture on the floor; straight across a top), getting going and braking as a body does
@@ -306,15 +531,15 @@ export function catsFrame(L, beasts, o) {
       const J = A.jump, T = J.T;
       J.t += dt;
       const c = T.crouch, f = c + T.fly, e = f + T.land;
-      if (J.t < c) { leap = { part: 'crouch', s: J.t / c, up: J.up }; A.at = J.from.slice(); }
+      if (J.t < c) { leap = { part: 'crouch', s: J.t / c, up: J.up, small: J.small }; A.at = J.from.slice(); }
       else if (J.t < f) {
         const s = (J.t - c) / T.fly;
-        leap = { part: 'fly', s, up: J.up };
+        leap = { part: 'fly', s, up: J.up, small: J.small };
         A.at = [lerp(J.from[0], J.to[0], s), lerp(J.from[1], J.to[1], s)];
         A.flyY = lerp(J.fromY, J.toY, s) + 4 * Math.max(T.arc + (J.up ? 0.25 * Math.max(0, J.toY - J.fromY) : 0), J.over || 0) * s * (1 - s);
       } else {
         if (!J.landed) { J.landed = true; A.on = J.on; A.at = J.to.slice(); A.dyn.dip.kick(J.up ? -0.35 : -0.75); }
-        leap = { part: 'land', s: Math.min(1, (J.t - f) / T.land), up: J.up };
+        leap = { part: 'land', s: Math.min(1, (J.t - f) / T.land), up: J.up, small: J.small };
         if (J.t >= e) { A.jump = null; A.path = null; leap = null; }
       }
     } else if (!D.keep && (A.on || null) !== (D.on || null)) {
@@ -327,7 +552,11 @@ export function catsFrame(L, beasts, o) {
       } else if (A.on) A.on = null;
       else if (D.perch) {
         // up onto it: walk to the floor beside it, then the jump to its edge
-        if (A.leg?.key !== 'up:' + D.key) { const ap = approachOf(L, D.perch, A.at, D.at); A.leg = { key: 'up:' + D.key, ap, edge: edgeOf(D.perch, ap) }; }
+        // (landing far enough in that his back end is on it too, facing in from the edge)
+        if (A.leg?.key !== 'up:' + D.key) {
+          const ap = approachOf(L, D.perch, A.at, D.at), F = footIn('stand');
+          A.leg = { key: 'up:' + D.key, ap, edge: edgeOf(D.perch, ap, F ? Math.max(EDGE_IN, -F.z0 * ku) : EDGE_IN, topBox(D.perch, ku)) };
+        }
         if (!travel(A.leg.ap, false)) startJump(true, A.leg.edge, D.perch.top, D.on);
         else moving = true;
       }
@@ -337,14 +566,20 @@ export function catsFrame(L, beasts, o) {
         const d0 = dist(D.at, A.at);
         tgt = d0 > NEAR_M ? [D.at[0] + (A.at[0] - D.at[0]) / d0 * NEAR_M, D.at[1] + (A.at[1] - D.at[1]) / d0 * NEAR_M] : A.at;
       }
+      // on a top, the spot his whole body fits facing the way he'll settle (catPerchOf keeps only his root off the edge)
+      const T = A.on ? topNow() : null;
+      if (T) tgt = fitOnTop(T.b, tgt, restWant(), T.F, ku, lsd);
       moving = travel(tgt, !!A.on);
-      if (!moving && !A.arrived) { A.arrived = now; if (D.zoom) A.zk = (A.zk || 0) + 1; }
+      if (!moving && !A.arrived) { A.arrived = now; if (D.zoom) A.zk = (A.zk || 0) + 1; if (D.meetZoom) D.meetZoom.zk++; }
     }
     if (!moving && !A.jump) A.v = 0;
     // come up to somebody it was greeting: round their legs first, then sat waiting
     let act = D.act;
-    if (beat?.act === 'greet' && !moving) act = A.arrived && now - A.arrived < 4500 ? 'rub' : 'wait';
-    if (!moving && !A.jump) A.want = D.face ? headingTo(A.at, D.face) : beat || D.hold ? A.want : hash(D.key) * Math.PI * 2;
+    // (hungry, with his dish empty, it's not a stroke he's after: he sits there and demands)
+    if (beat?.act === 'greet' && !moving) act = A.arrived && now - A.arrived < 4500 ? 'rub' : beat.hungry ? 'demand' : 'wait';
+    if (!moving && !A.jump) A.want = restWant();
+    // and settled up there, never with any of him over its edge, whatever put him where he is
+    if (!moving && !A.jump && A.on && !D.keep) { const T = topNow(); if (T) A.at = fitOnTop(T.b, A.at, A.want, T.F, ku, lsd); }
     // its heading: turned through its own dynamics (quick and over a little for a quick cat, eased for a slow one)
     const head0 = A.head;
     A.head = A.dyn.turn.update(dt, A.want);
@@ -365,7 +600,8 @@ export function catsFrame(L, beasts, o) {
     const start = moving ? 0 : leap ? A.jump?.since ?? now : Math.max(since, A.arrived || since);
     const t = moving ? A.walkT : (now - start) / 1000;
     const R = bake.rig, sc = R.look.scale;
-    const f = clipFrame(R, useClip, t, { seed: Math.floor(seed * 1000), speed: moving ? A.v : undefined, leap, spot, side });
+    A.rig = R;
+    const f = clipFrame(R, useClip, t, { seed: Math.floor(seed * 1000), speed: moving ? A.v : undefined, leap, spot, side: side || meetSide, tailCarry: tailCarryOf(bt.nature) });
     {
       const base = CAT_CLIPS[useClip].base, fk = useClip + ':' + (spot || '');
       if (A.fk !== fk) {
@@ -440,7 +676,14 @@ export function catsFrame(L, beasts, o) {
       const w = o.whereIs?.(beat.who);
       if (w && (beat.act !== 'petted' || glance(beat.since, beat.spot))) lookAt = { at: w, y: beat.act === 'petted' ? 0.85 : 1.5 };
     }
-    else if (!bowl && !life.asleep && !A.jump && !moving && act !== 'groom' && act !== 'flank' && act !== 'scratch') {
+    // watching the other cat come over
+    else if (meetLook && !A.jump) lookAt = { at: meetLook.at, y: 0.22 };
+    // the slow blink is at somebody: whoever's nearest; demanding at his dish, he looks round at whoever ought to fill it
+    else if ((act === 'slowblink' || (act === 'demand' && bowl)) && !moving && !A.jump) {
+      const folk = (o.folk?.() || []).filter((x) => dist(x.at, A.at) < (act === 'demand' ? 6 : 4)).sort((x, y) => dist(x.at, A.at) - dist(y.at, A.at));
+      if (folk.length && (act === 'slowblink' || hash(bt.id + ':dl:' + Math.floor(now / 3000)) < 0.6)) lookAt = { at: folk[0].at, y: 1.45 };
+    }
+    else if (!mt && !bowl && !life.asleep && !A.jump && !moving && !['groom', 'flank', 'scratch', 'cello', 'hairball', 'shake', 'pee', 'poo'].includes(act)) {
       const slot = Math.floor(now / 7000 + hash(bt.id) * 3);
       if (hash(bt.id + ':attn:' + slot) < A.M.attention) {
         const folk = (o.folk?.() || []).filter((x) => dist(x.at, A.at) < 3.5);

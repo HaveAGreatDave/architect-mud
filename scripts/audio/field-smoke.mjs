@@ -13,6 +13,8 @@
 //     each weather and room recording a cue names exists
 //   • the engine: a sampled cue plays the recording when it's decoded and NOT the stand-ins, plays the
 //     stand-ins when it isn't, and a loop that started on its stand-ins changes over when it arrives
+//   • the crowds: each hockey and Deadball crowd cue's recording has cuts, and a take plays one of
+//     them over its synthesis, with the rest of the synthesis as the stand-in
 //
 // It asserts what was scheduled, never what it sounds like.
 import { readFileSync, readdirSync } from 'node:fs';
@@ -157,6 +159,28 @@ for (const d of BUILTINS) check(`${d.id} has its recording`, d.config.layers.som
   check('a call plays from its slice', cs && Math.abs(cs.offset - call.offset) < 1e-6, cs ? `${cs.offset}` : 'no source');
   check('and stops at its end', cs && cs.stopped != null && cs.stopped <= ctx.currentTime + call.length + 0.05);
   check('a positioned call goes through a panner', nodes.slice(n0).some((n) => n.kind === 'panner3d' || n.kind === 'panner'));
+}
+
+// ── the crowds ────────────────────────────────────────────────────────────────────────────────
+// Every crowd cue's `rec` is a recording with cuts, and the two beds' recordings are beds. A take
+// with the recordings handed in plays one cut, its synthesis under it, and the rest of the
+// synthesis as the stand-in, the two copies adding back to each layer as it was.
+{
+  if (!globalThis.HockeySfx) new Function(readFileSync(join(ROOT, 'client/shared/hockey-sfx.js'), 'utf8'))();
+  const H = globalThis.HockeySfx, B = await imp('client/shared/deadball-sfx.js');
+  H.useField({ fieldBed, fieldCall });
+  for (const key of ['crowd_arena', 'crowd_park']) check(`crowd bed ${key} is a bed`, !!fieldBed(key));
+  for (const [V, list] of [[H.variant, H.BUILTINS], [B.variant, B.BUILTINS]]) {
+    for (const d of list.filter((x) => x.rec)) {
+      check(`${d.id}: its recording ${d.rec.key} has cuts`, (FIELD[d.rec.key]?.slices?.length ?? 0) > 0);
+      const plain = V({ ...d, rec: undefined }, 77).config.layers, L = V(d, 77).config.layers;
+      const under = L.filter((l) => !l.sample && !l.alt), alt = L.filter((l) => l.alt);
+      check(`${d.id}: a take plays one cut`, L.filter((l) => l.sample).length === 1 && L[0].sample === FIELD[d.rec.key]?.id);
+      check(`${d.id}: its synthesis under it and as the stand-in`, under.length === plain.length && alt.length === plain.length
+        && plain.every((l, k) => Math.abs(under[k].gain + alt[k].gain - l.gain) < 1e-9));
+    }
+  }
+  H.useField(null);
 }
 
 done();

@@ -89,6 +89,38 @@ for (const id of cats) {
   }
 }
 
+// ── the breeds and the coats past white and tabby (gl/cat-breeds.js) ────────────────────────────────────────────
+// Every breed builds a rig with finite joints; and one coarse carve each of a colourpoint, a calico and a ticked coat
+// shows what the gene is for: dark points on a pale cat, the red and the black, and a speckle in the ground colour.
+{
+  const { BREEDS } = await import(pathToFileURL(resolve(ROOT, 'client/game/js/panels/gl/cat-breeds.js')).href);
+  for (const breed of Object.keys(BREEDS)) {
+    const R = K.catRig(K.catLook({ breed }));
+    check(R.bones.every((b) => b.j.every(Number.isFinite)) && R.ears.every((e) => e.E.lynxTip().every((s) => s.every((p) => p.every(Number.isFinite)))), `breed ${breed} builds a rig`);
+  }
+  const hues = (b) => {
+    const out = { dark: 0, pale: 0, red: 0, black: 0, spread: 0 }, lum = [];
+    for (let i = 0; i < b.verts; i += 3) {
+      const [r, g, bl] = [b.C[i * 3], b.C[i * 3 + 1], b.C[i * 3 + 2]], l = (r + g + bl) / 3;
+      if (!Number.isFinite(l)) return null;
+      if (l < 0.04) out.dark++; else if (l > 0.4) out.pale++;
+      if (r > 0.18 && r > 2.2 * bl) out.red++;
+      if (l < 0.02) out.black++;
+      lum.push(l);
+    }
+    const m = lum.reduce((s, x) => s + x, 0) / lum.length;
+    out.spread = Math.sqrt(lum.reduce((s, x) => s + (x - m) ** 2, 0) / lum.length) / m;
+    return out;
+  };
+  const point = hues(K.bakeCat(K.catLook({ breed: 'siamese' }), 'sit', { h: 0.016 }));
+  check(point && point.dark > 50 && point.pale > 200, `a colourpoint has dark points on a pale cat (${JSON.stringify(point)})`);
+  const calico = hues(K.bakeCat(K.catLook({ coat: { colour: 'calico', seed: 21 } }), 'sit', { h: 0.016 }));
+  check(calico && calico.red > 50 && calico.black > 50 && calico.pale > 50, `a calico shows red, black and white (${JSON.stringify(calico)})`);
+  const plain = hues(K.bakeCat(K.catLook({ coat: { base: '#94552e' } }), 'sit', { h: 0.016 }));
+  const ticked = hues(K.bakeCat(K.catLook({ breed: 'abyssinian' }), 'sit', { h: 0.016 }));
+  check(ticked && plain && ticked.spread > plain.spread * 1.5, `a ticked coat is speckled (spread ${ticked?.spread.toFixed(2)} against ${plain?.spread.toFixed(2)})`);
+}
+
 // ── the clips on the GPU's path (gl/cat-clips.js, gl/cat-gpu.js), for the first cat ──────────────────────────────
 // The GPU buffer skinned still is the carve; every clip at a few moments gives finite bones, keeps the cat in one
 // piece (nothing further than 60 cm from where it was carved, a gallop's reach) and nothing more than 3 cm under the

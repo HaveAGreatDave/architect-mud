@@ -2,6 +2,14 @@
   "description": "A steel pan behind a plywood partition gone soft at the bottom edge. The cistern fills slowly enough that there's an understood interval between one driver and the next.",
   "flags": {
     "aliases": "toilet,pan,bog,head,cistern",
+    "look": {
+      "arche": "toilet",
+      "form": "pan"
+    },
+    "spot": {
+      "along": 2.6,
+      "wall": "front"
+    },
     "water_source": true
   },
   "hp": null,

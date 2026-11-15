@@ -5,7 +5,7 @@
 **Vendor services stay in the engine** (stock, pricing, trust, restock). This plugin owns the verbs and the room rules.
 
 ## Commands
-- `shop` / `browse` — see what they have.
+- `shop` / `browse` — see what they have. Bare `shop` opens the one vendor in the room; `shop <counter>` opens the vendor who serves over a counter flagged `serves: <npcId>`.
 - `buy` / `sell` — the transaction.
 - `checkout` — settle unpaid goods.
 - `balance` — what you are carrying.
@@ -67,7 +67,7 @@ Goods pulled from a `vendor_stock` display cooler carry an **unpaid mark** (the 
 Hands off to the `storefront.buy_by_name` Action — player-owned shop displays — **before** refusing. That fallback is what lets player storefronts reuse the verb.
 
 ## Discovery gaps (known)
-`shop` / `browse` / `buy` / `sell` all target an on-scene vendor NPC, and NPC examine prints only talk and attack. They are discovered through the click-a-vendor shop panel and dialogue. `checkout` is the exception and **is** exposed — gated on a counter flagged `checkout: <npcId>`, and taught by the unpaid-goods line printed when you pull from a cooler.
+`browse` / `buy` / `sell` all target an on-scene vendor NPC, and NPC examine prints only talk and attack. They are discovered through the click-a-vendor shop panel and dialogue. `shop` is exposed on a counter flagged `serves: <npcId>`: `examine` lists it and the Room Stage's card on the counter sends it ([shop-interiors.md](../../docs/proposals/shop-interiors.md)). `checkout` is the other exception and **is** exposed — gated on a counter flagged `checkout: <npcId>`, and taught by the unpaid-goods line printed when you pull from a cooler.
 
 ## See also
 [docs/systems-economy.md](../../docs/systems-economy.md)

@@ -4,7 +4,20 @@
     "aliases": "cot,bunk,bed,third cot",
     "interactions": [
       "sleep"
-    ]
+    ],
+    "look": {
+      "arche": "bed",
+      "dims": [
+        0.85,
+        1.95,
+        0.5
+      ],
+      "form": "bed"
+    },
+    "spot": {
+      "along": 3.3,
+      "wall": "right"
+    }
   },
   "hp": 40,
   "hp_max": 40,

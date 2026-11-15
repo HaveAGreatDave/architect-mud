@@ -27,6 +27,7 @@ import { prefersTextMinigamesOrDefault } from '../../server/engine/presentation.
 import { emit } from '../../server/engine/events.js';
 import { getZonePrecip } from '../../server/engine/environment.js';
 import { takeFreshVehicle } from '../../server/engine/fresh-vehicle.js';
+import { bayKindOf, noteStandHand } from '../../server/engine/vehicle-stand.js';
 import { escapeHtml } from '../../server/engine/html.js';
 // `tune` also belongs to broadcast (tune a channel); flight wins it and hands
 // back when you're not tuning an aircraft. `repair` shadows the engine gear-repair
@@ -410,7 +411,13 @@ export async function pushHangarBay(player, selectId, opts = {}) {
   // hangar over a room that isn't one. `noop` because every caller here is a
   // command handler and null would read as an unhandled verb.
   if (player.current_zone !== askedFrom) return { type: 'noop' };
+  // a hangar room with a Room Stage and its tug (server/engine/vehicle-stand.js): a card offers Call it up, and the
+  // tug's panel lists what's parked here from this hand
+  const room = getZone(player.current_zone);
+  const stand = !!room?.flags?.room && bayKindOf(room) === 'aircraft';
+  if (stand) noteStandHand(player.id, room.id, craft.filter((c) => !c.wreck).map((c) => ({ id: c.id, name: c.tail })));
   sendToPlayer(player.id, { type: 'hangar_bay_open', data: {
+    stand,
     field: fieldName(field),
     // Tells the client whether "Close" also has to walk the player back out to
     // the ramp (standing inside the walk-in hangar) or just dismisses the panel

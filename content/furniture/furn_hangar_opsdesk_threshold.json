@@ -1,0 +1,29 @@
+{
+  "description": "A steel desk on castors under a bank of flight monitors: the weather, the ramp camera and a radar picture with nothing on it. A radio handset hangs off the side on its cord.",
+  "flags": {
+    "aliases": "ops desk,desk,monitors,radio,handset",
+    "look": {
+      "arche": "surface",
+      "dims": [
+        2.2,
+        0.8,
+        0.76
+      ],
+      "form": "desk"
+    },
+    "spot": {
+      "along": 12,
+      "wall": "left"
+    }
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_hangar_opsdesk_threshold",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "the ops desk",
+  "object_type": "fixture",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_hangar_threshold"
+}

@@ -1,0 +1,39 @@
+{
+  "description": "A plain steel desk with a logbook open on it and a pen laid across the page. The photograph hangs on the wall over it.",
+  "flags": {
+    "aliases": [
+      "desk",
+      "logbook",
+      "log",
+      "pen",
+      "photograph",
+      "photo"
+    ],
+    "interactions": [
+      "lean"
+    ],
+    "look": {
+      "arche": "surface",
+      "dims": [
+        1.3,
+        0.65,
+        0.76
+      ],
+      "form": "desk"
+    },
+    "spot": {
+      "along": 1,
+      "wall": "left"
+    }
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_consv_loft_desk",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "the gallery desk",
+  "object_type": "furniture",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_consv_loft"
+}

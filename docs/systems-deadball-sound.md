@@ -5,7 +5,7 @@ leather, the ball, the men running, the crowd, the park's air, the organ, the gr
 fireworks, and four voices (the arcade announcer's calls, the plate umpire, the public address and
 a vendor) under Chip Vega in the booth. Step 4f of [deadball-glass2.md](proposals/deadball-glass2.md).
 
-Everything is synthesised. There are no samples.
+Everything is synthesised but the crowd, whose recordings play over its synthesis.
 
 ## Where it lives
 
@@ -117,7 +117,17 @@ A fielder creeping in as the pitch comes (`field_ready_*`) is never heard, even 
   body, the spray and the grains), `db-collision`, `db-throw`.
 - **The park:** `db-horn`, `db-foghorn`, `db-lamp`.
 - **The crowd:** `db-crowd-swell`, `-cheer`, `-roar`, `-groan`, `-boo`, `-gasp`, `-ooh`, `-murmur`,
-  `-whistle`, `db-clap`, `db-towels`.
+  `-whistle`, `db-clap`, `db-towels`. The cheer, roar, boo and gasp are `crowd()` layer sets fitted to
+  recordings, as hockey's are ([systems-hockey-sound.md](systems-hockey-sound.md), K): half-octave
+  bands of pink noise solved so the spectrum matches, with a smoothed `rand` mod on each group's
+  level at the rate and depth the recording's level wanders, and the game's own timing. Average
+  distance from the recording across the third-octave bands, before and fitted: the cheer (a home
+  run at Target Field, bmadore) 4.7 and 2.8 dB, the roar (a sports crowd, FlatHill) 6.7 and 1.6, the
+  boo (a ballpark booing, bowlingballout) 7.5 and 1.9, the gasp (HowardV) 6.3 and 1.3. The
+  recordings are listed in [bibliography.md](reference/bibliography.md#crowd-recordings). The cheer,
+  roar and boo also play a hand-cut piece of a recording (`crowd_cheer`, `crowd_roar`,
+  `crowd_boo_park`) over their synthesis, which plays under it at -9 dB and stands in until it loads,
+  exactly as hockey's do (the doc's K says how).
 - **The hype:** `db-airhorn` (three driven reeds; driven layers normalise, so its gains are tiny),
   `db-hype-boom` (the videoboard), `db-drum-chant` (the bleachers' bass drum, two then three quick),
   `db-stomp` (the stands stamping, quickening), `db-hype-horn` (the home-run horn, a ship's horn
@@ -172,9 +182,15 @@ Each one calls `onHype(kind)`, and the grandstand puts the words on the videoboa
 
 ## The beds
 
-`crowdBed()` is hockey's crowd bed on a continuous level instead of named states: a rumble, two
-airy bands panned either side, three narrow voice bands, all pulsed by LFOs that never line up,
-under a 2.4 kHz lowpass. `setLevel(x)` goes up fast and down slowly. The mixer sets it each frame
+`crowdBed()` is hockey's crowd bed on a continuous level instead of named states: ten half-octave
+bands from 125 Hz to 2.8 kHz (`PARK_BANDS`), fitted to a ballpark between plays (bmadore, Target
+Field; 2.5 dB from the recording before, 0.8 fitted), the voices and the air panned either side, in
+three groups whose levels wander at random at the recording's rate and depth (`PARK_WANDER`), under
+a 2.4 kHz lowpass. The recording is a quiet inning, so the bands are as fitted at level 0.2 and
+`QUIET`/`LOUD` scale each group from there. Once `crowd_park` (twelve seconds of a ballpark between
+plays, cut clear of its PA and its nearby talk) has loaded, it loops beside the bands at its share of
+`LOUD`'s voices, through a 2.4 kHz lowpass, and the bands drop to -9 dB under it. `setLevel(x)` goes
+up fast and down slowly. The mixer sets it each frame
 from the louder side of the fans, with a floor of 0.12 (0.22 from the seventh inning in a game
 within two runs).
 

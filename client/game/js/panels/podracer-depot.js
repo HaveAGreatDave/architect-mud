@@ -135,6 +135,7 @@ function lotBody(d) {
     const inHand = r.inYard && !r.aboard;
     const why = ready ? '' : sub;
     const choice = inHand ? choiceHtml({
+      call: d.stand && ready ? { cmd: `callup ${r.id}`, title: 'Have it rolled out onto the floor, then climb in' } : null,
       deploy: ready ? { cmd, title: 'Climb in and drive straight out' } : { why },
       maint: ready ? { cmd, title: 'Climb in with the shed opened up around it' } : { why },
       sell: r.rental ? { hold: `podracer return ${r.id}`, title: 'Hand it back early, no refund' } : { hold: `podracer sell ${r.id}`, title: 'The yard buys it back' },

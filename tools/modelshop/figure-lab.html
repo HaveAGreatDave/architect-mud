@@ -140,6 +140,7 @@
     </fieldset>
     <fieldset><legend>View</legend>
       <label>level <select id="level"><option>hd</option><option>lite</option></select></label>
+      <label class="tick" title="the sculpted head about three times as fine through the face (actor-head.js HEAD_HD), hd level only"><input type="checkbox" id="faceHd"> face: hd</label>
       <label>people <input type="number" id="n" value="4" min="1" max="8" style="width:4em"></label>
       <label>seed <input type="number" id="seed" value="7" style="width:5em"></label>
       <label class="tick" title="The street's bake (the same clothes sampled coarsely) beside each person, to judge that the two read as one figure"><input type="checkbox" id="crowd"> crowd body beside</label>
@@ -326,7 +327,7 @@ function draw(now) {
   recs = recs.map((r, i) => {
     const g = $('gear').value, gear = g === 'none' ? { belt: false } : g === 'all' ? { belt: true, strap: true, pouch: true, pads: true, gloves: true } : r.key.gear;
     const mu = $('muts').value, body = mu === 'all' ? { mighty: 'R', thorn: true, horns: true, claws: true, teeth: true, goggles: true } : mu === 'none' ? null : r.key.body;
-    const key = { ...r.key, gear, body, ...(cut ? { cut: cut === 'each' ? EACH[(i + (+$('seed').value || 0)) % EACH.length] : cut } : {}), ...(hair !== '' ? { style: +hair } : {}), ...(wear ? { wear } : {}) };
+    const key = { ...r.key, gear, body, ...($('faceHd').checked ? { faceHd: true } : {}), ...(cut ? { cut: cut === 'each' ? EACH[(i + (+$('seed').value || 0)) % EACH.length] : cut } : {}), ...(hair !== '' ? { style: +hair } : {}), ...(wear ? { wear } : {}) };
     if (g) r = { ...r, gloves: g === 'all' };
     const face = r.face.slice(); face[2] = key.style;
     return { ...r, key, face };

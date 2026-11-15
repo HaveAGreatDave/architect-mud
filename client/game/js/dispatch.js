@@ -63,7 +63,7 @@ import { openCab, closeCab, cabContext, cabGalley, isCabActive } from './panels/
 import { openBoat, closeBoat, boatSetWorld, isBoatActive } from './panels/lazy-views.js';
 import { openPodracer, closePodracer, podracerSetWorld, isPodracerActive, isPodracerDepotActive, openPodracerDepot, closePodracerDepot, closePodracerBay } from './panels/lazy-views.js';
 import { openMarina, closeMarina, marinaSetData, isMarinaActive, openMarinaService, closeMarinaService } from './panels/lazy-views.js';
-import { openFreelook, closeFreelook, parkFreelook, warmFreelookReady, openUnderLook, closeUnderLook, isFreelookActive, freelookSetSky, freelookSetActors, freelookSetContacts, freelookStep, freelookTakeRoom, freelookInside } from './panels/lazy-views.js';
+import { openFreelook, closeFreelook, parkFreelook, warmFreelookReady, openUnderLook, closeUnderLook, isFreelookActive, freelookSetSky, freelookSetActors, freelookSetContacts, freelookStep, freelookTakeRoom, freelookInside, freelookPack, freelookPackDirty } from './panels/lazy-views.js';
 import { noteFirework, noteAAState, noteAAFire, noteVenueLit, noteVenueRoof, noteVenuePlay } from './panels/world-feed.js';
 import { airHorn, loadTv } from './panels/lazy-views.js';
 import { openTruckDepot, closeTruckDepot, closeBayService, isTruckDepotActive } from './panels/lazy-views.js';
@@ -399,12 +399,27 @@ function heard(html, scene = false) {
 }
 
 // The Room Stage (plugins/roomstage): a flat in first person, loaded the first time one opens.
-let roomMod = null;
+let roomMod = null, roomLoaded = null;
 // a card table's felt that came in while the Stage was being opened for it (poker_update)
 let pokerPending = null, pokerOpening = false;
 // how long after logging in the room's people start compiling, clear of the login's own loading
 const FIGURE_WARM_MS = 15000;
-const loadRoom = () => (roomMod ??= import('./panels/room-stage.js').catch((e) => { roomMod = null; throw e; }));
+const loadRoom = () => (roomMod ??= import('./panels/room-stage.js').then((m) => { roomLoaded = m; return m; }).catch((e) => { roomMod = null; throw e; }));
+// A seat takes the pane, and the Room Stage gives way to it: climbing into a vehicle you called up onto a depot's
+// floor (room-hoist.js) seats you in the same room, so no move closes the Stage the way walking out does. Not quiet:
+// it sends `room close`, so the server stops sending this room to somebody now in a seat.
+// ⚠ IN THE SAME TASK, BEFORE THE SEAT OPENS. Closing the Stage releases the seat ladder (pane:released), so a close
+// that landed after the seat had bound its own would strip the seat's. The Stage is up only once its module has
+// loaded, so `roomLoaded` is there whenever there's anything to close.
+function closeCounters() {
+  if (isTruckDepotActive()) closeTruckDepot();
+  if (isMarinaActive()) closeMarina();
+  if (isPodracerDepotActive()) closePodracerDepot();
+  if (isHangarBayActive()) closeHangarBay();
+}
+function stageGivesWay() {
+  if (document.getElementById('room-stage')) roomLoaded?.closeRoomStage();
+}
 const loadStands = () => (standsMod ??= Promise.all([import('./panels/stands.js'), loadTv()]).then(([m]) => m).catch((e) => { standsMod = null; throw e; }));
 
 // The background re-look, shared by every reason to repaint the room (a hit, somebody
@@ -1057,7 +1072,7 @@ const handlers = {
   // The server's canonical "your inventory changed" ping (emitted on
   // `inventory.changed`). No payload — the Kit app refetches itself, and only if it's
   // open, so this is free when the tablet is closed.
-  inventory_dirty: () => { refreshTabletGearIfOpen(); refreshWeaponChip(); roomMod?.then((m) => m.roomPackDirty()).catch(() => {}); },
+  inventory_dirty: () => { refreshTabletGearIfOpen(); refreshWeaponChip(); roomMod?.then((m) => m.roomPackDirty()).catch(() => {}); freelookPackDirty(); },
 
   use: (msg) => {
     appendHtml(msg.message, 'loot');
@@ -1353,7 +1368,8 @@ const handlers = {
   // The unified 3D hangar-bay app (flight/hangars.js pushHangarBay) — floor +
   // charter/buy-rent/maintenance sub-screens, replacing the old paint modal +
   // fleet carousel.
-  hangar_bay_open: (msg) => { openHangarBay(msg.data); },
+  // in a hangar's Room Stage the tug's panel is the counter (room-hoist.js); close the Stage for the screen
+  hangar_bay_open: (msg) => { if (msg.data?.stand && !msg.data.service && document.body.classList.contains('room-stage-on')) return; openHangarBay(msg.data); },
   charter_open: (msg) => { if (msg.message) appendHtml(msg.message, 'system'); openCharterScreen(msg.data); },
   // Fires when the player walks out of a walk-in hangar (server-side zone.entered
   // listener). closeHangarBay() only tears down JS state — it doesn't repaint the
@@ -1427,7 +1443,8 @@ const handlers = {
   stands_menu: (msg) => { if (msg.buy && document.getElementById('room-stage')) loadStands().then((m) => m.openStandsMenu(msg, { root: document.getElementById('room-stage') })).catch(() => {}); else standsMod?.then((m) => m.openStandsMenu(msg)).catch(() => {}); },
   room_avail: (msg) => setRoomButton({ avail: !!msg.on }),
   // one world: a room the street view on foot has drawn is walked into in GLASS (freelook-view.js freelookTakeRoom)
-  room_view: (msg) => { if (freelookTakeRoom(msg)) return; if (msg.vehicles && isTruckDepotActive()) closeTruckDepot(); setRoomButton({ open: true }); loadRoom().then((m) => { m.openRoomStage(msg); pokerOpening = false; if (pokerPending) { m.roomPokerPane(pokerPending); pokerPending = null; } }).catch((e) => { setRoomButton({ open: false }); console.error('[room]', e); }); },
+  // a depot room's Stage (one with a stand, room-hoist.js) takes the pane from its counter: Call it up opens it
+  room_view: (msg) => { if (freelookTakeRoom(msg)) return; if (msg.vehicles) closeCounters(); setRoomButton({ open: true }); loadRoom().then((m) => { m.openRoomStage(msg); pokerOpening = false; if (pokerPending) { m.roomPokerPane(pokerPending); pokerPending = null; } }).catch((e) => { setRoomButton({ open: false }); console.error('[room]', e); }); },
   room_ahead: (msg) => { roomMod?.then((m) => m.roomAhead?.(msg)).catch(() => {}); },
   room_piece: (msg) => { roomMod?.then((m) => m.roomPiece(msg)).catch(() => {}); },
   // how the arrange mode's Save went (plugins/roomstage arrangeLayout)
@@ -1437,8 +1454,8 @@ const handlers = {
   room_people: (msg) => { roomMod?.then((m) => m.roomPeople(msg)).catch(() => {}); },
   // a move on a chess table in the room (plugins/gametable `room.boards`)
   room_board: (msg) => { roomMod?.then((m) => m.roomBoard(msg)).catch(() => {}); },
-  // the Room Stage's Pack (room-pack.js): what you carry and wear, as plugins/roomstage pack.js sends it
-  room_pack: (msg) => { roomMod?.then((m) => m.roomPack(msg)).catch(() => {}); },
+  // the Pack (room-pack.js), in a room or on the street on foot: what you carry and wear, as plugins/roomstage pack.js sends it
+  room_pack: (msg) => { roomMod?.then((m) => m.roomPack(msg)).catch(() => {}); freelookPack(msg); },
   // how the locks on the room's doorways stand now (panels/room-lock.js)
   room_locks: (msg) => { roomMod?.then((m) => m.roomLocks(msg)).catch(() => {}); },
   // the shutters over a room's glass and the scene on them, changed from its control panel (plugins/envcontrol)
@@ -1709,7 +1726,7 @@ const handlers = {
   text_cockpit: (msg) => { updateTextCockpit(msg); },
   cabin_audio: (msg) => { cabinAudio(msg.audio); },   // walkable-cabin occupants HEAR the engines without the HUD taking over the room
   // Continuous cockpit (client-sim + server-reconcile) — the Mayfly slice.
-  flight_sim: (msg) => { openFlightSim(msg); },
+  flight_sim: (msg) => { stageGivesWay(); openFlightSim(msg); },
   // Echelon helm console — takes over the client like the flight sim. Engaging the telegraph fires
   // the real `sail`; the ✕/Esc exit closes it and re-looks so the room description comes back cleanly.
   // `sky` seeds the real sim weather field; `transitMs` restores the lock if opened mid-passage.
@@ -1834,12 +1851,12 @@ const handlers = {
   // in the console. It was harmless and it was also the loudest thing in there, which is worse than
   // it sounds: a warning that fires constantly is a warning nobody reads when it matters.
   noop: () => {},
-  truck_sim: (msg) => { closeTruckDepot(); openCab(msg); },
+  truck_sim: (msg) => { closeTruckDepot(); stageGivesWay(); openCab(msg); },
   // The water seat. Same shape as the cab's route above and for the same reason: `openBoat` writes
   // #area-content directly, so whatever owned the pane has to be told first.
   // ⚠ THE COUNTER GOES WHEN THE SEAT OPENS: both mount in #area-content, and a counter left 'open'
   // under a helm would redraw itself into the seat's own host on the next push.
-  boat_sim: (msg) => { closeTruckDepot(); closeMarina(); closeMarinaService(); openBoat({ ...msg, onSend: (c) => sendCmdSilent(c), onExit: () => sendCmdSilent('disembark') }); },
+  boat_sim: (msg) => { closeTruckDepot(); closeMarina(); closeMarinaService(); stageGivesWay(); openBoat({ ...msg, onSend: (c) => sendCmdSilent(c), onExit: () => sendCmdSilent('disembark') }); },
   boat_ctx: (msg) => boatSetWorld(msg),
   // A fill, on the same beat the credits move. ⚠ THE SAME ADOPTER AS THE WHOLE CONTEXT rather
   // than a second one: `boatSetWorld` already takes `fuel` off the server and only touches the
@@ -1848,7 +1865,7 @@ const handlers = {
   boat_fuel: (msg) => boatSetWorld(msg),
   boat_sim_close: () => { closeMarinaService(); closeBoat(); },
   // The podracer seat (plugins/podracer, podracer-view.js): the boat's three routes.
-  podracer_sim: (msg) => { closeTruckDepot(); closePodracerDepot(); openPodracer({ ...msg, onSend: (c) => sendCmdSilent(c) }); },
+  podracer_sim: (msg) => { closeTruckDepot(); closePodracerDepot(); stageGivesWay(); openPodracer({ ...msg, onSend: (c) => sendCmdSilent(c) }); },
   podracer_ctx: (msg) => podracerSetWorld(msg),
   podracer_sim_close: () => { closePodracerBay(); closePodracer(); },
   // The racer bay's counter (podracer-depot.js). A payload with `service` is the bay overlay and only
@@ -1856,6 +1873,8 @@ const handlers = {
   podracer_depot: (msg) => {
     if (msg.service) { if (isPodracerActive()) openPodracerDepot({ ...msg, onSend: (c) => sendCmdSilent(c) }); return; }
     if (isPodracerActive()) return;
+    // in the racer bay's Room Stage the dolly's panel is the counter (room-hoist.js); close the Stage for the screen
+    if (msg.stand && document.body.classList.contains('room-stage-on')) return;
     openPodracerDepot({ ...msg, onSend: (c) => sendCmdSilent(c) });
   },
   podracer_close: () => closePodracerDepot(),
@@ -1866,6 +1885,8 @@ const handlers = {
   marina: (msg) => {
     if (msg.service) { if (isBoatActive()) openMarinaService({ ...msg, onSend: (c) => sendCmdSilent(c) }); return; }
     if (isBoatActive()) return;
+    // in a covered slip's Room Stage the slip's panel is the counter (room-hoist.js); close the Stage for the screen
+    if (msg.stand && document.body.classList.contains('room-stage-on')) return;
     if (isMarinaActive()) marinaSetData(msg); else openMarina({ ...msg, onSend: (c) => sendCmdSilent(c) });
   },
   marina_close: () => { if (isMarinaActive()) closeMarina(); },

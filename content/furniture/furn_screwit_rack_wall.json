@@ -1,0 +1,30 @@
+{
+  "description": "Heavy racking along the wall for the solvents: blue drums, steel cans in crates and a spill tray under the lot that has been needed.",
+  "flags": {
+    "aliases": "solvent racking,solvents",
+    "look": {
+      "arche": "store",
+      "dims": [
+        4.6,
+        1,
+        3.2
+      ],
+      "form": "racking",
+      "stock": "chem"
+    },
+    "spot": {
+      "along": 6.2,
+      "wall": "right"
+    }
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_screwit_rack_wall",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "the solvent racking",
+  "object_type": "fixture",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_chemsupply_interior"
+}

@@ -2,6 +2,14 @@
   "description": "A steel pan in the corner behind a half-height partition that stops at the shoulder, which everybody has agreed to treat as a door. The cistern runs on for a while after it's used and then thinks better of it.",
   "flags": {
     "aliases": "toilet,pan,bog,head,cistern",
+    "look": {
+      "arche": "toilet",
+      "form": "pan"
+    },
+    "spot": {
+      "along": 2.6,
+      "wall": "front"
+    },
     "water_source": true
   },
   "hp": null,

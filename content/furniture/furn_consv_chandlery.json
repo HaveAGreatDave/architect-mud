@@ -1,0 +1,39 @@
+{
+  "description": "Steel shelving the length of the wall: shackles and thimbles in labelled drawers, fenders hung by size, line on drums by diameter, and boxed parts on the top shelf with the prices facing out.",
+  "flags": {
+    "aliases": [
+      "shelves",
+      "chandlery",
+      "shackles",
+      "thimbles",
+      "fenders",
+      "line",
+      "drums",
+      "parts",
+      "fuel cards"
+    ],
+    "look": {
+      "arche": "store",
+      "dims": [
+        4.6,
+        0.45,
+        2.1
+      ],
+      "form": "shelves"
+    },
+    "spot": {
+      "along": 4.6,
+      "wall": "left"
+    }
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_consv_chandlery",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "the chandlery shelves",
+  "object_type": "decoration",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_consv_counter"
+}

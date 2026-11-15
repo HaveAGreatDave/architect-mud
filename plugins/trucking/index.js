@@ -40,7 +40,8 @@ import { crossingChain, crossingDest, crossingInfo, voidGateOf, launchCrossing, 
 import { pushRoadWindow } from './mmroad.js';
 import { cmdRoadTest, roadTestTick, roadTestPark, roadTestImpact, isLicensedDriver, unlicensedLine } from './roadtest.js';
 import { registerDepotBrief } from './onboard.js';
-import { raise as hoistRaise, lower as hoistLower, taken as hoistTaken, liftAt, noteHand, roomVehicles } from './hoist.js';
+import { raise as hoistRaise, lower as hoistLower, taken as hoistTaken, liftAt, noteHand, roomVehicles, HOIST_MS } from './hoist.js';
+import { registerStandKind, noteCalled } from '../../server/engine/vehicle-stand.js';
 import { rentStock, rentFee, makeRental, activeRental, reclaimRental, sweepRentals, rentalExpired, isRental,
   rentalLeft, fmtLeft, RENT_TERM_MS } from './rental.js';
 import { stampIfMissing, serviceSheet, hornCatalogue, hornPrice, hornOf } from './service.js';
@@ -872,6 +873,8 @@ async function depotPanel(player, hereIn, depotIn, tab = 'fleet', forceText = fa
   const payload = {
     type: 'truck_depot',
     tab,
+    // the shed has a Room Stage with its lift: a card offers Call it up (server/engine/vehicle-stand.js)
+    stand: !!bay.flags?.room,
     // The truck just bought or hired here, which the counter offers to seat you in (depot-shell readyHtml).
     fresh: forceText ? null : takeFreshVehicle(player.id),
     depot: depot.name || here.name,
@@ -2765,9 +2768,18 @@ async function cmdHoist(args, raw, player) {
   const name = t.name || t.type.name;
   hoistRaise(stood.id, player.id, { truckId: t.id, name,
     variant: `${t.type_id}${editionSuffix(cd, t.type_id)}${fitSuffix(cd)}`, paint: paintOf(cd, t.type_id), grime: grimeOf(cd) });
+  noteCalled(player, stood.id);
   return say(`<span class="text-amber">A klaxon, a beacon, and the floor plate drops away. The ${name} comes up out of the garage on the lift.</span>`);
 }
 const isDepotRoom = (zoneId) => !!depotAt(getZone(zoneId));
+// The truck's kind of vehicle stand (server/engine/vehicle-stand.js): `callup` in a shed is `hoist`.
+registerStandKind('truck', {
+  isBay: (zone) => !!depotAt(zone), from: 'below', label: 'LIFT', moveMs: HOIST_MS,
+  board: (id) => `drive ${id}`,
+  // `callup back` is the lift's `hoist down`
+  call: (player, words) => { const w = /^(back|return)$/i.test(words.join(' ').trim()) ? ['down'] : words; return cmdHoist(w, w.join(' '), player); },
+  words: { noun: 'truck' },
+});
 
 export const commands = {
   hoist: cmdHoist,

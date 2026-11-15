@@ -1,0 +1,38 @@
+{
+  "description": "A low bed behind a curtain on a ceiling track, made up tight. A torch and a tide table are on the shelf at its head.",
+  "flags": {
+    "aliases": [
+      "bed",
+      "curtain",
+      "torch",
+      "tide table"
+    ],
+    "interactions": [
+      "sit",
+      "lie"
+    ],
+    "look": {
+      "arche": "bed",
+      "dims": [
+        1.4,
+        2.05,
+        0.5
+      ],
+      "form": "bed"
+    },
+    "spot": {
+      "along": 2.3,
+      "wall": "right"
+    }
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_consv_loft_bed",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "the gallery bed",
+  "object_type": "furniture",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_consv_loft"
+}

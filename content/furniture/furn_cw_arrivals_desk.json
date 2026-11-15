@@ -1,6 +1,24 @@
 {
   "description": "A curved desk in white laminate facing the doors, with a brass bell, a rack of folded city maps and a sign saying 'Welcome to Coldwater' in three languages. The chair behind it is pushed in.",
-  "flags": {},
+  "flags": {
+    "look": {
+      "arche": "surface",
+      "dims": [
+        3.2,
+        0.8,
+        1.05
+      ],
+      "form": "counter",
+      "wear": 0.3
+    },
+    "spot": {
+      "at": [
+        3,
+        9
+      ],
+      "turn": 0
+    }
+  },
   "hp": null,
   "hp_max": null,
   "id": "furn_cw_arrivals_desk",

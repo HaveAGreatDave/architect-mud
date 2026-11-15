@@ -29,7 +29,7 @@
 // baked flight world. Every verb the Stage sends goes nowhere here, so an en-suite is walked into by
 // answering its door. scripts/shapes/room-stage.mjs is what gates the meshes; this is a picture.
 import { roomSpecOf, withAnnex, annexFrame, layRows } from '/client/shared/room-layout.js';
-import { openRoomStage, closeRoomStage, roomOutlook, roomHere, roomSky, roomAhead, roomLocks, roomLockHack, roomGlass, roomPlumbing, roomSheets, _test, setArrangeHost, roomArranged, roomCatalog, roomPeople } from '/client/game/js/panels/room-stage.js';
+import { openRoomStage, closeRoomStage, roomOutlook, roomHere, roomSky, roomAhead, roomLocks, roomLockHack, roomGlass, roomPlumbing, roomSheets, _test, setArrangeHost, roomArranged, roomCatalog, roomPeople, roomVehicles } from '/client/game/js/panels/room-stage.js';
 
 const q = new URLSearchParams(location.search);
 const $ = (id) => document.getElementById(id);
@@ -81,7 +81,7 @@ async function open(_, via = null) {
   }
   // through a doorway the game keeps the Stage open and moves it (ui.cross); closing it here first hid what a crossing costs
   if (!via) closeRoomStage(true);
-  openRoomStage({ type: 'room_view', zone: id, here: id, name: d.zone.name, spec, ...(d.building ? { building: d.building.building } : {}), ...(d.lift ? { lift: d.lift } : {}), ...(via ? { via } : {}), ...(lockList(id, spec).length ? { locks: lockList(id, spec) } : {}), hasView: !!d.tile && $('glass').checked, mine: true, ...(q.get('admin') === '1' ? { admin: true } : {}), you: 'lab', pieces, people: [], beasts: window.__labBeasts || [], clock: { hour, hourMs: Date.now(), rate: 0 }, ...(window.__labExtra || {}) });
+  openRoomStage({ type: 'room_view', zone: id, here: id, name: d.zone.name, spec, ...(d.building ? { building: d.building.building } : {}), ...(d.lift ? { lift: d.lift } : {}), ...(via ? { via } : {}), ...(lockList(id, spec).length ? { locks: lockList(id, spec) } : {}), hasView: !!d.tile && $('glass').checked, mine: true, ...(q.get('admin') === '1' ? { admin: true } : {}), ...(window.__labVehicles ? { vehicles: window.__labVehicles } : {}), you: 'lab', pieces, people: [], beasts: window.__labBeasts || [], clock: { hour, hourMs: Date.now(), rate: 0 }, ...(window.__labExtra || {}) });
   const own = Number(d.zone.flags?.room?.face), dir = Object.keys(d.zone.exits || {}).find((k) => BEARING[k] !== undefined);
   // a room on a building's walk is placed as the plugin places it (frameOf): where it stands and how high, so the
   // lobby's window is at street level and not a fraction of the way up the tower
@@ -154,6 +154,15 @@ window.__labHack = (to, { skill = 5, difficulty = 5 } = {}) => roomLockHack({ do
 // __labRide('zone_solenne_residences'), then __labVia('zone_solenne_residences') to step out
 window.__labRide = async (floorZone) => { window.__labParked = floorZone; await open(null, floorZone); };
 window.__labHere = (here) => roomHere({ zone: $('zone').value, here });
+// A depot room's stand as the vehicle plugins send it (server/engine/vehicle-stand.js standVehicles): set __labVehicles before
+// opening, or call one out with __labStand('aircraft', { cls: 'prop', livery: {} }) and send it back with __labStand(null).
+// The key beside it sends its verb to the log here (`board`), since there's no server to seat you
+window.__labStand = (kind, look = null, { age = 0, down = null, name = 'Test', board = 'drive lab' } = {}) => {
+  const v = kind ? { kind, moveMs: 9000, from: null, label: { truck: 'LIFT', aircraft: 'TUG', boat: 'SLIP', podracer: 'DOLLY' }[kind] || 'BAY', call: 'callup', back: 'callup back', mine: [],
+    lift: look ? { id: 'lab_v', name, look, mine: true, board, age, ...(down != null ? { down } : {}) } : null } : null;
+  window.__labVehicles = v;
+  roomVehicles({ zone: $('zone').value, vehicles: v });
+};
 // beasts in the room as plugins/roomstage sends them (a pet: { id, name, cat, nature, beat }); set __labBeasts before opening,
 // or send a change (a beat) with __labBeast
 window.__labBeast = (beasts) => { window.__labBeasts = beasts; roomPeople({ zone: $('zone').value, people: [], beasts }); };

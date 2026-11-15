@@ -14,6 +14,9 @@
 //   • a listener closing on a still source raises its pitch
 //   • HRTF stops at the cap and the rest are equal-power; 'stereo' mode is a stereo pan
 //   • `doppler: false` builds no doppler source; closing a voice gives its HRTF slot back
+//   • an ORACLE line with a `position` goes out only through its panner (a PA horn too), with no
+//     doppler; it moves with move(), turns with the listener, is never placed on Read Aloud, and
+//     closes its panner when cancelled or said
 import { loadEngine, tally } from './stub-context.mjs';
 
 const { check, done } = tally('audio:spatial');
@@ -152,6 +155,50 @@ const last = (param) => { const l = param.log[param.log.length - 1]; return l ? 
   check("'stereo' builds no 3D panner", !made.some(n => n.kind === 'panner3d'));
   check("'stereo' pans the source right", made.some(n => n.kind === 'panner' && n.pan.log[0]?.value > 0.5));
   check("'stereo' has no doppler", !made.some(n => n.kind === 'constant'));
+}
+
+// ── ORACLE, placed (docs/systems-procedural-audio.md#oracle-in-3d) ─────────
+{
+  const { A, ctx, nodes, timers } = loadEngine();
+  const G = A._graph();
+  A.setListenerPose(NORTH);
+  const speakMade = (text, opt) => { const from = nodes.length; const res = A.speak(text, opt); return { res, made: nodes.slice(from) }; };
+  // every edge out of the line's own nodes into something that isn't one of them
+  const exits = (made) => { const own = new Set(made); return made.flatMap(n => n.out.filter(e => e.dst?.kind && !own.has(e.dst)).map(e => ({ from: n, dst: e.dst }))); };
+
+  const plain = speakMade('Evening.', { channel: 'npc', seed: 'Marla Venn' });
+  check('an unplaced line builds no 3D panner', plain.res && !plain.made.some(n => n.kind === 'panner3d'));
+  check('an unplaced line has no move()', plain.res && !plain.res.move);
+
+  ctx.currentTime = 10;
+  const left = speakMade('Over here.', { channel: 'npc', seed: 'Marla Venn', position: [-3, 2, 1.6], ref: 1.5, rolloff: 0.6 });
+  const pan = left.made.find(n => n.kind === 'panner3d');
+  check('a placed line builds a 3D panner', !!pan);
+  check('with no doppler source', !left.made.some(n => n.kind === 'constant'));
+  check('it takes the ref and rolloff it was given', pan && pan.refDistance === 1.5 && pan.rolloffFactor === 0.6);
+  check('the panner feeds the tv voice sub-gain', pan && pan.out.some(e => e.dst === G.tvVoice));
+  const ex = exits(left.made);
+  check('the voice leaves only through its panner', ex.length > 0 && ex.every(e => e.from === pan), ex.map(e => `${e.from.kind}->${e.dst.kind}`).join(','));
+  check('a speaker to the left is heard on the left', pan && pan.positionX.value < 0 && pan.positionZ.value < 0, `${pan?.positionX.value},${pan?.positionZ.value}`);
+  check('a placed line has move() and state()', typeof left.res?.move === 'function' && typeof left.res?.state === 'function');
+  left.res.move([3, 0, 1.6]);
+  check('moving the speaker to the right moves the voice there', last(pan.positionX) > 0 && left.res.state().rel[0] > 0, String(last(pan.positionX)));
+  A.setListenerPose({ ...NORTH, fwd: [1, 0, 0] });
+  check('turning to face them brings the voice in front', Math.abs(left.res.state().rel[0]) < 1e-6 && left.res.state().rel[2] > 0, JSON.stringify(left.res.state().rel));
+
+  const pa = speakMade('Attention, please.', { channel: 'npc', seed: 'Station PA', pa: true, position: [0, 6, 2] });
+  const paPan = pa.made.find(n => n.kind === 'panner3d'), paEx = exits(pa.made);
+  check("a placed PA line's horn and slaps all go through its panner", !!paPan && paEx.length > 0 && paEx.every(e => e.from === paPan), paEx.map(e => `${e.from.kind}->${e.dst.kind}`).join(','));
+
+  const ui = speakMade('You see a door.', { channel: 'ui', seed: 'reader', position: [5, 0, 0] });
+  check('Read Aloud is never placed', ui.res && !ui.made.some(n => n.kind === 'panner3d') && !ui.res.move);
+
+  check('a line that replaces a placed line closes its panner', left.res.state().closed && !pa.res.state().closed);
+  A.cancelSpeech('npc');
+  check('a cancelled placed line closes its panner', pa.res.state().closed && A._spatialStats().live === 0, String(A._spatialStats().live));
+  const done1 = speakMade('One more thing.', { channel: 'npc', seed: 'Marla Venn', position: [1, 1, 1.6] });
+  for (const t of timers.splice(0)) t.fn();
+  check('a placed line closes its panner once it has been said', done1.res.state().closed && A._spatialStats().live === 0, String(A._spatialStats().live));
 }
 
 done();

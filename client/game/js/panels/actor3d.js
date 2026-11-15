@@ -2351,19 +2351,42 @@ export function actorBake({ head = false } = {}) {
 }
 // A clip's pose at `phase` as skin matrices, one a bone (column-major 4×4, bind space to the clip's
 // own, the walk's root surge in but not the drop to the ground): for a figure posed on the CPU and
-// skinned on the GPU (gl/room-people.js figurePeople). `name` is an ACTOR_CLIPS name.
+// skinned on the GPU (gl/room-people.js figurePeople). `name` is an ACTOR_CLIPS, ACTOR_ROOM_CLIPS or
+// ACTOR_FAN_CLIPS name (the stands' close-up fans, gl/crowd-hd.js, play the fans' own clips).
+const clipNamed = (name) => CLIPS.find((c) => c.name === name) || ROOM_CLIPS.find((c) => c.name === name) || FAN_CLIPS.find((c) => c.name === name) || CLIPS[1];
+// a clip's phase: a loop's wrapped, a fan clip played by a value (fanRise) held between 0 and 1
+const phaseIn = (clip, ph) => (clip.k ? Math.min(1, Math.max(0, ph)) : ((ph % 1) + 1) % 1);
 export function actorSkinAt(name, phase) {
-  const clip = CLIPS.find((c) => c.name === name) || ROOM_CLIPS.find((c) => c.name === name) || CLIPS[1];
+  const clip = clipNamed(name);
   if (clip.walk) solveRoot(clip);
-  const ph = ((phase % 1) + 1) % 1, pose = clip.fn(ph);
+  const ph = phaseIn(clip, phase), pose = clip.fn(ph);
   if (clip.surge) pose.root[2] += clip.surge(ph);
   return skinMats(fk(pose));
+}
+
+// Several clips at once, each by its weight ([[name, phase, weight], …]), mixed on the pose as actorSkinMix
+// mixes two: what a fan in the stands is doing, sat, getting up and cheering at once as gl/crowd.js FAN_GLSL
+// mixes his baked frames. None may be the walk.
+export function actorSkinBlend(list) {
+  const P = newPose();
+  let sum = 0;
+  for (const [name, ph, w] of list) {
+    if (!(w > 0.001)) continue;
+    const clip = clipNamed(name), A = clip.fn(phaseIn(clip, ph));
+    for (let i = 0; i < P.r.length; i++) P.r[i] += A.r[i] * w;
+    for (let i = 0; i < 3; i++) P.root[i] += A.root[i] * w;
+    sum += w;
+  }
+  if (!(sum > 0)) return actorSkinAt('idle', 0);
+  for (let i = 0; i < P.r.length; i++) P.r[i] /= sum;
+  for (let i = 0; i < 3; i++) P.root[i] /= sum;
+  return skinMats(fk(P));
 }
 
 // Two clips part-way from one to the other, mixed on the pose, not the matrices, so an arm swings round
 // rather than cutting through the body. Neither may be the walk.
 export function actorSkinMix(a, pa, b, pb, k) {
-  const pose = (name, ph) => (CLIPS.find((c) => c.name === name) || ROOM_CLIPS.find((c) => c.name === name) || CLIPS[1]).fn(((ph % 1) + 1) % 1);
+  const pose = (name, ph) => { const clip = clipNamed(name); return clip.fn(phaseIn(clip, ph)); };
   const A = pose(a, pa), Bp = pose(b, pb), P = newPose();
   for (let i = 0; i < P.r.length; i++) P.r[i] = A.r[i] + (Bp.r[i] - A.r[i]) * k;
   P.root = A.root.map((v, i) => v + (Bp.root[i] - v) * k);

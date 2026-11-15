@@ -341,7 +341,11 @@ lives in the `Speech` IIFE in `client/shared/audio-engine.js`.
     initialisms stress the last letter (dee-em-**VEE**) and the guesser can't know.
 - **Prosody.** Declination, per-vowel lilt keyed to real stress, pre-boundary
   lengthening (1.22× on the last sound before a pause), and a **terminal rise on
-  `?`** with declination flattened to 45 % for the whole phrase.
+  `?`** with declination flattened to 45 % for the whole phrase. A question that
+  opens with a wh-word ("Where are you going?") ends on `_QW` instead of `_Q` and
+  falls like a statement (`whQuestion` in `textToPhonemes`). An echo question ("You
+  went where?"), a bare "What?" and a "What, ..." cut off by a comma still rise, and
+  a leading "and", "so" or "well" doesn't count. Neither kind creaks.
 - **Aperiodic jitter + shimmer.** One LFO on F0 is *vibrato*, which reads as a
   synthesiser holding a note. Two at 9 Hz and 6.3 Hz beat and never repeat inside
   a phrase; shimmer (5.1 Hz on master gain) is the amplitude half.
@@ -402,6 +406,43 @@ lives in the `Speech` IIFE in `client/shared/audio-engine.js`.
 > lookahead past the end of a word reads as a vowel unless guarded. That is what made
 > *cyd*, *gym* and *myth* look like open syllables; `isV` now rejects the empty
 > string. Any new rule doing `at(i+n)` arithmetic has the same hazard.
+
+> **Latin endings and hyphens (2026-11-15).** `scripts/voice/suspects.mjs` found 84
+> guessed words wrong on their face, and most were two patterns. An `i` before
+> another vowel was read short, so it and the next vowel reduced to two schwas:
+> *fascia* was F AE S AX AX and *aurelia* AX R EH L AX AX. Now an `i` before a vowel
+> (or before `y` and a vowel) is `IY`, a final *-cia*, *-tia* or *-cious* is `SH AX`,
+> *-ous* is `AX S`, and the syllable before *-ia*, *-ius*, *-ium* or *-io* takes the
+> stress. A medial `y` before a vowel is the glide after a vowel (*Priya*, *Onyeka*)
+> and `/aɪ/` after a consonant (*cyan*, *untying*). The other pattern was hyphens: a
+> hyphenated run (*steel-toed*, *fifteen-year-old*) reached the guesser as one long
+> word. `pronounceWordRaw` now says each part in turn once the whole run misses the
+> lexicon, and reads *re-*, *pre-*, *de-* and *co-* before a hyphen as prefixes
+> (`HYPHEN_PREFIX`), since the lexicon's *re* is the note. That left 52 suspects, and
+> most of those are initialisms and silent *e*s the report miscounts. Each part keeps
+> its own stress, so the nucleus goes on the first stressed part; *fifteen-year-OLD*
+> would want the last.
+
+> **Homographs (2026-11-15).** The lexicon keeps one pronunciation a word, and for
+> some of the commonest in the broadcasts it was the wrong one: *read* was always
+> "red" (77 times in the `.bsm` scripts), *lead* always the metal (51, most of them
+> a team's lead), *wind* always "wined" (57, nearly all weather), *live* always
+> "lyve" (102), *record*, *subject* and *suspect* always the verb. `homograph()` in
+> `textToPhonemes` now picks by the word before and the word after, with null at a
+> phrase edge: *she read* and *has read* are the past, *take the lead* is "leed" and
+> *a lead pipe* the metal, *the wind* is the noun and *wind it up* the verb, *we're
+> live* and *live from* are "lyve" and *weeks to live* is "liv". Twenty-five
+> noun/verb pairs that move the stress (*REcord*/*reCORD*, *SUBject*, *PERmit*,
+> *CONtract*...) take the verb after a verb cue (*to*, a modal, *don't*, a subject
+> pronoun) and the noun otherwise, and their -s forms take the verb after *he*,
+> *she*, *it* or *who*. A book's `lex` entry still wins. The same function picks a
+> hyphen's parts, where a prefix counts as *to* (*re-record*). It reads neighbours,
+> not grammar, so it will be wrong on lines that need a parse ("the records she
+> keeps" is fine, "I read it yesterday" says "reed").
+>
+> Curly apostrophes inside a word (`don’t`, 534 of them in the `.bsm` scripts) used
+> to miss the contraction table: *don’t* came out "dahnt". `textToPhonemes` turns
+> one between two letters into a plain apostrophe first.
 
 > **Shouting is three cases, not two.** The first version had only "this word is
 > emphatic" and "ignore", and put a wholly-capitalised line in the ignore bucket so
@@ -540,6 +581,28 @@ lives in the `Speech` IIFE in `client/shared/audio-engine.js`.
 > 9 kHz lowpass then removes the "air" above where English fricatives carry any
 > contrast at all. `setNoiseBand()` drives both bandpasses so they can never drift
 > apart and stop describing the same band.
+
+> **One band was every fricative's shape (2026-11-15).** With only the band, `/f/`
+> and `/s/` differed in where it sat and how narrow it was. Klatt's synthesiser sends
+> `/f v θ ð/` through a flat bypass, `/s z/` through one high peak, and `/ʃ ʒ/`
+> through a peak at F3 with energy carried on above it. Each fricative now has `fl`,
+> the share of its noise that goes through a flat path (the same noise through a 2.5
+> kHz high-pass, `FRIC_FLAT_HZ`) beside the band: 0.85 for `/f v/`, 0.75 for `/θ ð/`,
+> 0.4 for `/ʃ ʒ tʃ dʒ/`, 0.05 for `/s z/`, and 0.5 for the `/p b/` burst, which has
+> no cavity in front of it to ring. `fricMix` works out the two gains from the
+> filters' responses on pink noise so the mix is as loud as the band alone was, and
+> each `ng` set by ear still holds: measured in the worklet, every fricative's level
+> moved by under a decibel. `/ʃ/`'s 6.5 to 9 kHz band rose 9 dB and `/f/` is flat
+> within 4 dB from 2 to 9 kHz. The band also scales with the speaker's `fshift` now,
+> as the formants do, so a smaller voice's `/s/` is higher (a 1.22 voice's centroid
+> is about 6.3 kHz, a 0.93 voice's 4.9 kHz). The worklet takes the mix as two tracks,
+> `fb` and `ff`.
+>
+> In the worklet a voiced fricative's noise is also **pulsed at F0**, as aspiration
+> already was: the airflow through the constriction rises and falls with the
+> glottis, so `/z/` buzzes instead of being a hiss over a hum. It drops by
+> `WK.fricPulse` (0.6) in the closed phase whenever voicing is on, scaled by
+> `natural`. The node graph can't do this.
 
 > **Breath is now per-voice, not per-everyone.** It was `r()*0.02` — a uniform roll,
 > so *nobody* drew zero and the entire cast whispered a little all the time, which
@@ -697,8 +760,9 @@ better-chosen vowel. The marks are heard through the accent shapes below.
   (`nucKind`). Before a full stop, `!`, ellipsis or the end of the line it's a fall
   (H\* L): the vowel goes up 1.6 `lilt`, then falls through its back half to 1 `lilt`
   below, and the rest of the phrase stays down. Before a comma, colon, dash or `_M` it
-  only falls to 0.3 below, and the boundary tone lifts it again. In a question it's
-  low (L\*, 0.6 below), and the question's rise does the rest.
+  only falls to 0.3 below, and the boundary tone lifts it again. In a yes/no question
+  it's low (L\*, 0.6 below), and the question's rise does the rest. A wh-question
+  (`_QW`) is a terminal like a full stop, so its nucleus falls.
 - **Prenuclear accents** (the other `'*'` vowels) peak at 1.15 `lilt`, and each one in
   the phrase is 0.6 of the one before (downstep). The nucleus is downstepped once if
   any came before it. Every break, `_M` included, starts the count again.
@@ -826,7 +890,8 @@ default, in the game too, is the worklet in
 [`client/shared/oracle-worklet.js`](../client/shared/oracle-worklet.js): a
 Liljencrants-Fant glottal pulse built per cycle (open quotient, return phase, jitter and
 shimmer drawn per period), a Klatt cascade of five resonators for voicing and
-aspiration, a parallel band for frication and bursts, and a nasal pole-zero pair.
+aspiration, a parallel band and flat path for frication and bursts (pulsed at F0
+under voicing), and a nasal pole-zero pair.
 The engine loads it when the audio context is made. The node graph speaks until it has
 loaded, where there's no AudioWorklet, after a node fails to build or crashes, and for
 `speak(text, { backend: 'graph' })`. The result's `backend` says which ran.

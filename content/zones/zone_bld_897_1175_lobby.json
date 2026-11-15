@@ -23,6 +23,293 @@
     "is_building": true,
     "is_interior": true,
     "lawless": true,
+    "room": {
+      "balcony": false,
+      "d": 24,
+      "decor": {
+        "doors": [
+          {
+            "at": -9,
+            "finish": "steel",
+            "label": "Stairs",
+            "w": 0.95,
+            "wall": "back"
+          }
+        ],
+        "drops": [
+          {
+            "along": 2,
+            "n": 3,
+            "r": 0.03,
+            "wall": "right"
+          }
+        ],
+        "grates": [
+          [
+            0,
+            11.5,
+            6,
+            0.4
+          ]
+        ],
+        "lamps": [
+          {
+            "along": -8.8,
+            "hex": "#ff8a1a",
+            "wall": "front",
+            "y": 3.4
+          }
+        ],
+        "litter": [
+          {
+            "at": [
+              -12.2,
+              4.2
+            ],
+            "n": 40,
+            "r": [
+              0.6,
+              1.1
+            ],
+            "seed": 7
+          },
+          {
+            "at": [
+              10.6,
+              5
+            ],
+            "n": 30,
+            "r": [
+              1.4,
+              1
+            ],
+            "seed": 11
+          }
+        ],
+        "paint": [
+          {
+            "kind": "hazard",
+            "rect": [
+              -9,
+              9,
+              2.5,
+              20.5
+            ],
+            "t": 0.14
+          },
+          {
+            "from": [
+              0,
+              0.3
+            ],
+            "hex": "#a8902a",
+            "kind": "line",
+            "t": 0.1,
+            "to": [
+              0,
+              2.5
+            ]
+          }
+        ],
+        "pendants": [
+          {
+            "at": [
+              -11.6,
+              8
+            ],
+            "k": 0.9,
+            "kind": "school",
+            "tint": [
+              1.12,
+              0.96,
+              0.78
+            ],
+            "y": 2.3
+          },
+          {
+            "at": [
+              11,
+              3
+            ],
+            "k": 0.8,
+            "kind": "school",
+            "tint": [
+              1.12,
+              0.96,
+              0.78
+            ],
+            "y": 2.2
+          }
+        ],
+        "pipes": [
+          {
+            "from": [
+              -13,
+              6,
+              6.6
+            ],
+            "hex": "#4a5056",
+            "r": 0.11,
+            "to": [
+              13,
+              6,
+              6.6
+            ]
+          },
+          {
+            "from": [
+              -13,
+              12,
+              6.6
+            ],
+            "hex": "#4a5056",
+            "r": 0.11,
+            "to": [
+              13,
+              12,
+              6.6
+            ]
+          },
+          {
+            "from": [
+              -13,
+              18,
+              6.6
+            ],
+            "hex": "#4a5056",
+            "r": 0.11,
+            "to": [
+              13,
+              18,
+              6.6
+            ]
+          }
+        ],
+        "rug": false,
+        "screens": [
+          {
+            "along": 2.4,
+            "h": 0.36,
+            "show": "status",
+            "w": 0.55,
+            "wall": "right",
+            "y": 1.5
+          }
+        ],
+        "signs": [
+          {
+            "along": 5.6,
+            "h": 0.11,
+            "hex": "#1a1a1a",
+            "plateHex": "#a8865a",
+            "text": "No manifests",
+            "wall": "right",
+            "y": 2.25
+          },
+          {
+            "along": 5.6,
+            "h": 0.11,
+            "hex": "#a01818",
+            "plateHex": "#a8865a",
+            "text": "No questions",
+            "wall": "right",
+            "y": 1.95
+          },
+          {
+            "along": 5.6,
+            "h": 0.11,
+            "hex": "#1a3a8a",
+            "plateHex": "#a8865a",
+            "text": "Cash on the skid",
+            "wall": "right",
+            "y": 1.65
+          },
+          {
+            "along": 14,
+            "h": 0.05,
+            "hex": "#1a1a1a",
+            "plateHex": "#c8b48a",
+            "text": "Cash on the skid",
+            "wall": "left",
+            "y": 1.55
+          },
+          {
+            "along": 4.2,
+            "h": 0.08,
+            "hex": "#ffffff",
+            "plateHex": "#8a1a14",
+            "text": "No smoking",
+            "wall": "left",
+            "y": 2.2
+          }
+        ],
+        "strips": [
+          {
+            "at": [
+              -6,
+              6
+            ],
+            "cage": true
+          },
+          {
+            "at": [
+              -6,
+              16
+            ],
+            "cage": true
+          },
+          {
+            "at": [
+              6,
+              6
+            ],
+            "cage": true
+          },
+          {
+            "at": [
+              6,
+              16
+            ],
+            "cage": true
+          },
+          {
+            "along": "u",
+            "at": [
+              0,
+              21.5
+            ],
+            "len": 2.4
+          }
+        ]
+      },
+      "doors": {
+        "west": -10.5
+      },
+      "face": 270,
+      "finish": "plain",
+      "ground": "concrete",
+      "h": 7,
+      "stand": {
+        "at": [
+          0,
+          11.5
+        ],
+        "face": "front",
+        "from": "front",
+        "kind": "aircraft",
+        "len": 18,
+        "wid": 18
+      },
+      "studio": false,
+      "tone": {
+        "accent": "#b8862a",
+        "ceiling": "#2a2826",
+        "trim": "#1e1c1a",
+        "wall": "#4a4640"
+      },
+      "w": 26,
+      "windowless": true
+    },
     "window": {
       "description": "A full-height pane onto the street, kept just clean enough to trade through. Whatever the weather is doing out there, it's doing it in plain view.",
       "light": 0.85,

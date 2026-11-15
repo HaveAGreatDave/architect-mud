@@ -1,6 +1,20 @@
 {
   "description": "A hatch in the wall with a roller blind pulled down. A card taped to the blind reads BACK IN 10 MINUTES.",
-  "flags": {},
+  "flags": {
+    "look": {
+      "arche": "cabinet",
+      "dims": [
+        1.2,
+        0.3,
+        0.6
+      ],
+      "form": "cupboard"
+    },
+    "spot": {
+      "along": 12,
+      "wall": "right"
+    }
+  },
   "hp": null,
   "hp_max": null,
   "id": "furn_cw_lost_property",

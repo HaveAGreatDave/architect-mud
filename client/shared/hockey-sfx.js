@@ -93,7 +93,8 @@
     const reach = Math.max(...layers.map((l) => (l.delay ?? 0) + l.adsr.a + l.adsr.d));
     const config = { duration: o.hold ?? +(reach * 0.25).toFixed(4), layers };
     if (o.retro !== false) config.retro = o.retro || CART;
-    return { id, name, group: 'hockey', category: o.category || 'sfx', priority, vary: o.vary || IMPACT, config };
+    // `rec`: { key, lufs } a field recording each take plays a cut of (variant(), below)
+    return { id, name, group: 'hockey', category: o.category || 'sfx', priority, vary: o.vary || IMPACT, config, ...(o.rec ? { rec: o.rec } : {}) };
   }
 
   // ═══ A. PUCK ON STICK ════════════════════════════════════════════════════════
@@ -210,20 +211,42 @@
   ];
 
   // ═══ K. CROWD ONE-SHOTS ══════════════════════════════════════════════════════
-  // Procedural textures, not samples: bands of noise and a vowel-ish resonant band. The bed
-  // under them is crowdBed() below, and its gasp() and cheer() dip or lift the bed around
-  // these, so the reaction comes out of the crowd rather than over it.
-  const gasp = () => [
-    noise({ hz: 1100, q: 0.9, to: 1700, sweep: 0.12, linear: true, a: 0.045, d: 0.12, s: 0.35, r: 0.22, gain: 0.16 }),
-    noise({ hz: 620, q: 4.5, to: 860, sweep: 0.15, linear: true, a: 0.06, d: 0.14, s: 0.3, r: 0.2, gain: 0.12 }),
-    noise({ hz: 2000, q: 1.4, linear: true, a: 0.03, d: 0.08, s: 0.2, r: 0.15, gain: 0.03 }),
-  ];
-  const cheer = (big) => [
-    noise({ hz: 760, q: 0.7, linear: true, a: big ? 0.25 : 0.14, d: 0.2, s: 0.85, r: big ? 0.9 : 0.45, gain: big ? 0.2 : 0.15, tremolo: { rate: 5.3, depth: 0.3 } }),
-    noise({ hz: 1350, q: 1.0, linear: true, a: big ? 0.3 : 0.18, d: 0.2, s: 0.75, r: big ? 0.8 : 0.4, gain: big ? 0.12 : 0.09, tremolo: { rate: 7.9, depth: 0.35 } }),
-    noise({ hz: 420, q: 0.7, linear: true, a: big ? 0.2 : 0.12, d: 0.25, s: 0.9, r: big ? 1.0 : 0.5, gain: big ? 0.16 : 0.1, tremolo: { rate: 3.1, depth: 0.2 } }),
-    noise({ hz: 2100, q: 5, linear: true, a: 0.2, d: 0.3, s: 0.6, r: 0.4, gain: big ? 0.04 : 0.025, tremolo: { rate: 11.3, depth: 0.5 } }),
-  ];
+  // Procedural, fitted to recordings (CC0, from Freesound; the doc's K names them): half-octave
+  // bands of pink noise whose levels were solved so the spectrum matches the recording's, and
+  // a smoothed random source on each band group's level at the rate and depth the recording's
+  // level wanders, so a cheer moves the way a crowd does and never repeats as a tremolo does.
+  // The timing is the game's, not the recording's: a reaction answers the play at once, and
+  // the bed under it (crowdBed() below) carries the long tail when it lifts.
+  //
+  // crowd(bands, wander, env): `bands` [[centre Hz, gain]], each through a doubled bandpass
+  // (12 dB an octave either side); `wander` [[rate, depth]] for the low (under 450 Hz), middle
+  // (to 1.8 kHz) and high groups. A group's bands share a seed, so they swell together.
+  const CROWD_CENTRES = [125, 180, 250, 355, 500, 710, 1000, 1400, 2000, 2800, 4000, 5600];
+  const crowdGroup = (hz) => (hz < 450 ? 0 : hz < 1800 ? 1 : 2);
+  const crowd = (bands, wander, env) => bands.map(([hz, gain]) => {
+    const g = crowdGroup(hz), [rate, depth] = wander[g];
+    return {
+      waveform: 'noise', noiseMix: 1, noise: 'pink', noiseSeed: 307 + CROWD_CENTRES.indexOf(hz) * 41, gain,
+      filter: { type: 'bandpass', freq: hz, q: 1.2, slope: 24 },
+      adsr: { a: env.a, d: env.d, s: env.s, r: env.r },
+      ...(depth > 0 ? { mods: [{ id: 'w', type: 'rand', rate, smooth: true, seed: 17 + g * 101, to: [{ param: 'amp', amount: depth }] }] } : {}),
+    };
+  });
+  // a small crowd's gasp (HowardV)
+  const gasp = () => crowd([[710, 0.2462], [1000, 0.1269], [1400, 0.0957], [2800, 0.0605]],
+    [[0, 0], [5.21, 0.243], [5.21, 0.458]], { a: 0.045, d: 0.12, s: 0.35, r: 0.22 });
+  // a cheer (FlatHill's sports crowd); the goal, a check into the boards at an arena (producerdan)
+  const cheer = (big) => (big
+    ? crowd([[125, 0.0738], [250, 0.0762], [710, 0.1901], [1000, 0.187], [1400, 0.0387], [2000, 0.1731], [2800, 0.0437], [5600, 0.0756]],
+      [[3.14, 0.595], [3.59, 0.318], [4.04, 0.461]], { a: 0.25, d: 0.2, s: 0.85, r: 0.9 })
+    : crowd([[710, 0.0629], [1000, 0.2172], [1400, 0.0738], [2000, 0.074], [2800, 0.0642], [5600, 0.0356]],
+      [[0, 0], [4.68, 0.296], [4.9, 0.186]], { a: 0.14, d: 0.2, s: 0.85, r: 0.45 }));
+  // The arena between plays, fitted to an NHL crowd (SEF7, Rogers Arena): crowdBed() builds it
+  // live, and hk-crowd-bed is the same bands as a cue. Gains as fitted, for pink noise; the 4 kHz
+  // band is left out, since the bed's 2.4 kHz shade would take it anyway.
+  const BED_BANDS = [[125, 0.0731], [180, 0.0726], [250, 0.1529], [355, 0.0391], [500, 0.2046], [710, 0.2144], [1400, 0.1844], [2000, 0.1133], [2800, 0.1226]];
+  const BED_WANDER = [[6, 0.155], [6, 0.169], [3.93, 0.585]];
+  const BED_CUE = 0.21;   // the cue as loud as the one before the fit
 
   // ── the bank ─────────────────────────────────────────────────────────────────
   const BUILTINS = [
@@ -263,23 +286,20 @@
     def('hk-period-horn', 'Period end', 10, buzzer(), { hold: 1.3, vary: STEADY }),
     // K — the crowd's one-shots (the bed is crowdBed())
     def('hk-crowd-gasp', 'Crowd — gasp', 2, gasp(), { hold: 0.05, retro: CART, category: 'ambient', vary: { pitch: 0.05, gain: 0.1, env: 0.15 } }),
-    def('hk-crowd-cheer', 'Crowd — cheer', 2, cheer(false), { hold: 0.5, retro: CART, category: 'ambient', vary: { pitch: 0.05, gain: 0.1, env: 0.15 } }),
-    def('hk-crowd-goal', 'Crowd — goal celebration', 3, cheer(true), { hold: 1.9, retro: CART, category: 'ambient', vary: { pitch: 0.04, gain: 0.08, env: 0.1 } }),
-    def('hk-crowd-roar', 'Crowd — roar', 3, cheer(true), { hold: 1.2, retro: CART, category: 'ambient', vary: { pitch: 0.04, gain: 0.08, env: 0.1 } }),
+    def('hk-crowd-cheer', 'Crowd — cheer', 2, cheer(false), { hold: 0.5, retro: CART, category: 'ambient', vary: { pitch: 0.05, gain: 0.1, env: 0.15 }, rec: { key: 'crowd_cheer', lufs: -28.4 } }),
+    def('hk-crowd-goal', 'Crowd — goal celebration', 3, cheer(true), { hold: 1.9, retro: CART, category: 'ambient', vary: { pitch: 0.04, gain: 0.08, env: 0.1 }, rec: { key: 'crowd_goal', lufs: -25.5 } }),
+    def('hk-crowd-roar', 'Crowd — roar', 3, cheer(true), { hold: 1.2, retro: CART, category: 'ambient', vary: { pitch: 0.04, gain: 0.08, env: 0.1 }, rec: { key: 'crowd_goal', lufs: -26.2 } }),
     def('hk-crowd-groan', 'Crowd — groan', 2, [
       noise({ hz: 520, q: 0.9, to: 340, sweep: 0.5, linear: true, a: 0.12, d: 0.3, s: 0.6, r: 0.5, gain: 0.16 }),
       noise({ hz: 300, q: 3.5, to: 220, sweep: 0.6, linear: true, a: 0.15, d: 0.3, s: 0.5, r: 0.5, gain: 0.08 }),
     ], { hold: 0.5, retro: GRIT, category: 'ambient', vary: { pitch: 0.05, gain: 0.1, env: 0.15 } }),
-    def('hk-crowd-boo', 'Crowd — boo', 2, [
-      noise({ hz: 380, q: 2.2, linear: true, a: 0.2, d: 0.3, s: 0.8, r: 0.6, gain: 0.14, tremolo: { rate: 3.7, depth: 0.25 } }),
-      noise({ hz: 760, q: 3, linear: true, a: 0.25, d: 0.3, s: 0.6, r: 0.5, gain: 0.06 }),
-      noise({ hz: 220, q: 0.8, linear: true, a: 0.2, d: 0.3, s: 0.8, r: 0.6, gain: 0.1 }),
-    ], { hold: 1.1, retro: GRIT, category: 'ambient', vary: { pitch: 0.05, gain: 0.1, env: 0.15 } }),
-    // a bed for pages that have no crowdBed() (the fighter sandbox loops this)
-    def('hk-crowd-bed', 'Crowd — arena bed', 1, [
-      noise({ hz: 400, q: 0.7, linear: true, a: 0.6, d: 0.4, s: 0.9, r: 0.8, gain: 0.1, rate: 0.9, tremolo: { rate: 0.37, depth: 0.25 } }),
-      noise({ hz: 1400, q: 0.8, linear: true, a: 0.8, d: 0.4, s: 0.8, r: 0.8, gain: 0.04, rate: 1.07, tremolo: { rate: 0.83, depth: 0.3 } }),
-    ], { hold: 3.4, retro: GRIT, category: 'ambient', vary: { pitch: 0.03, gain: 0.08, env: 0.1 } }),
+    // an arena booing a missed penalty (TRP)
+    def('hk-crowd-boo', 'Crowd — boo', 2, crowd([[355, 0.0173], [500, 0.0747], [710, 0.0447], [1000, 0.0468], [1400, 0.0112], [2000, 0.0177]],
+      [[6, 0.093], [5.65, 0.236], [5.35, 0.138]], { a: 0.2, d: 0.3, s: 0.8, r: 0.6 }),
+    { hold: 1.1, retro: GRIT, category: 'ambient', vary: { pitch: 0.05, gain: 0.1, env: 0.15 }, rec: { key: 'crowd_boo', lufs: -37.4 } }),
+    // a bed for pages that have no crowdBed() (the fighter sandbox loops this): crowdBed()'s bands
+    def('hk-crowd-bed', 'Crowd — arena bed', 1, crowd(BED_BANDS.map(([hz, g]) => [hz, +(g * BED_CUE).toFixed(4)]), BED_WANDER,
+      { a: 0.6, d: 0.4, s: 0.9, r: 0.8 }), { hold: 3.4, retro: GRIT, category: 'ambient', vary: { pitch: 0.03, gain: 0.08, env: 0.1 } }),
 
     // ── secondary ────────────────────────────────────────────────────────────
     // a shot: a sharp crack off the blade with a small fall in pitch; a slapper has the
@@ -449,7 +469,7 @@
     const pf = jit(v.pitch), gf = jit(v.gain) * (0.45 + 0.55 * inten), ef = jit(v.env);
     const bright = 0.75 + 0.25 * inten;
     const noiseBase = ((seed ?? 1) * 2654435761) >>> 0;
-    return { ...d, config: { ...d.config,
+    const take = { ...d, config: { ...d.config,
       layers: d.config.layers.map((L, n) => {
         const o = { ...L, gain: (L.gain ?? 0.2) * gf };
         if (o.freq) o.freq = L.freq * pf;
@@ -464,6 +484,28 @@
         if (L.noiseMix > 0) o.noiseSeed = (noiseBase + n * 7919) % 100003;
         return o;
       }) } };
+    return d.rec ? withRecording(take, d.rec, seed, gf) : take;
+  }
+
+  // ── the crowd's recordings ───────────────────────────────────────────────────
+  // This file is a classic script, so the page that plays it hands it field-recordings.js
+  // (useField; the rink does). A cue with a `rec` then plays one cut of its recording, picked by
+  // the take's seed, with its own synthesis under it at REC_UNDER (-9 dB), and the rest of that
+  // synthesis as the `alt` stand-in until the recording has loaded: the two copies are the same
+  // noise, so they add back to the cue as it was. Without useField (the dev panel, the gates)
+  // the synthesis plays alone.
+  let field = null;
+  const REC_UNDER = 0.35;
+  function useField(api) { field = api && api.fieldCall ? api : null; }
+  function withRecording(take, rec, seed, gf) {
+    const call = field && field.fieldCall(rec.key, seed ?? 0, rec.lufs);
+    if (!call) return take;
+    const layers = take.config.layers;
+    return { ...take, config: { ...take.config, layers: [
+      { ...call, gain: +(call.gain * gf).toFixed(4) },
+      ...layers.map((l) => ({ ...l, gain: l.gain * REC_UNDER })),
+      ...layers.map((l) => ({ ...l, gain: l.gain * (1 - REC_UNDER), alt: true })),
+    ] } };
   }
 
   let _n = 0;
@@ -525,20 +567,27 @@
   }
 
   // ═══ J. THE CROWD BED ════════════════════════════════════════════════════════
-  // A coarse, low-detail, persistent crowd, built once and steered, never retriggered: a
-  // low-mid rumble (150–700 Hz), a brighter airy band (700–3,000 Hz), and three quiet
-  // resonant bands where distant voices sit, each pulsed slowly by LFOs at rates that never
-  // line up, so it breathes unevenly. All of it through one coarse sample-and-hold, onto the
-  // ambient bus (the crowd's own volume, apart from the effects).
+  // A persistent crowd, built once and steered, never retriggered: BED_BANDS (fitted to an NHL
+  // arena between plays, in K above) as three groups, the rumble (under 450 Hz), the voices (to
+  // 1.8 kHz) and the air over them. Each group's level wanders on a smoothed random signal at
+  // the rate and depth the recording's does (BED_WANDER), so it breathes unevenly and never
+  // repeats. All of it under a 2.4 kHz shade, onto the ambient bus (the crowd's own volume,
+  // apart from the effects).
   //
-  // setState() eases every band to that state's levels (a state change is a few hundred ms,
+  // The wander is the engine's white noise played back so slowly that it steps `rate` times a
+  // second, through a lowpass at that rate: a random signal that's only nodes, so it runs for a
+  // whole game with nothing to schedule. The bands take the same white noise, tilted to the
+  // pink they were fitted on (pink's level against white's at f is about √(3085 / f)).
+  //
+  // setState() eases every group to that state's levels (a state change is a few hundred ms,
   // fast enough that the crowd answers a chance, slow enough never to click). gasp(), cheer(),
   // celebrate() and duck() move the bed around a moment and let it settle back. Everything is
   // AudioParam automation on the same nodes, so it can't pile up.
   //
   // `opts`: { ctx, dest, noise } (from AudioEngine.engineNodes() by default), `seed`.
   const CROWD_STATES = {
-    // rumble, air, voices (gain), pulse (LFO depth), bright (air band centre ×)
+    // rumble, air, voices: each group's level against the run of play (`active`, as fitted is
+    // 0.32, 0.07 and 0.35); pulse: how far it wanders, against the same; bright: the air ×
     quiet:   { rumble: 0.22, air: 0.045, voices: 0.25, pulse: 0.18, bright: 0.85 },
     active:  { rumble: 0.32, air: 0.07,  voices: 0.35, pulse: 0.25, bright: 1 },
     chance:  { rumble: 0.4,  air: 0.1,   voices: 0.45, pulse: 0.3,  bright: 1.1 },
@@ -548,6 +597,14 @@
     // a fight: up near a goal and pulsing, the whole building on its feet
     fight:   { rumble: 0.62, air: 0.17,  voices: 0.78, pulse: 0.5,  bright: 1.2 },
   };
+  const BED_LEVEL = 0.771;   // the whole bed: the run of play as loud as the bed before the fit
+  // The arena's own recording (crowd_arena) loops beside the bands once it has loaded, on a
+  // useField page: through a lowpass like the shade, at REC_TOP's share of its level for each
+  // state, and the bands drop to REC_UNDER under it. Until it loads, if it's ever lost (a stolen
+  // voice), and in the gates, the bands carry the bed alone. Its loudness, -14.5 LUFS at the top,
+  // puts the run of play where the bed was.
+  const REC_ID = 'hk-crowd-rec', REC_LUFS = -14.5;
+  const REC_TOP = (CROWD_STATES.goal.voices / CROWD_STATES.active.voices) * 1.5;   // a goal, cheered
   function crowdBed(opts = {}) {
     const AE = global.AudioEngine;
     const eng = opts.ctx ? opts : (AE?.engineNodes ? AE.engineNodes() : null);
@@ -570,47 +627,62 @@
       s.start(t0, offset); nodes.push(s);
       return s;
     };
-    const band = (source, type, hz, q, level) => {
-      const f = c.createBiquadFilter(); f.type = type; f.frequency.value = hz; f.Q.value = q;
-      const g = c.createGain(); g.gain.value = level;
-      source.connect(f).connect(g).connect(out);
-      return { f, g };
-    };
-    const lfo = (hz, depth, target) => {
-      const o = c.createOscillator(); o.frequency.value = hz;
-      const g = c.createGain(); g.gain.value = depth;
-      o.connect(g).connect(target); o.start(t0); nodes.push(o);
-      return g;
-    };
-    const n1 = src(0.13, 0.93), n2 = src(0.71, 1.07), n3 = src(1.29, 1.0);
-    // the rumble: a lowpass over a highpass, so there's no sub-bass mud under it
-    const hp = c.createBiquadFilter(); hp.type = 'highpass'; hp.frequency.value = 150; hp.Q.value = 0;
-    n1.connect(hp);
-    const rumble = band(hp, 'lowpass', 700, 0, 0);
-    const air = band(n2, 'bandpass', 1150, 0.6, 0);
-    const voices = [[520, 7], [930, 8], [1650, 9]].map(([hz, q]) => band(n3, 'bandpass', hz, q, 0));
-    // the breathing: two or three slow LFOs per band, at rates that never line up
-    const pulses = [
-      lfo(0.37, 0, rumble.g.gain), lfo(1.13, 0, rumble.g.gain),
-      lfo(0.61, 0, air.g.gain), lfo(2.3, 0, air.g.gain),
-      ...voices.map((v, k) => lfo(0.29 + k * 0.53, 0, v.g.gain)),
-    ];
-    let state = 'quiet';
+    const filter = (type, hz, q) => { const f = c.createBiquadFilter(); f.type = type; f.frequency.value = hz; f.Q.value = q; return f; };
+    // one source and one level per group; each band a doubled bandpass into its group
+    const groups = [[0.13, 0.93], [0.71, 1.07], [1.29, 1.0]].map(([offset, rate], k) => {
+      const g = c.createGain(); g.gain.value = 0; g.connect(out);
+      const n = src(offset, rate);
+      for (const [hz, gain] of BED_BANDS) {
+        if (crowdGroup(hz) !== k) continue;
+        const lvl = c.createGain(); lvl.gain.value = gain * Math.sqrt(3085 / hz) * BED_LEVEL;
+        n.connect(filter('bandpass', hz, 1.2)).connect(filter('bandpass', hz, 1.2)).connect(lvl).connect(g);
+      }
+      // the wander: white noise stepping `rate` times a second, smoothed, onto the group's level
+      const [steps] = BED_WANDER[k];
+      const w = src(0.37 + k * 0.41, steps / (nbuf?.sampleRate || c.sampleRate));
+      const depth = c.createGain(); depth.gain.value = 0;
+      w.connect(filter('lowpass', steps, 0.5)).connect(depth).connect(g.gain);
+      return { g, depth };
+    });
+    let state = 'quiet', rec = false, stopped = false;
     const lv = () => CROWD_STATES[state] || CROWD_STATES.quiet;
-    // every band to the state's levels, eased with time constant `tc`
+    const A = CROWD_STATES.active;
+    const recOn = () => rec && !!AE?.isLooping?.(REC_ID);
+    // every group to the state's levels, eased with time constant `tc`
     function apply(at, tc, lift = 1) {
       const s = lv();
       const set = (p, v) => { p.cancelScheduledValues(at); p.setTargetAtTime(v, at, tc); };
-      set(rumble.g.gain, s.rumble * lift);
-      set(air.g.gain, s.air * lift);
-      voices.forEach((v) => set(v.g.gain, s.voices * lift));
-      set(air.f.frequency, 1150 * s.bright);
-      pulses.forEach((p, k) => set(p.gain, (k < 2 ? s.rumble : k < 4 ? s.air : s.voices) * s.pulse * lift));
+      const level = [s.rumble / A.rumble, s.voices / A.voices, (s.air / A.air) * s.bright];
+      const under = recOn() ? REC_UNDER : 1;
+      groups.forEach(({ g, depth }, k) => {
+        set(g.gain, level[k] * lift * under);
+        // never past 0.9 of the level, or the wander would swing it through silence
+        set(depth.gain, level[k] * lift * under * Math.min(0.9, BED_WANDER[k][1] * (s.pulse / A.pulse)));
+      });
+      if (recOn()) {
+        // the loop's gain moves now, so a later moment waits for its time
+        const go = () => { if (!stopped) AE.setLoopGain(REC_ID, Math.min(1, (level[1] * lift) / REC_TOP), tc * 3); };
+        const wait = at - c.currentTime;
+        if (wait > 0.02) setTimeout(go, wait * 1000); else go();
+      }
+    }
+    // the recording, fetched once and looped from then on (never offline: opts.ctx)
+    function startRecording() {
+      const layer = !opts.ctx && field && AE?.loopSound && AE.preloadSamples
+        ? field.fieldBed('crowd_arena', REC_LUFS, { filter: { type: 'lowpass', freq: 2400, q: 0.5 } }) : null;
+      if (!layer) return;
+      const calls = ['crowd_goal', 'crowd_cheer', 'crowd_boo'].map((k) => field.fieldCall(k)?.sample).filter(Boolean);
+      AE.preloadSamples([layer.sample, ...calls]).then(() => {
+        if (stopped || !AE.sampleReady?.(layer.sample)) return;
+        AE.loopSound({ id: REC_ID, name: REC_ID, category: 'ambient', priority: 9, config: { layers: [layer] } }, { whole: true, gain: 0 });
+        rec = true;
+        apply(c.currentTime, 0.8);
+      });
     }
     const now = (at) => (at != null ? at : c.currentTime);
     const api = {
       // the bed fades up over a second; nothing before that
-      start(at) { const t = now(at); out.gain.cancelScheduledValues(t); out.gain.setValueAtTime(out.gain.value, t); out.gain.setTargetAtTime(1, t, 0.35); apply(t, 0.3); return api; },
+      start(at) { const t = now(at); out.gain.cancelScheduledValues(t); out.gain.setValueAtTime(out.gain.value, t); out.gain.setTargetAtTime(1, t, 0.35); apply(t, 0.3); startRecording(); return api; },
       setState(name, at) { if (!CROWD_STATES[name]) return api; state = name; apply(now(at), name === 'quiet' ? 0.6 : 0.18); return api; },
       get state() { return state; },
       // a gasp: the bed held back an instant, then a quick bright rise that settles
@@ -632,6 +704,7 @@
       duck(db = 4, secs = 0.6, at) {
         const t = now(at), g = Math.pow(10, -db / 20);
         duck.gain.cancelScheduledValues(t); duck.gain.setTargetAtTime(g, t, 0.03); duck.gain.setTargetAtTime(1, t + secs, 0.2);
+        if (recOn()) AE.duckLoop(REC_ID, g, secs);
         return api;
       },
       // fades out and lets the nodes go
@@ -639,6 +712,8 @@
         const t = now(at);
         out.gain.cancelScheduledValues(t); out.gain.setTargetAtTime(0, t, 0.25);
         for (const n of nodes) { try { n.stop(t + 1.6); } catch { /* already stopped */ } }
+        stopped = true;
+        if (rec) AE?.stopLoop?.(REC_ID);
         return api;
       },
       // what's playing, for a check that nothing piles up
@@ -649,6 +724,6 @@
 
   // Global-only, matching audio-engine.js and sfx-catalog.js. The repo is
   // "type": "module", so a CJS `module.exports` branch here would be dead code.
-  global.HockeySfx = { BUILTINS, get, play, variant, tone, noise, crowdBed, CROWD_STATES, EVENTS, eventFor, ids: () => [...BY_ID.keys()] };
+  global.HockeySfx = { BUILTINS, get, play, variant, useField, tone, noise, crowdBed, CROWD_STATES, EVENTS, eventFor, ids: () => [...BY_ID.keys()] };
 
 })(typeof globalThis !== 'undefined' ? globalThis : window);

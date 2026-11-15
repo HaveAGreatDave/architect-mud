@@ -1299,12 +1299,15 @@ one-way run never strands you but the return leg is a decision.
 ### The lift in the shed *(2026-11-11)*
 
 Every depot's shed has a Room Stage (`flags.room`: 16 × 24 m, 7.5 m high, no window), and in its floor a lift
-down to the garage where the trucks are kept. `hoist <truck>` brings one of yours up; `hoist down` sends it
+down to the garage where the trucks are kept. `hoist <truck>` (or `callup`, the verb every depot shares; the
+counter's card has it as **Call it up**, and the Stage opens round you) brings one of yours up; `hoist down` sends it
 back; `drive <id>` from beside it seats you, as the counter's Deploy does. On the Stage the lift has a panel
 (top right) with the same verbs, the truck comes up through the floor over nine seconds with beacons going,
 you walk round it once it's up, and **Climb into the …** comes up when you stand beside your own.
 
-- **RAM only** ([hoist.js](../plugins/trucking/hoist.js)). The row's `depot_zone` never changes: the lift is
+- **RAM only** ([hoist.js](../plugins/trucking/hoist.js), the truck's half of the shared stand in
+  [vehicle-stand.js](../server/engine/vehicle-stand.js); [depot-shell.md](reference/depot-shell.md#call-it-up-as-built-2026-11-14)
+  has the other three kinds). The row's `depot_zone` never changes: the lift is
   a picture of where the truck already is. A restart puts everything back downstairs, and a truck left up
   goes down on its own after half an hour. Driving it off empties the lift at once.
 - **One truck at a time per shed.** Anyone in the shed sees it; only its owner can send it down or climb in.

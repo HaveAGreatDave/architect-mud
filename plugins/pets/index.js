@@ -25,10 +25,23 @@
 // there to hear it), from the same catLife the picture plays, with the piece he's up on (catPerchOf) and his goes at
 // his bowls (catAtBowls), so the text and the 3D cat never disagree about what he's doing or where.
 //
+// TWO CATS. Cats that share a home greet, groom, play, sleep in a heap or fall out (catMeets, cat-life.js); when one
+// starts, the room is told once, and neither cat's own day is said while it runs.
+//
 // HIS BOWLS. A feeding station is a piece of furniture with flags.pet_bowls naming the pet: a food dish that holds two
 // meals and a water bowl that holds a day's water. When each was last filled is the `pet_bowls` row; how full it is
 // now is worked out from that and his meal times (client/shared/cat-life.js), so nothing is written while he eats.
 // `refill` fills both (or one) at a small price for what's gone, taken there and then.
+//
+// HUNGER AND THIRST are worked out when they're read (catNeeds, cat-life.js), from when his bowls were last filled and
+// so when he last ate and drank; nothing ticks them. Hungry at an empty dish he goes back to it to complain between
+// meals, greets whoever comes in by demanding food, and looks it when he's examined; thirsty at an empty water bowl he
+// drinks from the kitchen tap.
+//
+// HIS TRAY. A litter tray is a piece of furniture with flags.pet_tray naming the pet. When it was last scooped is the
+// `pet_trays` row; every go he's had since, and so how dirty it is, is worked out from that and his times (cat-life.js
+// trayTimes), so nothing is written while he goes. A dirty tray smells; a full one he won't use, and goes on the floor
+// in front of it. `scoop` cleans the lot, free.
 //
 // Nothing here knows any particular cat or owner. Scrappy is the first row and nothing more.
 import { query } from '../../server/models/db.js';
@@ -39,7 +52,7 @@ import { sendToZone, sendToPlayer } from '../../server/engine/messaging.js';
 import { getBirdClock } from '../../server/engine/environment.js';
 import { adjustCredits } from '../../server/engine/economy.js';
 import { schedule } from '../../server/engine/scheduler.js';
-import { catLife, catPerchOf, catSettle, perchWord, catAtBowls, bowlLevel, missedSince, DAY_MS } from '../../client/shared/cat-life.js';
+import { catLife, catPerchOf, catPerches, catSettle, perchWord, catAtChores, catNeeds, catMarkOf, bowlLevel, missedSince, catMeets, trayState, TRAY_FUSSY, DAY_MS } from '../../client/shared/cat-life.js';
 import { roomLayout } from '../../client/shared/room-layout.js';
 import { specOf, roomPieces, mainOf } from '../roomstage/index.js';
 
@@ -122,6 +135,17 @@ const NOT_BOTHERED = [
   '$name blinks at you slowly$from. That counts as hello.',
 ];
 const GIVE_UP = ['$name gives up on you and wanders off.', '$name decides you\'re no fun and goes back to what $he was doing.'];
+// hungry, with nothing in the bowl ($dish: 'dish' or 'water bowl')
+const GREET_HUNGRY_YOU = [
+  '$name is at the door before it shuts, yelling. $He runs to $his empty $dish, looks back at you, and yells again.',
+  '$name meets you at the door, loud about it, and walks you halfway to $his empty $dish.',
+  '$name comes at you shouting from across the room. The $dish is empty and $he wants you to know it\'s your fault.',
+];
+const GREET_HUNGRY_THEM = ['$name goes for $who at the door, yelling about $his empty $dish.', '$name meets $who at the door and complains loudly about the $dish.'];
+const WAIT_HUNGRY_YOU = [
+  '$name sits in front of you and yells, then looks at $his $dish, then at you.',
+  '$name won\'t stop meowing at you. The $dish is still empty. <span class="text-dim"><b>refill</b></span>',
+];
 const PETTED_YOU = [
   'You stroke $name. $He pushes $his head up into your hand and starts purring.',
   'You scratch $name behind the ears. $He leans into it, eyes half shut, purring.',
@@ -156,23 +180,27 @@ function onEntered({ actor, zone, from }) {
     // where he is as you come in: up on something, or across the room
     const up = cachedLayout(zone) ? catPerchOf(cachedLayout(zone), life, p.look) : null;
     const where = { from: up ? ` from the ${perchWord(up)}` : ' from across the room' };
-    // at his bowls he's busy, and says so
-    if (catAtBowls(npc.id, now, bowlsOf(p))) continue;
-    if (life.asleep && r > 0.4) { soon(actor, zone, fill(pickOf(ASLEEP, seed), w, where)); continue; }
-    if (r > 0.2 + 0.75 * out) { soon(actor, zone, fill(pickOf(NOT_BOTHERED, seed), w, where)); continue; }
+    // eating, drinking or at his tray he's busy; sat at an empty bowl, whoever comes in is the answer to it
+    const chore = catAtChores(npc.id, now, bowlsOf(p), trayOf(p));
+    if (chore && chore.act !== 'beg') continue;
+    // hungry (or thirsty) with nothing in the bowl, everybody who comes in is the one who's going to fill it: he's up
+    // and at them whatever he was doing
+    const hungry = hungerOf(p, npc, now);
+    if (!hungry && life.asleep && r > 0.4) { soon(actor, zone, fill(pickOf(ASLEEP, seed), w, where)); continue; }
+    if (!hungry && r > 0.2 + 0.75 * out) { soon(actor, zone, fill(pickOf(NOT_BOTHERED, seed), w, where)); continue; }
     const door = allExits(getZone(zone)).find((e) => e.target === from)?.dir || null;
-    setBeat(npc, { act: 'greet', since: now, who: actor.id, door }, zone);
+    setBeat(npc, { act: 'greet', since: now, who: actor.id, door, ...(hungry ? { hungry } : {}) }, zone);
     // the line after the room's own description, not above it
-    const since = now;
+    const since = now, dish = hungry === 'water' ? 'water bowl' : 'dish';
     setTimeout(() => {
       if (BEATS.get(npc.id)?.since !== since || actor.current_zone !== zone) return;
-      sendToPlayer(actor.id, { type: 'zone_event', message: fill(pickOf(GREET_YOU, seed), w) });
-      sendToZone(zone, { type: 'zone_event', message: fill(pickOf(GREET_THEM, seed), w, { who: actor.handle }) }, actor.id);
+      sendToPlayer(actor.id, { type: 'zone_event', message: fill(pickOf(hungry ? GREET_HUNGRY_YOU : GREET_YOU, seed), w, { dish }) });
+      sendToZone(zone, { type: 'zone_event', message: fill(pickOf(hungry ? GREET_HUNGRY_THEM : GREET_THEM, seed), w, { who: actor.handle, dish }) }, actor.id);
     }, 900).unref?.();
     // sat at their feet, then giving up on them
     setTimeout(() => {
       if (BEATS.get(npc.id)?.since !== since || actor.current_zone !== zone) return;
-      sendToPlayer(actor.id, { type: 'zone_event', message: fill(pickOf(WAIT_YOU, seed + ':w'), w) });
+      sendToPlayer(actor.id, { type: 'zone_event', message: fill(pickOf(hungry ? WAIT_HUNGRY_YOU : WAIT_YOU, seed + ':w'), w, { dish }) });
     }, 7000).unref?.();
     later(npc, 60000, () => {
       if (BEATS.get(npc.id)?.since !== since) return;
@@ -279,7 +307,9 @@ function npcBeast(npc) {
   // his bowls go with him: where they stand (the piece's id) and when each was filled, so the client works out how full
   // they are and when he goes to them from the same numbers this side does
   const bowls = b ? { id: b.id, food: { ...b.food }, water: { ...b.water } } : null;
-  return { id: npc.id, name: npc.name, cat: p.look, pet: p.id, nature: p.personality, ...(beat ? { beat } : {}), ...(bowls ? { bowls } : {}) };
+  // and his tray: where it is and when it was scooped
+  const t = traysOfPet(p)[0], tray = t ? { id: t.id, at: t.at } : null;
+  return { id: npc.id, name: npc.name, cat: p.look, pet: p.id, nature: p.personality, ...(beat ? { beat } : {}), ...(bowls ? { bowls } : {}), ...(tray ? { tray } : {}) };
 }
 
 // ── the bowls ─────────────────────────────────────────────────────────────────────────────────────
@@ -327,7 +357,7 @@ function pieceState(zoneId) {
     const l = levelsOf(b);
     (out ||= {})[b.id] = { food: +l.food.toFixed(2), water: +l.water.toFixed(2) };
   }
-  return out;
+  return trayPieceState(zoneId, out);
 }
 // examining it says how full they are
 function describeBowls(f) {
@@ -375,6 +405,101 @@ function bowlsChanged(b) {
   if (npc?.zone_id) emit('pet.beat', { npcId: npc.id, zoneId: npc.zone_id, beat: beatOf(npc.id) });
 }
 
+// ── hunger and thirst ─────────────────────────────────────────────────────────────────────────────
+// Worked out from his bowls when asked (cat-life.js catNeeds), never kept. What he's after, if anything: 'food' when
+// he's hungry and his dish is empty, 'water' when he's thirsty and his water bowl is, or null. A full dish he just eats.
+const HUNGRY_AT = 0.4, THIRSTY_AT = 0.35;
+function hungerOf(p, npc, now = Date.now()) {
+  const b = stationOf(p);
+  if (!b) return null;
+  const n = catNeeds(npc.id, now, b), l = levelsOf(b, now);
+  if (n?.hunger >= HUNGRY_AT && l.food <= 0.01) return 'food';
+  if (n?.thirst >= THIRSTY_AT && l.water <= 0.01) return 'water';
+  return null;
+}
+// examining him says how he is: plain words, worst first
+function describeAnimal(npc) {
+  const p = petOfNpc(npc), b = p && stationOf(p);
+  if (!b) return undefined;
+  const n = catNeeds(npc.id, Date.now(), b), w = words(npc), out = [];
+  if (n.hunger >= 0.85) out.push(`${w.He}'s thin under the fur and won't leave you alone. ${w.He} hasn't eaten in a day or more.`);
+  else if (n.hunger >= HUNGRY_AT) out.push(`${w.He}'s hungry, and watching you to see if you've noticed.`);
+  if (n.thirst >= 0.85) out.push(`${w.His} nose is dry and ${w.he}'s listless. ${w.He} needs water.`);
+  else if (n.thirst >= THIRSTY_AT) out.push(`${w.He}'s thirsty.`);
+  if (!out.length && n.hunger < 0.1 && n.ate && Date.now() - n.ate < 2 * 3.6e6) out.push(`${w.He}'s eaten recently and looks pleased about it.`);
+  return out.length ? out.join(' ') : undefined;
+}
+
+// ── the tray ──────────────────────────────────────────────────────────────────────────────────────
+// furniture id → { id, pet, zone, at (ms, last scooped) }. Loaded with the pets; a scoop writes.
+const TRAYS = new Map();
+async function loadTrays() {
+  const pieces = [...world.furniture.values()].filter((f) => typeof f.flags?.pet_tray === 'string');
+  TRAYS.clear();
+  if (!pieces.length) return 0;
+  const { rows } = await query('SELECT * FROM pet_trays WHERE furniture_id = ANY($1)', [pieces.map((f) => f.id)]);
+  const had = new Map(rows.map((r) => [r.furniture_id, r]));
+  // seen for the first time, it was scooped at the start of today, written once so a restart doesn't scoop it again
+  const day = Math.floor(Date.now() / DAY_MS) * DAY_MS, fresh = [];
+  for (const f of pieces) {
+    const r = had.get(f.id);
+    if (!r) fresh.push(f.id);
+    TRAYS.set(f.id, { id: f.id, pet: f.flags.pet_tray, zone: f.zone_id, at: ms(r?.scooped_at) ?? day });
+  }
+  if (fresh.length) await query(`INSERT INTO pet_trays (furniture_id, scooped_at) SELECT id, to_timestamp($2::float8 / 1000) FROM unnest($1::text[]) AS id ON CONFLICT DO NOTHING`, [fresh, day]);
+  return TRAYS.size;
+}
+const traysOfPet = (p) => [...TRAYS.values()].filter((t) => t.pet === p.id);
+const trayOf = (p) => { const t = traysOfPet(p)[0]; return t ? { at: t.at } : null; };
+const stateOf = (t, now = Date.now()) => { const p = PETS.get(t.pet); return trayState(p?.npcId || t.pet, t, now); };
+// the room a tray's in, for matching it to a room laid out with its en-suite
+const roomOfZone = (z) => mainOf(z) || z;
+const traysIn = (zoneId) => [...TRAYS.values()].filter((t) => t.zone === zoneId || roomOfZone(t.zone) === roomOfZone(zoneId));
+// what it shows on the Stage: what's in it and what's beside it
+function trayPieceState(zoneId, out) {
+  for (const t of traysIn(zoneId)) {
+    const s = stateOf(t);
+    (out ||= {})[t.id] = { pee: s.pee, poo: s.poo, mess: s.mess.map((g) => g.kind) };
+  }
+  return out;
+}
+const trayWords = (s) => (s.mess.length ? 'filthy' : s.dirt >= TRAY_FUSSY ? 'dirty' : s.dirt > 0 ? 'used' : 'clean');
+function describeTray(f) {
+  const t = TRAYS.get(f?.id);
+  if (!t) return undefined;
+  const s = stateOf(t), p = PETS.get(t.pet), npc = p && world.npcs.get(p.npcId), name = npc?.name || 'the cat', w = npc ? words(npc) : { he: 'it', He: 'It', his: 'its' };
+  const what = [s.pee && `${s.pee} clump${s.pee === 1 ? '' : 's'}`, s.poo && `${s.poo === 1 ? 'one' : s.poo} of the other`].filter(Boolean).join(' and ');
+  const line = s.dirt === 0 ? 'The litter is clean and raked flat.'
+    : s.mess.length ? `It's full: ${what} in the litter, and ${name} has given up on it. There's ${s.mess.length === 1 ? 'a mess' : `${s.mess.length} messes`} on the floor in front of it.`
+      : s.dirt >= TRAY_FUSSY ? `It wants scooping: ${what} in the litter. ${w.He}'s started sniffing it over before ${w.he} gets in.`
+        : `${what[0].toUpperCase() + what.slice(1)} in the litter.`;
+  return s.dirt ? `${line} <span class="text-dim"><b>scoop</b></span>` : line;
+}
+// a tray that wants scooping, smelled in its room and the room it opens off
+function traySmells(zone) {
+  const id = zone?.id || zone, out = [];
+  for (const t of traysIn(id)) {
+    const s = stateOf(t);
+    if (s.mess.length) out.push({ text: 'cat piss, and worse, strong enough to make your eyes water', strength: 8, source: 'the litter tray' });
+    else if (s.dirt >= TRAY_FUSSY) out.push({ text: 'a litter tray that wants emptying', strength: 5, source: 'the litter tray' });
+  }
+  return out.length ? out : undefined;
+}
+// `scoop` (the tray, the litter, the box): clears out the tray in this room or its en-suite, and anything beside it
+async function cmdScoop(args, raw, player) {
+  const t = traysIn(player.current_zone)[0];
+  if (!t) return { type: 'error', message: "There's no litter tray here." };
+  const now = Date.now(), s = stateOf(t, now), p = PETS.get(t.pet), npc = p && world.npcs.get(p.npcId), name = npc?.name || 'the cat';
+  if (!s.dirt) return { type: 'output', message: `${name}'s tray is clean.` };
+  t.at = now;
+  await query(`INSERT INTO pet_trays (furniture_id, scooped_at) VALUES ($1, to_timestamp($2::float8/1000)) ON CONFLICT (furniture_id) DO UPDATE SET scooped_at = EXCLUDED.scooped_at`, [t.id, now]);
+  emit('furniture.changed', { zoneId: t.zone, id: t.id });
+  if (npc?.zone_id) emit('pet.beat', { npcId: npc.id, zoneId: npc.zone_id, beat: beatOf(npc.id) });
+  const mess = s.mess.length ? ` and clean up what ${npc?.sex === 'female' ? 'she' : npc?.sex === 'male' ? 'he' : 'it'} left on the floor in front of it` : '';
+  sendToZone(player.current_zone, { type: 'zone_event', message: `${player.handle} scoops out ${name}'s litter tray${mess ? ' and cleans the floor in front of it' : ''}.` }, player.id);
+  return { type: 'output', message: `You scoop out ${name}'s tray, ${s.pee + s.poo} lot${s.pee + s.poo === 1 ? '' : 's'} into a bag, and rake the litter flat${mess}.` };
+}
+
 // ── his day in words ──────────────────────────────────────────────────────────────────────────────
 // The room's layout, for which piece he's up on: the Stage's own (roomstage specOf + roomPieces, RAM), kept a minute.
 const LAYOUTS = new Map();   // zone id → { L, at }
@@ -391,7 +516,17 @@ async function layoutOf(zoneId) {
 function nowOf(p, npc, L, now, hour) {
   const life = catLife(npc.id, now, hour, p.personality), perch = L ? catPerchOf(L, life, p.look) : null;
   const st = L ? catSettle(L, life, perch) : { act: life.act, rug: null };
-  return { life, perch, act: st.act, rug: !!st.rug, bowl: catAtBowls(npc.id, now, bowlsOf(p)) };
+  const bowl = catAtChores(npc.id, now, bowlsOf(p), trayOf(p));
+  if (bowl?.kind === 'tray') {
+    // (a tray in the en-suite: he goes off into it)
+    const t = traysOfPet(p)[0];
+    if (t && t.zone !== npc.zone_id) bowl.away = true;
+  } else if (bowl?.tap) {
+    // the tap he drinks from is the kitchen sink's, if the room has one; the client stands him on the same one
+    const sink = L ? catPerches(L, p.look).find((q) => q.arche === 'sink') : null;
+    if (sink) bowl.sink = perchWord(sink); else delete bowl.tap;
+  }
+  return { life, perch, act: st.act, rug: !!st.rug, bowl, mark: life.act === 'mark' && L ? catMarkOf(L, life) : null };
 }
 // how he settles, by the block's state; `on` is the piece he's on, or null for the floor
 const SETTLE = {
@@ -417,12 +552,37 @@ const ACT_LINE = {
   sniff: '$name sniffs along the floor.',
   stretch: '$name has a long stretch, front end first, then each back leg.',
   wander: '$name wanders off across the room.',
+  dream: '$name twitches in $his sleep, paws going, whiskers going. Chasing something.',
+  roll: '$name rolls over onto $his back and wriggles about, paws in the air, upside down and pleased about it.',
+  cello: '$name sits back with one hind leg straight up in the air and washes the base of it.',
+  shake: '$name shakes $his head hard, ears flapping.',
+  slowblink: '$name looks across the room and blinks, very slowly.',
+  hairball: '$name hunches up with $his neck out and heaves, and heaves, and brings up a hairball on $floor. $He walks off as if nothing happened.',
+  mark: '$name rubs $his cheek along the corner of the $piece.',
 };
+// said every time, not now and then
+const ALWAYS_SAID = new Set(['knead', 'hairball']);
 const BOWL_LINE = {
   eat: '$name goes to $his dish and gets stuck into $his biscuits.',
   drink: '$name pads over to $his water bowl and laps at it for a while.',
   beg: { food: '$name goes to $his dish, finds it empty, and sits by it complaining.', water: '$name looks into $his empty water bowl, then round the room for whoever is responsible.' },
+  // hungry or thirsty, between times
+  pester: { food: '$name goes back to $his empty dish and yells at it, then at the room.', water: '$name checks $his water bowl again. Still empty.' },
+  tap: '$name gives up on $his water bowl, jumps up onto the $sink and laps at the drip from the tap.',
 };
+// his tray: $go is where he goes ('goes over to' or 'slips off into the en-suite to')
+const TRAY_LINE = {
+  pee: '$name $go $his tray: a dig, a turn round, and a long squat staring at nothing.',
+  poo: '$name $go $his tray. A dig, a turn round, and a squat with a look of great concentration.',
+  fussy: ' $He sniffs at the litter for a while first. It wants scooping.',
+  zoom: ' Then $he bolts out and tears round the flat like something\'s after $him.',
+  mess: '$name $go $his tray, sniffs at it and backs away: it\'s too dirty to get into. $He goes on the floor in front of it instead.',
+};
+function trayLine(g, w) {
+  const go = g.away ? 'slips off into the en-suite to' : 'goes over to';
+  if (g.mess) return fill(TRAY_LINE.mess, w, { go });
+  return fill(TRAY_LINE[g.act] + (g.fussy ? TRAY_LINE.fussy : '') + (g.zoom ? TRAY_LINE.zoom : ''), w, { go });
+}
 // an act line at most this often, and never the same act twice running: a room is told he's started kneading, not
 // every twenty seconds that he's still at it
 const ACT_GAP_MS = 75000;
@@ -434,7 +594,8 @@ function lineFor(a, b, npc, L, mem = {}, now = Date.now()) {
   const w = words(npc), say = (s, extra = {}) => fill(s, w, extra);
   // to his bowls
   if (b.bowl && b.bowl.since !== a.bowl?.since) {
-    const s = b.bowl.act === 'beg' ? BOWL_LINE.beg[b.bowl.kind] : BOWL_LINE[b.bowl.act];
+    if (b.bowl.kind === 'tray') return trayLine(b.bowl, w);
+    const s = b.bowl.tap ? BOWL_LINE.tap.replace('$sink', b.bowl.sink || 'sink') : b.bowl.act === 'beg' ? (b.bowl.pester ? BOWL_LINE.pester : BOWL_LINE.beg)[b.bowl.kind] : BOWL_LINE[b.bowl.act];
     const was = a.bowl ? null : a.perch;
     return was ? say(s.replace(/^\$name /, `$name jumps down off the ${perchWord(was)}, `).replace(', goes to', ', goes to').replace(', pads over to', ', pads over to')) : say(s);
   }
@@ -453,14 +614,35 @@ function lineFor(a, b, npc, L, mem = {}, now = Date.now()) {
   if (a.life.turn !== b.life.turn || a.life.block !== b.life.block) {
     const s = ACT_LINE[b.act];
     if (!s || b.act === mem.act || now - (mem.at || 0) < ACT_GAP_MS) return null;
-    // biscuits are always worth saying; the rest now and then
-    if (b.act !== 'knead' && hashOf(npc.id + ':' + b.life.since) % 100 >= 60) return null;
+    if (b.act === 'mark' && !b.mark) return null;
+    // biscuits and a hairball are always worth saying; the rest now and then
+    if (!ALWAYS_SAID.has(b.act) && hashOf(npc.id + ':' + b.life.since) % 100 >= 60) return null;
     mem.act = b.act; mem.at = now;
     const rug = L?.spec?.decor?.rug ? 'the rug' : 'the floor';
-    return say(s, { where: to ? `the ${perchWord(to)}` : b.rug ? 'the rug' : rug, floor: rug });
+    return say(s, { where: to ? `the ${perchWord(to)}` : b.rug ? 'the rug' : rug, floor: to ? `the ${perchWord(to)}` : rug, piece: b.mark ? perchWord(b.mark) : '' });
   }
   return null;
 }
+// Two cats together, said once as it starts. $a is the one staying put, $b the one that comes to it ($ahis, $bhim...).
+const MEET_LINE = {
+  greet: ['$b wanders over to $a. They touch noses, then $b has a sniff round $a\'s back end.', '$b goes up to $a and they touch noses, then rub their heads together.'],
+  play: ['$a and $b go up on their hind legs and box, then $a bolts and $b goes after $ahim.', '$b pounces on $a. They scrap for a second, then tear round the room after each other.'],
+  spat: ['$a puffs up, arches $ahis back and hisses at $b. $b flattens $bhis ears and slinks off.', '$a fixes $b with a stare and a low growl. $b decides to be somewhere else.'],
+  groom: ['$b settles down next to $a and starts washing $ahis head. $a shuts $ahis eyes.', '$b gives $a a long wash behind the ears. $a puts up with it, purring.'],
+  pile: ['$b curls up against $a, and they sleep in a heap.', '$b squeezes in next to $a and goes to sleep against $ahim.'],
+  pileOn: ['$b jumps up onto the $where and curls up against $a, and they sleep in a heap.'],
+};
+function meetLine(m, npcA, npcB, L) {
+  const wa = words(npcA), wb = words(npcB), on = m.on && L ? perchWordOf(L, m.on) : null;
+  const list = m.kind === 'pile' && on ? MEET_LINE.pileOn : MEET_LINE[m.kind];
+  if (!list) return null;
+  const s = pickOf(list, m.key);
+  return s.replace(/\$(a|b)(he|his|him)?\b/g, (_, who, p) => { const w = who === 'a' ? wa : wb; return p ? w[p] : w.name; }).replace(/\$where/g, on || 'bed');
+}
+const perchWordOf = (L, id) => { const p = (L.placed || []).find((q) => q.id === id) || (id === 'counter' ? { arche: 'surface', name: 'kitchen counter' } : null); return p ? perchWord(p) : null; };
+// encounter key → when it was said, so it's said once (dropped an hour on)
+const MEET_SAID = new Map();
+
 // pet id → what was last said of him; dropped when nobody's there to hear. MEM: pet id → the last act said and when
 const SAID = new Map(), MEM = new Map();
 let narrating = false;
@@ -475,13 +657,41 @@ async function narrate() {
       if (b.sig !== undefined && b.sig !== sig) emit('furniture.changed', { zoneId: b.zone, id: b.id });
       b.sig = sig;
     }
+    // and a tray that's been used
+    for (const t of TRAYS.values()) {
+      const s = stateOf(t, now), sig = s.pee + '/' + s.poo + '/' + s.mess.length;
+      if (t.sig !== undefined && t.sig !== sig) emit('furniture.changed', { zoneId: t.zone, id: t.id });
+      t.sig = sig;
+    }
+    // the cats in each room somebody's in, for what two of them do together
+    const byZone = new Map();
+    for (const p of PETS.values()) {
+      const npc = world.npcs.get(p.npcId), zone = npc?.zone_id;
+      if (!npc || npc._dead || !zone || p.species !== 'cat' || !getZonePlayers(zone).length) continue;
+      if (!byZone.has(zone)) byZone.set(zone, []);
+      byZone.get(zone).push({ p, npc });
+    }
+    const meetOf = new Map();
+    for (const [zone, list] of byZone) {
+      if (list.length < 2) continue;
+      const L = await layoutOf(zone);
+      const meets = catMeets(L, list.map(({ p, npc }) => ({ id: npc.id, nature: p.personality, look: p.look, bowls: bowlsOf(p), tray: trayOf(p), busy: !!beatOf(npc.id, now) })), now, hour);
+      for (const [id, m] of meets) meetOf.set(id, m);
+      for (const [id, m] of meets) {
+        if (m.role !== 'a' || MEET_SAID.has(m.key)) continue;
+        MEET_SAID.set(m.key, now);
+        const line = meetLine(m, world.npcs.get(id), world.npcs.get(m.with), L);
+        if (line) sendToZone(zone, { type: 'zone_event', message: line });
+      }
+    }
+    for (const [k, t] of MEET_SAID) if (now - t > 3600000) MEET_SAID.delete(k);
     for (const p of PETS.values()) {
       const npc = world.npcs.get(p.npcId), zone = npc?.zone_id;
       if (!npc || npc._dead || !zone || !getZonePlayers(zone).length) { SAID.delete(p.id); continue; }
       const L = await layoutOf(zone), st = nowOf(p, npc, L, now, hour), was = SAID.get(p.id);
       SAID.set(p.id, st);
-      // a beat says its own lines; and somebody just in has had the greeting
-      if (!was || beatOf(npc.id, now)) continue;
+      // a beat says its own lines; somebody just in has had the greeting; and two cats together were said as one
+      if (!was || beatOf(npc.id, now) || meetOf.has(npc.id)) continue;
       if (!MEM.has(p.id)) MEM.set(p.id, {});
       const line = lineFor(was, st, npc, L, MEM.get(p.id), now);
       if (line) sendToZone(zone, { type: 'zone_event', message: line });
@@ -491,6 +701,7 @@ async function narrate() {
 
 await loadPets().catch((e) => console.error(`[pets] failed to load: ${e.message}`));
 await loadBowls().catch((e) => console.error(`[pets] bowls failed to load: ${e.message}`));
+await loadTrays().catch((e) => console.error(`[pets] trays failed to load: ${e.message}`));
 
 on('zone.entered', (e) => { try { onEntered(e); } catch (err) { console.error(`[pets] greet: ${err.message}`); } });
 // keep the layout fresh when the furniture moves
@@ -500,14 +711,16 @@ schedule('5s', () => narrate().catch((e) => console.error(`[pets] narrate: ${e.m
 export const hooks = {
   'roomstage.npcBeast': npcBeast,
   'npc.petAttempt': onPetAttempt,
+  'npc.describeAnimal': describeAnimal,
   'room.pieceState': pieceState,
-  'furniture.acts': (f) => (typeof f?.flags?.pet_bowls === 'string' ? [{ verb: 'refill' }] : undefined),
-  'furniture.describe': describeBowls,
+  'furniture.acts': (f) => (typeof f?.flags?.pet_bowls === 'string' ? [{ verb: 'refill' }] : typeof f?.flags?.pet_tray === 'string' ? [{ verb: 'scoop' }] : undefined),
+  'furniture.describe': (f) => describeBowls(f) ?? describeTray(f),
+  'zone.smells': traySmells,
 };
-export const commands = { refill: cmdRefill };
-// `refill` stays this plugin's verb; the row puts it on a feeding station's examine
-export const specializedActions = [{ verb: 'refill', requiredFlag: 'pet_bowls', handler: null }];
+export const commands = { refill: cmdRefill, scoop: cmdScoop };
+// `refill` and `scoop` stay this plugin's verbs; the rows put them on a feeding station's and a tray's examine
+export const specializedActions = [{ verb: 'refill', requiredFlag: 'pet_bowls', handler: null }, { verb: 'scoop', requiredFlag: 'pet_tray', handler: null }];
 
-export const _test = { PETS, BY_NPC, BEATS, STROKES, STROKE_SAID, BOWLS, petSpot, strokeBy, SAID, loadPets, loadBowls, petOfNpc, npcBeast, onEntered, onPetAttempt, beatOf, setBeat, cmdRefill, levelsOf, stationOf, pieceState, describeBowls, lineFor, nowOf, layoutOf, narrate };
+export const _test = { PETS, BY_NPC, BEATS, STROKES, STROKE_SAID, BOWLS, TRAYS, petSpot, strokeBy, SAID, loadPets, loadBowls, loadTrays, petOfNpc, npcBeast, onEntered, onPetAttempt, beatOf, setBeat, cmdRefill, cmdScoop, levelsOf, stationOf, pieceState, describeBowls, describeTray, describeAnimal, hungerOf, traySmells, stateOf, trayLine, lineFor, nowOf, layoutOf, narrate, meetLine, MEET_LINE, MEET_SAID, ACT_LINE };
 
-console.log(`[pets] Plugin loaded (${PETS.size} pet${PETS.size === 1 ? '' : 's'}).`);
+console.log(`[pets] Plugin loaded (${PETS.size} pet${PETS.size === 1 ? '' : 's'}, ${TRAYS.size} tray${TRAYS.size === 1 ? '' : 's'}).`);

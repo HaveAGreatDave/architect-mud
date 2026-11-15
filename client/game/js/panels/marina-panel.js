@@ -154,6 +154,7 @@ function lotBody(d) {
     ].filter(Boolean).join('');
     const live = ready && !hard;
     const choice = ready ? choiceHtml({
+      call: d.stand && live && b.hereNow ? { cmd: `callup ${b.id}`, title: 'Have her walked into the slip, then step aboard' } : null,
       deploy: live ? { cmd, title: 'Take the helm and cast straight off' } : { why: 'On a cradle: crane her in first' },
       maint: live ? { cmd, title: 'Take the helm in the covered slot, with the roof off for work' } : { why: 'On a cradle: crane her in first' },
       sell: b.rental ? { hold: `boat return ${b.id}`, title: 'Hand her back early, no refund' } : b.resale != null ? { hold: `boat sell ${b.id}` } : null,

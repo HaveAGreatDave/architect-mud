@@ -1,0 +1,28 @@
+{
+  "description": "A grey steel locker, the door bent at the bottom corner where it was kicked shut. No padlock, and nothing inside worth one.",
+  "flags": {
+    "aliases": [
+      "locker",
+      "lockers",
+      "second locker"
+    ],
+    "look": {
+      "arche": "store",
+      "form": "locker"
+    },
+    "spot": {
+      "along": 2.2,
+      "wall": "back"
+    }
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_bunk_deadleg_locker2",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "second locker",
+  "object_type": "decoration",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_bunk_deadleg"
+}

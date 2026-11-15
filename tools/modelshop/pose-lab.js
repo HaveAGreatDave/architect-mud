@@ -21,6 +21,7 @@
 
 import { createBallparkRenderer, castOf } from '/client/game/js/panels/gl/ballpark.js';
 import { PARK_FIGURES } from '/client/game/js/panels/gl/ballpark-figures.js';
+import { GEN1, GEN1_ORDERS } from '/client/shared/deadball-gen1.js';
 import { sampleClip, completePose, limitBreaks, TRAIT_RANGE } from '/client/game/js/panels/diamond/anim.js';
 import { solvePose, POSES } from '/client/game/js/panels/diamond/rig.js';
 import { validateClip, clipFileName, CLIP_ROLES, CLIP_EVENTS, POSE_FIELDS } from '/client/game/js/panels/diamond/clip-schema.js';
@@ -301,14 +302,15 @@ $('pose').addEventListener('input', (e) => {
 // ── the park, the player and the camera ────────────────────────────────────────
 const canvas = $('view');
 let R = null, raf = 0, lastNow = 0, frameOf = null, castNow = null;
-const lab = { lefty: false, traits: 'none' };
+// `who`: a man by name in the batter's, the pitcher's and the catcher's places (the Player Lab), or nobody's own
+const lab = { lefty: false, traits: 'none', who: new URLSearchParams(location.search).get('who') || '' };
 // Where the clip's player stands and which body he is: the cast's own man for a role that has one
 // on the field, and for a role with nobody there (a runner with the bases empty, anyone) the
 // batter's body: out on the grass in front of the plate, facing it, or for a clip that travels a
 // step out of the box, facing first, with the base path to run down.
 function place() {
   if (!R) return;
-  const p = { half: 'top', inning: 1, batter: 'Pose Lab', pitcher: 'Pose Lab Arm', bats: lab.lefty ? 'L' : 'R', throws: lab.lefty ? 'L' : 'R', battingTeam: 'Rats', fieldingTeam: 'Kings', basesBefore: [false, false, false] };
+  const p = { half: 'top', inning: 1, batter: lab.who || 'Pose Lab', pitcher: lab.who || 'Pose Lab Arm', bats: lab.lefty ? 'L' : 'R', throws: lab.lefty ? 'L' : 'R', battingTeam: 'Rats', fieldingTeam: 'Kings', basesBefore: [false, false, false], ...(lab.who ? { gen1: { C: lab.who } } : {}) };
   castNow = castOf(p);
   R.setCast(castNow, { home: 'Kings', away: 'Rats' });
   const role = doc?.role || 'any';
@@ -559,6 +561,10 @@ function figureBody(on) {
   if (on) { let n = 0; figWait = setInterval(() => { draw(); if (++n > 60) clearInterval(figWait); }, 250); }
 }
 $('figbody').onchange = (e) => figureBody(e.target.checked);
+// the Player Lab: the First Generation's names to pick from, or any name typed
+$('whoList').innerHTML = GEN1.map((g) => `<option value="${esc(g.name)}">${esc(g.nick)} · ${esc(GEN1_ORDERS[g.order].name)} ${esc(g.pos)}</option>`).join('');
+$('who').value = lab.who;
+$('who').onchange = (e) => { lab.who = e.target.value.trim(); place(); if (PARK_FIGURES.on) figureBody(true); };
 $('traits').onchange = (e) => { lab.traits = e.target.value; draw(); };
 for (const b of document.querySelectorAll('[data-view]')) b.onclick = () => view(b.dataset.view);
 document.addEventListener('keydown', (e) => {

@@ -45,6 +45,7 @@ import { boatRental, boatRentalExpired, boatRentFee, BOAT_RENT_TERM_MS, BOAT_REN
 import { boatTake, applyLive } from './helm.js';
 import { deskReady, deskRefusal, deskStock } from './desk.js';
 import { boardCheck } from '../../server/engine/vehicle-access.js';
+import { standTaken } from '../../server/engine/vehicle-stand.js';
 import { unindexBoat } from './access.js';
 import { boatAnchor } from './anchor.js';
 import { boatHold, boatUnload } from './hold.js';
@@ -284,7 +285,12 @@ export async function cmdBoat(args, raw, player) {
   // real water, and hands you the helm. `rent` and `return` are the hire desk (service.js). All
   // three are words no hull on the line is called, so they sit ahead of the dealer's name match.
   const sub = String(args[0] || '').toLowerCase();
-  if (sub === 'take' || sub === 'launch' || sub === 'out') return await boatTake(player, args.slice(1).join(' '));
+  if (sub === 'take' || sub === 'launch' || sub === 'out') {
+    const r = await boatTake(player, args.slice(1).join(' '));
+    // stepped aboard off the covered slip: the stand is empty (server/engine/vehicle-stand.js)
+    if (aboard.has(player.id)) standTaken(aboard.get(player.id), 'boat');
+    return r;
+  }
   if (sub === 'rent' || sub === 'hire') return await boatRent(player, args.slice(1).join(' '));
   if (sub === 'return' || sub === 'handback') return await boatReturn(player, args.slice(1).join(' '));
   if (sub === 'sell') return await boatSell(player, args.slice(1).join(' '));

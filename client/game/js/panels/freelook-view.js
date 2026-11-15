@@ -25,7 +25,7 @@
 // downloads and parses the whole 3-D stack before they can type `look`. The facade has the same
 // export names, so nothing below this line changed; what changed is that the bytes arrive when the
 // seat is opened. See scripts/client/bake-lazy-view.mjs.
-import { loadWindshield, isLoaded as windshieldLoaded, paintWindshield, windshieldHTML, ensureWindshieldStyles, disposeWindshield, normalizeWx, navMarks, raptorsNow, yachtScopeMount, yachtDeckEye, modelTopZAt, curtainTopZAt, groundObstructionAt, bayFootSolid, bayDims, ROAD_RIG_MUL } from './windshield-lazy.js';
+import { loadWindshield, isLoaded as windshieldLoaded, paintWindshield, windshieldHTML, ensureWindshieldStyles, disposeWindshield, normalizeWx, navMarks, raptorsNow, yachtScopeMount, yachtDeckEye, modelTopZAt, curtainTopZAt, groundObstructionAt, bayFootSolid, bayDims, ROAD_RIG_MUL, viewFocal, viewLatFocal } from './windshield-lazy.js';
 export { loadWindshield };
 import { createFreeCam, freeCamHint, freeCamTouchUI, bindFreeCamPointer, bindFreeCamIdle } from './freecam.js';
 import { makeContactTrack } from './world-feed.js';
@@ -33,11 +33,12 @@ import { internMap } from './map-intern.js';
 import { seatLadderHTML, bindSeatLadder, releaseSeatLadder, keepSeatRung } from './seat-ladder.js';
 import { claimSeatKeyboard, endSeatKeyboard } from './seat-keys.js';
 import { setSprayStage, clearSprayStage } from './spray-aim.js';
+import { footDockHTML, bindFootDock } from './foot-dock.js';
 import { floorZAt } from './seabed-scene.js';
 import { interiorRoomsOf } from './room-interiors.js';
 import { noteDoor, noteCarry } from './lobby-still.js';
 import { roomFree, openingCrossed, openingInside } from '../../../shared/room-layout.js';   // a building's rooms, drawn in the city (docs/proposals/one-world-interiors.md)
-import { FT_M } from '../../../shared/world-scale.js';
+import { FT_M, m2t as m2tf } from '../../../shared/world-scale.js';
 import { measureDoorway } from './glass/doorway-measure.js';   // a street door's opening, read off its building's mass
 // The rooms the server sent for the buildings near you on foot, kept for the view (each building once, by its tile)
 function keepInteriors(s, list) {
@@ -406,6 +407,8 @@ export function openFreelook(ctx = {}) {
     + `<button class="fl-chip fl-x" type="button" title="close the camera (O)">✕</button>`
     + `</div>`
     + `<div class="fl-hint"></div>`
+    // on foot, your pack and your tablet, the same buttons and keys as in a room (foot-dock.js)
+    + (stand?.foot ? footDockHTML() : '')
     // A phone moves this camera with the free camera's own touch layer (bindFreeCamTouch): drag
     // looks, a left thumbstick moves, pinch zooms, ▲ ▼ climb. It replaced a nine-key pad here.
     + `</div>`;
@@ -440,6 +443,11 @@ export function openFreelook(ctx = {}) {
   freelookSetSky(ctx.sky);
   freelookSetContacts(ctx.contacts);
   if (st.foot) freeCam.setWalkBlock((x0, y0, x1, y1) => footBlock(st, x0, y0, x1, y1));
+  if (st.foot) {
+    const s = st;
+    root.classList.add('rp-host');
+    s.dock = bindFootDock(root, { pack: (tab) => footPack(s, tab), tablet: () => s.foot.onMove('tablet') });
+  }
 
   // ⚠ OPEN ALREADY DETACHED. There is no mount to be on, so the "stowed" state of the camera is not
   // a state this view has — a stowed camera here would be a frozen frame with no controls at all.
@@ -480,7 +488,7 @@ export function openFreelook(ctx = {}) {
     // A phone gets the touch line, which has no keys in it to replace.
     if (freeCamTouchUI()) { hintEl.textContent = freeCamHint(freeCam.standing); return; }
     // on foot out of a building, the room's own line (room-stage.js), less what the street doesn't have
-    if (stand?.foot) { hintEl.textContent = 'WASD to walk, Shift to run, C to crouch · drag to look, Q and E to turn · wheel zooms · F at a door goes in · G tags the wall you face · O or ✕ steps back'; return; }
+    if (stand?.foot) { hintEl.textContent = 'WASD to walk, Shift to run, C to crouch · drag to look, Q and E to turn · wheel zooms · F at a door goes in · G tags the wall you face · I for your pack, P for what you can eat and drink · T for your tablet · O or ✕ steps back'; return; }
     hintEl.textContent = (freeCam.standing
       ? freeCamHint(true).replace('O steps back', stand ? 'O or ✕ steps back' : 'O or ✕ closes')
       : freeCamHint(false).replace('O exit', 'H follow raptor · O close'));
@@ -549,7 +557,9 @@ export function openFreelook(ctx = {}) {
         map: st.map, skyline: st.skyline, mapCenter: { x: st.gx, y: st.gy }, mapOffset: { x: 0, y: 0 },
         acX: st.gx, acY: st.gy, airport: 'default',
         tune: (st.stand || freeCam.standing) ? STAND_TUNE : undefined,   // see STAND_TUNE — a seat that cannot move can afford to draw more
-        freeCam: freeCam.view(),
+        // the Pack open: the camera stands back round you, and you're drawn (packViewNow, packSelf)
+        freeCam: (st.packCam && packViewNow(st, now)) || freeCam.view(),
+        self: st.packCam ? packSelf(st) : null,
         actors: st.actors,   // pavement people; meshes up close (gl/actors.js)
         // ⚠ THE OWN SHIP IS THE WINDOW CENTRE, hidden, so a contact's offset is from there; the camera
         // flying away from it is the renderer's business (freeCam), exactly as for the helm.
@@ -595,6 +605,12 @@ export function openFreelook(ctx = {}) {
     }
     // the spray can's dialog is over the street: a press is the dialog's (a release still lets go here)
     if (down && document.getElementById('spray-overlay')) return;
+    // on foot the tablet has the keys while it's up, as it does over a room, and the Pack while it's open; I, P and T
+    // are the dock's (foot-dock.js)
+    if (down && st.foot) {
+      if (document.getElementById('tablet-os-overlay')) return;
+      if (st.pack?.key(e) || st.dock?.key(e)) { e.preventDefault(); return; }
+    }
     // ⚠ O CLOSES THE VIEW, NOT THE CAMERA. In a seat the camera goes back on its mount and the
     // vehicle is still there; here there is nothing to go back to, so the same key has to mean the
     // same thing to the player — "put this away" — and what it puts away is the whole view.
@@ -787,6 +803,7 @@ export function openFreelook(ctx = {}) {
     if (!self.woke) return;
     self.teardown();
     self.woke = false;
+    self.pack?.close();
     freeCam.releaseAll(); self.foot?.spin.clear();
     suppressWeatherFx(false, 'freelook');
     cancelAnimationFrame(self.raf); self.raf = 0;
@@ -949,6 +966,86 @@ function footCan(s) {
   const dir = v ? FACING[Math.round((((v.yaw % 360) + 360) % 360) / 90) % 4] : '';
   s.foot.onMove(`spraycan ${dir}`.trim());
 }
+// THE PACK ON THE STREET: the Room Stage's own panel (room-pack.js), fetched the first time it's opened, on the same
+// `roompack` verb. Eating, drinking and the rest are the typed verb (take answers false), and the can opens on the wall
+// you face, as G does.
+// ⚠ YOU, IN 3D, AS IN A ROOM. While it's open the camera leaves your eyes and stands back round you (packViewNow), and
+// GLASS draws your own body where you stood (windshield.js drawSelfFigure, `v.self`), dressed from the Pack's rows as
+// the Room Stage dresses you (player-figure.js playerFigure, paper-doll.js figureWorn), so the street's close-up level
+// draws the same figure the room does. A drag across the clear box, Q and E turn the camera round you; the wheel brings
+// it in. Your body stays where you are, facing where you looked, and the camera goes back to your eyes when it shuts.
+const PACK_FOV = 38, PACK_PITCH = -0.28;
+let packMods = null;
+function footPack(s, tab) {
+  if (s.pack) { s.pack.toggle(tab); return; }
+  if (s.packing) return;
+  s.packing = true;
+  Promise.all([import('./room-pack.js'), import('./gl/room-people.js'), import('../../../shared/player-figure.js'), import('../../../shared/paper-doll.js')]).then(([rp, people, pf, pd]) => {
+    s.packing = false;
+    packMods = { streetLook: people.streetLook, playerFigure: pf.playerFigure, figureWorn: pd.figureWorn };
+    if (st !== s || !s.alive || !s.foot) return;
+    s.pack = rp.createPack({
+      host: s.root, silent: (line) => s.foot.onMove(line), cmd: (line) => import('../net.js').then((m) => m.sendCmd(line)),
+      spray: () => footCan(s), take: () => false,
+      onToggle: (open) => { s.dock?.setPack(open); if (open) { s.freeCam.releaseAll(); s.foot.spin.clear(); } packView(s, open); },
+      turn: (dYaw, dPitch, zoom) => packTurn(s, dYaw, dPitch, zoom),
+    });
+    s.pack.open(tab);
+  }).catch(() => { s.packing = false; });
+}
+function packView(s, open) {
+  const v = open ? s.freeCam.view() : null;
+  if (!v) { s.packCam = null; return; }
+  const ground = Math.max(0, v.z - FPS_EYE * (s.foot.eyeK ?? 1));
+  s.packCam = { x: v.x, y: v.y, ground, face: v.yaw, yaw: v.yaw + 180, pitch: PACK_PITCH, zoom: 1, goal: { yaw: v.yaw + 180, pitch: PACK_PITCH, zoom: 1 }, t: 0 };
+}
+// the Pack's turn is the room's: radians, yaw growing to the left; the street's camera is degrees, growing clockwise
+function packTurn(s, dYaw = 0, dPitch = 0, zoom = 1) {
+  const g = s.packCam?.goal;
+  if (!g) return;
+  g.yaw -= dYaw * 180 / Math.PI;
+  g.pitch = Math.max(-1.2, Math.min(0.12, g.pitch - dPitch));
+  g.zoom = Math.max(0.4, Math.min(1.6, g.zoom * zoom));
+}
+// The camera round you, as room-stage.js packCamNow frames you: far enough back that you fill the clear box, turned off
+// you by as much as the box is off the middle of the picture. GLASS's lens is a multiplier on its own focal lengths
+// (windshield.js viewFocal, viewLatFocal), so PACK_FOV is worked into one here.
+function packViewNow(s, now) {
+  const pc = s.packCam, r = s.pack?.dollRect(), host = s.root.querySelector('.ws-wrap') || s.root, cr = host.getBoundingClientRect();
+  if (!pc || !r || !r.height || !cr.height || !cr.width) return null;
+  const dt = pc.t ? Math.min(0.1, (now - pc.t) / 1000) : 0.016, k = 1 - Math.exp(-dt * 14);
+  pc.t = now;
+  pc.yaw += (pc.goal.yaw - pc.yaw) * k; pc.pitch += (pc.goal.pitch - pc.pitch) * k; pc.zoom += (pc.goal.zoom - pc.zoom) * k;
+  const W = cr.width, H = cr.height, half = PACK_FOV * Math.PI / 360;
+  const lens = (H / 2) / (Math.tan(half) * viewFocal(W, H));
+  const tanH = (W / 2) / (viewLatFocal(W, null) * lens);
+  const d = m2tf(2.05) / (2 * (r.height / H) * Math.tan(half)) * pc.zoom;
+  const cx = pc.x, cy = pc.y, cz = pc.ground + m2tf(0.95), Y = pc.yaw * Math.PI / 180, cp = Math.cos(pc.pitch);
+  const nx = ((r.left + r.width / 2) - (cr.left + W / 2)) / (W / 2), ny = ((cr.top + H / 2) - (r.top + r.height / 2)) / (H / 2);
+  return {
+    x: cx - Math.sin(Y) * cp * d, y: cy + Math.cos(Y) * cp * d, z: Math.max(pc.ground + 0.01, cz - Math.sin(pc.pitch) * d),
+    yaw: pc.yaw - Math.atan(nx * tanH) * 180 / Math.PI, pitch: pc.pitch - Math.atan(ny * Math.tan(half)), roll: 0, fov: lens,
+  };
+}
+// You, for GLASS (v.self): where you stood, facing where you looked, in what the Pack says you have on (kept per outfit).
+function packSelf(s) {
+  const pc = s.packCam, m = s.packMsg, M = packMods;
+  if (!pc || !m || !M) return null;
+  const items = s.pack?.worn() || m.items || [], sex = m.sex === 'female' ? 'female' : 'male';
+  const sig = items.filter((x) => x.worn && x.slot).map((x) => x.id).join(',') + '|' + JSON.stringify(m.look || null);
+  if (s.packLook?.sig !== sig) {
+    const base = M.playerFigure(m.look || {}) || {};
+    const fig = { ...base, ...M.figureWorn(items, { sex, skin: base.skin || null }) };
+    const o = M.streetLook(String(m.you || 'you'), sex === 'female', fig);
+    // the close-up figure rolls off your own id, as the room's does, so the two draw one person
+    s.packLook = { sig, o: { ...o, hd: { ...o.hd, id: m.you || o.hd.id } }, k: fig.height > 1 ? fig.height / 1.776 : 1 };
+  }
+  const F = pc.face * Math.PI / 180;
+  return { x: s.gx + pc.x, y: s.gy + pc.y, z: pc.ground, hd: Math.atan2(-Math.cos(F), Math.sin(F)), o: s.packLook.o, k: s.packLook.k };
+}
+// what plugins/roomstage pack.js answers, and a nudge when the inventory changed some other way (dispatch.js)
+export function freelookPack(msg) { if (!st?.pack) return; st.packMsg = msg; st.pack.data(msg); }
+export function freelookPackDirty() { st?.pack?.dirty(); }
 // What the spray session needs of the street: a name for the wall, and brick for its close-up. Where on the facade the
 // paint goes is GLASS's to solve (windshield.js drawWallTags), so there's no aim and no live paint: the window is sent
 // again when the tag's up (plugins/freelook), and the wall has it.
@@ -1332,7 +1429,10 @@ function ensureFreelookStyles() {
        ⚠ AN ALLOW-LIST, the shape the three seats already use, so anything hung on this glass
        later is out of the shot the day it arrives. '.ws-label' is the vantage's own name in the
        corner, which is a caption, and there is no windscreen out here for the A-pillars to be. */
-    body.bigscreen .fl-root > *:not(.fl-view){ display:none !important; }
+    body.bigscreen .fl-root > *:not(.fl-view):not(.foot-dock):not(.rp){ display:none !important; }
+    /* On foot the Pack and tablet are bottom right (foot-dock.css), and stay there in big screen as they do in a
+       room: your pockets don't go because the picture got bigger. On a phone the hint wraps, so it goes above them. */
+    html[data-density="compact"] .fl-root:has(.foot-dock) .fl-hint{ bottom:64px; }
     body.bigscreen .fl-root .ws-label,
     body.bigscreen .fl-root .ws-frame::after{ display:none; }`;
   if (!el.parentNode) document.head.appendChild(el);

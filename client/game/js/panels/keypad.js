@@ -6,10 +6,9 @@
 // is where you press, as on any pad, and the keyboard's digits still work. The
 // reset key is a bar's last-orders bell.
 //
-// It's a small brass-and-graphite box in CSS 3D (keypad.css): a slab with real
-// sides that hinges up out of the bar when it opens, and keys that are caps with
-// four sides standing in wells, which sink into the plate when pressed (by mouse,
-// touch or keyboard). Nothing in a key's look carries meaning the aria-label doesn't.
+// It's a backlit panel of smoked glass in a brass bezel (keypad.css), big enough to
+// hit with a thumb: round keys lit amber from behind, which dip when pressed (by mouse,
+// touch or keyboard). A click off the panel, the close button or Escape puts it away. Nothing in a key's look carries meaning the aria-label doesn't.
 //
 // The privacy rule this overlay exists to keep: the digits NEVER touch the message
 // log. Submitting goes out through sendCmdSilent, so there's no echoed command line
@@ -59,10 +58,8 @@ const ICONS = {
   reset: { name: 'last orders bell', svg: "<path d='M5.5 17c1.2-1.4 1.5-3 1.5-6a5 5 0 0 1 10 0c0 3 .3 4.6 1.5 6z'/><path d='M10.3 19.5a1.8 1.8 0 0 0 3.4 0'/><path d='M12 3.5V6'/><path d='M4 17h16'/>" },
 };
 const icon = (k) => `<svg class='kp-ico' viewBox='0 0 24 24' aria-hidden='true'>${ICONS[k].svg}</svg>`;
-// A key's cap: its top, and four sides folded back down to the plate (keypad.css).
-const cap = (inner) => `<span class="kp-cap"><span class="kp-face kp-top">${inner}</span>`
-  + '<span class="kp-face kp-sd kp-sd-t"></span><span class="kp-face kp-sd kp-sd-b"></span>'
-  + '<span class="kp-face kp-sd kp-sd-l"></span><span class="kp-face kp-sd kp-sd-r"></span></span>';
+// A key's face: the lit glass disc the icon sits in (keypad.css).
+const cap = (inner) => `<span class="kp-cap">${inner}</span>`;
 const PIPS = MAX_DIGITS;
 const reducedMotion = () => { try { return matchMedia('(prefers-reduced-motion: reduce)').matches; } catch { return false; } };
 
@@ -104,20 +101,16 @@ export async function openConcealKeypad(msg) {
   const { overlay, close } = mountOverlay({
     id: 'keypad-overlay',
     html: `<div class="kp-stage">
-      <div class="kp-floor" aria-hidden="true"></div>
       <div class="kp-dev${reducedMotion() ? ' kp-still' : ''}" id="kp-dev" role="dialog" aria-label="${esc(msg.brand || 'Keypad')}">
-        <i class="kp-slab kp-slab-t" aria-hidden="true"></i><i class="kp-slab kp-slab-b" aria-hidden="true"></i>
-        <i class="kp-slab kp-slab-l" aria-hidden="true"></i><i class="kp-slab kp-slab-r" aria-hidden="true"></i>
-        <i class="kp-slab kp-slab-k" aria-hidden="true"></i>
         <div class="kp-plate">
-          <div class="kp-brand">${esc(msg.brand || 'KEYPAD')}</div>
+          <div class="kp-head"><span class="kp-lamp" aria-hidden="true"></span><span class="kp-brand">${esc(msg.brand || 'KEYPAD')}</span><button type="button" class="kp-x" id="kp-x" aria-label="Close the keypad" title="Close (Esc)">&times;</button></div>
           <div class="kp-screen" id="kp-screen">
             <div class="kp-state" id="kp-state"></div>
             <div class="kp-pips" id="kp-readout" role="status" aria-live="polite"></div>
           </div>
           <div class="kp-grid" id="kp-grid"></div>
           <div class="kp-msg" id="kp-msg" aria-live="polite"></div>
-          <div class="kp-foot"><button type="button" class="kp-key kp-reset" id="kp-reset" aria-label="Reset the code (last orders bell)" title="Reset the code: the current code, then a new one">${cap(icon('reset'))}</button><span class="kp-esc">esc to walk away</span></div>
+          <div class="kp-foot"><button type="button" class="kp-key kp-reset" id="kp-reset" aria-label="Reset the code (last orders bell)" title="Reset the code: the current code, then a new one">${cap(icon('reset'))}</button><span class="kp-esc">Enter pours &middot; Esc walks away</span></div>
         </div>
       </div>
     </div>`,
@@ -225,18 +218,9 @@ export async function openConcealKeypad(msg) {
   }
   holdable($('kp-reset'));
 
-  // The box leans a little toward the pointer, eased by the sheet's transition. Off
-  // when motion is reduced.
-  const dev = $('kp-dev');
-  if (!reducedMotion()) {
-    overlay.addEventListener('pointermove', (e) => {
-      const r = dev.getBoundingClientRect();
-      const nx = Math.max(-1, Math.min(1, (e.clientX - (r.left + r.width / 2)) / (r.width * 1.2)));
-      const ny = Math.max(-1, Math.min(1, (e.clientY - (r.top + r.height / 2)) / (r.height * 1.2)));
-      dev.style.setProperty('--ry', (nx * 9).toFixed(2) + 'deg');
-      dev.style.setProperty('--rx', (9 - ny * 6).toFixed(2) + 'deg');
-    });
-  }
+  // put away by its close button, or a click anywhere off the panel
+  $('kp-x').addEventListener('click', () => close());
+  overlay.addEventListener('pointerdown', (e) => { if (!$('kp-dev').contains(e.target)) close(); });
 
   $('kp-reset').addEventListener('click', () => {
     mode = 'current'; digits = ''; first = '';

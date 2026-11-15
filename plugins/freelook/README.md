@@ -82,6 +82,13 @@ early, marked `prewarm`: the client builds it hidden, so its shaders and its cit
 wakes it instead of opening a new one behind a loading screen. A warm view registers no viewer and puts nobody
 on foot.
 
+On foot the view has the Room Stage's dock (client `panels/foot-dock.js`): Pack and the tablet in the bottom right,
+on I, P and T, the same buttons and keys as in a room. The Pack is the room's own panel (`room-pack.js`) on the
+same `roompack` verb. While it's open the camera stands back round you and GLASS draws your own body where you
+stood (`v.self`, windshield.js `drawSelfFigure`), dressed from the Pack's rows as the Room Stage dresses you, so the
+street's close-up level draws the same figure the room does. While the tablet or the Pack is up, presses are theirs
+and nobody walks.
+
 ## The nav marks
 
 The renderer's screen-pinned navigation marks — the red chevrons that point at traffic out of shot,

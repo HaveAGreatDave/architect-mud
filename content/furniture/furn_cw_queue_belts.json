@@ -1,6 +1,23 @@
 {
   "description": "Chrome posts with retractable belts, set out in a zigzag for about forty people.",
-  "flags": {},
+  "flags": {
+    "look": {
+      "arche": "surface",
+      "dims": [
+        5.4,
+        0.12,
+        1
+      ],
+      "form": "rail"
+    },
+    "spot": {
+      "at": [
+        0.9,
+        10.2
+      ],
+      "turn": 0
+    }
+  },
   "hp": null,
   "hp_max": null,
   "id": "furn_cw_queue_belts",

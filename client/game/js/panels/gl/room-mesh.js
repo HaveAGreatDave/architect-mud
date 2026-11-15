@@ -1905,7 +1905,7 @@ function rodOf(K) {
 // it's at the left end to somebody facing the bar.
 function drawCachetPad(K, p) {
   const [fu, fv] = facing(p.turn), F = K.frame(p.u, p.v, fu, fv), { pbox } = F, pad = cachetPad(p);
-  const w = 0.085, h = 0.12, x0 = pad.x - w / 2, x1 = pad.x + w / 2, y0 = pad.y - h / 2, y1 = pad.y + h / 2;
+  const w = 0.12, h = 0.17, x0 = pad.x - w / 2, x1 = pad.x + w / 2, y0 = pad.y - h / 2, y1 = pad.y + h / 2;
   let z = pad.z;
   if (!pad.wall) {
     // a brass foot on the worktop, and the pad's body standing on it
@@ -1916,7 +1916,7 @@ function drawCachetPad(K, p) {
   pbox(x0 - 0.006, x1 + 0.006, y0 - 0.006, y1 + 0.006, z - 0.006, z + 0.002, '#b08a4a', 1.15, null, METAL);
   pbox(x0, x1, y0, y1, z + 0.002, z + 0.006, '#141416', 1, null, GLOSS);
   // its keys: a grid of three by four, lit dim amber from behind, and a status lamp over them
-  const kw = 0.016, kh = 0.014, gx = (w - 0.02) / 3, gy = (h - 0.035) / 4;
+  const kw = 0.024, kh = 0.02, gx = (w - 0.02) / 3, gy = (h - 0.035) / 4;
   for (let r = 0; r < 4; r++) for (let c = 0; c < 3; c++) {
     const cx = x0 + 0.01 + gx * (c + 0.5), cy = y0 + 0.01 + gy * (r + 0.5);
     pbox(cx - kw / 2, cx + kw / 2, cy - kh / 2, cy + kh / 2, z + 0.006, z + 0.008, '#e8b070', 1.35, null, MATTE);

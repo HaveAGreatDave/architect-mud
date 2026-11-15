@@ -51,6 +51,7 @@ import { createMirrorLayer, MIRROR_SCALE } from './mirror.js';
 import { createRinkHeads, HEAD_VS, HEAD_FS, KEY } from './arena-heads.js';
 import { buildXray } from './arena-xray.js';
 import { createArenaKen, kenRig } from './arena-ken.js';
+import { createCrowdHD, CROWD_HD, crowdHdLine, rinkDress, rinkLook, rinkHeard } from './crowd-hd.js';
 
 const FACE = '"Saira Condensed", "Arial Narrow", "Roboto Condensed", sans-serif';
 
@@ -972,7 +973,14 @@ export function createArenaRenderer(canvas, overlay, W0, ice) {
     const FAN_NEAR_PX = 80, FAN_SPLIT_MS = 250, FAN_H = 5, FIS = CROWD_INST * 4;
     const fanIb = gl.createBuffer(), fanNb = gl.createBuffer();
     const fanGpu = { far: null, near: null, asked: false, vao: null, nearVao: null };
-    let fanKey = null, fanGroups = null, fanFar = null, fanNear = null, fanPx = null, fanAt = null, fanSplitKey = null, fanSplitAt = -Infinity, fanN = [0, 0];
+    let fanKey = null, fanGroups = null, fanFar = null, fanNear = null, fanPx = null, fanAt = null, fanSplitKey = null, fanSplitAt = -Infinity, fanN = [0, 0, 0];
+    // The biggest few in the picture as the close-up figure (gl/crowd-hd.js), on Ken's figure layer. They're left
+    // out of the bake's main draw but kept at the end of the near buffer (fanN[2] of them), so the comic look's
+    // line depth still has them and draws no seat's edge through them. `fanKits` the clubs' jersey and trim.
+    const crowdHD = createCrowdHD('rink', () => (ken ? ken.layer : null));
+    let fanKits = null, fanHd = [];
+    const hex01 = (hex) => { const n = parseInt(String(hex || '#808080').slice(1, 7), 16); return [((n >> 16) & 255) / 255, ((n >> 8) & 255) / 255, (n & 255) / 255]; };
+    const hdCtx = { dress: rinkDress(null) };
     function fansReady() {
       if (fanGpu.far) return true;
       const far = fanBakeReady('far'), near = fanBakeReady('near');
@@ -985,8 +993,8 @@ export function createArenaRenderer(canvas, overlay, W0, ice) {
       return false;
     }
     // the fans the view shows, split into the far level's buffer and the near one's
-    function splitFans(vp, view, share, hpx) {
-      const key = [fanKey, view, share].join('|'), now = performance.now();
+    function splitFans(vp, view, share, hpx, eye) {
+      const key = [fanKey, view, share, crowdHD.poll(), CROWD_HD.on, CROWD_HD.share, CROWD_HD.max].join('|'), now = performance.now();
       if (key === fanSplitKey && now - fanSplitAt < FAN_SPLIT_MS) return;
       fanSplitKey = key; fanSplitAt = now;
       const src = fanGroups.data, S = CROWD_INST, ring = seesRing(view);
@@ -1005,26 +1013,45 @@ export function createArenaRenderer(canvas, overlay, W0, ice) {
         }
       }
       const cut = nearCut(fanPx, m, FAN_NEAR_PX);
+      // the close-up few (gl/crowd-hd.js), never one the view drops beside its eye (arena-crowd.js nearR)
+      const cands = [], min = crowdHdLine(hpx) * CROWD_HD.off, nd = nearDrop(view), nr = nearR(view);
+      for (let i = 0; i < m; i++) {
+        const o = fanAt[i];
+        if (fanPx[i] < min || Math.hypot(src[o] - eye[0], src[o + 1] - eye[1], src[o + 2] - (eye[2] - nd)) < nr) continue;
+        // and some of him in the picture: his chest, give or take 3.5 ft (a man at your shoulder has his head in it)
+        const X = src[o], Y = src[o + 1], Z = src[o + 2] + 3, cw = vp[3] * X + vp[7] * Y + vp[11] * Z + vp[15], mg = 1 + 3.5 * Math.abs(vp[9]) / Math.max(0.1, cw);
+        if (!(cw > -3.5) || (cw > 0.1 && (Math.abs((vp[0] * X + vp[4] * Y + vp[8] * Z + vp[12]) / cw) > mg || Math.abs((vp[1] * X + vp[5] * Y + vp[9] * Z + vp[13]) / cw) > mg))) continue;
+        cands.push({ src, o, px: fanPx[i] });
+      }
+      hdCtx.h = hpx;
+      fanHd = crowdHD.pick(cands, hdCtx);
+      const hd = new Set(fanHd.map((c) => c.o));
       let nf = 0, nn = 0;
       for (let i = 0; i < m; i++) {
         const o = fanAt[i];
+        if (hd.has(o)) continue;
         if (fanPx[i] >= cut) fanNear.set(src.subarray(o, o + S), nn++ * S); else fanFar.set(src.subarray(o, o + S), nf++ * S);
       }
+      let nh = 0;
+      for (const c of fanHd) fanNear.set(src.subarray(c.o, c.o + S), (nn + nh++) * S);
       if (nf) { gl.bindBuffer(gl.ARRAY_BUFFER, fanIb); gl.bufferSubData(gl.ARRAY_BUFFER, 0, fanFar, 0, nf * S); }
-      if (nn) { gl.bindBuffer(gl.ARRAY_BUFFER, fanNb); gl.bufferSubData(gl.ARRAY_BUFFER, 0, fanNear, 0, nn * S); }
-      fanN = [nf, nn];
+      if (nn + nh) { gl.bindBuffer(gl.ARRAY_BUFFER, fanNb); gl.bufferSubData(gl.ARRAY_BUFFER, 0, fanNear, 0, (nn + nh) * S); }
+      fanN = [nf, nn, nh];
     }
-    function drawFans(vp, shake, view, eye) {
+    // `lines`: the comic look's line depth, which takes the close-up fans' bake too (fanN[2])
+    function drawFans(vp, shake, view, eye, lines = false) {
       const K = W0.kits || {}, key = [K.a?.jersey, K.a?.trim, K.h?.jersey, K.h?.trim].join('|');
       if (key !== fanKey) {
         fanKey = key; fanGroups = crowdInstances(K);
+        fanKits = { h: [hex01(K.h?.jersey), hex01(K.h?.trim)], a: [hex01(K.a?.jersey), hex01(K.a?.trim)] };
+        hdCtx.dress = rinkDress(fanKits); crowdHD.clear();
         for (const b of [fanIb, fanNb]) { gl.bindBuffer(gl.ARRAY_BUFFER, b); gl.bufferData(gl.ARRAY_BUFFER, fanGroups.data.byteLength, gl.DYNAMIC_DRAW); }
       }
       // Cup night sells out (the gate's 1) and is drawn whole on every tier: it's the one night
       // the barn has to look full
       const share = W0.final ? 1 : clamp(W0.gate ?? 0.7, 0, 1) * clamp(api.quality.crowd ?? 1, 0, 1);
       if (share <= 0 || !fansReady()) return;
-      splitFans(vp, view, share, gl.drawingBufferHeight);
+      splitFans(vp, view, share, gl.drawingBufferHeight, eye);
       const roar = roarOf(W);
       gl.useProgram(FANS.p);
       gl.uniformMatrix4fv(FANS.u('uVP'), false, vp); gl.uniform2fv(FANS.u('uShake'), shake);
@@ -1033,12 +1060,17 @@ export function createArenaRenderer(canvas, overlay, W0, ice) {
       gl.uniform4f(FANS.u('uNear'), eye[0], eye[1], eye[2] - nearDrop(view), nearR(view));
       gl.uniform3fv(FANS.u('uEyeC'), eye);
       gl.uniform1f(FANS.u('uDim'), 0.62); gl.uniform1f(FANS.u('uMourn'), W.mourning || 0);
-      for (const [lv, vao, n] of [[fanGpu.far, fanGpu.vao, fanN[0]], [fanGpu.near, fanGpu.nearVao, fanN[1]]]) {
+      for (const [lv, vao, n] of [[fanGpu.far, fanGpu.vao, fanN[0]], [fanGpu.near, fanGpu.nearVao, fanN[1] + (lines ? fanN[2] : 0)]]) {
         if (!n) continue;
         bindFan(gl, FANS, lv, 0);
         gl.bindVertexArray(vao);
         gl.drawElementsInstanced(gl.TRIANGLES, lv.n, gl.UNSIGNED_SHORT, 0, n);
         st.draws++; st.tris += lv.tris * n;
+      }
+      // and the close-up few as the close-up figure, doing what the bake would have them doing
+      if (!lines && fanHd.length && ken) {
+        const t = W.t || 0, R = crowdHD.records({ t, move: 1, towel: false, base: () => 0, look: rinkLook(t, 1), heard: rinkHeard(roar) });
+        st.draws += ken.drawFans(R, vp, eye, gl.drawingBufferWidth, gl.drawingBufferHeight, { dim: 0.62, mourn: W.mourning || 0, shake });
       }
     }
     // ── the ink round the players ─────────────────────────────────────────────
@@ -1107,7 +1139,7 @@ export function createArenaRenderer(canvas, overlay, W0, ice) {
       useLit(vp, eye, shake, -1e9);
       const ring = seesRing(shown);
       for (let i = 0; i < 4; i++) if (!((i & 1) && !ring)) draw(L.bowl[i]);
-      drawFans(vp, shake, shown, eye);
+      drawFans(vp, shake, shown, eye, true);
       useLit(vp, eye, shake, -1e9);
       draw(L.stat); draw(L.ads, texAds); draw(L.dyn); draw(L.jers, atlas); draw(L.masks, maskTex);
       if (heads) heads.draw(headList, vp, eye, shake, -1e9, 0, st);

@@ -1,0 +1,30 @@
+{
+  "description": "Grey steel shelving packed with what people come in for: tape, gloves, earplugs, batteries in blister packs and tins of things with warnings on all six sides.",
+  "flags": {
+    "aliases": "shelves,shelving",
+    "look": {
+      "arche": "store",
+      "dims": [
+        2.4,
+        0.5,
+        2.3
+      ],
+      "form": "shelves",
+      "stock": "hardware"
+    },
+    "spot": {
+      "along": 2.4,
+      "wall": "left"
+    }
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_screwit_shelves_front",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "the shop shelving",
+  "object_type": "fixture",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_chemsupply_interior"
+}

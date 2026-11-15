@@ -1,0 +1,29 @@
+{
+  "description": "A wall of small steel drawers, floor to head height, each with a handwritten label: M3 x 0.5, M4 x 0.7, M5 x 0.8, and on up. A few labels have been crossed out and written again in a different hand.",
+  "flags": {
+    "aliases": "drawers,drawer wall,fasteners",
+    "look": {
+      "arche": "store",
+      "dims": [
+        3.6,
+        0.45,
+        2.3
+      ],
+      "form": "drawers"
+    },
+    "spot": {
+      "along": -2.4,
+      "wall": "back"
+    }
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_screwit_drawers",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "the drawer wall",
+  "object_type": "fixture",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_chemsupply_interior"
+}

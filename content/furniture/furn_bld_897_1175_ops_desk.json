@@ -1,0 +1,33 @@
+{
+  "description": "Three scavenged flight monitors zip-tied to a steel desk, a radio under them hissing static, and a hand-mic on a hook, worn smooth where the thumb goes.",
+  "flags": {
+    "aliases": "ops desk,desk,monitors,radio,hand-mic,mic",
+    "look": {
+      "arche": "surface",
+      "dims": [
+        2,
+        0.8,
+        0.76
+      ],
+      "form": "desk",
+      "wear": 0.9
+    },
+    "spot": {
+      "at": [
+        11,
+        3
+      ],
+      "turn": 180
+    }
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_bld_897_1175_ops_desk",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "the flight-ops desk",
+  "object_type": "fixture",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_bld_897_1175_lobby"
+}

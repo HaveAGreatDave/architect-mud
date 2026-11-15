@@ -614,8 +614,9 @@ The speech side of this (two channels, and Read Aloud ducking the TV) is in
 
 A GLASS seat (the cockpit, the cab, the boats, the podracer) draws its world in 3D, and its
 sound was stereo at best: an aircraft crossing the nose or a rig overtaking on the left made no
-sound. The MUD rooms don't use any of this; they keep `pan`, `muffle` and `distance` from the
-server's propagation.
+sound. The text rooms don't use any of this; they keep `pan`, `muffle` and `distance` from the
+server's propagation. ROOM does, for the outside through its windows and for people's voices
+([ORACLE in 3D](#oracle-in-3d)).
 
 **The API.** `position` is a send option on `playSfx`, `playSample` and `loopSound` (its second
 argument), like `pan`: it's where the sound is for this listener, so a cue never carries it.
@@ -672,6 +673,35 @@ doppler reaches every detune; turning the listener east, west and south moves th
 correctly; a left-handed frame with `right` given keeps east on the right; a listener closing
 on a still source hears it sharp; HRTF stops at the cap; `equalpower` and `stereo` build what
 they say; `doppler: false` on the send or the cue builds no doppler source.
+
+## ORACLE in 3D
+
+A voice used to come from the middle of your head wherever the speaker stood. Now `speak()`
+takes the same `position` send option (with `ref`, `rolloff` and `maxDistance`), and the finished
+voice goes through the seat panner on its way to its bus: after the mic chain, drive and crush,
+and before the PA horn's slaps split off, so the horn and its echoes come from the same place.
+A placed line returns `move(pos, vel)` and `state()` beside its usual `duration` and `delay`.
+There's no doppler on a voice: the worklet has no detune to take it, and nobody talks fast enough
+to need one. Read Aloud (`channel: 'ui'`) is never placed, whatever it's sent. The panner closes,
+giving back any HRTF slot, when the line is cancelled or replaced, or half a second after its
+scheduled end, so it shares the six-voice HRTF budget with the seats' engines.
+
+**In ROOM.** [npc-bubbles.js](../client/game/js/panels/npc-bubbles.js) fires `npc:place` with
+`{ name, place: null }` before it voices a line; the Room Stage fills `place` with the speaker's
+head on the room's plan (1.6 m standing, 1.15 m sat, plus a stool's lift, 0.45 m lying at the
+seat's head end), and the ear is set from `earPose`, the frame the window beds already use. The
+handle comes back on `npc:voice` as `voice`, and `placeVoices` moves every live line onto its
+speaker and the ear onto you once a frame, so turning to face somebody brings their voice round
+to the front, and somebody talking next door is heard through the doorway. The level falls gently
+(`ref` 1.5 m, `rolloff` 0.6): it's a room, and a line still has to be heard across it. With no
+Stage up nobody answers `npc:place`, and the voice is in the middle, as before.
+
+**Gate** (`spatial-smoke`, its ORACLE block): an unplaced line builds no panner; a placed one
+leaves only through its panner into the tv voice sub-gain, with no doppler source and the `ref`
+and `rolloff` it was sent; a speaker on the left is on the left, `move` takes them right, and
+turning the listener to face them puts them in front; a placed PA line's horn and both slaps go
+through the panner; Read Aloud is never placed; a line replaced, cancelled or finished closes its
+panner.
 
 ## Struck surfaces: modes
 
@@ -1036,8 +1066,8 @@ worked. It is the one cue in this tier deliberately mixed **above** the others.
 
 ## Field recordings
 
-**Status: built.** The weather, the shore, the birds and a pet cat play real recordings: 79 CC0 recordings from
-Freesound, credited in [bibliography.md](reference/bibliography.md#field-recordings). Each is a row in
+**Status: built.** The weather, the shore, the birds, a pet cat and the two sports' crowds play real recordings:
+86 CC0 recordings from Freesound, credited in [bibliography.md](reference/bibliography.md#field-recordings). Each is a row in
 `content/audio_samples` (`smp_field_<key>`), a mono 22,050 Hz 48 kbps MP3, and the table cues read is
 [field-recordings.js](../client/shared/field-recordings.js).
 
@@ -1068,6 +1098,7 @@ Recordings are played as they are: the SNES crush in `loadSample` doesn't touch 
 | A seat's thunder | two recorded claps added to the three it already had | [engine-audio.js](../client/game/js/panels/engine-audio.js) |
 | The Room Stage | rain recorded from indoors, wind and thunder, placed at the nearest window or balcony door, with the listener turned with the camera; the birds and the surf round the building, just outside that opening and leaning toward where they are | [room-sfx.js](../client/shared/room-sfx.js), [room-sound.js](../client/game/js/panels/room-sound.js), [room-outdoors.js](../client/game/js/panels/room-outdoors.js) |
 | A pet cat in the Room Stage | 38 `cat_*` recordings: meows (hello, asking, hungry, cross, old), purrs, trills, chirps and chatter at birds, hisses and growls, grooming, snoring, claws on the floor and a post, landings and zoomies. Each clip names its own (gl/cat-clips.js `sound`): a bed under it and calls at moments, played where the cat is. Eating, drinking, lapping and the litter tray are built and wait for the bowl and the tray | [room-cat-sound.js](../client/game/js/panels/room-cat-sound.js), [cat-clips.js](../client/game/js/panels/gl/cat-clips.js) |
+| The CPhL rink and the Grandstand | the crowd: the arena and the park loop under their beds (`crowd_arena`, `crowd_park`), and the cheer, goal, roar and boos play a cut each over their synthesis, which stands in until the recording loads. Every cut is by hand, from stretches measured clear of PA music and single voices ([systems-hockey-sound.md](systems-hockey-sound.md), K) | [hockey-sfx.js](../client/shared/hockey-sfx.js) (handed the table by [gameday-rink.js](../client/game/js/panels/gameday-rink.js)), [deadball-sfx.js](../client/shared/deadball-sfx.js) |
 
 The peregrine has no CC0 recording and keeps its FM call.
 

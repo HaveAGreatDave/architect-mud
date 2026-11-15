@@ -1,0 +1,30 @@
+{
+  "description": "Stock behind the counter, where the customers can see it and not reach it: amber glass bottles, sealed cans of solvent and boxes of reagent with the batch numbers facing out.",
+  "flags": {
+    "aliases": "back shelving,bottles,reagents",
+    "look": {
+      "arche": "store",
+      "dims": [
+        2.4,
+        0.5,
+        2.3
+      ],
+      "form": "shelves",
+      "stock": "chem"
+    },
+    "spot": {
+      "along": 8.3,
+      "wall": "left"
+    }
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_screwit_shelves_back",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "the back shelving",
+  "object_type": "fixture",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_chemsupply_interior"
+}

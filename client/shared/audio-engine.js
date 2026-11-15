@@ -2807,17 +2807,21 @@
       L:{f:[360,1300,2600],df:[430,760,2700],t:'L',d:70,tc:0.020}, R:{f:[330,1060,1450],t:'L',d:80,tc:0.020},
       W:{f:[300,610,2200],t:'L',d:70,tc:0.022},  Y:{f:[270,2290,3010],t:'L',d:60,tc:0.022},
       // `ng`: per-phoneme noise level; sibilants sit low or they shout. Low `nq`
-      // keeps /s/ broadband (a narrow band whistles).
-      S:{t:'F',d:100,nf:5600,nq:1.3,ng:0.18,vd:0,lf:ALV,sib:1},  Z:{t:'F',d:95,nf:5600,nq:1.3,ng:0.12,vd:.5,lf:ALV,sib:1},
-      SH:{t:'F',d:115,nf:3000,nq:1.2,ng:0.16,vd:0,lf:PAL,sib:1},   ZH:{t:'F',d:100,nf:3000,nq:1.2,ng:0.13,vd:.5,lf:PAL,sib:1},
-      F:{t:'F',d:100,nf:5000,nq:0.6,ng:0.03,vd:0,lf:LAB},  V:{t:'F',d:90,nf:5000,nq:0.6,ng:0.02,vd:.5,lf:LAB},
-      TH:{t:'F',d:100,nf:5500,nq:0.6,ng:0.024,vd:0,lf:DEN}, DH:{t:'F',d:80,nf:5000,nq:0.6,ng:0.012,vd:.5,lf:DEN},
+      // keeps /s/ broadband (a narrow band whistles). `fl`: the share of the noise
+      // that is flat (high-passed, no peak) beside the band, as Klatt's bypass path:
+      // /f v θ ð/ are mostly flat, /ʃ ʒ/ peak at F3 with energy on above it, /s z/
+      // are nearly all peak. setNoiseBand keeps each phoneme's level as `ng` set it.
+      S:{t:'F',d:100,nf:5600,nq:1.3,ng:0.18,vd:0,lf:ALV,sib:1,fl:0.05},  Z:{t:'F',d:95,nf:5600,nq:1.3,ng:0.12,vd:.5,lf:ALV,sib:1,fl:0.05},
+      SH:{t:'F',d:115,nf:3000,nq:1.2,ng:0.16,vd:0,lf:PAL,sib:1,fl:0.4},   ZH:{t:'F',d:100,nf:3000,nq:1.2,ng:0.13,vd:.5,lf:PAL,sib:1,fl:0.4},
+      F:{t:'F',d:100,nf:5000,nq:0.6,ng:0.03,vd:0,lf:LAB,fl:0.85},  V:{t:'F',d:90,nf:5000,nq:0.6,ng:0.02,vd:.5,lf:LAB,fl:0.85},
+      TH:{t:'F',d:100,nf:5500,nq:0.6,ng:0.024,vd:0,lf:DEN,fl:0.75}, DH:{t:'F',d:80,nf:5000,nq:0.6,ng:0.012,vd:.5,lf:DEN,fl:0.75},
       HH:{t:'H',d:80,nf:1500,nq:1,vd:0},
-      CH:{t:'F',d:95,nf:3000,nq:1.2,ng:0.14,vd:0,stopFirst:1,lf:PAL,sib:1}, JH:{t:'F',d:85,nf:3000,nq:1.2,ng:0.09,vd:.4,stopFirst:1,lf:PAL,sib:1},
+      CH:{t:'F',d:95,nf:3000,nq:1.2,ng:0.14,vd:0,stopFirst:1,lf:PAL,sib:1,fl:0.4}, JH:{t:'F',d:85,nf:3000,nq:1.2,ng:0.09,vd:.4,stopFirst:1,lf:PAL,sib:1,fl:0.4},
       // asp: voice-onset time, ms (the voiced/voiceless cue). bq: burst Q (low
       // diffuse, high compact; velars compact). bd: burst ms. bg: burst level.
       // see docs/systems-procedural-audio.md#the-burst-had-a-frequency-but-no-shape
-      P:{t:'S',d:90,nf:1100,vd:0,lf:LAB,asp:55,bq:0.7,bd:10,bg:0.55}, B:{t:'S',d:80,nf:900,vd:.4,lf:LAB,asp:8,bq:0.7,bd:8,bg:0.35},
+      // A labial's burst is diffuse, nothing in front of the lips to ring: part flat (`fl`).
+      P:{t:'S',d:90,nf:1100,vd:0,lf:LAB,asp:55,bq:0.7,bd:10,bg:0.55,fl:0.5}, B:{t:'S',d:80,nf:900,vd:.4,lf:LAB,asp:8,bq:0.7,bd:8,bg:0.35,fl:0.5},
       T:{t:'S',d:90,nf:4600,vd:0,lf:ALV,asp:65,bq:1.2,bd:12,bg:1.3}, D:{t:'S',d:80,nf:4000,vd:.4,lf:ALV,asp:10,bq:1.2,bd:10,bg:0.8},
       K:{t:'S',d:90,nf:2000,vd:0,lf:VEL,asp:75,bq:3.5,bd:22,bg:1.8}, G:{t:'S',d:80,nf:1800,vd:.4,lf:VEL,asp:14,bq:3.5,bd:18,bg:1.1},
       // Flap: a stop (for the loci) with a voiced tap's timing.
@@ -2837,7 +2841,8 @@
       __:{t:'P',d:250,term:1},     // full stop
       _X:{t:'P',d:200,term:1},     // exclamation
       _XX:{t:'P',d:220,term:1},    // "!!" or more (see phraseK in speak)
-      _Q:{t:'P',d:290,term:1},     // question
+      _Q:{t:'P',d:290,term:1},     // question: a yes/no or echo question rises
+      _QW:{t:'P',d:290,term:1},    // wh-question ("where are you going?"): falls, as a statement does
       _P:{t:'P',d:480,term:1},     // paragraph / line break
     };
     // `_` is a juncture, deliberately NOT a break.
@@ -2998,6 +3003,9 @@
     }
     // Vowel-less words said as sounds, not spelled.
     const INTERJECTION = /^(?:s+h+|p+s+t+|h+m+|m+|b+r+|g+r+|t+s+k+|z+|p+f+t+|c+h+)$/i;
+    // A prefix before a hyphen, which the lexicon would read as a word ("re" is the
+    // note, /reɪ/). Unstressed: "re-armed" is ree-ARMED.
+    const HYPHEN_PREFIX = { re: ['R', 'IY'], pre: ['P', 'R', 'IY'], de: ['D', 'IY'], co: ['K', 'OW'] };
     function pronounceWordRaw(w){
       // Initialisms, first and off the raw token (case is the evidence). ⚠ ALL-CAPS
       // is also a shout, so only an UNKNOWN, short, vowel-poor word is spelled.
@@ -3021,12 +3029,19 @@
         const low = rawLetters.toLowerCase();
         if (!(lexLook(low) || dictLook(low) || cmuLook(low))) { const sp = spellOut(low); if (sp) return sp; }
       }
+      const raw = String(w);
       w = w.toLowerCase().replace(/[^a-z']/g,'');
       if (!w) return [];
       const x = lexLook(w); if (x) return x;
       const d = dictLook(w); if (d) return d;
       const c = cmuLook(w);  if (c) return c;
       if (CONTRACT[w]) return CONTRACT[w].split(' ');
+      // A hyphenated run ("steel-toed", "fifteen-year-old") is its words in turn.
+      // Whole, it went to the letter rules as one word and came out as noise.
+      const parts = raw.toLowerCase().split('-').map(s => s.replace(/[^a-z']/g, '')).filter(Boolean);
+      if (parts.length > 1) return parts.flatMap((s, k) => (k < parts.length - 1 && HYPHEN_PREFIX[s])
+        // after a prefix it's the verb ("re-record"), so the prefix reads as "to"
+        || homograph(s, HYPHEN_PREFIX[parts[k - 1]] ? 'to' : parts[k - 1] ?? null, parts[k + 1] ?? null) || pronounceWordRaw(s));
       // ⚠ Suffix rules only extend KNOWN stems; an unknown stem goes to g2p whole
       // (a truncated guess breaks syllables: "cyph" made "SIFF-er").
       const stemPh = (s) => lexLook(s) || dictLook(s) || cmuLook(s) || null;
@@ -3096,6 +3111,12 @@
         if (i===0 && c==='g' && nx==='n') { out.push('N'); i+=2; continue; }
         if (c==='m' && nx==='b' && i+2>=word.length) { out.push('M'); i+=2; continue; }
         if (c==='g' && nx==='n' && i+2>=word.length) { out.push('N'); i+=2; continue; }
+        // A final -cia, -tia, -scia or -cious is /ʃə/ ("fascia", "militia", "precious").
+        if (i > 0 && /^(sc|c|t)i(as?|ous)$/.test(rest)) {
+          out.push('SH', 'AH'); if (rest.endsWith('s')) out.push(rest.endsWith('ous') ? 'S' : 'Z');
+          break;
+        }
+        if (rest === 'ous') { out.push('AH','S'); i+=3; continue; }   // "-ous" is a schwa, never the "ou" of "out"
         if (rest.startsWith('tion')) { out.push('SH','AH','N'); i+=4; continue; }
         if (rest.startsWith('sion')) { out.push('ZH','AH','N'); i+=4; continue; }
         if (rest.startsWith('ough')) { out.push('AO'); i+=4; continue; }
@@ -3126,6 +3147,9 @@
           if (c==='a' && nx==='r') { out.push('AA'); i++; continue; }
           // ER already is the r: consume both, in a closed syllable only ("hero" keeps its r onset).
           if ((c==='e'||c==='i'||c==='u') && nx==='r' && !isV(at(i+2))) { out.push('ER'); i+=2; continue; }
+          // An 'i' before another vowel, or before a 'y' and a vowel, is /i/ ("media",
+          // "sodium", "Priya"). Read short, it reduced with the next vowel to two schwas.
+          if (c==='i' && (isV(nx) || (nx==='y' && isV(at(i+2))))) { out.push('IY'); i++; continue; }
           out.push(shortMap[c]); i++; continue;
         }
         switch (c) {
@@ -3139,6 +3163,15 @@
             if (i === 0) { out.push('Y'); break; }
             if (i === word.length-1) { out.push('IY'); break; }
             const c1 = at(i+1), c2 = at(i+2);
+            // Before a vowel: the glide after a vowel ("Priya"), after a vowel and n
+            // ("Onyeka") and in a long name's "-yan" ("Petrosyan"); else /aɪ/ ("cyan",
+            // "untying", "pacifying"), and "-yed" is /aɪd/ ("dyed").
+            if (isV(c1)) {
+              if (word.slice(i) === 'yed' && !isV(at(i-1))) { out.push('AY', 'D'); i += 2; break; }
+              const glide = isV(at(i-1)) || (at(i-1) === 'n' && isV(at(i-2))) || (i >= 3 && word.slice(i) === 'yan');
+              out.push(glide ? 'Y' : 'AY');
+              break;
+            }
             const digraph = ['ph','th','ch','sh'].includes(c1 + c2);
             const open = !isV(c1) && (isV(c2) || (digraph && isV(at(i+3))));
             out.push(open ? 'AY' : 'IH');
@@ -3372,9 +3405,14 @@ return out;
       'he she it we they you i me him her us them his its their our your my some any').split(' '));
     // Suffixes fixing stress, counted in syllables from the END.
     const STRESS_SUFFIX = [
+      // -cia/-tia/-cious come out of g2p as /ʃə/, so the stress is the vowel before.
+      [/(sc|c|t)i(as?|ous)$/, 2],
       [/(ation|ition|ution)s?$/, 2], [/(tion|sion|cion)s?$/, 2], [/(ity|ety|ify|ise|ize)s?$/, 3],
       [/(ical|ically)$/, 3], [/(ic|ics)$/, 2], [/(ious|eous|uous)$/, 3], [/(ial|ian|iance|ience|ient)s?$/, 3],
       [/(ee|eer|ese|esque|ette)s?$/, 1],
+      // Latin and Greek endings on an /i/: the stress is the syllable before it
+      // ("aurelia", "proscenium", "cassius").
+      [/[^aeiou]i(as?|us|um|os?)$/, 3],
     ];
     // Unstressed prefixes: the strong syllable is the one after them.
     const WEAK_PREFIX = /^(un|re|de|be|a|con|com|ex|in|im|dis|pre|pro|per|sub|ob|ad|en|em|for)(?=[a-z]{3})/;
@@ -3410,6 +3448,46 @@ return out;
     const VBAR = 0.035;         // voicing through a closed tract (/b d g/, an affricate's /dʒ/)
     const VFRIC = 0.07;         // voicing under /v ð z ʒ/
     const MURMUR_KEEP = 0.05;   // what's left of F2 and up when the mouth is shut
+
+    // The frication noise's flat path (a phoneme's `fl`): a high-pass, so "flat" has no
+    // rumble under it. ⚠ The same corner and Q (linear) are in oracle-worklet.js.
+    const FRIC_FLAT_HZ = 2500, FRIC_FLAT_Q = 0.7;
+    // [band, flat] gains for a frication band at f/q with share `fl` flat, scaled so the
+    // mix is as loud on pink noise as the band alone was (every `ng` was set by ear
+    // against the band). Worked out from the filters' responses, with the 9 kHz lowpass.
+    const _fricMix = new Map();
+    function fricMix(f, q, fl, sr) {
+      if (!(fl > 0)) return [1, 0];
+      const key = `${Math.round(f)}|${q}|${fl}|${sr}`;
+      const hit = _fricMix.get(key); if (hit) return hit;
+      // an RBJ biquad's complex response at w
+      const biq = (type, fc, Q, w) => {
+        const w0 = 2 * Math.PI * fc / sr, al = Math.sin(w0) / (2 * Q), cw = Math.cos(w0);
+        const b = type === 'bp' ? [al, 0, -al] : type === 'hp' ? [(1 + cw) / 2, -(1 + cw), (1 + cw) / 2] : [(1 - cw) / 2, 1 - cw, (1 - cw) / 2];
+        const a = [1 + al, -2 * cw, 1 - al];
+        const ev = (k) => [k[0] + k[1] * Math.cos(w) + k[2] * Math.cos(2 * w), -(k[1] * Math.sin(w) + k[2] * Math.sin(2 * w))];
+        const [nr, ni] = ev(b), [dr, di] = ev(a), dd = dr * dr + di * di;
+        return [(nr * dr + ni * di) / dd, (ni * dr - nr * di) / dd];
+      };
+      const mul = (x, y) => [x[0] * y[0] - x[1] * y[1], x[0] * y[1] + x[1] * y[0]];
+      // pink noise has equal power per octave, so log-spaced points weigh alike
+      const pts = [];
+      for (let i = 0; i < 96; i++) {
+        const fr = 100 * Math.pow(9000 / 100, i / 95), w = 2 * Math.PI * fr / sr;
+        const bp = biq('bp', f, q, w), lp = biq('lp', 9000, 0.7, w);
+        pts.push({ band: mul(bp, bp), flat: biq('hp', FRIC_FLAT_HZ, FRIC_FLAT_Q, w), lp2: lp[0] * lp[0] + lp[1] * lp[1] });
+      }
+      const power = (wb, wf) => pts.reduce((s, p) => {
+        const re = wb * p.band[0] + wf * p.flat[0], im = wb * p.band[1] + wf * p.flat[1];
+        return s + (re * re + im * im) * p.lp2;
+      }, 0);
+      const pb = power(1, 0), pf = power(0, 1);
+      const wb = 1 - fl, wf = fl * Math.sqrt(pb / pf);
+      const g = Math.sqrt(pb / power(wb, wf));
+      const out = [wb * g, wf * g];
+      _fricMix.set(key, out);
+      return out;
+    }
     const BREATH_K = ASP_H / 0.11;   // voices' `breath` was tuned against an /h/ of 0.11
     const ASP_BREATH_IN = 0.035; // the breath before a big call
     const AFFRICATE_CLOSURE = 0.05;  // s; the stop half of /tʃ dʒ/
@@ -3823,11 +3901,102 @@ return out;
       return res;
     }
 
+    // A question that opens with a wh-word falls ("Where are you going?"); a yes/no
+    // question rises ("Are you going?"). So does an echo question, where the wh-word
+    // comes later ("You went where?"), a bare "What?" and a "What, ..." that a
+    // comma cuts off. A leading "and", "so", "well" and the like doesn't count.
+    const WH_WORD = /^(what|where|when|why|who|whom|whose|which|how)('s|'d|'re|'ll|'ve)?$/;
+    const WH_LEAD = new Set(['and', 'so', 'but', 'then', 'well', 'oh', 'okay', 'ok', 'now', 'or']);
+    function whQuestion(seq) {
+      let from = seq.length;
+      while (from > 0 && !(typeof seq[from - 1] === 'string' && isTerm(seq[from - 1]))) from--;
+      const items = seq.slice(from);
+      const words = items.filter(x => typeof x === 'object');
+      if (words.length < 2) return false;
+      let k = 0;
+      while (k < words.length - 1 && WH_LEAD.has(words[k].w)) k++;
+      if (!WH_WORD.test(words[k].w)) return false;
+      // "What, you think I'm stupid?": a break straight after the wh-word.
+      const at = items.indexOf(words[k]);
+      return !items.slice(at + 1, items.indexOf(words[k + 1])).some(isBreak);
+    }
+
+    // HOMOGRAPHS. The lexicon keeps one pronunciation a word, and for these it's often
+    // the wrong one for the line: "read" was always "red", "lead" always the metal,
+    // "wind" always "wined". `homograph` picks by the word before and the word after
+    // (null at a phrase edge). Each entry is [usual, other, picksOther(prev, next)].
+    const wordSet = (s) => new Set(s.split(' '));
+    // A verb follows these: "to record", "will close", "they refuse", "don't use".
+    const H_VERB = wordSet("to will would can could should must might may shall please don't didn't won't wouldn't can't couldn't shouldn't doesn't do does did not never i you we they let's i'll you'll we'll they'll he'll she'll it'll i'd you'd we'd they'd also just always often");
+    const H_OBJ = wordSet("the a an it them this that these those your my his her our their its him me us some any");
+    const H_BE = wordSet("is are was were be been being am i'm we're you're they're it's he's she's that's there's");
+    // Noun/verb pairs that move the stress: a REcord, to reCORD.
+    const STRESS_PAIR = {
+      record: ['R * EH K ER D', 'R AX K * AO R D'], present: ['P R * EH Z AX N T', 'P R IH Z * EH N T'],
+      object: ['* AA B JH EH K T', 'AX B JH * EH K T'], project: ['P R * AA JH EH K T', 'P R AX JH * EH K T'],
+      permit: ['P * ER M IH T', 'P ER M * IH T'], produce: ['P R * OW D UW S', 'P R AX D * UW S'],
+      progress: ['P R * AA G R EH S', 'P R AX G R * EH S'], conflict: ['K * AA N F L IH K T', 'K AX N F L * IH K T'],
+      contract: ['K * AA N T R AE K T', 'K AX N T R * AE K T'], convict: ['K * AA N V IH K T', 'K AX N V * IH K T'],
+      desert: ['D * EH Z ER T', 'D IH Z * ER T'], rebel: ['R * EH B AX L', 'R IH B * EH L'],
+      refuse: ['R * EH F Y UW S', 'R IH F Y * UW Z'], subject: ['S * AH B JH IH K T', 'S AX B JH * EH K T'],
+      suspect: ['S * AH S P EH K T', 'S AX S P * EH K T'], insult: ['* IH N S AH L T', 'IH N S * AH L T'],
+      increase: ['* IH NG K R IY S', 'IH NG K R * IY S'], decrease: ['D * IY K R IY S', 'D IH K R * IY S'],
+      import: ['* IH M P AO R T', 'IH M P * AO R T'], export: ['* EH K S P AO R T', 'IH K S P * AO R T'],
+      contest: ['K * AA N T EH S T', 'K AX N T * EH S T'], protest: ['P R * OW T EH S T', 'P R AX T * EH S T'],
+      conduct: ['K * AA N D AH K T', 'K AX N D * AH K T'], transport: ['T R * AE N S P AO R T', 'T R AE N S P * AO R T'],
+      upset: ['AH P S * EH T', '* AH P S EH T'],   // "I'm upset" is the usual one; "an UPset" the noun
+    };
+    const LIVE_ADJ_PREV = new Set([...wordSet("go goes went going gone reporting broadcasting coming streaming airing a an the"), ...H_BE]);
+    const LIVE_ADJ_NEXT = wordSet("from music wire wires round rounds ammo ammunition feed feeds show shows broadcast broadcasts bait coverage action audience tv television event events footage shot shots picture pictures studio grenade grenades current rail mic microphone camera cameras stream recording album performance band");
+    const LEAD_METAL_NEXT = wordSet("pipe pipes paint poisoning shot weight weights lined apron sheet sheets crystal solder foil bullet bullets pencil pencils acid flashing seal seals ingot ingots glass based free");
+    // "she read" can only be the past (the present is "reads"); so can "has read", "was read".
+    const READ_PAST_PREV = wordSet("have has had having i've you've we've they've who've he she it was were been be being is are");
+    const WIND_VERB_NEXT = wordSet("it them the a your his her my our their back round around");
+    const CLOSE_OBJ = wordSet("the a an it them that this these those your my his her our their its down off out ranks shop deal door doors eyes gap gaps");
+    const HOMOGRAPH = {
+      read:  ['R * IY D', 'R * EH D', (p) => READ_PAST_PREV.has(p)],
+      lead:  ['L * IY D', 'L * EH D', (p, n) => p === 'of' || LEAD_METAL_NEXT.has(n)],
+      leads: ['L * IY D Z', 'L * IY D Z', () => false],
+      live:  ['L * IH V', 'L * AY V', (p, n) => (p === null && n === null) || LIVE_ADJ_PREV.has(p) || LIVE_ADJ_NEXT.has(n)],
+      wind:  ['W * IH N D', 'W * AY N D', (p, n) => n === 'up' || n === 'down' || ((p === null || H_VERB.has(p)) && WIND_VERB_NEXT.has(n))],
+      winds: ['W * IH N D Z', 'W * AY N D Z', (p, n) => n === 'up' || n === 'down'],
+      wound: ['W * UW N D', 'W * AW N D', (p, n) => ['up', 'down', 'round', 'around', 'tight', 'tighter', 'tightly'].includes(n)],
+      close: ['K L * OW S', 'K L * OW Z', (p, n) => (p === null || H_VERB.has(p)) && CLOSE_OBJ.has(n)],
+      use:   ['Y * UW S', 'Y * UW Z', (p, n) => H_VERB.has(p) || (p === null && H_OBJ.has(n))],
+      used:  ['Y * UW Z D', 'Y * UW S T', (p, n) => n === 'to'],
+    };
+    for (const [w, [noun, verb]] of Object.entries(STRESS_PAIR)) {
+      // A verb after a verb cue; otherwise the noun, the commoner in this game's lines.
+      HOMOGRAPH[w] = [noun, verb, (p) => H_VERB.has(p)];
+      // The -s form: "she records" against "the records".
+      const s = (ph) => { const last = ph.split(' ').pop(); return ph + (SIBILANT.has(last) ? ' IH Z' : VOICED_END.has(last) ? ' Z' : ' S'); };
+      HOMOGRAPH[w + 's'] = [s(noun), s(verb), (p) => p === 'he' || p === 'she' || p === 'it' || p === 'who'];
+    }
+    // `prev`/`next`: the neighbouring words, lower case, or null at a phrase edge. A
+    // book's own lexicon entry wins, as it does over everything else.
+    function homograph(w, prev, next) {
+      const e = HOMOGRAPH[w];
+      if (!e || lexLook(w)) return null;
+      return (e[2](prev ?? null, next ?? null) ? e[1] : e[0]).split(' ');
+    }
+    // The word before the one textToPhonemes is on, or null past a break.
+    function prevWordIn(seq) {
+      for (let k = seq.length - 1; k >= 0; k--) {
+        const e = seq[k];
+        if (typeof e === 'object') return e.w;
+        if (isBreak(e)) return null;
+      }
+      return null;
+    }
+
     const ABBREV = new Set(['mr','mrs','ms','dr','st','jr','sr','prof','sgt','lt','capt','col','gen','inc','ltd','vs','approx','dept']);   // not "no": "no." usually ends a sentence
     function textToPhonemes(text){
       const seq = [];
       // ⚠ Multi-character marks first in the alternation, or "..." is three stops.
       // A single hyphen stays inside the word.
+      // A curly apostrophe inside a word is an apostrophe: without this "don’t" missed
+      // the contraction and came out "dahnt". A closing quote (no letter after) stays.
+      text = String(text).replace(/([A-Za-z])[’ʼ](?=[A-Za-z])/g, "$1'");
       const toks = expandNumbers(text).trim().split(/(\s+|\.{2,}|!{2,}|…|—|–|-{2,}|[.,!?;:()])/).filter(Boolean);
       const PUNCT = /^(\.{2,}|!{2,}|…|—|–|-{2,}|[.,!?;:()])$/;
       // Adjacent marks are one silence: the longer wins.
@@ -3860,14 +4029,15 @@ return out;
         }
         if (/^!$/.test(tok))          { pushBreak('_X'); continue; }
         if (/^!{2,}$/.test(tok))      { pushBreak('_XX'); continue; }
-        if (/^\?$/.test(tok))         { pushBreak('_Q'); continue; }
+        if (/^\?$/.test(tok))         { pushBreak(whQuestion(seq) ? '_QW' : '_Q'); continue; }
         // Phrase edge: nothing but whitespace between here and a mark or the end.
         let j = i + 1; while (j < toks.length && /^\s+$/.test(toks[j])) j++;
         const edge = j >= toks.length || PUNCT.test(toks[j]);
         const el = elongation(tok);
         const said = el ? el.word : tok;
         const w = said.toLowerCase().replace(/[^a-z']/g, '');
-        let ph = stressWord(pronounceWord(said), w, edge);
+        const next = edge ? null : toks[j].toLowerCase().replace(/[’]/g, "'").replace(/[^a-z']/g, '') || null;
+        let ph = stressWord(homograph(w, prevWordIn(seq), next) || pronounceWord(said), w, edge);
         if (!shouty && (shout || isEmphatic(said))) {
           const at = ph.indexOf('*');
           if (at >= 0) ph[at] = '!';                       // promote the lexical accent
@@ -4465,11 +4635,12 @@ return out;
     // cascade). The output stage is shared. The graph speaks until the module loads, where
     // it can't, after a failure, and for `backend: 'graph'`.
     const WK_TRACK = ['f0', 'jitA', 'jitB', 'av', 'ah', 'af', 'f1', 'f2', 'f3', 'f4', 'q1', 'q2', 'q3', 'q4',
-      'nf', 'nq', 'nzf', 'nzdb', 'tilt', 'closure', 'rd', 'creak'];   // ⚠ the same list, in the same order, as TRACK in oracle-worklet.js
+      'nf', 'nq', 'nzf', 'nzdb', 'tilt', 'closure', 'rd', 'creak', 'fb', 'ff'];   // ⚠ the same list, in the same order, as TRACK in oracle-worklet.js
     const WK = {
       frame: 0.005,     // track resolution, s
       cascK: 0.10,      // cascade level vs frication; both back ends within ~1 dB
       srcK: 1, aspK: 1, fricK: 1, closureK: 1,
+      fricPulse: 0.6,   // a voiced fricative's noise drops this far in the closed phase (scaled by `natural`)
       bwK: 1,           // every formant bandwidth, scaled
       tiltK: 1,         // the graph's tilt corner, scaled, becomes the LF return phase
       emph: 0.88,       // pre-emphasis into the cascade, unity at 500 Hz (else 6-11 dB dark at F3)
@@ -4544,7 +4715,10 @@ return out;
 
     // speak(text, { seed, voice, lex, accent, pa, channel, excite, budget, gain }).
     // `excite` -1..1 (see deliveryFor). `gain` 0-1 sits a voice under others on its
-    // bus; Read Aloud ignores it.
+    // bus; Read Aloud ignores it. `position` (with `ref`, `rolloff`, `maxDistance`)
+    // puts the line where the speaker is for the listener, through the seat panner;
+    // the result then has `move(pos)` and `state()`. Never doppler, never on 'ui'.
+    // see docs/systems-procedural-audio.md#oracle-in-3d
     function speak(text, opt = {}){
       // 'ui' is the log reader: it bypasses the TV toggle and slider, but the
       // master Sound switch still silences it.
@@ -4695,6 +4869,11 @@ return out;
         voiceTail.connect(into);
         voiceTail = crushOut;
       }
+      // `opt.position`: the finished voice goes through the seat panner before its bus, so
+      // the horn's slaps come from the same place as the voice. No doppler: the worklet has
+      // no detune to take it, and nobody talks fast enough to need one.
+      const sp = !ui && opt.position != null ? spatialOpen(out, { ...opt, doppler: false }, null) : null;
+      const dest = sp ? sp.input : out;
       // `opt.pa`: through a street horn. Never on 'ui'.
       if (opt.pa && !ui) {
         const hp = c.createBiquadFilter(); hp.type = 'highpass'; hp.frequency.value = 420; hp.Q.value = 0.9;
@@ -4702,15 +4881,15 @@ return out;
         const horn = c.createBiquadFilter(); horn.type = 'peaking'; horn.frequency.value = 1600; horn.Q.value = 1.2; horn.gain.value = 6;
         const clip = c.createWaveShaper(); clip.curve = driveCurve(0.45); clip.oversample = '2x';
         const dry = c.createGain(); dry.gain.value = 0.8;
-        voiceTail.connect(hp).connect(lp).connect(horn).connect(clip).connect(dry).connect(out);
+        voiceTail.connect(hp).connect(lp).connect(horn).connect(clip).connect(dry).connect(dest);
         // two slaps, no feedback
         for (const [t, g] of [[0.13, 0.32], [0.29, 0.16]]) {
           const d = c.createDelay(0.5); d.delayTime.value = t;
           const dg = c.createGain(); dg.gain.value = g;
-          clip.connect(d).connect(dg).connect(out);
+          clip.connect(d).connect(dg).connect(dest);
         }
       } else {
-        voiceTail.connect(out);
+        voiceTail.connect(dest);
       }
 
       const glot = S.createOscillator(); glot.frequency.value = F0;
@@ -4812,19 +4991,32 @@ return out;
       const nz = S.createBufferSource(); nz.buffer = speechNoise(c); nz.loop = true;
       // Frication noise: two identical bandpasses in series steepen the skirts
       // (still unity at the peak), then a 9 kHz lowpass cuts air with no cue in it.
+      // Beside the band, a flat path (`fl` on the phoneme): the same noise high-passed.
+      // ⚠ nz connects to nbp FIRST: fm-smoke finds the band as the source's first filter.
       const nbp = S.createBiquadFilter(); nbp.type = 'bandpass'; nbp.frequency.value = 4000; nbp.Q.value = 3;
       const nbp2 = S.createBiquadFilter(); nbp2.type = 'bandpass'; nbp2.frequency.value = 4000; nbp2.Q.value = 3;
+      const nhp = S.createBiquadFilter(); nhp.type = 'highpass'; nhp.frequency.value = FRIC_FLAT_HZ;
+      nhp.Q.value = 20 * Math.log10(FRIC_FLAT_Q);   // ⚠ a Web Audio highpass takes Q in dB
+      const bandG = S.createGain(); bandG.gain.value = 1;
+      const flatG = S.createGain(); flatG.gain.value = 0;
       const nlp = S.createBiquadFilter(); nlp.type = 'lowpass'; nlp.frequency.value = 9000; nlp.Q.value = 0.7;
-      // ⚠ Always set both bandpasses together.
-      const setNoiseBand = (f, q, when, tc) => {
+      // ⚠ Always set both bandpasses together. The band follows the speaker's size
+      // (`fshift`): a shorter tract has a smaller front cavity and a higher /s/.
+      const setNoiseBand = (f, q, when, tc, fl = 0) => {
+        f *= fshift;
         if (curRound) f *= ROUND_NOISE;
         for (const n of [nbp, nbp2]) {
           if (tc) n.frequency.setTargetAtTime(f, when, tc); else n.frequency.setValueAtTime(f, when);
           n.Q.setValueAtTime(q, when);
         }
+        const [wb, wf] = fricMix(f, q, fl, c.sampleRate);
+        bandG.gain.setTargetAtTime(wb, when, tc || 0.004);
+        flatG.gain.setTargetAtTime(wf, when, tc || 0.004);
       };
       const noiseG = S.createGain(); noiseG.gain.value = 0;
-      nz.connect(nbp).connect(nbp2).connect(nlp).connect(noiseG).connect(master);
+      nz.connect(nbp).connect(nbp2).connect(bandG).connect(nlp);
+      nz.connect(nhp).connect(flatG).connect(nlp);
+      nlp.connect(noiseG).connect(master);
       // Aspiration: the same noise through the TRACT (/h/, the puff after /p t k/,
       // breath), so the formants shape it.
       const aspG = S.createGain(); aspG.gain.value = 0;
@@ -4878,7 +5070,10 @@ return out;
 
       // Prosody: declination and accents, worked out per PHRASE.
       const tail = String(text).trim();
-      const rise  = /\?["'’”)]*\s*$/.test(tail);
+      // `asks`: the line ends on a question, so no creak. `rise`: and it's not a
+      // wh-question, so the end goes up.
+      const asks  = /\?["'’”)]*\s*$/.test(tail);
+      const rise  = asks && phon.findLast(isTerm) !== '_QW';
       const trail = /(\.{2,}|…)["'’”)]*\s*$/.test(tail);
       // A shouted line is held at full effort throughout.
       const shoutLine = lineCaps(text).shout;
@@ -5068,7 +5263,7 @@ return out;
               let j = i + 1, lastV = true;
               for (; j < phon.length && !isTerm(phon[j]); j++) if (VOWELS.has(phon[j])) { lastV = false; break; }
               const ender = lastV ? phon[j] : null;
-              if (lastV && (ender ? ender !== '_Q' : !rise)) {
+              if (lastV && (ender ? ender !== '_Q' && ender !== '_QW' : !asks)) {
                 const cr = TUNING.creak * D.creak * nat;
                 if (cr > 0) creakP.setTargetAtTime(Math.min(1, cr), t + dur * 0.4, 0.04);
               }
@@ -5124,7 +5319,7 @@ return out;
             t += AFFRICATE_CLOSURE;
           }
           // ⚠ Schedule Q, never assign `Q.value` (that applies now, to the whole line).
-          setNoiseBand(p.nf, p.nq||3, t, 0.004);
+          setNoiseBand(p.nf, p.nq||3, t, 0.004, p.fl || 0);
           let fam = (p.ng ?? 0.3) * (p.sib ? TUNING.sibilance : TUNING.friction);
           // A final fricative is quieter and stops sooner (nothing masks its tail).
           const finalF = !nxt || nxt.t === 'P';
@@ -5159,8 +5354,9 @@ return out;
           setF(t, p.lf || [400, 1500, 2500], !p.vd, 0.004);
           // Burst (bq/bd/bg); a velar's follows the next vowel's F2.
           const nv = nxt && nxt.t === 'V' ? nxt : null;
-          const bandF = p.lf === VEL && nv ? Math.max(1400, Math.min(3300, nv.f[1] * 1.12)) * fshift : p.nf;
-          setNoiseBand(bandF, p.bq ?? 2, t, 0.002);
+          // (setNoiseBand scales by fshift)
+          const bandF = p.lf === VEL && nv ? Math.max(1400, Math.min(3300, nv.f[1] * 1.12)) : p.nf;
+          setNoiseBand(bandF, p.bq ?? 2, t, 0.002, p.fl || 0);
           noiseG.gain.setTargetAtTime(BURST * (p.bg ?? 1) * TUNING.aspiration, t, 0.0015);
           t += (p.bd ?? 20) / 1000;
           noiseG.gain.setTargetAtTime(0, t, 0.006);
@@ -5216,14 +5412,14 @@ return out;
       // Noise cuts fast at the end; a fade would be a whisper.
       noiseG.gain.setTargetAtTime(0, end, 0.02 * TUNING.finalTaper ** 2);
       aspG.gain.setTargetAtTime(0, end, 0.02 * TUNING.finalTaper ** 2);
-      // Terminal contour as a target (re-anchoring erases the contour); a question rises.
+      // Terminal contour as a target (re-anchoring erases the contour); a yes/no question rises.
       const lastK = phraseK[phraseK.length - 1] ?? 1;
       glot.frequency.setTargetAtTime(
         pq(rise ? F0 * lastK * (1 + lilt * 1.9) : F0 * lastK * (1 - V.decl * D.decl * nat) * mix(trail ? 0.88 : 0.94)),
         Math.max(t0, end - 0.18), 0.06);
       // Statement-final creak; not on questions, floored above a growl.
       const creak = TUNING.creak * D.creak * nat;
-      if (!rise && creak > 0) {
+      if (!asks && creak > 0) {
         const cf = Math.max(0.55, 1 - 0.30 * creak);
         // ⚠ Carry the trail factor through, or creak erases the terminal contour.
         // see docs/systems-procedural-audio.md#creak-was-erasing-the-terminal-contour
@@ -5247,7 +5443,7 @@ return out;
           f1: forms[0].frequency, f2: forms[1].frequency, f3: forms[2].frequency, f4: forms[3].frequency,
           q1: forms[0].Q, q2: forms[1].Q, q3: forms[2].Q, q4: forms[3].Q,
           nf: nbp.frequency, nq: nbp.Q, nzf: nzero.frequency, nzdb: nzero.gain, tilt: tilt.frequency, closure,
-          rd: tense, creak: creakP,
+          rd: tense, creak: creakP, fb: bandG.gain, ff: flatG.gain,
         };
         WK_TRACK.forEach((key, col) => P[key].sample(t0, frames, WK.frame, tracks, col, NP));
         let node;
@@ -5257,6 +5453,7 @@ return out;
         } catch (e) {
           _wkState.set(c, false);
           console.warn('[voice] worklet back end unavailable:', e && e.message);
+          spatialClose(sp);
           return speak(text, { ...opt, backend: 'graph' });
         }
         // A crash loses this line; the next one is on the graph.
@@ -5272,7 +5469,7 @@ return out;
         node.port.postMessage({ type: 'line', names: WK_TRACK, frames, frame: WK.frame, t0, tracks, k: {
           ...WK, f0: F0, fshift, oq: Math.max(0.4, Math.min(0.85, V.oq + D.oq * nat)), natural: nat, buzz: buzzAmt, rd0,
           growl: growlAmt, growlRatio: V.growlRatio ?? 0.5, growl2: growlAmt > 0 ? (V.growl2 || 0) : 0, growl2Ratio: V.growl2Ratio ?? 1.5,
-          lpA: 1 - Math.exp(-2 * Math.PI * 9000 / c.sampleRate),
+          lpA: 1 - Math.exp(-2 * Math.PI * 9000 / c.sampleRate), flatHz: FRIC_FLAT_HZ, flatQ: FRIC_FLAT_Q,
         } }, [tracks.buffer]);
         node.connect(master);
         // cancel() stops a line by calling stop() with no time; the line ends itself.
@@ -5288,9 +5485,17 @@ return out;
         const d = Array.isArray(opt.duck) || typeof opt.duck === 'string' ? { buses: opt.duck } : opt.duck;
         ducks.push(duck(d.buses || [], d.dB ?? -9, { at: t0, hold, attack: d.attack ?? 0.05, release: d.release ?? 0.4 }));
       }
+      // A placed line gives its panner (and any HRTF slot) back once it's done, or the
+      // moment it's cancelled: cancel() calls stop() with no time.
+      if (sp) {
+        src.push({ stop: (when) => { if (when === undefined) spatialClose(sp); } });
+        setTimeout(() => spatialClose(sp), Math.max(0, end + 0.6 - c.currentTime) * 1000);
+      }
       chan.lines.push({ src, end: end + 0.1, duck: ducks.length ? { release: () => ducks.forEach(h => h.release()) } : null });
       // The real scheduled length; `delay` is a queued line's wait.
-      return { duration: end - t0, delay: t0 - c.currentTime, channel: chName, backend: wk ? 'worklet' : 'graph', inhales };
+      const res = { duration: end - t0, delay: t0 - c.currentTime, channel: chName, backend: wk ? 'worklet' : 'graph', inhales };
+      if (sp) { res.move = (pos, vel) => spatialMove(sp, pos, vel); res.state = () => spatialState(sp); }
+      return res;
     }
 
     // Voice Lab debug: the phoneme run a line produces. Side-effect free.

@@ -7,7 +7,20 @@
       "slab"
     ],
     "examine_detail": "The near end is set up for small work and the far end for long. Between them, burnt into the wood with a hot iron and not recently: IF IT GOES BACK IN THE WATER IT WAS DONE PROPERLY.",
-    "marina_bench": true
+    "look": {
+      "arche": "surface",
+      "dims": [
+        7.6,
+        0.85,
+        0.92
+      ],
+      "form": "desk"
+    },
+    "marina_bench": true,
+    "spot": {
+      "along": 0,
+      "wall": "front"
+    }
   },
   "id": "furn_consv_bench_top",
   "name": "the bench",

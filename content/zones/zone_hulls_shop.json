@@ -16,6 +16,138 @@
     "floor": "boards",
     "is_building": true,
     "is_interior": true,
+    "room": {
+      "balcony": false,
+      "d": 18,
+      "decor": {
+        "paint": [
+          {
+            "hex": "#4a3a2a",
+            "kind": "box",
+            "rect": [
+              -1,
+              4,
+              0,
+              12.25
+            ],
+            "t": 0.25
+          },
+          {
+            "from": [
+              -1.5,
+              0.3
+            ],
+            "hex": "#e8b818",
+            "kind": "line",
+            "t": 0.08,
+            "to": [
+              -1.5,
+              12.75
+            ]
+          },
+          {
+            "from": [
+              4.5,
+              0.3
+            ],
+            "hex": "#e8b818",
+            "kind": "line",
+            "t": 0.08,
+            "to": [
+              4.5,
+              12.75
+            ]
+          },
+          {
+            "from": [
+              -1.5,
+              12.75
+            ],
+            "hex": "#e8b818",
+            "kind": "line",
+            "t": 0.08,
+            "to": [
+              4.5,
+              12.75
+            ]
+          }
+        ],
+        "pendants": [
+          {
+            "at": [
+              -3.4,
+              6.2
+            ],
+            "k": 1.2,
+            "kind": "school",
+            "y": 3.4
+          },
+          {
+            "at": [
+              4.9,
+              9
+            ],
+            "k": 1.2,
+            "kind": "school",
+            "y": 3.6
+          }
+        ],
+        "pipes": [
+          {
+            "from": [
+              1.5,
+              1,
+              6.2
+            ],
+            "hex": "#3a3530",
+            "r": 0.13,
+            "to": [
+              1.5,
+              12.5,
+              6.2
+            ]
+          }
+        ],
+        "rug": false,
+        "walls": {
+          "hex": "#6b5236",
+          "kind": "walnut",
+          "on": [
+            "left",
+            "right",
+            "back"
+          ],
+          "trim": "#3a2e24",
+          "y1": 3.2
+        }
+      },
+      "doors": {
+        "north": 1.5
+      },
+      "face": 0,
+      "h": 7,
+      "stand": {
+        "at": [
+          1.5,
+          6
+        ],
+        "face": "front",
+        "from": "front",
+        "kind": "boat",
+        "len": 12,
+        "water": true,
+        "wid": 4.5
+      },
+      "studio": false,
+      "tone": {
+        "accent": "#6a5a44",
+        "ceiling": "#3a2e24",
+        "trim": "#241c16",
+        "wall": "#5e4a36"
+      },
+      "w": 12,
+      "windowless": true
+    },
     "window": {
       "description": "Two doors the full height of the shed, propped open onto the slot and the Basin. Rain blows in when the wind is in the north.",
       "light": 0.8,

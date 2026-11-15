@@ -18,8 +18,13 @@
 
 import { FT_M } from '../../../../shared/world-scale.js';
 
-// `on` draws them at all; the rest are the light's strengths against the park's own, for matching by eye.
-export const PARK_FIGURES = { on: 0, sun: 1.6, tower: 0.9, amb: 0.9, expo: 1, hdPx: 260 };
+// `on` draws them at all; the rest are the light's strengths against the park's own. `tower` was matched under the
+// Pose Lab's floods (2026-11-14): at 5 a white home kit's torso reads within a few levels of the old body's, side on
+// and from the broadcast's mound camera. `amb` is the sky's share, which is what lights them by day (2.5 brought a
+// white kit at 2 pm level with the old body side on); `sun` the key by day.
+// `fans` is the exposure of the stands' close-up fans (gl/crowd-hd.js) against the players': the stands are lit
+// as the crowd's bake is, under the roof and back from the floods.
+export const PARK_FIGURES = { on: 0, sun: 1.6, tower: 5, amb: 2.5, expo: 1, hdPx: 260, fans: 0.55 };
 // What the last frame did, for a bench: the shader linked, men posed, men drawn as the figure
 export const parkFigureStats = { ready: false, posed: 0, drawn: 0 };
 globalThis.__parkFigures = PARK_FIGURES;
@@ -49,14 +54,15 @@ function figureOf(look0) {
   return {
     head: Math.max(0, mods.head.SCULPT_HEADS.indexOf(face.shape)),
     build: fit.build, weight: fit.weight, age: 0,
-    // short under a cap, for now: the figure's longer styles would come out through the park's headwear
-    hair_style: 0, facial: face.facialName || 'clean', layout: face.layout,
+    // his own cut, worn under the park's cap or helmet: `ballcap` cuts the figure's locks back under the band
+    // (figure.js FIGURE_HATS), so only what hangs below it shows
+    hair_style: face.style ?? 0, hat: 'ballcap', facial: face.facialName || 'clean', layout: face.layout,
     skin: rgb255(face.skin), hair: rgb255(face.hair), iris: rgb255(face.iris),
     cut: plain ? plain.cut : 'jersey',
     top: hex255(plain ? plain.top : kit.base), legs: hex255(plain ? plain.legs : kit.pants || kit.base), shoes: [22, 22, 24],
     shirt: hex255(plain ? plain.top : kit.under || kit.ink), trim: hex255(plain ? plain.top : kit.trim), belt: hex255(plain ? (plain.belt || '#111111') : kit.belt || '#111111'),
     fabric_top: 'plain', fabric_legs: 'plain', fabric_shoes: 'leather',
-    gear: false, bottoms: '', hat: '', scarf: '',
+    gear: false, bottoms: '', scarf: '',
   };
 }
 
@@ -95,7 +101,7 @@ export function createBallparkFigures(gl) {
     // his kit off the park's atlas (diamond/kits.js): his jersey's cell by his slot, his side's trousers, socks and
     // sleeves; the umpires and the grounds crew wear their plain colours
     const { mesh } = mods, sd = m.look.side === 'away' ? 'away' : 'home', plain = m.look.role === 'ump' || m.look.role === 'crew';
-    const kit = plain ? null : { cell: Float32Array.from(mesh.kitCell(m.look.slot ?? 0)), pants: Float32Array.from(mesh.KIT_PANTS[sd]), socks: Float32Array.from(mesh.KIT_SOCKS[sd]), sleeves: Float32Array.from(mesh.KIT_SLEEVES[sd]) };
+    const kit = plain ? null : { cell: Float32Array.from(mesh.kitCell(m.look.slot ?? 0)), pants: Float32Array.from(mesh.KIT_PANTS[sd]), socks: Float32Array.from(mesh.KIT_SOCKS[sd]), sleeves: Float32Array.from(mesh.KIT_SLEEVES[sd]), patch: mesh.LOGO_CELLS.patch[sd] };
     // clean at the start of a game: the street's grime (`grit`) isn't a ballplayer's, and the park keeps its own dirt
     // a belt and nothing else of the figure's gear (a settled look's `gear` is all or none), in the kit's belt colour
     return (m.recs[level] = { ...r, key: { ...r.key, gear: { belt: true } }, col, kit, trim: Float32Array.from(lin(f.trim)), grit: 0, sway: [0, 0, 0], jiggle: null, seatJ: null });
@@ -114,7 +120,11 @@ export function createBallparkFigures(gl) {
   }
   function rowsOf(m) {
     if (!m.sol) return null;
-    if (m.rowsAt !== m.posedAt) { m.rows = mods.rig.figureRows(m.sol, m.frames, m.fit || mods.rig.figureFit(m.look), m.rows || undefined); m.J = m.sol.J; m.rowsAt = m.posedAt; }
+    if (m.rowsAt !== m.posedAt) {
+      m.rows = mods.rig.figureRows(m.sol, m.frames, m.fit || mods.rig.figureFit(m.look), m.rows || undefined, m.glove);
+      m.tw = mods.rig.forearmTwist(m.rows);
+      m.J = m.sol.J; m.rowsAt = m.posedAt;
+    }
     return m.rows;
   }
 
@@ -165,7 +175,7 @@ export function createBallparkFigures(gl) {
       if (!r || !m.rows) continue;
       const H = mods.rig.handHolds(m.J, m.glove);
       const every = 3.6 + (slot % 5) * 0.7, b = (t + slot * 1.37) % every;
-      out.push({ ...r, rows: m.rows, hands: hands.handsUniforms(H.L, H.R), blink: b < 0.15 ? Math.sin((b / 0.15) * Math.PI) : 0 });
+      out.push({ ...r, rows: m.rows, hands: hands.handsUniforms(H.L, H.R, m.tw?.L || 0, m.tw?.R || 0), blink: b < 0.15 ? Math.sin((b / 0.15) * Math.PI) : 0 });
     }
     return out;
   }
@@ -210,7 +220,7 @@ export function createBallparkFigures(gl) {
     gl.uniform3f(P.u('uOutRing'), -1e9, 1e9, -1e9);
     const up = light.up || [0.3, 0.3, 0.3], dn = light.dn || up, k = PARK_FIGURES.amb;
     gl.uniform3f(P.u('uAmb'), k * (up[0] + dn[0]) / 2, k * (up[1] + dn[1]) / 2, k * (up[2] + dn[2]) / 2);
-    gl.uniform1f(P.u('uExpo'), PARK_FIGURES.expo);
+    gl.uniform1f(P.u('uExpo'), PARK_FIGURES.expo * (light.expo ?? 1));
     gl.uniform1f(P.u('uComic'), light.comic ? 1 : 0);
     gl.uniform2f(P.u('uRes'), w, h);
     gl.uniform1f(P.u('uStreet'), 3);
@@ -221,10 +231,33 @@ export function createBallparkFigures(gl) {
     get loaded() { return !!mods; },
     // Draws `slots` (prepare's) as figures: their outline when `ink` is set, then their bodies, lit. `M` is the
     // shot's matrices (feet), `w`×`h` the target.
-    // `kitTex` is the park's kit atlas (diamond/kits.js), sampled on unit 2.
-    draw(slots, M, w, h, light, t, ink = true, kitTex = null) {
-      if (!slots.size || !fig) return 0;
+    // `slots` cast into a shadow map at `vp` (feet): false until the figure's depth program has linked, and then
+    // the park casts their old bodies instead.
+    depth(slots, vp, t) {
+      if (!slots.size || !fig) return false;
       const R = recsFor(slots, t);
+      if (!R.length) return false;
+      const v = new Float32Array(vp);
+      for (let i = 0; i < 12; i++) v[i] *= FT;
+      const cull = gl.isEnabled(gl.CULL_FACE);
+      gl.disable(gl.CULL_FACE);
+      const ok = fig.depth(v, R);
+      if (cull) gl.enable(gl.CULL_FACE);
+      return ok;
+    },
+    // `kitTex` is the park's kit atlas (diamond/kits.js), sampled on unit 2, and `logoTex` its logo atlas, on 3.
+    draw(slots, M, w, h, light, t, ink = true, kitTex = null, logoTex = null) {
+      if (!slots.size || !fig) return 0;
+      return drawRecs(recsFor(slots, t), M, w, h, light, ink, kitTex, logoTex);
+    },
+    // The figure layer on this context, made (and its modules loaded) the first time it's asked for: the stands'
+    // close-up fans (gl/crowd-hd.js) are drawn with it too, whether or not the players are.
+    layer: () => layer(),
+    // Any records in the park's frame (metres), drawn as draw() draws the players: the stands' close-up fans.
+    drawRecs: (R, M, w, h, light, ink = true) => (fig && R.length ? drawRecs(R, M, w, h, light, ink, null, null) : 0),
+    dispose() { try { fig?.dispose(); } catch { /* the context may be gone */ } fig = null; men.clear(); },
+  };
+  function drawRecs(R, M, w, h, light, ink, kitTex, logoTex) {
       if (!R.length) return 0;
       const vp = new Float32Array(M.viewProj);
       for (let i = 0; i < 12; i++) vp[i] *= FT;
@@ -234,7 +267,11 @@ export function createBallparkFigures(gl) {
       gl.activeTexture(gl.TEXTURE2);
       const unit2 = gl.getParameter(gl.TEXTURE_BINDING_2D);
       gl.bindTexture(gl.TEXTURE_2D, kitTex);
+      gl.activeTexture(gl.TEXTURE3);
+      const unit3 = gl.getParameter(gl.TEXTURE_BINDING_2D);
+      gl.bindTexture(gl.TEXTURE_2D, logoTex);
       if (!kitTex) for (const r of R) r.kit = null;
+      else if (!logoTex) for (const r of R) if (r.kit) r.kit = { ...r.kit, patch: null };
       gl.activeTexture(gl.TEXTURE1);
       const unit1 = gl.getParameter(gl.TEXTURE_BINDING_2D);
       const { HOUSE } = mods.house;
@@ -254,10 +291,10 @@ export function createBallparkFigures(gl) {
       gl.bindTexture(gl.TEXTURE_2D, unit1);
       gl.activeTexture(gl.TEXTURE2);
       gl.bindTexture(gl.TEXTURE_2D, unit2);
+      gl.activeTexture(gl.TEXTURE3);
+      gl.bindTexture(gl.TEXTURE_2D, unit3);
       gl.activeTexture(gl.TEXTURE0);
       if (cull) gl.enable(gl.CULL_FACE);
       return R.length;
-    },
-    dispose() { try { fig?.dispose(); } catch { /* the context may be gone */ } fig = null; men.clear(); },
-  };
+  }
 }

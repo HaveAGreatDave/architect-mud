@@ -156,6 +156,7 @@ export const GROUPS = [
       'scripts/client/interiors-smoke.mjs', // a room placed in GLASS where the window's eye says it is; near rooms whole, further ones boxes, far ones nothing
       'scripts/shapes/sequence.mjs',     // every set, sequence and show in media_graphics, built and checked
       'scripts/shapes/room-stage.mjs',   // the suite's layout as frozen, every room form builds, placeSpot never stacks pieces
+      'scripts/shapes/room-stand.mjs',   // a depot's stand: each kind called up comes out into its box, blocks the walker and offers its key beside it
       'scripts/shapes/chem-stage-smoke.mjs', // the Chem Stage: every stage scores a good hand well and a bad one badly; heap, slosh and each stage's pieces build
       'scripts/shapes/actor-head.mjs',
       'scripts/shapes/fan-vat.mjs',  // the stands' fans: both levels baked sound, on the ground, the face on the head, the mouth opening, no claws
@@ -311,7 +312,7 @@ export const GROUPS = [
       'scripts/perf/lite-retain.mjs',        // GLASS Lite's signs, lights and masts kept on the GPU draw what the same records draw sent plain, and keep emitTile's two promises
       'scripts/perf/retain-world-check.mjs', // a recentre leaves the solids' retained groups and the kept casters where their records are (retainWorld)
       'scripts/shapes/anim-smoke.mjs',       // Deadball's players skinned: the rig's frames, four weights a vertex, every pose on the posed build's surface, the hands on the bat
-      'scripts/shapes/figure-rig.mjs',       // Deadball's players as the close-up figure: every clip's joints and head land where the rig put them, no row mirrored
+      'scripts/shapes/figure-rig.mjs',       // Deadball's players as the close-up figure: every clip's joints and head land where the rig put them, no row mirrored, the budget, hair under the cap
       // Deadball staged in 3-D: each pitch at its spot, every clip on the ball, every ball in play's gloves, throws and call at first, the line held to the landing (one game each, side by side)
       { run: 'scripts/shapes/diamond-smoke.mjs 16', budget: 90, why: '33 s of main-thread CPU alone (2026-11-05), past the 30 s that survives the slowest runner seen. The time is the animation solver (diamond/anim.js, rig.js) posing every body at each of 476,000 checks, which is what the gate tests, and the poses read world state that moves between checks, so they cannot be shared' },
       { run: 'scripts/shapes/diamond-smoke.mjs 41', budget: 90, why: 'The same animation solver cost as seed 16, a little more: 36 s of CPU alone (2026-10-19). Dropping the long-hold pass to every fourth at-bat saved 8%' },

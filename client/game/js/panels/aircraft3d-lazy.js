@@ -101,6 +101,7 @@ export function setVehicleParams(...a) { return (_m || _cold('setVehicleParams')
 export function shadeRgb(...a) { return (_m || _cold('shadeRgb')).shadeRgb(...a); }
 export function slideEase(...a) { return (_m || _cold('slideEase')).slideEase(...a); }
 export function sortTruckFaces(...a) { return (_m || _cold('sortTruckFaces')).sortTruckFaces(...a); }
+export function standFaces(...a) { return (_m || _cold('standFaces')).standFaces(...a); }
 export function truckDimsForShape(...a) { return (_m || _cold('truckDimsForShape')).truckDimsForShape(...a); }
 export function truckFileBuild(...a) { return (_m || _cold('truckFileBuild')).truckFileBuild(...a); }
 export function truckLegacyBuild(...a) { return (_m || _cold('truckLegacyBuild')).truckLegacyBuild(...a); }

@@ -2,8 +2,24 @@
   "name": "clothing-wetness",
   "version": "1.0.0",
   "description": "Per-item wetness accumulation from rain/snow and its effect on body temperature.",
-  "hooks": ["tick.minute"],
+  "hooks": [
+    "tick.minute",
+    "furniture.acts"
+  ],
   "events": {
-    "consumes": ["inventory.changed"]
+    "consumes": [
+      "inventory.changed"
+    ]
+  },
+  "commands": [
+    "dry",
+    "towel"
+  ],
+  "objectGatedCommands": {
+    "dry": {
+      "discoverVia": "towel_rail",
+      "exposed": true,
+      "note": "Flag-gated on a towel rail (flags.towel_rail): furniture.acts puts it on the rail in ROOM, and the handler finds the rail in the room itself."
+    }
   }
 }

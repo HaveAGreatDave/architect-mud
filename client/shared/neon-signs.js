@@ -7,6 +7,8 @@
 //   · `seq` on the artwork is the flasher: a list of `{ on: [...grp], ms }` frames played in a loop.
 //     A run whose circuit is off in the current frame is drawn as unlit glass, not left out, because
 //     a dark tube is still a tube you can see from across the street.
+//   · `ghost: true` is a run drawn only while it's lit: a flasher's other position, which as unlit
+//     glass beside the lit one would read as clutter (Screw It's turning slot).
 //   · `dead: true` is a run that never lights: broken glass, or a transformer that went years ago.
 //   · `glass` on the artwork (0..1) draws unlit tubes by day as pale glass, that far toward grey,
 //     instead of as a dark line. Without it red neon on a red wall disappears at noon.
@@ -18,8 +20,22 @@
 // Neon lettering is bent from one tube along the centreline of each stroke, so a letter is a path,
 // not a glyph outline. A font's outline stroked would be a hollow double line. Each glyph is drawn
 // in a box `s` tall and `GLYPH_W[ch] * s` wide, from its top-left corner, y down.
-const GLYPH_W = { L: 0.52, I: 0.08, V: 0.62, E: 0.52, G: 0.62, R: 0.56, S: 0.56, X: 0.62, ' ': 0.34 };
+const GLYPH_W = { L: 0.52, I: 0.08, V: 0.62, E: 0.52, G: 0.62, R: 0.56, S: 0.56, X: 0.62, C: 0.54, W: 0.8, T: 0.56, O: 0.6, P: 0.5, N: 0.56, ' ': 0.34 };
 const GLYPH = {
+  C: (g, s) => {
+    g.moveTo(0.54 * s, 0.16 * s);
+    g.bezierCurveTo(0.44 * s, -0.04 * s, 0.02 * s, -0.05 * s, 0, 0.5 * s);
+    g.bezierCurveTo(0.02 * s, 1.05 * s, 0.44 * s, 1.04 * s, 0.54 * s, 0.84 * s);
+  },
+  W: (g, s) => { g.moveTo(0, 0); g.lineTo(0.2 * s, s); g.lineTo(0.4 * s, 0.32 * s); g.lineTo(0.6 * s, s); g.lineTo(0.8 * s, 0); },
+  T: (g, s) => { g.moveTo(0, 0); g.lineTo(0.56 * s, 0); g.moveTo(0.28 * s, 0); g.lineTo(0.28 * s, s); },
+  O: (g, s) => { g.moveTo(0.6 * s, 0.5 * s); g.ellipse(0.3 * s, 0.5 * s, 0.3 * s, 0.5 * s, 0, 0, Math.PI * 2); },
+  P: (g, s) => {
+    g.moveTo(0, s); g.lineTo(0, 0); g.lineTo(0.26 * s, 0);
+    g.bezierCurveTo(0.56 * s, 0, 0.56 * s, 0.52 * s, 0.26 * s, 0.52 * s);
+    g.lineTo(0, 0.52 * s);
+  },
+  N: (g, s) => { g.moveTo(0, s); g.lineTo(0, 0); g.lineTo(0.56 * s, s); g.lineTo(0.56 * s, 0); },
   L: (g, s) => { g.moveTo(0, 0); g.lineTo(0, s); g.lineTo(0.52 * s, s); },
   I: (g, s) => { g.moveTo(0.04 * s, 0); g.lineTo(0.04 * s, s); },
   V: (g, s) => { g.moveTo(0, 0); g.lineTo(0.31 * s, s); g.lineTo(0.62 * s, 0); },
@@ -61,6 +77,8 @@ const tubeWord = (word, cx, top, s) => (g) => {
 };
 // ⚠ `save`/`translate` INSIDE ONE PATH. The transform applies to the points as they are added, so
 // the letters land where they should and the whole word still strokes as one path.
+// The same, set from its left edge at `x0`, for a word laid out beside another one.
+const tubeLeft = (word, x0, top, s) => tubeWord(word, x0 + tubeWidth(word, s) / 2, top, s);
 
 // A rounded frame cut into `n` dashes, every other one on circuit `a` and the rest on `b`: the
 // two-circuit chaser every strip-club frame has, which reads as light running round the border.
@@ -101,6 +119,8 @@ const RED = { c: '#ff2a3c', glow: '#ff1030', core: '#ffe0e4' };
 const PINK = { c: '#ff4fa8', glow: '#ff1e88', core: '#ffe4f2' };
 const AMBER = { c: '#ffb43a', glow: '#ff8a10', core: '#fff0c8' };
 const LEAF = { c: '#5ce07a', glow: '#22b84a', core: '#e2ffe8' };
+const ACID = { c: '#7dff6a', glow: '#32d42a', core: '#eaffe2' };
+const HAZARD = { c: '#ffd21e', glow: '#ffa800', core: '#fff6c8' };
 
 export const NEON_SIGNS = {
   // ── THE CHERRY PIT ───────────────────────────────────────────────────────────────────────────
@@ -208,6 +228,73 @@ export const NEON_SIGNS = {
         { on: [], ms: 180 },
         { on: ['x1', 'x2', 'x3'], ms: 1600 },
         { on: [], ms: 500 },
+      ],
+    };
+  })(),
+
+  // ── SCREW IT ─────────────────────────────────────────────────────────────────────────────────
+  // The chem supply on Ironside Street. A slotted screw head in hazard yellow, the name in acid
+  // green, and a run of thread under the name. The slot is on three circuits set 60 degrees apart,
+  // so stepping through them turns the screw a third of a turn at a time; a slot has half-turn
+  // symmetry, so three frames look like a full turn. The IT is on its own bad circuit and now and
+  // then drops out, which leaves the sign saying SCREW.
+  screwit: (() => {
+    const HX = 104, HY = 104, R = 76, s = 74, top = 46, x0 = 222;
+    const slot = (a) => (g) => {
+      const c = Math.cos(a) * R * 0.66, n = Math.sin(a) * R * 0.66;
+      g.moveTo(HX - c, HY - n); g.lineTo(HX + c, HY + n);
+    };
+    const itX = x0 + tubeWidth('SCREW', s) + (TRACK * 2 + GLYPH_W[' ']) * s;
+    const end = itX + tubeWidth('IT', s);
+    const thread = (g) => {
+      const y = top + s + 30, k = 26;
+      g.moveTo(x0, y);
+      for (let x = x0, i = 0; x < end; x += k / 2, i++) g.lineTo(Math.min(end, x + k / 2), y + (i % 2 ? -9 : 9));
+    };
+    return {
+      w: end + 22, h: 208, bake: 720, glass: 0.5,
+      runs: [
+        { ...HAZARD, lw: 8, path: (g) => { g.moveTo(HX + R, HY); g.arc(HX, HY, R, 0, Math.PI * 2); } },
+        { ...HAZARD, lw: 3.5, path: (g) => { g.moveTo(HX + R * 0.82, HY); g.arc(HX, HY, R * 0.82, 0, Math.PI * 2); } },
+        { ...HAZARD, lw: 9, grp: 's0', path: slot(-0.6) },
+        { ...HAZARD, lw: 9, grp: 's1', ghost: true, path: slot(-0.6 + Math.PI / 3) },
+        { ...HAZARD, lw: 9, grp: 's2', ghost: true, path: slot(-0.6 + Math.PI * 2 / 3) },
+        { ...ACID, lw: 7, path: tubeLeft('SCREW', x0, top, s) },
+        { ...ACID, lw: 7, grp: 'it', path: tubeLeft('IT', itX, top, s) },
+        { ...HAZARD, lw: 4.5, path: thread },
+      ],
+      seq: [
+        { on: ['s0', 'it'], ms: 2600 },
+        { on: ['s1', 'it'], ms: 150 },
+        { on: ['s2', 'it'], ms: 150 },
+        { on: ['s0', 'it'], ms: 150 },
+        { on: ['s1', 'it'], ms: 150 },
+        { on: ['s2', 'it'], ms: 150 },
+        { on: ['s0', 'it'], ms: 3200 },
+        { on: ['s0'], ms: 90 },
+        { on: ['s0', 'it'], ms: 70 },
+        { on: ['s0'], ms: 1400 },
+        { on: ['s0', 'it'], ms: 1800 },
+      ],
+    };
+  })(),
+
+  // ── OPEN ─────────────────────────────────────────────────────────────────────────────────────
+  // A shop's OPEN sign, for the window or the pier beside the door: red capitals in an amber
+  // frame. Any shop can carry it; it has no flasher.
+  open: (() => {
+    const s = 48, w = tubeWidth('OPEN', s) + 60;
+    return {
+      w, h: 100, bake: 260, glass: 0.5,
+      runs: [
+        { ...AMBER, lw: 4, path: (g) => {
+          const x0 = 8, y0 = 8, x1 = w - 8, y1 = 92, r = 16;
+          g.moveTo(x0 + r, y0); g.lineTo(x1 - r, y0); g.arcTo(x1, y0, x1, y0 + r, r);
+          g.lineTo(x1, y1 - r); g.arcTo(x1, y1, x1 - r, y1, r);
+          g.lineTo(x0 + r, y1); g.arcTo(x0, y1, x0, y1 - r, r);
+          g.lineTo(x0, y0 + r); g.arcTo(x0, y0, x0 + r, y0, r);
+        } },
+        { ...RED, lw: 6, path: tubeWord('OPEN', w / 2, 26, s) },
       ],
     };
   })(),

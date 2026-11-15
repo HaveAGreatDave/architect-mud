@@ -1,12 +1,13 @@
-// THE VIEW FROM A ROOM'S WINDOWS. GLASS itself: the city round the building, painted six times from one fixed eye
-// (the room's front, right, back and left, then down and up, each a 90° square) and handed to the room's renderer
-// as one picture, which looks each pane's pixel up by its direction (gl/room.js, uMode 5). So the city is placed in
-// the world: turning and walking move you, never it, and nothing is repainted to follow your head.
+// THE VIEW FROM A ROOM'S WINDOWS. GLASS itself: the city round the building, painted six times (the room's front,
+// right, back and left, then down and up, each a 90° square) and handed to the room's renderer as one picture, which
+// looks each pane's pixel up by its direction (gl/room.js, uMode 5). Each face is painted from where you stood when it
+// was sent (`faceAt`), and the shader corrects every pixel for the step you've taken since, so the city stays placed
+// in the world: turning moves you, never it, and a passer-by is their own size from anywhere in the room.
 //
 // ⚠ IT PAINTS ON ITS OWN THREAD (room-outlook-worker.js), one face at a time: all six as soon as it's up, then, while
 // there's glass in view, as fast as the worker goes, the faces you're looking at first (`pick`). One face every
-// 250 ms put the traffic at a frame a second. A face is repainted from the same pose, so a refresh never moves
-// anything. Where a worker can't do it the paint runs here instead.
+// 250 ms put the traffic at a frame a second. A refresh from where you've walked to moves only what the correction
+// had slightly wrong. Where a worker can't do it the paint runs here instead.
 // ⚠ THE NEXT FACE IS SENT AS SOON AS THE LAST ONE COMES BACK (`send` from `painted`), not at the room's next frame:
 // waiting for the frame left the worker idle for half a frame a paint. And `pick` shares the paints out by how much
 // of the screen each face covers (`cover`, the shader's own rule for which face a pixel takes). Its old test, a face
@@ -90,6 +91,14 @@ export function createOutlook(msg, { host, onEye, onFail, onPano, feed, live = f
   const faces = [], fresh = new Map();
   // what the next paint is for: the room's last `tick`, while there's something to paint, and when it came
   let want = null, wantAt = 0;
+  // ⚠ EACH FACE IS PAINTED FROM WHERE YOU STOOD WHEN IT WAS SENT (`cap`), and handed to the room with that spot
+  // (`faceAt`, [u, v] in the room's metres). The room's shader corrects every pixel for the step between that spot and
+  // your eye now (gl/room.js uPanoEye). Painted from one spot on the front glass, as they were, a person a pace outside
+  // was drawn the size they'd be from the glass however far back you stood: two or three times too big from the
+  // middle of a shop. `cap` is the last spot the room said you were at; before it has said, the front glass's middle.
+  let cap = { at: [0, 0], room: [1, 1] }, sentCap = cap;
+  const faceAt = [], freshAt = new Map();
+  const capOf = (look) => { if (Array.isArray(look?.at) && Array.isArray(look.room)) cap = { at: [look.at[0], look.at[1]], room: look.room }; return cap; };
 
   const canvas = () => {
     el?.remove();
@@ -112,7 +121,7 @@ export function createOutlook(msg, { host, onEye, onFail, onPano, feed, live = f
   };
   const give = (i, pic) => {
     filled = Math.min(FACES, filled + 1);
-    try { onPano?.(i, pic, F.lens); } catch (e) { console.warn('[room] the city face', e?.message); }
+    try { onPano?.(i, pic, F.lens, faceAt[i] || null); } catch (e) { console.warn('[room] the city face', e?.message); }
   };
 
   // the fallback: the same paint, here
@@ -148,7 +157,7 @@ export function createOutlook(msg, { host, onEye, onFail, onPano, feed, live = f
     worker.onmessage = ({ data: m }) => {
       if (m.type === 'ready') { base = { x: m.eyeX, y: m.eyeY, z: m.eye }; ready(m); free = true; }
       else if (m.type === 'placed') { base = { x: m.eyeX, y: m.eyeY, z: m.eye }; onEye?.({ eye: m.eye, eyeX: m.eyeX, eyeY: m.eyeY }); }
-      else if (m.type === 'painted') { painted++; if (postedAt) lag += (performance.now() - postedAt - lag) * 0.3; free = true; fresh.get(sentFace)?.close(); fresh.set(sentFace, m.bitmap); send(); }
+      else if (m.type === 'painted') { painted++; if (postedAt) lag += (performance.now() - postedAt - lag) * 0.3; free = true; fresh.get(sentFace)?.close(); fresh.set(sentFace, m.bitmap); freshAt.set(sentFace, sentCap.at); send(); }
       else if (m.type === 'peeked') peek?.(m.blob);
       else if (m.type === 'gl') { gl = m.on; if (m.on) console.info('[room] the view from the window is back on GLASS 2'); else console.warn('[room] the view from the window dropped to GLASS 1:', m.why || 'no reason given', '- trying GLASS 2 again shortly'); }
       else if (m.type === 'failed') { console.warn('[room] the view\'s worker failed:', m.why); here(); }
@@ -238,9 +247,9 @@ export function createOutlook(msg, { host, onEye, onFail, onPano, feed, live = f
     const t = performance.now();
     if (t - wantAt > PIPE_MS) return;
     const { hour, wx, look } = want;
-    const i = filled < FACES ? firstPass(look, t) : pick(look, t);
-    const pose = { yaw: (((msg.bearing || 0) + POSE[i][0]) % 360 + 360) % 360, pitch: POSE[i][1], fov: 90, at: [0, 0], room: [1, 1] };
-    free = false; postedAt = t; sentFace = i; lastAt[i] = t; next = (i + 1) % FACES; nPaint++;
+    const i = filled < FACES ? firstPass(look, t) : pick(look, t), c = capOf(look);
+    const pose = { yaw: (((msg.bearing || 0) + POSE[i][0]) % 360 + 360) % 360, pitch: POSE[i][1], fov: 90, at: c.at, room: c.room };
+    free = false; postedAt = t; sentFace = i; sentCap = c; lastAt[i] = t; next = (i + 1) % FACES; nPaint++;
     worker.postMessage({ type: 'frame', hour, wx, look: pose, fed: feed?.(), k: F.k, W: F.fw, H: F.fh });
   }
 
@@ -266,16 +275,17 @@ export function createOutlook(msg, { host, onEye, onFail, onPano, feed, live = f
       if (!alive || !K) return null;
       if (live) return livePaint(hour, wx, look, false);
       F ||= face();
-      for (const [i, b] of fresh) { faces[i]?.close?.(); faces[i] = b; give(i, b); }
-      fresh.clear();
+      for (const [i, b] of fresh) { faces[i]?.close?.(); faces[i] = b; faceAt[i] = freshAt.get(i) || null; give(i, b); }
+      fresh.clear(); freshAt.clear();
       const t = performance.now();
       // every face once, then, while there's glass in view, as fast as the worker goes: the faces you're looking
       // at first, so what moves out there moves at the frame rate, and the rest now and then
       want = filled < FACES || look ? { hour, wx, look } : null; wantAt = t;
       if (!want) return null;
       if (worker) { send(); return null; }
-      const i = filled < FACES ? firstPass(look, t) : pick(look, t);
-      const pose = { yaw: (((msg.bearing || 0) + POSE[i][0]) % 360 + 360) % 360, pitch: POSE[i][1], fov: 90, at: [0, 0], room: [1, 1] };
+      const i = filled < FACES ? firstPass(look, t) : pick(look, t), c = capOf(look);
+      const pose = { yaw: (((msg.bearing || 0) + POSE[i][0]) % 360 + 360) % 360, pitch: POSE[i][1], fov: 90, at: c.at, room: c.room };
+      faceAt[i] = c.at;
       if (el.width !== F.fw || el.height !== F.fh) { el.width = F.fw; el.height = F.fh; }
       postedAt = t; lastAt[i] = t; next = (i + 1) % FACES; nPaint++;
       try { paintWindshield(id, viewOf(msg, base, { hour, wx, look: pose, fed: feed?.(), k: F.k, gl: !!RENDER_TUNE?.gl })); painted++; give(i, el); } catch (e) { fail(e?.message); }
@@ -288,7 +298,7 @@ export function createOutlook(msg, { host, onEye, onFail, onPano, feed, live = f
       host = nx.host; onEye = nx.onEye; onFail = nx.onFail; onPano = nx.onPano; feed = nx.feed;
       if (el) host.prepend(el);
       if (K && base) onEye?.({ eye: base.z, eyeX: base.x, eyeY: base.y });
-      if (F && worker && filled >= FACES) faces.forEach((b, i) => { if (b) try { onPano?.(i, b, F.lens); } catch { /* the room's renderer is gone */ } });
+      if (F && worker && filled >= FACES) faces.forEach((b, i) => { if (b) try { onPano?.(i, b, F.lens, faceAt[i] || null); } catch { /* the room's renderer is gone */ } });
     },
     // a new room of the same building: where it stands, the way it faces, how high. All four faces again.
     place(m) {
@@ -298,6 +308,8 @@ export function createOutlook(msg, { host, onEye, onFail, onPano, feed, live = f
       msg = { ...msg, storey: m.storey, storeys: m.storeys, bearing: m.bearing, frame: m.frame || null, cut: m.cut || null, sky: { ...(msg.sky || {}), ...(m.sky || {}) } };
       if (!same) { filled = 0; lastAt.fill(0); }
       next = 0;
+      // the spots the kept faces were painted from are the last room's metres: drawn uncorrected until repainted
+      faceAt.fill(null); cap = sentCap = { at: [0, 0], room: [1, 1] };
       if (worker) { worker.postMessage({ type: 'place', msg: { storey: msg.storey, storeys: msg.storeys, bearing: msg.bearing, frame: msg.frame, cut: msg.cut } }); return; }
       if (base) { base = eyeBase(msg, modelTopZAt); onEye?.({ eye: base.z, eyeX: base.x, eyeY: base.y }); }
     },

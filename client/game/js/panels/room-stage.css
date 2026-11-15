@@ -35,44 +35,9 @@ body.bigscreen #room-stage .rs-bar, body.bigscreen #room-stage .rs-tip { display
 #room-stage .rs-lighthud .rs-lightrocker { width: 64px; min-height: 40px; font-weight: 600; }
 #room-stage .rs-lighthud .rs-lightrocker.on { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
 #room-stage .rs-lighthud .rs-dim { width: 100%; accent-color: var(--accent); cursor: pointer; }
-/* the tablet, bottom right over the room, with its key */
-#room-stage .rs-tablet {
-	position: absolute; right: 12px; bottom: 10px; z-index: 6; display: flex; align-items: center; gap: 6px;
-	padding: 6px 10px; border-radius: 6px; cursor: pointer;
-	background: var(--rs-panel); color: var(--text); border: 1px solid var(--border); font: 0.8125rem var(--rs-font);
-}
-#room-stage .rs-tablet:hover { border-color: var(--accent); color: var(--accent); }
-#room-stage .rs-tablet kbd { padding: 0 5px; border: 1px solid var(--border); border-radius: 3px; font: 0.75rem var(--rs-font); color: var(--text-dim); }
-#room-stage.rs-cooking .rs-tablet { display: none; }
-/* your pockets: the button left of the tablet's, and what you can eat, drink or take over it (room-stage.js roomPockets) */
-#room-stage .rs-pockets {
-	position: absolute; right: 66px; bottom: 10px; z-index: 6; height: 44px; padding: 0 12px; border-radius: 6px; cursor: pointer;
-	background: var(--rs-panel); color: var(--text); border: 1px solid var(--border); font: 0.8125rem var(--rs-font);
-}
-#room-stage .rs-pockets:hover, #room-stage .rs-pockets[aria-expanded="true"] { border-color: var(--accent); color: var(--accent); }
-/* your gear: the button left of Pockets, which opens the tablet's Gear app to dress and undress (room-stage.js openGear) */
-#room-stage .rs-gear {
-	position: absolute; right: 172px; bottom: 10px; z-index: 6; height: 44px; padding: 0 12px; border-radius: 6px; cursor: pointer;
-	background: var(--rs-panel); color: var(--text); border: 1px solid var(--border); font: 0.8125rem var(--rs-font);
-}
-#room-stage .rs-gear:hover { border-color: var(--accent); color: var(--accent); }
-#room-stage .rs-pocketlist {
-	position: absolute; right: 12px; bottom: 62px; z-index: 7; width: min(300px, calc(100% - 32px)); max-height: 52%; overflow-y: auto;
-	display: flex; flex-direction: column; gap: 4px; padding: 10px 12px 12px; border-radius: 6px;
-	background: var(--rs-panel); color: var(--text); border: 1px solid var(--border); font: 0.8125rem var(--rs-font);
-}
-#room-stage .rs-pocketlist[hidden] { display: none; }
-#room-stage .rs-pocketlist > b { color: var(--accent); font-weight: 600; margin-bottom: 2px; }
-#room-stage .rs-pocket-items { display: flex; flex-direction: column; gap: 4px; }
-#room-stage .rs-pocket-items button {
-	text-align: left; min-height: 32px; padding: 4px 8px; cursor: pointer;
-	background: var(--rs-btn); color: var(--text); border: 1px solid var(--border); border-radius: 4px; font: inherit;
-}
-#room-stage .rs-pocket-items button:hover { border-color: var(--accent); }
-#room-stage .rs-pocket-items button b { font-weight: 600; }
-#room-stage .rs-pocket-items button span, #room-stage .rs-pocket-items i { color: var(--text-dim); }
-#room-stage.rs-cooking .rs-pockets, #room-stage.rs-cooking .rs-pocketlist, #room-stage.rs-cooking .rs-gear { display: none; }
-@media (pointer: coarse) { #room-stage .rs-tablet kbd { display: none; } }
+/* the Pack and tablet buttons are the foot dock's (foot-dock.css), the same in a room and on the street; cooking
+   has the Kitchen Stage's own */
+#room-stage.rs-cooking .foot-dock { display: none; }
 /* the gas fire's panel, opened by a click on the dial on the fire itself (room-stage.js openFire):
    a round knob with a pointer, turned through 270 degrees, and four steps under it */
 #room-stage .rs-firehud {
@@ -263,7 +228,6 @@ body:has(#dialogue-panel.active) #room-stage :is(.rs-card, .rs-tip) { display: n
 
 /* cooking: the Kitchen Stage is over the room (kitchen-stage.js) */
 #room-stage.rs-cooking .rs-card, #room-stage.rs-cooking .rs-tip, #room-stage.rs-cooking .rs-hover { display: none; }
-#room-stage .rs-tablet .rs-tablet-ico { width: 22px; height: 30px; display: block; }
 
 
 /* ===== THE CYBER SKIN: every ROOM HUD as cheap street tech ===============================================
@@ -315,28 +279,25 @@ body:has(#dialogue-panel.active) #room-stage :is(.rs-card, .rs-tip) { display: n
 #room-stage .rs-bar .rs-leave { color: var(--cy-ink); background: var(--cy-b); box-shadow: none; }
 
 /* every floating window: chamfered, scanlined, cyan-edged */
-#room-stage :is(.rs-card, .rs-pocketlist, .rs-firehud, .rs-hover, .rs-flash, .rs-tip, .rs-tablet, .rs-pockets, .rs-gear, .rh-panel) {
+#room-stage :is(.rs-card, .rs-firehud, .rs-hover, .rs-flash, .rs-tip, .rh-panel) {
 	border-radius: 0; border: 0; clip-path: var(--cy-chamfer); color: #d6f6ff;
 	background: var(--cy-scan), linear-gradient(160deg, var(--cy-bg2), var(--cy-bg));
 	box-shadow: var(--cy-edge);
 }
-#room-stage :is(.rs-hover, .rs-flash, .rs-tip, .rs-tablet, .rs-pockets, .rs-gear) { --cy-cut: 8px; }
-#room-stage :is(.rs-pocketlist, .rs-firehud, .rh-panel) {
+#room-stage :is(.rs-hover, .rs-flash, .rs-tip) { --cy-cut: 8px; }
+#room-stage :is(.rs-firehud, .rh-panel) {
 	background: var(--cy-brackets), var(--cy-scan), linear-gradient(160deg, var(--cy-bg2), var(--cy-bg));
 	background-repeat: no-repeat, no-repeat, no-repeat, no-repeat, repeat, no-repeat;
 }
-#room-stage :is(.rs-tablet, .rs-pockets, .rs-gear) { font: 0.75rem var(--cy-lbl); letter-spacing: 0.1em; text-transform: uppercase; }
-#room-stage :is(.rs-tablet, .rs-pockets, .rs-gear):hover, #room-stage .rs-pockets[aria-expanded="true"] { color: var(--cy-ink); background: var(--cy-a); }
-#room-stage .rs-tablet kbd { border-radius: 0; border-color: currentColor; color: inherit; }
-#room-stage :is(.rs-pocketlist > b, .rs-firehud-name) {
+#room-stage :is(.rs-firehud-name) {
 	font: 700 0.75rem var(--cy-head); letter-spacing: 0.16em; text-transform: uppercase; color: var(--cy-b); text-shadow: 0 0 8px var(--cy-b);
 }
-#room-stage :is(.rs-pocketlist > b, .rs-firehud-name)::before { content: '// '; color: var(--cy-a); }
-#room-stage :is(.rs-pocket-items button, .rs-firehud button:not(.rs-knob), .rs-card-acts button) {
+#room-stage :is(.rs-firehud-name)::before { content: '// '; color: var(--cy-a); }
+#room-stage :is(.rs-firehud button:not(.rs-knob), .rs-card-acts button) {
 	border-radius: 0; border: 0; clip-path: var(--cy-tab); background: color-mix(in srgb, var(--cy-a) 8%, #04101a); color: #d6f6ff;
 	box-shadow: inset 2px 0 0 var(--cy-a), inset 0 0 0 1px color-mix(in srgb, var(--cy-a) 30%, transparent);
 }
-#room-stage :is(.rs-pocket-items button, .rs-firehud button:not(.rs-knob), .rs-card-acts button):hover {
+#room-stage :is(.rs-firehud button:not(.rs-knob), .rs-card-acts button):hover {
 	background: color-mix(in srgb, var(--cy-a) 22%, #04101a); box-shadow: inset 4px 0 0 var(--cy-y), inset 0 0 0 1px var(--cy-a);
 }
 #room-stage .rs-fire-steps button.on { color: var(--cy-ink); background: var(--cy-a); }
@@ -552,22 +513,15 @@ body:has(#dialogue-panel.active) #room-stage :is(.rs-card, .rs-tip) { display: n
 #room-stage .rs-bar .rs-chip { padding: 3px 6px; min-width: 0; }
 #room-stage .rs-bar button:hover { background: var(--rs-btn); color: var(--text); }
 #room-stage .rs-bar .rs-leave { background: transparent; color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
-#room-stage :is(.rs-card, .rs-pocketlist, .rs-firehud, .rs-hover, .rs-flash, .rs-tip, .rs-tablet, .rs-pockets, .rs-gear, .rh-panel) {
+#room-stage :is(.rs-card, .rs-firehud, .rs-hover, .rs-flash, .rs-tip, .rh-panel) {
 	clip-path: none; border-radius: 4px; color: var(--text); backdrop-filter: blur(2px);
 }
-#room-stage :is(.rs-tablet, .rs-pockets, .rs-gear) { font: 0.6875rem var(--font-mono); letter-spacing: 0; text-transform: none; opacity: 0.7; }
-#room-stage .rs-tablet { padding: 3px 7px; }
-#room-stage .rs-pockets { height: 30px; padding: 0 8px; right: 56px; }
-#room-stage .rs-gear { height: 30px; padding: 0 8px; right: 124px; }
-#room-stage .rs-tablet .rs-tablet-ico { width: 14px; height: 20px; }
-#room-stage :is(.rs-tablet, .rs-pockets, .rs-gear):hover, #room-stage .rs-pockets[aria-expanded="true"] { opacity: 1; color: var(--accent); background: var(--cy-bg2); }
-#room-stage .rs-pocketlist { bottom: 46px; font-size: 0.75rem; }
-#room-stage :is(.rs-pocketlist > b, .rs-firehud-name) { font: 600 0.75rem var(--font-mono); letter-spacing: 0; text-transform: none; color: var(--accent); text-shadow: none; }
-#room-stage :is(.rs-pocketlist > b, .rs-firehud-name)::before { content: none; }
-#room-stage :is(.rs-pocket-items button, .rs-firehud button:not(.rs-knob), .rs-card-acts button) {
+#room-stage :is(.rs-firehud-name) { font: 600 0.75rem var(--font-mono); letter-spacing: 0; text-transform: none; color: var(--accent); text-shadow: none; }
+#room-stage :is(.rs-firehud-name)::before { content: none; }
+#room-stage :is(.rs-firehud button:not(.rs-knob), .rs-card-acts button) {
 	clip-path: none; border-radius: 3px; background: var(--rs-btn); color: var(--text); box-shadow: inset 0 0 0 1px var(--border);
 }
-#room-stage :is(.rs-pocket-items button, .rs-firehud button:not(.rs-knob), .rs-card-acts button):hover { background: var(--rs-btn-hover); box-shadow: inset 0 0 0 1px var(--accent); }
+#room-stage :is(.rs-firehud button:not(.rs-knob), .rs-card-acts button):hover { background: var(--rs-btn-hover); box-shadow: inset 0 0 0 1px var(--accent); }
 #room-stage .rs-flash { font: 0.6875rem var(--font-mono); letter-spacing: 0; text-transform: none; color: var(--green); box-shadow: inset 0 0 0 1px var(--green); padding: 3px 9px; }
 #room-stage .rs-flash.rs-flash-no { color: var(--red); box-shadow: inset 0 0 0 1px var(--red); }
 #room-stage .rs-tip { color: var(--text-dim); font-size: 0.6875rem; letter-spacing: 0; opacity: 0.75; }
@@ -623,6 +577,6 @@ body:has(#dialogue-panel.active) #room-stage :is(.rs-card, .rs-tip) { display: n
 }
 #room-stage.rs-cine .rs-host::before { top: 0; transform-origin: top; }
 #room-stage.rs-cine .rs-host::after { bottom: 0; transform-origin: bottom; }
-#room-stage.rs-cine :is(.rs-card, .rs-tip, .rs-hover, .rs-tags, .rs-tablet, .rs-pockets, .rs-firehud) { display: none !important; }
+#room-stage.rs-cine :is(.rs-card, .rs-tip, .rs-hover, .rs-tags, .rs-firehud, .foot-dock) { display: none !important; }
 @keyframes rs-cine-in { from { transform: scaleY(0); } to { transform: scaleY(1); } }
 @media (prefers-reduced-motion: reduce) { #room-stage.rs-cine .rs-host::before, #room-stage.rs-cine .rs-host::after { animation: none; } }

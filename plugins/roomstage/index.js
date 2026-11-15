@@ -45,7 +45,7 @@
 
 import { furnitureActs } from '../../server/engine/furnitureActions.js';
 import { gatherHookSync } from '../../server/engine/plugins.js';
-import { world, getZone, facadeStreetTile, getZoneFurniture, getFurnitureById, getZonePlayers, getZoneNpcs, getZoneEnemies, getApartment, updateFurniture, updateFurnitureWhere, insertFurniture, deleteFurnitureWhere, getLivePlayer, doorOnLink, frontDoorOf } from '../../server/engine/world.js';
+import { world, getZone, facadeStreetTile, getZoneFurniture, getFurnitureById, getZonePlayers, getZoneNpcs, getZoneEnemies, getApartment, updateFurniture, updateFurnitureWhere, insertFurniture, deleteFurnitureWhere, getLivePlayer, doorOnLink, frontDoorOf, getMap } from '../../server/engine/world.js';
 import { walkPlans, buildingView, placeFrom, streetDoorAt } from '../../client/shared/building-graph.js';
 import { getItem, getItemCache } from '../../server/engine/items-cache.js';
 import { primaryExits } from '../../server/engine/exits.js';
@@ -1200,6 +1200,13 @@ on('room.vehiclesChanged', ({ zoneId }) => {
   const main = mainOf(zoneId);
   for (const pid of viewersOf(main)) { const p = getLivePlayer(pid); if (p) sendToPlayer(pid, { type: 'room_vehicles', zone: main, vehicles: vehiclesOf(main, p) }); }
 });
+// Called one of yours out from the counter (server/engine/vehicle-stand.js `callUp`): the room opens round you, so
+// you're stood in it as the vehicle comes out and can walk up to it. Already open, the change above is enough.
+on('vehicle.calledUp', ({ player, zoneId }) => {
+  const main = mainOf(zoneId);
+  if (!player || viewersOf(main).has(player.id) || !specOf(main) || loggedPanelsSync(player)) return;
+  cmdRoom([], 'room', player).catch(() => {});
+});
 
 // Somebody settled: where they stand now, sent on to everybody else with the room open. `seat` is
 // which seat of the layout they took, so two people on one sofa sit side by side.
@@ -1322,7 +1329,10 @@ on('roomstage.warm', ({ playerId }) => {
 // engine's facade pass-through puts you on its street tile), so with `street` given it's the facade
 // that tile is in front of.
 function streetDoorOf(roomId, street = null) {
-  for (const id of Object.values(getZone(roomId)?.exits || {}).flat()) {
+  // a room with two ways out to the street (a boatshed's water door) has the one onto its own building's facade first
+  const own = getMap(getZone(roomId)?.map_id)?.parent_zone_id;
+  const out = Object.values(getZone(roomId)?.exits || {}).flat();
+  for (const id of own && out.includes(own) ? [own, ...out.filter((x) => x !== own)] : out) {
     const f = getZone(id);
     if (f?.map_id !== 'map_world') continue;
     if (!street || id === street || facadeStreetTile(f) === street) return id;

@@ -2,6 +2,14 @@
   "description": "A steel pan behind a partition, scrubbed to a shine that's frankly out of keeping with the rest of the depot. There's a rota taped above it. The rota is being kept.",
   "flags": {
     "aliases": "toilet,pan,bog,head,cistern",
+    "look": {
+      "arche": "toilet",
+      "form": "pan"
+    },
+    "spot": {
+      "along": 2.6,
+      "wall": "front"
+    },
     "water_source": true
   },
   "hp": null,

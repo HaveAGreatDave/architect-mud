@@ -334,6 +334,52 @@ export function createArenaKen(gl) {
         gl.uniform2f(P.u('uRes'), w, h);
       });
     },
+    // the figure layer, which the stands' close-up fans (gl/crowd-hd.js) are drawn with too
+    get layer() { return fig; },
+    // Fans as the close-up figure (gl/crowd-hd.js records, metres on the rink's frame), lit as gl/arena-crowd.js
+    // RINK_CROWD_FS lights the bake round them: the one key from high over the ice (`L` there), the stands' dimness
+    // (`dim`) and a death's grey (`mourn`). `shake` is the picture's, as the bake's shader adds it.
+    drawFans(R, vp, eye, w, h, { dim = 0.62, mourn = 0, shake = [0, 0] } = {}) {
+      if (!R.length || !fig.ready) return 0;
+      const vpM = new Float32Array(vp);
+      for (let c = 0; c < 4; c++) { vpM[c * 4] += shake[0] * vp[c * 4 + 3]; vpM[c * 4 + 1] += shake[1] * vp[c * 4 + 3]; }
+      for (let i = 0; i < 12; i++) vpM[i] *= FT;
+      const eyeM = eye.map((v) => v / FT), kpx = h / 900;
+      fig.ink(vpM, R, (P) => {
+        gl.uniform2f(P.u('uRes'), w, h);
+        gl.uniform4f(P.u('uInk'), 0.01, HOUSE.px[0] * kpx, HOUSE.px[1] * kpx, 0);
+        gl.uniform3fv(P.u('uEyeI'), eyeM);
+        gl.uniform1f(P.u('uBack'), 0.02);
+        gl.uniform3fv(P.u('uCol'), HOUSE.ink);
+        gl.uniform3f(P.u('uKey'), FAN_KEY[0], FAN_KEY[1], FAN_KEY[2]);
+        gl.uniform1f(P.u('uWeigh'), HOUSE.weigh);
+      });
+      // the key a long way off along FAN_KEY from the first of them, so it's a direction, brought to its strength there
+      const o = R[0].rows, at = [o[3], o[7], o[11]], lamps = new Float32Array(18), lampK = new Float32Array(6), grey = 1 - 0.3 * mourn;
+      lamps.set([at[0] + FAN_KEY[0] * FAN_LAMP_M, at[1] + FAN_KEY[1] * FAN_LAMP_M, at[2] + FAN_KEY[2] * FAN_LAMP_M], 0);
+      lampK[0] = FAN_LIGHT.key * dim * grey * (1 + 1.1 * FAN_LAMP_M * FAN_LAMP_M);
+      fig.draw(vpM, R, (P) => {
+        gl.uniform3fv(P.u('uEye'), eyeM);
+        gl.uniform3fv(P.u('uLampP'), lamps); gl.uniform1fv(P.u('uLampK'), lampK); gl.uniform1i(P.u('uLampN'), 1);
+        gl.uniform3f(P.u('uLampC'), 1, 1, 1);
+        gl.uniform1i(P.u('uWinCount'), 0); gl.uniform1fv(P.u('uWinK'), new Float32Array(3));
+        gl.uniform4f(P.u('uAnnex'), 0, 0, 0, 0);
+        gl.uniform1f(P.u('uOutZ'), 1e6); gl.uniform3f(P.u('uOutRing'), -1e6, 1e6, -1e6);
+        gl.uniform3f(P.u('uWinC'), 0, 0, 0);
+        const a = FAN_LIGHT.amb * dim * grey;
+        gl.uniform3f(P.u('uAmb'), a, a * 1.02, a * 1.08);
+        gl.uniform1f(P.u('uExpo'), FAN_LIGHT.expo);
+        gl.uniform1f(P.u('uComic'), 1);
+        gl.uniform2f(P.u('uRes'), w, h);
+      });
+      return R.length;
+    },
     dispose() { try { fig.dispose(); } catch { /* the context may be gone */ } },
   };
 }
+// The stands' light on a close-up fan (drawFans): RINK_CROWD_FS's key (gl/arena-crowd.js `L`), as a lamp FAN_LAMP_M
+// metres off, and how strong it and the ambient are against the bake's 0.6 and 0.3 + 0.24. From the console:
+// __rinkFanLight.key etc.
+const FAN_KEY = [0.2453, -0.4416, 0.8635], FAN_LAMP_M = 200;
+export const FAN_LIGHT = { key: 0.9, amb: 0.5, expo: 1.1 };
+globalThis.__rinkFanLight = FAN_LIGHT;

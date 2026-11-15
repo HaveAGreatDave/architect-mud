@@ -1,0 +1,36 @@
+{
+  "description": "A steel bench with spanners laid out on it by size, two of them missing. Steel cable hangs in coils on pegs above it.",
+  "flags": {
+    "aliases": [
+      "bench",
+      "spanners",
+      "spanner",
+      "cable",
+      "coils",
+      "pegs"
+    ],
+    "look": {
+      "arche": "surface",
+      "dims": [
+        3,
+        0.75,
+        0.92
+      ],
+      "form": "desk"
+    },
+    "spot": {
+      "along": 7.5,
+      "wall": "left"
+    }
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_racerbay_deadleg_bench",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "the spanner bench",
+  "object_type": "decoration",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_racerbay_deadleg"
+}

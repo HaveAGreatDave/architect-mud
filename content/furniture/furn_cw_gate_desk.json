@@ -1,7 +1,23 @@
 {
   "description": "A narrow desk with a microphone on a stalk and a boarding-card printer. A sign on it asks charter passengers to have their booking ready.",
   "flags": {
-    "click_cmd": "charter"
+    "click_cmd": "charter",
+    "look": {
+      "arche": "surface",
+      "dims": [
+        2,
+        0.7,
+        1
+      ],
+      "form": "desk"
+    },
+    "spot": {
+      "at": [
+        0,
+        3.2
+      ],
+      "turn": 180
+    }
   },
   "hp": null,
   "hp_max": null,

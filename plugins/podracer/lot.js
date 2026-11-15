@@ -12,6 +12,7 @@
 
 import { query } from '../../server/models/db.js';
 import { getZone } from '../../server/engine/world.js';
+import { bayKindOf, noteStandHand } from '../../server/engine/vehicle-stand.js';
 import { allExits } from '../../server/engine/exits.js';
 import { adjustCredits } from '../../server/engine/economy.js';
 import { noteFreshVehicle } from '../../server/engine/fresh-vehicle.js';
@@ -450,8 +451,12 @@ export async function racerPanel(player, zoneId, { seatedId = null } = {}) {
     };
   });
   const credits = Number(player.credits || 0);
+  // the racer bay with a Room Stage (server/engine/vehicle-stand.js): a card offers Call it up, and the dolly's panel
+  // lists what's kept here from this hand
+  const stand = !!here.flags?.room && bayKindOf(here) === 'podracer';
+  if (stand) noteStandHand(player.id, here.id, fleet.filter((r) => r.inYard && !r.aboard).map((r) => ({ id: r.id, name: r.name })));
   return {
-    type: 'podracer_depot', schemes: PODRACER_SCHEMES, finishes: PAINT_FINISHES, inside: INSIDE_OPTIONS,
+    type: 'podracer_depot', stand, schemes: PODRACER_SCHEMES, finishes: PAINT_FINISHES, inside: INSIDE_OPTIONS,
     name: here.flags?.building_name ? here.flags.building_name + ': racers' : here.name,
     hereName: here.name, credits, fleet, sells: isLot(here),
     stock: Object.entries(PODRACER_TYPES).map(([id, t]) => ({ id, name: t.name, price: t.price, blurb: t.blurb, topSpeed: t.topSpeed })),

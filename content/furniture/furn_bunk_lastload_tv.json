@@ -8,6 +8,20 @@
     "interactions": [
       "watch"
     ],
+    "look": {
+      "arche": "screen",
+      "dims": [
+        0.9,
+        0.12,
+        0.55
+      ],
+      "form": "flat"
+    },
+    "spot": {
+      "along": -2.3,
+      "wall": "front",
+      "y": 2
+    },
     "tuned_channel": 7,
     "tv": true,
     "tv_dial_freq": 7

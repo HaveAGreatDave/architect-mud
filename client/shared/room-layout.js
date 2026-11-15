@@ -166,9 +166,9 @@ export const WASH_FORMS = Object.freeze(['basin', 'vanity']);
 export const FORMS = Object.freeze({
   seat: ['stool', 'chair', 'armchair', 'office', 'stools'], bench: ['bench', 'booth', 'banquette', 'slab'], sofa: ['sofa', 'cot', 'lounger'], bed: ['bed', 'pod', 'platform', 'mattress', 'pressbench'],
   screen: ['flat', 'crt', 'slab'], cold: ['fridge', 'double', 'chest', 'column'], hob: ['cooktop', 'range', 'microwave', 'seam'],
-  surface: ['counter', 'desk', 'rail', 'barwall', 'chemwall', 'bar', 'stage', 'runway', 'reception', 'console', 'treadmill', 'pool', 'pcdesk', 'boxoffice'], small: ['heater', 'box', 'plinth', 'telescope', 'lacquer', 'boombox', 'smoketable', 'petbowl'], prop: ['cabinet', 'piano', 'fountain', 'catstatue', 'lantern', 'bonsai', 'vat', 'tank', 'morphex', 'jukebox', 'easel', 'packs', 'trophy', 'champion', 'seatdoor', 'resurfacer', 'turnstile', 'balustrade'], fireplace: ['hearth', 'firetrough'],
+  surface: ['counter', 'desk', 'rail', 'barwall', 'chemwall', 'bar', 'stage', 'runway', 'reception', 'console', 'treadmill', 'pool', 'pcdesk', 'tradecounter', 'boxoffice'], small: ['heater', 'box', 'plinth', 'telescope', 'lacquer', 'boombox', 'smoketable', 'petbowl', 'littertray'], prop: ['cabinet', 'piano', 'fountain', 'catstatue', 'lantern', 'bonsai', 'vat', 'tank', 'morphex', 'jukebox', 'easel', 'packs', 'trophy', 'champion', 'seatdoor', 'resurfacer', 'turnstile', 'balustrade', 'towelrail'], fireplace: ['hearth', 'firetrough'],
   urinal: ['urinal', 'urinaltrough'], stall: ['cubicle'],
-  wardrobe: ['wardrobe', 'valet'], cabinet: ['cupboard', 'vitrine', 'humidor', 'rack'], store: ['shelves', 'locker', 'crate', 'weights', 'bookcase'],
+  wardrobe: ['wardrobe', 'valet'], cabinet: ['cupboard', 'vitrine', 'humidor', 'rack'], store: ['shelves', 'locker', 'crate', 'weights', 'bookcase', 'racking', 'drawers'],
   sink: ['kitchen', 'basin', 'trough', 'vanity'], toilet: ['pan', 'hung'], shower: ['stall', 'wetroom', 'bath', 'soak'],
   deck: ['console', 'portable'], table: ['coffee', 'dining', 'games', 'poker'], top: ['kettle', 'press'],
 });
@@ -194,7 +194,7 @@ export function formOf(arche, flags = {}, grams = 0, { annex = false } = {}) {
     case 'deck': return flags.portable || (flags.mini_deck && !flags.deck_style) ? 'portable' : 'console';
     case 'table': return 'coffee';
     case 'top': return 'kettle';
-    case 'small': return flags.pet_bowls ? 'petbowl' : flags.heater_target_c || flags.heater_battery_min ? 'heater' : 'box';
+    case 'small': return flags.pet_bowls ? 'petbowl' : flags.pet_tray ? 'littertray' : flags.heater_target_c || flags.heater_battery_min ? 'heater' : 'box';
     case 'fireplace': return 'hearth';
     case 'urinal': return 'urinal';
     case 'stall': return 'cubicle';
@@ -206,7 +206,7 @@ export function formOf(arche, flags = {}, grams = 0, { annex = false } = {}) {
 export const LACQUER_BODY = 0.72;
 // what a form's footprint is when it isn't its archetype's, [w, d, h] at the reference weight
 const FORM_DIMS = { chest: [1.3, 0.72, 0.88], double: [1.3, 0.75, 2.0], range: [0.76, 0.66, 0.92], cooktop: [0.6, 0.52, 0.86],
-  desk: [1.2, 0.6, 0.76], rail: [1.2, 0.12, 1.0], cot: [1.9, 0.75, 0.5], pod: [1.1, 2.15, 1.1], stool: [0.42, 0.42, 0.74], booth: [1.5, 0.7, 1.15],
+  desk: [1.2, 0.6, 0.76], rail: [1.2, 0.12, 1.0], towelrail: [0.6, 0.16, 1.05], cot: [1.9, 0.75, 0.5], pod: [1.1, 2.15, 1.1], stool: [0.42, 0.42, 0.74], booth: [1.5, 0.7, 1.15],
   column: [0.62, 0.68, 2.0], seam: [1.2, 0.62, 0.92], barwall: [2.2, 0.46, 2.3], chemwall: [2.4, 0.72, 2.3], armchair: [0.82, 0.84, 0.92], office: [0.68, 0.68, 1.24], pcdesk: [1.9, 1.9, 0.75], platform: [2.6, 2.25, 0.62], mattress: [1.0, 2.0, 0.26],
   valet: [2.2, 0.64, 2.3], vitrine: [1.0, 0.36, 1.9], humidor: [0.8, 0.48, 1.45], rack: [0.7, 0.3, 0.5], shelves: [1.2, 0.42, 1.9], locker: [0.6, 0.52, 1.8], crate: [0.72, 0.5, 0.44],
   basin: [0.62, 0.46, 0.88], vanity: [1.5, 0.52, 0.86], trough: [1.4, 0.5, 0.86], hung: [0.38, 0.56, 0.82], wetroom: [1.3, 1.1, 2.2], bath: [0.8, 1.75, 0.6], soak: [1.0, 2.0, 0.66],
@@ -218,6 +218,8 @@ const FORM_DIMS = { chest: [1.3, 0.72, 0.88], double: [1.3, 0.75, 2.0], range: [
   boombox: [0.66, 0.2, 0.36], smoketable: [0.56, 0.56, 0.5],
   // a pet's feeding station (gl/room-decor.js): a rubber mat with its food dish and its water bowl (plugins/pets)
   petbowl: [0.5, 0.3, 0.07],
+  // and its litter tray: a plastic tray with a high back (gl/room-decor.js littertray)
+  littertray: [0.56, 0.42, 0.15],
   // a club's, a gym's and a roof deck's (gl/room-decor.js): a sun lounger, a bench press, a treadmill, a raised pool,
   // a telescope on its tripod, an upright piano, a dumbbell rack, a chess table and a fire trough
   lounger: [1.95, 0.72, 0.75], pressbench: [1.3, 1.75, 1.2], treadmill: [0.85, 1.9, 1.4], pool: [3, 2, 0.5], telescope: [0.6, 0.6, 1.55],
@@ -230,10 +232,14 @@ const FORM_DIMS = { chest: [1.3, 0.72, 0.88], double: [1.3, 0.75, 2.0], range: [
   vat: [1.1, 1.1, 2.4], tank: [1.2, 1.2, 1.3], morphex: [1.5, 1.4, 2.55],
   // an old bar's (gl/room-saloon.js): a run of stools along it, a seat every STOOL_PITCH, and a jukebox
   stools: [3.2, 0.45, 0.76], jukebox: [0.95, 0.62, 1.55],
+  // a shop's (gl/room-shop.js): the trade counter you're served over, pallet racking and a wall of small drawers
+  tradecounter: [3.0, 0.8, 1.05], racking: [2.7, 1.1, 3.0], drawers: [2.4, 0.45, 2.2],
   // a stadium's (gl/room-stadium.js): a box office window, a card pack machine, the Cup in its case, the last champion's
   // board, a door into the seats, the resurfacer in its bay (shared/stadium.js RESURFACER), a turnstile, and the restrooms'
   boxoffice: [2.4, 0.8, 2.5], packs: [0.86, 0.72, 1.85], trophy: [1.1, 1.1, 2.2], champion: [1.8, 0.16, 2.2], seatdoor: [2.0, 1.4, 2.8],
   resurfacer: [2.3, 3.4, 1.85], turnstile: [0.34, 0.95, 1.02], balustrade: [6, 0.1, 1.05], urinaltrough: [2.4, 0.42, 1.1], cubicle: [0.95, 1.55, 2.0] };
+// What a shop's shelving, racking, counter or cabinet can carry (`look.stock`; gl/room-shop.js draws each)
+export const SHOP_STOCKS = Object.freeze(['hardware', 'chem', 'safety']);
 // How far apart the stools in a run stand, and how many a run of width w (metres) has (gl/room-saloon.js draws them)
 export const STOOL_PITCH = 0.8;
 export const stoolsAlong = (w) => Math.max(1, Math.round(w / STOOL_PITCH));
@@ -446,7 +452,7 @@ function contribute(spec, p) {
       if (p.keypad) {
         out.solid.push(fp);
         // on the pad itself (cachetPad), so the hover and the click land on what's drawn
-        const pad = cachetPad(p, k), [ku, kv] = pt(pad.x, pad.z + 0.02 * k), keypad = { target: p.name, piece: p.id, verb: 'keypad', u: ku, v: kv, y: pad.y, reach: 1.2 * k, at: [p.u, p.v], pad: true };
+        const pad = cachetPad(p, k), [ku, kv] = pt(pad.x, pad.z + 0.02 * k), keypad = { target: p.name, piece: p.id, verb: 'keypad', u: ku, v: kv, y: pad.y, reach: 1.8 * k, at: [p.u, p.v], pad: true };
         if (p.turned) { const [wu, wv] = pt(-0.3 * k, p.d / 2 + 0.05 * k); out.stations.push({ target: p.turned, piece: p.id, verb: 'workspace', u: wu, v: wv, y: 1.0 * k, reach: 1.3 * k, at: [p.u, p.v] }); }
         out.stations.push(keypad);
         break;
@@ -1044,6 +1050,81 @@ export function pathAt(path, s) {
 // The yaw of a body heading (du, dv) across the room's frame.
 export const roomYaw = (L, du, dv) => Math.atan2(L.r[0] * du - L.f[0] * dv, L.r[2] * du - L.f[2] * dv);
 
+// ── a crowd ─────────────────────────────────────────────────────────────────────────────────────
+// Where somebody stands when nothing has said where (room-stage.js placeOf): spread over the room's open floor,
+// a comfortable distance from everyone else, or in line at a counter. A room of twenty used to stand them in a
+// block by the door 45 cm apart.
+//
+// The floor they may stand on: the main room only (no en-suite, balcony or doorway strip), off the furniture, and
+// out of what keepClear holds open: the way in, the doorways, the stairs. A grid 35 cm across, once a layout.
+const crowdCells = new WeakMap();
+export function crowdFloor(L) {
+  let cells = crowdCells.get(L);
+  if (cells) return cells;
+  const F = onFoot(L), k = unitsPerM(L.spec), step = 0.35 * k, [u0, u1, v0, v1] = L.bounds;
+  const clear = keepClear(L.spec).filter((r) => !r[4]);
+  cells = [];
+  for (let u = u0 + step / 2; u < u1; u += step) for (let v = v0 + step / 2; v < v1; v += step) {
+    if (!roomFree(F, u, v) || inAnnex(L, v, u) || clear.some(([a, b, c, e]) => u > a && u < b && v > c && v < e)) continue;
+    cells.push([u, v]);
+  }
+  crowdCells.set(L, cells);
+  return cells;
+}
+// A seed for somebody's choices, from their id: FNV-1a with murmur3's finaliser, so ids a digit apart don't
+// choose alike.
+export function crowdSeed(s) {
+  let h = 2166136261;
+  for (const ch of String(s)) h = Math.imul(h ^ ch.charCodeAt(0), 16777619);
+  h ^= h >>> 16; h = Math.imul(h, 0x85ebca6b); h ^= h >>> 13; h = Math.imul(h, 0xc2b2ae35); h ^= h >>> 16;
+  return h >>> 0;
+}
+const cellRoll = (seed, i) => crowdSeed(`${seed}:${i}`) / 4294967296;
+// The cell for somebody with `seed`, `taken` the spots [u, v] already stood on. Anywhere `ideal` metres clear of
+// everyone is as good as anywhere else, and the seed picks among them, so a crowd is scattered rather than pushed
+// into the corners; a room too full for that gives the cell furthest from anybody. Null with no floor.
+export function crowdSpot(L, taken, seed, { ideal = 1.5 } = {}) {
+  const cells = crowdFloor(L), k = unitsPerM(L.spec), want = ideal * k;
+  let best = null, top = -Infinity;
+  cells.forEach((c, i) => {
+    let m = Infinity;
+    for (const t of taken) { const d = Math.hypot(c[0] - t[0], c[1] - t[1]); if (d < m) m = d; }
+    const score = Math.min(m, want) + cellRoll(seed, i) * 0.4 * k;
+    if (score > top) { top = score; best = c; }
+  });
+  return best && [...best];
+}
+// What people queue at: a box office, a trade counter, a reception desk. The line forms in front of it, where a
+// clerk posted to it faces (index.js deskPostOf stands them behind).
+export const LINE_FORMS = Object.freeze(['boxoffice', 'tradecounter', 'reception']);
+export const linePoints = (L) => L.placed.filter((p) => LINE_FORMS.includes(p.form) && !p.annex && !inAnnex(L, p.v, p.u));
+// The places in a line at piece `p`, front first, up to `n`: one behind another 80 cm apart, turning along a wall or
+// round whatever it meets rather than stopping, each facing the one in front. [{ at, yaw }]
+export function lineSpots(L, p, n = 6) {
+  const k = unitsPerM(L.spec), F = onFoot(L), gap = 0.8 * k;
+  let [fu, fv] = facing(p.turn);
+  const ok = (a, b) => roomFree(F, a, b) && a >= L.bounds[0] && a <= L.bounds[1] && b >= L.bounds[2] && b <= L.bounds[3];
+  const first = roomNearFree(L, p.u + fu * (p.d / 2 + 0.5 * k), p.v + fv * (p.d / 2 + 0.5 * k), 0.4 * k, L.bounds);
+  if (!first) return [];
+  const out = [{ at: first, yaw: roomYaw(L, -fu, -fv) }];
+  const mid = [(L.bounds[0] + L.bounds[1]) / 2, (L.bounds[2] + L.bounds[3]) / 2];
+  // never back onto the line itself
+  const fresh = (q) => out.every((o) => Math.hypot(o.at[0] - q[0], o.at[1] - q[1]) > gap * 0.9);
+  while (out.length < n) {
+    const at = out[out.length - 1].at;
+    // the way the line turns when it has to: toward the room's middle first, so it doesn't run along a wall
+    const side = (mid[0] - at[0]) * -fv + (mid[1] - at[1]) * fu >= 0 ? 1 : -1;
+    let next = null;
+    for (const [du, dv] of [[fu, fv], [-fv * side, fu * side], [fv * side, -fu * side]]) {
+      const q = [at[0] + du * gap, at[1] + dv * gap];
+      if (ok(q[0], q[1]) && fresh(q)) { next = q; [fu, fv] = [du, dv]; break; }
+    }
+    if (!next) break;
+    out.push({ at: next, yaw: roomYaw(L, at[0] - next[0], at[1] - next[1]) });
+  }
+  return out;
+}
+
 // ── placing ─────────────────────────────────────────────────────────────────────────────────────
 // A free spot for a new piece (home-stage.md "Placing"), by what kind of thing it is. In a studio
 // (studioPlan) that's its own part of the room: what cooks and keeps food goes along the kitchen's
@@ -1269,6 +1350,8 @@ function keepClear(S) {
   if (S.balcony) out.push([S.balcony.door[0] - 0.3, S.balcony.door[1] + 0.3, 0, 1.6, false]);
   // nothing is set down in a pit by the rules: what's in one was put there on purpose
   if (S.pit) out.push([S.pit.u0, S.pit.u1, S.pit.v0, S.pit.v1, false]);
+  // a depot's stand, where a called-up vehicle comes out onto the floor, with room to walk round it
+  if (S.stand) { const b = S.stand.box; out.push([b[0] - 0.6, b[1] + 0.6, b[2] - 0.6, b[3] + 0.6, false]); }
   for (const q of S.walls || []) out.push([q[0] - 0.3, q[1] + 0.3, q[2] - 0.3, q[3] + 0.3, false]);
   for (const st of S.stairs || []) out.push([st.box[0] - 0.4, st.box[1] + 0.4, st.box[2] - 0.4, st.box[3] + 0.4, false]);
   // a flight and its well, and a clear landing off the end you step on from (the bottom below, the top above)
@@ -1381,6 +1464,15 @@ export function roomSpecOf(flags, isFlat, { storey = null } = {}) {
   if (sash) out.window = [sash.a, sash.b, sash.y0, sash.y1];
   out.windows = glass.length ? glass.map(pane) : [sash ? { wall: 'front', ...sash, kind: 'sash' } : { wall: 'front', a: window[0], b: window[1], y0: window[2], y1: window[3], kind: 'sash' }];
   if (glass.includes('front')) out.window = [-hu + 0.12, hu - 0.12, 0.05, h - 0.1];
+  // A shopfront's glass: panes of black-framed glass set into a wall where the room says, each { wall, a, b, y0, y1 }
+  // in metres (`a` to `b` along the wall, `y0` the sill, `y1` the head), so a shop can have a display window beside
+  // its door and plain wall past it, where `glass` would glaze the whole wall. Ignored beside `glass`.
+  const shop = glass.length || !Array.isArray(base.panes) ? [] : base.panes.filter((q) => q && ['front', 'back', 'left', 'right'].includes(q.wall)).map((q) => {
+    const lo = q.wall === 'front' || q.wall === 'back' ? -hu + 0.12 : 0.12, hi = q.wall === 'front' || q.wall === 'back' ? hu - 0.12 : d - 0.12;
+    const a = clampN(Math.min(q.a, q.b), lo, hi, lo), b = clampN(Math.max(q.a, q.b), a + 0.3, hi, hi), y0 = clampN(q.y0, 0.05, h - 0.6, 0.6);
+    return { wall: q.wall, a, b, y0, y1: clampN(q.y1, y0 + 0.3, h - 0.1, h - 0.4), kind: 'curtain' };
+  }).filter((q) => q.b - q.a >= 0.3);
+  if (shop.length) { out.windows = shop; out.window = [shop[0].a, shop[0].b, shop[0].y0, shop[0].y1]; }
   // Venetian blinds in a sash window, run from the room's control panel (plugins/envcontrol): the mesh hangs a
   // headrail in place of the roller blind, and the shutter shader draws the slats
   if (base.blinds === true && !glass.length && !base.windowless) out.blinds = true;
@@ -1452,6 +1544,27 @@ export function roomSpecOf(flags, isFlat, { storey = null } = {}) {
     }
   }
   if (Number(base.storeys) && (Number(base.storey) || storey) >= Number(base.storeys) - 1) out.crown = true;
+  const stand = standSpecOf(base.stand, w, d);
+  if (stand) out.stand = stand;
+  return out;
+}
+// Where a depot room's called-up vehicle stands (server/engine/vehicle-stand.js, client room-hoist.js), from
+// `flags.room.stand`; null for none. `at` is its middle on the floor [u, v], `face` the wall its nose points at,
+// `len` and `wid` the clear box it's scaled into, `from` the wall it comes in through (or `below`, a lift), and
+// `water` a slip the walker can't step into. Kept inside the room.
+const STAND_WALLS = ['front', 'back', 'left', 'right'];
+export function standSpecOf(s, w, d) {
+  if (!s || typeof s !== 'object' || Array.isArray(s)) return null;
+  const len = clampN(s.len, 2, Math.max(2, Math.max(w, d) - 0.4), 10), wid = clampN(s.wid, 1, Math.max(1, Math.max(w, d) - 0.4), 4);
+  const face = STAND_WALLS.includes(s.face) ? s.face : 'front';
+  // the box on the floor plan: its length runs along v for a front or back nose, along u for a side one
+  const across = face === 'left' || face === 'right';
+  const hu = (across ? len : wid) / 2, hv = (across ? wid : len) / 2;
+  const at = Array.isArray(s.at) && s.at.length === 2 && s.at.every(Number.isFinite) ? s.at : [0, d * 0.52];
+  const u = clampN(at[0], -w / 2 + hu, w / 2 - hu, 0), v = clampN(at[1], hv, Math.max(hv, d - hv), d / 2);
+  const from = s.from === 'below' || STAND_WALLS.includes(s.from) ? s.from : 'back';
+  const out = { kind: typeof s.kind === 'string' ? s.kind : null, at: [u, v], face, len, wid, from, box: [u - hu, u + hu, v - hv, v + hv] };
+  if (s.water === true) out.water = true;
   return out;
 }
 // A period sash window, as an old hotel or a mansion block has, from `flags.room.sash`; null for none.
@@ -1539,6 +1652,8 @@ export function rowLook(f, item = null, { annex = false, finish = 'plain' } = {}
   if (typeof flags.look?.state === 'string') dress.state = flags.look.state.slice(0, 16);
   // `look.trade` is the trade a back bar letters on its frieze (gl/room-saloon.js); never the building's name
   if (typeof flags.look?.trade === 'string') dress.trade = flags.look.trade.slice(0, 24);
+  // `look.stock` is what a shop's shelving, racking, counter or cabinet carries (SHOP_STOCKS; gl/room-shop.js)
+  if (SHOP_STOCKS.includes(flags.look?.stock)) dress.stock = flags.look.stock;
   // a stadium's (gl/room-stadium.js): `look.label` lettered over a seat door or a box office, `look.cup` the league whose
   // Cup stands in a trophy case ('hockey', 'baseball'), `look.tile` the colour a restroom's fittings are set in
   if (typeof flags.look?.label === 'string') dress.label = flags.look.label.slice(0, 28);
@@ -1573,7 +1688,7 @@ export const cachetInner = (p) => (cachetWing(p) > 0 ? { ...p, w: p.w - 2 * cach
 export function cachetPad(p, k = 1) {
   const wing = cachetWing(p);
   if (wing >= 0.14 * k) return { x: p.w / 2 - wing / 2, y: 1.2 * k, z: p.d / 2, wall: true };
-  return { x: p.w / 2 - 0.13 * k, y: 1.03 * k, z: p.d / 2 - 0.07 * k, wall: false };
+  return { x: p.w / 2 - 0.13 * k, y: 1.07 * k, z: p.d / 2 - 0.07 * k, wall: false };
 }
 
 // A chem lab's grade, from its station's quality (plugins/synthesis reads the same key for its

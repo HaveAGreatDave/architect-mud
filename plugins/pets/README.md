@@ -1,6 +1,6 @@
 # pets
 
-**Status: phase 2 started.** The table, the pet as an NPC, the cat in ROOM moving all day and up on the furniture, his day said in the text world, the greeting at the door, the petting ladder by spot, his bowls and `refill` are built. Needs, carers and the other pet verbs are design. The full design is [docs/proposals/pets.md](../../docs/proposals/pets.md).
+**Status: phase 2 started.** The table, the pet as an NPC, the cat in ROOM moving all day and up on the furniture, his day said in the text world, the greeting at the door, the petting ladder by spot, his bowls and `refill`, hunger and thirst from the bowls, and his litter tray and `scoop` are built. Carers, bond and the other pet verbs are design. The full design is [docs/proposals/pets.md](../../docs/proposals/pets.md).
 
 A pet is two rows:
 
@@ -9,7 +9,7 @@ A pet is two rows:
 
 ## What it does
 
-**Its day** is `client/shared/cat-life.js`: four-minute blocks (asleep, resting, sat up, about, flopped out, weighted by the hour) cut into 20-second turns (grooming, scratching, yawning, watching, kneading, sniffing, stalking, wandering, zoomies at dusk and dawn). It's a function of the cat's id and the clock, so the server and every client agree with no messages. `outgoing` and `impulsive` tilt it.
+**Its day** is `client/shared/cat-life.js`: four-minute blocks (asleep, resting, sat up, about, flopped out, weighted by the hour) cut into 20-second turns (grooming, the cello wash with a hind leg up, scratching, yawning, a head shake, a slow blink, watching, kneading, sniffing, stalking, rubbing his cheek on the furniture, a hairball now and then, rolling on his back, dreaming, wandering, zoomies at dusk and dawn). It's a function of the cat's id and the clock, so the server and every client agree with no messages. `outgoing` and `impulsive` tilt it.
 
 **Its beats** are RAM here, sent with the beast to the Room Stage:
 
@@ -23,11 +23,17 @@ A beat change emits `pet.beat`, and plugins/roomstage sends the room's beasts ag
 
 **His day in words**: a 5 s tick, while somebody's in the room, says what he does as it changes (settling, jumping up onto a piece or down off it, going to his bowls, and now and then a turn's act), from the same `catLife`, `catPerchOf`, `catSettle` and `catAtBowls` the picture plays. People's routines elsewhere skip an NPC with `flags.animal`.
 
+**Two cats**: where two pets share a room, the same 5 s tick works out what two of them do together (`catMeets` in `client/shared/cat-life.js`: a greeting, grooming, sleeping in a heap, play or a spat, from their ids, natures and the clock) and says it once as it starts (`MEET_LINE`); neither cat's own day is said while it runs. The client stages it (`gl/cat-meet.js`, `gl/room-beasts.js`) from the same answer, so nothing is sent.
+
 **His bowls**: furniture with `flags.pet_bowls` naming the pet is his feeding station, drawn as the `petbowl` form. The `pet_bowls` table holds when each bowl was last filled (a row is written the first time a station is seen, and on a refill); how full they are and when he goes to them are worked out from that and the clock (`client/shared/cat-life.js`), and sent with the beast and on the piece (`room.pieceState`). `refill` charges ₵6 a dish and ₵1 a bowl for the share that's gone, at least ₵1.
+
+**Hunger and thirst** (`catNeeds` in `client/shared/cat-life.js`) are worked out when read, from when he last ate and drank: the last of his goes since the bowl was filled that found something in it. Nothing for a few hours after a meal, then rising to 1 after a day without. Hungry at an empty dish he goes back to it every half hour or so to complain (a `pester` go), greets whoever comes in by demanding food (the greet beat carries `hungry`), and `examine` says it (`npc.describeAnimal`). Thirsty at an empty water bowl, half those goes he jumps onto the kitchen sink and drinks from the tap instead.
+
+**His tray**: furniture with `flags.pet_tray` naming the pet, drawn as the `littertray` form. The `pet_trays` table holds when it was last scooped; every go since (`trayTimes`: three or four pees and one or two of the other a day, in real time) is worked out from that, so nothing is written while he goes. Past four goes he sniffs it over first; past seven he won't get in and goes on the floor in front of it, and the room smells (`zone.smells`). `scoop` clears it, free. In ROOM he hops in over the rim, digs, turns round, squats, sniffs and covers (`pee` and `poo` in `gl/cat-clips.js`), and after the other he sometimes tears round the flat.
 
 ## In ROOM
 
-The Room Stage asks `roomstage.npcBeast` of every NPC with `flags.animal`. This plugin answers for a pet with `{ id, name, cat, pet, nature, beat? }`, and the stage puts it in `beasts` instead of `people`. The client (`gl/room-beasts.js` `catsFrame`) carves the four poses in a worker, skins the clips on the GPU (`gl/cat-gpu.js`, `gl/cat-clips.js`), walks the cat round the furniture between spots and voices it with CC0 recordings (`panels/room-cat-sound.js`).
+The Room Stage asks `roomstage.npcBeast` of every NPC with `flags.animal`. This plugin answers for a pet with `{ id, name, cat, pet, nature, beat?, bowls?, tray? }`, and the stage puts it in `beasts` instead of `people`. The client (`gl/room-beasts.js` `catsFrame`) carves the four poses in a worker, skins the clips on the GPU (`gl/cat-gpu.js`, `gl/cat-clips.js`), walks the cat round the furniture between spots and voices it with CC0 recordings (`panels/room-cat-sound.js`).
 
 ## Adding a pet
 
@@ -37,11 +43,11 @@ The Room Stage asks `roomstage.npcBeast` of every NPC with `flags.animal`. This 
 
 ## Future work
 
-- Needs, bond and carers (`pet_state`, `pet_carers`), and the verbs `play`, `brush`, `call`, `name`, `blink`, `clean tray` (`feed` belongs to surveillance). The litter-tray recordings are already built.
-- A tray and a scratching post in the flat for it to go to.
+- Bond and carers (`pet_carers`), the needs past hunger and thirst (tiredness, boredom, grooming), and the verbs `play`, `brush`, `call`, `name`, `blink` (`feed` belongs to surveillance).
+- A scratching post in the flat for it to go to.
 - A home that changes at runtime (given away, let out, taken in), as an override over the authored `home_zone`.
 
 ## Files
 
-- `index.js`: loads `pets` and the bowls at boot, keeps the beats, answers `roomstage.npcBeast`, `npc.petAttempt` (by spot), `room.pieceState`, `furniture.acts` and `furniture.describe`, greets on `zone.entered`, says his day, and owns `refill`.
-- `regress.js`: every pet has its NPC, resolves both ways, is drawn as a cat in its home and never as a person; its day is all clips it has; somebody coming in is greeted at their door; the petting ladder runs to the swat.
+- `index.js`: loads `pets`, the bowls and the trays at boot, keeps the beats, answers `roomstage.npcBeast`, `npc.petAttempt` (by spot), `npc.describeAnimal`, `room.pieceState`, `furniture.acts`, `furniture.describe` and `zone.smells`, greets on `zone.entered`, says his day, and owns `refill` and `scoop`.
+- `regress.js`: every pet has its NPC, resolves both ways, is drawn as a cat in its home and never as a person; its day is all clips it has; somebody coming in is greeted at their door; the petting ladder runs to the swat; every breed builds; hunger rises with an empty dish and the greeting demands food; the tray fills, goes beside itself when full, smells, and `scoop` empties it; two cats meet the same for everybody, friends get on and rivals don't, and every line is filled in.

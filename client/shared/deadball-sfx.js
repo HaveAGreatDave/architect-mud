@@ -20,6 +20,8 @@
 // a short slap-back off the stands baked into the park's own sounds (the room the viewer sits in
 // adds its own reverb), and no retro stage.
 
+import { fieldBed, fieldCall } from './field-recordings.js';
+
 // ── seeded rng, so a given event sounds the same on every client ─────────────
 function rngFrom(seed) {
   let s = (seed >>> 0) || 1;
@@ -77,8 +79,9 @@ const STEADY = { pitch: 0.004, gain: 0.03, env: 0 };
 function def(id, name, priority, layers, o = {}) {
   layers.forEach((l, k) => { if (l.noiseMix > 0 && l.noiseSeed == null) l.noiseSeed = 211 + k * 53; });
   const reach = Math.max(...layers.map((l) => (l.delay ?? 0) + l.adsr.a + l.adsr.d));
+  // `rec`: { key, lufs } a field recording each take plays a cut of (variant(), below)
   return { id, name, group: 'deadball', category: 'tv_fx', priority, vary: o.vary || IMPACT,
-    config: { duration: o.hold ?? +(reach * 0.25).toFixed(4), layers } };
+    config: { duration: o.hold ?? +(reach * 0.25).toFixed(4), layers }, ...(o.rec ? { rec: o.rec } : {}) };
 }
 
 // ═══ CONTACT ═══════════════════════════════════════════════════════════════════
@@ -145,6 +148,26 @@ const voices = (o) => [
   noise({ hz: 2300 * (o.bright ?? 1), q: 0.9, a: o.a * 1.4, d: o.d, s: o.s ?? 0.45, r: o.r, gain: 0.06 * o.k, width: 1, tremolo: { rate: 11.3, depth: 0.3 } }),
 ];
 const vowel = (f, o) => noise({ formants: f.map((hz, i) => ({ freq: hz, q: 7 + i * 2, gain: 1 - i * 0.25 })), a: o.a, d: o.d, s: o.s ?? 0.5, r: o.r, gain: o.gain, colour: 'pink', width: 0.9, tremolo: o.tremolo, delay: o.delay });
+// The crowd's reactions fitted to recordings (CC0, from Freesound; the doc's crowd section names
+// them): half-octave bands of pink noise whose levels were solved so the spectrum matches the
+// recording's, and a smoothed random source on each band group's level at the rate and depth
+// the recording's level wanders, so a cheer moves the way a crowd does and never repeats as a
+// tremolo does. The timing is the game's: a reaction answers the play at once.
+//
+// crowd(bands, wander, env): `bands` [[centre Hz, gain]], each through a doubled bandpass (12 dB
+// an octave either side); `wander` [[rate, depth]] for the low (under 450 Hz), middle (to
+// 1.8 kHz) and high groups. A group's bands share a seed, so they swell together.
+const CROWD_CENTRES = [125, 180, 250, 355, 500, 710, 1000, 1400, 2000, 2800, 4000, 5600];
+const crowdGroup = (hz) => (hz < 450 ? 0 : hz < 1800 ? 1 : 2);
+const crowd = (bands, wander, env) => bands.map(([hz, gain]) => {
+  const g = crowdGroup(hz), [rate, depth] = wander[g];
+  return {
+    waveform: 'noise', noiseMix: 1, noise: 'pink', noiseSeed: 307 + CROWD_CENTRES.indexOf(hz) * 41, gain, width: 0.9,
+    filter: { type: 'bandpass', freq: hz, q: 1.2, slope: 24 },
+    adsr: { a: env.a, d: env.d, s: env.s, r: env.r },
+    ...(depth > 0 ? { mods: [{ id: 'w', type: 'rand', rate, smooth: true, seed: 17 + g * 101, to: [{ param: 'amp', amount: depth }] }] } : {}),
+  };
+});
 
 // ═══ BRASS ═════════════════════════════════════════════════════════════════════
 // The graphics' stings: a sawtooth whose lowpass opens on the attack and closes as the note
@@ -390,19 +413,22 @@ export const BUILTINS = [
 
   // the crowd
   def('db-crowd-swell', 'Crowd: a swell off the bat', 2, voices({ a: 0.25, d: 0.5, s: 0.2, r: 0.35, k: 0.7 }), { vary: STEP }),
-  def('db-crowd-cheer', 'Crowd: a cheer', 2, voices({ a: 0.08, d: 0.9, s: 0.5, r: 0.5, k: 1, bright: 1.1 })),
-  def('db-crowd-roar', 'Crowd: the roar', 3, [
-    ...voices({ a: 0.12, d: 2.2, s: 0.6, r: 1.1, k: 1.25, bright: 1.2 }),
-    noise({ type: 'lowpass', hz: 420, q: 0.5, a: 0.15, d: 2, s: 0.5, r: 1, gain: 0.1, colour: 'brown', width: 0.7 }),
-  ], { vary: STEP }),
+  // a ballpark's home run (bmadore, Target Field)
+  def('db-crowd-cheer', 'Crowd: a cheer', 2, crowd([[710, 0.2262], [1000, 0.3007], [1400, 0.0698], [2000, 0.1026], [2800, 0.0634]],
+    [[0, 0], [3.13, 0.342], [2.84, 0.388]], { a: 0.08, d: 0.9, s: 0.5, r: 0.5 }), { hold: 0.253, rec: { key: 'crowd_cheer', lufs: -26.8 } }),
+  // a stadium on its feet (FlatHill's sports crowd)
+  def('db-crowd-roar', 'Crowd: the roar', 3, crowd([[710, 0.5272], [1400, 0.2796], [2000, 0.0735], [2800, 0.1225]],
+    [[0, 0], [3.5, 0.546], [5.9, 0.272]], { a: 0.12, d: 2.2, s: 0.6, r: 1.1 }), { hold: 0.592, vary: STEP, rec: { key: 'crowd_roar', lufs: -21.2 } }),
   def('db-crowd-groan', 'Crowd: a groan', 2, [
     vowel([620, 1050, 2400], { a: 0.06, d: 0.9, s: 0.3, r: 0.4, gain: 0.32 }),
     noise({ hz: 700, to: 420, sweep: 0.9, q: 0.7, a: 0.06, d: 0.9, s: 0.2, r: 0.3, gain: 0.08, colour: 'pink', width: 0.8 }),
   ], { vary: STEP }),
-  def('db-crowd-boo', 'Crowd: boos', 2, [
-    vowel([300, 870, 2240], { a: 0.15, d: 1.4, s: 0.5, r: 0.5, gain: 0.34, tremolo: { rate: 3.7, depth: 0.45 } }),
-  ], { vary: STEP }),
-  def('db-crowd-gasp', 'Crowd: a gasp', 2, [noise({ hz: 1400, to: 2300, sweep: 0.15, q: 0.6, a: 0.04, d: 0.25, r: 0.15, gain: 0.14, colour: 'pink', width: 0.9 })], { vary: STEP }),
+  // a ballpark booing (bowlingballout, a 2008 game)
+  def('db-crowd-boo', 'Crowd: boos', 2, crowd([[180, 0.0256], [500, 0.2493], [1000, 0.0398], [2000, 0.0364]],
+    [[4.32, 0.42], [2.47, 0.753], [2.47, 0.626]], { a: 0.15, d: 1.4, s: 0.5, r: 0.5 }), { hold: 0.3875, vary: STEP, rec: { key: 'crowd_boo_park', lufs: -30.7 } }),
+  // a small crowd's gasp (HowardV)
+  def('db-crowd-gasp', 'Crowd: a gasp', 2, crowd([[710, 0.187], [1000, 0.0957], [1400, 0.0714], [2800, 0.0429]],
+    [[0, 0], [5.21, 0.243], [5.21, 0.458]], { a: 0.04, d: 0.3, s: 0, r: 0.15 }), { hold: 0.0725, vary: STEP }),
   def('db-crowd-ooh', 'Crowd: the ooh of a near miss', 2, [
     vowel([360, 760, 2300], { a: 0.12, d: 0.7, s: 0.3, r: 0.35, gain: 0.34, tremolo: { rate: 2.2, depth: 0.25 } }),
   ], { vary: STEP }),
@@ -537,7 +563,7 @@ export function variant(d, seed, amount, intensity) {
   const pf = jit(v.pitch), gf = jit(v.gain) * (0.45 + 0.55 * inten), ef = jit(v.env);
   const bright = 0.75 + 0.25 * inten;
   const noiseBase = ((seed ?? 1) * 2654435761) >>> 0;
-  return { ...d, config: { ...d.config,
+  const take = { ...d, config: { ...d.config,
     layers: d.config.layers.map((L, n) => {
       const o = { ...L, gain: (L.gain ?? 0.2) * gf };
       if (o.freq) o.freq = L.freq * pf;
@@ -548,6 +574,22 @@ export function variant(d, seed, amount, intensity) {
       if (L.noiseMix > 0) o.noiseSeed = (noiseBase + n * 7919) % 100003;
       return o;
     }) } };
+  return d.rec ? withRecording(take, d.rec, seed, gf) : take;
+}
+// A cue with a `rec` plays one cut of its recording, picked by the take's seed, with its own
+// synthesis under it at REC_UNDER (-9 dB) and the rest of that synthesis as the `alt` stand-in
+// until the recording has loaded (and in Node, where the gates hear only the stand-ins): the two
+// copies are the same noise, so they add back to the cue as it was.
+const REC_UNDER = 0.35;
+function withRecording(take, rec, seed, gf) {
+  const call = fieldCall(rec.key, seed ?? 0, rec.lufs);
+  if (!call) return take;
+  const layers = take.config.layers;
+  return { ...take, config: { ...take.config, layers: [
+    { ...call, gain: +(call.gain * gf).toFixed(4) },
+    ...layers.map((l) => ({ ...l, gain: l.gain * REC_UNDER })),
+    ...layers.map((l) => ({ ...l, gain: l.gain * (1 - REC_UNDER), alt: true })),
+  ] } };
 }
 // A patch as the dev panel has it (an override saved there wins; null when it's muted there),
 // else the default.
@@ -678,13 +720,31 @@ export const CALLS = Object.freeze({
 // ═══ THE CROWD BED ══════════════════════════════════════════════════════════════
 // Hockey's crowd bed (hockey-sfx.js crowdBed) on a continuous level rather than named states,
 // because a ballpark's crowd follows how loud the fans in the stands are (gl/crowd.js createRoar),
-// not a list of moments. A low-mid rumble, an airy band either side, and three narrow bands where
-// distant voices sit, each pulsed by LFOs at rates that never line up, all under a 2.4 kHz
-// lowpass. `setLevel(x)` eases every band to level x (0 a quiet park, 1 a home run); `duck(db,
-// secs)` drops it under the booth and brings it back; `stop()` fades it and lets its nodes go.
+// not a list of moments. PARK_BANDS, fitted to a ballpark between plays (bmadore, Target Field,
+// CC0), as three groups: the rumble (under 450 Hz), the voices (to 1.8 kHz) and the air over
+// them, each group's level wandering on a smoothed random signal at the rate and depth the
+// recording's does (PARK_WANDER), all under a 2.4 kHz lowpass. The wander is the engine's white
+// noise played back so slowly it steps `rate` times a second, through a lowpass at that rate, so
+// it's only nodes and runs all game with nothing to schedule; the bands take the same white
+// noise, tilted to the pink they were fitted on (√(3085 / f)). `setLevel(x)` eases every group to
+// level x (0 a quiet park, 1 a home run); `duck(db, secs)` drops it under the booth and brings it
+// back; `stop()` fades it and lets its nodes go.
 // `opts`: { ctx, dest, noise } (AudioEngine.engineNodes('tv_fx') by default).
 const QUIET = { rumble: 0.2, air: 0.04, voices: 0.22, pulse: 0.18, bright: 0.85 };
 const LOUD = { rumble: 0.75, air: 0.22, voices: 0.85, pulse: 0.38, bright: 1.25 };
+// [centre Hz, gain for pink noise, pan]; the recording is a quiet inning, level FITTED_AT
+const PARK_BANDS = [[125, 0.1286, 0], [180, 0.0815, 0], [250, 0.1078, 0], [355, 0.0609, 0], [500, 0.1491, -0.3], [710, 0.218, 0.3],
+  [1000, 0.1538, -0.3], [1400, 0.1235, 0.3], [2000, 0.0781, -0.6], [2800, 0.0632, 0.6]];
+const PARK_WANDER = [[6, 0], [5.1, 0.302], [4.68, 0.63]];
+// PARK_LEVEL: a quiet inning as loud as the bed before the fit
+const FITTED_AT = 0.2, PARK_LEVEL = 0.754;
+// The park's own recording (crowd_park) loops beside the bands once it has loaded, live only
+// (never offline: opts.ctx): through a lowpass like the shade, at its share of LOUD's voices for
+// the level, and the bands drop to REC_UNDER under it. Until it loads, if it's ever lost (a stolen
+// voice), and in the gates, the bands carry the bed alone. -18.2 LUFS at the top puts a quiet
+// inning where the bed was.
+const PARK_REC_ID = 'db-crowd-rec', PARK_REC_LUFS = -18.2;
+const parkGroup = (hz) => (hz < 450 ? 0 : hz < 1800 ? 1 : 2);
 function liveNodes(opts, category) {
   const AE = globalThis.AudioEngine;
   return opts.ctx ? opts : (AE?.engineNodes ? AE.engineNodes(category) : null);
@@ -706,44 +766,57 @@ export function crowdBed(opts = {}) {
     s.start(t0, offset); nodes.push(s);
     return s;
   };
-  const band = (source, type, hz, q, pan = 0) => {
-    const f = c.createBiquadFilter(); f.type = type; f.frequency.value = hz; f.Q.value = q;
-    const g = c.createGain(); g.gain.value = 0;
-    let tail = source.connect(f).connect(g);
-    if (pan && c.createStereoPanner) { const p = c.createStereoPanner(); p.pan.value = pan; tail = tail.connect(p); }
-    tail.connect(out);
-    return { f, g };
-  };
-  const lfo = (hz, target) => {
-    const o = c.createOscillator(); o.frequency.value = hz;
-    const g = c.createGain(); g.gain.value = 0;
-    o.connect(g).connect(target); o.start(t0); nodes.push(o);
-    return g;
-  };
-  const hp = c.createBiquadFilter(); hp.type = 'highpass'; hp.frequency.value = 150; hp.Q.value = 0;
-  src(0.17, 0.94).connect(hp);
-  const rumble = band(hp, 'lowpass', 700, 0);
-  const airs = [band(src(0.63, 1.06), 'bandpass', 1150, 0.6, -0.6), band(src(1.41, 0.97), 'bandpass', 1220, 0.6, 0.6)];
-  const n3 = src(1.09, 1.0);
-  const voicesB = [[520, 7, -0.3], [930, 8, 0.35], [1650, 9, 0]].map(([hz, q, pan]) => band(n3, 'bandpass', hz, q, pan));
-  const pulses = [
-    lfo(0.37, rumble.g.gain), lfo(1.13, rumble.g.gain),
-    lfo(0.61, airs[0].g.gain), lfo(2.3, airs[1].g.gain),
-    ...voicesB.map((v, k) => lfo(0.29 + k * 0.53, v.g.gain)),
-  ];
-  let level = 0;
+  const filter = (type, hz, q) => { const f = c.createBiquadFilter(); f.type = type; f.frequency.value = hz; f.Q.value = q; return f; };
+  // one source and one level per group; each band a doubled bandpass into its group
+  const groups = [[0.17, 0.94], [1.09, 1.0], [0.63, 1.06]].map(([offset, rate], k) => {
+    const g = c.createGain(); g.gain.value = 0; g.connect(out);
+    const n = src(offset, rate);
+    for (const [hz, gain, pan] of PARK_BANDS) {
+      if (parkGroup(hz) !== k) continue;
+      const lvl = c.createGain(); lvl.gain.value = gain * Math.sqrt(3085 / hz) * PARK_LEVEL;
+      let tail = n.connect(filter('bandpass', hz, 1.2)).connect(filter('bandpass', hz, 1.2)).connect(lvl);
+      if (pan && c.createStereoPanner) { const p = c.createStereoPanner(); p.pan.value = pan; tail = tail.connect(p); }
+      tail.connect(g);
+    }
+    const [steps] = PARK_WANDER[k];
+    const w = src(0.41 + k * 0.37, steps / (nbuf?.sampleRate || c.sampleRate));
+    const depth = c.createGain(); depth.gain.value = 0;
+    w.connect(filter('lowpass', steps, 0.5)).connect(depth).connect(g.gain);
+    return { g, depth };
+  });
+  let level = 0, rec = false, stopped = false;
+  const AE = globalThis.AudioEngine;
+  const recOn = () => rec && !!AE?.isLooping?.(PARK_REC_ID);
   const mix = (k, x) => QUIET[k] + (LOUD[k] - QUIET[k]) * x;
   function apply(at, tc) {
     const set = (p, v) => { p.cancelScheduledValues(at); p.setTargetAtTime(v, at, tc); };
-    const pulse = mix('pulse', level);
-    set(rumble.g.gain, mix('rumble', level));
-    airs.forEach((a) => { set(a.g.gain, mix('air', level)); set(a.f.frequency, 1150 * mix('bright', level)); });
-    voicesB.forEach((v) => set(v.g.gain, mix('voices', level)));
-    pulses.forEach((p, k) => set(p.gain, (k < 2 ? mix('rumble', level) : k < 4 ? mix('air', level) : mix('voices', level)) * pulse));
+    const rel = (k) => mix(k, level) / mix(k, FITTED_AT);
+    const lv = [rel('rumble'), rel('voices'), rel('air') * mix('bright', level)];
+    const pulse = mix('pulse', level) / mix('pulse', FITTED_AT);
+    const under = recOn() ? REC_UNDER : 1;
+    groups.forEach(({ g, depth }, k) => {
+      set(g.gain, lv[k] * under);
+      // never past 0.9 of the level, or the wander would swing it through silence
+      set(depth.gain, lv[k] * under * Math.min(0.9, PARK_WANDER[k][1] * pulse));
+    });
+    if (recOn()) AE.setLoopGain(PARK_REC_ID, mix('voices', level) / LOUD.voices, tc * 3);
+  }
+  // the recording, fetched once and looped from then on
+  function startRecording() {
+    const layer = !opts.ctx && AE?.loopSound && AE.preloadSamples
+      ? fieldBed('crowd_park', PARK_REC_LUFS, { filter: { type: 'lowpass', freq: 2400, q: 0.5 } }) : null;
+    if (!layer) return;
+    const calls = ['crowd_cheer', 'crowd_roar', 'crowd_boo_park'].map((k) => fieldCall(k)?.sample).filter(Boolean);
+    AE.preloadSamples([layer.sample, ...calls]).then(() => {
+      if (stopped || !AE.sampleReady?.(layer.sample)) return;
+      AE.loopSound({ id: PARK_REC_ID, name: PARK_REC_ID, category: 'tv_fx', priority: 9, config: { layers: [layer] } }, { whole: true, gain: 0 });
+      rec = true;
+      apply(c.currentTime, 0.8);
+    });
   }
   const now = (at) => (at != null ? at : c.currentTime);
   const api = {
-    start(at) { const t = now(at); out.gain.cancelScheduledValues(t); out.gain.setValueAtTime(out.gain.value, t); out.gain.setTargetAtTime(1, t, 0.35); apply(t, 0.3); return api; },
+    start(at) { const t = now(at); out.gain.cancelScheduledValues(t); out.gain.setValueAtTime(out.gain.value, t); out.gain.setTargetAtTime(1, t, 0.35); apply(t, 0.3); startRecording(); return api; },
     // up fast (a crowd gets up for a play at once) and down slowly
     setLevel(x, at) {
       const v = Math.max(0, Math.min(1, +x || 0));
@@ -756,12 +829,15 @@ export function crowdBed(opts = {}) {
     duck(db = 4, secs = 0.6, at) {
       const t = now(at), g = Math.pow(10, -db / 20);
       duck.gain.cancelScheduledValues(t); duck.gain.setTargetAtTime(g, t, 0.05); duck.gain.setTargetAtTime(1, t + secs, 0.35);
+      if (recOn()) AE.duckLoop(PARK_REC_ID, g, secs);
       return api;
     },
     stop(at) {
       const t = now(at);
       out.gain.cancelScheduledValues(t); out.gain.setTargetAtTime(0, t, 0.25);
       for (const n of nodes) { try { n.stop(t + 1.6); } catch { /* already stopped */ } }
+      stopped = true;
+      if (rec) AE?.stopLoop?.(PARK_REC_ID);
       return api;
     },
     _nodes: () => nodes.length,

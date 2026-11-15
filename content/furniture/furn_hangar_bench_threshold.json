@@ -1,6 +1,21 @@
 {
   "description": "A steel workbench strewn with torque wrenches, a part-gutted avionics box and a coffee ring or ten.",
-  "flags": {},
+  "flags": {
+    "look": {
+      "arche": "surface",
+      "dims": [
+        2.6,
+        0.75,
+        0.92
+      ],
+      "form": "counter",
+      "wear": 0.7
+    },
+    "spot": {
+      "along": 21,
+      "wall": "right"
+    }
+  },
   "hp": null,
   "hp_max": null,
   "id": "furn_hangar_bench_threshold",

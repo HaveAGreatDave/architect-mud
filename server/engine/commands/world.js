@@ -1007,7 +1007,9 @@ async function cmdExamine(targetStr, player, broadcast) {
       // An animal gets `pet` in place of `talk`, by the same predicate `pet` uses.
       if (!seen && isAnimal(c)) {
         const petLink = `<span class="action-link" data-action="pet" data-target="${escAttr(linkName)}" title="Pet ${escAttr(c.name)}">pet</span>`;
-        return { type:'examine', message:`${c.name}\n${c.description}${postureLine}\n<span class="text-dim">Actions:</span> ${petLink}  ${attackLink}` };
+        // what a plugin can tell by looking at it (plugins/pets: whether it's hungry or thirsty)
+        const told = (await gatherHook('npc.describeAnimal', c, player)).filter((s) => typeof s === 'string' && s).map((s) => `\n<span class="text-dim">${s}</span>`).join('');
+        return { type:'examine', message:`${c.name}\n${c.description}${postureLine}${told}\n<span class="text-dim">Actions:</span> ${petLink}  ${attackLink}` };
       }
       // A transformed person answers with the shape, not the biography — no
       // clothing line, no posture note about a body the viewer cannot see.

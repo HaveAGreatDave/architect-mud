@@ -3,7 +3,21 @@
   "flags": {
     "interactions": [
       "sit"
-    ]
+    ],
+    "look": {
+      "arche": "bench",
+      "dims": [
+        3,
+        0.6,
+        0.85
+      ],
+      "form": "bench",
+      "wear": 0.6
+    },
+    "spot": {
+      "along": -8,
+      "wall": "front"
+    }
   },
   "hp": null,
   "hp_max": null,

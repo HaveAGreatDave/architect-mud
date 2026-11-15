@@ -3,7 +3,20 @@
   "flags": {
     "click_cmd": "buypack",
     "interactions": [],
+    "look": {
+      "arche": "prop",
+      "dims": [
+        0.8,
+        0.6,
+        1.75
+      ],
+      "form": "cabinet"
+    },
     "notable": true,
+    "spot": {
+      "along": -14.2,
+      "wall": "front"
+    },
     "vends_packs": 1
   },
   "hp": null,

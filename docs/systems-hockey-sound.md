@@ -6,7 +6,7 @@ impacts; a woody stick; a check that's a thud and a crack; brief scrapes; a plai
 big blunt goal horn; a coarse crowd. It recreates none of the original's assets or hardware, only the
 character, and it's tuned to read at low volume on cheap speakers in a busy mix.
 
-Everything is procedural. There are no samples.
+Everything is procedural but the crowd, whose recordings play over its synthesis (K).
 
 ## Where it lives
 
@@ -122,16 +122,23 @@ in it), a faint 7.5 Hz electric flutter. 1.6 s, priority 10, centroid 880 Hz aga
 the two are plainly different played back to back. The rink plays it when a period ends (the
 intermission) and on the final card; a whistle before it is the game's sequencing.
 
-**J. The crowd bed** (`crowdBed()`). A low-mid rumble (150–700 Hz), an airy band (around 1.15 kHz,
-700–3,000 Hz), and three narrow resonant bands where distant voices sit (520, 930, 1,650 Hz), each pulsed
-by LFOs at 0.29–2.3 Hz that never line up, all through a 2.4 kHz lowpass onto the ambient bus, with no
-grit. Built once and steered: `setState(name)` eases every band to that state's levels (a 180 ms time
-constant, 600 ms into quiet), and the moments move it and let it settle.
+**J. The crowd bed** (`crowdBed()`). Nine half-octave bands from 125 Hz to 2.8 kHz (`BED_BANDS`), fitted
+to a recording of an NHL arena between plays (see *Fitted to recordings* below), in three groups: the
+rumble (under 450 Hz), the voices (to 1.8 kHz) and the air. Each group's level wanders on a smoothed
+random signal at the recording's rate and depth (`BED_WANDER`): the engine's white noise played back so
+slowly it steps 4 to 6 times a second, through a lowpass at that rate, so it never repeats and needs
+nothing scheduled. All of it goes through a 2.4 kHz lowpass onto the ambient bus, with no grit. Built
+once and steered: `setState(name)` eases every group to that state's levels (a 180 ms time constant,
+600 ms into quiet), and the moments move it and let it settle. `hk-crowd-bed`, the cue the fighter
+sandbox loops, is the same bands.
 
 It's background, and kept there. The first bed sat at -32 dBFS through a game, louder than all the
 effects together, and its hiss buried the clicks and seemed to grow (the rink also held it high for
 every rush). Now, at the game's default volumes, the run of play sits at about -45 dBFS at the master
 and a goal at about -36, centred near 1 kHz, under the clicks and the whistle rather than in their band.
+
+Each number is a group's level as a share of `active`'s, which is the recording's balance. Pulse scales
+the wander's depth the same way (capped at 0.9 of the level), and Air band scales the air group.
 
 | State | Rumble | Air | Voices | Pulse depth | Air band |
 |---|---|---|---|---|---|
@@ -147,10 +154,48 @@ and a goal at about -36, centred near 1 kHz, under the clicks and the whistle ra
 a whistle and brings it back; `stop()` fades it and lets its nodes go. All of it is automation on the
 same nodes, so it can't pile up.
 
-**K. Gasp and cheer.** `hk-crowd-gasp` (438 ms): a fast rise of bright noise and a vowel-ish resonant
-band sweeping 620 to 860 Hz. `hk-crowd-cheer` (1.4 s) and `hk-crowd-goal` (3.3 s): dense bands of noise
-with tremolos at 3.1–11.3 Hz for the irregular pulses. `hk-crowd-groan` and `hk-crowd-boo` are the away
-goal and the penalty. They ride the ambient bus with the bed, lifted a little (1.2×) to sit with it.
+**K. Gasp and cheer.** `hk-crowd-gasp`, `hk-crowd-cheer`, `hk-crowd-goal` (and `hk-crowd-roar`, the
+goal's bands held shorter) and `hk-crowd-boo` are `crowd()` layer sets fitted to recordings: half-octave
+bands of pink noise, each a doubled bandpass, with a smoothed `rand` mod on each group's level. Their
+timing is the game's, not the recording's (the gasp 438 ms, the cheer 1.4 s, the goal 3.3 s), because a
+reaction answers the play at once and the bed carries the long tail. `hk-crowd-groan` is the away goal,
+still drawn by hand. They ride the ambient bus with the bed, lifted a little (1.2×) to sit with it.
+
+**Fitted to recordings.** Each fitted patch's band levels were solved so its spectrum matches a CC0
+recording from Freesound, and its wander's rate and depth read off how that recording's level moves once
+the reaction's shape is taken out. Each was then levelled to the patch it replaced, so the mix didn't
+move. The recordings are listed in [bibliography.md](reference/bibliography.md#crowd-recordings).
+Average distance from the recording across the third-octave bands:
+
+| Patch | Recording | Before | Fitted |
+|---|---|---|---|
+| `crowdBed()` | an NHL arena between plays (SEF7) | 3.4 dB | 0.5 dB |
+| `hk-crowd-goal` | a check into the boards (producerdan) | 2.6 | 0.5 |
+| `hk-crowd-cheer` | a sports crowd's cheer (FlatHill) | 4.6 | 1.4 |
+| `hk-crowd-boo` | an arena booing a missed penalty (TRP) | 5.7 | 1.7 |
+| `hk-crowd-gasp` | a small crowd's gasp (HowardV) | 8.1 | 1.3 |
+
+The bed's figures are for the bands as fitted. Played live under the 2.4 kHz shade, it's 1.7 dB from the
+recording between 125 Hz and 2 kHz, where the old bed was 2.0: the bed's spectrum was already close,
+and what changed most is that it wanders at random instead of on sines.
+
+**The recordings themselves.** Cuts of them play too, as [field recordings](systems-procedural-audio.md#field-recordings)
+(`crowd_*` in `build-field-recordings.mjs`), each cut by hand (`at`, `cuts`) from a stretch the
+measurement found clear of steady tones (PA music, an organ, the horn) and single voices (an announcer,
+a chant of a real club's name), which CC0 doesn't clear. hockey-sfx.js is a classic script, so the
+rink hands it field-recordings.js (`HockeySfx.useField`); the dev panel and the gates never do, and
+there the synthesis plays alone.
+
+- **The reactions.** A cue with a `rec` (`hk-crowd-cheer`, `-goal`, `-roar`, `-boo`) plays one cut of
+  its recording, picked by the take's seed, at its synthesis's loudest moment less 0.6 dB. Its
+  synthesis plays under it at 0.35 (-9 dB), and the other 0.65 stands in (`alt`) until the recording
+  has loaded; the two copies are the same noise, so before then the cue sounds exactly as it did. The
+  cuts run longer than the synthesis (a goal 8.3 s, a cheer 3.8 s), since a real crowd takes that long
+  to settle. The gasp keeps its synthesis: the gasp recording is one held breath.
+- **The bed.** `crowd_arena`, twelve seconds of the arena between plays, loops beside the bands once
+  it has loaded (`hk-crowd-rec` through `AudioEngine.loopSound`), through a 2.4 kHz lowpass like the
+  shade. Its level follows the state's voices, and the duck and the cheers move it too; the bands drop
+  to 0.35 under it. If the loop is lost (a stolen voice), the bands come back up at the next state.
 
 **Secondary.** Shots (`hk-puck-slap`, `hk-shot-wrist`: a crack with a small fall in pitch), `hk-pass`,
 `hk-puck-tick` (the dribble), the saves (`hk-pad-save`, `hk-glove-save`, `hk-chest-save`), `hk-stick-hit`

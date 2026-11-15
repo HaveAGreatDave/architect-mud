@@ -22,10 +22,12 @@
 //     voice is free again once its sound has ended
 //   • the crowd bed: rises state by state, never steps, adds no nodes as it's steered, and
 //     is silent after stop()
+//   • a crowd cue with its recording handed in sounds as its synthesis alone until the recording
+//     loads (as here, in Node), give or take the cartridge stage's rounding of the sum
 //   • every event the rink fires has a sound in the event table, and every table entry is a patch
 import { readFileSync, readdirSync } from 'node:fs';
 import { dirname, join } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import { loadHockey, renderCue, measure, spectrum, renderCrowd, SR } from './hockey-lib.mjs';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
@@ -149,6 +151,21 @@ for (const id of ['hk-check', 'hk-boards', 'hk-skate-stop', 'hk-whistle', 'hk-go
   check('the pool never holds more than its size', st.live <= st.size, `${st.live}/${st.size}`);
   await new Promise((r) => setTimeout(r, 2700));
   check('every voice is free once its sound has ended', AE._voiceStats().live === before, `${AE._voiceStats().live} still held`);
+}
+
+// ── the crowd's recordings ───────────────────────────────────────────────────────
+{
+  const { fieldBed, fieldCall } = await import(pathToFileURL(join(ROOT, 'client/shared/field-recordings.js')).href);
+  for (const d of H.BUILTINS.filter((x) => x.rec)) {
+    H.useField(null);
+    const a = (await renderCue(AE, H.variant(d, 9))).getChannelData(0);
+    H.useField({ fieldBed, fieldCall });
+    const b = (await renderCue(AE, H.variant(d, 9))).getChannelData(0);
+    let pk = 0, worst = 0;
+    for (let i = 0; i < a.length; i++) { pk = Math.max(pk, Math.abs(a[i])); worst = Math.max(worst, Math.abs(a[i] - (b[i] || 0))); }
+    check(`${d.id}: with its recording not yet loaded, sounds as its synthesis`, worst <= pk * 0.03, `${(worst / pk * 100).toFixed(1)}% of the peak`);
+  }
+  H.useField(null);
 }
 
 // ── the crowd bed ────────────────────────────────────────────────────────────────

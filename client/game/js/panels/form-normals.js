@@ -59,18 +59,20 @@ export function formNormals(F, iters, keep = null) {
 //
 // For a head mesh (actor-head.js headMesh: metres, Y up, facing +Z, F 7 the skull's skin): its form
 // normals with the planes laid on over the face. Ears, neck and the back of the head keep their form.
+// `passes` and `smooth` are the diffusion before and after: a finer mesh needs more for the same breadth.
+// `amount` is how far the planes are laid on, 1 all the way.
 const sstep = (a, b, x) => { const t = Math.max(0, Math.min(1, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
 const band = (v, a, b, e) => sstep(a - e, a + e, v) * (1 - sstep(b - e, b + e, v));
 const _designed = new WeakMap();
-export function faceDesigned(mesh) {
+export function faceDesigned(mesh, passes = 10, smooth = 3, amount = 1) {
   let out = _designed.get(mesh);
   if (out) return out;
-  const nv = mesh.P.length / 3, F0 = formNormals({ nv, I: mesh.I, N: mesh.N }, 10);
+  const nv = mesh.P.length / 3, F0 = formNormals({ nv, I: mesh.I, N: mesh.N }, passes);
   out = Float32Array.from(F0);
   for (let v = 0; v < nv; v++) {
     if (mesh.F && mesh.F[v] !== 7) continue;
     const x = mesh.P[v * 3], y = mesh.P[v * 3 + 1], z = mesh.P[v * 3 + 2], ax = Math.abs(x), sx = Math.sign(x) || 1;
-    const front = sstep(0.01, 0.05, z + 0.006) * (1 - sstep(0.068, 0.078, ax));
+    const front = amount * sstep(0.01, 0.05, z + 0.006) * (1 - sstep(0.068, 0.078, ax));
     if (front <= 0) continue;
     let nx = F0[v * 3], ny = F0[v * 3 + 1], nz = F0[v * 3 + 2];
     const add = (k, tx, ty, tz) => { nx += k * tx; ny += k * ty; nz += k * tz; };
@@ -101,7 +103,7 @@ export function faceDesigned(mesh) {
   }
   // three passes of smoothing over the designed field: the planes' edges are set a vertex at a time,
   // and unsmoothed the terminator stepped along the mesh's triangles
-  out = formNormals({ nv, I: mesh.I, N: out }, 3);
+  out = formNormals({ nv, I: mesh.I, N: out }, smooth);
   _designed.set(mesh, out);
   return out;
 }

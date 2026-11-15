@@ -18,6 +18,7 @@ import { adjustCredits } from '../../server/engine/economy.js';
 import { effectiveSkill, awardSkillUse, skillCheck } from '../../server/engine/skills.js';
 import { grantSkillIp } from '../../server/engine/ip.js';
 import { registerMoveGate } from '../../server/engine/movement-gates.js';
+import { registerStandKind, standTaken, standVehicles } from '../../server/engine/vehicle-stand.js';
 import { registerZoneReloadHook } from '../../server/engine/world.js';
 import { invalidateCoordIndex, crewedAircraft, standTileFor, clearHangarTiles, hangarHeading, gearRetracts } from './state.js';
 
@@ -374,9 +375,41 @@ async function boardIntoHangar(player, acId, broadcast) {
   if (!found) return { type: 'emote', message: "She isn't parked here." };
   if (found.owner_id !== player.id) return { type: 'emote', message: 'Only her owner takes her out of here.' };
   const tile = standTileFor(field, { vtol: found.tmode === 'vtol', heavy: found.tclass === 'heavy' });
-  return boardFound(found, player, broadcast, tile ? { at: tile } : {});
+  const res = await boardFound(found, player, broadcast, tile ? { at: tile } : {});
+  // climbed in off the hangar floor: the stand is empty (server/engine/vehicle-stand.js)
+  if (player.aircraftId === acId) standTaken(acId, 'aircraft');
+  return res;
 }
 setHangarBoarder(boardIntoHangar);
+
+// The aircraft's kind of vehicle stand (server/engine/vehicle-stand.js): `callup` in a hangar has the tug pull one
+// of yours parked at this field out onto the floor, where the Room Stage draws it; climbing in is `hangaract launch`,
+// the counter's Fly. A hangar room is a bay when its spec carries a stand, or when it's a hangar interior with a spec.
+registerStandKind('aircraft', {
+  isBay: (zone) => !!(zone?.flags?.hangar_interior && zone.flags.room),
+  from: 'back', label: 'TUG', moveMs: 11000,
+  board: (id) => `hangaract launch ${id}`,
+  busy: (player) => (player.aircraftId ? "You're aboard already." : null),
+  list: async (player) => {
+    const field = fieldFor(player);
+    if (!field) return [];
+    const { rows } = await query(
+      `SELECT a.id, a.name, a.custom_data, t.name tname, t.class tclass, t.hardpoints
+       FROM aircraft a JOIN aircraft_types t ON t.id = a.type_id
+       WHERE a.parked_zone_id = $1 AND a.owner_id = $2 AND a.is_wreck = 0 ORDER BY a.id`, [field.id, player.id]);
+    return rows.filter((r) => r.custom_data?.charter !== true).map((r) => ({
+      id: r.id, name: r.name || r.tname,
+      look: { cls: r.tclass, armed: r.tclass === 'heli' && (r.hardpoints || 0) > 0,
+        livery: normalizeLivery(r.custom_data, aircraftLiveryModel(r.tclass, r.hardpoints)) },
+    }));
+  },
+  words: {
+    noun: 'aircraft',
+    up: (name) => `The tug backs in under the ${name}'s nose, takes the weight and pulls her out onto the hangar floor.`,
+    down: (name) => `The tug hooks on and pushes the ${name} back into the hangar's far bay.`,
+    none: "Nothing of yours is parked at this field. Buy or hire one at the counter.",
+  },
+});
 
 // The latch trucking's `lock`/`unlock` router turns (vehicle-access.js). Guarded on owner_id, so it
 // only ever turns your own key; the live row is set too, or the next persist() writes the old one back.
@@ -2533,6 +2566,8 @@ export const commands = {
 
 export const hooks = {
   'zone.describeRoom': describeAirfield,
+  // One of yours pulled out onto a hangar's floor by the tug, for the Room Stage (server/engine/vehicle-stand.js). Sync, RAM.
+  'room.vehicles': (zoneId, player) => standVehicles(zoneId, player, 'aircraft'),
   // Where our crewed machines are, for anything that needs to reach a vehicle at
   // a coordinate rather than a player in a zone. One consumer today — the EMP
   // pulse, which lands somewhere and takes the electronics of whatever was in

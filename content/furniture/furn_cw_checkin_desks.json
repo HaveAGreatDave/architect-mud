@@ -1,6 +1,24 @@
 {
   "description": "Six laminate desks in a row, numbered 1 to 6, each with a belt scale set into the floor beside it. Desk 2's number is lit, and its scale reads zero.",
-  "flags": {},
+  "flags": {
+    "look": {
+      "arche": "surface",
+      "dims": [
+        12.4,
+        0.8,
+        1
+      ],
+      "form": "counter",
+      "wear": 0.5
+    },
+    "spot": {
+      "at": [
+        -4,
+        11.6
+      ],
+      "turn": 0
+    }
+  },
   "hp": null,
   "hp_max": null,
   "id": "furn_cw_checkin_desks",

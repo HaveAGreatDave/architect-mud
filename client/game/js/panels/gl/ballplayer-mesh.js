@@ -1252,8 +1252,9 @@ export function buildPlayer(G, pose, look) {
     for (const S of ['L', 'R']) if (!ump && (look.wristbands === 'both' || look.wristbands === S)) wristband(G, J, S, s, band, thickArm);
     if (!ump && look.elbowGuard) elbowGuard(G, J, look.elbowGuard, s, hex(kit.helmet), thickArm);
     if (!ump && look.battingGloves) for (const S of ['L', 'R']) gloveCuff(G, J, S, s, hex(look.battingGloves), thickArm);
-    if (look.role === 'ump' && look.mask) ballBags(G, J, W, s, mul(navyU, 0.9), b.girth);
   }
+  // the plate umpire's ball bags hang off the belt over whatever body he has, so they're his gear
+  if (wantGear && look.role === 'ump' && look.mask) ballBags(G, J, W, s, mul(navyU, 0.9), b.girth);
   // the head's place is the headwear's too (headFrame), so it's worked out either way; only the body draws one
   if (wantBody) head(G, J, W, s, look);
   else headPlace(J, W, s, look);

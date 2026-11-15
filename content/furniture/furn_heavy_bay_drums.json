@@ -1,0 +1,30 @@
+{
+  "description": "Jet-fuel drums racked three high along the wall, the rack bowed in the middle. Each lid has a date painted on it. A drip tray under the bottom row is full.",
+  "flags": {
+    "aliases": "drums,fuel,jet fuel,rack,drip tray",
+    "look": {
+      "arche": "store",
+      "dims": [
+        14,
+        1,
+        2.8
+      ],
+      "form": "shelves",
+      "wear": 0.7
+    },
+    "spot": {
+      "along": 15.5,
+      "wall": "right"
+    }
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_heavy_bay_drums",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "the fuel drums",
+  "object_type": "fixture",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_heavy_bay"
+}

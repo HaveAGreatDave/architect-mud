@@ -1,6 +1,21 @@
 {
   "description": "A double row of avgas drums chocked against the wall, hand-pump clamped to the nearest and a length of hose coiled over it. Chalk tallies climb the drums: fuel run out to strangers, paid or owed. Out here the sky is the only road, and this is the toll booth. Wired to the pump: CASH ON THE SKID.",
-  "flags": {},
+  "flags": {
+    "look": {
+      "arche": "prop",
+      "dims": [
+        1,
+        1,
+        1.1
+      ],
+      "form": "tank",
+      "wear": 0.8
+    },
+    "spot": {
+      "along": 14,
+      "wall": "left"
+    }
+  },
   "hp": null,
   "hp_max": null,
   "id": "furn_bld_897_1175_avgas_cache",

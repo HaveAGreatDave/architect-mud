@@ -258,6 +258,7 @@ function floorScreen() {
     // Deploy is Fly: into the seat, nose to the door, no bench. Maintenance is the bench, in the
     // cockpit with the hangar opened up when you can fly her, in the pane when you can't.
     const choice = choiceHtml({
+      call: d.stand && !c.wreck ? { attrs: `data-act="callup" data-id="${esc(c.id)}"`, title: 'Have the tug pull her out onto the floor, then climb aboard' } : null,
       deploy: { attrs: `data-act="embark" data-id="${esc(c.id)}" data-tail="${esc(c.tail)}"`, title: 'Into the seat and out of the door' },
       maint: { attrs: `data-act="${seated ? 'service' : 'bench'}" data-id="${esc(c.id)}"`, title: seated ? 'Climb in with the bench and the hangar opened up' : 'Maintenance, paint and tuning' },
       sell: c.rental ? { hold: `cancelrental ${c.id}`, title: 'Hand her back: the rental ends here' } : { hold: `sell ${c.id}`, title: "Sell her outright: this can't be undone" },
@@ -1370,6 +1371,7 @@ function wire() {
       sendCmdSilent(B.data.cockpitBench && id ? `hangaract launch ${id}` : `embark ${e.currentTarget.getAttribute('data-tail')}`);
       closeHangarBay(); return;
     }
+    if (act === 'callup') { noteAct(e.currentTarget); sendCmdSilent(`callup ${idOf()}`); return; }
     if (act === 'store') { sendCmdSilent(`hangaract store ${idOf()}`); return; }
     if (act === 'pull') { sendCmdSilent(`hangaract pull ${idOf()}`); return; }
     if (act === 'refuel') { sendCmdSilent(`refuel ${idOf()}`); refetch(); return; }

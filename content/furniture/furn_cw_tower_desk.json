@@ -1,0 +1,32 @@
+{
+  "description": "A steel desk facing the door, with a phone and a visitors' book on it. The last entry in the book is in pencil and has been rubbed out.",
+  "flags": {
+    "aliases": "desk,phone,book,visitors book",
+    "look": {
+      "arche": "surface",
+      "dims": [
+        1.8,
+        0.8,
+        0.76
+      ],
+      "form": "desk"
+    },
+    "spot": {
+      "at": [
+        0,
+        5.4
+      ],
+      "turn": 0
+    }
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_cw_tower_desk",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "the tower desk",
+  "object_type": "fixture",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_cw_tower"
+}

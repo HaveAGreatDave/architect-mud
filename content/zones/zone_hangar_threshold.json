@@ -12,7 +12,290 @@
     "hangar_interior": true,
     "hangar_ramp": "zone_district_893_909",
     "intro_lore": "Aircraft mean money, and money this far from downtown means somebody worked hard to keep it flying. The Threshold hangar runs on the same principle as everything else out here: whatever still works, works because somebody refuses to let it stop. The runway beyond looks like an invitation. It is, technically; you just have to survive whatever's waiting at the other end of the flight plan.",
-    "is_interior": true
+    "is_interior": true,
+    "room": {
+      "balcony": false,
+      "d": 26,
+      "decor": {
+        "doors": [
+          {
+            "at": 6,
+            "finish": "steel",
+            "label": "Stairs",
+            "w": 0.95,
+            "wall": "back"
+          }
+        ],
+        "drops": [
+          {
+            "along": 14,
+            "n": 4,
+            "r": 0.03,
+            "wall": "left"
+          }
+        ],
+        "lamps": [
+          {
+            "along": -11.4,
+            "wall": "back",
+            "y": 2.5
+          }
+        ],
+        "pad": {
+          "at": [
+            1,
+            11
+          ],
+          "r": 6
+        },
+        "paint": [
+          {
+            "kind": "hazard",
+            "rect": [
+              -7,
+              9,
+              3,
+              19
+            ],
+            "t": 0.2
+          },
+          {
+            "arrows": true,
+            "from": [
+              1,
+              0.3
+            ],
+            "hex": "#e8b818",
+            "kind": "line",
+            "t": 0.12,
+            "to": [
+              1,
+              4.4
+            ]
+          },
+          {
+            "from": [
+              -10.9,
+              25.6
+            ],
+            "hex": "#e8eef2",
+            "kind": "line",
+            "t": 0.08,
+            "to": [
+              -10.9,
+              0.6
+            ]
+          },
+          {
+            "from": [
+              -7.4,
+              25.6
+            ],
+            "hex": "#e8eef2",
+            "kind": "line",
+            "t": 0.08,
+            "to": [
+              -7.4,
+              0.6
+            ]
+          }
+        ],
+        "pipes": [
+          {
+            "from": [
+              -13,
+              6,
+              7
+            ],
+            "hex": "#4a5056",
+            "r": 0.11,
+            "to": [
+              13,
+              6,
+              7
+            ]
+          },
+          {
+            "from": [
+              -13,
+              13,
+              7
+            ],
+            "hex": "#4a5056",
+            "r": 0.11,
+            "to": [
+              13,
+              13,
+              7
+            ]
+          },
+          {
+            "from": [
+              -13,
+              20,
+              7
+            ],
+            "hex": "#4a5056",
+            "r": 0.11,
+            "to": [
+              13,
+              20,
+              7
+            ]
+          }
+        ],
+        "rug": false,
+        "screens": [
+          {
+            "along": 11.4,
+            "h": 0.4,
+            "show": "status",
+            "w": 0.62,
+            "wall": "left",
+            "y": 1.45
+          },
+          {
+            "along": 12.2,
+            "h": 0.4,
+            "show": "gauges",
+            "w": 0.62,
+            "wall": "left",
+            "y": 1.45
+          },
+          {
+            "along": 13,
+            "h": 0.4,
+            "show": "status",
+            "w": 0.62,
+            "wall": "left",
+            "y": 1.45
+          }
+        ],
+        "signs": [
+          {
+            "along": 11,
+            "h": 0.16,
+            "hex": "#101010",
+            "plateHex": "#e8b818",
+            "text": "Mind the rotors",
+            "wall": "right",
+            "y": 2.5
+          },
+          {
+            "along": -6,
+            "h": 0.08,
+            "hex": "#ffffff",
+            "plateHex": "#8a1a14",
+            "text": "No smoking",
+            "wall": "back",
+            "y": 2.2
+          }
+        ],
+        "strips": [
+          {
+            "along": "v",
+            "at": [
+              -8,
+              5
+            ],
+            "len": 3
+          },
+          {
+            "along": "v",
+            "at": [
+              -8,
+              13
+            ],
+            "len": 3
+          },
+          {
+            "along": "v",
+            "at": [
+              -8,
+              21
+            ],
+            "len": 3
+          },
+          {
+            "along": "v",
+            "at": [
+              0,
+              5
+            ],
+            "len": 3
+          },
+          {
+            "along": "v",
+            "at": [
+              0,
+              13
+            ],
+            "len": 3
+          },
+          {
+            "along": "v",
+            "at": [
+              0,
+              21
+            ],
+            "len": 3
+          },
+          {
+            "along": "v",
+            "at": [
+              8,
+              5
+            ],
+            "len": 3
+          },
+          {
+            "along": "v",
+            "at": [
+              8,
+              13
+            ],
+            "len": 3
+          },
+          {
+            "along": "v",
+            "at": [
+              8,
+              21
+            ],
+            "len": 3
+          }
+        ]
+      },
+      "doors": {
+        "east": -10
+      },
+      "face": 270,
+      "finish": "plain",
+      "glass": [
+        "front"
+      ],
+      "ground": "concrete",
+      "h": 7.5,
+      "stand": {
+        "at": [
+          1,
+          11
+        ],
+        "face": "front",
+        "from": "front",
+        "kind": "aircraft",
+        "len": 16,
+        "wid": 16
+      },
+      "studio": false,
+      "tone": {
+        "accent": "#e8b818",
+        "ceiling": "#3a3f43",
+        "trim": "#2a2e31",
+        "wall": "#6f767a"
+      },
+      "w": 26
+    }
   },
   "grid_x": 0,
   "grid_y": 0,

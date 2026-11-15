@@ -1,0 +1,36 @@
+{
+  "description": "The row nearest the glass: moulded seats on a steel beam, bolted to the floor. Two of the armrests are missing.",
+  "flags": {
+    "aliases": "front row,front seats,seats",
+    "interactions": [
+      "sit"
+    ],
+    "look": {
+      "arche": "bench",
+      "dims": [
+        9,
+        0.62,
+        0.85
+      ],
+      "form": "bench",
+      "wear": 0.5
+    },
+    "spot": {
+      "at": [
+        0,
+        3.8
+      ],
+      "turn": 0
+    }
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_cw_lounge_seats_front",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "the front row of seats",
+  "object_type": "furniture",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_cw_lounge"
+}

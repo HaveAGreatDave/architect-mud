@@ -6,7 +6,20 @@
       "rack",
       "chart"
     ],
-    "examine_detail": "The wreck chart is the one that has been handled. It is also the only one anybody has bothered to keep up to date, and the newest marks on it are in biro."
+    "examine_detail": "The wreck chart is the one that has been handled. It is also the only one anybody has bothered to keep up to date, and the newest marks on it are in biro.",
+    "look": {
+      "arche": "store",
+      "dims": [
+        1.2,
+        0.36,
+        2
+      ],
+      "form": "bookcase"
+    },
+    "spot": {
+      "along": 6.4,
+      "wall": "right"
+    }
   },
   "id": "furn_consv_charts",
   "name": "the chart rack",

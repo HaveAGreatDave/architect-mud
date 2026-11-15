@@ -1,0 +1,39 @@
+{
+  "description": "A hardwood counter across the end of the shop, oiled dark, with a lift-up flap at the yard door end. A brass rule is let into the top for measuring line.",
+  "flags": {
+    "aliases": [
+      "counter",
+      "flap",
+      "rule"
+    ],
+    "interactions": [
+      "lean"
+    ],
+    "look": {
+      "arche": "surface",
+      "dims": [
+        2.6,
+        0.7,
+        1.05
+      ],
+      "form": "bar"
+    },
+    "spot": {
+      "at": [
+        -0.9,
+        1.4
+      ],
+      "turn": 180
+    }
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_consv_counter_top",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "the counter",
+  "object_type": "furniture",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_consv_counter"
+}

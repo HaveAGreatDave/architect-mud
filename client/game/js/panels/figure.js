@@ -25,7 +25,7 @@
 // every bone's rest rotation identity, so the arms hang straight down. No DOM, no GL: the gate
 // (scripts/shapes/figure.mjs) builds every cut and style in Node.
 
-import { headMesh, hairMesh, skullPoint, facePoint, hairlineAt, spline, weightedFace, EYE, NECK, NECK_SCULPT, SCULPT_HEADS, HAIRLINE_SCULPT, FACE, ZC, HAIR_STYLES, skulletHair } from './actor-head.js';
+import { headMesh, hairMesh, skullPoint, facePoint, hairlineAt, spline, weightedFace, hdFace, EYE, NECK, NECK_SCULPT, SCULPT_HEADS, HAIRLINE_SCULPT, FACE, ZC, HAIR_STYLES, skulletHair } from './actor-head.js';
 import { formNormals, faceDesigned } from './form-normals.js';
 
 const TAU = Math.PI * 2;
@@ -111,8 +111,9 @@ export const FIGURE_BONE_COUNT = FIGURE_BONES.length + FIGURE_XBONES.length;
 // 0 skin, 1 the top garment, 2 trousers, 3 shoes and boots, 4 the hair's shell, then the close-up's
 // own: 7 the face (atlas), 8 the ears, 9 the neck, 10 a hair card, 11 the collar (the top's colour),
 // 12 gear in leather (the belt, a strap, a pouch), 13 knee pads, 14 a cloak or mantle, 15 horn and
-// bone (horns, claws, thorns, teeth), 16 salvage (Halcyon-blue goggles), 17 a shirt under a vest.
-export const FIG_SLOT = { skin: 0, top: 1, legs: 2, shoes: 3, hair: 4, face: 7, ear: 8, neck: 9, card: 10, collar: 11, gear: 12, pad: 13, cloak: 14, horn: 15, salvage: 16, shirt: 17, eye: 18, lid: 19 };
+// bone (horns, claws, thorns, teeth), 16 salvage (Halcyon-blue goggles), 17 a shirt under a vest,
+// 5 a hat (the shoes' colour unless flags.figure.hat_col says), 6 a pair of glasses' frames (flags.figure.glasses).
+export const FIG_SLOT = { skin: 0, top: 1, legs: 2, shoes: 3, hair: 4, hat: 5, specs: 6, face: 7, ear: 8, neck: 9, card: 10, collar: 11, gear: 12, pad: 13, cloak: 14, horn: 15, salvage: 16, shirt: 17, eye: 18, lid: 19 };
 // What a vertex is, in its aux channel, for the paint (gl/figure-hd.js): which piece of cloth or
 // gear, so a sleeve gets a cuff seam and a boot its laces.
 export const FIG_PIECE = { torso: 0, sleeve: 1, boot: 2, belt: 3, strap: 4, pouch: 5, pad: 6, trouser: 7, mantle: 8, hood: 9, teeth: 10, goggles: 11, lens: 12, horn: 13, claw: 14, string: 15, cuff: 16,
@@ -121,7 +122,11 @@ export const FIG_PIECE = { torso: 0, sleeve: 1, boot: 2, belt: 3, strap: 4, pouc
   // what a hand holds (propMesh)
   cig: 26, glass: 27, liquid: 28, ice: 29,
   // a skirt over the legs, a hat, a scarf (FIGURE_BOTTOMS, FIGURE_HATS, FIGURE_SCARVES)
-  skirt: 30, hat: 31, scarf: 32 };
+  skirt: 30, hat: 31, scarf: 32,
+  // a work vest's pockets, flaps and snaps, and the binding down its open front (FIGURE_CUTS workvest)
+  pocket: 33,
+  // a cap's peak, its top and its underside (FIGURE_HATS bill)
+  bill: 34, billUnder: 35 };
 // The gear a person can wear, each optional (figureGear picks it off the outfit's rand).
 export const FIGURE_GEAR = ['belt', 'strap', 'pouch', 'pads', 'gloves'];
 
@@ -158,6 +163,7 @@ const FABRIC_TOP = {
   labcoat: [[F.plain, 6], [F.canvas, 2]],
   blazer: [[F.plain, 5], [F.plaid, 2], [F.cord, 2]],
   gilet: [[F.quilt, 6], [F.canvas, 1]],
+  workvest: [[F.canvas, 3], [F.rubber, 1]],
   coverall: [[F.canvas, 6], [F.denim, 2], [F.camo, 1]],
   uniform: [[F.plain, 6], [F.canvas, 2], [F.camo, 1]],
   dress: [[F.plain, 6], [F.plaid, 1], [F.knit, 1]],
@@ -544,12 +550,32 @@ export const FIGURE_BOTTOMS = {
 // rest space (actor-head.js FACE: the crown at 1.75, the brow at 1.657); the crown's lower half sits inside the head.
 export const FIGURE_HATS = {
   beanie: { crown: [[0, 1.705, -0.008], [0.1, 0.075, 0.11], 2.2], band: [[0, 1.672, -0.006], [0.104, 0.016, 0.114], 2.4] },
-  cap: { crown: [[0, 1.71, -0.01], [0.097, 0.062, 0.106], 2.2], brim: [[0, 1.682, 0.098], [0.074, 0.006, 0.07], 2.2] },
+  // a cap's peak is a `bill`: a two-sided slab out from the crown's front, `span` radians round it, `out` metres
+  // past it at the middle, curved down at the sides by `bend` and tipped down by `tilt` (hatBill)
+  cap: { crown: [[0, 1.71, -0.01], [0.097, 0.062, 0.106], 2.2], bill: { y: 1.692, span: 1.25, out: 0.092, bend: 0.017, tilt: 0.004, th: 0.004 } },
   fedora: { crown: [[0, 1.735, -0.008], [0.088, 0.062, 0.098], 3], brim: [[0, 1.686, -0.006], [0.17, 0.007, 0.175], 2.2] },
   bucket: { crown: [[0, 1.72, -0.008], [0.096, 0.062, 0.104], 3], brim: [[0, 1.666, -0.006], [0.13, 0.012, 0.136], 2.4] },
   hardhat: { crown: [[0, 1.722, -0.006], [0.106, 0.072, 0.116], 2.2], brim: [[0, 1.682, 0.004], [0.124, 0.006, 0.142], 2.2] },
   flatcap: { crown: [[0, 1.718, 0.0], [0.1, 0.04, 0.116], 2.4], brim: [[0, 1.69, 0.09], [0.072, 0.006, 0.05], 2.2] },
+  // a ballplayer's cap or batting helmet, which the ballpark draws itself off the same skull (gl/ballplayer-mesh.js
+  // cap, helmet): nothing of its own here, only the hair cut back under its band, so only what hangs below shows.
+  // Never rolled (gl/room-people.js HATS)
+  ballcap: { under: true },
 };
+// The ballpark's cap band round the head (gl/ballplayer-mesh.js capBand: `a` 0 in front, pi behind), in the head's
+// rest space, and the locks cut back under it: a triangle with any corner over the band goes, or that corner comes
+// out through the cap's edge.
+const capBandY = (a) => 1.684 - 0.03 * (1 - Math.cos(a)) / 2;
+function underCap(M) {
+  const P = M.P, keep = [];
+  for (let t = 0; t < M.I.length; t += 3) {
+    let over = false;
+    for (let k = 0; k < 3; k++) { const i = M.I[t + k] * 3; if (P[i + 1] > capBandY(Math.atan2(P[i], P[i + 2] - ZC)) - 0.002) over = true; }
+    if (!over) keep.push(M.I[t], M.I[t + 1], M.I[t + 2]);
+  }
+  M.I = keep;
+  return M;
+}
 // A scarf: a loop round the neck and, unless it's a snood, one tail down the front. `wrap` is how many turns.
 export const FIGURE_SCARVES = { scarf: { r: 0.02, tail: 0.24, wrap: 1 }, chunky: { r: 0.03, tail: 0.18, wrap: 2 }, snood: { r: 0.028, tail: 0, wrap: 2 }, bandana: { r: 0.012, tail: 0.06, wrap: 1 } };
 // The underwear sets, which the roll leaves out
@@ -636,8 +662,30 @@ Object.assign(FIGURE_CUTS, {
   jersey: {
     top: { hem: 0.975, neck: 1.452, ease: 0.013, hug: 0.22, drape: 0.5, flare: 0.004 },
     sleeve: { cuff: 1.21, ease: 0.016, drape: 0.42, open: 0.014 },
+    // the undershirt's long sleeve to the wrist, close to the arm, in the club's colour (FIG_SLOT.shirt)
+    undersleeve: { cuff: 0.872, ease: 0.004, drape: 0.5, open: 0.002 },
     collar: { y0: 1.444, y1: 1.456, ease: 0.004, flare: 0, open: 0.02 },
     shoulder: 0.01,
+  },
+  // a stockman's work vest worn open over a crew-neck tee: the tee is its own layer in the shirt's slot (`undertop`),
+  // the vest's front is cut away as a V that widens to the hem (`openFront`, half-widths at the neck and the hem),
+  // its edges bound, four box pockets with flaps and snaps stand off it as geometry (`pockets`), and the paint
+  // runs two reflective bands round it (gl/figure-hd.js `hivis`). Asked for by name
+  workvest: {
+    undertop: { hem: 0.905, neck: 1.452, ease: 0.006, hug: 0.45, drape: 0.6, flare: 0.004 },
+    top: { hem: 0.895, neck: 1.452, ease: 0.017, hug: 0.08, drape: 0.42, flare: 0.006 },
+    sleeve: { cuff: 1.262, ease: 0.008, drape: 0.3, open: 0.007, slot: 'shirt' },
+    collar: { y0: 1.445, y1: 1.458, ease: 0.0035, flare: 0, open: 0, slot: 'shirt' },
+    shoulder: 0.012, openFront: [0.03, 0.085], pockets: true, hivis: true,
+  },
+  // a hockey sweater, as a fan wears his club's to the rink (gl/crowd-hd.js): cut big and boxy to the top of the
+  // thigh, the sleeves loose to the wrist, a laced V at the throat, and the club's stripes round the hem and the
+  // forearms in the trim colour (gl/figure-hd.js). Asked for by name: never rolled
+  hockey: {
+    top: { hem: 0.86, neck: 1.452, ease: 0.022, hug: 0, drape: 0.3, flare: 0.01 },
+    sleeve: { cuff: 0.872, ease: 0.02, drape: 0.22, open: 0.01 },
+    collar: { y0: 1.444, y1: 1.46, ease: 0.006, flare: 0.002, open: 0.024 },
+    shoulder: 0.02,
   },
 });
 export const FIGURE_UNDER_CUTS = ['briefs', 'boyshorts', 'bodysuit', 'baselayer', 'strapwrap', 'boxers', 'bikini', 'longline', 'slip', 'cutout', 'hexsuit', 'stagelace', 'stagehex'];
@@ -1822,7 +1870,7 @@ function cutLocks(M, style, r, hd, rows, cols, wt) {
       break;
   }
 }
-function hairLocks(level, style, fs, spikes = 0) {
+function hairLocks(level, style, fs, spikes = 0, fan = 0) {
   const M = newPart('locks', FIG_SLOT.hair), r = rng(0x10c5 + style), LS = LOCK_STYLE[style], hd = level.name === 'hd', rows = hd ? 6 : 3, cols = hd ? 6 : 3, wt = [[B.head, 1]];
   if (HAIR_CUTS[style]) { cutLocks(M, style, r, hd, rows, cols, wt); return M; }
   if (!LS) return M;
@@ -1859,14 +1907,20 @@ function hairLocks(level, style, fs, spikes = 0) {
   // falls to the shoulders, so there's no line where the hanging hair starts; shorter at the face
   if (style === 3) for (let a = -104; a <= 104; a += hd ? 17.33 : 34.67) {
     const side = Math.abs(a) / 104, la = a * 0.72 * D2R, th0 = (84 + 30 * r()) * D2R, th1 = (172 - 22 * side) * D2R;
-    const y1 = 1.415 + 0.06 * side ** 3 + 0.03 * r(), over = hd ? 4 : 2, fall = hd ? 5 : 3, spine = [];
+    // with `fan` it's hockey hair: it falls only to the collar, and its ends swoop up and out (below)
+    const y1 = fan ? 1.47 + 0.035 * side + 0.02 * r() - 0.02 * fan : 1.415 + 0.06 * side ** 3 + 0.03 * r(), over = hd ? 4 : 2, fall = hd ? 6 : 3, spine = [];
     for (let i = 0; i <= over; i++) { const t = i / over; spine.push(lockPoint(th0 + (th1 - th0) * t, la, 1.03 + 0.05 * t)); }
     const e = spine[over];
+    // a settled look's `fan` (0 to 1) flares the hair at the sides out from the head as it falls, the ends
+    // flicked up, and leaves the back hanging; at 0 nothing changes
+    const flare = fan * Math.abs(Math.sin(la)) ** 1.5;
     for (let i = 1; i <= fall; i++) {
       const t = i / fall, k = 1 + 0.1 * Math.sin(Math.PI * Math.min(1, t * 1.3)) + 0.12 * t;
-      spine.push([e[0] * k, e[1] + (y1 - e[1]) * t, ZC - 0.012 + (e[2] - ZC + 0.012) * k]);
+      // the swoop: over its last third a lock turns up and out from the head, more at the sides than the back
+      const curl = fan ? Math.max(0, (t - 0.62) / 0.38) ** 2 : 0, out = 1 + flare * 0.5 * t ** 0.8 + fan * (0.16 + 0.12 * Math.abs(Math.sin(la))) * curl;
+      spine.push([e[0] * k * out, e[1] + (y1 - e[1]) * t + fan * 0.045 * curl, ZC - 0.012 + (e[2] - ZC + 0.012) * k * (1 + fan * 0.12 * curl)]);
     }
-    blade(spine, 0.031 * (0.9 + 0.3 * r()), r());
+    blade(spine, 0.031 * (1 + 0.55 * fan) * (0.9 + 0.3 * r()), r());
   }
   return M;
   function blade(spine, w0, seed) { lockBlade(M, spine, w0, seed, cols, wt); }
@@ -1942,7 +1996,7 @@ function handlebarLocks(M, hd, fs, wt) {
 // thickness that catch the light. A lid's uv is [1 if it moves in a blink, how far it travels].
 function eyeParts(fs) {
   const E = fs.startsWith('sculptSoft') ? EYE.soft : EYE.man, rx = E.w + 0.0022, ry = 0.0118, rz = 0.012, wt = [[B.head, 1]];
-  const ball = newPart('eyes', FIG_SLOT.eye), lids = newPart('lids', FIG_SLOT.lid);
+  const ball = newPart('eyes', FIG_SLOT.eye), lids = newPart('lids', FIG_SLOT.lid), socket = newPart('socket', FIG_SLOT.eye);
   for (const side of [1, -1]) {
     const cx = side * E.x, cy = EYE.y;
     let zc = Infinity;
@@ -1950,14 +2004,31 @@ function eyeParts(fs) {
       const ex = (i / 8) * rx, ey = (j / 6) * ry, q = 1 - (ex / rx) ** 2 - (ey / ry) ** 2;
       if (q > 0) zc = Math.min(zc, facePoint(cx + ex, cy + ey, fs)[2] - rz * Math.sqrt(q) - 0.0007);
     }
-    const R = [], rings = 7, cols = 14;
+    // the ball carries the depth of the skin over its middle in its aux: gl/figure-hd.js traces the line of sight out to it
+    const R = [], rings = 7, cols = 14, zs = facePoint(cx, cy, fs)[2];
     for (let i = 1; i <= rings; i++) {
       const a = (i / rings) * 1.9, ring = [];
-      for (let k = 0; k < cols; k++) { const b = (k / cols) * TAU, x = rx * Math.sin(a) * Math.cos(b), y = ry * Math.sin(a) * Math.sin(b); ring.push(addV(ball, [cx + x, cy + y, zc + rz * Math.cos(a)], wt, 0, [x / ry, y / ry])); }
+      for (let k = 0; k < cols; k++) { const b = (k / cols) * TAU, x = rx * Math.sin(a) * Math.cos(b), y = ry * Math.sin(a) * Math.sin(b); ring.push(addV(ball, [cx + x, cy + y, zc + rz * Math.cos(a)], wt, zs, [x / ry, y / ry])); }
       R.push(ring);
     }
     stitchRings(ball, R);
-    capFan(ball, R[0], addV(ball, [cx, cy, zc + rz], wt, 0, [0, 0]), true);
+    capFan(ball, R[0], addV(ball, [cx, cy, zc + rz], wt, zs, [0, 0]), true);
+    // the socket's lining: from round the ball, behind its widest, out to just behind the skin a few millimetres past
+    // the opening, so every line of sight through the opening lands on the eye. Without it, seen from below or the side
+    // the line passed the ball into the head and met the ink's shell behind it (black). Its uv is the ball's, 10 up,
+    // which gl/figure-hd.js reads as lining.
+    const SR = [], sa = (5 / rings) * 1.9;
+    for (const f of [0, 0.5, 1]) {
+      const ring = [];
+      for (let k = 0; k < cols; k++) {
+        const b = (k / cols) * TAU, sb = Math.sin(b), xi = rx * Math.sin(sa) * Math.cos(b), yi = ry * Math.sin(sa) * sb, zi = zc + rz * Math.cos(sa);
+        const xo = (E.w + 0.0035) * Math.cos(b), yo = E.tilt * side * xo + (sb >= 0 ? E.t + 0.003 : -(E.b + 0.0025)) * sb * sb;
+        const x = xi + (xo - xi) * f, y = yi + (yo - yi) * f, z = Math.min(zi + (facePoint(cx + xo, cy + yo, fs)[2] - zi) * f, facePoint(cx + x, cy + y, fs)[2] - 0.0012);
+        ring.push(addV(socket, [cx + x, cy + y, z], wt, zs, [x / ry, y / ry + 10]));
+      }
+      SR.push(ring);
+    }
+    stitchRings(socket, SR);
     for (const up of [true, false]) {
       const n = 12, cols2 = 6, L = [], yOf = (ex, K) => cy + E.tilt * ex + (up ? E.t : -E.b) * K;
       for (let i = 0; i <= n; i++) {
@@ -1970,7 +2041,7 @@ function eyeParts(fs) {
       for (const [ring, top] of [[L[0], true], [L[n], false]]) { const c = [0, 0, 0]; for (const v of ring) for (let j = 0; j < 3; j++) c[j] += lids.P[v * 3 + j] / ring.length; capFan(lids, ring, addV(lids, c, wt, 0.5, [up ? 1 : 0, 0]), top); }
     }
   }
-  return [ball, lids];
+  return [ball, lids, socket];
 }
 
 // ── The head (close-up only): actor-head.js's skin and shell, riding the head and neck bones ───────
@@ -1981,7 +2052,9 @@ function headParts(style, lv, sculpt = false, fs = 'comic', neckK = 1) {
     const f = H.F[i], slot = f === 8 ? FIG_SLOT.ear : f === 12 ? FIG_SLOT.neck : FIG_SLOT.face, w = H.W[i];
     // a build's neck, round the neck's own axis
     const nk = f === 12 ? neckK : 1;
-    addV(Hs, [H.P[i * 3] * nk, H.P[i * 3 + 1], -0.016 + (H.P[i * 3 + 2] + 0.016) * nk], w >= 1 ? [[B.head, 1]] : [[B.head, w], [B.neck, 1 - w]], f === 8 ? H.X[i] : H.E[i]);
+    // the fine head's face and neck carry 0.25 in their aux (still piece 0), which tells gl/figure-hd.js the geometry
+    // holds the planes; its ears carry 2 plus their bowl's depth (actor-head.js addEarFine)
+    addV(Hs, [H.P[i * 3] * nk, H.P[i * 3 + 1], -0.016 + (H.P[i * 3 + 2] + 0.016) * nk], w >= 1 ? [[B.head, 1]] : [[B.head, w], [B.neck, 1 - w]], f === 8 ? H.X[i] : lv === 'hd' && (f === 7 || f === 12) ? 0.25 : H.E[i]);
     (Hs.S ||= []).push(slot);
   }
   Hs.I = Array.from(H.I);
@@ -2037,6 +2110,9 @@ export const SCULPT_BUILDS = {
   // out past them, the neck thick, standing a touch back to carry it
   dadbod: { chest: 1.02, waist: 1.12, hips: 1.04, belly: 0.05, arm: 1.0, leg: 1.0, neck: 1.2, sh: 0.004, hunch: 0.05, abduct: 0.04 },
   woman: { chest: 0.87, waist: 0.8, hips: 1.14, bust: 0.026, arm: 0.88, leg: 0.97, neck: 0.82, sh: -0.02 },
+  // a big man built big all over rather than round in the middle: broad through the chest and hips, a modest belly,
+  // heavy thighs and calves, a thick neck (Angus Malcolm at Screw It)
+  stocky: { chest: 1.05, waist: 1.03, hips: 1.07, belly: 0.012, arm: 1.04, leg: 1.13, neck: 1.18, sh: 0.004, hunch: 0.03 },
 };
 const buildOf = (name) => SCULPT_BUILDS[name] || SCULPT_BUILDS.average;
 // What a man has on his face. `stubble` is the painted shadow's strength. `shape` turns on the solid painted
@@ -2381,6 +2457,135 @@ function gogglesMesh(Lv) {
   }
   return M;
 }
+// A pair of glasses (flags.figure.glasses, `specs` in the key): two rectangular rims over the eyes on the face's
+// own curve (`fs`), a bridge over the nose and the arms back along the sides of the head to the ears. Frames only:
+// the eyes are drawn through them.
+function specsMesh(Lv, fs) {
+  const M = newPart('specs', FIG_SLOT.specs), wt = [[B.head, 1]], n = Lv.name === 'hd' ? 6 : 4, R = 0.0013;
+  const W = 0.0205, H = 0.0118, y = FACE.eyeY + 0.0012, ex = EYE.man.x;
+  // the lenses' plane stands this far in front of the face at the eye
+  const zAt = (x) => facePoint(x, y, fs)[2] + 0.0105;
+  for (const sd of [1, -1]) {
+    const cx = sd * ex, z = zAt(cx), ring = [];
+    for (let i = 0; i <= 24; i++) {
+      // a rounded rectangle, a little wider at the top
+      const a = (i / 24) * TAU, c = Math.cos(a), s = Math.sin(a);
+      const sx = Math.sign(c) * Math.abs(c) ** 0.45, sy = Math.sign(s) * Math.abs(s) ** 0.55;
+      const x = cx + sx * W * (sy > 0 ? 1 : 0.94), yy = y + sy * H;
+      ring.push([x, yy, z - 0.004 * ((x - cx) * sd > 0 ? ((x - cx) * sd) / W : 0) ** 2]);
+    }
+    tubeAlong(M, ring, ring.map(() => R), n, wt, [0, 0, 1], 1, FIG_PIECE.goggles);
+    // the arm: from the rim's outer top corner, round the side of the head, down behind the ear
+    const x0 = cx + sd * W, arm = [[x0, y + H * 0.6, z - 0.004]];
+    for (const phi of [0.62, 0.38, 0.14, -0.1, -0.3]) {
+      const q = skullPoint(y + H * 0.5 - (phi < 0 ? 0.008 * (-phi / 0.3) : 0), phi, fs), d = norm3([q[0], 0, q[2] - ZC]);
+      arm.push([sd * (Math.abs(q[0]) + Math.abs(d[0]) * 0.006), q[1], q[2] + d[2] * 0.006]);
+    }
+    tubeAlong(M, arm, arm.map((_, i) => R * (i ? 0.85 : 1)), n, wt, [0, 1, 0], 1, FIG_PIECE.goggles);
+  }
+  // the bridge, arched over the nose
+  const bz = facePoint(0, y + 0.004, fs)[2] + 0.0075, ix = ex - W;
+  tubeAlong(M, [[ix, y + 0.003, zAt(ex) - 0.001], [ix * 0.4, y + 0.0055, bz], [-ix * 0.4, y + 0.0055, bz], [-ix, y + 0.003, zAt(-ex) - 0.001]], [R, R, R, R], n, wt, [0, 1, 0], 1, FIG_PIECE.goggles);
+  return M;
+}
+// A cap's peak (FIGURE_HATS `bill`): rooted round the crown's front at the bill's height, reaching `out` past it at
+// the middle and nothing at the ends, so its outline is a crescent; the sides curved down (`bend`), the whole tipped
+// down a little (`tilt`). Each ring across it is a closed loop, top surface then underside (FIG_PIECE.billUnder,
+// which takes the cap's `hat_under` colour), and the front edge is capped.
+function hatBill(HT, Lv) {
+  const BL = HT.bill, [, cyc, czc] = HT.crown[0], [rx, ry, rz] = HT.crown[1], hd = Lv.name === 'hd';
+  const ns = hd ? 16 : 8, nt = hd ? 5 : 3, k = Math.sqrt(Math.max(0, 1 - ((BL.y - cyc) / ry) ** 2)), wt = [[B.head, 1]];
+  const at = (s, t, low) => {
+    const ph = s * BL.span, n = [Math.sin(ph), Math.cos(ph)], o = BL.out * Math.sqrt(Math.max(0, 1 - s * s)) * t;
+    const y = BL.y - BL.bend * s * s * t ** 0.85 - BL.tilt * t - (low ? BL.th * (1 - 0.4 * t) : 0);
+    return [rx * k * n[0] + n[0] * o, y, czc + rz * k * n[1] + n[1] * o];
+  };
+  const M = newPart('bill', FIG_SLOT.hat), R = [];
+  for (let j = 0; j <= nt; j++) {
+    const t = j / nt, ring = [];
+    for (let i = 0; i <= ns; i++) ring.push(addV(M, at(-1 + (2 * i) / ns, t, false), wt, FIG_PIECE.bill));
+    for (let i = ns; i >= 0; i--) ring.push(addV(M, at(-1 + (2 * i) / ns, t, true), wt, FIG_PIECE.billUnder));
+    R.push(ring);
+  }
+  stitchRings(M, R);
+  const e = at(0, 1, false);
+  capFan(M, R[nt], addV(M, [e[0], e[1] - BL.th * 0.3, e[2]], wt, FIG_PIECE.bill), false);
+  orient(M);
+  return M;
+}
+// ── A WORK VEST'S MAKING (FIGURE_CUTS workvest) ─────────────────────────────────────────────────────────
+// A point on a torso layer: at height y, round it by angle a (pi/2 straight ahead, less to the wearer's left), `e`
+// out past its surface. `ringAt` is the layer's (clothLayer); the axis is the torso's own.
+function onTorso(ringAt, a, y, e) {
+  const ring = ringAt(y), cz = torsoSection(Math.max(T_TORSO.lo, Math.min(T_TORSO.hi, y))).cz, d = [Math.cos(a), Math.sin(a)];
+  const t = ring ? rayOut(hull2(ring), [0, cz], d) : 0.15;
+  return [d[0] * (t + e), y, cz + d[1] * (t + e)];
+}
+// A box standing off a torso layer: its outline the rectangle a0..a1 round, y0..y1 up, its sides from `e0` to `e1`
+// out and its face pillowed `bulge` past that. Skinned to the torso at each point's height. Its own part.
+function torsoBox(name, slot, ringAt, a0, a1, y0, y1, e0, e1, bulge, aux) {
+  const M = newPart(name, slot), per = [], n = 4;
+  for (let i = 0; i < n; i++) per.push([a1 + (a0 - a1) * (i / n), y1]);
+  for (let i = 0; i < n; i++) per.push([a0, y1 + (y0 - y1) * (i / n)]);
+  for (let i = 0; i < n; i++) per.push([a0 + (a1 - a0) * (i / n), y0]);
+  for (let i = 0; i < n; i++) per.push([a1, y0 + (y1 - y0) * (i / n)]);
+  const ring = (e) => per.map(([a, y]) => addV(M, onTorso(ringAt, a, y, e), TORSO_CHAIN(y), aux));
+  const R0 = ring(e0), R1 = ring(e1), am = (a0 + a1) / 2, ym = (y0 + y1) / 2;
+  stitchRings(M, [R0, R1]);
+  capFan(M, R1, addV(M, onTorso(ringAt, am, ym, e1 + bulge), TORSO_CHAIN(ym), aux), false);
+  orient(M);
+  return M;
+}
+// The vest's pockets: two on the chest and two lower, each a box with a flap over its mouth and a snap on the flap,
+// and a pen in the left chest pocket. `ringAt` is the vest's layer.
+function vestPockets(ringAt, Lv) {
+  const out = [], H = Math.PI / 2, hd = Lv.name === 'hd';
+  const P = [
+    { c: 0.6, w: 0.19, y0: 1.235, y1: 1.33, d: 0.011 },
+    { c: 0.7, w: 0.26, y0: 0.985, y1: 1.115, d: 0.015 },
+  ];
+  for (const sd of [1, -1]) for (const [i, p] of P.entries()) {
+    const ac = H - sd * p.c, a0 = ac - p.w, a1 = ac + p.w;
+    out.push(torsoBox('pocket', FIG_SLOT.top, ringAt, a0, a1, p.y0, p.y1, 0.0006, p.d, 0.004, FIG_PIECE.pocket));
+    // the flap: a little wider than the mouth, from just over it to a third of the way down, standing proud of it
+    const fy0 = p.y1 - (p.y1 - p.y0) * 0.36;
+    out.push(torsoBox('flap', FIG_SLOT.top, ringAt, a0 - 0.02, a1 + 0.02, fy0, p.y1 + 0.008, 0.0008, p.d + 0.004, 0.0015, FIG_PIECE.pocket));
+    if (!hd && Lv.name !== 'lite') continue;
+    // the snap, a press stud on the flap's middle
+    const S = newPart('snap', FIG_SLOT.specs), c = onTorso(ringAt, ac, fy0 + 0.012, p.d + 0.0065);
+    blobInto(S, c, [-Math.sin(ac), 0, Math.cos(ac)], [0, 1, 0], [Math.cos(ac), 0, Math.sin(ac)], [0.0055, 0.0055, 0.0025], 8, 4, 2, TORSO_CHAIN(fy0), FIG_PIECE.pocket);
+    out.push(S);
+    // a pen clipped in the left chest pocket, its cap standing out of the mouth
+    if (i === 0 && sd > 0) {
+      const Pn = newPart('pen', FIG_SLOT.specs), b = onTorso(ringAt, a1 - 0.05, p.y1 - 0.02, p.d * 0.5), t = onTorso(ringAt, a1 - 0.05, p.y1 + 0.03, p.d * 0.5);
+      tubeAlong(Pn, [b, t], [0.0038, 0.0034], 6, TORSO_CHAIN(p.y1), [1, 0, 0], 1, FIG_PIECE.pocket);
+      out.push(Pn);
+    }
+  }
+  return out;
+}
+// The binding down each edge of an open front, from the neck to the hem: short lengths of tube, each skinned at its
+// own height so it follows the body as it bends. `half(y)` is the opening's half-width.
+function frontBinding(ringAt, half, yTop, yBot, slot) {
+  const out = [], step = 0.04;
+  for (const sd of [1, -1]) {
+    const pts = [];
+    for (let y = yTop; y > yBot - 1e-6; y -= step) {
+      const ring = ringAt(y);
+      if (!ring) continue;
+      const cz = torsoSection(Math.max(T_TORSO.lo, Math.min(T_TORSO.hi, y))).cz;
+      let best = null;
+      for (const q of ring) if (q[2] > cz && (!best || Math.abs(q[0] - sd * half(y)) < Math.abs(best[0] - sd * half(y)))) best = q;
+      if (best) { const d = norm3([best[0], 0, best[2] - cz]); pts.push([sd * half(y), y, best[2] + d[2] * 0.002]); }
+    }
+    for (let i = 0; i < pts.length - 1; i++) {
+      const M = newPart('binding', slot), ym = (pts[i][1] + pts[i + 1][1]) / 2;
+      tubeAlong(M, [pts[i], pts[i + 1]], [0.0035, 0.0035], 5, TORSO_CHAIN(ym), [0, 0, 1], 1.6, FIG_PIECE.pocket);
+      out.push(M);
+    }
+  }
+  return out;
+}
 // A necklace of teeth at the collarbones, each a little cone hanging point down.
 function teethMesh(Lv, layers) {
   const M = newPart('teeth', FIG_SLOT.horn), n = 13, rr = rng(0x7e7);
@@ -2415,14 +2620,14 @@ export function figureForget(k) { _cache.delete(figureKey(k)); }
 const GEAR_LETTER = { belt: 'b', strap: 's', pouch: 'p', pads: 'k' };
 const gearCode = (g) => Object.entries(GEAR_LETTER).map(([k, c]) => ((k === 'belt' ? g?.belt !== false : !!g?.[k]) ? c : '')).join('');
 // `sculpt` is the revised figure (docs/proposals/sculpted-figure.md), on the close-up levels only.
-export const figureKey = ({ cut = 'coat', style = 0, level = 'hd', wear = null, gear = null, body = null, sculpt = false, head = 0, build = 'average', weight = null, beard = '', prop = '', bust = null, butt = null, groin = '', bottoms = '', hat = '', scarf = '', spikes = 0 } = {}) => `${cut}|${style}|${level}|${wear ? JSON.stringify(wear) : ''}|${gearCode(gear)}|${bodyCode(body)}${sculpt ? '|s' + head + build + (weight === null ? '' : '|w' + weight) + (beard ? '|b' + beard : '') + (prop ? '|p' + prop : '') + (bust === null ? '' : '|B' + bust) + (butt === null ? '' : '|T' + butt) + (groin ? '|g' + groin : '') + (spikes ? '|k' + spikes : '') : ''}${bottoms ? '|o' + bottoms : ''}${hat ? '|h' + hat : ''}${scarf ? '|f' + scarf : ''}`;
+export const figureKey = ({ cut = 'coat', style = 0, level = 'hd', wear = null, gear = null, body = null, sculpt = false, head = 0, build = 'average', weight = null, beard = '', prop = '', bust = null, butt = null, groin = '', bottoms = '', hat = '', scarf = '', spikes = 0, specs = 0, fan = 0, boots = '', faceHd = false } = {}) => `${cut}|${style}|${level}|${wear ? JSON.stringify(wear) : ''}|${gearCode(gear)}|${bodyCode(body)}${sculpt ? '|s' + head + build + (weight === null ? '' : '|w' + weight) + (beard ? '|b' + beard : '') + (prop ? '|p' + prop : '') + (bust === null ? '' : '|B' + bust) + (butt === null ? '' : '|T' + butt) + (groin ? '|g' + groin : '') + (spikes ? '|k' + spikes : '') : ''}${bottoms ? '|o' + bottoms : ''}${hat ? '|h' + hat : ''}${scarf ? '|f' + scarf : ''}${specs ? '|e' : ''}${fan ? '|n' + fan : ''}${boots ? '|t' + boots : ''}${faceHd ? '|F' : ''}`;
 const SCULPT_DY = { hd: { torso: 0.018, arm: 0.02, leg: 0.024, foot: 0.016 }, lite: { torso: 0.023, arm: 0.025, leg: 0.03, foot: 0.024 } };
-export function buildFigure({ cut = 'coat', style = 0, level = 'hd', wear = null, gear = null, body = null, sculpt: sculptAsked = false, head = 0, build = 'average', weight = null, beard = '', prop = '', bust = null, butt = null, groin = '', bottoms = '', hat = '', scarf = '', spikes = 0 } = {}) {
-  const key = figureKey({ cut, style, level, wear, gear, body, sculpt: sculptAsked, head, build, weight, beard, prop, bust, butt, groin, bottoms, hat, scarf, spikes });
+export function buildFigure({ cut = 'coat', style = 0, level = 'hd', wear = null, gear = null, body = null, sculpt: sculptAsked = false, head = 0, build = 'average', weight = null, beard = '', prop = '', bust = null, butt = null, groin = '', bottoms = '', hat = '', scarf = '', spikes = 0, specs = 0, fan = 0, boots = '', faceHd = false } = {}) {
+  const key = figureKey({ cut, style, level, wear, gear, body, sculpt: sculptAsked, head, build, weight, beard, prop, bust, butt, groin, bottoms, hat, scarf, spikes, specs, fan, boots, faceHd });
   if (_cache.has(key)) return _cache.get(key);
   // a MORPHEX cut is drawn by the sculpted figure only; any other level draws the street style it's nearest
   if (HAIR_CUTS[style] && !(sculptAsked && FIGURE_LEVELS[level].skin)) style = cutBase(style);
-  const sculpt = sculptAsked && FIGURE_LEVELS[level].skin, BK = sculpt ? buildOf(build) : SCULPT_BUILDS.average, SW = sculpt && weight !== null ? somaOf(weight) : null, NKb = BK.neck * (SW ? SW.neck : 1), NK = sculpt ? NECK_SCULPT * NKb : 1, FS = sculpt ? weightedFace(SCULPT_HEADS[head] || 'sculpt', weight) : 'comic';
+  const sculpt = sculptAsked && FIGURE_LEVELS[level].skin, BK = sculpt ? buildOf(build) : SCULPT_BUILDS.average, SW = sculpt && weight !== null ? somaOf(weight) : null, NKb = BK.neck * (SW ? SW.neck : 1), NK = sculpt ? NECK_SCULPT * NKb : 1, FS0 = sculpt ? weightedFace(SCULPT_HEADS[head] || 'sculpt', weight) : 'comic', FS = sculpt && faceHd && level === 'hd' ? hdFace(FS0) : FS0;
   const Lv = sculpt ? { ...FIGURE_LEVELS[level], dy: SCULPT_DY[level] } : FIGURE_LEVELS[level];
   const C0 = FIGURE_CUTS[cut] || FIGURE_CUTS.coat, C = sculpt ? sculptCut(C0, SW ? SW.fat : 0) : C0, code = gearCode(gear);
   const G = { belt: code.includes('b'), strap: code.includes('s') && Lv.skin, pouch: code.includes('p') && Lv.skin, pads: code.includes('k') && Lv.skin };
@@ -2430,7 +2635,10 @@ export function buildFigure({ cut = 'coat', style = 0, level = 'hd', wear = null
   const TR0 = sculpt ? { ...TROUSERS, hug: 0.6, ease: 0.006, seatDrape: 3, seatFoot: 0.85 } : TROUSERS;
   // underwear cuts its trousers short (a cut's `legs`)
   const BT = !C.legs && C.top.hem >= 0.81 ? FIGURE_BOTTOMS[bottoms] || null : null;
-  const TR = C.legs ? { ...TR0, ...C.legs } : BT ? { ...TR0, ...BT.legs } : TR0, legHem = TR.hem, legWaist = TR.waist;
+  // steel-toe work boots (`boots: 'steeltoe'`): built before the trousers, which hang straight over the shaft to the
+  // instep with no cuff; the foot chunkier, its sole thicker, its toe longer and boxed
+  const over = boots === 'steeltoe' && !C.legs && !BT;
+  const TR = C.legs ? { ...TR0, ...C.legs } : BT ? { ...TR0, ...BT.legs } : TR0, legHem = over ? 0.085 : TR.hem, legWaist = TR.waist;
   // the street's levels have no sculpted head or paint, but they can take its body, for actor3d.js's body offsets
   const shaped = sculptAsked && !sculpt && weight !== null, PT = partsFor(body, sculpt || shaped, build, weight, sculpt ? bust : null, sculpt ? butt : null, sculpt ? groin : '', sculpt && level === 'hd'), BD = Lv.skin ? body || {} : {};
   const slotOf = (name, dflt) => (name === 'shirt' ? FIG_SLOT.shirt : name === 'cloak' ? FIG_SLOT.cloak : dflt);
@@ -2440,8 +2648,8 @@ export function buildFigure({ cut = 'coat', style = 0, level = 'hd', wear = null
   const cov = (name, lo, hi) => { (cover[name] ||= []).push([lo, hi]); };
   const skirt = on.top && C.top.hem < 0.81;
 
-  // trousers first, so whatever goes over them hulls them
-  if (on.legs) {
+  // trousers first, so whatever goes over them hulls them (boots worn under the jeans go first instead)
+  const trousers = () => { if (on.legs) {
     for (const s of [1, -1]) {
       const L = s > 0 ? 'L' : 'R', P = PT['leg' + L];
       // a leg's cloth is hidden above a coat's hem, so it starts just above it
@@ -2465,11 +2673,11 @@ export function buildFigure({ cut = 'coat', style = 0, level = 'hd', wear = null
       layers.torso.push(clothLayer(rings));
       cov('torso', 0, legWaist - 0.012);
     }
-  }
-  if (on.shoes) {
+  } };
+  const shoes = () => { if (on.shoes) {
     for (const s of [1, -1]) {
       const L = s > 0 ? 'L' : 'R', P = PT['leg' + L];
-      parts.push(footMesh(s, Lv, FIG_SLOT.shoes, SHOE.ease, shoeSole, [SHOE.heel, SHOE.toe]));
+      parts.push(over ? footMesh(s, Lv, FIG_SLOT.shoes, SHOE.ease + 0.007, (z) => shoeSole(z) + 0.008, [SHOE.heel + 0.007, SHOE.toe + 0.014]) : footMesh(s, Lv, FIG_SLOT.shoes, SHOE.ease, shoeSole, [SHOE.heel, SHOE.toe]));
       cov('foot' + L, -1, 2);
       // the boot's shaft, over whatever the leg wears there, a little fuller at its top
       const sp = { name: 'boot' + L, kind: 'leg', aux: FIG_PIECE.boot, y0: BOOT.top, y1: BOOT.foot, wraps: () => ['leg' + L], centre: (y) => { const S = P.at(y); return [S.cx, S.cz]; },
@@ -2480,12 +2688,13 @@ export function buildFigure({ cut = 'coat', style = 0, level = 'hd', wear = null
       cov('leg' + L, -1, BOOT.top - 0.012);
       // the trousers' cuff rolled up and resting on the boot's top, over the trouser above and the
       // shaft below
-      if (on.legs && legHem < BOOT.top && !(skirt && C.top.hem < BOOT.top + 0.06)) {
+      if (!over && on.legs && legHem < BOOT.top && !(skirt && C.top.hem < BOOT.top + 0.06)) {
         const cs = { name: 'cuff' + L, kind: 'leg', aux: FIG_PIECE.cuff, y0: BOOT.top + 0.032, y1: BOOT.top - 0.01, wraps: () => ['leg' + L], centre: (y) => { const S = P.at(y); return [S.cx, S.cz]; }, ease: () => 0.007, hug: 0, drape: 9 };
         parts.push(clothMesh(clothRings(layers, cs, Lv), cs, Lv, (x, y) => legW(L)(y), FIG_SLOT.legs));
       }
     }
-  }
+  } };
+  if (over) { shoes(); trousers(); } else { trousers(); shoes(); }
   // a skirt over the briefs, from the waist, round the legs below the crotch as a coat's hem is
   if (on.legs && BT?.skirt && Lv.skin) {
     const K = BT.skirt;
@@ -2499,10 +2708,10 @@ export function buildFigure({ cut = 'coat', style = 0, level = 'hd', wear = null
     cov('torso', K.hem + 0.012, K.waist - 0.006);
   }
   if (on.top) {
-    const T = C.top;
-    // the body of the top: the torso from the neck to the hem, and round the legs below the crotch
-    const spec = {
-      name: 'top', kind: 'torso', y0: T.neck, y1: T.hem,
+    // a top worn open over its own tee (FIGURE_CUTS `undertop`): the tee first, in the shirt's slot, so the top over
+    // it hulls it and its open front shows it
+    const topSpec = (T, name) => ({
+      name, kind: 'torso', y0: T.neck, y1: T.hem,
       wraps: (y) => (y >= T_TORSO.lo + 0.005 ? (y < 0.95 ? ['torso', 'legL', 'legR'] : ['torso']) : ['legL', 'legR']),
       centre: (y) => [0, torsoSection(Math.max(T_TORSO.lo, Math.min(T_TORSO.hi, y))).cz],
       // over the trousers' waist the top stands off them, not the skin
@@ -2518,18 +2727,51 @@ export function buildFigure({ cut = 'coat', style = 0, level = 'hd', wear = null
         const y = T.neck + 0.006, N = neckAt(y, NK), ce = C.collar ? C.collar.ease : 0.004, ax = N.rx + ce, az = N.rz + ce;
         return R0.dirs.map((d) => { const t = 1 / Math.hypot(d[0] / ax, d[1] / az); return [d[0] * t, y, N.cz + d[1] * t]; });
       },
-    };
+    });
+    if (C.undertop) {
+      const usp = topSpec(C.undertop, 'undertop'), urings = clothRings(layers, usp, Lv);
+      parts.push(clothMesh(urings, usp, Lv, torsoW, FIG_SLOT.shirt));
+      layers.torso.push(clothLayer(urings));
+    }
+    const T = C.top, spec = topSpec(T, 'top');
     // below the torso's foot the legs' layer is the trousers'
-    const rings = clothRings(layers, spec, Lv);
-    parts.push(clothMesh(rings, spec, T.jag ? { ...Lv, hem: false } : Lv, skirt ? skirtW : torsoW, FIG_SLOT.top));
-    layers.torso.push(clothLayer(rings));
+    const rings = clothRings(layers, spec, Lv), topPart = clothMesh(rings, spec, T.jag ? { ...Lv, hem: false } : Lv, skirt ? skirtW : torsoW, FIG_SLOT.top);
+    // an open front (`openFront`, half-widths at the neck and the hem): the top's cloth cut away in a V down the front,
+    // so what's under it shows, and its two edges bound
+    const half = C.openFront ? (y) => C.openFront[0] + (C.openFront[1] - C.openFront[0]) * Math.max(0, Math.min(1, (T.neck - y) / (T.neck - T.hem))) : null;
+    if (half) {
+      // every point of the cloth inside the opening is moved out to its edge, on its own side, so the edge runs as
+      // one clean line; a face left with points on both edges would bridge the gap, and one with all three on an
+      // edge is a sliver, so both go. Deleting whole faces left the edge a saw-tooth.
+      const P = topPart.P, side = new Int8Array(P.length / 3), keep = [];
+      for (let v = 0; v < P.length / 3; v++) {
+        const x = P[v * 3], y = P[v * 3 + 1], z = P[v * 3 + 2], cz = torsoSection(Math.max(T_TORSO.lo, Math.min(T_TORSO.hi, y))).cz, h = half(y);
+        if (z > cz && Math.abs(x) < h && y > T.hem - 0.002) { side[v] = x >= 0 ? 1 : -1; P[v * 3] = side[v] * h; }
+      }
+      for (let t = 0; t < topPart.I.length; t += 3) {
+        const v = [topPart.I[t], topPart.I[t + 1], topPart.I[t + 2]], s = v.map((i) => side[i]);
+        if (s.includes(1) && s.includes(-1)) continue;
+        if (s[0] && s[1] && s[2]) continue;
+        keep.push(...v);
+      }
+      topPart.I = keep;
+    }
+    parts.push(topPart);
+    const topLayer = clothLayer(rings);
+    layers.torso.push(topLayer);
     cov('torso', T.hem + 0.012, T.neck - 0.006);
-    // the sleeves
-    for (const s of (C.sleeve ? [1, -1] : [])) {
-      const L = s > 0 ? 'L' : 'R', P = PT['arm' + L], Sl = C.sleeve;
+    if (half && Lv.skin) parts.push(...frontBinding(topLayer.ringAt, half, T.neck - 0.012, T.hem + 0.012, FIG_SLOT.top));
+    if (C.pockets && Lv.skin) parts.push(...vestPockets(topLayer.ringAt, Lv));
+    // the sleeves: a long sleeve under the cut's own first, where it has one (`undersleeve`, in the shirt's slot:
+    // a ballplayer's undershirt under his jersey's short sleeve), so the sleeve over it hulls it
+    const sleeveSets = [];
+    if (C.undersleeve && Lv.skin) sleeveSets.push([C.undersleeve, 'under', FIG_SLOT.shirt]);
+    if (C.sleeve) sleeveSets.push([C.sleeve, 'sleeve', FIG_SLOT.top]);
+    for (const [Sl, prefix, slot0] of sleeveSets) for (const s of [1, -1]) {
+      const L = s > 0 ? 'L' : 'R', P = PT['arm' + L];
       const lean = deltoidLean(P, sculpt ? 0.25 : 0.5);
       const sp = {
-        name: 'sleeve' + L, kind: 'arm', y0: P.hi - (sculpt ? 0.012 : 0.004), y1: Sl.cuff,
+        name: prefix + L, kind: 'arm', y0: P.hi - (sculpt ? 0.012 : 0.004), y1: Sl.cuff,
         wraps: () => ['arm' + L], centre: (y) => { const S = P.at(y); return [S.cx, S.cz]; },
         ease: (y) => Sl.ease + Sl.open * smooth(Sl.cuff + 0.06, Sl.cuff, y) + 0.6 * (C.shoulder || 0) * smooth(1.33, 1.4, y), hug: sculpt ? 0.6 : 0.3, drape: Sl.drape, aux: FIG_PIECE.sleeve,
         capTop: (R0) => { const c = armCapPoint(s, P); return [c[0], c[1] + Sl.ease - (sculpt ? 0.016 : 0), c[2]]; },
@@ -2537,7 +2779,7 @@ export function buildFigure({ cut = 'coat', style = 0, level = 'hd', wear = null
       };
       const rings = clothRings(layers, sp, Lv);
       for (const r of rings) r.pts = r.pts.map(lean);
-      const part = clothMesh(rings, sp, Lv, (x, y) => armW(L)(y), slotOf(Sl.slot, FIG_SLOT.top));
+      const part = clothMesh(rings, sp, Lv, (x, y) => armW(L)(y), slotOf(Sl.slot, slot0));
       parts.push(part);
       layers['arm' + L].push(clothLayer(rings));
       cov('arm' + L, Sl.cuff + 0.012, 2);
@@ -2582,11 +2824,12 @@ export function buildFigure({ cut = 'coat', style = 0, level = 'hd', wear = null
       layers.torso.push(clothLayer(mr));
     }
     // a hood down, bunched behind the neck, and its drawstrings down the front
-    // a hat: its crown and brim on the head bone, in the shoes' colour (leather, felt, a hard shell)
+    // a hat: its crown and brim on the head bone, in its own slot (the shoes' colour unless the look names one)
     const HT = Lv.skin && FIGURE_HATS[hat];
-    if (HT) {
-      const M = newPart('hat', FIG_SLOT.shoes), nu = Lv.name === 'hd' ? 24 : 12, nv = Lv.name === 'hd' ? 12 : 6;
+    if (HT && (HT.crown || HT.band || HT.brim)) {
+      const M = newPart('hat', FIG_SLOT.hat), nu = Lv.name === 'hd' ? 24 : 12, nv = Lv.name === 'hd' ? 12 : 6;
       for (const k of ['crown', 'band', 'brim']) if (HT[k]) blobInto(M, HT[k][0], [1, 0, 0], [0, 1, 0], [0, 0, 1], HT[k][1], nu, nv, HT[k][2], [[B.head, 1]], FIG_PIECE.hat);
+      if (HT.bill && HT.crown) parts.push(hatBill(HT, Lv));
       parts.push(M);
     }
     // a scarf: a loop (or two) round the neck over the collar, and a tail down the front, in the shirt's colour
@@ -2691,18 +2934,22 @@ export function buildFigure({ cut = 'coat', style = 0, level = 'hd', wear = null
     for (const X of [arm, hand]) parts.push({ ...X, name: X.name + '4', slot: FIG_SLOT.skin, Wt: X.Wt.map((w) => w.map(([b, k]) => [map[b] ?? B['arm2U' + L], k])) });
   }
   for (const p of parts) if (p.name !== 'cards') orient(p);
+  // `faceHd` (the Figure Lab's face: hd) puts a sculpted close-up head on actor-head.js's HEAD_HD, about
+  // three times as fine through the face
+  const headLv = faceHd && sculpt && Lv.name === 'hd' ? 'hd' : Lv.head;
   if (Lv.head >= 0) {
-    parts.push(...headParts(style, Lv.head, sculpt, FS, NKb));
-    if (sculpt) { const l = hairLocks(Lv, style, FS, spikes); if (l.I.length) { orient(l); parts.push(l); } }
+    parts.push(...headParts(style, headLv, sculpt, FS, NKb));
+    if (sculpt) { const l0 = hairLocks(Lv, style, FS, spikes, fan), l = FIGURE_HATS[hat]?.under ? compact(underCap(l0)) : l0; if (l.I.length) { orient(l); parts.push(l); } }
     if (sculpt && beard) { const l = beardLocks(Lv, beard, FS); orient(l); parts.push(l); }
     if (sculpt && Lv.name === 'hd') for (const l of eyeParts(FS)) { orient(l); parts.push(l); }
     if (BD.horns) { const h = hornMesh(Lv); orient(h); parts.push(h); }
     if (BD.goggles) parts.push(gogglesMesh(Lv));
+    if (sculpt && specs) { const m = specsMesh(Lv, FS); orient(m); parts.push(m); }
     for (const [on, make] of [[BD.eye3, () => eye3Mesh(Lv, FS)], [BD.compound, () => compoundMesh(Lv, FS)], [BD.ears, () => earMesh(Lv)]]) if (on) { const m = make(); orient(m); parts.push(m); }
     // a second head: the head again, as modelled, carried to the right shoulder by its own bone
     if (BD.head2) {
       const again = (p) => ({ ...p, name: p.name + '2', Wt: p.Wt.map(() => [[B.head2, 1]]) });
-      parts.push(...headParts(style, Lv.head, sculpt, FS, NKb).map(again));
+      parts.push(...headParts(style, headLv, sculpt, FS, NKb).map(again));
       if (sculpt && Lv.name === 'hd') for (const l of eyeParts(FS)) { orient(l); parts.push(again(l)); }
     }
   }
@@ -2714,7 +2961,8 @@ export function buildFigure({ cut = 'coat', style = 0, level = 'hd', wear = null
   if (Lv.skin) out.NF = formNormals(out, Lv.name === 'hd' ? 40 : 16, { at: Lv.name === 'hd' ? 10 : 5, mask: (v) => out.S[v] === FIG_SLOT.face || out.S[v] === FIG_SLOT.ear || out.S[v] === FIG_SLOT.neck });
   // the face lights on its designed planes (form-normals.js faceDesigned), not its smoothed form
   const hp = out.parts.find((p) => p.name === 'head');
-  if (out.NF && hp) out.NF.set(faceDesigned(headMesh(Lv.head, FS, true)), hp.v0 * 3);
+  // on the fine head the field diffuses for longer, so its planes come out about as broad
+  if (out.NF && hp) out.NF.set(headLv === 'hd' ? faceDesigned(headMesh('hd', FS, true), 40, 10, 0.7) : faceDesigned(headMesh(Lv.head, FS, true)), hp.v0 * 3);
   // the seat lights as the hips' round, not down into its cap, or the line where it dips into the
   // trousers shows as a jagged shadow
   const seat = sculpt && out.NF && out.parts.find((p) => p.name === 'seat');
@@ -2729,6 +2977,8 @@ export function buildFigure({ cut = 'coat', style = 0, level = 'hd', wear = null
   }
   // an eye and its lids light by their own round forms, not the face's
   for (const name of ['eyes', 'lids']) { const e = out.parts.find((p) => p.name === name); if (out.NF && e) for (let v = e.v0; v < e.v0 + e.nv; v++) out.NF.set(out.N.subarray(v * 3, v * 3 + 3), v * 3); }
+  // the socket's lining lights as the face's front does, whichever way it winds
+  { const e = out.parts.find((p) => p.name === 'socket'); if (out.NF && e) for (let v = e.v0; v < e.v0 + e.nv; v++) out.NF.set(norm3([0, 0.35, 1]), v * 3); }
   // the locks light with the head's volume, as cards do, so the hair takes one shadow shape
   const lk = out.parts.find((p) => p.name === 'locks');
   if (out.NF && lk) for (let v = lk.v0; v < lk.v0 + lk.nv; v++) {

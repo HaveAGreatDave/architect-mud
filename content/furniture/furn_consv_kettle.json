@@ -6,7 +6,15 @@
       "tin",
       "mugs"
     ],
-    "examine_detail": "Two mugs. One of them gets used."
+    "examine_detail": "Two mugs. One of them gets used.",
+    "look": {
+      "arche": "top",
+      "form": "kettle"
+    },
+    "spot": {
+      "on": "furn_consv_counter_top",
+      "x": -0.7
+    }
   },
   "id": "furn_consv_kettle",
   "name": "the kettle",
