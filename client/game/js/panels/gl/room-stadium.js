@@ -11,11 +11,12 @@
 
 import { MAT } from './ballpark-mesh.js';
 import { legend, legendWidth } from '../../../../shared/legend-font.js';
+import { FT_M } from '../../../../shared/world-scale.js';
 
 const { GLOSS, METAL, SATIN, MATTE } = MAT;
 // the codes gl/room.js reads for a light's own face (room-mesh.js GLOW, LAMP)
 const GLOW = 40, LAMP = 42;
-const FT = 0.3048;
+const FT = FT_M;
 const STEEL = '#8d949b', DARKSTEEL = '#3a3f45', PORCELAIN = '#f1f1ec', CHROME = '#d8dde2';
 
 // THE CUPS, as each sport's renderer has them (gl/arena-mesh.js buildCup, gl/ballpark-mesh.js cupInto), turned

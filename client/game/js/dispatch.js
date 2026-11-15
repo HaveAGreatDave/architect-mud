@@ -1,8 +1,9 @@
 import { state } from './state.js';
 import { saveRememberToken, forgetRememberToken } from './remember.js';
 import { sessionGet, sessionSet, sessionRemove } from './session-store.js';
-import { appendMsg, appendHtml, appendPre, updateVitals, parseZoneInfo, showDevPanelButton, setRoomButton, setAreaPane, setPaneSilent, showSkyBanner, pointAtRoomTarget, setRoomBeacon, clearRoomBeacons, isAreaPaneVisible } from './render.js';
-import { sendCmd, sendCmdSilent, sendRaw, closeConnection, attemptAutoReauth, showVerifyScreen, rememberDisplayRung } from './net.js';
+import { appendMsg, appendHtml, appendPre, updateVitals, parseZoneInfo, showDevPanelButton, setRoomButton, roomButtonAvailable, setAreaPane, setPaneSilent, showSkyBanner, pointAtRoomTarget, setRoomBeacon, clearRoomBeacons, isAreaPaneVisible } from './render.js';
+import { sendCmd, sendCmdSilent, sendRaw, closeConnection, attemptAutoReauth, showVerifyScreen, rememberDisplayRung, setRoomOpener } from './net.js';
+import { preVeil, dropPreVeil } from './panels/glass-veil.js';
 import { setVerbs } from './complete.js';
 import { renderMinimap, setRoadWindow, setGpsRoute, setRunState, startAutoWalk, resumeAutoWalkIfArmed, setAutoWalkPersist, isAutoWalking, isManualAutoWalkInProgress, cancelAutoWalk, autoWalkBlocked, resolveAutoWalkPicker, armAutoWalkPrompt, notifyElevatorDoors } from './panels/minimap.js';
 import { updateEnvironmentHUD, updateZoneTempHUD, refreshZoneVisibility, signalPowerOut, isFxIndoors, setEnvUnreal } from './panels/environment.js';
@@ -405,6 +406,18 @@ let pokerPending = null, pokerOpening = false;
 // how long after logging in the room's people start compiling, clear of the login's own loading
 const FIGURE_WARM_MS = 15000;
 const loadRoom = () => (roomMod ??= import('./panels/room-stage.js').then((m) => { roomLoaded = m; return m; }).catch((e) => { roomMod = null; throw e; }));
+// ⚠ THE VEIL AT THE PRESS. 'room' (typed, or the d-pad's Room button) showed nothing until the server's room_view had
+// come back, the Stage's module had loaded and the room was built: a second or more, longer on a cold cache. Now the
+// loading veil goes up over the pane as the command goes (glass-veil.js preVeil, which the Stage takes over), and the
+// module starts loading beside the round trip. Only where the server has said there's a room (the button lit).
+function roomOpening() {
+  if (!roomButtonAvailable() || roomLoaded?.roomStageOpen?.() || !isAreaPaneVisible()) return;
+  const r = document.getElementById('area-content')?.getBoundingClientRect();
+  const name = document.getElementById('zone-name-display')?.textContent?.trim();
+  preVeil('room-stage', r, { place: name ? { kicker: 'ENTERING', title: name, room: true } : { room: true } });
+  loadRoom().catch(() => {});
+}
+setRoomOpener(roomOpening);
 // A seat takes the pane, and the Room Stage gives way to it: climbing into a vehicle you called up onto a depot's
 // floor (room-hoist.js) seats you in the same room, so no move closes the Stage the way walking out does. Not quiet:
 // it sends `room close`, so the server stops sending this room to somebody now in a seat.
@@ -1125,6 +1138,8 @@ const handlers = {
   },
 
   error: (msg) => {
+    // a 'room' the server turned down: its veil comes down with the reason
+    dropPreVeil('room-stage');
     if (msg.message === 'Session lost. Refresh and reconnect.') {
       appendMsg('Session lost: reconnecting...', 'system');
       attemptAutoReauth();
@@ -1444,7 +1459,7 @@ const handlers = {
   room_avail: (msg) => setRoomButton({ avail: !!msg.on }),
   // one world: a room the street view on foot has drawn is walked into in GLASS (freelook-view.js freelookTakeRoom)
   // a depot room's Stage (one with a stand, room-hoist.js) takes the pane from its counter: Call it up opens it
-  room_view: (msg) => { if (freelookTakeRoom(msg)) return; if (msg.vehicles) closeCounters(); setRoomButton({ open: true }); loadRoom().then((m) => { m.openRoomStage(msg); pokerOpening = false; if (pokerPending) { m.roomPokerPane(pokerPending); pokerPending = null; } }).catch((e) => { setRoomButton({ open: false }); console.error('[room]', e); }); },
+  room_view: (msg) => { if (freelookTakeRoom(msg)) { dropPreVeil('room-stage', true); return; } if (msg.vehicles) closeCounters(); setRoomButton({ open: true }); loadRoom().then((m) => { m.openRoomStage(msg); pokerOpening = false; if (pokerPending) { m.roomPokerPane(pokerPending); pokerPending = null; } }).catch((e) => { dropPreVeil('room-stage', true); setRoomButton({ open: false }); console.error('[room]', e); }); },
   room_ahead: (msg) => { roomMod?.then((m) => m.roomAhead?.(msg)).catch(() => {}); },
   room_piece: (msg) => { roomMod?.then((m) => m.roomPiece(msg)).catch(() => {}); },
   // how the arrange mode's Save went (plugins/roomstage arrangeLayout)
@@ -1475,6 +1490,7 @@ const handlers = {
   // room holds still until it takes the pane, and closes anyway if it never comes
   room_close: (msg) => {
     setRoomButton({ open: false });
+    dropPreVeil('room-stage', true);
     if (msg?.street && document.getElementById('room-stage')) {
       roomMod?.then((m) => { m.roomStageLeaving(); setTimeout(() => { if (!isFreelookActive()) m.closeRoomStage(true); }, 15000); }).catch(() => {});
       return;
@@ -1742,6 +1758,8 @@ const handlers = {
   // message with a new window, and openFreelook swaps the ground under the camera rather than
   // rebuilding the view — which is what keeps the shot you had while the world moves to meet it.
   freelook_open: (msg) => {
+    // 'room' on a street opens the street on foot, under GLASS's own veil
+    if (!msg.prewarm) dropPreVeil('room-stage', true);
     // ⚠ THE STREET OUTSIDE A LOBBY, SENT AHEAD (`prewarm`, plugins/freelook): built hidden behind the Room Stage so
     // walking out through the doors shows it at once. Nothing on screen changes, and a seat or a closed Stage
     // means nobody's about to walk out, so it's dropped.

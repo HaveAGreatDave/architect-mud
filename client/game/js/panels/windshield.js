@@ -120,6 +120,8 @@ function streetPortals(doors, list, ox, oy) {
   for (const d of doors) {
     const E = d.E, tile = d.x + ',' + d.y;
     if (!E || !(d.half > 0.01) || !(d.top > 0.01) || !list.some((r) => r.tile === tile)) continue;
+    // a door that's dark behind (flags.room.street_door.dark) shows no room through it (glass/street-doors.js)
+    if (d.look?.dark) continue;
     const ly = d.wall + PORTAL_IN, P = (lx, z) => [d.x - ox + lx * E[1] + ly * E[0], d.y - oy - lx * E[0] + ly * E[1], z];
     const p0 = P(0, 0);
     out.push({ tile, quad: [P(-d.half, d.top), P(d.half, d.top), P(d.half, 0), P(-d.half, 0)],

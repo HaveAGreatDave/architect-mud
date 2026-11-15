@@ -63,6 +63,36 @@
   // Ten knife strokes in a row shouldn't be ten copies of one.
   const THOCK_VARY = { pitch: 40, time: 0.06, filter: 100, gain: 1 };
 
+  // ── The tag signature's two instruments (spray-done) ────────────────────────
+  const xp = (a, d, r = d * 0.5) => ({ a, d, s: 0, r, curve: 'exp' });
+  // The stab, struck twice at two pitches. An FM body falling a sixth onto its note (ratio 2 gives
+  // a square wave's odd harmonics), a square a fifth over it falling to the octave, a sub, and a
+  // click and a noise snap on the front. `acc` is the accent: the second hit is the louder.
+  function tagHit(f, at, seed, acc = 1) {
+    return [
+      { waveform: 'sine', freq: +(f * 1.6).toFixed(2), delay: at, pitchBend: { to: f, time: 0.025 },
+        fm: { ratio: 2, index: 3.4 * acc, indexEnd: 0.5, time: 0.16 }, drive: 0.35, adsr: xp(0.001, 0.144 * acc), gain: +(0.05 * acc).toFixed(3) },
+      { waveform: 'square', freq: +(f * 3).toFixed(2), delay: at, pitchBend: { to: f * 2, time: 0.03 },
+        filter: { type: 'lowpass', freq: 3400, q: 0.9 }, adsr: xp(0.003, 0.06 * acc), gain: +(0.012 * acc).toFixed(4) },
+      { waveform: 'sine', freq: f, delay: at, pitchBend: { to: +(f / 2).toFixed(2), time: 0.02 }, adsr: xp(0.001, 0.12 * acc), gain: +(0.038 * acc).toFixed(4) },
+      { waveform: 'noise', noiseMix: 1, noiseSeed: seed, delay: at, filter: { type: 'bandpass', freq: 3200, q: 1.2 }, adsr: xp(0.0003, 0.008), gain: 0.038 },
+      { waveform: 'noise', noiseMix: 1, noiseSeed: seed + 1, delay: at, filter: { type: 'bandpass', freq: 5200, q: 0.8 }, adsr: xp(0.001, 0.06 * acc), gain: +(0.017 * acc).toFixed(4) },
+    ];
+  }
+  // A note of the run: a DX-style lead (two FM operators in series) with a pulse an octave up.
+  // `from` bends the note up onto its pitch; `vib` is the last note's wobble.
+  function tagNote(f, at, len = 0.05, lvl = 1, from = 0, vib = null) {
+    const pitch = (k) => (from ? { freq: +(from * k).toFixed(2), pitchBend: { to: +(f * k).toFixed(2), time: 0.03 } } : { freq: +(f * k).toFixed(2) });
+    const wobble = vib ? { vibrato: vib } : {};
+    return [
+      { waveform: 'sine', ...pitch(1), delay: at, ...wobble,
+        fm: { ratio: 2, index: 2.6, indexEnd: 0.7, time: Math.max(0.06, len), op2: { ratio: 3, index: 1.1, indexEnd: 0.2, time: len } },
+        adsr: xp(0.002, len * 1.4, Math.max(0.03, len * 0.6)), gain: +(0.234 * lvl).toFixed(4) },
+      { waveform: 'square', ...pitch(2), delay: at, ...wobble,
+        filter: { type: 'lowpass', freq: 6000, q: 0.7 }, adsr: xp(0.003, len, Math.max(0.025, len * 0.5)), gain: +(0.045 * lvl).toFixed(4) },
+    ];
+  }
+
   // ── Built-in cues ───────────────────────────────────────────────────────────
   // group is a display bucket ('poker' | 'hack' | 'hololock' | 'vault'); category
   // routes the AudioEngine bus (all 'sfx' here so they answer the SFX volume).
@@ -260,12 +290,19 @@
       config: { duration: 0.32, vary: { pitch: 40 }, layers: [
         ...[[0, 0.3], [0.07, 0.22], [0.15, 0.14]].map(([d, g]) => ({ waveform: 'noise', noiseMix: 1, delay: d, filter: { type: 'bandpass', freq: 2100, q: 1.6 }, adsr: { a: 0.002, d: 0.04, s: 0, r: 0.02 }, gain: g })),
         { waveform: 'sawtooth', freq: 92, pitchBend: { to: 58, time: 0.2 }, filter: { type: 'lowpass', freq: 600, q: 1 }, adsr: { a: 0.004, d: 0.18, s: 0, r: 0.06 }, gain: 0.1 } ] } },
+    // The tag signature: the sound of a tag going up, whichever way it went up (the session, the
+    // dialog or a typed `tag`). Two stabs of one instrument a fourth apart, D3 then G3, and a run
+    // that answers them: G4 Bb4 D5 F5 in 32nds, a rest, D5, then G5 bent up from F#5 and held over
+    // a G4. No `vary`: it's a signature, and it should be the same every time.
     { id: 'spray-done', name: 'Spray — piece finished', group: 'spray', category: 'sfx', priority: 8,
-      config: { duration: 0.75, layers: [
-        { waveform: 'noise', noiseMix: 1, filter: { type: 'bandpass', freq: 5000, q: 0.7 }, adsr: { a: 0.01, d: 0.3, s: 0, r: 0.12 }, gain: 0.26 },
-        { waveform: 'triangle', freq: 1300, delay: 0.16, pitchBend: { to: 900, time: 0.03 }, adsr: { a: 0.001, d: 0.05, s: 0, r: 0.03 }, filter: { type: 'bandpass', freq: 1400, q: 2 }, gain: 0.22 },
-        { waveform: 'square', freq: 1046, delay: 0.24, adsr: { a: 0.003, d: 0.1, s: 0, r: 0.06 }, filter: { type: 'lowpass', freq: 4000, q: 1 }, gain: 0.07 },
-        { waveform: 'square', freq: 1568, delay: 0.34, adsr: { a: 0.003, d: 0.2, s: 0, r: 0.12 }, filter: { type: 'lowpass', freq: 4500, q: 1 }, gain: 0.07 } ] } },
+      config: { duration: 1.25, send: 0.3, retro: { rate: 20000, bits: 9 }, layers: [
+        ...tagHit(146.83, 0, 4101),
+        ...tagHit(196, 0.17, 4103, 1.12),
+        ...tagNote(392, 0.38), ...tagNote(466.16, 0.435), ...tagNote(587.33, 0.49), ...tagNote(698.46, 0.545, 0.05, 1.05),
+        ...tagNote(587.33, 0.655, 0.045, 0.9),
+        ...tagNote(783.99, 0.71, 0.34, 1.15, 739.99, { rate: 6.5, depth: 14 }),
+        ...tagNote(392, 0.71, 0.3, 0.6),
+      ] } },
 
     // ── Vault Crack ──────────────────────────────────────────────────────────
     { id: 'vault-entry', name: 'Vault — approach', group: 'vault', category: 'sfx', priority: 4,
@@ -974,7 +1011,7 @@
     ...(global.HockeySfx?.BUILTINS || []),
   ];
 
-  const GROUPS = { poker: 'Poker table', hack: 'Circuit Breach (hack)', hololock: 'Hololock Bypass', vault: 'Vault Crack', synth: 'Synth Lab (cook)', flight: 'Flight (cockpit)', fishing: 'Fishing (cast / reel)', dialogue: 'Dialogue (conversation)', interface: 'Interface (buttons, tabs, panels)', accolades: 'Accolades (entry logged)', cards: 'Trading cards (machine / pack opening)', kitchen: 'Kitchen Stage (board, hob, fridge)',procedural: 'Procedural material/action tables', hockey: 'Hockey (Cluster Puck broadcast)' };
+  const GROUPS = { poker: 'Poker table', hack: 'Circuit Breach (hack)', hololock: 'Hololock Bypass', vault: 'Vault Crack', synth: 'Synth Lab (cook)', flight: 'Flight (cockpit)', fishing: 'Fishing (cast / reel)', dialogue: 'Dialogue (conversation)', interface: 'Interface (buttons, tabs, panels)', accolades: 'Accolades (entry logged)', cards: 'Trading cards (machine / pack opening)', kitchen: 'Kitchen Stage (board, hob, fridge)',procedural: 'Procedural material/action tables', hockey: 'Hockey (Cluster Puck broadcast)', spray: 'Spray can (graffiti)' };
 
   const _builtinById = new Map(BUILTINS.map(d => [d.id, d]));
   let _overrides = new Map(); // id -> { config, priority, enabled, name }

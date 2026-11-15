@@ -124,8 +124,13 @@ function noticeDropped() {
   appendMsg('Not connected: that did nothing. Reconnecting. If it keeps up, reload the page.', 'system');
 }
 
+// Told as 'room' goes out (dispatch.js roomOpening), so the Room Stage's loading veil is up before the answer is back.
+let _roomOpener = null;
+export function setRoomOpener(fn) { _roomOpener = typeof fn === 'function' ? fn : null; }
+
 export function sendCmd(cmd, displayText) {
   if (!_connection?.isOpen()) { noticeDropped(); return; }
+  if (_roomOpener && cmd.trim().toLowerCase() === 'room') { try { _roomOpener(); } catch { /* the veil is a nicety */ } }
   if (cmd.trim().toLowerCase() === 'who' && _whoModalHandler) { _whoModalHandler(); return; }
   // An open client-side minigame gets first refusal on its own words.
   if (_minigameCmdHandler && _minigameCmdHandler(cmd.trim().toLowerCase())) { appendMsg(`> ${displayText || cmd}`, 'echo'); return; }

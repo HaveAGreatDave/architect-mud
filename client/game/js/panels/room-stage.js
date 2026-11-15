@@ -68,7 +68,7 @@ function figOf(p) {
   if (!f) { if (figs.size > 64) figs.clear(); f = playerFigure(p.look); figs.set(k, f); }
   return f;
 }
-import { coverWithVeil } from './glass-veil.js';
+import { coverWithVeil, finishVeil, placeVeil } from './glass-veil.js';
 import { STRIDE } from './gl/ballpark-mesh.js';
 import { seatLadderHTML, bindSeatLadder, releaseSeatLadder, keepSeatRung } from './seat-ladder.js';
 import { createRoomRenderer } from './gl/room.js';
@@ -269,6 +269,13 @@ function paintOffThread(key, seed) {
 const meshCopy = (m) => { const cp = (b) => ({ ...b, data: b.data.slice() }); return { ...m, solid: cp(m.solid), glass: cp(m.glass), screen: cp(m.screen), textured: new Map([...m.textured].map(([k, b]) => [k, cp(b)])) }; };
 
 export const roomStageOpen = () => !!ui;
+// What the loading veil says going in (glass-veil.js `place`): the building (plugins/roomstage entryCard), the room
+// and its street, and the start of the building's own description. A room in no building is named by itself.
+export function roomVeilPlace(msg) {
+  const e = msg?.entry, room = msg?.name || '';
+  if (!e?.name) return room ? { kicker: 'ENTERING', title: room, room: true } : { room: true };
+  return { kicker: 'ENTERING', title: e.name, sub: [room !== e.name ? room : '', e.street, e.region].filter(Boolean).join(' · '), blurb: e.blurb || '', room: true };
+}
 
 // ⚠ A FAILED OPEN MUST NOT LEAVE THE PANE BLANK. room-stage-on hides the room text; an open that threw
 // partway left it hidden with nothing over it, the sidebar alone, until the Stage was opened again.
@@ -326,6 +333,29 @@ function openStage(msg) {
   bindSeatLadder(root);
   const host = root.querySelector('.rs-host'), canvas = root.querySelector('.rs-canvas');
   const phone = matchMedia('(pointer: coarse)').matches;
+  // ⚠ UP FIRST, BEFORE ANYTHING IS BUILT: everything below runs in this one task, and a veil put up after it was a
+  // second of the room text with nothing over it. (The Room button and 'room' put one up sooner still, dispatch.js
+  // roomOpening, and this takes it over where it stands.)
+  // the GLASS loading screen, up until the room is drawn and the view out of it is in
+  // (not when you've just walked in from the next room of the building: that's a step, not a load)
+  // ⚠ THE VEIL WAITS FOR ONE PAINT OF THE CITY, AND NOT LONG FOR THAT. It waited for nine (`painted`, past the
+  // provisional floor), which from a lobby took longer than the veil's own 25 s cap: the room sat behind a loading
+  // screen with nothing wrong with it. A room with no glass doesn't wait for the city at all, and after VEIL_MS the
+  // room shows anyway and the city comes in behind its glass when it's ready.
+  // ⚠ AND IT WAITS FOR THE CITY IN A ROOM WITH NO GLASS TOO: the view out is the same one the next room shows, so
+  // it is built and placed under the veil, not popped in at the first window. 10 s caps that.
+  const opened = performance.now(), VEIL_MS = msg.hasView && !phone ? 10000 : 4000;
+  // The veil also covers the rooms past the doorways being built (`bake`, below), so the loading is done once, here,
+  // and not at each door. VEIL_MS caps that too; whatever is left is built between frames once the room is up.
+  let veiled = !msg.via;
+  if (!msg.via) coverWithVeil(host, 'room-stage', { place: roomVeilPlace(msg), ready: () => {
+    const seen = !msg.hasView || phone || ui?.S?.outlook?.shown || ui?.S?.noView;
+    const up = performance.now() - opened > VEIL_MS || (!!seen && !ui?.S?.bake?.owed());
+    if (up) veiled = false;
+    return up;
+  } });
+  // in off the street the veil is the door's (freelook-view.js coverPane): it gets the room's name and street now
+  else placeVeil('room-stage', roomVeilPlace(msg));
   // with a view out, the room is drawn over a live GLASS view and its panes are holes (room-outlook.js); and a room at a
   // rink, or next door to one, is drawn over the ice itself, on a phone too (room-rink.js)
   const rinky = !!msg.spec?.rink || !!msg.building?.neighbours?.some((n) => n.spec?.rink);
@@ -334,6 +364,9 @@ function openStage(msg) {
   if (see && !(parkedView && parkedView.building === msg.building?.id)) warmOutlook();
   const R = createRoomRenderer(canvas, { phone, see });
   if (!R) {
+    // the veil went up first; with nothing to draw there's nothing to wait for
+    const v = document.getElementById('room-stage-veil');
+    (v?.parentElement?.classList.contains('ws-veil-pre') ? v.parentElement : v)?.remove();
     host.innerHTML = '<p class="rs-none">This device can\'t draw the room in 3-D (no WebGL2). Everything in it is in the room text.</p>';
     root.querySelector('.rs-leave').addEventListener('click', () => closeRoomStage());
     ui = { root, stop() {} };
@@ -408,29 +441,11 @@ function openStage(msg) {
   let power = msg.power || 'on';
   let lampOn = switchOn && power !== 'off';
 
-  // the GLASS loading screen, up until the room is drawn and the view out of it is in
-  // (not when you've just walked in from the next room of the building: that's a step, not a load)
-  // ⚠ THE VEIL WAITS FOR ONE PAINT OF THE CITY, AND NOT LONG FOR THAT. It waited for nine (`painted`, past the
-  // provisional floor), which from a lobby took longer than the veil's own 25 s cap: the room sat behind a loading
-  // screen with nothing wrong with it. A room with no glass doesn't wait for the city at all, and after VEIL_MS the
-  // room shows anyway and the city comes in behind its glass when it's ready.
-  // ⚠ AND IT WAITS FOR THE CITY IN A ROOM WITH NO GLASS TOO: the view out is the same one the next room shows, so
-  // it is built and placed under the veil, not popped in at the first window. 10 s caps that.
-  const opened = performance.now(), VEIL_MS = msg.hasView && !phone ? 10000 : 4000;
   const glassy = (s) => !!(s && !s.windowless && (s.windows?.length || s.balcony));
   // A balcony room keeps its own building in the view out, less its own spot in it (room-view.js roomCut). Rides
   // every place the view is moved to, so a room without one takes the tower off its tile as before.
   const balconyCut = (s) => (s?.balcony ? { w: s.w, d: s.d, h: s.h, deck: s.balcony.d || 0, wrap: s.balcony.wrap ? (s.balcony.sides ? 'sides' : 'all') : null,
     sides: (s.windows || []).some((q) => q.wall === 'left' || q.wall === 'right') } : null);
-  // The veil also covers the rooms past the doorways being built (`bake`, below), so the loading is done once, here,
-  // and not at each door. VEIL_MS caps that too; whatever is left is built between frames once the room is up.
-  let veiled = !msg.via;
-  if (!msg.via) coverWithVeil(host, 'room-stage', { ready: () => {
-    const seen = !msg.hasView || phone || ui?.S?.outlook?.shown || ui?.S?.noView;
-    const up = performance.now() - opened > VEIL_MS || (!!seen && !ui?.S?.bake?.owed());
-    if (up) veiled = false;
-    return up;
-  } });
 
   const outside = createRoomWindow();
   const hearing = createRoomSound();
@@ -642,7 +657,7 @@ function openStage(msg) {
     // the doorway, every frame you kept walking at them, which read as being snapped back over and over until they
     // opened. Held at the door, the same distance along the wall, it's a door you've walked into and not a jump.
     if (L.spec.lift && (S.liftShut || 0) > 0.05) { w.moveTo(heldAtDoor(L, o, w.at)); return; }
-    if (o.slide && (S.slideShut?.[o.to] ?? 0) > 0.35) { w.moveTo(heldAtDoor(L, o, w.at)); return; }
+    if (o.slide && (S.slideShut?.[o.to] ?? 0) > 0.35) { toldDoorShut(o); w.moveTo(heldAtDoor(L, o, w.at)); return; }
     if (lockUi.enter(o.to) !== 'go') { w.moveTo(heldAtDoor(L, o, w.at)); return; }
     S.going = { o, t: now };
     sendCmd(o.dir);
@@ -810,12 +825,22 @@ function openStage(msg) {
   // A lift landing's bronze doors work the same way (building-graph.js gives its doorway `slide` and `lift`):
   // shut when you come into the lobby, apart as you walk up to the lift, and open behind you off a ride.
   // Each doorway keeps its own state, keyed by the room it leads to, so the lift doesn't open the street doors.
+  // ⚠ A PAIR THAT'S OPENED BY HAND (`hand`, flags.room.street_door) DOESN'T OPEN AS YOU COME UP. It swings shut behind
+  // you once you're clear of its leaves, and opens when you open it (F at the doors, doorAim); then it stands open
+  // while you're near it and shuts a beat after you've gone, as the automatic ones do.
   const slidesAt = () => {
-    S.slideShut = {}; S.slideHold = {}; S.slideDrawn = null;
-    for (const o of S.spec.openings || []) if (o.slide && o.to) S.slideShut[o.to] = msg.via && o.to === msg.via ? 0 : 1;
+    S.slideShut = {}; S.slideHold = {}; S.slideDrawn = null; S.slideHand = new Set();
+    for (const o of S.spec.openings || []) {
+      if (!o.slide || !o.to) continue;
+      S.slideShut[o.to] = msg.via && o.to === msg.via ? 0 : 1;
+      if (o.hand) { S.slideHand.add(o.to); if (S.slideShut[o.to] === 0) S.slideHold[o.to] = performance.now() + SLIDE_HOLD_MS; }
+    }
   };
-  slidesAt();
   const SLIDE_NEAR = 2.6, SLIDE_HOLD_MS = 1400, SLIDE_OPEN_S = 0.55, SLIDE_SHUT_S = 0.9;
+  // a hand-opened pair: how near keeps it open once it is (inside its leaves' sweep, and a step more), how long it
+  // waits for you after F, and how near you open it from
+  const HAND_NEAR = 1.7, HAND_WAIT_MS = 6000, HAND_REACH = 2.4;
+  slidesAt();
   const LIFT_OPEN_S = 1.1, LIFT_SHUT_S = 1.3;
   // how far the balcony door stands open, eased as its leaf is, and half the doorway's width: the shutters'
   // pane over the doorway opens from the right as the one leaf slides left (gl/room-shutters.js uShutDoor)
@@ -835,8 +860,10 @@ function openStage(msg) {
     let changed = false;
     for (const l of leaves) {
       if (shut[l.way] !== undefined) continue;
-      const lift = !!S.spec.openings?.find((o) => o.to === l.to)?.lift;
-      if (p && Math.hypot(p[0] - l.at[0], p[2] - l.at[1]) < SLIDE_NEAR) S.slideHold[l.to] = now + SLIDE_HOLD_MS;
+      const lift = !!S.spec.openings?.find((o) => o.to === l.to)?.lift, hand = S.slideHand?.has(l.to);
+      const near = p && Math.hypot(p[0] - l.at[0], p[2] - l.at[1]);
+      // by hand, nearness only keeps open what's open already (so the leaves never swing shut through you)
+      if (near != null && (hand ? near < HAND_NEAR && (S.slideHold[l.to] || 0) > now : near < SLIDE_NEAR)) S.slideHold[l.to] = Math.max(S.slideHold[l.to] || 0, now + SLIDE_HOLD_MS);
       const want = (S.slideHold[l.to] || 0) > now ? 0 : 1, k = S.slideShut[l.to] ?? 1;
       const step = dt / (want < k ? (lift ? LIFT_OPEN_S : SLIDE_OPEN_S) : (lift ? LIFT_SHUT_S : SLIDE_SHUT_S));
       const next = Math.abs(want - k) <= step ? want : k + Math.sign(want - k) * step;
@@ -847,6 +874,47 @@ function openStage(msg) {
     if (!changed && S.slideDrawn && !S.doorsDirty) return;
     S.doorsDirty = false; S.slideDrawn = true;
     R.setProps(liftDoorBatch(leaves, shut));
+  }
+  // The hand-opened pair you're facing, within reach, as a card: Open the doors while they're shut, Shut them while
+  // they stand open. The card's piece carries `door` (the room they lead to), so runAct hands it to handDoor.
+  const doorCards = new Map();
+  function doorAim() {
+    const leaves = S.mesh?.slideDoors;
+    if (!leaves || !S.slideHand?.size || !seat.eye) return null;
+    const fx = Math.sin(seat.yaw || 0), fz = Math.cos(seat.yaw || 0);
+    let best = null, score = Infinity;
+    for (const to of S.slideHand) {
+      const mine = leaves.filter((l) => l.to === to);
+      if (!mine.length) continue;
+      const mx = mine.reduce((s, l) => s + l.at[0], 0) / mine.length, mz = mine.reduce((s, l) => s + l.at[1], 0) / mine.length;
+      const vx = mx - seat.eye[0], vz = mz - seat.eye[2], d = Math.hypot(vx, vz) || 1;
+      if (d > HAND_REACH || (vx * fx + vz * fz) / d < 0.5 || d >= score) continue;
+      score = d; best = to;
+    }
+    if (!best) return null;
+    const open = (S.slideShut[best] ?? 1) < 0.5, key = best + (open ? ':open' : ':shut');
+    let c = doorCards.get(key);
+    if (!c) doorCards.set(key, c = { id: 'door:' + key, name: 'Front doors', door: best, doorActs: [open ? { verb: 'shutdoors', label: 'Shut the doors' } : { verb: 'opendoors', label: 'Open the doors' }] });
+    return c;
+  }
+  function handDoor(to, a) {
+    const now = performance.now(), open = a.verb === 'opendoors';
+    S.slideHold[to] = open ? now + HAND_WAIT_MS : 0;
+    // the push bar's latch, and the swing: a long draught of air going, or the heavy pair meeting
+    cachetSfx(open ? 'sfx_frontdoor_open' : 'sfx_frontdoor_shut', open ? 0.7 : 0.45, open ? [
+      { waveform: 'square', freq: 2100, filter: { type: 'bandpass', freq: 2600, q: 4 }, adsr: { a: 0.001, d: 0.03, s: 0, r: 0.02 }, gain: 0.1 },
+      { waveform: 'noise', noiseMix: 1, filter: { type: 'lowpass', freq: 700, q: 0.7 }, adsr: { a: 0.12, d: 0.4, s: 0, r: 0.15 }, gain: 0.08 },
+    ] : [
+      { waveform: 'sine', freq: 82, pitchBend: { to: 55, time: 0.1 }, adsr: { a: 0.002, d: 0.18, s: 0, r: 0.08 }, gain: 0.4 },
+      { waveform: 'square', freq: 1800, filter: { type: 'bandpass', freq: 2200, q: 4 }, adsr: { a: 0.001, d: 0.025, s: 0, r: 0.02 }, gain: 0.1 },
+    ], 0.45);
+  }
+  // walked into a hand-opened pair while it's shut: say how to open it, now and then, not every frame
+  let doorToldAt = 0;
+  function toldDoorShut(o) {
+    if (!S.slideHand?.has(o.to) || performance.now() - doorToldAt < 4000) return;
+    doorToldAt = performance.now();
+    flash('The doors are shut. F opens them.', false);
   }
   function watchLiftDoors(now) {
     const leaves = S.mesh?.liftDoors;
@@ -1309,7 +1377,7 @@ function openStage(msg) {
   }
   function showCard(piece, who) {
     const holo = !!(piece?.lock || piece?.lift);
-    const acts = who ? personActs(who) : piece?.lock ? piece.lockActs : piece?.lift ? piece.liftActs : piece ? actsOf(piece) : [], on = who || piece, key = on ? on.id + acts.map((a) => a.verb + a.label).join() : '';
+    const acts = who ? personActs(who) : piece?.lock ? piece.lockActs : piece?.lift ? piece.liftActs : piece?.door ? piece.doorActs : piece ? actsOf(piece) : [], on = who || piece, key = on ? on.id + acts.map((a) => a.verb + a.label).join() : '';
     if (key === (S.cardKey || '')) return;
     S.cardKey = key;
     S.card = on ? { piece, who, acts } : null;
@@ -1338,7 +1406,7 @@ function openStage(msg) {
     // looking straight at its screen, so F works it from the sofa
     if (!who && !S.held) { const tv = tvAimed(); if (tv && (!piece || piece.id === w.sat?.piece || tv.square)) piece = tv.piece; }
     // nothing nearer to hand: the lock you're stood at
-    showCard(piece || (who || S.held ? null : lockUi.aim(w.at, seat.eye, seat.yaw) || liftUi.aim()), who);
+    showCard(piece || (who || S.held ? null : lockUi.aim(w.at, seat.eye, seat.yaw) || liftUi.aim() || doorAim()), who);
   }
   let sayT = 0;
   S.say = (text) => {
@@ -1356,6 +1424,7 @@ function openStage(msg) {
     if (!S.card || !w) return;
     if (piece?.lock) { lockUi.run(piece.lock, a); return; }
     if (piece?.lift) { pressFloor(a.n); return; }
+    if (piece?.door) { handDoor(piece.door, a); return; }
     S.held = null;
     if (a.verb === 'stand') { w.standUp(); return; }
     if (a.verb === 'join') { sendCmd('join'); return; }
@@ -2886,6 +2955,8 @@ function openStage(msg) {
   // ring, and once the room is drawn the black fades off it. A room opened any other way just appears.
   function arrive() {
     const covers = [...document.querySelectorAll('.fl-cover')];
+    // the veil on the street door's black (freelook-view.js coverPane) runs its bar to the end as it goes
+    if (covers.length) finishVeil('room-stage');
     const ready = Math.max(0, ...covers.map((el) => +el.dataset.t || 0)) - performance.now();
     const fade = () => { for (const el of covers) { el.style.transition = 'opacity 450ms ease-out'; el.style.opacity = '0'; setTimeout(() => el.remove(), 520); } };
     if (ready > 0) setTimeout(fade, ready); else fade();

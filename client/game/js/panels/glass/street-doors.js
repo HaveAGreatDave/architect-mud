@@ -34,7 +34,13 @@ export function drawStreetDoors(ctx, cam, v, now, night) {
     const open = Math.max(0, Math.min(1, d.open || 0)), z0 = top * SILL, z1 = top * HEAD;
     // the lobby behind the doors (lobby-still.js stillCard): its own picture of itself from just inside, on a card
     // in the opening. Solid, so it's what fills the doorway instead of the dark panel the model puts there.
-    if (d.card) {
+    // ⚠ A DARK DOOR (flags.room.street_door.dark) HAS BLACK BEHIND IT, NOT THE LOBBY: the portal leaves it out
+    // (windshield.js streetPortals) and this fills the opening where the card would stand, so the leaves part onto
+    // nothing and the step through is a step into the dark that the loading veil comes up out of.
+    if (d.look?.dark) {
+      const back = -CARD_IN, w = half, Q = (lx, z) => { const p = P(lx, z); return [p[0] + back * E[0], p[1] + back * E[1], z]; };
+      emitDecoFill(ctx, cam, [Q(-w, top), Q(w, top), Q(w, 0), Q(-w, 0)], 'rgb(5,5,7)', 1, CARD_PULL, 'streetdoor', true);
+    } else if (d.card) {
       // ⚠ A HAIR BEHIND THE LEAVES, NOTHING DEEPER. The arm fills its doorway a little way in with its own dark panel
       // (measured at the Solenne: a card 0.02 tiles behind the leaves was gone, 0.005 showed), so the card stands just
       // behind the glass and exactly the opening's width, or it spills over the jambs in front of it.
@@ -54,7 +60,7 @@ export function drawStreetDoors(ctx, cam, v, now, night) {
     }
     // on the GPU the building's rooms are drawn through its doorway (gl/interiors.js portals), so an opened door shows
     // them rather than the dark the 2-D painter fills it with
-    const lobby = !!RENDER_TUNE.gl && !v.interiorInside && !!v.interiorRooms?.some((r) => r.gx === d.x && r.gy === d.y);
+    const lobby = !!RENDER_TUNE.gl && !v.interiorInside && !d.look?.dark && !!v.interiorRooms?.some((r) => r.gx === d.x && r.gy === d.y);
     if (d.bars) { barredLeaf(ctx, cam, d, P, open, top, night, lobby); continue; }
     if (d.glass === false) continue;
     // a building can dress its doors (flags.room.street_door, via plugins/roomstage): the glass's tint, a metal trim

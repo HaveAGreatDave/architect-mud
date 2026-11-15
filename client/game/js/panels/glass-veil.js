@@ -33,7 +33,18 @@ const STAGES = [
   [1, 'CLEANING UP THE SIGNAL'],
 ];
 const DONE = 'LINK STABLE';
-const stageOf = p => p >= 1 ? DONE : (STAGES.find(([to]) => p < to) || STAGES[STAGES.length - 1])[1];
+// A room's own captions, for the veil over the Room Stage (`place.room`): what going in through a door takes.
+const ROOM_STAGES = [
+  [0.2, 'WIPING YOUR FEET'],
+  [0.45, 'FINDING THE LIGHT SWITCH'],
+  [0.7, 'COUNTING THE FURNITURE'],
+  [1, 'PUTTING THE CITY IN THE WINDOWS'],
+];
+const ROOM_DONE = 'DOOR SHUT BEHIND YOU';
+const stageOf = (p, room) => {
+  const list = room ? ROOM_STAGES : STAGES;
+  return p >= 1 ? (room ? ROOM_DONE : DONE) : (list.find(([to]) => p < to) || list[list.length - 1])[1];
+};
 
 // The hex rails never change, so they're built once: a fixed-seed stream of address and byte rows,
 // written twice so a translate of exactly half the height loops without a seam.
@@ -68,9 +79,21 @@ function feedTag(id) {
   return ((h >>> 0) & 0xffff).toString(16).toUpperCase().padStart(4, '0');
 }
 
-export function veilHTML(id) {
+// Where you're going, under the wordmark: `place` is { kicker, title, sub, blurb, room }, all optional, all the
+// caller's (the game's names and prose come from the server; nothing here knows a building).
+function placeHTML(place) {
+  if (!place || !(place.title || place.sub || place.blurb)) return '<div class="ws-veil-place" hidden></div>';
+  return `<div class="ws-veil-place">`
+    + (place.kicker ? `<span class="ws-veil-kicker">${esc(place.kicker)}</span>` : '')
+    + (place.title ? `<b class="ws-veil-title">${esc(place.title)}</b>` : '')
+    + (place.sub ? `<span class="ws-veil-sub">${esc(place.sub)}</span>` : '')
+    + (place.blurb ? `<p class="ws-veil-blurb">${esc(place.blurb)}</p>` : '')
+    + `</div>`;
+}
+
+export function veilHTML(id, place = null) {
   const name = esc(wordmark());
-  return `<div class="ws-veil" id="${esc(id)}-veil" aria-hidden="true">`
+  return `<div class="ws-veil${place?.room ? ' ws-veil-room' : ''}" id="${esc(id)}-veil" aria-hidden="true">`
     + `<div class="ws-veil-horizon"></div>`
     + `<div class="ws-veil-grid"><div class="ws-veil-plane"><div class="ws-veil-floor"></div></div></div>`
     + `<pre class="ws-veil-rail ws-veil-rail-l"><span>${RAIL}</span></pre>`
@@ -78,8 +101,9 @@ export function veilHTML(id) {
     + `<div class="ws-veil-core">`
     + `<div class="ws-veil-tag"><span>// NEURAL LINK</span><span>FEED ${feedTag(id)}<i class="ws-veil-blink"></i></span></div>`
     + `<div class="ws-veil-mark" data-text="${name}">${name}</div>`
+    + placeHTML(place)
     + `<div class="ws-veil-bar"><div class="ws-veil-fill"></div><div class="ws-veil-shine"></div></div>`
-    + `<div class="ws-veil-foot"><span class="ws-veil-msg">${STAGES[0][1]}</span><span class="ws-veil-pct">00%</span></div>`
+    + `<div class="ws-veil-foot"><span class="ws-veil-msg">${stageOf(0, place?.room)}</span><span class="ws-veil-pct">00%</span></div>`
     + `</div>`
     + `<div class="ws-veil-scan"></div><div class="ws-veil-lines"></div></div>`;
 }
@@ -167,6 +191,26 @@ export const VEIL_CSS = `
       animation:ws-veil-shine 1.6s ease-in-out infinite; }
     @keyframes ws-veil-shine { from { transform:translateX(-100%); } to { transform:translateX(340%); } }
 
+    /* Where you're going: a kicker, the building's name, the room and its street, and a line of its own description,
+       quoted, under the wordmark. The wordmark steps down a size over a place, so the name is what reads. */
+    .ws-veil-place { display:flex; flex-direction:column; align-items:center; gap:3px; text-align:center; padding:2px 0 4px;
+      animation:ws-veil-in .5s ease-out backwards; }
+    .ws-veil-place[hidden] { display:none; }
+    .ws-veil-room .ws-veil-mark { font-size:clamp(12px, 4.6cqw, 22px); }
+    .ws-veil-kicker { font-size:9px; letter-spacing:3px; color:var(--vm); }
+    .ws-veil-kicker::before, .ws-veil-kicker::after { content:'\\2014\\2002'; color:color-mix(in srgb, var(--vm) 45%, transparent); }
+    .ws-veil-kicker::after { content:'\\2002\\2014'; }
+    .ws-veil-title { font-family:Georgia, 'Times New Roman', serif; font-weight:700; font-size:clamp(15px, 5.4cqw, 26px); line-height:1.15;
+      letter-spacing:.04em; color:#f6ead2; text-shadow:0 0 14px color-mix(in srgb, var(--vy) 30%, transparent); }
+    .ws-veil-sub { font-size:10px; letter-spacing:2px; text-transform:uppercase; color:color-mix(in srgb, var(--vc) 70%, #fff); }
+    .ws-veil-blurb { margin:6px 0 0; max-width:38em; font-family:Georgia, 'Times New Roman', serif; font-style:italic; font-size:12px; line-height:1.45;
+      color:rgba(234,236,240,.72); display:-webkit-box; -webkit-line-clamp:3; -webkit-box-orient:vertical; overflow:hidden; }
+    .ws-veil-blurb::before { content:'\\201C'; color:var(--vy); } .ws-veil-blurb::after { content:'\\201D'; color:var(--vy); }
+    @keyframes ws-veil-in { from { opacity:0; transform:translateY(4px); } }
+    /* Before the room's own code is in (preVeil): fixed over the pane it will cover, and faded in after the black. */
+    .ws-veil-pre { position:fixed; z-index:9002; pointer-events:none; overflow:hidden; }
+    .ws-veil-pre > .ws-veil { animation:ws-veil-in .3s ease-out backwards; }
+
     .ws-veil-foot { display:flex; justify-content:space-between; align-items:baseline; gap:12px; }
     .ws-veil-msg { font-size:10px; letter-spacing:2px; color:rgba(234,252,255,.78); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
     .ws-veil-msg::before { content:'> '; color:var(--vm); }
@@ -182,7 +226,8 @@ export const VEIL_CSS = `
         radial-gradient(ellipse at 50% 50%, transparent 55%, rgba(0,0,0,.6) 100%); }
 
     @container (max-width: 520px) { .ws-veil-rail { display:none; } }
-    @container (max-height: 230px) { .ws-veil-tag { display:none; } .ws-veil-core { padding:12px 16px 10px; gap:8px; } }
+    @container (max-height: 360px) { .ws-veil-blurb { display:none; } }
+    @container (max-height: 230px) { .ws-veil-tag, .ws-veil-sub { display:none; } .ws-veil-core { padding:12px 16px 10px; gap:8px; } }
     @container (max-height: 130px) { .ws-veil-mark, .ws-veil-grid, .ws-veil-horizon { display:none; } .ws-veil-core { padding:8px 12px; } }
 
     @media (prefers-reduced-motion: reduce) {
@@ -199,13 +244,16 @@ function setProgress(node, p) {
   const pct = node.querySelector('.ws-veil-pct');
   if (pct) pct.textContent = String(Math.min(100, Math.round(p * 100))).padStart(2, '0') + '%';
   const msg = node.querySelector('.ws-veil-msg');
-  if (msg) msg.textContent = stageOf(p);
+  if (msg) msg.textContent = stageOf(p, node.classList.contains('ws-veil-room'));
+  node._p = p;
 }
 
 function lift(node) {
   setProgress(node, 1);
   node.classList.add('ws-veil-out');
-  setTimeout(() => node.remove(), FADE_MS);
+  // a pre-veil goes with its fixed holder
+  const gone = node.parentElement?.classList.contains('ws-veil-pre') ? node.parentElement : node;
+  setTimeout(() => gone.remove(), FADE_MS);
 }
 
 // Called at the top of paintWindshield. True means skip this paint.
@@ -218,7 +266,8 @@ export function veilHold(id) {
   }
   const node = el(id);
   if (!node) return false;
-  if (!s) { s = { calls: 0, paints: 0, t0: performance.now(), p: 0.06, worst: 0, done: false }; _state.set(id, s); setProgress(node, s.p); }
+  // (a veil that went up before its view did, preVeil, carries on from where its bar had got to)
+  if (!s) { s = { calls: 0, paints: 0, t0: performance.now(), p: Math.max(0.06, node._p || 0), worst: 0, done: false }; _state.set(id, s); setProgress(node, s.p); }
   return ++s.calls <= HOLD;
 }
 
@@ -250,21 +299,31 @@ export function veilPainted(id, ms) {
 // frame that took a long time is a build still going on, and a run of short ones is the view up.
 // `ready` holds it down for longer, for a view with more to fetch than its first frame.
 const COVER_MAX_MS = 25000;
-export function coverWithVeil(host, id, { ready = () => true } = {}) {
+function ensureCss() {
+  if (document.getElementById('glass-veil-css')) return;
+  const s = document.createElement('style');
+  s.id = 'glass-veil-css'; s.textContent = VEIL_CSS;
+  document.head.appendChild(s);
+}
+// the fixed holder a pre-veil stands in, or null for a veil inside its host
+const preOf = (node) => (node?.parentElement?.classList.contains('ws-veil-pre') ? node.parentElement : null);
+const fit = (wrap, r) => Object.assign(wrap.style, { left: r.left + 'px', top: r.top + 'px', width: r.width + 'px', height: r.height + 'px' });
+export function coverWithVeil(host, id, { ready = () => true, place = null } = {}) {
   if (typeof document === 'undefined' || !host) return;
-  if (!document.getElementById('glass-veil-css')) {
-    const s = document.createElement('style');
-    s.id = 'glass-veil-css'; s.textContent = VEIL_CSS;
-    document.head.appendChild(s);
-  }
+  ensureCss();
   if (getComputedStyle(host).position === 'static') host.style.position = 'relative';
   veilReset(id);
-  host.insertAdjacentHTML('beforeend', veilHTML(id));
+  // a veil put up before this view's code was in (preVeil) is taken over where it stands, not drawn again, so its
+  // floor and its bar run on unbroken; it follows the host's box from here
+  const pre = preOf(el(id));
+  if (pre) { clearTimeout(pre._ttl); pre._adopted = true; if (place) placeVeil(id, place); }
+  else host.insertAdjacentHTML('beforeend', veilHTML(id, place));
   const t0 = performance.now();
   let last = t0;
   const step = (now) => {
     const node = el(id), s = _state.get(id);
     if (!node || s?.done) return;
+    if (pre && pre.isConnected) { const r = host.getBoundingClientRect(); if (r.width && r.height) fit(pre, r); }
     const ms = now - last;
     last = now;
     if (!veilHold(id)) {
@@ -280,3 +339,61 @@ export function coverWithVeil(host, id, { ready = () => true } = {}) {
 
 // Called when a seat closes, so the next entry shows the veil again (its GL context is rebuilt).
 export function veilReset(id) { _state.delete(id); }
+
+// ── THE VEIL BEFORE THE VIEW ─────────────────────────────────────────────────
+// A view that loads lazily (the Room Stage: the server's answer, then its module) showed nothing for the second or
+// more that took. This puts the veil up at once, fixed over `rect` (the pane it will cover), its bar creeping on its
+// own, and coverWithVeil takes it over when the view comes in. If nobody does within `ttl` ms (the server said no),
+// it goes. `delay` holds it back, for a cover that fades to black first. Returns the holder, or null.
+const PRE_CREEP_MS = 120, PRE_TOP = 0.55;
+export function preVeil(id, rect, { place = null, ttl = 9000, delay = 0, z = 9002 } = {}) {
+  if (typeof document === 'undefined' || !rect || !(rect.width > 0) || !(rect.height > 0)) return null;
+  const had = el(id);
+  if (had && !preOf(had)) return null;   // the view's own veil is up already
+  dropPreVeil(id, true);
+  ensureCss();
+  const wrap = document.createElement('div');
+  wrap.className = 'ws-veil-pre'; wrap.setAttribute('aria-hidden', 'true');
+  wrap.style.zIndex = String(z);
+  fit(wrap, rect);
+  wrap.innerHTML = veilHTML(id, place);
+  const node = wrap.firstElementChild;
+  if (delay) node.style.animationDelay = delay + 'ms';
+  document.body.appendChild(wrap);
+  setProgress(node, 0.04);
+  const creep = () => {
+    if (!wrap.isConnected || wrap._adopted) return;
+    setProgress(node, (node._p || 0) + (PRE_TOP - (node._p || 0)) * 0.06);
+    wrap._creep = setTimeout(creep, PRE_CREEP_MS);
+  };
+  wrap._creep = setTimeout(creep, PRE_CREEP_MS + delay);
+  wrap._ttl = setTimeout(() => dropPreVeil(id), ttl);
+  return wrap;
+}
+// A pre-veil nobody took, faded off (or gone at once).
+export function dropPreVeil(id, now = false) {
+  const wrap = preOf(el(id));
+  if (!wrap || wrap._adopted) return;
+  clearTimeout(wrap._ttl); clearTimeout(wrap._creep);
+  if (now) { wrap.remove(); return; }
+  wrap.style.transition = 'opacity .3s ease'; wrap.style.opacity = '0';
+  setTimeout(() => wrap.remove(), 350);
+}
+// The place on a veil that's up, filled in when the server's answer brings it (the description, the street).
+export function placeVeil(id, place) {
+  const node = el(id), old = node?.querySelector('.ws-veil-place');
+  if (!old || !place) return;
+  const was = old.querySelector('.ws-veil-title')?.textContent || '';
+  old.outerHTML = placeHTML(place);
+  // the same name again isn't a new arrival: no second fade in
+  if (was && was === (place.title || '')) { const n = node.querySelector('.ws-veil-place'); if (n) n.style.animation = 'none'; }
+  node.classList.toggle('ws-veil-room', !!place.room);
+}
+// The bar to the end on a veil whose holder is about to fade it off (the street door's cover, room-stage.js arrive).
+export function finishVeil(id) {
+  const node = el(id);
+  if (!node) return;
+  const wrap = preOf(node);
+  if (wrap) { clearTimeout(wrap._ttl); clearTimeout(wrap._creep); }
+  setProgress(node, 1);
+}

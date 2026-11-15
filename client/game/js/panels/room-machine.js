@@ -14,8 +14,9 @@
 // (room-hoist.js). Nothing here shapes a machine.
 import { vtx, MAT } from './gl/ballpark-mesh.js';
 import { RESURFACER } from '../../../shared/stadium.js';
+import { FT_M } from '../../../shared/world-scale.js';
 
-const FT = 0.3048;
+const FT = FT_M;
 // the roller door: how much wider and taller than the machine, metres
 const DOOR_PAD = 0.35, DOOR_H = 2.4;
 const ease = (t) => (t <= 0 ? 0 : t >= 1 ? 1 : t * t * (3 - 2 * t));

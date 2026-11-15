@@ -184,8 +184,12 @@ for (const level of ['crowd', 'far']) {
 }
 for (const level of ['hd', 'lite', 'crowd', 'far']) {
   const cuts = level === 'hd' || level === 'lite' ? FIGURE_CUT_NAMES : ['coat'];
-  const styles = level === 'hd' ? [...Array(HAIR_STYLES).keys()] : [0];
-  for (const cut of cuts) for (const style of styles) {
+  // At hd every cut is built bald (style 0) and with one carded style, rotated through the cuts, and the
+  // coat with every style: each cut and each style is still built and checked. The body checks read the
+  // cut and the card checks read the style, so the full 59 x 6 cross was 35 s of the 60 s budget.
+  const stylesOf = (cut, i) => level !== 'hd' ? [0]
+    : cut === 'coat' ? [...Array(HAIR_STYLES).keys()] : [0, 1 + (i % (HAIR_STYLES - 1))];
+  for (const [i, cut] of cuts.entries()) for (const style of stylesOf(cut, i)) {
     const name = `${level} ${cut} hair ${style}`, F = buildFigure({ cut, style, level });
     report(`${name}: ${F.nv} vertices, ${F.nt} triangles${F.cards ? `, ${F.cards.n} cards` : ''}`);
     if (F.nv > BUDGET[level]) problems.push(`${name} is ${F.nv} vertices, over its ${BUDGET[level]}`);

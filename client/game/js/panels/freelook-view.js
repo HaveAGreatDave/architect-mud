@@ -37,6 +37,7 @@ import { footDockHTML, bindFootDock } from './foot-dock.js';
 import { floorZAt } from './seabed-scene.js';
 import { interiorRoomsOf } from './room-interiors.js';
 import { noteDoor, noteCarry } from './lobby-still.js';
+import { preVeil } from './glass-veil.js';
 import { roomFree, openingCrossed, openingInside } from '../../../shared/room-layout.js';   // a building's rooms, drawn in the city (docs/proposals/one-world-interiors.md)
 import { FT_M, m2t as m2tf } from '../../../shared/world-scale.js';
 import { measureDoorway } from './glass/doorway-measure.js';   // a street door's opening, read off its building's mass
@@ -257,11 +258,11 @@ export function parkFreelook() {
 // building's tile, and the server's answer takes a round trip; walking on in that time put the camera inside the
 // model's shell, and you saw out through the back of its walls. So the cover (and the lobby still) go up as the
 // step is sent, from the last frame still outside, and a refused step takes them down again (watchFoot).
-function enterCover(s) {
-  coverPane(s);
+function enterCover(s, d = null) {
+  coverPane(s, d);
   for (const el of document.querySelectorAll('.fl-cover')) el.dataset.entry = '1';
 }
-function coverPane(s) {
+function coverPane(s, door = null) {
   try {
     const wrap = s.root.querySelector('.ws-wrap') || s.root, r = wrap.getBoundingClientRect();
     if (!r.width || !r.height) return;
@@ -279,16 +280,23 @@ function coverPane(s) {
     Object.assign(snap.style, { position: 'fixed', left: r.left + 'px', top: r.top + 'px', width: r.width + 'px', height: r.height + 'px', zIndex: '9000', pointerEvents: 'none', opacity: '1', transition: `opacity ${COVER_MS}ms ease-out` });
     uncoverPane(true);
     document.body.appendChild(snap);
-    // through the door: the street fades to black with a loading ring on it, and the room fades in out of the
-    // black when it's drawn (room-stage.js arrive). The doors stay plain glass from outside; no picture of the lobby.
+    // through the door: the street fades to black, the Room Stage's loading veil comes up out of the black with the
+    // building on it (plugins/roomstage entryCard, sent with the doors), and the room fades in out of all of it when
+    // it's drawn (room-stage.js arrive, which runs the veil's bar to the end).
     const dark = document.createElement('div');
     dark.className = 'fl-cover'; dark.setAttribute('aria-hidden', 'true');
     Object.assign(dark.style, { position: 'fixed', left: r.left + 'px', top: r.top + 'px', width: r.width + 'px', height: r.height + 'px', zIndex: '9001', pointerEvents: 'none', background: 'var(--bg, #000)', opacity: '0', transition: `opacity ${FADE_MS}ms ease-in`, display: 'flex', alignItems: 'center', justifyContent: 'center' });
     dark.dataset.t = String(performance.now() + FADE_MS);
-    dark.innerHTML = '<div class="fl-loading"></div>';
     document.body.appendChild(dark);
+    const p = door?.place, veil = preVeil('room-stage', r, { delay: FADE_MS, ttl: 21000, place: p?.name
+      ? { kicker: 'ENTERING', title: p.name, sub: [p.street, p.region].filter(Boolean).join(' · '), blurb: p.blurb || '', room: true } : { room: true } });
+    // it goes with the cover: faded off by whatever takes the pane, or by uncoverPane
+    if (veil) { veil.classList.add('fl-cover'); veil.dataset.t = dark.dataset.t; veil.style.transition = `opacity ${COVER_MS}ms ease-out`; }
+    else dark.innerHTML = '<div class="fl-loading"></div>';
     requestAnimationFrame(() => requestAnimationFrame(() => { dark.style.opacity = '1'; }));
-    setTimeout(() => uncoverPane(), 4000);
+    // no answer in 4 s and nothing came to take the pane: the street again. Once the view's been parked for a room
+    // (parkFreelook) or the Stage is up and building, the cover waits for the room (room-stage.js arrive).
+    setTimeout(() => { if (st?.warm || document.getElementById('room-stage')) return; uncoverPane(); }, 4000);
   } catch { /* a cut, as it was */ }
 }
 // The street's last frame fades off whatever took the pane (the Room Stage calls this by its class name).
@@ -909,7 +917,7 @@ function watchFoot(s, now, flash) {
     if (off < mark) s.freeCam.rebase(E[0] * (mark - off), E[1] * (mark - off));
     f.back = inside(T.gx, T.gy);
     f.pending = { t: now, back: f.back };
-    noteDoor(d); enterCover(s);
+    noteDoor(d); enterCover(s, d);
     f.onMove(`footstep ${d.gx} ${d.gy}`);
     return;
   }
@@ -924,7 +932,7 @@ function watchFoot(s, now, flash) {
   if (d) {
     // a building: the room has to come, so this one waits for it, behind the cover (enterCover)
     f.pending = { t: now, back: f.back };
-    noteDoor(d); enterCover(s);
+    noteDoor(d); enterCover(s, d);
   } else {
     f.tile = { gx: cx, gy: cy };
   }
@@ -1343,7 +1351,7 @@ function footDoor(s) {
     const go = () => {
       if (st !== s || f.pending?.back?.[0] !== ax) return;
       f.pending.t = performance.now();
-      noteDoor(d); enterCover(s);
+      noteDoor(d); enterCover(s, d);
       f.onMove(`footstep ${d.gx} ${d.gy}`);
     };
     if (wait) setTimeout(go, wait); else go();

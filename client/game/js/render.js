@@ -821,6 +821,8 @@ export function parseZoneInfo(html) {
 
 // The d-pad's room button: dim with no Stage here, lit when there is one, solid while it's open.
 const roomBtn = { avail: false, open: false };
+// whether the server has said this room has a Stage (dispatch.js roomOpening puts the veil up only then)
+export const roomButtonAvailable = () => roomBtn.avail && !roomBtn.open;
 export function setRoomButton(next) {
   Object.assign(roomBtn, next);
   const state = roomBtn.open ? 'open' : roomBtn.avail ? 'available' : 'none';

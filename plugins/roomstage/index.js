@@ -45,7 +45,7 @@
 
 import { furnitureActs } from '../../server/engine/furnitureActions.js';
 import { gatherHookSync } from '../../server/engine/plugins.js';
-import { world, getZone, facadeStreetTile, getZoneFurniture, getFurnitureById, getZonePlayers, getZoneNpcs, getZoneEnemies, getApartment, updateFurniture, updateFurnitureWhere, insertFurniture, deleteFurnitureWhere, getLivePlayer, doorOnLink, frontDoorOf, getMap } from '../../server/engine/world.js';
+import { world, getZone, getRegion, facadeStreetTile, getZoneFurniture, getFurnitureById, getZonePlayers, getZoneNpcs, getZoneEnemies, getApartment, updateFurniture, updateFurnitureWhere, insertFurniture, deleteFurnitureWhere, getLivePlayer, doorOnLink, frontDoorOf, getMap } from '../../server/engine/world.js';
 import { walkPlans, buildingView, placeFrom, streetDoorAt } from '../../client/shared/building-graph.js';
 import { getItem, getItemCache } from '../../server/engine/items-cache.js';
 import { primaryExits } from '../../server/engine/exits.js';
@@ -153,7 +153,28 @@ export function buildingOfRoom(zoneId) {
   }
   return plans.get(zoneId) || null;
 }
-const clearBuildings = () => { plans = null; doorList = null; roomsKept?.clear(); };
+const clearBuildings = () => { plans = null; doorList = null; roomsKept?.clear(); cards.clear(); };
+// WHERE A BUILDING IS, for the loading veil going in (client glass-veil.js `place`): its name, the street its door is
+// on, the region, and the start of its facade's own description, cut at a sentence. From RAM, kept per facade with
+// the plans.
+const cards = new Map(), CARD_BLURB = 200;
+export function entryCard(facadeId) {
+  if (!facadeId) return null;
+  if (cards.has(facadeId)) return cards.get(facadeId);
+  const f = getZone(facadeId);
+  let card = null;
+  if (f) {
+    const street = getZone(facadeStreetTile(f))?.name || '', region = getRegion(f.flags?.region_id)?.name || '';
+    const text = String(f.description || '').replace(/\s+/g, ' ').trim();
+    let blurb = '';
+    for (const s of text.match(/[^.!?]+[.!?]+["')\]]*\s*/g) || []) { if (blurb && (blurb + s).length > CARD_BLURB) break; blurb += s; }
+    blurb = blurb.trim();
+    if (blurb.length > CARD_BLURB) blurb = blurb.slice(0, CARD_BLURB).replace(/\s+\S*$/, '') + '...';
+    card = { name: f.flags?.building_name || f.name || '', ...(street && street !== f.name ? { street } : {}), ...(region ? { region } : {}), ...(blurb ? { blurb } : {}) };
+  }
+  cards.set(facadeId, card);
+  return card;
+}
 // THE STREET DOORS of every building with a Stage, for somebody on foot outside (plugins/freelook sends them with
 // the street's window): the facade's tile, the edge its door is on (`flags.entrance`), how wide the doorway is
 // in metres and whether it's a pair of automatic glass doors. The street view makes such a building solid and
@@ -173,9 +194,11 @@ export function streetDoorsNear(gx, gy, r) {
       // the building rides along unsent (not enumerable), for buildingRoomsNear
       // how the glass doors look from the street, if the building says (flags.room.street_door: glass, trim, monogram)
       // (a plain door's leaf: `leaf` its colour and `bars` a steel grille over it, as the Cherry Pit's; `fanlight` a
-      // glazed fan over a swing pair, and `runner` a carpet's colour out across the pavement, as the Embassy's)
-      const sd = getZone(entry)?.flags?.room?.street_door, look = sd && (sd.glass || sd.trim || sd.monogram || sd.kind === 'swing' || sd.leaf || sd.bars) ? { glass: sd.glass || null, trim: sd.trim || null, monogram: sd.monogram ? String(sd.monogram).slice(0, 2) : null, ...(sd.handle === 's' ? { handle: 's' } : {}), ...(sd.leaf ? { leaf: String(sd.leaf) } : {}), ...(sd.bars ? { bars: true } : {}), ...(sd.fanlight ? { fanlight: true } : {}), ...(/^#[0-9a-f]{6}$/i.test(sd.runner || '') ? { runner: sd.runner } : {}) } : null;
-      doorList.push(Object.defineProperty({ gx: f.grid_x, gy: f.grid_y, edge, w: +Math.abs(o.b - o.a).toFixed(2), slide: !!o.slide, ...(o.swing ? { swing: true } : {}), ...(look ? { look } : {}) }, 'bld', { value: bld }));
+      // glazed fan over a swing pair, and `runner` a carpet's colour out across the pavement, as the Embassy's;
+      // `dark` black behind the doors instead of the lobby, so going in is a step into the dark and the loading veil)
+      const sd = getZone(entry)?.flags?.room?.street_door, look = sd && (sd.glass || sd.trim || sd.monogram || sd.kind === 'swing' || sd.leaf || sd.bars || sd.dark) ? { glass: sd.glass || null, trim: sd.trim || null, monogram: sd.monogram ? String(sd.monogram).slice(0, 2) : null, ...(sd.handle === 's' ? { handle: 's' } : {}), ...(sd.leaf ? { leaf: String(sd.leaf) } : {}), ...(sd.bars ? { bars: true } : {}), ...(sd.fanlight ? { fanlight: true } : {}), ...(sd.dark ? { dark: true } : {}), ...(/^#[0-9a-f]{6}$/i.test(sd.runner || '') ? { runner: sd.runner } : {}) } : null;
+      const card = entryCard(f.id);
+      doorList.push(Object.defineProperty({ gx: f.grid_x, gy: f.grid_y, edge, w: +Math.abs(o.b - o.a).toFixed(2), slide: !!o.slide, ...(o.swing ? { swing: true } : {}), ...(look ? { look } : {}), ...(card ? { place: card } : {}) }, 'bld', { value: bld }));
     }
   }
   return doorList.filter((d) => Math.abs(d.gx - gx) <= r && Math.abs(d.gy - gy) <= r);
@@ -711,7 +734,9 @@ async function viewPayload(player, zoneId, spec, { stamp = true, locks = true } 
   const lockable = locks && (bld || spec?.annex);
   const ways = lockable ? await locksOf(player, zoneId, spec) : [];
   if (lockable) lockSeen.set(zoneId, lockSig(zoneId, spec));
-  return { type: 'room_view', zone: zoneId, here: player.current_zone, name: zone?.name || '', spec, ...(building ? { building } : {}), ...(lift ? { lift: { floors: lift.floors, at: lift.at } } : {}), hasView: !!place, ...(place ? { place } : {}), mine: !!controls(player, zoneId), ...(adminHere(player) ? { admin: true } : {}), you: player.id,
+  // the building it's in, for the loading veil (entryCard): its street door's facade, or the facade its map hangs off
+  const card = entryCard(bld ? streetDoorOf(bld.b.entry) : (streetDoorOf(zoneId) || getMap(zone?.map_id)?.parent_zone_id));
+  return { type: 'room_view', zone: zoneId, here: player.current_zone, name: zone?.name || '', spec, ...(building ? { building } : {}), ...(card ? { entry: card } : {}), ...(lift ? { lift: { floors: lift.floors, at: lift.at } } : {}), hasView: !!place, ...(place ? { place } : {}), mine: !!controls(player, zoneId), ...(adminHere(player) ? { admin: true } : {}), you: player.id,
     pieces, people: peopleIn(zoneId, pieces), beasts: beastsIn(zoneId), tv: setOn(zoneId), clock: getBirdClock(), ...(ways.length ? { locks: ways } : {}),
     // whether the mains are on (powerOf); the switch by the door is the viewer's own, kept per room on the client
     power: powerOf(zoneId),

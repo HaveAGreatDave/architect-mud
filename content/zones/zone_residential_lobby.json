@@ -286,8 +286,10 @@
         "y": 3.7
       },
       "street_door": {
+        "dark": true,
         "fanlight": true,
         "glass": "#7f97a0",
+        "hand": true,
         "kind": "swing",
         "monogram": "E",
         "runner": "#7a1e2a",
