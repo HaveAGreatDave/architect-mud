@@ -416,9 +416,14 @@ export function narrateBaseball(c) {
       // (a home run's trot and replay is time the park takes anyway, so the booth talks over it)
       // Now and then the picture goes up to the booth after a big moment (facts.js boothCuts), and
       // the two of them on camera take the place of the after-talk.
-      if (c.boothCut?.beat === b && c.desk?.('booth_cut', b, sb, c.boothCut)) { curExcite = 0; continue; }
+      // The after-talk is still drawn and its seconds still spent, only not said: the talkers keep
+      // state (the picks they've used, the bank), and skipping the draw moved every line after it.
+      const cut = c.boothCut?.beat === b && c.desk?.('booth_cut', b, sb, c.boothCut);
       curExcite = exciteFor(b, home.name, 'after', gd?.basesBefore);
-      if (!walkoffHalf && b.outs < 3) bank -= talk(talkers.after(b, gd, Math.max(0, bank, b.kind === 'homerun' ? afterLand(gd) - 8 : 0)), sb);
+      if (!walkoffHalf && b.outs < 3) {
+        const lines = talkers.after(b, gd, Math.max(0, bank, b.kind === 'homerun' ? afterLand(gd) - 8 : 0));
+        bank -= cut ? lines.reduce((a, l) => a + l.secs, 0) : talk(lines, sb);
+      }
       curExcite = 0;
     }
 
