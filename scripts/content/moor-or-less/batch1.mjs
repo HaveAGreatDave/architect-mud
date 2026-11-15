@@ -101,7 +101,7 @@ const spec = {
   ],
 
   npc: {
-    id: 'npc_shipwright', name: 'Keel', sex: 'male', hp: 24,
+    id: 'npc_shipwright', name: 'Wilf "Keel" Treharne', sex: 'male', hp: 24,
     homeRoom: 'back', workRoom: 'shop', shopName: 'Moor or Less',
     description: 'A big man in his sixties in a scorched leather apron, with sawdust in the hair on his forearms. There is a carpenter\'s pencil behind one ear and another behind the other that he has forgotten about. He talks to the hull on the stocks more than he talks to customers.',
     clothing: [

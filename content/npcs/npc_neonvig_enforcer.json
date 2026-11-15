@@ -96,7 +96,7 @@
   "hp": 90,
   "hp_max": 90,
   "id": "npc_neonvig_enforcer",
-  "name": "the Collector",
+  "name": "Vic Lomas",
   "npc_type": "npc",
   "sex": "male",
   "studio_zone_id": null,

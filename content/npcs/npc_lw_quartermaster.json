@@ -706,7 +706,7 @@
   "hp": 30,
   "hp_max": 30,
   "id": "npc_lw_quartermaster",
-  "name": "the Quartermaster",
+  "name": "Ruth Ashby",
   "npc_type": "vendor",
   "sex": "female",
   "studio_zone_id": null,

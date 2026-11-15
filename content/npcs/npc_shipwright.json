@@ -479,7 +479,7 @@
   "hp": 24,
   "hp_max": 24,
   "id": "npc_shipwright",
-  "name": "Keel",
+  "name": "Wilf \"Keel\" Treharne",
   "npc_type": "vendor",
   "sex": "male",
   "studio_zone_id": null,

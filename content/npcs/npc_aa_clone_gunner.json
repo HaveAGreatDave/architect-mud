@@ -31,7 +31,7 @@
   "hp": 24,
   "hp_max": 24,
   "id": "npc_aa_clone_gunner",
-  "name": "a Guardian battery gunner",
+  "name": "Kerry Antrobus",
   "npc_type": "npc",
   "sex": "female",
   "studio_zone_id": null,

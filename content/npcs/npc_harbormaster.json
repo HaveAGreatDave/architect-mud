@@ -215,7 +215,7 @@
   "hp": 18,
   "hp_max": 18,
   "id": "npc_harbormaster",
-  "name": "The Harbourmaster",
+  "name": "Morag Teale",
   "npc_type": "npc",
   "sex": "female",
   "studio_zone_id": null,

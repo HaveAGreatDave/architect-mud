@@ -53,10 +53,11 @@ const toY = Number(flag('y'));
 const toZ = Number(flag('z', '0'));
 const buildingType = String(flag('type', '')).toLowerCase().trim();
 const nameArg = flag('name');
+const npcNameArg = flag('npc-name');
 const dryRun = has('dry-run');
 
 if (!Number.isFinite(toX) || !Number.isFinite(toY) || !buildingType) {
-  console.error('usage: node scripts/place-building.mjs --x <n> --y <n> [--z <n>] --type <building_type> [--name "…"] [--dry-run]');
+  console.error('usage: node scripts/place-building.mjs --x <n> --y <n> [--z <n>] --type <building_type> [--name "…"] [--npc-name "Given Surname"] [--dry-run]');
   process.exit(2);
 }
 
@@ -303,14 +304,18 @@ let npcId = null;
 if (tmpl.npc && !isHangar) {
   const zid = roomIdFor(tmpl.npc.room) || lobbyId;
   npcId = `npc_bld_${slug}_${tmpl.npc.room}`;
-  const sex = decideSex(null, tmpl.npc.name, tmpl.npc.description, npcId);
+  // A template's inhabitant is a job ("the shopkeeper"), and a job isn't a name:
+  // content:lint fails any person without a given name and a surname.
+  const npcName = npcNameArg || tmpl.npc.name;
+  if (/^(the|an?)\s/i.test(npcName)) die(`the ${buildingType} template's inhabitant is "${tmpl.npc.name}". Give them a real name with --npc-name "Given Surname"`);
+  const sex = decideSex(null, npcName, tmpl.npc.description, npcId);
   const flags = { personality: tmpl.npc.personality };
   // Seeded on the id: a re-run must produce the same bytes, or every re-run is a diff.
   const outfit = pickClothingForPersonality(tmpl.npc.personality, sex, npcId);
   if (outfit) flags.clothing_layers = outfit;
   const npcType = npcTypeForPersonality(tmpl.npc.personality) || 'npc';
   store.patch('npcs', npcId, {
-    id: npcId, name: tmpl.npc.name, description: tmpl.npc.description,
+    id: npcId, name: npcName, description: tmpl.npc.description,
     // `npcs.zone_id` is excludeColumns (runtime placement) — home_zone is the
     // authored anchor and the engine seeds position from it.
     home_zone: zid,

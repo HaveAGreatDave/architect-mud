@@ -642,7 +642,7 @@
   "hp": 38,
   "hp_max": 38,
   "id": "npc_lw_pike",
-  "name": "Pike",
+  "name": "Barney Pike",
   "npc_type": "civilian",
   "sex": "male",
   "studio_zone_id": null,

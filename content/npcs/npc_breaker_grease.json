@@ -179,7 +179,7 @@
   "hp": 90,
   "hp_max": 90,
   "id": "npc_breaker_grease",
-  "name": "Grease",
+  "name": "Dale \"Grease\" Mottram",
   "npc_type": "npc",
   "sex": "male",
   "studio_zone_id": null,

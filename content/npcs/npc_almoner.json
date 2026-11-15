@@ -164,7 +164,7 @@
   "hp": 16,
   "hp_max": 16,
   "id": "npc_almoner",
-  "name": "The Almoner",
+  "name": "Linus Farrant",
   "npc_type": "npc",
   "sex": "male",
   "studio_zone_id": null,

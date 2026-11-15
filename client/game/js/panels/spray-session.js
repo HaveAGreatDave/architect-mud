@@ -13,6 +13,11 @@
 // or the lid) sends nothing and spends nothing. A miss costs time, not paint: how you did is only
 // the line at the end.
 //
+// ⚠ SHAKE IT FIRST. Before the first section the can wants shaking: drag up and down, or press the
+// arrows (or WASD) back and forth, until the bearing has done its SHAKES. Each shake is a clack
+// (spray-shake), and the meter runs down if you stop. The can is a 3-D one (spray-can-3d.js) with the
+// item's own label on it; it sits in the panel while you shake it and goes under the pointer after.
+//
 // The host is the 3-D view that's up (spray-aim.js): its `preview(canvas)` puts the paint on the
 // real wall as it goes (ROOM does; the street shows it here, in the close-up), and `label` names
 // the wall in the corner.
@@ -20,6 +25,8 @@
 import { bakeTagText } from './tag-bake.js';
 import { sfx } from './minigame-common.js';
 import { loadCss } from '../../../shared/dom.js';
+import { createCanView } from './spray-can-3d.js';
+import { SecondOrder } from '../../../shared/second-order.js';
 
 const CSS = await loadCss(new URL('./spray-session.css', import.meta.url));
 
@@ -32,6 +39,11 @@ const FILL_MS = 520;         // how long a section takes to go on
 
 const LETTERS_PER = 4;       // a section for every four letters…
 const MAX_SECTIONS = 6;      // …up to six
+
+const SHAKES = 10;           // a stroke each way counts one: five good shakes
+const SHAKE_PX = 22;         // how far a drag goes before it's a stroke of the shake
+const SHAKE_REST_MS = 700;   // stop for longer than this and the meter starts running down…
+const SHAKE_DECAY = 1.2;     // …at this many shakes a second
 
 let live = null;
 
@@ -57,9 +69,10 @@ const turn = (d, by) => DIRS[(DIRS.indexOf(d) + by + 4) % 4];
 
 /**
  * Put a piece up. `text`, `runs` and `face` are the dialog's; `host` is the 3-D view's spray stage
- * (spray-aim.js); `onDone` sends the tag, `onCancel` is told when the lid goes back on.
+ * (spray-aim.js); `can` is the dialog's (`can.label` dresses the 3-D can); `onDone` sends the tag,
+ * `onCancel` is told when the lid goes back on.
  */
-export function runSpraySession({ text, runs = null, face = null, host = null, onDone, onCancel }) {
+export function runSpraySession({ text, runs = null, face = null, host = null, can = null, onDone, onCancel }) {
   endSpraySession();
   ensureStyles();
   // as the host's wall will have it if it says (ROOM rolls the letterform off the room, as the server's variant
@@ -78,9 +91,11 @@ export function runSpraySession({ text, runs = null, face = null, host = null, o
   root.innerHTML = `<div class="ss-panel">
       <div class="ss-head"><b>◗ PUTTING IT UP</b><span class="ss-where"></span><span class="ss-pips"></span></div>
       <canvas class="ss-wall"></canvas>
+      <div class="ss-shake"><canvas class="ss-can3d" aria-label="the can"></canvas>
+        <div class="ss-meter" role="progressbar" aria-label="shaken" aria-valuemin="0" aria-valuemax="100"><i></i></div></div>
       <div class="ss-steps" aria-live="polite"></div>
       <div class="ss-say"></div>
-      <div class="ss-foot"><span>Drag the strokes, or press them on the arrows or WASD. A ↻ is a spin: round once, any start.</span>
+      <div class="ss-foot"><span class="ss-how">Shake it: drag up and down, or press ↑ ↓ ↑ ↓.</span>
         <button type="button" class="ss-lid">put the lid back on (Esc)</button></div>
     </div>
     <canvas class="ss-mist"></canvas>`;
@@ -107,7 +122,12 @@ export function runSpraySession({ text, runs = null, face = null, host = null, o
   sizeMist();
   const motes = [];
 
-  const S = { sec: 0, step: 0, spin: null, misses: 0, lastOk: 0, filling: null, done: false, held: null, raf: 0, pointer: null, consumed: new Set() };
+  const S = { sec: 0, step: 0, spin: null, misses: 0, lastOk: 0, filling: null, done: false, held: null, raf: 0, pointer: null, consumed: new Set(),
+    phase: 'shake', cx: innerWidth / 2, cy: innerHeight * 0.42, kx: 0, ky: 0, last: performance.now() };
+  // the shake: `n` shakes so far (it runs down), the stroke under way and where it's got to, and
+  // where the drag took hold (`grab`) so the can moves with the hand
+  const K = { n: 0, dir: 0, ext: 0, lastKey: null, lastAt: 0, kick: 0, grab: null, pull: 0 };
+  root.classList.add('shaking');
   live = { root, close: (sent) => finish(sent) };
 
   function compose() {
@@ -160,7 +180,7 @@ export function runSpraySession({ text, runs = null, face = null, host = null, o
   }
 
   function input(d, from) {
-    if (S.done || S.filling) return;
+    if (S.done || S.filling || S.phase !== 'spray' || performance.now() < (S.calm || 0)) return;
     const want = patterns[S.sec][S.step], now = performance.now();
     if (want === 'CW' || want === 'CCW') {
       const by = want === 'CW' ? 1 : -1;
@@ -226,8 +246,47 @@ export function runSpraySession({ text, runs = null, face = null, host = null, o
     window.removeEventListener('keydown', onKey, true);
     window.removeEventListener('keyup', onKeyUp, true);
     window.removeEventListener('resize', sizeMist);
+    view.dispose();
     root.remove();
     if (sent) { host?.done?.(); onDone?.(); } else { host?.preview?.(null); onCancel?.(); }
+  }
+
+  // ── the shake ──
+  // A stroke of the shake is a drag of SHAKE_PX one way after going the other; the first counts too.
+  function shakeMove(y) {
+    if (K.dir === 0) { if (Math.abs(y - K.ext) >= SHAKE_PX) { K.dir = Math.sign(y - K.ext); K.ext = y; shook(K.dir); } return; }
+    if ((y - K.ext) * K.dir > 0) { K.ext = y; return; }            // still going the same way
+    if (Math.abs(y - K.ext) >= SHAKE_PX) { K.dir = -K.dir; K.ext = y; shook(K.dir); }
+  }
+  // from the keys it's back and forth: a key that isn't the last one pressed
+  function shakeKey(d) {
+    if (d === K.lastKey) return;
+    K.lastKey = d;
+    shook(d === 'U' || d === 'L' ? -1 : 1);
+  }
+  function shook(dir) {
+    if (S.phase !== 'shake') return;
+    K.n = Math.min(SHAKES, K.n + 1); K.lastAt = performance.now(); K.kick = -dir;
+    sfx('spray-shake');
+    meter();
+    if (K.n >= SHAKES) shaken();
+  }
+  function meter() {
+    const p = Math.round((K.n / SHAKES) * 100);
+    const m = $('.ss-meter'); m.firstElementChild.style.width = p + '%'; m.setAttribute('aria-valuenow', String(p));
+  }
+  // shaken enough: a squirt to clear the nozzle, and the can goes in your hand
+  function shaken() {
+    S.phase = 'spray';
+    // the hand still shaking isn't a stroke: the drag under way ends here, and the next third of a second is ignored
+    S.pointer = null; K.grab = null; S.calm = performance.now() + 350;
+    root.classList.remove('shaking');
+    if (view.ok) { canC.classList.add('cursor'); root.appendChild(canC); }
+    sfx('spray-tick');
+    burst(S.cx, S.cy, 22);
+    $('.ss-how').textContent = 'Drag the strokes, or press them on the arrows or WASD. A ↻ is a spin: round once, any start.';
+    say(N > 1 ? `That'll do. ${N} sections. Go.` : "That'll do. Go.", 'good');
+    pips(); steps();
   }
 
   // ── input ──
@@ -241,7 +300,10 @@ export function runSpraySession({ text, runs = null, face = null, host = null, o
     e.preventDefault(); e.stopImmediatePropagation();
     if (!d || e.repeat || e.ctrlKey || e.metaKey || e.altKey) return;
     S.consumed.add(k);
-    burst(innerWidth / 2, innerHeight * 0.42, 18);
+    if (S.phase === 'shake') { shakeKey(d); return; }
+    // a stroke from the keys: the can jumps the way it went, and the paint comes out of the nozzle
+    S.kx = d === 'L' ? -26 : d === 'R' ? 26 : 0; S.ky = d === 'U' ? -26 : d === 'D' ? 26 : 0;
+    burst(S.cx + S.kx, S.cy + S.ky, 18);
     input(d, 'key');
   }
   // a key let go that this panel took is this panel's; one held from before goes through, or the walk behind
@@ -260,13 +322,15 @@ export function runSpraySession({ text, runs = null, face = null, host = null, o
     e.preventDefault();
     root.setPointerCapture?.(e.pointerId);
     S.pointer = { x: e.clientX, y: e.clientY, last: null, id: e.pointerId };
+    if (S.phase === 'shake') { K.dir = 0; K.ext = e.clientY; K.grab = e.clientY; K.pull = 0; return; }
     const def = window.SFXCatalog?.get?.('spray-hold');
     try { S.held = def ? window.AudioEngine?.playSfx(def, 1, { sustain: true, maxHold: 20 }) : null; } catch { S.held = null; }
   });
   root.addEventListener('pointermove', (e) => {
-    can(e.clientX, e.clientY);
+    canAt(e.clientX, e.clientY);
     const P = S.pointer;
     if (!P || P.id !== e.pointerId) return;
+    if (S.phase === 'shake') { if (K.grab != null) K.pull = (K.grab - e.clientY) / 45; shakeMove(e.clientY); return; }
     burst(e.clientX, e.clientY, 4);
     const dx = e.clientX - P.x, dy = e.clientY - P.y;
     if (Math.max(Math.abs(dx), Math.abs(dy)) < STROKE_PX) return;
@@ -277,16 +341,44 @@ export function runSpraySession({ text, runs = null, face = null, host = null, o
     P.last = d;
     input(d, 'drag');
   });
-  const lift = (e) => { if (S.pointer?.id === e.pointerId) { S.pointer = null; S.held?.release?.(); S.held = null; } };
+  const lift = (e) => { if (S.pointer?.id === e.pointerId) { S.pointer = null; K.grab = null; S.held?.release?.(); S.held = null; } };
   root.addEventListener('pointerup', lift);
   root.addEventListener('pointercancel', lift);
 
-  // the can on the screen where the pointer is
+  // the can: the 3-D one, in the panel while you shake it and under the pointer after; the flat CSS one
+  // where there's no WebGL
+  const canC = $('.ss-can3d');
+  const view = createCanView(canC, can?.label);
+  if (!view.ok) root.classList.add('flatcan');
   const canEl = document.createElement('div');
   canEl.className = 'ss-can';
   root.appendChild(canEl);
-  function can(x, y) { canEl.style.transform = `translate(${x}px, ${y}px)`; canEl.hidden = false; }
   canEl.hidden = true;
+  function canAt(x, y) {
+    S.cx = x; S.cy = y;
+    if (view.ok) return;
+    canEl.style.transform = `translate(${x}px, ${y}px)`; canEl.hidden = S.phase === 'shake';
+  }
+  // how it's held: bobbing on a spring while it's shaken, tipped toward the wall in the hand
+  const bob = new SecondOrder(5.5, 0.32, 1.8, 0);
+  const sway = new SecondOrder(3, 0.5, 0, 0);
+  const still = !!globalThis.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches;
+  let nozzle = [0, 0];
+  function drawCan(now) {
+    if (!view.ok) return;
+    const dt = Math.min(0.05, Math.max(0, (now - S.last) / 1000)); S.last = now;
+    if (S.phase === 'shake') {
+      // a drag moves it with the hand; a key flicks it and it springs back
+      const want = K.grab != null ? Math.max(-1.4, Math.min(1.4, K.pull)) : now - K.lastAt < 110 ? K.kick * 0.9 : 0;
+      const y = bob.update(dt, want);
+      view.render({ yaw: still ? 0 : 0.85 * Math.sin(now / 1400), roll: y * 0.06, lift: y });
+      return;
+    }
+    S.kx *= 0.85; S.ky *= 0.85;
+    const r = sway.update(dt, Math.max(-0.4, Math.min(0.4, S.kx / 90)));
+    nozzle = view.render({ yaw: 2.55, roll: 0.5 - r, pitch: -0.3 }) || nozzle;
+    canC.style.transform = `translate(${S.cx + S.kx - nozzle[0]}px, ${S.cy + S.ky - nozzle[1]}px)`;
+  }
 
   function burst(x, y, n) {
     const ink = pieceInk;
@@ -298,6 +390,8 @@ export function runSpraySession({ text, runs = null, face = null, host = null, o
   function frame(now) {
     S.raf = requestAnimationFrame(frame);
     if (S.filling) fillTick(now);
+    if (S.phase === 'shake' && K.n > 0 && now - K.lastAt > SHAKE_REST_MS) { K.n = Math.max(0, K.n - SHAKE_DECAY / 60); meter(); }
+    drawCan(now);
     compose();
     mctx.clearRect(0, 0, mist.width, mist.height);
     for (let i = motes.length - 1; i >= 0; i--) {
@@ -310,9 +404,8 @@ export function runSpraySession({ text, runs = null, face = null, host = null, o
     mctx.globalAlpha = 1;
   }
 
-  sfx('spray-rattle');
-  say(N > 1 ? `${N} sections. Shake it and go.` : 'Shake it and go.');
-  pips(); steps(); compose();
+  say('Shake it first. The bearing should knock end to end.');
+  meter(); pips(); steps(); compose();
   host?.preview?.(shown, true, text.length);
   S.raf = requestAnimationFrame(frame);
 }

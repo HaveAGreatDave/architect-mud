@@ -165,7 +165,7 @@
   "hp": 22,
   "hp_max": 22,
   "id": "npc_clinkerman",
-  "name": "The Clinkerman",
+  "name": "Abner Gell",
   "npc_type": "vendor",
   "sex": "male",
   "studio_zone_id": null,

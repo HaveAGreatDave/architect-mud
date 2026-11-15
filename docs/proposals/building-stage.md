@@ -457,8 +457,22 @@ under that veil; anywhere else in the building the veil only fetches the rendere
 the room stays up, held still, while the street is built behind it (dispatch.js `freelook_open`), for 8 s at
 most. The page keeps its seat rung across the door both ways (`keepSeatRung`).
 
-**In without a blank.** Walking in, the street's last frame stays over the pane (`.fl-cover`) until the room
-has drawn one frame, then fades.
+**In without a blank.** Walking in, the street's last frame stays over the pane (`.fl-cover`), fades to black, and the
+Room Stage's loading veil comes up out of the black (glass-veil.js `preVeil`, from freelook-view.js `coverPane`) with
+the building on it: its name, the room, its street and region, and the first sentence or two of the facade's own
+description (`entryCard` in plugins/roomstage, sent as `place` on each street door and as `entry` on `room_view`). When
+the room has drawn a frame the veil runs its bar to the end and all of it fades. Typing `room` or pressing the Room
+button puts the same veil up as the command goes, before the server has answered or the Stage's module has loaded
+(dispatch.js `roomOpening`), and the Stage takes it over where it stands; it's only put up where the button is lit.
+
+**A dark door.** `flags.room.street_door.dark` shows black behind the doors from the street instead of the lobby: no
+portal, a black fill in the opening, and the glass a shade of its tint. The Embassy's is dark, so its doors part onto
+nothing and the step through is into the dark the veil comes out of.
+
+**Opened by hand.** `hand: true` on a swing pair keeps it shut from inside: it doesn't part as you come up. Facing it
+within reach, the card offers Open the doors (F), and they stand open while you're near and shut a beat after you've
+gone; walking into them shut holds you and says how to open them. Come in off the street, they swing shut behind you
+once you're clear of the leaves. The Embassy's are; Screw It's, the Meridian's and the Gardens' still open themselves.
 
 **The same hands.** On foot the keys are room-walk.js's: WASD, Shift to run, C or Ctrl to crouch, Q and E to
 turn at the room's rate, a drag to look at the room's rate, the wheel 6% a notch. The camera's speed ladder,
@@ -494,7 +508,9 @@ A room on a walk looks out from where the building puts it. `room_outlook` (and 
 client (`inBuilding` in room-view.js) stands the entry room's front wall on the tile's street edge and every room
 where the plan puts it from there, at its true height, capped at the GLASS model's top. The walk moves the eye by
 true metres, so the city slides past the glass as you cross a room. The eye never leaves its own tile, since only
-that tile's building is taken out of the view.
+that tile's building is taken out of the view. That tile is paved (`concrete`) where the building was: a city biome's
+bare ground is drawn as turf and grows trees, so a lobby looked out over a lawn, and now and then a tree, where its own
+building stands.
 
 One GLASS view serves a whole building. Starting it costs seconds (a worker loads the renderer and builds its
 tables), so a Stage that closes onto the next room of the same building parks its view (`parkView`), the next

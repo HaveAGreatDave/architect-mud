@@ -202,7 +202,7 @@
   "hp": 90,
   "hp_max": 90,
   "id": "npc_voltage_bouncer",
-  "name": "Bishop",
+  "name": "Leon Bishop",
   "npc_type": "vendor",
   "sex": "male",
   "studio_zone_id": null,

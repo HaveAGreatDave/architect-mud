@@ -216,7 +216,7 @@
   "hp": 20,
   "hp_max": 20,
   "id": "npc_vane",
-  "name": "Vane",
+  "name": "Odette Vane",
   "npc_type": "vendor",
   "sex": "female",
   "studio_zone_id": null,

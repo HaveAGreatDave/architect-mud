@@ -406,6 +406,34 @@ export function lintContentTree(baseDir, { tree: preRead = null } = {}) {
         (bySurname.get(p.surname) || bySurname.set(p.surname, []).get(p.surname)).push(f.data);
         (byGiven.get(p.given) || byGiven.set(p.given, []).get(p.given)).push(f.data);
       }
+      // A person has a proper name: a given name and a surname, or a rank and a
+      // name ("Prefect Aldous"). A job isn't a name ("the shopkeeper", "a Redline
+      // loader", "The Harbourmaster"), and neither is one word ("Marchetti"):
+      // 50 NPCs were named like that until 2026-11-15. A nickname goes in quotes
+      // between the two ('Wilf "Keel" Treharne'). Animals (flags.animal) and
+      // machines (a digit in the name) are exempt, and so is ONE_NAME, the people
+      // whose single name is the point.
+      const ONE_NAME = new Map([
+        ['npc_asc_first', 'the Ascendants\' founder; the title replaced the name'],
+        ['npc_asc_registrar', 'a clerical shell, not a person'],
+        ['npc_asc_warden', 'a chrome warden unit'],
+        ['npc_attendant_inbetween', 'a chrome figure in the Inbetween, not a person'],
+        ['npc_glitch', 'the Glitch crew go by handles'],
+        ['npc_glitch_hex', 'the Glitch crew go by handles'],
+        ['npc_glitch_null', 'the Glitch crew go by handles'],
+        ['npc_thorn_chorus', 'a Wildblood office; she speaks as the Chorus'],
+      ]);
+      for (const f of npcFiles) {
+        const n = f.data;
+        if (n.flags?.animal || ONE_NAME.has(n.id) || /\d/.test(n.name ?? '')) continue;
+        const words = String(n.name ?? '').split(',')[0].replace(/(['"]).*?\1/g, ' ').trim().split(/\s+/).filter(Boolean);
+        const titled = words.length > 0 && TITLES.has(words[0]);
+        const rest = words.filter(w => !TITLES.has(w));
+        const named = words.length > 0 && !/^[a-z]/.test(words[0]) && words[0] !== 'The' && !n.name.includes(',')
+          && (rest.length >= 2 || (titled && rest.length === 1));
+        if (!named) errors.push(`npcs: ${n.id} is called "${n.name}", which isn't a name. Give them a given name and a surname (a nickname goes in quotes between them), or add them to ONE_NAME with a reason`);
+      }
+
       for (const [g, npcs] of byGiven) {
         if (npcs.length < 2) continue;
         const msg = `npcs: given name "${g}" is used by ${npcs.map(n => n.name).join(', ')}. Given names are unique: rename all but one`;

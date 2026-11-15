@@ -165,7 +165,7 @@
   "hp": 20,
   "hp_max": 20,
   "id": "npc_water_warden",
-  "name": "The Water Warden",
+  "name": "Bridie Kettlewell",
   "npc_type": "vendor",
   "sex": "female",
   "studio_zone_id": null,

@@ -31,7 +31,7 @@
   "hp": 24,
   "hp_max": 24,
   "id": "npc_aa_wastes_engineer",
-  "name": "a wastes wrench-hand",
+  "name": "Shay Gorringe",
   "npc_type": "npc",
   "sex": "female",
   "studio_zone_id": null,

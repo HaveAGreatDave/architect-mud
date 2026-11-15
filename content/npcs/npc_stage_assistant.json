@@ -30,7 +30,7 @@
   "hp": 20,
   "hp_max": 20,
   "id": "npc_stage_assistant",
-  "name": "Stage Assistant",
+  "name": "Penny Arkwright",
   "npc_type": "npc",
   "sex": "female",
   "studio_zone_id": null,

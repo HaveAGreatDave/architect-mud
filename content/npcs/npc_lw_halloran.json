@@ -716,7 +716,7 @@
   "hp": 26,
   "hp_max": 26,
   "id": "npc_lw_halloran",
-  "name": "Halloran",
+  "name": "Cormac Halloran",
   "npc_type": "vendor",
   "sex": "male",
   "studio_zone_id": null,

@@ -118,7 +118,7 @@
   "hp": 20,
   "hp_max": 20,
   "id": "npc_halcyon_kiosk",
-  "name": "Sef",
+  "name": "Sef Amari",
   "npc_type": "vendor",
   "sex": "nonbinary",
   "studio_zone_id": null,

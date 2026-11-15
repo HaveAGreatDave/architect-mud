@@ -69,7 +69,7 @@ Reuses the existing body-temperature path (`gameLoop.js` temp tick), no new hypo
 ## Gear
 - **Wetsuit** (`item_wetsuit`, clothing, `insulation: 6`, covers torso+legs) — offsets the cold-water pull through the insulation math above. Comfortably enough for a summer swim at any depth; a **winter** dive (deep water at ~2°C) now bites through it, which it never used to. Colder authored tiles (`flags.water_temp_c`) bite harder still.
 - **Rebreather** (`item_rebreather`, gear, `tags.rebreather`) — carried or worn, it supplies air underwater: no breath timer, so you never drown from lack of air. Stamina still applies (you can still exhaust yourself), and it does nothing for the cold.
-- Both stocked at **Brack the Fishmonger** (The Fishmarket). Checked like the `boat` item: uncontained inventory, cached on move (`player._hasRebreather`).
+- Both stocked at **Brack Tunney**, the fishmonger (The Fishmarket). Checked like the `boat` item: uncontained inventory, cached on move (`player._hasRebreather`).
 
 ## Tuning (constants in `plugins/swimming/index.js`)
 `BASE_STROKE 18 · MIN_STROKE 4 · DIVE_EXTRA 3 · TREAD_MS 8000 · TREAD_BASE 2 · DROWN_HP 6 · BREATH_BASE 30 · BREATH_PER 3`.

@@ -18,7 +18,7 @@
   "hp": 20,
   "hp_max": 20,
   "id": "npc_bld_893_904_lobby",
-  "name": "the shopkeeper",
+  "name": "Royston Pagett",
   "npc_type": "vendor",
   "sex": "male",
   "studio_zone_id": null,

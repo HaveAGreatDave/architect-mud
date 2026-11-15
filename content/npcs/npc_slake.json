@@ -267,7 +267,7 @@
   "hp": 24,
   "hp_max": 24,
   "id": "npc_slake",
-  "name": "Slake",
+  "name": "Edda \"Slake\" Varnum",
   "npc_type": "vendor",
   "sex": "female",
   "studio_zone_id": null,

@@ -31,7 +31,7 @@
   "hp": 24,
   "hp_max": 24,
   "id": "npc_aa_slag_gunner",
-  "name": "a Slagworks flak gunner",
+  "name": "Stan Ruddock",
   "npc_type": "npc",
   "sex": "male",
   "studio_zone_id": null,

@@ -165,7 +165,7 @@
   "hp": 18,
   "hp_max": 18,
   "id": "npc_bourse_broker",
-  "name": "Quill",
+  "name": "Rupert Quill",
   "npc_type": "vendor",
   "sex": "male",
   "studio_zone_id": null,

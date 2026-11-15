@@ -223,7 +223,7 @@ climb their standing to be **taught by somebody who knows more**:
 | Teacher | Where | Gate | Ceiling | Teaches |
 |---|---|---|---|---|
 | **Pike** | The Threshold | Known (200) | 35 | `body`, `breath` |
-| **the Quartermaster** | The Bunkroom | Trusted (500) | 65 | `senses`, `will` |
+| **Ruth Ashby**, the quartermaster | The Bunkroom | Trusted (500) | 65 | `senses`, `will` |
 | **Teague** | the Under | Inner Circle (900) | 100 | `movement`, `pain`, `mind`, `combat` |
 
 Teague is deliberately the furthest away and the only one who can take you to the

@@ -101,6 +101,8 @@
       help: "A bottle of something that cleans and is USED UP doing it (acetone, bleach). Cleans a floor like a Cleaning Tool, but spends a unit per use — so the resolver reaches for a mop or brush FIRST and only falls back to this when there's no reusable tool to hand. Pair with cleaning_tool on the same item." },
     spray_paint: { label: 'Spray Paint', shape: 'flag', scope: 'class', group: 'Core',
       help: 'A can of aerosol paint. TAG a building on an adjacent exit with one; the can is spent doing it (one tag, one can). Nothing else gates the verb — no skill, no stat. Removing the result needs a Cleaning Tool: bare hands do floor filth, not brickwork.' },
+    can_label: { label: 'Spray Can Label', shape: 'object', scope: 'class', group: 'Core',
+      help: "What's printed on a spray can, for the 3-D can in the spray session (client/game/js/panels/spray-can-3d.js). { brand, product, strap, fine, net (text), body, cap (hex), colours: [hex, ...] (the house colours: the prism, the bands, the collar's cells), wear: 0-1 }. Only a look: the can works the same without it. Pair with spray_paint." },
     condom: { label: 'Protection', shape: 'flag', scope: 'class', group: 'Core',
       help: 'Consumed at the start of a penetrative MIS act, dropping infection risk to near zero (never zero). MIS only.' },
 

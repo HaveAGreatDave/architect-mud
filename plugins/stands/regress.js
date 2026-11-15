@@ -178,8 +178,10 @@ async function stadiumKit({ run, check, getPlayer }) {
     const { sportsGamesAhead } = await import('../broadcast/index.js');
     const ahead = sportsGamesAhead('hockey', 4), g = ahead[1] || ahead[0];
     if (g) {
+      // the spend is a guarded UPDATE on the row (adjustCredits), so the row is funded, not only the live player
       const credits = me.credits;
       me.credits = Math.max(me.credits | 0, 500);
+      await query('UPDATE players SET credits=$2 WHERE id=$1', [me.id, me.credits]);
       r = await run(`buyticket ends door home@${g.slot}`);
       const t = [...(tk.held.get(me.id)?.values() || [])].find((x) => x.slot === g.slot && x.section === 'home');
       check('stands: buyticket sells a seat at that door for that game', r?.type === 'output' && !!t, r?.message);
@@ -202,6 +204,7 @@ async function stadiumKit({ run, check, getPlayer }) {
         tk.held.delete(me.id); tk.sold.clear();
       }
       me.credits = credits;
+      await query('UPDATE players SET credits=$2 WHERE id=$1', [me.id, credits | 0]);
     }
   } finally { me.current_zone = home; }
 

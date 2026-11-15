@@ -241,7 +241,7 @@
   "hp": 45,
   "hp_max": 45,
   "id": "npc_verger_demo",
-  "name": "the Verger",
+  "name": "Anselm Tibbett",
   "npc_type": "npc",
   "sex": "male",
   "studio_zone_id": null,

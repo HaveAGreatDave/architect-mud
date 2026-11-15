@@ -4,6 +4,22 @@
   "id": "item_spray_paint",
   "name": "Chromaflux 167 Spraycan",
   "tags": {
+    "can_label": {
+      "body": "#17171b",
+      "brand": "PRISMATIK",
+      "cap": "#f2efe8",
+      "colours": [
+        "#00b4e6",
+        "#e6007e",
+        "#ffd400",
+        "#f4f1ea"
+      ],
+      "fine": "Contents under pressure. Keep away from heat, sparks and open flame. Do not pierce or burn, even when empty. Use in a ventilated place. Shake for one minute before use. Prismatik Coatings.",
+      "net": "400 ML",
+      "product": "CHROMAFLUX 167",
+      "strap": "ONE CAN. EVERY COLOUR.",
+      "wear": 0.45
+    },
     "description": "A dented aerosol can in Prismatik house colours, the label worn down to the hazard diamond. PRISMATIK. ONE CAN. EVERY COLOUR. A mixing head draws from four pigment cells and a white, and the collar clicks through the range as you turn it. It rattles when you pick it up. That's the only gauge it has.",
     "misc": true,
     "spray_paint": true

@@ -216,7 +216,7 @@
   "hp": 24,
   "hp_max": 24,
   "id": "npc_yardmaster",
-  "name": "Dolan",
+  "name": "Mick Dolan",
   "npc_type": "vendor",
   "sex": "male",
   "studio_zone_id": null,

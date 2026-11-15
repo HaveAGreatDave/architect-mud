@@ -220,7 +220,7 @@ const JOSIAH = npc({
 // Nothing ever explains how she got out. Nobody remarks on it. She is the sharpest instrument in
 // the district and this is one of the two places she is used.
 const HOPESTILL = npc({
-  id: 'npc_terminus_child', name: 'Hopestill', sex: 'female', hp: 12, hp_max: 12,
+  id: 'npc_terminus_child', name: 'Hopestill Cotter', sex: 'female', hp: 12, hp_max: 12,
   home_zone: 'zone_terminus_1210_940',
   description: 'A girl of about nine, sitting on a rock at the side of the road with her heels drawn up, entirely absorbed in nothing at all. She is on the wrong side of a wall with no way through it and does not appear to think this is worth mentioning.\n\nWhen you look at her she is already looking back, and she waits, comfortably, for you to work out what you were going to say.',
   flags: {

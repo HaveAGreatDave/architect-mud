@@ -18,7 +18,7 @@ changes were needed for either.
     poker bot: `flags.poker_player: true`, `poker_bankroll: 2400`, and a full
     `poker_persona` (aggression 0.55, bluffFreq 0.22, tightness 0.45, buyIn 200,
     tiltProne 0.5). Behaviour graph runs `HAVE_LIFE`.
-  - `npc_neonvig_enforcer` — **"the Collector"**, `personality: thug`, hp 90.
+  - `npc_neonvig_enforcer` — **Vic Lomas**, the collector, `personality: thug`, hp 90.
     Pure loan-shark menace at the cage; no mechanics.
   - `npc_neonvig_backroom_dealer` — **"Marguerite 'Margo' Sable"** (the poker
     dealer, below). Runs the one felt in the main room, called-aloud.

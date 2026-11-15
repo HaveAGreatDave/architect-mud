@@ -198,7 +198,7 @@
   "hp": 12,
   "hp_max": 12,
   "id": "npc_terminus_child",
-  "name": "Hopestill",
+  "name": "Hopestill Cotter",
   "npc_type": "npc",
   "sex": "female",
   "studio_zone_id": null,

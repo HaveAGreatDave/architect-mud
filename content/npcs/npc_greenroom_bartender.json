@@ -221,7 +221,7 @@
   "hp": 40,
   "hp_max": 40,
   "id": "npc_greenroom_bartender",
-  "name": "Corva",
+  "name": "Corva Adair",
   "npc_type": "vendor",
   "sex": "female",
   "studio_zone_id": null,

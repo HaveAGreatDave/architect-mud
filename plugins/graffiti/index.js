@@ -560,7 +560,8 @@ async function doSpray(args, raw, player) {
     // again on the way back in.
     maxLen: Math.min(TAG_MAX_LEN, can.paint),
     saveCap: SAVE_CAP,
-    can: { name: can.name, quantity: can.quantity ?? 1, paint: can.paint },
+    // `label` is the can item's `can_label` tag: what's printed on the 3-D can (spray-can-3d.js)
+    can: { name: can.name, quantity: can.quantity ?? 1, paint: can.paint, label: can.label || null },
     message: `<span class="msg-system">You pop the lid. Caps rattle around inside it.</span>`,
   };
 }
@@ -641,7 +642,7 @@ async function doSprayDelete(args, raw, player) {
 
 async function carriedCan(player) {
   const { rows } = await query(
-    `SELECT pi.id, pi.quantity, pi.custom_data, i.name FROM player_inventory pi JOIN items i ON i.id=pi.item_id
+    `SELECT pi.id, pi.quantity, pi.custom_data, i.name, i.tags->'can_label' AS label FROM player_inventory pi JOIN items i ON i.id=pi.item_id
       WHERE pi.player_id=$1 AND pi.container_id IS NULL AND jsonb_exists(i.tags, $2) LIMIT 1`,
     [player.id, CAN_TAG]
   );

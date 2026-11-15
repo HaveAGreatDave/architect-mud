@@ -165,7 +165,7 @@
   "hp": 22,
   "hp_max": 22,
   "id": "npc_butcher",
-  "name": "the Butcher",
+  "name": "Hamish Corrigan",
   "npc_type": "npc",
   "sex": "male",
   "studio_zone_id": null,

@@ -199,7 +199,7 @@
   "hp": 30,
   "hp_max": 30,
   "id": "npc_lw_nyall",
-  "name": "Nyall",
+  "name": "Nyall Fairbairn",
   "npc_type": "civilian",
   "sex": "male",
   "studio_zone_id": null,

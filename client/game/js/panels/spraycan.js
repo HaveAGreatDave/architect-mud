@@ -24,7 +24,7 @@
 // letterform you picked (bubble, round, block or sharp).
 
 import { sendCmdSilent } from '../net.js';
-import { mountOverlay } from './minigame-common.js';
+import { mountOverlay, sfx } from './minigame-common.js';
 import { openColorPicker, closeColorPicker } from './color-picker.js';
 import { tagPreview } from './tag-bake.js';   // a leaf: the preview without fetching GLASS
 import { TAG_FACES } from '../../../shared/tag-strokes.js';
@@ -314,8 +314,9 @@ function sprayIt() {
   // `q`: the session plays the tag signature itself, so the reply mustn't play it again
   const line = `sprayapply ${S.wall} ${payload(null, spot)} q`;
   const piece = { text: S.text, runs: runsFromChars(S.colors, S.flags, S.text.length), face: S.face };
+  const can = S.can;          // (closing the dialog lets go of S)
   S.close();
-  runSpraySession({ ...piece, host, onDone: () => sendCmdSilent(line) });
+  runSpraySession({ ...piece, host, can, onDone: () => sendCmdSilent(line) });
 }
 
 // ── The panel ────────────────────────────────────────────────────────────────
@@ -339,7 +340,7 @@ function overNote() {
   note(w?.over ? `${w.over}'s tag is up on that wall. Yours goes straight over it.` : '');
 }
 
-// msg: { walls:[{dir,name,side,over}], wall, saved, maxLen, saveCap, can:{name,quantity} }
+// msg: { walls:[{dir,name,side,over}], wall, saved, maxLen, saveCap, can:{name,quantity,label} }
 export function openSprayCan(msg) {
   ensureStyles();
   closeSprayCan();
@@ -413,8 +414,11 @@ export function openSprayCan(msg) {
     fade: ['#ff2d55', '#ffb300', '#00e676', '#2196ff'],
     walls, wall, saved: Array.isArray(msg.saved) ? msg.saved : [],
     maxLen: Number(msg.maxLen) || 48, saveCap: Number(msg.saveCap) || 12,
+    can: msg.can || null,
     overlay, close, $,
   };
+  // it rattles when you pick it up
+  sfx('spray-rattle');
 
   // The text field is the source of truth for the words; the strip is the source of
   // truth for which of them you're painting.
