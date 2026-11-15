@@ -436,6 +436,7 @@ export const REGISTRY = [
   { table: 'lighting_states', class: 'runtime' },    // fully derived from furniture
   { table: 'zone_exit_overrides', class: 'runtime' }, // play-time exit wiring merged over authored zones.exits at load
   { table: 'npc_home_overrides', class: 'runtime', pk: ['npc_id'] }, // play-time relocation merged over the authored npcs.home_zone at load
+  { table: 'pet_bowls', class: 'runtime', pk: ['furniture_id'] }, // pets plugin — when a feeding station's food and water were last filled; loaded at boot into BOWLS
   { table: 'zone_graffiti', class: 'runtime' },       // graffiti plugin — one player-sprayed tag per wall, ages out on its own
   { table: 'player_sprays', class: 'player' },        // graffiti plugin — a player's saved spray-can designs (the `spraycan` dialog's shelf)
   { table: 'economy_snapshots', class: 'runtime' },  // economy-ledger plugin — daily circulation totals

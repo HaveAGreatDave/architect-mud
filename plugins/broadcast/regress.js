@@ -145,17 +145,19 @@ export default async function regress({ check, run, getPlayer }) {
   const a = _test.sportsGameForSlot(script, 12345, null);
   const b = _test.sportsGameForSlot(script, 12345, null);
   check('same slot → identical matchup', a && b && a.game.away.name === b.game.away.name && a.game.home.name === b.game.home.name, JSON.stringify([a?.matchup, b?.matchup]));
-  check('same slot → identical score', a.game.awayScore === b.game.awayScore && a.game.homeScore === b.game.homeScore, `${a.game.awayScore}-${a.game.homeScore} vs ${b.game.awayScore}-${b.game.homeScore}`);
-  check('sim never ties', a.game.awayScore !== a.game.homeScore, `${a.game.awayScore}-${a.game.homeScore}`);
+  check('same slot → identical score', !!a && !!b && a.game.awayScore === b.game.awayScore && a.game.homeScore === b.game.homeScore, `${a?.game.awayScore}-${a?.game.homeScore} vs ${b?.game.awayScore}-${b?.game.homeScore}`);
+  check('sim never ties', !!a && a.game.awayScore !== a.game.homeScore, `${a?.game.awayScore}-${a?.game.homeScore}`);
   // a final's finalists come in seeded order, and the top seed is the home side
   const fin = _test.sportsGameForSlot(script, 12345, { teams: ['Kings', 'Rats'], worldSeries: true });
   check('a final: the top seed hosts', fin && fin.game.home.name === 'Kings' && fin.game.away.name === 'Rats', JSON.stringify(fin?.matchup));
-  // 12346 is the other sport's slot on the slate, so the next Deadball game is 12347.
+  // 12346 is the other sport's slot on the slate. The next Deadball game is found, not assumed:
+  // the slate leaves some slots empty, and a hardcoded 12347 landed on one and threw.
   check('the other sport\'s slot has no Deadball game', _test.sportsGameForSlot(script, 12346, null) === null, 'slot 12346');
-  const c = _test.sportsGameForSlot(script, 12347, null);
+  let cSlot = 12346, c = null;
+  while (!c && cSlot < 12345 + 64) c = _test.sportsGameForSlot(script, ++cSlot, null);
   check('a different slot rolls a different game',
-    a.game.away.name !== c.game.away.name || a.game.home.name !== c.game.home.name || a.game.awayScore !== c.game.awayScore || a.game.homeScore !== c.game.homeScore,
-    'adjacent slots differ');
+    !!a && !!c && (a.game.away.name !== c.game.away.name || a.game.home.name !== c.game.home.name || a.game.awayScore !== c.game.awayScore || a.game.homeScore !== c.game.homeScore),
+    `slot 12345 vs ${cSlot}`);
 
   // ── The v1 fingerprint ──────────────────────────────────────────────────────
   // A hundred seeded games and four finals, every at-bat and every synthesised pitch,
