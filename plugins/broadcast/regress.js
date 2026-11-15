@@ -3169,8 +3169,15 @@ export default async function regress({ check, run, getPlayer }) {
       const script = row.sports_pools, wrong = [];
       let withLex = 0, sayNodes = 0, voiced = 0, spoken = 0;
       const colourLines = [];
-      for (const slot of [3, 42, 206]) {   // hockey's slots on the slate
-        const graph = _test.assembleSportsGraph(script, 'bc_regress_cphl', slot, null);
+      // three of hockey's slots on the slate, found rather than listed: a hardcoded [3, 42, 206]
+      // went stale when the slate changed, and a null graph threw the whole suite
+      const hockeyGraphs = [];
+      for (let slot = 0; hockeyGraphs.length < 3 && slot < 400; slot++) {
+        const g = _test.assembleSportsGraph(script, 'bc_regress_cphl', slot, null);
+        if (g) hockeyGraphs.push(g);
+      }
+      check('hockey: the slate gives hockey three slots to check', hockeyGraphs.length === 3, `${hockeyGraphs.length} found`);
+      for (const graph of hockeyGraphs) {
         for (const n of Object.values(graph.nodes || {})) {
           if (n.type !== 'say' || !n.data?.text) continue;
           sayNodes++;
