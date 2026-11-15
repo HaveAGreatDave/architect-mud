@@ -1,6 +1,6 @@
 {
   "ambient_theme": "indoors",
-  "description": "A steel gantry slung under the roof arches above the west stands, reached by a ladder and a catwalk. KSAB's commentary desk is at the near end, two microphones on it and a cushion on one chair. A teleprinter in a steel case stands on its own table at the far end.",
+  "description": "A glassed box over the north stands, up a steep flight from the terrace. KSAB's commentary desk runs along the glass, two microphones on it and a cushion on one chair, and a monitor on each side wall shows what goes out. A teleprinter in a steel case stands on its own table at the back.",
   "exits": {
     "down": "zone_slush_stands"
   },
@@ -13,19 +13,56 @@
     "open_all_hours": true,
     "room": {
       "balcony": false,
-      "d": 7,
+      "d": 9,
       "decor": {
-        "rug": false
+        "rug": false,
+        "strips": [
+          {
+            "along": "u",
+            "at": [
+              -2.5,
+              4.2
+            ],
+            "len": 1.2
+          },
+          {
+            "along": "u",
+            "at": [
+              2.5,
+              4.2
+            ],
+            "len": 1.2
+          }
+        ]
       },
       "doors": {
         "down": [
-          3,
-          1
+          3.6,
+          5.47
         ]
       },
-      "face": 0,
+      "face": 180,
       "ground": "concrete",
-      "h": 2.6,
+      "h": 2.8,
+      "rink": {
+        "at": [
+          40.32,
+          85.3
+        ],
+        "ice": 7,
+        "look": 180,
+        "open": [
+          {
+            "a": -4.8,
+            "b": 4.8,
+            "glass": true,
+            "wall": "front",
+            "y0": 0.7,
+            "y1": 2.62
+          }
+        ],
+        "sport": "hockey"
+      },
       "stadium": {
         "accent": "#c9a24a",
         "brick": "#8e4a34",
@@ -43,7 +80,7 @@
             "tint": "#ff3030",
             "w": 1.6,
             "wall": "back",
-            "y": 1.95
+            "y": 2.05
           }
         ],
         "sub": "Italiana"
@@ -55,8 +92,7 @@
         "trim": "#2a2c2e",
         "wall": "#6a6e72"
       },
-      "w": 10,
-      "windowless": true
+      "w": 10
     },
     "world_exit_zone": "zone_district_915_916"
   },

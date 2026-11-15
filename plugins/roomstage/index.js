@@ -681,6 +681,9 @@ schedule('2s', () => {
   for (const z of beastSeen.keys()) if (!viewers.has(z)) beastSeen.delete(z);
 });
 
+// Whether a room's set is on: a resident watching it (npc-life.js), or a venue's sets (`flags.tv_public`: a concourse's,
+// a bar's), which are on whenever anybody's in the room to see them
+const setOn = (zoneId) => life.tvOf(zoneId) || getZoneFurniture(zoneId).some((f) => f.flags?.tv_public === true);
 async function viewPayload(player, zoneId, spec, { stamp = true, locks = true } = {}) {
   const zone = getZone(zoneId);
   // a room in a building carries its doorways, which the client cuts and walks through, and the rooms
@@ -709,7 +712,7 @@ async function viewPayload(player, zoneId, spec, { stamp = true, locks = true } 
   const ways = lockable ? await locksOf(player, zoneId, spec) : [];
   if (lockable) lockSeen.set(zoneId, lockSig(zoneId, spec));
   return { type: 'room_view', zone: zoneId, here: player.current_zone, name: zone?.name || '', spec, ...(building ? { building } : {}), ...(lift ? { lift: { floors: lift.floors, at: lift.at } } : {}), hasView: !!place, ...(place ? { place } : {}), mine: !!controls(player, zoneId), ...(adminHere(player) ? { admin: true } : {}), you: player.id,
-    pieces, people: peopleIn(zoneId, pieces), beasts: beastsIn(zoneId), tv: life.tvOf(zoneId), clock: getBirdClock(), ...(ways.length ? { locks: ways } : {}),
+    pieces, people: peopleIn(zoneId, pieces), beasts: beastsIn(zoneId), tv: setOn(zoneId), clock: getBirdClock(), ...(ways.length ? { locks: ways } : {}),
     // whether the mains are on (powerOf); the switch by the door is the viewer's own, kept per room on the client
     power: powerOf(zoneId),
     // what's over the glass (glassOf): a control panel's shutters and the scene on them (plugins/envcontrol)
@@ -828,7 +831,7 @@ async function sendPeople(zoneId) {
   const people = peopleIn(zoneId, await roomPieces(zoneId, spec));
   const beasts = beastsIn(zoneId), moved = movesOf(zoneId);
   beastSeen.set(zoneId, beasts.map((b) => b.id).join('|'));
-  for (const id of set) sendToPlayer(id, { type: 'room_people', zone: zoneId, people, beasts, tv: life.tvOf(zoneId), ...(moved || {}) });
+  for (const id of set) sendToPlayer(id, { type: 'room_people', zone: zoneId, people, beasts, tv: setOn(zoneId), ...(moved || {}) });
 }
 
 // Which seats and pieces somebody's already on, so a resident doesn't sit on them.

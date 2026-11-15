@@ -324,8 +324,10 @@ function openStage(msg) {
   bindSeatLadder(root);
   const host = root.querySelector('.rs-host'), canvas = root.querySelector('.rs-canvas');
   const phone = matchMedia('(pointer: coarse)').matches;
-  // with a view out, the room is drawn over a live GLASS view and its panes are holes (room-outlook.js)
-  const phone0 = phone, see = !phone0 && !!msg.hasView;
+  // with a view out, the room is drawn over a live GLASS view and its panes are holes (room-outlook.js); and a room at a
+  // rink, or next door to one, is drawn over the ice itself, on a phone too (room-rink.js)
+  const rinky = !!msg.spec?.rink || !!msg.building?.neighbours?.some((n) => n.spec?.rink);
+  const phone0 = phone, see = (!phone0 && !!msg.hasView) || rinky;
   // the view's renderer starts loading now, beside the room's own build, unless this building's view is parked for us
   if (see && !(parkedView && parkedView.building === msg.building?.id)) warmOutlook();
   const R = createRoomRenderer(canvas, { phone, see });
@@ -467,8 +469,8 @@ function openStage(msg) {
   const envUi = createRoomEnvctl({ host, project: (p, w, h) => R.project(p, w, h) });
   const hoistUi = createRoomHoist({ host, send: (cmd) => sendCmd(cmd), walker: () => S.walk?.at || null });
   hoistUi.load(null, msg.vehicles?.machine ? null : msg.vehicles || null);
-  // a stadium's rooms: the last champion's board, the window onto the ice, the resurfacer in its bay (room-stadium.js)
-  const stadium = createRoomStadium({ R });
+  // a stadium's rooms: the last champion's board, the ice under a room at the rink, the resurfacer in its bay (room-stadium.js)
+  const stadium = createRoomStadium({ R, host });
   stadium.setMsg(msg);
   // your tickets, for a seat door's card (plugins/stands `tickets` on room_view, then room_tickets)
   S.tickets = msg.tickets || [];
@@ -905,7 +907,7 @@ function openStage(msg) {
     if (!!on === !!S.npcTv) return;
     S.npcTv = !!on;
     if (on) {
-      const piece = S.pieces.find((p) => p.arche === 'screen' && !p.annex);
+      const piece = S.pieces.find((p) => p.arche === 'screen' && p.public && !p.annex) || S.pieces.find((p) => p.arche === 'screen' && !p.annex);
       if (piece && !S.tv?.on) { S.tvPiece = piece.id; S.tvFromNpc = true; sendCmdSilent(`watch ${piece.name}`); }
     } else if (S.tvFromNpc) { S.tvFromNpc = false; S.tv?.off(); }
   };
@@ -1386,7 +1388,10 @@ function openStage(msg) {
       return sc;
     }
     if (seen && (S.tv.paint(now, size) || (boot && !S.tvBooted))) { R.setLive(S.tv.canvas); if (boot) S.tvBooted = true; }
-    return sc;
+    // a venue's sets are on one feed: the one watched, and every other in the room showing the same picture
+    if (!S.pieces.find((p) => p.id === sc.id)?.public) return sc;
+    const also = S.mesh.screens.filter((s) => s !== sc && S.pieces.find((p) => p.id === s.id)?.public);
+    return also.length ? [sc, ...also] : sc;
   }
 
   // THE LIGHTS are on the switch by the door (gl/room-mesh.js puts it on K.dials as kind 'switch'), not in the
@@ -2908,7 +2913,8 @@ function openStage(msg) {
   // costs no paints (room-outlook.js).
   function lookOut() {
     const at = S.walk?.at, L = S.L, spec = S.spec;
-    if (!at || !L || inAnnex(L, at[1], at[0])) return null;
+    // a room at a rink looks out onto the ice, never the city (room-rink.js)
+    if (!at || !L || spec?.rink || inAnnex(L, at[1], at[0])) return null;
     const fix = (a) => Math.atan2(Math.sin(a), Math.cos(a));
     const look = seat.yaw - Math.atan2(L.f[0], L.f[2]);
     const half = Math.atan(Math.tan(seat.fov * Math.PI / 360) * (host.clientWidth || 16) / (host.clientHeight || 9));

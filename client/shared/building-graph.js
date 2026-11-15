@@ -340,6 +340,9 @@ export function buildingLayout(b, { zones, specOf }) {
   // `flags.room.street_door`: { kind: 'sliding', w } is a pair of automatic glass doors in place of a plain one;
   // { kind: 'swing', w } a pair of hinged glass doors in metal frames that swing in, as an old hotel's do
   const streetDoorOf = (id) => { const v = Z.get(id)?.flags?.room?.street_door; return v?.kind === 'sliding' || v?.kind === 'swing' ? { w: Math.max(1.2, Math.min(3, Number(v.w) || 1.8)), swing: v.kind === 'swing' } : null; };
+  // `flags.room.door_w`: { <dir>: metres }, a doorway wider than a door (a stadium's way through to its stands, up to
+  // 4 m). The wider of the two rooms' says, so both sides cut the same opening
+  const doorWOf = (id, dir) => { const v = Number(Z.get(id)?.flags?.room?.door_w?.[dir]); return Number.isFinite(v) ? Math.max(DOOR_W, Math.min(4, v)) : DOOR_W; };
   const offOf = (id, dir) => { const v = Number(Z.get(id)?.flags?.room?.doors?.[dir]); return Number.isFinite(v) ? v : 0; };
   const ext = (R) => (R.face % 180 === 0 ? [R.w, R.d] : [R.d, R.w]);
   const mid = (R) => [(R.box[0] + R.box[1]) / 2, (R.box[4] + R.box[5]) / 2];
@@ -447,7 +450,7 @@ export function buildingLayout(b, { zones, specOf }) {
     const side = sideOf(A, dir);
     if (!side) { problems.push({ kind: 'diagonal', zone: from, dir, to }); return; }
     // a street door can be a pair of automatic glass doors, as wide as it says (flags.room.street_door)
-    const sd = kind === 'front' ? streetDoorOf(from) : null, dw = sd ? sd.w : DOOR_W;
+    const sd = kind === 'front' ? streetDoorOf(from) : null, dw = sd ? sd.w : kind === 'door' ? Math.max(doorWOf(from, dir), doorWOf(to, OPPOSITE[dir])) : DOOR_W;
     const [nx, nz] = COMPASS[side], aDeep = side === backOf(A.face) ? A.deep : 0;
     // on the room's own wall, and (through a flat's back wall) out past its en-suite at the end of its hall
     const wallAt = opening(from, A, side, offAt(from, A.face, dir), dw), at = [r2(wallAt[0] + nx * aDeep), wallAt[1], r2(wallAt[2] + nz * aDeep)];
@@ -455,8 +458,8 @@ export function buildingLayout(b, { zones, specOf }) {
     if (rooms[to] && kind === 'door') {
       // the same opening on the far room's own wall, across the gap and the far room's own hall
       const B = rooms[to], bSide = SIDE[norm(BEARING[side] + 180)], bDeep = bSide === backOf(B.face) ? B.deep : 0, g = ROOM_GAP + bDeep;
-      opening(to, B, bSide, offAt(to, B.face, OPPOSITE[dir]));
-      sides[to] = { ...onWalls(B, [at[0] + nx * g, at[1], at[2] + nz * g]), ...(bDeep ? { deep: bDeep } : {}) };
+      opening(to, B, bSide, offAt(to, B.face, OPPOSITE[dir]), dw);
+      sides[to] = { ...onWalls(B, [at[0] + nx * g, at[1], at[2] + nz * g], dw), ...(bDeep ? { deep: bDeep } : {}) };
     }
     doors.push({ kind, from, dir, to, at, sides, ...(sd ? { slide: true } : {}), ...(sd?.swing ? { swing: true } : {}) });
   };

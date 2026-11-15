@@ -166,7 +166,7 @@ export const WASH_FORMS = Object.freeze(['basin', 'vanity']);
 export const FORMS = Object.freeze({
   seat: ['stool', 'chair', 'armchair', 'office', 'stools'], bench: ['bench', 'booth', 'banquette', 'slab'], sofa: ['sofa', 'cot', 'lounger'], bed: ['bed', 'pod', 'platform', 'mattress', 'pressbench'],
   screen: ['flat', 'crt', 'slab'], cold: ['fridge', 'double', 'chest', 'column'], hob: ['cooktop', 'range', 'microwave', 'seam'],
-  surface: ['counter', 'desk', 'rail', 'barwall', 'chemwall', 'bar', 'stage', 'runway', 'reception', 'console', 'treadmill', 'pool', 'pcdesk', 'boxoffice'], small: ['heater', 'box', 'plinth', 'telescope', 'lacquer', 'boombox', 'smoketable', 'petbowl'], prop: ['cabinet', 'piano', 'fountain', 'catstatue', 'lantern', 'bonsai', 'vat', 'tank', 'morphex', 'jukebox', 'easel', 'packs', 'trophy', 'champion', 'seatdoor', 'resurfacer', 'rinkwindow'], fireplace: ['hearth', 'firetrough'],
+  surface: ['counter', 'desk', 'rail', 'barwall', 'chemwall', 'bar', 'stage', 'runway', 'reception', 'console', 'treadmill', 'pool', 'pcdesk', 'boxoffice'], small: ['heater', 'box', 'plinth', 'telescope', 'lacquer', 'boombox', 'smoketable', 'petbowl'], prop: ['cabinet', 'piano', 'fountain', 'catstatue', 'lantern', 'bonsai', 'vat', 'tank', 'morphex', 'jukebox', 'easel', 'packs', 'trophy', 'champion', 'seatdoor', 'resurfacer', 'turnstile', 'balustrade'], fireplace: ['hearth', 'firetrough'],
   urinal: ['urinal', 'urinaltrough'], stall: ['cubicle'],
   wardrobe: ['wardrobe', 'valet'], cabinet: ['cupboard', 'vitrine', 'humidor', 'rack'], store: ['shelves', 'locker', 'crate', 'weights', 'bookcase'],
   sink: ['kitchen', 'basin', 'trough', 'vanity'], toilet: ['pan', 'hung'], shower: ['stall', 'wetroom', 'bath', 'soak'],
@@ -231,9 +231,9 @@ const FORM_DIMS = { chest: [1.3, 0.72, 0.88], double: [1.3, 0.75, 2.0], range: [
   // an old bar's (gl/room-saloon.js): a run of stools along it, a seat every STOOL_PITCH, and a jukebox
   stools: [3.2, 0.45, 0.76], jukebox: [0.95, 0.62, 1.55],
   // a stadium's (gl/room-stadium.js): a box office window, a card pack machine, the Cup in its case, the last champion's
-  // board, a door into the seats, the resurfacer in its bay (shared/stadium.js RESURFACER), and the restrooms'
+  // board, a door into the seats, the resurfacer in its bay (shared/stadium.js RESURFACER), a turnstile, and the restrooms'
   boxoffice: [2.4, 0.8, 2.5], packs: [0.86, 0.72, 1.85], trophy: [1.1, 1.1, 2.2], champion: [1.8, 0.16, 2.2], seatdoor: [2.0, 1.4, 2.8],
-  resurfacer: [2.3, 3.4, 1.85], rinkwindow: [4.2, 0.3, 2.9], urinaltrough: [2.4, 0.42, 1.1], cubicle: [0.95, 1.55, 2.0] };
+  resurfacer: [2.3, 3.4, 1.85], turnstile: [0.34, 0.95, 1.02], balustrade: [6, 0.1, 1.05], urinaltrough: [2.4, 0.42, 1.1], cubicle: [0.95, 1.55, 2.0] };
 // How far apart the stools in a run stand, and how many a run of width w (metres) has (gl/room-saloon.js draws them)
 export const STOOL_PITCH = 0.8;
 export const stoolsAlong = (w) => Math.max(1, Math.round(w / STOOL_PITCH));
@@ -683,7 +683,7 @@ export function withDoorways(S, openings) {
   const keep = [];
   for (const q of panes) {
     if (!clash(q)) { keep.push(q); continue; }
-    if (q.kind !== 'curtain') continue;
+    if (q.kind !== 'curtain' && q.kind !== 'open') continue;
     let parts = [[q.a, q.b]];
     for (const o of open) if (o.wall === q.wall) parts = parts.flatMap(([a, b]) => (o.a < b && o.b > a ? [[a, o.a - PANE_GAP], [o.b + PANE_GAP, b]] : [[a, b]]));
     for (const [a, b] of parts) if (b - a >= 0.3) keep.push({ ...q, a: +a.toFixed(3), b: +b.toFixed(3) });
@@ -1333,6 +1333,8 @@ function keepClear(S) {
 //            climbing toward the `climb` wall (stairSpecOf; docs/proposals/building-stage.md "Stairs")
 //   ground   'stone' for a stone floor instead of the finish's boards; also 'marble', 'terrazzo', 'tile', 'concrete', 'rubber'
 //   windowless  true for a room with no window
+//   rink     { sport, at: [x, y], look, ice, open }: the room stands at a rink (panels/room-rink.js): the live game is
+//            drawn under it, and `open` ([{ wall, a, b, y0, y1, glass? }]) are its openings onto the ice
 //   club     true for a club: dark paint, bills on the walls, a truss of moving lights and strobes
 // A lift car's panel (docs/proposals/building-stage.md): `spec.lift` is { floors: [{ n, label }], at },
 // the floors it really stops at, lowest first. The panel is a reader on the right-hand wall by the front
@@ -1406,6 +1408,21 @@ export function roomSpecOf(flags, isFlat, { storey = null } = {}) {
   // a stadium's house style (gl/room-stadium.js, panels/stadium-signs.js): its sign faces, its colours and the signs on
   // its walls. Each venue sets its own, so the kit's pieces look like the building they're in
   if (base.stadium && typeof base.stadium === 'object' && !Array.isArray(base.stadium)) out.stadium = JSON.parse(JSON.stringify(base.stadium));
+  // a room at a rink's side (panels/room-rink.js): where the room stands on the sheet, { sport, at: [x, y] the middle of
+  // the front wall in the sheet's feet, look (the heading you face looking at the front wall), ice (the floor's height
+  // over the ice, metres), open }. The live game is drawn under the room, and `open` is the way onto it: openings in
+  // its walls in place of its windows, each { wall, a, b, y0, y1 } as a window is (`a` to `b` along the wall, the sill
+  // and the head, from the floor if it says so), with no glass and no frame (`kind: 'open'`) unless `glass` says
+  const rk = base.rink;
+  if (rk && typeof rk === 'object' && Array.isArray(rk.at) && rk.at.length === 2 && rk.at.every(Number.isFinite)) {
+    out.rink = { sport: typeof rk.sport === 'string' ? rk.sport : 'hockey', at: [+rk.at[0], +rk.at[1]], look: Number(rk.look) || 0, ice: Number(rk.ice) || 0 };
+    const open = (Array.isArray(rk.open) ? rk.open : []).filter((q) => q && ['front', 'back', 'left', 'right'].includes(q.wall)).map((q) => {
+      const lo = q.wall === 'front' || q.wall === 'back' ? -hu + 0.12 : 0.12, hi = q.wall === 'front' || q.wall === 'back' ? hu - 0.12 : d - 0.12;
+      const a = clampN(Math.min(q.a, q.b), lo, hi, lo), b = clampN(Math.max(q.a, q.b), a + 0.3, hi, hi), y0 = clampN(q.y0, 0, h - 0.6, 0);
+      return { wall: q.wall, a, b, y0, y1: clampN(q.y1, y0 + 0.3, h - 0.02, h - 0.05), kind: q.glass ? 'curtain' : 'open' };
+    }).filter((q) => q.b - q.a >= 0.3);
+    if (open.length) { out.windows = open; out.window = [open[0].a, open[0].b, open[0].y0, open[0].y1]; }
+  }
   // a club or a back room with no window at all
   if (base.windowless) { out.windowless = true; out.windows = []; }
   // a club: painted dark, bills on the walls, and a rig of moving lights and strobes (gl/room-mesh.js clubRig)
@@ -1526,8 +1543,8 @@ export function rowLook(f, item = null, { annex = false, finish = 'plain' } = {}
   // Cup stands in a trophy case ('hockey', 'baseball'), `look.tile` the colour a restroom's fittings are set in
   if (typeof flags.look?.label === 'string') dress.label = flags.look.label.slice(0, 28);
   if (typeof flags.look?.cup === 'string') dress.cup = flags.look.cup.slice(0, 16);
-  // a window onto the ice: where its rink view's eye is, in the rink's own feet (panels/room-stadium.js)
-  if (Array.isArray(flags.look?.view) && flags.look.view.length === 3 && flags.look.view.every(Number.isFinite)) dress.view = flags.look.view.slice();
+  // a venue's set (`flags.tv_public`): on whenever its room is open, every one of them showing the same picture
+  if (flags.tv_public === true) dress.public = true;
   // a seat door's sections, so the Stage can put your tickets for them on its card
   if (flags.seat_door && typeof flags.seat_door === 'object') dress.door = { stands: flags.seat_door.stands, sections: Array.isArray(flags.seat_door.sections) ? flags.seat_door.sections : null };
   // `stove`: a hob the cooking plugin heats (`stove_tier`), not one that's only drawn as one; the

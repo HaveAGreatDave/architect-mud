@@ -1,9 +1,9 @@
 {
   "ambient_theme": "indoors",
-  "description": "Ice level, behind the boards. The glass above them is scratched to a haze, and one pane behind the north net is newer than the rest. The benches are cut into the boards on the east side, with the penalty box between them. A wide door in the south wall goes through to the Zamboni bay. Stairs go up to the stands.",
+  "description": "Ice level, behind the north boards. The glass over them is scratched to a haze, and one pane behind the west net is newer than the rest. The team benches are cut into the boards with the penalty box between them, and the goal judge's booth stands in the corner. A door in the west wall goes through to the Zamboni bay. Stairs go up to the stands.",
   "exits": {
-    "south": "zone_slush_bay",
-    "up": "zone_slush_stands"
+    "up": "zone_slush_stands",
+    "west": "zone_slush_bay"
   },
   "flags": {
     "building_name": "Golden Goose Gardens",
@@ -17,6 +17,56 @@
       "d": 10,
       "decor": {
         "rug": false,
+        "strips": [
+          {
+            "along": "u",
+            "at": [
+              -6,
+              3
+            ],
+            "len": 1.5
+          },
+          {
+            "along": "u",
+            "at": [
+              -6,
+              7.5
+            ],
+            "len": 1.5
+          },
+          {
+            "along": "u",
+            "at": [
+              0,
+              3
+            ],
+            "len": 1.5
+          },
+          {
+            "along": "u",
+            "at": [
+              0,
+              7.5
+            ],
+            "len": 1.5
+          },
+          {
+            "along": "u",
+            "at": [
+              6,
+              3
+            ],
+            "len": 1.5
+          },
+          {
+            "along": "u",
+            "at": [
+              6,
+              7.5
+            ],
+            "len": 1.5
+          }
+        ],
         "walls": {
           "hex": "#7a4a3a",
           "kind": "brick",
@@ -24,9 +74,33 @@
           "y1": 1.2
         }
       },
-      "face": 0,
+      "door_w": {
+        "west": 1.6
+      },
+      "doors": {
+        "west": -0.5
+      },
+      "face": 180,
       "ground": "rubber",
       "h": 3.2,
+      "rink": {
+        "at": [
+          33.43,
+          85.3
+        ],
+        "ice": 0,
+        "look": 180,
+        "open": [
+          {
+            "a": -9.88,
+            "b": 1.66,
+            "wall": "front",
+            "y0": 0,
+            "y1": 3.1500000000000004
+          }
+        ],
+        "sport": "hockey"
+      },
       "stadium": {
         "accent": "#c9a24a",
         "brick": "#8e4a34",
@@ -37,17 +111,17 @@
         "portal": "brick",
         "signs": [
           {
-            "at": -3,
+            "at": 4.5,
             "h": 0.5,
             "kind": "stencil",
             "text": "Zamboni Bay",
             "tint": "#d8b030",
             "w": 2.2,
-            "wall": "back",
-            "y": 2.55
+            "wall": "right",
+            "y": 2.6
           },
           {
-            "at": 4,
+            "at": 3.6,
             "h": 0.5,
             "kind": "enamel",
             "sub": "By order of the league",
@@ -62,10 +136,10 @@
       },
       "stair": {
         "at": [
-          -6,
-          8.6
+          -7.1,
+          5
         ],
-        "climb": "front",
+        "climb": "back",
         "w": 1.2
       },
       "studio": false,
@@ -75,8 +149,7 @@
         "trim": "#2b4860",
         "wall": "#d2d6d8"
       },
-      "w": 20,
-      "windowless": true
+      "w": 20
     },
     "world_exit_zone": "zone_district_915_916"
   },

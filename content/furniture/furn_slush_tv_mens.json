@@ -1,0 +1,44 @@
+{
+  "description": "A small television bolted high on the wall by the door and turned toward the trough, so nobody misses a goal. The cage over it is dented.",
+  "flags": {
+    "aliases": [
+      "tv",
+      "television",
+      "set",
+      "screen",
+      "door set"
+    ],
+    "broadcast_device_type": "tv",
+    "broadcast_receiver": true,
+    "channel_default": 7,
+    "interactions": [
+      "watch"
+    ],
+    "look": {
+      "arche": "screen",
+      "form": "flat"
+    },
+    "spot": {
+      "at": [
+        2.93,
+        5.5
+      ],
+      "turn": -90,
+      "y": 2
+    },
+    "tuned_channel": 7,
+    "tv": true,
+    "tv_dial_freq": 7,
+    "tv_public": true
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_slush_tv_mens",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "the set by the door",
+  "object_type": "tv",
+  "power_draw_kw": 0.1,
+  "price": 0,
+  "zone_id": "zone_slush_mens"
+}

@@ -1,5 +1,5 @@
 {
-  "description": "A narrow pen between the benches with a bench of its own and a door that latches from the outside. Tally marks are cut into the wood in fives, all the way along.",
+  "description": "The penalty box: a bench in a glass pen cut into the boards, a door onto the ice at each end. The timekeeper's stool beside it has a clipboard on it and a stopwatch on a string.",
   "flags": {
     "aliases": [
       "penalty box",
@@ -21,10 +21,10 @@
     },
     "spot": {
       "at": [
-        9.6,
-        5
+        -3.6,
+        0.45
       ],
-      "turn": -90
+      "turn": 0
     }
   },
   "id": "furn_slush_box",

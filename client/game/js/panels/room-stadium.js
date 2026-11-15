@@ -4,24 +4,17 @@
 // - THE LAST CHAMPION. A `champion` board carries `champ` (plugins/stands champions.js, through room.pieceState):
 //   the club's crest and colour bands painted on a canvas laid over the board's face as light (setDecals `glow`),
 //   and the room lit in the club's first colour (setGlows). With nobody crowned it's the dark board the mesh drew.
-// - THE ICE THROUGH A WINDOW. A `rinkwindow` piece shows the live game on the other side of the glass: a rink view
-//   (gameday-rink.js) stood at the window's eye (`look.view`, the rink's own feet), kept off screen, a few frames a
-//   second, and only while the window is in front of you, its picture laid on the glass. It's a receiver like a seat
-//   in the stands: the server tunes you to the game's channel while you're in the room (`rink` on `room_view`).
-// - THE RESURFACER, which room-machine.js stands on its piece and drives out at the break.
+// - THE ICE. A room that stands at the rink (`spec.rink`) is drawn over the live game itself, its openings onto the
+//   ice holes in the room's picture (room-rink.js). Never a picture of the game on a pane: the ice is the ice.
+// - THE RESURFACER, which room-machine.js stands on its piece and drives out at the break, through the gate.
 //
 // ⚠ NOTHING HERE NAMES A BUILDING. A second game on THOMAS authors its own rooms and gets these as they are.
-import { paintCrest, wantClubs } from './club-crest.js';
-import { addTvView } from './tv.js';
-import { sendRaw } from '../net.js';
+import { paintCrest } from './club-crest.js';
 import { facing } from '../../../shared/room-layout.js';
-import { rinkWindowGlass } from './gl/room-stadium.js';
 import { createRoomMachine } from './room-machine.js';
+import { createRoomRink } from './room-rink.js';
 import { styleOf, facesOf, loadFace, paintSign } from './stadium-signs.js';
 
-const RINK_W = 640, RINK_H = 360;
-// how often the window's picture is taken (fps), and how far round you can look before it stops being painted
-const RINK_FPS = 8;
 const hexRgb = (h) => { const n = parseInt(String(h || '#808080').slice(1, 7), 16); return [((n >> 16) & 255) / 255, ((n >> 8) & 255) / 255, (n & 255) / 255]; };
 
 // a piece's front face as a decal quad in the world: [tl, tr, br, bl] as you face it, and its normal
@@ -53,13 +46,30 @@ function paintChampion(c, st = styleOf(null)) {
   return { cv, glow: hexRgb(a) };
 }
 
-/** The stadium's things for one open Stage. `R` is the room's renderer. */
-export function createRoomStadium({ R }) {
+/** The stadium's things for one open Stage. `R` is the room's renderer and `host` the element its canvas is in. */
+export function createRoomStadium({ R, host }) {
   const machine = createRoomMachine();
   let L = null, msg = null, decals = [], champGlows = [], dirty = false;
   const champCache = new Map();
-  // the window's rink: one view, made the first time a room has a window and kept while it does
-  let rink = null;
+  // the ice under the room: one view, kept while the rooms you walk through stand at the rink
+  const rink = createRoomRink(host);
+  // THE RINK'S LIGHT through a room's openings onto it (`spec.rink`): the arena is lit for television, and the room by
+  // its own lamps, so without this a room at the boards is a dark box round a bright hole. A cool white glow two metres
+  // out past each opening every RINK_GLOW_EVERY metres, as many as setGlows takes with the champion's
+  const RINK_GLOW_EVERY = 4.5, RINK_GLOW = [0.55, 0.6, 0.68], RINK_GLOW_R = 11;
+  function rinkLight() {
+    if (!L?.spec?.rink) return [];
+    const out = [], W = L.spec.w, D = L.spec.d;
+    for (const q of L.spec.windows || []) {
+      const len = q.b - q.a, n = Math.max(1, Math.min(4, Math.ceil(len / RINK_GLOW_EVERY))), y = ((q.y0 ?? 0) + (q.y1 ?? 2.6)) / 2;
+      for (let i = 0; i < n; i++) {
+        const m = q.a + (i + 0.5) * len / n;
+        const [u, v] = q.wall === 'front' ? [m, -2] : q.wall === 'back' ? [m, D + 2] : q.wall === 'left' ? [-W / 2 - 2, m] : [W / 2 + 2, m];
+        out.push({ p: L.world(u, v, y), c: RINK_GLOW, r: RINK_GLOW_R });
+      }
+    }
+    return out.slice(0, 6);
+  }
 
   // THE SIGNS (stadium-signs.js), in the venue's own faces once they've loaded: each piece's, and the room's own
   // `stadium.signs` on its walls. Lit ones (a lightbox, neon) are light; the rest are paint, lit like the wall
@@ -96,7 +106,7 @@ export function createRoomStadium({ R }) {
 
   function champions() {
     decals = decals.filter((d) => !d.key.startsWith('champ:'));
-    champGlows = [];
+    champGlows = rinkLight();
     for (const p of L?.placed || []) {
       if (p.form !== 'champion' || !p.champ?.name) continue;
       const key = `champ:${p.id}:${p.champ.name}:${p.champ.season || ''}`;
@@ -111,53 +121,6 @@ export function createRoomStadium({ R }) {
     dirty = true;
   }
 
-  async function startRink(p) {
-    if (rink) return;
-    const ch = msg?.rink?.channelId || null;
-    if (!msg?.rink) return;
-    const box = document.createElement('div');
-    box.style.cssText = `position:fixed;left:-10000px;top:0;width:${RINK_W}px;height:${RINK_H}px;pointer-events:none;display:flex;flex-direction:column`;
-    box.setAttribute('aria-hidden', 'true');
-    document.body.appendChild(box);
-    const out = document.createElement('canvas');
-    out.width = RINK_W; out.height = RINK_H;
-    const g = out.getContext('2d');
-    const r = { box, out, channelId: ch, piece: p.id, fresh: false, view: null, unview: null, awake: true };
-    rink = r;
-    const copy = () => {
-      g.fillStyle = '#000'; g.fillRect(0, 0, RINK_W, RINK_H);
-      for (const c of box.querySelectorAll('canvas')) if (c.width > 1 && c.height > 1) { try { g.drawImage(c, 0, 0, RINK_W, RINK_H); } catch { /* not yet */ } }
-      r.fresh = true;
-    };
-    const eye = Array.isArray(p.view) && p.view.length === 3 ? p.view : [-12, 42.5, 7];
-    try { r.view = (await import('./gameday-rink.js')).createRinkView(box, { seat: { eye, mode: 'follow', fov: 62, yaw: null, pitch: null }, fly: false, fps: RINK_FPS, quiet: true, onFrame: copy }); } catch (err) { console.warn('[room] the rink through the window would not load:', err?.message); box.remove(); rink = null; return; }
-    if (rink !== r) { r.view.clear(); box.remove(); return; }
-    r.view.showIdle?.();
-    // no channel (the Room Lab): the ice as it is between plays, with nobody's game on it
-    if (!ch) return;
-    r.unview = addTvView({
-      isOpen: () => true,
-      activeChannelId: () => r.channelId,
-      applyOverlay(ov) {
-        if (!ov) return;
-        if (ov.clubsRev && wantClubs(ov.sport || 'hockey', ov.clubsRev)) sendRaw({ type: 'tv_clubs', sport: ov.sport || 'hockey' });
-        if (ov.overlayType === 'gameday') r.view.apply(ov);
-      },
-      appendMessage() {}, showOffAir() {}, showOnAir() {}, updateTicker() {}, speak() {}, setProgramName() {}, renderSchedule() {}, renderStandings() {},
-    });
-    sendRaw({ type: 'tv_catchup' });
-  }
-  function stopRink() {
-    if (!rink) return;
-    const r = rink;
-    rink = null;
-    r.unview?.();
-    try { r.view?.clear(); } catch { /* gone */ }
-    r.box.remove();
-    decals = decals.filter((d) => !d.key.startsWith('rinkwin:'));
-    dirty = true;
-  }
-
   /** The room's payload (a new room, or a crossing into one). */
   function setMsg(m) {
     msg = m;
@@ -169,26 +132,12 @@ export function createRoomStadium({ R }) {
     machine.load(L);
     champions();
     signs().catch((e) => console.warn('[room] signs:', e?.message));
-    const win = L?.placed?.find((p) => p.form === 'rinkwindow');
-    if (win && msg?.rink) { if (rink && (rink.piece !== win.id || rink.channelId !== (msg.rink.channelId || null))) stopRink(); startRink(win); } else stopRink();
+    // the ice, drawn from the room's own camera as the room is drawn (gl/room.js setUnder)
+    rink.load(L, msg?.building?.neighbours, msg?.rink || null);
+    try { R.setUnder(rink.on ? (cam, w, h) => rink.tick(performance.now(), cam, L, w, h) : null); } catch { /* an old renderer */ }
   }
-  /** Each frame: the window's picture while it's in front of you. True when the decals changed. */
-  function frame(now, eye, yaw) {
-    if (rink && L) {
-      const p = L.placed.find((q) => q.id === rink.piece);
-      if (p && eye) {
-        const g = rinkWindowGlass(p), q = faceQuad(L, p, g.x0, g.x1, g.y0, g.y1, g.z + 0.004);
-        const mid = [0, 1, 2].map((i) => (q.quad[0][i] + q.quad[2][i]) / 2);
-        const seen = (mid[0] - eye[0]) * Math.sin(yaw) + (mid[2] - eye[2]) * Math.cos(yaw) > -0.5;
-        if (seen !== rink.awake) { rink.awake = seen; try { if (seen) rink.view?.wake(); else rink.view?.rest(); } catch { /* not mounted */ } }
-        if (rink.fresh) {
-          rink.fresh = false;
-          decals = decals.filter((d) => !d.key.startsWith('rinkwin:'));
-          decals.push({ key: `rinkwin:${p.id}`, src: rink.out, ...q, glow: 1, fresh: true });
-          dirty = true;
-        }
-      }
-    }
+  /** Each frame. True when the decals changed. */
+  function frame() {
     const was = dirty;
     dirty = false;
     return was;
@@ -199,6 +148,6 @@ export function createRoomStadium({ R }) {
     decals: () => decals,
     // a fresh texture is uploaded once
     settled() { for (const d of decals) d.fresh = false; },
-    dispose() { stopRink(); try { R.setGlows([]); } catch { /* gone */ } },
+    dispose() { rink.dispose(); try { R.setGlows([]); R.setUnder(null); } catch { /* gone */ } },
   };
 }

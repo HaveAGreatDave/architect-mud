@@ -765,11 +765,15 @@ export function createRoomRenderer(canvas, { phone = false, see = false } = {}) 
     // the cap, stepping down to 0.5 while frames run long. The ink is worked out from the picture's height, so the
     // lines keep their weight at any of them.
     let res = 1;
+    // what's drawn under the room from its own eye (panels/room-rink.js): told each frame's camera before the room is drawn
+    let under = null;
     // the light's arrays, made once and filled each frame, so walking round the room makes no garbage for them
     const buf = { lampRoom: new Float32Array(14), nextBox: new Float32Array(16), lampP: new Float32Array(42), lampKs: new Float32Array(14), winK: new Float32Array(3), lampTint: new Float32Array(42), winP: new Float32Array(9), winN: new Float32Array(9), winA: new Float32Array(9), winB: new Float32Array(9) };
     return {
       get res() { return res; },
       setRes(k) { res = Math.max(0.5, Math.min(1, k)); },
+      // `fn(cam, w, h)`: a picture under a see-through room (`see`) drawn from the room's camera in the same frame
+      setUnder(fn) { under = typeof fn === 'function' ? fn : null; },
       get lost() { return lost; },
       setRoom, prepareRoom, dropPrepared, setView, setPano, setScreen, setLive, setPeople, setProps, setLocks, setBeasts, setFigures, setMirrorFigures, setPropsGlass, setStageHalos, setGlows, setDecals,
       // whether the room has a mirror, and whether one was drawn last frame (so the stage poses you only then)
@@ -790,7 +794,8 @@ export function createRoomRenderer(canvas, { phone = false, see = false } = {}) 
       // panels/room-window.js says is going on past the glass) }
       // (or one `lamp` and one `win`, for a caller with a room of its own)
       // `light.next` is the rooms next door, nearest first: [{ box: [x0, x1, z0, z1], lamps }]
-      // `light.tvOn` is { first, count }, the stretch of the screen batch showing the broadcast, or null
+      // `light.tvOn` is { first, count }, the stretch of the screen batch showing the broadcast, a list of them (a
+      // venue's sets on one feed), or null
       render(cam, light) {
         if (lost || gl.isContextLost()) { lost = true; return false; }
         if (!room) return false;
@@ -798,6 +803,7 @@ export function createRoomRenderer(canvas, { phone = false, see = false } = {}) 
         const w = Math.max(1, Math.round(canvas.clientWidth * dpr)), h = Math.max(1, Math.round(canvas.clientHeight * dpr));
         if (canvas.width !== w || canvas.height !== h) { canvas.width = w; canvas.height = h; }
         vp = roomMatrices(cam, w / h, light.lens);
+        if (under) { try { under(cam, canvas.clientWidth, canvas.clientHeight); } catch (err) { console.warn('[room] under the room:', err?.message); under = null; } }
         // the depth of field (gl/room-dof.js): the room drawn into its target, then through the lens onto the canvas
         if (roomDofOn() && dof === undefined) dof = createRoomDof(gl, { phone });
         const lensOn = roomDofOn() && light.dof !== false && !!dof && dof.begin(w, h);
@@ -1061,9 +1067,18 @@ export function createRoomRenderer(canvas, { phone = false, see = false } = {}) 
           }
           gl.uniform1i(LIT.u('uMode'), 2);
           if (screen) {
-            const on = live && light.tvOn, S = room.screen, part = (a, n) => { if (n > 0) { gl.bindVertexArray(S.vao); gl.drawArrays(gl.TRIANGLES, a, n); } };
+            const ons = !live || !light.tvOn ? [] : (Array.isArray(light.tvOn) ? light.tvOn : [light.tvOn]).filter((o) => o && o.count > 0).sort((a, b) => a.first - b.first);
+            const S = room.screen, part = (a, n) => { if (n > 0) { gl.bindVertexArray(S.vao); gl.drawArrays(gl.TRIANGLES, a, n); } };
             gl.bindTexture(gl.TEXTURE_2D, screen.t);
-            if (on) { part(0, on.first); part(on.first + on.count, S.n - on.first - on.count); gl.bindTexture(gl.TEXTURE_2D, live.t); gl.uniform1i(LIT.u('uLive'), 1); part(on.first, on.count); gl.uniform1i(LIT.u('uLive'), 0); } else draw(S);
+            if (ons.length) {
+              // the dark glass between the sets that are on, then each one that's on with the broadcast's picture
+              let at = 0;
+              for (const o of ons) { part(at, o.first - at); at = Math.max(at, o.first + o.count); }
+              part(at, S.n - at);
+              gl.bindTexture(gl.TEXTURE_2D, live.t); gl.uniform1i(LIT.u('uLive'), 1);
+              for (const o of ons) part(o.first, o.count);
+              gl.uniform1i(LIT.u('uLive'), 0);
+            } else draw(S);
           }
           // the painted street, on a phone or a room with no tile; with `see` the panes are holes
           if (see && pano) {

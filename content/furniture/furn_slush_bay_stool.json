@@ -1,5 +1,5 @@
 {
-  "description": "A tall steel stool in front of the window, its seat patched with tape. A cup of coffee goes cold on the sill beside it.",
+  "description": "A tall steel stool against the end boards beside the gate, its seat patched with tape. A cup of coffee goes cold on the ledge of the boards.",
   "flags": {
     "aliases": [
       "stool",
@@ -14,10 +14,10 @@
     },
     "spot": {
       "at": [
-        4.9,
-        2.6
+        3.4,
+        0.55
       ],
-      "turn": 90
+      "turn": 0
     }
   },
   "hp": null,

@@ -1,6 +1,6 @@
 {
   "ambient_theme": "indoors",
-  "description": "A curved concourse under the stands. The terrazzo floor has a gold sunburst in the middle, gone grey with grit, and red brick to shoulder height under a navy and gold frieze. Turnstiles at the north doors, a concession counter with a fogged glass case, a ticket window, and three doors into the seats. A door marked Records is set in the far wall. The stands are south, the ice plant below.",
+  "description": "A curved concourse under the stands. The terrazzo floor has a gold sunburst in the middle, gone grey with grit, and red brick to shoulder height under a navy and gold frieze. Bronze doors from Glacier Street, a row of turnstiles, a ticket window, a concession counter with a fogged glass case, and three doors into the seats. Televisions on the walls carry the game. A door marked Records is set in the far wall. The stands are south, the ice plant below.",
   "exits": {
     "down": "zone_util_zone_slush_concourse",
     "east": "zone_slush_womens",
@@ -104,11 +104,11 @@
           "points": [
             [
               "front",
-              -4
+              -3.4
             ],
             [
               "front",
-              4
+              3.4
             ],
             [
               "back",
@@ -135,6 +135,9 @@
           "trim": "#1f3550",
           "y1": 2.6
         }
+      },
+      "door_w": {
+        "south": 2.6
       },
       "face": 0,
       "ground": "terrazzo",
@@ -163,10 +166,10 @@
             "h": 0.5,
             "kind": "gilt",
             "sub": "Glacier Street",
-            "text": "Way Out",
-            "w": 2.2,
+            "text": "Golden Goose Gardens",
+            "w": 3.6,
             "wall": "front",
-            "y": 3.05
+            "y": 3.55
           },
           {
             "at": 4.5,
@@ -210,6 +213,10 @@
         ],
         "sub": "Italiana"
       },
+      "street_door": {
+        "kind": "swing",
+        "w": 2.8
+      },
       "studio": false,
       "tone": {
         "accent": "#c9a24a",
@@ -218,12 +225,6 @@
         "wall": "#d8cdb4"
       },
       "w": 24
-    },
-    "window": {
-      "description": "Six glass doors in steel frames under the canopy, scuffed at kick height. Glacier Street is out there, and the queue when there is one.",
-      "light": 0.5,
-      "name": "the front doors",
-      "visibility": 0.6
     },
     "world_exit_zone": "zone_district_915_916"
   },

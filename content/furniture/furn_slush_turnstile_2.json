@@ -1,0 +1,38 @@
+{
+  "description": "A waist-high steel turnstile with three arms and a reader on the lid that shows a green arrow whether you have a ticket or not. The arms turn either way.",
+  "flags": {
+    "aliases": [
+      "turnstile",
+      "turnstiles",
+      "gate",
+      "arms",
+      "reader"
+    ],
+    "look": {
+      "arche": "prop",
+      "dims": [
+        0.34,
+        0.95,
+        1.02
+      ],
+      "form": "turnstile"
+    },
+    "spot": {
+      "at": [
+        -0.75,
+        2.3
+      ],
+      "turn": 0
+    }
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_slush_turnstile_2",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "a turnstile",
+  "object_type": "decoration",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_slush_concourse"
+}

@@ -1,0 +1,43 @@
+{
+  "description": "A slatted bench at the back of the rows, a step higher than the rest. You can see over everybody from here.",
+  "flags": {
+    "aliases": [
+      "bench",
+      "benches",
+      "seat",
+      "seats",
+      "back bench",
+      "back row"
+    ],
+    "interactions": [
+      "sit",
+      "lie"
+    ],
+    "look": {
+      "arche": "bench",
+      "dims": [
+        3.2,
+        0.6,
+        0.85
+      ],
+      "form": "bench"
+    },
+    "spot": {
+      "at": [
+        1.9,
+        4.3
+      ],
+      "turn": 0
+    }
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_slush_stands_row_d",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "the back bench",
+  "object_type": "furniture",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_slush_stands"
+}

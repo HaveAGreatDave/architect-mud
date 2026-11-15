@@ -676,29 +676,36 @@ export const hooks = {
   // the ice crew's machine in its bay, and the crew themselves through a break (crew.js)
   'room.vehicles': (zoneId) => crewVehicles(zoneId),
   'room.npcStage': (n, zoneId, pieces) => crewStage(n, zoneId, pieces),
-  // your tickets, for a seat door's card, in a room that sells them; and the game's channel, for a window onto the ice
+  // your tickets, for a seat door's card, in a room that sells them; and the game's channel, in a room at the rink
   'room.viewer': (zoneId, player) => {
     if (!player) return null;
     const out = {};
     if (sellersIn(zoneId).length) out.tickets = ticketsView(player.id);
-    const win = rinkWindowIn(zoneId), ch = win && liveSportsChannel(win.flags.rink_window);
-    if (ch) out.rink = { channelId: ch, sport: win.flags.rink_window };
+    const sport = rinkSportOf(zoneId), ch = sport && liveSportsChannel(sport);
+    if (ch) out.rink = { channelId: ch, sport };
     return Object.keys(out).length ? out : null;
   },
 };
 
-// A WINDOW ONTO THE ICE (`flags.rink_window: '<sport>'` on a piece, drawn by the client's room-stadium.js) shows the
-// game on the other side of the glass. Like a seat it's a receiver: walking into its room tunes you to the game's
-// channel, as the Tablet TV would be, and walking out lets it go, unless a seat has you by then.
-const rinkWindowIn = (zoneId) => getZoneFurniture(zoneId).find((f) => typeof f.flags?.rink_window === 'string') || null;
-const atWindow = new Map();   // playerId -> the zone whose window tuned them
+// A ROOM AT THE RINK (`flags.room.rink` on the zone, drawn by the client's room-rink.js) is drawn over the live game,
+// and its openings onto the ice are the ice; so is a room one door off one, which sees the ice through it. Like a seat
+// it's a receiver: walking into the room tunes you to the game's channel, as the Tablet TV would be, and walking out
+// of the rink's rooms lets it go, unless a seat has you.
+const ownRink = (z) => { const r = z?.flags?.room?.rink; return r && Array.isArray(r.at) ? (typeof r.sport === 'string' ? r.sport : 'hockey') : null; };
+const rinkSportOf = (zoneId) => {
+  const z = getZone(zoneId), own = ownRink(z);
+  if (own || !z?.exits) return own;
+  for (const t of Object.values(z.exits)) { const s = typeof t === 'string' ? ownRink(getZone(t)) : null; if (s) return s; }
+  return null;
+};
+const atRink = new Map();   // playerId -> the zone whose rink tuned them
 on('zone.entered', ({ actor, zone }) => {
   if (!actor?.id || !world.players.has(actor.id)) return;
-  const was = atWindow.get(actor.id);
-  if (was && was !== zone) { atWindow.delete(actor.id); if (!seated.has(actor.id)) emit('tablet_tv.unwatch', { playerId: actor.id }); }
-  const win = rinkWindowIn(zone), ch = win && liveSportsChannel(win.flags.rink_window);
-  if (ch && !seated.has(actor.id)) { atWindow.set(actor.id, zone); emit('tablet_tv.watch', { playerId: actor.id, channelId: ch }); }
+  const sport = rinkSportOf(zone), ch = sport && liveSportsChannel(sport);
+  const was = atRink.get(actor.id);
+  if (was && was !== zone) { atRink.delete(actor.id); if (!ch && !seated.has(actor.id)) emit('tablet_tv.unwatch', { playerId: actor.id }); }
+  if (ch && !seated.has(actor.id)) { const again = !!was; atRink.set(actor.id, zone); if (!again) emit('tablet_tv.watch', { playerId: actor.id, channelId: ch }); }
 });
-on('player.logout', ({ id }) => { if (id) atWindow.delete(id); });
+on('player.logout', ({ id }) => { if (id) atRink.delete(id); });
 
 export const _test = { seated, passes, buyPass, leave, chartPayload, cmdStands, watchScreen, onPosture, suiteChannels, cmdBuyTicket, sitOnTicket, sellTicket, ticketsView, sellersIn, whenOf };

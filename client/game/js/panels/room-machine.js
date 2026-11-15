@@ -2,7 +2,9 @@
 // piece has GLASS's own machine standing on it, nose to the piece's front; at each intermission the server says it's
 // leaving, away or coming back (`vehicles.machine` on `room_view`, then `room_vehicles`, plugins/stands crew.js), and
 // this plays that clock: the roller door in the wall it faces goes up, the machine drives out through it, the door
-// comes down, and the bay stands empty until it comes back the same way.
+// comes down, and the bay stands empty until it comes back the same way. A bay at the rink's end (`spec.rink`) has no
+// roller door: the machine faces the gate in the boards, which are the arena's, and drives through the opening onto
+// the ice under the room (panels/room-rink.js), where the arena's own machine, Ken at the wheel, takes over.
 //
 // It decides nothing and sends nothing. The driver while it moves is the machine's own (gl/arena-mesh.js buildKen);
 // parked, its seat is empty, and the crew NPC climbs on and off it as a person (the piece's seat, room-layout.js).
@@ -88,15 +90,17 @@ export function createRoomMachine() {
     const dw = RESURFACER.w / 2 + DOOR_PAD, wf = dist - 0.012, up = [0, 1, 0], uv = [0, 0];
     const quad = (ps, col, mat = MAT.MATTE) => { for (const i of [0, 1, 2, 0, 2, 3]) vtx(b, ps[i], up, uv, col, mat); };
     const ph = V?.phase || 'parked', tt = now - t0, ms = V?.ms || 6500;
-    // the shutter is up (1) through the drive, rolling up in its first second and down in the second after it
-    const open = ph === 'leaving' || ph === 'returning' ? Math.min(ease(tt / 1100), 1 - ease((tt - ms) / 1100)) : 0;
-    quad([W(dw, wf, 0.01), W(-dw, wf, 0.01), W(-dw, wf, DOOR_H), W(dw, wf, DOOR_H)], [0.012, 0.014, 0.016]);
-    const top = DOOR_H, bottom = DOOR_H * open, n = Math.max(1, Math.round((top - bottom) / 0.12));
-    for (let i = 0; i < n; i++) {
-      const y0 = bottom + i * (top - bottom) / n, y1 = y0 + (top - bottom) / n - 0.012, c = i % 2 ? [0.2, 0.22, 0.24] : [0.26, 0.28, 0.3];
-      quad([W(dw, wf - 0.02, y0), W(-dw, wf - 0.02, y0), W(-dw, wf - 0.02, y1), W(dw, wf - 0.02, y1)], c, MAT.METAL);
+    if (!L.spec?.rink) {
+      // the shutter is up (1) through the drive, rolling up in its first second and down in the second after it
+      const open = ph === 'leaving' || ph === 'returning' ? Math.min(ease(tt / 1100), 1 - ease((tt - ms) / 1100)) : 0;
+      quad([W(dw, wf, 0.01), W(-dw, wf, 0.01), W(-dw, wf, DOOR_H), W(dw, wf, DOOR_H)], [0.012, 0.014, 0.016]);
+      const top = DOOR_H, bottom = DOOR_H * open, n = Math.max(1, Math.round((top - bottom) / 0.12));
+      for (let i = 0; i < n; i++) {
+        const y0 = bottom + i * (top - bottom) / n, y1 = y0 + (top - bottom) / n - 0.012, c = i % 2 ? [0.2, 0.22, 0.24] : [0.26, 0.28, 0.3];
+        quad([W(dw, wf - 0.02, y0), W(-dw, wf - 0.02, y0), W(-dw, wf - 0.02, y1), W(dw, wf - 0.02, y1)], c, MAT.METAL);
+      }
+      quad([W(dw + 0.1, wf - 0.03, top), W(-dw - 0.1, wf - 0.03, top), W(-dw - 0.1, wf - 0.03, top + 0.3), W(dw + 0.1, wf - 0.03, top + 0.3)], [0.14, 0.15, 0.16], MAT.METAL);
     }
-    quad([W(dw + 0.1, wf - 0.03, top), W(-dw - 0.1, wf - 0.03, top), W(-dw - 0.1, wf - 0.03, top + 0.3), W(dw + 0.1, wf - 0.03, top + 0.3)], [0.14, 0.15, 0.16], MAT.METAL);
     if (k == null) return;
     const m = meshOf(!!V?.final, k > 0.001);
     if (!m) return;

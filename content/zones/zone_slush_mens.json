@@ -1,6 +1,6 @@
 {
   "ambient_theme": "indoors",
-  "description": "White tiles going yellow at the grout. Two urinals on the north wall, a steel trough along the west wall, and two cubicles at the back. One basin, and a mirror with a crack across it. The Concourse is east.",
+  "description": "White tiles going yellow at the grout. Two urinals on the north wall, a steel trough along the west wall, and two cubicles at the back. One basin, a mirror with a crack across it, and a television high on the wall by the door. The Concourse is east.",
   "exits": {
     "east": "zone_slush_concourse"
   },

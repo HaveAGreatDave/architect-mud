@@ -1,0 +1,42 @@
+{
+  "description": "A glass rail along the front of the terrace on steel posts, a navy handrail along the top worn to bare metal where people lean. The drop on the other side is to the boards.",
+  "flags": {
+    "aliases": [
+      "rail",
+      "glass",
+      "handrail",
+      "railing",
+      "edge",
+      "balustrade"
+    ],
+    "interactions": [
+      "lean"
+    ],
+    "look": {
+      "arche": "prop",
+      "dims": [
+        13.5,
+        0.1,
+        1.05
+      ],
+      "form": "balustrade"
+    },
+    "spot": {
+      "at": [
+        0,
+        0.06
+      ],
+      "turn": 0
+    }
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_slush_stands_rail",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "the rail",
+  "object_type": "decoration",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_slush_stands"
+}

@@ -418,6 +418,10 @@ you're on and goes where you walk.
 The roomstage regress walks out of the Solenne's street door, checks the street opens on the doorstep
 facing out, and walks back in.
 
+A doorway between two rooms can be wider than a door: `flags.room.door_w` `{ <dir>: metres }` (up to 4 m) on either room
+widens the opening that way, the wider of the two rooms' winning, so both sides cut the same one (the Gardens' 2.6 m portal
+from its concourse to its stands).
+
 A street door can be a pair of automatic glass doors: `flags.room.street_door` `{ kind: 'sliding', w }` on the
 entry room widens the doorway to `w` metres in the plan and marks it `slide`. A glass wall a doorway runs into is
 cut round it (`withDoorways`), so the lobby keeps its glass front either side, with a glass transom over an

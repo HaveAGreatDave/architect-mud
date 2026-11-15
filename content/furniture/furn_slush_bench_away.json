@@ -1,0 +1,40 @@
+{
+  "description": "The visitors' bench, cut into the boards: the same padded seat as the home one, with the padding worn through, and a draught along it from the gate.",
+  "flags": {
+    "aliases": [
+      "visitors bench",
+      "away bench",
+      "bench",
+      "benches"
+    ],
+    "interactions": [
+      "sit"
+    ],
+    "look": {
+      "arche": "bench",
+      "dims": [
+        3.2,
+        0.6,
+        0.85
+      ],
+      "form": "bench"
+    },
+    "spot": {
+      "at": [
+        0,
+        0.45
+      ],
+      "turn": 0
+    }
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_slush_bench_away",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "the visitors' bench",
+  "object_type": "furniture",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_slush_rinkside"
+}

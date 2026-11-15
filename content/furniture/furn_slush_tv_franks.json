@@ -1,0 +1,45 @@
+{
+  "description": "A television on a bracket over the concession counter, angled down at the queue. Grease has filmed the bottom of the screen.",
+  "flags": {
+    "aliases": [
+      "tv",
+      "television",
+      "set",
+      "screen",
+      "franks set",
+      "counter set"
+    ],
+    "broadcast_device_type": "tv",
+    "broadcast_receiver": true,
+    "channel_default": 7,
+    "interactions": [
+      "watch"
+    ],
+    "look": {
+      "arche": "screen",
+      "form": "flat"
+    },
+    "spot": {
+      "at": [
+        5.6,
+        8.93
+      ],
+      "turn": 0,
+      "y": 3
+    },
+    "tuned_channel": 7,
+    "tv": true,
+    "tv_dial_freq": 7,
+    "tv_public": true
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_slush_tv_franks",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "the set over the franks",
+  "object_type": "tv",
+  "power_draw_kw": 0.1,
+  "price": 0,
+  "zone_id": "zone_slush_concourse"
+}

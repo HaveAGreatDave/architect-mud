@@ -300,7 +300,8 @@ export function createRinkCamera(W, { snap = false, from = null } = {}) {
       s.pitch = s.pitch == null ? pitch : s.pitch + (pitch - s.pitch) * k;
     }
     const a = s.yaw || 0, fx = Math.sin(a), fy = Math.cos(a), rx = fy, ry = -fx;
-    const fov = clamp(s.fov || 64, 15, 100) * Math.PI / 180;
+    // (as wide as 150°: a room drawn over the ice, panels/room-rink.js, hands over its own lens, and a wide screen's is wide)
+    const fov = clamp(s.fov || 64, 15, 150) * Math.PI / 180;
     const C = { x: ex, y: ey, z: ez, pitch: s.pitch || 0, yaw: 0, ax: { fx, fy, rx, ry }, f: (w / 2) / Math.tan(fov / 2), cx: w / 2, cy: h / 2, w, h };
     const cp = Math.cos(C.pitch), sp = Math.sin(C.pitch);
     const P = (X, Y, Z) => { const qx = X - ex, qy = Y - ey, dz = Z - ez, dx = qx * rx + qy * ry, dy = qx * fx + qy * fy, d = dy * cp - dz * sp; if (d < NEAR) return null; const up = dy * sp + dz * cp; return { x: C.cx + C.f * dx / d, y: C.cy - C.f * up / d, s: C.f / d, d }; };

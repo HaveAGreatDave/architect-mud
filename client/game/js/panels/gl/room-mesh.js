@@ -19,7 +19,7 @@ import { roomKit } from './room-kit.js';
 import { createBatch, MAT, STRIDE } from './ballpark-mesh.js';
 import { cachetWing, cachetInner, cachetPad } from '../../../../shared/room-layout.js';
 import { facing, COUNTER_H, doorwaysOf, liftButtons, liftPanelAt, hallOf, stairsOf, wellBox, STAIR } from '../../../../shared/room-layout.js';
-import { drawStadiumForm, drawRinkWindow } from './room-stadium.js';
+import { drawStadiumForm } from './room-stadium.js';
 import { drawDecor, drawDecorForm, liftPortal, drawBalconyDress } from './room-decor.js';
 import { legend, legendWidth } from '../../../../shared/legend-font.js';
 import { drawFitting, baseRun, STONE, FITTED_FORMS, stockOf, shelfKeep, STOCK } from './room-fittings.js';
@@ -307,7 +307,9 @@ export function buildRoom(L, { seed = 1, lampOn = true, doorShut = false, turnin
   }
   if (club === true) drawPosters(K, L, solidRuns, { hu, D, H, seed });
 
-  const windows = panes.map((q) => drawPane(K, q, { hu, D, H, trim, fine }));
+  // (an opening onto a rink, `kind: 'open'`, is only the hole: the ice under the room shows through it, and it lets in
+  // no daylight, since what's past it is a lit building)
+  const windows = panes.filter((q) => q.kind !== 'open').map((q) => drawPane(K, q, { hu, D, H, trim, fine }));
   // the world: a box well clear of the flat, seen wherever the walls don't stop you seeing it
   {
     const R0 = 55, c = D / 2, a = [-R0, c - R0, -R0], b = [R0, c + R0, R0];
@@ -2053,8 +2055,8 @@ function drawPiece(K, p) {
   // a flat's control panel (plugins/envcontrol) lays out as a hung cabinet and is drawn as itself
   if (p.dress === 'envctl' && drawEnvPanel(K, F, p)) return;
   if (drawDecorForm(K, F, p)) return;
-  // a stadium's: a box office, a card machine, the Cup's case, a seat door, the restrooms, the window onto the ice
-  if (drawStadiumForm(K, F, p) || drawRinkWindow(K, F, p)) return;
+  // a stadium's: a box office, a card machine, the Cup's case, a seat door, the restrooms
+  if (drawStadiumForm(K, F, p)) return;
   // what stands in a studio's kitchen takes its fronts and worktop from the kitchen (spec.kitchen)
   const kit = !p.annex && K.L.spec.kitchen ? { front: K.L.spec.kitchen.front, slab: kitchenSlab(K.L.spec) } : null;
   if (drawFitting({ K, F, p, r, L: K.L, ...(kit?.front ? { front: kit.front } : {}), ...(kit?.slab ? { slab: kit.slab } : {}), coldInside: (...a) => coldInside(K, F, p, ...a), coldShell: (o) => coldShell(F, R, o), coldDoor: (...a) => coldDoor(K, F, p, ...a), COLD_WALL, wear, fine, fab, wood, enamel, plastic, steel, tired, stain, lat, rod, R, pick: (list) => pick(r, list) })) return;

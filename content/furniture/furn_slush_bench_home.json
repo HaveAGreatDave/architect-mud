@@ -1,0 +1,40 @@
+{
+  "description": "The home club's bench, cut into the boards: a long padded seat, a rack of sticks behind it and a water bottle crate under it. The door onto the ice is held shut with a hockey tape loop.",
+  "flags": {
+    "aliases": [
+      "home bench",
+      "bench",
+      "benches",
+      "players bench"
+    ],
+    "interactions": [
+      "sit"
+    ],
+    "look": {
+      "arche": "bench",
+      "dims": [
+        3.2,
+        0.6,
+        0.85
+      ],
+      "form": "bench"
+    },
+    "spot": {
+      "at": [
+        -7.3,
+        0.45
+      ],
+      "turn": 0
+    }
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_slush_bench_home",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "the home bench",
+  "object_type": "furniture",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_slush_rinkside"
+}

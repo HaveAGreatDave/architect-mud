@@ -1,6 +1,6 @@
 {
   "ambient_theme": "indoors",
-  "description": "Pink tiles and a long queue's worth of scuffs on the floor. Three cubicles along the back wall, two basins under a mirror on the north wall, and a hand dryer that doesn't work. The Concourse is west.",
+  "description": "Pink tiles and a long queue's worth of scuffs on the floor. Three cubicles along the back wall, two basins under a mirror on the north wall, a television on the east wall, and a hand dryer that doesn't work. The Concourse is west.",
   "exits": {
     "west": "zone_slush_concourse"
   },

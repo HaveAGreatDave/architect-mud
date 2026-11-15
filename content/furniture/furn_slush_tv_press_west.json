@@ -1,0 +1,45 @@
+{
+  "description": "A second monitor on the west wall, the same picture as the east one, with a strip of tape across the bottom that says DO NOT TOUCH.",
+  "flags": {
+    "aliases": [
+      "tv",
+      "television",
+      "set",
+      "screen",
+      "monitor",
+      "west monitor"
+    ],
+    "broadcast_device_type": "tv",
+    "broadcast_receiver": true,
+    "channel_default": 7,
+    "interactions": [
+      "watch"
+    ],
+    "look": {
+      "arche": "screen",
+      "form": "flat"
+    },
+    "spot": {
+      "at": [
+        4.93,
+        2.2
+      ],
+      "turn": -90,
+      "y": 1.95
+    },
+    "tuned_channel": 7,
+    "tv": true,
+    "tv_dial_freq": 7,
+    "tv_public": true
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_slush_tv_press_west",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "the west monitor",
+  "object_type": "tv",
+  "power_draw_kw": 0.1,
+  "price": 0,
+  "zone_id": "zone_slush_pressbox"
+}

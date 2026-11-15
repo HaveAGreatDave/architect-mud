@@ -125,6 +125,13 @@ body.bigscreen #room-stage .rs-bar, body.bigscreen #room-stage .rs-tip { display
 }
 #room-stage .rs-host:active { cursor: grabbing; }
 #room-stage .rs-canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+/* the ice under a room at a rink (room-rink.js): the rink view's own picture, the whole box, and none of its broadcast
+   dressing (the header, the strip, the captions, its buttons): through the room's openings it's the ice, not TV */
+#room-stage .rs-rink { position: absolute; inset: 0; pointer-events: none; background: #05070a; }
+#room-stage .rs-rink .gdr-wrap, #room-stage .rs-rink .gdr-rink, #room-stage .rs-rink .gdr-canvas { position: absolute; inset: 0; width: 100%; height: 100%; padding: 0; margin: 0; }
+#room-stage .rs-rink .gdr-rink { border-radius: 0; box-shadow: none; }
+#room-stage .rs-rink .gdr-canvas { display: block; }
+#room-stage .rs-rink .gdr-wrap > :not(.gdr-rink), #room-stage .rs-rink .gdr-rink > :not(.gdr-canvas) { display: none !important; }
 #room-stage .rs-city { position: absolute; left: -40%; top: -25%; width: 180%; height: 150%; display: block; pointer-events: none; }
 #room-stage .rs-tip {
 	position: absolute; left: 50%; bottom: 10px; transform: translateX(-50%); max-width: calc(100% - 260px);

@@ -1,0 +1,44 @@
+{
+  "description": "A small television on a bracket on the east wall, turned so the queue can see it. Somebody has stuck a club sticker over the maker's name.",
+  "flags": {
+    "aliases": [
+      "tv",
+      "television",
+      "set",
+      "screen",
+      "east set"
+    ],
+    "broadcast_device_type": "tv",
+    "broadcast_receiver": true,
+    "channel_default": 7,
+    "interactions": [
+      "watch"
+    ],
+    "look": {
+      "arche": "screen",
+      "form": "flat"
+    },
+    "spot": {
+      "at": [
+        2.93,
+        2.6
+      ],
+      "turn": -90,
+      "y": 1.9
+    },
+    "tuned_channel": 7,
+    "tv": true,
+    "tv_dial_freq": 7,
+    "tv_public": true
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_slush_tv_womens",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "the set on the east wall",
+  "object_type": "tv",
+  "power_draw_kw": 0.1,
+  "price": 0,
+  "zone_id": "zone_slush_womens"
+}

@@ -13,7 +13,7 @@
     "open_all_hours": true,
     "room": {
       "balcony": false,
-      "d": 8,
+      "d": 6,
       "decor": {
         "downlights": false,
         "floor": {
@@ -23,8 +23,8 @@
           "line": "#c9a24a",
           "medallion": [
             0,
-            3.8,
-            1.5
+            2.9,
+            1.3
           ],
           "ray": "#8a6a3a",
           "rays": 24,
@@ -41,7 +41,7 @@
           {
             "at": [
               0,
-              3.8
+              2.9
             ],
             "drop": 1,
             "k": 1.2,
@@ -71,11 +71,11 @@
           "points": [
             [
               "right",
-              2
+              1.6
             ],
             [
               "right",
-              6
+              4.4
             ],
             [
               "back",
@@ -109,13 +109,13 @@
         "portal": "brick",
         "signs": [
           {
-            "at": 4,
+            "at": 0,
             "h": 0.5,
             "kind": "gilt",
             "sub": "The Coldwater Cup",
             "text": "Hall of Champions",
             "w": 2.4,
-            "wall": "left",
+            "wall": "front",
             "y": 3
           }
         ],

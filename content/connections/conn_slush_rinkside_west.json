@@ -2,8 +2,8 @@
   "a": "zone_slush_rinkside",
   "b": "zone_slush_bay",
   "blocked": false,
-  "dir": "south",
-  "id": "conn_slush_rinkside_south",
+  "dir": "west",
+  "id": "conn_slush_rinkside_west",
   "lockable": false,
   "one_way": false
 }

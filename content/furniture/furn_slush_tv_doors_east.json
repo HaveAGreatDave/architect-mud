@@ -1,0 +1,45 @@
+{
+  "description": "A television in a steel cage on the wall over the card machine. The picture is better than the one by the box office. It carries the game.",
+  "flags": {
+    "aliases": [
+      "tv",
+      "television",
+      "set",
+      "screen",
+      "card machine set",
+      "east set"
+    ],
+    "broadcast_device_type": "tv",
+    "broadcast_receiver": true,
+    "channel_default": 7,
+    "interactions": [
+      "watch"
+    ],
+    "look": {
+      "arche": "screen",
+      "form": "flat"
+    },
+    "spot": {
+      "at": [
+        5.2,
+        0.07
+      ],
+      "turn": 180,
+      "y": 3
+    },
+    "tuned_channel": 7,
+    "tv": true,
+    "tv_dial_freq": 7,
+    "tv_public": true
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_slush_tv_doors_east",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "the set over the card machine",
+  "object_type": "tv",
+  "power_draw_kw": 0.1,
+  "price": 0,
+  "zone_id": "zone_slush_concourse"
+}

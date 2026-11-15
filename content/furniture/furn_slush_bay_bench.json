@@ -1,5 +1,5 @@
 {
-  "description": "A steel bench along the west wall: a vice, spare blades in a rack, a coil of hose and a drum with no label on it.",
+  "description": "A steel bench along the back wall: a vice, spare blades in a rack, a coil of hose and a drum with no label on it.",
   "flags": {
     "aliases": [
       "workbench",
@@ -23,10 +23,10 @@
     },
     "spot": {
       "at": [
-        -5.6,
-        5
+        -3,
+        7.55
       ],
-      "turn": 90
+      "turn": 0
     }
   },
   "hp": null,

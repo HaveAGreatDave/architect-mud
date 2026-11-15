@@ -1,5 +1,5 @@
 {
-  "description": "The Gardens' only resurfacer, parked nose to the roller door with a drip under the conditioner. Ken Raven's colours are on the tank, and his scarf hangs off the seat when he isn't in it.",
+  "description": "The Gardens' only resurfacer, parked nose to the gate in the end boards with a drip under the conditioner. Ken Raven's colours are on the tank, and his scarf hangs off the seat when he isn't in it.",
   "flags": {
     "aliases": [
       "resurfacer",
@@ -15,10 +15,10 @@
     },
     "spot": {
       "at": [
-        1.6,
-        7.2
+        6.3,
+        2.6
       ],
-      "turn": 90
+      "turn": 0
     }
   },
   "id": "furn_slush_resurfacer",

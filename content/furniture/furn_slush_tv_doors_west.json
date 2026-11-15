@@ -1,0 +1,45 @@
+{
+  "description": "A television in a steel cage on the wall, high enough that nobody can reach the knobs. It carries the game.",
+  "flags": {
+    "aliases": [
+      "tv",
+      "television",
+      "set",
+      "screen",
+      "box office set",
+      "west set"
+    ],
+    "broadcast_device_type": "tv",
+    "broadcast_receiver": true,
+    "channel_default": 7,
+    "interactions": [
+      "watch"
+    ],
+    "look": {
+      "arche": "screen",
+      "form": "flat"
+    },
+    "spot": {
+      "at": [
+        -5.2,
+        0.07
+      ],
+      "turn": 180,
+      "y": 3
+    },
+    "tuned_channel": 7,
+    "tv": true,
+    "tv_dial_freq": 7,
+    "tv_public": true
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_slush_tv_doors_west",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "the set by the box office",
+  "object_type": "tv",
+  "power_draw_kw": 0.1,
+  "price": 0,
+  "zone_id": "zone_slush_concourse"
+}

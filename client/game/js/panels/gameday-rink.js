@@ -104,7 +104,7 @@ export function createRinkView(host, opts = {}) {
   // tag and his words in the bar; anything else is the play-by-play man's, whom the broadcast
   // names with each line (tv.js passes it as 'who').
   let capWho = 'Booth', anchorWho = '';
-  let last = null, landed = true, raf = 0, lastFrame = 0, lastDraw = 0, frameAvg = 0, acc = 0, mounted = false, speed = opts.speed || 1, kenComicOn = false;
+  let last = null, landed = true, raf = 0, lastFrame = 0, frameAvg = 0, acc = 0, mounted = false, speed = opts.speed || 1, kenComicOn = false;
   let W = null, D = null, R = null, ice = null, canvas = null, modsP = null, mods = null;
   const sfxAt = {};
   let costAvg = 0;
@@ -158,8 +158,6 @@ export function createRinkView(host, opts = {}) {
   }
 
   function _sfx(key, o) {
-    // a view behind glass (`opts.quiet`: a window onto the ice, panels/room-stadium.js) makes no sound
-    if (opts.quiet) return;
     const H = win?.HockeySfx, AE = win?.AudioEngine;
     if (!W || !H?.eventFor || !AE?.playSfx) return;
     const pick = H.eventFor(key, o || {});
@@ -192,7 +190,6 @@ export function createRinkView(host, opts = {}) {
   // its state; the moments (a shot, the iron, a goal, a big hit) move it and let it settle.
   let crowd = null, crowdBack = null, loudUntil = 0;
   function crowdOn() {
-    if (opts.quiet) return null;
     if (crowd != null) return crowd || null;
     const H = win?.HockeySfx;
     crowd = (H?.crowdBed && win?.AudioEngine?.engineNodes && H.crowdBed()) || false;
@@ -405,8 +402,15 @@ export function createRinkView(host, opts = {}) {
   // ── the loop ──────────────────────────────────────────────────────────────
   // Fixed 120 Hz steps under a display-rate render. A big hit freezes time for a few
   // frames (`W.hitstop`), which is most of why it lands.
+  // `opts.manual` (a room drawn over the ice, panels/room-rink.js): no frame loop of its own. The room calls `tick` in its
+  // own frame, after it has turned the seat to its own camera, so the ice and the room are drawn from the same eye in
+  // the same frame and the ice never trails the room by one.
+  let running = false;
   function frame(now) {
     raf = win.requestAnimationFrame(frame);
+    step(now);
+  }
+  function step(now) {
     if (!canvas || !canvas.isConnected) { stop(); return; }
     const raw = lastFrame ? Math.min(0.1, (now - lastFrame) / 1000) : 1 / 60;
     lastFrame = now;
@@ -426,15 +430,12 @@ export function createRinkView(host, opts = {}) {
     // world's never beat against each other (see sim.js)
     W.alpha = acc / DT;
     if (R.lost) fallback();
-    // `opts.fps` draws the picture that often and no more (a window onto the ice, panels/room-stadium.js); the play
-    // still steps every frame, so it's where it should be whenever it's drawn
-    const due = !opts.fps || now - lastDraw >= 1000 / opts.fps - 4;
-    if (due) { lastDraw = now; R.render(now); }
+    R.render(now);
     // the intermission board steps aside while the Ken Raven comic has the picture (rink/ken-comic.js)
     if (!!W.kenComic !== kenComicOn) { kenComicOn = !!W.kenComic; host?.querySelector('.gdr-rink')?.classList.toggle('gdr-kencomic', kenComicOn); }
     // `opts.onFrame` copies the picture while it's still in the drawing buffer (a WebGL canvas
     // read later in the frame, off screen, hands back a stale one): the box's screen (stands.js)
-    if (due) opts.onFrame?.();
+    opts.onFrame?.();
     if (opts.seat) seatSkates();
     l3Tick();
     clockTick(raw);
@@ -466,6 +467,8 @@ export function createRinkView(host, opts = {}) {
     R.glow = glow; R.ink = ink; R.xrayGore = gore;
     // a seat in the stands (stands.js) holds the eye; only GLASS 2 turns to it
     R.seat = opts.seat || null;
+    // the rooms a room's view of the ice is drawn from (gl/arena.js api.cut)
+    R.cut = cut;
   }
   function setGore(v) {
     gore = v;
@@ -501,8 +504,12 @@ export function createRinkView(host, opts = {}) {
     R.view = view; R.glow = glow; rung = 0;
     ice.dirtyAll = true;
   }
-  function start() { if (!raf && win) { lastFrame = 0; raf = win.requestAnimationFrame(frame); } }
-  function stop() { if (raf && win) win.cancelAnimationFrame(raf); raf = 0; }
+  function start() {
+    if (opts.manual) { if (!running) { running = true; lastFrame = 0; } return; }
+    if (!raf && win) { lastFrame = 0; raf = win.requestAnimationFrame(frame); }
+  }
+  function stop() { running = false; if (raf && win) win.cancelAnimationFrame(raf); raf = 0; }
+  let cut = null;
 
   function mount() {
     if (!host || mounted) return;
@@ -872,6 +879,11 @@ export function createRinkView(host, opts = {}) {
 
   return {
     apply, clear, rest, wake, setCaption, showIdle, showCard,
+    // `opts.manual`: one frame, now (panels/room-rink.js); and the rooms the view is drawn from (gl/arena.js api.cut)
+    tick(now) { if (running && R && W) step(now); },
+    setCut(boxes) { cut = boxes || null; if (R) R.cut = cut; },
+    // whether the picture is GLASS 2's, which can stand at the seat; the 2-D one shows the broadcast's view instead
+    get turns() { return R?.kind === 'gl'; },
     // repaint the Commentary button after the host's own switch moved
     syncCommentary: () => syncVoice(),
     // for the demo page and the smoke gate

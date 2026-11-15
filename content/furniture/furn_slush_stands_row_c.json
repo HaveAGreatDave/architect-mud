@@ -1,0 +1,42 @@
+{
+  "description": "A slatted bench one row back from the rail, by the gangway. Somebody has screwed a cup holder to its end.",
+  "flags": {
+    "aliases": [
+      "bench",
+      "benches",
+      "seat",
+      "seats",
+      "gangway bench"
+    ],
+    "interactions": [
+      "sit",
+      "lie"
+    ],
+    "look": {
+      "arche": "bench",
+      "dims": [
+        3.2,
+        0.6,
+        0.85
+      ],
+      "form": "bench"
+    },
+    "spot": {
+      "at": [
+        -1.5,
+        2.8
+      ],
+      "turn": 0
+    }
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_slush_stands_row_c",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "the bench by the gangway",
+  "object_type": "furniture",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_slush_stands"
+}

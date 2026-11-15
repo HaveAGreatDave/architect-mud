@@ -1,6 +1,6 @@
 {
   "ambient_theme": "indoors",
-  "description": "Wooden benches climb steeply on all four sides of the ice, numbered in sections, under a roof of steel arches. A scoreboard of four screens hangs over centre ice on chains. An organ stands on a riser in one corner. It is colder in here than on the street.",
+  "description": "A terrace at the top of the lower bowl, right over the north boards. A glass rail runs along the front, and past it is the whole sheet under the lights. Rows of slatted benches face the ice, the organ sits at the back, and a ticket machine and a card machine stand by the stairs. A flight goes down to rinkside and another up to the press box. The Cup Room is east and the concourse north.",
   "exits": {
     "down": "zone_slush_rinkside",
     "east": "zone_slush_cup",
@@ -22,20 +22,12 @@
           "h": 0.24,
           "hex": "#1f3550",
           "line": "#c9a24a",
-          "y": 4
+          "y": 3.3
         },
         "rug": false,
         "sconces": {
           "kind": "fan",
           "points": [
-            [
-              "front",
-              -4
-            ],
-            [
-              "front",
-              4
-            ],
             [
               "left",
               9
@@ -46,11 +38,65 @@
             ],
             [
               "back",
-              -1
+              -4
+            ],
+            [
+              "back",
+              4
             ]
           ],
           "y": 2.3
         },
+        "strips": [
+          {
+            "along": "u",
+            "at": [
+              -4,
+              5.5
+            ],
+            "len": 1.5
+          },
+          {
+            "along": "u",
+            "at": [
+              -4,
+              10
+            ],
+            "len": 1.5
+          },
+          {
+            "along": "u",
+            "at": [
+              0,
+              5.5
+            ],
+            "len": 1.5
+          },
+          {
+            "along": "u",
+            "at": [
+              0,
+              10
+            ],
+            "len": 1.5
+          },
+          {
+            "along": "u",
+            "at": [
+              4,
+              5.5
+            ],
+            "len": 1.5
+          },
+          {
+            "along": "u",
+            "at": [
+              4,
+              10
+            ],
+            "len": 1.5
+          }
+        ],
         "walls": {
           "hex": "#8e4a34",
           "kind": "brick",
@@ -58,15 +104,38 @@
           "y1": 2.6
         }
       },
+      "door_w": {
+        "east": 1.6,
+        "north": 2.6
+      },
       "doors": {
         "down": [
-          -5,
-          1.2
-        ]
+          -3,
+          9.32
+        ],
+        "east": -3
       },
-      "face": 0,
+      "face": 180,
       "ground": "concrete",
-      "h": 4.5,
+      "h": 3.8,
+      "rink": {
+        "at": [
+          46.88,
+          85.3
+        ],
+        "ice": 3.2,
+        "look": 180,
+        "open": [
+          {
+            "a": -6.88,
+            "b": 6.88,
+            "wall": "front",
+            "y0": 0,
+            "y1": 3.75
+          }
+        ],
+        "sport": "hockey"
+      },
       "stadium": {
         "accent": "#c9a24a",
         "brick": "#8e4a34",
@@ -77,33 +146,33 @@
         "portal": "brick",
         "signs": [
           {
-            "at": 6,
+            "at": 3,
             "h": 0.5,
             "kind": "gilt",
             "sub": "Hall of Champions",
             "text": "The Cup",
             "w": 2,
-            "wall": "right",
-            "y": 2.85
+            "wall": "left",
+            "y": 2.75
           },
           {
-            "at": 5,
+            "at": 9.2,
             "h": 0.4,
             "kind": "enamel",
             "sub": "Staff only",
             "text": "Press Box",
             "w": 1.6,
-            "wall": "back",
-            "y": 3.3
+            "wall": "right",
+            "y": 3
           },
           {
-            "at": -5,
+            "at": -3,
             "h": 0.42,
             "kind": "enamel",
             "sub": "Down the stairs",
             "text": "Rinkside",
             "w": 1.8,
-            "wall": "front",
+            "wall": "back",
             "y": 2.9
           }
         ],
@@ -111,8 +180,8 @@
       },
       "stair": {
         "at": [
-          5,
-          10.8
+          5.6,
+          10.6
         ],
         "climb": "front",
         "w": 1
@@ -120,7 +189,7 @@
       "studio": false,
       "tone": {
         "accent": "#c9a24a",
-        "ceiling": "#8e8c88",
+        "ceiling": "#5e5c58",
         "trim": "#1f3550",
         "wall": "#cfc4ac"
       },
@@ -302,12 +371,6 @@
         }
       ],
       "sport": "hockey"
-    },
-    "window": {
-      "description": "A great arched window in the north end wall, glazed in a steel grid, three panes of it patched with board. Glacier Street shows through it as a grey band.",
-      "light": 0.4,
-      "name": "the end window",
-      "visibility": 0.3
     },
     "world_exit_zone": "zone_district_915_916"
   },

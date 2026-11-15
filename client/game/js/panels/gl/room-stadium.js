@@ -1,6 +1,6 @@
 // GLASS 2 · A STADIUM'S PIECES on the Room Stage (client/shared/room-layout.js forms): a box office window with its
 // grille and slot, a card pack machine lit from inside, a league's Cup in a glass case on a plinth, the board that
-// shows the last champion, a door into the seats, and the restrooms' urinals and cubicles. The resurfacer in its
+// shows the last champion, a door into the seats, a turnstile, a glass balustrade, and the restrooms' urinals and cubicles. The resurfacer in its
 // bay is GLASS's own machine (panels/room-machine.js), so its piece draws nothing here. Pure: batches, no GL.
 //
 // ⚠ IT'S ALL DATA. Nothing here names a building or a club: a seat door letters its row's `look.label`, a case holds
@@ -246,40 +246,44 @@ export function drawStadiumForm(K, F, p) {
       K.lathe(ru, rv, [[0, 0.7], [0.055, 0.7], [0.055, 0.8], [0, 0.8]], '#f6f6f2', 1.02, 12, MATTE);
       return true;
     }
+    case 'balustrade': {
+      // the edge of a terrace over the ice: glass panels between steel posts, a kick plate along the foot and a handrail
+      // in the venue's frame colour along the top, so you see the ice below through it and lean on the rail
+      const n = Math.max(1, Math.round(w / 1.5)), post = 0.05, kick = 0.12, rail = 0.06, top = h;
+      pbox(-hw, hw, 0, kick, -0.03, 0.03, '#2a2c30', 1, null, METAL);
+      for (let i = 0; i <= n; i++) { const x = -hw + i * w / n; pbox(x - post / 2, x + post / 2, 0, top - rail, -post / 2, post / 2, CHROME, 1.05, null, METAL); }
+      for (let i = 0; i < n; i++) {
+        const x0 = -hw + i * w / n + post / 2 + 0.01, x1 = -hw + (i + 1) * w / n - post / 2 - 0.01;
+        K.quad(K.glass, [P(x0, kick + 0.02, 0), P(x1, kick + 0.02, 0), P(x1, top - rail - 0.04, 0), P(x0, top - rail - 0.04, 0)], F.N(0, 0, 1), [0.86, 0.92, 0.96], GLOSS, null, true);
+      }
+      K.rounded(...F.alongX(), -hw - 0.04, hw + 0.04, -0.05, 0.05, top - rail, top, 0.025, FRAME, 1.05, SATIN);
+      return true;
+    }
+    case 'turnstile': {
+      // a turnstile: a brushed steel cabinet on a plinth, its length along the way through, a lid with a reader lit green
+      // on the end you come up to, and three arms on a hub at hip height across the lane on its right. The lane is
+      // the gap to the next one: the piece is only the cabinet and the arm over the lane is in the air
+      const steel = '#b8bec4', tall = Math.min(h, 1.02), hub = 0.86;
+      pbox(-hw, hw, 0, 0.06, -hd, hd, '#2a2c30', 1, null, METAL);
+      K.rounded(...F.alongY(), 0.06, tall - 0.06, -hw + 0.02, hw - 0.02, -hd + 0.02, hd - 0.02, 0.05, steel, 1.05, METAL);
+      pbox(-hw - 0.02, hw + 0.02, tall - 0.06, tall, -hd - 0.02, hd + 0.02, '#d8dde2', 1.08, null, METAL);
+      // the reader: a black glass slope on the lid's front end, a green arrow lit in it
+      pbox(-hw + 0.04, hw - 0.04, tall, tall + 0.03, hd - 0.2, hd - 0.04, '#0c0e10', 1, null, GLOSS);
+      pbox(-0.03, 0.03, tall + 0.03, tall + 0.035, hd - 0.16, hd - 0.08, lamp ? '#40e070' : '#1a3a22', lamp ? 1.8 : 1, null, lamp ? GLOW : MATTE);
+      // the hub on the lane side (+x), and the three arms off it, one level across the lane and two dropped behind it
+      pbox(hw, hw + 0.05, hub - 0.08, hub + 0.08, -0.08, 0.08, CHROME, 1.08, null, METAL);
+      for (const [a, k] of [[0, 1], [2.09, 0.6], [-2.09, 0.6]]) {
+        const ca = Math.cos(a), sa = Math.sin(a), len = 0.5;
+        // each arm a short run of boxes out from the hub, in the plane across the lane: x out, y and z by its angle
+        for (let i = 0; i < 6; i++) {
+          const t0 = 0.05 + i * len / 6, t1 = t0 + len / 6, x0 = hw + 0.05 + t0 * ca * k, x1 = hw + 0.05 + t1 * ca * k, z0 = t0 * sa, z1 = t1 * sa, y0 = hub - (1 - k) * t0 * 0.9, y1 = hub - (1 - k) * t1 * 0.9;
+          pbox(Math.min(x0, x1) - 0.016, Math.max(x0, x1) + 0.016, Math.min(y0, y1) - 0.016, Math.max(y0, y1) + 0.016, Math.min(z0, z1) - 0.016, Math.max(z0, z1) + 0.016, CHROME, 1.06, null, METAL);
+        }
+      }
+      // the venue's colour as a band round the cabinet under the lid
+      pbox(-hw + 0.015, hw - 0.015, tall - 0.16, tall - 0.12, -hd + 0.015, hd - 0.015, FRAME, 1, null, SATIN);
+      return true;
+    }
     default: return false;
   }
-}
-
-// THE RINK WINDOW, a stadium room's view onto the ice (`look.form: 'rinkwindow'` is drawn here, its glass a quad the
-// live rink is painted on by panels/room-stadium.js). Its frame's own size is the piece's; the glass is `glassOf`.
-export const RINK_WINDOW_FRAME = 0.08;
-export function rinkWindowGlass(p) {
-  const f = RINK_WINDOW_FRAME, y0 = Math.max(0.7, p.h * 0.32);
-  return { x0: -p.w / 2 + f, x1: p.w / 2 - f, y0, y1: p.h - f, z: p.d / 2 - 0.03 };
-}
-export function drawRinkWindow(K, F, p) {
-  if (p.form !== 'rinkwindow') return false;
-  const { pbox } = F, w = p.w, d = p.d, h = p.h, hw = w / 2, hd = d / 2, g = rinkWindowGlass(p), steel = '#4a5560';
-  // `look.dress: 'boards'`: the rink's own boards and glass at ice level (Rinkside), white boards with a yellow kick
-  // plate and a red cap rail, the glass on thin stanchions, and nothing over it but the arena's dark
-  if (p.dress === 'boards') {
-    pbox(-hw, hw, 0, 0.2, -hd, hd, '#e8c020', 1, null, GLOSS);
-    pbox(-hw, hw, 0.2, g.y0 - 0.05, -hd, hd, '#f2f2ee', 1.02, null, GLOSS);
-    pbox(-hw - 0.02, hw + 0.02, g.y0 - 0.05, g.y0, -hd, hd + 0.04, '#b8202a', 1, null, SATIN);
-    const n = Math.max(1, Math.round(w / 1.8));
-    for (let i = 0; i <= n; i++) { const x = -hw + i * w / n; pbox(x - 0.02, x + 0.02, g.y0, h, hd - 0.05, hd - 0.01, '#9aa0a6', 1, null, METAL); }
-    F.front(K.solid, g.x0, g.x1, g.y0, g.y1, g.z - 0.002, K.C('#0e1820', 1), MATTE, null, true);
-    return true;
-  }
-  // a sill at counter height, a steel frame, mullions every 1.2 m, and the sill board a mug stands on
-  pbox(-hw, hw, 0, g.y0, -hd, hd, '#6e6c66', 1, { t: 'roomStone', c: '#8a8780' }, MATTE);
-  pbox(-hw - 0.04, hw + 0.04, g.y0 - 0.03, g.y0, -hd, hd + 0.12, '#5a4430', 1, null, SATIN);
-  pbox(-hw, -hw + RINK_WINDOW_FRAME, g.y0, h, -hd, hd, steel, 1, null, METAL);
-  pbox(hw - RINK_WINDOW_FRAME, hw, g.y0, h, -hd, hd, steel, 1, null, METAL);
-  pbox(-hw, hw, h - RINK_WINDOW_FRAME, h, -hd, hd, steel, 1, null, METAL);
-  const n = Math.max(1, Math.round(w / 1.2));
-  for (let i = 1; i < n; i++) { const x = -hw + i * w / n; pbox(x - 0.025, x + 0.025, g.y0, h, hd - 0.06, hd, steel, 1, null, METAL); }
-  // the pane behind which the rink is: dark until it's painted, so a room with no live view isn't a hole
-  F.front(K.solid, g.x0, g.x1, g.y0, g.y1, g.z - 0.002, K.C('#0e1820', 1), MATTE, null, true);
-  return true;
 }

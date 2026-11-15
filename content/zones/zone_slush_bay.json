@@ -1,8 +1,8 @@
 {
   "ambient_theme": "indoors",
-  "description": "A concrete garage behind the end boards, smelling of diesel and wet rubber. The resurfacer is parked nose to the roller door, dripping into a drain. A big window in the east wall looks straight out onto the ice, and there's a stool in front of it with a cup of coffee on the sill. Rinkside is north.",
+  "description": "A concrete garage behind the west end boards, smelling of diesel and wet rubber. Its east side is the boards themselves, and the gate in them opens straight onto the ice. The resurfacer is parked nose to the gate, dripping into a drain, and there's a stool by the boards with a cup of coffee on the ledge. A door at the north end goes through to rinkside.",
   "exits": {
-    "north": "zone_slush_rinkside"
+    "east": "zone_slush_rinkside"
   },
   "flags": {
     "building_name": "Golden Goose Gardens",
@@ -13,16 +13,117 @@
     "open_all_hours": true,
     "room": {
       "balcony": false,
-      "d": 10,
+      "d": 8,
       "decor": {
-        "rug": false
+        "grates": [
+          [
+            6.3,
+            3.4,
+            0.5,
+            1.4
+          ]
+        ],
+        "paint": [
+          {
+            "kind": "hazard",
+            "rect": [
+              4.85,
+              7.75,
+              0.05,
+              4.7
+            ]
+          },
+          {
+            "at": [
+              6.3,
+              5.4
+            ],
+            "dir": [
+              0,
+              -1
+            ],
+            "kind": "arrow",
+            "s": 0.7
+          }
+        ],
+        "rug": false,
+        "strips": [
+          {
+            "along": "u",
+            "at": [
+              -7.5,
+              3.4
+            ],
+            "cage": true,
+            "len": 1.5
+          },
+          {
+            "along": "u",
+            "at": [
+              -2.5,
+              3.4
+            ],
+            "cage": true,
+            "len": 1.5
+          },
+          {
+            "along": "u",
+            "at": [
+              2.5,
+              3.4
+            ],
+            "cage": true,
+            "len": 1.5
+          },
+          {
+            "along": "u",
+            "at": [
+              7.5,
+              3.4
+            ],
+            "cage": true,
+            "len": 1.5
+          },
+          {
+            "along": "u",
+            "at": [
+              -3,
+              6.9
+            ],
+            "len": 1.5
+          }
+        ],
+        "walls": {
+          "hex": "#6a4a3a",
+          "kind": "brick",
+          "trim": "#d8b030",
+          "y1": 1
+        }
       },
       "doors": {
-        "north": -3
+        "east": 8.2
       },
-      "face": 0,
+      "face": 90,
       "ground": "concrete",
-      "h": 3.2,
+      "h": 3.4,
+      "rink": {
+        "at": [
+          -0.3,
+          73.16
+        ],
+        "ice": 0,
+        "look": 90,
+        "open": [
+          {
+            "a": 1.27,
+            "b": 9.88,
+            "wall": "front",
+            "y0": 0,
+            "y1": 3.35
+          }
+        ],
+        "sport": "hockey"
+      },
       "stadium": {
         "accent": "#c9a24a",
         "brick": "#8e4a34",
@@ -33,27 +134,27 @@
         "portal": "brick",
         "signs": [
           {
-            "at": 7.2,
+            "at": -1.6,
             "h": 0.42,
             "kind": "stencil",
-            "text": "Door Keep Clear",
+            "text": "Gate Keep Clear",
             "tint": "#d8b030",
             "w": 2.6,
-            "wall": "right",
-            "y": 2.75
+            "wall": "front",
+            "y": 2.5
           },
           {
-            "at": 5,
+            "at": 3,
             "h": 0.5,
             "kind": "stencil",
             "text": "Ice Crew Only",
             "tint": "#e8e4d8",
             "w": 2.4,
             "wall": "left",
-            "y": 2.2
+            "y": 2.3
           },
           {
-            "at": 3,
+            "at": 4,
             "h": 0.5,
             "kind": "enamel",
             "sub": "Fuel store",
@@ -73,8 +174,7 @@
         "trim": "#d8b030",
         "wall": "#a9aca8"
       },
-      "w": 12,
-      "windowless": true
+      "w": 20
     },
     "world_exit_zone": "zone_district_915_916"
   },

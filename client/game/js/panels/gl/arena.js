@@ -89,11 +89,14 @@ uniform vec3 uEye;
 uniform float uMourn;
 uniform float uClipZ;
 uniform float uCel; uniform vec3 uCelInk; uniform float uCelGap; uniform vec2 uHatchUV;
+// the rooms a ROOM view of the ice is drawn from (api.cut): nothing of the building stands inside them
+uniform int uCutN; uniform vec3 uCutLo[4]; uniform vec3 uCutHi[4];
 out vec4 outColor;
 const vec3 L = vec3(${KEY.join(', ')});
 ${CEL_GLSL}
 void main() {
   if (vPos.z < uClipZ) discard;
+  for (int i = 0; i < 4; i++) { if (i >= uCutN) break; if (all(greaterThan(vPos, uCutLo[i])) && all(lessThan(vPos, uCutHi[i]))) discard; }
   vec4 c = vCol;
   if (vTex > 0.5) c *= texture(uTex, vUV);
   if (c.a < 0.004) discard;
@@ -333,6 +336,23 @@ export function createArenaRenderer(canvas, overlay, W0, ice) {
     let ken = null;
     try { ken = createArenaKen(gl); } catch (err) { console.warn('[rink] the close-up Ken is unavailable, drawing the old one:', err && err.message); }
     let kenOn = false;
+    // THE ROOMS A VIEW IS DRAWN FROM (`api.cut`, panels/room-rink.js): up to four boxes [x0, y0, z0, x1, y1, z1] in the
+    // sheet's feet, a ROOM room and the rooms one doorway off it. The view's eye is in one of them and the room is drawn
+    // over this picture, which shows through its openings onto the ice. Nothing of the building inside a box is drawn
+    // (the bowl's rows, its fans, the machine in its bay), or the seats the room stands in would be in front of its own
+    // opening. Null for every other view.
+    let cutN = 0, cutKey = '';
+    const cutLo = new Float32Array(12), cutHi = new Float32Array(12);
+    const inCut = (x, y, z) => { for (let i = 0; i < cutN; i++) { const k = i * 3; if (x > cutLo[k] && x < cutHi[k] && y > cutLo[k + 1] && y < cutHi[k + 1] && z > cutLo[k + 2] && z < cutHi[k + 2]) return true; } return false; };
+    function readCut() {
+      const boxes = Array.isArray(api.cut) ? api.cut.filter((b) => Array.isArray(b) && b.length === 6 && b.every(Number.isFinite)).slice(0, 4) : [];
+      const key = boxes.map((b) => b.join(',')).join('|');
+      if (key === cutKey) return;
+      cutKey = key; cutN = boxes.length;
+      boxes.forEach((b, i) => { cutLo.set([Math.min(b[0], b[3]), Math.min(b[1], b[4]), Math.min(b[2], b[5])], i * 3); cutHi.set([Math.max(b[0], b[3]), Math.max(b[1], b[4]), Math.max(b[2], b[5])], i * 3); });
+      // the fans are split again without the ones now inside a room
+      fanSplitKey = null;
+    }
 
     // ── textures ──────────────────────────────────────────────────────────────
     const T2 = gl.TEXTURE_2D;
@@ -917,6 +937,8 @@ export function createArenaRenderer(canvas, overlay, W0, ice) {
       gl.uniform3fv(LIT.u('uEye'), eye);
       gl.uniform1f(LIT.u('uMourn'), W.mourning || 0);
       gl.uniform1f(LIT.u('uClipZ'), clipZ);
+      gl.uniform1i(LIT.u('uCutN'), cutN);
+      if (cutN) { gl.uniform3fv(LIT.u('uCutLo'), cutLo); gl.uniform3fv(LIT.u('uCutHi'), cutHi); }
       gl.uniform1i(LIT.u('uTex'), 0);
       gl.activeTexture(gl.TEXTURE0);
       fl = figureLightOf({ bands: CEL.bands, shade: CEL.shade });
@@ -978,6 +1000,7 @@ export function createArenaRenderer(canvas, overlay, W0, ice) {
         const n = Math.round(fanGroups.count[g] * share);
         for (let i = 0; i < n; i++) {
           const o = (fanGroups.start[g] + i) * S, w = vp[3] * src[o] + vp[7] * src[o + 1] + vp[11] * src[o + 2] + vp[15];
+          if (cutN && inCut(src[o], src[o + 1], src[o + 2])) continue;
           fanPx[m] = w > 0.5 ? Math.abs(vp[9]) * FAN_H / w * hpx * 0.5 : 0; fanAt[m++] = o;
         }
       }
@@ -1136,6 +1159,7 @@ export function createArenaRenderer(canvas, overlay, W0, ice) {
       const rp = W0.replay && W0.replay.active ? W0.replay : null;
       W = rp ? rp.frame() : W0;
       camera.view = api.view; camera.seat = api.seat || null;
+      readCut();
       // the live camera keeps following the play under a replay, so it's on it when it ends
       const live = camera.update(w, h, now);
       // (what the live picture shows, for the director: a hit it misses is replayed later)
@@ -1191,7 +1215,7 @@ export function createArenaRenderer(canvas, overlay, W0, ice) {
       useLit(vp, eye, shake, -1e9);
       draw(L.stat); draw(L.ads, texAds);
       drawFigures();
-      if (kenOn) { ken.draw(vp, eye, w, h); useLit(vp, eye, shake, -1e9); }
+      if (kenOn && !(cutN && W.zamboni && inCut(W.zamboni.x, W.zamboni.y, 3))) { ken.draw(vp, eye, w, h); useLit(vp, eye, shake, -1e9); }
       celFor(true); draw(L.label, texLabel); celFor(false);
       if (heads) heads.draw(headList, vp, eye, shake, -1e9, W.mourning, st);
 
@@ -1290,7 +1314,7 @@ export function createArenaRenderer(canvas, overlay, W0, ice) {
     // A view that's done gives its context back: a browser keeps about sixteen, and past that it
     // kills the oldest, which may be the room's or the windshield's.
     const dispose = () => { lost = true; api.lost = true; gl.getExtension('WEBGL_lose_context')?.loseContext(); };
-    const api = { render, dispose, stats: st, cam: camera.cam, view: 'broadcast', glow: false, ink: true, xrayGore: 'full', kind: 'gl', lost: false, rungs: ARENA_RUNGS, quality: { ...ARENA_RUNGS[0] },
+    const api = { render, dispose, stats: st, cam: camera.cam, view: 'broadcast', glow: false, ink: true, xrayGore: 'full', kind: 'gl', lost: false, rungs: ARENA_RUNGS, quality: { ...ARENA_RUNGS[0] }, cut: null,
       // the reflection buffer, for a bench that wants to know it isn't empty
       mirrorPeak: () => mirror.peak() };
     return api;
