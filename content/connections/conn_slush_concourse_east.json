@@ -1,0 +1,9 @@
+{
+  "a": "zone_slush_concourse",
+  "b": "zone_slush_womens",
+  "blocked": false,
+  "dir": "east",
+  "id": "conn_slush_concourse_east",
+  "lockable": false,
+  "one_way": false
+}

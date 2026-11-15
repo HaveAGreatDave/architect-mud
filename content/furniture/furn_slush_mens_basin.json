@@ -1,0 +1,32 @@
+{
+  "description": "A basin with one tap that runs cold and one that runs colder. The soap is a bar of grey.",
+  "flags": {
+    "aliases": [
+      "basin",
+      "sink",
+      "tap"
+    ],
+    "look": {
+      "arche": "sink",
+      "form": "basin"
+    },
+    "spot": {
+      "at": [
+        2.68,
+        1.4
+      ],
+      "turn": -90
+    },
+    "water_source": true
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_slush_mens_basin",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "the basin",
+  "object_type": "sink",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_slush_mens"
+}

@@ -31,6 +31,8 @@
 // ⚠ THE LOOK COMES FROM DATA, NEVER FROM A NAME (home-stage.md rule 3). `archetypeOf` reads the
 // item's flags and its weight; nothing here knows a sofa is called "busted".
 
+import { RESURFACER } from './stadium.js';
+
 export const FT_PER_M = 3.2808;
 // forms that stand at the room's floor level wherever they are, a pit under them or not
 const RAISED = new Set(['stage', 'runway']);
@@ -121,6 +123,9 @@ export const ARCHETYPES = Object.freeze({
   small:   { dims: [0.36, 0.26, 0.5],  ref: 5000,   wall: false, verb: 'examine' },
   prop:    { dims: [0.6, 0.45, 1.7],   ref: 18000,  wall: true,  verb: 'examine' },
   fireplace:{ dims: [1.8, 0.6, 1.7],  ref: 400000, wall: true,  verb: 'examine' },
+  // a stadium's restrooms (gl/room-stadium.js): a urinal on the wall or a trough, and a cubicle round a pan
+  urinal:  { dims: [0.42, 0.36, 0.62], ref: 20000,  wall: true,  verb: 'examine' },
+  stall:   { dims: [0.95, 1.55, 2.0],  ref: 60000,  wall: true,  verb: 'examine' },
 });
 const SIZE_RANGE = [0.82, 1.22];
 
@@ -134,6 +139,8 @@ export function archetypeOf(flags = {}, grams = 0, type = '') {
   if (type === 'shower') return 'shower';
   if (type === 'sink' || flags.water_source) return 'sink';
   if (type === 'media_deck' || flags.media_deck || flags.beta_player) return 'deck';
+  // a card pack machine (plugins/cards) is a lit cabinet, wherever it stands
+  if (flags.vends_packs) return 'prop';
   // a chem lab is a bench and its hood, though its row is a container (it's the lab's vault)
   if (flags.crafting_station === 'chem_lab') return 'surface';
   if (type === 'bed' || flags.bed) return 'bed';
@@ -159,7 +166,8 @@ export const WASH_FORMS = Object.freeze(['basin', 'vanity']);
 export const FORMS = Object.freeze({
   seat: ['stool', 'chair', 'armchair', 'office', 'stools'], bench: ['bench', 'booth', 'banquette', 'slab'], sofa: ['sofa', 'cot', 'lounger'], bed: ['bed', 'pod', 'platform', 'mattress', 'pressbench'],
   screen: ['flat', 'crt', 'slab'], cold: ['fridge', 'double', 'chest', 'column'], hob: ['cooktop', 'range', 'microwave', 'seam'],
-  surface: ['counter', 'desk', 'rail', 'barwall', 'chemwall', 'bar', 'stage', 'runway', 'reception', 'console', 'treadmill', 'pool', 'pcdesk'], small: ['heater', 'box', 'plinth', 'telescope', 'lacquer', 'boombox', 'smoketable', 'petbowl'], prop: ['cabinet', 'piano', 'fountain', 'catstatue', 'lantern', 'bonsai', 'vat', 'tank', 'morphex', 'jukebox', 'easel'], fireplace: ['hearth', 'firetrough'],
+  surface: ['counter', 'desk', 'rail', 'barwall', 'chemwall', 'bar', 'stage', 'runway', 'reception', 'console', 'treadmill', 'pool', 'pcdesk', 'boxoffice'], small: ['heater', 'box', 'plinth', 'telescope', 'lacquer', 'boombox', 'smoketable', 'petbowl'], prop: ['cabinet', 'piano', 'fountain', 'catstatue', 'lantern', 'bonsai', 'vat', 'tank', 'morphex', 'jukebox', 'easel', 'packs', 'trophy', 'champion', 'seatdoor', 'resurfacer', 'rinkwindow'], fireplace: ['hearth', 'firetrough'],
+  urinal: ['urinal', 'urinaltrough'], stall: ['cubicle'],
   wardrobe: ['wardrobe', 'valet'], cabinet: ['cupboard', 'vitrine', 'humidor', 'rack'], store: ['shelves', 'locker', 'crate', 'weights', 'bookcase'],
   sink: ['kitchen', 'basin', 'trough', 'vanity'], toilet: ['pan', 'hung'], shower: ['stall', 'wetroom', 'bath', 'soak'],
   deck: ['console', 'portable'], table: ['coffee', 'dining', 'games', 'poker'], top: ['kettle', 'press'],
@@ -188,6 +196,9 @@ export function formOf(arche, flags = {}, grams = 0, { annex = false } = {}) {
     case 'top': return 'kettle';
     case 'small': return flags.pet_bowls ? 'petbowl' : flags.heater_target_c || flags.heater_battery_min ? 'heater' : 'box';
     case 'fireplace': return 'hearth';
+    case 'urinal': return 'urinal';
+    case 'stall': return 'cubicle';
+    case 'prop': return flags.vends_packs ? 'packs' : 'cabinet';
     default: return 'cabinet';
   }
 }
@@ -218,7 +229,11 @@ const FORM_DIMS = { chest: [1.3, 0.72, 0.88], double: [1.3, 0.75, 2.0], range: [
   // a clone facility's (gl/room-decor.js): a print vat with somebody in it, a squat dogged tank, and the MORPHEX pod
   vat: [1.1, 1.1, 2.4], tank: [1.2, 1.2, 1.3], morphex: [1.5, 1.4, 2.55],
   // an old bar's (gl/room-saloon.js): a run of stools along it, a seat every STOOL_PITCH, and a jukebox
-  stools: [3.2, 0.45, 0.76], jukebox: [0.95, 0.62, 1.55] };
+  stools: [3.2, 0.45, 0.76], jukebox: [0.95, 0.62, 1.55],
+  // a stadium's (gl/room-stadium.js): a box office window, a card pack machine, the Cup in its case, the last champion's
+  // board, a door into the seats, the resurfacer in its bay (shared/stadium.js RESURFACER), and the restrooms'
+  boxoffice: [2.4, 0.8, 2.5], packs: [0.86, 0.72, 1.85], trophy: [1.1, 1.1, 2.2], champion: [1.8, 0.16, 2.2], seatdoor: [2.0, 1.4, 2.8],
+  resurfacer: [2.3, 3.4, 1.85], rinkwindow: [4.2, 0.3, 2.9], urinaltrough: [2.4, 0.42, 1.1], cubicle: [0.95, 1.55, 2.0] };
 // How far apart the stools in a run stand, and how many a run of width w (metres) has (gl/room-saloon.js draws them)
 export const STOOL_PITCH = 0.8;
 export const stoolsAlong = (w) => Math.max(1, Math.round(w / STOOL_PITCH));
@@ -322,6 +337,30 @@ function contribute(spec, p) {
   // through it. A shallow chair's own spot is already clear.
   const clearKnees = (z) => Math.max(z, p.d / 2 - 0.35 * k);
   const station = (y, reach = 0.95) => { const [u, v] = pt(0, p.d / 2 + 0.05 * k); out.stations.push({ target: p.name, piece: p.id, verb: p.verb, u, v, y: y * k, reach: reach * k, at: [p.u, p.v] }); };
+  // a stadium's (gl/room-stadium.js)
+  // the resurfacer: solid, and the driver's seat up on it (the ice crew sit there to drive it, plugins/stands crew.js),
+  // its nose the piece's front; the station is at the driver's side, where you climb on
+  if (p.form === 'resurfacer') {
+    out.solid.push(fp);
+    const s = RESURFACER.seat, lift = Math.max(0, s.h - 0.46);
+    seat('chair', s.side * k, s.fwd * k, { lift, y: eye + lift * k });
+    const [u, v] = pt(Math.sign(s.side || -1) * (p.w / 2 + 0.25 * k), s.fwd * k);
+    out.stations.push({ target: p.name, piece: p.id, verb: p.verb, u, v, y: 1.0 * k, reach: 1.4 * k, at: [p.u, p.v] });
+    return out;
+  }
+  // a cubicle: its two side panels are solid and the pan at its back; you sit on the pan, inside, facing out
+  if (p.arche === 'stall') {
+    const t = 0.04 * k, side = (x0, x1) => { const a = pt(x0, -p.d / 2), b = pt(x1, p.d / 2 - 0.05 * k); out.solid.push([Math.min(a[0], b[0]), Math.max(a[0], b[0]), Math.min(a[1], b[1]), Math.max(a[1], b[1])]); };
+    side(-p.w / 2, -p.w / 2 + t); side(p.w / 2 - t, p.w / 2);
+    const pan = [pt(-0.22 * k, -p.d / 2), pt(0.22 * k, -p.d / 2 + 0.66 * k)];
+    out.solid.push([Math.min(pan[0][0], pan[1][0]), Math.max(pan[0][0], pan[1][0]), Math.min(pan[0][1], pan[1][1]), Math.max(pan[0][1], pan[1][1])]);
+    const [u, v] = pt(0, -p.d / 2 + 0.95 * k);
+    out.stations.push({ target: p.name, piece: p.id, verb: p.verb, u, v, y: 0.6 * k, reach: 0.9 * k, at: [p.u, p.v] });
+    seat('toilet', 0, -p.d / 2 + 0.36 * k + 0.35 * k, { verb: 'poop', y: eye - 0.04 * k });
+    return out;
+  }
+  // a seat door is the stairwell's block, solid, worked from in front of its mouth; a champions board hangs on the wall
+  if (p.form === 'seatdoor' || p.form === 'champion') { if (p.form === 'seatdoor') out.solid.push(fp); station(1.3, 1.6); return out; }
   switch (p.arche) {
     case 'seat':
       // a stool's top is well over a chair's, so the sitter is raised by the difference (metres, the body's lift)
@@ -1364,6 +1403,9 @@ export function roomSpecOf(flags, isFlat, { storey = null } = {}) {
   // how it's finished past the plain walls (gl/room-decor.js): cladding, a ceiling, lights, a runner, plants,
   // pictures and the doors that don't lead anywhere you can go. Only data: the mesh reads what it knows
   if (base.decor && typeof base.decor === 'object' && !Array.isArray(base.decor)) out.decor = JSON.parse(JSON.stringify(base.decor));
+  // a stadium's house style (gl/room-stadium.js, panels/stadium-signs.js): its sign faces, its colours and the signs on
+  // its walls. Each venue sets its own, so the kit's pieces look like the building they're in
+  if (base.stadium && typeof base.stadium === 'object' && !Array.isArray(base.stadium)) out.stadium = JSON.parse(JSON.stringify(base.stadium));
   // a club or a back room with no window at all
   if (base.windowless) { out.windowless = true; out.windows = []; }
   // a club: painted dark, bills on the walls, and a rig of moving lights and strobes (gl/room-mesh.js clubRig)
@@ -1456,7 +1498,7 @@ export function rowDrawn(f) {
   if (fl.dead_drop || fl.hidden || fl.concealed || fl.compartment_of || fl.conceal_hidden_by) return false;
   if (fl.look?.arche) return true;
   if (DRAWN_TYPES.has(f.object_type)) return true;
-  return (f.object_type === 'fixture' || f.object_type === 'appliance') && !!(fl.stove_tier || fl.microwave || fl.brew_tier || fl.water_source);
+  return (f.object_type === 'fixture' || f.object_type === 'appliance') && !!(fl.stove_tier || fl.microwave || fl.brew_tier || fl.water_source || fl.vends_packs);
 }
 
 // How a row looks: its archetype and form from its own flags (a placed piece carries its item's) and
@@ -1480,6 +1522,14 @@ export function rowLook(f, item = null, { annex = false, finish = 'plain' } = {}
   if (typeof flags.look?.state === 'string') dress.state = flags.look.state.slice(0, 16);
   // `look.trade` is the trade a back bar letters on its frieze (gl/room-saloon.js); never the building's name
   if (typeof flags.look?.trade === 'string') dress.trade = flags.look.trade.slice(0, 24);
+  // a stadium's (gl/room-stadium.js): `look.label` lettered over a seat door or a box office, `look.cup` the league whose
+  // Cup stands in a trophy case ('hockey', 'baseball'), `look.tile` the colour a restroom's fittings are set in
+  if (typeof flags.look?.label === 'string') dress.label = flags.look.label.slice(0, 28);
+  if (typeof flags.look?.cup === 'string') dress.cup = flags.look.cup.slice(0, 16);
+  // a window onto the ice: where its rink view's eye is, in the rink's own feet (panels/room-stadium.js)
+  if (Array.isArray(flags.look?.view) && flags.look.view.length === 3 && flags.look.view.every(Number.isFinite)) dress.view = flags.look.view.slice();
+  // a seat door's sections, so the Stage can put your tickets for them on its card
+  if (flags.seat_door && typeof flags.seat_door === 'object') dress.door = { stands: flags.seat_door.stands, sections: Array.isArray(flags.seat_door.sections) ? flags.seat_door.sections : null };
   // `stove`: a hob the cooking plugin heats (`stove_tier`), not one that's only drawn as one; the
   // Kitchen Stage stands you at a real one first (room-stage.js cookFrame)
   const stove = flags.stove_tier ? { stove: true } : {};

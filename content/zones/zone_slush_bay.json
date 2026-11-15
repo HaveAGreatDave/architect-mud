@@ -1,0 +1,88 @@
+{
+  "ambient_theme": "indoors",
+  "description": "A concrete garage behind the end boards, smelling of diesel and wet rubber. The resurfacer is parked nose to the roller door, dripping into a drain. A big window in the east wall looks straight out onto the ice, and there's a stool in front of it with a cup of coffee on the sill. Rinkside is north.",
+  "exits": {
+    "north": "zone_slush_rinkside"
+  },
+  "flags": {
+    "building_name": "Golden Goose Gardens",
+    "building_type": "ice_rink",
+    "floor": "concrete",
+    "is_building": true,
+    "is_interior": true,
+    "open_all_hours": true,
+    "room": {
+      "balcony": false,
+      "d": 10,
+      "decor": {
+        "rug": false
+      },
+      "doors": {
+        "north": -3
+      },
+      "face": 0,
+      "ground": "concrete",
+      "h": 3.2,
+      "stadium": {
+        "accent": "#c9a24a",
+        "brick": "#8e4a34",
+        "font": "Limelight",
+        "frame": "#1f3550",
+        "ink": "#1f3550",
+        "plate": "#f3ead6",
+        "portal": "brick",
+        "signs": [
+          {
+            "at": 7.2,
+            "h": 0.42,
+            "kind": "stencil",
+            "text": "Door Keep Clear",
+            "tint": "#d8b030",
+            "w": 2.6,
+            "wall": "right",
+            "y": 2.75
+          },
+          {
+            "at": 5,
+            "h": 0.5,
+            "kind": "stencil",
+            "text": "Ice Crew Only",
+            "tint": "#e8e4d8",
+            "w": 2.4,
+            "wall": "left",
+            "y": 2.2
+          },
+          {
+            "at": 3,
+            "h": 0.5,
+            "kind": "enamel",
+            "sub": "Fuel store",
+            "text": "No Smoking",
+            "tint": "#a8201e",
+            "w": 2.2,
+            "wall": "back",
+            "y": 2.3
+          }
+        ],
+        "sub": "Italiana"
+      },
+      "studio": false,
+      "tone": {
+        "accent": "#d8b030",
+        "ceiling": "#7c807e",
+        "trim": "#d8b030",
+        "wall": "#a9aca8"
+      },
+      "w": 12,
+      "windowless": true
+    },
+    "world_exit_zone": "zone_district_915_916"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": 0,
+  "id": "zone_slush_bay",
+  "map_id": "map_int_slush",
+  "name": "The Gardens — Zamboni Bay",
+  "parent_zone": "zone_district_915_916"
+}

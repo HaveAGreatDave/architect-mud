@@ -1,0 +1,11 @@
+{
+  "description": "Two fluorescent tubes behind a frosted panel.",
+  "flags": {},
+  "id": "furn_light_zone_slush_womens",
+  "light_type": "overhead",
+  "lumen_output": 2400,
+  "name": "the women's room light",
+  "object_type": "light",
+  "power_draw_kw": 0.02,
+  "zone_id": "zone_slush_womens"
+}

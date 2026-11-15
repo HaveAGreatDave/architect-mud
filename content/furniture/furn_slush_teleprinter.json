@@ -8,7 +8,23 @@
       "paper",
       "basket"
     ],
-    "examine_detail": "The sheet hanging out of it is next week's pairings, every club and every barn, already printed."
+    "examine_detail": "The sheet hanging out of it is next week's pairings, every club and every barn, already printed.",
+    "look": {
+      "arche": "prop",
+      "dims": [
+        0.7,
+        0.55,
+        1.1
+      ],
+      "form": "cabinet"
+    },
+    "spot": {
+      "at": [
+        -4.4,
+        6.6
+      ],
+      "turn": 0
+    }
   },
   "id": "furn_slush_teleprinter",
   "name": "the teleprinter",

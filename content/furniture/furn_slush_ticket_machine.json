@@ -11,6 +11,23 @@
     "interactions": [
       "use"
     ],
+    "look": {
+      "arche": "prop",
+      "dims": [
+        0.86,
+        0.72,
+        1.85
+      ],
+      "form": "packs",
+      "label": "Tickets"
+    },
+    "spot": {
+      "at": [
+        -2.8,
+        11.6
+      ],
+      "turn": 0
+    },
     "ticket_machine": true
   },
   "id": "furn_slush_ticket_machine",

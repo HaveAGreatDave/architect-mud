@@ -9,7 +9,23 @@
     ],
     "interactions": [
       "sit"
-    ]
+    ],
+    "look": {
+      "arche": "bench",
+      "dims": [
+        2.4,
+        0.6,
+        0.85
+      ],
+      "form": "bench"
+    },
+    "spot": {
+      "at": [
+        9.6,
+        5
+      ],
+      "turn": -90
+    }
   },
   "id": "furn_slush_box",
   "name": "the penalty box",

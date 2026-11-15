@@ -14,14 +14,15 @@
 // consequence: a player with the Tablet TV open on another channel loses it while seated, since
 // a player is one portable receiver. Leaving puts nothing back.
 //
-// ⚠ A TICKET IS FOR A SECTION, NOT A SEAT. A section is a block of seats round its `eye` (the
-// best one): `across` seats a row, `pitch` feet apart, and `rows` rows, each `row: [back, up]`
-// feet behind and above the one in front (seatsOf). A buyer gets the free seat nearest that eye,
-// so the first in has the front row's middle and a friend who buys after sits beside them. Who is
-// where comes from the seated map in RAM; nothing is written.
-//
-// ⚠ THE TICKET IS PAID ONCE PER SEAT. Taking a seat charges its price; moving to another
-// section is a new ticket. Leaving the room leaves the seat.
+// ⚠ A TICKET IS A SEAT AT ONE GAME, AND YOU CARRY IT (tickets.js). A section is a block of seats
+// round its `eye` (the best one): `across` seats a row, `pitch` feet apart, and `rows` rows, each
+// `row: [back, up]` feet behind and above the one in front (seatsOf). A buyer gets the unsold seat
+// nearest that eye, so the first in has the front row's middle and a friend who buys after sits
+// beside them. A ticket is bought at a box office (`flags.ticket_window` on a piece), a seat door
+// (`flags.seat_door`) or the seat itself (`stands <section>`, which buys one for the game on now and
+// sits you on it), and `stands ticket <id>` sits you on one you hold, walking you through the door
+// first when you're outside. Sitting tears the stub. Leaving the room leaves the seat, and the torn
+// stub gets you back to it for that game.
 //
 // ⚠ A BOX IS A TICKETED ROOM. A room with `flags.ticketed` (the box's stands zone) is shut to
 // anybody without a pass for that box; a room with `flags.box_office` sells the pass with
@@ -43,6 +44,11 @@ import { query } from '../../server/models/db.js';
 import { isStaff } from '../admin/index.js';
 import { isStackable } from '../../server/engine/tags.js';
 import { giveItemById } from '../../server/engine/inventory.js';
+import { world } from '../../server/engine/world.js';
+import { liveSportsSlot, sportsGamesAhead } from '../broadcast/index.js';
+import { GAMES_AHEAD, soldIn, ticketsOf, ticketFor, ticketById, issue, confirm, tear, seatLabel, forgetBefore } from './tickets.js';
+import { championPieces } from './champions.js';
+import { crewStage, crewVehicles } from './crew.js';
 
 // playerId -> { zoneId, section, seat, channelId }
 const seated = new Map();
@@ -158,7 +164,7 @@ function chartPayload(zone, stands, player) {
     seated: mineId,
     sections: stands.sections.map((c) => ({ id: c.id, name: c.name || c.id, price: c.price | 0, eye: c.eye, note: c.note || '',
       ...(c.boxId ? { box: true, held: hasPass(player, c.boxId) } : {}),
-      free: seatsOf(stands.sport, c).length - (c.boxId ? passesFor(c.boxId, player.id) : takenIn(zone.id, c.id, player.id).size) })),
+      free: seatsOf(stands.sport, c).length - (c.boxId ? passesFor(c.boxId, player.id) : unsoldTaken(zone.id, stands.sport, c, liveSportsSlot(stands.sport), player.id).size) })),
   };
 }
 
@@ -188,6 +194,7 @@ async function cmdStands(args, raw, player, broadcast) {
   }
   if (a0 === 'fetch') return fetchInSuite(player, args.slice(1).join(' '), broadcast);
   if (a0 === 'order') return orderAtSeat(player, args[1]);
+  if (a0 === 'ticket' || a0 === 'tickets') return sitOnTicket(player, args[1], broadcast);
   if (!stands) return { type: 'error', message: 'There are no seats to buy here.' };
   if (!a0) {
     // the log rung has no panels: the list in the log is the chart
@@ -201,8 +208,178 @@ async function cmdStands(args, raw, player, broadcast) {
   if (!channelId) return { type: 'error', message: 'No game on right now. The seats are empty.' };
   const was = seated.get(player.id);
   if (was && was.section === section.id && was.zoneId === zone.id) return { type: 'error', message: `You're already in ${esc(section.name)}.` };
-  return takeSeat(player, zone, standsOf(zone), section, channelId);
+  // a seat is a ticket: the one you hold for this section tonight, or one bought here and now
+  const own = standsOf(zone), slot = liveSportsSlot(own.sport);
+  let t = slot != null ? ticketFor(player.id, zone.id, slot, section.id) : null;
+  let bought = '';
+  if (!t) {
+    const game = sportsGamesAhead(own.sport, 1)[0];
+    if (!game?.now) return { type: 'error', message: 'No game on right now. The seats are empty.' };
+    const r = await sellTicket(player, zone, own, section, game);
+    if (r.error) return { type: 'error', message: r.error };
+    t = r.ticket; bought = `₵${r.price} for a ticket. `;
+  }
+  return seatOnTicket(player, zone, own, section, t, channelId, bought);
 }
+
+// ── Tickets (tickets.js) ────────────────────────────────────────────────────────
+// The seats taken in a section for a game: sold on a ticket, or somebody sat in one.
+function unsoldTaken(zoneId, sport, section, slot, exceptId) {
+  const t = slot != null ? soldIn(zoneId, slot, section.id) : new Set();
+  for (const i of takenIn(zoneId, section.id, exceptId)) t.add(i);
+  return t;
+}
+const pad2 = (n) => String(Math.floor(n)).padStart(2, '0');
+// When a game is, as a stub has it: "on now", "today at 20:00", "tomorrow at 15:00"
+export function whenOf(g) {
+  if (g.now) return 'on now';
+  const at = `${pad2(g.hour)}:${pad2((g.hour % 1) * 60)}`;
+  return g.days === 0 ? `today at ${at}` : g.days === 1 ? `tomorrow at ${at}` : `in ${g.days} days at ${at}`;
+}
+const gameName = (g) => `${g.away} at ${g.home}${g.final ? ', the final' : ''}`;
+// Sells the unsold seat nearest `section`'s eye for game `g` (sportsGamesAhead): { ticket, price } or { error }.
+async function sellTicket(player, venue, stands, section, g) {
+  const seats = seatsOf(stands.sport, section), taken = unsoldTaken(venue.id, stands.sport, section, g.slot, null);
+  const i = seats.findIndex((_, k) => !taken.has(k));
+  if (i < 0) return { error: `${esc(section.name)} is sold out for ${esc(gameName(g))}.` };
+  const price = section.price | 0;
+  if (price > 0 && !(await adjustCredits(player, -price, undefined, 'stands'))) return { error: `A ticket in ${esc(section.name)} is ₵${price}. You have ₵${player.credits | 0}.` };
+  const where = seats[i];
+  forgetBefore(g.slot - 2);
+  const ticket = await issue(player.id, { venue: venue.id, slot: g.slot, sport: stands.sport, section: section.id, name: section.name || section.id, i, row: ROW(where.row), seat: where.number,
+    game: gameName(g), when: whenOf(g), torn: false });
+  sendTickets(player);
+  return { ticket, price };
+}
+// Sits the player on ticket `t` (already theirs, and for the game on now) in `zone`, tearing the stub.
+async function seatOnTicket(player, zone, stands, section, t, channelId, bought = '') {
+  const r = await takeSeat(player, zone, stands, section, channelId, { ticket: t });
+  if (r.type === 'error') return r;
+  const torn = t.torn;
+  if (!torn) { await tear(player.id, t); sendTickets(player); }
+  const line = `${bought}You ${torn ? 'show the usher your torn stub' : 'hand the usher your ticket and he tears it'}: ${esc(section.name)}, Row ${t.row}, Seat ${t.seat}. You sit down. ${teachVerb('stands leave')} gets you up.`;
+  return { type: 'output', message: `<span class="msg-system">${line}</span>` };
+}
+// `stands ticket [id]`: bare, your tickets; with one, sat on it. From outside its stands (at a seat door, say)
+// you're walked through the door that leads there first, as fetchInSuite walks you to the bar.
+async function sitOnTicket(player, id, broadcast) {
+  const mine = ticketsOf(player.id);
+  if (!id) {
+    if (!mine.length) return { type: 'output', message: '<span class="msg-system">You have no tickets.</span>' };
+    const rows = mine.map((t, k) => `  <b>${k + 1}</b>. ${esc(seatLabel(t))} · ${esc(t.game)}, ${esc(t.when)}${t.torn ? ' · torn' : ''}`);
+    return { type: 'output', message: `<span class="msg-system">Your tickets:<br>${rows.join('<br>')}<br>${teachVerb('stands ticket')} and the ticket's number sits you on it.</span>` };
+  }
+  // a row id from the Stage's card, or the ticket's number in that list
+  let t = ticketById(player.id, id) || (/^\d{1,2}$/.test(String(id)) ? mine[parseInt(id, 10) - 1] : null) || null;
+  if (!t) return { type: 'error', message: "You don't have that ticket." };
+  t = await confirm(player.id, t);
+  if (!t) { sendTickets(player); return { type: 'error', message: "You don't have that ticket on you." }; }
+  const venue = getZone(t.venue), stands = standsOf(venue), section = stands && findSection(stands, t.section);
+  if (!section) return { type: 'error', message: "Those seats aren't there any more." };
+  const slot = liveSportsSlot(stands.sport), channelId = liveSportsChannel(stands.sport);
+  if (slot == null || !channelId) return { type: 'error', message: `That's for ${esc(t.game)}, ${esc(t.when)}. No game on right now.` };
+  if (t.slot !== slot) return { type: 'error', message: t.slot < slot ? `That stub is from ${esc(t.game)}. That game's been and gone.` : `That's for ${esc(t.game)}, ${esc(t.when)}. Not this one.` };
+  const was = seated.get(player.id);
+  if (was && was.zoneId === venue.id && was.seat === t.i && was.section === section.id) return { type: 'error', message: "You're already in that seat." };
+  if (player.current_zone !== venue.id) {
+    const here = getZone(player.current_zone);
+    const exit = Object.entries(here?.exits || {}).find(([, to]) => (typeof to === 'string' ? to : to?.zone || to?.to) === venue.id);
+    if (!exit) return { type: 'error', message: `That's a seat in ${esc(venue.flags?.building_name || venue.name)}. You'll have to go there.` };
+    const r = await cmdMove(exit[0], player, broadcast);
+    if (player.current_zone !== venue.id) return r || { type: 'error', message: "You can't get through." };
+  }
+  return seatOnTicket(player, venue, stands, section, t, channelId);
+}
+
+// What a room sells tickets at: its seat doors and ticket windows, each with the stands it sells and their
+// sections. `flags.seat_door` is { stands, sections, label }; `flags.ticket_window` is { stands, staffed } and
+// sells every section.
+export function sellersIn(zoneId) {
+  const out = [];
+  for (const f of getZoneFurniture(zoneId)) {
+    const d = f.flags?.seat_door || f.flags?.ticket_window;
+    const venue = d?.stands && getZone(d.stands), stands = venue && standsOf(venue);
+    if (!stands) continue;
+    const want = f.flags.seat_door && Array.isArray(d.sections) ? d.sections : null;
+    const sections = want ? stands.sections.filter((c) => want.includes(c.id)) : stands.sections;
+    if (sections.length) out.push({ piece: f, venue, stands, sections, door: !!f.flags.seat_door });
+  }
+  return out;
+}
+const calledBy = (f, words) => [f.name, ...(Array.isArray(f.flags?.aliases) ? f.flags.aliases : [])].some((n) => String(n).toLowerCase() === words || String(n).toLowerCase().includes(words));
+// `buyticket [where] [section@slot | section [n]]`: bare at a seller, its picker (`stands_menu` with `buy`),
+// which sends the section and the game back. Typed, a section's name and the game's number from the list.
+async function cmdBuyTicket(args, raw, player) {
+  const words = args.map((a) => String(a).toLowerCase());
+  const pickAt = words.findIndex((w) => /^[a-z0-9_]+@\d+$/.test(w));
+  const pick = pickAt >= 0 ? words.splice(pickAt, 1)[0] : null;
+  const all = sellersIn(player.current_zone);
+  if (!all.length) return { type: 'error', message: 'There are no tickets sold here.' };
+  // the seller the first words name (`buyticket upper tier door`), else the first one here; the rest is the section
+  let seller = null, rest = words;
+  for (let n = words.length; n > 0 && !seller; n--) {
+    const w = words.slice(0, n).join(' ');
+    seller = all.find((s) => calledBy(s.piece, w)) || null;
+    if (seller) rest = words.slice(n);
+  }
+  seller ||= all[0];
+  const shut = sellerShut(seller.piece);
+  if (shut) return { type: 'error', message: shut };
+  const games = sportsGamesAhead(seller.stands.sport, GAMES_AHEAD);
+  if (!games.length) return { type: 'error', message: 'There are no games coming up.' };
+  let section = null, game = null;
+  if (pick) {
+    const [sid, slot] = pick.split('@');
+    section = seller.sections.find((c) => c.id === sid) || null;
+    game = games.find((g) => g.slot === Number(slot)) || null;
+    if (!section || !game) return { type: 'error', message: "Those seats aren't on sale here any more." };
+  } else if (rest.length) {
+    const n = /^\d+$/.test(rest[rest.length - 1]) ? parseInt(rest.pop(), 10) : 1;
+    section = findSection({ sections: seller.sections }, rest.join(' '));
+    game = games[n - 1] || null;
+    if (!section) return { type: 'error', message: `They don't sell "${esc(rest.join(' '))}" here. ${teachVerb('buyticket')} shows what they do.` };
+    if (!game) return { type: 'error', message: `There are only ${games.length} games on sale.` };
+  }
+  if (!section) {
+    if (loggedPanelsSync(player)) {
+      const lines = games.map((g, k) => `  <b>${k + 1}</b>. ${esc(gameName(g))}, ${esc(whenOf(g))}`);
+      const secs = seller.sections.map((c) => `  <b>${esc(c.name || c.id)}</b> · ₵${c.price | 0}${c.note ? ` · ${esc(c.note)}` : ''}`);
+      return { type: 'output', message: `<span class="msg-system">${esc(seller.piece.name)}. The games:<br>${lines.join('<br>')}<br>The seats:<br>${secs.join('<br>')}<br>${teachVerb('buyticket')} &lt;section&gt; [game] buys one. You have ₵${player.credits | 0}.</span>` };
+    }
+    const label = (g) => `${g.now ? 'On now' : whenOf(g).replace(/^./, (c) => c.toUpperCase())}: ${gameName(g)}`;
+    const items = games.flatMap((g) => seller.sections.map((c) => {
+      const left = seatsOf(seller.stands.sport, c).length - unsoldTaken(seller.venue.id, seller.stands.sport, c, g.slot, null).size;
+      return { id: `${c.id}@${g.slot}`, name: c.name || c.id, description: left > 0 ? `${c.note ? `${c.note}. ` : ''}${left} left` : 'Sold out', price: c.price | 0, group: label(g) };
+    }));
+    sendToPlayer(player.id, { type: 'stands_menu', target: seller.piece.name, name: seller.piece.name, description: 'A seat at one game. The ticket says which, and you can hold as many as you like.',
+      buy: `buyticket ${String(seller.piece.name).toLowerCase()}`, credits: player.credits | 0, groups: games.map(label), items });
+    return { type: 'noop' };
+  }
+  const r = await sellTicket(player, seller.venue, seller.stands, section, game);
+  if (r.error) return { type: 'error', message: r.error };
+  const t = r.ticket;
+  const sit = game.now ? ` ${teachVerb(`stands ticket ${t.id}`)} sits you on it.` : '';
+  return { type: 'output', message: `<span class="msg-system">₵${r.price} for a ticket to ${esc(t.game)}, ${esc(t.when)}: ${esc(seatLabel(t))}. It goes in your pocket.${sit}</span>` };
+}
+// A window that needs somebody behind it (`flags.ticket_window.staffed`) is shut while nobody's posted at it.
+function sellerShut(piece) {
+  if (!piece.flags?.ticket_window?.staffed) return null;
+  const zone = world.zones.get(piece.zone_id);
+  const there = [...(zone?.npcs || [])].map((id) => world.npcs.get(id)).some((n) => n && !n._dead && n.flags?.post === piece.id);
+  return there ? null : `Nobody's at ${esc(piece.name)}. The grille is down.`;
+}
+// Your tickets as the Room Stage shows them on a seat door's card (`room_tickets`, and `tickets` on `room_view`):
+// every one for a game that hasn't been, `now` on those for the game on now
+export function ticketsView(playerId) {
+  const out = [];
+  for (const t of ticketsOf(playerId)) {
+    const sport = getZone(t.venue)?.flags?.stands?.sport, live = sport ? liveSportsSlot(sport) : null;
+    if (live != null && t.slot < live) continue;
+    out.push({ id: t.id, venue: t.venue, section: t.section, label: seatLabel(t), game: t.game, when: t.when, torn: !!t.torn, now: t.slot === live, cmd: `stands ticket ${t.id}` });
+  }
+  return out;
+}
+function sendTickets(player) { if (!loggedPanelsSync(player)) sendToPlayer(player.id, { type: 'room_tickets', tickets: ticketsView(player.id) }); }
 
 // `stands fetch <thing> [item]`: the suite's 3-D view clicking its bar, buffet or the smokes on the
 // table. The suite is one room on screen but two in the world (the box at the glass and the lounge
@@ -345,22 +522,25 @@ function suiteChannels(player) {
 
 // Sits the player in a free seat of `section` and opens the view from it. `chair` is a chair in
 // the room (flags.stands_section) rather than a ticket: no charge, and standing up leaves it.
-async function takeSeat(player, zone, stands, section, channelId, { chair = false, tv = null, rerun = false } = {}) {
-  const seat = freeSeat(zone.id, stands.sport, section, player.id);
+async function takeSeat(player, zone, stands, section, channelId, { chair = false, tv = null, rerun = false, ticket = null } = {}) {
+  // a ticket is its own seat, whoever's in the one beside it
+  const seat = ticket ? ticket.i : freeSeat(zone.id, stands.sport, section, player.id);
   if (seat < 0) return { type: 'error', message: `${esc(section.name)} is sold out. ${teachVerb('stands')} shows what's left.` };
   const where = seatsOf(stands.sport, section)[seat];
-  const price = chair || hasPass(player, zone.id) ? 0 : section.price | 0;
+  const price = chair || ticket || hasPass(player, zone.id) ? 0 : section.price | 0;
   if (price > 0 && !(await adjustCredits(player, -price, undefined, 'stands'))) {
     return { type: 'error', message: `A seat in ${esc(section.name)} is ₵${price}. You have ₵${player.credits | 0}.` };
   }
   const tuned = channelId || (rerun ? null : tv);
-  seated.set(player.id, { zoneId: zone.id, section: section.id, seat, channelId, tuned, chair, suite: !!section.room });
+  seated.set(player.id, { zoneId: zone.id, section: section.id, seat, channelId, tuned, chair, suite: !!section.room, ...(ticket ? { ticket: ticket.id } : {}) });
   if (tuned) emit('tablet_tv.watch', { playerId: player.id, channelId: tuned });
   // the log rung gets the game as log lines through the same receiver, and no picture
   if (!loggedPanelsSync(player)) sendToPlayer(player.id, { type: 'stands_open', sport: stands.sport, channelId, tvChannelId: tv, ...(rerun ? { rerun: true } : {}), station: channelId ? channelLabel(channelId) : '', field: skyField(stands.sport), venue: zone.flags?.building_name || zone.name, roof: stands.sport === 'baseball' ? venueRoofOf(zone.flags?.building_name) : null,
     section: { id: section.id, name: section.name || section.id, eye: where.eye, seat: `Row ${ROW(where.row)}, seat ${where.number}`, ...(section.room ? { room: section.room } : {}) } });
   if (chair && !channelId) return { type: 'output', message: `<span class="msg-system">You take chair ${where.number} in row ${ROW(where.row)}. The field's empty under the lights${rerun ? ", and the last game's on the screen again" : tv ? ', and the hockey is on the screen' : ''}. ${teachVerb('stand')} gets you up.</span>` };
   if (chair) return { type: 'output', message: `<span class="msg-system">You take chair ${where.number} in row ${ROW(where.row)}, and the game is in front of you. ${teachVerb('stand')} gets you up.</span>` };
+  // a ticket's line is the caller's (seatOnTicket): it knows whether the stub was torn just now
+  if (ticket) return { type: 'output', message: '' };
   const moved = seat > 0 ? ' The best seat in it is taken, so the usher puts you in the nearest one free.' : '';
   return { type: 'output', message: `<span class="msg-system">₵${price} for a seat in <b>${esc(section.name)}</b>: row ${ROW(where.row)}, seat ${where.number}.${moved} You sit down. ${teachVerb('stands leave')} gets you up.</span>` };
 }
@@ -457,7 +637,7 @@ function resendSky() {
 on('weather.field', resendSky);
 on('weather.event', resendSky);
 
-export const commands = { stands: cmdStands };
+export const commands = { stands: cmdStands, buyticket: cmdBuyTicket };
 
 // A ticket machine (`flags.ticket_machine` on furniture in a stands room) is the
 // same chart behind a thing you can walk up to: `use ticket machine` is `stands`.
@@ -489,6 +669,36 @@ function screenNamed(player, args) {
     && [f.name, ...(f.flags.aliases || [])].some(n => String(n).toLowerCase().includes(word)));
   return screen ? watchScreen(player, screen) : undefined;
 }
-export const hooks = { 'watch.furniture': ({ player, args }) => screenNamed(player, args || []) };
+export const hooks = {
+  'watch.furniture': ({ player, args }) => screenNamed(player, args || []),
+  // a Cup room's display of the last champion (champions.js)
+  'room.pieceState': (zoneId) => championPieces(zoneId),
+  // the ice crew's machine in its bay, and the crew themselves through a break (crew.js)
+  'room.vehicles': (zoneId) => crewVehicles(zoneId),
+  'room.npcStage': (n, zoneId, pieces) => crewStage(n, zoneId, pieces),
+  // your tickets, for a seat door's card, in a room that sells them; and the game's channel, for a window onto the ice
+  'room.viewer': (zoneId, player) => {
+    if (!player) return null;
+    const out = {};
+    if (sellersIn(zoneId).length) out.tickets = ticketsView(player.id);
+    const win = rinkWindowIn(zoneId), ch = win && liveSportsChannel(win.flags.rink_window);
+    if (ch) out.rink = { channelId: ch, sport: win.flags.rink_window };
+    return Object.keys(out).length ? out : null;
+  },
+};
 
-export const _test = { seated, passes, buyPass, leave, chartPayload, cmdStands, watchScreen, onPosture, suiteChannels };
+// A WINDOW ONTO THE ICE (`flags.rink_window: '<sport>'` on a piece, drawn by the client's room-stadium.js) shows the
+// game on the other side of the glass. Like a seat it's a receiver: walking into its room tunes you to the game's
+// channel, as the Tablet TV would be, and walking out lets it go, unless a seat has you by then.
+const rinkWindowIn = (zoneId) => getZoneFurniture(zoneId).find((f) => typeof f.flags?.rink_window === 'string') || null;
+const atWindow = new Map();   // playerId -> the zone whose window tuned them
+on('zone.entered', ({ actor, zone }) => {
+  if (!actor?.id || !world.players.has(actor.id)) return;
+  const was = atWindow.get(actor.id);
+  if (was && was !== zone) { atWindow.delete(actor.id); if (!seated.has(actor.id)) emit('tablet_tv.unwatch', { playerId: actor.id }); }
+  const win = rinkWindowIn(zone), ch = win && liveSportsChannel(win.flags.rink_window);
+  if (ch && !seated.has(actor.id)) { atWindow.set(actor.id, zone); emit('tablet_tv.watch', { playerId: actor.id, channelId: ch }); }
+});
+on('player.logout', ({ id }) => { if (id) atWindow.delete(id); });
+
+export const _test = { seated, passes, buyPass, leave, chartPayload, cmdStands, watchScreen, onPosture, suiteChannels, cmdBuyTicket, sitOnTicket, sellTicket, ticketsView, sellersIn, whenOf };

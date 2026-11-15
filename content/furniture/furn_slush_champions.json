@@ -1,0 +1,39 @@
+{
+  "description": "A deep frame on the wall in black and gold, lit when there's a champion to show: the club's crest and colours, and the season they won it.",
+  "flags": {
+    "aliases": [
+      "board",
+      "champions board",
+      "champions",
+      "crest",
+      "frame"
+    ],
+    "champion_display": "hockey",
+    "look": {
+      "arche": "prop",
+      "dims": [
+        1.8,
+        0.16,
+        2.2
+      ],
+      "form": "champion"
+    },
+    "spot": {
+      "at": [
+        0,
+        7.92
+      ],
+      "turn": 0
+    }
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_slush_champions",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "the champions board",
+  "object_type": "decoration",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_slush_cup"
+}

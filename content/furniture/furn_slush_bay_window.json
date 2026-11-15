@@ -1,0 +1,44 @@
+{
+  "description": "A wide window in a steel frame, low enough to see the ice over the boards. The glass is fogged at the corners. From here you can see the whole sheet and most of the benches.",
+  "flags": {
+    "aliases": [
+      "window",
+      "big window",
+      "glass",
+      "ice",
+      "rink"
+    ],
+    "look": {
+      "arche": "prop",
+      "dims": [
+        4.2,
+        0.3,
+        2.9
+      ],
+      "form": "rinkwindow",
+      "view": [
+        -6,
+        30,
+        6.5
+      ]
+    },
+    "rink_window": "hockey",
+    "spot": {
+      "at": [
+        5.85,
+        2.6
+      ],
+      "turn": -90
+    }
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_slush_bay_window",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "the big window",
+  "object_type": "decoration",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_slush_bay"
+}

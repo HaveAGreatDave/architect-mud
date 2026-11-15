@@ -971,6 +971,8 @@ export async function routeHandler(path, method, body, auth) {
 export const hooks = {
   'player.say': onSay,
   'furniture.describe': cardFurnitureDescribe,
+  // a pack machine on the Room Stage's card: the coil picker for its league (`buypack puck`), as its face opens it
+  'furniture.acts': (f) => (f?.flags?.vends_packs ? [{ verb: 'buypack', cmd: SPORTS[f.flags.card_league] ? `buypack ${SPORTS[f.flags.card_league].screen}` : 'buypack' }] : undefined),
 };
 
 // Declaration-only (handler: null) — the verbs are registered as ordinary

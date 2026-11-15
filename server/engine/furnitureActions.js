@@ -60,14 +60,15 @@ export function genericFurnitureLinks(f, exclude = [], viewer) {
 
 // The same list as commands, for a surface with buttons (the Room Stage's card). A plugin adds a verb
 // that no tag or flag can gate, such as a shower matched by its name, through `furniture.acts`:
-// { verb, bare } where `bare` sends the verb alone. No viewer is passed: a room's pieces go to everyone
-// in it, so a verb that hides itself from strangers stays off the card.
+// { verb, bare, cmd } where `bare` sends the verb alone and `cmd` sends exactly that, over the verb's usual
+// line (a card machine's `buypack puck`). No viewer is passed: a room's pieces go to everyone in it, so a
+// verb that hides itself from strangers stays off the card.
 const ALIASES = new Set(['flip', 'turn', 'close']);
 export function furnitureActs(f) {
   const out = new Map();
   const add = (verb, bare) => { if (verb && !ALIASES.has(verb) && !out.has(verb)) out.set(verb, { verb, cmd: bare ? verb : `${verb} ${verbTarget(verb, f.name.toLowerCase())}` }); };
   for (const v of furnitureVerbs(f)) add(v);
   if (f.object_type === 'container') add('open');
-  for (const a of gatherHookSync('furniture.acts', f)) add(a.verb, a.bare);
+  for (const a of gatherHookSync('furniture.acts', f)) { if (a.cmd && a.verb && !ALIASES.has(a.verb)) out.set(a.verb, { verb: a.verb, cmd: a.cmd }); else add(a.verb, a.bare); }
   return [...out.values()];
 }

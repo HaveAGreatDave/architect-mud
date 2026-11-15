@@ -10,6 +10,14 @@ import { liveSportsChannel, lastSportsSlot, _test as bc } from '../broadcast/ind
 import { standsOf, findSection, seatsOf, freeSeat, heldAs, concessionGroup, CONCESSION_GROUPS, _test } from './index.js';
 import { getItem } from '../../server/engine/items-cache.js';
 import { emit } from '../../server/engine/events.js';
+import { query } from '../../server/models/db.js';
+import { world } from '../../server/engine/world.js';
+import { gatherHookSync } from '../../server/engine/plugins.js';
+import { furnitureActs } from '../../server/engine/furnitureActions.js';
+import { _test as tk, TICKET_ITEM } from './tickets.js';
+import { _test as champ } from './champions.js';
+import { _test as crew } from './crew.js';
+import { CREW } from '../../client/shared/stadium.js';
 
 export default async function regress({ run, check, getPlayer }) {
   // a collectable lighter is only a look for the hands' zippo (stands-hands.js lighterStyle): it needs a case and a trim
@@ -147,4 +155,90 @@ export default async function regress({ run, check, getPlayer }) {
     _test.leave(me, true);
     check('stands: getting up stops the rerun', !bc._reruns.has(me.id));
   }
+  await stadiumKit({ run, check, getPlayer });
+}
+
+// THE STADIUM KIT (tickets.js, champions.js, crew.js): the Gardens' sellers, a ticket bought and sat on, the champions
+// board's state, and the ice crew's routine through a staged break
+async function stadiumKit({ run, check, getPlayer }) {
+  const me = getPlayer(), home = me.current_zone, C = 'zone_slush_concourse';
+  const sellers = _test.sellersIn(C);
+  check('stands: the Concourse sells tickets at three seat doors and a window', sellers.filter((x) => x.door).length === 3 && sellers.some((x) => !x.door), String(sellers.length));
+  const doors = sellers.filter((x) => x.door).flatMap((x) => x.sections.map((c) => c.id)).sort();
+  check('stands: the seat doors between them cover every section once', JSON.stringify(doors) === JSON.stringify(standsOf(getZone('zone_slush_stands')).sections.map((c) => c.id).sort()), doors.join(','));
+  check('stands: a seat door offers buyticket on its card', furnitureActs(getZoneFurniture(C).find((f) => f.id === 'furn_slush_door_ends') || { flags: {}, name: '' }).some((a) => a.verb === 'buyticket'));
+  check('stands: a pack machine offers its league on its card', furnitureActs(getZoneFurniture(C).find((f) => f.id === 'furn_slush_puck_cards') || { flags: {}, name: '' }).some((a) => a.cmd === 'buypack puck'));
+  check('stands: whenOf reads a game plainly', _test.whenOf({ now: true }) === 'on now' && _test.whenOf({ hour: 20, days: 1 }) === 'tomorrow at 20:00' && _test.whenOf({ hour: 15, days: 0 }) === 'today at 15:00');
+  let r = await run('buyticket');
+  check('stands: buyticket refuses where nothing is sold', r?.type === 'error', r?.message);
+  me.current_zone = C;
+  try {
+    r = await run('buyticket');
+    check('stands: buyticket at the Concourse answers (the picker, or no games)', r?.type === 'noop' || r?.type === 'output' || /no games/i.test(r?.message || ''), JSON.stringify(r)?.slice(0, 120));
+    const { sportsGamesAhead } = await import('../broadcast/index.js');
+    const ahead = sportsGamesAhead('hockey', 4), g = ahead[1] || ahead[0];
+    if (g) {
+      const credits = me.credits;
+      me.credits = Math.max(me.credits | 0, 500);
+      r = await run(`buyticket ends door home@${g.slot}`);
+      const t = [...(tk.held.get(me.id)?.values() || [])].find((x) => x.slot === g.slot && x.section === 'home');
+      check('stands: buyticket sells a seat at that door for that game', r?.type === 'output' && !!t, r?.message);
+      if (t) {
+        const { rows } = await query('SELECT custom_data FROM player_inventory WHERE id=$1 AND player_id=$2 AND item_id=$3', [t.id, me.id, TICKET_ITEM]);
+        check('stands: the ticket is an item carrying its game and seat', rows[0]?.custom_data?.seat_ticket?.slot === g.slot && rows[0].custom_data.seat_ticket.section === 'home');
+        r = await run(`buyticket ends door home@${g.slot}`);
+        const t2 = [...tk.held.get(me.id).values()].find((x) => x.id !== t.id && x.slot === g.slot && x.section === 'home');
+        check('stands: the next ticket in a section is the next seat, never the same one', !!t2 && t2.i !== t.i, JSON.stringify([t.i, t2?.i]));
+        check('stands: the seat door card lists the ticket for its sections', _test.ticketsView(me.id).some((x) => x.id === t.id && x.cmd === `stands ticket ${t.id}`));
+        const viewer = Object.assign({}, ...gatherHookSync('room.viewer', C, me));
+        check('stands: room.viewer carries your tickets in a room that sells them', Array.isArray(viewer.tickets) && viewer.tickets.length >= 2);
+        r = await run('stands ticket');
+        check('stands: stands ticket lists what you hold', r?.type === 'output' && /Your tickets/.test(r.message || ''), r?.message);
+        if (!g.now) {
+          r = await run(`stands ticket ${t.id}`);
+          check('stands: a ticket for a later game does not seat you now', r?.type === 'error' && !_test.seated.has(me.id), r?.message);
+        }
+        await query('DELETE FROM player_inventory WHERE player_id=$1 AND item_id=$2', [me.id, TICKET_ITEM]).catch(() => {});
+        tk.held.delete(me.id); tk.sold.clear();
+      }
+      me.credits = credits;
+    }
+  } finally { me.current_zone = home; }
+
+  // the champions board: dark with nobody crowned, the club once there is one
+  const had = champ.last.get('hockey');
+  champ.last.delete('hockey');
+  let st = champ.championPieces('zone_slush_cup');
+  check('stands: the champions board is dark with no champion', !!st?.furn_slush_champions && st.furn_slush_champions.champ === null, JSON.stringify(st));
+  champ.last.set('hockey', { name: 'Coldwater Highlanders', season: 3 });
+  st = champ.championPieces('zone_slush_cup');
+  check('stands: the champions board shows the last champion', st?.furn_slush_champions?.champ?.name === 'Coldwater Highlanders');
+  if (had) champ.last.set('hockey', had); else champ.last.delete('hockey');
+
+  // the ice crew through a staged break: off the stool, out on the ice, back
+  const ken = world.npcs.get('npc_slush_raven');
+  check('stands: Ken Raven is the Gardens ice crew, kept in the bay', ken?.flags?.ice_crew?.bay === 'zone_slush_bay' && ken.flags.ice_crew.machine === 'furn_slush_resurfacer');
+  if (!ken) return;
+  const was = ken.zone_id;
+  const put = (z) => { world.zones.get(ken.zone_id)?.npcs.delete(ken.id); ken.zone_id = z; world.zones.get(z)?.npcs.add(ken.id); };
+  if (ken.zone_id !== 'zone_slush_bay') put('zone_slush_bay');
+  crew.reset();
+  const brk = (left) => () => ({ inBreak: left > 0, msLeft: left, slot: 1 });
+  let t = 1e12;
+  crew.crewTick(t, brk(300000));
+  check('stands: at a break Ken boards the machine', crew.state.get(ken.id)?.phase === 'board');
+  t += CREW.walk + CREW.climb + 10; crew.crewTick(t, brk(290000));
+  check('stands: then drives it out', crew.state.get(ken.id)?.phase === 'leave');
+  t += CREW.drive + 10; crew.crewTick(t, brk(280000));
+  check('stands: and is out on the ice, the bay empty', crew.state.get(ken.id)?.phase === 'away' && ken.zone_id === 'zone_slush_rinkside' && crew.crewVehicles('zone_slush_bay')?.machine?.phase === 'away');
+  check('stands: the bay draws no Ken while he is out', crew.crewStage(ken, 'zone_slush_bay', [])?.hide === true);
+  t += 1000; crew.crewTick(t, brk(CREW.lead - 1000));
+  check('stands: near the end of the break he drives back in', crew.state.get(ken.id)?.phase === 'return' && ken.zone_id === 'zone_slush_bay');
+  t += CREW.drive + 10; crew.crewTick(t, brk(0));
+  t += CREW.alight + CREW.back + 10; crew.crewTick(t, brk(0));
+  check('stands: and goes back to his post', crew.state.get(ken.id)?.phase === 'post');
+  crew.crewTick(t + 10, () => ({ inBreak: true, msLeft: CREW.least - 1 }));
+  check('stands: a break too short to do the ice in, he stays put', crew.state.get(ken.id)?.phase === 'post');
+  crew.reset();
+  if (was && was !== ken.zone_id) put(was);
 }

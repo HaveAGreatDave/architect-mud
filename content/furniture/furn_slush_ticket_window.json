@@ -1,0 +1,46 @@
+{
+  "description": "A window in a steel frame with a grille over the glass and a dished slot under it. Nobody seems to be behind it, but put money in the slot and a ticket comes back out. Every game this week, every section.",
+  "flags": {
+    "aliases": [
+      "ticket window",
+      "window",
+      "box office",
+      "tickets",
+      "slot",
+      "grille"
+    ],
+    "interactions": [
+      "buyticket"
+    ],
+    "look": {
+      "arche": "surface",
+      "dims": [
+        2.4,
+        0.8,
+        2.5
+      ],
+      "form": "boxoffice",
+      "label": "Tickets"
+    },
+    "spot": {
+      "at": [
+        -8,
+        0.4
+      ],
+      "turn": 180
+    },
+    "ticket_window": {
+      "stands": "zone_slush_stands"
+    }
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_slush_ticket_window",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "the ticket window",
+  "object_type": "fixture",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_slush_concourse"
+}

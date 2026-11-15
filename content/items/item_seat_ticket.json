@@ -1,0 +1,12 @@
+{
+  "description": null,
+  "flags": {},
+  "id": "item_seat_ticket",
+  "name": "ticket",
+  "tags": {
+    "description": "A stub for one seat at one game: the section, the row and the seat number printed on it, and the game stamped crooked across the top. The usher tears it at the bottom step."
+  },
+  "type": "misc",
+  "value": 0,
+  "weight": 2
+}

@@ -1,0 +1,30 @@
+{
+  "description": "A porcelain urinal on the north wall with a chrome flush pipe and a panel either side. The cake in it is blue.",
+  "flags": {
+    "aliases": [
+      "urinal",
+      "urinals"
+    ],
+    "look": {
+      "arche": "urinal",
+      "form": "urinal"
+    },
+    "spot": {
+      "at": [
+        -1.8,
+        0.2
+      ],
+      "turn": 180
+    }
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_slush_mens_urinal_one",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "a urinal",
+  "object_type": "toilet",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_slush_mens"
+}

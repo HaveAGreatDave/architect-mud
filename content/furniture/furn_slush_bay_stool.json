@@ -1,0 +1,33 @@
+{
+  "description": "A tall steel stool in front of the window, its seat patched with tape. A cup of coffee goes cold on the sill beside it.",
+  "flags": {
+    "aliases": [
+      "stool",
+      "seat"
+    ],
+    "interactions": [
+      "sit"
+    ],
+    "look": {
+      "arche": "seat",
+      "form": "stool"
+    },
+    "spot": {
+      "at": [
+        4.9,
+        2.6
+      ],
+      "turn": 90
+    }
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_slush_bay_stool",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "the stool",
+  "object_type": "furniture",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_slush_bay"
+}

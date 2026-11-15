@@ -1,0 +1,42 @@
+{
+  "description": "A steel bench along the west wall: a vice, spare blades in a rack, a coil of hose and a drum with no label on it.",
+  "flags": {
+    "aliases": [
+      "workbench",
+      "bench",
+      "vice",
+      "blades",
+      "hose",
+      "drum"
+    ],
+    "interactions": [
+      "lean"
+    ],
+    "look": {
+      "arche": "surface",
+      "dims": [
+        2.6,
+        0.7,
+        0.9
+      ],
+      "form": "desk"
+    },
+    "spot": {
+      "at": [
+        -5.6,
+        5
+      ],
+      "turn": 90
+    }
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_slush_bay_bench",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "the workbench",
+  "object_type": "furniture",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_slush_bay"
+}

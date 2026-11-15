@@ -72,7 +72,11 @@ function letter(K, L, wall, text, a, y, h, d, col, emis = 0) {
 // reveal every other one; 'limestone': the same in a plain honed stone, for a pale wall a vein would read as a crack; 'walnut': boards with a bronze inlay between them and a bronze rail at `rail`;
 // 'bronze': brushed bronze panels, for a door wall that's meant to be looked at.
 function clad(K, L, runs, c, { H, accent }) {
-  const kind = c.kind || 'stone', top = num(c.y1, H, 0.5, H), base = 0.12, hex = hex6(c.hex, kind === 'walnut' ? '#5a3a26' : kind === 'bronze' ? '#8a6a44' : '#efe9df');
+  const kind = c.kind || 'stone', top = num(c.y1, H, 0.5, H), base = 0.12, hex = hex6(c.hex, kind === 'walnut' ? '#5a3a26' : kind === 'bronze' ? '#8a6a44' : kind === 'brick' ? '#9a5a40' : kind === 'tile' ? '#e8e6de' : '#efe9df');
+  // 'brick': a run of brick in its own colour up to y1, with a soldier course and a painted cap on top (a stadium's
+  // concourse, a warehouse); one face, so the bricks' own texture does the work
+  // 'tile': glazed square tile to y1 under a bullnose cap in the trim colour (a restroom, a kitchen's back wall)
+  if (kind === 'brick' || kind === 'tile') { brick(K, L, runs, c, { hex, top, H, accent, tex: kind === 'tile' ? 'roomTile' : 'roomBrick', surf: kind === 'tile' ? GLOSS : MATTE }); return; }
   const gold = hex6(c.trim, accent || GOLD), pitch = num(c.pitch, kind === 'walnut' ? 0.9 : 1.2, 0.3, 4);
   const mat = kind === 'walnut' ? { t: 'roomOak', c: hex } : kind === 'bronze' ? null : kind === 'limestone' ? { t: 'roomStone', c: hex } : { t: 'roomMarble', c: hex };
   const surf = kind === 'walnut' || kind === 'limestone' ? SATIN : kind === 'bronze' ? METAL : GLOSS;
@@ -94,6 +98,24 @@ function clad(K, L, runs, c, { H, accent }) {
       // a rail: on walnut at dado height and at the top; on stone a cap under the ceiling
       if (kind === 'walnut') { for (const y of [num(c.rail, 0.95, 0.4, 2), top - 0.06]) onWall(K, L, wall, a, b, 0, 0.034, y, y + 0.035, gold, 1.08, null, METAL); }
       else if (top < H - 0.02) onWall(K, L, wall, a, b, 0, 0.032, top, top + 0.04, gold, 1.08, null, METAL);
+    }
+  }
+}
+
+// The brick run: the texture over each solid stretch of wall, a dark plinth, a soldier course and a cap
+function brick(K, L, runs, c, { hex, top, H, accent, tex = 'roomBrick', surf = MATTE }) {
+  const cap = hex6(c.trim, accent || '#2a2a2a');
+  for (const [wall, rs] of Object.entries(runs)) {
+    if (c.on && !c.on.includes(wall)) continue;
+    for (let [a, b] of rs) {
+      if (wall === 'left' || wall === 'right') { a = Math.max(a, 0); b = Math.min(b, L.d); }
+      if (b - a < 0.15) continue;
+      onWall(K, L, wall, a, b, 0, 0.024, 0, 0.14, '#1c1814', 1, null, MATTE);
+      onWall(K, L, wall, a, b, 0, 0.012, 0.14, top, hex, 1, { t: tex, c: hex }, surf);
+      if (top < H - 0.02) {
+        if (tex === 'roomBrick') onWall(K, L, wall, a, b, 0, 0.02, top - 0.22, top, hex, 0.86, { t: tex, c: hex }, surf);
+        onWall(K, L, wall, a, b, 0, 0.034, top, top + 0.05, cap, 1.05, null, SATIN);
+      }
     }
   }
 }

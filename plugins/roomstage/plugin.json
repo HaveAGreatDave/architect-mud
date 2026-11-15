@@ -38,7 +38,8 @@
       "graffiti.tagged",
       "graffiti.removed",
       "room.boardChanged",
-      "pet.beat"
+      "pet.beat",
+      "room.peopleChanged"
     ],
     "emits": [
       "furniture.changed",

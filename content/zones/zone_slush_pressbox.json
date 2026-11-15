@@ -10,8 +10,55 @@
     "floor": "metal",
     "is_building": true,
     "is_interior": true,
-    "world_exit_zone": "zone_district_915_916",
-    "open_all_hours": true
+    "open_all_hours": true,
+    "room": {
+      "balcony": false,
+      "d": 7,
+      "decor": {
+        "rug": false
+      },
+      "doors": {
+        "down": [
+          3,
+          1
+        ]
+      },
+      "face": 0,
+      "ground": "concrete",
+      "h": 2.6,
+      "stadium": {
+        "accent": "#c9a24a",
+        "brick": "#8e4a34",
+        "font": "Limelight",
+        "frame": "#1f3550",
+        "ink": "#1f3550",
+        "plate": "#f3ead6",
+        "portal": "brick",
+        "signs": [
+          {
+            "at": -2,
+            "h": 0.36,
+            "kind": "neon",
+            "text": "On Air",
+            "tint": "#ff3030",
+            "w": 1.6,
+            "wall": "back",
+            "y": 1.95
+          }
+        ],
+        "sub": "Italiana"
+      },
+      "studio": false,
+      "tone": {
+        "accent": "#c9a24a",
+        "ceiling": "#4a4c4e",
+        "trim": "#2a2c2e",
+        "wall": "#6a6e72"
+      },
+      "w": 10,
+      "windowless": true
+    },
+    "world_exit_zone": "zone_district_915_916"
   },
   "grid_x": 0,
   "grid_y": 0,

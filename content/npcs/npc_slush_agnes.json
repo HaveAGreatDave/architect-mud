@@ -214,7 +214,9 @@
       "fingerless gloves",
       "a paper hat",
       "thermal boots"
-    ]
+    ],
+    "post": "furn_slush_counter",
+    "post_gap": 0.3
   },
   "home_activities": [],
   "home_zone": "zone_slush_concourse",

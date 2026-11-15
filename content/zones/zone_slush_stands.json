@@ -3,6 +3,7 @@
   "description": "Wooden benches climb steeply on all four sides of the ice, numbered in sections, under a roof of steel arches. A scoreboard of four screens hangs over centre ice on chains. An organ stands on a riser in one corner. It is colder in here than on the street.",
   "exits": {
     "down": "zone_slush_rinkside",
+    "east": "zone_slush_cup",
     "north": "zone_slush_concourse",
     "up": "zone_slush_pressbox"
   },
@@ -12,6 +13,119 @@
     "floor": "concrete",
     "is_building": true,
     "is_interior": true,
+    "open_all_hours": true,
+    "room": {
+      "balcony": false,
+      "d": 12,
+      "decor": {
+        "frieze": {
+          "h": 0.24,
+          "hex": "#1f3550",
+          "line": "#c9a24a",
+          "y": 4
+        },
+        "rug": false,
+        "sconces": {
+          "kind": "fan",
+          "points": [
+            [
+              "front",
+              -4
+            ],
+            [
+              "front",
+              4
+            ],
+            [
+              "left",
+              9
+            ],
+            [
+              "right",
+              3
+            ],
+            [
+              "back",
+              -1
+            ]
+          ],
+          "y": 2.3
+        },
+        "walls": {
+          "hex": "#8e4a34",
+          "kind": "brick",
+          "trim": "#1f3550",
+          "y1": 2.6
+        }
+      },
+      "doors": {
+        "down": [
+          -5,
+          1.2
+        ]
+      },
+      "face": 0,
+      "ground": "concrete",
+      "h": 4.5,
+      "stadium": {
+        "accent": "#c9a24a",
+        "brick": "#8e4a34",
+        "font": "Limelight",
+        "frame": "#1f3550",
+        "ink": "#1f3550",
+        "plate": "#f3ead6",
+        "portal": "brick",
+        "signs": [
+          {
+            "at": 6,
+            "h": 0.5,
+            "kind": "gilt",
+            "sub": "Hall of Champions",
+            "text": "The Cup",
+            "w": 2,
+            "wall": "right",
+            "y": 2.85
+          },
+          {
+            "at": 5,
+            "h": 0.4,
+            "kind": "enamel",
+            "sub": "Staff only",
+            "text": "Press Box",
+            "w": 1.6,
+            "wall": "back",
+            "y": 3.3
+          },
+          {
+            "at": -5,
+            "h": 0.42,
+            "kind": "enamel",
+            "sub": "Down the stairs",
+            "text": "Rinkside",
+            "w": 1.8,
+            "wall": "front",
+            "y": 2.9
+          }
+        ],
+        "sub": "Italiana"
+      },
+      "stair": {
+        "at": [
+          5,
+          10.8
+        ],
+        "climb": "front",
+        "w": 1
+      },
+      "studio": false,
+      "tone": {
+        "accent": "#c9a24a",
+        "ceiling": "#8e8c88",
+        "trim": "#1f3550",
+        "wall": "#cfc4ac"
+      },
+      "w": 14
+    },
     "stands": {
       "menu": [
         {
@@ -77,114 +191,114 @@
       ],
       "sections": [
         {
-          "id": "glass",
-          "name": "On the Glass",
-          "price": 60,
           "eye": [
             100,
             -6,
             8
           ],
-          "note": "front row, centre ice"
+          "id": "glass",
+          "name": "On the Glass",
+          "note": "front row, centre ice",
+          "price": 60
         },
         {
-          "id": "lower",
-          "name": "Centre Lower",
-          "price": 35,
           "eye": [
             100,
             -20,
             15
           ],
-          "note": "the best view of the play"
+          "id": "lower",
+          "name": "Centre Lower",
+          "note": "the best view of the play",
+          "price": 35
         },
         {
-          "id": "corner",
-          "name": "The Corner",
-          "price": 20,
           "eye": [
             14,
             -16,
             16
           ],
-          "note": "low end, where the fights end up"
+          "id": "corner",
+          "name": "The Corner",
+          "note": "low end, where the fights end up",
+          "price": 20
         },
         {
-          "id": "net",
-          "name": "Behind the Net",
-          "price": 15,
           "eye": [
             -24,
             42.5,
             21
           ],
-          "note": "the away goal in front of you"
+          "id": "net",
+          "name": "Behind the Net",
+          "note": "the away goal in front of you",
+          "price": 15
         },
         {
-          "id": "far",
-          "name": "Far Side",
-          "price": 25,
           "eye": [
             100,
             101,
             20
           ],
-          "note": "across from the benches"
+          "id": "far",
+          "name": "Far Side",
+          "note": "across from the benches",
+          "price": 25
         },
         {
-          "id": "home",
-          "name": "The Home End",
-          "price": 15,
           "eye": [
             224,
             42.5,
             21
           ],
-          "note": "the home goal in front of you"
+          "id": "home",
+          "name": "The Home End",
+          "note": "the home goal in front of you",
+          "price": 15
         },
         {
-          "id": "upper",
-          "name": "Upper Centre",
-          "price": 10,
           "eye": [
             100,
             -61,
             52
           ],
-          "note": "front of the upper tier, over centre ice"
+          "id": "upper",
+          "name": "Upper Centre",
+          "note": "front of the upper tier, over centre ice",
+          "price": 10
         },
         {
-          "id": "across",
-          "name": "Upper Far Side",
-          "price": 9,
           "eye": [
             100,
             146,
             52
           ],
-          "note": "upper tier, looking back at the benches"
+          "id": "across",
+          "name": "Upper Far Side",
+          "note": "upper tier, looking back at the benches",
+          "price": 9
         },
         {
-          "id": "upperend",
-          "name": "Upper End",
-          "price": 8,
           "eye": [
             -61,
             42.5,
             52
           ],
-          "note": "the whole length of the ice from up high"
+          "id": "upperend",
+          "name": "Upper End",
+          "note": "the whole length of the ice from up high",
+          "price": 8
         },
         {
-          "id": "gods",
-          "name": "The Gods",
-          "price": 5,
           "eye": [
             100,
             -100,
             81
           ],
-          "note": "back row of the upper tier, under the roof"
+          "id": "gods",
+          "name": "The Gods",
+          "note": "back row of the upper tier, under the roof",
+          "price": 5
         }
       ],
       "sport": "hockey"
@@ -195,8 +309,7 @@
       "name": "the end window",
       "visibility": 0.3
     },
-    "world_exit_zone": "zone_district_915_916",
-    "open_all_hours": true
+    "world_exit_zone": "zone_district_915_916"
   },
   "grid_x": 0,
   "grid_y": 0,

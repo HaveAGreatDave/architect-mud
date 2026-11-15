@@ -1,14 +1,46 @@
 {
   "name": "stands",
   "version": "1.0.0",
-  "description": "A seat at the game, in the park it's played in. A room carrying flags.stands sells seats by section, each with a price and an eye in the 3-D view's frame; `stands` shows the chart, `stands <section>` buys a seat and opens the rink or the park in first person from it, following the play or free-looking, and `stands leave` (or walking out) gets you up. A seat is a receiver: it tunes the player to the channel carrying that sport's game through the Tablet TV's per-player path, so nothing here simulates anything.",
-  "commands": ["stands"],
-  "specializedActions": ["use"],
-  "hooks": ["watch.furniture"],
+  "description": "A seat at the game, in the park it's played in. A room carrying flags.stands sells seats by section, each with a price and an eye in the 3-D view's frame; `stands` shows the chart, `stands <section>` buys a seat and opens the rink or the park in first person from it, following the play or free-looking, and `stands leave` (or walking out) gets you up. A seat is a receiver: it tunes the player to the channel carrying that sport's game through the Tablet TV's per-player path, so nothing here simulates anything. Tickets are items (tickets.js): one seat at one game, bought at a box office, a seat door or the seat (`buyticket`, `stands <section>`), sat on with `stands ticket <id>`, which tears the stub. It also keeps the last champion for a Cup room's display (champions.js) and runs the ice crew's routine at each intermission (crew.js).",
+  "commands": [
+    "stands",
+    "buyticket"
+  ],
+  "specializedActions": [
+    "use"
+  ],
+  "hooks": [
+    "watch.furniture",
+    "room.pieceState",
+    "room.vehicles",
+    "room.npcStage",
+    "room.viewer"
+  ],
+  "ticks": [
+    "2s"
+  ],
   "actions": [],
   "events": {
-    "emits": ["tablet_tv.watch", "tablet_tv.unwatch"],
-    "consumes": ["zone.entered", "player.logout", "posture.changed", "weather.field", "weather.event"]
+    "emits": [
+      "tablet_tv.watch",
+      "tablet_tv.unwatch",
+      "room.peopleChanged",
+      "room.vehiclesChanged",
+      "furniture.changed",
+      "npc.moved"
+    ],
+    "consumes": [
+      "zone.entered",
+      "player.logout",
+      "posture.changed",
+      "weather.field",
+      "weather.event",
+      "player.login",
+      "sports.champion"
+    ]
   },
-  "dependencies": ["broadcast"]
+  "dependencies": [
+    "broadcast",
+    "sportsleague"
+  ]
 }

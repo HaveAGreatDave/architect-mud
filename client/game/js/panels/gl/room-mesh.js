@@ -19,6 +19,7 @@ import { roomKit } from './room-kit.js';
 import { createBatch, MAT, STRIDE } from './ballpark-mesh.js';
 import { cachetWing, cachetInner, cachetPad } from '../../../../shared/room-layout.js';
 import { facing, COUNTER_H, doorwaysOf, liftButtons, liftPanelAt, hallOf, stairsOf, wellBox, STAIR } from '../../../../shared/room-layout.js';
+import { drawStadiumForm, drawRinkWindow } from './room-stadium.js';
 import { drawDecor, drawDecorForm, liftPortal, drawBalconyDress } from './room-decor.js';
 import { legend, legendWidth } from '../../../../shared/legend-font.js';
 import { drawFitting, baseRun, STONE, FITTED_FORMS, stockOf, shelfKeep, STOCK } from './room-fittings.js';
@@ -31,7 +32,7 @@ export { FITTED_FORMS };
 // How many metres one repeat of each painted material covers (paintRoomTexture). A rug is mapped
 // once across itself, so it has no repeat.
 export const ROOM_TEXTURES = Object.freeze({ roomBoards: 1.8, roomPlaster: 3.6, roomCeiling: 2.4, roomWeave: 0.45, roomSteel: 0.9,
-  roomWood: 1.1, roomConcrete: 1.6, roomTile: 0.9, roomCanvas: 0.8, roomTicking: 0.6, roomOak: 1.15, roomPlasterFine: 3.0, roomStone: 2.0, roomMarble: 2.4, roomTerrazzo: 1.4, roomWool: 0.7, roomFacade: 3.4,
+  roomWood: 1.1, roomConcrete: 1.6, roomTile: 0.9, roomCanvas: 0.8, roomTicking: 0.6, roomOak: 1.15, roomPlasterFine: 3.0, roomStone: 2.0, roomMarble: 2.4, roomTerrazzo: 1.4, roomWool: 0.7, roomFacade: 3.4, roomBrick: 1.3,
   roomLaminate: 0.9, roomButcher: 0.7, roomEpoxy: 0.8, roomSubway: 0.6, roomBrushed: 0.5, roomPowder: 0.7 });
 export const ROOM_RUG = 'roomRug';
 
@@ -165,7 +166,7 @@ export function withShells(m, shells) {
 export function buildRoom(L, { seed = 1, lampOn = true, doorShut = false, turning = null, swinging = null, joined = new Set(), shell = false, frontOpen = false } = {}) {
   const K = roomKit(L, bakeAO(L), { textures: ROOM_TEXTURES, cell: 0.4, glow: GLOW });
   const { solid, quad, box, lathe, ball, onU, onV, C, nrmOf, TB, E } = K;
-  K.fine = L.spec.finish === 'fine'; K.L = L; K.screens = []; K.dials = [];
+  K.fine = L.spec.finish === 'fine'; K.L = L; K.screens = []; K.dials = []; K.lampOn = lampOn;
   const view = createBatch(64);
   // ⚠ A HAIR UNDER THE FLOOR ABOVE, in a room with a flight up through it. The room above is drawn with this one, its
   // floor in the plane of this ceiling and the tops of these walls, and they fought: boards through the plaster from
@@ -2052,6 +2053,8 @@ function drawPiece(K, p) {
   // a flat's control panel (plugins/envcontrol) lays out as a hung cabinet and is drawn as itself
   if (p.dress === 'envctl' && drawEnvPanel(K, F, p)) return;
   if (drawDecorForm(K, F, p)) return;
+  // a stadium's: a box office, a card machine, the Cup's case, a seat door, the restrooms, the window onto the ice
+  if (drawStadiumForm(K, F, p) || drawRinkWindow(K, F, p)) return;
   // what stands in a studio's kitchen takes its fronts and worktop from the kitchen (spec.kitchen)
   const kit = !p.annex && K.L.spec.kitchen ? { front: K.L.spec.kitchen.front, slab: kitchenSlab(K.L.spec) } : null;
   if (drawFitting({ K, F, p, r, L: K.L, ...(kit?.front ? { front: kit.front } : {}), ...(kit?.slab ? { slab: kit.slab } : {}), coldInside: (...a) => coldInside(K, F, p, ...a), coldShell: (o) => coldShell(F, R, o), coldDoor: (...a) => coldDoor(K, F, p, ...a), COLD_WALL, wear, fine, fab, wood, enamel, plastic, steel, tired, stain, lat, rod, R, pick: (list) => pick(r, list) })) return;
@@ -2612,6 +2615,24 @@ export function paintRoomTexture(doc, key, seed = 1) {
     g.strokeStyle = 'rgba(120,122,126,0.25)';
     for (let i = 0; i < 14; i++) { const x = r() * N, y = r() * N; g.lineWidth = 0.6 + r(); g.beginPath(); g.moveTo(x, y); g.lineTo(x + (r() - 0.5) * 40, y + (r() - 0.5) * 8); g.stroke(); }
     for (let i = 0; i < 4; i++) blot(r() * N, N * (0.7 + r() * 0.3), 30 + r() * 50, 'rgba(110,100,86,0.08)');
+  } else if (key === 'roomBrick') {
+    // running bond, eight courses a repeat: each brick its own shade and wear, a raked mortar joint, a chip off a corner
+    // here and there, soot darker toward the foot of the repeat. The colour is the material's tint (clad 'brick')
+    g.fillStyle = '#c8c4bc'; g.fillRect(0, 0, N, N);
+    const rows = 8, bh = N / rows, bw = N / 2.5, j = 5;
+    for (let rI = 0; rI < rows; rI++) {
+      const off = rI % 2 ? bw / 2 : 0, y = rI * bh;
+      for (let x = -bw + off; x < N + bw; x += bw) {
+        const k = 0.78 + r() * 0.3, warm = r() * 0.08;
+        g.fillStyle = `rgb(${Math.round(255 * Math.min(1, k + warm))},${Math.round(236 * k)},${Math.round(226 * k)})`;
+        for (const ox of [0, -N, N]) g.fillRect(x + ox + j / 2, y + j / 2, bw - j, bh - j);
+        // a chip, and the face's own grain
+        if (r() < 0.18) { g.fillStyle = '#c8c4bc'; g.beginPath(); const cx = x + (r() < 0.5 ? j : bw - j), cy = y + (r() < 0.5 ? j : bh - j); g.arc(cx, cy, 3 + r() * 6, 0, Math.PI * 2); g.fill(); }
+      }
+    }
+    specks(9000, 2, ['#5a5048', '#ffffff', '#3a3430'], 0.12);
+    const soot = g.createLinearGradient(0, 0, 0, N); soot.addColorStop(0, 'rgba(0,0,0,0)'); soot.addColorStop(1, 'rgba(20,16,12,0.12)');
+    g.fillStyle = soot; g.fillRect(0, 0, N, N);
   } else if (key === 'roomTile') {
     // square glazed tiles, four a tile, white grout, each tile a little off its neighbour
     g.fillStyle = '#d8d4cc'; g.fillRect(0, 0, N, N);

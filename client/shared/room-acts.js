@@ -6,6 +6,7 @@ const LABELS = {
   sit: 'Sit down', lie: 'Lie down', sleep: 'Sleep', lean: 'Lean on it', watch: 'Watch', open: 'Open',
   drink: 'Have a drink', fill: 'Fill up', shower: 'Take a shower', flush: 'Flush', pee: 'Pee', poop: 'Poop',
   workspace: 'Cook', launder: 'Wash your clothes', dress: 'Change clothes', switch: 'Flick the switch', examine: 'Look closer',
+  buyticket: 'Buy a ticket', buypack: 'Buy a pack',
 };
 // Most wanted first. Anything not listed goes after these and before `lean` and `examine`.
 const RANK = ['sit', 'lie', 'sleep', 'watch', 'open', 'dress', 'shower', 'pee', 'poop', 'flush', 'workspace', 'drink', 'fill'];

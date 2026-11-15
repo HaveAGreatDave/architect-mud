@@ -1,0 +1,143 @@
+{
+  "ambient_theme": "indoors",
+  "description": "A small room off the stands with a carpet and the lights kept low. The Coldwater Cup stands in a glass case in the middle on a stone plinth. The board on the far wall is for whoever won it last. The Stands are west.",
+  "exits": {
+    "west": "zone_slush_stands"
+  },
+  "flags": {
+    "building_name": "Golden Goose Gardens",
+    "building_type": "ice_rink",
+    "floor": "stone",
+    "is_building": true,
+    "is_interior": true,
+    "open_all_hours": true,
+    "room": {
+      "balcony": false,
+      "d": 8,
+      "decor": {
+        "downlights": false,
+        "floor": {
+          "border": "#141820",
+          "field": "#b8ab90",
+          "inset": 0.4,
+          "line": "#c9a24a",
+          "medallion": [
+            0,
+            3.8,
+            1.5
+          ],
+          "ray": "#8a6a3a",
+          "rays": 24,
+          "star": "sunburst",
+          "w": 0.22
+        },
+        "frieze": {
+          "h": 0.24,
+          "hex": "#141820",
+          "line": "#c9a24a",
+          "y": 3.25
+        },
+        "lights": [
+          {
+            "at": [
+              0,
+              3.8
+            ],
+            "drop": 1,
+            "k": 1.2,
+            "kind": "tiers",
+            "r": 0.55,
+            "tiers": 4
+          }
+        ],
+        "pilasters": {
+          "hex": "#2a3446",
+          "points": [
+            [
+              "back",
+              -1.5
+            ],
+            [
+              "back",
+              1.5
+            ]
+          ],
+          "trim": "#c9a24a",
+          "w": 0.3,
+          "y1": 3.2
+        },
+        "sconces": {
+          "kind": "fan",
+          "points": [
+            [
+              "right",
+              2
+            ],
+            [
+              "right",
+              6
+            ],
+            [
+              "back",
+              -3
+            ],
+            [
+              "back",
+              3
+            ]
+          ],
+          "y": 2.3
+        },
+        "walls": {
+          "hex": "#4a2c1c",
+          "kind": "walnut",
+          "rail": 1,
+          "y1": 2.6
+        }
+      },
+      "face": 0,
+      "finish": "fine",
+      "ground": "terrazzo",
+      "h": 3.8,
+      "stadium": {
+        "accent": "#c9a24a",
+        "brick": "#8e4a34",
+        "font": "Limelight",
+        "frame": "#1f3550",
+        "ink": "#1f3550",
+        "plate": "#f3ead6",
+        "portal": "brick",
+        "signs": [
+          {
+            "at": 4,
+            "h": 0.5,
+            "kind": "gilt",
+            "sub": "The Coldwater Cup",
+            "text": "Hall of Champions",
+            "w": 2.4,
+            "wall": "left",
+            "y": 3
+          }
+        ],
+        "sub": "Italiana"
+      },
+      "studio": false,
+      "tone": {
+        "accent": "#c9a24a",
+        "ceiling": "#1e2430",
+        "trim": "#c9a24a",
+        "wall": "#2a3446"
+      },
+      "w": 9,
+      "windowless": true
+    },
+    "world_exit_zone": "zone_district_915_916"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": 0,
+  "id": "zone_slush_cup",
+  "map_id": "map_int_slush",
+  "name": "The Gardens — Cup Room",
+  "parent_zone": "zone_district_915_916"
+}

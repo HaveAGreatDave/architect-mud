@@ -1,0 +1,48 @@
+{
+  "description": "A concrete opening onto a short flight of steps, lit at the top where the bowl is. A sign over it says ENDS. An usher checks stubs at the bottom step.",
+  "flags": {
+    "aliases": [
+      "ends door",
+      "ends",
+      "ends door",
+      "end door"
+    ],
+    "interactions": [
+      "buyticket"
+    ],
+    "look": {
+      "arche": "prop",
+      "dims": [
+        2,
+        1.4,
+        2.8
+      ],
+      "form": "seatdoor",
+      "label": "Ends"
+    },
+    "seat_door": {
+      "sections": [
+        "net",
+        "home"
+      ],
+      "stands": "zone_slush_stands"
+    },
+    "spot": {
+      "at": [
+        -5,
+        8.3
+      ],
+      "turn": 0
+    }
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_slush_door_ends",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "the ends door",
+  "object_type": "decoration",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_slush_concourse"
+}

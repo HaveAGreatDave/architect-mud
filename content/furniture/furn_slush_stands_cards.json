@@ -9,7 +9,24 @@
     "card_league": "hockey",
     "click_cmd": "buypack puck",
     "interactions": [],
+    "look": {
+      "arche": "prop",
+      "dims": [
+        0.86,
+        0.72,
+        1.85
+      ],
+      "form": "packs",
+      "label": "Puck Cards"
+    },
     "notable": true,
+    "spot": {
+      "at": [
+        -1.6,
+        11.6
+      ],
+      "turn": 0
+    },
     "vends_packs": 1
   },
   "id": "furn_slush_stands_cards",

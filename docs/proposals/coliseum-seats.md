@@ -590,7 +590,11 @@ takes the pitches the budget leaves out from 2.8% to 3.3%.
   the narrator asks for exists; the feed at the log rung with no GL.
 - Cost: the pools once per revision, a few KB.
 
-**S5: tickets and the ball.** Size: medium.
+**S5: tickets and the ball.** Size: medium. **The ticket is built (2026-11-14, with Golden Goose Gardens in ROOM):** a
+per-game item (`item_seat_ticket`, `custom_data.seat_ticket`), sold at a box office (`flags.ticket_window`), a seat door
+(`flags.seat_door`) or the seat, one seat once a game out of RAM, and torn when you sit on it; see
+[plugins/stands/README.md](../../plugins/stands/README.md#tickets). The Coliseum's own window, the turnstiles and the
+ball are still design.
 - The ticket office window, the ticket and ball items, the turnstile gates, the landing list, the
   catch and the scramble; home run balls in the bleachers.
 - Tests: a catch writes one row; nobody seated means nothing queued; a player who stood up before

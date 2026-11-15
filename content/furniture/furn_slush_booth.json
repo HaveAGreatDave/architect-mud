@@ -9,7 +9,23 @@
       "red lamp",
       "slot"
     ],
-    "examine_detail": "Through the slot: the back of a chair, a flask on the sill, and a hat. The hat has not moved."
+    "examine_detail": "Through the slot: the back of a chair, a flask on the sill, and a hat. The hat has not moved.",
+    "look": {
+      "arche": "prop",
+      "dims": [
+        1.2,
+        0.9,
+        2.2
+      ],
+      "form": "cabinet"
+    },
+    "spot": {
+      "at": [
+        6,
+        9.4
+      ],
+      "turn": 0
+    }
   },
   "id": "furn_slush_booth",
   "name": "the goal judge's booth",

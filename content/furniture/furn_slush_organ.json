@@ -6,7 +6,23 @@
     "interactions": [
       "examine",
       "play"
-    ]
+    ],
+    "look": {
+      "arche": "prop",
+      "dims": [
+        1.6,
+        0.7,
+        1.3
+      ],
+      "form": "piano"
+    },
+    "spot": {
+      "at": [
+        -5.8,
+        11.6
+      ],
+      "turn": 0
+    }
   },
   "id": "furn_slush_organ",
   "name": "the rink organ",

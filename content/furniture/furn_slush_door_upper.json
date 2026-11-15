@@ -1,0 +1,50 @@
+{
+  "description": "A concrete opening onto a short flight of steps, lit at the top where the bowl is. A sign over it says UPPER TIER. An usher checks stubs at the bottom step.",
+  "flags": {
+    "aliases": [
+      "upper tier door",
+      "upper tier",
+      "upper door",
+      "upper tier"
+    ],
+    "interactions": [
+      "buyticket"
+    ],
+    "look": {
+      "arche": "prop",
+      "dims": [
+        2,
+        1.4,
+        2.8
+      ],
+      "form": "seatdoor",
+      "label": "Upper Tier"
+    },
+    "seat_door": {
+      "sections": [
+        "upper",
+        "across",
+        "upperend",
+        "gods"
+      ],
+      "stands": "zone_slush_stands"
+    },
+    "spot": {
+      "at": [
+        3.6,
+        8.3
+      ],
+      "turn": 0
+    }
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_slush_door_upper",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "the upper tier door",
+  "object_type": "decoration",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_slush_concourse"
+}

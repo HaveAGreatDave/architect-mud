@@ -242,6 +242,15 @@ on('tv.standings', ({ playerId }) => {
 on('tv.clubs', ({ playerId, sport }) => {
   sendTvClubs(playerId, sport).catch(err => console.error('[broadcast] sendTvClubs error:', err.message));
 });
+// One club's identity as content has it ({ name, colours, crest, sett }), or null: sync, off the script
+// the channels already hold (plugins/stands draws the last champion's crest with it).
+export function sportsClubIdentity(sport, name) {
+  const clubs = rerunScript(sport)?.clubs;
+  if (!clubs || typeof clubs !== 'object' || !name) return null;
+  const c = Array.isArray(clubs) ? clubs.find((x) => x?.name === name) : clubs[name];
+  if (!c || typeof c !== 'object') return null;
+  return { name, colours: Array.isArray(c.colours) ? c.colours.slice(0, 3) : [], ...(c.crest ? { crest: c.crest } : {}), ...(c.sett ? { sett: c.sett } : {}) };
+}
 async function sendTvClubs(playerId, sport) {
   const id = typeof sport === 'string' && sport ? sport : 'hockey';
   const script = await anySportsScript(id);
@@ -3606,6 +3615,43 @@ export function channelLabel(channelId) {
 export function liveSportsChannel(sport) {
   for (const c of sportsChannels()) if (sportOf(c.script).id === sport) return c.channelId;
   return null;
+}
+
+// ── Games ahead, and the break in the one on now (plugins/stands) ────────────────
+// A ticket is for one game, named by its slot. These are sync and read only RAM: the slate is a
+// pure function of the slot, and the channel's last Gameday payload says whether it's in a break.
+// The slot of `sport`'s game on the air now (a held-over game's own slot), or null.
+export function liveSportsSlot(sport) {
+  for (const c of sportsChannels()) if (sportOf(c.script).id === sport) return sportsAiringSlot(c.script);
+  return null;
+}
+// `sport`'s next `count` games from the one on now, looking `look` slots ahead:
+// [{ slot, away, home, hour, days, final, now }]. `hour` is when it starts, in-game (20 for a 20:00 final), and `days`
+// how many in-game days from today (0 today, 1 tomorrow).
+export function sportsGamesAhead(sport, count = 4, look = 16) {
+  const script = rerunScript(sport);
+  if (!script) return [];
+  const live = liveSportsSlot(sport), cur = sportsSlotIndex(), out = [];
+  for (let slot = live ?? cur; slot < cur + look && out.length < count; slot++) {
+    if (slot !== live && (slot < cur || !sportsAiring(script, slot))) continue;
+    const o = postseasonOverride(sport, slot), m = o ? { away: o.teams[1], home: o.teams[0] } : sportsMatchupForSlot(slot, script.teams, sport);
+    if (!m) continue;
+    out.push({ slot, away: m.away, home: m.home, hour: slateStartHour(sport, slot), days: slotDay(slot) - slotDay(cur), final: !!o, now: slot === live });
+  }
+  return out;
+}
+// Whether `sport`'s game on the air now is in an intermission: { channelId, slot, inBreak, msIn, msLeft },
+// or null with no game on. A break runs from its intermission payload to that payload's `resume` cue
+// (sports/hockey-pacing.js); the last one, after the final period, has none and isn't a break.
+export function sportsBreakNow(sport, nowMs = Date.now()) {
+  const channelId = liveSportsChannel(sport);
+  if (!channelId) return null;
+  const st = channelRuntime.get(channelId), gd = st?.lastGameday;
+  const slot = liveSportsSlot(sport);
+  const resume = gd?.type === 'intermission' ? gd.cues?.find((c) => c.ev === 'resume')?.ms : null;
+  const msIn = nowMs - (st?.lastGamedayAt || 0);
+  if (resume == null || msIn >= resume) return { channelId, slot, inBreak: false };
+  return { channelId, slot, inBreak: true, msIn, msLeft: resume - msIn };
 }
 
 // ── Reruns ────────────────────────────────────────────────────────────────────

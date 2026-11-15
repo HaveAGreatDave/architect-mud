@@ -12,7 +12,23 @@
     "interactions": [
       "sit",
       "lie"
-    ]
+    ],
+    "look": {
+      "arche": "bench",
+      "dims": [
+        3.2,
+        0.6,
+        0.85
+      ],
+      "form": "bench"
+    },
+    "spot": {
+      "at": [
+        0.6,
+        8.6
+      ],
+      "turn": 0
+    }
   },
   "id": "furn_slush_benches",
   "name": "the benches",

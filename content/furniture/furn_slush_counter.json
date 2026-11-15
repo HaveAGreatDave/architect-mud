@@ -10,7 +10,23 @@
       "urn",
       "sign"
     ],
-    "examine_detail": "The rollers have been turning the same franks since the doors opened. The urn has a brass tap and a dent in it the shape of a puck."
+    "examine_detail": "The rollers have been turning the same franks since the doors opened. The urn has a brass tap and a dent in it the shape of a puck.",
+    "look": {
+      "arche": "surface",
+      "dims": [
+        3.6,
+        0.8,
+        1.1
+      ],
+      "form": "bar"
+    },
+    "spot": {
+      "at": [
+        8.6,
+        8.2
+      ],
+      "turn": 0
+    }
   },
   "id": "furn_slush_counter",
   "name": "the concession counter",

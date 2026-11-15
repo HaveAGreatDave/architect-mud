@@ -1449,6 +1449,7 @@ const handlers = {
   room_tags: (msg) => { roomMod?.then((m) => m.roomTags(msg)).catch(() => {}); },
   room_sheets: (msg) => { roomMod?.then((m) => m.roomSheets(msg)).catch(() => {}); },
   room_vehicles: (msg) => { roomMod?.then((m) => m.roomVehicles(msg)).catch(() => {}); },
+  room_tickets: (msg) => { roomMod?.then((m) => m.roomTickets(msg)).catch(() => {}); },
   room_set: (msg) => { roomMod?.then((m) => m.roomSet(msg)).catch(() => {}); },
   room_here: (msg) => { roomMod?.then((m) => m.roomHere(msg)).catch(() => {}); },
   room_outlook: (msg) => { roomMod?.then((m) => m.roomOutlook(msg)).catch(() => {}); },

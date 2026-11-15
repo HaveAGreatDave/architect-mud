@@ -12,7 +12,23 @@
     ],
     "interactions": [
       "sit"
-    ]
+    ],
+    "look": {
+      "arche": "surface",
+      "dims": [
+        2.4,
+        0.7,
+        0.76
+      ],
+      "form": "desk"
+    },
+    "spot": {
+      "at": [
+        -2,
+        0.4
+      ],
+      "turn": 180
+    }
   },
   "id": "furn_slush_desk",
   "name": "the commentary desk",

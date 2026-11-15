@@ -485,6 +485,10 @@ function peopleIn(zoneId, pieces) {
     for (const n of getZoneNpcs(id)) {
       // an animal (a pet: plugins/pets) is drawn as itself by beastsIn, not as a person
       if (npcBeastOf(n)) continue;
+      // a plugin that has them doing something of its own here says where (`room.npcStage`, sync): the ice crew at a
+      // break (plugins/stands crew.js). `hide` leaves them out; anything else is laid over what's worked out below
+      const staged = gatherHookSync('room.npcStage', n, id, pieces)[0] || null;
+      if (staged?.hide) continue;
       const on = n.onFurniture || n.sittingOn;
       // a dancer on shift takes the next free pole, and with none left works the floor
       const dancer = !inside && !on && dancing(n, id), post = dancer ? posts.shift() : null;
@@ -508,7 +512,7 @@ function peopleIn(zoneId, pieces) {
       out.push({ id: n.id, name: n.name, npc: true, posture: n.posture || 'standing', on: on ? byName.get(on) || null : null, sex: n.sex, ...(dressed.figure ? { figure: dressed.figure } : {}), ...(dressed.wear ? { wear: dressed.wear } : {}), ...(feel ? { feel } : {}), ...mark, ...(order ? { order } : {}),
         ...(asleep ? { asleep: true } : {}), ...(ko ? { out: true } : {}), ...(manner ? { manner } : {}), ...(mood ? { mood } : {}), ...(lay || {}), ...(st || {}),
           // a dancer on shift takes tips (the Stage puts a Tip button on her card), and how much she has off
-          ...(dancer && n.flags?.stripper ? { tip: true, ...(peel ? { peel: Math.round(peel * 100) / 100 } : {}) } : {}) });
+          ...(dancer && n.flags?.stripper ? { tip: true, ...(peel ? { peel: Math.round(peel * 100) / 100 } : {}) } : {}), ...(staged ? { ...staged, manner: undefined } : {}) });
     }
   }
   // who's at a card table (plugins/gametable `room.tablePeople`): somebody in the room already goes onto their chair,
@@ -714,6 +718,8 @@ async function viewPayload(player, zoneId, spec, { stamp = true, locks = true } 
     plumbing: plumbingOf(zoneId),
     // what stands on a depot shed's lift, and this viewer's trucks to call up (plugins/trucking hoist.js)
     ...(vehiclesOf(zoneId, player) ? { vehicles: vehiclesOf(zoneId, player) } : {}),
+    // what a plugin has for this viewer in this room (`room.viewer`, sync): the tickets you hold, at a seat door (plugins/stands)
+    ...Object.assign({}, ...gatherHookSync('room.viewer', zoneId, player)),
     // what's sprayed on its walls (plugins/graffiti `room.tags`), drawn on the plaster
     ...(tagsOf(zoneId).length ? { tags: tagsOf(zoneId) } : {}),
     // paper on its walls that hangs as a run (plugins/posters `room.sheets`), joined once the run's whole
@@ -802,6 +808,12 @@ function movesOf(zoneId) {
 }
 // whether somebody went from one zone to the other by an exit, and didn't jump
 const walkedBy = (from, to) => !!from && !!to && allExits(getZone(from)).some((e) => e.target === to);
+// A plugin moved somebody in a room without moving them between zones (plugins/stands crew.js: the ice crew
+// climbing onto the machine): its people again, to whoever has it open
+on('room.peopleChanged', ({ zoneId }) => {
+  const z = zoneId && mainOf(zoneId);
+  if (z && watchersOf(z).size) sendPeople(z).catch(() => {});
+});
 on('npc.moved', ({ npc, from, to }) => {
   if (!viewers.size || !npc?.id || !noteMove(npc.id, from, to)) return;
   for (const z of new Set([from, to].map(mainOf))) if (watchersOf(z).size) sendPeople(z).catch(() => {});

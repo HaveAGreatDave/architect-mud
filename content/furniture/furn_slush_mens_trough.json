@@ -1,0 +1,30 @@
+{
+  "description": "A steel trough along the west wall under a tiled splash back, a pipe along the top that sprays it now and then. On a game night there is a line for it.",
+  "flags": {
+    "aliases": [
+      "trough",
+      "urinal"
+    ],
+    "look": {
+      "arche": "urinal",
+      "form": "urinaltrough"
+    },
+    "spot": {
+      "at": [
+        -2.78,
+        3.4
+      ],
+      "turn": 90
+    }
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_slush_mens_trough",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "the trough",
+  "object_type": "toilet",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_slush_mens"
+}

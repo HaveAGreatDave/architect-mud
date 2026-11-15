@@ -1,0 +1,75 @@
+{
+  "ambient_theme": "indoors",
+  "description": "Pink tiles and a long queue's worth of scuffs on the floor. Three cubicles along the back wall, two basins under a mirror on the north wall, and a hand dryer that doesn't work. The Concourse is west.",
+  "exits": {
+    "west": "zone_slush_concourse"
+  },
+  "flags": {
+    "building_name": "Golden Goose Gardens",
+    "building_type": "ice_rink",
+    "floor": "tile",
+    "is_building": true,
+    "is_interior": true,
+    "open_all_hours": true,
+    "room": {
+      "balcony": false,
+      "d": 7,
+      "decor": {
+        "frieze": {
+          "h": 0.14,
+          "hex": "#6a3a4a",
+          "line": "#f0e2e2",
+          "y": 2.5
+        },
+        "rug": false,
+        "walls": {
+          "hex": "#ecd2d2",
+          "kind": "tile",
+          "trim": "#6a3a4a",
+          "y1": 2.2
+        }
+      },
+      "face": 0,
+      "ground": "tile",
+      "h": 3.2,
+      "stadium": {
+        "accent": "#c9a24a",
+        "brick": "#8e4a34",
+        "font": "Limelight",
+        "frame": "#1f3550",
+        "ink": "#1f3550",
+        "plate": "#f3ead6",
+        "portal": "brick",
+        "signs": [
+          {
+            "at": 1.2,
+            "h": 0.34,
+            "kind": "enamel",
+            "text": "Powder Room",
+            "w": 1.8,
+            "wall": "front",
+            "y": 2.3
+          }
+        ],
+        "sub": "Italiana"
+      },
+      "studio": false,
+      "tone": {
+        "accent": "#6a3a4a",
+        "ceiling": "#dcd0d0",
+        "trim": "#6a3a4a",
+        "wall": "#e8d6d6"
+      },
+      "w": 6,
+      "windowless": true
+    },
+    "world_exit_zone": "zone_district_915_916"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": 0,
+  "id": "zone_slush_womens",
+  "map_id": "map_int_slush",
+  "name": "The Gardens — Women's Room",
+  "parent_zone": "zone_district_915_916"
+}

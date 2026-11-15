@@ -104,7 +104,7 @@ export function createRinkView(host, opts = {}) {
   // tag and his words in the bar; anything else is the play-by-play man's, whom the broadcast
   // names with each line (tv.js passes it as 'who').
   let capWho = 'Booth', anchorWho = '';
-  let last = null, landed = true, raf = 0, lastFrame = 0, frameAvg = 0, acc = 0, mounted = false, speed = opts.speed || 1, kenComicOn = false;
+  let last = null, landed = true, raf = 0, lastFrame = 0, lastDraw = 0, frameAvg = 0, acc = 0, mounted = false, speed = opts.speed || 1, kenComicOn = false;
   let W = null, D = null, R = null, ice = null, canvas = null, modsP = null, mods = null;
   const sfxAt = {};
   let costAvg = 0;
@@ -158,6 +158,8 @@ export function createRinkView(host, opts = {}) {
   }
 
   function _sfx(key, o) {
+    // a view behind glass (`opts.quiet`: a window onto the ice, panels/room-stadium.js) makes no sound
+    if (opts.quiet) return;
     const H = win?.HockeySfx, AE = win?.AudioEngine;
     if (!W || !H?.eventFor || !AE?.playSfx) return;
     const pick = H.eventFor(key, o || {});
@@ -190,6 +192,7 @@ export function createRinkView(host, opts = {}) {
   // its state; the moments (a shot, the iron, a goal, a big hit) move it and let it settle.
   let crowd = null, crowdBack = null, loudUntil = 0;
   function crowdOn() {
+    if (opts.quiet) return null;
     if (crowd != null) return crowd || null;
     const H = win?.HockeySfx;
     crowd = (H?.crowdBed && win?.AudioEngine?.engineNodes && H.crowdBed()) || false;
@@ -423,12 +426,15 @@ export function createRinkView(host, opts = {}) {
     // world's never beat against each other (see sim.js)
     W.alpha = acc / DT;
     if (R.lost) fallback();
-    R.render(now);
+    // `opts.fps` draws the picture that often and no more (a window onto the ice, panels/room-stadium.js); the play
+    // still steps every frame, so it's where it should be whenever it's drawn
+    const due = !opts.fps || now - lastDraw >= 1000 / opts.fps - 4;
+    if (due) { lastDraw = now; R.render(now); }
     // the intermission board steps aside while the Ken Raven comic has the picture (rink/ken-comic.js)
     if (!!W.kenComic !== kenComicOn) { kenComicOn = !!W.kenComic; host?.querySelector('.gdr-rink')?.classList.toggle('gdr-kencomic', kenComicOn); }
     // `opts.onFrame` copies the picture while it's still in the drawing buffer (a WebGL canvas
     // read later in the frame, off screen, hands back a stale one): the box's screen (stands.js)
-    opts.onFrame?.();
+    if (due) opts.onFrame?.();
     if (opts.seat) seatSkates();
     l3Tick();
     clockTick(raw);

@@ -1,0 +1,75 @@
+{
+  "ambient_theme": "indoors",
+  "description": "White tiles going yellow at the grout. Two urinals on the north wall, a steel trough along the west wall, and two cubicles at the back. One basin, and a mirror with a crack across it. The Concourse is east.",
+  "exits": {
+    "east": "zone_slush_concourse"
+  },
+  "flags": {
+    "building_name": "Golden Goose Gardens",
+    "building_type": "ice_rink",
+    "floor": "tile",
+    "is_building": true,
+    "is_interior": true,
+    "open_all_hours": true,
+    "room": {
+      "balcony": false,
+      "d": 7,
+      "decor": {
+        "frieze": {
+          "h": 0.14,
+          "hex": "#2a4a5a",
+          "line": "#e6e8e2",
+          "y": 2.5
+        },
+        "rug": false,
+        "walls": {
+          "hex": "#e8e6dc",
+          "kind": "tile",
+          "trim": "#2a4a5a",
+          "y1": 2.2
+        }
+      },
+      "face": 0,
+      "ground": "tile",
+      "h": 3.2,
+      "stadium": {
+        "accent": "#c9a24a",
+        "brick": "#8e4a34",
+        "font": "Limelight",
+        "frame": "#1f3550",
+        "ink": "#1f3550",
+        "plate": "#f3ead6",
+        "portal": "brick",
+        "signs": [
+          {
+            "at": 1.6,
+            "h": 0.3,
+            "kind": "enamel",
+            "text": "Wash Your Hands",
+            "w": 0.8,
+            "wall": "right",
+            "y": 2.6
+          }
+        ],
+        "sub": "Italiana"
+      },
+      "studio": false,
+      "tone": {
+        "accent": "#3a5a6a",
+        "ceiling": "#d8dad6",
+        "trim": "#3a5a6a",
+        "wall": "#e6e8e2"
+      },
+      "w": 6,
+      "windowless": true
+    },
+    "world_exit_zone": "zone_district_915_916"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": 0,
+  "id": "zone_slush_mens",
+  "map_id": "map_int_slush",
+  "name": "The Gardens — Men's Room",
+  "parent_zone": "zone_district_915_916"
+}

@@ -88,6 +88,8 @@ import { handOf, drawsOf, inHand, SUIT_GLYPH } from '../../../shared/poker-hand.
 import { stashAt } from '../../../shared/table-stash.js';
 import { mouthTrack, textTrack, mouthAt } from '../../../shared/lip-sync.js';
 import { actOfLine, speakerOf } from '../../../shared/npc-acts.js';
+import { createRoomStadium } from './room-stadium.js';
+import { ticketActs } from '../../../shared/stadium.js';
 
 // the pane strip the live window view builds (lookOut): the margin each side, as a fraction of the width, for pitch
 // and a tall building leaning in from off the strip
@@ -464,7 +466,12 @@ function openStage(msg) {
   // a flat's control panel: its OS laid on the panel's own glass, worked from where you stand (room-envctl.js)
   const envUi = createRoomEnvctl({ host, project: (p, w, h) => R.project(p, w, h) });
   const hoistUi = createRoomHoist({ host, send: (cmd) => sendCmd(cmd), walker: () => S.walk?.at || null });
-  hoistUi.load(null, msg.vehicles || null);
+  hoistUi.load(null, msg.vehicles?.machine ? null : msg.vehicles || null);
+  // a stadium's rooms: the last champion's board, the window onto the ice, the resurfacer in its bay (room-stadium.js)
+  const stadium = createRoomStadium({ R });
+  stadium.setMsg(msg);
+  // your tickets, for a seat door's card (plugins/stands `tickets` on room_view, then room_tickets)
+  S.tickets = msg.tickets || [];
   // the car's doors: { from, to, t0 } between 0 (open) and 1 (shut). Arriving off a ride, they start
   // shut and part a beat after the room is drawn
   const doorsAt = () => {
@@ -498,6 +505,7 @@ function openStage(msg) {
     const arrive = via ? openingInside(L, via) : null;
     S.L = L; S.key = roomKey(S.spec, pieces);
     hoistUi.load(L);
+    stadium.load(L);
     envUi.load(L);
     S.mesh =roomMesh(L, { seed, lampOn, doorShut: S.doorShut, turning: S.spin?.turning, swinging: S.fridge?.id });
     R.setRoom(S.mesh, paint);
@@ -1158,6 +1166,8 @@ function openStage(msg) {
     }
     if (inGame) return [...pieceActs(piece, S.L.seats.filter((s) => s.piece === piece.id)), leaveAct];
     let acts = pieceActs(piece, S.L.seats.filter((s) => s.piece === piece.id));
+    // a seat door: the tickets you hold for its sections first, each sitting you on it (plugins/stands `stands ticket`)
+    if (piece.door) acts = [...ticketActs(S.tickets, piece.door), ...acts];
     // a set's Watch is its power switch (useStation): it says which way it'll go
     if (S.mesh.screens.some((s) => s.id === piece.id)) acts = acts.map((a) => (a.verb === 'watch' ? { ...a, label: tvOnHere(piece) ? 'Turn it off' : 'Turn it on' } : a));
     if (S.walk?.sat?.piece === piece.id) return [{ verb: 'stand', label: 'Get up' }, ...acts.filter((a) => a.verb !== 'sit' && a.verb !== 'lie')];
@@ -1607,7 +1617,7 @@ function openStage(msg) {
   }
   S.paintTags = paintTags;
   function pushDecals(scene = null) {
-    try { R.setDecals([...(S.tagList || []), ...restingSheets(), ...(scene || [])]); } catch (err) { console.warn('[room] paint:', err?.message); }
+    try { R.setDecals([...(S.tagList || []), ...restingSheets(), ...stadium.decals(), ...(scene || [])]); } catch (err) { console.warn('[room] paint:', err?.message); }
   }
 
   // ── SHEETS HUNG AS A RUN, AND THE JOIN (room-sheets.js, plugins/posters `room.sheets`) ──
@@ -2351,12 +2361,13 @@ function openStage(msg) {
   function drawBeasts() {
     drawCats();
     const eye = S.walk?.at || null, moved = !onlyCats(S.beasts) && (!beastsEye !== !eye || (eye && Math.hypot(eye[0] - beastsEye[0], eye[1] - beastsEye[1]) > 0.5));
-    const lifting = hoistUi.moving(), lift = lifting || hoistWas || hoistVer !== hoistUi.ver;
+    const lifting = hoistUi.moving() || stadium.machine.moving(), lift = lifting || hoistWas || hoistVer !== hoistUi.ver + stadium.machine.ver * 1000;
     if (beastsFor === S.beasts && beastsL === S.L && !moved && !lift) return;
     beastsFor = S.beasts; beastsL = S.L; beastsEye = eye ? [eye[0], eye[1]] : null;
-    hoistWas = lifting; hoistVer = hoistUi.ver;
+    hoistWas = lifting; hoistVer = hoistUi.ver + stadium.machine.ver * 1000;
     const b = beastsBatch(S.L, S.beasts, { eye });
     hoistUi.into(b);
+    stadium.machine.into(b);
     R.setBeasts(b);
   }
   // where a person stands now, for a cat going to them: you where you've walked, anybody else where they're drawn
@@ -2809,6 +2820,7 @@ function openStage(msg) {
     watchFridge(now);
     if (peopleOn) drawPeople(now / 1000);
     hoistUi.frame(now);
+    if (stadium.frame(now, seat.eye, seat.yaw)) { pushDecals(); stadium.settled(); }
     watchDoor(now);
     rushDoorway(now);
     watchDoorways(now);
@@ -3091,6 +3103,7 @@ function openStage(msg) {
     S.plumb = msg.plumbing || null; S.inShower = null;
     S.tags = msg.tags || []; S.sprayLive = null;
     S.sheets = msg.sheets || []; endJoin(); S.builtAt = 0;
+    S.tickets = msg.tickets || []; stadium.setMsg(msg);
     // what was being baked was for the doorways of the room you've left; this room's `room_ahead` is on its way
     bake.jobs.length = 0; bake.waiting = false; bake.gen = (bake.gen || 0) + 1; placedFor = null;
     nextDoor = neighboursOf(msg); joined = new Set(nextDoor.map((n) => n.zone)); S.next = nextDoor; reshell();
@@ -3180,6 +3193,7 @@ function openStage(msg) {
   hush(S.spec);
   ui.lockUi = lockUi;
   ui.hoistUi = hoistUi;
+  ui.stadium = stadium;
   ui.R = R; ui.draw = draw; ui.rebuild = rebuild; ui.followSelf = followSelf; ui.annexStand = annexStand; ui.roomStand = roomStand;
   rebuild(false);
   S.syncTv(msg.tv);
@@ -3348,7 +3362,15 @@ export const roomLockHack = (msg, args) => !!ui?.lockUi?.hack(msg, args);
 // What stands on a depot shed's lift, changed by `hoist` or a drive off it (plugins/trucking hoist.js).
 export function roomVehicles(msg) {
   if (!ui?.hoistUi || msg.zone !== ui.S?.msg.zone) return;
+  // a stadium's resurfacer is room-machine.js's; a shed's truck is the hoist's
+  if (msg.vehicles?.machine) { ui.stadium?.vehicles(msg.vehicles); return; }
   ui.hoistUi.load(null, msg.vehicles || null);
+}
+// Your tickets changed (plugins/stands `room_tickets`): a seat door's card lists them
+export function roomTickets(msg) {
+  if (!ui?.S) return;
+  ui.S.tickets = Array.isArray(msg.tickets) ? msg.tickets : [];
+  ui.S.card = null;
 }
 
 // The shutters over the room's glass and the scene on them, changed from its control panel (plugins/envcontrol).
@@ -3454,6 +3476,7 @@ export function closeRoomStage(quiet = false, handover = null, { fade = false } 
   if (view && handover && u.S.msg.building?.id === handover) { u.S.outlook = null; parkView(view, handover); }
   else if (!handover) dropParked();
   clearSprayStage(u.S?.sprayHost);
+  u.stadium?.dispose();
   u.stop();
   u.root.remove();
   document.body.classList.remove('room-stage-on');

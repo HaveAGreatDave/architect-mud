@@ -1,0 +1,11 @@
+{
+  "description": "Two caged sodium lamps on the ceiling, buzzing, and a strip light over the workbench.",
+  "flags": {},
+  "id": "furn_light_zone_slush_bay",
+  "light_type": "overhead",
+  "lumen_output": 2600,
+  "name": "the bay lights",
+  "object_type": "light",
+  "power_draw_kw": 0.02,
+  "zone_id": "zone_slush_bay"
+}

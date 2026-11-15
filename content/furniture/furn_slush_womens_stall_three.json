@@ -1,0 +1,31 @@
+{
+  "description": "A cubicle with a pink laminate door and a hook on the back of it. The lock works, which nobody expected.",
+  "flags": {
+    "aliases": [
+      "cubicle",
+      "stall",
+      "toilet"
+    ],
+    "look": {
+      "arche": "stall",
+      "form": "cubicle"
+    },
+    "spot": {
+      "at": [
+        2.45,
+        6.22
+      ],
+      "turn": 0
+    }
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_slush_womens_stall_three",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "a cubicle",
+  "object_type": "toilet",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_slush_womens"
+}

@@ -1,0 +1,41 @@
+{
+  "description": "The Coldwater Cup in a glass case on a stone plinth, lit from above. A stepped silver barrel banded in black, a gold collar and a bowl on top. The glass is smudged at child height all round.",
+  "flags": {
+    "aliases": [
+      "cup",
+      "coldwater cup",
+      "case",
+      "trophy",
+      "plinth",
+      "glass case"
+    ],
+    "look": {
+      "arche": "prop",
+      "cup": "hockey",
+      "dims": [
+        1.1,
+        1.1,
+        2.2
+      ],
+      "form": "trophy",
+      "label": "The Coldwater Cup"
+    },
+    "spot": {
+      "at": [
+        0,
+        3.8
+      ],
+      "turn": 0
+    }
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_slush_cup_case",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "the Cup case",
+  "object_type": "decoration",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_slush_cup"
+}

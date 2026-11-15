@@ -1,0 +1,11 @@
+{
+  "description": "A long fluorescent tube that flickers when the door bangs.",
+  "flags": {},
+  "id": "furn_light_zone_slush_mens",
+  "light_type": "overhead",
+  "lumen_output": 2200,
+  "name": "the men's room light",
+  "object_type": "light",
+  "power_draw_kw": 0.02,
+  "zone_id": "zone_slush_mens"
+}

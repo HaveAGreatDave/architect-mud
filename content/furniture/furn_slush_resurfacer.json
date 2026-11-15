@@ -1,5 +1,5 @@
 {
-  "description": "A squat ice resurfacer the colour of an old bruise, parked by the south gate. The tank behind the seat carries a hazard diamond and no other marking. A respirator hangs off the seat back.",
+  "description": "The Gardens' only resurfacer, parked nose to the roller door with a drip under the conditioner. Ken Raven's colours are on the tank, and his scarf hangs off the seat when he isn't in it.",
   "flags": {
     "aliases": [
       "resurfacer",
@@ -8,10 +8,21 @@
       "tank",
       "respirator"
     ],
-    "examine_detail": "The fuel cap is padlocked. The key is not on the ring hanging from the steering column."
+    "examine_detail": "The fuel cap is padlocked. The key is not on the ring hanging from the steering column.",
+    "look": {
+      "arche": "prop",
+      "form": "resurfacer"
+    },
+    "spot": {
+      "at": [
+        1.6,
+        7.2
+      ],
+      "turn": 90
+    }
   },
   "id": "furn_slush_resurfacer",
   "name": "the resurfacer",
   "object_type": "decoration",
-  "zone_id": "zone_slush_rinkside"
+  "zone_id": "zone_slush_bay"
 }

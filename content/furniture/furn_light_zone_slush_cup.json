@@ -1,0 +1,11 @@
+{
+  "description": "Low brass sconces on the walls, and a spot in the case lid over the Cup.",
+  "flags": {},
+  "id": "furn_light_zone_slush_cup",
+  "light_type": "overhead",
+  "lumen_output": 1800,
+  "name": "the Cup room lights",
+  "object_type": "light",
+  "power_draw_kw": 0.02,
+  "zone_id": "zone_slush_cup"
+}

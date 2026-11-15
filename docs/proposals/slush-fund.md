@@ -1,8 +1,9 @@
 # Golden Goose Gardens *(as built)*
 
 **Status: BUILT.** The CPhL's own barn, on the old South Gate ground on the south-east edge of
-Coldwater. Six tiles, one building, one door; four rooms and an ice plant; one vendor; three GLASS
-arms over six building types; one map icon. No new mechanics.
+Coldwater. Six tiles, one building, one door; eight rooms and an ice plant, every one walkable in ROOM
+since 2026-11-14 ([section 5](#5-in-room)); one vendor; three GLASS arms over six building types; one map
+icon.
 
 Built 2026-10-11 as The Slush Fund and renamed on 2026-10-18, when the goose went up on the gable
 and the clubs' shields replaced the posters on the east stand. The ids keep the old slug
@@ -72,7 +73,7 @@ The interior is ordinary `authorBuilding` (the Halcyon helper):
 |---|---|---|
 | Concourse | the door | the concession counter, the trophy cabinet (the Cup's empty plinth), the records door, the cash drawer, Agnes Prowse |
 | The Stands | south | the scoreboard (a channel 7 television), the rink organ (`instrument: organ`), the benches and the cushion in section nine |
-| Rinkside | down | the goal judge's booth, the penalty box, the resurfacer |
+| Rinkside | down | the goal judge's booth, the penalty box; the resurfacer is in the Zamboni Bay now ([section 5](#5-in-room)) |
 | Press Box | up | KSAB's commentary desk (Brennan's chair), the scheduler's teleprinter |
 | Ice Plant | down from the concourse | the utility room and the junction box |
 
@@ -139,10 +140,49 @@ Registrations: `TYPE_MODEL` (with `noKit`), `TYPE_FLOORS`, `BLDG_TYPE_3D`, `BUIL
 `bldg_ice_rink.svg` (a rink from above), the baked shapes and lights, the wildlands field and the
 flight-world snapshot.
 
-## 5. What isn't built
+## 5. In ROOM
 
-- **Games played here.** The rink on channel 7 is still the TV sub-screen, and nothing ties a
-  broadcast to this building's stands. A game at the Gardens that a player could sit in is its
-  own change (coldwater-infill.md keeps the venue and the event apart for the same reason).
+The whole building walks, from the street door in: eight rooms on one walk, written by
+[scripts/content/gardens-rooms.mjs](../../scripts/content/gardens-rooms.mjs) (each room's `flags.room`, the new zones,
+their connections, power and lights, every row's look and spot, and Ken Raven's routine). Edit the script and run it
+again, not the JSON. ⚠ **Run it after slush-fund.mjs**, which rewrites the rooms' exits from its own list and would drop
+the four new doors.
+
+| room | where | what's in it |
+|---|---|---|
+| Concourse | the street door, north | the ticket window, three seat doors (Lower Bowl, Ends, Upper Tier), Agnes at her counter, the puck card machine, the Records door |
+| Men's Room / Women's Room | west / east of the Concourse | urinals and a trough, cubicles, basins |
+| The Stands | south of the Concourse | the benches, the organ, the ticket machine, a card machine; a flight up to the Press Box, a well down to Rinkside |
+| Cup Room | east of the Stands | the Coldwater Cup in its case, the champions board |
+| Press Box | over the Stands | the commentary desk, the teleprinter |
+| Rinkside | under the Stands | the goal judge's booth, the penalty box |
+| Zamboni Bay | south of Rinkside | the resurfacer, the window onto the ice, Ken's stool, the workbench |
+
+**The house style.** Every room carries `flags.room.stadium`, the Gardens' style for the stadium kit
+([plugins/stands/README.md](../../plugins/stands/README.md#the-stadium-kit)): Limelight for the big words and Italiana for
+the small, navy and gold, and the seat doors' portals in brick. The rooms are dressed to match the front: brick dados
+(`walls.kind: 'brick'`) under a gilt zigzag frieze, fluted pilasters, fan sconces and tiered pendants, a terrazzo sunburst
+on the Concourse floor, walnut and a chandelier in the Cup Room, glazed tile in the restrooms. Signs are painted in those
+faces and laid on as decals (panels/stadium-signs.js): gilt plates over the doors, lightboxes on the seat doors and the
+box office, neon on the card machines and the franks, enamel in the restrooms, stencils in the bay.
+
+**Tickets.** A ticket is one seat at one game, carried (`item_seat_ticket`). The window sells every section for the game on
+now and the next three; each seat door sells and seats the sections it leads to, and its card lists the tickets you hold
+for them. Sitting tears the stub, and `stands <section>` in the Stands still buys one and sits you on it.
+
+**The Zamboni Bay.** Ken Raven sits on his stool at the window and watches the game, which is the live rink painted on
+the glass from the bay's eye. At each intermission long enough to do the ice in, he walks to the resurfacer, climbs on
+and drives it out through the roller door; the bay stands empty and he's at Rinkside, and on the ice through the
+window, as the broadcast already draws him. Twenty seconds before the break ends he drives back in, parks, climbs down
+and goes back to his stool. Each moment is a line in the room (plugins/stands crew.js). ⚠ **His look is his NPC's
+`flags.figure`**, and `KEN_FIGURE` in gl/arena-ken.js is a copy for the broadcast: change both.
+
+**The Cup Room.** The Cup in a glass case on a plinth, and on the back wall the champions board: the last CPhL winner's
+crest, colours and season, lit, the room taking the club's colour. Nobody has won yet, and it's a dark frame.
+
+## 6. What isn't built
+
+- **A game you can affect.** A seat in the stands, and the window in the bay, show the broadcast's game (plugins/stands);
+  nothing a player does in the building changes it.
 - **Skating.** The ice is scenery. Public skating, if it comes, is a verb with a plugin.
 - **The records room.** It is a line the booth says and a broom cupboard. It stays unfound.
