@@ -94,8 +94,15 @@ for (const f of files) {
     bodies.push(body);
     shaders++;
     const declared = new Set();
-    for (const d of body.matchAll(/\b(?:uniform|in|out)\s+(?:lowp|mediump|highp\s+)?\w+\s+([A-Za-z_]\w*)\s*(?:\[[^\]]*\])?\s*;/g)) {
-      declared.add(d[1]); declaredInFile.add(d[1]); names++;
+    // ⚠ EVERY DECLARATOR: `uniform vec4 uKitCell, uKitPants, uKitSock;` is three uniforms, and a
+    // regex that stops at the first reported the other two in figure-hd.js. No parens in the
+    // list, so a function's `in vec2 p)` parameter is never read as one.
+    // An array sized from the JS (`uBone[${NB}]`) keeps its braces, so a bracket may hold anything.
+    for (const d of body.matchAll(/\b(?:uniform|in|out)\s+(?:(?:lowp|mediump|highp)\s+)?\w+\s+((?:[^;{}()[\]]|\[[^\]]*\])*);/g)) {
+      for (const part of d[1].split(',')) {
+        const n = /^\s*([A-Za-z_]\w*)\s*(?:\[[^\]]*\])?\s*$/.exec(part);
+        if (n) { declared.add(n[1]); declaredInFile.add(n[1]); names++; }
+      }
     }
     // A local may legitimately carry the prefix, so count any ordinary declaration too.
     for (const d of body.matchAll(/\b\w+\s+(u[A-Z]\w*)\s*[=;,]/g)) declared.add(d[1]);
