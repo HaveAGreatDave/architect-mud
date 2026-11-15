@@ -35,10 +35,14 @@ export function eyeZ(top, storey, storeys) {
 // The map with the flat's own building taken off its tile, ground only. `self` isn't enough: a cell with a
 // `bt` is drawn on its own tile so an aircraft can land on the roof, so left alone the tower stands round
 // the eye and shows through the panes as a ghost that slides as you walk.
+// ⚠ PAVED, NOT THE DISTRICT'S BARE GROUND. A city biome with no building on it is drawn as turf (windshield.js
+// GRASS_BIOMES), and open turf grows trees, so out of a lobby you looked across a lawn, and now and then a tree,
+// where your own building stands. Under and round a building is a slab: `concrete`, which is paved and grows nothing.
 function withoutOwnTower(map) {
   const R = (map.length - 1) / 2, c = map[R]?.[R];
   if (!c) return map;
-  return map.map((row, y) => (y === R ? row.map((cell, x) => (x === R ? { kind: 'land', biome: c.biome, flr: c.flr, self: 1 } : cell)) : row));
+  const ground = c.kind === 'land' && c.biome !== 'water' ? 'concrete' : c.biome;
+  return map.map((row, y) => (y === R ? row.map((cell, x) => (x === R ? { kind: 'land', biome: ground, flr: c.flr, self: 1 } : cell)) : row));
 }
 
 // Where the eye starts, from `room_outlook` and the renderer's modelTopZAt, and the map GLASS is given.

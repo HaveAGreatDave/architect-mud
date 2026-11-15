@@ -208,7 +208,7 @@ export const VEIL_CSS = `
     .ws-veil-blurb::before { content:'\\201C'; color:var(--vy); } .ws-veil-blurb::after { content:'\\201D'; color:var(--vy); }
     @keyframes ws-veil-in { from { opacity:0; transform:translateY(4px); } }
     /* Before the room's own code is in (preVeil): fixed over the pane it will cover, and faded in after the black. */
-    .ws-veil-pre { position:fixed; z-index:9002; pointer-events:none; overflow:hidden; }
+    .ws-veil-pre { position:fixed; z-index:9002; pointer-events:none; overflow:hidden; background:#000; }
     .ws-veil-pre > .ws-veil { animation:ws-veil-in .3s ease-out backwards; }
 
     .ws-veil-foot { display:flex; justify-content:space-between; align-items:baseline; gap:12px; }

@@ -94,7 +94,7 @@ const disp = read('client/game/js/dispatch.js'), lazy = read('client/game/js/pan
 check('the street window carries the rooms near you', /\.\.\.interiorsFor\(gx, gy, pid\)/.test(fl) && /export function buildingRoomsNear/.test(rs));
 check('each building\'s rooms go to a player once', /roomsSent/.test(fl) && (fl.match(/roomsSent\.delete\(player\.id\)/g) || []).length >= 2);
 check('the street view keeps them and hands them to the frame', /keepInteriors\(s, ctx\.interiors\)/.test(fv) && /interiorRooms: st\.foot/.test(fv));
-check('a room the street view drew is walked into in GLASS', /if \(freelookTakeRoom\(msg\)\) return;/.test(disp) && /freelookTakeRoom = ifLoaded/.test(lazy));
+check('a room the street view drew is walked into in GLASS', /if \(freelookTakeRoom\(msg\)\) (?:return;|\{[^}]*\breturn; \})/.test(disp) && /freelookTakeRoom = ifLoaded/.test(lazy));
 check('indoors, the server\'s close doesn\'t park the view', /msg\?\.indoors && freelookInside\(\)/.test(disp));
 check('inside, the room\'s own floor holds you', /if \(s\.inside\) return insideBlock/.test(fv) && /roomFree\(r\.L/.test(fv));
 check('one world is off until it\'s turned on', /export const ONE_WORLD = \{ on: false \}/.test(fv));

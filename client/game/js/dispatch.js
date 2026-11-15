@@ -1258,6 +1258,9 @@ const handlers = {
     // A GPS auto-walk that hit a numbered exit picker answers it itself (matching
     // its known target zone) — swallow the picker text rather than spam the log.
     if (msg.movePicker && resolveAutoWalkPicker(msg.movePicker)) return;
+    // A reply may name a cue from the SFX catalog to sound with it (plugins/graffiti's tag
+    // signature), at full gain as the minigames play the catalog, so it's the same sound either way.
+    if (msg.cue) { try { const def = window.SFXCatalog?.get(msg.cue); if (def) window.AudioEngine?.playSfx(def); } catch { /* no audio */ } }
     // paneFallback: a log copy of something the room pane already shows. Only
     // worth printing when the pane isn't on screen (collapsed mobile).
     if (msg.paneFallback && isAreaPaneVisible()) return;

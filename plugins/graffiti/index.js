@@ -408,8 +408,13 @@ async function doTag(args, raw, player) {
   }
   if (text.length > can.paint) return { type: 'output', message: thinCan(can, text.length) };
 
-  return applyTag(player, picked.wall, text, [], can);
+  return withSignature(await applyTag(player, picked.wall, text, [], can));
 }
+
+// The tag signature (sfx-catalog.js 'spray-done') rides on the reply, so it sounds only when the
+// tag went up: applyTag's success is its one reply with `refresh`. The spray session plays its own
+// the moment the piece is finished, and says so with a trailing `q` on `sprayapply`.
+const withSignature = (out) => (out?.refresh ? { ...out, cue: 'spray-done' } : out);
 
 // The row write, shared by the player's hand and the world's. Kept in one place
 // so the RAM map and the table can never disagree about what is on a wall.
@@ -585,7 +590,8 @@ async function doSprayApply(args, raw, player) {
   if (!can) return { type: 'output', message: `You've got nothing to spray with. Hardware shops sell paint.` };
   if (payload.text.length > can.paint) return { type: 'output', message: thinCan(can, payload.text.length) };
 
-  return applyTag(player, wall, payload.text, payload.runs, can, payload.face, payload.spot);
+  const out = await applyTag(player, wall, payload.text, payload.runs, can, payload.face, payload.spot);
+  return parts[3] === 'q' ? out : withSignature(out);
 }
 
 // --- The shelf of saved designs ---------------------------------------------
@@ -751,6 +757,6 @@ export const commands = {
   spraydel: doSprayDelete,
 };
 
-export const _test = { wallsNear, pickWall, expired, tags, putTag, hydrate, esc, applyTag, paintedText, wallTags, roomTags, byBuilding, unesc, wallLabel };
+export const _test = { wallsNear, pickWall, expired, tags, putTag, hydrate, esc, applyTag, paintedText, wallTags, roomTags, byBuilding, unesc, wallLabel, withSignature };
 
 console.log('[graffiti] Plugin loaded.');

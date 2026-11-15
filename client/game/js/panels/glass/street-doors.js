@@ -65,7 +65,8 @@ export function drawStreetDoors(ctx, cam, v, now, night) {
     if (d.glass === false) continue;
     // a building can dress its doors (flags.room.street_door, via plugins/roomstage): the glass's tint, a metal trim
     // round each leaf and a monogram on the pull handle. Without, the plain glass and bronze stile.
-    const L = d.look, tint = L?.glass ? shade(L.glass, night ? 1.25 : 1) : null;
+    // glass with the dark behind it reads dark: a shade of its tint, not the pale pane that had a lit lobby behind it
+    const L = d.look, dim = L?.dark ? 0.38 : 1, tint = L?.glass ? shade(L.glass, (night ? 1.25 : 1) * dim) : (L?.dark ? shade('#5a6e74', dim) : null);
     const pane = tint ? [shade(tint, 1.35), tint] : glass, trim = L?.trim ? shade(L.trim, night ? 0.85 : 1) : rail;
     // hinged hotel doors (flags.room.street_door kind 'swing'): each leaf turns in about its outer jamb
     if (d.swing) { swingPair(ctx, cam, d, P, pane, trim, L, open, z0, L?.fanlight ? top * FAN_AT : z1, night); continue; }

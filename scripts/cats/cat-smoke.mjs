@@ -21,12 +21,15 @@ let fails = 0, checks = 0;
 const check = (ok, what) => { checks++; if (!ok) { fails++; console.log('FAIL ' + what); } else if (verbose) console.log('ok   ' + what); };
 
 const cats = ['scrappy', 'plain', 'tabby'].filter((id) => CATS[id]);
+// Each cat's bake of each pose, carved once: the coat check and the clips below read the same bakes (nothing here
+// writes to a bake), and carving them again was a third of this gate's CPU.
+const baked = new Map();
 for (const id of cats) {
   const look = K.catLook(CATS[id].look), rig = K.catRig(look);
   for (const pose of Object.keys(K.CAT_POSES)) {
     const tag = `${id}/${pose}`;
     let b;
-    try { b = K.bakeCat(look, pose, { h: H, rig }); } catch (e) { check(false, `${tag} carves (${e.message})`); continue; }
+    try { b = K.bakeCat(look, pose, { h: H, rig }); baked.set(tag, b); } catch (e) { check(false, `${tag} carves (${e.message})`); continue; }
     check(b.verts > 2000 && b.quads > 2000, `${tag} carves a surface (${b.verts} vertices)`);
     let nan = 0, low = Infinity, wbad = 0;
     for (let i = 0; i < b.verts; i++) {
@@ -82,7 +85,7 @@ for (const id of cats) {
   // a coat with marks or white shows both colours
   const co = look.coat;
   if (co.white > 0 || co.marks?.length) {
-    const b = K.bakeCat(look, 'sit', { h: H, rig });
+    const b = baked.get(`${id}/sit`) || K.bakeCat(look, 'sit', { h: H, rig });
     const lum = new Set();
     for (let i = 0; i < b.verts; i += 7) lum.add(b.C[i * 3] > 0.25 ? 'light' : b.C[i * 3] < 0.05 ? 'dark' : 'mid');
     check(lum.has('light') && lum.has('dark'), `${id} shows its two colours`);
@@ -129,7 +132,7 @@ for (const id of cats) {
   const G = await import(pathToFileURL(resolve(ROOT, 'client/game/js/panels/gl/cat-gpu.js')).href);
   const C = await import(pathToFileURL(resolve(ROOT, 'client/game/js/panels/gl/cat-clips.js')).href);
   const look = K.catLook(CATS[cats[0]].look), rig = K.catRig(look), bakes = {};
-  for (const p of ['stand', 'sit', 'loaf', 'curl']) bakes[p] = K.bakeCat(look, p, { h: H, rig });
+  for (const p of ['stand', 'sit', 'loaf', 'curl']) bakes[p] = baked.get(`${cats[0]}/${p}`) || K.bakeCat(look, p, { h: H, rig });
   const place = { O: [0, 0, 0], F: [0, 0, 1] };
   for (const [p, b] of Object.entries(bakes)) {
     const m = G.catBodyMesh(b);
@@ -143,9 +146,17 @@ for (const id of cats) {
     check(drift < 1e-5, `gpu/${p} skinned still is the carve (drift ${drift.toExponential(1)})`);
     for (const part of G.BIT_PARTS) check(G.catBitsMesh(b, K.STILL, part).verts > 0 || part === 'lids', `gpu/${p} ${part} built`);
   }
+  // one fur-less body and its rest skin per base pose, shared by the clips carved off it
+  const bodies = new Map();
+  const bodyOf = (base) => {
+    if (!bodies.has(base)) {
+      const b = bakes[base], m = G.catBodyMesh(b, { fur: false });
+      bodies.set(base, { m, rest: G.skinOnCpu(m, K.catBoneRows(b, K.solveRig(b.rig, b.pose, K.STILL), place)) });
+    }
+    return bodies.get(base);
+  };
   for (const name of C.CLIP_NAMES) {
-    const c = C.CAT_CLIPS[name], b = bakes[c.base], m = G.catBodyMesh(b, { fur: false });
-    const rest = G.skinOnCpu(m, K.catBoneRows(b, K.solveRig(b.rig, b.pose, K.STILL), place));
+    const c = C.CAT_CLIPS[name], b = bakes[c.base], { m, rest } = bodyOf(c.base);
     let bad = 0, far = 0, low = Infinity;
     for (const t of [0.6, 1.6, 3.9]) {
       const f = C.clipFrame(b.rig, name, t, { seed: 1 }), rows = K.catBoneRows(b, K.solveRig(b.rig, f.pose, f.mo), place);

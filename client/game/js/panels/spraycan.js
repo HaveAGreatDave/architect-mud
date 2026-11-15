@@ -311,7 +311,8 @@ function sprayIt() {
   }
   let spot = null;
   try { spot = host.aim?.() || null; } catch { spot = null; }
-  const line = `sprayapply ${S.wall} ${payload(null, spot)}`;
+  // `q`: the session plays the tag signature itself, so the reply mustn't play it again
+  const line = `sprayapply ${S.wall} ${payload(null, spot)} q`;
   const piece = { text: S.text, runs: runsFromChars(S.colors, S.flags, S.text.length), face: S.face };
   S.close();
   runSpraySession({ ...piece, host, onDone: () => sendCmdSilent(line) });

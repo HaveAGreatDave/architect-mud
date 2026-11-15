@@ -63,6 +63,37 @@
   // Ten knife strokes in a row shouldn't be ten copies of one.
   const THOCK_VARY = { pitch: 40, time: 0.06, filter: 100, gain: 1 };
 
+  // ── The spray can (spray-shake, spray-rattle and the hisses) ────────────────
+  // The ball bearing hitting the end of the can: a hard click, the thin tin shell ringing at its
+  // own few partials, a dull knock of the can body, and the ball bouncing back a beat later.
+  function canClack(at, lvl, seed, tin = 1) {
+    return [
+      { waveform: 'noise', noiseMix: 1, noiseSeed: seed, delay: at, filter: { type: 'bandpass', freq: 4300, q: 1.4 }, adsr: xp(0.0003, 0.005), gain: +(0.3 * lvl).toFixed(3) },
+      { delay: at, gain: +(0.2 * lvl).toFixed(3), adsr: { a: 0, d: 0, s: 0, r: 0.03 }, modes: { hardness: 0.75, strike: 0.18, partials: [
+        { freq: Math.round(1240 * tin), decay: 0.06, gain: 1 }, { freq: Math.round(1985 * tin), decay: 0.045, gain: 0.7 },
+        { freq: Math.round(2770 * tin), decay: 0.035, gain: 0.55 }, { freq: Math.round(3610 * tin), decay: 0.028, gain: 0.4 },
+        { freq: Math.round(4690 * tin), decay: 0.02, gain: 0.3 } ] } },
+      { waveform: 'triangle', freq: 460, delay: at, pitchBend: { to: 310, time: 0.012 }, adsr: xp(0.0005, 0.03), gain: +(0.16 * lvl).toFixed(3) },
+      { waveform: 'noise', noiseMix: 1, noiseSeed: seed + 1, delay: at + 0.024, filter: { type: 'bandpass', freq: 3500, q: 1.6 }, adsr: xp(0.0003, 0.004), gain: +(0.11 * lvl).toFixed(3) },
+    ];
+  }
+  // The paint sloshing as the can comes back the other way: low, soft, wet.
+  const slosh = (at, lvl, seed) => ({ waveform: 'noise', noiseMix: 1, noise: 'pink', noiseSeed: seed, delay: at,
+    filter: { type: 'lowpass', freq: 900, q: 0.8 }, adsr: { a: 0.015, d: 0.07, s: 0, r: 0.04, curve: 'exp' }, gain: +(0.09 * lvl).toFixed(3) });
+  // The aerosol itself: noise through a small hole, a band round 5-6 kHz with air over it and a
+  // little throat under it, fluttering as the pressure does. `held` sustains it for as long as the
+  // nozzle's down; otherwise it's a burst `len` long. The valve's crack is on the front.
+  function hiss(seed, { held = false, len = 0.14, lvl = 1, flutter = 0.18 } = {}) {
+    const env = (a, s) => (held ? { a, d: 0.06, s, r: 0.13 } : { a, d: len, s: 0, r: Math.max(0.05, len * 0.5), curve: 'exp' });
+    return [
+      { waveform: 'noise', noiseMix: 1, noiseSeed: seed, filter: { type: 'bandpass', freq: 5600, q: 0.75 }, adsr: env(0.018, 0.85), gain: +(0.3 * lvl).toFixed(3),
+        mods: [{ id: 'fl', type: 'rand', rate: 17, smooth: true, seed: seed + 1, to: [{ param: 'filter.cutoff', amount: 420 }, { param: 'amp', amount: flutter }] }] },
+      { waveform: 'noise', noiseMix: 1, noiseSeed: seed + 2, filter: { type: 'highpass', freq: 9000, q: 0.6 }, adsr: env(0.012, 0.7), gain: +(0.1 * lvl).toFixed(3) },
+      { waveform: 'noise', noiseMix: 1, noise: 'pink', noiseSeed: seed + 3, filter: { type: 'bandpass', freq: 2300, q: 1.1 }, adsr: env(0.03, 0.5), gain: +(0.07 * lvl).toFixed(3) },
+      { waveform: 'noise', noiseMix: 1, noiseSeed: seed + 4, filter: { type: 'bandpass', freq: 7200, q: 1.2 }, adsr: xp(0.0006, 0.035), gain: +(0.16 * lvl).toFixed(3) },
+    ];
+  }
+
   // ── The tag signature's two instruments (spray-done) ────────────────────────
   const xp = (a, d, r = d * 0.5) => ({ a, d, s: 0, r, curve: 'exp' });
   // The stab, struck twice at two pitches. An FM body falling a sixth onto its note (ratio 2 gives
@@ -266,26 +297,30 @@
         { waveform: 'noise', noiseMix: 1, delay: 0.06, filter: { type: 'highpass', freq: 2600, q: 1 }, adsr: { a: 0.001, d: 0.05, s: 0, r: 0.03 }, gain: 0.28 } ] } },
 
     // ── Spray session (client/game/js/panels/spray-session.js) ───────────────
-    // An aerosol is noise through a hole: a bright band round 4 to 7 kHz, with the ball bearing
-    // knocking about inside the can. Nothing tonal but the last cue, which is the game's, not the can's.
+    // An aerosol is noise through a hole: a bright band round 5 to 6 kHz that flutters, with the
+    // ball bearing knocking about inside a thin tin can. Nothing tonal but the last cue, which is
+    // the game's, not the can's.
+    //
+    // One shake: the ball hits the end of the can, and the paint sloshes back. The shake step
+    // plays one a stroke, which is why it varies.
+    { id: 'spray-shake', name: 'Spray — one shake', group: 'spray', category: 'sfx', priority: 5,
+      config: { duration: 0.14, vary: { pitch: 90, time: 0.1, gain: 2 }, layers: [
+        ...canClack(0, 1, 5101), slosh(0.012, 1, 5103) ] } },
+    // A good shake: the ball going end to end six times, the strokes not quite even.
     { id: 'spray-rattle', name: 'Spray — shake the can', group: 'spray', category: 'sfx', priority: 5,
-      config: { duration: 0.52, vary: { pitch: 60, time: 0.12 }, layers: [0, 0.1, 0.19, 0.3, 0.39].flatMap((d, i) => [
-        { waveform: 'triangle', freq: 1900 + i * 70, delay: d, pitchBend: { to: 1450, time: 0.02 }, adsr: { a: 0.001, d: 0.035, s: 0, r: 0.02 }, filter: { type: 'bandpass', freq: 2200, q: 3 }, gain: 0.2 },
-        { waveform: 'noise', noiseMix: 1, delay: d, filter: { type: 'bandpass', freq: 3200, q: 3 }, adsr: { a: 0.001, d: 0.022, s: 0, r: 0.015 }, gain: 0.14 },
-      ]) } },
+      config: { duration: 0.56, vary: { pitch: 60, time: 0.12 }, layers: [0, 0.085, 0.175, 0.255, 0.345, 0.43].flatMap((d, i) => [
+        ...canClack(d, i % 2 ? 0.72 : 1, 5111 + i * 4, i % 2 ? 1.04 : 1), slosh(d + 0.01, 0.8, 5113 + i * 4) ]) } },
+    // A stroke from the keys: a short burst off the nozzle.
     { id: 'spray-tick', name: 'Spray — a stroke', group: 'spray', category: 'sfx', priority: 4,
-      config: { duration: 0.16, vary: { filter: 300, gain: 1.5 }, layers: [
-        { waveform: 'noise', noiseMix: 1, filter: { type: 'bandpass', freq: 5200, q: 0.9 }, adsr: { a: 0.004, d: 0.12, s: 0, r: 0.05 }, gain: 0.34 },
-        { waveform: 'noise', noiseMix: 1, filter: { type: 'highpass', freq: 8000, q: 0.7 }, adsr: { a: 0.002, d: 0.06, s: 0, r: 0.04 }, gain: 0.12 } ] } },
+      config: { duration: 0.2, vary: { filter: 300, gain: 1.5 }, layers: hiss(5141, { len: 0.17, lvl: 0.95 }) } },
+    // A section going on: the nozzle held across it while the arm sweeps, so the band rises and
+    // falls with the sweep.
     { id: 'spray-fill', name: 'Spray — a section goes on', group: 'spray', category: 'sfx', priority: 6,
-      config: { duration: 0.55, vary: { filter: 200 }, layers: [
-        { waveform: 'noise', noiseMix: 1, filter: { type: 'bandpass', freq: 4600, q: 0.7 }, adsr: { a: 0.02, d: 0.1, s: 0.8, r: 0.2 }, gain: 0.36 },
-        { waveform: 'noise', noiseMix: 1, filter: { type: 'lowpass', freq: 1400, q: 0.7 }, adsr: { a: 0.02, d: 0.2, s: 0.3, r: 0.15 }, gain: 0.08 },
-        ...[0.06, 0.24, 0.41].map((d) => ({ waveform: 'triangle', freq: 2300, delay: d, pitchBend: { to: 1700, time: 0.02 }, adsr: { a: 0.001, d: 0.03, s: 0, r: 0.02 }, filter: { type: 'bandpass', freq: 2400, q: 3 }, gain: 0.1 })) ] } },
+      config: { duration: 0.5, vary: { filter: 200 }, layers: hiss(5151, { held: true, lvl: 1.05, flutter: 0.12 }).map((l, i) => (i ? l
+        : { ...l, mods: [...l.mods, { id: 'arm', type: 'lfo', rate: 4.2, to: [{ param: 'filter.cutoff', amount: 380 }, { param: 'amp', amount: 0.14 }] }] })) } },
+    // The nozzle held down with the mouse or a finger: the hiss for as long as it's held.
     { id: 'spray-hold', name: 'Spray — nozzle held down', group: 'spray', category: 'sfx', priority: 3,
-      config: { duration: 0.4, layers: [
-        { waveform: 'noise', noiseMix: 1, filter: { type: 'bandpass', freq: 6200, q: 0.8 }, adsr: { a: 0.05, d: 0.05, s: 0.85, r: 0.14 }, gain: 0.13 },
-        { waveform: 'noise', noiseMix: 1, filter: { type: 'highpass', freq: 3200, q: 0.6 }, adsr: { a: 0.05, d: 0.05, s: 0.7, r: 0.12 }, gain: 0.05 } ] } },
+      config: { duration: 0.4, layers: hiss(5161, { held: true, lvl: 0.7 }) } },
     { id: 'spray-sputter', name: 'Spray — sputters', group: 'spray', category: 'sfx', priority: 6,
       config: { duration: 0.32, vary: { pitch: 40 }, layers: [
         ...[[0, 0.3], [0.07, 0.22], [0.15, 0.14]].map(([d, g]) => ({ waveform: 'noise', noiseMix: 1, delay: d, filter: { type: 'bandpass', freq: 2100, q: 1.6 }, adsr: { a: 0.002, d: 0.04, s: 0, r: 0.02 }, gain: g })),

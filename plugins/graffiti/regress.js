@@ -208,6 +208,13 @@ export default async function regress({ run, check }) {
     check(`${verb} is routed`, res?.type !== undefined, `${verb}: ${JSON.stringify(res)}`);
   }
 
+  // --- The tag signature: only a tag that went up sounds it ----------------
+  const { withSignature } = _test;
+  check('a tag that went up carries the signature', withSignature({ type: 'output', message: 'x', refresh: true }).cue === 'spray-done');
+  check('a refusal carries no signature', withSignature({ type: 'output', message: 'Which wall?' }).cue === undefined);
+  const sung = await run('sprayapply nowhere AAAA');
+  check('a refused sprayapply carries no signature', sung?.cue === undefined, JSON.stringify(sung));
+
   // --- What the windshield is told -----------------------------------------
   //
   // `wall.tags` is the seam between a tag in the table and paint on a building in the flight
